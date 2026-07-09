@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 6 (2026-07-09)
+- **Plan revision tracked:** rev. 7 (2026-07-09)
 - **Current phase:** 0 (setup)
 - **Last updated:** 2026-07-09
 
@@ -33,6 +33,7 @@ disagree, the plan is authoritative — fix this file.
 - [x] SAT Competition 2023–2025 winners verified (plan §2)
 - [x] Claude Code skills: benchmarks, fuzz, proof-check, rule-dev, compete, revise-plan
 - [ ] CI pipeline (build + sanitizers + quick fuzz + Tier A)
+- [ ] Baseline solvers built locally: Kissat 4.0.4, CaDiCaL (MiniSat + Glucose by phase 1)
 - [ ] Checker toolchain built: drat-trim, lrat-check, cake_lpr (`tools/checkers/setup.sh`)
 - [ ] Fuzz harness `tools/fuzz/`: generators (seeded k-SAT sweep, structured, mutation, edge cases)
 - [ ] Fuzz harness: model checker (`checkmodel`), differential runner, ddmin shrinker
@@ -88,3 +89,4 @@ disagree, the plan is authoritative — fix this file.
 - 2026-07-09 — Phase 0 started: repo + plan (revs 1–4) + 6 skills + PROGRESS.md; Kissat cloned; competition results verified.
 - 2026-07-09 — plan rev 5: consistency review (phase assignments for BCE/SBVA fixed in §9, demo policies reordered, N3/T4 wording aligned, Tier C timeout stated); §11 open-decisions register added; revise-plan skill gains concretize mode.
 - 2026-07-09 — plan rev 6 (concretize O1, partial): benchmarking on a single local workstation, no HPC/StarExec, ≤ 8 parallel single-threaded solver jobs; benchmarks skill updated (`--jobs`, concurrency in reports).
+- 2026-07-09 — plan rev 7: baseline solver builds added to phase 0; O11 (kitten sub-solver) added; Instruction.md session-bootstrap prompt created.

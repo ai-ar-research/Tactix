@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 6). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-09 (rev. 7). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -306,7 +306,7 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 
 | # | Family | Kissat modules | Proof delta | Phase |
 |---|---|---|---|---|
-| E1 | `BVE` (bounded variable elimination with gate extraction) | eliminate, fastel, resolve, gates, ands, ifthenelse, definition, dense | add-RUP (resolvents) + delete + push-witness | 3 |
+| E1 | `BVE` (bounded variable elimination with gate extraction; kitten-based definition extraction may lag — see O11) | eliminate, fastel, resolve, gates, ands, ifthenelse, definition, dense | add-RUP (resolvents) + delete + push-witness | 3 |
 | E2 | `Factor` (bounded variable addition / clause factoring; **generalizes SBVA**, the 2023 winner's preprocessor — structured-BVA heuristic is a Factor instance-selection strategy) | factor | add-RAT (definitions, new vars) + delete + push-witness | 4 |
 
 Support services (not schedulable rules): model extension/reconstruction
@@ -564,7 +564,7 @@ Components:
 
 | Phase | Deliverable | Exit criterion |
 |---|---|---|
-| 0 (setup) | Repo, CI; **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
+| 0 (setup) | Repo, CI; **baseline solvers built locally** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
 | 1 | Kernel + Propagate/Decide/Analyze/Backjump + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
 | 2 | Restarts, reduce, phases, mode switching; native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
 | 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
@@ -610,6 +610,7 @@ discovered during development get added here rather than answered ad hoc.
 | O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 5 |
 | O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | before the T4 evaluation |
 | O10 | Solver name ("Tactix" is a placeholder) | before any external artifact |
+| O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | first needed: E1 completion (phase 3); hard by V5 (phase 4) |
 
 ## 12. Key references
 
@@ -649,3 +650,8 @@ discovered during development get added here rather than answered ad hoc.
   single local workstation, no HPC/StarExec; benchmarking may use ≤ 8 parallel
   single-threaded solver jobs, with concurrency recorded in reports and
   reduced for Tier C/D gate runs; wall-clock feasibility noted per tier.
+- **rev. 7** (2026-07-09): pre-implementation review. Baseline solver builds
+  added to phase-0 deliverables (they gate the fuzz differential oracle and
+  Tier B construction); O11 added for the kitten sub-solver dependency
+  (Sweep, BVE definition extraction) with a syntactic-gates-first fallback
+  for E1. Instruction.md added as the session bootstrap prompt.

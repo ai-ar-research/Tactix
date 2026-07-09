@@ -1,6 +1,7 @@
 # Tactix (working name) — proof-rule-driven SAT solver
 
 - **Plan:** DEVELOPMENT_PLAN.md is authoritative. **Status:** PROGRESS.md.
+  **Session bootstrap prompt:** Instruction.md.
 - **Sync rule (mandatory):** whenever you complete or start a checklist item, or
   change DEVELOPMENT_PLAN.md, update PROGRESS.md in the same commit. Plan edits
   go through the revise-plan skill.
