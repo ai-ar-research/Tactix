@@ -29,12 +29,13 @@ Hard rules:
 
 ## Running an evaluation
 
-- Runner: `tools/bench/run.py --tier B --solver ./build/tactix [--baseline kissat]` (if the runner doesn't exist yet, build it to this interface). It must: run sequentially, pin nothing fancy, record wall time + exit code + verdict, verify verdict against the expected status in the list, and **check the proof for every UNSAT answer** (drat-trim; a rejected proof counts as unsolved, competition-style).
+- Environment (plan §8.1): a single local workstation — no HPC/StarExec. The runner may execute up to **8 single-threaded solver jobs in parallel** (`--jobs N`, N ≤ 8); each solver run itself is strictly sequential. Record the concurrency level in every report and only compare numbers taken at the same concurrency; drop to ~4 jobs for Tier C/D gate runs where timing precision matters.
+- Runner: `tools/bench/run.py --tier B --solver ./build/tactix [--baseline kissat] [--jobs 8]` (if the runner doesn't exist yet, build it to this interface). It must: record wall time + exit code + verdict, verify verdict against the expected status in the list, and **check the proof for every UNSAT answer** (drat-trim; a rejected proof counts as unsolved, competition-style).
 - Score: PAR-2 = mean over instances of (runtime if solved, else 2 × timeout). Report PAR-2 and #solved, split SAT/UNSAT, plus proof-check time and proof size.
 - Also track microbenchmarks when relevant: propagations/sec, conflicts/sec, peak RSS, proof bytes/conflict (measured on Tier B).
 
 ## Reporting
 
-Write reports to `benchmarks/reports/YYYY-MM-DD-<topic>.md`: hardware, git SHA, tier + list version, table (solver × {PAR-2, #solved, SAT/UNSAT split}), regressions vs previous report, and an honest interpretation. Milestone gates T1–T5 (plan §8.3) are judged only from these reports.
+Write reports to `benchmarks/reports/YYYY-MM-DD-<topic>.md`: hardware, git SHA, tier + list version, **jobs concurrency**, table (solver × {PAR-2, #solved, SAT/UNSAT split}), regressions vs previous report, and an honest interpretation. Milestone gates T1–T5 (plan §8.3) are judged only from these reports.
 
 Any verdict mismatch or proof rejection found during benchmarking is a **correctness bug**: stop the performance work, shrink it via the fuzz skill's procedure, and file it in the regression corpus first.

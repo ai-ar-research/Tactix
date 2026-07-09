@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 5). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-09 (rev. 6). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -433,6 +433,17 @@ Running 400 instances × 5000 s per iteration is useless for day-to-day
 development. We maintain four fixed, versioned benchmark tiers checked into the
 repo (as instance lists + download script; instances themselves cached locally):
 
+**Evaluation environment.** All benchmarking runs on a single local
+workstation — no HPC cluster or StarExec access is assumed. The bench runner
+may run up to **8 single-threaded solver instances in parallel** (`--jobs ≤ 8`;
+the solver itself remains strictly sequential per the scope statement).
+Parallel jobs contend for memory bandwidth and shared caches, so: record the
+concurrency level in every report, compare numbers only across runs at the
+same concurrency, and prefer lower concurrency (e.g., 4) for gate runs on
+Tiers C/D where timing precision matters. Worst-case wall-clock at 8 jobs:
+Tier B ≈ 1–2 h, Tier C ≈ overnight, one Tier D set ≈ up to ~3 days — schedule
+gate runs accordingly.
+
 - **Tier A — "seconds" set (development inner loop; total runtime < 2 min).**
   ~200 generated instances with known status, solvable by even a naive CDCL
   solver in milliseconds–seconds:
@@ -589,7 +600,7 @@ discovered during development get added here rather than answered ad hoc.
 
 | # | Open item | Decide by |
 |---|---|---|
-| O1 | Reference benchmark hardware — the machine that defines "Kissat ≤ 30 s" for the Tier B/C freezes and all reports | phase 0, first timing run |
+| O1 | Reference benchmark hardware — the machine that defines "Kissat ≤ 30 s" for the Tier B/C freezes and all reports → *narrowed rev 6: a single local workstation, ≤ 8 parallel benchmark jobs, no HPC/StarExec; exact machine specs still to be recorded at the first timing run* | phase 0, first timing run |
 | O2 | Build system and CI provider | phase 0, first code |
 | O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting | draft in phase 1; freeze at phase-2 API v1 |
 | O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
@@ -634,3 +645,7 @@ discovered during development get added here rather than answered ad hoc.
   removed; §6 Docker wording reconciled with phase-5 packaging. Added: §11
   open-decisions register (deliberate underspecification with decide-by
   points); revise-plan skill gains concretize mode.
+- **rev. 6** (2026-07-09): evaluation environment concretized (narrows O1):
+  single local workstation, no HPC/StarExec; benchmarking may use ≤ 8 parallel
+  single-threaded solver jobs, with concurrency recorded in reports and
+  reduced for Tier C/D gate runs; wall-clock feasibility noted per tier.
