@@ -2,7 +2,9 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 2). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-09 (rev. 4). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
+revise-plan skill). Revision history: §12.
 
 **Scope: sequential solving only.** No parallel/cloud tracks; single-threaded,
 deterministic. Parallel results below are omitted except where they inform
@@ -30,6 +32,31 @@ Build a CDCL SAT solver that:
    whole design: with the default policy, performance must approach and eventually
    exceed the best sequential solvers, evaluated PAR-2 on SAT Competition benchmark
    sets.
+
+### 1.1 Non-negotiables
+
+Three requirements can never be compromised; every design decision, plan
+revision, and merge is checked against them (see also the revise-plan skill):
+
+- **N1 — Universal rule applicability through the API.** At any solver state,
+  any proof rule whose guard holds can be selected and applied via the public
+  API — *including the choice of branching variable and phase in `Decide`*.
+  This is the enabling interface for externally driven solving (LLM- or
+  RL-based policies steering the solver step by step); it must exist in every
+  build and every mode, never compiled out or feature-gated away.
+- **N2 — Proof production.** Every mode, policy, and rule-application path
+  emits checkable certificates (DRAT/LRAT) and competition-format output. No
+  feature lands that only works with proofs disabled.
+- **N3 — A Kissat-comparable mode.** At least one shipped policy (DefaultPolicy)
+  must reach performance comparable to Kissat on Tier C/D (the T4 gate).
+  Flexibility never excuses a slow default: if an abstraction costs the default
+  policy real performance, the abstraction gets redesigned, not the target.
+
+Trade-off ordering when goals conflict: soundness of N1/N2 first, then N3, then
+everything else. Dynamic micro-stepping may be slower than the static default —
+acceptable — but may not be removed (N1). The static default may specialize
+aggressively — acceptable — but not by making the API unavailable (N1) or by
+skipping proof emission (N2).
 
 ## 2. Landscape: who we must beat, and what "winning" requires
 
@@ -191,6 +218,9 @@ void    tactix_add(tactix*, int lit);              // IPASIR-compatible ingest
 int     tactix_rules_applicable(tactix*, tactix_rule_id* out, int cap);
 tactix_iter* tactix_rule_instances(tactix*, tactix_rule_id);
 tactix_result tactix_apply(tactix*, tactix_rule_instance);
+// branching is part of the API (N1): Decide instances are unassigned literals
+int     tactix_decide_candidates(tactix*, int* lits, int cap); // ranked by active heuristic
+tactix_result tactix_decide(tactix*, int lit);   // apply Decide on a chosen literal
 // R4: run under a policy
 tactix_result tactix_solve(tactix*);               // default policy
 void    tactix_set_policy(tactix*, tactix_policy*); // callback-based policy
@@ -198,6 +228,19 @@ void    tactix_set_policy(tactix*, tactix_policy*); // callback-based policy
 void    tactix_proof(tactix*, const char* path, int format /*DRAT|LRAT*/);
 int     tactix_value(tactix*, int lit);
 ```
+
+**Branching is a first-class API surface (N1).** `Decide` is a rule family like
+any other: `instances(σ)` enumerates *all* unassigned variables with phases,
+ranked by the active state-of-the-art heuristic (VMTF in focused mode,
+EVSIDS/heap scores in stable mode, per §7.3 — we implement these fully). The
+*canonical* instance is the heuristic's top pick, so DefaultPolicy pays nothing
+for the generality; but an external policy — script, RL agent, LLM — may branch
+on any variable with any phase at any decision point, through both the C API
+above and the Python bindings. Heuristic state (bumping, decay, phase saving)
+keeps updating normally regardless of who chose the decision, so external
+policies can also *mix* strategies (e.g., defer to the heuristic except at
+top levels). This use case is a primary design driver, not an afterthought,
+and gets its own demo policy in §8.4.
 
 Also implement plain **IPASIR** (and later IPASIR-UP) so the solver drops into
 existing harnesses and incremental applications.
@@ -223,7 +266,7 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 | # | Family | Kissat 4.0.4 modules | Proof delta | Phase |
 |---|---|---|---|---|
 | M1 | `Propagate` | propsearch, propdense, propbeyond, propinitially, assign, watch | none (reasons recorded for later hints) | 1 |
-| M2 | `Decide` | decide, queue (VMTF), heap (scores) | none (H only) | 1 |
+| M2 | `Decide` (branch choice API-exposed per N1: instances = all unassigned literals; canonical = active heuristic's pick) | decide, queue (VMTF), heap (scores) | none (H only) | 1 |
 | M3 | `Analyze` (1-UIP learn + minimize + shrink + OTFS) | analyze, learn, deduce, minimize, shrink, strengthen (on-the-fly) | add-RUP with native LRAT hints | 1 |
 | M4 | `Backjump` (incl. chronological backtracking option) | backtrack, trail | none | 1 |
 
@@ -494,6 +537,10 @@ Components:
   3. "CDCL, no restarts, no inprocessing" ablation policy.
   4. Randomized macro-schedule policy.
   5. A Python-scripted policy reproducing the default's schedule within noise.
+  6. External-branching policy (validates N1 end-to-end): a Python policy that
+     queries `decide_candidates` and picks decisions itself (scripted/random/
+     simple learned model), everything else deferred to the default schedule —
+     the smoke test for future RL/LLM-driven solving.
 - **Ablation harness:** because order is a parameter, ablations become config
   files, not code forks — this is the scientific payoff to highlight in any paper.
 
@@ -536,3 +583,18 @@ checked into the repo.
 - Biere, Fleury: CaDiCaL 2.0 (CAV 2024) — cleanest documented modern architecture.
 - SAT Competition pages: satcompetition.github.io (rules, benchmarks, results).
 - Haberlandt, Green, Heule: SBVA (SAT 2023) — 2023 winner's preprocessor.
+
+## 12. Revision history
+
+- **rev. 1** (2026-07-09): initial plan.
+- **rev. 2** (2026-07-09): sequential-only scope; benchmark tiers A–D (small
+  3-SAT first, ≤30 s dev subset); fuzzing + proof-checking harness promoted to
+  first-class phase-0 deliverable.
+- **rev. 3** (2026-07-09): rule catalog (§5.2) exhaustively covering Kissat
+  4.0.4 modules + winner techniques; extensibility contract (§5.3) with CCE
+  acceptance test.
+- **rev. 4** (2026-07-09): non-negotiables N1–N3 (§1.1: universal rule
+  applicability incl. API-exposed branching for LLM/RL policies; proof
+  production everywhere; Kissat-comparable default mode); branching as
+  first-class API surface (§5.1, M2, §8.4 demo policy 6); PROGRESS.md
+  introduced as synced living status; revise-plan skill added.
