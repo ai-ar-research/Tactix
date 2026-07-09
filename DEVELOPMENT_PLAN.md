@@ -202,6 +202,141 @@ int     tactix_value(tactix*, int lit);
 Also implement plain **IPASIR** (and later IPASIR-UP) so the solver drops into
 existing harnesses and incremental applications.
 
+### 5.2 Rule catalog
+
+The full set of rule families to implement, derived by exhaustively walking the
+Kissat 4.0.4 module list (`kissat/src/*.c`) plus the techniques the recent
+winners add (CaDiCaL-SC2025 inprocessing, SBVA-CaDiCaL 2023). Every Kissat
+module that changes the formula state (F/R/τ/ρ) maps to a family below; the
+remaining modules are kernel/infrastructure (arena, watch, trail, heap, queue,
+parse, collect, flags, options, statistics, …) or debug support (check, dump,
+logging) and carry no proof semantics.
+
+Proof-delta vocabulary (the proof backend's complete API — every rule composes
+these five primitives): `add-RUP` (clause addition checkable by unit
+propagation, with LRAT hints), `add-RAT(pivot)` (resolution-asymmetric addition,
+e.g. definitions introducing new variables), `delete`, `restore`, and
+`push-witness` (reconstruction-stack entry for model rebuilding).
+
+#### Core search (micro tier — statically dispatched in DefaultPolicy)
+
+| # | Family | Kissat 4.0.4 modules | Proof delta | Phase |
+|---|---|---|---|---|
+| M1 | `Propagate` | propsearch, propdense, propbeyond, propinitially, assign, watch | none (reasons recorded for later hints) | 1 |
+| M2 | `Decide` | decide, queue (VMTF), heap (scores) | none (H only) | 1 |
+| M3 | `Analyze` (1-UIP learn + minimize + shrink + OTFS) | analyze, learn, deduce, minimize, shrink, strengthen (on-the-fly) | add-RUP with native LRAT hints | 1 |
+| M4 | `Backjump` (incl. chronological backtracking option) | backtrack, trail | none | 1 |
+
+#### Search management (macro tier, mostly heuristic-state H)
+
+| # | Family | Kissat modules | Proof delta | Phase |
+|---|---|---|---|---|
+| S1 | `Restart` | restart, reluctant, averages, smooth | none | 2 |
+| S2 | `Reduce` (clause-DB reduction, tier promotion) | reduce, tiers, promote, collect | delete | 2 |
+| S3 | `Rephase` (best/inverted/original/target phases) | rephase, phases | none | 2 |
+| S4 | `SwitchMode` (stable ⇄ focused) | mode | none | 2 |
+| S5 | `Lucky` (constant/alternating assignment probes) | lucky | none (may conclude SAT) | 2 |
+| S6 | `Walk` (WalkSAT phase improvement) | walk, warmup | none | 4 |
+| S7 | `Reorder` (decision-queue reordering) | reorder | none | 4 |
+
+#### Clause-level inprocessing
+
+| # | Family | Kissat modules | Proof delta | Phase |
+|---|---|---|---|---|
+| C1 | `SubsumeForward` | forward | delete | 3 |
+| C2 | `SubsumeBackward` + strengthening (self-subsuming resolution) | part of eliminate/strengthen | add-RUP + delete | 3 |
+| C3 | `Vivify` (tier-aware clause distillation) | vivify | add-RUP (hints) + delete | 3 |
+
+#### Literal/variable-level inprocessing
+
+| # | Family | Kissat modules | Proof delta | Phase |
+|---|---|---|---|---|
+| V1 | `Probe` (failed literals) | probe, proprobe | add-RUP units | 3 |
+| V2 | `Backbone` (binary-implication backbone) | backbone | add-RUP units | 3 |
+| V3 | `Substitute` (equivalent-literal SCC substitution) | substitute, equivalences | add-RUP + delete + push-witness | 3 |
+| V4 | `TransitiveReduce` (binary implication graph) | transitive | delete | 3 |
+| V5 | `Sweep` (SAT sweeping via embedded kitten; equivalence extraction with core-derived hints) | sweep, kitten | add-RUP + delete | 4 |
+| V6 | `Congruence` (gate congruence closure; new in Kissat 4) | congruence | add-RUP + delete | 4 |
+
+#### Variable elimination / addition
+
+| # | Family | Kissat modules | Proof delta | Phase |
+|---|---|---|---|---|
+| E1 | `BVE` (bounded variable elimination with gate extraction) | eliminate, fastel, resolve, gates, ands, ifthenelse, definition, dense | add-RUP (resolvents) + delete + push-witness | 3 |
+| E2 | `Factor` (bounded variable addition / clause factoring; **generalizes SBVA**, the 2023 winner's preprocessor — structured-BVA heuristic is a Factor instance-selection strategy) | factor | add-RAT (definitions, new vars) + delete + push-witness | 4 |
+
+Support services (not schedulable rules): model extension/reconstruction
+(`extend`, `witness`, `weaken`, `restore` — consumed by E1/E2/V3 and the SAT
+output path), `classify` (instance classification → policy presets, H only),
+internal checking (`check`, debug builds only).
+
+#### Winner techniques beyond Kissat (CaDiCaL-SC2025 / 2023–2025 entrants)
+
+| # | Family | Source | Proof delta | Phase |
+|---|---|---|---|---|
+| X1 | `BCE` (blocked clause elimination — in CaDiCaL, dropped from Kissat 4) | cadical `block.cpp` | delete (RAT-justified) + push-witness | 4 |
+| X2 | `HyperTernaryRes` | cadical `ternary.cpp` | add-RUP | backlog |
+| X3 | `CCE` (covered clause elimination) | cadical `cover.cpp` | delete + push-witness | backlog (also the §5.3 extensibility acceptance test) |
+| X4 | `Instantiate` | cadical `instantiate.cpp` | add/delete | backlog |
+| X5 | `Condition` (conditional autarkies) | cadical `condition.cpp` | delete + push-witness | backlog |
+
+The remaining deltas of recent winners over Kissat are, per their solver
+descriptions, **heuristic-layer, not new proof rules**: MAB/bandit selection
+between branching heuristics (Kissat-MAB lineage → AE-Kissat-MAB, 2025 winner),
+bump/rescale scoring variants (AE-Kissat-bump/-rescale), rephasing/reward
+variants (CoRephase-CoReward), and variable-scoring tweaks (Kissat-VSA,
+Kissat-CURE). In this architecture they are policy presets and H-state changes
+(plan §7.5) — they require **zero new rule families**, which is precisely the
+point of the design.
+
+### 5.3 Adding a new proof rule must be clean — the extensibility contract
+
+Extensibility is a hard requirement, verified by an acceptance test (below),
+not a hope. Adding a rule family touches exactly two places:
+
+1. A new directory `src/rules/<name>/` containing the module
+   (`<name>.cpp/.hpp`), its unit tests, and its micro-formula proof tests.
+2. One registration line: `TACTIX_REGISTER_RULE(<Name>, tier, phase_tags,
+   default_budget)` — a static-registry macro. The registry is the *only*
+   central list; there is no switch statement, enum, or scheduler edit anywhere
+   else.
+
+What makes this possible (obligations on the core, enforced from phase 1):
+
+- **Stable kernel primitives.** Rules are written against a frozen kernel
+  interface: clause iteration/occurrence lists, watch maintenance, trail/level
+  queries, assignment with reason, arena allocation, H-state accessors. If a new
+  rule needs a new kernel primitive, that is an explicit, reviewed kernel API
+  addition — never a rule reaching into kernel internals.
+- **Closed proof-delta vocabulary.** The five primitives in §5.2 are the entire
+  proof interface; DRAT/LRAT serialization lives in the backend once. A new rule
+  states its justification by composing them. (A rule needing a genuinely new
+  primitive — e.g. future PR/VeriPB-style reasoning — is an architecture-level
+  RFC, expected to be rare.)
+- **Registry-driven policies.** DefaultPolicy schedules macro rules from
+  registry metadata (phase tags like `preprocess`/`inprocess-cheap`/
+  `inprocess-expensive`, tick budgets, enabling predicates). A newly registered
+  macro rule is automatically discoverable by `tactix_rules_applicable`, by
+  ScriptedPolicy/Python, by the random-policy fuzzer, and by DefaultPolicy's
+  scheduler — with no policy code change. Opting into DefaultPolicy's rotation
+  is a metadata flag; custom scheduling for the rule is a policy-preset change,
+  not a rule change.
+- **Per-rule everything.** Options (`--<name>-<opt>`), statistics counters, and
+  tick budgets are declared in the rule module and surface automatically in
+  `--help`, stats output, and the API.
+
+**Acceptance test (phase 4 exit):** implement CCE (X3) — a real technique we
+did not design for — end-to-end (guard, lazy instances, apply, witnesses,
+options, tests) with a diff confined to `src/rules/cce/` plus its registration
+line. If that diff needs to touch the kernel, another rule, a policy, or the
+proof backend, the contract is broken: fix the architecture, not the rule.
+The same standard then applies to every backlog rule (X2, X4, X5) and to future
+research rules.
+
+Definition of done for any new rule remains the rule-dev skill checklist
+(unit + micro-formula proof tests, sanitizer fuzzing incl. random-policy rounds,
+Tier A/B runs, determinism, overhead budget).
+
 ## 6. Competition compliance checklist (R2)
 
 - DIMACS parser: streaming, tolerant of comments/whitespace, huge-file safe
@@ -370,7 +505,7 @@ Components:
 | 1 | Kernel + Propagate/Decide/Analyze/Backjump + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
 | 2 | Restarts, reduce, phases, mode switching; native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
 | 3 | Inprocessing families (subsume, vivify, BVE, BCE, probe); reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
-| 4 | Policy tuning (MAB scheduler, classification presets); Python bindings | T4 on Tier D; §8.4 overhead budget met |
+| 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Walk, Sweep, Congruence, Factor/SBVA, BCE) | T4 on Tier D; §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
 | 5 | Competition packaging (Docker, description doc), SBVA & extras, tuning campaign | T5 or best-effort; submission-ready |
 
 Treat phases as gates, not a calendar; each phase ends with a benchmark report

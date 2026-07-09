@@ -5,7 +5,14 @@ description: Implement, modify, or review a proof-rule family (guard/instances/a
 
 # Rule and policy development
 
-Authoritative spec: DEVELOPMENT_PLAN.md §3–§5. The architecture's whole value is that **any legal rule order is sound**; every convention below protects that property or the performance budget.
+Authoritative spec: DEVELOPMENT_PLAN.md §3–§5. The full rule catalog (every family, its Kissat/CaDiCaL reference modules, proof-delta type, and target phase) is plan §5.2 — check it before inventing a name or scope for a rule. The architecture's whole value is that **any legal rule order is sound**; every convention below protects that property or the performance budget.
+
+## Adding a new rule family — the only two touch points (plan §5.3)
+
+1. New directory `src/rules/<name>/` — module, unit tests, micro-formula proof tests, per-rule options/stats/budgets declared locally.
+2. One `TACTIX_REGISTER_RULE(<Name>, tier, phase_tags, default_budget)` line — the static registry is the only central list; no switch/enum/scheduler edits anywhere.
+
+Rules compose the **closed proof-delta vocabulary** (`add-RUP`, `add-RAT`, `delete`, `restore`, `push-witness`); needing a new primitive or kernel accessor is an architecture RFC, not something to hack into the rule. If implementing a rule seems to require touching the kernel, another rule, a policy, or the proof backend — stop and fix the architecture instead (that is the §5.3 contract; CCE is the acceptance test).
 
 ## The rule-family contract
 
