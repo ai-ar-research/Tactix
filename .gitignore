@@ -4,6 +4,11 @@ cadical/
 minisat/
 glucose/
 drat-trim/
+cake_lpr/
+
+# Locally built third-party binaries (symlinks from tools/*/setup.sh)
+tools/solvers/bin/
+tools/checkers/bin/
 
 # Build artifacts
 build/

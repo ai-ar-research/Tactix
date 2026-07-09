@@ -33,8 +33,8 @@ disagree, the plan is authoritative — fix this file.
 - [x] SAT Competition 2023–2025 winners verified (plan §2)
 - [x] Claude Code skills: benchmarks, fuzz, proof-check, rule-dev, compete, revise-plan
 - [ ] CI pipeline (build + sanitizers + quick fuzz + Tier A)
-- [ ] Baseline solvers built locally: Kissat 4.0.4, CaDiCaL (MiniSat + Glucose by phase 1)
-- [ ] Checker toolchain built: drat-trim, lrat-check, cake_lpr (`tools/checkers/setup.sh`)
+- [x] Baseline solvers built locally: Kissat 4.0.4, CaDiCaL (MiniSat + Glucose by phase 1) — `tools/solvers/setup.sh`, pinned rel-4.0.4 / rel-3.0.0
+- [x] Checker toolchain built: drat-trim, lrat-check, cake_lpr (`tools/checkers/setup.sh`) — pinned commits, self-test runs kissat→DRAT→LRAT→all three checkers
 - [ ] Fuzz harness `tools/fuzz/`: generators (seeded k-SAT sweep, structured, mutation, edge cases)
 - [ ] Fuzz harness: model checker (`checkmodel`), differential runner, ddmin shrinker
 - [ ] Fuzz harness validated against Kissat/CaDiCaL stand-ins + deliberately broken wrappers
@@ -91,3 +91,4 @@ disagree, the plan is authoritative — fix this file.
 - 2026-07-09 — plan rev 6 (concretize O1, partial): benchmarking on a single local workstation, no HPC/StarExec, ≤ 8 parallel single-threaded solver jobs; benchmarks skill updated (`--jobs`, concurrency in reports).
 - 2026-07-09 — plan rev 7: baseline solver builds added to phase 0; O11 (kitten sub-solver) added; Instruction.md session-bootstrap prompt created.
 - 2026-07-09 — plan rev 8 (concretize O2): build system = CMake ≥ 3.25 (debug preset with ASan/UBSan, release preset); CI = GitHub Actions, job content grows with phase-0 deliverables.
+- 2026-07-09 — baseline solvers built (kissat 4.0.4, cadical 3.0.0; `tools/solvers/setup.sh`) and checker toolchain built (drat-trim, lrat-check, cake_lpr @ pinned commits; `tools/checkers/setup.sh` incl. end-to-end self-test). Note: cadical is 3.0.0 (latest release), plan §8.3 still says "2.x" — wording to fix in next plan rev.
