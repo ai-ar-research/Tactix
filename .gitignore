@@ -1,0 +1,31 @@
+# Third-party solver sources kept locally for reference — never committed
+kissat/
+cadical/
+minisat/
+glucose/
+drat-trim/
+
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.dylib
+
+# Benchmark instances are cached locally, only tier lists are tracked
+benchmarks/cache/
+*.cnf.xz
+*.tar.xz
+
+# Solver run outputs
+*.drat
+*.lrat
+*.proof
+*.model
+benchmarks/runs/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+compile_commands.json
