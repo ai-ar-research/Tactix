@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 7). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-09 (rev. 8). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -199,6 +199,13 @@ Design commitments:
   Rationale: Kissat-level control over layout, zero-cost static dispatch that C
   can't express cleanly, and easy pybind11 bindings. (Rust is a defensible
   alternative; C++ chosen for direct transliteration of Kissat idioms.)
+- **Build system & CI (decided rev 8, closes O2):** CMake (≥ 3.25) with
+  CMakePresets — `debug` (assertions + ASan/UBSan), `release` (`-O3 -DNDEBUG`),
+  `profile` added when needed. CI is GitHub Actions on the existing repo; the
+  per-commit job grows with the phase-0 deliverables (build + unit tests first;
+  sanitizer quick-fuzz, regression corpus, and Tier A added as each lands per
+  §8.2). No second build entry point: everything CI runs is a documented local
+  command first.
 - **Proof deltas are the only side channel.** A rule that can't state its DRAT/LRAT
   justification doesn't get merged. LRAT hints are produced natively during
   conflict analysis (antecedent recording), not reconstructed afterwards.
@@ -601,7 +608,7 @@ discovered during development get added here rather than answered ad hoc.
 | # | Open item | Decide by |
 |---|---|---|
 | O1 | Reference benchmark hardware — the machine that defines "Kissat ≤ 30 s" for the Tier B/C freezes and all reports → *narrowed rev 6: a single local workstation, ≤ 8 parallel benchmark jobs, no HPC/StarExec; exact machine specs still to be recorded at the first timing run* | phase 0, first timing run |
-| O2 | Build system and CI provider | phase 0, first code |
+| O2 | Build system and CI provider → *decided rev 8: CMake (≥ 3.25, presets debug/release) + GitHub Actions — repo already on GitHub, CMake is the friction-free path for pybind11 (§5 frontends) and sanitizer presets; CI job grows with phase-0 deliverables* | phase 0, first code |
 | O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting | draft in phase 1; freeze at phase-2 API v1 |
 | O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
 | O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) and its documented overhead contract | phase-2 API freeze |
@@ -655,3 +662,9 @@ discovered during development get added here rather than answered ad hoc.
   Tier B construction); O11 added for the kitten sub-solver dependency
   (Sweep, BVE definition extraction) with a syntactic-gates-first fallback
   for E1. Instruction.md added as the session bootstrap prompt.
+- **rev. 8** (2026-07-09): concretized O2 (build system & CI): CMake ≥ 3.25
+  with debug/release presets (sanitizers in debug), GitHub Actions as CI
+  provider; CI job content grows with the phase-0 deliverables. Rationale:
+  repo already on GitHub; CMake gives sanitizer presets and the pybind11 path
+  with least friction. Decided minimally — packaging/Docker specifics remain
+  phase-5 (§6).
