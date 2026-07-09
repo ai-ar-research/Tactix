@@ -21,7 +21,7 @@ other goals, deferred out of the plan, or made optional by a revision:
 2. **N2 — Proof production.** Every mode, policy, and rule path emits checkable
    DRAT/LRAT certificates and competition-format output.
 3. **N3 — Kissat-comparable mode.** At least one shipped policy (DefaultPolicy)
-   reaches performance comparable to Kissat (T4 gate on Tier C/D).
+   reaches performance comparable to Kissat (T4 gate: parity on Tier D, §8.3).
 
 If a requested revision conflicts with N1–N3: do not silently comply. State the
 conflict explicitly, propose an alternative that preserves the invariant, and
@@ -40,7 +40,7 @@ confirm, record the decision and its consequences in the revision history.
    and verify every reference still points where intended (renumbering is the
    classic failure).
 4. **Bump the revision:** increment "rev. N" and date in the plan header, and
-   append a dated entry to §12 (Revision history) summarizing what changed and
+   append a dated entry to §13 (Revision history) summarizing what changed and
    why.
 5. **Sync PROGRESS.md:** update the tracked plan revision, add/remove/re-gate
    checklist items affected by the change, and note the revision in the Log.
@@ -48,6 +48,28 @@ confirm, record the decision and its consequences in the revision history.
    that skill in the same pass.
 6. **One commit** containing plan + PROGRESS.md + any touched skills, message
    starting `plan rev N: <summary>`. Push.
+
+## Concretize mode — resolving deliberate underspecification
+
+The plan keeps a register of deliberately open decisions (§11), because
+deciding everything up front would be guessing. Use concretize mode when an
+open item starts blocking work (its decide-by point arrives, or implementation
+can't proceed without it):
+
+1. Find the item in §11 (if the blocker isn't listed there, it's a *new* open
+   item — add it first, then decide it if it's actually due).
+2. **Decide minimally.** Resolve only what unblocks the work at hand; leave
+   neighboring questions open. If a fuller design writes itself naturally,
+   still record only the part that is needed now — premature detail calcifies.
+3. Write the concrete decision into the relevant plan section (it becomes
+   normal plan text), and annotate the §11 row in place:
+   `→ decided rev N: <what> — <one-line why>`.
+4. Follow the standard revision procedure above (cross-refs, rev bump, §13
+   history entry, PROGRESS.md sync, one commit).
+
+The inverse also holds: when a revision would *remove* concrete commitments
+without replacing them, don't delete silently — move the question into §11
+with a decide-by point, so underspecification stays deliberate and tracked.
 
 ## Consistency checklist (run mentally at step 2, verify at step 3)
 
@@ -59,3 +81,9 @@ confirm, record the decision and its consequences in the revision history.
   line) and the five-primitive proof-delta vocabulary are intact.
 - Scope remains sequential-only; benchmark discipline (never tune on Tier A;
   full sets only at gates) remains stated.
+- Rule phases agree everywhere they appear: catalog §5.2 is authoritative;
+  §9 milestone rows and PROGRESS.md phase checklists must match it.
+- Demo policies (§8.4) only require rules from phases at or before the phase
+  that reviews them.
+- Every §11 open item has a decide-by point; decided items carry their
+  `→ decided rev N` annotation instead of being deleted.

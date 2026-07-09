@@ -8,7 +8,7 @@ DRAT/LRAT proof delta, and I/O follows SAT Competition main-track conventions.
 
 **Status: planning.** See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for the
 architecture, benchmark tiers, fuzzing/proof-checking harness design, and
-milestones.
+milestones, and [PROGRESS.md](PROGRESS.md) for the live checklist.
 
 Reference solvers (Kissat etc.) are kept as local clones and are deliberately
 untracked (see `.gitignore`).

@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 4 (2026-07-09)
+- **Plan revision tracked:** rev. 5 (2026-07-09)
 - **Current phase:** 0 (setup)
 - **Last updated:** 2026-07-09
 
@@ -86,3 +86,4 @@ disagree, the plan is authoritative — fix this file.
 ## Log
 
 - 2026-07-09 — Phase 0 started: repo + plan (revs 1–4) + 6 skills + PROGRESS.md; Kissat cloned; competition results verified.
+- 2026-07-09 — plan rev 5: consistency review (phase assignments for BCE/SBVA fixed in §9, demo policies reordered, N3/T4 wording aligned, Tier C timeout stated); §11 open-decisions register added; revise-plan skill gains concretize mode.

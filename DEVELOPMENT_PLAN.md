@@ -2,9 +2,9 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 4). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-09 (rev. 5). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
-revise-plan skill). Revision history: §12.
+revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
 **Scope: sequential solving only.** No parallel/cloud tracks; single-threaded,
 deterministic. Parallel results below are omitted except where they inform
@@ -48,7 +48,8 @@ revision, and merge is checked against them (see also the revise-plan skill):
   emits checkable certificates (DRAT/LRAT) and competition-format output. No
   feature lands that only works with proofs disabled.
 - **N3 — A Kissat-comparable mode.** At least one shipped policy (DefaultPolicy)
-  must reach performance comparable to Kissat on Tier C/D (the T4 gate).
+  must reach performance comparable to Kissat (the T4 gate: parity with
+  Kissat-public on Tier D, §8.3).
   Flexibility never excuses a slow default: if an abstraction costs the default
   policy real performance, the abstraction gets redesigned, not the target.
 
@@ -391,8 +392,9 @@ Tier A/B runs, determinism, overhead budget).
 - Proof file path from argv; binary DRAT by default, `--lrat` switch.
 - Verify against the actual toolchain: `drat-trim`, `lrat-check`/`cake_lpr`
   (the 2025 checker options), inside the same container we'd submit.
-- Dockerfile + StarExec-style run scripts from day one; solver description
-  document template (required for submission).
+- Dockerfile + StarExec-style run scripts kept working from phase 1 (compliance
+  tests run in-container); full submission packaging and the solver description
+  document (required for submission) are polished in phase 5.
 
 ## 7. Performance strategy (R5)
 
@@ -419,7 +421,7 @@ then conflict analysis, then inprocessing. Plan of attack:
      per-family budgets, instance-family classification (`classify.c` in Kissat)
      driving policy presets.
    - Native LRAT to win any combined solver+checker metric.
-   - Portfolio-of-policies within one binary for the no-limits track.
+   - Portfolio-of-policies within one binary, where competition rules permit.
    Realism check: matching Kissat is a multi-year, PhD-grade goal; the staged
    targets in §8.2 keep us honest.
 
@@ -451,7 +453,8 @@ repo (as instance lists + download script; instances themselves cached locally):
   our solver: 300 s (10× the reference — room to be slower while still measuring
   progress). Primary dev metric: PAR-2 on Tier B + ratio vs Kissat.
 - **Tier C — "≤ 300 s" subset (weekly; total ≈ a few CPU-hours).** Same
-  construction with Kissat-runtime ≤ 300 s, ~150 instances. Catches regressions
+  construction with Kissat-runtime ≤ 300 s, ~150 instances; timeout for our
+  solver: 3000 s (same 10× headroom rule as Tier B). Catches regressions
   that only show at longer horizons (restart/inprocessing scheduling effects are
   invisible on short runs — the main risk of over-fitting to Tier B).
 - **Tier D — full SC main-track sets (milestone gates only).** SC 2024 + SC 2025
@@ -531,12 +534,14 @@ Components:
 - **Overhead budget:** default policy vs `#ifdef`-hardcoded loop: ≤ 5% PAR-2
   degradation on Tier B. Fully dynamic micro-dispatch mode: measure and document
   (expected 2–10×; that's acceptable for its use case).
-- **Expressiveness demos** (no kernel modifications allowed):
+- **Expressiveness demos** (no kernel modifications allowed; 1–3 use only
+  phase-≤2 rules so they can be reviewed at the phase-2 API freeze, 4–6 land
+  by phase 4):
   1. Pure-DPLL policy (no learning) — sanity of decomposition.
-  2. Preprocess-only pipeline (BVE+BCE+SBVA, emit simplified CNF + DRAT).
-  3. "CDCL, no restarts, no inprocessing" ablation policy.
-  4. Randomized macro-schedule policy.
-  5. A Python-scripted policy reproducing the default's schedule within noise.
+  2. "CDCL, no restarts, no inprocessing" ablation policy.
+  3. A Python-scripted policy reproducing the default's schedule within noise.
+  4. Preprocess-only pipeline (BVE+BCE+Factor/SBVA, emit simplified CNF + DRAT).
+  5. Randomized macro-schedule policy (shared with the random-policy fuzzer).
   6. External-branching policy (validates N1 end-to-end): a Python policy that
      queries `decide_candidates` and picks decisions itself (scripted/random/
      simple learned model), everything else deferred to the default schedule —
@@ -551,9 +556,9 @@ Components:
 | 0 (setup) | Repo, CI; **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
 | 1 | Kernel + Propagate/Decide/Analyze/Backjump + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
 | 2 | Restarts, reduce, phases, mode switching; native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
-| 3 | Inprocessing families (subsume, vivify, BVE, BCE, probe); reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
+| 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
 | 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Walk, Sweep, Congruence, Factor/SBVA, BCE) | T4 on Tier D; §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
-| 5 | Competition packaging (Docker, description doc), SBVA & extras, tuning campaign | T5 or best-effort; submission-ready |
+| 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
 
 Treat phases as gates, not a calendar; each phase ends with a benchmark report
 checked into the repo.
@@ -572,7 +577,30 @@ checked into the repo.
 - **Rule API churn breaking clients** → freeze API v1 at phase 2; additive changes
   only afterwards.
 
-## 11. Key references
+## 11. Open decisions (deliberately deferred)
+
+This plan is intentionally not exhaustive: deciding everything up front would
+be guessing, and guesses calcify. The items below are *known* to be
+underspecified, on purpose, each with the point by which it must be decided.
+Resolving one goes through the revise-plan skill's **concretize mode**: decide
+the minimum needed to unblock, annotate the item here (`→ decided rev N:
+<what> — <why>`), and leave neighboring questions open. New open items
+discovered during development get added here rather than answered ad hoc.
+
+| # | Open item | Decide by |
+|---|---|---|
+| O1 | Reference benchmark hardware — the machine that defines "Kissat ≤ 30 s" for the Tier B/C freezes and all reports | phase 0, first timing run |
+| O2 | Build system and CI provider | phase 0, first code |
+| O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting | draft in phase 1; freeze at phase-2 API v1 |
+| O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
+| O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) and its documented overhead contract | phase-2 API freeze |
+| O6 | MAB scheduler specifics: arms, reward signal, decision level (restart vs inprocessing scheduling) | phase 4 |
+| O7 | Incremental solving (IPASIR assumptions, clause removal) interaction with proof logging | post-v1; not competition-blocking |
+| O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 5 |
+| O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | before the T4 evaluation |
+| O10 | Solver name ("Tactix" is a placeholder) | before any external artifact |
+
+## 12. Key references
 
 - Kissat source (this repo, `./kissat`) and Biere et al., SAT Competition 2024/2025
   solver descriptions (cca.informatik.uni-freiburg.de).
@@ -584,7 +612,7 @@ checked into the repo.
 - SAT Competition pages: satcompetition.github.io (rules, benchmarks, results).
 - Haberlandt, Green, Heule: SBVA (SAT 2023) — 2023 winner's preprocessor.
 
-## 12. Revision history
+## 13. Revision history
 
 - **rev. 1** (2026-07-09): initial plan.
 - **rev. 2** (2026-07-09): sequential-only scope; benchmark tiers A–D (small
@@ -598,3 +626,11 @@ checked into the repo.
   production everywhere; Kissat-comparable default mode); branching as
   first-class API surface (§5.1, M2, §8.4 demo policy 6); PROGRESS.md
   introduced as synced living status; revise-plan skill added.
+- **rev. 5** (2026-07-09): consistency review. Fixed: N3 gate wording aligned
+  with T4 (Tier D); BCE moved out of phase-3 milestone row (catalog says
+  phase 4); SBVA removed from phase-5 row (Factor/SBVA is phase 4); §8.4 demo
+  policies reordered so 1–3 are implementable at their phase-2 review; Tier C
+  solver timeout stated (3000 s); undefined "no-limits track" reference
+  removed; §6 Docker wording reconciled with phase-5 packaging. Added: §11
+  open-decisions register (deliberate underspecification with decide-by
+  points); revise-plan skill gains concretize mode.
