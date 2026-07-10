@@ -13,5 +13,5 @@
   - N3: DefaultPolicy performance comparable to Kissat (T4 gate).
 - `kissat/` (and other reference solvers) are untracked reference clones —
   never commit them, never copy code verbatim (transliterate + attribute).
-- Project skills: benchmarks, fuzz, proof-check, rule-dev, compete, revise-plan
-  — use them for the matching workflows.
+- Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
+  revise-plan, revamp — use them for the matching workflows.

@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-10 (rev. 12). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-10 (rev. 13). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -388,6 +388,32 @@ Definition of done for any new rule remains the rule-dev skill checklist
 (unit + micro-formula proof tests, sanitizer fuzzing incl. random-policy rounds,
 Tier A/B runs, determinism, overhead budget).
 
+### 5.4 Revamp discipline — evaluating structural rewrites
+
+Incremental patching around a wrong structure compounds into the real
+cost; large rewrites are a normal, disciplined tool here, not a failure
+mode. **At every phase gate (§9), explicitly evaluate whether a significant
+part of the codebase should be revamped** — data structures, kernel
+primitives, rule contracts, module boundaries — and record the evaluation
+in the gate report even when the answer is "no". Between gates, the same
+evaluation triggers whenever (a) a profile attributes a major share of
+runtime to structure (layout, indirection, allocation) rather than
+algorithm, (b) a rule or policy cannot meet the §5.3 contract without
+contortions or kernel-reaching, or (c) fuzzing / invariant-checker findings
+cluster around one design decision.
+
+Execution follows the **revamp skill**: written evidence first; a
+mini-design stating what changes, what invariants are preserved, how N1–N3
+survive, and a measurable success criterion; implementation from a green
+base as one coherent unit; full revalidation (unit suites under sanitizers
++ invariant checker, fuzzing under BOTH the default and random policies,
+compliance, the affected tiers with §8.1's repeated-run discipline); and
+revert as a first-class outcome if the criterion is missed. N1–N3 are
+never weakened by a revamp — if the best design appears to require that,
+it is a revise-plan discussion, not a rewrite. Precedents: per-literal
+watch vectors → flat watch arena (2.4× single-instance speedup);
+scheduling budgets fused into guards → guard/advised split (restored N1).
+
 ## 6. Competition compliance checklist (R2)
 
 - DIMACS parser: streaming, tolerant of comments/whitespace, huge-file safe
@@ -589,7 +615,8 @@ Components:
 | 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
 
 Treat phases as gates, not a calendar; each phase ends with a benchmark report
-checked into the repo.
+checked into the repo, which also records the §5.4 revamp evaluation for
+that gate.
 
 ## 10. Risks and mitigations
 
@@ -694,6 +721,14 @@ discovered during development get added here rather than answered ad hoc.
   Pro (6P+6E), 36 GB RAM, macOS 15.7.7; tier-freeze timings at jobs=1.
   Recorded at the first timing run (Tier B freeze — see
   benchmarks/reports/2026-07-09-tier-b-freeze.md).
+- **rev. 13** (2026-07-10): §5.4 revamp discipline added (user request):
+  every phase gate and specified between-gate triggers require an explicit
+  evaluation of whether significant parts of the codebase should be
+  restructured, executed via the new `revamp` skill with evidence,
+  mini-design, full revalidation, and revert-as-outcome. §9 gate reports
+  record the evaluation. Background: the guard/advised split and four
+  soundness fixes surfaced by random-schedule testing showed structural
+  issues are found by discipline, not luck.
 - **rev. 12** (2026-07-10): S1 Restart and S2 Reduce moved from phase 2 to
   phase 1. Empirical driver: the phase-1 solver (M1–M4 + minimization)
   leaves 16 Tier A transition instances (n = 250–290) unsolved at 30 s —
