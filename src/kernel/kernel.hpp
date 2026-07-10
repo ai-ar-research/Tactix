@@ -77,7 +77,10 @@ struct Kernel {
   uint32_t unassigned = 0;
 
   Arena arena;
-  std::vector<WatchList> watches; // by lit
+  WatchLists watches;
+  // delayed watch relocations from an in-flight propagation scan
+  // (lit, blocking, ref) triples; see watch.hpp for why they must wait
+  std::vector<uint32_t> delayed;
 
   // VMTF (focused-mode decision heuristic)
   std::vector<Link> links; // by var

@@ -10,7 +10,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.values.resize(2 * nvars, 0);
   k.assigned.resize(nvars);
   k.saved.resize(nvars, 1); // initial phase: positive (kissat default)
-  k.watches.resize(2 * nvars);
+  k.watches.resize_lits(2 * nvars);
   k.links.resize(nvars);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
@@ -45,14 +45,14 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   c->searched = 2;
   for (uint32_t i = 0; i < size; i++)
     c->lits[i] = lits[i];
-  push_large_watch(k.watches[lits[0]], lits[1], ref);
-  push_large_watch(k.watches[lits[1]], lits[0], ref);
+  k.watches.push_large(lits[0], lits[1], ref);
+  k.watches.push_large(lits[1], lits[0], ref);
   return ref;
 }
 
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b) {
-  push_binary_watch(k.watches[a], b);
-  push_binary_watch(k.watches[b], a);
+  k.watches.push_binary(a, b);
+  k.watches.push_binary(b, a);
 }
 
 static inline void assign(Kernel &k, Lit lit, uint32_t level,
@@ -181,23 +181,25 @@ void kernel_collect_garbage(Kernel &k) {
     if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON)
       a.reason = clause_at(k.arena, a.reason)->searched;
   }
-  for (WatchList &ws : k.watches) { // strip large entries, keep binaries
-    uint32_t *q = ws.data();
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+    // strip large entries in place, keep binaries
+    uint32_t *const begin = k.watches.begin(lit);
+    uint32_t *q = begin;
     const uint32_t *p = q;
-    const uint32_t *const end = ws.data() + ws.size();
+    const uint32_t *const end = k.watches.end(lit);
     while (p != end) {
       if (Watch{*p}.binary())
         *q++ = *p++;
       else
         p += 2;
     }
-    ws.resize(static_cast<size_t>(q - ws.data()));
+    k.watches.truncate(lit, static_cast<uint32_t>(q - begin));
   }
   k.arena.swap(fresh);
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    push_large_watch(k.watches[c->lits[0]], c->lits[1], ref);
-    push_large_watch(k.watches[c->lits[1]], c->lits[0], ref);
+    k.watches.push_large(c->lits[0], c->lits[1], ref);
+    k.watches.push_large(c->lits[1], c->lits[0], ref);
     ref += clause_words(c->size);
   }
 }

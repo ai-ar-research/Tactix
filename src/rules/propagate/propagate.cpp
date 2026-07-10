@@ -1,8 +1,9 @@
 // Transliterated from kissat/src/proplit.h (MIT, Biere et al.): blocking
 // literals, binary clauses inlined in watch lists, in-place watch-list
-// compaction, `searched` scan resumption. We diverge in one place: watch
-// pushes to *other* literals' lists are safe immediately here (per-literal
-// std::vectors), so kissat's delayed-watch mechanism is unnecessary.
+// compaction, `searched` scan resumption, and DELAYED watch relocation —
+// with the flat watch arena, pushing to another literal's list during a
+// scan can move the arena, so relocations queue up in kernel.delayed and
+// flush after each literal's scan (kissat's kissat_watch_large_delayed).
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
@@ -14,13 +15,24 @@ bool propagate_guard(const Kernel &k) {
          k.propagate_head < k.trail.size();
 }
 
+static inline void flush_delayed(Kernel &k) {
+  for (size_t i = 0; i < k.delayed.size(); i += 3) {
+    const Lit lit = k.delayed[i];
+    const Lit blocking = k.delayed[i + 1];
+    const Ref ref = k.delayed[i + 2];
+    k.watches.push_large(lit, blocking, ref);
+  }
+  k.delayed.clear();
+}
+
 // returns true iff a conflict was found (recorded in the kernel)
 static bool propagate_literal(Kernel &k, Lit lit) {
   const Lit not_lit = negate(lit);
-  WatchList &ws = k.watches[not_lit];
-  uint32_t *q = ws.data();
+  assert(k.delayed.empty());
+  uint32_t *const begin = k.watches.begin(not_lit);
+  uint32_t *q = begin;
   const uint32_t *p = q;
-  const uint32_t *const end = ws.data() + ws.size();
+  const uint32_t *const end = k.watches.end(not_lit);
   bool conflict = false;
 
   while (p != end) {
@@ -77,13 +89,15 @@ static bool propagate_literal(Kernel &k, Lit lit) {
             break;
         }
       }
-      if (replacement_value >= 0) { // move the watch
+      if (replacement_value >= 0) { // move the watch (delayed: see header)
         c->searched = static_cast<uint32_t>(r - lits);
         lits[0] = other;
         lits[1] = replacement;
         *r = not_lit;
         q -= 2;
-        push_large_watch(k.watches[replacement], other, ref);
+        k.delayed.push_back(replacement);
+        k.delayed.push_back(other);
+        k.delayed.push_back(ref);
       } else if (other_value < 0) { // conflict
         k.conflict_valid = true;
         k.conflict_ref = ref;
@@ -97,7 +111,8 @@ static bool propagate_literal(Kernel &k, Lit lit) {
   }
   while (p != end)
     *q++ = *p++;
-  ws.resize(static_cast<size_t>(q - ws.data()));
+  k.watches.truncate(not_lit, static_cast<uint32_t>(q - begin));
+  flush_delayed(k);
   return conflict;
 }
 
