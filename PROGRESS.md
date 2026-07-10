@@ -32,16 +32,16 @@ disagree, the plan is authoritative — fix this file.
 - [x] Kissat 4.0.4 cloned as reference (`kissat/`, untracked)
 - [x] SAT Competition 2023–2025 winners verified (plan §2)
 - [x] Claude Code skills: benchmarks, fuzz, proof-check, rule-dev, compete, revise-plan
-- [ ] CI pipeline (build + sanitizers + quick fuzz + Tier A)
+- [ ] CI pipeline (build + sanitizers + quick fuzz + Tier A) — *workflow live (toolchain + fuzz selftest); build/sanitizer/Tier A steps added when phase-1 code exists*
 - [x] Baseline solvers built locally: Kissat 4.0.4, CaDiCaL (MiniSat + Glucose by phase 1) — `tools/solvers/setup.sh`, pinned rel-4.0.4 / rel-3.0.0
 - [x] Checker toolchain built: drat-trim, lrat-check, cake_lpr (`tools/checkers/setup.sh`) — pinned commits, self-test runs kissat→DRAT→LRAT→all three checkers
-- [ ] Fuzz harness `tools/fuzz/`: generators (seeded k-SAT sweep, structured, mutation, edge cases)
-- [ ] Fuzz harness: model checker (`checkmodel`), differential runner, ddmin shrinker
-- [ ] Fuzz harness validated against Kissat/CaDiCaL stand-ins + deliberately broken wrappers
-- [ ] Benchmark runner `tools/bench/run.py` (PAR-2, verdict + proof verification)
-- [ ] Tier A built and frozen (~200 generated instances, known status)
+- [x] Fuzz harness `tools/fuzz/`: generators (seeded k-SAT sweep, structured, mutation, edge cases)
+- [x] Fuzz harness: model checker (`checkmodel`), differential runner, ddmin shrinker
+- [x] Fuzz harness validated against Kissat/CaDiCaL stand-ins + deliberately broken wrappers (`tools/fuzz/selftest.sh`, runs in CI)
+- [x] Benchmark runner `tools/bench/run.py` (PAR-2, verdict + proof verification) — ≤ 8 jobs, results JSON under `benchmarks/runs/`; validated with kissat + cadical on Tier A
+- [x] Tier A built and frozen (~200 generated instances, known status) — `tools/bench/gen_tier_a.py` (seed 20260709, bit-reproducible), `benchmarks/tiers/A.list`: 200 instances, 82 SAT / 118 UNSAT, kissat total 68 s
 - [ ] Tier B built and frozen (Kissat ≤ 30 s timing runs over SC 2023–2025)
-- [ ] Kissat study notes (kernel layout, propagation, mode switching)
+- [x] Kissat study notes (kernel layout, propagation, mode switching) — `docs/kissat-notes.md`
 - **Exit:** fuzz pipeline end-to-end against Kissat; Tier A/B lists frozen & reproducible
 
 ## Phase 1 — core CDCL kernel
@@ -92,3 +92,5 @@ disagree, the plan is authoritative — fix this file.
 - 2026-07-09 — plan rev 7: baseline solver builds added to phase 0; O11 (kitten sub-solver) added; Instruction.md session-bootstrap prompt created.
 - 2026-07-09 — plan rev 8 (concretize O2): build system = CMake ≥ 3.25 (debug preset with ASan/UBSan, release preset); CI = GitHub Actions, job content grows with phase-0 deliverables.
 - 2026-07-09 — baseline solvers built (kissat 4.0.4, cadical 3.0.0; `tools/solvers/setup.sh`) and checker toolchain built (drat-trim, lrat-check, cake_lpr @ pinned commits; `tools/checkers/setup.sh` incl. end-to-end self-test). Note: cadical is 3.0.0 (latest release), plan §8.3 still says "2.x" — wording to fix in next plan rev.
+- 2026-07-09 — benchmark runner (`tools/bench/run.py`: PAR-2, verdict check vs frozen list, drat-trim on every UNSAT, rejected proof = unsolved, ≤ 8 jobs recorded) + Tier A generated & frozen (200 instances: 100 transition + 50 under/over-constrained 3-SAT, PHP(5..8), 12 pebbling, 20 XOR chains, 14 colorings; statuses established with kissat, 68 s total). Validation run: kissat PAR-2 0.49 & cadical 0.60 on Tier A, 200/200 each, 118 proofs verified. Kissat study notes written (`docs/kissat-notes.md`).
+- 2026-07-09 — fuzz harness built to §8.2 spec (`tools/fuzz/`: seeded generators incl. structured + mutation + edge cases, checkmodel, drat-trim/lrat-check proof oracle, differential runner, ddmin shrinker with in-process predicate + wall-clock cap, regression-corpus replay) and validated end-to-end (`selftest.sh`): clean on Kissat (150 cases, LRAT chain) + CaDiCaL (100; earlier full run: 300+200 clean), flags all three deliberately broken wrappers by the right oracle, shrinks a planted 2-clause core out of 400 junk clauses in 30 evals. Lesson recorded: near-transition random cores are genuinely huge — shrink budgets are eval- and time-capped. GitHub Actions CI live: pinned toolchain build + harness selftest per push.

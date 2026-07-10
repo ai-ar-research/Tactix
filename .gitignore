@@ -22,6 +22,9 @@ benchmarks/cache/
 *.cnf.xz
 *.tar.xz
 
+# Fuzz failure bundles (promoted manually to tools/fuzz/corpus/regressions/)
+tools/fuzz/failures/
+
 # Solver run outputs
 *.drat
 *.lrat

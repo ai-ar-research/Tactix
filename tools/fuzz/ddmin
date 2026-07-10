@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""ddmin — delta-debugging CNF shrinker CLI (plan §8.2).
+
+Usage: ddmin failing.cnf --out minimal.cnf [--max-evals N] -- <command...>
+
+The predicate command is run with one extra argument, the path of a
+candidate CNF; it must exit 0 iff the failure of interest is still present.
+(fuzz.py shrinks failure bundles in-process via shrink.minimize — this CLI
+is for manual shrinking against arbitrary commands.)
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from generators import parse_dimacs, write_dimacs  # noqa: E402
+from shrink import minimize  # noqa: E402
+
+
+def command_predicate(command):
+    def pred(nvars, clauses):
+        fd, path = tempfile.mkstemp(suffix=".cnf", prefix="ddmin-")
+        os.close(fd)
+        try:
+            write_dimacs(path, nvars, clauses)
+            r = subprocess.run(command + [path], stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, timeout=120)
+            return r.returncode == 0
+        except subprocess.TimeoutExpired:
+            return False
+        finally:
+            os.unlink(path)
+    return pred
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        usage="ddmin [-h] --out OUT [--max-evals N] cnf -- predicate...")
+    ap.add_argument("cnf")
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--max-evals", type=int, default=2000,
+                    help="predicate evaluation budget")
+    # split at '--' ourselves: argparse.REMAINDER swallows options that
+    # appear after the first positional
+    argv = sys.argv[1:]
+    if "--" in argv:
+        split = argv.index("--")
+        argv, command = argv[:split], argv[split + 1:]
+    else:
+        command = []
+    args = ap.parse_args(argv)
+    if not command:
+        ap.error("missing predicate command after --")
+
+    nvars, clauses = parse_dimacs(args.cnf)
+    pred = command_predicate(command)
+    if not pred(nvars, clauses):
+        print("ddmin: predicate does not fail on the input; nothing to do",
+              file=sys.stderr)
+        return 2
+    before = (len(clauses), sum(len(c) for c in clauses))
+    nvars, clauses, evals = minimize(pred, nvars, clauses, args.max_evals)
+    write_dimacs(args.out, nvars, clauses)
+    print(f"ddmin: {before[0]} clauses / {before[1]} lits -> "
+          f"{len(clauses)} clauses / {sum(len(c) for c in clauses)} lits "
+          f"({evals} evals)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

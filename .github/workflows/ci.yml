@@ -1,0 +1,37 @@
+# CI (plan §5 build & CI, decided rev 8). The job grows with the phase-0/1
+# deliverables: today it builds the pinned toolchain (baseline solvers +
+# proof checkers) and validates the fuzz harness end-to-end. When the solver
+# skeleton lands (phase 1) this gains: CMake debug (ASan/UBSan) + release
+# builds, unit tests, quick fuzz against the debug build, and Tier A.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  toolchain-and-fuzz-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache third-party toolchain builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            kissat
+            cadical
+            drat-trim
+            cake_lpr
+          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh') }}
+
+      - name: Build baseline solvers (kissat, cadical — pinned)
+        run: tools/solvers/setup.sh
+
+      - name: Build checker toolchain (drat-trim, lrat-check, cake_lpr — pinned)
+        run: tools/checkers/setup.sh
+
+      - name: Fuzz harness self-test (stand-ins + broken wrappers + ddmin)
+        run: tools/fuzz/selftest.sh
