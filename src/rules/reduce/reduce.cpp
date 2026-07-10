@@ -1,8 +1,8 @@
-// Selection scheme after kissat/src/reduce.c + tiers (MIT), simplified to
-// Glucose-style for phase 1: glue <= 2 ("tier 1") is always kept; the rest
-// are ranked by (glue, size) and the worse half deleted. Reason-locked
-// clauses are never deleted. Schedule: first at 2000 conflicts, interval
-// growing by 300 per reduction ("Glucose increments").
+// Selection scheme after kissat/src/reduce.c + tiers (MIT), simplified for
+// phase 1: glue <= 2 ("tier 1") is always kept; the rest are ranked by
+// (glue, size) and the worst 75% deleted (kissat's default reduce
+// fraction). Reason-locked clauses are never deleted. Schedule: first at
+// 2000 conflicts, interval growing by 300 per reduction.
 #include "rules/reduce/reduce.hpp"
 
 #include "proof/proof.hpp"
@@ -56,7 +56,7 @@ ApplyResult reduce_apply(Kernel &k) {
                   return a.size > b.size;
                 return a.ref > b.ref; // total order for determinism
               });
-    const size_t target = candidates.size() / 2;
+    const size_t target = (3 * candidates.size()) / 4;
     for (size_t i = 0; i < target; i++) {
       Clause *c = clause_at(k.arena, candidates[i].ref);
       if (k.proof)

@@ -69,7 +69,7 @@ static void test_reduce_deletes_and_logs() {
   k.stats.conflicts = k.reduce.next_conflicts;
   assert(reduce_guard(k));
   assert(reduce_apply(k) == ApplyResult::Ok);
-  assert(k.stats.deleted == 2); // half of the four candidates
+  assert(k.stats.deleted == 3); // 75% of the four candidates
   proof.flush();
   FILE *f = fopen(path, "r");
   char buf[256];
@@ -79,7 +79,7 @@ static void test_reduce_deletes_and_logs() {
       dels++;
   fclose(f);
   remove(path);
-  assert(dels == 2); // every deletion hit the proof
+  assert(dels == 3); // every deletion hit the proof
   assert(!reduce_guard(k)); // budget pushed out
 }
 
