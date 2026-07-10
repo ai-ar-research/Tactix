@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 9). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-09 (rev. 10). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -448,8 +448,8 @@ Parallel jobs contend for memory bandwidth and shared caches, so: record the
 concurrency level in every report, compare numbers only across runs at the
 same concurrency, and prefer lower concurrency (e.g., 4) for gate runs on
 Tiers C/D where timing precision matters. Worst-case wall-clock at 8 jobs:
-Tier B ≈ 1–2 h, Tier C ≈ overnight, one Tier D set ≈ up to ~3 days — schedule
-gate runs accordingly.
+Tier B ≈ minutes, Tier C ≈ overnight, one Tier D set ≈ up to ~3 days —
+schedule gate runs accordingly.
 
 - **Tier A — "seconds" set (development inner loop; total runtime < 2 min).**
   ~200 generated instances with known status, solvable by even a naive CDCL
@@ -463,13 +463,19 @@ gate runs accordingly.
     small graph-coloring encodings.
   - Run on every commit. A solver that times out here (>30 s each) is simply
     broken; this is the set the phase-1 skeleton must clear first.
-- **Tier B — "≤ 30 s" competition subset (daily driver; total ≈ 30–60 CPU-min).**
-  100–150 instances from the SC 2023–2025 main tracks selected by *reference
-  runtime*: Kissat 4.0.4 solves each in ≤ 30 s on our hardware (we measure once
-  and freeze the list; GBD runtime data as a cross-check). Stratified: ~50% SAT /
-  50% UNSAT, diverse families (no more than 3 instances per family). Timeout for
-  our solver: 300 s (10× the reference — room to be slower while still measuring
-  progress). Primary dev metric: PAR-2 on Tier B + ratio vs Kissat.
+- **Tier B — "5–30 s" competition subset (daily driver; total ≈ 2–8 CPU-min).**
+  10–15 instances from the SC 2023–2025 main tracks selected by *reference
+  runtime*: Kissat 4.0.4 takes **between 5 s and 30 s** each on our hardware
+  (we measure once and freeze the list; GBD runtime data as a cross-check).
+  The lower bound keeps trivial instances out so each timing carries signal;
+  the small count keeps the set cheap enough to run on every meaningful
+  change, not just daily. Stratified: ~50% SAT / 50% UNSAT, diverse families
+  (no more than 2 instances per family). Timeout for our solver: 300 s (10×
+  the reference — room to be slower while still measuring progress). Primary
+  dev metric: PAR-2 on Tier B + ratio vs Kissat. Caveat of the small count:
+  a single instance moves PAR-2 by ~7–10%, so compare per-instance times and
+  repeat runs (report medians) before believing any small delta; Tier C is
+  where claims become statistically meaningful.
 - **Tier C — "≤ 300 s" subset (weekly; total ≈ a few CPU-hours).** Same
   construction with Kissat-runtime ≤ 300 s, ~150 instances; timeout for our
   solver: 3000 s (same 10× headroom rule as Tier B). Catches regressions
@@ -551,7 +557,8 @@ Components:
 ### 8.4 Flexibility (the R3-specific evaluation — most plans skip this)
 
 - **Overhead budget:** default policy vs `#ifdef`-hardcoded loop: ≤ 5% PAR-2
-  degradation on Tier B. Fully dynamic micro-dispatch mode: measure and document
+  degradation on Tier B (small set ⇒ repeated runs, per-instance medians —
+  see §8.1 caveat). Fully dynamic micro-dispatch mode: measure and document
   (expected 2–10×; that's acceptable for its use case).
 - **Expressiveness demos** (no kernel modifications allowed; 1–3 use only
   phase-≤2 rules so they can be reviewed at the phase-2 API freeze, 4–6 land
@@ -673,3 +680,11 @@ discovered during development get added here rather than answered ad hoc.
   CaDiCaL 3.0.0, matching the pinned `rel-3.0.0` build from
   `tools/solvers/setup.sh` (latest release at pin time; the 2.x reference
   predated the actual build).
+- **rev. 10** (2026-07-09): Tier B redefined per user decision: 10–15
+  instances (was 100–150) with Kissat runtime in the **5–30 s band** (lower
+  bound new — excludes trivial instances), total ≈ 2–8 CPU-min so it runs on
+  every meaningful change. Consequences: family cap tightened to 2 for
+  diversity in the small set; statistical-noise caveat added (per-instance
+  medians, repeated runs; Tier C for statistically meaningful claims);
+  §8.4 overhead-budget measurement references the caveat; benchmarks skill
+  updated to match. T1/T2 gates unchanged (still judged on Tier B).
