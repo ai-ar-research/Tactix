@@ -33,6 +33,7 @@ struct Stats {
   uint64_t propagations = 0;
   uint64_t learned = 0;
   uint64_t learned_units = 0;
+  uint64_t minimized = 0; // literals removed by clause minimization
   uint64_t api_decisions = 0; // externally chosen branches (N1)
 };
 

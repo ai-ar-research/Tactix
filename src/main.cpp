@@ -152,6 +152,8 @@ int main(int argc, char **argv) {
     printf("c learned     %llu (%llu units)\n",
            (unsigned long long)kernel.stats.learned,
            (unsigned long long)kernel.stats.learned_units);
+    printf("c minimized   %llu lits\n",
+           (unsigned long long)kernel.stats.minimized);
   }
   if (res == 10) {
     printf("s SATISFIABLE\n");
