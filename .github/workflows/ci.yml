@@ -1,7 +1,9 @@
-# CI (plan §5 build & CI, decided rev 8): pinned toolchain (baseline
-# solvers + proof checkers), fuzz-harness selftest, solver debug (ASan/
-# UBSan) + release builds, unit tests, competition compliance, and a quick
-# fuzz of the debug build. The Tier A gate step joins once T1 is close.
+# CI (plan §5 build & CI, decided rev 8). Two parallel jobs sharing the
+# pinned-toolchain cache:
+#   harness — fuzz-harness selftest (validates the validators)
+#   solver  — tactix debug(ASan/UBSan)+release builds, unit + micro-proof
+#             tests, competition compliance, quick fuzz of the debug build
+# The Tier A gate step joins the solver job once T1 is close.
 name: ci
 
 on:
@@ -10,12 +12,11 @@ on:
   pull_request:
 
 jobs:
-  toolchain-and-fuzz-harness:
+  harness:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-
       - name: Cache third-party toolchain builds
         uses: actions/cache@v4
         with:
@@ -25,30 +26,40 @@ jobs:
             drat-trim
             cake_lpr
           key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh') }}
-
       - name: Build baseline solvers (kissat, cadical — pinned)
         run: tools/solvers/setup.sh
-
       - name: Build checker toolchain (drat-trim, lrat-check, cake_lpr — pinned)
         run: tools/checkers/setup.sh
-
       - name: Fuzz harness self-test (stand-ins + broken wrappers + ddmin)
         run: tools/fuzz/selftest.sh
 
+  solver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache third-party toolchain builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            kissat
+            cadical
+            drat-trim
+            cake_lpr
+          key: toolchain-${{ runner.os }}-${{ hashFiles('tools/solvers/setup.sh', 'tools/checkers/setup.sh') }}
+      - name: Build baseline solvers (kissat, cadical — pinned)
+        run: tools/solvers/setup.sh
+      - name: Build checker toolchain (drat-trim, lrat-check, cake_lpr — pinned)
+        run: tools/checkers/setup.sh
       - name: "Build tactix (debug: ASan/UBSan)"
         run: cmake --preset debug && cmake --build build/debug -j
-
       - name: Build tactix (release)
         run: cmake --preset release && cmake --build build/release -j
-
       - name: Unit + micro-proof tests (debug)
         run: ctest --preset debug
-
       - name: Unit + micro-proof tests (release)
         run: ctest --preset release
-
       - name: Competition compliance
         run: tools/compete/check.sh ./build/release/tactix
-
       - name: Quick fuzz (debug build, all oracles)
         run: tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink
