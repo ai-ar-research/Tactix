@@ -4,6 +4,8 @@
 #include "rules/backjump/backjump.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/reduce/reduce.hpp"
+#include "rules/restart/restart.hpp"
 
 namespace tactix {
 
@@ -25,6 +27,14 @@ int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (k.unassigned == 0)
       return 10;
+    if (reduce_guard(k)) {
+      reduce_apply(k);
+      continue;
+    }
+    if (restart_guard(k)) {
+      restart_apply(k);
+      continue;
+    }
     if (stop && *stop)
       return 0;
     decide_apply_canonical(k);

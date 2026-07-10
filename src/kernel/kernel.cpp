@@ -156,6 +156,52 @@ void kernel_queue_bump(Kernel &k, Var v) {
   }
 }
 
+// Garbage collection after kissat/src/collect.c (MIT), simplified: copy
+// live clauses into a fresh arena in order, leave a forwarding pointer in
+// the old header (`searched` is dead there), then fix reasons and rebuild
+// the large-watch entries. Watched pairs stay lits[0]/lits[1], so all
+// watch invariants survive collection unchanged.
+void kernel_collect_garbage(Kernel &k) {
+  Arena fresh;
+  fresh.reserve(k.arena.size());
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      const Ref nref = static_cast<Ref>(fresh.size());
+      fresh.insert(fresh.end(), k.arena.begin() + ref,
+                   k.arena.begin() + ref + words);
+      clause_at(fresh, nref)->searched = 2;
+      c->searched = nref; // forwarding pointer in the old copy
+    }
+    ref += words;
+  }
+  for (const Lit lit : k.trail) {
+    Assigned &a = k.assigned[var_of(lit)];
+    if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON)
+      a.reason = clause_at(k.arena, a.reason)->searched;
+  }
+  for (WatchList &ws : k.watches) { // strip large entries, keep binaries
+    uint32_t *q = ws.data();
+    const uint32_t *p = q;
+    const uint32_t *const end = ws.data() + ws.size();
+    while (p != end) {
+      if (Watch{*p}.binary())
+        *q++ = *p++;
+      else
+        p += 2;
+    }
+    ws.resize(static_cast<size_t>(q - ws.data()));
+  }
+  k.arena.swap(fresh);
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    push_large_watch(k.watches[c->lits[0]], c->lits[1], ref);
+    push_large_watch(k.watches[c->lits[1]], c->lits[0], ref);
+    ref += clause_words(c->size);
+  }
+}
+
 Var kernel_queue_next_unassigned(Kernel &k) {
   Var v = k.search_idx;
   assert(v != UINT32_MAX);

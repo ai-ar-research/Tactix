@@ -9,6 +9,10 @@ add_executable(test_analyze test_analyze.cpp)
 target_link_libraries(test_analyze PRIVATE tactix_lib)
 add_test(NAME analyze COMMAND test_analyze)
 
+add_executable(test_restart_reduce test_restart_reduce.cpp)
+target_link_libraries(test_restart_reduce PRIVATE tactix_lib)
+add_test(NAME restart_reduce COMMAND test_restart_reduce)
+
 add_executable(test_api_c test_api_c.c)
 target_link_libraries(test_api_c PRIVATE tactix_lib)
 target_include_directories(test_api_c PRIVATE ${CMAKE_SOURCE_DIR}/include)

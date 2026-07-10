@@ -22,10 +22,12 @@ struct Clause {
 
   static constexpr uint32_t GARBAGE = 1u << 0;
   static constexpr uint32_t REDUNDANT = 1u << 1;
-  static constexpr uint32_t GLUE_SHIFT = 2;
+  static constexpr uint32_t REASON = 1u << 2; // transient lock during Reduce
+  static constexpr uint32_t GLUE_SHIFT = 3;
 
   bool garbage() const { return flags & GARBAGE; }
   bool redundant() const { return flags & REDUNDANT; }
+  bool reason() const { return flags & REASON; }
   uint32_t glue() const { return flags >> GLUE_SHIFT; }
   Lit *begin() { return lits; }
   Lit *end() { return lits + size; }

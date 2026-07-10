@@ -18,6 +18,8 @@ add_library(tactix_lib STATIC
   src/rules/decide/decide.cpp
   src/rules/analyze/analyze.cpp
   src/rules/backjump/backjump.cpp
+  src/rules/restart/restart.cpp
+  src/rules/reduce/reduce.cpp
   src/policies/default_policy.cpp
   src/frontend/parse.cpp
   src/api/api.cpp

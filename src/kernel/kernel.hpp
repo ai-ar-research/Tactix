@@ -35,6 +35,22 @@ struct Stats {
   uint64_t learned_units = 0;
   uint64_t minimized = 0; // literals removed by clause minimization
   uint64_t api_decisions = 0; // externally chosen branches (N1)
+  uint64_t restarts = 0;
+  uint64_t reductions = 0;
+  uint64_t deleted = 0; // learned clauses deleted by Reduce
+};
+
+// H-state for the macro rules (proof-irrelevant, plan §4)
+struct RestartState {
+  // EMA-triggered (Glucose-style) restarts for the (focused) phase-1 mode;
+  // reluctant doubling returns with stable mode / SwitchMode in phase 2.
+  uint64_t floor_conflicts = 50; // earliest next restart
+  double fast_glue = 0.0;        // ~ last 32 conflicts
+  double slow_glue = 0.0;        // ~ last 16384 conflicts
+  bool ema_initialized = false;
+};
+struct ReduceState {
+  uint64_t next_conflicts = 2000;
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
@@ -85,6 +101,8 @@ struct Kernel {
 
   Proof *proof = nullptr;
   Stats stats;
+  RestartState restart;
+  ReduceState reduce;
 
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
@@ -110,5 +128,10 @@ void kernel_backtrack(Kernel &, uint32_t target_level);
 void kernel_queue_init(Kernel &);
 void kernel_queue_bump(Kernel &, Var v); // move to front (most recent)
 Var kernel_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
+
+// --- garbage collection ------------------------------------------------
+// compacts the arena (dropping GARBAGE clauses), fixes trail reasons via
+// forwarding pointers, and rebuilds large watches (binaries kept in place)
+void kernel_collect_garbage(Kernel &);
 
 } // namespace tactix
