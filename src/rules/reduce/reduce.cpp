@@ -13,9 +13,15 @@ namespace tactix {
 
 static constexpr uint32_t KEEP_GLUE = 2;
 
+// soundness: deleting redundant clauses is always sound as long as
+// reason-locked clauses and the pending learned clause survive; only a
+// recorded-but-unanalyzed conflict pins the arena (stale conflict ref)
 bool reduce_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent && !k.pending.valid &&
-         k.stats.conflicts >= k.reduce.next_conflicts;
+  return !k.conflict_valid && !k.inconsistent;
+}
+
+bool reduce_advised(const Kernel &k) {
+  return k.stats.conflicts >= k.reduce.next_conflicts;
 }
 
 ApplyResult reduce_apply(Kernel &k) {
@@ -24,6 +30,10 @@ ApplyResult reduce_apply(Kernel &k) {
   k.reduce.next_conflicts =
       k.stats.conflicts + 2000 + 300 * k.stats.reductions;
 
+  // lock the pending learned clause (Analyze -> Backjump handoff): its
+  // ref must survive collection under arbitrary legal rule orders
+  if (k.pending.valid && k.pending.ref != INVALID_REF)
+    clause_at(k.arena, k.pending.ref)->flags |= Clause::REASON;
   // lock clauses currently used as reasons
   for (const Lit lit : k.trail) {
     const Assigned &a = k.assigned[var_of(lit)];
@@ -67,17 +77,20 @@ ApplyResult reduce_apply(Kernel &k) {
   }
   k.stats.deleted += deleted;
 
-  // unlock reasons, then compact + rewatch
+  // unlock, then compact + rewatch (collection forwards pending.ref too)
   for (const Lit lit : k.trail) {
     const Assigned &a = k.assigned[var_of(lit)];
     if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON)
       clause_at(k.arena, a.reason)->flags &= ~Clause::REASON;
   }
+  if (k.pending.valid && k.pending.ref != INVALID_REF)
+    clause_at(k.arena, k.pending.ref)->flags &= ~Clause::REASON;
   if (deleted)
-    kernel_collect_garbage(k);
+    kernel_collect_garbage(k); // forwards trail reasons AND pending.ref
   return deleted ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-TACTIX_REGISTER_RULE(Reduce, RuleTier::Macro, reduce_guard, reduce_apply);
+TACTIX_REGISTER_RULE(Reduce, RuleTier::Macro, reduce_guard,
+                     reduce_advised, reduce_apply);
 
 } // namespace tactix

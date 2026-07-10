@@ -27,6 +27,14 @@ grep -qx 's UNSATISFIABLE' "$T/out" || fail "missing exact 's UNSATISFIABLE'"
 "$DRAT_TRIM" "$T/unsat.cnf" "$T/proof.drat" > "$T/check" 2>&1 || true
 grep -q 's VERIFIED' "$T/check" || fail "proof not verified"
 
+# 2b. proofs are opt-in: UNSAT without a proof argument must work and
+#     must not create any proof file
+( cd "$T" && "$SOLVER" unsat.cnf > out.noproof ) && rc=$? || rc=$?
+[ "$rc" -eq 20 ] || fail "no-proof UNSAT exit code $rc != 20"
+grep -qx 's UNSATISFIABLE' "$T/out.noproof" || fail "no-proof UNSAT s line"
+[ "$(find "$T" -name '*.drat' | wc -l)" -eq 1 ] \
+  || fail "unexpected proof file created in no-proof mode"
+
 # 3. SIGTERM mid-solve on a hard instance: s UNKNOWN, proof prefix-valid
 python3 - "$T/hard.cnf" <<'EOF'
 import random, sys

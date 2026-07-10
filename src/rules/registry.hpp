@@ -18,11 +18,20 @@ enum class ApplyResult {
   Unsat     // empty clause derived (proof emitted)
 };
 
+// guard vs advised (N1-critical distinction):
+//   guard   — the SOUNDNESS precondition per the formal model (plan §4).
+//             Whenever it holds, apply() is total and sound — any policy,
+//             any order. Guards may encode conflict/handoff state-machine
+//             constraints (a recorded conflict must be analyzed before τ
+//             changes) but never scheduling heuristics.
+//   advised — DefaultPolicy's scheduling hint (budgets, EMAs). Optional;
+//             external policies are free to ignore it.
 struct RuleVTable {
   const char *name;
   RuleTier tier;
   bool (*guard)(const Kernel &);
-  ApplyResult (*apply)(Kernel &); // canonical instance
+  bool (*advised)(const Kernel &); // nullptr: advised whenever guarded
+  ApplyResult (*apply)(Kernel &);  // canonical instance
 };
 
 // registration (called from static initializers in rule modules)
@@ -33,9 +42,9 @@ int tactix_register_rule(const RuleVTable &);
 const std::vector<RuleVTable> &tactix_rules();
 int tactix_rule_id(const char *name); // -1 if unknown
 
-#define TACTIX_REGISTER_RULE(NAME, TIER, GUARD, APPLY) \
+#define TACTIX_REGISTER_RULE(NAME, TIER, GUARD, ADVISED, APPLY) \
   static const int tactix_rule_registered_##NAME = \
       ::tactix::tactix_register_rule( \
-          {#NAME, TIER, GUARD, APPLY})
+          {#NAME, TIER, GUARD, ADVISED, APPLY})
 
 } // namespace tactix

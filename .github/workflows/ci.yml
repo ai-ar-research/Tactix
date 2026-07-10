@@ -66,3 +66,9 @@ jobs:
       # coverage is the nightly job's business (plan §8.2 cadence)
       - name: Quick fuzz (debug build, all oracles)
         run: tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300
+
+      # rule-order fuzzing (plan §8.2): random legal schedules + random
+      # branching instances through the same four oracles — the modularity
+      # property (N1) under continuous test
+      - name: Quick fuzz, random rule schedule (debug build)
+        run: tools/fuzz/run.sh --quick --solver "./build/debug/tactix --random-policy=7" --no-shrink --n 150

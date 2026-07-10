@@ -1,6 +1,7 @@
 /* C-language API test: compiles tactix.h as C (header/ABI sync check for
  * api.cpp) and exercises N1 end-to-end — an external client choosing every
  * branching literal itself, driving rules stepwise via the registry. */
+#undef NDEBUG
 #include "tactix.h"
 
 #include <assert.h>

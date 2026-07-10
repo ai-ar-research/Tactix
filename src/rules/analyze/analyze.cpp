@@ -236,6 +236,7 @@ ApplyResult analyze_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-TACTIX_REGISTER_RULE(Analyze, RuleTier::Micro, analyze_guard, analyze_apply);
+TACTIX_REGISTER_RULE(Analyze, RuleTier::Micro, analyze_guard, nullptr,
+                     analyze_apply);
 
 } // namespace tactix

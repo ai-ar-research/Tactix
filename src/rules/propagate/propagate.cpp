@@ -120,8 +120,12 @@ ApplyResult propagate_apply(Kernel &k) {
   if (k.inconsistent)
     return ApplyResult::Unsat;
   while (k.propagate_head < k.trail.size()) {
-    const Lit lit = k.trail[k.propagate_head++];
+    const Lit lit = k.trail[k.propagate_head];
     if (propagate_literal(k, lit)) {
+      // do NOT advance past a literal whose scan broke on the conflict:
+      // if the backjump level keeps this literal (possible under the
+      // generalized analysis level), the unscanned tail of its watch list
+      // must be revisited — otherwise its implications are lost forever
       k.stats.conflicts++;
       if (k.level == 0) { // root conflict: the formula is refuted
         k.inconsistent = true;
@@ -132,11 +136,12 @@ ApplyResult propagate_apply(Kernel &k) {
       }
       return ApplyResult::Conflict;
     }
+    k.propagate_head++;
   }
   return ApplyResult::Ok;
 }
 
-TACTIX_REGISTER_RULE(Propagate, RuleTier::Micro, propagate_guard,
+TACTIX_REGISTER_RULE(Propagate, RuleTier::Micro, propagate_guard, nullptr,
                      propagate_apply);
 
 } // namespace tactix

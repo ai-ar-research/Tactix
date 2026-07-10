@@ -27,11 +27,11 @@ int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (k.unassigned == 0)
       return 10;
-    if (reduce_guard(k)) {
+    if (reduce_guard(k) && reduce_advised(k)) {
       reduce_apply(k);
       continue;
     }
-    if (restart_guard(k)) {
+    if (restart_guard(k) && restart_advised(k)) {
       restart_apply(k);
       continue;
     }

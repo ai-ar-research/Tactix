@@ -137,4 +137,10 @@ Var kernel_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
 // forwarding pointers, and rebuilds large watches (binaries kept in place)
 void kernel_collect_garbage(Kernel &);
 
+// --- internal invariants (plan §8.2 oracle 4; debug builds) --------------
+// aborts on: values/trail/unassigned incoherence, frame/level corruption,
+// watch-list damage, or a missed conflict (fully propagated state with a
+// falsified clause). No-op in NDEBUG builds.
+void kernel_check_invariants(const Kernel &);
+
 } // namespace tactix

@@ -18,6 +18,11 @@ target_link_libraries(test_api_c PRIVATE tactix_lib)
 target_include_directories(test_api_c PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME api_n1 COMMAND test_api_c)
 
+add_executable(test_random_policy test_random_policy.c)
+target_link_libraries(test_random_policy PRIVATE tactix_lib)
+target_include_directories(test_random_policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME random_policy COMMAND test_random_policy)
+
 # micro-formula proof test: tiny UNSATs through the real binary, proofs
 # verified by drat-trim (skips with 77 when the checker isn't built)
 add_test(NAME micro_proofs

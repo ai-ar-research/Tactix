@@ -5,6 +5,7 @@
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "policies/random_policy.hpp"
 #include "proof/proof.hpp"
 
 #include <csignal>
@@ -69,6 +70,8 @@ int main(int argc, char **argv) {
   const char *proof_path = nullptr;
   bool binary_proof = true;
   bool quiet = false;
+  bool random_policy = false;
+  unsigned long long random_seed = 20260710;
 
   for (int i = 1; i < argc; i++) {
     const char *a = argv[i];
@@ -79,8 +82,15 @@ int main(int argc, char **argv) {
       quiet = true;
     } else if (!strcmp(a, "--no-binary")) {
       binary_proof = false;
+    } else if (!strncmp(a, "--random-policy", 15)) {
+      // soundness testing mode (plan §8.2 rule-order fuzzing): random
+      // legal rule schedule, random branching instances, proofs intact
+      random_policy = true;
+      if (a[15] == '=')
+        random_seed = strtoull(a + 16, nullptr, 10);
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q] [--no-binary] <cnf[.xz|.gz]> [proof]\n");
+      printf("usage: tactix [-q] [--no-binary] [--random-policy[=SEED]] "
+             "<cnf[.xz|.gz]> [proof]\n");
       return 0;
     } else if (a[0] == '-' && a[1]) {
       fprintf(stderr, "tactix: unknown option '%s'\n", a);
@@ -138,7 +148,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  const int res = default_solve(kernel, &caught_signal);
+  const int res = random_policy
+                      ? random_solve(kernel, random_seed, &caught_signal)
+                      : default_solve(kernel, &caught_signal);
 
   proof.flush();
   if (!quiet) {

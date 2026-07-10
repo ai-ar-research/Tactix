@@ -106,7 +106,11 @@ void kernel_backtrack(Kernel &k, uint32_t target) {
   }
   k.frames.resize(target + 1);
   k.level = target;
-  k.propagate_head = new_size;
+  // never move the head FORWARD: under schedules that backtrack with
+  // unpropagated older entries (legal — e.g. Decide before propagation
+  // fixpoint, then Backjump), skipping them would lose propagations
+  if (k.propagate_head > new_size)
+    k.propagate_head = new_size;
 }
 
 // --- VMTF -------------------------------------------------------------------
@@ -181,6 +185,8 @@ void kernel_collect_garbage(Kernel &k) {
     if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON)
       a.reason = clause_at(k.arena, a.reason)->searched;
   }
+  if (k.pending.valid && k.pending.ref != INVALID_REF)
+    k.pending.ref = clause_at(k.arena, k.pending.ref)->searched;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     // strip large entries in place, keep binaries
     uint32_t *const begin = k.watches.begin(lit);
@@ -216,4 +222,130 @@ Var kernel_queue_next_unassigned(Kernel &k) {
   return v;
 }
 
+
+#ifndef NDEBUG
+#include <cstdio>
+void kernel_check_invariants(const Kernel &k) {
+  // values <-> trail <-> unassigned coherence
+  uint32_t assigned_count = 0;
+  for (Var v = 0; v < k.nvars; v++) {
+    const int8_t pos = k.values[make_lit(v, false)];
+    const int8_t neg = k.values[make_lit(v, true)];
+    assert(pos == -neg);
+    if (pos != 0)
+      assigned_count++;
+  }
+  assert(assigned_count + k.unassigned == k.nvars);
+  assert(assigned_count == k.trail.size());
+  assert(k.propagate_head <= k.trail.size());
+  assert(k.frames.size() == k.level + 1);
+  for (size_t i = 0; i < k.trail.size(); i++) {
+    const Lit lit = k.trail[i];
+    assert(k.values[lit] > 0);
+    const Assigned &a = k.assigned[var_of(lit)];
+    assert(a.trail == i);
+    assert(a.level <= k.level);
+    // trail position within the frame of its level
+    assert(a.level == 0 || i >= k.frames[a.level]);
+    assert(a.level == k.level || i < k.frames[a.level + 1]);
+  }
+  // every live large clause is watched on exactly lits[0] and lits[1]
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) {
+      for (int w = 0; w < 2; w++) {
+        const Lit lit = c->lits[w];
+        bool found = false;
+        const WatchHead &h = k.watches.heads[lit];
+        const uint32_t *ws = k.watches.arena.data() + h.offset;
+        for (uint32_t i = 0; i < h.size;) {
+          if (Watch{ws[i]}.binary()) {
+            i += 1;
+          } else {
+            if (ws[i + 1] == ref)
+              found = true;
+            i += 2;
+          }
+        }
+        assert(found && "clause not watched on a watched literal");
+      }
+    }
+    ref += clause_words(c->size);
+  }
+  // binary watch symmetry: every binary entry (l -> other) must have its
+  // mirror (other -> l); losing one side silently kills the clause
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+    const WatchHead &h = k.watches.heads[lit];
+    const uint32_t *ws = k.watches.arena.data() + h.offset;
+    for (uint32_t i = 0; i < h.size;) {
+      if (Watch{ws[i]}.binary()) {
+        const Lit o = Watch{ws[i]}.other();
+        const WatchHead &ho = k.watches.heads[o];
+        const uint32_t *wso = k.watches.arena.data() + ho.offset;
+        bool mirror = false;
+        for (uint32_t j = 0; j < ho.size;) {
+          if (Watch{wso[j]}.binary()) {
+            if (Watch{wso[j]}.other() == lit)
+              mirror = true;
+            j += 1;
+          } else {
+            j += 2;
+          }
+        }
+        if (!mirror) {
+          fprintf(stderr, "INVARIANT: binary watch (%d %d) lost its mirror\n",
+                  externalize(lit), externalize(o));
+          assert(false && "asymmetric binary watch");
+        }
+        i += 1;
+      } else {
+        i += 2;
+      }
+    }
+  }
+
+  // propagation completeness: fully propagated + no conflict in flight
+  // means no clause is falsified
+  if (k.propagate_head == k.trail.size() && !k.conflict_valid &&
+      !k.pending.valid && !k.inconsistent) {
+    for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+      const WatchHead &h = k.watches.heads[lit];
+      const uint32_t *ws = k.watches.arena.data() + h.offset;
+      for (uint32_t i = 0; i < h.size;) {
+        if (Watch{ws[i]}.binary()) {
+          if (k.values[lit] < 0 && k.values[Watch{ws[i]}.other()] < 0) {
+            const Lit o = Watch{ws[i]}.other();
+            fprintf(stderr,
+                    "INVARIANT: falsified binary (%d %d); "
+                    "levels %u %u trailpos %u %u head %u size %zu level %u\n",
+                    externalize(lit), externalize(o),
+                    k.assigned[var_of(lit)].level, k.assigned[var_of(o)].level,
+                    k.assigned[var_of(lit)].trail, k.assigned[var_of(o)].trail,
+                    k.propagate_head, k.trail.size(), k.level);
+            assert(false && "falsified binary clause escaped propagation");
+          }
+          i += 1;
+        } else {
+          i += 2;
+        }
+      }
+    }
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage()) {
+        bool nonfalse = false;
+        for (const Lit l : *c)
+          if (k.values[l] >= 0)
+            nonfalse = true;
+        assert(nonfalse && "falsified large clause escaped propagation");
+      }
+      ref += clause_words(c->size);
+    }
+  }
+}
+#else
+void kernel_check_invariants(const Kernel &) {}
+#endif
+
 } // namespace tactix
+

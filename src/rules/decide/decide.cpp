@@ -4,9 +4,11 @@
 
 namespace tactix {
 
+// formal model (plan §4): Decide iff no conflict and unassigned vars
+// exist. A pending Analyze->Backjump handoff does NOT block deciding —
+// Backjump tolerates an already-assigned asserting literal.
 bool decide_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent && !k.pending.valid &&
-         k.unassigned > 0;
+  return !k.conflict_valid && !k.inconsistent && k.unassigned > 0;
 }
 
 ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
@@ -36,7 +38,7 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
   return n;
 }
 
-TACTIX_REGISTER_RULE(Decide, RuleTier::Micro, decide_guard,
+TACTIX_REGISTER_RULE(Decide, RuleTier::Micro, decide_guard, nullptr,
                      decide_apply_canonical);
 
 } // namespace tactix

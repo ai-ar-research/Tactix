@@ -9,6 +9,7 @@
 namespace tactix {
 
 bool reduce_guard(const Kernel &);
+bool reduce_advised(const Kernel &);
 ApplyResult reduce_apply(Kernel &);
 
 } // namespace tactix

@@ -21,6 +21,7 @@ add_library(tactix_lib STATIC
   src/rules/restart/restart.cpp
   src/rules/reduce/reduce.cpp
   src/policies/default_policy.cpp
+  src/policies/random_policy.cpp
   src/frontend/parse.cpp
   src/api/api.cpp
 )

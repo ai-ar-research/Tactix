@@ -72,6 +72,16 @@ int tactix_rules_applicable(tactix_solver *s, int *out, int cap) {
   return n;
 }
 
+int tactix_rule_advised(tactix_solver *s, int rule_id) {
+  const auto &rules = tactix_rules();
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
+    return 0;
+  const RuleVTable &r = rules[rule_id];
+  if (!r.guard(s->kernel))
+    return 0;
+  return (!r.advised || r.advised(s->kernel)) ? 1 : 0;
+}
+
 int tactix_apply(tactix_solver *s, int rule_id) {
   const auto &rules = tactix_rules();
   if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
@@ -79,7 +89,9 @@ int tactix_apply(tactix_solver *s, int rule_id) {
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
     return -1;
-  switch (r.apply(s->kernel)) {
+  const ApplyResult res = r.apply(s->kernel);
+  kernel_check_invariants(s->kernel); // no-op in NDEBUG
+  switch (res) {
   case ApplyResult::Ok:
     return 0;
   case ApplyResult::NoOp:
@@ -111,13 +123,21 @@ int tactix_decide(tactix_solver *s, int elit) {
   const Lit l = internalize(elit);
   if (var_of(l) >= s->kernel.nvars)
     return -1;
-  return decide_apply(s->kernel, l, true) == ApplyResult::Ok ? 0 : -1;
+  const int ok = decide_apply(s->kernel, l, true) == ApplyResult::Ok ? 0 : -1;
+  kernel_check_invariants(s->kernel); // no-op in NDEBUG
+  return ok;
 }
 
 int tactix_status(tactix_solver *s) {
   if (s->kernel.inconsistent)
     return 20;
-  if (s->kernel.unassigned == 0 && !s->kernel.conflict_valid)
+  // SAT requires a total, fully propagated assignment with NO conflict
+  // in flight: a recorded conflict (conflict_valid) or an analyzed-but-
+  // not-yet-backjumped one (pending.valid) means the current assignment
+  // still falsifies a clause even though the propagation head moved on
+  if (s->kernel.unassigned == 0 && !s->kernel.conflict_valid &&
+      !s->kernel.pending.valid &&
+      s->kernel.propagate_head == s->kernel.trail.size())
     return 10;
   return 0;
 }

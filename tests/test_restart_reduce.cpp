@@ -19,12 +19,14 @@ static void test_restart() {
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
-  assert(!restart_guard(k)); // EMAs not initialized yet
+  // guard (soundness) holds at any level > 0; the EMA schedule is advice
+  assert(restart_guard(k));
+  assert(!restart_advised(k)); // EMAs not initialized yet
   k.restart.ema_initialized = true;
   k.restart.fast_glue = 10.0; // degrading search: fast >> slow
   k.restart.slow_glue = 4.0;
   k.stats.conflicts = k.restart.floor_conflicts;
-  assert(restart_guard(k));
+  assert(restart_advised(k));
   assert(restart_apply(k) == ApplyResult::Ok);
   assert(k.level == 0);
   assert(k.values[internalize(1)] == 0); // decision undone
@@ -67,7 +69,7 @@ static void test_reduce_deletes_and_logs() {
   const Ref kref = kernel_add_large_clause(k, keeper, 3, true, 1);
   (void)kref;
   k.stats.conflicts = k.reduce.next_conflicts;
-  assert(reduce_guard(k));
+  assert(reduce_guard(k) && reduce_advised(k));
   assert(reduce_apply(k) == ApplyResult::Ok);
   assert(k.stats.deleted == 3); // 75% of the four candidates
   proof.flush();
@@ -80,7 +82,7 @@ static void test_reduce_deletes_and_logs() {
   fclose(f);
   remove(path);
   assert(dels == 3); // every deletion hit the proof
-  assert(!reduce_guard(k)); // budget pushed out
+  assert(!reduce_advised(k)); // budget pushed out (guard still holds)
 }
 
 static void test_solve_with_restarts_still_correct() {
