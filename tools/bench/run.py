@@ -29,6 +29,7 @@ import json
 import os
 import resource
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -45,6 +46,8 @@ TIER_MEM_GB = {"D": 16}
 BASELINES = {
     "kissat": os.path.join(ROOT, "tools", "solvers", "bin", "kissat"),
     "cadical": os.path.join(ROOT, "tools", "solvers", "bin", "cadical"),
+    "minisat": os.path.join(ROOT, "tools", "solvers", "bin", "minisat"),
+    "glucose": os.path.join(ROOT, "tools", "solvers", "bin", "glucose"),
 }
 
 
@@ -71,16 +74,19 @@ def parse_verdict(exitcode, stdout):
         return "SAT"
     if exitcode == 20 and sline == "UNSATISFIABLE":
         return "UNSAT"
+    if sline is None and exitcode in (10, 20):
+        # baseline solvers without competition s-lines (MiniSat): trust
+        # the conventional exit code
+        return "SAT" if exitcode == 10 else "UNSAT"
     return "UNKNOWN"
 
 
-def run_instance(cmd, rel, expected, timeout, check_proofs, workdir,
+def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                  mem_gb=None):
-    cnf = os.path.join(CACHE, rel)
     res = {"instance": rel, "expected": expected, "verdict": "UNKNOWN",
            "time": timeout, "solved": False, "mismatch": False,
            "proof_ok": None, "proof_bytes": None, "proof_check_time": None}
-    if not os.path.exists(cnf):
+    if cnf is None or not os.path.exists(cnf):
         res["verdict"] = "MISSING"
         return res
     proof = os.path.join(workdir, rel.replace("/", "_") + ".drat")
@@ -115,27 +121,14 @@ def run_instance(cmd, rel, expected, timeout, check_proofs, workdir,
             else:
                 res["proof_bytes"] = os.path.getsize(proof)
                 t1 = time.monotonic()
-                # drat-trim reads plain DIMACS only; solvers decompress
-                # .xz/.gz themselves but the checker needs our help
-                plain = cnf
-                decompress = {".xz": "xz", ".gz": "gzip"}.get(
-                    os.path.splitext(cnf)[1])
-                if decompress:
-                    plain = proof + ".cnf"
-                    with open(plain, "wb") as f:
-                        subprocess.run([decompress, "-dc", cnf], stdout=f,
-                                       check=True)
                 try:
-                    c = subprocess.run([DRAT_TRIM, plain, proof],
+                    c = subprocess.run([DRAT_TRIM, cnf, proof],
                                        capture_output=True, text=True,
                                        errors="replace",
                                        timeout=max(60.0, 2 * timeout))
                     ok = "s VERIFIED" in c.stdout
                 except subprocess.TimeoutExpired:
                     ok = False
-                finally:
-                    if plain != cnf and os.path.exists(plain):
-                        os.unlink(plain)
                 res["proof_check_time"] = round(time.monotonic() - t1, 3)
                 res["proof_ok"] = ok
                 if not ok:          # rejected proof = unsolved (plan §2)
@@ -208,6 +201,27 @@ def main() -> int:
         solvers.append((os.path.basename(shlex.split(BASELINES.get(b, b))[0]),
                         shlex.split(BASELINES.get(b, b)), False))
 
+    # stage instances as plain DIMACS once — some baselines (MiniSat,
+    # Glucose) read .gz at best, and excluding decompression time from
+    # every solver's wall clock is fairer anyway
+    stage = os.path.join(outdir, "staged")
+    os.makedirs(stage, exist_ok=True)
+    paths = {}
+    for rel, _, _ in entries:
+        src = os.path.join(CACHE, rel)
+        if not os.path.exists(src):
+            paths[rel] = None
+            continue
+        tool = {".xz": "xz", ".gz": "gzip"}.get(os.path.splitext(rel)[1])
+        if tool:
+            dst = os.path.join(stage, os.path.basename(rel)[:-3])
+            if not os.path.exists(dst):
+                with open(dst, "wb") as f:
+                    subprocess.run([tool, "-dc", src], stdout=f, check=True)
+            paths[rel] = dst
+        else:
+            paths[rel] = src
+
     all_results = {}
     any_bug = False
     for sname, cmd, check_proofs in solvers:
@@ -216,8 +230,9 @@ def main() -> int:
               f"jobs {args.jobs}) ==", flush=True)
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
             results = list(ex.map(
-                lambda e: run_instance(cmd, e[0], e[1], timeout,
-                                       check_proofs, outdir, mem_gb),
+                lambda e: run_instance(cmd, e[0], paths[e[0]], e[1],
+                                       timeout, check_proofs, outdir,
+                                       mem_gb),
                 entries))
         summary, bug = summarize(sname, results, timeout, args.jobs)
         print(summary, flush=True)
@@ -228,6 +243,7 @@ def main() -> int:
             "git": sha, "date": stamp, "mem_gb": mem_gb,
             "solvers": {n: " ".join(c) for n, c, _ in solvers},
             "results": all_results}
+    shutil.rmtree(stage, ignore_errors=True)
     with open(os.path.join(outdir, "results.json"), "w") as f:
         json.dump(meta, f, indent=2)
     print(f"results: {outdir}/results.json")

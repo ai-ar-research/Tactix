@@ -53,7 +53,7 @@ disagree, the plan is authoritative — fix this file.
 - [x] Rule registry + guard/instances/apply contract in place (§5.3 from day one) — static registry, stable name-sorted ids, no central switch
 - [x] All fuzz oracles green (proof check on every UNSAT) — first `--quick` run: 1000 cases, 0 failures under ASan/UBSan
 - [x] Rules S1–S2: Restart (EMA-triggered, Glucose scheme; reluctant doubling returns with stable mode), Reduce (glue-tiered deletion + reason locking + arena garbage collection, DRAT deletes) — *moved from phase 2 in rev 12*
-- [ ] MiniSat + Glucose built as baselines (needed for the T1/T2 comparisons)
+- [x] MiniSat + Glucose built as baselines (needed for the T1/T2 comparisons) — pinned in `tools/solvers/setup.sh` (minisat 37dc6c6 + 3 scripted macOS/clang patches; glucose 4.2.1); `run.py` gains exit-code verdicts for s-line-less baselines and stages decompressed instances for all solvers equally
 - **Exit:** T1
 
 ## Phase 2 — search management + API freeze
