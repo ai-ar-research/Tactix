@@ -35,7 +35,7 @@ jobs:
       - name: Fuzz harness self-test (stand-ins + broken wrappers + ddmin)
         run: tools/fuzz/selftest.sh
 
-      - name: Build tactix (debug: ASan/UBSan)
+      - name: "Build tactix (debug: ASan/UBSan)"
         run: cmake --preset debug && cmake --build build/debug -j
 
       - name: Build tactix (release)
