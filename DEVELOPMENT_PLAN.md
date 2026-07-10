@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 10). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-09 (rev. 11). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -615,7 +615,7 @@ discovered during development get added here rather than answered ad hoc.
 
 | # | Open item | Decide by |
 |---|---|---|
-| O1 | Reference benchmark hardware — the machine that defines "Kissat ≤ 30 s" for the Tier B/C freezes and all reports → *narrowed rev 6: a single local workstation, ≤ 8 parallel benchmark jobs, no HPC/StarExec; exact machine specs still to be recorded at the first timing run* | phase 0, first timing run |
+| O1 | Reference benchmark hardware — the machine that defines the Kissat timing bands for the Tier B/C freezes and all reports → *narrowed rev 6: a single local workstation, ≤ 8 parallel benchmark jobs, no HPC/StarExec* → *decided rev 11: Apple M3 Pro (6P+6E cores), 36 GB RAM, macOS 15.7.7; tier-freeze timings at jobs=1 (first timing run: Tier B freeze, 2026-07-09)* | phase 0, first timing run |
 | O2 | Build system and CI provider → *decided rev 8: CMake (≥ 3.25, presets debug/release) + GitHub Actions — repo already on GitHub, CMake is the friction-free path for pybind11 (§5 frontends) and sanitizer presets; CI job grows with phase-0 deliverables* | phase 0, first code |
 | O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting | draft in phase 1; freeze at phase-2 API v1 |
 | O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
@@ -688,3 +688,7 @@ discovered during development get added here rather than answered ad hoc.
   medians, repeated runs; Tier C for statistically meaningful claims);
   §8.4 overhead-budget measurement references the caveat; benchmarks skill
   updated to match. T1/T2 gates unchanged (still judged on Tier B).
+- **rev. 11** (2026-07-09): concretized O1 (reference hardware): Apple M3
+  Pro (6P+6E), 36 GB RAM, macOS 15.7.7; tier-freeze timings at jobs=1.
+  Recorded at the first timing run (Tier B freeze — see
+  benchmarks/reports/2026-07-09-tier-b-freeze.md).
