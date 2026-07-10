@@ -37,3 +37,5 @@ benchmarks/runs/
 .vscode/
 .idea/
 compile_commands.json
+__pycache__/
+*.pyc
