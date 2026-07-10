@@ -61,5 +61,8 @@ jobs:
         run: ctest --preset release
       - name: Competition compliance
         run: tools/compete/check.sh ./build/release/tactix
+      # 300 cases: the GH runner is ~4x slower than the reference machine;
+      # the full 1000-case --quick gate runs locally per commit, volume
+      # coverage is the nightly job's business (plan §8.2 cadence)
       - name: Quick fuzz (debug build, all oracles)
-        run: tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink
+        run: tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300
