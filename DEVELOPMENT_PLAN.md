@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 11). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-10 (rev. 12). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -282,8 +282,8 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 
 | # | Family | Kissat modules | Proof delta | Phase |
 |---|---|---|---|---|
-| S1 | `Restart` | restart, reluctant, averages, smooth | none | 2 |
-| S2 | `Reduce` (clause-DB reduction, tier promotion) | reduce, tiers, promote, collect | delete | 2 |
+| S1 | `Restart` | restart, reluctant, averages, smooth | none | 1 (moved rev 12) |
+| S2 | `Reduce` (clause-DB reduction, tier promotion) | reduce, tiers, promote, collect | delete | 1 (moved rev 12) |
 | S3 | `Rephase` (best/inverted/original/target phases) | rephase, phases | none | 2 |
 | S4 | `SwitchMode` (stable ⇄ focused) | mode | none | 2 |
 | S5 | `Lucky` (constant/alternating assignment probes) | lucky | none (may conclude SAT) | 2 |
@@ -452,8 +452,10 @@ Tier B ≈ minutes, Tier C ≈ overnight, one Tier D set ≈ up to ~3 days —
 schedule gate runs accordingly.
 
 - **Tier A — "seconds" set (development inner loop; total runtime < 2 min).**
-  ~200 generated instances with known status, solvable by even a naive CDCL
-  solver in milliseconds–seconds:
+  ~200 generated instances with known status, solvable by a basic CDCL
+  solver — with restarts and clause-DB reduction; measured rev 12: plain
+  1-UIP CDCL without them times out on transition instances at n ≥ 250 —
+  in milliseconds–seconds:
   - Random 3-SAT at/near the phase transition (m/n ≈ 4.26), n = 50–300, seeded;
     half SAT, half UNSAT (status established once with Kissat and recorded).
   - Under-constrained (m/n ≈ 3, guaranteed easy SAT) and over-constrained
@@ -580,8 +582,8 @@ Components:
 | Phase | Deliverable | Exit criterion |
 |---|---|---|
 | 0 (setup) | Repo, CI; **baseline solvers built locally** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
-| 1 | Kernel + Propagate/Decide/Analyze/Backjump + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
-| 2 | Restarts, reduce, phases, mode switching; native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
+| 1 | Kernel + Propagate/Decide/Analyze/Backjump + Restart/Reduce (S1–S2, moved from phase 2 in rev 12) + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
+| 2 | Rephasing, mode switching, lucky probes (S3–S5); native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
 | 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
 | 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Walk, Sweep, Congruence, Factor/SBVA, BCE) | T4 on Tier D; §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
 | 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
@@ -692,3 +694,11 @@ discovered during development get added here rather than answered ad hoc.
   Pro (6P+6E), 36 GB RAM, macOS 15.7.7; tier-freeze timings at jobs=1.
   Recorded at the first timing run (Tier B freeze — see
   benchmarks/reports/2026-07-09-tier-b-freeze.md).
+- **rev. 12** (2026-07-10): S1 Restart and S2 Reduce moved from phase 2 to
+  phase 1. Empirical driver: the phase-1 solver (M1–M4 + minimization)
+  leaves 16 Tier A transition instances (n = 250–290) unsolved at 30 s —
+  a 60 s profile shows an unreduced 322k-clause learned DB collapsing
+  propagation throughput; T1 is unreachable without S1/S2, and T1 also
+  benchmarks against MiniSat, which has both. Phase 2 keeps S3–S5, native
+  LRAT, and the API freeze. §8.1's "naive CDCL" claim for Tier A
+  corrected to match measurement.
