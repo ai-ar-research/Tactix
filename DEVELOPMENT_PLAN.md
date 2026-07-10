@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-09 (rev. 8). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-09 (rev. 9). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -535,7 +535,8 @@ Components:
 
 - **Primary metric:** PAR-2 + #solved (SAT/UNSAT split) on the tier appropriate
   to the phase; plus proof-check time and proof size as first-class metrics.
-- **Baselines:** MiniSat 2.2, Glucose, CaDiCaL 2.x, Kissat 4.0.4, and SC25
+- **Baselines:** MiniSat 2.2, Glucose, CaDiCaL 3.0.0 (pinned `rel-3.0.0`,
+  `tools/solvers/setup.sh`), Kissat 4.0.4, and SC25
   winners' binaries (AE-Kissat-MAB, CaDiCaL-SC2025) where obtainable — all run
   on the same tiers with the same limits.
 - **Staged targets (gate each phase):**
@@ -668,3 +669,7 @@ discovered during development get added here rather than answered ad hoc.
   repo already on GitHub; CMake gives sanitizer presets and the pybind11 path
   with least friction. Decided minimally — packaging/Docker specifics remain
   phase-5 (§6).
+- **rev. 9** (2026-07-09): baseline version wording — §8.3 "CaDiCaL 2.x" →
+  CaDiCaL 3.0.0, matching the pinned `rel-3.0.0` build from
+  `tools/solvers/setup.sh` (latest release at pin time; the 2.x reference
+  predated the actual build).
