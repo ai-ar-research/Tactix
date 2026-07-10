@@ -1,8 +1,7 @@
-# CI (plan §5 build & CI, decided rev 8). The job grows with the phase-0/1
-# deliverables: today it builds the pinned toolchain (baseline solvers +
-# proof checkers) and validates the fuzz harness end-to-end. When the solver
-# skeleton lands (phase 1) this gains: CMake debug (ASan/UBSan) + release
-# builds, unit tests, quick fuzz against the debug build, and Tier A.
+# CI (plan §5 build & CI, decided rev 8): pinned toolchain (baseline
+# solvers + proof checkers), fuzz-harness selftest, solver debug (ASan/
+# UBSan) + release builds, unit tests, competition compliance, and a quick
+# fuzz of the debug build. The Tier A gate step joins once T1 is close.
 name: ci
 
 on:
@@ -35,3 +34,21 @@ jobs:
 
       - name: Fuzz harness self-test (stand-ins + broken wrappers + ddmin)
         run: tools/fuzz/selftest.sh
+
+      - name: Build tactix (debug: ASan/UBSan)
+        run: cmake --preset debug && cmake --build build/debug -j
+
+      - name: Build tactix (release)
+        run: cmake --preset release && cmake --build build/release -j
+
+      - name: Unit + micro-proof tests (debug)
+        run: ctest --preset debug
+
+      - name: Unit + micro-proof tests (release)
+        run: ctest --preset release
+
+      - name: Competition compliance
+        run: tools/compete/check.sh ./build/release/tactix
+
+      - name: Quick fuzz (debug build, all oracles)
+        run: tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink
