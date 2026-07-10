@@ -115,14 +115,27 @@ def run_instance(cmd, rel, expected, timeout, check_proofs, workdir,
             else:
                 res["proof_bytes"] = os.path.getsize(proof)
                 t1 = time.monotonic()
+                # drat-trim reads plain DIMACS only; solvers decompress
+                # .xz/.gz themselves but the checker needs our help
+                plain = cnf
+                decompress = {".xz": "xz", ".gz": "gzip"}.get(
+                    os.path.splitext(cnf)[1])
+                if decompress:
+                    plain = proof + ".cnf"
+                    with open(plain, "wb") as f:
+                        subprocess.run([decompress, "-dc", cnf], stdout=f,
+                                       check=True)
                 try:
-                    c = subprocess.run([DRAT_TRIM, cnf, proof],
+                    c = subprocess.run([DRAT_TRIM, plain, proof],
                                        capture_output=True, text=True,
                                        errors="replace",
                                        timeout=max(60.0, 2 * timeout))
                     ok = "s VERIFIED" in c.stdout
                 except subprocess.TimeoutExpired:
                     ok = False
+                finally:
+                    if plain != cnf and os.path.exists(plain):
+                        os.unlink(plain)
                 res["proof_check_time"] = round(time.monotonic() - t1, 3)
                 res["proof_ok"] = ok
                 if not ok:          # rejected proof = unsolved (plan §2)
