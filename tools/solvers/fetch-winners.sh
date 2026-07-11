@@ -11,6 +11,11 @@
 #   AE-Kissat-MAB   SC 2025 main-track winner (MAB restart tuning on kissat)
 #   CaDiCaL-SC2025  SC 2025 main-track UNSAT winner
 #   kissat-sc2025   Biere et al.'s own SC 2025 entry (2nd overall)
+#   kissat-sc2024   SC 2024 main-track winner (swept all three golds); the
+#                   SC 2024 site never published solver archives ("tbd"),
+#                   so this comes from the kissat repo's sc2024 tag — our
+#                   rel-4.0.4 reference clone is this winner's lineage a few
+#                   releases later, so diffs against it are small and telling
 #   SBVA            SC 2023 winner's preprocessor (SBVA-CaDiCaL), from the
 #                   authors' GitHub (paper artifact, pinned commit)
 #
@@ -46,6 +51,12 @@ fetch_tar () { # name url
 fetch_tar AE_kissat2025_MAB "$SC25/AE_kissat2025_MAB.tar.xz"
 fetch_tar cadical-sc2025    "$SC25/cadical-sc2025.tar.xz"
 fetch_tar kissat-sc2025     "$SC25/kissat-sc2025.tar.xz"
+
+if [ ! -d "$DIR/kissat-sc2024" ]; then
+    echo "== kissat-sc2024: cloning at tag sc2024 =="
+    git clone --depth 1 --branch sc2024 https://github.com/arminbiere/kissat.git \
+        "$DIR/kissat-sc2024"
+fi
 
 if [ ! -d "$DIR/SBVA" ]; then
     echo "== SBVA: cloning =="
