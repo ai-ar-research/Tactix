@@ -38,7 +38,7 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
   return n;
 }
 
-TACTIX_REGISTER_RULE(Decide, RuleTier::Micro, decide_guard, nullptr,
+TACTIX_REGISTER_RULE(Decide, RuleTier::Micro, decide_guard,
                      decide_apply_canonical);
 
 } // namespace tactix

@@ -60,7 +60,7 @@ ApplyResult backjump_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-TACTIX_REGISTER_RULE(Backjump, RuleTier::Micro, backjump_guard, nullptr,
+TACTIX_REGISTER_RULE(Backjump, RuleTier::Micro, backjump_guard,
                      backjump_apply);
 
 } // namespace tactix

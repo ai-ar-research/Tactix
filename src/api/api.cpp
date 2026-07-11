@@ -72,16 +72,6 @@ int tactix_rules_applicable(tactix_solver *s, int *out, int cap) {
   return n;
 }
 
-int tactix_rule_advised(tactix_solver *s, int rule_id) {
-  const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
-    return 0;
-  const RuleVTable &r = rules[rule_id];
-  if (!r.guard(s->kernel))
-    return 0;
-  return (!r.advised || r.advised(s->kernel)) ? 1 : 0;
-}
-
 int tactix_apply(tactix_solver *s, int rule_id) {
   const auto &rules = tactix_rules();
   if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))

@@ -8,7 +8,6 @@
 namespace tactix {
 
 bool restart_guard(const Kernel &);
-bool restart_advised(const Kernel &);
 ApplyResult restart_apply(Kernel &);
 
 } // namespace tactix

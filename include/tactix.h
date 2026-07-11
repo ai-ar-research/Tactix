@@ -45,10 +45,6 @@ const char *tactix_rule_name(int rule_id);
  * now, in any order — this is theoretical applicability, N1. */
 int tactix_rules_applicable(tactix *, int *out, int cap);
 
-/* 1 iff DefaultPolicy's scheduling heuristics would fire this rule now
- * (guard AND advised). Purely advisory; external policies may ignore it. */
-int tactix_rule_advised(tactix *, int rule_id);
-
 /* apply a rule's canonical instance. Returns: 0 progress, 1 no-op,
  * 10 SAT concluded, 20 UNSAT concluded, 2 conflict found, -1 guard does
  * not hold. */

@@ -148,7 +148,7 @@ ApplyResult propagate_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-TACTIX_REGISTER_RULE(Propagate, RuleTier::Micro, propagate_guard, nullptr,
+TACTIX_REGISTER_RULE(Propagate, RuleTier::Micro, propagate_guard,
                      propagate_apply);
 
 } // namespace tactix

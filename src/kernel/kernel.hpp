@@ -44,19 +44,6 @@ struct Stats {
   uint64_t deleted = 0; // learned clauses deleted by Reduce
 };
 
-// H-state for the macro rules (proof-irrelevant, plan §4)
-struct RestartState {
-  // EMA-triggered (Glucose-style) restarts for the (focused) phase-1 mode;
-  // reluctant doubling returns with stable mode / SwitchMode in phase 2.
-  uint64_t floor_conflicts = 50; // earliest next restart
-  double fast_glue = 0.0;        // ~ last 32 conflicts
-  double slow_glue = 0.0;        // ~ last 16384 conflicts
-  bool ema_initialized = false;
-};
-struct ReduceState {
-  uint64_t next_conflicts = 2000;
-};
-
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
 struct PendingLearned {
   bool valid = false;
@@ -114,8 +101,9 @@ struct Kernel {
 
   Proof *proof = nullptr;
   Stats stats;
-  RestartState restart;
-  ReduceState reduce;
+  // NOTE (plan §5 rev 17): scheduling state (restart EMAs, reduce
+  // intervals, ...) lives in the Policy object, not here; kernel H-state
+  // is confined to instance-ranking heuristics (VMTF, phases).
 
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }

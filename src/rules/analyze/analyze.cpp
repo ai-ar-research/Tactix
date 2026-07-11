@@ -510,16 +510,6 @@ ApplyResult analyze_apply(Kernel &k) {
     k.marked_levels[lv] = 0;
   k.touched_levels.clear();
 
-  // glue EMAs steering Restart (H-state; kissat/src/averages.c idea)
-  RestartState &rs = k.restart;
-  if (rs.ema_initialized) {
-    rs.fast_glue += (glue - rs.fast_glue) / 32.0;
-    rs.slow_glue += (glue - rs.slow_glue) / 16384.0;
-  } else {
-    rs.fast_glue = rs.slow_glue = glue;
-    rs.ema_initialized = true;
-  }
-
   // proof delta first (add-RUP), then the clause joins R
   if (k.proof)
     k.proof->add_rup(learned.data(),
@@ -549,7 +539,7 @@ ApplyResult analyze_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-TACTIX_REGISTER_RULE(Analyze, RuleTier::Micro, analyze_guard, nullptr,
+TACTIX_REGISTER_RULE(Analyze, RuleTier::Micro, analyze_guard,
                      analyze_apply);
 
 } // namespace tactix

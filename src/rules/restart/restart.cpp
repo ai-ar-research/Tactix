@@ -8,19 +8,12 @@
 
 namespace tactix {
 
-static constexpr double MARGIN = 1.25;
-static constexpr uint64_t FLOOR_INTERVAL = 50;
-
 // soundness: abandoning the assignment prefix is always sound; only a
-// recorded-but-unanalyzed conflict pins the trail (stale conflict record)
+// recorded-but-unanalyzed conflict pins the trail (stale conflict record).
+// WHEN to restart is the policy's decision and state (plan §5 rev 17) —
+// this module only knows HOW.
 bool restart_guard(const Kernel &k) {
   return !k.conflict_valid && !k.inconsistent && k.level > 0;
-}
-
-bool restart_advised(const Kernel &k) {
-  return k.restart.ema_initialized &&
-         k.stats.conflicts >= k.restart.floor_conflicts &&
-         k.restart.fast_glue > MARGIN * k.restart.slow_glue;
 }
 
 // trail reuse (kissat restart.c reuse_focused_trail): keep the decision
@@ -51,11 +44,10 @@ ApplyResult restart_apply(Kernel &k) {
   if (keep < k.level)
     kernel_backtrack(k, keep);
   k.stats.restarts++;
-  k.restart.floor_conflicts = k.stats.conflicts + FLOOR_INTERVAL;
   return ApplyResult::Ok;
 }
 
 TACTIX_REGISTER_RULE(Restart, RuleTier::Macro, restart_guard,
-                     restart_advised, restart_apply);
+                     restart_apply);
 
 } // namespace tactix

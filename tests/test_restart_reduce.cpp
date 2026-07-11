@@ -19,19 +19,20 @@ static void test_restart() {
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
-  // guard (soundness) holds at any level > 0; the EMA schedule is advice
+  // guard (soundness) holds at any level > 0; scheduling lives in the
+  // policy object (plan rev 17), not the rule
   assert(restart_guard(k));
-  assert(!restart_advised(k)); // EMAs not initialized yet
-  k.restart.ema_initialized = true;
-  k.restart.fast_glue = 10.0; // degrading search: fast >> slow
-  k.restart.slow_glue = 4.0;
-  k.stats.conflicts = k.restart.floor_conflicts;
-  assert(restart_advised(k));
+  DefaultPolicy p;
+  assert(!p.want_restart(k)); // EMAs not initialized yet
+  p.restart.ema_initialized = true;
+  p.restart.fast_glue = 10.0; // degrading search: fast >> slow
+  p.restart.slow_glue = 4.0;
+  k.stats.conflicts = p.restart.floor_conflicts;
+  assert(p.want_restart(k));
   assert(restart_apply(k) == ApplyResult::Ok);
   assert(k.level == 0);
   assert(k.values[internalize(1)] == 0); // decision undone
   assert(k.stats.restarts == 1);
-  assert(k.restart.floor_conflicts > k.stats.conflicts); // floor pushed out
   assert(!restart_guard(k)); // level 0 now
 }
 
@@ -68,8 +69,9 @@ static void test_reduce_deletes_and_logs() {
   const Lit keeper[3] = {internalize(1), internalize(5), internalize(9)};
   const Ref kref = kernel_add_large_clause(k, keeper, 3, true, 1);
   (void)kref;
-  k.stats.conflicts = k.reduce.next_conflicts;
-  assert(reduce_guard(k) && reduce_advised(k));
+  DefaultPolicy rp;
+  k.stats.conflicts = rp.reduce.next_conflicts;
+  assert(reduce_guard(k) && rp.want_reduce(k));
   assert(reduce_apply(k) == ApplyResult::Ok);
   assert(k.stats.deleted == 3); // 75% of the four candidates
   proof.flush();
@@ -82,7 +84,9 @@ static void test_reduce_deletes_and_logs() {
   fclose(f);
   remove(path);
   assert(dels == 3); // every deletion hit the proof
-  assert(!reduce_advised(k)); // budget pushed out (guard still holds)
+  // the policy owns the budget now: advancing it stops the advice
+  rp.reduce.next_conflicts = k.stats.conflicts + 2000 + 300 * k.stats.reductions;
+  assert(!rp.want_reduce(k)); // budget pushed out (guard still holds)
 }
 
 static void test_solve_with_restarts_still_correct() {
@@ -102,13 +106,15 @@ static void test_solve_with_restarts_still_correct() {
       for (int p2 = p1 + 1; p2 < 4; p2++)
         kernel_add_binary_clause(k, internalize(-var(p1, h)),
                                  internalize(-var(p2, h)));
-  // restart storm: permanently-degraded EMAs + zero floor
-  k.restart.ema_initialized = true;
-  k.restart.fast_glue = 100.0;
-  k.restart.slow_glue = 1.0;
-  k.restart.floor_conflicts = 0;
-  k.reduce.next_conflicts = 4; // and aggressive reduction
-  assert(default_solve(k) == 20);
+  // restart storm: permanently-degraded EMAs + zero floor, posed on the
+  // policy instance (rev 17: schedules are policy state)
+  DefaultPolicy storm;
+  storm.restart.ema_initialized = true;
+  storm.restart.fast_glue = 100.0;
+  storm.restart.slow_glue = 1.0;
+  storm.restart.floor_conflicts = 0;
+  storm.reduce.next_conflicts = 4; // and aggressive reduction
+  assert(storm.solve(k) == 20);
 }
 
 static void test_restart_reuses_trail() {
