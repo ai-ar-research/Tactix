@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-10 (rev. 15). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-10 (rev. 16). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -212,30 +212,23 @@ Design commitments:
 - **Reproducibility:** single-threaded determinism; a `--trace` mode logs the rule
   sequence so any run is replayable through ScriptedPolicy — this doubles as the
   flexibility proof and as a debugging tool.
-- **Kissat as reference, not as fork.** We transliterate proven kernel techniques
-  (watcher layout, mode switching between stable/focused, tier-based clause
-  management, reluctant-doubling restarts) but keep our own rule/policy skeleton.
-  Kissat is MIT-licensed; attribution required.
-- **Reference solvers are evidence, not templates (rev 14).** Two obligations
-  whenever a technique or implementation scheme is taken from a reference
-  solver:
+- **Reference solvers are evidence, not templates (rev 14; ex "Kissat as
+  reference, not as fork").** We transliterate proven techniques but keep our
+  own rule/policy skeleton; never copy code verbatim; attribute (Kissat is
+  MIT). Two obligations when adopting a technique or implementation scheme:
   1. *Adopt on argument, not by default.* "Kissat does it this way" is never
-     sufficient justification by itself. Before transliterating, state (in the
-     commit/PR or a code comment) why the approach fits *this* architecture —
-     the rule contract (§5.3), N1–N3, our data structures — and what the
-     alternative would be. Where our design points elsewhere, deviate
-     deliberately and record the reasoning (precedent: Analyze runs at the
-     conflict's max level, not the current decision level, because N1 admits
-     schedules Kissat never sees). Adopting unchanged is often the right
-     answer — but it must be the *conclusion* of that check, not a reflex.
-  2. *Survey beyond plain Kissat.* Kissat is the primary kernel reference, but
-     it is one point in the design space. For any non-trivial technique, also
-     check how the recent competition winners handle it (CaDiCaL-SC2025,
-     AE-Kissat-MAB and the Kissat-MAB lineage, SBVA-CaDiCaL; solver
-     descriptions always, sources where obtainable — `cadical/` is already
-     cloned locally) before settling on an approach. The winners' deltas over
-     stock Kissat/CaDiCaL show which choices actually matter under competition
-     conditions and are exactly where "exceed" (§7.5) can come from.
+     sufficient by itself: state (commit message or code comment) why the
+     approach fits *this* architecture — the rule contract (§5.3), N1–N3, our
+     data structures. Where our design points elsewhere, deviate deliberately
+     and record why (precedent: Analyze runs at the conflict's max level, not
+     the current decision level, because N1 admits schedules Kissat never
+     sees). Adopting unchanged is often the conclusion — never the reflex.
+  2. *Survey beyond plain Kissat.* For any non-trivial technique, also check
+     the recent competition winners (CaDiCaL-SC2025, the Kissat-MAB lineage,
+     SBVA-CaDiCaL; solver descriptions always, sources where obtainable —
+     `tools/solvers/fetch-winners.sh` stocks `winners/`). Their deltas over
+     stock Kissat/CaDiCaL show which choices matter under competition
+     conditions and are where "exceed" (§7.5) can come from.
 
 ### 5.1 The public API (sketch, C level)
 
@@ -422,13 +415,9 @@ algorithm, (b) a rule or policy cannot meet the §5.3 contract without
 contortions or kernel-reaching, or (c) fuzzing / invariant-checker findings
 cluster around one design decision.
 
-Execution follows the **revamp skill**: written evidence first; a
-mini-design stating what changes, what invariants are preserved, how N1–N3
-survive, and a measurable success criterion; implementation from a green
-base as one coherent unit; full revalidation (unit suites under sanitizers
-+ invariant checker, fuzzing under BOTH the default and random policies,
-compliance, the affected tiers with §8.1's repeated-run discipline); and
-revert as a first-class outcome if the criterion is missed. N1–N3 are
+Execution follows the **revamp skill** (evidence → mini-design with a
+measurable success criterion → green base → one coherent unit → full
+two-policy revalidation → revert as a first-class outcome). N1–N3 are
 never weakened by a revamp — if the best design appears to require that,
 it is a revise-plan discussion, not a rewrite. Precedents: per-literal
 watch vectors → flat watch arena (2.4× single-instance speedup);
@@ -445,28 +434,16 @@ and record the outcome in the gate report even when the answer is "clean".
 Between gates, run the same evaluation after a large feature lands or when
 review keeps tripping over the same clutter.
 
-What the evaluation checks:
-
-- dead/unreachable code; options, stats, or scratch fields nothing reads;
-- comments, docs, and plan/PROGRESS references that no longer match the code;
-- duplicated logic that should be one helper (within the §5 layer
-  boundaries — deduplication never merges kernel/rule/policy layers);
-- speculative generality nothing uses — **except the N1 API surface, which
-  exists by design even where DefaultPolicy never exercises it**: deleting
-  "unused" rule-introspection/application capability is an N1 violation,
-  not a simplification;
-- accumulated TODO/FIXME/workaround inventory: still warranted?
-
-Execution goes through the **simplify-codebase skill**: inventory first,
-judge each finding (simplify now / record why it stays / escalate to §5.4
-revamp if it is actually structural), apply behavior-preserving changes in
-dedicated commits (never mixed with feature work), and revalidate like any
-change (unit suites under sanitizers, quick fuzz incl. a random-policy
-round, affected tiers when solver code is touched). Distinction from §5.4:
-a revamp *changes structure* to buy performance or contract fit and needs
-evidence + a mini-design; simplification *removes what is no longer earning
-its place* without changing behavior. N1–N3 are never traded for
-simplicity.
+Execution goes through the **simplify-codebase skill**, which owns the
+detailed checklist (the categories above) and the procedure (inventory →
+judge each finding: simplify now / keep with a recorded reason / escalate
+to §5.4 → dedicated behavior-preserving commits → full revalidation). Two hard constraints live here, not in the
+skill: **the N1 API surface is never "speculative generality"** — deleting
+"unused" rule-introspection/application capability is an N1 violation, not
+a simplification — and N1–N3 are never traded for simplicity. Distinction
+from §5.4: a revamp *changes structure* to buy performance or contract
+fit; simplification *removes what no longer earns its place* without
+changing behavior.
 
 ## 6. Competition compliance checklist (R2)
 
@@ -810,3 +787,11 @@ discovered during development get added here rather than answered ad hoc.
   evidence-driven) and never traded against N1–N3. §9 gate reports now
   record both evaluations; Instruction.md skill list synced (also adding
   the rev-13 `revamp` skill it was missing).
+- **rev. 16** (2026-07-10): de-duplication sweep of the plan itself (user
+  request; a §5.5-style hygiene pass on the document). Merged the two
+  overlapping §5 reference-solver bullets ("Kissat as reference, not as
+  fork" folded into rev 14's "evidence, not templates"); §5.4 and §5.5 no
+  longer restate their skills' procedures (the skills are authoritative
+  for execution; the plan keeps triggers, hard constraints, and
+  precedents); §5.5's checklist deferred to the skill. No commitment
+  changed; ~45 lines removed.
