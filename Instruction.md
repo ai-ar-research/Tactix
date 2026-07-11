@@ -24,9 +24,13 @@ Continue development of the proof-rule-driven SAT solver in this repository.
 - New or changed rule families follow the rule-dev skill and §5.3: one
   directory + one registry line; guard / lazy instances / apply; proof delta
   from the closed five-primitive vocabulary or it doesn't merge.
-- `kissat/` is an untracked reference clone: study it, transliterate proven
-  techniques with attribution comments, never copy code verbatim, never
-  commit it.
+- Reference solvers (`kissat/`, `cadical/`, …) are untracked clones: study
+  them, transliterate proven techniques with attribution comments, never copy
+  code verbatim, never commit them. They are evidence, not templates (plan
+  §5): adopting a reference's approach needs an explicit fits-our-architecture
+  argument, and technique research must also survey the recent competition
+  winners (CaDiCaL-SC2025, AE-Kissat-MAB lineage, SBVA-CaDiCaL), not only
+  plain Kissat.
 - Use the project skills for their workflows: `fuzz` (soundness),
   `proof-check` (certificates), `benchmarks` (performance, tiers),
   `compete` (I/O compliance), `rule-dev` (rule implementation),

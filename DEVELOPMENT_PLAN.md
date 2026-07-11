@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-10 (rev. 13). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-10 (rev. 14). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -216,6 +216,26 @@ Design commitments:
   (watcher layout, mode switching between stable/focused, tier-based clause
   management, reluctant-doubling restarts) but keep our own rule/policy skeleton.
   Kissat is MIT-licensed; attribution required.
+- **Reference solvers are evidence, not templates (rev 14).** Two obligations
+  whenever a technique or implementation scheme is taken from a reference
+  solver:
+  1. *Adopt on argument, not by default.* "Kissat does it this way" is never
+     sufficient justification by itself. Before transliterating, state (in the
+     commit/PR or a code comment) why the approach fits *this* architecture —
+     the rule contract (§5.3), N1–N3, our data structures — and what the
+     alternative would be. Where our design points elsewhere, deviate
+     deliberately and record the reasoning (precedent: Analyze runs at the
+     conflict's max level, not the current decision level, because N1 admits
+     schedules Kissat never sees). Adopting unchanged is often the right
+     answer — but it must be the *conclusion* of that check, not a reflex.
+  2. *Survey beyond plain Kissat.* Kissat is the primary kernel reference, but
+     it is one point in the design space. For any non-trivial technique, also
+     check how the recent competition winners handle it (CaDiCaL-SC2025,
+     AE-Kissat-MAB and the Kissat-MAB lineage, SBVA-CaDiCaL; solver
+     descriptions always, sources where obtainable — `cadical/` is already
+     cloned locally) before settling on an approach. The winners' deltas over
+     stock Kissat/CaDiCaL show which choices actually matter under competition
+     conditions and are exactly where "exceed" (§7.5) can come from.
 
 ### 5.1 The public API (sketch, C level)
 
@@ -721,14 +741,6 @@ discovered during development get added here rather than answered ad hoc.
   Pro (6P+6E), 36 GB RAM, macOS 15.7.7; tier-freeze timings at jobs=1.
   Recorded at the first timing run (Tier B freeze — see
   benchmarks/reports/2026-07-09-tier-b-freeze.md).
-- **rev. 13** (2026-07-10): §5.4 revamp discipline added (user request):
-  every phase gate and specified between-gate triggers require an explicit
-  evaluation of whether significant parts of the codebase should be
-  restructured, executed via the new `revamp` skill with evidence,
-  mini-design, full revalidation, and revert-as-outcome. §9 gate reports
-  record the evaluation. Background: the guard/advised split and four
-  soundness fixes surfaced by random-schedule testing showed structural
-  issues are found by discipline, not luck.
 - **rev. 12** (2026-07-10): S1 Restart and S2 Reduce moved from phase 2 to
   phase 1. Empirical driver: the phase-1 solver (M1–M4 + minimization)
   leaves 16 Tier A transition instances (n = 250–290) unsolved at 30 s —
@@ -737,3 +749,19 @@ discovered during development get added here rather than answered ad hoc.
   benchmarks against MiniSat, which has both. Phase 2 keeps S3–S5, native
   LRAT, and the API freeze. §8.1's "naive CDCL" claim for Tier A
   corrected to match measurement.
+- **rev. 13** (2026-07-10): §5.4 revamp discipline added (user request):
+  every phase gate and specified between-gate triggers require an explicit
+  evaluation of whether significant parts of the codebase should be
+  restructured, executed via the new `revamp` skill with evidence,
+  mini-design, full revalidation, and revert-as-outcome. §9 gate reports
+  record the evaluation. Background: the guard/advised split and four
+  soundness fixes surfaced by random-schedule testing showed structural
+  issues are found by discipline, not luck.
+- **rev. 14** (2026-07-10): reference-usage discipline added to §5 design
+  commitments (user request): (1) reference solvers are evidence, not
+  templates — transliterating an existing solver's approach requires an
+  explicit argument that it fits this architecture (§5.3, N1–N3), with
+  deliberate recorded deviations where our design differs; (2) technique
+  research must survey recent competition winners (CaDiCaL-SC2025,
+  AE-Kissat-MAB lineage, SBVA-CaDiCaL), not only plain Kissat. rule-dev
+  skill point 6, Instruction.md ground rule, and CLAUDE.md synced.

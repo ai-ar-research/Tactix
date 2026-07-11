@@ -40,7 +40,7 @@ Architecture invariants (reject code that violates them):
 3. Quick fuzz (`tools/fuzz/run.sh --quick`) green under sanitizers, including at least one **random-policy** round — the rule must be sound in weird-but-legal orders, not just where DefaultPolicy fires it.
 4. Tier A clean; Tier B run if the rule is on by default (see benchmarks skill) — check the ≤ 5% overhead budget vs the hardcoded-twin build when touching the micro path.
 5. Determinism: same seed + same policy ⇒ identical rule trace (`--trace` diff).
-6. When consulting Kissat for technique reference (`../kissat/src/`, e.g. `vivify.c`, `eliminate.c`, `probe.c`): transliterate ideas into our rule contract, do not copy code verbatim; note the source file in a comment for attribution (Kissat is MIT).
+6. When consulting reference solvers (plan §5 "evidence, not templates"): Kissat (`../kissat/src/`, e.g. `vivify.c`, `eliminate.c`, `probe.c`) is the primary reference, but for any non-trivial technique also check how the recent competition winners handle it (CaDiCaL-SC2025, AE-Kissat-MAB lineage, SBVA-CaDiCaL — solver descriptions always, sources where obtainable; `../cadical/` is cloned). Adopting a reference's approach requires an explicit argument that it fits our rule contract and N1–N3 — "Kissat does it this way" is not sufficient by itself; deviate deliberately and record why. Transliterate ideas, do not copy code verbatim; note the source file in a comment for attribution (Kissat is MIT).
 
 ## Policies
 

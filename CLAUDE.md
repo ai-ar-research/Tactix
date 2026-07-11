@@ -13,5 +13,9 @@
   - N3: DefaultPolicy performance comparable to Kissat (T4 gate).
 - `kissat/` (and other reference solvers) are untracked reference clones —
   never commit them, never copy code verbatim (transliterate + attribute).
+  References are evidence, not templates (plan §5): adopt an approach only
+  with an explicit fits-our-architecture argument, and check recent
+  competition winners (CaDiCaL-SC2025, AE-Kissat-MAB, SBVA-CaDiCaL), not
+  just plain Kissat.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
   revise-plan, revamp — use them for the matching workflows.
