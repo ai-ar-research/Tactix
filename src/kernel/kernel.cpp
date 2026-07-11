@@ -17,6 +17,10 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
   k.unassigned += nvars - old;
+  // fixed-capacity trail/frames: the inlined assign hot path must never
+  // reallocate, and its push_back capacity branch becomes always-false
+  k.trail.reserve(nvars);
+  k.frames.reserve(nvars + 1);
   if (k.frames.empty())
     k.frames.push_back(0);
   // enqueue new vars into the VMTF queue (most recent = preferred)

@@ -100,10 +100,15 @@ struct Kernel {
   // learned-clause handoff: analyze -> backjump
   PendingLearned pending;
 
-  // scratch (analyze)
+  // scratch (analyze) — persistent so the per-conflict hot path never
+  // allocates (kissat keeps these as solver-level stacks for the same
+  // reason: clause, analyzed, shrinkable in internal.h)
   std::vector<uint8_t> seen;   // by var
   std::vector<Var> analyzed;   // vars marked seen
   std::vector<Var> shrinkable; // vars marked during a block-shrink walk
+  std::vector<Lit> learned_scratch; // the clause under construction
+  std::vector<Lit> otfs_scratch;    // OTFS resolvent assembly
+  std::vector<Var> radix_scratch;   // radix-sort double buffer
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
 

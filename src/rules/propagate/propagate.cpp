@@ -29,6 +29,13 @@ static inline void flush_delayed(Kernel &k) {
 static bool propagate_literal(Kernel &k, Lit lit) {
   const Lit not_lit = negate(lit);
   assert(k.delayed.empty());
+  // hoisted data pointers (kissat proplit.h idiom): the inlined assigns
+  // store through k, so without locals the compiler must re-derive the
+  // vector data pointers after every assignment; the underlying arrays
+  // never move during a scan (no clause allocation, values sized at
+  // reserve time)
+  const int8_t *const values = k.values.data();
+  uint32_t *const arena = k.arena.data();
   uint32_t *const begin = k.watches.begin(not_lit);
   uint32_t *q = begin;
   const uint32_t *p = q;
@@ -38,7 +45,7 @@ static bool propagate_literal(Kernel &k, Lit lit) {
   while (p != end) {
     const Watch head{*q++ = *p++};
     const Lit blocking = head.blocking();
-    const int8_t blocking_value = k.values[blocking];
+    const int8_t blocking_value = values[blocking];
     if (head.binary()) {
       if (blocking_value > 0)
         continue;
@@ -56,14 +63,14 @@ static bool propagate_literal(Kernel &k, Lit lit) {
       const Ref ref = *q++ = *p++;
       if (blocking_value > 0)
         continue;
-      Clause *c = clause_at(k.arena, ref);
+      Clause *c = clause_at(arena, ref);
       if (c->garbage()) {
         q -= 2;
         continue;
       }
       Lit *lits = c->lits;
       const Lit other = lits[0] ^ lits[1] ^ not_lit;
-      const int8_t other_value = k.values[other];
+      const int8_t other_value = values[other];
       if (other_value > 0) { // satisfied: remember as blocking literal
         Watch w = blocking_watch(other);
         q[-2] = w.raw;
@@ -77,14 +84,14 @@ static bool propagate_literal(Kernel &k, Lit lit) {
       int8_t replacement_value = -1;
       for (r = searched; r != end_lits; r++) {
         replacement = *r;
-        replacement_value = k.values[replacement];
+        replacement_value = values[replacement];
         if (replacement_value >= 0)
           break;
       }
       if (replacement_value < 0) {
         for (r = lits + 2; r != searched; r++) {
           replacement = *r;
-          replacement_value = k.values[replacement];
+          replacement_value = values[replacement];
           if (replacement_value >= 0)
             break;
         }

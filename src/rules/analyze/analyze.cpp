@@ -88,11 +88,47 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   return ok;
 }
 
+// LSD radix sort of analyzed by VMTF stamp, ascending (kissat sort.h
+// RADIX_STACK idea): on industrial instances the analyzed sets are large
+// and the former std::sort was ~11% of all samples. Stamps are unique, so
+// the order is identical to the comparison sort (trajectory unchanged).
+static void radix_sort_analyzed_by_stamp(Kernel &k) {
+  std::vector<Var> &a = k.analyzed;
+  const size_t n = a.size();
+  if (n < 32) { // small sets: std::sort's insertion regime wins
+    std::sort(a.begin(), a.end(), [&](Var x, Var y) {
+      return k.links[x].stamp < k.links[y].stamp;
+    });
+    return;
+  }
+  std::vector<Var> &b = k.radix_scratch;
+  b.resize(n);
+  std::vector<Var> *src = &a, *dst = &b;
+  for (uint32_t shift = 0; shift < 32; shift += 8) {
+    uint32_t count[257] = {0};
+    const uint32_t first = (k.links[(*src)[0]].stamp >> shift) & 0xff;
+    bool constant = true;
+    for (const Var v : *src) {
+      const uint32_t byte = (k.links[v].stamp >> shift) & 0xff;
+      constant &= (byte == first);
+      count[byte + 1]++;
+    }
+    if (constant) // all keys share this byte: pass is a no-op
+      continue;
+    for (uint32_t i = 1; i < 257; i++)
+      count[i] += count[i - 1];
+    for (const Var v : *src)
+      (*dst)[count[(k.links[v].stamp >> shift) & 0xff]++] = v;
+    std::swap(src, dst);
+  }
+  if (src != &a)
+    a.swap(b);
+}
+
 // bump analysis-side vars (SEEN), preserving relative recency (kissat
 // sorts by stamp); clear all flags incl. minimization scratch
 static void bump_and_reset_analyzed(Kernel &k) {
-  std::sort(k.analyzed.begin(), k.analyzed.end(),
-            [&](Var a, Var b) { return k.links[a].stamp < k.links[b].stamp; });
+  radix_sort_analyzed_by_stamp(k);
   for (const Var v : k.analyzed) {
     if (k.seen[v] & SEEN)
       kernel_queue_bump(k, v);
@@ -124,7 +160,8 @@ static void bump_and_reset_analyzed(Kernel &k) {
 static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
                             Ref subsumed_ref /* INVALID_REF if none */) {
   const Clause *reason = clause_at(k.arena, reason_ref);
-  std::vector<Lit> lits;
+  std::vector<Lit> &lits = k.otfs_scratch; // no per-event alloc
+  lits.clear();
   lits.reserve(reason->size - 1);
   for (const Lit l : *reason)
     if (l != t && k.var_level(var_of(l)) > 0)
@@ -304,7 +341,7 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
 
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
-  std::vector<Lit> learned;
+  std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
   Lit uip = INVALID_LIT;
   for (;;) { // one round per conflict; OTFS restarts with a stronger one
     uint32_t csize;

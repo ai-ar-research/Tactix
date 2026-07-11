@@ -47,6 +47,10 @@ inline Clause *clause_at(Arena &arena, Ref ref) {
   assert(ref + CLAUSE_HEADER_WORDS <= arena.size());
   return reinterpret_cast<Clause *>(arena.data() + ref);
 }
+// hot-path overload for a hoisted arena data pointer (see propagate)
+inline Clause *clause_at(uint32_t *arena_data, Ref ref) {
+  return reinterpret_cast<Clause *>(arena_data + ref);
+}
 inline const Clause *clause_at(const Arena &arena, Ref ref) {
   return reinterpret_cast<const Clause *>(arena.data() + ref);
 }
