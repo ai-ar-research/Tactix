@@ -1,5 +1,7 @@
 #include "kernel/kernel.hpp"
 
+#include <cstdio>
+
 namespace tactix {
 
 void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
@@ -224,7 +226,6 @@ Var kernel_queue_next_unassigned(Kernel &k) {
 
 
 #ifndef NDEBUG
-#include <cstdio>
 void kernel_check_invariants(const Kernel &k) {
   // values <-> trail <-> unassigned coherence
   uint32_t assigned_count = 0;
