@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 14 (2026-07-10)
+- **Plan revision tracked:** rev. 15 (2026-07-10)
 - **Current phase:** 1 (core CDCL kernel) — in progress since 2026-07-09
 - **Last updated:** 2026-07-10
 
@@ -94,6 +94,7 @@ disagree, the plan is authoritative — fix this file.
 
 ## Log
 
+- 2026-07-10 — plan rev 15 (user request): §5.5 codebase hygiene — every phase gate also evaluates cleanliness/simplification (dead code, drift, duplication, speculative generality excepting the N1 surface, stale workarounds), recorded in the gate report; new `simplify-codebase` skill operationalizes it (inventory → judge → dedicated behavior-preserving commits → full revalidation). Distinguished from §5.4 revamps; never traded against N1–N3.
 - 2026-07-10 — plan rev 14 (user request): reference-usage discipline in §5 — reference solvers are evidence, not templates (adoption needs an explicit fits-our-architecture argument; deliberate deviations recorded) and technique research must survey recent competition winners (CaDiCaL-SC2025, AE-Kissat-MAB lineage, SBVA-CaDiCaL), not only plain Kissat. rule-dev skill, Instruction.md, CLAUDE.md synced.
 - 2026-07-09 — Phase 0 started: repo + plan (revs 1–4) + 6 skills + PROGRESS.md; Kissat cloned; competition results verified.
 - 2026-07-09 — plan rev 5: consistency review (phase assignments for BCE/SBVA fixed in §9, demo policies reordered, N3/T4 wording aligned, Tier C timeout stated); §11 open-decisions register added; revise-plan skill gains concretize mode.

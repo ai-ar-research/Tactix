@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-10 (rev. 14). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-10 (rev. 15). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -434,6 +434,40 @@ it is a revise-plan discussion, not a rewrite. Precedents: per-literal
 watch vectors → flat watch arena (2.4× single-instance speedup);
 scheduling budgets fused into guards → guard/advised split (restored N1).
 
+### 5.5 Codebase hygiene — cleanliness and simplification evaluation
+
+Complexity that no longer pays its way accumulates silently: dead code,
+comments that drifted from behavior, duplicated logic, speculative
+generality, scratch state that outlived its purpose. **At every phase gate
+(§9), alongside the §5.4 revamp evaluation, explicitly evaluate whether the
+codebase is in a clean state and whether there is room for simplification**,
+and record the outcome in the gate report even when the answer is "clean".
+Between gates, run the same evaluation after a large feature lands or when
+review keeps tripping over the same clutter.
+
+What the evaluation checks:
+
+- dead/unreachable code; options, stats, or scratch fields nothing reads;
+- comments, docs, and plan/PROGRESS references that no longer match the code;
+- duplicated logic that should be one helper (within the §5 layer
+  boundaries — deduplication never merges kernel/rule/policy layers);
+- speculative generality nothing uses — **except the N1 API surface, which
+  exists by design even where DefaultPolicy never exercises it**: deleting
+  "unused" rule-introspection/application capability is an N1 violation,
+  not a simplification;
+- accumulated TODO/FIXME/workaround inventory: still warranted?
+
+Execution goes through the **simplify-codebase skill**: inventory first,
+judge each finding (simplify now / record why it stays / escalate to §5.4
+revamp if it is actually structural), apply behavior-preserving changes in
+dedicated commits (never mixed with feature work), and revalidate like any
+change (unit suites under sanitizers, quick fuzz incl. a random-policy
+round, affected tiers when solver code is touched). Distinction from §5.4:
+a revamp *changes structure* to buy performance or contract fit and needs
+evidence + a mini-design; simplification *removes what is no longer earning
+its place* without changing behavior. N1–N3 are never traded for
+simplicity.
+
 ## 6. Competition compliance checklist (R2)
 
 - DIMACS parser: streaming, tolerant of comments/whitespace, huge-file safe
@@ -635,8 +669,8 @@ Components:
 | 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
 
 Treat phases as gates, not a calendar; each phase ends with a benchmark report
-checked into the repo, which also records the §5.4 revamp evaluation for
-that gate.
+checked into the repo, which also records the §5.4 revamp evaluation and the
+§5.5 cleanliness/simplification evaluation for that gate.
 
 ## 10. Risks and mitigations
 
@@ -765,3 +799,14 @@ discovered during development get added here rather than answered ad hoc.
   research must survey recent competition winners (CaDiCaL-SC2025,
   AE-Kissat-MAB lineage, SBVA-CaDiCaL), not only plain Kissat. rule-dev
   skill point 6, Instruction.md ground rule, and CLAUDE.md synced.
+- **rev. 15** (2026-07-10): §5.5 codebase hygiene added (user request):
+  every phase gate (and post-large-feature moments between gates) also
+  evaluates whether the codebase is clean and whether simplification is
+  warranted — dead code, drifted comments/docs, duplication, speculative
+  generality (explicitly excepting the N1 API surface), stale
+  TODO/workarounds. Operationalized by the new `simplify-codebase` skill
+  (inventory → judge → behavior-preserving dedicated commits → full
+  revalidation); explicitly distinguished from §5.4 revamps (structural,
+  evidence-driven) and never traded against N1–N3. §9 gate reports now
+  record both evaluations; Instruction.md skill list synced (also adding
+  the rev-13 `revamp` skill it was missing).

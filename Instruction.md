@@ -34,7 +34,8 @@ Continue development of the proof-rule-driven SAT solver in this repository.
 - Use the project skills for their workflows: `fuzz` (soundness),
   `proof-check` (certificates), `benchmarks` (performance, tiers),
   `compete` (I/O compliance), `rule-dev` (rule implementation),
-  `revise-plan` (any plan edit, incl. concretize mode).
+  `revise-plan` (any plan edit, incl. concretize mode), `revamp`
+  (structural rewrites, §5.4), `simplify-codebase` (hygiene sweeps, §5.5).
 
 **Work loop, per item:**
 1. Implement the smallest complete increment of the item.

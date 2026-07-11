@@ -18,4 +18,5 @@
   competition winners (CaDiCaL-SC2025, AE-Kissat-MAB, SBVA-CaDiCaL), not
   just plain Kissat.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
-  revise-plan, revamp — use them for the matching workflows.
+  revise-plan, revamp, simplify-codebase — use them for the matching
+  workflows.

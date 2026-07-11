@@ -7,7 +7,9 @@ description: Evaluate and execute a significant restructuring of solver internal
 
 Authoritative spec: DEVELOPMENT_PLAN.md §5.4. Incremental patches around a
 wrong structure compound into the real cost; this skill exists so large
-rewrites are a normal, disciplined tool — not a failure mode. Precedents
+rewrites are a normal, disciplined tool — not a failure mode. (Pure
+hygiene — dead code, drift, duplication, with no structural change — is
+the simplify-codebase skill / plan §5.5, not a revamp.) Precedents
 that were worth it: per-literal `std::vector` watches → flat watch arena
 (2.4× single-instance speedup); scheduling budgets fused into guards →
 guard/advised split (restored N1's meaning).
