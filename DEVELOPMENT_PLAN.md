@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-10 (rev. 16). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-11 (rev. 17). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -194,6 +194,24 @@ Design commitments:
   call each other; they return control to the policy. This is what makes arbitrary
   orders legal — any interleaving permitted by guards is sound, because soundness
   lives in the per-rule proof obligations, not in a global schedule.
+- **The Policy class owns every scheduling heuristic (rev 17 — load-bearing).**
+  Rule-application order is decided by a `Policy` object behind one abstract
+  interface; `DefaultPolicy` is *one instantiation* of it, with no special
+  status in the architecture. Everything that decides WHEN or WHETHER to
+  apply a rule — restart triggers and their EMAs/floors, reduce intervals,
+  mode switching, tick budgets, instance classification and presets — is
+  implemented in, and its state owned by, the policy object; never in a rule
+  module, never in the kernel. Rules expose exactly: a pure soundness
+  `guard`, `instances`, `apply`, and statistics for policies to read.
+  The kernel's H-state is restricted to heuristics that back a rule's
+  *instance ranking* (VMTF queue, score heaps, saved phases — what makes
+  `Decide`'s canonical instance and `tactix_decide_candidates` work, §5.1);
+  scheduling state does not live there. This supersedes the earlier
+  rule-module `advised` hint (the guard/advised split): advice computation
+  and its state move into the policy; the registry keeps guards only.
+  Consequence for observability: any signal a scheduling heuristic needs
+  (e.g. per-conflict glue) must be readable from kernel state/statistics or
+  rule results — policies observe, rules never push scheduling state.
 - **Language: C++20**, C-style core (no exceptions/RTTI in kernel; arena +
   index-based structures like Kissat), templates only for static policy composition.
   Rationale: Kissat-level control over layout, zero-cost static dispatch that C
@@ -795,3 +813,15 @@ discovered during development get added here rather than answered ad hoc.
   for execution; the plan keeps triggers, hard constraints, and
   precedents); §5.5's checklist deferred to the skill. No commitment
   changed; ~45 lines removed.
+- **rev. 17** (2026-07-11): Policy-class ownership of scheduling made an
+  explicit §5 design commitment (user request, emphasized as load-bearing):
+  rule order is decided by a Policy object behind one abstract interface,
+  DefaultPolicy being one instantiation; ALL scheduling heuristics and
+  their state (restart EMAs/floors, reduce intervals, mode switching,
+  classification, budgets) live in the policy — never in rule modules or
+  the kernel. Supersedes the rule-module `advised` hint from the earlier
+  guard/advised split (advice + state move into the policy; registry keeps
+  pure guards). Kernel H-state is confined to instance-ranking heuristics
+  backing §5.1 (VMTF/scores/phases). Refactor of existing leaks
+  (restart_advised/reduce_advised, RestartState/ReduceState in Kernel,
+  glue-EMA updates inside Analyze) tracked in PROGRESS.
