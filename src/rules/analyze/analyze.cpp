@@ -1,11 +1,16 @@
 // 1-UIP scheme after kissat/src/analyze.c + deduce.c, with recursive
-// clause minimization after kissat/src/minimize.c (MIT; the algorithm is
-// Sörensson–Biere self-subsuming minimization). One deliberate
-// generalization: the analysis runs at the *maximum level of the conflict
-// literals*, not blindly at the current decision level — under
-// exotic-but-legal rule orders (N1: e.g. several Decides between
-// propagations) a conflict may live entirely below the current level, and
-// soundness may not depend on the schedule.
+// clause minimization after kissat/src/minimize.c (Sörensson–Biere
+// self-subsuming minimization) and all-UIP block shrinking after
+// kissat/src/shrink.c (Fleury–Biere, SAT'20) — all MIT, transliterated.
+// Reference survey (plan §5 rev 14): kissat-sc2024 and AE-Kissat-MAB
+// (SC25 winner) ship these files byte-identical to kissat 4.0.4;
+// CaDiCaL-SC2025 implements the same pair independently — 4.0.4 is the
+// state of the art here. Deliberate deviations: (1) the analysis runs at
+// the *maximum level of the conflict literals*, not blindly at the current
+// decision level — under exotic-but-legal rule orders (N1: e.g. several
+// Decides between propagations) a conflict may live entirely below the
+// current level, and soundness may not depend on the schedule;
+// (2) singleton-level literals still get minimized (see the block pass).
 #include "rules/analyze/analyze.hpp"
 
 #include "proof/proof.hpp"
@@ -18,6 +23,7 @@ namespace tactix {
 static constexpr uint8_t SEEN = 1;      // literal is in the learned clause
 static constexpr uint8_t REMOVABLE = 2; // proven redundant
 static constexpr uint8_t POISONED = 4;  // proven not redundant
+static constexpr uint8_t SHRINKABLE = 8; // in the current block-shrink walk
 
 bool analyze_guard(const Kernel &k) {
   return k.conflict_valid && !k.inconsistent;
@@ -79,6 +85,120 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   if (!before)
     k.analyzed.push_back(v); // newly touched: schedule flag cleanup
   return ok;
+}
+
+// --- all-UIP block shrinking (kissat/src/shrink.c; Fleury–Biere SAT'20) ---
+// A maximal group of learned literals on one decision level (a "block") is
+// replaced by the negation of that level's local UIP when the block's
+// reason chains, walked down the trail, converge to a single literal.
+
+// classify literal l (falsified) for the level-`blevel` walk: 1 = newly
+// shrinkable (same level, walk continues through it), 0 = resolves away
+// (root / already shrinkable / proven redundant), -1 = block can't shrink
+static int shrink_literal(Kernel &k, Lit l, uint32_t blevel) {
+  const Var v = var_of(l);
+  const Assigned &a = k.assigned[v];
+  if (a.level == 0)
+    return 0;
+  if (k.seen[v] & SHRINKABLE)
+    return 0;
+  if (a.level < blevel) {
+    if (k.seen[v] & REMOVABLE)
+      return 0;
+    // kissat (option shrink > 2, the default) falls back to recursive
+    // minimization for lower-level literals
+    return literal_redundant(k, l, 1) ? 0 : -1;
+  }
+  if (!k.seen[v])
+    k.analyzed.push_back(v); // newly touched: schedule flag cleanup
+  k.seen[v] |= SHRINKABLE;
+  k.shrinkable.push_back(v);
+  return 1;
+}
+
+// try to collapse the block learned[b..e) (all at level blevel, size >= 2)
+// to its local UIP; on success the block becomes {¬uip, INVALID_LIT...}
+static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
+                         size_t e, uint32_t blevel) {
+  assert(k.shrinkable.empty());
+  uint32_t open = static_cast<uint32_t>(e - b);
+  uint32_t max_trail = 0;
+  for (size_t j = b; j < e; j++) {
+    const Var v = var_of(learned[j]);
+    assert(k.assigned[v].level == blevel);
+    max_trail = std::max(max_trail, k.assigned[v].trail);
+    k.seen[v] |= SHRINKABLE; // clause literals: SEEN already set
+    k.shrinkable.push_back(v);
+  }
+
+  bool failed = false;
+  Lit uip = INVALID_LIT;
+  size_t t = max_trail;
+  for (;;) {
+    Lit x;
+    do {
+      assert(t < k.trail.size());
+      x = k.trail[t--];
+    } while (!(k.seen[var_of(x)] & SHRINKABLE));
+    if (open == 1) {
+      uip = x;
+      break;
+    }
+    const Assigned &a = k.assigned[var_of(x)];
+    if (a.reason == DECISION_REASON) {
+      // unreachable while open > 1: all shrinkable literals are at blevel,
+      // whose frame starts at its decision — defensive under N1 schedules
+      assert(false);
+      failed = true;
+      break;
+    }
+    if (a.binary) {
+      const int tmp = shrink_literal(k, a.reason, blevel);
+      if (tmp < 0)
+        failed = true;
+      else
+        open += tmp;
+    } else {
+      const Clause *reason = clause_at(k.arena, a.reason);
+      for (const Lit m : *reason) {
+        if (m == x)
+          continue;
+        const int tmp = shrink_literal(k, m, blevel);
+        if (tmp < 0) {
+          failed = true;
+          break;
+        }
+        open += (tmp > 0);
+      }
+    }
+    if (failed)
+      break;
+    open--;
+  }
+
+  if (failed) { // reset the walk marks, keep the block as is
+    for (const Var v : k.shrinkable)
+      k.seen[v] &= static_cast<uint8_t>(~SHRINKABLE);
+    k.shrinkable.clear();
+    return false;
+  }
+
+  for (size_t j = b; j < e; j++)
+    learned[j] = INVALID_LIT;
+  learned[b] = negate(uip);
+  const Var uv = var_of(uip);
+  if (!k.seen[uv])
+    k.analyzed.push_back(uv);
+  k.seen[uv] |= SEEN; // new clause literal: bump + minimization anchor
+  // walked literals resolve to ¬uip, now in the clause — mark removable so
+  // lower blocks' chains may bottom out in them (kissat
+  // mark_shrinkable_as_removable)
+  for (const Var v : k.shrinkable) {
+    k.seen[v] &= static_cast<uint8_t>(~SHRINKABLE);
+    k.seen[v] |= REMOVABLE;
+  }
+  k.shrinkable.clear();
+  return true;
 }
 
 ApplyResult analyze_apply(Kernel &k) {
@@ -148,8 +268,11 @@ ApplyResult analyze_apply(Kernel &k) {
   }
   learned[0] = negate(uip);
 
-  // minimization: drop literals whose reason chains bottom out in the
-  // clause itself or in root assignments (level filter first)
+  // shrink + minimize (kissat analyze.c with option shrink=3, the default,
+  // where full minimization is subsumed by the block pass): per decision
+  // level, first try to collapse the whole block to its local UIP; if that
+  // fails, minimize the block's literals individually. Level marks gate
+  // literal_redundant's chains throughout.
   if (learned.size() > 2) {
     for (uint32_t j = 1; j < learned.size(); j++) {
       const uint32_t lv = k.var_level(var_of(learned[j]));
@@ -158,11 +281,38 @@ ApplyResult analyze_apply(Kernel &k) {
         k.touched_levels.push_back(lv);
       }
     }
+    // group into blocks: sort by level, descending (kissat counting-sorts
+    // via the frames; std::sort once per conflict at clause size is fine)
+    std::sort(learned.begin() + 1, learned.end(), [&](Lit a, Lit b) {
+      return k.var_level(var_of(a)) > k.var_level(var_of(b));
+    });
+    size_t b = 1;
+    while (b < learned.size()) {
+      const uint32_t blevel = k.var_level(var_of(learned[b]));
+      size_t e = b + 1;
+      while (e < learned.size() &&
+             k.var_level(var_of(learned[e])) == blevel)
+        e++;
+      if (e - b >= 2 && shrink_block(k, learned, b, e, blevel)) {
+        k.stats.shrunken += (e - b) - 1;
+      } else {
+        // minimize the block literal by literal — including singleton
+        // blocks: kissat skips those ("singleton frame" shortcut), but
+        // under N1's exotic schedules a literal's chain can bottom out
+        // without another literal on its own level, so they are removable
+        // more often for us
+        for (size_t j = b; j < e; j++)
+          if (literal_redundant(k, learned[j], 0)) {
+            learned[j] = INVALID_LIT;
+            k.stats.minimized++;
+          }
+      }
+      b = e;
+    }
     size_t kept = 1;
     for (size_t j = 1; j < learned.size(); j++)
-      if (!literal_redundant(k, learned[j], 0))
+      if (learned[j] != INVALID_LIT)
         learned[kept++] = learned[j];
-    k.stats.minimized += learned.size() - kept;
     learned.resize(kept);
     for (const uint32_t lv : k.touched_levels)
       k.marked_levels[lv] = 0;

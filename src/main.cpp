@@ -166,6 +166,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.learned_units);
     printf("c minimized   %llu lits\n",
            (unsigned long long)kernel.stats.minimized);
+    printf("c shrunken    %llu lits\n",
+           (unsigned long long)kernel.stats.shrunken);
     printf("c restarts    %llu\n", (unsigned long long)kernel.stats.restarts);
     printf("c reductions  %llu (%llu clauses deleted)\n",
            (unsigned long long)kernel.stats.reductions,

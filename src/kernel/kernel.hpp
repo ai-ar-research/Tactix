@@ -34,6 +34,7 @@ struct Stats {
   uint64_t learned = 0;
   uint64_t learned_units = 0;
   uint64_t minimized = 0; // literals removed by clause minimization
+  uint64_t shrunken = 0;  // literals removed by all-UIP block shrinking
   uint64_t api_decisions = 0; // externally chosen branches (N1)
   uint64_t restarts = 0;
   uint64_t reductions = 0;
@@ -99,6 +100,7 @@ struct Kernel {
   // scratch (analyze)
   std::vector<uint8_t> seen;   // by var
   std::vector<Var> analyzed;   // vars marked seen
+  std::vector<Var> shrinkable; // vars marked during a block-shrink walk
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
 
