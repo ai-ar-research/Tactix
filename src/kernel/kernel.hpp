@@ -126,10 +126,36 @@ Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b);
 
 // --- assignment / trail ----------------------------------------------------
-void kernel_assign_decision(Kernel &, Lit lit); // level++ inside
-void kernel_assign_unit(Kernel &, Lit lit);     // root level
-void kernel_assign_binary(Kernel &, Lit lit, Lit other_false);
-void kernel_assign_ref(Kernel &, Lit lit, Ref reason);
+// Header-inline (kissat fastassign.h pattern): propagation executes an
+// assignment per propagated literal, and a cross-TU call there costs
+// measurably at 10^6+ props/sec — the store sequence must inline into the
+// watch-scan loop.
+inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,
+                          uint32_t reason, bool binary) {
+  assert(k.values[lit] == 0);
+  const Var v = var_of(lit);
+  k.values[lit] = 1;
+  k.values[negate(lit)] = -1;
+  k.assigned[v] = {level, static_cast<uint32_t>(k.trail.size()), reason,
+                   binary};
+  k.trail.push_back(lit);
+  assert(k.unassigned > 0);
+  k.unassigned--;
+}
+inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
+  k.level++;
+  k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
+  kernel_assign(k, lit, k.level, DECISION_REASON, false);
+}
+inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
+  kernel_assign(k, lit, 0, UNIT_REASON, false);
+}
+inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false) {
+  kernel_assign(k, lit, k.level, other_false, true);
+}
+inline void kernel_assign_ref(Kernel &k, Lit lit, Ref reason) {
+  kernel_assign(k, lit, k.level, reason, false);
+}
 void kernel_backtrack(Kernel &, uint32_t target_level);
 
 // --- VMTF ------------------------------------------------------------------

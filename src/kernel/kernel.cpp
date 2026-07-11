@@ -57,36 +57,7 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b) {
   k.watches.push_binary(b, a);
 }
 
-static inline void assign(Kernel &k, Lit lit, uint32_t level,
-                          uint32_t reason, bool binary) {
-  assert(k.values[lit] == 0);
-  const Var v = var_of(lit);
-  k.values[lit] = 1;
-  k.values[negate(lit)] = -1;
-  k.assigned[v] = {level, static_cast<uint32_t>(k.trail.size()), reason,
-                   binary};
-  k.trail.push_back(lit);
-  assert(k.unassigned > 0);
-  k.unassigned--;
-}
-
-void kernel_assign_decision(Kernel &k, Lit lit) {
-  k.level++;
-  k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
-  assign(k, lit, k.level, DECISION_REASON, false);
-}
-
-void kernel_assign_unit(Kernel &k, Lit lit) {
-  assign(k, lit, 0, UNIT_REASON, false);
-}
-
-void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false) {
-  assign(k, lit, k.level, other_false, true);
-}
-
-void kernel_assign_ref(Kernel &k, Lit lit, Ref reason) {
-  assign(k, lit, k.level, reason, false);
-}
+// kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)
 
 void kernel_backtrack(Kernel &k, uint32_t target) {
   assert(target < k.level);
