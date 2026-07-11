@@ -5,6 +5,7 @@ minisat/
 glucose/
 drat-trim/
 cake_lpr/
+winners/
 
 # Locally built third-party binaries (symlinks from tools/*/setup.sh)
 tools/solvers/bin/
