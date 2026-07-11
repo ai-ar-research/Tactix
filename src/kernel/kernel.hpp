@@ -39,6 +39,7 @@ struct Stats {
   uint64_t otfs_subsumed = 0;     // conflicts subsumed by the resolvent
   uint64_t api_decisions = 0; // externally chosen branches (N1)
   uint64_t restarts = 0;
+  uint64_t restarts_reused = 0; // restarts that kept a trail prefix
   uint64_t reductions = 0;
   uint64_t deleted = 0; // learned clauses deleted by Reduce
 };

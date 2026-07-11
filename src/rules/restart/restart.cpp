@@ -23,9 +23,33 @@ bool restart_advised(const Kernel &k) {
          k.restart.fast_glue > MARGIN * k.restart.slow_glue;
 }
 
+// trail reuse (kissat restart.c reuse_focused_trail): keep the decision
+// levels whose decision variable has a higher VMTF stamp than the next
+// decision candidate — after a full restart the heuristic would re-decide
+// exactly that prefix, so re-propagating it is pure waste. The stable-mode
+// (score-heap) variant arrives with SwitchMode in phase 2.
+static uint32_t reuse_trail(Kernel &k) {
+  if (k.unassigned == 0)
+    return 0; // nothing left to decide; abandon the whole trail
+  const Var next = kernel_queue_next_unassigned(k);
+  const uint32_t limit = k.links[next].stamp;
+  uint32_t res = 0;
+  while (res < k.level) {
+    const Lit decision = k.trail[k.frames[res + 1]];
+    if (k.links[var_of(decision)].stamp <= limit)
+      break;
+    res++;
+  }
+  return res;
+}
+
 ApplyResult restart_apply(Kernel &k) {
   assert(restart_guard(k));
-  kernel_backtrack(k, 0);
+  const uint32_t keep = reuse_trail(k);
+  if (keep > 0)
+    k.stats.restarts_reused++;
+  if (keep < k.level)
+    kernel_backtrack(k, keep);
   k.stats.restarts++;
   k.restart.floor_conflicts = k.stats.conflicts + FLOOR_INTERVAL;
   return ApplyResult::Ok;

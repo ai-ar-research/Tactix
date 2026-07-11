@@ -111,8 +111,34 @@ static void test_solve_with_restarts_still_correct() {
   assert(default_solve(k) == 20);
 }
 
+static void test_restart_reuses_trail() {
+  // vars 0,1,2 get VMTF stamps 1,2,3; bumping var 0 restamps it to 4.
+  // Decide var 0 (stamp 4), then var 1 (stamp 2). Next decision candidate
+  // is var 2 (stamp 3), so a restart keeps level 1 (4 > 3) and abandons
+  // level 2 (2 <= 3).
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_queue_bump(k, 0);
+  kernel_assign_decision(k, internalize(1)); // var 0
+  kernel_assign_decision(k, internalize(2)); // var 1
+  assert(restart_apply(k) == ApplyResult::Ok);
+  assert(k.level == 1);
+  assert(k.values[internalize(1)] > 0);  // level-1 prefix kept
+  assert(k.values[internalize(2)] == 0); // level 2 abandoned
+  assert(k.stats.restarts_reused == 1);
+
+  // with var 1 also fresher than any candidate, the whole trail survives
+  kernel_queue_bump(k, 1); // stamp 5 > var 2's 3
+  kernel_assign_decision(k, internalize(2));
+  assert(restart_apply(k) == ApplyResult::Ok);
+  assert(k.level == 2); // full reuse: no backtrack at all
+  assert(k.stats.restarts_reused == 2);
+  assert(k.stats.restarts == 2);
+}
+
 int main() {
   test_restart();
+  test_restart_reuses_trail();
   test_collect_preserves_propagation();
   test_reduce_deletes_and_logs();
   test_solve_with_restarts_still_correct();

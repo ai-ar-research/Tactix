@@ -171,7 +171,9 @@ int main(int argc, char **argv) {
     printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
            (unsigned long long)kernel.stats.otfs_strengthened,
            (unsigned long long)kernel.stats.otfs_subsumed);
-    printf("c restarts    %llu\n", (unsigned long long)kernel.stats.restarts);
+    printf("c restarts    %llu (%llu reused a trail prefix)\n",
+           (unsigned long long)kernel.stats.restarts,
+           (unsigned long long)kernel.stats.restarts_reused);
     printf("c reductions  %llu (%llu clauses deleted)\n",
            (unsigned long long)kernel.stats.reductions,
            (unsigned long long)kernel.stats.deleted);
