@@ -35,6 +35,8 @@ struct Stats {
   uint64_t learned_units = 0;
   uint64_t minimized = 0; // literals removed by clause minimization
   uint64_t shrunken = 0;  // literals removed by all-UIP block shrinking
+  uint64_t otfs_strengthened = 0; // reasons strengthened on the fly
+  uint64_t otfs_subsumed = 0;     // conflicts subsumed by the resolvent
   uint64_t api_decisions = 0; // externally chosen branches (N1)
   uint64_t restarts = 0;
   uint64_t reductions = 0;

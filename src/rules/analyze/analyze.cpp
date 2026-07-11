@@ -1,7 +1,8 @@
 // 1-UIP scheme after kissat/src/analyze.c + deduce.c, with recursive
 // clause minimization after kissat/src/minimize.c (Sörensson–Biere
-// self-subsuming minimization) and all-UIP block shrinking after
-// kissat/src/shrink.c (Fleury–Biere, SAT'20) — all MIT, transliterated.
+// self-subsuming minimization), all-UIP block shrinking after
+// kissat/src/shrink.c (Fleury–Biere, SAT'20), and on-the-fly subsumption
+// after kissat/src/deduce.c + strengthen.c — all MIT, transliterated.
 // Reference survey (plan §5 rev 14): kissat-sc2024 and AE-Kissat-MAB
 // (SC25 winner) ship these files byte-identical to kissat 4.0.4;
 // CaDiCaL-SC2025 implements the same pair independently — 4.0.4 is the
@@ -85,6 +86,106 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   if (!before)
     k.analyzed.push_back(v); // newly touched: schedule flag cleanup
   return ok;
+}
+
+// bump analysis-side vars (SEEN), preserving relative recency (kissat
+// sorts by stamp); clear all flags incl. minimization scratch
+static void bump_and_reset_analyzed(Kernel &k) {
+  std::sort(k.analyzed.begin(), k.analyzed.end(),
+            [&](Var a, Var b) { return k.links[a].stamp < k.links[b].stamp; });
+  for (const Var v : k.analyzed) {
+    if (k.seen[v] & SEEN)
+      kernel_queue_bump(k, v);
+    k.seen[v] = 0;
+  }
+  k.analyzed.clear();
+}
+
+// --- on-the-fly subsumption (kissat/src/deduce.c + strengthen.c) ----------
+// When, after resolving trail literal t's reason, the resolvent is exactly
+// reason ∖ {t} (all non-root reason literals and nothing else), the
+// resolvent subsumes the reason: materialize it as a stronger clause and
+// restart the analysis with it as the conflict. If that happened on the
+// very first resolution and the resolvent is also smaller than the
+// conflict, the conflict is subsumed too and is deleted.
+//
+// Deviation from kissat (plan §5 rev 14): kissat strengthens the reason
+// clause IN PLACE, which (a) transiently leaves t's reason not containing
+// t and (b) requires shrunken-clause padding in every arena walk (GC,
+// Reduce, the invariant checker). Our N1 contract returns control to the
+// policy between rules, so such states would be visible to arbitrary legal
+// schedules — instead we allocate the strengthened clause fresh and leave
+// the original untouched as t's reason (Reduce reclaims it later if
+// redundant). The subsumed CONFLICT clause, which is never a reason (a
+// clause that propagated a literal has that literal true, so it cannot be
+// all-false), IS deleted immediately; its watches keep the garbage ref
+// until the next collection, which stays sound and proof-safe because the
+// strictly stronger resolvent is added before the delete.
+static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
+                            Ref subsumed_ref /* INVALID_REF if none */) {
+  const Clause *reason = clause_at(k.arena, reason_ref);
+  std::vector<Lit> lits;
+  lits.reserve(reason->size - 1);
+  for (const Lit l : *reason)
+    if (l != t && k.var_level(var_of(l)) > 0)
+      lits.push_back(l);
+  assert(lits.size() >= 2);
+
+  bool subsume = false, subsumed_irredundant = false;
+  if (subsumed_ref != INVALID_REF) {
+    const Clause *d = clause_at(k.arena, subsumed_ref);
+    assert(!d->garbage());
+    subsume = true;
+    subsumed_irredundant = !d->redundant();
+  }
+  // the resolvent keeps the reason's redundancy; if it replaces an
+  // irredundant conflict it must itself become irredundant (kissat
+  // otfs_subsume_clause)
+  const bool redundant = reason->redundant() && !subsumed_irredundant;
+
+  if (k.proof)
+    k.proof->add_rup(lits.data(), static_cast<uint32_t>(lits.size()));
+  k.stats.otfs_strengthened++;
+
+  if (lits.size() == 2) {
+    kernel_add_binary_clause(k, lits[0], lits[1]);
+    k.conflict_ref = INVALID_REF;
+    k.conflict_bin[0] = lits[0];
+    k.conflict_bin[1] = lits[1];
+  } else {
+    // watch the two highest-trail literals; glue = distinct levels
+    for (uint32_t w = 0; w < 2; w++) {
+      uint32_t best = w;
+      for (uint32_t j = w + 1; j < lits.size(); j++)
+        if (k.assigned[var_of(lits[j])].trail >
+            k.assigned[var_of(lits[best])].trail)
+          best = j;
+      std::swap(lits[w], lits[best]);
+    }
+    uint32_t glue = 0;
+    for (const Lit l : lits) {
+      const uint32_t lv = k.var_level(var_of(l));
+      if (!k.marked_levels[lv]) {
+        k.marked_levels[lv] = 1;
+        k.touched_levels.push_back(lv);
+        glue++;
+      }
+    }
+    for (const uint32_t lv : k.touched_levels)
+      k.marked_levels[lv] = 0;
+    k.touched_levels.clear();
+    // reason may dangle after this allocation; it is not used again
+    k.conflict_ref = kernel_add_large_clause(
+        k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue);
+  }
+
+  if (subsume) {
+    Clause *d = clause_at(k.arena, subsumed_ref); // re-deref: arena moved
+    if (k.proof)
+      k.proof->del(d->lits, d->size);
+    d->flags |= Clause::GARBAGE;
+    k.stats.otfs_subsumed++;
+  }
 }
 
 // --- all-UIP block shrinking (kissat/src/shrink.c; Fleury–Biere SAT'20) ---
@@ -203,68 +304,102 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
 
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
-  uint32_t csize;
-  const Lit *clits = conflict_lits(k, &csize);
-
-  // analysis level = max level among conflict literals
-  uint32_t alevel = 0;
-  for (uint32_t i = 0; i < csize; i++)
-    alevel = std::max(alevel, k.var_level(var_of(clits[i])));
-  if (alevel == 0) { // conflict entirely at the root: refutation done
-    k.inconsistent = true;
-    k.conflict_valid = false;
-    if (k.proof)
-      k.proof->add_empty();
-    return ApplyResult::Unsat;
-  }
-
   std::vector<Lit> learned;
-  learned.push_back(INVALID_LIT); // slot 0: the asserting literal (UIP)
-  uint32_t open = 0;              // marked vars at the analysis level
-
-  auto mark = [&](Lit l) {
-    const Var v = var_of(l);
-    if (k.seen[v])
-      return;
-    const uint32_t lv = k.var_level(v);
-    if (lv == 0)
-      return; // root-assigned literals resolve away for free
-    k.seen[v] = 1;
-    k.analyzed.push_back(v);
-    if (lv == alevel)
-      open++;
-    else
-      learned.push_back(l);
-  };
-
-  for (uint32_t i = 0; i < csize; i++)
-    mark(clits[i]);
-  assert(open > 0);
-
-  // resolve backwards over the trail until one marked literal remains
-  size_t i = k.trail.size();
   Lit uip = INVALID_LIT;
-  for (;;) {
-    assert(i > 0);
-    Lit t;
-    do {
-      t = k.trail[--i];
-    } while (!k.seen[var_of(t)]);
-    if (open == 1) {
-      uip = t;
+  for (;;) { // one round per conflict; OTFS restarts with a stronger one
+    uint32_t csize;
+    const Lit *clits = conflict_lits(k, &csize);
+
+    // analysis level = max level among conflict literals
+    uint32_t alevel = 0;
+    uint32_t conflict_nonroot = 0; // OTFS-subsume compares against this
+    for (uint32_t i = 0; i < csize; i++) {
+      alevel = std::max(alevel, k.var_level(var_of(clits[i])));
+      if (k.var_level(var_of(clits[i])) > 0)
+        conflict_nonroot++;
+    }
+    if (alevel == 0) { // conflict entirely at the root: refutation done
+      k.inconsistent = true;
+      k.conflict_valid = false;
+      if (k.proof)
+        k.proof->add_empty();
+      return ApplyResult::Unsat;
+    }
+    const Ref conflict_ref0 = k.conflict_ref; // may be garbage'd by OTFS
+
+    learned.clear();
+    learned.push_back(INVALID_LIT); // slot 0: the asserting literal (UIP)
+    uint32_t open = 0;           // marked vars at the analysis level
+    uint32_t resolvent_size = 0; // marked, not yet resolved-away vars
+
+    auto mark = [&](Lit l) {
+      const Var v = var_of(l);
+      if (k.seen[v])
+        return;
+      const uint32_t lv = k.var_level(v);
+      if (lv == 0)
+        return; // root-assigned literals resolve away for free
+      k.seen[v] = 1;
+      k.analyzed.push_back(v);
+      resolvent_size++;
+      if (lv == alevel)
+        open++;
+      else
+        learned.push_back(l);
+    };
+
+    for (uint32_t i = 0; i < csize; i++)
+      mark(clits[i]);
+    assert(open > 0);
+
+    // resolve backwards over the trail until one marked literal remains
+    size_t i = k.trail.size();
+    uint32_t resolved = 0;
+    bool restart_analysis = false;
+    for (;;) {
+      assert(i > 0);
+      Lit t;
+      do {
+        t = k.trail[--i];
+      } while (!k.seen[var_of(t)]);
+      if (open == 1) {
+        uip = t;
+        break;
+      }
+      open--;
+      resolved++;
+      const Assigned &a = k.assigned[var_of(t)];
+      if (a.binary) {
+        mark(a.reason); // the other literal of the binary reason clause
+        resolvent_size--;
+      } else {
+        assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
+        const Clause *reason = clause_at(k.arena, a.reason);
+        uint32_t antecedent = 1; // t's own slot in the reason
+        for (const Lit l : *reason)
+          if (l != t) {
+            if (k.var_level(var_of(l)) > 0)
+              antecedent++;
+            mark(l);
+          }
+        resolvent_size--; // t leaves the resolvent
+        // OTFS (kissat deduce.c): resolvent ⊆ reason ∖ {t} — since the
+        // resolvent contains all non-root reason literals except t, a
+        // strictly smaller size means equality
+        if (antecedent > 2 && resolvent_size < antecedent) {
+          const bool subsumes_conflict = resolved == 1 &&
+                                         conflict_ref0 != INVALID_REF &&
+                                         resolvent_size < conflict_nonroot;
+          otfs_strengthen(k, a.reason, t,
+                          subsumes_conflict ? conflict_ref0 : INVALID_REF);
+          restart_analysis = true;
+          break;
+        }
+      }
+    }
+    if (!restart_analysis)
       break;
-    }
-    open--;
-    const Assigned &a = k.assigned[var_of(t)];
-    if (a.binary) {
-      mark(a.reason); // the other literal of the binary reason clause
-    } else {
-      assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
-      const Clause *reason = clause_at(k.arena, a.reason);
-      for (const Lit l : *reason)
-        if (l != t)
-          mark(l);
-    }
+    bump_and_reset_analyzed(k); // kissat bumps each aborted round too
   }
   learned[0] = negate(uip);
 
@@ -370,16 +505,7 @@ ApplyResult analyze_apply(Kernel &k) {
     kernel_add_binary_clause(k, p.lits[0], p.lits[1]);
   } // units join the trail in Backjump; no stored clause
 
-  // bump analysis-side vars (SEEN), preserving relative recency (kissat
-  // sorts by stamp); clear all flags incl. minimization scratch
-  std::sort(k.analyzed.begin(), k.analyzed.end(),
-            [&](Var a, Var b) { return k.links[a].stamp < k.links[b].stamp; });
-  for (const Var v : k.analyzed) {
-    if (k.seen[v] & SEEN)
-      kernel_queue_bump(k, v);
-    k.seen[v] = 0;
-  }
-  k.analyzed.clear();
+  bump_and_reset_analyzed(k);
 
   k.conflict_valid = false;
   p.valid = true;

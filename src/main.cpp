@@ -168,6 +168,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.minimized);
     printf("c shrunken    %llu lits\n",
            (unsigned long long)kernel.stats.shrunken);
+    printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
+           (unsigned long long)kernel.stats.otfs_strengthened,
+           (unsigned long long)kernel.stats.otfs_subsumed);
     printf("c restarts    %llu\n", (unsigned long long)kernel.stats.restarts);
     printf("c reductions  %llu (%llu clauses deleted)\n",
            (unsigned long long)kernel.stats.reductions,

@@ -98,10 +98,45 @@ static void test_shrink() {
   assert(default_solve(k) == 10); // still satisfiable (1 2 3, -4)
 }
 
+static void test_otfs() {
+  // r = (-1 -2 3) propagates 3 at level 2 (after deciding 1, then 2);
+  // d = (-1 -2 -3) then conflicts. Resolving d with r on 3 yields (-1 -2),
+  // which is smaller than both: OTFS strengthens r to the binary (-1 -2)
+  // and, since this was the first resolution and the resolvent is smaller
+  // than d, subsumes (deletes) d. Analysis restarts on (-1 -2) and learns
+  // it as the driving clause with UIP 2.
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit r[3] = {internalize(-1), internalize(-2), internalize(3)};
+  const Lit d[3] = {internalize(-1), internalize(-2), internalize(-3)};
+  const Ref rref = kernel_add_large_clause(k, r, 3, false, 0);
+  const Ref dref = kernel_add_large_clause(k, d, 3, false, 0);
+
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(2));
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+  assert(k.conflict_ref == dref);
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.otfs_strengthened == 1);
+  assert(k.stats.otfs_subsumed == 1);
+  assert(clause_at(k.arena, dref)->garbage()); // conflict subsumed
+  assert(!clause_at(k.arena, rref)->garbage()); // reason kept (deviation)
+  assert(k.pending.valid);
+  assert(k.pending.lits.size() == 2);
+  assert(k.pending.lits[0] == internalize(-2)); // negated UIP
+  assert(k.pending.lits[1] == internalize(-1));
+  assert(k.pending.jump_level == 1);
+  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(default_solve(k) == 10); // satisfiable: 1, -2
+}
+
 int main() {
   test_uip();
   test_learned_unit();
   test_shrink();
+  test_otfs();
   puts("test_analyze OK");
   return 0;
 }
