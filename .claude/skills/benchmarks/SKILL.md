@@ -30,6 +30,9 @@ Hard rules:
 ## Running an evaluation
 
 - Environment (plan §8.1): a single local workstation — no HPC/StarExec. The runner may execute up to **8 single-threaded solver jobs in parallel** (`--jobs N`, N ≤ 8); each solver run itself is strictly sequential. Record the concurrency level in every report and only compare numbers taken at the same concurrency; drop to ~4 jobs for Tier C/D gate runs where timing precision matters.
+- **Sequencing rule (plan §8.1 rev 18): do not evaluate Tier B while any
+  Tier A instance is unsolved within its 30 s budget** — clear Tier A
+  completely first.
 - Runner: `tools/bench/run.py --tier B --solver ./build/tactix [--baseline kissat] [--jobs 8]` (if the runner doesn't exist yet, build it to this interface). It must: record wall time + exit code + verdict, verify verdict against the expected status in the list, and **check the proof for every UNSAT answer** (drat-trim; a rejected proof counts as unsolved, competition-style).
 - Score: PAR-2 = mean over instances of (runtime if solved, else 2 × timeout). Report PAR-2 and #solved, split SAT/UNSAT, plus proof-check time and proof size.
 - Also track microbenchmarks when relevant: propagations/sec, conflicts/sec, peak RSS, proof bytes/conflict (measured on Tier B).

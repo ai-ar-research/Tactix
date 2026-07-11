@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-11 (rev. 17). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-11 (rev. 18). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -540,6 +540,10 @@ schedule gate runs accordingly.
     small graph-coloring encodings.
   - Run on every commit. A solver that times out here (>30 s each) is simply
     broken; this is the set the phase-1 skeleton must clear first.
+  - **Sequencing rule (rev 18, user decision): Tier B is not evaluated
+    while any Tier A instance is unsolved within its 30 s budget.** Clear
+    Tier A completely, then compare on Tier B — timings there carry no
+    decision weight while the "is it broken" set still has failures.
 - **Tier B — "5–30 s" competition subset (daily driver; total ≈ 2–8 CPU-min).**
   10–15 instances from the SC 2023–2025 main tracks selected by *reference
   runtime*: Kissat 4.0.4 takes **between 5 s and 30 s** each on our hardware
@@ -825,3 +829,8 @@ discovered during development get added here rather than answered ad hoc.
   backing §5.1 (VMTF/scores/phases). Refactor of existing leaks
   (restart_advised/reduce_advised, RestartState/ReduceState in Kernel,
   glue-EMA updates inside Analyze) tracked in PROGRESS.
+- **rev. 18** (2026-07-11): Tier A/B sequencing rule added to §8.1 (user
+  decision): Tier B is not evaluated while any Tier A instance is
+  unsolved within its 30 s budget — clear Tier A first. Reorders the
+  current T1 work: the remaining hard n=280–300 transition instances
+  come before any further Tier B comparison; benchmarks skill synced.
