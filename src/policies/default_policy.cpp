@@ -11,7 +11,8 @@ namespace tactix {
 
 // Phase-1 shape of kissat/src/search.c's guard->apply chain: propagate,
 // analyze+backjump on conflict, SAT when everything is assigned, else
-// decide. Restart/Reduce/... join this chain in phase 2 via the registry.
+// decide — with Restart/Reduce consulted between conflicts (moved to
+// phase 1 in plan rev 12). S3–S5 join via the registry in phase 2.
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (k.inconsistent)
     return 20;
