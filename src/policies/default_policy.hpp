@@ -43,8 +43,8 @@ public:
   // schedules directly; this is policy state, not kernel H-state
   struct {
     uint64_t floor_conflicts = 50; // earliest next restart
-    double fast_glue = 0.0;        // ~ last 32 conflicts
-    double slow_glue = 0.0;        // ~ last 16384 conflicts
+    double fast_glue = 0.0;       // ~ last 32 conflicts
+    double slow_glue = 0.0;       // ~ last 16384 conflicts
     bool ema_initialized = false;
   } restart;
   struct {
@@ -72,6 +72,7 @@ public:
   bool want_switch_mode(const Kernel &) const;
   void tick_reluctant();                   // per-conflict in stable mode
   void update_mode_limits(const Kernel &); // after a switch
+  void update_restart_limit(const Kernel &); // after a restart
 
 private:
   void observe_glue(uint32_t glue); // per-conflict EMA update

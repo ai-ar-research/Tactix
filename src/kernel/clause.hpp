@@ -23,12 +23,29 @@ struct Clause {
   static constexpr uint32_t GARBAGE = 1u << 0;
   static constexpr uint32_t REDUNDANT = 1u << 1;
   static constexpr uint32_t REASON = 1u << 2; // transient lock during Reduce
-  static constexpr uint32_t GLUE_SHIFT = 3;
+  // recently-used counter (kissat clause.h `used:5`): saturated on learn
+  // and on every use in conflict analysis, aged down by Reduce — protects
+  // active clauses from deletion (see reduce.cpp)
+  static constexpr uint32_t USED_SHIFT = 3;
+  static constexpr uint32_t USED_BITS = 5;
+  static constexpr uint32_t MAX_USED = (1u << USED_BITS) - 1;
+  static constexpr uint32_t USED_MASK = MAX_USED << USED_SHIFT;
+  static constexpr uint32_t GLUE_SHIFT = USED_SHIFT + USED_BITS;
+  static constexpr uint32_t MAX_GLUE = (1u << (32 - GLUE_SHIFT)) - 1;
 
   bool garbage() const { return flags & GARBAGE; }
   bool redundant() const { return flags & REDUNDANT; }
   bool reason() const { return flags & REASON; }
   uint32_t glue() const { return flags >> GLUE_SHIFT; }
+  uint32_t used() const { return (flags & USED_MASK) >> USED_SHIFT; }
+  void set_used(uint32_t u) {
+    flags = (flags & ~USED_MASK) | (u << USED_SHIFT);
+  }
+  void set_glue(uint32_t g) {
+    if (g > MAX_GLUE)
+      g = MAX_GLUE;
+    flags = (flags & ((1u << GLUE_SHIFT) - 1)) | (g << GLUE_SHIFT);
+  }
   Lit *begin() { return lits; }
   Lit *end() { return lits + size; }
   const Lit *begin() const { return lits; }

@@ -358,6 +358,11 @@ ApplyResult analyze_apply(Kernel &k) {
   for (;;) { // one round per conflict; OTFS restarts with a stronger one
     uint32_t csize;
     const Lit *clits = conflict_lits(k, &csize);
+    if (k.conflict_ref != INVALID_REF) { // conflict clause is "used" too
+      Clause *cc = clause_at(k.arena, k.conflict_ref);
+      if (cc->redundant())
+        cc->set_used(Clause::MAX_USED);
+    }
 
     // analysis level = max level among conflict literals
     uint32_t alevel = 0;
@@ -423,7 +428,14 @@ ApplyResult analyze_apply(Kernel &k) {
         resolvent_size--;
       } else {
         assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
-        const Clause *reason = clause_at(k.arena, a.reason);
+        Clause *reason = clause_at(k.arena, a.reason);
+        // mark the reason recently-used (kissat deduce.c
+        // mark_clause_as_used) — Reduce protects active clauses.
+        // Deviation (recorded): kissat also recomputes+promotes the glue
+        // here (recompute_and_promote); retention lands first, promotion
+        // is a follow-up if the evidence asks for it.
+        if (reason->redundant())
+          reason->set_used(Clause::MAX_USED);
         uint32_t antecedent = 1; // t's own slot in the reason
         for (const Lit l : *reason)
           if (l != t) {

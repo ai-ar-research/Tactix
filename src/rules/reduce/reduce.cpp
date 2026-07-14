@@ -1,10 +1,15 @@
-// Selection scheme after kissat/src/reduce.c + tiers (MIT), simplified for
-// phase 1: glue <= 2 ("tier 1") is always kept; the rest are ranked
-// worst-first by (glue, size). The rule owns the RANKING and every
-// soundness filter (reason locks, pending learned clause, keep tier); how
-// MUCH of the ranked list dies is the policy's choice (plan §5 rev 17:
-// ReductionPolicy sub-policy — the canonical instance deletes kissat's
-// default 75%). WHEN to reduce is likewise the policy's.
+// Selection scheme after kissat/src/reduce.c (MIT): candidates are aged
+// (used counter decremented) and protected by recency — tier 1
+// (glue <= 2) survives while used at all, tier 2 (glue <= 6) survives
+// while used within the last two reductions; survivors are ranked
+// worst-first by (glue, size). Fixed tier thresholds are kissat's option
+// defaults (tier1=2, tier2=6); kissat's dynamic glue-distribution tiers
+// ablated flat on our instances (2026-07-13) and stay out for now. The
+// rule owns the RANKING and every soundness filter (reason locks, pending
+// learned clause, tiers); how MUCH of the ranked list dies is the
+// policy's choice (plan §5 rev 17: ReductionPolicy sub-policy — the
+// canonical instance deletes kissat's default 75%). WHEN is likewise the
+// policy's.
 #include "rules/reduce/reduce.hpp"
 
 #include "proof/proof.hpp"
@@ -13,7 +18,8 @@
 
 namespace tactix {
 
-static constexpr uint32_t KEEP_GLUE = 2;
+static constexpr uint32_t TIER1_GLUE = 2;
+static constexpr uint32_t TIER2_GLUE = 6;
 
 // soundness: deleting redundant clauses is always sound as long as
 // reason-locked clauses and the pending learned clause survive; only a
@@ -51,9 +57,18 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
   std::vector<Victim> candidates;
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (c->redundant() && !c->garbage() && !c->reason() &&
-        c->glue() > KEEP_GLUE)
-      candidates.push_back({ref, c->glue(), c->size});
+    if (c->redundant() && !c->garbage()) {
+      // recency protection (kissat reduce.c; the aging tick lives in
+      // reduce_apply_refs so enumeration stays side-effect-free for
+      // introspecting policies)
+      const uint32_t used = c->used();
+      const uint32_t glue = c->glue();
+      const bool keep =
+          c->reason() || (glue <= TIER1_GLUE && used) ||
+          (glue <= TIER2_GLUE && used >= Clause::MAX_USED - 1);
+      if (!keep)
+        candidates.push_back({ref, glue, c->size});
+    }
     ref += clause_words(c->size);
   }
   lock_reasons(k, false);
@@ -74,6 +89,18 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
 ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   assert(reduce_guard(k));
   k.stats.reductions++;
+  // aging tick (kissat reduce.c decrements `used` once per reduction):
+  // selection already happened on the pre-aging values, matching kissat's
+  // read-then-decrement order
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    if (c->redundant() && !c->garbage()) {
+      const uint32_t used = c->used();
+      if (used)
+        c->set_used(used - 1);
+    }
+    ref += clause_words(c->size);
+  }
   lock_reasons(k, true);
   size_t deleted = 0;
   for (size_t i = 0; i < n; i++) {

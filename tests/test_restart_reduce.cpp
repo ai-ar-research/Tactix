@@ -89,6 +89,32 @@ static void test_reduce_deletes_and_logs() {
   assert(!rp.want_reduce(k)); // budget pushed out (guard still holds)
 }
 
+static void test_reduce_used_retention() {
+  // kissat reduce.c recency scheme: tier2 (glue <= 6) survives while
+  // used within the last two reductions; aging happens per application
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref tier2 = kernel_add_large_clause(k, c1, 3, true, 4);
+  const Lit c2[3] = {internalize(4), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, c2, 3, true, 9); // high glue: never protected
+  assert(clause_at(k.arena, tier2)->used() == Clause::MAX_USED);
+
+  std::vector<Ref> cands;
+  reduce_candidates(k, cands);
+  assert(cands.size() == 1); // only the high-glue clause; tier2 protected
+  // enumeration must be side-effect-free (N1 introspection surface)
+  assert(clause_at(k.arena, tier2)->used() == Clause::MAX_USED);
+
+  // two applications age used MAX -> MAX-2: tier2 protection lapses
+  reduce_apply_refs(k, nullptr, 0);
+  reduce_candidates(k, cands);
+  assert(cands.size() == 1); // used == MAX-1: still protected
+  reduce_apply_refs(k, nullptr, 0);
+  reduce_candidates(k, cands);
+  assert(cands.size() == 2); // protection lapsed; both are candidates
+}
+
 static void test_solve_with_restarts_still_correct() {
   // PHP(3) pigeons=4 holes=3: UNSAT even with tiny restart intervals
   Kernel k;
@@ -147,6 +173,7 @@ int main() {
   test_restart_reuses_trail();
   test_collect_preserves_propagation();
   test_reduce_deletes_and_logs();
+  test_reduce_used_retention();
   test_solve_with_restarts_still_correct();
   puts("test_restart_reduce OK");
   return 0;

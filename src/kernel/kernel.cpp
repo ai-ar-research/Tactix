@@ -50,8 +50,9 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   k.arena.resize(k.arena.size() + clause_words(size));
   Clause *c = clause_at(k.arena, ref);
   c->size = size;
-  c->flags = (redundant ? Clause::REDUNDANT : 0) |
-             (glue << Clause::GLUE_SHIFT);
+  // redundant clauses start fully "used" (kissat learn.c: used = MAX_USED)
+  c->flags = redundant ? (Clause::REDUNDANT | Clause::USED_MASK) : 0;
+  c->set_glue(glue);
   c->searched = 2;
   for (uint32_t i = 0; i < size; i++)
     c->lits[i] = lits[i];

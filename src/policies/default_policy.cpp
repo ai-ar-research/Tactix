@@ -15,6 +15,12 @@ namespace tactix {
 // Glucose-style EMA restart trigger (Audemard–Simon): restart when the
 // short-term glue average exceeds the long-term one by a margin — search
 // quality is degrading, so abandon the prefix. Focused mode only.
+// NOTE (2026-07-13, evaluated and reverted): kissat's defaults (margin
+// 1.10, interval 1+log) were tried and measured WORSE here (s055 focused-
+// only 6.9M → 7.9M conflicts, restart interval 18 vs kissat's own 41 at
+// the same constants) — our plain seeded EMAs over-fire at that margin;
+// kissat's constants presuppose its bias-corrected EMA warm-up
+// (smooth.c). Revisit together with per-mode bias-corrected averages.
 static constexpr double RESTART_MARGIN = 1.25;
 static constexpr uint64_t RESTART_FLOOR_INTERVAL = 50;
 // kissat mode.c / options.h defaults
@@ -89,6 +95,10 @@ void DefaultPolicy::update_mode_limits(const Kernel &k) {
   }
   // per-mode averages restart fresh (kissat init_averages on switch)
   restart.ema_initialized = false;
+  update_restart_limit(k);
+}
+
+void DefaultPolicy::update_restart_limit(const Kernel &k) {
   restart.floor_conflicts = k.stats.conflicts + RESTART_FLOOR_INTERVAL;
 }
 
@@ -147,7 +157,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_restart(k) && restart_guard(k)) {
       restart_apply(k);
       reluctant.trigger = false; // consumed (kissat reluctant.h)
-      restart.floor_conflicts = k.stats.conflicts + RESTART_FLOOR_INTERVAL;
+      update_restart_limit(k);
       continue;
     }
     if (stop && *stop)
