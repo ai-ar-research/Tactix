@@ -72,6 +72,14 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     } else if (id == backjump_id) {
       // random target; apply_to clamps into [jump_level, current]
       r = backjump_apply_to(k, next_random(rng) % (k.level + 1));
+    } else if (rules[id].instances && rules[id].apply_instance) {
+      // generic random instance draw over the rule's own enumeration —
+      // any rule registering an instance surface (Rephase, future S/C/V
+      // families) gets rule-order AND instance fuzzing for free
+      uint64_t insts[16];
+      const uint32_t m = rules[id].instances(k, insts, 16);
+      r = m ? rules[id].apply_instance(k, insts[next_random(rng) % m])
+            : rules[id].apply(k);
     } else {
       r = rules[id].apply(k);
     }

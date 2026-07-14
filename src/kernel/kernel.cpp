@@ -18,6 +18,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.scores.pos.resize(nvars, UINT32_MAX);
   k.scores.score.resize(nvars, 0.0);
   k.target.resize(nvars, 0);
+  k.best.resize(nvars, 0);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
   k.unassigned += nvars - old;
@@ -343,12 +344,18 @@ void kernel_update_target_phases(Kernel &k) {
   if (!k.stable)
     return;
   const uint32_t assigned = static_cast<uint32_t>(k.trail.size());
-  if (k.target_assigned >= assigned)
-    return;
-  k.target_assigned = assigned;
-  for (const Lit lit : k.trail)
-    k.target[var_of(lit)] = negated(lit) ? -1 : 1;
-  k.stats.target_saved++;
+  if (k.target_assigned < assigned) {
+    k.target_assigned = assigned;
+    for (const Lit lit : k.trail)
+      k.target[var_of(lit)] = negated(lit) ? -1 : 1;
+    k.stats.target_saved++;
+  }
+  if (k.best_assigned < assigned) {
+    k.best_assigned = assigned;
+    for (const Lit lit : k.trail)
+      k.best[var_of(lit)] = negated(lit) ? -1 : 1;
+    k.stats.best_saved++;
+  }
 }
 
 

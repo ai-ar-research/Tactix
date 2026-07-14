@@ -5,6 +5,7 @@
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
+#include "rules/rephase/rephase.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/switchmode/switchmode.hpp"
 
@@ -101,6 +102,22 @@ bool DefaultPolicy::want_reduce(const Kernel &k) const {
   return k.stats.conflicts >= reduce.next_conflicts;
 }
 
+// kissat rephase.c kissat_rephasing: stable mode only
+bool DefaultPolicy::want_rephase(const Kernel &k) const {
+  return k.stable && k.stats.conflicts > rephase.next_conflicts;
+}
+
+// kissat kimits.h UPDATE_CONFLICT_LIMIT(rephase, rephased, NLOG3N):
+// interval grows as rephaseint · n·log10(n+9)³ of the rephase count
+void DefaultPolicy::update_rephase_limit(const Kernel &k) {
+  const double lg = std::log10(static_cast<double>(k.stats.rephased) + 9);
+  rephase.next_conflicts =
+      k.stats.conflicts +
+      static_cast<uint64_t>(REPHASE_INTERVAL *
+                            static_cast<double>(k.stats.rephased) * lg * lg *
+                            lg);
+}
+
 // arithmetically growing reduce interval
 void DefaultPolicy::update_reduce_limit(const Kernel &k) {
   reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_INIT +
@@ -163,6 +180,19 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       restart_apply(k);
       reluctant.trigger = false; // consumed (kissat reluctant.h)
       update_restart_limit(k);
+      continue;
+    }
+    if (want_rephase(k) && rephase_guard(k)) {
+      // kissat couples a backtrack-to-root into kissat_rephase; here the
+      // same effect is composed from the rule vocabulary (deviation
+      // recorded in rephase.cpp) — the root restart IS a restart
+      if (restart_guard(k))
+        restart_apply_to(k, 0);
+      // rotation B,I,B,O (kissat's schedule minus the phase-4 W slots)
+      static constexpr uint64_t ROTATION[4] = {
+          REPHASE_BEST, REPHASE_INVERTED, REPHASE_BEST, REPHASE_ORIGINAL};
+      rephase_apply_type(k, ROTATION[k.stats.rephased % 4]);
+      update_rephase_limit(k);
       continue;
     }
     if (stop && *stop)

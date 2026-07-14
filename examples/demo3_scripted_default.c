@@ -38,6 +38,8 @@ static int rule_id(const char *name) {
 #define MODE_INTERVAL 1000
 #define RELUCTANT_PERIOD 1024
 #define RELUCTANT_LIMIT (1 << 20)
+#define REPHASE_INTERVAL_INIT 1000
+#define REPHASE_INTERVAL 1000
 
 struct sched {
   double fast_glue, slow_glue;
@@ -48,6 +50,7 @@ struct sched {
       mode_ticks_at_focus_entry;
   uint64_t rel_u, rel_v, rel_wait;
   int rel_trigger;
+  uint64_t rephase_next;
 };
 
 static void sched_init(struct sched *p) {
@@ -57,6 +60,7 @@ static void sched_init(struct sched *p) {
   p->mode_conflicts_limit = MODE_INITIAL_CONFLICTS;
   p->rel_u = p->rel_v = 1;
   p->rel_wait = RELUCTANT_PERIOD;
+  p->rephase_next = REPHASE_INTERVAL_INIT;
 }
 
 static void observe_glue(struct sched *p, double glue) {
@@ -123,6 +127,7 @@ static int scripted_solve(tactix *s) {
   const int reduce = rule_id("Reduce");
   const int restart = rule_id("Restart");
   const int switchmode = rule_id("SwitchMode");
+  const int rephase = rule_id("Rephase");
   if (tactix_status(s) == 20)
     return 20;
   for (;;) {
@@ -177,6 +182,22 @@ static int scripted_solve(tactix *s) {
       p.rel_trigger = 0;
       update_restart_limit(&p, s);
       continue;
+    }
+    if (stable && conflicts > p.rephase_next) {
+      /* the composed root restart (payload 0 = keep nothing); -1 when
+       * already at the root */
+      tactix_apply_instance(s, restart, 0);
+      /* B,I,B,O rotation over the instance payloads */
+      static const uint64_t rotation[4] = {0, 1, 0, 2};
+      const uint64_t n_before = tactix_stat(s, TACTIX_STAT_REPHASED);
+      if (tactix_apply_instance(s, rephase, rotation[n_before % 4]) != -1) {
+        const uint64_t n = tactix_stat(s, TACTIX_STAT_REPHASED);
+        const double lg = log10((double)n + 9);
+        p.rephase_next = tactix_stat(s, TACTIX_STAT_CONFLICTS) +
+                         (uint64_t)(REPHASE_INTERVAL * (double)n * lg * lg *
+                                    lg);
+        continue;
+      }
     }
     r = tactix_apply(s, decide); /* canonical branch */
     assert(r != -1);
@@ -256,16 +277,19 @@ int main(int argc, char **argv) {
     }
   }
   printf("demo3: verdict %d, conflicts %llu, restarts %llu, "
-         "reductions %llu, switches %llu — scripted == builtin on all\n",
+         "reductions %llu, switches %llu, rephased %llu — "
+         "scripted == builtin on all\n",
          expect,
          (unsigned long long)tactix_stat(builtin, TACTIX_STAT_CONFLICTS),
          (unsigned long long)tactix_stat(builtin, TACTIX_STAT_RESTARTS),
          (unsigned long long)tactix_stat(builtin, TACTIX_STAT_REDUCTIONS),
-         (unsigned long long)tactix_stat(builtin, TACTIX_STAT_SWITCHES));
+         (unsigned long long)tactix_stat(builtin, TACTIX_STAT_SWITCHES),
+         (unsigned long long)tactix_stat(builtin, TACTIX_STAT_REPHASED));
   /* and every schedule component actually fired */
   assert(tactix_stat(builtin, TACTIX_STAT_RESTARTS) > 0);
   assert(tactix_stat(builtin, TACTIX_STAT_SWITCHES) > 0);
   assert(tactix_stat(builtin, TACTIX_STAT_REDUCTIONS) > 0);
+  assert(tactix_stat(builtin, TACTIX_STAT_REPHASED) > 0);
 
   tactix_release(builtin);
   tactix_release(scripted);

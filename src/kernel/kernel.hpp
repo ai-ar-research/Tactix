@@ -34,6 +34,8 @@ struct Stats {
   uint64_t ticks = 0; // propagation memory-traffic proxy (see propagate.cpp)
   uint64_t switched = 0; // mode switches (S4)
   uint64_t target_saved = 0; // target-phase snapshots
+  uint64_t best_saved = 0;   // best-phase snapshots
+  uint64_t rephased = 0;     // Rephase applications (S3)
   uint64_t learned = 0;
   uint64_t learned_units = 0;
   uint64_t minimized = 0; // literals removed by clause minimization
@@ -105,6 +107,10 @@ struct Kernel {
   // consistent trail seen while stable; preferred over saved phase there
   std::vector<int8_t> target; // by var: +1/-1, 0 = never saved
   uint32_t target_assigned = 0;
+  // best phases (kissat phases.c, S3 Rephase): like target, but the
+  // watermark only resets when Rephase consumes it (type Best)
+  std::vector<int8_t> best; // by var: +1/-1, 0 = never saved
+  uint32_t best_assigned = 0;
 
   // conflict handoff: propagate -> analyze
   bool conflict_valid = false;
@@ -194,9 +200,10 @@ Var kernel_heap_next_unassigned(Kernel &); // max-score unassigned (lazy pop)
 inline bool kernel_heap_contains(const Kernel &k, Var v) {
   return k.scores.pos[v] != UINT32_MAX;
 }
-// snapshot assigned values into target phases if the trail is the deepest
-// consistent one seen (kissat backtrack.c kissat_update_target_and_best_
-// phases; best phases join with Rephase/S3 in phase 2). Stable mode only.
+// snapshot assigned values into target/best phases when the trail is the
+// deepest consistent one seen past each watermark (kissat backtrack.c
+// kissat_update_target_and_best_phases). Stable mode only; Rephase (S3)
+// consumes best and resets the watermarks.
 void kernel_update_target_phases(Kernel &);
 
 // --- decision ranking dispatch (§5.1) ---------------------------------------

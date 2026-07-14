@@ -183,6 +183,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.switched,
            (unsigned long long)kernel.stats.ticks,
            (unsigned long long)kernel.stats.target_saved);
+    printf("c rephased    %llu (%llu best phases saved)\n",
+           (unsigned long long)kernel.stats.rephased,
+           (unsigned long long)kernel.stats.best_saved);
   }
   if (res == 10) {
     printf("s SATISFIABLE\n");

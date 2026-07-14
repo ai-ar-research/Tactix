@@ -5,10 +5,12 @@
 // Owns every scheduling heuristic it uses (rev 17): the focused-mode
 // EMA-triggered restart schedule (Glucose scheme, Audemard–Simon), the
 // stable-mode reluctant-doubling restart schedule, the arithmetic reduce
-// interval, and the mode-switch alternation (kissat mode.c: first switch
+// interval, the mode-switch alternation (kissat mode.c: first switch
 // after `modeinit` conflicts, stable phases last the preceding focused
-// phase's ticks, focused intervals grow as modeint·n·log⁴n). Constants
-// are the published kissat/Glucose defaults, not benchmark-tuned.
+// phase's ticks, focused intervals grow as modeint·n·log⁴n), and the
+// stable-only rephase schedule (kissat rephase.c: rephaseint·n·log³n
+// interval, B,I,B,O rotation). Constants are the published
+// kissat/Glucose defaults, not benchmark-tuned.
 #pragma once
 
 #include "policies/policy.hpp"
@@ -46,6 +48,8 @@ public:
   static constexpr uint64_t MODE_INTERVAL = 1000;          // modeint
   static constexpr uint64_t RELUCTANT_PERIOD = 1024;    // reluctantint
   static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;  // reluctantlim
+  static constexpr uint64_t REPHASE_INTERVAL_INIT = 1000; // rephaseinit
+  static constexpr uint64_t REPHASE_INTERVAL = 1000;      // rephaseint
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
 
@@ -78,16 +82,24 @@ public:
     uint64_t wait = RELUCTANT_PERIOD;
     bool trigger = false;
   } reluctant;
+  // S3 rephase schedule (kissat rephase.c: stable-only trigger, interval
+  // grows rephaseint·n·log³n; rotation B,I,B,O — kissat's B,W,I,B,W,O
+  // with the Walking slots deferred to phase 4)
+  struct {
+    uint64_t next_conflicts = REPHASE_INTERVAL_INIT;
+  } rephase;
 
   // the scheduling predicates and their transitions, exposed so tests
   // (and future presets) can pose schedules directly
   bool want_restart(const Kernel &) const;
   bool want_reduce(const Kernel &) const;
   bool want_switch_mode(const Kernel &) const;
+  bool want_rephase(const Kernel &) const;
   void tick_reluctant();                   // per-conflict in stable mode
   void update_mode_limits(const Kernel &); // after a switch
   void update_restart_limit(const Kernel &); // after a restart
   void update_reduce_limit(const Kernel &);  // after a reduction
+  void update_rephase_limit(const Kernel &); // after a rephase
 
 private:
   void observe_glue(uint32_t glue); // per-conflict EMA update

@@ -166,6 +166,8 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.pending.glue;
   case 11: // TACTIX_STAT_STABLE
     return k.stable ? 1 : 0;
+  case 12: // TACTIX_STAT_REPHASED
+    return k.stats.rephased;
   default:
     return UINT64_MAX;
   }
