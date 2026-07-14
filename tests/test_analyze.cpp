@@ -132,11 +132,67 @@ static void test_otfs() {
   assert(default_solve(k) == 10); // satisfiable: 1, -2
 }
 
+static void test_chrono_backjump() {
+  // c1 = (-1 -3 4), c2 = (-1 -3 -4); decide 1 (level 1), decide 2 (level
+  // 2, unrelated), decide 3 (level 3): c1 forces 4, c2 conflicts. 1-UIP
+  // learns (-3 -1) with jump level 1. The N1 surface may land anywhere in
+  // [jump, conflict): target 2 is chronological backtracking — level 2's
+  // unrelated decision survives and the UIP asserts at level 2.
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit c1[3] = {internalize(-1), internalize(-3), internalize(4)};
+  const Lit c2[3] = {internalize(-1), internalize(-3), internalize(-4)};
+  kernel_add_large_clause(k, c1, 3, false, 0);
+  kernel_add_large_clause(k, c2, 3, false, 0);
+
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(2));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(3));
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.pending.lits.size() == 2);
+  assert(k.pending.lits[0] == internalize(-3)); // negated UIP
+  assert(k.pending.jump_level == 1);
+  assert(backjump_apply_to(k, 2) == ApplyResult::Ok); // chrono target
+  assert(k.level == 2);
+  assert(k.values[internalize(2)] > 0);  // level-2 decision kept
+  assert(k.values[internalize(-3)] > 0); // asserted...
+  assert(k.assigned[var_of(internalize(3))].level == 2); // ...at level 2
+  assert(!k.pending.valid);
+  assert(default_solve(k) == 10); // satisfiable: 1 2 -3
+}
+
+static void test_backjump_target_clamps() {
+  // targets below the assertion level clamp up to it: below jump_level
+  // the learned clause would no longer be asserting
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit c1[3] = {internalize(-1), internalize(-2), internalize(3)};
+  const Lit c2[3] = {internalize(-1), internalize(-2), internalize(-3)};
+  kernel_add_large_clause(k, c1, 3, false, 0);
+  kernel_add_large_clause(k, c2, 3, false, 0);
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(2));
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.pending.jump_level == 1);
+  assert(backjump_apply_to(k, 0) == ApplyResult::Ok); // clamps to 1
+  assert(k.level == 1);
+  assert(k.values[internalize(-2)] > 0); // asserted at the jump level
+  assert(default_solve(k) == 10);
+}
+
 int main() {
   test_uip();
   test_learned_unit();
   test_shrink();
   test_otfs();
+  test_chrono_backjump();
+  test_backjump_target_clamps();
   puts("test_analyze OK");
   return 0;
 }

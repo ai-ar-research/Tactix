@@ -168,8 +168,32 @@ static void test_restart_reuses_trail() {
   assert(k.stats.restarts == 2);
 }
 
+static void test_restart_apply_to() {
+  // N1 instance surface: the keep-level is the policy's choice; the
+  // canonical instance keeps restart_reuse_level(k)
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_queue_bump(k, 0); // var 0 freshest (stamp 4 > var 2's 3)
+  kernel_assign_decision(k, internalize(1)); // var 0 at level 1
+  kernel_assign_decision(k, internalize(2)); // var 1 at level 2
+  assert(restart_reuse_level(k) == 1); // canonical would keep level 1...
+  assert(restart_apply_to(k, 0) == ApplyResult::Ok); // ...full restart anyway
+  assert(k.level == 0);
+  assert(k.values[internalize(1)] == 0); // nothing kept
+  assert(k.stats.restarts == 1);
+  assert(k.stats.restarts_reused == 0);
+  // keep-levels above the current level clamp to it (nothing abandoned)
+  kernel_assign_decision(k, internalize(3));
+  assert(restart_apply_to(k, 5) == ApplyResult::Ok);
+  assert(k.level == 1);
+  assert(k.values[internalize(3)] > 0);
+  assert(k.stats.restarts == 2);
+  assert(k.stats.restarts_reused == 1);
+}
+
 int main() {
   test_restart();
+  test_restart_apply_to();
   test_restart_reuses_trail();
   test_collect_preserves_propagation();
   test_reduce_deletes_and_logs();

@@ -1,7 +1,9 @@
 #include "policies/random_policy.hpp"
 
+#include "rules/backjump/backjump.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/registry.hpp"
+#include "rules/restart/restart.hpp"
 
 namespace tactix {
 
@@ -27,10 +29,19 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   uint64_t rng = seed ? seed : 1;
   const auto &rules = tactix_rules();
   const int decide_id = tactix_rule_id("Decide");
+  const int restart_id = tactix_rule_id("Restart");
+  const int backjump_id = tactix_rule_id("Backjump");
   std::vector<int> applicable;
   applicable.reserve(rules.size());
 
   for (uint64_t steps = 0;; steps++) {
+    // periodic invariant oracle (plan §8.2 oracle 4): most random walks on
+    // nontrivial instances never reach a verdict, so without this a logic
+    // bug that corrupts state (but not memory) is invisible to the fuzz
+    // leg. Every 256 steps: per-step would dominate the walk (the check
+    // is O(vars + arena + watches)). No-op in NDEBUG builds.
+    if ((steps & 255) == 0)
+      kernel_check_invariants(k);
     if (k.inconsistent)
       return 20;
     // SAT only when the assignment is total, fully propagated, and no
@@ -54,6 +65,13 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     ApplyResult r;
     if (id == decide_id) {
       r = decide_apply(k, random_unassigned_literal(k, rng), true);
+    } else if (id == restart_id) {
+      // random keep-level (plan §8.2: random INSTANCE choices, not just
+      // random order) — every level in [0, current] is a legal instance
+      r = restart_apply_to(k, next_random(rng) % (k.level + 1));
+    } else if (id == backjump_id) {
+      // random target; apply_to clamps into [jump_level, current]
+      r = backjump_apply_to(k, next_random(rng) % (k.level + 1));
     } else {
       r = rules[id].apply(k);
     }

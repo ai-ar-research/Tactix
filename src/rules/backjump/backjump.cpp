@@ -10,11 +10,19 @@ bool backjump_guard(const Kernel &k) {
   return k.pending.valid && !k.conflict_valid && !k.inconsistent;
 }
 
-ApplyResult backjump_apply(Kernel &k) {
+ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   assert(backjump_guard(k));
   PendingLearned &p = k.pending;
-  if (p.jump_level < k.level)
-    kernel_backtrack(k, p.jump_level);
+  // sound targets are [jump_level, current level]: below the assertion
+  // level the clause stops being asserting (the stale check below would
+  // just discard it), above the current level there is nothing to
+  // abandon. Learned units always assert at the root.
+  if (target < p.jump_level)
+    target = p.jump_level;
+  if (p.lits.size() == 1)
+    target = 0;
+  if (target < k.level)
+    kernel_backtrack(k, target);
   const Lit asserting = p.lits[0];
 
   // The pending clause's assertion metadata is only valid in the trail
@@ -45,9 +53,8 @@ ApplyResult backjump_apply(Kernel &k) {
   }
 
   if (p.lits.size() == 1) {
-    // learned unit: asserted at the root
-    if (k.level > 0)
-      kernel_backtrack(k, 0);
+    // learned unit: asserted at the root (target was forced to 0 above)
+    assert(k.level == 0);
     kernel_assign_unit(k, asserting);
     k.stats.learned_units++;
   } else if (p.lits.size() == 2) {
@@ -58,6 +65,10 @@ ApplyResult backjump_apply(Kernel &k) {
   }
   p.valid = false;
   return ApplyResult::Ok;
+}
+
+ApplyResult backjump_apply(Kernel &k) {
+  return backjump_apply_to(k, k.pending.jump_level);
 }
 
 TACTIX_REGISTER_RULE(Backjump, RuleTier::Micro, backjump_guard,

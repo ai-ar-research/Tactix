@@ -18,7 +18,7 @@ bool restart_guard(const Kernel &k) {
 // stamp / EVSIDS score, per the active mode) than the next decision
 // candidate — after a full restart the heuristic would re-decide exactly
 // that prefix, so re-propagating it is pure waste.
-static uint32_t reuse_trail(Kernel &k) {
+uint32_t restart_reuse_level(Kernel &k) {
   if (k.unassigned == 0)
     return 0; // nothing left to decide; abandon the whole trail
   uint32_t res = 0;
@@ -44,15 +44,21 @@ static uint32_t reuse_trail(Kernel &k) {
   return res;
 }
 
-ApplyResult restart_apply(Kernel &k) {
+ApplyResult restart_apply_to(Kernel &k, uint32_t keep_level) {
   assert(restart_guard(k));
-  const uint32_t keep = reuse_trail(k);
-  if (keep > 0)
+  if (keep_level > k.level)
+    keep_level = k.level; // keep at most the whole trail
+  if (keep_level > 0)
     k.stats.restarts_reused++;
-  if (keep < k.level)
-    kernel_backtrack(k, keep);
+  if (keep_level < k.level)
+    kernel_backtrack(k, keep_level);
   k.stats.restarts++;
   return ApplyResult::Ok;
+}
+
+ApplyResult restart_apply(Kernel &k) {
+  assert(restart_guard(k));
+  return restart_apply_to(k, restart_reuse_level(k));
 }
 
 TACTIX_REGISTER_RULE(Restart, RuleTier::Macro, restart_guard,
