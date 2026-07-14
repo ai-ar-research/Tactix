@@ -10,7 +10,7 @@ Authoritative spec: DEVELOPMENT_PLAN.md §3–§5. The full rule catalog (every 
 ## Adding a new rule family — the only two touch points (plan §5.3)
 
 1. New directory `src/rules/<name>/` — module, unit tests, micro-formula proof tests, per-rule options/stats/budgets declared locally.
-2. One `TACTIX_REGISTER_RULE(<Name>, tier, phase_tags, default_budget)` line — the static registry is the only central list; no switch/enum/scheduler edits anywhere.
+2. One `TACTIX_REGISTER_RULE(<Name>, ...)` line carrying the rule's vtable (name, tier, guard, canonical apply, and — for rules with per-application choice — instance enumeration + instance apply; see registry.hpp). Scheduling metadata (phase tags, budgets) joins with its phase-3 consumer (plan §5.3, rev 20). The static registry is the only central list; no switch/enum/scheduler edits anywhere.
 
 Rules compose the **closed proof-delta vocabulary** (`add-RUP`, `add-RAT`, `delete`, `restore`, `push-witness`); needing a new primitive or kernel accessor is an architecture RFC, not something to hack into the rule. If implementing a rule seems to require touching the kernel, another rule, a policy, or the proof backend — stop and fix the architecture instead (that is the §5.3 contract; CCE is the acceptance test).
 

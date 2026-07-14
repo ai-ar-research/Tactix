@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-13 (rev. 19). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-14 (rev. 20). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -248,25 +248,46 @@ Design commitments:
      stock Kissat/CaDiCaL show which choices matter under competition
      conditions and are where "exceed" (§7.5) can come from.
 
-### 5.1 The public API (sketch, C level)
+### 5.1 The public API (v1, C level — frozen at the phase-2 review, rev 20)
 
 ```c
 tactix* tactix_init(void);
-void    tactix_add(tactix*, int lit);              // IPASIR-compatible ingest
-// R3: rule introspection & application
-int     tactix_rules_applicable(tactix*, tactix_rule_id* out, int cap);
-tactix_iter* tactix_rule_instances(tactix*, tactix_rule_id);
-tactix_result tactix_apply(tactix*, tactix_rule_instance);
-// branching is part of the API (N1): Decide instances are unassigned literals
-int     tactix_decide_candidates(tactix*, int* lits, int cap); // ranked by active heuristic
-tactix_result tactix_decide(tactix*, int lit);   // apply Decide on a chosen literal
-// R4: run under a policy
-tactix_result tactix_solve(tactix*);               // default policy
-void    tactix_set_policy(tactix*, tactix_policy*); // callback-based policy
+void    tactix_release(tactix*);
+void    tactix_add(tactix*, int lit);              // IPASIR-style ingest
+// R3/N1: rule introspection & application. Rule ids are ints, stable
+// (name-sorted); instances are uint64 payloads (O3 — see below).
+int     tactix_rule_count(void);
+const char* tactix_rule_name(int rule_id);
+int     tactix_rules_applicable(tactix*, int* out, int cap);
+int     tactix_rule_instances(tactix*, int rule_id, uint64_t* out, int cap);
+int     tactix_apply(tactix*, int rule_id);        // canonical instance
+int     tactix_apply_instance(tactix*, int rule_id, uint64_t inst);
+// branching keeps its dedicated surface (N1): Decide instances are literals
+int     tactix_decide_candidates(tactix*, int* lits, int cap); // ranked
+int     tactix_decide(tactix*, int lit);   // apply Decide on a chosen literal
+// R4: run the built-in default policy; external policies PULL — they drive
+// the stepping surface above themselves (O5: no callback injection in v1)
+int     tactix_solve(tactix*);
+int     tactix_status(tactix*);
 // R1/R2 support
-void    tactix_proof(tactix*, const char* path, int format /*DRAT|LRAT*/);
+int     tactix_proof(tactix*, const char* path, int format); // TACTIX_PROOF_*
 int     tactix_value(tactix*, int lit);
 ```
+
+**Instances are unsigned 64-bit payloads** (O3, decided rev 20). Each rule
+documents its encoding: Decide — the DIMACS literal (signed, cast to int64);
+Restart — the keep-level; Backjump — the target level; Reduce — the number
+of ranked victims to delete; rules without per-application choice
+(Propagate, Analyze, SwitchMode) expose only the canonical instance.
+`TACTIX_INSTANCE_CANONICAL` (UINT64_MAX) always denotes the canonical pick.
+`tactix_rule_instances` fills a caller-provided buffer, ranked by the
+active heuristic with the canonical instance first — never materializing
+the theoretical space (§5.3 laziness); returned values are snapshots, valid
+until the next state-mutating call. There are no iterator objects and no
+allocation at the API boundary. Errors are int returns (−1 = unknown rule,
+guard does not hold, or invalid argument); no error strings in v1.
+`format` is `TACTIX_PROOF_DRAT_BINARY` / `TACTIX_PROOF_DRAT_ASCII` /
+`TACTIX_PROOF_LRAT` (LRAT rejected until the native-LRAT item lands).
 
 **Branching is a first-class API surface (N1).** `Decide` is a rule family like
 any other: `instances(σ)` enumerates *all* unassigned variables with phases,
@@ -281,8 +302,9 @@ policies can also *mix* strategies (e.g., defer to the heuristic except at
 top levels). This use case is a primary design driver, not an afterthought,
 and gets its own demo policy in §8.4.
 
-Also implement plain **IPASIR** (and later IPASIR-UP) so the solver drops into
-existing harnesses and incremental applications.
+Plain **IPASIR** (and later IPASIR-UP) compatibility, so the solver drops
+into existing harnesses and incremental applications, is post-v1 work tied
+to incremental solving (O7); v1 is the stepping surface above.
 
 ### 5.2 Rule catalog
 
@@ -378,10 +400,15 @@ not a hope. Adding a rule family touches exactly two places:
 
 1. A new directory `src/rules/<name>/` containing the module
    (`<name>.cpp/.hpp`), its unit tests, and its micro-formula proof tests.
-2. One registration line: `TACTIX_REGISTER_RULE(<Name>, tier, phase_tags,
-   default_budget)` — a static-registry macro. The registry is the *only*
-   central list; there is no switch statement, enum, or scheduler edit anywhere
-   else.
+2. One registration line: `TACTIX_REGISTER_RULE(<Name>, ...)` — a
+   static-registry macro carrying the rule's vtable: name, tier, soundness
+   guard, canonical apply, and (for rules with per-application choice)
+   instance enumeration + instance apply. Scheduling metadata (phase tags
+   like `preprocess`/`inprocess-cheap`, tick budgets) joins the line
+   together with its consumer, the phase-3 registry-driven scheduler —
+   fields without a reader don't freeze early (rev 20). The registry is the
+   *only* central list; there is no switch statement, enum, or scheduler
+   edit anywhere else.
 
 What makes this possible (obligations on the core, enforced from phase 1):
 
@@ -699,9 +726,9 @@ discovered during development get added here rather than answered ad hoc.
 |---|---|---|
 | O1 | Reference benchmark hardware — the machine that defines the Kissat timing bands for the Tier B/C freezes and all reports → *narrowed rev 6: a single local workstation, ≤ 8 parallel benchmark jobs, no HPC/StarExec* → *decided rev 11: Apple M3 Pro (6P+6E cores), 36 GB RAM, macOS 15.7.7; tier-freeze timings at jobs=1 (first timing run: Tier B freeze, 2026-07-09)* | phase 0, first timing run |
 | O2 | Build system and CI provider → *decided rev 8: CMake (≥ 3.25, presets debug/release) + GitHub Actions — repo already on GitHub, CMake is the friction-free path for pybind11 (§5 frontends) and sanitizer presets; CI job grows with phase-0 deliverables* | phase 0, first code |
-| O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting | draft in phase 1; freeze at phase-2 API v1 |
+| O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting → *decided rev 20: instances are uint64 payloads with per-rule documented encodings + `TACTIX_INSTANCE_CANONICAL`; enumeration fills caller buffers ranked canonical-first (no iterator objects, no boundary allocation; snapshot validity until the next mutating call); errors are −1 int returns, no error-string machinery — the minimal surface that keeps §5.3 laziness and creates no new object lifetimes (§5.1 is the frozen text)* | ~~draft in phase 1; freeze at phase-2 API v1~~ decided |
 | O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
-| O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) and its documented overhead contract | phase-2 API freeze |
+| O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) and its documented overhead contract → *decided rev 20: pull-based — external/scripted policies drive the C stepping surface themselves (per-propagation granularity = the client applying Propagate stepwise); no callback `tactix_set_policy` in v1 (additive later; revisit with the phase-4 Python bindings); overhead documented by the §8.4 demo-policy measurements* | ~~phase-2 API freeze~~ decided |
 | O6 | MAB scheduler specifics: arms, reward signal, decision level (restart vs inprocessing scheduling) | phase 4 |
 | O7 | Incremental solving (IPASIR assumptions, clause removal) interaction with proof logging | post-v1; not competition-blocking |
 | O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 5 |
@@ -848,3 +875,21 @@ discovered during development get added here rather than answered ad hoc.
   instances). Scheduling of the switch stays in the policy per rev 17;
   the kernel gains only instance-ranking H-state (§5.1: score heap,
   target phases). Phase 2 keeps S3 Rephase and S5 Lucky.
+- **rev. 20** (2026-07-14): Rule API v1 freeze (phase-2 review). Concretized
+  O3: instances are uint64 payloads with per-rule documented encodings
+  (Decide literal / Restart keep-level / Backjump target level / Reduce
+  victim count; `TACTIX_INSTANCE_CANONICAL` sentinel), buffer-fill
+  enumeration ranked canonical-first — no iterator objects, no allocation
+  at the boundary, snapshot validity until the next mutating call; errors
+  are −1 int returns. Concretized O5: external/scripted policies are
+  pull-based (they drive the stepping surface themselves); the sketch's
+  callback `tactix_set_policy` is dropped from v1 (additive later, revisit
+  with phase-4 bindings). §5.1 rewritten from sketch to the frozen v1
+  surface incl. `tactix_proof(path, format)` with a DRAT-binary/DRAT-ascii/
+  LRAT enum (LRAT rejected until native LRAT lands, this phase); plain
+  IPASIR explicitly post-v1 with O7. §5.3 registration-line wording aligned
+  with the shipped vtable macro; phase-tag/budget metadata deferred to its
+  phase-3 consumer instead of freezing dead fields now. Grounding: the
+  Restart/Backjump instance surfaces and the Analyze-atomic decision landed
+  2026-07-14 pre-freeze (PROGRESS log); example policies 1–3 (§8.4) are the
+  freeze review's acceptance exercise.
