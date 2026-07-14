@@ -71,7 +71,26 @@ ApplyResult backjump_apply(Kernel &k) {
   return backjump_apply_to(k, k.pending.jump_level);
 }
 
+// generic instance surface (plan §5.1 v1): payload = target level.
+// Ranked: the canonical (assertion-level) target first, then ascending
+// toward the current level — chronological backtracking last
+static uint32_t backjump_instances(Kernel &k, uint64_t *out, uint32_t cap) {
+  uint32_t n = 0;
+  for (uint32_t lvl = k.pending.jump_level; lvl <= k.level && n < cap; lvl++)
+    out[n++] = lvl;
+  return n;
+}
+
+static ApplyResult backjump_apply_instance(Kernel &k, uint64_t inst) {
+  if (inst == INSTANCE_CANONICAL)
+    return backjump_apply(k);
+  // backjump_apply_to clamps into [jump_level, current level]
+  return backjump_apply_to(
+      k, static_cast<uint32_t>(inst > UINT32_MAX ? UINT32_MAX : inst));
+}
+
 TACTIX_REGISTER_RULE(Backjump, RuleTier::Micro, backjump_guard,
-                     backjump_apply);
+                     backjump_apply, backjump_instances,
+                     backjump_apply_instance);
 
 } // namespace tactix

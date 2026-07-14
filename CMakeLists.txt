@@ -33,3 +33,4 @@ target_link_libraries(tactix PRIVATE tactix_lib)
 
 enable_testing()
 add_subdirectory(tests)
+add_subdirectory(examples)

@@ -61,7 +61,36 @@ ApplyResult restart_apply(Kernel &k) {
   return restart_apply_to(k, restart_reuse_level(k));
 }
 
+// generic instance surface (plan §5.1 v1): payload = keep-level.
+// Ranked: the canonical (heuristic reuse) level first, then the rest of
+// [0, level] descending — deeper keeps preserve more work
+static uint32_t restart_instances(Kernel &k, uint64_t *out, uint32_t cap) {
+  if (cap == 0)
+    return 0;
+  const uint32_t canonical = restart_reuse_level(k);
+  uint32_t n = 0;
+  out[n++] = canonical;
+  for (uint32_t lvl = k.level;; lvl--) {
+    if (n >= cap)
+      break;
+    if (lvl != canonical)
+      out[n++] = lvl;
+    if (lvl == 0)
+      break;
+  }
+  return n;
+}
+
+static ApplyResult restart_apply_instance(Kernel &k, uint64_t inst) {
+  if (inst == INSTANCE_CANONICAL)
+    return restart_apply(k);
+  // restart_apply_to clamps keep-levels above the current level
+  return restart_apply_to(
+      k, static_cast<uint32_t>(inst > UINT32_MAX ? UINT32_MAX : inst));
+}
+
 TACTIX_REGISTER_RULE(Restart, RuleTier::Macro, restart_guard,
-                     restart_apply);
+                     restart_apply, restart_instances,
+                     restart_apply_instance);
 
 } // namespace tactix

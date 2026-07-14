@@ -1,8 +1,9 @@
-// C API implementation. Deliberately does NOT include tactix.h: the alias
-// `typedef struct tactix_solver tactix` there collides with our internal
-// namespace in C++ TUs. C linkage matches by symbol name; the C compile of
-// tests/test_api_c.c against tactix.h keeps the two in sync (O3 note for
-// the phase-2 API v1 freeze).
+// C API implementation — v1, frozen at the phase-2 review (plan §5.1,
+// rev 20/21; O3 + O5 decided; post-v1 changes additive only).
+// Deliberately does NOT include tactix.h: the alias `typedef struct
+// tactix_solver tactix` there collides with our internal namespace in C++
+// TUs. C linkage matches by symbol name; the C compile of
+// tests/test_api_c.c against tactix.h keeps the two in sync.
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -35,8 +36,12 @@ void tactix_add(tactix_solver *s, int lit) {
   }
 }
 
-int tactix_proof(tactix_solver *s, const char *path, int binary) {
-  if (!s->proof.open(path, binary != 0))
+int tactix_proof(tactix_solver *s, const char *path, int format) {
+  // formats per tactix.h: 0 binary DRAT, 1 ascii DRAT, 2 LRAT (rejected
+  // until the native-LRAT phase-2 item lands)
+  if (format != 0 && format != 1)
+    return -1;
+  if (!s->proof.open(path, format == 0))
     return -1;
   s->kernel.proof = &s->proof;
   return 0;
@@ -72,15 +77,7 @@ int tactix_rules_applicable(tactix_solver *s, int *out, int cap) {
   return n;
 }
 
-int tactix_apply(tactix_solver *s, int rule_id) {
-  const auto &rules = tactix_rules();
-  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
-    return -1;
-  const RuleVTable &r = rules[rule_id];
-  if (!r.guard(s->kernel))
-    return -1;
-  const ApplyResult res = r.apply(s->kernel);
-  kernel_check_invariants(s->kernel); // no-op in NDEBUG
+static int result_code(ApplyResult res) {
   switch (res) {
   case ApplyResult::Ok:
     return 0;
@@ -94,6 +91,84 @@ int tactix_apply(tactix_solver *s, int rule_id) {
     return 20;
   }
   return 1;
+}
+
+int tactix_apply(tactix_solver *s, int rule_id) {
+  const auto &rules = tactix_rules();
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
+    return -1;
+  const RuleVTable &r = rules[rule_id];
+  if (!r.guard(s->kernel))
+    return -1;
+  const ApplyResult res = r.apply(s->kernel);
+  kernel_check_invariants(s->kernel); // no-op in NDEBUG
+  return result_code(res);
+}
+
+int tactix_rule_instances(tactix_solver *s, int rule_id, uint64_t *out,
+                          int cap) {
+  const auto &rules = tactix_rules();
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) || cap < 0)
+    return -1;
+  const RuleVTable &r = rules[rule_id];
+  if (!r.guard(s->kernel))
+    return -1;
+  if (!r.instances) { // no per-application choice: canonical only
+    if (cap >= 1)
+      out[0] = INSTANCE_CANONICAL;
+    return cap >= 1 ? 1 : 0;
+  }
+  return static_cast<int>(
+      r.instances(s->kernel, out, static_cast<uint32_t>(cap)));
+}
+
+int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
+  const auto &rules = tactix_rules();
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
+    return -1;
+  const RuleVTable &r = rules[rule_id];
+  if (!r.guard(s->kernel))
+    return -1;
+  ApplyResult res;
+  if (instance == INSTANCE_CANONICAL || !r.apply_instance)
+    res = r.apply(s->kernel); // canonical (the only instance if no slot)
+  else
+    res = r.apply_instance(s->kernel, instance);
+  kernel_check_invariants(s->kernel); // no-op in NDEBUG
+  return result_code(res);
+}
+
+uint64_t tactix_stat(tactix_solver *s, int stat_id) {
+  const Kernel &k = s->kernel;
+  switch (stat_id) {
+  case 0: // TACTIX_STAT_CONFLICTS
+    return k.stats.conflicts;
+  case 1: // TACTIX_STAT_DECISIONS
+    return k.stats.decisions;
+  case 2: // TACTIX_STAT_PROPAGATIONS
+    return k.stats.propagations;
+  case 3: // TACTIX_STAT_TICKS
+    return k.stats.ticks;
+  case 4: // TACTIX_STAT_LEARNED
+    return k.stats.learned;
+  case 5: // TACTIX_STAT_RESTARTS
+    return k.stats.restarts;
+  case 6: // TACTIX_STAT_REDUCTIONS
+    return k.stats.reductions;
+  case 7: // TACTIX_STAT_SWITCHES
+    return k.stats.switched;
+  case 8: // TACTIX_STAT_LEVEL
+    return k.level;
+  case 9: // TACTIX_STAT_UNASSIGNED
+    return k.unassigned;
+  case 10: // TACTIX_STAT_LAST_LEARNED_GLUE (pending.glue persists
+           // after Backjump consumes the pending clause)
+    return k.pending.glue;
+  case 11: // TACTIX_STAT_STABLE
+    return k.stable ? 1 : 0;
+  default:
+    return UINT64_MAX;
+  }
 }
 
 int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {

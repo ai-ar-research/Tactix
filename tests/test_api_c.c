@@ -88,6 +88,66 @@ static void test_external_branching(void) {
   tactix_release(s);
 }
 
+/* v1 instance surface (plan §5.1 rev 20): generic enumeration + chosen-
+ * instance application across the payload encodings */
+static void test_instance_surface(void) {
+  tactix *s = tactix_init();
+  add_clause(s, (const int[]){1, 2, 3, 0});
+  add_clause(s, (const int[]){-1, -2, 0});
+
+  const int propagate = rule_id("Propagate");
+  const int decide = rule_id("Decide");
+  const int restart = rule_id("Restart");
+  const int switchmode = rule_id("SwitchMode");
+  uint64_t insts[64];
+
+  /* errors: unknown rule / guard not holding */
+  assert(tactix_rule_instances(s, -1, insts, 64) == -1);
+  assert(tactix_rule_instances(s, 9999, insts, 64) == -1);
+  assert(tactix_rule_instances(s, restart, insts, 64) == -1); /* level 0 */
+  assert(tactix_rule_instances(s, propagate, insts, 64) == -1); /* queue
+    empty: nothing to propagate on a fresh formula without units */
+
+  /* no-choice rule: exactly the canonical sentinel */
+  assert(tactix_rule_instances(s, switchmode, insts, 64) == 1);
+  assert(insts[0] == TACTIX_INSTANCE_CANONICAL);
+
+  /* Decide payloads are DIMACS literals (int64); apply one explicitly */
+  const int n = tactix_rule_instances(s, decide, insts, 64);
+  assert(n > 0);
+  const uint64_t before = tactix_stat(s, TACTIX_STAT_DECISIONS);
+  assert(tactix_apply_instance(s, decide, (uint64_t)(int64_t)-3) == 0);
+  assert(tactix_stat(s, TACTIX_STAT_DECISIONS) == before + 1);
+  assert(tactix_stat(s, TACTIX_STAT_LEVEL) == 1);
+  assert(tactix_decide(s, -3) == -1); /* already assigned */
+
+  /* canonical sentinel routes to the canonical instance (propagate is
+   * applicable now: the decision is unpropagated) */
+  assert(tactix_apply_instance(s, propagate, TACTIX_INSTANCE_CANONICAL) !=
+         -1);
+
+  /* Restart payloads are keep-levels: canonical first, 0 = full restart */
+  assert(tactix_decide(s, 2) == 0);
+  const int m = tactix_rule_instances(s, restart, insts, 64);
+  assert(m >= 2);
+  assert(tactix_apply_instance(s, restart, 0) == 0); /* full restart */
+  assert(tactix_stat(s, TACTIX_STAT_LEVEL) == 0);
+  assert(tactix_stat(s, TACTIX_STAT_RESTARTS) == 1);
+
+  /* stats: unknown id */
+  assert(tactix_stat(s, 9999) == UINT64_MAX);
+  tactix_release(s);
+
+  /* proof formats: LRAT not accepted until native LRAT lands */
+  s = tactix_init();
+  assert(tactix_proof(s, "/tmp/tactix_api_fmt.drat", TACTIX_PROOF_LRAT) ==
+         -1);
+  assert(tactix_proof(s, "/tmp/tactix_api_fmt.drat",
+                      TACTIX_PROOF_DRAT_BINARY) == 0);
+  tactix_release(s);
+  remove("/tmp/tactix_api_fmt.drat");
+}
+
 /* regression 001-empty-formula-frames: a solver that never saw a variable
  * must survive rule application — the fresh-kernel frame stack used to
  * violate the frames/level invariant, aborting kernel_check_invariants
@@ -119,6 +179,7 @@ static void test_stepwise_unsat(void) {
 int main(void) {
   test_solve_sat();
   test_external_branching();
+  test_instance_surface();
   test_empty_solver_rule_application();
   test_stepwise_unsat();
   puts("test_api_c OK");

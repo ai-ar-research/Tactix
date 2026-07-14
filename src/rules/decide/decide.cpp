@@ -60,7 +60,28 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
   return n;
 }
 
+// generic instance surface (plan §5.1 v1): payload = DIMACS literal as a
+// sign-extended int64; enumeration reuses the ranked candidate order
+static uint32_t decide_instances(Kernel &k, uint64_t *out, uint32_t cap) {
+  std::vector<Lit> buf(cap);
+  const uint32_t n = decide_candidates(k, buf.data(), cap);
+  for (uint32_t i = 0; i < n; i++)
+    out[i] = static_cast<uint64_t>(static_cast<int64_t>(externalize(buf[i])));
+  return n;
+}
+
+static ApplyResult decide_apply_instance(Kernel &k, uint64_t inst) {
+  if (inst == INSTANCE_CANONICAL)
+    return decide_apply_canonical(k);
+  const int64_t elit = static_cast<int64_t>(inst);
+  if (elit == 0 || elit > INT32_MAX || elit < INT32_MIN)
+    return ApplyResult::NoOp;
+  const Lit l = internalize(static_cast<int>(elit));
+  return decide_apply(k, l, true);
+}
+
 TACTIX_REGISTER_RULE(Decide, RuleTier::Micro, decide_guard,
-                     decide_apply_canonical);
+                     decide_apply_canonical, decide_instances,
+                     decide_apply_instance);
 
 } // namespace tactix
