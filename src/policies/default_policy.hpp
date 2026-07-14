@@ -36,12 +36,19 @@ class DefaultPolicy final : public Policy {
 public:
   // scheduling constants (each exists exactly once; the struct
   // initializers below must use these, never repeat the values).
-  // Restart: Glucose-style EMA trigger (see default_policy.cpp for the
-  // evaluated-and-reverted kissat constants). Mode: kissat mode.c /
-  // options.h defaults — modeinit (first switch) and modeint (interval
-  // growth factor) are distinct options that happen to share a value.
-  static constexpr double RESTART_MARGIN = 1.25;
-  static constexpr uint64_t RESTART_FLOOR_INTERVAL = 50;
+  // Restart: kissat's focused trigger — bias-corrected per-mode glue
+  // EMAs (smooth.c warm-up), margin (100+restartmargin)/100, interval
+  // restartint + log10(restarts+9)-1. The earlier Glucose-style plain
+  // EMAs (margin 1.25, floor 50) are superseded 2026-07-14: the kissat
+  // constants had measured WORSE without the warm-up (see the 07-13
+  // note); with smooth warm-up + per-mode persistence they are the
+  // faithful package. Mode: kissat mode.c / options.h defaults —
+  // modeinit (first switch) and modeint (growth factor) are distinct
+  // options that happen to share a value.
+  static constexpr double RESTART_MARGIN = 1.10;    // restartmargin 10
+  static constexpr uint64_t RESTART_INTERVAL = 1;   // restartint
+  static constexpr double EMA_FAST_WINDOW = 33;     // emafast
+  static constexpr double EMA_SLOW_WINDOW = 1e5;    // emaslow
   static constexpr uint64_t REDUCE_INTERVAL_INIT = 2000;
   static constexpr uint64_t REDUCE_INTERVAL_STEP = 300;
   static constexpr uint64_t MODE_INITIAL_CONFLICTS = 1000; // modeinit
@@ -50,6 +57,11 @@ public:
   static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;  // reluctantlim
   static constexpr uint64_t REPHASE_INTERVAL_INIT = 1000; // rephaseinit
   static constexpr uint64_t REPHASE_INTERVAL = 1000;      // rephaseint
+  // chronological backtracking (kissat learn.c kissat_determine_new_level,
+  // options chrono=1/chronolevels=100): jumping over more than this many
+  // levels is considered inefficient — backtrack one level instead. A
+  // pure policy choice through backjump_apply_to (the freeze's N1 story).
+  static constexpr uint32_t CHRONO_LEVELS = 100;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
 
@@ -57,13 +69,47 @@ public:
   BranchingPolicy *branching = nullptr;
   ReductionPolicy *reduction = nullptr;
 
+  // bias-corrected EMA (kissat smooth.c): value = biased / (1 - beta^n)
+  // — the Adam-style warm-up makes early averages meaningful, which the
+  // kissat restart constants presuppose
+  struct Smooth {
+    double value = 0, biased = 0, alpha = 0, beta = 0, exp = 1.0;
+    void init(double window) {
+      alpha = 1.0 / window;
+      beta = 1.0 - alpha;
+      value = biased = 0;
+      exp = 1.0;
+    }
+    void update(double y) {
+      biased += alpha * (y - biased);
+      if (exp) {
+        const double old_exp = exp;
+        exp *= beta;
+        if (exp == old_exp) { // beta^n underflow-stuck: correction done
+          exp = 0;
+          value = biased;
+        } else {
+          value = biased / (1.0 - exp);
+        }
+      } else {
+        value = biased;
+      }
+    }
+  };
+  // per-mode glue averages (kissat averages.h averages[2]): initialized
+  // lazily once per mode, PERSIST across mode switches
+  struct ModeAverages {
+    bool initialized = false;
+    Smooth fast_glue, slow_glue;
+  };
+
   // scheduling state — public so tests (and future presets) can pose
   // schedules directly; this is policy state, not kernel H-state
+  ModeAverages averages[2]; // indexed by kernel.stable
   struct {
-    uint64_t floor_conflicts = RESTART_FLOOR_INTERVAL; // earliest restart
-    double fast_glue = 0.0;       // ~ last 32 conflicts
-    double slow_glue = 0.0;       // ~ last 16384 conflicts
-    bool ema_initialized = false;
+    // kissat limits.restart.conflicts: gates BOTH modes; updated after
+    // focused restarts and on entering focused, stale-but-kept in stable
+    uint64_t next_conflicts = RESTART_INTERVAL;
   } restart;
   struct {
     uint64_t next_conflicts = REDUCE_INTERVAL_INIT;
@@ -102,7 +148,7 @@ public:
   void update_rephase_limit(const Kernel &); // after a rephase
 
 private:
-  void observe_glue(uint32_t glue); // per-conflict EMA update
+  void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs
   DefaultBranching default_branching_;
   GlueTieredReduction default_reduction_;
   std::vector<Ref> reduce_scratch_;

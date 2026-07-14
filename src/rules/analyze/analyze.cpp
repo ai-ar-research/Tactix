@@ -26,11 +26,14 @@ static constexpr uint8_t REMOVABLE = 2; // proven redundant
 static constexpr uint8_t POISONED = 4;  // proven not redundant
 static constexpr uint8_t SHRINKABLE = 8; // in the current block-shrink walk
 
-// glue (LBD): distinct decision levels among lits[0..n). Uses the
-// marked_levels scratch and leaves it clean.
-static uint32_t count_glue(Kernel &k, const Lit *lits, uint32_t n) {
+// glue (LBD): distinct decision levels among lits[0..n), capped at
+// `limit` (kissat promote.h kissat_recompute_glue's early exit — at the
+// cap no improvement is possible). Uses the marked_levels scratch and
+// leaves it clean.
+static uint32_t count_glue(Kernel &k, const Lit *lits, uint32_t n,
+                           uint32_t limit = UINT32_MAX) {
   uint32_t glue = 0;
-  for (uint32_t i = 0; i < n; i++) {
+  for (uint32_t i = 0; i < n && glue < limit; i++) {
     const uint32_t lv = k.var_level(var_of(lits[i]));
     if (!k.marked_levels[lv]) {
       k.marked_levels[lv] = 1;
@@ -42,6 +45,24 @@ static uint32_t count_glue(Kernel &k, const Lit *lits, uint32_t n) {
     k.marked_levels[lv] = 0;
   k.touched_levels.clear();
   return glue;
+}
+
+// mark a redundant clause recently-used (Reduce protects it) and
+// recompute+promote its glue over the current levels — every literal is
+// assigned at both call sites (conflict: all false; reason: all assigned)
+// (kissat deduce.c mark_clause_as_used + recompute_and_promote)
+static void mark_used(Kernel &k, Clause *c) {
+  if (!c->redundant())
+    return;
+  c->set_used(Clause::MAX_USED);
+  const uint32_t old_glue = c->glue();
+  if (old_glue <= 1)
+    return;
+  const uint32_t glue = count_glue(k, c->lits, c->size, old_glue);
+  if (glue < old_glue) {
+    c->set_glue(glue);
+    k.stats.promoted++;
+  }
 }
 
 bool analyze_guard(const Kernel &k) {
@@ -366,11 +387,8 @@ ApplyResult analyze_apply(Kernel &k) {
   for (;;) { // one round per conflict; OTFS restarts with a stronger one
     uint32_t csize;
     const Lit *clits = conflict_lits(k, &csize);
-    if (k.conflict_ref != INVALID_REF) { // conflict clause is "used" too
-      Clause *cc = clause_at(k.arena, k.conflict_ref);
-      if (cc->redundant())
-        cc->set_used(Clause::MAX_USED);
-    }
+    if (k.conflict_ref != INVALID_REF) // conflict clause is "used" too
+      mark_used(k, clause_at(k.arena, k.conflict_ref));
 
     // analysis level = max level among conflict literals
     uint32_t alevel = 0;
@@ -437,13 +455,10 @@ ApplyResult analyze_apply(Kernel &k) {
       } else {
         assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
         Clause *reason = clause_at(k.arena, a.reason);
-        // mark the reason recently-used (kissat deduce.c
-        // mark_clause_as_used) — Reduce protects active clauses.
-        // Deviation (recorded): kissat also recomputes+promotes the glue
-        // here (recompute_and_promote); retention lands first, promotion
-        // is a follow-up if the evidence asks for it.
-        if (reason->redundant())
-          reason->set_used(Clause::MAX_USED);
+        // recently-used + glue recompute/promote (kissat deduce.c;
+        // completes the retention scheme — the deferred-promotion
+        // deviation closed 2026-07-14)
+        mark_used(k, reason);
         uint32_t antecedent = 1; // t's own slot in the reason
         for (const Lit l : *reason)
           if (l != t) {

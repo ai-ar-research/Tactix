@@ -174,9 +174,10 @@ int main(int argc, char **argv) {
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
-    printf("c reductions  %llu (%llu clauses deleted)\n",
+    printf("c reductions  %llu (%llu clauses deleted, %llu promoted)\n",
            (unsigned long long)kernel.stats.reductions,
-           (unsigned long long)kernel.stats.deleted);
+           (unsigned long long)kernel.stats.deleted,
+           (unsigned long long)kernel.stats.promoted);
     printf("c mode        %s after %llu switches (%llu ticks, "
            "%llu target phases saved)\n",
            kernel.stable ? "stable" : "focused",

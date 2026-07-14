@@ -37,6 +37,7 @@ struct Stats {
   uint64_t best_saved = 0;   // best-phase snapshots
   uint64_t rephased = 0;     // Rephase applications (S3)
   uint64_t lucky_probes = 0; // Lucky probes run (S5)
+  uint64_t promoted = 0;     // glue promotions on use (kissat deduce.c)
   uint64_t learned = 0;
   uint64_t learned_units = 0;
   uint64_t minimized = 0; // literals removed by clause minimization

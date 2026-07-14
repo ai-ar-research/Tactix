@@ -30,8 +30,10 @@ static int rule_id(const char *name) {
 
 /* scheduling constants — mirror of default_policy.hpp (v1 freeze review:
  * these are POLICY state, deliberately not solver API) */
-#define RESTART_MARGIN 1.25
-#define RESTART_FLOOR_INTERVAL 50
+#define RESTART_MARGIN 1.10
+#define RESTART_INTERVAL 1
+#define EMA_FAST_WINDOW 33.0
+#define EMA_SLOW_WINDOW 1e5
 #define REDUCE_INTERVAL_INIT 2000
 #define REDUCE_INTERVAL_STEP 300
 #define MODE_INITIAL_CONFLICTS 1000
@@ -40,11 +42,44 @@ static int rule_id(const char *name) {
 #define RELUCTANT_LIMIT (1 << 20)
 #define REPHASE_INTERVAL_INIT 1000
 #define REPHASE_INTERVAL 1000
+#define CHRONO_LEVELS 100
+
+/* bias-corrected EMA (mirror of DefaultPolicy::Smooth / kissat smooth.c) */
+struct smooth {
+  double value, biased, alpha, beta, exp;
+};
+
+static void smooth_init(struct smooth *s, double window) {
+  s->alpha = 1.0 / window;
+  s->beta = 1.0 - s->alpha;
+  s->value = s->biased = 0;
+  s->exp = 1.0;
+}
+
+static void smooth_update(struct smooth *s, double y) {
+  s->biased += s->alpha * (y - s->biased);
+  if (s->exp) {
+    const double old_exp = s->exp;
+    s->exp *= s->beta;
+    if (s->exp == old_exp) {
+      s->exp = 0;
+      s->value = s->biased;
+    } else {
+      s->value = s->biased / (1.0 - s->exp);
+    }
+  } else {
+    s->value = s->biased;
+  }
+}
+
+struct averages {
+  int initialized;
+  struct smooth fast_glue, slow_glue;
+};
 
 struct sched {
-  double fast_glue, slow_glue;
-  int ema_initialized;
-  uint64_t restart_floor;
+  struct averages avg[2]; /* per-mode, persist across switches */
+  uint64_t restart_next;
   uint64_t reduce_next;
   uint64_t mode_count, mode_conflicts_limit, mode_ticks_limit,
       mode_ticks_at_focus_entry;
@@ -55,7 +90,7 @@ struct sched {
 
 static void sched_init(struct sched *p) {
   memset(p, 0, sizeof *p);
-  p->restart_floor = RESTART_FLOOR_INTERVAL;
+  p->restart_next = RESTART_INTERVAL;
   p->reduce_next = REDUCE_INTERVAL_INIT;
   p->mode_conflicts_limit = MODE_INITIAL_CONFLICTS;
   p->rel_u = p->rel_v = 1;
@@ -63,14 +98,15 @@ static void sched_init(struct sched *p) {
   p->rephase_next = REPHASE_INTERVAL_INIT;
 }
 
-static void observe_glue(struct sched *p, double glue) {
-  if (p->ema_initialized) {
-    p->fast_glue += (glue - p->fast_glue) / 32.0;
-    p->slow_glue += (glue - p->slow_glue) / 16384.0;
-  } else {
-    p->fast_glue = p->slow_glue = glue;
-    p->ema_initialized = 1;
+static void observe_glue(struct sched *p, int stable, double glue) {
+  struct averages *avg = &p->avg[stable];
+  if (!avg->initialized) {
+    smooth_init(&avg->fast_glue, EMA_FAST_WINDOW);
+    smooth_init(&avg->slow_glue, EMA_SLOW_WINDOW);
+    avg->initialized = 1;
   }
+  smooth_update(&avg->fast_glue, glue);
+  smooth_update(&avg->slow_glue, glue);
 }
 
 static void tick_reluctant(struct sched *p) {
@@ -97,8 +133,11 @@ static void tick_reluctant(struct sched *p) {
 }
 
 static void update_restart_limit(struct sched *p, tactix *s) {
-  p->restart_floor =
-      tactix_stat(s, TACTIX_STAT_CONFLICTS) + RESTART_FLOOR_INTERVAL;
+  const uint64_t restarts = tactix_stat(s, TACTIX_STAT_RESTARTS);
+  uint64_t delta = RESTART_INTERVAL;
+  if (restarts)
+    delta += (uint64_t)(log10((double)restarts + 9) - 1.0);
+  p->restart_next = tactix_stat(s, TACTIX_STAT_CONFLICTS) + delta;
 }
 
 static void update_mode_limits(struct sched *p, tactix *s) {
@@ -112,9 +151,10 @@ static void update_mode_limits(struct sched *p, tactix *s) {
         tactix_stat(s, TACTIX_STAT_CONFLICTS) +
         (uint64_t)(MODE_INTERVAL * (double)n * log4);
     p->mode_ticks_at_focus_entry = ticks;
+    /* only the focused entry refreshes the restart limit; per-mode
+     * averages persist across switches */
+    update_restart_limit(p, s);
   }
-  p->ema_initialized = 0;
-  update_restart_limit(p, s);
 }
 
 static int scripted_solve(tactix *s) {
@@ -146,11 +186,23 @@ static int scripted_solve(tactix *s) {
       r = tactix_apply(s, analyze);
       if (r == 20)
         return 20;
-      observe_glue(&p,
-                   (double)tactix_stat(s, TACTIX_STAT_LAST_LEARNED_GLUE));
-      if (tactix_stat(s, TACTIX_STAT_STABLE))
-        tick_reluctant(&p);
-      r = tactix_apply(s, backjump);
+      {
+        const int st = tactix_stat(s, TACTIX_STAT_STABLE) != 0;
+        observe_glue(&p, st,
+                     (double)tactix_stat(s, TACTIX_STAT_LAST_LEARNED_GLUE));
+        if (st)
+          tick_reluctant(&p);
+      }
+      {
+        /* chrono mirror: the jump level is the canonical Backjump
+         * instance (first enumerated payload) */
+        uint64_t jump;
+        const int m = tactix_rule_instances(s, backjump, &jump, 1);
+        const uint64_t back = tactix_stat(s, TACTIX_STAT_LEVEL) - 1;
+        const uint64_t target =
+            (m >= 1 && back - jump > CHRONO_LEVELS) ? back : jump;
+        r = tactix_apply_instance(s, backjump, m >= 1 ? target : jump);
+      }
       if (r == 20)
         return 20;
       continue;
@@ -183,12 +235,15 @@ static int scripted_solve(tactix *s) {
       continue;
     }
     const int want_restart =
-        stable ? p.rel_trigger
-               : (p.ema_initialized && conflicts >= p.restart_floor &&
-                  p.fast_glue > RESTART_MARGIN * p.slow_glue);
+        conflicts < p.restart_next
+            ? 0
+            : (stable ? p.rel_trigger
+                      : RESTART_MARGIN * p.avg[0].slow_glue.value <=
+                            p.avg[0].fast_glue.value);
     if (want_restart && tactix_apply(s, restart) != -1) {
       p.rel_trigger = 0;
-      update_restart_limit(&p, s);
+      if (!stable) /* focused-only limit update (kissat restart.c) */
+        update_restart_limit(&p, s);
       continue;
     }
     if (stable && conflicts > p.rephase_next) {

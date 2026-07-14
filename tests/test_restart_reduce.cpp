@@ -23,11 +23,11 @@ static void test_restart() {
   // policy object (plan rev 17), not the rule
   assert(restart_guard(k));
   DefaultPolicy p;
-  assert(!p.want_restart(k)); // EMAs not initialized yet
-  p.restart.ema_initialized = true;
-  p.restart.fast_glue = 10.0; // degrading search: fast >> slow
-  p.restart.slow_glue = 4.0;
-  k.stats.conflicts = p.restart.floor_conflicts;
+  assert(!p.want_restart(k)); // conflicts 0 < the initial limit
+  p.averages[0].initialized = true; // pose degrading focused search:
+  p.averages[0].fast_glue.value = 10.0; // fast >> margin * slow
+  p.averages[0].slow_glue.value = 4.0;
+  k.stats.conflicts = p.restart.next_conflicts;
   assert(p.want_restart(k));
   assert(restart_apply(k) == ApplyResult::Ok);
   assert(k.level == 0);
@@ -135,10 +135,14 @@ static void test_solve_with_restarts_still_correct() {
   // restart storm: permanently-degraded EMAs + zero floor, posed on the
   // policy instance (rev 17: schedules are policy state)
   DefaultPolicy storm;
-  storm.restart.ema_initialized = true;
-  storm.restart.fast_glue = 100.0;
-  storm.restart.slow_glue = 1.0;
-  storm.restart.floor_conflicts = 0;
+  // frozen degraded EMAs: alpha stays 0 (never init'ed), so updates
+  // cannot wash the posed biased values out — permanent restart pressure
+  storm.averages[0].initialized = true;
+  storm.averages[0].fast_glue.biased = 100.0;
+  storm.averages[0].fast_glue.value = 100.0;
+  storm.averages[0].slow_glue.biased = 1.0;
+  storm.averages[0].slow_glue.value = 1.0;
+  storm.restart.next_conflicts = 0;
   storm.reduce.next_conflicts = 4; // and aggressive reduction
   assert(storm.solve(k) == 20);
 }

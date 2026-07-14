@@ -14,25 +14,21 @@
 
 namespace tactix {
 
-// Glucose-style EMA restart trigger (Audemard–Simon): restart when the
-// short-term glue average exceeds the long-term one by a margin — search
-// quality is degrading, so abandon the prefix. Focused mode only.
-// NOTE (2026-07-13, evaluated and reverted): kissat's defaults (margin
-// 1.10, interval 1+log) were tried and measured WORSE here (s055 focused-
-// only 6.9M → 7.9M conflicts, restart interval 18 vs kissat's own 41 at
-// the same constants) — our plain seeded EMAs over-fire at that margin;
-// kissat's constants presuppose its bias-corrected EMA warm-up
-// (smooth.c). Revisit together with per-mode bias-corrected averages.
-// (The constants themselves live once, in default_policy.hpp.)
+// Restart trigger: fast/slow glue EMAs with kissat's bias-corrected
+// warm-up (smooth.c) and per-mode persistence (averages.h averages[2]).
+// The 07-13 experiment showed the kissat constants over-fire on PLAIN
+// seeded EMAs; this is the faithful package the constants presuppose.
+// (Constants live once, in default_policy.hpp.)
 
-void DefaultPolicy::observe_glue(uint32_t glue) {
-  if (restart.ema_initialized) {
-    restart.fast_glue += (glue - restart.fast_glue) / 32.0;
-    restart.slow_glue += (glue - restart.slow_glue) / 16384.0;
-  } else {
-    restart.fast_glue = restart.slow_glue = glue;
-    restart.ema_initialized = true;
+void DefaultPolicy::observe_glue(const Kernel &k, uint32_t glue) {
+  ModeAverages &avg = averages[k.stable];
+  if (!avg.initialized) { // lazy, once per mode (kissat init_averages)
+    avg.fast_glue.init(EMA_FAST_WINDOW);
+    avg.slow_glue.init(EMA_SLOW_WINDOW);
+    avg.initialized = true;
   }
+  avg.fast_glue.update(glue);
+  avg.slow_glue.update(glue);
 }
 
 // reluctant doubling (Knuth's formulation of Luby; kissat reluctant.c):
@@ -61,12 +57,15 @@ void DefaultPolicy::tick_reluctant() {
   reluctant.v = v;
 }
 
+// kissat restart.c kissat_restarting: the conflicts limit gates both
+// modes; stable defers to reluctant doubling, focused to the glue EMAs
 bool DefaultPolicy::want_restart(const Kernel &k) const {
+  if (k.stats.conflicts < restart.next_conflicts)
+    return false;
   if (k.stable)
     return reluctant.trigger;
-  return restart.ema_initialized &&
-         k.stats.conflicts >= restart.floor_conflicts &&
-         restart.fast_glue > RESTART_MARGIN * restart.slow_glue;
+  const ModeAverages &avg = averages[0];
+  return RESTART_MARGIN * avg.slow_glue.value <= avg.fast_glue.value;
 }
 
 bool DefaultPolicy::want_switch_mode(const Kernel &k) const {
@@ -89,14 +88,23 @@ void DefaultPolicy::update_mode_limits(const Kernel &k) {
         k.stats.conflicts +
         static_cast<uint64_t>(MODE_INTERVAL * static_cast<double>(n) * log4);
     mode.ticks_at_focus_entry = k.stats.ticks;
+    // kissat mode.c: only the focused entry refreshes the restart limit;
+    // per-mode averages persist across switches (init_averages is
+    // idempotent — no reset here)
+    update_restart_limit(k);
   }
-  // per-mode averages restart fresh (kissat init_averages on switch)
-  restart.ema_initialized = false;
-  update_restart_limit(k);
 }
 
+// kissat restart.c kissat_update_focused_restart_limit: interval =
+// restartint + log10(restarts+9) - 1; called after focused restarts and
+// on entering focused mode (the limit is left stale while stable —
+// reluctant doubling governs there)
 void DefaultPolicy::update_restart_limit(const Kernel &k) {
-  restart.floor_conflicts = k.stats.conflicts + RESTART_FLOOR_INTERVAL;
+  uint64_t delta = RESTART_INTERVAL;
+  if (k.stats.restarts)
+    delta += static_cast<uint64_t>(
+        std::log10(static_cast<double>(k.stats.restarts) + 9) - 1.0);
+  restart.next_conflicts = k.stats.conflicts + delta;
 }
 
 bool DefaultPolicy::want_reduce(const Kernel &k) const {
@@ -158,10 +166,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (r == ApplyResult::Conflict) {
       if (analyze_apply(k) == ApplyResult::Unsat)
         return 20;
-      observe_glue(k.pending.glue); // policy observes; Analyze stays pure
+      observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (k.stable)
         tick_reluctant(); // per learned clause (kissat learn.c)
-      backjump_apply(k);
+      {
+        // chrono (kissat learn.c): long backjumps waste the prefix —
+        // step back one level instead when the gap exceeds the limit
+        const uint32_t jump = k.pending.jump_level;
+        const uint32_t back = k.level - 1;
+        backjump_apply_to(k, back - jump > CHRONO_LEVELS ? back : jump);
+      }
       continue;
     }
     if (k.unassigned == 0)
@@ -188,7 +202,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_restart(k) && restart_guard(k)) {
       restart_apply(k);
       reluctant.trigger = false; // consumed (kissat reluctant.h)
-      update_restart_limit(k);
+      if (!k.stable) // kissat restart.c: focused-only limit update
+        update_restart_limit(k);
       continue;
     }
     if (want_rephase(k) && rephase_guard(k)) {
@@ -197,10 +212,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // recorded in rephase.cpp) — the root restart IS a restart
       if (restart_guard(k))
         restart_apply_to(k, 0);
-      // rotation B,I,B,O (kissat's schedule minus the phase-4 W slots)
-      static constexpr uint64_t ROTATION[4] = {
-          REPHASE_BEST, REPHASE_INVERTED, REPHASE_BEST, REPHASE_ORIGINAL};
-      rephase_apply_type(k, ROTATION[k.stats.rephased % 4]);
+      // rotation B,B,I,B,B,O — kissat's B,W,I,B,W,O with Best standing in
+      // for the phase-4 Walking slots: the destructive types (I/O wipe
+      // every saved phase) keep kissat's 1/3 slot frequency; a plain
+      // B,I,B,O rotation doubled their share and measurably hurt the
+      // transition instances (s055) without Walk's repair after them
+      static constexpr uint64_t ROTATION[6] = {
+          REPHASE_BEST, REPHASE_BEST, REPHASE_INVERTED,
+          REPHASE_BEST, REPHASE_BEST, REPHASE_ORIGINAL};
+      rephase_apply_type(k, ROTATION[k.stats.rephased % 6]);
       update_rephase_limit(k);
       continue;
     }
