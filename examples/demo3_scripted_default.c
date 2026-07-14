@@ -128,12 +128,20 @@ static int scripted_solve(tactix *s) {
   const int restart = rule_id("Restart");
   const int switchmode = rule_id("SwitchMode");
   const int rephase = rule_id("Rephase");
+  const int lucky = rule_id("Lucky");
+  int lucky_tried = 0;
   if (tactix_status(s) == 20)
     return 20;
   for (;;) {
     int r = tactix_apply(s, propagate);
     if (r == 20)
       return 20;
+    /* S5 Lucky once at search start, mirroring DefaultPolicy */
+    if (!lucky_tried && r != 2) {
+      lucky_tried = 1;
+      if (tactix_apply_instance(s, lucky, TACTIX_INSTANCE_CANONICAL) == 10)
+        return 10;
+    }
     if (r == 2) { /* conflict: analyze, observe, backjump */
       r = tactix_apply(s, analyze);
       if (r == 20)

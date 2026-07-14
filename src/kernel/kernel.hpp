@@ -36,6 +36,7 @@ struct Stats {
   uint64_t target_saved = 0; // target-phase snapshots
   uint64_t best_saved = 0;   // best-phase snapshots
   uint64_t rephased = 0;     // Rephase applications (S3)
+  uint64_t lucky_probes = 0; // Lucky probes run (S5)
   uint64_t learned = 0;
   uint64_t learned_units = 0;
   uint64_t minimized = 0; // literals removed by clause minimization
@@ -182,7 +183,20 @@ inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false) {
 inline void kernel_assign_ref(Kernel &k, Lit lit, Ref reason) {
   kernel_assign(k, lit, k.level, reason, false);
 }
-void kernel_backtrack(Kernel &, uint32_t target_level);
+// update_phases=false is the probing variant (kissat backtrack.c
+// kissat_backtrack_without_updating_phases): probe assignments must not
+// pollute saved/target/best phases
+void kernel_backtrack(Kernel &, uint32_t target_level,
+                      bool update_phases = true);
+
+// core propagation engine (kissat proplit.h; moved out of the M1 rule as
+// a reviewed §5.3 kernel-primitive addition, 2026-07-14): propagates the
+// trail to fixpoint or first conflict, recording the conflict in the
+// handoff fields; returns true iff a conflict was found. Updates
+// propagations/ticks, NOT conflicts — the M1 Propagate rule owns the
+// ApplyResult/proof semantics and the conflict count; probing rules
+// (S5 Lucky, phase-3 V-families) reuse the engine directly.
+bool kernel_propagate(Kernel &);
 
 // --- VMTF ------------------------------------------------------------------
 void kernel_queue_init(Kernel &);

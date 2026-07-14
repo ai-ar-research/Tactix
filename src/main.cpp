@@ -186,6 +186,8 @@ int main(int argc, char **argv) {
     printf("c rephased    %llu (%llu best phases saved)\n",
            (unsigned long long)kernel.stats.rephased,
            (unsigned long long)kernel.stats.best_saved);
+    printf("c lucky       %llu probes\n",
+           (unsigned long long)kernel.stats.lucky_probes);
   }
   if (res == 10) {
     printf("s SATISFIABLE\n");

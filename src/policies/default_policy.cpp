@@ -3,6 +3,7 @@
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
 #include "rules/decide/decide.hpp"
+#include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
 #include "rules/rephase/rephase.hpp"
@@ -142,10 +143,18 @@ Lit DefaultBranching::pick(Kernel &k) {
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (k.inconsistent)
     return 20;
+  bool lucky_tried = false;
   for (;;) {
     const ApplyResult r = propagate_apply(k);
     if (r == ApplyResult::Unsat)
       return 20;
+    // S5 Lucky: once, at search start after the initial root fixpoint
+    // (kissat search.c luckyearly; luckylate joins with preprocessing)
+    if (!lucky_tried && r == ApplyResult::Ok) {
+      lucky_tried = true;
+      if (lucky_guard(k) && lucky_apply(k) == ApplyResult::Sat)
+        return 10;
+    }
     if (r == ApplyResult::Conflict) {
       if (analyze_apply(k) == ApplyResult::Unsat)
         return 20;

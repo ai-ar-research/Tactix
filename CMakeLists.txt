@@ -19,6 +19,7 @@ add_library(tactix_lib STATIC
   src/rules/analyze/analyze.cpp
   src/rules/backjump/backjump.cpp
   src/rules/restart/restart.cpp
+  src/rules/lucky/lucky.cpp
   src/rules/reduce/reduce.cpp
   src/rules/rephase/rephase.cpp
   src/rules/switchmode/switchmode.cpp
