@@ -88,6 +88,22 @@ static void test_external_branching(void) {
   tactix_release(s);
 }
 
+/* regression 001-empty-formula-frames: a solver that never saw a variable
+ * must survive rule application — the fresh-kernel frame stack used to
+ * violate the frames/level invariant, aborting kernel_check_invariants
+ * inside tactix_apply on ANY H-rule (debug builds) */
+static void test_empty_solver_rule_application(void) {
+  tactix *s = tactix_init();
+  const int sw = rule_id("SwitchMode");
+  assert(sw >= 0);
+  assert(tactix_status(s) == 10);   /* empty formula: trivially SAT */
+  assert(tactix_apply(s, sw) == 0); /* guard holds; ran invariants */
+  assert(tactix_apply(s, sw) == 0);
+  assert(tactix_status(s) == 10);
+  assert(tactix_solve(s) == 10);
+  tactix_release(s);
+}
+
 /* stepwise UNSAT: proof concluded through the API path too */
 static void test_stepwise_unsat(void) {
   tactix *s = tactix_init();
@@ -103,6 +119,7 @@ static void test_stepwise_unsat(void) {
 int main(void) {
   test_solve_sat();
   test_external_branching();
+  test_empty_solver_rule_application();
   test_stepwise_unsat();
   puts("test_api_c OK");
   return 0;

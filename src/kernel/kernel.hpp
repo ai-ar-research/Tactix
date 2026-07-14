@@ -66,7 +66,11 @@ struct Kernel {
 
   std::vector<Lit> trail;
   uint32_t propagate_head = 0;
-  std::vector<uint32_t> frames; // trail height at start of each level
+  // trail height at the start of each level; frames[0] = 0 exists from
+  // construction — the `frames.size() == level + 1` invariant must hold
+  // even for a kernel that never saw a variable (empty formula; corpus
+  // regression 001-empty-formula-frames)
+  std::vector<uint32_t> frames = {0};
   uint32_t level = 0;
   uint32_t unassigned = 0;
 

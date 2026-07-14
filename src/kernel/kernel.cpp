@@ -25,8 +25,6 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // reallocate, and its push_back capacity branch becomes always-false
   k.trail.reserve(nvars);
   k.frames.reserve(nvars + 1);
-  if (k.frames.empty())
-    k.frames.push_back(0);
   // enqueue new vars into the VMTF queue (most recent = preferred)
   for (Var v = old; v < nvars; v++) {
     Link &l = k.links[v];

@@ -1,0 +1,6 @@
+{
+  "seed": 20260739,
+  "generator": "edge-empty-formula",
+  "failure": "crash",
+  "diagnosis": "fresh Kernel had frames == {} instead of {0}: kernel_reserve_vars establishes the root frame but early-returns for nvars == 0, so a formula without variables left `frames.size() == level + 1` violated and kernel_check_invariants aborted (debug builds). Reachable via the C API since phase 1 (tactix_init + tactix_apply of any H-rule); first caught by the strengthened random-policy leg's periodic invariant oracle (2026-07-14). Fixed by initializing frames = {0} at construction (kernel.hpp)."
+}
