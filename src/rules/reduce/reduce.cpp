@@ -130,7 +130,41 @@ ApplyResult reduce_apply(Kernel &k) {
                            reduce_canonical_victims(candidates.size()));
 }
 
+// generic instance surface (plan §5.1 v1): payload = how many of the
+// ranked candidates to delete. Ranked: canonical volume first, then the
+// remaining counts descending (more deletion first), ending at 0
+static uint32_t reduce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
+  if (cap == 0)
+    return 0;
+  std::vector<Ref> candidates;
+  reduce_candidates(k, candidates);
+  const uint64_t total = candidates.size();
+  const uint64_t canonical = reduce_canonical_victims(candidates.size());
+  uint32_t n = 0;
+  out[n++] = canonical;
+  for (uint64_t count = total;; count--) {
+    if (n >= cap)
+      break;
+    if (count != canonical)
+      out[n++] = count;
+    if (count == 0)
+      break;
+  }
+  return n;
+}
+
+static ApplyResult reduce_apply_instance(Kernel &k, uint64_t inst) {
+  if (inst == INSTANCE_CANONICAL)
+    return reduce_apply(k);
+  std::vector<Ref> candidates;
+  reduce_candidates(k, candidates);
+  const size_t n =
+      inst < candidates.size() ? static_cast<size_t>(inst) : candidates.size();
+  return reduce_apply_refs(k, candidates.data(), n);
+}
+
 TACTIX_REGISTER_RULE(Reduce, RuleTier::Macro, reduce_guard,
-                     reduce_apply);
+                     reduce_apply, reduce_instances,
+                     reduce_apply_instance);
 
 } // namespace tactix
