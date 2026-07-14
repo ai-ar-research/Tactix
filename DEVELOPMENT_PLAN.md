@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-14 (rev. 21). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-14 (rev. 22). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -583,6 +583,14 @@ schedule gate runs accordingly.
     while any Tier A instance is unsolved within its 30 s budget.** Clear
     Tier A completely, then compare on Tier B — timings there carry no
     decision weight while the "is it broken" set still has failures.
+  - **Margin rule (rev 22, user decision): Tier A must pass easily and
+    consistently, not at the knife edge.** A change that leaves any
+    instance within ~15% of the 30 s budget solo (≳ 25 s — contention at
+    jobs=4 eats the rest) is not done: the marginal instance gets a
+    dedicated follow-up (fidelity levers first, never Tier-A constant
+    tuning, which §8.1 still forbids) before the work is considered
+    complete. Consistency is part of the claim — verify with repeat
+    jobs=4 runs, not one lucky pass.
 - **Tier B — "5–30 s" competition subset (daily driver; total ≈ 2–8 CPU-min).**
   10–15 instances from the SC 2023–2025 main tracks selected by *reference
   runtime*: Kissat 4.0.4 takes **between 5 s and 30 s** each on our hardware
@@ -912,3 +920,11 @@ discovered during development get added here rather than answered ad hoc.
   mode, …); without observability, O5's pull model is unusable for exactly
   the §8.4 demos it was chosen for. Read-only, allocation-free, id list
   grows additively post-v1; unknown ids return UINT64_MAX.
+- **rev. 22** (2026-07-14): Tier A margin rule added to §8.1 (user
+  decision): Tier A must pass easily and consistently — any instance
+  within ~15% of its 30 s budget solo (≳ 25 s) makes the change
+  incomplete until a dedicated follow-up restores headroom, via fidelity
+  levers, never Tier-A constant tuning (which §8.1 still forbids);
+  consistency verified with repeat jobs=4 runs. Prompted by tr-n300-s055
+  oscillating at the timeout line (21.0 → 28.9 → 30.2 → 25.2 s solo)
+  across the day's S3/S5/EMA/promotion changes.
