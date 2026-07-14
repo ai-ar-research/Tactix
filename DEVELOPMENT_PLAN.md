@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-14 (rev. 20). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-14 (rev. 21). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -272,6 +272,8 @@ int     tactix_status(tactix*);
 // R1/R2 support
 int     tactix_proof(tactix*, const char* path, int format); // TACTIX_PROOF_*
 int     tactix_value(tactix*, int lit);
+// observability for pull-based policies (rev 21): read-only statistics
+uint64_t tactix_stat(tactix*, int stat_id);        // TACTIX_STAT_*
 ```
 
 **Instances are unsigned 64-bit payloads** (O3, decided rev 20). Each rule
@@ -288,6 +290,16 @@ allocation at the API boundary. Errors are int returns (−1 = unknown rule,
 guard does not hold, or invalid argument); no error strings in v1.
 `format` is `TACTIX_PROOF_DRAT_BINARY` / `TACTIX_PROOF_DRAT_ASCII` /
 `TACTIX_PROOF_LRAT` (LRAT rejected until the native-LRAT item lands).
+
+**Observability for pull-based policies** (rev 21, found by the §8.4
+demo-3 review: a scripted policy cannot reproduce the default schedule
+without reading the counters the built-in policy reads).
+`tactix_stat(solver, stat_id)` returns one read-only counter —
+conflicts, decisions, propagations, ticks, learned, restarts,
+reductions, mode switches, current level, unassigned count, last
+learned clause's glue, stable-mode flag (`TACTIX_STAT_*` ids) — with
+`UINT64_MAX` for unknown ids. Allocation-free; the id list may grow
+additively post-v1.
 
 **Branching is a first-class API surface (N1).** `Decide` is a rule family like
 any other: `instances(σ)` enumerates *all* unassigned variables with phases,
@@ -893,3 +905,10 @@ discovered during development get added here rather than answered ad hoc.
   Restart/Backjump instance surfaces and the Analyze-atomic decision landed
   2026-07-14 pre-freeze (PROGRESS log); example policies 1–3 (§8.4) are the
   freeze review's acceptance exercise.
+- **rev. 21** (2026-07-14): `tactix_stat(solver, stat_id)` added to the
+  frozen §5.1 surface — the §8.4 demo-3 review (scripted policy
+  reproducing the default schedule) showed pull-based policies need the
+  counters the built-in policy reads (conflicts, ticks, last learned glue,
+  mode, …); without observability, O5's pull model is unusable for exactly
+  the §8.4 demos it was chosen for. Read-only, allocation-free, id list
+  grows additively post-v1; unknown ids return UINT64_MAX.
