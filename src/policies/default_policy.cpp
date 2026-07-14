@@ -6,14 +6,21 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
 #include "rules/restart/restart.hpp"
+#include "rules/switchmode/switchmode.hpp"
+
+#include <cmath>
 
 namespace tactix {
 
 // Glucose-style EMA restart trigger (Audemard–Simon): restart when the
 // short-term glue average exceeds the long-term one by a margin — search
-// quality is degrading, so abandon the prefix.
+// quality is degrading, so abandon the prefix. Focused mode only.
 static constexpr double RESTART_MARGIN = 1.25;
 static constexpr uint64_t RESTART_FLOOR_INTERVAL = 50;
+// kissat mode.c / options.h defaults
+static constexpr uint64_t MODE_INTERVAL = 1000;   // modeint
+static constexpr uint64_t RELUCTANT_PERIOD = 1024;      // reluctantint
+static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;    // reluctantlim
 
 void DefaultPolicy::observe_glue(uint32_t glue) {
   if (restart.ema_initialized) {
@@ -25,10 +32,64 @@ void DefaultPolicy::observe_glue(uint32_t glue) {
   }
 }
 
+// reluctant doubling (Knuth's formulation of Luby; kissat reluctant.c):
+// ticked once per learned clause while stable, arms `trigger` when the
+// current wait elapses
+void DefaultPolicy::tick_reluctant() {
+  if (reluctant.trigger)
+    return;
+  if (--reluctant.wait)
+    return;
+  uint64_t u = reluctant.u, v = reluctant.v;
+  if ((u & -u) == v) {
+    u++;
+    v = 1;
+  } else {
+    v *= 2;
+  }
+  uint64_t wait = v * RELUCTANT_PERIOD;
+  if (wait > RELUCTANT_LIMIT) {
+    u = v = 1;
+    wait = RELUCTANT_PERIOD;
+  }
+  reluctant.trigger = true;
+  reluctant.wait = wait;
+  reluctant.u = u;
+  reluctant.v = v;
+}
+
 bool DefaultPolicy::want_restart(const Kernel &k) const {
+  if (k.stable)
+    return reluctant.trigger;
   return restart.ema_initialized &&
          k.stats.conflicts >= restart.floor_conflicts &&
          restart.fast_glue > RESTART_MARGIN * restart.slow_glue;
+}
+
+bool DefaultPolicy::want_switch_mode(const Kernel &k) const {
+  if (mode.count & 1) // in stable: leave after the ticks budget
+    return k.stats.ticks >= mode.ticks_limit;
+  return k.stats.conflicts >= mode.conflicts_limit;
+}
+
+// kissat mode.c update_mode_limit: stable phases get the ticks the
+// preceding focused phase used (wall-time share stays balanced); focused
+// intervals grow as modeint * n·log⁴n of the switch count
+void DefaultPolicy::update_mode_limits(const Kernel &k) {
+  if (mode.count & 1) { // just entered stable
+    const uint64_t focused_ticks = k.stats.ticks - mode.ticks_at_focus_entry;
+    mode.ticks_limit = k.stats.ticks + focused_ticks;
+  } else { // just entered focused
+    const uint64_t n = (mode.count / 2) + 1;
+    const double log4 = std::pow(std::log10(static_cast<double>(n) + 9), 4);
+    mode.conflicts_limit =
+        k.stats.conflicts +
+        static_cast<uint64_t>(MODE_INTERVAL * static_cast<double>(n) * log4);
+    mode.ticks_at_focus_entry = k.stats.ticks;
+  }
+  // per-mode averages restart fresh (kissat init_averages on switch)
+  restart.ema_initialized = false;
+  restart.floor_conflicts = k.stats.conflicts + RESTART_FLOOR_INTERVAL;
 }
 
 bool DefaultPolicy::want_reduce(const Kernel &k) const {
@@ -37,15 +98,15 @@ bool DefaultPolicy::want_reduce(const Kernel &k) const {
 
 Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
-  const Var v = kernel_queue_next_unassigned(k);
-  return make_lit(v, k.saved[v] < 0);
+  const Var v = kernel_next_decision_var(k);
+  return kernel_decide_lit(k, v);
 }
 
 // Phase-1 shape of kissat/src/search.c's guard->apply chain: propagate,
 // analyze+backjump on conflict, SAT when everything is assigned, else
-// decide — with Restart/Reduce scheduled between conflicts by THIS
-// policy's state (rev 17: rules carry no scheduling). S3–S5 join in
-// phase 2.
+// decide — with Reduce/SwitchMode/Restart scheduled between conflicts
+// (in kissat search.c's check order) by THIS policy's state (rev 17:
+// rules carry no scheduling). S3/S5 join in phase 2.
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (k.inconsistent)
     return 20;
@@ -57,6 +118,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (analyze_apply(k) == ApplyResult::Unsat)
         return 20;
       observe_glue(k.pending.glue); // policy observes; Analyze stays pure
+      if (k.stable)
+        tick_reluctant(); // per learned clause (kissat learn.c)
       backjump_apply(k);
       continue;
     }
@@ -73,8 +136,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       reduce.next_conflicts = k.stats.conflicts + 2000 + 300 * k.stats.reductions;
       continue;
     }
+    if (want_switch_mode(k) && switchmode_guard(k)) {
+      switchmode_apply(k);
+      mode.count++;
+      if (k.stable) // entering stable: fresh reluctant sequence
+        reluctant = {};
+      update_mode_limits(k);
+      continue;
+    }
     if (want_restart(k) && restart_guard(k)) {
       restart_apply(k);
+      reluctant.trigger = false; // consumed (kissat reluctant.h)
       restart.floor_conflicts = k.stats.conflicts + RESTART_FLOOR_INTERVAL;
       continue;
     }

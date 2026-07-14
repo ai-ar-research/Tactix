@@ -41,6 +41,11 @@ static bool propagate_literal(Kernel &k, Lit lit) {
   const uint32_t *p = q;
   const uint32_t *const end = k.watches.end(not_lit);
   bool conflict = false;
+  // search ticks (kissat proplit.h): 1 + cache lines of the watch list
+  // scanned, + 1 per large-clause dereference — a deterministic memory-
+  // traffic proxy used by the policy's mode-switch budget (watch entries
+  // are 4 bytes; 16 per 64-byte line)
+  uint64_t ticks = 1 + (static_cast<uint64_t>(end - p) >> 4);
 
   while (p != end) {
     const Watch head{*q++ = *p++};
@@ -63,6 +68,7 @@ static bool propagate_literal(Kernel &k, Lit lit) {
       const Ref ref = *q++ = *p++;
       if (blocking_value > 0)
         continue;
+      ticks++;
       Clause *c = clause_at(arena, ref);
       if (c->garbage()) {
         q -= 2;
@@ -120,6 +126,7 @@ static bool propagate_literal(Kernel &k, Lit lit) {
     *q++ = *p++;
   k.watches.truncate(not_lit, static_cast<uint32_t>(q - begin));
   flush_delayed(k);
+  k.stats.ticks += ticks;
   return conflict;
 }
 

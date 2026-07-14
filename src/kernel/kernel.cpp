@@ -1,5 +1,6 @@
 #include "kernel/kernel.hpp"
 
+#include <algorithm>
 #include <cstdio>
 
 namespace tactix {
@@ -14,6 +15,9 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.saved.resize(nvars, 1); // initial phase: positive (kissat default)
   k.watches.resize_lits(2 * nvars);
   k.links.resize(nvars);
+  k.scores.pos.resize(nvars, UINT32_MAX);
+  k.scores.score.resize(nvars, 0.0);
+  k.target.resize(nvars, 0);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
   k.unassigned += nvars - old;
@@ -65,7 +69,9 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b) {
 
 void kernel_backtrack(Kernel &k, uint32_t target) {
   assert(target < k.level);
+  kernel_update_target_phases(k); // before unassigning (kissat backtrack.c)
   const uint32_t new_size = k.frames[target + 1];
+  const bool stable = k.stable;
   while (k.trail.size() > new_size) {
     const Lit lit = k.trail.back();
     k.trail.pop_back();
@@ -74,9 +80,13 @@ void kernel_backtrack(Kernel &k, uint32_t target) {
     k.values[lit] = 0;
     k.values[negate(lit)] = 0;
     k.unassigned++;
-    // keep the VMTF search cache at the highest-stamp unassigned var
-    // (kissat/src/inlinequeue.h idea)
-    if (k.links[v].stamp > k.search_stamp) {
+    if (stable) {
+      // unassigned vars must be findable by the heap again
+      if (!kernel_heap_contains(k, v))
+        kernel_heap_push(k, v);
+    } else if (k.links[v].stamp > k.search_stamp) {
+      // keep the VMTF search cache at the highest-stamp unassigned var
+      // (kissat/src/inlinequeue.h idea)
       k.search_idx = v;
       k.search_stamp = k.links[v].stamp;
     }
@@ -197,6 +207,152 @@ Var kernel_queue_next_unassigned(Kernel &k) {
   k.search_idx = v;
   k.search_stamp = k.links[v].stamp;
   return v;
+}
+
+void kernel_reset_queue_search(Kernel &k) {
+  // kissat queue.c kissat_reset_search_of_queue: entering focused mode,
+  // the cache must again point at the queue tail
+  k.search_idx = k.queue_last;
+  k.search_stamp =
+      k.queue_last == UINT32_MAX ? 0 : k.links[k.queue_last].stamp;
+}
+
+// --- EVSIDS score heap ------------------------------------------------------
+// Transliterated from kissat/src/inlineheap.h + bump.c (MIT): pos-indexed
+// binary max-heap; EVSIDS = bump by a growing increment, rescale both
+// scores and increment near overflow (Eén–Sörensson via MiniSat, kissat's
+// stable-mode "scores" heap).
+
+static constexpr double MAX_SCORE = 1e150;
+static constexpr double SCORE_DECAY = 0.05; // kissat decay=50 per mille
+
+static void heap_bubble_up(Kernel &k, Var v) {
+  uint32_t *stack = k.scores.stack.data();
+  uint32_t *pos = k.scores.pos.data();
+  const double *score = k.scores.score.data();
+  uint32_t vpos = pos[v];
+  const double vscore = score[v];
+  while (vpos > 0) {
+    const uint32_t parent_pos = (vpos - 1) / 2;
+    const Var parent = stack[parent_pos];
+    if (score[parent] >= vscore)
+      break;
+    stack[vpos] = parent;
+    pos[parent] = vpos;
+    vpos = parent_pos;
+  }
+  stack[vpos] = v;
+  pos[v] = vpos;
+}
+
+static void heap_bubble_down(Kernel &k, Var v) {
+  uint32_t *stack = k.scores.stack.data();
+  uint32_t *pos = k.scores.pos.data();
+  const double *score = k.scores.score.data();
+  const uint32_t end = static_cast<uint32_t>(k.scores.stack.size());
+  uint32_t vpos = pos[v];
+  const double vscore = score[v];
+  for (;;) {
+    uint32_t child_pos = 2 * vpos + 1;
+    if (child_pos >= end)
+      break;
+    Var child = stack[child_pos];
+    double child_score = score[child];
+    const uint32_t sibling_pos = child_pos + 1;
+    if (sibling_pos < end) {
+      const Var sibling = stack[sibling_pos];
+      if (score[sibling] > child_score) {
+        child = sibling;
+        child_pos = sibling_pos;
+        child_score = score[sibling];
+      }
+    }
+    if (child_score <= vscore)
+      break;
+    stack[vpos] = child;
+    pos[child] = vpos;
+    vpos = child_pos;
+  }
+  stack[vpos] = v;
+  pos[v] = vpos;
+}
+
+void kernel_heap_push(Kernel &k, Var v) {
+  assert(!kernel_heap_contains(k, v));
+  k.scores.pos[v] = static_cast<uint32_t>(k.scores.stack.size());
+  k.scores.stack.push_back(v);
+  heap_bubble_up(k, v);
+}
+
+static void heap_pop_max(Kernel &k) {
+  assert(!k.scores.stack.empty());
+  const Var max = k.scores.stack[0];
+  const Var last = k.scores.stack.back();
+  k.scores.stack.pop_back();
+  k.scores.pos[max] = UINT32_MAX;
+  if (last != max) {
+    k.scores.pos[last] = 0;
+    k.scores.stack[0] = last;
+    heap_bubble_down(k, last);
+  }
+}
+
+static void rescale_scores(Kernel &k) {
+  // divide everything by the max score so relative order is untouched
+  double max_score = k.scinc;
+  for (const double s : k.scores.score)
+    max_score = std::max(max_score, s);
+  const double factor = 1.0 / max_score;
+  for (double &s : k.scores.score)
+    s *= factor;
+  k.scinc *= factor;
+}
+
+void kernel_score_bump(Kernel &k, Var v) {
+  const double new_score = k.scores.score[v] + k.scinc;
+  k.scores.score[v] = new_score;
+  if (kernel_heap_contains(k, v))
+    heap_bubble_up(k, v);
+  if (new_score > MAX_SCORE)
+    rescale_scores(k);
+}
+
+void kernel_scores_decay(Kernel &k) {
+  k.scinc *= 1.0 / (1.0 - SCORE_DECAY);
+  if (k.scinc > MAX_SCORE)
+    rescale_scores(k);
+}
+
+void kernel_update_scores(Kernel &k) {
+  // entering stable mode: every var must be reachable via the heap
+  // (kissat bump.c kissat_update_scores)
+  for (Var v = 0; v < k.nvars; v++)
+    if (!kernel_heap_contains(k, v))
+      kernel_heap_push(k, v);
+}
+
+Var kernel_heap_next_unassigned(Kernel &k) {
+  assert(!k.scores.stack.empty());
+  Var v = k.scores.stack[0];
+  while (k.values[make_lit(v, false)] != 0) {
+    heap_pop_max(k); // lazy deletion (kissat decide.c)
+    assert(!k.scores.stack.empty());
+    v = k.scores.stack[0];
+  }
+  return v;
+}
+
+void kernel_update_target_phases(Kernel &k) {
+  // kissat backtrack.c kissat_update_target_and_best_phases, stable only
+  if (!k.stable)
+    return;
+  const uint32_t assigned = static_cast<uint32_t>(k.trail.size());
+  if (k.target_assigned >= assigned)
+    return;
+  k.target_assigned = assigned;
+  for (const Lit lit : k.trail)
+    k.target[var_of(lit)] = negated(lit) ? -1 : 1;
+  k.stats.target_saved++;
 }
 
 

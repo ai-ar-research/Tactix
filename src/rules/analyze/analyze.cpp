@@ -125,9 +125,21 @@ static void radix_sort_analyzed_by_stamp(Kernel &k) {
     a.swap(b);
 }
 
-// bump analysis-side vars (SEEN), preserving relative recency (kissat
-// sorts by stamp); clear all flags incl. minimization scratch
+// bump analysis-side vars (SEEN); clear all flags incl. minimization
+// scratch. Focused: VMTF move-to-front, sorted by stamp to preserve
+// relative recency (kissat bump.c). Stable: EVSIDS score bump + one
+// increment decay per conflict — order-independent, so no sort.
 static void bump_and_reset_analyzed(Kernel &k) {
+  if (k.stable) {
+    for (const Var v : k.analyzed) {
+      if (k.seen[v] & SEEN)
+        kernel_score_bump(k, v);
+      k.seen[v] = 0;
+    }
+    k.analyzed.clear();
+    kernel_scores_decay(k);
+    return;
+  }
   radix_sort_analyzed_by_stamp(k);
   for (const Var v : k.analyzed) {
     if (k.seen[v] & SEEN)

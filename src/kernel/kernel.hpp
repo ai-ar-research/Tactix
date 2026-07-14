@@ -31,6 +31,9 @@ struct Stats {
   uint64_t decisions = 0;
   uint64_t conflicts = 0;
   uint64_t propagations = 0;
+  uint64_t ticks = 0; // propagation memory-traffic proxy (see propagate.cpp)
+  uint64_t switched = 0; // mode switches (S4)
+  uint64_t target_saved = 0; // target-phase snapshots
   uint64_t learned = 0;
   uint64_t learned_units = 0;
   uint64_t minimized = 0; // literals removed by clause minimization
@@ -78,6 +81,26 @@ struct Kernel {
   uint32_t queue_first = UINT32_MAX, queue_last = UINT32_MAX;
   uint32_t queue_stamp = 0;
   uint32_t search_idx = UINT32_MAX, search_stamp = 0;
+
+  // EVSIDS score heap (stable-mode decision heuristic; kissat heap.h /
+  // inlineheap.h): pos-indexed binary max-heap over vars. pos UINT32_MAX
+  // means "not in heap" (lazily re-inserted on unassign while stable).
+  struct {
+    std::vector<uint32_t> stack; // heap array of vars, max at stack[0]
+    std::vector<uint32_t> pos;   // by var: index into stack, or UINT32_MAX
+    std::vector<double> score;   // by var
+  } scores;
+  double scinc = 1.0; // EVSIDS bump increment (grows by 1/(1-decay))
+
+  // active instance-ranking mode for Decide (§5.1 H-state): false = VMTF
+  // queue (focused), true = score heap (stable). Flipped only by the S4
+  // SwitchMode rule; WHEN to flip is policy state (rev 17).
+  bool stable = false;
+
+  // target phases (kissat phases.c): assignment snapshot at the deepest
+  // consistent trail seen while stable; preferred over saved phase there
+  std::vector<int8_t> target; // by var: +1/-1, 0 = never saved
+  uint32_t target_assigned = 0;
 
   // conflict handoff: propagate -> analyze
   bool conflict_valid = false;
@@ -155,6 +178,36 @@ void kernel_backtrack(Kernel &, uint32_t target_level);
 void kernel_queue_init(Kernel &);
 void kernel_queue_bump(Kernel &, Var v); // move to front (most recent)
 Var kernel_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
+// reset the queue search cache to the queue tail (entering focused mode)
+void kernel_reset_queue_search(Kernel &);
+
+// --- EVSIDS score heap (stable mode) ----------------------------------------
+void kernel_heap_push(Kernel &, Var v);    // insert (must not be contained)
+void kernel_score_bump(Kernel &, Var v);   // score += scinc, sift, rescale
+void kernel_scores_decay(Kernel &);        // scinc /= (1 - decay), rescale
+void kernel_update_scores(Kernel &);       // push all missing vars (enter stable)
+Var kernel_heap_next_unassigned(Kernel &); // max-score unassigned (lazy pop)
+inline bool kernel_heap_contains(const Kernel &k, Var v) {
+  return k.scores.pos[v] != UINT32_MAX;
+}
+// snapshot assigned values into target phases if the trail is the deepest
+// consistent one seen (kissat backtrack.c kissat_update_target_and_best_
+// phases; best phases join with Rephase/S3 in phase 2). Stable mode only.
+void kernel_update_target_phases(Kernel &);
+
+// --- decision ranking dispatch (§5.1) ---------------------------------------
+inline Var kernel_next_decision_var(Kernel &k) {
+  return k.stable ? kernel_heap_next_unassigned(k)
+                  : kernel_queue_next_unassigned(k);
+}
+// phase priority (kissat decide.c kissat_decide_phase): target (stable
+// only) -> saved; both default positive
+inline Lit kernel_decide_lit(const Kernel &k, Var v) {
+  int8_t phase = k.stable ? k.target[v] : 0;
+  if (phase == 0)
+    phase = k.saved[v];
+  return make_lit(v, phase < 0);
+}
 
 // --- garbage collection ------------------------------------------------
 // compacts the arena (dropping GARBAGE clauses), fixes trail reasons via

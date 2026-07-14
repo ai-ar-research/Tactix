@@ -1,9 +1,6 @@
-// EMA-triggered restarts (Glucose scheme, Audemard–Simon; kissat's
-// focused-mode restart.c is the same idea): restart when the short-term
-// glue average exceeds the long-term one by a margin — search quality is
-// degrading, so abandon the prefix. Constants are the published defaults
-// (margin 1.25, floor 50 conflicts), not benchmark-tuned. Reluctant
-// doubling returns with stable mode (SwitchMode, phase 2).
+// Restart: abandon the assignment prefix (kissat restart.c). WHEN is
+// policy state (focused: Glucose EMA scheme; stable: reluctant doubling —
+// both in DefaultPolicy, rev 17); HOW — including trail reuse — is here.
 #include "rules/restart/restart.hpp"
 
 namespace tactix {
@@ -16,22 +13,33 @@ bool restart_guard(const Kernel &k) {
   return !k.conflict_valid && !k.inconsistent && k.level > 0;
 }
 
-// trail reuse (kissat restart.c reuse_focused_trail): keep the decision
-// levels whose decision variable has a higher VMTF stamp than the next
-// decision candidate — after a full restart the heuristic would re-decide
-// exactly that prefix, so re-propagating it is pure waste. The stable-mode
-// (score-heap) variant arrives with SwitchMode in phase 2.
+// trail reuse (kissat restart.c reuse_focused_trail/reuse_stable_trail):
+// keep the decision levels whose decision variable ranks higher (VMTF
+// stamp / EVSIDS score, per the active mode) than the next decision
+// candidate — after a full restart the heuristic would re-decide exactly
+// that prefix, so re-propagating it is pure waste.
 static uint32_t reuse_trail(Kernel &k) {
   if (k.unassigned == 0)
     return 0; // nothing left to decide; abandon the whole trail
-  const Var next = kernel_queue_next_unassigned(k);
-  const uint32_t limit = k.links[next].stamp;
   uint32_t res = 0;
-  while (res < k.level) {
-    const Lit decision = k.trail[k.frames[res + 1]];
-    if (k.links[var_of(decision)].stamp <= limit)
-      break;
-    res++;
+  if (k.stable) {
+    const Var next = kernel_heap_next_unassigned(k);
+    const double limit = k.scores.score[next];
+    while (res < k.level) {
+      const Lit decision = k.trail[k.frames[res + 1]];
+      if (k.scores.score[var_of(decision)] <= limit)
+        break;
+      res++;
+    }
+  } else {
+    const Var next = kernel_queue_next_unassigned(k);
+    const uint32_t limit = k.links[next].stamp;
+    while (res < k.level) {
+      const Lit decision = k.trail[k.frames[res + 1]];
+      if (k.links[var_of(decision)].stamp <= limit)
+        break;
+      res++;
+    }
   }
   return res;
 }

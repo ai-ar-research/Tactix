@@ -177,6 +177,12 @@ int main(int argc, char **argv) {
     printf("c reductions  %llu (%llu clauses deleted)\n",
            (unsigned long long)kernel.stats.reductions,
            (unsigned long long)kernel.stats.deleted);
+    printf("c mode        %s after %llu switches (%llu ticks, "
+           "%llu target phases saved)\n",
+           kernel.stable ? "stable" : "focused",
+           (unsigned long long)kernel.stats.switched,
+           (unsigned long long)kernel.stats.ticks,
+           (unsigned long long)kernel.stats.target_saved);
   }
   if (res == 10) {
     printf("s SATISFIABLE\n");

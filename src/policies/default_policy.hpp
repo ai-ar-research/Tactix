@@ -2,10 +2,13 @@
 // instantiation of the Policy interface, no special status. Calls the
 // SAME rule implementations the registry exposes, but through direct
 // (inlinable) calls — the "static dispatch" side of the two-tier design.
-// Owns every scheduling heuristic it uses (rev 17): the EMA-triggered
-// restart schedule (Glucose scheme, Audemard–Simon; constants are the
-// published defaults, not benchmark-tuned) and the arithmetic reduce
-// interval. Reluctant doubling returns with stable mode (phase 2).
+// Owns every scheduling heuristic it uses (rev 17): the focused-mode
+// EMA-triggered restart schedule (Glucose scheme, Audemard–Simon), the
+// stable-mode reluctant-doubling restart schedule, the arithmetic reduce
+// interval, and the mode-switch alternation (kissat mode.c: first switch
+// after `modeinit` conflicts, stable phases last the preceding focused
+// phase's ticks, focused intervals grow as modeint·n·log⁴n). Constants
+// are the published kissat/Glucose defaults, not benchmark-tuned.
 #pragma once
 
 #include "policies/policy.hpp"
@@ -47,10 +50,28 @@ public:
   struct {
     uint64_t next_conflicts = 2000;
   } reduce;
+  // mode-switch alternation (kissat mode.c/limits): even count = focused
+  // (conflicts limit pending), odd = stable (ticks limit pending)
+  struct {
+    uint64_t count = 0;
+    uint64_t conflicts_limit = 1000; // modeinit
+    uint64_t ticks_limit = 0;
+    uint64_t ticks_at_focus_entry = 0;
+  } mode;
+  // reluctant doubling (Luby-style; kissat reluctant.c) — stable restarts
+  struct {
+    uint64_t u = 1, v = 1;
+    uint64_t wait = 1024;  // reluctantint
+    bool trigger = false;
+  } reluctant;
 
-  // the scheduling predicates, exposed for tests/introspection
+  // the scheduling predicates and their transitions, exposed so tests
+  // (and future presets) can pose schedules directly
   bool want_restart(const Kernel &) const;
   bool want_reduce(const Kernel &) const;
+  bool want_switch_mode(const Kernel &) const;
+  void tick_reluctant();                   // per-conflict in stable mode
+  void update_mode_limits(const Kernel &); // after a switch
 
 private:
   void observe_glue(uint32_t glue); // per-conflict EMA update
