@@ -2,7 +2,7 @@
 
 Working name: **Tactix** (placeholder — rename freely).
 
-Date: 2026-07-11 (rev. 18). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-13 (rev. 19). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -316,7 +316,7 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 | S1 | `Restart` | restart, reluctant, averages, smooth | none | 1 (moved rev 12) |
 | S2 | `Reduce` (clause-DB reduction, tier promotion) | reduce, tiers, promote, collect | delete | 1 (moved rev 12) |
 | S3 | `Rephase` (best/inverted/original/target phases) | rephase, phases | none | 2 |
-| S4 | `SwitchMode` (stable ⇄ focused) | mode | none | 2 |
+| S4 | `SwitchMode` (stable ⇄ focused) | mode | none | 1 (moved rev 19) |
 | S5 | `Lucky` (constant/alternating assignment probes) | lucky | none (may conclude SAT) | 2 |
 | S6 | `Walk` (WalkSAT phase improvement) | walk, warmup | none | 4 |
 | S7 | `Reorder` (decision-queue reordering) | reorder | none | 4 |
@@ -661,8 +661,8 @@ Components:
 | Phase | Deliverable | Exit criterion |
 |---|---|---|
 | 0 (setup) | Repo, CI; **baseline solvers built locally** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
-| 1 | Kernel + Propagate/Decide/Analyze/Backjump + Restart/Reduce (S1–S2, moved from phase 2 in rev 12) + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
-| 2 | Rephasing, mode switching, lucky probes (S3–S5); native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
+| 1 | Kernel + Propagate/Decide/Analyze/Backjump + Restart/Reduce (S1–S2, moved from phase 2 in rev 12) + SwitchMode w/ stable mode: EVSIDS heap, reluctant restarts, target phases (S4, moved rev 19) + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
+| 2 | Rephasing, lucky probes (S3, S5); native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
 | 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
 | 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Walk, Sweep, Congruence, Factor/SBVA, BCE) | T4 on Tier D; §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
 | 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
@@ -834,3 +834,17 @@ discovered during development get added here rather than answered ad hoc.
   unsolved within its 30 s budget — clear Tier A first. Reorders the
   current T1 work: the remaining hard n=280–300 transition instances
   come before any further Tier B comparison; benchmarks skill synced.
+- **rev. 19** (2026-07-13): S4 `SwitchMode` (with its stable-mode machinery:
+  EVSIDS score heap, reluctant-doubling restarts, target phases) moved from
+  phase 2 to phase 1, mirroring the rev-12 precedent and its rationale.
+  Measured evidence: on the four hard Tier A n=280–300 transition instances
+  (the entire remaining Tier A gap, front of the T1 queue per rev 18),
+  reference Kissat in focused-only mode — our current regime — needs
+  2.2–4× the conflicts of mode-switching on the three UNSATs and 27× on
+  the SAT instance, while stable-only wins on all four; T1's Tier A half
+  is therefore not realistically reachable focused-only, and the T1 gate
+  report had already flagged stable/EVSIDS as the honest question for
+  Tier B (MiniSat's VSIDS is known-stronger than bare VMTF on industrial
+  instances). Scheduling of the switch stays in the policy per rev 17;
+  the kernel gains only instance-ranking H-state (§5.1: score heap,
+  target phases). Phase 2 keeps S3 Rephase and S5 Lucky.

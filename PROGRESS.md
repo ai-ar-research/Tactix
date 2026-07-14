@@ -5,9 +5,9 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 18 (2026-07-11)
+- **Plan revision tracked:** rev. 19 (2026-07-13)
 - **Current phase:** 1 (core CDCL kernel) — in progress since 2026-07-09
-- **Last updated:** 2026-07-10
+- **Last updated:** 2026-07-13
 
 ## Non-negotiables status (plan §1.1)
 
@@ -58,14 +58,15 @@ disagree, the plan is authoritative — fix this file.
 - [x] T1: trail reuse on restart (kissat `restart.c` `kissat_reuse_trail`: keep the prefix above the VMTF top var instead of re-propagating it) — focused/VMTF variant; stable-mode variant joins SwitchMode in phase 2
 - [x] T1: inline the assignment hot path (kissat `fastassign.h` pattern — header-inline assign or LTO; propagate currently calls across TUs) — done; **measured null result**: ~0% on the reference instance (assign is 0.6% of samples; the hot path is memory-bound watch scanning, 81% propagate). LTO evaluated and rejected (also ~0%, adds build complexity). Kept the header-inline layout (right structure, zero cost)
 - [x] T1 gate measurement: Tier A at jobs=4; Tier B 3 runs with per-instance medians vs MiniSat (§8.1 small-set discipline); gate report incl. §5.4 revamp evaluation → `benchmarks/reports/2026-07-11-t1-gate.md` — **measured, T1 NOT passed** (Tier A 195/200; Tier B tactix 7/14 PAR-2 322.9 vs MiniSat 8/14 281.8, medians); phase 1 stays open — next levers in the report
-- [~] Policy-class refactor (plan rev 17): abstract Policy interface owning ALL scheduling heuristics + state; DefaultPolicy as one instantiation; move restart_advised/reduce_advised logic and RestartState/ReduceState out of rules/kernel into the policy; Analyze stops updating glue EMAs (policy observes pending.glue); registry drops the advised slot; random-policy + C API + tests adjusted — *implementation complete (incl. BranchingPolicy/ReductionPolicy sub-policies per user follow-up), unit suites + trajectory identity + compliance green; fuzz validation in flight*; RandomPolicy is the second Policy instantiation; `tactix_rule_advised` removed from the draft C API (pre-freeze; scheduling advice is policy-internal now). Reviewed-not-moved: Reduce's glue-tier ranking (rule-side ranking per §5.1; the 75% VOLUME did move — GlueTieredReduction sub-policy), trail reuse (how Restart applies), VMTF/phases (instance ranking, §5.1)
+- [x] Policy-class refactor (plan rev 17): abstract Policy interface owning ALL scheduling heuristics + state; DefaultPolicy as one instantiation; move restart_advised/reduce_advised logic and RestartState/ReduceState out of rules/kernel into the policy; Analyze stops updating glue EMAs (policy observes pending.glue); registry drops the advised slot; random-policy + C API + tests adjusted — *complete: unit suites + trajectory identity + compliance green (incl. BranchingPolicy/ReductionPolicy sub-policies per user follow-up); fuzz validated 2026-07-13 (1000/0 default + 150/0 random-policy)*; RandomPolicy is the second Policy instantiation; `tactix_rule_advised` removed from the draft C API (pre-freeze; scheduling advice is policy-internal now). Reviewed-not-moved: Reduce's glue-tier ranking (rule-side ranking per §5.1; the 75% VOLUME did move — GlueTieredReduction sub-policy), trail reuse (how Restart applies), VMTF/phases (instance ranking, §5.1)
 - [~] T1: implementation-quality review + micro-tuning toward the Tier B gap — *pass 1 done: radix bump sort (−7% on 9vliw, trajectory-identical), pointer hoisting + persistent scratch (null, kept as reference-matching structure); binary-reason jumping evaluated and REVERTED (summle −27% but 9vliw +2× — needs kissat's bigbig classifier, phase 4; revisit then); level-sort and WatchHead density reviewed-and-deferred with reasons. Next: re-measure the gate; EVSIDS/stable-mode question pending for revise-plan*
+- [ ] Rule S4 SwitchMode + stable mode (moved from phase 2, rev 19): kernel EVSIDS score heap + target phases (§5.1 instance-ranking H-state), S4 rule (flip ranking mode, update_scores/reset_search_of_queue per kissat mode.c), policy-side switch schedule (conflicts-in, ticks-out, modeint·n·log⁴n growth), reluctant-doubling restarts + score-based trail reuse + per-mode EMAs in stable mode — evidence: kissat 3-mode comparison on the 4 hard Tier A instances (focused-only 2.2–27× more conflicts; stable-only best on all 4)
 - [x] MiniSat + Glucose built as baselines (needed for the T1/T2 comparisons) — pinned in `tools/solvers/setup.sh` (minisat 37dc6c6 + 3 scripted macOS/clang patches; glucose 4.2.1); `run.py` gains exit-code verdicts for s-line-less baselines and stages decompressed instances for all solvers equally
 - **Exit:** T1
 
 ## Phase 2 — search management + API freeze
 
-- [ ] Rules S3–S5: Rephase, SwitchMode, Lucky (S1–S2 moved to phase 1, rev 12)
+- [ ] Rules S3, S5: Rephase, Lucky (S1–S2 moved to phase 1 in rev 12; S4 in rev 19)
 - [ ] Native LRAT (antecedent capture in Analyze)
 - [ ] Rule API v1 frozen; example policies 1–3 (§8.4) reviewed
 - **Exit:** T2
@@ -96,6 +97,8 @@ disagree, the plan is authoritative — fix this file.
 
 ## Log
 
+- 2026-07-13 — plan rev 19: S4 SwitchMode + stable-mode machinery (EVSIDS heap, reluctant restarts, target phases) moved from phase 2 to phase 1 (rev-12 precedent). Evidence: kissat 3-mode comparison on the four hard Tier A n=280–300 instances — focused-only (our regime) needs 2.2–4× the conflicts of switching on the UNSATs and 27× on the SAT one; stable-only wins all four. T1's Tier A half is not realistically reachable focused-only, and the T1 gate report already flagged stable/EVSIDS for Tier B. Switch scheduling stays policy-owned (rev 17); kernel gains only §5.1 instance-ranking state.
+- 2026-07-13 — fuzz validation of the policy-class refactor completed (the 07-11 session-end mandate): quick default-policy leg 1000/0 and random-policy leg 150/0 under ASan/UBSan, regression corpus clean. Policy-class refactor item now fully done.
 - 2026-07-11 — session end (machine shutdown): Policy-class + sub-policy refactor committed with fuzz validation INCOMPLETE — unit suites (ASan/UBSan), trajectory identity (exactly 893856 conflicts on tr-n260-s002; 9vliw 11.5 s unchanged), and compliance are green; the quick-fuzz round was interrupted at 100/1000 cases (0 failures) + random-policy leg not started. **First task next session: rerun both fuzz legs (`tools/fuzz/run.sh --quick --solver build/debug/tactix` and `--random-policy` leg) before any further change.** After that, per rev 18: the hard Tier A n=280–300 instances, starting with the stable-mode/EVSIDS revise-plan question.
 - 2026-07-11 — plan rev 18 (user decision): Tier B is not evaluated while any Tier A instance is unsolved within 30 s — clear Tier A first (§8.1 sequencing rule; benchmarks skill synced). Current Tier A gap: the 4 hard n=280–300 transition instances (+ the s038 lottery one at jobs≥4); these are now the front of the T1 queue, ahead of any Tier B run.
 - 2026-07-11 — plan rev 17 (user request, load-bearing): rule-application order is owned by a Policy class — one abstract interface, DefaultPolicy one instantiation; ALL scheduling heuristics + state (restart EMAs/floors, reduce intervals, mode switch, classification, budgets) live in the policy, never in rules or kernel; supersedes the rule-module advised hint. Kernel H-state confined to instance-ranking (VMTF/scores/phases, §5.1). Refactor item added to phase 1.
