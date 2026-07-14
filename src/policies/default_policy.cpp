@@ -21,12 +21,7 @@ namespace tactix {
 // the same constants) — our plain seeded EMAs over-fire at that margin;
 // kissat's constants presuppose its bias-corrected EMA warm-up
 // (smooth.c). Revisit together with per-mode bias-corrected averages.
-static constexpr double RESTART_MARGIN = 1.25;
-static constexpr uint64_t RESTART_FLOOR_INTERVAL = 50;
-// kissat mode.c / options.h defaults
-static constexpr uint64_t MODE_INTERVAL = 1000;   // modeint
-static constexpr uint64_t RELUCTANT_PERIOD = 1024;      // reluctantint
-static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;    // reluctantlim
+// (The constants themselves live once, in default_policy.hpp.)
 
 void DefaultPolicy::observe_glue(uint32_t glue) {
   if (restart.ema_initialized) {
@@ -106,6 +101,16 @@ bool DefaultPolicy::want_reduce(const Kernel &k) const {
   return k.stats.conflicts >= reduce.next_conflicts;
 }
 
+// arithmetically growing reduce interval
+void DefaultPolicy::update_reduce_limit(const Kernel &k) {
+  reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_INIT +
+                          REDUCE_INTERVAL_STEP * k.stats.reductions;
+}
+
+size_t GlueTieredReduction::victims(const Kernel &, size_t candidates) {
+  return reduce_canonical_victims(candidates);
+}
+
 Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
   const Var v = kernel_next_decision_var(k);
@@ -143,7 +148,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           k, reduce_scratch_.data(),
           std::min(rp.victims(k, reduce_scratch_.size()),
                    reduce_scratch_.size()));
-      reduce.next_conflicts = k.stats.conflicts + 2000 + 300 * k.stats.reductions;
+      update_reduce_limit(k);
       continue;
     }
     if (want_switch_mode(k) && switchmode_guard(k)) {

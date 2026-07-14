@@ -49,7 +49,6 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
 
 const char *parse_dimacs(FILE *f, Kernel &k) {
   std::vector<Lit> scratch;
-  bool in_clause = false;
   int c = getc(f);
   for (;;) {
     // skip whitespace
@@ -101,19 +100,15 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
     if (n == 0) {
       ingest_clause(k, scratch);
       scratch.clear();
-      in_clause = false;
     } else {
       if (neg)
         scratch.push_back(internalize(-static_cast<int>(n)));
       else
         scratch.push_back(internalize(static_cast<int>(n)));
-      in_clause = true;
     }
   }
-  if (in_clause) { // tolerate a missing final 0
+  if (!scratch.empty()) // tolerate a missing final 0
     ingest_clause(k, scratch);
-    scratch.clear();
-  }
   return nullptr;
 }
 

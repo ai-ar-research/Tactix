@@ -127,7 +127,7 @@ ApplyResult reduce_apply(Kernel &k) {
   std::vector<Ref> candidates;
   reduce_candidates(k, candidates);
   return reduce_apply_refs(k, candidates.data(),
-                           (3 * candidates.size()) / 4);
+                           reduce_canonical_victims(candidates.size()));
 }
 
 TACTIX_REGISTER_RULE(Reduce, RuleTier::Macro, reduce_guard,

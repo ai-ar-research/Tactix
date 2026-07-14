@@ -22,17 +22,31 @@ public:
   Lit pick(Kernel &) override;
 };
 
-// canonical reduction volume: kissat's default fraction of the ranked
-// worst-first candidates
+// canonical reduction volume: the rule's canonical fraction of the ranked
+// worst-first candidates (reduce_canonical_victims — defined rule-side so
+// the two cannot drift)
 class GlueTieredReduction final : public ReductionPolicy {
 public:
-  size_t victims(const Kernel &, size_t candidates) override {
-    return (3 * candidates) / 4;
-  }
+  size_t victims(const Kernel &, size_t candidates) override;
 };
 
 class DefaultPolicy final : public Policy {
 public:
+  // scheduling constants (each exists exactly once; the struct
+  // initializers below must use these, never repeat the values).
+  // Restart: Glucose-style EMA trigger (see default_policy.cpp for the
+  // evaluated-and-reverted kissat constants). Mode: kissat mode.c /
+  // options.h defaults — modeinit (first switch) and modeint (interval
+  // growth factor) are distinct options that happen to share a value.
+  static constexpr double RESTART_MARGIN = 1.25;
+  static constexpr uint64_t RESTART_FLOOR_INTERVAL = 50;
+  static constexpr uint64_t REDUCE_INTERVAL_INIT = 2000;
+  static constexpr uint64_t REDUCE_INTERVAL_STEP = 300;
+  static constexpr uint64_t MODE_INITIAL_CONFLICTS = 1000; // modeinit
+  static constexpr uint64_t MODE_INTERVAL = 1000;          // modeint
+  static constexpr uint64_t RELUCTANT_PERIOD = 1024;    // reluctantint
+  static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;  // reluctantlim
+
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
 
   // sub-policies (swappable without touching any rule; null = built-in)
@@ -42,26 +56,26 @@ public:
   // scheduling state — public so tests (and future presets) can pose
   // schedules directly; this is policy state, not kernel H-state
   struct {
-    uint64_t floor_conflicts = 50; // earliest next restart
+    uint64_t floor_conflicts = RESTART_FLOOR_INTERVAL; // earliest restart
     double fast_glue = 0.0;       // ~ last 32 conflicts
     double slow_glue = 0.0;       // ~ last 16384 conflicts
     bool ema_initialized = false;
   } restart;
   struct {
-    uint64_t next_conflicts = 2000;
+    uint64_t next_conflicts = REDUCE_INTERVAL_INIT;
   } reduce;
   // mode-switch alternation (kissat mode.c/limits): even count = focused
   // (conflicts limit pending), odd = stable (ticks limit pending)
   struct {
     uint64_t count = 0;
-    uint64_t conflicts_limit = 1000; // modeinit
+    uint64_t conflicts_limit = MODE_INITIAL_CONFLICTS;
     uint64_t ticks_limit = 0;
     uint64_t ticks_at_focus_entry = 0;
   } mode;
   // reluctant doubling (Luby-style; kissat reluctant.c) — stable restarts
   struct {
     uint64_t u = 1, v = 1;
-    uint64_t wait = 1024;  // reluctantint
+    uint64_t wait = RELUCTANT_PERIOD;
     bool trigger = false;
   } reluctant;
 
@@ -73,6 +87,7 @@ public:
   void tick_reluctant();                   // per-conflict in stable mode
   void update_mode_limits(const Kernel &); // after a switch
   void update_restart_limit(const Kernel &); // after a restart
+  void update_reduce_limit(const Kernel &);  // after a reduction
 
 private:
   void observe_glue(uint32_t glue); // per-conflict EMA update

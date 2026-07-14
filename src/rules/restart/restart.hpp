@@ -1,6 +1,8 @@
-// S1 Restart (plan §5.2): abandon the current assignment prefix and return
-// to the root, keeping all learned clauses and heuristic state. Interval
-// follows Knuth's reluctant-doubling (Luby) sequence. Proof delta: none.
+// S1 Restart (plan §5.2): abandon the current assignment prefix (a
+// heuristically-reusable prefix is kept), keeping all learned clauses and
+// heuristic state. WHEN to restart is policy state (rev 17: focused = EMA
+// trigger, stable = reluctant doubling, both in DefaultPolicy). Proof
+// delta: none.
 #pragma once
 
 #include "rules/registry.hpp"

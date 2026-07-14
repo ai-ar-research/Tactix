@@ -39,8 +39,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
       k.queue_first = v;
     k.queue_last = v;
   }
-  k.search_idx = k.queue_last;
-  k.search_stamp = k.links.empty() ? 0 : k.links[k.queue_last].stamp;
+  kernel_reset_queue_search(k);
 }
 
 Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
@@ -121,9 +120,7 @@ static void queue_restamp(Kernel &k) {
   for (Var v = k.queue_first; v != UINT32_MAX; v = k.links[v].next)
     k.links[v].stamp = ++stamp;
   k.queue_stamp = stamp;
-  k.search_idx = k.queue_last;
-  k.search_stamp = k.queue_last == UINT32_MAX ? 0
-                                              : k.links[k.queue_last].stamp;
+  kernel_reset_queue_search(k);
 }
 
 void kernel_queue_bump(Kernel &k, Var v) {

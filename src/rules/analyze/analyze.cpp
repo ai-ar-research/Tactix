@@ -26,6 +26,24 @@ static constexpr uint8_t REMOVABLE = 2; // proven redundant
 static constexpr uint8_t POISONED = 4;  // proven not redundant
 static constexpr uint8_t SHRINKABLE = 8; // in the current block-shrink walk
 
+// glue (LBD): distinct decision levels among lits[0..n). Uses the
+// marked_levels scratch and leaves it clean.
+static uint32_t count_glue(Kernel &k, const Lit *lits, uint32_t n) {
+  uint32_t glue = 0;
+  for (uint32_t i = 0; i < n; i++) {
+    const uint32_t lv = k.var_level(var_of(lits[i]));
+    if (!k.marked_levels[lv]) {
+      k.marked_levels[lv] = 1;
+      k.touched_levels.push_back(lv);
+      glue++;
+    }
+  }
+  for (const uint32_t lv : k.touched_levels)
+    k.marked_levels[lv] = 0;
+  k.touched_levels.clear();
+  return glue;
+}
+
 bool analyze_guard(const Kernel &k) {
   return k.conflict_valid && !k.inconsistent;
 }
@@ -55,7 +73,7 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   if (a.reason == DECISION_REASON || depth > 900 ||
       !k.marked_levels[a.level]) {
     k.seen[v] |= POISONED;
-    if (!k.seen[v] || k.seen[v] == POISONED)
+    if (k.seen[v] == POISONED) // no other flag: newly touched
       k.analyzed.push_back(v); // ensure cleanup
     return false;
   }
@@ -211,18 +229,8 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
           best = j;
       std::swap(lits[w], lits[best]);
     }
-    uint32_t glue = 0;
-    for (const Lit l : lits) {
-      const uint32_t lv = k.var_level(var_of(l));
-      if (!k.marked_levels[lv]) {
-        k.marked_levels[lv] = 1;
-        k.touched_levels.push_back(lv);
-        glue++;
-      }
-    }
-    for (const uint32_t lv : k.touched_levels)
-      k.marked_levels[lv] = 0;
-    k.touched_levels.clear();
+    const uint32_t glue =
+        count_glue(k, lits.data(), static_cast<uint32_t>(lits.size()));
     // reason may dangle after this allocation; it is not used again
     k.conflict_ref = kernel_add_large_clause(
         k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue);
@@ -516,23 +524,17 @@ ApplyResult analyze_apply(Kernel &k) {
   }
 
   // glue (LBD) + backjump level from the non-asserting literals
-  uint32_t jump = 0, glue = 0;
+  const uint32_t glue = count_glue(k, learned.data() + 1,
+                                   static_cast<uint32_t>(learned.size()) - 1);
+  uint32_t jump = 0;
   uint32_t high_idx = 0; // index of a literal at the jump level
   for (uint32_t j = 1; j < learned.size(); j++) {
     const uint32_t lv = k.var_level(var_of(learned[j]));
-    if (!k.marked_levels[lv]) {
-      k.marked_levels[lv] = 1;
-      k.touched_levels.push_back(lv);
-      glue++;
-    }
     if (lv > jump) {
       jump = lv;
       high_idx = j;
     }
   }
-  for (const uint32_t lv : k.touched_levels)
-    k.marked_levels[lv] = 0;
-  k.touched_levels.clear();
 
   // proof delta first (add-RUP), then the clause joins R
   if (k.proof)

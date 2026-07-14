@@ -17,7 +17,6 @@ public:
 
   // opens the proof file; binary DRAT by default (competition format)
   bool open(const char *path, bool binary);
-  bool active() const { return file_ != nullptr; }
 
   // --- proof-delta vocabulary (subset live in phase 1) ---
   void add_rup(const Lit *lits, uint32_t size); // also used for add-RAT
