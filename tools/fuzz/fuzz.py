@@ -203,14 +203,24 @@ def cmd_run(args):
     os.makedirs(outdir, exist_ok=True)
     nfail = 0
     kinds_count = {}
+    verdicts = {}
     with tempfile.TemporaryDirectory(prefix="fuzz-") as workdir:
         for i in range(args.n):
             seed = args.seed + i
             name, nvars, clauses = generate(seed, i)
+            # size cap (weak-solver legs, e.g. --random-policy: a random
+            # schedule cannot finish big instances within the timeout, and
+            # the semantic oracles only fire on a verdict): deterministically
+            # re-roll oversized cases
+            attempt = 0
+            while args.max_vars and nvars > args.max_vars and attempt < 1000:
+                attempt += 1
+                name, nvars, clauses = generate(seed + 7919 * attempt, i)
             cnf = os.path.join(workdir, "case.cnf")
             write_dimacs(cnf, nvars, clauses)
             outcome = run_case(cnf, solver, oracle, args.timeout,
                                args.lrat, workdir)
+            verdicts[outcome.verdict] = verdicts.get(outcome.verdict, 0) + 1
             if outcome.failures:
                 nfail += 1
                 for k, _ in outcome.failures:
@@ -226,8 +236,12 @@ def cmd_run(args):
             if (i + 1) % 100 == 0:
                 print(f"... {i + 1}/{args.n} cases, {nfail} failures",
                       flush=True)
+    # verdict distribution = oracle coverage: only SAT/UNSAT cases exercise
+    # the differential/model/proof oracles — a TIMEOUT is sanitizer-only
+    vsummary = " ".join(f"{k}={verdicts[k]}" for k in sorted(verdicts))
     print(f"fuzz: {args.n} cases, {nfail} failures"
-          + (f" {kinds_count}" if kinds_count else ""))
+          + (f" {kinds_count}" if kinds_count else "")
+          + f" | verdicts: {vsummary}")
     return 1 if nfail else 0
 
 
@@ -291,6 +305,9 @@ def main() -> int:
     p.add_argument("--outdir", default=os.path.join(HERE, "failures"))
     p.add_argument("--max-failures", type=int, default=20)
     p.add_argument("--no-shrink", action="store_true")
+    p.add_argument("--max-vars", type=int, default=None,
+                   help="re-roll cases above this size (weak-solver legs "
+                        "need verdicts for the semantic oracles to fire)")
     p.set_defaults(func=cmd_run)
 
     p = sub.add_parser("check-one")
