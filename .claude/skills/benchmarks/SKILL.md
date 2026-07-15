@@ -13,7 +13,7 @@ Authoritative spec: DEVELOPMENT_PLAN.md §8.1 and §8.3. This skill operationali
 |---|---|---|---|---|
 | A | ~200 generated instances, known status: seeded random 3-SAT (n=50–300; phase-transition m/n≈4.26, plus easy m/n≈3 SAT and m/n≈5.5 UNSAT), PHP(5..8), XOR chains, small colorings | 30 s | every commit; any correctness-adjacent change | < 2 min |
 | B | 10–15 SC 2023–2025 main-track instances with Kissat 4.0.4 runtime in the 5–30 s band here | 300 s | on every meaningful change; performance claims during development (small set — repeat runs, compare per-instance medians; plan §8.1 caveat) | 2–8 CPU-min |
-| C | ~30 SC instances, Kissat ≤ 300 s (rev 23) | 3000 s | weekly; before merging heuristic/scheduling changes | few CPU-h |
+| C | ~30 SC instances, Kissat ≤ 300 s (rev 23) | 1200 s (rev 29) | weekly; before merging heuristic/scheduling changes | few CPU-h |
 | D | Full SC 2024 + SC 2025 main tracks (400 each) | 5000 s, 16 GB cap | milestone gates (plan §9) and external claims only | days |
 
 Hard rules:

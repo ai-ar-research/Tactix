@@ -41,7 +41,7 @@ TIERS = os.path.join(ROOT, "benchmarks", "tiers")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 
-TIER_TIMEOUT = {"A": 30.0, "B": 300.0, "C": 3000.0, "D": 5000.0}
+TIER_TIMEOUT = {"A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0}
 TIER_MEM_GB = {"D": 16}
 BASELINES = {
     "kissat": os.path.join(ROOT, "tools", "solvers", "bin", "kissat"),

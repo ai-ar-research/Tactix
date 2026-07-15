@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-15 (rev. 28). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-15 (rev. 29). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -762,7 +762,13 @@ schedule gate runs accordingly.
   where claims become statistically meaningful.
 - **Tier C — "≤ 300 s" subset (weekly; total ≈ a few CPU-hours).** Same
   construction with Kissat-runtime ≤ 300 s, ~30 instances; timeout for our
-  solver: 3000 s (same 10× headroom rule as Tier B). Catches regressions
+  solver: **1200 s (20 min; rev 29, user decision** — the original 10×
+  headroom rule cost a worker-hour per timeout; 4× the reference band
+  suffices now that only the worst tail exceeds it. Recorded caveat:
+  instances landing between 1200 s and the old 3000 s are censored until
+  they improve — at the change, exactly circuit_32in32out for tactix-base,
+  1334 s at jobs=4; PAR-2 is timeout-scaled, so numbers across the change
+  are not comparable — the first 1200 s run re-baselines**)**. Catches regressions
   that only show at longer horizons (restart/inprocessing scheduling effects are
   invisible on short runs — the main risk of over-fitting to Tier B).
 - **Tier D — full SC main-track sets (milestone gates only).** SC 2024 + SC 2025
@@ -1007,3 +1013,4 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 26** (2026-07-15, user): the end-game formalized — §5.6 learned proof-rule scheduling (RL module: choice-status taxonomy, three-cost hierarchy, bandit-first paradigm ladder, DynamicSAT/Kissat-MAB grounding), §8.5 gates, phase 6, O6 framework fixed, O12–O13 opened, §5.2 choice-status note, scheduler-as-data anticipation on the phase-3 item.
 - **rev. 27** (2026-07-15, user): TACO (Cubing for Tuning, AAAI 2025) absorbed into §5.6 — two-learning-modes framing (trajectory-online vs episode-online), L4 cube-sampled strategy evaluation (true terminal cost, tune/validate/fallback, MCMC), §8.5 L4 discipline + proxy-validation instrument, O14 opened (cubing capability), §12/§9 updated; paper kept in docs/papers/.
 - **rev. 28** (2026-07-15, user): the always-on principle corrects rev 27 — no sub-problems, no re-solving, no tune-then-deploy; learning lives inside the single run, every choice point exploits and explores in one action, segment attribution (restart/slot boundaries) replaces terminal episode costs; L4 removed, O14 closed, TACO reframed as inspiration-not-mechanism, §8.5 anytime check added.
+- **rev. 29** (2026-07-15, user): Tier C timeout 3000 s → 1200 s (20 min) — worker-hour-per-timeout too costly; 1200–3000 s tail censored (caveat recorded), PAR-2 re-baselines at the first 1200 s run; benchmarks skill + run.py synced.
