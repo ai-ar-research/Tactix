@@ -53,6 +53,10 @@ struct Stats {
   uint64_t forward_subsumptions = 0; // SubsumeForward rounds (C1)
   uint64_t forward_checked = 0;  // SubsumeForward candidates checked (C1)
   uint64_t forward_subsumed = 0; // clauses deleted by SubsumeForward
+  uint64_t strengthen_rounds = 0;  // Strengthen rounds (C2)
+  uint64_t strengthen_checked = 0; // Strengthen candidate checks (C2)
+  uint64_t strengthened = 0;       // clauses strengthened (C2 add+delete)
+  uint64_t strengthen_subsumed = 0; // deletions by C2's fused round
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)

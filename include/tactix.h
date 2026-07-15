@@ -59,6 +59,7 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_IRREDUNDANT_CLAUSES 14
 #define TACTIX_STAT_ROOT_FIXED 15      /* root-level (fixed) assignments */
 #define TACTIX_STAT_BINARY_CLAUSES 16  /* distinct binary clauses added */
+#define TACTIX_STAT_STRENGTHENED 17    /* clauses strengthened (C2) */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);

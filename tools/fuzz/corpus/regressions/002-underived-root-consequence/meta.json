@@ -1,0 +1,7 @@
+{
+  "seed": 20260729,
+  "generator": "ksat-k3-n94-m517 (ddmin-shrunk)",
+  "failure": "crash",
+  "solver_args": ["--random-policy"],
+  "diagnosis": "SubsumeForward asserted free_lits >= 2 for a live candidate at a quiescent root, but engine quiescence (propagate_head == trail.size) does not imply semantic quiescence under N1 histories: a root literal appended between Decides (here by Strengthen's unit-producing path) has its watch scan consumed at a higher level; a later backtrack pops the derived consequences without re-arming the scan, leaving root-derivable literals underived forever. Sound (verdicts/proofs unaffected) but the quiescent-root reasoning in C1/C2 was over-strong. Fixed 2026-07-15: C1 drops the assert (check semantics are free-count-independent), C2 handles the previously-'impossible' empty strengthen result as the refutation it is. The underlying incompleteness (true-level assignment + chrono-aware backtrack, kissat assign.c/backtrack.c) is filed as a §5.4 kernel candidate."
+}

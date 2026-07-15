@@ -10,7 +10,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # the solver library or binary.
 add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
 
-add_library(tactix_lib STATIC
+# OBJECT (not STATIC): rule registration happens in static initializers
+# (TACTIX_REGISTER_RULE), and an archive lets the linker drop any rule TU
+# nothing references directly — exactly the situation the registry-driven
+# scheduler creates (rules reached ONLY through the registry). An object
+# library keeps every registered rule in every binary (§5.3: one directory
+# + one registration line must be sufficient).
+add_library(tactix_lib OBJECT
   src/kernel/kernel.cpp
   src/proof/proof.cpp
   src/rules/registry.cpp
@@ -23,6 +29,7 @@ add_library(tactix_lib STATIC
   src/rules/reduce/reduce.cpp
   src/rules/rephase/rephase.cpp
   src/rules/subsume_forward/subsume_forward.cpp
+  src/rules/strengthen/strengthen.cpp
   src/rules/switchmode/switchmode.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp

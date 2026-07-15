@@ -173,6 +173,10 @@ int main(int argc, char **argv) {
     printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
            (unsigned long long)kernel.stats.otfs_strengthened,
            (unsigned long long)kernel.stats.otfs_subsumed);
+    printf("c strengthen  %llu rounds, %llu strengthened, %llu subsumed\n",
+           (unsigned long long)kernel.stats.strengthen_rounds,
+           (unsigned long long)kernel.stats.strengthened,
+           (unsigned long long)kernel.stats.strengthen_subsumed);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);

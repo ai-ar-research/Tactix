@@ -145,30 +145,53 @@ public:
   struct {
     uint64_t next_conflicts = REPHASE_INTERVAL_INIT;
   } rephase;
-  // C1 forward-subsumption schedule (the inprocessing slot); the first
-  // limit needs the ingested formula's size, so it is set lazily at
-  // solve() entry (kissat inits limits after parsing for the same reason).
-  // DEFERRED from the default schedule 2026-07-15 (see PROGRESS): with C1
-  // as the slot's only rule, the composed root restarts perturb
-  // trajectories without the slot's payoff (kissat's identical rounds are
-  // carried by BVE — 49 vars eliminated on the s055 reference), and
-  // tr-n300-s055 flipped Tier A at the 30 s line (3× 199/200 after two
-  // passes). Re-enable with V1/E1 when the slot earns its restarts; the
-  // rule stays fully N1-exposed and random-policy-fuzzed meanwhile.
-  static constexpr bool SUBSUME_IN_DEFAULT = false;
-  // After the first round, rounds are additionally gated on NEW material
-  // (kissat eliminate.c kissat_eliminating's variables trigger): under
-  // C1's scope new subsumption relations only come from new binaries or
-  // new root-fixed variables — a round without either finds nothing and
-  // still costs a full pass plus the composed root restart (measured on
-  // tr-n300-s055: 8 rounds, 0 subsumed, +1.5 s solo before the gate)
+  // --- the inprocessing SLOT (registry-driven scheduler, rev 26) --------
+  // Schedule-as-data: the slot is a plain vector of {rule id, enabled}
+  // entries built from the registry (RuleTier::Inprocess — the tier's
+  // reader, §5.3), in registry order (name-sorted, deterministic),
+  // executed in order at a quiescent root on the kissat eliminate-slot
+  // schedule below. PUBLIC and overridable: tests, presets, and the
+  // phase-6 learner pose slots by editing entries — these choice points
+  // are the arm space (§5.6). Per-rule budgets join when a rule can
+  // consume one (rev-20: no fields without readers). CMS's comma-string
+  // simplify schedule is the design precedent for slot-as-ordered-list.
+  //
+  // Default composition: Strengthen enabled, SubsumeForward DISABLED —
+  // C2's fused round already performs C1's subsumption check on every
+  // candidate pair (strengthen.hpp deviation 1); scheduling both would
+  // scan the arena twice for the same discoveries. C1 stays registered,
+  // N1-exposed, and random-policy-fuzzed.
+  //
+  // Whether the slot is in the default schedule at all. STILL DEFERRED
+  // (measured again at C2's landing, 2026-07-15): with Strengthen as the
+  // slot's driver, tr-n300-s055 hit 29.9 s solo (band 24.8-25.7, rev-22
+  // margin blown) on 5 rounds finding ONE strengthening — the composed
+  // root restarts still reshuffle the transition class without payoff,
+  // while 9vliw's genuinely productive rounds (5.6k strengthened) net
+  // +0.5 s. Same verdict as C1's deferral: the slot enters the default
+  // schedule when V1/E1 give it cross-class payoff. Everything below
+  // stays N1-exposed and random-policy-fuzzed meanwhile.
+  static constexpr bool SLOT_IN_DEFAULT = false;
+  struct SlotEntry {
+    int rule = -1;
+    bool enabled = true;
+  };
+  std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
+  // Slot timing (kissat eliminate-slot schedule — C1-era machinery kept):
+  // first limit size-scaled at solve entry (kissat inits limits after
+  // parsing). After the first round, rounds are additionally gated on NEW
+  // material (kissat eliminate.c kissat_eliminating's variables trigger):
+  // under the slot's current scope new relations only come from new
+  // binaries or new root-fixed variables (measured on tr-n300-s055: 8
+  // ungated rounds, 0 found, +1.5 s solo before the gate)
   struct {
     bool initialized = false;
     bool ran = false; // the initial full round is never gated
     uint64_t next_conflicts = 0;
+    uint64_t rounds = 0; // interval growth key (policy-local, rev 17)
     uint64_t binaries_seen = 0;
     uint64_t root_fixed_seen = 0;
-  } subsume;
+  } inprocess;
 
   // the scheduling predicates and their transitions, exposed so tests
   // (and future presets) can pose schedules directly
@@ -176,13 +199,13 @@ public:
   bool want_reduce(const Kernel &) const;
   bool want_switch_mode(const Kernel &) const;
   bool want_rephase(const Kernel &) const;
-  bool want_subsume(const Kernel &) const;
+  bool want_inprocess(const Kernel &) const;
   void tick_reluctant();                   // per-conflict in stable mode
   void update_mode_limits(const Kernel &); // after a switch
   void update_restart_limit(const Kernel &); // after a restart
   void update_reduce_limit(const Kernel &);  // after a reduction
   void update_rephase_limit(const Kernel &); // after a rephase
-  void update_subsume_limit(const Kernel &); // after a subsume round
+  void update_inprocess_limit(const Kernel &); // after a slot pass
 
 private:
   void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs

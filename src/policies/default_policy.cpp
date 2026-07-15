@@ -12,6 +12,7 @@
 #include "rules/switchmode/switchmode.hpp"
 
 #include <cmath>
+#include <cstring>
 
 namespace tactix {
 
@@ -140,25 +141,25 @@ static uint64_t scale_inprocessing_delta(const Kernel &k, uint64_t delta) {
                                static_cast<double>(delta));
 }
 
-bool DefaultPolicy::want_subsume(const Kernel &k) const {
-  if (!subsume.initialized || k.stats.conflicts < subsume.next_conflicts)
+bool DefaultPolicy::want_inprocess(const Kernel &k) const {
+  if (!inprocess.initialized || k.stats.conflicts < inprocess.next_conflicts)
     return false;
-  // new-material gate (see default_policy.hpp): skip rounds that cannot
-  // find anything instead of paying the pass + root restart
-  return !subsume.ran || k.binary_ids.size() > subsume.binaries_seen ||
-         kernel_root_fixed(k) > subsume.root_fixed_seen;
+  // new-material gate (see default_policy.hpp): skip passes that cannot
+  // find anything instead of paying the scan + root restart
+  return !inprocess.ran || k.binary_ids.size() > inprocess.binaries_seen ||
+         kernel_root_fixed(k) > inprocess.root_fixed_seen;
 }
 
 // kissat kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N,
 // true): interval grows as eliminateint · n·log10(n+9)², size-scaled
-void DefaultPolicy::update_subsume_limit(const Kernel &k) {
-  uint64_t n = k.stats.forward_subsumptions;
+void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
+  uint64_t n = inprocess.rounds; // policy-local growth key (rev 17)
   if (!n)
     n = 1;
   const double lg = std::log10(static_cast<double>(n) + 9);
   const uint64_t delta = static_cast<uint64_t>(
       SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg);
-  subsume.next_conflicts =
+  inprocess.next_conflicts =
       k.stats.conflicts + scale_inprocessing_delta(k, delta);
 }
 
@@ -189,11 +190,24 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)
-  if (SUBSUME_IN_DEFAULT && !subsume.initialized) {
-    subsume.initialized = true;
-    subsume.next_conflicts =
-        k.stats.conflicts +
-        scale_inprocessing_delta(k, SUBSUME_INTERVAL_INIT);
+  if (SLOT_IN_DEFAULT) {
+    // the slot itself: registry-driven (RuleTier::Inprocess), registry
+    // order; default composition per default_policy.hpp. A preposed
+    // (nonempty) slot is left untouched — to run nothing, prepose
+    // disabled entries, not an empty vector
+    if (inprocess_slot.empty()) {
+      const std::vector<RuleVTable> &rules = tactix_rules();
+      for (int i = 0; i < static_cast<int>(rules.size()); i++)
+        if (rules[i].tier == RuleTier::Inprocess)
+          inprocess_slot.push_back(
+              {i, std::strcmp(rules[i].name, "SubsumeForward") != 0});
+    }
+    if (!inprocess.initialized) {
+      inprocess.initialized = true;
+      inprocess.next_conflicts =
+          k.stats.conflicts +
+          scale_inprocessing_delta(k, SUBSUME_INTERVAL_INIT);
+    }
   }
   bool lucky_tried = false;
   for (;;) {
@@ -268,21 +282,36 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       update_rephase_limit(k);
       continue;
     }
-    // C1 forward subsumption in the kissat eliminate slot (search.c
-    // checks eliminate after rephase, before decide). The rule needs a
+    // the inprocessing SLOT in the kissat eliminate schedule (search.c
+    // checks eliminate after rephase, before decide). Rules need a
     // quiescent root; kissat's coupled backtrack is composed from the
-    // rule vocabulary as with Rephase — the root restart IS a restart
-    if (want_subsume(k)) {
+    // rule vocabulary as with Rephase — the root restart IS a restart.
+    // Entries run in slot order through the registry vtable (dynamic
+    // dispatch — macro tier, off the hot path by construction); a rule
+    // that breaks quiescence (e.g. a strengthened unit) makes later
+    // guards fail and the loop re-propagates
+    if (want_inprocess(k)) {
       if (k.level > 0 && restart_guard(k))
         restart_apply_to(k, 0);
-      if (subsume_forward_guard(k)) {
-        subsume_forward_apply(k);
-        // the new-material watermarks move only when a round actually ran
-        subsume.ran = true;
-        subsume.binaries_seen = k.binary_ids.size();
-        subsume.root_fixed_seen = kernel_root_fixed(k);
+      bool ran = false;
+      const std::vector<RuleVTable> &rules = tactix_rules();
+      for (const SlotEntry &e : inprocess_slot) {
+        if (!e.enabled)
+          continue;
+        const RuleVTable &r = rules[e.rule];
+        if (r.guard(k)) {
+          r.apply(k);
+          ran = true;
+        }
       }
-      update_subsume_limit(k);
+      if (ran) {
+        // the new-material watermarks move only when a pass actually ran
+        inprocess.ran = true;
+        inprocess.rounds++;
+        inprocess.binaries_seen = k.binary_ids.size();
+        inprocess.root_fixed_seen = kernel_root_fixed(k);
+      }
+      update_inprocess_limit(k);
       continue;
     }
     if (stop && *stop)

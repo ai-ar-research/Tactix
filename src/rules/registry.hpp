@@ -8,7 +8,12 @@
 
 namespace tactix {
 
-enum class RuleTier { Micro, Macro };
+// Micro = per-conflict hot path (statically composed in DefaultPolicy);
+// Macro = individually scheduled (Restart, Reduce, ...); Inprocess = a
+// member of the quiescent-root inprocessing SLOT — DefaultPolicy's
+// registry-driven scheduler builds the slot from this tag (rev 26
+// schedule-as-data; the tier's reader, plan §5.3)
+enum class RuleTier { Micro, Macro, Inprocess };
 
 enum class ApplyResult {
   Ok,       // progress made

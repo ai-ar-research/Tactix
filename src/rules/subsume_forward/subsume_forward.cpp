@@ -69,9 +69,15 @@ void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out) {
     out.push_back(c.ref);
 }
 
-// mark the candidate's free literals; at a quiescent root a live
-// non-satisfied clause has >= 2 of them (one free literal would have
-// propagated, zero would have conflicted)
+// mark the candidate's free literals. NOTE (corpus regression
+// 002-underived-root-consequence): a live non-satisfied clause can have
+// FEWER than 2 free literals here — engine quiescence (propagate_head ==
+// trail.size) does not imply semantic quiescence under N1 histories: a
+// root literal appended between Decides has its watch scan consumed at a
+// higher level, and a later backtrack pops the derived consequences
+// without re-arming the scan. The check semantics below are sound for
+// any free count (subsumption is modulo root-falsified literals either
+// way); discovery through watch lists may merely miss partners.
 static uint32_t mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
                                const Clause *c, uint8_t on) {
   uint32_t free_lits = 0;
@@ -82,7 +88,6 @@ static uint32_t mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
       free_lits++;
     }
   }
-  assert(free_lits >= 2);
   return free_lits;
 }
 
@@ -271,7 +276,7 @@ static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {
   return ApplyResult::NoOp;
 }
 
-TACTIX_REGISTER_RULE(SubsumeForward, RuleTier::Macro, subsume_forward_guard,
+TACTIX_REGISTER_RULE(SubsumeForward, RuleTier::Inprocess, subsume_forward_guard,
                      subsume_forward_apply, subsume_forward_instances,
                      subsume_forward_apply_instance);
 
