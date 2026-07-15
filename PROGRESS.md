@@ -15,7 +15,7 @@ disagree, the plan is authoritative — fix this file.
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ v1 API frozen (revs 20–21): discovery + instance enumeration/application + branching surface in every build; §8.4 demos 1–3 prove it end-to-end; final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT (binary/ascii) since phase 1; **native LRAT with per-rule antecedent capture 2026-07-14**; every fuzz UNSAT checker-verified on all three formats |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ▫ in progress via gates: T1 passed; first industrial reference at kissat parity (9vliw, 2026-07-14); T2 next |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ▫ in progress via gates: T1 + T2 passed 2026-07-14; props/s geomean 0.92× kissat; T3 (CaDiCaL on Tier C) next |
 
 ## Milestone gates (plan §8.3)
 
