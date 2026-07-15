@@ -81,13 +81,14 @@ disagree, the plan is authoritative — fix this file.
 - [ ] Rules V1–V4: Probe, Backbone, Substitute, TransitiveReduce
 - [ ] Rule E1: BVE with gate extraction; reconstruction stack + model extension
 - [ ] Tier C built and frozen (rev 23: ~30 instances); nightly random-policy fuzzing green (fuzz `--jobs 8` makes a ~100k-case nightly ≈ 2 h)
+- [ ] Independent-lineage revisitation campaign (user decision 2026-07-15, re-gated from phase 4 — first consumers of Tier C; one experiment per commit, adopt-or-revert on Tier B medians + Tier C, in order): (1) Glucose binResMinimize (Analyze-additive; absent from the whole Kissat lineage), (2) Glucose blocking restarts (pure policy), (3) Glucose adaptive reduce interval (pure ReductionPolicy; shares (2)'s runs), (4) CMS usage-count Reduce ranking (rule-side ranking variant). Rotation presets/best_inv/MAB stay phase 4 (`docs/independent-lineage-survey.md`)
 - [ ] Deferred quality items (2026-07-15 §5.5 sweep): `literal_redundant` depth cap 900(`>`) vs kissat minimizedepth 1000(`>=`) — named+recorded, measured alignment pending; Tier C profile watch items: SubsumeForward round-local occs/marks allocation, `binary_ids` map on the LRAT analysis path (escalate via §5.4 only with evidence)
 - **Exit:** T3
 
 ## Phase 4 — tuning, bindings, extensibility proof
 
 - [ ] Rules S6–S7, V5–V6, E2, X1: Walk, Reorder, Sweep, Congruence, Factor/SBVA, BCE
-- [ ] Independent-lineage candidates (rev-25 survey, `docs/independent-lineage-survey.md`): Glucose binResMinimize (Analyze step, measured), Glucose blocking restarts + adaptive reduce interval (pure policy), CMS usage-count Reduce ranking (measure on Tier C), CMS best_inv rephase type (with Walk), CMS-style rotation presets (O6 input)
+- [ ] Independent-lineage candidates remaining in phase 4 (rev-25 survey; items 1–4 re-gated to the phase-3 revisitation campaign 2026-07-15): CMS best_inv rephase type (with Walk), CMS-style rotation presets (O6 input)
 - [ ] Python bindings; policy presets (MAB scheduler, classification)
 - [ ] Demo policies 4–6 incl. external-branching policy (N1 end-to-end)
 - [ ] §8.4 overhead budget: default vs hardcoded twin ≤ 5% on Tier B
