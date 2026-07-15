@@ -73,6 +73,24 @@ public:
   // levels is considered inefficient — backtrack one level instead. A
   // pure policy choice through backjump_apply_to (the freeze's N1 story).
   static constexpr uint32_t CHRONO_LEVELS = 100;
+  // Blocking restarts (glucose Solver.cc "BLOCK RESTART (CP 2012 paper)",
+  // MIT, transliterated — independent-lineage campaign experiment 2;
+  // absent from kissat/CaDiCaL, where stable mode plays the role bluntly):
+  // an unusually deep trail at conflict time suggests proximity to a
+  // model — postpone the restart. Constants are the glucose defaults
+  // (opt_R, szTrailQueue, LOWER_BOUND_FOR_BLOCKING_RESTART). Recorded
+  // recompositions for our two-mode kissat-shaped policy: (1) the whole
+  // mechanism (trail tracking + blocking) runs in FOCUSED mode only —
+  // glucose's single frequent-restart regime maps to focused, and
+  // blocking a reluctant-doubling Luby sequence would corrupt its
+  // structure while stable mode already embodies "stay near the model";
+  // (2) glucose blocks by fastclear()ing its 50-entry LBD queue (restart
+  // impossible until it refills and re-diverges) — our EMA analog resets
+  // the fast glue EMA to the slow one, so the trigger must re-diverge
+  // past the margin from parity (~EMA_FAST_WINDOW conflicts refractory).
+  static constexpr double BLOCK_R = 1.4;              // opt_R
+  static constexpr uint32_t BLOCK_TRAIL_QUEUE = 5000; // szTrailQueue
+  static constexpr uint64_t BLOCK_LOWER_BOUND = 10000;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
 
@@ -139,6 +157,16 @@ public:
     uint64_t wait = RELUCTANT_PERIOD;
     bool trigger = false;
   } reluctant;
+  // blocking-restart state (glucose trailQueue): ring buffer of trail
+  // sizes at the last BLOCK_TRAIL_QUEUE focused conflicts, O(1) average
+  // via a running sum; `blocked` counts blocking events (diagnostics)
+  struct {
+    std::vector<uint32_t> ring; // sized lazily to BLOCK_TRAIL_QUEUE
+    uint32_t pos = 0;
+    uint32_t filled = 0;
+    uint64_t sum = 0;
+    uint64_t blocked = 0;
+  } block;
   // S3 rephase schedule (kissat rephase.c: stable-only trigger, interval
   // grows rephaseint·n·log³n; rotation B,B,I,B,B,O — kissat's B,W,I,B,W,O
   // with the Walking slots deferred to phase 4)
@@ -186,6 +214,7 @@ public:
 
 private:
   void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs
+  void observe_trail(const Kernel &); // focused blocking check (glucose)
   DefaultBranching default_branching_;
   GlueTieredReduction default_reduction_;
   std::vector<Ref> reduce_scratch_;
