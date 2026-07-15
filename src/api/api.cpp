@@ -189,6 +189,8 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.binary_ids.size();
   case 17: // TACTIX_STAT_STRENGTHENED
     return k.stats.strengthened;
+  case 18: // TACTIX_STAT_VIVIFIED
+    return k.stats.vivified;
   default:
     return UINT64_MAX;
   }

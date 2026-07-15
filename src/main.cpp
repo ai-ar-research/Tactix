@@ -177,6 +177,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthen_rounds,
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed);
+    printf("c vivify      %llu rounds, %llu vivified, %llu deleted\n",
+           (unsigned long long)kernel.stats.vivify_rounds,
+           (unsigned long long)kernel.stats.vivified,
+           (unsigned long long)kernel.stats.vivify_deleted);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);

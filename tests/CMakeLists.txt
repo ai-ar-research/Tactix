@@ -29,6 +29,10 @@ add_executable(test_strengthen test_strengthen.cpp)
 target_link_libraries(test_strengthen PRIVATE tactix_lib)
 add_test(NAME strengthen COMMAND test_strengthen)
 
+add_executable(test_vivify test_vivify.cpp)
+target_link_libraries(test_vivify PRIVATE tactix_lib)
+add_test(NAME vivify COMMAND test_vivify)
+
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)

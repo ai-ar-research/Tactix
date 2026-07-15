@@ -125,7 +125,11 @@ static inline void flush_delayed(Kernel &k) {
 }
 
 // returns true iff a conflict was found (recorded in the kernel)
-static bool propagate_literal(Kernel &k, Lit lit) {
+// `ignore` (CaDiCaL propagate.cpp's ignore pointer, reviewed kernel API
+// addition for C3 Vivify / V1 Probe): a clause ref that must not
+// propagate or conflict during this scan — a rule probing a candidate's
+// own negated literals must not derive anything THROUGH the candidate
+static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   const Lit not_lit = negate(lit);
   assert(k.delayed.empty());
   // hoisted data pointers (kissat proplit.h idiom): the inlined assigns
@@ -166,6 +170,8 @@ static bool propagate_literal(Kernel &k, Lit lit) {
     } else {
       const Ref ref = *q++ = *p++;
       if (blocking_value > 0)
+        continue;
+      if (ref == ignore) // keep the watch, derive nothing through it
         continue;
       ticks++;
       Clause *c = clause_at(arena, ref);
@@ -229,10 +235,10 @@ static bool propagate_literal(Kernel &k, Lit lit) {
   return conflict;
 }
 
-bool kernel_propagate(Kernel &k) {
+bool kernel_propagate(Kernel &k, Ref ignore) {
   while (k.propagate_head < k.trail.size()) {
     const Lit lit = k.trail[k.propagate_head];
-    if (propagate_literal(k, lit)) {
+    if (propagate_literal(k, lit, ignore)) {
       // do NOT advance past a literal whose scan broke on the conflict:
       // if a later backjump keeps this literal, the unscanned tail of its
       // watch list must be revisited — otherwise its implications are

@@ -57,6 +57,10 @@ struct Stats {
   uint64_t strengthen_checked = 0; // Strengthen candidate checks (C2)
   uint64_t strengthened = 0;       // clauses strengthened (C2 add+delete)
   uint64_t strengthen_subsumed = 0; // deletions by C2's fused round
+  uint64_t vivify_rounds = 0;  // Vivify rounds (C3)
+  uint64_t vivify_checked = 0; // Vivify candidates probed (C3)
+  uint64_t vivified = 0;       // clauses distilled by Vivify (add+delete)
+  uint64_t vivify_deleted = 0; // root-satisfied deletions by Vivify
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
@@ -236,7 +240,10 @@ void kernel_backtrack(Kernel &, uint32_t target_level,
 // propagations/ticks, NOT conflicts — the M1 Propagate rule owns the
 // ApplyResult/proof semantics and the conflict count; probing rules
 // (S5 Lucky, phase-3 V-families) reuse the engine directly.
-bool kernel_propagate(Kernel &);
+// `ignore`: optional clause ref excluded from propagation (CaDiCaL's
+// ignore pointer — for rules probing a candidate's own literals; see
+// propagate_literal in kernel.cpp). INVALID_REF = normal propagation.
+bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
 
 // --- VMTF ------------------------------------------------------------------
 void kernel_queue_init(Kernel &);
