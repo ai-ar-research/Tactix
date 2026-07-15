@@ -1,4 +1,4 @@
-# Tactix (working name) — proof-rule-driven SAT solver
+# Tactix — proof-rule-driven SAT solver
 
 - **Plan:** DEVELOPMENT_PLAN.md is authoritative. **Status:** PROGRESS.md.
   **Session bootstrap prompt:** Instruction.md.

@@ -1,8 +1,8 @@
 # Development Plan: A Competitive, Proof-Rule-Driven SAT Solver
 
-Working name: **Tactix** (placeholder — rename freely).
+Working name: **Tactix**
 
-Date: 2026-07-14 (rev. 22). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-15 (rev. 23). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -54,10 +54,9 @@ revision, and merge is checked against them (see also the revise-plan skill):
   policy real performance, the abstraction gets redesigned, not the target.
 
 Trade-off ordering when goals conflict: soundness of N1/N2 first, then N3, then
-everything else. Dynamic micro-stepping may be slower than the static default —
-acceptable — but may not be removed (N1). The static default may specialize
-aggressively — acceptable — but not by making the API unavailable (N1) or by
-skipping proof emission (N2).
+everything else. What's special about this tool is efficiently enabling N1. The
+static default may specialize aggressively — acceptable — but not by making the
+API unavailable (N1) or by skipping proof emission (N2).
 
 ## 2. Landscape: who we must beat, and what "winning" requires
 
@@ -605,7 +604,7 @@ schedule gate runs accordingly.
   repeat runs (report medians) before believing any small delta; Tier C is
   where claims become statistically meaningful.
 - **Tier C — "≤ 300 s" subset (weekly; total ≈ a few CPU-hours).** Same
-  construction with Kissat-runtime ≤ 300 s, ~150 instances; timeout for our
+  construction with Kissat-runtime ≤ 300 s, ~30 instances; timeout for our
   solver: 3000 s (same 10× headroom rule as Tier B). Catches regressions
   that only show at longer horizons (restart/inprocessing scheduling effects are
   invisible on short runs — the main risk of over-fitting to Tier B).
@@ -753,7 +752,7 @@ discovered during development get added here rather than answered ad hoc.
 | O7 | Incremental solving (IPASIR assumptions, clause removal) interaction with proof logging | post-v1; not competition-blocking |
 | O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 5 |
 | O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | before the T4 evaluation |
-| O10 | Solver name ("Tactix" is a placeholder) | before any external artifact |
+| O10 | Solver name ("Tactix" is a placeholder) → *decided rev 23 (user): the solver is named Tactix — header wording made final* | ~~before any external artifact~~ decided |
 | O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | first needed: E1 completion (phase 3); hard by V5 (phase 4) |
 
 ## 12. Key references
@@ -920,6 +919,16 @@ discovered during development get added here rather than answered ad hoc.
   mode, …); without observability, O5's pull model is unusable for exactly
   the §8.4 demos it was chosen for. Read-only, allocation-free, id list
   grows additively post-v1; unknown ids return UINT64_MAX.
+- **rev. 23** (2026-07-15, user edits formalized): (1) Tier C resized to
+  ~30 instances (was ~150) in §8.1 — the weekly set stays a few CPU-hours
+  on the single-workstation budget; T3 is still judged on it (§8.3
+  unchanged), with the statistical-power caveat that 30 instances move
+  PAR-2 ~3% per instance. (2) Solver name settled: Tactix (O10 decided;
+  header "placeholder — rename freely" dropped). (3) §1.1 trade-off
+  wording sharpened: efficiently enabling N1 is the tool's differentiator
+  (replaces the "dynamic micro-stepping may be slower" sentence; N1's
+  never-removed status is unchanged, stated by the N1 bullet itself).
+  benchmarks skill + CLAUDE.md synced.
 - **rev. 22** (2026-07-14): Tier A margin rule added to §8.1 (user
   decision): Tier A must pass easily and consistently — any instance
   within ~15% of its 30 s budget solo (≳ 25 s) makes the change
