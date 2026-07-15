@@ -43,9 +43,6 @@ static int rule_id(const char *name) {
 #define REPHASE_INTERVAL_INIT 1000
 #define REPHASE_INTERVAL 1000
 #define CHRONO_LEVELS 100
-#define BLOCK_R 1.4
-#define BLOCK_TRAIL_QUEUE 5000
-#define BLOCK_LOWER_BOUND 10000
 #define SUBSUME_INTERVAL_INIT 500
 #define SUBSUME_INTERVAL 500
 /* mirror of DefaultPolicy::SUBSUME_IN_DEFAULT (deferred until V1/E1) */
@@ -96,11 +93,6 @@ struct sched {
   uint64_t subsume_next;
   int subsume_ran; /* the initial full round is never gated */
   uint64_t subsume_binaries_seen, subsume_root_fixed_seen;
-  /* blocking restarts (glucose trailQueue mirror): trail depth at the
-   * observation point is nvars - TACTIX_STAT_UNASSIGNED */
-  uint32_t block_ring[BLOCK_TRAIL_QUEUE];
-  uint32_t block_pos, block_filled;
-  uint64_t block_sum;
 };
 
 /* mirror of DefaultPolicy's scale_inprocessing_delta (kissat kimits.c
@@ -130,28 +122,6 @@ static void observe_glue(struct sched *p, int stable, double glue) {
   }
   smooth_update(&avg->fast_glue, glue);
   smooth_update(&avg->slow_glue, glue);
-}
-
-/* mirror of DefaultPolicy::observe_trail (glucose blocking restarts):
- * identical ring/threshold arithmetic, identical fast-EMA reset */
-static void observe_trail(struct sched *p, uint32_t depth,
-                          uint64_t conflicts) {
-  p->block_sum += depth;
-  p->block_sum -= p->block_ring[p->block_pos];
-  p->block_ring[p->block_pos] = depth;
-  p->block_pos = (p->block_pos + 1) % BLOCK_TRAIL_QUEUE;
-  if (p->block_filled < BLOCK_TRAIL_QUEUE) {
-    p->block_filled++;
-    return;
-  }
-  if (conflicts <= BLOCK_LOWER_BOUND)
-    return;
-  const double avg_depth = (double)p->block_sum / (double)BLOCK_TRAIL_QUEUE;
-  if (depth > BLOCK_R * avg_depth) {
-    struct averages *avg = &p->avg[0];
-    avg->fast_glue.value = avg->slow_glue.value;
-    avg->fast_glue.biased = avg->slow_glue.value * (1.0 - avg->fast_glue.exp);
-  }
 }
 
 static void tick_reluctant(struct sched *p) {
@@ -202,7 +172,7 @@ static void update_mode_limits(struct sched *p, tactix *s) {
   }
 }
 
-static int scripted_solve(tactix *s, uint64_t nvars) {
+static int scripted_solve(tactix *s) {
   struct sched p;
   sched_init(&p);
   /* the first inprocessing limit is size-scaled at solve entry, like
@@ -244,11 +214,6 @@ static int scripted_solve(tactix *s, uint64_t nvars) {
                      (double)tactix_stat(s, TACTIX_STAT_LAST_LEARNED_GLUE));
         if (st)
           tick_reluctant(&p);
-        else
-          observe_trail(&p,
-                        (uint32_t)(nvars -
-                                   tactix_stat(s, TACTIX_STAT_UNASSIGNED)),
-                        tactix_stat(s, TACTIX_STAT_CONFLICTS));
       }
       {
         /* chrono mirror: the jump level is the canonical Backjump
@@ -414,7 +379,7 @@ int main(int argc, char **argv) {
 
   tactix *scripted = tactix_init();
   add_random3sat(scripted, N, M, SEED);
-  const int got = scripted_solve(scripted, (uint64_t)N);
+  const int got = scripted_solve(scripted);
   assert(got == expect);
 
   /* "within noise" checked in its strongest form: the mirrored schedule

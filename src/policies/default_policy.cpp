@@ -32,37 +32,6 @@ void DefaultPolicy::observe_glue(const Kernel &k, uint32_t glue) {
   avg.slow_glue.update(glue);
 }
 
-// blocking restarts (glucose Solver.cc:1496-1505, MIT, transliterated;
-// recompositions recorded at the constants in the header): at each focused
-// conflict, record the trail depth; once past BLOCK_LOWER_BOUND conflicts
-// with a full window, a trail deeper than BLOCK_R times the window average
-// means the search may be near a model — discard the fast glue signal so
-// the restart trigger must re-diverge from parity (glucose fastclear)
-void DefaultPolicy::observe_trail(const Kernel &k) {
-  auto &b = block;
-  if (b.ring.empty())
-    b.ring.resize(BLOCK_TRAIL_QUEUE, 0);
-  const uint32_t depth = static_cast<uint32_t>(k.trail.size());
-  b.sum += depth;
-  b.sum -= b.ring[b.pos];
-  b.ring[b.pos] = depth;
-  b.pos = (b.pos + 1) % BLOCK_TRAIL_QUEUE;
-  if (b.filled < BLOCK_TRAIL_QUEUE) {
-    b.filled++;
-    return;
-  }
-  if (k.stats.conflicts <= BLOCK_LOWER_BOUND)
-    return;
-  const double avg_depth =
-      static_cast<double>(b.sum) / static_cast<double>(BLOCK_TRAIL_QUEUE);
-  if (depth > BLOCK_R * avg_depth) {
-    ModeAverages &avg = averages[0]; // focused-only by construction
-    avg.fast_glue.value = avg.slow_glue.value;
-    avg.fast_glue.biased = avg.slow_glue.value * (1.0 - avg.fast_glue.exp);
-    b.blocked++;
-  }
-}
-
 // reluctant doubling (Knuth's formulation of Luby; kissat reluctant.c):
 // ticked once per learned clause while stable, arms `trigger` when the
 // current wait elapses
@@ -244,8 +213,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (k.stable)
         tick_reluctant(); // per learned clause (kissat learn.c)
-      else
-        observe_trail(k); // blocking restarts (glucose; focused regime)
       {
         // chrono (kissat learn.c): long backjumps waste the prefix —
         // step back one level instead when the gap exceeds the limit
