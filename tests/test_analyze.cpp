@@ -132,42 +132,6 @@ static void test_otfs() {
   assert(default_solve(k) == 10); // satisfiable: 1, -2
 }
 
-static void test_binres() {
-  // Level 1: decide 1, (-1 2) forces 2. Level 2: decide 3, (-3 4) forces
-  // 4, (-4 5) forces 5, e = (-4 -2 -5) conflicts. Resolving 5 through its
-  // BINARY reason (no OTFS on binary reasons) leaves the 1-UIP clause
-  // (-4 -2); neither literal is removable recursively (both chains hit
-  // decisions). The planted binary (-4 2) then resolves -2 away: the
-  // learned clause becomes the unit (-4). The binary (-4 5) must NOT fire
-  // (var 5 was resolved away — SEEN but not in the clause), which is
-  // exactly the fresh-marking subtlety binres_minimize handles.
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-3), internalize(4));
-  kernel_add_binary_clause(k, internalize(-4), internalize(5));
-  const Lit e[3] = {internalize(-4), internalize(-2), internalize(-5)};
-  kernel_add_large_clause(k, e, 3, false, 0);
-  kernel_add_binary_clause(k, internalize(-4), internalize(2));
-
-  kernel_assign_decision(k, internalize(1));
-  assert(propagate_apply(k) == ApplyResult::Ok);
-  kernel_assign_decision(k, internalize(3));
-  assert(propagate_apply(k) == ApplyResult::Conflict);
-
-  assert(analyze_apply(k) == ApplyResult::Ok);
-  assert(k.stats.binres_minimized == 1);
-  assert(k.stats.minimized == 0); // the removal is binres's alone
-  assert(k.pending.valid);
-  assert(k.pending.lits.size() == 1); // (-4 -2) minimized to the unit -4
-  assert(k.pending.lits[0] == internalize(-4));
-  assert(k.pending.jump_level == 0);
-  assert(backjump_apply(k) == ApplyResult::Ok);
-  assert(k.level == 0);
-  assert(k.values[internalize(-4)] > 0);
-  assert(default_solve(k) == 10); // satisfiable: 1 2 -3 -4
-}
-
 static void test_chrono_backjump() {
   // c1 = (-1 -3 4), c2 = (-1 -3 -4); decide 1 (level 1), decide 2 (level
   // 2, unrelated), decide 3 (level 3): c1 forces 4, c2 conflicts. 1-UIP
@@ -227,7 +191,6 @@ int main() {
   test_learned_unit();
   test_shrink();
   test_otfs();
-  test_binres();
   test_chrono_backjump();
   test_backjump_target_clamps();
   puts("test_analyze OK");

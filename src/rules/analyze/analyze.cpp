@@ -26,7 +26,6 @@ static constexpr uint8_t REMOVABLE = 2; // proven redundant
 static constexpr uint8_t POISONED = 4;  // proven not redundant
 static constexpr uint8_t SHRINKABLE = 8; // in the current block-shrink walk
 static constexpr uint8_t CHAINED = 16;   // antecedent recorded (LRAT)
-static constexpr uint8_t BINRES = 32;    // in the clause NOW (binres marking)
 
 // --- native LRAT antecedent capture (plan O4; CaDiCaL's id scheme with a
 // simpler ordering: entries carry the trail position of the literal their
@@ -466,79 +465,6 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
   return true;
 }
 
-// --- minimization by binary resolution (glucose/core/Solver.cc
-// minimisationWithBinaryResolution, MIT, transliterated) ---------------------
-// Independent-lineage adoption (plan §5 rev 25 survey): absent from kissat
-// 4.0.4 AND CaDiCaL — Glucose-lineage only. Any binary (learned[0] ∨ imp)
-// with ¬imp in the learned clause self-subsumes: resolving on imp removes
-// ¬imp. Scanning watches[learned[0]] finds exactly those binaries; our
-// mixed watch lists pay a filter walk over the large entries (survey note —
-// Glucose's separate binary lists get the scan for free), bounded by the
-// same size/LBD gates Glucose uses.
-//
-// LRAT: the binary joins the chain at ¬imp's trail position — learned[0]
-// is a checker assumption, so the binary propagates imp there, and every
-// entry that needs ¬imp false sits at a later position (a reason's other
-// literals precede its propagated literal on the trail). If the var is
-// already CHAINED its recorded reason re-propagates imp at that same
-// position for free — entries below it can never reference the var — so
-// no second entry is needed (and positions stay unique).
-static constexpr size_t BINRES_MAX_SIZE = 30; // glucose lbSizeMinimizingClause
-static constexpr uint32_t BINRES_MAX_GLUE = 6; // glucose lbLBDMinimizingClause
-
-static void binres_minimize(Kernel &k, std::vector<Lit> &learned) {
-  if (learned.size() < 2 || learned.size() > BINRES_MAX_SIZE)
-    return;
-  // gate on the full-clause LBD like glucose computeLBD (the asserting
-  // literal's level is distinct from all others, so this is glue + 1)
-  if (count_glue(k, learned.data(), static_cast<uint32_t>(learned.size()),
-                 BINRES_MAX_GLUE + 1) > BINRES_MAX_GLUE)
-    return;
-  const bool lrat = lrat_active(k);
-  // fresh marks: SEEN still covers resolved-away vars, so it cannot tell
-  // "in the clause now" (glucose re-stamps with MYFLAG for the same reason)
-  for (size_t j = 1; j < learned.size(); j++)
-    k.seen[var_of(learned[j])] |= BINRES;
-  uint32_t removed = 0;
-  const uint32_t *w = k.watches.begin(learned[0]);
-  const uint32_t *const e = k.watches.end(learned[0]);
-  while (w != e) {
-    const Watch wt{*w++};
-    if (!wt.binary()) {
-      w++; // skip the large entry's ref word
-      continue;
-    }
-    const Lit imp = wt.other();
-    const Var v = var_of(imp);
-    // marked + imp true ⟹ the clause literal is ¬imp: resolvable away
-    if (!(k.seen[v] & BINRES) || !(k.values[imp] > 0))
-      continue;
-    k.seen[v] &= static_cast<uint8_t>(~BINRES); // removed: unmark
-    removed++;
-    if (lrat && !(k.seen[v] & CHAINED)) {
-      k.seen[v] |= CHAINED; // v is in analyzed already (clause literal)
-      k.lrat_entries.emplace_back(k.assigned[v].trail,
-                                  kernel_binary_id(k, learned[0], imp));
-    }
-  }
-  if (removed) {
-    size_t kept = 1;
-    for (size_t j = 1; j < learned.size(); j++) {
-      const Var v = var_of(learned[j]);
-      if (k.seen[v] & BINRES) {
-        k.seen[v] &= static_cast<uint8_t>(~BINRES);
-        learned[kept++] = learned[j];
-      }
-    }
-    assert(kept + removed == learned.size());
-    learned.resize(kept);
-    k.stats.binres_minimized += removed;
-  } else {
-    for (size_t j = 1; j < learned.size(); j++)
-      k.seen[var_of(learned[j])] &= static_cast<uint8_t>(~BINRES);
-  }
-}
-
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
@@ -718,10 +644,6 @@ ApplyResult analyze_apply(Kernel &k) {
       k.marked_levels[lv] = 0;
     k.touched_levels.clear();
   }
-
-  // binary-resolution minimization after the recursive/shrink passes, as in
-  // glucose analyze (Solver.cc: after ccmin, before the backtrack level)
-  binres_minimize(k, learned);
 
   // glue (LBD) + backjump level from the non-asserting literals
   const uint32_t glue = count_glue(k, learned.data() + 1,

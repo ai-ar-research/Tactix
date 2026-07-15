@@ -170,8 +170,6 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.minimized);
     printf("c shrunken    %llu lits\n",
            (unsigned long long)kernel.stats.shrunken);
-    printf("c binres      %llu lits\n",
-           (unsigned long long)kernel.stats.binres_minimized);
     printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
            (unsigned long long)kernel.stats.otfs_strengthened,
            (unsigned long long)kernel.stats.otfs_subsumed);
