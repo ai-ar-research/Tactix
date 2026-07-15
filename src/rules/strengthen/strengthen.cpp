@@ -281,23 +281,90 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     kernel_add_binary_clause(k, lits[0], lits[1], id);
     return 3;
   }
+  // rewrites preserve redundancy (the round's candidates are irredundant,
+  // but the flush pre-pass rewrites redundant clauses too); glue can only
+  // shrink with the clause
+  const bool redundant = c->redundant();
+  const uint32_t glue =
+      std::min<uint32_t>(c->glue(), static_cast<uint32_t>(lits.size()));
   *ref = kernel_add_large_clause(k, lits.data(),
                                  static_cast<uint32_t>(lits.size()),
-                                 /*redundant=*/false, /*glue=*/0, id);
+                                 redundant, redundant ? glue : 0, id);
   return 2;
 }
 
 // canonical instance: one full round (fused subsume-or-strengthen;
 // CaDiCaL subsume_round shape — see strengthen.hpp deviations)
+// root flushing (kissat collect.c's sparse-collection effect, recomposed
+// rule-side so proof deltas stay rule territory; the recorded V1/V2
+// prerequisite — probe/backbone root units get consumed here): a
+// root-SATISFIED clause is deleted; root-FALSIFIED literals are stripped
+// by a degenerate self-strengthen (act()'s STRENGTHEN path with the
+// absorbing unit as the partner: add-RUP of the free literals, chain
+// [units..., the clause], delete the original). Runs as a pre-pass over
+// ALL live large clauses — any redundancy, any size (act preserves
+// redundancy and shrinks glue). Returns like act(), plus 1 for a
+// satisfied deletion.
+static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
+  Clause *c = clause_at(k.arena, *ref);
+  uint32_t falsified = 0;
+  for (const Lit l : *c) {
+    if (k.value(l) > 0 && k.var_level(var_of(l)) == 0) {
+      if (k.proof) // root-satisfied: delete
+        k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
+      c->flags |= Clause::GARBAGE;
+      k.stats.flushed++;
+      (*changed)++;
+      return 1;
+    }
+    if (k.value(l) < 0)
+      falsified++;
+  }
+  if (!falsified)
+    return 0;
+  Partner p;
+  p.res.kind = CheckResult::STRENGTHEN;
+  for (const Lit l : *c)
+    if (k.value(l) < 0) {
+      p.res.flipped = negate(l); // act removes negate(flipped) == l
+      break;
+    }
+  if (k.proof && k.proof->lrat())
+    p.id = k.unit_ids[var_of(p.res.flipped)]; // the absorbing unit
+  k.stats.flushed++;
+  const int r = act(k, ref, p, changed);
+  k.stats.strengthened--; // attributed to `flushed`, not `strengthened`
+  return r;
+}
+
 ApplyResult strengthen_apply(Kernel &k) {
   assert(strengthen_guard(k));
   k.stats.strengthen_rounds++;
-  std::vector<Ref> candidates;
-  strengthen_candidates(k, candidates);
-  std::vector<uint8_t> marks(2 * k.nvars, 0);
-  std::vector<std::vector<Ref>> occs(2 * k.nvars);
   uint64_t changed = 0;
   bool ended = false;
+  // flush pre-pass (see flush_root): the whole arena, before the
+  // candidate round, so the round never sees clauses with root-assigned
+  // literals. A flush-derived unit ends the pass (values changed); the
+  // policy re-propagates. One collect at the end covers both phases.
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const uint32_t words = clause_words(clause_at(k.arena, ref)->size);
+    Ref cur = ref;
+    if (!clause_at(k.arena, ref)->garbage()) {
+      const int r = flush_root(k, &cur, &changed);
+      if (r == 5)
+        return ApplyResult::Unsat;
+      if (r == 4) {
+        ended = true;
+        break;
+      }
+    }
+    ref += words;
+  }
+  std::vector<Ref> candidates;
+  if (!ended)
+    strengthen_candidates(k, candidates);
+  std::vector<uint8_t> marks(2 * k.nvars, 0);
+  std::vector<std::vector<Ref>> occs(2 * k.nvars);
   for (Ref cref : candidates) {
     for (;;) { // strengthening cascades on the same candidate
       Clause *c = clause_at(k.arena, cref);
@@ -347,6 +414,19 @@ ApplyResult strengthen_apply(Kernel &k) {
 ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   assert(strengthen_guard(k));
   Clause *c = clause_at(k.arena, candidate);
+  if (c->garbage())
+    return ApplyResult::NoOp;
+  { // per-clause root flush first (mirrors the round's pre-pass)
+    uint64_t flushed = 0;
+    Ref ref = candidate;
+    const int r = flush_root(k, &ref, &flushed);
+    if (r == 5)
+      return ApplyResult::Unsat;
+    if (r != 0) {
+      kernel_collect_garbage(k);
+      return ApplyResult::Ok;
+    }
+  }
   if (!is_candidate(k, c))
     return ApplyResult::NoOp;
   k.stats.strengthen_checked++;

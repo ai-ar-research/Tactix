@@ -57,6 +57,8 @@ struct Stats {
   uint64_t strengthen_checked = 0; // Strengthen candidate checks (C2)
   uint64_t strengthened = 0;       // clauses strengthened (C2 add+delete)
   uint64_t strengthen_subsumed = 0; // deletions by C2's fused round
+  uint64_t flushed = 0; // root-satisfied deletions + root-falsified
+                        // literal strips by C2's flush pre-pass
   uint64_t vivify_rounds = 0;  // Vivify rounds (C3)
   uint64_t vivify_checked = 0; // Vivify candidates probed (C3)
   uint64_t vivified = 0;       // clauses distilled by Vivify (add+delete)

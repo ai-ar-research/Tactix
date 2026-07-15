@@ -92,18 +92,22 @@ static void test_large_partner_and_cascade() {
 
 static void test_unit_producing_strengthen_ends_round() {
   // root unit -1 (so 1 is falsified in c); c = (1 2 3); d = (-2 3):
-  // strengthen drops 2, the falsified 1 is stripped too -> unit (3),
-  // asserted at the root; the round ends
+  // root units -1 and -2 leave c = (1 2 3) with one free literal; the
+  // flush pre-pass strips both falsified literals -> unit (3), asserted
+  // at the root; the pass ends (values changed). (Partner strengthens
+  // can no longer produce units: the flush owns the falsified-literal
+  // path, and post-flush candidates lose at most one literal per act.)
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_assign_unit(k, internalize(-1));
+  kernel_assign_unit(k, internalize(-2));
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, c, 3, false, 0);
-  kernel_add_binary_clause(k, internalize(-2), internalize(3));
-  assert(propagate_apply(k) == ApplyResult::Ok); // quiesce the unit
+  assert(propagate_apply(k) == ApplyResult::Ok); // quiesce the units
   assert(strengthen_guard(k));
   assert(strengthen_apply(k) == ApplyResult::Ok);
-  assert(k.stats.strengthened == 1);
+  assert(k.stats.flushed == 1);
+  assert(k.stats.strengthened == 0);
   assert(k.value(internalize(3)) > 0); // unit asserted at root
   assert(k.assigned[var_of(internalize(3))].level == 0);
   assert(live_large(k) == 0);
@@ -183,6 +187,26 @@ static void test_slot_schedule_as_data() {
   }
 }
 
+static void test_root_flush() {
+  // the flush pre-pass (kissat sparse-collection effect, rule-side):
+  // a root-satisfied clause is deleted; root-falsified literals are
+  // stripped — including from REDUNDANT clauses, preserving redundancy
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_assign_unit(k, internalize(1));
+  const Lit sat[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, sat, 3, false, 0); // root-satisfied: dies
+  const Lit strip[3] = {internalize(-1), internalize(2), internalize(4)};
+  kernel_add_large_clause(k, strip, 3, true, 2); // -1 stripped -> binary
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(strengthen_guard(k));
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(k.stats.flushed == 2);
+  assert(k.stats.strengthened == 0); // attributed to flushed only
+  assert(live_large(k) == 0); // sat died; strip became binary (2 4)
+  assert(default_solve(k) == 10);
+}
+
 int main() {
   test_binary_strengthens_large();
   test_fused_subsumption();
@@ -190,6 +214,7 @@ int main() {
   test_unit_producing_strengthen_ends_round();
   test_instance_surface();
   test_slot_schedule_as_data();
+  test_root_flush();
   puts("test_strengthen OK");
   return 0;
 }

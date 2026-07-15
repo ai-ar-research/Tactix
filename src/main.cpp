@@ -173,10 +173,12 @@ int main(int argc, char **argv) {
     printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
            (unsigned long long)kernel.stats.otfs_strengthened,
            (unsigned long long)kernel.stats.otfs_subsumed);
-    printf("c strengthen  %llu rounds, %llu strengthened, %llu subsumed\n",
+    printf("c strengthen  %llu rounds, %llu strengthened, %llu subsumed, "
+           "%llu flushed\n",
            (unsigned long long)kernel.stats.strengthen_rounds,
            (unsigned long long)kernel.stats.strengthened,
-           (unsigned long long)kernel.stats.strengthen_subsumed);
+           (unsigned long long)kernel.stats.strengthen_subsumed,
+           (unsigned long long)kernel.stats.flushed);
     printf("c vivify      %llu rounds, %llu vivified, %llu deleted\n",
            (unsigned long long)kernel.stats.vivify_rounds,
            (unsigned long long)kernel.stats.vivified,
