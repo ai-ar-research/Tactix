@@ -40,3 +40,4 @@ benchmarks/runs/
 compile_commands.json
 __pycache__/
 *.pyc
+cryptominisat/

@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-15 (rev. 24). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-15 (rev. 25). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -74,7 +74,10 @@ AE-Kissat-MAB's PAR-2 2264.73 on the SC25 set is the T5 target number (§8.3).
 - **Everything at the top is Kissat or CaDiCaL derived.** The winning margin comes
   from (a) Kissat's kernel engineering and (b) one or two added techniques per year
   (MAB restart/heuristic selection, SBVA, CURE, etc.). Our kernel must match
-  Kissat's data-structure discipline or nothing else matters.
+  Kissat's data-structure discipline or nothing else matters. However, this codebase
+  *must* not be a simple re-implementation of Kissat. It should learn from all the 
+  winning tools as well as Glucose and Cryptominisat, which are implemented by a 
+  different set of authors. 
 - **Proof logging is mandatory and checked** (drat-trim / verified checkers
   cake_lpr, GRAT; checker toolchain gets 45000 s). An instance counts as unsolved
   if the proof fails or the checker times out ⇒ proof *size and checkability* are
@@ -232,9 +235,12 @@ Design commitments:
   2. *Survey beyond plain Kissat.* For any non-trivial technique, also check
      the recent competition winners (CaDiCaL-SC2025, the Kissat-MAB lineage,
      SBVA-CaDiCaL; solver descriptions always, sources where obtainable —
-     `tools/solvers/fetch-winners.sh` stocks `winners/`). Their deltas over
-     stock Kissat/CaDiCaL show which choices matter under competition
-     conditions and are where "exceed" (§7.5) can come from.
+     `tools/solvers/fetch-winners.sh` stocks `winners/`) and the
+     independent-lineage solvers Glucose (`./glucose`) and CryptoMiniSat
+     (`./cryptominisat`), whose different author sets make them the check
+     against Kissat-monoculture thinking (§2 takeaway, rev 25). Their
+     deltas over stock Kissat/CaDiCaL show which choices matter under
+     competition conditions and are where "exceed" (§7.5) can come from.
 
 ### 5.1 The public API (v1, C level — frozen at the phase-2 review, rev 20)
 
@@ -748,6 +754,11 @@ discovered during development get added here rather than answered ad hoc.
 
 - Kissat source (this repo, `./kissat`) and Biere et al., SAT Competition 2024/2025
   solver descriptions (cca.informatik.uni-freiburg.de).
+- Source code of Glucose (`./glucose`), CaDiCaL (`./cadical`), and
+  CryptoMiniSat (`./cryptominisat`) — independent lineages; consult multiple
+  sources (§5 survey obligation).
+- Source code of other winning tools in `./winners/`
+  (`tools/solvers/fetch-winners.sh`).
 - Järvisalo, Heule, Biere: *Inprocessing Rules*, IJCAR 2012 — the formal frame for §4.
 - Nieuwenhuis, Oliveras, Tinelli: *Abstract DPLL*, JACM 2006 — transition-system view.
 - Heule, Hunt, Wetzler: DRAT / drat-trim; Cruz-Filipe et al. & Tan–Heule–Myreen:
@@ -786,3 +797,4 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 22** (2026-07-14): Tier A margin rule — pass easily and consistently (≳ 25 s solo = incomplete).
 - **rev. 23** (2026-07-15): Tier C ~30 instances; Tactix name settled (O10); §1.1 N1-efficiency wording.
 - **rev. 24** (2026-07-15): plan condensed — §13 becomes this one-line index (rationale lives in PROGRESS Log + commits, enforced by the revise-plan skill), §2 landscape tables compressed to prose.
+- **rev. 25** (2026-07-15, user): not a Kissat re-implementation — learn from all winners plus the independent lineages Glucose and CryptoMiniSat (§2 takeaway; §5 survey obligation and §12 references extended; CryptoMiniSat cloned).
