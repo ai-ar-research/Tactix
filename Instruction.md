@@ -1,10 +1,5 @@
 # Instruction — development session bootstrap
 
-Paste (or reference) the prompt below to kick off a Claude Code development
-session on this project. It assumes the session starts in the repo root.
-
----
-
 Continue development of the proof-rule-driven SAT solver in this repository.
 
 **Orient first (before writing any code):**
