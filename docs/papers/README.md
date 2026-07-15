@@ -8,3 +8,8 @@ here for the phase-5 license/attribution audit.
   LIPIcs 340, article 34. DOI 10.4230/LIPIcs.CP.2025.34. License CC-BY 4.0
   (per the paper's front matter). Grounding for plan §5.6 (learned
   proof-rule scheduling); code at github.com/cure-lab/DynamicSAT.
+- `CubingForTuning-AAAI2025.pdf` — Wu, Barrett, Narodytska: *Cubing for
+  Tuning* (TACO), AAAI 2025; arXiv:2504.19039 preprint copy (first author =
+  this project's owner). Grounding for §5.6's episode-online mode: cubes as
+  self-generated tuning data, true terminal cost, tune/validate/fallback,
+  MCMC over strategy spaces.

@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-15 (rev. 26). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-15 (rev. 27). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -520,6 +520,13 @@ fixed program. Here the schedule IS the program and rules are first-class
 schedulable objects (N1), so the action space is the schedule itself — that
 is the delta this architecture uniquely enables, and why N1 exists.
 
+**Two learning modes.** *Trajectory-online* (L1–L3): learn along the single
+solving run — cheap, always on, but one non-stationary episode with proxy
+rewards. *Episode-online* (L4): manufacture terminating sub-episodes from
+the instance itself by cubing, and evaluate whole schedules against true
+terminal cost. They compose: cube-learned schedules seed the trajectory
+bandit's arms.
+
 **Unifying view: solving as a hierarchical decision process.** A run is a
 word over the rule alphabet constrained only by guards; any legal word is
 sound and proof-producing (§5, enforced daily by random-policy fuzzing). A
@@ -595,7 +602,28 @@ competition path):**
    after subsume), and only as a stated hypothesis with a kill criterion:
    if it cannot beat the L1 bandit over batch-arms on Tier C medians within
    its experiment budget, it dies and the result is recorded.
-4. **Offline layer:** per-family presets (classify → preset; presets become
+4. **L4 — cube-sampled strategy evaluation (episode-online; TACO, AAAI
+   2025 — Wu/Barrett/Narodytska).** The instance is its own training set:
+   look-ahead partitioning yields many equi-satisfiable sub-problems, and a
+   COLLECT-style filter (cost range [l,u], re-split too-hard cubes; bounded
+   cost reduction guarantees termination) makes them *representative,
+   bounded, terminating* episodes. Candidate schedules are then evaluated
+   with **true terminal cost** (conflicts/ticks to solve a cube —
+   deterministic; no proxy-reward hacking possible), searched by MCMC
+   (Metropolis–Hastings over ≤k-parameter deviations — handles
+   combinatorial batch spaces with ~20 samples where bandit arms cannot),
+   validated on held-out cubes, and deployed with a portfolio fallback —
+   TACO's validate step is the L-safe principle per instance, and its
+   ablations show validation is what blocks overfit strategies. This is the
+   designated answer to the composed level's sample starvation. Sequential
+   scope holds (TACO App. G: sequential mode still ~2× on Marabou sets);
+   tuning time is solving time forgone — budgeted like an inprocessing
+   pass. **A prototype needs zero kernel changes:** cube literals are
+   Decide instances through N1, clauses learned under assumptions remain
+   implied by F (proofs stay valid, N2), fresh solver per cube; the
+   efficient in-solver version (state snapshot / assumption interface,
+   possibly a Cube rule family) is O14.
+5. **Offline layer:** per-family presets (classify → preset; presets become
    online arms). Deep/GNN policies remain research-track via the N1 external
    surface (Python), never in the competition binary.
 
@@ -837,7 +865,14 @@ Components:
 - **Reward-proxy validation precedes online trust:** the offline replay
   harness (deterministic `--trace` replays + §8.4 config-file ablations)
   must show the proxy correlates with solve time on Tier B/C *before* any
-  online learner optimizes it.
+  online learner optimizes it. L4 cube evaluation is proxy-free (true
+  terminal cost) and additionally serves as the proxy-validation instrument:
+  a proxy that disagrees with cube-terminal cost on the same schedules is
+  rejected.
+- **L4 discipline (TACO-shaped):** tune/validate on disjoint cube sets;
+  learned schedule deployed only after held-out validation, always with
+  portfolio fallback to the default schedule; tuning budget accounted like
+  an inprocessing pass (ticks) and reported.
 - **Tuning discipline:** §8.1 applies unchanged — the learner is never
   developed or tuned on Tier A, and Tier B deltas are medians-of-repeats.
 
@@ -851,7 +886,7 @@ Components:
 | 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
 | 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Walk, Sweep, Congruence, Factor/SBVA, BCE) | T4 on Tier D; §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
 | 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
-| 6 | **Learned scheduling — the RL module (§5.6):** offline replay/reward-proxy harness; L1 windowed-UCB bandit over the macro scheduler's slot choice points (default schedule = permanent arm); LearnedPolicy in the fuzz rotation; L2 contextual (tabular); L3 batch-sequencing experiment under its kill criterion; offline per-family preset layer | §8.5 gates: L-safe on Tier C, then L-win on Tier D; stretch — improves the T5 configuration |
+| 6 | **Learned scheduling — the RL module (§5.6):** offline replay/reward-proxy harness; L1 windowed-UCB bandit over the macro scheduler's slot choice points (default schedule = permanent arm); LearnedPolicy in the fuzz rotation; L2 contextual (tabular); L3 batch-sequencing experiment under its kill criterion; L4 cube-sampled schedule evaluation (TACO-shaped: N1 prototype first, O14); offline per-family preset layer | §8.5 gates: L-safe on Tier C, then L-win on Tier D; stretch — improves the T5 configuration |
 
 Treat phases as gates, not a calendar; each phase ends with a benchmark report
 checked into the repo, which also records the §5.4 revamp evaluation and the
@@ -896,6 +931,7 @@ discovered during development get added here rather than answered ad hoc.
 | O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | first needed: E1 completion (phase 3); hard by V5 (phase 4) |
 | O12 | Contextual-bandit feature set (which cheap state features; tabular bands) and warm-start/serialization policy for learned state across runs (competition rules permitting) | phase 6, L2 implementation |
 | O13 | Distillation: do stable cross-instance learned schedules feed back into DefaultPolicy constants (benefiting N3), or stay LearnedPolicy-only? | phase-6 exit |
+| O14 | Cubing capability for L4 (§5.6): external look-ahead cuber (march_cu-style) + fresh-solver-per-cube prototype via N1 first; then decide the in-solver form — assumption interface (shares O7's machinery), kernel state snapshot/restore, or a Cube rule family (look-ahead splitting as a schedulable rule; would need a catalog row + proof-delta story: none — cubes are decisions) | prototype at phase-6 L4 start; in-solver form by phase-6 exit |
 
 ## 12. Key references
 
@@ -921,6 +957,11 @@ discovered during development get added here rather than answered ad hoc.
   CP 2021 — Kissat-MAB, the lineage that won SC 2025 (AE-Kissat-MAB).
 - Li, Liu, Chung, Jha, Ganesh et al.: *A reinforcement-learning based reset
   policy for CDCL SAT solvers*, arXiv:2404.03753 — RL restart precedent.
+- Wu, Barrett, Narodytska: *Cubing for Tuning* (TACO), AAAI 2025
+  (arXiv:2504.19039; local copy `docs/papers/`) — §5.6's episode-online
+  mode: cubes as self-generated tuning data with true terminal cost,
+  tune/validate/fallback, MCMC over strategy spaces. Its stated next
+  challenge — deep integration into the search procedure — is phase 6.
 
 ## 13. Revision history
 
@@ -954,3 +995,4 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 24** (2026-07-15): plan condensed — §13 becomes this one-line index (rationale lives in PROGRESS Log + commits, enforced by the revise-plan skill), §2 landscape tables compressed to prose.
 - **rev. 25** (2026-07-15, user): not a Kissat re-implementation — learn from all winners plus the independent lineages Glucose and CryptoMiniSat (§2 takeaway; §5 survey obligation and §12 references extended; CryptoMiniSat cloned).
 - **rev. 26** (2026-07-15, user): the end-game formalized — §5.6 learned proof-rule scheduling (RL module: choice-status taxonomy, three-cost hierarchy, bandit-first paradigm ladder, DynamicSAT/Kissat-MAB grounding), §8.5 gates, phase 6, O6 framework fixed, O12–O13 opened, §5.2 choice-status note, scheduler-as-data anticipation on the phase-3 item.
+- **rev. 27** (2026-07-15, user): TACO (Cubing for Tuning, AAAI 2025) absorbed into §5.6 — two-learning-modes framing (trajectory-online vs episode-online), L4 cube-sampled strategy evaluation (true terminal cost, tune/validate/fallback, MCMC), §8.5 L4 discipline + proxy-validation instrument, O14 opened (cubing capability), §12/§9 updated; paper kept in docs/papers/.
