@@ -6,7 +6,8 @@
 // belongs to the policy (Restart keep-level 0 + Propagate), keeping this
 // rule pure H so any legal schedule may apply it mid-trail; (2) kissat's
 // schedule slots for Walking are deferred to phase 4 (S6 Walk) — the
-// DefaultPolicy rotation is B,I,B,O.
+// DefaultPolicy rotation is B,B,I,B,B,O (Best standing in for W, keeping
+// the destructive types at kissat's 1/3 slot frequency).
 #include "rules/rephase/rephase.hpp"
 
 #include <algorithm>

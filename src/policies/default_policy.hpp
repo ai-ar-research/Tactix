@@ -3,13 +3,13 @@
 // SAME rule implementations the registry exposes, but through direct
 // (inlinable) calls — the "static dispatch" side of the two-tier design.
 // Owns every scheduling heuristic it uses (rev 17): the focused-mode
-// EMA-triggered restart schedule (Glucose scheme, Audemard–Simon), the
+// restart schedule (kissat's bias-corrected per-mode glue EMAs), the
 // stable-mode reluctant-doubling restart schedule, the arithmetic reduce
 // interval, the mode-switch alternation (kissat mode.c: first switch
 // after `modeinit` conflicts, stable phases last the preceding focused
 // phase's ticks, focused intervals grow as modeint·n·log⁴n), and the
 // stable-only rephase schedule (kissat rephase.c: rephaseint·n·log³n
-// interval, B,I,B,O rotation). Constants are the published
+// interval, B,B,I,B,B,O rotation). Constants are the published
 // kissat/Glucose defaults, not benchmark-tuned.
 #pragma once
 
@@ -129,7 +129,7 @@ public:
     bool trigger = false;
   } reluctant;
   // S3 rephase schedule (kissat rephase.c: stable-only trigger, interval
-  // grows rephaseint·n·log³n; rotation B,I,B,O — kissat's B,W,I,B,W,O
+  // grows rephaseint·n·log³n; rotation B,B,I,B,B,O — kissat's B,W,I,B,W,O
   // with the Walking slots deferred to phase 4)
   struct {
     uint64_t next_conflicts = REPHASE_INTERVAL_INIT;
