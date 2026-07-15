@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-15 (rev. 25). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-15 (rev. 26). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -380,6 +380,16 @@ Support services (not schedulable rules): model extension/reconstruction
 output path), `classify` (instance classification → policy presets, H only),
 internal checking (`check`, debug builds only).
 
+**Choice status (rev 26, consumed by §5.6):** every family above carries one
+of — *reflex* (fixed composition in any learned schedule: M1 propagation to
+fixpoint, and the M3+M4 pair on conflict), *scheduled* (whether/when is a
+learnable choice: S1–S7 and slot entry for all C/V/E/X families), *composed*
+(inprocessing families additionally participate in batch actions: C1–C3,
+V1–V6, E1–E2, X1–X5). Orthogonally, M2 Decide plus every instance surface
+(restart keep-level, backjump target, reduce victims) is an *instance
+argument* — ranked by per-rule heuristics, out of the §5.6 module's v1 scope,
+open to external policies per N1.
+
 #### Winner techniques beyond Kissat (CaDiCaL-SC2025 / 2023–2025 entrants)
 
 | # | Family | Source | Proof delta | Phase |
@@ -496,6 +506,120 @@ from §5.4: a revamp *changes structure* to buy performance or contract
 fit; simplification *removes what no longer earns its place* without
 changing behavior.
 
+### 5.6 Learned proof-rule scheduling — the end-game (RL module, rev 26)
+
+**Thesis.** The project's end goal: given a new instance, the solver *learns
+on-the-fly* which proof rule (or batch of rules) to apply next — order,
+frequency, budgets — instead of following one hand-tuned schedule. This is
+the proof-rule-application view of what the configuration-tuning literature
+does with parameter knobs: DynamicSAT (Shi et al., CP 2025) showed a UCB
+bandit re-tuning Kissat options *during* solving (drift-triggered, LBD-window
+reward) gains 13–19% PAR-2 on SC24; the Kissat-MAB lineage (UCB over two
+branching heuristics) won SC25 outright. Both learn over knobs bolted onto a
+fixed program. Here the schedule IS the program and rules are first-class
+schedulable objects (N1), so the action space is the schedule itself — that
+is the delta this architecture uniquely enables, and why N1 exists.
+
+**Unifying view: solving as a hierarchical decision process.** A run is a
+word over the rule alphabet constrained only by guards; any legal word is
+sound and proof-producing (§5, enforced daily by random-policy fuzzing). A
+policy is a program emitting that word; DefaultPolicy is one such program
+with hand-tuned constants, LearnedPolicy is the same shape with learned
+state. Not every letter is worth learning — rule families carry a **choice
+status** (catalog note, §5.2):
+
+- **Reflex (fixed, never learned online):** applications that are dominant —
+  Propagate to fixpoint after any assignment; Analyze+Backjump on a conflict.
+  Abstract-DPLL theory and every competitive solver agree; spending samples
+  or per-step decision cycles there buys nothing (§3's granularity trap).
+  They remain N1-exposed — an external policy may still reorder them; the
+  learned layer simply never allocates budget to them.
+- **Scheduled (the learned core):** whether/when to fire each macro rule —
+  Restart timing, Reduce interval/volume, Rephase type, SwitchMode,
+  inprocessing-slot entry. Choice points arrive at conflict boundaries,
+  ~10²–10⁴ conflicts apart.
+- **Composed (batch actions):** at a quiescent root slot, the *sequence and
+  budgets* of inprocessing families (C/V/E) as one action ("probe → subsume
+  → vivify with budgets b⃗"); 10⁰–10² occurrences per solve. Batch size is
+  the lever that trades adaptivity against decision/attribution cost.
+- **Instance arguments (orthogonal; out of the module's v1 scope):** which
+  literal to decide, keep-level, victims — the N1 instance surface. Learned
+  *argument* choice (e.g. learned branching) stays external-policy research
+  (§8.4 demo 6); the module learns the schedule, and per-rule instance
+  heuristics remain the rankers. Where several rankers exist they may be
+  arms (VMTF vs scores — the Kissat-MAB trick, already our S4).
+
+**The three-cost trade-off** — granularity vs cost-to-learn vs cost-to-decide:
+
+| Level | Choice frequency | Decide-cost budget | Samples/solve | Consequence |
+|---|---|---|---|---|
+| reflex | 10⁶–10⁷/s | zero | — | fixed composition |
+| scheduled | 1–10³/s | UCB argmax over ≤ ~16 arms | 10³–10⁶ | bandits thrive |
+| composed | ≤ 1/s | anything cheap, even a linear model | 10⁰–10² | small arm sets, strong priors, offline warm-start |
+
+Placement rule: decision cost ≤ ε · work-between-decisions, AND arm count
+sized to the samples actually available at that frequency. High-frequency
+levels have cheap samples but demand near-zero decisions; low-frequency
+levels afford rich decisions but are sample-starved — which is why deep
+models are excluded from the competition path at every level.
+
+**Reward.** Time-to-solve is terminal and too delayed; the module optimizes
+*progress per unit cost* from observables rules already return (ApplyResult,
+per-rule stats, `tactix_stat`): learned-clause-quality windows (average glue
+over the last d conflicts — DynamicSAT's validated proxy, and our glue EMAs
+already exist), Δformula per tick (subsumed / strengthened / eliminated /
+units derived), propagations-per-conflict. Cost in ticks, never wall time
+(determinism). Recorded pitfalls: proxy hacking (restarts reset glue
+windows; Reduce deletions flatter the average) — reward windows must span
+the action's effect horizon, and the offline replay harness (§8.5) validates
+any proxy against actual solve time before it is trusted online.
+
+**Nonstationarity.** The instance structurally drifts during solving
+(DynamicSAT Fig. 1: SATZilla-feature cosine similarity decays monotonically
+— clause learning/elimination make F_t unlike F_0), so stationary-bandit
+regret is the wrong frame. Adopt drift-triggered re-exploration (Δ‖F‖ =
+adds+removes over a threshold; DynamicSAT: θ = 30%, decide every d = 100
+decisions, sampling budget μ = 1000) and/or windowed/discounted UCB;
+constants are per-arm-set tuning, not architecture.
+
+**Paradigm ladder (adoption order; deep learning excluded from the
+competition path):**
+
+1. **L1 — non-stationary MAB** (windowed/discounted UCB1; EXP3 as the
+   adversarial fallback) over each scheduled/composed choice point, with
+   DefaultPolicy's choice as a permanent arm. Competition-proven shape.
+2. **L2 — contextual bandits**, tabular contexts first (mode, glue-EMA band,
+   binary-clause fraction, DB-size ratio); LinUCB only if tabular plateaus.
+3. **L3 — tabular RL** (Q-learning/SARSA, tiny discretized state) *only* for
+   composed-batch sequencing where order effects are real (probe before vs
+   after subsume), and only as a stated hypothesis with a kill criterion:
+   if it cannot beat the L1 bandit over batch-arms on Tier C medians within
+   its experiment budget, it dies and the result is recorded.
+4. **Offline layer:** per-family presets (classify → preset; presets become
+   online arms). Deep/GNN policies remain research-track via the N1 external
+   surface (Python), never in the competition binary.
+
+**Safety, determinism, N-invariants.** Exploration cannot break correctness:
+any guard-legal schedule is sound and certificate-producing by construction
+(N1+N2) — the random-policy fuzzer is the standing adversarial proof, and
+LearnedPolicy joins its rotation. The classic safe-exploration problem
+reduces to bounded performance regret, handled by the permanent default arm
+(never-worse gate, §8.5). Seeded exploration + tick-based rewards keep runs
+deterministic and trace-replayable. N3 is unaffected: it is judged on
+DefaultPolicy, which remains the hand-tuned instantiation and baseline.
+
+**Forward requirements on current work (the anticipation, active now):**
+
+- The phase-3 registry-driven macro scheduler (lands with C2) must represent
+  its schedule **as data**: slots and per-slot choice points (rule subset,
+  order, budgets) enumerable and overridable through the Policy interface —
+  those choice points are the future arm space. No hand-wired if-chains a
+  learner cannot address.
+- Every macro rule keeps shipping progress counters + tick cost (§5.3
+  per-rule-everything) — they are the reward substrate.
+- `--trace` replay (§5 reproducibility) doubles as the offline
+  counterfactual harness; keep it exact.
+
 ## 6. Competition compliance checklist (R2)
 
 - DIMACS parser: streaming, tolerant of comments/whitespace, huge-file safe
@@ -534,7 +658,9 @@ then conflict analysis, then inprocessing. Plan of attack:
    - The policy layer is itself the research vehicle: MAB/bandit selection over
      macro-rule schedules (AE-Kissat-MAB's win shows this works), offline-tuned
      per-family budgets, instance-family classification (`classify.c` in Kissat)
-     driving policy presets.
+     driving policy presets. The full program for this is §5.6 (learned
+     proof-rule scheduling), evaluated per §8.5; the phase-4 presets/MAB
+     items are its seed.
    - Native LRAT to win any combined solver+checker metric.
    - Portfolio-of-policies within one binary, where competition rules permit.
    Realism check: matching Kissat is a multi-year, PhD-grade goal; the staged
@@ -697,6 +823,24 @@ Components:
 - **Ablation harness:** because order is a parameter, ablations become config
   files, not code forks — this is the scientific payoff to highlight in any paper.
 
+### 8.5 Evaluation of learned scheduling (§5.6 — the RL module's gates)
+
+- **Gate L-safe (never worse):** LearnedPolicy within +2% PAR-2 of
+  DefaultPolicy on Tier C (per-instance-medians protocol, §8.1), enforced
+  structurally by the permanent default arm. Run first, at every L-stage.
+- **Gate L-win:** LearnedPolicy beats DefaultPolicy PAR-2 on Tier D, with
+  per-family attribution showing wins on ≥ 2 families. Family breakdown is
+  mandatory (DynamicSAT's gains are strongly family-dependent; a uniform
+  small win is a measurement-artifact smell, not a success).
+- **Overhead budget:** learned-decision cost measured in ticks per level;
+  scheduled-level decisions ≤ 0.1% of total ticks (report it).
+- **Reward-proxy validation precedes online trust:** the offline replay
+  harness (deterministic `--trace` replays + §8.4 config-file ablations)
+  must show the proxy correlates with solve time on Tier B/C *before* any
+  online learner optimizes it.
+- **Tuning discipline:** §8.1 applies unchanged — the learner is never
+  developed or tuned on Tier A, and Tier B deltas are medians-of-repeats.
+
 ## 9. Milestones
 
 | Phase | Deliverable | Exit criterion |
@@ -707,6 +851,7 @@ Components:
 | 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
 | 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Walk, Sweep, Congruence, Factor/SBVA, BCE) | T4 on Tier D; §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
 | 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
+| 6 | **Learned scheduling — the RL module (§5.6):** offline replay/reward-proxy harness; L1 windowed-UCB bandit over the macro scheduler's slot choice points (default schedule = permanent arm); LearnedPolicy in the fuzz rotation; L2 contextual (tabular); L3 batch-sequencing experiment under its kill criterion; offline per-family preset layer | §8.5 gates: L-safe on Tier C, then L-win on Tier D; stretch — improves the T5 configuration |
 
 Treat phases as gates, not a calendar; each phase ends with a benchmark report
 checked into the repo, which also records the §5.4 revamp evaluation and the
@@ -743,12 +888,14 @@ discovered during development get added here rather than answered ad hoc.
 | O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting → *decided rev 20: instances are uint64 payloads with per-rule documented encodings + `TACTIX_INSTANCE_CANONICAL`; enumeration fills caller buffers ranked canonical-first (no iterator objects, no boundary allocation; snapshot validity until the next mutating call); errors are −1 int returns, no error-string machinery — the minimal surface that keeps §5.3 laziness and creates no new object lifetimes (§5.1 is the frozen text)* | ~~draft in phase 1; freeze at phase-2 API v1~~ decided |
 | O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
 | O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) and its documented overhead contract → *decided rev 20: pull-based — external/scripted policies drive the C stepping surface themselves (per-propagation granularity = the client applying Propagate stepwise); no callback `tactix_set_policy` in v1 (additive later; revisit with the phase-4 Python bindings); overhead documented by the §8.4 demo-policy measurements* | ~~phase-2 API freeze~~ decided |
-| O6 | MAB scheduler specifics: arms, reward signal, decision level (restart vs inprocessing scheduling) | phase 4 |
+| O6 | MAB scheduler specifics: arms, reward signal, decision level (restart vs inprocessing scheduling) → *framework fixed rev 26 (§5.6/§8.5): arms = the macro scheduler's slot choice points with the default schedule as a permanent arm; reward = progress-per-tick with the glue-window proxy first (replay-validated); algorithm = windowed/discounted UCB, drift-triggered. Still open: exact per-slot arm sets and window/threshold constants* | phase 6 implementation |
 | O7 | Incremental solving (IPASIR assumptions, clause removal) interaction with proof logging | post-v1; not competition-blocking |
 | O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 5 |
 | O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | before the T4 evaluation |
 | O10 | Solver name ("Tactix" is a placeholder) → *decided rev 23 (user): the solver is named Tactix — header wording made final* | ~~before any external artifact~~ decided |
 | O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | first needed: E1 completion (phase 3); hard by V5 (phase 4) |
+| O12 | Contextual-bandit feature set (which cheap state features; tabular bands) and warm-start/serialization policy for learned state across runs (competition rules permitting) | phase 6, L2 implementation |
+| O13 | Distillation: do stable cross-instance learned schedules feed back into DefaultPolicy constants (benefiting N3), or stay LearnedPolicy-only? | phase-6 exit |
 
 ## 12. Key references
 
@@ -766,6 +913,14 @@ discovered during development get added here rather than answered ad hoc.
 - Biere, Fleury: CaDiCaL 2.0 (CAV 2024) — cleanest documented modern architecture.
 - SAT Competition pages: satcompetition.github.io (rules, benchmarks, results).
 - Haberlandt, Green, Heule: SBVA (SAT 2023) — 2023 winner's preprocessor.
+- Shi, Jiang, Zhang, Luo, Liang, Chu, Xu: *DynamicSAT: Dynamic Configuration
+  Tuning for SAT Solving*, CP 2025 (LIPIcs 340, 34) — MAB over config arms,
+  drift trigger, LBD-window reward; code github.com/cure-lab/DynamicSAT. The
+  closest prior work to §5.6; we generalize its arms to rule schedules.
+- Cherif, Habet, Terrioux: *Combining VSIDS and CHB using restarts in SAT*,
+  CP 2021 — Kissat-MAB, the lineage that won SC 2025 (AE-Kissat-MAB).
+- Li, Liu, Chung, Jha, Ganesh et al.: *A reinforcement-learning based reset
+  policy for CDCL SAT solvers*, arXiv:2404.03753 — RL restart precedent.
 
 ## 13. Revision history
 
@@ -798,3 +953,4 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 23** (2026-07-15): Tier C ~30 instances; Tactix name settled (O10); §1.1 N1-efficiency wording.
 - **rev. 24** (2026-07-15): plan condensed — §13 becomes this one-line index (rationale lives in PROGRESS Log + commits, enforced by the revise-plan skill), §2 landscape tables compressed to prose.
 - **rev. 25** (2026-07-15, user): not a Kissat re-implementation — learn from all winners plus the independent lineages Glucose and CryptoMiniSat (§2 takeaway; §5 survey obligation and §12 references extended; CryptoMiniSat cloned).
+- **rev. 26** (2026-07-15, user): the end-game formalized — §5.6 learned proof-rule scheduling (RL module: choice-status taxonomy, three-cost hierarchy, bandit-first paradigm ladder, DynamicSAT/Kissat-MAB grounding), §8.5 gates, phase 6, O6 framework fixed, O12–O13 opened, §5.2 choice-status note, scheduler-as-data anticipation on the phase-3 item.
