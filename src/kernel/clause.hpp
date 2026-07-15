@@ -1,11 +1,14 @@
 // Clause arena layout (transliterated idea from kissat/src/clause.h and
 // arena.h, MIT): all large clauses (size >= 3) live contiguously in one
 // uint32_t arena addressed by 32-bit word offsets. Binary clauses never
-// materialize — they exist only inside watch lists. Header:
+// materialize — they exist only inside watch lists (their proof ids live
+// in Kernel::binary_ids). Header:
 //   word0  size
 //   word1  bit0 garbage | bit1 redundant | bits2.. glue
 //   word2  searched (index of last replacement-scan position, >= 2)
-//   word3+ literals
+//   word3  id_lo   (proof clause id, low word — native LRAT hints;
+//   word4  id_hi    CaDiCaL stores int64 ids the same way)
+//   word5+ literals
 #pragma once
 
 #include "kernel/types.hpp"
@@ -18,7 +21,16 @@ struct Clause {
   uint32_t size;
   uint32_t flags;
   uint32_t searched;
+  uint32_t id_lo, id_hi; // proof clause id (uint64, split)
   Lit lits[1]; // actually `size` literals
+
+  uint64_t id() const {
+    return (static_cast<uint64_t>(id_hi) << 32) | id_lo;
+  }
+  void set_id(uint64_t id) {
+    id_lo = static_cast<uint32_t>(id);
+    id_hi = static_cast<uint32_t>(id >> 32);
+  }
 
   static constexpr uint32_t GARBAGE = 1u << 0;
   static constexpr uint32_t REDUNDANT = 1u << 1;
@@ -52,7 +64,7 @@ struct Clause {
   const Lit *end() const { return lits + size; }
 };
 
-constexpr uint32_t CLAUSE_HEADER_WORDS = 3;
+constexpr uint32_t CLAUSE_HEADER_WORDS = 5;
 
 inline uint32_t clause_words(uint32_t size) {
   return CLAUSE_HEADER_WORDS + size;

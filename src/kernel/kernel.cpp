@@ -19,6 +19,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.scores.score.resize(nvars, 0.0);
   k.target.resize(nvars, 0);
   k.best.resize(nvars, 0);
+  k.unit_ids.resize(nvars, 0);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
   k.unassigned += nvars - old;
@@ -42,7 +43,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
 }
 
 Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
-                            bool redundant, uint32_t glue) {
+                            bool redundant, uint32_t glue, uint64_t id) {
   assert(size >= 3);
   const Ref ref = static_cast<Ref>(k.arena.size());
   k.arena.resize(k.arena.size() + clause_words(size));
@@ -52,6 +53,7 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   c->flags = redundant ? (Clause::REDUNDANT | Clause::USED_MASK) : 0;
   c->set_glue(glue);
   c->searched = 2;
+  c->set_id(id);
   for (uint32_t i = 0; i < size; i++)
     c->lits[i] = lits[i];
   k.watches.push_large(lits[0], lits[1], ref);
@@ -59,9 +61,10 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   return ref;
 }
 
-void kernel_add_binary_clause(Kernel &k, Lit a, Lit b) {
+void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
+  k.binary_ids.emplace(kernel_binary_key(a, b), id); // first id wins
 }
 
 // kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)

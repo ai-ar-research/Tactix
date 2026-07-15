@@ -110,7 +110,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
     if (!c->redundant() || c->garbage() || c->reason())
       continue;
     if (k.proof)
-      k.proof->del(c->lits, c->size);
+      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
     c->flags |= Clause::GARBAGE;
     deleted++;
   }

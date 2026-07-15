@@ -57,7 +57,7 @@ static void test_reduce_deletes_and_logs() {
   Kernel k;
   Proof proof;
   char path[] = "/tmp/tactix_reduce_test.drat";
-  assert(proof.open(path, /*binary=*/false));
+  assert(proof.open(path, ProofFormat::DratAscii));
   k.proof = &proof;
   kernel_reserve_vars(k, 12);
   // four high-glue redundant clauses on distinct vars, plus one glue-1 keeper

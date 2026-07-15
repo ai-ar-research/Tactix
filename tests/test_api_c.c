@@ -138,10 +138,13 @@ static void test_instance_surface(void) {
   assert(tactix_stat(s, 9999) == UINT64_MAX);
   tactix_release(s);
 
-  /* proof formats: LRAT not accepted until native LRAT lands */
+  /* proof formats: all three accepted (native LRAT landed); junk isn't */
   s = tactix_init();
+  assert(tactix_proof(s, "/tmp/tactix_api_fmt.drat", 99) == -1);
   assert(tactix_proof(s, "/tmp/tactix_api_fmt.drat", TACTIX_PROOF_LRAT) ==
-         -1);
+         0);
+  tactix_release(s);
+  s = tactix_init();
   assert(tactix_proof(s, "/tmp/tactix_api_fmt.drat",
                       TACTIX_PROOF_DRAT_BINARY) == 0);
   tactix_release(s);

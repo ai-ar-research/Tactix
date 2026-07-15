@@ -25,6 +25,59 @@ static constexpr uint8_t SEEN = 1;      // literal is in the learned clause
 static constexpr uint8_t REMOVABLE = 2; // proven redundant
 static constexpr uint8_t POISONED = 4;  // proven not redundant
 static constexpr uint8_t SHRINKABLE = 8; // in the current block-shrink walk
+static constexpr uint8_t CHAINED = 16;   // antecedent recorded (LRAT)
+
+// --- native LRAT antecedent capture (plan O4; CaDiCaL's id scheme with a
+// simpler ordering: entries carry the trail position of the literal their
+// antecedent propagated; the emitted chain is sorted ascending with the
+// conflict last, which unit-propagates for the checker by construction).
+// All capture is gated on LRAT mode — DRAT/proofs-off pay one branch.
+
+static bool lrat_active(const Kernel &k) {
+  return k.proof && k.proof->lrat();
+}
+
+// record var v's REASON as an antecedent (v resolved away or proven
+// redundant: the checker re-propagates it from the chain)
+static void chain_record(Kernel &k, Var v) {
+  if (k.seen[v] & CHAINED)
+    return;
+  const Assigned &a = k.assigned[v];
+  assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
+  uint64_t id;
+  if (a.binary) {
+    const Lit assigned_lit = make_lit(v, k.values[make_lit(v, true)] > 0);
+    id = kernel_binary_id(k, assigned_lit, a.reason);
+  } else {
+    id = clause_at(k.arena, a.reason)->id();
+  }
+  if (!k.seen[v])
+    k.analyzed.push_back(v); // ensure flag cleanup
+  k.seen[v] |= CHAINED;
+  k.lrat_entries.emplace_back(a.trail, id);
+}
+
+// record a root-assigned var's UNIT clause as an antecedent
+static void chain_record_root(Kernel &k, Var v) {
+  if (k.seen[v] & CHAINED)
+    return;
+  if (!k.seen[v])
+    k.analyzed.push_back(v);
+  k.seen[v] |= CHAINED;
+  k.lrat_entries.emplace_back(k.assigned[v].trail, k.unit_ids[v]);
+}
+
+// emit order: ascending trail position, conflict id last
+static void chain_emit(Kernel &k, uint64_t id, const Lit *lits,
+                       uint32_t size, uint64_t conflict_id) {
+  std::sort(k.lrat_entries.begin(), k.lrat_entries.end());
+  k.lrat_chain.clear();
+  for (const auto &e : k.lrat_entries)
+    k.lrat_chain.push_back(e.second);
+  k.lrat_chain.push_back(conflict_id);
+  k.proof->add_rup(id, lits, size, k.lrat_chain.data(),
+                   static_cast<uint32_t>(k.lrat_chain.size()));
+}
 
 // glue (LBD): distinct decision levels among lits[0..n), capped at
 // `limit` (kissat promote.h kissat_recompute_glue's early exit — at the
@@ -93,8 +146,9 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     return false;
   if (a.reason == DECISION_REASON || depth > 900 ||
       !k.marked_levels[a.level]) {
+    const uint8_t before = k.seen[v];
     k.seen[v] |= POISONED;
-    if (k.seen[v] == POISONED) // no other flag: newly touched
+    if (!before) // no other flag: newly touched
       k.analyzed.push_back(v); // ensure cleanup
     return false;
   }
@@ -103,8 +157,10 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   if (a.binary) {
     const Lit m = a.reason;
     const Var mv = var_of(m);
-    if (k.var_level(mv) != 0 && !(k.seen[mv] & SEEN) &&
-        !literal_redundant(k, m, depth + 1))
+    if (k.var_level(mv) == 0) {
+      if (lrat_active(k))
+        chain_record_root(k, mv);
+    } else if (!(k.seen[mv] & SEEN) && !literal_redundant(k, m, depth + 1))
       ok = false;
   } else {
     const Clause *reason = clause_at(k.arena, a.reason);
@@ -112,7 +168,12 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
       if (m == assigned_lit)
         continue;
       const Var mv = var_of(m);
-      if (k.var_level(mv) == 0 || (k.seen[mv] & SEEN))
+      if (k.var_level(mv) == 0) {
+        if (lrat_active(k))
+          chain_record_root(k, mv);
+        continue;
+      }
+      if (k.seen[mv] & SEEN)
         continue;
       if (!literal_redundant(k, m, depth + 1)) {
         ok = false;
@@ -124,6 +185,8 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   k.seen[v] |= ok ? REMOVABLE : POISONED;
   if (!before)
     k.analyzed.push_back(v); // newly touched: schedule flag cleanup
+  if (ok && lrat_active(k))
+    chain_record(k, v); // the checker re-propagates the removed literal
   return ok;
 }
 
@@ -209,7 +272,8 @@ static void bump_and_reset_analyzed(Kernel &k) {
 // until the next collection, which stays sound and proof-safe because the
 // strictly stronger resolvent is added before the delete.
 static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
-                            Ref subsumed_ref /* INVALID_REF if none */) {
+                            Ref subsumed_ref /* INVALID_REF if none */,
+                            uint64_t conflict_chain_id) {
   const Clause *reason = clause_at(k.arena, reason_ref);
   std::vector<Lit> &lits = k.otfs_scratch; // no per-event alloc
   lits.clear();
@@ -218,6 +282,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     if (l != t && k.var_level(var_of(l)) > 0)
       lits.push_back(l);
   assert(lits.size() >= 2);
+  const uint64_t id = ++k.next_clause_id;
 
   bool subsume = false, subsumed_irredundant = false;
   if (subsumed_ref != INVALID_REF) {
@@ -231,12 +296,18 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   // otfs_subsume_clause)
   const bool redundant = reason->redundant() && !subsumed_irredundant;
 
-  if (k.proof)
-    k.proof->add_rup(lits.data(), static_cast<uint32_t>(lits.size()));
+  if (k.proof) {
+    if (lrat_active(k)) // entries so far justify the resolvent (the
+      chain_emit(k, id, lits.data(), static_cast<uint32_t>(lits.size()),
+                 conflict_chain_id); // resolved reasons incl. t's)
+    else
+      k.proof->add_rup(0, lits.data(), static_cast<uint32_t>(lits.size()),
+                       nullptr, 0);
+  }
   k.stats.otfs_strengthened++;
 
   if (lits.size() == 2) {
-    kernel_add_binary_clause(k, lits[0], lits[1]);
+    kernel_add_binary_clause(k, lits[0], lits[1], id);
     k.conflict_ref = INVALID_REF;
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];
@@ -254,13 +325,14 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
         count_glue(k, lits.data(), static_cast<uint32_t>(lits.size()));
     // reason may dangle after this allocation; it is not used again
     k.conflict_ref = kernel_add_large_clause(
-        k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue);
+        k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue,
+        id);
   }
 
   if (subsume) {
     Clause *d = clause_at(k.arena, subsumed_ref); // re-deref: arena moved
     if (k.proof)
-      k.proof->del(d->lits, d->size);
+      k.proof->del(k.next_clause_id, d->id(), d->lits, d->size);
     d->flags |= Clause::GARBAGE;
     k.stats.otfs_subsumed++;
   }
@@ -277,8 +349,11 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
 static int shrink_literal(Kernel &k, Lit l, uint32_t blevel) {
   const Var v = var_of(l);
   const Assigned &a = k.assigned[v];
-  if (a.level == 0)
+  if (a.level == 0) {
+    if (lrat_active(k))
+      chain_record_root(k, v);
     return 0;
+  }
   if (k.seen[v] & SHRINKABLE)
     return 0;
   if (a.level < blevel) {
@@ -372,9 +447,15 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
   // walked literals resolve to ¬uip, now in the clause — mark removable so
   // lower blocks' chains may bottom out in them (kissat
   // mark_shrinkable_as_removable)
+  const bool lrat = lrat_active(k);
   for (const Var v : k.shrinkable) {
     k.seen[v] &= static_cast<uint8_t>(~SHRINKABLE);
     k.seen[v] |= REMOVABLE;
+    // the walked literals' reasons justify the collapse for the checker;
+    // the UIP itself stays out of the chain (its literal joins the
+    // clause, so its reason would be a satisfied — illegal — hint)
+    if (lrat && v != uv)
+      chain_record(k, v);
   }
   k.shrinkable.clear();
   return true;
@@ -383,10 +464,19 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
+  const bool lrat = lrat_active(k);
+  uint64_t conflict_chain_id = 0; // the round's conflict, emitted last
   Lit uip = INVALID_LIT;
   for (;;) { // one round per conflict; OTFS restarts with a stronger one
     uint32_t csize;
     const Lit *clits = conflict_lits(k, &csize);
+    if (lrat) {
+      k.lrat_entries.clear();
+      conflict_chain_id =
+          k.conflict_ref == INVALID_REF
+              ? kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1])
+              : clause_at(k.arena, k.conflict_ref)->id();
+    }
     if (k.conflict_ref != INVALID_REF) // conflict clause is "used" too
       mark_used(k, clause_at(k.arena, k.conflict_ref));
 
@@ -401,8 +491,15 @@ ApplyResult analyze_apply(Kernel &k) {
     if (alevel == 0) { // conflict entirely at the root: refutation done
       k.inconsistent = true;
       k.conflict_valid = false;
-      if (k.proof)
-        k.proof->add_empty();
+      if (k.proof) {
+        if (lrat) { // chain: the conflict lits' root units + the conflict
+          for (uint32_t i = 0; i < csize; i++)
+            chain_record_root(k, var_of(clits[i]));
+          chain_emit(k, ++k.next_clause_id, nullptr, 0, conflict_chain_id);
+        } else {
+          k.proof->add_empty(0, nullptr, 0);
+        }
+      }
       return ApplyResult::Unsat;
     }
     const Ref conflict_ref0 = k.conflict_ref; // may be garbage'd by OTFS
@@ -414,12 +511,15 @@ ApplyResult analyze_apply(Kernel &k) {
 
     auto mark = [&](Lit l) {
       const Var v = var_of(l);
+      const uint32_t lv = k.var_level(v);
+      if (lv == 0) { // root literals resolve away for free — but the
+        if (lrat)    // checker needs their unit ids in the chain
+          chain_record_root(k, v);
+        return;
+      }
       if (k.seen[v])
         return;
-      const uint32_t lv = k.var_level(v);
-      if (lv == 0)
-        return; // root-assigned literals resolve away for free
-      k.seen[v] = 1;
+      k.seen[v] = SEEN;
       k.analyzed.push_back(v);
       resolvent_size++;
       if (lv == alevel)
@@ -448,6 +548,8 @@ ApplyResult analyze_apply(Kernel &k) {
       }
       open--;
       resolved++;
+      if (lrat)
+        chain_record(k, var_of(t)); // the checker re-propagates t
       const Assigned &a = k.assigned[var_of(t)];
       if (a.binary) {
         mark(a.reason); // the other literal of the binary reason clause
@@ -475,7 +577,8 @@ ApplyResult analyze_apply(Kernel &k) {
                                          conflict_ref0 != INVALID_REF &&
                                          resolvent_size < conflict_nonroot;
           otfs_strengthen(k, a.reason, t,
-                          subsumes_conflict ? conflict_ref0 : INVALID_REF);
+                          subsumes_conflict ? conflict_ref0 : INVALID_REF,
+                          conflict_chain_id);
           restart_analysis = true;
           break;
         }
@@ -552,9 +655,15 @@ ApplyResult analyze_apply(Kernel &k) {
   }
 
   // proof delta first (add-RUP), then the clause joins R
-  if (k.proof)
-    k.proof->add_rup(learned.data(),
-                     static_cast<uint32_t>(learned.size()));
+  const uint64_t learned_id = ++k.next_clause_id;
+  if (k.proof) {
+    if (lrat)
+      chain_emit(k, learned_id, learned.data(),
+                 static_cast<uint32_t>(learned.size()), conflict_chain_id);
+    else
+      k.proof->add_rup(0, learned.data(),
+                       static_cast<uint32_t>(learned.size()), nullptr, 0);
+  }
   k.stats.learned++;
 
   PendingLearned &p = k.pending;
@@ -562,16 +671,20 @@ ApplyResult analyze_apply(Kernel &k) {
   p.ref = INVALID_REF;
   p.glue = glue;
   p.jump_level = jump;
+  p.id = learned_id;
   if (learned.size() >= 3) {
     // watch invariant after backjump: lits[0] asserting, lits[1] at the
     // jump level (the highest remaining false literal)
     std::swap(p.lits[1], p.lits[high_idx]);
     p.ref = kernel_add_large_clause(k, p.lits.data(),
                                     static_cast<uint32_t>(p.lits.size()),
-                                    true, glue);
+                                    true, glue, learned_id);
   } else if (learned.size() == 2) {
-    kernel_add_binary_clause(k, p.lits[0], p.lits[1]);
-  } // units join the trail in Backjump; no stored clause
+    kernel_add_binary_clause(k, p.lits[0], p.lits[1], learned_id);
+  } else {
+    // learned unit: give the var its unit id (Backjump asserts it)
+    k.unit_ids[var_of(p.lits[0])] = learned_id;
+  }
 
   bump_and_reset_analyzed(k);
 

@@ -37,7 +37,7 @@ typedef struct tactix_solver tactix;
 /* proof formats (N2) */
 #define TACTIX_PROOF_DRAT_BINARY 0
 #define TACTIX_PROOF_DRAT_ASCII 1
-#define TACTIX_PROOF_LRAT 2 /* rejected until native LRAT lands (phase 2) */
+#define TACTIX_PROOF_LRAT 2 /* native LRAT: antecedent hints (plan O4) */
 
 /* read-only statistics ids (rev 21); the list grows additively */
 #define TACTIX_STAT_CONFLICTS 0

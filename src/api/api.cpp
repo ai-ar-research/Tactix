@@ -37,11 +37,22 @@ void tactix_add(tactix_solver *s, int lit) {
 }
 
 int tactix_proof(tactix_solver *s, const char *path, int format) {
-  // formats per tactix.h: 0 binary DRAT, 1 ascii DRAT, 2 LRAT (rejected
-  // until the native-LRAT phase-2 item lands)
-  if (format != 0 && format != 1)
+  // formats per tactix.h: 0 binary DRAT, 1 ascii DRAT, 2 native LRAT
+  ProofFormat f;
+  switch (format) {
+  case 0:
+    f = ProofFormat::DratBinary;
+    break;
+  case 1:
+    f = ProofFormat::DratAscii;
+    break;
+  case 2:
+    f = ProofFormat::Lrat;
+    break;
+  default:
     return -1;
-  if (!s->proof.open(path, format == 0))
+  }
+  if (!s->proof.open(path, f))
     return -1;
   s->kernel.proof = &s->proof;
   return 0;

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Micro-formula proof tests (rule-dev skill, definition of done #2): tiny
 # UNSAT formulas through the real binary; DRAT accepted by drat-trim in
-# both binary and ascii encodings. Exit 77 (ctest SKIP) without a checker.
+# both binary and ascii encodings, native LRAT accepted by lrat-check.
+# Exit 77 (ctest SKIP) without a checker.
 set -euo pipefail
 TACTIX="$1"
 ROOT="$2"
 DRAT_TRIM="$ROOT/tools/checkers/bin/drat-trim"
+LRAT_CHECK="$ROOT/tools/checkers/bin/lrat-check"
 [ -x "$DRAT_TRIM" ] || { echo "drat-trim not built — skipping"; exit 77; }
 
 T="$(mktemp -d)"
@@ -57,5 +59,15 @@ for cnf in "$T"/*.cnf; do
     grep -q 's VERIFIED' "$T/check" \
       || { echo "FAIL: proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
   done
+  # native LRAT (plan O4): hints emitted by the solver, no conversion
+  if [ -x "$LRAT_CHECK" ]; then
+    proof="$cnf.lrat"
+    "$TACTIX" -q --lrat "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
+    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under --lrat"; exit 1; }
+    "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+      || { echo "FAIL: native LRAT of $cnf rejected"; cat "$T/check"; exit 1; }
+    grep -qi 'verif' "$T/check" \
+      || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
+  fi
 done
 echo "micro_proofs OK"

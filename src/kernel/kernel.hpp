@@ -8,6 +8,7 @@
 #include "kernel/watch.hpp"
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace tactix {
@@ -58,6 +59,7 @@ struct PendingLearned {
   Ref ref = INVALID_REF; // arena ref for size >= 3, INVALID otherwise
   uint32_t glue = 0;
   uint32_t jump_level = 0;
+  uint64_t id = 0; // proof clause id (LRAT)
 };
 
 struct Kernel {
@@ -134,6 +136,24 @@ struct Kernel {
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
 
+  // --- proof clause ids (native LRAT; CaDiCaL's id scheme) ------------
+  // every clause — including input tautologies/duplicates that are never
+  // stored — consumes one id in input/derivation order. Large clauses
+  // carry theirs in the header; units live in unit_ids (by var; 0 =
+  // none); binaries, which never materialize, in binary_ids keyed by the
+  // canonical literal pair (first id wins on duplicates — binaries are
+  // never deleted, so the map only grows).
+  uint64_t next_clause_id = 0;
+  std::vector<uint64_t> unit_ids; // by var
+  std::unordered_map<uint64_t, uint64_t> binary_ids;
+  // antecedent scratch (analyze, LRAT mode only): (trail position of the
+  // literal the antecedent propagated, antecedent id). Emitted sorted by
+  // trail position ascending with the conflict id last — that order is
+  // checker-propagatable by construction (each hint's other literals are
+  // clause negations, roots, or earlier-propagated literals)
+  std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
+  std::vector<uint64_t> lrat_chain; // sorted-emission scratch
+
   Proof *proof = nullptr;
   Stats stats;
   // NOTE (plan §5 rev 17): scheduling state (restart EMAs, reduce
@@ -148,10 +168,21 @@ struct Kernel {
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
 
 // --- clauses ---------------------------------------------------------------
-// size >= 3; watches lits[0] and lits[1]
+// size >= 3; watches lits[0] and lits[1]. `id` is the proof clause id
+// (0 in id-free unit tests; solver paths pass ingest input ids or
+// ++next_clause_id for derived clauses)
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
-                            bool redundant, uint32_t glue);
-void kernel_add_binary_clause(Kernel &, Lit a, Lit b);
+                            bool redundant, uint32_t glue, uint64_t id = 0);
+void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
+
+inline uint64_t kernel_binary_key(Lit a, Lit b) {
+  const Lit lo = a < b ? a : b, hi = a < b ? b : a;
+  return (static_cast<uint64_t>(lo) << 32) | hi;
+}
+inline uint64_t kernel_binary_id(const Kernel &k, Lit a, Lit b) {
+  const auto it = k.binary_ids.find(kernel_binary_key(a, b));
+  return it == k.binary_ids.end() ? 0 : it->second;
+}
 
 // --- assignment / trail ----------------------------------------------------
 // Header-inline (kissat fastassign.h pattern): propagation executes an

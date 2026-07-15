@@ -77,9 +77,15 @@ def parse_verdict(exitcode, stdout):
 
 
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
-    """Run the solver under test on cnf_path and apply all oracles."""
+    """Run the solver under test on cnf_path and apply all oracles.
+
+    Native-LRAT mode: when the solver command itself contains --lrat, the
+    proof is the solver's own LRAT and is checked directly with
+    lrat-check (no drat-trim conversion)."""
     out = CaseOutcome()
-    proof = os.path.join(workdir, "proof.drat")
+    native_lrat = "--lrat" in solver
+    proof = os.path.join(workdir,
+                         "proof.lrat" if native_lrat else "proof.drat")
     if os.path.exists(proof):
         os.unlink(proof)
 
@@ -109,7 +115,12 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             # empty clause; drat-trim handles that, so only flag absence
             if not os.path.exists(proof):
                 out.fail("proof", "no proof file produced")
-        if os.path.exists(proof):
+        if os.path.exists(proof) and native_lrat:
+            c, o, e = run_cmd([LRAT_CHECK, cnf_path, proof], 120)
+            if c is None or "VERIF" not in o.upper():
+                out.fail("proof",
+                         f"lrat-check rejected the native LRAT (exit {c})")
+        elif os.path.exists(proof):
             c, o, e = run_cmd([DRAT_TRIM, cnf_path, proof], 120)
             if c is None or "s VERIFIED" not in o:
                 out.fail("proof", f"drat-trim did not verify (exit {c})")

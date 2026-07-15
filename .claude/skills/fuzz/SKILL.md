@@ -36,6 +36,10 @@ failure ─▶ ddmin shrinker ─▶ minimal CNF + seed + rule trace ─▶ corp
 - Per commit / before declaring any change done: `tools/fuzz/run.sh --quick` (~1k cases, sanitizer build) + full regression corpus + Tier A.
 - Random-policy leg (per commit for kernel/rule changes):
   `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy" --n 400 --max-vars 100`.
+- Native-LRAT leg (per commit for proof/analyze changes):
+  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --lrat" --n 400 --max-vars 150`
+  — when the solver command contains `--lrat`, the harness checks the
+  solver's own LRAT with lrat-check directly (no drat-trim conversion).
   The size cap matters: a random schedule cannot finish large instances
   within the timeout, and the semantic oracles (differential/model/proof)
   only fire on a verdict — measured 2026-07-14, uncapped 150-case legs

@@ -68,7 +68,7 @@ static void print_model(const Kernel &k) {
 int main(int argc, char **argv) {
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
-  bool binary_proof = true;
+  ProofFormat proof_format = ProofFormat::DratBinary;
   bool quiet = false;
   bool random_policy = false;
   unsigned long long random_seed = 20260710;
@@ -81,7 +81,9 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-q") || !strcmp(a, "--quiet")) {
       quiet = true;
     } else if (!strcmp(a, "--no-binary")) {
-      binary_proof = false;
+      proof_format = ProofFormat::DratAscii;
+    } else if (!strcmp(a, "--lrat")) {
+      proof_format = ProofFormat::Lrat; // native LRAT (plan O4)
     } else if (!strncmp(a, "--random-policy", 15)) {
       // soundness testing mode (plan §8.2 rule-order fuzzing): random
       // legal rule schedule, random branching instances, proofs intact
@@ -89,8 +91,8 @@ int main(int argc, char **argv) {
       if (a[15] == '=')
         random_seed = strtoull(a + 16, nullptr, 10);
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q] [--no-binary] [--random-policy[=SEED]] "
-             "<cnf[.xz|.gz]> [proof]\n");
+      printf("usage: tactix [-q] [--no-binary] [--lrat] "
+             "[--random-policy[=SEED]] <cnf[.xz|.gz]> [proof]\n");
       return 0;
     } else if (a[0] == '-' && a[1]) {
       fprintf(stderr, "tactix: unknown option '%s'\n", a);
@@ -121,7 +123,7 @@ int main(int argc, char **argv) {
   Kernel kernel;
   Proof proof;
   if (proof_path) {
-    if (!proof.open(proof_path, binary_proof)) {
+    if (!proof.open(proof_path, proof_format)) {
       fprintf(stderr, "tactix: cannot write proof to '%s'\n", proof_path);
       printf("s UNKNOWN\n");
       return 1;

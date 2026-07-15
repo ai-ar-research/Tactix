@@ -1,5 +1,6 @@
 #include "proof/proof.hpp"
 
+#include <cinttypes>
 #include <cstdlib>
 
 namespace tactix {
@@ -11,9 +12,9 @@ Proof::~Proof() {
   }
 }
 
-bool Proof::open(const char *path, bool binary) {
+bool Proof::open(const char *path, ProofFormat format) {
   file_ = fopen(path, "wb");
-  binary_ = binary;
+  format_ = format;
   if (file_)
     setvbuf(file_, nullptr, _IOFBF, 1 << 20);
   return file_ != nullptr;
@@ -24,7 +25,7 @@ bool Proof::open(const char *path, bool binary) {
 // high bit = continuation.
 void Proof::put_lit(Lit l) {
   const int e = externalize(l);
-  if (binary_) {
+  if (format_ == ProofFormat::DratBinary) {
     uint32_t u = (static_cast<uint32_t>(e < 0 ? -e : e) << 1) | (e < 0);
     while (u >= 128) {
       fputc(128 | (u & 127), file_);
@@ -36,30 +37,60 @@ void Proof::put_lit(Lit l) {
   }
 }
 
+void Proof::put_u64(uint64_t v) { fprintf(file_, "%" PRIu64 " ", v); }
+
 void Proof::end_line() {
-  if (binary_)
+  if (format_ == ProofFormat::DratBinary)
     fputc(0, file_);
   else
     fputs("0\n", file_);
 }
 
-void Proof::add_rup(const Lit *lits, uint32_t size) {
+void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
+                    const uint64_t *chain, uint32_t nchain) {
   if (!file_)
     return;
-  if (binary_)
+  if (format_ == ProofFormat::Lrat) {
+    put_u64(id);
+    for (uint32_t i = 0; i < size; i++)
+      put_lit(lits[i]);
+    fputs("0 ", file_);
+    for (uint32_t i = 0; i < nchain; i++)
+      put_u64(chain[i]);
+    fputs("0\n", file_);
+    return;
+  }
+  if (format_ == ProofFormat::DratBinary)
     fputc('a', file_);
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
   end_line();
 }
 
-void Proof::add_empty() { add_rup(nullptr, 0); }
+void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
+  add_rup(id, nullptr, 0, chain, nchain);
+}
 
-void Proof::del(const Lit *lits, uint32_t size) {
+void Proof::add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
+                             uint32_t nchain) {
+  if (!file_ || format_ != ProofFormat::Lrat)
+    return; // DRAT: propagation-derived units are implied, never written
+  add_rup(id, &unit, 1, chain, nchain);
+}
+
+void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
+                uint32_t size) {
   if (!file_)
     return;
+  if (format_ == ProofFormat::Lrat) {
+    put_u64(line_id);
+    fputs("d ", file_);
+    put_u64(del_id);
+    fputs("0\n", file_);
+    return;
+  }
   fputc('d', file_);
-  if (!binary_)
+  if (format_ == ProofFormat::DratAscii)
     fputc(' ', file_);
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);

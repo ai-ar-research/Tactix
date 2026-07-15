@@ -7,6 +7,11 @@
 namespace tactix {
 
 void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
+  // every input clause consumes one proof id in input order — including
+  // tautologies/duplicates that are never stored (standard LRAT input
+  // numbering)
+  const uint64_t id = ++k.next_clause_id;
+
   // grow the kernel to cover every mentioned variable
   Var maxv = 0;
   for (const Lit l : scratch)
@@ -26,24 +31,30 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
 
   if (scratch.empty()) { // empty input clause: immediate refutation
     k.inconsistent = true;
-    if (k.proof)
-      k.proof->add_empty();
+    if (k.proof) { // the input empty clause itself is the whole chain
+      const uint64_t chain[1] = {id};
+      k.proof->add_empty(++k.next_clause_id, chain, 1);
+    }
   } else if (scratch.size() == 1) {
     const Lit u = scratch[0];
     if (k.values[u] > 0)
-      return; // duplicate unit
+      return; // duplicate unit (its id is consumed, never referenced)
     if (k.values[u] < 0) { // contradicting unit: refuted at the root
       k.inconsistent = true;
-      if (k.proof)
-        k.proof->add_empty();
+      if (k.proof) {
+        const uint64_t chain[2] = {k.unit_ids[var_of(u)], id};
+        k.proof->add_empty(++k.next_clause_id, chain, 2);
+      }
       return;
     }
+    k.unit_ids[var_of(u)] = id;
     kernel_assign_unit(k, u);
   } else if (scratch.size() == 2) {
-    kernel_add_binary_clause(k, scratch[0], scratch[1]);
+    kernel_add_binary_clause(k, scratch[0], scratch[1], id);
   } else {
     kernel_add_large_clause(k, scratch.data(),
-                            static_cast<uint32_t>(scratch.size()), false, 0);
+                            static_cast<uint32_t>(scratch.size()), false, 0,
+                            id);
   }
 }
 

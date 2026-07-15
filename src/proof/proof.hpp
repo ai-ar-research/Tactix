@@ -1,8 +1,8 @@
 // Proof backend (plan §5.2): the closed five-primitive vocabulary is the
-// only side channel rules may use. Phase 1 implements DRAT serialization of
-// add-RUP and delete (add-RAT shares the DRAT encoding; restore and
-// push-witness join with the reconstruction stack in phase 3).
-// Streaming + buffered: the proof is never held in memory (plan §6).
+// only side channel rules may use. DRAT (binary/ascii) serializes
+// add-RUP/delete ignoring hints; LRAT (ascii, native — plan O4) writes
+// the clause id and the antecedent chain the rules capture during
+// conflict analysis. Streaming + buffered: never held in memory (§6).
 #pragma once
 
 #include "kernel/types.hpp"
@@ -11,25 +11,37 @@
 
 namespace tactix {
 
+enum class ProofFormat { DratBinary, DratAscii, Lrat };
+
 class Proof {
 public:
   ~Proof();
 
-  // opens the proof file; binary DRAT by default (competition format)
-  bool open(const char *path, bool binary);
+  bool open(const char *path, ProofFormat format);
+  bool lrat() const { return format_ == ProofFormat::Lrat; }
 
-  // --- proof-delta vocabulary (subset live in phase 1) ---
-  void add_rup(const Lit *lits, uint32_t size); // also used for add-RAT
-  void add_empty();
-  void del(const Lit *lits, uint32_t size);
+  // --- proof-delta vocabulary (subset live in phase 2) ---
+  // add-RUP: `id` and the antecedent `chain` (ids, checker-propagation
+  // order) are used by LRAT only; DRAT writes the literals
+  void add_rup(uint64_t id, const Lit *lits, uint32_t size,
+               const uint64_t *chain, uint32_t nchain);
+  void add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain);
+  // root-level propagation-derived unit: explicit in LRAT (each level-0
+  // assignment needs an id for later chains), implied/omitted in DRAT
+  void add_derived_unit(uint64_t id, Lit unit, const uint64_t *chain,
+                        uint32_t nchain);
+  // delete: DRAT writes the literals; LRAT the clause id
+  void del(uint64_t line_id, uint64_t del_id, const Lit *lits,
+           uint32_t size);
 
   void flush(); // signal-safe enough: fflush on the buffered stream
 
 private:
   void put_lit(Lit l);
+  void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;
-  bool binary_ = true;
+  ProofFormat format_ = ProofFormat::DratBinary;
 };
 
 } // namespace tactix

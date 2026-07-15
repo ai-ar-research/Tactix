@@ -43,8 +43,14 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     // (the unit is in the proof; the empty clause is RUP from it)
     k.inconsistent = true;
     p.valid = false;
-    if (k.proof)
-      k.proof->add_empty();
+    if (k.proof) {
+      if (k.proof->lrat()) { // chain: the learned unit + its opposite
+        const uint64_t chain[2] = {p.id, k.unit_ids[var_of(asserting)]};
+        k.proof->add_empty(++k.next_clause_id, chain, 2);
+      } else {
+        k.proof->add_empty(0, nullptr, 0);
+      }
+    }
     return ApplyResult::Unsat;
   }
   if (stale) {
