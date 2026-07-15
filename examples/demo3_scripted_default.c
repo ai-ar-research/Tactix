@@ -45,6 +45,8 @@ static int rule_id(const char *name) {
 #define CHRONO_LEVELS 100
 #define SUBSUME_INTERVAL_INIT 500
 #define SUBSUME_INTERVAL 500
+/* mirror of DefaultPolicy::SUBSUME_IN_DEFAULT (deferred until V1/E1) */
+#define SUBSUME_IN_DEFAULT 0
 
 /* bias-corrected EMA (mirror of DefaultPolicy::Smooth / kissat smooth.c) */
 struct smooth {
@@ -175,8 +177,10 @@ static int scripted_solve(tactix *s) {
   sched_init(&p);
   /* the first inprocessing limit is size-scaled at solve entry, like
    * DefaultPolicy's lazy init */
-  p.subsume_next = tactix_stat(s, TACTIX_STAT_CONFLICTS) +
-                   scale_inproc_delta(s, SUBSUME_INTERVAL_INIT);
+  p.subsume_next = SUBSUME_IN_DEFAULT
+                       ? tactix_stat(s, TACTIX_STAT_CONFLICTS) +
+                             scale_inproc_delta(s, SUBSUME_INTERVAL_INIT)
+                       : UINT64_MAX;
   const int propagate = rule_id("Propagate");
   const int analyze = rule_id("Analyze");
   const int backjump = rule_id("Backjump");

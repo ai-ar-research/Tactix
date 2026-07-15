@@ -189,7 +189,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)
-  if (!subsume.initialized) {
+  if (SUBSUME_IN_DEFAULT && !subsume.initialized) {
     subsume.initialized = true;
     subsume.next_conflicts =
         k.stats.conflicts +

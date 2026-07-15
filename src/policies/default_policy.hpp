@@ -148,6 +148,14 @@ public:
   // C1 forward-subsumption schedule (the inprocessing slot); the first
   // limit needs the ingested formula's size, so it is set lazily at
   // solve() entry (kissat inits limits after parsing for the same reason).
+  // DEFERRED from the default schedule 2026-07-15 (see PROGRESS): with C1
+  // as the slot's only rule, the composed root restarts perturb
+  // trajectories without the slot's payoff (kissat's identical rounds are
+  // carried by BVE — 49 vars eliminated on the s055 reference), and
+  // tr-n300-s055 flipped Tier A at the 30 s line (3× 199/200 after two
+  // passes). Re-enable with V1/E1 when the slot earns its restarts; the
+  // rule stays fully N1-exposed and random-policy-fuzzed meanwhile.
+  static constexpr bool SUBSUME_IN_DEFAULT = false;
   // After the first round, rounds are additionally gated on NEW material
   // (kissat eliminate.c kissat_eliminating's variables trigger): under
   // C1's scope new subsumption relations only come from new binaries or
