@@ -67,14 +67,10 @@ static void chain_record_root(Kernel &k, Var v) {
   k.lrat_entries.emplace_back(k.assigned[v].trail, k.unit_ids[v]);
 }
 
-// emit order: ascending trail position, conflict id last
+// emit order: kernel_lrat_chain (ascending trail position, conflict last)
 static void chain_emit(Kernel &k, uint64_t id, const Lit *lits,
                        uint32_t size, uint64_t conflict_id) {
-  std::sort(k.lrat_entries.begin(), k.lrat_entries.end());
-  k.lrat_chain.clear();
-  for (const auto &e : k.lrat_entries)
-    k.lrat_chain.push_back(e.second);
-  k.lrat_chain.push_back(conflict_id);
+  kernel_lrat_chain(k, conflict_id);
   k.proof->add_rup(id, lits, size, k.lrat_chain.data(),
                    static_cast<uint32_t>(k.lrat_chain.size()));
 }
@@ -137,6 +133,14 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
 // bottoms out in root assignments or literals already in the clause.
 // Level filter: a chain can only bottom out in the clause if it stays on
 // levels the clause touches (marked_levels).
+//
+// Recursion cap: kissat's minimizedepth option defaults to 1000 (poisoned
+// at depth >= 1000); ours has been 900 with `>` since phase 1 — an
+// unrecorded near-miss found in the 2026-07-15 §5.5 sweep. The VALUE is
+// trajectory-affecting, so aligning it is a measured fidelity question
+// (PROGRESS phase-3 deferred items), not a simplification.
+static constexpr unsigned MINIMIZE_DEPTH_LIMIT = 900;
+
 static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   const Var v = var_of(l);
   const Assigned &a = k.assigned[v];
@@ -144,7 +148,7 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     return true;
   if (k.seen[v] & POISONED)
     return false;
-  if (a.reason == DECISION_REASON || depth > 900 ||
+  if (a.reason == DECISION_REASON || depth > MINIMIZE_DEPTH_LIMIT ||
       !k.marked_levels[a.level]) {
     const uint8_t before = k.seen[v];
     k.seen[v] |= POISONED;

@@ -46,19 +46,27 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
 
 void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out) {
   out.clear();
+  // cache the sort key instead of re-dereferencing clause headers in the
+  // comparator (reduce_candidates' Victim pattern)
+  struct Cand {
+    Ref ref;
+    uint32_t size;
+  };
+  std::vector<Cand> cands;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     if (is_candidate(k, c))
-      out.push_back(ref);
+      cands.push_back({ref, c->size});
     ref += clause_words(c->size);
   }
-  std::sort(out.begin(), out.end(), [&k](Ref a, Ref b) {
-    const uint32_t sa = clause_at(k.arena, a)->size;
-    const uint32_t sb = clause_at(k.arena, b)->size;
-    if (sa != sb)
-      return sa < sb;
-    return a < b; // total order for determinism
+  std::sort(cands.begin(), cands.end(), [](const Cand &a, const Cand &b) {
+    if (a.size != b.size)
+      return a.size < b.size;
+    return a.ref < b.ref; // total order for determinism
   });
+  out.reserve(cands.size());
+  for (const Cand &c : cands)
+    out.push_back(c.ref);
 }
 
 // mark the candidate's free literals; at a quiescent root a live
@@ -196,35 +204,36 @@ ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   k.stats.forward_checked++;
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   mark_candidate(k, marks, c, 1);
-  bool subsumed = subsumed_by_binary(k, marks, c);
-  if (!subsumed) {
-    for (const Lit l : *c) {
-      if (k.value(l) != 0)
+  // one fused scan per free literal's watch list: binary entries subsume
+  // when the other literal is marked, large entries via subsumes_marked
+  // (a boolean existence check — fusing the formerly separate binary and
+  // large passes cannot change the outcome)
+  bool subsumed = false;
+  for (const Lit l : *c) {
+    if (k.value(l) != 0)
+      continue;
+    const WatchHead &h = k.watches.heads[l];
+    if (h.size > SUBSUME_OCCLIM)
+      continue;
+    const uint32_t *ws = k.watches.arena.data() + h.offset;
+    for (uint32_t i = 0; i < h.size && !subsumed;) {
+      const Watch w{ws[i]};
+      if (w.binary()) {
+        subsumed = marks[w.other()] != 0;
+        i += 1;
         continue;
-      const WatchHead &h = k.watches.heads[l];
-      if (h.size > SUBSUME_OCCLIM)
-        continue;
-      const uint32_t *ws = k.watches.arena.data() + h.offset;
-      for (uint32_t i = 0; i < h.size;) {
-        if (Watch{ws[i]}.binary()) {
-          i += 1;
-          continue;
-        }
-        const Ref dref = ws[i + 1];
-        i += 2;
-        if (dref == candidate)
-          continue;
-        const Clause *d = clause_at(k.arena, dref);
-        if (d->garbage() || d->redundant() || d->size > c->size)
-          continue;
-        if (subsumes_marked(k, marks, d)) {
-          subsumed = true;
-          break;
-        }
       }
-      if (subsumed)
-        break;
+      const Ref dref = ws[i + 1];
+      i += 2;
+      if (dref == candidate)
+        continue;
+      const Clause *d = clause_at(k.arena, dref);
+      if (d->garbage() || d->redundant() || d->size > c->size)
+        continue;
+      subsumed = subsumes_marked(k, marks, d);
     }
+    if (subsumed)
+      break;
   }
   mark_candidate(k, marks, c, 0);
   if (!subsumed)

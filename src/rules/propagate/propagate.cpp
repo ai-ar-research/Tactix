@@ -42,11 +42,7 @@ static void emit_root_units(Kernel &k, size_t from) {
                                       k.unit_ids[ov]);
         }
     }
-    std::sort(k.lrat_entries.begin(), k.lrat_entries.end());
-    k.lrat_chain.clear();
-    for (const auto &e : k.lrat_entries)
-      k.lrat_chain.push_back(e.second);
-    k.lrat_chain.push_back(reason_id);
+    kernel_lrat_chain(k, reason_id);
     const uint64_t id = ++k.next_clause_id;
     k.unit_ids[v] = id;
     k.proof->add_derived_unit(id, lit, k.lrat_chain.data(),
@@ -88,11 +84,7 @@ ApplyResult propagate_apply(Kernel &k) {
                                           k.unit_ids[v]);
             }
           }
-          std::sort(k.lrat_entries.begin(), k.lrat_entries.end());
-          k.lrat_chain.clear();
-          for (const auto &e : k.lrat_entries)
-            k.lrat_chain.push_back(e.second);
-          k.lrat_chain.push_back(falsified_id);
+          kernel_lrat_chain(k, falsified_id);
           k.proof->add_empty(++k.next_clause_id, k.lrat_chain.data(),
                              static_cast<uint32_t>(k.lrat_chain.size()));
         } else {

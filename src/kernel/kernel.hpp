@@ -145,7 +145,8 @@ struct Kernel {
   // carry theirs in the header; units live in unit_ids (by var; 0 =
   // none); binaries, which never materialize, in binary_ids keyed by the
   // canonical literal pair (first id wins on duplicates — binaries are
-  // never deleted, so the map only grows).
+  // never deleted, so the map only grows; that permanence is load-bearing
+  // for SubsumeForward's soundness — see subsume_forward.hpp).
   uint64_t next_clause_id = 0;
   std::vector<uint64_t> unit_ids; // by var
   std::unordered_map<uint64_t, uint64_t> binary_ids;
@@ -155,7 +156,7 @@ struct Kernel {
   // checker-propagatable by construction (each hint's other literals are
   // clause negations, roots, or earlier-propagated literals)
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
-  std::vector<uint64_t> lrat_chain; // sorted-emission scratch
+  std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
 
   Proof *proof = nullptr;
   Stats stats;
@@ -259,6 +260,13 @@ void kernel_update_target_phases(Kernel &);
 inline uint32_t kernel_root_fixed(const Kernel &k) {
   return k.level == 0 ? static_cast<uint32_t>(k.trail.size()) : k.frames[1];
 }
+
+// assemble k.lrat_chain from k.lrat_entries: antecedent ids sorted by
+// trail position ascending — the order that unit-propagates for the
+// checker by construction — with `closing_id` (the conflicting/falsified
+// clause, or the unit's reason) last. Shared by every chain-emitting
+// rule so the ordering invariant is defined exactly once.
+void kernel_lrat_chain(Kernel &, uint64_t closing_id);
 
 // --- decision ranking dispatch (§5.1) ---------------------------------------
 inline Var kernel_next_decision_var(Kernel &k) {

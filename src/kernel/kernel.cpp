@@ -339,6 +339,14 @@ void kernel_collect_garbage(Kernel &k) {
   }
 }
 
+void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
+  std::sort(k.lrat_entries.begin(), k.lrat_entries.end());
+  k.lrat_chain.clear();
+  for (const auto &e : k.lrat_entries)
+    k.lrat_chain.push_back(e.second);
+  k.lrat_chain.push_back(closing_id);
+}
+
 uint64_t kernel_irredundant_clauses(const Kernel &k) {
   // binary_ids counts every distinct binary ever added (incl. derived
   // ones — they are irredundant-lifecycle here); the log-scale consumers
@@ -516,7 +524,6 @@ void kernel_update_target_phases(Kernel &k) {
     k.stats.best_saved++;
   }
 }
-
 
 #ifndef NDEBUG
 void kernel_check_invariants(const Kernel &k) {
