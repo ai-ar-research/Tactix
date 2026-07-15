@@ -187,10 +187,6 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return kernel_root_fixed(k);
   case 16: // TACTIX_STAT_BINARY_CLAUSES
     return k.binary_ids.size();
-  case 17: // TACTIX_STAT_REDUCE_BOUNDARY_GLUE
-    return k.stats.last_reduce_boundary_glue;
-  case 18: // TACTIX_STAT_REDUCE_BEST_GLUE
-    return k.stats.last_reduce_best_glue;
   default:
     return UINT64_MAX;
   }

@@ -53,19 +53,6 @@ public:
   static constexpr double EMA_SLOW_WINDOW = 1e5;    // emaslow
   static constexpr uint64_t REDUCE_INTERVAL_INIT = 2000;
   static constexpr uint64_t REDUCE_INTERVAL_STEP = 300;
-  // Adaptive reduce interval (glucose Solver.cc reduceDB, MIT,
-  // transliterated — independent-lineage campaign experiment 3; absent
-  // from kissat/CaDiCaL): when the ranked clause DB looks healthy, the
-  // next reduction is postponed by specialIncReduceDB per signal —
-  // (a) glue ≤ 3 at the deletion boundary (the worst clause the canonical
-  // volume would keep; glucose learnts[size/RATIOREMOVECLAUSES]) and
-  // (b) glue ≤ 5 for the best-ranked candidate. Signals are published by
-  // the Reduce rule's canonical ranking as stats (reduce.cpp — the §5.6
-  // observables pattern; deviations recorded there). The interval reacts
-  // to DB quality, not just the reduction count.
-  static constexpr uint64_t REDUCE_SPECIAL_INCREMENT = 1000;
-  static constexpr uint64_t REDUCE_BOUNDARY_GLUE_HEALTHY = 3;
-  static constexpr uint64_t REDUCE_BEST_GLUE_HEALTHY = 5;
   static constexpr uint64_t MODE_INITIAL_CONFLICTS = 1000; // modeinit
   static constexpr uint64_t MODE_INTERVAL = 1000;          // modeint
   static constexpr uint64_t RELUCTANT_PERIOD = 1024;    // reluctantint

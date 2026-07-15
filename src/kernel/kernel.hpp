@@ -50,10 +50,6 @@ struct Stats {
   uint64_t restarts_reused = 0; // restarts that kept a trail prefix
   uint64_t reductions = 0;
   uint64_t deleted = 0; // learned clauses deleted by Reduce
-  // DB-quality observables from the last canonical Reduce ranking
-  // (glucose reduceDB signals; UINT64_MAX = no signal — see reduce.cpp)
-  uint64_t last_reduce_boundary_glue = UINT64_MAX;
-  uint64_t last_reduce_best_glue = UINT64_MAX;
   uint64_t forward_subsumptions = 0; // SubsumeForward rounds (C1)
   uint64_t forward_checked = 0;  // SubsumeForward candidates checked (C1)
   uint64_t forward_subsumed = 0; // clauses deleted by SubsumeForward

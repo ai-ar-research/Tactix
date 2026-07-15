@@ -166,12 +166,6 @@ void DefaultPolicy::update_subsume_limit(const Kernel &k) {
 void DefaultPolicy::update_reduce_limit(const Kernel &k) {
   reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_INIT +
                           REDUCE_INTERVAL_STEP * k.stats.reductions;
-  // glucose reduceDB DB-health bumps (constants in the header): read the
-  // observables the round's canonical ranking just published
-  if (k.stats.last_reduce_boundary_glue <= REDUCE_BOUNDARY_GLUE_HEALTHY)
-    reduce.next_conflicts += REDUCE_SPECIAL_INCREMENT;
-  if (k.stats.last_reduce_best_glue <= REDUCE_BEST_GLUE_HEALTHY)
-    reduce.next_conflicts += REDUCE_SPECIAL_INCREMENT;
 }
 
 size_t GlueTieredReduction::victims(const Kernel &, size_t candidates) {
