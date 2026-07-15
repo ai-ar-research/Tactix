@@ -104,7 +104,6 @@ static void mark_used(Kernel &k, Clause *c) {
   if (!c->redundant())
     return;
   c->set_used(Clause::MAX_USED);
-  c->bump_uip_used(); // CMS uip1_used (campaign experiment 4)
   const uint32_t old_glue = c->glue();
   if (old_glue <= 1)
     return;
