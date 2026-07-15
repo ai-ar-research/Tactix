@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 23 (2026-07-15)
+- **Plan revision tracked:** rev. 24 (2026-07-15)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-15
 
@@ -100,6 +100,7 @@ disagree, the plan is authoritative — fix this file.
 
 ## Log
 
+- 2026-07-15 — plan rev 24 (user decision): the plan document condensed. §13 revision history becomes a one-line-per-revision index — the plan is re-read at every session bootstrap, so its length is a recurring cost, while each revision's full rationale already exists twice (this Log + the `plan rev N:` commit); §13 now only keeps "rev N" cross-references (used in plan text, this file, and code comments) resolvable in-repo. §2's landscape tables compressed to a prose paragraph (T5 target number kept inline). The recording DISCIPLINE is unchanged: every revision still writes its why here and in the commit, in the same change (revise-plan skill step 4 updated). ~150 lines shorter; plan body still edited in place ("organic" current-state text, as before).
 - 2026-07-15 — plan rev 23 (user edits, formalized through revise-plan): Tier C resized to ~30 instances (§8.1; T3 unchanged, statistical-power caveat recorded); solver name settled as **Tactix** (O10 decided); §1.1 trade-off wording sharpened — efficiently enabling N1 is the differentiator. benchmarks skill + CLAUDE.md synced.
 - 2026-07-14 — **T2 GATE PASSED — phase 2 closed (same-day open and close), phase 3 open** (report: `benchmarks/reports/2026-07-14-t2-gate.md`). Tier A precondition: 200/200 twice (PAR-2 0.56/0.55, jobs=4). Tier B per §8.1 (3 runs each, jobs=4, per-instance medians): **tactix 11/14 PAR-2 164.8 vs Glucose 8/14 268.3** — spreads < 1.3 points both solvers; tactix uniquely solves crypto1/qwh/mod4block, Glucose uniquely solves nothing; several instances now at or past the kissat reference band (qwh 0.6 vs 20.1 s, mod4block 13.2 vs 27.6, rbsat 4.7 vs 7.5). Propagation microbenchmark (60 s SIGTERM-capped samples, jobs=1): **geomean 0.92× kissat** over the 12 non-artifact instances (all-14: 1.05×) — within the 20% band; the honest tail (clique/circuit/x9/crypto1 at 0.52–0.66×) is recorded as the standing watch-arena §5.4 candidate for phase 3. §5.4: no revamp — the day's whole load (freeze, S3, S5, restart package, chrono, LRAT) landed inside the §5.3 contract; known gaps are policy-territory (propagation volume) or filed candidates. §5.5: clean; one comment-drift class fixed in 567d1ee. Same-day arc: T1 passed this morning at 9/14 @ 231.6 vs MiniSat — phase 2 delivered +2 solves and −67 PAR-2 points on the identical protocol in one day. Phase 3 queue: C1–C3, V1–V4, E1 + reconstruction stack, Tier C build/freeze, nightly random-policy fuzzing; motivating targets = the three common Tier B timeouts (hwmcc17, clique, battleship), whose kissat story is exactly inprocessing.
 

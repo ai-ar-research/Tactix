@@ -40,8 +40,10 @@ confirm, record the decision and its consequences in the revision history.
    and verify every reference still points where intended (renumbering is the
    classic failure).
 4. **Bump the revision:** increment "rev. N" and date in the plan header, and
-   append a dated entry to §13 (Revision history) summarizing what changed and
-   why.
+   append a ONE-LINE dated entry to §13 (Revision history) — rev 24 policy:
+   §13 is an index that keeps "rev N" references resolvable; the full
+   rationale goes in the PROGRESS.md Log entry (step 5) and the commit
+   message (step 6), both written in the same change anyway.
 5. **Sync PROGRESS.md:** update the tracked plan revision, add/remove/re-gate
    checklist items affected by the change, and note the revision in the Log.
    If the change alters a skill's workflow (tiers, checklist, catalog), update

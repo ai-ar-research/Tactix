@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-15 (rev. 23). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-15 (rev. 24). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -60,25 +60,14 @@ API unavailable (N1) or by skipping proof emission (N2).
 
 ## 2. Landscape: who we must beat, and what "winning" requires
 
-Verified from the official results pages / results slides:
-
-### SAT Competition 2025 (Glasgow; sequential ran on LMU cluster, 5000 s, ~30 GB RAM)
-
-| Track | 1st | 2nd | 3rd |
-|---|---|---|---|
-| Main (seq) overall | **AE-Kissat-MAB** (PAR-2 2264.73, 327/400) | Kissat-public (2423.38, 321) | Kissat-VSA (2478.45, 317) |
-| Main SAT | AE-Kissat-MAB (715.92, 173) | Kissat-public (1397.09, 163) | Kissat-CURE (1525.91, 159) |
-| Main UNSAT | CaDiCaL-SC2025 (2327.00, 161) | Kissat-VSA (2335.54, 160) | AE-Kissat-bump (2358.10, 159) |
-
-### SAT Competition 2024 (Pune)
-
-Main track swept by **kissat-sc2024** (Biere, Faller, Fazekas, Fleury, Froleyks,
-Pollitt): gold in overall, SAT (PAR-2 1270.53, 153), and UNSAT (2077.11, 153).
-
-### SAT Competition 2023
-
-Main track overall and SAT won by **SBVA-CaDiCaL** (structured bounded variable
-addition preprocessor + CaDiCaL); Kissat-MAB-prop variants second.
+Verified from the official results pages / results slides (condensed rev 24;
+full tables in git history). **SC 2025** (sequential: LMU cluster, 5000 s,
+~30 GB): main overall won by **AE-Kissat-MAB** (PAR-2 2264.73, 327/400) over
+Kissat-public (2423.38) and Kissat-VSA; UNSAT track won by **CaDiCaL-SC2025**
+(2327.00). **SC 2024**: swept by **kissat-sc2024** (Biere et al. — overall,
+SAT, and UNSAT gold). **SC 2023**: won by **SBVA-CaDiCaL** (structured
+bounded variable addition preprocessor + CaDiCaL); Kissat-MAB-prop second.
+AE-Kissat-MAB's PAR-2 2264.73 on the SC25 set is the T5 target number (§8.3).
 
 ### Takeaways that shape this project
 
@@ -769,171 +758,31 @@ discovered during development get added here rather than answered ad hoc.
 
 ## 13. Revision history
 
+One line per revision (rev 24 policy): the full rationale for each revision
+lives in the PROGRESS.md Log entry and the `plan rev N:` commit written in
+the same change — this index only keeps "rev N" references resolvable.
+
 - **rev. 1** (2026-07-09): initial plan.
-- **rev. 2** (2026-07-09): sequential-only scope; benchmark tiers A–D (small
-  3-SAT first, ≤30 s dev subset); fuzzing + proof-checking harness promoted to
-  first-class phase-0 deliverable.
-- **rev. 3** (2026-07-09): rule catalog (§5.2) exhaustively covering Kissat
-  4.0.4 modules + winner techniques; extensibility contract (§5.3) with CCE
-  acceptance test.
-- **rev. 4** (2026-07-09): non-negotiables N1–N3 (§1.1: universal rule
-  applicability incl. API-exposed branching for LLM/RL policies; proof
-  production everywhere; Kissat-comparable default mode); branching as
-  first-class API surface (§5.1, M2, §8.4 demo policy 6); PROGRESS.md
-  introduced as synced living status; revise-plan skill added.
-- **rev. 5** (2026-07-09): consistency review. Fixed: N3 gate wording aligned
-  with T4 (Tier D); BCE moved out of phase-3 milestone row (catalog says
-  phase 4); SBVA removed from phase-5 row (Factor/SBVA is phase 4); §8.4 demo
-  policies reordered so 1–3 are implementable at their phase-2 review; Tier C
-  solver timeout stated (3000 s); undefined "no-limits track" reference
-  removed; §6 Docker wording reconciled with phase-5 packaging. Added: §11
-  open-decisions register (deliberate underspecification with decide-by
-  points); revise-plan skill gains concretize mode.
-- **rev. 6** (2026-07-09): evaluation environment concretized (narrows O1):
-  single local workstation, no HPC/StarExec; benchmarking may use ≤ 8 parallel
-  single-threaded solver jobs, with concurrency recorded in reports and
-  reduced for Tier C/D gate runs; wall-clock feasibility noted per tier.
-- **rev. 7** (2026-07-09): pre-implementation review. Baseline solver builds
-  added to phase-0 deliverables (they gate the fuzz differential oracle and
-  Tier B construction); O11 added for the kitten sub-solver dependency
-  (Sweep, BVE definition extraction) with a syntactic-gates-first fallback
-  for E1. Instruction.md added as the session bootstrap prompt.
-- **rev. 8** (2026-07-09): concretized O2 (build system & CI): CMake ≥ 3.25
-  with debug/release presets (sanitizers in debug), GitHub Actions as CI
-  provider; CI job content grows with the phase-0 deliverables. Rationale:
-  repo already on GitHub; CMake gives sanitizer presets and the pybind11 path
-  with least friction. Decided minimally — packaging/Docker specifics remain
-  phase-5 (§6).
-- **rev. 9** (2026-07-09): baseline version wording — §8.3 "CaDiCaL 2.x" →
-  CaDiCaL 3.0.0, matching the pinned `rel-3.0.0` build from
-  `tools/solvers/setup.sh` (latest release at pin time; the 2.x reference
-  predated the actual build).
-- **rev. 10** (2026-07-09): Tier B redefined per user decision: 10–15
-  instances (was 100–150) with Kissat runtime in the **5–30 s band** (lower
-  bound new — excludes trivial instances), total ≈ 2–8 CPU-min so it runs on
-  every meaningful change. Consequences: family cap tightened to 2 for
-  diversity in the small set; statistical-noise caveat added (per-instance
-  medians, repeated runs; Tier C for statistically meaningful claims);
-  §8.4 overhead-budget measurement references the caveat; benchmarks skill
-  updated to match. T1/T2 gates unchanged (still judged on Tier B).
-- **rev. 11** (2026-07-09): concretized O1 (reference hardware): Apple M3
-  Pro (6P+6E), 36 GB RAM, macOS 15.7.7; tier-freeze timings at jobs=1.
-  Recorded at the first timing run (Tier B freeze — see
-  benchmarks/reports/2026-07-09-tier-b-freeze.md).
-- **rev. 12** (2026-07-10): S1 Restart and S2 Reduce moved from phase 2 to
-  phase 1. Empirical driver: the phase-1 solver (M1–M4 + minimization)
-  leaves 16 Tier A transition instances (n = 250–290) unsolved at 30 s —
-  a 60 s profile shows an unreduced 322k-clause learned DB collapsing
-  propagation throughput; T1 is unreachable without S1/S2, and T1 also
-  benchmarks against MiniSat, which has both. Phase 2 keeps S3–S5, native
-  LRAT, and the API freeze. §8.1's "naive CDCL" claim for Tier A
-  corrected to match measurement.
-- **rev. 13** (2026-07-10): §5.4 revamp discipline added (user request):
-  every phase gate and specified between-gate triggers require an explicit
-  evaluation of whether significant parts of the codebase should be
-  restructured, executed via the new `revamp` skill with evidence,
-  mini-design, full revalidation, and revert-as-outcome. §9 gate reports
-  record the evaluation. Background: the guard/advised split and four
-  soundness fixes surfaced by random-schedule testing showed structural
-  issues are found by discipline, not luck.
-- **rev. 14** (2026-07-10): reference-usage discipline added to §5 design
-  commitments (user request): (1) reference solvers are evidence, not
-  templates — transliterating an existing solver's approach requires an
-  explicit argument that it fits this architecture (§5.3, N1–N3), with
-  deliberate recorded deviations where our design differs; (2) technique
-  research must survey recent competition winners (CaDiCaL-SC2025,
-  AE-Kissat-MAB lineage, SBVA-CaDiCaL), not only plain Kissat. rule-dev
-  skill point 6, Instruction.md ground rule, and CLAUDE.md synced.
-- **rev. 15** (2026-07-10): §5.5 codebase hygiene added (user request):
-  every phase gate (and post-large-feature moments between gates) also
-  evaluates whether the codebase is clean and whether simplification is
-  warranted — dead code, drifted comments/docs, duplication, speculative
-  generality (explicitly excepting the N1 API surface), stale
-  TODO/workarounds. Operationalized by the new `simplify-codebase` skill
-  (inventory → judge → behavior-preserving dedicated commits → full
-  revalidation); explicitly distinguished from §5.4 revamps (structural,
-  evidence-driven) and never traded against N1–N3. §9 gate reports now
-  record both evaluations; Instruction.md skill list synced (also adding
-  the rev-13 `revamp` skill it was missing).
-- **rev. 16** (2026-07-10): de-duplication sweep of the plan itself (user
-  request; a §5.5-style hygiene pass on the document). Merged the two
-  overlapping §5 reference-solver bullets ("Kissat as reference, not as
-  fork" folded into rev 14's "evidence, not templates"); §5.4 and §5.5 no
-  longer restate their skills' procedures (the skills are authoritative
-  for execution; the plan keeps triggers, hard constraints, and
-  precedents); §5.5's checklist deferred to the skill. No commitment
-  changed; ~45 lines removed.
-- **rev. 17** (2026-07-11): Policy-class ownership of scheduling made an
-  explicit §5 design commitment (user request, emphasized as load-bearing):
-  rule order is decided by a Policy object behind one abstract interface,
-  DefaultPolicy being one instantiation; ALL scheduling heuristics and
-  their state (restart EMAs/floors, reduce intervals, mode switching,
-  classification, budgets) live in the policy — never in rule modules or
-  the kernel. Supersedes the rule-module `advised` hint from the earlier
-  guard/advised split (advice + state move into the policy; registry keeps
-  pure guards). Kernel H-state is confined to instance-ranking heuristics
-  backing §5.1 (VMTF/scores/phases). Refactor of existing leaks
-  (restart_advised/reduce_advised, RestartState/ReduceState in Kernel,
-  glue-EMA updates inside Analyze) tracked in PROGRESS.
-- **rev. 18** (2026-07-11): Tier A/B sequencing rule added to §8.1 (user
-  decision): Tier B is not evaluated while any Tier A instance is
-  unsolved within its 30 s budget — clear Tier A first. Reorders the
-  current T1 work: the remaining hard n=280–300 transition instances
-  come before any further Tier B comparison; benchmarks skill synced.
-- **rev. 19** (2026-07-13): S4 `SwitchMode` (with its stable-mode machinery:
-  EVSIDS score heap, reluctant-doubling restarts, target phases) moved from
-  phase 2 to phase 1, mirroring the rev-12 precedent and its rationale.
-  Measured evidence: on the four hard Tier A n=280–300 transition instances
-  (the entire remaining Tier A gap, front of the T1 queue per rev 18),
-  reference Kissat in focused-only mode — our current regime — needs
-  2.2–4× the conflicts of mode-switching on the three UNSATs and 27× on
-  the SAT instance, while stable-only wins on all four; T1's Tier A half
-  is therefore not realistically reachable focused-only, and the T1 gate
-  report had already flagged stable/EVSIDS as the honest question for
-  Tier B (MiniSat's VSIDS is known-stronger than bare VMTF on industrial
-  instances). Scheduling of the switch stays in the policy per rev 17;
-  the kernel gains only instance-ranking H-state (§5.1: score heap,
-  target phases). Phase 2 keeps S3 Rephase and S5 Lucky.
-- **rev. 20** (2026-07-14): Rule API v1 freeze (phase-2 review). Concretized
-  O3: instances are uint64 payloads with per-rule documented encodings
-  (Decide literal / Restart keep-level / Backjump target level / Reduce
-  victim count; `TACTIX_INSTANCE_CANONICAL` sentinel), buffer-fill
-  enumeration ranked canonical-first — no iterator objects, no allocation
-  at the boundary, snapshot validity until the next mutating call; errors
-  are −1 int returns. Concretized O5: external/scripted policies are
-  pull-based (they drive the stepping surface themselves); the sketch's
-  callback `tactix_set_policy` is dropped from v1 (additive later, revisit
-  with phase-4 bindings). §5.1 rewritten from sketch to the frozen v1
-  surface incl. `tactix_proof(path, format)` with a DRAT-binary/DRAT-ascii/
-  LRAT enum (LRAT rejected until native LRAT lands, this phase); plain
-  IPASIR explicitly post-v1 with O7. §5.3 registration-line wording aligned
-  with the shipped vtable macro; phase-tag/budget metadata deferred to its
-  phase-3 consumer instead of freezing dead fields now. Grounding: the
-  Restart/Backjump instance surfaces and the Analyze-atomic decision landed
-  2026-07-14 pre-freeze (PROGRESS log); example policies 1–3 (§8.4) are the
-  freeze review's acceptance exercise.
-- **rev. 21** (2026-07-14): `tactix_stat(solver, stat_id)` added to the
-  frozen §5.1 surface — the §8.4 demo-3 review (scripted policy
-  reproducing the default schedule) showed pull-based policies need the
-  counters the built-in policy reads (conflicts, ticks, last learned glue,
-  mode, …); without observability, O5's pull model is unusable for exactly
-  the §8.4 demos it was chosen for. Read-only, allocation-free, id list
-  grows additively post-v1; unknown ids return UINT64_MAX.
-- **rev. 23** (2026-07-15, user edits formalized): (1) Tier C resized to
-  ~30 instances (was ~150) in §8.1 — the weekly set stays a few CPU-hours
-  on the single-workstation budget; T3 is still judged on it (§8.3
-  unchanged), with the statistical-power caveat that 30 instances move
-  PAR-2 ~3% per instance. (2) Solver name settled: Tactix (O10 decided;
-  header "placeholder — rename freely" dropped). (3) §1.1 trade-off
-  wording sharpened: efficiently enabling N1 is the tool's differentiator
-  (replaces the "dynamic micro-stepping may be slower" sentence; N1's
-  never-removed status is unchanged, stated by the N1 bullet itself).
-  benchmarks skill + CLAUDE.md synced.
-- **rev. 22** (2026-07-14): Tier A margin rule added to §8.1 (user
-  decision): Tier A must pass easily and consistently — any instance
-  within ~15% of its 30 s budget solo (≳ 25 s) makes the change
-  incomplete until a dedicated follow-up restores headroom, via fidelity
-  levers, never Tier-A constant tuning (which §8.1 still forbids);
-  consistency verified with repeat jobs=4 runs. Prompted by tr-n300-s055
-  oscillating at the timeout line (21.0 → 28.9 → 30.2 → 25.2 s solo)
-  across the day's S3/S5/EMA/promotion changes.
+- **rev. 2** (2026-07-09): sequential-only scope; tiers A–D; fuzz harness promoted to phase 0.
+- **rev. 3** (2026-07-09): exhaustive rule catalog (§5.2); extensibility contract + CCE test (§5.3).
+- **rev. 4** (2026-07-09): non-negotiables N1–N3 (§1.1); branching as API surface; PROGRESS.md.
+- **rev. 5** (2026-07-09): consistency review; §11 open-decisions register; concretize mode.
+- **rev. 6** (2026-07-09): O1 narrowed — local workstation, ≤ 8 parallel bench jobs.
+- **rev. 7** (2026-07-09): baseline builds into phase 0; O11 (kitten); Instruction.md.
+- **rev. 8** (2026-07-09): O2 decided — CMake ≥ 3.25 + GitHub Actions.
+- **rev. 9** (2026-07-09): CaDiCaL baseline wording 2.x → 3.0.0.
+- **rev. 10** (2026-07-09): Tier B = 10–15 instances in the Kissat 5–30 s band.
+- **rev. 11** (2026-07-09): O1 decided — Apple M3 Pro, 36 GB, macOS 15.7.7; jobs=1 freeze timings.
+- **rev. 12** (2026-07-10): S1 Restart + S2 Reduce moved to phase 1 (measured T1 evidence).
+- **rev. 13** (2026-07-10): §5.4 revamp discipline + revamp skill.
+- **rev. 14** (2026-07-10): references are evidence, not templates; survey recent winners (§5).
+- **rev. 15** (2026-07-10): §5.5 codebase hygiene + simplify-codebase skill.
+- **rev. 16** (2026-07-10): de-duplication sweep of the plan document itself.
+- **rev. 17** (2026-07-11): Policy class owns ALL scheduling (load-bearing §5 commitment).
+- **rev. 18** (2026-07-11): Tier A/B sequencing rule — clear Tier A before Tier B counts.
+- **rev. 19** (2026-07-13): S4 SwitchMode + stable-mode machinery moved to phase 1.
+- **rev. 20** (2026-07-14): Rule API v1 freeze — O3 (uint64 instance payloads) + O5 (pull-based policies) decided.
+- **rev. 21** (2026-07-14): tactix_stat observability added to the frozen surface.
+- **rev. 22** (2026-07-14): Tier A margin rule — pass easily and consistently (≳ 25 s solo = incomplete).
+- **rev. 23** (2026-07-15): Tier C ~30 instances; Tactix name settled (O10); §1.1 N1-efficiency wording.
+- **rev. 24** (2026-07-15): plan condensed — §13 becomes this one-line index (rationale lives in PROGRESS Log + commits, enforced by the revise-plan skill), §2 landscape tables compressed to prose.
