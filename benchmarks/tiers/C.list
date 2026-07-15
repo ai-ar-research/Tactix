@@ -1,0 +1,33 @@
+# Tier C — frozen 2026-07-15 (plan rev 23: ~30 instances); kissat 4.0.4, jobs=1, band [5,300]s, cap 360s
+# 30 instances: 15 SAT / 15 UNSAT, one per family; proof-checkability screened
+# (two correct-UNSAT candidates dropped for >0.5GB/5.4GB proofs beyond the 6000s checker cap)
+tierC/1-ET-256-K-70.sanitized.cnf.xz UNSAT 48.2
+tierC/128_125.sanitized.cnf.xz SAT 90.8
+tierC/ContextModel_output_7_3_9.bul_.dimacs.cnf.xz SAT 31.4
+tierC/DLTM_twitter690_74_16.cnf.xz SAT 89.0
+tierC/EDP3-11000.cnf.xz SAT 41.5
+tierC/ER_400_20_4.apx_2_DC-ST.cnf.xz UNSAT 117.2
+tierC/Grain_no_init_ver1_out200_known_last105_0_u.cnf.xz UNSAT 166.0
+tierC/Ptn-7824-b18.cnf.xz SAT 174.3
+tierC/SCPC-1000-18.cnf.xz SAT 129.3
+tierC/StConn_8_32.sanitized.cnf.xz UNSAT 207.5
+tierC/T105.2.0.cnf.xz UNSAT 203.1
+tierC/T87.2.0.cnf.xz UNSAT 177.8
+tierC/aes_decry_2_rounds.debugged.cnf.xz UNSAT 68.8
+tierC/af-synthesis_stb_50_120_4_sat.cnf.xz SAT 93.1
+tierC/asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf.xz UNSAT 76.7
+tierC/circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf.xz SAT 86.4
+tierC/constraints_18_0.3_2.sanitized.cnf.xz UNSAT 145.5
+tierC/constraints_25_4_5_12_12_0_0_0.sanitized.cnf.xz UNSAT 93.8
+tierC/ecarev-110-4099-22-30-7.cnf.xz SAT 174.9
+tierC/em_11_3_4_cmp.cnf.xz SAT 79.2
+tierC/frb45-21-2.used-as.sat04-884.cnf.xz SAT 75.6
+tierC/goldcrest-and-9.cnf.xz UNSAT 73.3
+tierC/j3037_9_rggt_b.cnf.xz SAT 115.3
+tierC/jgiraldezlevy.2200.9086.08.40.41.cnf.xz SAT 84.8
+tierC/minxor128.cnf.xz UNSAT 167.0
+tierC/mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2534.cnf.xz SAT 30.7
+tierC/mp1-Nb5T15.cnf.xz SAT 57.7
+tierC/php17-mixed-35percent-blocked.cnf.xz UNSAT 136.7
+tierC/sat-bench-trig-bhaskara.cnf.xz UNSAT 260.0
+tierC/urq45.cnf.xz UNSAT 73.3
