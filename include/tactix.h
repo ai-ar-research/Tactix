@@ -59,6 +59,11 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_IRREDUNDANT_CLAUSES 14
 #define TACTIX_STAT_ROOT_FIXED 15      /* root-level (fixed) assignments */
 #define TACTIX_STAT_BINARY_CLAUSES 16  /* distinct binary clauses added */
+/* DB-quality observables from the last canonical Reduce ranking (glucose
+ * reduceDB signals): glue at the canonical deletion boundary / of the
+ * best-ranked candidate; UINT64_MAX = no signal */
+#define TACTIX_STAT_REDUCE_BOUNDARY_GLUE 17
+#define TACTIX_STAT_REDUCE_BEST_GLUE 18
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);

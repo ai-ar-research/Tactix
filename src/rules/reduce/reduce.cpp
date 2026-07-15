@@ -84,6 +84,21 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
   out.reserve(candidates.size());
   for (const Victim &v : candidates)
     out.push_back(v.ref);
+  // DB-quality observables at the canonical ranking (glucose Solver.cc
+  // reduceDB's two signals, published as stats so policies — and the
+  // demo-3 mirror through TACTIX_STAT — can schedule from them; the §5.6
+  // observables pattern): glue at the canonical deletion boundary (the
+  // worst clause the canonical volume would KEEP; glucose's
+  // learnts[size/RATIOREMOVECLAUSES]) and of the best-ranked candidate.
+  // UINT64_MAX = no signal (no candidates / nothing kept). Deviations
+  // recorded: our candidate list excludes reasons and used-protected
+  // tiers (glucose scans all learnts), and the boundary sits at OUR
+  // canonical volume, not glucose's fixed half.
+  const size_t boundary = reduce_canonical_victims(candidates.size());
+  k.stats.last_reduce_boundary_glue =
+      boundary < candidates.size() ? candidates[boundary].glue : UINT64_MAX;
+  k.stats.last_reduce_best_glue =
+      candidates.empty() ? UINT64_MAX : candidates.back().glue;
 }
 
 ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {

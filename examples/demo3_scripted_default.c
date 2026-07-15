@@ -36,6 +36,9 @@ static int rule_id(const char *name) {
 #define EMA_SLOW_WINDOW 1e5
 #define REDUCE_INTERVAL_INIT 2000
 #define REDUCE_INTERVAL_STEP 300
+#define REDUCE_SPECIAL_INCREMENT 1000
+#define REDUCE_BOUNDARY_GLUE_HEALTHY 3
+#define REDUCE_BEST_GLUE_HEALTHY 5
 #define MODE_INITIAL_CONFLICTS 1000
 #define MODE_INTERVAL 1000
 #define RELUCTANT_PERIOD 1024
@@ -238,6 +241,14 @@ static int scripted_solve(tactix *s) {
                         REDUCE_INTERVAL_INIT +
                         REDUCE_INTERVAL_STEP *
                             tactix_stat(s, TACTIX_STAT_REDUCTIONS);
+        /* glucose DB-health bumps, mirroring update_reduce_limit: the
+         * round's canonical ranking published its observables */
+        if (tactix_stat(s, TACTIX_STAT_REDUCE_BOUNDARY_GLUE) <=
+            REDUCE_BOUNDARY_GLUE_HEALTHY)
+          p.reduce_next += REDUCE_SPECIAL_INCREMENT;
+        if (tactix_stat(s, TACTIX_STAT_REDUCE_BEST_GLUE) <=
+            REDUCE_BEST_GLUE_HEALTHY)
+          p.reduce_next += REDUCE_SPECIAL_INCREMENT;
         continue;
       }
     }
