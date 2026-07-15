@@ -43,6 +43,8 @@ static int rule_id(const char *name) {
 #define REPHASE_INTERVAL_INIT 1000
 #define REPHASE_INTERVAL 1000
 #define CHRONO_LEVELS 100
+#define SUBSUME_INTERVAL_INIT 500
+#define SUBSUME_INTERVAL 500
 
 /* bias-corrected EMA (mirror of DefaultPolicy::Smooth / kissat smooth.c) */
 struct smooth {
@@ -86,7 +88,18 @@ struct sched {
   uint64_t rel_u, rel_v, rel_wait;
   int rel_trigger;
   uint64_t rephase_next;
+  uint64_t subsume_next;
+  int subsume_ran; /* the initial full round is never gated */
+  uint64_t subsume_binaries_seen, subsume_root_fixed_seen;
 };
+
+/* mirror of DefaultPolicy's scale_inprocessing_delta (kissat kimits.c
+ * kissat_scale_delta): identical double arithmetic, identical result */
+static uint64_t scale_inproc_delta(tactix *s, uint64_t delta) {
+  const uint64_t clauses = tactix_stat(s, TACTIX_STAT_IRREDUNDANT_CLAUSES);
+  const double f = log10((double)clauses + 1) - 5;
+  return (uint64_t)((4.5 * f * f + 25) * (double)delta);
+}
 
 static void sched_init(struct sched *p) {
   memset(p, 0, sizeof *p);
@@ -160,6 +173,10 @@ static void update_mode_limits(struct sched *p, tactix *s) {
 static int scripted_solve(tactix *s) {
   struct sched p;
   sched_init(&p);
+  /* the first inprocessing limit is size-scaled at solve entry, like
+   * DefaultPolicy's lazy init */
+  p.subsume_next = tactix_stat(s, TACTIX_STAT_CONFLICTS) +
+                   scale_inproc_delta(s, SUBSUME_INTERVAL_INIT);
   const int propagate = rule_id("Propagate");
   const int analyze = rule_id("Analyze");
   const int backjump = rule_id("Backjump");
@@ -169,6 +186,7 @@ static int scripted_solve(tactix *s) {
   const int switchmode = rule_id("SwitchMode");
   const int rephase = rule_id("Rephase");
   const int lucky = rule_id("Lucky");
+  const int subsume = rule_id("SubsumeForward");
   int lucky_tried = 0;
   if (tactix_status(s) == 20)
     return 20;
@@ -250,10 +268,11 @@ static int scripted_solve(tactix *s) {
       /* the composed root restart (payload 0 = keep nothing); -1 when
        * already at the root */
       tactix_apply_instance(s, restart, 0);
-      /* B,I,B,O rotation over the instance payloads */
-      static const uint64_t rotation[4] = {0, 1, 0, 2};
+      /* B,B,I,B,B,O rotation over the instance payloads (kissat's
+       * B,W,I,B,W,O with Best in the Walking slots until phase 4) */
+      static const uint64_t rotation[6] = {0, 0, 1, 0, 0, 2};
       const uint64_t n_before = tactix_stat(s, TACTIX_STAT_REPHASED);
-      if (tactix_apply_instance(s, rephase, rotation[n_before % 4]) != -1) {
+      if (tactix_apply_instance(s, rephase, rotation[n_before % 6]) != -1) {
         const uint64_t n = tactix_stat(s, TACTIX_STAT_REPHASED);
         const double lg = log10((double)n + 9);
         p.rephase_next = tactix_stat(s, TACTIX_STAT_CONFLICTS) +
@@ -261,6 +280,37 @@ static int scripted_solve(tactix *s) {
                                     lg);
         continue;
       }
+    }
+    /* C1 forward subsumption in the eliminate slot (after rephase,
+     * before decide, like DefaultPolicy): new-material gate first (new
+     * binaries / new root-fixed vars, kissat_eliminating's variables
+     * trigger), then the composed root restart and the canonical round;
+     * applies may be -1 (already at root / guard) */
+    if (conflicts >= p.subsume_next &&
+        (!p.subsume_ran ||
+         tactix_stat(s, TACTIX_STAT_BINARY_CLAUSES) >
+             p.subsume_binaries_seen ||
+         tactix_stat(s, TACTIX_STAT_ROOT_FIXED) >
+             p.subsume_root_fixed_seen)) {
+      if (tactix_stat(s, TACTIX_STAT_LEVEL) > 0)
+        tactix_apply_instance(s, restart, 0);
+      if (tactix_apply(s, subsume) != -1) {
+        p.subsume_ran = 1;
+        p.subsume_binaries_seen =
+            tactix_stat(s, TACTIX_STAT_BINARY_CLAUSES);
+        p.subsume_root_fixed_seen = tactix_stat(s, TACTIX_STAT_ROOT_FIXED);
+      }
+      {
+        uint64_t n = tactix_stat(s, TACTIX_STAT_SUBSUMPTIONS);
+        if (!n)
+          n = 1;
+        const double lg = log10((double)n + 9);
+        const uint64_t delta =
+            (uint64_t)(SUBSUME_INTERVAL * (double)n * lg * lg);
+        p.subsume_next = tactix_stat(s, TACTIX_STAT_CONFLICTS) +
+                         scale_inproc_delta(s, delta);
+      }
+      continue;
     }
     r = tactix_apply(s, decide); /* canonical branch */
     assert(r != -1);

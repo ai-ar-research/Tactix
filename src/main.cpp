@@ -191,6 +191,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.best_saved);
     printf("c lucky       %llu probes\n",
            (unsigned long long)kernel.stats.lucky_probes);
+    printf("c subsume     %llu rounds (%llu checked, %llu subsumed)\n",
+           (unsigned long long)kernel.stats.forward_subsumptions,
+           (unsigned long long)kernel.stats.forward_checked,
+           (unsigned long long)kernel.stats.forward_subsumed);
   }
   if (res == 10) {
     printf("s SATISFIABLE\n");

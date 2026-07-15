@@ -22,6 +22,7 @@ add_library(tactix_lib STATIC
   src/rules/lucky/lucky.cpp
   src/rules/reduce/reduce.cpp
   src/rules/rephase/rephase.cpp
+  src/rules/subsume_forward/subsume_forward.cpp
   src/rules/switchmode/switchmode.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp

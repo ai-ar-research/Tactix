@@ -33,6 +33,10 @@ failure ─▶ ddmin shrinker ─▶ minimal CNF + seed + rule trace ─▶ corp
 
 ## Cadence
 
+Cases run on a thread pool (`--jobs`, default 8, added 2026-07-14): fuzzing
+is correctness testing, not timing, so contention is harmless; case `i` is
+fully determined by `(seed, i)`, so results are identical at any job count.
+
 - Per commit / before declaring any change done: `tools/fuzz/run.sh --quick` (~1k cases, sanitizer build) + full regression corpus + Tier A.
 - Random-policy leg (per commit for kernel/rule changes):
   `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy" --n 400 --max-vars 100`.

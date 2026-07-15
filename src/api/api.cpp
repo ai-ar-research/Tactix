@@ -179,6 +179,14 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stable ? 1 : 0;
   case 12: // TACTIX_STAT_REPHASED
     return k.stats.rephased;
+  case 13: // TACTIX_STAT_SUBSUMPTIONS
+    return k.stats.forward_subsumptions;
+  case 14: // TACTIX_STAT_IRREDUNDANT_CLAUSES
+    return kernel_irredundant_clauses(k);
+  case 15: // TACTIX_STAT_ROOT_FIXED
+    return kernel_root_fixed(k);
+  case 16: // TACTIX_STAT_BINARY_CLAUSES
+    return k.binary_ids.size();
   default:
     return UINT64_MAX;
   }

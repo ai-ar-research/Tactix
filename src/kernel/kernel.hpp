@@ -50,6 +50,9 @@ struct Stats {
   uint64_t restarts_reused = 0; // restarts that kept a trail prefix
   uint64_t reductions = 0;
   uint64_t deleted = 0; // learned clauses deleted by Reduce
+  uint64_t forward_subsumptions = 0; // SubsumeForward rounds (C1)
+  uint64_t forward_checked = 0;  // SubsumeForward candidates checked (C1)
+  uint64_t forward_subsumed = 0; // clauses deleted by SubsumeForward
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
@@ -252,6 +255,11 @@ inline bool kernel_heap_contains(const Kernel &k, Var v) {
 // consumes best and resets the watermarks.
 void kernel_update_target_phases(Kernel &);
 
+// number of root-fixed assignments (the level-0 trail prefix)
+inline uint32_t kernel_root_fixed(const Kernel &k) {
+  return k.level == 0 ? static_cast<uint32_t>(k.trail.size()) : k.frames[1];
+}
+
 // --- decision ranking dispatch (§5.1) ---------------------------------------
 inline Var kernel_next_decision_var(Kernel &k) {
   return k.stable ? kernel_heap_next_unassigned(k)
@@ -270,6 +278,14 @@ inline Lit kernel_decide_lit(const Kernel &k, Var v) {
 // compacts the arena (dropping GARBAGE clauses), fixes trail reasons via
 // forwarding pointers, and rebuilds large watches (binaries kept in place)
 void kernel_collect_garbage(Kernel &);
+
+// irredundant clause count: live irredundant large clauses + all binaries
+// (binaries have an irredundant lifecycle in this kernel — never reduced,
+// never deleted; see subsume_forward.hpp). The kissat BINIRR_CLAUSES
+// equivalent: feeds inprocessing interval scaling (kimits.c
+// kissat_scale_delta) and TACTIX_STAT_IRREDUNDANT_CLAUSES. O(arena) walk —
+// a per-round/statistics query, never a hot-path one.
+uint64_t kernel_irredundant_clauses(const Kernel &);
 
 // --- internal invariants (plan §8.2 oracle 4; debug builds) --------------
 // aborts on: values/trail/unassigned incoherence, frame/level corruption,

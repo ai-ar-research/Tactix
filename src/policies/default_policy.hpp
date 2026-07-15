@@ -7,10 +7,12 @@
 // stable-mode reluctant-doubling restart schedule, the arithmetic reduce
 // interval, the mode-switch alternation (kissat mode.c: first switch
 // after `modeinit` conflicts, stable phases last the preceding focused
-// phase's ticks, focused intervals grow as modeint·n·log⁴n), and the
+// phase's ticks, focused intervals grow as modeint·n·log⁴n), the
 // stable-only rephase schedule (kissat rephase.c: rephaseint·n·log³n
-// interval, B,B,I,B,B,O rotation). Constants are the published
-// kissat/Glucose defaults, not benchmark-tuned.
+// interval, B,B,I,B,B,O rotation), and the inprocessing slot (kissat
+// eliminate.c intervals, size-scaled — C1 SubsumeForward for now; C2/C3/
+// E1 join it this phase). Constants are the published kissat/Glucose
+// defaults, not benchmark-tuned.
 #pragma once
 
 #include "policies/policy.hpp"
@@ -57,6 +59,15 @@ public:
   static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;  // reluctantlim
   static constexpr uint64_t REPHASE_INTERVAL_INIT = 1000; // rephaseinit
   static constexpr uint64_t REPHASE_INTERVAL = 1000;      // rephaseint
+  // C1 SubsumeForward occupies the kissat eliminate slot (eliminate.c
+  // kissat_eliminating / kimits.h UPDATE_CONFLICT_LIMIT(eliminate, ...,
+  // NLOG2N, true)) until C2/C3/E1 join it in this phase: interval =
+  // eliminateint · n·log10(n+9)², init eliminateinit, BOTH scaled by
+  // kissat_scale_delta's formula-size factor — the constants presuppose
+  // the scaling exactly like the restart constants presuppose the EMA
+  // warm-up (measured lesson, 2026-07-14 carried-items log)
+  static constexpr uint64_t SUBSUME_INTERVAL_INIT = 500; // eliminateinit
+  static constexpr uint64_t SUBSUME_INTERVAL = 500;      // eliminateint
   // chronological backtracking (kissat learn.c kissat_determine_new_level,
   // options chrono=1/chronolevels=100): jumping over more than this many
   // levels is considered inefficient — backtrack one level instead. A
@@ -134,6 +145,22 @@ public:
   struct {
     uint64_t next_conflicts = REPHASE_INTERVAL_INIT;
   } rephase;
+  // C1 forward-subsumption schedule (the inprocessing slot); the first
+  // limit needs the ingested formula's size, so it is set lazily at
+  // solve() entry (kissat inits limits after parsing for the same reason).
+  // After the first round, rounds are additionally gated on NEW material
+  // (kissat eliminate.c kissat_eliminating's variables trigger): under
+  // C1's scope new subsumption relations only come from new binaries or
+  // new root-fixed variables — a round without either finds nothing and
+  // still costs a full pass plus the composed root restart (measured on
+  // tr-n300-s055: 8 rounds, 0 subsumed, +1.5 s solo before the gate)
+  struct {
+    bool initialized = false;
+    bool ran = false; // the initial full round is never gated
+    uint64_t next_conflicts = 0;
+    uint64_t binaries_seen = 0;
+    uint64_t root_fixed_seen = 0;
+  } subsume;
 
   // the scheduling predicates and their transitions, exposed so tests
   // (and future presets) can pose schedules directly
@@ -141,11 +168,13 @@ public:
   bool want_reduce(const Kernel &) const;
   bool want_switch_mode(const Kernel &) const;
   bool want_rephase(const Kernel &) const;
+  bool want_subsume(const Kernel &) const;
   void tick_reluctant();                   // per-conflict in stable mode
   void update_mode_limits(const Kernel &); // after a switch
   void update_restart_limit(const Kernel &); // after a restart
   void update_reduce_limit(const Kernel &);  // after a reduction
   void update_rephase_limit(const Kernel &); // after a rephase
+  void update_subsume_limit(const Kernel &); // after a subsume round
 
 private:
   void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs

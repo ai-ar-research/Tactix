@@ -16,6 +16,7 @@ Subcommands:
 """
 
 import argparse
+import concurrent.futures
 import json
 import os
 import shlex
@@ -23,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -215,38 +217,66 @@ def cmd_run(args):
     nfail = 0
     kinds_count = {}
     verdicts = {}
-    with tempfile.TemporaryDirectory(prefix="fuzz-") as workdir:
-        for i in range(args.n):
-            seed = args.seed + i
-            name, nvars, clauses = generate(seed, i)
-            # size cap (weak-solver legs, e.g. --random-policy: a random
-            # schedule cannot finish big instances within the timeout, and
-            # the semantic oracles only fire on a verdict): deterministically
-            # re-roll oversized cases
-            attempt = 0
-            while args.max_vars and nvars > args.max_vars and attempt < 1000:
-                attempt += 1
-                name, nvars, clauses = generate(seed + 7919 * attempt, i)
+    done = 0
+    lock = threading.Lock()  # guards the counters + stdout
+    stop = threading.Event()  # set once max_failures is reached
+
+    def one_case(i):
+        # case i is fully determined by (seed, i) regardless of which
+        # worker runs it or in what order — results are the same at any
+        # --jobs level, only wall-clock changes (the work is subprocess-
+        # bound, so threads parallelize it fine)
+        nonlocal nfail, done
+        if stop.is_set():
+            return
+        seed = args.seed + i
+        name, nvars, clauses = generate(seed, i)
+        # size cap (weak-solver legs, e.g. --random-policy: a random
+        # schedule cannot finish big instances within the timeout, and
+        # the semantic oracles only fire on a verdict): deterministically
+        # re-roll oversized cases
+        attempt = 0
+        while args.max_vars and nvars > args.max_vars and attempt < 1000:
+            attempt += 1
+            name, nvars, clauses = generate(seed + 7919 * attempt, i)
+        with tempfile.TemporaryDirectory(prefix="fuzz-case-") as workdir:
             cnf = os.path.join(workdir, "case.cnf")
             write_dimacs(cnf, nvars, clauses)
             outcome = run_case(cnf, solver, oracle, args.timeout,
                                args.lrat, workdir)
+            bundle = None
+            if outcome.failures:
+                # bundles (incl. shrinking) happen in the worker while the
+                # case dir is alive; bundle names carry the case index, so
+                # completion order does not matter
+                bundle = save_bundle(outdir, i, seed, name, cnf, outcome,
+                                     solver, oracle, args.timeout, args.lrat,
+                                     not args.no_shrink)
+        with lock:
             verdicts[outcome.verdict] = verdicts.get(outcome.verdict, 0) + 1
             if outcome.failures:
                 nfail += 1
                 for k, _ in outcome.failures:
                     kinds_count[k] = kinds_count.get(k, 0) + 1
-                bundle = save_bundle(outdir, i, seed, name, cnf, outcome,
-                                     solver, oracle, args.timeout, args.lrat,
-                                     not args.no_shrink)
                 print(f"FAIL case {i} seed {seed} ({name}): "
-                      f"{outcome.failures} -> {bundle}")
-                if nfail >= args.max_failures:
-                    print(f"stopping after {nfail} failures")
-                    break
-            if (i + 1) % 100 == 0:
-                print(f"... {i + 1}/{args.n} cases, {nfail} failures",
+                      f"{outcome.failures} -> {bundle}", flush=True)
+                if nfail >= args.max_failures and not stop.is_set():
+                    print(f"stopping after {nfail} failures", flush=True)
+                    stop.set()
+            done += 1
+            if done % 100 == 0:
+                print(f"... {done}/{args.n} cases, {nfail} failures",
                       flush=True)
+
+    jobs = max(1, args.jobs)
+    if jobs == 1:
+        for i in range(args.n):
+            if stop.is_set():
+                break
+            one_case(i)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
+            list(ex.map(one_case, range(args.n)))
     # verdict distribution = oracle coverage: only SAT/UNSAT cases exercise
     # the differential/model/proof oracles — a TIMEOUT is sanitizer-only
     vsummary = " ".join(f"{k}={verdicts[k]}" for k in sorted(verdicts))
@@ -319,6 +349,10 @@ def main() -> int:
     p.add_argument("--max-vars", type=int, default=None,
                    help="re-roll cases above this size (weak-solver legs "
                         "need verdicts for the semantic oracles to fire)")
+    p.add_argument("--jobs", type=int, default=8,
+                   help="parallel fuzz workers (correctness testing, not "
+                        "timing — contention is harmless; results are "
+                        "independent of the job count)")
     p.set_defaults(func=cmd_run)
 
     p = sub.add_parser("check-one")

@@ -339,6 +339,20 @@ void kernel_collect_garbage(Kernel &k) {
   }
 }
 
+uint64_t kernel_irredundant_clauses(const Kernel &k) {
+  // binary_ids counts every distinct binary ever added (incl. derived
+  // ones — they are irredundant-lifecycle here); the log-scale consumers
+  // tolerate that over-approximation
+  uint64_t n = k.binary_ids.size();
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && !c->redundant())
+      n++;
+    ref += clause_words(c->size);
+  }
+  return n;
+}
+
 Var kernel_queue_next_unassigned(Kernel &k) {
   Var v = k.search_idx;
   assert(v != UINT32_MAX);

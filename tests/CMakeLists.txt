@@ -21,6 +21,10 @@ add_executable(test_rephase test_rephase.cpp)
 target_link_libraries(test_rephase PRIVATE tactix_lib)
 add_test(NAME rephase COMMAND test_rephase)
 
+add_executable(test_subsume test_subsume.cpp)
+target_link_libraries(test_subsume PRIVATE tactix_lib)
+add_test(NAME subsume COMMAND test_subsume)
+
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)

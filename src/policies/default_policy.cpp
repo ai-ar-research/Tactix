@@ -8,6 +8,7 @@
 #include "rules/reduce/reduce.hpp"
 #include "rules/rephase/rephase.hpp"
 #include "rules/restart/restart.hpp"
+#include "rules/subsume_forward/subsume_forward.hpp"
 #include "rules/switchmode/switchmode.hpp"
 
 #include <cmath>
@@ -127,6 +128,40 @@ void DefaultPolicy::update_rephase_limit(const Kernel &k) {
                             lg);
 }
 
+// kissat kimits.c kissat_scale_delta: inprocessing intervals scale with
+// the formula size (factor 4.5·(log10(C+1)−5)² + 25, C = irredundant
+// clause count) so the inprocessing share of runtime stays bounded on
+// large instances; the eliminate-slot constants presuppose this scaling
+// (constants travel with their machinery — the restart-EMA lesson)
+static uint64_t scale_inprocessing_delta(const Kernel &k, uint64_t delta) {
+  const double f =
+      std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1) - 5;
+  return static_cast<uint64_t>((4.5 * f * f + 25) *
+                               static_cast<double>(delta));
+}
+
+bool DefaultPolicy::want_subsume(const Kernel &k) const {
+  if (!subsume.initialized || k.stats.conflicts < subsume.next_conflicts)
+    return false;
+  // new-material gate (see default_policy.hpp): skip rounds that cannot
+  // find anything instead of paying the pass + root restart
+  return !subsume.ran || k.binary_ids.size() > subsume.binaries_seen ||
+         kernel_root_fixed(k) > subsume.root_fixed_seen;
+}
+
+// kissat kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N,
+// true): interval grows as eliminateint · n·log10(n+9)², size-scaled
+void DefaultPolicy::update_subsume_limit(const Kernel &k) {
+  uint64_t n = k.stats.forward_subsumptions;
+  if (!n)
+    n = 1;
+  const double lg = std::log10(static_cast<double>(n) + 9);
+  const uint64_t delta = static_cast<uint64_t>(
+      SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg);
+  subsume.next_conflicts =
+      k.stats.conflicts + scale_inprocessing_delta(k, delta);
+}
+
 // arithmetically growing reduce interval
 void DefaultPolicy::update_reduce_limit(const Kernel &k) {
   reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_INIT +
@@ -151,6 +186,15 @@ Lit DefaultBranching::pick(Kernel &k) {
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (k.inconsistent)
     return 20;
+  // the first inprocessing limit needs the ingested formula's size
+  // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
+  // true) is likewise size-scaled)
+  if (!subsume.initialized) {
+    subsume.initialized = true;
+    subsume.next_conflicts =
+        k.stats.conflicts +
+        scale_inprocessing_delta(k, SUBSUME_INTERVAL_INIT);
+  }
   bool lucky_tried = false;
   for (;;) {
     const ApplyResult r = propagate_apply(k);
@@ -222,6 +266,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           REPHASE_BEST, REPHASE_BEST, REPHASE_ORIGINAL};
       rephase_apply_type(k, ROTATION[k.stats.rephased % 6]);
       update_rephase_limit(k);
+      continue;
+    }
+    // C1 forward subsumption in the kissat eliminate slot (search.c
+    // checks eliminate after rephase, before decide). The rule needs a
+    // quiescent root; kissat's coupled backtrack is composed from the
+    // rule vocabulary as with Rephase — the root restart IS a restart
+    if (want_subsume(k)) {
+      if (k.level > 0 && restart_guard(k))
+        restart_apply_to(k, 0);
+      if (subsume_forward_guard(k)) {
+        subsume_forward_apply(k);
+        // the new-material watermarks move only when a round actually ran
+        subsume.ran = true;
+        subsume.binaries_seen = k.binary_ids.size();
+        subsume.root_fixed_seen = kernel_root_fixed(k);
+      }
+      update_subsume_limit(k);
       continue;
     }
     if (stop && *stop)
