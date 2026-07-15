@@ -52,7 +52,7 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
   lock_reasons(k, true);
   struct Victim {
     Ref ref;
-    uint32_t glue, size;
+    uint32_t uip, glue, size;
   };
   std::vector<Victim> candidates;
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -67,14 +67,23 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
           c->reason() || (glue <= TIER1_GLUE && used) ||
           (glue <= TIER2_GLUE && used >= Clause::MAX_USED - 1);
       if (!keep)
-        candidates.push_back({ref, glue, c->size});
+        candidates.push_back({ref, c->uip_used(), glue, c->size});
     }
     ref += clause_words(c->size);
   }
   lock_reasons(k, false);
-  // canonical worst-first ranking: highest (glue, size) first
+  // canonical worst-first ranking — CMS usage-count variant (campaign
+  // experiment 4; cryptominisat reducedb.cpp SortRedClsUIP1, MIT): fewest
+  // conflict-analysis uses since the last reduction die first; the
+  // previous (glue, size) order becomes the tie-break. Deviations
+  // recorded: CMS ships this ranking in its STATS/predictor builds (its
+  // competition default rotates glue/activity sorts — survey corrected
+  // 2026-07-15); our tier/used protection is untouched (ranking-only
+  // variant); counter is 8-bit saturating in the header (CMS: 32-bit).
   std::sort(candidates.begin(), candidates.end(),
             [](const Victim &a, const Victim &b) {
+              if (a.uip != b.uip)
+                return a.uip < b.uip; // least-used first
               if (a.glue != b.glue)
                 return a.glue > b.glue;
               if (a.size != b.size)
@@ -98,6 +107,9 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
       const uint32_t used = c->used();
       if (used)
         c->set_used(used - 1);
+      // usage window reset (CMS: uip1_used counts "in this RDB" — the
+      // ranking reads the pre-reset values above, like the aging order)
+      c->set_uip_used(0);
     }
     ref += clause_words(c->size);
   }

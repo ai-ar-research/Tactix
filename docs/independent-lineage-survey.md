@@ -83,6 +83,11 @@ target phase), **preset** (policy-layer variant, no rule/kernel change).
   confirmation) — but lev2 victims are ranked by **usage counters
   (`SortRedClsUIP1`, `SortRedClsProps` — times used in UIP derivations /
   propagations) and optionally an ML predictor**, not by glue+size.
+  *Correction (2026-07-15, found at experiment 4 implementation): the
+  usage-count sorts are `STATS_NEEDED`/`FINAL_PREDICTOR`-gated — CMS's
+  competition default rotates plain glue/activity sorts (reducedb.cpp
+  `clean_type` switch). The experiment measured the usage-count variant
+  anyway (it is the interesting delta), with the caveat recorded.*
 - **Verdict: keep now; two CANDIDATES.** (a) Glucose's DB-quality-adaptive
   interval is pure ReductionPolicy state — cheap phase-4 experiment.
   (b) CMS's usage-count ranking is an alternative rule-side ranking (we

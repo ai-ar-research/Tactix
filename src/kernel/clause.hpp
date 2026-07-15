@@ -42,7 +42,15 @@ struct Clause {
   static constexpr uint32_t USED_BITS = 5;
   static constexpr uint32_t MAX_USED = (1u << USED_BITS) - 1;
   static constexpr uint32_t USED_MASK = MAX_USED << USED_SHIFT;
-  static constexpr uint32_t GLUE_SHIFT = USED_SHIFT + USED_BITS;
+  // cumulative usage counter (CMS clause.h `uip1_used`, campaign
+  // experiment 4): times the clause participated in conflict analysis
+  // since the last reduction (reset there); 8 bits saturating, carved
+  // from the glue field's unused headroom — the header stays 5 words
+  static constexpr uint32_t UIP_SHIFT = USED_SHIFT + USED_BITS;
+  static constexpr uint32_t UIP_BITS = 8;
+  static constexpr uint32_t MAX_UIP = (1u << UIP_BITS) - 1;
+  static constexpr uint32_t UIP_MASK = MAX_UIP << UIP_SHIFT;
+  static constexpr uint32_t GLUE_SHIFT = UIP_SHIFT + UIP_BITS;
   static constexpr uint32_t MAX_GLUE = (1u << (32 - GLUE_SHIFT)) - 1;
 
   bool garbage() const { return flags & GARBAGE; }
@@ -52,6 +60,15 @@ struct Clause {
   uint32_t used() const { return (flags & USED_MASK) >> USED_SHIFT; }
   void set_used(uint32_t u) {
     flags = (flags & ~USED_MASK) | (u << USED_SHIFT);
+  }
+  uint32_t uip_used() const { return (flags & UIP_MASK) >> UIP_SHIFT; }
+  void set_uip_used(uint32_t u) {
+    flags = (flags & ~UIP_MASK) | (u << UIP_SHIFT);
+  }
+  void bump_uip_used() {
+    const uint32_t u = uip_used();
+    if (u < MAX_UIP)
+      set_uip_used(u + 1);
   }
   void set_glue(uint32_t g) {
     if (g > MAX_GLUE)
