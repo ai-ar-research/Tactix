@@ -64,6 +64,13 @@ fully determined by `(seed, i)`, so results are identical at any job count.
   clause passes drat-trim but fails lrat-check). Neither subsumes the other,
   so the non-`--lrat` legs (native DRAT) and the `--lrat` legs (native LRAT)
   are both mandatory.
+- **ASCII-DRAT leg (per commit for proof/serialization changes; added 2026-07-15):**
+  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy --no-binary" --n 400 --max-vars 100`.
+  `--no-binary` emits ASCII DRAT (`ProofFormat::DratAscii`) — a DISTINCT serializer
+  from binary DRAT; drat-trim auto-detects the format, so the existing check
+  applies. Without this leg the ASCII branch of proof.cpp is only exercised by
+  the tiny fixed `micro_proofs.sh` cases, so a regression in it would ship
+  invisibly (flagged by the N1/N2/N3 adversarial audit, 2026-07-15).
 - Nightly: run BOTH formats under the random policy at scale — native DRAT
   (`run.sh --nightly --solver "build/debug/tactix --random-policy"`) and
   native LRAT (`run.sh --nightly --solver "build/debug/tactix --random-policy --lrat"`),

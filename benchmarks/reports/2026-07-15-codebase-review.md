@@ -94,7 +94,7 @@ are tracked in PROGRESS.md so they survive this report.
 | 16 | Default slot order = alphabetical registry sort → make explicit | slot activation (V1/E1) | decide→policy | same |
 | 17 | Lucky cascade order lives in the rule (vs rephase rotation in policy) | slot activation (policy consolidation) | policy | no (N1-exposed) |
 | 19 | Strengthen's flush-then-round hardcoded; promote flush to its own rule | E1/BVE lands (2nd flush consumer) | rule-dev | no |
-| 10 | `binary_ids` `unordered_map` on the LRAT reason hot path | a profile attributes a major share to `kernel_binary_id` | revamp (§5.4) | no |
+| 10 | `binary_ids` `unordered_map`: `emplace` on the **live CDCL hot path** (every learned binary, proof-only value word) + `kernel_binary_id` lookup on the LRAT reason path. `.size()` is load-bearing (want_inprocess / irredundant count / stat 16), so it cannot compile out — a leaner id table carried only in LRAT mode is the shape. *(sharpened by the N1/N2/N3 audit: insert is hotter than the review's LRAT-only framing.)* | a profile attributes a major share to the map | revamp (§5.4) | no |
 | 11 | Occ lists `vector<vector<Ref>>(2*nvars)` per round | Strengthen/SubsumeForward next touched, or a profile | revamp/simplify | no |
 | 25 | No per-rule cost counters for reward attribution (only global TICKS) | phase-6 reward-attribution design | rule-dev | blocks trusting per-slot rewards |
 | 2 | Arena-Ref instance-payload validation loop duplicated 3× | opportunistic (or fold into #1's helper) | simplify | no (safety hardening) |
