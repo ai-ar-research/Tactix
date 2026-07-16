@@ -63,6 +63,9 @@ struct Stats {
   uint64_t vivify_checked = 0; // Vivify candidates probed (C3)
   uint64_t vivified = 0;       // clauses distilled by Vivify (add+delete)
   uint64_t vivify_deleted = 0; // root-satisfied deletions by Vivify
+  uint64_t probe_rounds = 0;   // Probe rounds (V1)
+  uint64_t probed = 0;         // probe assumptions made (V1)
+  uint64_t probe_failed = 0;   // failed literals -> root units derived (V1)
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)

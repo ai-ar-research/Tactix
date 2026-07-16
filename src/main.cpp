@@ -183,6 +183,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.vivify_rounds,
            (unsigned long long)kernel.stats.vivified,
            (unsigned long long)kernel.stats.vivify_deleted);
+    printf("c probe       %llu rounds, %llu probed, %llu failed\n",
+           (unsigned long long)kernel.stats.probe_rounds,
+           (unsigned long long)kernel.stats.probed,
+           (unsigned long long)kernel.stats.probe_failed);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
