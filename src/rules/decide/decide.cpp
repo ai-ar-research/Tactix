@@ -7,11 +7,24 @@
 
 namespace tactix {
 
-// formal model (plan §4): Decide iff no conflict and unassigned vars
-// exist. A pending Analyze->Backjump handoff does NOT block deciding —
-// Backjump tolerates an already-assigned asserting literal.
+// formal model (plan §4): Decide iff no conflict and unassigned vars exist,
+// AND the trail is propagated to fixpoint (propagate_head == trail.size).
+// The propagation precondition is load-bearing for SOUNDNESS in this kernel:
+// propagation assigns a forced literal at the CURRENT decision level, not its
+// true level, so a decision taken on an un-propagated trail lets the pending
+// implications be assigned one level too deep — a binary conflict can then
+// escape (fully-propagated state with a falsified clause; corpus 003b /
+// invariant "falsified binary escaped propagation"). Requiring a propagated
+// trail before every decision keeps every literal at its correct level — the
+// DefaultPolicy already does this (it propagates to fixpoint before deciding),
+// which is why only free N1 schedules (random policy) could reach the bug.
+// The in-kernel workaround for the true-level-assignment limitation filed from
+// corpus 002 (§5.4 kernel candidate). A pending Analyze->Backjump handoff does
+// NOT block deciding — Backjump tolerates an already-assigned asserting literal
+// — but the asserting literal must be propagated first (same rule).
 bool decide_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent && k.unassigned > 0;
+  return !k.conflict_valid && !k.inconsistent && k.unassigned > 0 &&
+         k.propagate_head == k.trail.size();
 }
 
 ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {

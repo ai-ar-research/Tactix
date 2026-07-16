@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-15 (rev. 29). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-16 (rev. 31). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -138,8 +138,9 @@ vocabulary small while allowing arbitrary heuristics.
 Each **rule family** is a triple:
 
 - `guard(σ) -> bool` — O(1)-ish applicability test (e.g., `Analyze` iff conflict
-  present; `Decide` iff no conflict and unassigned vars exist; `BVE(x)` iff
-  elimination bound met).
+  present; `Decide` iff no conflict, unassigned vars exist, **and the trail is at
+  a unit-propagation fixpoint** (see the fixpoint precondition below); `BVE(x)`
+  iff elimination bound met).
 - `instances(σ) -> lazy iterator` — enumerate concrete instances (e.g., candidate
   variables for BVE, candidate clauses for vivification). Lazy is essential: never
   materialize "all applicable rules" — for RUP-learning the instance space is
@@ -147,6 +148,40 @@ Each **rule family** is a triple:
   learned clause) plus parameterized exploration.
 - `apply(σ, inst) -> (σ′, proof-delta)` — total when guard holds; returns a
   structured result (progress made, conflict found, SAT/UNSAT concluded).
+
+**Propagation-fixpoint precondition (guard discipline, rev 30).** A rule that
+*advances the logical state* — `Decide` and every inprocessing family (subsume,
+strengthen, vivify, probe, backbone, substitute, BVE, …) — carries
+`propagate_head = |τ|` (unit propagation at fixpoint) in its guard. Only
+`Propagate` itself, and `Analyze`/`Backjump` acting on a *recorded conflict*,
+may operate on a non-fixpoint trail. This is a **soundness precondition, not a
+schedule**: the kernel assigns a propagation-forced literal at the *current*
+decision level, not its true level (the deepest antecedent's level), so a
+state-advancing rule applied on an un-propagated trail mis-levels the pending
+implications and a conflict can escape (invariant checker: "clause escaped
+propagation"; corpus 004). DefaultPolicy satisfies it trivially — BCP-to-fixpoint
+before every decision, the universal CDCL discipline — so it constrains only
+free N1 schedules, and branching freedom is untouched (any unassigned
+literal/phase is choosable at every fixpoint). In the abstract DPLL calculus any
+`Decide`/`UnitPropagate` interleaving is already sound, so this precondition is
+*imposed by the current-level assignment scheme*, not by logic; lifting it via
+true-level assignment + chronological backtracking (kissat assign.c/backtrack.c)
+is the §5.4 kernel candidate first filed from corpus 002.
+
+**True-level assertion in `Backjump` (rev 31).** The same scheme constrains the
+one state-advancer that assigns off a conflict: `Backjump` must assert the
+learned clause's UIP at its *true* level — the assertion level `jump_level` —
+never at a higher chronological target. Asserting it one level too deep (a
+target `> jump_level`) mis-levels the UIP exactly as an un-propagated `Decide`
+would, and a later partial `Restart` between `jump_level` and that target
+strands the still-implied UIP's reason clause as an escaped unit (corpus 005,
+fuzz-found under the random policy). So `backjump_apply_to` clamps every target
+to `jump_level`, and its N1 instance surface offers only that. The unifying
+invariant across both preconditions: **every literal is assigned at its true
+level**, so no backtrack can strand a still-implied literal's reason as an
+escaped unit. Genuine chronological backtracking (keeping decision levels above
+the assertion level, kissat backtrack.c `chrono`) needs true-level assignment
+and returns with the §5.4 kernel candidate above.
 
 Terminal detections: `Propagate` yielding a top-level conflict + `Analyze` deriving
 the empty clause ⇒ UNSAT; all variables assigned without conflict ⇒ SAT (after
@@ -335,7 +370,7 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 | M1 | `Propagate` | propsearch, propdense, propbeyond, propinitially, assign, watch | none (reasons recorded for later hints) | 1 |
 | M2 | `Decide` (branch choice API-exposed per N1: instances = all unassigned literals; canonical = active heuristic's pick) | decide, queue (VMTF), heap (scores) | none (H only) | 1 |
 | M3 | `Analyze` (1-UIP learn + minimize + shrink + OTFS) | analyze, learn, deduce, minimize, shrink, strengthen (on-the-fly) | add-RUP with native LRAT hints | 1 |
-| M4 | `Backjump` (incl. chronological backtracking option) | backtrack, trail | none | 1 |
+| M4 | `Backjump` (asserts UIP at `jump_level`; chrono BT → §5.4) | backtrack, trail | none | 1 |
 
 #### Search management (macro tier, mostly heuristic-state H)
 
@@ -799,12 +834,16 @@ This is a deliverable in its own right (`tools/fuzz/`), built in phase 0–1
 
 Components:
 
-- **Generators** (seeded, reproducible): random k-SAT sweeping the density axis
-  (both phases + transition); `cnfuzz`-style structured random CNFs (community
-  structure, variable reuse patterns — plain uniform random misses many bugs);
-  mutation fuzzing of Tier A/B instances (flip literals, drop/duplicate clauses);
-  adversarial edge cases (empty clauses, unit-only formulas, tautologies,
-  duplicate literals, 0 clauses, huge clauses, max var indices).
+- **Generators** (seeded, reproducible; per-batch mix, rev 31): random k-SAT
+  sweeping the density axis (both phases + transition), 15%; `cnfuzz`-style
+  structured random CNFs (community structure, variable reuse — plain uniform
+  random misses many bugs), 30%; mutation fuzzing (flip literals, drop/duplicate
+  clauses), 25%; `FuzzSAT`-style random Boolean circuits Tseitin-encoded to CNF
+  (definitional chains that stress watchers / equivalence reasoning / BVE), 30%;
+  plus the 10 fixed adversarial degeneracies (empty clauses, unit-only formulas,
+  tautologies, duplicate literals, 0 clauses, huge clauses, max var indices) run
+  every batch. Random k-SAT problem size is capped at 100 variables across the
+  board so verdicts stay reachable under weak/random schedules.
 - **Four oracles, all checked on every fuzz run:**
   1. *Model soundness* (SAT): our own 50-line checker verifies the `v` line
      satisfies every input clause — never trust the solver's own bookkeeping.
@@ -821,8 +860,9 @@ Components:
   this is the property that distinguishes this solver, so it gets its own nightly
   job. The recorded rule trace makes every failure replayable exactly.
 - **Cadence:** every commit: 1k fast fuzz cases + Tier A + regression corpus,
-  under ASan/UBSan. Nightly: ~100k cases across generators + random-policy runs +
-  differential testing. All failures auto-shrunk before filing.
+  under ASan/UBSan (5 s/case). Nightly: ~10k cases across generators +
+  random-policy runs (DRAT + native LRAT) + differential testing, ~6 h wall.
+  All failures auto-shrunk before filing.
 - **Unit + invariant tests** per rule family (guards, instance enumeration,
   apply, emitted proof deltas checked in isolation against `drat-trim` on
   micro-formulas).
@@ -1014,3 +1054,5 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 27** (2026-07-15, user): TACO (Cubing for Tuning, AAAI 2025) absorbed into §5.6 — two-learning-modes framing (trajectory-online vs episode-online), L4 cube-sampled strategy evaluation (true terminal cost, tune/validate/fallback, MCMC), §8.5 L4 discipline + proxy-validation instrument, O14 opened (cubing capability), §12/§9 updated; paper kept in docs/papers/.
 - **rev. 28** (2026-07-15, user): the always-on principle corrects rev 27 — no sub-problems, no re-solving, no tune-then-deploy; learning lives inside the single run, every choice point exploits and explores in one action, segment attribution (restart/slot boundaries) replaces terminal episode costs; L4 removed, O14 closed, TACO reframed as inspiration-not-mechanism, §8.5 anytime check added.
 - **rev. 29** (2026-07-15, user): Tier C timeout 3000 s → 1200 s (20 min) — worker-hour-per-timeout too costly; 1200–3000 s tail censored (caveat recorded), PAR-2 re-baselines at the first 1200 s run; benchmarks skill + run.py synced.
+- **rev. 30** (2026-07-16): §4 propagation-fixpoint precondition — state-advancing rules (Decide + all inprocessing) require `propagate_head = |τ|`; only Propagate/Analyze/Backjump are exempt (current-level assignment mis-levels otherwise; corpus 004, fuzz-found via V2 Backbone); true-level relaxation stays the §5.4 candidate.
+- **rev. 31** (2026-07-16): §4 true-level assertion — `Backjump` asserts the UIP at `jump_level`, never a higher chronological target (current-level assignment mis-levels it; a later partial restart then strands its reason as an escaped unit — corpus 005, fuzz-found under the random policy); Backjump's N1 instance surface narrows to the canonical jump_level, chronological BT deferred to §5.4 (§5.2 M4 row synced). Also §8.2 fuzz generators — FuzzSAT circuits added; per-batch mix 15/30/25/30 (sweep/structured/mutation/FuzzSAT) + 10 always-on degeneracies; k-SAT capped at 100 vars; nightly 100k→10k, 5 s/case.

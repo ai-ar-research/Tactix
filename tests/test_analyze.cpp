@@ -132,12 +132,16 @@ static void test_otfs() {
   assert(default_solve(k) == 10); // satisfiable: 1, -2
 }
 
-static void test_chrono_backjump() {
+static void test_chrono_backjump_clamps_to_jump_level() {
   // c1 = (-1 -3 4), c2 = (-1 -3 -4); decide 1 (level 1), decide 2 (level
   // 2, unrelated), decide 3 (level 3): c1 forces 4, c2 conflicts. 1-UIP
-  // learns (-3 -1) with jump level 1. The N1 surface may land anywhere in
-  // [jump, conflict): target 2 is chronological backtracking — level 2's
-  // unrelated decision survives and the UIP asserts at level 2.
+  // learns (-3 -1) with jump level 1. A chronological target (2, above the
+  // assertion level) is UNSOUND under this kernel's current-level
+  // assignment: it would stamp the UIP at level 2, and a later partial
+  // restart to level 1 would strand the learned clause as an escaped unit
+  // (corpus 005). So backjump clamps ANY target to jump_level and asserts
+  // the UIP at its TRUE level; genuine chronological backtracking returns
+  // with the §5.4 true-level-assignment kernel.
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c1[3] = {internalize(-1), internalize(-3), internalize(4)};
@@ -156,13 +160,13 @@ static void test_chrono_backjump() {
   assert(k.pending.lits.size() == 2);
   assert(k.pending.lits[0] == internalize(-3)); // negated UIP
   assert(k.pending.jump_level == 1);
-  assert(backjump_apply_to(k, 2) == ApplyResult::Ok); // chrono target
-  assert(k.level == 2);
-  assert(k.values[internalize(2)] > 0);  // level-2 decision kept
-  assert(k.values[internalize(-3)] > 0); // asserted...
-  assert(k.assigned[var_of(internalize(3))].level == 2); // ...at level 2
+  assert(backjump_apply_to(k, 2) == ApplyResult::Ok); // chrono target...
+  assert(k.level == 1);                    // ...clamped down to jump_level 1
+  assert(k.values[internalize(2)] == 0);   // level-2 decision abandoned
+  assert(k.values[internalize(-3)] > 0);   // UIP asserted...
+  assert(k.assigned[var_of(internalize(3))].level == 1); // ...at its TRUE level
   assert(!k.pending.valid);
-  assert(default_solve(k) == 10); // satisfiable: 1 2 -3
+  assert(default_solve(k) == 10); // still satisfiable: 1 -3 (2 re-decided)
 }
 
 static void test_backjump_target_clamps() {
@@ -191,7 +195,7 @@ int main() {
   test_learned_unit();
   test_shrink();
   test_otfs();
-  test_chrono_backjump();
+  test_chrono_backjump_clamps_to_jump_level();
   test_backjump_target_clamps();
   puts("test_analyze OK");
   return 0;

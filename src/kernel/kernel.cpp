@@ -731,16 +731,22 @@ void kernel_check_invariants(const Kernel &k) {
       const uint32_t *ws = k.watches.arena.data() + h.offset;
       for (uint32_t i = 0; i < h.size;) {
         if (Watch{ws[i]}.binary()) {
-          if (k.values[lit] < 0 && k.values[Watch{ws[i]}.other()] < 0) {
-            const Lit o = Watch{ws[i]}.other();
+          // at a propagation fixpoint, a binary watched by a FALSE literal
+          // must have its other literal TRUE: other-false is a missed
+          // conflict, other-unassigned is a missed unit (both mean
+          // propagation escaped — e.g. a decision taken on an un-propagated
+          // trail, corpus 004)
+          const Lit o = Watch{ws[i]}.other();
+          if (k.values[lit] < 0 && k.values[o] <= 0) {
             fprintf(stderr,
-                    "INVARIANT: falsified binary (%d %d); "
+                    "INVARIANT: %s binary (%d %d); "
                     "levels %u %u trailpos %u %u head %u size %zu level %u\n",
+                    k.values[o] < 0 ? "falsified" : "unit",
                     externalize(lit), externalize(o),
                     k.assigned[var_of(lit)].level, k.assigned[var_of(o)].level,
                     k.assigned[var_of(lit)].trail, k.assigned[var_of(o)].trail,
                     k.propagate_head, k.trail.size(), k.level);
-            assert(false && "falsified binary clause escaped propagation");
+            assert(false && "binary clause escaped propagation");
           }
           i += 1;
         } else {
@@ -751,11 +757,19 @@ void kernel_check_invariants(const Kernel &k) {
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
       if (!c->garbage()) {
-        bool nonfalse = false;
+        int nonfalse = 0;
+        Lit last = INVALID_LIT;
         for (const Lit l : *c)
-          if (k.values[l] >= 0)
-            nonfalse = true;
-        assert(nonfalse && "falsified large clause escaped propagation");
+          if (k.values[l] >= 0) {
+            nonfalse++;
+            last = l;
+          }
+        // fixpoint: no live clause may be falsified (0 non-false literals) or
+        // unit (exactly one non-false literal that is still UNASSIGNED — it
+        // should have been propagated); both are escaped propagation
+        assert(nonfalse > 0 && "falsified large clause escaped propagation");
+        assert((nonfalse != 1 || k.values[last] > 0) &&
+               "unit large clause escaped propagation");
       }
       ref += clause_words(c->size);
     }

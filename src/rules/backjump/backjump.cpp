@@ -13,14 +13,21 @@ bool backjump_guard(const Kernel &k) {
 ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   assert(backjump_guard(k));
   PendingLearned &p = k.pending;
-  // sound targets are [jump_level, current level]: below the assertion
-  // level the clause stops being asserting (the stale check below would
-  // just discard it), above the current level there is nothing to
-  // abandon. Learned units always assert at the root.
-  if (target < p.jump_level)
-    target = p.jump_level;
+  // Assign the asserting literal at its TRUE level — the assertion level.
+  // This kernel stamps every implication with the CURRENT decision level,
+  // so backtracking to a target ABOVE jump_level would stamp the asserting
+  // literal too deep; a later partial Restart (or Backjump) to a level
+  // between jump_level and target then unassigns it while its reason clause
+  // stays unit — an escaped unit at a claimed fixpoint (corpus 005; the
+  // corpus-004 current-level-assignment hazard, reached here via
+  // chronological backtracking). Genuine chronological backtracking (keeping
+  // decision levels above the assertion level) needs true-level assignment
+  // and is deferred to the §5.4 kernel candidate; until then jump_level is
+  // the only sound target. `target` is clamped, not asserted, so every legal
+  // instance stays total per the rule contract (N1).
+  target = p.jump_level;
   if (p.lits.size() == 1)
-    target = 0;
+    target = 0; // learned units assert at the root
   if (target < k.level)
     kernel_backtrack(k, target);
   const Lit asserting = p.lits[0];
@@ -77,14 +84,16 @@ ApplyResult backjump_apply(Kernel &k) {
   return backjump_apply_to(k, k.pending.jump_level);
 }
 
-// generic instance surface (plan §5.1 v1): payload = target level.
-// Ranked: the canonical (assertion-level) target first, then ascending
-// toward the current level — chronological backtracking last
+// generic instance surface (plan §5.1 v1): payload = target level. Under
+// current-level assignment the assertion level is the ONLY sound target
+// (higher targets mis-level the asserting literal — see backjump_apply_to),
+// so the sole legal instance is the canonical jump_level. Chronological
+// targets return with the §5.4 true-level-assignment kernel.
 static uint32_t backjump_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  uint32_t n = 0;
-  for (uint32_t lvl = k.pending.jump_level; lvl <= k.level && n < cap; lvl++)
-    out[n++] = lvl;
-  return n;
+  if (cap == 0)
+    return 0;
+  out[0] = k.pending.jump_level;
+  return 1;
 }
 
 static ApplyResult backjump_apply_instance(Kernel &k, uint64_t inst) {

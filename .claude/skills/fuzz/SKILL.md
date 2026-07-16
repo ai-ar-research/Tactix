@@ -25,10 +25,13 @@ failure ─▶ ddmin shrinker ─▶ minimal CNF + seed + rule trace ─▶ corp
 
 ## Generators (all seeded — record the seed in every artifact)
 
-- Random k-SAT sweeping density: m/n ∈ {3.0, 4.0, 4.26, 4.6, 5.5} for k=3, n ∈ [20, 400]; also k ∈ {2,4,5}.
-- cnfuzz-style structured CNFs (variable-reuse clusters, mixed clause lengths) — uniform random alone misses whole bug classes.
-- Mutation of Tier A/B instances: flip/drop/duplicate literals and clauses.
-- Edge cases: empty formula, empty clause, units only, tautologies, duplicate literals in a clause, max variable index, single huge clause.
+Per-batch mix (`generators.py`, rev 31), random problems capped at 100 vars so
+verdicts stay reachable under weak/random schedules:
+- **15% random k-SAT** sweeping density: m/n ∈ {3.0, 4.0, 4.26, 4.6, 5.5} for k=3, n ∈ [20, 100]; also k ∈ {2,4,5}.
+- **30% cnfuzz-style structured** CNFs (variable-reuse clusters, mixed clause lengths) — uniform random alone misses whole bug classes.
+- **25% mutation** of a base instance: flip/drop/duplicate literals and clauses.
+- **30% FuzzSAT-style** random Boolean circuits Tseitin-encoded to CNF (AND/OR/XOR gates, root asserted ~50% negated) — definitional chains that stress watchers, equivalence reasoning, and BVE (≤120 vars incl. Tseitin aux).
+- **The 10 fixed adversarial degeneracies run every batch** (indices 0..9, exempt from the `--max-vars` re-roll): empty formula, empty clause, units only, contradictory units, tautology, duplicate literals, max var index (500000), single huge clause, huge negative clause, unit-empty mix.
 - **Rule-order fuzzing (tests the flexibility guarantee):** drive the solver with a random legal macro-policy (random rule order/instances/budgets via the policy API). Soundness and proof validity must survive arbitrary legal schedules. Record the rule trace; replay must reproduce exactly.
 
 ## Cadence
@@ -37,7 +40,7 @@ Cases run on a thread pool (`--jobs`, default 8, added 2026-07-14): fuzzing
 is correctness testing, not timing, so contention is harmless; case `i` is
 fully determined by `(seed, i)`, so results are identical at any job count.
 
-- Per commit / before declaring any change done: `tools/fuzz/run.sh --quick` (~1k cases, sanitizer build) + full regression corpus + Tier A.
+- Per commit / before declaring any change done: `tools/fuzz/run.sh --quick` (~1k cases, sanitizer build, 5 s/case default) + full regression corpus + Tier A.
 - Random-policy leg (per commit for kernel/rule changes):
   `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy" --n 400 --max-vars 100`.
 - Native-LRAT leg (per commit for proof/analyze changes):
@@ -74,7 +77,7 @@ fully determined by `(seed, i)`, so results are identical at any job count.
 - Nightly: run BOTH formats under the random policy at scale — native DRAT
   (`run.sh --nightly --solver "build/debug/tactix --random-policy"`) and
   native LRAT (`run.sh --nightly --solver "build/debug/tactix --random-policy --lrat"`),
-  ~100k cases each (sequentially, or split to fit the overnight window) +
+  ~10k cases each (~6 h wall; sequentially, or split to fit the window) +
   all generators + differential testing. Before 2026-07-15 the nightly ran
   native DRAT only (its `--lrat` was the fuzz.py cross-check flag =
   drat-trim→lrat-check on the DRAT, which validates the checker conversion,

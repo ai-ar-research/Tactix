@@ -70,7 +70,8 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       // random order) — every level in [0, current] is a legal instance
       r = restart_apply_to(k, next_random(rng) % (k.level + 1));
     } else if (id == backjump_id) {
-      // random target; apply_to clamps into [jump_level, current]
+      // random target; apply_to clamps to the sound jump_level (higher
+      // chronological targets deferred to §5.4 — see backjump_apply_to)
       r = backjump_apply_to(k, next_random(rng) % (k.level + 1));
     } else if (rules[id].instances && rules[id].apply_instance) {
       // generic random instance draw over the rule's own enumeration —
