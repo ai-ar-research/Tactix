@@ -66,6 +66,9 @@ struct Stats {
   uint64_t probe_rounds = 0;   // Probe rounds (V1)
   uint64_t probed = 0;         // probe assumptions made (V1)
   uint64_t probe_failed = 0;   // failed literals -> root units derived (V1)
+  uint64_t backbone_rounds = 0;  // Backbone rounds (V2)
+  uint64_t backbone_probed = 0;  // binary probe assumptions made (V2)
+  uint64_t backbone_failed = 0;  // failed literals -> root units derived (V2)
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
@@ -249,6 +252,12 @@ void kernel_backtrack(Kernel &, uint32_t target_level,
 // ignore pointer — for rules probing a candidate's own literals; see
 // propagate_literal in kernel.cpp). INVALID_REF = normal propagation.
 bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
+
+// binary-only propagation to fixpoint or first conflict (kissat backbone.c):
+// follows ONLY the binary-implication graph — no large-clause propagation,
+// no watch mutation. V2 Backbone's engine; cheaper than kernel_propagate and
+// derives a subset of its units. Same conflict-handoff semantics.
+bool kernel_propagate_binary(Kernel &);
 
 // --- VMTF ------------------------------------------------------------------
 void kernel_queue_init(Kernel &);

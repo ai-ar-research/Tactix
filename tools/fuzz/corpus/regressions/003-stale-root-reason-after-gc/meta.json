@@ -1,0 +1,7 @@
+{
+  "seed": 20261224,
+  "generator": "mut-n49-m65 (ddmin-shrunk)",
+  "failure": "crash",
+  "solver_args": ["--random-policy"],
+  "diagnosis": "kernel_collect_garbage forwarded a trail literal's reason through a GARBAGE clause. A root-fixed literal's reason clause CAN be deleted by inprocessing: Vivify (and Strengthen's flush pre-pass) delete root-satisfied clauses, and a clause that forced a root literal is itself root-satisfied. The GC forwarding loop assumed reason clauses are never garbage (true only under Reduce, which locks reasons) and read the deleted clause's stale `searched`, leaving a dangling non-binary reason (here reason=2). A later Reduce lock_reasons then dereferenced it as clause_at(arena, 2) on the compacted (empty) arena and tripped the bounds assert. Sound (a crash, not a wrong verdict/proof), and never reachable in the DefaultPolicy (inprocessing slot deferred, SLOT_IN_DEFAULT=false, so no root-satisfied deletion). Exposed by V2 Backbone under the random policy: backbone derives many root units -> more root-propagated literals with clause reasons -> more deletable root reason clauses -> the delete+GC+reduce sequence is reached. Fixed 2026-07-15: GC converts a garbage trail reason to UNIT_REASON. A root-fixed literal stays assigned and needs no reason clause (it is a root unit; emit_root_units already gave it an LRAT unit id when it was propagated), so no forwarding is needed and no reason dangles. Asserts a.level==0 in the garbage branch (only root reasons can ever be deleted)."
+}

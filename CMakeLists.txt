@@ -32,6 +32,7 @@ add_library(tactix_lib OBJECT
   src/rules/strengthen/strengthen.cpp
   src/rules/vivify/vivify.cpp
   src/rules/probe/probe.cpp
+  src/rules/backbone/backbone.cpp
   src/rules/switchmode/switchmode.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp

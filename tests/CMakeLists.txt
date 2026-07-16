@@ -37,6 +37,10 @@ add_executable(test_probe test_probe.cpp)
 target_link_libraries(test_probe PRIVATE tactix_lib)
 add_test(NAME probe COMMAND test_probe)
 
+add_executable(test_backbone test_backbone.cpp)
+target_link_libraries(test_backbone PRIVATE tactix_lib)
+add_test(NAME backbone COMMAND test_backbone)
+
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)

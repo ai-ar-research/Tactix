@@ -250,6 +250,54 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
   return false;
 }
 
+// binary-only propagation of `lit` (kissat backbone.c backbone_propagate /
+// proprobe.c binary path): follow ONLY binary implications — large watches
+// are skipped, never replaced or compacted (binary watches are permanent, so
+// there is no watch mutation and no delayed relocation). Far cheaper than the
+// full engine; the units it derives are a subset of full propagation's. A
+// binary conflict (not_lit, other) is recorded exactly like the full engine.
+static bool propagate_literal_binary(Kernel &k, Lit lit) {
+  const Lit not_lit = negate(lit);
+  const int8_t *const values = k.values.data();
+  const uint32_t *p = k.watches.begin(not_lit);
+  const uint32_t *const end = k.watches.end(not_lit);
+  k.stats.ticks += 1 + (static_cast<uint64_t>(end - p) >> 4);
+  while (p != end) {
+    const Watch w{*p};
+    if (!w.binary()) { // large watch occupies two slots; skipped here
+      p += 2;
+      continue;
+    }
+    p += 1;
+    const Lit other = w.other();
+    const int8_t other_value = values[other];
+    if (other_value > 0)
+      continue;
+    if (other_value < 0) { // conflict on the binary (not_lit, other)
+      k.conflict_valid = true;
+      k.conflict_ref = INVALID_REF;
+      k.conflict_bin[0] = not_lit;
+      k.conflict_bin[1] = other;
+      return true;
+    }
+    kernel_assign_binary(k, other, not_lit);
+    k.stats.propagations++;
+  }
+  return false;
+}
+
+// binary-only propagation to fixpoint or first conflict (V2 Backbone). Same
+// contract as kernel_propagate but through the binary-implication graph only.
+bool kernel_propagate_binary(Kernel &k) {
+  while (k.propagate_head < k.trail.size()) {
+    const Lit lit = k.trail[k.propagate_head];
+    if (propagate_literal_binary(k, lit))
+      return true;
+    k.propagate_head++;
+  }
+  return false;
+}
+
 // --- VMTF -------------------------------------------------------------------
 
 static void queue_dequeue(Kernel &k, Var v) {
@@ -317,8 +365,23 @@ void kernel_collect_garbage(Kernel &k) {
   }
   for (const Lit lit : k.trail) {
     Assigned &a = k.assigned[var_of(lit)];
-    if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON)
-      a.reason = clause_at(k.arena, a.reason)->searched;
+    if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON) {
+      const Clause *c = clause_at(k.arena, a.reason);
+      if (c->garbage()) {
+        // The reason clause is being deleted. That is only possible for a
+        // ROOT-fixed literal: inprocessing rules delete root-satisfied
+        // clauses (and a root reason IS root-satisfied) only at a quiescent
+        // root, so no higher-level reason is ever garbage; Reduce protects
+        // reasons. A root-fixed literal stays assigned and needs no reason —
+        // it is a root unit (emit_root_units already gave it an LRAT unit id
+        // when it was propagated). Forwarding a garbage clause would read a
+        // bogus `searched` and leave a dangling reason (corpus 003).
+        assert(a.level == 0);
+        a.reason = UNIT_REASON;
+      } else {
+        a.reason = c->searched;
+      }
+    }
   }
   if (k.pending.valid && k.pending.ref != INVALID_REF)
     k.pending.ref = clause_at(k.arena, k.pending.ref)->searched;
