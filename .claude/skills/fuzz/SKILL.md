@@ -50,7 +50,30 @@ fully determined by `(seed, i)`, so results are identical at any job count.
   reached verdicts on only ~46 cases (104 silent TIMEOUTs). Watch the
   `verdicts:` line in the summary: TIMEOUT cases are sanitizer+invariant
   coverage only.
-- Nightly: ~100k cases across all generators + random-policy runs + differential testing.
+- **Random-policy + native-LRAT leg (per commit for ANY proof/rule change —
+  the strongest proof test; promoted to standard 2026-07-15):**
+  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy --lrat" --n 400 --max-vars 100`.
+  This is the only leg that checks our native LRAT *chains* under arbitrary
+  legal schedules — including the canonical BATCH/round path of every
+  inprocessing rule (the random policy draws `INSTANCE_CANONICAL`, not only
+  single instances, since 2026-07-15). **Test both DRAT and LRAT, always:**
+  they exercise different emission code and catch different bugs — drat-trim
+  re-derives each clause by RUP and *ignores our chains* (so it validates the
+  clause/delete stream + binary serialization), while lrat-check validates
+  *our explicit antecedent chain* (a wrong chain that still yields a RUP-valid
+  clause passes drat-trim but fails lrat-check). Neither subsumes the other,
+  so the non-`--lrat` legs (native DRAT) and the `--lrat` legs (native LRAT)
+  are both mandatory.
+- Nightly: run BOTH formats under the random policy at scale — native DRAT
+  (`run.sh --nightly --solver "build/debug/tactix --random-policy"`) and
+  native LRAT (`run.sh --nightly --solver "build/debug/tactix --random-policy --lrat"`),
+  ~100k cases each (sequentially, or split to fit the overnight window) +
+  all generators + differential testing. Before 2026-07-15 the nightly ran
+  native DRAT only (its `--lrat` was the fuzz.py cross-check flag =
+  drat-trim→lrat-check on the DRAT, which validates the checker conversion,
+  not our LRAT emitter) — native LRAT under random schedules must be soaked
+  too. Durable outcome: failures auto-shrink into `tools/fuzz/failures/`
+  (empty of newer-than-launch entries + green log tail ⇒ green).
 
 ## Failure handling — never skip steps
 

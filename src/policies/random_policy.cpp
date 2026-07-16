@@ -74,12 +74,21 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       r = backjump_apply_to(k, next_random(rng) % (k.level + 1));
     } else if (rules[id].instances && rules[id].apply_instance) {
       // generic random instance draw over the rule's own enumeration —
-      // any rule registering an instance surface (Rephase, future S/C/V
-      // families) gets rule-order AND instance fuzzing for free
+      // any rule registering an instance surface (Rephase, S/C/V families)
+      // gets rule-order AND instance fuzzing for free. INSTANCE_CANONICAL
+      // is drawn ~1/3 of the time (always when the enumeration is empty) so
+      // the canonical BATCH/ROUND path is exercised end-to-end, not only one
+      // instance at a time: a canonical round emits proof deltas the single
+      // instances never emit together (Probe's multi-unit batch, Strengthen's
+      // flush pre-pass + cascade, Vivify's full round, Lucky's cascade). The
+      // proof strategy must be sound under EVERY legal schedule, so every
+      // schedulable action — including the batches — is a fuzz target.
       uint64_t insts[16];
       const uint32_t m = rules[id].instances(k, insts, 16);
-      r = m ? rules[id].apply_instance(k, insts[next_random(rng) % m])
-            : rules[id].apply(k);
+      const uint64_t inst = (m == 0 || next_random(rng) % 3 == 0)
+                                ? INSTANCE_CANONICAL
+                                : insts[next_random(rng) % m];
+      r = rules[id].apply_instance(k, inst);
     } else {
       r = rules[id].apply(k);
     }
