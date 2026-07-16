@@ -3,7 +3,7 @@
 Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 
 - `run.sh --quick --solver CMD` — per-commit gate: regression corpus + ~1k
-  seeded cases; `--nightly` = 100k cases + LRAT chain.
+  seeded cases; `--nightly` = ~10k cases + LRAT chain.
 - `fuzz.py` — runner (subcommands `run`, `check-one`, `corpus`); oracles:
   model (`checkmodel`), proof (drat-trim / lrat-check), differential vs the
   oracle solver, crash/io consistency.

@@ -234,9 +234,13 @@ def cmd_run(args):
         # size cap (weak-solver legs, e.g. --random-policy: a random
         # schedule cannot finish big instances within the timeout, and
         # the semantic oracles only fire on a verdict): deterministically
-        # re-roll oversized cases
+        # re-roll oversized cases. The fixed edge degeneracies (name prefix
+        # "edge-", e.g. edge-max-var-index = 500000 vars) are exempt so the
+        # "all 10 edge cases run every batch" guarantee holds — they resolve
+        # instantly via their unit clauses, so they're harmless even oversized.
         attempt = 0
-        while args.max_vars and nvars > args.max_vars and attempt < 1000:
+        while (args.max_vars and nvars > args.max_vars
+               and not name.startswith("edge-") and attempt < 1000):
             attempt += 1
             name, nvars, clauses = generate(seed + 7919 * attempt, i)
         with tempfile.TemporaryDirectory(prefix="fuzz-case-") as workdir:
@@ -335,7 +339,7 @@ def main() -> int:
                             "solver CNF [PROOF]; exit 10/20)")
         p.add_argument("--oracle", default=None,
                        help="oracle solver for differential testing")
-        p.add_argument("--timeout", type=float, default=10.0)
+        p.add_argument("--timeout", type=float, default=5.0)
         p.add_argument("--lrat", action="store_true",
                        help="also exercise drat-trim -L -> lrat-check")
 

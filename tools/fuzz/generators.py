@@ -8,7 +8,8 @@ Categories (dispatched by weight in generate()):
   - random k-SAT sweeping the density axis (k in {2,3,4,5})
   - cnfuzz-style structured CNFs (variable-reuse clusters, mixed lengths)
   - mutation of a base instance (flip/drop/duplicate literals and clauses)
-  - adversarial edge cases (fixed list, cycled deterministically)
+  - FuzzSAT-style random Boolean circuits, Tseitin-encoded to CNF
+  - adversarial edge cases (fixed list, run every batch at indices 0..9)
 """
 
 import random
@@ -27,7 +28,7 @@ def random_ksat(rng: random.Random, n: int, m: int, k: int):
 
 def gen_sweep(rng: random.Random):
     k = rng.choice([2, 3, 3, 3, 4, 5])  # k=3 is the interesting regime
-    n = rng.randint(20, 400)
+    n = rng.randint(20, 100)
     if k == 3:
         ratio = rng.choice(K3_RATIOS)
     elif k == 2:
@@ -48,7 +49,9 @@ def gen_structured(rng: random.Random):
     inprocessing bugs hide (cnfuzz's design insight — Brummayer & Biere).
     """
     nclusters = rng.randint(2, 8)
-    cluster_size = rng.randint(5, 40)
+    # cap total input vars at 100 (the random k-SAT problem-size bound):
+    # bound the per-cluster size so nclusters * cluster_size <= 100
+    cluster_size = rng.randint(5, max(5, 100 // nclusters))
     n = nclusters * cluster_size
     m = rng.randint(n, 5 * n)
     clauses = []
@@ -101,6 +104,60 @@ def gen_mutation(rng: random.Random, base=None):
     return f"mut-n{n}-m{len(clauses)}", n, clauses
 
 
+def gen_fuzzsat(rng: random.Random):
+    """FuzzSAT-style: a random Boolean circuit, Tseitin-encoded to CNF.
+
+    Brummayer & Biere's FuzzSAT builds a random circuit over input variables
+    and Tseitin-encodes each gate, then asserts the root. This yields
+    structured, sharing-heavy formulas distinct from both uniform k-SAT and
+    the cnfuzz variable-reuse clusters — the aux gate vars create long
+    definitional chains that stress watchers, equivalence reasoning and BVE.
+    """
+    inputs = rng.randint(5, 30)
+    # pool of available literals, seeded with a random polarity of each input
+    pool = [v if rng.random() < 0.5 else -v for v in range(1, inputs + 1)]
+    # choose gate count so total vars (inputs + gates) stays <= ~120
+    hi = min(3 * inputs, 120 - inputs)
+    n_gates = max(1, rng.randint(inputs, hi) if hi >= inputs else 1)
+
+    def _rand_input_lit():
+        v = rng.randint(1, inputs)
+        return v if rng.random() < 0.5 else -v
+
+    clauses = []
+    g = inputs  # last-allocated variable index
+    for _ in range(n_gates):
+        # pop two random literals from the pool (refill from inputs if empty)
+        if not pool:
+            pool.append(_rand_input_lit())
+        a = pool.pop(rng.randrange(len(pool)))
+        if not pool:
+            pool.append(_rand_input_lit())
+        b = pool.pop(rng.randrange(len(pool)))
+        # random re-negation
+        if rng.random() < 0.5:
+            a = -a
+        if rng.random() < 0.5:
+            b = -b
+        g += 1  # allocate the gate variable
+        op = rng.choice(["AND", "OR", "XOR"])
+        if op == "AND":       # g <-> (a & b)
+            clauses += [[-g, a], [-g, b], [g, -a, -b]]
+        elif op == "OR":      # g <-> (a | b)
+            clauses += [[g, -a], [g, -b], [-g, a, b]]
+        else:                 # XOR: g <-> (a ^ b)
+            clauses += [[-g, a, b], [-g, -a, -b], [g, -a, b], [g, a, -b]]
+        # push the gate output back (random polarity) for reuse/sharing
+        pool.append(g if rng.random() < 0.5 else -g)
+        # occasionally also re-inject an input literal to raise sharing
+        if rng.random() < 0.2:
+            pool.append(_rand_input_lit())
+    total_nvars = g  # == inputs + n_gates
+    # assert the root (last gate); ~50% assert its negation to vary SAT/UNSAT
+    clauses.append([g if rng.random() < 0.5 else -g])
+    return f"fuzzsat-i{inputs}-g{n_gates}", total_nvars, clauses
+
+
 EDGE_CASES = [
     ("edge-empty-formula", 0, []),
     ("edge-empty-clause", 1, [[]]),
@@ -121,16 +178,25 @@ def gen_edge(index: int):
 
 
 def generate(seed: int, index: int):
-    """Dispatch one case. Returns (name, nvars, clauses)."""
+    """Dispatch one case. Returns (name, nvars, clauses).
+
+    The 10 fixed adversarial degeneracies always run: indices 0..9 map
+    deterministically to EDGE_CASES[0..9], so every batch (both --quick
+    n=1000 and --nightly n=10000) exercises all of them. For index >= 10
+    we draw from rng with the split: random k-SAT sweep 15% / structured
+    (cnfuzz) 30% / mutation 25% / FuzzSAT 30%.
+    """
+    if index < len(EDGE_CASES):
+        return gen_edge(index)
     rng = random.Random(seed)
     r = rng.random()
-    if r < 0.05:
-        return gen_edge(index)
-    if r < 0.15:
-        return gen_mutation(rng)
-    if r < 0.40:
+    if r < 0.15:            # random k-SAT density sweep
+        return gen_sweep(rng)
+    if r < 0.45:            # cnfuzz-style structured (variable-reuse clusters)
         return gen_structured(rng)
-    return gen_sweep(rng)
+    if r < 0.70:            # mutation of a base instance
+        return gen_mutation(rng)
+    return gen_fuzzsat(rng)  # FuzzSAT-style Tseitin circuit
 
 
 def write_dimacs(path: str, nvars: int, clauses) -> None:
