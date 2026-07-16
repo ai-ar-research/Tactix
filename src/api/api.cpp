@@ -58,7 +58,12 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   return 0;
 }
 
-int tactix_solve(tactix_solver *s) { return default_solve(s->kernel); }
+int tactix_solve(tactix_solver *s) {
+  const int r = default_solve(s->kernel);
+  if (r == 10)
+    kernel_extend_model(s->kernel); // rebuild model through rho before reads
+  return r;
+}
 
 int tactix_value(tactix_solver *s, int elit) {
   const Lit l = internalize(elit);

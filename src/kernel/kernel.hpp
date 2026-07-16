@@ -135,6 +135,19 @@ struct Kernel {
   std::vector<int8_t> best; // by var: +1/-1, 0 = never saved
   uint32_t best_assigned = 0;
 
+  // --- reconstruction stack (rho, plan §4) ----------------------------
+  // Witness-labelled clause segments for rebuilding a SAT model through
+  // eliminated/substituted variables (Kissat's extension stack; the
+  // Jarvisalo-Heule-Biere reverse reconstruction). Flat, length-prefixed:
+  // each segment is [ rest_lits..., witness_lit, len ] with len = 1 +
+  // #rest and witness_lit the blocking literal. kernel_extend_model walks
+  // it in REVERSE and, for any segment whose clause is unsatisfied under
+  // the current assignment, sets its witness true. Empty until a
+  // variable-eliminating rule (V3 Substitute, E1 BVE, ...) pushes a
+  // witness — a no-op for unit-only inprocessing (V1 Probe / V2 Backbone).
+  std::vector<Lit> reconstruction;
+  bool model_extended = false; // kernel_extend_model idempotency guard
+
   // conflict handoff: propagate -> analyze
   bool conflict_valid = false;
   Ref conflict_ref = INVALID_REF; // INVALID means binary conflict
@@ -186,6 +199,18 @@ struct Kernel {
 
 // --- lifecycle -------------------------------------------------------------
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
+
+// --- reconstruction (rho) --------------------------------------------------
+// Push one witness-labelled clause segment {witness} u {rest} onto rho.
+// `witness` is the blocking literal (set true at extend if the segment's
+// clause is unsatisfied). Internal state only — emits NO proof line
+// (push-witness is kernel-side; the DRAT/LRAT justification is the rule's
+// add-RUP/delete of the actual clauses).
+void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest);
+// Rebuild a full model through rho: replay the stack in reverse, forcing
+// each unsatisfied segment's witness true. Idempotent (model_extended).
+// Call once on a SAT result before reading k.values as the model.
+void kernel_extend_model(Kernel &);
 
 // --- clauses ---------------------------------------------------------------
 // size >= 3; watches lits[0] and lits[1]. `id` is the proof clause id

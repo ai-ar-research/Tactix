@@ -779,5 +779,44 @@ void kernel_check_invariants(const Kernel &k) {
 void kernel_check_invariants(const Kernel &) {}
 #endif
 
+// --- reconstruction (rho) --------------------------------------------------
+void kernel_push_witness(Kernel &k, Lit witness, const Lit *rest,
+                         uint32_t nrest) {
+  for (uint32_t i = 0; i < nrest; i++)
+    k.reconstruction.push_back(rest[i]);
+  k.reconstruction.push_back(witness);
+  // segment length word (clause size = witness + rest); Lit is uint32_t so
+  // it shares the flat stack — read back as the trailing length prefix.
+  k.reconstruction.push_back(static_cast<Lit>(nrest + 1));
+}
+
+void kernel_extend_model(Kernel &k) {
+  if (k.model_extended)
+    return;
+  k.model_extended = true;
+  // Replay rho in reverse (Jarvisalo-Heule-Biere): for each witness segment
+  // whose clause is unsatisfied under the current assignment, force its
+  // witness literal true. Because a variable-eliminating rule removed all of
+  // the witness variable's clauses, its search-time value is meaningless;
+  // this re-derives it. Untouched variables keep their trail value.
+  size_t i = k.reconstruction.size();
+  while (i > 0) {
+    const uint32_t len = static_cast<uint32_t>(k.reconstruction[--i]);
+    const size_t begin = i - len;                // clause lits are [begin, i)
+    const Lit witness = k.reconstruction[i - 1]; // pushed last before len
+    bool satisfied = false;
+    for (size_t j = begin; j < i; j++)
+      if (k.values[k.reconstruction[j]] > 0) {
+        satisfied = true;
+        break;
+      }
+    if (!satisfied) {
+      k.values[witness] = 1;
+      k.values[negate(witness)] = -1;
+    }
+    i = begin;
+  }
+}
+
 } // namespace tactix
 

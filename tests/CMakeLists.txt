@@ -45,6 +45,10 @@ add_executable(test_decide test_decide.cpp)
 target_link_libraries(test_decide PRIVATE tactix_lib)
 add_test(NAME decide COMMAND test_decide)
 
+add_executable(test_reconstruct test_reconstruct.cpp)
+target_link_libraries(test_reconstruct PRIVATE tactix_lib)
+add_test(NAME reconstruct COMMAND test_reconstruct)
+
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)

@@ -215,6 +215,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.forward_subsumed);
   }
   if (res == 10) {
+    kernel_extend_model(kernel); // rebuild the model through rho (plan §4)
     printf("s SATISFIABLE\n");
     print_model(kernel);
   } else if (res == 20) {
