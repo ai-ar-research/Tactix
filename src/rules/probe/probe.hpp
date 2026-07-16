@@ -34,9 +34,10 @@
 //  - Glucose: no probing (simplify + LCM vivification only) — confirms
 //    failed-literal probing is optional, not load-bearing, for a strong core.
 //  MIT/GPL references; transliterated in essence, no code copied verbatim.
-//  The reason walk (walk_reasons/emit_chain) is duplicated from Vivify per
-//  §5.3 self-containment; a shared reason-walk utility is a
-//  simplify-codebase candidate once V2 Backbone confirms the third consumer.
+//  The proof-critical reason walk is the shared kernel helper
+//  kernel_reason_walk / kernel_conflict_reason_walk (extracted when V2
+//  Backbone became the third consumer — review 2026-07-15 #1); Vivify,
+//  Probe and Backbone all route their LRAT chains through it.
 //
 // Deviations recorded:
 // (1) No tick/propagation budget — a round probes every BIG-head candidate

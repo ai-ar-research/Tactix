@@ -284,6 +284,24 @@ inline uint32_t kernel_root_fixed(const Kernel &k) {
 // rule so the ordering invariant is defined exactly once.
 void kernel_lrat_chain(Kernel &, uint64_t closing_id);
 
+// LRAT reason walk for probing rules (C3 Vivify, V1 Probe, V2 Backbone).
+// Pure kernel-state read: collect (trail position, antecedent id) for every
+// reason reachable from `start` down to root units and probe assumptions
+// (assumptions are DECISION_REASON and skipped — they are the negation of the
+// emitted clause). Ascending trail position unit-propagates for the checker;
+// the caller closes the chain with the conflicting/final hint. `seen` is a
+// caller-owned scratch (a var-indexed byte vector), so the walk never
+// allocates and consecutive calls can share/dedup one buffer.
+void kernel_reason_walk(Kernel &, Var start, std::vector<uint8_t> &seen,
+                        std::vector<std::pair<uint32_t, uint64_t>> &entries);
+// Seed the walk from the recorded conflict (binary in conflict_bin, else the
+// large clause at conflict_ref): walk every conflicting literal's reason and
+// return the conflicting clause's id (the RUP chain's closing hint). The
+// probe-conflict case of every probing rule.
+uint64_t kernel_conflict_reason_walk(
+    Kernel &, std::vector<uint8_t> &seen,
+    std::vector<std::pair<uint32_t, uint64_t>> &entries);
+
 // --- decision ranking dispatch (§5.1) ---------------------------------------
 inline Var kernel_next_decision_var(Kernel &k) {
   return k.stable ? kernel_heap_next_unassigned(k)

@@ -353,6 +353,54 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
   k.lrat_chain.push_back(closing_id);
 }
 
+void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
+                        std::vector<std::pair<uint32_t, uint64_t>> &out) {
+  std::vector<Var> todo; // explicit stack: trails can be arbitrarily deep
+  todo.push_back(start);
+  while (!todo.empty()) {
+    const Var v = todo.back();
+    todo.pop_back();
+    if (seen[v])
+      continue;
+    seen[v] = 1;
+    const Assigned &a = k.assigned[v];
+    if (a.reason == DECISION_REASON)
+      continue; // probe assumption: the negation of the emitted clause
+    if (a.reason == UNIT_REASON) {
+      out.emplace_back(a.trail, k.unit_ids[v]);
+      continue;
+    }
+    if (a.binary) {
+      const Lit assigned_lit = make_lit(v, k.values[make_lit(v, true)] > 0);
+      out.emplace_back(a.trail, kernel_binary_id(k, assigned_lit, a.reason));
+      todo.push_back(var_of(a.reason));
+      continue;
+    }
+    const Clause *reason = clause_at(k.arena, a.reason);
+    out.emplace_back(a.trail, reason->id());
+    for (const Lit m : *reason)
+      if (var_of(m) != v)
+        todo.push_back(var_of(m));
+  }
+}
+
+uint64_t kernel_conflict_reason_walk(
+    Kernel &k, std::vector<uint8_t> &seen,
+    std::vector<std::pair<uint32_t, uint64_t>> &entries) {
+  if (k.conflict_ref == INVALID_REF) { // binary conflict
+    const uint64_t last =
+        kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1]);
+    kernel_reason_walk(k, var_of(k.conflict_bin[0]), seen, entries);
+    kernel_reason_walk(k, var_of(k.conflict_bin[1]), seen, entries);
+    return last;
+  }
+  const Clause *conf = clause_at(k.arena, k.conflict_ref);
+  const uint64_t last = conf->id();
+  for (const Lit m : *conf)
+    kernel_reason_walk(k, var_of(m), seen, entries);
+  return last;
+}
+
 uint64_t kernel_irredundant_clauses(const Kernel &k) {
   // binary_ids counts every distinct binary ever added (incl. derived
   // ones — they are irredundant-lifecycle here); the log-scale consumers

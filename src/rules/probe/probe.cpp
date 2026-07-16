@@ -53,42 +53,10 @@ static void unwind(Kernel &k) {
     kernel_backtrack(k, 0, /*update_phases=*/false);
 }
 
-// LRAT reason walk over the probe trail (duplicated from vivify.cpp per
-// §5.3 self-containment — see probe.hpp): collect (trail pos, id) for every
-// reason reachable from `start` down to assumptions (skipped — the probe
-// assumption is the negation of the emitted unit) and root units. Ascending
-// trail position unit-propagates for the checker; the caller appends the
-// conflicting clause id.
-static void walk_reasons(Kernel &k, Var start, std::vector<uint8_t> &seen,
-                         std::vector<std::pair<uint32_t, uint64_t>> &out) {
-  std::vector<Var> todo; // explicit stack: trails can be arbitrarily deep
-  todo.push_back(start);
-  while (!todo.empty()) {
-    const Var v = todo.back();
-    todo.pop_back();
-    if (seen[v])
-      continue;
-    seen[v] = 1;
-    const Assigned &a = k.assigned[v];
-    if (a.reason == DECISION_REASON)
-      continue; // the probe assumption: the emitted unit's negation
-    if (a.reason == UNIT_REASON) {
-      out.emplace_back(a.trail, k.unit_ids[v]);
-      continue;
-    }
-    if (a.binary) {
-      const Lit assigned_lit = make_lit(v, k.values[make_lit(v, true)] > 0);
-      out.emplace_back(a.trail, kernel_binary_id(k, assigned_lit, a.reason));
-      todo.push_back(var_of(a.reason));
-      continue;
-    }
-    const Clause *reason = clause_at(k.arena, a.reason);
-    out.emplace_back(a.trail, reason->id());
-    for (const Lit m : *reason)
-      if (var_of(m) != v)
-        todo.push_back(var_of(m));
-  }
-}
+// The reason walk (kernel_reason_walk) + conflict seed (kernel_conflict_
+// reason_walk) are shared kernel helpers (kernel.cpp), used by C3 Vivify,
+// V1 Probe and V2 Backbone — the proof-critical DFS lives in exactly one
+// place (review 2026-07-15 #1).
 
 // emit the add-RUP unit {lit} with the sorted reason chain closed by `last`
 // (the conflicting clause id). LRAT mode only; the caller handles DRAT.
@@ -124,16 +92,7 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out) {
   std::vector<std::pair<uint32_t, uint64_t>> entries;
   if (lrat) {
     std::vector<uint8_t> seen(k.nvars, 0);
-    if (k.conflict_ref == INVALID_REF) { // binary conflict
-      last = kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1]);
-      walk_reasons(k, var_of(k.conflict_bin[0]), seen, entries);
-      walk_reasons(k, var_of(k.conflict_bin[1]), seen, entries);
-    } else {
-      const Clause *conf = clause_at(k.arena, k.conflict_ref);
-      last = conf->id();
-      for (const Lit m : *conf)
-        walk_reasons(k, var_of(m), seen, entries);
-    }
+    last = kernel_conflict_reason_walk(k, seen, entries);
   }
   unwind(k); // back to the clean root; nothing asserted yet
   const uint64_t id = ++k.next_clause_id;

@@ -65,41 +65,10 @@ static void unwind(Kernel &k) {
     kernel_backtrack(k, 0, /*update_phases=*/false);
 }
 
-// LRAT reason walk over the probe trail: collect (trail pos, id) for every
-// reason reachable from `v` down to assumptions (skipped — they are the
-// negations of the emitted clause) and root units. Same ordering argument
-// as Analyze's chain: ascending trail position unit-propagates for the
-// checker; the caller appends the closing clause id.
-static void walk_reasons(Kernel &k, Var start, std::vector<uint8_t> &seen,
-                         std::vector<std::pair<uint32_t, uint64_t>> &out) {
-  std::vector<Var> todo; // explicit stack: trails can be arbitrarily deep
-  todo.push_back(start);
-  while (!todo.empty()) {
-    const Var v = todo.back();
-    todo.pop_back();
-    if (seen[v])
-      continue;
-    seen[v] = 1;
-    const Assigned &a = k.assigned[v];
-    if (a.reason == DECISION_REASON)
-      continue; // probe assumption: an emitted-clause negation
-    if (a.reason == UNIT_REASON) {
-      out.emplace_back(a.trail, k.unit_ids[v]);
-      continue;
-    }
-    if (a.binary) {
-      const Lit assigned_lit = make_lit(v, k.values[make_lit(v, true)] > 0);
-      out.emplace_back(a.trail, kernel_binary_id(k, assigned_lit, a.reason));
-      todo.push_back(var_of(a.reason));
-      continue;
-    }
-    const Clause *reason = clause_at(k.arena, a.reason);
-    out.emplace_back(a.trail, reason->id());
-    for (const Lit m : *reason)
-      if (var_of(m) != v)
-        todo.push_back(var_of(m));
-  }
-}
+// The reason walk (kernel_reason_walk) and conflict seed (kernel_conflict_
+// reason_walk) are shared kernel helpers (kernel.cpp) — the proof-critical
+// DFS lives in exactly one place, used by C3 Vivify, V1 Probe and V2
+// Backbone (review 2026-07-15 #1).
 
 // last == 0 means the sorted entries already end in the conflicting hint
 // (the implied literal's own reason); otherwise `last` closes the chain
@@ -198,7 +167,9 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
     return ApplyResult::NoOp; // effectively binary: C2 territory
   const uint64_t cid = c->id();
   std::vector<std::pair<uint32_t, uint64_t>> entries;
-  std::vector<uint8_t> seen(k.nvars, 0);
+  std::vector<uint8_t> seen; // lrat-gated (review #9): only the reason walk
+  if (lrat)                  // reads it, so a proofs-off round pays nothing
+    seen.assign(k.nvars, 0);
   std::vector<Lit> next;
   ApplyResult res = ApplyResult::NoOp;
   for (uint32_t i = 0; i < probes.size(); i++) {
@@ -218,7 +189,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
       // entry) is the conflicting hint under the ¬li assumption; the
       // candidate is NOT cited (a hint after the conflict is illegal)
       if (lrat)
-        walk_reasons(k, var_of(li), seen, entries);
+        kernel_reason_walk(k, var_of(li), seen, entries);
       unwind(k);
       res = rewrite(k, cref, next, entries, 0, ended_round);
       break;
@@ -228,7 +199,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
       next.assign(probes.begin(), probes.end());
       next.erase(next.begin() + i);
       if (lrat) {
-        walk_reasons(k, var_of(li), seen, entries);
+        kernel_reason_walk(k, var_of(li), seen, entries);
         for (const uint64_t u : absorbed)
           entries.emplace_back(0, u);
       }
@@ -246,21 +217,9 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
         break;
       }
       next.assign(probes.begin(), probes.begin() + i + 1);
-      uint64_t last;
-      if (lrat) {
-        if (k.conflict_ref == INVALID_REF) {
-          last = kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1]);
-          walk_reasons(k, var_of(k.conflict_bin[0]), seen, entries);
-          walk_reasons(k, var_of(k.conflict_bin[1]), seen, entries);
-        } else {
-          const Clause *conf = clause_at(k.arena, k.conflict_ref);
-          last = conf->id();
-          for (const Lit m : *conf)
-            walk_reasons(k, var_of(m), seen, entries);
-        }
-      } else {
-        last = 0;
-      }
+      uint64_t last = 0;
+      if (lrat)
+        last = kernel_conflict_reason_walk(k, seen, entries);
       unwind(k);
       res = rewrite(k, cref, next, entries, last, ended_round);
       break;
