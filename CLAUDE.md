@@ -18,5 +18,10 @@
   competition winners (CaDiCaL-SC2025, AE-Kissat-MAB, SBVA-CaDiCaL), not
   just plain Kissat.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
-  revise-plan, revamp, simplify-codebase — use them for the matching
+  revise-plan, revamp, simplify-codebase, calculus — use them for the matching
   workflows.
+- **`docs/calculus.md`** is authoritative for the *abstract* proof rules (each
+  rule's pure precondition, effect, proof delta, soundness) + the
+  engineering-deviation ledger; keep it in sync via the calculus skill whenever
+  a rule or guard changes (guards must be pure preconditions per N1 — every
+  deviation is recorded there with a removal path).
