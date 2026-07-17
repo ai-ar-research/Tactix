@@ -1,0 +1,20 @@
+STEP 108012 rule=Reduce inst=0x0 level=6 ph=7/7
+STEP 108013 rule=SwitchMode inst=0x0 level=6 ph=7/7
+STEP 108014 rule=Decide inst=0x0 level=7 ph=7/8
+STEP 108015 rule=SwitchMode inst=0x0 level=7 ph=7/8
+STEP 108016 rule=SwitchMode inst=0x0 level=7 ph=7/8
+STEP 108017 rule=Reduce inst=0x3 level=7 ph=7/8
+STEP 108018 rule=Propagate inst=0x0 level=7 ph=17/20
+STEP 108019 rule=SwitchMode inst=0x0 level=7 ph=17/20
+STEP 108020 rule=Rephase inst=0xffffffffffffffff level=7 ph=17/20
+STEP 108021 rule=Analyze inst=0x0 level=7 ph=17/20
+STEP 108022 rule=Reduce inst=0x0 level=7 ph=17/20
+STEP 108023 rule=Propagate inst=0x0 level=7 ph=17/20
+STEP 108024 rule=Rephase inst=0x1 level=7 ph=17/20
+STEP 108025 rule=SwitchMode inst=0x0 level=7 ph=17/20
+STEP 108026 rule=Analyze inst=0x0 level=7 ph=17/20
+STEP 108027 rule=Reduce inst=0xffffffffffffffff level=7 ph=17/20
+STEP 108028 rule=Backjump inst=0x0 level=6 ph=7/8
+STEP 108029 rule=SwitchMode inst=0x0 level=6 ph=7/8
+STEP 108030 rule=Propagate inst=0x0 level=6 ph=10/10
+Assertion failed: ((nonfalse != 1 || k.values[last] > 0) && "unit large clause escaped propagation"), function kernel_check_invariants, file kernel.cpp, line 837.

@@ -12,7 +12,21 @@
 namespace tactix {
 
 bool propagate_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent &&
+  // !pending.valid (plan rev 35, corpus 006): the Analyze -> Backjump learned-
+  // clause handoff must be CONSUMED before propagation resumes. Propagating an
+  // unpropagated trail suffix while a clause is pending can find a SECOND
+  // conflict; that state (conflict_valid && pending.valid) blocks Backjump
+  // (which needs !conflict_valid) and leaves only Analyze applicable, which
+  // OVERWRITES pending. The first learned clause is then orphaned: already
+  // allocated, watched and emitted to the proof, but its asserting literal is
+  // never assigned — and since propagation is watch-driven, nothing ever
+  // revisits it. It sits unit-with-unassigned at the next fixpoint (an escaped
+  // unit, the corpus-004/005 family). Blocking Propagate here makes
+  // (conflict_valid && pending.valid) unreachable rather than merely
+  // unpleasant; Backjump is always applicable in its place, so no schedule
+  // loses progress and N1 is intact. Never fires under DefaultPolicy, which
+  // always backjumps before propagating again.
+  return !k.conflict_valid && !k.inconsistent && !k.pending.valid &&
          k.propagate_head < k.trail.size();
 }
 

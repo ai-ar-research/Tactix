@@ -45,6 +45,45 @@ static void test_uip() {
   assert(default_solve(k) == 10);
 }
 
+// The handoff-consumption precondition (plan rev 35, corpus 006): Propagate
+// must not run while a learned clause is pending. Otherwise it can find a
+// SECOND conflict, reaching (conflict_valid && pending.valid) — a state where
+// Backjump is blocked and only Analyze applies, so Analyze overwrites pending
+// and ORPHANS the first learned clause: allocated, watched and in the proof,
+// but with its asserting literal never assigned. Propagation is watch-driven,
+// so nothing ever revisits it and it survives as an escaped unit.
+static void test_propagate_requires_consumed_handoff() {
+  // same 1-UIP fixture as test_uip, plus a 4th var so a trail suffix can
+  // remain unpropagated while the conflict is analyzed
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit c1[3] = {internalize(-1), internalize(-2), internalize(3)};
+  const Lit c2[3] = {internalize(-1), internalize(-2), internalize(-3)};
+  kernel_add_large_clause(k, c1, 3, false, 0);
+  kernel_add_large_clause(k, c2, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-4), internalize(1)); // 4 -> 1
+
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(2));
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.pending.valid);
+
+  // an unpropagated suffix + a pending clause is exactly the corpus-006 state
+  kernel_assign_unit(k, internalize(4)); // un-propagated
+  assert(k.propagate_head < k.trail.size());
+  assert(!k.conflict_valid);
+  // Propagate's OTHER conditions all hold — only the handoff blocks it
+  assert(!propagate_guard(k));
+  // ...and Backjump is applicable in its place, so no schedule is stuck (N1)
+  assert(backjump_guard(k));
+  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(!k.pending.valid);
+  // handoff consumed: Propagate is available again
+  assert(propagate_guard(k));
+}
+
 static void test_learned_unit() {
   // (-1 2), (-1 -2): deciding 1 conflicts and learns unit -1
   Kernel k;
@@ -192,6 +231,7 @@ static void test_backjump_target_clamps() {
 
 int main() {
   test_uip();
+  test_propagate_requires_consumed_handoff();
   test_learned_unit();
   test_shrink();
   test_otfs();

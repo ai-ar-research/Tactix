@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-17 (rev. 34). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-17 (rev. 35). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -182,6 +182,29 @@ level**, so no backtrack can strand a still-implied literal's reason as an
 escaped unit. Genuine chronological backtracking (keeping decision levels above
 the assertion level, kissat backtrack.c `chrono`) needs true-level assignment
 and returns with the §5.4 kernel candidate above.
+
+**Handoff-consumption precondition (rev 35).** The two preconditions above keep
+every literal at its true level; this one keeps a rule's *output* from being
+silently dropped. `Analyze` hands `Backjump` a learned clause through `pending`
+— already allocated, watched, and emitted to the proof, but with its asserting
+literal not yet assigned. That handoff must be **consumed before propagation
+resumes**: `propagate_guard` requires `¬pending.valid`. Otherwise `Propagate`
+may run on the still-unpropagated trail suffix and find a *second* conflict,
+reaching `conflict_valid ∧ pending.valid` — a state in which `Backjump` is
+blocked (it requires `¬conflict_valid`, so it never leaves `Analyze` a stale
+conflict) and `Analyze` is the only applicable handoff rule, so it runs and
+**overwrites** `pending`. The first learned clause is then orphaned: nothing
+assigns its asserting literal, and because propagation is watch-driven nothing
+ever revisits it, so it survives as a unit clause no rule will look at — an
+escaped unit at the next fixpoint (corpus 006, found by the nightly). Blocking
+`Propagate` makes that state unreachable; `Backjump` is always applicable in its
+place, so no legal schedule loses progress. **The unifying rule: a handoff must
+be consumed before the state it describes is advanced** — a recorded conflict
+must be analyzed before τ changes, and a pending learned clause must be
+backjumped before propagation resumes. Like rev 30's, this precondition is
+imposed by *our* Analyze/Backjump split, not by abstract DPLL (which has no
+intermediate handoff), and DefaultPolicy satisfies it trivially — it always
+backjumps before propagating again.
 
 Terminal detections: `Propagate` yielding a top-level conflict + `Analyze` deriving
 the empty clause ⇒ UNSAT; all variables assigned without conflict ⇒ SAT (after
@@ -1085,5 +1108,6 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 30** (2026-07-16): §4 propagation-fixpoint precondition — state-advancing rules (Decide + all inprocessing) require `propagate_head = |τ|`; only Propagate/Analyze/Backjump are exempt (current-level assignment mis-levels otherwise; corpus 004, fuzz-found via V2 Backbone); true-level relaxation stays the §5.4 candidate.
 - **rev. 31** (2026-07-16): §4 true-level assertion — `Backjump` asserts the UIP at `jump_level`, never a higher chronological target (current-level assignment mis-levels it; a later partial restart then strands its reason as an escaped unit — corpus 005, fuzz-found under the random policy); Backjump's N1 instance surface narrows to the canonical jump_level, chronological BT deferred to §5.4 (§5.2 M4 row synced). Also §8.2 fuzz generators — FuzzSAT circuits added; per-batch mix 15/30/25/30 (sweep/structured/mutation/FuzzSAT) + 10 always-on degeneracies; k-SAT capped at 100 vars; nightly 100k→10k, 5 s/case.
 - **rev. 32** (2026-07-16): §5.2 sequencing — V4 `TransitiveReduce` implemented BEFORE V3 `Substitute`. V3b (variable-eliminating rewrite) needs binary-clause deletion, which the kernel deliberately cannot do (binaries are watch-only + never deleted — a permanence `SubsumeForward`'s binary-subsumer soundness relies on). V4, whose whole delta is `delete` of transitively-redundant binary edges, is the introduction point for a binary-deletion kernel primitive + the `SubsumeForward` reconciliation; V3 then reuses it. V3's ρ-stack (K1+K2) + SCC detection (V3a) already landed; only V3b waits.
+- **rev. 35** (2026-07-17): §4 handoff-consumption precondition — `Propagate` requires `¬pending.valid`, so the Analyze→Backjump learned-clause handoff is consumed before propagation resumes. Otherwise a second conflict found while a clause is pending forces a second `Analyze` that OVERWRITES `pending`, orphaning an already-watched, already-proof-emitted learned clause as an escaped unit (corpus 006; nightly-found, N1-only, pre-existing). Unifying rule: a handoff must be consumed before the state it describes is advanced.
 - **rev. 34** (2026-07-17): §5.1 literal instance payloads are the DIMACS literal ZERO-extended (`TACTIX_LIT_INSTANCE`), not "cast to int64" — sign-extension aliased DIMACS −1 onto `TACTIX_INSTANCE_CANONICAL`, so `apply_instance(Decide, −1)` silently ran the canonical pick (N1 violation on the branching choice itself; also hit Probe/Backbone; found by the V4 review, verified end-to-end, regression-pinned in `test_api_c`). Frozen-API encoding change, negative-literal payloads only; one external caller.
 - **rev. 33** (2026-07-17): saved the V3 and V4 implementation design notes to `docs/v3-substitute-design.md` + `docs/v4-transitive-reduce-design.md` (design/research artifacts from the understand→design workflows; §5.2 references them). No spec change.
