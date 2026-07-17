@@ -200,6 +200,8 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.probe_failed;
   case 20: // TACTIX_STAT_BACKBONE_FAILED
     return k.stats.backbone_failed;
+  case 21: // TACTIX_STAT_TRANSITIVE_DELETED
+    return k.stats.transitive_deleted;
   default:
     return UINT64_MAX;
   }

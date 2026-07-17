@@ -200,7 +200,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess)
           inprocess_slot.push_back(
-              {i, std::strcmp(rules[i].name, "SubsumeForward") != 0});
+              {i, std::strcmp(rules[i].name, "SubsumeForward") != 0 &&
+                      std::strcmp(rules[i].name, "TransitiveReduce") != 0});
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;

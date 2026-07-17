@@ -57,6 +57,10 @@ add_executable(test_binary_deletion test_binary_deletion.cpp)
 target_link_libraries(test_binary_deletion PRIVATE tactix_lib)
 add_test(NAME binary_deletion COMMAND test_binary_deletion)
 
+add_executable(test_transitive_reduce test_transitive_reduce.cpp)
+target_link_libraries(test_transitive_reduce PRIVATE tactix_lib)
+add_test(NAME transitive_reduce COMMAND test_transitive_reduce)
+
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)
@@ -77,3 +81,13 @@ add_test(NAME micro_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/micro_proofs.sh
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
+
+# V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,
+# model sets compared by enumeration (the ONLY direct test that V4's deletions
+# are equivalence-preserving — a proof checker accepts any delete line). Pass a
+# second arg to raise the iteration count for a soak.
+add_executable(test_tr_bruteforce test_tr_bruteforce.cpp)
+target_link_libraries(test_tr_bruteforce PRIVATE tactix_lib)
+foreach(mode 0 1 2 3)
+  add_test(NAME tr_bruteforce_${mode} COMMAND test_tr_bruteforce ${mode})
+endforeach()

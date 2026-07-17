@@ -191,6 +191,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.backbone_rounds,
            (unsigned long long)kernel.stats.backbone_probed,
            (unsigned long long)kernel.stats.backbone_failed);
+    printf("c transitive  %llu rounds, %llu checked, %llu deleted, "
+           "%llu failed\n",
+           (unsigned long long)kernel.stats.transitive_rounds,
+           (unsigned long long)kernel.stats.transitive_checked,
+           (unsigned long long)kernel.stats.transitive_deleted,
+           (unsigned long long)kernel.stats.transitive_failed);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);

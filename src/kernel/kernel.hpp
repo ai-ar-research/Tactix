@@ -70,6 +70,10 @@ struct Stats {
   uint64_t backbone_rounds = 0;  // Backbone rounds (V2)
   uint64_t backbone_probed = 0;  // binary probe assumptions made (V2)
   uint64_t backbone_failed = 0;  // failed literals -> root units derived (V2)
+  uint64_t transitive_rounds = 0;  // TransitiveReduce rounds (V4)
+  uint64_t transitive_checked = 0; // candidate edges walked (V4)
+  uint64_t transitive_deleted = 0; // transitively redundant binaries deleted
+  uint64_t transitive_failed = 0;  // sources abandoned to Probe as failed (V4)
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
