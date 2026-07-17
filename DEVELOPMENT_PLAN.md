@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-16 (rev. 32). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-17 (rev. 33). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -418,6 +418,9 @@ primitive** for its SCC-edge and occurrence rewrites. Sequencing within phase 3:
 V4 before V3. (V3's other prerequisites already landed 2026-07-16: the ρ
 reconstruction stack + `kernel_push_witness` as K1+K2, and SCC detection as V3a;
 only the V3b rewrite waits on binary deletion.)
+
+Implementation design notes (point-in-time, non-normative — this plan stays
+authoritative): `docs/v3-substitute-design.md`, `docs/v4-transitive-reduce-design.md`.
 
 #### Variable elimination / addition
 
@@ -1073,3 +1076,4 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 30** (2026-07-16): §4 propagation-fixpoint precondition — state-advancing rules (Decide + all inprocessing) require `propagate_head = |τ|`; only Propagate/Analyze/Backjump are exempt (current-level assignment mis-levels otherwise; corpus 004, fuzz-found via V2 Backbone); true-level relaxation stays the §5.4 candidate.
 - **rev. 31** (2026-07-16): §4 true-level assertion — `Backjump` asserts the UIP at `jump_level`, never a higher chronological target (current-level assignment mis-levels it; a later partial restart then strands its reason as an escaped unit — corpus 005, fuzz-found under the random policy); Backjump's N1 instance surface narrows to the canonical jump_level, chronological BT deferred to §5.4 (§5.2 M4 row synced). Also §8.2 fuzz generators — FuzzSAT circuits added; per-batch mix 15/30/25/30 (sweep/structured/mutation/FuzzSAT) + 10 always-on degeneracies; k-SAT capped at 100 vars; nightly 100k→10k, 5 s/case.
 - **rev. 32** (2026-07-16): §5.2 sequencing — V4 `TransitiveReduce` implemented BEFORE V3 `Substitute`. V3b (variable-eliminating rewrite) needs binary-clause deletion, which the kernel deliberately cannot do (binaries are watch-only + never deleted — a permanence `SubsumeForward`'s binary-subsumer soundness relies on). V4, whose whole delta is `delete` of transitively-redundant binary edges, is the introduction point for a binary-deletion kernel primitive + the `SubsumeForward` reconciliation; V3 then reuses it. V3's ρ-stack (K1+K2) + SCC detection (V3a) already landed; only V3b waits.
+- **rev. 33** (2026-07-17): saved the V3 and V4 implementation design notes to `docs/v3-substitute-design.md` + `docs/v4-transitive-reduce-design.md` (design/research artifacts from the understand→design workflows; §5.2 references them). No spec change.
