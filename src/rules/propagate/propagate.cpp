@@ -12,21 +12,14 @@
 namespace tactix {
 
 bool propagate_guard(const Kernel &k) {
-  // !pending.valid (plan rev 35, corpus 006): the Analyze -> Backjump learned-
-  // clause handoff must be CONSUMED before propagation resumes. Propagating an
-  // unpropagated trail suffix while a clause is pending can find a SECOND
-  // conflict; that state (conflict_valid && pending.valid) blocks Backjump
-  // (which needs !conflict_valid) and leaves only Analyze applicable, which
-  // OVERWRITES pending. The first learned clause is then orphaned: already
-  // allocated, watched and emitted to the proof, but its asserting literal is
-  // never assigned — and since propagation is watch-driven, nothing ever
-  // revisits it. It sits unit-with-unassigned at the next fixpoint (an escaped
-  // unit, the corpus-004/005 family). Blocking Propagate here makes
-  // (conflict_valid && pending.valid) unreachable rather than merely
-  // unpleasant; Backjump is always applicable in its place, so no schedule
-  // loses progress and N1 is intact. Never fires under DefaultPolicy, which
-  // always backjumps before propagating again.
-  return !k.conflict_valid && !k.inconsistent && !k.pending.valid &&
+  // Pure abstract precondition (calculus M1): not refuted, no unresolved
+  // conflict, and propagation work remains. The rev-35 `¬pending.valid`
+  // conjunct is GONE since rev 37: with Analyze+Backjump fused into the atomic
+  // ConflictAnalysis rule, `pending` never persists across a rule boundary, so
+  // the (conflict_valid && pending.valid) state corpus 006 exploited is
+  // unrepresentable — the guard no longer needs to exclude it (D-SPLIT-1
+  // closed, calculus §7).
+  return !k.conflict_valid && !k.inconsistent &&
          k.propagate_head < k.trail.size();
 }
 

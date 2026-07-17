@@ -15,6 +15,7 @@
 #include "rules/analyze/analyze.hpp"
 
 #include "proof/proof.hpp"
+#include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
 
 #include <algorithm>
 
@@ -697,7 +698,23 @@ ApplyResult analyze_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-TACTIX_REGISTER_RULE(Analyze, RuleTier::Micro, analyze_guard,
-                     analyze_apply);
+// ConflictAnalysis (rev 37) — the atomic learn+backjump rule (calculus §8,
+// D-SPLIT). One transition from a recorded conflict: derive+emit the learned
+// clause (analyze_apply) and, unless that was a root refutation, assert it by
+// backjumping (backjump_apply). Fusing the two removes the `pending` control
+// state that was observable at a rule boundary — so no guard needs
+// `¬pending.valid` any more, and the corpus-006 (conflict_valid ∧ pending.valid)
+// state is unrepresentable rather than merely guarded against. The guard is the
+// already-pure analyze_guard. analyze_apply / backjump_apply stay as internal
+// step functions (DefaultPolicy and the analyze tests drive them white-box).
+static ApplyResult conflictanalysis_apply(Kernel &k) {
+  const ApplyResult r = analyze_apply(k);
+  if (r != ApplyResult::Ok)
+    return r; // root refutation (Unsat) — analyze set no pending clause
+  return backjump_apply(k); // asserts the UIP at jump_level; clears pending
+}
+
+TACTIX_REGISTER_RULE(ConflictAnalysis, RuleTier::Micro, analyze_guard,
+                     conflictanalysis_apply);
 
 } // namespace tactix

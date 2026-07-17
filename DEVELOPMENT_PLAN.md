@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-17 (rev. 36). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-17 (rev. 37). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -226,9 +226,19 @@ interleave rules freely at any state. corpus 004/005/006 are the regression bed
 proving each relaxation stays sound. The calculus is kept in sync with this
 section and §5.2 via the **calculus skill**.
 
-Terminal detections: `Propagate` yielding a top-level conflict + `Analyze` deriving
-the empty clause ⇒ UNSAT; all variables assigned without conflict ⇒ SAT (after
-model reconstruction through ρ).
+**D-SPLIT done (rev 37).** Analyze and Backjump are fused into the single atomic
+`ConflictAnalysis` rule (M3), so `pending` is consumed within one apply and is
+never a control state at a rule boundary. The rev-35 `¬pending.valid` conjunct
+is removed from `Propagate`, `Lucky`, and the seven inprocessing rules
+(D-SPLIT-1/2 closed, `calculus.md` §7), and the corpus-006 state is
+unrepresentable. Behavior-preserving: s055 bit-exact 932,762, demo3 still
+stat-exact, proof output byte-identical. D-SPLIT-3 (the `¬conflict_valid`
+conjunct on inprocessing, redundant at `level==0`) and the D-LEVEL family
+(the headline true-level work) remain the open guard-purification targets.
+
+Terminal detections: `Propagate` yielding a top-level conflict + `ConflictAnalysis`
+deriving the empty clause ⇒ UNSAT; all variables assigned without conflict ⇒ SAT
+(after model reconstruction through ρ).
 
 ## 5. Architecture
 
@@ -421,8 +431,8 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 |---|---|---|---|---|
 | M1 | `Propagate` | propsearch, propdense, propbeyond, propinitially, assign, watch | none (reasons recorded for later hints) | 1 |
 | M2 | `Decide` (branch choice API-exposed per N1: instances = all unassigned literals; canonical = active heuristic's pick) | decide, queue (VMTF), heap (scores) | none (H only) | 1 |
-| M3 | `Analyze` (1-UIP learn + minimize + shrink + OTFS) | analyze, learn, deduce, minimize, shrink, strengthen (on-the-fly) | add-RUP with native LRAT hints | 1 |
-| M4 | `Backjump` (asserts UIP at `jump_level`; chrono BT → §5.4) | backtrack, trail | none | 1 |
+| M3 | `ConflictAnalysis` (atomic learn+backjump, rev 37: 1-UIP minimize/shrink/OTFS, then assert UIP at `jump_level`) | analyze, learn, deduce, minimize, shrink, strengthen, backtrack, trail | add-RUP with native LRAT hints | 1 |
+| M4 | *(folded into M3, rev 37 — Analyze+Backjump fused; `pending` is internal, chrono target → §5.4 as an M3 instance)* | — | — | — |
 
 #### Search management (macro tier, mostly heuristic-state H)
 
@@ -1128,6 +1138,7 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 30** (2026-07-16): §4 propagation-fixpoint precondition — state-advancing rules (Decide + all inprocessing) require `propagate_head = |τ|`; only Propagate/Analyze/Backjump are exempt (current-level assignment mis-levels otherwise; corpus 004, fuzz-found via V2 Backbone); true-level relaxation stays the §5.4 candidate.
 - **rev. 31** (2026-07-16): §4 true-level assertion — `Backjump` asserts the UIP at `jump_level`, never a higher chronological target (current-level assignment mis-levels it; a later partial restart then strands its reason as an escaped unit — corpus 005, fuzz-found under the random policy); Backjump's N1 instance surface narrows to the canonical jump_level, chronological BT deferred to §5.4 (§5.2 M4 row synced). Also §8.2 fuzz generators — FuzzSAT circuits added; per-batch mix 15/30/25/30 (sweep/structured/mutation/FuzzSAT) + 10 always-on degeneracies; k-SAT capped at 100 vars; nightly 100k→10k, 5 s/case.
 - **rev. 32** (2026-07-16): §5.2 sequencing — V4 `TransitiveReduce` implemented BEFORE V3 `Substitute`. V3b (variable-eliminating rewrite) needs binary-clause deletion, which the kernel deliberately cannot do (binaries are watch-only + never deleted — a permanence `SubsumeForward`'s binary-subsumer soundness relies on). V4, whose whole delta is `delete` of transitively-redundant binary edges, is the introduction point for a binary-deletion kernel primitive + the `SubsumeForward` reconciliation; V3 then reuses it. V3's ρ-stack (K1+K2) + SCC detection (V3a) already landed; only V3b waits.
+- **rev. 37** (2026-07-17): D-SPLIT guard-purification revamp — Analyze+Backjump fused into the single atomic `ConflictAnalysis` rule (§5.2 M3; M4 folded in). `pending` is now internal scratch consumed within one apply, never a control state at a rule boundary, so the rev-35 `¬pending.valid` conjunct is removed from Propagate/Lucky/{SubsumeForward,Strengthen,Vivify,Probe,Backbone,Substitute,TransitiveReduce} and the corpus-006 state is unrepresentable (calculus D-SPLIT-1/2 closed). Behavior-preserving: s055 bit-exact 932,762, demo3 stat-exact, proofs byte-identical; N1 granularity trade (Backjump no longer separately schedulable) recorded in calculus §8. First of the guard-purification ladder; D-LEVEL (true-level assignment) next.
 - **rev. 36** (2026-07-17): proof-rule calculus formalized — `docs/calculus.md` gives each implemented rule's abstract precondition/effect/proof-delta/soundness + a consolidated engineering-deviation ledger classifying every guard conjunct as abstract or engineering (two root causes: D-LEVEL current-level assignment, D-SPLIT the Analyze/Backjump split). Guards must be pure abstract preconditions per N1; the three rev-30/31/35 preconditions are re-framed as deviations with removal paths, and purifying them (true-level assignment + chronological backtracking; atomic conflict analysis) is elevated from a deferred §5.4 candidate to an ACTIVE §5.4 revamp target. New `calculus` skill maintains the doc in sync with §4/§5.2/PROGRESS. Calculus §8 decides Analyze+Backjump are one atomic abstract rule. No rule semantics changed; DefaultPolicy untouched.
 - **rev. 35** (2026-07-17): §4 handoff-consumption precondition — `Propagate` requires `¬pending.valid`, so the Analyze→Backjump learned-clause handoff is consumed before propagation resumes. Otherwise a second conflict found while a clause is pending forces a second `Analyze` that OVERWRITES `pending`, orphaning an already-watched, already-proof-emitted learned clause as an escaped unit (corpus 006; nightly-found, N1-only, pre-existing). Unifying rule: a handoff must be consumed before the state it describes is advanced.
 - **rev. 34** (2026-07-17): §5.1 literal instance payloads are the DIMACS literal ZERO-extended (`TACTIX_LIT_INSTANCE`), not "cast to int64" — sign-extension aliased DIMACS −1 onto `TACTIX_INSTANCE_CANONICAL`, so `apply_instance(Decide, −1)` silently ran the canonical pick (N1 violation on the branching choice itself; also hit Probe/Backbone; found by the V4 review, verified end-to-end, regression-pinned in `test_api_c`). Frozen-API encoding change, negative-literal payloads only; one external caller.

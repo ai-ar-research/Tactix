@@ -44,15 +44,19 @@ recorded per-rule below and consolidated in §7:
   `jump_level` only. Removal path: **true-level assignment + chronological
   backtracking** (plan §5.4).
 
-- **D-SPLIT — Analyze and Backjump are two rules.** Conflict analysis is split
-  into `Analyze` (derive + emit the learned clause, buffer it in `pending`) and
-  `Backjump` (assert it). The `pending` buffer is a control-state artifact with
-  no counterpart in the abstract state `σ` (§2); abstract DPLL has no
-  "learned-clause-awaiting-assertion" state. To keep the single-slot `pending`
-  from being overwritten (corpus 006) the kernel adds `¬pending.valid` /
-  `¬conflict_valid` conjuncts to `Propagate`, `Lucky`, and the inprocessing
-  rules. Removal path: **model conflict analysis as one atomic rule** (§8), or a
-  non-lossy handoff queue.
+- **D-SPLIT — Analyze and Backjump were two rules (CLOSED for `pending`,
+  rev 37).** Conflict analysis was split into `Analyze` (derive + emit the
+  learned clause, buffer it in `pending`) and `Backjump` (assert it). The
+  `pending` buffer is a control-state artifact with no counterpart in `σ` (§2).
+  **Resolved (§8):** the two are fused into the single atomic `ConflictAnalysis`
+  rule, so `pending` is consumed within one apply and is never observable at a
+  rule boundary. The `¬pending.valid` conjuncts are therefore **removed** from
+  `Propagate`, `Lucky`, and the seven inprocessing rules (D-SPLIT-1/2 closed);
+  the corpus-006 `(conflict_valid ∧ pending.valid)` state is now
+  unrepresentable, not merely guarded. The **`¬conflict_valid` conjunct on the
+  inprocessing rules is a separate deviation (D-SPLIT-3), still open** — it rests
+  on `level==0 ⟹ ¬conflict_valid`, not on the split, so it is not closed by the
+  fusion.
 
 Neither leak affects **DefaultPolicy**, which propagates to a fixpoint before
 every decision and always backjumps before propagating again — so both leaks are
@@ -112,13 +116,12 @@ quotes the implemented conjuncts and tags each `[abstract]` or `[eng:D-LEVEL]` /
   model-preserving. Each root unit is RUP from its reason plus the reasons of
   that clause's other root literals (chain ascending by trail position); a root
   conflict's clause is all-false, so ∅ is RUP from it and those unit ids.
-- **Guard** (`propagate.cpp:29-30`): `!conflict_valid` `[abstract]` ·
-  `!inconsistent` `[abstract]` · `!pending.valid` **`[eng:D-SPLIT]`** ·
-  `propagate_head < |τ|` `[abstract]` (the applicability/progress test).
-- **Deviation:** `!pending.valid` — abstractly Propagate applies on any
-  non-fixpoint, non-conflicted, non-refuted trail regardless of a buffered
-  learned clause. Present only to make `(conflict_valid ∧ pending.valid)`
-  unreachable (corpus 006). *Removal:* atomic conflict analysis (§8).
+- **Guard** (`propagate.cpp`): `!conflict_valid` `[abstract]` ·
+  `!inconsistent` `[abstract]` · `propagate_head < |τ|` `[abstract]` (the
+  applicability/progress test). **Pure since rev 37** — the `!pending.valid`
+  conjunct (D-SPLIT-1) was removed when Analyze+Backjump fused; `pending` never
+  persists at a boundary, so the corpus-006 `(conflict_valid ∧ pending.valid)`
+  state is unrepresentable.
 
 ### M2 · Decide — `Decide`
 - **Precondition (abstract):** an unassigned variable exists, no unresolved
@@ -139,46 +142,45 @@ quotes the implemented conjuncts and tags each `[abstract]` or `[eng:D-LEVEL]` /
   because forced literals are stamped at `dl`. *Removal:* true-level assignment
   (plan §5.4).
 
-### M3 · Analyze — `ConflictAnalysis` (learn half)
+### M3 · ConflictAnalysis — the atomic learn+backjump rule *(the registered rule since rev 37)*
 - **Precondition (abstract):** a conflict is recorded (some clause is all-false
   under `M`) and `F` not refuted. Exempt from the fixpoint precondition (it
-  operates on a non-fixpoint trail by design).
-- **Effect:** 1-UIP analysis (+ recursive minimization, all-UIP shrinking,
-  OTFS) yields a learned clause; add it to `R`, buffer `pending` = {clause,
-  `jump_level`, asserting literal}. At root (learned ∅ or a top-level conflict)
-  set `inconsistent`. `τ` unchanged here (assertion is M4's).
+  operates on a non-fixpoint trail by design). This is the already-pure
+  `analyze_guard` — **no deviations.**
+- **Effect (one atomic transition):** 1-UIP analysis (+ recursive minimization,
+  all-UIP shrinking, OTFS) yields a learned clause, added to `R`; then, unless
+  that was a root refutation, backtrack to `jump_level` and assert the UIP
+  there. At root (learned ∅ or a top-level conflict) set `inconsistent` and
+  return without asserting. `pending` is internal scratch handed from the learn
+  step (`analyze_apply`) to the backjump step (`backjump_apply`) *within this
+  one apply* — never a control state at a rule boundary (that is the D-SPLIT
+  fix). DefaultPolicy and the analyze unit tests still drive the two internal
+  steps white-box, which is why they remain separate functions.
 - **Proof δ:** `add_rup` of the learned clause (LRAT with its antecedent chain /
   DRAT literals). Root refutation: **`add_rup(∅, chain)` in LRAT**
-  (`analyze.cpp:502` via `chain_emit`) / `add_empty` in DRAT (`:504`).
-  *(Vocabulary note: LRAT emits an RUP addition of the empty clause with a hint
-  chain, not a dedicated empty line — this is the one place that asymmetry with
-  M1's `add_empty` matters.)*
-- **Soundness:** the 1-UIP clause is derived by resolution from the conflict and
-  the trail reasons, hence `F ⊨` it (RUP-checkable); minimization/shrinking/OTFS
-  each preserve entailment.
-- **Guard** (`analyze.cpp`): `conflict_valid` `[abstract]` · `!inconsistent`
-  `[abstract]`. **No deviations — Analyze's guard is already pure.**
+  (`analyze.cpp` via `chain_emit`) / `add_empty` in DRAT. *(Vocabulary note:
+  LRAT emits an RUP addition of the empty clause with a hint chain, not a
+  dedicated empty line — the one place that asymmetry with M1's `add_empty`
+  matters.)* The backjump step emits nothing, except the corner case of a
+  learned unit contradicting a root assignment (→ `add_empty`, immediate
+  `Unsat`).
+- **Soundness:** the 1-UIP clause is `F`-entailed (RUP-checkable);
+  minimization/shrinking/OTFS preserve entailment; the assert is a sound unit
+  propagation of the learned clause at `jump_level`.
+- **Guard** (`analyze.cpp`, `analyze_guard`): `conflict_valid` `[abstract]` ·
+  `!inconsistent` `[abstract]`. **Pure — no deviations.**
 
-### M4 · Backjump — `ConflictAnalysis` (backjump half)
-- **Precondition (abstract):** a learned clause with a computed assertion level
-  exists; `F` not refuted. Abstractly the natural target is the assertion level
-  (`jump_level`), but chronological backtracking to *any* level `≥ jump_level`
-  is a legitimate variant.
-- **Effect:** backtrack `τ` to `jump_level`; assign the asserting literal there
-  with the learned clause as reason; clear `pending`. `F,R,ρ` unchanged.
-- **Proof δ:** none (the clause was emitted by M3).
-- **Soundness:** the learned clause is unit at `jump_level` with the asserting
-  literal its only non-false literal, so the assignment is a sound unit
-  propagation.
-- **Guard** (`backjump.cpp`): `pending.valid` **`[eng:D-SPLIT]`** ·
-  `!conflict_valid` **`[eng:D-SPLIT]`** · `!inconsistent` `[abstract]`.
-- **Deviations:** (1) `backjump_apply_to` **unconditionally clamps the target to
-  `jump_level`** and the instance surface offers only that **`[eng:D-LEVEL]`** —
-  a higher (chronological) target would mis-level the UIP (corpus 005). *Removal:*
-  true-level assignment + chronological backtracking (§5.4). (2) the
-  `pending.valid`/`!conflict_valid` conjuncts and the whole stale-pending
-  reconciliation path exist only because Analyze and Backjump are separate rules
-  **`[eng:D-SPLIT]`**. *Removal:* atomic conflict analysis (§8).
+### M4 · (was Backjump) — folded into M3 ConflictAnalysis (rev 37)
+Backjump is no longer a registered rule. `backjump_apply` / `backjump_apply_to`
+remain as the internal *backjump step* of M3 (and are driven white-box by
+DefaultPolicy's micro-loop and the analyze tests). Its former guard conjuncts
+(`pending.valid`, `!conflict_valid`) were D-SPLIT deviations and are gone with
+the fusion. **One D-LEVEL deviation survives inside the step:**
+`backjump_apply_to` still **clamps the target to `jump_level`** (the instance
+surface offers only that) — a higher chronological target would mis-level the
+UIP under current-level assignment (corpus 005). When true-level assignment
+lands (§5.4), the clamp is removed and the chronological target becomes a
+`ConflictAnalysis` instance parameter (D-LEVEL-2).
 
 ---
 
@@ -238,9 +240,9 @@ quotes the implemented conjuncts and tags each `[abstract]` or `[eng:D-LEVEL]` /
   backtracks, restoring `σ`.
 - **Guard** (`lucky.cpp:16-20`): `!inconsistent` `[abstract]` ·
   `!conflict_valid` `[abstract]` (it needs a consistent start to trust a SAT
-  conclusion) · `!pending.valid` **`[eng:D-SPLIT]`** · `level == 0`
-  **`[eng:D-ROOT]`** · `propagate_head == |τ|` **`[eng:D-LEVEL]`**.
-- **Deviation:** the fixpoint/root/pending conjuncts; for Lucky the fixpoint is
+  conclusion) · `level == 0` **`[eng:D-ROOT]`** · `propagate_head == |τ|`
+  **`[eng:D-LEVEL]`**. (`!pending.valid` removed rev 37, D-SPLIT-1.)
+- **Deviation:** the fixpoint/root conjuncts; for Lucky the fixpoint is
   especially removable (its probe propagates from `propagate_head` over the
   whole trail anyway). *Removal:* §5.4 / §8.
 
@@ -248,17 +250,18 @@ quotes the implemented conjuncts and tags each `[abstract]` or `[eng:D-LEVEL]` /
 
 ## 5. Subsumption & strengthening (C1–C3) — the quiescent-root family
 
-All three share the 5-conjunct **quiescent-root guard**
-(`!inconsistent · !conflict_valid · !pending.valid · level==0 ·
-propagate_head==|τ|`). The classification is identical across them, so it is
-stated once here and referenced:
+All three share the **quiescent-root guard**
+(`!inconsistent · !conflict_valid · level==0 · propagate_head==|τ|` — the
+`!pending.valid` conjunct was removed in rev 37 with the D-SPLIT fusion). The
+classification is identical across them, so it is stated once here and
+referenced:
 
 - `!inconsistent` `[abstract]` — terminal-state guard (∅ ∈ F).
-- `!conflict_valid` **`[eng:D-SPLIT]`** — a subsume/strengthen/vivify inference
-  is a property of `F` and is sound regardless of a recorded conflict; the
-  conjunct is a state-machine gate ("a recorded conflict must be analyzed before
-  τ changes"), not an abstract precondition.
-- `!pending.valid` **`[eng:D-SPLIT]`** — same artifact as M1's.
+- `!conflict_valid` **`[eng:D-SPLIT-3]`** — a subsume/strengthen/vivify
+  inference is a property of `F` and is sound regardless of a recorded conflict;
+  the conjunct is a state-machine gate ("a recorded conflict must be analyzed
+  before τ changes"), not an abstract precondition. (Redundant at `level==0`,
+  which is why it is safe to keep for now; removal is D-SPLIT-3.)
 - `level == 0` **`[eng:D-ROOT]`** — the abstract rules operate on the root
   formula (the inprocessing-rules framework is defined on `F` under `U`); the
   *specific* requirement "the whole trail is root units" is how that is coded.
@@ -311,8 +314,8 @@ share it too, with one refinement noted below.
   the conflict.
 - **Guard** (`probe.cpp:10-14`): quiescent-root; `!conflict_valid` `[abstract]`
   (probing assumes `p` atop `M`, so `M`'s consistency is genuinely needed),
-  `!pending.valid` **`[eng:D-SPLIT]`**, `level==0` **`[eng:D-ROOT]`**,
-  `propagate_head==|τ|` **`[eng:D-LEVEL]`**.
+  `level==0` **`[eng:D-ROOT]`**, `propagate_head==|τ|` **`[eng:D-LEVEL]`**.
+  (`!pending.valid` removed rev 37, D-SPLIT-1.)
 
 ### V2 · Backbone — binary-only failed-literal probing
 - **Precondition (abstract):** as V1, restricted to binary propagation (the
@@ -342,8 +345,8 @@ share it too, with one refinement noted below.
   **`[eng:other, unclear-leaning-engineering]`** — V3 is a pure `F`-rewrite (its
   SCC/equivalence inference reads only `F`, never the conflict fields), so a
   recorded conflict is not strictly a soundness precondition; it is a
-  well-formedness gate. `!pending.valid` `[eng:D-SPLIT]`, `level==0`
-  `[eng:D-ROOT]`, `propagate_head==|τ|` `[eng:D-LEVEL]`.
+  well-formedness gate (D-SPLIT-3). `level==0` `[eng:D-ROOT]`,
+  `propagate_head==|τ|` `[eng:D-LEVEL]`. (`!pending.valid` removed rev 37.)
 
 ### V4 · TransitiveReduce — delete transitively-redundant binaries
 - **Precondition (abstract):** a binary `e = (src∨dst)` (BIG edge `¬src→dst`) is
@@ -372,19 +375,20 @@ item, not an ad-hoc patch.
 |---|-----------|----------------|-----------|--------------|
 | D-LEVEL-1 | `propagate_head == trail.size` (decide/inprocess off a fixpoint forbidden) | M2, C1, C2, C3, V1, V2, V3, V4, S5 | forced literals stamped at current `dl` | true-level assignment (plan §5.4) |
 | D-LEVEL-2 | `Backjump` target clamped to `jump_level`; no chronological BT | M4 | same | true-level assignment + chronological backtracking (§5.4) |
-| D-SPLIT-1 | `¬pending.valid` | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | atomic conflict analysis (§8), or a non-lossy pending queue |
-| D-SPLIT-2 | `pending.valid` / `¬conflict_valid` + the stale-pending path | M4 | same | atomic conflict analysis (§8) |
+| ~~D-SPLIT-1~~ | ~~`¬pending.valid`~~ — **CLOSED rev 37** | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | **done:** atomic ConflictAnalysis (§8) — `pending` never at a boundary |
+| ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED rev 37** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
 | D-SPLIT-3 | `¬conflict_valid` on rules that don't consume the conflict | C1, C2, C3, V1, V2, V3, V4 | recorded-conflict control flag not in `σ` | atomic conflict analysis (§8) makes the flag transient |
 | D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
-**Pure already:** M3 Analyze, S3 Rephase, S4 SwitchMode. **The prize:** removing
-D-LEVEL-1/2 makes M2 Decide and M4 Backjump pure (the headline N1 fix — "multiple
-decisions in a row without propagation"); removing D-SPLIT-1/2/3 makes M1 and the
-whole inprocessing family pure. The corpus 004/005/006 regressions are the bed
-that proves a removal is correct: once every literal is at its true level and
-conflict analysis is atomic, those guards relax and the corpus cases must still
-pass.
+**Pure already:** M3 ConflictAnalysis, S3 Rephase, S4 SwitchMode. **Done
+(rev 37):** D-SPLIT-1/2 — atomic ConflictAnalysis removed `pending` from every
+guard (M1 and the inprocessing family lost `¬pending.valid`; Backjump's guard is
+gone with the rule); s055 stayed bit-exact and corpus 006 became unrepresentable.
+**The remaining prize:** removing D-LEVEL-1/2 makes M2 Decide pure and the
+backjump target pure (the headline N1 fix — "multiple decisions in a row without
+propagation"); removing D-SPLIT-3 makes the inprocessing family fully pure. The
+corpus 004/005/006 regressions are the bed that proves a removal is correct.
 
 ## 8. Decision: Analyze + Backjump are one abstract rule
 
@@ -407,15 +411,21 @@ Rationale:
 - N1 is preserved: `ConflictAnalysis` is a rule applicable whenever a conflict
   is recorded; the branching freedom N1 names is `Decide`'s, untouched.
 
-**Trade-off recorded:** the current two-rule split gives marginally finer N1
-granularity (a policy *can* observe the post-analysis/pre-backjump state). That
-granularity has no known use and one known hazard, so the calculus prefers the
-atomic rule. The **implementation** may keep two internal functions
-(`analyze_apply` + `backjump_apply`) for code structure; what the calculus fixes
-is that the *abstract* rule is atomic, so no guard anywhere exposes `pending`.
-This is realized alongside the §5.4 true-level work (it is the D-SPLIT half of
-"purify the guards"); until then the two-rule guards stand and are tagged
-`[eng:D-SPLIT]` above.
+**Trade-off recorded:** the former two-rule split gave marginally finer N1
+granularity (a policy *could* observe the post-analysis/pre-backjump state, and
+interpose Restart/Reduce/Rephase/SwitchMode there). That granularity had no
+known use and one known hazard (corpus 006), so the calculus took the atomic
+rule.
+
+**Implemented rev 37.** `ConflictAnalysis` is the single registered rule
+(`analyze.cpp`); `analyze_apply` + `backjump_apply` remain as internal step
+functions (DefaultPolicy's micro-loop and the analyze unit tests drive them
+white-box, which is permitted — the *abstract* rule is atomic, and no guard
+exposes `pending`). Verified behavior-preserving: s055 bit-exact at 932,762
+conflicts, demo3 (the stat-exact DefaultPolicy mirror) still matches, proof
+output byte-identical. D-SPLIT-1/2 are closed in §7; D-SPLIT-3 (the
+`¬conflict_valid` conjunct on the inprocessing rules) is independent and stays
+open.
 
 ## 9. Maintenance
 

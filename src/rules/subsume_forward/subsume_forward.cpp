@@ -9,7 +9,7 @@ namespace tactix {
 
 bool subsume_forward_guard(const Kernel &k) {
   // quiescent root (see subsume_forward.hpp)
-  return !k.inconsistent && !k.conflict_valid && !k.pending.valid &&
+  return !k.inconsistent && !k.conflict_valid &&
          k.level == 0 && k.propagate_head == k.trail.size();
 }
 

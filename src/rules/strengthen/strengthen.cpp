@@ -9,7 +9,7 @@ namespace tactix {
 
 bool strengthen_guard(const Kernel &k) {
   // quiescent root (C1's argument, strengthen.hpp)
-  return !k.inconsistent && !k.conflict_valid && !k.pending.valid &&
+  return !k.inconsistent && !k.conflict_valid &&
          k.level == 0 && k.propagate_head == k.trail.size();
 }
 

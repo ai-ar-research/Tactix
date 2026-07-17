@@ -25,8 +25,7 @@ static void add_clause(tactix *s, const int *lits) {
 
 static int cdcl_no_restarts(tactix *s) {
   const int propagate = rule_id("Propagate");
-  const int analyze = rule_id("Analyze");
-  const int backjump = rule_id("Backjump");
+  const int conflictanalysis = rule_id("ConflictAnalysis");
   const int decide = rule_id("Decide");
   long steps = 0;
   for (;;) {
@@ -37,11 +36,8 @@ static int cdcl_no_restarts(tactix *s) {
     int r = tactix_apply(s, propagate);
     if (r == 20)
       return 20;
-    if (r == 2) { /* conflict */
-      r = tactix_apply(s, analyze);
-      if (r == 20)
-        return 20;
-      r = tactix_apply(s, backjump); /* canonical: assertion level */
+    if (r == 2) { /* conflict: one atomic learn+backjump step */
+      r = tactix_apply(s, conflictanalysis);
       if (r == 20)
         return 20;
       continue;

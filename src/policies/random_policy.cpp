@@ -1,6 +1,5 @@
 #include "policies/random_policy.hpp"
 
-#include "rules/backjump/backjump.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/registry.hpp"
 #include "rules/restart/restart.hpp"
@@ -30,7 +29,6 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   const auto &rules = tactix_rules();
   const int decide_id = tactix_rule_id("Decide");
   const int restart_id = tactix_rule_id("Restart");
-  const int backjump_id = tactix_rule_id("Backjump");
   std::vector<int> applicable;
   applicable.reserve(rules.size());
 
@@ -45,10 +43,11 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     if (k.inconsistent)
       return 20;
     // SAT only when the assignment is total, fully propagated, and no
-    // conflict is in flight (recorded OR analyzed-but-not-backjumped): an
-    // unpropagated suffix or a pending learned clause can both mean the
-    // current assignment still falsifies a clause
-    if (k.unassigned == 0 && !k.conflict_valid && !k.pending.valid &&
+    // conflict is in flight: an unpropagated suffix or a recorded conflict can
+    // both mean the current assignment still falsifies a clause. (No
+    // `pending` check since rev 37: ConflictAnalysis is atomic, so a learned
+    // clause never persists across this boundary.)
+    if (k.unassigned == 0 && !k.conflict_valid &&
         k.propagate_head == k.trail.size())
       return 10;
     if (stop && *stop && (steps & 1023) == 0)
@@ -69,10 +68,6 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       // random keep-level (plan §8.2: random INSTANCE choices, not just
       // random order) — every level in [0, current] is a legal instance
       r = restart_apply_to(k, next_random(rng) % (k.level + 1));
-    } else if (id == backjump_id) {
-      // random target; apply_to clamps to the sound jump_level (higher
-      // chronological targets deferred to §5.4 — see backjump_apply_to)
-      r = backjump_apply_to(k, next_random(rng) % (k.level + 1));
     } else if (rules[id].instances && rules[id].apply_instance) {
       // generic random instance draw over the rule's own enumeration —
       // any rule registering an instance surface (Rephase, S/C/V families)

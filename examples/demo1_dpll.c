@@ -1,9 +1,9 @@
 /* §8.4 demo policy 1 — pure DPLL (no learning): decomposition sanity.
  *
- * Expressed with phase-≤2 rules only, through the frozen v1 API:
- * chronological backtracking is Backjump's largest sound target (an
- * instance choice, not a rule change), and "no learning" is Reduce with
- * an everything-sized victim count right after every conflict. The
+ * Expressed with phase-≤2 rules only, through the frozen v1 API: conflict
+ * handling is the single atomic ConflictAnalysis rule (Analyze+Backjump
+ * fused, rev 37), and "no learning" is Reduce with an everything-sized
+ * victim count right after every conflict. The
  * learned clause exists transiently — N2: it is still in the proof, and
  * clauses locked as reasons survive until the next purge — so this is
  * DPLL in search shape, not a bit-exact replica of the textbook loop.
@@ -38,11 +38,10 @@ static void add_clause(tactix *s, const int *lits) {
 
 static int dpll_solve(tactix *s) {
   const int propagate = rule_id("Propagate");
-  const int analyze = rule_id("Analyze");
-  const int backjump = rule_id("Backjump");
+  const int conflictanalysis = rule_id("ConflictAnalysis");
   const int decide = rule_id("Decide");
   const int reduce = rule_id("Reduce");
-  assert(propagate >= 0 && analyze >= 0 && backjump >= 0 && decide >= 0 &&
+  assert(propagate >= 0 && conflictanalysis >= 0 && decide >= 0 &&
          reduce >= 0);
   long steps = 0;
   for (;;) {
@@ -59,18 +58,12 @@ static int dpll_solve(tactix *s) {
         return 20;
       continue;
     }
-    if (has(ids, n, analyze)) {
-      int r = tactix_apply(s, analyze);
-      if (r == 20)
-        return 20;
-      /* chronological backtrack: instances are [assertion level ..
-       * current level] ascending; the second-to-last is current-1 */
-      uint64_t targets[4096];
-      const int m = tactix_rule_instances(s, backjump, targets, 4096);
-      assert(m >= 1);
-      r = tactix_apply_instance(s, backjump,
-                                m >= 2 ? targets[m - 2] : targets[0]);
-      assert(r != -1);
+    if (has(ids, n, conflictanalysis)) {
+      /* atomic learn+backjump (one rule since rev 37 — Analyze and Backjump
+       * fused, calculus §8). Backjumps to the assertion level; the
+       * chronological-target instance choice returns as a ConflictAnalysis
+       * instance parameter once true-level assignment lands (§5.4). */
+      int r = tactix_apply(s, conflictanalysis);
       if (r == 20)
         return 20;
       /* "no learning": purge every learned clause the kernel will

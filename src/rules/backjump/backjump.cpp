@@ -84,28 +84,12 @@ ApplyResult backjump_apply(Kernel &k) {
   return backjump_apply_to(k, k.pending.jump_level);
 }
 
-// generic instance surface (plan §5.1 v1): payload = target level. Under
-// current-level assignment the assertion level is the ONLY sound target
-// (higher targets mis-level the asserting literal — see backjump_apply_to),
-// so the sole legal instance is the canonical jump_level. Chronological
-// targets return with the §5.4 true-level-assignment kernel.
-static uint32_t backjump_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  if (cap == 0)
-    return 0;
-  out[0] = k.pending.jump_level;
-  return 1;
-}
-
-static ApplyResult backjump_apply_instance(Kernel &k, uint64_t inst) {
-  if (inst == INSTANCE_CANONICAL)
-    return backjump_apply(k);
-  // backjump_apply_to clamps into [jump_level, current level]
-  return backjump_apply_to(
-      k, static_cast<uint32_t>(inst > UINT32_MAX ? UINT32_MAX : inst));
-}
-
-TACTIX_REGISTER_RULE(Backjump, RuleTier::Micro, backjump_guard,
-                     backjump_apply, backjump_instances,
-                     backjump_apply_instance);
+// NOT a registered rule since rev 37: Analyze + Backjump are fused into the
+// single atomic ConflictAnalysis rule (calculus §8; D-SPLIT). backjump_apply /
+// backjump_apply_to / backjump_guard remain as internal step functions —
+// called by conflictanalysis_apply (analyze.cpp) and, white-box, by
+// DefaultPolicy's micro-loop and the analyze unit tests — but there is no
+// `pending` control state observable at a rule boundary, so the guards that
+// used to carry `¬pending.valid` no longer need it.
 
 } // namespace tactix

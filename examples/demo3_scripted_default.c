@@ -188,8 +188,7 @@ static int scripted_solve(tactix *s) {
                                scale_inproc_delta(s, SUBSUME_INTERVAL_INIT)
                          : UINT64_MAX;
   const int propagate = rule_id("Propagate");
-  const int analyze = rule_id("Analyze");
-  const int backjump = rule_id("Backjump");
+  const int conflictanalysis = rule_id("ConflictAnalysis");
   const int decide = rule_id("Decide");
   const int reduce = rule_id("Reduce");
   const int restart = rule_id("Restart");
@@ -210,10 +209,14 @@ static int scripted_solve(tactix *s) {
       if (tactix_apply_instance(s, lucky, TACTIX_INSTANCE_CANONICAL) == 10)
         return 10;
     }
-    if (r == 2) { /* conflict: analyze, observe, backjump */
-      r = tactix_apply(s, analyze);
+    if (r == 2) { /* conflict: one atomic ConflictAnalysis (learn+backjump) */
+      r = tactix_apply(s, conflictanalysis);
       if (r == 20)
         return 20;
+      /* observe glue + tick AFTER the fused step: backjump leaves
+       * LAST_LEARNED_GLUE (pending.glue) intact and neither read affects the
+       * backjump, so this stays stat-for-stat with DefaultPolicy (whose
+       * internal micro-loop observes between analyze and backjump). */
       {
         const int st = tactix_stat(s, TACTIX_STAT_STABLE) != 0;
         observe_glue(&p, st,
@@ -221,18 +224,6 @@ static int scripted_solve(tactix *s) {
         if (st)
           tick_reluctant(&p);
       }
-      {
-        /* chrono mirror: the jump level is the canonical Backjump
-         * instance (first enumerated payload) */
-        uint64_t jump;
-        const int m = tactix_rule_instances(s, backjump, &jump, 1);
-        const uint64_t back = tactix_stat(s, TACTIX_STAT_LEVEL) - 1;
-        const uint64_t target =
-            (m >= 1 && back - jump > CHRONO_LEVELS) ? back : jump;
-        r = tactix_apply_instance(s, backjump, m >= 1 ? target : jump);
-      }
-      if (r == 20)
-        return 20;
       continue;
     }
     if (tactix_stat(s, TACTIX_STAT_UNASSIGNED) == 0)

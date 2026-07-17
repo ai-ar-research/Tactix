@@ -12,7 +12,7 @@ namespace tactix {
 
 bool transitive_reduce_guard(const Kernel &k) {
   // quiescent root (C1/C2/C3/V1/V2/V3's argument)
-  return !k.inconsistent && !k.conflict_valid && !k.pending.valid &&
+  return !k.inconsistent && !k.conflict_valid &&
          k.level == 0 && k.propagate_head == k.trail.size();
 }
 

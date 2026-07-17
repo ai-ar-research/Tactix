@@ -47,10 +47,9 @@ static void test_external_branching(void) {
   add_clause(s, (const int[]){1, 3, 0});
 
   const int propagate = rule_id("Propagate");
-  const int analyze = rule_id("Analyze");
-  const int backjump = rule_id("Backjump");
+  const int conflictanalysis = rule_id("ConflictAnalysis");
   const int decide = rule_id("Decide");
-  assert(propagate >= 0 && analyze >= 0 && backjump >= 0 && decide >= 0);
+  assert(propagate >= 0 && conflictanalysis >= 0 && decide >= 0);
 
   /* adversarial external branching: always branch NEGATIVE on the
    * highest-numbered candidate — the opposite of what the formula wants */
@@ -59,10 +58,10 @@ static void test_external_branching(void) {
     int applicable[16];
     const int n = tactix_rules_applicable(s, applicable, 16);
     assert(n > 0);
-    /* prefer propagate > analyze > backjump > external decide */
+    /* prefer propagate > conflict-analysis > external decide */
     int did = 0;
-    const int order[3] = {propagate, analyze, backjump};
-    for (int j = 0; j < 3 && !did; j++)
+    const int order[2] = {propagate, conflictanalysis};
+    for (int j = 0; j < 2 && !did; j++)
       for (int i = 0; i < n && !did; i++)
         if (applicable[i] == order[j]) {
           const int r = tactix_apply(s, order[j]);
