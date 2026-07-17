@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-16 (rev. 31). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-16 (rev. 32). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -402,6 +402,22 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 | V4 | `TransitiveReduce` (binary implication graph) | transitive | delete | 3 |
 | V5 | `Sweep` (SAT sweeping via embedded kitten; equivalence extraction with core-derived hints) | sweep, kitten | add-RUP + delete | 4 |
 | V6 | `Congruence` (gate congruence closure; new in Kissat 4) | congruence | add-RUP + delete | 4 |
+
+**Binary-clause deletion — kernel primitive introduced with V4 (rev 32).** V3–V6/E1
+all need to delete binary clauses, which the current kernel deliberately cannot
+do: binaries never materialize (watch-list entries + `binary_ids` only) and are
+never deleted — a permanence `SubsumeForward` currently relies on (its binary
+subsumers skip the redundancy check they would otherwise need). So **V4
+`TransitiveReduce`, whose entire delta is `delete` of transitively-redundant
+binary edges, is implemented FIRST**, as the introduction point for a
+binary-deletion kernel primitive (drop the watch entries at both endpoints + emit
+the proof `delete`; `binary_ids` stays monotone for id lookup), together with the
+`SubsumeForward` reconciliation (a redundant binary may no longer subsume an
+irredundant clause without a redundancy check). **V3 `Substitute` then reuses that
+primitive** for its SCC-edge and occurrence rewrites. Sequencing within phase 3:
+V4 before V3. (V3's other prerequisites already landed 2026-07-16: the ρ
+reconstruction stack + `kernel_push_witness` as K1+K2, and SCC detection as V3a;
+only the V3b rewrite waits on binary deletion.)
 
 #### Variable elimination / addition
 
@@ -1056,3 +1072,4 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 29** (2026-07-15, user): Tier C timeout 3000 s → 1200 s (20 min) — worker-hour-per-timeout too costly; 1200–3000 s tail censored (caveat recorded), PAR-2 re-baselines at the first 1200 s run; benchmarks skill + run.py synced.
 - **rev. 30** (2026-07-16): §4 propagation-fixpoint precondition — state-advancing rules (Decide + all inprocessing) require `propagate_head = |τ|`; only Propagate/Analyze/Backjump are exempt (current-level assignment mis-levels otherwise; corpus 004, fuzz-found via V2 Backbone); true-level relaxation stays the §5.4 candidate.
 - **rev. 31** (2026-07-16): §4 true-level assertion — `Backjump` asserts the UIP at `jump_level`, never a higher chronological target (current-level assignment mis-levels it; a later partial restart then strands its reason as an escaped unit — corpus 005, fuzz-found under the random policy); Backjump's N1 instance surface narrows to the canonical jump_level, chronological BT deferred to §5.4 (§5.2 M4 row synced). Also §8.2 fuzz generators — FuzzSAT circuits added; per-batch mix 15/30/25/30 (sweep/structured/mutation/FuzzSAT) + 10 always-on degeneracies; k-SAT capped at 100 vars; nightly 100k→10k, 5 s/case.
+- **rev. 32** (2026-07-16): §5.2 sequencing — V4 `TransitiveReduce` implemented BEFORE V3 `Substitute`. V3b (variable-eliminating rewrite) needs binary-clause deletion, which the kernel deliberately cannot do (binaries are watch-only + never deleted — a permanence `SubsumeForward`'s binary-subsumer soundness relies on). V4, whose whole delta is `delete` of transitively-redundant binary edges, is the introduction point for a binary-deletion kernel primitive + the `SubsumeForward` reconciliation; V3 then reuses it. V3's ρ-stack (K1+K2) + SCC detection (V3a) already landed; only V3b waits.
