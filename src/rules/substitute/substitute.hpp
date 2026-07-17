@@ -4,13 +4,21 @@
 // that contains a literal together with its own negation forces UNSAT
 // (l ≡ ¬l). Proof delta: add-RUP + delete + push-witness.
 //
-// V3a scope (this file): SCC DETECTION only — the guard and the iterative
-// Tarjan pass. The clause rewrite, LRAT chains, witness pushes, UNSAT path,
-// and rule registration land in V3b; keeping detection separate lets the
-// graph algorithm be unit-tested in isolation before the proof machinery.
+// Scope so far:
+//   V3a — SCC DETECTION (guard + iterative Tarjan), unit-tested in isolation.
+//   V3b-1 (this commit) — the UNSAT path + registration: an SCC containing a
+//     literal and its own negation means x ≡ ¬x, so the formula is UNSAT; emit
+//     the refutation (two RUP units + the empty clause, chains via the
+//     rule-local BIG-path walk) and register the rule in the DEFERRED slot.
+//     No clause rewrite yet — a non-contradictory round is a NoOp. Landing the
+//     UNSAT path first de-risks big_path_chain (the design's #1 risk) with a
+//     fully LRAT-checkable, mutation-free increment before the rewrite depends
+//     on it.
+//   V3b-3 (next) — the equivalent-literal rewrite + reconstruction witnesses +
+//     size-collapse units.
 #pragma once
 
-#include "kernel/kernel.hpp"
+#include "rules/registry.hpp"
 
 #include <vector>
 
@@ -31,11 +39,22 @@ bool substitute_guard(const Kernel &k);
 //              whole SCC onto its representative).
 //   contradiction   = some SCC contains a literal and its own negation, i.e.
 //              l ≡ ¬l, so the formula is UNSAT.
+//   contradiction_lit = a witness x with x and ¬x in one SCC (INVALID_LIT if
+//              none); both directed paths x→¬x and ¬x→x then exist (the SCC is
+//              strongly connected), which the UNSAT proof walks.
 struct SccResult {
   std::vector<Lit> repr;            // by lit
   std::vector<Lit> nontrivial_reps; // representatives of |SCC| > 1, ascending
   bool contradiction = false;
+  Lit contradiction_lit = INVALID_LIT;
 };
 SccResult substitute_find_sccs(const Kernel &k);
+
+// Rule surface (registered in the DEFERRED inprocessing slot, so DefaultPolicy
+// never runs it; N1-exposed + random-policy-fuzzed). Payload = an SCC
+// representative literal via lit_instance/lit_of_instance (registry.hpp;
+// rev 34). INSTANCE_CANONICAL = the full round. V3b-1: apply detects and, on
+// x ≡ ¬x, refutes; otherwise NoOp (no rewrite until V3b-3).
+ApplyResult substitute_apply(Kernel &); // canonical: full round
 
 } // namespace tactix

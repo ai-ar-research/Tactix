@@ -201,7 +201,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (rules[i].tier == RuleTier::Inprocess)
           inprocess_slot.push_back(
               {i, std::strcmp(rules[i].name, "SubsumeForward") != 0 &&
-                      std::strcmp(rules[i].name, "TransitiveReduce") != 0});
+                      std::strcmp(rules[i].name, "TransitiveReduce") != 0 &&
+                      std::strcmp(rules[i].name, "Substitute") != 0});
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;

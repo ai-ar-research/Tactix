@@ -197,6 +197,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.transitive_checked,
            (unsigned long long)kernel.stats.transitive_deleted,
            (unsigned long long)kernel.stats.transitive_failed);
+    printf("c substitute  %llu rounds\n",
+           (unsigned long long)kernel.stats.substitute_rounds);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
