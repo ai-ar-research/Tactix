@@ -66,26 +66,36 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
-  k.binary_ids.emplace(kernel_binary_key(a, b), id); // first id wins
+  // LAST id wins (rev 33). The map must always name a clause the checker still
+  // holds, and since kernel_delete_binary can retire this pair's id, a re-add
+  // MUST install its fresh one — Analyze/Strengthen/Vivify can all re-derive a
+  // binary V4 deleted, and keeping the retired id would make every later LRAT
+  // chain through it cite a deleted clause. Among live DUPLICATES either id is
+  // equally valid (both clauses are live), which is why first-vs-last was a
+  // free choice before deletion existed and is not one now.
+  k.binary_ids.insert_or_assign(kernel_binary_key(a, b), id);
 }
 
 bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
-  // (1) liveness probe: the watch lists are the only liveness signal — the id
-  // in binary_ids survives deletion — so an absent binary is a no-op.
-  bool present = false;
+  // (1) liveness probe: the watch lists are the only liveness signal (a
+  // deleted pair's id lingers in binary_ids until the pair is re-added), so an
+  // absent binary is a no-op. COUNT the copies: binary_ids names a literal
+  // PAIR, not a copy, so a duplicated pair cannot be deleted by name — the
+  // `del` would retire the one id the surviving copy is still cited by, and
+  // every later LRAT chain through it would name a deleted clause. Refuse.
+  uint32_t copies = 0;
   for (const uint32_t *p = k.watches.begin(a), *e = k.watches.end(a); p != e;) {
     const Watch w{*p};
     if (!w.binary()) {
       p += 2; // large watch: blocking word + ref word
-    } else if (w.other() == b) {
-      present = true;
-      break;
     } else {
+      if (w.other() == b && ++copies == 2)
+        break;
       p += 1;
     }
   }
-  if (!present)
-    return false;
+  if (copies != 1)
+    return false; // absent (idempotent) or duplicated (unnameable)
   // (2) retire a live ROOT reason BEFORE deleting the clause that names it, so
   // no trail reason ever cites a just-deleted binary (the corpus-003 analog for
   // binary reasons; GC cannot do this — its reason-fix loop skips binaries).
@@ -127,7 +137,11 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
     const Lit lits2[2] = {a, b};
     k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
   }
-  // (5) binary_ids ledger untouched (monotone).
+  // (5) binary_ids keeps the KEY (the map stays size-monotone — the
+  // inprocessing trigger reads .size()), and keeps the now-retired id too: no
+  // live reason cites it (step 2 saw to that) and no caller looks up a pair
+  // that is not in the watch lists, so the stale value is unreachable until a
+  // re-add overwrites it (kernel_add_binary_clause: last id wins).
   k.stats.binaries_deleted++;
   return true;
 }

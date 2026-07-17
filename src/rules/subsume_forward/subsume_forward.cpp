@@ -93,7 +93,11 @@ static uint32_t mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
 
 // binary subsumers of the marked candidate live in the watch lists of its
 // free literals: binary (l, o) with both marked subsumes. Skips oversized
-// lists (kissat forward_literal's occurrence limit).
+// lists (kissat forward_literal's occurrence limit). No redundancy check on
+// the binary subsumer: see the V4 reconciliation in subsume_forward.hpp
+// (V4's deletions are equivalence-preserving, and a binary has no redundant
+// bit to test) — and the forward-looking condition that would make one
+// mandatory here.
 static bool subsumed_by_binary(const Kernel &k,
                                const std::vector<uint8_t> &marks,
                                const Clause *c) {

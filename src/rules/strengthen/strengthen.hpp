@@ -32,8 +32,15 @@
 //     discipline; NOTE: strengthening is actually safe with redundant
 //     strengtheners — c' implies c regardless — but redundant-aware
 //     strengthening arrives with C3's tier-aware vivification, once, not
-//     twice). ALL binaries subsume/strengthen (structurally permanent in
-//     this kernel — the C1-recorded invariant).
+//     twice). ALL binaries subsume/strengthen, with no redundancy check —
+//     since rev 33 binaries ARE deletable (kernel_delete_binary), so the
+//     justification is no longer "structurally permanent" but the V4
+//     equivalence-preservation argument recorded in subsume_forward.hpp,
+//     which covers this SUBSUMED branch verbatim (it, too, deletes an
+//     irredundant candidate on a binary's strength). The STRENGTHEN
+//     branches are unaffected either way: they emit an add-RUP clause
+//     checked against the whole formula at emit time, so it stands on its
+//     own no matter what happens to the binary it resolved against.
 // (4) A strengthen that yields a UNIT asserts it at the root (unit id
 //     recorded) and ENDS the round: values changed, the round's marks and
 //     "root-falsified" reasoning are stale; the policy re-propagates.

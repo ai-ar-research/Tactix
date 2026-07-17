@@ -174,9 +174,21 @@ struct Kernel {
   // stored — consumes one id in input/derivation order. Large clauses
   // carry theirs in the header; units live in unit_ids (by var; 0 =
   // none); binaries, which never materialize, in binary_ids keyed by the
-  // canonical literal pair (first id wins on duplicates — binaries are
-  // never deleted, so the map only grows; that permanence is load-bearing
-  // for SubsumeForward's soundness — see subsume_forward.hpp).
+  // canonical literal pair. THE INVARIANT (rev 33): while a pair is live in
+  // the watch lists, its id here names a clause the checker still holds.
+  // Before binaries were deletable this was free (ids only ever accumulated,
+  // so "first id wins" was as good as last). kernel_delete_binary breaks that,
+  // so two rules now hold it up: (a) kernel_add_binary_clause installs the
+  // LAST id, because a pair re-derived after V4 deleted it must not keep
+  // citing the id the `del` retired; (b) a pair with two live copies is NOT
+  // deletable — one id cannot name two clauses (the primitive refuses).
+  // Lookups of a DEAD pair never happen: every kernel_binary_id caller
+  // resolves a pair it just read out of a watch list or a live binary reason.
+  // The map itself is size-monotone — deletion keeps the key, since
+  // `binary_ids.size()` is the "new binaries appeared" inprocessing trigger
+  // (default_policy.cpp) and feeds kernel_irredundant_clauses; both want
+  // monotone growth, not a live count. SubsumeForward's soundness rests on the
+  // V4 equivalence argument, not on permanence — see subsume_forward.hpp.
   uint64_t next_clause_id = 0;
   std::vector<uint64_t> unit_ids; // by var
   std::unordered_map<uint64_t, uint64_t> binary_ids;
@@ -219,15 +231,22 @@ void kernel_extend_model(Kernel &);
 // ++next_clause_id for derived clauses)
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id = 0);
+// `id` is the pair's proof clause id; a re-add overwrites a previous one (see
+// the binary_ids invariant above)
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 // Delete binary (a v b): drop both mirror watch entries, retire a live ROOT
 // reason to UNIT_REASON (the binary analog of corpus 003 — a root literal this
 // binary propagated stays assigned as a root unit, already justified by its
-// unit id), and emit the proof `delete`. binary_ids KEEPS the id (monotone
-// ledger — see the binary_ids comment above). Returns false and does nothing if
-// the binary is absent (idempotent) or is a live reason for a NON-root literal
-// (never at a quiescent root; keeps direct/off-root callers safe). Redundancy
-// of (a v b) is the CALLER's proof obligation, not checked here.
+// unit id), and emit the proof `delete`. binary_ids keeps the key, so the map
+// stays size-monotone (see the binary_ids invariant above). Returns false and
+// does nothing if the binary is
+//   - absent (idempotent), or
+//   - DUPLICATED — two live copies of a pair share one binary_ids id, and the
+//     `del` would retire it out from under the survivor (an LRAT-only hazard:
+//     DRAT deletes by literals, so it stays consistent), or
+//   - a live reason for a NON-root literal (never at a quiescent root; keeps
+//     direct/off-root callers safe).
+// Redundancy of (a v b) is the CALLER's proof obligation, not checked here.
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 
 inline uint64_t kernel_binary_key(Lit a, Lit b) {
@@ -366,8 +385,12 @@ inline Lit kernel_decide_lit(const Kernel &k, Var v) {
 void kernel_collect_garbage(Kernel &);
 
 // irredundant clause count: live irredundant large clauses + all binaries
-// (binaries have an irredundant lifecycle in this kernel — never reduced,
-// never deleted; see subsume_forward.hpp). The kissat BINIRR_CLAUSES
+// ever added (binaries have an irredundant lifecycle in this kernel — never
+// reduced, and deleted only by V4 TransitiveReduce, whose deletions are
+// equivalence-preserving; since binary_ids keeps a deleted binary's id, the
+// binary term over-approximates the live count by the deleted ones — the
+// log-scale consumers below tolerate it, and V4 is not in the default
+// schedule). The kissat BINIRR_CLAUSES
 // equivalent: feeds inprocessing interval scaling (kimits.c
 // kissat_scale_delta) and TACTIX_STAT_IRREDUNDANT_CLAUSES. O(arena) walk —
 // a per-round/statistics query, never a hot-path one.
