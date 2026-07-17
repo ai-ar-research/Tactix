@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-17 (rev. 33). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-17 (rev. 34). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -306,11 +306,20 @@ uint64_t tactix_stat(tactix*, int stat_id);        // TACTIX_STAT_*
 ```
 
 **Instances are unsigned 64-bit payloads** (O3, decided rev 20). Each rule
-documents its encoding: Decide — the DIMACS literal (signed, cast to int64);
+documents its encoding: Decide, and the literal-probing rules (Probe,
+Backbone, TransitiveReduce) — the DIMACS literal's 32-bit pattern,
+ZERO-extended (`TACTIX_LIT_INSTANCE`, payload space [1, UINT32_MAX]);
 Restart — the keep-level; Backjump — the target level; Reduce — the number
 of ranked victims to delete; rules without per-application choice
 (Propagate, Analyze, SwitchMode) expose only the canonical instance.
 `TACTIX_INSTANCE_CANONICAL` (UINT64_MAX) always denotes the canonical pick.
+**A literal payload must never alias that marker** (rev 34): the rev-20 text
+said "cast to int64", which sign-extends DIMACS −1 to UINT64_MAX, so a policy
+asking to branch on −1 was silently given the canonical pick instead — a
+direct N1 violation (N1 names the branching choice explicitly), verified
+end-to-end and present in every literal-payload rule. Zero-extension makes the
+two spaces disjoint by construction; the encode/decode pair lives beside the
+marker in `registry.hpp` so the disjointness is checkable in one place.
 `tactix_rule_instances` fills a caller-provided buffer, ranked by the
 active heuristic with the canonical instance first — never materializing
 the theoretical space (§5.3 laziness); returned values are snapshots, valid
@@ -993,7 +1002,7 @@ discovered during development get added here rather than answered ad hoc.
 |---|---|---|
 | O1 | Reference benchmark hardware — the machine that defines the Kissat timing bands for the Tier B/C freezes and all reports → *narrowed rev 6: a single local workstation, ≤ 8 parallel benchmark jobs, no HPC/StarExec* → *decided rev 11: Apple M3 Pro (6P+6E cores), 36 GB RAM, macOS 15.7.7; tier-freeze timings at jobs=1 (first timing run: Tier B freeze, 2026-07-09)* | phase 0, first timing run |
 | O2 | Build system and CI provider → *decided rev 8: CMake (≥ 3.25, presets debug/release) + GitHub Actions — repo already on GitHub, CMake is the friction-free path for pybind11 (§5 frontends) and sanitizer presets; CI job grows with phase-0 deliverables* | phase 0, first code |
-| O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting → *decided rev 20: instances are uint64 payloads with per-rule documented encodings + `TACTIX_INSTANCE_CANONICAL`; enumeration fills caller buffers ranked canonical-first (no iterator objects, no boundary allocation; snapshot validity until the next mutating call); errors are −1 int returns, no error-string machinery — the minimal surface that keeps §5.3 laziness and creates no new object lifetimes (§5.1 is the frozen text)* | ~~draft in phase 1; freeze at phase-2 API v1~~ decided |
+| O3 | Concrete C API types: rule/instance handle representation, iterator lifetimes, error reporting → *decided rev 20: instances are uint64 payloads with per-rule documented encodings + `TACTIX_INSTANCE_CANONICAL` (amended rev 34: literal payloads zero-extended, so no literal aliases the canonical marker — N1); enumeration fills caller buffers ranked canonical-first (no iterator objects, no boundary allocation; snapshot validity until the next mutating call); errors are −1 int returns, no error-string machinery — the minimal surface that keeps §5.3 laziness and creates no new object lifetimes (§5.1 is the frozen text)* | ~~draft in phase 1; freeze at phase-2 API v1~~ decided |
 | O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
 | O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) and its documented overhead contract → *decided rev 20: pull-based — external/scripted policies drive the C stepping surface themselves (per-propagation granularity = the client applying Propagate stepwise); no callback `tactix_set_policy` in v1 (additive later; revisit with the phase-4 Python bindings); overhead documented by the §8.4 demo-policy measurements* | ~~phase-2 API freeze~~ decided |
 | O6 | MAB scheduler specifics: arms, reward signal, decision level (restart vs inprocessing scheduling) → *framework fixed rev 26 (§5.6/§8.5): arms = the macro scheduler's slot choice points with the default schedule as a permanent arm; reward = progress-per-tick with the glue-window proxy first (replay-validated); algorithm = windowed/discounted UCB, drift-triggered. Still open: exact per-slot arm sets and window/threshold constants* | phase 6 implementation |
@@ -1076,4 +1085,5 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 30** (2026-07-16): §4 propagation-fixpoint precondition — state-advancing rules (Decide + all inprocessing) require `propagate_head = |τ|`; only Propagate/Analyze/Backjump are exempt (current-level assignment mis-levels otherwise; corpus 004, fuzz-found via V2 Backbone); true-level relaxation stays the §5.4 candidate.
 - **rev. 31** (2026-07-16): §4 true-level assertion — `Backjump` asserts the UIP at `jump_level`, never a higher chronological target (current-level assignment mis-levels it; a later partial restart then strands its reason as an escaped unit — corpus 005, fuzz-found under the random policy); Backjump's N1 instance surface narrows to the canonical jump_level, chronological BT deferred to §5.4 (§5.2 M4 row synced). Also §8.2 fuzz generators — FuzzSAT circuits added; per-batch mix 15/30/25/30 (sweep/structured/mutation/FuzzSAT) + 10 always-on degeneracies; k-SAT capped at 100 vars; nightly 100k→10k, 5 s/case.
 - **rev. 32** (2026-07-16): §5.2 sequencing — V4 `TransitiveReduce` implemented BEFORE V3 `Substitute`. V3b (variable-eliminating rewrite) needs binary-clause deletion, which the kernel deliberately cannot do (binaries are watch-only + never deleted — a permanence `SubsumeForward`'s binary-subsumer soundness relies on). V4, whose whole delta is `delete` of transitively-redundant binary edges, is the introduction point for a binary-deletion kernel primitive + the `SubsumeForward` reconciliation; V3 then reuses it. V3's ρ-stack (K1+K2) + SCC detection (V3a) already landed; only V3b waits.
+- **rev. 34** (2026-07-17): §5.1 literal instance payloads are the DIMACS literal ZERO-extended (`TACTIX_LIT_INSTANCE`), not "cast to int64" — sign-extension aliased DIMACS −1 onto `TACTIX_INSTANCE_CANONICAL`, so `apply_instance(Decide, −1)` silently ran the canonical pick (N1 violation on the branching choice itself; also hit Probe/Backbone; found by the V4 review, verified end-to-end, regression-pinned in `test_api_c`). Frozen-API encoding change, negative-literal payloads only; one external caller.
 - **rev. 33** (2026-07-17): saved the V3 and V4 implementation design notes to `docs/v3-substitute-design.md` + `docs/v4-transitive-reduce-design.md` (design/research artifacts from the understand→design workflows; §5.2 references them). No spec change.

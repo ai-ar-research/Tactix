@@ -13,7 +13,10 @@
  * callback registration in v1.
  *
  * Instances (O3): a rule instance is a uint64_t payload whose encoding the
- * rule documents — Decide: the DIMACS literal (signed, cast to int64);
+ * rule documents — Decide/Probe/Backbone/TransitiveReduce: the DIMACS
+ * literal, ZERO-extended, i.e. TACTIX_LIT_INSTANCE(elit) below (rev 34: the
+ * original "cast to int64" sign-extended -1 onto TACTIX_INSTANCE_CANONICAL,
+ * so asking to branch on -1 silently got the canonical pick — an N1 hole);
  * Restart: the keep-level; Backjump: the target level; Reduce: the number
  * of ranked victims to delete. Rules without per-application choice
  * (Propagate, Analyze, SwitchMode) expose only the canonical instance.
@@ -33,6 +36,11 @@ extern "C" {
 typedef struct tactix_solver tactix;
 
 #define TACTIX_INSTANCE_CANONICAL UINT64_MAX
+
+/* Literal-instance payload: the DIMACS literal's 32-bit pattern, zero-extended
+   into [1, UINT32_MAX] — disjoint from TACTIX_INSTANCE_CANONICAL by
+   construction, so every literal (notably -1) stays expressible (N1). */
+#define TACTIX_LIT_INSTANCE(elit) ((uint64_t)(uint32_t)(int32_t)(elit))
 
 /* proof formats (N2) */
 #define TACTIX_PROOF_DRAT_BINARY 0

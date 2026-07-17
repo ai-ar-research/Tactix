@@ -112,14 +112,34 @@ static void test_instance_surface(void) {
   assert(tactix_rule_instances(s, switchmode, insts, 64) == 1);
   assert(insts[0] == TACTIX_INSTANCE_CANONICAL);
 
-  /* Decide payloads are DIMACS literals (int64); apply one explicitly */
+  /* Decide payloads are DIMACS literals (TACTIX_LIT_INSTANCE); apply one
+     explicitly */
   const int n = tactix_rule_instances(s, decide, insts, 64);
   assert(n > 0);
   const uint64_t before = tactix_stat(s, TACTIX_STAT_DECISIONS);
-  assert(tactix_apply_instance(s, decide, (uint64_t)(int64_t)-3) == 0);
+  assert(tactix_apply_instance(s, decide, TACTIX_LIT_INSTANCE(-3)) == 0);
   assert(tactix_stat(s, TACTIX_STAT_DECISIONS) == before + 1);
   assert(tactix_stat(s, TACTIX_STAT_LEVEL) == 1);
   assert(tactix_decide(s, -3) == -1); /* already assigned */
+
+  /* N1: EVERY literal must be expressible as an instance, -1 included. The
+     rev-20 encoding sign-extended it onto TACTIX_INSTANCE_CANONICAL, so this
+     branched on the solver's own pick instead of the one we asked for (found
+     2026-07-17; the payload space is now zero-extended and disjoint). */
+  assert(TACTIX_LIT_INSTANCE(-1) != TACTIX_INSTANCE_CANONICAL);
+  for (int i = 0; i < n; i++)
+    assert(insts[i] != TACTIX_INSTANCE_CANONICAL); /* no literal aliases it */
+  {
+    tactix *t = tactix_init();
+    add_clause(t, (const int[]){1, 2, 0});
+    add_clause(t, (const int[]){-1, 3, 0});
+    assert(tactix_apply_instance(t, decide, TACTIX_LIT_INSTANCE(-1)) == 0);
+    /* the literal we ASKED for is the one assigned: value(1) is FALSE. Under
+       the old encoding this ran Decide's canonical instance, which picks the
+       saved phase (+1), leaving value(1) TRUE. */
+    assert(tactix_value(t, 1) == -1);
+    tactix_release(t);
+  }
 
   /* canonical sentinel routes to the canonical instance (propagate is
    * applicable now: the decision is unpropagated) */

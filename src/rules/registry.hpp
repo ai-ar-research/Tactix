@@ -24,10 +24,38 @@ enum class ApplyResult {
 };
 
 // Instance payloads (plan §5.1, O3 decided rev 20): a rule instance is a
-// uint64 whose meaning the rule documents (Decide: DIMACS literal as
-// int64; Restart: keep-level; Backjump: target level; Reduce: victim
-// count). INSTANCE_CANONICAL always denotes the canonical pick.
+// uint64 whose meaning the rule documents (Decide: DIMACS literal, see
+// lit_instance below; Restart: keep-level; Backjump: target level; Reduce:
+// victim count). INSTANCE_CANONICAL always denotes the canonical pick.
 constexpr uint64_t INSTANCE_CANONICAL = UINT64_MAX;
+
+// --- literal payloads (Decide, Probe, Backbone, TransitiveReduce) ----------
+// The DIMACS literal's 32-bit pattern, ZERO-extended (plan §5.1, rev 34).
+// Zero-extension is load-bearing, not a detail: sign-extending a negative
+// literal into the uint64 (the rev-20 encoding) maps DIMACS -1 onto
+// 0xFFFF'FFFF'FFFF'FFFF == INSTANCE_CANONICAL, so a policy asking to branch on
+// -1 was silently given the canonical pick instead — the branching choice N1
+// exists to guarantee (found 2026-07-17 by the V4 review; every literal-payload
+// rule had it). Zero-extension confines the payload space to [1, UINT32_MAX],
+// which cannot reach the marker. This encoding lives HERE, beside the marker it
+// must stay disjoint from, so the invariant is checkable in one place.
+inline uint64_t lit_instance(Lit l) {
+  return static_cast<uint64_t>(static_cast<uint32_t>(externalize(l)));
+}
+// Decode a literal payload; false = not one, so the rule returns NoOp
+// (apply_instance totality). Rejects INSTANCE_CANONICAL and anything else above
+// UINT32_MAX (callers test the marker first), 0 (not a DIMACS literal), and
+// INT32_MIN (internalize's `-elit` would overflow). The var may still be out of
+// range for the kernel — that is the rule's own bounds check.
+inline bool lit_of_instance(uint64_t inst, Lit *out) {
+  if (inst > UINT32_MAX)
+    return false;
+  const int32_t elit = static_cast<int32_t>(static_cast<uint32_t>(inst));
+  if (elit == 0 || elit == INT32_MIN)
+    return false;
+  *out = internalize(elit);
+  return true;
+}
 
 // guard — the SOUNDNESS precondition per the formal model (plan §4).
 // Whenever it holds, apply() is total and sound — any policy, any order.

@@ -144,7 +144,7 @@ ApplyResult backbone_try(Kernel &k, Lit p) {
   return ApplyResult::Ok;
 }
 
-// instance surface: payload = probe literal as a sign-extended DIMACS int
+// instance surface: payload = probe literal, the shared lit_instance encoding
 // (like Decide / V1 Probe); INSTANCE_CANONICAL = the full round
 static uint32_t backbone_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Lit> cands;
@@ -152,17 +152,17 @@ static uint32_t backbone_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   const uint32_t n =
       std::min<uint32_t>(cap, static_cast<uint32_t>(cands.size()));
   for (uint32_t i = 0; i < n; i++)
-    out[i] = static_cast<uint64_t>(static_cast<int64_t>(externalize(cands[i])));
+    out[i] = lit_instance(cands[i]);
   return n;
 }
 
 static ApplyResult backbone_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return backbone_apply(k);
-  const int64_t elit = static_cast<int64_t>(inst);
-  if (elit == 0 || elit > INT32_MAX || elit < INT32_MIN)
+  Lit p;
+  if (!lit_of_instance(inst, &p))
     return ApplyResult::NoOp;
-  return backbone_try(k, internalize(static_cast<int>(elit)));
+  return backbone_try(k, p);
 }
 
 TACTIX_REGISTER_RULE(Backbone, RuleTier::Inprocess, backbone_guard,
