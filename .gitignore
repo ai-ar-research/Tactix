@@ -44,3 +44,7 @@ cryptominisat/
 
 # Editor artifacts
 *.~undo-tree~
+
+# Private per-session transcripts (USER-ONLY reference; agents are also blocked
+# from reading these via .claude/settings.json — see .claude/hooks/deny-session-reads.sh)
+session-*.txt
