@@ -50,6 +50,7 @@ struct Stats {
   uint64_t restarts_reused = 0; // restarts that kept a trail prefix
   uint64_t reductions = 0;
   uint64_t deleted = 0; // learned clauses deleted by Reduce
+  uint64_t binaries_deleted = 0; // binary clauses deleted (kernel_delete_binary; V4)
   uint64_t forward_subsumptions = 0; // SubsumeForward rounds (C1)
   uint64_t forward_checked = 0;  // SubsumeForward candidates checked (C1)
   uint64_t forward_subsumed = 0; // clauses deleted by SubsumeForward
@@ -219,6 +220,15 @@ void kernel_extend_model(Kernel &);
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id = 0);
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
+// Delete binary (a v b): drop both mirror watch entries, retire a live ROOT
+// reason to UNIT_REASON (the binary analog of corpus 003 — a root literal this
+// binary propagated stays assigned as a root unit, already justified by its
+// unit id), and emit the proof `delete`. binary_ids KEEPS the id (monotone
+// ledger — see the binary_ids comment above). Returns false and does nothing if
+// the binary is absent (idempotent) or is a live reason for a NON-root literal
+// (never at a quiescent root; keeps direct/off-root callers safe). Redundancy
+// of (a v b) is the CALLER's proof obligation, not checked here.
+bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 
 inline uint64_t kernel_binary_key(Lit a, Lit b) {
   const Lit lo = a < b ? a : b, hi = a < b ? b : a;

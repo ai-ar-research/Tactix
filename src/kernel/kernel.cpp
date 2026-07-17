@@ -1,5 +1,7 @@
 #include "kernel/kernel.hpp"
 
+#include "proof/proof.hpp" // kernel_delete_binary emits the delta atomically
+
 #include <algorithm>
 #include <cstdio>
 
@@ -65,6 +67,69 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
   k.binary_ids.emplace(kernel_binary_key(a, b), id); // first id wins
+}
+
+bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
+  // (1) liveness probe: the watch lists are the only liveness signal — the id
+  // in binary_ids survives deletion — so an absent binary is a no-op.
+  bool present = false;
+  for (const uint32_t *p = k.watches.begin(a), *e = k.watches.end(a); p != e;) {
+    const Watch w{*p};
+    if (!w.binary()) {
+      p += 2; // large watch: blocking word + ref word
+    } else if (w.other() == b) {
+      present = true;
+      break;
+    } else {
+      p += 1;
+    }
+  }
+  if (!present)
+    return false;
+  // (2) retire a live ROOT reason BEFORE deleting the clause that names it, so
+  // no trail reason ever cites a just-deleted binary (the corpus-003 analog for
+  // binary reasons; GC cannot do this — its reason-fix loop skips binaries).
+  for (const Lit x : {a, b}) {
+    Assigned &ax = k.assigned[var_of(x)];
+    const Lit other = (x == a) ? b : a;
+    if (k.values[x] > 0 && ax.binary && ax.reason == other) {
+      if (ax.level != 0)
+        return false;          // live non-root reason: refuse (never at a root)
+      ax.reason = UNIT_REASON;  // root literal is a unit, already has its id
+    }
+  }
+  // (3) remove the mirror watch entries by in-place compaction (write cursor),
+  // preserving large watches and the binary mirror-symmetry invariant.
+  for (const Lit x : {a, b}) {
+    const Lit other = (x == a) ? b : a;
+    uint32_t *const begin = k.watches.begin(x);
+    uint32_t *q = begin;
+    const uint32_t *p = begin;
+    const uint32_t *const end = k.watches.end(x);
+    bool removed = false;
+    while (p != end) {
+      const Watch w{*p};
+      if (!w.binary()) {
+        *q++ = *p++; // large: blocking word...
+        *q++ = *p++; // ...+ ref word
+      } else if (!removed && w.other() == other) {
+        removed = true; // drop exactly this slot
+        p += 1;
+      } else {
+        *q++ = *p++;
+      }
+    }
+    assert(removed);
+    k.watches.truncate(x, static_cast<uint32_t>(q - begin));
+  }
+  // (4) proof delete (chain-free; deletions do not consume an id).
+  if (k.proof) {
+    const Lit lits2[2] = {a, b};
+    k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
+  }
+  // (5) binary_ids ledger untouched (monotone).
+  k.stats.binaries_deleted++;
+  return true;
 }
 
 // kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)

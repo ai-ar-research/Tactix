@@ -53,6 +53,10 @@ add_executable(test_substitute test_substitute.cpp)
 target_link_libraries(test_substitute PRIVATE tactix_lib)
 add_test(NAME substitute COMMAND test_substitute)
 
+add_executable(test_binary_deletion test_binary_deletion.cpp)
+target_link_libraries(test_binary_deletion PRIVATE tactix_lib)
+add_test(NAME binary_deletion COMMAND test_binary_deletion)
+
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)
