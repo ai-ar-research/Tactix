@@ -70,9 +70,15 @@ public:
   static constexpr uint64_t SUBSUME_INTERVAL = 500;      // eliminateint
   // chronological backtracking (kissat learn.c kissat_determine_new_level,
   // options chrono=1/chronolevels=100): jumping over more than this many
-  // levels is considered inefficient — backtrack one level instead. A
-  // pure policy choice through backjump_apply_to (the freeze's N1 story).
-  static constexpr uint32_t CHRONO_LEVELS = 100;
+  // levels is considered inefficient — backtrack one level instead. A pure
+  // policy choice through backjump_apply_to (the freeze's N1 story).
+  // DISABLED for DefaultPolicy (UINT32_MAX) since rev 38: D-LEVEL-2 made the
+  // backjump target genuinely chronological (backjump_apply_to no longer
+  // clamps to jump_level), so a finite threshold would change DefaultPolicy's
+  // trajectory. Keeping it at UINT32_MAX forces target == jump_level, so
+  // DefaultPolicy stays bit-exact (s055 = 932,762). Turning on chronological
+  // backtracking in DefaultPolicy is a separate, measured go/no-go.
+  static constexpr uint32_t CHRONO_LEVELS = UINT32_MAX;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
 

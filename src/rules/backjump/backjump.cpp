@@ -13,19 +13,17 @@ bool backjump_guard(const Kernel &k) {
 ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   assert(backjump_guard(k));
   PendingLearned &p = k.pending;
-  // Assign the asserting literal at its TRUE level — the assertion level.
-  // This kernel stamps every implication with the CURRENT decision level,
-  // so backtracking to a target ABOVE jump_level would stamp the asserting
-  // literal too deep; a later partial Restart (or Backjump) to a level
-  // between jump_level and target then unassigns it while its reason clause
-  // stays unit — an escaped unit at a claimed fixpoint (corpus 005; the
-  // corpus-004 current-level-assignment hazard, reached here via
-  // chronological backtracking). Genuine chronological backtracking (keeping
-  // decision levels above the assertion level) needs true-level assignment
-  // and is deferred to the §5.4 kernel candidate; until then jump_level is
-  // the only sound target. `target` is clamped, not asserted, so every legal
-  // instance stays total per the rule contract (N1).
-  target = p.jump_level;
+  // CHRONOLOGICAL target (rev 38, D-LEVEL-2): any level in [jump_level, level-1]
+  // is now a sound backjump target. True-level assignment stamps the asserting
+  // literal at its true level (jump_level) regardless of how far we backtrack,
+  // so a higher (chronological) target keeps the intervening decisions without
+  // stranding the assertion — the corpus-004/005 hazard is gone. Clamp into the
+  // sound range (below jump_level would strand the assertion; >= level makes no
+  // progress); the clamp keeps every legal instance total (N1).
+  if (target < p.jump_level)
+    target = p.jump_level;
+  if (target + 1 > k.level) // target >= level (guard against underflow)
+    target = k.level - 1;
   if (p.lits.size() == 1)
     target = 0; // learned units assert at the root
   if (target < k.level)

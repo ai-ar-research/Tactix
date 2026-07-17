@@ -288,11 +288,28 @@ inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
 inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
 }
+// True-level assignment (rev 38, D-LEVEL-2): a propagation-forced literal is
+// stamped at its TRUE level — the max decision level among its reason clause's
+// other (falsified) literals — not the current decision level. This is what
+// lets a chronological backtrack keep a still-implied literal without stranding
+// it (calculus D-LEVEL). Transliterated from kissat inlineassign.h
+// assignment_level. Bit-exact under DefaultPolicy: at a propagation fixpoint
+// the true level always equals the current level, so s055 is unchanged.
 inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false) {
-  kernel_assign(k, lit, k.level, other_false, true);
+  kernel_assign(k, lit, k.assigned[var_of(other_false)].level, other_false,
+                true);
 }
 inline void kernel_assign_ref(Kernel &k, Lit lit, Ref reason) {
-  kernel_assign(k, lit, k.level, reason, false);
+  const Clause *c = clause_at(k.arena, reason);
+  const Var v = var_of(lit);
+  uint32_t lvl = 0;
+  for (const Lit m : *c)
+    if (var_of(m) != v) {
+      const uint32_t ml = k.assigned[var_of(m)].level;
+      if (ml > lvl)
+        lvl = ml;
+    }
+  kernel_assign(k, lit, lvl, reason, false);
 }
 // update_phases=false is the probing variant (kissat backtrack.c
 // kissat_backtrack_without_updating_phases): probe assignments must not

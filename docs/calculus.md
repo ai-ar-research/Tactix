@@ -32,17 +32,22 @@ This document makes the abstract precondition of every rule explicit so the
 leaks are visible and removable. Today there are two families of leak, both
 recorded per-rule below and consolidated in §7:
 
-- **D-LEVEL — current-level assignment.** The kernel stamps every propagation-
-  forced literal with the *current* decision level (`kernel_assign_binary` /
-  `kernel_assign_ref` pass `k.level`; `kernel.hpp:291-296`), not the literal's
-  *true* level (the deepest level among its reason's other literals). Under that
-  choice a state-advancing rule applied off a propagation fixpoint mis-levels
-  the pending implications, and a later backtrack strands a still-implied
-  literal's reason as an *escaped unit* (corpus 004/005). To stay sound the
-  kernel forces `Decide` and every state-advancing inprocessing rule to carry a
-  `propagate_head == |τ|` fixpoint conjunct, and forces `Backjump` to assert at
-  `jump_level` only. Removal path: **true-level assignment + chronological
-  backtracking** (plan §5.4).
+- **D-LEVEL — current-level assignment (TRUE-LEVEL landed rev 38; D-LEVEL-2
+  closed, D-LEVEL-1 open).** The kernel used to stamp every propagation-forced
+  literal at the *current* decision level, not its *true* level (the deepest
+  level among its reason's other literals). rev 38 replaced that with
+  **true-level assignment + a compacting `kernel_backtrack`**, so the trail may
+  be non-level-sorted and a backtrack keeps still-implied lower-level literals.
+  That **closed D-LEVEL-2**: `Backjump` no longer clamps to `jump_level` — any
+  chronological target in `[jump_level, level-1]` is sound and is a
+  `ConflictAnalysis` instance parameter. **D-LEVEL-1 remains open:** `Decide`
+  (and the state-advancing inprocessing rules) still carry the
+  `propagate_head == |τ|` fixpoint conjunct, because deciding off a
+  *non*-fixpoint additionally needs the 1-UIP loop generalized beyond
+  one-UIP-per-current-level (novel work — the staged headline). corpus 004/005
+  are the regression bed. *(DefaultPolicy stays on `jump_level` via
+  `CHRONO_LEVELS = UINT32_MAX`, so it is bit-exact; a finite threshold is a
+  separate go/no-go.)*
 
 - **D-SPLIT — Analyze and Backjump were two rules (CLOSED for `pending`,
   rev 37).** Conflict analysis was split into `Analyze` (derive + emit the
@@ -104,7 +109,8 @@ quotes the implemented conjuncts and tags each `[abstract]` or `[eng:D-LEVEL]` /
 - **Precondition (abstract):** `F` not refuted, no unresolved recorded conflict,
   and the trail is not at a unit-propagation fixpoint (propagation work remains).
 - **Effect:** run BCP to the first conflict or to fixpoint. `F,R,ρ` unchanged;
-  `τ` gains every forced literal (each stamped at `dl` — the D-LEVEL choice),
+  `τ` gains every forced literal (each stamped at its **true level** since
+  rev 38 — the max level among its reason's other literals),
   `propagate_head` advances. No conflict → `Ok`. Conflict below root → record it
   (`conflict_valid`), `Conflict`. Conflict at root → `inconsistent`, emit ∅,
   `Unsat`.
@@ -170,17 +176,19 @@ quotes the implemented conjuncts and tags each `[abstract]` or `[eng:D-LEVEL]` /
 - **Guard** (`analyze.cpp`, `analyze_guard`): `conflict_valid` `[abstract]` ·
   `!inconsistent` `[abstract]`. **Pure — no deviations.**
 
-### M4 · (was Backjump) — folded into M3 ConflictAnalysis (rev 37)
+### M4 · (was Backjump) — folded into M3 ConflictAnalysis (rev 37); chrono target rev 38
 Backjump is no longer a registered rule. `backjump_apply` / `backjump_apply_to`
 remain as the internal *backjump step* of M3 (and are driven white-box by
 DefaultPolicy's micro-loop and the analyze tests). Its former guard conjuncts
-(`pending.valid`, `!conflict_valid`) were D-SPLIT deviations and are gone with
-the fusion. **One D-LEVEL deviation survives inside the step:**
-`backjump_apply_to` still **clamps the target to `jump_level`** (the instance
-surface offers only that) — a higher chronological target would mis-level the
-UIP under current-level assignment (corpus 005). When true-level assignment
-lands (§5.4), the clamp is removed and the chronological target becomes a
-`ConflictAnalysis` instance parameter (D-LEVEL-2).
+(`pending.valid`, `!conflict_valid`) were D-SPLIT deviations, gone with the
+fusion. **D-LEVEL-2 closed (rev 38):** with true-level assignment +
+the compacting backtrack, `backjump_apply_to` no longer clamps to `jump_level`
+— it accepts any target in `[jump_level, level-1]` (clamping only out-of-range),
+and that target is a `ConflictAnalysis` instance parameter (canonical =
+`jump_level`). The asserting literal is stamped at its true level (`jump_level`)
+regardless of the target, so a higher chronological target keeps the
+intervening decisions without stranding the assertion (corpus 005 no longer
+reproduces). No remaining D-LEVEL deviation in the backjump step.
 
 ---
 
@@ -373,8 +381,8 @@ item, not an ad-hoc patch.
 
 | # | Deviation | Rules affected | Root cause | Removal path |
 |---|-----------|----------------|-----------|--------------|
-| D-LEVEL-1 | `propagate_head == trail.size` (decide/inprocess off a fixpoint forbidden) | M2, C1, C2, C3, V1, V2, V3, V4, S5 | forced literals stamped at current `dl` | true-level assignment (plan §5.4) |
-| D-LEVEL-2 | `Backjump` target clamped to `jump_level`; no chronological BT | M4 | same | true-level assignment + chronological backtracking (§5.4) |
+| D-LEVEL-1 | `propagate_head == trail.size` (decide/inprocess off a fixpoint forbidden) | M2, C1, C2, C3, V1, V2, V3, V4, S5 | off-fixpoint decide needs 1-UIP generalized (true-level now landed) | remove decide fixpoint conjunct + generalize Analyze — the staged headline |
+| ~~D-LEVEL-2~~ | ~~`Backjump` target clamped to `jump_level`~~ — **CLOSED rev 38** | M4 (folded in M3) | current-level assignment | **done:** true-level assignment + compacting `kernel_backtrack`; chrono target is a ConflictAnalysis instance |
 | ~~D-SPLIT-1~~ | ~~`¬pending.valid`~~ — **CLOSED rev 37** | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | **done:** atomic ConflictAnalysis (§8) — `pending` never at a boundary |
 | ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED rev 37** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
 | D-SPLIT-3 | `¬conflict_valid` on rules that don't consume the conflict | C1, C2, C3, V1, V2, V3, V4 | recorded-conflict control flag not in `σ` | atomic conflict analysis (§8) makes the flag transient |
@@ -385,10 +393,13 @@ item, not an ad-hoc patch.
 (rev 37):** D-SPLIT-1/2 — atomic ConflictAnalysis removed `pending` from every
 guard (M1 and the inprocessing family lost `¬pending.valid`; Backjump's guard is
 gone with the rule); s055 stayed bit-exact and corpus 006 became unrepresentable.
-**The remaining prize:** removing D-LEVEL-1/2 makes M2 Decide pure and the
-backjump target pure (the headline N1 fix — "multiple decisions in a row without
-propagation"); removing D-SPLIT-3 makes the inprocessing family fully pure. The
-corpus 004/005/006 regressions are the bed that proves a removal is correct.
+**Done (rev 38):** D-LEVEL-2 — true-level assignment + a compacting backtrack
+made chronological backjump sound; Backjump's clamp is gone and the target is a
+ConflictAnalysis instance (s055 bit-exact, Tier A PAR-2 0.52). **The remaining
+prize:** D-LEVEL-1 (remove Decide's fixpoint conjunct + generalize the 1-UIP
+loop for off-fixpoint trails — "multiple decisions in a row without
+propagation") and D-SPLIT-3 (the inprocessing `¬conflict_valid`). corpus
+004/005/006 are the bed that proves each removal correct.
 
 ## 8. Decision: Analyze + Backjump are one abstract rule
 

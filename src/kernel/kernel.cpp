@@ -152,35 +152,47 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
   assert(target < k.level);
   if (update_phases)
     kernel_update_target_phases(k); // before unassigning (backtrack.c)
-  const uint32_t new_size = k.frames[target + 1];
+  // COMPACTING backtrack (rev 38, D-LEVEL-2): with true-level assignment the
+  // trail is no longer level-sorted, so we cannot truncate by position. Scan
+  // the suffix above the target frame and KEEP (compact down, re-propagate)
+  // every literal whose true level <= target; unassign only those above it.
+  // Transliterated from cadical backtrack.cpp / kissat backtrack.c. Under a
+  // level-sorted trail (DefaultPolicy) the suffix is exactly the level>target
+  // literals, so nothing is kept and this reduces to the old truncation —
+  // s055 bit-exact.
+  const uint32_t boundary = k.frames[target + 1];
   const bool stable = k.stable;
-  while (k.trail.size() > new_size) {
-    const Lit lit = k.trail.back();
-    k.trail.pop_back();
+  const uint32_t end = static_cast<uint32_t>(k.trail.size());
+  uint32_t j = boundary; // write cursor for kept (out-of-order) literals
+  for (uint32_t i = boundary; i < end; i++) {
+    const Lit lit = k.trail[i];
     const Var v = var_of(lit);
+    if (k.assigned[v].level <= target) { // keep: still implied at <= target
+      k.trail[j] = lit;
+      k.assigned[v].trail = j;
+      j++;
+      continue;
+    }
     if (update_phases)
       k.saved[v] = negated(lit) ? -1 : 1; // phase saving
     k.values[lit] = 0;
     k.values[negate(lit)] = 0;
     k.unassigned++;
     if (stable) {
-      // unassigned vars must be findable by the heap again
       if (!kernel_heap_contains(k, v))
         kernel_heap_push(k, v);
     } else if (k.links[v].stamp > k.search_stamp) {
-      // keep the VMTF search cache at the highest-stamp unassigned var
-      // (kissat/src/inlinequeue.h idea)
       k.search_idx = v;
       k.search_stamp = k.links[v].stamp;
     }
   }
+  k.trail.resize(j);
   k.frames.resize(target + 1);
   k.level = target;
-  // never move the head FORWARD: under schedules that backtrack with
-  // unpropagated older entries (legal — e.g. Decide before propagation
-  // fixpoint, then Backjump), skipping them would lose propagations
-  if (k.propagate_head > new_size)
-    k.propagate_head = new_size;
+  // re-propagate the kept out-of-order literals from the boundary (cadical
+  // sets propagated = the boundary). Never move the head forward.
+  if (k.propagate_head > boundary)
+    k.propagate_head = boundary;
 }
 
 // --- propagation engine ------------------------------------------------
@@ -742,9 +754,12 @@ void kernel_check_invariants(const Kernel &k) {
     const Assigned &a = k.assigned[var_of(lit)];
     assert(a.trail == i);
     assert(a.level <= k.level);
-    // trail position within the frame of its level
+    // a literal sits at or after the start of its level's frame. (The old
+    // upper bound `i < frames[a.level+1]` — trail level-sortedness — is gone
+    // since rev 38: true-level assignment + the compacting backtrack leave the
+    // trail non-level-sorted. The value-based escaped-unit/conflict
+    // completeness checks below are what actually catch propagation bugs.)
     assert(a.level == 0 || i >= k.frames[a.level]);
-    assert(a.level == k.level || i < k.frames[a.level + 1]);
   }
   // every live large clause is watched on exactly lits[0] and lits[1]
   for (Ref ref = 0; ref < k.arena.size();) {

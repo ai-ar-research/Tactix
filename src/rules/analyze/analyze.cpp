@@ -317,13 +317,22 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];
   } else {
-    // watch the two highest-trail literals; glue = distinct levels
+    // watch the two highest-LEVEL literals (ties by trail); glue = distinct
+    // levels. Lexicographic (level, trail) (rev 38, D-LEVEL-2): a persistent
+    // strengthened clause must be watched on its two highest-LEVEL literals or
+    // a compacting backtrack can strand it unit with no watch firing. On a
+    // level-sorted trail higher level <=> higher trail, so this reduces
+    // exactly to the old highest-trail selection (same literals, same order) —
+    // byte-identical, incl. the s055 OTFS path.
     for (uint32_t w = 0; w < 2; w++) {
       uint32_t best = w;
-      for (uint32_t j = w + 1; j < lits.size(); j++)
-        if (k.assigned[var_of(lits[j])].trail >
-            k.assigned[var_of(lits[best])].trail)
+      for (uint32_t j = w + 1; j < lits.size(); j++) {
+        const Assigned &aj = k.assigned[var_of(lits[j])];
+        const Assigned &ab = k.assigned[var_of(lits[best])];
+        if (aj.level > ab.level ||
+            (aj.level == ab.level && aj.trail > ab.trail))
           best = j;
+      }
       std::swap(lits[w], lits[best]);
     }
     const uint32_t glue =
@@ -544,9 +553,17 @@ ApplyResult analyze_apply(Kernel &k) {
     for (;;) {
       assert(i > 0);
       Lit t;
+      // resolve only assertion-level literals: `open` counts exactly the seen
+      // alevel vars (mark() pushes lower-level seen lits straight to `learned`).
+      // The `var_level == alevel` filter (rev 38, D-LEVEL-2) makes this robust
+      // to a non-level-sorted trail — a lower-level seen literal can now sit
+      // below an alevel one, and must be skipped, not resolved. On a
+      // level-sorted trail the alevel block is contiguous at the top and the
+      // loop breaks at open==1 before reaching any lower-level literal, so the
+      // filter skips nothing and the round is byte-identical.
       do {
         t = k.trail[--i];
-      } while (!k.seen[var_of(t)]);
+      } while (!(k.seen[var_of(t)] && k.var_level(var_of(t)) == alevel));
       if (open == 1) {
         uip = t;
         break;
@@ -714,7 +731,33 @@ static ApplyResult conflictanalysis_apply(Kernel &k) {
   return backjump_apply(k); // asserts the UIP at jump_level; clears pending
 }
 
+// instance surface (rev 38, D-LEVEL-2): the backjump TARGET. Since true-level
+// assignment makes any level in [jump_level, level-1] a sound target, a policy
+// may pick a chronological one. jump_level is not known until analyze runs, so
+// instances() offers every level below the conflict level (0..level-1) and
+// apply_instance clamps into [jump_level, level-1] after analysis.
+// INSTANCE_CANONICAL = jump_level (the non-chronological backjump).
+static uint32_t conflictanalysis_instances(Kernel &k, uint64_t *out,
+                                           uint32_t cap) {
+  const uint32_t n = std::min<uint32_t>(cap, k.level); // levels 0..level-1
+  for (uint32_t i = 0; i < n; i++)
+    out[i] = i;
+  return n;
+}
+
+static ApplyResult conflictanalysis_apply_instance(Kernel &k, uint64_t inst) {
+  const ApplyResult r = analyze_apply(k);
+  if (r != ApplyResult::Ok)
+    return r; // root refutation
+  if (inst == INSTANCE_CANONICAL)
+    return backjump_apply(k); // jump_level
+  const uint32_t target =
+      inst > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(inst);
+  return backjump_apply_to(k, target); // clamps into [jump_level, level-1]
+}
+
 TACTIX_REGISTER_RULE(ConflictAnalysis, RuleTier::Micro, analyze_guard,
-                     conflictanalysis_apply);
+                     conflictanalysis_apply, conflictanalysis_instances,
+                     conflictanalysis_apply_instance);
 
 } // namespace tactix
