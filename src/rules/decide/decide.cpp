@@ -7,29 +7,34 @@
 
 namespace tactix {
 
-// formal model (plan §4): Decide iff no conflict and unassigned vars exist,
-// AND the trail is propagated to fixpoint (propagate_head == trail.size).
-// The propagation precondition is load-bearing for SOUNDNESS in this kernel:
-// propagation assigns a forced literal at the CURRENT decision level, not its
-// true level, so a decision taken on an un-propagated trail lets the pending
-// implications be assigned one level too deep — a binary conflict can then
-// escape (fully-propagated state with a falsified clause; corpus 003b /
-// invariant "falsified binary escaped propagation"). Requiring a propagated
-// trail before every decision keeps every literal at its correct level — the
-// DefaultPolicy already does this (it propagates to fixpoint before deciding),
-// which is why only free N1 schedules (random policy) could reach the bug.
-// The in-kernel workaround for the true-level-assignment limitation filed from
-// corpus 002 (§5.4 kernel candidate). A pending Analyze->Backjump handoff does
-// NOT block deciding — Backjump tolerates an already-assigned asserting literal
-// — but the asserting literal must be propagated first (same rule).
+// formal model (plan §4): Decide iff no conflict and unassigned vars exist and
+// F is not refuted — a PURE soundness precondition, no propagation-fixpoint
+// requirement (D-LEVEL-1, calculus §3, rev 40). A policy may take multiple
+// decisions in a row without unit propagation between them (the N1 capability a
+// learned/LLM policy reasons over). Off-fixpoint decide used to break the
+// watched-literal invariant — a not-yet-run scan rests a watch on an "ahead"
+// assignment, which a later backtrack unassigns, stranding a clause unit with
+// no watch firing (an escaped unit). The cure is not a guard: it is the
+// `trail_tainted` kernel repair (decide_apply taints; kernel_backtrack then
+// re-propagates the whole trail on the next search backtrack — see kernel.hpp).
+// DefaultPolicy always decides at a fixpoint so it never taints (bit-exact); a
+// pending Analyze->Backjump handoff does NOT block deciding (Backjump tolerates
+// an already-assigned asserting literal).
 bool decide_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent && k.unassigned > 0 &&
-         k.propagate_head == k.trail.size();
+  return !k.conflict_valid && !k.inconsistent && k.unassigned > 0;
 }
 
 ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
   if (var_of(lit) >= k.nvars || k.values[lit] != 0)
     return ApplyResult::NoOp;
+  // D-LEVEL-1: a decision taken off a propagation fixpoint taints the trail —
+  // a not-yet-run watch scan can see this-or-a-later decision as an "ahead"
+  // assignment and rest a watch on it, so any subsequent backtrack must
+  // re-propagate the whole trail (kernel_backtrack reads this flag). See the
+  // trail_tainted comment in kernel.hpp. DefaultPolicy always decides at a
+  // fixpoint, so it never sets this and stays bit-exact.
+  if (k.propagate_head < k.trail.size())
+    k.trail_tainted = true;
   k.stats.decisions++;
   if (external)
     k.stats.api_decisions++;

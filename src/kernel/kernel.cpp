@@ -189,10 +189,24 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
   k.trail.resize(j);
   k.frames.resize(target + 1);
   k.level = target;
-  // re-propagate the kept out-of-order literals from the boundary (cadical
-  // sets propagated = the boundary). Never move the head forward.
-  if (k.propagate_head > boundary)
-    k.propagate_head = boundary;
+  // re-propagate from the right point. Normally the boundary (cadical sets
+  // propagated = the boundary): the kept out-of-order literals get rescanned,
+  // and the level-≤target prefix below the boundary was propagated at a
+  // fixpoint so its scans are still valid. But if an off-fixpoint Decide has
+  // tainted the trail (D-LEVEL-1), a below-boundary scan may be STALE — it
+  // treated a clause as satisfied by an ahead literal this backtrack just
+  // unassigned — so the whole SEARCH trail must be rescanned against the
+  // post-shrink assignment: reset to 0 (never forward). Only a real search
+  // backtrack (update_phases=true — restart/backjump) does this. A probing
+  // restore (update_phases=false — Lucky/Probe/Backbone/Vivify) unwinds only
+  // its own assumptions off a clean root fixpoint and MUST land back on
+  // head==root_fixed (the boundary), so it keeps the boundary reset regardless
+  // of taint; the root it returns to was already re-propagated clean by the
+  // search backtrack that reached level 0. DefaultPolicy never taints, so this
+  // is the boundary reset for it (bit-exact).
+  const uint32_t reset = (k.trail_tainted && update_phases) ? 0 : boundary;
+  if (k.propagate_head > reset)
+    k.propagate_head = reset;
 }
 
 // --- propagation engine ------------------------------------------------

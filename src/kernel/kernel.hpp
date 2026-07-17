@@ -97,6 +97,21 @@ struct Kernel {
 
   std::vector<Lit> trail;
   uint32_t propagate_head = 0;
+  // off-fixpoint-decide taint (D-LEVEL-1). A Decide taken while the trail is
+  // NOT at a propagation fixpoint (propagate_head < |τ|) lets a not-yet-run
+  // watch scan observe an "ahead" assignment and treat a clause as satisfied
+  // by it; if a later backtrack unassigns that ahead literal, the stale scan
+  // is never redone and the clause can be left unit with no watch firing
+  // (escaped unit). The cure is to re-propagate the WHOLE trail after any
+  // trail-shrink that follows such a decision, so every stale scan is redone
+  // against the post-shrink assignment: kernel_backtrack resets propagate_head
+  // to 0 (not the level boundary) whenever this flag is set. DefaultPolicy
+  // always decides at a fixpoint, so it NEVER sets this — its backtracks keep
+  // the boundary reset and it stays bit-exact. Set by decide_apply; once set it
+  // stays set for the rest of the solve (re-propagating a short N1/test trail
+  // from 0 is cheap, and clearing it soundly is subtle — a fixpoint reached
+  // while an ahead literal is still true does NOT make the trail safe).
+  bool trail_tainted = false;
   // trail height at the start of each level; frames[0] = 0 exists from
   // construction — the `frames.size() == level + 1` invariant must hold
   // even for a kernel that never saw a variable (empty formula; corpus

@@ -38,6 +38,7 @@ add_library(tactix_lib OBJECT
   src/rules/switchmode/switchmode.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp
+  src/policies/adversarial_policy.cpp
   src/frontend/parse.cpp
   src/api/api.cpp
 )

@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-17 (rev. 39). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-17 (rev. 40). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -242,14 +242,20 @@ chronological backjump sound: `Backjump` accepts any target in
 `[jump_level, level-1]` (a `ConflictAnalysis` instance), the asserting literal
 stamped at its true level regardless. DefaultPolicy is held on `jump_level`
 (`CHRONO_LEVELS = UINT32_MAX`) so it is bit-exact (s055 932,762; Tier A PAR-2
-0.52). **D-LEVEL-1** — removing `Decide`'s fixpoint conjunct so a policy may
-decide off a non-fixpoint ("multiple decisions in a row without propagation") —
-remains the open headline and is MANDATORY (N1, plan §1.1) — the solver must
-allow multiple decides without unit propagation between them and not crash; it
-is not optional. rev 38's true-level assignment did not suffice (removing the
-conjunct still crashes via a distinct escaped-unit mechanism), so real kernel
-work remains — most likely a watched-literal fix. This is the NEXT task, before
-V3b-3.
+0.52). **D-LEVEL-1 done (rev 40).** `Decide`'s fixpoint conjunct is removed, so a
+policy may decide off a non-fixpoint ("multiple decisions in a row without
+propagation") — the N1 capability, now guaranteed. rev 38's true-level
+assignment was necessary but not sufficient: a decision taken off a fixpoint
+lets a not-yet-run watch scan treat a clause as satisfied by an "ahead"
+assignment, and a later backtrack that unassigns that literal strands the clause
+unit with no watch firing (a stale-scan escaped unit, distinct from corpus
+004/005/006). The watched-literal fix: an off-fixpoint `Decide` sets
+`k.trail_tainted`, and a search backtrack then re-propagates the whole trail
+(`propagate_head` reset to 0), redoing every stale scan against the post-shrink
+assignment. DefaultPolicy always decides at a fixpoint → never taints → bit-exact
+(s055 932,762; Tier A 200/200). Reproduced and regressed by `AdversarialPolicy`
+(`--adversarial-policy`, an off-fixpoint-heavy N1 stress schedule), the rewritten
+`test_decide` escaped-unit unit test, and corpus 004/005/006. NEXT: V3b-3.
 
 Terminal detections: `Propagate` yielding a top-level conflict + `ConflictAnalysis`
 deriving the empty clause ⇒ UNSAT; all variables assigned without conflict ⇒ SAT
@@ -1160,3 +1166,4 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 37** (2026-07-17): D-SPLIT purification 1/3 — Analyze+Backjump fused into the atomic `ConflictAnalysis` rule (§5.2 M3, M4 folded in); rev-35 `¬pending.valid` conjunct removed everywhere (corpus-006 state unrepresentable); behavior-preserving (s055 bit-exact 932,762).
 - **rev. 38** (2026-07-17): D-LEVEL purification 2/3 — true-level assignment + a compacting `kernel_backtrack` make chronological backjump sound (`ConflictAnalysis` target ∈ [jump_level, level-1]; D-LEVEL-2 closed, corpus 005 gone); Decide keeps its fixpoint guard (D-LEVEL-1 separate); behavior-preserving (s055 932,762, Tier A 0.52).
 - **rev. 39** (2026-07-17): §4 framing — D-LEVEL-1 (decide off a propagation fixpoint) is MANDATORY (N1, §1.1), the next task, not fix-vs-reject; solver must support multiple decides without propagation between them (rev-38 did not suffice; distinct escaped-unit mechanism remains). Sequencing D-LEVEL-1 → V3b-3; `docs/calculus.md` restructure to mostly-clean formal rules queued after; no rule semantics changed.
+- **rev. 40** (2026-07-17): D-LEVEL purification 3/3 — D-LEVEL-1 CLOSED. `Decide`'s `propagate_head==|τ|` conjunct removed (N1: multiple decides without propagation between them); off-fixpoint decide made sound by the `trail_tainted` watched-literal repair (a stale watch scan resting on an "ahead" assignment is redone by re-propagating the whole trail on the next search backtrack). DefaultPolicy never taints → bit-exact (s055 932,762, Tier A 200/200). New `AdversarialPolicy` (`--adversarial-policy`) N1 stress harness + rewritten `test_decide` escaped-unit regression. NEXT: V3b-3.
