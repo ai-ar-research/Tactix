@@ -17,6 +17,16 @@
 > fine — but the abstract rule must stay **clear**, and every place the code
 > diverges from it must be **recorded here with a removal path**, not hidden
 > inside a guard.
+>
+> **STRUCTURE TODO (next session, user 2026-07-17):** this document should be
+> *mostly the clean formal rules*. Right now each rule entry inlines its
+> *implemented* `Guard` + `[eng:…]` deviation tags, which muddies the formal
+> statement (it reads as if a proof rule "requires a propagation fixpoint" —
+> it does not; that is an engineering deviation only). Restructure so each rule
+> entry is the abstract rule alone (precondition / effect / proof-δ / soundness),
+> and ALL implemented-guard/deviation material moves to the §7 ledger (the
+> single "implementation appendix"), with at most a one-line pointer from the
+> rule. Do this AFTER D-LEVEL-1.
 
 ## 1. Why this document exists (the N1 principle)
 
@@ -40,14 +50,18 @@ recorded per-rule below and consolidated in §7:
   be non-level-sorted and a backtrack keeps still-implied lower-level literals.
   That **closed D-LEVEL-2**: `Backjump` no longer clamps to `jump_level` — any
   chronological target in `[jump_level, level-1]` is sound and is a
-  `ConflictAnalysis` instance parameter. **D-LEVEL-1 remains open:** `Decide`
-  (and the state-advancing inprocessing rules) still carry the
-  `propagate_head == |τ|` fixpoint conjunct, because deciding off a
-  *non*-fixpoint additionally needs the 1-UIP loop generalized beyond
-  one-UIP-per-current-level (novel work — the staged headline). corpus 004/005
-  are the regression bed. *(DefaultPolicy stays on `jump_level` via
-  `CHRONO_LEVELS = UINT32_MAX`, so it is bit-exact; a finite threshold is a
-  separate go/no-go.)*
+  `ConflictAnalysis` instance parameter. **D-LEVEL-1 is OPEN and MANDATORY (not
+  optional):** `Decide` (and the state-advancing inprocessing rules) still carry
+  the `propagate_head == |τ|` fixpoint conjunct, which is exactly an N1 leak —
+  the solver **must** support multiple decides without unit propagation between
+  them and not crash. This is a non-negotiable (plan §1.1), not a fix-vs-reject
+  choice; the kernel must be made to support it. Empirically (2026-07-17), even
+  *with* true-level assignment, removing the conjunct still crashes under a free
+  N1 schedule (escaped unit — a DISTINCT mechanism from corpus 004/005/006,
+  which now pass), so real kernel work remains, most likely a watched-literal
+  fix so an off-fixpoint decision cannot leave a clause unit without a watch
+  firing. corpus 004/005/006 are the regression bed. *(Meanwhile DefaultPolicy
+  stays on `jump_level` via `CHRONO_LEVELS = UINT32_MAX`, so it is bit-exact.)*
 
 - **D-SPLIT — Analyze and Backjump were two rules (CLOSED for `pending`,
   rev 37).** Conflict analysis was split into `Analyze` (derive + emit the
@@ -143,10 +157,15 @@ quotes the implemented conjuncts and tags each `[abstract]` or `[eng:D-LEVEL]` /
 - **Guard** (`decide.cpp:25-28`): `!conflict_valid` `[abstract]` ·
   `!inconsistent` `[abstract]` · `unassigned > 0` `[abstract]` ·
   `propagate_head == |τ|` **`[eng:D-LEVEL]`**.
-- **Deviation:** the fixpoint conjunct — the canonical D-LEVEL leak (corpus
-  004). Deciding on an un-propagated trail mis-levels the pending implications
-  because forced literals are stamped at `dl`. *Removal:* true-level assignment
-  (plan §5.4).
+- **Deviation (D-LEVEL-1, MANDATORY):** the fixpoint conjunct is an N1 leak —
+  the solver must allow multiple decides without unit propagation between them.
+  It is the last open guard-purification item and is **non-negotiable**, not
+  optional. rev 38's true-level assignment removed the *original* corpus-004
+  mis-leveling cause, but empirically it is NOT sufficient: removing the conjunct
+  still crashes under a free schedule via a DISTINCT escaped-unit mechanism
+  (most likely watched-literal — an off-fixpoint decision can leave a clause
+  unit without either watch firing). *Removal:* the remaining kernel work to
+  make off-fixpoint decide sound (see §1's D-LEVEL note).
 
 ### M3 · ConflictAnalysis — the atomic learn+backjump rule *(the registered rule since rev 37)*
 - **Precondition (abstract):** a conflict is recorded (some clause is all-false
@@ -381,7 +400,7 @@ item, not an ad-hoc patch.
 
 | # | Deviation | Rules affected | Root cause | Removal path |
 |---|-----------|----------------|-----------|--------------|
-| D-LEVEL-1 | `propagate_head == trail.size` (decide/inprocess off a fixpoint forbidden) | M2, C1, C2, C3, V1, V2, V3, V4, S5 | off-fixpoint decide needs 1-UIP generalized (true-level now landed) | remove decide fixpoint conjunct + generalize Analyze — the staged headline |
+| D-LEVEL-1 **(MANDATORY, N1)** | `propagate_head == trail.size` (decide/inprocess off a fixpoint forbidden) | M2, C1, C2, C3, V1, V2, V3, V4, S5 | off-fixpoint decide still crashes even with true-level (distinct escaped-unit mechanism) | remove decide fixpoint conjunct; make the kernel support off-fixpoint decide (likely a watched-literal fix) — MUST be solved, not rejected |
 | ~~D-LEVEL-2~~ | ~~`Backjump` target clamped to `jump_level`~~ — **CLOSED rev 38** | M4 (folded in M3) | current-level assignment | **done:** true-level assignment + compacting `kernel_backtrack`; chrono target is a ConflictAnalysis instance |
 | ~~D-SPLIT-1~~ | ~~`¬pending.valid`~~ — **CLOSED rev 37** | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | **done:** atomic ConflictAnalysis (§8) — `pending` never at a boundary |
 | ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED rev 37** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
