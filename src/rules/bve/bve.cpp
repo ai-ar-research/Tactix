@@ -1,20 +1,31 @@
-// E1a: BVE rule skeleton + round-local occurrence index + candidate scheduling.
-// No elimination yet (apply is a NoOp — the round lands in E1b). Transliterated
-// idioms from kissat/src/eliminate.c (variable scheduling) + our own
-// Subsume/Strengthen occurrence pattern; see docs/e1-bve-design.md.
+// E1 BVE: bounded variable elimination by resolution. E1a landed the skeleton +
+// occurrence index + schedule; E1b (this commit) adds the elimination round —
+// resolution, the bound, RUP resolvent emission, deletion, and reconstruction
+// witnesses. Full cross product (no gates yet — E1c). Transliterated idioms from
+// kissat/src/eliminate.c + resolve.c; the add-before-delete / root-false-strip /
+// record_unit / witness mechanics mirror our own V3 Substitute (do_substitution),
+// the fuzzed template. See docs/e1-bve-design.md.
 #include "rules/bve/bve.hpp"
 
 #include "kernel/watch.hpp"
+#include "proof/proof.hpp"
+#include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
 #include <utility>
 
 namespace tactix {
 
-// occurrence limit (kissat eliminateocclim): a variable whose two polarities
-// together occur more than this is skipped — the O(occ⁺·occ⁻) resolution would
-// blow up. E1a only filters the schedule with it; E1b's resolution respects it.
+// occurrence limit (kissat eliminateocclim): skip a variable whose two
+// polarities together occur more than this — the O(occ⁺·occ⁻) resolution blows
+// up. Used both to filter the schedule and to guard the elimination.
 static constexpr uint32_t BVE_OCCLIM = 2000;
+// resolvent size limit (kissat eliminateclslim): a resolvent larger than this
+// aborts the variable.
+static constexpr uint32_t BVE_CLSLIM = 100;
+// growth slack (kissat eliminatebound; the ramp 0→16 is a future policy knob).
+// Eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ + BVE_BOUND.
+static constexpr uint32_t BVE_BOUND = 16;
 
 bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
@@ -69,7 +80,6 @@ void bve_schedule(const Kernel &k, std::vector<Var> &out) {
       continue;
     ranked.emplace_back(static_cast<uint64_t>(p) * n, v);
   }
-  // fewest resolutions first; stable so equal scores keep variable order
   std::stable_sort(ranked.begin(), ranked.end());
   out.clear();
   out.reserve(ranked.size());
@@ -77,16 +87,334 @@ void bve_schedule(const Kernel &k, std::vector<Var> &out) {
     out.push_back(pr.second);
 }
 
-// canonical instance = a full round. E1a: no elimination yet — a NoOp (as V3a
-// shipped detection-only). E1b drains the root closure and runs the round.
+namespace {
+
+// live copies of the binary pair (a ∨ b) in a's watch list (V3's helper).
+uint32_t bve_binary_copies(const Kernel &k, Lit a, Lit b) {
+  uint32_t n = 0;
+  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
+  const uint32_t sz = k.watches.heads[a].size;
+  for (uint32_t i = 0; i < sz;) {
+    const Watch w{ws[i]};
+    if (w.binary()) {
+      if (w.other() == b)
+        n++;
+      i += 1;
+    } else {
+      i += 2;
+    }
+  }
+  return n;
+}
+inline bool bve_binary_live(const Kernel &k, Lit a, Lit b) {
+  return bve_binary_copies(k, a, b) > 0;
+}
+
+// A materialized clause on the pivot: its ACTIVE literals (root-false dropped;
+// their unit ids in `absorbed` for LRAT), its proof id, and a delete-handle
+// (arena ref for large, or the binary pair). `active` includes the pivot.
+struct MClause {
+  std::vector<Lit> active;
+  std::vector<uint64_t> absorbed;
+  uint64_t id = 0;
+  Ref ref = INVALID_REF; // INVALID_REF => binary
+  Lit ba = INVALID_LIT, bb = INVALID_LIT;
+};
+
+// Eliminate variable x by resolution (full cross product; gates land in E1c). At
+// a drained root. State is not mutated until the bound is passed, so a NoOp
+// return (bound exceeded / duplicate-binary hazard) leaves the kernel untouched
+// and the caller may try another candidate. Returns Unsat on an empty resolvent
+// or contradictory collapsed units.
+ApplyResult bve_eliminate(Kernel &k, Var x) {
+  const bool lrat = k.proof && k.proof->lrat();
+  const Lit px = make_lit(x, false), nx = make_lit(x, true);
+
+  std::vector<MClause> pos, neg;            // live irredundant: resolved + witnessed
+  std::vector<Ref> del_large;               // redundant/satisfied/taut → delete-only
+  std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
+
+  // ---- gather x's LARGE clauses (one arena scan) ----
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      bool has_px = false, has_nx = false;
+      for (const Lit l : *c) {
+        has_px |= (l == px);
+        has_nx |= (l == nx);
+      }
+      if (has_px || has_nx) {
+        if ((has_px && has_nx) || c->redundant()) {
+          // a clause with both x and ¬x is a tautology; a redundant clause is
+          // entailed by F — either way delete it (no resolution, no witness).
+          del_large.push_back(ref);
+        } else {
+          MClause m;
+          m.id = c->id();
+          m.ref = ref;
+          bool satisfied = false;
+          for (const Lit l : *c) {
+            const int8_t v = k.value(l);
+            if (v > 0) { // root-true → clause satisfied → delete-only, no witness
+              satisfied = true;
+              break;
+            }
+            if (v < 0) { // root-false → drop (cite its unit)
+              if (lrat)
+                m.absorbed.push_back(k.unit_ids[var_of(l)]);
+              continue;
+            }
+            m.active.push_back(l);
+          }
+          if (satisfied)
+            del_large.push_back(ref);
+          else
+            (has_px ? pos : neg).push_back(std::move(m));
+        }
+      }
+    }
+    ref += words;
+  }
+
+  // ---- gather x's BINARIES (watch scan) + duplicate-binary hazard pre-check ----
+  auto gather_bin = [&](Lit lit, std::vector<MClause> &live) -> bool {
+    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[lit].offset;
+    const uint32_t sz = k.watches.heads[lit].size;
+    for (uint32_t i = 0; i < sz;) {
+      const Watch w{ws[i]};
+      if (!w.binary()) {
+        i += 2;
+        continue;
+      }
+      const Lit o = w.other();
+      i += 1;
+      if (bve_binary_copies(k, lit, o) >= 2)
+        return false; // duplicated pair: kernel_delete_binary can't name it
+      if (k.value(o) > 0) { // satisfied
+        del_bin.emplace_back(lit, o);
+        continue;
+      }
+      // o root-false is impossible at a drained fixpoint (it would force `lit`).
+      MClause m;
+      m.ref = INVALID_REF;
+      m.ba = lit;
+      m.bb = o;
+      m.id = kernel_binary_id(k, lit, o);
+      m.active = {lit, o};
+      live.push_back(std::move(m));
+    }
+    return true;
+  };
+  if (!gather_bin(px, pos) || !gather_bin(nx, neg))
+    return ApplyResult::NoOp; // duplicate-binary hazard
+
+  if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty())
+    return ApplyResult::NoOp; // x occurs nowhere resolvable
+
+  // ---- generate resolvents (full cross product), with the bound ----
+  struct Resolvent {
+    std::vector<Lit> lits;
+    std::vector<uint64_t> chain;
+  };
+  std::vector<Resolvent> resolvents;
+  const size_t limit = pos.size() + neg.size() + BVE_BOUND;
+  std::vector<uint8_t> seen(2 * k.nvars, 0); // dedup/tautology scratch
+  for (const MClause &c : pos) {
+    for (const Lit l : c.active)
+      if (l != px)
+        seen[l] = 1;
+    bool aborted = false;
+    for (const MClause &d : neg) {
+      Resolvent r;
+      bool taut = false;
+      for (const Lit l : c.active)
+        if (l != px)
+          r.lits.push_back(l);
+      for (const Lit l : d.active) {
+        if (l == nx)
+          continue;
+        if (seen[l]) // duplicate with c
+          continue;
+        if (seen[negate(l)]) { // l and ¬l both present → tautology
+          taut = true;
+          break;
+        }
+        r.lits.push_back(l);
+      }
+      if (taut)
+        continue;
+      if (r.lits.size() > BVE_CLSLIM) { // oversized resolvent: abort the variable
+        aborted = true;
+        break;
+      }
+      if (lrat) {
+        r.chain = c.absorbed;
+        r.chain.insert(r.chain.end(), d.absorbed.begin(), d.absorbed.end());
+        r.chain.push_back(c.id);
+        r.chain.push_back(d.id);
+      }
+      resolvents.push_back(std::move(r));
+      if (resolvents.size() > limit) { // growth bound exceeded: keep x
+        aborted = true;
+        break;
+      }
+    }
+    for (const Lit l : c.active)
+      if (l != px)
+        seen[l] = 0;
+    if (aborted)
+      return ApplyResult::NoOp; // no state mutated yet
+  }
+
+  // ---- COMMIT: add resolvents (RUP, add-before-delete), witnesses, delete ----
+  std::vector<Lit> units;                              // collapsed root units
+  std::vector<Lit> pending_unit(k.nvars, INVALID_LIT); // record_unit dedup by var
+  // {u},{¬u} in one round ⊢ ∅ (V3's record_unit, corpus 007).
+  auto record_unit = [&](Lit u, uint64_t id) -> bool {
+    const Var v = var_of(u);
+    if (pending_unit[v] == INVALID_LIT) {
+      pending_unit[v] = u;
+      k.unit_ids[v] = id;
+      units.push_back(u);
+      return false;
+    }
+    if (pending_unit[v] == u)
+      return false; // duplicate same-sign
+    if (k.proof) {
+      if (lrat) {
+        const uint64_t ch[2] = {id, k.unit_ids[v]};
+        k.proof->add_empty(++k.next_clause_id, ch, 2);
+      } else {
+        k.proof->add_empty(0, nullptr, 0);
+      }
+    }
+    k.inconsistent = true;
+    return true;
+  };
+
+  for (Resolvent &r : resolvents) {
+    if (r.lits.empty()) { // unreachable at a drained root; defensive
+      if (k.proof) {
+        if (lrat)
+          k.proof->add_empty(++k.next_clause_id, r.chain.data(),
+                             static_cast<uint32_t>(r.chain.size()));
+        else
+          k.proof->add_empty(0, nullptr, 0);
+      }
+      k.inconsistent = true;
+      return ApplyResult::Unsat;
+    }
+    // a size-2 resolvent already present is subsumed — skip (avoid a duplicate
+    // pair that would block a later elimination).
+    if (r.lits.size() == 2 && bve_binary_live(k, r.lits[0], r.lits[1]))
+      continue;
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof) {
+      if (lrat)
+        k.proof->add_rup(id, r.lits.data(), static_cast<uint32_t>(r.lits.size()),
+                         r.chain.data(), static_cast<uint32_t>(r.chain.size()));
+      else
+        k.proof->add_rup(0, r.lits.data(), static_cast<uint32_t>(r.lits.size()),
+                         nullptr, 0);
+    }
+    if (r.lits.size() == 1) {
+      if (record_unit(r.lits[0], id))
+        return ApplyResult::Unsat;
+    } else if (r.lits.size() == 2) {
+      kernel_add_binary_clause(k, r.lits[0], r.lits[1], id);
+    } else {
+      kernel_add_large_clause(k, r.lits.data(),
+                              static_cast<uint32_t>(r.lits.size()),
+                              /*redundant=*/false,
+                              static_cast<uint32_t>(r.lits.size()), id);
+      // NB: adding a large clause may reallocate the arena, but the Refs held in
+      // pos/neg/del_large are OFFSETS (valid across a resize) — only Clause*
+      // would dangle, and we re-fetch via clause_at below.
+    }
+  }
+
+  // reconstruction witnesses: push each removed live clause with the pivot as
+  // its blocking literal (both sides; CaDiCaL-style, design §3.4). Satisfied /
+  // redundant / tautology clauses need no witness (entailed / already true).
+  for (const std::vector<MClause> *side : {&pos, &neg}) {
+    const Lit pivot = (side == &pos) ? px : nx;
+    for (const MClause &m : *side) {
+      std::vector<Lit> rest;
+      rest.reserve(m.active.size());
+      for (const Lit l : m.active)
+        if (l != pivot)
+          rest.push_back(l);
+      kernel_push_witness(k, pivot, rest.data(),
+                          static_cast<uint32_t>(rest.size()));
+    }
+  }
+
+  // delete every clause on x: live (pos/neg) + delete-only (redundant/satisfied/
+  // tautology). Large → proof del + GARBAGE; binary → kernel_delete_binary.
+  auto del_large_ref = [&](Ref ref) {
+    Clause *c = clause_at(k.arena, ref);
+    if (c->garbage())
+      return;
+    if (k.proof)
+      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
+    c->flags |= Clause::GARBAGE;
+  };
+  auto del_all = [&](const std::vector<MClause> &side) {
+    for (const MClause &m : side) {
+      if (m.ref != INVALID_REF) {
+        del_large_ref(m.ref);
+      } else {
+        const bool ok = kernel_delete_binary(k, m.ba, m.bb);
+        assert(ok);
+        (void)ok;
+      }
+    }
+  };
+  del_all(pos);
+  del_all(neg);
+  for (const Ref ref : del_large)
+    del_large_ref(ref);
+  for (const auto &pr : del_bin) {
+    const bool ok = kernel_delete_binary(k, pr.first, pr.second);
+    assert(ok);
+    (void)ok;
+  }
+
+  // assert collapsed root units un-propagated; M1 owns the cascade.
+  for (const Lit u : units)
+    if (k.value(u) == 0)
+      kernel_assign_unit(k, u);
+
+  kernel_collect_garbage(k); // reclaim the garbaged large clauses
+  k.stats.bve_eliminated++;
+  return ApplyResult::Ok;
+}
+
+} // namespace
+
+// canonical instance = a round: eliminate the best schedulable candidate that is
+// within the bound (fewest-resolutions-first). Drains the root closure at entry.
 ApplyResult bve_apply(Kernel &k) {
   assert(bve_guard(k));
+  k.stats.bve_rounds++;
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  std::vector<Var> cand;
+  bve_schedule(k, cand);
+  for (const Var x : cand) {
+    const ApplyResult r = bve_eliminate(k, x);
+    if (r == ApplyResult::Unsat)
+      return ApplyResult::Unsat;
+    if (r == ApplyResult::Ok)
+      return ApplyResult::Ok; // eliminated one variable
+    // NoOp (bound / hazard): try the next candidate
+  }
   return ApplyResult::NoOp;
 }
 
 // instance surface: payload = a candidate variable via its positive DIMACS
-// literal (lit_instance, rev 34); INSTANCE_CANONICAL = the full round. Total for
-// every payload. E1a: no per-variable elimination yet — NoOp.
+// literal (lit_instance, rev 34); INSTANCE_CANONICAL = the full round.
 static uint32_t bve_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Var> cand;
   bve_schedule(k, cand);
@@ -104,7 +432,12 @@ static ApplyResult bve_apply_instance(Kernel &k, uint64_t inst) {
     return ApplyResult::NoOp;
   if (var_of(l) >= k.nvars || k.values[l] != 0)
     return ApplyResult::NoOp;
-  return ApplyResult::NoOp; // E1a: no per-variable elimination yet (E1b)
+  assert(bve_guard(k));
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (k.values[l] != 0) // the requested var got assigned by the drain
+    return ApplyResult::NoOp;
+  return bve_eliminate(k, var_of(l));
 }
 
 TACTIX_REGISTER_RULE(BVE, RuleTier::Inprocess, bve_guard, bve_apply,

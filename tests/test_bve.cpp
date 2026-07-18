@@ -95,8 +95,8 @@ static void test_schedule_excludes() {
   }
 }
 
-// N1 instance surface: candidate variables are enumerated; apply / apply_instance
-// are total NoOps (no elimination in E1a).
+// N1 instance surface: candidate variables are enumerated; an out-of-range
+// payload is a total NoOp.
 static void test_instance_surface() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -113,11 +113,81 @@ static void test_instance_surface() {
   Lit r;
   assert(lit_of_instance(insts[0], &r)); // decodable var payload
   assert(insts[0] != INSTANCE_CANONICAL);
-  // E1a: everything is a NoOp
-  assert(vt.apply(k) == ApplyResult::NoOp);
-  assert(vt.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::NoOp);
   assert(vt.apply_instance(k, lit_instance(internalize(99))) ==
          ApplyResult::NoOp); // out of range
+}
+
+static bool has_binary(const Kernel &k, Lit a, Lit b) {
+  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
+  for (uint32_t i = 0; i < k.watches.heads[a].size;) {
+    if (Watch{ws[i]}.binary()) {
+      if (Watch{ws[i]}.other() == b)
+        return true;
+      i += 1;
+    } else {
+      i += 2;
+    }
+  }
+  return false;
+}
+
+// E1b: eliminate var 1 from (1∨2),(¬1∨3) → the resolvent (2∨3); var 1 vanishes
+// and reconstruction witnesses are pushed.
+static void test_eliminate_basic() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));  // (1∨2)
+  kernel_add_binary_clause(k, internalize(-1), internalize(3)); // (¬1∨3)
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
+  assert(!has_binary(k, internalize(1), internalize(2)));  // originals gone
+  assert(!has_binary(k, internalize(-1), internalize(3)));
+  assert(has_binary(k, internalize(2), internalize(3)));   // resolvent present
+  assert(!k.reconstruction.empty());                       // witnesses pushed
+}
+
+// E1b (highest-risk): model reconstruction through ρ. Eliminate 1 from
+// (1∨2),(¬1∨3); the reduced formula is (2∨3). Hand a model (2=F, 3=T) with 1 at
+// the WRONG value, extend, and assert both ORIGINAL clauses are satisfied.
+static void test_eliminate_reconstruction() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));  // (1∨2)
+  kernel_add_binary_clause(k, internalize(-1), internalize(3)); // (¬1∨3)
+  const int orig[2][2] = {{1, 2}, {-1, 3}};
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
+  auto set = [&](int dimacs, bool val) {
+    const Lit l = internalize(dimacs);
+    k.values[l] = val ? 1 : -1;
+    k.values[negate(l)] = val ? -1 : 1;
+  };
+  set(2, false);
+  set(3, true);
+  set(1, false); // deliberately wrong — extend must recover 1 = true
+  kernel_extend_model(k);
+  assert(k.values[internalize(1)] > 0 && "1 reconstructed to true");
+  for (const auto &cl : orig) {
+    bool sat = false;
+    for (const int e : cl)
+      sat |= (k.values[internalize(e)] > 0);
+    assert(sat && "every original clause satisfied by the extended model");
+  }
+}
+
+// E1b: a variable whose resolvent count exceeds occ⁺+occ⁻+bound is NOT
+// eliminated (bound respected). 6 (x∨aᵢ) × 6 (¬x∨bⱼ) → 36 resolvents > 6+6+16.
+static void test_bound_skip() {
+  Kernel k;
+  kernel_reserve_vars(k, 13); // x=1, a=2..7, b=8..13
+  for (int i = 2; i <= 7; i++)
+    kernel_add_binary_clause(k, internalize(1), internalize(i)); // (1∨aᵢ)
+  for (int j = 8; j <= 13; j++)
+    kernel_add_binary_clause(k, internalize(-1), internalize(j)); // (¬1∨bⱼ)
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::NoOp);                               // 36 > 28: kept
+  assert(has_binary(k, internalize(1), internalize(2)));   // var 1 still present
 }
 
 int main() {
@@ -127,6 +197,9 @@ int main() {
   test_schedule_order();
   test_schedule_excludes();
   test_instance_surface();
+  test_eliminate_basic();
+  test_eliminate_reconstruction();
+  test_bound_skip();
   puts("test_bve OK");
   return 0;
 }

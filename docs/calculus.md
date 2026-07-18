@@ -341,6 +341,39 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) dropped that conjunct
 - **Soundness:** each deletion is equivalence-preserving; the tombstone prevents
   the mutual-redundancy double-deletion that would gain a model.
 
+## 6b. Variable elimination (E1) — the resolution-eliminating family
+
+### E1 · BVE — bounded variable elimination by resolution
+- **Precondition (abstract):** a variable `x` whose *bounded* resolution stays
+  within budget: the non-tautological resolvents of `Occ(x) ⊗ Occ(¬x)` (each
+  `C∨x` resolved with each `D∨¬x` on `x`) number at most
+  `|Occ(x)| + |Occ(¬x)| + bound`. Eliminating `x` is the Davis–Putnam step —
+  replace all clauses on `x` by those resolvents.
+- **Effect (E1b, landed rev —; full cross product — gate reduction is E1c):**
+  add every non-tautological resolvent (root-false literals stripped, tautologies
+  and root-satisfied resolvents dropped); delete every clause on `x` (live ones
+  witnessed; redundant / satisfied / `x`∧`¬x`-tautology clauses delete-only);
+  push a reconstruction witness per removed *live* clause onto `ρ` with the pivot
+  as its blocking literal (both sides); assert any size-collapsed root units
+  un-propagated (M1 owns the cascade). An empty resolvent or two contradictory
+  collapsed units (`record_unit`, corpus 007) → `Unsat`. One variable per apply
+  (canonical = the best schedulable candidate within budget); over-budget or a
+  duplicate-binary hazard → `NoOp` (no state mutated).
+- **Proof δ:** **RUP-only — no `add_rat`.** Each resolvent `R = (C∨D)` is RUP
+  from its two parents: `add_rup(R, [C.id, D.id (+ stripped-root-false unit ids)])`
+  (assume `¬R` → `C∨x` forces `x` → `D∨¬x` conflicts — the simplest chain in the
+  rule set, a fixed 2-parent list, no reason-walk). Then `del` every `x`-clause;
+  `kernel_push_witness` per removed live clause (internal ρ, no proof line).
+  Empty → `add_empty`; contradictory units → `add_empty`. **Second
+  variable-eliminating rule** (after V3) and second consumer of `ρ` — it reuses
+  V3's entire proof + ρ + add/delete machinery. `add_rat` is genuinely needed
+  only by **E2 Factor/BVA** (new-variable definitions are RAT) and **X1 BCE**
+  (RAT-justified deletion), both phase 4 — not E1.
+- **Soundness:** the resolvents replace `x`'s clauses equisatisfiably
+  (Davis–Putnam); soundness is equisatisfiability *modulo ρ* — `extend_ρ(model of
+  F′) ⊨ F`, the pivot recovered from the both-sides witness segments by one
+  reverse walk (`kernel_extend_model`), robust to any later N1 decision on `x`.
+
 ---
 
 ## 7. Implementation appendix — guards and the deviation ledger
@@ -375,7 +408,7 @@ rule rather than demanded by the guard). V1/V2/S5 additionally carry
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. (`!conflict_valid` removed rev 42; `propagate_head==\|τ\|` removed rev 43 — drains at entry.) |
 | V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop `M`, so `M`'s consistency is a soundness precondition. (fixpoint conjunct gone rev 43.) |
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. (`!conflict_valid` removed rev 42 — a pure `F`-rewrite; `propagate_head==\|τ\|` removed rev 43 — drains at entry.) |
-| E1 BVE | `root` | **D-ROOT:** `level==0`. (Purified guard from the start; the elimination round drains at entry. *E1a skeleton landed — the abstract §6 entry lands with E1b's elimination; design `docs/e1-bve-design.md`.*) |
+| E1 BVE | `root` | **D-ROOT:** `level==0`. (Purified guard; the elimination round drains at entry. Abstract rule §6b; design `docs/e1-bve-design.md`.) |
 
 ### 7.2 The engineering-deviation ledger (the impurity punch-list)
 
