@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-17 (rev. 44). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-18 (rev. 45). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -513,7 +513,15 @@ reconstruction stack + `kernel_push_witness` as K1+K2, and SCC detection as V3a;
 only the V3b rewrite waits on binary deletion.)
 
 Implementation design notes (point-in-time, non-normative — this plan stays
-authoritative): `docs/v3-substitute-design.md`, `docs/v4-transitive-reduce-design.md`.
+authoritative): `docs/v3-substitute-design.md`, `docs/v4-transitive-reduce-design.md`,
+`docs/e1-bve-design.md` (E1 BVE design pass, 2026-07-18). **E1 correction
+(rev 45):** E1 BVE is **RUP-only** — a resolvent `(C∨D)` of `(C∨x)`,`(D∨¬x)` is
+RUP from its two parents (chain `[P⁺,P⁻]`), so E1 needs **no `add_rat`** and no
+new proof primitive (the E1 row's `add-RUP (resolvents)` is exact). The V3-design
+forward-note that "add_rat is needed by E2/BVE" holds only for **E2 Factor/BVA**
+(new-variable definitions are RAT) and **X1 BCE** (RAT-justified deletion), both
+phase 4 — not for E1. E1 reuses V3's entire proof + ρ machinery; the only new
+work is a rule-local both-polarity occurrence index (no kernel dense mode).
 
 #### Variable elimination / addition
 
@@ -1186,6 +1194,7 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 37** (2026-07-17): D-SPLIT purification 1/3 — Analyze+Backjump fused into the atomic `ConflictAnalysis` rule (§5.2 M3, M4 folded in); rev-35 `¬pending.valid` conjunct removed everywhere (corpus-006 state unrepresentable); behavior-preserving (s055 bit-exact 932,762).
 - **rev. 38** (2026-07-17): D-LEVEL purification 2/3 — true-level assignment + a compacting `kernel_backtrack` make chronological backjump sound (`ConflictAnalysis` target ∈ [jump_level, level-1]; D-LEVEL-2 closed, corpus 005 gone); Decide keeps its fixpoint guard (D-LEVEL-1 separate); behavior-preserving (s055 932,762, Tier A 0.52).
 - **rev. 39** (2026-07-17): §4 framing — D-LEVEL-1 (decide off a propagation fixpoint) is MANDATORY (N1, §1.1), the next task, not fix-vs-reject; solver must support multiple decides without propagation between them (rev-38 did not suffice; distinct escaped-unit mechanism remains). Sequencing D-LEVEL-1 → V3b-3; `docs/calculus.md` restructure to mostly-clean formal rules queued after; no rule semantics changed.
+- **rev. 45** (2026-07-18, user): E1 BVE design pass → `docs/e1-bve-design.md` (understand→design over kissat/cadical + our kernel). Findings: RUP-only (resolvents are RUP — **no `add_rat`**, correcting the V3-design note; add_rat is E2 Factor/X1 BCE, phase 4); ρ + add/delete + GC all reused from V3; the one new piece is a rule-local both-polarity round-local occurrence index (NOT kernel dense mode); syntactic gates first, kitten deferred (O11); deactivation optional. ~4 commits (E1a index/schedule, E1b resolve+proof+witness, E1c syntactic gates, E1d fuzz). Design artifact only; no code, no §5.2 spec change.
 - **rev. 44** (2026-07-17, user): `stress-policy` skill — when a rule/feature lands or a guard is purified, write a TEMPORARY policy that maximizes the newly-legal N1 schedule + per-step invariant check, and fuzz it (the uniform `--random-policy` under-samples such patterns; `AdversarialPolicy` found D-LEVEL-1 at 0/1000 for the random policy). Standing rule added to §8.2; `AdversarialPolicy` is the worked example. A rule/guard change is not done until its new schedules are stress-tested.
 - **rev. 43** (2026-07-17): guard purification — D-LEVEL inproc/S5 closed (the last removable leak). `propagate_head==|τ|` removed from all 7 inprocessing rules + Lucky; each drains the root closure `U` at apply entry via the new shared `propagate_service` primitive (M1's engine extracted; `inprocess_reach_root` helper), a no-op at a fixpoint. A rev-42 investigation had shown naive removal is unsound (rules read a partial `U`); the drain is the fix. Bit-exact (s055 932,762); random-policy DRAT 2000/0 + LRAT 1500/0. Guard purification now complete for every removable deviation; only D-ROOT (`level==0`, the inprocessing framework `F|U`) remains, not planned for removal.
 - **rev. 42** (2026-07-17): guard purification — D-SPLIT-3 closed. `!conflict_valid` removed from the five pure `F`-rewrite guards (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce); behavior-preserving (`conflict_valid ⟹ level>0`, redundant under `level==0`; s055 bit-exact, random-policy DRAT 1500/0 + LRAT 1200/0). V1/V2 keep `!conflict_valid` (abstract — failed-literal reasoning needs consistent `M`); the ledger's prior inclusion of V1/V2 in D-SPLIT-3 was corrected. Remaining leak: the inprocessing/S5 `propagate_head==|τ|` (D-LEVEL) conjunct. No rule semantics changed beyond the guard.
