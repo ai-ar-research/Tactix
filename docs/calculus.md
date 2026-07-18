@@ -375,6 +375,7 @@ rule rather than demanded by the guard). V1/V2/S5 additionally carry
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. (`!conflict_valid` removed rev 42; `propagate_head==\|τ\|` removed rev 43 — drains at entry.) |
 | V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop `M`, so `M`'s consistency is a soundness precondition. (fixpoint conjunct gone rev 43.) |
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. (`!conflict_valid` removed rev 42 — a pure `F`-rewrite; `propagate_head==\|τ\|` removed rev 43 — drains at entry.) |
+| E1 BVE | `root` | **D-ROOT:** `level==0`. (Purified guard from the start; the elimination round drains at entry. *E1a skeleton landed — the abstract §6 entry lands with E1b's elimination; design `docs/e1-bve-design.md`.*) |
 
 ### 7.2 The engineering-deviation ledger (the impurity punch-list)
 

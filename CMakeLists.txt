@@ -35,6 +35,7 @@ add_library(tactix_lib OBJECT
   src/rules/backbone/backbone.cpp
   src/rules/substitute/substitute.cpp
   src/rules/transitive_reduce/transitive_reduce.cpp
+  src/rules/bve/bve.cpp
   src/rules/switchmode/switchmode.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp

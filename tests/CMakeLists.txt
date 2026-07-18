@@ -61,6 +61,10 @@ add_executable(test_transitive_reduce test_transitive_reduce.cpp)
 target_link_libraries(test_transitive_reduce PRIVATE tactix_lib)
 add_test(NAME transitive_reduce COMMAND test_transitive_reduce)
 
+add_executable(test_bve test_bve.cpp)
+target_link_libraries(test_bve PRIVATE tactix_lib)
+add_test(NAME bve COMMAND test_bve)
+
 add_executable(test_lucky test_lucky.cpp)
 target_link_libraries(test_lucky PRIVATE tactix_lib)
 add_test(NAME lucky COMMAND test_lucky)
