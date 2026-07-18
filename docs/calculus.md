@@ -375,7 +375,7 @@ item, not an ad-hoc patch.
 |---|-----------|----------------|-----------|--------------|
 | ~~D-LEVEL-1~~ | ~~`propagate_head == trail.size` on Decide (off-fixpoint decide forbidden)~~ — **CLOSED rev 40** | M2 | stale watch scan (off-fixpoint decide rests a watch on an "ahead" assignment) left a clause unit after a backtrack unassigned it | **done:** conjunct removed; `trail_tainted` + full re-propagation on search backtrack (kernel.hpp / decide.cpp / kernel_backtrack). The inprocessing/S5 `propagate_head==\|τ\|` conjunct is a SEPARATE deviation — the D-LEVEL row of the quiescent-root guard, entangled with D-ROOT, still open |
 | ~~D-LEVEL-2~~ | ~~`Backjump` target clamped to `jump_level`~~ — **CLOSED rev 38** | M4 (folded in M3) | current-level assignment | **done:** true-level assignment + compacting `kernel_backtrack`; chrono target is a ConflictAnalysis instance |
-| D-LEVEL (inproc/S5) | `propagate_head == |τ|` (entry fixpoint) | C1, C2, C3, V1, V2, V3, V4, S5 | same current-level artifact as the closed M2 case; these rules advance the logical state | true-level assignment already landed (rev 38); remove the conjunct + let the rule tolerate an un-propagated suffix (Lucky's probe already scans the whole trail). Not yet done |
+| D-LEVEL (inproc/S5) | `propagate_head == |τ|` (root fixpoint) | C1, C2, C3, V1, V2, V3, V4, S5 | the rule operates on the **root-simplified formula** `F\|U` (the inprocessing framework, plan §4) — computing `U` fully *is* propagating the root to a fixpoint | **Investigated rev 42, NOT a simple removal.** Removing the conjunct wholesale is *unsound in the current implementation*, not just crash-prone: random-policy fuzz gave 12 crashes **+ 2 wrong-SAT-with-bad-model + 2 wrong-verdict** in 800 cases (the unsound ones fire Substitute + Lucky). The inprocessing rules read the assignment / propagate from `propagate_head` and rely on the completed root closure `U` (Substitute's SCC + reconstruction; the probing rules' failed-literal reasoning). So this is closer to an **abstract precondition** ("operate on the propagated root") than the M2 current-level artifact — or, if kept as engineering, its removal is a substantial per-rule effort (each rule must first complete the root closure or tolerate a partial one), comparable to D-LEVEL-1 × the whole family. Deferred pending that decision |
 | ~~D-SPLIT-1~~ | ~~`¬pending.valid`~~ — **CLOSED rev 37** | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | **done:** atomic ConflictAnalysis (§8) — `pending` never at a boundary |
 | ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED rev 37** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
 | ~~D-SPLIT-3~~ | ~~`¬conflict_valid` on pure `F`-rewrites~~ — **CLOSED rev 42** | C1, C2, C3, V3, V4 | recorded-conflict control flag not in `σ` | **done:** conjunct removed from the five pure `F`-rewrites (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce). Behavior-preserving: `conflict_valid ⟹ level>0` at every rule boundary, so under the retained `level==0` the conjunct never fired. V1/V2 Probe/Backbone **keep** `!conflict_valid` — for failed-literal reasoning it is an *abstract* precondition (consistent `M`), not a leak |
@@ -399,9 +399,13 @@ removed from the five pure `F`-rewrites (C1/C2/C3/V3/V4); behavior-preserving
 (s055 bit-exact, random-policy DRAT+LRAT clean), V1/V2 keep theirs as an abstract
 precondition.
 
-**The remaining prize:** the inprocessing/S5 fixpoint conjunct (the D-LEVEL row
-above — true-level already landed, so removing it is now mostly rule-side work).
-corpus 004/005/006 are the bed that proves each removal correct.
+**The remaining item:** the inprocessing/S5 `propagate_head==|τ|` conjunct (the
+D-LEVEL row above). Investigated rev 42 — removing it is **not** a simple guard
+edit: it is unsound in the current implementation (wrong verdicts/models under
+the random policy), because the inprocessing rules operate on the completed root
+closure `U`. It is either an abstract precondition (operate on the propagated
+root) or a substantial per-rule engineering effort; deferred pending that call.
+corpus 004/005/006 remain the bed that proves any future removal correct.
 
 ## 8. Decision: Analyze + Backjump are one abstract rule
 
