@@ -9,8 +9,12 @@ namespace tactix {
 
 bool vivify_guard(const Kernel &k) {
   // quiescent root (C1/C2's argument)
-  return !k.inconsistent && !k.conflict_valid &&
-         k.level == 0 && k.propagate_head == k.trail.size();
+  // D-SPLIT-3 (guard purification): the ¬conflict_valid conjunct is gone —
+  // this is a pure F-rewrite (sound regardless of a recorded conflict), and
+  // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
+  // boundary, so it never fired under the retained level==0). calculus §7.
+  return !k.inconsistent && k.level == 0 &&
+         k.propagate_head == k.trail.size();
 }
 
 // candidate: live, 3 <= size <= lim, not root-satisfied; irredundant or

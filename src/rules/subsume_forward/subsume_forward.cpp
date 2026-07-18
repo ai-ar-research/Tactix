@@ -9,8 +9,12 @@ namespace tactix {
 
 bool subsume_forward_guard(const Kernel &k) {
   // quiescent root (see subsume_forward.hpp)
-  return !k.inconsistent && !k.conflict_valid &&
-         k.level == 0 && k.propagate_head == k.trail.size();
+  // D-SPLIT-3 (guard purification): the ¬conflict_valid conjunct is gone —
+  // this is a pure F-rewrite (sound regardless of a recorded conflict), and
+  // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
+  // boundary, so it never fired under the retained level==0). calculus §7.
+  return !k.inconsistent && k.level == 0 &&
+         k.propagate_head == k.trail.size();
 }
 
 // is `d` (irredundant, live) a subsumer of the marked candidate? true iff

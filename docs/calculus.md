@@ -269,9 +269,10 @@ shared quiescent-root guard and its deviations).
 ## 6. Probing, BIG rewriting, elimination (V1–V4)
 
 Inprocessing rules over the binary-implication graph; they share the same
-quiescent-root guard as §5 (see §7.1, which also records the one refinement:
-`!conflict_valid` is abstract for V1/V2 but unclear-leaning-engineering for
-V3/V4).
+quiescent-root guard as §5 (see §7.1). One refinement: V1/V2 Probe/Backbone
+additionally require `!conflict_valid` — for failed-literal reasoning a consistent
+`M` is a genuine abstract precondition — whereas the pure `F`-rewrites (the
+C-family and V3/V4) dropped that conjunct (D-SPLIT-3, rev 42).
 
 ### V1 · Probe — failed-literal probing (full propagation)
 - **Precondition (abstract):** ∃ an unassigned `p` with `F ∧ M ∧ p ⊢₁ ⊥`; then
@@ -344,8 +345,10 @@ pure soundness precondition) or an **engineering deviation** tagged by family
 ### 7.1 Implemented guards, per rule
 
 `q-root` abbreviates the shared **quiescent-root** guard
-`!inconsistent · !conflict_valid · level==0 · propagate_head==|τ|` (the
-`!pending.valid` conjunct it once carried was removed rev 37, D-SPLIT-1).
+`!inconsistent · level==0 · propagate_head==|τ|` (its `!pending.valid` conjunct
+was removed rev 37, D-SPLIT-1; its `!conflict_valid` conjunct was removed from the
+pure `F`-rewrites rev 42, D-SPLIT-3 — see below). V1/V2 additionally carry
+`!conflict_valid` as a genuine abstract precondition.
 
 | Rule | Implemented guard conjuncts | Engineering deviations (else pure) |
 |---|---|---|
@@ -358,9 +361,9 @@ pure soundness precondition) or an **engineering deviation** tagged by family
 | S3 Rephase | `!inconsistent` | — pure |
 | S4 SwitchMode | `!inconsistent` | — pure |
 | S5 Lucky | `!inconsistent · !conflict_valid · level==0 · propagate_head==\|τ\|` | **D-ROOT:** `level==0`; **D-LEVEL:** `propagate_head==\|τ\|`. (`!conflict_valid` is *abstract* — a SAT-concluding probe needs a consistent start.) |
-| C1 SubsumeForward, C2 Strengthen, C3 Vivify | `q-root` | **D-SPLIT-3:** `!conflict_valid`; **D-ROOT:** `level==0`; **D-LEVEL:** `propagate_head==\|τ\|` |
-| V1 Probe, V2 Backbone | `q-root` | **D-ROOT**, **D-LEVEL** (as the C-family). Here `!conflict_valid` is *abstract* — probing assumes `p` atop `M`, so `M`'s consistency is genuinely needed. |
-| V3 Substitute, V4 TransitiveReduce | `q-root` | **D-ROOT**, **D-LEVEL** (as the C-family). Here `!conflict_valid` is *unclear-leaning-engineering* — a pure `F`-rewrite reads only `F`, never the conflict fields. |
+| C1 SubsumeForward, C2 Strengthen, C3 Vivify | `q-root` | **D-ROOT:** `level==0`; **D-LEVEL:** `propagate_head==\|τ\|`. (`!conflict_valid` removed rev 42 — a pure `F`-rewrite.) |
+| V1 Probe, V2 Backbone | `q-root · !conflict_valid` | **D-ROOT**, **D-LEVEL** (as the C-family). `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop `M`, so `M`'s consistency is a soundness precondition. |
+| V3 Substitute, V4 TransitiveReduce | `q-root` | **D-ROOT**, **D-LEVEL** (as the C-family). (`!conflict_valid` removed rev 42 — a pure `F`-rewrite reads only `F`, never the conflict fields.) |
 
 ### 7.2 The engineering-deviation ledger (the impurity punch-list)
 
@@ -375,7 +378,7 @@ item, not an ad-hoc patch.
 | D-LEVEL (inproc/S5) | `propagate_head == |τ|` (entry fixpoint) | C1, C2, C3, V1, V2, V3, V4, S5 | same current-level artifact as the closed M2 case; these rules advance the logical state | true-level assignment already landed (rev 38); remove the conjunct + let the rule tolerate an un-propagated suffix (Lucky's probe already scans the whole trail). Not yet done |
 | ~~D-SPLIT-1~~ | ~~`¬pending.valid`~~ — **CLOSED rev 37** | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | **done:** atomic ConflictAnalysis (§8) — `pending` never at a boundary |
 | ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED rev 37** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
-| D-SPLIT-3 | `¬conflict_valid` on rules that don't consume the conflict | C1, C2, C3, V1, V2, V3, V4 | recorded-conflict control flag not in `σ` | atomic conflict analysis (§8) makes the flag transient; redundant at `level==0` today, so safe to keep meanwhile |
+| ~~D-SPLIT-3~~ | ~~`¬conflict_valid` on pure `F`-rewrites~~ — **CLOSED rev 42** | C1, C2, C3, V3, V4 | recorded-conflict control flag not in `σ` | **done:** conjunct removed from the five pure `F`-rewrites (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce). Behavior-preserving: `conflict_valid ⟹ level>0` at every rule boundary, so under the retained `level==0` the conjunct never fired. V1/V2 Probe/Backbone **keep** `!conflict_valid` — for failed-literal reasoning it is an *abstract* precondition (consistent `M`), not a leak |
 | D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
@@ -391,12 +394,14 @@ ConflictAnalysis instance (s055 bit-exact, Tier A PAR-2 0.52). **rev 40** —
 D-LEVEL-1: Decide's fixpoint conjunct removed; off-fixpoint decide made sound by
 the `trail_tainted` watched-literal repair, so a policy can take multiple
 decisions in a row without propagation (s055 bit-exact; stressed by the
-`AdversarialPolicy` N1 schedule).
+`AdversarialPolicy` N1 schedule). **rev 42** — D-SPLIT-3: `!conflict_valid`
+removed from the five pure `F`-rewrites (C1/C2/C3/V3/V4); behavior-preserving
+(s055 bit-exact, random-policy DRAT+LRAT clean), V1/V2 keep theirs as an abstract
+precondition.
 
-**The remaining prizes:** the inprocessing/S5 fixpoint conjunct (the D-LEVEL row
-above — true-level already landed, so removing it is now mostly rule-side work)
-and D-SPLIT-3 (the inprocessing `¬conflict_valid`). corpus 004/005/006 are the
-bed that proves each removal correct.
+**The remaining prize:** the inprocessing/S5 fixpoint conjunct (the D-LEVEL row
+above — true-level already landed, so removing it is now mostly rule-side work).
+corpus 004/005/006 are the bed that proves each removal correct.
 
 ## 8. Decision: Analyze + Backjump are one abstract rule
 
