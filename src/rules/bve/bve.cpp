@@ -121,7 +121,86 @@ struct MClause {
   Lit ba = INVALID_LIT, bb = INVALID_LIT;
 };
 
-// Eliminate variable x by resolution (full cross product; gates land in E1c). At
+// ---- syntactic gate detection (E1c) ----
+// Detect a functional gate defining x from its clauses; on success mark the gate
+// clauses in pos_gate/neg_gate (1 = gate, 0 = antecedent) and return true. For a
+// genuine functional gate x↔φ, BVE may resolve only gate×antecedent pairs: the
+// skipped antecedent×antecedent resolvents are entailed by the gate (Eén–Biere
+// "Effective preprocessing"), so both the elimination AND the E1b witness push
+// (all live clauses, with the pivot blocking) stay sound — the reconstruction
+// finds x=φ, which satisfies every antecedent because its gate×antecedent
+// resolvent is in F'. A *false* gate would be unsound, so detection is exact and
+// fuzz-gated. `resolve_gate` stays false: we detect only COMPLETE gates
+// (equivalence, AND/OR) whose gate×gate resolvents are tautological. ITE/XOR are
+// deferred (they need the gate×gate pair and a shortened-clause check).
+bool bve_detect_gate(const Kernel &k, Lit px, Lit nx,
+                     const std::vector<MClause> &pos,
+                     const std::vector<MClause> &neg,
+                     std::vector<uint8_t> &pos_gate,
+                     std::vector<uint8_t> &neg_gate, bool &resolve_gate) {
+  resolve_gate = false;
+  // binary partner lookup: side_bin[lit] = index of a binary {pivot, lit}, or -1.
+  std::vector<int> pos_bin(2 * k.nvars, -1), neg_bin(2 * k.nvars, -1);
+  for (size_t i = 0; i < pos.size(); ++i)
+    if (pos[i].active.size() == 2) {
+      const Lit o = pos[i].active[0] == px ? pos[i].active[1] : pos[i].active[0];
+      pos_bin[o] = int(i);
+    }
+  for (size_t j = 0; j < neg.size(); ++j)
+    if (neg[j].active.size() == 2) {
+      const Lit o = neg[j].active[0] == nx ? neg[j].active[1] : neg[j].active[0];
+      neg_bin[o] = int(j);
+    }
+
+  // (1) equivalence x↔¬w: pos binary (x∨w) + neg binary (¬x∨¬w) ⟹ ¬w→x, x→¬w.
+  for (size_t i = 0; i < pos.size(); ++i)
+    if (pos[i].active.size() == 2) {
+      const Lit w = pos[i].active[0] == px ? pos[i].active[1] : pos[i].active[0];
+      const int j = neg_bin[negate(w)];
+      if (j >= 0) {
+        pos_gate[i] = 1;
+        neg_gate[size_t(j)] = 1;
+        return true;
+      }
+    }
+
+  // (2) AND/OR: a base clause (¬x∨a₁∨…∨aₖ) on one side (k≥2) whose every input aᵢ
+  // has the matching binary (x∨¬aᵢ) on the other side ⟹ x↔OR(a) (and the dual
+  // with pivots swapped ⟹ x↔AND). The base + those k binaries fully define x.
+  auto try_and_or = [&](const std::vector<MClause> &base_side, Lit base_pivot,
+                        const std::vector<int> &opp_bin,
+                        std::vector<uint8_t> &base_gate,
+                        std::vector<uint8_t> &opp_gate) -> bool {
+    for (size_t b = 0; b < base_side.size(); ++b) {
+      const MClause &base = base_side[b];
+      if (base.active.size() < 3)
+        continue; // a 2-literal base is an equivalence (handled above)
+      bool all = true;
+      for (const Lit o : base.active)
+        if (o != base_pivot && opp_bin[negate(o)] < 0) {
+          all = false;
+          break;
+        }
+      if (!all)
+        continue;
+      base_gate[b] = 1;
+      for (const Lit o : base.active)
+        if (o != base_pivot)
+          opp_gate[size_t(opp_bin[negate(o)])] = 1;
+      return true;
+    }
+    return false;
+  };
+  if (try_and_or(neg, nx, pos_bin, neg_gate, pos_gate))
+    return true;
+  if (try_and_or(pos, px, neg_bin, pos_gate, neg_gate))
+    return true;
+  return false;
+}
+
+// Eliminate variable x by resolution. When a syntactic gate defines x, only
+// gate×antecedent resolvents are generated (bve_detect_gate); otherwise the full
+// cross product. At
 // a drained root. State is not mutated until the bound is passed, so a NoOp
 // return (bound exceeded / duplicate-binary hazard) leaves the kernel untouched
 // and the caller may try another candidate. Returns Unsat on an empty resolvent
@@ -212,7 +291,13 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty())
     return ApplyResult::NoOp; // x occurs nowhere resolvable
 
-  // ---- generate resolvents (full cross product), with the bound ----
+  // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
+  std::vector<uint8_t> pos_gate(pos.size(), 0), neg_gate(neg.size(), 0);
+  bool resolve_gate = false;
+  const bool gate =
+      bve_detect_gate(k, px, nx, pos, neg, pos_gate, neg_gate, resolve_gate);
+
+  // ---- generate resolvents (gate×antecedent, else full cross product) + bound ----
   struct Resolvent {
     std::vector<Lit> lits;
     std::vector<uint64_t> chain;
@@ -220,12 +305,21 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   std::vector<Resolvent> resolvents;
   const size_t limit = pos.size() + neg.size() + BVE_BOUND;
   std::vector<uint8_t> seen(2 * k.nvars, 0); // dedup/tautology scratch
-  for (const MClause &c : pos) {
+  for (size_t ci = 0; ci < pos.size(); ++ci) {
+    const MClause &c = pos[ci];
     for (const Lit l : c.active)
       if (l != px)
         seen[l] = 1;
     bool aborted = false;
-    for (const MClause &d : neg) {
+    for (size_t di = 0; di < neg.size(); ++di) {
+      if (gate) {
+        // resolve gate×antecedent; gate×gate only for an incomplete gate
+        // (resolve_gate), antecedent×antecedent never (entailed by the gate).
+        const bool cg = pos_gate[ci], dg = neg_gate[di];
+        if (!((cg != dg) || (cg && dg && resolve_gate)))
+          continue;
+      }
+      const MClause &d = neg[di];
       Resolvent r;
       bool taut = false;
       for (const Lit l : c.active)

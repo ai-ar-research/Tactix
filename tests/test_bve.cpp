@@ -190,6 +190,65 @@ static void test_bound_skip() {
   assert(has_binary(k, internalize(1), internalize(2)));   // var 1 still present
 }
 
+// E1c: an AND/OR gate x↔OR(a₁..a₆) lets BVE resolve only gate×antecedent. With
+// 4 antecedents per side the full cross product (E1b) exceeds the bound, but the
+// gate reduction drops the 16 antecedent×antecedent resolvents, so BVE fires.
+// Also assert a gate×antecedent resolvent is present and an antecedent×antecedent
+// one is absent (the reduction's defining behavior).
+static void test_gate_and_or_fires() {
+  Kernel k;
+  kernel_reserve_vars(k, 15); // x=1, a=2..7, p=8..11, q=12..15
+  Lit base[7] = {internalize(-1), internalize(2), internalize(3), internalize(4),
+                 internalize(5),  internalize(6), internalize(7)};
+  kernel_add_large_clause(k, base, 7, false, 0); // (¬x∨a₁∨…∨a₆)
+  for (int i = 2; i <= 7; i++)
+    kernel_add_binary_clause(k, internalize(1), internalize(-i)); // (x∨¬aᵢ)
+  for (int p = 8; p <= 11; p++)
+    kernel_add_binary_clause(k, internalize(1), internalize(p)); // (x∨pₖ) antecedent
+  for (int q = 12; q <= 15; q++)
+    kernel_add_binary_clause(k, internalize(-1), internalize(q)); // (¬x∨qₗ) antecedent
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
+  assert(!has_binary(k, internalize(1), internalize(8)));    // var 1 eliminated
+  assert(has_binary(k, internalize(-2), internalize(12)));   // gate×ant (¬a₁∨q₁)
+  assert(!has_binary(k, internalize(8), internalize(12)));   // ant×ant (p₁∨q₁) skipped
+}
+
+// E1c: an equivalence gate x↔y eliminates x as a substitution — antecedents get
+// x replaced by ±y, the antecedent×antecedent resolvent is skipped, and the
+// model still reconstructs (x = y).
+static void test_gate_equivalence_substitution() {
+  Kernel k;
+  kernel_reserve_vars(k, 4); // x=1, y=2, ant vars 3,4
+  kernel_add_binary_clause(k, internalize(-1), internalize(2)); // (¬x∨y)  gate
+  kernel_add_binary_clause(k, internalize(1), internalize(-2)); // (x∨¬y)  gate
+  kernel_add_binary_clause(k, internalize(1), internalize(3));  // (x∨3)   antecedent
+  kernel_add_binary_clause(k, internalize(-1), internalize(4)); // (¬x∨4)  antecedent
+  const int orig[4][2] = {{-1, 2}, {1, -2}, {1, 3}, {-1, 4}};
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
+  assert(has_binary(k, internalize(-2), internalize(4)));    // (¬y∨4): x→y in ant⁻
+  assert(has_binary(k, internalize(2), internalize(3)));     // (y∨3):  x→y in ant⁺
+  assert(!has_binary(k, internalize(3), internalize(4)));    // (3∨4) ant×ant skipped
+  auto set = [&](int dimacs, bool val) {
+    const Lit l = internalize(dimacs);
+    k.values[l] = val ? 1 : -1;
+    k.values[negate(l)] = val ? -1 : 1;
+  };
+  set(2, true);  // y = T
+  set(4, true);  // needed by (¬y∨4)
+  set(3, false);
+  set(1, false); // wrong — extend must recover x = y = true
+  kernel_extend_model(k);
+  assert(k.values[internalize(1)] > 0 && "x reconstructed to y = true");
+  for (const auto &cl : orig) {
+    bool sat = false;
+    for (const int e : cl)
+      sat |= (k.values[internalize(e)] > 0);
+    assert(sat && "every original clause satisfied by the extended model");
+  }
+}
+
 int main() {
   test_guard();
   test_occurrences();
@@ -200,6 +259,8 @@ int main() {
   test_eliminate_basic();
   test_eliminate_reconstruction();
   test_bound_skip();
+  test_gate_and_or_fires();
+  test_gate_equivalence_substitution();
   puts("test_bve OK");
   return 0;
 }

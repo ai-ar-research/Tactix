@@ -5,6 +5,7 @@
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/adversarial_policy.hpp"
+#include "policies/bve_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
 #include "proof/proof.hpp"
@@ -73,6 +74,7 @@ int main(int argc, char **argv) {
   bool quiet = false;
   bool random_policy = false;
   bool adversarial_policy = false;
+  bool bve_stress_policy = false;
   unsigned long long random_seed = 20260710;
 
   for (int i = 1; i < argc; i++) {
@@ -98,6 +100,13 @@ int main(int argc, char **argv) {
       adversarial_policy = true;
       if (a[20] == '=')
         random_seed = strtoull(a + 21, nullptr, 10);
+    } else if (!strncmp(a, "--bve-stress-policy", 19)) {
+      // E1c stress mode: maximizes BVE at the root (gate detection +
+      // resolution + reconstruction), the N1 schedule the uniform random
+      // policy under-samples (stress-policy skill)
+      bve_stress_policy = true;
+      if (a[19] == '=')
+        random_seed = strtoull(a + 20, nullptr, 10);
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--no-binary] [--lrat] "
              "[--random-policy[=SEED]] <cnf[.xz|.gz]> [proof]\n");
@@ -159,7 +168,9 @@ int main(int argc, char **argv) {
   }
 
   const int res =
-      adversarial_policy
+      bve_stress_policy
+          ? bve_stress_solve(kernel, random_seed, &caught_signal)
+      : adversarial_policy
           ? adversarial_solve(kernel, random_seed, &caught_signal)
       : random_policy ? random_solve(kernel, random_seed, &caught_signal)
                       : default_solve(kernel, &caught_signal);

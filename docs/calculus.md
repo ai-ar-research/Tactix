@@ -349,7 +349,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) dropped that conjunct
   `C∨x` resolved with each `D∨¬x` on `x`) number at most
   `|Occ(x)| + |Occ(¬x)| + bound`. Eliminating `x` is the Davis–Putnam step —
   replace all clauses on `x` by those resolvents.
-- **Effect (E1b, landed rev —; full cross product — gate reduction is E1c):**
+- **Effect (E1b–E1c, landed):**
   add every non-tautological resolvent (root-false literals stripped, tautologies
   and root-satisfied resolvents dropped); delete every clause on `x` (live ones
   witnessed; redundant / satisfied / `x`∧`¬x`-tautology clauses delete-only);
@@ -359,6 +359,17 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) dropped that conjunct
   collapsed units (`record_unit`, corpus 007) → `Unsat`. One variable per apply
   (canonical = the best schedulable candidate within budget); over-budget or a
   duplicate-binary hazard → `NoOp` (no state mutated).
+- **Gate reduction (E1c):** the resolvent set above is the *full* cross product;
+  when `x`'s clauses contain a syntactic functional gate `x ↔ φ` (equivalence
+  `x↔y`; AND/OR `x↔OR/AND(a₁…aₖ)` — a base clause plus its input binaries; ITE/XOR
+  deferred), only *gate×antecedent* resolvents are generated. The skipped
+  *antecedent×antecedent* resolvents are entailed by `φ` (Eén–Biere), so `F′` is
+  unchanged up to entailment — the abstract precondition/effect are identical,
+  fewer variables exceed the budget, and, crucially, the reconstruction is
+  *unaffected*: the witness is still every removed live clause, and the recovered
+  `x = φ` satisfies each antecedent because its gate×antecedent resolvent is in
+  `F′`. A *false* gate would drop needed resolvents (unsound), so detection is
+  exact (structural match only) and fuzz-gated.
 - **Proof δ:** **RUP-only — no `add_rat`.** Each resolvent `R = (C∨D)` is RUP
   from its two parents: `add_rup(R, [C.id, D.id (+ stripped-root-false unit ids)])`
   (assume `¬R` → `C∨x` forces `x` → `D∨¬x` conflicts — the simplest chain in the
