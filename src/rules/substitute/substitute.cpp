@@ -10,6 +10,8 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <set>
+#include <utility>
 
 namespace tactix {
 
@@ -224,11 +226,329 @@ void emit_unsat(Kernel &k, Lit x) {
   k.inconsistent = true;
 }
 
+// live copies of the binary pair (a ∨ b) in a's watch list.
+uint32_t binary_copies(const Kernel &k, Lit a, Lit b) {
+  uint32_t n = 0;
+  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
+  const uint32_t sz = k.watches.heads[a].size;
+  for (uint32_t i = 0; i < sz;) {
+    const Watch w{ws[i]};
+    if (w.binary()) {
+      if (w.other() == b)
+        n++;
+      i += 1;
+    } else {
+      i += 2;
+    }
+  }
+  return n;
+}
+inline bool binary_live(const Kernel &k, Lit a, Lit b) {
+  return binary_copies(k, a, b) > 0;
+}
+
+// The equivalent-literal rewrite (V3b-3). `sub[l]` marks the non-representative
+// SCC-member literals to rewrite (l → r.repr[l]); the caller selects them (the
+// whole round, or one requested SCC + its mirror). Emits the transient
+// equivalence lemmas {¬l, r.repr[l]}, rewrites every large and binary
+// occurrence add-before-delete, deletes the lemmas, pushes the reconstruction
+// witnesses once per substituted variable, and asserts any collapsed root units
+// un-propagated (M1 owns the cascade — the Probe/Vivify batch discipline).
+// Returns Unsat on an empty rewrite, Ok if anything changed, NoOp otherwise.
+ApplyResult do_substitution(Kernel &k, const SccResult &r,
+                            const std::vector<uint8_t> &sub) {
+  const bool lrat = k.proof && k.proof->lrat();
+  const Lit nlits = static_cast<Lit>(2 * k.nvars);
+  auto substitutable = [&](Lit l) { return l < nlits && sub[l]; };
+
+  // (A) hazard pre-check: a pair with ≥2 live copies cannot be deleted by name
+  // (kernel_delete_binary refuses — one id can't name two clauses), so skip the
+  // whole round rather than emit a half-applied proof. Rare; the erratum's
+  // finer per-SCC skip is a future refinement (deferred slot, correctness-
+  // first). Scan only the member binaries we would touch.
+  for (Lit l = 0; l < nlits; l++) {
+    if (!substitutable(l))
+      continue;
+    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
+    const uint32_t sz = k.watches.heads[l].size;
+    for (uint32_t i = 0; i < sz;) {
+      const Watch w{ws[i]};
+      if (!w.binary()) {
+        i += 2;
+        continue;
+      }
+      if (binary_copies(k, l, w.other()) >= 2)
+        return ApplyResult::NoOp; // duplicated original — unsafe this round
+      i += 1;
+    }
+  }
+
+  // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal.
+  // Derived BEFORE any binary mutation so big_path_chain reads the intact BIG.
+  // RUP: assume l, ¬repr[l]; the path l→…→repr[l] propagates repr[l]; conflict.
+  std::vector<uint64_t> lemma(nlits, 0);
+  for (Lit l = 0; l < nlits; l++) {
+    if (!substitutable(l))
+      continue;
+    const Lit s = r.repr[l];
+    std::vector<uint64_t> chain;
+    if (lrat) {
+      const bool ok = big_path_chain(k, l, s, chain);
+      assert(ok && "SCC members are strongly connected");
+      (void)ok;
+    }
+    const uint64_t id = ++k.next_clause_id;
+    lemma[l] = id;
+    if (k.proof) {
+      const Lit lits2[2] = {negate(l), s};
+      if (lrat)
+        k.proof->add_rup(id, lits2, 2, chain.data(),
+                         static_cast<uint32_t>(chain.size()));
+      else
+        k.proof->add_rup(0, lits2, 2, nullptr, 0);
+    }
+  }
+
+  std::vector<Lit> units;              // collapsed root units, asserted at end
+  std::vector<uint8_t> seen(nlits, 0); // dedup scratch for a rewritten clause
+  bool changed = false;
+
+  // Rewrite one literal sequence: apply repr, strip root-false literals (their
+  // unit ids join `chain`), detect root-true/tautology. Fills `out` with the
+  // kept ACTIVE literals and `chain` with the antecedent ids (lemmas + stripped
+  // units, WITHOUT the original clause id — the caller appends that). Returns
+  // true iff the rewrite is satisfied/tautological (caller then delete-only).
+  auto rewrite_lits = [&](const Lit *lits, uint32_t size, std::vector<Lit> &out,
+                          std::vector<uint64_t> &chain) -> bool {
+    out.clear();
+    chain.clear();
+    bool satisfied = false;
+    for (uint32_t i = 0; i < size; i++) {
+      const Lit m = lits[i];
+      const Lit mp = substitutable(m) ? r.repr[m] : m;
+      if (substitutable(m) && lrat)
+        chain.push_back(lemma[m]);
+      if (k.value(mp) > 0) { // root-true → clause satisfied
+        satisfied = true;
+        break;
+      }
+      if (k.value(mp) < 0) { // root-false → strip (cite its unit)
+        if (lrat)
+          chain.push_back(k.unit_ids[var_of(mp)]);
+        continue;
+      }
+      if (seen[mp]) // duplicate literal
+        continue;
+      if (seen[negate(mp)]) { // mp and ¬mp both present → tautology
+        satisfied = true;
+        break;
+      }
+      seen[mp] = 1;
+      out.push_back(mp);
+    }
+    for (const Lit l : out)
+      seen[l] = 0; // unmark
+    if (satisfied) {
+      out.clear();
+      return true;
+    }
+    if (lrat) { // a duplicated member literal would push its lemma twice
+      std::sort(chain.begin(), chain.end());
+      chain.erase(std::unique(chain.begin(), chain.end()), chain.end());
+    }
+    return false;
+  };
+
+  // (C) rewrite LARGE clauses. Snapshot the original refs first (adds append to
+  // the arena). Follow Vivify's ordering — add_rup, del, GARBAGE all read the
+  // clause BEFORE the arena-mutating add — so the Clause* never dangles.
+  std::vector<Ref> refs;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage())
+      refs.push_back(ref);
+    ref += clause_words(c->size);
+  }
+  std::vector<Lit> out;
+  std::vector<uint64_t> chain;
+  for (const Ref ref : refs) {
+    Clause *c = clause_at(k.arena, ref);
+    bool touched = false;
+    for (const Lit m : *c)
+      if (substitutable(m)) {
+        touched = true;
+        break;
+      }
+    if (!touched)
+      continue;
+    const bool credundant = c->redundant();
+    const uint32_t cglue = c->glue();
+    const uint64_t cid = c->id();
+    const bool sat = rewrite_lits(c->lits, c->size, out, chain);
+    if (sat) { // satisfied/tautology → delete only (deletions are proof-free)
+      if (k.proof)
+        k.proof->del(k.next_clause_id, cid, c->lits, c->size);
+      c->flags |= Clause::GARBAGE;
+      changed = true;
+      continue;
+    }
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof) {
+      if (lrat) {
+        chain.push_back(cid); // original clause closes the RUP chain
+        k.proof->add_rup(id, out.data(), static_cast<uint32_t>(out.size()),
+                         chain.data(), static_cast<uint32_t>(chain.size()));
+      } else {
+        k.proof->add_rup(0, out.data(), static_cast<uint32_t>(out.size()),
+                         nullptr, 0);
+      }
+      k.proof->del(id, cid, c->lits, c->size);
+    }
+    c->flags |= Clause::GARBAGE; // before the arena-mutating add below
+    changed = true;
+    if (out.empty()) { // all-false rewrite (unreachable at a quiescent root)
+      k.inconsistent = true;
+      return ApplyResult::Unsat;
+    }
+    if (out.size() == 1) {
+      k.unit_ids[var_of(out[0])] = id;
+      units.push_back(out[0]);
+    } else if (out.size() == 2) {
+      kernel_add_binary_clause(k, out[0], out[1], id);
+    } else {
+      kernel_add_large_clause(k, out.data(), static_cast<uint32_t>(out.size()),
+                              credundant,
+                              std::min<uint32_t>(cglue, out.size()), id);
+      // c now dangles (arena may have reallocated); it is not touched again.
+    }
+  }
+
+  // (D) rewrite BINARY clauses. Snapshot the member pairs first (rewriting
+  // mutates watch lists); each pair collected once via its canonical key.
+  std::vector<std::pair<Lit, Lit>> bins;
+  std::set<uint64_t> seen_pair;
+  for (Lit l = 0; l < nlits; l++) {
+    if (!substitutable(l))
+      continue;
+    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
+    const uint32_t sz = k.watches.heads[l].size;
+    for (uint32_t i = 0; i < sz;) {
+      const Watch w{ws[i]};
+      if (!w.binary()) {
+        i += 2;
+        continue;
+      }
+      const Lit z = w.other();
+      if (seen_pair.insert(kernel_binary_key(l, z)).second)
+        bins.emplace_back(l, z);
+      i += 1;
+    }
+  }
+  for (const auto &pr : bins) {
+    const Lit l = pr.first, z = pr.second;
+    if (!binary_live(k, l, z))
+      continue; // defensive (never happens: added pairs are rep-only)
+    const Lit lp = substitutable(l) ? r.repr[l] : l;
+    const Lit zp = substitutable(z) ? r.repr[z] : z;
+    const bool taut = (lp == negate(zp));
+    if (taut || k.value(lp) > 0 || k.value(zp) > 0) { // satisfied → delete-only
+      const bool ok = kernel_delete_binary(k, l, z);
+      assert(ok);
+      (void)ok;
+      changed = true;
+      continue;
+    }
+    std::vector<uint64_t> ch;
+    if (lrat) {
+      if (substitutable(l))
+        ch.push_back(lemma[l]);
+      if (substitutable(z))
+        ch.push_back(lemma[z]);
+    }
+    out.clear();
+    for (const Lit x : {lp, zp}) {
+      if (k.value(x) < 0) { // root-false → strip (cite its unit)
+        if (lrat)
+          ch.push_back(k.unit_ids[var_of(x)]);
+      } else if (std::find(out.begin(), out.end(), x) == out.end()) {
+        out.push_back(x); // active, deduped
+      }
+    }
+    if (out.size() == 2 && binary_live(k, out[0], out[1])) {
+      // rewritten target already present → delete original only (no add needed)
+      const bool ok = kernel_delete_binary(k, l, z);
+      assert(ok);
+      (void)ok;
+      changed = true;
+      continue;
+    }
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof) {
+      if (lrat) {
+        ch.push_back(kernel_binary_id(k, l, z)); // original closes the chain
+        k.proof->add_rup(id, out.data(), static_cast<uint32_t>(out.size()),
+                         ch.data(), static_cast<uint32_t>(ch.size()));
+      } else {
+        k.proof->add_rup(0, out.data(), static_cast<uint32_t>(out.size()),
+                         nullptr, 0);
+      }
+    }
+    if (out.empty()) { // both root-false (unreachable at a quiescent root)
+      k.inconsistent = true;
+      return ApplyResult::Unsat;
+    }
+    if (out.size() == 1) {
+      k.unit_ids[var_of(out[0])] = id;
+      units.push_back(out[0]);
+    } else {
+      kernel_add_binary_clause(k, out[0], out[1], id); // add before delete
+    }
+    const bool ok = kernel_delete_binary(k, l, z);
+    assert(ok);
+    (void)ok;
+    changed = true;
+  }
+
+  // (E) delete the transient equivalence lemmas (keep the core clean).
+  if (k.proof)
+    for (Lit l = 0; l < nlits; l++)
+      if (substitutable(l)) {
+        const Lit lits2[2] = {negate(l), r.repr[l]};
+        k.proof->del(k.next_clause_id, lemma[l], lits2, 2);
+      }
+
+  // (F) reconstruction witnesses, once per substituted variable (both
+  // polarities are non-representative, so the positive literal detects it):
+  // the order-independent symmetric pair for l ≡ s = repr[l] —
+  // {¬l, s} (witness ¬l) and {l, ¬s} (witness l) — so kernel_extend_model
+  // recovers l's value from s regardless of any search assignment to l.
+  for (Var v = 0; v < k.nvars; v++) {
+    const Lit l = make_lit(v, false);
+    if (!substitutable(l))
+      continue;
+    const Lit s = r.repr[l];
+    const Lit rest_a[1] = {s};
+    kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
+    const Lit rest_b[1] = {negate(s)};
+    kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}
+  }
+
+  // (G) assert the collapsed root units un-propagated; M1 owns the cascade and
+  // emits nothing new (each unit already carries its add-RUP id).
+  for (const Lit u : units)
+    if (k.value(u) == 0)
+      kernel_assign_unit(k, u);
+
+  if (changed)
+    kernel_collect_garbage(k); // reclaim the garbaged large clauses
+  return changed ? ApplyResult::Ok : ApplyResult::NoOp;
+}
+
 } // namespace
 
-// canonical instance: one full round. V3b-1 detects and, on x ≡ ¬x, refutes;
-// a consistent formula is a NoOp (the equivalent-literal rewrite lands in
-// V3b-3). Runs only at a quiescent root (guarded).
+// canonical instance: one full round. Detect SCCs; on x ≡ ¬x refute; else
+// substitute every non-trivial SCC onto its representative (V3b-3). Runs only
+// at a quiescent root (guarded).
 ApplyResult substitute_apply(Kernel &k) {
   assert(substitute_guard(k));
   k.stats.substitute_rounds++;
@@ -238,14 +558,22 @@ ApplyResult substitute_apply(Kernel &k) {
     emit_unsat(k, r.contradiction_lit);
     return ApplyResult::Unsat;
   }
-  return ApplyResult::NoOp; // no rewrite until V3b-3
+  if (r.nontrivial_reps.empty())
+    return ApplyResult::NoOp;
+  // every non-representative member of a non-trivial SCC is substitutable
+  std::vector<uint8_t> sub(2 * k.nvars, 0);
+  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
+    if (r.repr[l] != INVALID_LIT && r.repr[l] != l)
+      sub[l] = 1;
+  return do_substitution(k, r, sub);
 }
 
 // instance surface: payload = an SCC representative literal (lit_instance /
-// lit_of_instance, rev 34); INSTANCE_CANONICAL = the full round. Until the
-// rewrite lands, a single instance can still surface a global UNSAT (the whole
-// formula is refuted regardless of which SCC was asked for); a consistent
-// formula is a NoOp. Total for every payload.
+// lit_of_instance, rev 34); INSTANCE_CANONICAL = the full round. A single
+// instance substitutes exactly the requested equivalence class — the SCC with
+// representative `rep` AND its mirror SCC (representative ¬rep), so both
+// polarities of every member variable are eliminated together. Total for every
+// payload.
 static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   SccResult r = substitute_find_sccs(k);
   const uint32_t n =
@@ -264,16 +592,27 @@ static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
   if (var_of(rep) >= k.nvars || k.values[rep] != 0)
     return ApplyResult::NoOp;
   // re-derive from the CURRENT BIG (it may have changed since instances()).
-  // A global x ≡ ¬x refutes the whole formula whichever SCC was requested;
-  // otherwise V3b-1 has no per-SCC rewrite to do yet -> NoOp.
   k.stats.substitute_rounds++;
   SccResult r = substitute_find_sccs(k);
-  if (r.contradiction) {
+  if (r.contradiction) { // a global x ≡ ¬x refutes regardless of the request
     assert(r.contradiction_lit != INVALID_LIT);
     emit_unsat(k, r.contradiction_lit);
     return ApplyResult::Unsat;
   }
-  return ApplyResult::NoOp;
+  // substitute only the requested class: members whose representative is rep or
+  // ¬rep (the mirror). If the requested SCC dissolved, nothing is marked → NoOp.
+  const Lit nrep = negate(rep);
+  std::vector<uint8_t> sub(2 * k.nvars, 0);
+  bool any = false;
+  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
+    if (r.repr[l] != INVALID_LIT && r.repr[l] != l &&
+        (r.repr[l] == rep || r.repr[l] == nrep)) {
+      sub[l] = 1;
+      any = true;
+    }
+  if (!any)
+    return ApplyResult::NoOp;
+  return do_substitution(k, r, sub);
 }
 
 TACTIX_REGISTER_RULE(Substitute, RuleTier::Inprocess, substitute_guard,

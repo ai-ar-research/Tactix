@@ -4,18 +4,18 @@
 // that contains a literal together with its own negation forces UNSAT
 // (l ≡ ¬l). Proof delta: add-RUP + delete + push-witness.
 //
-// Scope so far:
+// Scope (complete):
 //   V3a — SCC DETECTION (guard + iterative Tarjan), unit-tested in isolation.
-//   V3b-1 (this commit) — the UNSAT path + registration: an SCC containing a
-//     literal and its own negation means x ≡ ¬x, so the formula is UNSAT; emit
-//     the refutation (two RUP units + the empty clause, chains via the
-//     rule-local BIG-path walk) and register the rule in the DEFERRED slot.
-//     No clause rewrite yet — a non-contradictory round is a NoOp. Landing the
-//     UNSAT path first de-risks big_path_chain (the design's #1 risk) with a
-//     fully LRAT-checkable, mutation-free increment before the rewrite depends
-//     on it.
-//   V3b-3 (next) — the equivalent-literal rewrite + reconstruction witnesses +
-//     size-collapse units.
+//   V3b-1 — the UNSAT path (x ≡ ¬x ⇒ refutation: two RUP units + the empty
+//     clause via the rule-local BIG-path walk) + registration in the DEFERRED
+//     slot. Landed first to de-risk big_path_chain (the design's #1 risk) with a
+//     mutation-free, LRAT-checkable increment before the rewrite depended on it.
+//   V3b-3 — the equivalent-literal rewrite: every non-representative SCC member
+//     is rewritten to its representative across all large + binary occurrences
+//     (add-before-delete), transient equivalence lemmas justify each rewrite in
+//     LRAT, size-collapsed root units are asserted un-propagated, and a
+//     reconstruction witness pair is pushed per eliminated variable (first ρ
+//     consumer). See do_substitution in substitute.cpp.
 #pragma once
 
 #include "rules/registry.hpp"
@@ -53,8 +53,9 @@ SccResult substitute_find_sccs(const Kernel &k);
 // Rule surface (registered in the DEFERRED inprocessing slot, so DefaultPolicy
 // never runs it; N1-exposed + random-policy-fuzzed). Payload = an SCC
 // representative literal via lit_instance/lit_of_instance (registry.hpp;
-// rev 34). INSTANCE_CANONICAL = the full round. V3b-1: apply detects and, on
-// x ≡ ¬x, refutes; otherwise NoOp (no rewrite until V3b-3).
+// rev 34). INSTANCE_CANONICAL = the full round (every non-trivial SCC); a single
+// instance substitutes the requested representative's class + its mirror.
+// On x ≡ ¬x, apply refutes (Unsat).
 ApplyResult substitute_apply(Kernel &); // canonical: full round
 
 } // namespace tactix

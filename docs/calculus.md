@@ -357,18 +357,29 @@ share it too, with one refinement noted below.
   a non-trivial SCC of active literals means all its literals are equivalent
   (`F ⊨ lᵢ ↔ lⱼ`). The full rule rewrites every member to the SCC representative
   and eliminates the rest. **`x` and `¬x` in one SCC ⇒ `x ≡ ¬x` ⇒ UNSAT.**
-- **Effect:** *(V3b-1, current)* on a contradictory SCC, emit the refutation and
-  set `inconsistent` → `Unsat`; a consistent formula is a **NoOp** (the rewrite
-  is V3b-3). *(V3b-3, planned)* rewrite occurrences to the representative
-  (add-before-delete, `kernel_delete_binary` for binaries), push reconstruction
-  witnesses onto `ρ`, eliminate the member.
-- **Proof δ:** *(V3b-1)* `add_rup({¬x}, path x→¬x)` + `add_rup({x}, path ¬x→x)`
-  + `add_empty` (the `big_path_chain` BFS gives each unit's antecedent chain in
-  forward path order). *(V3b-3)* `add_rup` (rewrites) + `del` + internal
-  `kernel_push_witness`. **First variable-eliminating rule**, hence the first
-  consumer of `ρ`: soundness is equisatisfiability *modulo ρ* —
-  `extend_ρ(model of F′) ⊨ F` — which composes because `kernel_extend_model` is
-  one reverse walk over the flat stack.
+- **Effect (V3b-3, landed rev 41):** on a contradictory SCC, emit the refutation
+  and set `inconsistent` → `Unsat`. Otherwise rewrite every non-representative
+  member `l` to its representative `r = repr[l]` in every large and binary
+  occurrence (add-before-delete; `kernel_delete_binary` for binaries; root-false
+  literals stripped, tautology/root-satisfied rewrites deleted), push the
+  reconstruction witness pair onto `ρ` per eliminated variable, and assert any
+  size-collapsed root units un-propagated (M1 owns the cascade). A round with no
+  non-trivial SCC is a `NoOp`. *(A round is skipped — `NoOp` — if a member binary
+  has two live copies, which `kernel_delete_binary` cannot name; a
+  correctness-first conservative skip.)*
+- **Proof δ:** UNSAT — `add_rup({¬x}, path x→¬x)` + `add_rup({x}, path ¬x→x)` +
+  `add_empty` (the `big_path_chain` BFS gives each unit's antecedent chain in
+  forward path order). Rewrite — per member, a transient equivalence lemma
+  `add_rup({¬l, r}, big_path_chain(l,r))`; each rewritten clause is
+  `add_rup(C′, [lemma ids + stripped-unit ids + C.id()])` then `del(C)`
+  (add-before-delete); finally `del` the transient lemmas + internal
+  `kernel_push_witness` (no proof line). **No `add_rat`.** **First
+  variable-eliminating rule**, hence the first consumer of `ρ`: soundness is
+  equisatisfiability *modulo ρ* — `extend_ρ(model of F′) ⊨ F` — which composes
+  because `kernel_extend_model` is one reverse walk over the flat stack. The
+  witness pair `{¬l, r}` (witness ¬l) and `{l, ¬r}` (witness l) encodes `l ≡ r`
+  order-independently, so extend recovers `l` from `r` regardless of `l`'s search
+  value.
 - **Guard** (`substitute.cpp:16-20`): quiescent-root. `!conflict_valid` here is
   **`[eng:other, unclear-leaning-engineering]`** — V3 is a pure `F`-rewrite (its
   SCC/equivalence inference reads only `F`, never the conflict fields), so a

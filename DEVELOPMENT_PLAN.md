@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-17 (rev. 40). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-17 (rev. 41). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -1166,4 +1166,5 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 37** (2026-07-17): D-SPLIT purification 1/3 — Analyze+Backjump fused into the atomic `ConflictAnalysis` rule (§5.2 M3, M4 folded in); rev-35 `¬pending.valid` conjunct removed everywhere (corpus-006 state unrepresentable); behavior-preserving (s055 bit-exact 932,762).
 - **rev. 38** (2026-07-17): D-LEVEL purification 2/3 — true-level assignment + a compacting `kernel_backtrack` make chronological backjump sound (`ConflictAnalysis` target ∈ [jump_level, level-1]; D-LEVEL-2 closed, corpus 005 gone); Decide keeps its fixpoint guard (D-LEVEL-1 separate); behavior-preserving (s055 932,762, Tier A 0.52).
 - **rev. 39** (2026-07-17): §4 framing — D-LEVEL-1 (decide off a propagation fixpoint) is MANDATORY (N1, §1.1), the next task, not fix-vs-reject; solver must support multiple decides without propagation between them (rev-38 did not suffice; distinct escaped-unit mechanism remains). Sequencing D-LEVEL-1 → V3b-3; `docs/calculus.md` restructure to mostly-clean formal rules queued after; no rule semantics changed.
+- **rev. 41** (2026-07-17): V3 `Substitute` COMPLETE — V3b-3 equivalent-literal SCC rewrite landed (rewrite every non-rep member to its representative across large+binary occurrences, add-before-delete; transient equivalence lemmas + `big_path_chain` LRAT; root-false stripping; size-collapse units un-propagated; symmetric reconstruction witness pair per eliminated var — first ρ consumer). Deferred slot, bit-exact (s055 932,762); random-policy DRAT 2500/0 + LRAT 1600/0, 8 substitute unit tests incl. model reconstruction. Duplicated-original binary → conservative round skip. No §5.2 change (proof-delta row already add-RUP+delete+push-witness). NEXT: `docs/calculus.md` restructure.
 - **rev. 40** (2026-07-17): D-LEVEL purification 3/3 — D-LEVEL-1 CLOSED. `Decide`'s `propagate_head==|τ|` conjunct removed (N1: multiple decides without propagation between them); off-fixpoint decide made sound by the `trail_tainted` watched-literal repair (a stale watch scan resting on an "ahead" assignment is redone by re-propagating the whole trail on the next search backtrack). DefaultPolicy never taints → bit-exact (s055 932,762, Tier A 200/200). New `AdversarialPolicy` (`--adversarial-policy`) N1 stress harness + rewritten `test_decide` escaped-unit regression. NEXT: V3b-3.
