@@ -57,7 +57,7 @@ static void emit_root_units(Kernel &k, size_t from) {
   }
 }
 
-ApplyResult propagate_apply(Kernel &k) {
+ApplyResult propagate_service(Kernel &k) {
   if (k.inconsistent)
     return ApplyResult::Unsat;
   const bool lrat = k.proof && k.proof->lrat();
@@ -104,6 +104,9 @@ ApplyResult propagate_apply(Kernel &k) {
   }
   return ApplyResult::Ok;
 }
+
+// M1 Propagate's registered apply is exactly the propagation service.
+ApplyResult propagate_apply(Kernel &k) { return propagate_service(k); }
 
 TACTIX_REGISTER_RULE(Propagate, RuleTier::Micro, propagate_guard,
                      propagate_apply);

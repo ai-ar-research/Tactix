@@ -47,8 +47,12 @@ static void test_guard() {
   kernel_backtrack(k, 0);
   assert(subsume_forward_guard(k));
   kernel_assign_unit(k, internalize(2));
-  assert(!subsume_forward_guard(k)); // unpropagated trail suffix
-  assert(!kernel_propagate(k));
+  // D-LEVEL guard purification: the guard is a pure precondition — it HOLDS off
+  // a propagation fixpoint (the rule drains the root closure U at apply entry,
+  // so an un-propagated suffix is no longer an applicability barrier).
+  assert(subsume_forward_guard(k)); // pure: pending propagation is fine
+  assert(subsume_forward_apply(k) != ApplyResult::Unsat); // apply drains first
+  assert(k.propagate_head == k.trail.size()); // ...to the root fixpoint
   assert(subsume_forward_guard(k));
   // empty kernel: guard holds, apply is a no-op (corpus regression 001
   // lesson — rules must tolerate the variable-free state)

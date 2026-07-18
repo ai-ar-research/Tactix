@@ -1,6 +1,8 @@
 // See probe.hpp for the reference/deviation record.
 #include "rules/probe/probe.hpp"
 
+#include "rules/propagate/propagate.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -10,7 +12,7 @@ namespace tactix {
 bool probe_guard(const Kernel &k) {
   // quiescent root (C1/C2/C3's argument)
   return !k.inconsistent && !k.conflict_valid &&
-         k.level == 0 && k.propagate_head == k.trail.size();
+         k.level == 0;
 }
 
 // BIG-head candidates: assuming p propagates iff negate(p) carries a binary
@@ -110,6 +112,10 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out) {
 // canonical instance: one full round over the BIG-head schedule
 ApplyResult probe_apply(Kernel &k) {
   assert(probe_guard(k));
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   k.stats.probe_rounds++;
   std::vector<Lit> candidates;
   probe_candidates(k, candidates);
@@ -157,6 +163,10 @@ static uint32_t probe_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult probe_apply_instance(Kernel &k, uint64_t inst) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
     return probe_apply(k);
   Lit p;

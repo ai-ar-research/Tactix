@@ -188,15 +188,18 @@ static void test_instance_surface() {
   assert(transitive_reduce_try(k, internalize(99)) == ApplyResult::NoOp);
 }
 
-// guard: only a quiescent root fixpoint is applicable
+// guard: pure quiescent-root precondition (D-LEVEL purified — no fixpoint
+// requirement; the rule drains the root closure U at apply entry).
 static void test_guard() {
   Kernel k;
   kernel_reserve_vars(k, 2);
   assert(transitive_reduce_guard(k));    // empty trail = trivial fixpoint
-  kernel_assign_unit(k, internalize(1)); // un-propagated unit
-  assert(!transitive_reduce_guard(k));   // pending propagation
+  kernel_assign_unit(k, internalize(1)); // un-propagated root unit
+  assert(transitive_reduce_guard(k));    // pure guard: holds off a fixpoint
   assert(propagate_apply(k) == ApplyResult::Ok);
-  assert(transitive_reduce_guard(k)); // back at fixpoint
+  assert(transitive_reduce_guard(k));
+  kernel_assign_decision(k, internalize(2));
+  assert(!transitive_reduce_guard(k)); // level > 0 is still not a root state
 }
 
 int main() {

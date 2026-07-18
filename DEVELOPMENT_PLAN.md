@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-17 (rev. 42). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-17 (rev. 43). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -236,9 +236,15 @@ stat-exact, proof output byte-identical. **D-SPLIT-3 closed (rev 42):** the
 `¬conflict_valid` conjunct is removed from the five pure `F`-rewrites
 (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce) — behavior-
 preserving (`conflict_valid ⟹ level>0`, so redundant under the retained
-`level==0`); V1/V2 Probe/Backbone keep it as an abstract precondition. The
-remaining guard-purification leak is the inprocessing/S5 `propagate_head==|τ|`
-(D-LEVEL) conjunct.
+`level==0`); V1/V2 Probe/Backbone keep it as an abstract precondition.
+**D-LEVEL inproc/S5 closed (rev 43):** `propagate_head==|τ|` removed from all 7
+inprocessing rules + Lucky; each drains the root closure `U` at apply entry (the
+shared `propagate_service` primitive), a no-op at a fixpoint (bit-exact). A
+rev-42 investigation had shown naive removal is unsound (rules read a partial
+`U`); the drain is the fix. **Guard purification is now complete for every
+removable deviation** — only D-ROOT (`level==0`) remains, and that is the
+inprocessing-rules framework itself (operate on `F|U`), not a leak, so it is not
+scheduled for removal.
 
 **D-LEVEL-2 done (rev 38).** True-level assignment (a forced literal stamped at
 its true level, not the current one) + a compacting `kernel_backtrack` make
@@ -1170,6 +1176,7 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 37** (2026-07-17): D-SPLIT purification 1/3 — Analyze+Backjump fused into the atomic `ConflictAnalysis` rule (§5.2 M3, M4 folded in); rev-35 `¬pending.valid` conjunct removed everywhere (corpus-006 state unrepresentable); behavior-preserving (s055 bit-exact 932,762).
 - **rev. 38** (2026-07-17): D-LEVEL purification 2/3 — true-level assignment + a compacting `kernel_backtrack` make chronological backjump sound (`ConflictAnalysis` target ∈ [jump_level, level-1]; D-LEVEL-2 closed, corpus 005 gone); Decide keeps its fixpoint guard (D-LEVEL-1 separate); behavior-preserving (s055 932,762, Tier A 0.52).
 - **rev. 39** (2026-07-17): §4 framing — D-LEVEL-1 (decide off a propagation fixpoint) is MANDATORY (N1, §1.1), the next task, not fix-vs-reject; solver must support multiple decides without propagation between them (rev-38 did not suffice; distinct escaped-unit mechanism remains). Sequencing D-LEVEL-1 → V3b-3; `docs/calculus.md` restructure to mostly-clean formal rules queued after; no rule semantics changed.
+- **rev. 43** (2026-07-17): guard purification — D-LEVEL inproc/S5 closed (the last removable leak). `propagate_head==|τ|` removed from all 7 inprocessing rules + Lucky; each drains the root closure `U` at apply entry via the new shared `propagate_service` primitive (M1's engine extracted; `inprocess_reach_root` helper), a no-op at a fixpoint. A rev-42 investigation had shown naive removal is unsound (rules read a partial `U`); the drain is the fix. Bit-exact (s055 932,762); random-policy DRAT 2000/0 + LRAT 1500/0. Guard purification now complete for every removable deviation; only D-ROOT (`level==0`, the inprocessing framework `F|U`) remains, not planned for removal.
 - **rev. 42** (2026-07-17): guard purification — D-SPLIT-3 closed. `!conflict_valid` removed from the five pure `F`-rewrite guards (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce); behavior-preserving (`conflict_valid ⟹ level>0`, redundant under `level==0`; s055 bit-exact, random-policy DRAT 1500/0 + LRAT 1200/0). V1/V2 keep `!conflict_valid` (abstract — failed-literal reasoning needs consistent `M`); the ledger's prior inclusion of V1/V2 in D-SPLIT-3 was corrected. Remaining leak: the inprocessing/S5 `propagate_head==|τ|` (D-LEVEL) conjunct. No rule semantics changed beyond the guard.
 - **rev. 41** (2026-07-17): V3 `Substitute` COMPLETE — V3b-3 equivalent-literal SCC rewrite landed (rewrite every non-rep member to its representative across large+binary occurrences, add-before-delete; transient equivalence lemmas + `big_path_chain` LRAT; root-false stripping; size-collapse units un-propagated; symmetric reconstruction witness pair per eliminated var — first ρ consumer). Deferred slot, bit-exact (s055 932,762); random-policy DRAT 2500/0 + LRAT 1600/0, 8 substitute unit tests incl. model reconstruction. Duplicated-original binary → conservative round skip. No §5.2 change (proof-delta row already add-RUP+delete+push-witness). NEXT: `docs/calculus.md` restructure.
 - **rev. 40** (2026-07-17): D-LEVEL purification 3/3 — D-LEVEL-1 CLOSED. `Decide`'s `propagate_head==|τ|` conjunct removed (N1: multiple decides without propagation between them); off-fixpoint decide made sound by the `trail_tainted` watched-literal repair (a stale watch scan resting on an "ahead" assignment is redone by re-propagating the whole trail on the next search backtrack). DefaultPolicy never taints → bit-exact (s055 932,762, Tier A 200/200). New `AdversarialPolicy` (`--adversarial-policy`) N1 stress harness + rewritten `test_decide` escaped-unit regression. NEXT: V3b-3.

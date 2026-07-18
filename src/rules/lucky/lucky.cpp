@@ -11,12 +11,14 @@
 // backtrack_without_updating_phases).
 #include "rules/lucky/lucky.hpp"
 
+#include "rules/propagate/propagate.hpp"
+
 namespace tactix {
 
 bool lucky_guard(const Kernel &k) {
   // quiescent root state: see lucky.hpp
   return !k.inconsistent && !k.conflict_valid &&
-         k.level == 0 && k.propagate_head == k.trail.size();
+         k.level == 0;
 }
 
 // abandon an in-flight probe: clear the recorded conflict (its clause
@@ -146,6 +148,10 @@ ApplyResult lucky_apply_probe(Kernel &k, uint64_t probe) {
 
 // canonical instance: kissat's cascade, first success wins
 ApplyResult lucky_apply(Kernel &k) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   static constexpr uint64_t CASCADE[6] = {
       LUCKY_ALL_TRUE,       LUCKY_ALL_FALSE,    LUCKY_FORWARD_FALSE,
       LUCKY_FORWARD_TRUE,   LUCKY_BACKWARD_FALSE, LUCKY_BACKWARD_TRUE};
@@ -165,6 +171,10 @@ static uint32_t lucky_instances(Kernel &, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
     return lucky_apply(k);
   return lucky_apply_probe(k, inst);

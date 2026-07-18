@@ -1,6 +1,8 @@
 // See strengthen.hpp for the reference/deviation record.
 #include "rules/strengthen/strengthen.hpp"
 
+#include "rules/propagate/propagate.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -13,8 +15,7 @@ bool strengthen_guard(const Kernel &k) {
   // this is a pure F-rewrite (sound regardless of a recorded conflict), and
   // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
   // boundary, so it never fired under the retained level==0). calculus §7.
-  return !k.inconsistent && k.level == 0 &&
-         k.propagate_head == k.trail.size();
+  return !k.inconsistent && k.level == 0;
 }
 
 // candidate criteria shared with C1 (duplicated deliberately — modules
@@ -345,6 +346,10 @@ static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
 
 ApplyResult strengthen_apply(Kernel &k) {
   assert(strengthen_guard(k));
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   k.stats.strengthen_rounds++;
   uint64_t changed = 0;
   bool ended = false;
@@ -462,6 +467,10 @@ static uint32_t strengthen_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
     return strengthen_apply(k);
   for (Ref ref = 0; ref < k.arena.size();) {

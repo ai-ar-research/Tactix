@@ -1,6 +1,8 @@
 // See vivify.hpp for the reference/deviation record.
 #include "rules/vivify/vivify.hpp"
 
+#include "rules/propagate/propagate.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -13,8 +15,7 @@ bool vivify_guard(const Kernel &k) {
   // this is a pure F-rewrite (sound regardless of a recorded conflict), and
   // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
   // boundary, so it never fired under the retained level==0). calculus §7.
-  return !k.inconsistent && k.level == 0 &&
-         k.propagate_head == k.trail.size();
+  return !k.inconsistent && k.level == 0;
 }
 
 // candidate: live, 3 <= size <= lim, not root-satisfied; irredundant or
@@ -237,6 +238,10 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
 // canonical instance: one full round over the tier-aware schedule
 ApplyResult vivify_apply(Kernel &k) {
   assert(vivify_guard(k));
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   k.stats.vivify_rounds++;
   std::vector<Ref> candidates;
   vivify_candidates(k, candidates);
@@ -277,6 +282,10 @@ static uint32_t vivify_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult vivify_apply_instance(Kernel &k, uint64_t inst) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
     return vivify_apply(k);
   for (Ref ref = 0; ref < k.arena.size();) {

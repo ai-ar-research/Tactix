@@ -1,6 +1,8 @@
 // See subsume_forward.hpp for the reference/deviation record.
 #include "rules/subsume_forward/subsume_forward.hpp"
 
+#include "rules/propagate/propagate.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -13,8 +15,7 @@ bool subsume_forward_guard(const Kernel &k) {
   // this is a pure F-rewrite (sound regardless of a recorded conflict), and
   // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
   // boundary, so it never fired under the retained level==0). calculus §7.
-  return !k.inconsistent && k.level == 0 &&
-         k.propagate_head == k.trail.size();
+  return !k.inconsistent && k.level == 0;
 }
 
 // is `d` (irredundant, live) a subsumer of the marked candidate? true iff
@@ -142,6 +143,10 @@ static void delete_subsumed(Kernel &k, Clause *c) {
 // allocates in the arena, so refs stay stable until the final collect.
 ApplyResult subsume_forward_apply(Kernel &k) {
   assert(subsume_forward_guard(k));
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   k.stats.forward_subsumptions++; // rounds (kissat forward.c stat name)
   std::vector<Ref> candidates;
   subsume_forward_candidates(k, candidates);
@@ -270,6 +275,10 @@ static uint32_t subsume_forward_instances(Kernel &k, uint64_t *out,
 }
 
 static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
     return subsume_forward_apply(k);
   // validate the payload against clause starts (arbitrary uint64s must be

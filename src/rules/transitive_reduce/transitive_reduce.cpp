@@ -4,6 +4,8 @@
 // delete and the root-reason retirement.
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
+#include "rules/propagate/propagate.hpp"
+
 #include "kernel/watch.hpp"
 
 #include <algorithm>
@@ -16,8 +18,7 @@ bool transitive_reduce_guard(const Kernel &k) {
   // this is a pure F-rewrite (sound regardless of a recorded conflict), and
   // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
   // boundary, so it never fired under the retained level==0). calculus §7.
-  return !k.inconsistent && k.level == 0 &&
-         k.propagate_head == k.trail.size();
+  return !k.inconsistent && k.level == 0;
 }
 
 namespace {
@@ -237,6 +238,10 @@ void transitive_reduce_sources(const Kernel &k, std::vector<Lit> &out) {
 
 ApplyResult transitive_reduce_try(Kernel &k, Lit src) {
   assert(transitive_reduce_guard(k));
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (var_of(src) >= k.nvars || k.values[src] != 0)
     return ApplyResult::NoOp; // out of range / root-fixed
   Walk w;
@@ -277,6 +282,10 @@ static uint32_t transitive_reduce_instances(Kernel &k, uint64_t *out,
 }
 
 static ApplyResult transitive_reduce_apply_instance(Kernel &k, uint64_t inst) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
     return transitive_reduce_apply(k);
   Lit src;

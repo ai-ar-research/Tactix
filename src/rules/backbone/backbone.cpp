@@ -6,6 +6,8 @@
 // reason walk is the shared kernel helper, not duplicated.
 #include "rules/backbone/backbone.hpp"
 
+#include "rules/propagate/propagate.hpp"
+
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -15,7 +17,7 @@ namespace tactix {
 bool backbone_guard(const Kernel &k) {
   // quiescent root (C1/C2/C3/V1's argument)
   return !k.inconsistent && !k.conflict_valid &&
-         k.level == 0 && k.propagate_head == k.trail.size();
+         k.level == 0;
 }
 
 // BIG-head candidates: assuming p propagates (through the binary graph) iff
@@ -110,6 +112,10 @@ static bool backbone_one(Kernel &k, Lit p, Lit *unit_out) {
 // canonical instance: one full round over the BIG-head schedule
 ApplyResult backbone_apply(Kernel &k) {
   assert(backbone_guard(k));
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   k.stats.backbone_rounds++;
   std::vector<Lit> candidates;
   backbone_candidates(k, candidates);
@@ -157,6 +163,10 @@ static uint32_t backbone_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult backbone_apply_instance(Kernel &k, uint64_t inst) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
     return backbone_apply(k);
   Lit p;

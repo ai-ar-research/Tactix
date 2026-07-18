@@ -236,8 +236,10 @@ instance parameter (canonical = `jump_level`). See §8 for the fusion rationale.
 
 ## 5. Subsumption & strengthening (C1–C3)
 
-All three are inprocessing rules that run at the root formula (see §7.1 for the
-shared quiescent-root guard and its deviations).
+All three are inprocessing rules on the root formula `F|U` (see §7.1 for the
+shared `root` guard and its one deviation, D-ROOT). They complete the root
+closure `U` by draining propagation at apply entry, so their guard needs no
+fixpoint conjunct (D-LEVEL closed rev 43).
 
 ### C1 · SubsumeForward
 - **Precondition (abstract):** ∃ live irredundant clauses `d ⊆ c` (modulo the
@@ -268,11 +270,12 @@ shared quiescent-root guard and its deviations).
 
 ## 6. Probing, BIG rewriting, elimination (V1–V4)
 
-Inprocessing rules over the binary-implication graph; they share the same
-quiescent-root guard as §5 (see §7.1). One refinement: V1/V2 Probe/Backbone
-additionally require `!conflict_valid` — for failed-literal reasoning a consistent
-`M` is a genuine abstract precondition — whereas the pure `F`-rewrites (the
-C-family and V3/V4) dropped that conjunct (D-SPLIT-3, rev 42).
+Inprocessing rules over the binary-implication graph; they share the same `root`
+guard as §5 and likewise drain the root closure at apply entry (see §7.1). One
+refinement: V1/V2 Probe/Backbone additionally require `!conflict_valid` — for
+failed-literal reasoning a consistent `M` is a genuine abstract precondition —
+whereas the pure `F`-rewrites (the C-family and V3/V4) dropped that conjunct
+(D-SPLIT-3, rev 42).
 
 ### V1 · Probe — failed-literal probing (full propagation)
 - **Precondition (abstract):** ∃ an unassigned `p` with `F ∧ M ∧ p ⊢₁ ⊥`; then
@@ -344,10 +347,13 @@ pure soundness precondition) or an **engineering deviation** tagged by family
 
 ### 7.1 Implemented guards, per rule
 
-`q-root` abbreviates the shared **quiescent-root** guard
-`!inconsistent · level==0 · propagate_head==|τ|` (its `!pending.valid` conjunct
-was removed rev 37, D-SPLIT-1; its `!conflict_valid` conjunct was removed from the
-pure `F`-rewrites rev 42, D-SPLIT-3 — see below). V1/V2 additionally carry
+`root` abbreviates the shared inprocessing guard `!inconsistent · level==0`.
+It once also carried `!pending.valid` (removed rev 37, D-SPLIT-1),
+`!conflict_valid` (removed from the pure `F`-rewrites rev 42, D-SPLIT-3), and
+`propagate_head==|τ|` (removed from every inprocessing rule + S5 rev 43,
+D-LEVEL — those rules now **drain the root closure `U` at apply entry** via
+`inprocess_reach_root`/`propagate_service`, so the fixpoint is reached inside the
+rule rather than demanded by the guard). V1/V2/S5 additionally carry
 `!conflict_valid` as a genuine abstract precondition.
 
 | Rule | Implemented guard conjuncts | Engineering deviations (else pure) |
@@ -360,10 +366,10 @@ pure `F`-rewrites rev 42, D-SPLIT-3 — see below). V1/V2 additionally carry
 | S2 Reduce | `!inconsistent · !conflict_valid` | **D-NOOP:** `!conflict_valid` |
 | S3 Rephase | `!inconsistent` | — pure |
 | S4 SwitchMode | `!inconsistent` | — pure |
-| S5 Lucky | `!inconsistent · !conflict_valid · level==0 · propagate_head==\|τ\|` | **D-ROOT:** `level==0`; **D-LEVEL:** `propagate_head==\|τ\|`. (`!conflict_valid` is *abstract* — a SAT-concluding probe needs a consistent start.) |
-| C1 SubsumeForward, C2 Strengthen, C3 Vivify | `q-root` | **D-ROOT:** `level==0`; **D-LEVEL:** `propagate_head==\|τ\|`. (`!conflict_valid` removed rev 42 — a pure `F`-rewrite.) |
-| V1 Probe, V2 Backbone | `q-root · !conflict_valid` | **D-ROOT**, **D-LEVEL** (as the C-family). `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop `M`, so `M`'s consistency is a soundness precondition. |
-| V3 Substitute, V4 TransitiveReduce | `q-root` | **D-ROOT**, **D-LEVEL** (as the C-family). (`!conflict_valid` removed rev 42 — a pure `F`-rewrite reads only `F`, never the conflict fields.) |
+| S5 Lucky | `root · !conflict_valid` | **D-ROOT:** `level==0`. (`!conflict_valid` is *abstract* — a SAT-concluding probe needs a consistent start; the fixpoint conjunct is gone rev 43, drains at entry.) |
+| C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. (`!conflict_valid` removed rev 42; `propagate_head==\|τ\|` removed rev 43 — drains at entry.) |
+| V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop `M`, so `M`'s consistency is a soundness precondition. (fixpoint conjunct gone rev 43.) |
+| V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. (`!conflict_valid` removed rev 42 — a pure `F`-rewrite; `propagate_head==\|τ\|` removed rev 43 — drains at entry.) |
 
 ### 7.2 The engineering-deviation ledger (the impurity punch-list)
 
@@ -373,9 +379,9 @@ item, not an ad-hoc patch.
 
 | # | Deviation | Rules affected | Root cause | Removal path |
 |---|-----------|----------------|-----------|--------------|
-| ~~D-LEVEL-1~~ | ~~`propagate_head == trail.size` on Decide (off-fixpoint decide forbidden)~~ — **CLOSED rev 40** | M2 | stale watch scan (off-fixpoint decide rests a watch on an "ahead" assignment) left a clause unit after a backtrack unassigned it | **done:** conjunct removed; `trail_tainted` + full re-propagation on search backtrack (kernel.hpp / decide.cpp / kernel_backtrack). The inprocessing/S5 `propagate_head==\|τ\|` conjunct is a SEPARATE deviation — the D-LEVEL row of the quiescent-root guard, entangled with D-ROOT, still open |
+| ~~D-LEVEL-1~~ | ~~`propagate_head == trail.size` on Decide (off-fixpoint decide forbidden)~~ — **CLOSED rev 40** | M2 | stale watch scan (off-fixpoint decide rests a watch on an "ahead" assignment) left a clause unit after a backtrack unassigned it | **done:** conjunct removed; `trail_tainted` + full re-propagation on search backtrack (kernel.hpp / decide.cpp / kernel_backtrack). The inprocessing/S5 `propagate_head==\|τ\|` conjunct was a separate deviation, closed rev 43 (row below) |
 | ~~D-LEVEL-2~~ | ~~`Backjump` target clamped to `jump_level`~~ — **CLOSED rev 38** | M4 (folded in M3) | current-level assignment | **done:** true-level assignment + compacting `kernel_backtrack`; chrono target is a ConflictAnalysis instance |
-| D-LEVEL (inproc/S5) | `propagate_head == |τ|` (root fixpoint) | C1, C2, C3, V1, V2, V3, V4, S5 | the rule operates on the **root-simplified formula** `F\|U` (the inprocessing framework, plan §4) — computing `U` fully *is* propagating the root to a fixpoint | **Investigated rev 42, NOT a simple removal.** Removing the conjunct wholesale is *unsound in the current implementation*, not just crash-prone: random-policy fuzz gave 12 crashes **+ 2 wrong-SAT-with-bad-model + 2 wrong-verdict** in 800 cases (the unsound ones fire Substitute + Lucky). The inprocessing rules read the assignment / propagate from `propagate_head` and rely on the completed root closure `U` (Substitute's SCC + reconstruction; the probing rules' failed-literal reasoning). So this is closer to an **abstract precondition** ("operate on the propagated root") than the M2 current-level artifact — or, if kept as engineering, its removal is a substantial per-rule effort (each rule must first complete the root closure or tolerate a partial one), comparable to D-LEVEL-1 × the whole family. Deferred pending that decision |
+| ~~D-LEVEL (inproc/S5)~~ | ~~`propagate_head == |τ|` (root fixpoint) on the inprocessing rules + Lucky~~ — **CLOSED rev 43** | C1, C2, C3, V1, V2, V3, V4, S5 | the rule operates on the root-simplified formula `F\|U` — computing `U` fully *is* propagating the root to a fixpoint | **done:** rather than demand the fixpoint in the guard, each rule **drains the root closure `U` at apply entry** — `inprocess_reach_root` calls the shared `propagate_service` primitive (M1's engine incl. root-unit LRAT ids, load-bearing for the callers' chains), a no-op when already at a fixpoint. A root conflict during the drain returns `Unsat`. (An earlier rev-42 investigation had shown a naive removal is *unsound* — Substitute's SCC + the probing rules read a partial `U`; the drain is the fix.) DefaultPolicy always enters propagated so it never drains → **bit-exact** (s055 932,762); random-policy DRAT 2000/0 + native LRAT 1500/0. |
 | ~~D-SPLIT-1~~ | ~~`¬pending.valid`~~ — **CLOSED rev 37** | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | **done:** atomic ConflictAnalysis (§8) — `pending` never at a boundary |
 | ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED rev 37** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
 | ~~D-SPLIT-3~~ | ~~`¬conflict_valid` on pure `F`-rewrites~~ — **CLOSED rev 42** | C1, C2, C3, V3, V4 | recorded-conflict control flag not in `σ` | **done:** conjunct removed from the five pure `F`-rewrites (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce). Behavior-preserving: `conflict_valid ⟹ level>0` at every rule boundary, so under the retained `level==0` the conjunct never fired. V1/V2 Probe/Backbone **keep** `!conflict_valid` — for failed-literal reasoning it is an *abstract* precondition (consistent `M`), not a leak |
@@ -397,15 +403,19 @@ decisions in a row without propagation (s055 bit-exact; stressed by the
 `AdversarialPolicy` N1 schedule). **rev 42** — D-SPLIT-3: `!conflict_valid`
 removed from the five pure `F`-rewrites (C1/C2/C3/V3/V4); behavior-preserving
 (s055 bit-exact, random-policy DRAT+LRAT clean), V1/V2 keep theirs as an abstract
-precondition.
+precondition. **rev 43** — D-LEVEL (inproc/S5): `propagate_head==|τ|` removed from
+every inprocessing rule + Lucky; each now drains the root closure `U` at apply
+entry (`inprocess_reach_root` → `propagate_service`) instead of demanding it in
+the guard. A rev-42 investigation had shown a naive removal is *unsound* (the
+rules read a partial `U`); the drain is the fix. Bit-exact (s055 932,762);
+random-policy DRAT 2000/0 + native LRAT 1500/0.
 
-**The remaining item:** the inprocessing/S5 `propagate_head==|τ|` conjunct (the
-D-LEVEL row above). Investigated rev 42 — removing it is **not** a simple guard
-edit: it is unsound in the current implementation (wrong verdicts/models under
-the random policy), because the inprocessing rules operate on the completed root
-closure `U`. It is either an abstract precondition (operate on the propagated
-root) or a substantial per-rule engineering effort; deferred pending that call.
-corpus 004/005/006 remain the bed that proves any future removal correct.
+**The only remaining inprocessing deviation is D-ROOT** (`level==0`) — an accepted
+**framework choice**, not a scheduled removal: the inprocessing-rules framework
+(plan §4) is defined on the root formula `F|U`, so operating at the root is part
+of the abstract setup. Running inprocessing under a decision stack is a much
+larger reformulation and is not planned. corpus 004/005/006 remain the bed that
+proves any future removal correct.
 
 ## 8. Decision: Analyze + Backjump are one abstract rule
 

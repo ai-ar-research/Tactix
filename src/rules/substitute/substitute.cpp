@@ -6,6 +6,8 @@
 // stack survives arbitrarily deep implication chains.
 #include "rules/substitute/substitute.hpp"
 
+#include "rules/propagate/propagate.hpp"
+
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
 
@@ -21,8 +23,7 @@ bool substitute_guard(const Kernel &k) {
   // this is a pure F-rewrite (sound regardless of a recorded conflict), and
   // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
   // boundary, so it never fired under the retained level==0). calculus §7.
-  return !k.inconsistent && k.level == 0 &&
-         k.propagate_head == k.trail.size();
+  return !k.inconsistent && k.level == 0;
 }
 
 SccResult substitute_find_sccs(const Kernel &k) {
@@ -555,6 +556,10 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
 // at a quiescent root (guarded).
 ApplyResult substitute_apply(Kernel &k) {
   assert(substitute_guard(k));
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   k.stats.substitute_rounds++;
   SccResult r = substitute_find_sccs(k);
   if (r.contradiction) {
@@ -588,6 +593,10 @@ static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
     return substitute_apply(k);
   Lit rep;
