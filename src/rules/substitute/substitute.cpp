@@ -316,7 +316,37 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
 
   std::vector<Lit> units;              // collapsed root units, asserted at end
   std::vector<uint8_t> seen(nlits, 0); // dedup scratch for a rewritten clause
+  std::vector<Lit> pending_unit(k.nvars, INVALID_LIT); // by var: batched unit
   bool changed = false;
+
+  // Record a size-collapsed root unit `u` (clause {u}, proof id `id`), deduping
+  // per variable within the round. Returns true iff `u` CONTRADICTS a unit
+  // already derived this round (`¬u` batched) — the formula is then refuted:
+  // {u} and {¬u} resolve to ∅, so emit the empty clause and set `inconsistent`
+  // (the caller returns Unsat). Without this, a batch that derives both `x` and
+  // `¬x` (e.g. an SCC member forced true by one clause and false by another)
+  // would assert the first and silently drop the second, losing the conflict.
+  auto record_unit = [&](Lit u, uint64_t id) -> bool {
+    const Var v = var_of(u);
+    if (pending_unit[v] == INVALID_LIT) {
+      pending_unit[v] = u;
+      k.unit_ids[v] = id;
+      units.push_back(u);
+      return false;
+    }
+    if (pending_unit[v] == u)
+      return false; // same-sign duplicate — harmless (redundant unit clause)
+    if (k.proof) {  // opposite sign: {u} + {¬u} ⊢ ∅
+      if (lrat) {
+        const uint64_t ch[2] = {id, k.unit_ids[v]};
+        k.proof->add_empty(++k.next_clause_id, ch, 2);
+      } else {
+        k.proof->add_empty(0, nullptr, 0);
+      }
+    }
+    k.inconsistent = true;
+    return true;
+  };
 
   // Rewrite one literal sequence: apply repr, strip root-false literals (their
   // unit ids join `chain`), detect root-true/tautology. Fills `out` with the
@@ -416,8 +446,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       return ApplyResult::Unsat;
     }
     if (out.size() == 1) {
-      k.unit_ids[var_of(out[0])] = id;
-      units.push_back(out[0]);
+      if (record_unit(out[0], id))
+        return ApplyResult::Unsat;
     } else if (out.size() == 2) {
       kernel_add_binary_clause(k, out[0], out[1], id);
     } else {
@@ -503,8 +533,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       return ApplyResult::Unsat;
     }
     if (out.size() == 1) {
-      k.unit_ids[var_of(out[0])] = id;
-      units.push_back(out[0]);
+      if (record_unit(out[0], id))
+        return ApplyResult::Unsat;
     } else {
       kernel_add_binary_clause(k, out[0], out[1], id); // add before delete
     }

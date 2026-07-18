@@ -306,17 +306,22 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) dropped that conjunct
   occurrence (add-before-delete; `kernel_delete_binary` for binaries; root-false
   literals stripped, tautology/root-satisfied rewrites deleted), push the
   reconstruction witness pair onto `ρ` per eliminated variable, and assert any
-  size-collapsed root units un-propagated (M1 owns the cascade). A round with no
-  non-trivial SCC is a `NoOp`. *(A round is skipped — `NoOp` — if a member binary
-  has two live copies, which `kernel_delete_binary` cannot name; a
-  correctness-first conservative skip.)*
+  size-collapsed root units un-propagated (M1 owns the cascade). If the rewrite
+  derives **two contradictory root units** in one round (an SCC member forced
+  true by one clause and false by another — e.g. `(x∨y∨¬u)` with `u` a root unit
+  and `x≡y`, together with `(¬x∨¬y)`), resolve `{l}` and `{¬l}` to ∅ → `Unsat`
+  (`record_unit`; corpus 007 — a naive batch would assert one and silently drop
+  the other). A round with no non-trivial SCC is a `NoOp`. *(A round is skipped —
+  `NoOp` — if a member binary has two live copies, which `kernel_delete_binary`
+  cannot name; a correctness-first conservative skip.)*
 - **Proof δ:** UNSAT — `add_rup({¬x}, path x→¬x)` + `add_rup({x}, path ¬x→x)` +
   `add_empty` (the `big_path_chain` BFS gives each unit's antecedent chain in
   forward path order). Rewrite — per member, a transient equivalence lemma
   `add_rup({¬l, r}, big_path_chain(l,r))`; each rewritten clause is
   `add_rup(C′, [lemma ids + stripped-unit ids + C.id()])` then `del(C)`
   (add-before-delete); finally `del` the transient lemmas + internal
-  `kernel_push_witness` (no proof line). **No `add_rat`.** **First
+  `kernel_push_witness` (no proof line). Contradictory-units refutation —
+  `add_empty([id{l}, id{¬l}])`, the two collapsed unit clauses. **No `add_rat`.** **First
   variable-eliminating rule**, hence the first consumer of `ρ`: soundness is
   equisatisfiability *modulo ρ* — `extend_ρ(model of F′) ⊨ F` — which composes
   because `kernel_extend_model` is one reverse walk over the flat stack. The

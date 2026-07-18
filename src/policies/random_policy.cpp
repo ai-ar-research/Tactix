@@ -1,5 +1,8 @@
 #include "policies/random_policy.hpp"
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "rules/decide/decide.hpp"
 #include "rules/registry.hpp"
 #include "rules/restart/restart.hpp"
@@ -87,6 +90,19 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       r = rules[id].apply_instance(k, inst);
     } else {
       r = rules[id].apply(k);
+    }
+    // per-step rule trace, env-gated (zero cost when off): the diagnostic that
+    // pins an N1-schedule bug — it names the rule + result + state at every step
+    // (the every-256 invariant check hides which apply corrupted things). Found
+    // corpus 007. See the `stress-policy` skill / [[n1-handoff-hazard-family]].
+    if (getenv("TACTIX_TRACE")) {
+      static const char *rn[] = {"Ok", "NoOp", "Conflict", "Sat", "Unsat"};
+      fprintf(stderr,
+              "step %-16s -> %-8s level=%u trail=%zu head=%u unassigned=%u "
+              "conflict=%d incons=%d\n",
+              rules[id].name, rn[(int)r], k.level, k.trail.size(),
+              k.propagate_head, k.unassigned, (int)k.conflict_valid,
+              (int)k.inconsistent);
     }
     if (r == ApplyResult::Unsat)
       return 20;

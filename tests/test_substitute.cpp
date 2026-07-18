@@ -218,6 +218,27 @@ static void test_instance_surfaces_unsat() {
   assert(k.inconsistent);
 }
 
+// V3b-3 regression (corpus 007): a substitution round that derives TWO
+// contradictory root units must REFUTE, not silently drop one. SCC 1≡2, with a
+// root unit 3 (¬3 root-false): the LARGE clause (1∨2∨¬3) rewrites 2→1, strips
+// ¬3, dedups → unit 1; the binary (¬1∨¬2) → unit ¬1. Neither fires by
+// propagation alone (1,2 stay unassigned) — only the 2→1 collapse makes them
+// unit — so the round derives {1} and {¬1}, which must resolve to ∅ → Unsat (a
+// naive batch asserted ¬1 then skipped 1, dropping the conflict → wrong SAT).
+static void test_contradictory_units_refute() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 -> 2
+  kernel_add_binary_clause(k, internalize(-2), internalize(1)); // 2 -> 1  (1≡2)
+  const Lit c[3] = {internalize(1), internalize(2), internalize(-3)}; // (1∨2∨¬3)
+  kernel_add_large_clause(k, c, 3, /*redundant=*/false, /*glue=*/0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // (¬1 ∨ ¬2)
+  kernel_assign_unit(k, internalize(3)); // 3 true → ¬3 root-false
+  assert(propagate_apply(k) == ApplyResult::Ok); // no direct conflict
+  assert(substitute_apply(k) == ApplyResult::Unsat);
+  assert(k.inconsistent);
+}
+
 // guard: pure quiescent-root precondition (D-LEVEL purified — no fixpoint
 // requirement; the rule drains the root closure U at apply entry).
 static void test_guard() {
@@ -237,6 +258,7 @@ int main() {
   test_no_scc();
   test_contradiction_scc();
   test_apply_unsat();
+  test_contradictory_units_refute();
   test_apply_substitutes();
   test_model_reconstruction();
   test_size_collapse_unit();
