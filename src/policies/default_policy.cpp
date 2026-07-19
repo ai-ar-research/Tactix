@@ -208,16 +208,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     // (nonempty) slot is left untouched — to run nothing, prepose
     // disabled entries, not an empty vector
     if (inprocess_slot.empty()) {
-      // Inprocessing-revamp increment 1: BVE only. BVE run to a bounded fixpoint
-      // as a SAT-safe preprocessing pass (at conflicts=0) + rare, interval-grown
-      // inprocessing is net-positive (Tier B, docs/inprocessing-revamp-design.md).
-      // SubsumeForward/Strengthen join once the shared dense OccIndex makes them
-      // affordable (increment 3); Probe/Vivify/Backbone with tick budgets
-      // (increment 4). The slot stays registry-driven + posable (phase-6 arms).
+      // Inprocessing-revamp increment 3: BVE + Strengthen + SubsumeForward run as
+      // a SAT-safe bounded preprocessing phase (at conflicts=0). All three are
+      // gentle root simplifiers (Strengthen was measured SAT-safe on battleship)
+      // and all keep the shared dense OccIndex consistent through the kernel
+      // add/GC hooks (Strengthen/Subsume mutate by garbage+add, never in place),
+      // so BVE's dense fast-path stays correct alongside them. Probe/Vivify/
+      // Backbone join with tick budgets in increment 4. The slot stays
+      // registry-driven + posable (phase-6 arms).
       const std::vector<RuleVTable> &rules = tactix_rules();
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
-        if (rules[i].tier == RuleTier::Inprocess)
-          inprocess_slot.push_back({i, std::strcmp(rules[i].name, "BVE") == 0});
+        if (rules[i].tier == RuleTier::Inprocess) {
+          const char *nm = rules[i].name;
+          const bool on = !std::strcmp(nm, "BVE") ||
+                          !std::strcmp(nm, "Strengthen") ||
+                          !std::strcmp(nm, "SubsumeForward");
+          inprocess_slot.push_back({i, on});
+        }
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;

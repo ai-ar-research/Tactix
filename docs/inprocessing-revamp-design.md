@@ -169,9 +169,20 @@ Tier B (medians) before the next. Revert any increment that misses.
    *(Learned-clause handling during DURING-search phases — kissat's
    disconnect-time GC-by-eliminated-var — is deferred with during-search
    inprocessing to the tick-budget increment.)*
-3. **SubsumeForward + Strengthen join the dense phase** (they use `k.dense`; enable
-   them in the composition). **Success:** Tier B improves or holds; the three
-   occurrence consumers now share one index.
+3. **SubsumeForward + Strengthen join the phase** — **DONE** (branch), measure-first
+   version: enabled in the composition alongside BVE. They are dense-SAFE without
+   conversion — both mutate by garbage+add (Strengthen: garbage the old clause,
+   `kernel_add_large_clause` the shortened one; Subsume: garbage the subsumed
+   clause), so the kernel add/GC hooks keep the shared index consistent and BVE's
+   dense fast-path stays correct alongside them (they still build their own
+   round-local occ; converting them to *read* dense is a later affordability
+   step, only if profiling flags them). Sound: DefaultPolicy DRAT 1000/0 +
+   native-LRAT 600/0; 26/26 core tests. **Result: Tier B 116.7 ≈ inc2 115.5** —
+   circuit **59→15** (the three together nearly crack it, approaching the
+   full-suite 65→9), offset by broad small losses (FmlaEquiv, 9vliw, square). Net
+   ~neutral on Tier B: the wins are real and structured, the losses are
+   small-instance overhead. **This confirms the tier caveat — Tier B cannot judge
+   inprocessing; Tier C (increment 5) is decisive.**
 4. **V-rules (Probe, Vivify, Backbone) in the phase, tick-bounded** (they need no
    occ index — just the budget + the SAT-safe schedule). **Success:** recover the
    circuit 65→9-class win WITHOUT losing battleship; full suite net-positive on
