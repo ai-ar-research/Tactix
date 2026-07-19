@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-18 (rev. 45). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-19 (rev. 46). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -874,7 +874,11 @@ concurrency level in every report, compare numbers only across runs at the
 same concurrency, and prefer lower concurrency (e.g., 4) for gate runs on
 Tiers C/D where timing precision matters. Worst-case wall-clock at 8 jobs:
 Tier B ≈ minutes, Tier C ≈ overnight, one Tier D set ≈ up to ~3 days —
-schedule gate runs accordingly.
+schedule gate runs accordingly. **A pinned reference PAR-2 can go stale or be
+inflated** by machine load or a pathological proof-check tying up a worker (rev
+46: the pinned Tier-C CaDiCaL was 336.96, a clean re-run measured 160.6 — 2×) —
+so **re-measure the reference solver CLEAN in the same session before judging any
+gate**, never against an old pin.
 
 - **Tier A — "seconds" set (development inner loop; total runtime < 2 min).**
   ~200 generated instances with known status, solvable by a basic CDCL
@@ -1195,6 +1199,7 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 38** (2026-07-17): D-LEVEL purification 2/3 — true-level assignment + a compacting `kernel_backtrack` make chronological backjump sound (`ConflictAnalysis` target ∈ [jump_level, level-1]; D-LEVEL-2 closed, corpus 005 gone); Decide keeps its fixpoint guard (D-LEVEL-1 separate); behavior-preserving (s055 932,762, Tier A 0.52).
 - **rev. 39** (2026-07-17): §4 framing — D-LEVEL-1 (decide off a propagation fixpoint) is MANDATORY (N1, §1.1), the next task, not fix-vs-reject; solver must support multiple decides without propagation between them (rev-38 did not suffice; distinct escaped-unit mechanism remains). Sequencing D-LEVEL-1 → V3b-3; `docs/calculus.md` restructure to mostly-clean formal rules queued after; no rule semantics changed.
 - **rev. 45** (2026-07-18, user): E1 BVE design pass → `docs/e1-bve-design.md` (understand→design over kissat/cadical + our kernel). Findings: RUP-only (resolvents are RUP — **no `add_rat`**, correcting the V3-design note; add_rat is E2 Factor/X1 BCE, phase 4); ρ + add/delete + GC all reused from V3; the one new piece is a rule-local both-polarity round-local occurrence index (NOT kernel dense mode); syntactic gates first, kitten deferred (O11); deactivation optional. ~4 commits (E1a index/schedule, E1b resolve+proof+witness, E1c syntactic gates, E1d fuzz). Design artifact only; no code, no §5.2 spec change.
+- **rev. 46** (2026-07-19, user): re-pin the T3 reference + record inprocessing activation. The pinned Tier-C CaDiCaL PAR-2 (336.96) was contention-inflated; a clean same-session re-run measured **160.6** (2×), so the inprocessing revamp (DefaultPolicy now runs BVE+Strengthen+SubsumeForward preprocessing, `SLOT_IN_DEFAULT=true`; Tier C 356 vs base 552, +3 solved) is ~2.2× CaDiCaL → **T3 NOT met** (was mis-read as within-10% off the bad pin). §8.1 gains the standing rule: **re-measure gate reference solvers CLEAN in-session, never against an old pin.** T3 stays open; probing V-rules deferred (SAT-disruptive without effort budgets). Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`; §8.3 T3 definition unchanged (qualitative "within 10% of CaDiCaL").
 - **rev. 44** (2026-07-17, user): `stress-policy` skill — when a rule/feature lands or a guard is purified, write a TEMPORARY policy that maximizes the newly-legal N1 schedule + per-step invariant check, and fuzz it (the uniform `--random-policy` under-samples such patterns; `AdversarialPolicy` found D-LEVEL-1 at 0/1000 for the random policy). Standing rule added to §8.2; `AdversarialPolicy` is the worked example. A rule/guard change is not done until its new schedules are stress-tested.
 - **rev. 43** (2026-07-17): guard purification — D-LEVEL inproc/S5 closed (the last removable leak). `propagate_head==|τ|` removed from all 7 inprocessing rules + Lucky; each drains the root closure `U` at apply entry via the new shared `propagate_service` primitive (M1's engine extracted; `inprocess_reach_root` helper), a no-op at a fixpoint. A rev-42 investigation had shown naive removal is unsound (rules read a partial `U`); the drain is the fix. Bit-exact (s055 932,762); random-policy DRAT 2000/0 + LRAT 1500/0. Guard purification now complete for every removable deviation; only D-ROOT (`level==0`, the inprocessing framework `F|U`) remains, not planned for removal.
 - **rev. 42** (2026-07-17): guard purification — D-SPLIT-3 closed. `!conflict_valid` removed from the five pure `F`-rewrite guards (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce); behavior-preserving (`conflict_valid ⟹ level>0`, redundant under `level==0`; s055 bit-exact, random-policy DRAT 1500/0 + LRAT 1200/0). V1/V2 keep `!conflict_valid` (abstract — failed-literal reasoning needs consistent `M`); the ledger's prior inclusion of V1/V2 in D-SPLIT-3 was corrected. Remaining leak: the inprocessing/S5 `propagate_head==|τ|` (D-LEVEL) conjunct. No rule semantics changed beyond the guard.
