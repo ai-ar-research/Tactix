@@ -134,7 +134,8 @@ void DefaultPolicy::update_rephase_limit(const Kernel &k) {
 // clause count) so the inprocessing share of runtime stays bounded on
 // large instances; the eliminate-slot constants presuppose this scaling
 // (constants travel with their machinery — the restart-EMA lesson)
-static uint64_t scale_inprocessing_delta(const Kernel &k, uint64_t delta) {
+[[maybe_unused]] static uint64_t scale_inprocessing_delta(const Kernel &k,
+                                                          uint64_t delta) {
   const double f =
       std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1) - 5;
   return static_cast<uint64_t>((4.5 * f * f + 25) *
@@ -153,6 +154,16 @@ bool DefaultPolicy::want_inprocess(const Kernel &k) const {
 // kissat kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N,
 // true): interval grows as eliminateint · n·log10(n+9)², size-scaled
 void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
+  // Increment 1 is PREPROCESSING-ONLY: one simplification phase at conflicts=0,
+  // then never again. During-search BVE phases (each a root descent + hundreds
+  // of eliminations) knock high-variance SAT searches off their trajectory
+  // (Tier B: FmlaEquiv 27→198). They return in increment 2, once the shared
+  // dense OccIndex + a real tick budget make a during-search phase cheap and
+  // small enough to be SAT-safe. The growing periodic interval below (kissat
+  // NLOG2N, phase-count-scaled) is what increment 2 restores.
+  inprocess.next_conflicts = UINT64_MAX;
+  (void)k;
+#if 0 // increment 2:
   uint64_t n = inprocess.rounds; // policy-local growth key (rev 17)
   if (!n)
     n = 1;
@@ -161,6 +172,7 @@ void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
       SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg);
   inprocess.next_conflicts =
       k.stats.conflicts + scale_inprocessing_delta(k, delta);
+#endif
 }
 
 // arithmetically growing reduce interval
@@ -196,19 +208,24 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     // (nonempty) slot is left untouched — to run nothing, prepose
     // disabled entries, not an empty vector
     if (inprocess_slot.empty()) {
+      // Inprocessing-revamp increment 1: BVE only. BVE run to a bounded fixpoint
+      // as a SAT-safe preprocessing pass (at conflicts=0) + rare, interval-grown
+      // inprocessing is net-positive (Tier B, docs/inprocessing-revamp-design.md).
+      // SubsumeForward/Strengthen join once the shared dense OccIndex makes them
+      // affordable (increment 3); Probe/Vivify/Backbone with tick budgets
+      // (increment 4). The slot stays registry-driven + posable (phase-6 arms).
       const std::vector<RuleVTable> &rules = tactix_rules();
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess)
-          inprocess_slot.push_back(
-              {i, std::strcmp(rules[i].name, "SubsumeForward") != 0 &&
-                      std::strcmp(rules[i].name, "TransitiveReduce") != 0 &&
-                      std::strcmp(rules[i].name, "Substitute") != 0});
+          inprocess_slot.push_back({i, std::strcmp(rules[i].name, "BVE") == 0});
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;
-      inprocess.next_conflicts =
-          k.stats.conflicts +
-          scale_inprocessing_delta(k, SUBSUME_INTERVAL_INIT);
+      // Preprocess: the first phase fires at conflicts=0, before any search
+      // state exists, so simplification never perturbs an in-progress SAT
+      // search (the SAT-safety finding). Subsequent phases are rare (the
+      // interval grows super-linearly in phase count, update_inprocess_limit).
+      inprocess.next_conflicts = k.stats.conflicts;
     }
   }
   bool lucky_tried = false;
@@ -293,26 +310,52 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     // that breaks quiescence (e.g. a strengthened unit) makes later
     // guards fail and the loop re-propagates
     if (want_inprocess(k)) {
+      // A simplification PHASE: descend to a quiescent root (a transient flush
+      // that keeps saved/target phases — kernel_backtrack(update_phases=true) —
+      // so search re-descends toward the same region afterward), then run the
+      // enabled techniques to a BOUNDED fixpoint. Bounding matters: each apply
+      // rebuilds a rule-local occurrence index (~O(arena)), so an UNBOUNDED
+      // fixpoint is ~O(n²) and drowns even trivial instances (square 2s→TO).
+      // INPROCESS_PHASE_BUDGET caps the applies (a coarse effort proxy — becomes
+      // a real tick budget in increment 2 once the shared OccIndex removes the
+      // per-apply rebuild).
       if (k.level > 0 && restart_guard(k))
         restart_apply_to(k, 0);
-      bool ran = false;
+      uint32_t applied = 0;
       const std::vector<RuleVTable> &rules = tactix_rules();
-      for (const SlotEntry &e : inprocess_slot) {
-        if (!e.enabled)
-          continue;
-        const RuleVTable &r = rules[e.rule];
-        if (r.guard(k)) {
-          r.apply(k);
-          ran = true;
+      for (;;) {
+        bool round_ran = false; // did any rule make PROGRESS this round?
+        for (const SlotEntry &e : inprocess_slot) {
+          if (!e.enabled)
+            continue;
+          const RuleVTable &r = rules[e.rule];
+          if (r.guard(k)) {
+            const ApplyResult ar = r.apply(k);
+            if (ar == ApplyResult::Unsat || k.inconsistent)
+              return 20;
+            if (ar == ApplyResult::Ok) {
+              round_ran = true;
+              applied++;
+            }
+          }
         }
+        if (!round_ran)
+          break; // fixpoint: no enabled rule made progress this round
+        // drain any root units the round asserted so the next round sees them
+        const ApplyResult pr = propagate_apply(k);
+        if (pr == ApplyResult::Unsat)
+          return 20;
+        if (applied >= INPROCESS_PHASE_BUDGET)
+          break; // effort bound
       }
-      if (ran) {
-        // the new-material watermarks move only when a pass actually ran
-        inprocess.ran = true;
-        inprocess.rounds++;
-        inprocess.binaries_seen = k.binary_ids.size();
-        inprocess.root_fixed_seen = kernel_root_fixed(k);
-      }
+      // The phase FIRED (whether or not it simplified anything): count it (the
+      // interval-growth key) and refresh the new-material watermarks so an
+      // unproductive pass does not re-fire every interval — that repeated root
+      // restart is exactly what disrupts a high-variance SAT search.
+      inprocess.ran = true;
+      inprocess.rounds++;
+      inprocess.binaries_seen = k.binary_ids.size();
+      inprocess.root_fixed_seen = kernel_root_fixed(k);
       update_inprocess_limit(k);
       continue;
     }

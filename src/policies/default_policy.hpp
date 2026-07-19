@@ -68,6 +68,11 @@ public:
   // warm-up (measured lesson, 2026-07-14 carried-items log)
   static constexpr uint64_t SUBSUME_INTERVAL_INIT = 500; // eliminateinit
   static constexpr uint64_t SUBSUME_INTERVAL = 500;      // eliminateint
+  // Inprocessing-revamp increment 1: max rule applications per simplification
+  // phase (a coarse effort proxy — each apply rebuilds a ~O(arena) occurrence
+  // index, so this bounds an otherwise ~O(n²) fixpoint). Becomes a real tick
+  // budget once the shared dense OccIndex lands (increment 2). Tuned on Tier B.
+  static constexpr uint32_t INPROCESS_PHASE_BUDGET = 300;
   // chronological backtracking (kissat learn.c kissat_determine_new_level,
   // options chrono=1/chronolevels=100): jumping over more than this many
   // levels is considered inefficient — backtrack one level instead. A pure
@@ -183,7 +188,14 @@ public:
   // scheduling (effort budget / stable-mode gate / reconstruct-not-restart) is
   // the blocker, not a knob. Everything below stays N1-exposed and
   // random-policy-fuzzed meanwhile.
-  static constexpr bool SLOT_IN_DEFAULT = false;
+  // ACTIVATED (inprocessing-revamp increment 1, docs/inprocessing-revamp-design.md):
+  // BVE runs as a SAT-safe bounded simplification phase — preprocessing at
+  // conflicts=0 (before search state exists) + rare interval-grown inprocessing,
+  // each a bounded fixpoint. Net-positive on Tier B (114 vs 116, battleship-safe).
+  // Composition is BVE-only for now; SubsumeForward/Strengthen (increment 3) and
+  // Probe/Vivify/Backbone (increment 4) join as the dense OccIndex + tick budgets
+  // make them affordable and SAT-safe.
+  static constexpr bool SLOT_IN_DEFAULT = true;
   struct SlotEntry {
     int rule = -1;
     bool enabled = true;
