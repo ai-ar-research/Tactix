@@ -169,14 +169,20 @@ public:
   // N1-exposed, and random-policy-fuzzed.
   //
   // Whether the slot is in the default schedule at all. STILL DEFERRED
-  // (measured again at C2's landing, 2026-07-15): with Strengthen as the
-  // slot's driver, tr-n300-s055 hit 29.9 s solo (band 24.8-25.7, rev-22
-  // margin blown) on 5 rounds finding ONE strengthening — the composed
-  // root restarts still reshuffle the transition class without payoff,
-  // while 9vliw's genuinely productive rounds (5.6k strengthened) net
-  // +0.5 s. Same verdict as C1's deferral: the slot enters the default
-  // schedule when V1/E1 give it cross-class payoff. Everything below
-  // stays N1-exposed and random-policy-fuzzed meanwhile.
+  // (re-measured after E1/BVE landed, 2026-07-18 — the trigger this comment
+  // used to name; report benchmarks/reports/2026-07-18-e1-slot-activation.md).
+  // Verdict: net-negative on Tier B in EVERY composition (full suite, BVE-only)
+  // and interval tried (~157 PAR-2 vs baseline 116). The gap is one lost SAT
+  // instance — battleship-14-26 solves in 14 s with the slot off, times out
+  // with it on, at every interval — because the composed root-restart-to-0
+  // that gives the slot a quiescent root derails a productive SAT search (the
+  // classic inprocessing-hurts-SAT hazard). The wins are real (circuit 65->9
+  // full suite; mod4block 46->5 BVE-only) but BVE alone is NOT the cross-class
+  // lever (it doesn't crack the circuit), and two hard UNSAT miters time out in
+  // all configs. Activation is a phase-4 item now: SAT-safe inprocessing
+  // scheduling (effort budget / stable-mode gate / reconstruct-not-restart) is
+  // the blocker, not a knob. Everything below stays N1-exposed and
+  // random-policy-fuzzed meanwhile.
   static constexpr bool SLOT_IN_DEFAULT = false;
   struct SlotEntry {
     int rule = -1;
