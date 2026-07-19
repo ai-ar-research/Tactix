@@ -73,6 +73,10 @@ public:
   // index, so this bounds an otherwise ~O(n²) fixpoint). Becomes a real tick
   // budget once the shared dense OccIndex lands (increment 2). Tuned on Tier B.
   static constexpr uint32_t INPROCESS_PHASE_BUDGET = 300;
+  // Outer rounds per simplification phase (kissat eliminaterounds): each round
+  // runs BVE to its budget + the batch simplifiers (Subsume/Strengthen) once,
+  // so the batch rules run a few times per phase, not once per BVE variable.
+  static constexpr int INPROCESS_PHASE_ROUNDS = 3;
   // chronological backtracking (kissat learn.c kissat_determine_new_level,
   // options chrono=1/chronolevels=100): jumping over more than this many
   // levels is considered inefficient — backtrack one level instead. A pure

@@ -180,9 +180,16 @@ Tier B (medians) before the next. Revert any increment that misses.
    native-LRAT 600/0; 26/26 core tests. **Result: Tier B 116.7 ≈ inc2 115.5** —
    circuit **59→15** (the three together nearly crack it, approaching the
    full-suite 65→9), offset by broad small losses (FmlaEquiv, 9vliw, square). Net
-   ~neutral on Tier B: the wins are real and structured, the losses are
-   small-instance overhead. **This confirms the tier caveat — Tier B cannot judge
-   inprocessing; Tier C (increment 5) is decisive.**
+   ~neutral on Tier B. **Then the phase was RESTRUCTURED** into the kissat
+   eliminate-round shape (a few outer rounds; per-variable BVE runs to a global
+   budget, batch rules Subsume/Strengthen run ONCE per outer round) after a
+   diagnosis showed the flat loop ran the batch rules once per BVE *variable* —
+   299 useless full subsumption sweeps on `square` (30.4M pair-checks, 0
+   subsumed). The fix cut that to 2 rounds / 204K checks (150×) and moved Tier B
+   to **PAR-2 111.6 vs baseline 116.2 (−4.6, net-positive)**, 12/14, 0 bugs
+   (circuit 65→10, mod4block 46→9; residual losses genuine — small-instance
+   overhead + FmlaEquiv search disruption). Sound: DRAT 1000/0 + native-LRAT
+   500/0. **Tier C is next — the decisive gate.**
 4. **V-rules (Probe, Vivify, Backbone) in the phase, tick-bounded** (they need no
    occ index — just the budget + the SAT-safe schedule). **Success:** recover the
    circuit 65→9-class win WITHOUT losing battleship; full suite net-positive on

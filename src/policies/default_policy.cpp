@@ -332,37 +332,54 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // occurrence consumers (BVE) read it instead of rebuilding a ~O(arena)
       // index per apply. Detached on EVERY exit below so k.dense never dangles.
       kernel_dense_connect(k, inprocess_occ);
-      uint32_t applied = 0;
+      // Phase structure (increment 3, kissat eliminate-round shape): a few OUTER
+      // rounds, each interleaving the enabled techniques. Rule granularity
+      // differs and must be respected or a rule starves/spins: a PER-VARIABLE
+      // rule (BVE — one elimination per apply) runs to its budgeted fixpoint;
+      // a BATCH rule (Subsume/Strengthen — one apply is a full formula pass)
+      // runs ONCE per outer round. Running the batch rules once per BVE
+      // *variable* instead (the flat loop) cost 299 full subsumption sweeps on
+      // `square` — 30M pair-checks, 0 subsumed. `bve_applied` is a global cap so
+      // BVE does not re-spend its budget each outer round; the outer loop lets
+      // BVE pick up new eliminations exposed by the batch rules.
+      uint32_t bve_applied = 0;
       bool phase_unsat = false;
       const std::vector<RuleVTable> &rules = tactix_rules();
-      for (;;) {
-        bool round_ran = false; // did any rule make PROGRESS this round?
+      for (int outer = 0; outer < INPROCESS_PHASE_ROUNDS && !phase_unsat;
+           outer++) {
+        bool round_changed = false;
         for (const SlotEntry &e : inprocess_slot) {
-          if (!e.enabled)
+          if (!e.enabled || phase_unsat)
             continue;
           const RuleVTable &r = rules[e.rule];
-          if (r.guard(k)) {
+          const bool per_var = std::strcmp(r.name, "BVE") == 0;
+          for (;;) { // per_var: to budgeted fixpoint; batch: one apply
+            if (per_var && bve_applied >= INPROCESS_PHASE_BUDGET)
+              break;
+            if (!r.guard(k))
+              break;
             const ApplyResult ar = r.apply(k);
             if (ar == ApplyResult::Unsat || k.inconsistent) {
               phase_unsat = true;
               break;
             }
-            if (ar == ApplyResult::Ok) {
-              round_ran = true;
-              applied++;
+            if (ar != ApplyResult::Ok)
+              break; // NoOp = this rule's fixpoint
+            round_changed = true;
+            if (per_var)
+              bve_applied++;
+            // drain any root units the apply asserted before the next apply
+            const ApplyResult pr = propagate_apply(k);
+            if (pr == ApplyResult::Unsat) {
+              phase_unsat = true;
+              break;
             }
+            if (!per_var)
+              break; // batch rule: one full pass per outer round
           }
         }
-        if (phase_unsat || !round_ran)
-          break; // UNSAT, or fixpoint: no enabled rule made progress
-        // drain any root units the round asserted so the next round sees them
-        const ApplyResult pr = propagate_apply(k);
-        if (pr == ApplyResult::Unsat) {
-          phase_unsat = true;
-          break;
-        }
-        if (applied >= INPROCESS_PHASE_BUDGET)
-          break; // effort bound
+        if (!round_changed)
+          break; // outer fixpoint: nothing changed this round
       }
       kernel_dense_disconnect(k);
       if (phase_unsat)
