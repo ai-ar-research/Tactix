@@ -58,6 +58,10 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   return 0;
 }
 
+void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
+  s->kernel.bve_gate_mask = mask;
+}
+
 int tactix_solve(tactix_solver *s) {
   const int r = default_solve(s->kernel);
   if (r == 10)

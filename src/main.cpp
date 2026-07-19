@@ -9,6 +9,7 @@
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
 #include "proof/proof.hpp"
+#include "rules/bve/bve.hpp" // BveGate enum for --bve-gates
 
 #include <csignal>
 #include <cstdlib>
@@ -75,6 +76,7 @@ int main(int argc, char **argv) {
   bool random_policy = false;
   bool adversarial_policy = false;
   bool bve_stress_policy = false;
+  uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
 
   for (int i = 1; i < argc; i++) {
@@ -107,9 +109,37 @@ int main(int argc, char **argv) {
       bve_stress_policy = true;
       if (a[19] == '=')
         random_seed = strtoull(a + 20, nullptr, 10);
+    } else if (!strncmp(a, "--bve-gates=", 12)) {
+      // BVE gate-type selection (E1d): comma list of {equiv,andor}, or
+      // all / none. A performance knob — every setting is sound (a disabled
+      // gate type only falls BVE back to the full cross product).
+      const char *spec = a + 12;
+      if (!strcmp(spec, "all")) {
+        bve_gate_mask = ~0u;
+      } else if (!strcmp(spec, "none")) {
+        bve_gate_mask = 0u;
+      } else {
+        bve_gate_mask = 0u;
+        for (const char *p = spec; *p;) {
+          if (!strncmp(p, "equiv", 5)) {
+            bve_gate_mask |= BVE_GATE_EQUIV;
+            p += 5;
+          } else if (!strncmp(p, "andor", 5)) {
+            bve_gate_mask |= BVE_GATE_AND_OR;
+            p += 5;
+          } else if (*p == ',') {
+            p++;
+          } else {
+            fprintf(stderr, "tactix: bad --bve-gates spec '%s'\n", spec);
+            printf("s UNKNOWN\n");
+            return 1;
+          }
+        }
+      }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--no-binary] [--lrat] "
-             "[--random-policy[=SEED]] <cnf[.xz|.gz]> [proof]\n");
+             "[--random-policy[=SEED]] [--bve-gates=all|none|equiv,andor] "
+             "<cnf[.xz|.gz]> [proof]\n");
       return 0;
     } else if (a[0] == '-' && a[1]) {
       fprintf(stderr, "tactix: unknown option '%s'\n", a);
@@ -138,6 +168,7 @@ int main(int argc, char **argv) {
 #endif
 
   Kernel kernel;
+  kernel.bve_gate_mask = bve_gate_mask;
   Proof proof;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {

@@ -198,12 +198,39 @@ static void test_stepwise_unsat(void) {
   tactix_release(s);
 }
 
+/* E1d N1 surface: BVE gate-type selection through the public C API. Var 1 of
+ * this AND/OR-gate instance eliminates ONLY via the gate reduction (its full
+ * cross product exceeds the growth bound), so disabling AND/OR makes the same
+ * apply a no-op and enabling it makes progress — the public setter is honored. */
+static void test_bve_gate_selection(void) {
+  const int bve = rule_id("BVE");
+  assert(bve >= 0);
+  const int base[] = {-1, 2, 3, 4, 5, 6, 7, 0};
+  int i;
+
+  tactix *s = tactix_init();
+  add_clause(s, base);
+  for (i = 2; i <= 7; i++)
+    add_clause(s, (const int[]){1, -i, 0});
+  for (i = 8; i <= 11; i++)
+    add_clause(s, (const int[]){1, i, 0});
+  for (i = 12; i <= 15; i++)
+    add_clause(s, (const int[]){-1, i, 0});
+
+  tactix_set_bve_gates(s, TACTIX_BVE_GATE_EQUIV); /* AND/OR off */
+  assert(tactix_apply_instance(s, bve, TACTIX_LIT_INSTANCE(1)) == 1); /* no-op */
+  tactix_set_bve_gates(s, TACTIX_BVE_GATE_AND_OR); /* AND/OR on */
+  assert(tactix_apply_instance(s, bve, TACTIX_LIT_INSTANCE(1)) == 0); /* progress */
+  tactix_release(s);
+}
+
 int main(void) {
   test_solve_sat();
   test_external_branching();
   test_instance_surface();
   test_empty_solver_rule_application();
   test_stepwise_unsat();
+  test_bve_gate_selection();
   puts("test_api_c OK");
   return 0;
 }

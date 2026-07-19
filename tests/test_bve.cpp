@@ -249,6 +249,41 @@ static void test_gate_equivalence_substitution() {
   }
 }
 
+// E1d: gate-type selection via Kernel::bve_gate_mask. The AND/OR-gate variable
+// of test_gate_and_or_fires eliminates only through the gate reduction (its full
+// cross product exceeds the bound). Disabling BVE_GATE_AND_OR must therefore turn
+// the same elimination into a NoOp; re-enabling it restores the Ok. Proves the
+// mask actually gates detection (and that a disabled type is a clean fallback).
+static void test_gate_mask() {
+  auto build_and_or = [](Kernel &k) {
+    kernel_reserve_vars(k, 15); // x=1, a=2..7, p=8..11, q=12..15
+    Lit base[7] = {internalize(-1), internalize(2), internalize(3),
+                   internalize(4),  internalize(5), internalize(6),
+                   internalize(7)};
+    kernel_add_large_clause(k, base, 7, false, 0);
+    for (int i = 2; i <= 7; i++)
+      kernel_add_binary_clause(k, internalize(1), internalize(-i));
+    for (int p = 8; p <= 11; p++)
+      kernel_add_binary_clause(k, internalize(1), internalize(p));
+    for (int q = 12; q <= 15; q++)
+      kernel_add_binary_clause(k, internalize(-1), internalize(q));
+  };
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  const uint64_t x = lit_instance(internalize(1));
+  { // AND/OR disabled → full cross product exceeds the bound → NoOp
+    Kernel k;
+    k.bve_gate_mask = BVE_GATE_EQUIV; // AND/OR off
+    build_and_or(k);
+    assert(vt.apply_instance(k, x) == ApplyResult::NoOp);
+  }
+  { // AND/OR enabled → the gate reduction fires
+    Kernel k;
+    k.bve_gate_mask = BVE_GATE_AND_OR; // AND/OR on (equivalence off)
+    build_and_or(k);
+    assert(vt.apply_instance(k, x) == ApplyResult::Ok);
+  }
+}
+
 int main() {
   test_guard();
   test_occurrences();
@@ -261,6 +296,7 @@ int main() {
   test_bound_skip();
   test_gate_and_or_fires();
   test_gate_equivalence_substitution();
+  test_gate_mask();
   puts("test_bve OK");
   return 0;
 }

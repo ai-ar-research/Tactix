@@ -70,4 +70,37 @@ for cnf in "$T"/*.cnf; do
       || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
   fi
 done
+
+# ---- E1d: the same tiny UNSAT formulas refuted with BVE in the proof ----
+# `--bve-stress-policy` maximizes BVE at the root, so these check that BVE's
+# resolvent/deletion deltas compose into a valid DRAT + native-LRAT proof:
+# enum2 is refuted by BVE alone (the equivalence-gate path derives {b},{¬b}→∅);
+# xor3/php3 mix BVE resolvents with a search-proof tail.
+for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
+  for mode in binary ascii; do
+    proof="$cnf.bve.$mode.drat"
+    if [ "$mode" = binary ]; then
+      "$TACTIX" -q --bve-stress-policy "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
+    else
+      "$TACTIX" -q --bve-stress-policy --no-binary "$cnf" "$proof" > "$T/out" \
+        && rc=$? || rc=$?
+    fi
+    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE (rc=$rc)"; exit 1; }
+    grep -q '^s UNSATISFIABLE$' "$T/out" \
+      || { echo "FAIL: $cnf (BVE) missing s line"; exit 1; }
+    "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
+    grep -q 's VERIFIED' "$T/check" \
+      || { echo "FAIL: BVE proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
+  done
+  if [ -x "$LRAT_CHECK" ]; then
+    proof="$cnf.bve.lrat"
+    "$TACTIX" -q --bve-stress-policy --lrat "$cnf" "$proof" > "$T/out" \
+      && rc=$? || rc=$?
+    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE --lrat"; exit 1; }
+    "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+      || { echo "FAIL: native LRAT (BVE) of $cnf rejected"; cat "$T/check"; exit 1; }
+    grep -qi 'verif' "$T/check" \
+      || { echo "FAIL: lrat-check gave no verdict on BVE $cnf"; cat "$T/check"; exit 1; }
+  fi
+done
 echo "micro_proofs OK"

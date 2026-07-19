@@ -228,6 +228,15 @@ struct Kernel {
   // intervals, ...) lives in the Policy object, not here; kernel H-state
   // is confined to instance-ranking heuristics (VMTF, phases).
 
+  // --- rule configuration (set by a policy or the public API at any state) ---
+  // BVE syntactic gate detection: bitmask of enabled gate types (see bve.hpp
+  // BveGate). Default = all bits on. This is a PERFORMANCE knob, never a
+  // soundness one — every setting is sound because a disabled gate type only
+  // makes BVE fall back to the full resolvent cross product (E1c, N1: gate type
+  // is *how* a chosen variable's resolvents are computed, not *whether* it can
+  // be eliminated). The first entry of what will become a rule-config struct.
+  uint32_t bve_gate_mask = ~0u;
+
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
 };

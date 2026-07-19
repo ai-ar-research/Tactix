@@ -369,7 +369,10 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) dropped that conjunct
   *unaffected*: the witness is still every removed live clause, and the recovered
   `x = φ` satisfies each antecedent because its gate×antecedent resolvent is in
   `F′`. A *false* gate would drop needed resolvents (unsound), so detection is
-  exact (structural match only) and fuzz-gated.
+  exact (structural match only) and fuzz-gated. Which gate types are recognized
+  is configurable (`Kernel::bve_gate_mask` / `tactix_set_bve_gates`, E1d) — a pure
+  performance knob, since every setting is sound (a disabled type only restores
+  the full cross product) and none touches the guard or the abstract effect.
 - **Proof δ:** **RUP-only — no `add_rat`.** Each resolvent `R = (C∨D)` is RUP
   from its two parents: `add_rup(R, [C.id, D.id (+ stripped-root-false unit ids)])`
   (assume `¬R` → `C∨x` forces `x` → `D∨¬x` conflicts — the simplest chain in the

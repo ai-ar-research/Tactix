@@ -23,6 +23,16 @@
 
 namespace tactix {
 
+// Enabled-gate bitmask for `Kernel::bve_gate_mask` (E1d): which syntactic gate
+// types `bve_detect_gate` may recognize. Every combination is SOUND — a disabled
+// type only falls BVE back to the full resolvent cross product, never changes a
+// verdict — so this is a pure performance/tuning knob (and a future RL
+// action-space axis), not an N1 applicability control. Default `~0u` = all on.
+enum BveGate : uint32_t {
+  BVE_GATE_EQUIV = 1u << 0,  // equivalence   x ↔ ¬y   (two binaries)
+  BVE_GATE_AND_OR = 1u << 1, // AND/OR         x ↔ OR/AND(a₁…aₖ)  (base + binaries)
+};
+
 // Pure quiescent-root precondition (D-LEVEL purified, rev 43 — no fixpoint
 // conjunct; the elimination round will drain the root closure U at apply entry).
 bool bve_guard(const Kernel &);

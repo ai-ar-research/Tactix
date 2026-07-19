@@ -153,6 +153,7 @@ bool bve_detect_gate(const Kernel &k, Lit px, Lit nx,
     }
 
   // (1) equivalence x↔¬w: pos binary (x∨w) + neg binary (¬x∨¬w) ⟹ ¬w→x, x→¬w.
+  if (k.bve_gate_mask & BVE_GATE_EQUIV)
   for (size_t i = 0; i < pos.size(); ++i)
     if (pos[i].active.size() == 2) {
       const Lit w = pos[i].active[0] == px ? pos[i].active[1] : pos[i].active[0];
@@ -191,10 +192,12 @@ bool bve_detect_gate(const Kernel &k, Lit px, Lit nx,
     }
     return false;
   };
-  if (try_and_or(neg, nx, pos_bin, neg_gate, pos_gate))
-    return true;
-  if (try_and_or(pos, px, neg_bin, pos_gate, neg_gate))
-    return true;
+  if (k.bve_gate_mask & BVE_GATE_AND_OR) {
+    if (try_and_or(neg, nx, pos_bin, neg_gate, pos_gate))
+      return true;
+    if (try_and_or(pos, px, neg_bin, pos_gate, neg_gate))
+      return true;
+  }
   return false;
 }
 
