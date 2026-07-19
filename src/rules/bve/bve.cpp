@@ -33,15 +33,28 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
   const uint32_t nlits = 2 * k.nvars;
   occ.large.assign(nlits, {});
   occ.binary.assign(nlits, {});
-  // large IRREDUNDANT clauses: one arena scan. BVE eliminates over F (the
-  // irredundant core); the learned set R is redundant and not resolved.
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage() && !c->redundant())
-      for (const Lit l : *c)
-        if (k.values[l] == 0) // active-variable literals only
+  // large IRREDUNDANT clauses. BVE eliminates over F (the irredundant core); the
+  // learned set R is redundant and not resolved.
+  if (k.dense) {
+    // dense fast-path (increment 2): the shared index already lists each active
+    // literal's irredundant large clauses — O(occ), no arena scan. Skip stale
+    // garbage entries (lazy-deleted, not yet compacted).
+    for (Lit l = 0; l < nlits; l++) {
+      if (k.values[l] != 0) // active-variable literals only
+        continue;
+      for (const Ref ref : k.dense->large[l])
+        if (!clause_at(k.arena, ref)->garbage())
           occ.large[l].push_back(ref);
-    ref += clause_words(c->size);
+    }
+  } else {
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !c->redundant())
+        for (const Lit l : *c)
+          if (k.values[l] == 0) // active-variable literals only
+            occ.large[l].push_back(ref);
+      ref += clause_words(c->size);
+    }
   }
   // binaries: one watch-list scan per active literal. A binary (l ∨ o) is one
   // occurrence of l with partner o; binaries have an irredundant lifecycle in
@@ -216,47 +229,76 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   std::vector<Ref> del_large;               // redundant/satisfied/taut → delete-only
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
 
-  // ---- gather x's LARGE clauses (one arena scan) ----
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
-    if (!c->garbage()) {
-      bool has_px = false, has_nx = false;
-      for (const Lit l : *c) {
-        has_px |= (l == px);
-        has_nx |= (l == nx);
-      }
-      if (has_px || has_nx) {
-        if ((has_px && has_nx) || c->redundant()) {
-          // a clause with both x and ¬x is a tautology; a redundant clause is
-          // entailed by F — either way delete it (no resolution, no witness).
-          del_large.push_back(ref);
-        } else {
-          MClause m;
-          m.id = c->id();
-          m.ref = ref;
-          bool satisfied = false;
-          for (const Lit l : *c) {
-            const int8_t v = k.value(l);
-            if (v > 0) { // root-true → clause satisfied → delete-only, no witness
-              satisfied = true;
-              break;
-            }
-            if (v < 0) { // root-false → drop (cite its unit)
-              if (lrat)
-                m.absorbed.push_back(k.unit_ids[var_of(l)]);
-              continue;
-            }
-            m.active.push_back(l);
-          }
-          if (satisfied)
-            del_large.push_back(ref);
-          else
-            (has_px ? pos : neg).push_back(std::move(m));
-        }
-      }
+  // ---- gather x's LARGE clauses ----
+  // per-clause classification: tautology/redundant → delete-only; root-satisfied
+  // → delete-only; else materialize active literals (root-false stripped, cited)
+  // into pos (has px) or neg (has nx).
+  auto classify = [&](Ref ref, const Clause *c, bool has_px, bool has_nx) {
+    if ((has_px && has_nx) || c->redundant()) {
+      del_large.push_back(ref);
+      return;
     }
-    ref += words;
+    MClause m;
+    m.id = c->id();
+    m.ref = ref;
+    bool satisfied = false;
+    for (const Lit l : *c) {
+      const int8_t v = k.value(l);
+      if (v > 0) { // root-true → clause satisfied → delete-only, no witness
+        satisfied = true;
+        break;
+      }
+      if (v < 0) { // root-false → drop (cite its unit)
+        if (lrat)
+          m.absorbed.push_back(k.unit_ids[var_of(l)]);
+        continue;
+      }
+      m.active.push_back(l);
+    }
+    if (satisfied)
+      del_large.push_back(ref);
+    else
+      (has_px ? pos : neg).push_back(std::move(m));
+  };
+  if (k.dense) {
+    // dense fast-path (increment 2): x's large clauses are exactly the entries
+    // of dense->large[px] ∪ [nx] (irredundant only — sound because a dense
+    // phase runs at a quiescent root where every large clause is irredundant;
+    // learned clauses do not exist yet). O(occ(x)), not O(arena). A clause with
+    // both px and nx is in both lists — process it once via the px pass and
+    // skip it in the nx pass.
+    auto has_lit = [](const Clause *c, Lit t) {
+      for (const Lit l : *c)
+        if (l == t)
+          return true;
+      return false;
+    };
+    for (const Ref ref : k.dense->large[px]) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage())
+        classify(ref, c, true, has_lit(c, nx));
+    }
+    for (const Ref ref : k.dense->large[nx]) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !has_lit(c, px)) // px-side already handled tautologies
+        classify(ref, c, false, true);
+    }
+  } else {
+    // N1 fallback: one arena scan (any state, no phase index).
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_words(c->size);
+      if (!c->garbage()) {
+        bool has_px = false, has_nx = false;
+        for (const Lit l : *c) {
+          has_px |= (l == px);
+          has_nx |= (l == nx);
+        }
+        if (has_px || has_nx)
+          classify(ref, c, has_px, has_nx);
+      }
+      ref += words;
+    }
   }
 
   // ---- gather x's BINARIES (watch scan) + duplicate-binary hazard pre-check ----

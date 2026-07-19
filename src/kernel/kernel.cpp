@@ -60,6 +60,12 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
     c->lits[i] = lits[i];
   k.watches.push_large(lits[0], lits[1], ref);
   k.watches.push_large(lits[1], lits[0], ref);
+  // dense phase (increment 2): a new irredundant large clause joins the shared
+  // occurrence index. Refs are arena offsets — stable across the resize above,
+  // so existing entries need no fix-up; only GC (which rewrites offsets) does.
+  if (k.dense && !redundant)
+    for (uint32_t i = 0; i < size; i++)
+      k.dense->large[lits[i]].push_back(ref);
   return ref;
 }
 
@@ -505,13 +511,38 @@ void kernel_collect_garbage(Kernel &k) {
     k.watches.truncate(lit, static_cast<uint32_t>(q - begin));
   }
   k.arena.swap(fresh);
+  // GC relocated every Ref: the dense occurrence index (increment 2) must be
+  // rebuilt from the compacted arena in lock-step with the watches below (it
+  // held offsets into the old arena, now stale). Clearing here also drops the
+  // garbage Refs that accumulated lazily during the phase.
+  if (k.dense)
+    k.dense->large.assign(2 * k.nvars, {});
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     k.watches.push_large(c->lits[0], c->lits[1], ref);
     k.watches.push_large(c->lits[1], c->lits[0], ref);
+    if (k.dense && !c->redundant())
+      for (const Lit l : *c)
+        k.dense->large[l].push_back(ref);
     ref += clause_words(c->size);
   }
 }
+
+void kernel_dense_connect(Kernel &k, OccIndex &occ) {
+  assert(k.level == 0);
+  occ.large.assign(2 * k.nvars, {});
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage() && !c->redundant())
+      for (const Lit l : *c)
+        occ.large[l].push_back(ref);
+    ref += words;
+  }
+  k.dense = &occ;
+}
+
+void kernel_dense_disconnect(Kernel &k) { k.dense = nullptr; }
 
 void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
   std::sort(k.lrat_entries.begin(), k.lrat_entries.end());

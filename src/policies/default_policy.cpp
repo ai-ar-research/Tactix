@@ -321,7 +321,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // per-apply rebuild).
       if (k.level > 0 && restart_guard(k))
         restart_apply_to(k, 0);
+      // Attach the shared occurrence index for the phase (increment 2): the
+      // occurrence consumers (BVE) read it instead of rebuilding a ~O(arena)
+      // index per apply. Detached on EVERY exit below so k.dense never dangles.
+      kernel_dense_connect(k, inprocess_occ);
       uint32_t applied = 0;
+      bool phase_unsat = false;
       const std::vector<RuleVTable> &rules = tactix_rules();
       for (;;) {
         bool round_ran = false; // did any rule make PROGRESS this round?
@@ -331,23 +336,30 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           const RuleVTable &r = rules[e.rule];
           if (r.guard(k)) {
             const ApplyResult ar = r.apply(k);
-            if (ar == ApplyResult::Unsat || k.inconsistent)
-              return 20;
+            if (ar == ApplyResult::Unsat || k.inconsistent) {
+              phase_unsat = true;
+              break;
+            }
             if (ar == ApplyResult::Ok) {
               round_ran = true;
               applied++;
             }
           }
         }
-        if (!round_ran)
-          break; // fixpoint: no enabled rule made progress this round
+        if (phase_unsat || !round_ran)
+          break; // UNSAT, or fixpoint: no enabled rule made progress
         // drain any root units the round asserted so the next round sees them
         const ApplyResult pr = propagate_apply(k);
-        if (pr == ApplyResult::Unsat)
-          return 20;
+        if (pr == ApplyResult::Unsat) {
+          phase_unsat = true;
+          break;
+        }
         if (applied >= INPROCESS_PHASE_BUDGET)
           break; // effort bound
       }
+      kernel_dense_disconnect(k);
+      if (phase_unsat)
+        return 20;
       // The phase FIRED (whether or not it simplified anything): count it (the
       // interval-growth key) and refresh the new-material watermarks so an
       // unproductive pass does not re-fire every interval — that repeated root

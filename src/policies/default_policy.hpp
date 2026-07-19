@@ -201,6 +201,7 @@ public:
     bool enabled = true;
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
+  OccIndex inprocess_occ; // shared occurrence index, reused per phase (incr. 2)
   // Slot timing (kissat eliminate-slot schedule — C1-era machinery kept):
   // first limit size-scaled at solve entry (kissat inits limits after
   // parsing). After the first round, rounds are additionally gated on NEW

@@ -89,6 +89,20 @@ struct PendingLearned {
   uint64_t id = 0; // proof clause id (LRAT)
 };
 
+// Shared literal→large-clause occurrence index for a simplification PHASE
+// (inprocessing-revamp increment 2, kissat dense.c analogue). Built once per
+// phase (kernel_dense_connect), maintained incrementally — new irredundant
+// large clauses push on add, deleted clauses are lazy (garbage bit, skipped on
+// read), and kernel_collect_garbage rebuilds after it relocates Refs. Only
+// irredundant large clauses (binaries are O(1)-enumerable from watches; kissat
+// connects irredundant only). OPTIONAL acceleration: `Kernel::dense` is null in
+// search and outside a phase, and every consumer (BVE/Subsume/Strengthen) keeps
+// its round-local arena-scan path for that case (N1 — rules stay independently
+// applicable via the public API).
+struct OccIndex {
+  std::vector<std::vector<Ref>> large; // by literal; may hold stale garbage Refs
+};
+
 struct Kernel {
   uint32_t nvars = 0;
   bool inconsistent = false; // root-level conflict happened
@@ -124,6 +138,10 @@ struct Kernel {
 
   Arena arena;
   WatchLists watches;
+  // shared large-clause occurrence index, non-null only during a simplification
+  // phase (increment 2). Owned by the caller (the policy); the kernel maintains
+  // it through add/GC. Null everywhere else — see OccIndex.
+  OccIndex *dense = nullptr;
   // delayed watch relocations from an in-flight propagation scan
   // (lit, blocking, ref) triples; see watch.hpp for why they must wait
   std::vector<uint32_t> delayed;
@@ -431,6 +449,15 @@ inline Lit kernel_decide_lit(const Kernel &k, Var v) {
 // compacts the arena (dropping GARBAGE clauses), fixes trail reasons via
 // forwarding pointers, and rebuilds large watches (binaries kept in place)
 void kernel_collect_garbage(Kernel &);
+
+// Dense simplification phase (increment 2). connect builds `occ.large` from the
+// current irredundant large clauses (one arena scan) and attaches it as
+// `k.dense`; disconnect detaches it (the caller owns the storage). While
+// attached, kernel_add_large_clause pushes new irredundant large clauses and
+// kernel_collect_garbage rebuilds the index after relocating Refs. Precondition:
+// level 0 (a quiescent root), like kissat's dense mode.
+void kernel_dense_connect(Kernel &, OccIndex &occ);
+void kernel_dense_disconnect(Kernel &);
 
 // irredundant clause count: live irredundant large clauses + all binaries
 // ever added (binaries have an irredundant lifecycle in this kernel — never
