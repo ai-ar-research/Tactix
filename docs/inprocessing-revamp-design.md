@@ -190,14 +190,22 @@ Tier B (medians) before the next. Revert any increment that misses.
    (circuit 65→10, mod4block 46→9; residual losses genuine — small-instance
    overhead + FmlaEquiv search disruption). Sound: DRAT 1000/0 + native-LRAT
    500/0. **Tier C is next — the decisive gate.**
-4. **V-rules (Probe, Vivify, Backbone) in the phase, tick-bounded** (they need no
-   occ index — just the budget + the SAT-safe schedule). **Success:** recover the
-   circuit 65→9-class win WITHOUT losing battleship; full suite net-positive on
-   Tier B. Tune composition/effort fractions here.
-5. **Verify + adopt:** random-policy + native-LRAT fuzz on the DefaultPolicy path
-   with inprocessing on (soundness of the now-default proof/reconstruction),
-   Tier A (regressions), Tier C (the adoption gate + T3 direction). Flip
-   `SLOT_IN_DEFAULT` for real. Update PROGRESS with before/after. Commit.
+4. **V-rules (Probe, Vivify, Backbone) in the phase** — **MEASURED → DEFERRED**
+   (branch). They are batch rules and slot into the round structure with no
+   change, and are sound (fuzz 1000/0), but **net-negative**: Tier B **169.4** —
+   they disrupt high-variance SAT search (battleship 18s→TO) and even UNDO BVE's
+   wins (mod4block 8.7→267s), and they do NOT crack the Tier B TOs. Reverted.
+   Making them SAT-safe needs per-technique **effort/tick budgets + mode gating**
+   (they fire too hard, too early) — a follow-on, not this revamp.
+5. **Verify + adopt** — **DONE** (branch, ready to merge). Composition finalized to
+   BVE+Strengthen+SubsumeForward. DefaultPolicy DRAT 1000/0 + native-LRAT 1000/0
+   (dense path) + random-policy native-LRAT 2000/0 (N1, arena path) + 27/27 unit
+   tests (demo3 relaxed to §8.4 within-noise — dense breaks bit-exact API
+   reproduction) + Tier A 200/200 (0.49) + Tier B 111.6 + Tier C 356 (28/30).
+   `SLOT_IN_DEFAULT=true`. Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`.
+   **T3 NOT met** (~2.2× clean CaDiCaL 160.6; the pinned 336.96 was
+   contention-inflated) — the revamp is adopted as a real net-positive, and T3
+   stays an open phase-3 goal (needs the SAT-safe V-rules + search tuning).
 
-Increments 1 is mostly policy; 2 is the core kernel revamp; 3-4 are rule wiring +
-tuning; 5 is the gate. Expect this to span multiple sessions.
+Increment 1 was mostly policy; 2 the core kernel revamp; 3 rule wiring + the
+round-structure fix; 4 measured-and-deferred; 5 the gate + merge.
