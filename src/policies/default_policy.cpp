@@ -208,13 +208,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     // (nonempty) slot is left untouched — to run nothing, prepose
     // disabled entries, not an empty vector
     if (inprocess_slot.empty()) {
-      // Inprocessing-revamp increment 3: BVE + Strengthen + SubsumeForward run as
-      // a SAT-safe bounded preprocessing phase (at conflicts=0). All three are
-      // gentle root simplifiers (Strengthen was measured SAT-safe on battleship)
-      // and all keep the shared dense OccIndex consistent through the kernel
-      // add/GC hooks (Strengthen/Subsume mutate by garbage+add, never in place),
-      // so BVE's dense fast-path stays correct alongside them. Probe/Vivify/
-      // Backbone join with tick budgets in increment 4. The slot stays
+      // Inprocessing-revamp (landed): BVE + Strengthen + SubsumeForward run as a
+      // SAT-safe bounded preprocessing phase (at conflicts=0) in the kissat
+      // eliminate-round structure — BVE (per-variable, budgeted, reads the shared
+      // dense OccIndex) + the batch rules Strengthen/SubsumeForward (one pass per
+      // outer round, keeping the index consistent by garbage+add). Net-positive:
+      // Tier B 111.6 vs 116.2, Tier C 356 vs base (+3 solved). The probing V-rules
+      // (Probe/Vivify/Backbone) are DEFERRED: they crack some UNSAT but disrupt
+      // high-variance SAT search (battleship 18s→TO, and they even undo BVE's
+      // mod4block win 8.7→267s) — Tier B 169.4, net-negative. Making them
+      // SAT-safe needs per-technique effort/tick budgets + mode gating (a
+      // follow-on). Substitute/TransitiveReduce also off. Slot stays
       // registry-driven + posable (phase-6 arms).
       const std::vector<RuleVTable> &rules = tactix_rules();
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
