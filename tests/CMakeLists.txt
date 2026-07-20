@@ -99,3 +99,7 @@ target_link_libraries(test_tr_bruteforce PRIVATE tactix_lib)
 foreach(mode 0 1 2 3)
   add_test(NAME tr_bruteforce_${mode} COMMAND test_tr_bruteforce ${mode})
 endforeach()
+
+add_executable(test_factor test_factor.cpp)
+target_link_libraries(test_factor PRIVATE tactix_lib)
+add_test(NAME factor COMMAND test_factor)

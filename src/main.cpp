@@ -53,7 +53,7 @@ static void print_model(const Kernel &k) {
     fputc('\n', stdout);
     line = "v";
   };
-  for (Var v = 0; v < k.nvars; v++) {
+  for (Var v = 0; v < kernel_num_output_vars(k); v++) { // extension vars projected out
     const Lit pos = make_lit(v, false);
     const int e = static_cast<int>(v) + 1;
     char buf[16];

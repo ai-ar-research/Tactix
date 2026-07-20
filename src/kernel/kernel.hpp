@@ -106,6 +106,13 @@ struct OccIndex {
 
 struct Kernel {
   uint32_t nvars = 0;
+  // Variables at index >= first_extension_var are NON-ORIGINAL "extension"
+  // variables introduced mid-solve (E2 Factor / BVA). They are assigned by search
+  // like any other variable but are PROJECTED OUT of the reported model — the
+  // competition `v` line ranges over original variables only (a model restricted
+  // to the originals satisfies the original formula; see docs/design/
+  // e2-factor-design.md §3). UINT32_MAX = none added yet, so all vars are original.
+  uint32_t first_extension_var = UINT32_MAX;
   bool inconsistent = false; // root-level conflict happened
 
   std::vector<int8_t> values;     // by lit: 1 true, -1 false, 0 unassigned
@@ -262,6 +269,18 @@ struct Kernel {
 
 // --- lifecycle -------------------------------------------------------------
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
+
+// Allocate `count` fresh NON-ORIGINAL (extension) variables at a root fixpoint and
+// return the index of the first one. Grows all per-variable state via
+// kernel_reserve_vars (additive) and records the extension boundary so the model
+// printer projects them out. Used by E2 Factor (BVA). Caller must be at level 0.
+Var kernel_new_extension_vars(Kernel &, uint32_t count);
+
+// Number of variables to emit in the model `v` line — original variables only
+// (extension variables introduced by Factor are projected out).
+inline uint32_t kernel_num_output_vars(const Kernel &k) {
+  return k.first_extension_var == UINT32_MAX ? k.nvars : k.first_extension_var;
+}
 
 // --- reconstruction (rho) --------------------------------------------------
 // Push one witness-labelled clause segment {witness} u {rest} onto rho.

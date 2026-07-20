@@ -44,6 +44,14 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   kernel_reset_queue_search(k);
 }
 
+Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
+  const Var first = k.nvars;
+  if (k.first_extension_var == UINT32_MAX)
+    k.first_extension_var = first; // boundary = first non-original var
+  kernel_reserve_vars(k, k.nvars + count); // additive: grows all per-var state
+  return first;
+}
+
 Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id) {
   assert(size >= 3);
