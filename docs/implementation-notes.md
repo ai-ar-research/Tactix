@@ -39,8 +39,9 @@ V1/V2/S5 additionally carry `!conflict_valid` as a genuine abstract precondition
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. |
 | V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop a consistent `M`. |
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. |
-| E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) |
+| E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). |
 | V6 Congruence | `root` | **D-ROOT:** `level==0`. **D-CONG-LRAT:** XOR/ITE extraction gated off under native LRAT (a proof-mode branch in the effect, not a guard conjunct — §2). |
+| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). **D-FACTOR-LRAT:** under native LRAT the rule no-ops (add-RAT chains deferred) — a proof-mode effect branch, not a guard conjunct. (Design `docs/design/e2-factor-design.md`.) |
 
 ## 2. The engineering-deviation ledger (the impurity punch-list)
 
@@ -59,6 +60,7 @@ removal is a plan item, not an ad-hoc patch.
 | D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, V6, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
 | D-CONG-LRAT | Under native LRAT, **AND congruence runs with full bridged chains; XOR/ITE extraction is gated off** (proof-mode branch in the effect) | V6 | AND-match chains thread the bridging equivalence binaries via `big_path_chain` (done). XOR/ITE remain: their canonicalization adds a sign layer ON TOP of bridging — `normalize_ite` swaps then/else + flips signs per gate; XOR folds input signs into the output parity and cancels duplicate variables — so the canonical lemma literals do not correspond by-position-and-sign to either gate's raw clauses, making the ladder / case-split lemma antecedent chains intricate | emit native LRAT chains for the XOR parity-ladder and ITE case-split lemmas (tracking each gate's normalization/parity to map canonical↔raw), then ungate XOR/ITE under LRAT. DRAT already gets the full closure |
 | D-CONG-DELETE | V6 transient XOR/ITE ladder / case-split lemmas are not `del`-eted | V6 | proof-size only (the lemmas survive in the DRAT stream; soundness unaffected — they are RUP) | emit `del` for the chain after the merge (kissat `delete_proof_chain`); folds in with the LRAT-chain work |
+| D-FACTOR-LRAT | Under native LRAT, **E2 Factor no-ops** (proof-mode branch in the effect) | E2 | the add step is add-RAT; DRAT emits it as pivot-first `add_rup` (checker reads the RAT pivot), but native LRAT needs real `add_rat` chains with the still-live grid clauses as antecedents | emit native-LRAT `add_rat` for the dividers/quotients (mirrors the D-CONG-LRAT work); DRAT already gets the full transform |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
 **Pure already:** M1 Propagate, M2 Decide, M3 ConflictAnalysis, S3 Rephase,
@@ -146,3 +148,37 @@ white-box, which is permitted — the *abstract* rule is atomic, and no guard
 exposes `pending`). Verified behavior-preserving: s055 bit-exact at 932,762
 conflicts, demo3 (the stat-exact DefaultPolicy mirror) matches, proof output
 byte-identical.
+
+## 5. Design decision: extension variables (E2 Factor) — two cross-rule invariants
+
+E2 Factor is the first rule that **adds variables mid-solve**. Two invariants keep
+the rest of the kernel/rules correct in its presence — both are *engineering
+mechanics*, not proof-rule guards, so they live here rather than in the calculus:
+
+- **The dense occurrence index grows with `nvars`.** `Kernel::dense` (the
+  per-literal large-clause index, non-null only inside a simplification phase) is
+  built once per phase and shared by the rules that run under it (BVE / Subsume /
+  Strengthen). Factor grows `nvars` *while dense is connected*, so
+  `kernel_reserve_vars` now also `resize`s `dense->large` to `2·nvars` (empty
+  entries — extension literals occur in no large clause yet). Without this, the
+  next consumer (`bve_build_occurrences`) indexes `dense->large[l]` out of bounds
+  for an extension literal — the exact crash that surfaced Factor on mp1
+  (`EXC_BAD_ACCESS`). It is a general hazard for *any* future var-adding rule, so
+  the fix is at the kernel (var-growth) level, not in Factor.
+
+- **BVE never schedules an extension variable.** BVE on Factor's `x` resolves its
+  dividers `(x∨fᵢ)` against its quotients `(¬x∨rⱼ)` straight back to the original
+  `mn`-clause grid — *exactly reversing* Factor. Left unguarded, BVE and Factor
+  thrash every inprocessing round (observed: thousands of factorings/round, a
+  741 MB churn proof). `bve_schedule` skips `v ≥ kernel_num_output_vars(k)`. This
+  is a *scheduling* filter (like the `BVE_OCCLIM` blow-up skip), not a soundness
+  precondition — eliminating `x` is perfectly sound, just counterproductive — so
+  BVE's guard stays pure (`root`) and this is a note, not a ledger deviation.
+
+**Status of E2 in DefaultPolicy: OFF.** The S1 binary-only transform is
+proof-correct (add-RAT via pivot-first DRAT; fuzz 1000/0 with drat-trim under
+`TACTIX_FACTOR_FORCE`) but **measured net-negative** (mp1 396 s vs 233 s baseline)
+— binary-only factoring finds too little, and the general lever needs the SBVA
+selective heuristic (S2) + large-clause remainders (S4). Factor stays *registered*
+(N1: applicable via the public API and via `--random-policy`), just not enabled in
+DefaultPolicy's inprocessing slot until S2/S4 make it a win.

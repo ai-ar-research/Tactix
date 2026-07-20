@@ -24,6 +24,14 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.unit_ids.resize(nvars, 0);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
+  // The dense occurrence index is per-literal kernel state (null outside a
+  // simplification phase). A var-adding rule (E2 Factor / BVA) can grow nvars
+  // WHILE dense is connected — the shared index is built once per phase and
+  // rules run under it (§5.3). Grow it here so no later consumer indexes a new
+  // literal out of bounds. New (extension) literals occur in no large clause
+  // yet, so empty entries are correct; add() maintains them from there.
+  if (k.dense)
+    k.dense->large.resize(2 * nvars);
   k.unassigned += nvars - old;
   // fixed-capacity trail/frames: the inlined assign hot path must never
   // reallocate, and its push_back capacity branch becomes always-false

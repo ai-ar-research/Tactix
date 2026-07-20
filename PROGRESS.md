@@ -8,37 +8,34 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 51 (2026-07-20)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-20
-- **Next (resume anchor):** phase 3, **T3 gate open**. V6 Congruence is merged
-  (net-positive; cracks `hwmcc-miters`; AND native-LRAT chains done). **Tier C
-  re-measured 2026-07-20 with congruence on = 345.75 (28/30), ~2.15× CaDiCaL.**
-  **Profiling correction (2026-07-20):** the structured-UNSAT losses are NOT a
-  search-heuristic gap — they are **missing inprocessing rules**. Isolated via
-  kissat ablation: **Factor (E2, bounded variable addition / SBVA) is the dominant
-  missing lever** — it accounts for essentially all of `mp1-blockpuzzle` (kissat
-  no-factor = 9.9M conflicts > our 4.19M — our search actually *beats* kissat's
-  factor-less search) and all of `x9` (our 802k ≈ kissat-no-factor 800k). **Sweep
-  (V5, SAT sweeping)** is the key for equivalence chains (`FmlaEquivChain`: kissat
-  377k→905k without sweep). Our core search is competitive; only fmla shows a
-  small ~1.76× residual. **→ Highest-leverage next work: implement E2 Factor
-  (SBVA-style), then V5 Sweep — both phase-4 rules, now shown high-leverage not
-  "breadth."** (Reports: profiling in this Log; instances mp1/x9/fmla.)
-  **E2 Factor design DONE** (`docs/design/e2-factor-design.md`; research
-  `e2-factor-research.md`) — key findings, all *de-risking*: (a) **DRAT proof needs
-  no new primitive** — emit dividers/quotients via existing `add_rup` with the
-  fresh pivot FIRST and delete originals LAST (drat-trim RAT-checks first-literal);
-  (b) **no ρ witness** — the fresh var is projected out (tag non-original, skip in
-  model); (c) **fresh-var alloc already supported** — `kernel_reserve_vars` is
-  additive/growable. `add_rat` (native LRAT) is the only deferred hard piece.
-  **Immediate next: implement — S0** (non-original tag + model projection) → S1/2
-  (transform + DRAT proof + binary-driven detection) → S3 (schedule + activate +
-  **measure on mp1/x9/fmla + Tier C**) → S4 large remainders → S5 LRAT `add_rat`. Congruence follow-ups resolved (2026-07-20):
-  clique binary-extraction **DROPPED** (dead end — clique is search-bound and has
-  no ternary clauses, so the mechanism doesn't apply); XOR/ITE native-LRAT chains
-  **DEFERRED** (sound interim, D-CONG-LRAT; completeness not performance, off the
-  exceed-Kissat critical path).
-  *(Base is soundness-green: 2026-07-20 20k
-  random-policy + native-LRAT nightly = **20000/0** (SAT 9928 / UNSAT 6746 / TO
-  3326), every UNSAT lrat-checked — `tools/fuzz/nightly-rev48.log`.)*
+- **Next (resume anchor):** phase 3, **T3 gate open**. **E2 Factor S0+S1 landed
+  and proof-correct, but binary-only Factor is measured NET-NEGATIVE, so it ships
+  OFF in DefaultPolicy.** State: the Factor rule (`src/rules/factor/`) is
+  registered — transform + DRAT (add-RAT via pivot-first `add_rup`, delete-last) +
+  greedy binary-grid detection + model projection, all done and fuzz-verified
+  (1000/0 under `TACTIX_FACTOR_FORCE`, drat-trim per case). Two **correctness
+  fixes** were required and landed (both general N1 hazards, not Factor-only):
+  (1) **dense-grow** — `kernel_reserve_vars` now resizes `dense->large` so a
+  var-adding rule under a connected dense index can't OOB `bve_build_occurrences`
+  (was the mp1 `EXC_BAD_ACCESS`); (2) **BVE skips extension vars** — else BVE
+  resolves Factor's dividers×quotients back to the grid and the two rules thrash
+  (741 MB churn proof). Both documented in `docs/implementation-notes.md` §5.
+  **Measurement (mp1-blockpuzzle, same binary, no proof):** Factor OFF = 233 s,
+  Factor ON = 396 s → binary-only factoring finds too little to pay for itself.
+  **→ Next decision (pick one):** (a) **S2 — SBVA selective heuristic** (bounded
+  applies/round, real gain threshold, priority-queue selection like kissat's
+  factor) + **S4 large-clause remainders** to make Factor net-positive, THEN
+  re-enable in the slot and re-measure mp1/x9/Tier C; or (b) **pivot to V5 Sweep**
+  (the other profiled lever, for `FmlaEquivChain`) and return to Factor S2/S4
+  later. Re-enable Factor at `default_policy.cpp` (the commented `Factor` line in
+  the inprocess-slot `on` list). Then the deferred **`revisit-codebase`** pass
+  (binary-watch iteration duplication `binary_partners`/`has_binary`/BVE scans;
+  Factor/Congruence grid-generator fuzz coverage; Factor-vs-BVE slot ordering).
+  *(Prior context: Tier C w/ congruence = 345.75 (28/30) ~2.15× CaDiCaL; profiling
+  isolated Factor+Sweep as the structured-UNSAT levers, our core search
+  competitive. Congruence follow-ups: clique extraction DROPPED, XOR/ITE
+  native-LRAT DEFERRED — D-CONG-LRAT. Base soundness-green: 20k nightly 20000/0,
+  every UNSAT lrat-checked — `tools/fuzz/nightly-rev48.log`.)*
 
 ## Non-negotiables status (plan §1.1)
 
@@ -176,6 +173,19 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-20 — E2 Factor S0+S1: proof-correct, but OFF (net-negative)
+- **Factor rule landed** (`src/rules/factor/`): binary-grid BVA transform, greedy
+  detection, add-RAT DRAT (pivot-first `add_rup` + delete-last), extension-var
+  model projection. Unit test `factor` (2×3 grid + boundary); calculus §E2 +
+  `implementation-notes.md` §5.
+- **Two correctness fixes** (general var-adding hazards, found via the mp1 crash):
+  dense index grows with `nvars` (kernel), BVE skips extension vars (no BVE↔Factor
+  thrash). Fuzz: default+`--random-policy` 1000/0, and Factor-in-slot 1000/0 under
+  `TACTIX_FACTOR_FORCE` (drat-trim per case); 29/29 unit.
+- **Measured net-negative** (mp1, same binary, no proof): OFF 233 s vs ON 396 s →
+  binary-only factoring under-delivers. Deactivated in DefaultPolicy (kept
+  registered — N1). Win needs SBVA heuristic (S2) + large remainders (S4).
 
 ### Phase 3 — inprocessing (2026-07-15 → 19)
 

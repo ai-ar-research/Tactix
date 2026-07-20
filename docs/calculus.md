@@ -310,7 +310,7 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   genuinely holds and the merged equivalence is entailed. The union-find only
   ever equates literals proven equivalent; `x ≡ ¬x` is a refutation.
 
-## 6b. Variable elimination (E1) — the resolution-eliminating family
+## 6b. Variable elimination & addition (E1–E2) — the resolution family and its inverse
 
 ### E1 · BVE — bounded variable elimination by resolution
 - **Precondition (abstract):** a variable `x` whose *bounded* resolution stays
@@ -354,6 +354,40 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   (Davis–Putnam); soundness is equisatisfiability *modulo ρ* — `extend_ρ(model of
   F′) ⊨ F`, the pivot recovered from the both-sides witness segments by one
   reverse walk (`kernel_extend_model`), robust to any later N1 decision on `x`.
+
+### E2 · Factor — bounded variable addition (BVA), the inverse of E1
+- **Precondition (abstract):** an `m×n` grid of binary clauses `{fᵢ ∨ rⱼ : i∈[m],
+  j∈[n]}` all present in `F`, with `m,n ≥ 2` and `mn > m+n` (a strictly positive
+  clause reduction), and a fresh variable `x ∉ vars(F)`. (Binary-grid factoring is
+  the S1 scope; general-clause remainders `{fᵢ ∨ R : R a shared sub-clause}` are
+  the same rule with `rⱼ` a clause — deferred, S4.)
+- **Effect:** introduce the fresh extension variable `x`; add the `m` **dividers**
+  `{x ∨ fᵢ}` and the `n` **quotients** `{¬x ∨ rⱼ}`; delete the `mn` grid clauses.
+  Net `Δ|F| = (m+n) − mn < 0`. `x` is an *extension* variable (indices
+  `≥ first_extension_var`): assigned by search like any other but **projected out**
+  of the reported model (§2, the `v`-line ranges over the originals). Exactly the
+  inverse of E1's Davis–Putnam step — BVE on `x` resolves the dividers against the
+  quotients back to the grid (so BVE must not schedule extension variables, else
+  the two rules thrash; see `implementation-notes.md`).
+- **Proof δ:** **add-RAT** (the first `ρ`-free new-variable rule). Each divider
+  `(x ∨ fᵢ)` is RAT on the fresh literal `x` — no clause mentions `¬x` yet, so the
+  RAT side-condition is vacuous. Each quotient `(¬x ∨ rⱼ)` is RAT on `¬x`: its only
+  resolution partners are the dividers `(x ∨ fᵢ)`, and each resolvent `(fᵢ ∨ rⱼ)` is
+  a grid clause **still live** in `F` at add-time — so every RAT resolvent is RUP.
+  This dictates the emission order: **add the dividers, add the quotients, delete
+  the grid LAST.** DRAT needs **no new primitive** — emit each added clause with
+  `add_rup` giving the **pivot literal first** (the checker reads the leading
+  literal as the RAT pivot), then `del` the grid. Native-LRAT `add_rat` is a later
+  stage; under LRAT the rule **no-ops** (mirrors D-CONG-LRAT).
+- **Reconstruction (`ρ`):** *none* — `x` is fully defined by the clauses just
+  added, so a model of `F′` restricted to `vars(F)` already satisfies `F` (drop
+  `x`). No witness is pushed; recovery is pure projection over `first_extension_var`
+  (`kernel_num_output_vars`).
+- **Soundness:** BVA is satisfiability-preserving *on the originals* — `F′` is
+  equisatisfiable with `F`, and every model of `F′` restricted to `vars(F)` models
+  `F` (the added clauses constrain only the fresh `x`). Each add step is a RAT
+  addition (satisfiability-preserving) and each delete removes a clause entailed by
+  the survivors, so the DRAT stream is sound end-to-end.
 
 ---
 

@@ -83,6 +83,12 @@ void bve_schedule(const Kernel &k, std::vector<Var> &out) {
   bve_build_occurrences(k, occ);
   std::vector<std::pair<uint64_t, Var>> ranked; // (score, var), ascending
   for (Var v = 0; v < k.nvars; v++) {
+    // Extension variables (E2 Factor / BVA) must never be eliminated: BVE on x
+    // resolves its dividers (x∨fᵢ) against its quotients (¬x∨rⱼ) back to the
+    // original m·n grid (fᵢ∨rⱼ) — exactly reversing Factor's compression, so
+    // BVE and Factor would thrash indefinitely. They exist to compress; skip.
+    if (v >= kernel_num_output_vars(k))
+      continue;
     const Lit pl = make_lit(v, false);
     if (k.values[pl] != 0) // assigned variable: not an elimination candidate
       continue;
