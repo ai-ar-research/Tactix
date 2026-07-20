@@ -150,10 +150,13 @@ struct InputsHash {
 // From the relation we emit s XOR gates, one per choice of output vᵢ: inputs =
 // the other variables (all positive), output literal = pos(vᵢ)^c so its value is
 // c⊕vᵢ = ⊕_{j≠i} vⱼ. Two gates with the same input set have equivalent outputs.
-void congruence_extract_xor(const Kernel &k, std::vector<CongGate> &out) {
-  // index every irredundant, fully-unassigned clause of size 3..CONG_XOR_ARITY+1
-  // by its sorted literal vector → proof id.
-  std::unordered_map<std::vector<Lit>, uint64_t, InputsHash> index;
+using ClauseIndex = std::unordered_map<std::vector<Lit>, uint64_t, InputsHash>;
+
+// Index every irredundant, fully-unassigned clause of size 3..CONG_XOR_ARITY+1 by
+// its sorted literal vector → proof id. Shared by XOR and ITE extraction (built
+// once per apply); the gate CLAUSES are never rewritten within an apply, so one
+// snapshot is valid for the whole closure.
+void build_clause_index(const Kernel &k, ClauseIndex &index) {
   std::vector<Lit> ls;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -175,6 +178,11 @@ void congruence_extract_xor(const Kernel &k, std::vector<CongGate> &out) {
     std::sort(ls.begin(), ls.end());
     index.emplace(ls, c->id());
   }
+}
+
+void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
+                            std::vector<CongGate> &out) {
+  (void)k;
   std::unordered_set<std::vector<Lit>, InputsHash> seen; // by sorted positive vars
   std::vector<Lit> pos;                                  // positive lits, sorted
   std::vector<Lit> probe;
@@ -351,28 +359,9 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
 // one under ¬c into an ITE candidate. EVERY candidate is verified against all four
 // defining clauses before emission, so a mis-detected condeq can never yield an
 // unsound gate. Output = lhs, inputs = [cond,then,else] (canonicalized later).
-void congruence_extract_ite(const Kernel &k, std::vector<CongGate> &out) {
-  std::unordered_map<std::vector<Lit>, uint64_t, InputsHash> index;
-  std::vector<Lit> tmp;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    ref += clause_words(c->size);
-    if (c->garbage() || c->redundant() || c->size != 3)
-      continue;
-    bool ok = true;
-    tmp.clear();
-    for (const Lit l : *c) {
-      if (k.value(l) != 0) {
-        ok = false;
-        break;
-      }
-      tmp.push_back(l);
-    }
-    if (!ok)
-      continue;
-    std::sort(tmp.begin(), tmp.end());
-    index.emplace(tmp, c->id());
-  }
+void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
+                            std::vector<CongGate> &out) {
+  (void)k;
   std::vector<Lit> probe(3);
   auto has = [&](Lit a, Lit b, Lit c) -> bool {
     probe[0] = a;
@@ -505,19 +494,30 @@ void add_equivalence_bare(Kernel &k, Lit a, Lit b) {
 
 ApplyResult congruence_apply(Kernel &k) {
   assert(congruence_guard(k));
+  // N2 (INTERIM): under native LRAT the whole rule is a sound no-op. The
+  // incremental closure merges gates whose inputs were bridged by EARLIER added
+  // equivalences, so a correct LRAT chain for such a match must thread those
+  // bridging binaries (and, for XOR/ITE, the parity/case-split lemmas). The
+  // current chains only cover DIRECT (unbridged) AND matches, so running under
+  // LRAT would emit uncheckable chains. Emitting nothing keeps every LRAT proof
+  // checkable; DRAT gets the full AND+XOR+ITE closure. Removal path: proper
+  // per-match LRAT chains (tracked follow-up) — recorded in docs/calculus.md.
+  if (k.proof && k.proof->lrat())
+    return ApplyResult::NoOp;
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.congruence_rounds++;
 
-  // XOR gates participate in the SAME union-find as AND (an AND input can be an
-  // XOR output), so extract both into one gate pool. XOR is gated on DRAT: its
-  // match binaries use a bare RUP add whose LRAT id/chain is a later increment.
-  const bool lrat = k.proof && k.proof->lrat();
+  // AND, XOR, and ITE gates all participate in ONE union-find closure (an AND
+  // input can be an XOR/ITE output). XOR/ITE match binaries use a bare DRAT-RUP
+  // add preceded by their proof-chain lemmas.
   std::vector<CongGate> gates;
   congruence_extract(k, gates);
-  if (!lrat) {
-    congruence_extract_xor(k, gates);
-    congruence_extract_ite(k, gates);
+  {
+    ClauseIndex index; // built once, shared by XOR + ITE extraction
+    build_clause_index(k, index);
+    congruence_extract_xor(k, index, gates);
+    congruence_extract_ite(k, index, gates);
   }
   if (gates.empty())
     return ApplyResult::NoOp;
