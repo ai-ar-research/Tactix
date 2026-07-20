@@ -33,10 +33,20 @@ disagree, the plan is authoritative — fix this file.
   mp1 are 22–58× and 77 % of our time. Trajectory 7/14→11/14→13/14→14/14, PAR-2
   322.9→70.0 over ~9 days. **Re-run that exact set (jobs=4, uncontended) after each
   lever and compare per-instance ratios — it is the baseline to beat.**
-  **→ Next work (by leverage):** (1) **E2 Factor S2 — SBVA selective heuristic**
-  (the density short-circuit is a stand-in; real selection/scheduling belongs in
-  the policy) + **S4 — large-clause remainders** → mp1 22×, target kissat's 13×
-  (task #37); (2) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
+  **→ Next work (by leverage):** (1) **E2 Factor S2 — SBVA quotient-chain
+  matching** (task #37, in progress). **mp1-gap diagnosis DONE (2026-07-20):** the
+  residual mp1 gap is grid **selection/matching**, NOT var-integration or large
+  clauses. Proof via `TACTIX_DUMP_FACTORED` (commit 7dc296a) → feed our factored
+  CNF to kissat: x9 grids GOOD (kissat 387k on ours ≈ its own 353k) but mp1 grids
+  WEAK (kissat 4.44M on ours ≫ its own 305k) — our greedy co-occurrence matching
+  finds structurally-wrong grids on mp1's dense graph. Var-integration is minor
+  (x9 our 453k vs kissat 387k same formula = 1.17×); S4 deprioritized (mp1 already
+  reduces clauses fine — it's WHICH binaries). **S2 = port kissat's `next_factor`
+  sibling-clause matching + `best_quotient` (`e2-factor-research.md` §1.2–1.3),
+  replacing the greedy.** **Fast iteration metric: `kissat --factor=false` on our
+  `TACTIX_DUMP_FACTORED` mp1 = 4.44M now → target 305k** (~1 min/iter, no slow full
+  search); then run full search + the Tier B baseline. Selection/scheduling wrapper
+  → policy. (2) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
   lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
   watch iteration dup across `binary_partners`/`has_binary`/BVE; grid-generator
@@ -185,6 +195,14 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-20 — mp1-gap diagnosis: it's grid matching (S2), not var-integration
+- Isolation via `TACTIX_DUMP_FACTORED` (commit 7dc296a) → our factored CNF → kissat:
+  **x9 grids GOOD** (kissat 387k ≈ its own 353k), **mp1 grids WEAK** (kissat 4.44M
+  ≫ its own 305k). Our greedy co-occurrence matching finds wrong grids on mp1's
+  dense graph. Var-integration minor (x9 1.17×); S4 deprioritized. **→ S2 = kissat
+  `next_factor`/`best_quotient` matching.** Fast metric: kissat-on-our-factored-mp1
+  4.44M → target 305k. Diagnosis banked; S2 implementation not started.
 
 ### 2026-07-20 — Tier B head-to-head vs Kissat + orphan-process fix
 - **Clean Tier B baseline** (`benchmarks/reports/2026-07-20-tierB-vs-kissat.md`):
