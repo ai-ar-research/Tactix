@@ -83,6 +83,40 @@ void apply_factoring(Kernel &k, const std::vector<Lit> &F,
       kernel_delete_binary_all_copies(k, f, r);
 }
 
+// DEBUG (S2 diagnosis): dump the current clause DB as DIMACS and exit, to feed
+// our factored formula to another solver (separates "are our grids good" from
+// "does our engine leverage the aux vars"). Env-gated; no cost when unset.
+void dump_factored_and_exit(const Kernel &k, const char *path) {
+  std::vector<std::vector<int>> cls;
+  auto dl = [](Lit l) { const int e = static_cast<int>(var_of(l)) + 1;
+                        return negated(l) ? -e : e; };
+  for (Var v = 0; v < k.nvars; v++) {
+    const int8_t val = k.values[make_lit(v, false)];
+    if (val > 0) cls.push_back({static_cast<int>(v) + 1});
+    else if (val < 0) cls.push_back({-(static_cast<int>(v) + 1)});
+  }
+  for (Lit l = 0; l < 2 * k.nvars; l++) {
+    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
+    const uint32_t sz = k.watches.heads[l].size;
+    for (uint32_t i = 0; i < sz;) {
+      const Watch w{ws[i]};
+      if (w.binary()) { if (l < w.other()) cls.push_back({dl(l), dl(w.other())}); i += 1; }
+      else i += 2;
+    }
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) { std::vector<int> cl; for (const Lit l : *c) cl.push_back(dl(l)); cls.push_back(cl); }
+    ref += clause_words(c->size);
+  }
+  FILE *f = std::fopen(path, "w");
+  std::fprintf(f, "p cnf %u %zu\n", k.nvars, cls.size());
+  for (const auto &cl : cls) { for (int x : cl) std::fprintf(f, "%d ", x); std::fprintf(f, "0\n"); }
+  std::fclose(f);
+  std::fprintf(stderr, "[factor] dumped %zu clauses (%u vars) to %s\n", cls.size(), k.nvars, path);
+  std::exit(0);
+}
+
 } // namespace
 
 bool factor_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
@@ -194,6 +228,9 @@ ApplyResult factor_apply(Kernel &k) {
   if (std::getenv("TACTIX_FACTOR_TRACE"))
     std::fprintf(stderr, "[factor] entered (%u orig lits), %llu factorings\n",
                  orig_lits, (unsigned long long)applied);
+  if (const char *p = std::getenv("TACTIX_DUMP_FACTORED"))
+    if (applied)
+      dump_factored_and_exit(k, p);
   return applied ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
