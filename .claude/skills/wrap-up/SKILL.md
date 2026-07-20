@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: End-of-session checklist, run right before quitting so the next fresh session can just say "continue" and resume building. Ensures work is committed + pushed, tests are green, the living docs are current (PROGRESS reflects what was done + the next undone step; plan/calculus synced if touched), compact-docs has run if a doc grew unwieldy, tasks reflect reality, and PROGRESS's resume anchor is accurate and self-sufficient. Use at the end of every work session.
+description: End-of-session checklist, run right before quitting so the next fresh session can just say "continue" and resume building. Ensures work is committed + pushed, tests are green, the living docs are current (PROGRESS reflects what was done + the next undone step; plan/calculus synced if touched), compact-docs has run if a doc grew unwieldy, tasks reflect reality, and PROGRESS's resume anchor is accurate and self-sufficient. Also surfaces the (user-run) command to archive the session transcript to session-YYYY-MM-DD.txt. Use at the end of every work session.
 ---
 
 # Wrapping up a session
@@ -42,6 +42,18 @@ resume anchor, step 6).
    artifact for "continue."
 7. **Summarize to the user:** what changed this session, current fuzz/benchmark
    status, and the next step.
+8. **Offer the transcript-save command** (a **user**-run action — agents must
+   never touch `session-*.txt`; a hook enforces this, and the real handoff is
+   PROGRESS + commits, steps 3/6). Show the user this command to archive the
+   session; do **not** run it yourself:
+   ```bash
+   dir="$HOME/.claude/projects/$(pwd | sed 's#[/.]#-#g')"
+   cp "$(ls -t "$dir"/*.jsonl | head -1)" "session-$(date +%F).txt"
+   ```
+   (`~/.claude/projects/<cwd-with-/-and-.-as-dashes>/` holds the session JSONLs;
+   the newest is the active session — target a specific UUID if several run at
+   once. Swap the `cp` for a `jq` extract if a human-readable dump is wanted.) The
+   transcript is a convenience archive only; PROGRESS is the resume anchor.
 
 ## Guardrails
 
@@ -49,3 +61,6 @@ resume anchor, step 6).
 - The next step must live in `PROGRESS.md`, never only in chat/memory.
 - Don't over-document the session's play-by-play — the resume anchor + a concise
   Log entry is enough (that is what compact-docs enforces).
+- **Never touch `session-*.txt`** — do not read, write, cat, grep, or glob them.
+  They are user-private (hook-enforced); only *surface* the save command (step 8)
+  for the user to run.
