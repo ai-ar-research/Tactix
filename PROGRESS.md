@@ -5,9 +5,9 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 48 (2026-07-19)
+- **Plan revision tracked:** rev. 49 (2026-07-20)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-19
+- **Last updated:** 2026-07-20
 - **Next (resume anchor):** phase 3, **T3 gate open**. V6 Congruence is merged
   (net-positive; cracks `hwmcc-miters`; AND native-LRAT chains done). **Tier C
   re-measured 2026-07-20 with congruence on = 345.75 (28/30), ~2.15× CaDiCaL** —
@@ -35,7 +35,7 @@ disagree, the plan is authoritative — fix this file.
 - [x] T1 — all of Tier A ≤ 30 s each; ≥ MiniSat on Tier B — **passed 2026-07-14** (Tier A 200/200 PAR-2 0.48 jobs=4; Tier B medians 9/14 @ 231.6 vs MiniSat 8/14 @ 281.4; report `benchmarks/reports/2026-07-14-t1-gate.md`)
 - [x] T2 — ≥ Glucose on Tier B; propagation microbenchmark within 20% of Kissat — **passed 2026-07-14** (Tier B medians 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C  **(re-pinned rev 46, jobs=4/1200 s: CaDiCaL = 160.6 clean — the old 336.96 pin was contention-inflated 2×. Measured 2026-07-20 with **V6 Congruence on**: tactix PAR-2 **345.75 (28/30)**, ~2.15× CaDiCaL → **T3 NOT met**. Congruence is marginally net-positive on Tier C (356 pre-congruence → 345.75) but **cracks no new Tier C instances** — so the residual T3 gap is **search quality**, not congruence (`hwmcc-miters` cracked on Tier B +1; `clique` is search-bound). Caveat: congruence bloats proofs — Tier C proofs totalled 7.4 GB / 40-min drat-trim check. Run `benchmarks/runs/20260719-231835-C-tactix`. Always re-measure CaDiCaL clean in-session before judging, §8.1.)**
-- [ ] T4 — parity with Kissat-public on Tier D  **(satisfies N3)**
+- [ ] T4 — **exceed** Kissat-public PAR-2 on Tier D — via DefaultPolicy engineering, before phase-6 learning (raised from "parity" rev 49; N3's floor is parity, T4 is the R5 goal)
 - [ ] T5 — beat AE-Kissat-MAB PAR-2 on Tier D → competition submission
 
 ## Phase 0 — setup (complete 2026-07-09)
