@@ -19,6 +19,7 @@ import argparse
 import concurrent.futures
 import json
 import os
+import resource
 import shlex
 import shutil
 import subprocess
@@ -49,11 +50,26 @@ class CaseOutcome:
         self.failures.append((kind, detail))
 
 
+def _cpu_backstop(timeout):
+    """preexec_fn: kernel-enforced CPU cap on the child. subprocess.run(timeout=)
+    only kills the child on the NORMAL timeout path; if the PARENT dies abruptly
+    (session/nightly killed mid-run) the child is reparented to init and spins
+    forever — the 13.5 h / 6-core orphan we hit. RLIMIT_CPU makes the kernel
+    SIGXCPU (then SIGKILL) the child regardless of parent state, so no solver can
+    ever outlive its budget. Slack keeps the wall-timeout the primary mechanism."""
+    cap = int(timeout) + 5
+
+    def _pre():
+        resource.setrlimit(resource.RLIMIT_CPU, (cap, cap + 2))
+    return _pre
+
+
 def run_cmd(cmd, timeout):
     """Returns (exitcode, stdout, stderr); exitcode None on timeout."""
     try:
         r = subprocess.run(cmd, capture_output=True, text=True,
-                           errors="replace", timeout=timeout)
+                           errors="replace", timeout=timeout,
+                           preexec_fn=_cpu_backstop(timeout))
         return r.returncode, r.stdout, r.stderr
     except subprocess.TimeoutExpired as e:
         def _txt(b):

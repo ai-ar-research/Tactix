@@ -93,6 +93,12 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
     argv = cmd + [cnf] + ([proof] if check_proofs else [])
 
     def limits():
+        # kernel-enforced CPU backstop: subprocess.run(timeout=) only kills the
+        # child on the normal timeout path; if the parent dies abruptly the child
+        # is reparented to init and spins forever. RLIMIT_CPU makes the kernel
+        # stop it regardless of parent state (slack keeps wall-timeout primary).
+        cap = int(timeout) + 5
+        resource.setrlimit(resource.RLIMIT_CPU, (cap, cap + 2))
         if mem_gb:
             b = mem_gb << 30
             resource.setrlimit(resource.RLIMIT_AS, (b, b))
@@ -101,7 +107,7 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
     try:
         r = subprocess.run(argv, capture_output=True, text=True,
                            errors="replace", timeout=timeout,
-                           preexec_fn=limits if mem_gb else None)
+                           preexec_fn=limits)
         elapsed = time.monotonic() - t0
         verdict = parse_verdict(r.returncode, r.stdout)
     except subprocess.TimeoutExpired:
