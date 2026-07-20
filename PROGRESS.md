@@ -8,15 +8,19 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 48 (2026-07-19)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-19
-- **Next (resume anchor):** phase 3, **T3 gate open** (see the gate line below). V6
-  Congruence just merged (net-positive on Tier B; cracks `hwmcc-miters`; AND
-  native-LRAT chains done). Highest-leverage next work is the **T3 search-quality
-  gap** — the real blocker now that congruence landed: `clique` is search-bound,
-  and Tier C sits ~2.2× CaDiCaL; also **re-measure Tier C with congruence on**
-  (pending). Lower-priority *tracked congruence follow-ups* (see Log 2026-07-19):
-  native-LRAT chains for **XOR/ITE** (removes the `--lrat` gating so the LRAT path
-  gets the full closure), and **binary-clause extraction** for `clique`
-  (deprioritized — clique is search-bound, not congruence-bound).
+- **Next (resume anchor):** phase 3, **T3 gate open**. V6 Congruence is merged
+  (net-positive; cracks `hwmcc-miters`; AND native-LRAT chains done). **Tier C
+  re-measured 2026-07-20 with congruence on = 345.75 (28/30), ~2.15× CaDiCaL** —
+  congruence did NOT close the gap (no new Tier C instances), so the **T3 blocker
+  is confirmed to be SEARCH QUALITY**, and that is the highest-leverage next work.
+  Where our search loses most (Tier B, per-instance vs kissat): structured **UNSAT**
+  — `mp1-blockpuzzle` ~22×, `FmlaEquivChain` ~4.6×, `x9-08014` ~4.1× — so start by
+  profiling those and looking at clause-DB reduction / restart cadence / vivify
+  effectiveness. Lower-priority tracked congruence follow-ups: native-LRAT chains
+  for **XOR/ITE** (un-gate `--lrat`), and **binary-extraction** for `clique`
+  (deprioritized — search-bound). *(A 20k random-policy+LRAT nightly is running as
+  of 2026-07-20 — `tools/fuzz/nightly-rev48.log`; check it before trusting the base
+  green.)*
 
 ## Non-negotiables status (plan §1.1)
 
@@ -30,7 +34,7 @@ disagree, the plan is authoritative — fix this file.
 
 - [x] T1 — all of Tier A ≤ 30 s each; ≥ MiniSat on Tier B — **passed 2026-07-14** (Tier A 200/200 PAR-2 0.48 jobs=4; Tier B medians 9/14 @ 231.6 vs MiniSat 8/14 @ 281.4; report `benchmarks/reports/2026-07-14-t1-gate.md`)
 - [x] T2 — ≥ Glucose on Tier B; propagation microbenchmark within 20% of Kissat — **passed 2026-07-14** (Tier B medians 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C  **(re-pinned rev 46, jobs=4/1200 s: CaDiCaL = 160.6 clean — the old 336.96 pin was contention-inflated 2×; tactix after the inprocessing revamp = 356 (28/30), ~2.2× → T3 NOT met. Gap update (rev 47): **`hwmcc-miters` now CRACKED by V6 Congruence** (Tier B +1); the remaining `clique` TO is search-bound (not congruence), so the residual gap is search quality (+ Tier C re-measure with congruence pending). Always re-measure CaDiCaL clean in-session before judging, §8.1. Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`)**
+- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C  **(re-pinned rev 46, jobs=4/1200 s: CaDiCaL = 160.6 clean — the old 336.96 pin was contention-inflated 2×. Measured 2026-07-20 with **V6 Congruence on**: tactix PAR-2 **345.75 (28/30)**, ~2.15× CaDiCaL → **T3 NOT met**. Congruence is marginally net-positive on Tier C (356 pre-congruence → 345.75) but **cracks no new Tier C instances** — so the residual T3 gap is **search quality**, not congruence (`hwmcc-miters` cracked on Tier B +1; `clique` is search-bound). Caveat: congruence bloats proofs — Tier C proofs totalled 7.4 GB / 40-min drat-trim check. Run `benchmarks/runs/20260719-231835-C-tactix`. Always re-measure CaDiCaL clean in-session before judging, §8.1.)**
 - [ ] T4 — parity with Kissat-public on Tier D  **(satisfies N3)**
 - [ ] T5 — beat AE-Kissat-MAB PAR-2 on Tier D → competition submission
 
