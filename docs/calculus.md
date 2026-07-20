@@ -374,14 +374,14 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) dropped that conjunct
   (XOR: the full `2^k` parity set; ITE: all four ternaries), so `out = f(in…)`
   genuinely holds and the merged equivalence is entailed. The union-find only
   ever equates literals proven equivalent; `x ≡ ¬x` is a refutation.
-- **Deviations (see §7.2):** **D-CONG-LRAT** — the rule is a sound no-op under
-  native LRAT (the incremental closure merges gates bridged by earlier
-  equivalences, whose correct LRAT chain must thread those bridging binaries /
-  ladder / case-split lemma ids; the current chains cover only direct AND
-  matches). Emitting nothing keeps every LRAT proof checkable; DRAT gets the full
-  AND/XOR/ITE closure. **D-CONG-DELETE** — the transient XOR/ITE ladder lemmas are
-  not yet `del`-eted (proof-size only, not soundness). Both have a removal path:
-  native per-match LRAT chains.
+- **Deviations (see §7.2):** **D-CONG-LRAT** — under native LRAT, AND congruence
+  now runs with full **bridged** chains (`big_path_chain` threads the bridging
+  equivalence binaries; validated by lrat-check), but XOR/ITE extraction is gated
+  off: their canonicalization adds a sign layer on top of bridging (`normalize_ite`
+  swaps then/else + flips signs; XOR folds input signs into the output parity and
+  cancels duplicates), so the ladder / case-split lemma chains are intricate and
+  not yet produced. DRAT gets the full AND/XOR/ITE closure. **D-CONG-DELETE** —
+  the transient XOR/ITE ladder lemmas are not yet `del`-eted (proof-size only).
 
 ## 6b. Variable elimination (E1) — the resolution-eliminating family
 
@@ -482,7 +482,7 @@ item, not an ad-hoc patch.
 | ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED rev 37** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
 | ~~D-SPLIT-3~~ | ~~`¬conflict_valid` on pure `F`-rewrites~~ — **CLOSED rev 42** | C1, C2, C3, V3, V4 | recorded-conflict control flag not in `σ` | **done:** conjunct removed from the five pure `F`-rewrites (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce). Behavior-preserving: `conflict_valid ⟹ level>0` at every rule boundary, so under the retained `level==0` the conjunct never fired. V1/V2 Probe/Backbone **keep** `!conflict_valid` — for failed-literal reasoning it is an *abstract* precondition (consistent `M`), not a leak |
 | D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, V6, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
-| D-CONG-LRAT | V6 Congruence apply is a **sound no-op under native LRAT** (proof-mode branch in the effect) | V6 | the incremental closure merges gates whose inputs were bridged by earlier added equivalences; a correct LRAT chain must thread those bridging binaries (and the XOR ladder / ITE case-split lemma ids), but the current chains cover only direct (unbridged) AND matches | emit native per-match LRAT chains (bridged AND: bridging-binary ids; XOR: ladder lemma ids; ITE: case-split lemma ids), then drop the no-op. DRAT already gets the full closure |
+| D-CONG-LRAT | Under native LRAT, **AND congruence runs with full bridged chains; XOR/ITE extraction is gated off** (proof-mode branch in the effect) | V6 | AND-match chains now thread the bridging equivalence binaries via `big_path_chain` (done). XOR/ITE remain: their canonicalization adds a sign layer ON TOP of bridging — `normalize_ite` swaps then/else + flips signs per gate; XOR folds input signs into the output parity and cancels duplicate variables — so the canonical lemma literals do not correspond by-position-and-sign to either gate's raw clauses, making the antecedent chains for the ladder / case-split lemmas intricate | emit native LRAT chains for the XOR parity-ladder and ITE case-split lemmas (tracking each gate's normalization/parity to map canonical↔raw), then ungate XOR/ITE under LRAT. DRAT already gets the full closure |
 | D-CONG-DELETE | V6 transient XOR/ITE ladder / case-split lemmas are not `del`-eted | V6 | proof-size only (the lemmas survive in the DRAT stream; soundness unaffected — they are RUP) | emit `del` for the chain after the merge (kissat `delete_proof_chain`); folds in with the LRAT-chain work |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
