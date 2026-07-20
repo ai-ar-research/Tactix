@@ -50,3 +50,9 @@ The four **living** docs, and what each owns (see protocol 1):
 justified only for (a) a design pass *before* a large feature (→ `docs/design/`)
 or (b) a dated experiment/gate report (→ `benchmarks/reports/`) — both frozen once
 written. (Also stated in `CLAUDE.md`.)
+
+**Keeping the living docs healthy:** the **compact-docs** skill compacts them (and
+enforces these protocols) — condense completed-work detail to a result + pointer,
+remove superseded content, dedupe facts to their one home — while guaranteeing a
+fresh session still finds the big picture and the undone steps. Run it at phase
+gates, after a big feature lands, or when a living doc grows unwieldy.
