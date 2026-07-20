@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <queue>
+#include <utility>
 #include <vector>
 
 namespace tactix {
@@ -47,6 +49,17 @@ void binary_partners(const Kernel &k, Lit l, Lit limit, std::vector<Lit> &out,
   for (const Lit p : out) // clear the marker for reuse
     seen[p] = 0;
 }
+
+// Seed/tie-break score — kissat's `watches_score` (factor.c:310), the raw
+// watch-list size. Kissat reads it in DENSE mode, where large watches are
+// flushed and duplicate binaries physically deleted, so for it this is the
+// count of DISTINCT binary neighbours; ours counts duplicate copies and spends
+// two words per large watch. Scoring distinct partners instead (the faithful
+// port) was measured and is WORSE where it matters: on mp1 it gives 3.35M vs
+// 2.50M conflicts on the factored formula, against 4.44M for no scoring at
+// all. It wins only marginally on x9 (347k vs 364k, inside SAT noise). Keep
+// the raw count until there is evidence the faithful score pays.
+uint32_t watch_score(const Kernel &k, Lit l) { return k.watches.heads[l].size; }
 
 bool contains(const std::vector<Lit> &v, Lit l) {
   for (const Lit x : v)
@@ -138,7 +151,10 @@ ApplyResult factor_apply(Kernel &k) {
   // policy's scheduling of Factor (S2); it lives here meanwhile as a cheap NoOp,
   // not a guard conjunct (the guard stays the pure `level==0` precondition, so
   // N1 keeps every factoring applicable via the API regardless).
-  if (k.binary_ids.size() < kernel_num_output_vars(k))
+  // TACTIX_FACTOR_FORCE bypasses the selectivity gate so the fuzz harness
+  // exercises Factor on small instances (which are almost all below it).
+  if (k.binary_ids.size() < kernel_num_output_vars(k) &&
+      !std::getenv("TACTIX_FACTOR_FORCE"))
     return ApplyResult::NoOp;
 
   // Anti-loop boundary: only ORIGINAL literals may be factors/remainders — never
@@ -148,15 +164,41 @@ ApplyResult factor_apply(Kernel &k) {
   // over them → unbounded self-factoring.
   const Lit orig_lits = static_cast<Lit>(2 * kernel_num_output_vars(k));
 
-  std::vector<uint8_t> inR(orig_lits, 0);     // R membership
-  std::vector<uint8_t> seen(orig_lits, 0);    // binary_partners dedup scratch
+  std::vector<uint8_t> inR(orig_lits, 0);       // R membership
+  std::vector<uint8_t> seen(orig_lits, 0);      // binary_partners dedup scratch
   std::vector<uint32_t> cofactor(orig_lits, 0); // co-occurrence counts
   std::vector<Lit> touched, partners, R, newR, F, best_F, best_R;
   uint64_t applied = 0;
 
-  for (Lit seed = 0; seed < orig_lits && applied < FACTOR_MAX_PER_APPLY; seed++) {
-    if (k.value(seed) != 0)
+  // Seed schedule. Kissat pops seed candidates from a max-heap keyed by
+  // occurrence count and re-scores every literal touched by an applied
+  // factoring (`update_factored`, factor.c:800), so the order adapts as the
+  // binary graph is consumed; each literal is still seeded at most once per
+  // pass (the `f->factor` bit, factor.c:922). A static literal-index scan
+  // instead lets an early low-degree seed spend binaries a high-degree seed
+  // needed — near-harmless on a sparse graph, decisive on a dense one.
+  // Measured on mp1 as conflicts kissat needs on our factored formula:
+  // 4.44M unordered -> 3.81M with this heap -> 2.50M once the tie-break below
+  // joins it (kissat on its own factoring: 305k).
+  const auto score_of = [&](Lit l) -> uint32_t { return watch_score(k, l); };
+  std::priority_queue<std::pair<uint32_t, Lit>> pq;
+  std::vector<uint8_t> tried(orig_lits, 0);
+  for (Lit l = 0; l < orig_lits; l++)
+    if (k.value(l) == 0)
+      pq.push({score_of(l), l});
+
+  while (applied < FACTOR_MAX_PER_APPLY && !pq.empty()) {
+    const std::pair<uint32_t, Lit> top = pq.top();
+    pq.pop();
+    const Lit seed = top.second;
+    if (tried[seed] || k.value(seed) != 0)
       continue;
+    const uint32_t now = score_of(seed);
+    if (now != top.first) { // stale key — re-insert at its current score
+      pq.push({now, seed});
+      continue;
+    }
+    tried[seed] = 1;
     binary_partners(k, seed, orig_lits, R, seen);
     if (R.size() < 2 || R.size() > FACTOR_DIM_LIMIT)
       continue;
@@ -181,13 +223,27 @@ ApplyResult factor_apply(Kernel &k) {
           cofactor[h]++;
         }
       }
+      // Pick the highest co-occurrence count, breaking ties by watch-list size
+      // (kissat's `tied_next_factor_score`, factor.c:318). Taking the first max
+      // in literal order instead is arbitrary, and on a dense binary graph the
+      // max count is tied among many candidates — so the tie-break, not the
+      // count, is what actually selects the grid.
       Lit g = INVALID_LIT;
-      uint32_t bestc = 1;
-      for (const Lit h : touched)
-        if (cofactor[h] > bestc) {
-          bestc = cofactor[h];
+      uint32_t bestc = 1, best_score = 0;
+      for (const Lit h : touched) {
+        const uint32_t c = cofactor[h];
+        if (c <= 1 || c < bestc)
+          continue;
+        const uint32_t score = score_of(h);
+        if (c > bestc) {
+          bestc = c;
+          best_score = score;
+          g = h;
+        } else if (score > best_score) { // c == bestc
+          best_score = score;
           g = h;
         }
+      }
       for (const Lit h : touched)
         cofactor[h] = 0;
       if (g == INVALID_LIT) // no factor shares ≥ 2 remainders
@@ -219,9 +275,22 @@ ApplyResult factor_apply(Kernel &k) {
       inR[r] = 0;
 
     if (best_delta >= FACTOR_MIN_GAIN) {
+      if (std::getenv("TACTIX_GRID_TRACE"))
+        std::fprintf(stderr, "[grid] m=%zu n=%zu delta=%d\n", best_F.size(),
+                     best_R.size(), best_delta);
       apply_factoring(k, best_F, best_R);
       applied++;
       k.stats.factorings++;
+      // Re-score the literals whose binary degree just dropped, so a seed that
+      // has since been stripped of its grid stops outranking an intact one
+      // (kissat's `update_factored`, factor.c:800). Untried literals only —
+      // `tried` still caps each seed at one attempt per pass.
+      for (const Lit f : best_F)
+        if (!tried[f])
+          pq.push({score_of(f), f});
+      for (const Lit r : best_R)
+        if (!tried[r])
+          pq.push({score_of(r), r});
     }
   }
 

@@ -33,20 +33,41 @@ disagree, the plan is authoritative — fix this file.
   mp1 are 22–58× and 77 % of our time. Trajectory 7/14→11/14→13/14→14/14, PAR-2
   322.9→70.0 over ~9 days. **Re-run that exact set (jobs=4, uncontended) after each
   lever and compare per-instance ratios — it is the baseline to beat.**
-  **→ Next work (by leverage):** (1) **E2 Factor S2 — SBVA quotient-chain
-  matching** (task #37, in progress). **mp1-gap diagnosis DONE (2026-07-20):** the
-  residual mp1 gap is grid **selection/matching**, NOT var-integration or large
-  clauses. Proof via `TACTIX_DUMP_FACTORED` (commit 7dc296a) → feed our factored
-  CNF to kissat: x9 grids GOOD (kissat 387k on ours ≈ its own 353k) but mp1 grids
-  WEAK (kissat 4.44M on ours ≫ its own 305k) — our greedy co-occurrence matching
-  finds structurally-wrong grids on mp1's dense graph. Var-integration is minor
-  (x9 our 453k vs kissat 387k same formula = 1.17×); S4 deprioritized (mp1 already
-  reduces clauses fine — it's WHICH binaries). **S2 = port kissat's `next_factor`
-  sibling-clause matching + `best_quotient` (`e2-factor-research.md` §1.2–1.3),
-  replacing the greedy.** **Fast iteration metric: `kissat --factor=false` on our
-  `TACTIX_DUMP_FACTORED` mp1 = 4.44M now → target 305k** (~1 min/iter, no slow full
-  search); then run full search + the Tier B baseline. Selection/scheduling wrapper
-  → policy. (2) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
+  **→ Next work (by leverage):** (1) **E2 Factor S2 — PARTIAL, banked
+  (2026-07-20).** Landed: kissat-style **seed max-heap** (`watches_score` key,
+  re-scored after each applied factoring) + **scored tie-break** among equal
+  co-occurrence candidates, replacing the literal-index scan and first-max tie.
+  mp1 proxy **4.44M → 2.50M** conflicts (heap alone 3.81M); legacy path verified
+  byte-identical. Fuzz 400×4 legs 0 failures (default/random-policy/ASCII-DRAT
+  natively, +LRAT), units 29/29. `TACTIX_FACTOR_FORCE` re-added so fuzz exercises
+  Factor below the density gate.
+  **Scale of the prize (measured):** BVA is worth **32×** on mp1 — kissat needs
+  9.91M conflicts with `--factor=false` vs 305k with its own factoring. We now
+  capture ~1.8× of that. **Hypotheses KILLED by measurement — do not re-litigate:**
+  (a) **S4/large-clause grids** — `kissat --factorsize=2` (binary only) scores
+  304.5k ≈ its 305.7k default, so large remainders are worth nothing on mp1;
+  (b) **micro-grid flood / delta bound (D2)** — backwards: kissat applies MORE
+  tiny grids than us (329 with delta≤2 vs our 149; medians 3 vs 8);
+  (c) **duplicate binaries** — irrelevant to kissat (deduped mp1 → 280.9k, grid
+  shapes unchanged), which means PROGRESS's old "dups are load-bearing (4.19M→
+  23.9M)" is OUR pathology, not the instance's — see (2);
+  (d) **BVE-before-Factor ordering** — hoisting Factor ahead of BVE leaves the
+  formula it sees byte-identical (`lits=3520 max_degree=102`);
+  (e) **D4 extension-remainders** — real but small: ablated INSIDE kissat it costs
+  only 1.65× (466k vs 283k, 5 seeds); porting it to us did not unlock wide grids.
+  **THE UNRESOLVED CORE — start here:** our grids hard-cap at **27×27 (delta 675)**
+  in every configuration tried, while kissat reaches **22×64 and 15×80** (delta
+  1322/1105) on the SAME formula where max binary degree is 102, so those
+  rectangles are structurally available to us. Remainder width 5.41 (ours) vs
+  9.42 (kissat) on pure-original grids. Our chain growth + best-prefix argmax were
+  verified EQUIVALENT to kissat's, and seed order / tie-break / score / remainder
+  boundary / BVE order are all now eliminated — so the cause is upstream of all of
+  them and not yet identified. Caveat: kissat's m/n come from added instrumentation
+  (`m=q->id+1`, `n=|q->clauses|` post-flush), not its internal `reduction` — worth
+  verifying before building on it. Fast metric: `kissat --factor=false` on
+  `TACTIX_DUMP_FACTORED` mp1 = **2.50M now → 305k target**; `TACTIX_GRID_TRACE`
+  dumps m/n/delta per factoring.
+  (2) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
   lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
   watch iteration dup across `binary_partners`/`has_binary`/BVE; grid-generator
@@ -233,6 +254,26 @@ report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 - Validation: units 29/29; fuzz default + `--random-policy` + Factor-in-slot
   1000/0 each (drat-trim); x9 DRAT VERIFIED (469 RAT lemmas). Full kissat benefit
   (mp1 13×) still wants S2 SBVA selection + S4 large remainders.
+
+### 2026-07-20 — E2 Factor S2 (partial): seed heap + tie-break, and four dead ends
+- **Landed (fuzz-green):** seed max-heap keyed by `watches_score` and re-scored
+  after every applied factoring (kissat `update_factored`, factor.c:800), plus a
+  scored tie-break among equal co-occurrence candidates (`tied_next_factor_score`,
+  factor.c:318). Replaces a literal-index scan + first-max tie. **mp1 proxy
+  4.44M → 2.50M** conflicts (heap alone 3.81M, tie-break alone 2.54M). Disabling
+  both reproduced the pre-change dump byte-identically.
+- **Faithful-port trap:** scoring DISTINCT binary partners (what kissat's dense
+  mode actually measures) is WORSE than our raw watch-word count — mp1 3.35M vs
+  2.50M; it wins only 347k vs 364k on x9, inside SAT noise. Kept the raw count and
+  recorded why in the code, so the "obvious fix" is not re-attempted blind.
+- **Four hypotheses killed by measurement** (details + numbers in the resume
+  anchor): S4/large-clause grids, the delta-bound/micro-grid story, duplicate
+  binaries, and BVE-before-Factor ordering. D4 (extension remainders) survives but
+  is only 1.65× when ablated inside kissat.
+- **Open:** our grids cap at 27×27 while kissat finds 22×64 / 15×80 on a graph with
+  max degree 102. Cause not yet identified — see the anchor.
+- Validation: units 29/29; fuzz `--quick` 400 cases × {default, `--random-policy`,
+  `--random-policy --no-binary`, `--random-policy --lrat`} = 0 failures, corpus 7/0.
 
 ### 2026-07-20 — E2 Factor S0+S1: proof-correct (initially OFF, net-negative)
 - **Factor rule landed** (`src/rules/factor/`): binary-grid BVA transform, greedy
