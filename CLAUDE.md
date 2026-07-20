@@ -19,8 +19,11 @@
   just plain Kissat.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
   revise-plan, revamp, revisit-codebase, calculus, stress-policy, compact-docs,
-  wrap-up — use them for the matching workflows. (revisit-codebase now also
-  applies behavior-preserving hygiene — the former simplify-codebase.)
+  wrap-up, debug-performance — use them for the matching workflows.
+  (revisit-codebase also applies behavior-preserving hygiene — the former
+  simplify-codebase. debug-performance diagnoses a big per-instance slowdown vs a
+  baseline: decompose stats, ablate the baseline, rule out engineering/heuristics/
+  missing-rules before fixing.)
 - **`docs/calculus.md`** is authoritative for the *abstract* proof rules (each
   rule's pure precondition, effect, proof delta, soundness). Its companion
   **`docs/implementation-notes.md`** holds the engineering layer — the

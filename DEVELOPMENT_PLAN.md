@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-20 (rev. 50). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-20 (rev. 51). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -1021,7 +1021,16 @@ Components:
 - **Staged targets (gate each phase):**
   - T1: solve all of Tier A without timeout (≤ 30 s each); ≥ MiniSat on Tier B.
   - T2: ≥ Glucose on Tier B; propagation microbenchmark within 20% of Kissat.
-  - T3: within 10% PAR-2 of CaDiCaL on Tier C.
+  - T3: within 10% PAR-2 of CaDiCaL on Tier C — **and match both CaDiCaL and
+    Kissat on the *rule-neutral* subset** (instances where the phase-4 rules we
+    still lack — Factor/SBVA, Sweep — do not materially help the baselines,
+    verified by baseline ablation via the **debug-performance** skill). Rationale
+    (rev 51): phase 3 is about **search + engineering quality**; the 2026-07-20
+    profiling showed the aggregate Tier-C gap is *substantially the missing
+    Factor/Sweep rules*, not our search — so gating phase 3 on the full set would
+    penalise us for phase-4 work. On the rule-neutral subset we must be at
+    baseline parity (that isolates and proves search quality); instances whose gap
+    is a missing phase-4 rule are re-gated at T4/phase 4 when Factor/Sweep land.
   - T4: **exceed** Kissat-public PAR-2 on Tier D (SC25 set) — via DefaultPolicy
     engineering, *before* any learned policy. (N3's floor is mere parity; T4 is
     the strengthened engineering target — the R5 goal. Raised from "parity"
@@ -1083,7 +1092,7 @@ Components:
 | 0 (setup) | Repo, CI; **baseline solvers built locally** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
 | 1 | Kernel + Propagate/Decide/Analyze/Backjump + Restart/Reduce (S1–S2, moved from phase 2 in rev 12) + SwitchMode w/ stable mode: EVSIDS heap, reluctant restarts, target phases (S4, moved rev 19) + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
 | 2 | Rephasing, lucky probes (S3, S5); native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
-| 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); **V6 `Congruence` (AND/XOR/ITE) pulled forward rev 47 — DRAT-verified, net-positive on Tier B (cracks the congruence-essential `hwmcc-miters`)**; reconstruction stack; Tier C built | T3 on Tier C; nightly random-policy fuzzing green |
+| 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); **V6 `Congruence` (AND/XOR/ITE) pulled forward rev 47 — DRAT-verified, net-positive on Tier B (cracks the congruence-essential `hwmcc-miters`)**; reconstruction stack; Tier C built | T3 on Tier C — **incl. CaDiCaL/Kissat parity on the rule-neutral subset (search-quality isolation, rev 51)**; nightly random-policy fuzzing green |
 | 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Walk, Sweep, Factor/SBVA, BCE); **the engineering push to *exceed* Kissat (search-quality + inprocessing ingenuity, not just the remaining rules)** | **T4 on Tier D — exceed Kissat by engineering** (before any learned policy); §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
 | 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
 | 6 | **Learned scheduling — the RL module (§5.6, always-on):** offline replay/reward-proxy harness (dev instrumentation); L1 windowed-UCB bandit over the macro scheduler's slot choice points with segment attribution (default schedule = permanent arm); LearnedPolicy in the fuzz rotation; L2 contextual (tabular); L3 batch-sequencing experiment under its kill criterion, neighbor-move arm proposals; offline per-family preset layer | §8.5 gates: L-safe on Tier C, then L-win on Tier D + anytime check; stretch — improves the T5 configuration. **Note: learning is upside *on top of* an engineering base that already exceeds Kissat (T4) — not the first thing to surpass it (R5).** |
@@ -1224,3 +1233,4 @@ conflate them.
 - **rev. 48** (2026-07-19): §8.2 nightly fuzz default raised 10k → 20k cases (`run.sh --nightly`, ~12 h wall); fuzz skill + tooling synced.
 - **rev. 49** (2026-07-20, user): **raised ambition — the goal is to *exceed* Kissat, by engineering, before the learned policy.** R5 sharpened ("approach and eventually exceed the best solvers" → *exceed Kissat's efficiency via DefaultPolicy engineering, targeted by end of phase 4, before phase-6 learning*); **T4 strengthened** from "parity with Kissat-public on Tier D" → "**exceed** Kissat-public PAR-2 on Tier D"; §9 phase-4 exit + phase-6 note updated (learning is upside on top of a Kissat-exceeding base, not the first surpass). **N3 unchanged as the never-traded floor** (at-least-Kissat-comparable) — the goal is raised, the floor is not weakened. Requires search-quality + inprocessing ingenuity (the current ~2.15× CaDiCaL / T3 gap is the near-term lever).
 - **rev. 50** (2026-07-20): §13 hygiene — re-sorted the revision index ascending (revs 40–49 had drifted to newest-first from repeated prepend mistakes) and stated the append-at-bottom ordering rule in the §13 header. Doc-only, no plan content change.
+- **rev. 51** (2026-07-20, user): **refined the phase-3 goal + added the debug-performance skill.** T3 now also requires **CaDiCaL/Kissat parity on the rule-neutral subset** of Tier C (instances where the missing phase-4 rules Factor/Sweep don't help the baselines, verified by baseline ablation) — isolating phase-3's real concern, search + engineering quality, from the phase-4 rule deficit. Prompted by the 2026-07-20 profiling: the Tier-C gap is substantially missing **Factor (BVA)** + **Sweep**, not our search (kissat-no-factor takes MORE conflicts than us on mp1/x9). New **debug-performance** skill codifies the diagnosis method (decompose stats → ablate the baseline → rule out engineering/heuristics/missing-rules before fixing) and the cardinal lesson (don't blame heuristics from a conflict count alone). §9 phase-3 exit synced.
