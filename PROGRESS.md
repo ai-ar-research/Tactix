@@ -21,9 +21,14 @@ disagree, the plan is authoritative — fix this file.
   377k→905k without sweep). Our core search is competitive; only fmla shows a
   small ~1.76× residual. **→ Highest-leverage next work: implement E2 Factor
   (SBVA-style), then V5 Sweep — both phase-4 rules, now shown high-leverage not
-  "breadth."** (Reports: profiling in this Log; instances mp1/x9/fmla.) Lower-
-  priority tracked congruence follow-ups: native-LRAT chains for **XOR/ITE**
-  (un-gate `--lrat`), **binary-extraction** for `clique` (search-bound).
+  "breadth."** (Reports: profiling in this Log; instances mp1/x9/fmla.)
+  **Immediate next: the E2 Factor design pass** (`docs/design/e2-factor-design.md`
+  — kissat factor/SBVA + the `add_rat` proof primitive (new, unused so far) + ρ
+  reconstruction for added vars). Congruence follow-ups resolved (2026-07-20):
+  clique binary-extraction **DROPPED** (dead end — clique is search-bound and has
+  no ternary clauses, so the mechanism doesn't apply); XOR/ITE native-LRAT chains
+  **DEFERRED** (sound interim, D-CONG-LRAT; completeness not performance, off the
+  exceed-Kissat critical path).
   *(Base is soundness-green: 2026-07-20 20k
   random-policy + native-LRAT nightly = **20000/0** (SAT 9928 / UNSAT 6746 / TO
   3326), every UNSAT lrat-checked — `tools/fuzz/nightly-rev48.log`.)*
