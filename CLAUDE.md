@@ -18,8 +18,9 @@
   competition winners (CaDiCaL-SC2025, AE-Kissat-MAB, SBVA-CaDiCaL), not
   just plain Kissat.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
-  revise-plan, revamp, simplify-codebase, revisit-codebase, calculus,
-  stress-policy, compact-docs — use them for the matching workflows.
+  revise-plan, revamp, revisit-codebase, calculus, stress-policy, compact-docs,
+  wrap-up — use them for the matching workflows. (revisit-codebase now also
+  applies behavior-preserving hygiene — the former simplify-codebase.)
 - **`docs/calculus.md`** is authoritative for the *abstract* proof rules (each
   rule's pure precondition, effect, proof delta, soundness). Its companion
   **`docs/implementation-notes.md`** holds the engineering layer — the

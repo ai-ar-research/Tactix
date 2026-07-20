@@ -13,9 +13,10 @@ pruned detail leaves a pointer to where it's preserved.** This skill does that
 compression while guaranteeing the one thing a fresh session must never lose: the
 big picture and the undone work.
 
-This is the doc analog of `simplify-codebase`, on a different axis. That skill
-removes drift / dead code / duplication (including doc drift). This one manages
-**length and orientation** of the four living docs. Different concern, different
+This is the doc analog of `revisit-codebase`'s hygiene pass, on a different axis.
+That skill removes drift / dead code / duplication (including doc drift). This one
+manages **length and orientation** of the four living docs. Different concern,
+different
 trigger.
 
 ## The invariant it protects — the onboarding test

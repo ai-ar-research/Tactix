@@ -650,10 +650,11 @@ and record the outcome in the gate report even when the answer is "clean".
 Between gates, run the same evaluation after a large feature lands or when
 review keeps tripping over the same clutter.
 
-Execution goes through the **simplify-codebase skill**, which owns the
-detailed checklist (the categories above) and the procedure (inventory →
-judge each finding: simplify now / keep with a recorded reason / escalate
-to §5.4 → dedicated behavior-preserving commits → full revalidation). Two hard constraints live here, not in the
+Execution goes through the **revisit-codebase skill** (which merged the former
+simplify-codebase), owning the detailed checklist (the categories above) and the
+procedure (inventory → judge each finding: simplify now / keep with a recorded
+reason / escalate to §5.4 → dedicated behavior-preserving commits → full
+revalidation). Two hard constraints live here, not in the
 skill: **the N1 API surface is never "speculative generality"** — deleting
 "unused" rule-introspection/application capability is an N1 violation, not
 a simplification — and N1–N3 are never traded for simplicity. Distinction
