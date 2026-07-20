@@ -75,6 +75,7 @@ struct Stats {
   uint64_t transitive_deleted = 0; // transitively redundant binaries deleted
   uint64_t transitive_failed = 0;  // sources abandoned to Probe as failed (V4)
   uint64_t substitute_rounds = 0;  // Substitute rounds (V3) — detection passes
+  uint64_t congruence_rounds = 0;  // Congruence rounds (V6) — gate-closure passes
   uint64_t bve_rounds = 0;         // BVE apply calls (E1)
   uint64_t bve_eliminated = 0;     // variables eliminated by BVE resolution
 };

@@ -34,6 +34,7 @@ add_library(tactix_lib OBJECT
   src/rules/probe/probe.cpp
   src/rules/backbone/backbone.cpp
   src/rules/substitute/substitute.cpp
+  src/rules/congruence/congruence.cpp
   src/rules/transitive_reduce/transitive_reduce.cpp
   src/rules/bve/bve.cpp
   src/rules/switchmode/switchmode.cpp

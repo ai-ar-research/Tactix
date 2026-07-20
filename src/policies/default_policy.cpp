@@ -220,13 +220,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // SAT-safe needs per-technique effort/tick budgets + mode gating (a
       // follow-on). Substitute/TransitiveReduce also off. Slot stays
       // registry-driven + posable (phase-6 arms).
+      // V6 Congruence (increment 1) joins: it ADDS gate-derived equivalence
+      // binaries (a==b), and Substitute — enabled here for the collapse — runs
+      // LATER in the name-sorted slot order (Congruence < Substitute) so it sees
+      // those binaries in the binary graph and substitutes. Probe/Vivify/Backbone
+      // stay off (SAT-disruptive); TransitiveReduce off.
       const std::vector<RuleVTable> &rules = tactix_rules();
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess) {
           const char *nm = rules[i].name;
           const bool on = !std::strcmp(nm, "BVE") ||
                           !std::strcmp(nm, "Strengthen") ||
-                          !std::strcmp(nm, "SubsumeForward");
+                          !std::strcmp(nm, "SubsumeForward") ||
+                          !std::strcmp(nm, "Congruence") ||
+                          !std::strcmp(nm, "Substitute");
           inprocess_slot.push_back({i, on});
         }
     }
