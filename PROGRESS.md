@@ -10,15 +10,21 @@ disagree, the plan is authoritative — fix this file.
 - **Last updated:** 2026-07-20
 - **Next (resume anchor):** phase 3, **T3 gate open**. V6 Congruence is merged
   (net-positive; cracks `hwmcc-miters`; AND native-LRAT chains done). **Tier C
-  re-measured 2026-07-20 with congruence on = 345.75 (28/30), ~2.15× CaDiCaL** —
-  congruence did NOT close the gap (no new Tier C instances), so the **T3 blocker
-  is confirmed to be SEARCH QUALITY**, and that is the highest-leverage next work.
-  Where our search loses most (Tier B, per-instance vs kissat): structured **UNSAT**
-  — `mp1-blockpuzzle` ~22×, `FmlaEquivChain` ~4.6×, `x9-08014` ~4.1× — so start by
-  profiling those and looking at clause-DB reduction / restart cadence / vivify
-  effectiveness. Lower-priority tracked congruence follow-ups: native-LRAT chains
-  for **XOR/ITE** (un-gate `--lrat`), and **binary-extraction** for `clique`
-  (deprioritized — search-bound). *(Base is soundness-green: 2026-07-20 20k
+  re-measured 2026-07-20 with congruence on = 345.75 (28/30), ~2.15× CaDiCaL.**
+  **Profiling correction (2026-07-20):** the structured-UNSAT losses are NOT a
+  search-heuristic gap — they are **missing inprocessing rules**. Isolated via
+  kissat ablation: **Factor (E2, bounded variable addition / SBVA) is the dominant
+  missing lever** — it accounts for essentially all of `mp1-blockpuzzle` (kissat
+  no-factor = 9.9M conflicts > our 4.19M — our search actually *beats* kissat's
+  factor-less search) and all of `x9` (our 802k ≈ kissat-no-factor 800k). **Sweep
+  (V5, SAT sweeping)** is the key for equivalence chains (`FmlaEquivChain`: kissat
+  377k→905k without sweep). Our core search is competitive; only fmla shows a
+  small ~1.76× residual. **→ Highest-leverage next work: implement E2 Factor
+  (SBVA-style), then V5 Sweep — both phase-4 rules, now shown high-leverage not
+  "breadth."** (Reports: profiling in this Log; instances mp1/x9/fmla.) Lower-
+  priority tracked congruence follow-ups: native-LRAT chains for **XOR/ITE**
+  (un-gate `--lrat`), **binary-extraction** for `clique` (search-bound).
+  *(Base is soundness-green: 2026-07-20 20k
   random-policy + native-LRAT nightly = **20000/0** (SAT 9928 / UNSAT 6746 / TO
   3326), every UNSAT lrat-checked — `tools/fuzz/nightly-rev48.log`.)*
 
