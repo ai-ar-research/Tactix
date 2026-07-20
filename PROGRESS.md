@@ -22,9 +22,16 @@ disagree, the plan is authoritative — fix this file.
   small ~1.76× residual. **→ Highest-leverage next work: implement E2 Factor
   (SBVA-style), then V5 Sweep — both phase-4 rules, now shown high-leverage not
   "breadth."** (Reports: profiling in this Log; instances mp1/x9/fmla.)
-  **Immediate next: the E2 Factor design pass** (`docs/design/e2-factor-design.md`
-  — kissat factor/SBVA + the `add_rat` proof primitive (new, unused so far) + ρ
-  reconstruction for added vars). Congruence follow-ups resolved (2026-07-20):
+  **E2 Factor design DONE** (`docs/design/e2-factor-design.md`; research
+  `e2-factor-research.md`) — key findings, all *de-risking*: (a) **DRAT proof needs
+  no new primitive** — emit dividers/quotients via existing `add_rup` with the
+  fresh pivot FIRST and delete originals LAST (drat-trim RAT-checks first-literal);
+  (b) **no ρ witness** — the fresh var is projected out (tag non-original, skip in
+  model); (c) **fresh-var alloc already supported** — `kernel_reserve_vars` is
+  additive/growable. `add_rat` (native LRAT) is the only deferred hard piece.
+  **Immediate next: implement — S0** (non-original tag + model projection) → S1/2
+  (transform + DRAT proof + binary-driven detection) → S3 (schedule + activate +
+  **measure on mp1/x9/fmla + Tier C**) → S4 large remainders → S5 LRAT `add_rat`. Congruence follow-ups resolved (2026-07-20):
   clique binary-extraction **DROPPED** (dead end — clique is search-bound and has
   no ternary clauses, so the mechanism doesn't apply); XOR/ITE native-LRAT chains
   **DEFERRED** (sound interim, D-CONG-LRAT; completeness not performance, off the
