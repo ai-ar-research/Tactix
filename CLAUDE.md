@@ -21,7 +21,9 @@
   revise-plan, revamp, simplify-codebase, calculus, stress-policy — use them for the matching
   workflows.
 - **`docs/calculus.md`** is authoritative for the *abstract* proof rules (each
-  rule's pure precondition, effect, proof delta, soundness) + the
-  engineering-deviation ledger; keep it in sync via the calculus skill whenever
-  a rule or guard changes (guards must be pure preconditions per N1 — every
-  deviation is recorded there with a removal path).
+  rule's pure precondition, effect, proof delta, soundness). Its companion
+  **`docs/implementation-notes.md`** holds the engineering layer — the
+  *implemented* guards and the engineering-deviation ledger (every guard stronger
+  than its precondition, with a removal path) + standalone design decisions. Keep
+  both in sync via the calculus skill whenever a rule or guard changes (guards
+  must be pure preconditions per N1).

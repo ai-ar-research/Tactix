@@ -211,9 +211,9 @@ preconditions above are *engineering deviations*: a guard should be the rule's
 **pure abstract precondition** (N1), and each of these is stronger than that
 because of an implementation choice. `docs/calculus.md` is the authoritative
 per-rule expansion — every implemented rule's abstract precondition, effect,
-proof delta, and soundness — plus a **consolidated deviation ledger** (§7 there)
-that classifies every guard conjunct as abstract or engineering with a removal
-path. The deviations reduce to two root causes: **D-LEVEL** (current-level
+proof delta, and soundness — and its companion `docs/implementation-notes.md`
+holds the **consolidated deviation ledger** that classifies every guard conjunct
+as abstract or engineering with a removal path. The deviations reduce to two root causes: **D-LEVEL** (current-level
 assignment forces the `propagate_head = |τ|` fixpoint conjunct on Decide + every
 state-advancing inprocessing rule, and the `jump_level` clamp on Backjump) and
 **D-SPLIT** (the Analyze/Backjump split creates the `pending` control state,
