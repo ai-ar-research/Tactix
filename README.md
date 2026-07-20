@@ -6,9 +6,12 @@ applicable and apply a chosen rule instance; a default policy schedules rules
 automatically to act as a competitive solver. Every rule application emits a
 DRAT/LRAT proof delta, and I/O follows SAT Competition main-track conventions.
 
-**Status: planning.** See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for the
-architecture, benchmark tiers, fuzzing/proof-checking harness design, and
-milestones, and [PROGRESS.md](PROGRESS.md) for the live checklist.
+**Status: in development (phase 3 — inprocessing).** Core CDCL + proof
+production + the rule API are in place; inprocessing rules (subsume, strengthen,
+vivify, probe, substitute, BVE, congruence) are landing. See
+[DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for the architecture, benchmark tiers,
+fuzzing/proof-checking harness, and milestones; [PROGRESS.md](PROGRESS.md) for the
+live checklist; and [docs/README.md](docs/README.md) for the documentation map.
 
 Reference solvers (Kissat etc.) are kept as local clones and are deliberately
 untracked (see `.gitignore`).

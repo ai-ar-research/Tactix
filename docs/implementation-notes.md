@@ -39,7 +39,7 @@ V1/V2/S5 additionally carry `!conflict_valid` as a genuine abstract precondition
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. |
 | V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop a consistent `M`. |
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. |
-| E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/e1-bve-design.md`.) |
+| E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) |
 | V6 Congruence | `root` | **D-ROOT:** `level==0`. **D-CONG-LRAT:** XOR/ITE extraction gated off under native LRAT (a proof-mode branch in the effect, not a guard conjunct — §2). |
 
 ## 2. The engineering-deviation ledger (the impurity punch-list)

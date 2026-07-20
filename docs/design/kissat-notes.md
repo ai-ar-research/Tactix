@@ -1,5 +1,9 @@
 # Kissat 4.0.4 study notes — kernel layout, propagation, mode switching
 
+> **Frozen snapshot — do not edit.** A design/reference record from when this
+> work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
+> the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
+
 Transliteration notes for phase 1 (plan §5, §7). Source: `kissat/` reference
 clone (MIT, Biere et al.) — cite file names in code comments when adopting a
 technique; never copy verbatim. File references are to `kissat/src/`.

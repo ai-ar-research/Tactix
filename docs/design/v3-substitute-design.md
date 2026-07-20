@@ -1,5 +1,9 @@
 # V3 Substitute — implementation design (equivalent-literal SCC substitution)
 
+> **Frozen snapshot — do not edit.** A design/reference record from when this
+> work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
+> the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
+
 > **Design/research artifact** from the 2026-07-16 session, produced by an
 > understand→design multi-agent workflow. The **authoritative spec is
 > `DEVELOPMENT_PLAN.md` (§5.2); status is in `PROGRESS.md`** — this is a
@@ -9,7 +13,7 @@
 > (commit `94547e6`); V3a iterative-Tarjan SCC detection (commit `6fbddf4`).
 > **Blocked:** V3b (the variable-eliminating rewrite) needs binary-clause
 > deletion — introduced by V4 first (plan rev 32; see
-> `docs/v4-transitive-reduce-design.md`), then V3b reuses it.
+> `docs/design/v4-transitive-reduce-design.md`), then V3b reuses it.
 
 ---
 

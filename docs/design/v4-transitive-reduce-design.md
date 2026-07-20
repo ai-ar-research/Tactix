@@ -1,5 +1,9 @@
 # V4 TransitiveReduce + binary-deletion primitive — implementation design
 
+> **Frozen snapshot — do not edit.** A design/reference record from when this
+> work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
+> the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
+
 > **Design/research artifact** from the 2026-07-16 session, produced by an
 > understand→design multi-agent workflow. The **authoritative spec is
 > `DEVELOPMENT_PLAN.md` (§5.2, rev 32); status is in `PROGRESS.md`** — this

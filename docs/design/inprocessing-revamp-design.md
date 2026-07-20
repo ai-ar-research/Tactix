@@ -1,5 +1,9 @@
 # Inprocessing efficiency revamp — design (in progress)
 
+> **Frozen snapshot — do not edit.** A design/reference record from when this
+> work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
+> the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
+
 **Trigger (revamp skill §when):** E1 (BVE) landed and the E1 design's B1 note named
 this exact moment — "rule-local occurrence index, NOT kernel dense mode; a future
 revamp trigger only if BVE joins the default schedule and profiles as bottleneck."

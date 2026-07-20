@@ -1,5 +1,9 @@
 # Independent-lineage survey — Glucose & CryptoMiniSat vs. every landed feature
 
+> **Frozen snapshot — do not edit.** A design/reference record from when this
+> work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
+> the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
+
 2026-07-15, per plan rev 25 (§2 takeaway: not a Kissat re-implementation; §5
 survey obligation). Retroactive pass over every feature implemented so far
 (PROGRESS.md phases 1–3), grounded in the cloned sources: `glucose/` (4.2.1)

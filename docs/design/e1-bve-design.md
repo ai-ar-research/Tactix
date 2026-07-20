@@ -1,11 +1,15 @@
 # E1 Bounded Variable Elimination (BVE) — implementation design
 
+> **Frozen snapshot — do not edit.** A design/reference record from when this
+> work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
+> the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
+
 > **Design/research artifact** from the 2026-07-18 session, produced by an
 > understand→design pass (three parallel research agents over `kissat/`,
 > `cadical/`, and our kernel). The **authoritative spec is `DEVELOPMENT_PLAN.md`
 > §5.2 (E1 row) and §4; status is in `PROGRESS.md`; the proof-rule calculus is
 > `docs/calculus.md`.** This is a point-in-time design record for the
-> implementer, not normative. Mirror `docs/v3-substitute-design.md` (V3
+> implementer, not normative. Mirror `docs/design/v3-substitute-design.md` (V3
 > Substitute, the landed template BVE reuses almost wholesale).
 >
 > **Nothing is implemented yet** — this is the design pass. E1 is the last

@@ -1,5 +1,9 @@
 # V6 Congruence — gate congruence closure (design, in progress)
 
+> **Frozen snapshot — do not edit.** A design/reference record from when this
+> work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
+> the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
+
 **Rule:** V6 `Congruence` (plan §5.2 catalog, line ~497) — proof-delta **add-RUP +
 delete**, `RuleTier::Inprocess`. Planned **phase 4**; **pulled forward** to
 phase 3 (user-directed 2026-07-19) to attack the T3 gap. New in Kissat 4.
