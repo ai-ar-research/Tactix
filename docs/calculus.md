@@ -341,6 +341,48 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) dropped that conjunct
 - **Soundness:** each deletion is equivalence-preserving; the tombstone prevents
   the mutual-redundancy double-deletion that would gain a model.
 
+### V6 · Congruence — gate congruence closure (AND/XOR/ITE)
+- **Precondition (abstract):** two gates of the same kind with the same inputs
+  compute the same function, so their outputs are equivalent: `out = f(in…)` and
+  `out' = f(in…)` ⇒ `F ⊨ out ↔ out'`. Extraction recognises a gate from its
+  defining clauses — AND `out=∧inᵢ` (base `(out∨¬in₁∨…)` + binaries `(¬out∨inᵢ)`),
+  XOR `out=⊕inᵢ` (all `2^k` parity clauses present), ITE `out=cond?then:else`
+  (all four defining ternaries present). The relation is closed under a
+  union-find over literals: after two gates’ outputs are merged, gates whose
+  inputs used either output re-canonicalize and may themselves become congruent,
+  so one apply collapses every circuit layer.
+- **Effect:** for each congruent pair add the two equivalence binaries
+  `(¬a∨b),(a∨¬b)` and `unite(a,b)` in the union-find (gate CLAUSES are never
+  rewritten here — V3 `Substitute`, run next in the phase, performs the
+  whole-formula collapse over the added binaries). Canonicalization is per kind:
+  AND sorts representative inputs (an input and its negation ⇒ `AND=0`, deferred);
+  XOR folds each input representative’s sign into a parity bit the output absorbs
+  and cancels repeated variables (`x⊕x=0`); ITE normalizes to `cond`,`then`
+  positive (a flip absorbed by the output). A round with no new merge is `NoOp`;
+  a merge of `x` with `¬x` sets `inconsistent` → `Unsat`.
+- **Proof δ:** add-RUP (+ delete of transient lemmas, deferred). AND — each
+  equivalence binary is single-step RUP from the two gates’ clauses. XOR — a
+  parity-elimination **ladder**: eliminate one rhs variable per level, at each
+  level emit `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for all sign
+  patterns; every lemma is RUP over the current DB (incl. bridging equivalences),
+  the two size-0 lemmas are the binaries. ITE — a fixed **6-clause case-split on
+  cond**: `{a,¬b,±cond}`,`{¬a,b,±cond}` then the two binaries. Each lemma is RUP,
+  so under DRAT they are bare adds replayed in order (drat-trim VERIFIED on the
+  XOR/ITE miters and hwmcc-miters). **No `add_rat`.** Equivalence-preserving (no
+  variable eliminated here), so no `ρ` witness — the outputs stay live until V3.
+- **Soundness:** a gate is emitted only when ALL its defining clauses are present
+  (XOR: the full `2^k` parity set; ITE: all four ternaries), so `out = f(in…)`
+  genuinely holds and the merged equivalence is entailed. The union-find only
+  ever equates literals proven equivalent; `x ≡ ¬x` is a refutation.
+- **Deviations (see §7.2):** **D-CONG-LRAT** — the rule is a sound no-op under
+  native LRAT (the incremental closure merges gates bridged by earlier
+  equivalences, whose correct LRAT chain must thread those bridging binaries /
+  ladder / case-split lemma ids; the current chains cover only direct AND
+  matches). Emitting nothing keeps every LRAT proof checkable; DRAT gets the full
+  AND/XOR/ITE closure. **D-CONG-DELETE** — the transient XOR/ITE ladder lemmas are
+  not yet `del`-eted (proof-size only, not soundness). Both have a removal path:
+  native per-match LRAT chains.
+
 ## 6b. Variable elimination (E1) — the resolution-eliminating family
 
 ### E1 · BVE — bounded variable elimination by resolution
@@ -423,6 +465,7 @@ rule rather than demanded by the guard). V1/V2/S5 additionally carry
 | V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop `M`, so `M`'s consistency is a soundness precondition. (fixpoint conjunct gone rev 43.) |
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. (`!conflict_valid` removed rev 42 — a pure `F`-rewrite; `propagate_head==\|τ\|` removed rev 43 — drains at entry.) |
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Purified guard; the elimination round drains at entry. Abstract rule §6b; design `docs/e1-bve-design.md`.) |
+| V6 Congruence | `root` | **D-ROOT:** `level==0` (drains at entry via `inprocess_reach_root`). **D-CONG-LRAT:** the apply is a no-op when the proof is native LRAT (a proof-mode branch in the effect, not a guard conjunct — see §7.2). |
 
 ### 7.2 The engineering-deviation ledger (the impurity punch-list)
 
@@ -438,7 +481,9 @@ item, not an ad-hoc patch.
 | ~~D-SPLIT-1~~ | ~~`¬pending.valid`~~ — **CLOSED rev 37** | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | **done:** atomic ConflictAnalysis (§8) — `pending` never at a boundary |
 | ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED rev 37** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
 | ~~D-SPLIT-3~~ | ~~`¬conflict_valid` on pure `F`-rewrites~~ — **CLOSED rev 42** | C1, C2, C3, V3, V4 | recorded-conflict control flag not in `σ` | **done:** conjunct removed from the five pure `F`-rewrites (SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce). Behavior-preserving: `conflict_valid ⟹ level>0` at every rule boundary, so under the retained `level==0` the conjunct never fired. V1/V2 Probe/Backbone **keep** `!conflict_valid` — for failed-literal reasoning it is an *abstract* precondition (consistent `M`), not a leak |
-| D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
+| D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, V6, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
+| D-CONG-LRAT | V6 Congruence apply is a **sound no-op under native LRAT** (proof-mode branch in the effect) | V6 | the incremental closure merges gates whose inputs were bridged by earlier added equivalences; a correct LRAT chain must thread those bridging binaries (and the XOR ladder / ITE case-split lemma ids), but the current chains cover only direct (unbridged) AND matches | emit native per-match LRAT chains (bridged AND: bridging-binary ids; XOR: ladder lemma ids; ITE: case-split lemma ids), then drop the no-op. DRAT already gets the full closure |
+| D-CONG-DELETE | V6 transient XOR/ITE ladder / case-split lemmas are not `del`-eted | V6 | proof-size only (the lemmas survive in the DRAT stream; soundness unaffected — they are RUP) | emit `del` for the chain after the merge (kissat `delete_proof_chain`); folds in with the LRAT-chain work |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
 **Pure already:** M1 Propagate, M2 Decide (rev 40), M3 ConflictAnalysis,
