@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-19 (rev. 47). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-19 (rev. 48). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -995,8 +995,8 @@ Components:
   until its new schedules are stress-tested this way. See the `stress-policy`
   skill; `src/policies/adversarial_policy.*` is the worked example.
 - **Cadence:** every commit: 1k fast fuzz cases + Tier A + regression corpus,
-  under ASan/UBSan (5 s/case). Nightly: ~10k cases across generators +
-  random-policy runs (DRAT + native LRAT) + differential testing, ~6 h wall.
+  under ASan/UBSan (5 s/case). Nightly: ~20k cases across generators +
+  random-policy runs (DRAT + native LRAT) + differential testing, ~12 h wall.
   All failures auto-shrunk before filing.
 - **Unit + invariant tests** per rule family (guards, instance enumeration,
   apply, emitted proof deltas checked in isolation against `drat-trim` on
@@ -1200,6 +1200,7 @@ the same change — this index only keeps "rev N" references resolvable.
 - **rev. 38** (2026-07-17): D-LEVEL purification 2/3 — true-level assignment + a compacting `kernel_backtrack` make chronological backjump sound (`ConflictAnalysis` target ∈ [jump_level, level-1]; D-LEVEL-2 closed, corpus 005 gone); Decide keeps its fixpoint guard (D-LEVEL-1 separate); behavior-preserving (s055 932,762, Tier A 0.52).
 - **rev. 39** (2026-07-17): §4 framing — D-LEVEL-1 (decide off a propagation fixpoint) is MANDATORY (N1, §1.1), the next task, not fix-vs-reject; solver must support multiple decides without propagation between them (rev-38 did not suffice; distinct escaped-unit mechanism remains). Sequencing D-LEVEL-1 → V3b-3; `docs/calculus.md` restructure to mostly-clean formal rules queued after; no rule semantics changed.
 - **rev. 45** (2026-07-18, user): E1 BVE design pass → `docs/design/e1-bve-design.md` (understand→design over kissat/cadical + our kernel). Findings: RUP-only (resolvents are RUP — **no `add_rat`**, correcting the V3-design note; add_rat is E2 Factor/X1 BCE, phase 4); ρ + add/delete + GC all reused from V3; the one new piece is a rule-local both-polarity round-local occurrence index (NOT kernel dense mode); syntactic gates first, kitten deferred (O11); deactivation optional. ~4 commits (E1a index/schedule, E1b resolve+proof+witness, E1c syntactic gates, E1d fuzz). Design artifact only; no code, no §5.2 spec change.
+- **rev. 48** (2026-07-19): §8.2 nightly fuzz default raised 10k → 20k cases (`run.sh --nightly`, ~12 h wall); fuzz skill + tooling synced.
 - **rev. 47** (2026-07-19): V6 `Congruence` (AND/XOR/ITE gate congruence closure) implemented and **pulled forward phase 4 → phase 3** (§5.2 + §9). One unified union-find closure (parity-fold canonicalization; incremental worklist), DRAT proof chains (AND single-step RUP; XOR parity-elimination ladder; ITE 6-clause case-split). **Net-positive on Tier B (PAR-2 111.6 → 77.75, +1 solved): cracks `hwmcc-miters`, the congruence-essential UNSAT miter (kissat can't solve it congruence-OFF), 92 MB DRAT proof VERIFIED**; cheap no-op elsewhere (0 regressions). `clique` stays TO (search-bound, separate gap). Interim deviations (docs/calculus.md): congruence is a **sound no-op under `--lrat`** (bridged/XOR/ITE matches need native-LRAT chains — follow-up); DRAT gets the full closure; ~50× kissat perf + proof-size tuning deferred. Report `benchmarks/reports/2026-07-19-congruence-tierB.md`. **Merged to `main` (fast-forward, d1e0af5).**
 - **rev. 46** (2026-07-19, user): re-pin the T3 reference + record inprocessing activation. The pinned Tier-C CaDiCaL PAR-2 (336.96) was contention-inflated; a clean same-session re-run measured **160.6** (2×), so the inprocessing revamp (DefaultPolicy now runs BVE+Strengthen+SubsumeForward preprocessing, `SLOT_IN_DEFAULT=true`; Tier C 356 vs base 552, +3 solved) is ~2.2× CaDiCaL → **T3 NOT met** (was mis-read as within-10% off the bad pin). §8.1 gains the standing rule: **re-measure gate reference solvers CLEAN in-session, never against an old pin.** T3 stays open; probing V-rules deferred (SAT-disruptive without effort budgets). Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`; §8.3 T3 definition unchanged (qualitative "within 10% of CaDiCaL").
 - **rev. 44** (2026-07-17, user): `stress-policy` skill — when a rule/feature lands or a guard is purified, write a TEMPORARY policy that maximizes the newly-legal N1 schedule + per-step invariant check, and fuzz it (the uniform `--random-policy` under-samples such patterns; `AdversarialPolicy` found D-LEVEL-1 at 0/1000 for the random policy). Standing rule added to §8.2; `AdversarialPolicy` is the worked example. A rule/guard change is not done until its new schedules are stress-tested.

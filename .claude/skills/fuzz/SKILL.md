@@ -77,7 +77,7 @@ fully determined by `(seed, i)`, so results are identical at any job count.
 - Nightly: run BOTH formats under the random policy at scale — native DRAT
   (`run.sh --nightly --solver "build/debug/tactix --random-policy"`) and
   native LRAT (`run.sh --nightly --solver "build/debug/tactix --random-policy --lrat"`),
-  ~10k cases each (~6 h wall; sequentially, or split to fit the window) +
+  ~20k cases each (~12 h wall; sequentially, or split to fit the window) +
   all generators + differential testing. Before 2026-07-15 the nightly ran
   native DRAT only (its `--lrat` was the fuzz.py cross-check flag =
   drat-trim→lrat-check on the DRAT, which validates the checker conversion,
