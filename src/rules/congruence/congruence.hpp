@@ -46,4 +46,8 @@ void congruence_extract(const Kernel &, std::vector<CongGate> &out);
 
 bool congruence_guard(const Kernel &); // pure quiescent-root precondition
 
+// The canonical full-round apply: extract AND/XOR/ITE gates and run the union-find
+// congruence closure, adding equivalence binaries (+ proof). Exposed for tests.
+ApplyResult congruence_apply(Kernel &);
+
 } // namespace tactix

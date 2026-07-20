@@ -492,6 +492,8 @@ void add_equivalence_bare(Kernel &k, Lit a, Lit b) {
   add_bin(a, negate(b));
 }
 
+} // namespace — public rule entry points (header-declared) below
+
 ApplyResult congruence_apply(Kernel &k) {
   assert(congruence_guard(k));
   // N2 (INTERIM): under native LRAT the whole rule is a sound no-op. The
@@ -627,8 +629,6 @@ ApplyResult congruence_apply_instance(Kernel &k, uint64_t inst) {
     return congruence_apply(k);
   return ApplyResult::NoOp; // only the canonical (full-round) instance
 }
-
-} // namespace
 
 TACTIX_REGISTER_RULE(Congruence, RuleTier::Inprocess, congruence_guard,
                      congruence_apply, congruence_instances,
