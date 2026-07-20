@@ -234,17 +234,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                           !std::strcmp(nm, "Strengthen") ||
                           !std::strcmp(nm, "SubsumeForward") ||
                           !std::strcmp(nm, "Congruence") ||
-                          // Factor (E2 BVA) stays OFF in DefaultPolicy: the
-                          // binary-only transform (S1) is measured net-negative
-                          // (mp1 396s vs 233s) — its win needs the SBVA selective
-                          // heuristic (S2) + large-clause remainders (S4). It is
-                          // still registered, so N1 keeps it applicable via the
-                          // public API; re-enable here once S2/S4 make it a win.
-                          // TACTIX_FACTOR_FORCE turns it on IN THE SLOT (dense
-                          // connected) so fuzz can stress the Factor+BVE+dense
-                          // path (stress-policy skill) without shipping it active.
-                          (!std::strcmp(nm, "Factor") &&
-                           std::getenv("TACTIX_FACTOR_FORCE")) ||
+                          // Factor (E2 BVA) ON: net-positive once the duplicate-
+                          // binary bug was fixed (kernel_delete_binary_all_copies
+                          // lets a factoring remove its whole grid even when grid
+                          // binaries are duplicated; before, deletes refused →
+                          // bloat → no benefit). x9 801k→453k conflicts (39s→23s),
+                          // mp1 4.19M→3.66M, base search unchanged (only Factor's
+                          // grid pairs are removed). Full kissat-level benefit
+                          // still wants SBVA selection (S2) + large remainders (S4).
+                          !std::strcmp(nm, "Factor") ||
                           !std::strcmp(nm, "Substitute");
           inprocess_slot.push_back({i, on});
         }

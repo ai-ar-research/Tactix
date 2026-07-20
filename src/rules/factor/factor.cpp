@@ -21,9 +21,13 @@ constexpr uint64_t FACTOR_MAX_PER_APPLY = 1u << 20;
 // cap the grid dimensions (bounds the proof + detection cost).
 constexpr uint32_t FACTOR_DIM_LIMIT = 4096;
 
-// binary partners of `l`: each `p` with a live binary (l ∨ p), all-unassigned and
-// (optionally) below the extension boundary `limit`.
-void binary_partners(const Kernel &k, Lit l, Lit limit, std::vector<Lit> &out) {
+// DISTINCT binary partners of `l`: each `p` with a live binary (l ∨ p),
+// all-unassigned and below the extension boundary `limit`. Deduplicated via the
+// caller's `seen` marker (sized `limit`) — duplicate binaries in the watch list
+// would otherwise inflate the grid dimensions and the gain, and produce repeated
+// (undeletable) grid pairs. Each distinct partner is returned once.
+void binary_partners(const Kernel &k, Lit l, Lit limit, std::vector<Lit> &out,
+                     std::vector<uint8_t> &seen) {
   out.clear();
   const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
   const uint32_t sz = k.watches.heads[l].size;
@@ -31,13 +35,17 @@ void binary_partners(const Kernel &k, Lit l, Lit limit, std::vector<Lit> &out) {
     const Watch w{ws[i]};
     if (w.binary()) {
       const Lit p = w.other();
-      if (p < limit && k.value(p) == 0)
+      if (p < limit && k.value(p) == 0 && !seen[p]) {
+        seen[p] = 1;
         out.push_back(p);
+      }
       i += 1;
     } else {
       i += 2;
     }
   }
+  for (const Lit p : out) // clear the marker for reuse
+    seen[p] = 0;
 }
 
 bool contains(const std::vector<Lit> &v, Lit l) {
@@ -69,7 +77,10 @@ void apply_factoring(Kernel &k, const std::vector<Lit> &F,
     add_bin(nx, r); // quotient (¬x ∨ r) — RAT on ¬x via dividers + live originals
   for (const Lit f : F)
     for (const Lit r : R)
-      kernel_delete_binary(k, f, r); // delete originals LAST (proof `del`)
+      // delete originals LAST (proof `del`); ALL copies — a duplicated grid
+      // binary is fully replaced by the aux-var definition, and the plain
+      // kernel_delete_binary refuses copies>1 (see kernel.cpp).
+      kernel_delete_binary_all_copies(k, f, r);
 }
 
 } // namespace
@@ -85,6 +96,17 @@ ApplyResult factor_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
 
+  // Density short-circuit. BVA only pays off on a dense binary implication graph;
+  // on binary-sparse instances (random 3-SAT) the seed scan is pure overhead and
+  // any incidental factoring of a BVE-derived binary only perturbs a chaotic
+  // search (Tier A tr-n300-s055 tipped over 30 s). Require ≥ ~one binary per
+  // original variable. This is a SELECTIVITY heuristic — its proper home is the
+  // policy's scheduling of Factor (S2); it lives here meanwhile as a cheap NoOp,
+  // not a guard conjunct (the guard stays the pure `level==0` precondition, so
+  // N1 keeps every factoring applicable via the API regardless).
+  if (k.binary_ids.size() < kernel_num_output_vars(k))
+    return ApplyResult::NoOp;
+
   // Anti-loop boundary: only ORIGINAL literals may be factors/remainders — never
   // the extension vars Factor itself adds. This must be the true original count
   // (first_extension_var), fixed across applies; using 2*k.nvars would, on a
@@ -93,6 +115,7 @@ ApplyResult factor_apply(Kernel &k) {
   const Lit orig_lits = static_cast<Lit>(2 * kernel_num_output_vars(k));
 
   std::vector<uint8_t> inR(orig_lits, 0);     // R membership
+  std::vector<uint8_t> seen(orig_lits, 0);    // binary_partners dedup scratch
   std::vector<uint32_t> cofactor(orig_lits, 0); // co-occurrence counts
   std::vector<Lit> touched, partners, R, newR, F, best_F, best_R;
   uint64_t applied = 0;
@@ -100,7 +123,7 @@ ApplyResult factor_apply(Kernel &k) {
   for (Lit seed = 0; seed < orig_lits && applied < FACTOR_MAX_PER_APPLY; seed++) {
     if (k.value(seed) != 0)
       continue;
-    binary_partners(k, seed, orig_lits, R);
+    binary_partners(k, seed, orig_lits, R, seen);
     if (R.size() < 2 || R.size() > FACTOR_DIM_LIMIT)
       continue;
     for (const Lit r : R)
@@ -115,7 +138,7 @@ ApplyResult factor_apply(Kernel &k) {
       // count candidate next-factors by co-occurrence across the current R.
       touched.clear();
       for (const Lit r : R) {
-        binary_partners(k, r, orig_lits, partners);
+        binary_partners(k, r, orig_lits, partners, seen);
         for (const Lit h : partners) {
           if (var_of(h) == var_of(seed) || contains(F, h))
             continue;
@@ -136,7 +159,7 @@ ApplyResult factor_apply(Kernel &k) {
       if (g == INVALID_LIT) // no factor shares ≥ 2 remainders
         break;
       // newR = R ∩ partners(g)  (the r in R with (g∨r) present)
-      binary_partners(k, g, orig_lits, partners);
+      binary_partners(k, g, orig_lits, partners, seen);
       newR.clear();
       for (const Lit p : partners)
         if (inR[p])

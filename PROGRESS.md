@@ -8,34 +8,35 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 51 (2026-07-20)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-20
-- **Next (resume anchor):** phase 3, **T3 gate open**. **E2 Factor S0+S1 landed
-  and proof-correct, but binary-only Factor is measured NET-NEGATIVE, so it ships
-  OFF in DefaultPolicy.** State: the Factor rule (`src/rules/factor/`) is
-  registered — transform + DRAT (add-RAT via pivot-first `add_rup`, delete-last) +
-  greedy binary-grid detection + model projection, all done and fuzz-verified
-  (1000/0 under `TACTIX_FACTOR_FORCE`, drat-trim per case). Two **correctness
-  fixes** were required and landed (both general N1 hazards, not Factor-only):
-  (1) **dense-grow** — `kernel_reserve_vars` now resizes `dense->large` so a
-  var-adding rule under a connected dense index can't OOB `bve_build_occurrences`
-  (was the mp1 `EXC_BAD_ACCESS`); (2) **BVE skips extension vars** — else BVE
-  resolves Factor's dividers×quotients back to the grid and the two rules thrash
-  (741 MB churn proof). Both documented in `docs/implementation-notes.md` §5.
-  **Measurement (mp1-blockpuzzle, same binary, no proof):** Factor OFF = 233 s,
-  Factor ON = 396 s → binary-only factoring finds too little to pay for itself.
-  **→ Next decision (pick one):** (a) **S2 — SBVA selective heuristic** (bounded
-  applies/round, real gain threshold, priority-queue selection like kissat's
-  factor) + **S4 large-clause remainders** to make Factor net-positive, THEN
-  re-enable in the slot and re-measure mp1/x9/Tier C; or (b) **pivot to V5 Sweep**
-  (the other profiled lever, for `FmlaEquivChain`) and return to Factor S2/S4
-  later. Re-enable Factor at `default_policy.cpp` (the commented `Factor` line in
-  the inprocess-slot `on` list). Then the deferred **`revisit-codebase`** pass
-  (binary-watch iteration duplication `binary_partners`/`has_binary`/BVE scans;
-  Factor/Congruence grid-generator fuzz coverage; Factor-vs-BVE slot ordering).
-  *(Prior context: Tier C w/ congruence = 345.75 (28/30) ~2.15× CaDiCaL; profiling
-  isolated Factor+Sweep as the structured-UNSAT levers, our core search
-  competitive. Congruence follow-ups: clique extraction DROPPED, XOR/ITE
-  native-LRAT DEFERRED — D-CONG-LRAT. Base soundness-green: 20k nightly 20000/0,
-  every UNSAT lrat-checked — `tools/fuzz/nightly-rev48.log`.)*
+- **Next (resume anchor):** phase 3, **T3 gate open**. **E2 Factor is now ON in
+  DefaultPolicy and net-positive** (x9 801k→453k conflicts / 39 s→23 s; mp1
+  4.19M→3.66M), after fixing the bug that made it inert. State: Factor
+  (`src/rules/factor/`) does binary-grid BVA — transform + DRAT (add-RAT
+  pivot-first, delete-last) + greedy detection + model projection — enabled in the
+  inprocessing slot. Three kernel/rule fixes underpin it (all in
+  `docs/implementation-notes.md` §5): (1) **dense-grow** (`kernel_reserve_vars`
+  resizes `dense->large`) — the mp1 `EXC_BAD_ACCESS`; (2) **BVE skips extension
+  vars** — no BVE↔Factor thrash; (3) **duplicate-binary fix** — the big one:
+  `kernel_delete_binary` refuses `copies==2` (one id per pair), so Factor couldn't
+  delete duplicated grid binaries → it *bloated* instead of factoring (real
+  instances are ~50 % dup binaries; mp1 had 137 700 dup pairs). Fix:
+  `kernel_delete_binary_all_copies` (DRAT-only; sound because no copy survives) +
+  `binary_partners` dedup, touching ONLY Factor's grid pairs (a *global* dedup
+  wrecks base search: mp1→23.9M+ conflicts — the dups are load-bearing for CDCL).
+  A `binary_ids.size() ≥ num_output_vars` **density short-circuit** keeps Factor a
+  NoOp on binary-sparse instances → **Tier A neutral** (199/200 == baseline).
+  Validation: units 29/29; fuzz default + `--random-policy` + Factor-in-slot
+  1000/0 each (drat-trim); x9 DRAT VERIFIED.
+  **→ Next work:** the full kissat-level benefit (mp1 305k, 13×) still needs
+  **S2 — SBVA selective heuristic** (the density short-circuit is a stand-in; real
+  selection/scheduling belongs in the policy) + **S4 — large-clause remainders**
+  (binary-only closes only part of the gap). Then measure **Tier B/C** with Factor
+  on, and the deferred **`revisit-codebase`** pass (binary-watch iteration
+  duplication across `binary_partners`/`has_binary`/BVE scans; Factor/Congruence
+  grid-generator fuzz coverage; Factor-vs-BVE slot ordering; the density heuristic →
+  policy). *(Prior context: Tier C w/ congruence = 345.75 (28/30) ~2.15× CaDiCaL.
+  Congruence follow-ups: clique extraction DROPPED, XOR/ITE native-LRAT DEFERRED —
+  D-CONG-LRAT. Base soundness-green: 20k nightly 20000/0 — `nightly-rev48.log`.)*
 
 ## Non-negotiables status (plan §1.1)
 
@@ -174,7 +175,24 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-20 — E2 Factor S0+S1: proof-correct, but OFF (net-negative)
+### 2026-07-20 — E2 Factor ON: duplicate-binary bug fixed → net-positive
+- **Root cause of Factor's inertness found + fixed.** Factor gave ~0 benefit
+  because `kernel_delete_binary` refuses `copies==2` (one id per pair), so it
+  couldn't delete duplicated grid binaries — it *added* dividers/quotients without
+  removing the grid → bloat (x9: 2612 delete-failures, clauses ↑). Real instances
+  are ~50 % duplicate binaries (mp1: 137 700 dup pairs). Fix:
+  `kernel_delete_binary_all_copies` (DRAT-only, sound as no copy survives) +
+  `binary_partners` dedup. Global dedup is NOT viable (mp1 base search
+  4.19M→23.9M+ — dups are load-bearing); removing only Factor's grid pairs keeps
+  the bias. Diagnosed on the **x9-08014** fast proxy (400 vars, 39 s vs mp1 233 s).
+- **Factor enabled in DefaultPolicy**, net-positive: x9 801k→453k (39→23 s), mp1
+  4.19M→3.66M. A `binary_ids.size() ≥ num_output_vars` density short-circuit keeps
+  it a NoOp on random 3-SAT → **Tier A neutral** (199/200 == today's baseline).
+- Validation: units 29/29; fuzz default + `--random-policy` + Factor-in-slot
+  1000/0 each (drat-trim); x9 DRAT VERIFIED (469 RAT lemmas). Full kissat benefit
+  (mp1 13×) still wants S2 SBVA selection + S4 large remainders.
+
+### 2026-07-20 — E2 Factor S0+S1: proof-correct (initially OFF, net-negative)
 - **Factor rule landed** (`src/rules/factor/`): binary-grid BVA transform, greedy
   detection, add-RAT DRAT (pivot-first `add_rup` + delete-last), extension-var
   model projection. Unit test `factor` (2×3 grid + boundary); calculus §E2 +

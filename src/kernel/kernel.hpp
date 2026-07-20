@@ -318,6 +318,8 @@ void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 //     direct/off-root callers safe).
 // Redundancy of (a v b) is the CALLER's proof obligation, not checked here.
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
+// DRAT-only: remove EVERY copy of pair (a,b) (E2 Factor grid removal; see impl).
+bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 
 inline uint64_t kernel_binary_key(Lit a, Lit b) {
   const Lit lo = a < b ? a : b, hi = a < b ? b : a;

@@ -168,6 +168,71 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
+// DRAT-only variant for E2 Factor: remove EVERY copy of the pair (a,b), not just
+// a single nameable one. A factoring replaces its whole grid with the aux-var
+// definition, so a duplicated grid binary must be fully removed — but the plain
+// kernel_delete_binary refuses copies!=1 because its retired id would break a
+// later LRAT chain through a SURVIVING copy. Here no copy survives, so that
+// hazard is gone; and Factor no-ops under native LRAT (D-FACTOR-LRAT), so the
+// one-id-per-pair LRAT ambiguity never reaches a checker. Non-grid duplicates
+// elsewhere are untouched (only Factor's exact grid pairs are removed), so the
+// duplicate-binary search bias the base solver relies on is preserved. Emits one
+// DRAT `del` per copy so the checker's clause set stays exact. Returns true iff
+// at least one copy was removed.
+bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
+  uint32_t copies = 0;
+  for (const uint32_t *p = k.watches.begin(a), *e = k.watches.end(a); p != e;) {
+    const Watch w{*p};
+    if (!w.binary())
+      p += 2;
+    else {
+      if (w.other() == b)
+        copies++;
+      p += 1;
+    }
+  }
+  if (copies == 0)
+    return false; // absent (idempotent)
+  // retire a live ROOT reason before removing the clause(s) that name it (a no-op
+  // for Factor, whose grid literals are both unassigned, but kept for generality)
+  for (const Lit x : {a, b}) {
+    Assigned &ax = k.assigned[var_of(x)];
+    const Lit other = (x == a) ? b : a;
+    if (k.values[x] > 0 && ax.binary && ax.reason == other) {
+      if (ax.level != 0)
+        return false; // live non-root reason: refuse (never at a root)
+      ax.reason = UNIT_REASON;
+    }
+  }
+  // remove ALL matching mirror watch entries by in-place compaction
+  for (const Lit x : {a, b}) {
+    const Lit other = (x == a) ? b : a;
+    uint32_t *const begin = k.watches.begin(x);
+    uint32_t *q = begin;
+    const uint32_t *p = begin;
+    const uint32_t *const end = k.watches.end(x);
+    while (p != end) {
+      const Watch w{*p};
+      if (!w.binary()) {
+        *q++ = *p++;
+        *q++ = *p++;
+      } else if (w.other() == other) {
+        p += 1; // drop every matching copy
+      } else {
+        *q++ = *p++;
+      }
+    }
+    k.watches.truncate(x, static_cast<uint32_t>(q - begin));
+  }
+  if (k.proof) {
+    const Lit lits2[2] = {a, b};
+    for (uint32_t i = 0; i < copies; i++)
+      k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
+  }
+  k.stats.binaries_deleted += copies;
+  return true;
+}
+
 // kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)
 
 void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {

@@ -41,7 +41,7 @@ V1/V2/S5 additionally carry `!conflict_valid` as a genuine abstract precondition
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. |
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). |
 | V6 Congruence | `root` | **D-ROOT:** `level==0`. **D-CONG-LRAT:** XOR/ITE extraction gated off under native LRAT (a proof-mode branch in the effect, not a guard conjunct — §2). |
-| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). **D-FACTOR-LRAT:** under native LRAT the rule no-ops (add-RAT chains deferred) — a proof-mode effect branch, not a guard conjunct. (Design `docs/design/e2-factor-design.md`.) |
+| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). **D-FACTOR-LRAT:** under native LRAT the rule no-ops (add-RAT chains deferred) — a proof-mode effect branch, not a guard conjunct. Also a `binary_ids.size() ≥ num_output_vars` **density short-circuit** (§5) — a selectivity `NoOp`, not a guard conjunct. ON in DefaultPolicy since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
 
 ## 2. The engineering-deviation ledger (the impurity punch-list)
 
@@ -149,10 +149,10 @@ exposes `pending`). Verified behavior-preserving: s055 bit-exact at 932,762
 conflicts, demo3 (the stat-exact DefaultPolicy mirror) matches, proof output
 byte-identical.
 
-## 5. Design decision: extension variables (E2 Factor) — two cross-rule invariants
+## 5. Design decision: extension variables (E2 Factor) — cross-rule invariants
 
-E2 Factor is the first rule that **adds variables mid-solve**. Two invariants keep
-the rest of the kernel/rules correct in its presence — both are *engineering
+E2 Factor is the first rule that **adds variables mid-solve**. Several invariants
+keep the rest of the kernel/rules correct in its presence — all are *engineering
 mechanics*, not proof-rule guards, so they live here rather than in the calculus:
 
 - **The dense occurrence index grows with `nvars`.** `Kernel::dense` (the
@@ -175,10 +175,36 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   precondition — eliminating `x` is perfectly sound, just counterproductive — so
   BVE's guard stays pure (`root`) and this is a note, not a ledger deviation.
 
-**Status of E2 in DefaultPolicy: OFF.** The S1 binary-only transform is
-proof-correct (add-RAT via pivot-first DRAT; fuzz 1000/0 with drat-trim under
-`TACTIX_FACTOR_FORCE`) but **measured net-negative** (mp1 396 s vs 233 s baseline)
-— binary-only factoring finds too little, and the general lever needs the SBVA
-selective heuristic (S2) + large-clause remainders (S4). Factor stays *registered*
-(N1: applicable via the public API and via `--random-policy`), just not enabled in
-DefaultPolicy's inprocessing slot until S2/S4 make it a win.
+- **A factoring must delete ALL copies of each grid binary** — the duplicate-binary
+  bug that once made Factor inert. The kernel tolerates duplicate binaries but maps
+  a literal *pair* to one id (`binary_ids`), so `kernel_delete_binary` refuses a
+  pair with `copies==2` (its retired id would break a later LRAT chain through the
+  *surviving* copy). A factoring replaces its whole grid with the aux-var
+  definition, so a duplicated grid binary must go entirely; the plain delete's
+  refusal left the grid in place while the dividers/quotients were added → **bloat,
+  not factoring** (x9: 2612 delete-failures, 3597→4650 clauses, zero search
+  benefit; real instances are ~50 % duplicate binaries — mp1 had 137 700 duplicated
+  pairs). Fix: `kernel_delete_binary_all_copies` (DRAT-only; Factor no-ops under
+  LRAT) removes every copy — sound because *no copy survives* to be cited — and
+  `binary_partners` deduplicates so the grid dimensions / gain aren't inflated.
+  Crucially this touches **only Factor's grid pairs**: a global binary-dedup
+  instead *wrecks* the base search (mp1 4.19M→23.9M+ conflicts — the duplicate
+  binaries are load-bearing for its CDCL trajectory), so removing them wholesale is
+  off the table; removing exactly the factored ones preserves that bias.
+
+- **Density short-circuit (a selectivity heuristic, not a guard).** BVA only pays
+  off on a dense binary implication graph. `factor_apply` returns `NoOp` when
+  `binary_ids.size() < num_output_vars` so binary-sparse instances (random 3-SAT)
+  pay nothing and their chaotic search is never perturbed. This is a **policy**
+  concern (which grids to factor / when) that lives in the rule *meanwhile* — its
+  proper home is the policy's scheduling of Factor (S2). It is a cheap `NoOp`, not
+  a guard conjunct, so N1 keeps every factoring applicable via the API regardless.
+
+**Status of E2 in DefaultPolicy: ON** (2026-07-20). Net-positive once the
+duplicate-binary bug was fixed: x9 801k→453k conflicts (39 s→23 s), mp1
+4.19M→3.66M; **Tier A neutral** (density short-circuit no-ops on random 3-SAT —
+factor-on == factor-off at 199/200, PAR-2 0.78). Proof-verified (x9 DRAT VERIFIED,
+469 RAT lemmas) and fuzz-clean (default + `--random-policy` + Factor-in-slot,
+1000/0 each, drat-trim per case). The *full* kissat-level benefit (mp1 305k, 13×)
+still wants the SBVA selective heuristic (S2) + large-clause remainders (S4) —
+tracked as follow-on work; binary-only Factor closes only part of the gap.
