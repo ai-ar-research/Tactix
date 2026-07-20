@@ -18,9 +18,9 @@ disagree, the plan is authoritative — fix this file.
   profiling those and looking at clause-DB reduction / restart cadence / vivify
   effectiveness. Lower-priority tracked congruence follow-ups: native-LRAT chains
   for **XOR/ITE** (un-gate `--lrat`), and **binary-extraction** for `clique`
-  (deprioritized — search-bound). *(A 20k random-policy+LRAT nightly is running as
-  of 2026-07-20 — `tools/fuzz/nightly-rev48.log`; check it before trusting the base
-  green.)*
+  (deprioritized — search-bound). *(Base is soundness-green: 2026-07-20 20k
+  random-policy + native-LRAT nightly = **20000/0** (SAT 9928 / UNSAT 6746 / TO
+  3326), every UNSAT lrat-checked — `tools/fuzz/nightly-rev48.log`.)*
 
 ## Non-negotiables status (plan §1.1)
 
