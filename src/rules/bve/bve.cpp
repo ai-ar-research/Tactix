@@ -12,6 +12,8 @@
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <utility>
 
 namespace tactix {
@@ -26,6 +28,15 @@ static constexpr uint32_t BVE_CLSLIM = 100;
 // growth slack (kissat eliminatebound; the ramp 0→16 is a future policy knob).
 // Eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ + BVE_BOUND.
 static constexpr uint32_t BVE_BOUND = 16;
+
+// DIAGNOSTIC (bimodal-BVE investigation): TACTIX_BVE_BOUND overrides the growth
+// slack so the bound can be swept without a rebuild; TACTIX_BVE_TRACE logs each
+// applied elimination. Both env-gated — unset, behaviour is unchanged.
+static uint32_t bve_bound() {
+  if (const char *s = std::getenv("TACTIX_BVE_BOUND"))
+    return static_cast<uint32_t>(std::atoi(s));
+  return BVE_BOUND;
+}
 
 bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
@@ -354,7 +365,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     std::vector<uint64_t> chain;
   };
   std::vector<Resolvent> resolvents;
-  const size_t limit = pos.size() + neg.size() + BVE_BOUND;
+  const size_t limit = pos.size() + neg.size() + bve_bound();
   std::vector<uint8_t> seen(2 * k.nvars, 0); // dedup/tautology scratch
   for (size_t ci = 0; ci < pos.size(); ++ci) {
     const MClause &c = pos[ci];
@@ -532,6 +543,14 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       kernel_assign_unit(k, u);
 
   kernel_collect_garbage(k); // reclaim the garbaged large clauses
+  if (std::getenv("TACTIX_BVE_TRACE")) {
+    const size_t before = pos.size() + neg.size();
+    std::fprintf(stderr,
+                 "[bve] x=%u p=%zu n=%zu resolvents=%zu delta=%+d gate=%d\n",
+                 x, pos.size(), neg.size(), resolvents.size(),
+                 static_cast<int>(resolvents.size()) - static_cast<int>(before),
+                 gate ? 1 : 0);
+  }
   k.stats.bve_eliminated++;
   return ApplyResult::Ok;
 }

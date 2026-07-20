@@ -74,30 +74,69 @@ Search never depended on the duplicates. Kissat is unaffected by the same dedup
 - Kissat runs its own elimination on clique and finishes in 4.45 s. We finish in
   5.74 s with BVE off and 221.93 s with it on. So the technique is fine; our
   application of it is not.
-- A ten-variable elimination causing a 25× blow-up is the signature of removing
-  structurally load-bearing variables (clique is highly symmetric) that our
-  growth/occurrence bound does not recognize as special.
+
+## Root cause: INCOMPLETE elimination (measured 2026-07-20)
+
+The problem is not that we eliminate too much — it is that we eliminate too
+**little** and stop in the worst place. Instrumented on the current build
+(`TACTIX_BVE_TRACE` per-elimination log + abort-reason counters,
+`TACTIX_BVE_BOUND` to sweep the growth slack — both env-gated):
+
+| instance | kissat eliminates | we eliminate | why we stop |
+|---|---:|---:|---|
+| clique_n2_k10 | 244 (136 % of vars) | 10 | 510 candidates abort on the +16 growth bound |
+| rbsat-v760… | 2016 (265 % of vars) | 41 | 595 candidates abort on the +16 growth bound |
+
+- Kissat's elimination **cascades** — eliminating a variable exposes new
+  eliminable ones, so it removes *more than 100 %* of the original variables over
+  many rounds with an escalating bound.
+- Ours is one preprocessing phase with a **fixed** `BVE_BOUND = 16` growth slack
+  (`bve.cpp:30`; eliminate iff #resolvents ≤ occ⁺+occ⁻+16). After the first
+  handful of clause-reducing gate eliminations (clique's 10 are all `delta=-18`,
+  `gate=1`), every remaining candidate would grow the formula past +16 and aborts.
+  0 aborted on the resolvent-size limit (`BVE_CLSLIM`) and 0 on the
+  duplicate-binary hazard — it is purely the growth bound.
+- **Partial elimination of symmetric structure is worse than none or complete.**
+  Raising the bound confirms the direction: clique at `TACTIX_BVE_BOUND=1000`
+  eliminates 28 (not 10) and drops to 5.53 M conflicts / 57.5 s — 3.8× faster
+  than the default 16.55 M / 221 s, though still short of kissat's 570 k / 4.3 s
+  because we still do not cascade to completeness (28 ≪ 244).
+
+So the mp1 "duplicate binaries" story and the clique blow-up are the same
+mechanism seen from two sides: our BVE stalls partway. On mp1, duplicate binaries
+inflate occurrences so it stalls at **0** eliminations (accidentally safe); on
+clique/rbsat it stalls at 10–41 (actively harmful).
 
 ## Routing
 
-Not fixed here (diagnosis skill hands off). Owner: **rule-dev**, on the BVE rule.
+Diagnosis complete (cause = incomplete BVE, growth-bound-limited, generalises
+across clique + rbsat). Not fixed here (diagnosis skill hands off). Owner:
+**rule-dev** on the BVE rule, with a **revise-plan** note (the "ramp 0→16 is a
+future policy knob" comment at `bve.cpp:28` is now a concrete work item).
 
-1. **First**, characterise the harmful eliminations: on clique and rbsat, log
-   which variables BVE picks (occurrence counts, resolvent count, gate type) and
-   what distinguishes them from the mod4block/qwh eliminations that pay off.
-   `TACTIX_NO_BVE` is the A/B knob.
-2. **Then** compare against kissat's elimination bound and schedule
-   (`eliminatebound`, occurrence limits, the round/bound escalation in
-   `eliminate.c` + `kimits.c`) — plan §5 requires a fits-our-architecture argument
-   before adopting, and the relevant question is which bound of theirs we lack.
-3. A per-instance gate belongs in the **policy**, not the rule guard (N1: the
-   guard must stay a pure precondition). Any selectivity lands in DefaultPolicy's
-   slot scheduling, mirroring where Factor's density short-circuit is documented
-   to belong.
+Two candidate fixes, to be A/B'd across Tier B **and** Tier C:
+
+1. **Complete the cascade (match kissat).** Give BVE an escalating growth bound
+   (kissat's `eliminatebound` ramp) and enough rounds to run elimination to a
+   fixpoint, so it removes >100 % of variables instead of stalling at a few
+   percent. Risk: completeness is not free — it must not blow up the instances
+   where partial BVE currently *helps* (mod4block/qwh/crypto1). This is the
+   principled fix and the one that could also unlock mp1.
+2. **Complete-or-skip guard (cheaper interim).** If a scheduled BVE round would
+   only partially eliminate a connected symmetric block, skip it — never enter
+   the partial state. Needs a cheap predictor of "will stall"; the bound-abort
+   ratio in the first round is a candidate signal. Lands in the **policy** slot
+   scheduling, not the rule guard (N1: guard stays a pure precondition).
+
+Interim data point for whoever picks this up: `TACTIX_BVE_BOUND` sweeps the growth
+slack live and `TACTIX_BVE_TRACE` logs each elimination (var, occ⁺, occ⁻,
+resolvents, delta, gate) — both committed, env-gated, default-off.
 
 Do **not** simply disable BVE: mod4block (2.81×), crypto1 (2.47×) and qwh (2.30×)
 are real wins, and the inprocessing-revamp report that justified enabling it
-measured Tier C +3 solved.
+measured Tier C +3 solved. Until the fix lands, `TACTIX_NO_BVE=1` is the
+one-instance escape hatch, but it is a net Tier-B win only because clique+rbsat+
+hwmcc dominate the sum — it forfeits the three genuine wins.
 
 ## Caveats
 

@@ -88,14 +88,24 @@ disagree, the plan is authoritative — fix this file.
   conflicts (16.55M vs 647k), while kissat runs its own elimination on clique in
   4.45s — the technique is fine, our application is not; ten eliminations doing
   that is the signature of removing structurally load-bearing variables in a
-  symmetric instance. **Next:** (i) log which variables BVE picks on clique/rbsat
-  (occurrences, resolvent count, gate type) vs the mod4block/qwh ones that pay
-  off — `TACTIX_NO_BVE` is the A/B knob; (ii) compare kissat's `eliminatebound` /
-  occurrence limits / round escalation (`eliminate.c`, `kimits.c`) for the bound
-  we lack, with a fits-our-architecture argument per plan §5; (iii) any
-  selectivity lands in the POLICY slot scheduling, not the rule guard (N1).
-  Re-run Tier C both ways before flipping any default — BVE's original
-  justification was partly Tier C (+3 solved). (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
+  symmetric instance. **ROOT CAUSE FOUND (2026-07-20): incomplete elimination.**
+  Kissat's BVE cascades — eliminating a var exposes new ones — removing 244 vars
+  (136%) on clique, 2016 (265%) on rbsat. Ours does ONE preprocessing phase with a
+  FIXED +16 growth bound (`bve.cpp:30`) and stalls: 10 eliminated on clique then
+  510 candidates abort on the bound; 41 on rbsat then 595 abort (0 clslim, 0
+  dup-hazard — purely the growth bound). Partial elimination of symmetric
+  structure is worse than none or complete. Sweep confirms: clique at
+  `TACTIX_BVE_BOUND=1000` → 28 eliminated, 5.53M conflicts/57.5s (vs 16.55M/221s
+  default; kissat 570k/4.3s) — raising the bound helps but does not reach
+  completeness. The mp1 "dups" story is the SAME mechanism: dups inflate
+  occurrences so BVE stalls at 0 (safe); clique/rbsat stall partway (harmful).
+  **→ ROUTED to rule-dev (report has both candidate fixes):** (1) escalating bound
+  + cascade to completion (kissat's `eliminatebound` ramp — the `bve.cpp:28`
+  "future policy knob" comment is now the work item; must not break mod4block/qwh/
+  crypto1 where partial BVE helps); or (2) cheaper complete-or-skip gate in the
+  POLICY slot (N1: guard stays pure). A/B across Tier B AND C (BVE's justification
+  was partly Tier C, +3 solved). Diagnostic knobs committed (`TACTIX_BVE_BOUND`,
+  `TACTIX_BVE_TRACE`, `TACTIX_NO_BVE`), env-gated default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
   lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
   watch iteration dup across `binary_partners`/`has_binary`/BVE; grid-generator
