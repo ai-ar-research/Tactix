@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 46 (2026-07-19)
+- **Plan revision tracked:** rev. 47 (2026-07-19)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-19
 
@@ -21,7 +21,7 @@ disagree, the plan is authoritative — fix this file.
 
 - [x] T1 — all of Tier A ≤ 30 s each; ≥ MiniSat on Tier B — **passed 2026-07-14** (Tier A 200/200 PAR-2 0.48 jobs=4; Tier B medians 9/14 @ 231.6 vs MiniSat 8/14 @ 281.4; report `benchmarks/reports/2026-07-14-t1-gate.md`)
 - [x] T2 — ≥ Glucose on Tier B; propagation microbenchmark within 20% of Kissat — **passed 2026-07-14** (Tier B medians 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C  **(re-pinned rev 46, jobs=4/1200 s: CaDiCaL = 160.6 clean — the old 336.96 pin was contention-inflated 2×; tactix after the inprocessing revamp = 356 (28/30), ~2.2× → T3 NOT met. Gap = the 2 UNSAT TOs `hwmcc-miters`/`clique` (need SAT-safe V-rules) + search quality. Always re-measure CaDiCaL clean in-session before judging, §8.1. Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`)**
+- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C  **(re-pinned rev 46, jobs=4/1200 s: CaDiCaL = 160.6 clean — the old 336.96 pin was contention-inflated 2×; tactix after the inprocessing revamp = 356 (28/30), ~2.2× → T3 NOT met. Gap update (rev 47): **`hwmcc-miters` now CRACKED by V6 Congruence** (Tier B +1); the remaining `clique` TO is search-bound (not congruence), so the residual gap is search quality (+ Tier C re-measure with congruence pending). Always re-measure CaDiCaL clean in-session before judging, §8.1. Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`)**
 - [ ] T4 — parity with Kissat-public on Tier D  **(satisfies N3)**
 - [ ] T5 — beat AE-Kissat-MAB PAR-2 on Tier D → competition submission
 
