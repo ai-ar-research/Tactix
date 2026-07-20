@@ -99,13 +99,27 @@ disagree, the plan is authoritative — fix this file.
   default; kissat 570k/4.3s) — raising the bound helps but does not reach
   completeness. The mp1 "dups" story is the SAME mechanism: dups inflate
   occurrences so BVE stalls at 0 (safe); clique/rbsat stall partway (harmful).
-  **→ ROUTED to rule-dev (report has both candidate fixes):** (1) escalating bound
-  + cascade to completion (kissat's `eliminatebound` ramp — the `bve.cpp:28`
-  "future policy knob" comment is now the work item; must not break mod4block/qwh/
-  crypto1 where partial BVE helps); or (2) cheaper complete-or-skip gate in the
-  POLICY slot (N1: guard stays pure). A/B across Tier B AND C (BVE's justification
-  was partly Tier C, +3 solved). Diagnostic knobs committed (`TACTIX_BVE_BOUND`,
-  `TACTIX_BVE_TRACE`, `TACTIX_NO_BVE`), env-gated default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
+  **MECHANISM CONFIRMED + BOTH candidate fixes KILLED (2026-07-20, adversarial
+  review):** (a) NOT gates — instrumented tally shows kissat finds ~0 gates on
+  these instances (clique 5 total, rbsat 0) yet eliminates 244/2016 via non-gate
+  full cross product; "match gate detection" is dead. (b) NOT the bound — kissat's
+  bound formula is identical to ours and its pass-1 bound is 0 (stricter than our
+  16) yet it eliminates 84 vs our 10; kissat counts resolvents the same way;
+  clique has 0 dup binaries. The real enabler is the CASCADE sustained by
+  forward-subsumption between eliminations + interleaving with search (never
+  freezing a partial). BUT completing the cascade is the WRONG fix: elimination is
+  neutral-to-harmful for kissat ITSELF on clique (504k no-elim vs 570k), BVE-off
+  already matches kissat there, and complete BVE is CATASTROPHIC on mp1 (deduped
+  20.54M/613s) — the earlier "could unlock mp1" note was wrong. Interleaving was
+  already tried + backed out (FmlaEquiv 27→198). **→ REVISED PLAN: default BVE OFF,
+  gated on a Tier C on/off A/B (solved count first — BVE was enabled for +3 Tier C
+  solves, never re-measured post-S2). Tier C A/B RUNNING 2026-07-20.** If solves
+  hold → flip default off (1.84× Tier B win, ~half the kissat gap, one line). If
+  solves regress → policy-slot structural skip keyed on INSTANCE STRUCTURE (dense
+  uniform-degree cardinality graph), NOT abort-ratio (which doesn't separate
+  clique from mod4block); prototype offline on the 5 harmful/3 helpful Tier B
+  instances first. Diagnostic knobs committed (`TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`,
+  `TACTIX_BVE_TRACE`), env-gated default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
   lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
   watch iteration dup across `binary_partners`/`has_binary`/BVE; grid-generator

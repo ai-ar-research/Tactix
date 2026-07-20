@@ -1,9 +1,13 @@
 # BVE is bimodal on Tier B — diagnosis + routing (2026-07-20)
 
 **Verdict: our BVE is a 1.84× net loss on Tier B PAR-2 as currently scheduled,
-and the loss is concentrated in a few catastrophic instances rather than spread
-out. It is not "BVE is bad" — it wins 2.3–2.8× on three instances. It needs a
-guard, not a switch.**
+concentrated in a few catastrophic instances (clique, rbsat, hwmcc). It wins
+2.3–2.8× on three others, but those are already-solved, so it costs PAR-2 there,
+not solves. Recommended action — default BVE OFF, gated on a Tier C on/off A/B
+(solved count first). The "guard, not a switch" framing in the first draft was
+superseded: no cheap structural skip signal separates the harmful from the
+helpful instances, and the principled "complete the cascade" fix is neutral for
+kissat and catastrophic on mp1 (see "Mechanism confirmed + plan revised" below).**
 
 Frozen report (per doc discipline). Measured with `tools/bench/run.py --tier B
 --jobs 4`, one run at a time, same binary (`6c22bbf` plus the
@@ -107,40 +111,65 @@ mechanism seen from two sides: our BVE stalls partway. On mp1, duplicate binarie
 inflate occurrences so it stalls at **0** eliminations (accidentally safe); on
 clique/rbsat it stalls at 10–41 (actively harmful).
 
-## Routing
+## Mechanism confirmed + plan revised (2026-07-20, post adversarial review)
 
-Diagnosis complete (cause = incomplete BVE, growth-bound-limited, generalises
-across clique + rbsat). Not fixed here (diagnosis skill hands off). Owner:
-**rule-dev** on the BVE rule, with a **revise-plan** note (the "ramp 0→16 is a
-future policy knob" comment at `bve.cpp:28` is now a concrete work item).
+A deeper look (kissat `resolve.c` / `eliminate.c` read directly + a gate tally
+instrumented into the kissat clone) **overturned the two candidate fixes below**
+and settled the mechanism:
 
-Two candidate fixes, to be A/B'd across Tier B **and** Tier C:
+- **Gate detection is NOT kissat's mechanism here.** Instrumented tally over the
+  whole solve: clique 5 gates total (equiv 1, and 2, ite 0, def 2), rbsat **0** —
+  yet kissat eliminates 244 / 2016 variables. Its non-gate path
+  (`resolve.c:347-351`) is the same full cross product we use. "Match kissat's
+  gate detection" would touch nothing on these instances. **Dead.**
+- **The growth bound is not the difference either.** Kissat's bound formula is
+  identical to ours (`resolve.c`: `occ⁺+occ⁻+bound`); its bound *ramps 0→16*, so
+  pass 1 runs at bound **0** — stricter than our fixed 16 — and still eliminates
+  84 where we eliminate 10. A stricter bound eliminating more ⇒ the lever is not
+  the bound and not per-variable resolvent counting (kissat counts resolvents the
+  same way, `resolve.c:88-246`). clique has **0 duplicate binaries** (verified),
+  so dense-dedup is irrelevant here too.
+- **The real enabler is the cascade, sustained by forward-subsumption *between*
+  eliminations** (`eliminate.c:441`, `connect_resolvents`), keeping the
+  intermediate formula lean so later variables stay under bound 0 — and by
+  interleaving elimination with search so a partial state is never *frozen*. We
+  do one preprocessing phase then freeze (`default_policy.cpp:157-165`; the
+  during-search path is `#if 0`).
+- **But completing the cascade is the wrong fix.** Elimination is neutral-to-
+  harmful for *kissat itself* on clique (`--eliminate=false` 504 k conflicts vs
+  570 k with). BVE-off already matches kissat on clique (5.74 s vs 4.45 s). And
+  completing BVE is *catastrophic* where it would newly fire: deduped-mp1 with
+  complete BVE is 20.54 M conflicts / 613 s vs 2.37 M / 58.7 s with BVE off — so
+  the earlier "could unlock mp1" note was **wrong** (completing BVE wrecks mp1).
+- Interleaving is also off the table: it was tried and backed out for a measured
+  reason (during-search BVE knocks high-variance SAT search off trajectory,
+  FmlaEquiv 27→198; `default_policy.cpp:159-161`).
 
-1. **Complete the cascade (match kissat).** Give BVE an escalating growth bound
-   (kissat's `eliminatebound` ramp) and enough rounds to run elimination to a
-   fixpoint, so it removes >100 % of variables instead of stalling at a few
-   percent. Risk: completeness is not free — it must not blow up the instances
-   where partial BVE currently *helps* (mod4block/qwh/crypto1). This is the
-   principled fix and the one that could also unlock mp1.
-2. **Complete-or-skip guard (cheaper interim).** If a scheduled BVE round would
-   only partially eliminate a connected symmetric block, skip it — never enter
-   the partial state. Needs a cheap predictor of "will stall"; the bound-abort
-   ratio in the first round is a candidate signal. Lands in the **policy** slot
-   scheduling, not the rule guard (N1: guard stays a pure precondition).
+**Revised plan: default BVE OFF, gated on a Tier C on/off A/B.** BVE-off is a
+measured 1.84× Tier B PAR-2 win (42.83→23.30) with 3.4× smaller proofs; the three
+BVE wins (mod4block/crypto1/qwh) are on already-solved instances, so off costs
+PAR-2 there but **no solves**. The only real risk is Tier C solve count (BVE was
+enabled for +3 Tier C solves, pre-Factor-S2, never re-measured) — solves outrank
+PAR-2, so the A/B decides on **solved count first**.
 
-Interim data point for whoever picks this up: `TACTIX_BVE_BOUND` sweeps the growth
-slack live and `TACTIX_BVE_TRACE` logs each elimination (var, occ⁺, occ⁻,
-resolvents, delta, gate) — both committed, env-gated, default-off.
+- **Solves hold with BVE off → flip the default off**, re-baseline Tier B. One
+  line, closes ~half the kissat gap (6.8×→~3.7×).
+- **Solves regress → do NOT flip globally and do NOT build the cascade.** Add a
+  **policy-slot structural skip** keyed on the harmful *instance structure* (dense,
+  near-uniform-degree binary/cardinality graph — clique is literally every-var
+  p=1/n=35 at-most-one), prototyped offline against the 5 harmful vs 3 helpful
+  Tier B instances first. Note: the naive signals (bound-abort ratio, completion
+  fraction) do **not** separate the two classes (mod4block, where BVE helps, looks
+  like clique on those metrics), so the predicate must key on structure, not on
+  BVE's own stats.
 
-Do **not** simply disable BVE: mod4block (2.81×), crypto1 (2.47×) and qwh (2.30×)
-are real wins, and the inprocessing-revamp report that justified enabling it
-measured Tier C +3 solved. Until the fix lands, `TACTIX_NO_BVE=1` is the
-one-instance escape hatch, but it is a net Tier-B win only because clique+rbsat+
-hwmcc dominate the sum — it forfeits the three genuine wins.
+Owner: **policy** (the default flip / the skip predicate live in DefaultPolicy's
+slot scheduling, N1: rule guard stays a pure precondition). `TACTIX_NO_BVE`,
+`TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE` are committed env-gated diagnostics.
 
 ## Caveats
 
-- One tier, one machine, jobs=4. Tier C should be re-run both ways before any
-  default flips — the BVE-on justification came partly from Tier C.
+- One tier, one machine, jobs=4. The Tier C on/off A/B is the gating measurement
+  for the default flip.
 - Timings are from parallel (jobs=4) runs; the clique and mp1 numbers were also
   confirmed sequentially and uncontended (clique 189.1 s on / 4.70 s off).

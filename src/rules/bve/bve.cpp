@@ -119,6 +119,12 @@ void bve_schedule(const Kernel &k, std::vector<Var> &out) {
 
 namespace {
 
+// DIAGNOSTIC: cumulative NoOp-reason tally for the bimodal-BVE investigation,
+// printed by bve_apply under TACTIX_BVE_TRACE. Static — sequential solving only.
+struct BveAborts {
+  uint64_t bound = 0, bound_gate = 0, clslim = 0, dup = 0, nowhere = 0;
+} g_bve_aborts;
+
 // live copies of the binary pair (a ∨ b) in a's watch list (V3's helper).
 uint32_t bve_binary_copies(const Kernel &k, Lit a, Lit b) {
   uint32_t n = 0;
@@ -330,8 +336,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       }
       const Lit o = w.other();
       i += 1;
-      if (bve_binary_copies(k, lit, o) >= 2)
+      if (bve_binary_copies(k, lit, o) >= 2) {
+        g_bve_aborts.dup++;
         return false; // duplicated pair: kernel_delete_binary can't name it
+      }
       if (k.value(o) > 0) { // satisfied
         del_bin.emplace_back(lit, o);
         continue;
@@ -350,8 +358,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   if (!gather_bin(px, pos) || !gather_bin(nx, neg))
     return ApplyResult::NoOp; // duplicate-binary hazard
 
-  if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty())
+  if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty()) {
+    g_bve_aborts.nowhere++;
     return ApplyResult::NoOp; // x occurs nowhere resolvable
+  }
 
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
   std::vector<uint8_t> pos_gate(pos.size(), 0), neg_gate(neg.size(), 0);
@@ -401,6 +411,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       if (taut)
         continue;
       if (r.lits.size() > BVE_CLSLIM) { // oversized resolvent: abort the variable
+        g_bve_aborts.clslim++;
         aborted = true;
         break;
       }
@@ -412,6 +423,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       }
       resolvents.push_back(std::move(r));
       if (resolvents.size() > limit) { // growth bound exceeded: keep x
+        g_bve_aborts.bound++;
+        if (gate)
+          g_bve_aborts.bound_gate++;
         aborted = true;
         break;
       }
@@ -574,6 +588,16 @@ ApplyResult bve_apply(Kernel &k) {
       return ApplyResult::Ok; // eliminated one variable
     // NoOp (bound / hazard): try the next candidate
   }
+  if (std::getenv("TACTIX_BVE_TRACE"))
+    std::fprintf(stderr,
+                 "[bve] ROUND-DONE eliminated=%llu cands=%zu aborts: bound=%llu "
+                 "(gate=%llu) clslim=%llu dup=%llu nowhere=%llu\n",
+                 (unsigned long long)k.stats.bve_eliminated, cand.size(),
+                 (unsigned long long)g_bve_aborts.bound,
+                 (unsigned long long)g_bve_aborts.bound_gate,
+                 (unsigned long long)g_bve_aborts.clslim,
+                 (unsigned long long)g_bve_aborts.dup,
+                 (unsigned long long)g_bve_aborts.nowhere);
   return ApplyResult::NoOp;
 }
 
