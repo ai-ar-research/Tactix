@@ -140,8 +140,6 @@ SccResult substitute_find_sccs(const Kernel &k) {
   return res;
 }
 
-namespace {
-
 // One directed BIG path `from -> ... -> to` as its edge clause-ids in FORWARD
 // order (LRAT only; the caller guards on k.proof->lrat()). Out-edges of p are
 // the binary watches of negate(p): an edge p -> q is the clause (¬p ∨ q), id
@@ -197,6 +195,8 @@ bool big_path_chain(const Kernel &k, Lit from, Lit to,
   std::reverse(chain.begin(), chain.end());
   return true;
 }
+
+namespace {
 
 // x ≡ ¬x: emit the refutation (design §3.3). {¬x} is RUP (assume x; the path
 // x -> ¬x propagates ¬x; conflict) and {x} likewise via ¬x -> x; the two

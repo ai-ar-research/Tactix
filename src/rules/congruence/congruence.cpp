@@ -2,7 +2,8 @@
 
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
-#include "rules/propagate/propagate.hpp" // inprocess_reach_root
+#include "rules/propagate/propagate.hpp"   // inprocess_reach_root
+#include "rules/substitute/substitute.hpp" // big_path_chain (bridged LRAT chains)
 
 #include <algorithm>
 #include <cassert>
@@ -441,36 +442,58 @@ void add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b) {
   emit(negate(a), b, negate(cond));
 }
 
-// Add one equivalence a==b (from two congruent gates) as the binaries (¬a∨b),
-// (a∨¬b). Both are single-step RUP from the two AND gates' clauses:
-//   (¬a∨b): assume a,¬b; a's binaries (¬a∨inp) force each inp; b's base clause
-//           (b∨¬inp₁∨…) then conflicts. chain = a.input_bin_ids + [b.base_id].
-//   (a∨¬b): mirror — chain = b.input_bin_ids + [a.base_id].
-// Returns false normally; true if the addition derives ∅ (Unsat).
-bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb) {
+// Add the equivalence a==b from two congruent AND gates as (¬a∨b),(a∨¬b).
+// Under the fixpoint the two gates' inputs are equal only UNDER THE CURRENT
+// REPRESENTATIVES (bridged by earlier added equivalences), so the LRAT chain must
+// thread those bridging binaries — the naive `input_bin_ids + base_id` is only
+// valid for a direct (unbridged) match. For (¬a∨b): assume a,¬b; a's input
+// binaries force ga's inputs, `big_path_chain` bridges each ga input to the gb
+// input in its representative class, and gb's base then conflicts. (a∨¬b) mirrors.
+// DRAT emits bare adds (the checker searches). Returns true iff ∅ derived.
+bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
+                     const std::function<Lit(Lit)> &find) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit a = ga.output, b = gb.output;
-  // emit (x ∨ y) with the given chain, unless it already exists.
-  auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &inp_ids,
-                     uint64_t base_id) {
+  std::vector<uint64_t> chain, br;
+  // chain forcing conflict for (¬g_from.out ∨ g_to.out): g_from.out=1 forces
+  // g_from's inputs, each bridges to the same-class g_to input, g_to.base falsifies.
+  auto build = [&](const CongGate &g_from, const CongGate &g_to) -> bool {
+    chain.assign(g_from.input_bin_ids.begin(), g_from.input_bin_ids.end());
+    std::unordered_map<Lit, Lit> rep2from;
+    for (const Lit in : g_from.inputs)
+      rep2from[find(in)] = in;
+    for (const Lit to_in : g_to.inputs) {
+      const auto it = rep2from.find(find(to_in));
+      if (it == rep2from.end())
+        return false; // no matching input class (should not happen for a match)
+      const Lit from_in = it->second;
+      if (from_in == to_in)
+        continue;
+      if (!big_path_chain(k, from_in, to_in, br))
+        return false;
+      chain.insert(chain.end(), br.begin(), br.end());
+    }
+    chain.push_back(g_to.base_id);
+    return true;
+  };
+  auto add_bin = [&](Lit x, Lit y, const CongGate &g_from, const CongGate &g_to) {
     if (binary_exists(k, x, y))
       return;
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {x, y};
     if (k.proof) {
       if (lrat) {
-        std::vector<uint64_t> chain(inp_ids);
-        chain.push_back(base_id);
-        k.proof->add_rup(id, lits, 2, chain.data(),
-                         static_cast<uint32_t>(chain.size()));
+        const bool ok = build(g_from, g_to);
+        k.proof->add_rup(id, lits, 2, ok ? chain.data() : nullptr,
+                         ok ? static_cast<uint32_t>(chain.size()) : 0);
       } else {
         k.proof->add_rup(0, lits, 2, nullptr, 0);
       }
     }
     kernel_add_binary_clause(k, x, y, id);
   };
-  add_bin(negate(a), b, ga.input_bin_ids, gb.base_id); // (¬a ∨ b)
-  add_bin(a, negate(b), gb.input_bin_ids, ga.base_id); // (a ∨ ¬b)
+  add_bin(negate(a), b, ga, gb); // (¬a∨b): ga.out=1 → ga inputs → bridge → gb.base
+  add_bin(a, negate(b), gb, ga); // (a∨¬b): gb.out=1 → gb inputs → bridge → ga.base
   return false;
 }
 
@@ -496,26 +519,20 @@ void add_equivalence_bare(Kernel &k, Lit a, Lit b) {
 
 ApplyResult congruence_apply(Kernel &k) {
   assert(congruence_guard(k));
-  // N2 (INTERIM): under native LRAT the whole rule is a sound no-op. The
-  // incremental closure merges gates whose inputs were bridged by EARLIER added
-  // equivalences, so a correct LRAT chain for such a match must thread those
-  // bridging binaries (and, for XOR/ITE, the parity/case-split lemmas). The
-  // current chains only cover DIRECT (unbridged) AND matches, so running under
-  // LRAT would emit uncheckable chains. Emitting nothing keeps every LRAT proof
-  // checkable; DRAT gets the full AND+XOR+ITE closure. Removal path: proper
-  // per-match LRAT chains (tracked follow-up) — recorded in docs/calculus.md.
-  if (k.proof && k.proof->lrat())
-    return ApplyResult::NoOp;
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.congruence_rounds++;
 
   // AND, XOR, and ITE gates all participate in ONE union-find closure (an AND
-  // input can be an XOR/ITE output). XOR/ITE match binaries use a bare DRAT-RUP
-  // add preceded by their proof-chain lemmas.
+  // input can be an XOR/ITE output). AND matches emit native-LRAT bridged chains
+  // (add_equivalence). XOR/ITE match binaries use a bare DRAT-RUP add preceded by
+  // their proof-chain lemmas, whose LRAT chains are not yet produced — so XOR/ITE
+  // extraction is gated on DRAT (D-CONG-LRAT, docs/calculus.md); AND congruence
+  // runs on every path.
+  const bool lrat = k.proof && k.proof->lrat();
   std::vector<CongGate> gates;
   congruence_extract(k, gates);
-  {
+  if (!lrat) {
     ClauseIndex index; // built once, shared by XOR + ITE extraction
     build_clause_index(k, index);
     congruence_extract_xor(k, index, gates);
@@ -592,7 +609,7 @@ ApplyResult congruence_apply(Kernel &k) {
     } else if (gates[i].kind == GateKind::Ite) {
       add_ite_matching_proof_chain(k, key[0], out_j, out_i); // key[0] = cond
       add_equivalence_bare(k, out_j, out_i);
-    } else if (add_equivalence(k, gates[j], gates[i])) {
+    } else if (add_equivalence(k, gates[j], gates[i], find)) {
       return ApplyResult::Unsat;
     }
     const Lit sm = oa < ob ? oa : ob, big = oa < ob ? ob : oa;

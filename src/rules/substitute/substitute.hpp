@@ -58,4 +58,11 @@ SccResult substitute_find_sccs(const Kernel &k);
 // On x ≡ ¬x, apply refutes (Unsat).
 ApplyResult substitute_apply(Kernel &); // canonical: full round
 
+// One directed binary-implication-graph path `from → … → to` as its edge
+// clause-ids in FORWARD order (LRAT antecedent chain; caller guards on lrat).
+// Edge p→q is the binary (¬p∨q). Returns false if no path exists. Reused by V6
+// Congruence to bridge two gate inputs proven equal via added equivalences.
+bool big_path_chain(const Kernel &k, Lit from, Lit to,
+                    std::vector<uint64_t> &chain);
+
 } // namespace tactix
