@@ -27,16 +27,27 @@ disagree, the plan is authoritative — fix this file.
   NoOp on binary-sparse instances → **Tier A neutral** (199/200 == baseline).
   Validation: units 29/29; fuzz default + `--random-policy` + Factor-in-slot
   1000/0 each (drat-trim); x9 DRAT VERIFIED.
-  **→ Next work:** the full kissat-level benefit (mp1 305k, 13×) still needs
-  **S2 — SBVA selective heuristic** (the density short-circuit is a stand-in; real
-  selection/scheduling belongs in the policy) + **S4 — large-clause remainders**
-  (binary-only closes only part of the gap). Then measure **Tier B/C** with Factor
-  on, and the deferred **`revisit-codebase`** pass (binary-watch iteration
-  duplication across `binary_partners`/`has_binary`/BVE scans; Factor/Congruence
-  grid-generator fuzz coverage; Factor-vs-BVE slot ordering; the density heuristic →
-  policy). *(Prior context: Tier C w/ congruence = 345.75 (28/30) ~2.15× CaDiCaL.
-  Congruence follow-ups: clique extraction DROPPED, XOR/ITE native-LRAT DEFERRED —
-  D-CONG-LRAT. Base soundness-green: 20k nightly 20000/0 — `nightly-rev48.log`.)*
+  **Measured baseline (clean, 2026-07-20): `benchmarks/reports/2026-07-20-tierB-vs-kissat.md`
+  — Tier B 14/14 solved (first time!), PAR-2 70.0 vs kissat 6.26 (~11×).** Gap is
+  bimodal: ~half the set ≤3× (we beat kissat on qwh), but clique/hwmcc/battleship/
+  mp1 are 22–58× and 77 % of our time. Trajectory 7/14→11/14→13/14→14/14, PAR-2
+  322.9→70.0 over ~9 days. **Re-run that exact set (jobs=4, uncontended) after each
+  lever and compare per-instance ratios — it is the baseline to beat.**
+  **→ Next work (by leverage):** (1) **E2 Factor S2 — SBVA selective heuristic**
+  (the density short-circuit is a stand-in; real selection/scheduling belongs in
+  the policy) + **S4 — large-clause remainders** → mp1 22×, target kissat's 13×
+  (task #37); (2) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
+  lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
+  lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
+  watch iteration dup across `binary_partners`/`has_binary`/BVE; grid-generator
+  fuzz coverage; density heuristic → policy). *(Also open: **task #39** —
+  `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/` (instant
+  under DefaultPolicy; N1 robustness, not soundness). Orphan/contention hazard is
+  fixed: `fuzz.py`+`run.py` now set an `RLIMIT_CPU` backstop (commit 5462989) so
+  hung children can't outlive their budget. Prior: Tier C w/ congruence 345.75
+  (28/30) — note that older figure was contention-inflated. Congruence follow-ups:
+  clique extraction DROPPED, XOR/ITE native-LRAT DEFERRED (D-CONG-LRAT). Base
+  soundness-green: 20k nightly 20000/0 — `nightly-rev48.log`.)*
 
 ## Non-negotiables status (plan §1.1)
 
@@ -174,6 +185,19 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-20 — Tier B head-to-head vs Kissat + orphan-process fix
+- **Clean Tier B baseline** (`benchmarks/reports/2026-07-20-tierB-vs-kissat.md`):
+  14/14 solved (first time — trajectory 7→11→13→14/14), PAR-2 70.0 vs kissat 6.26
+  (~11×). Bimodal: ~half ≤3× (beat kissat on qwh); clique/hwmcc/battleship/mp1
+  22–58× = 77 % of our time. This is the fixed baseline to re-run after each lever.
+- **Orphan/contention hazard fixed.** Found 6 `--random-policy --lrat` fuzz procs
+  spinning 13.5 h at 100 % CPU (PPID 1 — parent killed abruptly, children escaped
+  the timeout), pegging 6/12 cores the whole session (contaminating wall-clock;
+  the older "~2×" Tier C figure is superseded). Fix: `RLIMIT_CPU` backstop via
+  `preexec_fn` in `fuzz.py`+`run.py` (commit 5462989, verified). Cases preserved
+  in `tools/fuzz/known-hangs/`: 5 = random-policy livelock (task #39), hang-60019 =
+  genuinely hard (kissat also >25 s).
 
 ### 2026-07-20 — E2 Factor ON: duplicate-binary bug fixed → net-positive
 - **Root cause of Factor's inertness found + fixed.** Factor gave ~0 benefit
