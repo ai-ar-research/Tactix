@@ -229,6 +229,8 @@ void congruence_extract_xor(const Kernel &k, std::vector<CongGate> &out) {
   }
 }
 
+bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
+
 // Canonicalize gate g under the current union-find into (key, out_lit): key is the
 // structural hash (positive, sorted per kind); out_lit is the literal whose class
 // is merged on a key collision. Returns false if the gate is degenerate under the
@@ -244,6 +246,19 @@ bool canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
       if (key[j] == key[j - 1] || key[j] == negate(key[j - 1]))
         return false; // AND(…,x,x/¬x,…): idempotent/false — defer
     out_lit = g.output;
+    return true;
+  }
+  if (g.kind == GateKind::Ite) {
+    Lit cond = find(g.inputs[0]), th = find(g.inputs[1]), el = find(g.inputs[2]);
+    // defer any ITE whose (representative) operands share a variable — then==else,
+    // then==¬else (an XOR), or cond touching a branch collapse it to a simpler
+    // gate that a later increment/propagation handles; skipping stays sound.
+    if (var_of(cond) == var_of(th) || var_of(cond) == var_of(el) ||
+        var_of(th) == var_of(el))
+      return false;
+    const bool neg_lhs = normalize_ite(cond, th, el);
+    key = {cond, th, el}; // fixed order — the structural key
+    out_lit = neg_lhs ? negate(g.output) : g.output;
     return true;
   }
   // XOR: map inputs to reps, absorb each rep's sign into a global parity, and
@@ -313,6 +328,130 @@ void add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
   }
 }
 
+// Normalize an ITE triple [cond,then,else] in place to the canonical key form
+// (cond positive; then positive) and return whether the OUTPUT must be negated.
+bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
+  if (negated(cond)) { // cond ? t : e  ==  ¬cond ? e : t
+    cond = negate(cond);
+    std::swap(then_l, else_l);
+  }
+  if (negated(then_l)) { // ¬(cond ? ¬t : ¬e) = cond ? t : e, flipping the output
+    then_l = negate(then_l);
+    else_l = negate(else_l);
+    return true;
+  }
+  return false;
+}
+
+// ITE extraction. lhs = cond ? then : else is defined by four ternary clauses:
+//   (cond∨¬else∨lhs),(cond∨else∨¬lhs)   — under ¬cond, lhs≡else
+//   (¬cond∨¬then∨lhs),(¬cond∨then∨¬lhs) — under  cond, lhs≡then
+// We find per-lhs "conditional equivalences" lhs≡w under a condition literal from
+// clause pairs (A∨B∨lhs)+(A∨¬B∨¬lhs) ⇒ lhs≡¬B when ¬A, then pair one under c with
+// one under ¬c into an ITE candidate. EVERY candidate is verified against all four
+// defining clauses before emission, so a mis-detected condeq can never yield an
+// unsound gate. Output = lhs, inputs = [cond,then,else] (canonicalized later).
+void congruence_extract_ite(const Kernel &k, std::vector<CongGate> &out) {
+  std::unordered_map<std::vector<Lit>, uint64_t, InputsHash> index;
+  std::vector<Lit> tmp;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    ref += clause_words(c->size);
+    if (c->garbage() || c->redundant() || c->size != 3)
+      continue;
+    bool ok = true;
+    tmp.clear();
+    for (const Lit l : *c) {
+      if (k.value(l) != 0) {
+        ok = false;
+        break;
+      }
+      tmp.push_back(l);
+    }
+    if (!ok)
+      continue;
+    std::sort(tmp.begin(), tmp.end());
+    index.emplace(tmp, c->id());
+  }
+  std::vector<Lit> probe(3);
+  auto has = [&](Lit a, Lit b, Lit c) -> bool {
+    probe[0] = a;
+    probe[1] = b;
+    probe[2] = c;
+    std::sort(probe.begin(), probe.end());
+    return index.count(probe) > 0;
+  };
+  // collect conditional equivalences per lhs literal
+  std::unordered_map<Lit, std::vector<std::pair<Lit, Lit>>> ce;
+  for (const auto &e : index) {
+    const std::vector<Lit> &cl = e.first; // sorted 3 lits
+    for (int li = 0; li < 3; li++) {
+      const Lit L = cl[li], A = cl[(li + 1) % 3], B = cl[(li + 2) % 3];
+      // (A∨B∨L) + (A∨¬B∨¬L) ⇒ L≡¬B when ¬A
+      if (has(A, negate(B), negate(L)))
+        ce[L].push_back({negate(A), negate(B)});
+      // (A∨B∨L) + (¬A∨B∨¬L) ⇒ L≡¬A when ¬B
+      if (has(negate(A), B, negate(L)))
+        ce[L].push_back({negate(B), negate(A)});
+    }
+  }
+  std::unordered_set<std::vector<Lit>, InputsHash> seen;
+  for (auto &kv : ce) {
+    const Lit L = kv.first;
+    auto &lst = kv.second;
+    if (lst.size() > 256)
+      continue; // bound the O(n²) pairing on pathological hubs
+    for (size_t i = 0; i < lst.size(); i++)
+      for (size_t j = i + 1; j < lst.size(); j++) {
+        const Lit c1 = lst[i].first, w1 = lst[i].second;
+        const Lit c2 = lst[j].first, w2 = lst[j].second;
+        if (c1 != negate(c2))
+          continue; // need complementary conditions
+        Lit cond, then_l, else_l;
+        if (!negated(c1)) { // c1 is the positive condition
+          cond = c1;
+          then_l = w1;
+          else_l = w2;
+        } else {
+          cond = c2;
+          then_l = w2;
+          else_l = w1;
+        }
+        // soundness: require all four ITE-defining clauses to exist
+        if (!(has(cond, negate(else_l), L) && has(cond, else_l, negate(L)) &&
+              has(negate(cond), negate(then_l), L) &&
+              has(negate(cond), then_l, negate(L))))
+          continue;
+        std::vector<Lit> keyd = {L, cond, then_l, else_l};
+        if (!seen.insert(keyd).second)
+          continue;
+        CongGate g;
+        g.kind = GateKind::Ite;
+        g.output = L;
+        g.inputs = {cond, then_l, else_l}; // [cond,then,else] fixed order
+        out.push_back(std::move(g));
+      }
+  }
+}
+
+// ITE-match proof chain (kissat add_ite_matching_proof_chain): case-split on the
+// shared condition. Emits the four ternary lemmas that make the two equivalence
+// binaries (a∨¬b),(¬a∨b) RUP; each is a resolvent of one cond-side clause of each
+// gate and is RUP over the current DB, so under DRAT they are bare adds replayed
+// in order. The two binaries themselves are added by add_equivalence_bare.
+void add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b) {
+  if (!k.proof)
+    return;
+  auto emit = [&](Lit x, Lit y, Lit z) {
+    const Lit l[3] = {x, y, z};
+    k.proof->add_rup(0, l, 3, nullptr, 0);
+  };
+  emit(a, negate(b), cond);
+  emit(a, negate(b), negate(cond));
+  emit(negate(a), b, cond);
+  emit(negate(a), b, negate(cond));
+}
+
 // Add one equivalence a==b (from two congruent gates) as the binaries (¬a∨b),
 // (a∨¬b). Both are single-step RUP from the two AND gates' clauses:
 //   (¬a∨b): assume a,¬b; a's binaries (¬a∨inp) force each inp; b's base clause
@@ -376,8 +515,10 @@ ApplyResult congruence_apply(Kernel &k) {
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<CongGate> gates;
   congruence_extract(k, gates);
-  if (!lrat)
+  if (!lrat) {
     congruence_extract_xor(k, gates);
+    congruence_extract_ite(k, gates);
+  }
   if (gates.empty())
     return ApplyResult::NoOp;
 
@@ -403,7 +544,7 @@ ApplyResult congruence_apply(Kernel &k) {
   };
 
   // Per-kind tables keyed by the canonical input key (kinds must not collide).
-  std::unordered_map<std::vector<Lit>, uint32_t, InputsHash> table[2];
+  std::unordered_map<std::vector<Lit>, uint32_t, InputsHash> table[3];
   table[0].reserve(gates.size() * 2);
   std::vector<std::vector<uint32_t>> occ(nlits); // canonical-input lit → gate ids
   std::deque<uint32_t> work;
@@ -445,6 +586,9 @@ ApplyResult congruence_apply(Kernel &k) {
     // congruent outputs → add oa==ob (DRAT-RUP over the full DB; LRAT chains TODO).
     if (gates[i].kind == GateKind::Xor) {
       add_xor_matching_proof_chain(k, key, out_j, out_i);
+      add_equivalence_bare(k, out_j, out_i);
+    } else if (gates[i].kind == GateKind::Ite) {
+      add_ite_matching_proof_chain(k, key[0], out_j, out_i); // key[0] = cond
       add_equivalence_bare(k, out_j, out_i);
     } else if (add_equivalence(k, gates[j], gates[i])) {
       return ApplyResult::Unsat;

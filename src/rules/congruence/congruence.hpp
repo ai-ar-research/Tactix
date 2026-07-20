@@ -16,7 +16,7 @@
 
 namespace tactix {
 
-enum class GateKind : uint8_t { And, Xor };
+enum class GateKind : uint8_t { And, Xor, Ite };
 
 // Extracted gate, output = f(inputs), where f is the kind:
 //   And: output = AND(inputs), long base clause (output ∨ ¬in₁ ∨ … ∨ ¬inₖ) plus a
@@ -28,6 +28,9 @@ enum class GateKind : uint8_t { And, Xor };
 //        order) for the match proof chain. The structural key is (kind, sorted
 //        representative inputs); XOR re-canonicalization folds input-sign into the
 //        output parity under the union-find. base_id is the all-positive base.
+//   Ite: output = cond ? then : else, `inputs` = [cond, then, else] in that fixed
+//        order (NOT sorted — the key is the normalized triple; normalize_ite puts
+//        cond & then positive, absorbing any flip into the output sign).
 struct CongGate {
   GateKind kind = GateKind::And;
   Lit output = 0;
