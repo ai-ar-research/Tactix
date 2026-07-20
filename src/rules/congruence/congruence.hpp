@@ -16,15 +16,25 @@
 
 namespace tactix {
 
-// Extracted AND gate: output = AND(inputs), encoded by a long base clause
-// (output ∨ ¬input₁ ∨ … ∨ ¬inputₖ) plus a binary (¬output ∨ inputᵢ) per input.
-// The ids are for the equivalence RUP proof. OR gates are the dual and are found
-// by the same scan across polarities.
+enum class GateKind : uint8_t { And, Xor };
+
+// Extracted gate, output = f(inputs), where f is the kind:
+//   And: output = AND(inputs), long base clause (output ∨ ¬in₁ ∨ … ∨ ¬inₖ) plus a
+//        binary (¬output ∨ inputᵢ) per input. OR is the dual (found by scanning
+//        every polarity). `inputs` sorted; `input_bin_ids` the (¬output∨inputᵢ) ids.
+//   Xor: output = in₁ ⊕ … ⊕ inₖ, encoded by all 2^k parity clauses (each size k+1).
+//        `inputs` stored sorted & ALL-POSITIVE — the clause parity is absorbed into
+//        `output`'s sign. `side_ids` holds the 2^k side-clause ids (parity-walk
+//        order) for the match proof chain. The structural key is (kind, sorted
+//        representative inputs); XOR re-canonicalization folds input-sign into the
+//        output parity under the union-find. base_id is the all-positive base.
 struct CongGate {
+  GateKind kind = GateKind::And;
   Lit output = 0;
   std::vector<Lit> inputs;             // canonical (sorted) — the structural key
-  uint64_t base_id = 0;                // long base clause's proof id
-  std::vector<uint64_t> input_bin_ids; // (¬output ∨ inputᵢ) ids, parallel to inputs
+  uint64_t base_id = 0;                // AND/XOR base clause proof id
+  std::vector<uint64_t> input_bin_ids; // And: (¬output ∨ inputᵢ) ids ∥ inputs
+  std::vector<uint64_t> side_ids;      // Xor: the 2^k parity side-clause ids
 };
 
 // Extract AND/OR gates from the irredundant large clauses (bounded arity). Rule-

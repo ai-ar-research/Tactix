@@ -11,7 +11,9 @@
 #include <deque>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
+#include <vector>
 
 namespace tactix {
 
@@ -22,6 +24,10 @@ namespace {
 constexpr uint32_t CONG_ARITY_LIMIT = 64;
 // safety cap on gates extracted per round.
 constexpr size_t CONG_GATE_LIMIT = 20000000;
+// max #inputs of an extracted XOR gate (kissat --congruencexorarity default cap
+// is small; the match proof chain is O(2^arity), so keep it bounded). An arity-a
+// XOR is a size-(a+1) clause group, so scan clauses of size 3..CONG_XOR_ARITY+1.
+constexpr uint32_t CONG_XOR_ARITY = 4;
 
 // mark the binary-watch partners of `lit` (each `p` with a binary (lit ∨ p)).
 template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
@@ -137,6 +143,176 @@ struct InputsHash {
   }
 };
 
+// XOR extraction: a size-s clause group (s ∈ 3..CONG_XOR_ARITY+1) over variables
+// {v0..v_{s-1}} is an XOR relation v0⊕…⊕v_{s-1}=c iff ALL 2^{s-1} clauses of one
+// fixed sign-parity over those variables are present (kissat requires the full
+// set — anything less is not the relation, so emitting a gate would be UNSOUND).
+// From the relation we emit s XOR gates, one per choice of output vᵢ: inputs =
+// the other variables (all positive), output literal = pos(vᵢ)^c so its value is
+// c⊕vᵢ = ⊕_{j≠i} vⱼ. Two gates with the same input set have equivalent outputs.
+void congruence_extract_xor(const Kernel &k, std::vector<CongGate> &out) {
+  // index every irredundant, fully-unassigned clause of size 3..CONG_XOR_ARITY+1
+  // by its sorted literal vector → proof id.
+  std::unordered_map<std::vector<Lit>, uint64_t, InputsHash> index;
+  std::vector<Lit> ls;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    ref += clause_words(c->size);
+    if (c->garbage() || c->redundant() || c->size < 3 ||
+        c->size > CONG_XOR_ARITY + 1)
+      continue;
+    bool ok = true;
+    ls.clear();
+    for (const Lit l : *c) {
+      if (k.value(l) != 0) {
+        ok = false;
+        break;
+      }
+      ls.push_back(l);
+    }
+    if (!ok)
+      continue;
+    std::sort(ls.begin(), ls.end());
+    index.emplace(ls, c->id());
+  }
+  std::unordered_set<std::vector<Lit>, InputsHash> seen; // by sorted positive vars
+  std::vector<Lit> pos;                                  // positive lits, sorted
+  std::vector<Lit> probe;
+  for (const auto &entry : index) {
+    const std::vector<Lit> &base = entry.first;
+    const uint32_t s = static_cast<uint32_t>(base.size());
+    // positive-lit form of the variables, sorted; dedup a relation to once.
+    pos.clear();
+    int base_parity = 0;
+    for (const Lit l : base) {
+      pos.push_back(make_lit(var_of(l), false));
+      base_parity ^= static_cast<int>(negated(l));
+    }
+    std::sort(pos.begin(), pos.end());
+    bool dup = false; // a repeated variable ⇒ not a clean relation
+    for (uint32_t i = 1; i < s; i++)
+      if (pos[i] == pos[i - 1]) {
+        dup = true;
+        break;
+      }
+    if (dup || seen.count(pos))
+      continue;
+    // require all 2^{s-1} clauses of parity == base_parity to exist.
+    bool all = true;
+    const uint32_t combos = 1u << (s - 1);
+    for (uint32_t m = 0; m < combos && all; m++) {
+      int par = 0;
+      probe.assign(s, 0);
+      for (uint32_t i = 0; i + 1 < s; i++) {
+        const int sign = (m >> i) & 1;
+        par ^= sign;
+        probe[i] = pos[i] ^ static_cast<Lit>(sign);
+      }
+      probe[s - 1] = pos[s - 1] ^ static_cast<Lit>(base_parity ^ par); // fix parity
+      std::sort(probe.begin(), probe.end());
+      if (!index.count(probe))
+        all = false;
+    }
+    if (!all)
+      continue;
+    seen.insert(pos);
+    const int c = static_cast<int>((s ^ static_cast<uint32_t>(base_parity) ^ 1u) & 1u);
+    for (uint32_t i = 0; i < s; i++) {
+      CongGate g;
+      g.kind = GateKind::Xor;
+      g.output = pos[i] ^ static_cast<Lit>(c); // value = c ⊕ vᵢ = ⊕_{j≠i} vⱼ
+      for (uint32_t j = 0; j < s; j++)
+        if (j != i)
+          g.inputs.push_back(pos[j]); // all positive, already sorted
+      out.push_back(std::move(g));
+    }
+  }
+}
+
+// Canonicalize gate g under the current union-find into (key, out_lit): key is the
+// structural hash (positive, sorted per kind); out_lit is the literal whose class
+// is merged on a key collision. Returns false if the gate is degenerate under the
+// current representatives (skip — a later increment handles the derived unit).
+bool canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
+                  std::vector<Lit> &key, Lit &out_lit) {
+  if (g.kind == GateKind::And) {
+    key.assign(g.inputs.begin(), g.inputs.end());
+    for (Lit &l : key)
+      l = find(l);
+    std::sort(key.begin(), key.end());
+    for (size_t j = 1; j < key.size(); j++)
+      if (key[j] == key[j - 1] || key[j] == negate(key[j - 1]))
+        return false; // AND(…,x,x/¬x,…): idempotent/false — defer
+    out_lit = g.output;
+    return true;
+  }
+  // XOR: map inputs to reps, absorb each rep's sign into a global parity, and
+  // cancel repeated variables (x⊕x=0). The parity flips the output literal.
+  int parity = 0;
+  std::vector<Lit> reps;
+  reps.reserve(g.inputs.size());
+  for (const Lit in : g.inputs) {
+    Lit r = find(in);
+    if (negated(r)) {
+      parity ^= 1;
+      r = negate(r);
+    }
+    reps.push_back(r); // positive rep lit
+  }
+  std::sort(reps.begin(), reps.end());
+  key.clear();
+  for (size_t j = 0; j < reps.size();) {
+    size_t cnt = 1;
+    while (j + cnt < reps.size() && reps[j + cnt] == reps[j])
+      cnt++;
+    if (cnt & 1)
+      key.push_back(reps[j]); // odd multiplicity survives
+    j += cnt;
+  }
+  if (key.empty())
+    return false; // all cancelled → output is a constant; defer
+  out_lit = parity ? negate(g.output) : g.output;
+  return true;
+}
+
+// XOR-match proof chain (kissat add_xor_matching_proof_chain): make the two
+// equivalence binaries (¬a∨b),(a∨¬b) checkable by RUP. `rhs` = the shared
+// canonical (representative) inputs, all positive; a,b = the two sign-adjusted
+// outputs. Emits a parity-elimination ladder: eliminate one rhs var at a time,
+// at each level enumerating all sign patterns of the still-present rhs prefix and
+// emitting {prefix,¬a,b} and {prefix,a,¬b}. Every lemma is RUP over the current
+// DB (the two gates' side clauses + any bridging equivalence binaries), so under
+// DRAT each is a bare add_rup; drat-trim replays them in order. The two size-0
+// lemmas ARE the equivalence binaries and are added persistently by the caller.
+// (LRAT chains for each lemma are a follow-up; DRAT verifies via full-DB RUP.)
+void add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
+                                  Lit b) {
+  if (!k.proof)
+    return;
+  // ladder over rhs[0 .. size-2]; rhs.back() is absorbed by the gate clauses' RUP.
+  int size = static_cast<int>(rhs.size()) - 1;
+  std::vector<Lit> lemma;
+  for (; size >= 1; size--) {
+    const uint32_t combos = 1u << size;
+    for (uint32_t m = 0; m < combos; m++) {
+      for (int dir = 0; dir < 2; dir++) {
+        lemma.clear();
+        for (int i = 0; i < size; i++)
+          lemma.push_back(rhs[i] ^ static_cast<Lit>((m >> i) & 1));
+        if (dir == 0) {
+          lemma.push_back(negate(a));
+          lemma.push_back(b);
+        } else {
+          lemma.push_back(a);
+          lemma.push_back(negate(b));
+        }
+        k.proof->add_rup(0, lemma.data(), static_cast<uint32_t>(lemma.size()),
+                         nullptr, 0);
+      }
+    }
+  }
+}
+
 // Add one equivalence a==b (from two congruent gates) as the binaries (¬a∨b),
 // (a∨¬b). Both are single-step RUP from the two AND gates' clauses:
 //   (¬a∨b): assume a,¬b; a's binaries (¬a∨inp) force each inp; b's base clause
@@ -170,24 +346,48 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb) {
   return false;
 }
 
+// Add the equivalence a==b as (¬a∨b),(a∨¬b) with a BARE proof add (DRAT-RUP over
+// the current DB). Used for XOR matches, whose RUP is already made checkable by
+// the preceding add_xor_matching_proof_chain lemmas. XOR extraction is gated on
+// !lrat, so no LRAT id/chain is needed here yet.
+void add_equivalence_bare(Kernel &k, Lit a, Lit b) {
+  auto add_bin = [&](Lit x, Lit y) {
+    if (binary_exists(k, x, y))
+      return;
+    const uint64_t id = ++k.next_clause_id;
+    const Lit lits[2] = {x, y};
+    if (k.proof)
+      k.proof->add_rup(0, lits, 2, nullptr, 0);
+    kernel_add_binary_clause(k, x, y, id);
+  };
+  add_bin(negate(a), b);
+  add_bin(a, negate(b));
+}
+
 ApplyResult congruence_apply(Kernel &k) {
   assert(congruence_guard(k));
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.congruence_rounds++;
 
+  // XOR gates participate in the SAME union-find as AND (an AND input can be an
+  // XOR output), so extract both into one gate pool. XOR is gated on DRAT: its
+  // match binaries use a bare RUP add whose LRAT id/chain is a later increment.
+  const bool lrat = k.proof && k.proof->lrat();
   std::vector<CongGate> gates;
   congruence_extract(k, gates);
+  if (!lrat)
+    congruence_extract_xor(k, gates);
   if (gates.empty())
     return ApplyResult::NoOp;
 
   // Internal congruence closure (kissat), incremental worklist: a union-find over
-  // literals; two gates whose inputs are equal UNDER the current representatives
-  // have equivalent outputs → merge those outputs (add the equivalence binaries)
-  // and re-process only the gates whose inputs contain the merged literal, so the
-  // collapse propagates through the circuit layers in ONE apply without re-hashing
-  // every gate each round. The gate CLAUSES are never rewritten — only the
-  // union-find + the added binaries; V3 Substitute does the whole-formula collapse.
+  // literals; two gates that canonicalize (under the current representatives) to
+  // the same (kind, key) have equivalent outputs → merge those outputs (add the
+  // equivalence binaries + proof chain) and re-process only the gates whose inputs
+  // contain the merged literal, so the collapse propagates through the circuit
+  // layers in ONE apply. Gate CLAUSES are never rewritten — only the union-find +
+  // the added binaries; V3 Substitute does the whole-formula collapse afterward.
   const uint32_t nlits = 2 * k.nvars;
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
@@ -202,8 +402,9 @@ ApplyResult congruence_apply(Kernel &k) {
     repr[negate(big)] = negate(small);
   };
 
-  std::unordered_map<std::vector<Lit>, uint32_t, InputsHash> table;
-  table.reserve(gates.size() * 2);
+  // Per-kind tables keyed by the canonical input key (kinds must not collide).
+  std::unordered_map<std::vector<Lit>, uint32_t, InputsHash> table[2];
+  table[0].reserve(gates.size() * 2);
   std::vector<std::vector<uint32_t>> occ(nlits); // canonical-input lit → gate ids
   std::deque<uint32_t> work;
   std::vector<uint8_t> inq(gates.size(), 1);
@@ -212,39 +413,42 @@ ApplyResult congruence_apply(Kernel &k) {
 
   uint64_t neq = 0;
   bool unsat = false;
-  std::vector<Lit> key;
+  std::vector<Lit> key, key_j;
   while (!work.empty() && !unsat) {
     const uint32_t i = work.front();
     work.pop_front();
     inq[i] = 0;
-    const CongGate &g = gates[i];
-    // canonical key = sorted representatives of the inputs
-    key.assign(g.inputs.begin(), g.inputs.end());
-    for (Lit &l : key)
-      l = find(l);
-    std::sort(key.begin(), key.end());
-    bool degenerate = false; // AND(…,x,¬x,…)=0 — deferred; skip so we don't mis-hash
-    for (size_t j = 1; j < key.size(); j++)
-      if (key[j] == key[j - 1] || key[j] == negate(key[j - 1])) {
-        degenerate = true;
-        break;
-      }
-    if (degenerate)
-      continue;
+    Lit out_i;
+    if (!canonicalize(gates[i], find, key, out_i))
+      continue; // degenerate under current reps — deferred
     for (const Lit l : key)
       occ[l].push_back(i); // register for rescheduling when an input merges
-    auto it = table.find(key);
-    if (it == table.end()) {
-      table.emplace(key, i);
+    auto &tab = table[static_cast<int>(gates[i].kind)];
+    auto it = tab.find(key);
+    if (it == tab.end()) {
+      tab.emplace(key, i);
       continue;
     }
-    const Lit oa = find(gates[it->second].output);
-    const Lit ob = find(g.output);
+    // Recompute the stored gate's current canonical form: the union-find may have
+    // moved on since it was inserted (stale key). Only merge when both gates share
+    // the SAME current key — then their outputs are provably equal.
+    const uint32_t j = it->second;
+    Lit out_j;
+    if (!canonicalize(gates[j], find, key_j, out_j) || key_j != key) {
+      it->second = i; // evict stale/degenerate entry; current gate represents key
+      continue;
+    }
+    const Lit oa = find(out_j);
+    const Lit ob = find(out_i);
     if (oa == ob || oa == negate(ob))
       continue; // already equal, or a contradiction (deferred)
-    // congruent outputs → add oa==ob (DRAT-RUP; native-LRAT chains are increment 2)
-    if (add_equivalence(k, gates[it->second], g))
+    // congruent outputs → add oa==ob (DRAT-RUP over the full DB; LRAT chains TODO).
+    if (gates[i].kind == GateKind::Xor) {
+      add_xor_matching_proof_chain(k, key, out_j, out_i);
+      add_equivalence_bare(k, out_j, out_i);
+    } else if (add_equivalence(k, gates[j], gates[i])) {
       return ApplyResult::Unsat;
+    }
     const Lit sm = oa < ob ? oa : ob, big = oa < ob ? ob : oa;
     unite(sm, big);
     neq++;
