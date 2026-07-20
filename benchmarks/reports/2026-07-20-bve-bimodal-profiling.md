@@ -6,7 +6,7 @@ out. It is not "BVE is bad" — it wins 2.3–2.8× on three instances. It needs
 guard, not a switch.**
 
 Frozen report (per doc discipline). Measured with `tools/bench/run.py --tier B
---jobs 4`, one run at a time, same binary (`6c22bbf` + uncommitted
+--jobs 4`, one run at a time, same binary (`6c22bbf` plus the
 `TACTIX_NO_BVE` ablation knob), timeout 300 s.
 
 ## Headline
@@ -85,7 +85,7 @@ Not fixed here (diagnosis skill hands off). Owner: **rule-dev**, on the BVE rule
 1. **First**, characterise the harmful eliminations: on clique and rbsat, log
    which variables BVE picks (occurrence counts, resolvent count, gate type) and
    what distinguishes them from the mod4block/qwh eliminations that pay off.
-   `TACTIX_NO_BVE` (uncommitted ablation knob) is the A/B.
+   `TACTIX_NO_BVE` is the A/B knob.
 2. **Then** compare against kissat's elimination bound and schedule
    (`eliminatebound`, occurrence limits, the round/bound escalation in
    `eliminate.c` + `kimits.c`) — plan §5 requires a fits-our-architecture argument

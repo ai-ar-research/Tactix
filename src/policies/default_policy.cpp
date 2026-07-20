@@ -227,10 +227,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // those binaries in the binary graph and substitutes. Probe/Vivify/Backbone
       // stay off (SAT-disruptive); TransitiveReduce off.
       const std::vector<RuleVTable> &rules = tactix_rules();
+      // TACTIX_NO_BVE: ablation knob for the bimodal-BVE investigation
+      // (benchmarks/reports/2026-07-20-bve-bimodal-profiling.md — BVE is a
+      // 1.84x Tier B PAR-2 loss overall but wins 2.3-2.8x on three instances,
+      // so it needs a guard, not a switch). Disabling a rule is always sound;
+      // unset, the slot is byte-identical to the default composition.
+      const bool bve_off = std::getenv("TACTIX_NO_BVE") != nullptr;
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess) {
           const char *nm = rules[i].name;
-          const bool on = !std::strcmp(nm, "BVE") ||
+          const bool on = (!std::strcmp(nm, "BVE") && !bve_off) ||
                           !std::strcmp(nm, "Strengthen") ||
                           !std::strcmp(nm, "SubsumeForward") ||
                           !std::strcmp(nm, "Congruence") ||
