@@ -7,7 +7,30 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 51 (2026-07-20)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-20
+- **Last updated:** 2026-07-20 (late)
+- **▶ RESUME HERE (2026-07-20 late).** Phase 3, T3 gate open. **Tier B PAR-2 42.61
+  vs kissat 6.26 (6.8×), 14/14** — confirmed clean (`benchmarks/runs/*B-tierB-confirm`);
+  down from 70.00 at this session's start (Factor S2 seed-heap/tie-break, committed).
+  **THE dominant open lever = the BVE BIMODAL** (clique 222s/50×, hwmcc 122s/51×
+  are 58% of Tier B time, both BVE-harmful). **User's steer: fix it algorithmically
+  now — kissat avoids bimodal with NO RL, so DefaultPolicy can too.** Root cause is
+  PROVEN (below, "BVE FIX RE-OPENED"): our partial elimination makes an
+  intrinsically-hard formula (kissat's own search times out on our post-BVE clique);
+  the fix is **true elimination COMPLETENESS** like kissat (none/complete = easy,
+  partial = hard). A SOUND forward-subsumption building block is landed
+  (`TACTIX_BVE_SUBSUME`, default-off, fuzz-clean) — it helps clique (192→88s) but is
+  NET-NEGATIVE alone (over-eliminates mod4block 11→121s into the harmful middle), so
+  NOT default. **NEXT: reach TRUE completeness — the 20-vs-84 (one-pass) gap vs
+  kissat is NOT just subsumption (occ index already maintained on add); investigate
+  kissat's within-elimination incremental connect / escalating-bound cascade / order
+  in `kissat/src/eliminate.c`+`resolve.c`, match it in `bve_eliminate`, and GATE on
+  a Tier B+C A/B that does NOT regress mod4block/crypto1. Fallback if completeness
+  stays out of reach: dynamic try-both (snapshot → BVE → short search probe → keep
+  better formula).** Diagnostic knobs (all env-gated, default-identical):
+  `TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`, `TACTIX_BVE_SUBSUME`,
+  `TACTIX_NO_FACTOR`, `TACTIX_DUMP_CNF`, `TACTIX_GRID_TRACE`, `TACTIX_FACTOR_FORCE`.
+  Other levers this session: BVE static-skip CLOSED (no separator); Factor S2 27×27
+  narrowed to chain-divergence (deprioritized, 1-instance); Factor→native-LRAT DONE.
 - **✅ FACTOR → NATIVE-LRAT: DONE 2026-07-20.** Factor no longer no-ops on the
   LRAT path — the `add_rat` proof primitive was implemented (`proof.{hpp,cpp}`,
   first backend realization of the closed vocabulary's add-RAT) and Factor emits
