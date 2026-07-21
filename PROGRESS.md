@@ -52,11 +52,15 @@ disagree, the plan is authoritative — fix this file.
   sound. Shippable (convert `TACTIX_BVE_LAST`+`TACTIX_FACTOR_DENSITY=8` env knobs →
   hardcoded slot reorder + density const). Caveat: density=8 is an overfit magic
   number (picked to separate clique-dense from mod4block-sparse) — the effort-budget
-  scheduler (rev 53, next item) supersedes it. DECISION pending user: ship the
-  stopgap now vs go straight to the effort-budget fix. IF Tier C holds
-  solves + Tier A neutral → MAKE DEFAULT (the two knobs → hardcoded slot order +
-  density=8). Then investigate the x9/FmlaEquiv regressions (likely BVE-last on
-  UNSAT-where-Factor-helps; maybe density boundary — x9 ratio 8.2 ~ threshold 8).**
+  scheduler (rev 53, next item) supersedes it. **SHIPPED AS DEFAULT 2026-07-21
+  (user chose ship-now, commit 5111bc7):** BVE-last is the default slot order +
+  Factor `density=8` hardcoded (`TACTIX_BVE_FIRST` / `TACTIX_FACTOR_DENSITY`
+  revert for the A/B). Units 29/29 (factor unit test sets `TACTIX_FACTOR_FORCE`);
+  fuzz default DRAT + native LRAT 300/0. **Tier B default now ~21 (from 42.6).**
+  Known residual whack-a-mole (Tier B x9 21→35, FmlaEquiv 24→40; Tier C DLTM
+  9→176 — all still solve) — the effort-budget scheduler (rev 53) is the clean
+  fix that removes the overfit density=8 and the BVE-last stopgap. **▶ NEXT: the
+  effort-budgeted scheduler (rev 53).**
 
   **★ BREAKTHROUGH 2026-07-21: the bimodal is a FACTOR↔BVE ORDERING interaction,
   NOT a BVE-internals problem.** Root cause found by instrumenting kissat's
