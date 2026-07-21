@@ -382,6 +382,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
           continue;
       }
       const MClause &d = neg[di];
+      k.stats.bve_resolutions++; // one resolvent attempt (kissat resolve.c:157)
       Resolvent r;
       bool taut = false;
       for (const Lit l : c.active)
@@ -542,7 +543,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     if (k.value(u) == 0)
       kernel_assign_unit(k, u);
 
-  kernel_collect_garbage(k); // reclaim the garbaged large clauses
   k.stats.bve_eliminated++;
   return ApplyResult::Ok;
 }
@@ -562,8 +562,16 @@ ApplyResult bve_apply(Kernel &k) {
     const ApplyResult r = bve_eliminate(k, x);
     if (r == ApplyResult::Unsat)
       return ApplyResult::Unsat;
-    if (r == ApplyResult::Ok)
+    if (r == ApplyResult::Ok) {
+      // reclaim the clauses this elimination garbaged. Reclamation is NOT part
+      // of the rule's effect (deletes are lazy and every reader skips garbage,
+      // so never collecting is sound) — it is the caller's cost/memory choice.
+      // The canonical round stays self-contained; the apply_instance dosing
+      // path leaves it to the scheduler, which reclaims once per phase instead
+      // of once per eliminated variable (O(arena) each — rev 53).
+      kernel_collect_garbage(k);
       return ApplyResult::Ok; // eliminated one variable
+    }
     // NoOp (bound / hazard): try the next candidate
   }
   return ApplyResult::NoOp;

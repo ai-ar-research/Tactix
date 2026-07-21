@@ -73,7 +73,7 @@ bool DefaultPolicy::want_restart(const Kernel &k) const {
 
 bool DefaultPolicy::want_switch_mode(const Kernel &k) const {
   if (mode.count & 1) // in stable: leave after the ticks budget
-    return k.stats.ticks >= mode.ticks_limit;
+    return search_ticks(k) >= mode.ticks_limit;
   return k.stats.conflicts >= mode.conflicts_limit;
 }
 
@@ -82,15 +82,15 @@ bool DefaultPolicy::want_switch_mode(const Kernel &k) const {
 // intervals grow as modeint * n·log⁴n of the switch count
 void DefaultPolicy::update_mode_limits(const Kernel &k) {
   if (mode.count & 1) { // just entered stable
-    const uint64_t focused_ticks = k.stats.ticks - mode.ticks_at_focus_entry;
-    mode.ticks_limit = k.stats.ticks + focused_ticks;
+    const uint64_t focused_ticks = search_ticks(k) - mode.ticks_at_focus_entry;
+    mode.ticks_limit = search_ticks(k) + focused_ticks;
   } else { // just entered focused
     const uint64_t n = (mode.count / 2) + 1;
     const double log4 = std::pow(std::log10(static_cast<double>(n) + 9), 4);
     mode.conflicts_limit =
         k.stats.conflicts +
         static_cast<uint64_t>(MODE_INTERVAL * static_cast<double>(n) * log4);
-    mode.ticks_at_focus_entry = k.stats.ticks;
+    mode.ticks_at_focus_entry = search_ticks(k);
     // kissat mode.c: only the focused entry refreshes the restart limit;
     // per-mode averages persist across switches (init_averages is
     // idempotent — no reset here)
@@ -142,6 +142,56 @@ void DefaultPolicy::update_rephase_limit(const Kernel &k) {
   return static_cast<uint64_t>((4.5 * f * f + 25) *
                                static_cast<double>(delta));
 }
+
+// --- effort ledger (rev 53, docs/design/effort-scheduler-design.md) ---------
+// Each inprocessing rule is metered in its OWN currency, because one unit of
+// work is not comparable across rules (a BVE resolvent, a subsumption check and
+// a propagation tick cost different things). These readers are the rules' own
+// work counters; kissat's statistics.eliminate_resolutions / forward_steps /
+// probing_ticks are the same idea.
+namespace {
+
+uint64_t meter_ticks(const Kernel &k) { return k.stats.ticks; }
+uint64_t meter_bve(const Kernel &k) { return k.stats.bve_resolutions; }
+uint64_t meter_strengthen(const Kernel &k) { return k.stats.strengthen_checked; }
+uint64_t meter_forward(const Kernel &k) { return k.stats.forward_checked; }
+uint64_t meter_transitive(const Kernel &k) { return k.stats.transitive_checked; }
+
+// name -> {effort per mille, currency, dosed}. Fractions are kissat's
+// options.h defaults (eliminateeffort/forwardeffort/vivifyeffort 100,
+// backboneeffort/transitiveeffort 20). `dosed` marks the rules whose instance
+// payloads survive formula mutation (literals and variables — immune to arena
+// GC, cheaply re-validated), so the policy can enumerate once and apply
+// candidates one at a time up to the budget. The Ref-payload rules
+// (Vivify/Strengthen/SubsumeForward) cannot: the GC inside their first
+// successful application relocates every clause, so a snapshot of Refs goes
+// stale — they run as canonical rounds and are metered after the fact, exactly
+// as kissat meters `substitute`. Congruence/Factor/Substitute expose only the
+// canonical instance and have no meter at all.
+struct EffortSpec {
+  const char *name;
+  uint32_t permille;
+  uint64_t (*meter)(const Kernel &);
+  bool dosed;
+};
+constexpr EffortSpec EFFORT_SPECS[] = {
+    {"BVE", 100, meter_bve, true},
+    {"Probe", 20, meter_ticks, true},
+    {"Backbone", 20, meter_ticks, true},
+    {"TransitiveReduce", 20, meter_transitive, true},
+    {"Vivify", 100, meter_ticks, false},
+    {"Strengthen", 100, meter_strengthen, false},
+    {"SubsumeForward", 100, meter_forward, false},
+};
+
+const EffortSpec *effort_spec(const char *name) {
+  for (const EffortSpec &s : EFFORT_SPECS)
+    if (!std::strcmp(s.name, name))
+      return &s;
+  return nullptr; // all-or-nothing rule: no titration, no meter
+}
+
+} // namespace
 
 bool DefaultPolicy::want_inprocess(const Kernel &k) const {
   if (!inprocess.initialized || k.stats.conflicts < inprocess.next_conflicts)
@@ -255,7 +305,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                           // grid pairs are removed). Full kissat-level benefit
                           // still wants SBVA selection (S2) + large remainders (S4).
                           !std::strcmp(nm, "Substitute");
-          inprocess_slot.push_back({i, on});
+          SlotEntry e;
+          e.rule = i;
+          e.enabled = on;
+          if (const EffortSpec *s = effort_spec(nm)) {
+            e.permille = s->permille;
+            e.meter = s->meter;
+            e.dosed = s->dosed;
+          }
+          inprocess_slot.push_back(e);
         }
       // BVE-LAST ordering (the bimodal-BVE fix, 2026-07-21). kissat eliminates on
       // a formula ALREADY simplified by its probing/vivify/sweep/factor pipeline
@@ -371,69 +429,127 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_inprocess(k)) {
       // A simplification PHASE: descend to a quiescent root (a transient flush
       // that keeps saved/target phases — kernel_backtrack(update_phases=true) —
-      // so search re-descends toward the same region afterward), then run the
-      // enabled techniques to a BOUNDED fixpoint. Bounding matters: each apply
-      // rebuilds a rule-local occurrence index (~O(arena)), so an UNBOUNDED
-      // fixpoint is ~O(n²) and drowns even trivial instances (square 2s→TO).
-      // INPROCESS_PHASE_BUDGET caps the applies (a coarse effort proxy — becomes
-      // a real tick budget in increment 2 once the shared OccIndex removes the
-      // per-apply rebuild).
+      // so search re-descends toward the same region afterward), then give each
+      // enabled technique ONE DOSE, sized as a per-mille fraction of the search
+      // work that preceded it (kissat SET_EFFORT_LIMIT; the ledger lives in
+      // SlotEntry). Bounding matters — an unbounded fixpoint drowns even
+      // trivial instances (square 2 s → TO) — but bounding by APPLICATIONS, as
+      // this loop used to, bounds the wrong thing: it is blind to formula size
+      // (300 eliminations on a 1.45 M-variable formula) and its real job was
+      // capping an O(applications × formula) loop rather than capping
+      // simplification.
+      const uint64_t phase_ticks_at_entry = k.stats.ticks;
       if (k.level > 0 && restart_guard(k))
         restart_apply_to(k, 0);
       // Attach the shared occurrence index for the phase (increment 2): the
       // occurrence consumers (BVE) read it instead of rebuilding a ~O(arena)
       // index per apply. Detached on EVERY exit below so k.dense never dangles.
       kernel_dense_connect(k, inprocess_occ);
-      // Phase structure (increment 3, kissat eliminate-round shape): a few OUTER
-      // rounds, each interleaving the enabled techniques. Rule granularity
-      // differs and must be respected or a rule starves/spins: a PER-VARIABLE
-      // rule (BVE — one elimination per apply) runs to its budgeted fixpoint;
-      // a BATCH rule (Subsume/Strengthen — one apply is a full formula pass)
-      // runs ONCE per outer round. Running the batch rules once per BVE
-      // *variable* instead (the flat loop) cost 299 full subsumption sweeps on
-      // `square` — 30M pair-checks, 0 subsumed. `bve_applied` is a global cap so
-      // BVE does not re-spend its budget each outer round; the outer loop lets
-      // BVE pick up new eliminations exposed by the batch rules.
-      uint32_t bve_applied = 0;
+      // Phase structure (kissat eliminate-round shape): a few OUTER rounds,
+      // each giving every enabled technique one dose, so a technique can pick
+      // up what the others exposed. Dose granularity follows the rule's
+      // instance surface, not its name:
+      //   DOSED rules (BVE, and the probing rules as they are enabled) take
+      //   variable/literal payloads that survive formula mutation, so the
+      //   policy enumerates candidates ONCE and applies them one at a time
+      //   until the budget is spent. This also stops re-running BVE's
+      //   O(formula) schedule per elimination, which the old canonical-apply
+      //   loop did (bve_apply = schedule + eliminate one variable).
+      //   BATCH rules (Strengthen/SubsumeForward/Vivify) take arena Refs, which
+      //   the garbage collection inside their first successful application
+      //   invalidates; they run as one canonical round and are metered after
+      //   the fact (kissat meters `substitute` the same way). Running them once
+      //   per BVE *variable* instead cost 299 full subsumption sweeps on
+      //   `square` — 30 M pair-checks, 0 subsumed.
+      //   UNMETERED rules (Congruence/Factor/Substitute) expose only the
+      //   canonical instance: one pass per outer round, nothing to titrate.
       bool phase_unsat = false;
+      bool phase_dosed = false; // a dosed rule ran: the phase owes a reclaim
       const std::vector<RuleVTable> &rules = tactix_rules();
+      // kissat kimits.h SET_EFFORT_LIMIT, once per phase (eliminate.c:428
+      // computes the resolution limit BEFORE the round loop, so all of a
+      // technique's rounds share one budget): the dose is `permille` of the
+      // search work done since this entry last ran, floored so a technique that
+      // has had no search to amortize still gets a usable first dose.
+      for (SlotEntry &e : inprocess_slot) {
+        if (!e.enabled || !e.meter)
+          continue;
+        const uint64_t now = search_ticks(k);
+        uint64_t reference = now - e.anchor;
+        if (reference < MIN_EFFORT_TICKS)
+          reference = MIN_EFFORT_TICKS;
+        e.limit = e.meter(k) + reference / 1000 * e.permille;
+        e.anchor = now;
+      }
       for (int outer = 0; outer < INPROCESS_PHASE_ROUNDS && !phase_unsat;
            outer++) {
         bool round_changed = false;
-        for (const SlotEntry &e : inprocess_slot) {
+        for (SlotEntry &e : inprocess_slot) {
           if (!e.enabled || phase_unsat)
             continue;
           const RuleVTable &r = rules[e.rule];
-          const bool per_var = std::strcmp(r.name, "BVE") == 0;
-          for (;;) { // per_var: to budgeted fixpoint; batch: one apply
-            if (per_var && bve_applied >= INPROCESS_PHASE_BUDGET)
-              break;
+          const uint64_t limit = e.limit;
+          if (e.dosed && r.instances && r.apply_instance) {
             if (!r.guard(k))
-              break;
-            const ApplyResult ar = r.apply(k);
-            if (ar == ApplyResult::Unsat || k.inconsistent) {
-              phase_unsat = true;
-              break;
+              continue;
+            inprocess_payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
+            const uint32_t n = r.instances(
+                k, inprocess_payloads_.data(),
+                static_cast<uint32_t>(inprocess_payloads_.size()));
+            for (uint32_t i = 0; i < n; i++) {
+              if (e.meter(k) > limit)
+                break; // dose spent
+              if (!r.guard(k))
+                break;
+              const ApplyResult ar =
+                  r.apply_instance(k, inprocess_payloads_[i]);
+              if (ar == ApplyResult::Unsat || k.inconsistent) {
+                phase_unsat = true;
+                break;
+              }
+              if (ar != ApplyResult::Ok)
+                continue; // this candidate was not viable; try the next
+              round_changed = true;
+              phase_dosed = true;
+              // drain any root units the application asserted
+              if (propagate_apply(k) == ApplyResult::Unsat) {
+                phase_unsat = true;
+                break;
+              }
             }
-            if (ar != ApplyResult::Ok)
-              break; // NoOp = this rule's fixpoint
-            round_changed = true;
-            if (per_var)
-              bve_applied++;
-            // drain any root units the apply asserted before the next apply
-            const ApplyResult pr = propagate_apply(k);
-            if (pr == ApplyResult::Unsat) {
-              phase_unsat = true;
-              break;
-            }
-            if (!per_var)
-              break; // batch rule: one full pass per outer round
+            continue;
+          }
+          // batch / unmetered: one canonical round, metered post hoc
+          if (e.meter && e.meter(k) > limit)
+            continue;
+          if (!r.guard(k))
+            continue;
+          const ApplyResult ar = r.apply(k);
+          if (ar == ApplyResult::Unsat || k.inconsistent) {
+            phase_unsat = true;
+            break;
+          }
+          if (ar != ApplyResult::Ok)
+            continue;
+          round_changed = true;
+          if (propagate_apply(k) == ApplyResult::Unsat) {
+            phase_unsat = true;
+            break;
           }
         }
         if (!round_changed)
           break; // outer fixpoint: nothing changed this round
       }
+      // Reclaim what the dosed applications garbaged. The canonical rounds
+      // reclaim themselves; the per-instance path deliberately does not, so
+      // that a dose costs its own work and not an O(arena) collection per
+      // eliminated variable. Not collecting is always sound (deletes are lazy
+      // and every reader skips garbage), so this is a cost choice, not a
+      // correctness one — see docs/design/effort-scheduler-design.md §3.4.
+      if (phase_dosed && !phase_unsat)
+        kernel_collect_garbage(k);
       kernel_dense_disconnect(k);
+      inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
       if (phase_unsat)
         return 20;
       // The phase FIRED (whether or not it simplified anything): count it (the

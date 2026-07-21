@@ -68,11 +68,18 @@ public:
   // warm-up (measured lesson, 2026-07-14 carried-items log)
   static constexpr uint64_t SUBSUME_INTERVAL_INIT = 500; // eliminateinit
   static constexpr uint64_t SUBSUME_INTERVAL = 500;      // eliminateint
-  // Inprocessing-revamp increment 1: max rule applications per simplification
-  // phase (a coarse effort proxy — each apply rebuilds a ~O(arena) occurrence
-  // index, so this bounds an otherwise ~O(n²) fixpoint). Becomes a real tick
-  // budget once the shared dense OccIndex lands (increment 2). Tuned on Tier B.
-  static constexpr uint32_t INPROCESS_PHASE_BUDGET = 300;
+  // Effort budgets (plan rev 53, docs/design/effort-scheduler-design.md).
+  // kissat kimits.h SET_EFFORT_LIMIT: a technique's dose is a fixed per-mille
+  // fraction of the SEARCH work done since that technique last ran, floored by
+  // an absolute minimum — simplification effort is a bounded fraction of search
+  // effort, which is self-tuning and pathology-proof. This REPLACES the former
+  // INPROCESS_PHASE_BUDGET application count, which was size-blind (300
+  // eliminations on a 1.45 M-variable formula) and whose real job was bounding
+  // an O(applications × formula) loop rather than bounding simplification.
+  // kissat mineffort=10 ("in millions"); our tick unit is within 1.6× of
+  // kissat's (measured: tactix 26.6 M ticks/s vs kissat 42.1 M/s on 9vliw), so
+  // the constant transfers directly.
+  static constexpr uint64_t MIN_EFFORT_TICKS = 10000000; // mineffort · 1e6
   // Outer rounds per simplification phase (kissat eliminaterounds): each round
   // runs BVE to its budget + the batch simplifiers (Subsume/Strengthen) once,
   // so the batch rules run a few times per phase, not once per BVE variable.
@@ -203,6 +210,20 @@ public:
   struct SlotEntry {
     int rule = -1;
     bool enabled = true;
+    // --- effort ledger (rev 53) ------------------------------------------
+    // `permille` is this entry's share of the search work preceding its dose
+    // (kissat options.h NAMEeffort); `meter` reads the rule's OWN work counter
+    // — its currency (BVE resolutions, Strengthen candidate checks, ticks for
+    // the propagating rules), since one unit of "work" is not comparable
+    // across rules. kissat likewise budgets a resolvent count with a delta
+    // derived from ticks: the ratio transfers, the unit does not. A null meter
+    // means all-or-nothing (Congruence/Factor/Substitute expose only the
+    // canonical instance, so there is nothing to titrate).
+    uint32_t permille = 0;
+    uint64_t (*meter)(const Kernel &) = nullptr;
+    bool dosed = false;   // apply per-instance to a budget vs one canonical round
+    uint64_t anchor = 0;  // search_ticks when this entry last ran (cadical last.NAME.ticks)
+    uint64_t limit = 0;   // meter ceiling for the CURRENT phase (set at phase entry)
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
   OccIndex inprocess_occ; // shared occurrence index, reused per phase (incr. 2)
@@ -220,7 +241,18 @@ public:
     uint64_t rounds = 0; // interval growth key (policy-local, rev 17)
     uint64_t binaries_seen = 0;
     uint64_t root_fixed_seen = 0;
+    // Ticks spent inside simplification phases. The kernel keeps ONE global
+    // propagation meter (kernel.cpp:426,456) covering search and probing alike;
+    // kissat keeps them apart (search_ticks vs probing_ticks) because every
+    // effort budget — and the stable-phase length — is denominated in SEARCH
+    // work. Subtracting this accumulator recovers the split policy-side, with
+    // no kernel change and no scheduling identity leaking into the rules.
+    uint64_t ticks = 0;
   } inprocess;
+  // search work only (kissat statistics.search_ticks)
+  uint64_t search_ticks(const Kernel &k) const {
+    return k.stats.ticks - inprocess.ticks;
+  }
 
   // the scheduling predicates and their transitions, exposed so tests
   // (and future presets) can pose schedules directly
@@ -241,6 +273,7 @@ private:
   DefaultBranching default_branching_;
   GlueTieredReduction default_reduction_;
   std::vector<Ref> reduce_scratch_;
+  std::vector<uint64_t> inprocess_payloads_; // instance snapshot, reused
 };
 
 // convenience wrapper: solve under a fresh DefaultPolicy

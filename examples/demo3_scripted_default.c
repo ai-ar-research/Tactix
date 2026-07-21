@@ -384,12 +384,18 @@ static const int STATS[] = {
 #define NSTATS (int)(sizeof(STATS) / sizeof(STATS[0]))
 
 int main(int argc, char **argv) {
-  /* pinned size: ~2.5k conflicts — every schedule component fires (first
-   * mode switch at 1000 conflicts, first reduce at 2000, restart floor
-   * 50) while the stepped side stays fast under the per-application
-   * invariant checker of debug builds. argv overrides for exploration:
-   * demo3 [N M SEED] */
-  int N = 132, M = 562; /* m/n = 4.26 */
+  /* pinned size: every schedule component must fire on BOTH runs (first mode
+   * switch at 1000 conflicts, first reduce at REDUCE_INTERVAL_INIT = 2000,
+   * restart floor 50) while the stepped side stays fast under the
+   * per-application invariant checker of debug builds. Re-pinned 2026-07-21
+   * (was 132/562): that size left the built-in run at ~2.4k conflicts, barely
+   * past the reduce threshold, so an ordinary trajectory shift — the rev-53
+   * effort ledger changed BVE's elimination ORDER and moved it to ~2.0k —
+   * dropped it below and the coverage assertions failed on a change that was
+   * neutral on Tier A. The new size clears every threshold by ~3-5x on both
+   * runs, so coverage no longer rides on a trajectory coincidence.
+   * argv overrides for exploration: demo3 [N M SEED] */
+  int N = 152, M = 647; /* m/n = 4.26 */
   uint64_t SEED = 20260714;
   if (argc == 4) {
     N = atoi(argv[1]);

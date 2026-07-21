@@ -7,7 +7,7 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 53 (2026-07-21)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-20 (late)
+- **Last updated:** 2026-07-21
 - **▶▶ NEXT MAJOR WORK ITEM (rev 53, user directive 2026-07-21) — UNBLOCKED, start
   here** (candidate + cleanup both validated: Tier B 22.09/14-14, Tier C 286/29-30,
   fresh 3-way baseline in Log 2026-07-21): implement kissat's **EFFORT-BUDGETED
@@ -33,7 +33,49 @@ disagree, the plan is authoritative — fix this file.
   previously-deferred "increment 2" (`update_inprocess_limit` `#if 0` block)
   brought forward. Gate each increment on a Tier B+C A/B (solve count first) +
   fuzz; validate proofs on the real UNSAT instances.
-- **▶ RESUME HERE (2026-07-20 late).** Phase 3, T3 gate open. **Tier B PAR-2 42.61
+- **▶ RESUME HERE (2026-07-21).** Phase 3, T3 gate open. Working the rev-53
+  **effort-budgeted inprocessing scheduler**. Its design, increment plan and the
+  measured evidence behind every choice live in
+  **`docs/design/effort-scheduler-design.md` — read that first.**
+  **Increment 1 LANDED** (effort ledger replaces the application cap; BVE dosed
+  per instance; reclamation out of the per-elimination path): Tier B PAR-2
+  21.41→20.85, 14/14; Tier A 200/200 (0.55, jobs=2), neutral at equal
+  concurrency; fuzz 1000/0 + 3×400/0; ctest 29/29. See the Log entry below for
+  what it is made of, including the one real regression (`combined-crypto1`
+  8.1→24.7 s).
+  **▶ NEXT = increment 2: restore during-search inprocessing.**
+  `update_inprocess_limit` still pins `next_conflicts = UINT64_MAX`
+  (preprocessing-only); un-`#if 0` its growing NLOG2N interval ×
+  `scale_inprocessing_delta`, add kissat's never-in-the-same-conflict-as-a-
+  reduction gate, keep the existing new-material watermarks. Then increment 3
+  (enable **Vivify** under its tick budget — kissat's largest probing spend and
+  we have the rule built but never scheduled — then Probe/Backbone/
+  TransitiveReduce one at a time; the ledger already carries their effort specs,
+  so each is an `enabled` flip plus an A/B), increment 4 (adopt kissat's
+  composition split: **no BVE at preprocessing**, which is both the principled
+  fix for `combined-crypto1` and what should retire the BVE-last + Factor
+  `density=8` stopgaps), increment 5 (V5 Sweep — needs the kitten sub-solver,
+  plan O11).
+  **Two measured findings to carry (details in the design doc §1):**
+  (a) **`hwmcc17miters-oski15`'s diagnosis was WRONG in this file** — it is not
+  "needs Sweep+probing". kissat solves it in 2.19 s with **congruence alone**
+  (`search_ticks = 4`, 0 conflicts, congruent 711 434 = 49 % of variables), and
+  **our congruence finds the same collapse** (710 722 equivalences; Substitute
+  does apply them — the duplicate-binary bail-out does not fire; a second pass
+  finds 0 more). The gap is that kissat *refutes inside* congruence while we hand
+  a collapsed-but-unrefuted formula to search and pay 167 M decisions for 1 244
+  conflicts. Separate work item from the scheduler.
+  (b) kissat's per-technique effort profile on our exact Tier B (table in the
+  design doc): inprocessing is 8–33 % of its runtime; **vivify is the largest
+  single probing sub-technique on every instance** and we never run it; sweep is
+  second and we do not have it; BVE is small (0.01–0.99 s) and *zero* on the
+  instances where our BVE has historically hurt.
+  *(Prior anchor — the BVE-bimodal saga — is CLOSED: BVE-last + Factor
+  `density=8` shipped as default 2026-07-21, commit 5111bc7, Tier B 42.6→23.3,
+  Tier C 28→29/30. Both remain stopgaps for increment 4 to retire. The detail
+  below is kept for the root-cause record.)*
+
+- **(closed 2026-07-21, kept for the record)** **Tier B PAR-2 42.61
   vs kissat 6.26 (6.8×), 14/14** — confirmed clean (`benchmarks/runs/*B-tierB-confirm`);
   down from 70.00 at this session's start (Factor S2 seed-heap/tie-break, committed).
   **✅✅ SHIPPABLE FIX FOUND + Tier B VALIDATED 2026-07-21: candidate config
@@ -503,6 +545,77 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — rev-53 increment 1: the EFFORT LEDGER replaces the application cap (BVE dosed per instance; reclamation out of the per-elimination path)
+Design + increment plan + the measured evidence: `docs/design/effort-scheduler-design.md`.
+
+- **Mechanism (kissat `kimits.h:135` SET_EFFORT_LIMIT, ported policy-side).** Each
+  slot entry's dose is now `permille` of the SEARCH work done since that entry
+  last ran, floored at `mineffort` = 10 M ticks, metered in the rule's own
+  currency — BVE in resolutions (new `stats.bve_resolutions`, kissat's
+  `eliminate_resolutions`), Strengthen/SubsumeForward in candidate checks, the
+  propagating rules in ticks. The ledger (`permille`/`meter`/`dosed`/`anchor`/
+  `limit`) lives in `SlotEntry`, so it stays posable like the rest of the slot,
+  and it already carries specs for the not-yet-enabled Probe/Backbone/Vivify/
+  TransitiveReduce. `INPROCESS_PHASE_BUDGET = 300` — an APPLICATION count — is
+  gone: it was blind to formula size (300 eliminations on a 1.45 M-variable
+  formula) and its real job was capping an O(applications × formula) loop, not
+  capping simplification. Search ticks are separated from inprocessing ticks
+  policy-side (`inprocess.ticks`; no kernel change — kissat keeps `search_ticks`
+  vs `probing_ticks`) and now also drive the stable-phase length, as in kissat.
+- **BVE is dosed through `instances()`/`apply_instance()`** from ONE schedule per
+  phase, instead of repeated canonical `bve_apply` — which re-ran an O(formula)
+  `bve_schedule` per eliminated variable — and **reclamation moved out of
+  `bve_eliminate`**: the canonical round still collects at its end (self-contained
+  for tests/RandomPolicy), the dosing path leaves it to the scheduler, which
+  collects once per phase. Never collecting is sound (deletes are lazy, every
+  reader skips garbage), so this is a cost choice, not a correctness one — N1
+  intact, no guard or kernel change.
+- **The two effects, isolated:** *reclamation is the whole efficiency win and it
+  is trajectory-neutral* — restoring a per-dose collect gives byte-identical
+  conflict counts (tr-n300-s055 1 076 759 either way) but takes
+  `hwmcc17miters-oski15` from 60 s to not finishing in 55 min; at 37 509
+  eliminations an O(arena) collect per variable dominates everything (this also
+  re-explains the old "unbounded BVE is catastrophic" result — it was the
+  collects, not the volume). *The budget binds*: `square.2.0.i` stops at
+  1 000 046 resolutions against the 1 000 000 ceiling (18 420 eliminated),
+  `hwmcc` at 1 001 403 (37 509 eliminated vs 300 under the old cap; decisions
+  292 M → 167 M).
+- **Results.** **Tier B PAR-2 21.41 → 20.85, 14/14 both** (same window, jobs=4;
+  sum 299.7 → 291.9). Wins: summle 10.9→4.8, 9vliw 11.8→6.6, square 5.5→2.9,
+  qwh 3.3→1.9, hwmcc 71.0→55.5, circuit 10.3→8.9. **One real regression:
+  `combined-crypto1` 8.1→24.7 s** — the old cap stopped it at exactly 300
+  eliminations, the budget lets it do 386, and those 86 extra eliminations triple
+  the conflicts (310 k → 1 015 k) on a high-variance SAT instance. The BVE
+  U-shape again, and the concrete motivation for increment 4: at conflicts = 0
+  there is no search work to take a fraction OF, so the `mineffort` floor is the
+  weakest part of this port — kissat's own answer is to not run BVE at
+  preprocessing at all (`fastel = 0`). **Tier A 200/200 (PAR-2 0.55, jobs=2)**;
+  neutral vs baseline at equal concurrency (sum 121.74 vs 121.78 — an apparent
+  jobs=8 "regression" was a contention artifact, and `tr-n300-s055` sits at
+  29.06 s against a 30 s cap in BOTH arms). Peak RSS +1.5 % (1.708 → 1.734 GB),
+  so deferred reclamation does not trade memory for speed. Proof bytes +14 %
+  (669 → 764 MB on Tier B) — more eliminations, more resolvents — check time
+  unchanged (177 s). **Sound:** DefaultPolicy DRAT 1000/0, random-policy DRAT
+  400/0, native LRAT 400/0, random-policy + native LRAT 400/0, regression corpus
+  green, ctest 29/29.
+- **Known cost, carried forward:** a candidate snapshot taken once per round goes
+  stale, where kissat re-scores its elimination heap incrementally
+  (`eliminate.c:109` re-scores every variable of every removed clause). Measured
+  on the Tier A `tr-*` family: same eliminations (47 vs 48) but +5–13 % conflicts.
+  Re-enumerating per dose is not affordable at scale (`bve_schedule` is
+  O(formula) and the budget now allows tens of thousands of eliminations), so
+  kissat-style incremental re-scoring is the fix — a follow-on.
+- **`examples/demo3_scripted_default.c` re-pinned** 132/562 → 152/647: the old
+  size left the built-in run at ~2.4 k conflicts, barely past the 2000-conflict
+  reduce threshold, so an ordinary trajectory shift dropped it under and the
+  coverage assertions failed on a change that was Tier-A-neutral. The new size
+  clears every schedule threshold by ~3–5× on both runs. *(Pre-existing drift
+  noticed while there, NOT fixed: the mirror's `SLOT_IN_DEFAULT` is 0 while
+  DefaultPolicy's is `true`, so the mirror runs no inprocessing and its
+  inprocessing block is dead code — a revisit-codebase item.)*
+- **Tier C not yet run for this increment** (rev-53 says gate each increment on
+  Tier B+C) — next action after this commit.
 
 ### 2026-07-21 — post-cleanup full-tier confirm + fresh 3-way Tier B baseline
 - Re-ran full tiers after the `simplify:9798642` cleanup (behavior-preserving,

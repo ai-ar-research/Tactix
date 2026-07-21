@@ -77,8 +77,13 @@ struct Stats {
   uint64_t substitute_rounds = 0;  // Substitute rounds (V3) — detection passes
   uint64_t congruence_rounds = 0;  // Congruence rounds (V6) — gate-closure passes
   uint64_t factorings = 0;         // Factor/BVA applications (E2) — grids replaced
-  uint64_t bve_rounds = 0;         // BVE apply calls (E1)
+  uint64_t bve_rounds = 0;         // BVE canonical-apply calls (E1; a policy
+                                   // that doses per instance never bumps this)
   uint64_t bve_eliminated = 0;     // variables eliminated by BVE resolution
+  // resolvents attempted (kissat statistics.eliminate_resolutions): BVE's unit
+  // of WORK, and so the currency an effort budget meters it in — one variable
+  // costs occ(x)·occ(¬x) attempts, which the elimination count cannot express
+  uint64_t bve_resolutions = 0;
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
