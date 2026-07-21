@@ -66,10 +66,22 @@ disagree, the plan is authoritative — fix this file.
   them (increment 2's variant-B machinery — per-technique intervals — was right
   in shape but had nothing worth running during search). Independently of the
   probing work: V5 Sweep (needs the kitten sub-solver, plan O11).
-  **⚠ "No BVE at preprocessing" is NOT an increment — it is measured-dead. Do not
-  re-propose it** (it was written into this file and the design doc earlier today
-  as the "principled fix for `combined-crypto1`"; that was wrong on every count —
-  see the Log entry "BVE-off re-measured" below).
+  **▶▶ TARGET END-STATE (user directive 2026-07-21, after the BVE-off
+  measurements): kissat's FULL arrangement — no BVE at preprocessing, plus the
+  mechanism that makes that safe, namely PROBING to simplify the formula and
+  elimination moved INTO the search loop.** The two must land together. Today's
+  measurements (BVE-off alone → Tier B 32.8 vs 20.6 and 2 lost Tier C solves;
+  during-search BVE alone → `summle` 5.3 → 18.4 s) each tested ONE HALF of that
+  arrangement on a pipeline with no probing, which is exactly the condition that
+  makes kissat's version work — so they do NOT refute it. They do establish a
+  hard ordering constraint: **BVE can only leave preprocessing once probing
+  actually runs**, and probing cannot run until the non-mutating propagation path
+  exists. Hence the step order below.
+  **⚠ Gating caveat, stated up front:** the intermediate states of this
+  arrangement are individually WORSE (measured), so the usual "every increment is
+  net-positive on Tier B" rule cannot gate them one at a time. Build behind the
+  slot's existing `enabled` flags / an env knob, keep today's composition as the
+  default, and gate the ARRANGEMENT as one unit on Tier B+C before flipping.
   **Two measured findings to carry (details in the design doc §1):**
   (a) **`hwmcc17miters-oski15`'s diagnosis was WRONG in this file** — it is not
   "needs Sweep+probing". kissat solves it in 2.19 s with **congruence alone**
@@ -562,10 +574,15 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-21 — BVE-off re-measured: "no BVE at preprocessing" is DEAD as an increment (it was proposed in this file earlier TODAY — retracted)
-Earlier today's entries named kissat's composition split (`fastel = 0`, no BVE
-during preprocessing) as the next-but-one increment and as "the principled fix
-for `combined-crypto1`". **Both claims are wrong.** Retracted here with evidence.
+### 2026-07-21 — BVE-off re-measured: removing preprocessing BVE *by itself* is dead. (First written as "the composition split is dead" — CORRECTED below: it is the PIECEMEAL split that is dead, not kissat's arrangement.)
+Earlier today's entries named the composition split (`fastel = 0`) as an
+increment and as "the principled fix for `combined-crypto1`". The second claim is
+simply wrong (BVE-off makes crypto1 *worse*). The first was **over-stated**: what
+these numbers refute is removing preprocessing BVE **on its own, on a pipeline
+with no probing** — the very condition kissat does not operate under. Per the
+user directive recorded in the resume anchor, the target remains kissat's FULL
+arrangement (no preprocessing BVE + probing + elimination during search), landed
+as one unit. Read this entry as a constraint on ORDERING, not as a veto.
 
 - **Fresh Tier B, current code, `TACTIX_NO_BVE=1` vs default** (jobs=4, one
   window): **32.82 vs 20.61 PAR-2**, 14/14 both, sum of times **288.6 → 459.4 s**.
@@ -596,7 +613,14 @@ for `combined-crypto1`". **Both claims are wrong.** Retracted here with evidence
 - **What would actually help `combined-crypto1`** is making elimination benign at
   a larger dose (completeness/ordering — the long-running thread below), or the
   kissat-style incremental re-ranking the design doc names as increment 1's known
-  gap. Not removal.
+  gap. Not removal-in-isolation.
+- **What these numbers do NOT show** (the correction): they do not test kissat's
+  arrangement, because in it BVE runs during search **on a formula probing has
+  already simplified** — occ ~36 → ~5 on `clique`, the observation that started
+  the whole bimodal thread. Our during-search BVE test ran on a formula NOTHING
+  had probed, since all four probing rules are disabled. So "during-search BVE is
+  harmful" is established **for our current pipeline only**, and is precisely the
+  symptom the probing pipeline is supposed to remove.
 
 ### 2026-07-21 — ★ `NoOp` IS NOT A NO-OP: a probing round that changes nothing still wrecks SAT search. This is why the probing family has never been schedulable.
 Found while activating C3 Vivify (rev-53 increment 3, measured → reverted, below).
