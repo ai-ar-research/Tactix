@@ -41,8 +41,12 @@ disagree, the plan is authoritative — fix this file.
   hwmcc 122→70s, battleship 54→18s, mod4block 13.7→8.9s (improved, no regression).
   Minor regressions: FmlaEquiv 24→40, x9 21→35 (BVE-last hurts these UNSAT+Factor
   instances), rbsat 8.6→11 — dwarfed by the gains. This BEATS the BVE-off PAR-2
-  (23.30) while keeping solves. Tier C solve-count gate RUNNING (BVE-off lost 2
-  there; candidate keeps BVE on, just later, so should hold). IF Tier C holds
+  (23.30) while keeping solves. **Tier C VALIDATED: PAR-2 366.11→282.74, solved 28→29/30 (GAINS aes_decry — the
+  density=8 gate cuts Factor's firing on aes so its proof no longer times out
+  drat-trim). NET-POSITIVE ON BOTH TIERS, +1 solve, NO lost solves.** Still
+  whack-a-mole per-instance (Tier C gains ContextModel 102→9s/mod2c 271→33s/StConn
+  306→65s; regresses DLTM 9→176s/frb45 110→246s/j3037 85→242s — all still solve).
+  Remaining validation before a default flip: Tier A (neutral) + fuzz. IF Tier C holds
   solves + Tier A neutral → MAKE DEFAULT (the two knobs → hardcoded slot order +
   density=8). Then investigate the x9/FmlaEquiv regressions (likely BVE-last on
   UNSAT-where-Factor-helps; maybe density boundary — x9 ratio 8.2 ~ threshold 8).**
