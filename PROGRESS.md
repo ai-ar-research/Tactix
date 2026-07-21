@@ -115,9 +115,21 @@ disagree, the plan is authoritative — fix this file.
   up to 1322) are real, NOT an artifact. Bonus: 854/855 of kissat's mp1 grids are
   pure-binary (`nbin==n`), so the width advantage is binary-grid SELECTION (S2),
   not large-clause remainders (S4) — S4 confirmed not the mp1 lever.** So the
-  premise holds: the greedy chain-growth is biased toward square grids (grows F
-  while R collapses) where kissat's sibling-clause matching keeps R wide — that
-  bias is the unidentified mechanism. Fast metric: `kissat --factor=false` on
+  premise holds. **CHAIN-DIVERGENCE NARROWED 2026-07-20** (`TACTIX_GRID_TRACE` now
+  logs `init_R`/`max_n`): our chains DO start wide — 70 mp1 seeds have init_R≥50,
+  max init_R=85 — but every one collapses to best 27×27 (delta 675), which IS the
+  max-delta prefix ALONG OUR CHAIN. kissat's 22×64 (delta 1322 ≫ 675) is a
+  DIFFERENT set of 22 factors sharing 64 remainders — NOT on our chain. So the
+  greedy's myopic max-co-occurrence next-factor shrinks R too fast (85→27 by m=22),
+  diverging from the wide grid; it's chain-divergence, not a delta-preference bug
+  and not unavailable structure (the grid exists in mp1). **OPEN CONTRADICTION:**
+  the prior workflow found our next-factor `equivalent` to kissat's (both
+  max-count + watch-size tie-break), yet kissat reaches 22×64 and we don't — so
+  either a subtle next_factor detail differs or kissat finds it in a later
+  interleaved pass. **Cracking it needs a matched-seed kissat-vs-tactix chain
+  trace** (reference-clone instrumentation). DEPRIORITIZED: ~8× on one instance
+  (mp1), unresolved contradiction, real matcher work — not worth it vs the payoff
+  right now. Fast metric: `kissat --factor=false` on
   `TACTIX_DUMP_FACTORED` mp1 = **2.50M now → 305k target**; `TACTIX_GRID_TRACE`
   dumps m/n/delta per factoring.
   (2) **BVE IS BIMODAL — highest-leverage open bug (report:

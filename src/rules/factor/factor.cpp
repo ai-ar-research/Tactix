@@ -233,6 +233,8 @@ ApplyResult factor_apply(Kernel &k) {
     int best_delta = 0;
     best_F.clear();
     best_R.clear();
+    const uint32_t init_R = static_cast<uint32_t>(R.size()); // width at m=1
+    uint32_t traj_max_n = init_R;                            // widest R along chain
 
     // greedily grow the factor set, tracking the max-delta prefix.
     while (F.size() < FACTOR_DIM_LIMIT && R.size() >= 2) {
@@ -281,6 +283,8 @@ ApplyResult factor_apply(Kernel &k) {
           newR.push_back(p);
       const uint32_t m = static_cast<uint32_t>(F.size()) + 1;
       const uint32_t n = static_cast<uint32_t>(newR.size());
+      if (n > traj_max_n)
+        traj_max_n = n;
       const int delta = static_cast<int>(m * n) - static_cast<int>(m + n);
       if (delta > best_delta) {
         best_delta = delta;
@@ -301,8 +305,9 @@ ApplyResult factor_apply(Kernel &k) {
 
     if (best_delta >= FACTOR_MIN_GAIN) {
       if (std::getenv("TACTIX_GRID_TRACE"))
-        std::fprintf(stderr, "[grid] m=%zu n=%zu delta=%d\n", best_F.size(),
-                     best_R.size(), best_delta);
+        std::fprintf(stderr, "[grid] m=%zu n=%zu delta=%d init_R=%u max_n=%u\n",
+                     best_F.size(), best_R.size(), best_delta, init_R,
+                     traj_max_n);
       apply_factoring(k, best_F, best_R);
       applied++;
       k.stats.factorings++;
