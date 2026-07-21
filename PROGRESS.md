@@ -64,7 +64,9 @@ disagree, the plan is authoritative — fix this file.
   does apply them — the duplicate-binary bail-out does not fire; a second pass
   finds 0 more). The gap is that kissat *refutes inside* congruence while we hand
   a collapsed-but-unrefuted formula to search and pay 167 M decisions for 1 244
-  conflicts. Separate work item from the scheduler.
+  conflicts. **Root cause now pinned to a named gap: `D-CONG-UNIT`** (new ledger
+  row, `docs/implementation-notes.md` §2) — our V6 has **no unit channel and can
+  never refute**. See the Log entry below. Separate work item from the scheduler.
   (b) kissat's per-technique effort profile on our exact Tier B (table in the
   design doc): inprocessing is 8–33 % of its runtime; **vivify is the largest
   single probing sub-technique on every instance** and we never run it; sweep is
@@ -545,6 +547,60 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — V6 Congruence has NO UNIT CHANNEL (`D-CONG-UNIT`) — the real reason `hwmcc-miters` costs us 25× kissat
+Doc-sync only (no code): `docs/calculus.md` §6 V6 + `docs/implementation-notes.md`
+§1/§2. Found while measuring kissat per technique for the rev-53 scheduler.
+
+- **The standing diagnosis in this file was wrong.** `hwmcc17miters-oski15` was
+  recorded as "needs Sweep+probing". Measurement says otherwise: kissat solves it
+  in 2.19 s with `search_ticks = 4`, **0 conflicts**, congruence 70 % of runtime,
+  `congruent: 711 434` (49 % of variables), `units: 1422`, and zero
+  eliminate/backbone/transitive/kitten work. **Our V6 finds the same collapse**
+  (2 058 212 gates, 710 722 equivalences; V3 Substitute applies them — its
+  duplicate-binary bail-out does not fire — and a second pass finds 0 more). We
+  then hand a collapsed-but-unrefuted formula to search: 167 M decisions for
+  1 244 conflicts.
+- **The gap, named.** `congruence_apply` is structurally incapable of deriving a
+  unit or the empty clause. `canonicalize` DISCARDS every degenerate gate instead
+  of drawing its inference — AND with a duplicated/clashing input
+  (`congruence.cpp:255-256`), ITE whose operands share a variable (`:264-266`),
+  **XOR whose variables all cancel** (`:296-297`) — and a congruent pair whose
+  outputs are already `x`/`¬x` is `continue`d rather than refuting (`:603-604`).
+  `add_equivalence` always returns `false` (`:497`) and nothing sets
+  `inconsistent`, so **V6 has never refuted anything**. On a miter that is exactly
+  the load-bearing step: merging the two isomorphic cones makes each per-bit XOR
+  cancel to a constant ⇒ root unit ⇒ the AND-tree above collapses ⇒ contradiction
+  with the asserted top unit. kissat routes every such degeneracy through
+  `learn_congruence_unit`/`merge_literals`, BCPs each unit, and re-simplifies the
+  gates it touched (`kissat/src/congruence.c:794-816, :877-950, :1483-1516,
+  :1691-1727, :4149-4231`).
+- **Doc/code drift fixed.** `calculus.md` §6 already asserted "a merge of `x` with
+  `¬x` sets `inconsistent` → `Unsat`" while the code skipped it, with no ledger
+  entry. The abstract entry now also states the degeneracy inferences explicitly
+  (they follow from the gate semantics), and the implementation gap is recorded as
+  **`D-CONG-UNIT`** with root cause + removal path. No plan edit needed: §5.2's
+  V6 proof-delta type (`add-RUP + delete`) already covers a derived unit.
+- **Scope of the fix (not started):** ~200–300 lines in V6 (a `learn_unit` that
+  assigns + bounded-propagates + reschedules touched gates; turn the three discard
+  sites into unit/merge outcomes; keep shrunken gates in the table; refute on the
+  clashing merge — the proof construction already exists in `substitute.cpp`'s
+  `emit_unsat` + `big_path_chain`). **N2 ordering constraint: `D-CONG-LRAT` must
+  close first**, since the XOR/ITE degeneracies are only reachable where those
+  gates are extracted, which is DRAT-only today. Also needs a `stress-policy`
+  pass — V6 cannot currently return `Unsat`, so no fuzz case has ever exercised a
+  V6 refutation path.
+- **Cheapest confirming experiment before implementing:** add counters to
+  `canonicalize` for discards by cause and for the `:603` skip, then re-run
+  `TACTIX_CONG_TRACE` on hwmcc — an XOR-empty-key count ≈ 700 confirms the whole
+  chain in one run. *(Not yet run: the machine was busy with the Tier C gate.)*
+- **Caveat, stated honestly:** the profile localises kissat's refutation to
+  {congruence, substitute} inside `probe_initially`, not to congruence alone —
+  `kissat_congruence` returns a merge count, and the following
+  `kissat_substitute(solver, true)` has its own `∅` paths. The discriminating
+  counters (`congruent_units` vs `substitute_units`) were not captured. Either
+  way both are consequences of the same collapse, and the tactix-side gap above is
+  established by reading our own source.
 
 ### 2026-07-21 — rev-53 increment 1: the EFFORT LEDGER replaces the application cap (BVE dosed per instance; reclamation out of the per-elimination path)
 Design + increment plan + the measured evidence: `docs/design/effort-scheduler-design.md`.

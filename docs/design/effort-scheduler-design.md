@@ -138,8 +138,15 @@ next.conflicts = conflicts + SCALED
 ```
 
 `probeinit/probeint = 100` (shape `n·log10(n+9)`), `eliminateinit/eliminateint =
-500` (shape `n·log10(n+9)²`). Both additionally refuse to run in the same
-conflict as a clause-DB reduction.
+500` (shape `n·log10(n+9)²`).
+
+Both additionally **refuse** to run in the same conflict as a clause-DB
+reduction — `if (solver->last.conflicts.reduce == conflicts) return false`
+(`probe.c:21`, `eliminate.c:28`; the field is set at `reduce.c:194`). Note this
+corrects `docs/design/inprocessing-revamp-design.md` §C-ii, which read the same
+gate as *piggybacking* simplification onto a reduction. It is the opposite, and
+increment 2 must implement the refusal. (That doc is a frozen snapshot, so the
+correction lives here.)
 
 ### 2.3 CaDiCaL's refinement — deferral with accrual (`limit.hpp:141-148`)
 

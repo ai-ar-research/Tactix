@@ -290,11 +290,19 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   `(¬a∨b),(a∨¬b)` and `unite(a,b)` in the union-find (gate CLAUSES are never
   rewritten here — V3 `Substitute`, run next in the phase, performs the
   whole-formula collapse over the added binaries). Canonicalization is per kind:
-  AND sorts representative inputs (an input and its negation ⇒ `AND=0`, deferred);
-  XOR folds each input representative’s sign into a parity bit the output absorbs
-  and cancels repeated variables (`x⊕x=0`); ITE normalizes to `cond`,`then`
-  positive (a flip absorbed by the output). A round with no new merge is `NoOp`;
-  a merge of `x` with `¬x` sets `inconsistent` → `Unsat`.
+  AND sorts representative inputs; XOR folds each input representative’s sign into
+  a parity bit the output absorbs and cancels repeated variables (`x⊕x=0`); ITE
+  normalizes to `cond`,`then` positive (a flip absorbed by the output).
+  A canonicalization may **degenerate**, and each degeneracy is itself an
+  inference over `F`, not a dead end: `AND(…,x,¬x,…)` ⇒ `out = 0` ⇒ root unit
+  `¬out`; an XOR whose variables all cancel ⇒ `out` is the parity constant ⇒ root
+  unit; a unary gate (`AND(x)`, `XOR(x)`, or an ITE whose branches coincide) ⇒
+  `out ↔ x`, i.e. a merge with no second gate needed. A round with no new merge is
+  `NoOp`; a merge of `x` with `¬x` sets `inconsistent` → `Unsat`.
+  *(The implementation currently realizes none of these degenerate cases — it
+  discards the gate and skips the contradictory merge, so V6 has no unit channel
+  and never refutes. Sound but incomplete; ledger row **D-CONG-UNIT** in
+  `docs/implementation-notes.md`.)*
 - **Proof δ:** add-RUP. AND — each equivalence binary is RUP from the two gates’
   clauses (bridged by the equivalence binaries added earlier in the closure).
   XOR — a parity-elimination **ladder**: eliminate one rhs variable per level, at
