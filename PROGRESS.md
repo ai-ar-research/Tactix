@@ -195,9 +195,26 @@ disagree, the plan is authoritative — fix this file.
   68 in one pass at bound 0 (STRICTER than our 16) yet we stall at 10 — so kissat's
   per-variable resolvent count is LOWER → it excludes **subsumed** resolvents
   (forward-subsumption during elimination) which we count, inflating past the bound.
-  **Implementing: skip subsumed resolvents in `bve_eliminate` (sound — a subsumed
-  resolvent is redundant, implied by its subsumer; not adding/counting it is always
-  sound for both proof formats + reconstruction). In progress.**
+  **ATTEMPTED + PARTIAL, NOT SHIPPED (2026-07-20 late).** Implemented sound
+  forward-subsumption of resolvents (`TACTIX_BVE_SUBSUME`, default-OFF,
+  `bve_resolvent_subsumed` reusing subsume_forward's `subsumes_marked`;
+  fuzz-clean: default DRAT + random-policy LRAT 800/0). It DOES move toward
+  completeness — clique 10→20 vars eliminated, 192s→88s (2.2×). **But it's
+  NET-NEGATIVE**, because the U-shape punishes PARTIAL-more: it HELPS
+  under-eliminated instances (clique) while pushing WELL-eliminated ones off the
+  bottom into the harmful middle — mod4block 11s→121s (10× WORSE), crypto1
+  7.8s→17.4s. Higher bound + subsumption plateaus (clique 26 vars/81s at bound 64,
+  then growth hurts). Root issue: **only TRUE completeness (kissat's ~all-vars,
+  far-right of the U) is benign for every instance; any partial step regresses
+  someone.** kissat reaches 84 in ONE pass where our subsumption reaches only 20 —
+  and `kernel_add_large_clause` already maintains the occ index (cross-elimination
+  subsumption works), so the 20-vs-84 gap is NOT simply more subsumption; some
+  other kissat elimination behavior (within-elimination incremental connect,
+  order, or the escalating-bound cascade) is still unmatched. **So the fix is
+  real but larger than a subsumption tweak: match kissat's elimination to TRUE
+  completeness, validated to not regress mod4block/crypto1. SUBSUME kept as a
+  sound, fuzz-clean BUILDING BLOCK (default-off); do NOT default it alone.**
+  Default byte-identical (mp1 1,482,563), units 29/29.
   committed (`TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`), default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
   lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-

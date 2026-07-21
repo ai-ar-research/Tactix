@@ -146,6 +146,68 @@ inline bool bve_binary_live(const Kernel &k, Lit a, Lit b) {
   return bve_binary_copies(k, a, b) > 0;
 }
 
+// Is resolvent R subsumed by an existing clause? A subsumer d ⊆ R never contains
+// the pivot (R has it resolved out), so d survives the elimination — dropping a
+// subsumed resolvent is sound (it is redundant, implied by its surviving
+// subsumer, for both proof formats and reconstruction). This mirrors kissat's
+// forward-subsumption during elimination: resolvents that are already implied are
+// not counted toward the growth bound, so the elimination cascade reaches
+// completeness (a partially-eliminated symmetric formula is far harder than a
+// fully-eliminated one — the bimodal-BVE cause). Value handling matches
+// subsume_forward's `subsumes_marked` (a literal is covered if it is in R or
+// root-falsified; a free-outside-R or satisfied literal disqualifies the
+// subsumer). `marks` is caller scratch (sized 2*nvars), clean in and out.
+bool bve_resolvent_subsumed(const Kernel &k, std::vector<uint8_t> &marks,
+                            const std::vector<Lit> &R) {
+  for (const Lit l : R)
+    marks[l] = 1;
+  bool sub = false;
+  // binary subsumer (l ∨ o): both endpoints in R
+  for (const Lit l : R) {
+    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
+    const uint32_t sz = k.watches.heads[l].size;
+    for (uint32_t i = 0; i < sz && !sub;) {
+      const Watch w{ws[i]};
+      if (w.binary()) {
+        if (marks[w.other()])
+          sub = true;
+        i += 1;
+      } else {
+        i += 2;
+      }
+    }
+    if (sub)
+      break;
+  }
+  // large subsumer d ⊆ R via the shared dense occurrence index (skipped if the
+  // phase runs without dense — the binary pass alone is still sound)
+  if (!sub && k.dense) {
+    for (const Lit l : R) {
+      for (const Ref dref : k.dense->large[l]) {
+        const Clause *d = clause_at(k.arena, dref);
+        if (d->garbage() || d->redundant() || d->size > R.size())
+          continue;
+        bool covers = true;
+        for (const Lit dl : *d) {
+          if (marks[dl] || k.value(dl) < 0)
+            continue; // in R, or root-falsified (absorbed)
+          covers = false;
+          break; // free outside R, or satisfied → not a subsumer
+        }
+        if (covers) {
+          sub = true;
+          break;
+        }
+      }
+      if (sub)
+        break;
+    }
+  }
+  for (const Lit l : R)
+    marks[l] = 0;
+  return sub;
+}
+
 // A materialized clause on the pivot: its ACTIVE literals (root-false dropped;
 // their unit ids in `absorbed` for LRAT), its proof id, and a delete-handle
 // (arena ref for large, or the binary pair). `active` includes the pivot.
@@ -377,6 +439,12 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   std::vector<Resolvent> resolvents;
   const size_t limit = pos.size() + neg.size() + bve_bound();
   std::vector<uint8_t> seen(2 * k.nvars, 0); // dedup/tautology scratch
+  // Forward-subsume resolvents (kissat's during-elimination subsumption): a
+  // resolvent already implied by a surviving clause is redundant, so it is
+  // neither added nor counted toward the growth bound — letting the cascade
+  // reach completeness. Sound (see bve_resolvent_subsumed). Flagged for A/B.
+  const bool sub_check = std::getenv("TACTIX_BVE_SUBSUME") != nullptr;
+  std::vector<uint8_t> sub_marks(sub_check ? 2 * k.nvars : 0, 0);
   for (size_t ci = 0; ci < pos.size(); ++ci) {
     const MClause &c = pos[ci];
     for (const Lit l : c.active)
@@ -410,6 +478,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       }
       if (taut)
         continue;
+      if (sub_check && bve_resolvent_subsumed(k, sub_marks, r.lits))
+        continue; // redundant: skip (not added, not counted toward the bound)
       if (r.lits.size() > BVE_CLSLIM) { // oversized resolvent: abort the variable
         g_bve_aborts.clslim++;
         aborted = true;
