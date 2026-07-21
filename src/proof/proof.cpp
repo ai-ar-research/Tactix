@@ -67,6 +67,30 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
   end_line();
 }
 
+void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
+                    const int64_t *hints, uint32_t nhints) {
+  if (!file_)
+    return;
+  if (format_ == ProofFormat::Lrat) {
+    put_u64(id);
+    for (uint32_t i = 0; i < size; i++)
+      put_lit(lits[i]);
+    fputs("0 ", file_);
+    for (uint32_t i = 0; i < nhints; i++)
+      fprintf(file_, "%" PRId64 " ", hints[i]);
+    fputs("0\n", file_);
+    return;
+  }
+  // DRAT (binary/ascii): a plain add with the pivot ordered first; the RAT
+  // justification is inferred by the checker (first-literal RAT). Byte-identical
+  // to add_rup's DRAT path, so DRAT output is unchanged.
+  if (format_ == ProofFormat::DratBinary)
+    fputc('a', file_);
+  for (uint32_t i = 0; i < size; i++)
+    put_lit(lits[i]);
+  end_line();
+}
+
 void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
   add_rup(id, nullptr, 0, chain, nchain);
 }

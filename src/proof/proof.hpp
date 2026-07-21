@@ -25,6 +25,16 @@ public:
   // order) are used by LRAT only; DRAT writes the literals
   void add_rup(uint64_t id, const Lit *lits, uint32_t size,
                const uint64_t *chain, uint32_t nchain);
+  // add-RAT: `lits` MUST be pivot-first (the RAT pivot is the first literal, both
+  // for LRAT and for the checker's first-literal inference on DRAT). LRAT writes
+  // `<id> <lits> 0 <hints> 0` where `hints` is the flat SIGNED antecedent stream:
+  // optional leading positive RUP antecedents, then for each resolution partner D
+  // (a clause containing ¬pivot) a negative `-cid(D)` followed by the positive RUP
+  // hints discharging the resolvent. DRAT writes `a <lits> 0` (identical to a
+  // plain add — the RAT-ness is inferred by the checker from the first literal).
+  // Factor is the first RAT-emitting rule (plan §5.2 add-RAT primitive).
+  void add_rat(uint64_t id, const Lit *lits, uint32_t size,
+               const int64_t *hints, uint32_t nhints);
   void add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain);
   // root-level propagation-derived unit: explicit in LRAT (each level-0
   // assignment needs an id for later chains), implied/omitted in DRAT

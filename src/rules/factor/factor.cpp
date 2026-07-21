@@ -76,23 +76,49 @@ void apply_factoring(Kernel &k, const std::vector<Lit> &F,
   const Var xv = kernel_new_extension_vars(k, 1);
   const Lit px = make_lit(xv, false); // x
   const Lit nx = make_lit(xv, true);  // ¬x
-  // add a binary (pivot first) + emit its DRAT proof line (RAT via first literal).
-  auto add_bin = [&](Lit pivot, Lit other) {
+  const bool lrat = k.proof && k.proof->lrat();
+
+  // Dividers (x ∨ fᵢ): RAT on the fresh literal x. At add time no clause contains
+  // ¬x (the quotients come after), so the RAT condition is vacuous — pivot-first
+  // + empty hints. add_rat's DRAT path is byte-identical to the old add_rup.
+  std::vector<uint64_t> divider_ids;
+  divider_ids.reserve(F.size());
+  for (const Lit f : F) {
     const uint64_t id = ++k.next_clause_id;
-    const Lit lits[2] = {pivot, other};
+    const Lit lits[2] = {px, f}; // pivot (x) first
     if (k.proof)
-      k.proof->add_rup(id, lits, 2, nullptr, 0); // DRAT: RUP-or-RAT on first lit
-    kernel_add_binary_clause(k, pivot, other, id);
-  };
-  for (const Lit f : F)
-    add_bin(px, f); // divider (x ∨ f) — RAT on x (no ¬x clause yet)
-  for (const Lit r : R)
-    add_bin(nx, r); // quotient (¬x ∨ r) — RAT on ¬x via dividers + live originals
+      k.proof->add_rat(id, lits, 2, nullptr, 0);
+    kernel_add_binary_clause(k, px, f, id);
+    divider_ids.push_back(id);
+  }
+
+  // Quotients (¬x ∨ rⱼ): RAT on ¬x. The only clauses containing x (= ¬pivot) are
+  // the m dividers, so there is one RAT group per divider: the resolvent
+  // (¬x∨rⱼ) ⊗ₓ (x∨fᵢ) = (fᵢ∨rⱼ) is an original grid clause, still live (deletes
+  // come last), hence RUP by that original's id. Hints are the flat signed stream
+  // [-dividerᵢ, orig(fᵢ,rⱼ)]ᵢ. kernel_binary_id must be read before deletion.
+  std::vector<int64_t> hints;
+  for (const Lit r : R) {
+    const uint64_t id = ++k.next_clause_id;
+    const Lit lits[2] = {nx, r}; // pivot (¬x) first
+    if (lrat) {
+      hints.clear();
+      for (size_t i = 0; i < F.size(); i++) {
+        hints.push_back(-static_cast<int64_t>(divider_ids[i]));
+        hints.push_back(static_cast<int64_t>(kernel_binary_id(k, F[i], r)));
+      }
+    }
+    if (k.proof)
+      k.proof->add_rat(id, lits, 2, hints.data(),
+                       static_cast<uint32_t>(hints.size()));
+    kernel_add_binary_clause(k, nx, r, id);
+  }
+
+  // Delete the originals LAST (proof `del`); ALL copies — a duplicated grid
+  // binary is fully replaced by the aux-var definition, and the plain
+  // kernel_delete_binary refuses copies>1 (see kernel.cpp).
   for (const Lit f : F)
     for (const Lit r : R)
-      // delete originals LAST (proof `del`); ALL copies — a duplicated grid
-      // binary is fully replaced by the aux-var definition, and the plain
-      // kernel_delete_binary refuses copies>1 (see kernel.cpp).
       kernel_delete_binary_all_copies(k, f, r);
 }
 
@@ -136,10 +162,9 @@ bool factor_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
 ApplyResult factor_apply(Kernel &k) {
   assert(factor_guard(k));
-  // Native-LRAT RAT chains (add_rat) are a later stage; keep the LRAT path sound
-  // by no-op-ing (mirrors D-CONG-LRAT). DRAT gets the full transform.
-  if (k.proof && k.proof->lrat())
-    return ApplyResult::NoOp;
+  // Native LRAT: dividers/quotients emit add-RAT with explicit resolution hints
+  // (apply_factoring) — Factor is the first RAT-emitting rule, so the LRAT path
+  // gets the full transform now (was a NoOp before native add_rat landed).
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
 

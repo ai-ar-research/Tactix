@@ -103,4 +103,40 @@ for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
       || { echo "FAIL: lrat-check gave no verdict on BVE $cnf"; cat "$T/check"; exit 1; }
   fi
 done
+# ---- E2: Factor (BVA) native-LRAT — dividers emit vacuous add-RAT (fresh pivot,
+# no ¬x clauses yet → empty hints) and quotients emit add-RAT with one resolution
+# group per divider (the resolvent (fᵢ∨rⱼ) discharged by the still-live original's
+# id). A 2×3 grid + a small UNSAT gadget; the second case duplicates a grid binary
+# to exercise delete-all-copies under LRAT. TACTIX_FACTOR_FORCE bypasses the
+# density gate; TACTIX_NO_BVE keeps BVE from eliminating the grid before Factor.
+printf 'p cnf 7 13\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor.cnf"
+printf 'p cnf 7 14\n1 3 0\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor_dup.cnf"
+for cnf in "$T/factor.cnf" "$T/factor_dup.cnf"; do
+  for mode in binary ascii; do
+    proof="$cnf.fac.$mode.drat"
+    if [ "$mode" = binary ]; then
+      TACTIX_FACTOR_FORCE=1 TACTIX_NO_BVE=1 "$TACTIX" -q "$cnf" "$proof" \
+        > "$T/out" && rc=$? || rc=$?
+    else
+      TACTIX_FACTOR_FORCE=1 TACTIX_NO_BVE=1 "$TACTIX" -q --no-binary "$cnf" \
+        "$proof" > "$T/out" && rc=$? || rc=$?
+    fi
+    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under Factor (rc=$rc)"; exit 1; }
+    grep -q '^s UNSATISFIABLE$' "$T/out" \
+      || { echo "FAIL: $cnf (Factor) missing s line"; exit 1; }
+    "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
+    grep -q 's VERIFIED' "$T/check" \
+      || { echo "FAIL: Factor proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
+  done
+  if [ -x "$LRAT_CHECK" ]; then
+    proof="$cnf.fac.lrat"
+    TACTIX_FACTOR_FORCE=1 TACTIX_NO_BVE=1 "$TACTIX" -q --lrat "$cnf" "$proof" \
+      > "$T/out" && rc=$? || rc=$?
+    [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under Factor --lrat"; exit 1; }
+    "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+      || { echo "FAIL: native LRAT (Factor) of $cnf rejected"; cat "$T/check"; exit 1; }
+    grep -qi 'verif' "$T/check" \
+      || { echo "FAIL: lrat-check gave no verdict on Factor $cnf"; cat "$T/check"; exit 1; }
+  fi
+done
 echo "micro_proofs OK"

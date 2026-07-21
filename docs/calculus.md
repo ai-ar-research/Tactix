@@ -57,9 +57,10 @@ recorded but unanalyzed conflict) and `pending` (a learned clause awaiting
 assertion) — are **engineering state**; guards that mention them are deviations
 (`implementation-notes.md`), never abstract preconditions.
 
-**Proof vocabulary** (closed; `proof.hpp:26-35`): `add_rup`,
-`add_derived_unit`, `add_empty`, `del`, plus the internal `kernel_push_witness`
-(mutates `ρ`, emits no proof line). No `add_rat` is used anywhere.
+**Proof vocabulary** (closed; `proof.hpp`): `add_rup`, `add_derived_unit`,
+`add_empty`, `del`, `add_rat`, plus the internal `kernel_push_witness` (mutates
+`ρ`, emits no proof line). `add_rat` is realized in the backend and used only by
+**E2 Factor/BVA** (dividers/quotients, §E2) — the first RAT-emitting rule.
 
 **Reading a rule entry.** Each rule is `guard(σ) → bool`, a lazy
 `instances(σ)`, and `apply(σ,inst) → (σ′, δ)` total when the guard holds
@@ -349,7 +350,8 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   units → `add_empty`. **Second variable-eliminating rule** (after V3) and second
   consumer of `ρ` — it reuses V3's entire proof + ρ + add/delete machinery.
   `add_rat` is genuinely needed only by **E2 Factor/BVA** (new-variable
-  definitions are RAT) and **X1 BCE** (RAT-justified deletion), both phase 4.
+  definitions are RAT — now realized in the backend, §E2) and **X1 BCE**
+  (RAT-justified deletion, phase 4).
 - **Soundness:** the resolvents replace `x`'s clauses equisatisfiably
   (Davis–Putnam); soundness is equisatisfiability *modulo ρ* — `extend_ρ(model of
   F′) ⊨ F`, the pivot recovered from the both-sides witness segments by one
@@ -375,10 +377,13 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   resolution partners are the dividers `(x ∨ fᵢ)`, and each resolvent `(fᵢ ∨ rⱼ)` is
   a grid clause **still live** in `F` at add-time — so every RAT resolvent is RUP.
   This dictates the emission order: **add the dividers, add the quotients, delete
-  the grid LAST.** DRAT needs **no new primitive** — emit each added clause with
-  `add_rup` giving the **pivot literal first** (the checker reads the leading
-  literal as the RAT pivot), then `del` the grid. Native-LRAT `add_rat` is a later
-  stage; under LRAT the rule **no-ops** (mirrors D-CONG-LRAT).
+  the grid LAST.** DRAT emits each added clause **pivot-first** (the checker reads
+  the leading literal as the RAT pivot), then `del`s the grid. **Native LRAT emits
+  real `add_rat`:** each divider is a *vacuous* RAT line (pivot `x` first, empty
+  hints — no `¬x` clause exists yet); each quotient carries **one resolution group
+  per divider**, `-⟨dividerᵢ id⟩ ⟨orig(fᵢ,rⱼ) id⟩`, discharging its resolvent
+  `(fᵢ∨rⱼ)` by the still-live grid clause. This is the **first realization of the
+  `add_rat` primitive** in the backend; the DRAT byte-stream is unchanged.
 - **Reconstruction (`ρ`):** *none* — `x` is fully defined by the clauses just
   added, so a model of `F′` restricted to `vars(F)` already satisfies `F` (drop
   `x`). No witness is pushed; recovery is pure projection over `first_extension_var`

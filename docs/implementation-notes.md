@@ -41,7 +41,7 @@ V1/V2/S5 additionally carry `!conflict_valid` as a genuine abstract precondition
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. |
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). |
 | V6 Congruence | `root` | **D-ROOT:** `level==0`. **D-CONG-LRAT:** XOR/ITE extraction gated off under native LRAT (a proof-mode branch in the effect, not a guard conjunct — §2). |
-| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). **D-FACTOR-LRAT:** under native LRAT the rule no-ops (add-RAT chains deferred) — a proof-mode effect branch, not a guard conjunct. Also a `binary_ids.size() ≥ num_output_vars` **density short-circuit** (§5) — a selectivity `NoOp`, not a guard conjunct. ON in DefaultPolicy since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
+| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). Native LRAT now emits real `add_rat` (D-FACTOR-LRAT **resolved** 2026-07-20 — no longer a proof-mode no-op). A `binary_ids.size() ≥ num_output_vars` **density short-circuit** (§5) — a selectivity `NoOp`, not a guard conjunct. ON in DefaultPolicy since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
 
 ## 2. The engineering-deviation ledger (the impurity punch-list)
 
@@ -60,7 +60,7 @@ removal is a plan item, not an ad-hoc patch.
 | D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, V6, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
 | D-CONG-LRAT | Under native LRAT, **AND congruence runs with full bridged chains; XOR/ITE extraction is gated off** (proof-mode branch in the effect) | V6 | AND-match chains thread the bridging equivalence binaries via `big_path_chain` (done). XOR/ITE remain: their canonicalization adds a sign layer ON TOP of bridging — `normalize_ite` swaps then/else + flips signs per gate; XOR folds input signs into the output parity and cancels duplicate variables — so the canonical lemma literals do not correspond by-position-and-sign to either gate's raw clauses, making the ladder / case-split lemma antecedent chains intricate | emit native LRAT chains for the XOR parity-ladder and ITE case-split lemmas (tracking each gate's normalization/parity to map canonical↔raw), then ungate XOR/ITE under LRAT. DRAT already gets the full closure |
 | D-CONG-DELETE | V6 transient XOR/ITE ladder / case-split lemmas are not `del`-eted | V6 | proof-size only (the lemmas survive in the DRAT stream; soundness unaffected — they are RUP) | emit `del` for the chain after the merge (kissat `delete_proof_chain`); folds in with the LRAT-chain work |
-| D-FACTOR-LRAT | Under native LRAT, **E2 Factor no-ops** (proof-mode branch in the effect) | E2 | the add step is add-RAT; DRAT emits it as pivot-first `add_rup` (checker reads the RAT pivot), but native LRAT needs real `add_rat` chains with the still-live grid clauses as antecedents | emit native-LRAT `add_rat` for the dividers/quotients (mirrors the D-CONG-LRAT work); DRAT already gets the full transform |
+| ~~D-FACTOR-LRAT~~ — **CLOSED 2026-07-20** | ~~Under native LRAT, E2 Factor no-ops~~ | E2 | the add step is add-RAT; DRAT emits it pivot-first (checker reads the RAT pivot); native LRAT needs real `add_rat` chains | **done:** `Proof::add_rat` primitive added (`proof.{hpp,cpp}`) and Factor emits it — dividers as vacuous RAT (empty hints), quotients as one resolution group per divider (`-⟨dividerᵢ⟩ ⟨orig(fᵢ,rⱼ)⟩`). First backend realization of add-RAT. Validated: `micro_proofs` Factor cases (clean + dup grid) + fuzz default/random `--lrat` Factor-forced 800/0; mp1 (935 factorings) + aes_decry (11 165) native LRAT VERIFIED by lrat-check (22 s / 17 s, where drat-trim timed out). DRAT byte-identical |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
 **Pure already:** M1 Propagate, M2 Decide, M3 ConflictAnalysis, S3 Rephase,
@@ -184,9 +184,12 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   refusal left the grid in place while the dividers/quotients were added → **bloat,
   not factoring** (x9: 2612 delete-failures, 3597→4650 clauses, zero search
   benefit; real instances are ~50 % duplicate binaries — mp1 had 137 700 duplicated
-  pairs). Fix: `kernel_delete_binary_all_copies` (DRAT-only; Factor no-ops under
-  LRAT) removes every copy — sound because *no copy survives* to be cited — and
-  `binary_partners` deduplicates so the grid dimensions / gain aren't inflated.
+  pairs). Fix: `kernel_delete_binary_all_copies` removes every copy — sound under
+  **both DRAT and native LRAT** because *no copy survives* to be cited (the
+  quotient RAT hints reference each original's id *before* the deletes, and after
+  them nothing later cites the pair; a redundant same-id `del` per duplicate copy
+  is checker-tolerated — mp1's 137 700 dup pairs verify) — and `binary_partners`
+  deduplicates so the grid dimensions / gain aren't inflated.
   Crucially this touches **only Factor's grid pairs**: a global binary-dedup
   instead *wrecks* the base search (mp1 4.19M→23.9M+ conflicts — the duplicate
   binaries are load-bearing for its CDCL trajectory), so removing them wholesale is

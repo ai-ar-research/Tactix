@@ -8,8 +8,24 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 51 (2026-07-20)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-20
-- **⚠️ FACTOR PROOF-VERIFIABILITY WORK ITEM (2026-07-20, RESOLVED = not a
-  soundness bug):** first Tier C run since Factor was enabled flagged
+- **✅ FACTOR → NATIVE-LRAT: DONE 2026-07-20.** Factor no longer no-ops on the
+  LRAT path — the `add_rat` proof primitive was implemented (`proof.{hpp,cpp}`,
+  first backend realization of the closed vocabulary's add-RAT) and Factor emits
+  it: dividers as *vacuous* RAT (fresh pivot x, empty hints), quotients as one
+  resolution group per divider (`-⟨dividerᵢ⟩ ⟨orig(fᵢ,rⱼ)⟩`, discharged by the
+  still-live grid clause). **This RESOLVES the aes_decry proof-verifiability issue:
+  native LRAT + lrat-check VERIFIES aes in 17 s and mp1 in 22 s, where DRAT +
+  drat-trim TIMED OUT (>2400 s).** DRAT byte-identical (add_rat DRAT == old
+  add_rup, mp1 proof unchanged). Validated: `micro_proofs` Factor cases (clean +
+  duplicate grid binary) DRAT+LRAT; fuzz default/random `--lrat` Factor-forced
+  800/0 + DRAT/ASCII legs 600/0; units 29/29. Docs synced (calculus §E2 +
+  proof-vocabulary, implementation-notes D-FACTOR-LRAT ledger CLOSED). **Follow-up
+  (not required for soundness): the competition frontend still defaults to DRAT;
+  to actually reclaim the aes Tier C solve, either default to LRAT output or note
+  that verified-via-lrat-check counts. Also: D-CONG-DELETE (transient del) and the
+  duplicate-copy redundant-del cleanliness are open proof-size items.**
+- **⚠️ (superseded by the above; kept for context) FACTOR PROOF-VERIFIABILITY
+  investigation (2026-07-20):** first Tier C run since Factor was enabled flagged
   `aes_decry_2_rounds` proof as failing — run.py's "CORRECTNESS BUG" banner was a
   FALSE ALARM: it's a drat-trim TIMEOUT (`proof_check_time=2400.02` = 2×timeout,
   `run.py:134-137` turns TimeoutExpired→`ok=false`), not a rejection. **Soundness
