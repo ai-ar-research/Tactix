@@ -12,7 +12,6 @@
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
-#include <cstdio>
 #include <cstdlib>
 #include <utility>
 
@@ -29,9 +28,9 @@ static constexpr uint32_t BVE_CLSLIM = 100;
 // Eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ + BVE_BOUND.
 static constexpr uint32_t BVE_BOUND = 16;
 
-// DIAGNOSTIC (bimodal-BVE investigation): TACTIX_BVE_BOUND overrides the growth
-// slack so the bound can be swept without a rebuild; TACTIX_BVE_TRACE logs each
-// applied elimination. Both env-gated — unset, behaviour is unchanged.
+// TACTIX_BVE_BOUND overrides the growth slack for A/B tuning (the effort-budgeted
+// scheduler, plan rev 53, will drive it — kissat's 0→16 ramp); unset, it is
+// BVE_BOUND. Env-gated — default behaviour unchanged.
 static uint32_t bve_bound() {
   if (const char *s = std::getenv("TACTIX_BVE_BOUND"))
     return static_cast<uint32_t>(std::atoi(s));
@@ -119,12 +118,6 @@ void bve_schedule(const Kernel &k, std::vector<Var> &out) {
 
 namespace {
 
-// DIAGNOSTIC: cumulative NoOp-reason tally for the bimodal-BVE investigation,
-// printed by bve_apply under TACTIX_BVE_TRACE. Static — sequential solving only.
-struct BveAborts {
-  uint64_t bound = 0, bound_gate = 0, clslim = 0, dup = 0, nowhere = 0;
-} g_bve_aborts;
-
 // live copies of the binary pair (a ∨ b) in a's watch list (V3's helper).
 uint32_t bve_binary_copies(const Kernel &k, Lit a, Lit b) {
   uint32_t n = 0;
@@ -144,68 +137,6 @@ uint32_t bve_binary_copies(const Kernel &k, Lit a, Lit b) {
 }
 inline bool bve_binary_live(const Kernel &k, Lit a, Lit b) {
   return bve_binary_copies(k, a, b) > 0;
-}
-
-// Is resolvent R subsumed by an existing clause? A subsumer d ⊆ R never contains
-// the pivot (R has it resolved out), so d survives the elimination — dropping a
-// subsumed resolvent is sound (it is redundant, implied by its surviving
-// subsumer, for both proof formats and reconstruction). This mirrors kissat's
-// forward-subsumption during elimination: resolvents that are already implied are
-// not counted toward the growth bound, so the elimination cascade reaches
-// completeness (a partially-eliminated symmetric formula is far harder than a
-// fully-eliminated one — the bimodal-BVE cause). Value handling matches
-// subsume_forward's `subsumes_marked` (a literal is covered if it is in R or
-// root-falsified; a free-outside-R or satisfied literal disqualifies the
-// subsumer). `marks` is caller scratch (sized 2*nvars), clean in and out.
-bool bve_resolvent_subsumed(const Kernel &k, std::vector<uint8_t> &marks,
-                            const std::vector<Lit> &R) {
-  for (const Lit l : R)
-    marks[l] = 1;
-  bool sub = false;
-  // binary subsumer (l ∨ o): both endpoints in R
-  for (const Lit l : R) {
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-    const uint32_t sz = k.watches.heads[l].size;
-    for (uint32_t i = 0; i < sz && !sub;) {
-      const Watch w{ws[i]};
-      if (w.binary()) {
-        if (marks[w.other()])
-          sub = true;
-        i += 1;
-      } else {
-        i += 2;
-      }
-    }
-    if (sub)
-      break;
-  }
-  // large subsumer d ⊆ R via the shared dense occurrence index (skipped if the
-  // phase runs without dense — the binary pass alone is still sound)
-  if (!sub && k.dense) {
-    for (const Lit l : R) {
-      for (const Ref dref : k.dense->large[l]) {
-        const Clause *d = clause_at(k.arena, dref);
-        if (d->garbage() || d->redundant() || d->size > R.size())
-          continue;
-        bool covers = true;
-        for (const Lit dl : *d) {
-          if (marks[dl] || k.value(dl) < 0)
-            continue; // in R, or root-falsified (absorbed)
-          covers = false;
-          break; // free outside R, or satisfied → not a subsumer
-        }
-        if (covers) {
-          sub = true;
-          break;
-        }
-      }
-      if (sub)
-        break;
-    }
-  }
-  for (const Lit l : R)
-    marks[l] = 0;
-  return sub;
 }
 
 // A materialized clause on the pivot: its ACTIVE literals (root-false dropped;
@@ -398,10 +329,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       }
       const Lit o = w.other();
       i += 1;
-      if (bve_binary_copies(k, lit, o) >= 2) {
-        g_bve_aborts.dup++;
+      if (bve_binary_copies(k, lit, o) >= 2)
         return false; // duplicated pair: kernel_delete_binary can't name it
-      }
       if (k.value(o) > 0) { // satisfied
         del_bin.emplace_back(lit, o);
         continue;
@@ -421,7 +350,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     return ApplyResult::NoOp; // duplicate-binary hazard
 
   if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty()) {
-    g_bve_aborts.nowhere++;
     return ApplyResult::NoOp; // x occurs nowhere resolvable
   }
 
@@ -439,12 +367,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   std::vector<Resolvent> resolvents;
   const size_t limit = pos.size() + neg.size() + bve_bound();
   std::vector<uint8_t> seen(2 * k.nvars, 0); // dedup/tautology scratch
-  // Forward-subsume resolvents (kissat's during-elimination subsumption): a
-  // resolvent already implied by a surviving clause is redundant, so it is
-  // neither added nor counted toward the growth bound — letting the cascade
-  // reach completeness. Sound (see bve_resolvent_subsumed). Flagged for A/B.
-  const bool sub_check = std::getenv("TACTIX_BVE_SUBSUME") != nullptr;
-  std::vector<uint8_t> sub_marks(sub_check ? 2 * k.nvars : 0, 0);
   for (size_t ci = 0; ci < pos.size(); ++ci) {
     const MClause &c = pos[ci];
     for (const Lit l : c.active)
@@ -478,10 +400,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       }
       if (taut)
         continue;
-      if (sub_check && bve_resolvent_subsumed(k, sub_marks, r.lits))
-        continue; // redundant: skip (not added, not counted toward the bound)
       if (r.lits.size() > BVE_CLSLIM) { // oversized resolvent: abort the variable
-        g_bve_aborts.clslim++;
         aborted = true;
         break;
       }
@@ -493,9 +412,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       }
       resolvents.push_back(std::move(r));
       if (resolvents.size() > limit) { // growth bound exceeded: keep x
-        g_bve_aborts.bound++;
-        if (gate)
-          g_bve_aborts.bound_gate++;
         aborted = true;
         break;
       }
@@ -627,14 +543,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       kernel_assign_unit(k, u);
 
   kernel_collect_garbage(k); // reclaim the garbaged large clauses
-  if (std::getenv("TACTIX_BVE_TRACE")) {
-    const size_t before = pos.size() + neg.size();
-    std::fprintf(stderr,
-                 "[bve] x=%u p=%zu n=%zu resolvents=%zu delta=%+d gate=%d\n",
-                 x, pos.size(), neg.size(), resolvents.size(),
-                 static_cast<int>(resolvents.size()) - static_cast<int>(before),
-                 gate ? 1 : 0);
-  }
   k.stats.bve_eliminated++;
   return ApplyResult::Ok;
 }
@@ -658,16 +566,6 @@ ApplyResult bve_apply(Kernel &k) {
       return ApplyResult::Ok; // eliminated one variable
     // NoOp (bound / hazard): try the next candidate
   }
-  if (std::getenv("TACTIX_BVE_TRACE"))
-    std::fprintf(stderr,
-                 "[bve] ROUND-DONE eliminated=%llu cands=%zu aborts: bound=%llu "
-                 "(gate=%llu) clslim=%llu dup=%llu nowhere=%llu\n",
-                 (unsigned long long)k.stats.bve_eliminated, cand.size(),
-                 (unsigned long long)g_bve_aborts.bound,
-                 (unsigned long long)g_bve_aborts.bound_gate,
-                 (unsigned long long)g_bve_aborts.clslim,
-                 (unsigned long long)g_bve_aborts.dup,
-                 (unsigned long long)g_bve_aborts.nowhere);
   return ApplyResult::NoOp;
 }
 

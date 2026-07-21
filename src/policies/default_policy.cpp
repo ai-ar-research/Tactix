@@ -397,15 +397,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       uint32_t bve_applied = 0;
       bool phase_unsat = false;
       const std::vector<RuleVTable> &rules = tactix_rules();
-      // DIAGNOSTIC (bimodal-BVE completeness experiment): tune the cascade depth
-      // to test whether more BVE<->Strengthen<->Subsume cycles reach completeness.
-      int phase_rounds = INPROCESS_PHASE_ROUNDS;
-      if (const char *s = std::getenv("TACTIX_INPROC_ROUNDS"))
-        phase_rounds = std::atoi(s);
-      const uint32_t phase_budget = std::getenv("TACTIX_INPROC_BUDGET")
-          ? static_cast<uint32_t>(std::atoi(std::getenv("TACTIX_INPROC_BUDGET")))
-          : INPROCESS_PHASE_BUDGET;
-      for (int outer = 0; outer < phase_rounds && !phase_unsat;
+      for (int outer = 0; outer < INPROCESS_PHASE_ROUNDS && !phase_unsat;
            outer++) {
         bool round_changed = false;
         for (const SlotEntry &e : inprocess_slot) {
@@ -414,7 +406,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           const RuleVTable &r = rules[e.rule];
           const bool per_var = std::strcmp(r.name, "BVE") == 0;
           for (;;) { // per_var: to budgeted fixpoint; batch: one apply
-            if (per_var && bve_applied >= phase_budget)
+            if (per_var && bve_applied >= INPROCESS_PHASE_BUDGET)
               break;
             if (!r.guard(k))
               break;
