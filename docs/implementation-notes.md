@@ -197,11 +197,16 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
 
 - **Density short-circuit (a selectivity heuristic, not a guard).** BVA only pays
   off on a dense binary implication graph. `factor_apply` returns `NoOp` when
-  `binary_ids.size() < num_output_vars` so binary-sparse instances (random 3-SAT)
-  pay nothing and their chaotic search is never perturbed. This is a **policy**
-  concern (which grids to factor / when) that lives in the rule *meanwhile* — its
-  proper home is the policy's scheduling of Factor (S2). It is a cheap `NoOp`, not
-  a guard conjunct, so N1 keeps every factoring applicable via the API regardless.
+  `binary_ids.size() < density·num_output_vars`, `density = 8` (raised from 1 with
+  the BVE-LAST fix, 2026-07-21). The threshold now also serves the ordering fix:
+  BVE runs LAST in the slot so it eliminates on the Factor/Congruence/Substitute-
+  simplified formula (the bimodal-BVE fix — see `default_policy.cpp`), but
+  Factor-then-BVE is HARMFUL on binary-SPARSE instances (mod4block ratio 4.1),
+  benign on dense ones (clique 17.5, mp1 103, x9 8.2). `density = 8` fires on the
+  dense and skips the sparse. **8 is an overfit magic number** (a policy concern
+  that lives in the rule meanwhile; N1-pure NoOp) — the effort-budgeted scheduler
+  (plan rev 53) supersedes both the threshold and the BVE-last stopgap.
+  `TACTIX_FACTOR_DENSITY` / `TACTIX_BVE_FIRST` override for the A/B.
 
 **Status of E2 in DefaultPolicy: ON** (2026-07-20). Net-positive once the
 duplicate-binary bug was fixed: x9 801k→453k conflicts (39 s→23 s), mp1

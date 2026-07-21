@@ -257,12 +257,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                           !std::strcmp(nm, "Substitute");
           inprocess_slot.push_back({i, on});
         }
-      // EXPERIMENT (bimodal-BVE): kissat eliminates on a formula ALREADY
-      // simplified by its probing/vivify/sweep/factor pipeline (clique occ 36→5),
-      // making elimination benign; our name-sorted slot runs BVE FIRST on the raw
-      // formula. Move BVE to the END so it sees the Factor/Congruence/Substitute-
-      // simplified formula.
-      if (std::getenv("TACTIX_BVE_LAST")) {
+      // BVE-LAST ordering (the bimodal-BVE fix, 2026-07-21). kissat eliminates on
+      // a formula ALREADY simplified by its probing/vivify/sweep/factor pipeline
+      // (clique occ 36→5), making elimination benign; a name-sorted slot runs BVE
+      // FIRST on the RAW formula, where partial elimination of symmetric structure
+      // makes an intrinsically-hard formula (clique 222s). Running BVE LAST — after
+      // Factor/Congruence/Substitute simplify — matches kissat: clique 222→4.2s
+      // (53×, beats kissat), Tier B PAR-2 42.6→21.0, Tier C 28→29/30 (gains
+      // aes_decry), Tier A neutral, fuzz sound. STOPGAP for the effort-budgeted
+      // scheduler (plan rev 53) which supersedes it. `TACTIX_BVE_FIRST` reverts to
+      // the old order for that A/B.
+      if (!std::getenv("TACTIX_BVE_FIRST")) {
         const std::vector<RuleVTable> &rr = tactix_rules();
         for (size_t j = 0; j < inprocess_slot.size(); j++)
           if (!std::strcmp(rr[inprocess_slot[j].rule].name, "BVE")) {

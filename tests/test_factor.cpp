@@ -1,4 +1,5 @@
 // E2 Factor (BVA). S0: extension-variable allocation + model projection.
+#include <cstdlib>
 // Extension variables (added mid-solve by Factor) are assigned by search but
 // projected out of the reported model — the v-line ranges over original vars only.
 #undef NDEBUG
@@ -78,6 +79,10 @@ static void test_factoring_2x3() {
 }
 
 int main() {
+  // bypass the density selectivity gate (raised to 8× with the BVE-last fix):
+  // these unit tests exercise the factoring MECHANISM on tiny grids that sit
+  // below the threshold, which is exactly what TACTIX_FACTOR_FORCE is for.
+  setenv("TACTIX_FACTOR_FORCE", "1", 1);
   test_extension_var_boundary();
   test_factoring_2x3();
   std::printf("test_factor: all passed\n");

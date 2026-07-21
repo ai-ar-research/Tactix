@@ -183,11 +183,15 @@ ApplyResult factor_apply(Kernel &k) {
   // N1 keeps every factoring applicable via the API regardless).
   // TACTIX_FACTOR_FORCE bypasses the selectivity gate so the fuzz harness
   // exercises Factor on small instances (which are almost all below it).
-  // TACTIX_FACTOR_DENSITY tunes the binaries-per-variable threshold (default 1)
-  // — the bimodal-BVE ordering fix wants Factor to fire only on DENSE instances
-  // (clique ratio 17.5, mp1 103, x9 8.2) and skip sparse ones (mod4block 4.1) so
-  // that BVE-last does not inherit Factor's damage on mod4block. Experimental.
-  uint32_t density = 1;
+  // Density threshold: fire Factor only when binaries ≥ density·num_output_vars.
+  // Raised 1→8 with the BVE-LAST fix (2026-07-21): Factor's BVA compresses dense
+  // cardinality structure (clique ratio 17.5, mp1 103, x9 8.2) so BVE-last is
+  // benign there, but on binary-SPARSE instances (mod4block 4.1) Factor-then-BVE
+  // is HARMFUL — density=8 fires on the dense ones and skips the sparse ones.
+  // NOTE: 8 is an overfit magic number (a SELECTIVITY heuristic — proper home is
+  // the policy, N1 keeps the guard pure); the effort-budgeted scheduler (plan
+  // rev 53) supersedes it. `TACTIX_FACTOR_DENSITY` overrides for A/B.
+  uint32_t density = 8;
   if (const char *s = std::getenv("TACTIX_FACTOR_DENSITY"))
     density = static_cast<uint32_t>(std::atoi(s));
   if (k.binary_ids.size() < density * kernel_num_output_vars(k) &&
