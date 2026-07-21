@@ -233,10 +233,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // so it needs a guard, not a switch). Disabling a rule is always sound;
       // unset, the slot is byte-identical to the default composition.
       const bool bve_off = std::getenv("TACTIX_NO_BVE") != nullptr;
+      // TACTIX_NO_FACTOR: ablation knob to isolate Factor's effect on proof
+      // verifiability (aes_decry Factor proof exceeds drat-trim's 2x-timeout
+      // budget; the pre-Factor proof verified in ~77s). Disabling is always
+      // sound; unset, the slot is byte-identical to the default composition.
+      const bool factor_off = std::getenv("TACTIX_NO_FACTOR") != nullptr;
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess) {
           const char *nm = rules[i].name;
           const bool on = (!std::strcmp(nm, "BVE") && !bve_off) ||
+                          (!std::strcmp(nm, "Factor") && !factor_off) ||
                           !std::strcmp(nm, "Strengthen") ||
                           !std::strcmp(nm, "SubsumeForward") ||
                           !std::strcmp(nm, "Congruence") ||
@@ -248,7 +254,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                           // mp1 4.19M→3.66M, base search unchanged (only Factor's
                           // grid pairs are removed). Full kissat-level benefit
                           // still wants SBVA selection (S2) + large remainders (S4).
-                          !std::strcmp(nm, "Factor") ||
                           !std::strcmp(nm, "Substitute");
           inprocess_slot.push_back({i, on});
         }

@@ -8,6 +8,28 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 51 (2026-07-20)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-20
+- **⚠️ FACTOR PROOF-VERIFIABILITY WORK ITEM (2026-07-20, RESOLVED = not a
+  soundness bug):** first Tier C run since Factor was enabled flagged
+  `aes_decry_2_rounds` proof as failing — run.py's "CORRECTNESS BUG" banner was a
+  FALSE ALARM: it's a drat-trim TIMEOUT (`proof_check_time=2400.02` = 2×timeout,
+  `run.py:134-137` turns TimeoutExpired→`ok=false`), not a rejection. **Soundness
+  cleared by direct verification:** aes **Factor-off** DRAT VERIFIED in 53 s
+  (172 MB) — core+BVE sound at full 279k-var scale; mp1 Factor DRAT VERIFIED in
+  75 s (935 lemmas); x9 Factor verified historically (469); Factor DRAT is
+  fuzz-clean and its per-factoring add-RAT+delete-last mechanism is
+  scale-independent. **Cause is Factor-on:** aes triggers **11,165 factorings** →
+  a 192 MB RAT-heavy DRAT that drat-trim can't check in 40 min (backward RAT
+  checking blows up); the pre-Factor proof verified in 77 s (run `604831b`, Factor
+  not in slot). Factor-on predates this session (`c3ce120`), so not an S2
+  regression. **Consequence: under competition rules (unverified proof = unsolved)
+  Factor-on costs the aes_decry Tier C solve** — 28/30 with the aes proof counted
+  as failed. **FIX (real work item, route to rule-dev + proof-check): Factor must
+  emit native-LRAT chains (cheap for lrat-check) instead of relying on drat-trim's
+  expensive RAT re-derivation. Factor currently NO-OPS on the LRAT path
+  (`factor.cpp` `if lrat return NoOp`) — that's exactly the gap. Analogous to the
+  deferred D-CONG-LRAT.** Diagnostic knob `TACTIX_NO_FACTOR` committed (env-gated,
+  default byte-identical). aes is a wash for the BVE A/B (Factor-driven, fails in
+  both arms).
 - **Next (resume anchor):** phase 3, **T3 gate open**. **E2 Factor is now ON in
   DefaultPolicy and net-positive** (x9 801k→453k conflicts / 39 s→23 s; mp1
   4.19M→3.66M), after fixing the bug that made it inert. State: Factor
