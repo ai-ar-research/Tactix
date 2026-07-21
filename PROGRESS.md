@@ -11,6 +11,18 @@ disagree, the plan is authoritative — fix this file.
 - **▶ RESUME HERE (2026-07-20 late).** Phase 3, T3 gate open. **Tier B PAR-2 42.61
   vs kissat 6.26 (6.8×), 14/14** — confirmed clean (`benchmarks/runs/*B-tierB-confirm`);
   down from 70.00 at this session's start (Factor S2 seed-heap/tie-break, committed).
+  **✅✅ SHIPPABLE FIX FOUND + Tier B VALIDATED 2026-07-21: candidate config
+  `TACTIX_BVE_LAST=1 TACTIX_FACTOR_DENSITY=8` → Tier B PAR-2 42.61→20.99 (2×),
+  14/14 solved (NO lost solves), sum-of-times 596→294s. clique 222→4.2s (53×),
+  hwmcc 122→70s, battleship 54→18s, mod4block 13.7→8.9s (improved, no regression).
+  Minor regressions: FmlaEquiv 24→40, x9 21→35 (BVE-last hurts these UNSAT+Factor
+  instances), rbsat 8.6→11 — dwarfed by the gains. This BEATS the BVE-off PAR-2
+  (23.30) while keeping solves. Tier C solve-count gate RUNNING (BVE-off lost 2
+  there; candidate keeps BVE on, just later, so should hold). IF Tier C holds
+  solves + Tier A neutral → MAKE DEFAULT (the two knobs → hardcoded slot order +
+  density=8). Then investigate the x9/FmlaEquiv regressions (likely BVE-last on
+  UNSAT-where-Factor-helps; maybe density boundary — x9 ratio 8.2 ~ threshold 8).**
+
   **★ BREAKTHROUGH 2026-07-21: the bimodal is a FACTOR↔BVE ORDERING interaction,
   NOT a BVE-internals problem.** Root cause found by instrumenting kissat's
   elimination: it eliminates variables with occ ~5 (mean 2.5), but clique's raw
