@@ -45,23 +45,30 @@ disagree, the plan is authoritative — fix this file.
   what it is made of, including the real per-instance regressions
   (`combined-crypto1` 8.1→24.7 s on Tier B; `ContextModel` 9.2→84.6 s and
   `T87.2.0` 601→839 s on Tier C).
-  **▶ NEXT = enable VIVIFY under its tick budget** (was increment 3; promoted
-  after increment 2 was measured and reverted — see the Log entry immediately
-  below). Rationale: kissat's largest single probing spend on every Tier B
-  instance, and we have C3 Vivify built, fuzzed and N1-exposed but **never
-  scheduled**. The effort ledger already carries its spec
-  (`{"Vivify", 100, meter_ticks, false}` — batch, metered post hoc), so the code
-  change is an `enabled` flip in the slot composition plus an A/B. **Watch:**
-  Vivify's canonical apply is a full UNBOUNDED round, so the post-hoc meter can
-  only skip *later* rounds, not stop one in progress — on a large instance the
-  first round may need a real bound (the design doc flags this as the increment's
-  main risk).
-  **Then: bring during-search inprocessing back WITH Vivify** (increment 2's
-  variant-B machinery — per-technique intervals — was right in shape but had
-  nothing worth running during search; see below). Then the composition split
-  (**no BVE at preprocessing**, the principled fix for `combined-crypto1`, which
-  should also retire the BVE-last + Factor `density=8` stopgaps), then V5 Sweep
-  (needs the kitten sub-solver, plan O11).
+  **▶ NEXT = a NON-MUTATING PROBING PROPAGATION PATH** (kissat `proprobe.c`).
+  This was not in the rev-53 plan; it is what three measured increments this
+  session converged on, and it is a **prerequisite for the entire probing half of
+  rev 53** (V1 Probe, V2 Backbone, C3 Vivify, V4 TransitiveReduce — all four
+  currently disabled). Reason, established today: a probing round that changes
+  NOTHING and returns `NoOp` still relocates watches and rewrites per-clause
+  `searched` hints inside `kernel_propagate`, and that alone costs
+  `battleship-14-26` **12× conflicts** (1.95 M → 24.0 M). Restoring those
+  structures reproduces the no-Vivify run **bit-identically**. So the standing
+  belief that probing is intrinsically SAT-hostile is wrong — its SIDE EFFECTS
+  are what is unbudgeted. Full evidence + what was ruled out: the ★ Log entry
+  below. **Not started; needs sizing.** V2 Backbone is the existence proof that a
+  non-mutating engine is possible here — it already propagates binary-only
+  (`kernel.cpp:451-456`, "binary watches are permanent, so there is no watch
+  mutation").
+  **Then, gated on it:** re-try Vivify (reverted today at Tier B 20.60 → 38.75,
+  but the dominant loss is the artifact above), then Probe/Backbone/
+  TransitiveReduce one at a time; then bring during-search inprocessing back WITH
+  them (increment 2's variant-B machinery — per-technique intervals — was right
+  in shape but had nothing worth running during search). Independently of the
+  probing work: the composition split (**no BVE at preprocessing**, the
+  principled fix for `combined-crypto1`, which should also retire the BVE-last +
+  Factor `density=8` stopgaps), and V5 Sweep (needs the kitten sub-solver, plan
+  O11).
   **Two measured findings to carry (details in the design doc §1):**
   (a) **`hwmcc17miters-oski15`'s diagnosis was WRONG in this file** — it is not
   "needs Sweep+probing". kissat solves it in 2.19 s with **congruence alone**
@@ -553,6 +560,68 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — ★ `NoOp` IS NOT A NO-OP: a probing round that changes nothing still wrecks SAT search. This is why the probing family has never been schedulable.
+Found while activating C3 Vivify (rev-53 increment 3, measured → reverted, below).
+**This supersedes the standing explanation** that probing is intrinsically
+SAT-hostile ("battleship breaks at ANY budget — even 2000 ticks", 2026-07-19),
+which is the premise on which V1 Probe, V2 Backbone, C3 Vivify and V4
+TransitiveReduce have ALL been left disabled.
+
+- **The observation.** With Vivify enabled, `battleship-14-26` goes 17.9 s →
+  253.4 s (14×) — and Vivify **vivified 0 clauses** there (`vivify 1 rounds,
+  0 vivified, 0 deleted`), i.e. the formula was bit-identical afterwards. Yet
+  conflicts went **1 951 393 → 24 016 197 (12×)**.
+- **The cause, isolated.** A probing round mutates kernel structures IN PLACE
+  even when it derives nothing: `kernel_propagate` relocates watches (the delayed
+  replacement path, `kernel.cpp:402-410`) and rewrites per-clause `searched`
+  scan-resume hints (`:382-395`). Snapshotting the arena + watch lists around a
+  batch apply and restoring them when the rule returns `NoOp` gives **bit-identical
+  behaviour to Vivify-off: 1 951 393 conflicts, 14.05 s vs 13.76 s.** So the whole
+  14× is side effects of a round that reported "nothing to do".
+- **Ruled out** (each verified, not assumed): the VMTF decision cursor — restoring
+  `search_idx`/`search_stamp` around the phase leaves conflicts *bit-identical*
+  (24 016 197), so the branching cursor is NOT the channel; and `vivify_apply`
+  does not collect garbage on a NoOp round (`vivify.cpp:257-262` returns before
+  the collect), so arena compaction is not it either.
+- **Why this matters beyond Vivify.** `ApplyResult::NoOp` is specified as "guard
+  held but nothing to do" (`registry.hpp:20`). It actually means "nothing
+  *logical* changed, but I permanently reordered your propagation structures".
+  Every policy that reasons about NoOp is being misled — including the §5.6
+  learned policy this architecture exists to serve. And it reframes the probing
+  family: they may be affordable after all; what is unbudgeted is their SIDE
+  EFFECTS, not their work.
+- **kissat's answer, for the port:** it does not probe with its search
+  propagator. `proprobe.c` is a SEPARATE propagation engine, which is how probing
+  can run everywhere without disturbing search. Our V1/V2/C3 all call
+  `kernel_propagate` (V2 Backbone alone uses the binary-only engine, which
+  explicitly does NOT mutate watches — `kernel.cpp:451-456`).
+- **The snapshot is NOT a fix — it is unsound.** Restoring `k.arena` rolls the
+  arena back underneath `k.dense`, the clause ids and the proof stream, which
+  still hold post-apply state: on Tier B it **segfaulted on `qwh.50.1250`**
+  (verdict UNKNOWN at 1.0 s). It served only to isolate the cause; the Tier B
+  number from that arm (64.81) is contaminated and must not be quoted. The real
+  fix is a probing propagation path that does not mutate search structures.
+- **▶ Next action this implies:** a non-mutating probing propagate is a
+  PREREQUISITE for the whole probing half of rev 53 (Vivify + Probe + Backbone +
+  TransitiveReduce), so it should come before any further attempt to schedule
+  them. Sizing + design not started.
+
+### 2026-07-21 — rev-53 increment 3 (enable C3 Vivify) — NEGATIVE RESULT, REVERTED (no code landed)
+Enabled alone in the slot under its effort meter (`TACTIX_NO_VIVIFY` was the A/B
+knob). **Tier B 20.60 → 38.75, 14/14** (no lost solve) — reverted.
+- Losses: `battleship` 17.9→253.4 (14×, and see the entry above — it is a side
+  effect artifact, not vivification), `mod4block` 8.7→30.3 (3.5×), `qwh` 1.9→7.7
+  (4×), plus small losses on 7 more.
+- Wins, and they are the instances theory predicts (chain/miter UNSAT):
+  `FmlaEquiv` 50.8→41.2, `x9` 34.9→27.7, `summle` 4.4→3.4, `square` 3.0→2.3.
+- **Excluding battleship it is still +6.9 %** (270.5 → 289.1 s), so Vivify is not
+  a win today even discounting the artifact — but how much of `mod4block`/`qwh`
+  is the same NoOp side-effect channel is UNMEASURED, and cannot be settled until
+  the non-mutating probing path exists.
+- Method note for whoever re-measures: solo spot-checks MISLED here — solo,
+  `hwmcc` looked like a 57→47 s win; at jobs=4 in the A/B it is 54.9→55.2, i.e.
+  neutral. Only same-window A/B numbers count.
 
 ### 2026-07-21 — rev-53 increment 2 (during-search inprocessing) — NEGATIVE RESULT, REVERTED (no code landed). It must come back WITH Vivify, not before it.
 Two variants built and measured on Tier B (jobs=4, A/B against HEAD in one
