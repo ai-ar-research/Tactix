@@ -257,6 +257,21 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                           !std::strcmp(nm, "Substitute");
           inprocess_slot.push_back({i, on});
         }
+      // EXPERIMENT (bimodal-BVE): kissat eliminates on a formula ALREADY
+      // simplified by its probing/vivify/sweep/factor pipeline (clique occ 36→5),
+      // making elimination benign; our name-sorted slot runs BVE FIRST on the raw
+      // formula. Move BVE to the END so it sees the Factor/Congruence/Substitute-
+      // simplified formula.
+      if (std::getenv("TACTIX_BVE_LAST")) {
+        const std::vector<RuleVTable> &rr = tactix_rules();
+        for (size_t j = 0; j < inprocess_slot.size(); j++)
+          if (!std::strcmp(rr[inprocess_slot[j].rule].name, "BVE")) {
+            const SlotEntry e = inprocess_slot[j];
+            inprocess_slot.erase(inprocess_slot.begin() + j);
+            inprocess_slot.push_back(e);
+            break;
+          }
+      }
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;

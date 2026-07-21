@@ -11,6 +11,26 @@ disagree, the plan is authoritative — fix this file.
 - **▶ RESUME HERE (2026-07-20 late).** Phase 3, T3 gate open. **Tier B PAR-2 42.61
   vs kissat 6.26 (6.8×), 14/14** — confirmed clean (`benchmarks/runs/*B-tierB-confirm`);
   down from 70.00 at this session's start (Factor S2 seed-heap/tie-break, committed).
+  **★ BREAKTHROUGH 2026-07-21: the bimodal is a FACTOR↔BVE ORDERING interaction,
+  NOT a BVE-internals problem.** Root cause found by instrumenting kissat's
+  elimination: it eliminates variables with occ ~5 (mean 2.5), but clique's raw
+  vars have occ ~36 — so kissat's BVE runs on a formula ALREADY simplified by its
+  probing/vivify/sweep/FACTOR pipeline, where elimination is benign. Our
+  name-sorted slot runs BVE FIRST on the RAW formula → harmful partial elimination.
+  **Reordering BVE to run LAST (after Factor/Congruence/Substitute): clique
+  192s→3.6s (53×, beats kissat's 4.45s!), hwmcc 110→78s.** Isolated to FACTOR:
+  clique BVE-last+NO_FACTOR → back to timeout (Factor's BVA compresses the
+  cardinality structure = the simplifier); mod4block BVE-last+NO_FACTOR → 7.6s
+  (Factor-before-BVE is what HURTS it). So: clique wants Factor-then-BVE, mod4block
+  is hurt by it (BVE-last+Factor → mod4block 11s→TIMEOUT, a LOST SOLVE). kissat
+  does Factor-then-eliminate and is fine on BOTH because its factor/pipeline is
+  stronger; our S1-only Factor helps clique but damages mod4block. **NOT shippable
+  as-is (mod4block regression), but the fix direction is nailed: Factor-then-BVE +
+  make our Factor benign on mod4block (S2/S4 or the pre-BVE probing/vivify pipeline
+  kissat has). Knob `TACTIX_BVE_LAST` (env, default-off).** All prior BVE-internals
+  attempts (subsumption/strengthening/bound/completeness) were the WRONG TREE — the
+  gap was pipeline ORDER, not the rule. 
+
   **THE dominant open lever = the BVE BIMODAL** (clique 222s/50×, hwmcc 122s/51×
   are 58% of Tier B time, both BVE-harmful). **User's steer: fix it algorithmically
   now — kissat avoids bimodal with NO RL, so DefaultPolicy can too.** Root cause is
