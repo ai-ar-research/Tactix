@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-20 (rev. 51). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-21 (rev. 52). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -368,6 +368,21 @@ Design commitments:
      against Kissat-monoculture thinking (§2 takeaway, rev 25). Their
      deltas over stock Kissat/CaDiCaL show which choices matter under
      competition conditions and are where "exceed" (§7.5) can come from.
+  3. *Diagnose the PIPELINE before the algorithm (rev 52).* When a rule
+     underperforms its reference counterpart, first compare **what formula the
+     reference's analogous rule actually operates on** — i.e. rule ORDER and the
+     upstream simplifications feeding it — before assuming the gap is in the
+     rule's internal algorithm. **Instrument the reference to observe its rule's
+     inputs**, don't just read its code. Worked example (the bimodal-BVE saga,
+     2026-07-20/21): days were spent re-engineering BVE internals (subsumption,
+     strengthening, growth bound, completeness — all net-negative or ineffective)
+     because our BVE was assumed weaker than Kissat's. Instrumenting Kissat's
+     `eliminate.c` showed its BVE eliminates variables of occurrence ≈5 where the
+     raw clique variables have ≈36 — i.e. Kissat eliminates on a formula already
+     simplified by its probing/vivify/sweep/**factor** pipeline, while ours ran
+     BVE *first* on the raw formula. Reordering BVE after Factor cut clique 192 s
+     → 3.6 s. The bug was pipeline order, not the rule. (Related: this is why rule
+     ordering is a first-class DefaultPolicy/§5.6-RL concern, not an afterthought.)
 
 ### 5.1 The public API (v1, C level — frozen at the phase-2 review, rev 20)
 
@@ -1234,3 +1249,4 @@ conflate them.
 - **rev. 49** (2026-07-20, user): **raised ambition — the goal is to *exceed* Kissat, by engineering, before the learned policy.** R5 sharpened ("approach and eventually exceed the best solvers" → *exceed Kissat's efficiency via DefaultPolicy engineering, targeted by end of phase 4, before phase-6 learning*); **T4 strengthened** from "parity with Kissat-public on Tier D" → "**exceed** Kissat-public PAR-2 on Tier D"; §9 phase-4 exit + phase-6 note updated (learning is upside on top of a Kissat-exceeding base, not the first surpass). **N3 unchanged as the never-traded floor** (at-least-Kissat-comparable) — the goal is raised, the floor is not weakened. Requires search-quality + inprocessing ingenuity (the current ~2.15× CaDiCaL / T3 gap is the near-term lever).
 - **rev. 50** (2026-07-20): §13 hygiene — re-sorted the revision index ascending (revs 40–49 had drifted to newest-first from repeated prepend mistakes) and stated the append-at-bottom ordering rule in the §13 header. Doc-only, no plan content change.
 - **rev. 51** (2026-07-20, user): **refined the phase-3 goal + added the debug-performance skill.** T3 now also requires **CaDiCaL/Kissat parity on the rule-neutral subset** of Tier C (instances where the missing phase-4 rules Factor/Sweep don't help the baselines, verified by baseline ablation) — isolating phase-3's real concern, search + engineering quality, from the phase-4 rule deficit. Prompted by the 2026-07-20 profiling: the Tier-C gap is substantially missing **Factor (BVA)** + **Sweep**, not our search (kissat-no-factor takes MORE conflicts than us on mp1/x9). New **debug-performance** skill codifies the diagnosis method (decompose stats → ablate the baseline → rule out engineering/heuristics/missing-rules before fixing) and the cardinal lesson (don't blame heuristics from a conflict count alone). §9 phase-3 exit synced.
+- **rev. 52** (2026-07-21): §5 references-as-evidence gains a **third obligation — diagnose the PIPELINE before the algorithm.** When a rule underperforms its reference counterpart, first compare what formula the reference's analogous rule operates on (rule ORDER + upstream simplifications), instrumenting the reference to observe its rule's inputs, before assuming the gap is in the rule's internal algorithm. Worked example: the bimodal-BVE saga (2026-07-20/21) — days re-engineering BVE internals (subsumption/strengthening/bound/completeness, all net-negative or ineffective) when the real cause was that our BVE ran FIRST on the raw formula while kissat's runs on a probing/vivify/sweep/factor-simplified one (kissat eliminates occ≈5 vars, raw clique vars are occ≈36). Reordering BVE after Factor cut clique 192s→3.6s. Methodology-only; no scope/gate/catalog change.

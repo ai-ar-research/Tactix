@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 51 (2026-07-20)
+- **Plan revision tracked:** rev. 52 (2026-07-21)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-20 (late)
 - **▶ RESUME HERE (2026-07-20 late).** Phase 3, T3 gate open. **Tier B PAR-2 42.61
