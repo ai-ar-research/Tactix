@@ -35,6 +35,11 @@ enum BveGate : uint32_t {
 
 // Pure quiescent-root precondition (D-LEVEL purified, rev 43 — no fixpoint
 // conjunct; the elimination round will drain the root closure U at apply entry).
+// Maximum growth slack (kissat option eliminatebound). `Kernel::bve_bound`
+// defaults to this; a policy ramps it 0,1,2,4,8,16 for kissat's fine-grained
+// dose. Keep in step with the Kernel field's default.
+constexpr uint32_t BVE_MAX_BOUND = 16;
+
 bool bve_guard(const Kernel &);
 
 // Round-local occurrence index over the elimination clause set — the IRREDUNDANT

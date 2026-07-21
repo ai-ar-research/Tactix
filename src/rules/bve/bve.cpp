@@ -24,17 +24,15 @@ static constexpr uint32_t BVE_OCCLIM = 2000;
 // resolvent size limit (kissat eliminateclslim): a resolvent larger than this
 // aborts the variable.
 static constexpr uint32_t BVE_CLSLIM = 100;
-// growth slack (kissat eliminatebound; the ramp 0→16 is a future policy knob).
-// Eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ + BVE_BOUND.
-static constexpr uint32_t BVE_BOUND = 16;
-
-// TACTIX_BVE_BOUND overrides the growth slack for A/B tuning (the effort-budgeted
-// scheduler, plan rev 53, will drive it — kissat's 0→16 ramp); unset, it is
-// BVE_BOUND. Env-gated — default behaviour unchanged.
-static uint32_t bve_bound() {
+// Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ + bound.
+// The bound is POLICY-DRIVEN state (`k.bve_bound`, defaulting to BVE_MAX_BOUND);
+// DefaultPolicy ramps it 0,1,2,4,8,16 so the eliminations that do not grow the
+// formula happen first — kissat eliminate.c set_next_elimination_bound (rev 53).
+// TACTIX_BVE_BOUND pins it for A/B tuning, overriding the policy's ramp.
+static uint32_t bve_bound(const Kernel &k) {
   if (const char *s = std::getenv("TACTIX_BVE_BOUND"))
     return static_cast<uint32_t>(std::atoi(s));
-  return BVE_BOUND;
+  return k.bve_bound;
 }
 
 bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
@@ -365,7 +363,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     std::vector<uint64_t> chain;
   };
   std::vector<Resolvent> resolvents;
-  const size_t limit = pos.size() + neg.size() + bve_bound();
+  const size_t limit = pos.size() + neg.size() + bve_bound(k);
   std::vector<uint8_t> seen(2 * k.nvars, 0); // dedup/tautology scratch
   for (size_t ci = 0; ci < pos.size(); ++ci) {
     const MClause &c = pos[ci];

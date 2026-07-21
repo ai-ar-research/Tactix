@@ -45,7 +45,16 @@ disagree, the plan is authoritative — fix this file.
   what it is made of, including the real per-instance regressions
   (`combined-crypto1` 8.1→24.7 s on Tier B; `ContextModel` 9.2→84.6 s and
   `T87.2.0` 601→839 s on Tier C).
-  **▶ NEXT = a NON-MUTATING PROBING PROPAGATION PATH** (kissat `proprobe.c`).
+  **▶ TWO NAMED PREREQUISITES, both structural, either can go first:**
+  **(P1) A per-variable RETRY FILTER for BVE** (kissat `flags->eliminate`) —
+  without it, repeated during-search elimination re-attempts every candidate
+  every phase and is quadratic waste (measured: `mod4block` 3.5 M resolutions for
+  9 eliminations; Tier B 20.84 → 32.87 with 13/14 worse). Needs a
+  `kernel_mark_garbage` helper (large-clause deletion currently sets
+  `Clause::GARBAGE` directly at 8 sites across the rules) + a `bve_retry` bitmap
+  marked on irredundant add/delete only. This gates the user's directive to run
+  BVE repeatedly during search.
+  **(P2) A NON-MUTATING PROBING PROPAGATION PATH** (kissat `proprobe.c`).
   This was not in the rev-53 plan; it is what three measured increments this
   session converged on, and it is a **prerequisite for the entire probing half of
   rev 53** (V1 Probe, V2 Backbone, C3 Vivify, V4 TransitiveReduce — all four
@@ -573,6 +582,59 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — REPEATED during-search BVE + the growth-slack ramp: THREE variants, all net-negative. The blocker is now named: BVE has no per-variable RETRY FILTER.
+User directive: run BVE repeatedly during search and implement kissat's ramp.
+Built all of it; measured; reverted the scheduling. **What landed instead is the
+one piece that is independently correct: `Kernel::bve_bound`** — the growth slack
+is now POLICY-CONTROLLED configuration (default `BVE_MAX_BOUND` = 16, so default
+behaviour is bit-identical: `square` 18 420 eliminated / 1 000 046 resolutions /
+13 453 conflicts, unchanged). It was previously a private constant reachable only
+through an env var, i.e. not policy-reachable at all — an N1 gap, and a
+prerequisite for every future attempt.
+
+- **Variant 1 — all six bound levels inside ONE preprocessing phase**
+  (0,1,2,4,8,16, re-scheduling at each level). **Tier B 20.73 → 22.54.** Wins
+  where the dose was the problem: `combined-crypto1` **24.41 → 6.94 s** (3.5×,
+  *below* its 8.13 s pre-increment-1 baseline — 71 eliminations instead of 386,
+  i.e. the ramp picks BETTER eliminations, not fewer). Losses: `hwmcc` 55.9 →
+  87.7, `qwh` 1.9 → 5.7, `FmlaEquiv` +7.1 s. Two counters explain it: at bound 0
+  eliminations are CHEAP, so the same 1 M-resolution budget buys 76 % MORE of them
+  (`hwmcc` 37 509 → 66 173) and the result is worse; and `qwh` burns **1 M
+  resolutions for 4 eliminations** — at a low bound nearly every candidate is
+  generated, counted, then rejected, and my loop re-attempted the same doomed
+  variables at all six levels.
+- **Why that was a mis-port:** kissat escalates ONE level per `eliminate()` call
+  (`set_next_elimination_bound` is called once at the END of each call), with
+  thousands of conflicts of search in between. Collapsing six levels into one
+  phase is not kissat's ramp. **The ramp and repeated elimination are the SAME
+  mechanism** — which is an independent confirmation of the user's directive.
+- **Variant 2 — the faithful version: BVE recurring on its own growing interval
+  (kissat `eliminate` counter), ONE bound level per phase, escalating only on a
+  COMPLETE level, plus the never-in-the-same-conflict-as-a-reduction gate.**
+  **Tier B 20.84 → 32.87, 13/14 instances WORSE** (`mod4block` 8.7 → 101.8,
+  `hwmcc` 58 → 89, `mp1` 57 → 77, `FmlaEquiv` 50 → 70, `9vliw` 6.5 → 14.2 …);
+  only `combined-crypto1` improved (24.3 → 8.9). Sum 291.7 → 460.1 s.
+- **THE BLOCKER, named:** kissat's `flags->eliminate` — a per-variable "worth
+  retrying" bit, set by `kissat_mark_added_literal`/`mark_removed_literal` when a
+  clause containing the variable changes, cleared when the variable is attempted,
+  and consulted by `schedule_variables`. **We have no analogue**: `bve_schedule`
+  re-ranks and re-attempts EVERY candidate on every call, so each recurring phase
+  re-generates and re-counts resolvents for the whole variable set, nearly all of
+  which are then rejected. That is why repeated BVE is quadratic waste here
+  (`mod4block`: 3.5 M resolutions for 9 eliminations). No scheduling or budget
+  tuning can fix it — the filter is the missing mechanism.
+- **Sizing (why it was not done in this session):** it is a structural change,
+  not a patch. Large-clause deletion is done by rules setting `Clause::GARBAGE`
+  directly at **8 sites** across analyze/reduce/strengthen/subsume/substitute, so
+  the mark hook needs a `kernel_mark_garbage` helper plus migration of all of
+  them, then a `bve_retry` bitmap on the Kernel (marked on irredundant add/delete
+  only — redundant learned-clause adds must NOT mark, or search would mark
+  everything), the filter in `bve_schedule`, and a clear-on-attempt. **Route:
+  `revamp` skill + a design pass**, per CLAUDE.md §5.4.
+- **Sound throughout** (the ramp build): DefaultPolicy DRAT 1000/0, random-policy
+  DRAT 400/0, native LRAT 400/0, random-policy + native LRAT 400/0 — including
+  bound 0, a regime never previously exercised.
 
 ### 2026-07-21 — BVE-off re-measured: removing preprocessing BVE *by itself* is dead. (First written as "the composition split is dead" — CORRECTED below: it is the PIECEMEAL split that is dead, not kissat's arrangement.)
 Earlier today's entries named the composition split (`fastel = 0`) as an

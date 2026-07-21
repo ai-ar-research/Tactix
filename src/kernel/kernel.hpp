@@ -268,6 +268,16 @@ struct Kernel {
   // is *how* a chosen variable's resolvents are computed, not *whether* it can
   // be eliminated). The first entry of what will become a rule-config struct.
   uint32_t bve_gate_mask = ~0u;
+  // E1 BVE growth slack (kissat `bounds.eliminate.additional_clauses`, option
+  // eliminatebound): eliminate iff #non-tautological resolvents ≤ occ⁺+occ⁻+this.
+  // CONFIGURATION, like bve_gate_mask — not scheduling state: any policy may set
+  // it at any time and any value is sound (a larger slack only admits more
+  // eliminations, each individually sound). The default is the MAXIMUM
+  // (BVE_MAX_BOUND in rules/bve/bve.hpp — keep the two in step), i.e. a caller
+  // that ignores this field gets the old fixed-slack behaviour. A policy wanting
+  // kissat's fine-grained dose ramps it 0,1,2,4,8,16, re-scheduling every
+  // variable at each level (eliminate.c set_next_elimination_bound).
+  uint32_t bve_bound = 16;
 
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
