@@ -162,10 +162,16 @@ disagree, the plan is authoritative — fix this file.
   Tier C, net-negative on Tier B; solves outrank PAR-2. **User confirmed: keep BVE
   on.** Remaining lever = a policy-slot STRUCTURAL SKIP (skip BVE on the harmful
   structure — clique/rbsat/jgiraldezlevy/ContextModel/hwmcc — while keeping it
-  where load-bearing — mp1-Nb5T15/Ptn-7824/DLTM/mod4block/crypto1/qwh); hard (naive
-  signals don't separate; must key on instance structure; prototype offline).
-  DEFERRED, not urgent. Diagnostic knobs committed (`TACTIX_NO_BVE`,
-  `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`), env-gated default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
+  where load-bearing — mp1-Nb5T15/Ptn-7824/DLTM/mod4block/crypto1/qwh). **DONE
+  2026-07-20 — NEGATIVE, lever CLOSED
+  (`benchmarks/reports/2026-07-20-bve-skip-feasibility.md`):** no static CNF
+  feature separates harmful from helpful (best 4/13 misclassifications ≈ chance);
+  clique (harmful) and qwh (helpful) are structurally identical (deg_cv ~0, binfrac
+  ~0.99, dense uniform cardinality) yet opposite BVE effect — the harm is DYNAMIC
+  (search-tree reshaping), not static. Survivors, both out of near-term scope:
+  dynamic try-both (2× preprocess) or learned scheduling (§5.6 RL endgame is the
+  natural home for the BVE-on/off decision). BVE STAYS ON. Diagnostic knobs
+  committed (`TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`), default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
   lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
   watch iteration dup across `binary_partners`/`has_binary`/BVE; grid-generator
