@@ -133,15 +133,17 @@ disagree, the plan is authoritative — fix this file.
   neutral-to-harmful for kissat ITSELF on clique (504k no-elim vs 570k), BVE-off
   already matches kissat there, and complete BVE is CATASTROPHIC on mp1 (deduped
   20.54M/613s) — the earlier "could unlock mp1" note was wrong. Interleaving was
-  already tried + backed out (FmlaEquiv 27→198). **→ REVISED PLAN: default BVE OFF,
-  gated on a Tier C on/off A/B (solved count first — BVE was enabled for +3 Tier C
-  solves, never re-measured post-S2). Tier C A/B RUNNING 2026-07-20.** If solves
-  hold → flip default off (1.84× Tier B win, ~half the kissat gap, one line). If
-  solves regress → policy-slot structural skip keyed on INSTANCE STRUCTURE (dense
-  uniform-degree cardinality graph), NOT abort-ratio (which doesn't separate
-  clique from mod4block); prototype offline on the 5 harmful/3 helpful Tier B
-  instances first. Diagnostic knobs committed (`TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`,
-  `TACTIX_BVE_TRACE`), env-gated default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
+  already tried + backed out (FmlaEquiv 27→198). **→ RESOLVED 2026-07-20 — Tier C
+  A/B done (`benchmarks/reports/2026-07-20-bve-tierC-ab.md`): BVE STAYS ON, the
+  simple flip is DEAD.** BVE-off LOSES 2 Tier C solves (mp1-Nb5T15 1s→timeout,
+  Ptn-7824 161s→timeout) and is worse PAR-2 (507 vs 366); BVE is net-positive on
+  Tier C, net-negative on Tier B; solves outrank PAR-2. **User confirmed: keep BVE
+  on.** Remaining lever = a policy-slot STRUCTURAL SKIP (skip BVE on the harmful
+  structure — clique/rbsat/jgiraldezlevy/ContextModel/hwmcc — while keeping it
+  where load-bearing — mp1-Nb5T15/Ptn-7824/DLTM/mod4block/crypto1/qwh); hard (naive
+  signals don't separate; must key on instance structure; prototype offline).
+  DEFERRED, not urgent. Diagnostic knobs committed (`TACTIX_NO_BVE`,
+  `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`), env-gated default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
   lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
   watch iteration dup across `binary_partners`/`has_binary`/BVE; grid-generator
