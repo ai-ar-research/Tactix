@@ -20,13 +20,32 @@ disagree, the plan is authoritative — fix this file.
   partial = hard). A SOUND forward-subsumption building block is landed
   (`TACTIX_BVE_SUBSUME`, default-off, fuzz-clean) — it helps clique (192→88s) but is
   NET-NEGATIVE alone (over-eliminates mod4block 11→121s into the harmful middle), so
-  NOT default. **NEXT: reach TRUE completeness — the 20-vs-84 (one-pass) gap vs
-  kissat is NOT just subsumption (occ index already maintained on add); investigate
-  kissat's within-elimination incremental connect / escalating-bound cascade / order
-  in `kissat/src/eliminate.c`+`resolve.c`, match it in `bve_eliminate`, and GATE on
-  a Tier B+C A/B that does NOT regress mod4block/crypto1. Fallback if completeness
-  stays out of reach: dynamic try-both (snapshot → BVE → short search probe → keep
-  better formula).** Diagnostic knobs (all env-gated, default-identical):
+  NOT default. **FIX FULLY CHARACTERIZED (2026-07-21), needs a scoped port — NOT a safe
+  overnight patch.** Mechanism nailed: clique is cardinality groups (one
+  at-least-one clause + at-most-one binaries per 18-var group). Eliminating the
+  FIRST group var (delta=-18, cheap) consumes the shared at-least-one and gives
+  the 17 siblings a positive degree ~18 (was 1) via the size-18 resolvents — so
+  they EXPLODE from non-growing (35 resolvents) to growing (~630) and bound-abort.
+  Result: we eliminate ~1/group (10) + subsumption (→20) then stall in the harmful
+  partial state. **kissat at bound 0 eliminates 68 in round 1** (verbose confirmed)
+  — same bound, same non-growing criterion — because its DURING-ELIMINATION
+  subsumption + STRENGTHENING (self-subsuming resolution) collapses those size-18
+  resolvents so the siblings stay small/non-growing and the cascade reaches
+  completeness. Dead-ends ruled out this session: escalating/zero bound alone
+  (bound=0 still gives 20 — the sibling explosion, not the bound, is the wall);
+  `--bve-gates=none` (no effect — the eliminations happen via full-cross too);
+  static skip (no separator); subsumption-alone (net-negative: over-eliminates
+  mod4block 11→121s into ITS harmful middle — only TRUE completeness is benign
+  everywhere, and every PARTIAL step regresses someone). **THE FIX = port kissat's
+  during-elimination cleanup: self-subsuming STRENGTHENING of resolvents (the
+  missing piece — we have plain subsumption, `TACTIX_BVE_SUBSUME`, sound+fuzz-clean
+  default-off, which alone only reaches 20/68) + the escalating-bound cascade
+  (`eliminate.c` set_next_elimination_bound 0→1→2→4→8→16 with re-schedule) +
+  bounded effort. Reference: `kissat/src/eliminate.c` (eliminate_variables:416,
+  set_next_elimination_bound:339) + its `forward_subsume_during_elimination`
+  /`subsume.c` strengthening. Gate on a Tier B+C A/B that does NOT regress
+  mod4block/crypto1. Alternative if the port is too big: dynamic try-both
+  (snapshot→BVE→short search probe→keep better formula).** Diagnostic knobs (all env-gated, default-identical):
   `TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`, `TACTIX_BVE_SUBSUME`,
   `TACTIX_NO_FACTOR`, `TACTIX_DUMP_CNF`, `TACTIX_GRID_TRACE`, `TACTIX_FACTOR_FORCE`.
   Other levers this session: BVE static-skip CLOSED (no separator); Factor S2 27×27
