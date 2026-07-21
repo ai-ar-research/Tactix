@@ -8,8 +8,9 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 53 (2026-07-21)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-20 (late)
-- **▶▶ NEXT MAJOR WORK ITEM (rev 53, user directive 2026-07-21) — after the
-  current Tier C candidate validation:** implement kissat's **EFFORT-BUDGETED
+- **▶▶ NEXT MAJOR WORK ITEM (rev 53, user directive 2026-07-21) — UNBLOCKED, start
+  here** (candidate + cleanup both validated: Tier B 22.09/14-14, Tier C 286/29-30,
+  fresh 3-way baseline in Log 2026-07-21): implement kissat's **EFFORT-BUDGETED
   INPROCESSING SCHEDULER** in DefaultPolicy and **enable ALL of kissat's
   inprocessing rules**. (1) Turn on the built-but-disabled probing/vivify rules —
   **Probe (V1), Backbone (V2), Vivify (C3), TransitiveReduce (V4)** — and build the
@@ -502,6 +503,20 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — post-cleanup full-tier confirm + fresh 3-way Tier B baseline
+- Re-ran full tiers after the `simplify:9798642` cleanup (behavior-preserving,
+  no code change): **Tier B 22.09 / 14-14**, **Tier C 286.0 / 29-30** — same solve
+  counts as shipped (23.3 / 14-14, ~283 / 29-30), within run-to-run variance.
+  Cleanup confirmed byte-neutral on the full tiers (adds to the mp1/clique/units/
+  fuzz spot-checks). ctest 29/29 green.
+- Fresh clean-window 3-way Tier B (jobs=4): **tactix PAR-2 20.94, kissat 6.35,
+  cadical 12.29 — all 14/14.** We're **1.7× cadical, 3.3× kissat** (cadical is
+  itself 2× kissat here). Beat cadical on 6/14 (clique/qwh/mod4block/crypto1/
+  battleship/rbsat), beat kissat on 3. Gap is tail-concentrated on structured
+  UNSAT: `hwmcc-oski15` miter 29.6×/17.4× (needs Sweep+probing), then mp1 7.8×/2.2×
+  (Factor-S2), FmlaEquiv/x9 chains — all rev-53 targets. Confirms the residual is
+  a missing-inprocessing-pipeline gap, not broad search weakness.
 
 ### 2026-07-20 — mp1-gap diagnosis: it's grid matching (S2), not var-integration
 - Isolation via `TACTIX_DUMP_FACTORED` (commit 7dc296a) → our factored CNF → kissat:
