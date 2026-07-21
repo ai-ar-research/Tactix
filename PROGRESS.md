@@ -26,8 +26,19 @@ disagree, the plan is authoritative — fix this file.
   does Factor-then-eliminate and is fine on BOTH because its factor/pipeline is
   stronger; our S1-only Factor helps clique but damages mod4block. **NOT shippable
   as-is (mod4block regression), but the fix direction is nailed: Factor-then-BVE +
-  make our Factor benign on mod4block (S2/S4 or the pre-BVE probing/vivify pipeline
-  kissat has). Knob `TACTIX_BVE_LAST` (env, default-off).** All prior BVE-internals
+  make Factor-then-BVE benign on mod4block. Knob `TACTIX_BVE_LAST` (env, default-off).
+  **CONCRETE NEXT STEP (shippable-fix hypothesis):** BVE-last is blocked ONLY by
+  the Factor↔BVE interaction on mod4block, and Factor is NOT load-bearing there
+  (mod4block BVE-last+NO_FACTOR = 7.6s, better than default 11s). Factor helps the
+  DENSE instances (clique binaries/vars=17.5, mp1=103, x9=8.2) and hurts the SPARSE
+  mod4block (=4.1). So: **tighten Factor's density gate from `binary_ids ≥
+  num_output_vars` (ratio 1) to ~`≥ 8×` so Factor fires on clique/mp1/x9 but NOT
+  mod4block, THEN make BVE-last the default.** Expected: clique 192→3.6s (beats
+  kissat), hwmcc 110→78s, mp1/x9 keep Factor, mod4block stays ~11s. RISK:
+  threshold-on-few-instances overfit — MUST validate on full Tier A (neutral) +
+  Tier B + Tier C (solve count first) before shipping, and check qwh/crypto1/the
+  other BVE-helpful ones don't regress. If the single threshold can't separate
+  cleanly, fall back to the pre-BVE probing/vivify pipeline kissat has (bigger).** All prior BVE-internals
   attempts (subsumption/strengthening/bound/completeness) were the WRONG TREE — the
   gap was pipeline ORDER, not the rule. 
 
