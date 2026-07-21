@@ -65,10 +65,11 @@ disagree, the plan is authoritative — fix this file.
   TransitiveReduce one at a time; then bring during-search inprocessing back WITH
   them (increment 2's variant-B machinery — per-technique intervals — was right
   in shape but had nothing worth running during search). Independently of the
-  probing work: the composition split (**no BVE at preprocessing**, the
-  principled fix for `combined-crypto1`, which should also retire the BVE-last +
-  Factor `density=8` stopgaps), and V5 Sweep (needs the kitten sub-solver, plan
-  O11).
+  probing work: V5 Sweep (needs the kitten sub-solver, plan O11).
+  **⚠ "No BVE at preprocessing" is NOT an increment — it is measured-dead. Do not
+  re-propose it** (it was written into this file and the design doc earlier today
+  as the "principled fix for `combined-crypto1`"; that was wrong on every count —
+  see the Log entry "BVE-off re-measured" below).
   **Two measured findings to carry (details in the design doc §1):**
   (a) **`hwmcc17miters-oski15`'s diagnosis was WRONG in this file** — it is not
   "needs Sweep+probing". kissat solves it in 2.19 s with **congruence alone**
@@ -560,6 +561,42 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — BVE-off re-measured: "no BVE at preprocessing" is DEAD as an increment (it was proposed in this file earlier TODAY — retracted)
+Earlier today's entries named kissat's composition split (`fastel = 0`, no BVE
+during preprocessing) as the next-but-one increment and as "the principled fix
+for `combined-crypto1`". **Both claims are wrong.** Retracted here with evidence.
+
+- **Fresh Tier B, current code, `TACTIX_NO_BVE=1` vs default** (jobs=4, one
+  window): **32.82 vs 20.61 PAR-2**, 14/14 both, sum of times **288.6 → 459.4 s**.
+  Strongly bimodal per instance, as this project has documented before —
+  removing BVE costs `mod4block` 8.7 → 166.9 s (**19×**), `summle` 4.7 → 22.8
+  (4.8×), `qwh` 1.9 → 7.6 (3.9×), `9vliw`, `clique`, `circuit`; and it *gains*
+  `rbsat` 10.9 → **0.36 s (30×)** and `hwmcc` 55.9 → 27.7 (2×).
+- **It does not fix `combined-crypto1` — it makes it worse.** 24.2 s with BVE,
+  **45.5 s without**. The curve is U-shaped in the DOSE, not monotone in BVE:
+  ~300 eliminations → 8.1 s (the old application cap), 386 → 24.7 s (increment 1),
+  0 → 45.5 s. So the increment-1 regression there is a dose-tuning problem, not
+  an argument for removal.
+- **Already settled on Tier C, 2026-07-20** (`benchmarks/reports/2026-07-20-bve-tierC-ab.md`,
+  and the note at the "BVE STAYS ON" entry below): BVE-off **loses 2 Tier C
+  solves** (`mp1-Nb5T15` 1 s → TO, `Ptn-7824` 161 s → TO) and PAR-2 507 vs 366.
+  Solves outrank PAR-2. Note those are precisely the two instances increment 1
+  improved most (24.3 → 2.1 s and 164.5 → 53.7 s): preprocessing BVE is
+  load-bearing exactly there. A selective structural skip was also measured and
+  CLOSED (`2026-07-20-bve-skip-feasibility.md`).
+- **Why kissat's `fastel = 0` does not transfer.** kissat can skip preprocessing
+  elimination because it eliminates DURING SEARCH, on a formula its probing
+  pipeline has already simplified. We measured today that during-search BVE is
+  harmful for us (`summle` 5.3 → 18.4 s, BVE burning 13.6× the resolutions and
+  search getting *harder*, 42.7 k → 99.3 k conflicts — the increment-2 entry).
+  So BOTH halves of kissat's arrangement fail here: we cannot drop preprocessing
+  BVE (loses solves) and we cannot move it into search (loses time). Porting the
+  split without the pipeline that makes it work loses on both ends.
+- **What would actually help `combined-crypto1`** is making elimination benign at
+  a larger dose (completeness/ordering — the long-running thread below), or the
+  kissat-style incremental re-ranking the design doc names as increment 1's known
+  gap. Not removal.
 
 ### 2026-07-21 — ★ `NoOp` IS NOT A NO-OP: a probing round that changes nothing still wrecks SAT search. This is why the probing family has never been schedulable.
 Found while activating C3 Vivify (rev-53 increment 3, measured → reverted, below).

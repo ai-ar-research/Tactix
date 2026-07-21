@@ -290,9 +290,19 @@ same commit. Revert anything that misses.
    a large instance may need a real bound (a per-candidate dose is blocked by the
    Ref-payload staleness in §3.3). Then Probe, Backbone, TransitiveReduce, one at
    a time, each with its own A/B.
-4. **Adopt kissat's composition split** — BVE out of preprocessing (kissat's
-   `fastel = 0`), probing-style techniques first; retire the BVE-last ordering
-   stopgap and the Factor `density = 8` magic number if the schedule subsumes them.
+4. ~~**Adopt kissat's composition split** — BVE out of preprocessing (kissat's
+   `fastel = 0`)~~ — **RETRACTED 2026-07-21, measured dead.** Fresh Tier B with
+   `TACTIX_NO_BVE`: **32.82 vs 20.61 PAR-2** (sum 288.6 → 459.4 s), costing
+   `mod4block` 19×, `summle` 4.8×, `qwh` 3.9× — while gaining `rbsat` 30× and
+   `hwmcc` 2×. It does **not** fix `combined-crypto1` either; that gets *worse*
+   without BVE (24.2 → 45.5 s), because the curve is U-shaped in the DOSE (300
+   eliminations 8.1 s, 386 → 24.7 s, 0 → 45.5 s). And Tier C had already settled
+   it on 2026-07-20: BVE-off loses 2 solves and PAR-2 507 vs 366. kissat's
+   `fastel = 0` works because kissat eliminates *during search* on a
+   probing-simplified formula; we measured during-search BVE to be harmful here
+   (increment 2), so neither half of the arrangement transfers. Retiring the
+   BVE-last / Factor `density = 8` stopgaps therefore still needs a different
+   mechanism — most likely the incremental re-ranking named in increment 1(c).
 5. **V5 Sweep** (needs the embedded kitten sub-solver, plan O11) — a separate
    rule-dev item, sized on its own.
 
