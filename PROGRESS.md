@@ -93,9 +93,15 @@ disagree, the plan is authoritative — fix this file.
   9.42 (kissat) on pure-original grids. Our chain growth + best-prefix argmax were
   verified EQUIVALENT to kissat's, and seed order / tie-break / score / remainder
   boundary / BVE order are all now eliminated — so the cause is upstream of all of
-  them and not yet identified. Caveat: kissat's m/n come from added instrumentation
-  (`m=q->id+1`, `n=|q->clauses|` post-flush), not its internal `reduction` — worth
-  verifying before building on it. Fast metric: `kissat --factor=false` on
+  them and not yet identified. **METRIC VERIFIED 2026-07-20: the m/n instrumentation
+  is faithful — cross-checked kissat's own `reduction` field against computed
+  `m·n−(m+n)` over 855 grids, 0 mismatches; kissat's tall grids (n up to 80, delta
+  up to 1322) are real, NOT an artifact. Bonus: 854/855 of kissat's mp1 grids are
+  pure-binary (`nbin==n`), so the width advantage is binary-grid SELECTION (S2),
+  not large-clause remainders (S4) — S4 confirmed not the mp1 lever.** So the
+  premise holds: the greedy chain-growth is biased toward square grids (grows F
+  while R collapses) where kissat's sibling-clause matching keeps R wide — that
+  bias is the unidentified mechanism. Fast metric: `kissat --factor=false` on
   `TACTIX_DUMP_FACTORED` mp1 = **2.50M now → 305k target**; `TACTIX_GRID_TRACE`
   dumps m/n/delta per factoring.
   (2) **BVE IS BIMODAL — highest-leverage open bug (report:
