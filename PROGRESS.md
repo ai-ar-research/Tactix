@@ -5,9 +5,33 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 52 (2026-07-21)
+- **Plan revision tracked:** rev. 53 (2026-07-21)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-20 (late)
+- **▶▶ NEXT MAJOR WORK ITEM (rev 53, user directive 2026-07-21) — after the
+  current Tier C candidate validation:** implement kissat's **EFFORT-BUDGETED
+  INPROCESSING SCHEDULER** in DefaultPolicy and **enable ALL of kissat's
+  inprocessing rules**. (1) Turn on the built-but-disabled probing/vivify rules —
+  **Probe (V1), Backbone (V2), Vivify (C3), TransitiveReduce (V4)** — and build the
+  one missing piece, **Sweep (V5)** (needs the embedded kitten sub-solver, O11).
+  (2) Replace the current run-each-rule-to-fixpoint one-shot preprocessing
+  (`default_policy.cpp` phase loop) with kissat's dosing: **per-technique
+  tick/effort budgets + mode gating (heavy in stable, backed off in focused) +
+  growing intervals, interleaved with search** (kissat `eliminate.c` SET_EFFORT_LIMIT,
+  `kimits.c` interval scaling, `probe.c` probe_initially). **Why (both matter):**
+  (a) it is the CLEAN fix for the bimodal-BVE — running any rule to fixpoint
+  overshoots the U-shape into the harmful regime; titrated doses stay benign; the
+  BVE-last+density=8 ordering candidate is a whack-a-mole stopgap this supersedes;
+  (b) **N2 hardening** — enabling all rules exercises their DRAT/LRAT proof
+  emission continuously on the real Tier B/C/D instances (every UNSAT
+  proof-checked), where Probe/Vivify/Backbone/TransitiveReduce proofs are currently
+  only fuzz + bve-stress-policy tested. **No kernel change** (N1 makes any legal
+  schedule sound; RandomPolicy already exercises single-application scheduling and
+  is fuzzed sound — the mechanism is there, only DefaultPolicy runs to fixpoint).
+  The hard part is the per-technique budget/interval/mode TUNING. This is the
+  previously-deferred "increment 2" (`update_inprocess_limit` `#if 0` block)
+  brought forward. Gate each increment on a Tier B+C A/B (solve count first) +
+  fuzz; validate proofs on the real UNSAT instances.
 - **▶ RESUME HERE (2026-07-20 late).** Phase 3, T3 gate open. **Tier B PAR-2 42.61
   vs kissat 6.26 (6.8×), 14/14** — confirmed clean (`benchmarks/runs/*B-tierB-confirm`);
   down from 70.00 at this session's start (Factor S2 seed-heap/tie-break, committed).
