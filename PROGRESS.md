@@ -686,6 +686,18 @@ Design + increment plan + the measured evidence: `docs/design/effort-scheduler-d
   set. Proof volume 8.16 GB / 2861 s to check (15 UNSAT proofs), all verified.
   **Net-positive on all three tiers: Tier A neutral, Tier B 21.41 → 20.85,
   Tier C 286.0 → 273.9.**
+- **Single-window 3-way Tier B after the increment** (run
+  `20260721-145638-B-3way-inc1`, jobs=4, all three solvers in ONE invocation —
+  supersedes the cross-window estimate): **tactix 21.01, kissat 6.30, cadical
+  11.64, all 14/14 → 3.33× kissat, 1.81× cadical.** We beat cadical on 5/14
+  (qwh 5.6×, clique 3.1×, mod4block 2.3×, battleship 1.5×, rbsat 1.2×) and kissat
+  on 3 (qwh 4.1×, mod4block 1.6×, clique 1.1×); 6 instances are within ±10 % of
+  kissat. **The gap is entirely tail-concentrated**: `hwmcc-oski15` 23.7×
+  (= the `D-CONG-UNIT` gap, entry above), `mp1` 7.9× (Factor S2), `crypto1` 7.5×
+  (of which increment 1 owns 3×), `FmlaEquiv` 6.0×, `x9` 4.3×. So the median is
+  competitive and four instances carry the PAR-2 spread — which is the shape that
+  makes the remaining rev-53 increments (and D-CONG-UNIT) worth more than broad
+  search tuning.
 
 ### 2026-07-21 — post-cleanup full-tier confirm + fresh 3-way Tier B baseline
 - Re-ran full tiers after the `simplify:9798642` cleanup (behavior-preserving,
