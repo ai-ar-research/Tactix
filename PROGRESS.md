@@ -352,9 +352,12 @@ disagree, the plan is authoritative — fix this file.
   Default byte-identical (mp1 1,482,563), units 29/29.
   committed (`TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`), default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
-  lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
-  watch iteration dup across `binary_partners`/`has_binary`/BVE; grid-generator
-  fuzz coverage; density heuristic → policy). *(Also open: **task #39** —
+  lever applies). **`revisit-codebase` pass DONE 2026-07-21** (task #38 +
+  this session's churn): dead diagnostic scaffolding removed inline (`simplify:`
+  `9798642`, −129 lines, default byte-identical); structural items routed in
+  `benchmarks/reports/2026-07-21-review-bve-factor-cleanup.md` — density=8
+  rule/policy leakage → effort-budget scheduler (rev 53); binary-watch-scan idiom
+  dup ×7 → a bounded hygiene pass; Factor grid-generator fuzz → next fuzz pass. *(Also open: **task #39** —
   `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/` (instant
   under DefaultPolicy; N1 robustness, not soundness). Orphan/contention hazard is
   fixed: `fuzz.py`+`run.py` now set an `RLIMIT_CPU` backstop (commit 5462989) so
