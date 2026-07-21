@@ -183,7 +183,14 @@ ApplyResult factor_apply(Kernel &k) {
   // N1 keeps every factoring applicable via the API regardless).
   // TACTIX_FACTOR_FORCE bypasses the selectivity gate so the fuzz harness
   // exercises Factor on small instances (which are almost all below it).
-  if (k.binary_ids.size() < kernel_num_output_vars(k) &&
+  // TACTIX_FACTOR_DENSITY tunes the binaries-per-variable threshold (default 1)
+  // — the bimodal-BVE ordering fix wants Factor to fire only on DENSE instances
+  // (clique ratio 17.5, mp1 103, x9 8.2) and skip sparse ones (mod4block 4.1) so
+  // that BVE-last does not inherit Factor's damage on mod4block. Experimental.
+  uint32_t density = 1;
+  if (const char *s = std::getenv("TACTIX_FACTOR_DENSITY"))
+    density = static_cast<uint32_t>(std::atoi(s));
+  if (k.binary_ids.size() < density * kernel_num_output_vars(k) &&
       !std::getenv("TACTIX_FACTOR_FORCE"))
     return ApplyResult::NoOp;
 
