@@ -162,6 +162,11 @@ bool factor_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
 ApplyResult factor_apply(Kernel &k) {
   assert(factor_guard(k));
+  // DIAGNOSTIC: dump the post-inprocessing formula (Factor runs after BVE in the
+  // name-sorted slot, so this captures the post-BVE state before Factor mutates
+  // it) and exit — for the formula-vs-search decomposition of the BVE bimodal.
+  if (const char *p = std::getenv("TACTIX_DUMP_CNF"))
+    dump_factored_and_exit(k, p);
   // Native LRAT: dividers/quotients emit add-RAT with explicit resolution hints
   // (apply_factoring) — Factor is the first RAT-emitting rule, so the LRAT path
   // gets the full transform now (was a NoOp before native add_rat landed).

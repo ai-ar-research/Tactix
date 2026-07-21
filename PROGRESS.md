@@ -183,6 +183,21 @@ disagree, the plan is authoritative — fix this file.
   (search-tree reshaping), not static. Survivors, both out of near-term scope:
   dynamic try-both (2× preprocess) or learned scheduling (§5.6 RL endgame is the
   natural home for the BVE-on/off decision). BVE STAYS ON. Diagnostic knobs
+- **⚡ BVE FIX RE-OPENED (2026-07-20 late) — user's point is right: kissat avoids
+  bimodal with NO RL, so a static/algorithmic fix EXISTS.** Decisive decomposition
+  (`TACTIX_DUMP_CNF` dumps post-BVE formula): feeding our post-BVE clique (10 vars
+  eliminated) to **kissat's own search** (`--eliminate=false --factor=false`)
+  **times out >300 s**, vs kissat solving the ORIGINAL clique in ~5.6 s. So our
+  10-var PARTIAL elimination produces an **intrinsically-hard formula** (any solver
+  blows up), NOT a search-heuristic problem. U-shape confirmed: none=easy (5.6 s) /
+  partial=hard (>300 s) / complete=easy (kissat 244 vars, 4.45 s). **FIX = reach
+  completeness like kissat.** Mechanism pinned: on pristine clique kissat eliminates
+  68 in one pass at bound 0 (STRICTER than our 16) yet we stall at 10 — so kissat's
+  per-variable resolvent count is LOWER → it excludes **subsumed** resolvents
+  (forward-subsumption during elimination) which we count, inflating past the bound.
+  **Implementing: skip subsumed resolvents in `bve_eliminate` (sound — a subsumed
+  resolvent is redundant, implied by its subsumer; not adding/counting it is always
+  sound for both proof formats + reconstruction). In progress.**
   committed (`TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`), default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
   lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
   lever applies). Then the deferred **`revisit-codebase`** pass (task #38: binary-
