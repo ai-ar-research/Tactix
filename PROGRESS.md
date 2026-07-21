@@ -46,7 +46,14 @@ disagree, the plan is authoritative — fix this file.
   drat-trim). NET-POSITIVE ON BOTH TIERS, +1 solve, NO lost solves.** Still
   whack-a-mole per-instance (Tier C gains ContextModel 102→9s/mod2c 271→33s/StConn
   306→65s; regresses DLTM 9→176s/frb45 110→246s/j3037 85→242s — all still solve).
-  Remaining validation before a default flip: Tier A (neutral) + fuzz. IF Tier C holds
+  **FULLY VALIDATED (2026-07-21): Tier A 200/200 PAR-2 0.49→0.51 (neutral, no
+  regression), Tier B 14/14 42.61→20.99 (2×), Tier C 28→29/30 366→283 (+1 solve),
+  fuzz BVE-last 300/0 sound.** Net-positive on ALL tiers, +1 solve, no regressions,
+  sound. Shippable (convert `TACTIX_BVE_LAST`+`TACTIX_FACTOR_DENSITY=8` env knobs →
+  hardcoded slot reorder + density const). Caveat: density=8 is an overfit magic
+  number (picked to separate clique-dense from mod4block-sparse) — the effort-budget
+  scheduler (rev 53, next item) supersedes it. DECISION pending user: ship the
+  stopgap now vs go straight to the effort-budget fix. IF Tier C holds
   solves + Tier A neutral → MAKE DEFAULT (the two knobs → hardcoded slot order +
   density=8). Then investigate the x9/FmlaEquiv regressions (likely BVE-last on
   UNSAT-where-Factor-helps; maybe density boundary — x9 ratio 8.2 ~ threshold 8).**
