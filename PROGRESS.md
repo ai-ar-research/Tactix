@@ -45,7 +45,18 @@ disagree, the plan is authoritative — fix this file.
   set_next_elimination_bound:339) + its `forward_subsume_during_elimination`
   /`subsume.c` strengthening. Gate on a Tier B+C A/B that does NOT regress
   mod4block/crypto1. Alternative if the port is too big: dynamic try-both
-  (snapshot→BVE→short search probe→keep better formula).** Diagnostic knobs (all env-gated, default-identical):
+  (snapshot→BVE→short search probe→keep better formula). **UPDATE 2026-07-21: deep interleaving of our EXISTING
+  Strengthen+SubsumeForward with BVE (env `TACTIX_INPROC_ROUNDS`/`_BUDGET`, tested
+  20 rounds/2000 budget) does NOT help — clique still 20 elim/86s. Our
+  self-subsuming Strengthen cannot collapse the size-18 group resolvents
+  `[v2..v18,¬w]` (no `[v2..v18,w]` exists to resolve against), so the sibling
+  explosion persists. So the kissat-68-at-bound-0 advantage is NOT reproduced by
+  our subsumption+strengthening and remains the ONE unpinned piece — the next
+  attempt must reverse-engineer kissat's exact bound-0 elimination (instrument
+  `eliminate.c` per-variable to see which 68 vars it eliminates and why their
+  resolvent counts stay ≤ occ) before/while porting. Four interventions this
+  session all failed to reach net-positive completeness (subsumption, escalating
+  bound, gates-off, deep interleaving) — do not repeat them.**** Diagnostic knobs (all env-gated, default-identical):
   `TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`, `TACTIX_BVE_SUBSUME`,
   `TACTIX_NO_FACTOR`, `TACTIX_DUMP_CNF`, `TACTIX_GRID_TRACE`, `TACTIX_FACTOR_FORCE`.
   Other levers this session: BVE static-skip CLOSED (no separator); Factor S2 27×27
