@@ -5,446 +5,102 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 53 (2026-07-21)
+- **Plan revision tracked:** rev. 54 (2026-07-21)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-21
-- **▶▶ NEXT MAJOR WORK ITEM (rev 53, user directive 2026-07-21) — UNBLOCKED, start
-  here** (candidate + cleanup both validated: Tier B 22.09/14-14, Tier C 286/29-30,
-  fresh 3-way baseline in Log 2026-07-21): implement kissat's **EFFORT-BUDGETED
-  INPROCESSING SCHEDULER** in DefaultPolicy and **enable ALL of kissat's
-  inprocessing rules**. (1) Turn on the built-but-disabled probing/vivify rules —
-  **Probe (V1), Backbone (V2), Vivify (C3), TransitiveReduce (V4)** — and build the
-  one missing piece, **Sweep (V5)** (needs the embedded kitten sub-solver, O11).
-  (2) Replace the current run-each-rule-to-fixpoint one-shot preprocessing
-  (`default_policy.cpp` phase loop) with kissat's dosing: **per-technique
-  tick/effort budgets + mode gating (heavy in stable, backed off in focused) +
-  growing intervals, interleaved with search** (kissat `eliminate.c` SET_EFFORT_LIMIT,
-  `kimits.c` interval scaling, `probe.c` probe_initially). **Why (both matter):**
-  (a) it is the CLEAN fix for the bimodal-BVE — running any rule to fixpoint
-  overshoots the U-shape into the harmful regime; titrated doses stay benign; the
-  BVE-last+density=8 ordering candidate is a whack-a-mole stopgap this supersedes;
-  (b) **N2 hardening** — enabling all rules exercises their DRAT/LRAT proof
-  emission continuously on the real Tier B/C/D instances (every UNSAT
-  proof-checked), where Probe/Vivify/Backbone/TransitiveReduce proofs are currently
-  only fuzz + bve-stress-policy tested. **No kernel change** (N1 makes any legal
-  schedule sound; RandomPolicy already exercises single-application scheduling and
-  is fuzzed sound — the mechanism is there, only DefaultPolicy runs to fixpoint).
-  The hard part is the per-technique budget/interval/mode TUNING. This is the
-  previously-deferred "increment 2" (`update_inprocess_limit` `#if 0` block)
-  brought forward. Gate each increment on a Tier B+C A/B (solve count first) +
-  fuzz; validate proofs on the real UNSAT instances.
-- **▶ RESUME HERE (2026-07-21).** Phase 3, T3 gate open. Working the rev-53
-  **effort-budgeted inprocessing scheduler**. Its design, increment plan and the
-  measured evidence behind every choice live in
-  **`docs/design/effort-scheduler-design.md` — read that first.**
-  **Increment 1 LANDED** (effort ledger replaces the application cap; BVE dosed
-  per instance; reclamation out of the per-elimination path): Tier B PAR-2
-  21.41→20.85, 14/14; **Tier C 286.0→273.9, 29/30, no lost solves**; Tier A
-  200/200 (0.55, jobs=2), neutral at equal concurrency; fuzz 1000/0 + 3×400/0;
-  ctest 29/29. **Net-positive on all three tiers.** See the Log entry below for
-  what it is made of, including the real per-instance regressions
-  (`combined-crypto1` 8.1→24.7 s on Tier B; `ContextModel` 9.2→84.6 s and
-  `T87.2.0` 601→839 s on Tier C).
-  **▶ TWO NAMED PREREQUISITES, both structural, either can go first:**
-  **(P1) A per-variable RETRY FILTER for BVE** (kissat `flags->eliminate`) —
-  without it, repeated during-search elimination re-attempts every candidate
-  every phase and is quadratic waste (measured: `mod4block` 3.5 M resolutions for
-  9 eliminations; Tier B 20.84 → 32.87 with 13/14 worse). Needs a
-  `kernel_mark_garbage` helper (large-clause deletion currently sets
-  `Clause::GARBAGE` directly at 8 sites across the rules) + a `bve_retry` bitmap
-  marked on irredundant add/delete only. This gates the user's directive to run
-  BVE repeatedly during search.
-  **(P2) A NON-MUTATING PROBING PROPAGATION PATH** (kissat `proprobe.c`).
-  This was not in the rev-53 plan; it is what three measured increments this
-  session converged on, and it is a **prerequisite for the entire probing half of
-  rev 53** (V1 Probe, V2 Backbone, C3 Vivify, V4 TransitiveReduce — all four
-  currently disabled). Reason, established today: a probing round that changes
-  NOTHING and returns `NoOp` still relocates watches and rewrites per-clause
-  `searched` hints inside `kernel_propagate`, and that alone costs
-  `battleship-14-26` **12× conflicts** (1.95 M → 24.0 M). Restoring those
-  structures reproduces the no-Vivify run **bit-identically**. So the standing
-  belief that probing is intrinsically SAT-hostile is wrong — its SIDE EFFECTS
-  are what is unbudgeted. Full evidence + what was ruled out: the ★ Log entry
-  below. **Not started; needs sizing.** V2 Backbone is the existence proof that a
-  non-mutating engine is possible here — it already propagates binary-only
-  (`kernel.cpp:451-456`, "binary watches are permanent, so there is no watch
-  mutation").
-  **Then, gated on it:** re-try Vivify (reverted today at Tier B 20.60 → 38.75,
-  but the dominant loss is the artifact above), then Probe/Backbone/
-  TransitiveReduce one at a time; then bring during-search inprocessing back WITH
-  them (increment 2's variant-B machinery — per-technique intervals — was right
-  in shape but had nothing worth running during search). Independently of the
-  probing work: V5 Sweep (needs the kitten sub-solver, plan O11).
-  **▶▶ TARGET END-STATE (user directive 2026-07-21, after the BVE-off
-  measurements): kissat's FULL arrangement — no BVE at preprocessing, plus the
-  mechanism that makes that safe, namely PROBING to simplify the formula and
-  elimination moved INTO the search loop.** The two must land together. Today's
-  measurements (BVE-off alone → Tier B 32.8 vs 20.6 and 2 lost Tier C solves;
-  during-search BVE alone → `summle` 5.3 → 18.4 s) each tested ONE HALF of that
-  arrangement on a pipeline with no probing, which is exactly the condition that
-  makes kissat's version work — so they do NOT refute it. They do establish a
-  hard ordering constraint: **BVE can only leave preprocessing once probing
-  actually runs**, and probing cannot run until the non-mutating propagation path
-  exists. Hence the step order below.
-  **⚠ Gating caveat, stated up front:** the intermediate states of this
-  arrangement are individually WORSE (measured), so the usual "every increment is
-  net-positive on Tier B" rule cannot gate them one at a time. Build behind the
-  slot's existing `enabled` flags / an env knob, keep today's composition as the
-  default, and gate the ARRANGEMENT as one unit on Tier B+C before flipping.
-  **Two measured findings to carry (details in the design doc §1):**
-  (a) **`hwmcc17miters-oski15`'s diagnosis was WRONG in this file** — it is not
-  "needs Sweep+probing". kissat solves it in 2.19 s with **congruence alone**
-  (`search_ticks = 4`, 0 conflicts, congruent 711 434 = 49 % of variables), and
-  **our congruence finds the same collapse** (710 722 equivalences; Substitute
-  does apply them — the duplicate-binary bail-out does not fire; a second pass
-  finds 0 more). The gap is that kissat *refutes inside* congruence while we hand
-  a collapsed-but-unrefuted formula to search and pay 167 M decisions for 1 244
-  conflicts. **Root cause now pinned to a named gap: `D-CONG-UNIT`** (new ledger
-  row, `docs/implementation-notes.md` §2) — our V6 has **no unit channel and can
-  never refute**. See the Log entry below. Separate work item from the scheduler.
-  (b) kissat's per-technique effort profile on our exact Tier B (table in the
-  design doc): inprocessing is 8–33 % of its runtime; **vivify is the largest
-  single probing sub-technique on every instance** and we never run it; sweep is
-  second and we do not have it; BVE is small (0.01–0.99 s) and *zero* on the
-  instances where our BVE has historically hurt.
-  *(Prior anchor — the BVE-bimodal saga — is CLOSED: BVE-last + Factor
-  `density=8` shipped as default 2026-07-21, commit 5111bc7, Tier B 42.6→23.3,
-  Tier C 28→29/30. Both remain stopgaps for increment 4 to retire. The detail
-  below is kept for the root-cause record.)*
+- **▶ RESUME HERE (2026-07-21).** Phase 3, **T3 gate open**. Working plan rev 53/54,
+  the **effort-budgeted inprocessing scheduler**. Design, increment plan and the
+  measured evidence: **`docs/design/effort-scheduler-design.md` — read it first.**
 
-- **(closed 2026-07-21, kept for the record)** **Tier B PAR-2 42.61
-  vs kissat 6.26 (6.8×), 14/14** — confirmed clean (`benchmarks/runs/*B-tierB-confirm`);
-  down from 70.00 at this session's start (Factor S2 seed-heap/tie-break, committed).
-  **✅✅ SHIPPABLE FIX FOUND + Tier B VALIDATED 2026-07-21: candidate config
-  `TACTIX_BVE_LAST=1 TACTIX_FACTOR_DENSITY=8` → Tier B PAR-2 42.61→20.99 (2×),
-  14/14 solved (NO lost solves), sum-of-times 596→294s. clique 222→4.2s (53×),
-  hwmcc 122→70s, battleship 54→18s, mod4block 13.7→8.9s (improved, no regression).
-  Minor regressions: FmlaEquiv 24→40, x9 21→35 (BVE-last hurts these UNSAT+Factor
-  instances), rbsat 8.6→11 — dwarfed by the gains. This BEATS the BVE-off PAR-2
-  (23.30) while keeping solves. **Tier C VALIDATED: PAR-2 366.11→282.74, solved 28→29/30 (GAINS aes_decry — the
-  density=8 gate cuts Factor's firing on aes so its proof no longer times out
-  drat-trim). NET-POSITIVE ON BOTH TIERS, +1 solve, NO lost solves.** Still
-  whack-a-mole per-instance (Tier C gains ContextModel 102→9s/mod2c 271→33s/StConn
-  306→65s; regresses DLTM 9→176s/frb45 110→246s/j3037 85→242s — all still solve).
-  **FULLY VALIDATED (2026-07-21): Tier A 200/200 PAR-2 0.49→0.51 (neutral, no
-  regression), Tier B 14/14 42.61→20.99 (2×), Tier C 28→29/30 366→283 (+1 solve),
-  fuzz BVE-last 300/0 sound.** Net-positive on ALL tiers, +1 solve, no regressions,
-  sound. Shippable (convert `TACTIX_BVE_LAST`+`TACTIX_FACTOR_DENSITY=8` env knobs →
-  hardcoded slot reorder + density const). Caveat: density=8 is an overfit magic
-  number (picked to separate clique-dense from mod4block-sparse) — the effort-budget
-  scheduler (rev 53, next item) supersedes it. **SHIPPED AS DEFAULT 2026-07-21
-  (user chose ship-now, commit 5111bc7):** BVE-last is the default slot order +
-  Factor `density=8` hardcoded (`TACTIX_BVE_FIRST` / `TACTIX_FACTOR_DENSITY`
-  revert for the A/B). Units 29/29 (factor unit test sets `TACTIX_FACTOR_FORCE`);
-  fuzz default DRAT + native LRAT 300/0. **Tier B default now 23.3 clean (from 42.6, 1.83x; the candidate wrapper saw 21.0 — run-to-run variance on jobs=4). Notably == BVE-off PAR-2 23.30 but WITHOUT the 2 lost Tier C solves.**
-  Known residual whack-a-mole (Tier B x9 21→35, FmlaEquiv 24→40; Tier C DLTM
-  9→176 — all still solve) — the effort-budget scheduler (rev 53) is the clean
-  fix that removes the overfit density=8 and the BVE-last stopgap. **▶ NEXT: the
-  effort-budgeted scheduler (rev 53).**
+  **Landed:** *increment 1 — the effort ledger* (kissat `SET_EFFORT_LIMIT` ported
+  policy-side: each rule's dose is a per-mille fraction of the search work since
+  it last ran, metered in its own currency; BVE dosed per instance; clause
+  reclamation out of the per-elimination path). Net-positive on all three tiers —
+  Tier A neutral, **Tier B 21.41→20.85**, **Tier C 286.0→273.9 (29/30)** — no lost
+  solves, fuzz 1000/0 + 3×400/0 (`cbbe3ce`, `a93ff51`). Also landed:
+  `Kernel::bve_bound`, making the elimination growth slack policy-controlled
+  (`4a32ce3`). Standing 3-way Tier B, one window, jobs=4: **tactix 21.01, kissat
+  6.30, cadical 11.64**, all 14/14 → 3.3× kissat, 1.8× cadical; the gap is
+  tail-concentrated (`hwmcc` 23.7×, `mp1` 7.9×, `crypto1` 7.5×, `FmlaEquiv` 6.0×)
+  while 6/14 sit within 10 % of kissat (`fe4c8ff`).
 
-  **★ BREAKTHROUGH 2026-07-21: the bimodal is a FACTOR↔BVE ORDERING interaction,
-  NOT a BVE-internals problem.** Root cause found by instrumenting kissat's
-  elimination: it eliminates variables with occ ~5 (mean 2.5), but clique's raw
-  vars have occ ~36 — so kissat's BVE runs on a formula ALREADY simplified by its
-  probing/vivify/sweep/FACTOR pipeline, where elimination is benign. Our
-  name-sorted slot runs BVE FIRST on the RAW formula → harmful partial elimination.
-  **Reordering BVE to run LAST (after Factor/Congruence/Substitute): clique
-  192s→3.6s (53×, beats kissat's 4.45s!), hwmcc 110→78s.** Isolated to FACTOR:
-  clique BVE-last+NO_FACTOR → back to timeout (Factor's BVA compresses the
-  cardinality structure = the simplifier); mod4block BVE-last+NO_FACTOR → 7.6s
-  (Factor-before-BVE is what HURTS it). So: clique wants Factor-then-BVE, mod4block
-  is hurt by it (BVE-last+Factor → mod4block 11s→TIMEOUT, a LOST SOLVE). kissat
-  does Factor-then-eliminate and is fine on BOTH because its factor/pipeline is
-  stronger; our S1-only Factor helps clique but damages mod4block. **NOT shippable
-  as-is (mod4block regression), but the fix direction is nailed: Factor-then-BVE +
-  make Factor-then-BVE benign on mod4block. Knob `TACTIX_BVE_LAST` (env, default-off).
-  **CONCRETE NEXT STEP (shippable-fix hypothesis):** BVE-last is blocked ONLY by
-  the Factor↔BVE interaction on mod4block, and Factor is NOT load-bearing there
-  (mod4block BVE-last+NO_FACTOR = 7.6s, better than default 11s). Factor helps the
-  DENSE instances (clique binaries/vars=17.5, mp1=103, x9=8.2) and hurts the SPARSE
-  mod4block (=4.1). So: **tighten Factor's density gate from `binary_ids ≥
-  num_output_vars` (ratio 1) to ~`≥ 8×` so Factor fires on clique/mp1/x9 but NOT
-  mod4block, THEN make BVE-last the default.** Expected: clique 192→3.6s (beats
-  kissat), hwmcc 110→78s, mp1/x9 keep Factor, mod4block stays ~11s. RISK:
-  threshold-on-few-instances overfit — MUST validate on full Tier A (neutral) +
-  Tier B + Tier C (solve count first) before shipping, and check qwh/crypto1/the
-  other BVE-helpful ones don't regress. If the single threshold can't separate
-  cleanly, fall back to the pre-BVE probing/vivify pipeline kissat has (bigger).** All prior BVE-internals
-  attempts (subsumption/strengthening/bound/completeness) were the WRONG TREE — the
-  gap was pipeline ORDER, not the rule. 
+  **▶▶ TARGET END-STATE (user directive):** kissat's **full** arrangement — no BVE
+  at preprocessing, *plus* the mechanism that makes that safe: probing simplifying
+  the formula and elimination moved into the search loop. **Both halves must land
+  together** (each measured alone is worse — see Lessons L1/L2), so this cannot be
+  gated increment-by-increment on Tier B. Build behind the slot's `enabled` flags
+  with today's composition as the default; gate the ARRANGEMENT as one unit on
+  Tier B+C before flipping.
 
-  **THE dominant open lever = the BVE BIMODAL** (clique 222s/50×, hwmcc 122s/51×
-  are 58% of Tier B time, both BVE-harmful). **User's steer: fix it algorithmically
-  now — kissat avoids bimodal with NO RL, so DefaultPolicy can too.** Root cause is
-  PROVEN (below, "BVE FIX RE-OPENED"): our partial elimination makes an
-  intrinsically-hard formula (kissat's own search times out on our post-BVE clique);
-  the fix is **true elimination COMPLETENESS** like kissat (none/complete = easy,
-  partial = hard). A SOUND forward-subsumption building block is landed
-  (`TACTIX_BVE_SUBSUME`, default-off, fuzz-clean) — it helps clique (192→88s) but is
-  NET-NEGATIVE alone (over-eliminates mod4block 11→121s into the harmful middle), so
-  NOT default. **FIX FULLY CHARACTERIZED (2026-07-21), needs a scoped port — NOT a safe
-  overnight patch.** Mechanism nailed: clique is cardinality groups (one
-  at-least-one clause + at-most-one binaries per 18-var group). Eliminating the
-  FIRST group var (delta=-18, cheap) consumes the shared at-least-one and gives
-  the 17 siblings a positive degree ~18 (was 1) via the size-18 resolvents — so
-  they EXPLODE from non-growing (35 resolvents) to growing (~630) and bound-abort.
-  Result: we eliminate ~1/group (10) + subsumption (→20) then stall in the harmful
-  partial state. **kissat at bound 0 eliminates 68 in round 1** (verbose confirmed)
-  — same bound, same non-growing criterion — because its DURING-ELIMINATION
-  subsumption + STRENGTHENING (self-subsuming resolution) collapses those size-18
-  resolvents so the siblings stay small/non-growing and the cascade reaches
-  completeness. Dead-ends ruled out this session: escalating/zero bound alone
-  (bound=0 still gives 20 — the sibling explosion, not the bound, is the wall);
-  `--bve-gates=none` (no effect — the eliminations happen via full-cross too);
-  static skip (no separator); subsumption-alone (net-negative: over-eliminates
-  mod4block 11→121s into ITS harmful middle — only TRUE completeness is benign
-  everywhere, and every PARTIAL step regresses someone). **THE FIX = port kissat's
-  during-elimination cleanup: self-subsuming STRENGTHENING of resolvents (the
-  missing piece — we have plain subsumption, `TACTIX_BVE_SUBSUME`, sound+fuzz-clean
-  default-off, which alone only reaches 20/68) + the escalating-bound cascade
-  (`eliminate.c` set_next_elimination_bound 0→1→2→4→8→16 with re-schedule) +
-  bounded effort. Reference: `kissat/src/eliminate.c` (eliminate_variables:416,
-  set_next_elimination_bound:339) + its `forward_subsume_during_elimination`
-  /`subsume.c` strengthening. Gate on a Tier B+C A/B that does NOT regress
-  mod4block/crypto1. Alternative if the port is too big: dynamic try-both
-  (snapshot→BVE→short search probe→keep better formula). **UPDATE 2026-07-21: deep interleaving of our EXISTING
-  Strengthen+SubsumeForward with BVE (env `TACTIX_INPROC_ROUNDS`/`_BUDGET`, tested
-  20 rounds/2000 budget) does NOT help — clique still 20 elim/86s. Our
-  self-subsuming Strengthen cannot collapse the size-18 group resolvents
-  `[v2..v18,¬w]` (no `[v2..v18,w]` exists to resolve against), so the sibling
-  explosion persists. So the kissat-68-at-bound-0 advantage is NOT reproduced by
-  our subsumption+strengthening and remains the ONE unpinned piece — the next
-  attempt must reverse-engineer kissat's exact bound-0 elimination (instrument
-  `eliminate.c` per-variable to see which 68 vars it eliminates and why their
-  resolvent counts stay ≤ occ) before/while porting. Four interventions this
-  session all failed to reach net-positive completeness (subsumption, escalating
-  bound, gates-off, deep interleaving) — do not repeat them.**** Diagnostic knobs (all env-gated, default-identical):
-  `TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`, `TACTIX_BVE_SUBSUME`,
-  `TACTIX_NO_FACTOR`, `TACTIX_DUMP_CNF`, `TACTIX_GRID_TRACE`, `TACTIX_FACTOR_FORCE`.
-  Other levers this session: BVE static-skip CLOSED (no separator); Factor S2 27×27
-  narrowed to chain-divergence (deprioritized, 1-instance); Factor→native-LRAT DONE.
-- **✅ FACTOR → NATIVE-LRAT: DONE 2026-07-20.** Factor no longer no-ops on the
-  LRAT path — the `add_rat` proof primitive was implemented (`proof.{hpp,cpp}`,
-  first backend realization of the closed vocabulary's add-RAT) and Factor emits
-  it: dividers as *vacuous* RAT (fresh pivot x, empty hints), quotients as one
-  resolution group per divider (`-⟨dividerᵢ⟩ ⟨orig(fᵢ,rⱼ)⟩`, discharged by the
-  still-live grid clause). **This RESOLVES the aes_decry proof-verifiability issue:
-  native LRAT + lrat-check VERIFIES aes in 17 s and mp1 in 22 s, where DRAT +
-  drat-trim TIMED OUT (>2400 s).** DRAT byte-identical (add_rat DRAT == old
-  add_rup, mp1 proof unchanged). Validated: `micro_proofs` Factor cases (clean +
-  duplicate grid binary) DRAT+LRAT; fuzz default/random `--lrat` Factor-forced
-  800/0 + DRAT/ASCII legs 600/0; units 29/29. Docs synced (calculus §E2 +
-  proof-vocabulary, implementation-notes D-FACTOR-LRAT ledger CLOSED). **Follow-up
-  (not required for soundness): the competition frontend still defaults to DRAT;
-  to actually reclaim the aes Tier C solve, either default to LRAT output or note
-  that verified-via-lrat-check counts. Also: D-CONG-DELETE (transient del) and the
-  duplicate-copy redundant-del cleanliness are open proof-size items.**
-- **⚠️ (superseded by the above; kept for context) FACTOR PROOF-VERIFIABILITY
-  investigation (2026-07-20):** first Tier C run since Factor was enabled flagged
-  `aes_decry_2_rounds` proof as failing — run.py's "CORRECTNESS BUG" banner was a
-  FALSE ALARM: it's a drat-trim TIMEOUT (`proof_check_time=2400.02` = 2×timeout,
-  `run.py:134-137` turns TimeoutExpired→`ok=false`), not a rejection. **Soundness
-  cleared by direct verification:** aes **Factor-off** DRAT VERIFIED in 53 s
-  (172 MB) — core+BVE sound at full 279k-var scale; mp1 Factor DRAT VERIFIED in
-  75 s (935 lemmas); x9 Factor verified historically (469); Factor DRAT is
-  fuzz-clean and its per-factoring add-RAT+delete-last mechanism is
-  scale-independent. **Cause is Factor-on:** aes triggers **11,165 factorings** →
-  a 192 MB RAT-heavy DRAT that drat-trim can't check in 40 min (backward RAT
-  checking blows up); the pre-Factor proof verified in 77 s (run `604831b`, Factor
-  not in slot). Factor-on predates this session (`c3ce120`), so not an S2
-  regression. **Consequence: under competition rules (unverified proof = unsolved)
-  Factor-on costs the aes_decry Tier C solve** — 28/30 with the aes proof counted
-  as failed. **FIX (real work item, route to rule-dev + proof-check): Factor must
-  emit native-LRAT chains (cheap for lrat-check) instead of relying on drat-trim's
-  expensive RAT re-derivation. Factor currently NO-OPS on the LRAT path
-  (`factor.cpp` `if lrat return NoOp`) — that's exactly the gap. Analogous to the
-  deferred D-CONG-LRAT.** Diagnostic knob `TACTIX_NO_FACTOR` committed (env-gated,
-  default byte-identical). aes is a wash for the BVE A/B (Factor-driven, fails in
-  both arms).
-- **Next (resume anchor):** phase 3, **T3 gate open**. **E2 Factor is now ON in
-  DefaultPolicy and net-positive** (x9 801k→453k conflicts / 39 s→23 s; mp1
-  4.19M→3.66M), after fixing the bug that made it inert. State: Factor
-  (`src/rules/factor/`) does binary-grid BVA — transform + DRAT (add-RAT
-  pivot-first, delete-last) + greedy detection + model projection — enabled in the
-  inprocessing slot. Three kernel/rule fixes underpin it (all in
-  `docs/implementation-notes.md` §5): (1) **dense-grow** (`kernel_reserve_vars`
-  resizes `dense->large`) — the mp1 `EXC_BAD_ACCESS`; (2) **BVE skips extension
-  vars** — no BVE↔Factor thrash; (3) **duplicate-binary fix** — the big one:
-  `kernel_delete_binary` refuses `copies==2` (one id per pair), so Factor couldn't
-  delete duplicated grid binaries → it *bloated* instead of factoring (real
-  instances are ~50 % dup binaries; mp1 had 137 700 dup pairs). Fix:
-  `kernel_delete_binary_all_copies` (DRAT-only; sound because no copy survives) +
-  `binary_partners` dedup, touching ONLY Factor's grid pairs (a *global* dedup
-  wrecks base search: mp1→23.9M+ conflicts — the dups are load-bearing for CDCL).
-  A `binary_ids.size() ≥ num_output_vars` **density short-circuit** keeps Factor a
-  NoOp on binary-sparse instances → **Tier A neutral** (199/200 == baseline).
-  Validation: units 29/29; fuzz default + `--random-policy` + Factor-in-slot
-  1000/0 each (drat-trim); x9 DRAT VERIFIED.
-  **Measured baseline (clean, 2026-07-20): `benchmarks/reports/2026-07-20-tierB-vs-kissat.md`
-  — Tier B 14/14 solved (first time!), PAR-2 70.0 vs kissat 6.26 (~11×).** Gap is
-  bimodal: ~half the set ≤3× (we beat kissat on qwh), but clique/hwmcc/battleship/
-  mp1 are 22–58× and 77 % of our time. Trajectory 7/14→11/14→13/14→14/14, PAR-2
-  322.9→70.0 over ~9 days. **Re-run that exact set (jobs=4, uncontended) after each
-  lever and compare per-instance ratios — it is the baseline to beat.**
-  **→ Next work (by leverage):** (1) **E2 Factor S2 — PARTIAL, banked
-  (2026-07-20).** Landed: kissat-style **seed max-heap** (`watches_score` key,
-  re-scored after each applied factoring) + **scored tie-break** among equal
-  co-occurrence candidates, replacing the literal-index scan and first-max tie.
-  mp1 proxy **4.44M → 2.50M** conflicts (heap alone 3.81M); legacy path verified
-  byte-identical. **FULL-SOLVE win, attributed by measuring the parent commit
-  uncontended on the same machine: mp1 3.66M conflicts/138.9s → 1.48M/50.5s
-  (2.5× fewer conflicts, 2.75× faster); the parent's 3.66M reproduces the figure
-  PROGRESS already recorded, confirming the setup. mp1 vs kissat 18.9× → 6.9×.**
-  Tier B re-run still owed before updating the headline PAR-2. Fuzz 400×4 legs 0 failures (default/random-policy/ASCII-DRAT
-  natively, +LRAT), units 29/29. `TACTIX_FACTOR_FORCE` re-added so fuzz exercises
-  Factor below the density gate.
-  **Scale of the prize (measured):** BVA is worth **32×** on mp1 — kissat needs
-  9.91M conflicts with `--factor=false` vs 305k with its own factoring. We now
-  capture ~1.8× of that. **Hypotheses KILLED by measurement — do not re-litigate:**
-  (a) **S4/large-clause grids** — `kissat --factorsize=2` (binary only) scores
-  304.5k ≈ its 305.7k default, so large remainders are worth nothing on mp1;
-  (b) **micro-grid flood / delta bound (D2)** — backwards: kissat applies MORE
-  tiny grids than us (329 with delta≤2 vs our 149; medians 3 vs 8);
-  (c) **duplicate binaries** — irrelevant to kissat (deduped mp1 → 280.9k, grid
-  shapes unchanged). **RESOLVED 2026-07-20 and the old "dups are load-bearing"
-  note was WRONG:** dedup does not hurt search, it *enables a harmful BVE*
-  (`bve 0 eliminated` on the original vs `300 eliminated` deduped; disabling BVE
-  on the deduped formula gives 2.37M/58.7s vs 20.54M/613.2s). Duplicates inflate
-  occurrence counts so our growth bound rejects every candidate — mp1 is
-  accidentally protected. See (2) and
-  `benchmarks/reports/2026-07-20-bve-bimodal-profiling.md`;
-  (d) **BVE-before-Factor ordering** — hoisting Factor ahead of BVE leaves the
-  formula it sees byte-identical (`lits=3520 max_degree=102`);
-  (e) **D4 extension-remainders** — real but small: ablated INSIDE kissat it costs
-  only 1.65× (466k vs 283k, 5 seeds); porting it to us did not unlock wide grids.
-  **THE UNRESOLVED CORE — start here:** our grids hard-cap at **27×27 (delta 675)**
-  in every configuration tried, while kissat reaches **22×64 and 15×80** (delta
-  1322/1105) on the SAME formula where max binary degree is 102, so those
-  rectangles are structurally available to us. Remainder width 5.41 (ours) vs
-  9.42 (kissat) on pure-original grids. Our chain growth + best-prefix argmax were
-  verified EQUIVALENT to kissat's, and seed order / tie-break / score / remainder
-  boundary / BVE order are all now eliminated — so the cause is upstream of all of
-  them and not yet identified. **METRIC VERIFIED 2026-07-20: the m/n instrumentation
-  is faithful — cross-checked kissat's own `reduction` field against computed
-  `m·n−(m+n)` over 855 grids, 0 mismatches; kissat's tall grids (n up to 80, delta
-  up to 1322) are real, NOT an artifact. Bonus: 854/855 of kissat's mp1 grids are
-  pure-binary (`nbin==n`), so the width advantage is binary-grid SELECTION (S2),
-  not large-clause remainders (S4) — S4 confirmed not the mp1 lever.** So the
-  premise holds. **CHAIN-DIVERGENCE NARROWED 2026-07-20** (`TACTIX_GRID_TRACE` now
-  logs `init_R`/`max_n`): our chains DO start wide — 70 mp1 seeds have init_R≥50,
-  max init_R=85 — but every one collapses to best 27×27 (delta 675), which IS the
-  max-delta prefix ALONG OUR CHAIN. kissat's 22×64 (delta 1322 ≫ 675) is a
-  DIFFERENT set of 22 factors sharing 64 remainders — NOT on our chain. So the
-  greedy's myopic max-co-occurrence next-factor shrinks R too fast (85→27 by m=22),
-  diverging from the wide grid; it's chain-divergence, not a delta-preference bug
-  and not unavailable structure (the grid exists in mp1). **OPEN CONTRADICTION:**
-  the prior workflow found our next-factor `equivalent` to kissat's (both
-  max-count + watch-size tie-break), yet kissat reaches 22×64 and we don't — so
-  either a subtle next_factor detail differs or kissat finds it in a later
-  interleaved pass. **Cracking it needs a matched-seed kissat-vs-tactix chain
-  trace** (reference-clone instrumentation). DEPRIORITIZED: ~8× on one instance
-  (mp1), unresolved contradiction, real matcher work — not worth it vs the payoff
-  right now. Fast metric: `kissat --factor=false` on
-  `TACTIX_DUMP_FACTORED` mp1 = **2.50M now → 305k target**; `TACTIX_GRID_TRACE`
-  dumps m/n/delta per factoring.
-  (2) **BVE IS BIMODAL — highest-leverage open bug (report:
-  `benchmarks/reports/2026-07-20-bve-bimodal-profiling.md`).** Measured on the
-  current build, same conditions, one run at a time: **Tier B PAR-2 42.83 with
-  BVE on vs 23.30 with it off (1.84×), proofs 1907.6→558.2 MB.** But it is NOT
-  simply bad — per-instance it is bimodal: HURTS clique 221.9→5.7s (38.7×),
-  rbsat 8.5→0.58s (14.7×), hwmcc 123.8→44.7s, square, circuit; HELPS mod4block
-  13.8→38.7s (2.8×), crypto1 (2.5×), qwh (2.3×); neutral on mp1/battleship/x9/
-  FmlaEquivChain/9vliw. **So the fix is a GUARD, not a switch — do not just turn
-  it off.** Smoking gun: on clique, eliminating **10 variables** costs 25.6× in
-  conflicts (16.55M vs 647k), while kissat runs its own elimination on clique in
-  4.45s — the technique is fine, our application is not; ten eliminations doing
-  that is the signature of removing structurally load-bearing variables in a
-  symmetric instance. **ROOT CAUSE FOUND (2026-07-20): incomplete elimination.**
-  Kissat's BVE cascades — eliminating a var exposes new ones — removing 244 vars
-  (136%) on clique, 2016 (265%) on rbsat. Ours does ONE preprocessing phase with a
-  FIXED +16 growth bound (`bve.cpp:30`) and stalls: 10 eliminated on clique then
-  510 candidates abort on the bound; 41 on rbsat then 595 abort (0 clslim, 0
-  dup-hazard — purely the growth bound). Partial elimination of symmetric
-  structure is worse than none or complete. Sweep confirms: clique at
-  `TACTIX_BVE_BOUND=1000` → 28 eliminated, 5.53M conflicts/57.5s (vs 16.55M/221s
-  default; kissat 570k/4.3s) — raising the bound helps but does not reach
-  completeness. The mp1 "dups" story is the SAME mechanism: dups inflate
-  occurrences so BVE stalls at 0 (safe); clique/rbsat stall partway (harmful).
-  **MECHANISM CONFIRMED + BOTH candidate fixes KILLED (2026-07-20, adversarial
-  review):** (a) NOT gates — instrumented tally shows kissat finds ~0 gates on
-  these instances (clique 5 total, rbsat 0) yet eliminates 244/2016 via non-gate
-  full cross product; "match gate detection" is dead. (b) NOT the bound — kissat's
-  bound formula is identical to ours and its pass-1 bound is 0 (stricter than our
-  16) yet it eliminates 84 vs our 10; kissat counts resolvents the same way;
-  clique has 0 dup binaries. The real enabler is the CASCADE sustained by
-  forward-subsumption between eliminations + interleaving with search (never
-  freezing a partial). BUT completing the cascade is the WRONG fix: elimination is
-  neutral-to-harmful for kissat ITSELF on clique (504k no-elim vs 570k), BVE-off
-  already matches kissat there, and complete BVE is CATASTROPHIC on mp1 (deduped
-  20.54M/613s) — the earlier "could unlock mp1" note was wrong. Interleaving was
-  already tried + backed out (FmlaEquiv 27→198). **→ RESOLVED 2026-07-20 — Tier C
-  A/B done (`benchmarks/reports/2026-07-20-bve-tierC-ab.md`): BVE STAYS ON, the
-  simple flip is DEAD.** BVE-off LOSES 2 Tier C solves (mp1-Nb5T15 1s→timeout,
-  Ptn-7824 161s→timeout) and is worse PAR-2 (507 vs 366); BVE is net-positive on
-  Tier C, net-negative on Tier B; solves outrank PAR-2. **User confirmed: keep BVE
-  on.** Remaining lever = a policy-slot STRUCTURAL SKIP (skip BVE on the harmful
-  structure — clique/rbsat/jgiraldezlevy/ContextModel/hwmcc — while keeping it
-  where load-bearing — mp1-Nb5T15/Ptn-7824/DLTM/mod4block/crypto1/qwh). **DONE
-  2026-07-20 — NEGATIVE, lever CLOSED
-  (`benchmarks/reports/2026-07-20-bve-skip-feasibility.md`):** no static CNF
-  feature separates harmful from helpful (best 4/13 misclassifications ≈ chance);
-  clique (harmful) and qwh (helpful) are structurally identical (deg_cv ~0, binfrac
-  ~0.99, dense uniform cardinality) yet opposite BVE effect — the harm is DYNAMIC
-  (search-tree reshaping), not static. Survivors, both out of near-term scope:
-  dynamic try-both (2× preprocess) or learned scheduling (§5.6 RL endgame is the
-  natural home for the BVE-on/off decision). BVE STAYS ON. Diagnostic knobs
-- **⚡ BVE FIX RE-OPENED (2026-07-20 late) — user's point is right: kissat avoids
-  bimodal with NO RL, so a static/algorithmic fix EXISTS.** Decisive decomposition
-  (`TACTIX_DUMP_CNF` dumps post-BVE formula): feeding our post-BVE clique (10 vars
-  eliminated) to **kissat's own search** (`--eliminate=false --factor=false`)
-  **times out >300 s**, vs kissat solving the ORIGINAL clique in ~5.6 s. So our
-  10-var PARTIAL elimination produces an **intrinsically-hard formula** (any solver
-  blows up), NOT a search-heuristic problem. U-shape confirmed: none=easy (5.6 s) /
-  partial=hard (>300 s) / complete=easy (kissat 244 vars, 4.45 s). **FIX = reach
-  completeness like kissat.** Mechanism pinned: on pristine clique kissat eliminates
-  68 in one pass at bound 0 (STRICTER than our 16) yet we stall at 10 — so kissat's
-  per-variable resolvent count is LOWER → it excludes **subsumed** resolvents
-  (forward-subsumption during elimination) which we count, inflating past the bound.
-  **ATTEMPTED + PARTIAL, NOT SHIPPED (2026-07-20 late).** Implemented sound
-  forward-subsumption of resolvents (`TACTIX_BVE_SUBSUME`, default-OFF,
-  `bve_resolvent_subsumed` reusing subsume_forward's `subsumes_marked`;
-  fuzz-clean: default DRAT + random-policy LRAT 800/0). It DOES move toward
-  completeness — clique 10→20 vars eliminated, 192s→88s (2.2×). **But it's
-  NET-NEGATIVE**, because the U-shape punishes PARTIAL-more: it HELPS
-  under-eliminated instances (clique) while pushing WELL-eliminated ones off the
-  bottom into the harmful middle — mod4block 11s→121s (10× WORSE), crypto1
-  7.8s→17.4s. Higher bound + subsumption plateaus (clique 26 vars/81s at bound 64,
-  then growth hurts). Root issue: **only TRUE completeness (kissat's ~all-vars,
-  far-right of the U) is benign for every instance; any partial step regresses
-  someone.** kissat reaches 84 in ONE pass where our subsumption reaches only 20 —
-  and `kernel_add_large_clause` already maintains the occ index (cross-elimination
-  subsumption works), so the 20-vs-84 gap is NOT simply more subsumption; some
-  other kissat elimination behavior (within-elimination incremental connect,
-  order, or the escalating-bound cascade) is still unmatched. **So the fix is
-  real but larger than a subsumption tweak: match kissat's elimination to TRUE
-  completeness, validated to not regress mod4block/crypto1. SUBSUME kept as a
-  sound, fuzz-clean BUILDING BLOCK (default-off); do NOT default it alone.**
-  Default byte-identical (mp1 1,482,563), units 29/29.
-  committed (`TACTIX_NO_BVE`, `TACTIX_BVE_BOUND`, `TACTIX_BVE_TRACE`), default-off. (3) **V5 Sweep** → FmlaEquivChain 4.9× (profiled equivalence-chain
-  lever); (3) search quality on clique/battleship (raw-search gap, no inprocessing
-  lever applies). **`revisit-codebase` pass DONE 2026-07-21** (task #38 +
-  this session's churn): dead diagnostic scaffolding removed inline (`simplify:`
-  `9798642`, −129 lines, default byte-identical); structural items routed in
-  `benchmarks/reports/2026-07-21-review-bve-factor-cleanup.md` — density=8
-  rule/policy leakage → effort-budget scheduler (rev 53); binary-watch-scan idiom
-  dup ×7 → a bounded hygiene pass; Factor grid-generator fuzz → next fuzz pass. *(Also open: **task #39** —
-  `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/` (instant
-  under DefaultPolicy; N1 robustness, not soundness). Orphan/contention hazard is
-  fixed: `fuzz.py`+`run.py` now set an `RLIMIT_CPU` backstop (commit 5462989) so
-  hung children can't outlive their budget. Prior: Tier C w/ congruence 345.75
-  (28/30) — note that older figure was contention-inflated. Congruence follow-ups:
-  clique extraction DROPPED, XOR/ITE native-LRAT DEFERRED (D-CONG-LRAT). Base
-  soundness-green: 20k nightly 20000/0 — `nightly-rev48.log`.)*
+  **▶ TWO STRUCTURAL PREREQUISITES — the immediate work. Either may go first.**
+  - **P1 · a per-variable RETRY FILTER for BVE** (kissat `flags->eliminate`).
+    Without it `bve_schedule` re-ranks and re-attempts every candidate on every
+    call, so repeated elimination re-generates resolvents for the whole variable
+    set, nearly all rejected (`mod4block` 3.5 M resolutions for 9 eliminations).
+    *Sizing:* a `kernel_mark_garbage` helper + migrating the ~8 direct
+    `Clause::GARBAGE` sites (analyze/reduce/strengthen/subsume/substitute), a
+    `bve_retry` bitmap marked on **irredundant** add/delete only (marking on
+    redundant learned-clause adds would mark everything and defeat it), the filter
+    in `bve_schedule`, clear-on-attempt. **Gates repeated during-search BVE.**
+  - **P2 · a NON-MUTATING PROBING PROPAGATION PATH** (kissat `proprobe.c`).
+    `kernel_propagate` relocates watches and rewrites per-clause `searched` hints
+    even when a probing round derives nothing — see Lesson L3. **Gates all four
+    probing rules** (V1/V2/C3/V4, all disabled). V2 Backbone is the existence
+    proof that a non-mutating engine fits here (`kernel.cpp` binary engine:
+    "binary watches are permanent, so there is no watch mutation").
+  - **Then, gated on them:** re-try Vivify, then Probe/Backbone/TransitiveReduce
+    one at a time; bring during-search inprocessing back with them, reusing the
+    per-technique-interval shape. Independently: **V5 Sweep** (needs the kitten
+    sub-solver, plan O11) and **E2 Factor S2** (grid matching — the `mp1` gap,
+    diagnosis banked 2026-07-20).
+
+- **Standing lessons — measured, do not re-derive.** (Detail in the commits and
+  reports cited; these one-liners exist so the next session does not repeat them.)
+  - **L1 · Removing BVE from preprocessing *alone* loses.** Tier B 20.6→32.8;
+    Tier C loses 2 solves (`mp1-Nb5T15`, `Ptn-7824`) at PAR-2 507 vs 366
+    (`benchmarks/reports/2026-07-20-bve-tierC-ab.md`). It also makes
+    `combined-crypto1` *worse* (24.2→45.5 s). Only valid as half of the full
+    arrangement above.
+  - **L2 · During-search BVE *alone* loses**, three variants: one slot-wide
+    interval (20.7→22.5), per-technique intervals (23.0→24.1), and recurring BVE
+    with the growth-slack ramp (20.8→32.9, 13/14 worse). Root cause is P1, not
+    tuning. With the current composition there is nothing else worth doing during
+    search either — BVE at preprocessing already captures the value.
+  - **L3 · `NoOp` is not a no-op.** A probing round that changes nothing still
+    reorders watch lists; that alone cost `battleship` 12× conflicts
+    (1.95 M→24.0 M). Restoring those structures reproduces the rule-off run
+    bit-identically. So probing is *not* intrinsically SAT-hostile — its side
+    effects are unbudgeted. Ruled out as channels: the VMTF cursor (bit-identical)
+    and arena GC. → P2. (`6a8d159`)
+  - **L4 · The BVE dose curve is U-shaped**, not monotone: `crypto1` at ~300
+    eliminations 8.1 s, 386 → 24.7 s, 0 → 45.5 s. Elimination *quality* beats
+    quantity — kissat's growth-slack ramp took it to 6.9 s with 71 eliminations.
+  - **L5 · The bimodal-BVE saga is CLOSED** — it was a Factor↔BVE *ordering*
+    interaction, not a BVE-internals problem: BVE-last + Factor `density=8`
+    shipped as default (`5111bc7`; Tier B 42.6→23.3, Tier C 28→29/30). Both remain
+    overfit stopgaps the full arrangement should retire. Dead ends already paid
+    for, do not retry: resolvent-subsumption alone, escalating bound alone,
+    `--bve-gates=none`, deep Strengthen/Subsume interleaving, and a static
+    "skip BVE on harmful structure" separator (no static CNF feature separates
+    harmful from helpful — best 4/13 misclassifications ≈ chance,
+    `benchmarks/reports/2026-07-20-bve-skip-feasibility.md`).
+  - **L6 · Measurement hygiene.** Solo spot-checks MISLEAD (`hwmcc` looked like a
+    57→47 s win solo, neutral at jobs=4); only same-window A/B at equal
+    concurrency counts. HEAD's Tier B spread is ~21.4–23.0 PAR-2 across runs, so a
+    candidate must beat ~21.4 to be a real gain. Never compare across job counts.
+
+- **Open items (small, none blocking).** `D-CONG-UNIT` — V6 has no unit channel
+  and can never refute; it is why `hwmcc17miters` costs 25× kissat (kissat solves
+  it with congruence alone at 0 conflicts; our congruence finds the *same* 710 722
+  equivalences). Fix ≈200–300 lines in V6, but **`D-CONG-LRAT` must close first**
+  (the XOR/ITE degeneracies are DRAT-only today) and it needs a `stress-policy`
+  pass, since V6 has never returned `Unsat` (`11774d4`; ledger
+  `docs/implementation-notes.md` §2). `D-CONG-DELETE` — transient ladder lemmas
+  never deleted (proof size only). **Task #39** — `--random-policy` livelock on 5
+  tiny cases in `tools/fuzz/known-hangs/` (N1 robustness, not soundness).
+  `examples/demo3_scripted_default.c`'s mirror has `SLOT_IN_DEFAULT 0` while
+  DefaultPolicy's is `true`, so its inprocessing block is dead code — a
+  revisit-codebase item. Nightly soundness green: 20 000/0 (`nightly-rev48.log`).
 
 ## Non-negotiables status (plan §1.1)
 
@@ -583,361 +239,74 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-21 — REPEATED during-search BVE + the growth-slack ramp: THREE variants, all net-negative. The blocker is now named: BVE has no per-variable RETRY FILTER.
-User directive: run BVE repeatedly during search and implement kissat's ramp.
-Built all of it; measured; reverted the scheduling. **What landed instead is the
-one piece that is independently correct: `Kernel::bve_bound`** — the growth slack
-is now POLICY-CONTROLLED configuration (default `BVE_MAX_BOUND` = 16, so default
-behaviour is bit-identical: `square` 18 420 eliminated / 1 000 046 resolutions /
-13 453 conflicts, unchanged). It was previously a private constant reachable only
-through an env var, i.e. not policy-reachable at all — an N1 gap, and a
-prerequisite for every future attempt.
+### 2026-07-21 — plan rev 54: the scheduler re-scoped from measurement
+Rev 53 assumed the effort scheduler needed **no kernel change** and that the hard
+part was tuning. Three measured attempts say otherwise: it needs **P1** (BVE
+per-variable retry filter) and **P2** (non-mutating probing propagation), both
+kernel-level, and the target arrangement must land as ONE unit because every
+half-state measures worse — an explicit, scoped exception to §8.3 per-increment
+gating, recorded in the §9 phase-3 row. Also compacted PROGRESS (1083 → ~440
+lines) and this log: today's six entries collapse to the one below, and the
+closed BVE-bimodal saga compresses to Lesson L5 + its commits/reports. Nothing
+pruned that is not preserved in git, `benchmarks/reports/`, or
+`docs/design/effort-scheduler-design.md`.
 
-- **Variant 1 — all six bound levels inside ONE preprocessing phase**
-  (0,1,2,4,8,16, re-scheduling at each level). **Tier B 20.73 → 22.54.** Wins
-  where the dose was the problem: `combined-crypto1` **24.41 → 6.94 s** (3.5×,
-  *below* its 8.13 s pre-increment-1 baseline — 71 eliminations instead of 386,
-  i.e. the ramp picks BETTER eliminations, not fewer). Losses: `hwmcc` 55.9 →
-  87.7, `qwh` 1.9 → 5.7, `FmlaEquiv` +7.1 s. Two counters explain it: at bound 0
-  eliminations are CHEAP, so the same 1 M-resolution budget buys 76 % MORE of them
-  (`hwmcc` 37 509 → 66 173) and the result is worse; and `qwh` burns **1 M
-  resolutions for 4 eliminations** — at a low bound nearly every candidate is
-  generated, counted, then rejected, and my loop re-attempted the same doomed
-  variables at all six levels.
-- **Why that was a mis-port:** kissat escalates ONE level per `eliminate()` call
-  (`set_next_elimination_bound` is called once at the END of each call), with
-  thousands of conflicts of search in between. Collapsing six levels into one
-  phase is not kissat's ramp. **The ramp and repeated elimination are the SAME
-  mechanism** — which is an independent confirmation of the user's directive.
-- **Variant 2 — the faithful version: BVE recurring on its own growing interval
-  (kissat `eliminate` counter), ONE bound level per phase, escalating only on a
-  COMPLETE level, plus the never-in-the-same-conflict-as-a-reduction gate.**
-  **Tier B 20.84 → 32.87, 13/14 instances WORSE** (`mod4block` 8.7 → 101.8,
-  `hwmcc` 58 → 89, `mp1` 57 → 77, `FmlaEquiv` 50 → 70, `9vliw` 6.5 → 14.2 …);
-  only `combined-crypto1` improved (24.3 → 8.9). Sum 291.7 → 460.1 s.
-- **THE BLOCKER, named:** kissat's `flags->eliminate` — a per-variable "worth
-  retrying" bit, set by `kissat_mark_added_literal`/`mark_removed_literal` when a
-  clause containing the variable changes, cleared when the variable is attempted,
-  and consulted by `schedule_variables`. **We have no analogue**: `bve_schedule`
-  re-ranks and re-attempts EVERY candidate on every call, so each recurring phase
-  re-generates and re-counts resolvents for the whole variable set, nearly all of
-  which are then rejected. That is why repeated BVE is quadratic waste here
-  (`mod4block`: 3.5 M resolutions for 9 eliminations). No scheduling or budget
-  tuning can fix it — the filter is the missing mechanism.
-- **Sizing (why it was not done in this session):** it is a structural change,
-  not a patch. Large-clause deletion is done by rules setting `Clause::GARBAGE`
-  directly at **8 sites** across analyze/reduce/strengthen/subsume/substitute, so
-  the mark hook needs a `kernel_mark_garbage` helper plus migration of all of
-  them, then a `bve_retry` bitmap on the Kernel (marked on irredundant add/delete
-  only — redundant learned-clause adds must NOT mark, or search would mark
-  everything), the filter in `bve_schedule`, and a clear-on-attempt. **Route:
-  `revamp` skill + a design pass**, per CLAUDE.md §5.4.
-- **Sound throughout** (the ramp build): DefaultPolicy DRAT 1000/0, random-policy
-  DRAT 400/0, native LRAT 400/0, random-policy + native LRAT 400/0 — including
-  bound 0, a regime never previously exercised.
+### 2026-07-21 — rev-53 session: increment 1 LANDED; three further increments measured and REVERTED; two structural prerequisites named
+Design + full evidence: `docs/design/effort-scheduler-design.md`. Commits
+`cbbe3ce` (increment 1), `11774d4` (D-CONG-UNIT), `a93ff51` (Tier C), `fe4c8ff`
+(3-way), `6a8d159` (NoOp finding), `4a32ce3` (`Kernel::bve_bound`).
 
-### 2026-07-21 — BVE-off re-measured: removing preprocessing BVE *by itself* is dead. (First written as "the composition split is dead" — CORRECTED below: it is the PIECEMEAL split that is dead, not kissat's arrangement.)
-Earlier today's entries named the composition split (`fastel = 0`) as an
-increment and as "the principled fix for `combined-crypto1`". The second claim is
-simply wrong (BVE-off makes crypto1 *worse*). The first was **over-stated**: what
-these numbers refute is removing preprocessing BVE **on its own, on a pipeline
-with no probing** — the very condition kissat does not operate under. Per the
-user directive recorded in the resume anchor, the target remains kissat's FULL
-arrangement (no preprocessing BVE + probing + elimination during search), landed
-as one unit. Read this entry as a constraint on ORDERING, not as a veto.
+**Landed — increment 1, the effort ledger.** kissat `SET_EFFORT_LIMIT` ported
+policy-side: each slot entry's dose is a per-mille fraction of the SEARCH work
+since it last ran, floored at `mineffort`, metered in the rule's own currency
+(BVE resolutions, subsumption checks, ticks). Replaces `INPROCESS_PHASE_BUDGET =
+300`, an application count blind to formula size (300 eliminations on a
+1.45 M-variable formula). BVE is dosed via `instances()`/`apply_instance()` from
+one schedule per phase instead of repeated canonical applies that each re-ran an
+O(formula) schedule; and clause reclamation moved out of `bve_eliminate` (the
+canonical round still collects; the dosing path leaves it to the scheduler).
+*The reclamation move was the entire efficiency win and it is trajectory-neutral*
+— restoring a per-dose collect gives byte-identical conflict counts but takes
+`hwmcc` from 60 s to not finishing in 55 min. It also re-explains the older
+"unbounded BVE is catastrophic" result: it was the collects, not the volume.
+**Tier A neutral (200/200), Tier B 21.41→20.85, Tier C 286.0→273.9 (29/30), no
+lost solves**; Tier C rescued `jgiraldezlevy` 363.8→1.4 s, one of two losses
+carried since the 2026-07-19 revamp. Costs: `combined-crypto1` 8.1→24.7 s,
+`ContextModel` 9.2→84.6 s, `T87.2.0` 601→839 s. Peak RSS +1.5 %; proof bytes
++14 %, check time unchanged. Sound: DefaultPolicy DRAT 1000/0, random-policy DRAT
+400/0, native LRAT 400/0, random-policy+LRAT 400/0, ctest 29/29. Known gap: our
+candidate snapshot goes stale within a round where kissat re-scores its heap
+incrementally (+5–13 % conflicts on the Tier A `tr-*` family).
+`examples/demo3_scripted_default.c` re-pinned 132/562 → 152/647: the old size sat
+~2.4 k conflicts, barely past the 2000-conflict reduce threshold, so an ordinary
+trajectory shift dropped it under and the coverage assertions failed on a
+Tier-A-neutral change.
 
-- **Fresh Tier B, current code, `TACTIX_NO_BVE=1` vs default** (jobs=4, one
-  window): **32.82 vs 20.61 PAR-2**, 14/14 both, sum of times **288.6 → 459.4 s**.
-  Strongly bimodal per instance, as this project has documented before —
-  removing BVE costs `mod4block` 8.7 → 166.9 s (**19×**), `summle` 4.7 → 22.8
-  (4.8×), `qwh` 1.9 → 7.6 (3.9×), `9vliw`, `clique`, `circuit`; and it *gains*
-  `rbsat` 10.9 → **0.36 s (30×)** and `hwmcc` 55.9 → 27.7 (2×).
-- **It does not fix `combined-crypto1` — it makes it worse.** 24.2 s with BVE,
-  **45.5 s without**. The curve is U-shaped in the DOSE, not monotone in BVE:
-  ~300 eliminations → 8.1 s (the old application cap), 386 → 24.7 s (increment 1),
-  0 → 45.5 s. So the increment-1 regression there is a dose-tuning problem, not
-  an argument for removal.
-- **Already settled on Tier C, 2026-07-20** (`benchmarks/reports/2026-07-20-bve-tierC-ab.md`,
-  and the note at the "BVE STAYS ON" entry below): BVE-off **loses 2 Tier C
-  solves** (`mp1-Nb5T15` 1 s → TO, `Ptn-7824` 161 s → TO) and PAR-2 507 vs 366.
-  Solves outrank PAR-2. Note those are precisely the two instances increment 1
-  improved most (24.3 → 2.1 s and 164.5 → 53.7 s): preprocessing BVE is
-  load-bearing exactly there. A selective structural skip was also measured and
-  CLOSED (`2026-07-20-bve-skip-feasibility.md`).
-- **Why kissat's `fastel = 0` does not transfer.** kissat can skip preprocessing
-  elimination because it eliminates DURING SEARCH, on a formula its probing
-  pipeline has already simplified. We measured today that during-search BVE is
-  harmful for us (`summle` 5.3 → 18.4 s, BVE burning 13.6× the resolutions and
-  search getting *harder*, 42.7 k → 99.3 k conflicts — the increment-2 entry).
-  So BOTH halves of kissat's arrangement fail here: we cannot drop preprocessing
-  BVE (loses solves) and we cannot move it into search (loses time). Porting the
-  split without the pipeline that makes it work loses on both ends.
-- **What would actually help `combined-crypto1`** is making elimination benign at
-  a larger dose (completeness/ordering — the long-running thread below), or the
-  kissat-style incremental re-ranking the design doc names as increment 1's known
-  gap. Not removal-in-isolation.
-- **What these numbers do NOT show** (the correction): they do not test kissat's
-  arrangement, because in it BVE runs during search **on a formula probing has
-  already simplified** — occ ~36 → ~5 on `clique`, the observation that started
-  the whole bimodal thread. Our during-search BVE test ran on a formula NOTHING
-  had probed, since all four probing rules are disabled. So "during-search BVE is
-  harmful" is established **for our current pipeline only**, and is precisely the
-  symptom the probing pipeline is supposed to remove.
+**Reverted, with what each measurement bought.** During-search inprocessing, two
+variants (slot-wide interval 22.82→27.71; per-technique intervals 23.01→24.10);
+C3 Vivify enabled alone (20.60→38.75); recurring BVE with the growth-slack ramp
+(20.84→32.87, 13/14 worse) and the same ramp compressed into one preprocessing
+phase (20.73→22.54). No code from these landed. They established Lessons L1–L4
+and L6 in the top matter, and between them named the two structural
+prerequisites (P1 retry filter, P2 non-mutating probing propagation) that the
+rev-53 plan did not anticipate. The ramp is worth re-trying once P1 exists: it
+took `crypto1` to 6.9 s with 71 eliminations, below its 8.1 s pre-increment
+baseline, because it picks *better* eliminations rather than fewer.
 
-### 2026-07-21 — ★ `NoOp` IS NOT A NO-OP: a probing round that changes nothing still wrecks SAT search. This is why the probing family has never been schedulable.
-Found while activating C3 Vivify (rev-53 increment 3, measured → reverted, below).
-**This supersedes the standing explanation** that probing is intrinsically
-SAT-hostile ("battleship breaks at ANY budget — even 2000 ticks", 2026-07-19),
-which is the premise on which V1 Probe, V2 Backbone, C3 Vivify and V4
-TransitiveReduce have ALL been left disabled.
-
-- **The observation.** With Vivify enabled, `battleship-14-26` goes 17.9 s →
-  253.4 s (14×) — and Vivify **vivified 0 clauses** there (`vivify 1 rounds,
-  0 vivified, 0 deleted`), i.e. the formula was bit-identical afterwards. Yet
-  conflicts went **1 951 393 → 24 016 197 (12×)**.
-- **The cause, isolated.** A probing round mutates kernel structures IN PLACE
-  even when it derives nothing: `kernel_propagate` relocates watches (the delayed
-  replacement path, `kernel.cpp:402-410`) and rewrites per-clause `searched`
-  scan-resume hints (`:382-395`). Snapshotting the arena + watch lists around a
-  batch apply and restoring them when the rule returns `NoOp` gives **bit-identical
-  behaviour to Vivify-off: 1 951 393 conflicts, 14.05 s vs 13.76 s.** So the whole
-  14× is side effects of a round that reported "nothing to do".
-- **Ruled out** (each verified, not assumed): the VMTF decision cursor — restoring
-  `search_idx`/`search_stamp` around the phase leaves conflicts *bit-identical*
-  (24 016 197), so the branching cursor is NOT the channel; and `vivify_apply`
-  does not collect garbage on a NoOp round (`vivify.cpp:257-262` returns before
-  the collect), so arena compaction is not it either.
-- **Why this matters beyond Vivify.** `ApplyResult::NoOp` is specified as "guard
-  held but nothing to do" (`registry.hpp:20`). It actually means "nothing
-  *logical* changed, but I permanently reordered your propagation structures".
-  Every policy that reasons about NoOp is being misled — including the §5.6
-  learned policy this architecture exists to serve. And it reframes the probing
-  family: they may be affordable after all; what is unbudgeted is their SIDE
-  EFFECTS, not their work.
-- **kissat's answer, for the port:** it does not probe with its search
-  propagator. `proprobe.c` is a SEPARATE propagation engine, which is how probing
-  can run everywhere without disturbing search. Our V1/V2/C3 all call
-  `kernel_propagate` (V2 Backbone alone uses the binary-only engine, which
-  explicitly does NOT mutate watches — `kernel.cpp:451-456`).
-- **The snapshot is NOT a fix — it is unsound.** Restoring `k.arena` rolls the
-  arena back underneath `k.dense`, the clause ids and the proof stream, which
-  still hold post-apply state: on Tier B it **segfaulted on `qwh.50.1250`**
-  (verdict UNKNOWN at 1.0 s). It served only to isolate the cause; the Tier B
-  number from that arm (64.81) is contaminated and must not be quoted. The real
-  fix is a probing propagation path that does not mutate search structures.
-- **▶ Next action this implies:** a non-mutating probing propagate is a
-  PREREQUISITE for the whole probing half of rev 53 (Vivify + Probe + Backbone +
-  TransitiveReduce), so it should come before any further attempt to schedule
-  them. Sizing + design not started.
-
-### 2026-07-21 — rev-53 increment 3 (enable C3 Vivify) — NEGATIVE RESULT, REVERTED (no code landed)
-Enabled alone in the slot under its effort meter (`TACTIX_NO_VIVIFY` was the A/B
-knob). **Tier B 20.60 → 38.75, 14/14** (no lost solve) — reverted.
-- Losses: `battleship` 17.9→253.4 (14×, and see the entry above — it is a side
-  effect artifact, not vivification), `mod4block` 8.7→30.3 (3.5×), `qwh` 1.9→7.7
-  (4×), plus small losses on 7 more.
-- Wins, and they are the instances theory predicts (chain/miter UNSAT):
-  `FmlaEquiv` 50.8→41.2, `x9` 34.9→27.7, `summle` 4.4→3.4, `square` 3.0→2.3.
-- **Excluding battleship it is still +6.9 %** (270.5 → 289.1 s), so Vivify is not
-  a win today even discounting the artifact — but how much of `mod4block`/`qwh`
-  is the same NoOp side-effect channel is UNMEASURED, and cannot be settled until
-  the non-mutating probing path exists.
-- Method note for whoever re-measures: solo spot-checks MISLED here — solo,
-  `hwmcc` looked like a 57→47 s win; at jobs=4 in the A/B it is 54.9→55.2, i.e.
-  neutral. Only same-window A/B numbers count.
-
-### 2026-07-21 — rev-53 increment 2 (during-search inprocessing) — NEGATIVE RESULT, REVERTED (no code landed). It must come back WITH Vivify, not before it.
-Two variants built and measured on Tier B (jobs=4, A/B against HEAD in one
-window); both missed, so both were reverted per the working discipline.
-
-- **Variant A — one slot-wide growing interval** (kissat `NLOG2N ×
-  scale_delta`, plus the never-in-the-same-conflict-as-a-reduction gate —
-  `probe.c:21`/`eliminate.c:28`, verified today; note this *corrects*
-  `inprocessing-revamp-design.md` §C-ii, which read that gate as
-  piggybacking simplification onto a reduction, i.e. backwards).
-  **Tier B 22.82 → 27.71 (+21 %), 12/14 instances worse**, 14/14 solved.
-  Notably NOT the 2026-07-18 failure mode: `battleship` (18.82→18.70) and
-  `hwmcc` were untouched, so the bounded doses + the reduce gate DID prevent the
-  SAT-disruption catastrophe. The cost was elsewhere.
-- **The ablation that explains it** (`summle_X4044`, a clean 2×2):
-  | | BVE on | BVE off |
-  |---|---|---|
-  | preprocess only | **5.3 s** | 21.6 s |
-  | during search | 18.4 s | **8.7 s** |
-  Simplification during search is a **2.5× win**; more BVE during search is a
-  **3.5× loss**. Variant A coupled them through one shared interval, so the loss
-  swamped the win. Counters confirm the mechanism: BVE 1.0 M → 13.6 M resolutions
-  and conflicts 42.7 k → 99.3 k — the extra elimination made search *harder*.
-  (A first hypothesis — that the unmetered batch rules' O(arena) setup was the
-  cost — was WRONG: only 4 phases fired, 12 rounds vs 3.)
-- **Variant B — per-technique intervals** (kissat's real structure: separate
-  `limits.probe` / `limits.eliminate` counters; BVE preprocess-only, the rest on
-  the growing interval). Much closer but still misses: **Tier B 23.01 → 24.10
-  (+4.7 %)**, 14/14, **7 wins / 7 losses** — `rbsat` 11.7→5.3 (2.2×), `mod4block`
-  9.3→7.0, `9vliw`, `crypto1`, `battleship` vs `FmlaEquiv` 56.8→71.6 (+14.8 s,
-  which alone is the net), `summle` 5.5→7.9, `circuit` 9.4→12.6, `clique`.
-- **Conclusion (this is the useful part).** With our CURRENT composition there is
-  nothing valuable left to do during search: BVE at preprocessing already
-  captures the simplification value, and re-running Congruence/Substitute/
-  Strengthen/Factor during search costs more than it returns. The techniques
-  kissat actually spends its during-search budget on are **Vivify and Sweep** —
-  the two we do not run. So **during-search inprocessing is not a standalone
-  increment; it is a consequence of having something worth doing during search.**
-  **Increment order changed: Vivify (was 3) becomes the next increment, and
-  during-search returns with it.** Per-technique intervals are the right shape
-  when it does (variant B's machinery is the design to re-apply, not variant A's).
-- Run-to-run context for anyone re-measuring: HEAD measured 21.41 / 22.82 / 23.01
-  PAR-2 across three Tier B runs today at jobs=4 (~7 % spread), so a candidate
-  needs to beat ~21.4 to count as a real gain.
-
-### 2026-07-21 — V6 Congruence has NO UNIT CHANNEL (`D-CONG-UNIT`) — the real reason `hwmcc-miters` costs us 25× kissat
-Doc-sync only (no code): `docs/calculus.md` §6 V6 + `docs/implementation-notes.md`
-§1/§2. Found while measuring kissat per technique for the rev-53 scheduler.
-
-- **The standing diagnosis in this file was wrong.** `hwmcc17miters-oski15` was
-  recorded as "needs Sweep+probing". Measurement says otherwise: kissat solves it
-  in 2.19 s with `search_ticks = 4`, **0 conflicts**, congruence 70 % of runtime,
-  `congruent: 711 434` (49 % of variables), `units: 1422`, and zero
-  eliminate/backbone/transitive/kitten work. **Our V6 finds the same collapse**
-  (2 058 212 gates, 710 722 equivalences; V3 Substitute applies them — its
-  duplicate-binary bail-out does not fire — and a second pass finds 0 more). We
-  then hand a collapsed-but-unrefuted formula to search: 167 M decisions for
-  1 244 conflicts.
-- **The gap, named.** `congruence_apply` is structurally incapable of deriving a
-  unit or the empty clause. `canonicalize` DISCARDS every degenerate gate instead
-  of drawing its inference — AND with a duplicated/clashing input
-  (`congruence.cpp:255-256`), ITE whose operands share a variable (`:264-266`),
-  **XOR whose variables all cancel** (`:296-297`) — and a congruent pair whose
-  outputs are already `x`/`¬x` is `continue`d rather than refuting (`:603-604`).
-  `add_equivalence` always returns `false` (`:497`) and nothing sets
-  `inconsistent`, so **V6 has never refuted anything**. On a miter that is exactly
-  the load-bearing step: merging the two isomorphic cones makes each per-bit XOR
-  cancel to a constant ⇒ root unit ⇒ the AND-tree above collapses ⇒ contradiction
-  with the asserted top unit. kissat routes every such degeneracy through
-  `learn_congruence_unit`/`merge_literals`, BCPs each unit, and re-simplifies the
-  gates it touched (`kissat/src/congruence.c:794-816, :877-950, :1483-1516,
-  :1691-1727, :4149-4231`).
-- **Doc/code drift fixed.** `calculus.md` §6 already asserted "a merge of `x` with
-  `¬x` sets `inconsistent` → `Unsat`" while the code skipped it, with no ledger
-  entry. The abstract entry now also states the degeneracy inferences explicitly
-  (they follow from the gate semantics), and the implementation gap is recorded as
-  **`D-CONG-UNIT`** with root cause + removal path. No plan edit needed: §5.2's
-  V6 proof-delta type (`add-RUP + delete`) already covers a derived unit.
-- **Scope of the fix (not started):** ~200–300 lines in V6 (a `learn_unit` that
-  assigns + bounded-propagates + reschedules touched gates; turn the three discard
-  sites into unit/merge outcomes; keep shrunken gates in the table; refute on the
-  clashing merge — the proof construction already exists in `substitute.cpp`'s
-  `emit_unsat` + `big_path_chain`). **N2 ordering constraint: `D-CONG-LRAT` must
-  close first**, since the XOR/ITE degeneracies are only reachable where those
-  gates are extracted, which is DRAT-only today. Also needs a `stress-policy`
-  pass — V6 cannot currently return `Unsat`, so no fuzz case has ever exercised a
-  V6 refutation path.
-- **Cheapest confirming experiment before implementing:** add counters to
-  `canonicalize` for discards by cause and for the `:603` skip, then re-run
-  `TACTIX_CONG_TRACE` on hwmcc — an XOR-empty-key count ≈ 700 confirms the whole
-  chain in one run. *(Not yet run: the machine was busy with the Tier C gate.)*
-- **Caveat, stated honestly:** the profile localises kissat's refutation to
-  {congruence, substitute} inside `probe_initially`, not to congruence alone —
-  `kissat_congruence` returns a merge count, and the following
-  `kissat_substitute(solver, true)` has its own `∅` paths. The discriminating
-  counters (`congruent_units` vs `substitute_units`) were not captured. Either
-  way both are consequences of the same collapse, and the tactix-side gap above is
-  established by reading our own source.
-
-### 2026-07-21 — rev-53 increment 1: the EFFORT LEDGER replaces the application cap (BVE dosed per instance; reclamation out of the per-elimination path)
-Design + increment plan + the measured evidence: `docs/design/effort-scheduler-design.md`.
-
-- **Mechanism (kissat `kimits.h:135` SET_EFFORT_LIMIT, ported policy-side).** Each
-  slot entry's dose is now `permille` of the SEARCH work done since that entry
-  last ran, floored at `mineffort` = 10 M ticks, metered in the rule's own
-  currency — BVE in resolutions (new `stats.bve_resolutions`, kissat's
-  `eliminate_resolutions`), Strengthen/SubsumeForward in candidate checks, the
-  propagating rules in ticks. The ledger (`permille`/`meter`/`dosed`/`anchor`/
-  `limit`) lives in `SlotEntry`, so it stays posable like the rest of the slot,
-  and it already carries specs for the not-yet-enabled Probe/Backbone/Vivify/
-  TransitiveReduce. `INPROCESS_PHASE_BUDGET = 300` — an APPLICATION count — is
-  gone: it was blind to formula size (300 eliminations on a 1.45 M-variable
-  formula) and its real job was capping an O(applications × formula) loop, not
-  capping simplification. Search ticks are separated from inprocessing ticks
-  policy-side (`inprocess.ticks`; no kernel change — kissat keeps `search_ticks`
-  vs `probing_ticks`) and now also drive the stable-phase length, as in kissat.
-- **BVE is dosed through `instances()`/`apply_instance()`** from ONE schedule per
-  phase, instead of repeated canonical `bve_apply` — which re-ran an O(formula)
-  `bve_schedule` per eliminated variable — and **reclamation moved out of
-  `bve_eliminate`**: the canonical round still collects at its end (self-contained
-  for tests/RandomPolicy), the dosing path leaves it to the scheduler, which
-  collects once per phase. Never collecting is sound (deletes are lazy, every
-  reader skips garbage), so this is a cost choice, not a correctness one — N1
-  intact, no guard or kernel change.
-- **The two effects, isolated:** *reclamation is the whole efficiency win and it
-  is trajectory-neutral* — restoring a per-dose collect gives byte-identical
-  conflict counts (tr-n300-s055 1 076 759 either way) but takes
-  `hwmcc17miters-oski15` from 60 s to not finishing in 55 min; at 37 509
-  eliminations an O(arena) collect per variable dominates everything (this also
-  re-explains the old "unbounded BVE is catastrophic" result — it was the
-  collects, not the volume). *The budget binds*: `square.2.0.i` stops at
-  1 000 046 resolutions against the 1 000 000 ceiling (18 420 eliminated),
-  `hwmcc` at 1 001 403 (37 509 eliminated vs 300 under the old cap; decisions
-  292 M → 167 M).
-- **Results.** **Tier B PAR-2 21.41 → 20.85, 14/14 both** (same window, jobs=4;
-  sum 299.7 → 291.9). Wins: summle 10.9→4.8, 9vliw 11.8→6.6, square 5.5→2.9,
-  qwh 3.3→1.9, hwmcc 71.0→55.5, circuit 10.3→8.9. **One real regression:
-  `combined-crypto1` 8.1→24.7 s** — the old cap stopped it at exactly 300
-  eliminations, the budget lets it do 386, and those 86 extra eliminations triple
-  the conflicts (310 k → 1 015 k) on a high-variance SAT instance. The BVE
-  U-shape again, and the concrete motivation for increment 4: at conflicts = 0
-  there is no search work to take a fraction OF, so the `mineffort` floor is the
-  weakest part of this port — kissat's own answer is to not run BVE at
-  preprocessing at all (`fastel = 0`). **Tier A 200/200 (PAR-2 0.55, jobs=2)**;
-  neutral vs baseline at equal concurrency (sum 121.74 vs 121.78 — an apparent
-  jobs=8 "regression" was a contention artifact, and `tr-n300-s055` sits at
-  29.06 s against a 30 s cap in BOTH arms). Peak RSS +1.5 % (1.708 → 1.734 GB),
-  so deferred reclamation does not trade memory for speed. Proof bytes +14 %
-  (669 → 764 MB on Tier B) — more eliminations, more resolvents — check time
-  unchanged (177 s). **Sound:** DefaultPolicy DRAT 1000/0, random-policy DRAT
-  400/0, native LRAT 400/0, random-policy + native LRAT 400/0, regression corpus
-  green, ctest 29/29.
-- **Known cost, carried forward:** a candidate snapshot taken once per round goes
-  stale, where kissat re-scores its elimination heap incrementally
-  (`eliminate.c:109` re-scores every variable of every removed clause). Measured
-  on the Tier A `tr-*` family: same eliminations (47 vs 48) but +5–13 % conflicts.
-  Re-enumerating per dose is not affordable at scale (`bve_schedule` is
-  O(formula) and the budget now allows tens of thousands of eliminations), so
-  kissat-style incremental re-scoring is the fix — a follow-on.
-- **`examples/demo3_scripted_default.c` re-pinned** 132/562 → 152/647: the old
-  size left the built-in run at ~2.4 k conflicts, barely past the 2000-conflict
-  reduce threshold, so an ordinary trajectory shift dropped it under and the
-  coverage assertions failed on a change that was Tier-A-neutral. The new size
-  clears every schedule threshold by ~3–5× on both runs. *(Pre-existing drift
-  noticed while there, NOT fixed: the mirror's `SLOT_IN_DEFAULT` is 0 while
-  DefaultPolicy's is `true`, so the mirror runs no inprocessing and its
-  inprocessing block is dead code — a revisit-codebase item.)*
-- **TIER C VALIDATES IT (run `20260721-140935-C-inc1-tierC`, jobs=4): PAR-2
-  286.00 → 273.88, 29/30 both, NO lost solves.** Big wins:
-  `jgiraldezlevy.2200.9086.08.40.41` **363.8 → 1.4 s** (one of the two losses
-  this file has carried since the 2026-07-19 revamp), `mp1-Nb5T15` 24.3 → 2.1,
-  `Ptn-7824-b18` 164.5 → 53.7, `DLTM_twitter690` 182.3 → 65.6, `j3037` 248.1 →
-  104.5, `sat-bench-trig` 227 → 174, `ecarev` 218 → 181. Losses:
-  `ContextModel_output_7_3_9` **9.2 → 84.6** (9×, the worst), `EDP3-11000`
-  24.8 → 64.5, `T87.2.0` 601 → 839 (the *other* long-standing loss, now worse),
-  `T105.2.0` 508 → 636, `aes_decry` 60 → 86, `minxor128` 276 → 328, `Grain`
-  364 → 412. Same whack-a-mole shape as every BVE-volume change so far — the
-  aggregate improves, individual instances swing both ways with the elimination
-  set. Proof volume 8.16 GB / 2861 s to check (15 UNSAT proofs), all verified.
-  **Net-positive on all three tiers: Tier A neutral, Tier B 21.41 → 20.85,
-  Tier C 286.0 → 273.9.**
-- **Single-window 3-way Tier B after the increment** (run
-  `20260721-145638-B-3way-inc1`, jobs=4, all three solvers in ONE invocation —
-  supersedes the cross-window estimate): **tactix 21.01, kissat 6.30, cadical
-  11.64, all 14/14 → 3.33× kissat, 1.81× cadical.** We beat cadical on 5/14
-  (qwh 5.6×, clique 3.1×, mod4block 2.3×, battleship 1.5×, rbsat 1.2×) and kissat
-  on 3 (qwh 4.1×, mod4block 1.6×, clique 1.1×); 6 instances are within ±10 % of
-  kissat. **The gap is entirely tail-concentrated**: `hwmcc-oski15` 23.7×
-  (= the `D-CONG-UNIT` gap, entry above), `mp1` 7.9× (Factor S2), `crypto1` 7.5×
-  (of which increment 1 owns 3×), `FmlaEquiv` 6.0×, `x9` 4.3×. So the median is
-  competitive and four instances carry the PAR-2 spread — which is the shape that
-  makes the remaining rev-53 increments (and D-CONG-UNIT) worth more than broad
-  search tuning.
+**Two diagnoses in this file were wrong and are corrected.** (a)
+`hwmcc17miters-oski15` was recorded as "needs Sweep+probing"; it does not —
+kissat solves it in 2.19 s with congruence alone (`search_ticks = 4`, 0
+conflicts, 711 434 congruent variables), and our congruence finds the same
+collapse (710 722 equivalences, applied by Substitute, second pass finds 0 more).
+The gap is that kissat *refutes inside* congruence while we hand a
+collapsed-but-unrefuted formula to search. Root cause named as ledger row
+**`D-CONG-UNIT`**: `canonicalize` discards every degenerate gate (AND with
+clashing inputs, ITE with shared operands, XOR cancelling to a constant) instead
+of deriving the root unit, and a congruent pair whose outputs are already `x`/`¬x`
+is skipped rather than refuting — so V6 has **never returned `Unsat`**. This also
+fixed real doc/code drift: `calculus.md` already asserted the `x ≡ ¬x`
+refutation. (b) The claim that "no BVE at preprocessing" was the principled fix
+for `combined-crypto1` was wrong on every count — see L1/L4.
 
 ### 2026-07-21 — post-cleanup full-tier confirm + fresh 3-way Tier B baseline
 - Re-ran full tiers after the `simplify:9798642` cleanup (behavior-preserving,
