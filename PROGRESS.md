@@ -39,10 +39,12 @@ disagree, the plan is authoritative — fix this file.
   **`docs/design/effort-scheduler-design.md` — read that first.**
   **Increment 1 LANDED** (effort ledger replaces the application cap; BVE dosed
   per instance; reclamation out of the per-elimination path): Tier B PAR-2
-  21.41→20.85, 14/14; Tier A 200/200 (0.55, jobs=2), neutral at equal
-  concurrency; fuzz 1000/0 + 3×400/0; ctest 29/29. See the Log entry below for
-  what it is made of, including the one real regression (`combined-crypto1`
-  8.1→24.7 s).
+  21.41→20.85, 14/14; **Tier C 286.0→273.9, 29/30, no lost solves**; Tier A
+  200/200 (0.55, jobs=2), neutral at equal concurrency; fuzz 1000/0 + 3×400/0;
+  ctest 29/29. **Net-positive on all three tiers.** See the Log entry below for
+  what it is made of, including the real per-instance regressions
+  (`combined-crypto1` 8.1→24.7 s on Tier B; `ContextModel` 9.2→84.6 s and
+  `T87.2.0` 601→839 s on Tier C).
   **▶ NEXT = increment 2: restore during-search inprocessing.**
   `update_inprocess_limit` still pins `next_conflicts = UINT64_MAX`
   (preprocessing-only); un-`#if 0` its growing NLOG2N interval ×
@@ -670,8 +672,20 @@ Design + increment plan + the measured evidence: `docs/design/effort-scheduler-d
   noticed while there, NOT fixed: the mirror's `SLOT_IN_DEFAULT` is 0 while
   DefaultPolicy's is `true`, so the mirror runs no inprocessing and its
   inprocessing block is dead code — a revisit-codebase item.)*
-- **Tier C not yet run for this increment** (rev-53 says gate each increment on
-  Tier B+C) — next action after this commit.
+- **TIER C VALIDATES IT (run `20260721-140935-C-inc1-tierC`, jobs=4): PAR-2
+  286.00 → 273.88, 29/30 both, NO lost solves.** Big wins:
+  `jgiraldezlevy.2200.9086.08.40.41` **363.8 → 1.4 s** (one of the two losses
+  this file has carried since the 2026-07-19 revamp), `mp1-Nb5T15` 24.3 → 2.1,
+  `Ptn-7824-b18` 164.5 → 53.7, `DLTM_twitter690` 182.3 → 65.6, `j3037` 248.1 →
+  104.5, `sat-bench-trig` 227 → 174, `ecarev` 218 → 181. Losses:
+  `ContextModel_output_7_3_9` **9.2 → 84.6** (9×, the worst), `EDP3-11000`
+  24.8 → 64.5, `T87.2.0` 601 → 839 (the *other* long-standing loss, now worse),
+  `T105.2.0` 508 → 636, `aes_decry` 60 → 86, `minxor128` 276 → 328, `Grain`
+  364 → 412. Same whack-a-mole shape as every BVE-volume change so far — the
+  aggregate improves, individual instances swing both ways with the elimination
+  set. Proof volume 8.16 GB / 2861 s to check (15 UNSAT proofs), all verified.
+  **Net-positive on all three tiers: Tier A neutral, Tier B 21.41 → 20.85,
+  Tier C 286.0 → 273.9.**
 
 ### 2026-07-21 — post-cleanup full-tier confirm + fresh 3-way Tier B baseline
 - Re-ran full tiers after the `simplify:9798642` cleanup (behavior-preserving,
