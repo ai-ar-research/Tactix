@@ -423,7 +423,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     if (sat) { // satisfied/tautology → delete only (deletions are proof-free)
       if (k.proof)
         k.proof->del(k.next_clause_id, cid, c->lits, c->size);
-      c->flags |= Clause::GARBAGE;
+      kernel_mark_garbage(k, c);
       changed = true;
       continue;
     }
@@ -439,7 +439,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       }
       k.proof->del(id, cid, c->lits, c->size);
     }
-    c->flags |= Clause::GARBAGE; // before the arena-mutating add below
+    kernel_mark_garbage(k, c); // before the arena-mutating add below
     changed = true;
     if (out.empty()) { // all-false rewrite (unreachable at a quiescent root)
       k.inconsistent = true;

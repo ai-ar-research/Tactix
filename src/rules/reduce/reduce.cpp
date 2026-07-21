@@ -111,7 +111,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
       continue;
     if (k.proof)
       k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-    c->flags |= Clause::GARBAGE;
+    kernel_mark_garbage(k, c);
     deleted++;
   }
   k.stats.deleted += deleted;

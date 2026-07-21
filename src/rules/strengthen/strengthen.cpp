@@ -234,7 +234,7 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
   if (p.res.kind == CheckResult::SUBSUMED) {
     if (k.proof)
       k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-    c->flags |= Clause::GARBAGE;
+    kernel_mark_garbage(k, c);
     k.stats.strengthen_subsumed++;
     (*changed)++;
     return 1;
@@ -269,7 +269,7 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     }
     k.proof->del(id, c->id(), c->lits, c->size);
   }
-  c->flags |= Clause::GARBAGE; // before any allocation moves the arena
+  kernel_mark_garbage(k, c); // before any allocation moves the arena
   k.stats.strengthened++;
   (*changed)++;
   if (lits.empty()) {
@@ -319,7 +319,7 @@ static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
     if (k.value(l) > 0 && k.var_level(var_of(l)) == 0) {
       if (k.proof) // root-satisfied: delete
         k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-      c->flags |= Clause::GARBAGE;
+      kernel_mark_garbage(k, c);
       k.stats.flushed++;
       (*changed)++;
       return 1;

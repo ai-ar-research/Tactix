@@ -22,6 +22,9 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.target.resize(nvars, 0);
   k.best.resize(nvars, 0);
   k.unit_ids.resize(nvars, 0);
+  // BVE retry filter: a brand-new variable has never been attempted, so it
+  // starts retry-worthy (kissat activate_variable marks it removed+added).
+  k.bve_retry.resize(nvars, 1);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
   // The dense occurrence index is per-literal kernel state (null outside a
@@ -76,12 +79,20 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
     c->lits[i] = lits[i];
   k.watches.push_large(lits[0], lits[1], ref);
   k.watches.push_large(lits[1], lits[0], ref);
-  // dense phase (increment 2): a new irredundant large clause joins the shared
-  // occurrence index. Refs are arena offsets — stable across the resize above,
-  // so existing entries need no fix-up; only GC (which rewrites offsets) does.
-  if (k.dense && !redundant)
-    for (uint32_t i = 0; i < size; i++)
-      k.dense->large[lits[i]].push_back(ref);
+  // IRREDUNDANT clauses only, for both consumers below:
+  //  - dense phase (increment 2): a new irredundant large clause joins the
+  //    shared occurrence index. Refs are arena offsets — stable across the
+  //    resize above, so existing entries need no fix-up; only GC (which
+  //    rewrites offsets) does.
+  //  - BVE retry filter: this clause is new material for every variable in it.
+  //    Redundant clauses are excluded on purpose — BVE does not resolve them,
+  //    and learned-clause traffic would mark everything (see Kernel::bve_retry).
+  if (!redundant)
+    for (uint32_t i = 0; i < size; i++) {
+      kernel_mark_bve_retry(k, var_of(lits[i]));
+      if (k.dense)
+        k.dense->large[lits[i]].push_back(ref);
+    }
   return ref;
 }
 
@@ -96,6 +107,10 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   // equally valid (both clauses are live), which is why first-vs-last was a
   // free choice before deletion existed and is not one now.
   k.binary_ids.insert_or_assign(kernel_binary_key(a, b), id);
+  // BVE retry filter: binaries have an irredundant lifecycle in this kernel, so
+  // every added pair is new elimination material for both of its variables.
+  kernel_mark_bve_retry(k, var_of(a));
+  kernel_mark_bve_retry(k, var_of(b));
 }
 
 bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
@@ -165,6 +180,9 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   // that is not in the watch lists, so the stale value is unreachable until a
   // re-add overwrites it (kernel_add_binary_clause: last id wins).
   k.stats.binaries_deleted++;
+  // BVE retry filter (kissat clause.c kissat_delete_binary -> mark_removed)
+  kernel_mark_bve_retry(k, var_of(a));
+  kernel_mark_bve_retry(k, var_of(b));
   return true;
 }
 
@@ -230,7 +248,72 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
       k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
   }
   k.stats.binaries_deleted += copies;
+  kernel_mark_bve_retry(k, var_of(a)); // BVE retry filter (see above)
+  kernel_mark_bve_retry(k, var_of(b));
   return true;
+}
+
+// See kernel.hpp for the contract. Two occurrence sources, mirroring how BVE
+// itself reads the formula: binaries from the watch lists, irredundant large
+// clauses from the shared dense index when a simplification phase has attached
+// one, else one arena scan. Redundant clauses are irrelevant — BVE never
+// resolves them, so a fixed literal inside one changes nothing it computes.
+void kernel_bve_retry_sync_fixed(Kernel &k) {
+  const uint32_t fixed = kernel_root_fixed(k);
+  if (k.bve_retry_fixed_head >= fixed)
+    return;
+  const uint32_t from = k.bve_retry_fixed_head;
+  k.bve_retry_fixed_head = fixed;
+  for (uint32_t i = from; i < fixed; i++) {
+    const Var v = var_of(k.trail[i]);
+    if (k.assigned[v].level != 0)
+      continue; // an out-of-order literal above the root frame is not fixed yet
+    kernel_mark_bve_retry(k, v);
+    for (const Lit l : {make_lit(v, false), make_lit(v, true)}) {
+      // binaries: the partner's neighbourhood changed
+      for (const uint32_t *p = k.watches.begin(l), *e = k.watches.end(l);
+           p != e;) {
+        const Watch w{*p};
+        if (w.binary()) {
+          kernel_mark_bve_retry(k, var_of(w.other()));
+          p += 1;
+        } else {
+          p += 2;
+        }
+      }
+      if (k.dense)
+        for (const Ref ref : k.dense->large[l]) {
+          const Clause *c = clause_at(k.arena, ref);
+          if (c->garbage())
+            continue;
+          for (const Lit m : *c)
+            kernel_mark_bve_retry(k, var_of(m));
+        }
+    }
+  }
+  if (k.dense)
+    return;
+  // no phase index: one arena scan, marking every irredundant large clause that
+  // contains one of the newly fixed variables.
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage() && !c->redundant()) {
+      bool touched = false;
+      for (const Lit m : *c) {
+        const Var mv = var_of(m);
+        if (k.values[m] != 0 && k.assigned[mv].level == 0 &&
+            k.assigned[mv].trail >= from) {
+          touched = true;
+          break;
+        }
+      }
+      if (touched)
+        for (const Lit m : *c)
+          kernel_mark_bve_retry(k, var_of(m));
+    }
+    ref += words;
+  }
 }
 
 // kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)

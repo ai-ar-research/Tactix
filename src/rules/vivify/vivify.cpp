@@ -111,7 +111,7 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                        nullptr, 0);
     k.proof->del(id, c->id(), c->lits, c->size);
   }
-  c->flags |= Clause::GARBAGE;
+  kernel_mark_garbage(k, c);
   k.stats.vivified++;
   if (lits.empty()) { // under-derived root only (corpus 002)
     k.inconsistent = true;
@@ -147,7 +147,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
           (!c->redundant() || c->glue() <= VIVIFY_TIER2)) {
         if (k.proof)
           k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-        c->flags |= Clause::GARBAGE;
+        kernel_mark_garbage(k, c);
         k.stats.vivify_deleted++;
         return ApplyResult::Ok;
       }

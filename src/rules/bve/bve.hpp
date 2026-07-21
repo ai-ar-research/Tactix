@@ -61,7 +61,29 @@ void bve_build_occurrences(const Kernel &, BveOccurrences &);
 // Candidate variables to eliminate, ranked fewest-resolutions-first (ascending
 // occ(x)·occ(¬x); Kissat `variable_score`): active vars that occur in the
 // elimination set, skipping those whose occurrences blow up past the occurrence
-// limit. The BVE instance space (each instance = one candidate variable).
-void bve_schedule(const Kernel &, std::vector<Var> &out);
+// limit AND those the RETRY FILTER (`Kernel::bve_retry`, kissat's
+// flags->eliminate) has already attempted against an unchanged neighbourhood.
+// The BVE instance space (each instance = one candidate variable).
+//
+// COMPLETENESS of the filter (why it does not cost eliminations, and why N1
+// holds). Whether `bve_eliminate(x)` succeeds is a function of exactly: the
+// irredundant clauses containing x or ¬x, the root values of the literals in
+// them (root-true clauses are delete-only, root-false literals are stripped),
+// and the static configuration (`bve_gate_mask`, the bound/limits). Every
+// mutation of that function's input sets the bit again:
+//   - an irredundant clause on x added or deleted (kernel_add_large_clause /
+//     kernel_add_binary_clause / kernel_mark_garbage / kernel_delete_binary*) —
+//     which also covers a literal being removed from a clause, since every rule
+//     that shortens a clause (Strengthen, Substitute, Vivify) does it as a
+//     delete + add of the rewritten clause, not in place;
+//   - a literal in such a clause becoming root-fixed
+//     (kernel_bve_retry_sync_fixed, called at the top of this function);
+//   - a fresh variable (kernel_reserve_vars initialises the bit to 1).
+// So a cleared bit means "the same attempt would run on the same inputs and
+// return the same NoOp". Not scheduling state: the bit records a fact about the
+// formula, and it does not gate applicability — `apply_instance` still accepts
+// any variable payload, so an external policy can force BVE on a filtered-out
+// variable at any time (N1). Non-const because of the sync above.
+void bve_schedule(Kernel &, std::vector<Var> &out);
 
 } // namespace tactix

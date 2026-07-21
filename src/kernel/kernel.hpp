@@ -260,6 +260,34 @@ struct Kernel {
   // intervals, ...) lives in the Policy object, not here; kernel H-state
   // is confined to instance-ranking heuristics (VMTF, phases).
 
+  // --- E1 BVE per-variable RETRY FILTER (kissat flags->eliminate) ------------
+  // by var: 1 = "this variable's elimination neighbourhood has changed since
+  // BVE last attempted it — retry", 0 = "BVE already attempted it against
+  // exactly this neighbourhood and got nothing". Purely a WORK filter, never a
+  // soundness one: it removes only re-attempts whose outcome is already known,
+  // so no rule application that was possible becomes impossible (N1 — see
+  // bve.hpp for the completeness argument).
+  //
+  // Set (kernel-side, so there is one home per mutation kind):
+  //   - every variable of an IRREDUNDANT clause that is ADDED
+  //     (kernel_add_large_clause / kernel_add_binary_clause) or DELETED
+  //     (kernel_mark_garbage / kernel_delete_binary*). Redundant (learned)
+  //     clauses are deliberately excluded — BVE never resolves them (they are
+  //     delete-only collateral), and marking on learned-clause traffic would
+  //     mark every variable on every conflict and defeat the filter.
+  //   - every variable of a clause a newly ROOT-FIXED literal occurs in
+  //     (kernel_bve_retry_sync_fixed) — fixing y makes the clauses y satisfies
+  //     delete-only and strips ¬y from the rest, which changes what BVE
+  //     computes for the OTHER variables in them.
+  //   - every freshly reserved variable (kernel_reserve_vars initialises to 1),
+  //     so the very first schedule considers everything.
+  // Cleared by the rule when it ATTEMPTS a variable (bve_eliminate), matching
+  // kissat eliminate.c's `FLAGS (idx)->eliminate = false` at attempt time.
+  std::vector<uint8_t> bve_retry;
+  // trail index up to which root-fixed literals have been folded into
+  // `bve_retry`; see kernel_bve_retry_sync_fixed.
+  uint32_t bve_retry_fixed_head = 0;
+
   // --- rule configuration (set by a policy or the public API at any state) ---
   // BVE syntactic gate detection: bitmask of enabled gate types (see bve.hpp
   // BveGate). Default = all bits on. This is a PERFORMANCE knob, never a
@@ -310,6 +338,19 @@ void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest)
 // Call once on a SAT result before reading k.values as the model.
 void kernel_extend_model(Kernel &);
 
+// --- BVE retry filter (see Kernel::bve_retry) -------------------------------
+inline void kernel_mark_bve_retry(Kernel &k, Var v) { k.bve_retry[v] = 1; }
+// Fold every ROOT-FIXED literal not yet accounted for into `bve_retry`: fixing
+// y changes the effective content of every clause y occurs in (the ones y
+// satisfies become delete-only, the rest lose the falsified literal), so every
+// OTHER variable in those clauses may now be eliminable where it was not.
+// Incremental and idempotent — `bve_retry_fixed_head` is the trail index up to
+// which this has been done, and the root prefix of the trail never shrinks
+// (kernel_backtrack compacts kept level-0 literals down but never touches the
+// prefix below its boundary), so the watermark is monotone. Costs O(the new
+// fixed literals' occurrences) with `dense` attached, one arena scan without.
+void kernel_bve_retry_sync_fixed(Kernel &);
+
 // --- clauses ---------------------------------------------------------------
 // size >= 3; watches lits[0] and lits[1]. `id` is the proof clause id
 // (0 in id-free unit tests; solver paths pass ingest input ids or
@@ -335,6 +376,29 @@ void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // DRAT-only: remove EVERY copy of pair (a,b) (E2 Factor grid removal; see impl).
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
+
+// Mark a large clause deleted. THE single home for large-clause deletion: every
+// rule that retires a clause goes through here, so the bookkeeping that must
+// accompany a deletion (today: the BVE retry filter) has exactly one place to
+// live instead of ~10 open-coded `flags |= GARBAGE` sites. Deletion stays LAZY
+// (every reader skips garbage; kernel_collect_garbage reclaims later), and the
+// PROOF `delete` remains the caller's — a rule owns its proof delta (§5.3), and
+// several callers must emit it before the clause's literals are overwritten.
+// Idempotent: a second mark of the same clause does nothing. Header-inline
+// because Reduce retires clauses by the hundred thousand.
+inline void kernel_mark_garbage(Kernel &k, Clause *c) {
+  if (c->garbage())
+    return; // idempotent
+  c->flags |= Clause::GARBAGE;
+  // BVE retry filter: losing an irredundant clause shrinks the elimination
+  // neighbourhood of every variable in it, so each becomes retry-worthy
+  // (kissat clause.c mark_clause_as_garbage -> kissat_mark_removed_literals).
+  // Redundant clauses are skipped: BVE never resolves them, and Reduce's
+  // learned-clause traffic would otherwise mark every variable every round.
+  if (!c->redundant())
+    for (const Lit l : *c)
+      kernel_mark_bve_retry(k, var_of(l));
+}
 
 inline uint64_t kernel_binary_key(Lit a, Lit b) {
   const Lit lo = a < b ? a : b, hi = a < b ? b : a;

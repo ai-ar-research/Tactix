@@ -347,7 +347,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     Clause *d = clause_at(k.arena, subsumed_ref); // re-deref: arena moved
     if (k.proof)
       k.proof->del(k.next_clause_id, d->id(), d->lits, d->size);
-    d->flags |= Clause::GARBAGE;
+    kernel_mark_garbage(k, d);
     k.stats.otfs_subsumed++;
   }
 }

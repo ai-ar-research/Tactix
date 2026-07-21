@@ -217,3 +217,85 @@ factor-on == factor-off at 199/200, PAR-2 0.78). Proof-verified (x9 DRAT VERIFIE
 1000/0 each, drat-trim per case). The *full* kissat-level benefit (mp1 305k, 13×)
 still wants the SBVA selective heuristic (S2) + large-clause remainders (S4) —
 tracked as follow-on work; binary-only Factor closes only part of the gap.
+
+
+## 6. Design decision: the BVE retry filter (`Kernel::bve_retry`)
+
+**What it is.** A per-variable bit (kissat `flags->eliminate`,
+`eliminate.c schedule_variables`). `bve_schedule` skips a variable whose bit is
+clear; `bve_eliminate` clears the bit of the variable it *attempts*. The bit is
+set again by every kernel mutation that can change what BVE would compute for
+that variable.
+
+**Why.** Without it, every BVE call re-ranks and re-attempts *every* candidate,
+generating and counting each one's resolvents only to reject it again at the same
+growth bound. That is the mechanism behind the measured quadratic waste of
+running BVE repeatedly (`qwh` 1.0 M resolutions for 4 eliminations under a
+during-search schedule); no budget or interval tuning fixes it, because the work
+is spent *before* the budget can observe that nothing came of it.
+
+**Where the bit is set** (kernel-side, one home per mutation kind):
+
+| mutation | site |
+| --- | --- |
+| irredundant large clause added | `kernel_add_large_clause` (`!redundant` branch — the same branch that maintains the dense index) |
+| binary added (binaries are irredundant here) | `kernel_add_binary_clause` |
+| irredundant large clause deleted | `kernel_mark_garbage` (`!c->redundant()`) |
+| binary deleted | `kernel_delete_binary`, `kernel_delete_binary_all_copies` |
+| literal root-fixed | `kernel_bve_retry_sync_fixed`, called at the top of `bve_schedule` |
+| variable created | `kernel_reserve_vars` initialises the bit to 1 |
+
+`kernel_mark_garbage` was introduced for this: it is now **the single home for
+large-clause deletion**, replacing ~10 open-coded `c->flags |= Clause::GARBAGE`
+sites in Analyze / Reduce / Strengthen / SubsumeForward / Substitute / Vivify /
+BVE. Deletion stays lazy and the proof `delete` stays the rule's (a rule owns its
+proof delta, §5.3); only the flag and the retry bookkeeping moved.
+
+**Redundant clauses are deliberately excluded.** BVE resolves the irredundant
+core only — a learned clause on the pivot is delete-only collateral and cannot
+change whether the elimination fits the bound. Marking on redundant traffic would
+mark every variable on every conflict and every Reduce round, which is the same
+as having no filter.
+
+**Root fixing needs its own channel.** Fixing `y` makes the clauses `y` satisfies
+delete-only and strips `¬y` from the rest, which changes the resolvent set of the
+*other* variables in those clauses without any clause being added or deleted.
+`kernel_bve_retry_sync_fixed` folds newly fixed literals in incrementally, keyed
+on the trail index watermark `Kernel::bve_retry_fixed_head` (the root prefix of
+the trail never shrinks — `kernel_backtrack` compacts kept level-0 literals down
+but never touches the prefix below its boundary — so the watermark is monotone).
+It reads occurrences the same way BVE does: binaries from the watch lists, large
+clauses from the shared dense index when a phase has one attached, one arena scan
+otherwise.
+
+**Completeness (why no elimination is lost).** Whether `bve_eliminate(x)`
+succeeds is a function of exactly (a) the irredundant clauses containing `x` or
+`¬x`, (b) the root values of the literals in them, and (c) static configuration
+(`bve_gate_mask`, bound/limits). The table above covers every mutation of (a) and
+(b) — including a literal being removed from a clause, since every rule that
+shortens a clause (Strengthen, Substitute, Vivify) does it as delete + add of the
+rewritten clause, never in place. A cleared bit therefore means "the same attempt
+on the same inputs would return the same `NoOp`". `kernel_collect_garbage` is not
+a mutation in this sense: it relocates clauses but changes neither which variables
+occur where nor any literal's value, so it correctly marks nothing.
+
+**N1.** `bve_guard` is unchanged, and `bve_apply_instance` still accepts *any*
+variable payload — an external policy can force BVE on a filtered-out variable at
+any time and gets the real computation, not a cached answer. What narrows is the
+*suggestion list* (`bve_instances` / `bve_schedule`), which is the same kind of
+work filter as the existing `BVE_OCCLIM` blow-up skip and the extension-variable
+skip in §5, not an applicability control. The bit is a fact about the formula, not
+scheduling state: it records "this neighbourhood changed", never "it is time to
+run BVE".
+
+**Measured (deterministic counters, DefaultPolicy, Tier B cache, 2026-07-21).**
+Single preprocessing phase, so the first schedule still starts with every bit set
+and the filter only bites in the phase's later outer rounds:
+
+| instance | `c bve` before | `c bve` after | search |
+| --- | --- | --- | --- |
+| `mod4block` | 9 eliminated, 728 944 resolutions | 9 eliminated, **467 856** (−36 %) | bit-identical (508 923 conflicts) |
+| `combined-crypto1` | 386 eliminated, 767 138 resolutions | 386 eliminated, **447 320** (−42 %) | bit-identical (1 015 252 conflicts) |
+| `clique_n2_k10` | 21 eliminated, 24 523 resolutions | 21 eliminated, **23 881** (−2.6 %) | bit-identical (510 938 conflicts) |
+| `mp1-blockpuzzle`, `x9-08014` | BVE never fires | unchanged | bit-identical |
+| `qwh.50.1250` | 820 eliminated, 1 000 039 resolutions | **821** eliminated, 1 000 047 | differs — BVE is budget-saturated here, so the filter buys *more elimination per dose* rather than less work, and the changed preprocessing output changes the search (5 458 → 2 134 conflicts) |
