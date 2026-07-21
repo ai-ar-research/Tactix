@@ -266,12 +266,30 @@ same commit. Revert anything that misses.
    Peak RSS +1.5 % on the largest instance (1.708 → 1.734 GB), so deferred
    reclamation does not trade memory for speed. Fuzz: DefaultPolicy DRAT 1000/0,
    random-policy DRAT 400/0, native LRAT 400/0, random-policy+LRAT 400/0.
-2. **Restore during-search inprocessing** — the `update_inprocess_limit` `#if 0`
-   growing interval (NLOG2N + `scale_delta`), the never-with-a-reduction gate, and
-   the existing new-material watermarks.
-3. **Vivify on**, under its tick budget (kissat's largest probing spend, and the
-   one technique we have built but never scheduled). Then Probe, Backbone,
-   TransitiveReduce, one at a time, each with its own A/B.
+2. ~~**Restore during-search inprocessing**~~ — **MEASURED → REVERTED
+   2026-07-21, and it reorders the rest of this plan.** Two variants, both
+   net-negative on Tier B: (A) one slot-wide growing interval — 22.82 → 27.71
+   (+21 %), 12/14 worse; (B) per-technique intervals, BVE preprocess-only —
+   23.01 → 24.10 (+4.7 %), 7 wins / 7 losses. Neither lost a solve, and neither
+   reproduced the 2026-07-18 SAT-disruption failure (`battleship` untouched), so
+   the bounded doses + the reduce gate did their job. The ablation that explains
+   it, on `summle_X4044`: preprocess-only/BVE-on 5.3 s, during-search/BVE-on
+   18.4 s, preprocess-only/BVE-off 21.6 s, during-search/BVE-off 8.7 s —
+   **simplification during search is a 2.5× win, more BVE during search is a
+   3.5× loss**, and variant A coupled them. **The real conclusion: with our
+   current composition there is nothing worth doing during search** — BVE at
+   preprocessing already captures the value, and re-running Congruence/
+   Substitute/Strengthen/Factor costs more than it returns. The techniques kissat
+   spends its during-search budget on are Vivify and Sweep, which we do not run.
+   So during-search inprocessing is not a standalone increment; it returns as a
+   consequence of increment 3, reusing variant B's per-technique-interval shape.
+3. **Vivify on** (NOW THE NEXT INCREMENT), under its tick budget — kissat's
+   largest probing spend, and the one technique we have built but never
+   scheduled. **Risk to watch:** its canonical apply is a full UNBOUNDED round,
+   so the post-hoc meter can only skip *later* rounds, not stop one in progress;
+   a large instance may need a real bound (a per-candidate dose is blocked by the
+   Ref-payload staleness in §3.3). Then Probe, Backbone, TransitiveReduce, one at
+   a time, each with its own A/B.
 4. **Adopt kissat's composition split** — BVE out of preprocessing (kissat's
    `fastel = 0`), probing-style techniques first; retire the BVE-last ordering
    stopgap and the Factor `density = 8` magic number if the schedule subsumes them.

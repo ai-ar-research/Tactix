@@ -45,19 +45,23 @@ disagree, the plan is authoritative — fix this file.
   what it is made of, including the real per-instance regressions
   (`combined-crypto1` 8.1→24.7 s on Tier B; `ContextModel` 9.2→84.6 s and
   `T87.2.0` 601→839 s on Tier C).
-  **▶ NEXT = increment 2: restore during-search inprocessing.**
-  `update_inprocess_limit` still pins `next_conflicts = UINT64_MAX`
-  (preprocessing-only); un-`#if 0` its growing NLOG2N interval ×
-  `scale_inprocessing_delta`, add kissat's never-in-the-same-conflict-as-a-
-  reduction gate, keep the existing new-material watermarks. Then increment 3
-  (enable **Vivify** under its tick budget — kissat's largest probing spend and
-  we have the rule built but never scheduled — then Probe/Backbone/
-  TransitiveReduce one at a time; the ledger already carries their effort specs,
-  so each is an `enabled` flip plus an A/B), increment 4 (adopt kissat's
-  composition split: **no BVE at preprocessing**, which is both the principled
-  fix for `combined-crypto1` and what should retire the BVE-last + Factor
-  `density=8` stopgaps), increment 5 (V5 Sweep — needs the kitten sub-solver,
-  plan O11).
+  **▶ NEXT = enable VIVIFY under its tick budget** (was increment 3; promoted
+  after increment 2 was measured and reverted — see the Log entry immediately
+  below). Rationale: kissat's largest single probing spend on every Tier B
+  instance, and we have C3 Vivify built, fuzzed and N1-exposed but **never
+  scheduled**. The effort ledger already carries its spec
+  (`{"Vivify", 100, meter_ticks, false}` — batch, metered post hoc), so the code
+  change is an `enabled` flip in the slot composition plus an A/B. **Watch:**
+  Vivify's canonical apply is a full UNBOUNDED round, so the post-hoc meter can
+  only skip *later* rounds, not stop one in progress — on a large instance the
+  first round may need a real bound (the design doc flags this as the increment's
+  main risk).
+  **Then: bring during-search inprocessing back WITH Vivify** (increment 2's
+  variant-B machinery — per-technique intervals — was right in shape but had
+  nothing worth running during search; see below). Then the composition split
+  (**no BVE at preprocessing**, the principled fix for `combined-crypto1`, which
+  should also retire the BVE-last + Factor `density=8` stopgaps), then V5 Sweep
+  (needs the kitten sub-solver, plan O11).
   **Two measured findings to carry (details in the design doc §1):**
   (a) **`hwmcc17miters-oski15`'s diagnosis was WRONG in this file** — it is not
   "needs Sweep+probing". kissat solves it in 2.19 s with **congruence alone**
@@ -549,6 +553,50 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — rev-53 increment 2 (during-search inprocessing) — NEGATIVE RESULT, REVERTED (no code landed). It must come back WITH Vivify, not before it.
+Two variants built and measured on Tier B (jobs=4, A/B against HEAD in one
+window); both missed, so both were reverted per the working discipline.
+
+- **Variant A — one slot-wide growing interval** (kissat `NLOG2N ×
+  scale_delta`, plus the never-in-the-same-conflict-as-a-reduction gate —
+  `probe.c:21`/`eliminate.c:28`, verified today; note this *corrects*
+  `inprocessing-revamp-design.md` §C-ii, which read that gate as
+  piggybacking simplification onto a reduction, i.e. backwards).
+  **Tier B 22.82 → 27.71 (+21 %), 12/14 instances worse**, 14/14 solved.
+  Notably NOT the 2026-07-18 failure mode: `battleship` (18.82→18.70) and
+  `hwmcc` were untouched, so the bounded doses + the reduce gate DID prevent the
+  SAT-disruption catastrophe. The cost was elsewhere.
+- **The ablation that explains it** (`summle_X4044`, a clean 2×2):
+  | | BVE on | BVE off |
+  |---|---|---|
+  | preprocess only | **5.3 s** | 21.6 s |
+  | during search | 18.4 s | **8.7 s** |
+  Simplification during search is a **2.5× win**; more BVE during search is a
+  **3.5× loss**. Variant A coupled them through one shared interval, so the loss
+  swamped the win. Counters confirm the mechanism: BVE 1.0 M → 13.6 M resolutions
+  and conflicts 42.7 k → 99.3 k — the extra elimination made search *harder*.
+  (A first hypothesis — that the unmetered batch rules' O(arena) setup was the
+  cost — was WRONG: only 4 phases fired, 12 rounds vs 3.)
+- **Variant B — per-technique intervals** (kissat's real structure: separate
+  `limits.probe` / `limits.eliminate` counters; BVE preprocess-only, the rest on
+  the growing interval). Much closer but still misses: **Tier B 23.01 → 24.10
+  (+4.7 %)**, 14/14, **7 wins / 7 losses** — `rbsat` 11.7→5.3 (2.2×), `mod4block`
+  9.3→7.0, `9vliw`, `crypto1`, `battleship` vs `FmlaEquiv` 56.8→71.6 (+14.8 s,
+  which alone is the net), `summle` 5.5→7.9, `circuit` 9.4→12.6, `clique`.
+- **Conclusion (this is the useful part).** With our CURRENT composition there is
+  nothing valuable left to do during search: BVE at preprocessing already
+  captures the simplification value, and re-running Congruence/Substitute/
+  Strengthen/Factor during search costs more than it returns. The techniques
+  kissat actually spends its during-search budget on are **Vivify and Sweep** —
+  the two we do not run. So **during-search inprocessing is not a standalone
+  increment; it is a consequence of having something worth doing during search.**
+  **Increment order changed: Vivify (was 3) becomes the next increment, and
+  during-search returns with it.** Per-technique intervals are the right shape
+  when it does (variant B's machinery is the design to re-apply, not variant A's).
+- Run-to-run context for anyone re-measuring: HEAD measured 21.41 / 22.82 / 23.01
+  PAR-2 across three Tier B runs today at jobs=4 (~7 % spread), so a candidate
+  needs to beat ~21.4 to count as a real gain.
 
 ### 2026-07-21 — V6 Congruence has NO UNIT CHANNEL (`D-CONG-UNIT`) — the real reason `hwmcc-miters` costs us 25× kissat
 Doc-sync only (no code): `docs/calculus.md` §6 V6 + `docs/implementation-notes.md`
