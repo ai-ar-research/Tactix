@@ -56,7 +56,7 @@ disagree, the plan is authoritative — fix this file.
   (user chose ship-now, commit 5111bc7):** BVE-last is the default slot order +
   Factor `density=8` hardcoded (`TACTIX_BVE_FIRST` / `TACTIX_FACTOR_DENSITY`
   revert for the A/B). Units 29/29 (factor unit test sets `TACTIX_FACTOR_FORCE`);
-  fuzz default DRAT + native LRAT 300/0. **Tier B default now ~21 (from 42.6).**
+  fuzz default DRAT + native LRAT 300/0. **Tier B default now 23.3 clean (from 42.6, 1.83x; the candidate wrapper saw 21.0 — run-to-run variance on jobs=4). Notably == BVE-off PAR-2 23.30 but WITHOUT the 2 lost Tier C solves.**
   Known residual whack-a-mole (Tier B x9 21→35, FmlaEquiv 24→40; Tier C DLTM
   9→176 — all still solve) — the effort-budget scheduler (rev 53) is the clean
   fix that removes the overfit density=8 and the BVE-last stopgap. **▶ NEXT: the
