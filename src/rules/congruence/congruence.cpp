@@ -225,11 +225,23 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
     if (!all)
       continue;
     seen.insert(pos);
-    const int c = static_cast<int>((s ^ static_cast<uint32_t>(base_parity) ^ 1u) & 1u);
+    // The relation's parity R. A clause whose negated-literal set is N is
+    // falsified by exactly the assignment "vⱼ true iff j ∈ N", whose true-count
+    // parity is |N| ≡ base_parity; requiring ALL clauses of that negation parity
+    // therefore forbids exactly the assignments of true-parity base_parity, so
+    //     ⊕ⱼ vⱼ = base_parity ⊕ 1 =: R.
+    // For output vᵢ, ⊕_{j≠i} vⱼ = R ⊕ vᵢ, so the output literal is pos[i]
+    // flipped by R. (Until 2026-07-21 this also XORed in `s`, which negated the
+    // output of every even-arity gate. That was invisible: the only consumer is
+    // XOR↔XOR key matching, and cancellation removes variables in even multiples,
+    // so two gates sharing a key share their arity parity and the offset cancels
+    // in the equivalence. It is NOT invisible to a unit/merge channel that reads
+    // the output's polarity — see PROGRESS item C0.)
+    const Lit r = static_cast<Lit>(base_parity ^ 1);
     for (uint32_t i = 0; i < s; i++) {
       CongGate g;
       g.kind = GateKind::Xor;
-      g.output = pos[i] ^ static_cast<Lit>(c); // value = c ⊕ vᵢ = ⊕_{j≠i} vⱼ
+      g.output = pos[i] ^ r; // value = R ⊕ vᵢ = ⊕_{j≠i} vⱼ
       for (uint32_t j = 0; j < s; j++)
         if (j != i)
           g.inputs.push_back(pos[j]); // all positive, already sorted
@@ -529,6 +541,17 @@ void add_equivalence_bare(Kernel &k, Lit a, Lit b) {
 
 } // namespace — public rule entry points (header-declared) below
 
+void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
+                              bool with_xor_ite) {
+  congruence_extract(k, out);
+  if (with_xor_ite) {
+    ClauseIndex index; // built once, shared by XOR + ITE extraction
+    build_clause_index(k, index);
+    congruence_extract_xor(k, index, out);
+    congruence_extract_ite(k, index, out);
+  }
+}
+
 ApplyResult congruence_apply(Kernel &k) {
   assert(congruence_guard(k));
   if (inprocess_reach_root(k))
@@ -543,13 +566,7 @@ ApplyResult congruence_apply(Kernel &k) {
   // runs on every path.
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<CongGate> gates;
-  congruence_extract(k, gates);
-  if (!lrat) {
-    ClauseIndex index; // built once, shared by XOR + ITE extraction
-    build_clause_index(k, index);
-    congruence_extract_xor(k, index, gates);
-    congruence_extract_ite(k, index, gates);
-  }
+  congruence_extract_gates(k, gates, /*with_xor_ite=*/!lrat);
   if (gates.empty())
     return ApplyResult::NoOp;
 

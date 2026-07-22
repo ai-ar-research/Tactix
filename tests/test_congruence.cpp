@@ -118,12 +118,90 @@ static void test_kind_isolation() {
   assert(!equivalence_added(k, 4, 5));
 }
 
+// --- the XOR output-literal sign convention (PROGRESS C0) -------------------
+// A gate's `output` literal must EVALUATE to f(inputs). For XOR that sign is
+// invisible to the closure (it only compares two gates' outputs, and a shared
+// mis-signing cancels), so it needs its own test — a unit/merge channel built on
+// the degenerate cases reads the polarity directly and a flip is then unsound.
+//
+// For a relation ⊕vⱼ = R over s variables, the gate whose inputs are the other
+// s−1 variables has ⊕_{j≠i} vⱼ = R ⊕ vᵢ, so its output literal is vᵢ when R = 0
+// and ¬vᵢ when R = 1 — independent of s.
+
+// assert the extracted XOR gate over `inputs` (external DIMACS, any order) has
+// exactly `expected_out` (external DIMACS, signed) as its output literal.
+static void assert_xor_gate_output(const Kernel &k, std::vector<int> inputs,
+                                   int expected_out) {
+  std::vector<CongGate> gates;
+  congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
+  std::vector<Lit> want;
+  for (const int e : inputs)
+    want.push_back(internalize(e));
+  std::sort(want.begin(), want.end());
+  bool found = false;
+  for (const CongGate &g : gates) {
+    if (g.kind != GateKind::Xor || g.inputs != want)
+      continue;
+    found = true;
+    assert(g.output == internalize(expected_out) &&
+           "XOR gate output literal has the wrong sign");
+  }
+  assert(found && "expected XOR gate was not extracted");
+}
+
+// R = 0, s = 3 (odd s — the branch the stale `^ s` term corrupted).
+// x1⊕x2⊕x3 = 0, so the gate on {x1,x2} outputs +x3.
+static void test_xor_output_sign_even_arity() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  xor_gate(k, 3, 1, 2); // the 4 odd-negation clauses ⇒ v1⊕v2⊕v3 = 0
+  assert_xor_gate_output(k, {1, 2}, 3);
+  assert_xor_gate_output(k, {2, 3}, 1);
+}
+
+// R = 1, s = 3: x1⊕x2⊕x3 = 1 (the even-negation clause set), so the gate on
+// {x1,x2} outputs ¬x3.
+static void test_xor_output_sign_odd_relation() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  add3(k, 1, 2, 3);
+  add3(k, -1, -2, 3);
+  add3(k, -1, 2, -3);
+  add3(k, 1, -2, -3);
+  assert_xor_gate_output(k, {1, 2}, -3);
+  assert_xor_gate_output(k, {2, 3}, -1);
+}
+
+// R = 0, s = 4 (even s — the branch that was accidentally correct; pin it so a
+// "fix" cannot flip this one instead).  v1⊕v2⊕v3⊕v4 = 0 ⇒ gate on {1,2,3} → +4.
+static void test_xor_output_sign_odd_arity() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const int v[4] = {1, 2, 3, 4};
+  for (int m = 0; m < 16; m++) { // every odd-negation clause over the 4 vars
+    int neg = 0;
+    for (int i = 0; i < 4; i++)
+      neg += (m >> i) & 1;
+    if (!(neg & 1))
+      continue;
+    Lit ls[4];
+    for (int i = 0; i < 4; i++)
+      ls[i] = internalize(((m >> i) & 1) ? -v[i] : v[i]);
+    kernel_add_large_clause(k, ls, 4, /*redundant=*/false, /*glue=*/0);
+  }
+  assert_xor_gate_output(k, {1, 2, 3}, 4);
+  assert_xor_gate_output(k, {2, 3, 4}, 1);
+}
+
 int main() {
   test_and_congruent();
   test_xor_congruent();
   test_ite_congruent();
   test_no_congruence();
   test_kind_isolation();
+  test_xor_output_sign_even_arity();
+  test_xor_output_sign_odd_relation();
+  test_xor_output_sign_odd_arity();
   std::printf("test_congruence: all passed\n");
   return 0;
 }

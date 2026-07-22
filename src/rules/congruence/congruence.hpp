@@ -44,6 +44,16 @@ struct CongGate {
 // local; uses the arena scan (dense index is per-literal, not all-clauses).
 void congruence_extract(const Kernel &, std::vector<CongGate> &out);
 
+// The extraction half of `congruence_apply`: AND gates always, XOR + ITE when
+// `with_xor_ite` (the rule passes `!lrat` — D-CONG-LRAT). Exposed so a test can
+// inspect the gates directly: a gate's `output` SIGN convention (output must
+// evaluate to f(inputs)) has no other observable consequence today, because the
+// closure only ever compares two gates' outputs to each other and a shared
+// mis-signing cancels. A unit/merge channel reading that polarity does not have
+// that luxury, so the convention is pinned by test_congruence.
+void congruence_extract_gates(const Kernel &, std::vector<CongGate> &out,
+                              bool with_xor_ite);
+
 bool congruence_guard(const Kernel &); // pure quiescent-root precondition
 
 // The canonical full-round apply: extract AND/XOR/ITE gates and run the union-find
