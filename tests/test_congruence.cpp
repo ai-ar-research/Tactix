@@ -118,6 +118,40 @@ static void test_kind_isolation() {
   assert(!equivalence_added(k, 4, 5));
 }
 
+// --- the unit channel (D-CONG-UNIT) -----------------------------------------
+// A gate that degenerates under the current representatives is an INFERENCE, not
+// a dead end. Here the closure must first prove x1 ≡ x2 (two AND gates over the
+// same inputs), which makes the XOR gate out = x1 ⊕ x2 cancel completely, so its
+// output is the constant 0 and ¬out is a root unit. This is the miter shape in
+// miniature: it is why congruence alone refutes an equivalence-checking miter.
+static void test_xor_cancel_learns_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 5); // a=1 b=2 x1=3 x2=4 out=5
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  xor_gate(k, 5, 3, 4); // out = x1 ⊕ x2, which collapses to 0 once x1 ≡ x2
+  assert(congruence_guard(k));
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(equivalence_added(k, 3, 4));          // the enabling merge
+  assert(k.value(internalize(5)) < 0);         // ¬out asserted at the root
+  assert(k.stats.congruence_units >= 1);
+}
+
+// The same collapse, but the formula also asserts `out` — so the derived unit
+// contradicts a root unit and the round must REFUTE rather than assign. Before
+// the unit channel, V6 could never return Unsat at all.
+static void test_xor_cancel_refutes() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  xor_gate(k, 5, 3, 4);
+  kernel_assign_unit(k, internalize(5)); // assert out — now UNSAT
+  assert(congruence_guard(k));
+  assert(congruence_apply(k) == ApplyResult::Unsat);
+  assert(k.inconsistent);
+}
+
 // --- the XOR output-literal sign convention (PROGRESS C0) -------------------
 // A gate's `output` literal must EVALUATE to f(inputs). For XOR that sign is
 // invisible to the closure (it only compares two gates' outputs, and a shared

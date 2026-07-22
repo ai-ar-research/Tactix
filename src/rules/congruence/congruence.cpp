@@ -258,24 +258,45 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 static const bool cong_probe = std::getenv("TACTIX_CONG_PROBE") != nullptr;
 static uint64_t cong_n_and = 0, cong_n_ite = 0, cong_n_xor = 0, cong_n_clash = 0;
 
+// What canonicalizing a gate under the current representatives yielded.
+// A degenerate gate is NOT a dead end — each degeneracy is itself an inference
+// over F (calculus §6), which is what deviation D-CONG-UNIT was about.
+enum class Canon {
+  Ok,    // `key` + `out_lit` valid — file the gate in the table
+  Unit,  // the gate forces `out_lit` to a constant: the root unit is ¬out_lit
+  Merge, // the gate collapsed to out_lit ≡ key[0] — no second gate needed
+  Skip,  // degenerate in a way this rule does not exploit (ITE)
+};
+
 // Canonicalize gate g under the current union-find into (key, out_lit): key is the
 // structural hash (positive, sorted per kind); out_lit is the literal whose class
-// is merged on a key collision. Returns false if the gate is degenerate under the
-// current representatives (skip — a later increment handles the derived unit).
-bool canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
-                  std::vector<Lit> &key, Lit &out_lit) {
+// is merged on a key collision, and whose VALUE is f(key). `cancelled` receives
+// the distinct positive representative variables that dropped out of an XOR key
+// (each occurred an even number of times) — the ladder in
+// `add_xor_degeneracy_chain` quantifies over exactly those.
+Canon canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
+                   std::vector<Lit> &key, Lit &out_lit,
+                   std::vector<Lit> &cancelled) {
+  cancelled.clear();
   if (g.kind == GateKind::And) {
     key.assign(g.inputs.begin(), g.inputs.end());
     for (Lit &l : key)
       l = find(l);
     std::sort(key.begin(), key.end());
+    out_lit = g.output;
+    // AND(…,x,¬x,…) = 0 ⇒ root unit ¬out, and AND(…,x,x,…) = AND(…,x,…) ⇒ a
+    // possible unary gate: both are real inferences (calculus §6) and both are
+    // still deferred. Deliberately NOT part of this increment — TACTIX_CONG_PROBE
+    // measured them firing 0 times on hwmcc17miters, and their LRAT chains need
+    // care the XOR channel does not (a gate with a duplicated input carries a
+    // duplicated `input_bin_ids` hint, which is neither unit nor falsified at its
+    // position in the chain). PROGRESS item C3b.
     for (size_t j = 1; j < key.size(); j++)
       if (key[j] == key[j - 1] || key[j] == negate(key[j - 1])) {
-        if (cong_probe) cong_n_and++; 
-        return false; // AND(…,x,x/¬x,…): idempotent/false — defer
+        if (cong_probe) cong_n_and++;
+        return Canon::Skip;
       }
-    out_lit = g.output;
-    return true;
+    return Canon::Ok;
   }
   if (g.kind == GateKind::Ite) {
     Lit cond = find(g.inputs[0]), th = find(g.inputs[1]), el = find(g.inputs[2]);
@@ -284,13 +305,13 @@ bool canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
     // gate that a later increment/propagation handles; skipping stays sound.
     if (var_of(cond) == var_of(th) || var_of(cond) == var_of(el) ||
         var_of(th) == var_of(el)) {
-      if (cong_probe) cong_n_ite++; 
-      return false;
+      if (cong_probe) cong_n_ite++;
+      return Canon::Skip;
     }
     const bool neg_lhs = normalize_ite(cond, th, el);
     key = {cond, th, el}; // fixed order — the structural key
     out_lit = neg_lhs ? negate(g.output) : g.output;
-    return true;
+    return Canon::Ok;
   }
   // XOR: map inputs to reps, absorb each rep's sign into a global parity, and
   // cancel repeated variables (x⊕x=0). The parity flips the output literal.
@@ -313,14 +334,19 @@ bool canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
       cnt++;
     if (cnt & 1)
       key.push_back(reps[j]); // odd multiplicity survives
+    else
+      cancelled.push_back(reps[j]); // fully cancelled — the ladder quantifies here
     j += cnt;
   }
-  if (key.empty()) {
-    if (cong_probe) cong_n_xor++; 
-    return false; // all cancelled → output is a constant; defer
-  }
+  // value(out_lit) = ⊕key, by construction.
   out_lit = parity ? negate(g.output) : g.output;
-  return true;
+  if (key.empty()) {
+    if (cong_probe) cong_n_xor++;
+    return Canon::Unit; // every variable cancelled ⇒ out_lit is the constant 0
+  }
+  if (key.size() == 1)
+    return Canon::Merge; // XOR(x) ⇒ out_lit ≡ x
+  return Canon::Ok;
 }
 
 // XOR-match proof chain (kissat add_xor_matching_proof_chain): make the two
@@ -358,6 +384,51 @@ void add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
                          nullptr, 0);
       }
     }
+  }
+}
+
+// Degeneracy proof chain for a SINGLE XOR gate (kissat's
+// add_xor_shrinking_proof_chain is the same construction). A gate whose canonical
+// key collapsed forces its output, and that conclusion is NOT RUP on its own —
+// measured: drat-trim rejects a bare add of the unit, because the gate's parity
+// clauses are (k+1)-ary and propagate nothing until all but one literal is
+// assigned. The ladder supplies the missing resolution steps.
+//
+// `cancelled` = the distinct POSITIVE representative variables that dropped out
+// of the key (each occurred an even number of times among the gate's
+// representative inputs). `concl` = the conclusion clause(s): {¬out_lit} for the
+// constant case, or the two equivalence binaries for the unary case.
+//
+// For size = |cancelled| … 1, emit every sign pattern over cancelled[0..size-1]
+// appended to each conclusion. The top level assigns every cancelled
+// representative, which the bridging equivalence binaries propagate to all of the
+// gate's raw inputs, falsifying one parity clause; each lower level closes on the
+// two lemmas directly above it (they differ only in the sign of the dropped
+// variable, so one is unit and the other falsified); the size-0 lemmas ARE the
+// conclusions and are added persistently by the caller.
+//
+// Validated against drat-trim BEFORE implementation, in all four shapes —
+// |cancelled| = 1 and 2, both relation parities, and the unary-survivor form —
+// with the bare conclusion rejected in every one. See the 2026-07-21 log entry.
+void add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
+                              const std::vector<std::vector<Lit>> &concl) {
+  if (!k.proof)
+    return;
+  // XOR arity is capped at CONG_XOR_ARITY, and cancellation removes variables in
+  // pairs, so this is ≤ 2 in practice; the ladder is 2^(n+1)−2 lemmas.
+  assert(cancelled.size() <= CONG_XOR_ARITY / 2 + 1 && "ladder would blow up");
+  std::vector<Lit> lemma;
+  for (int size = static_cast<int>(cancelled.size()); size >= 1; size--) {
+    const uint32_t combos = 1u << size;
+    for (uint32_t m = 0; m < combos; m++)
+      for (const std::vector<Lit> &c : concl) {
+        lemma.clear();
+        for (int i = 0; i < size; i++)
+          lemma.push_back(cancelled[i] ^ static_cast<Lit>((m >> i) & 1));
+        lemma.insert(lemma.end(), c.begin(), c.end());
+        k.proof->add_rup(0, lemma.data(), static_cast<uint32_t>(lemma.size()),
+                         nullptr, 0);
+      }
   }
 }
 
@@ -431,6 +502,21 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
           then_l = w2;
           else_l = w1;
         }
+        // A candidate with else ≡ ¬then is a ternary XOR wearing an ITE costume:
+        // its four defining clauses become (cond∨then∨L),(cond∨¬then∨¬L),
+        // (¬cond∨¬then∨L),(¬cond∨then∨¬L) — negation counts 0,2,2,2, i.e. exactly
+        // the complete even-parity clause set over {cond,then,L}. So
+        // congruence_extract_xor finds the SAME relation from the SAME clauses and
+        // emits 3 XOR gates for it, and the ITE copies can only ever be discarded:
+        // `unite` maintains repr[¬big]=¬repr[big], so find(else)==¬find(then)
+        // holds forever and the gate is degenerate on every canonicalization.
+        // Dropping them here is free — measured on hwmcc17miters: 463 596 of the
+        // 493 584 ITE degenerate discards, and the XOR twin already draws every
+        // one of their inferences in the same round (0 new merges, 0 new units).
+        // kissat drops the same candidates at construction ("skipping ternary XOR
+        // gate", congruence.c new_ite_gate).
+        if (else_l == negate(then_l))
+          continue;
         // soundness: require all four ITE-defining clauses to exist
         if (!(has(cond, negate(else_l), L) && has(cond, else_l, negate(L)) &&
               has(negate(cond), negate(then_l), L) &&
@@ -473,7 +559,19 @@ void add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b) {
 // valid for a direct (unbridged) match. For (¬a∨b): assume a,¬b; a's input
 // binaries force ga's inputs, `big_path_chain` bridges each ga input to the gb
 // input in its representative class, and gb's base then conflicts. (a∨¬b) mirrors.
-// DRAT emits bare adds (the checker searches). Returns true iff ∅ derived.
+// DRAT emits bare adds (the checker searches).
+//
+// **Returns false iff the equivalence could NOT be justified** — under LRAT the
+// bridging chain can fail (a `big_path_chain` whose only route runs through a
+// root-assigned literal is not traversable), and there is then no checkable line
+// to emit. The caller must SKIP the merge: losing an inference is sound, emitting
+// an unverifiable proof line is not (N2). All-or-nothing — both binaries are
+// justified before either is added, so the formula never carries one half of an
+// equivalence the union-find believes in whole. (Before 2026-07-21 a failed chain
+// silently emitted `add_rup(id, lits, 2, nullptr, 0)`, i.e. an LRAT line with an
+// EMPTY hint list, which every checker rejects — measured on both lrat-check and
+// cake_lpr. Unreachable then only because nothing assigned mid-round; C3's unit
+// channel makes it reachable.)
 bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
                      const std::function<Lit(Lit)> &find) {
   const bool lrat = k.proof && k.proof->lrat();
@@ -500,32 +598,47 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
     chain.push_back(g_to.base_id);
     return true;
   };
-  auto add_bin = [&](Lit x, Lit y, const CongGate &g_from, const CongGate &g_to) {
+  // Justify FIRST, mutate second. Under LRAT each direction's chain is built (and
+  // kept) before anything is added, so a failure aborts the whole equivalence.
+  std::vector<uint64_t> chain_fwd, chain_rev;
+  if (lrat) {
+    const bool need_fwd = !binary_exists(k, negate(a), b);
+    const bool need_rev = !binary_exists(k, a, negate(b));
+    if (need_fwd) {
+      if (!build(ga, gb))
+        return false;
+      chain_fwd = chain;
+    }
+    if (need_rev) {
+      if (!build(gb, ga))
+        return false;
+      chain_rev = chain;
+    }
+  }
+  auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
     if (binary_exists(k, x, y))
       return;
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {x, y};
-    if (k.proof) {
-      if (lrat) {
-        const bool ok = build(g_from, g_to);
-        k.proof->add_rup(id, lits, 2, ok ? chain.data() : nullptr,
-                         ok ? static_cast<uint32_t>(chain.size()) : 0);
-      } else {
-        k.proof->add_rup(0, lits, 2, nullptr, 0);
-      }
-    }
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, lits, 2, lrat ? ch.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(ch.size()) : 0);
     kernel_add_binary_clause(k, x, y, id);
   };
-  add_bin(negate(a), b, ga, gb); // (¬a∨b): ga.out=1 → ga inputs → bridge → gb.base
-  add_bin(a, negate(b), gb, ga); // (a∨¬b): gb.out=1 → gb inputs → bridge → ga.base
-  return false;
+  add_bin(negate(a), b, chain_fwd); // ga.out=1 → ga inputs → bridge → gb.base
+  add_bin(a, negate(b), chain_rev); // gb.out=1 → gb inputs → bridge → ga.base
+  return true;
 }
 
 // Add the equivalence a==b as (¬a∨b),(a∨¬b) with a BARE proof add (DRAT-RUP over
-// the current DB). Used for XOR matches, whose RUP is already made checkable by
-// the preceding add_xor_matching_proof_chain lemmas. XOR extraction is gated on
-// !lrat, so no LRAT id/chain is needed here yet.
+// the current DB). Used for XOR/ITE matches, whose RUP is already made checkable
+// by the preceding match proof-chain lemmas. Those extractions are gated on
+// !lrat (D-CONG-LRAT), so no LRAT id/chain is produced here — and the assert
+// makes that a hard precondition rather than an assumption, so ungating XOR/ITE
+// under LRAT (C3) cannot silently start emitting hint-less lines (N2).
 void add_equivalence_bare(Kernel &k, Lit a, Lit b) {
+  assert((!k.proof || !k.proof->lrat()) &&
+         "add_equivalence_bare emits no LRAT chain — XOR/ITE are DRAT-only");
   auto add_bin = [&](Lit x, Lit y) {
     if (binary_exists(k, x, y))
       return;
@@ -602,14 +715,115 @@ ApplyResult congruence_apply(Kernel &k) {
 
   uint64_t neq = 0;
   bool unsat = false;
-  std::vector<Lit> key, key_j;
+  std::vector<Lit> key, key_j, cancelled, cancelled_j;
+
+  // Root units derived from degenerate gates (D-CONG-UNIT). Asserted in a batch
+  // once the closure is done, exactly as V1 Probe and V3 Substitute do — the
+  // closure itself reasons purely over the union-find, so a unit changes nothing
+  // it has already computed, and M1 owns the propagation cascade. Deduped per
+  // variable; an opposite-sign pair within one round IS a refutation ({u} and
+  // {¬u} resolve to ∅ — V3's record_unit, corpus 007).
+  std::vector<Lit> units;
+  std::vector<Lit> pending_unit(k.nvars, INVALID_LIT);
+  auto record_unit = [&](Lit u) -> bool {
+    const Var v = var_of(u);
+    if (k.value(u) > 0)
+      return false; // already true at the root — the inference adds nothing
+    // Read the incumbent id BEFORE overwriting it: if u contradicts a unit
+    // already on the trail, that unit's id is the second antecedent of ∅.
+    const uint64_t trail_id = k.unit_ids[v];
+    const bool contradicts_trail = k.value(u) < 0;
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, &u, 1, nullptr, 0);
+    if (contradicts_trail) {
+      if (k.proof) {
+        if (lrat) {
+          const uint64_t ch[2] = {id, trail_id};
+          k.proof->add_empty(++k.next_clause_id, ch, 2);
+        } else {
+          k.proof->add_empty(0, nullptr, 0);
+        }
+      }
+      k.inconsistent = true;
+      return true;
+    }
+    if (pending_unit[v] == INVALID_LIT) {
+      pending_unit[v] = u;
+      k.unit_ids[v] = id;
+      units.push_back(u);
+      k.stats.congruence_units++;
+      return false;
+    }
+    if (pending_unit[v] == u)
+      return false; // same-sign duplicate (the s gates of one relation agree)
+    if (k.proof) { // opposite sign: {u} + {¬u} ⊢ ∅
+      if (lrat) {
+        const uint64_t ch[2] = {id, k.unit_ids[v]};
+        k.proof->add_empty(++k.next_clause_id, ch, 2);
+      } else {
+        k.proof->add_empty(0, nullptr, 0);
+      }
+    }
+    k.inconsistent = true;
+    return true;
+  };
+
+  // Merge two provably-equivalent literals: unite their classes and reschedule
+  // the gates whose canonical inputs just changed. The proof for the equivalence
+  // is the CALLER's job (it differs per kind and per degeneracy).
+  auto merge_lits = [&](Lit x, Lit y) {
+    const Lit oa = find(x), ob = find(y);
+    if (oa == ob)
+      return;
+    const Lit sm = oa < ob ? oa : ob, big = oa < ob ? ob : oa;
+    unite(sm, big);
+    neq++;
+    for (const Lit side : {big, negate(big)})
+      for (const uint32_t gg : occ[side])
+        if (!inq[gg]) {
+          inq[gg] = 1;
+          work.push_back(gg);
+        }
+  };
+
   while (!work.empty() && !unsat) {
     const uint32_t i = work.front();
     work.pop_front();
     inq[i] = 0;
     Lit out_i;
-    if (!canonicalize(gates[i], find, key, out_i))
-      continue; // degenerate under current reps — deferred
+    const Canon ci = canonicalize(gates[i], find, key, out_i, cancelled);
+    if (ci == Canon::Skip)
+      continue; // degenerate in a way this rule does not exploit — sound
+    // --- D-CONG-UNIT: a degenerate gate is an inference, not a dead end ------
+    if (ci == Canon::Unit) {
+      // value(out_lit) = ⊕key = ⊕∅ = 0, so ¬out_lit is a root unit. Only XOR
+      // reaches here (the AND/ITE degeneracies still return Skip).
+      const std::vector<std::vector<Lit>> concl = {{negate(out_i)}};
+      add_xor_degeneracy_chain(k, cancelled, concl);
+      if (record_unit(negate(out_i))) {
+        unsat = true;
+        break;
+      }
+      continue; // the gate is consumed by its own inference
+    }
+    if (ci == Canon::Merge) {
+      // value(out_lit) = ⊕key = key[0], so out_lit ≡ key[0]: a merge with no
+      // second gate needed (calculus §6's unary gate).
+      const Lit other = key[0];
+      if (find(out_i) == find(other))
+        continue; // already known
+      if (find(out_i) == negate(find(other))) {
+        if (cong_probe) cong_n_clash++;
+        continue; // x ≡ ¬x — the refutation is C3b (measured: 0 occurrences)
+      }
+      const std::vector<std::vector<Lit>> concl = {{negate(out_i), other},
+                                                  {out_i, negate(other)}};
+      add_xor_degeneracy_chain(k, cancelled, concl);
+      add_equivalence_bare(k, out_i, other);
+      merge_lits(out_i, other);
+      continue;
+    }
     for (const Lit l : key)
       occ[l].push_back(i); // register for rescheduling when an input merges
     auto &tab = table[static_cast<int>(gates[i].kind)];
@@ -620,10 +834,14 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     // Recompute the stored gate's current canonical form: the union-find may have
     // moved on since it was inserted (stale key). Only merge when both gates share
-    // the SAME current key — then their outputs are provably equal.
+    // the SAME current key — then their outputs are provably equal. A stored gate
+    // that has since become degenerate is evicted, not exploited here: it is still
+    // in the worklist (its inputs merged, which is what rescheduled it), so its
+    // own pop draws the inference.
     const uint32_t j = it->second;
     Lit out_j;
-    if (!canonicalize(gates[j], find, key_j, out_j) || key_j != key) {
+    if (canonicalize(gates[j], find, key_j, out_j, cancelled_j) != Canon::Ok ||
+        key_j != key) {
       it->second = i; // evict stale/degenerate entry; current gate represents key
       continue;
     }
@@ -633,30 +851,25 @@ ApplyResult congruence_apply(Kernel &k) {
       if (cong_probe && oa == negate(ob)) cong_n_clash++; 
       continue; // already equal, or a contradiction (deferred)
     }
-    // congruent outputs → add oa==ob (DRAT-RUP over the full DB; LRAT chains TODO).
+    // congruent outputs → add oa==ob (DRAT-RUP over the full DB; XOR/ITE LRAT
+    // chains are C3). An AND equivalence whose bridging chain cannot be built is
+    // SKIPPED rather than emitted unjustified — sound, and N2 holds (see
+    // add_equivalence).
     if (gates[i].kind == GateKind::Xor) {
       add_xor_matching_proof_chain(k, key, out_j, out_i);
       add_equivalence_bare(k, out_j, out_i);
     } else if (gates[i].kind == GateKind::Ite) {
       add_ite_matching_proof_chain(k, key[0], out_j, out_i); // key[0] = cond
       add_equivalence_bare(k, out_j, out_i);
-    } else if (add_equivalence(k, gates[j], gates[i], find)) {
-      return ApplyResult::Unsat;
+    } else if (!add_equivalence(k, gates[j], gates[i], find)) {
+      k.stats.congruence_unjustified++;
+      continue; // no checkable chain — drop the inference, keep the proof valid
     }
-    const Lit sm = oa < ob ? oa : ob, big = oa < ob ? ob : oa;
-    unite(sm, big);
-    neq++;
+    merge_lits(out_j, out_i);
     if (k.inconsistent) {
       unsat = true;
       break;
     }
-    // gates using the merged-away representative as a canonical input changed key
-    for (const Lit side : {big, negate(big)})
-      for (const uint32_t gg : occ[side])
-        if (!inq[gg]) {
-          inq[gg] = 1;
-          work.push_back(gg);
-        }
   }
   if (cong_probe)
     std::fprintf(stderr,
@@ -671,7 +884,23 @@ ApplyResult congruence_apply(Kernel &k) {
                  gates.size(), (unsigned long long)neq);
   if (unsat)
     return ApplyResult::Unsat;
-  return neq ? ApplyResult::Ok : ApplyResult::NoOp;
+
+  // Assert the batch of derived root units, then close the root. This is the
+  // step that makes the unit channel worth having: on an equivalence-checking
+  // miter, congruence proves aᵢ ≡ bᵢ for the two circuits' matching signals,
+  // every output XOR then cancels to the unit ¬outᵢ, and propagating those units
+  // falsifies the miter's output constraint — a refutation inside congruence at
+  // zero conflicts, which is how kissat solves that family.
+  for (const Lit u : units) {
+    assert(k.value(u) >= 0 && "record_unit refutes rather than batching a false unit");
+    if (k.value(u) == 0)
+      kernel_assign_unit(k, u);
+  }
+  if (!units.empty() && inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (k.inconsistent)
+    return ApplyResult::Unsat;
+  return (neq || !units.empty()) ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
 uint32_t congruence_instances(Kernel &, uint64_t *out, uint32_t cap) {

@@ -76,6 +76,14 @@ struct Stats {
   uint64_t transitive_failed = 0;  // sources abandoned to Probe as failed (V4)
   uint64_t substitute_rounds = 0;  // Substitute rounds (V3) — detection passes
   uint64_t congruence_rounds = 0;  // Congruence rounds (V6) — gate-closure passes
+  // V6 merges dropped because no checkable LRAT chain could be built for them
+  // (a bridging BIG path blocked by a root-assigned literal). Sound — the
+  // inference is lost, never emitted unjustified. Expected 0; a nonzero count is
+  // a real signal, not noise.
+  uint64_t congruence_unjustified = 0;
+  // Root units derived from degenerate gates (V6's unit channel, D-CONG-UNIT):
+  // an XOR whose representative inputs all cancel forces its output.
+  uint64_t congruence_units = 0;
   uint64_t factorings = 0;         // Factor/BVA applications (E2) — grids replaced
   uint64_t bve_rounds = 0;         // BVE canonical-apply calls (E1; a policy
                                    // that doses per instance never bumps this)
