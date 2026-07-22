@@ -269,6 +269,11 @@ Lit DefaultBranching::pick(Kernel &k) {
 // (in kissat search.c's check order) by THIS policy's state (rev 17:
 // rules carry no scheduling). S3/S5 join in phase 2.
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+  if (const char *cl = std::getenv("TACTIX_CHRONO_LEVELS")) {
+    const long n = std::strtol(cl, nullptr, 10);
+    if (n >= 0)
+      chrono_levels = static_cast<uint32_t>(n);
+  }
   if (k.inconsistent)
     return 20;
   // the first inprocessing limit needs the ingested formula's size
@@ -390,7 +395,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // step back one level instead when the gap exceeds the limit
         const uint32_t jump = k.pending.jump_level;
         const uint32_t back = k.level - 1;
-        backjump_apply_to(k, back - jump > CHRONO_LEVELS ? back : jump);
+        backjump_apply_to(k, back - jump > chrono_levels ? back : jump);
       }
       continue;
     }

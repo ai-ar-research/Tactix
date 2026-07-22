@@ -95,6 +95,11 @@ public:
   // DefaultPolicy stays bit-exact (s055 = 932,762). Turning on chronological
   // backtracking in DefaultPolicy is a separate, measured go/no-go.
   static constexpr uint32_t CHRONO_LEVELS = UINT32_MAX;
+  // Runtime override for the T4 go/no-go the comment above asks for:
+  // TACTIX_CHRONO_LEVELS=N (kissat's `chronolevels`, default 100; N=0 means
+  // always chronological). Unset keeps CHRONO_LEVELS, i.e. today's behaviour,
+  // so the default path is untouched until a measurement says otherwise.
+  uint32_t chrono_levels = CHRONO_LEVELS;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
 
