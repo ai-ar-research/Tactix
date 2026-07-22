@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-22 (rev. 59). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-22 (rev. 60). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -279,10 +279,28 @@ Design commitments:
   implemented in, and its state owned by, the policy object; never in a rule
   module, never in the kernel. Rules expose exactly: a pure soundness
   `guard`, `instances`, `apply`, and statistics for policies to read.
-  The kernel's H-state is restricted to heuristics that back a rule's
-  *instance ranking* (VMTF queue, score heaps, saved phases — what makes
-  `Decide`'s canonical instance and `tactix_decide_candidates` work, §5.1);
-  scheduling state does not live there. This supersedes the earlier
+  **Heuristic state `H` is owned by the policy, not the kernel (rev 60).**
+  `H` — the VMTF queue, score heaps, saved/target/best phases, the active
+  ranking mode — is *search guidance*, outside `σ` (§4, rev 59), and it is
+  **optional**: a solver with no `H` (`Kernel::h == nullptr`) is fully sound,
+  just unguided. Correctness never depends on `H` existing, so nothing may
+  exist merely to guarantee it does — in particular there is **no mandatory
+  DefaultPolicy**; a bare RL/LLM policy that brings its own guidance (or none)
+  is a first-class configuration. N1 is unaffected: it requires the branching
+  *choice* to be exposable (every unassigned literal is a legal `Decide`
+  instance with or without `H`), not a ranking to exist — only the *order*
+  `tactix_decide_candidates` returns degrades to index order without `H`. A
+  policy operation that genuinely needs `H` (Rephase, SwitchMode) simply has a
+  guard that fails when `H` is absent — a pure precondition, not a special
+  case. `Heuristics` accessor functions take `Kernel&` and read kernel
+  internals freely (the same direction every rule faces); the discipline runs
+  the other way — **the kernel must never name the `Heuristics` type nor call
+  into `H` unconditionally**, so its hooks (phase-save on backtrack, bump on
+  conflict) are compile-time callables that vanish when `H` is null, never a
+  per-step `if (k.h)` on a hot path. Storage lives with whoever outlives a
+  single `solve()` (the session or the policy), so the N1 stepping surface
+  (`tactix_decide` before any solve) always has an `H` when one is attached.
+  This supersedes the earlier
   rule-module `advised` hint (the guard/advised split): advice computation
   and its state move into the policy; the registry keeps guards only.
   Consequence for observability: any signal a scheduling heuristic needs
@@ -1211,3 +1229,4 @@ conflate them.
 - **rev. 57** (2026-07-21, user): re-split rev 56's C3 bundle — the DRAT unit channel banks now, `D-CONG-LRAT` becomes the immediate next item (§9).
 - **rev. 58** (2026-07-21, user): status moved out of the plan into PROGRESS.md — one fact, one home (§4, §5.2).
 - **rev. 59** (2026-07-22, user): took `H` out of `σ` (§4, §5.1).
+- **rev. 60** (2026-07-22, user): `H` is optional, policy-owned state — the kernel never names the `Heuristics` type nor depends on its existence; no mandatory DefaultPolicy; the H-relocation is the top-priority phase-3 work item (§5, §9). Design `docs/design/h-relocation-design.md`.

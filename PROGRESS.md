@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 59 (2026-07-22)
+- **Plan revision tracked:** rev. 60 (2026-07-22)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-21
 - **▶ RESUME HERE (2026-07-21).** Phase 3, **T3 gate open**. Working plan rev 53/54/55,
@@ -63,13 +63,13 @@ disagree, the plan is authoritative — fix this file.
   **Plan rev 59: `H` is out of `σ`** — proof rule iff the effect on `σ` is
   non-trivial, so Rephase/SwitchMode/Walk/Reorder are policy operations.
 
-  **▶▶ IN FLIGHT — the `H`-out-of-Kernel refactor (user, 2026-07-22).** Move
-  heuristic state out of the Kernel into policy ownership, and give the
-  reclassified operations a **sub-policy super-class** beside
-  `BranchingPolicy`/`ReductionPolicy`. A plan is being drafted for review
-  BEFORE any code moves; the known hazard is N3 — `H` is touched by
-  `kernel_assign`, `kernel_backtrack`, analyze's bumping and decide's ranking,
-  so naive indirection there is exactly what §8.4's 5 % budget forbids.
+  **▶▶ TOP PRIORITY (user, 2026-07-22): relocate `H` out of the Kernel.** `H` is
+  policy-owned, OPTIONAL state — a solver with no `H` is sound, just unguided, and
+  nothing (no mandatory DefaultPolicy) exists to guarantee it. Plan rev 60; the
+  ordered increments **H0–H6 are in the Track H checklist below**, gated on
+  trajectory identity, design `docs/design/h-relocation-design.md`. It buys zero
+  PAR-2; the payoff is that `Bump` (the AE-Kissat-MAB/CHB/CURE arm site) becomes
+  swappable without editing the kernel. Start with H0/H1.
 
   **▶ AFTER THAT — the tail (Track T) is where "exceed kissat" now lives.**
   Three experiments converged: the gap is **search quality (~3× conflicts) and
@@ -277,6 +277,38 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
 - [ ] **C4-perf · the LRAT path is ~250× slower on a miter and that is not free.** `hwmcc` takes **1680 s under `--lrat` vs 6.67 s under DRAT**: the replay runs one probing propagation per TOP-level ladder lemma, and with 710 722 merges that is millions of propagations over a 4.3 M-clause formula. Correctness is unaffected and DRAT — the competition path — is untouched, but LRAT-mode benchmarking on gate-heavy families is impractical until this is fixed. **The fix is the design I skipped:** derive the top level structurally (bridging binaries via `big_path_chain`, then the falsified parity clause) instead of replaying it, which needs per-gate side-clause ids — `CongGate::side_ids` is declared for exactly this and still never populated. Keep the replay as the fallback and the oracle: it is what makes the structural chain testable.
 - [ ] **C3b · the remaining degeneracies** — AND with a clashing input → unit `¬out`, AND with an idempotent duplicate → unary merge, and the `x ≡ ¬x` clash-merge → refutation (`substitute.cpp`'s `emit_unsat` is the working model). Measured firing **0 times on `hwmcc`** — but **TB1 has since settled it with a direct count: all four counters are 0 on `FmlaEquivChain` too**, so this stays completeness/N1 hygiene rather than a tail-instance fix. The AND chains need care the XOR ones do not: a gate with a duplicated input carries a duplicated `input_bin_ids` hint, which is neither unit nor falsified at its position in the chain.
 
+### ▶ Track H — relocate `H` out of the Kernel (plan rev 60; TOP PRIORITY)
+
+The user's directive, and the current top priority. `H` (VMTF queue, score heaps,
+saved/target/best phases, ranking mode) is **policy-owned, optional** state (rev
+60): a solver with `Kernel::h == nullptr` is fully sound, just unguided, and
+nothing — no mandatory DefaultPolicy — exists merely to guarantee `H` is present.
+Design (the increment plan + the inventory + the rejected alternatives):
+**`docs/design/h-relocation-design.md` — write it first, frozen on landing.**
+
+Buys **zero PAR-2** — the gate for every increment is **trajectory identity**
+(exact conflicts / decisions / propagations / ticks per instance + byte-identical
+DRAT on the corpus), a sharper bar than PAR-2 for a behaviour-neutral move and
+free since `main` already prints those counters. The payoff is capability: **`Bump`
+becomes swappable without editing `kernel.cpp`** — the AE-Kissat-MAB / CHB / CURE
+arm site §5.2 says needs "zero new rule families", which is untrue today.
+
+**Two facts verified before planning** (correct the original brief): `kernel_assign`
+touches **no** `H` (phase saving lives in the backtrack unassign loop), so the
+hottest path is already `H`-free; and the registry is **name-sorted**, so pulling
+Rephase/SwitchMode into a second id space renumbers six other rules and breaks the
+frozen v1 API — hence one registry with a `kind` field, not two id spaces.
+
+- [ ] **H0 · design doc + doc sync.** `docs/design/h-relocation-design.md`; retag §5.2 catalog S3/S4/S6/S7 as *policy operations*; delete the S3/S4 entries from `calculus.md` (already marked "retained only until the sub-policy surface lands") and their rows from `implementation-notes.md`; add the `bve_retry`/`Stats`/`bve_gate_mask` reclassification (derived-index / observability-sink / rule-config — three non-σ categories that are NOT `H`). Docs only. **S.**
+- [ ] **H1 · `ActionKind` + `TACTIX_REGISTER_POLICY_OP` + `tactix_action_kind`** (additive C API). Rephase and SwitchMode switch macros IN PLACE (no id move). Bit-exact by construction. Gate: `test_api_c.c` gains kind assertions **and a golden `tactix_rule_name(i)` list for all ids** (a permanent guard against id drift). **S.**
+- [ ] **H2 · the kernel stops depending on `H`'s existence — STRUCTURAL, promoted from the plan's optional I5** (because `H` is optional, per rev 60): `kernel_backtrack`'s phase-save/heap hooks and the reserve-vars path become **compile-time callables** that vanish when `h == nullptr`, so `kernel.hpp` never names `Heuristics` and never runs a per-step `if (k.h)` on a hot path. This is the load-bearing increment for optionality and must land before the field move. **M.**
+- [ ] **H3 · move the `H` CODE** out of `kernel.cpp` into `src/policies/heuristics.cpp` (verbatim move + `kernel_*`→`heuristics_*` rename; fields still in `Kernel`, functions take `Kernel&`). Review each hunk as a diff-with-rename — reordering around `scinc` could change float-rescale timing. **S/M.**
+- [ ] **H4 · move the `H` FIELDS** into `struct Heuristics`; `Kernel` holds only the pointer. Split `kernel_reserve_vars` (σ-growth vs `heuristics_reserve_vars`); `Heuristics` carries its own `nvars` with a `heuristics_check(h,k)` invariant. **The named hazard: E2 Factor allocates extension vars mid-solve and is ON by default** — an `H` that does not grow is a silent OOB. `test_factor` is already the exact canary (asserts `saved.size()==7 && scores.score.size()==7`); update, never delete. Gate adds an ASan Factor-heavy fuzz leg + solo ticks/s (≤ 2 % off the 26.6 M pin). **L.**
+- [ ] **H5 · `H` owned by the Policy; storage outlives any single `solve()`.** `tactix_solver` gains a long-lived policy (or holds `H` directly) so `tactix_decide` on a never-solved solver still has one when attached; a null `H` stays legal. Consumers (`default_policy.cpp`, `api.cpp`, `main.cpp`, analyze's bump, decide's ranking, restart's reuse-level) read through the policy, not the kernel. **Accept + document:** swapping policies swaps `H` (a new heuristic starts cold — correct under the model); `demo3`'s stat-for-stat contract needs the same initial `H`. **M.**
+- [ ] **H6 · the sub-policy super-class.** `subpolicy.hpp` umbrella; reparent `BranchingPolicy`/`ReductionPolicy`; add the `RestartLevel` and `BackjumpTarget` (chrono) **Choosers** and the `Bump`/`PhaseSave`/`TargetBest` **Hooks**. `src/rules/{rephase,switchmode}` → `src/policies/ops/`. §5.3 extends: a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`. Acceptance test for the whole category is **S6 Walk landing under that diff shape** (a later item). **S/M.**
+- **Deliberately NOT in this refactor** (design §6): threading `Heuristics&` through every rule signature (~210 edits, unused param on 13 rules — the `Kernel::h`/`dense`/`proof` idiom already gives the capability); a virtual `HeuristicPolicy` (one implementation = §3 granularity trap; add static arm-dispatch when a 2nd arm exists); moving `Stats`/`bve_retry`/`bve_gate_mask` into `H`. **Sequencing:** H0/H1/H6 safe any time; H2–H5 want a quiet tree and are textually incompatible with in-flight kernel work — do them as a coherent unit before resuming Track S.
+
+
 ### ▶ Track T — the Tier B tail (items **TB1–TB6**; the bare `T1`–`T5`
 names belong to the MILESTONE GATES in §8.3 and are not these)
 
@@ -369,6 +401,33 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-22 — plan revs 59+60: `H` out of `σ`, then `H` optional + policy-owned (the refactor is now TOP PRIORITY)
+Two model changes, one session, both the user's. **Rev 59:** `σ = ⟨F,R,τ,ρ,π⟩`;
+`H` is not part of the proof state. The old "proof-irrelevant by construction"
+caveat on `H` was the tell — a component soundness must explicitly except was
+never in `σ`. New test: proof rule iff the effect on `σ` is non-trivial;
+`H`-only ⇒ policy operation. Rephase/SwitchMode/Walk/Reorder reclassified.
+**Rev 60:** `H` is **optional** and **policy-owned** — a solver with `k.h ==
+nullptr` is sound (just unguided), so nothing exists merely to host `H` and there
+is **no mandatory DefaultPolicy**. The user's sharpening of my position: I had
+proposed a session-owned `H` to keep the N1 stepping surface fed, which quietly
+made `H` session-global again; the correct framing is that N1 needs the branching
+*choice* exposed (every unassigned literal is a legal `Decide` instance), not a
+*ranking* to exist — only `tactix_decide_candidates`' order degrades without `H`.
+
+Consequence that reordered the increment plan: because `H` is optional, the
+kernel must never call into it unconditionally, so **H2 (kernel stops naming/
+depending on `Heuristics`, via compile-time callables) is STRUCTURAL**, promoted
+from the planning agent's "optional, revert-if-slow I5". The agent's plan was
+otherwise adopted, including its two pushbacks (one registry with a `kind` field,
+not two id spaces — the registry is name-sorted so a split renumbers six rules
+against the frozen API; and no `Heuristics&`-through-every-signature threading).
+It also corrected the brief: `kernel_assign` touches no `H`, so the hottest path
+is already `H`-free. Increments H0–H6 in the Track H checklist; the payoff is
+capability, not PAR-2 — `Bump` becomes swappable without editing `kernel.cpp`,
+the arm site §5.2 already claims needs no new rule families.
+
 
 ### 2026-07-22 — chrono ON by default; three leads killed by measurement; H out of σ
 Commits `8e0bd01` (the chrono fix), `93d206d` (default + plan rev 59), `ff7a572`
