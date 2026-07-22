@@ -147,6 +147,19 @@ disagree, the plan is authoritative — fix this file.
     - *Method note:* mid-sweep the first two points made `time/phase` look
       constant, and that would have been written up as confirmation had the
       prediction not been registered in advance and the sweep not been finished.
+  - **L8 · Ablating ONE feature does not measure that feature.** On
+    `FmlaEquivChain`, kissat with **all** simplification off (8.68 s) is faster
+    than kissat with any **single** simplifier off (congruence 13.0, eliminate
+    15.5, sweep 17.0): removing one makes the survivors over-invest, so a
+    single-ablation delta is an upper bound inflated by re-allocation, not the
+    technique's worth. **Always run the all-off control** — it bounds the whole
+    layer (here: ~0 net seconds) and it is cheap.
+    **This applies to SEARCH features too (2026-07-22).** T4's chrono lead came
+    from exactly this shape — disabling chrono costs kissat 54 % on that
+    instance — and enabling chrono cost *us* 13.6 s on that same instance and
+    +13 % on Tier B. Two leads have now been killed by their own methodology
+    (congruence on `FmlaEquiv`, chrono), so the control belongs BEFORE any
+    kissat feature is adopted, not after it disappoints.
   - **L6 · Measurement hygiene.** Solo spot-checks MISLEAD (`hwmcc` looked like a
     57→47 s win solo, neutral at jobs=4); only same-window A/B at equal
     concurrency counts. **HEAD's Tier B spread is 20.60–23.01 PAR-2** (nine runs,
@@ -284,7 +297,7 @@ why none of them needs a trade-off against the others.
   - **C3b's ranking STANDS, now on a direct count:** all four degeneracy counters are **exactly 0** on this instance (AND-clash 0, ITE-share 0, XOR-cancel 0, clash-merges 0), and no `[rup-replay]` drops. Closing C3b would execute *zero* additional inferences here. It stays completeness/N1 hygiene.
   - One real deficiency found, with its value bounded: our extraction is at parity (46 620 vs 51 450 AND gates) but **kissat matches 258 gate pairs → 241 merged variables where we match 0**. A genuine structural-hashing gap — worth ≤ 0.7 s here.
   - **Where the 4.70× actually goes** (vs kissat pure-CDCL, both solo/clean): conflicts-to-refutation **3.09×** (1 926 560 vs 622 727) × props-per-conflict 1.09× × **propagation throughput 1.39×** (14.8 vs 20.6 M/s) = 4.68×, matching the measured 4.70×. Missing simplification contributes **0×**.
-- [ ] **T4 · turn chronological backtracking ON — the highest payoff-to-effort item found today.** Disabling chrono costs *kissat* **54 % wall time** on this instance (8.63 → 13.34 s) while changing conflicts only 6 %; the mechanism is decisions/conflict 22 → 49. **We built chrono (D-LEVEL-2, rev 38) and never switched it on:** `CHRONO_LEVELS = UINT32_MAX` forces target == jump_level, chosen to keep DefaultPolicy bit-exact, and `default_policy.hpp` itself says "a separate, measured go/no-go" — which has never been run. Our 31.6 decisions/conflict sits *between* kissat's chrono-on (22.2) and chrono-off (48.7), exactly where the theory predicts. One constant, then Tier B.
+- [x] **T4 · DONE — chrono measured and REJECTED as a default. Tier B 17.38 → 19.67 (+13 %)**, same window, jobs=4, both arms 14/14; knob kept as `TACTIX_CHRONO_LEVELS` (default = today's off). **Bimodal, 7 better / 7 worse**, net +32 s: wins `rbsat` −2.16, `mod4block` −1.75, `x9` −0.46, `crypto1` −0.19, `hwmcc` −0.16; losses **`FmlaEquiv` +13.64**, `mp1` +8.21, `qwh` +6.32, `summle` +6.07, `9vliw` +2.37. **It is worst on the instance that motivated it** — the lead was `FmlaEquiv`, where chrono-off costs *kissat* 54 %. **Not a porting error:** verified against `kissat/src/learn.c`, whose rule `delta > limit ? back : jump` is identical to ours including the `delta == 0` case. See L8 — the lead rested on a single-ablation delta. **Kept as a phase-6 ARM, not a constant:** 7-for-7 bimodality with ±2–14 s swings is what per-instance selection is for. Fuzz with chrono on: DRAT 1000/0, native LRAT 600/0, corpus 7/7 — sound, just not profitable by default.
 - [ ] **T5 · propagation throughput, 1.39× (14.8 vs 20.6 M props/s).** A FLAT multiplier on every instance, not just the tail — plausibly the single highest-value item across the whole T4 goal. **Confirm the number first:** our `propagations` counter includes preprocessing while kissat's pure-CDCL figure is search-only, so 1.39× is an upper bound.
 - [ ] **T6 · mode switching may be actively hurting.** Focused-only search refutes this instance in 407 k conflicts vs 623 k for kissat's default; we spend most of the run in stable (37 switches). Cheapest test is an env knob to force focused mode, then re-measure. (Related: the phase-6 arm list already carries Glucose blocking restarts as a stable-mode candidate.)
 - [ ] **T2 · `x9-08014` is pure search**- [ ] **T2 · `x9-08014` is pure search** — 801 694 conflicts with every inprocessing rule inert. Route via the `debug-performance` skill (decompose stats → ablate the baseline) rather than guessing; it shares a category with `clique`, so a single search-quality finding may cover both.
