@@ -35,7 +35,7 @@ guard/deviation ledger. All must agree.
 ## The abstract-vs-engineering test (the core judgement)
 
 For each guard conjunct, ask: *would this rule be **unsound** without it, as a
-rule in the abstract calculus over `σ = ⟨F,R,τ,ρ,π,H⟩`?*
+rule in the abstract calculus over `σ = ⟨F,R,τ,ρ,π⟩` (`H` is outside `σ`, rev 59)?*
 
 - **Yes → abstract precondition.** It constrains `F`/`τ`/`ρ` in a way the
   inference genuinely needs (e.g. `Analyze` needs a recorded conflict;

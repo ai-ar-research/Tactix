@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-22 (rev. 60). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-22 (rev. 61). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -464,17 +464,34 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 | M3 | `ConflictAnalysis` (atomic learn+backjump, rev 37: 1-UIP minimize/shrink/OTFS, then assert UIP at `jump_level`) | analyze, learn, deduce, minimize, shrink, strengthen, backtrack, trail | add-RUP with native LRAT hints | 1 |
 | M4 | *(folded into M3, rev 37 — Analyze+Backjump fused; `pending` is internal, chrono target → §5.4 as an M3 instance)* | — | — | — |
 
-#### Search management (macro tier, mostly heuristic-state H)
+#### Search management (macro tier — proof rules over `τ`/`R`)
 
 | # | Family | Kissat modules | Proof delta | Phase |
 |---|---|---|---|---|
 | S1 | `Restart` | restart, reluctant, averages, smooth | none | 1 (moved rev 12) |
 | S2 | `Reduce` (clause-DB reduction, tier promotion) | reduce, tiers, promote, collect | delete | 1 (moved rev 12) |
-| S3 | `Rephase` (best/inverted/original/target phases) | rephase, phases | none | 2 |
-| S4 | `SwitchMode` (stable ⇄ focused) | mode | none | 1 (moved rev 19) |
 | S5 | `Lucky` (constant/alternating assignment probes) | lucky | none (may conclude SAT) | 2 |
-| S6 | `Walk` (WalkSAT phase improvement) | walk, warmup | none | 4 |
-| S7 | `Reorder` (decision-queue reordering) | reorder | none | 4 |
+
+These carry a genuine `σ` effect — `Restart`/`Lucky` rewind or extend `τ`,
+`Reduce` deletes from `R` — so they are proof rules under the §4 test and live in
+the rule registry under the §5.3 contract.
+
+#### Policy operations (macro tier, `H`-only — sub-policies, NOT proof rules; rev 59/60)
+
+| # | Operation | Kissat modules | `σ` effect | Phase |
+|---|---|---|---|---|
+| S3 | `Rephase` (best/inverted/original/target phases) | rephase, phases | none (`H`-only) | 2 |
+| S4 | `SwitchMode` (stable ⇄ focused) | mode | none (`H`-only) | 1 (moved rev 19) |
+| S6 | `Walk` (WalkSAT phase improvement) | walk, warmup | none (`H`-only) | 4 |
+| S7 | `Reorder` (decision-queue reordering) | reorder | none (`H`-only) | 4 |
+
+By the §4 test these change only `H` (which variable or phase is tried next), so
+they carry **no proof delta, no `docs/calculus.md` entry, and no deviation-ledger
+row**. N1 still covers them: each is invocable at any time as a **sub-policy**
+(§5.1) — the schedulable `H`-only surface the §5.6 learner drives (e.g.
+`SwitchMode` is the VMTF-vs-EVSIDS MAB arm). Their relocation out of `src/rules/`
+into `src/policies/ops/` is Track H (PROGRESS.md); design
+`docs/design/h-relocation-design.md`.
 
 #### Clause-level inprocessing
 
@@ -1230,3 +1247,4 @@ conflate them.
 - **rev. 58** (2026-07-21, user): status moved out of the plan into PROGRESS.md — one fact, one home (§4, §5.2).
 - **rev. 59** (2026-07-22, user): took `H` out of `σ` (§4, §5.1).
 - **rev. 60** (2026-07-22, user): `H` is optional, policy-owned state — the kernel never names the `Heuristics` type nor depends on its existence; no mandatory DefaultPolicy; the H-relocation is the top-priority phase-3 work item (§5, §9). Design `docs/design/h-relocation-design.md`.
+- **rev. 61** (2026-07-22): applied the rev-59 reclassification test to the §5.2 catalog — split the search-management table so S3 `Rephase`/S4 `SwitchMode`/S6 `Walk`/S7 `Reorder` are catalogued as **policy operations** (`H`-only sub-policies), leaving S1/S2/S5 as the macro-tier proof rules; no scope change (Track H · H0, §5.2).

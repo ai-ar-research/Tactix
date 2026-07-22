@@ -10,8 +10,10 @@ static std::vector<RuleVTable> &mutable_rules() {
   return rules;
 }
 
-int tactix_register_rule(const RuleVTable &vt) {
-  mutable_rules().push_back(vt);
+int tactix_register_rule(ActionKind kind, const RuleVTable &vt) {
+  RuleVTable e = vt;
+  e.kind = kind;
+  mutable_rules().push_back(e);
   return static_cast<int>(mutable_rules().size()) - 1;
 }
 

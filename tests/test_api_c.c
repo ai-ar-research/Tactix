@@ -224,6 +224,46 @@ static void test_bve_gate_selection(void) {
   tactix_release(s);
 }
 
+/* H1 · Track H: pin the frozen registry id/name assignment (a permanent
+ * id-drift guard — reclassifying Rephase/SwitchMode in place must NOT move any
+ * id) and each entry's ActionKind. Rephase and SwitchMode are POLICY OPERATIONS
+ * (H-only, plan rev 59/60); every other entry is a PROOF RULE. Adding a rule
+ * renumbers ids by the name sort — update this golden list deliberately then. */
+static void test_action_kind(void) {
+  static const char *const golden[] = {
+      "BVE",        "Backbone",   "ConflictAnalysis", "Congruence",
+      "Decide",     "Factor",     "Lucky",            "Probe",
+      "Propagate",  "Reduce",     "Rephase",          "Restart",
+      "Strengthen", "Substitute", "SubsumeForward",   "SwitchMode",
+      "TransitiveReduce", "Vivify"};
+  const int n = (int)(sizeof(golden) / sizeof(golden[0]));
+  assert(tactix_rule_count() == n);
+  for (int i = 0; i < n; i++)
+    assert(!strcmp(tactix_rule_name(i), golden[i]));
+
+  /* the two policy operations (rev 59/60) */
+  assert(tactix_action_kind(rule_id("Rephase")) == TACTIX_ACTION_POLICY_OP);
+  assert(tactix_action_kind(rule_id("SwitchMode")) == TACTIX_ACTION_POLICY_OP);
+
+  /* spot-check proof rules, and assert exactly those two are policy ops */
+  assert(tactix_action_kind(rule_id("Propagate")) == TACTIX_ACTION_PROOF_RULE);
+  assert(tactix_action_kind(rule_id("BVE")) == TACTIX_ACTION_PROOF_RULE);
+  assert(tactix_action_kind(rule_id("Lucky")) == TACTIX_ACTION_PROOF_RULE);
+  int policy_ops = 0;
+  for (int i = 0; i < n; i++) {
+    const int k = tactix_action_kind(i);
+    assert(k == TACTIX_ACTION_PROOF_RULE || k == TACTIX_ACTION_POLICY_OP);
+    if (k == TACTIX_ACTION_POLICY_OP)
+      policy_ops++;
+  }
+  assert(policy_ops == 2);
+
+  /* out-of-range → -1 (same convention as tactix_rule_id) */
+  assert(tactix_action_kind(-1) == -1);
+  assert(tactix_action_kind(n) == -1);
+  assert(tactix_action_kind(9999) == -1);
+}
+
 int main(void) {
   test_solve_sat();
   test_external_branching();
@@ -231,6 +271,7 @@ int main(void) {
   test_empty_solver_rule_application();
   test_stepwise_unsat();
   test_bve_gate_selection();
+  test_action_kind();
   puts("test_api_c OK");
   return 0;
 }

@@ -60,7 +60,10 @@ static ApplyResult rephase_apply_instance(Kernel &k, uint64_t inst) {
   return rephase_apply_type(k, inst);
 }
 
-TACTIX_REGISTER_RULE(Rephase, RuleTier::Macro, rephase_guard, rephase_apply,
-                     rephase_instances, rephase_apply_instance);
+// Policy operation (plan §4 rev 59): H-only (rewrites the saved/target/best
+// phase arrays), no proof delta. Registered in-place with the same name/tier/
+// fns as before, so its id is unchanged (Track H · H1).
+TACTIX_REGISTER_POLICY_OP(Rephase, RuleTier::Macro, rephase_guard, rephase_apply,
+                          rephase_instances, rephase_apply_instance);
 
 } // namespace tactix

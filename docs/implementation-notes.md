@@ -25,6 +25,12 @@ root closure `U` at apply entry** via `inprocess_reach_root`/`propagate_service`
 so the fixpoint is reached inside the rule rather than demanded by the guard).
 V1/V2/S5 additionally carry `!conflict_valid` as a genuine abstract precondition.
 
+**Policy operations are not in this table** (rev 61). S3 `Rephase`, S4
+`SwitchMode`, S6 `Walk`, S7 `Reorder` are `H`-only policy operations (plan rev
+59/60, §5.2) — they have no proof obligation and no guard to classify here; their
+trivial `!inconsistent` applicability lives with the sub-policy surface (Track H,
+`docs/design/h-relocation-design.md`), not in this ledger.
+
 | Rule | Implemented guard conjuncts | Engineering deviations (else pure) |
 |---|---|---|
 | M1 Propagate | `!conflict_valid · !inconsistent · propagate_head<\|τ\|` | — pure |
@@ -33,8 +39,6 @@ V1/V2/S5 additionally carry `!conflict_valid` as a genuine abstract precondition
 | M4 | *(folded into M3 — no guard)* | — |
 | S1 Restart | `!inconsistent · !conflict_valid · level>0` | **D-NOOP:** `!conflict_valid`, `level>0` |
 | S2 Reduce | `!inconsistent · !conflict_valid` | **D-NOOP:** `!conflict_valid` |
-| S3 Rephase | `!inconsistent` | — pure |
-| S4 SwitchMode | `!inconsistent` | — pure |
 | S5 Lucky | `root · !conflict_valid` | **D-ROOT:** `level==0`. (`!conflict_valid` is *abstract* — a SAT-concluding probe needs a consistent start.) |
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. |
 | V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop a consistent `M`. |
@@ -65,8 +69,7 @@ removal is a plan item, not an ad-hoc patch.
 | ~~D-FACTOR-LRAT~~ — **CLOSED 2026-07-20** | ~~Under native LRAT, E2 Factor no-ops~~ | E2 | the add step is add-RAT; DRAT emits it pivot-first (checker reads the RAT pivot); native LRAT needs real `add_rat` chains | **done:** `Proof::add_rat` primitive added (`proof.{hpp,cpp}`) and Factor emits it — dividers as vacuous RAT (empty hints), quotients as one resolution group per divider (`-⟨dividerᵢ⟩ ⟨orig(fᵢ,rⱼ)⟩`). First backend realization of add-RAT. Validated: `micro_proofs` Factor cases (clean + dup grid) + fuzz default/random `--lrat` Factor-forced 800/0; mp1 (935 factorings) + aes_decry (11 165) native LRAT VERIFIED by lrat-check (22 s / 17 s, where drat-trim timed out). DRAT byte-identical |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
-**Pure already:** M1 Propagate, M2 Decide, M3 ConflictAnalysis, S3 Rephase,
-S4 SwitchMode.
+**Pure already:** M1 Propagate, M2 Decide, M3 ConflictAnalysis.
 
 **The only remaining inprocessing GUARD deviation is D-ROOT** (`level==0`) — an accepted
 **framework choice**, not a scheduled removal: the inprocessing-rules framework

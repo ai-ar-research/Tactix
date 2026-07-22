@@ -88,6 +88,13 @@ const char *tactix_rule_name(int rule_id) {
   return rules[rule_id].name;
 }
 
+int tactix_action_kind(int rule_id) {
+  const auto &rules = tactix_rules();
+  if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
+    return -1;
+  return static_cast<int>(rules[rule_id].kind);
+}
+
 int tactix_rules_applicable(tactix_solver *s, int *out, int cap) {
   const auto &rules = tactix_rules();
   int n = 0;

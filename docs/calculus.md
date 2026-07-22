@@ -61,8 +61,9 @@ iff its effect on `σ` is non-trivial; those are the rules catalogued here. An
 operation whose effect is **`H`-only is a policy operation** and has NO entry
 here, no proof delta and no ledger row — it is a sub-policy (plan §5.1).
 S3 `Rephase`, S4 `SwitchMode`, S6 `Walk` and S7 `Reorder` are policy operations
-by this test; their entries below are retained only until the sub-policy surface
-lands, and are marked. Control flags used by the
+by this test and have **no entry here** (rev 61; catalogued as policy operations
+in `DEVELOPMENT_PLAN.md` §5.2, relocation tracked in
+`docs/design/h-relocation-design.md`). Control flags used by the
 implementation but *not* part of `σ` — `conflict_valid`/`conflict_ref` (a
 recorded but unanalyzed conflict) and `pending` (a learned clause awaiting
 assertion) — are **engineering state**; guards that mention them are deviations
@@ -149,7 +150,7 @@ chronological target in `[jump_level, level-1]` is sound).
 
 ---
 
-## 4. Search management (S1–S5)
+## 4. Search management (S1, S2, S5)
 
 ### S1 · Restart
 - **Precondition (abstract):** `F` not refuted (and consistent). A model-
@@ -168,19 +169,8 @@ chronological target in `[jump_level, level-1]` is sound).
 - **Soundness:** deleting redundant/entailed clauses is equisatisfiability-
   preserving; the checker accepts any deletion.
 
-### S3 · Rephase
-- **Precondition (abstract):** `F` not refuted.
-- **Effect:** rewrite the saved/target/best phase arrays (`H` only) on the
-  B,B,I,B,B,O rotation. Touches neither `F` nor `τ` nor the legal-literal set.
-  No proof δ.
-- **Soundness:** phases are proof-irrelevant `H`; changing them cannot affect
-  soundness.
-
-### S4 · SwitchMode
-- **Precondition (abstract):** `F` not refuted.
-- **Effect:** flip the active decision-ranking heuristic (focused VMTF queue ↔
-  stable EVSIDS heap); rebuild heap membership. `H` only. No proof δ.
-- **Soundness:** proof-irrelevant `H`.
+*(S3 `Rephase` and S4 `SwitchMode` were here; removed rev 61 — they are `H`-only
+**policy operations**, not proof rules, per §2 and `DEVELOPMENT_PLAN.md` §5.2.)*
 
 ### S5 · Lucky
 - **Precondition (abstract):** `F` not refuted and consistent. Attempts a

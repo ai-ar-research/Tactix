@@ -106,6 +106,15 @@ int tactix_value(tactix *, int lit);
 int tactix_rule_count(void);
 const char *tactix_rule_name(int rule_id);
 
+/* action kind (plan §4 rev 59, additive): is registry entry rule_id a PROOF
+ * RULE — a non-trivial effect on the proof state, so it carries a proof
+ * obligation — or an H-only POLICY OPERATION (a sub-policy: Rephase, SwitchMode,
+ * ...)? Both share this one name-sorted id space. Returns a TACTIX_ACTION_*
+ * value, or -1 if rule_id is out of range. */
+#define TACTIX_ACTION_PROOF_RULE 0
+#define TACTIX_ACTION_POLICY_OP 1
+int tactix_action_kind(int rule_id);
+
 /* fill `out` with the ids of rules whose guard (SOUNDNESS precondition)
  * currently holds; returns the count (<= cap). Any of these may be applied
  * now, in any order — this is theoretical applicability, N1. */

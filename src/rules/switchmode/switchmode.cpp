@@ -27,7 +27,10 @@ ApplyResult switchmode_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-TACTIX_REGISTER_RULE(SwitchMode, RuleTier::Macro, switchmode_guard,
-                     switchmode_apply);
+// Policy operation (plan §4 rev 59): H-only (flips the decision-ranking
+// heuristic — the VMTF-vs-EVSIDS MAB arm), no proof delta. Registered in-place
+// with the same name/tier/fns, so its id is unchanged (Track H · H1).
+TACTIX_REGISTER_POLICY_OP(SwitchMode, RuleTier::Macro, switchmode_guard,
+                          switchmode_apply);
 
 } // namespace tactix

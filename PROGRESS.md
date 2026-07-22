@@ -5,16 +5,22 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 60 (2026-07-22)
+- **Plan revision tracked:** rev. 61 (2026-07-22)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-22
-- **▶ RESUME HERE (2026-07-22).** Phase 3, **T3 gate open**. **The next step is
-  `H0` then `H1` in the Track H checklist below** — relocate `H` out of the Kernel
-  (plan rev 60, the user's top priority), design `docs/design/h-relocation-design.md`.
-  H0 is docs-only (fill in the design stub + sync §5.2/calculus/implementation-notes);
-  H1 is the additive `ActionKind`/`tactix_action_kind` C-API step. Both are bit-exact
-  and safe on a live tree; H2–H5 want a quiet tree. What landed just before this is in
-  the top block below.
+- **▶ RESUME HERE (2026-07-22).** Phase 3, **T3 gate open**. **Track H · H0+H1
+  LANDED** — the design doc is filled in with the `H` file:line inventory
+  (`docs/design/h-relocation-design.md`); §5.2/calculus/implementation-notes synced
+  to plan rev 61 (S3/S4/S6/S7 are now catalogued as **policy operations**);
+  `ActionKind` + `TACTIX_REGISTER_POLICY_OP` + `tactix_action_kind` added and
+  Rephase/SwitchMode reclassified **in place** — ids unmoved (Rephase=10,
+  SwitchMode=15), **bit-exact** (trajectory + proof bytes byte-identical on
+  tr-n120-s058 + corpus-007), ctest 29/29, quick fuzz green. **The next step is
+  `H2` in the Track H checklist below** — the first STRUCTURAL increment (kernel
+  stops depending on `H`'s existence via compile-time callables that vanish when
+  `h == nullptr`). **H2–H5 want a QUIET TREE** (textually incompatible with
+  in-flight kernel work) and land as one coherent unit before resuming Track S; H6
+  is safe any time. What landed just before Track H is in the top block below.
 
   **Landed (revs 53–55).** *Increment 1, the effort ledger* — each rule's dose is
   a per-mille fraction of the search work since it last ran, metered in its own
@@ -303,8 +309,8 @@ hottest path is already `H`-free; and the registry is **name-sorted**, so pullin
 Rephase/SwitchMode into a second id space renumbers six other rules and breaks the
 frozen v1 API — hence one registry with a `kind` field, not two id spaces.
 
-- [ ] **H0 · design doc + doc sync.** `docs/design/h-relocation-design.md`; retag §5.2 catalog S3/S4/S6/S7 as *policy operations*; delete the S3/S4 entries from `calculus.md` (already marked "retained only until the sub-policy surface lands") and their rows from `implementation-notes.md`; add the `bve_retry`/`Stats`/`bve_gate_mask` reclassification (derived-index / observability-sink / rule-config — three non-σ categories that are NOT `H`). Docs only. **S.**
-- [ ] **H1 · `ActionKind` + `TACTIX_REGISTER_POLICY_OP` + `tactix_action_kind`** (additive C API). Rephase and SwitchMode switch macros IN PLACE (no id move). Bit-exact by construction. Gate: `test_api_c.c` gains kind assertions **and a golden `tactix_rule_name(i)` list for all ids** (a permanent guard against id drift). **S.**
+- [x] **H0 · design doc + doc sync — DONE** (plan rev 61). `docs/design/h-relocation-design.md` filled in (the `H` field/function/hook/consumer inventory with file:line + the expanded H1–H6 increments); §5.2 catalog split so S3/S4/S6/S7 are catalogued as **policy operations** (via revise-plan); S3/S4 entries removed from `calculus.md` + the §2 marking/§4 title updated, and their guard rows removed from `implementation-notes.md` (via calculus); the three non-σ-but-not-`H` categories (observability sink / derived index / rule config) recorded in the design doc. Also fixed the stale `σ=⟨…,H⟩` line in the calculus skill. Docs only. **S.**
+- [x] **H1 · `ActionKind` + `TACTIX_REGISTER_POLICY_OP` + `tactix_action_kind` — DONE** (additive C API). `RuleVTable` gained a defaulted `kind` field; `tactix_register_rule` threads the kind; the new macro sets `PolicyOp`. Rephase (id 10) and SwitchMode (id 15) switched macros **in place** — ids unmoved. C header mirrors `TACTIX_ACTION_PROOF_RULE/POLICY_OP` + `int tactix_action_kind(int)`. **Bit-exact by construction** (kind is never read by kernel/DefaultPolicy) and **measured** so: trajectory + DRAT bytes byte-identical on tr-n120-s058 (SAT) and corpus-007 (UNSAT). `test_api_c.c` gained a golden 18-id name list (permanent id-drift guard), kind assertions on both policy ops, proof-rule spot checks + the exact policy-op count (2), and boundary `-1` returns. ctest 29/29 (release + debug/ASan); quick fuzz green. **S.**
 - [ ] **H2 · the kernel stops depending on `H`'s existence — STRUCTURAL, promoted from the plan's optional I5** (because `H` is optional, per rev 60): `kernel_backtrack`'s phase-save/heap hooks and the reserve-vars path become **compile-time callables** that vanish when `h == nullptr`, so `kernel.hpp` never names `Heuristics` and never runs a per-step `if (k.h)` on a hot path. This is the load-bearing increment for optionality and must land before the field move. **M.**
 - [ ] **H3 · move the `H` CODE** out of `kernel.cpp` into `src/policies/heuristics.cpp` (verbatim move + `kernel_*`→`heuristics_*` rename; fields still in `Kernel`, functions take `Kernel&`). Review each hunk as a diff-with-rename — reordering around `scinc` could change float-rescale timing. **S/M.**
 - [ ] **H4 · move the `H` FIELDS** into `struct Heuristics`; `Kernel` holds only the pointer. Split `kernel_reserve_vars` (σ-growth vs `heuristics_reserve_vars`); `Heuristics` carries its own `nvars` with a `heuristics_check(h,k)` invariant. **The named hazard: E2 Factor allocates extension vars mid-solve and is ON by default** — an `H` that does not grow is a silent OOB. `test_factor` is already the exact canary (asserts `saved.size()==7 && scores.score.size()==7`); update, never delete. Gate adds an ASan Factor-heavy fuzz leg + solo ticks/s (≤ 2 % off the 26.6 M pin). **L.**
@@ -405,6 +411,34 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-22 — Track H · H0+H1: `H`-relocation groundwork (docs + additive API), bit-exact
+Two commits, the first two increments of the top-priority `H`-relocation. No
+behaviour change — the gate is trajectory identity, and it holds exactly.
+
+- **H0 (plan rev 61, docs).** Filled in `docs/design/h-relocation-design.md`
+  (frozen on landing) with the `H` inventory — every field (`kernel.hpp`),
+  function (`kernel.cpp`), hot-path hook (all in `kernel_backtrack`, none in
+  `kernel_assign`), var-growth site, and out-of-kernel consumer, with file:line —
+  plus the expanded H1–H6 plan. Retagged §5.2 (split the search-management table:
+  S1/S2/S5 stay proof rules, S3/S4/S6/S7 are policy operations); removed the S3/S4
+  entries from `calculus.md` and their guard rows from `implementation-notes.md`.
+  The scouting corrected the original brief twice: `H` is **inline in `Kernel`
+  today** (no `struct Heuristics`/`k.h` yet — that is H2–H5), and `kernel_assign`
+  is already `H`-free. Banked for H3: `kernel_queue_init` is DEAD (decl only, zero
+  callers) — delete, don't port.
+- **H1 (additive C API).** `ActionKind{ProofRule,PolicyOp}` + a defaulted `kind`
+  on `RuleVTable`; `TACTIX_REGISTER_POLICY_OP` threads `PolicyOp` through
+  `tactix_register_rule`; Rephase/SwitchMode reclassified **in place** (name-sort
+  ⇒ ids 10/15 unmoved). Mirrored to C as `TACTIX_ACTION_*` + `tactix_action_kind`.
+  `kind` is metadata only — never read by the kernel or DefaultPolicy — so it is
+  bit-exact by construction, and measured so (trajectory + DRAT bytes identical,
+  SAT + UNSAT). `test_api_c.c` now pins a golden 18-id name list (id-drift guard) +
+  the per-entry kinds. Validation: ctest 29/29 (release + debug/ASan), quick fuzz
+  corpus 7/0 + 1000/0 (SAT 579 / UNSAT 394).
+- **Lesson reinforced:** the bit-exact gate is cheap and decisive here — `main`
+  already prints conflicts/decisions/props/ticks, so a behaviour-neutral refactor
+  gets a sharper check than PAR-2 for free. Baseline captured *before* editing.
 
 ### 2026-07-22 — plan revs 59+60: `H` out of `σ`, then `H` optional + policy-owned (the refactor is now TOP PRIORITY)
 Two model changes, one session, both the user's. **Rev 59:** `σ = ⟨F,R,τ,ρ,π⟩`;

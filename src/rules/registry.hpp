@@ -15,6 +15,17 @@ namespace tactix {
 // schedule-as-data; the tier's reader, plan §5.3)
 enum class RuleTier { Micro, Macro, Inprocess };
 
+// ActionKind (plan §4 rev 59): a registry entry is either a PROOF RULE — its
+// effect on σ = ⟨F,R,τ,ρ,π⟩ is non-trivial, so it carries a proof obligation and
+// a docs/calculus.md entry — or a POLICY OPERATION: H-only search guidance
+// (Rephase, SwitchMode, Walk, Reorder), a sub-policy with no proof delta. BOTH
+// live in this one name-sorted registry so ids never split (splitting into two
+// id spaces would renumber the frozen v1 API — Track H). The kind is metadata
+// only: the kernel and DefaultPolicy never read it; it is exposed via
+// tactix_action_kind and mirrored to C as TACTIX_ACTION_* (include/tactix.h).
+// Values are frozen (they cross the C ABI).
+enum class ActionKind { ProofRule = 0, PolicyOp = 1 };
+
 enum class ApplyResult {
   Ok,       // progress made
   NoOp,     // guard held but nothing to do (empty canonical instance)
@@ -75,10 +86,15 @@ struct RuleVTable {
   // yield and clamp/reject anything else.
   uint32_t (*instances)(Kernel &, uint64_t *out, uint32_t cap) = nullptr;
   ApplyResult (*apply_instance)(Kernel &, uint64_t inst) = nullptr;
+  // proof rule vs H-only policy operation — set by the registration macro
+  // (TACTIX_REGISTER_RULE ⇒ ProofRule, TACTIX_REGISTER_POLICY_OP ⇒ PolicyOp),
+  // not by the brace-init, so existing registration lines are unchanged.
+  ActionKind kind = ActionKind::ProofRule;
 };
 
-// registration (called from static initializers in rule modules)
-int tactix_register_rule(const RuleVTable &);
+// registration (called from static initializers in rule modules); the macros
+// pass the ActionKind, which stamps the vtable before it is stored.
+int tactix_register_rule(ActionKind kind, const RuleVTable &);
 
 // stable view: sorted by name once all rules are registered, so rule ids
 // are deterministic regardless of link order
@@ -90,6 +106,15 @@ int tactix_rule_id(const char *name); // -1 if unknown
 #define TACTIX_REGISTER_RULE(NAME, TIER, ...) \
   static const int tactix_rule_registered_##NAME = \
       ::tactix::tactix_register_rule( \
-          {#NAME, TIER, __VA_ARGS__})
+          ::tactix::ActionKind::ProofRule, {#NAME, TIER, __VA_ARGS__})
+
+// A policy operation (plan §4 rev 59): H-only search guidance, no proof
+// obligation. Same registry, same name-sorted id space, same guard/apply(/
+// instance) contract — only the ActionKind differs, so a rule reclassified in
+// place (Rephase, SwitchMode) keeps its id.
+#define TACTIX_REGISTER_POLICY_OP(NAME, TIER, ...) \
+  static const int tactix_op_registered_##NAME = \
+      ::tactix::tactix_register_rule( \
+          ::tactix::ActionKind::PolicyOp, {#NAME, TIER, __VA_ARGS__})
 
 } // namespace tactix
