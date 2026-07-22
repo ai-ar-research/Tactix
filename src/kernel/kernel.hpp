@@ -75,6 +75,11 @@ struct Stats {
   uint64_t transitive_deleted = 0; // transitively redundant binaries deleted
   uint64_t transitive_failed = 0;  // sources abandoned to Probe as failed (V4)
   uint64_t substitute_rounds = 0;  // Substitute rounds (V3) — detection passes
+  // Inprocessing PHASES run by the policy (each = a root descent + one dose per
+  // enabled technique). Counted in the kernel so it survives into the stats
+  // block: L7's open question is whether repeated-BVE cost tracks this number
+  // rather than the work inside a phase, and that is unanswerable without it.
+  uint64_t inprocess_phases = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds (V6) — gate-closure passes
   // V6 merges dropped because no checkable LRAT chain could be built for them
   // (a bridging BIG path blocked by a root-assigned literal). Sound — the

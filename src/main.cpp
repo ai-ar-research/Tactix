@@ -264,6 +264,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.substitute_rounds);
     // V6 + E2 ship ON by default but had no stats line, so "did congruence /
     // Factor even fire on this instance?" was unanswerable from a normal run.
+    printf("c inprocess   %llu phases\n",
+           (unsigned long long)kernel.stats.inprocess_phases);
     printf("c congruence  %llu rounds, %llu units, %llu unjustified\n",
            (unsigned long long)kernel.stats.congruence_rounds,
            (unsigned long long)kernel.stats.congruence_units,

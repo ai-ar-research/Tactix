@@ -218,6 +218,21 @@ void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
   // dense OccIndex + a real tick budget make a during-search phase cheap and
   // small enough to be SAT-safe. The growing periodic interval below (kissat
   // NLOG2N, phase-count-scaled) is what increment 2 restores.
+  // TACTIX_INPROCESS_INTERVAL=N — the S1 experiment knob (L7's open question).
+  // Re-enables during-search phases at a FIXED conflict interval, varying ONLY
+  // the interval: no growth, no size scaling, nothing else moves. That isolation
+  // is the whole point — L7 established that the cost of repeated BVE is NOT the
+  // resolvent work (33 % fewer resolvents, identical wall time), leaving the
+  // per-phase overhead as the suspect, and the way to test that is to see whether
+  // time tracks phase COUNT. Unset = today's behaviour (preprocessing only), so
+  // the default path is byte-identical.
+  if (const char *iv = std::getenv("TACTIX_INPROCESS_INTERVAL")) {
+    const long n = std::strtol(iv, nullptr, 10);
+    if (n > 0) {
+      inprocess.next_conflicts = k.stats.conflicts + static_cast<uint64_t>(n);
+      return;
+    }
+  }
   inprocess.next_conflicts = UINT64_MAX;
   (void)k;
 #if 0 // increment 2:
@@ -446,6 +461,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // capping an O(applications × formula) loop rather than capping
       // simplification.
       const uint64_t phase_ticks_at_entry = k.stats.ticks;
+      k.stats.inprocess_phases++;
       if (k.level > 0 && restart_guard(k))
         restart_apply_to(k, 0);
       // Attach the shared occurrence index for the phase (increment 2): the
