@@ -107,14 +107,18 @@ actually tests, and which of them are engineering deviations — is tabulated in
   under `M`) and `F` not refuted. Exempt from any fixpoint precondition (it
   operates on a non-fixpoint trail by design).
 - **Effect (one atomic transition):** 1-UIP analysis (+ recursive minimization,
-  all-UIP shrinking, OTFS) yields a learned clause, added to `R`; then, unless
+  all-UIP shrinking, OTFS) yields a learned clause, added to `R` — or to `F`
+  when OTFS strengthens an *irredundant* reason, since the resolvent then
+  inherits irredundancy and subsumes its parent, which is deleted; then, unless
   that was a root refutation, backtrack to `jump_level` and assert the UIP
   there. At root (learned ∅ or a top-level conflict) set `inconsistent` and
   return without asserting. `pending` is internal scratch handed from the learn
   step to the backjump step *within this one apply* — never a control state at a
   rule boundary.
 - **Proof δ:** `add_rup` of the learned clause (LRAT with its antecedent chain /
-  DRAT literals). Root refutation: **`add_rup(∅, chain)` in LRAT** (an RUP
+  DRAT literals), **plus one `add_rup` per OTFS strengthening round and a `del`
+  of each clause it subsumes** — so M3 is the one M-family rule that also
+  deletes. Root refutation: **`add_rup(∅, chain)` in LRAT** (an RUP
   addition of the empty clause with a hint chain, not a dedicated empty line —
   the one place that asymmetry with M1's `add_empty` matters) / `add_empty` in
   DRAT. The backjump step emits nothing, except the corner case of a learned unit
@@ -172,7 +176,11 @@ chronological target in `[jump_level, level-1]` is sound).
   complete assignment via decision-free assumptions + propagation; may
   **conclude SAT**, else restores the entry state exactly.
 - **Effect:** on success `τ` is a total model → `Sat`; otherwise `σ` is
-  unchanged. No proof δ (SAT needs no proof).
+  unchanged *by the probing itself*. Proof δ: none from the probes (SAT needs no
+  proof) — but like every inprocessing rule it drains the root closure at apply
+  entry, which emits that closure's units (`add_derived_unit` under LRAT) and can
+  refute (`add_empty` → `Unsat`). So "no proof δ" is true of the rule's own
+  inference, not of an apply.
 - **Soundness:** it only *reports* SAT when every variable is assigned with no
   conflict — a genuine model, leveling-independent; on failure it fully
   backtracks, restoring `σ`.
@@ -197,15 +205,20 @@ propagation at apply entry, so their guard needs no fixpoint conjunct.
   resolvent `c′ ⊂ c` (self-subsuming resolution).
 - **Effect:** replace `c` by `c′` (add-before-delete). Proof δ: `add_rup(c′)` +
   `del(c)`; a unit result is asserted (root unit), an empty result refutes. Also
-  a root-flush pre-pass (root-satisfied deletions + root-falsified strips).
+  a root-flush pre-pass (root-satisfied deletions + root-falsified strips). The
+  round is *fused* subsume-or-strengthen, so it also takes C1's inference when
+  the resolvent subsumes outright — that branch is **`del` with no add**.
 - **Soundness:** `c′` is RUP from `c` and `d`; add-before-delete keeps the core
   entailed at every step.
 
 ### C3 · Vivify
 - **Precondition (abstract):** ∃ a tier-scoped clause `c` whose distillation by
   propagation proves a strengthened `c′` (or root-satisfaction → delete).
-- **Effect:** replace `c` by the distilled `c′` (add-before-delete) or delete a
-  root-satisfied `c`. Proof δ: `add_rup(c′)` + `del(c)` (reason-walk chain).
+- **Effect:** three outcomes, not one — replace `c` by the distilled `c′`
+  (add-before-delete), delete a root-satisfied `c`, or, when the distillation
+  collapses, **assert the surviving literal as a root unit** / **refute on an
+  empty distillation** (`Unsat`). Proof δ: `add_rup(c′)` + `del(c)` (reason-walk
+  chain); the unit and the refutation carry their own chains.
 - **Soundness:** the distilled clause is RUP from `c` and the propagated
   reasons; free-standing after emission regardless of any binary's later fate.
 
@@ -328,9 +341,10 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   `cancelled[0..size-1]` appended to each conclusion; the size-0 lemmas are the
   unit / the two binaries. **No `add_rat`.** Equivalence-preserving
   (no variable eliminated here), so no `ρ` witness — the outputs stay live
-  until V3. *(Native-LRAT chains: AND emits bridged chains via `big_path_chain`;
-  XOR/ITE are DRAT-only for now — deviation D-CONG-LRAT in
-  `implementation-notes.md`.)*
+  until V3. *(Native LRAT: AND emits bridged chains via `big_path_chain`; the XOR
+  and ITE lemma families have their chains REPLAYED by propagation rather than
+  derived, so they run on every proof path — D-CONG-LRAT closed. The transient
+  ladder lemmas are deleted once the conclusion is in — D-CONG-DELETE closed.)*
 - **Soundness:** a gate is emitted only when ALL its defining clauses are present
   (XOR: the full `2^k` parity set; ITE: all four ternaries), so `out = f(in…)`
   genuinely holds and the merged equivalence is entailed. The union-find only

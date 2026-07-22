@@ -52,15 +52,23 @@ disagree, the plan is authoritative — fix this file.
   baseline) — a new best; the previous floor was 20.60 and the noise band
   20.60–23.01, so this is a real gain, driven by the congruence unit channel.
 
-  **▶▶ THE IMMEDIATE NEXT ITEM IS `C4 · D-CONG-LRAT`** — native chains for the
-  degeneracy ladder, the XOR matching ladder and the ITE case-split, then ungate
-  XOR/ITE under `--lrat`. It is the open half of the congruence work: C0–C3
-  landed and **`hwmcc17miters` went 48.77 → 6.67 s** (kissat 2.27 s in the same
-  window; 21.5× → 2.9×), refuted *inside congruence* at 0 decisions with a
-  drat-trim-VERIFIED proof. Until C4 closes, that channel exists only on the
-  DRAT path — sound on both, weaker on one. C4's known shape is written out in
-  its checklist item, including the one piece with no code yet
-  (`CongGate::side_ids` is declared and never populated).
+  **▶▶ TRACK C IS COMPLETE.** V6 Congruence went from "no unit channel, can never
+  refute, XOR/ITE DRAT-only" to a rule that refutes a miter inside congruence on
+  every proof path. `hwmcc17miters` **48.77 → 6.67 s** (kissat 2.27 s in the same
+  window; 21.5× → 2.9×), **Tier B PAR-2 21.73 → 17.19** (a new best; the previous
+  floor was 20.60), **Tier C 274.34 / 29-30 — neutral**, no lost solves, every
+  proof checked. Deviations `D-CONG-UNIT`, `D-CONG-LRAT` and `D-CONG-DELETE` are
+  closed; `D-CONG-SKIP` is new and deliberate.
+
+  **▶▶ NEXT — three candidates, no strong ordering between them:**
+  - **Track T** (the Tier B tail) is where "exceed kissat" now lives: four
+    instances are 69 % of our Tier B time and 31 % of kissat's, with four
+    *different* causes, so none of them trades off against the others.
+  - **Track S** — the effort scheduler's target arrangement. **S1 is the cheap
+    one and it gates `crypto1`:** settle whether repeated BVE's cost is the
+    per-phase root descent (vary only the interval, watch whether time tracks
+    phase COUNT). L7 already proved it is not the resolvent work.
+  - **C4-perf / C3b** — the two loose ends Track C leaves behind, both scoped.
 
   Independently available whenever: **V5 Sweep** (needs the kitten sub-solver,
   plan O11) and **E2 Factor S2** (grid matching — the `mp1` 7.9× gap, diagnosis
@@ -228,12 +236,14 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
 - [x] **C3 · `D-CONG-UNIT` — DONE, the unit channel.** *(Re-split from C4 in rev 57: rev 56 had bundled them, building it showed the halves are not the same size.)* A degenerate gate is now an inference, not a dead end: `canonicalize` returns Ok/Unit/Merge/Skip, an XOR whose representative inputs all cancel forces its output (root unit) and one whose key collapses to a single survivor is a merge; units are batched and asserted at end of round, then the root closure runs. **`hwmcc17miters` 48.77 → 6.67 s** against kissat's 2.27 s in the same window (21.5× → 2.9×), **refuted inside congruence at 0 decisions / 1 root conflict**, 14.4 MB proof (was 92 MB) **drat-trim VERIFIED, 0 RAT lemmas**. **Tier B PAR-2 21.73 → 17.19, 14/14 both arms, same window jobs=4** (proofs 764.4 → 678.7 MB, all 7 UNSAT checked); fuzz DRAT 1000/0; `x9-08014` and `square.2.0.i` conflict-identical.
   - **the degeneracy ladder** — the conclusions are NOT RUP alone (drat-trim rejects a bare add: the parity clauses propagate nothing until all but one literal is assigned). `add_xor_degeneracy_chain` emits, for `size = |cancelled| … 1`, every sign pattern over the cancelled representatives appended to each conclusion. **Validated against drat-trim BEFORE implementation** in all four shapes (|cancelled| = 1 and 2, both relation parities, unary survivor), bare conclusion rejected in every one; it is the same construction as kissat's `add_xor_shrinking_proof_chain`.
   - **the unit batch** — collect-then-batch (V1/V3's pattern), enough for the miter because the cancellation is driven by the union-find, not by values. kissat instead assigns and propagates immediately and reschedules gates from a trail cursor (`congruence.c:4210-4222`, units drained to a fixpoint before every dequeued equivalence) — the stronger form, not needed yet.
-- [ ] **C4 · `D-CONG-LRAT` + `D-CONG-DELETE` — THE IMMEDIATE NEXT ITEM** (rev 57). Native chains for the three lemma families, then ungate XOR/ITE under `--lrat` so the unit channel is available on every proof path. Known shape:
-  - the **degeneracy ladder**: lower levels cite the two child lemma ids (the pair differing in the dropped variable's sign — one goes unit, the other falsifies); the top level cites the bridging binaries (`big_path_chain` from each assigned representative to the raw input it forces) then the falsified parity clause.
-  - that last one needs **per-gate side-clause ids** — `CongGate::side_ids` is already declared for exactly this and is currently never populated.
-  - the **XOR matching ladder** is the harder one (two gates, one rhs variable absorbed by propagation rather than assigned) and the **ITE case-split** lemmas are four resolvents of one cond-side clause from each gate.
-  - **`D-CONG-DELETE`**: `del` the transient ladder lemmas after the merge (kissat deletes its two extended lemmas immediately) — folds in here.
-  - Gates: fuzz DRAT **and** native LRAT; a **`stress-policy` pass — V6 can now return `Unsat`, a path no fuzz case has ever taken**; `docs/calculus.md` + `docs/implementation-notes.md` synced via the calculus skill (the D-CONG-UNIT row needs rewriting anyway — its ITE framing was measured wrong, and its line references are stale).
+- [x] **C4 · `D-CONG-LRAT` + `D-CONG-DELETE` — CLOSED (code complete; validation below).** XOR and ITE now run on **every proof path**, so the C3 unit channel is no longer DRAT-only.
+  - **The chains are REPLAYED, not derived** — `congruence_rup_chain` assumes a lemma's negation at a probing scope, propagates, and reads the antecedents off the conflict's reason walk (V1 Probe's and C3 Vivify's primitive). This is why the deviation could close at all: hand-derivation had to unpick the sign layer that canonicalization folds on top of the union-find bridging, and the replay never has to — the chain comes out in the checker's own propagation order **by construction**, which is the one property a hand-built chain silently gets wrong.
+  - Only each ladder's **top level** is replayed; lower levels close on their two parents structurally (they differ solely in the dropped variable's sign, so one goes unit and the other falsifies). One replay per merge, not 2^k.
+  - **The subtle case, and it is load-bearing:** a lemma literal that the assumptions have already forced TRUE is *also* a conflict, seeded from that literal's own reason. Missing it is not a lost optimisation — on a miter the ladder's own prefix propagates the conclusion, so treating it as "not RUP" loses precisely the inferences the ladder exists for. First implementation had this bug: `0 units, 2 unjustified` under `--lrat` on the miniature miter.
+  - **`D-CONG-DELETE` closed with it:** every ladder emission records its lemma ids and drops them right after the conclusion lands (kissat deletes its two extended shrinking lemmas the same way).
+  - Verified on the miniature miter: **2 units, 0 unjustified under `--lrat`**, `lrat-check` → `c VERIFIED`, **`cake_lpr` → `s VERIFIED UNSAT`** (the formally-verified checker), 4 transient lemmas deleted.
+  - **Validated at scale.** `hwmcc17miters` under `--lrat`: **711 units, 0 unjustified** — exactly the 711 XOR-cancels `TACTIX_CONG_PROBE` predicted, so the channel is complete on this path too — and its **103 MB LRAT proof is `lrat-check` VERIFIED in 1.83 s**, against minutes of drat-trim on the DRAT equivalent. 199 386 clause deletions in that proof are the transient ladder lemmas being cleaned up, i.e. D-CONG-DELETE working at scale. Fuzz: DRAT corpus 7/7 + 1000/0; **native LRAT corpus 7/7 + 1000/0 with a verdict distribution IDENTICAL to the DRAT leg** (the ungating confirmation — both paths now draw the same inferences); congruence-stress + native LRAT under ASan/UBSan with per-step invariants, corpus 7/7 + 600/0. ctest 29/29.
+- [ ] **C4-perf · the LRAT path is ~250× slower on a miter and that is not free.** `hwmcc` takes **1680 s under `--lrat` vs 6.67 s under DRAT**: the replay runs one probing propagation per TOP-level ladder lemma, and with 710 722 merges that is millions of propagations over a 4.3 M-clause formula. Correctness is unaffected and DRAT — the competition path — is untouched, but LRAT-mode benchmarking on gate-heavy families is impractical until this is fixed. **The fix is the design I skipped:** derive the top level structurally (bridging binaries via `big_path_chain`, then the falsified parity clause) instead of replaying it, which needs per-gate side-clause ids — `CongGate::side_ids` is declared for exactly this and still never populated. Keep the replay as the fallback and the oracle: it is what makes the structural chain testable.
 - [ ] **C3b · the remaining degeneracies** — AND with a clashing input → unit `¬out`, AND with an idempotent duplicate → unary merge, and the `x ≡ ¬x` clash-merge → refutation (`substitute.cpp`'s `emit_unsat` is the working model). All three measured firing **0 times** on `hwmcc`, and the AND chains need care the XOR ones do not: a gate with a duplicated input carries a duplicated `input_bin_ids` hint, which is neither unit nor falsified at its position in the chain.
 
 ### ▶ Track T — the Tier B tail (this is what "exceed kissat" reduces to)
@@ -336,6 +346,50 @@ already present in this file before removal:
 - Plan header now states the division of labour explicitly. §13 rev 58 appended
   at the bottom (index still ascending); §§ cross-references unchanged — nothing
   was renumbered.
+
+### 2026-07-21 — C4: D-CONG-LRAT + D-CONG-DELETE closed; TRACK C COMPLETE
+XOR and ITE now run on **every proof path**, so C3's unit channel is no longer
+DRAT-only. Tier C confirms no regression: **274.34 / 29-30** against the 273.9
+baseline, every proof checked.
+
+- **The chains are REPLAYED, not derived — that is why this closed at all.**
+  D-CONG-LRAT had been open because canonicalization folds a SIGN layer on top of
+  the union-find bridging, so a canonical lemma's literals do not correspond
+  by-position-and-sign to either gate's raw clauses, and hand-deriving the chains
+  meant unpicking that. `congruence_rup_chain` instead assumes the lemma's
+  negation at a probing scope, propagates, and reads the antecedents off the
+  conflict's reason walk — V1 Probe's and C3 Vivify's existing primitive. **The
+  chain then comes out in the checker's own propagation order by construction,**
+  which is precisely the property a hand-built chain gets silently wrong
+  (`big_path_chain`'s "chain order is load-bearing" warning). Only each ladder's
+  TOP level is replayed; lower levels close on their two parents structurally.
+- **The bug worth remembering.** A lemma literal that the assumptions have
+  already forced TRUE is *also* a conflict — seeded from that literal's own
+  reason, which the reason walk includes, so trail-ascending order closes the
+  chain with no separate conflict id. Treating it as "not RUP" instead cost
+  exactly the inferences the ladder exists for: the first implementation gave
+  **0 units / 2 unjustified** under `--lrat` on the miniature miter, because on a
+  miter the ladder's own prefix propagates the conclusion.
+- **D-CONG-DELETE fell out of the same work** — each ladder records its lemma ids
+  and drops them once the conclusion is in (kissat does the same with its two
+  extended shrinking lemmas). Measured at scale: 199 386 deletions inside hwmcc's
+  LRAT proof.
+- **Validation.** `hwmcc17miters` under `--lrat`: 711 units (exactly the probe's
+  711 XOR-cancels), 0 unjustified, **103 MB proof `lrat-check` VERIFIED in
+  1.83 s**. Miniature miter: `lrat-check` VERIFIED + **`cake_lpr` VERIFIED UNSAT**.
+  Fuzz DRAT 1000/0, native LRAT 1000/0 **with a verdict distribution identical to
+  DRAT** (the ungating confirmation), congruence-stress + LRAT under ASan 600/0,
+  corpus 7/7 on every leg, ctest 29/29.
+- **Cost, recorded not buried:** the LRAT path is ~250× slower on a miter
+  (1680 s vs 6.67 s) because it replays one propagation per top-level lemma.
+  DRAT — the competition path — is untouched. Fix scoped as **C4-perf**.
+- **Also closed:** V4 `transitive_reduce_apply` was the ONE inprocessing entry
+  point of eleven that did not drain the root closure, while its own siblings
+  did, and it is reachable undrained through the public API. Sound either way
+  (its walk skips assigned literals, so it finds fewer paths and deletes less),
+  but the blanket "every inprocessing rule drains at entry" claim a policy author
+  reasons from was false. Found by the calculus audit.
+
 
 ### 2026-07-21 — the congruence unit channel WORKS: hwmcc17miters 48.8 → 6.7 s, refuted inside congruence
 C0 `1a365da`, C1+C2+C3 on branch `congruence-unit-channel` → merged to main.

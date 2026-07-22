@@ -41,7 +41,7 @@ V1/V2/S5 additionally carry `!conflict_valid` as a genuine abstract precondition
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. |
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). |
 | V6 Congruence | `root` | **D-ROOT:** `level==0`. **D-CONG-LRAT:** XOR/ITE extraction gated off under native LRAT (a proof-mode branch in the effect, not a guard conjunct — §2). **D-CONG-UNIT:** partially closed — the XOR degeneracies now derive units/merges (so the rule CAN return `Unsat`); the AND degeneracies and the contradictory merge are still skipped (an effect gap, not a guard conjunct — §2). |
-| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). Native LRAT now emits real `add_rat` (D-FACTOR-LRAT **resolved** 2026-07-20 — no longer a proof-mode no-op). A `binary_ids.size() ≥ num_output_vars` **density short-circuit** (§5) — a selectivity `NoOp`, not a guard conjunct. ON in DefaultPolicy since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
+| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). Native LRAT now emits real `add_rat` (D-FACTOR-LRAT **resolved** 2026-07-20 — no longer a proof-mode no-op). A `binary_ids.size() ≥ 8·num_output_vars` **density short-circuit** (see §5 — the threshold moved from 1× to 8× on 2026-07-21) (§5) — a selectivity `NoOp`, not a guard conjunct. ON in DefaultPolicy since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
 
 ## 2. The engineering-deviation ledger (the impurity punch-list)
 
@@ -57,10 +57,11 @@ removal is a plan item, not an ad-hoc patch.
 | ~~D-SPLIT-1~~ | ~~`¬pending.valid`~~ — **CLOSED** | M1, S5, C1, C2, C3, V1, V2, V3, V4 | Analyze/Backjump split → single-slot `pending` | **done:** atomic ConflictAnalysis (§3) — `pending` never at a boundary |
 | ~~D-SPLIT-2~~ | ~~`pending.valid`/`¬conflict_valid` + stale-pending path~~ — **CLOSED** | M4 (rule removed) | same | **done:** Backjump folded into ConflictAnalysis |
 | ~~D-SPLIT-3~~ | ~~`¬conflict_valid` on pure `F`-rewrites~~ — **CLOSED** | C1, C2, C3, V3, V4 | recorded-conflict control flag not in `σ` | **done:** conjunct removed from the five pure `F`-rewrites. Behavior-preserving: `conflict_valid ⟹ level>0` at every rule boundary, so under the retained `level==0` the conjunct never fired. V1/V2 **keep** `!conflict_valid` — an *abstract* precondition (consistent `M`), not a leak |
-| D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, V6, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
-| D-CONG-LRAT | Under native LRAT, **AND congruence runs with full bridged chains; XOR/ITE extraction is gated off** (a proof-mode branch in the effect, not a guard conjunct — §2). Since C3 this also gates the XOR **unit channel**, so that channel is DRAT-only: both paths emit checkable certificates, but `--lrat` draws fewer inferences. | V6 | AND-match chains thread the bridging equivalence binaries via `big_path_chain` (done). The rest remain because canonicalization adds a sign layer ON TOP of bridging — `normalize_ite` swaps then/else and flips signs per gate; XOR folds input signs into the output parity and cancels duplicate variables — so canonical lemma literals do not correspond by-position-and-sign to either gate's raw clauses. | **C4, the immediate next item.** Three lemma families need chains. (a) *Degeneracy ladder* (C3's): lower levels cite the two child lemma ids (the pair differing in the dropped variable's sign — one goes unit, the other falsifies); the top level cites the bridging binaries (`big_path_chain` from each assigned representative to the raw input it forces) then the falsified parity clause — which needs per-gate side-clause ids, and `CongGate::side_ids` is already declared for exactly this and never populated. (b) *XOR matching ladder* — harder: two gates, and one rhs variable is absorbed by propagation rather than assigned. (c) *ITE case-split* — four resolvents of one cond-side clause from each gate. Then ungate XOR/ITE under `--lrat`. |
+| D-ROOT | `level == 0` on inprocessing | C1, C2, C3, V1, V2, V3, V4, V6, E1, E2, S5 | rules coded against the root formula `U` | reformulate over an arbitrary fixpoint under a decision stack (larger; not currently planned) |
+| ~~D-CONG-LRAT~~ | ~~XOR/ITE extraction gated off under native LRAT~~ — **CLOSED 2026-07-21 (C4)**. XOR and ITE now run on every proof path, including the C3 unit channel. | V6 | The chains were intricate because canonicalization folds a SIGN layer on top of the union-find bridging (`normalize_ite` swaps then/else and flips signs; XOR folds input signs into the output parity and cancels duplicate variables), so canonical lemma literals do not correspond by-position-and-sign to either gate's raw clauses. | **done — by not deriving them.** `congruence_rup_chain` REPLAYS each lemma: assume its negation at a probing scope, propagate, read the antecedents off the conflict's reason walk (V1 Probe's and C3 Vivify's primitive). The chain therefore comes out in the checker's own propagation order by construction — the one property a hand-built chain silently gets wrong. Only each ladder's TOP level is replayed; lower levels close on their two parents structurally. A lemma the assumptions already force TRUE is a conflict too, seeded from the implied literal's own reason — missing that case loses exactly the miter inferences the ladder exists for. |
 | D-CONG-UNIT | **PARTIALLY CLOSED 2026-07-21 (C3).** The XOR degeneracies are implemented — an XOR whose representative inputs all cancel derives the root unit, and a key collapsing to one survivor merges; units are batched and asserted at end of round, then the root closure runs, so **V6 can now return `Unsat`** (it never could before). Measured: `hwmcc17miters` 48.77 → 6.67 s vs kissat 2.27 s in one window, refuted inside congruence at 0 decisions, proof drat-trim VERIFIED. **Still open:** the AND degeneracies (clash ⇒ unit `¬out`; idempotent duplicate ⇒ unary merge) and the `x ≡ ¬x` clash-merge refutation. | V6 | For the remaining cases: the closure is merge-first — a gate that fails to canonicalize has no table key, so there is no worklist slot for "this gate became a constant". kissat instead routes every degeneracy through `learn_congruence_unit` / `merge_literals`, BCPs each learned unit and re-simplifies the gates it touched (`kissat/src/congruence.c` `:794-816`, `:877-950`, `:1483-1516`, `:1691-1727`, `:4149-4231`). **Corrected 2026-07-21:** this row used to frame the ITE discards as part of the missing unit channel. Measured, they are not — 99.65 % of them are the `then ≡ ¬else` case, whose relation the XOR extractor already emits from the *same four clauses*, yielding **0 new merges and 0 new units**; that site needed an extraction FILTER (done, C2), not a channel. | **C3b:** turn the AND discard sites into unit/merge outcomes and refute on the clashing merge (`substitute.cpp`'s `emit_unsat` is the working model). Their LRAT chains need care the XOR ones did not: a gate with a duplicated input carries a duplicated `input_bin_ids` hint, which is neither unit nor falsified at its position in the chain. All three measured firing 0 times on `hwmcc17miters`, so this is completeness/N1 work, not a performance lever. |
-| D-CONG-DELETE | V6 transient XOR/ITE ladder / case-split lemmas are not `del`-eted | V6 | proof-size only (the lemmas survive in the DRAT stream; soundness unaffected — they are RUP) | emit `del` for the chain after the merge (kissat `delete_proof_chain`); folds in with the LRAT-chain work (C4). kissat deletes its two extended shrinking lemmas immediately after emitting the conclusion |
+| ~~D-CONG-DELETE~~ | ~~V6 transient XOR/ITE ladder / case-split lemmas are not `del`-eted~~ — **CLOSED 2026-07-21 (C4)** | V6 | proof size only (the lemmas were RUP, so soundness was never affected) | **done:** every ladder emission records its lemma ids and `delete_transients` drops them immediately after the conclusion is in, which is also what kissat does with its two extended shrinking lemmas. |
+| D-CONG-SKIP | Under native LRAT, V6 **drops an AND congruence whose bridging chain cannot be built** rather than emitting it unjustified (`congruence_unjustified` counts these; expected 0). A completeness deviation on the LRAT path only — DRAT is unaffected, since it emits a bare add the checker searches for itself. | V6 | Introduced deliberately with C1 (2026-07-21). Before it, a failed `build()` emitted an LRAT line with an EMPTY hint list and continued — which every checker rejects (measured on lrat-check and cake_lpr), i.e. an unverifiable proof produced silently. Dropping an inference is sound; emitting an unverifiable certificate is an N2 violation, so the trade is forced in that direction. `build()` can fail when a bridging BIG path runs only through a root-assigned literal, which C3's unit channel makes reachable. | Make `build()` total instead of bailing: when the BIG path is blocked by a root-fixed literal, the bridge can be discharged from that literal's unit id directly. Until then the counter is the alarm — a nonzero `congruence_unjustified` on any run means real inferences are being dropped and this row should be closed. |
 | ~~D-FACTOR-LRAT~~ — **CLOSED 2026-07-20** | ~~Under native LRAT, E2 Factor no-ops~~ | E2 | the add step is add-RAT; DRAT emits it pivot-first (checker reads the RAT pivot); native LRAT needs real `add_rat` chains | **done:** `Proof::add_rat` primitive added (`proof.{hpp,cpp}`) and Factor emits it — dividers as vacuous RAT (empty hints), quotients as one resolution group per divider (`-⟨dividerᵢ⟩ ⟨orig(fᵢ,rⱼ)⟩`). First backend realization of add-RAT. Validated: `micro_proofs` Factor cases (clean + dup grid) + fuzz default/random `--lrat` Factor-forced 800/0; mp1 (935 factorings) + aes_decry (11 165) native LRAT VERIFIED by lrat-check (22 s / 17 s, where drat-trim timed out). DRAT byte-identical |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
@@ -222,10 +223,22 @@ tracked as follow-on work; binary-only Factor closes only part of the gap.
 ## 6. Design decision: the BVE retry filter (`Kernel::bve_retry`)
 
 **What it is.** A per-variable bit (kissat `flags->eliminate`,
-`eliminate.c schedule_variables`). `bve_schedule` skips a variable whose bit is
-clear; `bve_eliminate` clears the bit of the variable it *attempts*. The bit is
-set again by every kernel mutation that can change what BVE would compute for
-that variable.
+`eliminate.c schedule_variables`) recording "this variable's neighbourhood
+changed since BVE last attempted it". `bve_eliminate` clears the bit of the
+variable it *attempts*; every kernel mutation that can change what BVE would
+compute for that variable sets it again.
+
+**Where the bit is READ — the load-bearing part.** In **DefaultPolicy**
+(`default_policy.cpp`, the dosing loop), **not** in the rule. `bve_schedule` and
+`bve_instances` deliberately do NOT consult it (`bve.cpp`, and the comment there
+says so): the rule MAINTAINS the advice, `instances()` OFFERS every variable, and
+the policy DECLINES. Filtering inside the rule would silently narrow the instance
+surface that `--random-policy` and the §5.6 learned policy enumerate — and "when
+to retry" is a scheduling decision, which belongs to the policy (N1; the rule-dev
+skill's standing rule: *the instance surface is the policy's action space — rank
+freely, never omit for efficiency*). An earlier revision of this section
+described the filter as living in `bve_schedule`; that was the pre-`f1c271e`
+design, corrected the same day it landed.
 
 **Why.** Without it, every BVE call re-ranks and re-attempts *every* candidate,
 generating and counting each one's resolvents only to reject it again at the same
@@ -242,7 +255,7 @@ is spent *before* the budget can observe that nothing came of it.
 | binary added (binaries are irredundant here) | `kernel_add_binary_clause` |
 | irredundant large clause deleted | `kernel_mark_garbage` (`!c->redundant()`) |
 | binary deleted | `kernel_delete_binary`, `kernel_delete_binary_all_copies` |
-| literal root-fixed | `kernel_bve_retry_sync_fixed`, called at the top of `bve_schedule` |
+| literal root-fixed | `kernel_bve_retry_sync_fixed`, called by the policy before it doses BVE |
 | variable created | `kernel_reserve_vars` initialises the bit to 1 |
 
 `kernel_mark_garbage` was introduced for this: it is now **the single home for
@@ -281,10 +294,10 @@ occur where nor any literal's value, so it correctly marks nothing.
 
 **N1.** `bve_guard` is unchanged, and `bve_apply_instance` still accepts *any*
 variable payload — an external policy can force BVE on a filtered-out variable at
-any time and gets the real computation, not a cached answer. What narrows is the
-*suggestion list* (`bve_instances` / `bve_schedule`), which is the same kind of
-work filter as the existing `BVE_OCCLIM` blow-up skip and the extension-variable
-skip in §5, not an applicability control. The bit is a fact about the formula, not
+any time and gets the real computation, not a cached answer. Nothing in the rule
+narrows: `bve_instances` offers every schedulable variable and DefaultPolicy is
+the only thing that skips, so even the *suggestion list* stays complete for any
+other policy. The bit is a fact about the formula, not
 scheduling state: it records "this neighbourhood changed", never "it is time to
 run BVE".
 

@@ -252,6 +252,17 @@ ApplyResult transitive_reduce_try(Kernel &k, Lit src) {
 // canonical instance: one full round over every source literal
 ApplyResult transitive_reduce_apply(Kernel &k) {
   assert(transitive_reduce_guard(k));
+  // D-LEVEL guard purification: complete the root closure U if applied off a
+  // fixpoint (a no-op otherwise); a root conflict during the drain refutes.
+  // `transitive_reduce_try` and `_apply_instance` have always done this; the
+  // canonical `apply` was the ONE inprocessing entry point of eleven that did
+  // not, and it is reachable undrained through the public API (`tactix_apply`)
+  // and the slot. V4 is sound either way — the walk skips assigned literals, so
+  // an undrained root finds FEWER paths and deletes less, never more — but a
+  // policy author reasons from the blanket "every inprocessing rule drains at
+  // entry" claim, so the exception is closed rather than documented.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   k.stats.transitive_rounds++;
   std::vector<Lit> sources;
   transitive_reduce_sources(k, sources);

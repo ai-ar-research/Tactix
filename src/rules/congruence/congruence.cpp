@@ -252,6 +252,25 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
 
 bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 
+// A ladder lemma: RUP-checkable, cited by the level below it, and dead once the
+// conclusion is in. Kept so the round can `del` them (D-CONG-DELETE) — kissat
+// deletes its two extended shrinking lemmas the same way, immediately after
+// emitting the conclusion. LRAT deletes by id; DRAT needs the literals.
+struct TransientLemma {
+  uint64_t id;
+  std::vector<Lit> lits;
+};
+
+// Drop the transient ladder lemmas, newest first (a checker's DB is a set, but
+// reverse order keeps the stream readable as an unwinding of the ladder).
+void delete_transients(Kernel &k, std::vector<TransientLemma> &t) {
+  if (k.proof)
+    for (size_t i = t.size(); i-- > 0;)
+      k.proof->del(k.next_clause_id, t[i].id, t[i].lits.data(),
+                   static_cast<uint32_t>(t[i].lits.size()));
+  t.clear();
+}
+
 // TACTIX_CONG_PROBE: count the degenerate-gate discards by cause. These are the
 // inferences V6 does NOT draw (deviation D-CONG-UNIT) — the diagnostic that sizes
 // closing it. Env-gated, default-identical, like TACTIX_CONG_TRACE.
@@ -349,42 +368,90 @@ Canon canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
   return Canon::Ok;
 }
 
-// XOR-match proof chain (kissat add_xor_matching_proof_chain): make the two
-// equivalence binaries (¬a∨b),(a∨¬b) checkable by RUP. `rhs` = the shared
-// canonical (representative) inputs, all positive; a,b = the two sign-adjusted
-// outputs. Emits a parity-elimination ladder: eliminate one rhs var at a time,
-// at each level enumerating all sign patterns of the still-present rhs prefix and
-// emitting {prefix,¬a,b} and {prefix,a,¬b}. Every lemma is RUP over the current
-// DB (the two gates' side clauses + any bridging equivalence binaries), so under
-// DRAT each is a bare add_rup; drat-trim replays them in order. The two size-0
-// lemmas ARE the equivalence binaries and are added persistently by the caller.
-// (LRAT chains for each lemma are a follow-up; DRAT verifies via full-DB RUP.)
-void add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
-                                  Lit b) {
-  if (!k.proof)
-    return;
-  // ladder over rhs[0 .. size-2]; rhs.back() is absorbed by the gate clauses' RUP.
-  int size = static_cast<int>(rhs.size()) - 1;
-  std::vector<Lit> lemma;
-  for (; size >= 1; size--) {
-    const uint32_t combos = 1u << size;
-    for (uint32_t m = 0; m < combos; m++) {
-      for (int dir = 0; dir < 2; dir++) {
-        lemma.clear();
-        for (int i = 0; i < size; i++)
-          lemma.push_back(rhs[i] ^ static_cast<Lit>((m >> i) & 1));
-        if (dir == 0) {
-          lemma.push_back(negate(a));
-          lemma.push_back(b);
-        } else {
-          lemma.push_back(a);
-          lemma.push_back(negate(b));
-        }
-        k.proof->add_rup(0, lemma.data(), static_cast<uint32_t>(lemma.size()),
-                         nullptr, 0);
-      }
+// --- native-LRAT chains by RUP replay (D-CONG-LRAT) -------------------------
+// V6's three lemma families (the degeneracy ladder, the XOR matching ladder, the
+// ITE case-split) are each RUP over the current DB, but their antecedent chains
+// are painful to derive by hand: canonicalization folds a SIGN layer on top of
+// the union-find bridging, so a canonical lemma's literals do not correspond
+// by-position-and-sign to either gate's raw clauses. That intricacy is why
+// D-CONG-LRAT stayed open.
+//
+// So do not derive them — REPLAY them. Assume the negation of the lemma at a
+// probing scope, propagate, and read the antecedents off the conflict's reason
+// walk. This is the same primitive V1 Probe and C3 Vivify already use, and it is
+// strictly more trustworthy than hand-derivation: the chain comes out in the
+// checker's own propagation order by construction, which is the one property a
+// hand-built chain silently gets wrong (`substitute.cpp` big_path_chain's
+// "chain order is load-bearing" note).
+//
+// Returns false when the lemma is NOT RUP over the DB (no conflict) — the caller
+// must then emit nothing and skip the inference (D-CONG-SKIP). A lemma that is
+// genuinely RUP but whose replay fails would be a bug in the ladder, and this
+// fails safe rather than emitting an unverifiable line.
+bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
+                          std::vector<uint64_t> &chain) {
+  assert(k.level == 0 && !k.conflict_valid);
+  chain.clear();
+  kernel_probing_begin(k);
+  bool conflict = false;
+  Var implied = UINT32_MAX; // a lemma literal the assumptions already forced TRUE
+  for (uint32_t i = 0; i < n && !conflict; i++) {
+    const Lit neg = negate(lits[i]);
+    const int8_t v = k.value(neg);
+    if (v < 0) {
+      // `lits[i]` is already TRUE under the assumptions made so far, so
+      // assuming its negation conflicts immediately — the reason that forced it
+      // IS the refutation. (Missing this case is not a missed optimisation: on a
+      // miter the ladder's own prefix propagates the conclusion, so treating it
+      // as "not RUP" loses exactly the inferences the ladder exists for.)
+      implied = var_of(lits[i]);
+      conflict = true;
+      break;
     }
+    if (v > 0)
+      continue; // already implied by an earlier assumption — nothing to assume
+    k.level++;
+    k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
+    kernel_assign(k, neg, k.level, DECISION_REASON, false);
+    if (kernel_propagate_probing(k))
+      conflict = true;
   }
+  uint64_t last = 0;
+  std::vector<std::pair<uint32_t, uint64_t>> entries;
+  if (conflict) {
+    std::vector<uint8_t> seen(k.nvars, 0);
+    if (implied != UINT32_MAX)
+      // the walk includes the implied literal's OWN reason, and sorting by trail
+      // position puts it last — so it closes the chain, no separate conflict id
+      kernel_reason_walk(k, implied, seen, entries);
+    else
+      last = kernel_conflict_reason_walk(k, seen, entries);
+  }
+  k.conflict_valid = false;
+  k.conflict_ref = INVALID_REF;
+  if (k.level > 0)
+    kernel_backtrack(k, 0, /*update_phases=*/false);
+  kernel_probing_end(k);
+  // A lemma that fails to replay is a dropped inference (D-CONG-SKIP), which the
+  // `congruence_unjustified` stat counts. Under TACTIX_CONG_PROBE, say WHICH —
+  // a nonzero count with no obvious cause is how a ladder bug hides.
+  if (cong_probe && !conflict) {
+    std::fprintf(stderr, "[rup-replay] not RUP:");
+    for (uint32_t i = 0; i < n; i++)
+      std::fprintf(stderr, " %d(v=%d)", externalize(lits[i]),
+                   (int)k.value(lits[i]));
+    std::fprintf(stderr, "\n");
+  }
+  if (!conflict)
+    return false;
+  // (trail position ascending, conflict last) — kernel.hpp's chain contract
+  std::sort(entries.begin(), entries.end());
+  chain.reserve(entries.size() + 1);
+  for (const auto &e : entries)
+    chain.push_back(e.second);
+  if (last)
+    chain.push_back(last);
+  return true;
 }
 
 // Degeneracy proof chain for a SINGLE XOR gate (kissat's
@@ -394,42 +461,152 @@ void add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
 // clauses are (k+1)-ary and propagate nothing until all but one literal is
 // assigned. The ladder supplies the missing resolution steps.
 //
-// `cancelled` = the distinct POSITIVE representative variables that dropped out
-// of the key (each occurred an even number of times among the gate's
-// representative inputs). `concl` = the conclusion clause(s): {¬out_lit} for the
-// constant case, or the two equivalence binaries for the unary case.
+// `concl` are the conclusion clauses: {¬out_lit} for the constant case, or the
+// two equivalence binaries for the unary case. `cancelled` are the distinct
+// POSITIVE representative variables that dropped out of the key.
 //
 // For size = |cancelled| … 1, emit every sign pattern over cancelled[0..size-1]
-// appended to each conclusion. The top level assigns every cancelled
+// appended to each conclusion. The TOP level's negation assigns every cancelled
 // representative, which the bridging equivalence binaries propagate to all of the
 // gate's raw inputs, falsifying one parity clause; each lower level closes on the
 // two lemmas directly above it (they differ only in the sign of the dropped
-// variable, so one is unit and the other falsified); the size-0 lemmas ARE the
-// conclusions and are added persistently by the caller.
+// variable, so one goes unit and the other falsifies); the size-0 lemmas ARE the
+// conclusions, added persistently by the caller with the chains returned here.
 //
 // Validated against drat-trim BEFORE implementation, in all four shapes —
 // |cancelled| = 1 and 2, both relation parities, and the unary-survivor form —
 // with the bare conclusion rejected in every one. See the 2026-07-21 log entry.
-void add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
-                              const std::vector<std::vector<Lit>> &concl) {
+bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
+                              const std::vector<std::vector<Lit>> &concl,
+                              std::vector<std::vector<uint64_t>> &concl_chains,
+                              std::vector<TransientLemma> &transient) {
+  const bool lrat = k.proof && k.proof->lrat();
+  const size_t nc = concl.size();
+  concl_chains.assign(nc, {});
   if (!k.proof)
-    return;
-  // XOR arity is capped at CONG_XOR_ARITY, and cancellation removes variables in
+    return true;
+  // XOR arity is capped at CONG_XOR_ARITY and cancellation removes variables in
   // pairs, so this is ≤ 2 in practice; the ladder is 2^(n+1)−2 lemmas.
   assert(cancelled.size() <= CONG_XOR_ARITY / 2 + 1 && "ladder would blow up");
+  const int top = static_cast<int>(cancelled.size());
   std::vector<Lit> lemma;
-  for (int size = static_cast<int>(cancelled.size()); size >= 1; size--) {
+  std::vector<uint64_t> prev, cur, chain;
+
+  if (top == 0) { // no cancelled variables ⇒ the conclusion stands on its own
+    for (size_t c = 0; c < nc; c++)
+      if (lrat && !congruence_rup_chain(k, concl[c].data(),
+                                        static_cast<uint32_t>(concl[c].size()),
+                                        concl_chains[c]))
+        return false;
+    return true;
+  }
+
+  for (int size = top; size >= 1; size--) {
     const uint32_t combos = 1u << size;
+    cur.assign(static_cast<size_t>(combos) * nc, 0);
     for (uint32_t m = 0; m < combos; m++)
-      for (const std::vector<Lit> &c : concl) {
+      for (size_t c = 0; c < nc; c++) {
         lemma.clear();
         for (int i = 0; i < size; i++)
-          lemma.push_back(cancelled[i] ^ static_cast<Lit>((m >> i) & 1));
-        lemma.insert(lemma.end(), c.begin(), c.end());
-        k.proof->add_rup(0, lemma.data(), static_cast<uint32_t>(lemma.size()),
-                         nullptr, 0);
+          lemma.push_back(cancelled[static_cast<size_t>(i)] ^
+                          static_cast<Lit>((m >> i) & 1));
+        lemma.insert(lemma.end(), concl[c].begin(), concl[c].end());
+        if (!lrat) {
+          k.proof->add_rup(0, lemma.data(),
+                           static_cast<uint32_t>(lemma.size()), nullptr, 0);
+          continue;
+        }
+        if (size == top) {
+          if (!congruence_rup_chain(k, lemma.data(),
+                                    static_cast<uint32_t>(lemma.size()), chain))
+            return false; // not RUP — emit nothing, caller skips (D-CONG-SKIP)
+        } else {
+          const size_t hi = static_cast<size_t>(m | (1u << size));
+          chain.assign({prev[static_cast<size_t>(m) * nc + c],
+                        prev[hi * nc + c]});
+        }
+        const uint64_t id = ++k.next_clause_id;
+        k.proof->add_rup(id, lemma.data(), static_cast<uint32_t>(lemma.size()),
+                         chain.data(), static_cast<uint32_t>(chain.size()));
+        cur[static_cast<size_t>(m) * nc + c] = id;
+        transient.push_back({id, lemma}); // D-CONG-DELETE: dropped after the merge
       }
+    prev.swap(cur);
   }
+  if (lrat)
+    for (size_t c = 0; c < nc; c++)
+      concl_chains[c] = {prev[c], prev[nc + c]}; // the two size-1 parents
+  return true;
+}
+
+// XOR-match proof chain (kissat add_xor_matching_proof_chain): make the two
+// equivalence binaries (¬a∨b),(a∨¬b) checkable. `rhs` = the shared canonical
+// (representative) inputs, all positive; a,b = the two sign-adjusted outputs.
+// A parity-elimination ladder: eliminate one rhs variable per level, at each
+// level enumerating all sign patterns of the still-present prefix and emitting
+// {prefix,¬a,b} and {prefix,a,¬b}. Under DRAT each is a bare add. Under LRAT the
+// TOP level is replayed (congruence_rup_chain) and every lower level closes on
+// its two parents, exactly as the degeneracy ladder does — so the sign layer that
+// canonicalization folds on top of the union-find bridging never has to be
+// unpicked by hand. Returns false if the top level does not replay.
+// `rhs.back()` is absorbed by the gates' clauses, so the ladder starts one short.
+bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
+                                  Lit b, std::vector<uint64_t> &chain_fwd,
+                                  std::vector<uint64_t> &chain_rev,
+                                  std::vector<TransientLemma> &transient) {
+  chain_fwd.clear();
+  chain_rev.clear();
+  if (!k.proof)
+    return true;
+  const bool lrat = k.proof->lrat();
+  const int top = static_cast<int>(rhs.size()) - 1;
+  if (top < 1)
+    return true; // nothing to eliminate; the binaries stand on the gates alone
+  std::vector<Lit> lemma;
+  std::vector<uint64_t> prev, cur, ch;
+  for (int size = top; size >= 1; size--) {
+    const uint32_t combos = 1u << size;
+    cur.assign(static_cast<size_t>(combos) * 2, 0);
+    for (uint32_t m = 0; m < combos; m++)
+      for (int dir = 0; dir < 2; dir++) {
+        lemma.clear();
+        for (int i = 0; i < size; i++)
+          lemma.push_back(rhs[static_cast<size_t>(i)] ^
+                          static_cast<Lit>((m >> i) & 1));
+        if (dir == 0) {
+          lemma.push_back(negate(a));
+          lemma.push_back(b);
+        } else {
+          lemma.push_back(a);
+          lemma.push_back(negate(b));
+        }
+        if (!lrat) {
+          k.proof->add_rup(0, lemma.data(),
+                           static_cast<uint32_t>(lemma.size()), nullptr, 0);
+          continue;
+        }
+        if (size == top) {
+          if (!congruence_rup_chain(k, lemma.data(),
+                                    static_cast<uint32_t>(lemma.size()), ch))
+            return false;
+        } else {
+          const size_t hi = static_cast<size_t>(m | (1u << size));
+          ch.assign({prev[static_cast<size_t>(m) * 2 + static_cast<size_t>(dir)],
+                     prev[hi * 2 + static_cast<size_t>(dir)]});
+        }
+        const uint64_t id = ++k.next_clause_id;
+        k.proof->add_rup(id, lemma.data(), static_cast<uint32_t>(lemma.size()),
+                         ch.data(), static_cast<uint32_t>(ch.size()));
+        cur[static_cast<size_t>(m) * 2 + static_cast<size_t>(dir)] = id;
+        transient.push_back({id, lemma});
+      }
+    prev.swap(cur);
+  }
+  if (lrat) {
+    chain_fwd = {prev[0], prev[2]}; // the two size-1 parents, dir 0
+    chain_rev = {prev[1], prev[3]}; // dir 1
+  }
+  return true;
 }
 
 // Normalize an ITE triple [cond,then,else] in place to the canonical key form
@@ -536,20 +713,40 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
 
 // ITE-match proof chain (kissat add_ite_matching_proof_chain): case-split on the
 // shared condition. Emits the four ternary lemmas that make the two equivalence
-// binaries (a∨¬b),(¬a∨b) RUP; each is a resolvent of one cond-side clause of each
-// gate and is RUP over the current DB, so under DRAT they are bare adds replayed
-// in order. The two binaries themselves are added by add_equivalence_bare.
-void add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b) {
+// binaries (¬a∨b),(a∨¬b) RUP; each is a resolvent of one cond-side clause of each
+// gate. Under DRAT they are bare adds the checker replays in order; under LRAT
+// each is REPLAYED for its chain (congruence_rup_chain) and the two binaries then
+// close on their two cond-sides. Returns false if any lemma fails to replay — the
+// caller emits nothing further and skips the merge (D-CONG-SKIP).
+bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
+                                  std::vector<uint64_t> &chain_fwd,
+                                  std::vector<uint64_t> &chain_rev,
+                                  std::vector<TransientLemma> &transient) {
+  chain_fwd.clear();
+  chain_rev.clear();
   if (!k.proof)
-    return;
-  auto emit = [&](Lit x, Lit y, Lit z) {
+    return true;
+  const bool lrat = k.proof->lrat();
+  std::vector<uint64_t> ch;
+  // (¬a∨b) closes on its two cond-sides; (a∨¬b) on the other two.
+  auto emit = [&](Lit x, Lit y, Lit z, std::vector<uint64_t> &into) -> bool {
     const Lit l[3] = {x, y, z};
-    k.proof->add_rup(0, l, 3, nullptr, 0);
+    if (!lrat) {
+      k.proof->add_rup(0, l, 3, nullptr, 0);
+      return true;
+    }
+    if (!congruence_rup_chain(k, l, 3, ch))
+      return false;
+    const uint64_t id = ++k.next_clause_id;
+    k.proof->add_rup(id, l, 3, ch.data(), static_cast<uint32_t>(ch.size()));
+    transient.push_back({id, {l[0], l[1], l[2]}});
+    into.push_back(id);
+    return true;
   };
-  emit(a, negate(b), cond);
-  emit(a, negate(b), negate(cond));
-  emit(negate(a), b, cond);
-  emit(negate(a), b, negate(cond));
+  return emit(negate(a), b, cond, chain_fwd) &&
+         emit(negate(a), b, negate(cond), chain_fwd) &&
+         emit(a, negate(b), cond, chain_rev) &&
+         emit(a, negate(b), negate(cond), chain_rev);
 }
 
 // Add the equivalence a==b from two congruent AND gates as (¬a∨b),(a∨¬b).
@@ -630,26 +827,27 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
   return true;
 }
 
-// Add the equivalence a==b as (¬a∨b),(a∨¬b) with a BARE proof add (DRAT-RUP over
-// the current DB). Used for XOR/ITE matches, whose RUP is already made checkable
-// by the preceding match proof-chain lemmas. Those extractions are gated on
-// !lrat (D-CONG-LRAT), so no LRAT id/chain is produced here — and the assert
-// makes that a hard precondition rather than an assumption, so ungating XOR/ITE
-// under LRAT (C3) cannot silently start emitting hint-less lines (N2).
-void add_equivalence_bare(Kernel &k, Lit a, Lit b) {
-  assert((!k.proof || !k.proof->lrat()) &&
-         "add_equivalence_bare emits no LRAT chain — XOR/ITE are DRAT-only");
-  auto add_bin = [&](Lit x, Lit y) {
+// Add the equivalence a==b as (¬a∨b),(a∨¬b). Under DRAT these are bare adds: the
+// preceding proof-chain lemmas have already made them RUP and the checker
+// searches for the antecedents itself. Under LRAT each binary carries the chain
+// its ladder returned (its two size-1 parents), so no hint-less line is ever
+// emitted (the invariant C1 established).
+void add_equivalence_chained(Kernel &k, Lit a, Lit b,
+                             const std::vector<uint64_t> &chain_fwd,
+                             const std::vector<uint64_t> &chain_rev) {
+  const bool lrat = k.proof && k.proof->lrat();
+  auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
     if (binary_exists(k, x, y))
       return;
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {x, y};
     if (k.proof)
-      k.proof->add_rup(0, lits, 2, nullptr, 0);
+      k.proof->add_rup(lrat ? id : 0, lits, 2, lrat ? ch.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(ch.size()) : 0);
     kernel_add_binary_clause(k, x, y, id);
   };
-  add_bin(negate(a), b);
-  add_bin(a, negate(b));
+  add_bin(negate(a), b, chain_fwd);
+  add_bin(a, negate(b), chain_rev);
 }
 
 } // namespace — public rule entry points (header-declared) below
@@ -679,7 +877,11 @@ ApplyResult congruence_apply(Kernel &k) {
   // runs on every path.
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<CongGate> gates;
-  congruence_extract_gates(k, gates, /*with_xor_ite=*/!lrat);
+  // D-CONG-LRAT CLOSED: XOR and ITE now run on every proof path. Their lemma
+  // chains are replayed rather than derived (congruence_rup_chain), so the sign
+  // layer canonicalization folds on top of the union-find bridging — the reason
+  // this was DRAT-only — never has to be unpicked by hand.
+  congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
   if (gates.empty())
     return ApplyResult::NoOp;
 
@@ -716,6 +918,7 @@ ApplyResult congruence_apply(Kernel &k) {
   uint64_t neq = 0;
   bool unsat = false;
   std::vector<Lit> key, key_j, cancelled, cancelled_j;
+  std::vector<TransientLemma> transient; // ladder lemmas, del'd after each use
 
   // Root units derived from degenerate gates (D-CONG-UNIT). Asserted in a batch
   // once the closure is done, exactly as V1 Probe and V3 Substitute do — the
@@ -725,7 +928,7 @@ ApplyResult congruence_apply(Kernel &k) {
   // {¬u} resolve to ∅ — V3's record_unit, corpus 007).
   std::vector<Lit> units;
   std::vector<Lit> pending_unit(k.nvars, INVALID_LIT);
-  auto record_unit = [&](Lit u) -> bool {
+  auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain) -> bool {
     const Var v = var_of(u);
     if (k.value(u) > 0)
       return false; // already true at the root — the inference adds nothing
@@ -735,7 +938,8 @@ ApplyResult congruence_apply(Kernel &k) {
     const bool contradicts_trail = k.value(u) < 0;
     const uint64_t id = ++k.next_clause_id;
     if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, &u, 1, nullptr, 0);
+      k.proof->add_rup(lrat ? id : 0, &u, 1, lrat ? uchain.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(uchain.size()) : 0);
     if (contradicts_trail) {
       if (k.proof) {
         if (lrat) {
@@ -800,8 +1004,16 @@ ApplyResult congruence_apply(Kernel &k) {
       // value(out_lit) = ⊕key = ⊕∅ = 0, so ¬out_lit is a root unit. Only XOR
       // reaches here (the AND/ITE degeneracies still return Skip).
       const std::vector<std::vector<Lit>> concl = {{negate(out_i)}};
-      add_xor_degeneracy_chain(k, cancelled, concl);
-      if (record_unit(negate(out_i))) {
+      std::vector<std::vector<uint64_t>> cch;
+      transient.clear();
+      if (!add_xor_degeneracy_chain(k, cancelled, concl, cch, transient)) {
+        k.stats.congruence_unjustified++;
+        if (cong_probe) std::fprintf(stderr, "[cong-probe] UNIT ladder replay failed (|cancelled|=%zu)\n", cancelled.size());
+        continue; // ladder did not replay — emit nothing, drop the inference
+      }
+      const bool refuted = record_unit(negate(out_i), cch[0]);
+      delete_transients(k, transient);
+      if (refuted) {
         unsat = true;
         break;
       }
@@ -819,8 +1031,14 @@ ApplyResult congruence_apply(Kernel &k) {
       }
       const std::vector<std::vector<Lit>> concl = {{negate(out_i), other},
                                                   {out_i, negate(other)}};
-      add_xor_degeneracy_chain(k, cancelled, concl);
-      add_equivalence_bare(k, out_i, other);
+      std::vector<std::vector<uint64_t>> cch;
+      transient.clear();
+      if (!add_xor_degeneracy_chain(k, cancelled, concl, cch, transient)) {
+        k.stats.congruence_unjustified++;
+        continue; // ladder did not replay — emit nothing, drop the inference
+      }
+      add_equivalence_chained(k, out_i, other, cch[0], cch[1]);
+      delete_transients(k, transient);
       merge_lits(out_i, other);
       continue;
     }
@@ -855,12 +1073,22 @@ ApplyResult congruence_apply(Kernel &k) {
     // chains are C3). An AND equivalence whose bridging chain cannot be built is
     // SKIPPED rather than emitted unjustified — sound, and N2 holds (see
     // add_equivalence).
-    if (gates[i].kind == GateKind::Xor) {
-      add_xor_matching_proof_chain(k, key, out_j, out_i);
-      add_equivalence_bare(k, out_j, out_i);
-    } else if (gates[i].kind == GateKind::Ite) {
-      add_ite_matching_proof_chain(k, key[0], out_j, out_i); // key[0] = cond
-      add_equivalence_bare(k, out_j, out_i);
+    if (gates[i].kind == GateKind::Xor || gates[i].kind == GateKind::Ite) {
+      std::vector<uint64_t> cf, cr;
+      transient.clear();
+      const bool ok =
+          gates[i].kind == GateKind::Xor
+              ? add_xor_matching_proof_chain(k, key, out_j, out_i, cf, cr,
+                                             transient)
+              : add_ite_matching_proof_chain(k, key[0], out_j, out_i, cf, cr,
+                                             transient); // key[0] = cond
+      if (!ok) {
+        k.stats.congruence_unjustified++;
+        if (cong_probe) std::fprintf(stderr, "[cong-probe] MATCH chain failed (kind=%d)\n", (int)gates[i].kind);
+        continue; // no checkable chain — drop the inference, keep N2
+      }
+      add_equivalence_chained(k, out_j, out_i, cf, cr);
+      delete_transients(k, transient);
     } else if (!add_equivalence(k, gates[j], gates[i], find)) {
       k.stats.congruence_unjustified++;
       continue; // no checkable chain — drop the inference, keep the proof valid
