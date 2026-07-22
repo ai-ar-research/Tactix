@@ -34,15 +34,34 @@ resume anchor, step 6).
 4. **Compact if needed** (`compact-docs`). If a living doc grew unwieldy or
    re-orienting took real effort, run the compact-docs skill — condense completed
    detail to result + pointer, keep the big picture and undone steps prominent.
-5. **Tasks reflect reality.** Open work is captured (as tasks and/or PROGRESS
+5. **Prune persistent memory.** Memory is a small set of *currently true*
+   durable facts, not an archive — it is loaded into every future session, so a
+   stale entry actively misleads and an accreting one crowds out what matters.
+   For each memory the session touched or contradicted:
+   - **Delete what is no longer true.** Do NOT append "superseded" notes — that
+     is how memory blows up, and it forces every future reader to parse a
+     contradiction. Rewrite the entry to what is true now, or remove it.
+   - **Delete what the repo now records.** Project state (which rules are on,
+     current benchmark numbers, landed features) belongs in PROGRESS / reports /
+     git, not memory. Memory keeps what those do *not* say: the user's
+     preferences, recurring hazard shapes, and *why* an approach was rejected.
+   - **Watch for the dangerous shape:** a confidently-worded CONCLUSION about a
+     cause ("X is inherently bad, don't retry it"). Those age worst, because a
+     later session may find the cause was an artifact — and the entry is then the
+     reason a good direction stays closed. Prefer recording the measurement over
+     the causal story, and re-check such entries whenever the session revisits
+     that area.
+   - Keep `MEMORY.md`'s one-line pointers in step with the files, and check
+     `[[links]]` still resolve after any deletion or rename.
+6. **Tasks reflect reality.** Open work is captured (as tasks and/or PROGRESS
    items); nothing in-flight lives only in this session's memory.
-6. **Write the resume anchor.** Make PROGRESS's *next step* self-sufficient — a
+7. **Write the resume anchor.** Make PROGRESS's *next step* self-sufficient — a
    fresh session with zero context can act on it: what to do next, where the code
    is, and any in-flight nuance or gotcha. This is the single most important
    artifact for "continue."
-7. **Summarize to the user:** what changed this session, current fuzz/benchmark
+8. **Summarize to the user:** what changed this session, current fuzz/benchmark
    status, and the next step.
-8. **Offer the transcript-save command** (a **user**-run action — agents must
+9. **Offer the transcript-save command** (a **user**-run action — agents must
    never touch `session-*.txt`; a hook enforces this, and the real handoff is
    PROGRESS + commits, steps 3/6). Show the user this command to archive the
    session; do **not** run it yourself:
