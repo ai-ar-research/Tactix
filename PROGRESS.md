@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 57 (2026-07-21)
+- **Plan revision tracked:** rev. 58 (2026-07-21)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-21
 - **▶ RESUME HERE (2026-07-21).** Phase 3, **T3 gate open**. Working plan rev 53/54/55,
@@ -133,14 +133,12 @@ disagree, the plan is authoritative — fix this file.
     must beat ~20.6 to be a real gain, and a single sub-21 reading proves nothing.
     Never compare across job counts.
 
-- **Open items (small, none blocking).** `D-CONG-UNIT` — V6 has no unit channel
-  and can never refute; it is why `hwmcc17miters` costs 25× kissat (kissat solves
-  it with congruence alone at 0 conflicts; our congruence finds the *same* 710 722
-  equivalences). Fix ≈200–300 lines in V6, but **`D-CONG-LRAT` must close first**
-  (the XOR/ITE degeneracies are DRAT-only today) and it needs a `stress-policy`
-  pass, since V6 has never returned `Unsat` (`11774d4`; ledger
-  `docs/implementation-notes.md` §2). `D-CONG-DELETE` — transient ladder lemmas
-  never deleted (proof size only). **Task #39** — `--random-policy` livelock on 5
+- **Open items (small, none blocking).** The congruence deviations that remain
+  open — `D-CONG-LRAT` (XOR/ITE extraction is DRAT-only) and `D-CONG-DELETE`
+  (transient ladder lemmas never deleted, proof size only) — are checklist item
+  **C4** below, together with the `stress-policy` pass V6 now owes since its unit
+  channel can return `Unsat` (ledger `docs/implementation-notes.md` §2).
+  **Task #39** — `--random-policy` livelock on 5
   tiny cases in `tools/fuzz/known-hangs/` (N1 robustness, not soundness).
   `examples/demo3_scripted_default.c`'s mirror has `SLOT_IN_DEFAULT 0` while
   DefaultPolicy's is `true`, so its inprocessing block is dead code — a
@@ -238,6 +236,26 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
   - Gates: fuzz DRAT **and** native LRAT; a **`stress-policy` pass — V6 can now return `Unsat`, a path no fuzz case has ever taken**; `docs/calculus.md` + `docs/implementation-notes.md` synced via the calculus skill (the D-CONG-UNIT row needs rewriting anyway — its ITE framing was measured wrong, and its line references are stale).
 - [ ] **C3b · the remaining degeneracies** — AND with a clashing input → unit `¬out`, AND with an idempotent duplicate → unary merge, and the `x ≡ ¬x` clash-merge → refutation (`substitute.cpp`'s `emit_unsat` is the working model). All three measured firing **0 times** on `hwmcc`, and the AND chains need care the XOR ones do not: a gate with a duplicated input carries a duplicated `input_bin_ids` hint, which is neither unit nor falsified at its position in the chain.
 
+### ▶ Track T — the Tier B tail (this is what "exceed kissat" reduces to)
+
+Measured 2026-07-21 (same-window jobs=4 A/B + a per-rule stats run per instance).
+**The four tail instances are 69 % of our Tier B time and 31 % of kissat's**
+(166.9 s vs 27.5 s); on the other ten we are already within 1.2× of kissat. Match
+kissat on just these four and Tier B lands at ~101 s vs 88 s — **1.15×**. So the
+T4 goal is not a broad-front problem. Each row has a *different* cause, which is
+why none of them needs a trade-off against the others.
+
+| instance | vs kissat | what fires | cause | item |
+|---|---|---|---|---|
+| `mp1-blockpuzzle` | 7.81× | — | **missing rule** — SBVA grid matching | E2 Factor **S2**, diagnosis banked 2026-07-20 |
+| `combined-crypto1` | 7.46× | BVE dosing | **mis-scheduled**, not missing — measured **3.8 s** under the recurring growth-slack ramp (L4/L7) | **S1** below |
+| `FmlaEquivChain` | 5.75× | 55.6 k strengthened, 10.2 k elims, 3 congruence rounds, **0 units** | unknown; prime suspect **`CONG_XOR_ARITY = 4`** (we only see XOR clauses of size ≤ 5) on a formula that is literally an equivalence chain | T1 below |
+| `x9-08014` | 4.28× | **nothing at all** — 0 factorings, 0 elims, 0 subsumed, 0 units | **search quality**, same category as `clique` | T2 below |
+
+- [ ] **T1 · why does congruence find 0 units on `FmlaEquivChain`?** Cheapest first test: raise `CONG_XOR_ARITY` and see whether gates appear (kissat's `--congruencexorarity` is a tunable for exactly this). If wider XORs are the answer it is a constant change; if not, extract what gate shapes the instance actually has before building anything.
+- [ ] **T2 · `x9-08014` is pure search** — 801 694 conflicts with every inprocessing rule inert. Route via the `debug-performance` skill (decompose stats → ablate the baseline) rather than guessing; it shares a category with `clique`, so a single search-quality finding may cover both.
+- [ ] **T3-drift · `default_policy.cpp`'s Factor comment does not reproduce.** It records Factor taking `x9` 801 k → 453 k conflicts (39 s → 23 s); today's default composition does **0 factorings** on x9 and lands exactly on the pre-Factor 801 694. Either Factor regressed on this instance or the comment predates the BVE-last reordering. Find out which — a silently-inert rule is worse than a missing one. *(Second stale in-code claim found on 2026-07-21; the first was the `SLOT_IN_DEFAULT` block, fixed.)*
+
 ### ▶ Track S — the effort-budgeted scheduler's target arrangement (after Track C)
 
 - [ ] **S1 · settle L7's open hypothesis** — is repeated during-search BVE's cost really the per-phase root descent? Vary ONLY the interval and see whether time tracks phase COUNT. Cheap; it either revives during-search elimination or closes it properly instead of leaving it inferred.
@@ -294,6 +312,30 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — plan rev 58: status moved out of DEVELOPMENT_PLAN.md into this file
+Doc-only; no scope, gate, catalog or non-negotiable change (N1–N3 untouched). The
+plan had accumulated measured PAR-2 numbers, commit hashes and DONE/reverted
+narratives — status, which belongs here. Moved/dropped, each fact verified
+already present in this file before removal:
+- **§9 phase-3 row** (5377 → 3241 bytes) keeps the phase's scope, the two-track
+  sequencing decision (Track C · congruence, then Track S · the arrangement), the
+  N1 constraint on P1 and the one-unit landing discipline; it loses the increment-1
+  / P1 / P2 / C0–C3 DONE markers, the commit hashes and every measured number
+  (they live in the RESUME block, Lessons L1–L7 and the Track C/S checklists).
+- **§4** loses the per-revision narratives (revs 30/31/35/37/38/40/42/43) and keeps
+  what is normative: guards are pure preconditions, deviations are ledgered with a
+  removal path (D-LEVEL/D-SPLIT purified, D-ROOT retained as the framework), plus
+  the three standing kernel invariants those purifications established — true-level
+  assignment, handoff-before-advance, off-fixpoint-repaired-not-forbidden — one
+  line of lesson each, corpus 004/005/006 still named. The stale `Decide`-requires-
+  a-fixpoint guard example and the stale "NEXT: V3b-3" went with it.
+- **§5.2** V6 row now reads "pulled forward from phase 4 (rev 47)" instead of
+  "implemented rev 47"; the binary-deletion note keeps the kernel-primitive
+  rationale and drops the landed-prerequisite parenthetical.
+- Plan header now states the division of labour explicitly. §13 rev 58 appended
+  at the bottom (index still ascending); §§ cross-references unchanged — nothing
+  was renumbered.
 
 ### 2026-07-21 — the congruence unit channel WORKS: hwmcc17miters 48.8 → 6.7 s, refuted inside congruence
 C0 `1a365da`, C1+C2+C3 on branch `congruence-unit-channel` → merged to main.

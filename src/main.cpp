@@ -6,6 +6,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/adversarial_policy.hpp"
 #include "policies/bve_stress_policy.hpp"
+#include "policies/congruence_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
 #include "proof/proof.hpp"
@@ -76,6 +77,7 @@ int main(int argc, char **argv) {
   bool random_policy = false;
   bool adversarial_policy = false;
   bool bve_stress_policy = false;
+  bool congruence_stress_policy = false;
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
 
@@ -109,6 +111,13 @@ int main(int argc, char **argv) {
       bve_stress_policy = true;
       if (a[19] == '=')
         random_seed = strtoull(a + 20, nullptr, 10);
+    } else if (!strncmp(a, "--congruence-stress-policy", 26)) {
+      // C3 stress mode: maximizes V6's newly-legal schedules -- deriving root
+      // units, refuting, and re-entering congruence off a fixpoint on the
+      // formula its own previous round changed (stress-policy skill)
+      congruence_stress_policy = true;
+      if (a[26] == '=')
+        random_seed = strtoull(a + 27, nullptr, 10);
     } else if (!strncmp(a, "--bve-gates=", 12)) {
       // BVE gate-type selection (E1d): comma list of {equiv,andor}, or
       // all / none. A performance knob — every setting is sound (a disabled
@@ -199,7 +208,9 @@ int main(int argc, char **argv) {
   }
 
   const int res =
-      bve_stress_policy
+      congruence_stress_policy
+          ? congruence_stress_solve(kernel, random_seed, &caught_signal)
+      : bve_stress_policy
           ? bve_stress_solve(kernel, random_seed, &caught_signal)
       : adversarial_policy
           ? adversarial_solve(kernel, random_seed, &caught_signal)
@@ -251,6 +262,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.transitive_failed);
     printf("c substitute  %llu rounds\n",
            (unsigned long long)kernel.stats.substitute_rounds);
+    // V6 + E2 ship ON by default but had no stats line, so "did congruence /
+    // Factor even fire on this instance?" was unanswerable from a normal run.
+    printf("c congruence  %llu rounds, %llu units, %llu unjustified\n",
+           (unsigned long long)kernel.stats.congruence_rounds,
+           (unsigned long long)kernel.stats.congruence_units,
+           (unsigned long long)kernel.stats.congruence_unjustified);
+    printf("c factor      %llu factorings\n",
+           (unsigned long long)kernel.stats.factorings);
     printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,

@@ -2,9 +2,14 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-21 (rev. 57). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-21 (rev. 58). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
+
+**This document holds SCOPE, ARCHITECTURE, ROADMAP and the formal model — the
+things that change rarely.** Where the work *stands* — what has landed, what was
+measured, what was reverted, what is next — lives in PROGRESS.md and nowhere
+else; this plan points at it and does not restate it (one fact, one home).
 
 **Scope: sequential solving only.** No parallel/cloud tracks; single-threaded,
 deterministic. Parallel results below are omitted except where they inform
@@ -146,9 +151,8 @@ vocabulary small while allowing arbitrary heuristics.
 Each **rule family** is a triple:
 
 - `guard(σ) -> bool` — O(1)-ish applicability test (e.g., `Analyze` iff conflict
-  present; `Decide` iff no conflict, unassigned vars exist, **and the trail is at
-  a unit-propagation fixpoint** (see the fixpoint precondition below); `BVE(x)`
-  iff elimination bound met).
+  present; `Decide` iff no conflict and unassigned vars exist; `BVE(x)` iff
+  elimination bound met) — a *pure* precondition, per the discipline below.
 - `instances(σ) -> lazy iterator` — enumerate concrete instances (e.g., candidate
   variables for BVE, candidate clauses for vivification). Lazy is essential: never
   materialize "all applicable rules" — for RUP-learning the instance space is
@@ -157,123 +161,52 @@ Each **rule family** is a triple:
 - `apply(σ, inst) -> (σ′, proof-delta)` — total when guard holds; returns a
   structured result (progress made, conflict found, SAT/UNSAT concluded).
 
-**Propagation-fixpoint precondition (guard discipline, rev 30).** A rule that
-*advances the logical state* — `Decide` and every inprocessing family (subsume,
-strengthen, vivify, probe, backbone, substitute, BVE, …) — carries
-`propagate_head = |τ|` (unit propagation at fixpoint) in its guard. Only
-`Propagate` itself, and `Analyze`/`Backjump` acting on a *recorded conflict*,
-may operate on a non-fixpoint trail. This is a **soundness precondition, not a
-schedule**: the kernel assigns a propagation-forced literal at the *current*
-decision level, not its true level (the deepest antecedent's level), so a
-state-advancing rule applied on an un-propagated trail mis-levels the pending
-implications and a conflict can escape (invariant checker: "clause escaped
-propagation"; corpus 004). DefaultPolicy satisfies it trivially — BCP-to-fixpoint
-before every decision, the universal CDCL discipline — so it constrains only
-free N1 schedules, and branching freedom is untouched (any unassigned
-literal/phase is choosable at every fixpoint). In the abstract DPLL calculus any
-`Decide`/`UnitPropagate` interleaving is already sound, so this precondition is
-*imposed by the current-level assignment scheme*, not by logic; lifting it via
-true-level assignment + chronological backtracking (kissat assign.c/backtrack.c)
-is the §5.4 kernel candidate first filed from corpus 002.
+**Guards are pure preconditions (N1); anything stronger is a ledgered deviation
+(rev 36).** A guard states the rule's abstract precondition and nothing more. A
+conjunct that is stronger — imposed by an implementation choice rather than by
+logic — is an **engineering deviation**: it must be recorded with a removal path
+and treated as an active §5.4 revamp target, never as a permanent excuse, because
+a policy that cannot legally apply an abstractly-applicable rule is an N1 leak.
+`docs/calculus.md` is the authoritative per-rule expansion (abstract
+precondition, effect, proof delta, soundness) and its companion
+`docs/implementation-notes.md` holds the consolidated deviation ledger; both are
+kept in sync with this section and §5.2 via the **calculus skill**. The
+deviations this kernel actually incurred reduced to two root causes — **D-LEVEL**
+(assigning a propagation-forced literal at the *current* decision level instead
+of its true level) and **D-SPLIT** (an `Analyze`/`Backjump` split that made the
+learned-clause handoff a control state) — both since purified, so the guards no
+longer constrain a policy's schedule. Only **D-ROOT** (`level == 0` on
+inprocessing rules) remains, and it is the inprocessing-rules framework itself
+(rules rewrite `F|U`), not a leak; its removal is a much larger reformulation and
+is not scheduled. Where each step stands: PROGRESS.md; the per-revision index is
+§13 (revs 30–43).
 
-**True-level assertion in `Backjump` (rev 31).** The same scheme constrains the
-one state-advancer that assigns off a conflict: `Backjump` must assert the
-learned clause's UIP at its *true* level — the assertion level `jump_level` —
-never at a higher chronological target. Asserting it one level too deep (a
-target `> jump_level`) mis-levels the UIP exactly as an un-propagated `Decide`
-would, and a later partial `Restart` between `jump_level` and that target
-strands the still-implied UIP's reason clause as an escaped unit (corpus 005,
-fuzz-found under the random policy). So `backjump_apply_to` clamps every target
-to `jump_level`, and its N1 instance surface offers only that. The unifying
-invariant across both preconditions: **every literal is assigned at its true
-level**, so no backtrack can strand a still-implied literal's reason as an
-escaped unit. Genuine chronological backtracking (keeping decision levels above
-the assertion level, kissat backtrack.c `chrono`) needs true-level assignment
-and returns with the §5.4 kernel candidate above.
+**Three standing kernel invariants came out of that purification.** Each was
+learned from a fuzz-found unsoundness, and corpus 004/005/006 are the permanent
+regression bed. They are properties of the *kernel*, so no schedule can violate
+them and no guard has to forbid one:
 
-**Handoff-consumption precondition (rev 35).** The two preconditions above keep
-every literal at its true level; this one keeps a rule's *output* from being
-silently dropped. `Analyze` hands `Backjump` a learned clause through `pending`
-— already allocated, watched, and emitted to the proof, but with its asserting
-literal not yet assigned. That handoff must be **consumed before propagation
-resumes**: `propagate_guard` requires `¬pending.valid`. Otherwise `Propagate`
-may run on the still-unpropagated trail suffix and find a *second* conflict,
-reaching `conflict_valid ∧ pending.valid` — a state in which `Backjump` is
-blocked (it requires `¬conflict_valid`, so it never leaves `Analyze` a stale
-conflict) and `Analyze` is the only applicable handoff rule, so it runs and
-**overwrites** `pending`. The first learned clause is then orphaned: nothing
-assigns its asserting literal, and because propagation is watch-driven nothing
-ever revisits it, so it survives as a unit clause no rule will look at — an
-escaped unit at the next fixpoint (corpus 006, found by the nightly). Blocking
-`Propagate` makes that state unreachable; `Backjump` is always applicable in its
-place, so no legal schedule loses progress. **The unifying rule: a handoff must
-be consumed before the state it describes is advanced** — a recorded conflict
-must be analyzed before τ changes, and a pending learned clause must be
-backjumped before propagation resumes. Like rev 30's, this precondition is
-imposed by *our* Analyze/Backjump split, not by abstract DPLL (which has no
-intermediate handoff), and DefaultPolicy satisfies it trivially — it always
-backjumps before propagating again.
-
-**Per-rule calculus + the guard-purification effort (rev 36).** The three
-preconditions above are *engineering deviations*: a guard should be the rule's
-**pure abstract precondition** (N1), and each of these is stronger than that
-because of an implementation choice. `docs/calculus.md` is the authoritative
-per-rule expansion — every implemented rule's abstract precondition, effect,
-proof delta, and soundness — and its companion `docs/implementation-notes.md`
-holds the **consolidated deviation ledger** that classifies every guard conjunct
-as abstract or engineering with a removal path. The deviations reduce to two root causes: **D-LEVEL** (current-level
-assignment forces the `propagate_head = |τ|` fixpoint conjunct on Decide + every
-state-advancing inprocessing rule, and the `jump_level` clamp on Backjump) and
-**D-SPLIT** (the Analyze/Backjump split creates the `pending` control state,
-forcing the `¬pending.valid`/`¬conflict_valid` conjuncts). Removing them is now
-an **active §5.4 revamp target** (not a deferred "candidate"): true-level
-assignment + chronological backtracking (D-LEVEL) and atomic conflict analysis
-(D-SPLIT, decided in `calculus.md` §8) purify the guards so that, per N1, a
-policy may legally decide multiple times without an intervening propagation and
-interleave rules freely at any state. corpus 004/005/006 are the regression bed
-proving each relaxation stays sound. The calculus is kept in sync with this
-section and §5.2 via the **calculus skill**.
-
-**D-SPLIT done (rev 37).** Analyze and Backjump are fused into the single atomic
-`ConflictAnalysis` rule (M3), so `pending` is consumed within one apply and is
-never a control state at a rule boundary. The rev-35 `¬pending.valid` conjunct
-is removed from `Propagate`, `Lucky`, and the seven inprocessing rules
-(D-SPLIT-1/2 closed, `calculus.md` §7), and the corpus-006 state is
-unrepresentable. Behavior-preserving: s055 bit-exact 932,762, demo3 still
-stat-exact, proof output byte-identical. **D-SPLIT-3 closed (rev 42):** the
-`¬conflict_valid` conjunct is removed from the five pure `F`-rewrites
-(SubsumeForward/Strengthen/Vivify/Substitute/TransitiveReduce) — behavior-
-preserving (`conflict_valid ⟹ level>0`, so redundant under the retained
-`level==0`); V1/V2 Probe/Backbone keep it as an abstract precondition.
-**D-LEVEL inproc/S5 closed (rev 43):** `propagate_head==|τ|` removed from all 7
-inprocessing rules + Lucky; each drains the root closure `U` at apply entry (the
-shared `propagate_service` primitive), a no-op at a fixpoint (bit-exact). A
-rev-42 investigation had shown naive removal is unsound (rules read a partial
-`U`); the drain is the fix. **Guard purification is now complete for every
-removable deviation** — only D-ROOT (`level==0`) remains, and that is the
-inprocessing-rules framework itself (operate on `F|U`), not a leak, so it is not
-scheduled for removal.
-
-**D-LEVEL-2 done (rev 38).** True-level assignment (a forced literal stamped at
-its true level, not the current one) + a compacting `kernel_backtrack` make
-chronological backjump sound: `Backjump` accepts any target in
-`[jump_level, level-1]` (a `ConflictAnalysis` instance), the asserting literal
-stamped at its true level regardless. DefaultPolicy is held on `jump_level`
-(`CHRONO_LEVELS = UINT32_MAX`) so it is bit-exact (s055 932,762; Tier A PAR-2
-0.52). **D-LEVEL-1 done (rev 40).** `Decide`'s fixpoint conjunct is removed, so a
-policy may decide off a non-fixpoint ("multiple decisions in a row without
-propagation") — the N1 capability, now guaranteed. rev 38's true-level
-assignment was necessary but not sufficient: a decision taken off a fixpoint
-lets a not-yet-run watch scan treat a clause as satisfied by an "ahead"
-assignment, and a later backtrack that unassigns that literal strands the clause
-unit with no watch firing (a stale-scan escaped unit, distinct from corpus
-004/005/006). The watched-literal fix: an off-fixpoint `Decide` sets
-`k.trail_tainted`, and a search backtrack then re-propagates the whole trail
-(`propagate_head` reset to 0), redoing every stale scan against the post-shrink
-assignment. DefaultPolicy always decides at a fixpoint → never taints → bit-exact
-(s055 932,762; Tier A 200/200). Reproduced and regressed by `AdversarialPolicy`
-(`--adversarial-policy`, an off-fixpoint-heavy N1 stress schedule), the rewritten
-`test_decide` escaped-unit unit test, and corpus 004/005/006. NEXT: V3b-3.
+1. **Every literal is assigned at its true level** — the deepest antecedent's
+   level, not the level current when propagation reached it. Otherwise pending
+   implications are mis-levelled and a later backtrack strands a still-implied
+   literal's reason clause as an escaped unit (corpus 004/005). With true-level
+   assignment plus a compacting backtrack, chronological backjumping is sound and
+   `ConflictAnalysis` may target any level in `[jump_level, level-1]`.
+2. **A handoff must be consumed before the state it describes is advanced** — a
+   recorded conflict is analyzed before τ changes, and a learned clause is
+   asserted before propagation resumes; otherwise a second conflict overwrites
+   the pending clause and orphans it as an escaped unit (corpus 006). Enforced
+   structurally rather than by a guard: `ConflictAnalysis` is atomic (learn +
+   backjump in one apply), so the handoff never exists at a rule boundary.
+3. **Off-fixpoint application is repaired, not forbidden** — N1 requires that a
+   policy may decide, or inprocess, without an intervening propagation, and
+   abstract DPLL already admits any `Decide`/`UnitPropagate` interleaving. The
+   repairs are kernel-side: an off-fixpoint `Decide` taints the trail so the next
+   search backtrack re-propagates it wholesale (a stale watch scan may otherwise
+   rest on an "ahead" assignment and strand a clause unit), and an inprocessing
+   rule drains the root closure `U` at apply entry (rules read a *partial* `U`
+   otherwise — naive removal of the fixpoint conjunct was measured unsound). Both
+   are no-ops for DefaultPolicy, which always propagates to fixpoint first.
 
 Terminal detections: `Propagate` yielding a top-level conflict + `ConflictAnalysis`
 deriving the empty clause ⇒ UNSAT; all variables assigned without conflict ⇒ SAT
@@ -517,23 +450,19 @@ e.g. definitions introducing new variables), `delete`, `restore`, and
 | V3 | `Substitute` (equivalent-literal SCC substitution) | substitute, equivalences | add-RUP + delete + push-witness | 3 |
 | V4 | `TransitiveReduce` (binary implication graph) | transitive | delete | 3 |
 | V5 | `Sweep` (SAT sweeping via embedded kitten; equivalence extraction with core-derived hints) | sweep, kitten | add-RUP + delete | 4 |
-| V6 | `Congruence` (gate congruence closure; new in Kissat 4) — **AND/XOR/ITE implemented rev 47** | congruence | add-RUP + delete | 3 |
+| V6 | `Congruence` (gate congruence closure, AND/XOR/ITE; new in Kissat 4) — **pulled forward from phase 4, rev 47** | congruence | add-RUP + delete | 3 |
 
-**Binary-clause deletion — kernel primitive introduced with V4 (rev 32).** V3–V6/E1
-all need to delete binary clauses, which the current kernel deliberately cannot
-do: binaries never materialize (watch-list entries + `binary_ids` only) and are
-never deleted — a permanence `SubsumeForward` currently relies on (its binary
-subsumers skip the redundancy check they would otherwise need). So **V4
-`TransitiveReduce`, whose entire delta is `delete` of transitively-redundant
-binary edges, is implemented FIRST**, as the introduction point for a
-binary-deletion kernel primitive (drop the watch entries at both endpoints + emit
-the proof `delete`; `binary_ids` stays monotone for id lookup), together with the
-`SubsumeForward` reconciliation (a redundant binary may no longer subsume an
-irredundant clause without a redundancy check). **V3 `Substitute` then reuses that
-primitive** for its SCC-edge and occurrence rewrites. Sequencing within phase 3:
-V4 before V3. (V3's other prerequisites already landed 2026-07-16: the ρ
-reconstruction stack + `kernel_push_witness` as K1+K2, and SCC detection as V3a;
-only the V3b rewrite waits on binary deletion.)
+**Binary-clause deletion — the kernel primitive introduced with V4 (rev 32).**
+Binaries never materialize as clauses (watch-list entries + `binary_ids` only),
+so every binary deletion V3–V6/E1 need goes through one dedicated kernel
+primitive: drop the watch entries at both endpoints + emit the proof `delete`,
+with `binary_ids` kept monotone for id lookup. It was introduced with **V4
+`TransitiveReduce`** — whose entire delta is `delete` of transitively-redundant
+binary edges, hence the cheapest introduction point — together with the
+`SubsumeForward` reconciliation it forces: binary permanence is gone, so a
+redundant binary may no longer subsume an irredundant clause without a redundancy
+check. **V3 `Substitute` reuses the same primitive** for its SCC-edge and
+occurrence rewrites. Sequencing within phase 3: V4 before V3.
 
 Implementation design notes (point-in-time, non-normative — this plan stays
 authoritative): `docs/design/v3-substitute-design.md`, `docs/design/v4-transitive-reduce-design.md`,
@@ -543,8 +472,8 @@ RUP from its two parents (chain `[P⁺,P⁻]`), so E1 needs **no `add_rat`** and
 new proof primitive (the E1 row's `add-RUP (resolvents)` is exact). The V3-design
 forward-note that "add_rat is needed by E2/BVE" holds only for **E2 Factor/BVA**
 (new-variable definitions are RAT) and **X1 BCE** (RAT-justified deletion), both
-phase 4 — not for E1. E1 reuses V3's entire proof + ρ machinery; the only new
-work is a rule-local both-polarity occurrence index (no kernel dense mode).
+phase 4 — not for E1. E1 reuses V3's entire proof + ρ machinery; its only new
+requirement is a both-polarity occurrence index.
 
 #### Variable elimination / addition
 
@@ -1107,7 +1036,7 @@ Components:
 | 0 (setup) | Repo, CI; **baseline solvers built locally** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
 | 1 | Kernel + Propagate/Decide/Analyze/Backjump + Restart/Reduce (S1–S2, moved from phase 2 in rev 12) + SwitchMode w/ stable mode: EVSIDS heap, reluctant restarts, target phases (S4, moved rev 19) + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
 | 2 | Rephasing, lucky probes (S3, S5); native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
-| 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE); **V6 `Congruence` (AND/XOR/ITE) pulled forward rev 47 — DRAT-verified, net-positive on Tier B (cracks the congruence-essential `hwmcc-miters`)**; reconstruction stack; Tier C built. **IMMEDIATE PRIORITY (rev 53/54, user): the EFFORT-BUDGETED INPROCESSING SCHEDULER.** *Increment 1 — the effort ledger (per-technique doses sized as a fraction of search work, each rule metered in its own currency) — is **DONE** and net-positive on Tier A/B/C.* The goal remains kissat's arrangement: all of kissat's inprocessing rules active (turn on the built-but-disabled Probe/Backbone/Vivify/TransitiveReduce; build the missing Sweep V5), **no BVE at preprocessing**, probing simplifying the formula, and elimination moved INTO the search loop under per-technique budgets and growing intervals. **Rev 54 correction (measured, not predicted): this is NOT "no kernel change, the hard part is tuning" as rev 53 assumed.** Three measured attempts established **two structural, kernel-level PREREQUISITES** — **both now DONE (rev 55), neither changing default behaviour**: **(P1)** a **per-variable BVE retry filter** (kissat `flags->eliminate`) — **DONE** (`77143f1`) and neutral, but it did NOT unlock repeated during-search BVE: with P1 underneath, that configuration is still Tier B 21.3 → 32.5, and the cost is measurably NOT the resolvent work (33 % fewer resolvents, identical wall time), so the remaining barrier is the per-phase overhead itself (root descent + enumeration) — untested as of rev 54; **(P2)** a **probing propagation path that restores search's bookkeeping** — **DONE** (`f1c271e`): our search propagator relocates watches and rewrites per-clause scan hints even when a probing round derives nothing, which alone wrecks high-variance SAT search, and this gates ALL FOUR probing rules. *(NOT a kissat port: verified 2026-07-21 that `proprobe.c` and `propsearch.c` share one `proplit.h` template and kissat's probing mutates watches identically — how kissat tolerates that is unknown, so the implemented undo-log is a novel mechanism: it owes a `stress-policy` pass and its snapshot traffic is not yet metered by the effort ledger.)* **With both prerequisites in, the probing rules are mechanically unblocked but NOT yet a win — C3 Vivify re-measured on top of P2 is Tier B 24.19 vs 21.01, so each of V1/V2/V4 still needs its own A/B before enabling.** **N1 constraint on P1:** the filter may prune only the `instances()` enumeration; `apply_instance` must stay total, so a filtered-out variable is still eliminable through the public API. **Landing discipline (an explicit exception to §8.3's per-increment gating):** each half of the target arrangement measures WORSE alone, so it is built behind the slot's `enabled` flags with today's composition as the default and gated as ONE unit on Tier B+C. Motivations unchanged: the clean fix for the bimodal-BVE stopgaps, and N2 hardening (all rules' DRAT/LRAT exercised continuously on real instances). Evidence + increment plan: `docs/design/effort-scheduler-design.md`; status: PROGRESS.md. **SEQUENCE TO T3 (rev 56, user): two tracks, run in order.** **Track C first — complete V6 Congruence**, because it is independent of the scheduler and is the largest single measured lever (`hwmcc17miters` is 23.7× kissat, our worst Tier B instance, and kissat refutes it *inside congruence* at 0 conflicts while V6 has no unit channel and has never returned `Unsat`): C0 fix the XOR output-sign offset → C1 close the `add_equivalence` empty-LRAT-hint hazard → C2 filter the degenerate ITE candidates at extraction → **C3 `D-CONG-UNIT`, then C4 `D-CONG-LRAT` + `D-CONG-DELETE`** — *re-split rev 57 (user), after rev 56 had bundled them.* The DRAT unit channel is **DONE and banked**: `hwmcc17miters` 48.77 → 6.67 s against kissat's 2.27 s in the same window (21.5× → 2.9×), refuted inside congruence at 0 decisions, proof drat-trim VERIFIED. It ships on its own because the measured payoff is large and immediate while the LRAT half proved *larger* than the estimate the bundling rested on (per-gate side-clause id capture, bridged chains for the degeneracy ladder, and the two-gate matching ladder are each their own piece). **N2 is not weakened by the split** — every path still emits a checkable certificate; the `--lrat` path simply continues not to extract XOR/ITE, exactly as before this work, and C1's assert makes emitting a hint-less LRAT line impossible rather than merely unlikely. **C4 is the immediate next item**, so the DRAT-only deviation does not sit open: native chains for the degeneracy / XOR-matching / ITE case-split lemmas, `del` for the transient lemmas, then ungate XOR/ITE under `--lrat`. **Then Track S — the target arrangement**: S1 settle whether repeated BVE's cost is the per-phase root descent (vary only the interval; does time track phase COUNT?) → S2 re-measure Probe/Backbone/TransitiveReduce now P2 exists → S3 P2's owed `stress-policy` pass + meter its snapshot traffic in the effort ledger → S4 the arrangement as one gated unit. Per-item detail + gates: PROGRESS.md phase-3 checklist. | T3 on Tier C — **incl. CaDiCaL/Kissat parity on the rule-neutral subset (search-quality isolation, rev 51)**; nightly random-policy fuzzing green |
+| 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V4, E1: subsume, strengthen, vivify, probe, backbone, substitute, transitive reduction, BVE) + **V6 `Congruence`, pulled forward from phase 4 (rev 47)**; reconstruction stack; Tier C built. **Priority for the rest of the phase (revs 53–57, user): the EFFORT-BUDGETED INPROCESSING SCHEDULER, reached through two ordered tracks.** *Target arrangement* = kissat's: all of kissat's inprocessing rules active (turn on the built-but-disabled Probe/Backbone/Vivify/TransitiveReduce; build the missing Sweep V5), **no BVE at preprocessing**, probing simplifying the formula, and elimination moved INTO the search loop under per-technique effort budgets and growing intervals. Two motivations: it is the clean fix for the bimodal-BVE ordering stopgaps, and it hardens N2 (every rule's DRAT/LRAT emission exercised continuously on real instances rather than only under fuzz). *Two kernel prerequisites, established by measurement and not assumed* (rev 54, correcting rev 53's "no kernel change, the hard part is tuning"): **P1** a per-variable BVE retry filter and **P2** a probing propagation path that restores search's bookkeeping, which gates all four probing rules — **N1 constraint on P1: a retry filter may prune only the `instances()` enumeration; `apply_instance` stays total, so a filtered-out variable is still eliminable through the public API** (the general form is the rule-dev skill's *the instance surface is the policy's action space*). *Landing discipline — an explicit, scoped exception to §8.3's per-increment gating:* each half of the target arrangement measures worse alone, so it is built behind the slot's `enabled` flags with today's composition as the default and gated as ONE unit on Tier B+C. **Track C runs first — complete V6 `Congruence`** (independent of the scheduler, and the largest single measured lever: the congruence-essential miter family, which kissat refutes *inside* congruence): fix the XOR output-sign offset → close the `add_equivalence` empty-LRAT-hint hazard → filter the degenerate ITE candidates at extraction → the `D-CONG-UNIT` unit channel → `D-CONG-LRAT` + `D-CONG-DELETE`. The unit channel ships ahead of its native LRAT chains (re-split rev 57, after rev 56 had bundled them: building it showed the two halves are not the same size), and **the split does not weaken N2** — both proof paths still emit checkable certificates and the `--lrat` path simply continues not to extract XOR/ITE, exactly as before — with the LRAT half taken up immediately after so the DRAT-only deviation does not sit open. **Then Track S — the target arrangement**: settle whether repeated during-search BVE's cost is the per-phase root descent → re-measure the probing rules now P2 exists → P2's owed `stress-policy` pass + meter its snapshot traffic in the effort ledger → the arrangement as one gated unit. Design, increment plan and the measured evidence behind all of the above: `docs/design/effort-scheduler-design.md`. **Per-item state, measurements and gates: the PROGRESS.md phase-3 checklist.** | T3 on Tier C — **incl. CaDiCaL/Kissat parity on the rule-neutral subset (search-quality isolation, rev 51)**; nightly random-policy fuzzing green |
 | 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Walk, Sweep, Factor/SBVA, BCE); **the engineering push to *exceed* Kissat (search-quality + inprocessing ingenuity, not just the remaining rules)** | **T4 on Tier D — exceed Kissat by engineering** (before any learned policy); §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
 | 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
 | 6 | **Learned scheduling — the RL module (§5.6, always-on):** offline replay/reward-proxy harness (dev instrumentation); L1 windowed-UCB bandit over the macro scheduler's slot choice points with segment attribution (default schedule = permanent arm); LearnedPolicy in the fuzz rotation; L2 contextual (tabular); L3 batch-sequencing experiment under its kill criterion, neighbor-move arm proposals; offline per-family preset layer | §8.5 gates: L-safe on Tier C, then L-win on Tier D + anytime check; stretch — improves the T5 configuration. **Note: learning is upside *on top of* an engineering base that already exceeds Kissat (T4) — not the first thing to surpass it (R5).** |
@@ -1255,3 +1184,4 @@ conflate them.
 - **rev. 55** (2026-07-21): **both rev-54 prerequisites landed** (§9 phase-3 row) — P1 the per-variable BVE retry filter (`77143f1`, neutral; its retry *decision* sits in DefaultPolicy, not the rule, so the instance surface stays the policy's full action space) and P2 the probing propagation path that restores search's bookkeeping (`f1c271e`; a probing round deriving nothing is now bit-identical for search). Neither changes default behaviour. The probing rules are mechanically unblocked but not yet net-positive — Vivify on top of P2 measures Tier B 24.19 vs 21.01 — so V1/V2/C3/V4 each still need their own A/B. P2 owes a `stress-policy` pass (novel mechanism, not a port) and effort-ledger metering of its snapshot traffic.
 - **rev. 56** (2026-07-21, user): **sequenced phase 3's two open tracks as explicit, checkable items** (§9 phase-3 row; per-item detail in PROGRESS.md). The plan had a target end-state and a "pick one of (A)/(B)/(C)" recommendation but no ordered checklist, so neither track was trackable. **Track C — complete V6 Congruence — runs first** (independent of the scheduler; the largest single measured lever): C0 XOR output-sign offset, C1 the `add_equivalence` empty-LRAT-hint hazard, C2 the degenerate-ITE extraction filter, **C3 `D-CONG-UNIT` + `D-CONG-LRAT` + `D-CONG-DELETE` as ONE landing** (user decision — supersedes the earlier "D-CONG-LRAT must close first", which the 2026-07-21 scoping showed buys nothing: the chain work is the same size either way, while landing them together means no intermediate state deepens the DRAT-only deviation). **Then Track S — the target arrangement**: S1 the L7 phase-count test, S2 re-measure the probing rules on top of P2, S3 P2's owed stress-policy pass + metering, S4 the arrangement as one gated unit. Scoping evidence: the constant-parity ladder is drat-trim validated (bare adds rejected, all four ladder variants VERIFIED) and matches kissat's `add_xor_shrinking_proof_chain`; the ITE-degeneracy bucket is measured redundant (0 new merges, 0 new units) so it needs a filter, not a channel; and the XOR output-sign offset would have made every hwmcc unit the wrong polarity. N1–N3 unchanged.
 - **rev. 57** (2026-07-21, user): **re-split rev 56's C3 bundle — the DRAT unit channel banks now, `D-CONG-LRAT` becomes the immediate next item** (§9 phase-3 row). Rev 56 had the unit channel and its native chains land together so no intermediate state deepened the DRAT-only deviation; building it showed the two halves are not the same size. `D-CONG-UNIT` is done and measured — `hwmcc17miters` 48.77 → 6.67 s against kissat 2.27 s in one window (21.5× → 2.9×), refuted *inside* congruence at 0 decisions / 1 root conflict, 14.4 MB proof drat-trim VERIFIED with 0 RAT lemmas, fuzz DRAT 1000/0, no regression on the instances re-run — while `D-CONG-LRAT` still needs per-gate side-clause id capture, bridged chains for the degeneracy ladder, and the two-gate matching ladder. **N1–N3 unchanged, and the split does not weaken N2:** both proof paths still emit checkable certificates, the `--lrat` path continues not to extract XOR/ITE exactly as before, and C1 turned a silent hint-less-LRAT-line hazard into an assert. C4 (`D-CONG-LRAT` + `D-CONG-DELETE`) runs next so the deviation does not sit open; C3b (AND degeneracies + the `x ≡ ¬x` clash-merge refutation, all measured firing 0 times on `hwmcc`) trails it.
+- **rev. 58** (2026-07-21, user): **status moved out of the plan into PROGRESS.md — one fact, one home.** No scope, gate, catalog or non-negotiable change: the §9 phase-3 row keeps its scope, sequencing decision (Track C then Track S) and landing discipline but drops the measured numbers, commit hashes and DONE/reverted markers that PROGRESS.md already carries; §4 drops the rev-30/31/35/37/38/40/42/43 per-revision narratives, keeping the deviation discipline (guards are pure preconditions; D-LEVEL/D-SPLIT purified, D-ROOT retained) and the three standing kernel invariants they established; §5.2's V6 and binary-deletion notes lose their landed-status annotations. Header states the plan/PROGRESS division of labour.

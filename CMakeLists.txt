@@ -43,6 +43,7 @@ add_library(tactix_lib OBJECT
   src/policies/random_policy.cpp
   src/policies/adversarial_policy.cpp
   src/policies/bve_stress_policy.cpp
+  src/policies/congruence_stress_policy.cpp
   src/frontend/parse.cpp
   src/api/api.cpp
 )
