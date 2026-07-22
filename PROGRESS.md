@@ -33,15 +33,12 @@ disagree, the plan is authoritative — fix this file.
   Tier B+C before flipping.
 
   **▶ TWO STRUCTURAL PREREQUISITES — the immediate work. Either may go first.**
-  - **P1 · a per-variable RETRY FILTER for BVE** (kissat `flags->eliminate`).
-    Without it `bve_schedule` re-ranks and re-attempts every candidate on every
-    call, so repeated elimination re-generates resolvents for the whole variable
-    set, nearly all rejected (`mod4block` 3.5 M resolutions for 9 eliminations).
-    *Sizing:* a `kernel_mark_garbage` helper + migrating the ~8 direct
-    `Clause::GARBAGE` sites (analyze/reduce/strengthen/subsume/substitute), a
-    `bve_retry` bitmap marked on **irredundant** add/delete only (marking on
-    redundant learned-clause adds would mark everything and defeat it), the filter
-    in `bve_schedule`, clear-on-attempt. **Gates repeated during-search BVE.**
+  - **P1 · a per-variable RETRY FILTER for BVE** — **DONE** (`77143f1`), neutral
+    on Tier B (21.25 vs 21.23) and fuzz-clean. It does what it says (mod4block's
+    wasted resolvents 3.5 M → 2.3 M) but it **did NOT unlock repeated
+    during-search BVE** — see L7. Kept because it is correct, is a prerequisite
+    for any future repeated elimination, and centralised large-clause deletion
+    behind `kernel_mark_garbage`.
   - **P2 · a NON-MUTATING PROBING PROPAGATION PATH** (kissat `proprobe.c`).
     `kernel_propagate` relocates watches and rewrites per-clause `searched` hints
     even when a probing round derives nothing — see Lesson L3. **Gates all four
@@ -84,6 +81,20 @@ disagree, the plan is authoritative — fix this file.
     "skip BVE on harmful structure" separator (no static CNF feature separates
     harmful from helpful — best 4/13 misclassifications ≈ chance,
     `benchmarks/reports/2026-07-20-bve-skip-feasibility.md`).
+  - **L7 · Repeated during-search BVE is NOT blocked by wasted work — it is the
+    PHASES themselves.** Four attempts now, the last with P1 underneath: Tier B
+    21.33 → 32.45, 4/14 wins. The decisive pair of numbers is `mod4block` without
+    P1 (101.8 s, 3.5 M resolutions) vs with P1 (102.7 s, 2.3 M resolutions):
+    **33 % less resolvent work for identical time**, so the resolvent generation
+    was never the cost. What remains is the per-phase overhead — the root descent
+    that every phase requires (D-ROOT) plus enumeration — and on a high-variance
+    SAT instance the repeated root descents derail the search, which is the same
+    channel the 2026-07-18 assessment found. **The elimination itself is not the
+    problem:** the same configuration takes `combined-crypto1` 24.4 → 3.8 s
+    (6.4×), because the growth-slack ramp picks benign eliminations. So repeated
+    BVE is strongly bimodal, and the next hypothesis to test is the cost/frequency
+    of the phase, not the work inside it — e.g. far longer intervals, or
+    simplifying without a full root descent.
   - **L6 · Measurement hygiene.** Solo spot-checks MISLEAD (`hwmcc` looked like a
     57→47 s win solo, neutral at jobs=4); only same-window A/B at equal
     concurrency counts. HEAD's Tier B spread is ~21.4–23.0 PAR-2 across runs, so a
@@ -238,6 +249,32 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — P1 (BVE retry filter) LANDED; it did NOT unlock repeated during-search BVE — my diagnosis was wrong
+P1 is in (`77143f1`): `kernel_mark_garbage` centralises large-clause deletion (all
+11 direct `Clause::GARBAGE` sites migrated), `Kernel::bve_retry` is marked on
+irredundant add/delete plus a root-fixing sync, `bve_schedule` filters,
+`bve_eliminate` clears on attempt. N1 holds — the filter prunes only
+`instances()`, so `apply_instance` stays total (plan rev 54's constraint,
+verified on both paths + a new `test_bve` case). Neutral on Tier B (21.25 vs
+21.23, 14/14, identical proof bytes), fuzz 1000/0 + 400/0, ctest 29/29.
+Engineering record: `docs/implementation-notes.md` §6.
+
+**But the prediction it was built on was wrong.** I had named P1 as *the* blocker
+for repeated during-search BVE. Re-running that configuration with P1 underneath:
+**Tier B 21.33 → 32.45, 4/14 wins** — barely better than the 32.87 without it.
+The filter works (mod4block's wasted resolvents 3.5 M → 2.3 M); it just was not
+what was in the way. The decisive numbers are mod4block without P1 (101.8 s,
+3.5 M resolutions) vs with P1 (102.7 s, 2.3 M): **33 % less resolvent work,
+identical time** — so the cost was never the resolvent generation. It is the
+per-phase overhead, dominated by the root descent each phase requires, which on a
+high-variance SAT instance derails the search (the same channel as the
+2026-07-18 assessment). Recorded as Lesson L7, with the next hypothesis:
+attack the phase's cost/frequency, not the work inside it.
+
+**Worth keeping in view:** the same configuration takes `combined-crypto1`
+24.4 → 3.8 s (6.4×) — the growth-slack ramp genuinely picks benign eliminations.
+Repeated BVE is strongly bimodal, not uniformly bad.
 
 ### 2026-07-21 — plan rev 54: the scheduler re-scoped from measurement
 Rev 53 assumed the effort scheduler needed **no kernel change** and that the hard
