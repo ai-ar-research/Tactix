@@ -372,6 +372,13 @@ struct Kernel {
 // --- lifecycle -------------------------------------------------------------
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
 
+// Grow the search-guidance (`H`) per-variable state — saved/target/best phases,
+// the VMTF queue links, the EVSIDS score arrays — for vars [old, nvars). Split
+// out of kernel_reserve_vars (Track H · H2) as the `H`-growth seam; called
+// unconditionally today, made conditional on an optional `H` at H4. (Moves to
+// src/policies/heuristics.* at H3/H4 with the rest of `H`.)
+void heuristics_reserve_vars(Kernel &, uint32_t old, uint32_t nvars);
+
 // Allocate `count` fresh NON-ORIGINAL (extension) variables at a root fixpoint and
 // return the index of the first one. Grows all per-variable state via
 // kernel_reserve_vars (additive) and records the extension boundary so the model

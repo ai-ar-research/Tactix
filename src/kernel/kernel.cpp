@@ -12,18 +12,14 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     return;
   const uint32_t old = k.nvars;
   k.nvars = nvars;
+  // --- σ-state + derived-index growth (kernel-owned) ---
   k.values.resize(2 * nvars, 0);
   k.assigned.resize(nvars);
-  k.saved.resize(nvars, 1); // initial phase: positive (kissat default)
   k.watches.resize_lits(2 * nvars);
-  k.links.resize(nvars);
-  k.scores.pos.resize(nvars, UINT32_MAX);
-  k.scores.score.resize(nvars, 0.0);
-  k.target.resize(nvars, 0);
-  k.best.resize(nvars, 0);
   k.unit_ids.resize(nvars, 0);
   // BVE retry filter: a brand-new variable has never been attempted, so it
   // starts retry-worthy (kissat activate_variable marks it removed+added).
+  // A DERIVED INDEX, not `H` (implementation-notes §6) — stays kernel-side.
   k.bve_retry.resize(nvars, 1);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
@@ -41,6 +37,20 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // reallocate, and its push_back capacity branch becomes always-false
   k.trail.reserve(nvars);
   k.frames.reserve(nvars + 1);
+  // --- search-guidance (`H`) growth (Track H · H2: extracted seam) ---
+  // Reordered below the σ growth; every resize is an independent allocation, so
+  // grouping is behaviour-preserving (bit-exact gate confirms). Made conditional
+  // on an optional `H` at H4.
+  heuristics_reserve_vars(k, old, nvars);
+}
+
+void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
+  k.saved.resize(nvars, 1); // initial phase: positive (kissat default)
+  k.links.resize(nvars);
+  k.scores.pos.resize(nvars, UINT32_MAX);
+  k.scores.score.resize(nvars, 0.0);
+  k.target.resize(nvars, 0);
+  k.best.resize(nvars, 0);
   // enqueue new vars into the VMTF queue (most recent = preferred)
   for (Var v = old; v < nvars; v++) {
     Link &l = k.links[v];
@@ -319,10 +329,21 @@ void kernel_bve_retry_sync_fixed(Kernel &k) {
 
 // kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)
 
-void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
+// H2 (Track H): the H-hook seam. `HasH` selects at COMPILE TIME whether this
+// backtrack maintains search guidance — the four `H` touches (target/best
+// snapshot, phase save, heap re-insert, VMTF search-cache) are each under
+// `if constexpr (HasH)`, so the null-`H` instantiation's inner loop is branch-
+// free w.r.t. `H` (no per-literal `if (k.h)`). Only <true> is instantiated
+// today (below), so codegen is byte-identical to the pre-H2 function; H4/H5 add
+// the <false> (empty-`H`) instantiation and the once-per-backtrack dispatch.
+template <bool HasH>
+static void kernel_backtrack_impl(Kernel &k, uint32_t target,
+                                  bool update_phases) {
   assert(target < k.level);
-  if (update_phases)
-    kernel_update_target_phases(k); // before unassigning (backtrack.c)
+  if constexpr (HasH) {
+    if (update_phases)
+      kernel_update_target_phases(k); // before unassigning (backtrack.c)
+  }
   // COMPACTING backtrack (rev 38, D-LEVEL-2): with true-level assignment the
   // trail is no longer level-sorted, so we cannot truncate by position. Scan
   // the suffix above the target frame and KEEP (compact down, re-propagate)
@@ -335,7 +356,6 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
   // no longer level-sorted, so the keep-and-compact path is live in the default
   // configuration.
   const uint32_t boundary = k.frames[target + 1];
-  const bool stable = k.stable;
   const uint32_t end = static_cast<uint32_t>(k.trail.size());
   uint32_t j = boundary; // write cursor for kept (out-of-order) literals
   for (uint32_t i = boundary; i < end; i++) {
@@ -347,17 +367,23 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
       j++;
       continue;
     }
-    if (update_phases)
-      k.saved[v] = negated(lit) ? -1 : 1; // phase saving
+    if constexpr (HasH) {
+      if (update_phases)
+        k.saved[v] = negated(lit) ? -1 : 1; // phase saving
+    }
     k.values[lit] = 0;
     k.values[negate(lit)] = 0;
     k.unassigned++;
-    if (stable) {
-      if (!kernel_heap_contains(k, v))
-        kernel_heap_push(k, v);
-    } else if (k.links[v].stamp > k.search_stamp) {
-      k.search_idx = v;
-      k.search_stamp = k.links[v].stamp;
+    if constexpr (HasH) {
+      // ranking-structure maintenance (loop-invariant k.stable; hoisted by the
+      // optimizer, so identical codegen to the pre-H2 `const bool stable`)
+      if (k.stable) {
+        if (!kernel_heap_contains(k, v))
+          kernel_heap_push(k, v);
+      } else if (k.links[v].stamp > k.search_stamp) {
+        k.search_idx = v;
+        k.search_stamp = k.links[v].stamp;
+      }
     }
   }
   k.trail.resize(j);
@@ -381,6 +407,13 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
   const uint32_t reset = (k.trail_tainted && update_phases) ? 0 : boundary;
   if (k.propagate_head > reset)
     k.propagate_head = reset;
+}
+
+void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
+  // Track H · H2: `H` is always present today, so only the <true> instantiation
+  // exists and is selected unconditionally. H4/H5 replace this with
+  // `k.h ? kernel_backtrack_impl<true> : kernel_backtrack_impl<false>`.
+  kernel_backtrack_impl<true>(k, target, update_phases);
 }
 
 // --- propagation engine ------------------------------------------------

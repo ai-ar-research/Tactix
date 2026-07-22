@@ -144,11 +144,14 @@ those counters.
   Bit-exact by construction (`kind` is never read by kernel or DefaultPolicy).
   Gate: `test_api_c.c` gains kind assertions + a golden `tactix_rule_name(i)` list
   for all 18 ids (permanent id-drift guard).
-- **H2 — kernel stops depending on `H`'s existence (STRUCTURAL).** The four
-  `kernel_backtrack` hooks + the reserve-vars path become compile-time callables
-  that vanish when `h == nullptr`; `kernel.hpp` never names `Heuristics` and never
-  runs a per-step `if (k.h)` on a hot path. Load-bearing for optionality; lands
-  before the field move.
+- **H2 — kernel stops depending on `H`'s existence (STRUCTURAL). ✓ landed
+  2026-07-22.** The compile-time hook seam: `kernel_backtrack` → `template
+  <bool HasH>` with every `H` touch under `if constexpr (HasH)` (single `<true>`
+  instantiation today, bit-exact); `kernel_reserve_vars`' `H`-growth extracted
+  into `heuristics_reserve_vars`. The `<false>` (empty-`H`) instantiation, the
+  `k.h ? …` dispatch, "`kernel.hpp` never names `Heuristics`", and the removal of
+  any per-step `if (k.h)` land at H4/H5 (they need a nullable `h`). See the "H2
+  design pass" section below for the mechanism + rejected alternatives.
 - **H3 — move the `H` CODE** out of `kernel.cpp` into `src/policies/heuristics.cpp`
   (verbatim move + `kernel_*`→`heuristics_*`; fields still in `Kernel`, fns take
   `Kernel&`). Delete dead `kernel_queue_init`. Extract the open-coded saved-phase
@@ -169,6 +172,81 @@ those counters.
   `src/rules/{rephase,switchmode}` → `src/policies/ops/`. §5.3 extends: a policy op
   = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`. Category
   acceptance test = **S6 Walk landing under that diff shape** (a later item).
+
+## H2 design pass — the hook-seam mechanism (2026-07-22)
+
+**Problem.** Two kernel paths reach directly into `H` fields/functions:
+
+1. `kernel_backtrack` (kernel.cpp:322-384) — the unassign loop, **per-literal
+   hot** (runs on every restart/backjump/probe-restore, over the unwound suffix).
+   Its four `H` touches, interleaved with the σ unassign (`values`/`unassigned`/
+   trail-compact):
+   - `kernel_update_target_phases(k)` @325 (guarded `if (update_phases)`) — stable
+     target/best snapshot;
+   - `k.saved[v] = …` @351 (guarded `if (update_phases)`) — phase saving;
+   - heap re-insert @355-357 (guarded `if (stable)`);
+   - VMTF search-cache update @358-361 (the `else` of `stable`);
+   - plus the `const bool stable = k.stable;` read hoisted @338.
+   The kept-literal branch (`level ≤ target`) touches no `H`.
+2. `kernel_reserve_vars` (kernel.cpp:10-57) — grows `saved`/`links`/`scores.pos`/
+   `scores.score`/`target`/`best` and enqueues new vars into the VMTF queue +
+   `kernel_reset_queue_search`, interleaved with σ-growth (`values`/`assigned`/
+   `watches`/`unit_ids`/`seen`/…) and the non-`H` `bve_retry`. **Amortized** (once
+   per var-growth: parse-time + E2 Factor mid-solve), not per-literal.
+
+For `H` to be optional (rev 60), the null-`H` solver must run both paths touching
+**no** `H` state, and — the sharp constraint — the hot loop must pay **zero
+per-literal cost** for that (N3: DefaultPolicy perf must not regress).
+
+**Mechanism decision.** Split by how hot the path is:
+
+- **Hot path (`kernel_backtrack`) → compile-time dispatch.** The null-`H` skip
+  must not be a per-literal branch. Template the body on `template <bool HasH>`
+  and wrap every `H` touch in `if constexpr (HasH)` (hand-written loop
+  unswitching); the caller picks the instantiation **once per backtrack**. Each
+  instantiation's inner loop is branch-free w.r.t. `H`.
+  - *Rejected — per-literal `if (k.h)`:* correctness-fine, but leaves a
+    loop-invariant branch inside the hottest loop whose removal relies on the
+    optimizer choosing to unswitch. Fragile against N3; the plan says "compile-time
+    callables" for exactly this reason.
+  - *Rejected — function-pointer / virtual hooks:* a per-literal indirect call,
+    strictly worse than a branch, and unnecessary when the choice is known at the
+    call site.
+- **Amortized path (`kernel_reserve_vars`) → a plain extracted function.** Extract
+  the `H`-growth into `heuristics_reserve_vars(k, old, nvars)` called
+  unconditionally now; a once-per-growth runtime `if (k.h)` at H4 is free here. No
+  template — templating an amortized path is unjustified machinery. The
+  interleaved resizes are independent allocations, so grouping them into one
+  function is behaviour-preserving (verified by the bit-exact gate); `bve_retry`
+  stays on the σ side (it is a derived index, not `H`).
+
+**Staging decision — introduce the template at H2, with one instantiation.**
+`kernel_backtrack` becomes `kernel_backtrack_impl<true>` behind the existing
+`kernel_backtrack` wrapper. `if constexpr (true) { … }` is byte-identical codegen
+to today, so H2 is **bit-exact by construction** while the `if constexpr (HasH)`
+seam — every `H` touch marked — lands on the quiet tree, reviewable in isolation.
+Chosen over "extract-only at H2, template at H4" because it front-loads the
+structural mechanism (the plan's "compile-time callables") onto the behaviour-
+neutral step and leaves H4/H5 as the mechanical remainder: change the hook bodies
+`k.saved`→`k.h->saved`, add the `kernel_backtrack_impl<false>` (empty-`H`)
+instantiation, and add the single dispatch branch `k.h ? <true> : <false>`. The
+`stable` read and the two `update_phases` blocks all move inside `if constexpr`.
+
+**H2 deliverables (scope):**
+- `template <bool HasH> kernel_backtrack_impl` in kernel.cpp; `kernel_backtrack`
+  (unchanged signature, kernel.hpp:530) calls `<true>`. `if constexpr (HasH)` around
+  the four hooks + the `stable` read + the `kernel_update_target_phases` call.
+- `heuristics_reserve_vars(k, old, nvars)` extracted from `kernel_reserve_vars`,
+  called unconditionally. Hook bodies still touch inline `k.*` fields (the CODE
+  moves at H3, the FIELDS at H4).
+- **Not** in H2: the `<false>` instantiation, the dispatch branch, making
+  `heuristics_reserve_vars` conditional, "kernel.hpp stops naming `Heuristics`"
+  (no `Heuristics` type exists until H4). H2 must not *introduce* a per-step
+  `if (k.h)`; it makes the *place* for the compile-time skip.
+
+**Gate:** trajectory (decisions/conflicts/propagations/ticks) + DRAT bytes
+byte-identical on the H1 fingerprint set (tr-n120-s058 SAT + corpus-007 UNSAT),
+ctest 29/29 (release + debug/ASan), quick fuzz green. Same criterion as H1.
 
 ## Three non-σ categories that are NOT `H` (do not sweep them up)
 
