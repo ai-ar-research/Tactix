@@ -328,9 +328,12 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
   // the suffix above the target frame and KEEP (compact down, re-propagate)
   // every literal whose true level <= target; unassign only those above it.
   // Transliterated from cadical backtrack.cpp / kissat backtrack.c. Under a
-  // level-sorted trail (DefaultPolicy) the suffix is exactly the level>target
-  // literals, so nothing is kept and this reduces to the old truncation —
-  // s055 bit-exact.
+  // level-sorted trail the suffix is exactly the level>target literals, so
+  // nothing is kept and this reduces to the old truncation. That WAS
+  // DefaultPolicy's situation and it made this change bit-exact at the time;
+  // since chrono was enabled by default (2026-07-22) DefaultPolicy's trail is
+  // no longer level-sorted, so the keep-and-compact path is live in the default
+  // configuration.
   const uint32_t boundary = k.frames[target + 1];
   const bool stable = k.stable;
   const uint32_t end = static_cast<uint32_t>(k.trail.size());

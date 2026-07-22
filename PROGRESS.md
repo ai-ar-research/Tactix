@@ -44,31 +44,40 @@ disagree, the plan is authoritative — fix this file.
   its snapshot traffic is **not charged to the effort ledger**. Detail:
   `docs/implementation-notes.md` §6/§7 + the log entries below.
 
-  **▶ NEXT — the work is an ORDERED CHECKLIST in the phase-3 section below**
-  (plan revs 56/57): **Track C · complete V6 Congruence**, then **Track S · the
-  target arrangement** (S1→S4), then the T3 gate. Tick the boxes there.
+  **▶ The work is an ORDERED CHECKLIST in the phase-3 section below** — Track C
+  (congruence, done), Track T (the Tier B tail), Track S (the arrangement),
+  then the T3 gate.
 
-  **▶ Tier B is now PAR-2 17.19** (14/14, jobs=4, same window as its 21.73
-  baseline) — a new best; the previous floor was 20.60 and the noise band
-  20.60–23.01, so this is a real gain, driven by the congruence unit channel.
+  **▶ Tier B is now PAR-2 ~17.0** (14/14, jobs=4) against a floor of 20.60
+  before this work — the congruence unit channel carried most of it, chrono a
+  further −2.4 %. **The old `s055 = 932,762` bit-exactness pin is RETIRED:**
+  chrono deliberately changed DefaultPolicy's trajectory, so any "bit-exact vs
+  s055" claim describes the pre-2026-07-22 solver. Re-pin before using
+  bit-exactness as a regression check again.
 
-  **▶▶ TRACK C IS COMPLETE.** V6 Congruence went from "no unit channel, can never
-  refute, XOR/ITE DRAT-only" to a rule that refutes a miter inside congruence on
-  every proof path. `hwmcc17miters` **48.77 → 6.67 s** (kissat 2.27 s in the same
-  window; 21.5× → 2.9×), **Tier B PAR-2 21.73 → 17.19** (a new best; the previous
-  floor was 20.60), **Tier C 274.34 / 29-30 — neutral**, no lost solves, every
-  proof checked. Deviations `D-CONG-UNIT`, `D-CONG-LRAT` and `D-CONG-DELETE` are
-  closed; `D-CONG-SKIP` is new and deliberate.
+  **▶▶ DONE (2026-07-21/22).** **Track C complete** — V6 Congruence went from
+  "no unit channel, can never refute, XOR/ITE DRAT-only" to refuting a miter
+  inside congruence on every proof path (`hwmcc17miters` 48.77 → 6.67 s vs
+  kissat 2.27 s; D-CONG-UNIT/LRAT/DELETE closed). **Chrono is ON by default**
+  after its first, wrong, negative result was overturned (−2.4 % Tier B).
+  **Plan rev 59: `H` is out of `σ`** — proof rule iff the effect on `σ` is
+  non-trivial, so Rephase/SwitchMode/Walk/Reorder are policy operations.
 
-  **▶▶ NEXT — three candidates, no strong ordering between them:**
-  - **Track T** (the Tier B tail) is where "exceed kissat" now lives: four
-    instances are 69 % of our Tier B time and 31 % of kissat's, with four
-    *different* causes, so none of them trades off against the others.
-  - **Track S** — the effort scheduler's target arrangement. **S1 is the cheap
-    one and it gates `crypto1`:** settle whether repeated BVE's cost is the
-    per-phase root descent (vary only the interval, watch whether time tracks
-    phase COUNT). L7 already proved it is not the resolvent work.
-  - **C4-perf / C3b** — the two loose ends Track C leaves behind, both scoped.
+  **▶▶ IN FLIGHT — the `H`-out-of-Kernel refactor (user, 2026-07-22).** Move
+  heuristic state out of the Kernel into policy ownership, and give the
+  reclassified operations a **sub-policy super-class** beside
+  `BranchingPolicy`/`ReductionPolicy`. A plan is being drafted for review
+  BEFORE any code moves; the known hazard is N3 — `H` is touched by
+  `kernel_assign`, `kernel_backtrack`, analyze's bumping and decide's ranking,
+  so naive indirection there is exactly what §8.4's 5 % budget forbids.
+
+  **▶ AFTER THAT — the tail (Track T) is where "exceed kissat" now lives.**
+  Three experiments converged: the gap is **search quality (~3× conflicts) and
+  throughput (~1.4×)**, NOT missing techniques. Best-evidenced next items:
+  **TB5** (propagation throughput — a flat multiplier on every instance;
+  confirm the 1.39 % figure first, our counter includes preprocessing),
+  **S1b** (the growth-slack ramp alone on `crypto1`, measured at 3.8 s once),
+  **TB2/TB6**.
 
   Independently available whenever: **V5 Sweep** (needs the kitten sub-solver,
   plan O11) and **E2 Factor S2** (grid matching — the `mp1` 7.9× gap, diagnosis
@@ -246,7 +255,7 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
 - [x] **E1 BVE with gate extraction; reconstruction stack + model extension — COMPLETE (E1a–E1d).** Davis–Putnam elimination at a drained root: round-local occurrence index + fewest-resolutions-first schedule (E1a) → resolve/proof/witness, **RUP-only, no `add_rat`** (E1b) → syntactic gate extraction (equivalence + AND/OR) with gate×antecedent reduction, witness push deliberately UNCHANGED (E1c) → nightly-scale fuzz + `tests/micro_proofs.sh` + the `--bve-gates` / `tactix_set_bve_gates` gate-type knob, a pure performance control, not an N1 control (E1d). Design `docs/design/e1-bve-design.md`; `src/policies/bve_stress_policy.*` is the reusable elimination stress policy. Remaining: ITE/XOR gates + kitten (O11), phase 4.
 - [x] **Tier C built and frozen** (2026-07-15) — 30 instances, 15 SAT / 15 UNSAT, 30 families, kissat band 30.7–260 s; report `benchmarks/reports/2026-07-15-tier-c-freeze.md`.
 - [x] **Root-literal flushing** (2026-07-15, `355ffca`) — C2's flush pre-pass: root-satisfied deletions + root-falsified strips via degenerate self-strengthens; the V1/V2 prerequisite.
-- [x] **Independent-lineage revisitation campaign — COMPLETE:** 4 measured, 0 adopted, 4 reverted, each with a recorded mechanism. (1) Glucose binResMinimize (Tier C geomean 1.143× — **revisit trigger: re-measure now the slot is active**); (2) Glucose blocking restarts (fails Tier A s055 → phase-6 arm); (3) Glucose adaptive reduce interval (health signals double-count our retention); (4) CMS usage-count Reduce ranking (**strongest phase-6 arm: ranking ∈ {glue-size,usage}**; joined 2026-07-22 by **chronological backtracking**, measured bimodal 7-win/7-lose on Tier B — see TB4). Reports `benchmarks/reports/2026-07-15-{binres,blocking-restarts,adaptive-reduce,usage-ranking}-experiment.md`; survey `docs/design/independent-lineage-survey.md`.
+- [x] **Independent-lineage revisitation campaign — COMPLETE:** 4 measured, 0 adopted, each revert with a recorded mechanism. Glucose binResMinimize (revisit trigger: re-measure now the slot is active), Glucose blocking restarts (→ phase-6 arm), Glucose adaptive reduce interval, CMS usage-count Reduce ranking (**strongest phase-6 arm**, joined 2026-07-22 by **chronological backtracking** — measured bimodal, see TB4). Reports `benchmarks/reports/2026-07-15-*-experiment.md`; survey `docs/design/independent-lineage-survey.md`.
 - [x] **Canonical BATCH fuzz + revisit-codebase review + N1/N2/N3 audit** (2026-07-15) — random policy proof-checks every canonical batch in both formats; non-negotiables UPHELD. **Deferred action-item backlog lives in `benchmarks/reports/2026-07-15-codebase-review.md`** (#10/#11 profile, #15–#17 slot, #19 E1, #20–#23 learner-readiness, #25 phase-6 reward).
 - [x] **Nightly GREEN on the C4 binary (`3ae592e`, 2026-07-22): 20 000 cases, 0 failures, corpus 7/7** (SAT 11 357 / UNSAT 8 238 / TO 405). Log `tools/fuzz/nightly-rev59-lrat.log`. **Read the leg precisely:** `run.sh --nightly` puts `--lrat` on the HARNESS, not the solver, so this leg is the **DRAT path** plus a drat-trim→lrat-check conversion check. It does not exercise C4's new native-LRAT code.
 - [x] **Congruence-stress nightly GREEN — 10 000 cases, 0 failures, corpus 7/7** (SAT 6 206 / UNSAT 3 678), log `tools/fuzz/nightly-rev59-congstress-lrat.log`. The V6 *refutation* path at scale under native LRAT — machinery that did not exist before C3/C4, previously covered by only 600 cases.
@@ -254,25 +263,17 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
 - [x] **Native-LRAT nightly GREEN — 20 000 cases, 0 failures, corpus 7/7** (SAT 11 356 / UNSAT 8 234 / TO 410), log `tools/fuzz/nightly-rev59-native-lrat.log`. **This is the leg that gates C4**, since D-CONG-LRAT's chains exist only on that path. Its verdict split is near-identical to the DRAT leg's (11 357 / 8 238 / 405) with the entire difference in timeouts — i.e. **both paths now draw the same inferences**, and the LRAT path only loses borderline cases to its extra proof work. That equality is the ungating working, measured at 20k scale.
 - [x] **Nightly random-policy fuzzing green** — last full pass 20 000/0 (`tools/fuzz/nightly-rev48.log`); earlier passes rev-31/rev-35 (logs in `tools/fuzz/`). **Lesson: nightly scale (10k) catches what `--quick` (≤2k) misses** — the rev-34 and rev-43 nightlies each found a real bug (corpus 006, corpus 007) that `--quick` had passed.
 - [x] **Proof-rule calculus formalized** (rev 36) — `docs/calculus.md` (all rules' abstract precondition/effect/proof-δ/soundness) + `docs/implementation-notes.md` (implemented guards + engineering-deviation ledger) + the `calculus` skill. Guards must be pure abstract preconditions per N1.
-- [x] **Guard purification — COMPLETE for every removable deviation.** D-SPLIT-1/2 (rev 37, Analyze+Backjump fused into an atomic `ConflictAnalysis`), D-LEVEL-2 (rev 38, true-level assignment + compacting backtrack → chrono), **D-LEVEL-1 (rev 40, off-fixpoint `Decide`** — the `trail_tainted` watched-literal repair; diagnosed with the new `AdversarialPolicy`; [[dlevel1-nonnegotiable]]), D-SPLIT-3 (rev 42, `!conflict_valid` off the five pure `F`-rewrites — V1/V2 keep it, it is a genuine precondition there), D-LEVEL inproc/S5 (rev 43, all 7 inprocessing rules + Lucky **drain the root closure** via `inprocess_reach_root` instead of demanding a fixpoint). Every step behaviour-preserving for DefaultPolicy (s055 bit-exact). Only **D-ROOT** (`level==0`) remains — not a leak but the inprocessing framework itself (operate on `F|U`); its removal is a much larger reformulation, not planned. Spec `docs/calculus.md` §7 + `docs/implementation-notes.md`; regression bed corpus 004/005/006.
+- [x] **Guard purification — COMPLETE for every removable deviation** (revs 37/38/40/42/43). D-SPLIT-1/2 (atomic `ConflictAnalysis`), D-LEVEL-2 (true-level assignment + compacting backtrack), **D-LEVEL-1** (off-fixpoint `Decide` via the `trail_tainted` repair, diagnosed with `AdversarialPolicy`; [[dlevel1-nonnegotiable]]), D-SPLIT-3, D-LEVEL inproc/S5 (rules **drain** the root closure instead of demanding a fixpoint). Only **D-ROOT** (`level==0`) remains — the inprocessing framework itself, not a leak. Spec `docs/calculus.md` §7 + `docs/implementation-notes.md`; regression bed corpus 004/005/006.
 - [x] **V6 Congruence — landed 2026-07-19, ships ON.** AND + XOR + ITE gate extraction in one union-find closure; Tier B PAR-2 111.6→77.75 (−30 %), +1 solved (`hwmcc-miters`). Design `docs/design/v6-congruence-design.md`, report `benchmarks/reports/2026-07-19-congruence-tierB.md`. **Open deviations: D-CONG-UNIT (no unit channel, never refutes), D-CONG-LRAT (XOR/ITE DRAT-only), D-CONG-DELETE** — see the ledger; D-CONG-UNIT is the current work item.
 - [x] **E2 Factor (BVA) — landed 2026-07-20, ships ON** (S0+S1+partial S2). Duplicate-binary fix (`kernel_delete_binary_all_copies`) is what made it net-positive. Design `docs/design/e2-factor-design.md`. Remaining: SBVA grid matching (S2) — the `mp1` 7.9× gap, diagnosis banked 2026-07-20.
 - [x] **Inprocessing revamp — the slot ACTIVATED** (2026-07-19) — preprocessing at conflicts=0 + shared dense occurrence index (`Kernel::dense`) + the kissat eliminate-round phase structure. Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`, design `docs/design/inprocessing-revamp-design.md`. Bit-exactness (s055) intentionally retired here; `demo3` relaxed to §8.4 within-noise.
 ### ▶ Track C — complete V6 Congruence (plan rev 56; runs first)
 
-- [x] **C0 · DONE (`1a365da`, on main) — fixed the XOR output-sign offset** — `congruence.cpp:228` computes `c = (s ^ base_parity ^ 1) & 1`; the relation "all `2^{s-1}` clauses of parity `base_parity`" is `⊕vᵢ = base_parity ⊕ 1`, so the `s` term is spurious and the emitted output literal is **negated for every even-arity gate** (self-check on `hwmcc`: 116 517 gates, 116 517 wrong). Harmless today — the offset cancels in XOR↔XOR key matching, its only consumer — but **all 711 XOR-cancel events on `hwmcc` are even-arity**, so a unit channel built on top would learn the wrong polarity every time. Fix + a unit test that evaluates each emitted gate's output literal against the relation. Expect bit-identical behaviour; verify.
-- [x] **C1 · DONE — closed the `add_equivalence` empty-LRAT-hint hazard** — under `--lrat`, if `build()` fails (no matching input class, or `big_path_chain` finds no path) the rule emits `add_rup(id, lits, 2, nullptr, 0)`, i.e. an LRAT line with an **empty hint list**, and continues. Both checkers reject such a line (measured: lrat-check `NOT VERIFIED`, cake_lpr "no reduction sequence"). Latent only because XOR/ITE are DRAT-gated. Make the failure impossible or loud — an unverifiable proof must never be emitted silently (N2).
-- [x] **C2 · DONE — filter the degenerate ITE candidates at extraction** (measured on `hwmcc`: gates 2 058 212 → 1 592 904, equivalences 710 722 → 710 722 IDENTICAL, 59.0 → 49.8 s). (kissat `new_ite_gate`, `congruence.c:1347-1367`): `else == ¬then` → skip the candidate (its relation is already extracted as an XOR2 — the twin gate draws the same inference in the same round, measured), `else == then` → merge `lhs ≡ then` immediately. Removes **94.3 % of the 493 584 ITE degenerate discards and 75 % of extracted ITE gates** with zero information loss. Perf/hygiene, not a calculus change; measure `hwmcc` + Tier B. **Do not weaken ITE extraction generally** — with ITE 47 s, without it >150 s unfinished.
-- [x] **C3 · `D-CONG-UNIT` — DONE, the unit channel.** *(Re-split from C4 in rev 57: rev 56 had bundled them, building it showed the halves are not the same size.)* A degenerate gate is now an inference, not a dead end: `canonicalize` returns Ok/Unit/Merge/Skip, an XOR whose representative inputs all cancel forces its output (root unit) and one whose key collapses to a single survivor is a merge; units are batched and asserted at end of round, then the root closure runs. **`hwmcc17miters` 48.77 → 6.67 s** against kissat's 2.27 s in the same window (21.5× → 2.9×), **refuted inside congruence at 0 decisions / 1 root conflict**, 14.4 MB proof (was 92 MB) **drat-trim VERIFIED, 0 RAT lemmas**. **Tier B PAR-2 21.73 → 17.19, 14/14 both arms, same window jobs=4** (proofs 764.4 → 678.7 MB, all 7 UNSAT checked); fuzz DRAT 1000/0; `x9-08014` and `square.2.0.i` conflict-identical.
-  - **the degeneracy ladder** — the conclusions are NOT RUP alone (drat-trim rejects a bare add: the parity clauses propagate nothing until all but one literal is assigned). `add_xor_degeneracy_chain` emits, for `size = |cancelled| … 1`, every sign pattern over the cancelled representatives appended to each conclusion. **Validated against drat-trim BEFORE implementation** in all four shapes (|cancelled| = 1 and 2, both relation parities, unary survivor), bare conclusion rejected in every one; it is the same construction as kissat's `add_xor_shrinking_proof_chain`.
-  - **the unit batch** — collect-then-batch (V1/V3's pattern), enough for the miter because the cancellation is driven by the union-find, not by values. kissat instead assigns and propagates immediately and reschedules gates from a trail cursor (`congruence.c:4210-4222`, units drained to a fixpoint before every dequeued equivalence) — the stronger form, not needed yet.
-- [x] **C4 · `D-CONG-LRAT` + `D-CONG-DELETE` — CLOSED (code complete; validation below).** XOR and ITE now run on **every proof path**, so the C3 unit channel is no longer DRAT-only.
-  - **The chains are REPLAYED, not derived** — `congruence_rup_chain` assumes a lemma's negation at a probing scope, propagates, and reads the antecedents off the conflict's reason walk (V1 Probe's and C3 Vivify's primitive). This is why the deviation could close at all: hand-derivation had to unpick the sign layer that canonicalization folds on top of the union-find bridging, and the replay never has to — the chain comes out in the checker's own propagation order **by construction**, which is the one property a hand-built chain silently gets wrong.
-  - Only each ladder's **top level** is replayed; lower levels close on their two parents structurally (they differ solely in the dropped variable's sign, so one goes unit and the other falsifies). One replay per merge, not 2^k.
-  - **The subtle case, and it is load-bearing:** a lemma literal that the assumptions have already forced TRUE is *also* a conflict, seeded from that literal's own reason. Missing it is not a lost optimisation — on a miter the ladder's own prefix propagates the conclusion, so treating it as "not RUP" loses precisely the inferences the ladder exists for. First implementation had this bug: `0 units, 2 unjustified` under `--lrat` on the miniature miter.
-  - **`D-CONG-DELETE` closed with it:** every ladder emission records its lemma ids and drops them right after the conclusion lands (kissat deletes its two extended shrinking lemmas the same way).
-  - Verified on the miniature miter: **2 units, 0 unjustified under `--lrat`**, `lrat-check` → `c VERIFIED`, **`cake_lpr` → `s VERIFIED UNSAT`** (the formally-verified checker), 4 transient lemmas deleted.
-  - **Validated at scale.** `hwmcc17miters` under `--lrat`: **711 units, 0 unjustified** — exactly the 711 XOR-cancels `TACTIX_CONG_PROBE` predicted, so the channel is complete on this path too — and its **103 MB LRAT proof is `lrat-check` VERIFIED in 1.83 s**, against minutes of drat-trim on the DRAT equivalent. 199 386 clause deletions in that proof are the transient ladder lemmas being cleaned up, i.e. D-CONG-DELETE working at scale. Fuzz: DRAT corpus 7/7 + 1000/0; **native LRAT corpus 7/7 + 1000/0 with a verdict distribution IDENTICAL to the DRAT leg** (the ungating confirmation — both paths now draw the same inferences); congruence-stress + native LRAT under ASan/UBSan with per-step invariants, corpus 7/7 + 600/0. ctest 29/29.
+- [x] **C0 · XOR output-sign fix** (`1a365da`) — the extractor negated the output literal of every even-arity gate. Invisible (the offset cancels in gate↔gate matching) but a wrong-polarity trap for any unit channel; all 711 XOR-cancels on `hwmcc` are even-arity. Pinned by three tests over both convention axes.
+- [x] **C1 · `add_equivalence` is all-or-nothing** — a failed bridging chain used to emit an LRAT line with an EMPTY hint list and continue, which every checker rejects. Now skips the merge and counts it (`congruence_unjustified`, expected 0): dropping an inference is sound, emitting an unverifiable certificate is not. Ledger row **D-CONG-SKIP**.
+- [x] **C2 · degenerate ITE candidates filtered at extraction** — `else ≡ ¬then` is a ternary XOR the XOR extractor already finds from the same clauses. `hwmcc`: gates 2 058 212 → 1 592 904, equivalences **710 722 → 710 722 identical**, 59.0 → 49.8 s. kissat drops the same candidates at construction.
+- [x] **C3 · `D-CONG-UNIT` — the unit channel.** `canonicalize` returns Ok/Unit/Merge/Skip, so a degenerate gate is an inference: an XOR whose representative inputs all cancel forces its output. Units batch and assert at end of round, then the root closure runs. **`hwmcc17miters` 48.77 → 6.67 s** (kissat 2.27 s, same window), refuted inside congruence at 0 decisions, proof drat-trim VERIFIED. The conclusion is NOT RUP alone — it needs the degeneracy ladder, which was drat-trim-validated in all four shapes BEFORE implementation and turned out to be kissat's `add_xor_shrinking_proof_chain`.
+- [x] **C4 · `D-CONG-LRAT` + `D-CONG-DELETE` closed** — XOR/ITE run on every proof path. The chains are **REPLAYED, not derived**: assume the lemma's negation at a probing scope, propagate, read antecedents off the conflict's reason walk, so the chain comes out in the checker's own order by construction. Only each ladder's top level is replayed; lower levels cite their two parents. `hwmcc` under `--lrat`: 711 units, 103 MB proof lrat-check VERIFIED in 1.83 s. **Subtle case, load-bearing:** a lemma literal the assumptions already forced TRUE is also a conflict — missing it gave 0 units / 2 unjustified.
 - [ ] **C4-perf · the LRAT path is ~250× slower on a miter and that is not free.** `hwmcc` takes **1680 s under `--lrat` vs 6.67 s under DRAT**: the replay runs one probing propagation per TOP-level ladder lemma, and with 710 722 merges that is millions of propagations over a 4.3 M-clause formula. Correctness is unaffected and DRAT — the competition path — is untouched, but LRAT-mode benchmarking on gate-heavy families is impractical until this is fixed. **The fix is the design I skipped:** derive the top level structurally (bridging binaries via `big_path_chain`, then the falsified parity clause) instead of replaying it, which needs per-gate side-clause ids — `CongGate::side_ids` is declared for exactly this and still never populated. Keep the replay as the fallback and the oracle: it is what makes the structural chain testable.
 - [ ] **C3b · the remaining degeneracies** — AND with a clashing input → unit `¬out`, AND with an idempotent duplicate → unary merge, and the `x ≡ ¬x` clash-merge → refutation (`substitute.cpp`'s `emit_unsat` is the working model). Measured firing **0 times on `hwmcc`** — but **TB1 has since settled it with a direct count: all four counters are 0 on `FmlaEquivChain` too**, so this stays completeness/N1 hygiene rather than a tail-instance fix. The AND chains need care the XOR ones do not: a gate with a duplicated input carries a duplicated `input_bin_ids` hint, which is neither unit nor falsified at its position in the chain.
 
@@ -369,294 +370,79 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-21 — plan rev 58: status moved out of DEVELOPMENT_PLAN.md into this file
-Doc-only; no scope, gate, catalog or non-negotiable change (N1–N3 untouched). The
-plan had accumulated measured PAR-2 numbers, commit hashes and DONE/reverted
-narratives — status, which belongs here. Moved/dropped, each fact verified
-already present in this file before removal:
-- **§9 phase-3 row** (5377 → 3241 bytes) keeps the phase's scope, the two-track
-  sequencing decision (Track C · congruence, then Track S · the arrangement), the
-  N1 constraint on P1 and the one-unit landing discipline; it loses the increment-1
-  / P1 / P2 / C0–C3 DONE markers, the commit hashes and every measured number
-  (they live in the RESUME block, Lessons L1–L7 and the Track C/S checklists).
-- **§4** loses the per-revision narratives (revs 30/31/35/37/38/40/42/43) and keeps
-  what is normative: guards are pure preconditions, deviations are ledgered with a
-  removal path (D-LEVEL/D-SPLIT purified, D-ROOT retained as the framework), plus
-  the three standing kernel invariants those purifications established — true-level
-  assignment, handoff-before-advance, off-fixpoint-repaired-not-forbidden — one
-  line of lesson each, corpus 004/005/006 still named. The stale `Decide`-requires-
-  a-fixpoint guard example and the stale "NEXT: V3b-3" went with it.
-- **§5.2** V6 row now reads "pulled forward from phase 4 (rev 47)" instead of
-  "implemented rev 47"; the binary-deletion note keeps the kernel-primitive
-  rationale and drops the landed-prerequisite parenthetical.
-- Plan header now states the division of labour explicitly. §13 rev 58 appended
-  at the bottom (index still ascending); §§ cross-references unchanged — nothing
-  was renumbered.
+### 2026-07-22 — chrono ON by default; three leads killed by measurement; H out of σ
+Commits `8e0bd01` (the chrono fix), `93d206d` (default + plan rev 59), `ff7a572`
+(S1), `367e2d4`/`31e36d4` (TB1/TB4). Per-item detail is in the Track C/T/S
+checklists; what follows is only what those do not carry.
 
-### 2026-07-21 — C4: D-CONG-LRAT + D-CONG-DELETE closed; TRACK C COMPLETE
-XOR and ITE now run on **every proof path**, so C3's unit channel is no longer
-DRAT-only. Tier C confirms no regression: **274.34 / 29-30** against the 273.9
-baseline, every proof checked.
+- **The chrono saga is the lesson of the day.** First measurement: +13 % Tier B,
+  written up as "not a porting error — the feature simply does not help our
+  search", on the strength of comparing ONE function. It was a porting error:
+  `analyze` never backtracked to the conflict level, so **84 % of chronological
+  backtracks silently DROPPED the conflict** and re-derived it. After the fix,
+  chrono is a consistent −2.4 % and is now the default. **Found only because the
+  negative result was not accepted** — the user pushed back, a two-agent audit
+  against kissat *and* cadical followed, and both agents independently named the
+  same root cause.
+- **L8 was extended twice by its own subject matter.** Ablating ONE feature does
+  not measure that feature. It killed the congruence lead on `FmlaEquiv` (kissat
+  with ALL simplification off is faster than with any single simplifier off) and
+  then the chrono lead (which rested on exactly such an ablation delta).
+- **L7 was refuted outright**, not refined: time tracks conflicts (r = +0.99),
+  not phases (+0.01) and not resolvent work (−0.04). The pre-registered
+  prediction is why that stuck — mid-sweep two adjacent points made `time/phase`
+  look constant and I said so.
+- **`s055 = 932,762` IS RETIRED AS A REGRESSION CHECK.** Chrono deliberately
+  changed DefaultPolicy's trajectory. Anything still asserting "bit-exact vs
+  s055" is describing the pre-2026-07-22 solver; the instance `tr-n300-s055`
+  itself is unaffected and still in Tier A.
 
-- **The chains are REPLAYED, not derived — that is why this closed at all.**
-  D-CONG-LRAT had been open because canonicalization folds a SIGN layer on top of
-  the union-find bridging, so a canonical lemma's literals do not correspond
-  by-position-and-sign to either gate's raw clauses, and hand-deriving the chains
-  meant unpicking that. `congruence_rup_chain` instead assumes the lemma's
-  negation at a probing scope, propagates, and reads the antecedents off the
-  conflict's reason walk — V1 Probe's and C3 Vivify's existing primitive. **The
-  chain then comes out in the checker's own propagation order by construction,**
-  which is precisely the property a hand-built chain gets silently wrong
-  (`big_path_chain`'s "chain order is load-bearing" warning). Only each ladder's
-  TOP level is replayed; lower levels close on their two parents structurally.
-- **The bug worth remembering.** A lemma literal that the assumptions have
-  already forced TRUE is *also* a conflict — seeded from that literal's own
-  reason, which the reason walk includes, so trail-ascending order closes the
-  chain with no separate conflict id. Treating it as "not RUP" instead cost
-  exactly the inferences the ladder exists for: the first implementation gave
-  **0 units / 2 unjustified** under `--lrat` on the miniature miter, because on a
-  miter the ladder's own prefix propagates the conclusion.
-- **D-CONG-DELETE fell out of the same work** — each ladder records its lemma ids
-  and drops them once the conclusion is in (kissat does the same with its two
-  extended shrinking lemmas). Measured at scale: 199 386 deletions inside hwmcc's
-  LRAT proof.
-- **Validation.** `hwmcc17miters` under `--lrat`: 711 units (exactly the probe's
-  711 XOR-cancels), 0 unjustified, **103 MB proof `lrat-check` VERIFIED in
-  1.83 s**. Miniature miter: `lrat-check` VERIFIED + **`cake_lpr` VERIFIED UNSAT**.
-  Fuzz DRAT 1000/0, native LRAT 1000/0 **with a verdict distribution identical to
-  DRAT** (the ungating confirmation), congruence-stress + LRAT under ASan 600/0,
-  corpus 7/7 on every leg, ctest 29/29.
-- **Cost, recorded not buried:** the LRAT path is ~250× slower on a miter
-  (1680 s vs 6.67 s) because it replays one propagation per top-level lemma.
-  DRAT — the competition path — is untouched. Fix scoped as **C4-perf**.
-- **Also closed:** V4 `transitive_reduce_apply` was the ONE inprocessing entry
-  point of eleven that did not drain the root closure, while its own siblings
-  did, and it is reachable undrained through the public API. Sound either way
-  (its walk skips assigned literals, so it finds fewer paths and deletes less),
-  but the blanket "every inprocessing rule drains at entry" claim a policy author
-  reasons from was false. Found by the calculus audit.
+### 2026-07-21 — V6 Congruence completed: unit channel, native LRAT, and the ladder
+Commits `1a365da` (C0), `af63469` (C1+C2+C3), `33437ca` (C4), `3c973d5` (rev 57).
+Results are in the Track C items; the lessons:
 
+- **The ladder was validated against drat-trim BEFORE it was written** — bare
+  conclusion rejected in all four shapes, ladder verified in all four — and only
+  then turned out to be kissat's own construction. Cheap, and it meant the
+  implementation had a known-good target.
+- **Scoping corrected the plan three times.** `TACTIX_CONG_PROBE` showed the
+  `x ≡ ¬x` refutation fires 0 times on `hwmcc` (it had been listed first), that
+  XOR cancellation was the load-bearing channel, and that the 493 584 ITE
+  discards were **redundant work, not a missing inference** — 0 new merges, 0 new
+  units. That site needed a filter, not the channel the ledger described.
+- **Replay beats derivation for proof chains.** D-CONG-LRAT stayed open because
+  canonicalization folds a sign layer on top of union-find bridging. Replaying
+  each lemma by propagation produces the chain in the checker's own order *by
+  construction* — the one property a hand-built chain gets silently wrong.
+- **A bug worth remembering:** a lemma literal the assumptions already forced
+  TRUE is *also* a conflict. Treating it as "not RUP" lost exactly the inferences
+  the ladder exists for (0 units / 2 unjustified under `--lrat`).
 
-### 2026-07-21 — the congruence unit channel WORKS: hwmcc17miters 48.8 → 6.7 s, refuted inside congruence
-C0 `1a365da`, C1+C2+C3 on branch `congruence-unit-channel` → merged to main.
-**Plan rev 57 (user) re-split rev 56's bundle:** the DRAT unit channel banks now
-and **`D-CONG-LRAT` becomes the immediate next item (C4)**, because building it
-showed the two halves are not the same size — the LRAT half still needs per-gate
-side-clause id capture, bridged chains for the degeneracy ladder, and the
-two-gate matching ladder. N2 is not weakened by the split: both paths still emit
-checkable certificates, `--lrat` continues not to extract XOR/ITE exactly as
-before, and C1 turned the silent hint-less-line hazard into an assert.
+### 2026-07-21 — the effort scheduler: increment 1 + both structural prerequisites
+Commits `cbbe3ce` (effort ledger), `77143f1` (P1), `f1c271e` (P2), `4a32ce3`
+(`Kernel::bve_bound`), plan revs 53–55. Design + evidence:
+`docs/design/effort-scheduler-design.md`. Lessons L1–L7 in the top matter carry
+the measured results; what is not there:
 
-**Same window, clean machine, sequential — kissat 2.27 s, tactix before 48.77 s
-(21.5×), tactix after 6.67 s (2.9×).** 0 decisions, 1 root conflict: the miter is
-refuted INSIDE congruence, which is what kissat does on this family and what V6
-could never do — it had no unit channel and had never returned `Unsat` at all.
-The 14.4 MB DRAT proof (was 92 MB) is **drat-trim VERIFIED, 0 RAT lemmas**.
-**Tier B: PAR-2 21.73 → 17.19**, 14/14 in both arms, same window at jobs=4 —
-a new best (the previous floor was 20.60, band 20.60–23.01), with total proof
-bytes down 764.4 → 678.7 MB.
+- **The effort ledger's win was clause reclamation, not the budget.** Moving the
+  collect out of `bve_eliminate` was the entire efficiency gain and is
+  trajectory-neutral — a per-dose collect gives byte-identical conflict counts
+  but takes `hwmcc` from 60 s to not finishing in 55 min. It also re-explains the
+  old "unbounded BVE is catastrophic" result: the collects, not the volume.
+- **P1 did not do what it was built for.** It was named as *the* blocker for
+  repeated during-search BVE; with it underneath, that configuration is still
+  Tier B 21.3 → 32.5. The filter works (mod4block's wasted resolvents 3.5 M →
+  2.3 M); it simply was not what was in the way. → L7, later refuted in turn.
+- **P2 is a novel mechanism, not a port.** kissat's probing mutates watches
+  exactly like its search does (`proprobe.c` and `propsearch.c` share one
+  template); how it tolerates that is still unknown. Our undo-log therefore
+  carries novel-mechanism risk and its snapshot traffic is unmetered.
+- **Architecture correction (user-caught):** P1 had filtered inside
+  `bve_schedule`, silently narrowing the instance surface. The rule now MAINTAINS
+  the advice, `instances()` OFFERS everything, DefaultPolicy DECLINES. Standing
+  rule in the rule-dev skill: *the instance surface is the policy's action space
+  — rank freely, never omit for efficiency.*
 
-The mechanism end to end: congruence proves `aᵢ ≡ bᵢ` for the two circuits'
-matching signals → each output XOR's representative inputs cancel → its output is
-the constant 0 → root unit `¬outᵢ` → propagating those falsifies the miter's
-output constraint. Only the unit step was missing; the 710 722 equivalences were
-already there.
-
-- **The ladder was validated before it was written.** drat-trim rejected a bare
-  add of the conclusion in all four shapes and verified the ladder in all four
-  (|cancelled| = 1 and 2, both relation parities, unary survivor). It then turned
-  out to be the same construction as kissat's `add_xor_shrinking_proof_chain`.
-- **C2 is a pure win, exactly as measured beforehand:** `hwmcc` gates
-  2 058 212 → 1 592 904 with equivalences **710 722 → 710 722 identical**, 59.0 →
-  49.8 s. The filtered ITE candidates really were redundant with the XOR twin.
-- **No regression:** `x9-08014` 801 694 conflicts and `square.2.0.i` 13 453,
-  both identical pre/post. The channel only fires where XOR gates fully cancel.
-- **Still deferred with reasons (C3b):** the AND degeneracies and the `x ≡ ¬x`
-  clash-merge — all three measured firing 0 times on `hwmcc`, and the AND chains
-  need care the XOR ones do not (a duplicated input means a duplicated
-  `input_bin_ids` hint, neither unit nor falsified at its position in the chain).
-- **Owed next, as C4:** the native LRAT chains + ungating XOR/ITE under
-  `--lrat`, `del` for the transient ladder lemmas, a `stress-policy` pass (V6 can
-  now return `Unsat`, so no existing fuzz case has ever exercised that path), and
-  the calculus/implementation-notes sync — the D-CONG-UNIT ledger row needs
-  rewriting regardless, since its ITE framing was measured wrong.
-
-
-### 2026-07-21 — D-CONG-UNIT scoped to a build plan; plan rev 56 sequences phase 3 into two tracked tracks
-The phase-3 work now has an ORDERED CHECKLIST (Track C · congruence C0–C3, then
-Track S · the arrangement S1–S4) instead of a "pick one of (A)/(B)/(C)"
-recommendation — the user's call, since neither track was trackable before.
-Scoping came from `TACTIX_CONG_PROBE` plus a three-agent investigation (proof
-infrastructure / kissat's unit channel / the ITE bucket). **Four findings, each
-of which changed the build plan:**
-
-- **The constant-parity ladder is validated, before any code.** `{pattern over
-  the cancelled rep vars, ¬out_lit}` for `size = |D| … 1`, then the unit.
-  drat-trim: **bare `add_rup` of the unit REJECTED in all four variants; the
-  ladder VERIFIED in all four** (|D|=1, |D|=2 at XOR arity 4, sign-folded parity,
-  and the unary-survivor merge). Derived independently, then found to be exactly
-  kissat's `add_xor_shrinking_proof_chain` (`congruence.c:1630-1676`) — which
-  also **deletes the two extended lemmas**, i.e. D-CONG-DELETE on this path.
-  Bound is tiny: XOR arity ≤ 4 ⇒ |D| ≤ 2 ⇒ ≤ 6 lemmas per unit.
-- **A real bug that would have silently broken the unit channel.**
-  `congruence.cpp:228` has a spurious `s` term in the XOR output-sign constant,
-  so the emitted output literal is negated for **every even-arity gate**
-  (self-check: 116 517 of 116 517 wrong on `hwmcc`). It cancels harmlessly in
-  XOR↔XOR matching — its only consumer — but **all 711 XOR-cancel events on
-  `hwmcc` are even-arity**, so the natural unit implementation would have
-  learned the wrong polarity every single time. → C0, and it lands first.
-- **The ITE-share bucket is redundant work, not a missing inference.** 99.65 %
-  of the 493 584 discards are one case (`then ≡ ¬else`), whose inference the XOR
-  gates built from the *same four clauses* already draw: measured **0 new merges
-  and 0 new units** (of 6 452 pairs that looked actionable at discard time, 0
-  were still unmerged at end of round), and the 428 distinct ITE-derived units
-  are a strict subset of the XOR-cancel set. Multiplicity is exactly 1.00, so
-  the count is not re-canonicalization inflation. kissat drops these at
-  construction (`"skipping ternary XOR gate"`). → C2 is a **filter**, not a
-  channel. **This contradicts the D-CONG-UNIT ledger row**, which framed all
-  three discard sites as one missing unit channel.
-- **A latent N2 hazard in today's code.** Under `--lrat`, if `add_equivalence`'s
-  `build()` fails, the rule emits an LRAT line with an **empty hint list** and
-  continues; both checkers reject such a line (measured). Unreachable today only
-  because XOR/ITE are DRAT-gated. → C1.
-
-Also settled: **the "D-CONG-LRAT must close first" ordering is superseded** —
-the chain work is the same size either way, so the user chose to land the unit
-channel and its native chains as ONE unit (rev 56). And kissat's post-unit
-discipline is now known: assign → `probing_propagate` → reschedule gates from a
-trail cursor, with units drained to a fixpoint before every dequeued equivalence
-(`congruence.c:4210-4222`).
-
-
-### 2026-07-21 — P2 landed: a probing round that derives nothing is now genuinely a no-op for search
-`f1c271e`. `propagate_literal` became `template <bool RECORD>`: search
-instantiates `<false>` (old code), probing `<true>` and logs its incidental
-mutations — watch-list snapshots taken lazily at first touch, per-relocation
-clause records replayed in reverse — which `kernel_probing_end` rolls back. The
-restore fires ONLY if the caller unwound to the state the log is relative to
-(same trail height / propagate head / level); otherwise the mutations stand,
-because relocations made under a literal the backtrack KEPT are load-bearing
-(undoing them could leave a clause unit with no watch to fire).
-**Verified: `battleship-14-26` with Vivify enabled is now 1 951 393 conflicts /
-14.1 s — bit-identical to the Vivify-off run**, against 24 016 197 / 253 s
-before. No-op by default; three Tier B instances match their committed counters
-exactly. Fuzz: DefaultPolicy DRAT 1000/0, random-policy DRAT 400/0,
-random-policy + native LRAT 400/0; ctest 29/29. Record:
-`docs/implementation-notes.md` §7.
-
-- **It is NOT a kissat port, contrary to how the work was briefed.** Verified:
-  `proprobe.c` and `propsearch.c` both `#include "proplit.h"`; the
-  `PROBING_PROPAGATION` guards cover only the `ignore` parameter and
-  `INC(conflicts)`, while the watch relocation and the `c->searched` write are in
-  the shared body — kissat's probing mutates watches exactly like its search.
-  **How kissat tolerates that is unknown.** So this is a novel mechanism: it
-  wants the `stress-policy` pass, and its snapshot traffic is not charged to the
-  effort ledger.
-- **Vivify re-measured on top of it: Tier B 24.19 vs 21.01 — still net-negative**
-  (was 38.75 before P2). The artifact was most of the loss, not all of it; Vivify
-  stays disabled.
-- **Architecture fix landed with it (user-caught).** P1 had filtered by the retry
-  bitmap inside `bve_schedule`, which backs `bve_instances` — silently narrowing
-  the instance surface. That shrinks `--random-policy`'s BVE action space (so
-  fuzz coverage), and would hide legal moves from the §5.6 learned policy; a
-  "when to retry" bit consulted inside a rule is also scheduling state, which
-  belongs to the policy. Now the rule MAINTAINS the advice, `instances()` OFFERS
-  everything, and DefaultPolicy DECLINES. Behaviour-identical.
-  `test_bve` had encoded the old contract and was rewritten. The general rule is
-  now in the **rule-dev** skill: *the instance surface is the policy's action
-  space — rank freely, never omit for efficiency.*
-
-### 2026-07-21 — P1 (BVE retry filter) LANDED; it did NOT unlock repeated during-search BVE — my diagnosis was wrong
-P1 is in (`77143f1`): `kernel_mark_garbage` centralises large-clause deletion (all
-11 direct `Clause::GARBAGE` sites migrated), `Kernel::bve_retry` is marked on
-irredundant add/delete plus a root-fixing sync, `bve_schedule` filters,
-`bve_eliminate` clears on attempt. N1 holds — the filter prunes only
-`instances()`, so `apply_instance` stays total (plan rev 54's constraint,
-verified on both paths + a new `test_bve` case). Neutral on Tier B (21.25 vs
-21.23, 14/14, identical proof bytes), fuzz 1000/0 + 400/0, ctest 29/29.
-Engineering record: `docs/implementation-notes.md` §6.
-
-**But the prediction it was built on was wrong.** I had named P1 as *the* blocker
-for repeated during-search BVE. Re-running that configuration with P1 underneath:
-**Tier B 21.33 → 32.45, 4/14 wins** — barely better than the 32.87 without it.
-The filter works (mod4block's wasted resolvents 3.5 M → 2.3 M); it just was not
-what was in the way. The decisive numbers are mod4block without P1 (101.8 s,
-3.5 M resolutions) vs with P1 (102.7 s, 2.3 M): **33 % less resolvent work,
-identical time** — so the cost was never the resolvent generation. It is the
-per-phase overhead, dominated by the root descent each phase requires, which on a
-high-variance SAT instance derails the search (the same channel as the
-2026-07-18 assessment). Recorded as Lesson L7, with the next hypothesis:
-attack the phase's cost/frequency, not the work inside it.
-
-**Worth keeping in view:** the same configuration takes `combined-crypto1`
-24.4 → 3.8 s (6.4×) — the growth-slack ramp genuinely picks benign eliminations.
-Repeated BVE is strongly bimodal, not uniformly bad.
-
-### 2026-07-21 — plan rev 54: the scheduler re-scoped from measurement
-Rev 53 assumed the effort scheduler needed **no kernel change** and that the hard
-part was tuning. Three measured attempts say otherwise: it needs **P1** (BVE
-per-variable retry filter) and **P2** (non-mutating probing propagation), both
-kernel-level, and the target arrangement must land as ONE unit because every
-half-state measures worse — an explicit, scoped exception to §8.3 per-increment
-gating, recorded in the §9 phase-3 row. Also compacted PROGRESS (1083 → ~440
-lines) and this log: today's six entries collapse to the one below, and the
-closed BVE-bimodal saga compresses to Lesson L5 + its commits/reports. Nothing
-pruned that is not preserved in git, `benchmarks/reports/`, or
-`docs/design/effort-scheduler-design.md`.
-
-### 2026-07-21 — rev-53 session: increment 1 LANDED; four increments measured and REVERTED; two structural prerequisites named
-Design + full evidence: `docs/design/effort-scheduler-design.md`. Commits
-`cbbe3ce` (increment 1), `11774d4` (D-CONG-UNIT), `a93ff51` (Tier C), `fe4c8ff`
-(3-way), `6a8d159` (NoOp finding), `4a32ce3` (`Kernel::bve_bound`).
-
-**Landed — increment 1, the effort ledger** (result in the RESUME block). It
-replaced `INPROCESS_PHASE_BUDGET = 300`, an application count blind to formula
-size. **The load-bearing finding was not the budget: it was clause reclamation.**
-Moving the collect out of `bve_eliminate` was the entire efficiency win and it is
-**trajectory-neutral** — restoring a per-dose collect gives byte-identical conflict
-counts but takes `hwmcc` from 60 s to not finishing in 55 min. That also
-re-explains the older "unbounded BVE is catastrophic" result: it was the collects,
-not the volume. Costs: `combined-crypto1` 8.1→24.7 s, `ContextModel` 9.2→84.6 s,
-`T87.2.0` 601→839 s; peak RSS +1.5 %, proof bytes +14 %. **Known gap:** our
-candidate snapshot goes stale within a round where kissat re-scores its heap
-incrementally (+5–13 % conflicts on the Tier A `tr-*` family).
-`examples/demo3_scripted_default.c` was re-pinned 132/562 → 152/647 — the old size
-sat barely past the 2000-conflict reduce threshold, so an ordinary trajectory
-shift dropped it under and the coverage assertions failed on a Tier-A-neutral
-change.
-
-**Reverted, with what each measurement bought.** During-search inprocessing (two
-variants), Vivify alone, recurring BVE with the growth-slack ramp, and that ramp
-compressed into one preprocessing phase. No code landed; they established Lessons
-L1–L4/L6 above and named the two structural prerequisites P1/P2 that the rev-53
-plan had not anticipated. **The ramp is still worth re-trying** — it took
-`crypto1` to 6.9 s with 71 eliminations, below its 8.1 s baseline, because it
-picks *better* eliminations rather than fewer (L4).
-
-**Two diagnoses in this file were wrong and were corrected here.** (a)
-`hwmcc17miters-oski15` was recorded as "needs Sweep+probing"; it does not — kissat
-solves it in 2.19 s with congruence alone (4 search ticks, 0 conflicts), and our
-congruence finds the same collapse (710 722 equivalences), so the gap is that
-kissat *refutes inside* congruence while we hand a collapsed-but-unrefuted formula
-to search → ledger row **`D-CONG-UNIT`**. This also exposed real doc/code drift:
-`calculus.md` already asserted the `x ≡ ¬x` refutation the code never performed.
-(b) "No BVE at preprocessing" as the principled fix for `combined-crypto1` was
-wrong on every count — see L1/L4.
-
-
-### 2026-07-21 — post-cleanup full-tier confirm + fresh 3-way Tier B baseline
-- Re-ran full tiers after the `simplify:9798642` cleanup (behavior-preserving,
-  no code change): **Tier B 22.09 / 14-14**, **Tier C 286.0 / 29-30** — same solve
-  counts as shipped (23.3 / 14-14, ~283 / 29-30), within run-to-run variance.
-  Cleanup confirmed byte-neutral on the full tiers (adds to the mp1/clique/units/
-  fuzz spot-checks). ctest 29/29 green.
-- Fresh clean-window 3-way Tier B (jobs=4): **tactix PAR-2 20.94, kissat 6.35,
-  cadical 12.29 — all 14/14.** We're **1.7× cadical, 3.3× kissat** (cadical is
-  itself 2× kissat here). Beat cadical on 6/14 (clique/qwh/mod4block/crypto1/
-  battleship/rbsat), beat kissat on 3. Gap is tail-concentrated on structured
-  UNSAT: `hwmcc-oski15` miter 29.6×/17.4× (needs Sweep+probing), then mp1 7.8×/2.2×
-  (Factor-S2), FmlaEquiv/x9 chains — all rev-53 targets. Confirms the residual is
-  a missing-inprocessing-pipeline gap, not broad search weakness.
 
 ### 2026-07-20 — mp1-gap diagnosis: it's grid matching (S2), not var-integration
 - Isolation via `TACTIX_DUMP_FACTORED` (commit 7dc296a) → our factored CNF → kissat:

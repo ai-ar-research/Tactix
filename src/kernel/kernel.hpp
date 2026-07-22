@@ -497,8 +497,10 @@ inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
 // other (falsified) literals — not the current decision level. This is what
 // lets a chronological backtrack keep a still-implied literal without stranding
 // it (calculus D-LEVEL). Transliterated from kissat inlineassign.h
-// assignment_level. Bit-exact under DefaultPolicy: at a propagation fixpoint
-// the true level always equals the current level, so s055 is unchanged.
+// assignment_level. This was inert under DefaultPolicy while chrono was off —
+// at a propagation fixpoint on a level-sorted trail the true level always
+// equals the current level — but chrono is ON by default since 2026-07-22, so
+// the true level now genuinely differs and this computation is load-bearing.
 inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false) {
   kernel_assign(k, lit, k.assigned[var_of(other_false)].level, other_false,
                 true);

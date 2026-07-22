@@ -322,8 +322,9 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     // strengthened clause must be watched on its two highest-LEVEL literals or
     // a compacting backtrack can strand it unit with no watch firing. On a
     // level-sorted trail higher level <=> higher trail, so this reduces
-    // exactly to the old highest-trail selection (same literals, same order) —
-    // byte-identical, incl. the s055 OTFS path.
+    // exactly to the old highest-trail selection. That equivalence held while
+    // chrono was off; with chrono ON by default (2026-07-22) the trail is not
+    // level-sorted and the level-based selection is the one that matters.
     for (uint32_t w = 0; w < 2; w++) {
       uint32_t best = w;
       for (uint32_t j = w + 1; j < lits.size(); j++) {
