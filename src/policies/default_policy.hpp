@@ -178,34 +178,28 @@ public:
   // consume one (rev-20: no fields without readers). CMS's comma-string
   // simplify schedule is the design precedent for slot-as-ordered-list.
   //
-  // Default composition: Strengthen enabled, SubsumeForward DISABLED —
-  // C2's fused round already performs C1's subsumption check on every
-  // candidate pair (strengthen.hpp deviation 1); scheduling both would
-  // scan the arena twice for the same discoveries. C1 stays registered,
-  // N1-exposed, and random-policy-fuzzed.
+  // Whether the slot is in the default schedule at all. ACTIVATED 2026-07-19 by
+  // the inprocessing revamp (docs/design/inprocessing-revamp-design.md, report
+  // benchmarks/reports/2026-07-19-inprocessing-revamp.md): the slot runs as a
+  // SAT-safe bounded simplification phase — preprocessing at conflicts=0 (before
+  // search state exists) + rare interval-grown inprocessing, each a bounded
+  // fixpoint. Net-positive on Tier B and battleship-safe.
   //
-  // Whether the slot is in the default schedule at all. STILL DEFERRED
-  // (re-measured after E1/BVE landed, 2026-07-18 — the trigger this comment
-  // used to name; report benchmarks/reports/2026-07-18-e1-slot-activation.md).
-  // Verdict: net-negative on Tier B in EVERY composition (full suite, BVE-only)
-  // and interval tried (~157 PAR-2 vs baseline 116). The gap is one lost SAT
-  // instance — battleship-14-26 solves in 14 s with the slot off, times out
-  // with it on, at every interval — because the composed root-restart-to-0
-  // that gives the slot a quiescent root derails a productive SAT search (the
-  // classic inprocessing-hurts-SAT hazard). The wins are real (circuit 65->9
-  // full suite; mod4block 46->5 BVE-only) but BVE alone is NOT the cross-class
-  // lever (it doesn't crack the circuit), and two hard UNSAT miters time out in
-  // all configs. Activation is a phase-4 item now: SAT-safe inprocessing
-  // scheduling (effort budget / stable-mode gate / reconstruct-not-restart) is
-  // the blocker, not a knob. Everything below stays N1-exposed and
-  // random-policy-fuzzed meanwhile.
-  // ACTIVATED (inprocessing-revamp increment 1, docs/inprocessing-revamp-design.md):
-  // BVE runs as a SAT-safe bounded simplification phase — preprocessing at
-  // conflicts=0 (before search state exists) + rare interval-grown inprocessing,
-  // each a bounded fixpoint. Net-positive on Tier B (114 vs 116, battleship-safe).
-  // Composition is BVE-only for now; SubsumeForward/Strengthen (increment 3) and
-  // Probe/Vivify/Backbone (increment 4) join as the dense OccIndex + tick budgets
-  // make them affordable and SAT-safe.
+  // WHY that shape: the earlier during-search slot was net-negative in EVERY
+  // composition and interval (~157 PAR-2 vs 116), and the whole gap was one lost
+  // SAT instance — battleship-14-26 solved in 14 s slot-off and timed out
+  // slot-on at every setting, because the composed root-restart-to-0 that gives
+  // the slot a quiescent root derails a productive SAT search (the classic
+  // inprocessing-hurts-SAT hazard; report
+  // benchmarks/reports/2026-07-18-e1-slot-activation.md). Preprocessing at
+  // conflicts=0 removes the trajectory to derail. Keep that in mind before
+  // moving any technique back into the search loop.
+  //
+  // Live composition is built in default_policy.cpp (see the comment there):
+  // BVE (ordered LAST), Factor, Strengthen, SubsumeForward, Congruence,
+  // Substitute enabled; Probe/Vivify/Backbone/TransitiveReduce disabled as
+  // SAT-disruptive. Every rule stays registered, N1-exposed, and
+  // random-policy-fuzzed regardless of its `enabled` bit.
   static constexpr bool SLOT_IN_DEFAULT = true;
   struct SlotEntry {
     int rule = -1;
