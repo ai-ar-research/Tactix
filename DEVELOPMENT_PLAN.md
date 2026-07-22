@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-21 (rev. 58). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-22 (rev. 59). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -36,7 +36,7 @@ Build a CDCL SAT solver that:
 5. **R5 — Performance that exceeds Kissat (by engineering, before learning).** The
    engineering constraint that dominates the whole design: with the default policy
    — through engineering ingenuity, *before* any learned policy — the solver must
-   not merely match but **exceed Kissat's efficiency** (PAR-2 on SC benchmark
+   not merely match if not exceed Kissat's efficiency (PAR-2 on SC benchmark
    sets), targeted by the end of phase 4 (the strengthened **T4** gate, §8.3).
    Matching the best sequential solvers is the *floor* (N3); exceeding Kissat by
    engineering is the *goal*; and the phase-6 learned policy (§5.6) is further
@@ -138,15 +138,40 @@ State (following the inprocessing-rules framework, extended with solver context)
       R,            redundant/learned clauses (arena, tiered)
       τ,            trail: assignments + reasons + decision levels
       ρ,            reconstruction stack (witness-labelled, for model rebuilding)
-      π,            proof log cursor (deltas already emitted)
-      H ⟩           heuristic state (scores, phases, MAB stats, limits)
+      π ⟩           proof log cursor (deltas already emitted)
+
+H                   heuristic/policy state (scores, phases, MAB stats, limits)
+                    — deliberately NOT part of σ (rev 59)
 ```
 
 Invariant: `F₀ (input) ⊨SAT-equiv (F ∪ ρ)`, `F ⊨ R` is proof-justified, and every
 transition σ → σ′ emits a proof delta (sequence of DRAT/LRAT additions/deletions)
-that the checker accepts. Heuristic state `H` is proof-irrelevant by construction —
-rules may read/write it freely without proof obligations; this keeps the rule
-vocabulary small while allowing arbitrary heuristics.
+that the checker accepts.
+
+**`H` is outside `σ` (rev 59, user).** Earlier revisions carried `H` as a sixth
+component with the caveat "proof-irrelevant by construction". That caveat was the
+tell: a component the soundness argument must explicitly except is not part of the
+proof state. `σ` is what soundness quantifies over; `H` is search guidance. Keeping
+them in one tuple conflated two different jobs — the proof-theoretic state, and the
+state a rule's `guard`/`apply` and the §5.6 learner read — and it forced every
+heuristic-only operation to masquerade as a proof rule with "proof δ: none".
+
+The split gives a sharp test with an immediate consequence:
+
+- an operation is a **proof rule** iff its effect on `σ` is non-trivial. It carries
+  a proof delta (possibly empty, e.g. `Restart` only rewinds `τ`) and lives in the
+  rule registry under the §5.3 contract;
+- an operation whose effect is **`H`-only is a policy operation**, not a proof rule.
+  It has no proof obligation, no calculus entry, and no place in the deviation
+  ledger. **Reclassified by this test: S3 `Rephase`, S4 `SwitchMode`, S6 `Walk`,
+  S7 `Reorder`** — all four change only which variable or phase gets tried next.
+
+**N1 still covers them.** They are exactly what the §5.6 learner must schedule, so
+they stay API-exposed — as *sub-policies* alongside the existing
+`BranchingPolicy`/`ReductionPolicy`, not as rules. N1's guarantee is now stated over
+two exposed classes: every applicable **proof rule** is applicable at any time, and
+every **policy operation** is invocable at any time. Only the first carries proof
+obligations. See §5.1 for the sub-policy surface and the H-ownership decision.
 
 Each **rule family** is a triple:
 
@@ -1185,3 +1210,4 @@ conflate them.
 - **rev. 56** (2026-07-21, user): **sequenced phase 3's two open tracks as explicit, checkable items** (§9 phase-3 row; per-item detail in PROGRESS.md). The plan had a target end-state and a "pick one of (A)/(B)/(C)" recommendation but no ordered checklist, so neither track was trackable. **Track C — complete V6 Congruence — runs first** (independent of the scheduler; the largest single measured lever): C0 XOR output-sign offset, C1 the `add_equivalence` empty-LRAT-hint hazard, C2 the degenerate-ITE extraction filter, **C3 `D-CONG-UNIT` + `D-CONG-LRAT` + `D-CONG-DELETE` as ONE landing** (user decision — supersedes the earlier "D-CONG-LRAT must close first", which the 2026-07-21 scoping showed buys nothing: the chain work is the same size either way, while landing them together means no intermediate state deepens the DRAT-only deviation). **Then Track S — the target arrangement**: S1 the L7 phase-count test, S2 re-measure the probing rules on top of P2, S3 P2's owed stress-policy pass + metering, S4 the arrangement as one gated unit. Scoping evidence: the constant-parity ladder is drat-trim validated (bare adds rejected, all four ladder variants VERIFIED) and matches kissat's `add_xor_shrinking_proof_chain`; the ITE-degeneracy bucket is measured redundant (0 new merges, 0 new units) so it needs a filter, not a channel; and the XOR output-sign offset would have made every hwmcc unit the wrong polarity. N1–N3 unchanged.
 - **rev. 57** (2026-07-21, user): **re-split rev 56's C3 bundle — the DRAT unit channel banks now, `D-CONG-LRAT` becomes the immediate next item** (§9 phase-3 row). Rev 56 had the unit channel and its native chains land together so no intermediate state deepened the DRAT-only deviation; building it showed the two halves are not the same size. `D-CONG-UNIT` is done and measured — `hwmcc17miters` 48.77 → 6.67 s against kissat 2.27 s in one window (21.5× → 2.9×), refuted *inside* congruence at 0 decisions / 1 root conflict, 14.4 MB proof drat-trim VERIFIED with 0 RAT lemmas, fuzz DRAT 1000/0, no regression on the instances re-run — while `D-CONG-LRAT` still needs per-gate side-clause id capture, bridged chains for the degeneracy ladder, and the two-gate matching ladder. **N1–N3 unchanged, and the split does not weaken N2:** both proof paths still emit checkable certificates, the `--lrat` path continues not to extract XOR/ITE exactly as before, and C1 turned a silent hint-less-LRAT-line hazard into an assert. C4 (`D-CONG-LRAT` + `D-CONG-DELETE`) runs next so the deviation does not sit open; C3b (AND degeneracies + the `x ≡ ¬x` clash-merge refutation, all measured firing 0 times on `hwmcc`) trails it.
 - **rev. 58** (2026-07-21, user): **status moved out of the plan into PROGRESS.md — one fact, one home.** No scope, gate, catalog or non-negotiable change: the §9 phase-3 row keeps its scope, sequencing decision (Track C then Track S) and landing discipline but drops the measured numbers, commit hashes and DONE/reverted markers that PROGRESS.md already carries; §4 drops the rev-30/31/35/37/38/40/42/43 per-revision narratives, keeping the deviation discipline (guards are pure preconditions; D-LEVEL/D-SPLIT purified, D-ROOT retained) and the three standing kernel invariants they established; §5.2's V6 and binary-deletion notes lose their landed-status annotations. Header states the plan/PROGRESS division of labour.
+- **rev. 59** (2026-07-22, user): **took `H` out of `σ`** (§4, mirrored in `docs/calculus.md`). Previous revisions carried heuristic state as a sixth component of the proof state with the caveat "proof-irrelevant by construction" — and that caveat was the tell: a component the soundness argument must explicitly except was never part of the proof state. `σ = ⟨F,R,τ,ρ,π⟩` is what soundness quantifies over; `H` is search guidance, held alongside. The conflation forced every heuristic-only operation to masquerade as a proof rule with "proof δ: none". **New test, with immediate consequences:** an operation is a *proof rule* iff its effect on `σ` is non-trivial; an `H`-only operation is a **policy operation** with no proof delta, no calculus entry and no ledger row. **S3 `Rephase`, S4 `SwitchMode`, S6 `Walk` and S7 `Reorder` are reclassified** as policy operations — the question that prompted this was whether `Reorder` is a proof rule, and under the split it plainly is not. **N1 is preserved and now stated over two exposed classes:** every applicable proof rule is applicable at any time, and every policy operation is invocable at any time; only the first carries proof obligations. The four become *sub-policies* beside `BranchingPolicy`/`ReductionPolicy` (§5.1), which is also what the §5.6 learner needs to schedule them. Physically relocating `H` out of the Kernel is a separate, larger change the user has asked for — planned next, not landed here.

@@ -88,13 +88,18 @@ public:
   // options chrono=1/chronolevels=100): jumping over more than this many
   // levels is considered inefficient — backtrack one level instead. A pure
   // policy choice through backjump_apply_to (the freeze's N1 story).
-  // DISABLED for DefaultPolicy (UINT32_MAX) since rev 38: D-LEVEL-2 made the
-  // backjump target genuinely chronological (backjump_apply_to no longer
-  // clamps to jump_level), so a finite threshold would change DefaultPolicy's
-  // trajectory. Keeping it at UINT32_MAX forces target == jump_level, so
-  // DefaultPolicy stays bit-exact (s055 = 932,762). Turning on chronological
-  // backtracking in DefaultPolicy is a separate, measured go/no-go.
-  static constexpr uint32_t CHRONO_LEVELS = UINT32_MAX;
+  // ENABLED 2026-07-22 (TB4) at kissat's own chronolevels=100, after the
+  // go/no-go this comment used to defer. It was measured TWICE. The first run
+  // said +13 % WORSE and was a lie: analyze did not backtrack to the conflict
+  // level first, so the gap that gates chrono was measured from the wrong level
+  // and 84 % of chronological backtracks silently DROPPED the conflict (stale
+  // pending clause -> NoOp) and re-derived it, duplicating learned clauses and
+  // corrupting the glue EMAs. With that fixed, clean interleaved Tier B, two
+  // reps per arm: off 17.35/17.51, on 17.04/16.99 — both on-runs beat both
+  // off-runs, mean 17.43 -> 17.02. DefaultPolicy is deliberately no longer
+  // bit-exact against the old s055 = 932,762 pin; that pin belonged to the
+  // chrono-off trajectory.
+  static constexpr uint32_t CHRONO_LEVELS = 100;
   // Runtime override for the T4 go/no-go the comment above asks for:
   // TACTIX_CHRONO_LEVELS=N (kissat's `chronolevels`, default 100; N=0 means
   // always chronological). Unset keeps CHRONO_LEVELS, i.e. today's behaviour,

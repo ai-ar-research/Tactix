@@ -41,7 +41,9 @@ Following the inprocessing-rules framework (plan §4):
 ```
 σ = ⟨ F,   irredundant clauses          τ,   trail: assigned literals + reasons + decision levels
       R,   redundant/learned clauses    ρ,   reconstruction stack (witness-labelled)
-      π,   proof-log cursor             H ⟩  heuristic state (scores, phases, limits, MAB)
+      π ⟩  proof-log cursor
+
+H          heuristic/policy state (scores, phases, limits, MAB) — NOT in σ
 ```
 
 `dl` is the current decision level (the number of decisions on `τ`). `M` denotes
@@ -49,9 +51,18 @@ the partial assignment induced by `τ`; `U ⊆ M` the level-0 (root) literals.
 `F ∧ M ⊢₁ ⊥` means unit propagation from `F` under `M` reaches a conflict.
 
 **Invariants.** `F₀ (input) ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every
-transition emits a checker-accepted proof delta. **`H` is proof-irrelevant** —
-rules read/write it without proof obligation, which is what keeps the proof
-vocabulary small while allowing arbitrary heuristics. Control flags used by the
+transition emits a checker-accepted proof delta. **`H` is OUTSIDE `σ`** (plan
+rev 59): soundness quantifies over `σ`, while `H` is search guidance, and a
+component the soundness argument has to explicitly except was never part of the
+proof state. Rules may read/write `H` freely and without proof obligation.
+
+**Consequence — what belongs in this document.** An operation is a *proof rule*
+iff its effect on `σ` is non-trivial; those are the rules catalogued here. An
+operation whose effect is **`H`-only is a policy operation** and has NO entry
+here, no proof delta and no ledger row — it is a sub-policy (plan §5.1).
+S3 `Rephase`, S4 `SwitchMode`, S6 `Walk` and S7 `Reorder` are policy operations
+by this test; their entries below are retained only until the sub-policy surface
+lands, and are marked. Control flags used by the
 implementation but *not* part of `σ` — `conflict_valid`/`conflict_ref` (a
 recorded but unanalyzed conflict) and `pending` (a learned clause awaiting
 assertion) — are **engineering state**; guards that mention them are deviations
