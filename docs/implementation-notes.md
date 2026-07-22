@@ -299,3 +299,72 @@ and the filter only bites in the phase's later outer rounds:
 | `clique_n2_k10` | 21 eliminated, 24 523 resolutions | 21 eliminated, **23 881** (−2.6 %) | bit-identical (510 938 conflicts) |
 | `mp1-blockpuzzle`, `x9-08014` | BVE never fires | unchanged | bit-identical |
 | `qwh.50.1250` | 820 eliminated, 1 000 039 resolutions | **821** eliminated, 1 000 047 | differs — BVE is budget-saturated here, so the filter buys *more elimination per dose* rather than less work, and the changed preprocessing output changes the search (5 458 → 2 134 conflicts) |
+## 7. Design decision: probing propagation restores search's bookkeeping
+
+**The problem (measured 2026-07-21).** A C3 Vivify round that vivified **zero**
+clauses — leaving the formula bit-identical — still cost `battleship-14-26`
+1.95 M → **24.0 M conflicts** (17.9 s → 253 s). The channel is not the formula, it
+is `kernel_propagate`'s incidental bookkeeping: the delayed watch **relocations**
+and the per-clause **`searched`** scan-resume hints, both rewritten according to
+assignments (probe assumptions) that search would never have made. Restoring them
+reproduced the Vivify-off run *bit-identically*. Ruled out as causes: the VMTF
+decision cursor (`search_idx`/`search_stamp`) and arena garbage collection.
+
+**What kissat does — and does not do.** Kissat has a separate probing propagator,
+`src/proprobe.c`, but `kissat_probing_propagate` is a *second instantiation of the
+same `proplit.h` scan* as `propsearch.c`: it differs only in the `ignore` clause
+parameter and in which statistics it charges. **Kissat's probing relocates watches
+and rewrites `searched` exactly like its search propagation does** — its
+insulation comes from elsewhere (probing runs in its own mode with the watch
+structures rebuilt around it). So "copy proprobe.c" is not the fix here.
+
+**Why not simply refrain from moving the watch.** Unit propagation is only
+*complete* under the two-watched-literal scheme because a falsified watch is
+moved. A read-only scan misses units: for `(a b c d)` watched `a,b`, if `a` is
+falsified and the watch stays, later falsifying `c` and `d` leaves the clause unit
+on `b` with nothing to fire. (V2 Backbone's `kernel_propagate_binary` is
+non-mutating only because *binary* watches are permanent.)
+
+**The decision: one engine, an undo log.** `kernel_propagate_probing`
+(`kernel.cpp`) is `propagate_literal<RECORD=true>` — the same scan, so the derived
+literals, their trail order and the recorded conflict are **identical** to
+`kernel_propagate`'s — with every watch-list and clause-header update logged into
+`Kernel::probing` and rolled back by `kernel_probing_end` once the speculative
+trail is unwound. Search calls `propagate_literal<false>`, which compiles to the
+code that existed before the log, so DefaultPolicy is **bit-exact** (verified:
+`battleship-14-26`, `5col100_15_6`, `brent_63_0` — every counter identical).
+
+Mechanics worth knowing:
+
+- **Watch lists are snapshotted at FIRST TOUCH** in a scope — the first real write
+  of a scan (a dropped entry or a blocking-literal rewrite) or the first delayed
+  push onto the list, whichever comes first. Up to that point the list still holds
+  what it held at `kernel_probing_begin`: a scan copies `*q++ = *p++` with `q == p`
+  until its first drop, so every earlier write is an identity write.
+- **Clause records are replayed in reverse.** One relocation is the 3-cycle
+  `(lits[0], lits[1], lits[r]) ← (other, replacement, not_lit)` plus
+  `searched = r`; undoing newest-first means `lits[1]` still holds that record's
+  `replacement`, so five words per relocation suffice.
+- **The restore is conditional, and that is a soundness requirement, not a
+  nicety.** It fires only when trail size / `propagate_head` / level are back at
+  the scope's entry values. If a probing-derived literal turned out to be
+  root-implied and the backtrack KEPT it, the relocations made under it are
+  load-bearing — undoing them would leave a clause with no live watch able to fire
+  when it later goes unit. In that case the log is discarded and the updates stay,
+  i.e. exactly the pre-existing behaviour.
+- **Scope contract:** no clause may be added, deleted, or relocated (GC) inside a
+  scope — the log holds `Ref`s and watch-list contents. Both callers close the
+  scope in their `unwind()`, before any `rewrite()`/unit assertion.
+- Outside a scope `kernel_propagate_probing` *is* `kernel_propagate`, so the
+  primitive is safe for any N1 caller.
+
+**Wired into:** V1 Probe (`probe_one`) and C3 Vivify (`vivify_one`) — one scope
+per probe / per candidate clause. V2 Backbone already uses the binary engine. S5
+Lucky still uses `kernel_propagate`: it runs once before any search state exists,
+so it has no bookkeeping to protect.
+
+**Effect.** With Vivify enabled, `battleship-14-26` goes 24.0 M conflicts / 214 s →
+**1.95 M / 14 s**, matching the Vivify-off run counter-for-counter (only the
+`ticks` meter differs, by the 10,780 ticks the round legitimately spent). N1 is
+untouched: this is a kernel primitive, not a guard — every rule stays applicable
+in every state, and the conditional restore means no schedule can make it unsound.

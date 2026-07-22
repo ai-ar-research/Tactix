@@ -87,9 +87,6 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
 }
 
 void bve_schedule(Kernel &k, std::vector<Var> &out) {
-  // fold anything fixed since the last look into the retry bitmap first, so the
-  // filter below never hides a variable whose neighbourhood a root unit changed
-  kernel_bve_retry_sync_fixed(k);
   BveOccurrences occ;
   bve_build_occurrences(k, occ);
   std::vector<std::pair<uint64_t, Var>> ranked; // (score, var), ascending
@@ -100,16 +97,14 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
     // BVE and Factor would thrash indefinitely. They exist to compress; skip.
     if (v >= kernel_num_output_vars(k))
       continue;
-    // RETRY FILTER (kissat eliminate.c schedule_variables / flags->eliminate):
-    // a variable BVE already attempted and whose elimination neighbourhood has
-    // not changed since would produce exactly the same NoOp, so re-generating
-    // and re-counting its resolvents is pure waste. Skipping it is a WORK
-    // decision, not an applicability one — the payload instance surface below
-    // narrows with it, but bve_apply_instance still accepts ANY variable
-    // payload (N1), and the bit is set by every mutation that could change the
-    // answer (see Kernel::bve_retry).
-    if (!k.bve_retry[v])
-      continue;
+    // NOTE: the retry bitmap (Kernel::bve_retry) is deliberately NOT consulted
+    // here. Whether re-attempting an unchanged variable is worth the work is a
+    // SCHEDULING decision, and scheduling belongs to the policy (plan §5 rev
+    // 17) — filtering here would also silently narrow the instance surface that
+    // RandomPolicy and any future learned policy enumerate as their action
+    // space. The rule MAINTAINS the advice (bve_eliminate clears the bit it
+    // attempts, the kernel sets it on every mutation that could change the
+    // answer) and the policy READS it; see DefaultPolicy's dosing loop.
     const Lit pl = make_lit(v, false);
     if (k.values[pl] != 0) // assigned variable: not an elimination candidate
       continue;

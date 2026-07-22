@@ -110,6 +110,41 @@ struct OccIndex {
   std::vector<std::vector<Ref>> large; // by literal; may hold stale garbage Refs
 };
 
+// Undo log of the SEARCH BOOKKEEPING a probing propagation touches (kissat
+// keeps probing propagation in its own engine, src/proprobe.c; ours is the same
+// engine with this log switched on — see kernel_propagate_probing in
+// kernel.cpp). Unit propagation only stays complete under the two-watched-
+// literal scheme if a falsified watch is MOVED, so a probing propagation cannot
+// simply refrain from moving it; instead it records every incidental update it
+// makes — watch-list contents and per-clause literal permutation + `searched`
+// scan hint — and puts them back once the speculative trail is unwound. The
+// derived literals and the conflict are bit-identical to kernel_propagate's;
+// only the bookkeeping is rolled back.
+struct ProbingLog {
+  bool recording = false;
+  // kernel state the log is relative to: the restore only fires when the caller
+  // has unwound the trail back to exactly this (see kernel_probing_end)
+  uint32_t base_trail = 0, base_head = 0, base_level = 0;
+  // watch-list snapshots, one per literal, taken at FIRST TOUCH (first scan
+  // mutation or first delayed push, whichever comes first)
+  struct ListSnap {
+    Lit lit;
+    uint32_t off, size; // offset into `words`, and the list's original length
+  };
+  std::vector<ListSnap> lists;
+  std::vector<uint32_t> words; // flat backing store for the snapshots above
+  std::vector<uint32_t> stamp; // by lit: epoch this literal was snapshotted in
+  uint32_t epoch = 0;          // bumped per scope; 0 is "never snapshotted"
+  // per-relocation clause records, replayed in REVERSE order
+  struct ClauseSnap {
+    Ref ref;
+    uint32_t rpos;             // index the replacement literal came from (>= 2)
+    Lit lit0, lit1;            // the watched pair before the relocation
+    uint32_t searched;
+  };
+  std::vector<ClauseSnap> clauses;
+};
+
 struct Kernel {
   uint32_t nvars = 0;
   // Variables at index >= first_extension_var are NON-ORIGINAL "extension"
@@ -159,6 +194,9 @@ struct Kernel {
   // delayed watch relocations from an in-flight propagation scan
   // (lit, blocking, ref) triples; see watch.hpp for why they must wait
   std::vector<uint32_t> delayed;
+  // probing-propagation bookkeeping log; inert (recording == false) outside a
+  // kernel_probing_begin/end scope, so search never pays for it
+  ProbingLog probing;
 
   // VMTF (focused-mode decision heuristic)
   std::vector<Link> links; // by var
@@ -480,6 +518,34 @@ bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
 // no watch mutation. V2 Backbone's engine; cheaper than kernel_propagate and
 // derives a subset of its units. Same conflict-handoff semantics.
 bool kernel_propagate_binary(Kernel &);
+
+// --- probing propagation (kissat proprobe.c) --------------------------------
+// FULL (large + binary) propagation for the probing rules that leaves search's
+// bookkeeping alone: same engine, same implied literals, same conflict as
+// kernel_propagate, but the watch-list updates and per-clause `searched` hints
+// it makes along the way are recorded and rolled back at the end of the scope.
+// Motivation (measured 2026-07-21): a Vivify round that derives NOTHING still
+// relocated watches and rewrote `searched`, and that alone cost battleship-14-26
+// 12x conflicts (1.95M -> 24.0M) — the formula was bit-identical afterwards.
+//
+// Usage — one scope per speculative episode:
+//     kernel_probing_begin(k);                   // at a quiescent point
+//     ... assume(); kernel_propagate_probing(k, ignore); ...
+//     kernel_backtrack(k, base_level, false);    // unwind the assumptions
+//     kernel_probing_end(k);                     // restore, THEN mutate the formula
+//
+// CONTRACT (all three are checked, not assumed):
+//  * the restore only fires when trail size / propagate_head / level are back
+//    at the scope's entry values. Any other state (e.g. a probing-derived
+//    literal that turned out to be root-implied and was KEPT by the backtrack)
+//    means the speculation left a permanent mark, so the log is DISCARDED and
+//    the updates stay — i.e. exactly today's behaviour, always sound.
+//  * no clause may be added, deleted, or relocated (GC) inside a scope: the log
+//    holds Refs and watch-list contents. Both rules call end() before rewriting.
+//  * kernel_propagate_probing outside a scope is plain kernel_propagate.
+void kernel_probing_begin(Kernel &);
+void kernel_probing_end(Kernel &); // idempotent; a no-op outside a scope
+bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 
 // --- VMTF ------------------------------------------------------------------
 void kernel_queue_init(Kernel &);

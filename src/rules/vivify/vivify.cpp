@@ -68,6 +68,11 @@ static void unwind(Kernel &k) {
   k.conflict_ref = INVALID_REF;
   if (k.level > 0)
     kernel_backtrack(k, 0, /*update_phases=*/false);
+  // trail is back at the clean root: give search back the watch order and
+  // `searched` hints this candidate's propagations churned (kernel.hpp
+  // kernel_probing_begin). MUST run before rewrite() touches the arena — the
+  // log holds Refs — and every rewrite site below is reached through here.
+  kernel_probing_end(k);
 }
 
 // The reason walk (kernel_reason_walk) and conflict seed (kernel_conflict_
@@ -177,6 +182,10 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
     seen.assign(k.nvars, 0);
   std::vector<Lit> next;
   ApplyResult res = ApplyResult::NoOp;
+  // one probing scope per candidate: everything the assumption propagations
+  // below churn in the watch lists / clause headers is speculative and is
+  // handed back to search by unwind() (kernel.hpp kernel_probing_begin)
+  kernel_probing_begin(k);
   for (uint32_t i = 0; i < probes.size(); i++) {
     const Lit li = probes[i];
     const int8_t v = k.value(li);
@@ -213,7 +222,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
       break;
     }
     assume(k, negate(li));
-    if (kernel_propagate(k, cref)) {
+    if (kernel_propagate_probing(k, cref)) {
       // probe conflict: (probes[0..i]) is RUP — strict gain iff it drops
       // literals (later probes or root-falsified originals)
       const bool gain = i + 1 < probes.size() || probes.size() < c->size;
@@ -232,6 +241,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
   }
   if (k.level > 0 || k.conflict_valid)
     unwind(k);
+  kernel_probing_end(k); // idempotent; closes the `no strict gain` break path
   return res;
 }
 

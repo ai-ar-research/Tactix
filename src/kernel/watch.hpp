@@ -50,6 +50,15 @@ struct WatchLists {
     heads[l].size = n;
   }
 
+  // make room for `n` words in l's slice without changing its contents.
+  // Needed by the probing restore (kernel.cpp): a list snapshotted at size n
+  // can be compacted and then have its capacity clamped to the smaller size by
+  // an intervening defrag, so putting the snapshot back may have to re-grow.
+  void ensure_capacity(Lit l, uint32_t n) {
+    while (heads[l].capacity < n)
+      grow(l);
+  }
+
   void push(Lit l, uint32_t word) {
     WatchHead &h = heads[l];
     if (h.size == h.capacity)

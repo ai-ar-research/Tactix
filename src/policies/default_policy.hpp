@@ -222,6 +222,7 @@ public:
     uint32_t permille = 0;
     uint64_t (*meter)(const Kernel &) = nullptr;
     bool dosed = false;   // apply per-instance to a budget vs one canonical round
+    bool retry_advice = false; // rule maintains a per-variable retry bit to consult
     uint64_t anchor = 0;  // search_ticks when this entry last ran (cadical last.NAME.ticks)
     uint64_t limit = 0;   // meter ceiling for the CURRENT phase (set at phase entry)
   };

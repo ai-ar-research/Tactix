@@ -297,7 +297,15 @@ static void test_retry_filter() {
   for (int j = 8; j <= 13; j++)
     kernel_add_binary_clause(k, internalize(-1), internalize(j));
   const Var x = var_of(internalize(1));
-  auto scheduled = [&](Var v) {
+  // the rule's ADVICE ("worth re-attempting?"), which the POLICY consults. The
+  // instance surface deliberately does NOT narrow with it — see `offered`.
+  auto worth_retry = [&](Var v) {
+    kernel_bve_retry_sync_fixed(k);
+    return k.bve_retry[v] != 0;
+  };
+  // N1: whatever the advice says, the enumeration still OFFERS the variable, so
+  // RandomPolicy and a learned policy keep the full action space.
+  auto offered = [&](Var v) {
     std::vector<Var> cand;
     bve_schedule(k, cand);
     for (const Var c : cand)
@@ -305,38 +313,40 @@ static void test_retry_filter() {
         return true;
     return false;
   };
-  assert(scheduled(x)); // fresh variable: retry-worthy
+  assert(worth_retry(x)); // fresh variable: retry-worthy
+  assert(offered(x));
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);   // 36 resolvents > 6+6+16: bound exceeded
-  assert(!scheduled(x));       // attempted, nothing changed: filtered out
+  assert(!worth_retry(x));     // attempted, nothing changed: not worth a retry
+  assert(offered(x));          // ...but STILL offered by instances() (N1)
   // ...but the rule itself is still applicable to it via the API (N1): the same
   // NoOp, computed, not assumed.
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);
-  assert(!scheduled(x));
+  assert(!worth_retry(x));
   // a NEW IRREDUNDANT clause on x is new material: retry. (var 14 is otherwise
   // unused, so this adds an occurrence without forming a gate)
   kernel_add_binary_clause(k, internalize(1), internalize(14));
-  assert(scheduled(x));
+  assert(worth_retry(x));
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);
-  assert(!scheduled(x));
+  assert(!worth_retry(x));
   // deleting one of x's clauses is new material too
   assert(kernel_delete_binary(k, internalize(1), internalize(14)));
-  assert(scheduled(x));
+  assert(worth_retry(x));
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);
-  assert(!scheduled(x));
+  assert(!worth_retry(x));
   // a REDUNDANT clause on x is not: BVE never resolves it, and marking on
   // learned-clause traffic would defeat the filter
   const Lit r[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, r, 3, /*redundant=*/true, /*glue=*/3);
-  assert(!scheduled(x));
+  assert(!worth_retry(x));
   // fixing a NEIGHBOUR changes what BVE computes for x (its clauses become
   // delete-only / lose the falsified literal), so x must be retried
   kernel_assign_unit(k, internalize(-2));
-  assert(scheduled(x));
+  assert(worth_retry(x));
 }
 
 int main() {

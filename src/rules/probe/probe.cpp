@@ -53,6 +53,10 @@ static void unwind(Kernel &k) {
   k.conflict_ref = INVALID_REF;
   if (k.level > 0)
     kernel_backtrack(k, 0, /*update_phases=*/false);
+  // trail is back at the clean root: give search back the watch order and
+  // `searched` hints this probe's propagation churned (kernel.hpp
+  // kernel_probing_begin). Must run BEFORE the caller mutates the formula.
+  kernel_probing_end(k);
 }
 
 // The reason walk (kernel_reason_walk) + conflict seed (kernel_conflict_
@@ -83,8 +87,9 @@ static void emit_unit_chain(Kernel &k, uint64_t id, Lit lit,
 static bool probe_one(Kernel &k, Lit p, Lit *unit_out) {
   const bool lrat = k.proof && k.proof->lrat();
   k.stats.probed++;
+  kernel_probing_begin(k); // speculative: bookkeeping rolled back by unwind()
   assume(k, p);
-  if (!kernel_propagate(k)) { // no conflict: p is not a failed literal
+  if (!kernel_propagate_probing(k)) { // no conflict: p is not a failed literal
     unwind(k);
     return false;
   }

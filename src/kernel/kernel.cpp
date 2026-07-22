@@ -27,6 +27,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.bve_retry.resize(nvars, 1);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
+  k.probing.stamp.resize(2 * nvars, 0);
   // The dense occurrence index is per-literal kernel state (null outside a
   // simplification phase). A var-adding rule (E2 Factor / BVA) can grow nvars
   // WHILE dense is connected — the shared index is built once per phase and
@@ -389,11 +390,30 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
 // probes needed propagation as a subroutine (rules never call rules) —
 // reviewed §5.3 kernel-primitive addition, 2026-07-14.
 
-static inline void flush_delayed(Kernel &k) {
+// Probing bookkeeping log (see ProbingLog in kernel.hpp): snapshot `l`'s watch
+// list the FIRST time this scope touches it — either the scan of `l` is about
+// to make its first real write, or a delayed relocation is about to push onto
+// it. Up to that point the list still holds exactly what it held at
+// kernel_probing_begin: a scan copies `*q++ = *p++` with q == p until its first
+// drop, so every earlier write was an identity write.
+static void probing_snapshot_list(Kernel &k, Lit l) {
+  ProbingLog &lg = k.probing;
+  if (lg.stamp[l] == lg.epoch)
+    return;
+  lg.stamp[l] = lg.epoch;
+  const WatchHead &h = k.watches.heads[l];
+  const uint32_t *const b = k.watches.arena.data() + h.offset;
+  lg.lists.push_back({l, static_cast<uint32_t>(lg.words.size()), h.size});
+  lg.words.insert(lg.words.end(), b, b + h.size);
+}
+
+template <bool RECORD> static inline void flush_delayed(Kernel &k) {
   for (size_t i = 0; i < k.delayed.size(); i += 3) {
     const Lit lit = k.delayed[i];
     const Lit blocking = k.delayed[i + 1];
     const Ref ref = k.delayed[i + 2];
+    if constexpr (RECORD)
+      probing_snapshot_list(k, lit); // before the push grows/moves the list
     k.watches.push_large(lit, blocking, ref);
   }
   k.delayed.clear();
@@ -404,6 +424,11 @@ static inline void flush_delayed(Kernel &k) {
 // addition for C3 Vivify / V1 Probe): a clause ref that must not
 // propagate or conflict during this scan — a rule probing a candidate's
 // own negated literals must not derive anything THROUGH the candidate
+// RECORD (kissat's separate proprobe.c engine, here one template instantiation
+// away): log every watch-list / clause-header update into k.probing so a
+// probing scope can undo them. false for search — the generated code, and
+// therefore the search trajectory, is bit-identical to before the log existed.
+template <bool RECORD>
 static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   const Lit not_lit = negate(lit);
   assert(k.delayed.empty());
@@ -451,6 +476,8 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
       ticks++;
       Clause *c = clause_at(arena, ref);
       if (c->garbage()) {
+        if constexpr (RECORD)
+          probing_snapshot_list(k, not_lit); // dropping an entry
         q -= 2;
         continue;
       }
@@ -459,6 +486,8 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
       const int8_t other_value = values[other];
       if (other_value > 0) { // satisfied: remember as blocking literal
         Watch w = blocking_watch(other);
+        if constexpr (RECORD)
+          probing_snapshot_list(k, not_lit); // rewriting a blocking literal
         q[-2] = w.raw;
         continue;
       }
@@ -483,6 +512,11 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         }
       }
       if (replacement_value >= 0) { // move the watch (delayed: see above)
+        if constexpr (RECORD) {
+          probing_snapshot_list(k, not_lit); // dropping an entry
+          k.probing.clauses.push_back({ref, static_cast<uint32_t>(r - lits),
+                                       lits[0], lits[1], c->searched});
+        }
         c->searched = static_cast<uint32_t>(r - lits);
         lits[0] = other;
         lits[1] = replacement;
@@ -504,8 +538,10 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   }
   while (p != end)
     *q++ = *p++;
+  // no snapshot needed here: q != begin + size only if an entry was dropped
+  // above, and every drop site snapshots first
   k.watches.truncate(not_lit, static_cast<uint32_t>(q - begin));
-  flush_delayed(k);
+  flush_delayed<RECORD>(k);
   k.stats.ticks += ticks;
   return conflict;
 }
@@ -513,7 +549,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
 bool kernel_propagate(Kernel &k, Ref ignore) {
   while (k.propagate_head < k.trail.size()) {
     const Lit lit = k.trail[k.propagate_head];
-    if (propagate_literal(k, lit, ignore)) {
+    if (propagate_literal<false>(k, lit, ignore)) {
       // do NOT advance past a literal whose scan broke on the conflict:
       // if a later backjump keeps this literal, the unscanned tail of its
       // watch list must be revisited — otherwise its implications are
@@ -557,6 +593,79 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
     }
     kernel_assign_binary(k, other, not_lit);
     k.stats.propagations++;
+  }
+  return false;
+}
+
+// --- probing propagation (kissat proprobe.c) --------------------------------
+// See kernel.hpp for the contract and the measurement that motivated it. Note
+// what kissat does and does NOT do here: kissat_probing_propagate is a second
+// instantiation of the SAME proplit.h scan (it differs only in the `ignore`
+// clause and in which statistics it charges), so kissat's probing does relocate
+// watches and does rewrite `searched` — its insulation from search comes from
+// elsewhere (probing runs inside its own mode, and the watch lists are rebuilt
+// around it). We keep one engine and undo the bookkeeping instead, which is the
+// smaller change and is exact: the propagation itself is bit-identical to
+// kernel_propagate, so the derived literals, their trail order, and the
+// recorded conflict are the same clause and the same literals.
+
+void kernel_probing_begin(Kernel &k) {
+  ProbingLog &lg = k.probing;
+  if (lg.recording)
+    kernel_probing_end(k); // defensive: scopes never nest
+  lg.recording = true;
+  lg.base_trail = static_cast<uint32_t>(k.trail.size());
+  lg.base_head = k.propagate_head;
+  lg.base_level = k.level;
+  if (++lg.epoch == 0) { // wrap: retire every stamp, then restart at 1
+    std::fill(lg.stamp.begin(), lg.stamp.end(), 0u);
+    lg.epoch = 1;
+  }
+}
+
+void kernel_probing_end(Kernel &k) {
+  ProbingLog &lg = k.probing;
+  if (!lg.recording)
+    return;
+  lg.recording = false;
+  // Restore only from a fully unwound trail. If anything the speculation
+  // derived is still assigned, the relocations it made are load-bearing: a
+  // clause whose watch moved off a literal that STAYS false would otherwise
+  // have no live watch able to fire when it later goes unit. Keeping the
+  // updates in that case is exactly the pre-existing behaviour, so it is sound.
+  if (k.trail.size() == lg.base_trail && k.propagate_head == lg.base_head &&
+      k.level == lg.base_level) {
+    // clause records in reverse: each undoes one 3-cycle
+    // (lits[0], lits[1], lits[rpos]) <- (other, replacement, not_lit), and at
+    // this point lits[1] still holds that record's `replacement`
+    for (size_t i = lg.clauses.size(); i-- > 0;) {
+      const ProbingLog::ClauseSnap &s = lg.clauses[i];
+      Clause *c = clause_at(k.arena, s.ref);
+      c->lits[s.rpos] = c->lits[1];
+      c->lits[0] = s.lit0;
+      c->lits[1] = s.lit1;
+      c->searched = s.searched;
+    }
+    for (const ProbingLog::ListSnap &s : lg.lists) {
+      k.watches.ensure_capacity(s.lit, s.size); // a defrag may have clamped it
+      std::copy(lg.words.begin() + s.off, lg.words.begin() + s.off + s.size,
+                k.watches.arena.begin() + k.watches.heads[s.lit].offset);
+      k.watches.heads[s.lit].size = s.size;
+    }
+  }
+  lg.lists.clear();
+  lg.words.clear();
+  lg.clauses.clear();
+}
+
+bool kernel_propagate_probing(Kernel &k, Ref ignore) {
+  if (!k.probing.recording)
+    return kernel_propagate(k, ignore); // no open scope: nothing to record
+  while (k.propagate_head < k.trail.size()) {
+    const Lit lit = k.trail[k.propagate_head];
+    if (propagate_literal<true>(k, lit, ignore))
+      return true; // same "do not advance past the conflicting scan" rule
+    k.propagate_head++;
   }
   return false;
 }

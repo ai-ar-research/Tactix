@@ -168,20 +168,26 @@ uint64_t meter_transitive(const Kernel &k) { return k.stats.transitive_checked; 
 // stale — they run as canonical rounds and are metered after the fact, exactly
 // as kissat meters `substitute`. Congruence/Factor/Substitute expose only the
 // canonical instance and have no meter at all.
+// `retry_advice` marks a rule that maintains a per-variable "worth re-attempting"
+// bit the POLICY consults (only E1 BVE: Kernel::bve_retry). The rule deliberately
+// does not filter its own instance enumeration with it — that would hide legal
+// applications from RandomPolicy and from the phase-6 learned policy, whose
+// action space IS the instance surface.
 struct EffortSpec {
   const char *name;
   uint32_t permille;
   uint64_t (*meter)(const Kernel &);
   bool dosed;
+  bool retry_advice;
 };
 constexpr EffortSpec EFFORT_SPECS[] = {
-    {"BVE", 100, meter_bve, true},
-    {"Probe", 20, meter_ticks, true},
-    {"Backbone", 20, meter_ticks, true},
-    {"TransitiveReduce", 20, meter_transitive, true},
-    {"Vivify", 100, meter_ticks, false},
-    {"Strengthen", 100, meter_strengthen, false},
-    {"SubsumeForward", 100, meter_forward, false},
+    {"BVE", 100, meter_bve, true, true},
+    {"Probe", 20, meter_ticks, true, false},
+    {"Backbone", 20, meter_ticks, true, false},
+    {"TransitiveReduce", 20, meter_transitive, true, false},
+    {"Vivify", 100, meter_ticks, false, false},
+    {"Strengthen", 100, meter_strengthen, false, false},
+    {"SubsumeForward", 100, meter_forward, false, false},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -312,6 +318,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             e.permille = s->permille;
             e.meter = s->meter;
             e.dosed = s->dosed;
+            e.retry_advice = s->retry_advice;
           }
           inprocess_slot.push_back(e);
         }
@@ -492,6 +499,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (e.dosed && r.instances && r.apply_instance) {
             if (!r.guard(k))
               continue;
+            // Fold newly root-fixed literals into the rule's retry advice before
+            // reading it: fixing y changes what BVE computes for y's neighbours
+            // with no clause add/delete to mark them.
+            if (e.retry_advice)
+              kernel_bve_retry_sync_fixed(k);
             inprocess_payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
             const uint32_t n = r.instances(
                 k, inprocess_payloads_.data(),
@@ -501,6 +513,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 break; // dose spent
               if (!r.guard(k))
                 break;
+              // SCHEDULING (policy-side, kissat flags->eliminate): re-attempting
+              // a variable whose elimination neighbourhood has not changed since
+              // the last attempt recomputes the same NoOp, so skip it. The rule
+              // still ACCEPTS it via apply_instance, and its instance surface
+              // still OFFERS it — this is the policy declining, not the rule
+              // hiding (N1).
+              if (e.retry_advice) {
+                Lit rl;
+                if (lit_of_instance(inprocess_payloads_[i], &rl) &&
+                    var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)])
+                  continue;
+              }
               const ApplyResult ar =
                   r.apply_instance(k, inprocess_payloads_[i]);
               if (ar == ApplyResult::Unsat || k.inconsistent) {

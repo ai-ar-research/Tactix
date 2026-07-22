@@ -19,6 +19,19 @@ Rules compose the **closed proof-delta vocabulary** (`add-RUP`, `add-RAT`, `dele
 Each family is one module in `src/rules/` exposing exactly:
 - `guard(σ) -> bool` — O(1)-ish applicability check. Must be cheap enough to call speculatively; no allocation, no side effects.
 - `instances(σ)` — **lazy** iterator over concrete instances. Never materialize all instances (RUP has astronomically many); expose canonical instances first (e.g., the 1-UIP clause for Analyze).
+  - **The instance surface is the POLICY'S ACTION SPACE — never narrow it for
+    efficiency.** Rank freely (cheapest-first, most-promising-first); that is
+    advice. But do NOT omit an instance because the rule judges it unlikely to
+    pay off, stale, or already-tried: `RandomPolicy` enumerates through
+    `instances()` (so omissions silently shrink fuzz coverage) and the phase-6
+    learned policy reasons over exactly this surface (so an omission tells it a
+    legal move does not exist). If a rule *knows* something useful about which
+    instances are worth trying, expose it as **advice the policy reads** — state
+    on the Kernel, like `Kernel::bve_retry` — and let the policy decline. The
+    rule maintains the fact; the policy makes the scheduling decision.
+    *(Caught 2026-07-21: E1 BVE's retry filter was applied inside
+    `bve_schedule`, which backs its `instances()`; moved to DefaultPolicy,
+    behaviour-identical.)*
 - `apply(σ, inst) -> result + proof delta` — total whenever `guard` holds, for *every* instance the iterator yields, in *any* state satisfying the guard. Returns structured progress info (conflict found / SAT / UNSAT / clauses touched).
 
 Architecture invariants (reject code that violates them):
