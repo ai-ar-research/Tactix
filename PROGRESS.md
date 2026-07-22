@@ -5,10 +5,10 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 54 (2026-07-21)
+- **Plan revision tracked:** rev. 55 (2026-07-21)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-21
-- **▶ RESUME HERE (2026-07-21).** Phase 3, **T3 gate open**. Working plan rev 53/54,
+- **▶ RESUME HERE (2026-07-21).** Phase 3, **T3 gate open**. Working plan rev 53/54/55,
   the **effort-budgeted inprocessing scheduler**. Design, increment plan and the
   measured evidence: **`docs/design/effort-scheduler-design.md` — read it first.**
 
@@ -32,27 +32,50 @@ disagree, the plan is authoritative — fix this file.
   with today's composition as the default; gate the ARRANGEMENT as one unit on
   Tier B+C before flipping.
 
-  **▶ TWO STRUCTURAL PREREQUISITES — the immediate work. Either may go first.**
-  - **P1 · a per-variable RETRY FILTER for BVE** — **DONE** (`77143f1`), neutral
-    on Tier B (21.25 vs 21.23) and fuzz-clean. It does what it says (mod4block's
-    wasted resolvents 3.5 M → 2.3 M) but it **did NOT unlock repeated
-    during-search BVE** — see L7. Kept because it is correct, is a prerequisite
-    for any future repeated elimination, and centralised large-clause deletion
-    behind `kernel_mark_garbage`.
-  - **P2 · a NON-MUTATING PROBING PROPAGATION PATH.** *(NOT a kissat port — see
-    the correction in L3: kissat's probing propagator mutates watches exactly like
-    its search propagator, so `proprobe.c` is not the design to copy. Whatever
-    lets kissat tolerate this is still unknown.)*
-    `kernel_propagate` relocates watches and rewrites per-clause `searched` hints
-    even when a probing round derives nothing — see Lesson L3. **Gates all four
-    probing rules** (V1/V2/C3/V4, all disabled). V2 Backbone is the existence
-    proof that a non-mutating engine fits here (`kernel.cpp` binary engine:
-    "binary watches are permanent, so there is no watch mutation").
-  - **Then, gated on them:** re-try Vivify, then Probe/Backbone/TransitiveReduce
-    one at a time; bring during-search inprocessing back with them, reusing the
-    per-technique-interval shape. Independently: **V5 Sweep** (needs the kitten
-    sub-solver, plan O11) and **E2 Factor S2** (grid matching — the `mp1` gap,
-    diagnosis banked 2026-07-20).
+  **▶ BOTH STRUCTURAL PREREQUISITES ARE NOW DONE** (they were the rev-54
+  blockers; neither changes DefaultPolicy's default behaviour):
+  - **P1 · per-variable BVE retry filter** (`77143f1`) — neutral on Tier B
+    (21.25 vs 21.23), fuzz-clean; also centralised large-clause deletion behind
+    `kernel_mark_garbage`. It works (mod4block's wasted resolvents 3.5 M → 2.3 M)
+    but did **not** unlock repeated during-search BVE — see L7. The retry
+    *decision* lives in DefaultPolicy, not in the rule: `instances()` still offers
+    every variable, because that surface is the policy's action space (rule-dev
+    skill; RandomPolicy and the §5.6 learned policy both enumerate through it).
+  - **P2 · probing propagation restores search's bookkeeping** (`f1c271e`) —
+    `propagate_literal` is `template <bool RECORD>`; search compiles to the old
+    code, probing logs its watch relocations and `searched` writes and rolls them
+    back at scope end (restore fires only if the caller truly unwound: same trail
+    height, propagate head, level). **Verified: battleship with Vivify enabled is
+    now bit-identical to Vivify-off** (1 951 393 conflicts, 14.1 s, vs 24.0 M /
+    253 s before). No-op by default. *Follow-ups owed:* a `stress-policy` pass
+    (its snapshot/restore is novel, not a port), and its snapshot traffic is **not
+    charged to the effort ledger**, so heavy probing pays a cost the budget cannot
+    see.
+
+  **▶ NEXT — pick one. Recommendation: (A).**
+  - **(A) Close `D-CONG-UNIT`** — the largest single lever on the board and
+    independent of the scheduler. `hwmcc17miters` is **23.7× kissat**, our worst
+    Tier B instance, and the cause is named: kissat refutes it *inside congruence*
+    at 0 conflicts; our V6 finds the identical 710 722 equivalences but has **no
+    unit channel** and has never returned `Unsat`. ≈200–300 lines in V6 (see the
+    ledger row for the exact discard sites). **Hard ordering constraint:
+    `D-CONG-LRAT` must close first** — the XOR/ITE degeneracies are DRAT-only
+    today — and it needs a `stress-policy` pass, since no fuzz case has ever
+    exercised a V6 refutation.
+  - **(B) Re-measure the other probing rules now that P2 exists.** Probe,
+    Backbone and TransitiveReduce were disabled for the artifact P2 removed and
+    have not been re-measured since. Each is an `enabled` flip in the slot
+    composition plus a Tier B A/B; their effort specs are already in the ledger.
+    Note **Vivify was re-measured and is still net-negative: 24.19 vs 21.01** (was
+    38.75 before P2 — the artifact was most of the loss, not all of it), so do not
+    assume the others turn positive.
+  - **(C) Settle L7's open hypothesis** — is repeated BVE's cost really the
+    per-phase root descent? Vary ONLY the interval and see whether time tracks
+    phase count. Cheap, and it either revives during-search elimination or closes
+    it properly instead of leaving it inferred.
+  - Independently: **V5 Sweep** (needs the kitten sub-solver, plan O11) and
+    **E2 Factor S2** (grid matching — the `mp1` 7.9× gap, diagnosis banked
+    2026-07-20).
 
 - **Standing lessons — measured, do not re-derive.** (Detail in the commits and
   reports cited; these one-liners exist so the next session does not repeat them.)
@@ -269,6 +292,44 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — P2 landed: a probing round that derives nothing is now genuinely a no-op for search
+`f1c271e`. `propagate_literal` became `template <bool RECORD>`: search
+instantiates `<false>` (old code), probing `<true>` and logs its incidental
+mutations — watch-list snapshots taken lazily at first touch, per-relocation
+clause records replayed in reverse — which `kernel_probing_end` rolls back. The
+restore fires ONLY if the caller unwound to the state the log is relative to
+(same trail height / propagate head / level); otherwise the mutations stand,
+because relocations made under a literal the backtrack KEPT are load-bearing
+(undoing them could leave a clause unit with no watch to fire).
+**Verified: `battleship-14-26` with Vivify enabled is now 1 951 393 conflicts /
+14.1 s — bit-identical to the Vivify-off run**, against 24 016 197 / 253 s
+before. No-op by default; three Tier B instances match their committed counters
+exactly. Fuzz: DefaultPolicy DRAT 1000/0, random-policy DRAT 400/0,
+random-policy + native LRAT 400/0; ctest 29/29. Record:
+`docs/implementation-notes.md` §7.
+
+- **It is NOT a kissat port, contrary to how the work was briefed.** Verified:
+  `proprobe.c` and `propsearch.c` both `#include "proplit.h"`; the
+  `PROBING_PROPAGATION` guards cover only the `ignore` parameter and
+  `INC(conflicts)`, while the watch relocation and the `c->searched` write are in
+  the shared body — kissat's probing mutates watches exactly like its search.
+  **How kissat tolerates that is unknown.** So this is a novel mechanism: it
+  wants the `stress-policy` pass, and its snapshot traffic is not charged to the
+  effort ledger.
+- **Vivify re-measured on top of it: Tier B 24.19 vs 21.01 — still net-negative**
+  (was 38.75 before P2). The artifact was most of the loss, not all of it; Vivify
+  stays disabled.
+- **Architecture fix landed with it (user-caught).** P1 had filtered by the retry
+  bitmap inside `bve_schedule`, which backs `bve_instances` — silently narrowing
+  the instance surface. That shrinks `--random-policy`'s BVE action space (so
+  fuzz coverage), and would hide legal moves from the §5.6 learned policy; a
+  "when to retry" bit consulted inside a rule is also scheduling state, which
+  belongs to the policy. Now the rule MAINTAINS the advice, `instances()` OFFERS
+  everything, and DefaultPolicy DECLINES. Behaviour-identical.
+  `test_bve` had encoded the old contract and was rewritten. The general rule is
+  now in the **rule-dev** skill: *the instance surface is the policy's action
+  space — rank freely, never omit for efficiency.*
 
 ### 2026-07-21 — P1 (BVE retry filter) LANDED; it did NOT unlock repeated during-search BVE — my diagnosis was wrong
 P1 is in (`77143f1`): `kernel_mark_garbage` centralises large-clause deletion (all
