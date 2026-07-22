@@ -294,22 +294,39 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   a parity bit the output absorbs and cancels repeated variables (`x⊕x=0`); ITE
   normalizes to `cond`,`then` positive (a flip absorbed by the output).
   A canonicalization may **degenerate**, and each degeneracy is itself an
-  inference over `F`, not a dead end: `AND(…,x,¬x,…)` ⇒ `out = 0` ⇒ root unit
-  `¬out`; an XOR whose variables all cancel ⇒ `out` is the parity constant ⇒ root
-  unit; a unary gate (`AND(x)`, `XOR(x)`, or an ITE whose branches coincide) ⇒
-  `out ↔ x`, i.e. a merge with no second gate needed. A round with no new merge is
-  `NoOp`; a merge of `x` with `¬x` sets `inconsistent` → `Unsat`.
-  *(The implementation currently realizes none of these degenerate cases — it
-  discards the gate and skips the contradictory merge, so V6 has no unit channel
-  and never refutes. Sound but incomplete; ledger row **D-CONG-UNIT** in
-  `docs/implementation-notes.md`.)*
+  inference over `F`, not a dead end. Three outcomes:
+  - **a root unit** — `AND(…,x,¬x,…)` ⇒ `out = 0` ⇒ `¬out`; an XOR whose
+    variables all cancel ⇒ `out` is the parity constant.
+  - **a merge with no second gate** — a unary gate `AND(x)` / `XOR(x)` (the
+    latter signed by the folded parity), or an ITE whose branches coincide
+    (`then ≡ else` ⇒ `out ↔ then`).
+  - **a smaller gate of another kind**, which re-enters the closure under that
+    kind: an ITE with `then ≡ ¬else` is the XOR `¬out = cond ⊕ then`, and an ITE
+    whose `cond` shares a variable with a branch is a 2-input AND/OR
+    (`cond ≡ then` ⇒ `out = cond ∨ else`; `cond ≡ ¬then` ⇒ `out = ¬cond ∧ else`;
+    `cond ≡ else` ⇒ `out = cond ∧ then`; `cond ≡ ¬else` ⇒ `out = ¬cond ∨ then`).
+
+  A round with no new merge is `NoOp`; a merge of `x` with `¬x` sets
+  `inconsistent` → `Unsat`.
+  *(Implemented: the XOR unit + unary-merge cases. Still deferred — the AND
+  degeneracies, the ITE collapses, and the contradictory merge; ledger row
+  **D-CONG-UNIT**. Note the ITE `then ≡ ¬else` collapse is measurably redundant
+  in practice: the same four clauses are already extracted as that very XOR, so
+  the implementation drops those candidates at extraction rather than collapsing
+  them.)*
 - **Proof δ:** add-RUP. AND — each equivalence binary is RUP from the two gates’
   clauses (bridged by the equivalence binaries added earlier in the closure).
   XOR — a parity-elimination **ladder**: eliminate one rhs variable per level, at
   each level emit `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for all sign
   patterns; every lemma is RUP over the current DB, the two size-0 lemmas are the
   binaries. ITE — a fixed **6-clause case-split on cond**: `{a,¬b,±cond}`,
-  `{¬a,b,±cond}` then the two binaries. **No `add_rat`.** Equivalence-preserving
+  `{¬a,b,±cond}` then the two binaries. A **degeneracy** conclusion (unit or
+  unary merge) is likewise not RUP on its own — the parity clauses propagate
+  nothing until all but one of their literals is assigned — and needs its own
+  ladder, quantified over the **cancelled** representatives rather than over a
+  shared rhs: for `size = |cancelled| … 1`, every sign pattern over
+  `cancelled[0..size-1]` appended to each conclusion; the size-0 lemmas are the
+  unit / the two binaries. **No `add_rat`.** Equivalence-preserving
   (no variable eliminated here), so no `ρ` witness — the outputs stay live
   until V3. *(Native-LRAT chains: AND emits bridged chains via `big_path_chain`;
   XOR/ITE are DRAT-only for now — deviation D-CONG-LRAT in
