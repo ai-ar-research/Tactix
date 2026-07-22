@@ -118,31 +118,35 @@ disagree, the plan is authoritative — fix this file.
     "skip BVE on harmful structure" separator (no static CNF feature separates
     harmful from helpful — best 4/13 misclassifications ≈ chance,
     `benchmarks/reports/2026-07-20-bve-skip-feasibility.md`).
-  - **L7 · Repeated during-search BVE is NOT blocked by wasted work — it is the
-    PHASES themselves.** Four attempts now, the last with P1 underneath: Tier B
-    21.33 → 32.45, 4/14 wins. The decisive pair of numbers is `mod4block` without
-    P1 (101.8 s, 3.5 M resolutions) vs with P1 (102.7 s, 2.3 M resolutions):
-    **33 % less resolvent work for identical time**. *Measured:* the resolvent
-    generation is NOT the cost. *Inferred, not yet measured:* what remains is the
-    per-phase overhead — the root descent every phase requires (D-ROOT) plus
-    enumeration — and on a high-variance SAT instance repeated root descents
-    derail the search, the same channel the 2026-07-18 assessment found. **Test
-    that before building on it** (e.g. vary only the interval and watch whether
-    time tracks phase COUNT). **The elimination itself is not the
-    problem:** the same configuration takes `combined-crypto1` 24.4 → 3.8 s
-    (6.4×), because the growth-slack ramp picks benign eliminations. So repeated
-    BVE is strongly bimodal, and the next hypothesis to test is the cost/frequency
-    of the phase, not the work inside it — e.g. far longer intervals, or
-    simplifying without a full root descent.
-  - **L8 · Ablating ONE simplifier does not measure that simplifier.** On
-    `FmlaEquivChain`, kissat with **all** simplification off (8.68 s) is faster
-    than kissat with any **single** simplifier off (congruence 13.0, eliminate
-    15.5, sweep 17.0). Removing one makes the survivors over-invest, so a
-    single-ablation delta is an upper bound wildly inflated by re-allocation, not
-    the technique's worth. **Always run the all-off control** — it is what bounds
-    the whole simplification layer (here: ~0 net seconds) and it is cheap. This is
-    the generalisation of the `clique` finding, and it has now twice stopped a
-    rule-development plan that would have bought nothing.
+  - **L7 · Repeated during-search BVE costs SEARCH TRAJECTORY, and neither
+    obvious mechanism is it. MEASURED 2026-07-22, replacing the inferred
+    version of this lesson — which was wrong.** Sweep over
+    `TACTIX_INPROCESS_INTERVAL` ∈ {unset,1k,3k,10k,30k,100k} × {mod4block,
+    crypto1}, varying only the interval:
+
+    | | time vs phases | time vs conflicts | time vs resolutions |
+    |---|---|---|---|
+    | mod4block | **r = +0.01** | **r = +0.99** | r = −0.04 |
+    | crypto1 | r = +0.53 | **r = +1.00** | r = +0.47 |
+
+    - **The per-phase-overhead hypothesis is DEAD** (r = +0.01). The decisive
+      pair: **47 phases → 205.8 s, 91 phases → 41.8 s** — twice the phases, a
+      fifth of the time. So "attack the phase's cost/frequency", which the old
+      L7 named as the next step, is attacking the wrong variable.
+    - **The resolvent-work hypothesis is dead too** (r = −0.04): 5.94 M
+      resolutions → 41.8 s vs 2.33 M → 172.9 s. This confirms P1's finding from
+      the opposite direction.
+    - **What remains is trajectory damage** (r = +0.99 with conflicts), and it is
+      **chaotic in the interval, not monotone** — so there is no "safe interval"
+      to tune toward. The interval is simply the wrong control.
+    - **`crypto1`'s 6.4 × is NOT reachable through the interval:** flat
+      21.9–35.9 s across every setting, with eliminations pinned at 386–402. Its
+      3.8 s came from the **growth-slack ramp**, which cuts eliminations to ~71
+      (L4) — a different knob entirely. Ramp and interval are separable, and the
+      ramp is the crypto1 lever. **Test the ramp alone next.**
+    - *Method note:* mid-sweep the first two points made `time/phase` look
+      constant, and that would have been written up as confirmation had the
+      prediction not been registered in advance and the sweep not been finished.
   - **L6 · Measurement hygiene.** Solo spot-checks MISLEAD (`hwmcc` looked like a
     57→47 s win solo, neutral at jobs=4); only same-window A/B at equal
     concurrency counts. **HEAD's Tier B spread is 20.60–23.01 PAR-2** (nine runs,
@@ -288,8 +292,8 @@ why none of them needs a trade-off against the others.
 
 ### ▶ Track S — the effort-budgeted scheduler's target arrangement (after Track C)
 
-- [ ] **S1 · settle L7's open hypothesis — instrument landed (`775eefc`), sweep pre-registered.** `TACTIX_INPROCESS_INTERVAL=N` varies ONLY the interval; `stats.inprocess_phases` is the x-axis. Sweep: intervals {unset, 1k, 3k, 10k, 30k, 100k} × {`mod4block` (L7's loser, 101.8 s), `combined-crypto1` (L7's winner, 24.4 → 3.8 s)}, recording time, phases, conflicts, resolutions, eliminations. **Prediction registered BEFORE running, so the outcome cannot be narrated after the fact:** if L7 holds, wall time rises with PHASE COUNT while BVE work (resolutions) stays flat or falls — and the fix is then fewer/cheaper phases, which would make `crypto1`'s 6.4× reachable without the Tier B loss that forced the revert. If instead time tracks resolutions, L7 is WRONG, the cost is the elimination work, and the during-search line closes properly instead of staying inferred. Either way it stops being an inference.
-- [ ] *(original wording)* **S1 · settle L7's open hypothesis** — is repeated during-search BVE's cost really the per-phase root descent? Vary ONLY the interval and see whether time tracks phase COUNT. Cheap; it either revives during-search elimination or closes it properly instead of leaving it inferred.
+- [x] **S1 · DONE — L7 refuted, and the answer redirects Track S.** Instrument `775eefc`, results in L7 above. Time tracks **conflicts** (r = +0.99), not phase count (r = +0.01) and not resolvent work (r = −0.04). Consequences: (a) the "fewer/cheaper phases" direction is dead; (b) the interval is the wrong control variable, since the damage is chaotic in it; (c) **`crypto1` is insensitive to the interval — its 3.8 s needs the growth-slack RAMP, which is a separate knob and now the concrete next experiment**; (d) S4's premise survives, because moving elimination *into* the search loop is precisely an attempt to stop perturbing the trajectory rather than to perturb it less often.
+- [ ] **S1b · test the growth-slack ramp ALONE on `crypto1`** — S1 isolated the interval and found it inert there; L4 recorded the ramp taking `crypto1` to 6.9 s with 71 eliminations (vs 386–402 without). So the ramp is the untested lever on a 7.46× tail instance. `Kernel::bve_bound` already makes the growth slack policy-controlled, so this is a knob away.
 - [ ] **S2 · re-measure the probing rules now P2 exists** — Probe, Backbone, TransitiveReduce were disabled for the artifact P2 removed. Each is an `enabled` flip in the slot composition plus a Tier B A/B; effort specs are already in the ledger. **Vivify is already re-measured and still net-negative (24.19 vs 21.01)**, so do not assume the others turn positive.
 - [ ] **S3 · P2's owed follow-ups** — a `stress-policy` pass (its snapshot/restore is a novel mechanism, not a port) and charging its snapshot traffic to the effort ledger, which cannot currently see it.
 - [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing *plus* probing simplifying the formula and elimination moved into the search loop. Built behind the slot's `enabled` flags with today's composition as the default; gated on Tier B+C together (an explicit, recorded exception to §8.3 per-increment gating, because each half measures worse alone — L1/L2).
