@@ -217,15 +217,15 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
 - [x] **Inprocessing revamp — the slot ACTIVATED** (2026-07-19) — preprocessing at conflicts=0 + shared dense occurrence index (`Kernel::dense`) + the kissat eliminate-round phase structure. Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`, design `docs/design/inprocessing-revamp-design.md`. Bit-exactness (s055) intentionally retired here; `demo3` relaxed to §8.4 within-noise.
 ### ▶ Track C — complete V6 Congruence (plan rev 56; runs first)
 
-- [ ] **C0 · fix the XOR output-sign offset** — `congruence.cpp:228` computes `c = (s ^ base_parity ^ 1) & 1`; the relation "all `2^{s-1}` clauses of parity `base_parity`" is `⊕vᵢ = base_parity ⊕ 1`, so the `s` term is spurious and the emitted output literal is **negated for every even-arity gate** (self-check on `hwmcc`: 116 517 gates, 116 517 wrong). Harmless today — the offset cancels in XOR↔XOR key matching, its only consumer — but **all 711 XOR-cancel events on `hwmcc` are even-arity**, so a unit channel built on top would learn the wrong polarity every time. Fix + a unit test that evaluates each emitted gate's output literal against the relation. Expect bit-identical behaviour; verify.
-- [ ] **C1 · close the `add_equivalence` empty-LRAT-hint hazard** — under `--lrat`, if `build()` fails (no matching input class, or `big_path_chain` finds no path) the rule emits `add_rup(id, lits, 2, nullptr, 0)`, i.e. an LRAT line with an **empty hint list**, and continues. Both checkers reject such a line (measured: lrat-check `NOT VERIFIED`, cake_lpr "no reduction sequence"). Latent only because XOR/ITE are DRAT-gated. Make the failure impossible or loud — an unverifiable proof must never be emitted silently (N2).
-- [ ] **C2 · filter the degenerate ITE candidates at extraction** (kissat `new_ite_gate`, `congruence.c:1347-1367`): `else == ¬then` → skip the candidate (its relation is already extracted as an XOR2 — the twin gate draws the same inference in the same round, measured), `else == then` → merge `lhs ≡ then` immediately. Removes **94.3 % of the 493 584 ITE degenerate discards and 75 % of extracted ITE gates** with zero information loss. Perf/hygiene, not a calculus change; measure `hwmcc` + Tier B. **Do not weaken ITE extraction generally** — with ITE 47 s, without it >150 s unfinished.
-- [ ] **C3 · `D-CONG-UNIT` + `D-CONG-LRAT` + `D-CONG-DELETE` — ONE landing** (user decision, rev 56; supersedes the old "LRAT must close first"). Pieces:
-  - **the degeneracy ladder** — for an XOR gate whose canonical key is empty (constant → root unit) or a singleton (unary → merge), emit `{pattern over the cancelled rep vars, ¬out_lit}` for `size = |D| … 1`, then the unit/binaries. **Validated 2026-07-21 by drat-trim before any code:** bare adds rejected in all four variants, ladder VERIFIED in all four (|D|=1, |D|=2, sign-folded parity, unary survivor). Independently identical to kissat's `add_xor_shrinking_proof_chain`, which also **deletes the two extended lemmas** — that is D-CONG-DELETE on this path.
-  - **`learn_unit` in the closure** — assign at root, propagate, and reschedule the gates whose inputs changed value (kissat drains units to a fixpoint *before* every dequeued equivalence: `propagate_units_and_equivalences`, `congruence.c:4210-4222`; its cursor is into the trail, so BCP consequences are picked up too). Keep shrunken gates in the table rather than discarding them.
-  - **the remaining degeneracies** — AND with a clashing/root-false input → unit `¬out`; unary AND/XOR → merge; and the `x ≡ ¬x` clash-merge → refutation (`substitute.cpp`'s `emit_unsat` is the working model). *Note the probe measured the clash-merge firing 0 times on `hwmcc`* — it is for completeness and N1, not for this instance.
-  - **native LRAT chains** for all three ladders (constant/unary, XOR matching, ITE case-split) + ungate XOR/ITE under `--lrat`. The chain shape is known: lower ladder levels cite the two child lemma ids; the top level cites the bridging binaries (`big_path_chain`) then the falsified parity clause.
-  - **Gates before it lands:** `hwmcc17miters` refuted inside congruence; Tier B + Tier C A/B; fuzz DRAT **and** native LRAT; **a `stress-policy` pass — V6 has never returned `Unsat`, so no fuzz case has ever exercised a V6 refutation**; `docs/calculus.md` + `docs/implementation-notes.md` synced via the calculus skill.
+- [x] **C0 · DONE (`1a365da`, on main) — fixed the XOR output-sign offset** — `congruence.cpp:228` computes `c = (s ^ base_parity ^ 1) & 1`; the relation "all `2^{s-1}` clauses of parity `base_parity`" is `⊕vᵢ = base_parity ⊕ 1`, so the `s` term is spurious and the emitted output literal is **negated for every even-arity gate** (self-check on `hwmcc`: 116 517 gates, 116 517 wrong). Harmless today — the offset cancels in XOR↔XOR key matching, its only consumer — but **all 711 XOR-cancel events on `hwmcc` are even-arity**, so a unit channel built on top would learn the wrong polarity every time. Fix + a unit test that evaluates each emitted gate's output literal against the relation. Expect bit-identical behaviour; verify.
+- [x] **C1 · DONE — closed the `add_equivalence` empty-LRAT-hint hazard** — under `--lrat`, if `build()` fails (no matching input class, or `big_path_chain` finds no path) the rule emits `add_rup(id, lits, 2, nullptr, 0)`, i.e. an LRAT line with an **empty hint list**, and continues. Both checkers reject such a line (measured: lrat-check `NOT VERIFIED`, cake_lpr "no reduction sequence"). Latent only because XOR/ITE are DRAT-gated. Make the failure impossible or loud — an unverifiable proof must never be emitted silently (N2).
+- [x] **C2 · DONE — filter the degenerate ITE candidates at extraction** (measured on `hwmcc`: gates 2 058 212 → 1 592 904, equivalences 710 722 → 710 722 IDENTICAL, 59.0 → 49.8 s). (kissat `new_ite_gate`, `congruence.c:1347-1367`): `else == ¬then` → skip the candidate (its relation is already extracted as an XOR2 — the twin gate draws the same inference in the same round, measured), `else == then` → merge `lhs ≡ then` immediately. Removes **94.3 % of the 493 584 ITE degenerate discards and 75 % of extracted ITE gates** with zero information loss. Perf/hygiene, not a calculus change; measure `hwmcc` + Tier B. **Do not weaken ITE extraction generally** — with ITE 47 s, without it >150 s unfinished.
+- [ ] **C3 · `D-CONG-UNIT` + `D-CONG-LRAT` + `D-CONG-DELETE` — ONE landing** (user decision, rev 56; supersedes the old "LRAT must close first"). **The DRAT half is BUILT and measured on branch `congruence-unit-channel` (`7f886ca`) — `hwmcc17miters` 48.77 → 6.67 s against kissat's 2.27 s in the same window (21.5× → 2.9×), 0 decisions / 1 root conflict, 14.4 MB proof drat-trim VERIFIED, fuzz DRAT 1000/0, no regression elsewhere. It stays off main until the LRAT half joins it.** Pieces:
+  - [x] **the degeneracy ladder** — for an XOR gate whose canonical key is empty (constant → root unit) or a singleton (unary → merge), emit `{pattern over the cancelled rep vars, ¬out_lit}` for `size = |D| … 1`, then the unit/binaries. **Validated 2026-07-21 by drat-trim before any code:** bare adds rejected in all four variants, ladder VERIFIED in all four (|D|=1, |D|=2, sign-folded parity, unary survivor). Independently identical to kissat's `add_xor_shrinking_proof_chain`, which also **deletes the two extended lemmas** — that is D-CONG-DELETE on this path.
+  - [x] **the unit batch** — units are collected and asserted at the end of the round (V1/V3's collect-then-batch), then the root closure runs. Enough for the miter, because the cancellation is driven by the union-find, not by values. kissat instead assigns and propagates immediately and reschedules gates from a trail cursor — assign at root, propagate, and reschedule the gates whose inputs changed value (kissat drains units to a fixpoint *before* every dequeued equivalence: `propagate_units_and_equivalences`, `congruence.c:4210-4222`; its cursor is into the trail, so BCP consequences are picked up too). Keep shrunken gates in the table rather than discarding them.
+  - [ ] **C3b · the remaining degeneracies** — AND with a clashing/root-false input → unit `¬out`; unary AND/XOR → merge; and the `x ≡ ¬x` clash-merge → refutation (`substitute.cpp`'s `emit_unsat` is the working model). *Note the probe measured the clash-merge firing 0 times on `hwmcc`* — it is for completeness and N1, not for this instance.
+  - [ ] **native LRAT chains** for all three ladders (constant/unary, XOR matching, ITE case-split) + ungate XOR/ITE under `--lrat`. The chain shape is known: lower ladder levels cite the two child lemma ids; the top level cites the bridging binaries (`big_path_chain`) then the falsified parity clause.
+  - [ ] **Gates before it lands:** `hwmcc17miters` refuted inside congruence; Tier B + Tier C A/B; fuzz DRAT **and** native LRAT; **a `stress-policy` pass — V6 has never returned `Unsat`, so no fuzz case has ever exercised a V6 refutation**; `docs/calculus.md` + `docs/implementation-notes.md` synced via the calculus skill.
 
 ### ▶ Track S — the effort-budgeted scheduler's target arrangement (after Track C)
 
@@ -283,6 +283,41 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-21 — the congruence unit channel WORKS: hwmcc17miters 48.8 → 6.7 s, refuted inside congruence
+Branch `congruence-unit-channel` (`7f886ca`), held off main until its native
+LRAT chains join it (rev 56's one-landing decision). C0 (`1a365da`) is on main.
+
+**Same window, clean machine, sequential — kissat 2.27 s, tactix before 48.77 s
+(21.5×), tactix after 6.67 s (2.9×).** 0 decisions, 1 root conflict: the miter is
+refuted INSIDE congruence, which is what kissat does on this family and what V6
+could never do — it had no unit channel and had never returned `Unsat` at all.
+The 14.4 MB DRAT proof (was 92 MB) is **drat-trim VERIFIED, 0 RAT lemmas**.
+
+The mechanism end to end: congruence proves `aᵢ ≡ bᵢ` for the two circuits'
+matching signals → each output XOR's representative inputs cancel → its output is
+the constant 0 → root unit `¬outᵢ` → propagating those falsifies the miter's
+output constraint. Only the unit step was missing; the 710 722 equivalences were
+already there.
+
+- **The ladder was validated before it was written.** drat-trim rejected a bare
+  add of the conclusion in all four shapes and verified the ladder in all four
+  (|cancelled| = 1 and 2, both relation parities, unary survivor). It then turned
+  out to be the same construction as kissat's `add_xor_shrinking_proof_chain`.
+- **C2 is a pure win, exactly as measured beforehand:** `hwmcc` gates
+  2 058 212 → 1 592 904 with equivalences **710 722 → 710 722 identical**, 59.0 →
+  49.8 s. The filtered ITE candidates really were redundant with the XOR twin.
+- **No regression:** `x9-08014` 801 694 conflicts and `square.2.0.i` 13 453,
+  both identical pre/post. The channel only fires where XOR gates fully cancel.
+- **Still deferred with reasons (C3b):** the AND degeneracies and the `x ≡ ¬x`
+  clash-merge — all three measured firing 0 times on `hwmcc`, and the AND chains
+  need care the XOR ones do not (a duplicated input means a duplicated
+  `input_bin_ids` hint, neither unit nor falsified at its position in the chain).
+- **Remaining before this can land on main:** the native LRAT chains + ungating
+  XOR/ITE under `--lrat`, `del` for the transient ladder lemmas, a
+  `stress-policy` pass (V6 can now return `Unsat`, so no existing fuzz case has
+  ever exercised that path), Tier B/C, and the calculus/implementation-notes sync.
+
 
 ### 2026-07-21 — D-CONG-UNIT scoped to a build plan; plan rev 56 sequences phase 3 into two tracked tracks
 The phase-3 work now has an ORDERED CHECKLIST (Track C · congruence C0–C3, then
