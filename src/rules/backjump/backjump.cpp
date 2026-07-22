@@ -59,6 +59,7 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     return ApplyResult::Unsat;
   }
   if (stale) {
+    k.stats.backjump_stale++;
     p.valid = false;
     return ApplyResult::NoOp;
   }

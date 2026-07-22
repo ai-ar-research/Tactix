@@ -516,6 +516,26 @@ ApplyResult analyze_apply(Kernel &k) {
       }
       return ApplyResult::Unsat;
     }
+    // CONFLICT-LEVEL BACKTRACK (kissat analyze.c one_literal_on_conflict_level:
+    // `if (conflict_level < solver->level) backtrack_after_conflict(...)`).
+    // Under chronological backtracking the trail is no longer level-sorted, so
+    // the conflict's highest literal level `alevel` can sit BELOW the current
+    // decision level. Everything downstream is defined relative to the level the
+    // conflict actually lives at: the backjump gap `back - jump` that decides
+    // chronological-vs-normal, the 1-UIP walk's starting point, and the
+    // asserting literal's staleness test. Analysing from a higher level made all
+    // three wrong at once — the gap was overstated so the chronological branch
+    // fired far too often; the target could land at or above `alevel`, where the
+    // conflict is STILL falsified; and `backjump_apply_to` then found the
+    // asserting literal still assigned, declared the pending clause stale and
+    // returned NoOp, so the conflict was silently dropped and re-derived one
+    // level at a time — duplicate learned clauses, duplicate proof lines and
+    // bogus glue samples on every repeat. Measured cost: Tier B +13 % and a
+    // 7-win/7-lose bimodality that tracked trail depth exactly.
+    // No-op when chrono is off: complete propagation on a level-sorted trail
+    // always puts a conflict literal at the current level, so alevel == k.level.
+    if (alevel < k.level)
+      kernel_backtrack(k, alevel);
     const Ref conflict_ref0 = k.conflict_ref; // may be garbage'd by OTFS
 
     learned.clear();

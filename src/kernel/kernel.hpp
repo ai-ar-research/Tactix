@@ -79,6 +79,13 @@ struct Stats {
   // enabled technique). Counted in the kernel so it survives into the stats
   // block: L7's open question is whether repeated-BVE cost tracks this number
   // rather than the work inside a phase, and that is unanswerable without it.
+  // Chronological backtracking (TB4). Both were absent for the first chrono
+  // experiment, which is why a pathology that dropped conflicts outright was
+  // invisible in a full Tier B run: `chronological` counts chrono targets taken,
+  // `backjump_stale` counts pending clauses discarded because the asserting
+  // literal was still assigned after the backtrack — the latter should be 0.
+  uint64_t chronological = 0;
+  uint64_t backjump_stale = 0;
   uint64_t inprocess_phases = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds (V6) — gate-closure passes
   // V6 merges dropped because no checkable LRAT chain could be built for them

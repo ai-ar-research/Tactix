@@ -395,7 +395,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // step back one level instead when the gap exceeds the limit
         const uint32_t jump = k.pending.jump_level;
         const uint32_t back = k.level - 1;
-        backjump_apply_to(k, back - jump > chrono_levels ? back : jump);
+        const bool chrono = back - jump > chrono_levels;
+        if (chrono)
+          k.stats.chronological++;
+        backjump_apply_to(k, chrono ? back : jump);
       }
       continue;
     }
