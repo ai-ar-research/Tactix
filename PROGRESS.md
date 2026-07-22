@@ -61,7 +61,19 @@ disagree, the plan is authoritative — fix this file.
     ledger row for the exact discard sites). **Hard ordering constraint:
     `D-CONG-LRAT` must close first** — the XOR/ITE degeneracies are DRAT-only
     today — and it needs a `stress-policy` pass, since no fuzz case has ever
-    exercised a V6 refutation.
+    exercised a V6 refutation. **Scoped 2026-07-21 with `TACTIX_CONG_PROBE`
+    (committed diagnostic), which corrected the plan twice:** on `hwmcc` the
+    discards are XOR-cancel **711**, ITE-share **493 584**, AND-clash 0, and the
+    `x ≡ ¬x` clash-merge fires **0 times** — so (a) the clash-merge refutation is
+    NOT the fix here, and (b) XOR full cancellation is the load-bearing channel
+    (711 ≈ half of kissat's `units: 1422` on the same instance). **And the derived
+    unit is NOT RUP** — drat-trim rejects a bare `add_rup` of it (verified on a
+    3-variable `out = a⊕b` with `a ≡ b`: `s NOT VERIFIED`), so the constant case
+    needs its OWN parity ladder; the matching ladder proves an equivalence between
+    two gates, not a constant from one. **Start there: design the ladder first,
+    then the unit channel.** The ITE-share channel (500 k discards, mostly
+    collapse-to-merge rather than units) is unexplored and may matter more than
+    its absence from the original analysis suggests.
   - **(B) Re-measure the other probing rules now that P2 exists.** Probe,
     Backbone and TransitiveReduce were disabled for the artifact P2 removed and
     have not been re-measured since. Each is an `enabled` flip in the slot

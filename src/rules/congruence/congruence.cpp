@@ -240,6 +240,12 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
 
 bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 
+// TACTIX_CONG_PROBE: count the degenerate-gate discards by cause. These are the
+// inferences V6 does NOT draw (deviation D-CONG-UNIT) — the diagnostic that sizes
+// closing it. Env-gated, default-identical, like TACTIX_CONG_TRACE.
+static const bool cong_probe = std::getenv("TACTIX_CONG_PROBE") != nullptr;
+static uint64_t cong_n_and = 0, cong_n_ite = 0, cong_n_xor = 0, cong_n_clash = 0;
+
 // Canonicalize gate g under the current union-find into (key, out_lit): key is the
 // structural hash (positive, sorted per kind); out_lit is the literal whose class
 // is merged on a key collision. Returns false if the gate is degenerate under the
@@ -252,8 +258,10 @@ bool canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
       l = find(l);
     std::sort(key.begin(), key.end());
     for (size_t j = 1; j < key.size(); j++)
-      if (key[j] == key[j - 1] || key[j] == negate(key[j - 1]))
+      if (key[j] == key[j - 1] || key[j] == negate(key[j - 1])) {
+        if (cong_probe) cong_n_and++; 
         return false; // AND(…,x,x/¬x,…): idempotent/false — defer
+      }
     out_lit = g.output;
     return true;
   }
@@ -263,8 +271,10 @@ bool canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
     // then==¬else (an XOR), or cond touching a branch collapse it to a simpler
     // gate that a later increment/propagation handles; skipping stays sound.
     if (var_of(cond) == var_of(th) || var_of(cond) == var_of(el) ||
-        var_of(th) == var_of(el))
+        var_of(th) == var_of(el)) {
+      if (cong_probe) cong_n_ite++; 
       return false;
+    }
     const bool neg_lhs = normalize_ite(cond, th, el);
     key = {cond, th, el}; // fixed order — the structural key
     out_lit = neg_lhs ? negate(g.output) : g.output;
@@ -293,8 +303,10 @@ bool canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
       key.push_back(reps[j]); // odd multiplicity survives
     j += cnt;
   }
-  if (key.empty())
+  if (key.empty()) {
+    if (cong_probe) cong_n_xor++; 
     return false; // all cancelled → output is a constant; defer
+  }
   out_lit = parity ? negate(g.output) : g.output;
   return true;
 }
@@ -600,8 +612,10 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     const Lit oa = find(out_j);
     const Lit ob = find(out_i);
-    if (oa == ob || oa == negate(ob))
+    if (oa == ob || oa == negate(ob)) {
+      if (cong_probe && oa == negate(ob)) cong_n_clash++; 
       continue; // already equal, or a contradiction (deferred)
+    }
     // congruent outputs → add oa==ob (DRAT-RUP over the full DB; LRAT chains TODO).
     if (gates[i].kind == GateKind::Xor) {
       add_xor_matching_proof_chain(k, key, out_j, out_i);
@@ -627,6 +641,14 @@ ApplyResult congruence_apply(Kernel &k) {
           work.push_back(gg);
         }
   }
+  if (cong_probe)
+    std::fprintf(stderr,
+                 "[cong-probe] discards (= inferences NOT drawn, D-CONG-UNIT): "
+                 "AND-clash=%llu ITE-share=%llu "
+                 "XOR-cancel=%llu | merges skipped as x==~x: %llu\n",
+                 (unsigned long long)cong_n_and, (unsigned long long)cong_n_ite,
+                 (unsigned long long)cong_n_xor,
+                 (unsigned long long)cong_n_clash);
   if (std::getenv("TACTIX_CONG_TRACE"))
     std::fprintf(stderr, "[cong] %zu gates, %llu equivalences added\n",
                  gates.size(), (unsigned long long)neq);
