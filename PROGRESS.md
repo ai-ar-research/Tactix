@@ -7,10 +7,14 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 60 (2026-07-22)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-21
-- **▶ RESUME HERE (2026-07-21).** Phase 3, **T3 gate open**. Working plan rev 53/54/55,
-  the **effort-budgeted inprocessing scheduler**. Design, increment plan and the
-  measured evidence: **`docs/design/effort-scheduler-design.md` — read it first.**
+- **Last updated:** 2026-07-22
+- **▶ RESUME HERE (2026-07-22).** Phase 3, **T3 gate open**. **The next step is
+  `H0` then `H1` in the Track H checklist below** — relocate `H` out of the Kernel
+  (plan rev 60, the user's top priority), design `docs/design/h-relocation-design.md`.
+  H0 is docs-only (fill in the design stub + sync §5.2/calculus/implementation-notes);
+  H1 is the additive `ActionKind`/`tactix_action_kind` C-API step. Both are bit-exact
+  and safe on a live tree; H2–H5 want a quiet tree. What landed just before this is in
+  the top block below.
 
   **Landed (revs 53–55).** *Increment 1, the effort ledger* — each rule's dose is
   a per-mille fraction of the search work since it last ran, metered in its own
