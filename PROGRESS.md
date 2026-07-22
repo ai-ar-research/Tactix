@@ -39,7 +39,10 @@ disagree, the plan is authoritative — fix this file.
     during-search BVE** — see L7. Kept because it is correct, is a prerequisite
     for any future repeated elimination, and centralised large-clause deletion
     behind `kernel_mark_garbage`.
-  - **P2 · a NON-MUTATING PROBING PROPAGATION PATH** (kissat `proprobe.c`).
+  - **P2 · a NON-MUTATING PROBING PROPAGATION PATH.** *(NOT a kissat port — see
+    the correction in L3: kissat's probing propagator mutates watches exactly like
+    its search propagator, so `proprobe.c` is not the design to copy. Whatever
+    lets kissat tolerate this is still unknown.)*
     `kernel_propagate` relocates watches and rewrites per-clause `searched` hints
     even when a probing round derives nothing — see Lesson L3. **Gates all four
     probing rules** (V1/V2/C3/V4, all disabled). V2 Backbone is the existence
@@ -60,18 +63,31 @@ disagree, the plan is authoritative — fix this file.
     arrangement above.
   - **L2 · During-search BVE *alone* loses**, three variants: one slot-wide
     interval (20.7→22.5), per-technique intervals (23.0→24.1), and recurring BVE
-    with the growth-slack ramp (20.8→32.9, 13/14 worse). Root cause is P1, not
-    tuning. With the current composition there is nothing else worth doing during
-    search either — BVE at preprocessing already captures the value.
+    with the growth-slack ramp (20.8→32.9, 13/14 worse; 21.3→32.5 with P1). With
+    the current composition there is nothing else worth doing during search
+    either — BVE at preprocessing already captures the value. **Cause: see L7 —
+    it is the per-phase overhead, NOT the work inside the phase.** (An earlier
+    version of this lesson blamed the missing retry filter; P1 landed and did not
+    fix it.)
   - **L3 · `NoOp` is not a no-op.** A probing round that changes nothing still
     reorders watch lists; that alone cost `battleship` 12× conflicts
     (1.95 M→24.0 M). Restoring those structures reproduces the rule-off run
     bit-identically. So probing is *not* intrinsically SAT-hostile — its side
     effects are unbudgeted. Ruled out as channels: the VMTF cursor (bit-identical)
     and arena GC. → P2. (`6a8d159`)
+    **⚠ Correction (verified 2026-07-21): kissat does NOT solve this with a
+    separate non-mutating probing engine, and P2 is therefore NOT a port.**
+    `proprobe.c` and `propsearch.c` both `#include "proplit.h"` — one shared
+    template; the `PROBING_PROPAGATION` guards cover only the `ignore` parameter
+    and `INC(conflicts)`, while the watch relocation
+    (`kissat_delay_watching_large`) and the `c->searched` write are in the shared
+    body. kissat's probing mutates watches exactly like its search does. **How
+    kissat tolerates that is still UNKNOWN** — do not assume an answer. Any P2
+    design here is a novel mechanism and carries novel-mechanism risk.
   - **L4 · The BVE dose curve is U-shaped**, not monotone: `crypto1` at ~300
     eliminations 8.1 s, 386 → 24.7 s, 0 → 45.5 s. Elimination *quality* beats
-    quantity — kissat's growth-slack ramp took it to 6.9 s with 71 eliminations.
+    quantity — the growth-slack ramp took it to 6.9 s with 71 eliminations, and
+    to 3.8 s when the ramp also recurs during search (L7).
   - **L5 · The bimodal-BVE saga is CLOSED** — it was a Factor↔BVE *ordering*
     interaction, not a BVE-internals problem: BVE-last + Factor `density=8`
     shipped as default (`5111bc7`; Tier B 42.6→23.3, Tier C 28→29/30). Both remain
@@ -85,11 +101,13 @@ disagree, the plan is authoritative — fix this file.
     PHASES themselves.** Four attempts now, the last with P1 underneath: Tier B
     21.33 → 32.45, 4/14 wins. The decisive pair of numbers is `mod4block` without
     P1 (101.8 s, 3.5 M resolutions) vs with P1 (102.7 s, 2.3 M resolutions):
-    **33 % less resolvent work for identical time**, so the resolvent generation
-    was never the cost. What remains is the per-phase overhead — the root descent
-    that every phase requires (D-ROOT) plus enumeration — and on a high-variance
-    SAT instance the repeated root descents derail the search, which is the same
-    channel the 2026-07-18 assessment found. **The elimination itself is not the
+    **33 % less resolvent work for identical time**. *Measured:* the resolvent
+    generation is NOT the cost. *Inferred, not yet measured:* what remains is the
+    per-phase overhead — the root descent every phase requires (D-ROOT) plus
+    enumeration — and on a high-variance SAT instance repeated root descents
+    derail the search, the same channel the 2026-07-18 assessment found. **Test
+    that before building on it** (e.g. vary only the interval and watch whether
+    time tracks phase COUNT). **The elimination itself is not the
     problem:** the same configuration takes `combined-crypto1` 24.4 → 3.8 s
     (6.4×), because the growth-slack ramp picks benign eliminations. So repeated
     BVE is strongly bimodal, and the next hypothesis to test is the cost/frequency
@@ -97,8 +115,10 @@ disagree, the plan is authoritative — fix this file.
     simplifying without a full root descent.
   - **L6 · Measurement hygiene.** Solo spot-checks MISLEAD (`hwmcc` looked like a
     57→47 s win solo, neutral at jobs=4); only same-window A/B at equal
-    concurrency counts. HEAD's Tier B spread is ~21.4–23.0 PAR-2 across runs, so a
-    candidate must beat ~21.4 to be a real gain. Never compare across job counts.
+    concurrency counts. **HEAD's Tier B spread is 20.60–23.01 PAR-2** (nine runs,
+    2026-07-21, jobs=4), so treat anything inside that band as NOISE — a candidate
+    must beat ~20.6 to be a real gain, and a single sub-21 reading proves nothing.
+    Never compare across job counts.
 
 - **Open items (small, none blocking).** `D-CONG-UNIT` — V6 has no unit channel
   and can never refute; it is why `hwmcc17miters` costs 25× kissat (kissat solves
