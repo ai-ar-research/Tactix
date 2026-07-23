@@ -6,6 +6,7 @@
 // conflicts-in / ticks-out alternation) is policy state (plan §5 rev 17),
 // as are the per-mode restart regimes (EMA vs reluctant doubling).
 #include "rules/switchmode/switchmode.hpp"
+#include "policies/heuristics.hpp"
 
 namespace tactix {
 
@@ -13,9 +14,9 @@ bool switchmode_guard(const Kernel &k) { return !k.inconsistent; }
 
 ApplyResult switchmode_apply(Kernel &k) {
   assert(switchmode_guard(k));
-  k.stable = !k.stable;
+  k.h->stable = !k.h->stable;
   k.stats.switched++;
-  if (k.stable) {
+  if (k.h->stable) {
     // entering stable: every var must be reachable via the score heap
     // (kissat bump.c kissat_update_scores)
     heuristics_update_scores(k);

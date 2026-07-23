@@ -8,12 +8,17 @@
 #include "kernel/watch.hpp"
 
 #include <cstdint>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 namespace tactix {
 
 class Proof;
+// Search-guidance state `H` (VMTF queue, EVSIDS heap, phases). Held OPAQUELY by
+// Kernel (only a pointer below) so kernel.hpp never depends on its layout; the
+// full struct + operations live in policies/heuristics.hpp (Track H · H4).
+struct Heuristics;
 
 // per-variable assignment metadata (kissat/src/assign.h)
 struct Assigned {
@@ -166,6 +171,11 @@ struct ProbingLog {
 };
 
 struct Kernel {
+  // out-of-line (defined in kernel.cpp, where Heuristics is complete): the ctor
+  // allocates `h`, the dtor destroys it through the opaque pointer (Track H · H4).
+  Kernel();
+  ~Kernel();
+
   uint32_t nvars = 0;
   // Variables at index >= first_extension_var are NON-ORIGINAL "extension"
   // variables introduced mid-solve (E2 Factor / BVA). They are assigned by search
@@ -178,7 +188,6 @@ struct Kernel {
 
   std::vector<int8_t> values;     // by lit: 1 true, -1 false, 0 unassigned
   std::vector<Assigned> assigned; // by var
-  std::vector<int8_t> saved;      // by var: saved phase (+1/-1)
 
   std::vector<Lit> trail;
   uint32_t propagate_head = 0;
@@ -218,35 +227,13 @@ struct Kernel {
   // kernel_probing_begin/end scope, so search never pays for it
   ProbingLog probing;
 
-  // VMTF (focused-mode decision heuristic)
-  std::vector<Link> links; // by var
-  uint32_t queue_first = UINT32_MAX, queue_last = UINT32_MAX;
-  uint32_t queue_stamp = 0;
-  uint32_t search_idx = UINT32_MAX, search_stamp = 0;
-
-  // EVSIDS score heap (stable-mode decision heuristic; kissat heap.h /
-  // inlineheap.h): pos-indexed binary max-heap over vars. pos UINT32_MAX
-  // means "not in heap" (lazily re-inserted on unassign while stable).
-  struct {
-    std::vector<uint32_t> stack; // heap array of vars, max at stack[0]
-    std::vector<uint32_t> pos;   // by var: index into stack, or UINT32_MAX
-    std::vector<double> score;   // by var
-  } scores;
-  double scinc = 1.0; // EVSIDS bump increment (grows by 1/(1-decay))
-
-  // active instance-ranking mode for Decide (§5.1 H-state): false = VMTF
-  // queue (focused), true = score heap (stable). Flipped only by the S4
-  // SwitchMode rule; WHEN to flip is policy state (rev 17).
-  bool stable = false;
-
-  // target phases (kissat phases.c): assignment snapshot at the deepest
-  // consistent trail seen while stable; preferred over saved phase there
-  std::vector<int8_t> target; // by var: +1/-1, 0 = never saved
-  uint32_t target_assigned = 0;
-  // best phases (kissat phases.c, S3 Rephase): like target, but the
-  // watermark only resets when Rephase consumes it (type Best)
-  std::vector<int8_t> best; // by var: +1/-1, 0 = never saved
-  uint32_t best_assigned = 0;
+  // Search-guidance state `H` (VMTF queue, EVSIDS score heap, saved/target/best
+  // phases): held OPAQUELY (Track H · H4) — the full `struct Heuristics` lives in
+  // policies/heuristics.hpp, and only code that includes it may read `h->…`.
+  // OPTIONAL by design (plan rev 60): a solver with `h == nullptr` is sound, just
+  // unguided. Always allocated today (H4, Kernel-owned); H5 makes it Policy-owned
+  // + legally null. Grown by heuristics_reserve_vars alongside kernel_reserve_vars.
+  std::unique_ptr<Heuristics> h;
 
   // --- reconstruction stack (rho, plan §4) ----------------------------
   // Witness-labelled clause segments for rebuilding a SAT model through
@@ -371,13 +358,8 @@ struct Kernel {
 
 // --- lifecycle -------------------------------------------------------------
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
-
-// Grow the search-guidance (`H`) per-variable state — saved/target/best phases,
-// the VMTF queue links, the EVSIDS score arrays — for vars [old, nvars). Split
-// out of kernel_reserve_vars (Track H · H2) as the `H`-growth seam; called
-// unconditionally today, made conditional on an optional `H` at H4. (Moves to
-// src/policies/heuristics.* at H3/H4 with the rest of `H`.)
-void heuristics_reserve_vars(Kernel &, uint32_t old, uint32_t nvars);
+// heuristics_reserve_vars (the `H`-growth half) is declared in
+// policies/heuristics.hpp; kernel_reserve_vars calls it (Track H · H4).
 
 // Allocate `count` fresh NON-ORIGINAL (extension) variables at a root fixpoint and
 // return the index of the first one. Grows all per-variable state via
@@ -576,26 +558,8 @@ void kernel_probing_begin(Kernel &);
 void kernel_probing_end(Kernel &); // idempotent; a no-op outside a scope
 bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 
-// --- VMTF ------------------------------------------------------------------
-void heuristics_queue_bump(Kernel &, Var v); // move to front (most recent)
-Var heuristics_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
-// reset the queue search cache to the queue tail (entering focused mode)
-void heuristics_reset_queue_search(Kernel &);
-
-// --- EVSIDS score heap (stable mode) ----------------------------------------
-void heuristics_heap_push(Kernel &, Var v);    // insert (must not be contained)
-void heuristics_score_bump(Kernel &, Var v);   // score += scinc, sift, rescale
-void heuristics_scores_decay(Kernel &);        // scinc /= (1 - decay), rescale
-void heuristics_update_scores(Kernel &);       // push all missing vars (enter stable)
-Var heuristics_heap_next_unassigned(Kernel &); // max-score unassigned (lazy pop)
-inline bool heuristics_heap_contains(const Kernel &k, Var v) {
-  return k.scores.pos[v] != UINT32_MAX;
-}
-// snapshot assigned values into target/best phases when the trail is the
-// deepest consistent one seen past each watermark (kissat backtrack.c
-// kissat_update_target_and_best_phases). Stable mode only; Rephase (S3)
-// consumes best and resets the watermarks.
-void heuristics_update_target_phases(Kernel &);
+// (VMTF / EVSIDS / phase-snapshot `H` operations moved to
+// policies/heuristics.hpp — Track H · H4.)
 
 // number of root-fixed assignments (the level-0 trail prefix)
 inline uint32_t kernel_root_fixed(const Kernel &k) {
@@ -627,19 +591,8 @@ uint64_t kernel_conflict_reason_walk(
     Kernel &, std::vector<uint8_t> &seen,
     std::vector<std::pair<uint32_t, uint64_t>> &entries);
 
-// --- decision ranking dispatch (§5.1) ---------------------------------------
-inline Var heuristics_next_decision_var(Kernel &k) {
-  return k.stable ? heuristics_heap_next_unassigned(k)
-                  : heuristics_queue_next_unassigned(k);
-}
-// phase priority (kissat decide.c kissat_decide_phase): target (stable
-// only) -> saved; both default positive
-inline Lit heuristics_decide_lit(const Kernel &k, Var v) {
-  int8_t phase = k.stable ? k.target[v] : 0;
-  if (phase == 0)
-    phase = k.saved[v];
-  return make_lit(v, phase < 0);
-}
+// (decision-ranking dispatch — heuristics_next_decision_var /
+// heuristics_decide_lit — moved to policies/heuristics.hpp, Track H · H4.)
 
 // --- garbage collection ------------------------------------------------
 // compacts the arena (dropping GARBAGE clauses), fixes trail reasons via

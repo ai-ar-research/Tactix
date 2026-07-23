@@ -2,6 +2,7 @@
 // root-level conflict detection.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 
@@ -67,8 +68,8 @@ static void test_backtrack_restores() {
   kernel_backtrack(k, 0);
   assert(k.level == 0 && k.unassigned == 3);
   assert(k.values[internalize(1)] == 0);
-  assert(k.saved[0] == 1);  // phase of var 1 saved positive
-  assert(k.saved[1] == -1); // phase of var 2 saved negative
+  assert(k.h->saved[0] == 1);  // phase of var 1 saved positive
+  assert(k.h->saved[1] == -1); // phase of var 2 saved negative
 }
 
 // --- probing propagation (kernel_probing_begin/end) -------------------------

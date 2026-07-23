@@ -8,26 +8,28 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 61 (2026-07-22)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-22
-- **▶ RESUME HERE (2026-07-22).** Phase 3, **T3 gate open**. **Track H · H0–H3
-  LANDED, all bit-exact.** H0/H1: docs synced to plan rev 61 (S3/S4/S6/S7 are
-  **policy operations**), additive `ActionKind`/`tactix_action_kind` API. H2: the
-  compile-time hook seam (`kernel_backtrack` → `template <bool HasH>` with every
-  `H` touch under `if constexpr`). **H3: the `H` CODE now lives in
-  `src/policies/heuristics.cpp`** — 16 functions moved verbatim out of `kernel.cpp`,
-  renamed `kernel_*`→`heuristics_*`, dead `kernel_queue_init` deleted; declarations
-  (incl. 3 inline fns) still in `kernel.hpp`. Each increment verified bit-exact
-  (fingerprint + DRAT identical, ctest 29/29, fuzz + random-policy) and passed an
-  adversarial review. **The next step is `H4`** — move the `H` FIELDS out of
-  `struct Kernel` into a new `struct Heuristics` (`Kernel` holds only a pointer);
-  split `kernel_reserve_vars` field-wise; add `Heuristics::nvars` + a
-  `heuristics_check` invariant. **This is the "L" increment and the first with real
-  hazard:** E2 Factor grows vars mid-solve and is ON by default, so an `H` that
-  doesn't grow is a silent OOB — `test_factor`'s `saved.size()==7 &&
-  scores.score.size()==7` is the canary (update, never delete); add an ASan
-  Factor-heavy fuzz leg + solo ticks/s (≤ 2 % off the 26.6 M pin). Declarations +
-  the 3 inline fns move to a new `heuristics.hpp` (with the struct) here. **H4/H5
-  want the QUIET TREE** and land before resuming Track S; H6 safe any time. What
-  landed just before Track H is in the top block below.
+- **▶ RESUME HERE (2026-07-22).** Phase 3, **T3 gate open**. **Track H · H0–H4
+  LANDED, all bit-exact.** `H` is now fully OUT of the kernel: H0/H1 docs + additive
+  `ActionKind` API; H2 the compile-time `if constexpr (HasH)` hook seam; H3 the `H`
+  CODE moved to `src/policies/heuristics.cpp`; **H4 the `H` FIELDS moved into
+  `struct Heuristics` (`src/policies/heuristics.hpp`)** — `Kernel` holds only an
+  opaque `unique_ptr<Heuristics> h` (forward-declared; out-of-line ctor/dtor; the
+  include cycle forces the pimpl), 112 `k.<field>`→`k.h-><field>` conversions,
+  `heuristics_check` invariant. Each increment bit-exact (fingerprint + DRAT; H4 also
+  200/200 CNFs DRAT-identical vs HEAD in review), ctest 29/29 (release + ASan), fuzz
+  1000/0 + Factor-forced 400/0 + random-policy 500/0, throughput structurally
+  unaffected (propagation path is `k.h->`-free). **The next step is `H5`** — make `h`
+  **optional** (the payoff of rev 60): a solver with `h == nullptr` is sound, just
+  unguided. Add the `kernel_backtrack_impl<false>` (empty-`H`) instantiation + the
+  `k.h ? <true> : <false>` dispatch; make `heuristics_reserve_vars` conditional;
+  make the decide/analyze/restart consumers null-safe (decide → index order without
+  `H`); move `H` ownership to whoever outlives a single `solve()` (session/policy).
+  **This is behaviour-VISIBLE** (a new null-`H` path) — DefaultPolicy stays
+  bit-exact (h present), plus a NEW null-`H` test. Then **H6** relocates
+  rephase/switchmode to `src/policies/ops/` + the `subpolicy.hpp` umbrella (the full
+  Chooser/Hook classes wait for a 2nd arm, per §5 "add static arm-dispatch when a
+  2nd arm exists"). **H5 wants the QUIET TREE**; H6 safe any time. What landed just
+  before Track H is in the top block below.
 
   **Landed (revs 53–55).** *Increment 1, the effort ledger* — each rule's dose is
   a per-mille fraction of the search work since it last ran, metered in its own
@@ -320,7 +322,7 @@ frozen v1 API — hence one registry with a `kind` field, not two id spaces.
 - [x] **H1 · `ActionKind` + `TACTIX_REGISTER_POLICY_OP` + `tactix_action_kind` — DONE** (additive C API). `RuleVTable` gained a defaulted `kind` field; `tactix_register_rule` threads the kind; the new macro sets `PolicyOp`. Rephase (id 10) and SwitchMode (id 15) switched macros **in place** — ids unmoved. C header mirrors `TACTIX_ACTION_PROOF_RULE/POLICY_OP` + `int tactix_action_kind(int)`. **Bit-exact by construction** (kind is never read by kernel/DefaultPolicy) and **measured** so: trajectory + DRAT bytes byte-identical on tr-n120-s058 (SAT) and corpus-007 (UNSAT). `test_api_c.c` gained a golden 18-id name list (permanent id-drift guard), kind assertions on both policy ops, proof-rule spot checks + the exact policy-op count (2), and boundary `-1` returns. ctest 29/29 (release + debug/ASan); quick fuzz green. **S.**
 - [x] **H2 · the kernel stops depending on `H`'s existence — STRUCTURAL — DONE (bit-exact).** The compile-time hook seam landed: `kernel_backtrack` → `template <bool HasH> kernel_backtrack_impl` with all four `H` hooks (target/best snapshot, phase save, heap re-insert, VMTF cache) + the `stable` read under `if constexpr (HasH)`; a thin `kernel_backtrack` wrapper calls `<true>` (the only instantiation today, so codegen is byte-identical). `kernel_reserve_vars`' `H`-growth (saved/links/scores/target/best + VMTF enqueue) extracted into `heuristics_reserve_vars` (reorder proven independent; `bve_retry` stays kernel-side as a derived index). **Deferred to H4/H5** (they need a nullable `h`): the `<false>` empty-`H` instantiation, the `k.h ? <true> : <false>` dispatch, "`kernel.hpp` never names `Heuristics`", removing the per-step branch. Design + rejected alternatives (per-literal `if(k.h)`, fn-ptr/virtual hooks): `docs/design/h-relocation-design.md` "H2 design pass". Gate met: trajectory + DRAT bytes byte-identical (SAT + UNSAT), ctest 29/29, fuzz 1000/0 + random-policy 500/0, adversarial review approved. **M.**
 - [x] **H3 · move the `H` CODE — DONE (bit-exact).** The 16 `H` functions (VMTF queue `heuristics_queue_bump`/`queue_next_unassigned`/`reset_queue_search` + statics `queue_dequeue`/`queue_restamp`; EVSIDS `heuristics_heap_push`/`score_bump`/`scores_decay`/`update_scores`/`heap_next_unassigned` + statics `heap_bubble_up`/`heap_bubble_down`/`heap_pop_max`/`rescale_scores` + consts `MAX_SCORE`/`SCORE_DECAY`; `heuristics_update_target_phases`; `heuristics_reserve_vars`) moved verbatim from `kernel.cpp` to the new **`src/policies/heuristics.cpp`** (added to `tactix_lib` in CMake); renamed `kernel_*`→`heuristics_*` at every def/decl/call site (incl. the 3 inline fns `heuristics_heap_contains`/`next_decision_var`/`decide_lit` in `kernel.hpp` + the 2 test files); dead `kernel_queue_init` deleted. Declarations stay in `kernel.hpp` (they move to `heuristics.hpp` with `struct Heuristics` at H4). The inline saved-phase + VMTF-cache writes in `kernel_backtrack_impl` stayed inline under `if constexpr (HasH)` (no extraction needed — they become `k.h->…` at H4). Gate: fingerprint + DRAT byte-identical (SAT + UNSAT), ctest 29/29 (release + debug/ASan), fuzz 1000/0 + random-policy. Adversarial review approved (per-function byte-identical diffs incl. the `scinc` rescale trio; caught + fixed a lost `<algorithm>` include). **S/M.**
-- [ ] **H4 · move the `H` FIELDS** into `struct Heuristics`; `Kernel` holds only the pointer. Split `kernel_reserve_vars` (σ-growth vs `heuristics_reserve_vars`); `Heuristics` carries its own `nvars` with a `heuristics_check(h,k)` invariant. **The named hazard: E2 Factor allocates extension vars mid-solve and is ON by default** — an `H` that does not grow is a silent OOB. `test_factor` is already the exact canary (asserts `saved.size()==7 && scores.score.size()==7`); update, never delete. Gate adds an ASan Factor-heavy fuzz leg + solo ticks/s (≤ 2 % off the 26.6 M pin). **L.**
+- [x] **H4 · move the `H` FIELDS — DONE (bit-exact).** `struct Heuristics` (new `src/policies/heuristics.hpp`) holds saved/target/best + watermarks, VMTF links/queue_*/search_*, EVSIDS scores/scinc, and `stable`, each with its original default; `Kernel` holds only an opaque `std::unique_ptr<Heuristics> h` (kernel.hpp forward-declares `struct Heuristics` and does NOT include heuristics.hpp — the include cycle **forces** the pimpl; out-of-line `Kernel()`/`~Kernel()` in kernel.cpp where the type is complete). 112 `k.<field>`→`k.h-><field>` conversions (sed; build-proven complete — a miss is a compile error). `kernel_reserve_vars` keeps σ-growth + calls `heuristics_reserve_vars` which grows `k.h->…` and sets `h->nvars`; `heuristics_check` (debug, called from `kernel_check_invariants`) asserts `h->nvars==k.nvars` and every `H` vector sized to it. `test_factor` canary updated to `k.h->saved.size()==7`. **Kernel is now non-copyable/non-movable** — reviewer confirmed no caller relied on either. Gate: bit-exact fingerprint + DRAT (SAT+UNSAT), **200/200 CNFs DRAT-identical vs HEAD** (adversarial review), ctest 29/29 (release + debug/ASan with `heuristics_check` live), fuzz 1000/0 + Factor-forced 400/0 + random-policy 500/0. **Ticks/s gate met by construction**: the propagation path (where ticks are counted) has zero `k.h->` accesses, so the indirection cannot touch throughput; measured 85.4 M/s. **L.**
 - [ ] **H5 · `H` owned by the Policy; storage outlives any single `solve()`.** `tactix_solver` gains a long-lived policy (or holds `H` directly) so `tactix_decide` on a never-solved solver still has one when attached; a null `H` stays legal. Consumers (`default_policy.cpp`, `api.cpp`, `main.cpp`, analyze's bump, decide's ranking, restart's reuse-level) read through the policy, not the kernel. **Accept + document:** swapping policies swaps `H` (a new heuristic starts cold — correct under the model); `demo3`'s stat-for-stat contract needs the same initial `H`. **M.**
 - [ ] **H6 · the sub-policy super-class.** `subpolicy.hpp` umbrella; reparent `BranchingPolicy`/`ReductionPolicy`; add the `RestartLevel` and `BackjumpTarget` (chrono) **Choosers** and the `Bump`/`PhaseSave`/`TargetBest` **Hooks**. `src/rules/{rephase,switchmode}` → `src/policies/ops/`. §5.3 extends: a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`. Acceptance test for the whole category is **S6 Walk landing under that diff shape** (a later item). **S/M.**
 - **Deliberately NOT in this refactor** (design §6): threading `Heuristics&` through every rule signature (~210 edits, unused param on 13 rules — the `Kernel::h`/`dense`/`proof` idiom already gives the capability); a virtual `HeuristicPolicy` (one implementation = §3 granularity trap; add static arm-dispatch when a 2nd arm exists); moving `Stats`/`bve_retry`/`bve_gate_mask` into `H`. **Sequencing:** H0/H1/H6 safe any time; H2–H5 want a quiet tree and are textually incompatible with in-flight kernel work — do them as a coherent unit before resuming Track S.
@@ -419,9 +421,24 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-22 — Track H · H0–H3: `H`-relocation groundwork + hook seam + the code move, all bit-exact
-Four increments of the top-priority `H`-relocation. No behaviour change — the
-gate is trajectory identity throughout, and it holds exactly.
+### 2026-07-22 — Track H · H0–H4: `H` fully out of the kernel (groundwork → seam → code → fields), all bit-exact
+Five increments of the top-priority `H`-relocation. No behaviour change — the
+gate is trajectory identity throughout, and it holds exactly. After H4 the kernel
+depends on `H` only through an opaque pointer; all `H` state + code live in
+`src/policies/heuristics.{hpp,cpp}`.
+
+- **H4 (the field move).** `struct Heuristics` in a new heuristics.hpp; `Kernel`
+  holds `std::unique_ptr<Heuristics> h`. The design was **forced, not chosen**: the
+  include cycle (heuristics.hpp needs `Kernel`, so kernel.hpp can't include it)
+  requires the opaque forward-declared pointer + out-of-line ctor/dtor — which *is*
+  "kernel.hpp never names Heuristics's definition", achieved here. `k.h` is always
+  allocated at H4 (Kernel-owned) → bit-exact; H5 makes it optional. 112 field
+  accesses converted by sed; the build proves completeness (a missed `k.field` no
+  longer compiles) and that no caller relied on Kernel's now-deleted copy/move.
+  **Lesson reinforced:** the ticks/s "throughput regression" worry was dissolved by
+  a structural check, not a benchmark — the propagation loop (where ticks accrue)
+  has zero `k.h->`, so the extra indirection provably can't touch it. Adversarial
+  review independently rebuilt HEAD and diffed 200 CNFs (DRAT byte-identical).
 
 - **H3 (the code move).** The 16 `H` functions moved verbatim from `kernel.cpp`
   into a new `src/policies/heuristics.cpp`, `kernel_*`→`heuristics_*` at every

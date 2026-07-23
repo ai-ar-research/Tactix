@@ -165,10 +165,16 @@ those counters.
   identical, ctest 29/29, fuzz 1000/0 + random-policy); adversarial review
   confirmed byte-identical bodies incl. the `scinc` rescale trio, and caught a lost
   `<algorithm>` include (`std::max` in `rescale_scores`) — fixed.
-- **H4 — move the `H` FIELDS** into `struct Heuristics`; `Kernel` holds only the
-  pointer. Split `kernel_reserve_vars`; `Heuristics::nvars` + `heuristics_check`.
-  Named hazard: E2 Factor grows vars mid-solve — update `test_factor` canary; add
-  an ASan Factor-heavy fuzz leg + solo ticks/s (≤ 2 % off the 26.6 M pin).
+- **H4 — move the `H` FIELDS. ✓ landed 2026-07-22.** `struct Heuristics`
+  (heuristics.hpp) holds the fields; `Kernel` holds only an opaque
+  `unique_ptr<Heuristics> h` (forward-declared, out-of-line ctor/dtor — the include
+  cycle forces the pimpl). 112 `k.<field>`→`k.h-><field>` conversions;
+  `heuristics_reserve_vars` sets `h->nvars`; `heuristics_check` invariant.
+  `test_factor` canary → `k.h->saved.size()==7`. Bit-exact (fingerprint + DRAT,
+  and 200/200 CNFs DRAT-identical vs HEAD in the adversarial review); ticks/s
+  structurally unaffected (the propagation path has zero `k.h->` — verified) at
+  85.4 M/s; ctest 29/29 (release + debug/ASan); fuzz 1000/0 + Factor-forced 400/0
+  + random-policy 500/0. See the "H4 design pass" section below.
 - **H5 — `H` owned by the Policy; storage outlives any single `solve()`.**
   `tactix_solver` gains a long-lived policy (or holds `H`), so `tactix_decide` on a
   never-solved solver still has one; null `H` stays legal. Consumers read through
@@ -255,6 +261,73 @@ instantiation, and add the single dispatch branch `k.h ? <true> : <false>`. The
 **Gate:** trajectory (decisions/conflicts/propagations/ticks) + DRAT bytes
 byte-identical on the H1 fingerprint set (tr-n120-s058 SAT + corpus-007 UNSAT),
 ctest 29/29 (release + debug/ASan), quick fuzz green. Same criterion as H1.
+
+## H4 design pass — the field move into `struct Heuristics` (2026-07-22)
+
+**Goal.** Move the `H` FIELDS out of `struct Kernel` into a new `struct
+Heuristics`; `Kernel` holds only a pointer. This is the increment that makes
+`kernel.hpp` stop depending on `H`'s layout — the payoff of the whole track.
+
+**Edit surface (measured).** **112 `H`-field access sites** across ~11 files
+(`heuristics.cpp` 74, `rephase.cpp` 7, `default_policy.cpp` 6, `kernel.cpp` 6,
+`restart.cpp` 5, `analyze.cpp` 5, `decide.cpp` 4, `switchmode.cpp` 2, plus
+`default_policy.hpp`/`main.cpp`/`api.cpp` 1 each). Every `k.<field>` /
+`kernel.<field>` for `stable`/`saved`/`scores`/`scinc`/`links`/`queue_*`/
+`search_*`/`target`/`target_assigned`/`best`/`best_assigned` becomes `…->…`.
+`Kernel` has no user ctor/dtor today and is instantiated by value, **never copied
+or moved** (main/api/tests) — verified, so an owned pointer needs only an
+out-of-line ctor/dtor, no copy/move plumbing.
+
+**Two decisions are FORCED, not chosen:**
+
+- **Opaque pointer (pimpl), not by-value or an included definition.** `heuristics.hpp`
+  must `#include "kernel/kernel.hpp"` because the `H` functions and the 3 inline
+  fns (`heap_contains`/`next_decision_var`/`decide_lit`) take/read `Kernel&`. So
+  `kernel.hpp` **cannot** include `heuristics.hpp` — that is an include cycle. It
+  forward-declares `struct Heuristics;` and holds the pointer opaquely; the full
+  struct + the inline fns live in `heuristics.hpp` (which sees both types complete).
+  This is exactly "`kernel.hpp` never names `Heuristics`['s definition]", achieved
+  here at H4 as a side effect of the cycle constraint. Consumers that read `H`
+  (`kernel.cpp`, `heuristics.cpp`, decide/analyze/restart/switchmode/rephase/
+  default_policy/api/main) `#include "policies/heuristics.hpp"`.
+- **Raw `k.h->field`, no `Heuristics&` threading and no accessors.** The plan's
+  "Deliberately NOT done" rejects threading `Heuristics&` through ~210 signatures;
+  and Kernel accessors (`k.stable()`) would have to name `h->` and thus be in
+  `heuristics.hpp` anyway, buying nothing. So the `H` functions keep their `Kernel&`
+  signatures and only their BODIES change `k.field`→`k.h->field`.
+
+**The one genuine choice — the H4/H5 split (RECOMMEND: keep it):**
+
+- **H4 (this step): `h` is ALWAYS allocated, Kernel-owned.** `Kernel` holds
+  `std::unique_ptr<Heuristics> h`, allocated in an out-of-line `Kernel()` ctor
+  (defined in `kernel.cpp` where `Heuristics` is complete); out-of-line `~Kernel()
+  = default`. Because `h` is never null, behaviour is identical to the inline
+  fields → **bit-exact**, and the H2 `<false>` instantiation is NOT built yet.
+- **H5: `h` becomes non-owning + nullable + Policy-owned.** The `k.h ? impl<true>
+  : impl<false>` dispatch, the `NoHeuristics` instantiation, making
+  `heuristics_reserve_vars` conditional, and legal `k.h == nullptr` all land there.
+  This is the behaviour-visible step (a null-`H` solver), correctly gated on its
+  own increment.
+  *Alternative considered:* fold H5 into H4 (nullable `h` immediately). Rejected —
+  it makes H4 behaviour-visible and forfeits the bit-exact gate that has caught
+  every slip so far; the plan's split is deliberate.
+
+**Field move + the Factor hazard.** `struct Heuristics` gets the fields with their
+current default initializers (`scinc = 1.0`, `stable = false`, the phase/queue/
+score vectors, watermarks) **plus its own `nvars`**. `kernel_reserve_vars` keeps
+the σ-growth and calls `heuristics_reserve_vars(k, old, nvars)` (unchanged
+signature) which now grows `k.h->…` and sets `k.h->nvars = nvars`. **Named hazard:
+E2 Factor allocates extension vars mid-solve (`kernel_new_extension_vars` →
+`kernel_reserve_vars`) and is ON by default** — if `H` growth is ever skipped, the
+next `k.h->saved[v]` is a silent OOB. Guard: `heuristics_check(h, k)` asserts
+`h->nvars == k.nvars` and every `H` vector is sized to it, called from
+`kernel_check_invariants` (debug). `test_factor`'s canary becomes
+`k.h->saved.size()==7 && k.h->scores.score.size()==7` (update, never delete).
+
+**Gate (stricter than H1–H3):** bit-exact fingerprint + DRAT (SAT+UNSAT); ctest
+29/29; fuzz default + random-policy; **plus a Factor-heavy ASan fuzz leg** (the
+mid-solve-growth path) and a **solo ticks/s check ≤ 2 % off the 26.6 M pin** (the
+extra pointer indirection on `H` reads must not cost throughput).
 
 ## Three non-σ categories that are NOT `H` (do not sweep them up)
 

@@ -13,6 +13,7 @@
 // current level, and soundness may not depend on the schedule;
 // (2) singleton-level literals still get minimized (see the block pass).
 #include "rules/analyze/analyze.hpp"
+#include "policies/heuristics.hpp"
 
 #include "proof/proof.hpp"
 #include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
@@ -204,7 +205,7 @@ static void radix_sort_analyzed_by_stamp(Kernel &k) {
   const size_t n = a.size();
   if (n < 32) { // small sets: std::sort's insertion regime wins
     std::sort(a.begin(), a.end(), [&](Var x, Var y) {
-      return k.links[x].stamp < k.links[y].stamp;
+      return k.h->links[x].stamp < k.h->links[y].stamp;
     });
     return;
   }
@@ -213,10 +214,10 @@ static void radix_sort_analyzed_by_stamp(Kernel &k) {
   std::vector<Var> *src = &a, *dst = &b;
   for (uint32_t shift = 0; shift < 32; shift += 8) {
     uint32_t count[257] = {0};
-    const uint32_t first = (k.links[(*src)[0]].stamp >> shift) & 0xff;
+    const uint32_t first = (k.h->links[(*src)[0]].stamp >> shift) & 0xff;
     bool constant = true;
     for (const Var v : *src) {
-      const uint32_t byte = (k.links[v].stamp >> shift) & 0xff;
+      const uint32_t byte = (k.h->links[v].stamp >> shift) & 0xff;
       constant &= (byte == first);
       count[byte + 1]++;
     }
@@ -225,7 +226,7 @@ static void radix_sort_analyzed_by_stamp(Kernel &k) {
     for (uint32_t i = 1; i < 257; i++)
       count[i] += count[i - 1];
     for (const Var v : *src)
-      (*dst)[count[(k.links[v].stamp >> shift) & 0xff]++] = v;
+      (*dst)[count[(k.h->links[v].stamp >> shift) & 0xff]++] = v;
     std::swap(src, dst);
   }
   if (src != &a)
@@ -237,7 +238,7 @@ static void radix_sort_analyzed_by_stamp(Kernel &k) {
 // relative recency (kissat bump.c). Stable: EVSIDS score bump + one
 // increment decay per conflict — order-independent, so no sort.
 static void bump_and_reset_analyzed(Kernel &k) {
-  if (k.stable) {
+  if (k.h->stable) {
     for (const Var v : k.analyzed) {
       if (k.seen[v] & SEEN)
         heuristics_score_bump(k, v);

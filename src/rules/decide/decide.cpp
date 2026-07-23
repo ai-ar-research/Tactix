@@ -2,6 +2,7 @@
 // last-enqueued-unassigned in focused mode, max-score-unassigned (EVSIDS
 // heap, lazy pop) in stable mode; phase priority target (stable) -> saved.
 #include "rules/decide/decide.hpp"
+#include "policies/heuristics.hpp"
 
 #include <algorithm>
 
@@ -50,7 +51,7 @@ ApplyResult decide_apply_canonical(Kernel &k) {
 
 uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
   uint32_t n = 0;
-  if (k.stable) {
+  if (k.h->stable) {
     // rank unassigned vars by score, descending (N1: candidates come
     // ranked by the ACTIVE heuristic). Introspection path, not hot: a
     // sort + allocation here is fine; the heap array is not fully ordered.
@@ -61,7 +62,7 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
         scratch.push_back(v);
     std::stable_sort(scratch.begin(), scratch.end(),
                      [&](Var a, Var b) {
-                       return k.scores.score[a] > k.scores.score[b];
+                       return k.h->scores.score[a] > k.h->scores.score[b];
                      });
     for (const Var v : scratch) {
       if (n >= cap)
@@ -71,8 +72,8 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
     return n;
   }
   // walk the VMTF queue from most-recent to least, unassigned vars only
-  for (Var v = k.search_idx; v != UINT32_MAX && n < cap;
-       v = k.links[v].prev)
+  for (Var v = k.h->search_idx; v != UINT32_MAX && n < cap;
+       v = k.h->links[v].prev)
     if (k.values[make_lit(v, false)] == 0)
       out[n++] = heuristics_decide_lit(k, v);
   return n;

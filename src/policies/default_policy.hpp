@@ -148,7 +148,7 @@ public:
 
   // scheduling state — public so tests (and future presets) can pose
   // schedules directly; this is policy state, not kernel H-state
-  ModeAverages averages[2]; // indexed by kernel.stable
+  ModeAverages averages[2]; // indexed by kernel.h->stable
   struct {
     // kissat limits.restart.conflicts: gates BOTH modes; updated after
     // focused restarts and on entering focused, stale-but-kept in stable

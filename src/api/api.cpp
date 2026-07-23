@@ -5,6 +5,7 @@
 // TUs. C linkage matches by symbol name; the C compile of
 // tests/test_api_c.c against tactix.h keeps the two in sync.
 #include "frontend/parse.hpp"
+#include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
@@ -192,7 +193,7 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
            // after Backjump consumes the pending clause)
     return k.pending.glue;
   case 11: // TACTIX_STAT_STABLE
-    return k.stable ? 1 : 0;
+    return k.h->stable ? 1 : 0;
   case 12: // TACTIX_STAT_REPHASED
     return k.stats.rephased;
   case 13: // TACTIX_STAT_SUBSUMPTIONS

@@ -2,6 +2,7 @@
 // policy state (focused: Glucose EMA scheme; stable: reluctant doubling —
 // both in DefaultPolicy, rev 17); HOW — including trail reuse — is here.
 #include "rules/restart/restart.hpp"
+#include "policies/heuristics.hpp"
 
 namespace tactix {
 
@@ -22,21 +23,21 @@ uint32_t restart_reuse_level(Kernel &k) {
   if (k.unassigned == 0)
     return 0; // nothing left to decide; abandon the whole trail
   uint32_t res = 0;
-  if (k.stable) {
+  if (k.h->stable) {
     const Var next = heuristics_heap_next_unassigned(k);
-    const double limit = k.scores.score[next];
+    const double limit = k.h->scores.score[next];
     while (res < k.level) {
       const Lit decision = k.trail[k.frames[res + 1]];
-      if (k.scores.score[var_of(decision)] <= limit)
+      if (k.h->scores.score[var_of(decision)] <= limit)
         break;
       res++;
     }
   } else {
     const Var next = heuristics_queue_next_unassigned(k);
-    const uint32_t limit = k.links[next].stamp;
+    const uint32_t limit = k.h->links[next].stamp;
     while (res < k.level) {
       const Lit decision = k.trail[k.frames[res + 1]];
-      if (k.links[var_of(decision)].stamp <= limit)
+      if (k.h->links[var_of(decision)].stamp <= limit)
         break;
       res++;
     }

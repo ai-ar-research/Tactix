@@ -1,6 +1,7 @@
 // S1 Restart / S2 Reduce / arena collection unit tests.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"

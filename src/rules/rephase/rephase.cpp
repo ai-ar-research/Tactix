@@ -9,6 +9,7 @@
 // DefaultPolicy rotation is B,B,I,B,B,O (Best standing in for W, keeping
 // the destructive types at kissat's 1/3 slot frequency).
 #include "rules/rephase/rephase.hpp"
+#include "policies/heuristics.hpp"
 
 #include <algorithm>
 
@@ -21,22 +22,22 @@ ApplyResult rephase_apply_type(Kernel &k, uint64_t type) {
   switch (type) {
   case REPHASE_BEST:
     for (Var v = 0; v < k.nvars; v++)
-      if (k.best[v])
-        k.saved[v] = k.best[v];
-    k.best_assigned = 0; // consumed: start collecting a fresh best
+      if (k.h->best[v])
+        k.h->saved[v] = k.h->best[v];
+    k.h->best_assigned = 0; // consumed: start collecting a fresh best
     break;
   case REPHASE_INVERTED:
-    std::fill(k.saved.begin(), k.saved.end(), static_cast<int8_t>(-1));
+    std::fill(k.h->saved.begin(), k.h->saved.end(), static_cast<int8_t>(-1));
     break;
   case REPHASE_ORIGINAL:
-    std::fill(k.saved.begin(), k.saved.end(), static_cast<int8_t>(1));
+    std::fill(k.h->saved.begin(), k.h->saved.end(), static_cast<int8_t>(1));
     break;
   default:
     return ApplyResult::NoOp; // unknown payload: never unsound
   }
   // target phases restart from the fresh saved ones (kissat reset_phases)
-  std::copy(k.saved.begin(), k.saved.end(), k.target.begin());
-  k.target_assigned = 0;
+  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
+  k.h->target_assigned = 0;
   k.stats.rephased++;
   return ApplyResult::Ok;
 }

@@ -3,6 +3,7 @@
 // 10/20/other, proof to argv[2], SIGTERM/SIGINT/SIGXCPU -> flush proof,
 // print `s UNKNOWN`, exit cleanly.
 #include "frontend/parse.hpp"
+#include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/adversarial_policy.hpp"
 #include "policies/bve_stress_policy.hpp"
@@ -288,7 +289,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.promoted);
     printf("c mode        %s after %llu switches (%llu ticks, "
            "%llu target phases saved)\n",
-           kernel.stable ? "stable" : "focused",
+           kernel.h->stable ? "stable" : "focused",
            (unsigned long long)kernel.stats.switched,
            (unsigned long long)kernel.stats.ticks,
            (unsigned long long)kernel.stats.target_saved);

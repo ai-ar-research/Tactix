@@ -1,4 +1,5 @@
 #include "policies/default_policy.hpp"
+#include "policies/heuristics.hpp"
 
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
@@ -24,7 +25,7 @@ namespace tactix {
 // (Constants live once, in default_policy.hpp.)
 
 void DefaultPolicy::observe_glue(const Kernel &k, uint32_t glue) {
-  ModeAverages &avg = averages[k.stable];
+  ModeAverages &avg = averages[k.h->stable];
   if (!avg.initialized) { // lazy, once per mode (kissat init_averages)
     avg.fast_glue.init(EMA_FAST_WINDOW);
     avg.slow_glue.init(EMA_SLOW_WINDOW);
@@ -65,7 +66,7 @@ void DefaultPolicy::tick_reluctant() {
 bool DefaultPolicy::want_restart(const Kernel &k) const {
   if (k.stats.conflicts < restart.next_conflicts)
     return false;
-  if (k.stable)
+  if (k.h->stable)
     return reluctant.trigger;
   const ModeAverages &avg = averages[0];
   return RESTART_MARGIN * avg.slow_glue.value <= avg.fast_glue.value;
@@ -116,7 +117,7 @@ bool DefaultPolicy::want_reduce(const Kernel &k) const {
 
 // kissat rephase.c kissat_rephasing: stable mode only
 bool DefaultPolicy::want_rephase(const Kernel &k) const {
-  return k.stable && k.stats.conflicts > rephase.next_conflicts;
+  return k.h->stable && k.stats.conflicts > rephase.next_conflicts;
 }
 
 // kissat kimits.h UPDATE_CONFLICT_LIMIT(rephase, rephased, NLOG3N):
@@ -388,7 +389,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (analyze_apply(k) == ApplyResult::Unsat)
         return 20;
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
-      if (k.stable)
+      if (k.h->stable)
         tick_reluctant(); // per learned clause (kissat learn.c)
       {
         // chrono (kissat learn.c): long backjumps waste the prefix —
@@ -418,7 +419,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_switch_mode(k) && switchmode_guard(k)) {
       switchmode_apply(k);
       mode.count++;
-      if (k.stable) // entering stable: fresh reluctant sequence
+      if (k.h->stable) // entering stable: fresh reluctant sequence
         reluctant = {};
       update_mode_limits(k);
       continue;
@@ -426,7 +427,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_restart(k) && restart_guard(k)) {
       restart_apply(k);
       reluctant.trigger = false; // consumed (kissat reluctant.h)
-      if (!k.stable) // kissat restart.c: focused-only limit update
+      if (!k.h->stable) // kissat restart.c: focused-only limit update
         update_restart_limit(k);
       continue;
     }

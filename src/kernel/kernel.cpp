@@ -1,11 +1,20 @@
 #include "kernel/kernel.hpp"
 
+#include "policies/heuristics.hpp" // the opaque `H`: Kernel's ctor/dtor + calls
 #include "proof/proof.hpp" // kernel_delete_binary emits the delta atomically
 
 #include <algorithm>
 #include <cstdio>
+#include <memory>
 
 namespace tactix {
+
+// Out-of-line so the opaque std::unique_ptr<Heuristics> sees a COMPLETE
+// Heuristics here (heuristics.hpp above): the ctor allocates `H` (always present
+// at H4 — Kernel-owned; H5 moves ownership to the Policy and allows null), the
+// dtor destroys it. Track H · H4.
+Kernel::Kernel() : h(std::make_unique<Heuristics>()) {}
+Kernel::~Kernel() = default;
 
 void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   if (nvars <= k.nvars)
@@ -347,20 +356,20 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
     }
     if constexpr (HasH) {
       if (update_phases)
-        k.saved[v] = negated(lit) ? -1 : 1; // phase saving
+        k.h->saved[v] = negated(lit) ? -1 : 1; // phase saving
     }
     k.values[lit] = 0;
     k.values[negate(lit)] = 0;
     k.unassigned++;
     if constexpr (HasH) {
-      // ranking-structure maintenance (loop-invariant k.stable; hoisted by the
+      // ranking-structure maintenance (loop-invariant k.h->stable; hoisted by the
       // optimizer, so identical codegen to the pre-H2 `const bool stable`)
-      if (k.stable) {
+      if (k.h->stable) {
         if (!heuristics_heap_contains(k, v))
           heuristics_heap_push(k, v);
-      } else if (k.links[v].stamp > k.search_stamp) {
-        k.search_idx = v;
-        k.search_stamp = k.links[v].stamp;
+      } else if (k.h->links[v].stamp > k.h->search_stamp) {
+        k.h->search_idx = v;
+        k.h->search_stamp = k.h->links[v].stamp;
       }
     }
   }
@@ -858,6 +867,7 @@ uint64_t kernel_irredundant_clauses(const Kernel &k) {
 
 #ifndef NDEBUG
 void kernel_check_invariants(const Kernel &k) {
+  heuristics_check(k); // `H` sized to nvars (catches a missed Factor growth)
   // values <-> trail <-> unassigned coherence
   uint32_t assigned_count = 0;
   for (Var v = 0; v < k.nvars; v++) {

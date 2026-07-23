@@ -3,6 +3,7 @@
 // stable trail reuse, policy-side schedule (reluctant, mode limits).
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -27,7 +28,7 @@ static void test_heap_basic() {
   heuristics_score_bump(k, 1); // later bump wins (EVSIDS recency)
   assert(heuristics_heap_next_unassigned(k) == 1);
   // assigning the max forces a lazy pop to the runner-up
-  k.stable = true;
+  k.h->stable = true;
   kernel_assign_decision(k, make_lit(1, false));
   assert(heuristics_heap_next_unassigned(k) == 3);
   // unassigning re-inserts (backtrack path)
@@ -45,9 +46,9 @@ static void test_rescale() {
   for (int i = 0; i < 24000; i++) // 1.0526^24000 >> 1e150
     heuristics_scores_decay(k);
   heuristics_score_bump(k, 1); // huge increment, but rescale keeps it bounded
-  assert(k.scores.score[1] <= 1e150); // MAX_SCORE cap survives
-  assert(k.scinc <= 1e150);
-  assert(k.scores.score[1] > k.scores.score[2]);
+  assert(k.h->scores.score[1] <= 1e150); // MAX_SCORE cap survives
+  assert(k.h->scinc <= 1e150);
+  assert(k.h->scores.score[1] > k.h->scores.score[2]);
   assert(heuristics_heap_next_unassigned(k) == 1);
 }
 
@@ -55,15 +56,15 @@ static void test_switchmode_rule() {
   Kernel k;
   kernel_reserve_vars(k, 4);
   assert(switchmode_guard(k));
-  assert(!k.stable);
+  assert(!k.h->stable);
   assert(switchmode_apply(k) == ApplyResult::Ok);
-  assert(k.stable);
+  assert(k.h->stable);
   assert(k.stats.switched == 1);
   for (Var v = 0; v < 4; v++)
     assert(heuristics_heap_contains(k, v)); // update_scores ran
   assert(switchmode_apply(k) == ApplyResult::Ok);
-  assert(!k.stable);
-  assert(k.search_idx == k.queue_last); // search cache reset
+  assert(!k.h->stable);
+  assert(k.h->search_idx == k.h->queue_last); // search cache reset
 }
 
 static void test_stable_decide_and_target_phases() {
@@ -80,11 +81,11 @@ static void test_stable_decide_and_target_phases() {
   assert(propagate_apply(k) == ApplyResult::Ok); // forces 2
   // consistent backtrack snapshots target phases (deepest trail = 2)
   kernel_backtrack(k, 0);
-  assert(k.target_assigned == 2);
-  assert(k.target[0] == 1 && k.target[1] == 1);
+  assert(k.h->target_assigned == 2);
+  assert(k.h->target[0] == 1 && k.h->target[1] == 1);
   assert(k.stats.target_saved == 1);
   // flip saved phase; target must still win while stable
-  k.saved[0] = -1;
+  k.h->saved[0] = -1;
   assert(heuristics_decide_lit(k, 0) == internalize(1));
   switchmode_apply(k); // focused: saved wins again
   assert(heuristics_decide_lit(k, 0) == internalize(-1));
@@ -127,7 +128,7 @@ static void test_policy_schedule() {
   p.mode.count++;
   p.reluctant = {};
   p.update_mode_limits(k);
-  assert(k.stable);
+  assert(k.h->stable);
   assert(p.mode.ticks_limit == 1000); // 500 + (500 - 0)
   assert(!p.want_switch_mode(k));
   k.stats.ticks = 1000;

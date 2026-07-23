@@ -4,6 +4,7 @@
 // projected out of the reported model — the v-line ranges over original vars only.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
 #include "rules/factor/factor.hpp"
 
 #include <cassert>
@@ -40,7 +41,7 @@ static void test_extension_var_boundary() {
   assert(k.first_extension_var == 5);          // boundary set to first extension
   assert(kernel_num_output_vars(k) == 5);      // extension vars projected out
   assert(k.values.size() == 2 * 7);            // per-var state grew (by lit)
-  assert(k.saved.size() == 7 && k.scores.score.size() == 7); // and others
+  assert(k.h->saved.size() == 7 && k.h->scores.score.size() == 7); // and others
 
   const Var f2 = kernel_new_extension_vars(k, 1); // add one more
   assert(f2 == 7);
