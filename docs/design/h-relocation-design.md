@@ -193,12 +193,17 @@ those counters.
   null-`H` path: `test_no_heuristics` + a `--random-policy --no-heuristics` fuzz
   leg 500/0 under ASan (proof-checked). One bug found + fixed: the post-solve stats
   print (`main.cpp`) and `TACTIX_STAT_STABLE` (`api.cpp`) derefed `h` unguarded.
-- **H6 — the sub-policy super-class.** `subpolicy.hpp` umbrella; reparent
-  `BranchingPolicy`/`ReductionPolicy`; add `RestartLevel` + `BackjumpTarget`
-  (chrono) **Choosers** and `Bump`/`PhaseSave`/`TargetBest` **Hooks**.
-  `src/rules/{rephase,switchmode}` → `src/policies/ops/`. §5.3 extends: a policy op
-  = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`. Category
-  acceptance test = **S6 Walk landing under that diff shape** (a later item).
+- **H6 — relocate the policy ops. ✓ landed 2026-07-22** (the RELOCATION half).
+  `src/rules/{rephase,switchmode}` → `src/policies/ops/{rephase,switchmode}/`
+  (`git mv`, bit-exact); includes + CMake updated. §5.3 extended (plan rev 63): a
+  policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`.
+  **The sub-policy SUPER-CLASS is deliberately DEFERRED** — the `subpolicy.hpp`
+  umbrella, reparenting `BranchingPolicy`/`ReductionPolicy`, and the `RestartLevel`/
+  `BackjumpTarget` **Choosers** + `Bump`/`PhaseSave`/`TargetBest` **Hooks** are the
+  arm-dispatch scaffolding, and per §5 ("add static arm-dispatch when a 2nd arm
+  exists") there is no 2nd arm yet, so building it now is premature generality
+  (§5.5). It lands with the first real arm (phase 6 / AE-Kissat-MAB), whose
+  category acceptance test is **S6 Walk under the `src/policies/ops/` diff shape**.
 
 ## H2 design pass — the hook-seam mechanism (2026-07-22)
 

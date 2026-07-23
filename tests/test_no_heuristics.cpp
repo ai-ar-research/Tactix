@@ -9,9 +9,9 @@
 #include "policies/heuristics.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
-#include "rules/rephase/rephase.hpp"
+#include "policies/ops/rephase/rephase.hpp"
 #include "rules/restart/restart.hpp"
-#include "rules/switchmode/switchmode.hpp"
+#include "policies/ops/switchmode/switchmode.hpp"
 
 #include <cassert>
 #include <cstdio>

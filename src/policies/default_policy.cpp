@@ -7,10 +7,10 @@
 #include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
-#include "rules/rephase/rephase.hpp"
+#include "policies/ops/rephase/rephase.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
-#include "rules/switchmode/switchmode.hpp"
+#include "policies/ops/switchmode/switchmode.hpp"
 
 #include <cmath>
 #include <cstdlib>

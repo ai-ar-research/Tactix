@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-22 (rev. 62). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-22 (rev. 63). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -599,6 +599,15 @@ not a hope. Adding a rule family touches exactly two places:
    fields without a reader don't freeze early (rev 20). The registry is the
    *only* central list; there is no switch statement, enum, or scheduler
    edit anywhere else.
+
+**Policy operations (`H`-only sub-policies) follow the same shape (rev 63):** a
+policy op = one directory `src/policies/ops/<name>/` + one
+`TACTIX_REGISTER_POLICY_OP(<Name>, ...)` line (same registry, same name-sorted id
+space, `ActionKind::PolicyOp`). It carries no proof obligation and no
+`calculus.md`/ledger entry (§4 rev 59) — only a guard, an apply, and (optionally)
+an instance surface. S3 `Rephase`/S4 `SwitchMode` live there (Track H · H6); a new
+policy op (S6 `Walk`, S7 `Reorder`) lands the same way. This keeps `src/rules/` for
+proof rules and `src/policies/ops/` for guidance ops, mirroring the σ/`H` split.
 
 What makes this possible (obligations on the core, enforced from phase 1):
 
@@ -1256,3 +1265,4 @@ conflate them.
 - **rev. 60** (2026-07-22, user): `H` is optional, policy-owned state — the kernel never names the `Heuristics` type nor depends on its existence; no mandatory DefaultPolicy; the H-relocation is the top-priority phase-3 work item (§5, §9). Design `docs/design/h-relocation-design.md`.
 - **rev. 61** (2026-07-22): applied the rev-59 reclassification test to the §5.2 catalog — split the search-management table so S3 `Rephase`/S4 `SwitchMode`/S6 `Walk`/S7 `Reorder` are catalogued as **policy operations** (`H`-only sub-policies), leaving S1/S2/S5 as the macro-tier proof rules; no scope change (Track H · H0, §5.2).
 - **rev. 62** (2026-07-22, user-prompted): made the kernel↔`H` separation a STRUCTURAL, enforced invariant — `kernel.hpp` holds `H` only as an opaque pointer and never includes `heuristics.hpp`; re-entangling is compile-caught / grep-caught and a §5.4 discussion (§5). Realized by Track H · H4.
+- **rev. 63** (2026-07-22): §5.3 extended to policy operations — a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP` (no proof obligation, no calculus entry). S3/S4 relocated there (Track H · H6); `src/rules/` = proof rules, `src/policies/ops/` = `H`-only guidance ops.

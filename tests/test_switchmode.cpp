@@ -8,7 +8,7 @@
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/restart/restart.hpp"
-#include "rules/switchmode/switchmode.hpp"
+#include "policies/ops/switchmode/switchmode.hpp"
 
 #include <cassert>
 #include <cstdio>

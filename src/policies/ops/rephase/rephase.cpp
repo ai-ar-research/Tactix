@@ -8,7 +8,7 @@
 // schedule slots for Walking are deferred to phase 4 (S6 Walk) — the
 // DefaultPolicy rotation is B,B,I,B,B,O (Best standing in for W, keeping
 // the destructive types at kissat's 1/3 slot frequency).
-#include "rules/rephase/rephase.hpp"
+#include "policies/ops/rephase/rephase.hpp"
 #include "policies/heuristics.hpp"
 
 #include <algorithm>

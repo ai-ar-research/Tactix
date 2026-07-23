@@ -5,7 +5,7 @@
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/registry.hpp"
-#include "rules/rephase/rephase.hpp"
+#include "policies/ops/rephase/rephase.hpp"
 
 #include <cassert>
 #include <cstdio>

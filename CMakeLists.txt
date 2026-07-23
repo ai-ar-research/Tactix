@@ -27,7 +27,7 @@ add_library(tactix_lib OBJECT
   src/rules/restart/restart.cpp
   src/rules/lucky/lucky.cpp
   src/rules/reduce/reduce.cpp
-  src/rules/rephase/rephase.cpp
+  src/policies/ops/rephase/rephase.cpp
   src/rules/subsume_forward/subsume_forward.cpp
   src/rules/strengthen/strengthen.cpp
   src/rules/vivify/vivify.cpp
@@ -38,7 +38,7 @@ add_library(tactix_lib OBJECT
   src/rules/factor/factor.cpp
   src/rules/transitive_reduce/transitive_reduce.cpp
   src/rules/bve/bve.cpp
-  src/rules/switchmode/switchmode.cpp
+  src/policies/ops/switchmode/switchmode.cpp
   src/policies/heuristics.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp

@@ -5,7 +5,7 @@
 // the guard only excludes a refuted kernel. WHEN to switch (kissat's
 // conflicts-in / ticks-out alternation) is policy state (plan §5 rev 17),
 // as are the per-mode restart regimes (EMA vs reluctant doubling).
-#include "rules/switchmode/switchmode.hpp"
+#include "policies/ops/switchmode/switchmode.hpp"
 #include "policies/heuristics.hpp"
 
 namespace tactix {
