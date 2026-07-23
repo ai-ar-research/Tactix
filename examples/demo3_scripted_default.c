@@ -54,12 +54,13 @@ static int rule_id(const char *name) {
 #define SUBSUME_INTERVAL 500
 #define INPROCESS_PHASE_BUDGET 300
 #define INPROCESS_PHASE_ROUNDS 3
-/* mirror of DefaultPolicy::SLOT_IN_DEFAULT (the registry-driven
- * inprocessing slot, rev 26): default composition = Strengthen enabled,
- * SubsumeForward disabled (fused round covers it) — the mirror applies
- * exactly the Strengthen canonical instance per slot pass. Deferred
- * with the same s055 margin verdict as DefaultPolicy (see
- * default_policy.hpp); flips together with it. */
+/* This demo mirrors DefaultPolicy's SEARCH + PREPROCESSING trajectory. It does
+ * NOT replicate the full inprocessing SLOT (DefaultPolicy runs {BVE, Factor,
+ * Strengthen, SubsumeForward, Congruence, Substitute} at conflicts=0) — doing so
+ * is a deferred demo enhancement, so SLOT_IN_DEFAULT is intentionally 0 here even
+ * though DefaultPolicy::SLOT_IN_DEFAULT is now true. The stat-for-stat contract is
+ * therefore within-noise on inprocessing-heavy instances (§8.4), not exact. Set
+ * this to 1 (and compose the slot below) to extend the mirror. */
 #define SLOT_IN_DEFAULT 0
 
 /* bias-corrected EMA (mirror of DefaultPolicy::Smooth / kissat smooth.c) */

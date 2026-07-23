@@ -198,9 +198,12 @@ disagree, the plan is authoritative — fix this file.
   channel can return `Unsat` (ledger `docs/implementation-notes.md` §2).
   **Task #39** — `--random-policy` livelock on 5
   tiny cases in `tools/fuzz/known-hangs/` (N1 robustness, not soundness).
-  `examples/demo3_scripted_default.c`'s mirror has `SLOT_IN_DEFAULT 0` while
-  DefaultPolicy's is `true`, so its inprocessing block is dead code — a
-  revisit-codebase item. Nightly soundness green: 20 000/0 (`nightly-rev48.log`).
+  `examples/demo3_scripted_default.c` keeps `SLOT_IN_DEFAULT 0` (search +
+  preprocessing mirror; it does NOT replicate DefaultPolicy's full inprocessing
+  slot) — **now documented as intentional** (2026-07-22), so its stat contract is
+  §8.4 within-noise, not exact; extending it to a full slot mirror is a deferred
+  demo enhancement (set the toggle to 1 + compose the slot). Nightly soundness
+  green: 20 000/0 (`nightly-rev48.log`).
 
 ## Non-negotiables status (plan §1.1)
 
