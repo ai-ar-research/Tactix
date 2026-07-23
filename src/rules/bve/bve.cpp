@@ -12,6 +12,7 @@
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <utility>
 
@@ -26,8 +27,12 @@ static constexpr uint32_t BVE_OCCLIM = 2000;
 static constexpr uint32_t BVE_CLSLIM = 100;
 // Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ + bound.
 // The bound is POLICY-DRIVEN state (`k.bve_bound`, defaulting to BVE_MAX_BOUND);
-// DefaultPolicy ramps it 0,1,2,4,8,16 so the eliminations that do not grow the
-// formula happen first — kissat eliminate.c set_next_elimination_bound (rev 53).
+// DefaultPolicy ramps it cheap-first (0,1,2,4,8) so the eliminations that do not
+// grow the formula happen first — kissat eliminate.c set_next_elimination_bound
+// (rev 53). When `k.bve_track_min_bound` is set the resolvent loop runs PAST this
+// slack (to the ramp ceiling) to learn the exact slack a rejected variable needs,
+// caching it in `k.bve_min_bound` so the policy can skip it at lower ramp levels
+// instead of re-resolving it at each (the S1b needed-bound follow-up).
 // TACTIX_BVE_BOUND pins it for A/B tuning, overriding the policy's ramp.
 static uint32_t bve_bound(const Kernel &k) {
   if (const char *s = std::getenv("TACTIX_BVE_BOUND"))
@@ -377,14 +382,25 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     std::vector<uint64_t> chain;
   };
   std::vector<Resolvent> resolvents;
-  const size_t limit = pos.size() + neg.size() + bve_bound(k);
+  const size_t base = pos.size() + neg.size();
+  const size_t commit_limit = base + bve_bound(k); // eliminate iff ≤ this
+  // Needed-bound tracking (DefaultPolicy ramp): keep resolving PAST the commit
+  // slack, up to the ramp ceiling, so a rejected variable's EXACT needed slack
+  // is learned and cached (Kernel::bve_min_bound) — the policy then skips it at
+  // every slack below what it needs instead of re-resolving it at each ramp
+  // level. Off (byte-identical to the pre-cache abort) unless the policy asked.
+  const size_t gen_limit =
+      k.bve_track_min_bound
+          ? base + std::max<uint32_t>(bve_bound(k), BVE_MAX_BOUND)
+          : commit_limit;
+  bool oversized = false; // a resolvent exceeded BVE_CLSLIM → never eliminable
+  bool over_gen = false;  // resolvent count passed gen_limit → needs > ceiling
   std::vector<uint8_t> seen(2 * k.nvars, 0); // dedup/tautology scratch
-  for (size_t ci = 0; ci < pos.size(); ++ci) {
+  for (size_t ci = 0; ci < pos.size() && !oversized && !over_gen; ++ci) {
     const MClause &c = pos[ci];
     for (const Lit l : c.active)
       if (l != px)
         seen[l] = 1;
-    bool aborted = false;
     for (size_t di = 0; di < neg.size(); ++di) {
       if (gate) {
         // resolve gate×antecedent; gate×gate only for an incomplete gate
@@ -414,7 +430,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       if (taut)
         continue;
       if (r.lits.size() > BVE_CLSLIM) { // oversized resolvent: abort the variable
-        aborted = true;
+        oversized = true;
         break;
       }
       if (lrat) {
@@ -424,16 +440,27 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
         r.chain.push_back(d.id);
       }
       resolvents.push_back(std::move(r));
-      if (resolvents.size() > limit) { // growth bound exceeded: keep x
-        aborted = true;
+      if (resolvents.size() > gen_limit) { // past the generation ceiling: stop
+        over_gen = true;
         break;
       }
     }
     for (const Lit l : c.active)
       if (l != px)
         seen[l] = 0;
-    if (aborted)
-      return ApplyResult::NoOp; // no state mutated yet
+  }
+  // Growth decision. Eliminate iff not oversized and within the COMMIT slack;
+  // otherwise keep x, and (when tracking) cache the exact slack it needs so the
+  // ramp can skip it precisely. An oversized resolvent or growth past the
+  // ceiling caps at UINT16_MAX = "never within any ramp level".
+  if (oversized || resolvents.size() > commit_limit) {
+    if (k.bve_track_min_bound)
+      k.bve_min_bound[x] =
+          oversized
+              ? UINT16_MAX
+              : static_cast<uint16_t>(
+                    std::min<size_t>(resolvents.size() - base, UINT16_MAX));
+    return ApplyResult::NoOp; // no state mutated yet
   }
 
   // ---- COMMIT: add resolvents (RUP, add-before-delete), witnesses, delete ----

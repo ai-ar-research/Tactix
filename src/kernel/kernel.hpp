@@ -329,6 +329,23 @@ struct Kernel {
   // trail index up to which root-fixed literals have been folded into
   // `bve_retry`; see kernel_bve_retry_sync_fixed.
   uint32_t bve_retry_fixed_head = 0;
+  // by var: the MINIMUM growth slack at which x is currently eliminable (its
+  // #resolvents − occ⁺ − occ⁻), as last computed by bve_eliminate; UINT16_MAX =
+  // never (an oversized resolvent, or growth beyond the tracking ceiling). Only
+  // meaningful while `bve_retry[x] == 0` (attempted, neighbourhood unchanged) —
+  // a set retry bit means "recompute". A finer-grained WORK filter than the
+  // retry bit for the DefaultPolicy BVE ramp: rejected at a low slack, x can be
+  // skipped at every slack below what it actually needs instead of re-resolved
+  // at each — same completeness/N1 story as `bve_retry` (bve.hpp). Written only
+  // when `bve_track_min_bound` is set (the ramp); every other path leaves it
+  // untouched and byte-identical. Sized with `bve_retry`.
+  std::vector<uint16_t> bve_min_bound;
+  // Opt-in: when set, bve_eliminate resolves a rejected variable up to the ramp
+  // ceiling (not just the current slack) so it can record the EXACT `bve_min_bound`
+  // the policy needs to skip precisely. Off by default → the abort is at the
+  // current slack, exactly as before this filter existed. Policy-transient
+  // (DefaultPolicy sets it around its ramp), never persisted.
+  bool bve_track_min_bound = false;
 
   // --- rule configuration (set by a policy or the public API at any state) ---
   // BVE syntactic gate detection: bitmask of enabled gate types (see bve.hpp

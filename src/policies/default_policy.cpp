@@ -547,12 +547,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             if (e.retry_advice && !std::getenv("TACTIX_NO_BVE_RAMP"))
               ramp = bve_bound ? bve_bound : &default_bve_ramp_;
             const uint32_t passes = ramp ? ramp->num_passes() : 1;
-            // The retry filter is DELIBERATELY not consulted DURING a ramp: it is
-            // cleared on ANY attempt (incl. a growth-abort), so a variable rejected
-            // for growth at a low bound would be skipped at every higher one and the
-            // ramp would collapse to level 0. Without a ramp it is consulted as
-            // before (cross-round/phase dedup).
+            // During a ramp the policy consults BOTH the retry bit AND the
+            // per-variable needed-bound cache the rule fills (Kernel::bve_min_bound,
+            // enabled by bve_track_min_bound below): a variable rejected for growth
+            // at a low slack is skipped at every slack BELOW the one it actually
+            // needs, and re-attempted only when its neighbourhood changes (retry bit
+            // set). This is what stops the ramp re-resolving every rejected variable
+            // at all six levels — the S1b cost (crypto1 ~1.0M resolutions, hitting
+            // the dose cap). A bare retry bit could NOT do this: it is cleared on any
+            // attempt (incl. a growth-abort), so it would skip a low-slack reject at
+            // every HIGHER slack too and collapse the ramp to level 0 — the exact
+            // reason S1b turned it off; the needed-bound cache is the fix. Without a
+            // ramp the retry bit alone is consulted, as before (cross-round dedup).
             const bool use_retry = e.retry_advice && !ramp;
+            k.bve_track_min_bound = ramp != nullptr;
             for (uint32_t pass = 0; pass < passes && !phase_unsat; pass++) {
               // Skip remaining ramp levels once the dose is spent — but ONLY when
               // ramping. Without a ramp (passes==1) this must NOT short-circuit:
@@ -567,8 +575,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 k.bve_bound = ramp->bound(pass);
               // Fold newly root-fixed literals into the rule's retry advice before
               // reading it: fixing y changes what BVE computes for y's neighbours
-              // with no clause add/delete to mark them.
-              if (use_retry)
+              // with no clause add/delete to mark them. Needed by BOTH the retry
+              // and the ramp needed-bound paths (a fixing invalidates a neighbour's
+              // cached bound), so sync whenever the rule maintains the advice.
+              if (e.retry_advice)
                 kernel_bve_retry_sync_fixed(k);
               inprocess_payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
               const uint32_t n = r.instances(
@@ -579,15 +589,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                   break; // dose spent
                 if (!r.guard(k))
                   break;
-                // SCHEDULING (policy-side, kissat flags->eliminate): re-attempting
-                // a variable whose elimination neighbourhood has not changed since
-                // the last attempt recomputes the same NoOp, so skip it. The rule
-                // still ACCEPTS it via apply_instance and still OFFERS it — this is
-                // the policy declining, not the rule hiding (N1).
-                if (use_retry) {
+                // SCHEDULING (policy-side, kissat flags->eliminate): decline a
+                // variable whose outcome this pass is already known. Unchanged
+                // neighbourhood (retry bit clear) ⇒ the same attempt recomputes the
+                // same NoOp; DURING a ramp, additionally, a clean variable known to
+                // need MORE slack than this pass offers (bve_min_bound) cannot be
+                // eliminated here either. The rule still OFFERS and ACCEPTS it — the
+                // policy declines, not the rule (N1).
+                if (use_retry || ramp) {
                   Lit rl;
                   if (lit_of_instance(inprocess_payloads_[i], &rl) &&
-                      var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)])
+                      var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)] &&
+                      (!ramp || k.bve_min_bound[var_of(rl)] > k.bve_bound))
                     continue;
                 }
                 const ApplyResult ar =
@@ -607,6 +620,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 }
               }
             }
+            k.bve_track_min_bound = false; // scope the caching to this ramp
             continue;
           }
           // batch / unmetered: one canonical round, metered post hoc

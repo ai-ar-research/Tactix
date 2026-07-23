@@ -27,6 +27,9 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // starts retry-worthy (kissat activate_variable marks it removed+added).
   // A DERIVED INDEX, not `H` (implementation-notes §6) — stays kernel-side.
   k.bve_retry.resize(nvars, 1);
+  // Paired with bve_retry (init is irrelevant — the retry bit starts set, so the
+  // first attempt always recomputes it before any read).
+  k.bve_min_bound.resize(nvars, 0);
   k.seen.resize(nvars, 0);
   k.marked_levels.resize(nvars + 1, 0);
   k.probing.stamp.resize(2 * nvars, 0);

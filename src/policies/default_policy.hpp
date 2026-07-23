@@ -18,6 +18,8 @@
 #include "policies/policy.hpp"
 #include "policies/subpolicy.hpp"
 
+#include <cstdlib>
+
 namespace tactix {
 
 // canonical branching: the rule/kernel ranking's top pick (VMTF
@@ -37,13 +39,38 @@ public:
   size_t victims(const Kernel &, size_t candidates) override;
 };
 
-// canonical BVE growth-slack ramp: kissat's cheap-first 0,1,2,4,8,16
-// (eliminate.c set_next_elimination_bound). The first SubPolicy of a NEW
-// category (Track S · S1b) — the schedule that dodges the crypto1 BVE U-shape.
+// canonical BVE growth-slack ramp: kissat's cheap-first doubling 0,1,2,4,8
+// (eliminate.c set_next_elimination_bound), capped at slack-8 for our single
+// preprocessing blast — see ceiling(). The first SubPolicy of a NEW category
+// (Track S · S1b) — the schedule that dodges the crypto1 BVE U-shape.
 class DefaultBveBoundRamp final : public BveBoundPolicy {
 public:
   const char *name() const override { return "kissat-ramp"; }
-  uint32_t num_passes() const override { return 6; }
+  // Growth-slack ceiling. 8, NOT kissat's 16: kissat reaches slack-16 GRADUALLY
+  // across many interleaved eliminate calls and reins in harmful growth with its
+  // mode/effort feedback; our BVE runs as one preprocessing blast with no such
+  // feedback, so an efficient ramp to 16 over-eliminates straight into the BVE
+  // U-shape (crypto1 7→27 s, 71→385 eliminations, Tier B PAR-2 16.7→17.8). Slack-8
+  // is where the single blast matches kissat's effective frontier — crypto1's L4
+  // 71-elimination sweet spot — giving Tier B PAR-2 15.1, beating both slack-16 and
+  // a flat fixed bound=8 (15.9) because the cheap-first ordering still helps.
+  // (Before the S1b needed-bound cache the ceiling was moot: the dose cap stopped
+  // the ramp near the slack-8 frontier by accident — the cache made the ceiling the
+  // real lever.) TACTIX_BVE_RAMP_MAX=N re-sweeps it; Tier C/D validation owed.
+  static uint32_t ceiling() {
+    if (const char *s = std::getenv("TACTIX_BVE_RAMP_MAX"))
+      return static_cast<uint32_t>(std::atoi(s));
+    return 8;
+  }
+  uint32_t num_passes() const override {
+    const uint32_t cap = ceiling();
+    static constexpr uint32_t levels[6] = {0, 1, 2, 4, 8, 16};
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < 6; i++)
+      if (levels[i] <= cap)
+        n = i + 1;
+    return n ? n : 1;
+  }
   uint32_t bound(uint32_t pass) const override {
     static constexpr uint32_t levels[6] = {0, 1, 2, 4, 8, 16};
     return levels[pass < 6 ? pass : 5];
