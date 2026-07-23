@@ -79,6 +79,7 @@ int main(int argc, char **argv) {
   bool adversarial_policy = false;
   bool bve_stress_policy = false;
   bool congruence_stress_policy = false;
+  bool no_heuristics = false; // run with H detached (unguided; Track H · H5)
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
 
@@ -119,6 +120,11 @@ int main(int argc, char **argv) {
       congruence_stress_policy = true;
       if (a[26] == '=')
         random_seed = strtoull(a + 27, nullptr, 10);
+    } else if (!strcmp(a, "--no-heuristics")) {
+      // Track H · H5: detach `H` (an unguided solver — `k.h == nullptr`). Sound
+      // but slow; DefaultPolicy needs `H`, so pair with --random-policy (which
+      // drives the solve purely through the null-safe rule API).
+      no_heuristics = true;
     } else if (!strncmp(a, "--bve-gates=", 12)) {
       // BVE gate-type selection (E1d): comma list of {equiv,andor}, or
       // all / none. A performance knob — every setting is sound (a disabled
@@ -177,8 +183,22 @@ int main(int argc, char **argv) {
   signal(SIGXCPU, handle_signal);
 #endif
 
+  // Only RandomPolicy drives the solve purely through the null-safe rule API and
+  // tolerates a null H. Gate on the SELECTED policy, not just the flag: the
+  // dispatch below is a precedence chain where the stress policies sit ABOVE
+  // random_policy, so `--no-heuristics --random-policy --adversarial-policy` would
+  // otherwise slip a stress policy (or DefaultPolicy) through with no H (H5).
+  if (no_heuristics && (!random_policy || adversarial_policy ||
+                        bve_stress_policy || congruence_stress_policy)) {
+    fprintf(stderr, "tactix: --no-heuristics requires --random-policy alone "
+                    "(no DefaultPolicy / stress policy); those need H\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
   Kernel kernel;
   kernel.bve_gate_mask = bve_gate_mask;
+  if (no_heuristics)
+    kernel.h.reset(); // detach H before parse, so its reserve stays H-free (H5)
   Proof proof;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
@@ -289,7 +309,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.promoted);
     printf("c mode        %s after %llu switches (%llu ticks, "
            "%llu target phases saved)\n",
-           kernel.h->stable ? "stable" : "focused",
+           !kernel.h ? "unguided" : kernel.h->stable ? "stable" : "focused",
            (unsigned long long)kernel.stats.switched,
            (unsigned long long)kernel.stats.ticks,
            (unsigned long long)kernel.stats.target_saved);

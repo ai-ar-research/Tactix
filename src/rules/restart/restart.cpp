@@ -22,6 +22,8 @@ bool restart_guard(const Kernel &k) {
 uint32_t restart_reuse_level(Kernel &k) {
   if (k.unassigned == 0)
     return 0; // nothing left to decide; abandon the whole trail
+  if (!k.h)
+    return 0; // unguided (no `H`, H5): no ranking to reuse — full restart
   uint32_t res = 0;
   if (k.h->stable) {
     const Var next = heuristics_heap_next_unassigned(k);

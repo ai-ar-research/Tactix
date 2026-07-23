@@ -45,12 +45,29 @@ ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
 
 ApplyResult decide_apply_canonical(Kernel &k) {
   assert(k.unassigned > 0);
+  if (!k.h) {
+    // Unguided (no `H`, H5): pick the lowest-index unassigned var, positive
+    // phase. Sound — every unassigned literal is a legal Decide (N1) — and
+    // deterministic; only the *order* degrades from the ranked one (plan §5).
+    for (Var v = 0; v < k.nvars; v++)
+      if (k.values[make_lit(v, false)] == 0)
+        return decide_apply(k, make_lit(v, false), false);
+    return ApplyResult::NoOp; // unreachable given unassigned > 0
+  }
   const Var v = heuristics_next_decision_var(k);
   return decide_apply(k, heuristics_decide_lit(k, v), false);
 }
 
 uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
   uint32_t n = 0;
+  if (!k.h) {
+    // Unguided: index order, positive phase (N1 — every unassigned literal is a
+    // legal candidate; the ranking is what `H` would add).
+    for (Var v = 0; v < k.nvars && n < cap; v++)
+      if (k.values[make_lit(v, false)] == 0)
+        out[n++] = make_lit(v, false);
+    return n;
+  }
   if (k.h->stable) {
     // rank unassigned vars by score, descending (N1: candidates come
     // ranked by the ACTIVE heuristic). Introspection path, not hot: a

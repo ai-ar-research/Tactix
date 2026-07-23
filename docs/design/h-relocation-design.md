@@ -175,11 +175,24 @@ those counters.
   structurally unaffected (the propagation path has zero `k.h->` — verified) at
   85.4 M/s; ctest 29/29 (release + debug/ASan); fuzz 1000/0 + Factor-forced 400/0
   + random-policy 500/0. See the "H4 design pass" section below.
-- **H5 — `H` owned by the Policy; storage outlives any single `solve()`.**
-  `tactix_solver` gains a long-lived policy (or holds `H`), so `tactix_decide` on a
-  never-solved solver still has one; null `H` stays legal. Consumers read through
-  the policy. Accept + document: swapping policies swaps `H` (a new heuristic
-  starts cold); `demo3`'s stat-for-stat contract needs the same initial `H`.
+- **H5 — `H` is OPTIONAL. ✓ landed 2026-07-22** (the payoff of rev 60). A solver
+  with `k.h == nullptr` is sound, just unguided. `kernel_backtrack` dispatches
+  `k.h ? impl<true> : impl<false>` (the `<false>` instantiation drops every hook
+  via `if constexpr`); `kernel_reserve_vars` grows `H` only `if (k.h)`;
+  `heuristics_check` no-ops without `H`. **Decide falls back to index order**
+  (lowest-index unassigned, positive phase — N1: every unassigned literal is a
+  legal branch); analyze skips the bump (still clears scratch); restart takes a
+  full restart; **Rephase/SwitchMode guards now require `H`** (a pure precondition
+  of an `H`-only policy op). `--no-heuristics` (main) detaches `H` for testing;
+  DefaultPolicy still requires `H` (it *is* the guided policy — main errors if
+  `--no-heuristics` is used without `--random-policy`). **Ownership stayed with
+  Kernel** (unique_ptr, resettable) — *deviation from the original H5 plan*, which
+  moved ownership to the session/policy: that move is only needed when a policy
+  VARIES `H` (a phase-6 concern), and the optionality payoff is fully delivered
+  without it; deferred + documented. H-present path bit-exact (DefaultPolicy);
+  null-`H` path: `test_no_heuristics` + a `--random-policy --no-heuristics` fuzz
+  leg 500/0 under ASan (proof-checked). One bug found + fixed: the post-solve stats
+  print (`main.cpp`) and `TACTIX_STAT_STABLE` (`api.cpp`) derefed `h` unguarded.
 - **H6 — the sub-policy super-class.** `subpolicy.hpp` umbrella; reparent
   `BranchingPolicy`/`ReductionPolicy`; add `RestartLevel` + `BackjumpTarget`
   (chrono) **Choosers** and `Bump`/`PhaseSave`/`TargetBest` **Hooks**.

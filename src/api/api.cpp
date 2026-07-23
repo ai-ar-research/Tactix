@@ -192,8 +192,8 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   case 10: // TACTIX_STAT_LAST_LEARNED_GLUE (pending.glue persists
            // after Backjump consumes the pending clause)
     return k.pending.glue;
-  case 11: // TACTIX_STAT_STABLE
-    return k.h->stable ? 1 : 0;
+  case 11: // TACTIX_STAT_STABLE (0 for an unguided solver with no H, H5)
+    return k.h && k.h->stable ? 1 : 0;
   case 12: // TACTIX_STAT_REPHASED
     return k.stats.rephased;
   case 13: // TACTIX_STAT_SUBSUMPTIONS

@@ -104,6 +104,11 @@ add_executable(test_factor test_factor.cpp)
 target_link_libraries(test_factor PRIVATE tactix_lib)
 add_test(NAME factor COMMAND test_factor)
 
+# Track H . H5: `H` is optional -- a null-H solver is sound but unguided.
+add_executable(test_no_heuristics test_no_heuristics.cpp)
+target_link_libraries(test_no_heuristics PRIVATE tactix_lib)
+add_test(NAME no_heuristics COMMAND test_no_heuristics)
+
 # Track H boundary guard (plan Sec 5, rev 62): the kernel interface must not
 # depend on H's layout -- kernel.hpp holds struct Heuristics only as an opaque
 # pointer and must NEVER #include policies/heuristics.hpp. A real include would

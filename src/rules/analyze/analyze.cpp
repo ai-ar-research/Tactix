@@ -238,6 +238,14 @@ static void radix_sort_analyzed_by_stamp(Kernel &k) {
 // relative recency (kissat bump.c). Stable: EVSIDS score bump + one
 // increment decay per conflict — order-independent, so no sort.
 static void bump_and_reset_analyzed(Kernel &k) {
+  if (!k.h) {
+    // Unguided (no `H`, H5): no scores/queue to bump, but the analysis scratch
+    // (SEEN flags + `analyzed`) is kernel state and must still be cleared.
+    for (const Var v : k.analyzed)
+      k.seen[v] = 0;
+    k.analyzed.clear();
+    return;
+  }
   if (k.h->stable) {
     for (const Var v : k.analyzed) {
       if (k.seen[v] & SEEN)

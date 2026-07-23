@@ -15,7 +15,11 @@
 
 namespace tactix {
 
-bool rephase_guard(const Kernel &k) { return !k.inconsistent; }
+// requires `H`: Rephase rewrites the saved/target/best phase arrays, which are
+// `H` state — a pure precondition of a policy operation that needs `H` (§5, H5).
+bool rephase_guard(const Kernel &k) {
+  return !k.inconsistent && k.h != nullptr;
+}
 
 ApplyResult rephase_apply_type(Kernel &k, uint64_t type) {
   assert(rephase_guard(k));

@@ -47,10 +47,10 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.trail.reserve(nvars);
   k.frames.reserve(nvars + 1);
   // --- search-guidance (`H`) growth (Track H · H2: extracted seam) ---
-  // Reordered below the σ growth; every resize is an independent allocation, so
-  // grouping is behaviour-preserving (bit-exact gate confirms). Made conditional
-  // on an optional `H` at H4.
-  heuristics_reserve_vars(k, old, nvars);
+  // Conditional on `H` being present (H5): an unguided solver (`k.h == nullptr`)
+  // has no per-var `H` state to grow. DefaultPolicy always has `H` → unchanged.
+  if (k.h)
+    heuristics_reserve_vars(k, old, nvars);
 }
 
 Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
@@ -397,10 +397,14 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
 }
 
 void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
-  // Track H · H2: `H` is always present today, so only the <true> instantiation
-  // exists and is selected unconditionally. H4/H5 replace this with
-  // `k.h ? kernel_backtrack_impl<true> : kernel_backtrack_impl<false>`.
-  kernel_backtrack_impl<true>(k, target, update_phases);
+  // Track H · H5: dispatch ONCE per backtrack on whether `H` is present. With no
+  // `H` (an unguided solver) the <false> instantiation runs the same σ unwind but
+  // its inner loop is branch-free w.r.t. `H` (every hook is `if constexpr (HasH)`,
+  // compiled out). DefaultPolicy always has `H`, so it takes <true> — bit-exact.
+  if (k.h)
+    kernel_backtrack_impl<true>(k, target, update_phases);
+  else
+    kernel_backtrack_impl<false>(k, target, update_phases);
 }
 
 // --- propagation engine ------------------------------------------------

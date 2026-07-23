@@ -244,10 +244,12 @@ void heuristics_update_target_phases(Kernel &k) {
 
 #ifndef NDEBUG
 void heuristics_check(const Kernel &k) {
-  // `H` exists and every per-var vector tracks Kernel::nvars. A var-adding rule
+  // A null `H` is legal (an unguided solver, H5) — nothing to check.
+  if (!k.h)
+    return;
+  // Otherwise every per-var vector tracks Kernel::nvars. A var-adding rule
   // (E2 Factor) that grew the kernel but not `H` would trip here before the next
   // phase/score read walks off the end.
-  assert(k.h);
   assert(k.h->nvars == k.nvars);
   assert(k.h->saved.size() == k.nvars);
   assert(k.h->links.size() == k.nvars);
