@@ -30,6 +30,7 @@ static bool has_binary(const Kernel &k, Lit a, Lit b) {
 // extension boundary, and keeps the model-output count at the original variables.
 static void test_extension_var_boundary() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 5); // 5 original vars: 0..4
   assert(k.nvars == 5);
   assert(k.first_extension_var == UINT32_MAX);
@@ -54,6 +55,7 @@ static void test_extension_var_boundary() {
 // quotients (5 clauses) over a fresh x; originals are deleted.
 static void test_factoring_2x3() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 5); // a=0 b=1 p=2 q=3 r=4
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false), q = make_lit(3, false), r = make_lit(4, false);

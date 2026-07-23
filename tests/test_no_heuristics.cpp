@@ -20,7 +20,7 @@ using namespace tactix;
 
 static void test_h_optional_contracts() {
   Kernel k;
-  k.h.reset(); // unguided: detach H
+  k.h = nullptr; // unguided (also the default now — the kernel owns no H)
   assert(!k.h);
   kernel_reserve_vars(k, 4); // stays H-free (reserve skips H growth when null)
   kernel_check_invariants(k); // heuristics_check is a no-op with no H
@@ -48,7 +48,7 @@ static void test_h_optional_contracts() {
 // a tiny UNSAT with no H: x forces both y and ¬y -> a root conflict.
 static void test_unguided_root_refutation() {
   Kernel k;
-  k.h.reset();
+  k.h = nullptr; // unguided (the default)
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));  // x -> y
   kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // x -> ¬y

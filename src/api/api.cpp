@@ -18,8 +18,12 @@ using namespace tactix;
 
 struct tactix_solver {
   Kernel kernel;
+  Heuristics heuristics; // the SESSION owns H (Track H · H7); Kernel holds only a
+                         // non-owning pointer. Attached below; outlives every
+                         // solve(), so tactix_decide before any solve has an H.
   Proof proof;
   std::vector<Lit> scratch;
+  tactix_solver() { kernel.h = &heuristics; }
 };
 
 extern "C" {

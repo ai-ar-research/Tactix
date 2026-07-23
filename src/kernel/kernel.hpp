@@ -8,7 +8,6 @@
 #include "kernel/watch.hpp"
 
 #include <cstdint>
-#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -171,11 +170,6 @@ struct ProbingLog {
 };
 
 struct Kernel {
-  // out-of-line (defined in kernel.cpp, where Heuristics is complete): the ctor
-  // allocates `h`, the dtor destroys it through the opaque pointer (Track H · H4).
-  Kernel();
-  ~Kernel();
-
   uint32_t nvars = 0;
   // Variables at index >= first_extension_var are NON-ORIGINAL "extension"
   // variables introduced mid-solve (E2 Factor / BVA). They are assigned by search
@@ -228,12 +222,15 @@ struct Kernel {
   ProbingLog probing;
 
   // Search-guidance state `H` (VMTF queue, EVSIDS score heap, saved/target/best
-  // phases): held OPAQUELY (Track H · H4) — the full `struct Heuristics` lives in
-  // policies/heuristics.hpp, and only code that includes it may read `h->…`.
-  // OPTIONAL by design (plan rev 60): a solver with `h == nullptr` is sound, just
-  // unguided. Always allocated today (H4, Kernel-owned); H5 makes it Policy-owned
-  // + legally null. Grown by heuristics_reserve_vars alongside kernel_reserve_vars.
-  std::unique_ptr<Heuristics> h;
+  // phases): held OPAQUELY and NON-OWNINGLY (Track H · H7) — the full `struct
+  // Heuristics` lives in policies/heuristics.hpp, and only code that includes it
+  // may read `h->…`. The kernel NEITHER allocates NOR owns it: the session (or a
+  // policy) that outlives a single `solve()` owns the storage and ATTACHES it
+  // (`k.h = &heuristics`; see tactix_solver / main). OPTIONAL by design (plan rev
+  // 60): a solver with `h == nullptr` is sound, just unguided — that is the
+  // DEFAULT here (a bare `Kernel` is unguided until a heuristic is attached).
+  // Grown by heuristics_reserve_vars alongside kernel_reserve_vars when present.
+  Heuristics *h = nullptr;
 
   // --- reconstruction stack (rho, plan §4) ----------------------------
   // Witness-labelled clause segments for rebuilding a SAT model through

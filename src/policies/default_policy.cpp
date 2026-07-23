@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 
 namespace tactix {
 
@@ -277,6 +278,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
   if (k.inconsistent)
     return 20;
+  // DefaultPolicy is a GUIDED policy — it reads `H` directly. The kernel does not
+  // own `H` (Track H · H7): if the caller (the session — API/main) attached one,
+  // use it (so incremental state + the stepping surface persist); otherwise bring
+  // our OWN for this solve, sized to the parsed formula. A bare `default_solve(k)`
+  // thus works, and this IS the "policy owns its guidance" model (plan §5). Sizing
+  // a fresh `H` to `k.nvars` here is bit-identical to having had `H` since parse
+  // (same index-order VMTF queue, zero scores, positive saved phases).
+  std::optional<ScopedHeuristics> owned_h;
+  if (!k.h)
+    owned_h.emplace(k);
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)

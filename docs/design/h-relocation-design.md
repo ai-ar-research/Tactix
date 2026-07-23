@@ -185,11 +185,9 @@ those counters.
   full restart; **Rephase/SwitchMode guards now require `H`** (a pure precondition
   of an `H`-only policy op). `--no-heuristics` (main) detaches `H` for testing;
   DefaultPolicy still requires `H` (it *is* the guided policy — main errors if
-  `--no-heuristics` is used without `--random-policy`). **Ownership stayed with
-  Kernel** (unique_ptr, resettable) — *deviation from the original H5 plan*, which
-  moved ownership to the session/policy: that move is only needed when a policy
-  VARIES `H` (a phase-6 concern), and the optionality payoff is fully delivered
-  without it; deferred + documented. H-present path bit-exact (DefaultPolicy);
+  `--no-heuristics` is used without `--random-policy`). At H5, ownership stayed
+  with Kernel (unique_ptr); **H7 (below) completed the move.** H-present path
+  bit-exact (DefaultPolicy);
   null-`H` path: `test_no_heuristics` + a `--random-policy --no-heuristics` fuzz
   leg 500/0 under ASan (proof-checked). One bug found + fixed: the post-solve stats
   print (`main.cpp`) and `TACTIX_STAT_STABLE` (`api.cpp`) derefed `h` unguarded.
@@ -204,6 +202,21 @@ those counters.
   exists") there is no 2nd arm yet, so building it now is premature generality
   (§5.5). It lands with the first real arm (phase 6 / AE-Kissat-MAB), whose
   category acceptance test is **S6 Walk under the `src/policies/ops/` diff shape**.
+- **H7 — `H` ownership OUT of the kernel. ✓ landed 2026-07-23** (completing the
+  move H5 deferred). `Kernel` holds a **non-owning `Heuristics *h = nullptr`**
+  (default = unguided); no more `unique_ptr`, ctor/dtor, or `<memory>` — the kernel
+  allocates/owns nothing `H`-related. Owners attach it: the **session**
+  (`tactix_solver` holds a `Heuristics` member + attaches in its ctor; `main` a
+  local) for the stepping surface + incremental state; and **DefaultPolicy
+  self-attaches its own** (`optional<ScopedHeuristics>` when `!k.h`), so a bare
+  `default_solve(k)` works — that IS the "policy owns its guidance" model (§5). A
+  `ScopedHeuristics` RAII helper (heuristics.hpp) attaches + **sizes** a fresh `H`
+  to `k.nvars` (so attaching at solve start is bit-identical to `H`-from-parse:
+  same index-order VMTF queue, zero scores, positive phases) and detaches on
+  scope exit (no dangling). Tests attach one per `Kernel`. Guided path **bit-exact**
+  (proof byte-identical, identical trajectory); ctest 31/31 (release + ASan);
+  null-`H` fuzz still green. Performance verified regression-free on Tier A + Tier B
+  (see the report / PROGRESS).
 
 ## H2 design pass — the hook-seam mechanism (2026-07-22)
 

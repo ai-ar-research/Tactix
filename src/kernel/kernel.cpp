@@ -5,16 +5,13 @@
 
 #include <algorithm>
 #include <cstdio>
-#include <memory>
 
 namespace tactix {
 
-// Out-of-line so the opaque std::unique_ptr<Heuristics> sees a COMPLETE
-// Heuristics here (heuristics.hpp above): the ctor allocates `H` (always present
-// at H4 — Kernel-owned; H5 moves ownership to the Policy and allows null), the
-// dtor destroys it. Track H · H4.
-Kernel::Kernel() : h(std::make_unique<Heuristics>()) {}
-Kernel::~Kernel() = default;
+// The kernel does NOT own `H` (Track H · H7): it is a non-owning `Heuristics *`
+// (kernel.hpp), attached by whoever owns the storage (the session / a policy).
+// So Kernel needs no ctor/dtor for it. heuristics.hpp is still included above —
+// kernel_backtrack_impl<true> reads `k.h->…`, which needs the complete type.
 
 void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   if (nvars <= k.nvars)

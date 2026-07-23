@@ -17,6 +17,7 @@ static void test_best_snapshot() {
   // best/target snapshots happen on backtrack while stable, past their
   // watermarks; best survives shallower episodes
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 3);
   k.h->stable = true;
   kernel_assign_decision(k, internalize(1));
@@ -33,6 +34,7 @@ static void test_best_snapshot() {
 
 static void test_types() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 4);
   k.h->stable = true;
   kernel_assign_decision(k, internalize(-1));
@@ -69,6 +71,7 @@ static void test_types() {
 
 static void test_registry_surface() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 2);
   const int id = tactix_rule_id("Rephase");
   assert(id >= 0);
@@ -87,6 +90,7 @@ static void test_registry_surface() {
 
 static void test_policy_trigger() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 2);
   DefaultPolicy p;
   k.stats.conflicts = p.rephase.next_conflicts + 1;

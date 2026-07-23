@@ -16,6 +16,7 @@ using namespace tactix;
 
 static void test_restart() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
@@ -39,6 +40,7 @@ static void test_restart() {
 
 static void test_collect_preserves_propagation() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 4);
   const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit c2[3] = {internalize(1), internalize(2), internalize(4)};
@@ -56,6 +58,7 @@ static void test_collect_preserves_propagation() {
 
 static void test_reduce_deletes_and_logs() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   Proof proof;
   char path[] = "/tmp/tactix_reduce_test.drat";
   assert(proof.open(path, ProofFormat::DratAscii));
@@ -94,6 +97,7 @@ static void test_reduce_used_retention() {
   // kissat reduce.c recency scheme: tier2 (glue <= 6) survives while
   // used within the last two reductions; aging happens per application
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 6);
   const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref tier2 = kernel_add_large_clause(k, c1, 3, true, 4);
@@ -119,6 +123,7 @@ static void test_reduce_used_retention() {
 static void test_solve_with_restarts_still_correct() {
   // PHP(3) pigeons=4 holes=3: UNSAT even with tiny restart intervals
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 12);
   auto var = [](int p, int h) { return p * 3 + h + 1; };
   std::vector<Lit> scratch;
@@ -154,6 +159,7 @@ static void test_restart_reuses_trail() {
   // is var 2 (stamp 3), so a restart keeps level 1 (4 > 3) and abandons
   // level 2 (2 <= 3).
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 3);
   heuristics_queue_bump(k, 0);
   kernel_assign_decision(k, internalize(1)); // var 0
@@ -177,6 +183,7 @@ static void test_restart_apply_to() {
   // N1 instance surface: the keep-level is the policy's choice; the
   // canonical instance keeps restart_reuse_level(k)
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 3);
   heuristics_queue_bump(k, 0); // var 0 freshest (stamp 4 > var 2's 3)
   kernel_assign_decision(k, internalize(1)); // var 0 at level 1

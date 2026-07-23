@@ -20,6 +20,7 @@ static void add3(Kernel &k, int a, int b, int c) {
 
 static void test_all_true() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   add3(k, 1, 2, 3);
@@ -33,6 +34,7 @@ static void test_all_true() {
 
 static void test_all_false() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   add3(k, -1, -2, -3);
@@ -49,6 +51,7 @@ static void test_sweep() {
   // mixed-polarity clauses defeat both constants; a forward-false sweep
   // (assume each variable false, propagate) finds the model
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));   // no all-F
   kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // no all-T
@@ -63,6 +66,7 @@ static void test_unsat_probes_abandon() {
   // PHP(3 -> 2): UNSAT, so every probe must abandon and restore the
   // entry state exactly — including the saved phases
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 6);
   auto var = [](int p, int h) { return p * 2 + h + 1; };
   for (int p = 0; p < 3; p++)
@@ -91,6 +95,7 @@ static void test_unsat_probes_abandon() {
 
 static void test_registry_surface() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   const int id = tactix_rule_id("Lucky");
@@ -108,6 +113,7 @@ static void test_registry_surface() {
 
 static void test_guard_needs_quiescent_root() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   assert(lucky_guard(k));

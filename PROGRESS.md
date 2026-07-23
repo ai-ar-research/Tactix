@@ -8,20 +8,24 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 63 (2026-07-22)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-22
-- **▶ RESUME HERE (2026-07-22).** Phase 3, **T3 gate open**. **✅ Track H COMPLETE
-  (H0–H6) — `H` is fully out of the kernel, OPTIONAL, and the policy ops are
-  relocated.** H0/H1 docs + additive `ActionKind` API; H2 the `if constexpr (HasH)`
-  hook seam; H3 the `H` CODE → `src/policies/heuristics.cpp`; H4 the `H` FIELDS →
-  `struct Heuristics` behind an opaque `unique_ptr` (kernel↔`H` separation enforced,
-  plan rev 62 + a `kernel_h_boundary` CTest); **H5 made `h` OPTIONAL** (rev-60
-  payoff — a null-`H` solver is sound + proof-producing, `--random-policy
-  --no-heuristics` fuzz 500/0 under ASan); H6 relocated `rephase`/`switchmode` →
-  `src/policies/ops/` (plan rev 63). Every increment bit-exact on the h-present path;
-  ctest **31/31** (release + ASan). **Two deliberate deferrals** (documented, not
-  forgotten): (a) the sub-policy **Chooser/Hook super-class** — waits for a 2nd arm
-  (phase 6 / AE-Kissat-MAB), building it now is premature generality; (b) moving `H`
-  **ownership** from Kernel to the session/policy — only needed once a policy VARIES
-  `H` (phase 6). **The next step is to RESUME the pre-Track-H phase-3 work**: **Track
+- **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **✅ Track H COMPLETE
+  (H0–H7) — `H` is fully OUT of the kernel (the kernel owns nothing `H`-related),
+  OPTIONAL, and the policy ops are relocated.** H0/H1 docs + additive `ActionKind`
+  API; H2 the `if constexpr (HasH)` hook seam; H3 the `H` CODE →
+  `src/policies/heuristics.cpp`; H4 the `H` FIELDS → `struct Heuristics` behind an
+  opaque pointer (kernel↔`H` separation enforced, plan rev 62 + a `kernel_h_boundary`
+  CTest); **H5 made `h` OPTIONAL** (rev-60 payoff — a null-`H` solver is sound +
+  proof-producing); H6 relocated `rephase`/`switchmode` → `src/policies/ops/` (plan
+  rev 63); **H7 moved `H` OWNERSHIP out** — `Kernel` holds a non-owning `Heuristics
+  *h`, the session/DefaultPolicy owns + attaches it (the "policy owns its guidance"
+  model). Every increment bit-exact on the guided path; ctest **31/31** (release +
+  ASan). **Performance verified regression-free** (H7, user-directed): the current
+  binary is byte-identical in trajectory to pre-Track-H (`95b5740`) on all 200 Tier
+  A + 14 Tier B instances; Tier A wall-time identical (PAR-2 0.73, 199/200). **ONE
+  deferral remains** (documented): the sub-policy **Chooser/Hook super-class** —
+  waits for a 2nd branching arm (phase 6 / AE-Kissat-MAB); building it now is
+  premature generality (§5.5). (The `H`-ownership deferral is now resolved by H7.)
+  **The next step is to RESUME the pre-Track-H phase-3 work**: **Track
   S** (the effort-scheduler target arrangement — start **S1b**, the growth-slack ramp
   alone on `crypto1`) and/or the **Tier B tail** (TB5 propagation throughput, TB2
   `x9`, S2 SBVA grid matching) — see the Track S / Track T checklists below. The
@@ -327,6 +331,7 @@ frozen v1 API — hence one registry with a `kind` field, not two id spaces.
 - [x] **H4 · move the `H` FIELDS — DONE (bit-exact).** `struct Heuristics` (new `src/policies/heuristics.hpp`) holds saved/target/best + watermarks, VMTF links/queue_*/search_*, EVSIDS scores/scinc, and `stable`, each with its original default; `Kernel` holds only an opaque `std::unique_ptr<Heuristics> h` (kernel.hpp forward-declares `struct Heuristics` and does NOT include heuristics.hpp — the include cycle **forces** the pimpl; out-of-line `Kernel()`/`~Kernel()` in kernel.cpp where the type is complete). 112 `k.<field>`→`k.h-><field>` conversions (sed; build-proven complete — a miss is a compile error). `kernel_reserve_vars` keeps σ-growth + calls `heuristics_reserve_vars` which grows `k.h->…` and sets `h->nvars`; `heuristics_check` (debug, called from `kernel_check_invariants`) asserts `h->nvars==k.nvars` and every `H` vector sized to it. `test_factor` canary updated to `k.h->saved.size()==7`. **Kernel is now non-copyable/non-movable** — reviewer confirmed no caller relied on either. Gate: bit-exact fingerprint + DRAT (SAT+UNSAT), **200/200 CNFs DRAT-identical vs HEAD** (adversarial review), ctest 29/29 (release + debug/ASan with `heuristics_check` live), fuzz 1000/0 + Factor-forced 400/0 + random-policy 500/0. **Ticks/s gate met by construction**: the propagation path (where ticks are counted) has zero `k.h->` accesses, so the indirection cannot touch throughput; measured 85.4 M/s. **L.**
 - [x] **H5 · `H` is OPTIONAL — DONE** (the payoff of rev 60). A solver with `k.h == nullptr` is sound, just unguided. `kernel_backtrack` dispatches `k.h ? impl<true> : impl<false>` (the `<false>` instantiation drops every hook via `if constexpr`); `kernel_reserve_vars` grows `H` only `if (k.h)`; `heuristics_check` no-ops without `H`. **Decide → index order** (lowest-index unassigned, positive phase — N1); analyze skips the bump (still clears SEEN/analyzed); restart takes a full restart; **Rephase/SwitchMode guards now require `k.h != nullptr`** (a pure precondition of an `H`-only policy op, §5). `--no-heuristics` (main) detaches `H` for testing — DefaultPolicy still requires `H` (main errors unless `--random-policy`). **Ownership stayed with Kernel** (unique_ptr, resettable) — a documented deviation from the plan's "session/policy owns `H`": that move is only needed when a policy VARIES `H` (phase-6), and optionality is fully delivered without it. **Bug found + fixed:** `main.cpp`'s stats print and `api.cpp`'s `TACTIX_STAT_STABLE` derefed `h` unguarded. Gate: h-present path bit-exact (DefaultPolicy proof byte-identical; default fuzz 1000/0); null-`H` path `test_no_heuristics` + `--random-policy --no-heuristics` fuzz **500/0 under ASan** (proof-checked); ctest 31/31. **M.**
 - [x] **H6 · relocate the policy ops — DONE (the relocation half; bit-exact).** `src/rules/{rephase,switchmode}` → `src/policies/ops/{rephase,switchmode}/` (`git mv`; includes + CMake updated; proof byte-identical). Plan rev 63 extended §5.3: a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`. **The sub-policy SUPER-CLASS is deliberately DEFERRED** (`subpolicy.hpp` umbrella, reparenting `BranchingPolicy`/`ReductionPolicy`, the `RestartLevel`/`BackjumpTarget` Choosers + `Bump`/`PhaseSave`/`TargetBest` Hooks) — it is the arm-dispatch scaffolding, and per §5 there is no 2nd arm yet, so building it now is premature generality (§5.5). It lands with the first real arm (phase 6 / AE-Kissat-MAB); the category acceptance test is **S6 Walk under the `src/policies/ops/` diff shape**. **S/M.**
+- [x] **H7 · `H` OWNERSHIP out of the kernel — DONE (bit-exact; user-directed 2026-07-23).** Completes the move H5 deferred. `Kernel` holds a **non-owning `Heuristics *h = nullptr`** (default = unguided); no `unique_ptr`/ctor/dtor/`<memory>` — the kernel allocates/owns nothing `H`-related. Owners attach it: the **session** (`tactix_solver` holds a `Heuristics` member + attaches in its ctor; `main` a local, before parse) for the stepping surface + incremental state; and **DefaultPolicy self-attaches its own** (`optional<ScopedHeuristics>` when `!k.h`) so a bare `default_solve(k)` works — the "policy owns its guidance" model (§5). `ScopedHeuristics` (heuristics.hpp) is an RAII owner that attaches + **sizes** a fresh `H` to `k.nvars` (making attach-at-solve bit-identical to `H`-from-parse) and detaches on scope exit; tests attach one per `Kernel` (34 guards). **PERFORMANCE VERIFIED — no regression:** the current binary is **byte-identical in trajectory** (verdict + conflicts + decisions + propagations + ticks) to the pre-Track-H binary (`95b5740`) on **all 200 Tier A + all 14 Tier B instances** (0 mismatches), and wall-time is within noise on both tiers (Tier A PAR-2 0.73 vs 0.73, 199/200, byte-identical 174.6 MB proofs; Tier B PAR-2 16.93 vs 16.90, 14/14 — a 0.18 % delta vs the ~20.6–23.0 noise band, L6). Adversarial review APPROVED (0 findings; independently proof-byte-verified 49 instances incl. SAT/stable/rephase + mid-solve extension-var growth). ctest 31/31 (release + ASan); fuzz default 1000/0 + null-`H` 500/0. **M.**
 - **Deliberately NOT in this refactor** (design §6): threading `Heuristics&` through every rule signature (~210 edits, unused param on 13 rules — the `Kernel::h`/`dense`/`proof` idiom already gives the capability); a virtual `HeuristicPolicy` (one implementation = §3 granularity trap; add static arm-dispatch when a 2nd arm exists); moving `Stats`/`bve_retry`/`bve_gate_mask` into `H`. **Sequencing:** H0/H1/H6 safe any time; H2–H5 want a quiet tree and are textually incompatible with in-flight kernel work — do them as a coherent unit before resuming Track S.
 
 
@@ -423,7 +428,28 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-22 — Track H COMPLETE (H0–H6): `H` out of the kernel, optional, policy ops relocated
+### 2026-07-23 — Track H · H7: `H` ownership out of the kernel (verified regression-free on Tier A+B)
+The kernel now owns NOTHING `H`-related: `Kernel` holds a non-owning `Heuristics
+*h = nullptr` (no unique_ptr/ctor/dtor/`<memory>`). The session (`tactix_solver`/
+`main`) owns + attaches `H`; `DefaultPolicy` self-attaches its own when none is
+present (so `default_solve` on a bare kernel works — the "policy owns its guidance"
+model). A `ScopedHeuristics` RAII owner sizes a fresh `H` to `k.nvars` on attach,
+which is bit-identical to `H`-from-parse (the reserve growth is chunk-independent).
+- **Performance (the user made it a gate):** trajectory-identity A/B vs the
+  pre-Track-H binary (`95b5740`) — byte-identical verdict + conflicts + decisions +
+  propagations + ticks on **200/200 Tier A + 14/14 Tier B**, and wall-time within
+  noise (Tier A PAR-2 0.73 vs 0.73; Tier B 16.93 vs 16.90, jobs=4). Because the
+  whole track is bit-exact, identical trajectories *prove* no algorithmic
+  regression; the wall-time A/B just confirms throughput is unchanged.
+- **Lesson:** the first cut had two bugs the guided bit-exact gate can't see —
+  `ScopedHeuristics` attached an *unsized* `H` (OOB in backtrack), and the
+  `default_solve`-on-bare-kernel path (many rule tests) needed the policy to bring
+  its own `H`. Both surfaced only by running the FULL test suite under ASan after
+  flipping the default to null-`H`. The adversarial review then proof-byte-verified
+  the self-attach bit-exactness on 49 instances (the property the 2-instance
+  fingerprint can't establish at scale).
+
+### 2026-07-22 — Track H (H0–H6): `H` out of the kernel, optional, policy ops relocated
 Seven increments of the top-priority `H`-relocation, plus plan revs 61/62/63.
 H0–H4 behaviour-neutral (trajectory identity, held exactly); H5 added the OPTIONAL
 null-`H` path (rev-60 payoff), h-present path bit-exact; H6 relocated the two policy

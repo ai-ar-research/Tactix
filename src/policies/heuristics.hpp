@@ -58,6 +58,26 @@ struct Heuristics {
 // out of kernel_reserve_vars (Track H); called whenever the kernel grows nvars.
 void heuristics_reserve_vars(Kernel &, uint32_t old, uint32_t nvars);
 
+// The kernel does not own `H` (Track H · H7) — whoever outlives a single solve()
+// owns the storage and attaches it. This RAII helper is the guided-default owner
+// for tests and simple embeddings: it holds a `Heuristics` for its scope, attaches
+// it to `k`, sizes it to the kernel's CURRENT var count, and detaches on
+// destruction (so `k.h` never dangles). Sizing here is what makes attaching a
+// fresh `H` to an already-parsed kernel bit-identical to having had it since parse.
+// The session (tactix_solver) and main hold their own `Heuristics` directly.
+struct ScopedHeuristics {
+  Heuristics h;
+  Kernel &kref;
+  explicit ScopedHeuristics(Kernel &k) : kref(k) {
+    k.h = &h;
+    if (k.nvars)
+      heuristics_reserve_vars(k, 0, k.nvars);
+  }
+  ~ScopedHeuristics() { kref.h = nullptr; }
+  ScopedHeuristics(const ScopedHeuristics &) = delete;
+  ScopedHeuristics &operator=(const ScopedHeuristics &) = delete;
+};
+
 // --- VMTF ------------------------------------------------------------------
 void heuristics_queue_bump(Kernel &, Var v); // move to front (most recent)
 Var heuristics_queue_next_unassigned(Kernel &); // last-enqueued unassigned var

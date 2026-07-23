@@ -17,6 +17,7 @@ using namespace tactix;
 
 static void test_heap_basic() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 5);
   heuristics_update_scores(k); // push all five
   for (Var v = 0; v < 5; v++)
@@ -39,6 +40,7 @@ static void test_heap_basic() {
 
 static void test_rescale() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 3);
   heuristics_update_scores(k);
   // force scinc past the rescale threshold: relative order must survive
@@ -54,6 +56,7 @@ static void test_rescale() {
 
 static void test_switchmode_rule() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 4);
   assert(switchmode_guard(k));
   assert(!k.h->stable);
@@ -69,6 +72,7 @@ static void test_switchmode_rule() {
 
 static void test_stable_decide_and_target_phases() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   switchmode_apply(k); // enter stable
@@ -93,6 +97,7 @@ static void test_stable_decide_and_target_phases() {
 
 static void test_stable_trail_reuse() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 4);
   switchmode_apply(k);
   // scores: v0 > v1 > v2 > v3 (bump under growing scinc, reverse order)
@@ -116,6 +121,7 @@ static void test_stable_trail_reuse() {
 
 static void test_policy_schedule() {
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 2);
   DefaultPolicy p;
   // focused until modeinit conflicts
@@ -145,6 +151,7 @@ static void test_default_policy_solves_across_modes() {
   // an unsatisfiable chain small enough to be instant but forced through
   // both modes: run with modeinit-sized conflict budget via direct solve
   Kernel k;
+  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(1), internalize(-2));

@@ -196,9 +196,12 @@ int main(int argc, char **argv) {
     return 1;
   }
   Kernel kernel;
+  Heuristics heuristics; // the session owns H (Track H · H7); the kernel holds
+                         // only a non-owning pointer. --no-heuristics leaves it
+                         // unattached (null) so the whole run is H-free.
+  if (!no_heuristics)
+    kernel.h = &heuristics;
   kernel.bve_gate_mask = bve_gate_mask;
-  if (no_heuristics)
-    kernel.h.reset(); // detach H before parse, so its reserve stays H-free (H5)
   Proof proof;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
