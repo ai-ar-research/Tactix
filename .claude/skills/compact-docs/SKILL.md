@@ -43,6 +43,17 @@ Scan each living doc for:
   the frozen design doc) once it is no longer *recent* context. The rev-24
   discipline (§13 one-liner, PROGRESS newest-first & concise) is this rule already
   — generalize it.
+- **Checked checklist items → one-liners.** A ticked `[x]` item in PROGRESS is a
+  **one-liner**: headline + result + a pointer (commit SHA / the Log entry / a
+  report). It does **not** re-tell the session's back-and-forth — the diagnosis,
+  the dead ends, the A/B tables, the play-by-play — because that already lives in
+  the Log entry and the commit message (one-fact-one-home). A completed item that
+  runs to a multi-sentence paragraph is the most common bloat source, and it
+  defeats the checklist's job as a *scannable status surface*. The moment an item
+  goes `[ ]` → `[x]`, compress it (an in-flight `[ ]` item may still carry working
+  detail). The one thing that survives compression is the **lesson** (see "never
+  prune") — as a single clause in the one-liner, *"…; lesson: X was really Y
+  (commit)"*, never a paragraph.
 - **Superseded / irrelevant content.** Plans that were replaced, dead option
   branches, stale numbers, resolved TODOs. Remove — with a pointer if any residual
   value remains.

@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: End-of-session checklist, run right before quitting so the next fresh session can just say "continue" and resume building. Ensures work is committed + pushed, tests are green, the living docs are current (PROGRESS reflects what was done + the next undone step; plan/calculus synced if touched), compact-docs has run if a doc grew unwieldy, tasks reflect reality, and PROGRESS's resume anchor is accurate and self-sufficient. Also surfaces the (user-run) command to archive the session transcript to session-YYYY-MM-DD.txt. Use at the end of every work session.
+description: End-of-session checklist, run right before quitting so the next fresh session can just say "continue" and resume building. Ensures work is committed + pushed, tests are green, the living docs are current (PROGRESS reflects what was done + the next undone step; plan/calculus synced if touched), compact-docs has run to condense this session's ticked items to one-liners (and fully re-compact if a doc grew unwieldy), tasks reflect reality, and PROGRESS's resume anchor is accurate and self-sufficient. Also surfaces the (user-run) command to archive the session transcript to session-YYYY-MM-DD.txt. Use at the end of every work session.
 ---
 
 # Wrapping up a session
@@ -31,9 +31,9 @@ resume anchor, step 6).
    accurate resume anchor. Plan changed → `revise-plan` (rev bump + §13). Rules or
    guards changed → `calculus` (`calculus.md` + `implementation-notes.md`).
    One-fact-one-home: link, don't restate.
-4. **Compact if needed** (`compact-docs`). If a living doc grew unwieldy or
-   re-orienting took real effort, run the compact-docs skill — condense completed
-   detail to result + pointer, keep the big picture and undone steps prominent.
+4. **Compact** — **run `compact-docs` every wrap-up.** It condenses the items this
+   session ticked to one-liners and re-compacts any doc that grew unwieldy.
+   compact-docs owns the rules for what and how; wrap-up just guarantees it runs.
 5. **Prune persistent memory.** Memory is a small set of *currently true*
    durable facts, not an archive — it is loaded into every future session, so a
    stale entry actively misleads and an accreting one crowds out what matters.
