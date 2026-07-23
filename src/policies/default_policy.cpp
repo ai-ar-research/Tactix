@@ -535,46 +535,76 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (e.dosed && r.instances && r.apply_instance) {
             if (!r.guard(k))
               continue;
-            // Fold newly root-fixed literals into the rule's retry advice before
-            // reading it: fixing y changes what BVE computes for y's neighbours
-            // with no clause add/delete to mark them.
-            if (e.retry_advice)
-              kernel_bve_retry_sync_fixed(k);
-            inprocess_payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
-            const uint32_t n = r.instances(
-                k, inprocess_payloads_.data(),
-                static_cast<uint32_t>(inprocess_payloads_.size()));
-            for (uint32_t i = 0; i < n; i++) {
-              if (e.meter(k) > limit)
-                break; // dose spent
-              if (!r.guard(k))
+            // BVE growth-slack RAMP (Track S · S1b, BveBoundPolicy): drive
+            // k.bve_bound cheap-first over the sub-policy's passes (kissat
+            // eliminate.c set_next_elimination_bound), so the non-growing
+            // eliminations happen first and later ones are measured against an
+            // already-simplified formula — the adaptive version of a single fixed
+            // bound, dodging the crypto1 BVE U-shape (L4). A null ramp (or a
+            // non-BVE dosed entry) = one pass at the current bound (the pre-S1b
+            // behaviour, bit-exact). The dose is SHARED across passes.
+            BveBoundPolicy *ramp = nullptr;
+            if (e.retry_advice && !std::getenv("TACTIX_NO_BVE_RAMP"))
+              ramp = bve_bound ? bve_bound : &default_bve_ramp_;
+            const uint32_t passes = ramp ? ramp->num_passes() : 1;
+            // The retry filter is DELIBERATELY not consulted DURING a ramp: it is
+            // cleared on ANY attempt (incl. a growth-abort), so a variable rejected
+            // for growth at a low bound would be skipped at every higher one and the
+            // ramp would collapse to level 0. Without a ramp it is consulted as
+            // before (cross-round/phase dedup).
+            const bool use_retry = e.retry_advice && !ramp;
+            for (uint32_t pass = 0; pass < passes && !phase_unsat; pass++) {
+              // Skip remaining ramp levels once the dose is spent — but ONLY when
+              // ramping. Without a ramp (passes==1) this must NOT short-circuit:
+              // HEAD always ran kernel_bve_retry_sync_fixed (persistent state) +
+              // r.instances before the inner-loop meter check, so a top-of-pass
+              // break here would skip that sync when the dose is already spent (a
+              // multi-phase-only divergence). Gating on `ramp` keeps the disabled
+              // path byte-for-byte HEAD (S1b review).
+              if (ramp && e.meter(k) > limit)
                 break;
-              // SCHEDULING (policy-side, kissat flags->eliminate): re-attempting
-              // a variable whose elimination neighbourhood has not changed since
-              // the last attempt recomputes the same NoOp, so skip it. The rule
-              // still ACCEPTS it via apply_instance, and its instance surface
-              // still OFFERS it — this is the policy declining, not the rule
-              // hiding (N1).
-              if (e.retry_advice) {
-                Lit rl;
-                if (lit_of_instance(inprocess_payloads_[i], &rl) &&
-                    var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)])
-                  continue;
-              }
-              const ApplyResult ar =
-                  r.apply_instance(k, inprocess_payloads_[i]);
-              if (ar == ApplyResult::Unsat || k.inconsistent) {
-                phase_unsat = true;
-                break;
-              }
-              if (ar != ApplyResult::Ok)
-                continue; // this candidate was not viable; try the next
-              round_changed = true;
-              phase_dosed = true;
-              // drain any root units the application asserted
-              if (propagate_apply(k) == ApplyResult::Unsat) {
-                phase_unsat = true;
-                break;
+              if (ramp)
+                k.bve_bound = ramp->bound(pass);
+              // Fold newly root-fixed literals into the rule's retry advice before
+              // reading it: fixing y changes what BVE computes for y's neighbours
+              // with no clause add/delete to mark them.
+              if (use_retry)
+                kernel_bve_retry_sync_fixed(k);
+              inprocess_payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
+              const uint32_t n = r.instances(
+                  k, inprocess_payloads_.data(),
+                  static_cast<uint32_t>(inprocess_payloads_.size()));
+              for (uint32_t i = 0; i < n; i++) {
+                if (e.meter(k) > limit)
+                  break; // dose spent
+                if (!r.guard(k))
+                  break;
+                // SCHEDULING (policy-side, kissat flags->eliminate): re-attempting
+                // a variable whose elimination neighbourhood has not changed since
+                // the last attempt recomputes the same NoOp, so skip it. The rule
+                // still ACCEPTS it via apply_instance and still OFFERS it — this is
+                // the policy declining, not the rule hiding (N1).
+                if (use_retry) {
+                  Lit rl;
+                  if (lit_of_instance(inprocess_payloads_[i], &rl) &&
+                      var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)])
+                    continue;
+                }
+                const ApplyResult ar =
+                    r.apply_instance(k, inprocess_payloads_[i]);
+                if (ar == ApplyResult::Unsat || k.inconsistent) {
+                  phase_unsat = true;
+                  break;
+                }
+                if (ar != ApplyResult::Ok)
+                  continue; // this candidate was not viable; try the next
+                round_changed = true;
+                phase_dosed = true;
+                // drain any root units the application asserted
+                if (propagate_apply(k) == ApplyResult::Unsat) {
+                  phase_unsat = true;
+                  break;
+                }
               }
             }
             continue;

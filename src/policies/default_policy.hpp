@@ -16,6 +16,7 @@
 #pragma once
 
 #include "policies/policy.hpp"
+#include "policies/subpolicy.hpp"
 
 namespace tactix {
 
@@ -23,6 +24,7 @@ namespace tactix {
 // last-enqueued-unassigned, saved phase — §5.1)
 class DefaultBranching final : public BranchingPolicy {
 public:
+  const char *name() const override { return "vmtf-evsids"; }
   Lit pick(Kernel &) override;
 };
 
@@ -31,7 +33,21 @@ public:
 // the two cannot drift)
 class GlueTieredReduction final : public ReductionPolicy {
 public:
+  const char *name() const override { return "glue-tiered"; }
   size_t victims(const Kernel &, size_t candidates) override;
+};
+
+// canonical BVE growth-slack ramp: kissat's cheap-first 0,1,2,4,8,16
+// (eliminate.c set_next_elimination_bound). The first SubPolicy of a NEW
+// category (Track S · S1b) — the schedule that dodges the crypto1 BVE U-shape.
+class DefaultBveBoundRamp final : public BveBoundPolicy {
+public:
+  const char *name() const override { return "kissat-ramp"; }
+  uint32_t num_passes() const override { return 6; }
+  uint32_t bound(uint32_t pass) const override {
+    static constexpr uint32_t levels[6] = {0, 1, 2, 4, 8, 16};
+    return levels[pass < 6 ? pass : 5];
+  }
 };
 
 class DefaultPolicy final : public Policy {
@@ -111,6 +127,7 @@ public:
   // sub-policies (swappable without touching any rule; null = built-in)
   BranchingPolicy *branching = nullptr;
   ReductionPolicy *reduction = nullptr;
+  BveBoundPolicy *bve_bound = nullptr; // BVE growth-slack ramp (Track S · S1b)
 
   // bias-corrected EMA (kissat smooth.c): value = biased / (1 - beta^n)
   // — the Adam-style warm-up makes early averages meaningful, which the
@@ -277,6 +294,7 @@ private:
   void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs
   DefaultBranching default_branching_;
   GlueTieredReduction default_reduction_;
+  DefaultBveBoundRamp default_bve_ramp_;
   std::vector<Ref> reduce_scratch_;
   std::vector<uint64_t> inprocess_payloads_; // instance snapshot, reused
 };

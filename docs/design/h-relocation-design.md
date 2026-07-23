@@ -195,13 +195,15 @@ those counters.
   `src/rules/{rephase,switchmode}` → `src/policies/ops/{rephase,switchmode}/`
   (`git mv`, bit-exact); includes + CMake updated. §5.3 extended (plan rev 63): a
   policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`.
-  **The sub-policy SUPER-CLASS is deliberately DEFERRED** — the `subpolicy.hpp`
-  umbrella, reparenting `BranchingPolicy`/`ReductionPolicy`, and the `RestartLevel`/
-  `BackjumpTarget` **Choosers** + `Bump`/`PhaseSave`/`TargetBest` **Hooks** are the
-  arm-dispatch scaffolding, and per §5 ("add static arm-dispatch when a 2nd arm
-  exists") there is no 2nd arm yet, so building it now is premature generality
-  (§5.5). It lands with the first real arm (phase 6 / AE-Kissat-MAB), whose
-  category acceptance test is **S6 Walk under the `src/policies/ops/` diff shape**.
+  **The sub-policy super-class was DEFERRED here** ("no 2nd arm yet") but is now
+  **partly landed**: the minimal `subpolicy.hpp` umbrella (a `SubPolicy` base +
+  the reparented `BranchingPolicy`/`ReductionPolicy`) shipped with **Track S · S1b**
+  (2026-07-23), which needed a home for a genuinely new arm class — the BVE
+  growth-slack ramp (`BveBoundPolicy`). Still deferred (per §5, until their
+  consumers exist): the `RestartLevel`/`BackjumpTarget` **Choosers**, the
+  `Bump`/`PhaseSave`/`TargetBest` **Hooks**, and reparenting restart/mode/rephase —
+  the arm-dispatch scaffolding that phase 6 / AE-Kissat-MAB will drive. Category
+  acceptance test remains **S6 Walk under the `src/policies/ops/` diff shape**.
 - **H7 — `H` ownership OUT of the kernel. ✓ landed 2026-07-23** (completing the
   move H5 deferred). `Kernel` holds a **non-owning `Heuristics *h = nullptr`**
   (default = unguided); no more `unique_ptr`, ctor/dtor, or `<memory>` — the kernel
