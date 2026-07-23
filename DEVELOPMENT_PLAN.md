@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-22 (rev. 61). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-22 (rev. 62). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -297,9 +297,16 @@ Design commitments:
   the other way — **the kernel must never name the `Heuristics` type nor call
   into `H` unconditionally**, so its hooks (phase-save on backtrack, bump on
   conflict) are compile-time callables that vanish when `H` is null, never a
-  per-step `if (k.h)` on a hot path. Storage lives with whoever outlives a
-  single `solve()` (the session or the policy), so the N1 stepping surface
-  (`tactix_decide` before any solve) always has an `H` when one is attached.
+  per-step `if (k.h)` on a hot path. **This boundary is STRUCTURAL and stays
+  enforced (realized by Track H · H4, §9):** `kernel.hpp` forward-declares
+  `Heuristics` and holds it only as an opaque `unique_ptr` — it never `#include`s
+  `policies/heuristics.hpp` — so `H`'s layout is invisible to the kernel interface,
+  and all `H` state + operations live in `src/policies/heuristics.{hpp,cpp}`. A
+  change that re-entangles the kernel with `H`'s representation either fails to
+  compile or is caught by a hygiene grep (`kernel.hpp` must not name `heuristics.hpp`);
+  re-entangling is a §5.4 revamp discussion, never a silent edit. Storage lives with
+  whoever outlives a single `solve()` (the session or the policy), so the N1 stepping
+  surface (`tactix_decide` before any solve) always has an `H` when one is attached.
   This supersedes the earlier
   rule-module `advised` hint (the guard/advised split): advice computation
   and its state move into the policy; the registry keeps guards only.
@@ -1248,3 +1255,4 @@ conflate them.
 - **rev. 59** (2026-07-22, user): took `H` out of `σ` (§4, §5.1).
 - **rev. 60** (2026-07-22, user): `H` is optional, policy-owned state — the kernel never names the `Heuristics` type nor depends on its existence; no mandatory DefaultPolicy; the H-relocation is the top-priority phase-3 work item (§5, §9). Design `docs/design/h-relocation-design.md`.
 - **rev. 61** (2026-07-22): applied the rev-59 reclassification test to the §5.2 catalog — split the search-management table so S3 `Rephase`/S4 `SwitchMode`/S6 `Walk`/S7 `Reorder` are catalogued as **policy operations** (`H`-only sub-policies), leaving S1/S2/S5 as the macro-tier proof rules; no scope change (Track H · H0, §5.2).
+- **rev. 62** (2026-07-22, user-prompted): made the kernel↔`H` separation a STRUCTURAL, enforced invariant — `kernel.hpp` holds `H` only as an opaque pointer and never includes `heuristics.hpp`; re-entangling is compile-caught / grep-caught and a §5.4 discussion (§5). Realized by Track H · H4.

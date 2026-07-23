@@ -103,3 +103,10 @@ endforeach()
 add_executable(test_factor test_factor.cpp)
 target_link_libraries(test_factor PRIVATE tactix_lib)
 add_test(NAME factor COMMAND test_factor)
+
+# Track H boundary guard (plan Sec 5, rev 62): the kernel interface must not
+# depend on H's layout -- kernel.hpp holds struct Heuristics only as an opaque
+# pointer and must NEVER #include policies/heuristics.hpp. A real include would
+# also compile-fail via the include cycle, but this gives a fast, clear signal.
+add_test(NAME kernel_h_boundary
+         COMMAND bash -c "! grep -qE '^[[:space:]]*#[[:space:]]*include.*heuristics\\.hpp' '${CMAKE_SOURCE_DIR}/src/kernel/kernel.hpp'")
