@@ -240,17 +240,17 @@ static void bump_and_reset_analyzed(Kernel &k) {
   if (k.stable) {
     for (const Var v : k.analyzed) {
       if (k.seen[v] & SEEN)
-        kernel_score_bump(k, v);
+        heuristics_score_bump(k, v);
       k.seen[v] = 0;
     }
     k.analyzed.clear();
-    kernel_scores_decay(k);
+    heuristics_scores_decay(k);
     return;
   }
   radix_sort_analyzed_by_stamp(k);
   for (const Var v : k.analyzed) {
     if (k.seen[v] & SEEN)
-      kernel_queue_bump(k, v);
+      heuristics_queue_bump(k, v);
     k.seen[v] = 0;
   }
   k.analyzed.clear();

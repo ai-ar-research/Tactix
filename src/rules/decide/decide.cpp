@@ -44,8 +44,8 @@ ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
 
 ApplyResult decide_apply_canonical(Kernel &k) {
   assert(k.unassigned > 0);
-  const Var v = kernel_next_decision_var(k);
-  return decide_apply(k, kernel_decide_lit(k, v), false);
+  const Var v = heuristics_next_decision_var(k);
+  return decide_apply(k, heuristics_decide_lit(k, v), false);
 }
 
 uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
@@ -66,7 +66,7 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
     for (const Var v : scratch) {
       if (n >= cap)
         break;
-      out[n++] = kernel_decide_lit(k, v);
+      out[n++] = heuristics_decide_lit(k, v);
     }
     return n;
   }
@@ -74,7 +74,7 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
   for (Var v = k.search_idx; v != UINT32_MAX && n < cap;
        v = k.links[v].prev)
     if (k.values[make_lit(v, false)] == 0)
-      out[n++] = kernel_decide_lit(k, v);
+      out[n++] = heuristics_decide_lit(k, v);
   return n;
 }
 

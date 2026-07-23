@@ -154,7 +154,7 @@ static void test_restart_reuses_trail() {
   // level 2 (2 <= 3).
   Kernel k;
   kernel_reserve_vars(k, 3);
-  kernel_queue_bump(k, 0);
+  heuristics_queue_bump(k, 0);
   kernel_assign_decision(k, internalize(1)); // var 0
   kernel_assign_decision(k, internalize(2)); // var 1
   assert(restart_apply(k) == ApplyResult::Ok);
@@ -164,7 +164,7 @@ static void test_restart_reuses_trail() {
   assert(k.stats.restarts_reused == 1);
 
   // with var 1 also fresher than any candidate, the whole trail survives
-  kernel_queue_bump(k, 1); // stamp 5 > var 2's 3
+  heuristics_queue_bump(k, 1); // stamp 5 > var 2's 3
   kernel_assign_decision(k, internalize(2));
   assert(restart_apply(k) == ApplyResult::Ok);
   assert(k.level == 2); // full reuse: no backtrack at all
@@ -177,7 +177,7 @@ static void test_restart_apply_to() {
   // canonical instance keeps restart_reuse_level(k)
   Kernel k;
   kernel_reserve_vars(k, 3);
-  kernel_queue_bump(k, 0); // var 0 freshest (stamp 4 > var 2's 3)
+  heuristics_queue_bump(k, 0); // var 0 freshest (stamp 4 > var 2's 3)
   kernel_assign_decision(k, internalize(1)); // var 0 at level 1
   kernel_assign_decision(k, internalize(2)); // var 1 at level 2
   assert(restart_reuse_level(k) == 1); // canonical would keep level 1...

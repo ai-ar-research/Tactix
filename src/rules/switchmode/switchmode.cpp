@@ -18,11 +18,11 @@ ApplyResult switchmode_apply(Kernel &k) {
   if (k.stable) {
     // entering stable: every var must be reachable via the score heap
     // (kissat bump.c kissat_update_scores)
-    kernel_update_scores(k);
+    heuristics_update_scores(k);
   } else {
     // entering focused: the VMTF search cache must point at the queue
     // tail again (kissat queue.c kissat_reset_search_of_queue)
-    kernel_reset_queue_search(k);
+    heuristics_reset_queue_search(k);
   }
   return ApplyResult::Ok;
 }

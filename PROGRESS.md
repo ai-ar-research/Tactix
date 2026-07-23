@@ -8,22 +8,26 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 61 (2026-07-22)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-22
-- **▶ RESUME HERE (2026-07-22).** Phase 3, **T3 gate open**. **Track H · H0+H1+H2
+- **▶ RESUME HERE (2026-07-22).** Phase 3, **T3 gate open**. **Track H · H0–H3
   LANDED, all bit-exact.** H0/H1: docs synced to plan rev 61 (S3/S4/S6/S7 are
-  **policy operations**), additive `ActionKind`/`tactix_action_kind` API, ids
-  unmoved. **H2 (STRUCTURAL, the design pass is in `docs/design/h-relocation-design.md`
-  "H2 design pass"):** `kernel_backtrack` → `template <bool HasH>` with every `H`
-  touch under `if constexpr (HasH)` (single `<true>` instantiation today →
-  byte-identical codegen); `kernel_reserve_vars`' `H`-growth extracted into
-  `heuristics_reserve_vars`. Bit-exact verified (trajectory + DRAT bytes identical
-  on tr-n120-s058 + corpus-007), ctest 29/29, fuzz 1000/0 + random-policy 500/0,
-  adversarial review approved (hook-by-hook `if constexpr` completeness confirmed).
-  **The next step is `H3`** — move the `H` CODE out of `kernel.cpp` into
-  `src/policies/heuristics.cpp` (verbatim move + `kernel_*`→`heuristics_*`; fields
-  still in `Kernel`). **Banked for H3:** delete dead `kernel_queue_init` (decl
-  kernel.hpp, zero callers) rather than porting it. **H3–H5 still want the QUIET
-  TREE** and land before resuming Track S; H6 safe any time. What landed just
-  before Track H is in the top block below.
+  **policy operations**), additive `ActionKind`/`tactix_action_kind` API. H2: the
+  compile-time hook seam (`kernel_backtrack` → `template <bool HasH>` with every
+  `H` touch under `if constexpr`). **H3: the `H` CODE now lives in
+  `src/policies/heuristics.cpp`** — 16 functions moved verbatim out of `kernel.cpp`,
+  renamed `kernel_*`→`heuristics_*`, dead `kernel_queue_init` deleted; declarations
+  (incl. 3 inline fns) still in `kernel.hpp`. Each increment verified bit-exact
+  (fingerprint + DRAT identical, ctest 29/29, fuzz + random-policy) and passed an
+  adversarial review. **The next step is `H4`** — move the `H` FIELDS out of
+  `struct Kernel` into a new `struct Heuristics` (`Kernel` holds only a pointer);
+  split `kernel_reserve_vars` field-wise; add `Heuristics::nvars` + a
+  `heuristics_check` invariant. **This is the "L" increment and the first with real
+  hazard:** E2 Factor grows vars mid-solve and is ON by default, so an `H` that
+  doesn't grow is a silent OOB — `test_factor`'s `saved.size()==7 &&
+  scores.score.size()==7` is the canary (update, never delete); add an ASan
+  Factor-heavy fuzz leg + solo ticks/s (≤ 2 % off the 26.6 M pin). Declarations +
+  the 3 inline fns move to a new `heuristics.hpp` (with the struct) here. **H4/H5
+  want the QUIET TREE** and land before resuming Track S; H6 safe any time. What
+  landed just before Track H is in the top block below.
 
   **Landed (revs 53–55).** *Increment 1, the effort ledger* — each rule's dose is
   a per-mille fraction of the search work since it last ran, metered in its own
@@ -315,7 +319,7 @@ frozen v1 API — hence one registry with a `kind` field, not two id spaces.
 - [x] **H0 · design doc + doc sync — DONE** (plan rev 61). `docs/design/h-relocation-design.md` filled in (the `H` field/function/hook/consumer inventory with file:line + the expanded H1–H6 increments); §5.2 catalog split so S3/S4/S6/S7 are catalogued as **policy operations** (via revise-plan); S3/S4 entries removed from `calculus.md` + the §2 marking/§4 title updated, and their guard rows removed from `implementation-notes.md` (via calculus); the three non-σ-but-not-`H` categories (observability sink / derived index / rule config) recorded in the design doc. Also fixed the stale `σ=⟨…,H⟩` line in the calculus skill. Docs only. **S.**
 - [x] **H1 · `ActionKind` + `TACTIX_REGISTER_POLICY_OP` + `tactix_action_kind` — DONE** (additive C API). `RuleVTable` gained a defaulted `kind` field; `tactix_register_rule` threads the kind; the new macro sets `PolicyOp`. Rephase (id 10) and SwitchMode (id 15) switched macros **in place** — ids unmoved. C header mirrors `TACTIX_ACTION_PROOF_RULE/POLICY_OP` + `int tactix_action_kind(int)`. **Bit-exact by construction** (kind is never read by kernel/DefaultPolicy) and **measured** so: trajectory + DRAT bytes byte-identical on tr-n120-s058 (SAT) and corpus-007 (UNSAT). `test_api_c.c` gained a golden 18-id name list (permanent id-drift guard), kind assertions on both policy ops, proof-rule spot checks + the exact policy-op count (2), and boundary `-1` returns. ctest 29/29 (release + debug/ASan); quick fuzz green. **S.**
 - [x] **H2 · the kernel stops depending on `H`'s existence — STRUCTURAL — DONE (bit-exact).** The compile-time hook seam landed: `kernel_backtrack` → `template <bool HasH> kernel_backtrack_impl` with all four `H` hooks (target/best snapshot, phase save, heap re-insert, VMTF cache) + the `stable` read under `if constexpr (HasH)`; a thin `kernel_backtrack` wrapper calls `<true>` (the only instantiation today, so codegen is byte-identical). `kernel_reserve_vars`' `H`-growth (saved/links/scores/target/best + VMTF enqueue) extracted into `heuristics_reserve_vars` (reorder proven independent; `bve_retry` stays kernel-side as a derived index). **Deferred to H4/H5** (they need a nullable `h`): the `<false>` empty-`H` instantiation, the `k.h ? <true> : <false>` dispatch, "`kernel.hpp` never names `Heuristics`", removing the per-step branch. Design + rejected alternatives (per-literal `if(k.h)`, fn-ptr/virtual hooks): `docs/design/h-relocation-design.md` "H2 design pass". Gate met: trajectory + DRAT bytes byte-identical (SAT + UNSAT), ctest 29/29, fuzz 1000/0 + random-policy 500/0, adversarial review approved. **M.**
-- [ ] **H3 · move the `H` CODE** out of `kernel.cpp` into `src/policies/heuristics.cpp` (verbatim move + `kernel_*`→`heuristics_*` rename; fields still in `Kernel`, functions take `Kernel&`). Review each hunk as a diff-with-rename — reordering around `scinc` could change float-rescale timing. **S/M.**
+- [x] **H3 · move the `H` CODE — DONE (bit-exact).** The 16 `H` functions (VMTF queue `heuristics_queue_bump`/`queue_next_unassigned`/`reset_queue_search` + statics `queue_dequeue`/`queue_restamp`; EVSIDS `heuristics_heap_push`/`score_bump`/`scores_decay`/`update_scores`/`heap_next_unassigned` + statics `heap_bubble_up`/`heap_bubble_down`/`heap_pop_max`/`rescale_scores` + consts `MAX_SCORE`/`SCORE_DECAY`; `heuristics_update_target_phases`; `heuristics_reserve_vars`) moved verbatim from `kernel.cpp` to the new **`src/policies/heuristics.cpp`** (added to `tactix_lib` in CMake); renamed `kernel_*`→`heuristics_*` at every def/decl/call site (incl. the 3 inline fns `heuristics_heap_contains`/`next_decision_var`/`decide_lit` in `kernel.hpp` + the 2 test files); dead `kernel_queue_init` deleted. Declarations stay in `kernel.hpp` (they move to `heuristics.hpp` with `struct Heuristics` at H4). The inline saved-phase + VMTF-cache writes in `kernel_backtrack_impl` stayed inline under `if constexpr (HasH)` (no extraction needed — they become `k.h->…` at H4). Gate: fingerprint + DRAT byte-identical (SAT + UNSAT), ctest 29/29 (release + debug/ASan), fuzz 1000/0 + random-policy. Adversarial review approved (per-function byte-identical diffs incl. the `scinc` rescale trio; caught + fixed a lost `<algorithm>` include). **S/M.**
 - [ ] **H4 · move the `H` FIELDS** into `struct Heuristics`; `Kernel` holds only the pointer. Split `kernel_reserve_vars` (σ-growth vs `heuristics_reserve_vars`); `Heuristics` carries its own `nvars` with a `heuristics_check(h,k)` invariant. **The named hazard: E2 Factor allocates extension vars mid-solve and is ON by default** — an `H` that does not grow is a silent OOB. `test_factor` is already the exact canary (asserts `saved.size()==7 && scores.score.size()==7`); update, never delete. Gate adds an ASan Factor-heavy fuzz leg + solo ticks/s (≤ 2 % off the 26.6 M pin). **L.**
 - [ ] **H5 · `H` owned by the Policy; storage outlives any single `solve()`.** `tactix_solver` gains a long-lived policy (or holds `H` directly) so `tactix_decide` on a never-solved solver still has one when attached; a null `H` stays legal. Consumers (`default_policy.cpp`, `api.cpp`, `main.cpp`, analyze's bump, decide's ranking, restart's reuse-level) read through the policy, not the kernel. **Accept + document:** swapping policies swaps `H` (a new heuristic starts cold — correct under the model); `demo3`'s stat-for-stat contract needs the same initial `H`. **M.**
 - [ ] **H6 · the sub-policy super-class.** `subpolicy.hpp` umbrella; reparent `BranchingPolicy`/`ReductionPolicy`; add the `RestartLevel` and `BackjumpTarget` (chrono) **Choosers** and the `Bump`/`PhaseSave`/`TargetBest` **Hooks**. `src/rules/{rephase,switchmode}` → `src/policies/ops/`. §5.3 extends: a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`. Acceptance test for the whole category is **S6 Walk landing under that diff shape** (a later item). **S/M.**
@@ -415,9 +419,22 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-22 — Track H · H0+H1+H2: `H`-relocation groundwork + the kernel hook seam, all bit-exact
-Three increments of the top-priority `H`-relocation. No behaviour change — the
+### 2026-07-22 — Track H · H0–H3: `H`-relocation groundwork + hook seam + the code move, all bit-exact
+Four increments of the top-priority `H`-relocation. No behaviour change — the
 gate is trajectory identity throughout, and it holds exactly.
+
+- **H3 (the code move).** The 16 `H` functions moved verbatim from `kernel.cpp`
+  into a new `src/policies/heuristics.cpp`, `kernel_*`→`heuristics_*` at every
+  def/decl/call site (one substring-safe sed pass; verified by a rename-only build
+  before the move), dead `kernel_queue_init` deleted. Declarations stay in
+  `kernel.hpp` for now — the header split waits for `struct Heuristics` (H4). The
+  inline saved-phase/VMTF-cache writes in `kernel_backtrack_impl` stayed inline
+  under `if constexpr (HasH)` (they become `k.h->…` at H4; extracting them into
+  callables, as the H0 note mused, was unnecessary). Adversarial review reverse-
+  renamed and ran per-function sequence-sensitive diffs — all byte-identical incl.
+  the `scinc` rescale trio — and caught one real latent bug the bit-exact gate
+  cannot: the moved `rescale_scores` lost the `<algorithm>` include (`std::max`)
+  that `kernel.cpp` still carries; compiled by transitive luck, now fixed.
 
 - **H2 (STRUCTURAL, kernel hook seam).** After a design pass (`docs/design/
   h-relocation-design.md` "H2 design pass"; the user chose the template-at-H2

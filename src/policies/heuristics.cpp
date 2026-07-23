@@ -1,0 +1,245 @@
+// Search-guidance (`H`) implementation — VMTF decision queue, EVSIDS score heap,
+// target/best phase snapshots, and their per-variable growth. Moved verbatim out
+// of kernel.cpp (Track H · H3): `H` is policy-owned, OPTIONAL search guidance
+// (plan rev 60), so its code lives under src/policies/, not in the kernel. The
+// functions still take `Kernel&` and read `H` fields inline; the fields move into
+// `struct Heuristics` at H4 and these move to heuristics.hpp with it. Renamed
+// `kernel_*` → `heuristics_*` to mark ownership. Declarations are (for now) in
+// kernel/kernel.hpp; file-local statics keep their names.
+#include "kernel/kernel.hpp"
+
+#include <algorithm> // std::max (rescale_scores) — kernel.cpp still carries it
+#include <cassert>
+
+namespace tactix {
+
+void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
+  k.saved.resize(nvars, 1); // initial phase: positive (kissat default)
+  k.links.resize(nvars);
+  k.scores.pos.resize(nvars, UINT32_MAX);
+  k.scores.score.resize(nvars, 0.0);
+  k.target.resize(nvars, 0);
+  k.best.resize(nvars, 0);
+  // enqueue new vars into the VMTF queue (most recent = preferred)
+  for (Var v = old; v < nvars; v++) {
+    Link &l = k.links[v];
+    l.prev = k.queue_last;
+    l.next = UINT32_MAX;
+    l.stamp = ++k.queue_stamp;
+    if (k.queue_last != UINT32_MAX)
+      k.links[k.queue_last].next = v;
+    else
+      k.queue_first = v;
+    k.queue_last = v;
+  }
+  heuristics_reset_queue_search(k);
+}
+// --- VMTF -------------------------------------------------------------------
+
+static void queue_dequeue(Kernel &k, Var v) {
+  Link &l = k.links[v];
+  if (l.prev != UINT32_MAX)
+    k.links[l.prev].next = l.next;
+  else
+    k.queue_first = l.next;
+  if (l.next != UINT32_MAX)
+    k.links[l.next].prev = l.prev;
+  else
+    k.queue_last = l.prev;
+}
+
+static void queue_restamp(Kernel &k) {
+  // stamp overflow: renumber the whole queue in order (rare)
+  uint32_t stamp = 0;
+  for (Var v = k.queue_first; v != UINT32_MAX; v = k.links[v].next)
+    k.links[v].stamp = ++stamp;
+  k.queue_stamp = stamp;
+  heuristics_reset_queue_search(k);
+}
+
+void heuristics_queue_bump(Kernel &k, Var v) {
+  if (k.queue_last == v)
+    return;
+  queue_dequeue(k, v);
+  Link &l = k.links[v];
+  l.prev = k.queue_last;
+  l.next = UINT32_MAX;
+  if (k.queue_last != UINT32_MAX)
+    k.links[k.queue_last].next = v;
+  else
+    k.queue_first = v;
+  k.queue_last = v;
+  if (k.queue_stamp == UINT32_MAX)
+    queue_restamp(k);
+  else
+    l.stamp = ++k.queue_stamp;
+  if (k.values[make_lit(v, false)] == 0) {
+    k.search_idx = v;
+    k.search_stamp = k.links[v].stamp;
+  }
+}
+Var heuristics_queue_next_unassigned(Kernel &k) {
+  Var v = k.search_idx;
+  assert(v != UINT32_MAX);
+  while (k.values[make_lit(v, false)] != 0) {
+    v = k.links[v].prev;
+    assert(v != UINT32_MAX);
+  }
+  k.search_idx = v;
+  k.search_stamp = k.links[v].stamp;
+  return v;
+}
+
+void heuristics_reset_queue_search(Kernel &k) {
+  // kissat queue.c kissat_reset_search_of_queue: entering focused mode,
+  // the cache must again point at the queue tail
+  k.search_idx = k.queue_last;
+  k.search_stamp =
+      k.queue_last == UINT32_MAX ? 0 : k.links[k.queue_last].stamp;
+}
+
+// --- EVSIDS score heap ------------------------------------------------------
+// Transliterated from kissat/src/inlineheap.h + bump.c (MIT): pos-indexed
+// binary max-heap; EVSIDS = bump by a growing increment, rescale both
+// scores and increment near overflow (Eén–Sörensson via MiniSat, kissat's
+// stable-mode "scores" heap).
+
+static constexpr double MAX_SCORE = 1e150;
+static constexpr double SCORE_DECAY = 0.05; // kissat decay=50 per mille
+
+static void heap_bubble_up(Kernel &k, Var v) {
+  uint32_t *stack = k.scores.stack.data();
+  uint32_t *pos = k.scores.pos.data();
+  const double *score = k.scores.score.data();
+  uint32_t vpos = pos[v];
+  const double vscore = score[v];
+  while (vpos > 0) {
+    const uint32_t parent_pos = (vpos - 1) / 2;
+    const Var parent = stack[parent_pos];
+    if (score[parent] >= vscore)
+      break;
+    stack[vpos] = parent;
+    pos[parent] = vpos;
+    vpos = parent_pos;
+  }
+  stack[vpos] = v;
+  pos[v] = vpos;
+}
+
+static void heap_bubble_down(Kernel &k, Var v) {
+  uint32_t *stack = k.scores.stack.data();
+  uint32_t *pos = k.scores.pos.data();
+  const double *score = k.scores.score.data();
+  const uint32_t end = static_cast<uint32_t>(k.scores.stack.size());
+  uint32_t vpos = pos[v];
+  const double vscore = score[v];
+  for (;;) {
+    uint32_t child_pos = 2 * vpos + 1;
+    if (child_pos >= end)
+      break;
+    Var child = stack[child_pos];
+    double child_score = score[child];
+    const uint32_t sibling_pos = child_pos + 1;
+    if (sibling_pos < end) {
+      const Var sibling = stack[sibling_pos];
+      if (score[sibling] > child_score) {
+        child = sibling;
+        child_pos = sibling_pos;
+        child_score = score[sibling];
+      }
+    }
+    if (child_score <= vscore)
+      break;
+    stack[vpos] = child;
+    pos[child] = vpos;
+    vpos = child_pos;
+  }
+  stack[vpos] = v;
+  pos[v] = vpos;
+}
+
+void heuristics_heap_push(Kernel &k, Var v) {
+  assert(!heuristics_heap_contains(k, v));
+  k.scores.pos[v] = static_cast<uint32_t>(k.scores.stack.size());
+  k.scores.stack.push_back(v);
+  heap_bubble_up(k, v);
+}
+
+static void heap_pop_max(Kernel &k) {
+  assert(!k.scores.stack.empty());
+  const Var max = k.scores.stack[0];
+  const Var last = k.scores.stack.back();
+  k.scores.stack.pop_back();
+  k.scores.pos[max] = UINT32_MAX;
+  if (last != max) {
+    k.scores.pos[last] = 0;
+    k.scores.stack[0] = last;
+    heap_bubble_down(k, last);
+  }
+}
+
+static void rescale_scores(Kernel &k) {
+  // divide everything by the max score so relative order is untouched
+  double max_score = k.scinc;
+  for (const double s : k.scores.score)
+    max_score = std::max(max_score, s);
+  const double factor = 1.0 / max_score;
+  for (double &s : k.scores.score)
+    s *= factor;
+  k.scinc *= factor;
+}
+
+void heuristics_score_bump(Kernel &k, Var v) {
+  const double new_score = k.scores.score[v] + k.scinc;
+  k.scores.score[v] = new_score;
+  if (heuristics_heap_contains(k, v))
+    heap_bubble_up(k, v);
+  if (new_score > MAX_SCORE)
+    rescale_scores(k);
+}
+
+void heuristics_scores_decay(Kernel &k) {
+  k.scinc *= 1.0 / (1.0 - SCORE_DECAY);
+  if (k.scinc > MAX_SCORE)
+    rescale_scores(k);
+}
+
+void heuristics_update_scores(Kernel &k) {
+  // entering stable mode: every var must be reachable via the heap
+  // (kissat bump.c kissat_update_scores)
+  for (Var v = 0; v < k.nvars; v++)
+    if (!heuristics_heap_contains(k, v))
+      heuristics_heap_push(k, v);
+}
+
+Var heuristics_heap_next_unassigned(Kernel &k) {
+  assert(!k.scores.stack.empty());
+  Var v = k.scores.stack[0];
+  while (k.values[make_lit(v, false)] != 0) {
+    heap_pop_max(k); // lazy deletion (kissat decide.c)
+    assert(!k.scores.stack.empty());
+    v = k.scores.stack[0];
+  }
+  return v;
+}
+
+void heuristics_update_target_phases(Kernel &k) {
+  // kissat backtrack.c kissat_update_target_and_best_phases, stable only
+  if (!k.stable)
+    return;
+  const uint32_t assigned = static_cast<uint32_t>(k.trail.size());
+  if (k.target_assigned < assigned) {
+    k.target_assigned = assigned;
+    for (const Lit lit : k.trail)
+      k.target[var_of(lit)] = negated(lit) ? -1 : 1;
+    k.stats.target_saved++;
+  }
+  if (k.best_assigned < assigned) {
+    k.best_assigned = assigned;
+    for (const Lit lit : k.trail)
+      k.best[var_of(lit)] = negated(lit) ? -1 : 1;
+    k.stats.best_saved++;
+  }
+}
+
+} // namespace tactix

@@ -23,7 +23,7 @@ uint32_t restart_reuse_level(Kernel &k) {
     return 0; // nothing left to decide; abandon the whole trail
   uint32_t res = 0;
   if (k.stable) {
-    const Var next = kernel_heap_next_unassigned(k);
+    const Var next = heuristics_heap_next_unassigned(k);
     const double limit = k.scores.score[next];
     while (res < k.level) {
       const Lit decision = k.trail[k.frames[res + 1]];
@@ -32,7 +32,7 @@ uint32_t restart_reuse_level(Kernel &k) {
       res++;
     }
   } else {
-    const Var next = kernel_queue_next_unassigned(k);
+    const Var next = heuristics_queue_next_unassigned(k);
     const uint32_t limit = k.links[next].stamp;
     while (res < k.level) {
       const Lit decision = k.trail[k.frames[res + 1]];

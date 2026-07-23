@@ -259,8 +259,8 @@ size_t GlueTieredReduction::victims(const Kernel &, size_t candidates) {
 
 Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
-  const Var v = kernel_next_decision_var(k);
-  return kernel_decide_lit(k, v);
+  const Var v = heuristics_next_decision_var(k);
+  return heuristics_decide_lit(k, v);
 }
 
 // Phase-1 shape of kissat/src/search.c's guard->apply chain: propagate,

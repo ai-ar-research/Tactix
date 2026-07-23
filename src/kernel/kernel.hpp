@@ -577,26 +577,25 @@ void kernel_probing_end(Kernel &); // idempotent; a no-op outside a scope
 bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 
 // --- VMTF ------------------------------------------------------------------
-void kernel_queue_init(Kernel &);
-void kernel_queue_bump(Kernel &, Var v); // move to front (most recent)
-Var kernel_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
+void heuristics_queue_bump(Kernel &, Var v); // move to front (most recent)
+Var heuristics_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
 // reset the queue search cache to the queue tail (entering focused mode)
-void kernel_reset_queue_search(Kernel &);
+void heuristics_reset_queue_search(Kernel &);
 
 // --- EVSIDS score heap (stable mode) ----------------------------------------
-void kernel_heap_push(Kernel &, Var v);    // insert (must not be contained)
-void kernel_score_bump(Kernel &, Var v);   // score += scinc, sift, rescale
-void kernel_scores_decay(Kernel &);        // scinc /= (1 - decay), rescale
-void kernel_update_scores(Kernel &);       // push all missing vars (enter stable)
-Var kernel_heap_next_unassigned(Kernel &); // max-score unassigned (lazy pop)
-inline bool kernel_heap_contains(const Kernel &k, Var v) {
+void heuristics_heap_push(Kernel &, Var v);    // insert (must not be contained)
+void heuristics_score_bump(Kernel &, Var v);   // score += scinc, sift, rescale
+void heuristics_scores_decay(Kernel &);        // scinc /= (1 - decay), rescale
+void heuristics_update_scores(Kernel &);       // push all missing vars (enter stable)
+Var heuristics_heap_next_unassigned(Kernel &); // max-score unassigned (lazy pop)
+inline bool heuristics_heap_contains(const Kernel &k, Var v) {
   return k.scores.pos[v] != UINT32_MAX;
 }
 // snapshot assigned values into target/best phases when the trail is the
 // deepest consistent one seen past each watermark (kissat backtrack.c
 // kissat_update_target_and_best_phases). Stable mode only; Rephase (S3)
 // consumes best and resets the watermarks.
-void kernel_update_target_phases(Kernel &);
+void heuristics_update_target_phases(Kernel &);
 
 // number of root-fixed assignments (the level-0 trail prefix)
 inline uint32_t kernel_root_fixed(const Kernel &k) {
@@ -629,13 +628,13 @@ uint64_t kernel_conflict_reason_walk(
     std::vector<std::pair<uint32_t, uint64_t>> &entries);
 
 // --- decision ranking dispatch (§5.1) ---------------------------------------
-inline Var kernel_next_decision_var(Kernel &k) {
-  return k.stable ? kernel_heap_next_unassigned(k)
-                  : kernel_queue_next_unassigned(k);
+inline Var heuristics_next_decision_var(Kernel &k) {
+  return k.stable ? heuristics_heap_next_unassigned(k)
+                  : heuristics_queue_next_unassigned(k);
 }
 // phase priority (kissat decide.c kissat_decide_phase): target (stable
 // only) -> saved; both default positive
-inline Lit kernel_decide_lit(const Kernel &k, Var v) {
+inline Lit heuristics_decide_lit(const Kernel &k, Var v) {
   int8_t phase = k.stable ? k.target[v] : 0;
   if (phase == 0)
     phase = k.saved[v];

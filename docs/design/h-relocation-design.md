@@ -152,11 +152,19 @@ those counters.
   `k.h ? …` dispatch, "`kernel.hpp` never names `Heuristics`", and the removal of
   any per-step `if (k.h)` land at H4/H5 (they need a nullable `h`). See the "H2
   design pass" section below for the mechanism + rejected alternatives.
-- **H3 — move the `H` CODE** out of `kernel.cpp` into `src/policies/heuristics.cpp`
-  (verbatim move + `kernel_*`→`heuristics_*`; fields still in `Kernel`, fns take
-  `Kernel&`). Delete dead `kernel_queue_init`. Extract the open-coded saved-phase
-  write (kernel.cpp:350-351) into a callable first. Review each hunk as a
-  diff-with-rename; watch the `scinc` rescale timing.
+- **H3 — move the `H` CODE. ✓ landed 2026-07-22.** The 16 `H` functions (VMTF
+  queue, EVSIDS heap + its statics/consts, phase snapshot, `heuristics_reserve_vars`)
+  moved verbatim from `kernel.cpp` into the new `src/policies/heuristics.cpp`;
+  renamed `kernel_*`→`heuristics_*` at every def/decl/call site; dead
+  `kernel_queue_init` deleted; declarations (incl. the 3 inline fns) stay in
+  `kernel.hpp` for now (they move to `heuristics.hpp` with `struct Heuristics` at
+  H4). **Deviation from the original note:** the open-coded saved-phase + VMTF-cache
+  writes in `kernel_backtrack_impl` were NOT extracted into callables — they are
+  single inline field writes already under `if constexpr (HasH)` (H2), so they
+  become `k.h->…` at H4 with no extraction needed. Bit-exact (fingerprint + DRAT
+  identical, ctest 29/29, fuzz 1000/0 + random-policy); adversarial review
+  confirmed byte-identical bodies incl. the `scinc` rescale trio, and caught a lost
+  `<algorithm>` include (`std::max` in `rescale_scores`) — fixed.
 - **H4 — move the `H` FIELDS** into `struct Heuristics`; `Kernel` holds only the
   pointer. Split `kernel_reserve_vars`; `Heuristics::nvars` + `heuristics_check`.
   Named hazard: E2 Factor grows vars mid-solve — update `test_factor` canary; add
