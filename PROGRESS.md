@@ -203,7 +203,10 @@ disagree, the plan is authoritative — fix this file.
   slot) — **now documented as intentional** (2026-07-22), so its stat contract is
   §8.4 within-noise, not exact; extending it to a full slot mirror is a deferred
   demo enhancement (set the toggle to 1 + compose the slot). Nightly soundness
-  green: 20 000/0 (`nightly-rev48.log`).
+  green: 20 000/0 (`nightly-rev48.log`). **Post-Track-H soundness (2026-07-23):
+  random-policy on the ASan build — 5000/0 DRAT + 3000/0 native LRAT (8000 cases,
+  0 failures, proof-checked vs kissat)** — validates the whole `H`-relocation
+  (opaque pointer, optional null-`H`, policy-op move) under free N1 schedules.
 
 ## Non-negotiables status (plan §1.1)
 
