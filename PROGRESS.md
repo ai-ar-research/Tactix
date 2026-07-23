@@ -8,39 +8,42 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 63 (2026-07-22)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-23
-- **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **✅ Track H COMPLETE
-  (H0–H7) — `H` is fully OUT of the kernel (the kernel owns nothing `H`-related),
-  OPTIONAL, and the policy ops are relocated.** H0/H1 docs + additive `ActionKind`
-  API; H2 the `if constexpr (HasH)` hook seam; H3 the `H` CODE →
-  `src/policies/heuristics.cpp`; H4 the `H` FIELDS → `struct Heuristics` behind an
-  opaque pointer (kernel↔`H` separation enforced, plan rev 62 + a `kernel_h_boundary`
-  CTest); **H5 made `h` OPTIONAL** (rev-60 payoff — a null-`H` solver is sound +
-  proof-producing); H6 relocated `rephase`/`switchmode` → `src/policies/ops/` (plan
-  rev 63); **H7 moved `H` OWNERSHIP out** — `Kernel` holds a non-owning `Heuristics
-  *h`, the session/DefaultPolicy owns + attaches it (the "policy owns its guidance"
-  model). Every increment bit-exact on the guided path; ctest **31/31** (release +
-  ASan). **Performance verified regression-free** (H7, user-directed): the current
-  binary is byte-identical in trajectory to pre-Track-H (`95b5740`) on all 200 Tier
-  A + 14 Tier B instances; Tier A wall-time identical (PAR-2 0.73, 199/200). **ONE
-  deferral remains** (documented): the sub-policy **Chooser/Hook super-class** —
-  waits for a 2nd branching arm (phase 6 / AE-Kissat-MAB); building it now is
-  premature generality (§5.5). (The `H`-ownership deferral is now resolved by H7.)
-  **Track S · S1b+S1c DONE (2026-07-23): the BVE growth-slack ramp + needed-bound
-  cache, ceiling 8 — Tier B PAR-2 16.44 → 15.08, beating fixed-`bound=8`.** The next
-  candidates: **Tier B tail** (mp1 67 s = **S2 SBVA grid matching**, the single
-  biggest lever; FmlaEquiv/x9 search quality TB1/TB2) and/or **S2 probing-rule
-  re-measure** — see the Track S / Track T checklists below. The T3 gate is still
-  open. What landed just before Track H is in the block below.
+- **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**.
+  **Done recently:** ✅ **Track H** COMPLETE (H0–H7 — `H` fully out of the kernel,
+  optional, policy ops relocated; `174a724` + Log 2026-07-23). ✅ **Track S · S1b+S1c**
+  — BVE growth-slack ramp + needed-bound cache, ceiling 8; **Tier B PAR-2 → 15.08**,
+  beating flat fixed-`bound=8` (`489fab1` + Log). One deferral stands: the sub-policy
+  **Chooser/Hook super-class** waits for a 2nd branching arm (§5.5).
+  **▶ NEXT STEP — do this FIRST: re-run the Tier C validation of S1c.** It was
+  launched 2026-07-23 and **killed mid-run** when the machine closed, so it never
+  produced a verdict. It answers: does ceiling-8 generalize beyond the 14 Tier-B
+  instances, or is it Tier-B overfit? Run (jobs=4, background; both arms use the
+  current binary via the env knob, so no rebuild needed):
+  ```bash
+  R=$(pwd)
+  python3 tools/bench/run.py --tier C --jobs 4 --name c-ceil8  --baseline kissat --solver "$R/build/release/tactix"
+  python3 tools/bench/run.py --tier C --jobs 4 --name c-ceil16 --solver "env TACTIX_BVE_RAMP_MAX=16 $R/build/release/tactix"
+  ```
+  Verdict: ceiling-8 holds on Tier C → build on it; ceiling-16 wins on the broader
+  set → revisit the `DefaultBveBoundRamp::ceiling()` default (return 8) before any
+  new work. (A 3rd arm — pre-S1c HEAD, to isolate S1c's *total* Tier C gain — needs
+  building `a36b4c2`; optional.)
+  **Then, in priority order:** (1) **re-measure the post-S1c Tier B tail** — the
+  ranking changed (FmlaEquiv 1.3× and crypto1 1.27× dropped out; live tail = mp1,
+  x9, battleship). (2) **TB5** — `stats.propagations` conflates search +
+  preprocessing root-propagation (sites `kernel.cpp:496/562/622`), so the 1.39×
+  throughput gap is an over-estimate; mirror the existing `inprocess.ticks` split
+  (`default_policy.hpp:303`) with an `inprocess.propagations` watermark, then measure
+  true search-only props/sec. (3) biggest single lever: **mp1** (67 s, 5.6× kissat,
+  ⅓ of Tier B) **= S2 SBVA grid matching** (diagnosis banked 2026-07-20). See the
+  Track S / Track T checklists below. What landed just before Track H is in the block
+  below.
 
-  **Landed (revs 53–55).** *Increment 1, the effort ledger* — each rule's dose is
-  a per-mille fraction of the search work since it last ran, metered in its own
-  currency (kissat `SET_EFFORT_LIMIT`, ported policy-side); net-positive on all
-  three tiers, **Tier B 21.41→20.85**, **Tier C 286.0→273.9 (29/30)**, no lost
-  solves (`cbbe3ce`, `a93ff51`). Plus `Kernel::bve_bound` — growth slack is now
-  policy-controlled (`4a32ce3`). Standing 3-way Tier B, one window, jobs=4:
-  **tactix 21.01, kissat 6.30, cadical 11.64**, all 14/14 → 3.3× kissat, 1.8×
-  cadical; the gap is tail-concentrated (`hwmcc` 23.7×, `mp1` 7.9×, `crypto1`
-  7.5×, `FmlaEquiv` 6.0×) while 6/14 sit within 10 % of kissat (`fe4c8ff`).
+  **Landed (revs 53–55).** The effort ledger (per-rule per-mille dose, kissat
+  `SET_EFFORT_LIMIT`; `cbbe3ce`/`a93ff51`) + `Kernel::bve_bound` policy-controlled
+  growth slack (`4a32ce3`), + the P1/P2 prerequisites below. Tier B stood at 21.01
+  here (`fe4c8ff`) — **superseded: Track S · S1b+S1c took it to 15.08** (anchor
+  above); the live tail is now mp1 / x9 / battleship, not the old crypto1/FmlaEquiv.
 
   **▶▶ TARGET END-STATE (user directive):** kissat's **full** arrangement — no BVE
   at preprocessing, *plus* the mechanism that makes that safe: probing simplifying
