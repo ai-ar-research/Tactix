@@ -19,7 +19,10 @@
   just plain Kissat.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
   revise-plan, revamp, revisit-codebase, calculus, stress-policy, compact-docs,
-  wrap-up, debug-performance — use them for the matching workflows.
+  wrap-up, debug-performance, slurm-jobs — use them for the matching workflows.
+  (slurm-jobs governs ALL job submission: every solver execution goes through
+  sbatch to cpu-dense-hwulab-q — arrays for tiers, multi-core jobs for fuzz;
+  cancel only by explicit job id.)
   (revisit-codebase also applies behavior-preserving hygiene — the former
   simplify-codebase. debug-performance diagnoses a big per-instance slowdown vs a
   baseline: decompose stats, ablate the baseline, rule out engineering/heuristics/

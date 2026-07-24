@@ -40,6 +40,13 @@ Cases run on a thread pool (`--jobs`, default 8, added 2026-07-14): fuzzing
 is correctness testing, not timing, so contention is harmless; case `i` is
 fully determined by `(seed, i)`, so results are identical at any job count.
 
+**On the cluster (plan §8.1 revs 64/65): every leg is submitted via
+`tools/fuzz/slurm.sh --cpus C [--time T] --name <leg> -- <run.sh args>`** —
+one multi-core job on cpu-dense-hwulab-q, 8 GB/core, harness `--jobs` pinned
+to the allocation; never run a leg in the session shell (see the slurm-jobs
+skill for sizing and hygiene). The leg definitions below are unchanged —
+only the launch mechanism moved.
+
 - Per commit / before declaring any change done: `tools/fuzz/run.sh --quick` (~1k cases, sanitizer build, 5 s/case default) + full regression corpus + Tier A.
 - Random-policy leg (per commit for kernel/rule changes):
   `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy" --n 400 --max-vars 100`.

@@ -1,0 +1,101 @@
+---
+name: slurm-jobs
+description: Submit, size, monitor, and clean up SLURM jobs on the cluster — tier evaluations as job arrays, fuzz legs as multi-core jobs, one-off probes via sbatch --wrap. Use whenever running ANY solver execution (there is no other sanctioned way to run one), sizing --time/--mem, checking job status, or cancelling jobs.
+---
+
+# SLURM job submission and hygiene
+
+Authoritative protocol: DEVELOPMENT_PLAN.md §8.1 (revs 64/65 — the cluster
+evaluation environment). This skill operationalizes it: the concrete commands,
+sizing rules, and cleanup discipline. Rules marked **(user)** are direct user
+directives (2026-07-23).
+
+## The one rule that governs everything
+
+**(user) No solver ever executes outside a submitted job.** Not on the login
+node, not in the session shell — the interactive session is itself a SLURM job
+on the default partition (`cpu-q`), so anything run "locally" executes inside
+that allocation, on the wrong partition. **Never use `srun` from the session**:
+it becomes a job *step* of the session's own job (wrong partition, hangs
+waiting for resources that never match). `sbatch` only. Builds, tests
+(`ctest`), and doc/tooling work may run in the session shell; solver
+executions may not — including "quick" spot checks.
+
+## Submission patterns — pick by workload
+
+All jobs go to **`--partition=cpu-dense-hwulab-q`** (2 × 192-core nodes) with
+**`--mem-per-cpu=8G`** (user rule: 8 GB per core).
+
+| Workload | Pattern | Command |
+|---|---|---|
+| Tier evaluation (any solver set) | **Job array**, one task per solver×instance **(user)** | `python3 tools/bench/run.py --tier C --slurm --solver build/release/tactix --baseline kissat [--throttle N]` |
+| Fuzz leg | **One multi-core job**, harness threads = allocation **(user)** | `tools/fuzz/slurm.sh --cpus 16 [--time T] --name <leg> -- --quick --solver build/debug/tactix [...]` |
+| One-off probe (single solver × single instance) | Single `sbatch --wrap` | `sbatch --partition=cpu-dense-hwulab-q --ntasks=1 --cpus-per-task=1 --mem-per-cpu=8G --time=<cap+slack> --wrap '...'` |
+
+- The bench runner submits the array **plus a dependency-chained aggregate
+  job**; results land in `benchmarks/runs/<stamp>-<tier>-<name>/` as per-task
+  JSONs merged into the standard `results.json`. `--aggregate <rundir>`
+  re-merges any time; `--dry-run` writes the manifest + sbatch scripts without
+  submitting (inspect `array.sbatch` there).
+- `cpus-per-task = ceil(mem_cap / 8 GB)` — Tiers A–C: 1 core / 8 GB; Tier D
+  (16 GB competition cap): 2 cores.
+- Record and compare only identical **allocation shapes** (partition,
+  cpus/mem per task, throttle) — §8.1's replacement for the jobs count.
+  `--throttle N` caps concurrent array tasks for timing-precision gate runs.
+
+## Sizing --time
+
+Solver timeouts are enforced *inside* the task by the runner (wall timeout +
+RLIMIT_CPU backstop) — SLURM `--time` is a wider backstop, never the
+mechanism. The bench runner computes it as
+**solve timeout + max(60 s, 2×timeout) drat-trim budget + 120 s slack**:
+
+| Tier | solver timeout | per-task --time |
+|---|---|---|
+| A | 30 s | 00:03:30 |
+| B | 300 s | 00:17:00 |
+| C | 1200 s | 01:02:00 |
+| D | 5000 s | 04:12:00 |
+
+The proof-check term is load-bearing: a Tier C UNSAT may legitimately spend
+2× the solve timeout in drat-trim. For manual `--wrap` probes, size the same
+way: inner `timeout` cap + slack. Fuzz wrapper default is 24 h (nightly-leg
+scale); pass `--time` for smaller legs.
+
+## Monitoring and results
+
+- `squeue -u hwu` — live state; array tasks show as `<jobid>_<index>`.
+- `sacct -j <jobid> -o JobID,JobName,Partition,State,Elapsed,NodeList` —
+  post-mortem (partition + elapsed per task).
+- Bench: aggregate summary at `<rundir>/logs/aggregate.log`; per-task logs in
+  `<rundir>/logs/task-<i>.log`. Missing task results (node death) are scored
+  MISSING, warned loudly, exit code 2 — resubmit those indices, then re-run
+  `run.py --aggregate <rundir>`.
+- Fuzz: `tools/fuzz/slurm-<name>-<jobid>.log` (tracked in git only when cited
+  as evidence in PROGRESS, like the nightly-*.log convention).
+
+## Cleanup discipline
+
+- **(user) Cancel jobs that are no longer needed, promptly** — superseded
+  runs, probes whose question is already answered, stuck submissions.
+- **(user) Cancel ONLY by explicit job id** (`scancel <jobid>` /
+  `scancel <jobid>_<index>`). **NEVER account-wide commands**
+  (`scancel -u hwu` is forbidden): the user runs long-lived jobs of their own
+  (e.g. the chvatal-8 family) on this account, and the session's own shell is
+  a job — a blanket cancel kills both.
+- Before ending a session: `squeue -u hwu` must show only the user's own jobs
+  (+ the session shell). Anything this session submitted must be COMPLETED or
+  explicitly cancelled by id.
+- Never cancel the session's own interactive job (named `bash`, on `cpu-q`) —
+  that kills the running Claude session.
+
+## Environment facts (verified 2026-07-23)
+
+- Partition `cpu-dense-hwulab-q`: node017–018, 192 cores / ~750 GB each;
+  `MaxArraySize=100000` — even Tier D (800 tasks) needs no array chunking.
+- Toolchain: gcc/13.1.0 module (loaded by default; `export CC=gcc CXX=g++` —
+  bare `cc` is 11.5); cmake/ninja are pip user installs in `~/.local/bin`
+  (no system/module cmake exists).
+- `/home` is NFS-shared with compute nodes; per-task scratch goes to
+  node-local `$TMPDIR` (both wrappers already do this — proofs and fuzz case
+  dirs never churn the shared FS).

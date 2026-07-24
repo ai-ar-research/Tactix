@@ -409,6 +409,14 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
+### 2026-07-23 — slurm-jobs skill: job submission rules get one operational home
+- New project skill `.claude/skills/slurm-jobs/` consolidating the submission
+  patterns (tier arrays / fuzz multi-core jobs / `sbatch --wrap` probes),
+  `--time` sizing incl. the drat-trim term, monitoring, and the user's job
+  rules (sbatch-only — no srun-from-session; cancel by explicit id only;
+  clean queue at session end). §8.1 keeps the invariants; benchmarks + fuzz
+  skills and CLAUDE.md now point here instead of restating.
+
 ### 2026-07-23 — Migrated to the SLURM cluster (first session on new hardware)
 - Development moved off the personal workstation (prototype compute cost) to a
   SLURM cluster: partition `cpu-dense-hwulab-q`, 2 nodes × 192 cores × ~750 GB,
