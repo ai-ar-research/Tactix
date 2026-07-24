@@ -368,9 +368,13 @@ why none of them needs a trade-off against the others.
   increment-2 growing interval (NLOG2N, size-scaled) under `arrangement_`;
   default path byte-identical. Validation: ctest 31/31; fuzz quick 10,000/0
   under `TACTIX_ARRANGEMENT=1`; probe **mp1-Nb5T15 TO→~1 s** (2 during-search
-  phases, 3,374 BVE eliminations mid-search, 35k conflicts). Same-window
-  HEAD+arr2 gate arrays on Tier B+C in flight (runs `20260724-1711*`,
-  jobs 1560642/1560657/1560672/1560703).
+  phases, 3,374 BVE eliminations mid-search, 35k conflicts). **First
+  same-window B+C measurement (runs `20260724-1711*`, Log evening entry):
+  B even (32.54 vs 33.42; battleship 197→1.4 s BEATS kissat), C loses
+  (868.48 vs 537.30, 22/30 vs 26/30) on diffuse per-phase cost — the
+  unmetered rules (Congruence/Factor/Substitute) + unbounded Vivify re-run
+  every during-search phase. Next: cost attribution (em_11/urq45/frb45
+  arms), then per-technique dosing/cadence for the during-search phases.**
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`.
 
 ### Other phase-3 items
@@ -428,6 +432,25 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-24 (evening) — S4 TRUE arrangement, first same-window B+C: B even + battleship CRUSHED; C loses on per-phase cost
+- Runs `20260724-1711*` (HEAD vs `TACTIX_ARRANGEMENT=1` on the wired binary
+  `c30a10d`). **Tier B: arr2 14/14 @ 32.54 vs HEAD 33.42** — even overall,
+  wildly bimodal: **battleship 197→1.4 s (beats kissat's 6.6 s — the 184 s
+  residual S2b routed here is GONE)**, FmlaEquiv 62→23, crypto1 21→7,
+  summle 19→10; but mod4block 14→158 (9 eliminations / 1.49 M wasted
+  resolutions across 13 phases — deferred BVE cannot re-find its
+  preprocessing wins there), mp1-blockpuzzle 63→119, rbsat 8→36.
+- **Tier C: arr2 22/30 @ 868.48 vs HEAD 26/30 @ 537.30 — gate NOT met as one
+  unit.** Cracks **Ptn-7824 TO→42 s** and **SCPC-1000-18 TO→375 s (the
+  undiagnosed pre-T3 instance!)**, Grain −188, DLTM −87, mp1-Nb5T15 7.5→1.1 —
+  but 6 new TOs (em_11, frb45, goldcrest, urq45, StConn, T105) + a dozen
+  +100–500 s diffuse losses. Diagnosis hypothesis: per-phase COST, not the
+  arrangement idea — every during-search phase re-runs the UNMETERED canonical
+  rounds (Congruence/Factor/Substitute full closures) plus Vivify's unbounded
+  round; kissat meters every during-search technique in ticks. Attribution
+  probes next (em_11/urq45/frb45 single-instance arms). Note Tier C window
+  noise: HEAD 537.30 here vs 481.31 this morning (L6 — same-window only).
 
 ### 2026-07-24 (later) — S4 attribution collected + a mischaracterization found: the "deferral" arm never ran BVE
 - **Attribution answered (novi arm = lite minus Vivify, runs `20260724-1118*-{B,C}-novi`):
