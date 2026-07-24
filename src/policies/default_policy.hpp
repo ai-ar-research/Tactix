@@ -324,8 +324,14 @@ public:
     bool retry_advice = false; // rule maintains a per-variable retry bit to consult
     uint64_t anchor = 0;  // search_ticks when this entry last ran (cadical last.NAME.ticks)
     uint64_t limit = 0;   // meter ceiling for the CURRENT phase (set at phase entry)
+    // S4 arrangement (TACTIX_ARRANGEMENT): defer this entry out of the
+    // conflicts==0 preprocessing phase (kissat fastel=0 — elimination only
+    // ever runs on a formula probing has already simplified, in dosed
+    // during-search phases).
+    bool arrangement_defer = false;
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
+  bool arrangement_ = false; // S4 (TACTIX_ARRANGEMENT); set at slot build
   OccIndex inprocess_occ; // shared occurrence index, reused per phase (incr. 2)
   // Slot timing (kissat eliminate-slot schedule — C1-era machinery kept):
   // first limit size-scaled at solve entry (kissat inits limits after

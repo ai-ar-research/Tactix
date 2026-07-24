@@ -204,6 +204,11 @@ const EffortSpec *effort_spec(const char *name) {
 bool DefaultPolicy::want_inprocess(const Kernel &k) const {
   if (!inprocess.initialized || k.stats.conflicts < inprocess.next_conflicts)
     return false;
+  // S4 arrangement: the during-search phases CARRY the elimination value
+  // (BVE is deferred out of preprocessing), so they fire on the interval
+  // alone — kissat's eliminate does not wait for new material either.
+  if (arrangement_)
+    return true;
   // new-material gate (see default_policy.hpp): skip passes that cannot
   // find anything instead of paying the scan + root restart
   return !inprocess.ran || k.binary_ids.size() > inprocess.binaries_seen ||
@@ -326,24 +331,59 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // budget; the pre-Factor proof verified in ~77s). Disabling is always
       // sound; unset, the slot is byte-identical to the default composition.
       const bool factor_off = std::getenv("TACTIX_NO_FACTOR") != nullptr;
+      // TACTIX_SLOT_ENABLE / TACTIX_SLOT_DISABLE: comma-separated rule names
+      // added to / removed from the default composition (Track S composition
+      // A/Bs — S2 enable-flips, S4 arrangement arms). Disabling a rule is
+      // always sound; enabling one poses the same composition the phase-6
+      // arm surface will pose via the API. Unset ⇒ byte-identical default.
+      // TACTIX_ARRANGEMENT=1 — Track S · S4, the target arrangement as ONE
+      // unit (effort-scheduler design §4.4; kissat's composition): the probing
+      // family joins the slot, and BVE leaves the conflicts==0 preprocessing
+      // phase (kissat fastel=0) — its doses come from the during-search
+      // phases, which then run on a formula probing has simplified. Today's
+      // composition stays the default until the Tier B+C one-unit gate
+      // (L1/L2: each half alone measures worse — S2 re-measure 2026-07-24
+      // confirmed the halves are individually neutral-at-best).
+      const bool arrangement = std::getenv("TACTIX_ARRANGEMENT") != nullptr;
+      arrangement_ = arrangement;
+      const auto env_list = [](const char *var, const char *nm) {
+        const char *s = std::getenv(var);
+        if (!s)
+          return false;
+        const size_t n = std::strlen(nm);
+        for (const char *p = s; (p = std::strstr(p, nm)); p += n)
+          if ((p == s || p[-1] == ',') && (p[n] == '\0' || p[n] == ','))
+            return true;
+        return false;
+      };
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess) {
           const char *nm = rules[i].name;
-          const bool on = (!std::strcmp(nm, "BVE") && !bve_off) ||
-                          (!std::strcmp(nm, "Factor") && !factor_off) ||
-                          !std::strcmp(nm, "Strengthen") ||
-                          !std::strcmp(nm, "SubsumeForward") ||
-                          !std::strcmp(nm, "Congruence") ||
-                          // Factor (E2 BVA) ON: net-positive once the duplicate-
-                          // binary bug was fixed (kernel_delete_binary_all_copies
-                          // lets a factoring remove its whole grid even when grid
-                          // binaries are duplicated; before, deletes refused →
-                          // bloat → no benefit). x9 801k→453k conflicts (39s→23s),
-                          // mp1 4.19M→3.66M, base search unchanged (only Factor's
-                          // grid pairs are removed). Full kissat-level benefit
-                          // still wants SBVA selection (S2) + large remainders (S4).
-                          !std::strcmp(nm, "Substitute");
+          bool on = (!std::strcmp(nm, "BVE") && !bve_off) ||
+                    (!std::strcmp(nm, "Factor") && !factor_off) ||
+                    !std::strcmp(nm, "Strengthen") ||
+                    !std::strcmp(nm, "SubsumeForward") ||
+                    !std::strcmp(nm, "Congruence") ||
+                    // Factor (E2 BVA) ON: net-positive once the duplicate-
+                    // binary bug was fixed (kernel_delete_binary_all_copies
+                    // lets a factoring remove its whole grid even when grid
+                    // binaries are duplicated; before, deletes refused →
+                    // bloat → no benefit). x9 801k→453k conflicts (39s→23s),
+                    // mp1 4.19M→3.66M, base search unchanged (only Factor's
+                    // grid pairs are removed). Full kissat-level benefit
+                    // still wants SBVA selection (S2) + large remainders (S4).
+                    !std::strcmp(nm, "Substitute");
+          if (arrangement &&
+              (!std::strcmp(nm, "Probe") || !std::strcmp(nm, "Backbone") ||
+               !std::strcmp(nm, "TransitiveReduce") ||
+               !std::strcmp(nm, "Vivify")))
+            on = true;
+          if (env_list("TACTIX_SLOT_ENABLE", nm))
+            on = true;
+          if (env_list("TACTIX_SLOT_DISABLE", nm))
+            on = false;
           SlotEntry e;
+          e.arrangement_defer = arrangement && !std::strcmp(nm, "BVE");
           e.rule = i;
           e.enabled = on;
           if (const EffortSpec *s = effort_spec(nm)) {
@@ -542,6 +582,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         for (SlotEntry &e : inprocess_slot) {
           if (!e.enabled || phase_unsat)
             continue;
+          if (e.arrangement_defer && k.stats.conflicts == 0)
+            continue; // S4: no elimination at preprocessing (kissat fastel=0)
           const RuleVTable &r = rules[e.rule];
           const uint64_t limit = e.limit;
           if (e.dosed && r.instances && r.apply_instance) {
