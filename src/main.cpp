@@ -9,6 +9,7 @@
 #include "policies/bve_stress_policy.hpp"
 #include "policies/congruence_stress_policy.hpp"
 #include "policies/factor_stress_policy.hpp"
+#include "policies/probing_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
 #include "proof/proof.hpp"
@@ -81,6 +82,7 @@ int main(int argc, char **argv) {
   bool bve_stress_policy = false;
   bool congruence_stress_policy = false;
   bool factor_stress_policy = false;
+  bool probing_stress_policy = false;
   bool no_heuristics = false; // run with H detached (unguided; Track H · H5)
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
@@ -115,6 +117,13 @@ int main(int argc, char **argv) {
       bve_stress_policy = true;
       if (a[19] == '=')
         random_seed = strtoull(a + 20, nullptr, 10);
+    } else if (!strncmp(a, "--probing-stress-policy", 23)) {
+      // S3 stress mode: hammers P2's kernel_probing snapshot/restore scope —
+      // the probing family in random order at every root, densely interleaved
+      // with search that reuses the restored watch lists (stress-policy skill)
+      probing_stress_policy = true;
+      if (a[23] == '=')
+        random_seed = strtoull(a + 24, nullptr, 10);
     } else if (!strncmp(a, "--factor-stress-policy", 22)) {
       // S2a Increment-2 stress mode: adversarial FactorMatchPolicy (hash /
       // all-tied / reversed scores, maximizing accept) + Factor maximized at
@@ -242,7 +251,9 @@ int main(int argc, char **argv) {
   }
 
   const int res =
-      factor_stress_policy
+      probing_stress_policy
+          ? probing_stress_solve(kernel, random_seed, &caught_signal)
+      : factor_stress_policy
           ? factor_stress_solve(kernel, random_seed, &caught_signal)
       : congruence_stress_policy
           ? congruence_stress_solve(kernel, random_seed, &caught_signal)

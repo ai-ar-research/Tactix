@@ -432,6 +432,10 @@ static void probing_snapshot_list(Kernel &k, Lit l) {
   const uint32_t *const b = k.watches.arena.data() + h.offset;
   lg.lists.push_back({l, static_cast<uint32_t>(lg.words.size()), h.size});
   lg.words.insert(lg.words.end(), b, b + h.size);
+  // S3: snapshot traffic is real memory work — charge it to the tick
+  // currency (same cache-line unit as the scan at :602) so the effort
+  // ledger can meter it against the probing techniques' budgets.
+  k.stats.ticks += 1 + (static_cast<uint64_t>(h.size) >> 4);
 }
 
 template <bool RECORD> static inline void flush_delayed(Kernel &k) {
@@ -673,11 +677,13 @@ void kernel_probing_end(Kernel &k) {
       c->lits[1] = s.lit1;
       c->searched = s.searched;
     }
+    k.stats.ticks += lg.clauses.size(); // S3: restore traffic, same currency
     for (const ProbingLog::ListSnap &s : lg.lists) {
       k.watches.ensure_capacity(s.lit, s.size); // a defrag may have clamped it
       std::copy(lg.words.begin() + s.off, lg.words.begin() + s.off + s.size,
                 k.watches.arena.begin() + k.watches.heads[s.lit].offset);
       k.watches.heads[s.lit].size = s.size;
+      k.stats.ticks += 1 + (static_cast<uint64_t>(s.size) >> 4);
     }
   }
   lg.lists.clear();
