@@ -206,9 +206,27 @@ ApplyResult factor_apply(Kernel &k) {
   // over them → unbounded self-factoring.
   const Lit orig_lits = static_cast<Lit>(2 * kernel_num_output_vars(k));
 
-  std::vector<uint8_t> inR(orig_lits, 0);       // R membership
-  std::vector<uint8_t> seen(orig_lits, 0);      // binary_partners dedup scratch
-  std::vector<uint32_t> cofactor(orig_lits, 0); // co-occurrence counts
+  // S2b composite grids (docs/design/s2b-composite-grids-design.md):
+  // TACTIX_FACTOR_COMPOSITE=1 widens the factor/remainder universe to ALL
+  // live literals — prior-pass extension vars and this pass's own fresh vars
+  // included — growing as the pass applies (kissat resize_factoring).
+  // Termination needs no var-class exclusion: every accepted grid has
+  // delta >= 1, strictly decreasing the finite live-binary count (a grid
+  // over a var's own dividers has m = 1, never accepted). **Default OFF —
+  // measured (design §7): in our single preprocessing blast, composition
+  // fires (mp1 940 → 1834 grids) but the downstream-conflict proxy REGRESSES
+  // 1.37 M → 2.18 M (the L4 over-application U-shape, Factor edition), and
+  // the grid cap does not move. Kept for the S4 arrangement, whose small
+  // interleaved doses are where kissat's own cross-round composition lives.**
+  const bool composite = [] {
+    const char *s = std::getenv("TACTIX_FACTOR_COMPOSITE");
+    return s && s[0] == '1';
+  }();
+  Lit live_lits = composite ? static_cast<Lit>(2 * k.nvars) : orig_lits;
+
+  std::vector<uint8_t> inR(live_lits, 0);       // R membership
+  std::vector<uint8_t> seen(live_lits, 0);      // binary_partners dedup scratch
+  std::vector<uint32_t> cofactor(live_lits, 0); // co-occurrence counts
   std::vector<Lit> touched, partners, R, newR, F, best_F, best_R;
   uint64_t applied = 0;
 
@@ -235,8 +253,8 @@ ApplyResult factor_apply(Kernel &k) {
               : watch_score(k, l);
   };
   std::priority_queue<std::pair<uint32_t, Lit>> pq;
-  std::vector<uint8_t> tried(orig_lits, 0);
-  for (Lit l = 0; l < orig_lits; l++)
+  std::vector<uint8_t> tried(live_lits, 0);
+  for (Lit l = 0; l < live_lits; l++)
     if (k.value(l) == 0)
       pq.push({score_of(l), l});
 
@@ -252,7 +270,7 @@ ApplyResult factor_apply(Kernel &k) {
       continue;
     }
     tried[seed] = 1;
-    binary_partners(k, seed, orig_lits, R, seen);
+    binary_partners(k, seed, live_lits, R, seen);
     if (R.size() < 2 || R.size() > FACTOR_DIM_LIMIT)
       continue;
     for (const Lit r : R)
@@ -267,7 +285,7 @@ ApplyResult factor_apply(Kernel &k) {
       // count candidate next-factors by co-occurrence across the current R.
       touched.clear();
       for (const Lit r : R) {
-        binary_partners(k, r, orig_lits, partners, seen);
+        binary_partners(k, r, live_lits, partners, seen);
         for (const Lit h : partners) {
           if (var_of(h) == var_of(seed) || contains(F, h))
             continue;
@@ -304,7 +322,7 @@ ApplyResult factor_apply(Kernel &k) {
       if (g == INVALID_LIT) // no factor shares ≥ 2 remainders
         break;
       // newR = R ∩ partners(g)  (the r in R with (g∨r) present)
-      binary_partners(k, g, orig_lits, partners, seen);
+      binary_partners(k, g, live_lits, partners, seen);
       newR.clear();
       for (const Lit p : partners)
         if (inR[p])
@@ -339,6 +357,20 @@ ApplyResult factor_apply(Kernel &k) {
       apply_factoring(k, best_F, best_R);
       applied++;
       k.stats.factorings++;
+      // S2b: grow the pass universe over the fresh var (kissat
+      // resize_factoring) and seed BOTH its polarities — its divider/quotient
+      // binaries are live, so later chains THIS pass can compose over it
+      // (`tried` still caps every literal at one seed attempt; termination is
+      // delta-monotone regardless, design §4).
+      if (composite && static_cast<Lit>(2 * k.nvars) > live_lits) {
+        live_lits = static_cast<Lit>(2 * k.nvars);
+        inR.resize(live_lits, 0);
+        seen.resize(live_lits, 0);
+        cofactor.resize(live_lits, 0);
+        tried.resize(live_lits, 0);
+        pq.push({score_of(live_lits - 2), static_cast<Lit>(live_lits - 2)});
+        pq.push({score_of(live_lits - 1), static_cast<Lit>(live_lits - 1)});
+      }
       // Re-score the literals whose binary degree just dropped, so a seed that
       // has since been stripped of its grid stops outranking an intact one
       // (kissat's `update_factored`, factor.c:800). Untried literals only —

@@ -49,9 +49,10 @@ disagree, the plan is authoritative — fix this file.
   302.64, T3 gap ≈ 1.45×. S2a Increments 1+2 landed; Increment 3 is now
   UNBLOCKED.) The Tier B tail, worst-first, all vs kissat same-window:
   The Tier B tail is now FULLY DIAGNOSED (each has a routed owner):
-  **mp1 61 s → S2b composite-grid design pass** (Inc 3 disconfirmed the
-  tie-break route; still the biggest lever); **battleship 184 s residual →
-  S4** (kissat: 5 interleaved factor/eliminate rounds to our 1);
+  **mp1 61 s AND battleship 184 s residual → S4, the target arrangement**
+  (S2b closed 2026-07-24: every non-arrangement Factor lever measured dead —
+  kissat's advantage on both instances is small tick-dosed factor/eliminate
+  rounds interleaved with search, vs our single preprocessing blast);
   **FmlaEquiv 55 s + x9 30 s → the SEARCH-QUALITY track** (FmlaEquiv is 3.5×
   raw-search kissat in conflicts at props/conflict parity — Log 2026-07-24;
   work the Track T suspects: TB4b chrono completion, TB6 mode cadence,
@@ -351,7 +352,7 @@ why none of them needs a trade-off against the others.
 - [x] **S1b · BVE growth-slack ramp** — kissat cheap-first `set_next_elimination_bound`, ON by default; landed as the first `SubPolicy` (`BveBoundPolicy`/`DefaultBveBoundRamp`, `src/policies/subpolicy.hpp`, un-defers H6). Tier B PAR-2 17.07 → 16.44 (`a36b4c2`, Log 2026-07-23). Refined by S1c.
 - [x] **S1c · needed-bound cache + ramp ceiling 16→8** — the efficient ramp now beats flat fixed-`bound=8`. Tier B PAR-2 16.44 → 15.08 (crypto1 6.2 s, FmlaEquiv 44→25 s); Tier A 200/200 @ jobs=4; fuzz 0/4 legs; review APPROVED. Lesson: the ramp's crypto1 win was the effort-dose cap acting as an *accidental governor*, not cheap-first — the ceiling was the real lever ([[accidental-governor-trap]]). `489fab1`, Log 2026-07-23. **Tier C ceiling re-sweep DONE (cluster, 2026-07-23 — Log): ceil-8 439.72 vs ceil-16 449.62, both 27/30, same window ⇒ ceiling stays 8.** Owed: Tier D re-sweep (gate-time); TB5 counter-split.
 - [x] **S2a · Factor grid-selection → `FactorMatchPolicy` — COMPLETE, quality target NOT reached (as the design § 2b allowed).** Increment 1 ✅ bit-exact extraction; Increment 2 ✅ adversarial stress (16.5k cases 0 failures; `factor_stress_policy` kept); **Increment 3 ✅ 2026-07-24: the tie-break steering hypothesis is DISCONFIRMED** — mp1's 27×27 grid cap is invariant under three tie orders; proxy default 1.37 M / paths 1.31 M / sparse 2.43 M vs kissat-native 305 k, so nothing ships (design §4 bar); `paths` shelved behind `TACTIX_FACTOR_MATCH`. Log 2026-07-24 + `TACTIX_GRID_TRACE` surface. **The width gap's live hypothesis moved to S2b.**
-- [ ] **S2b · extension-var composite grids (the width-gap live hypothesis, from Inc 3).** kissat re-factors aux vars across rounds (wide 22×64-class composite grids, Δ1322 > our best 675); our `orig_lits` anti-self-factoring boundary forbids extension vars as factors entirely (implementation-notes §5 cross-rule invariant — the unbounded-self-factoring loop risk is REAL, so this needs a **design pass** for a bounded relaxation, e.g. one composite generation per pass, before any code). Also the mp1 ⅓-of-Tier-B lever and battleship's 184 s residual (S4's interleaved rounds are the other half).
+- [x] **S2b · composite grids — mechanism landed (default OFF), quality hypothesis DISCONFIRMED (2026-07-24).** Design + verdict frozen in `docs/design/s2b-composite-grids-design.md`: the anti-self-factoring boundary was never soundness-load-bearing (delta ≥ 1 is monotone; the real constraint was scratch sizing), and within-pass composition WORKS (mp1 940 → 1,834 grids, `TACTIX_FACTOR_COMPOSITE=1`) — but the proxy REGRESSES 1.37 M → 2.18 M in a single blast (L4's U-shape, Factor edition), the 27×27 cap survives a 4th mechanism, and the 22×64 width target is judged an instrumentation artifact. **mp1's one remaining lever = S4** (kissat: 855 factored vars over 16 tick-dosed rounds interleaved with eliminate+search vs our one blast; tie-breaks/composition/accept/scope/dedup ALL measured dead). Composite stays available for S4's small doses.
 - [ ] **S2 · re-measure the probing rules now P2 exists** — Probe, Backbone, TransitiveReduce were disabled for the artifact P2 removed. Each is an `enabled` flip in the slot composition plus a Tier B A/B; effort specs are already in the ledger. **Vivify is already re-measured and still net-negative (24.19 vs 21.01)**, so do not assume the others turn positive.
 - [ ] **S3 · P2's owed follow-ups** — a `stress-policy` pass (its snapshot/restore is a novel mechanism, not a port) and charging its snapshot traffic to the effort ledger, which cannot currently see it.
 - [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing *plus* probing simplifying the formula and elimination moved into the search loop. Built behind the slot's `enabled` flags with today's composition as the default; gated on Tier B+C together (an explicit, recorded exception to §8.3 per-increment gating, because each half measures worse alone — L1/L2).
@@ -405,6 +406,22 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-24 — S2b: composite grids land default-OFF; every non-arrangement mp1 lever now dead
+- Verified kissat IS composite (factor.c `resize_factoring` + fresh-var flag
+  re-arming; +1,303 further factored vars on OUR mp1 dump, probe 1560298) —
+  but ALSO that post-hoc composition cannot rescue our formula (kissat still
+  1.37 M on our dump after it). Mechanism landed behind
+  `TACTIX_FACTOR_COMPOSITE=1` (delta-monotone termination replaces the
+  var-class exclusion; disabled path byte-faithful): composition fires
+  (mp1 940 → 1,834 grids) yet the proxy regresses 1.37 M → 2.18 M in one
+  blast and the 27×27 cap stands — 4th disconfirmed mechanism; the 22×64
+  target judged an instrumentation artifact (design §7, probe 1560299).
+- **Convergence: mp1 = S4.** kissat spreads 855 factorings over 16
+  tick-dosed rounds interleaved with eliminate+search; our single blast is
+  the difference. Tie-breaks, composition, accept, scope, dedup: all
+  measured dead. The arrangement is the last lever standing — same verdict
+  as battleship's 184 s residual.
 
 ### 2026-07-24 — FmlaEquiv diagnosed: pure search-quality gap (3.5× vs raw-search kissat)
 - Decomposition (probe 1560297, same window): tactix 55.0 s / 2.15 M conflicts
