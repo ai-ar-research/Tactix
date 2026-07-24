@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 63 (2026-07-22)
+- **Plan revision tracked:** rev. 64 (2026-07-23)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-23
 - **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **Development is
@@ -433,6 +433,24 @@ report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
   the allocation; `fuzz.py --jobs` defaults to `SLURM_CPUS_PER_TASK` in-job).
   Shakedown job 1558866 on node017 (16 cores): corpus 7/7, quick leg
   1000/1000, 0 failures.
+- **Bench runner job-array mode landed (`run.py --slurm`) + plan rev 64.**
+  One array task per solver×instance (8 G/core; Tier D 16 G ⇒ 2 cores),
+  per-task JSONs merged by a dependency-chained aggregate job into the same
+  `results.json`; `--aggregate` re-merges, `--throttle` caps concurrency for
+  gate runs, `--dry-run` inspects. Allocation shape recorded in place of the
+  jobs count (L6 generalized); local `--jobs` mode kept for smoke only. Plan
+  §8.1 rewritten accordingly (rev 64; §9/§10 wording, benchmarks skill,
+  CLAUDE.md synced). **Shakedown findings (first runs on cluster hardware +
+  the NEW gcc-13/libstdc++ binary — the toolchain changed, not just the
+  machine):** (a) Tier A array 199/200, PAR-2 0.75 — `tr-n300-s055` misses the
+  30 s budget even on a dedicated core (margin-rule follow-up; probe below);
+  (b) Tier B array: kissat 14/14 PAR-2 8.20 (fresh cluster pin), tactix 13/14
+  PAR-2 61.78 — most ratios match the old tail profile (mp1 8.3×, x9 3.0×,
+  qwh 4.3×) but **battleship-14-26-sat went 14.1 s → >300 s TO (~21×)**, which
+  no clock-speed delta explains. Prime suspect: trajectory divergence from the
+  compiler change (battleship is the L3 trajectory-fragile instance; unstable
+  `std::sort` tie-breaks differ between libstdc++ and libc++). Conflicts-count
+  probe vs the 1.95 M pin decides trajectory-vs-hardware.
 
 ### 2026-07-23 — S2a design pass + HPC-migration checkpoint
 - **Decision (user):** migrate development to the HPC cluster — Claude Code runs on the login node and submits jobs directly (no SSH-from-local). Resume anchor rewritten with the bootstrap, the **mandatory re-baseline** (all banked numbers are M3-Pro, §8.1; never mix with cluster numbers), and login-node discipline. A **§8.1 revise-plan is owed** once the node type is pinned.

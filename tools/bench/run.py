@@ -3,6 +3,18 @@
 
 Usage:
   run.py --tier A --solver ./build/tactix [--baseline kissat] [--jobs 8]
+  run.py --tier C --solver ./build/tactix --baseline kissat --slurm
+  run.py --aggregate benchmarks/runs/<dir>      # re-merge a --slurm run
+
+- SLURM mode (cluster protocol, PROGRESS Log 2026-07-23): submits one array
+  task per solver x instance to cpu-dense-hwulab-q (8 GB/core rule:
+  cpus-per-task = ceil(mem_gb/8), default 1 core / 8 GB), plus a dependent
+  aggregate job that merges the per-task JSONs into the identical
+  results.json a local run writes. The allocation shape (partition,
+  cpus/mem per task, throttle) is recorded in place of the local jobs
+  count — compare numbers only across identical shapes (L6 generalized).
+  --throttle caps concurrent tasks for lower-contention gate runs;
+  --dry-run writes manifest + sbatch scripts without submitting.
 
 - Tier lists are frozen files `benchmarks/tiers/<tier>.list`; each
   non-comment line is `<relpath> <SAT|UNSAT|UNKNOWN> <ref_seconds>` with
@@ -32,6 +44,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -151,7 +164,7 @@ def par2(results, timeout):
                for r in results) / len(results)
 
 
-def summarize(name, results, timeout, jobs):
+def summarize(name, results, timeout, shape):
     solved = [r for r in results if r["solved"]]
     sat = [r for r in solved if r["verdict"] == "SAT"]
     uns = [r for r in solved if r["verdict"] == "UNSAT"]
@@ -162,7 +175,7 @@ def summarize(name, results, timeout, jobs):
     lines = [
         f"{name}: PAR-2 {par2(results, timeout):.2f}  "
         f"solved {len(solved)}/{len(results)} "
-        f"(SAT {len(sat)}, UNSAT {len(uns)})  [jobs={jobs}]"
+        f"(SAT {len(sat)}, UNSAT {len(uns)})  [{shape}]"
     ]
     if pbytes:
         lines.append(f"  proofs: {len(pbytes)} checked, "
@@ -177,19 +190,225 @@ def summarize(name, results, timeout, jobs):
     return "\n".join(lines), bool(mism or prej)
 
 
+def stage_instances(entries, stage):
+    """Decompress instances once into `stage`; returns {rel: path|None}.
+
+    Staged as plain DIMACS — some baselines (MiniSat, Glucose) read .gz at
+    best, and excluding decompression time from every solver's wall clock
+    is fairer anyway.
+    """
+    os.makedirs(stage, exist_ok=True)
+    paths = {}
+    for rel, _, _ in entries:
+        src = os.path.join(CACHE, rel)
+        if not os.path.exists(src):
+            paths[rel] = None
+            continue
+        tool = {".xz": "xz", ".gz": "gzip"}.get(os.path.splitext(rel)[1])
+        if tool:
+            dst = os.path.join(stage, os.path.basename(rel)[:-3])
+            if not os.path.exists(dst):
+                with open(dst, "wb") as f:
+                    subprocess.run([tool, "-dc", src], stdout=f, check=True)
+            paths[rel] = dst
+        else:
+            paths[rel] = src
+    return paths
+
+
+def fmt_time(seconds):
+    s = int(seconds)
+    return f"{s // 3600:02d}:{s % 3600 // 60:02d}:{s % 60:02d}"
+
+
+def resolve_cmd(cmd):
+    # absolutize tokens that name existing files, so array tasks are
+    # cwd-independent (also catches `env VAR=1 build/release/tactix`)
+    return [os.path.abspath(t) if "/" in t and os.path.exists(t) else t
+            for t in cmd]
+
+
+def sbatch(script, *extra):
+    r = subprocess.run(["sbatch", "--parsable", *extra, script],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"error: sbatch failed: {r.stderr.strip()}")
+    return r.stdout.strip().split(";")[0]
+
+
+def slurm_run_one(outdir, idx):
+    """One array task: solve one (solver, instance) pair, write one JSON."""
+    with open(os.path.join(outdir, "manifest.json")) as f:
+        man = json.load(f)
+    t = man["tasks"][idx]
+    s = man["solvers"][t["solver"]]
+    workdir = tempfile.mkdtemp(prefix="bench-")  # $TMPDIR: node-local
+    try:
+        res = run_instance(s["cmd"], t["rel"], t["staged"], t["expected"],
+                           man["timeout"], s["check_proofs"], workdir,
+                           man["mem_gb"])
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+    res["node"] = os.environ.get("SLURMD_NODENAME")
+    resdir = os.path.join(outdir, "results")
+    os.makedirs(resdir, exist_ok=True)
+    tmp = os.path.join(resdir, f".{idx:05d}.tmp")
+    with open(tmp, "w") as f:
+        json.dump(res, f, indent=2)
+    os.replace(tmp, os.path.join(resdir, f"{idx:05d}.json"))
+    print(f"task {idx}: {s['name']} {t['rel']} -> {res['verdict']} "
+          f"{res['time']}s solved={res['solved']}")
+    return 0
+
+
+def slurm_aggregate(outdir):
+    """Merge per-task JSONs into the same results.json a local run writes."""
+    with open(os.path.join(outdir, "manifest.json")) as f:
+        man = json.load(f)
+    resdir = os.path.join(outdir, "results")
+    all_results = {s["name"]: [] for s in man["solvers"]}
+    missing = []
+    for i, t in enumerate(man["tasks"]):
+        p = os.path.join(resdir, f"{i:05d}.json")
+        if os.path.exists(p):
+            with open(p) as f:
+                r = json.load(f)
+        else:
+            missing.append(i)
+            r = {"instance": t["rel"], "expected": t["expected"],
+                 "verdict": "MISSING", "time": man["timeout"],
+                 "solved": False, "mismatch": False, "proof_ok": None,
+                 "proof_bytes": None, "proof_check_time": None}
+        all_results[man["solvers"][t["solver"]]["name"]].append(r)
+    any_bug = False
+    for s in man["solvers"]:
+        summary, bug = summarize(s["name"], all_results[s["name"]],
+                                 man["timeout"], man["shape"])
+        print(summary, flush=True)
+        any_bug |= bug
+    meta = {"tier": man["tier"], "timeout": man["timeout"], "jobs": None,
+            "slurm": man["slurm"], "git": man["git"], "date": man["date"],
+            "mem_gb": man["mem_gb"],
+            "solvers": {s["name"]: " ".join(s["cmd"])
+                        for s in man["solvers"]},
+            "results": all_results}
+    with open(os.path.join(outdir, "results.json"), "w") as f:
+        json.dump(meta, f, indent=2)
+    print(f"results: {outdir}/results.json")
+    if missing:
+        print(f"!! {len(missing)} task result(s) MISSING (infrastructure, "
+              f"scored as unsolved): "
+              + ", ".join(str(i) for i in missing[:10])
+              + (" ..." if len(missing) > 10 else "")
+              + "\n   resubmit those indices, then re-run --aggregate")
+        return 2  # staged/ kept so the resubmission can run
+    shutil.rmtree(os.path.join(outdir, "staged"), ignore_errors=True)
+    if any_bug:
+        print("CORRECTNESS BUG(S) FOUND — stop performance work; follow the "
+              "fuzz skill's failure procedure.")
+        return 1
+    return 0
+
+
+def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
+                 stamp, sha, name):
+    tasks = []
+    for si in range(len(solvers)):
+        for rel, status, _ in entries:
+            tasks.append({"solver": si, "rel": rel, "expected": status,
+                          "staged": paths[rel]})
+    cpus = max(1, -(-(mem_gb or 8) // 8))  # 8 GB/core rule
+    shape = (f"slurm partition={args.partition} cpus/task={cpus} mem/cpu=8G"
+             + (f" throttle=%{args.throttle}" if args.throttle else ""))
+    man = {"tier": args.tier, "timeout": timeout, "mem_gb": mem_gb,
+           "git": sha, "date": stamp, "shape": shape,
+           "slurm": {"partition": args.partition, "cpus_per_task": cpus,
+                     "mem_per_cpu_gb": 8, "throttle": args.throttle},
+           "solvers": [{"name": n, "cmd": resolve_cmd(c), "check_proofs": k}
+                       for n, c, k in solvers],
+           "tasks": tasks}
+    with open(os.path.join(outdir, "manifest.json"), "w") as f:
+        json.dump(man, f, indent=2)
+    os.makedirs(os.path.join(outdir, "logs"), exist_ok=True)
+
+    me = os.path.abspath(__file__)
+    array = f"0-{len(tasks) - 1}" + (f"%{args.throttle}"
+                                     if args.throttle else "")
+    # per-task wall limit: solve + drat-trim budget + slack
+    tlimit = fmt_time(timeout + max(60.0, 2 * timeout) + 120)
+    apath = os.path.join(outdir, "array.sbatch")
+    with open(apath, "w") as f:
+        f.write(f"""#!/usr/bin/env bash
+#SBATCH --partition={args.partition}
+#SBATCH --job-name=bench-{args.tier}-{name}
+#SBATCH --nodes=1 --ntasks=1 --cpus-per-task={cpus}
+#SBATCH --mem-per-cpu=8G
+#SBATCH --time={tlimit}
+#SBATCH --array={array}
+#SBATCH --output={outdir}/logs/task-%a.log
+exec {sys.executable} {me} --run-one {outdir} \
+--task-index $SLURM_ARRAY_TASK_ID
+""")
+    gpath = os.path.join(outdir, "aggregate.sbatch")
+    with open(gpath, "w") as f:
+        f.write(f"""#!/usr/bin/env bash
+#SBATCH --partition={args.partition}
+#SBATCH --job-name=bench-{args.tier}-{name}-agg
+#SBATCH --nodes=1 --ntasks=1 --cpus-per-task=1
+#SBATCH --mem-per-cpu=8G
+#SBATCH --time=01:00:00
+#SBATCH --output={outdir}/logs/aggregate.log
+exec {sys.executable} {me} --aggregate {outdir}
+""")
+    print(f"{len(tasks)} tasks ({len(solvers)} solver(s) x {len(entries)} "
+          f"instances), {shape}, per-task limit {tlimit}")
+    if args.dry_run:
+        print(f"dry run: wrote {apath} and {gpath}, nothing submitted")
+        return 0
+    jobid = sbatch(apath)
+    aggid = sbatch(gpath, f"--dependency=afterany:{jobid}")
+    print(f"submitted: array {jobid}, aggregate {aggid} (runs when the "
+          f"array finishes)")
+    print(f"watch:     squeue -j {jobid}")
+    print(f"summary:   {outdir}/logs/aggregate.log  (re-merge any time: "
+          f"{me} --aggregate {outdir})")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--tier", required=True, choices="ABCD")
-    ap.add_argument("--solver", required=True,
-                    help="solver under test (competition CLI)")
+    ap.add_argument("--tier", choices="ABCD")
+    ap.add_argument("--solver", help="solver under test (competition CLI)")
     ap.add_argument("--name", default=None, help="label for the solver")
     ap.add_argument("--baseline", action="append", default=[],
                     help="baseline solver: kissat|cadical|<command>")
-    ap.add_argument("--jobs", type=int, default=8)
+    ap.add_argument("--jobs", type=int, default=8,
+                    help="local mode: parallel solver processes (1..8)")
     ap.add_argument("--timeout", type=float, default=None,
                     help="override the tier's per-instance timeout")
+    ap.add_argument("--slurm", action="store_true",
+                    help="submit as a SLURM job array (one task per "
+                         "solver x instance) + a dependent aggregate job")
+    ap.add_argument("--partition", default="cpu-dense-hwulab-q")
+    ap.add_argument("--throttle", type=int, default=None,
+                    help="cap concurrent array tasks (sbatch %%N) for "
+                         "lower-contention gate runs")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="with --slurm: write manifest + scripts, do not "
+                         "submit")
+    ap.add_argument("--run-one", metavar="OUTDIR", help=argparse.SUPPRESS)
+    ap.add_argument("--task-index", type=int, help=argparse.SUPPRESS)
+    ap.add_argument("--aggregate", metavar="OUTDIR",
+                    help="(re)aggregate an existing --slurm run directory")
     args = ap.parse_args()
-    if not 1 <= args.jobs <= 8:
+
+    if args.run_one is not None:
+        return slurm_run_one(args.run_one, args.task_index)
+    if args.aggregate is not None:
+        return slurm_aggregate(args.aggregate)
+    if not (args.tier and args.solver):
+        ap.error("--tier and --solver are required")
+    if not args.slurm and not 1 <= args.jobs <= 8:
         sys.exit("error: --jobs must be 1..8 (plan §8.1)")
 
     entries = read_tier_list(args.tier)
@@ -207,26 +426,12 @@ def main() -> int:
         solvers.append((os.path.basename(shlex.split(BASELINES.get(b, b))[0]),
                         shlex.split(BASELINES.get(b, b)), False))
 
-    # stage instances as plain DIMACS once — some baselines (MiniSat,
-    # Glucose) read .gz at best, and excluding decompression time from
-    # every solver's wall clock is fairer anyway
     stage = os.path.join(outdir, "staged")
-    os.makedirs(stage, exist_ok=True)
-    paths = {}
-    for rel, _, _ in entries:
-        src = os.path.join(CACHE, rel)
-        if not os.path.exists(src):
-            paths[rel] = None
-            continue
-        tool = {".xz": "xz", ".gz": "gzip"}.get(os.path.splitext(rel)[1])
-        if tool:
-            dst = os.path.join(stage, os.path.basename(rel)[:-3])
-            if not os.path.exists(dst):
-                with open(dst, "wb") as f:
-                    subprocess.run([tool, "-dc", src], stdout=f, check=True)
-            paths[rel] = dst
-        else:
-            paths[rel] = src
+    paths = stage_instances(entries, stage)
+
+    if args.slurm:
+        return slurm_submit(args, entries, solvers, paths, timeout, mem_gb,
+                            outdir, stamp, sha, name)
 
     all_results = {}
     any_bug = False
@@ -240,7 +445,8 @@ def main() -> int:
                                        timeout, check_proofs, outdir,
                                        mem_gb),
                 entries))
-        summary, bug = summarize(sname, results, timeout, args.jobs)
+        summary, bug = summarize(sname, results, timeout,
+                                 f"jobs={args.jobs}")
         print(summary, flush=True)
         all_results[sname] = results
         any_bug |= bug

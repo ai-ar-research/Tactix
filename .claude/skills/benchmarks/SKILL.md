@@ -29,16 +29,16 @@ Hard rules:
 
 ## Running an evaluation
 
-- Environment (plan §8.1): a single local workstation — no HPC/StarExec. The runner may execute up to **8 single-threaded solver jobs in parallel** (`--jobs N`, N ≤ 8); each solver run itself is strictly sequential. Record the concurrency level in every report and only compare numbers taken at the same concurrency; drop to ~4 jobs for Tier C/D gate runs where timing precision matters.
+- Environment (plan §8.1, rev 64): the SLURM cluster, partition `cpu-dense-hwulab-q`. Tier runs are **job arrays — one single-threaded solver run per task**, 8 GB/core, candidate + baselines in the same array: `run.py ... --slurm [--throttle N]`. Record the **allocation shape** (partition, cpus/mem per task, throttle) in every report and only compare numbers taken at identical shapes; use `--throttle` for Tier C/D gate runs where timing precision matters. The local `--jobs ≤ 8` mode is for smoke tests only — the login node (cgroup-capped to 4 CPUs) never produces reportable numbers.
 - **Sequencing rule (plan §8.1 rev 18): do not evaluate Tier B while any
   Tier A instance is unsolved within its 30 s budget** — clear Tier A
   completely first.
-- Runner: `tools/bench/run.py --tier B --solver ./build/tactix [--baseline kissat] [--jobs 8]` (if the runner doesn't exist yet, build it to this interface). It must: record wall time + exit code + verdict, verify verdict against the expected status in the list, and **check the proof for every UNSAT answer** (drat-trim; a rejected proof counts as unsolved, competition-style).
+- Runner: `tools/bench/run.py --tier B --solver ./build/release/tactix [--baseline kissat] --slurm` (submits the array + a dependent aggregate job; `--aggregate <rundir>` re-merges any time; `--dry-run` inspects without submitting; local smoke: `[--jobs 4]`). It must: record wall time + exit code + verdict, verify verdict against the expected status in the list, and **check the proof for every UNSAT answer** (drat-trim; a rejected proof counts as unsolved, competition-style).
 - Score: PAR-2 = mean over instances of (runtime if solved, else 2 × timeout). Report PAR-2 and #solved, split SAT/UNSAT, plus proof-check time and proof size.
 - Also track microbenchmarks when relevant: propagations/sec, conflicts/sec, peak RSS, proof bytes/conflict (measured on Tier B).
 
 ## Reporting
 
-Write reports to `benchmarks/reports/YYYY-MM-DD-<topic>.md`: hardware, git SHA, tier + list version, **jobs concurrency**, table (solver × {PAR-2, #solved, SAT/UNSAT split}), regressions vs previous report, and an honest interpretation. Milestone gates T1–T5 (plan §8.3) are judged only from these reports.
+Write reports to `benchmarks/reports/YYYY-MM-DD-<topic>.md`: hardware, git SHA, tier + list version, **allocation shape** (partition, cpus/mem per task, throttle — the rev-64 replacement for the jobs count), table (solver × {PAR-2, #solved, SAT/UNSAT split}), regressions vs previous report, and an honest interpretation. Milestone gates T1–T5 (plan §8.3) are judged only from these reports. Numbers pinned before 2026-07-23 are from the retired workstation — never compare against them directly.
 
 Any verdict mismatch or proof rejection found during benchmarking is a **correctness bug**: stop the performance work, shrink it via the fuzz skill's procedure, and file it in the regression corpus first.

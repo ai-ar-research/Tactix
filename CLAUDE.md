@@ -49,7 +49,7 @@
   per the matching skill** — correctness work is not done until the fuzz oracles
   pass (proof-checked on every UNSAT from the first commit; model-checked on every
   SAT), and performance claims come only from the benchmark runner on the right
-  tier (≤ 8 parallel jobs, plan §8.1) → update PROGRESS.md (tick items + Log
+  tier (SLURM job-array protocol, plan §8.1) → update PROGRESS.md (tick items + Log
   entry) in the **same commit** as the work; commit with a clear message, push a
   coherent unit.
 - **Rule work** follows the rule-dev skill and §5.3: one directory + one registry

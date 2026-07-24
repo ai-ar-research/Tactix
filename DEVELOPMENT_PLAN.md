@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-22 (rev. 63). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-23 (rev. 64). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -894,20 +894,30 @@ Running 400 instances × 5000 s per iteration is useless for day-to-day
 development. We maintain four fixed, versioned benchmark tiers checked into the
 repo (as instance lists + download script; instances themselves cached locally):
 
-**Evaluation environment.** All benchmarking runs on a single local
-workstation — no HPC cluster or StarExec access is assumed. The bench runner
-may run up to **8 single-threaded solver instances in parallel** (`--jobs ≤ 8`;
-the solver itself remains strictly sequential per the scope statement).
-Parallel jobs contend for memory bandwidth and shared caches, so: record the
-concurrency level in every report, compare numbers only across runs at the
-same concurrency, and prefer lower concurrency (e.g., 4) for gate runs on
-Tiers C/D where timing precision matters. Worst-case wall-clock at 8 jobs:
-Tier B ≈ minutes, Tier C ≈ overnight, one Tier D set ≈ up to ~3 days —
-schedule gate runs accordingly. **A pinned reference PAR-2 can go stale or be
-inflated** by machine load or a pathological proof-check tying up a worker (rev
-46: the pinned Tier-C CaDiCaL was 336.96, a clean re-run measured 160.6 — 2×) —
-so **re-measure the reference solver CLEAN in the same session before judging any
-gate**, never against an old pin.
+**Evaluation environment (rev 64, user decision — SLURM cluster; supersedes
+the single-workstation protocol of revs ≤ 63).** All benchmarking runs on the
+lab's SLURM cluster, partition `cpu-dense-hwulab-q` (2 × 192-core nodes),
+submitted by `tools/bench/run.py --slurm` as a **job array with one
+single-threaded solver run per task** (the solver itself remains strictly
+sequential per the scope statement); each task gets 1 core + 8 GB per core
+(`cpus-per-task = ceil(mem_cap / 8 GB)`, so the Tier D 16 GB cap ⇒ 2 cores).
+Candidate and baselines go into the **same array** (same window, same
+partition). Concurrent tasks on a node still contend for memory bandwidth and
+shared caches, so: record the **allocation shape** (partition, cpus/mem per
+task, throttle) in every report and in `results.json`, compare numbers only
+across runs with identical shapes (the generalization of "never compare across
+job counts"), and use `--throttle` to cap concurrent tasks for gate runs on
+Tiers C/D where timing precision matters. The local `--jobs ≤ 8` mode remains
+for smoke tests only; the login node is cgroup-capped to 4 CPUs and is never
+used for measurements. Wall-clock at full array width: Tier B ≈ minutes,
+Tier C ≈ ≤ 1 h, one Tier D set ≈ an afternoon (bounded by the 5000 s solve +
+proof-check budget, not by set size). **A pinned reference PAR-2 can go stale
+or be inflated** by contention or a pathological proof-check (rev 46: the
+pinned Tier-C CaDiCaL was 336.96, a clean re-run measured 160.6 — 2×) — so
+**re-measure the reference solver CLEAN in the same window before judging any
+gate**, never against an old pin. **All PAR-2 / wall-clock seconds pinned
+before 2026-07-23 describe the retired workstation** — re-pin on the cluster
+before using one in a comparison; conflict/resolution counts carry over.
 
 - **Tier A — "seconds" set (development inner loop; total runtime < 2 min).**
   ~200 generated instances with known status, solvable by a basic CDCL
@@ -929,12 +939,12 @@ gate**, never against an old pin.
     decision weight while the "is it broken" set still has failures.
   - **Margin rule (rev 22, user decision): Tier A must pass easily and
     consistently, not at the knife edge.** A change that leaves any
-    instance within ~15% of the 30 s budget solo (≳ 25 s — contention at
-    jobs=4 eats the rest) is not done: the marginal instance gets a
+    instance within ~15% of the 30 s budget solo (≳ 25 s — shared-node
+    contention eats the rest) is not done: the marginal instance gets a
     dedicated follow-up (fidelity levers first, never Tier-A constant
     tuning, which §8.1 still forbids) before the work is considered
     complete. Consistency is part of the claim — verify with repeat
-    jobs=4 runs, not one lucky pass.
+    runs at the standard allocation shape, not one lucky pass.
 - **Tier B — "5–30 s" competition subset (daily driver; total ≈ 2–8 CPU-min).**
   10–15 instances from the SC 2023–2025 main tracks selected by *reference
   runtime*: Kissat 4.0.4 takes **between 5 s and 30 s** each on our hardware
@@ -1109,7 +1119,7 @@ Components:
 
 | Phase | Deliverable | Exit criterion |
 |---|---|---|
-| 0 (setup) | Repo, CI; **baseline solvers built locally** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
+| 0 (setup) | Repo, CI; **baseline solvers built on the evaluation machine** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
 | 1 | Kernel + Propagate/Decide/Analyze/Backjump + Restart/Reduce (S1–S2, moved from phase 2 in rev 12) + SwitchMode w/ stable mode: EVSIDS heap, reluctant restarts, target phases (S4, moved rev 19) + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
 | 2 | Rephasing, lucky probes (S3, S5); native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
 | 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V6, E1–E2): subsumption, strengthening, vivification, probing, backbone, substitution, transitive reduction, congruence, BVE, and bounded variable addition; the reconstruction stack; Tier C built and frozen. **Current focus: the effort-budgeted inprocessing scheduler** — kissat's arrangement, i.e. all inprocessing rules active under per-technique effort budgets, no BVE at preprocessing, and elimination moved into the search loop. Two kernel prerequisites were established by measurement and both have landed: a per-variable BVE retry filter whose **N1 constraint** is that it may prune only `instances()` while `apply_instance` stays total, and a probing propagation path that restores search's bookkeeping. **Landing discipline (a scoped exception to §8.3 per-increment gating):** each half of the target arrangement measures worse alone, so it is built behind the slot's `enabled` flags and gated as ONE unit on Tier B+C. Status, sequencing and per-item evidence: PROGRESS.md (phase-3 checklist); design `docs/design/effort-scheduler-design.md`. | T3 on Tier C — **incl. CaDiCaL/Kissat parity on the rule-neutral subset (search-quality isolation, rev 51)**; nightly random-policy fuzzing green |
@@ -1130,8 +1140,9 @@ checked into the repo, which also records the §5.4 revamp evaluation and the
   search, so failures localize).
 - **Chasing Kissat's tail-latency tricks forever** → timebox parity work; the
   differentiating bet is the policy layer, not out-Kissating Kissat on the kernel.
-- **Memory blowups on 2025-style hosts** → enforce a 16 GB test cap locally;
-  streaming proofs; arena compaction.
+- **Memory blowups on 2025-style hosts** → enforce a 16 GB cap on test runs
+  (RLIMIT_AS in the runner + SLURM memory limits); streaming proofs; arena
+  compaction.
 - **Rule API churn breaking clients** → freeze API v1 at phase 2; additive changes
   only afterwards.
 
@@ -1266,3 +1277,4 @@ conflate them.
 - **rev. 61** (2026-07-22): applied the rev-59 reclassification test to the §5.2 catalog — split the search-management table so S3 `Rephase`/S4 `SwitchMode`/S6 `Walk`/S7 `Reorder` are catalogued as **policy operations** (`H`-only sub-policies), leaving S1/S2/S5 as the macro-tier proof rules; no scope change (Track H · H0, §5.2).
 - **rev. 62** (2026-07-22, user-prompted): made the kernel↔`H` separation a STRUCTURAL, enforced invariant — `kernel.hpp` holds `H` only as an opaque pointer and never includes `heuristics.hpp`; re-entangling is compile-caught / grep-caught and a §5.4 discussion (§5). Realized by Track H · H4.
 - **rev. 63** (2026-07-22): §5.3 extended to policy operations — a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP` (no proof obligation, no calculus entry). S3/S4 relocated there (Track H · H6); `src/rules/` = proof rules, `src/policies/ops/` = `H`-only guidance ops.
+- **rev. 64** (2026-07-23, user): evaluation environment moved to the SLURM cluster (§8.1) — tier runs are job arrays (one task per solver×instance, 8 GB/core, allocation-shape discipline replaces the jobs count; `run.py --slurm`), fuzzing is one multi-core job (`tools/fuzz/slurm.sh`); all pre-migration PAR-2/second pins declared stale (§8.1); §9/§10 "locally" wording generalized.
