@@ -363,6 +363,14 @@ why none of them needs a trade-off against the others.
 - [x] **S2 · probing rules re-measured (2026-07-24, cluster, det-fix/density-6 binary)** — five same-window Tier B arms via the new `TACTIX_SLOT_ENABLE` knob, all **14/14**: HEAD 31.75, +Probe 32.67, +Backbone 31.88, +TransitiveReduce 31.86, **+Vivify 31.41** — every flip within noise. **The historical SAT-disruption is GONE** (P2 + det-fix + density-6 changed the landscape; Vivify was +15 % on M3, now neutral-to-positive) — but no standalone win either: exactly the L1/L2 shape that gates S4 as one unit. Default composition unchanged; runs `20260724-0825*-B-s2*`.
 - [x] **S3 · P2's owed follow-ups — DONE 2026-07-24** (`2ed8bcc`): `probing_stress_policy` (kept as the durable P2 stress axis) — the probing family in seed-random order at every root, dense scope open/close cycles reused by search, per-step invariants; **16,500 adversarial cases × {DRAT, native LRAT} × 3 seeds, 0 failures**, corpus 7/7. Snapshot + restore traffic now charged to `stats.ticks` (cache-line unit) so the ledger meters P2's overhead.
 - [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing *plus* probing simplifying the formula and elimination moved into the search loop. Built behind the slot's `enabled` flags with today's composition as the default; gated on Tier B+C together (an explicit, recorded exception to §8.3 per-increment gating, because each half measures worse alone — L1/L2).
+  **During-search firing WIRED 2026-07-24 pm** (the first arms had silently
+  measured no-BVE — see Log): `update_inprocess_limit` now takes the
+  increment-2 growing interval (NLOG2N, size-scaled) under `arrangement_`;
+  default path byte-identical. Validation: ctest 31/31; fuzz quick 10,000/0
+  under `TACTIX_ARRANGEMENT=1`; probe **mp1-Nb5T15 TO→~1 s** (2 during-search
+  phases, 3,374 BVE eliminations mid-search, 35k conflicts). Same-window
+  HEAD+arr2 gate arrays on Tier B+C in flight (runs `20260724-1711*`,
+  jobs 1560642/1560657/1560672/1560703).
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`.
 
 ### Other phase-3 items

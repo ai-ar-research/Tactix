@@ -137,8 +137,7 @@ void DefaultPolicy::update_rephase_limit(const Kernel &k) {
 // clause count) so the inprocessing share of runtime stays bounded on
 // large instances; the eliminate-slot constants presuppose this scaling
 // (constants travel with their machinery — the restart-EMA lesson)
-[[maybe_unused]] static uint64_t scale_inprocessing_delta(const Kernel &k,
-                                                          uint64_t delta) {
+static uint64_t scale_inprocessing_delta(const Kernel &k, uint64_t delta) {
   const double f =
       std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1) - 5;
   return static_cast<uint64_t>((4.5 * f * f + 25) *
@@ -240,18 +239,24 @@ void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
       return;
     }
   }
+  // S4 arrangement: the during-search phases CARRY the elimination value
+  // (BVE is deferred out of conflicts==0), so the growing interval below —
+  // increment 2's shape, kissat UPDATE_CONFLICT_LIMIT(eliminate, NLOG2N),
+  // size-scaled — is load-bearing here, not optional. Without it the first
+  // gate arms (2026-07-24) silently measured probing-first + NO BVE.
+  if (arrangement_) {
+    uint64_t n = inprocess.rounds; // policy-local growth key (rev 17)
+    if (!n)
+      n = 1;
+    const double lg = std::log10(static_cast<double>(n) + 9);
+    const uint64_t delta = static_cast<uint64_t>(
+        SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg);
+    inprocess.next_conflicts =
+        k.stats.conflicts + scale_inprocessing_delta(k, delta);
+    return;
+  }
   inprocess.next_conflicts = UINT64_MAX;
   (void)k;
-#if 0 // increment 2:
-  uint64_t n = inprocess.rounds; // policy-local growth key (rev 17)
-  if (!n)
-    n = 1;
-  const double lg = std::log10(static_cast<double>(n) + 9);
-  const uint64_t delta = static_cast<uint64_t>(
-      SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg);
-  inprocess.next_conflicts =
-      k.stats.conflicts + scale_inprocessing_delta(k, delta);
-#endif
 }
 
 // arithmetically growing reduce interval
