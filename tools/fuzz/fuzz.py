@@ -369,10 +369,12 @@ def main() -> int:
     p.add_argument("--max-vars", type=int, default=None,
                    help="re-roll cases above this size (weak-solver legs "
                         "need verdicts for the semantic oracles to fire)")
-    p.add_argument("--jobs", type=int, default=8,
+    p.add_argument("--jobs", type=int,
+                   default=int(os.environ.get("SLURM_CPUS_PER_TASK", 8)),
                    help="parallel fuzz workers (correctness testing, not "
                         "timing — contention is harmless; results are "
-                        "independent of the job count)")
+                        "independent of the job count); defaults to the "
+                        "SLURM allocation when run inside a job")
     p.set_defaults(func=cmd_run)
 
     p = sub.add_parser("check-one")

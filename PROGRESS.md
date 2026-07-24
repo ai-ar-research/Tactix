@@ -426,6 +426,13 @@ report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
   sbatch job (`--jobs $SLURM_CPUS_PER_TASK`; harness needs zero changes).
   Plan §8.1 single-workstation wording needs a revise-plan pass. Login node is
   cgroup-capped at 4 CPUs — never benchmark or fuzz on it.
+- **Done same session:** benchmark cache repopulated (Tier B 14 + Tier C 30
+  fetched via `fetch.py`; Tier A 200 regenerated, statuses bit-match the frozen
+  `A.list`, list untouched). **Fuzz on SLURM landed:** `tools/fuzz/slurm.sh`
+  (one job, `--cpus C`, 8 G/core, node-local TMPDIR, harness `--jobs` pinned to
+  the allocation; `fuzz.py --jobs` defaults to `SLURM_CPUS_PER_TASK` in-job).
+  Shakedown job 1558866 on node017 (16 cores): corpus 7/7, quick leg
+  1000/1000, 0 failures.
 
 ### 2026-07-23 — S2a design pass + HPC-migration checkpoint
 - **Decision (user):** migrate development to the HPC cluster — Claude Code runs on the login node and submits jobs directly (no SSH-from-local). Resume anchor rewritten with the bootstrap, the **mandatory re-baseline** (all banked numbers are M3-Pro, §8.1; never mix with cluster numbers), and login-node discipline. A **§8.1 revise-plan is owed** once the node type is pinned.
