@@ -43,7 +43,14 @@ disagree, the plan is authoritative — fix this file.
   quality lever (`next_factor_score` chain-width) is UNCERTAIN and the
   obvious levers are measured-DEAD — design §7 + Log entry below.
 
-  **▶ NEXT STEP.** (Battleship RESOLVED overnight 2026-07-24 — **Tier B
+  **▶ NEXT STEP (2026-07-24 pm): S4 in flight.** First arms measured + attribution
+  collected (Log “(later)” entry): lite wins C (441.03), the “deferral” arm turned
+  out to be **no-BVE** (never fired a during-search phase — `update_inprocess_limit`
+  still parks at UINT64_MAX), Vivify is the mod2c/Grain culprit AND the Ptn win.
+  **Current increment: wire the growing during-search interval under
+  `arrangement_` so BVE gets its effort-ledger doses, then same-window HEAD+arr
+  on Tier B+C.** After that: per-technique Vivify dosing if mod2c/Grain persist.
+  (Battleship RESOLVED overnight 2026-07-24 — **Tier B
   14/14 @ PAR-2 32.23**, det fix + density 6, Log + report. Tier C
   re-baseline DONE: ceiling-8 confirmed, fresh pins kissat 221.68 / CaDiCaL
   302.64, T3 gap ≈ 1.45×. S2a Increments 1+2 landed; Increment 3 is now
@@ -414,6 +421,24 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
+### 2026-07-24 (later) — S4 attribution collected + a mischaracterization found: the "deferral" arm never ran BVE
+- **Attribution answered (novi arm = lite minus Vivify, runs `20260724-1118*-{B,C}-novi`):
+  Vivify IS the mod2c/Grain culprit** — removing it recovers mod2c 505→64.5 and
+  Grain 744→473 — **but it is also the Ptn-7824 win (108→TO without it) and the
+  mod4block protector on B (25→228 s without)**. Net: novi loses BOTH tiers
+  (B 48.36 vs lite 34.27; C 457.39 vs 441.03). So the Vivify dose, not its
+  presence, is the lever — consistent with its unbounded canonical round vs
+  kissat's 100‰ tick budget.
+- **Correction (code-read, `update_inprocess_limit`): the "full deferral" arm
+  measured NO-BVE, not the arrangement.** `TACTIX_ARRANGEMENT=1` defers BVE out
+  of the conflicts==0 phase, but `update_inprocess_limit` still sets
+  `next_conflicts = UINT64_MAX` (the increment-2 growth path is `#if 0`), so no
+  during-search phase ever fires ⇒ **BVE never ran at all in the arr arm**.
+  Yesterday's "deferral wins B" is really "probing-first rescues the no-BVE loss"
+  (L1's 32.82 → 30.59 < HEAD 33.22, cluster window) — a real finding, but **the
+  target arrangement (BVE dosed during search) is still unmeasured.** Next
+  increment: wire the growing interval under `arrangement_` and re-run B+C.
+
 ### 2026-07-24 — S4 gate, first arms: the arrangement trades bimodally; lite wins Tier C
 - Mechanism landed behind `TACTIX_ARRANGEMENT` (probing family joins the slot,
   BVE deferred out of conflicts==0, interval-only phase firing; commit
@@ -431,6 +456,8 @@ report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
   - **mod2c (+441/+444) and Grain (+332/+359) lose under BOTH arms** — they
     hate the probing family itself; single-rule attribution probe in flight
     (job 1560524). No default flip yet (gate = one unit, B+C together).
+    *(Superseded by the “(later)” entry above: the arr arm never ran BVE, and
+    the attribution landed on Vivify.)*
 
 ### 2026-07-24 — S2b: composite grids land default-OFF; every non-arrangement mp1 lever now dead
 - Verified kissat IS composite (factor.c `resize_factoring` + fresh-var flag
