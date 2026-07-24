@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-23 (rev. 65). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-23 (rev. 66). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -1039,9 +1039,12 @@ Components:
   gave 0/1000, and the D-LEVEL-inproc unsoundness. A rule/guard change is not done
   until its new schedules are stress-tested this way. See the `stress-policy`
   skill; `src/policies/adversarial_policy.*` is the worked example.
-- **Cadence:** every commit: 1k fast fuzz cases + Tier A + regression corpus,
-  under ASan/UBSan (5 s/case). Nightly: ~20k cases across generators +
-  random-policy runs (DRAT + native LRAT) + differential testing, ~12 h wall.
+- **Cadence (rev 66, user — cluster scale, 10× the workstation sizes):** every
+  commit: **10k** fast fuzz cases + Tier A + regression corpus, under
+  ASan/UBSan (5 s/case). Nightly: **~200k** cases across generators +
+  random-policy runs (DRAT + native LRAT) + differential testing. Fuzz jobs
+  run **50 harness threads** on the cluster (`tools/fuzz/slurm.sh`, one
+  multi-core job; results are job-count-independent, only wall-clock changes).
   All failures auto-shrunk before filing.
 - **Unit + invariant tests** per rule family (guards, instance enumeration,
   apply, emitted proof deltas checked in isolation against `drat-trim` on
@@ -1286,3 +1289,4 @@ conflate them.
 - **rev. 63** (2026-07-22): §5.3 extended to policy operations — a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP` (no proof obligation, no calculus entry). S3/S4 relocated there (Track H · H6); `src/rules/` = proof rules, `src/policies/ops/` = `H`-only guidance ops.
 - **rev. 64** (2026-07-23, user): evaluation environment moved to the SLURM cluster (§8.1) — tier runs are job arrays (one task per solver×instance, 8 GB/core, allocation-shape discipline replaces the jobs count; `run.py --slurm`), fuzzing is one multi-core job (`tools/fuzz/slurm.sh`); all pre-migration PAR-2/second pins declared stale (§8.1); §9/§10 "locally" wording generalized.
 - **rev. 65** (2026-07-23, user): no solver execution outside a submitted job — sbatch only (srun-from-session becomes a job step), local `--jobs` mode demoted to harness debugging; job-hygiene rule: cancel by explicit id only (§8.1).
+- **rev. 66** (2026-07-23, user): fuzz cadence scaled 10× for the cluster — quick 1k→10k, nightly 20k→200k, 50 harness threads per fuzz job (§8.2; run.sh/slurm.sh + fuzz/slurm-jobs skills synced).

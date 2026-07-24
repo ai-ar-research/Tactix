@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 # Fuzzing entry point (plan §8.2; fuzz skill). Wraps fuzz.py:
-#   run.sh --quick  --solver CMD     ~1k cases + regression corpus (per commit)
-#   run.sh --nightly --solver CMD    ~20k cases + LRAT chain
+#   run.sh --quick  --solver CMD     ~10k cases + regression corpus (per commit)
+#   run.sh --nightly --solver CMD    ~200k cases + LRAT chain
 #   run.sh [fuzz.py args...]         pass-through
+# Sizes are the rev-66 cluster scale (10x the workstation defaults); submit
+# via tools/fuzz/slurm.sh (50 threads), never in the session shell.
 # Default oracle: kissat (cadical when the solver under test IS kissat).
 
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 
-N=1000
+N=10000
 EXTRA=()
 SOLVER=""
 ORACLE=""
 while [ $# -gt 0 ]; do
     case "$1" in
-        --quick)   N=1000;   shift ;;
-        --nightly) N=20000; EXTRA+=(--lrat); shift ;;
+        --quick)   N=10000;   shift ;;
+        --nightly) N=200000; EXTRA+=(--lrat); shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
         *) EXTRA+=("$1"); shift ;;

@@ -6,9 +6,9 @@
 #
 #   slurm.sh [--cpus C] [--time T] [--name NAME] -- <run.sh args...>
 #
-# Examples:
-#   slurm.sh --cpus 16 --name quick   -- --quick   --solver build/debug/tactix
-#   slurm.sh --cpus 32 --name nightly -- --nightly --solver "build/release/tactix --random-policy --lrat"
+# Examples (default --cpus 50, the rev-66 scale):
+#   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
+#   slurm.sh --name nightly -- --nightly --solver "build/release/tactix --random-policy --lrat"
 #
 # The job cd's to the repo root, so solver paths may be repo-relative.
 # Log: tools/fuzz/slurm-<name>-<jobid>.log (same tail conventions as the
@@ -19,7 +19,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 
-CPUS=16
+CPUS=50 # rev-66 cluster scale
 TIME=24:00:00
 NAME=fuzz
 PARTITION=cpu-dense-hwulab-q

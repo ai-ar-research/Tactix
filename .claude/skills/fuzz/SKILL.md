@@ -47,11 +47,11 @@ to the allocation; never run a leg in the session shell (see the slurm-jobs
 skill for sizing and hygiene). The leg definitions below are unchanged —
 only the launch mechanism moved.
 
-- Per commit / before declaring any change done: `tools/fuzz/run.sh --quick` (~1k cases, sanitizer build, 5 s/case default) + full regression corpus + Tier A.
+- Per commit / before declaring any change done: `tools/fuzz/run.sh --quick` (~10k cases — the rev-66 cluster scale, 10× the old sizes; sanitizer build, 5 s/case default) + full regression corpus + Tier A.
 - Random-policy leg (per commit for kernel/rule changes):
-  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy" --n 400 --max-vars 100`.
+  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy" --n 4000 --max-vars 100`.
 - Native-LRAT leg (per commit for proof/analyze changes):
-  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --lrat" --n 400 --max-vars 150`
+  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --lrat" --n 4000 --max-vars 150`
   — when the solver command contains `--lrat`, the harness checks the
   solver's own LRAT with lrat-check directly (no drat-trim conversion).
   The size cap matters: a random schedule cannot finish large instances
@@ -62,7 +62,7 @@ only the launch mechanism moved.
   coverage only.
 - **Random-policy + native-LRAT leg (per commit for ANY proof/rule change —
   the strongest proof test; promoted to standard 2026-07-15):**
-  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy --lrat" --n 400 --max-vars 100`.
+  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy --lrat" --n 4000 --max-vars 100`.
   This is the only leg that checks our native LRAT *chains* under arbitrary
   legal schedules — including the canonical BATCH/round path of every
   inprocessing rule (the random policy draws `INSTANCE_CANONICAL`, not only
@@ -75,7 +75,7 @@ only the launch mechanism moved.
   so the non-`--lrat` legs (native DRAT) and the `--lrat` legs (native LRAT)
   are both mandatory.
 - **ASCII-DRAT leg (per commit for proof/serialization changes; added 2026-07-15):**
-  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy --no-binary" --n 400 --max-vars 100`.
+  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy --no-binary" --n 4000 --max-vars 100`.
   `--no-binary` emits ASCII DRAT (`ProofFormat::DratAscii`) — a DISTINCT serializer
   from binary DRAT; drat-trim auto-detects the format, so the existing check
   applies. Without this leg the ASCII branch of proof.cpp is only exercised by
@@ -84,7 +84,7 @@ only the launch mechanism moved.
 - Nightly: run BOTH formats under the random policy at scale — native DRAT
   (`run.sh --nightly --solver "build/debug/tactix --random-policy"`) and
   native LRAT (`run.sh --nightly --solver "build/debug/tactix --random-policy --lrat"`),
-  ~20k cases each (~12 h wall; sequentially, or split to fit the window) +
+  ~200k cases each (rev-66 scale; one 50-thread `slurm.sh` job per leg) +
   all generators + differential testing. Before 2026-07-15 the nightly ran
   native DRAT only (its `--lrat` was the fuzz.py cross-check flag =
   drat-trim→lrat-check on the DRAT, which validates the checker conversion,

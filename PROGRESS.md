@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 65 (2026-07-23)
+- **Plan revision tracked:** rev. 66 (2026-07-23)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-23
 - **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **The HPC
@@ -396,6 +396,11 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-23 — plan rev 66: fuzz scaled 10× for the cluster (user)
+- Quick 1k→10k, nightly 20k→200k cases, 50 harness threads per fuzz job
+  (`run.sh` sizes, `slurm.sh --cpus` default, fuzz + slurm-jobs skills synced).
+  Results are job-count-independent (fuzz skill) — only wall-clock changes.
 
 ### 2026-07-23 — Track S · S2a Increment 1: Factor grid selection → FactorMatchPolicy (bit-exact)
 - The 2nd SubPolicy category: `FactorMatchPolicy` (seed score / next-factor

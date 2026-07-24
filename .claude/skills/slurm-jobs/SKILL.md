@@ -29,7 +29,7 @@ All jobs go to **`--partition=cpu-dense-hwulab-q`** (2 × 192-core nodes) with
 | Workload | Pattern | Command |
 |---|---|---|
 | Tier evaluation (any solver set) | **Job array**, one task per solver×instance **(user)** | `python3 tools/bench/run.py --tier C --slurm --solver build/release/tactix --baseline kissat [--throttle N]` |
-| Fuzz leg | **One multi-core job**, harness threads = allocation **(user)** | `tools/fuzz/slurm.sh --cpus 16 [--time T] --name <leg> -- --quick --solver build/debug/tactix [...]` |
+| Fuzz leg | **One multi-core job**, harness threads = allocation **(user)**; default **50 cpus**, quick=10k / nightly=200k cases (rev 66) | `tools/fuzz/slurm.sh [--time T] --name <leg> -- --quick --solver build/debug/tactix [...]` |
 | One-off probe (single solver × single instance) | Single `sbatch --wrap` | `sbatch --partition=cpu-dense-hwulab-q --ntasks=1 --cpus-per-task=1 --mem-per-cpu=8G --time=<cap+slack> --wrap '...'` |
 
 - The bench runner submits the array **plus a dependency-chained aggregate
