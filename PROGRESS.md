@@ -55,11 +55,12 @@ disagree, the plan is authoritative — fix this file.
   throughput** (also the s055 Tier A budget miss — counter split first,
   sites `kernel.cpp:496/562/622`). Tier C adds **SCPC-1000-18** (CaDiCaL
   25 s, we TO — undiagnosed; debug-performance it before T3).
-  **IN FLIGHT (submitted 2026-07-24 ~00:15, unattended): the first rev-66
-  nightlies on the landed binary** — random-policy native-DRAT 200k = job
-  1559957, native-LRAT 200k = job 1559958; results land in
-  `tools/fuzz/slurm-nightly-{drat,lrat}-<jobid>.log` (green tails = cite in
-  the next Log entry and commit the logs; failures → fuzz-skill procedure).
+  **First rev-66 nightlies GREEN (2026-07-24): 200,000 cases × native-DRAT
+  (job 1559957) + 200,000 × native-LRAT (1559958) under `--random-policy` on
+  the battleship-fix binary — 0 failures, corpus 7/7 both** (logs
+  `tools/fuzz/slurm-nightly-{drat,lrat}-*.log`, committed). The full
+  overnight stack (determinism, congruence iteration, density 6, S2a
+  surface) is soaked at 20× the old nightly scale.
 
   **▶ Ordered work below** — Track T (Tier B tail: **TB5** search-only propagation
   throughput [split `stats.propagations`, sites `kernel.cpp:496/562/622`, mirror the
