@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-23 (rev. 64). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-23 (rev. 65). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -907,9 +907,16 @@ shared caches, so: record the **allocation shape** (partition, cpus/mem per
 task, throttle) in every report and in `results.json`, compare numbers only
 across runs with identical shapes (the generalization of "never compare across
 job counts"), and use `--throttle` to cap concurrent tasks for gate runs on
-Tiers C/D where timing precision matters. The local `--jobs ≤ 8` mode remains
-for smoke tests only; the login node is cgroup-capped to 4 CPUs and is never
-used for measurements. Wall-clock at full array width: Tier B ≈ minutes,
+Tiers C/D where timing precision matters. **No solver ever executes outside a
+submitted job (rev 65, user decision):** every solver run — tier evaluations,
+one-off probes, spot checks, fuzz legs — goes to the partition via `sbatch`
+(`run.py --slurm`, `tools/fuzz/slurm.sh`, or `sbatch --wrap`), never on the
+login node or inside an interactive session shell (which is itself a SLURM
+job on the default partition, so `srun` from it silently becomes a step of
+that job — use `sbatch` only). The runner's local `--jobs ≤ 8` mode exists
+for harness debugging alone and produces no reportable numbers. Job hygiene:
+cancel jobs that are no longer needed, always by explicit job id
+(`scancel <jobid>`), never account-wide. Wall-clock at full array width: Tier B ≈ minutes,
 Tier C ≈ ≤ 1 h, one Tier D set ≈ an afternoon (bounded by the 5000 s solve +
 proof-check budget, not by set size). **A pinned reference PAR-2 can go stale
 or be inflated** by contention or a pathological proof-check (rev 46: the
@@ -1278,3 +1285,4 @@ conflate them.
 - **rev. 62** (2026-07-22, user-prompted): made the kernel↔`H` separation a STRUCTURAL, enforced invariant — `kernel.hpp` holds `H` only as an opaque pointer and never includes `heuristics.hpp`; re-entangling is compile-caught / grep-caught and a §5.4 discussion (§5). Realized by Track H · H4.
 - **rev. 63** (2026-07-22): §5.3 extended to policy operations — a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP` (no proof obligation, no calculus entry). S3/S4 relocated there (Track H · H6); `src/rules/` = proof rules, `src/policies/ops/` = `H`-only guidance ops.
 - **rev. 64** (2026-07-23, user): evaluation environment moved to the SLURM cluster (§8.1) — tier runs are job arrays (one task per solver×instance, 8 GB/core, allocation-shape discipline replaces the jobs count; `run.py --slurm`), fuzzing is one multi-core job (`tools/fuzz/slurm.sh`); all pre-migration PAR-2/second pins declared stale (§8.1); §9/§10 "locally" wording generalized.
+- **rev. 65** (2026-07-23, user): no solver execution outside a submitted job — sbatch only (srun-from-session becomes a job step), local `--jobs` mode demoted to harness debugging; job-hygiene rule: cancel by explicit id only (§8.1).

@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 64 (2026-07-23)
+- **Plan revision tracked:** rev. 65 (2026-07-23)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-23
 - **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **Development is
@@ -27,6 +27,18 @@ disagree, the plan is authoritative — fix this file.
   `srun --pty`); benchmarks + at-scale fuzz via `sbatch`; every TIMING run on an
   `--exclusive`, CPU-`--constraint`ed node (a heterogeneous fast+slow-node A/B is
   invalid).
+  **⚠ NEW since the migration (2026-07-23 shakedown, gcc-13/libstdc++ binary):**
+  fresh Tier B pins are kissat **8.20** (14/14) vs tactix **61.78** (13/14) —
+  **battleship-14-26-sat regressed 14.1 s → ~300 s (1.95 M → 27.1 M conflicts):
+  compiler-induced trajectory divergence** (L3's fragile instance; suspect
+  unstable-sort tie-breaks under libstdc++). Route via debug-performance BEFORE
+  re-measuring the Tier B tail — it now dominates the tail. Also open:
+  `tr-n300-s055` misses the Tier A 30 s budget on a dedicated core — solo
+  31.67 s vs kissat 22.62 s = **1.40×, i.e. the standing TB5 throughput gap,
+  not a trajectory anomaly**. Margin-rule follow-up (fidelity levers, no
+  Tier-A constant tuning); per the §8.1 sequencing rule Tier B timings carry
+  no decision weight until s055 fits its budget again — one more reason TB5
+  and the battleship fix come first.
 
   **▶▶ RE-BASELINE IS MANDATORY before trusting ANY perf A/B on the cluster.**
   Every banked number — the Tier B 20.6–23.0 noise band, the kissat/CaDiCaL bands,
@@ -446,11 +458,15 @@ report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
   30 s budget even on a dedicated core (margin-rule follow-up; probe below);
   (b) Tier B array: kissat 14/14 PAR-2 8.20 (fresh cluster pin), tactix 13/14
   PAR-2 61.78 — most ratios match the old tail profile (mp1 8.3×, x9 3.0×,
-  qwh 4.3×) but **battleship-14-26-sat went 14.1 s → >300 s TO (~21×)**, which
-  no clock-speed delta explains. Prime suspect: trajectory divergence from the
-  compiler change (battleship is the L3 trajectory-fragile instance; unstable
-  `std::sort` tie-breaks differ between libstdc++ and libc++). Conflicts-count
-  probe vs the 1.95 M pin decides trajectory-vs-hardware.
+  qwh 4.3×) but **battleship-14-26-sat went 14.1 s → ~300 s (~21×)**, which
+  no clock-speed delta explains. **Probe (job 1559098) CONFIRMED trajectory
+  divergence:** SAT at ~300 s with **27.1 M conflicts vs the 1.95 M pin**
+  (14×) — the L3-fragile instance back in its pathological regime under the
+  new compiler (suspect: unstable `std::sort` tie-breaks, libstdc++ vs
+  libc++; cf. TB4b's noted unstable-sort divergence). Solver runs on this
+  cluster are deterministic per binary; the divergence is per-toolchain.
+  **s055 probe (job 1559099):** solo tactix 31.67 s / kissat 22.62 s — the
+  1.40× ≈ TB5's 1.39× throughput gap; hardware-speed miss, no anomaly.
 
 ### 2026-07-23 — S2a design pass + HPC-migration checkpoint
 - **Decision (user):** migrate development to the HPC cluster — Claude Code runs on the login node and submits jobs directly (no SSH-from-local). Resume anchor rewritten with the bootstrap, the **mandatory re-baseline** (all banked numbers are M3-Pro, §8.1; never mix with cluster numbers), and login-node discipline. A **§8.1 revise-plan is owed** once the node type is pinned.
