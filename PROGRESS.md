@@ -48,15 +48,16 @@ disagree, the plan is authoritative — fix this file.
   quality lever (`next_factor_score` chain-width) is UNCERTAIN and the
   obvious levers are measured-DEAD — design §7 + Log entry below.
 
-  **▶ NEXT STEP: S2a Increment 2 — stress-policy for the new N1 surface**
-  (design §4): a TEMPORARY maximizing/adversarial `FactorMatchPolicy`
-  (`accept ≡ delta≥1` always; reversed/random `seed_score` /
-  `next_factor_score`) + per-step-invariant fuzz per the stress-policy skill —
-  a new swappable surface opens novel N1 schedules `--random-policy`
-  under-samples. Delete the temp policy after. (Increment 1 landed bit-exact
-  2026-07-23 — Track S checklist + Log.) **Increment 3** (the uncertain
-  `next_factor_score` quality A/B) and the ceiling head-to-head above both
-  NEED the re-baseline.
+  **▶ NEXT STEP — two parallel moves.** (S2a Increments 1+2 both landed
+  2026-07-23 — Track S checklist + Log; Increment 3 waits on the re-baseline.)
+  (1) **battleship trajectory divergence via the debug-performance skill** —
+  the shakedown's compiler-induced 14.1 s→~300 s regression (27.1 M vs 1.95 M
+  conflicts) now dominates the Tier B tail; suspect unstable-`std::sort`
+  tie-breaks (TB4b named one; sweep the sort sites for others). (2) Submit the
+  **re-baseline arrays** (cheap, run unattended): Tier C ceil-8 vs ceil-16
+  (`TACTIX_BVE_RAMP_MAX=16` arm) + CaDiCaL clean — settles the
+  `DefaultBveBoundRamp::ceiling()` default and unblocks S2a Increment 3 + any
+  T3 judgement. Then TB5 (the throughput gap = also the s055 budget miss).
 
   **▶ Ordered work below** — Track T (Tier B tail: **TB5** search-only propagation
   throughput [split `stats.propagations`, sites `kernel.cpp:496/562/622`, mirror the
@@ -342,7 +343,7 @@ why none of them needs a trade-off against the others.
 - [x] **S1 · DONE — L7 refuted, and the answer redirects Track S.** Instrument `775eefc`, results in L7 above. Time tracks **conflicts** (r = +0.99), not phase count (r = +0.01) and not resolvent work (r = −0.04). Consequences: (a) the "fewer/cheaper phases" direction is dead; (b) the interval is the wrong control variable, since the damage is chaotic in it; (c) **`crypto1` is insensitive to the interval — its 3.8 s needs the growth-slack RAMP, which is a separate knob and now the concrete next experiment**; (d) S4's premise survives, because moving elimination *into* the search loop is precisely an attempt to stop perturbing the trajectory rather than to perturb it less often.
 - [x] **S1b · BVE growth-slack ramp** — kissat cheap-first `set_next_elimination_bound`, ON by default; landed as the first `SubPolicy` (`BveBoundPolicy`/`DefaultBveBoundRamp`, `src/policies/subpolicy.hpp`, un-defers H6). Tier B PAR-2 17.07 → 16.44 (`a36b4c2`, Log 2026-07-23). Refined by S1c.
 - [x] **S1c · needed-bound cache + ramp ceiling 16→8** — the efficient ramp now beats flat fixed-`bound=8`. Tier B PAR-2 16.44 → 15.08 (crypto1 6.2 s, FmlaEquiv 44→25 s); Tier A 200/200 @ jobs=4; fuzz 0/4 legs; review APPROVED. Lesson: the ramp's crypto1 win was the effort-dose cap acting as an *accidental governor*, not cheap-first — the ceiling was the real lever ([[accidental-governor-trap]]). `489fab1`, Log 2026-07-23. Owed: Tier C/D ceiling re-sweep (see resume anchor); TB5 counter-split.
-- [ ] **S2a · Factor grid-selection → `FactorMatchPolicy`** (design `docs/design/s2a-factor-matcher-design.md`; NOT the S2 below — id collision noted in the Log). **Increment 1 ✅ landed 2026-07-23** (bit-exact extraction, Log entry); Increment 2 = stress-policy for the new N1 surface (next); Increment 3 = the `next_factor_score` chain-width quality A/B (needs the perf re-baseline; may not reach the 305k target — design §2b is honest).
+- [ ] **S2a · Factor grid-selection → `FactorMatchPolicy`** (design `docs/design/s2a-factor-matcher-design.md`; NOT the S2 below — id collision noted in the Log). **Increment 1 ✅** (bit-exact extraction) + **Increment 2 ✅** (adversarial stress, 16.5k cases 0 failures — both Log 2026-07-23; `factor_stress_policy` KEPT as a durable stress axis, bve/congruence precedent, for Increment-3 arm testing — recorded deviation from the design's "delete after"). Remaining: **Increment 3** = the `next_factor_score` chain-width quality A/B (needs the perf re-baseline; may not reach the 305k target — design §2b is honest).
 - [ ] **S2 · re-measure the probing rules now P2 exists** — Probe, Backbone, TransitiveReduce were disabled for the artifact P2 removed. Each is an `enabled` flip in the slot composition plus a Tier B A/B; effort specs are already in the ledger. **Vivify is already re-measured and still net-negative (24.19 vs 21.01)**, so do not assume the others turn positive.
 - [ ] **S3 · P2's owed follow-ups** — a `stress-policy` pass (its snapshot/restore is a novel mechanism, not a port) and charging its snapshot traffic to the effort ledger, which cannot currently see it.
 - [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing *plus* probing simplifying the formula and elimination moved into the search loop. Built behind the slot's `enabled` flags with today's composition as the default; gated on Tier B+C together (an explicit, recorded exception to §8.3 per-increment gating, because each half measures worse alone — L1/L2).
@@ -396,6 +397,21 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-23 — Track S · S2a Increment 2: adversarial FactorMatchPolicy stress GREEN
+- `src/policies/factor_stress_policy.*` (`--factor-stress-policy[=SEED]`):
+  adversarial arm (seeded-hash / all-tied / reversed scores — uncorrelated
+  with the watch sizes the default keys on; maximizing `accept ≡ delta≥1`) +
+  Factor maximized at the root, per-step `kernel_check_invariants`. Sanity:
+  all 3 modes fire factorings (php-7: 7 grids consumed under every steering).
+- **18k+ cases, 0 failures:** first pass 300 DRAT + 250 LRAT × 3 modes (jobs
+  1559305–10), then re-run at the rev-66 scale — 3000 DRAT + 2500 LRAT × 3
+  modes on 50 threads (jobs 1559312–17), corpus 7/7 every leg, ~94% verdicts.
+  Validates: every adversarially-steered `(F,R)` yields checker-valid proofs
+  in both formats (apply_factoring is grid-agnostic, as designed).
+- **KEPT** (not deleted as the frozen design §4 said): the bve/congruence
+  stress-policy precedent — Increment-3 arms get stress-tested through
+  exactly this surface.
 
 ### 2026-07-23 — plan rev 66: fuzz scaled 10× for the cluster (user)
 - Quick 1k→10k, nightly 20k→200k cases, 50 harness threads per fuzz job

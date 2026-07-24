@@ -8,6 +8,7 @@
 #include "policies/adversarial_policy.hpp"
 #include "policies/bve_stress_policy.hpp"
 #include "policies/congruence_stress_policy.hpp"
+#include "policies/factor_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
 #include "proof/proof.hpp"
@@ -79,6 +80,7 @@ int main(int argc, char **argv) {
   bool adversarial_policy = false;
   bool bve_stress_policy = false;
   bool congruence_stress_policy = false;
+  bool factor_stress_policy = false;
   bool no_heuristics = false; // run with H detached (unguided; Track H · H5)
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
@@ -113,6 +115,14 @@ int main(int argc, char **argv) {
       bve_stress_policy = true;
       if (a[19] == '=')
         random_seed = strtoull(a + 20, nullptr, 10);
+    } else if (!strncmp(a, "--factor-stress-policy", 22)) {
+      // S2a Increment-2 stress mode: adversarial FactorMatchPolicy (hash /
+      // all-tied / reversed scores, maximizing accept) + Factor maximized at
+      // the root — the grid-selection schedules DefaultFactorMatch never
+      // steers into (stress-policy skill)
+      factor_stress_policy = true;
+      if (a[22] == '=')
+        random_seed = strtoull(a + 23, nullptr, 10);
     } else if (!strncmp(a, "--congruence-stress-policy", 26)) {
       // C3 stress mode: maximizes V6's newly-legal schedules -- deriving root
       // units, refuting, and re-entering congruence off a fixpoint on the
@@ -232,7 +242,9 @@ int main(int argc, char **argv) {
   }
 
   const int res =
-      congruence_stress_policy
+      factor_stress_policy
+          ? factor_stress_solve(kernel, random_seed, &caught_signal)
+      : congruence_stress_policy
           ? congruence_stress_solve(kernel, random_seed, &caught_signal)
       : bve_stress_policy
           ? bve_stress_solve(kernel, random_seed, &caught_signal)
