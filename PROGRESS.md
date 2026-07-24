@@ -48,13 +48,17 @@ disagree, the plan is authoritative — fix this file.
   re-baseline DONE: ceiling-8 confirmed, fresh pins kissat 221.68 / CaDiCaL
   302.64, T3 gap ≈ 1.45×. S2a Increments 1+2 landed; Increment 3 is now
   UNBLOCKED.) The Tier B tail, worst-first, all vs kissat same-window:
-  **mp1 61 s (6.8×) → S2b composite-grid design pass** (Inc 3 disconfirmed
-  the tie-break route — Log 2026-07-24; still the biggest lever), **FmlaEquiv 60 s**,
-  **battleship 184 s residual** (S4-arrangement + Sweep evidence — kissat
-  runs 5 interleaved factor/eliminate rounds to our 1), **x9 30 s / TB5
-  throughput** (also the s055 Tier A budget miss — counter split first,
-  sites `kernel.cpp:496/562/622`). Tier C adds **SCPC-1000-18** (CaDiCaL
-  25 s, we TO — undiagnosed; debug-performance it before T3).
+  The Tier B tail is now FULLY DIAGNOSED (each has a routed owner):
+  **mp1 61 s → S2b composite-grid design pass** (Inc 3 disconfirmed the
+  tie-break route; still the biggest lever); **battleship 184 s residual →
+  S4** (kissat: 5 interleaved factor/eliminate rounds to our 1);
+  **FmlaEquiv 55 s + x9 30 s → the SEARCH-QUALITY track** (FmlaEquiv is 3.5×
+  raw-search kissat in conflicts at props/conflict parity — Log 2026-07-24;
+  work the Track T suspects: TB4b chrono completion, TB6 mode cadence,
+  minimization depth, retention); **TB5 counter split** stands alone (the
+  s055 Tier A budget miss; sites `kernel.cpp:496/562/622`). Tier C adds
+  **SCPC-1000-18** (CaDiCaL 25 s, we TO — undiagnosed; debug-performance
+  before T3).
   **First rev-66 nightlies GREEN (2026-07-24): 200,000 cases × native-DRAT
   (job 1559957) + 200,000 × native-LRAT (1559958) under `--random-policy` on
   the battleship-fix binary — 0 failures, corpus 7/7 both** (logs
@@ -401,6 +405,18 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-24 — FmlaEquiv diagnosed: pure search-quality gap (3.5× vs raw-search kissat)
+- Decomposition (probe 1560297, same window): tactix 55.0 s / 2.15 M conflicts
+  / 269 props-per-conflict; kissat 11.4 s / 377.7 k / 276; **kissat
+  all-simplification-off 13.2 s / 622.7 k** (the L8 control). Props/conflict
+  parity + higher conflict rate than kissat ⇒ NOT engine speed; ours ≫
+  all-off's 622 k ⇒ NOT a missing rule — a **3.5× search-heuristic residual**
+  on the near-raw formula. FmlaEquiv joins x9/TB2 in the pure-search class
+  (the T3 residual thesis). Suspect list unchanged: TB4b chrono completion,
+  TB6 mode cadence (38 switches here), minimization depth 900-vs-1000,
+  retention. Side notes: congruence 3 rounds / 0 units on this instance; BVE
+  hit the 1.0 M-resolution dose cap (8,208 eliminated).
 
 ### 2026-07-24 — S2a Increment 3: steering hypothesis disconfirmed; width gap → S2b
 - **3a (clean surface):** `TACTIX_GRID_TRACE` added; mp1 = 940 factorings,
