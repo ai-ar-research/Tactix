@@ -22,6 +22,10 @@ resume anchor, step 6).
    `git status` clean — no stray uncommitted edits. If work is intentionally
    mid-flight, it is a *committed* checkpoint and PROGRESS says where it stands.
    Never leave the tree dirty for the next session to discover.
+   **Cluster leftovers (slurm-jobs skill):** `squeue -u hwu` shows only the
+   user's own jobs — cancel session leftovers by explicit job id; delete
+   uncited green `tools/fuzz/slurm-*.log` files (commit the ones PROGRESS
+   cites as evidence); bench run dirs self-prune on clean aggregation.
 2. **Green tests.** The unit suite (ctest) passes; if solver code changed, a quick
    fuzz (including a random-policy round, proofs checked) is green. If anything is
    red or broken, **stop** — either fix it, or record it explicitly in PROGRESS as
