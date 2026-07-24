@@ -77,6 +77,26 @@ public:
   }
 };
 
+// canonical Factor grid-selection arm (Track S · S2a): today's watch-list-size
+// scoring, bit-exact to the pre-S2a built-in path. Watch sizes are ≤ 2^24, so
+// the double→uint32_t round-trip at the rule's integer heap key / tie-break
+// comparison is order-exact (no tie flips). accept() stays the FACTOR_MIN_GAIN
+// floor — NOT tightened: measured on mp1, kissat's effective accept is ≈
+// delta>0 (329 factorings with Δ≤2 vs our 149; design §2b) — the knob exists
+// for N1/learning arms, not for the default.
+class DefaultFactorMatch final : public FactorMatchPolicy {
+public:
+  const char *name() const override { return "watches-size"; }
+  double seed_score(const Kernel &k, Lit s) override {
+    return k.watches.heads[s].size; // == the rule's watch_score, today's key
+  }
+  double next_factor_score(const Kernel &k, Lit c,
+                           uint32_t /*cofactor*/) override {
+    return k.watches.heads[c].size; // == today's tie-break
+  }
+  bool accept(uint32_t, uint32_t, int delta) override { return delta >= 1; }
+};
+
 class DefaultPolicy final : public Policy {
 public:
   // scheduling constants (each exists exactly once; the struct
@@ -155,6 +175,7 @@ public:
   BranchingPolicy *branching = nullptr;
   ReductionPolicy *reduction = nullptr;
   BveBoundPolicy *bve_bound = nullptr; // BVE growth-slack ramp (Track S · S1b)
+  FactorMatchPolicy *factor_match = nullptr; // Factor grid selection (S2a)
 
   // bias-corrected EMA (kissat smooth.c): value = biased / (1 - beta^n)
   // — the Adam-style warm-up makes early averages meaningful, which the
@@ -322,6 +343,7 @@ private:
   DefaultBranching default_branching_;
   GlueTieredReduction default_reduction_;
   DefaultBveBoundRamp default_bve_ramp_;
+  DefaultFactorMatch default_factor_match_;
   std::vector<Ref> reduce_scratch_;
   std::vector<uint64_t> inprocess_payloads_; // instance snapshot, reused
 };

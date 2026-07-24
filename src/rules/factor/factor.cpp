@@ -1,6 +1,7 @@
 #include "rules/factor/factor.hpp"
 
 #include "kernel/kernel.hpp"
+#include "policies/subpolicy.hpp" // FactorMatchPolicy (S2a grid selection)
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp" // inprocess_reach_root
 
@@ -216,7 +217,18 @@ ApplyResult factor_apply(Kernel &k) {
   // Measured on mp1 as conflicts kissat needs on our factored formula:
   // 4.44M unordered -> 3.81M with this heap -> 2.50M once the tie-break below
   // joins it (kissat on its own factoring: 305k).
-  const auto score_of = [&](Lit l) -> uint32_t { return watch_score(k, l); };
+  // S2a: the scoring/accept SCALARS are the policy's (Kernel::factor_match,
+  // a FactorMatchPolicy) when one is attached; the null path is the built-in
+  // watch-size scoring, byte-identical to pre-S2a. The MECHANISM (heap,
+  // co-occurrence, greedy grow, best-prefix) stays here; watch sizes ≤ 2^24
+  // keep the double→uint32_t round-trip order-exact (no tie flips).
+  FactorMatchPolicy *const fm = k.factor_match;
+  if (fm)
+    fm->begin_sweep(k);
+  const auto score_of = [&](Lit l) -> uint32_t {
+    return fm ? static_cast<uint32_t>(fm->seed_score(k, l))
+              : watch_score(k, l);
+  };
   std::priority_queue<std::pair<uint32_t, Lit>> pq;
   std::vector<uint8_t> tried(orig_lits, 0);
   for (Lit l = 0; l < orig_lits; l++)
@@ -270,7 +282,9 @@ ApplyResult factor_apply(Kernel &k) {
         const uint32_t c = cofactor[h];
         if (c <= 1 || c < bestc)
           continue;
-        const uint32_t score = score_of(h);
+        const uint32_t score =
+            fm ? static_cast<uint32_t>(fm->next_factor_score(k, h, c))
+               : score_of(h);
         if (c > bestc) {
           bestc = c;
           best_score = score;
@@ -310,7 +324,10 @@ ApplyResult factor_apply(Kernel &k) {
     for (const Lit r : R) // unmark whatever R ended as
       inR[r] = 0;
 
-    if (best_delta >= FACTOR_MIN_GAIN) {
+    if (best_delta >= FACTOR_MIN_GAIN &&
+        (!fm || fm->accept(static_cast<uint32_t>(best_F.size()),
+                           static_cast<uint32_t>(best_R.size()),
+                           best_delta))) {
       apply_factoring(k, best_F, best_R);
       applied++;
       k.stats.factorings++;
@@ -327,6 +344,8 @@ ApplyResult factor_apply(Kernel &k) {
     }
   }
 
+  if (fm)
+    fm->end_sweep();
   if (std::getenv("TACTIX_FACTOR_TRACE"))
     std::fprintf(stderr, "[factor] entered (%u orig lits), %llu factorings\n",
                  orig_lits, (unsigned long long)applied);

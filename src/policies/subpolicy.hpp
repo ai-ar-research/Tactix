@@ -50,4 +50,41 @@ struct BveBoundPolicy : SubPolicy {
   virtual uint32_t bound(uint32_t pass) const = 0;
 };
 
+// Factor grid-selection strategy (Track S · S2a). The BVA PROOF RULE is
+// apply_factoring(x, F, R); WHICH grid to build is a STRATEGY, lifted out of
+// the rule into this swappable/learnable sub-policy — the Factor analog of
+// BveBoundPolicy. The rule (rules/factor/factor.cpp) keeps the MECHANISM (seed
+// heap, co-occurrence counting, greedy grow, best-prefix, proof-bearing apply);
+// this policy owns only the scoring/accept SCALARS the mechanism keys on.
+//
+// N1: reachability of every delta>=1 factoring is carried by SWAPPABILITY + the
+// pure guard, exactly like k.bve_bound — NOT by a per-grid payload enumeration.
+// A maximizing policy sets accept == (delta>=1) and reaches every positive-gain
+// grid; the scores only REORDER which applicable grid is built first (a ranker,
+// §5.6), never gate reachability. Design: docs/design/s2a-factor-matcher-design.md.
+struct FactorMatchPolicy : SubPolicy {
+  // Optional per-sweep lifecycle for a stateful score (kissat distinct_paths
+  // caches across a sweep). Default no-op keeps a stateless watch-size arm trivial.
+  virtual void begin_sweep(const Kernel &) {}
+  virtual void end_sweep() {}
+
+  // Seed priority for the max-heap (kissat watches_score / update_candidate),
+  // re-consulted on the stale re-score and the post-apply re-push (kissat
+  // update_factored). Pure scheduling: reorders the sweep, never restricts
+  // reachability.
+  virtual double seed_score(const Kernel &, Lit seed) = 0;
+
+  // Secondary key among next-factor candidates tied on the max co-occurrence
+  // count `cofactor` across the current remainder set (kissat
+  // tied_next_factor_score). The count stays the primary key in the rule.
+  virtual double next_factor_score(const Kernel &, Lit cand,
+                                   uint32_t cofactor) = 0;
+
+  // Accept threshold — the Factor analog of BveBoundPolicy::bound. Given the best
+  // greedy grid (m×n, net gain delta = m·n − (m+n)), worth applying? MUST accept
+  // every delta>=1 at its most permissive setting (N1 reachability floor — the
+  // rule-side FACTOR_MIN_GAIN cost floor is applied before this is consulted).
+  virtual bool accept(uint32_t m, uint32_t n, int delta) = 0;
+};
+
 } // namespace tactix

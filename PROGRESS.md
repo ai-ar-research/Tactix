@@ -48,14 +48,13 @@ disagree, the plan is authoritative — fix this file.
   quality lever (`next_factor_score` chain-width) is UNCERTAIN and the
   obvious levers are measured-DEAD — design §7 + Log entry below.
 
-  **▶ NEXT STEP: S2a Increment 1** — the behavior-preserving extraction, per
-  design doc §4. Its gate is **bit-exactness** (`TACTIX_FACTOR_TRACE` factoring
-  count + `TACTIX_DUMP_FACTORED` mp1 dump + **Tier A results unchanged vs the
-  cluster baseline** — that baseline is 199/200 with s055 the only miss, so
-  "unchanged" = same 199 solved, same per-instance verdicts) — DETERMINISTIC
-  per binary, so Increment 1 lands before the remaining re-baseline. Fuzz-gated
-  (proof-check every UNSAT); commits on its own. Then Increment 2
-  (stress-policy for the new N1 surface). **Increment 3** (the uncertain
+  **▶ NEXT STEP: S2a Increment 2 — stress-policy for the new N1 surface**
+  (design §4): a TEMPORARY maximizing/adversarial `FactorMatchPolicy`
+  (`accept ≡ delta≥1` always; reversed/random `seed_score` /
+  `next_factor_score`) + per-step-invariant fuzz per the stress-policy skill —
+  a new swappable surface opens novel N1 schedules `--random-policy`
+  under-samples. Delete the temp policy after. (Increment 1 landed bit-exact
+  2026-07-23 — Track S checklist + Log.) **Increment 3** (the uncertain
   `next_factor_score` quality A/B) and the ceiling head-to-head above both
   NEED the re-baseline.
 
@@ -343,6 +342,7 @@ why none of them needs a trade-off against the others.
 - [x] **S1 · DONE — L7 refuted, and the answer redirects Track S.** Instrument `775eefc`, results in L7 above. Time tracks **conflicts** (r = +0.99), not phase count (r = +0.01) and not resolvent work (r = −0.04). Consequences: (a) the "fewer/cheaper phases" direction is dead; (b) the interval is the wrong control variable, since the damage is chaotic in it; (c) **`crypto1` is insensitive to the interval — its 3.8 s needs the growth-slack RAMP, which is a separate knob and now the concrete next experiment**; (d) S4's premise survives, because moving elimination *into* the search loop is precisely an attempt to stop perturbing the trajectory rather than to perturb it less often.
 - [x] **S1b · BVE growth-slack ramp** — kissat cheap-first `set_next_elimination_bound`, ON by default; landed as the first `SubPolicy` (`BveBoundPolicy`/`DefaultBveBoundRamp`, `src/policies/subpolicy.hpp`, un-defers H6). Tier B PAR-2 17.07 → 16.44 (`a36b4c2`, Log 2026-07-23). Refined by S1c.
 - [x] **S1c · needed-bound cache + ramp ceiling 16→8** — the efficient ramp now beats flat fixed-`bound=8`. Tier B PAR-2 16.44 → 15.08 (crypto1 6.2 s, FmlaEquiv 44→25 s); Tier A 200/200 @ jobs=4; fuzz 0/4 legs; review APPROVED. Lesson: the ramp's crypto1 win was the effort-dose cap acting as an *accidental governor*, not cheap-first — the ceiling was the real lever ([[accidental-governor-trap]]). `489fab1`, Log 2026-07-23. Owed: Tier C/D ceiling re-sweep (see resume anchor); TB5 counter-split.
+- [ ] **S2a · Factor grid-selection → `FactorMatchPolicy`** (design `docs/design/s2a-factor-matcher-design.md`; NOT the S2 below — id collision noted in the Log). **Increment 1 ✅ landed 2026-07-23** (bit-exact extraction, Log entry); Increment 2 = stress-policy for the new N1 surface (next); Increment 3 = the `next_factor_score` chain-width quality A/B (needs the perf re-baseline; may not reach the 305k target — design §2b is honest).
 - [ ] **S2 · re-measure the probing rules now P2 exists** — Probe, Backbone, TransitiveReduce were disabled for the artifact P2 removed. Each is an `enabled` flip in the slot composition plus a Tier B A/B; effort specs are already in the ledger. **Vivify is already re-measured and still net-negative (24.19 vs 21.01)**, so do not assume the others turn positive.
 - [ ] **S3 · P2's owed follow-ups** — a `stress-policy` pass (its snapshot/restore is a novel mechanism, not a port) and charging its snapshot traffic to the effort ledger, which cannot currently see it.
 - [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing *plus* probing simplifying the formula and elimination moved into the search loop. Built behind the slot's `enabled` flags with today's composition as the default; gated on Tier B+C together (an explicit, recorded exception to §8.3 per-increment gating, because each half measures worse alone — L1/L2).
@@ -397,7 +397,19 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-23 — slurm-jobs skill: job submission rules get one operational home
+### 2026-07-23 — Track S · S2a Increment 1: Factor grid selection → FactorMatchPolicy (bit-exact)
+- The 2nd SubPolicy category: `FactorMatchPolicy` (seed score / next-factor
+  tie-break / accept) consulted via `Kernel::factor_match` (null = built-in,
+  `bve_bound` precedent; scoped to the inprocess phase so it never dangles);
+  `DefaultFactorMatch` = the watch-size arm. Rule keeps the mechanism +
+  `apply_factoring`; guard/proof delta untouched (implementation-notes §5 has
+  the boundary + N1 story; design `docs/design/s2a-factor-matcher-design.md`).
+- **Bit-exactness gate PASSED:** mp1 factored dump + factoring count, x9 /
+  crypto1 / s055 full counter outputs all byte-identical pre↔post (the only
+  diff anywhere: the dump banner echoes its output path); Tier A array
+  199/200 with per-instance verdicts AND total proof bytes identical
+  (164,147,426); ctest 31/31 ×2; fuzz quick 1000/0 + random-policy 400/0
+  (jobs 1559100–1559105).
 - New skill `.claude/skills/slurm-jobs/` — submission patterns, `--time`
   sizing, monitoring, cleanup rules (sbatch-only, cancel by explicit id).
   §8.1 keeps the invariants; other docs point here (`09d6864`).

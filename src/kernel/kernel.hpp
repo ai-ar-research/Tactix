@@ -14,6 +14,7 @@
 namespace tactix {
 
 class Proof;
+struct FactorMatchPolicy;
 // Search-guidance state `H` (VMTF queue, EVSIDS heap, phases). Held OPAQUELY by
 // Kernel (only a pointer below) so kernel.hpp never depends on its layout; the
 // full struct + operations live in policies/heuristics.hpp (Track H · H4).
@@ -365,6 +366,14 @@ struct Kernel {
   // kissat's fine-grained dose ramps it 0,1,2,4,8,16, re-scheduling every
   // variable at each level (eliminate.c set_next_elimination_bound).
   uint32_t bve_bound = 16;
+  // Factor grid-selection strategy (Track S · S2a): consulted by factor_apply
+  // for its scoring/accept scalars when set; null = the built-in watch-size
+  // path, byte-identical to pre-S2a. CONFIGURATION like bve_bound — any policy
+  // may set it at any time and any value is sound (selection only chooses
+  // WHICH positive-gain grid reaches the byte-identical apply_factoring, or
+  // whether one does). Non-owning; DefaultPolicy scopes it to the inprocess
+  // phase (set at entry, cleared at exit) so it never dangles.
+  FactorMatchPolicy *factor_match = nullptr;
 
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }

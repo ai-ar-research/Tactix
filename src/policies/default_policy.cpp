@@ -488,6 +488,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // occurrence consumers (BVE) read it instead of rebuilding a ~O(arena)
       // index per apply. Detached on EVERY exit below so k.dense never dangles.
       kernel_dense_connect(k, inprocess_occ);
+      // Factor grid-selection arm for this phase (S2a): pure config, like
+      // k.bve_bound — Factor is a batch entry reached via r.apply(k) below and
+      // reads it only there, so once per phase suffices. Scoped set/clear
+      // (mirrors the dense index) so the kernel never holds a dangling
+      // pointer into this policy after solve returns.
+      k.factor_match = factor_match ? factor_match : &default_factor_match_;
       // Phase structure (kissat eliminate-round shape): a few OUTER rounds,
       // each giving every enabled technique one dose, so a technique can pick
       // up what the others exposed. Dose granularity follows the rule's
@@ -653,6 +659,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (phase_dosed && !phase_unsat)
         kernel_collect_garbage(k);
       kernel_dense_disconnect(k);
+      k.factor_match = nullptr; // scope the arm to the phase (see entry)
       inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
       if (phase_unsat)
         return 20;

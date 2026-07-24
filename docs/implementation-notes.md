@@ -45,7 +45,7 @@ trivial `!inconsistent` applicability lives with the sub-policy surface (Track H
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. |
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). |
 | V6 Congruence | `root` | **D-ROOT:** `level==0`. **D-CONG-LRAT:** XOR/ITE extraction gated off under native LRAT (a proof-mode branch in the effect, not a guard conjunct — §2). **D-CONG-UNIT:** partially closed — the XOR degeneracies now derive units/merges (so the rule CAN return `Unsat`); the AND degeneracies and the contradictory merge are still skipped (an effect gap, not a guard conjunct — §2). |
-| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). Native LRAT now emits real `add_rat` (D-FACTOR-LRAT **resolved** 2026-07-20 — no longer a proof-mode no-op). A `binary_ids.size() ≥ 8·num_output_vars` **density short-circuit** (see §5 — the threshold moved from 1× to 8× on 2026-07-21) (§5) — a selectivity `NoOp`, not a guard conjunct. ON in DefaultPolicy since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
+| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`. `!inconsistent` is *abstract* (terminality). Native LRAT now emits real `add_rat` (D-FACTOR-LRAT **resolved** 2026-07-20 — no longer a proof-mode no-op). A `binary_ids.size() ≥ 8·num_output_vars` **density short-circuit** (see §5 — the threshold moved from 1× to 8× on 2026-07-21) (§5) — a selectivity `NoOp`, not a guard conjunct. **Grid-selection scalars are policy-owned since S2a** (2026-07-23): `Kernel::factor_match` (`FactorMatchPolicy` — seed score, next-factor tie-break, accept), null = the built-in watch-size path, byte-identical either way (§5; design `docs/design/s2a-factor-matcher-design.md`). ON in DefaultPolicy since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
 
 ## 2. The engineering-deviation ledger (the impurity punch-list)
 
@@ -213,14 +213,32 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   (plan rev 53) supersedes both the threshold and the BVE-last stopgap.
   `TACTIX_FACTOR_DENSITY` / `TACTIX_BVE_FIRST` override for the A/B.
 
+- **Grid selection is a policy, the grid mechanism is the rule (S2a, 2026-07-23).**
+  `factor_apply` keeps the MECHANISM (seed heap, co-occurrence counting, greedy
+  grow, best-prefix, the proof-bearing `apply_factoring`); the three SCALARS it
+  keys on — seed priority, the next-factor tie-break, and the accept threshold —
+  are consulted from `Kernel::factor_match` (`FactorMatchPolicy`, the 2nd
+  SubPolicy, `bve_bound` precedent) when attached. Null = the built-in watch-size
+  path, and `DefaultFactorMatch` reproduces it bit-exactly (watch sizes ≤ 2²⁴, so
+  the `double→uint32_t` round-trip at the integer heap/tie-break comparisons is
+  order-exact). DefaultPolicy scopes the pointer to the inprocess phase (set at
+  entry, cleared at exit — never dangles). N1: reachability of every `delta≥1`
+  factoring is carried by swappability + the pure guard (a maximizing arm sets
+  `accept ≡ delta≥1`); the scores only reorder. `FACTOR_MIN_GAIN`/dim caps stay
+  rule-side engineering cost floors (unchanged class); the density short-circuit
+  above deliberately stays rule-side too — its home is the effort scheduler, not
+  `FactorMatchPolicy`. Design: `docs/design/s2a-factor-matcher-design.md`.
+
 **Status of E2 in DefaultPolicy: ON** (2026-07-20). Net-positive once the
 duplicate-binary bug was fixed: x9 801k→453k conflicts (39 s→23 s), mp1
 4.19M→3.66M; **Tier A neutral** (density short-circuit no-ops on random 3-SAT —
 factor-on == factor-off at 199/200, PAR-2 0.78). Proof-verified (x9 DRAT VERIFIED,
 469 RAT lemmas) and fuzz-clean (default + `--random-policy` + Factor-in-slot,
 1000/0 each, drat-trim per case). The *full* kissat-level benefit (mp1 305k, 13×)
-still wants the SBVA selective heuristic (S2) + large-clause remainders (S4) —
-tracked as follow-on work; binary-only Factor closes only part of the gap.
+is an OPEN `next_factor_score` chain-width investigation (S2a Increment 3;
+corrected framing — kissat's own default `factor=1` BVA is the target, not SBVA,
+and large-clause remainders are measured-dead, design §2b/§7); binary-only
+Factor with today's selection closes only part of the gap.
 
 
 ## 6. Design decision: the BVE retry filter (`Kernel::bve_retry`)
