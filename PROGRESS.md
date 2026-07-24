@@ -9,16 +9,12 @@ disagree, the plan is authoritative — fix this file.
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-23
 - **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **The HPC
-  migration is COMPLETE** (this session; Log 2026-07-23 + plan revs 64/65):
-  toolchain + both builds green (ctest 31/31 ×2), solvers/checkers verified,
-  cache repopulated, push creds set, ONE shared history. **Protocol (plan
-  §8.1, revs 64/65):** tier runs = job arrays via `run.py --tier X --slurm`
-  on `cpu-dense-hwulab-q` (8 GB/core; `--throttle` for gate runs; allocation
-  shape recorded, compare only identical shapes); fuzz legs = one multi-core
-  job via `tools/fuzz/slurm.sh`; **no solver ever executes outside a
-  submitted job — sbatch only, never srun-from-session** (the session shell
-  is itself a SLURM job); cancel stale jobs by explicit id only. The old
-  M3-Pro numbers are INVALID here — never compare cluster ↔ M3-Pro.
+  migration is COMPLETE** (Log 2026-07-23; plan revs 64/65): builds + tests
+  green, solvers/checkers verified, cache repopulated, shared history.
+  **Run everything per plan §8.1 + the slurm-jobs skill** — tier runs
+  `run.py --tier X --slurm`, fuzz legs `tools/fuzz/slurm.sh`, sbatch-only,
+  never srun-from-session. Old M3-Pro numbers are INVALID here — never
+  compare cluster ↔ M3-Pro.
 
   **⚠ SHAKEDOWN FINDINGS (2026-07-23, first cluster runs, NEW gcc-13/libstdc++
   binary — the toolchain changed with the machine):** fresh pins: Tier A tactix
@@ -44,19 +40,13 @@ disagree, the plan is authoritative — fix this file.
   noise" claim.
 
   **▶▶ WHAT JUST LANDED (2026-07-23): the S2a design pass** —
-  `docs/design/s2a-factor-matcher-design.md` (frozen on landing). Lift Factor's
-  grid-selection matcher OUT of the proof rule into a **`FactorMatchPolicy`** (the
-  2nd SubPolicy, mirrors `BveBoundPolicy`, consulted internally per the
-  `Kernel::bve_bound` precedent) — the BVA proof primitive `apply_factoring` is
-  untouched, so soundness is invariant by construction. **Corrected S2 framing**
-  (the old "S2 = SBVA grid matching" label was wrong): reference kissat rel-4.0.4
-  runs its OWN bounded variable addition (`factor=1`) ON by default — that is what
-  we compare against; its *structural* variant (`factorstructural=0`) is off, and
-  true SBVA is not in kissat at all. **The quality lever is UNCERTAIN:** measured,
-  kissat makes MORE / SMALLER / WIDER grids — a `next_factor_score` chain-width
-  steering problem; the obvious levers (tighten accept, larger scope, dedup,
-  ordering) are all measured-DEAD (design §7). So the *extraction* (Increment 1) is
-  a certain win; the *quality* gain (Increment 3) is open research, not a port.
+  `docs/design/s2a-factor-matcher-design.md` (frozen). Lift Factor's
+  grid-selection matcher out of the proof rule into a **`FactorMatchPolicy`**
+  (2nd SubPolicy, `Kernel::bve_bound` precedent); the BVA primitive
+  `apply_factoring` is untouched → soundness invariant. Corrected framing:
+  kissat's own `factor=1` BVA is the comparison target (not SBVA); the
+  quality lever (`next_factor_score` chain-width) is UNCERTAIN and the
+  obvious levers are measured-DEAD — design §7 + Log entry below.
 
   **▶ NEXT STEP: S2a Increment 1** — the behavior-preserving extraction, per
   design doc §4. Its gate is **bit-exactness** (`TACTIX_FACTOR_TRACE` factoring
@@ -67,9 +57,7 @@ disagree, the plan is authoritative — fix this file.
   (proof-check every UNSAT); commits on its own. Then Increment 2
   (stress-policy for the new N1 surface). **Increment 3** (the uncertain
   `next_factor_score` quality A/B) and the ceiling head-to-head above both
-  NEED the re-baseline. (M3 Tier C context for T3: ceil-8 279.09/29 vs
-  CaDiCaL-pin 160.6 ≈ 1.74× — improved vs pre-S1c 345.75/28 but T3 still not
-  met; full detail in the Log entry below.)
+  NEED the re-baseline.
 
   **▶ Ordered work below** — Track T (Tier B tail: **TB5** search-only propagation
   throughput [split `stats.propagations`, sites `kernel.cpp:496/562/622`, mirror the
@@ -410,62 +398,29 @@ report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
 ### 2026-07-23 — slurm-jobs skill: job submission rules get one operational home
-- New project skill `.claude/skills/slurm-jobs/` consolidating the submission
-  patterns (tier arrays / fuzz multi-core jobs / `sbatch --wrap` probes),
-  `--time` sizing incl. the drat-trim term, monitoring, and the user's job
-  rules (sbatch-only — no srun-from-session; cancel by explicit id only;
-  clean queue at session end). §8.1 keeps the invariants; benchmarks + fuzz
-  skills and CLAUDE.md now point here instead of restating.
+- New skill `.claude/skills/slurm-jobs/` — submission patterns, `--time`
+  sizing, monitoring, cleanup rules (sbatch-only, cancel by explicit id).
+  §8.1 keeps the invariants; other docs point here (`09d6864`).
 
-### 2026-07-23 — Migrated to the SLURM cluster (first session on new hardware)
-- Development moved off the personal workstation (prototype compute cost) to a
-  SLURM cluster: partition `cpu-dense-hwulab-q`, 2 nodes × 192 cores × ~750 GB,
-  8 GB/core allocation rule (user directive). **All wall-clock/PAR-2 pins in
-  this file now describe the retired workstation** — re-pin per §8.1 before any
-  gating comparison; conflict/resolution counts survive.
-- Setup done: cmake 4.4.0 + ninja via `pip3 --user` (cluster has none;
-  `~/.local/bin` on PATH); gcc/13.1.0 module builds both presets after a
-  one-line portability fix (`test_congruence.cpp` missing `<algorithm>`).
-  Reference solvers + checkers came over as working pinned Linux binaries
-  (kissat→drat-trim→lrat-check→cake_lpr verified end-to-end). ctest release
-  31/31; debug (ASan) suite run same session. `benchmarks/cache/` did NOT come
-  over — Tier B/C need `tools/bench/fetch.py`, Tier A `gen_tier_a.py`.
-- **Protocol migration owed before the pending Tier C run** (user directive):
-  tier evaluation becomes a SLURM **job array** (one task per solver×instance;
-  needs a `run.py` submit/aggregate split — per-instance result files, then a
-  merge reproducing today's `results.json`), fuzzing becomes one multi-core
-  sbatch job (`--jobs $SLURM_CPUS_PER_TASK`; harness needs zero changes).
-  Plan §8.1 single-workstation wording needs a revise-plan pass. Login node is
-  cgroup-capped at 4 CPUs — never benchmark or fuzz on it.
-- **Done same session:** benchmark cache repopulated (Tier B 14 + Tier C 30
-  fetched via `fetch.py`; Tier A 200 regenerated, statuses bit-match the frozen
-  `A.list`, list untouched). **Fuzz on SLURM landed:** `tools/fuzz/slurm.sh`
-  (one job, `--cpus C`, 8 G/core, node-local TMPDIR, harness `--jobs` pinned to
-  the allocation; `fuzz.py --jobs` defaults to `SLURM_CPUS_PER_TASK` in-job).
-  Shakedown job 1558866 on node017 (16 cores): corpus 7/7, quick leg
-  1000/1000, 0 failures.
-- **Bench runner job-array mode landed (`run.py --slurm`) + plan rev 64.**
-  One array task per solver×instance (8 G/core; Tier D 16 G ⇒ 2 cores),
-  per-task JSONs merged by a dependency-chained aggregate job into the same
-  `results.json`; `--aggregate` re-merges, `--throttle` caps concurrency for
-  gate runs, `--dry-run` inspects. Allocation shape recorded in place of the
-  jobs count (L6 generalized); local `--jobs` mode kept for smoke only. Plan
-  §8.1 rewritten accordingly (rev 64; §9/§10 wording, benchmarks skill,
-  CLAUDE.md synced). **Shakedown findings (first runs on cluster hardware +
-  the NEW gcc-13/libstdc++ binary — the toolchain changed, not just the
-  machine):** (a) Tier A array 199/200, PAR-2 0.75 — `tr-n300-s055` misses the
-  30 s budget even on a dedicated core (margin-rule follow-up; probe below);
-  (b) Tier B array: kissat 14/14 PAR-2 8.20 (fresh cluster pin), tactix 13/14
-  PAR-2 61.78 — most ratios match the old tail profile (mp1 8.3×, x9 3.0×,
-  qwh 4.3×) but **battleship-14-26-sat went 14.1 s → ~300 s (~21×)**, which
-  no clock-speed delta explains. **Probe (job 1559098) CONFIRMED trajectory
-  divergence:** SAT at ~300 s with **27.1 M conflicts vs the 1.95 M pin**
-  (14×) — the L3-fragile instance back in its pathological regime under the
-  new compiler (suspect: unstable `std::sort` tie-breaks, libstdc++ vs
-  libc++; cf. TB4b's noted unstable-sort divergence). Solver runs on this
-  cluster are deterministic per binary; the divergence is per-toolchain.
-  **s055 probe (job 1559099):** solo tactix 31.67 s / kissat 22.62 s — the
-  1.40× ≈ TB5's 1.39× throughput gap; hardware-speed miss, no anomaly.
+### 2026-07-23 — Migrated to the SLURM cluster (bootstrap + protocol + shakedown)
+- **Migration COMPLETE in one session** (commits `7a276f4`…`fc07389`, plan
+  revs 64+65): toolchain + both builds green (one `<algorithm>` portability
+  fix), solvers/checkers verified, cache repopulated (Tier A regen bit-matches
+  the frozen list), fuzz wrapper `tools/fuzz/slurm.sh` (shakedown 1558866:
+  corpus 7/7 + 1000/1000, 0 failures), bench job-array mode `run.py --slurm`
+  (validated on Tier A/B arrays). Protocol detail: plan §8.1 + slurm-jobs
+  skill. **All pre-migration PAR-2/second pins describe the retired M3-Pro**
+  — never compare across; conflict/resolution counts carry over.
+- **Shakedown findings (new gcc-13/libstdc++ BINARY, not just new hardware):**
+  fresh Tier B pins kissat 8.20 (14/14) / tactix 61.78 (13/14); most ratios
+  match the old tail profile (mp1 8.3×, x9 3.0×, qwh 4.3×). Two open items:
+  **battleship 14.1 s → ~300 s at 27.1 M vs 1.95 M pinned conflicts (probe
+  1559098) = compiler-induced trajectory divergence** (L3's fragile instance;
+  suspect unstable-`std::sort` tie-breaks, cf. TB4b); **s055 31.67 s vs
+  kissat 22.62 s solo (probe 1559099) = 1.40× ≈ the TB5 throughput gap**,
+  hardware miss, no anomaly. Lesson: a toolchain change re-rolls trajectory
+  on sort-tie-sensitive instances — re-validate the fragile set after any
+  compiler/stdlib switch.
 
 ### 2026-07-23 — S2a design pass + HPC-migration checkpoint
 - **Decision (user):** migrate development to the HPC cluster — Claude Code runs on the login node and submits jobs directly (no SSH-from-local). Resume anchor rewritten with the bootstrap, the **mandatory re-baseline** (all banked numbers are M3-Pro, §8.1; never mix with cluster numbers), and login-node discipline. A **§8.1 revise-plan is owed** once the node type is pinned.
@@ -510,99 +465,26 @@ is an enforced invariant (rev 62 + `kernel_h_boundary` CTest), and a solver with
 Chooser/Hook super-class and the `H`-ownership move) — both wait for a 2nd arm /
 policy that varies `H` (phase 6), per §5's "add arm-dispatch when a 2nd arm exists".
 
-- **H6 (relocation).** `git mv src/rules/{rephase,switchmode} → src/policies/ops/`,
-  bit-exact. Plan rev 63 extended §5.3: a policy op = one `src/policies/ops/<name>/`
-  + one `TACTIX_REGISTER_POLICY_OP`. `src/rules/` is now proof rules only,
-  `src/policies/ops/` the `H`-only guidance ops — the file layout mirrors the σ/`H`
-  split. The super-class stub was NOT added (empty umbrella = speculative generality
-  per §5.5); it lands with the first arm.
-- **Method note for the whole track:** every increment carried a bit-exactness gate
-  (trajectory + DRAT identical) on the h-present path + an adversarial review; the
-  reviews caught two real latent bugs the bit-exact gate structurally cannot (H3's
-  lost `<algorithm>` include; H5's unguarded stats-print deref) and one guard
-  footgun (H5). The gate protects behaviour; the review protects the *unexercised*
-  paths (a future `<false>` instantiation, a null-`H` deref, a stale include).
-
-- **H5 (`H` optional).** `kernel_backtrack` now dispatches `k.h ? <true> : <false>`;
-  Decide falls back to index order without `H` (N1 — every unassigned literal is a
-  legal branch); the `H`-only policy ops (Rephase/SwitchMode) guard on `H` presence;
-  reserve/check/analyze/restart are null-safe. **DefaultPolicy stays H-required** —
-  it *is* the guided policy (§5: "no mandatory DefaultPolicy; a bare policy that
-  brings none is first-class"), so a null-`H` config uses a bare policy
-  (`--random-policy --no-heuristics`). **Lesson:** the null path's first bug was in
-  a place the bit-exact + default-path gates can't see — the post-solve stats print
-  (`main.cpp:300`) and `TACTIX_STAT_STABLE` (`api.cpp`) derefed `h` unguarded; ASan
-  on the `--no-heuristics` fuzz leg is what caught it (500/0 after the fix). The
-  h-present path is protected by bit-exactness; the null path needs its OWN ASan
-  fuzz + `test_no_heuristics`. Ownership stayed with Kernel (deviation from the plan
-  — the session/policy-owns-`H` move is only needed once a policy varies `H`,
-  phase-6; deferred).
-
-- **H4 (the field move).** `struct Heuristics` in a new heuristics.hpp; `Kernel`
-  holds `std::unique_ptr<Heuristics> h`. The design was **forced, not chosen**: the
-  include cycle (heuristics.hpp needs `Kernel`, so kernel.hpp can't include it)
-  requires the opaque forward-declared pointer + out-of-line ctor/dtor — which *is*
-  "kernel.hpp never names Heuristics's definition", achieved here. `k.h` is always
-  allocated at H4 (Kernel-owned) → bit-exact; H5 makes it optional. 112 field
-  accesses converted by sed; the build proves completeness (a missed `k.field` no
-  longer compiles) and that no caller relied on Kernel's now-deleted copy/move.
-  **Lesson reinforced:** the ticks/s "throughput regression" worry was dissolved by
-  a structural check, not a benchmark — the propagation loop (where ticks accrue)
-  has zero `k.h->`, so the extra indirection provably can't touch it. Adversarial
-  review independently rebuilt HEAD and diffed 200 CNFs (DRAT byte-identical).
-
-- **H3 (the code move).** The 16 `H` functions moved verbatim from `kernel.cpp`
-  into a new `src/policies/heuristics.cpp`, `kernel_*`→`heuristics_*` at every
-  def/decl/call site (one substring-safe sed pass; verified by a rename-only build
-  before the move), dead `kernel_queue_init` deleted. Declarations stay in
-  `kernel.hpp` for now — the header split waits for `struct Heuristics` (H4). The
-  inline saved-phase/VMTF-cache writes in `kernel_backtrack_impl` stayed inline
-  under `if constexpr (HasH)` (they become `k.h->…` at H4; extracting them into
-  callables, as the H0 note mused, was unnecessary). Adversarial review reverse-
-  renamed and ran per-function sequence-sensitive diffs — all byte-identical incl.
-  the `scinc` rescale trio — and caught one real latent bug the bit-exact gate
-  cannot: the moved `rescale_scores` lost the `<algorithm>` include (`std::max`)
-  that `kernel.cpp` still carries; compiled by transitive luck, now fixed.
-
-- **H2 (STRUCTURAL, kernel hook seam).** After a design pass (`docs/design/
-  h-relocation-design.md` "H2 design pass"; the user chose the template-at-H2
-  staging), `kernel_backtrack` became `template <bool HasH> kernel_backtrack_impl`
-  with every `H` touch under `if constexpr (HasH)`; a `<true>`-only wrapper keeps
-  codegen byte-identical today. `kernel_reserve_vars`' `H`-growth was extracted to
-  `heuristics_reserve_vars`. **Mechanism decision:** hot path (per-literal
-  backtrack) → compile-time dispatch (rejected: per-literal `if(k.h)` relies on
-  the optimizer to unswitch; fn-ptr/virtual → per-literal indirect call); amortized
-  path (reserve) → plain extracted function. The `<false>` instantiation + the
-  `k.h ? …` dispatch + the field move are H4/H5 (they need a nullable `h`).
-  Adversarial review verified hook-by-hook that the `if constexpr` split is exactly
-  the H/σ boundary — the property the bit-exact `<true>`-only gate cannot check,
-  since it protects the *future* `<false>` path from a null-deref / skipped σ work.
-  Gate: fingerprint + DRAT identical (SAT+UNSAT), ctest 29/29, fuzz 1000/0 +
-  random-policy 500/0.
-
-- **H0 (plan rev 61, docs).** Filled in `docs/design/h-relocation-design.md`
-  (frozen on landing) with the `H` inventory — every field (`kernel.hpp`),
-  function (`kernel.cpp`), hot-path hook (all in `kernel_backtrack`, none in
-  `kernel_assign`), var-growth site, and out-of-kernel consumer, with file:line —
-  plus the expanded H1–H6 plan. Retagged §5.2 (split the search-management table:
-  S1/S2/S5 stay proof rules, S3/S4/S6/S7 are policy operations); removed the S3/S4
-  entries from `calculus.md` and their guard rows from `implementation-notes.md`.
-  The scouting corrected the original brief twice: `H` is **inline in `Kernel`
-  today** (no `struct Heuristics`/`k.h` yet — that is H2–H5), and `kernel_assign`
-  is already `H`-free. Banked for H3: `kernel_queue_init` is DEAD (decl only, zero
-  callers) — delete, don't port.
-- **H1 (additive C API).** `ActionKind{ProofRule,PolicyOp}` + a defaulted `kind`
-  on `RuleVTable`; `TACTIX_REGISTER_POLICY_OP` threads `PolicyOp` through
-  `tactix_register_rule`; Rephase/SwitchMode reclassified **in place** (name-sort
-  ⇒ ids 10/15 unmoved). Mirrored to C as `TACTIX_ACTION_*` + `tactix_action_kind`.
-  `kind` is metadata only — never read by the kernel or DefaultPolicy — so it is
-  bit-exact by construction, and measured so (trajectory + DRAT bytes identical,
-  SAT + UNSAT). `test_api_c.c` now pins a golden 18-id name list (id-drift guard) +
-  the per-entry kinds. Validation: ctest 29/29 (release + debug/ASan), quick fuzz
-  corpus 7/0 + 1000/0 (SAT 579 / UNSAT 394).
-- **Lesson reinforced:** the bit-exact gate is cheap and decisive here — `main`
-  already prints conflicts/decisions/props/ticks, so a behaviour-neutral refactor
-  gets a sharper check than PAR-2 for free. Baseline captured *before* editing.
+Per-increment detail (inventory, mechanism decisions, adversarial-review
+findings) lives in `docs/design/h-relocation-design.md` + the H0–H6 commits;
+one-liners + the lessons that must survive:
+- **H0** docs/inventory + §5.2 retag; **H1** additive `ActionKind` C API
+  (golden 18-id list pins ids); **H2** `template <bool HasH>
+  kernel_backtrack_impl` hook seam (hot path = compile-time dispatch,
+  amortized path = plain extraction); **H3** 16 functions moved verbatim
+  (`heuristics_*`); **H4** `struct Heuristics` behind an opaque pointer
+  (include cycle FORCES that design); **H5** null-`H` legal (Decide falls
+  back to index order — N1; DefaultPolicy stays H-required by design);
+  **H6** `git mv` of Rephase/SwitchMode to `src/policies/ops/` (rev 63).
+- **Lesson (method, whole track):** bit-exactness gates the h-present path;
+  adversarial review protects the UNEXERCISED paths — it caught H3's lost
+  `<algorithm>` include and H5's unguarded stats-print `h` deref, which no
+  bit-exact gate can see. Null-path bugs surfaced only under FULL-suite ASan
+  with the default flipped to null-`H` → the null path keeps its own ASan
+  fuzz leg + `test_no_heuristics`.
+- **Lesson:** a structural check can replace a benchmark — the "indirection
+  throughput" worry died by observing the propagation loop has zero `k.h->`
+  accesses, not by a PAR-2 A/B.
 
 ### 2026-07-22 — plan revs 59+60: `H` out of `σ`, then `H` optional + policy-owned (the refactor is now TOP PRIORITY)
 Two model changes, one session, both the user's. **Rev 59:** `σ = ⟨F,R,τ,ρ,π⟩`;
