@@ -1182,8 +1182,8 @@ discovered during development get added here rather than answered ad hoc.
 | O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | first needed: E1 completion (phase 3); hard by V5 (phase 4) |
 | O12 | Contextual-bandit feature set (which cheap state features; tabular bands) and warm-start/serialization policy for learned state across runs (competition rules permitting) | phase 6, L2 implementation |
 | O13 | Distillation: do stable cross-instance learned schedules feed back into DefaultPolicy constants (benefiting N3), or stay LearnedPolicy-only? | phase-6 exit |
-| O15 | Phase 3.5 (pin, user 2026-07-24): the "engineering ingenuity on top of kissat" pass — scope, deliverables, exit criterion, and its relation to phase 4's T4 push | phase-3 exit (T3), before phase-4 work begins |
 | O14 | Cubing capability for strategy evaluation → *closed rev 28 (user): no cube re-solving, no sub-problems — learning stays inside the single run under the §5.6 always-on principle; segment attribution replaces terminal cube costs. Assumption-interface machinery remains O7 territory if incremental solving ever needs it* | ~~phase 6~~ closed |
+| O15 | Phase 3.5 (pin, user 2026-07-24): the "engineering ingenuity on top of kissat" pass — scope, deliverables, exit criterion, and its relation to phase 4's T4 push | phase-3 exit (T3), before phase-4 work begins |
 
 ## 12. Key references
 
