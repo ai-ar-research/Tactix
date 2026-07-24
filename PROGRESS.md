@@ -406,6 +406,27 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
+### 2026-07-23 — Migrated to the SLURM cluster (first session on new hardware)
+- Development moved off the personal workstation (prototype compute cost) to a
+  SLURM cluster: partition `cpu-dense-hwulab-q`, 2 nodes × 192 cores × ~750 GB,
+  8 GB/core allocation rule (user directive). **All wall-clock/PAR-2 pins in
+  this file now describe the retired workstation** — re-pin per §8.1 before any
+  gating comparison; conflict/resolution counts survive.
+- Setup done: cmake 4.4.0 + ninja via `pip3 --user` (cluster has none;
+  `~/.local/bin` on PATH); gcc/13.1.0 module builds both presets after a
+  one-line portability fix (`test_congruence.cpp` missing `<algorithm>`).
+  Reference solvers + checkers came over as working pinned Linux binaries
+  (kissat→drat-trim→lrat-check→cake_lpr verified end-to-end). ctest release
+  31/31; debug (ASan) suite run same session. `benchmarks/cache/` did NOT come
+  over — Tier B/C need `tools/bench/fetch.py`, Tier A `gen_tier_a.py`.
+- **Protocol migration owed before the pending Tier C run** (user directive):
+  tier evaluation becomes a SLURM **job array** (one task per solver×instance;
+  needs a `run.py` submit/aggregate split — per-instance result files, then a
+  merge reproducing today's `results.json`), fuzzing becomes one multi-core
+  sbatch job (`--jobs $SLURM_CPUS_PER_TASK`; harness needs zero changes).
+  Plan §8.1 single-workstation wording needs a revise-plan pass. Login node is
+  cgroup-capped at 4 CPUs — never benchmark or fuzz on it.
+
 ### 2026-07-23 — S2a design pass + HPC-migration checkpoint
 - **Decision (user):** migrate development to the HPC cluster — Claude Code runs on the login node and submits jobs directly (no SSH-from-local). Resume anchor rewritten with the bootstrap, the **mandatory re-baseline** (all banked numbers are M3-Pro, §8.1; never mix with cluster numbers), and login-node discipline. A **§8.1 revise-plan is owed** once the node type is pinned.
 - **S2a design** (`docs/design/s2a-factor-matcher-design.md`, frozen on landing): extract Factor's grid-selection matcher OUT of the proof rule into a `FactorMatchPolicy` (2nd SubPolicy, mirrors `BveBoundPolicy`, consulted internally per `Kernel::bve_bound`); the BVA primitive `apply_factoring` is untouched → soundness invariant. Increments: (1) bit-exact extraction [machine-independent gate → can land pre-re-baseline], (2) stress-policy, (3) the uncertain quality A/B.

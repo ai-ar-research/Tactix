@@ -6,6 +6,7 @@
 #include "kernel/kernel.hpp"
 #include "rules/congruence/congruence.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 
