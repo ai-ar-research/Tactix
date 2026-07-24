@@ -656,9 +656,23 @@ ApplyResult analyze_apply(Kernel &k) {
       }
     }
     // group into blocks: sort by level, descending (kissat counting-sorts
-    // via the frames; std::sort once per conflict at clause size is fine)
+    // via the frames; std::sort once per conflict at clause size is fine).
+    // The trail tie-break is LOAD-BEARING: with the bare level key,
+    // equal-level literals sit in std::sort's implementation-defined order,
+    // which differs between libstdc++ and libc++ — and since this order
+    // decides the watched literals of every learned clause, the whole search
+    // trajectory forked across toolchains (battleship 1.95 M → 27.1 M
+    // conflicts). (level desc, trail desc) is a total order (trail positions
+    // are unique among assigned vars), allocation-free, and recency-first
+    // matches the conventional second-watch choice; the stable/asc
+    // alternatives measured equivalent-in-noise on Tier B
+    // (`benchmarks/reports/2026-07-24-battleship-divergence.md`).
     std::sort(learned.begin() + 1, learned.end(), [&](Lit a, Lit b) {
-      return k.var_level(var_of(a)) > k.var_level(var_of(b));
+      const uint32_t la = k.var_level(var_of(a));
+      const uint32_t lb = k.var_level(var_of(b));
+      if (la != lb)
+        return la > lb;
+      return k.assigned[var_of(a)].trail > k.assigned[var_of(b)].trail;
     });
     size_t b = 1;
     while (b < learned.size()) {

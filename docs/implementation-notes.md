@@ -202,16 +202,19 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
 
 - **Density short-circuit (a selectivity heuristic, not a guard).** BVA only pays
   off on a dense binary implication graph. `factor_apply` returns `NoOp` when
-  `binary_ids.size() < density·num_output_vars`, `density = 8` (raised from 1 with
-  the BVE-LAST fix, 2026-07-21). The threshold now also serves the ordering fix:
-  BVE runs LAST in the slot so it eliminates on the Factor/Congruence/Substitute-
-  simplified formula (the bimodal-BVE fix — see `default_policy.cpp`), but
-  Factor-then-BVE is HARMFUL on binary-SPARSE instances (mod4block ratio 4.1),
-  benign on dense ones (clique 17.5, mp1 103, x9 8.2). `density = 8` fires on the
-  dense and skips the sparse. **8 is an overfit magic number** (a policy concern
-  that lives in the rule meanwhile; N1-pure NoOp) — the effort-budgeted scheduler
-  (plan rev 53) supersedes both the threshold and the BVE-last stopgap.
-  `TACTIX_FACTOR_DENSITY` / `TACTIX_BVE_FIRST` override for the A/B.
+  `binary_ids.size() < density·num_output_vars`, `density = 6` (1→8 with the
+  BVE-LAST fix 2026-07-21; **8→6 on 2026-07-24 — battleship's ratio is [6,7)
+  and the 8-gate locked it out of its only robust path**: with Factor 78
+  factorings → SAT 175 s, without it 72 M+ conflicts under every trajectory
+  arm; `benchmarks/reports/2026-07-24-battleship-divergence.md`). The threshold
+  also serves the ordering fix: BVE runs LAST in the slot so it eliminates on
+  the Factor/Congruence/Substitute-simplified formula (the bimodal-BVE fix —
+  see `default_policy.cpp`), but Factor-then-BVE is HARMFUL on binary-SPARSE
+  instances (mod4block ratio 4.1), benign on dense ones (clique 17.5, mp1 103,
+  x9 8.2, battleship 6.x). **6 is still an overfit magic number** (a policy
+  concern that lives in the rule meanwhile; N1-pure NoOp) — the effort-budgeted
+  scheduler (plan rev 53) supersedes both the threshold and the BVE-last
+  stopgap. `TACTIX_FACTOR_DENSITY` / `TACTIX_BVE_FIRST` override for the A/B.
 
 - **Grid selection is a policy, the grid mechanism is the rule (S2a, 2026-07-23).**
   `factor_apply` keeps the MECHANISM (seed heap, co-occurrence counting, greedy
@@ -228,6 +231,17 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   rule-side engineering cost floors (unchanged class); the density short-circuit
   above deliberately stays rule-side too — its home is the effort scheduler, not
   `FactorMatchPolicy`. Design: `docs/design/s2a-factor-matcher-design.md`.
+
+- **Cross-STL determinism is a standing invariant (2026-07-24).** Any
+  order-affecting comparator must be a strict TOTAL order (no ties), and no
+  trajectory-affecting code may iterate an unordered container in hash order —
+  `std::sort` tie order and `unordered_map` iteration differ between libstdc++
+  and libc++, and one untied per-conflict sort forked the whole search
+  trajectory across toolchains (battleship 1.95 M → 27.1 M conflicts;
+  determinized: the analyze block sort's trail tie-break, congruence's
+  sorted-keys extraction; `benchmarks/reports/2026-07-24-battleship-divergence.md`).
+  The four inprocessing candidate sorts already carried `ref` tie-breaks —
+  keep writing them.
 
 **Status of E2 in DefaultPolicy: ON** (2026-07-20). Net-positive once the
 duplicate-binary bug was fixed: x9 801k→453k conflicts (39 s→23 s), mp1

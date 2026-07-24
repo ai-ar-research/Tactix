@@ -153,6 +153,23 @@ struct InputsHash {
 // c⊕vᵢ = ⊕_{j≠i} vⱼ. Two gates with the same input set have equivalent outputs.
 using ClauseIndex = std::unordered_map<std::vector<Lit>, uint64_t, InputsHash>;
 
+// Iterating an unordered_map is implementation-ordered (libstdc++ and libc++
+// disagree), and anything feeding gate/emission ORDER feeds the closure's
+// merge order and hence the search trajectory — which must not fork across
+// toolchains (the battleship lesson, Log 2026-07-23). Extraction loops
+// iterate via these sorted keys instead.
+static std::vector<const std::vector<Lit> *> sorted_keys(const ClauseIndex &index) {
+  std::vector<const std::vector<Lit> *> keys;
+  keys.reserve(index.size());
+  for (const auto &e : index)
+    keys.push_back(&e.first);
+  std::sort(keys.begin(), keys.end(),
+            [](const std::vector<Lit> *a, const std::vector<Lit> *b) {
+              return *a < *b;
+            });
+  return keys;
+}
+
 // Index every irredundant, fully-unassigned clause of size 3..CONG_XOR_ARITY+1 by
 // its sorted literal vector → proof id. Shared by XOR and ITE extraction (built
 // once per apply); the gate CLAUSES are never rewritten within an apply, so one
@@ -187,8 +204,8 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
   std::unordered_set<std::vector<Lit>, InputsHash> seen; // by sorted positive vars
   std::vector<Lit> pos;                                  // positive lits, sorted
   std::vector<Lit> probe;
-  for (const auto &entry : index) {
-    const std::vector<Lit> &base = entry.first;
+  for (const std::vector<Lit> *base_p : sorted_keys(index)) {
+    const std::vector<Lit> &base = *base_p;
     const uint32_t s = static_cast<uint32_t>(base.size());
     // positive-lit form of the variables, sorted; dedup a relation to once.
     pos.clear();
@@ -645,8 +662,8 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   };
   // collect conditional equivalences per lhs literal
   std::unordered_map<Lit, std::vector<std::pair<Lit, Lit>>> ce;
-  for (const auto &e : index) {
-    const std::vector<Lit> &cl = e.first; // sorted 3 lits
+  for (const std::vector<Lit> *cl_p : sorted_keys(index)) {
+    const std::vector<Lit> &cl = *cl_p; // sorted 3 lits
     for (int li = 0; li < 3; li++) {
       const Lit L = cl[li], A = cl[(li + 1) % 3], B = cl[(li + 2) % 3];
       // (A∨B∨L) + (A∨¬B∨¬L) ⇒ L≡¬B when ¬A
@@ -658,9 +675,13 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
     }
   }
   std::unordered_set<std::vector<Lit>, InputsHash> seen;
-  for (auto &kv : ce) {
-    const Lit L = kv.first;
-    auto &lst = kv.second;
+  std::vector<Lit> ce_keys; // canonical order (see sorted_keys)
+  ce_keys.reserve(ce.size());
+  for (const auto &kv : ce)
+    ce_keys.push_back(kv.first);
+  std::sort(ce_keys.begin(), ce_keys.end());
+  for (const Lit L : ce_keys) {
+    auto &lst = ce[L];
     if (lst.size() > 256)
       continue; // bound the O(n²) pairing on pathological hubs
     for (size_t i = 0; i < lst.size(); i++)

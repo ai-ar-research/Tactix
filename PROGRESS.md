@@ -16,20 +16,15 @@ disagree, the plan is authoritative — fix this file.
   never srun-from-session. Old M3-Pro numbers are INVALID here — never
   compare cluster ↔ M3-Pro.
 
-  **⚠ SHAKEDOWN FINDINGS (2026-07-23, first cluster runs, NEW gcc-13/libstdc++
-  binary — the toolchain changed with the machine):** fresh pins: Tier A tactix
-  PAR-2 0.75 (199/200); Tier B kissat **8.20** (14/14) vs tactix **61.78**
-  (13/14). Two open items:
-  (a) **battleship-14-26-sat regressed 14.1 s → ~300 s (1.95 M → 27.1 M
-  conflicts): compiler-induced trajectory divergence** (L3's fragile instance;
-  suspect unstable-sort tie-breaks under libstdc++). Route via
-  debug-performance BEFORE re-measuring the Tier B tail — it now dominates it.
-  (b) `tr-n300-s055` misses the Tier A 30 s budget on a dedicated core — solo
-  31.67 s vs kissat 22.62 s = **1.40× ≈ the standing TB5 throughput gap, not
-  an anomaly**. Margin-rule follow-up (fidelity levers, no Tier-A constant
-  tuning); per the §8.1 sequencing rule Tier B timings carry no decision
-  weight until s055 fits its budget again — one more reason TB5 and the
-  battleship fix come early.
+  **⚠ OPEN from the migration shakedown:** `tr-n300-s055` misses the Tier A
+  30 s budget on a dedicated core — solo 31.67 s vs kissat 22.62 s = **1.40×
+  ≈ the standing TB5 throughput gap, not an anomaly**. Margin-rule follow-up
+  (fidelity levers, no Tier-A constant tuning); per the §8.1 sequencing rule
+  Tier B timings carry no decision weight until s055 fits its budget again —
+  one more reason TB5 comes early. (The other shakedown finding — battleship's
+  toolchain trajectory divergence — was RESOLVED 2026-07-24: det fix +
+  density 6, Tier B 14/14; Log + report.) Current pins: Tier A 199/200 @
+  0.78; **Tier B 14/14 @ 32.23 vs kissat 8.28** (2026-07-24 window).
 
   **▶▶ RE-BASELINE — partially done, remainder owed with the first gate-grade
   runs:** kissat Tier B pinned (8.20, above). Still owed: **CaDiCaL clean on
@@ -48,19 +43,18 @@ disagree, the plan is authoritative — fix this file.
   quality lever (`next_factor_score` chain-width) is UNCERTAIN and the
   obvious levers are measured-DEAD — design §7 + Log entry below.
 
-  **▶ NEXT STEP — two parallel moves.** (S2a Increments 1+2 both landed
-  2026-07-23 — Track S checklist + Log; Increment 3 waits on the re-baseline.)
-  (1) **battleship trajectory divergence via the debug-performance skill** —
-  the shakedown's compiler-induced 14.1 s→~300 s regression (27.1 M vs 1.95 M
-  conflicts) now dominates the Tier B tail; suspect unstable-`std::sort`
-  tie-breaks (TB4b named one; sweep the sort sites for others). (2) **The
-  re-baseline arrays are IN FLIGHT** (submitted 2026-07-23, run unattended):
-  ceil-8 + kissat + CaDiCaL-clean = array 1559318/agg 1559319, ceil-16 arm =
-  1559409/1559410; read `benchmarks/runs/20260723-*-C-c-ceil{8,16}/logs/
-  aggregate.log` — settles the `DefaultBveBoundRamp::ceiling()` default and
-  unblocks S2a Increment 3 + any T3 judgement. Same-window rule: judge the
-  arms + baselines against each other only, never against M3 numbers. Then
-  TB5 (the throughput gap = also the s055 budget miss).
+  **▶ NEXT STEP.** (Battleship RESOLVED overnight 2026-07-24 — **Tier B
+  14/14 @ PAR-2 32.23**, det fix + density 6, Log + report. Tier C
+  re-baseline DONE: ceiling-8 confirmed, fresh pins kissat 221.68 / CaDiCaL
+  302.64, T3 gap ≈ 1.45×. S2a Increments 1+2 landed; Increment 3 is now
+  UNBLOCKED.) The Tier B tail, worst-first, all vs kissat same-window:
+  **mp1 61 s (8.3×) → S2a Increment 3** (the `next_factor_score` chain-width
+  A/B, design §2b — now the biggest single lever), **FmlaEquiv 60 s**,
+  **battleship 184 s residual** (S4-arrangement + Sweep evidence — kissat
+  runs 5 interleaved factor/eliminate rounds to our 1), **x9 30 s / TB5
+  throughput** (also the s055 Tier A budget miss — counter split first,
+  sites `kernel.cpp:496/562/622`). Tier C adds **SCPC-1000-18** (CaDiCaL
+  25 s, we TO — undiagnosed; debug-performance it before T3).
 
   **▶ Ordered work below** — Track T (Tier B tail: **TB5** search-only propagation
   throughput [split `stats.propagations`, sites `kernel.cpp:496/562/622`, mirror the
@@ -345,7 +339,7 @@ why none of them needs a trade-off against the others.
 
 - [x] **S1 · DONE — L7 refuted, and the answer redirects Track S.** Instrument `775eefc`, results in L7 above. Time tracks **conflicts** (r = +0.99), not phase count (r = +0.01) and not resolvent work (r = −0.04). Consequences: (a) the "fewer/cheaper phases" direction is dead; (b) the interval is the wrong control variable, since the damage is chaotic in it; (c) **`crypto1` is insensitive to the interval — its 3.8 s needs the growth-slack RAMP, which is a separate knob and now the concrete next experiment**; (d) S4's premise survives, because moving elimination *into* the search loop is precisely an attempt to stop perturbing the trajectory rather than to perturb it less often.
 - [x] **S1b · BVE growth-slack ramp** — kissat cheap-first `set_next_elimination_bound`, ON by default; landed as the first `SubPolicy` (`BveBoundPolicy`/`DefaultBveBoundRamp`, `src/policies/subpolicy.hpp`, un-defers H6). Tier B PAR-2 17.07 → 16.44 (`a36b4c2`, Log 2026-07-23). Refined by S1c.
-- [x] **S1c · needed-bound cache + ramp ceiling 16→8** — the efficient ramp now beats flat fixed-`bound=8`. Tier B PAR-2 16.44 → 15.08 (crypto1 6.2 s, FmlaEquiv 44→25 s); Tier A 200/200 @ jobs=4; fuzz 0/4 legs; review APPROVED. Lesson: the ramp's crypto1 win was the effort-dose cap acting as an *accidental governor*, not cheap-first — the ceiling was the real lever ([[accidental-governor-trap]]). `489fab1`, Log 2026-07-23. Owed: Tier C/D ceiling re-sweep (see resume anchor); TB5 counter-split.
+- [x] **S1c · needed-bound cache + ramp ceiling 16→8** — the efficient ramp now beats flat fixed-`bound=8`. Tier B PAR-2 16.44 → 15.08 (crypto1 6.2 s, FmlaEquiv 44→25 s); Tier A 200/200 @ jobs=4; fuzz 0/4 legs; review APPROVED. Lesson: the ramp's crypto1 win was the effort-dose cap acting as an *accidental governor*, not cheap-first — the ceiling was the real lever ([[accidental-governor-trap]]). `489fab1`, Log 2026-07-23. **Tier C ceiling re-sweep DONE (cluster, 2026-07-23 — Log): ceil-8 439.72 vs ceil-16 449.62, both 27/30, same window ⇒ ceiling stays 8.** Owed: Tier D re-sweep (gate-time); TB5 counter-split.
 - [ ] **S2a · Factor grid-selection → `FactorMatchPolicy`** (design `docs/design/s2a-factor-matcher-design.md`; NOT the S2 below — id collision noted in the Log). **Increment 1 ✅** (bit-exact extraction) + **Increment 2 ✅** (adversarial stress, 16.5k cases 0 failures — both Log 2026-07-23; `factor_stress_policy` KEPT as a durable stress axis, bve/congruence precedent, for Increment-3 arm testing — recorded deviation from the design's "delete after"). Remaining: **Increment 3** = the `next_factor_score` chain-width quality A/B (needs the perf re-baseline; may not reach the 305k target — design §2b is honest).
 - [ ] **S2 · re-measure the probing rules now P2 exists** — Probe, Backbone, TransitiveReduce were disabled for the artifact P2 removed. Each is an `enabled` flip in the slot composition plus a Tier B A/B; effort specs are already in the ledger. **Vivify is already re-measured and still net-negative (24.19 vs 21.01)**, so do not assume the others turn positive.
 - [ ] **S3 · P2's owed follow-ups** — a `stress-policy` pass (its snapshot/restore is a novel mechanism, not a port) and charging its snapshot traffic to the effort ledger, which cannot currently see it.
@@ -400,6 +394,35 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-24 — battleship RESOLVED: Tier B 14/14 @ PAR-2 32.23 (det fix + density 6)
+- **Overnight campaign** (`benchmarks/reports/2026-07-24-battleship-divergence.md`
+  has the full probe matrix). Two landings:
+  (1) **Cross-STL determinism** — the analyze block sort gets a trail
+  tie-break (untied equal-level literals decided the watched literals in
+  STL-specific order → toolchain-forked trajectories); congruence ITE/XOR
+  extraction iterates sorted keys, not `unordered_map` hash order. Now a
+  standing invariant (implementation-notes §5). All three canonical tie
+  orders measured: battleship stuck at 72 M+ conflicts under every one —
+  the M3 14.1 s was basin luck; determinism is the prerequisite, not the fix.
+  (2) **Factor density gate 8 → 6** — kissat ablation showed battleship is a
+  preprocessing instance (kissat factors 50 % of vars); our magic-8 gate
+  excluded it (ratio [6,7)) from its only robust path. With Factor firing:
+  78 factorings → SAT 175 s. Chrono ruled out (never fires there); BVE
+  ramp-16 stack adds nothing (interleaved-rounds = S4 territory).
+- **Gate:** Tier B **14/14 @ 32.23** (kissat 8.28 same window; only
+  battleship moved vs density-8, 13 others within noise); Tier A 199/200 @
+  0.78 unchanged; ctest ×2; fuzz 18 k+10 k cases 0 failures. Residual:
+  battleship 184 s vs kissat 6.6 s = S4-arrangement + Sweep/Walk evidence;
+  12.4 M conflicts / 0 learned units noted as a TB-class observation.
+
+### 2026-07-23 — Tier C re-baseline (pre-det binary): ceiling-8 CONFIRMED; fresh pins
+- Same-window arrays: **ceil-8 439.72 (27/30) vs ceil-16 449.62 (27/30)** ⇒
+  `DefaultBveBoundRamp::ceiling()` stays 8. Fresh cluster pins: **kissat
+  221.68 (29/30), CaDiCaL 302.64 (29/30)** → live T3 gap ≈ **1.45×** (vs
+  1.74× on M3). tactix misses: 128_125 (CaDiCaL TOs too), T87.2.0 (CaDiCaL
+  385 s), **SCPC-1000-18 (CaDiCaL 25 s — the outlier loss)**. Runs
+  `20260723-2314*-C-c-ceil{8,16}`.
 
 ### 2026-07-23 — Track S · S2a Increment 2: adversarial FactorMatchPolicy stress GREEN
 - `src/policies/factor_stress_policy.*` (`--factor-stress-policy[=SEED]`):

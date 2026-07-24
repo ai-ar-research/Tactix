@@ -183,11 +183,16 @@ ApplyResult factor_apply(Kernel &k) {
   // Raised 1→8 with the BVE-LAST fix (2026-07-21): Factor's BVA compresses dense
   // cardinality structure (clique ratio 17.5, mp1 103, x9 8.2) so BVE-last is
   // benign there, but on binary-SPARSE instances (mod4block 4.1) Factor-then-BVE
-  // is HARMFUL — density=8 fires on the dense ones and skips the sparse ones.
-  // NOTE: 8 is an overfit magic number (a SELECTIVITY heuristic — proper home is
-  // the policy, N1 keeps the guard pure); the effort-budgeted scheduler (plan
-  // rev 53) supersedes it. `TACTIX_FACTOR_DENSITY` overrides for A/B.
-  uint32_t density = 8;
+  // is HARMFUL — the gate fires on the dense ones and skips the sparse ones.
+  // Lowered 8→6 (2026-07-24): battleship's ratio is in [6,7) and the 8-gate
+  // locked it out of its ONLY robust path — with Factor it solves (78
+  // factorings, 175 s); without, every trajectory arm hit 72 M+ conflicts
+  // (`benchmarks/reports/2026-07-24-battleship-divergence.md`). mod4block
+  // (4.1) stays excluded. NOTE: still an overfit magic number (a SELECTIVITY
+  // heuristic — proper home is the policy, N1 keeps the guard pure); the
+  // effort-budgeted scheduler (plan rev 53) supersedes it.
+  // `TACTIX_FACTOR_DENSITY` overrides for A/B.
+  uint32_t density = 6;
   if (const char *s = std::getenv("TACTIX_FACTOR_DENSITY"))
     density = static_cast<uint32_t>(std::atoi(s));
   if (k.binary_ids.size() < density * kernel_num_output_vars(k) &&
