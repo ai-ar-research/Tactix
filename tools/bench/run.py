@@ -306,7 +306,14 @@ def slurm_aggregate(outdir):
     if any_bug:
         print("CORRECTNESS BUG(S) FOUND — stop performance work; follow the "
               "fuzz skill's failure procedure.")
-        return 1
+        return 1  # per-task logs kept: they are the debugging record
+    # clean run: the per-task logs have served their purpose — per-instance
+    # verdict/time/node live on in results.json. Keep aggregate.log only.
+    logdir = os.path.join(outdir, "logs")
+    if os.path.isdir(logdir):
+        for f in os.listdir(logdir):
+            if f.startswith("task-"):
+                os.unlink(os.path.join(logdir, f))
     return 0
 
 

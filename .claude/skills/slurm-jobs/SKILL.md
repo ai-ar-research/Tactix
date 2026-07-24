@@ -89,6 +89,19 @@ scale); pass `--time` for smaller legs.
 - Never cancel the session's own interactive job (named `bash`, on `cpu-q`) —
   that kills the running Claude session.
 
+**Log retention:**
+- Bench run dirs (`benchmarks/runs/<stamp>-…/`): the aggregate step deletes
+  `logs/task-*.log` automatically on a fully-clean run (all tasks present, no
+  mismatch/proof-reject) — per-instance verdict/time/node survive in
+  `results.json`. On ANY failure the task logs are kept: they are the
+  debugging record. `results.json` + `aggregate.log` are kept indefinitely
+  (small; the measurement archive reports cite).
+- Fuzz `tools/fuzz/slurm-<name>-<jobid>.log`: commit ONLY logs cited as
+  evidence in PROGRESS (the nightly-*.log convention); delete uncited green
+  ones at session end (wrap-up).
+- One-off probe logs: write them under the session job dir
+  (`$CLAUDE_JOB_DIR/tmp`), never into the repo — they vanish with the session.
+
 ## Environment facts (verified 2026-07-23)
 
 - Partition `cpu-dense-hwulab-q`: node017–018, 192 cores / ~750 GB each;
