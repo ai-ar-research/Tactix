@@ -53,11 +53,14 @@ disagree, the plan is authoritative — fix this file.
   (1) **battleship trajectory divergence via the debug-performance skill** —
   the shakedown's compiler-induced 14.1 s→~300 s regression (27.1 M vs 1.95 M
   conflicts) now dominates the Tier B tail; suspect unstable-`std::sort`
-  tie-breaks (TB4b named one; sweep the sort sites for others). (2) Submit the
-  **re-baseline arrays** (cheap, run unattended): Tier C ceil-8 vs ceil-16
-  (`TACTIX_BVE_RAMP_MAX=16` arm) + CaDiCaL clean — settles the
-  `DefaultBveBoundRamp::ceiling()` default and unblocks S2a Increment 3 + any
-  T3 judgement. Then TB5 (the throughput gap = also the s055 budget miss).
+  tie-breaks (TB4b named one; sweep the sort sites for others). (2) **The
+  re-baseline arrays are IN FLIGHT** (submitted 2026-07-23, run unattended):
+  ceil-8 + kissat + CaDiCaL-clean = array 1559318/agg 1559319, ceil-16 arm =
+  1559409/1559410; read `benchmarks/runs/20260723-*-C-c-ceil{8,16}/logs/
+  aggregate.log` — settles the `DefaultBveBoundRamp::ceiling()` default and
+  unblocks S2a Increment 3 + any T3 judgement. Same-window rule: judge the
+  arms + baselines against each other only, never against M3 numbers. Then
+  TB5 (the throughput gap = also the s055 budget miss).
 
   **▶ Ordered work below** — Track T (Tier B tail: **TB5** search-only propagation
   throughput [split `stats.propagations`, sites `kernel.cpp:496/562/622`, mirror the
