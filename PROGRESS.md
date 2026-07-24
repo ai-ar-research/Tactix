@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 66 (2026-07-23)
+- **Plan revision tracked:** rev. 67 (2026-07-24)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-23
 - **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **The HPC
@@ -363,6 +363,13 @@ why none of them needs a trade-off against the others.
 - [x] **Effort-budgeted inprocessing scheduler, increment 1 + prerequisites** (revs 53–55) — the effort ledger, `Kernel::bve_bound`, P1 and P2. The remaining work is Track S above. Design `docs/design/effort-scheduler-design.md`.
 - [ ] Deferred quality items (2026-07-15 §5.5 sweep): `literal_redundant` depth cap 900 vs kissat 1000; Tier C profile watch items (SubsumeForward occs/marks alloc, `binary_ids` map — **audit: `.emplace` is on the live CDCL hot path**); escalate via §5.4 only with a profile
 - **Exit:** T3
+
+## Phase 3.5 — engineering ingenuity on top of kissat (PIN, rev 67)
+
+Deliberately unelaborated (plan §9 row 3.5 + §11 O15, user 2026-07-24): once
+kissat performance is matched, a dedicated pass for novel engineering beyond
+the reference lineage — not just gap-closing. Concretize at the T3 gate via
+revise-plan.
 
 ## Phase 4 — tuning, bindings, extensibility proof
 
