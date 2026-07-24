@@ -414,6 +414,24 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
+### 2026-07-24 — S4 gate, first arms: the arrangement trades bimodally; lite wins Tier C
+- Mechanism landed behind `TACTIX_ARRANGEMENT` (probing family joins the slot,
+  BVE deferred out of conflicts==0, interval-only phase firing; commit
+  `4943044`). Same-window arms on the S3-charged binary (HEAD B 33.22 14/14,
+  HEAD C 481.31 27/30):
+  - **Full deferral: Tier B 30.59 (the FIRST positive arrangement measurement
+    — 14/14) but Tier C 529.07** — bimodal: cracks Ptn-7824 (TO→449, the L1
+    loser!) and halves T87/T105 (1191→462, 1121→391), but drowns mp1-Nb5T15
+    (7.5 s→TO — blockpuzzle needs EARLY elimination) + diffuse losses.
+  - **Arrangement-lite (probing on, BVE last at preprocessing — kissat's
+    probe-before-eliminate order without deferral): Tier C 441.03 (27/30) —
+    Ptn TO→108, StConn −293, DLTM −146, ContextModel 74→5, af-synth 90→6,
+    frb45 fixed — but Tier B 34.27 (deferral's B-win gone)** and T87 lost
+    (knife-edge 1191→TO); mp1-Nb5T15 preserved.
+  - **mod2c (+441/+444) and Grain (+332/+359) lose under BOTH arms** — they
+    hate the probing family itself; single-rule attribution probe in flight
+    (job 1560524). No default flip yet (gate = one unit, B+C together).
+
 ### 2026-07-24 — S2b: composite grids land default-OFF; every non-arrangement mp1 lever now dead
 - Verified kissat IS composite (factor.c `resize_factoring` + fresh-var flag
   re-arming; +1,303 further factored vars on OUR mp1 dump, probe 1560298) —
