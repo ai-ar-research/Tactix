@@ -64,6 +64,17 @@ scale); pass `--time` for smaller legs.
 
 ## Monitoring and results
 
+- **Arm a watcher for EVERY job you submit (user rule, 2026-07-23)** — a
+  submitted-and-forgotten job is how results get lost. Immediately after
+  `sbatch`, start a background wait that fires one completion notification
+  and prints the result summary, e.g.:
+  `until [ -s <resultlog> ] && [ "$(squeue -u hwu -h -o '%j' | grep -c <name>)" = "0" ]; do sleep 30; done; cat <resultlog>`
+  (Bash `run_in_background`; poll ~15–60 s by expected runtime; make the
+  condition cover FAILURE too — job gone from queue ⇒ fires regardless of
+  outcome, then read sacct/logs). For bench arrays, watch the aggregate log;
+  for fuzz legs, the `slurm-<name>-<jobid>.log` tail. If a session ends with
+  jobs still running, the resume anchor must say which jobs + where results
+  land (the wrap-up skill's queue check).
 - `squeue -u hwu` — live state; array tasks show as `<jobid>_<index>`.
 - `sacct -j <jobid> -o JobID,JobName,Partition,State,Elapsed,NodeList` —
   post-mortem (partition + elapsed per task).
