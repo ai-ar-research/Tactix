@@ -30,6 +30,17 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
     else
       k.h->queue_first = v;
     k.h->queue_last = v;
+    // Stable mode's invariant is "every var reachable via the heap"
+    // (heuristics_update_scores) — but that repair runs only at stable
+    // ENTRY, so a variable created DURING stable (Factor's extension vars
+    // in an S4 during-search phase, or any N1 policy applying Factor
+    // mid-stable) must join the heap here or the heap can drain while
+    // unassigned vars remain (heuristics_heap_next_unassigned crash,
+    // found on em_11 2026-07-24). Focused-mode/initial reserve is
+    // unchanged (stable entry repairs as before) — default path
+    // byte-identical.
+    if (k.h->stable)
+      heuristics_heap_push(k, v);
   }
   heuristics_reset_queue_search(k);
   k.h->nvars = nvars; // heuristics_check asserts this tracks Kernel::nvars

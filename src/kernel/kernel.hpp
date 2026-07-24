@@ -374,6 +374,16 @@ struct Kernel {
   // whether one does). Non-owning; DefaultPolicy scopes it to the inprocess
   // phase (set at entry, cleared at exit) so it never dangles.
   FactorMatchPolicy *factor_match = nullptr;
+  // C3 Vivify per-round work budget in propagation ticks (kissat's vivify
+  // tick limit): a canonical vivify round stops visiting further candidates
+  // once the round has spent this many ticks. 0 = unbounded (the default —
+  // byte-identical legacy behaviour). CONFIGURATION like bve_bound, not a
+  // guard: stopping early only makes the round's effect a prefix of the
+  // unbounded round's, and every prefix is sound (each rewrite is
+  // individually justified). Added for the S4 arrangement, whose during-
+  // search phases must dose vivify — an unbounded round measured as the
+  // dominant diffuse Tier C loss (attribution probes 2026-07-24).
+  uint64_t vivify_tick_budget = 0;
 
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }

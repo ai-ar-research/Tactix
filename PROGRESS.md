@@ -373,8 +373,10 @@ why none of them needs a trade-off against the others.
   B even (32.54 vs 33.42; battleship 197→1.4 s BEATS kissat), C loses
   (868.48 vs 537.30, 22/30 vs 26/30) on diffuse per-phase cost — the
   unmetered rules (Congruence/Factor/Substitute) + unbounded Vivify re-run
-  every during-search phase. Next: cost attribution (em_11/urq45/frb45
-  arms), then per-technique dosing/cadence for the during-search phases.**
+  every during-search phase. **Cost attributed + DOSED (Log night entry):
+  Vivify tick budget + new-material gating for the unmetered rules; also
+  fixed the latent mid-stable heap bug Factor's extension vars exposed.
+  Dosed same-window B+C gate re-run in flight.**
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`.
 
 ### Other phase-3 items
@@ -432,6 +434,33 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-24 (night) — S4 per-phase cost attributed + dosed; latent mid-stable heap bug found and fixed
+- **Attribution (probes 1560738-46, em_11/urq45/frb45 × disable arms):
+  Vivify's unbounded round is the dominant diffuse killer** (urq45 recovers
+  with ONLY it removed: TO→294 s UNSAT); the unmetered closures
+  (Congruence/Factor/Substitute) re-running every phase are second (em 461 s,
+  frb 1130 s with Vivify still on) — but **Congruence is load-bearing on
+  urq45** (removing it entirely: TO), so the rules stay, the repetition goes.
+- **Dosing increment landed:** (a) `Kernel::vivify_tick_budget` — the
+  canonical round stops at the configured tick spend; 0 = unbounded default;
+  DefaultPolicy hands Vivify its remaining effort-ledger budget per phase
+  (config class = `bve_bound`, implementation-notes entry added); (b) under
+  the arrangement, unmetered entries re-run in during-search phases only on
+  NEW MATERIAL since their own last run (per-entry binary/root-fixed
+  watermarks — the slot-global gate's trigger, per entry).
+- **Latent N1 bug found by the em_11 probe (SIGSEGV → ASan assert):
+  variables created DURING stable mode never joined the score heap.**
+  `heuristics_reserve_vars` enqueued new vars into VMTF only; the heap's
+  "every var reachable" invariant is repaired at stable ENTRY alone — so
+  Factor's mid-stable extension vars (first reachable under the arrangement's
+  during-search phases, but ANY N1 policy could do this) drain the heap and
+  crash `heuristics_heap_next_unassigned`. Fix: push into the heap at
+  creation when `h->stable`; focused/initial path byte-identical.
+- **Validation:** ctest 31/31; fuzz 10,000/0 (arrangement on); em_11
+  crash→SAT 381 s on release AND clean full run under ASan/asserts; frb45
+  TO→**163 s (beats HEAD 215)**; urq45 TO→280 s UNSAT; mod4block 158→52 s.
+  Same-window B+C gate re-run next.
 
 ### 2026-07-24 (evening) — S4 TRUE arrangement, first same-window B+C: B even + battleship CRUSHED; C loses on per-phase cost
 - Runs `20260724-1711*` (HEAD vs `TACTIX_ARRANGEMENT=1` on the wired binary

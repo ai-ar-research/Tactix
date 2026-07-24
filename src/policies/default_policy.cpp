@@ -685,9 +685,37 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // batch / unmetered: one canonical round, metered post hoc
           if (e.meter && e.meter(k) > limit)
             continue;
+          // S4 dosing (attribution probes 2026-07-24): in a during-search
+          // arrangement phase, an UNMETERED closure (Congruence/Factor/
+          // Substitute) re-runs only on new material since ITS last run —
+          // repeating the full closures every phase was a dominant diffuse
+          // Tier C cost, while dropping them entirely breaks urq45.
+          if (!e.meter && arrangement_ && k.stats.conflicts > 0 &&
+              k.binary_ids.size() <= e.binaries_mark &&
+              kernel_root_fixed(k) <= e.root_fixed_mark)
+            continue;
           if (!r.guard(k))
             continue;
+          // Vivify dose (kernel.hpp vivify_tick_budget): hand the round its
+          // REMAINING ledger budget so one canonical round cannot overrun the
+          // dose — the other dominant diffuse Tier C cost. Scoped to the
+          // apply; 0 restores the unbounded legacy path for all other
+          // callers (API, RandomPolicy).
+          const bool vivify_dose =
+              e.meter && !e.dosed && !std::strcmp(r.name, "Vivify");
+          if (vivify_dose) {
+            // 0 would mean UNBOUNDED to the rule; a spent dose still grants
+            // one tick so the round exits after its first candidate.
+            const uint64_t remaining = limit - e.meter(k);
+            k.vivify_tick_budget = remaining ? remaining : 1;
+          }
           const ApplyResult ar = r.apply(k);
+          if (vivify_dose)
+            k.vivify_tick_budget = 0;
+          if (!e.meter) {
+            e.binaries_mark = k.binary_ids.size();
+            e.root_fixed_mark = kernel_root_fixed(k);
+          }
           if (ar == ApplyResult::Unsat || k.inconsistent) {
             phase_unsat = true;
             break;

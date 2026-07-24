@@ -232,6 +232,20 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   above deliberately stays rule-side too — its home is the effort scheduler, not
   `FactorMatchPolicy`. Design: `docs/design/s2a-factor-matcher-design.md`.
 
+- **Vivify per-round tick budget is configuration, not a guard (S4, 2026-07-24).**
+  `Kernel::vivify_tick_budget` (0 = unbounded, the default): the canonical
+  round stops visiting further candidates once the round has spent the
+  configured propagation ticks. Same class as `bve_bound`/`bve_gate_mask` —
+  any value is sound because a bounded round's effect is a prefix of the
+  unbounded round's, and each rewrite is individually justified; the abstract
+  C3 entry (per-instance distillation) is untouched, and the per-candidate
+  instance surface (`vivify_try`) still reaches every application (N1).
+  Added because the S4 arrangement's during-search phases must dose Vivify:
+  the unbounded round measured as the dominant diffuse Tier C cost
+  (attribution probes 2026-07-24: urq45 156→TO from Vivify alone).
+  DefaultPolicy sets it to the entry's remaining effort-ledger budget for the
+  scoped apply and clears it after; all other callers see 0/unbounded.
+
 - **Cross-STL determinism is a standing invariant (2026-07-24).** Any
   order-affecting comparator must be a strict TOTAL order (no ties), and no
   trajectory-affecting code may iterate an unordered container in hash order —

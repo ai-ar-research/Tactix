@@ -329,6 +329,17 @@ public:
     // ever runs on a formula probing has already simplified, in dosed
     // during-search phases).
     bool arrangement_defer = false;
+    // Per-entry new-material watermarks (S4 dosing increment 2): an UNMETERED
+    // entry (Congruence/Factor/Substitute — full canonical closure per run,
+    // nothing to titrate) re-runs in a during-search arrangement phase only
+    // when the formula gained material it can act on since ITS last run (new
+    // binaries / new root-fixed variables — the same trigger the slot-global
+    // gate uses). Attribution probes 2026-07-24: re-running these closures
+    // every phase is a top-two diffuse Tier C cost, but removing them
+    // entirely breaks urq45 (Congruence is load-bearing) — so gate the
+    // repetition, keep the rule.
+    uint64_t binaries_mark = 0;
+    uint64_t root_fixed_mark = 0;
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
   bool arrangement_ = false; // S4 (TACTIX_ARRANGEMENT); set at slot build
