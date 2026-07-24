@@ -8,46 +8,40 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 65 (2026-07-23)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-23
-- **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **Development is
-  MIGRATING to the HPC cluster** (user directive, 2026-07-23) — the next session
-  likely runs Claude Code ON the cluster login node. **Do the bootstrap +
-  re-baseline FIRST**, then the S2a work.
+- **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **The HPC
+  migration is COMPLETE** (this session; Log 2026-07-23 + plan revs 64/65):
+  toolchain + both builds green (ctest 31/31 ×2), solvers/checkers verified,
+  cache repopulated, push creds set, ONE shared history. **Protocol (plan
+  §8.1, revs 64/65):** tier runs = job arrays via `run.py --tier X --slurm`
+  on `cpu-dense-hwulab-q` (8 GB/core; `--throttle` for gate runs; allocation
+  shape recorded, compare only identical shapes); fuzz legs = one multi-core
+  job via `tools/fuzz/slurm.sh`; **no solver ever executes outside a
+  submitted job — sbatch only, never srun-from-session** (the session shell
+  is itself a SLURM job); cancel stale jobs by explicit id only. The old
+  M3-Pro numbers are INVALID here — never compare cluster ↔ M3-Pro.
 
-  **▶▶ CLUSTER BOOTSTRAP (once).** Recon read-only first: `sinfo`, `module avail`,
-  `which cmake g++ python3`. Then:
-  ```bash
-  git clone https://github.com/wu-haoze/SAT-solving.git && cd SAT-solving
-  bash tools/solvers/setup.sh    # rebuild kissat/cadical/minisat/glucose (untracked; needs git + toolchain)
-  bash tools/checkers/setup.sh   # drat-trim / lrat-check / cake_lpr
-  module load <C++20 compiler> <cmake> <python3>   # then CMake-configure + build release
-  ```
-  Set git push creds (SSH key or a PAT for `github.com/wu-haoze/SAT-solving`) so
-  both machines share ONE history. **Login-node discipline: NO compute on the login
-  node** — builds + quick fuzz inside an interactive allocation (`salloc` /
-  `srun --pty`); benchmarks + at-scale fuzz via `sbatch`; every TIMING run on an
-  `--exclusive`, CPU-`--constraint`ed node (a heterogeneous fast+slow-node A/B is
-  invalid).
-  **⚠ NEW since the migration (2026-07-23 shakedown, gcc-13/libstdc++ binary):**
-  fresh Tier B pins are kissat **8.20** (14/14) vs tactix **61.78** (13/14) —
-  **battleship-14-26-sat regressed 14.1 s → ~300 s (1.95 M → 27.1 M conflicts):
-  compiler-induced trajectory divergence** (L3's fragile instance; suspect
-  unstable-sort tie-breaks under libstdc++). Route via debug-performance BEFORE
-  re-measuring the Tier B tail — it now dominates the tail. Also open:
-  `tr-n300-s055` misses the Tier A 30 s budget on a dedicated core — solo
-  31.67 s vs kissat 22.62 s = **1.40×, i.e. the standing TB5 throughput gap,
-  not a trajectory anomaly**. Margin-rule follow-up (fidelity levers, no
-  Tier-A constant tuning); per the §8.1 sequencing rule Tier B timings carry
-  no decision weight until s055 fits its budget again — one more reason TB5
-  and the battleship fix come first.
+  **⚠ SHAKEDOWN FINDINGS (2026-07-23, first cluster runs, NEW gcc-13/libstdc++
+  binary — the toolchain changed with the machine):** fresh pins: Tier A tactix
+  PAR-2 0.75 (199/200); Tier B kissat **8.20** (14/14) vs tactix **61.78**
+  (13/14). Two open items:
+  (a) **battleship-14-26-sat regressed 14.1 s → ~300 s (1.95 M → 27.1 M
+  conflicts): compiler-induced trajectory divergence** (L3's fragile instance;
+  suspect unstable-sort tie-breaks under libstdc++). Route via
+  debug-performance BEFORE re-measuring the Tier B tail — it now dominates it.
+  (b) `tr-n300-s055` misses the Tier A 30 s budget on a dedicated core — solo
+  31.67 s vs kissat 22.62 s = **1.40× ≈ the standing TB5 throughput gap, not
+  an anomaly**. Margin-rule follow-up (fidelity levers, no Tier-A constant
+  tuning); per the §8.1 sequencing rule Tier B timings carry no decision
+  weight until s055 fits its budget again — one more reason TB5 and the
+  battleship fix come early.
 
-  **▶▶ RE-BASELINE IS MANDATORY before trusting ANY perf A/B on the cluster.**
-  Every banked number — the Tier B 20.6–23.0 noise band, the kissat/CaDiCaL bands,
-  all Tn gate targets, the ceil-8 279.09 below — is on the **M3-Pro reference
-  machine (§8.1)** and is INVALID on a different CPU. **Never compare a cluster
-  number to an M3-Pro number** (worse than L6's cross-job-count trap). Re-measure
-  kissat + CaDiCaL clean on the pinned exclusive node → new baseline; then update
-  **§8.1** (reference machine + parallelism policy: timing = 1 proc / exclusive
-  pinned node, sweeps = array jobs) via the **revise-plan** skill.
+  **▶▶ RE-BASELINE — partially done, remainder owed with the first gate-grade
+  runs:** kissat Tier B pinned (8.20, above). Still owed: **CaDiCaL clean on
+  Tier C** (same window as any T3 judgement), the **ceil-8 vs ceil-16 Tier C
+  head-to-head** (M3 banked ceil-8 279.09/29 vs kissat 108.84/30; the ceil-16
+  arm never ran — settles whether `DefaultBveBoundRamp::ceiling()` stays 8),
+  and a fresh Tier B noise band (repeat same-shape runs) before any "beats
+  noise" claim.
 
   **▶▶ WHAT JUST LANDED (2026-07-23): the S2a design pass** —
   `docs/design/s2a-factor-matcher-design.md` (frozen on landing). Lift Factor's
@@ -64,21 +58,18 @@ disagree, the plan is authoritative — fix this file.
   ordering) are all measured-DEAD (design §7). So the *extraction* (Increment 1) is
   a certain win; the *quality* gain (Increment 3) is open research, not a port.
 
-  **▶ NEXT STEP (after bootstrap + build): S2a Increment 1** — the
-  behavior-preserving extraction, per design doc §4. Its gate is **bit-exactness**
-  (`TACTIX_FACTOR_TRACE` factoring count + `TACTIX_DUMP_FACTORED` mp1 dump + Tier A
-  200/200 all unchanged) — DETERMINISTIC / machine-independent, so Increment 1 can
-  land BEFORE the perf re-baseline. Fuzz-gated (proof-check every UNSAT); commits on
-  its own. Then Increment 2 (stress-policy for the new N1 surface). **Increment 3**
-  (the uncertain `next_factor_score` quality A/B) and the ceiling head-to-head below
-  both NEED the perf re-baseline.
-
-  **▶ Latest measurement (M3-Pro; RE-CONFIRM on cluster).** ceil-8 Tier C PAR-2
-  **279.09, 29/30** (`c-ceil8`, jobs=4) vs the pre-S1c 345.75/28 (2026-07-20):
-  congruence + chrono + S1b/S1c improved Tier C markedly and cracked +1. **The
-  ceiling head-to-head was NOT completed** — arm 2 (`c-ceil16`,
-  `env TACTIX_BVE_RAMP_MAX=16`) never launched; re-run ceil-8 vs ceil-16 on Tier C
-  during re-baselining to settle whether `DefaultBveBoundRamp::ceiling()` stays 8.
+  **▶ NEXT STEP: S2a Increment 1** — the behavior-preserving extraction, per
+  design doc §4. Its gate is **bit-exactness** (`TACTIX_FACTOR_TRACE` factoring
+  count + `TACTIX_DUMP_FACTORED` mp1 dump + **Tier A results unchanged vs the
+  cluster baseline** — that baseline is 199/200 with s055 the only miss, so
+  "unchanged" = same 199 solved, same per-instance verdicts) — DETERMINISTIC
+  per binary, so Increment 1 lands before the remaining re-baseline. Fuzz-gated
+  (proof-check every UNSAT); commits on its own. Then Increment 2
+  (stress-policy for the new N1 surface). **Increment 3** (the uncertain
+  `next_factor_score` quality A/B) and the ceiling head-to-head above both
+  NEED the re-baseline. (M3 Tier C context for T3: ceil-8 279.09/29 vs
+  CaDiCaL-pin 160.6 ≈ 1.74× — improved vs pre-S1c 345.75/28 but T3 still not
+  met; full detail in the Log entry below.)
 
   **▶ Ordered work below** — Track T (Tier B tail: **TB5** search-only propagation
   throughput [split `stats.propagations`, sites `kernel.cpp:496/562/622`, mirror the
