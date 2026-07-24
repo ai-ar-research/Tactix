@@ -8,103 +8,76 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 63 (2026-07-22)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-23
-- **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**.
-  **Done recently:** ✅ **Track H** COMPLETE (H0–H7 — `H` fully out of the kernel,
-  optional, policy ops relocated; `174a724` + Log 2026-07-23). ✅ **Track S · S1b+S1c**
-  — BVE growth-slack ramp + needed-bound cache, ceiling 8; **Tier B PAR-2 → 15.08**,
-  beating flat fixed-`bound=8` (`489fab1` + Log). One deferral stands: the sub-policy
-  **Chooser/Hook super-class** waits for a 2nd branching arm (§5.5).
-  **▶ NEXT STEP — do this FIRST: re-run the Tier C validation of S1c.** It was
-  launched 2026-07-23 and **killed mid-run** when the machine closed, so it never
-  produced a verdict. It answers: does ceiling-8 generalize beyond the 14 Tier-B
-  instances, or is it Tier-B overfit? Run (jobs=4, background; both arms use the
-  current binary via the env knob, so no rebuild needed):
+- **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **Development is
+  MIGRATING to the HPC cluster** (user directive, 2026-07-23) — the next session
+  likely runs Claude Code ON the cluster login node. **Do the bootstrap +
+  re-baseline FIRST**, then the S2a work.
+
+  **▶▶ CLUSTER BOOTSTRAP (once).** Recon read-only first: `sinfo`, `module avail`,
+  `which cmake g++ python3`. Then:
   ```bash
-  R=$(pwd)
-  python3 tools/bench/run.py --tier C --jobs 4 --name c-ceil8  --baseline kissat --solver "$R/build/release/tactix"
-  python3 tools/bench/run.py --tier C --jobs 4 --name c-ceil16 --solver "env TACTIX_BVE_RAMP_MAX=16 $R/build/release/tactix"
+  git clone https://github.com/wu-haoze/SAT-solving.git && cd SAT-solving
+  bash tools/solvers/setup.sh    # rebuild kissat/cadical/minisat/glucose (untracked; needs git + toolchain)
+  bash tools/checkers/setup.sh   # drat-trim / lrat-check / cake_lpr
+  module load <C++20 compiler> <cmake> <python3>   # then CMake-configure + build release
   ```
-  Verdict: ceiling-8 holds on Tier C → build on it; ceiling-16 wins on the broader
-  set → revisit the `DefaultBveBoundRamp::ceiling()` default (return 8) before any
-  new work. (A 3rd arm — pre-S1c HEAD, to isolate S1c's *total* Tier C gain — needs
-  building `a36b4c2`; optional.)
-  **Then, in priority order:** (1) **re-measure the post-S1c Tier B tail** — the
-  ranking changed (FmlaEquiv 1.3× and crypto1 1.27× dropped out; live tail = mp1,
-  x9, battleship). (2) **TB5** — `stats.propagations` conflates search +
-  preprocessing root-propagation (sites `kernel.cpp:496/562/622`), so the 1.39×
-  throughput gap is an over-estimate; mirror the existing `inprocess.ticks` split
-  (`default_policy.hpp:303`) with an `inprocess.propagations` watermark, then measure
-  true search-only props/sec. (3) biggest single lever: **mp1** (67 s, 5.6× kissat,
-  ⅓ of Tier B) **= S2 SBVA grid matching** (diagnosis banked 2026-07-20). See the
-  Track S / Track T checklists below. What landed just before Track H is in the block
-  below.
+  Set git push creds (SSH key or a PAT for `github.com/wu-haoze/SAT-solving`) so
+  both machines share ONE history. **Login-node discipline: NO compute on the login
+  node** — builds + quick fuzz inside an interactive allocation (`salloc` /
+  `srun --pty`); benchmarks + at-scale fuzz via `sbatch`; every TIMING run on an
+  `--exclusive`, CPU-`--constraint`ed node (a heterogeneous fast+slow-node A/B is
+  invalid).
 
-  **Landed (revs 53–55).** The effort ledger (per-rule per-mille dose, kissat
-  `SET_EFFORT_LIMIT`; `cbbe3ce`/`a93ff51`) + `Kernel::bve_bound` policy-controlled
-  growth slack (`4a32ce3`), + the P1/P2 prerequisites below. Tier B stood at 21.01
-  here (`fe4c8ff`) — **superseded: Track S · S1b+S1c took it to 15.08** (anchor
-  above); the live tail is now mp1 / x9 / battleship, not the old crypto1/FmlaEquiv.
+  **▶▶ RE-BASELINE IS MANDATORY before trusting ANY perf A/B on the cluster.**
+  Every banked number — the Tier B 20.6–23.0 noise band, the kissat/CaDiCaL bands,
+  all Tn gate targets, the ceil-8 279.09 below — is on the **M3-Pro reference
+  machine (§8.1)** and is INVALID on a different CPU. **Never compare a cluster
+  number to an M3-Pro number** (worse than L6's cross-job-count trap). Re-measure
+  kissat + CaDiCaL clean on the pinned exclusive node → new baseline; then update
+  **§8.1** (reference machine + parallelism policy: timing = 1 proc / exclusive
+  pinned node, sweeps = array jobs) via the **revise-plan** skill.
 
-  **▶▶ TARGET END-STATE (user directive):** kissat's **full** arrangement — no BVE
-  at preprocessing, *plus* the mechanism that makes that safe: probing simplifying
-  the formula and elimination moved into the search loop. **Both halves must land
-  together** (each measured alone is worse — see Lessons L1/L2), so this cannot be
-  gated increment-by-increment on Tier B. Build behind the slot's `enabled` flags
-  with today's composition as the default; gate the ARRANGEMENT as one unit on
-  Tier B+C before flipping.
+  **▶▶ WHAT JUST LANDED (2026-07-23): the S2a design pass** —
+  `docs/design/s2a-factor-matcher-design.md` (frozen on landing). Lift Factor's
+  grid-selection matcher OUT of the proof rule into a **`FactorMatchPolicy`** (the
+  2nd SubPolicy, mirrors `BveBoundPolicy`, consulted internally per the
+  `Kernel::bve_bound` precedent) — the BVA proof primitive `apply_factoring` is
+  untouched, so soundness is invariant by construction. **Corrected S2 framing**
+  (the old "S2 = SBVA grid matching" label was wrong): reference kissat rel-4.0.4
+  runs its OWN bounded variable addition (`factor=1`) ON by default — that is what
+  we compare against; its *structural* variant (`factorstructural=0`) is off, and
+  true SBVA is not in kissat at all. **The quality lever is UNCERTAIN:** measured,
+  kissat makes MORE / SMALLER / WIDER grids — a `next_factor_score` chain-width
+  steering problem; the obvious levers (tighten accept, larger scope, dedup,
+  ordering) are all measured-DEAD (design §7). So the *extraction* (Increment 1) is
+  a certain win; the *quality* gain (Increment 3) is open research, not a port.
 
-  **▶ BOTH STRUCTURAL PREREQUISITES ARE NOW DONE** (the rev-54 blockers; neither
-  changes DefaultPolicy's default behaviour). **P1 · per-variable BVE retry
-  filter** (`77143f1`) — works (mod4block's wasted resolvents 3.5 M → 2.3 M),
-  Tier B neutral, but did **not** unlock repeated during-search BVE (L7); the
-  retry *decision* lives in DefaultPolicy, since `instances()` is the policy's
-  action space (rule-dev skill). **P2 · probing propagation restores search's
-  bookkeeping** (`f1c271e`) — `propagate_literal` is `template <bool RECORD>`;
-  probing logs its watch relocations / `searched` writes and rolls them back if
-  the caller truly unwound. **Verified: battleship with Vivify is now
-  bit-identical to Vivify-off** (1.95 M conflicts / 14.1 s, vs 24.0 M / 253 s).
-  *Follow-ups owed:* a `stress-policy` pass (novel mechanism, not a port), and
-  its snapshot traffic is **not charged to the effort ledger**. Detail:
-  `docs/implementation-notes.md` §6/§7 + the log entries below.
+  **▶ NEXT STEP (after bootstrap + build): S2a Increment 1** — the
+  behavior-preserving extraction, per design doc §4. Its gate is **bit-exactness**
+  (`TACTIX_FACTOR_TRACE` factoring count + `TACTIX_DUMP_FACTORED` mp1 dump + Tier A
+  200/200 all unchanged) — DETERMINISTIC / machine-independent, so Increment 1 can
+  land BEFORE the perf re-baseline. Fuzz-gated (proof-check every UNSAT); commits on
+  its own. Then Increment 2 (stress-policy for the new N1 surface). **Increment 3**
+  (the uncertain `next_factor_score` quality A/B) and the ceiling head-to-head below
+  both NEED the perf re-baseline.
 
-  **▶ The work is an ORDERED CHECKLIST in the phase-3 section below** — Track C
-  (congruence, done), Track T (the Tier B tail), Track S (the arrangement),
-  then the T3 gate.
+  **▶ Latest measurement (M3-Pro; RE-CONFIRM on cluster).** ceil-8 Tier C PAR-2
+  **279.09, 29/30** (`c-ceil8`, jobs=4) vs the pre-S1c 345.75/28 (2026-07-20):
+  congruence + chrono + S1b/S1c improved Tier C markedly and cracked +1. **The
+  ceiling head-to-head was NOT completed** — arm 2 (`c-ceil16`,
+  `env TACTIX_BVE_RAMP_MAX=16`) never launched; re-run ceil-8 vs ceil-16 on Tier C
+  during re-baselining to settle whether `DefaultBveBoundRamp::ceiling()` stays 8.
 
-  **▶ Tier B is now PAR-2 ~17.0** (14/14, jobs=4) against a floor of 20.60
-  before this work — the congruence unit channel carried most of it, chrono a
-  further −2.4 %. **The old `s055 = 932,762` bit-exactness pin is RETIRED:**
-  chrono deliberately changed DefaultPolicy's trajectory, so any "bit-exact vs
-  s055" claim describes the pre-2026-07-22 solver. Re-pin before using
-  bit-exactness as a regression check again.
-
-  **▶▶ DONE (2026-07-21/22).** **Track C complete** — V6 Congruence went from
-  "no unit channel, can never refute, XOR/ITE DRAT-only" to refuting a miter
-  inside congruence on every proof path (`hwmcc17miters` 48.77 → 6.67 s vs
-  kissat 2.27 s; D-CONG-UNIT/LRAT/DELETE closed). **Chrono is ON by default**
-  after its first, wrong, negative result was overturned (−2.4 % Tier B).
-  **Plan rev 59: `H` is out of `σ`** — proof rule iff the effect on `σ` is
-  non-trivial, so Rephase/SwitchMode/Walk/Reorder are policy operations.
-
-  **▶▶ TOP PRIORITY (user, 2026-07-22): relocate `H` out of the Kernel.** `H` is
-  policy-owned, OPTIONAL state — a solver with no `H` is sound, just unguided, and
-  nothing (no mandatory DefaultPolicy) exists to guarantee it. Plan rev 60; the
-  ordered increments **H0–H6 are in the Track H checklist below**, gated on
-  trajectory identity, design `docs/design/h-relocation-design.md`. It buys zero
-  PAR-2; the payoff is that `Bump` (the AE-Kissat-MAB/CHB/CURE arm site) becomes
-  swappable without editing the kernel. Start with H0/H1.
-
-  **▶ AFTER THAT — the tail (Track T) is where "exceed kissat" now lives.**
-  Three experiments converged: the gap is **search quality (~3× conflicts) and
-  throughput (~1.4×)**, NOT missing techniques. Best-evidenced next items:
-  **TB5** (propagation throughput — a flat multiplier on every instance;
-  confirm the 1.39 % figure first, our counter includes preprocessing),
-  **S1b** (the growth-slack ramp alone on `crypto1`, measured at 3.8 s once),
-  **TB2/TB6**.
-
-  Independently available whenever: **V5 Sweep** (needs the kitten sub-solver,
-  plan O11) and **E2 Factor S2** (grid matching — the `mp1` 7.9× gap, diagnosis
-  banked 2026-07-20).
+  **▶ Ordered work below** — Track T (Tier B tail: **TB5** search-only propagation
+  throughput [split `stats.propagations`, sites `kernel.cpp:496/562/622`, mirror the
+  `inprocess.ticks` split at `default_policy.hpp:303`], TB2/TB6, …), Track S (the
+  effort scheduler + **S4 = kissat's full no-preprocessing-BVE + in-search
+  elimination**, the big arrangement goal — gated as ONE unit on Tier B+C because
+  each half measures worse alone, L1/L2), then the **T3 gate**. Standing lessons
+  **L1–L8** + non-negotiables status follow. Recently completed (Log/commits):
+  Track C (congruence unit channel), Track H (`H` out of the kernel), Track S ·
+  S1b/S1c (BVE growth-slack ramp, ceiling 8). Independently available: **V5 Sweep**
+  (needs the kitten sub-solver, plan O11).
 
 
 - **Standing lessons — measured, do not re-derive.** (Detail in the commits and
@@ -294,7 +267,7 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
 - [x] **Proof-rule calculus formalized** (rev 36) — `docs/calculus.md` (all rules' abstract precondition/effect/proof-δ/soundness) + `docs/implementation-notes.md` (implemented guards + engineering-deviation ledger) + the `calculus` skill. Guards must be pure abstract preconditions per N1.
 - [x] **Guard purification — COMPLETE for every removable deviation** (revs 37/38/40/42/43). D-SPLIT-1/2 (atomic `ConflictAnalysis`), D-LEVEL-2 (true-level assignment + compacting backtrack), **D-LEVEL-1** (off-fixpoint `Decide` via the `trail_tainted` repair, diagnosed with `AdversarialPolicy`; [[dlevel1-nonnegotiable]]), D-SPLIT-3, D-LEVEL inproc/S5 (rules **drain** the root closure instead of demanding a fixpoint). Only **D-ROOT** (`level==0`) remains — the inprocessing framework itself, not a leak. Spec `docs/calculus.md` §7 + `docs/implementation-notes.md`; regression bed corpus 004/005/006.
 - [x] **V6 Congruence — landed 2026-07-19, ships ON.** AND + XOR + ITE gate extraction in one union-find closure; Tier B PAR-2 111.6→77.75 (−30 %), +1 solved (`hwmcc-miters`). Design `docs/design/v6-congruence-design.md`, report `benchmarks/reports/2026-07-19-congruence-tierB.md`. **Open deviations: D-CONG-UNIT (no unit channel, never refutes), D-CONG-LRAT (XOR/ITE DRAT-only), D-CONG-DELETE** — see the ledger; D-CONG-UNIT is the current work item.
-- [x] **E2 Factor (BVA) — landed 2026-07-20, ships ON** (S0+S1+partial S2). Duplicate-binary fix (`kernel_delete_binary_all_copies`) is what made it net-positive. Design `docs/design/e2-factor-design.md`. Remaining: SBVA grid matching (S2) — the `mp1` 7.9× gap, diagnosis banked 2026-07-20.
+- [x] **E2 Factor (BVA) — landed 2026-07-20, ships ON** (S0+S1+partial S2). Duplicate-binary fix (`kernel_delete_binary_all_copies`) is what made it net-positive. Design `docs/design/e2-factor-design.md`. Remaining: **S2a** grid-*selection* quality — extract the matcher into a `FactorMatchPolicy` and reach kissat's **default** `factor.c` matching (NOT SBVA; corrected framing) — design `docs/design/s2a-factor-matcher-design.md`; the `mp1` gap, diagnosis banked 2026-07-20.
 - [x] **Inprocessing revamp — the slot ACTIVATED** (2026-07-19) — preprocessing at conflicts=0 + shared dense occurrence index (`Kernel::dense`) + the kissat eliminate-round phase structure. Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`, design `docs/design/inprocessing-revamp-design.md`. Bit-exactness (s055) intentionally retired here; `demo3` relaxed to §8.4 within-noise.
 ### ▶ Track C — complete V6 Congruence (plan rev 56; runs first)
 
@@ -351,7 +324,7 @@ why none of them needs a trade-off against the others.
 
 | instance | vs kissat | what fires | cause | item |
 |---|---|---|---|---|
-| `mp1-blockpuzzle` | 7.81× | — | **missing rule** — SBVA grid matching | E2 Factor **S2**, diagnosis banked 2026-07-20 |
+| `mp1-blockpuzzle` | 7.81× | — | Factor grid-*selection* quality (kissat default `factor.c` matching, not SBVA) | E2 Factor **S2a** — design `docs/design/s2a-factor-matcher-design.md` |
 | `combined-crypto1` | 7.46× | BVE dosing | **mis-scheduled**, not missing — measured **3.8 s** under the recurring growth-slack ramp (L4/L7) | **S1** below |
 | `FmlaEquivChain` | 5.75× | 55.6 k strengthened, 10.2 k elims, 3 congruence rounds, **0 units** | unknown; prime suspect **`CONG_XOR_ARITY = 4`** (we only see XOR clauses of size ≤ 5) on a formula that is literally an equivalence chain | T1 below |
 | `x9-08014` | 4.28× | **nothing at all** — 0 factorings, 0 elims, 0 subsumed, 0 units | **search quality**, same category as `clique` | T2 below |
@@ -432,6 +405,12 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-23 — S2a design pass + HPC-migration checkpoint
+- **Decision (user):** migrate development to the HPC cluster — Claude Code runs on the login node and submits jobs directly (no SSH-from-local). Resume anchor rewritten with the bootstrap, the **mandatory re-baseline** (all banked numbers are M3-Pro, §8.1; never mix with cluster numbers), and login-node discipline. A **§8.1 revise-plan is owed** once the node type is pinned.
+- **S2a design** (`docs/design/s2a-factor-matcher-design.md`, frozen on landing): extract Factor's grid-selection matcher OUT of the proof rule into a `FactorMatchPolicy` (2nd SubPolicy, mirrors `BveBoundPolicy`, consulted internally per `Kernel::bve_bound`); the BVA primitive `apply_factoring` is untouched → soundness invariant. Increments: (1) bit-exact extraction [machine-independent gate → can land pre-re-baseline], (2) stress-policy, (3) the uncertain quality A/B.
+- **Corrected S2 framing:** reference kissat rel-4.0.4 runs its OWN BVA (`factor=1`) ON by default — that is what we compare against; `factorstructural=0`, and true SBVA is not in kissat. The quality lever is `next_factor_score` **chain-width** (uncertain); tighten-accept / larger-scope / dedup / ordering are all measured-DEAD (design §7). A 4-agent design workflow surfaced this by trusting a measured ablation over a code-read hypothesis.
+- **Tier C measured (M3-Pro, jobs=4, run `20260723-204057-C-c-ceil8`):** ceil-8 PAR-2 **279.09, 29/30** vs kissat 108.84 (30/30); vs pre-S1c 345.75/28 (2026-07-20) and the CaDiCaL 160.6 pin → **T3 still not met (~1.74× CaDiCaL)** but markedly improved, +1 solve. The ceiling head-to-head (ceil-16) was NOT run — deferred to cluster re-baseline.
 
 ### 2026-07-23 — Track S · S1c: BVE needed-bound cache + ceiling 16→8 (ramp now beats fixed-8)
 - Closed S1b's owed follow-up. `Kernel::bve_min_bound` (uint16, gated by `bve_track_min_bound`): `bve_eliminate` resolves a growth-rejected var past the commit slack to the ramp ceiling, learns its EXACT needed slack, and DefaultPolicy skips it at lower ramp levels instead of re-resolving at each. crypto1 resolutions 1.0 M → 293 K; FmlaEquiv 44.3 → 25.0 s.
