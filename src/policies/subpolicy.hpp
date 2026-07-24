@@ -77,8 +77,10 @@ struct FactorMatchPolicy : SubPolicy {
   // Secondary key among next-factor candidates tied on the max co-occurrence
   // count `cofactor` across the current remainder set (kissat
   // tied_next_factor_score). The count stays the primary key in the rule.
+  // `seed` is the chain's seed factor — structural scores (kissat
+  // distinct_paths) key on it; the default arm ignores it.
   virtual double next_factor_score(const Kernel &, Lit cand,
-                                   uint32_t cofactor) = 0;
+                                   uint32_t cofactor, Lit seed) = 0;
 
   // Accept threshold — the Factor analog of BveBoundPolicy::bound. Given the best
   // greedy grid (m×n, net gain delta = m·n − (m+n)), worth applying? MUST accept

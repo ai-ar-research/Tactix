@@ -288,7 +288,7 @@ ApplyResult factor_apply(Kernel &k) {
         if (c <= 1 || c < bestc)
           continue;
         const uint32_t score =
-            fm ? static_cast<uint32_t>(fm->next_factor_score(k, h, c))
+            fm ? static_cast<uint32_t>(fm->next_factor_score(k, h, c, seed))
                : score_of(h);
         if (c > bestc) {
           bestc = c;
@@ -333,6 +333,9 @@ ApplyResult factor_apply(Kernel &k) {
         (!fm || fm->accept(static_cast<uint32_t>(best_F.size()),
                            static_cast<uint32_t>(best_R.size()),
                            best_delta))) {
+      if (std::getenv("TACTIX_GRID_TRACE")) // S2a Inc 3a: grid dims surface
+        std::fprintf(stderr, "[grid] %zux%zu delta=%d\n", best_F.size(),
+                     best_R.size(), best_delta);
       apply_factoring(k, best_F, best_R);
       applied++;
       k.stats.factorings++;

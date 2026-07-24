@@ -493,7 +493,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // reads it only there, so once per phase suffices. Scoped set/clear
       // (mirrors the dense index) so the kernel never holds a dangling
       // pointer into this policy after solve returns.
-      k.factor_match = factor_match ? factor_match : &default_factor_match_;
+      // TACTIX_FACTOR_MATCH=paths selects the shelved Inc-3 experiment arm;
+      // unset = the bit-exact default watch-size arm.
+      FactorMatchPolicy *fm_arm = &default_factor_match_;
+      if (const char *fs = std::getenv("TACTIX_FACTOR_MATCH"))
+        if (!std::strcmp(fs, "paths"))
+          fm_arm = &paths_factor_match_;
+      k.factor_match = factor_match ? factor_match : fm_arm;
       // Phase structure (kissat eliminate-round shape): a few OUTER rounds,
       // each giving every enabled technique one dose, so a technique can pick
       // up what the others exposed. Dose granularity follows the rule's
@@ -685,6 +691,54 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
   DefaultPolicy policy;
   return policy.solve(k, stop);
+}
+
+// S2a Inc-3 `paths` arm: bounded path-count BFS from the chain's seed over
+// the binary graph (kissat factor.c distinct_paths, factorhops=3 — its
+// off-by-default structural variant). Cached per (seed, graph generation):
+// one O(3·binary-edges) sweep per seed pop instead of per tie-break call.
+// Duplicate watch-list binaries inflate counts slightly (kissat reads the
+// deduped DENSE view); acceptable for a ranking heuristic.
+double PathsFactorMatch::next_factor_score(const Kernel &k, Lit c, uint32_t,
+                                           Lit seed) {
+  const uint64_t gen = k.stats.factorings;
+  if (seed != cached_seed_ || gen != cached_gen_) {
+    cached_seed_ = seed;
+    cached_gen_ = gen;
+    const size_t nlits = 2 * static_cast<size_t>(k.nvars);
+    paths_.assign(nlits, 0);
+    std::vector<uint32_t> cur(nlits, 0), nxt(nlits, 0);
+    std::vector<Lit> frontier, nfront;
+    cur[seed] = 1;
+    frontier.push_back(seed);
+    for (int hop = 0; hop < 3 && !frontier.empty(); hop++) {
+      nfront.clear();
+      for (const Lit l : frontier) {
+        const uint32_t cnt = cur[l];
+        const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
+        const uint32_t sz = k.watches.heads[l].size;
+        for (uint32_t i = 0; i < sz;) {
+          const Watch w{ws[i]};
+          if (w.binary()) {
+            const Lit p = w.other();
+            if (nxt[p] == 0)
+              nfront.push_back(p);
+            nxt[p] += cnt;
+            i += 1;
+          } else {
+            i += 2;
+          }
+        }
+      }
+      for (const Lit p : nfront)
+        paths_[p] += nxt[p];
+      for (const Lit l : frontier)
+        cur[l] = 0;
+      cur.swap(nxt); // nxt is now all-zero except stale frontier slots,
+      frontier.swap(nfront); // which the pre-swap loop above cleared
+    }
+  }
+  return c < paths_.size() ? static_cast<double>(paths_[c]) : 0.0;
 }
 
 } // namespace tactix

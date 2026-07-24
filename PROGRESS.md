@@ -48,8 +48,8 @@ disagree, the plan is authoritative — fix this file.
   re-baseline DONE: ceiling-8 confirmed, fresh pins kissat 221.68 / CaDiCaL
   302.64, T3 gap ≈ 1.45×. S2a Increments 1+2 landed; Increment 3 is now
   UNBLOCKED.) The Tier B tail, worst-first, all vs kissat same-window:
-  **mp1 61 s (8.3×) → S2a Increment 3** (the `next_factor_score` chain-width
-  A/B, design §2b — now the biggest single lever), **FmlaEquiv 60 s**,
+  **mp1 61 s (6.8×) → S2b composite-grid design pass** (Inc 3 disconfirmed
+  the tie-break route — Log 2026-07-24; still the biggest lever), **FmlaEquiv 60 s**,
   **battleship 184 s residual** (S4-arrangement + Sweep evidence — kissat
   runs 5 interleaved factor/eliminate rounds to our 1), **x9 30 s / TB5
   throughput** (also the s055 Tier A budget miss — counter split first,
@@ -346,7 +346,8 @@ why none of them needs a trade-off against the others.
 - [x] **S1 · DONE — L7 refuted, and the answer redirects Track S.** Instrument `775eefc`, results in L7 above. Time tracks **conflicts** (r = +0.99), not phase count (r = +0.01) and not resolvent work (r = −0.04). Consequences: (a) the "fewer/cheaper phases" direction is dead; (b) the interval is the wrong control variable, since the damage is chaotic in it; (c) **`crypto1` is insensitive to the interval — its 3.8 s needs the growth-slack RAMP, which is a separate knob and now the concrete next experiment**; (d) S4's premise survives, because moving elimination *into* the search loop is precisely an attempt to stop perturbing the trajectory rather than to perturb it less often.
 - [x] **S1b · BVE growth-slack ramp** — kissat cheap-first `set_next_elimination_bound`, ON by default; landed as the first `SubPolicy` (`BveBoundPolicy`/`DefaultBveBoundRamp`, `src/policies/subpolicy.hpp`, un-defers H6). Tier B PAR-2 17.07 → 16.44 (`a36b4c2`, Log 2026-07-23). Refined by S1c.
 - [x] **S1c · needed-bound cache + ramp ceiling 16→8** — the efficient ramp now beats flat fixed-`bound=8`. Tier B PAR-2 16.44 → 15.08 (crypto1 6.2 s, FmlaEquiv 44→25 s); Tier A 200/200 @ jobs=4; fuzz 0/4 legs; review APPROVED. Lesson: the ramp's crypto1 win was the effort-dose cap acting as an *accidental governor*, not cheap-first — the ceiling was the real lever ([[accidental-governor-trap]]). `489fab1`, Log 2026-07-23. **Tier C ceiling re-sweep DONE (cluster, 2026-07-23 — Log): ceil-8 439.72 vs ceil-16 449.62, both 27/30, same window ⇒ ceiling stays 8.** Owed: Tier D re-sweep (gate-time); TB5 counter-split.
-- [ ] **S2a · Factor grid-selection → `FactorMatchPolicy`** (design `docs/design/s2a-factor-matcher-design.md`; NOT the S2 below — id collision noted in the Log). **Increment 1 ✅** (bit-exact extraction) + **Increment 2 ✅** (adversarial stress, 16.5k cases 0 failures — both Log 2026-07-23; `factor_stress_policy` KEPT as a durable stress axis, bve/congruence precedent, for Increment-3 arm testing — recorded deviation from the design's "delete after"). Remaining: **Increment 3** = the `next_factor_score` chain-width quality A/B (needs the perf re-baseline; may not reach the 305k target — design §2b is honest).
+- [x] **S2a · Factor grid-selection → `FactorMatchPolicy` — COMPLETE, quality target NOT reached (as the design § 2b allowed).** Increment 1 ✅ bit-exact extraction; Increment 2 ✅ adversarial stress (16.5k cases 0 failures; `factor_stress_policy` kept); **Increment 3 ✅ 2026-07-24: the tie-break steering hypothesis is DISCONFIRMED** — mp1's 27×27 grid cap is invariant under three tie orders; proxy default 1.37 M / paths 1.31 M / sparse 2.43 M vs kissat-native 305 k, so nothing ships (design §4 bar); `paths` shelved behind `TACTIX_FACTOR_MATCH`. Log 2026-07-24 + `TACTIX_GRID_TRACE` surface. **The width gap's live hypothesis moved to S2b.**
+- [ ] **S2b · extension-var composite grids (the width-gap live hypothesis, from Inc 3).** kissat re-factors aux vars across rounds (wide 22×64-class composite grids, Δ1322 > our best 675); our `orig_lits` anti-self-factoring boundary forbids extension vars as factors entirely (implementation-notes §5 cross-rule invariant — the unbounded-self-factoring loop risk is REAL, so this needs a **design pass** for a bounded relaxation, e.g. one composite generation per pass, before any code). Also the mp1 ⅓-of-Tier-B lever and battleship's 184 s residual (S4's interleaved rounds are the other half).
 - [ ] **S2 · re-measure the probing rules now P2 exists** — Probe, Backbone, TransitiveReduce were disabled for the artifact P2 removed. Each is an `enabled` flip in the slot composition plus a Tier B A/B; effort specs are already in the ledger. **Vivify is already re-measured and still net-negative (24.19 vs 21.01)**, so do not assume the others turn positive.
 - [ ] **S3 · P2's owed follow-ups** — a `stress-policy` pass (its snapshot/restore is a novel mechanism, not a port) and charging its snapshot traffic to the effort ledger, which cannot currently see it.
 - [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing *plus* probing simplifying the formula and elimination moved into the search loop. Built behind the slot's `enabled` flags with today's composition as the default; gated on Tier B+C together (an explicit, recorded exception to §8.3 per-increment gating, because each half measures worse alone — L1/L2).
@@ -400,6 +401,23 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-24 — S2a Increment 3: steering hypothesis disconfirmed; width gap → S2b
+- **3a (clean surface):** `TACTIX_GRID_TRACE` added; mp1 = 940 factorings,
+  square-ish growth, hard cap **27×27 (Δ675)** — confirmed. Proxy re-pinned
+  on cluster: kissat-on-our-dump **1.37 M** conflicts, kissat-native
+  **305,691** (the M3 count reproduces exactly — conflict counts are
+  machine-independent). Gap 4.5×.
+- **3b (arms):** `sparse` (inverse tie) **2.43 M — dense-first preference is
+  load-bearing, keep it**; `paths` (kissat's distinct_paths coherence, cached
+  BFS) **1.31 M (−4 %, cap still 27×27)** — below the ship bar, SHELVED
+  behind `TACTIX_FACTOR_MATCH=paths`. **The 27×27 cap is tie-order-INVARIANT
+  ⇒ structural, not steering** — and kissat's 22×64 grids have Δ1322 > our
+  best Δ675, so higher-gain grids exist that our chain can never reach.
+  Live hypothesis → **S2b: extension-var composite grids** (kissat re-factors
+  aux vars; our `orig_lits` boundary forbids it — needs a design pass, the
+  loop risk is real). FactorMatchPolicy signature gained the `seed` param
+  (default arm ignores it, bit-exact).
 
 ### 2026-07-24 — battleship RESOLVED: Tier B 14/14 @ PAR-2 32.23 (det fix + density 6)
 - **Overnight campaign** (`benchmarks/reports/2026-07-24-battleship-divergence.md`

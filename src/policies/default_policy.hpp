@@ -90,11 +90,41 @@ public:
   double seed_score(const Kernel &k, Lit s) override {
     return k.watches.heads[s].size; // == the rule's watch_score, today's key
   }
-  double next_factor_score(const Kernel &k, Lit c,
-                           uint32_t /*cofactor*/) override {
+  double next_factor_score(const Kernel &k, Lit c, uint32_t /*cofactor*/,
+                           Lit /*seed*/) override {
     return k.watches.heads[c].size; // == today's tie-break
   }
   bool accept(uint32_t, uint32_t, int delta) override { return delta >= 1; }
+};
+
+// ---- S2a Increment-3: SHELVED experiment arm (env TACTIX_FACTOR_MATCH=paths).
+// The mp1 grid-quality A/B (Log 2026-07-24) DISCONFIRMED the tie-break
+// steering hypothesis: the 27x27 grid cap is invariant under three tie orders
+// (default 1.37M / paths 1.31M / sparse-inverse 2.43M downstream-conflict
+// proxy vs kissat-native 305k), so no tie-break ships as default (design §4
+// bar: proxy must move materially). `paths` stays shelved for future arms;
+// the width gap's live hypothesis is the extension-var composite-grid
+// boundary (S2b in PROGRESS). ----
+
+// kissat's structural coherence (factor.c distinct_paths, factorhops=3, its
+// off-by-default factorstructural variant): score a tied candidate by the
+// number of distinct binary-graph paths (length <= 3) connecting it to the
+// chain's seed — cached per (seed, graph generation), one bounded BFS per
+// seed instead of per call.
+class PathsFactorMatch final : public FactorMatchPolicy {
+public:
+  const char *name() const override { return "distinct-paths"; }
+  double seed_score(const Kernel &k, Lit s) override {
+    return k.watches.heads[s].size;
+  }
+  double next_factor_score(const Kernel &k, Lit c, uint32_t, Lit seed) override;
+  bool accept(uint32_t, uint32_t, int delta) override { return delta >= 1; }
+  void end_sweep() override { paths_.clear(); cached_seed_ = ~0u; }
+
+private:
+  std::vector<uint32_t> paths_; // path counts to the cached seed, by literal
+  Lit cached_seed_ = ~0u;
+  uint64_t cached_gen_ = ~0ull;
 };
 
 class DefaultPolicy final : public Policy {
@@ -344,6 +374,7 @@ private:
   GlueTieredReduction default_reduction_;
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;
+  PathsFactorMatch paths_factor_match_; // shelved Inc-3 arm (TACTIX_FACTOR_MATCH)
   std::vector<Ref> reduce_scratch_;
   std::vector<uint64_t> inprocess_payloads_; // instance snapshot, reused
 };

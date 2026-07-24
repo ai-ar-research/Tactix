@@ -55,7 +55,7 @@ public:
   const char *name() const override { return "adversarial-stress"; }
   void begin_sweep(const Kernel &) override { salt_ = fs_hash(salt_ + 1); }
   double seed_score(const Kernel &k, Lit s) override { return score(k, s); }
-  double next_factor_score(const Kernel &k, Lit c, uint32_t) override {
+  double next_factor_score(const Kernel &k, Lit c, uint32_t, Lit) override {
     return score(k, c);
   }
   bool accept(uint32_t, uint32_t, int delta) override { return delta >= 1; }
