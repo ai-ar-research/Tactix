@@ -269,13 +269,39 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   `apply_factoring`; an attached `FactorMatchPolicy` keeps precedence
   (the hook subsumes the scalar). Ports kissat's
   `factoring->bound = bounds.eliminate.additional_clauses`
-  (factor.c:72,939) — the S1b ramp policy couples it to the last COMPLETED
-  BVE bound in dosing increment 3. `Kernel::factor_composite` (bool,
+  (factor.c:72,939). `Kernel::factor_composite` (bool,
   default false): promotes the S2b `TACTIX_FACTOR_COMPOSITE` env knob to
   config (the env var remains as an A/B override); termination stays
   delta-monotone (S2b §4), and the single-blast regression that keeps it
-  default-OFF is banked in S2b §7 — it turns on only inside the
-  arrangement's small doses (increment 3).
+  default-OFF is banked in S2b §7.
+  **Increment-3 verdicts (2026-07-25, probes 1561180/87/90/91): BOTH
+  couplings measured harmful in the dosed regime and stay default OFF** —
+  composite doses break battleship (1.3→197 s), and the bound coupling
+  breaks mp1 (5.3→14.9 s: the dosed regime's top-up grids are small-delta
+  BY DESIGN, so kissat's bound=eliminate-level rejects exactly the grids
+  the arrangement exists to add; design §3.e "wire it" is measured-dead
+  here). A/B re-enables: `TACTIX_FACTOR_COMPOSITE_DOSES=1`,
+  `TACTIX_FACTOR_BOUND_COUPLE=1` (DefaultPolicy, arrangement doses only).
+
+- **Input binary deduplication at parse (2026-07-25).** `ingest_clause`
+  skips a binary whose pair is already stored (a `binary_ids` lookup —
+  nothing is deleted during parse, so presence ⟺ a live copy), exactly the
+  duplicate-unit precedent one branch above: the id is consumed, the
+  checker keeps its never-referenced input copy, no proof lines. kissat's
+  dense mode likewise dedups before any inprocessing runs. Duplicated
+  input pairs otherwise inflate Factor's watch-score seeds and (before the
+  all-copies fix) blocked BVE outright — mp1-blockpuzzle carries 137,700
+  of them, and dedup + the S4 arrangement took it from 74 s to **5.3 s vs
+  kissat's 9.1** (probes 1561180/81, proof drat-trim VERIFIED).
+
+- **BVE retry advice is REMOVAL-driven (2026-07-25).** Clause ADDS no
+  longer set `bve_retry` — kissat marks eliminate candidacy on removed
+  literals only (`inline.h`; added literals feed subsume/factor candidacy
+  instead), since an addition can only make elimination harder. Every
+  deletion/strengthening path still marks. Advice only (scheduling); the
+  instance surface never narrows (N1). `TACTIX_BVE_RETRY_ON_ADD=1`
+  restores the old marking for A/Bs. The retry-filter contract test in
+  `tests/test_bve.cpp` documents this.
 
 - **Cross-STL determinism is a standing invariant (2026-07-24).** Any
   order-affecting comparator must be a strict TOTAL order (no ties), and no
