@@ -1,0 +1,20 @@
+=== crypto1 dose-off control (shipped) ===
+c conflicts   566404
+c bve         0 rounds, 0 eliminated, 0 resolutions
+s SATISFIABLE
+WALL 16 s
+=== crypto1 ONESHOT ramp ceiling 8 (replicate) ===
+c conflicts   630889
+c bve         0 rounds, 71 eliminated, 293229 resolutions
+s SATISFIABLE
+WALL 16 s
+=== crypto1 ONESHOT ramp ceiling 16 ===
+c conflicts   715961
+c bve         0 rounds, 245 eliminated, 431077 resolutions
+s SATISFIABLE
+WALL 19 s
+=== crypto1 ONESHOT ramp ceiling 32 ===
+c conflicts   715961
+c bve         0 rounds, 245 eliminated, 431077 resolutions
+s SATISFIABLE
+WALL 18 s

@@ -557,6 +557,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (e.doses == 0 && e.budget_aware &&
             !std::strcmp(rules[e.rule].name, "Factor"))
           e.limit = e.meter(k) + 700000000ull;
+        // I2 (bve-tolerance plan, TEMPORARY experiment knob): under
+        // TACTIX_BVE_ONESHOT the first during-search BVE dose mirrors
+        // Factor's first-dose allowance — effectively unbounded, so the
+        // dose runs its whole schedule to completion (kissat-shape:
+        // eliminate once, early, to completion). The dosed branch below
+        // runs the full ramp and retires the entry after this one dose.
+        if (e.doses == 0 && e.retry_advice &&
+            std::getenv("TACTIX_BVE_ONESHOT"))
+          e.limit = e.meter(k) + 700000000ull;
         e.anchor = now;
       }
       for (int outer = 0; outer < INPROCESS_PHASE_ROUNDS && !phase_unsat;
@@ -608,6 +617,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                       dose_density * kernel_num_output_vars(k))
                 continue;
             }
+            // I2 one-shot (TEMPORARY, see phase-entry carve-out above): the
+            // BVE entry fires exactly ONE dose per solve — full ramp,
+            // unbounded budget — then is declined for the rest of the solve
+            // (recurrence-vs-content decider, bve-tolerance plan I2).
+            const bool bve_oneshot =
+                e.retry_advice && std::getenv("TACTIX_BVE_ONESHOT");
+            if (bve_oneshot && e.doses > 0)
+              continue; // the one shot is consumed
             // BVE growth-slack RAMP (Track S · S1b, BveBoundPolicy): drive
             // k.bve_bound cheap-first over the sub-policy's passes (kissat
             // eliminate.c set_next_elimination_bound), so the non-growing
@@ -627,7 +644,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // bisect instrument, level pacing = 24 s of that 57 s regression
             // — was removed in the 2026-07-25 negative-arm cleanup; the
             // density gate below superseded it.)
-            const bool level_mode = e.retry_advice && ramp;
+            const bool level_mode = e.retry_advice && ramp && !bve_oneshot;
             const uint32_t passes = level_mode ? 1
                                     : ramp     ? ramp->num_passes()
                                                : 1;
@@ -732,6 +749,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // per phase (adversarial review 2026-07-25).
             if (e.retry_advice && outer == 0)
               bve_rounds_run_++;
+            if (bve_oneshot)
+              e.doses++; // consume the one shot (skipped hereafter)
             continue;
           }
           // batch / unmetered: one canonical round, metered post hoc

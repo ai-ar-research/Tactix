@@ -37,12 +37,17 @@ disagree, the plan is authoritative — fix this file.
   1. **Execute the BVE-tolerance plan** — LANDED frozen at
      `docs/design/bve-tolerance-plan.md` (increments I1–I8 with per-step
      discriminating gates + 7 BINDING reviewer findings at the bottom).
-     **I1 DONE 2026-07-25** (probes 1562429/1562430 + landed 1561950–52;
-     see L10) — next is **I2** (`TACTIX_BVE_ONESHOT` on crypto1, in-probe
-     control arms per finding 4). Target: crypto1 16.1 → ~4 s class; em_11
-     (the density gate's known false positive) falls out of the same work.
-     I3's "density gate removable" branch is pre-weakened by L10 (kissat's
-     own admission doesn't skip mod4block).
+     **I1+I2 DONE 2026-07-25**, mechanism report FROZEN
+     (`benchmarks/reports/2026-07-25-crypto1-bve-mechanism.md` — closes the
+     8a6e7ec debt): damage = drip-paced incomplete recurrence; one
+     completed dose ≈ free; depth saturates (245 @ slack-16, U-shape);
+     kissat's profit = completion-gated calls at geometric conflict
+     intervals, largest call LAST. Next is **I3 refined = the CADENCE
+     port** (geometric conflict-interval dose admission + per-dose
+     completion allowance on top of `bve_level_`; report §5). Density gate
+     STAYS for admission (mod4block intrinsic, L10; finding 3: no default
+     flip before I8 arrays). `TACTIX_BVE_ONESHOT` retained as A/B arm.
+     Target: crypto1 16.1 → ~4 s class; em_11 re-checked under cadence.
   2. **C residual toward T3:** arm C 520.76 vs CaDiCaL 302.64 ≈ 1.72× (was
      2.15× two days ago). SCPC/128_125/T105/T87 still TO. Legacy-C regressed
      under dedup (475→538) — probe pass owed only if legacy is re-shipped.
@@ -320,6 +325,18 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 — BVE-tolerance I2 CLOSED: recurrence (drip-paced, incomplete) is the crypto1 mechanism; report frozen
+- `TACTIX_BVE_ONESHOT` (temp A/B knob, policy-side): crypto1 same-window
+  {dose-off 566k/16s · drip 1.83M/68s · oneshot 631k/17s}; ramp probe:
+  depth saturates 245 @ slack-16 and LOSES (U-shape reproduced
+  during-search). Verdict sharpened: completion + geometric spacing, not
+  non-recurrence — kissat's 601 come from 4 completed calls at ≈2×
+  conflict intervals, largest last. mp1/battleship guards held; mod4block
+  hurt by even ONE dose (L10 intrinsic). Report
+  `benchmarks/reports/2026-07-25-crypto1-bve-mechanism.md`; probes
+  1562431/1562434; fuzz 10k/0 ×2 formats with oneshot forced
+  (1562432/33); ctest 31/31 ×2. Next: the I3 cadence port (report §5).
 
 ### 2026-07-25 — BVE-tolerance I1 CLOSED: trajectory-class confirmed; kissat has no mod4block defense
 - Probes 1562429 (kissat -s -v, both arms) + 1562430 (tactix 3-arm
