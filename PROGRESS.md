@@ -7,7 +7,7 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 70 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-25 end-of-day (review fix-now complete, plan rev 70; B 10.48–11.26 band, C ~521)
+- **Last updated:** 2026-07-25 late session (BVE-tolerance study concluded; closure-delay default ON; B ~10.6, C 401.17 @ 28/30, live T3 ratio ≈1.26×)
 - **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
@@ -15,70 +15,51 @@ disagree, the plan is authoritative — fix this file.
   its Tier A budget by the flat **TB5 1.40× throughput gap** (not an anomaly;
   TB5 comes early in Track T).
 
-  **Shipped default = the S4 ARRANGEMENT + density-gated doses** (gate passed
-  2026-07-25, report `benchmarks/reports/2026-07-25-s4-gate-mp1.md`; residual
-  fix `1dbd439`). Current same-window standings:
+  **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
+  closure-delay ladder** (S4 gate report `2026-07-25-s4-gate-mp1.md`;
+  ladder default ON `2639a5a`). Current same-window standings (Tier C
+  window `20260725-131*-C-*-t3`; B `20260725-1241*`; baselines on C ran
+  with proof writing — clean ratio slightly worse):
   | | tactix | kissat 4.0.4 | CaDiCaL |
   |---|---|---|---|
-  | Tier A | 0.82 (199/200) | — | — |
-  | Tier B | **10.62** (14/14) | 8.26 (14/14) | 19.06 (14/14) |
-  | Tier C | **520.76** (26/30) | 222.46 (29/30) | 299.23 (29/30) |
+  | Tier A | 0.82 (199/200, s055 = TB5) | — | — |
+  | Tier B | **10.56** (14/14) | 8.26 (14/14, morning window) | 19.06 (14/14, morning window) |
+  | Tier C | **401.17** (28/30, 15/15 proofs) | 227.05 (29/30) | 317.51 (29/30) |
 
-  All 2026-07-25 cluster windows (B `20260725-054054-B-compare`; C baselines
-  `20260725-054055-C-compare` — that run's tactix arm predates the density
-  gate, so tactix-C comes from arr11 `20260725-0558`, adjacent window).
-  **T3 live ratio: 520.76 / 299.23 ≈ 1.74×**; the owed clean CaDiCaL
-  same-window is DONE. mp1-blockpuzzle 5.5 s BEATS kissat 9.1 (proof
-  VERIFIED). (2026-07-25 late: the legacy composition + all measured-negative
-  A/B arms REMOVED per user directive — the arrangement is unconditional;
-  negatives live in the ledger/report/git history.)
+  **T3 live ratio ≈ 1.26×** (was 1.74× at morning standings). mp1 5.5 s
+  BEATS kissat 9.1 (proof VERIFIED). (The legacy composition + all
+  measured-negative A/B arms were removed 2026-07-25 per user directive;
+  negatives live in the ledger/reports/git history.)
 
   **▶ NEXT STEP:**
-  1. **Execute the BVE-tolerance plan** — LANDED frozen at
-     `docs/design/bve-tolerance-plan.md` (increments I1–I8 with per-step
-     discriminating gates + 7 BINDING reviewer findings at the bottom).
-     **I1+I2 DONE 2026-07-25**, mechanism report FROZEN
-     (`benchmarks/reports/2026-07-25-crypto1-bve-mechanism.md` — closes the
-     8a6e7ec debt): damage = drip-paced incomplete recurrence; one
-     completed dose ≈ free; depth saturates (245 @ slack-16, U-shape);
-     kissat's profit = completion-gated calls at geometric conflict
-     intervals, largest call LAST. **I3 cadence arm + I8-style arrays
-     DONE**, report FROZEN (`benchmarks/reports/2026-07-25-bve-dosing-arms.md`):
-     B {shipped 10.92 · cadence 11.97 · bve-off 11.57}; C {shipped 528.66
-     · cadence-open 524.55 · bve-off 516.55 · **oracle 489.27**, cadence
-     best on 11/30}. Shipped does NOT beat the bve-off control on C; no
-     arm touches the 4 TOs. **USER BASELINE (standing): rule-off configs
-     are diagnostics only — never shippable; fix the SCHEDULING**
-     ([[no-rule-off-configs]]). Next: runtime-feedback BVE schedule
-     (cadenced completed calls + productivity backoff to quiet the
-     Ptn/ContextModel/af-synthesis class without a static gate; target
-     ≥ bve-off everywhere measured) — yield probes array 1562578 supply
-     the signal; then B+C arrays vs shipped before any default change.
-  2. **C residual toward T3 — MAJOR MOVE 2026-07-25 late:** C now
-     **395.56, 28/30** (closure-delay default, window `20260725-1241*`) —
-     **T105 (612 s) and T87 (889 s) CRACKED** (were 2 of the 4 standing
-     TOs; only SCPC-1000-18 + 128_125 remain). vs the STALE 07-23 CaDiCaL
-     pin 302.64 the ratio is ≈ **1.31×** (was 1.72× this morning) —
-     **fresh same-window CaDiCaL C run OWED before any T3 judgment**
-     (§8.1). Attribution: TR-scratch fix + closure-delay + window; the
-     morning dosing-arms matrix numbers are superseded by this window.
-     **Three-solver same-window C LANDED** (runs `20260725-131*-C-*-t3`):
+  1. **T3 standings (2026-07-25 late, window `20260725-131*-C-*-t3`):**
      tactix **401.17 (28/30, 15/15 proofs verified)** · CaDiCaL 317.51
-     (29/30) · kissat 227.05 (29/30) — baselines scored verdict+time
-     (their 5 "proof rejects" are all drat-trim 2400 s budget caps, zero
-     verdict mismatches; NOTE they ran WITH proof writing — my --solver
-     invocation — so the clean ratio is slightly worse than) **live T3
-     ratio ≈ 1.26×** (was 1.72× this morning). Residual: SCPC +
-     128_125 TOs (CaDiCaL solves urq45-class we now solve too) + the
-     kissat-class search-quality gap. Next session: re-run baselines
-     properly clean (no proof) if a precise ratio is needed; keep
-     working the TB5 leads (per-prop 1.25×, conflicts 1.53×).
-  3. Then **Track T** (TB5 propagation counter split [`kernel.cpp:496/562/622`],
-     TB4b chrono completion, TB6 mode cadence, TB2 x9), then the **T3 gate**
-     (CaDiCaL clean same-window C + a fresh Tier B noise band first — the B
-     half landed 2026-07-25 via the compare array). V5 Sweep's promotion
-     conditional is CLOSED not-promoted (mp1 profile: sweep produced zero
-     there; V5 stays phase 4).
+     (29/30) · kissat 227.05 (29/30) → **live ratio ≈ 1.26×** (was 1.72×
+     that morning; C 528.66 → 401.17 in one day — TR-scratch fix +
+     closure-delay default + T105/T87 cracked; only SCPC-1000-18 +
+     128_125 remain TO). Caveats: baselines scored verdict+time (their 5
+     "proof rejects" are drat-trim 2400 s budget caps, zero verdict
+     mismatches) and ran WITH proof writing (`--solver` misuse — use
+     `--baseline` next time), so the clean ratio is slightly worse,
+     ~1.3×. **Next:** re-run baselines clean if a precise ratio is
+     needed; then the remaining T3 residual is TB5's leads (per-prop
+     1.25× watch-layout work, conflicts 1.53× search quality — see the
+     Track T table) + the two TOs; TB4b and TB2 are the open Track T
+     items.
+  2. **BVE-tolerance study CONCLUDED 2026-07-25** (both reports frozen:
+     `2026-07-25-crypto1-bve-mechanism.md`, `2026-07-25-bve-dosing-arms.md`).
+     Mechanism: drip-paced incomplete recurrence hurts; completed
+     cadenced calls profit where the formula rewards elimination; no
+     runtime signal separates winners from losers → **dose ADMISSION is
+     the phase-6 learner's** (oracle 489.27 + 13 labeled instances = its
+     exhibit baseline). Knobs banked: `TACTIX_BVE_ONESHOT`,
+     `TACTIX_BVE_CADENCE`, `TACTIX_FORCE_MODE`. **USER BASELINE
+     (standing): rule-off configs are diagnostics only — never shippable;
+     fix the SCHEDULING** ([[no-rule-off-configs]]). Density gate stays
+     shipped; contingent increments I4–I7/I9 lapse unless the learner
+     work revives them.
+  3. V5 Sweep's promotion conditional is CLOSED not-promoted (mp1
+     profile: sweep produced zero there; V5 stays phase 4).
 
 - **Standing lessons — measured, do not re-derive** (detail in the cited
   commits/reports; one-liners so the next session does not repeat them):
@@ -355,29 +336,18 @@ Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 
-### 2026-07-25 — closure-delay DEFAULT ON; C 395.56 @ 28/30 — T105+T87 cracked; ratio vs stale CaDiCaL pin ≈1.31×
-- Both-arm same-window arrays (`20260725-1241*`): B {default 10.67,
-  closure-delay **10.56**} · C {default 398.94, closure-delay **395.56**},
-  equal solves, fuzz 10k/0 ×2 formats (1562610/11) → default FLIPPED
-  (`TACTIX_NO_CLOSURE_DELAY` reverts). ctest 31/31 ×2.
-- Same window: **T105 671→612 s and T87 873→889 s now SOLVE** (UNSAT,
-  proofs checked; were TOs all morning); StConn −228, trig −202, Grain
-  −166 vs the morning shipped arm. C 528.66 → 395.56 in one day.
-  CaDiCaL clean same-window re-measure owed before T3 judgment.
-
-### 2026-07-25 — closure-delay ladder: FmlaEquiv −17 % wall at IDENTICAL trajectory; TB6 closed (stale claim refuted)
-- **Closure delay** (`TACTIX_CLOSURE_DELAY`, default OFF pending arrays):
-  kissat delay ladder on unproductive unmetered closures, yield = the
-  registry Ok/NoOp contract. Probe 1562606 found the defect (24 zero-
-  yield congruence closures on FmlaEquiv — learned binaries re-arm the
-  material marks every outer round); probe 1562607 measures the arm:
-  FmlaEquiv 24→20 s at conflicts IDENTICAL (skipped occasions provably
-  pure waste), 9vliw −10 % conflicts, hwmcc/urq45 (load-bearing) byte-
-  identical. B+C both-arm arrays + fuzz ×2 in flight at session end.
-- **TB6 closed** (probe 1562605, `TACTIX_FORCE_MODE` banked): the stale
-  407 k claim refuted — default alternation BEATS both pinned modes on
-  FmlaEquiv; focused catastrophic on s055 (2.54 M vs 939 k), −23 % on
-  clique (phase-6 arm datum).
+### 2026-07-25 — closure-delay ladder DEFAULT ON; C 395.56 @ 28/30 (T105+T87 cracked); TB6 closed
+- **Closure delay** (commits `3cef985`+`2639a5a`): kissat delay ladder on
+  unproductive unmetered closures, yield = the registry Ok/NoOp contract.
+  Defect: 24 zero-yield congruence closures on FmlaEquiv (probe 1562606);
+  arm probe 1562607: FmlaEquiv 24→20 s at conflicts IDENTICAL, 9vliw
+  −10 %, hwmcc/urq45 byte-identical. Arrays `20260725-1241*`: B 10.56 vs
+  10.67, C **395.56** vs 398.94, equal solves, fuzz 10k/0 ×2 (1562610/11)
+  → default ON (`TACTIX_NO_CLOSURE_DELAY` reverts). Same window: **T105 +
+  T87 SOLVE** (proofs checked; were TOs); C 528.66 → 395.56 in one day.
+- **TB6 closed** (probe 1562605, `TACTIX_FORCE_MODE` banked): stale 407 k
+  claim refuted — default alternation BEATS both pinned modes on
+  FmlaEquiv; focused catastrophic on s055, −23 % on clique (phase-6 datum).
 
 ### 2026-07-25 — TB5 profile: gap = 1.53× conflicts × 1.23× props/conflict × ~1.2× per-prop; TR quadratic memset FIXED (7 % of cycles)
 - Perf on FmlaEquiv (probes 1562599–1601): wall 2.27× = instructions
@@ -394,35 +364,20 @@ Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
   leads: TR decline overhead (2.77 M checked → 3,263 deleted), congruence
   machinery ~14 % on a 0-merge instance, per-prop 1.25× (watch layout).
 
-### 2026-07-25 — yield probes: NO runtime signal separates cadence winners from losers; admission is the learner's
-- Clean rerun (array 1562588; the first array 1562578 was CONTAMINATED —
-  array tasks clobbered a shared `$TMPDIR/inst.cnf`; outputs purged, hazard
-  banked in memory next to the build-race rule). Winners/losers overlap
-  completely on yield (310–51,876 vs 20–9,110 eliminated) and efficiency
-  (257–1,515 vs 161–1,052 res/elim). minxor/Grain WIN with conflicts UP
-  (+131 %/+9 % — formula-shrink throughput wins ⇒ conflict-rate proxies
-  misfire); mod2c LOSES +40 % conflicts from 20 eliminations (basin
-  reroll — no productivity signal can catch it). Conclusion: the drip
-  defect is FIXED (cadence knob); the admission decision is
-  demonstrably contextual → phase-6 learner, which now has the oracle
-  table (489.27) + 13 labeled instances as its exhibit baseline. No new
-  static gate attempted (L5). Routing: back to the dosing-independent T3
-  residuals (Track T).
-
-### 2026-07-25 — I8 arrays complete: 3-arm B+C matrix, oracle 489.27 vs shipped 528.66; user baseline recorded
-- Report FROZEN `benchmarks/reports/2026-07-25-bve-dosing-arms.md`. Shipped
-  loses to the bve-off CONTROL on C (528.66 vs 516.55) and only x9+9vliw
-  carry BVE on B — the current dose scheduling is a measured net defect
-  outside its win set. Cadence-open best arm on 11/30 C (goldcrest
-  435.8→288.9 proof-verified, Grain 582.9→373.5, em_11 181.6→48.5,
-  jgiraldez 135.6→11.0) but activates losers the gate kept quiet (Ptn
-  +264, ContextModel +236, mod2c +123). Four instances, four best
-  schedules — the §5.6 exhibit's oracle baseline.
-- **User directive (standing): no rule-off configs, ever — rule-off arms
-  localize scheduling defects; fix the scheduling** (memory:
-  no-rule-off-configs). Follow-up in flight: yield-probe array 1562578
-  (per-call elimination yield on 5 cadence winners + 4 losers + php17) →
-  runtime-feedback backoff design.
+### 2026-07-25 — I8 arrays + yield probes: dosing admission is the learner's; oracle 489.27; user no-rule-off baseline
+- Report FROZEN `benchmarks/reports/2026-07-25-bve-dosing-arms.md` (3-arm
+  B+C matrix; oracle 489.27 vs shipped 528.66; cadence-open best on
+  11/30 C; shipped lost to the bve-off CONTROL on C that window).
+  **User directive (standing): no rule-off configs, ever — rule-off arms
+  localize scheduling defects; fix the scheduling** ([[no-rule-off-configs]]).
+- Yield probes (clean array 1562588 — the first, 1562578, was CONTAMINATED
+  by array tasks sharing `$TMPDIR/inst.cnf`; hazard banked in memory):
+  NO runtime signal separates cadence winners from losers (yield and
+  res/elim ranges overlap fully; minxor/Grain WIN with conflicts UP —
+  conflict-rate proxies misfire; mod2c loses off 20 eliminations — basin).
+  Drip defect FIXED (cadence knob); admission → phase-6 learner with the
+  oracle table + 13 labeled instances (commit `bcef79d`). No new static
+  gate attempted (L5).
 
 ### 2026-07-25 — I3 cadence arm measured: flips crypto1 AND em_11 to profit; NOT default (x9/mod4block); I8 arrays next
 - `TACTIX_BVE_CADENCE` (A/B arm): completion allowance + one dose/phase on
