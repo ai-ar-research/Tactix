@@ -245,6 +245,14 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   (attribution probes 2026-07-24: urq45 156→TO from Vivify alone).
   DefaultPolicy sets it to the entry's remaining effort-ledger budget for the
   scoped apply and clears it after; all other callers see 0/unbounded.
+  **Companion config `Kernel::vivify_scope`** (0 = all/default, 1 = redundant
+  only, 2 = irredundant only — same soundness argument: a scoped round is a
+  subset of the full round): mirrors kissat's vivify structure, where the
+  redundant tiers always run within their budget shares (7/10, options.h
+  tier1+2+3) and only the irredundant pass (3/10) is delay-gated — delaying
+  the WHOLE round measured as a Tier B loss (mod4block TO, arr4 2026-07-24).
+  DefaultPolicy scopes both configs to its two per-phase applies and clears
+  them after.
 
 - **Cross-STL determinism is a standing invariant (2026-07-24).** Any
   order-affecting comparator must be a strict TOTAL order (no ties), and no

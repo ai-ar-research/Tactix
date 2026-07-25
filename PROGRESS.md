@@ -444,6 +444,19 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
+### 2026-07-24 (night 5) — delay fidelity fix: kissat's tier split (redundant always, irredundant delay-gated)
+- **The whole-round delay regressed Tier B (arr4 61.51: mod4block TO, qwh
+  3×)** — kissat's delay gates only the IRREDUNDANT vivify pass; tiers 1–3
+  (learned) always run within their shares (options.h: irr 3 / tiers 7).
+  Ported faithfully: `Kernel::vivify_scope` config (0 all / 1 redundant /
+  2 irredundant; same soundness class as `vivify_tick_budget`) + the policy
+  runs two scoped applies per phase — redundant at 7/10 budget always,
+  irredundant at 3/10 delay-gated with the ratio on its own stats deltas.
+- **Probes: BOTH sides hold — mod4block TO→25 s, qwh 44→12, em_11 383→75
+  (near HEAD 61 — its cost WAS the unproductive irredundant pass),
+  goldcrest 328 kept, urq45 291.** ctest 31/31; fuzz 10,000/0. Same-window
+  B+C arrays in flight (head7/arr5).
+
 ### 2026-07-24 (night 4) — adaptive dosing increment 1: kissat's delay ported for Vivify
 - **Mechanism studied in the references first** (per plan §5): kissat
   `kimits.c` delay {count,current} — skip a technique's next `current`

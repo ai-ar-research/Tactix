@@ -40,7 +40,10 @@ void vivify_candidates(const Kernel &k, std::vector<Ref> &out) {
   std::vector<Cand> cands;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    if (is_candidate(k, c))
+    // k.vivify_scope (kernel.hpp): 1 = redundant only, 2 = irredundant only
+    if (is_candidate(k, c) &&
+        !(k.vivify_scope == 1 && !c->redundant()) &&
+        !(k.vivify_scope == 2 && c->redundant()))
       cands.push_back({ref, c->redundant() ? 1u : 0u, c->size});
     ref += clause_words(c->size);
   }

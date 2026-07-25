@@ -711,39 +711,59 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // callers (API, RandomPolicy).
           const bool vivify_dose =
               e.meter && !e.dosed && !std::strcmp(r.name, "Vivify");
-          // kissat delay (see SlotEntry): in a during-search phase, a
-          // technique that keeps producing nothing skips exponentially many
-          // occasions. Vivify only for now — the measured arr3 residual.
-          if (vivify_dose && k.stats.conflicts > 0 && e.delay_count > 0) {
-            e.delay_count--;
-            continue;
-          }
-          const uint64_t tried_before = k.stats.vivify_checked;
-          const uint64_t produced_before =
-              k.stats.vivified + k.stats.vivify_deleted;
+          ApplyResult ar;
           if (vivify_dose) {
-            // 0 would mean UNBOUNDED to the rule; a spent dose still grants
-            // one tick so the round exits after its first candidate.
-            const uint64_t remaining = limit - e.meter(k);
-            k.vivify_tick_budget = remaining ? remaining : 1;
-          }
-          const ApplyResult ar = r.apply(k);
-          if (vivify_dose) {
-            k.vivify_tick_budget = 0;
-            if (k.stats.conflicts > 0) {
-              // kissat vivify.c: vivified/tried < 1 % → bump, else halve
-              const uint64_t tried = k.stats.vivify_checked - tried_before;
-              const uint64_t produced =
-                  k.stats.vivified + k.stats.vivify_deleted - produced_before;
-              // tried == 0 counts as unproductive (kissat_average(0,0)=0)
-              if (tried == 0 || produced * 100 < tried) {
-                e.delay_current += (e.delay_current < UINT32_MAX);
-                e.delay_count = e.delay_current;
-              } else {
-                e.delay_current /= 2;
-                e.delay_count = e.delay_current;
+            // kissat vivify.c structure: the REDUNDANT (learned) tiers always
+            // run within their budget share; only the IRREDUNDANT pass is
+            // delay-gated (vivifyirr, kimits.c) — delaying the whole round
+            // measured as a Tier B loss (mod4block TO, arr4 2026-07-24).
+            // Shares are kissat's option defaults: irr 3 / tiers 3+3+1 = 7.
+            const uint64_t remaining0 = limit - e.meter(k);
+            const uint64_t remaining = remaining0 ? remaining0 : 1;
+            const bool irr_delayed =
+                k.stats.conflicts > 0 && e.delay_count > 0;
+            if (irr_delayed)
+              e.delay_count--;
+            // redundant pass (always; full budget when irr is delayed)
+            k.vivify_scope = 1;
+            k.vivify_tick_budget =
+                irr_delayed ? remaining : std::max<uint64_t>(1, remaining * 7 / 10);
+            ar = r.apply(k);
+            // irredundant pass (delay-gated, ratio-tracked on ITS deltas)
+            if (!irr_delayed && ar != ApplyResult::Unsat && !k.inconsistent) {
+              const uint64_t spent = e.meter(k);
+              const uint64_t irr_budget =
+                  spent < limit ? std::max<uint64_t>(1, limit - spent) : 1;
+              const uint64_t tried_before = k.stats.vivify_checked;
+              const uint64_t produced_before =
+                  k.stats.vivified + k.stats.vivify_deleted;
+              k.vivify_scope = 2;
+              k.vivify_tick_budget = irr_budget;
+              const ApplyResult ar2 = r.apply(k);
+              if (ar2 == ApplyResult::Unsat)
+                ar = ar2;
+              else if (ar2 == ApplyResult::Ok && ar != ApplyResult::Ok)
+                ar = ar2;
+              if (k.stats.conflicts > 0) {
+                // kissat vivify.c: vivified/tried < 1 % → bump, else halve;
+                // tried == 0 counts unproductive (kissat_average(0,0)=0)
+                const uint64_t tried = k.stats.vivify_checked - tried_before;
+                const uint64_t produced = k.stats.vivified +
+                                          k.stats.vivify_deleted -
+                                          produced_before;
+                if (tried == 0 || produced * 100 < tried) {
+                  e.delay_current += (e.delay_current < UINT32_MAX);
+                  e.delay_count = e.delay_current;
+                } else {
+                  e.delay_current /= 2;
+                  e.delay_count = e.delay_current;
+                }
               }
             }
+            k.vivify_scope = 0;
+            k.vivify_tick_budget = 0;
+          } else {
+            ar = r.apply(k);
           }
           if (!e.meter) {
             e.binaries_mark = k.binary_ids.size();

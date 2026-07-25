@@ -384,6 +384,15 @@ struct Kernel {
   // search phases must dose vivify — an unbounded round measured as the
   // dominant diffuse Tier C loss (attribution probes 2026-07-24).
   uint64_t vivify_tick_budget = 0;
+  // C3 Vivify round scope (kissat's redundant-tier vs irredundant split):
+  // 0 = all candidates (default, legacy), 1 = redundant (learned) clauses
+  // only, 2 = irredundant only. CONFIGURATION like vivify_tick_budget — a
+  // scoped round's effect is a subset of the full round's, each rewrite
+  // individually justified. Lets the policy mirror kissat's structure where
+  // the redundant tiers ALWAYS run within budget and only the irredundant
+  // pass is delay-gated (vivifyirr) — delaying the whole round measured as
+  // a Tier B loss (mod4block TO, 2026-07-24 arr4).
+  uint8_t vivify_scope = 0;
 
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
