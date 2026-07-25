@@ -364,15 +364,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // A/Bs — S2 enable-flips, S4 arrangement arms). Disabling a rule is
       // always sound; enabling one poses the same composition the phase-6
       // arm surface will pose via the API. Unset ⇒ byte-identical default.
-      // TACTIX_ARRANGEMENT=1 — Track S · S4, the target arrangement as ONE
-      // unit (effort-scheduler design §4.4; kissat's composition): the probing
-      // family joins the slot, and BVE leaves the conflicts==0 preprocessing
-      // phase (kissat fastel=0) — its doses come from the during-search
-      // phases, which then run on a formula probing has simplified. Today's
-      // composition stays the default until the Tier B+C one-unit gate
-      // (L1/L2: each half alone measures worse — S2 re-measure 2026-07-24
-      // confirmed the halves are individually neutral-at-best).
-      const bool arrangement = std::getenv("TACTIX_ARRANGEMENT") != nullptr;
+      // Track S · S4: the target arrangement as ONE unit (effort-scheduler
+      // design §4.4; kissat's composition): the probing family joins the
+      // slot, and BVE leaves the conflicts==0 preprocessing phase (kissat
+      // fastel=0) — its doses come from the during-search phases, which then
+      // run on a formula probing has simplified.
+      // **DEFAULT ON since 2026-07-25 — the Tier B+C one-unit gate PASSED**
+      // on same-window post-dedup arrays (report
+      // benchmarks/reports/2026-07-25-s4-gate-mp1.md): B 17.45 vs default
+      // 43.86 (arr −60%, mp1 5.6 s vs kissat 9.1), C 552.91 vs 537.83
+      // (−2.8%, within the tier's SAT-variance band), Tier A 0.82 vs 0.79
+      // (199/200 both). TACTIX_NO_ARRANGEMENT=1 reverts to the legacy
+      // composition (the pre-gate default); TACTIX_ARRANGEMENT stays
+      // accepted for script compatibility (now a no-op).
+      const bool arrangement = !std::getenv("TACTIX_NO_ARRANGEMENT");
       arrangement_ = arrangement;
       // TACTIX_ARRANGEMENT_KEEP_PREBVE=1 — the "lite+dosed" S4 arm: keep the
       // during-search dosed phases (the Tier B win) but let BVE also run at

@@ -1,0 +1,55 @@
+== fuzz job 1561162: node=node017 cpus=30 mem/cpu=8G ==
+== regression corpus ==
+corpus: 7 entries, 0 failures
+== fuzz: 10000 cases, solver=env TACTIX_ARRANGEMENT=1 TACTIX_INPROCESS_INTERVAL=100 TACTIX_FACTOR_FORCE=1 build/debug/tactix oracle=/home/hwu/SAT-solving/tools/solvers/bin/kissat ==
+... 100/5000 cases, 0 failures
+... 200/5000 cases, 0 failures
+... 300/5000 cases, 0 failures
+... 400/5000 cases, 0 failures
+... 500/5000 cases, 0 failures
+... 600/5000 cases, 0 failures
+... 700/5000 cases, 0 failures
+... 800/5000 cases, 0 failures
+... 900/5000 cases, 0 failures
+... 1000/5000 cases, 0 failures
+... 1100/5000 cases, 0 failures
+... 1200/5000 cases, 0 failures
+... 1300/5000 cases, 0 failures
+... 1400/5000 cases, 0 failures
+... 1500/5000 cases, 0 failures
+... 1600/5000 cases, 0 failures
+... 1700/5000 cases, 0 failures
+... 1800/5000 cases, 0 failures
+... 1900/5000 cases, 0 failures
+... 2000/5000 cases, 0 failures
+... 2100/5000 cases, 0 failures
+... 2200/5000 cases, 0 failures
+... 2300/5000 cases, 0 failures
+... 2400/5000 cases, 0 failures
+... 2500/5000 cases, 0 failures
+... 2600/5000 cases, 0 failures
+... 2700/5000 cases, 0 failures
+... 2800/5000 cases, 0 failures
+... 2900/5000 cases, 0 failures
+... 3000/5000 cases, 0 failures
+... 3100/5000 cases, 0 failures
+... 3200/5000 cases, 0 failures
+... 3300/5000 cases, 0 failures
+... 3400/5000 cases, 0 failures
+... 3500/5000 cases, 0 failures
+... 3600/5000 cases, 0 failures
+... 3700/5000 cases, 0 failures
+... 3800/5000 cases, 0 failures
+... 3900/5000 cases, 0 failures
+... 4000/5000 cases, 0 failures
+... 4100/5000 cases, 0 failures
+... 4200/5000 cases, 0 failures
+... 4300/5000 cases, 0 failures
+... 4400/5000 cases, 0 failures
+... 4500/5000 cases, 0 failures
+... 4600/5000 cases, 0 failures
+... 4700/5000 cases, 0 failures
+... 4800/5000 cases, 0 failures
+... 4900/5000 cases, 0 failures
+... 5000/5000 cases, 0 failures
+fuzz: 5000 cases, 0 failures | verdicts: SAT=2750 TIMEOUT=328 UNSAT=1922

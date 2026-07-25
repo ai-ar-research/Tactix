@@ -1,0 +1,37 @@
+== fuzz job 1561188: node=node017 cpus=30 mem/cpu=8G ==
+== regression corpus ==
+corpus: 7 entries, 0 failures
+== fuzz: 10000 cases, solver=build/debug/tactix oracle=/home/hwu/SAT-solving/tools/solvers/bin/kissat ==
+... 100/6000 cases, 0 failures
+... 200/6000 cases, 0 failures
+... 300/6000 cases, 0 failures
+... 400/6000 cases, 0 failures
+... 500/6000 cases, 0 failures
+Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 396, in <module>
+    sys.exit(main())
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 392, in main
+    return args.func(args)
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 299, in cmd_run
+    list(ex.map(one_case, range(args.n)))
+  File "/cm/local/apps/python3/lib/python3.9/concurrent/futures/_base.py", line 609, in result_iterator
+    yield fs.pop().result()
+  File "/cm/local/apps/python3/lib/python3.9/concurrent/futures/_base.py", line 439, in result
+    return self.__get_result()
+  File "/cm/local/apps/python3/lib/python3.9/concurrent/futures/_base.py", line 391, in __get_result
+    raise self._exception
+  File "/cm/local/apps/python3/lib/python3.9/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 265, in one_case
+    outcome = run_case(cnf, solver, oracle, args.timeout,
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 110, in run_case
+    code, stdout, stderr = run_cmd(solver + [cnf_path, proof], timeout)
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 70, in run_cmd
+    r = subprocess.run(cmd, capture_output=True, text=True,
+  File "/cm/local/apps/python3/lib/python3.9/subprocess.py", line 505, in run
+    with Popen(*popenargs, **kwargs) as process:
+  File "/cm/local/apps/python3/lib/python3.9/subprocess.py", line 951, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/cm/local/apps/python3/lib/python3.9/subprocess.py", line 1837, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+PermissionError: [Errno 13] Permission denied: 'build/debug/tactix'

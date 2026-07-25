@@ -7,7 +7,7 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 67 (2026-07-24)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-24 (late — S4 gate judged, dosing increment 1)
+- **Last updated:** 2026-07-25 (overnight — mp1 merged, S4 gate passed, arrangement default ON)
 - **▶ RESUME HERE (2026-07-24).** Phase 3, **T3 gate open**. Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only). M3-Pro numbers are INVALID —
@@ -20,39 +20,35 @@ disagree, the plan is authoritative — fix this file.
   a fresh Tier B noise band. rev-66 nightlies GREEN at 400k-case scale
   (Log 2026-07-24; logs committed).
 
-  **▶ NEXT STEP — Track S · S4 Factor dosing (TOP PRIORITY, user directive
-  2026-07-24 late): merge the mp1 gap (74 s vs kissat 9) without
-  compromising the rest of Tier B.** Design FROZEN →
-  `docs/design/s4-factor-dosing-design.md` (kissat factor.c metering/quit,
-  options.h constants, factor-last order; S2a/S2b negatives must not be
-  re-proposed; mp1 profile settled the missing-rule question — kissat's
-  sweep produces ZERO there, so no rule we lack is load-bearing).
-  - **Increment 1 DONE (2026-07-24 late):** `stats.factor_ticks` cache-line
-    currency + two mid-round quit points; `vivify_tick_budget` →
-    `Kernel::work_budget` (uniform budget handoff, `budget_aware` spec
-    flag); `factor_bound` + `factor_composite` config fields (defaults
-    byte-identical); factor_stress budget-boundary modes. Gates green:
-    ctest 31/31 both presets; fuzz 27.5k/0 across 6 legs (quick 10k DRAT,
-    LRAT, random-policy DRAT+LRAT, factor-stress DRAT+LRAT, jobs
-    1561152–57); mp1 factored dump BYTE-IDENTICAL vs cebba5f (probe
-    1561159).
-  - **Next: increment 2 (policy handoff, arrangement-scoped)** — EFFORT_SPECS
-    Factor 50‰ + 700M first dose, Factor-LAST order, factordelay log10
-    gate, completion-gated watermark advance; gates: mp1 probe ≤30 s w/
-    multi-round trace, **battleship ≤~1.4 s + mod4block ≤~25 s MUST hold**,
-    fuzz 10k arrangement-on, stress pass driving Factor mid-stable
-    (hardens the heap fix, `heuristics.cpp`). Then increment 3 (composite
-    ON in doses + bound coupling; proof-size spot check — see goldcrest
-    below) and increment 4 (same-window Tier B+C arrays + report).
-  - **S4 gate JUDGED (2026-07-24 late, runs `20260724-2213*`): default
-    stays OFF.** Tier C head7 **475.46 (27/30)** vs arr5 **703.67
-    (24/30)** — arr5 loses T105/T87 to TO and goldcrest to a drat-trim
-    CHECKER timeout (752 MB proof, ~30× head7's — proof-size risk §5.3 is
-    real), broad 1.5–4× slowdowns (j3037 205→884, trig-bhaskara 200→749)
-    against a few wins (af-synthesis 101→8.7, mp1-Nb5T15 7.3→2.7). Tier B
-    arr5 18.16 vs head7 32.31 stands. Gate = B+C one unit → the dosing
-    increments above ARE the C-residual iteration (watch Ptn/SCPC: they
-    want heavier Vivify than the fixed budget gives).
+  **✔ S4 GATE PASSED — ARRANGEMENT IS THE DEFAULT (2026-07-25 overnight;
+  report `benchmarks/reports/2026-07-25-s4-gate-mp1.md`, commits
+  `85e43b9..` the flip).** The user's goal — merge the mp1 gap without
+  compromising Tier B — was met and exceeded: **mp1 5.34–5.6 s vs kissat
+  9.09 (was 74 s), proof drat-trim VERIFIED; Tier B PAR-2 17.45 (was
+  32.31 shipped), 14/14; Tier C 552.91 near-parity with legacy 537.83;
+  Tier A 0.82 vs 0.79.** The gap was never a missing rule OR dosing
+  alone: (1) 137,700 duplicated input binary pairs — now deduped at parse
+  (`beace90`) — inflated Factor scores and silently disabled BVE
+  **everywhere, always** (the duplicate-binary hazard NoOp'd every
+  candidate; BVE tolerance fixed in `e0e73e7`); (2) the kissat dosing
+  machinery (increments 1–2, `85e43b9`/`1e50f73`); (3) density-scoped
+  composite doses (`c15571f` — the 3× lever on mp1, breaks battleship if
+  global; scoped at ≥50 binaries/var). Measured-dead knobs banked in the
+  report §2: bound coupling (design §3.e REVERSED), removal-only retry
+  marking, dosed-BVE delay. `TACTIX_NO_ARRANGEMENT=1` reverts to legacy.
+
+  **▶ NEXT STEP — the arm's residuals, then Track T:**
+  1. **B tail pair:** crypto1 70.8 (legacy 20.4) + mod4block 60.0 (legacy
+     13.8) — during-search-elimination trajectory effects (L2 class), the
+     campaign's "dose demand is instance-bimodal" pair. The delay and
+     removal-marking arms both failed on them (report §2) — needs a fresh
+     idea, likely per-instance dose gating the learned policy will own.
+  2. **C residual toward T3:** arm C 552.91 vs CaDiCaL 302.64 ≈ 1.83×
+     (was 2.15×). Ptn-7824 recovered (480 s); SCPC/128_125/T105/T87 still
+     TO. Legacy-C also regressed under dedup (475→538: Grain 387→832,
+     frb45 210→418) — the dedup's C side-effects deserve their own
+     probe pass before more scheduler work.
+  3. Then Track T as ordered below (TB5 first).
 
   **▶ Ordered work after S4:** Track T (Tier B tail: **TB5** propagation
   counter split [sites `kernel.cpp:496/562/622`], TB4b chrono completion, TB6
@@ -253,8 +249,8 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
 - [x] **Nightly random-policy fuzzing green** — last full pass 20 000/0 (`tools/fuzz/nightly-rev48.log`); earlier passes rev-31/rev-35 (logs in `tools/fuzz/`). **Lesson: nightly scale (10k) catches what `--quick` (≤2k) misses** — the rev-34 and rev-43 nightlies each found a real bug (corpus 006, corpus 007) that `--quick` had passed.
 - [x] **Proof-rule calculus formalized** (rev 36) — `docs/calculus.md` (all rules' abstract precondition/effect/proof-δ/soundness) + `docs/implementation-notes.md` (implemented guards + engineering-deviation ledger) + the `calculus` skill. Guards must be pure abstract preconditions per N1.
 - [x] **Guard purification — COMPLETE for every removable deviation** (revs 37/38/40/42/43). D-SPLIT-1/2 (atomic `ConflictAnalysis`), D-LEVEL-2 (true-level assignment + compacting backtrack), **D-LEVEL-1** (off-fixpoint `Decide` via the `trail_tainted` repair, diagnosed with `AdversarialPolicy`; [[dlevel1-nonnegotiable]]), D-SPLIT-3, D-LEVEL inproc/S5 (rules **drain** the root closure instead of demanding a fixpoint). Only **D-ROOT** (`level==0`) remains — the inprocessing framework itself, not a leak. Spec `docs/calculus.md` §7 + `docs/implementation-notes.md`; regression bed corpus 004/005/006.
-- [x] **V6 Congruence — landed 2026-07-19, ships ON.** AND + XOR + ITE gate extraction in one union-find closure; Tier B PAR-2 111.6→77.75 (−30 %), +1 solved (`hwmcc-miters`). Design `docs/design/v6-congruence-design.md`, report `benchmarks/reports/2026-07-19-congruence-tierB.md`. **Open deviations: D-CONG-UNIT (no unit channel, never refutes), D-CONG-LRAT (XOR/ITE DRAT-only), D-CONG-DELETE** — see the ledger; D-CONG-UNIT is the current work item.
-- [x] **E2 Factor (BVA) — landed 2026-07-20, ships ON** (S0+S1+partial S2). Duplicate-binary fix (`kernel_delete_binary_all_copies`) is what made it net-positive. Design `docs/design/e2-factor-design.md`. Remaining: **S2a** grid-*selection* quality — extract the matcher into a `FactorMatchPolicy` and reach kissat's **default** `factor.c` matching (NOT SBVA; corrected framing) — design `docs/design/s2a-factor-matcher-design.md`; the `mp1` gap, diagnosis banked 2026-07-20.
+- [x] **V6 Congruence — landed 2026-07-19, ships ON.** AND + XOR + ITE gate extraction in one union-find closure; Tier B PAR-2 111.6→77.75 (−30 %), +1 solved (`hwmcc-miters`). Design `docs/design/v6-congruence-design.md`, report `benchmarks/reports/2026-07-19-congruence-tierB.md`. Deviations closed by C3/C4 (Track C); only C4-perf/C3b remain open, non-blocking — see Track C.
+- [x] **E2 Factor (BVA) — landed 2026-07-20, ships ON** (S0+S1+partial S2). Duplicate-binary fix (`kernel_delete_binary_all_copies`) is what made it net-positive. Design `docs/design/e2-factor-design.md`. S2a/S2b closed 2026-07-24 (selection steering disconfirmed); **the mp1 gap CLOSED 2026-07-25** (input dedup + dosing + composite, gate report) — nothing remains on E2.
 - [x] **Inprocessing revamp — the slot ACTIVATED** (2026-07-19) — preprocessing at conflicts=0 + shared dense occurrence index (`Kernel::dense`) + the kissat eliminate-round phase structure. Report `benchmarks/reports/2026-07-19-inprocessing-revamp.md`, design `docs/design/inprocessing-revamp-design.md`. Bit-exactness (s055) intentionally retired here; `demo3` relaxed to §8.4 within-noise.
 ### Track C — complete V6 Congruence (plan rev 56) — done except C4-perf/C3b (open, non-blocking)
 
@@ -342,7 +338,12 @@ why none of them needs a trade-off against the others.
 - [x] **S2b · composite grids — mechanism landed (default OFF), single-blast hypothesis DISCONFIRMED** — composition fires (940→1,834 grids) but proxy regresses (L4 U-shape); every non-arrangement mp1 lever now dead; composite reserved for S4 doses. `docs/design/s2b-composite-grids-design.md`.
 - [x] **S2 · probing rules re-measured on cluster — all five flips within noise; historical SAT-disruption GONE** (runs `20260724-0825*`); the L1/L2 shape that gates S4 as one unit.
 - [x] **S3 · P2 follow-ups** — `probing_stress_policy` (16,500 adversarial cases × 2 formats × 3 seeds, 0 failures); snapshot traffic charged to `stats.ticks`. `2ed8bcc`.
-- [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing + probing first + elimination in the search loop; behind `TACTIX_ARRANGEMENT` (default OFF); gated on Tier B+C together (recorded §8.3 exception; L1/L2).
+- [x] **S4 · the TARGET ARRANGEMENT as ONE gated unit — GATE PASSED, DEFAULT
+  ON (2026-07-25).** B+C one-unit: arr {B 17.45, C 552.91} vs legacy
+  {B 43.86, C 537.83}; mp1 5.34 s beats kissat 9.09 (proof VERIFIED).
+  Report `benchmarks/reports/2026-07-25-s4-gate-mp1.md` (root causes:
+  input duplicate binaries + BVE hazard + composite; measured-dead knobs
+  banked). `TACTIX_NO_ARRANGEMENT=1` = legacy composition.
   **Status 2026-07-24 night (Log campaign entry):** mechanism COMPLETE incl.
   adaptive dosing (kissat delay + tier split); **B won: arr5 18.16 vs kissat
   8.18, beats kissat on battleship+summle; C same-window verdict JUDGED —
@@ -414,6 +415,28 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
+### 2026-07-25 overnight — the mp1 gap MERGED (5.34 s vs kissat 9.09); S4 gate PASSED; arrangement default ON
+One overnight session, 6 commits (`1e50f73`..flip). Full story + all
+numbers in `benchmarks/reports/2026-07-25-s4-gate-mp1.md`; one-liners:
+- **Root cause was input hygiene, not scheduling:** 137,700 duplicated
+  input binary pairs on mp1 inflated Factor's seeds AND silently disabled
+  BVE project-wide via the duplicate-binary hazard (0 eliminations ever,
+  vs kissat's 661 — found via slot-trace after the arrangement's
+  "deferred" BVE turned out to never run). Parse-time dedup (`beace90`,
+  the duplicate-unit precedent) + BVE duplicate tolerance (`e0e73e7`,
+  all-copies deletion) + the increment-2 dosing machinery (`1e50f73`) +
+  density-scoped composite (`c15571f`) → mp1 74 → 5.34 s.
+- **Gate:** B 17.45/14 (best ever; was 32.31) + C 552.91/26 vs legacy
+  B 43.86 / C 537.83 → one-unit pass → default flipped
+  (`TACTIX_NO_ARRANGEMENT` reverts). A 0.82/199.
+- **Negatives banked (report §2):** bound coupling reversed (§3.e),
+  removal-only retry marking not adopted, dosed-BVE delay reverted, a
+  build-race postmortem (the "composite buys nothing" misread).
+- **Soundness:** ~162k fuzz cases / 0 failures across five code states,
+  both formats; ctest 31/31 ×2 per increment; mp1 proof VERIFIED.
+- Residuals now owned by the anchor: crypto1/mod4block arm-tail, C
+  residual (incl. legacy-C dedup side-effects), then Track T.
+
 ### 2026-07-24 late — S4 gate judged (default stays OFF) + Factor-dosing increment 1 lands
 - **C same-window verdict (`20260724-2213*`): head7 475.46 (27/30) vs arr5
   703.67 (24/30)** — anchor has the instance detail incl. goldcrest's 752 MB
@@ -438,7 +461,7 @@ report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
   half). ~421 of 843 lines identified losslessly compressible →
   compact-docs pass at next wrap-up.
 
-### 2026-07-24 — Track S · S4 campaign (one day, 8 commits): mechanism complete, B won −36 %, C verdict pending
+### 2026-07-24 — Track S · S4 campaign (one day, 8 commits): mechanism complete, B won −36 % (C verdict + the gate: see 2026-07-25 above)
 Consolidated from seven same-day entries; full detail in the cited commits.
 - **Correction that started it (`53adb79`):** the first "deferral" arm never ran
   BVE at all (`update_inprocess_limit` parked at UINT64_MAX; no during-search
