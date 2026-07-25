@@ -339,6 +339,20 @@ Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-25 — closure-delay ladder: FmlaEquiv −17 % wall at IDENTICAL trajectory; TB6 closed (stale claim refuted)
+- **Closure delay** (`TACTIX_CLOSURE_DELAY`, default OFF pending arrays):
+  kissat delay ladder on unproductive unmetered closures, yield = the
+  registry Ok/NoOp contract. Probe 1562606 found the defect (24 zero-
+  yield congruence closures on FmlaEquiv — learned binaries re-arm the
+  material marks every outer round); probe 1562607 measures the arm:
+  FmlaEquiv 24→20 s at conflicts IDENTICAL (skipped occasions provably
+  pure waste), 9vliw −10 % conflicts, hwmcc/urq45 (load-bearing) byte-
+  identical. B+C both-arm arrays + fuzz ×2 in flight at session end.
+- **TB6 closed** (probe 1562605, `TACTIX_FORCE_MODE` banked): the stale
+  407 k claim refuted — default alternation BEATS both pinned modes on
+  FmlaEquiv; focused catastrophic on s055 (2.54 M vs 939 k), −23 % on
+  clique (phase-6 arm datum).
+
 ### 2026-07-25 — TB5 profile: gap = 1.53× conflicts × 1.23× props/conflict × ~1.2× per-prop; TR quadratic memset FIXED (7 % of cycles)
 - Perf on FmlaEquiv (probes 1562599–1601): wall 2.27× = instructions
   1.72× × IPC deficit 1.32× (memory-bound: 3.9× L1d, 3.9× dTLB misses).

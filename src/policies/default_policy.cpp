@@ -298,6 +298,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     else if (!std::strcmp(fm, "stable"))
       force_mode_ = 2;
   }
+  // TACTIX_CLOSURE_DELAY (A/B arm, default off): kissat-style delay
+  // ladder on UNPRODUCTIVE unmetered closures (Congruence/Substitute) —
+  // probe 1562606: FmlaEquiv re-ran the full congruence closure 24 times
+  // for zero yield (~14 % of cycles in gate extraction) because ordinary
+  // learned binaries re-arm the new-material marks every outer round.
+  // Yield signal = the registry contract itself (Ok vs NoOp); a delay,
+  // never a disable (no-rule-off baseline).
+  closure_delay_ = std::getenv("TACTIX_CLOSURE_DELAY") != nullptr;
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)
@@ -833,6 +841,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               k.binary_ids.size() <= e.binaries_mark &&
               kernel_root_fixed(k) <= e.root_fixed_mark)
             continue;
+          // Closure delay ladder (see solve entry): consume one delayed
+          // occasion AFTER material admission, so the ladder counts real
+          // scheduling occasions (kissat kimits delay semantics — same
+          // mechanics as vivify's irr ladder below).
+          if (closure_delay_ && !e.meter && k.stats.conflicts > 0 &&
+              e.delay_count > 0) {
+            e.delay_count--;
+            continue;
+          }
           if (!r.guard(k))
             continue;
           // Budget handoff (kernel.hpp work_budget): a budget-aware batch
@@ -963,6 +980,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (!e.meter) {
             e.binaries_mark = k.binary_ids.size();
             e.root_fixed_mark = kernel_root_fixed(k);
+            // Ladder maintenance (vivify idiom, :872-876): a NoOp closure
+            // bumps the delay, a productive one halves it.
+            if (closure_delay_ && k.stats.conflicts > 0) {
+              if (ar == ApplyResult::Ok)
+                e.delay_current /= 2;
+              else
+                e.delay_current += (e.delay_current < UINT32_MAX);
+              e.delay_count = e.delay_current;
+            }
           }
           if (ar == ApplyResult::Unsat || k.inconsistent) {
             phase_unsat = true;

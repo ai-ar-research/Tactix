@@ -334,6 +334,9 @@ public:
   // the first switch). Pure scheduling state — SwitchMode stays
   // guard-true and N1-appliable.
   uint32_t force_mode_ = 0;
+  // TACTIX_CLOSURE_DELAY A/B arm (read once per solve): delay ladder on
+  // unproductive unmetered closures (see the slot's unmetered branch).
+  bool closure_delay_ = false;
   // S4 arrangement BVE bound level (kissat bounds.eliminate.additional_clauses,
   // eliminate.c set_next_elimination_bound): starts 0 (non-growing
   // eliminations only) and DOUBLES 0→1→2→4→8 only when a dose COMPLETES

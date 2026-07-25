@@ -1,0 +1,24 @@
+=== FmlaEquiv: Congruence slot-trace summary ===
+c conflicts   576941
+c congruence  24 rounds, 0 units, 0 unjustified
+s UNSATISFIABLE
+-- Congruence dosed=1 runs (fired): 24
+[slot] phase=1 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=1 outer=1 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=1 outer=2 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=2 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=2 outer=1 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=2 outer=2 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=3 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=3 outer=1 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+-- phases total: 8
+=== urq45: Congruence load-bearing control ===
+c conflicts   15556932
+c congruence  4 rounds, 0 units, 0 unjustified
+s UNSATISFIABLE
+[slot] phase=1 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=1 outer=1 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=2 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=3 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=4 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=5 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
