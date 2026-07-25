@@ -22,13 +22,14 @@ disagree, the plan is authoritative — fix this file.
   |---|---|---|---|
   | Tier A | 0.82 (199/200) | — | — |
   | Tier B | **10.62** (14/14) | 8.26 (14/14) | 19.06 (14/14) |
-  | Tier C | **520.76** (26/30) | 221.68 (29/30)* | 302.64 (29/30)* |
+  | Tier C | **520.76** (26/30) | 222.46 (29/30) | 299.23 (29/30) |
 
-  B/kissat+CaDiCaL = fresh same-window (`20260725-054054-B-compare`);
-  *C baselines = 2026-07-23 window — the fresh 3-solver C array
-  (`20260725-054055-C-compare`) was in flight at last update; read it before
-  citing C ratios. mp1-blockpuzzle 5.5 s BEATS kissat 9.1 (proof VERIFIED).
-  `TACTIX_NO_ARRANGEMENT=1` reverts to the legacy composition.
+  All 2026-07-25 cluster windows (B `20260725-054054-B-compare`; C baselines
+  `20260725-054055-C-compare` — that run's tactix arm predates the density
+  gate, so tactix-C comes from arr11 `20260725-0558`, adjacent window).
+  **T3 live ratio: 520.76 / 299.23 ≈ 1.74×**; the owed clean CaDiCaL
+  same-window is DONE. mp1-blockpuzzle 5.5 s BEATS kissat 9.1 (proof
+  VERIFIED). `TACTIX_NO_ARRANGEMENT=1` reverts to the legacy composition.
 
   **▶ NEXT STEP:**
   1. **Land the BVE-tolerance study plan** (a 10-agent workflow was in flight
