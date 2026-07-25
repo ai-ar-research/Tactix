@@ -36,6 +36,8 @@ disagree, the plan is authoritative — fix this file.
   global; scoped at ≥50 binaries/var). Measured-dead knobs banked in the
   report §2: bound coupling (design §3.e REVERSED), removal-only retry
   marking, dosed-BVE delay. `TACTIX_NO_ARRANGEMENT=1` reverts to legacy.
+  Post-flip morning check: debug-build arrangement fuzz GREEN, corpus 7/7
+  (`tools/fuzz/slurm-gatecheck-arr-1561919.log`, committed).
 
   **✔ Residual pair FIXED (2026-07-25 morning, `1dbd439`): during-search
   BVE doses are now density-gated (≥6 binaries/output-var, the Factor-gate
