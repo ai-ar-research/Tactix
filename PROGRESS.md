@@ -146,11 +146,13 @@ disagree, the plan is authoritative — fix this file.
     must beat ~20.6 to be a real gain, and a single sub-21 reading proves nothing.
     Never compare across job counts.
 
-- **Open items (small, none blocking).** The congruence deviations that remain
-  open — `D-CONG-LRAT` (XOR/ITE extraction is DRAT-only) and `D-CONG-DELETE`
-  (transient ladder lemmas never deleted, proof size only) — are checklist item
-  **C4** below, together with the `stress-policy` pass V6 now owes since its unit
-  channel can return `Unsat` (ledger `docs/implementation-notes.md` §2).
+- **Open items (small, none blocking).** `D-CONG-LRAT`/`D-CONG-DELETE` were
+  CLOSED by C4 (the stale claim here predated it); what C4 left open is
+  **C4-perf** (LRAT replay ~250× on gate-heavy miters; fix = structural
+  chains via `CongGate::side_ids`) and **C3b** (remaining degeneracies) —
+  see Track C. Still owed: the `stress-policy` pass V6's unit channel
+  (can return `Unsat`; ledger `docs/implementation-notes.md` §2) and one
+  for Factor-mid-stable (the heap-fix hardening, anchor).
   **Task #39** — `--random-policy` livelock on 5
   tiny cases in `tools/fuzz/known-hangs/` (N1 robustness, not soundness).
   `examples/demo3_scripted_default.c` keeps `SLOT_IN_DEFAULT 0` (search +
