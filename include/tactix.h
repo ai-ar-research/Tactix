@@ -72,6 +72,13 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_PROBE_FAILED 19    /* failed literals -> units (V1) */
 #define TACTIX_STAT_BACKBONE_FAILED 20 /* binary failed literals -> units (V2) */
 #define TACTIX_STAT_TRANSITIVE_DELETED 21 /* redundant binaries deleted (V4) */
+/* The §5.6 reward/cost counters (rev 69): the currencies the arrangement's
+ * dosing is denominated in, exposed so an external/learned policy can meter
+ * the work its schedule buys (the pull-based reward channel). */
+#define TACTIX_STAT_FACTORINGS 22       /* Factor/BVA grids applied (E2) */
+#define TACTIX_STAT_FACTOR_TICKS 23     /* Factor work, cache-line units */
+#define TACTIX_STAT_BVE_ELIMINATED 24   /* variables eliminated (E1) */
+#define TACTIX_STAT_BVE_RESOLUTIONS 25  /* BVE work: resolvent attempts */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
@@ -92,6 +99,22 @@ int tactix_proof(tactix *, const char *path, int format);
 #define TACTIX_BVE_GATE_EQUIV 1u  /* equivalence x<->~y */
 #define TACTIX_BVE_GATE_AND_OR 2u /* AND/OR x<->OR/AND(...) */
 void tactix_set_bve_gates(tactix *, unsigned mask);
+
+/* Kernel CONFIGURATION setters (rev 69) — the pose surface for external and
+ * learned policies (§5.6). Every value is sound: config narrows/reorders
+ * WHICH sound applications happen, never their proof obligations (the
+ * bve_gates argument above, generalized). Settable at any state (N1).
+ *  - bve_bound: BVE growth slack (eliminate iff resolvents <= occs + bound)
+ *  - factor_bound: Factor acceptance (accept a grid iff delta > bound)
+ *  - factor_composite: nonzero = Factor composes over extension vars
+ *  - work_budget: per-round budget for budget-aware rules, own currency
+ *                 (Vivify: propagation ticks; Factor: factor ticks); 0 = off
+ *  - vivify_scope: 0 all / 1 redundant only / 2 irredundant only */
+void tactix_set_bve_bound(tactix *, unsigned bound);
+void tactix_set_factor_bound(tactix *, unsigned bound);
+void tactix_set_factor_composite(tactix *, int on);
+void tactix_set_work_budget(tactix *, uint64_t budget);
+void tactix_set_vivify_scope(tactix *, unsigned scope);
 
 /* run the default policy to completion: 10 SAT / 20 UNSAT */
 int tactix_solve(tactix *);

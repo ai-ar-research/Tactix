@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-25 (rev. 68). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-25 (rev. 69). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -427,7 +427,15 @@ conflicts, decisions, propagations, ticks, learned, restarts,
 reductions, mode switches, current level, unassigned count, last
 learned clause's glue, stable-mode flag (`TACTIX_STAT_*` ids) — with
 `UINT64_MAX` for unknown ids. Allocation-free; the id list may grow
-additively post-v1.
+additively post-v1. **Rev 69 additions (the §5.6 reward/cost channel):**
+ids 22–25 expose the dosing currencies (factorings, factor ticks, BVE
+eliminations/resolutions), and **kernel configuration setters**
+(`tactix_set_bve_bound` / `factor_bound` / `factor_composite` /
+`work_budget` / `vivify_scope`, generalizing `tactix_set_bve_gates`)
+make the config surface posable — every value sound by class (config
+narrows/reorders which sound applications happen, never their proof
+obligations), settable at any state (N1). A stat-completeness +
+setter-reachability contract test pins the surface (`test_api_c`).
 
 **Branching is a first-class API surface (N1).** `Decide` is a rule family like
 any other: `instances(σ)` enumerates *all* unassigned variables with phases,
@@ -1318,3 +1326,4 @@ conflate them.
 - **rev. 66** (2026-07-23, user): fuzz cadence scaled 10× for the cluster — quick 1k→10k, nightly 20k→200k, 50 harness threads per fuzz job (§8.2; run.sh/slurm.sh + fuzz/slurm-jobs skills synced).
 - **rev. 67** (2026-07-24, user): phase 3.5 PINNED between phases 3 and 4 (§9, no renumbering) — "engineering ingenuity on top of kissat" once kissat performance is matched; deliberately unelaborated, concretize at phase-3 exit (§11 O15).
 - **rev. 68** (2026-07-25, user): §5.6 elimination-dosing exhibit — per-instance/state inprocessing dosing PROMOTED to a named phase-6 learning target with an explicit subsume-the-gates obligation (density-gate family = placeholder policy + L2 context features; DefaultPolicy thresholds = permanent arm); grounded in the 2026-07-25 density-gate measurements + kissat `--no-eliminate` ablation.
+- **rev. 69** (2026-07-25, user): §5.1 additive API — TACTIX_STAT ids 22–25 (dosing currencies: factorings/factor_ticks/bve_eliminated/bve_resolutions) + kernel config setters (bve_bound/factor_bound/factor_composite/work_budget/vivify_scope) so the §5.6 learner can read its reward currencies and pose the config surface; contract test added.

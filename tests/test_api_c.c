@@ -224,6 +224,37 @@ static void test_bve_gate_selection(void) {
   tactix_release(s);
 }
 
+/* rev 69: the §5.6 reward-counter + config-setter surface. Every documented
+ * stat id must return a real counter (not the UINT64_MAX unknown-id
+ * sentinel) after a solve, and every config setter must be callable at any
+ * state with the solve still correct — config is sound by class, so the
+ * only contract to pin is reachability + a sane verdict. */
+static void test_stats_and_config_surface(void) {
+  int id;
+  tactix *s = tactix_init();
+  /* a small UNSAT core so inprocessing counters exist meaningfully */
+  add_clause(s, (const int[]){1, 2, 0});
+  add_clause(s, (const int[]){1, -2, 0});
+  add_clause(s, (const int[]){-1, 2, 0});
+  add_clause(s, (const int[]){-1, -2, 0});
+  /* setters callable pre-solve (N1: any state) */
+  tactix_set_bve_bound(s, 4);
+  tactix_set_factor_bound(s, 1);
+  tactix_set_factor_composite(s, 1);
+  tactix_set_work_budget(s, 1000000);
+  tactix_set_vivify_scope(s, 1);
+  /* restore neutral config for the solve */
+  tactix_set_factor_composite(s, 0);
+  tactix_set_work_budget(s, 0);
+  tactix_set_vivify_scope(s, 0);
+  assert(tactix_solve(s) == 20);
+  /* completeness: every documented id 1..25 answers */
+  for (id = 1; id <= 25; id++)
+    assert(tactix_stat(s, id) != UINT64_MAX);
+  assert(tactix_stat(s, 26) == UINT64_MAX); /* first unknown id */
+  tactix_release(s);
+}
+
 /* H1 · Track H: pin the frozen registry id/name assignment (a permanent
  * id-drift guard — reclassifying Rephase/SwitchMode in place must NOT move any
  * id) and each entry's ActionKind. Rephase and SwitchMode are POLICY OPERATIONS
@@ -271,6 +302,7 @@ int main(void) {
   test_empty_solver_rule_application();
   test_stepwise_unsat();
   test_bve_gate_selection();
+  test_stats_and_config_surface();
   test_action_kind();
   puts("test_api_c OK");
   return 0;

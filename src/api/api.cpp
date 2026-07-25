@@ -67,6 +67,25 @@ void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
   s->kernel.bve_gate_mask = mask;
 }
 
+// Kernel configuration setters (rev 69) — the §5.6 pose surface. Plain
+// writes to CONFIG fields (kernel.hpp documents each field's soundness
+// class); no scheduling state, no guard interaction.
+void tactix_set_bve_bound(tactix_solver *s, unsigned bound) {
+  s->kernel.bve_bound = bound;
+}
+void tactix_set_factor_bound(tactix_solver *s, unsigned bound) {
+  s->kernel.factor_bound = bound;
+}
+void tactix_set_factor_composite(tactix_solver *s, int on) {
+  s->kernel.factor_composite = on != 0;
+}
+void tactix_set_work_budget(tactix_solver *s, uint64_t budget) {
+  s->kernel.work_budget = budget;
+}
+void tactix_set_vivify_scope(tactix_solver *s, unsigned scope) {
+  s->kernel.vivify_scope = static_cast<uint8_t>(scope <= 2 ? scope : 0);
+}
+
 int tactix_solve(tactix_solver *s) {
   const int r = default_solve(s->kernel);
   if (r == 10)
@@ -218,6 +237,14 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.backbone_failed;
   case 21: // TACTIX_STAT_TRANSITIVE_DELETED
     return k.stats.transitive_deleted;
+  case 22: // TACTIX_STAT_FACTORINGS
+    return k.stats.factorings;
+  case 23: // TACTIX_STAT_FACTOR_TICKS
+    return k.stats.factor_ticks;
+  case 24: // TACTIX_STAT_BVE_ELIMINATED
+    return k.stats.bve_eliminated;
+  case 25: // TACTIX_STAT_BVE_RESOLUTIONS
+    return k.stats.bve_resolutions;
   default:
     return UINT64_MAX;
   }

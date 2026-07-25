@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 68 (2026-07-25)
+- **Plan revision tracked:** rev. 69 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-25 (compact-docs pass; density gate landed, B 10.62)
 - **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
@@ -306,6 +306,14 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 — GC cost measured: a NEGATIVE — well under 1 % everywhere
+- Review §c item 2 resolved via temporary instrumentation (probe 1562204;
+  counters NOT kept, user decision): heaviest case walks ~2 GB over 296 s
+  (ascon; Grain 1.1 GB/407 s), ~10 GCs/phase — all ≪1 %. CLOSED as a
+  recorded negative (the L7 pattern). The future constraint stands:
+  per-apply GC under fine-grained Ref-payload dosing would be quadratic —
+  phase-6 design note.
 
 ### 2026-07-25 — plan rev 68: elimination dosing = named phase-6 learning target
 - The "when to eliminate" insight recorded as §5.6's **elimination-dosing
