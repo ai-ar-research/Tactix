@@ -344,6 +344,10 @@ public:
     // repetition, keep the rule.
     uint64_t binaries_mark = 0;
     uint64_t root_fixed_mark = 0;
+    // S4 dosing: budgeted applies of this entry this solve. Read for the
+    // first-dose allowance (Factor's kissat factoriniticks — doses == 0
+    // means the 700M first round has not run yet).
+    uint32_t doses = 0;
     // kissat delay (kimits.c, ported for S4 adaptive dosing): after an
     // UNPRODUCTIVE run in a during-search phase — kissat vivifyirr criterion,
     // vivified/tried < 1 % — skip this entry's next `delay_current` scheduled
@@ -357,6 +361,20 @@ public:
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
   bool arrangement_ = false; // S4 (TACTIX_ARRANGEMENT); set at slot build
+  // S4 factordelay analog (kissat factor.c:1068-1085, design §3.b): count of
+  // dosed BVE rounds executed this solve. Factor's entry fires only when
+  // log10(active vars) ≤ this + 4 — instances up to 10^4 active vars factor
+  // from the very first probe; each BVE round buys one more decade.
+  uint32_t bve_rounds_run_ = 0;
+  // S4 arrangement BVE bound level (kissat bounds.eliminate.additional_clauses,
+  // eliminate.c set_next_elimination_bound): starts 0 (non-growing
+  // eliminations only) and DOUBLES 0→1→2→4→8 only when a dose COMPLETES
+  // (schedule exhausted within budget). Replaces the all-levels-per-dose S1c
+  // ramp in arrangement doses — running 0..8 in the very first dose
+  // over-eliminates (mp1: 1,223 eliminated vs kissat 661, conflicts 1.5M→3.5M,
+  // the L4 U-shape; probe 1561169). The default preprocessing ramp is
+  // untouched. Also Factor's acceptance bound (design §3.e) reads this level.
+  uint32_t bve_level_ = 0;
   OccIndex inprocess_occ; // shared occurrence index, reused per phase (incr. 2)
   // Slot timing (kissat eliminate-slot schedule — C1-era machinery kept):
   // first limit size-scaled at solve entry (kissat inits limits after

@@ -415,8 +415,12 @@ ApplyResult factor_apply(Kernel &k) {
   if (fm)
     fm->end_sweep();
   if (std::getenv("TACTIX_FACTOR_TRACE"))
-    std::fprintf(stderr, "[factor] entered (%u orig lits), %llu factorings\n",
-                 orig_lits, (unsigned long long)applied);
+    std::fprintf(stderr,
+                 "[factor] entered (%u orig lits), %llu factorings, "
+                 "%llu ticks (budget %llu%s)\n",
+                 orig_lits, (unsigned long long)applied,
+                 (unsigned long long)(k.stats.factor_ticks - tick_start),
+                 (unsigned long long)budget, over_budget() ? ", CUT" : "");
   if (const char *p = std::getenv("TACTIX_DUMP_FACTORED"))
     if (applied)
       dump_factored_and_exit(k, p);
