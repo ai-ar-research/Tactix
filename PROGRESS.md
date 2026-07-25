@@ -62,12 +62,17 @@ disagree, the plan is authoritative — fix this file.
      **fresh same-window CaDiCaL C run OWED before any T3 judgment**
      (§8.1). Attribution: TR-scratch fix + closure-delay + window; the
      morning dosing-arms matrix numbers are superseded by this window.
-     **IN FLIGHT at last update: the T3-judging three-solver C window**
-     (arrays 1562704 tactix / 1562735 cadical / 1562766 kissat; results
-     land in `benchmarks/runs/20260725-1310*/1311*-C-*-t3/logs/
-     aggregate.log`) — read those, compute the live ratio, and if
-     ≤ 1.10× vs CaDiCaL run the full T3 gate evaluation (§9 + a fresh
-     Tier B noise band) and write the gate report.
+     **Three-solver same-window C LANDED** (runs `20260725-131*-C-*-t3`):
+     tactix **401.17 (28/30, 15/15 proofs verified)** · CaDiCaL 317.51
+     (29/30) · kissat 227.05 (29/30) — baselines scored verdict+time
+     (their 5 "proof rejects" are all drat-trim 2400 s budget caps, zero
+     verdict mismatches; NOTE they ran WITH proof writing — my --solver
+     invocation — so the clean ratio is slightly worse than) **live T3
+     ratio ≈ 1.26×** (was 1.72× this morning). Residual: SCPC +
+     128_125 TOs (CaDiCaL solves urq45-class we now solve too) + the
+     kissat-class search-quality gap. Next session: re-run baselines
+     properly clean (no proof) if a precise ratio is needed; keep
+     working the TB5 leads (per-prop 1.25×, conflicts 1.53×).
   3. Then **Track T** (TB5 propagation counter split [`kernel.cpp:496/562/622`],
      TB4b chrono completion, TB6 mode cadence, TB2 x9), then the **T3 gate**
      (CaDiCaL clean same-window C + a fresh Tier B noise band first — the B
@@ -158,7 +163,7 @@ disagree, the plan is authoritative — fix this file.
 
 - [x] T1 — **passed 2026-07-14** (Tier A 200/200 PAR-2 0.48; Tier B 9/14 @ 231.6 vs MiniSat 8/14 @ 281.4; report `benchmarks/reports/2026-07-14-t1-gate.md`)
 - [x] T2 — **passed 2026-07-14** (Tier B 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51). **Live gap 2026-07-25: arm C 520.76 vs CaDiCaL 302.64 (07-23 pin) ≈ 1.72×** — down from 2.15× (2026-07-20) and 1.83× (overnight). Residual = search quality + 4 TOs (SCPC/128_125/T105/T87). Always re-measure CaDiCaL clean in-session before judging (§8.1); fresh 3-solver C array `20260725-054055-C-compare` in flight at last update.
+- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51). **Live gap 2026-07-25 late: tactix 401.17 vs CaDiCaL 317.51 same-window ≈ 1.26×** (was 1.72× that morning, 2.15× on 07-20; window `20260725-131*`, baselines slightly proof-handicapped — clean ratio ~1.3×). T105+T87 cracked; residual = SCPC/128_125 TOs + search quality (kissat 227.05).
 - [ ] T4 — **exceed** Kissat-public PAR-2 on Tier D via DefaultPolicy engineering (raised from parity, rev 49)
 - [ ] T5 — beat AE-Kissat-MAB PAR-2 on Tier D → competition submission
 
