@@ -307,6 +307,12 @@ Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-25 — review fix-now executed: items 6–10 + rev-69 API + two measured negatives (task #7 CLOSED)
+- binary_ids flat-map replacement: built, trajectory-identical, uniformly
+  ~1–3 % SLOWER (probe 1562428) → NOT adopted; §c item 3 closed as a
+  recorded negative (site comment banks it). GC cost: ≪1 % (probe
+  1562204) → §c item 2 closed as a recorded negative.
+
 ### 2026-07-25 — review fix-now executed: items 6–10 + rev-69 API (task #7)
 - `0e5ac25` flat counts + in-rule env pin deleted; `610a1a7` rev-69 stat
   ids 22–25 + config setters + contract test; items 7+8: the shared proof

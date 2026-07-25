@@ -293,6 +293,10 @@ struct Kernel {
   // V4 equivalence argument, not on permanence — see subsume_forward.hpp.
   uint64_t next_clause_id = 0;
   std::vector<uint64_t> unit_ids; // by var
+  // (A flat open-addressing replacement was built and A/B-measured
+  // 2026-07-25 — trajectory-identical but uniformly ~1-3 % SLOWER on
+  // crypto1/s055/mp1-LRAT, probe 1562428 — the map is not a bottleneck;
+  // review §c item 3 closed as a recorded negative.)
   std::unordered_map<uint64_t, uint64_t> binary_ids;
   // antecedent scratch (analyze, LRAT mode only): (trail position of the
   // literal the antecedent propagated, antecedent id). Emitted sorted by
