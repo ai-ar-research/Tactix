@@ -37,17 +37,28 @@ disagree, the plan is authoritative — fix this file.
   report §2: bound coupling (design §3.e REVERSED), removal-only retry
   marking, dosed-BVE delay. `TACTIX_NO_ARRANGEMENT=1` reverts to legacy.
 
-  **▶ NEXT STEP — the arm's residuals, then Track T:**
-  1. **B tail pair:** crypto1 70.8 (legacy 20.4) + mod4block 60.0 (legacy
-     13.8) — during-search-elimination trajectory effects (L2 class), the
-     campaign's "dose demand is instance-bimodal" pair. The delay and
-     removal-marking arms both failed on them (report §2) — needs a fresh
-     idea, likely per-instance dose gating the learned policy will own.
-  2. **C residual toward T3:** arm C 552.91 vs CaDiCaL 302.64 ≈ 1.83×
-     (was 2.15×). Ptn-7824 recovered (480 s); SCPC/128_125/T105/T87 still
-     TO. Legacy-C also regressed under dedup (475→538: Grain 387→832,
-     frb45 210→418) — the dedup's C side-effects deserve their own
-     probe pass before more scheduler work.
+  **✔ Residual pair FIXED (2026-07-25 morning, `1dbd439`): during-search
+  BVE doses are now density-gated (≥6 binaries/output-var, the Factor-gate
+  axis).** Post-dedup mp1 proved dose-insensitive (probe 1561900); the
+  pair was pure L2 trajectory damage. **Tier B 10.62 (14/14) — 1.29×
+  kissat 8.26, ahead of CaDiCaL 19.06 (fresh same-window pins,
+  `20260725-054054-B-compare`); Tier C 520.76 (26/30)** (Ptn 462→56,
+  urq45 325→169; em_11 93→183 is the known elimination-lover below the
+  gate — the recorded refinement candidate). kissat `--no-eliminate`
+  control (probe 1561949): mod4block hates elimination UNIVERSALLY
+  (kissat 18.5→4.5!) — the gate is policy kissat lacks; **crypto1 is the
+  true mechanism case** (kissat's elimination helps it 4.1 vs 9.2 where
+  ours hurt; our best 16.1) — a 10-agent study workflow + increment plan
+  is owed from the 2026-07-25 session (kissat gating/round-shape/
+  post-state lenses; check the session summary or re-run).
+
+  **▶ NEXT STEP:**
+  1. Land the BVE-tolerance study plan (crypto1 mechanism; em_11-class
+     gate refinement candidates fall out of the same study).
+  2. **C residual toward T3:** arm C 520.76 vs CaDiCaL 302.64 ≈ 1.72×
+     (was 2.15× yesterday). SCPC/128_125/T105/T87 still TO. Legacy-C
+     regressed under dedup (475→538) — probe pass owed if legacy path
+     is ever re-shipped.
   3. Then Track T as ordered below (TB5 first).
 
   **▶ Ordered work after S4:** Track T (Tier B tail: **TB5** propagation
@@ -414,6 +425,18 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-25 morning — residual pair fixed via BVE dose density gate; Tier B 10.62 = 1.29× kissat, beats CaDiCaL
+- `1dbd439`: during-search BVE doses density-gated (≥6, Factor axis).
+  crypto1 66.7→16.1, mod4block 60→13.6, mp1/battleship held; B 17.45→
+  **10.62** (fresh same-window: kissat 8.26, CaDiCaL 19.06), C 552.91→
+  **520.76**. Third sibling in the density family — placeholder for the
+  phase-6 learner.
+- kissat `--no-eliminate` control: mod4block anti-elimination is UNIVERSAL
+  (kissat 4× faster without); crypto1 is a genuine mechanism gap (kissat's
+  elimination helps where ours hurts) → study workflow owed.
+- Along the way: `TACTIX_NO_BVE_LEVEL` bisect knob (level pacing = 24 s of
+  the 57 s crypto1 regression; superseded by the gate).
 
 ### 2026-07-25 overnight — the mp1 gap MERGED (5.34 s vs kissat 9.09); S4 gate PASSED; arrangement default ON
 One overnight session, 6 commits (`1e50f73`..flip). Full story + all
