@@ -670,12 +670,30 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (e.dosed && r.instances && r.apply_instance) {
             if (!r.guard(k))
               continue;
-            // (A dosed-BVE adaptive delay was tried here and REVERTED —
-            // probe 1561190: mp1 5.5→15 s, its productivity is bursty and
-            // the delay skipped the doses that mattered; mod4block did not
-            // recover either. The churn fix is removal-only retry marking,
-            // kernel.cpp — kissat marks eliminate candidates on literal
-            // REMOVAL only, inline.h kissat_mark_removed_literal.)
+            // S4 residual fix (2026-07-25 morning, probe 1561900): a
+            // during-search BVE dose fires only on binary-DENSE formulas —
+            // the same axis and threshold as Factor's density short-circuit.
+            // Every measured dose-loser is sparse (crypto1 ≈ 3.0
+            // binaries/var: 70.8 → 15.95 s; mod4block ≈ 4.1: 60 → 13.19 s —
+            // both L2-class trajectory damage), while post-dedup mp1
+            // (≈ 103) holds 5.77 s with doses off entirely — its win is
+            // dedup + dosed Factor + composite. Dense Tier C instances
+            // (mp1-Nb5T15 10.0 s) keep their doses. A SELECTIVITY heuristic
+            // in the density-gate family (Factor 6, composite 50, this) —
+            // one shared axis, proper home the phase-6 learned policy.
+            // TACTIX_BVE_DOSE_DENSITY overrides (0 = dose everywhere).
+            // (Two earlier attempts banked in the gate report §2: the
+            // adaptive delay — mp1's productivity is bursty — and
+            // removal-only retry marking; neither recovered the pair.)
+            if (arrangement_ && e.retry_advice && k.stats.conflicts > 0) {
+              uint64_t dose_density = 6;
+              if (const char *dd = std::getenv("TACTIX_BVE_DOSE_DENSITY"))
+                dose_density = std::strtoull(dd, nullptr, 10);
+              if (dose_density &&
+                  k.binary_ids.size() <
+                      dose_density * kernel_num_output_vars(k))
+                continue;
+            }
             // BVE growth-slack RAMP (Track S · S1b, BveBoundPolicy): drive
             // k.bve_bound cheap-first over the sub-policy's passes (kissat
             // eliminate.c set_next_elimination_bound), so the non-growing
@@ -691,7 +709,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // LEVEL (see bve_level_ in the header) replaces the
             // all-levels-per-dose ramp — one pass per dose at the current
             // level; the level doubles below only when the dose completes.
-            const bool level_mode = arrangement_ && e.retry_advice && ramp;
+            // TACTIX_NO_BVE_LEVEL=1: A/B kill switch — fall back to the
+            // eager all-levels-per-dose S1c ramp inside arrangement doses
+            // (the arr5-era shape; crypto1 regression bisect 2026-07-25).
+            const bool level_mode = arrangement_ && e.retry_advice && ramp &&
+                                    !std::getenv("TACTIX_NO_BVE_LEVEL");
             const uint32_t passes = level_mode ? 1
                                     : ramp     ? ramp->num_passes()
                                                : 1;
