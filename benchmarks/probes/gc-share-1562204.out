@@ -1,0 +1,28 @@
+=== mp1B ===
+c conflicts   178335
+c otfs        417 strengthened (13 conflicts subsumed)
+c inprocess   5 phases
+c gc          57 collections, 15 Mwords walked
+s UNSATISFIABLE
+WALL 5.31 s
+=== Grain_no_init ===
+c conflicts   5557131
+c otfs        15942 strengthened (592 conflicts subsumed)
+c inprocess   21 phases
+c gc          214 collections, 283 Mwords walked
+s UNSATISFIABLE
+WALL 406.72 s
+=== asconhashv12 ===
+c conflicts   1603732
+c otfs        129124 strengthened (443 conflicts subsumed)
+c inprocess   13 phases
+c gc          141 collections, 519 Mwords walked
+s UNSATISFIABLE
+WALL 296.41 s
+=== mp1-Nb5T15 ===
+c conflicts   130941
+c otfs        767 strengthened (5 conflicts subsumed)
+c inprocess   4 phases
+c gc          26 collections, 11 Mwords walked
+s SATISFIABLE
+WALL 3.44 s

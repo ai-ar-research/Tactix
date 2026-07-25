@@ -36,11 +36,13 @@ disagree, the plan is authoritative — fix this file.
   **▶ NEXT STEP:**
   1. **Execute the BVE-tolerance plan** — LANDED frozen at
      `docs/design/bve-tolerance-plan.md` (increments I1–I8 with per-step
-     discriminating gates + 7 BINDING reviewer findings at the bottom;
-     start with I1 consuming the already-landed probes 1561950–52: kissat
-     eliminates 601 on crypto1 while HELPING — quantity exonerated,
-     scheduling indicted). Target: crypto1 16.1 → ~4 s class; em_11 (the
-     density gate's known false positive) falls out of the same work.
+     discriminating gates + 7 BINDING reviewer findings at the bottom).
+     **I1 DONE 2026-07-25** (probes 1562429/1562430 + landed 1561950–52;
+     see L10) — next is **I2** (`TACTIX_BVE_ONESHOT` on crypto1, in-probe
+     control arms per finding 4). Target: crypto1 16.1 → ~4 s class; em_11
+     (the density gate's known false positive) falls out of the same work.
+     I3's "density gate removable" branch is pre-weakened by L10 (kissat's
+     own admission doesn't skip mod4block).
   2. **C residual toward T3:** arm C 520.76 vs CaDiCaL 302.64 ≈ 1.72× (was
      2.15× two days ago). SCPC/128_125/T105/T87 still TO. Legacy-C regressed
      under dedup (475→538) — probe pass owed only if legacy is re-shipped.
@@ -90,6 +92,18 @@ disagree, the plan is authoritative — fix this file.
     A/B at equal concurrency counts; never compare across job counts. (The
     old 20.60–23.01 noise band was M3-era — re-establish bands on the cluster
     before trusting small deltas.)
+  - **L10 · The `--no-eliminate` control triad** (probes 1561949–52,
+    1562429–30): **mod4block damage is instance-intrinsic** — kissat pays
+    4.14× wall / 4.03× conflicts with its OWN admission gate scheduling
+    ~100% of candidates per call (763 eliminated, 9 calls) — no reference
+    solver has a defense; the density gate is ours alone. **crypto1 is
+    tactix-specific scheduling** — kissat eliminates 601 (≫ our 151)
+    while gaining 2.23×; quantity exonerated. **mp1 benefits kissat ~27%**
+    from elimination (NOT "barely moved"); our post-dedup insensitivity =
+    dedup+dosed-Factor already harvesting that value; sentinel envelope
+    5.4–5.8 s stands. Forced doses on mod4block: 34 eliminations /
+    3.53 M resolutions / 3.70× conflicts, candidate set never shrinks
+    (n≈350 across 30 doses) — the decline overhead I3/I7 target.
   - **L9 · During-search elimination is trajectory poison on binary-SPARSE
     instances and pays on dense ones** — "when to eliminate" is the measured
     lever, worth −7 B / −32 C PAR-2 from one crude feature (density ≥6), and
@@ -306,6 +320,17 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 — BVE-tolerance I1 CLOSED: trajectory-class confirmed; kissat has no mod4block defense
+- Probes 1562429 (kissat -s -v, both arms) + 1562430 (tactix 3-arm
+  same-window, finding-4 discipline): all four I1 discriminators resolved →
+  L10. Shipped gate = dose-off byte-identical on mod4block (455,682
+  conflicts both). Routing unchanged: I2 next (crypto1 decider); I3's
+  gate-removal branch demoted (kissat-analogy refuted); debug-performance
+  lane stays closed (damage is conflicts, not ticks).
+- Housekeeping: `benchmarks/probes/` tracking policy decided (plan §5.7):
+  fuzz-log convention — commit ONLY cited probes, delete uncited at
+  wrap-up (`benchmarks/probes/README.md`).
 
 ### 2026-07-25 — review fix-now executed: items 6–10 + rev-69 API + two measured negatives (task #7 CLOSED)
 - binary_ids flat-map replacement: built, trajectory-identical, uniformly

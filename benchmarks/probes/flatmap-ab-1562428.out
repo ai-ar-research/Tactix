@@ -1,0 +1,37 @@
+=== c1 BASE (plain) ===
+c conflicts   566404
+c otfs        1652 strengthened (151 conflicts subsumed)
+s SATISFIABLE
+WALL 15.74 s
+=== c1 NEW (plain) ===
+c conflicts   566404
+c otfs        1652 strengthened (151 conflicts subsumed)
+s SATISFIABLE
+WALL 16.05 s
+=== mp1 BASE (plain) ===
+c conflicts   178335
+c otfs        417 strengthened (13 conflicts subsumed)
+s UNSATISFIABLE
+WALL 5.33 s
+=== mp1 NEW (plain) ===
+c conflicts   178335
+c otfs        417 strengthened (13 conflicts subsumed)
+s UNSATISFIABLE
+WALL 5.37 s
+=== s055 BASE (plain) ===
+c conflicts   938705
+c otfs        884 strengthened (43 conflicts subsumed)
+s UNSATISFIABLE
+WALL 29.58 s
+=== s055 NEW (plain) ===
+c conflicts   938705
+c otfs        884 strengthened (43 conflicts subsumed)
+s UNSATISFIABLE
+WALL 30.37 s
+=== mp1 LRAT (binary-antecedent-heavy path) ===
+--- BASE ---
+s UNSATISFIABLE
+WALL 7.50 s
+--- NEW ---
+s UNSATISFIABLE
+WALL 7.77 s

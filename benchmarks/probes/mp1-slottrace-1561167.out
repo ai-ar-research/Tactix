@@ -1,0 +1,25 @@
+s UNSATISFIABLE
+=== BVE lines ===
+[slot] phase=1 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1000000
+[slot] phase=1 outer=1 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1000000
+[slot] phase=1 outer=2 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1000000
+[slot] phase=2 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1000000
+[slot] phase=2 outer=1 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1000000
+[slot] phase=3 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1007700
+[slot] phase=3 outer=1 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1007700
+[slot] phase=4 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1936500
+[slot] phase=4 outer=1 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1936500
+[slot] phase=5 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=3291600
+[slot] phase=5 outer=1 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=3291600
+[slot] phase=6 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=5856700
+=== phase 1 outer 0, all entries ===
+[slot] phase=1 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=1 meter=8764 limit=208764
+[slot] phase=1 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=1 outer=0 Probe enabled=1 defer=0 guard=1 dosed=1 meter=208956 limit=208764
+[slot] phase=1 outer=0 Strengthen enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=1000000
+[slot] phase=1 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=0
+[slot] phase=1 outer=0 SubsumeForward enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=1000000
+[slot] phase=1 outer=0 TransitiveReduce enabled=1 defer=0 guard=1 dosed=1 meter=0 limit=200000
+[slot] phase=1 outer=0 Vivify enabled=1 defer=0 guard=1 dosed=0 meter=208956 limit=1008764
+[slot] phase=1 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 meter=0 limit=1000000
+[slot] phase=1 outer=0 Factor enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=700000000

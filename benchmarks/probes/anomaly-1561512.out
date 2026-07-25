@@ -1,0 +1,13 @@
+=== A: EXTERNAL-deduped file, current binary, arr, both-OFF (1561180 gave 5.34) ===
+c conflicts   644971
+c otfs        2048 strengthened (81 conflicts subsumed)
+s UNSATISFIABLE
+WALL 15.22 s
+=== B: ORIGINAL file (parse-dedup), arr, composite ON ===
+c conflicts   178335
+c otfs        417 strengthened (13 conflicts subsumed)
+s UNSATISFIABLE
+WALL 5.34 s
+=== C: battleship, arr, composite ON (expect ~197 — reconfirm the conflict) ===
+s SATISFIABLE
+WALL 196.58 s
