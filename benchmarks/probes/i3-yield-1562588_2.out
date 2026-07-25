@@ -1,0 +1,13 @@
+### tierC/constraints_25_4_5_12_12_0_0_0.sanitized.cnf.xz
+=== shipped ===
+c conflicts   4814152
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+s UNSATISFIABLE
+WALL 356 s
+=== cadence-open ===
+c conflicts   3948124
+c factor      0 factorings
+c bve         0 rounds, 8052 eliminated, 7504832 resolutions
+s UNSATISFIABLE
+WALL 200 s

@@ -332,6 +332,21 @@ Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-25 — yield probes: NO runtime signal separates cadence winners from losers; admission is the learner's
+- Clean rerun (array 1562588; the first array 1562578 was CONTAMINATED —
+  array tasks clobbered a shared `$TMPDIR/inst.cnf`; outputs purged, hazard
+  banked in memory next to the build-race rule). Winners/losers overlap
+  completely on yield (310–51,876 vs 20–9,110 eliminated) and efficiency
+  (257–1,515 vs 161–1,052 res/elim). minxor/Grain WIN with conflicts UP
+  (+131 %/+9 % — formula-shrink throughput wins ⇒ conflict-rate proxies
+  misfire); mod2c LOSES +40 % conflicts from 20 eliminations (basin
+  reroll — no productivity signal can catch it). Conclusion: the drip
+  defect is FIXED (cadence knob); the admission decision is
+  demonstrably contextual → phase-6 learner, which now has the oracle
+  table (489.27) + 13 labeled instances as its exhibit baseline. No new
+  static gate attempted (L5). Routing: back to the dosing-independent T3
+  residuals (Track T).
+
 ### 2026-07-25 — I8 arrays complete: 3-arm B+C matrix, oracle 489.27 vs shipped 528.66; user baseline recorded
 - Report FROZEN `benchmarks/reports/2026-07-25-bve-dosing-arms.md`. Shipped
   loses to the bve-off CONTROL on C (528.66 vs 516.55) and only x9+9vliw

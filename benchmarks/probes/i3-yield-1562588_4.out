@@ -1,0 +1,13 @@
+### tierC/j3037_9_rggt_b.cnf.xz
+=== shipped ===
+c conflicts   835207
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+s SATISFIABLE
+WALL 103 s
+=== cadence-open ===
+c conflicts   544690
+c factor      0 factorings
+c bve         0 rounds, 8833 eliminated, 2270009 resolutions
+s SATISFIABLE
+WALL 51 s

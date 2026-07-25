@@ -1,0 +1,13 @@
+### tierC/mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2534.cnf.xz
+=== shipped ===
+c conflicts   4984595
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+s SATISFIABLE
+WALL 243 s
+=== cadence-open ===
+c conflicts   6974947
+c factor      0 factorings
+c bve         0 rounds, 20 eliminated, 21042 resolutions
+s SATISFIABLE
+WALL 359 s

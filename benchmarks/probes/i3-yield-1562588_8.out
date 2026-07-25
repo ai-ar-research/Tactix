@@ -1,0 +1,13 @@
+### tierC/af-synthesis_stb_50_120_4_sat.cnf.xz
+=== shipped ===
+c conflicts   925316
+c factor      16212 factorings
+c bve         0 rounds, 3608 eliminated, 775766 resolutions
+s SATISFIABLE
+WALL 83 s
+=== cadence-open ===
+c conflicts   1252638
+c factor      16219 factorings
+c bve         0 rounds, 3604 eliminated, 782167 resolutions
+s SATISFIABLE
+WALL 113 s
