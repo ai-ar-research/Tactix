@@ -711,6 +711,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // callers (API, RandomPolicy).
           const bool vivify_dose =
               e.meter && !e.dosed && !std::strcmp(r.name, "Vivify");
+          // kissat delay (see SlotEntry): in a during-search phase, a
+          // technique that keeps producing nothing skips exponentially many
+          // occasions. Vivify only for now — the measured arr3 residual.
+          if (vivify_dose && k.stats.conflicts > 0 && e.delay_count > 0) {
+            e.delay_count--;
+            continue;
+          }
+          const uint64_t tried_before = k.stats.vivify_checked;
+          const uint64_t produced_before =
+              k.stats.vivified + k.stats.vivify_deleted;
           if (vivify_dose) {
             // 0 would mean UNBOUNDED to the rule; a spent dose still grants
             // one tick so the round exits after its first candidate.
@@ -718,8 +728,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             k.vivify_tick_budget = remaining ? remaining : 1;
           }
           const ApplyResult ar = r.apply(k);
-          if (vivify_dose)
+          if (vivify_dose) {
             k.vivify_tick_budget = 0;
+            if (k.stats.conflicts > 0) {
+              // kissat vivify.c: vivified/tried < 1 % → bump, else halve
+              const uint64_t tried = k.stats.vivify_checked - tried_before;
+              const uint64_t produced =
+                  k.stats.vivified + k.stats.vivify_deleted - produced_before;
+              // tried == 0 counts as unproductive (kissat_average(0,0)=0)
+              if (tried == 0 || produced * 100 < tried) {
+                e.delay_current += (e.delay_current < UINT32_MAX);
+                e.delay_count = e.delay_current;
+              } else {
+                e.delay_current /= 2;
+                e.delay_count = e.delay_current;
+              }
+            }
+          }
           if (!e.meter) {
             e.binaries_mark = k.binary_ids.size();
             e.root_fixed_mark = kernel_root_fixed(k);

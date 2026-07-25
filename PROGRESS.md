@@ -444,6 +444,24 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
+### 2026-07-24 (night 4) — adaptive dosing increment 1: kissat's delay ported for Vivify
+- **Mechanism studied in the references first** (per plan §5): kissat
+  `kimits.c` delay {count,current} — skip a technique's next `current`
+  scheduled occasions after an unproductive run (bump +1 / halve on
+  success; both reset count), gating congruence (<0.1 % merged/active),
+  sweep (<0.1 %), vivify-irredundant (<1 % vivified/tried). CaDiCaL's
+  complementary adaptive lever (elim bound doubling on completion) is
+  already ours via the S1b/S1c ramp. Budgets stay permille-fixed in kissat;
+  adaptation controls FREQUENCY, not dose size.
+- **Ported for Vivify** (SlotEntry delay, consulted in during-search phases;
+  criterion vivified/tried < 1 % on `stats.vivify_checked` deltas, tried=0
+  counts unproductive per kissat_average). Policy state only — N1 untouched.
+- **Probes (vs arr3): goldcrest TO→330 s (HEAD parity), urq45 283→225,
+  trig 690→666, em 429→383.** ctest 31/31; fuzz 10,000/0 (arrangement).
+  em_11's residual is NOT Vivify (0 vivified across 9 rounds) — next
+  suspect is the probing family / phase overhead. Same-window B+C gate
+  arrays in flight.
+
 ### 2026-07-24 (night 3) — lite+dosed arm closes the day: during-search phases are a B superpower and a C liability
 - Runs `20260724-2024*`: **arrlite (KEEP_PREBVE) B 31.27 vs head5 36.20 —
   worse than pure deferral's 20.70** (preprocessing BVE re-overdoses crypto1

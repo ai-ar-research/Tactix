@@ -340,6 +340,16 @@ public:
     // repetition, keep the rule.
     uint64_t binaries_mark = 0;
     uint64_t root_fixed_mark = 0;
+    // kissat delay (kimits.c, ported for S4 adaptive dosing): after an
+    // UNPRODUCTIVE run in a during-search phase — kissat vivifyirr criterion,
+    // vivified/tried < 1 % — skip this entry's next `delay_current` scheduled
+    // occasions (bump: current += 1; productive run: current /= 2; both reset
+    // count = current). Backs a technique off the instances where its dose
+    // keeps buying nothing (the arr3 diffuse Tier C residual) while leaving
+    // it every-phase where it produces. Policy scheduling state only — the
+    // rule stays N1-applicable via the API throughout.
+    uint32_t delay_count = 0;
+    uint32_t delay_current = 0;
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
   bool arrangement_ = false; // S4 (TACTIX_ARRANGEMENT); set at slot build
