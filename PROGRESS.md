@@ -8,90 +8,50 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 67 (2026-07-24)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-24
-- **▶ RESUME HERE (2026-07-24).** Phase 3, **T3 gate open**. **The HPC
-  migration is COMPLETE** (Log 2026-07-23; plan revs 64/65): builds + tests
-  green, solvers/checkers verified, cache repopulated, shared history.
-  **Run everything per plan §8.1 + the slurm-jobs skill** — tier runs
-  `run.py --tier X --slurm`, fuzz legs `tools/fuzz/slurm.sh`, sbatch-only,
-  never srun-from-session. Old M3-Pro numbers are INVALID here — never
-  compare cluster ↔ M3-Pro.
+- **▶ RESUME HERE (2026-07-24).** Phase 3, **T3 gate open**. Cluster protocol:
+  everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
+  fuzz via `tools/fuzz/slurm.sh`, sbatch-only). M3-Pro numbers are INVALID —
+  never compare cluster ↔ M3-Pro (migration closed, Log 2026-07-23, revs 64/65).
+  Standing: `tr-n300-s055` misses its Tier A budget by the flat **TB5 1.40×
+  throughput gap** (not an anomaly; §8.1 sequencing: Tier B carries no decision
+  weight until s055 fits again — TB5 comes early in Track T). Baseline pins
+  (2026-07-24 windows): kissat B 8.2–8.3, kissat C 221.68, CaDiCaL C 302.64,
+  ceiling-8 confirmed. Still owed at T3 judgement: CaDiCaL clean SAME-window +
+  a fresh Tier B noise band. rev-66 nightlies GREEN at 400k-case scale
+  (Log 2026-07-24; logs committed).
 
-  **⚠ OPEN from the migration shakedown:** `tr-n300-s055` misses the Tier A
-  30 s budget on a dedicated core — solo 31.67 s vs kissat 22.62 s = **1.40×
-  ≈ the standing TB5 throughput gap, not an anomaly**. Margin-rule follow-up
-  (fidelity levers, no Tier-A constant tuning); per the §8.1 sequencing rule
-  Tier B timings carry no decision weight until s055 fits its budget again —
-  one more reason TB5 comes early. (The other shakedown finding — battleship's
-  toolchain trajectory divergence — was RESOLVED 2026-07-24: det fix +
-  density 6, Tier B 14/14; Log + report.) Current pins: Tier A 199/200 @
-  0.78; **Tier B 14/14 @ 32.23 vs kissat 8.28** (2026-07-24 window).
+  **▶ NEXT STEP — Track S · S4, two live threads:**
+  1. **(TOP PRIORITY, user directive 2026-07-24 late) Factor gets kissat's
+     exact dosing** — own tick meter (`factor_ticks`, cache-line units),
+     ~700M-tick initial allowance + 50‰ effort after, mid-round quit,
+     factor-LAST ordering, composite ON, uniform budget handoff in
+     DefaultPolicy (generalize `vivify_tick_budget`) — to crack
+     **mp1-blockpuzzle (74 s vs kissat 9, the dominant Tier B tail)**.
+     Design pass in flight → `docs/design/s4-factor-dosing-design.md`
+     (kissat evidence: factor.c metering/quit, options.h constants,
+     probe.c factor-last order; our S2a/S2b negatives must not be
+     re-proposed). Kissat mp1 profile probe: `benchmarks/probes/
+     kissat-mp1-profile2-*.out` (answers the missing-rule question — V5
+     Sweep is the one candidate rule we lack).
+  2. **S4 gate state:** mechanism complete behind `TACTIX_ARRANGEMENT`
+     (default OFF, byte-identical; commits `c30a10d`→`0510177`). After the
+     adaptive-dosing increments (kissat delay + tier split), **Tier B
+     arr5 = 18.16, 2.2× kissat 8.18, beats kissat on battleship 1.4 s +
+     summle** — and probes recovered em/goldcrest/urq/mod4block/qwh on C.
+     **Tier C same-window verdict (head7/arr5, runs `20260724-2213*`)
+     pending — judge it, then either flip the default (gate = B+C as one
+     unit) or iterate the C residual** (watch the Ptn/SCPC class: they
+     want heavier Vivify than the fixed budget gives). Also owed: a
+     stress-policy pass driving Factor mid-stable (hardens the heap fix,
+     `heuristics.cpp`).
 
-  **▶▶ RE-BASELINE — partially done, remainder owed with the first gate-grade
-  runs:** kissat Tier B pinned (8.20, above). Still owed: **CaDiCaL clean on
-  Tier C** (same window as any T3 judgement), the **ceil-8 vs ceil-16 Tier C
-  head-to-head** (M3 banked ceil-8 279.09/29 vs kissat 108.84/30; the ceil-16
-  arm never ran — settles whether `DefaultBveBoundRamp::ceiling()` stays 8),
-  and a fresh Tier B noise band (repeat same-shape runs) before any "beats
-  noise" claim.
-
-  **▶ NEXT STEP (2026-07-24 night): S4 mechanism COMPLETE, gate NOT met —
-  the next lever is adaptive dosing.** The full arrangement (probing family
-  in the slot, BVE deferred out of preprocessing, NLOG2N during-search
-  phases, Vivify tick budget `Kernel::vivify_tick_budget`, new-material
-  gating for the unmetered closures — commits `c30a10d`/`e17c76b`/`ce39e66`,
-  all behind `TACTIX_ARRANGEMENT`, default OFF and byte-identical) measured
-  over 4 same-window B+C arm pairs (Log night 1–3):
-  **deferral+dosed wins Tier B 20.70 vs HEAD 32.37 (−36 %, battleship
-  197→1.4 s BEATS kissat, FmlaEquiv 62→23); every during-search arm loses
-  Tier C +33–41 % (best 676.73 vs 480.39); Tier C's best stays lite =
-  probing-at-preprocessing only (441.03, `TACTIX_SLOT_ENABLE=Probe,
-  Backbone,TransitiveReduce,Vivify`).** Blocker, precisely characterized:
-  **dose demand is instance-bimodal** — Ptn-7824/SCPC-1000-18 are cracked
-  ONLY by the unbounded Vivify blast that TOs urq45/mod2c/Grain; mp1-Nb5T15/
-  mod4block want early BVE that overdoses crypto1. A fixed permille or
-  composition cannot serve both. **Options for next session (pick one):**
-  (a) adaptive per-instance dose feedback (grow a technique's budget when
-  its doses keep producing, kissat-style success scaling); (b) ship the
-  B-winning deferral arm mode-gated (e.g. arrangement only when the
-  formula/search profile matches its winner class — risky, no static
-  separator per L5); (c) route to the phase-6 arm surface (arrangement
-  on/off IS a slot arm — the learned policy's job). Also owed: the latent
-  mid-stable heap fix (`heuristics.cpp`) is N1-relevant beyond S4 — a
-  stress-policy pass driving Factor mid-stable would harden it
-  (stress-policy skill). (Battleship RESOLVED overnight 2026-07-24 — **Tier B
-  14/14 @ PAR-2 32.23**, det fix + density 6, Log + report. Tier C
-  re-baseline DONE: ceiling-8 confirmed, fresh pins kissat 221.68 / CaDiCaL
-  302.64, T3 gap ≈ 1.45×. S2a Increments 1+2 landed; Increment 3 is now
-  UNBLOCKED.) The Tier B tail, worst-first, all vs kissat same-window:
-  The Tier B tail is now FULLY DIAGNOSED (each has a routed owner):
-  **mp1 61 s AND battleship 184 s residual → S4, the target arrangement**
-  (S2b closed 2026-07-24: every non-arrangement Factor lever measured dead —
-  kissat's advantage on both instances is small tick-dosed factor/eliminate
-  rounds interleaved with search, vs our single preprocessing blast);
-  **FmlaEquiv 55 s + x9 30 s → the SEARCH-QUALITY track** (FmlaEquiv is 3.5×
-  raw-search kissat in conflicts at props/conflict parity — Log 2026-07-24;
-  work the Track T suspects: TB4b chrono completion, TB6 mode cadence,
-  minimization depth, retention); **TB5 counter split** stands alone (the
-  s055 Tier A budget miss; sites `kernel.cpp:496/562/622`). Tier C adds
-  **SCPC-1000-18** (CaDiCaL 25 s, we TO — undiagnosed; debug-performance
-  before T3).
-  **First rev-66 nightlies GREEN (2026-07-24): 200,000 cases × native-DRAT
-  (job 1559957) + 200,000 × native-LRAT (1559958) under `--random-policy` on
-  the battleship-fix binary — 0 failures, corpus 7/7 both** (logs
-  `tools/fuzz/slurm-nightly-{drat,lrat}-*.log`, committed). The full
-  overnight stack (determinism, congruence iteration, density 6, S2a
-  surface) is soaked at 20× the old nightly scale.
-
-  **▶ Ordered work below** — Track T (Tier B tail: **TB5** search-only propagation
-  throughput [split `stats.propagations`, sites `kernel.cpp:496/562/622`, mirror the
-  `inprocess.ticks` split at `default_policy.hpp:303`], TB2/TB6, …), Track S (the
-  effort scheduler + **S4 = kissat's full no-preprocessing-BVE + in-search
-  elimination**, the big arrangement goal — gated as ONE unit on Tier B+C because
-  each half measures worse alone, L1/L2), then the **T3 gate**. Standing lessons
-  **L1–L8** + non-negotiables status follow. Recently completed (Log/commits):
-  Track C (congruence unit channel), Track H (`H` out of the kernel), Track S ·
-  S1b/S1c (BVE growth-slack ramp, ceiling 8). Independently available: **V5 Sweep**
-  (needs the kitten sub-solver, plan O11).
+  **▶ Ordered work after S4:** Track T (Tier B tail: **TB5** propagation
+  counter split [sites `kernel.cpp:496/562/622`], TB4b chrono completion, TB6
+  mode cadence, TB2 x9 — FmlaEquiv/x9 are the diagnosed pure-search residuals),
+  then **T3 gate** (CaDiCaL same-window + noise band first). Independently
+  available: **V5 Sweep** (kitten sub-solver, plan O11) — promoted if the mp1
+  profile shows kissat leans on sweep. Recently completed: Track C (congruence
+  unit channel), Track H, S1b/S1c ramp, S2a/S2b (all closed; Log + design docs).
 
 
 - **Standing lessons — measured, do not re-derive.** (Detail in the commits and
@@ -275,7 +235,6 @@ Vivify, Backbone, TransitiveReduce} disabled as SAT-disruptive (L2/L3).
 - [x] **Canonical BATCH fuzz + revisit-codebase review + N1/N2/N3 audit** (2026-07-15) — random policy proof-checks every canonical batch in both formats; non-negotiables UPHELD. **Deferred action-item backlog lives in `benchmarks/reports/2026-07-15-codebase-review.md`** (#10/#11 profile, #15–#17 slot, #19 E1, #20–#23 learner-readiness, #25 phase-6 reward).
 - [x] **Nightly GREEN on the C4 binary (`3ae592e`, 2026-07-22): 20 000 cases, 0 failures, corpus 7/7** (SAT 11 357 / UNSAT 8 238 / TO 405). Log `tools/fuzz/nightly-rev59-lrat.log`. **Read the leg precisely:** `run.sh --nightly` puts `--lrat` on the HARNESS, not the solver, so this leg is the **DRAT path** plus a drat-trim→lrat-check conversion check. It does not exercise C4's new native-LRAT code.
 - [x] **Congruence-stress nightly GREEN — 10 000 cases, 0 failures, corpus 7/7** (SAT 6 206 / UNSAT 3 678), log `tools/fuzz/nightly-rev59-congstress-lrat.log`. The V6 *refutation* path at scale under native LRAT — machinery that did not exist before C3/C4, previously covered by only 600 cases.
-- [ ] **Random-policy nightly NOT DONE for this binary** — legs were started (DRAT + native LRAT, 10 000 each) and **killed at 5 200/10 000, 0 failures**, by user request; their logs carry a KILLED marker and must not be cited as results. So N1-schedule coverage of C4 currently rests on the smaller legs (random-policy native LRAT 1000/0, congruence-stress 600/0 under ASan) plus the 10k congruence-stress leg above. **This is the one gap worth closing** if C4 is to be trusted the way corpus 004/005/006 taught us to trust things: those three bugs were all found by the uniform random policy, and it is the only leg that crosses free N1 schedules with C4's replayed chains.
 - [x] **Native-LRAT nightly GREEN — 20 000 cases, 0 failures, corpus 7/7** (SAT 11 356 / UNSAT 8 234 / TO 410), log `tools/fuzz/nightly-rev59-native-lrat.log`. **This is the leg that gates C4**, since D-CONG-LRAT's chains exist only on that path. Its verdict split is near-identical to the DRAT leg's (11 357 / 8 238 / 405) with the entire difference in timeouts — i.e. **both paths now draw the same inferences**, and the LRAT path only loses borderline cases to its extra proof work. That equality is the ungating working, measured at 20k scale.
 - [x] **Nightly random-policy fuzzing green** — last full pass 20 000/0 (`tools/fuzz/nightly-rev48.log`); earlier passes rev-31/rev-35 (logs in `tools/fuzz/`). **Lesson: nightly scale (10k) catches what `--quick` (≤2k) misses** — the rev-34 and rev-43 nightlies each found a real bug (corpus 006, corpus 007) that `--quick` had passed.
 - [x] **Proof-rule calculus formalized** (rev 36) — `docs/calculus.md` (all rules' abstract precondition/effect/proof-δ/soundness) + `docs/implementation-notes.md` (implemented guards + engineering-deviation ledger) + the `calculus` skill. Guards must be pure abstract preconditions per N1.
@@ -323,7 +282,6 @@ frozen v1 API — hence one registry with a `kind` field, not two id spaces.
 - [x] **H5 · `H` is OPTIONAL — DONE** (the payoff of rev 60). A solver with `k.h == nullptr` is sound, just unguided. `kernel_backtrack` dispatches `k.h ? impl<true> : impl<false>` (the `<false>` instantiation drops every hook via `if constexpr`); `kernel_reserve_vars` grows `H` only `if (k.h)`; `heuristics_check` no-ops without `H`. **Decide → index order** (lowest-index unassigned, positive phase — N1); analyze skips the bump (still clears SEEN/analyzed); restart takes a full restart; **Rephase/SwitchMode guards now require `k.h != nullptr`** (a pure precondition of an `H`-only policy op, §5). `--no-heuristics` (main) detaches `H` for testing — DefaultPolicy still requires `H` (main errors unless `--random-policy`). **Ownership stayed with Kernel** (unique_ptr, resettable) — a documented deviation from the plan's "session/policy owns `H`": that move is only needed when a policy VARIES `H` (phase-6), and optionality is fully delivered without it. **Bug found + fixed:** `main.cpp`'s stats print and `api.cpp`'s `TACTIX_STAT_STABLE` derefed `h` unguarded. Gate: h-present path bit-exact (DefaultPolicy proof byte-identical; default fuzz 1000/0); null-`H` path `test_no_heuristics` + `--random-policy --no-heuristics` fuzz **500/0 under ASan** (proof-checked); ctest 31/31. **M.**
 - [x] **H6 · relocate the policy ops — DONE (the relocation half; bit-exact).** `src/rules/{rephase,switchmode}` → `src/policies/ops/{rephase,switchmode}/` (`git mv`; includes + CMake updated; proof byte-identical). Plan rev 63 extended §5.3: a policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`. **The sub-policy SUPER-CLASS is deliberately DEFERRED** (`subpolicy.hpp` umbrella, reparenting `BranchingPolicy`/`ReductionPolicy`, the `RestartLevel`/`BackjumpTarget` Choosers + `Bump`/`PhaseSave`/`TargetBest` Hooks) — it is the arm-dispatch scaffolding, and per §5 there is no 2nd arm yet, so building it now is premature generality (§5.5). It lands with the first real arm (phase 6 / AE-Kissat-MAB); the category acceptance test is **S6 Walk under the `src/policies/ops/` diff shape**. **S/M.**
 - [x] **H7 · `H` OWNERSHIP out of the kernel — DONE (bit-exact; user-directed 2026-07-23).** Completes the move H5 deferred. `Kernel` holds a **non-owning `Heuristics *h = nullptr`** (default = unguided); no `unique_ptr`/ctor/dtor/`<memory>` — the kernel allocates/owns nothing `H`-related. Owners attach it: the **session** (`tactix_solver` holds a `Heuristics` member + attaches in its ctor; `main` a local, before parse) for the stepping surface + incremental state; and **DefaultPolicy self-attaches its own** (`optional<ScopedHeuristics>` when `!k.h`) so a bare `default_solve(k)` works — the "policy owns its guidance" model (§5). `ScopedHeuristics` (heuristics.hpp) is an RAII owner that attaches + **sizes** a fresh `H` to `k.nvars` (making attach-at-solve bit-identical to `H`-from-parse) and detaches on scope exit; tests attach one per `Kernel` (34 guards). **PERFORMANCE VERIFIED — no regression:** the current binary is **byte-identical in trajectory** (verdict + conflicts + decisions + propagations + ticks) to the pre-Track-H binary (`95b5740`) on **all 200 Tier A + all 14 Tier B instances** (0 mismatches), and wall-time is within noise on both tiers (Tier A PAR-2 0.73 vs 0.73, 199/200, byte-identical 174.6 MB proofs; Tier B PAR-2 16.93 vs 16.90, 14/14 — a 0.18 % delta vs the ~20.6–23.0 noise band, L6). Adversarial review APPROVED (0 findings; independently proof-byte-verified 49 instances incl. SAT/stable/rephase + mid-solve extension-var growth). ctest 31/31 (release + ASan); fuzz default 1000/0 + null-`H` 500/0. **M.**
-- **Deliberately NOT in this refactor** (design §6): threading `Heuristics&` through every rule signature (~210 edits, unused param on 13 rules — the `Kernel::h`/`dense`/`proof` idiom already gives the capability); a virtual `HeuristicPolicy` (one implementation = §3 granularity trap; add static arm-dispatch when a 2nd arm exists); moving `Stats`/`bve_retry`/`bve_gate_mask` into `H`. **Sequencing:** H0/H1/H6 safe any time; H2–H5 want a quiet tree and are textually incompatible with in-flight kernel work — do them as a coherent unit before resuming Track S.
 
 
 ### ▶ Track T — the Tier B tail (items **TB1–TB6**; the bare `T1`–`T5`
@@ -363,29 +321,25 @@ why none of them needs a trade-off against the others.
 
 ### ▶ Track S — the effort-budgeted scheduler's target arrangement (after Track C)
 
-- [x] **S1 · DONE — L7 refuted, and the answer redirects Track S.** Instrument `775eefc`, results in L7 above. Time tracks **conflicts** (r = +0.99), not phase count (r = +0.01) and not resolvent work (r = −0.04). Consequences: (a) the "fewer/cheaper phases" direction is dead; (b) the interval is the wrong control variable, since the damage is chaotic in it; (c) **`crypto1` is insensitive to the interval — its 3.8 s needs the growth-slack RAMP, which is a separate knob and now the concrete next experiment**; (d) S4's premise survives, because moving elimination *into* the search loop is precisely an attempt to stop perturbing the trajectory rather than to perturb it less often.
-- [x] **S1b · BVE growth-slack ramp** — kissat cheap-first `set_next_elimination_bound`, ON by default; landed as the first `SubPolicy` (`BveBoundPolicy`/`DefaultBveBoundRamp`, `src/policies/subpolicy.hpp`, un-defers H6). Tier B PAR-2 17.07 → 16.44 (`a36b4c2`, Log 2026-07-23). Refined by S1c.
-- [x] **S1c · needed-bound cache + ramp ceiling 16→8** — the efficient ramp now beats flat fixed-`bound=8`. Tier B PAR-2 16.44 → 15.08 (crypto1 6.2 s, FmlaEquiv 44→25 s); Tier A 200/200 @ jobs=4; fuzz 0/4 legs; review APPROVED. Lesson: the ramp's crypto1 win was the effort-dose cap acting as an *accidental governor*, not cheap-first — the ceiling was the real lever ([[accidental-governor-trap]]). `489fab1`, Log 2026-07-23. **Tier C ceiling re-sweep DONE (cluster, 2026-07-23 — Log): ceil-8 439.72 vs ceil-16 449.62, both 27/30, same window ⇒ ceiling stays 8.** Owed: Tier D re-sweep (gate-time); TB5 counter-split.
-- [x] **S2a · Factor grid-selection → `FactorMatchPolicy` — COMPLETE, quality target NOT reached (as the design § 2b allowed).** Increment 1 ✅ bit-exact extraction; Increment 2 ✅ adversarial stress (16.5k cases 0 failures; `factor_stress_policy` kept); **Increment 3 ✅ 2026-07-24: the tie-break steering hypothesis is DISCONFIRMED** — mp1's 27×27 grid cap is invariant under three tie orders; proxy default 1.37 M / paths 1.31 M / sparse 2.43 M vs kissat-native 305 k, so nothing ships (design §4 bar); `paths` shelved behind `TACTIX_FACTOR_MATCH`. Log 2026-07-24 + `TACTIX_GRID_TRACE` surface. **The width gap's live hypothesis moved to S2b.**
-- [x] **S2b · composite grids — mechanism landed (default OFF), quality hypothesis DISCONFIRMED (2026-07-24).** Design + verdict frozen in `docs/design/s2b-composite-grids-design.md`: the anti-self-factoring boundary was never soundness-load-bearing (delta ≥ 1 is monotone; the real constraint was scratch sizing), and within-pass composition WORKS (mp1 940 → 1,834 grids, `TACTIX_FACTOR_COMPOSITE=1`) — but the proxy REGRESSES 1.37 M → 2.18 M in a single blast (L4's U-shape, Factor edition), the 27×27 cap survives a 4th mechanism, and the 22×64 width target is judged an instrumentation artifact. **mp1's one remaining lever = S4** (kissat: 855 factored vars over 16 tick-dosed rounds interleaved with eliminate+search vs our one blast; tie-breaks/composition/accept/scope/dedup ALL measured dead). Composite stays available for S4's small doses.
-- [x] **S2 · probing rules re-measured (2026-07-24, cluster, det-fix/density-6 binary)** — five same-window Tier B arms via the new `TACTIX_SLOT_ENABLE` knob, all **14/14**: HEAD 31.75, +Probe 32.67, +Backbone 31.88, +TransitiveReduce 31.86, **+Vivify 31.41** — every flip within noise. **The historical SAT-disruption is GONE** (P2 + det-fix + density-6 changed the landscape; Vivify was +15 % on M3, now neutral-to-positive) — but no standalone win either: exactly the L1/L2 shape that gates S4 as one unit. Default composition unchanged; runs `20260724-0825*-B-s2*`.
-- [x] **S3 · P2's owed follow-ups — DONE 2026-07-24** (`2ed8bcc`): `probing_stress_policy` (kept as the durable P2 stress axis) — the probing family in seed-random order at every root, dense scope open/close cycles reused by search, per-step invariants; **16,500 adversarial cases × {DRAT, native LRAT} × 3 seeds, 0 failures**, corpus 7/7. Snapshot + restore traffic now charged to `stats.ticks` (cache-line unit) so the ledger meters P2's overhead.
-- [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing *plus* probing simplifying the formula and elimination moved into the search loop. Built behind the slot's `enabled` flags with today's composition as the default; gated on Tier B+C together (an explicit, recorded exception to §8.3 per-increment gating, because each half measures worse alone — L1/L2).
-  **During-search firing WIRED 2026-07-24 pm** (the first arms had silently
-  measured no-BVE — see Log): `update_inprocess_limit` now takes the
-  increment-2 growing interval (NLOG2N, size-scaled) under `arrangement_`;
-  default path byte-identical. Validation: ctest 31/31; fuzz quick 10,000/0
-  under `TACTIX_ARRANGEMENT=1`; probe **mp1-Nb5T15 TO→~1 s** (2 during-search
-  phases, 3,374 BVE eliminations mid-search, 35k conflicts). **First
-  same-window B+C measurement (runs `20260724-1711*`, Log evening entry):
-  B even (32.54 vs 33.42; battleship 197→1.4 s BEATS kissat), C loses
-  (868.48 vs 537.30, 22/30 vs 26/30) on diffuse per-phase cost — the
-  unmetered rules (Congruence/Factor/Substitute) + unbounded Vivify re-run
-  every during-search phase. **Cost attributed + DOSED + measured over 4
-  same-window arm pairs (Log night 1–3): B won −36 % by deferral+dosed
-  (20.70), C lost by every during-search arm (+33–41 %) — gate NOT met;
-  blocker = instance-bimodal dose demand (see the resume anchor). Also
-  fixed the latent mid-stable heap bug Factor's extension vars exposed.**
+- [x] **S1 · L7 refuted** — time tracks conflicts (r=+0.99), not phase count (r=+0.01) nor resolvent work; interval is the wrong control; lesson table in L7. `775eefc`.
+- [x] **S1b · BVE growth-slack ramp** (first `SubPolicy`, `src/policies/subpolicy.hpp`) — Tier B 17.07→16.44. `a36b4c2`.
+- [x] **S1c · needed-bound cache + ceiling 8** — Tier B 16.44→15.08; ceil-8 vs 16 settled on cluster (439.72 vs 449.62); lesson: the ceiling was an accidental governor, not cheap-first ([[accidental-governor-trap]]). `489fab1`. Owed: Tier D re-sweep at gate time.
+- [x] **S2a · FactorMatchPolicy — steering DISCONFIRMED** — 27×27 grid cap is tie-order-invariant (structural); `paths` −4 % shelved (`TACTIX_FACTOR_MATCH`); proxy pins: kissat-on-our-dump 1.37 M vs native 305 k. Log 2026-07-24 + design doc.
+- [x] **S2b · composite grids — mechanism landed (default OFF), single-blast hypothesis DISCONFIRMED** — composition fires (940→1,834 grids) but proxy regresses (L4 U-shape); every non-arrangement mp1 lever now dead; composite reserved for S4 doses. `docs/design/s2b-composite-grids-design.md`.
+- [x] **S2 · probing rules re-measured on cluster — all five flips within noise; historical SAT-disruption GONE** (runs `20260724-0825*`); the L1/L2 shape that gates S4 as one unit.
+- [x] **S3 · P2 follow-ups** — `probing_stress_policy` (16,500 adversarial cases × 2 formats × 3 seeds, 0 failures); snapshot traffic charged to `stats.ticks`. `2ed8bcc`.
+- [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing + probing first + elimination in the search loop; behind `TACTIX_ARRANGEMENT` (default OFF); gated on Tier B+C together (recorded §8.3 exception; L1/L2).
+  **Status 2026-07-24 night (Log campaign entry):** mechanism COMPLETE incl.
+  adaptive dosing (kissat delay + tier split); **B won: arr5 18.16 vs kissat
+  8.18, beats kissat on battleship+summle; C same-window verdict pending
+  (`20260724-2213*`)**. Latent mid-stable heap bug found+fixed en route.
+  **Next increment (TOP PRIORITY, user directive): kissat-exact Factor dosing
+  — design frozen in `docs/design/s4-factor-dosing-design.md`** (uniform
+  `Kernel::work_budget`, `stats.factor_ticks` cache-line currency, 50‰ +
+  700M-init allowance, factor-LAST order, composite ON, bound coupled to the
+  S1b ramp; 4 gated increments). **mp1 needs NO missing rule** — kissat's
+  sweep produces 0 there (profile `benchmarks/probes/kissat-mp1-profile2-*`).
+
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`.
 
 ### Other phase-3 items
@@ -444,154 +398,40 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
-### 2026-07-24 (night 5) — delay fidelity fix: kissat's tier split (redundant always, irredundant delay-gated)
-- **The whole-round delay regressed Tier B (arr4 61.51: mod4block TO, qwh
-  3×)** — kissat's delay gates only the IRREDUNDANT vivify pass; tiers 1–3
-  (learned) always run within their shares (options.h: irr 3 / tiers 7).
-  Ported faithfully: `Kernel::vivify_scope` config (0 all / 1 redundant /
-  2 irredundant; same soundness class as `vivify_tick_budget`) + the policy
-  runs two scoped applies per phase — redundant at 7/10 budget always,
-  irredundant at 3/10 delay-gated with the ratio on its own stats deltas.
-- **Probes: BOTH sides hold — mod4block TO→25 s, qwh 44→12, em_11 383→75
-  (near HEAD 61 — its cost WAS the unproductive irredundant pass),
-  goldcrest 328 kept, urq45 291.** ctest 31/31; fuzz 10,000/0. Same-window
-  B+C arrays in flight (head7/arr5).
+### 2026-07-24 — Track S · S4 campaign (one day, 8 commits): mechanism complete, B won −36 %, C verdict pending
+Consolidated from seven same-day entries; full detail in the cited commits.
+- **Correction that started it (`53adb79`):** the first "deferral" arm never ran
+  BVE at all (`update_inprocess_limit` parked at UINT64_MAX; no during-search
+  phase ever fired) — the true arrangement was unmeasured. Wired the NLOG2N
+  growing interval under `arrangement_` (`c30a10d`); probe mp1-Nb5T15 TO→~1 s.
+- **First true gate (`299684b`):** B even (arr 30.59-ish band), battleship
+  197→1.4 s (beats kissat); C 868 — diffuse per-phase cost. Attribution probes
+  (em/urq/frb × disable arms): **Vivify's unbounded round = dominant killer;
+  unmetered closures re-running every phase = second; Congruence load-bearing
+  on urq45** (remove it → TO).
+- **Dosing (`e17c76b`):** `Kernel::vivify_tick_budget` + new-material gating
+  for unmetered rules; **found + fixed the latent mid-stable heap bug** (vars
+  created in stable mode never joined the score heap → Factor extension vars
+  drain it → segfault; any N1 policy could trigger; ASan-verified).
+  Gate: **B 20.70 vs HEAD 32.37 (−36 %)**, C 676.73 vs 480.39 — the budget
+  took back Ptn/SCPC (unbounded-blast trophies) while recovering urq/mod2c/
+  Grain ⇒ **dose demand is instance-bimodal**.
+- **lite+dosed arm (`ce39e66`):** KEEP_PREBVE loses both tiers — during-search
+  phases are a B superpower and (then) a C liability; lite (probing-at-
+  preprocessing only, `TACTIX_SLOT_ENABLE=Probe,Backbone,TransitiveReduce,
+  Vivify`) stayed C-best at 441.
+- **Adaptive dosing (`143b320`, `0510177`):** ported kissat's delay (kimits.c;
+  bump +1 / halve, count=current) — whole-round delay regressed B (mod4block
+  TO); **fidelity fix = kissat's tier split** (`Kernel::vivify_scope`:
+  redundant tiers always at 7/10 budget, irredundant 3/10 delay-gated at
+  <1 % vivified/tried). Probes held BOTH sides (mod4block TO→25 s, em
+  383→75 ≈ HEAD, goldcrest/urq kept). **arr5 Tier B 18.16 (2.2× kissat
+  8.18; beats kissat on battleship + summle; tail = mp1 8.2× + the flat
+  2–3× search/throughput class).** C same-window verdict pending
+  (runs `20260724-2213*`).
+- Validation across the day: ctest 31/31 ×5; fuzz 6 legs × 10,000 cases, 0
+  failures (logs `tools/fuzz/slurm-arr*-quick-*.log`, committed).
 
-### 2026-07-24 (night 4) — adaptive dosing increment 1: kissat's delay ported for Vivify
-- **Mechanism studied in the references first** (per plan §5): kissat
-  `kimits.c` delay {count,current} — skip a technique's next `current`
-  scheduled occasions after an unproductive run (bump +1 / halve on
-  success; both reset count), gating congruence (<0.1 % merged/active),
-  sweep (<0.1 %), vivify-irredundant (<1 % vivified/tried). CaDiCaL's
-  complementary adaptive lever (elim bound doubling on completion) is
-  already ours via the S1b/S1c ramp. Budgets stay permille-fixed in kissat;
-  adaptation controls FREQUENCY, not dose size.
-- **Ported for Vivify** (SlotEntry delay, consulted in during-search phases;
-  criterion vivified/tried < 1 % on `stats.vivify_checked` deltas, tried=0
-  counts unproductive per kissat_average). Policy state only — N1 untouched.
-- **Probes (vs arr3): goldcrest TO→330 s (HEAD parity), urq45 283→225,
-  trig 690→666, em 429→383.** ctest 31/31; fuzz 10,000/0 (arrangement).
-  em_11's residual is NOT Vivify (0 vivified across 9 rounds) — next
-  suspect is the probing family / phase overhead. Same-window B+C gate
-  arrays in flight.
-
-### 2026-07-24 (night 3) — lite+dosed arm closes the day: during-search phases are a B superpower and a C liability
-- Runs `20260724-2024*`: **arrlite (KEEP_PREBVE) B 31.27 vs head5 36.20 —
-  worse than pure deferral's 20.70** (preprocessing BVE re-overdoses crypto1
-  51.7 and does NOT rescue mod4block 153.8); **C 24/30 @ 696.00 vs head5
-  26/30 @ 524.06 — does NOT recover lite's 441** (goldcrest/T105 TO,
-  jgiraldez +786, trig-bhaskara +526; but DLTM −183, frb45 −101). Fuzz
-  10,000/0 (`slurm-arrlite-quick-1560949.log`).
-- **Day's verdict (each arm vs its same-window HEAD): deferral+dosed wins
-  Tier B −36% (20.70, first Tier-B-band win); every during-search arm loses
-  Tier C +33–41%; Tier C's best remains lite = probing-at-preprocessing
-  only (441). The one-unit B+C gate is NOT met.** The blocker is now
-  precisely characterized: the dose demand is instance-bimodal (Ptn/SCPC
-  want the unbounded Vivify blast that kills urq/mod2c/Grain; mp1-Nb5T15/
-  mod4block want early BVE that overdoses crypto1) — a fixed permille/
-  composition cannot serve both. That is the adaptive/per-instance shape
-  (effort feedback, or the phase-6 arm surface).
-
-### 2026-07-24 (night 2) — dosed gate: Tier B −36% (20.70!), Tier C still behind — the dose trades Ptn/SCPC for urq/mod2c
-- Same-window arrays `20260724-1935*` (HEAD vs dosed arrangement):
-  **Tier B: arr3 14/14 @ 20.70 vs HEAD 32.37 — the first Tier-B-band win of
-  the whole S4 campaign** (battleship 1.5 s, FmlaEquiv 23.1, summle 9.8;
-  residuals mod4block 54 vs 14, mp1-blockpuzzle +20, 9vliw +8).
-  **Tier C: arr3 24/30 @ 676.73 vs HEAD 27/30 @ 480.39** — better than
-  undosed (868) but the Vivify budget TOOK BACK the arrangement's own
-  trophies: Ptn-7824 + SCPC-1000-18 (cracked by the unbounded blast) are TO
-  again, while urq45 283 / mod2c 69.7 / Grain 499 recovered from their TOs.
-  **The dose is instance-bimodal — a fixed permille cannot serve both
-  classes; this is the adaptive-budget / phase-6 arm shape.**
-- Next arm in flight: **lite+dosed** (`TACTIX_ARRANGEMENT_KEEP_PREBVE=1` —
-  during-search dosed phases kept, BVE also at preprocessing): the dosed
-  losers mp1-Nb5T15 (34 vs 7.5), mod4block (54 vs 14), em_11 (429 vs 61)
-  all want early elimination back, and lite was the day's best Tier C (441).
-  Runs `20260724-20*-{B,C}-{arrlite,head5}`; fuzz leg 1560949.
-
-### 2026-07-24 (night) — S4 per-phase cost attributed + dosed; latent mid-stable heap bug found and fixed
-- **Attribution (probes 1560738-46, em_11/urq45/frb45 × disable arms):
-  Vivify's unbounded round is the dominant diffuse killer** (urq45 recovers
-  with ONLY it removed: TO→294 s UNSAT); the unmetered closures
-  (Congruence/Factor/Substitute) re-running every phase are second (em 461 s,
-  frb 1130 s with Vivify still on) — but **Congruence is load-bearing on
-  urq45** (removing it entirely: TO), so the rules stay, the repetition goes.
-- **Dosing increment landed:** (a) `Kernel::vivify_tick_budget` — the
-  canonical round stops at the configured tick spend; 0 = unbounded default;
-  DefaultPolicy hands Vivify its remaining effort-ledger budget per phase
-  (config class = `bve_bound`, implementation-notes entry added); (b) under
-  the arrangement, unmetered entries re-run in during-search phases only on
-  NEW MATERIAL since their own last run (per-entry binary/root-fixed
-  watermarks — the slot-global gate's trigger, per entry).
-- **Latent N1 bug found by the em_11 probe (SIGSEGV → ASan assert):
-  variables created DURING stable mode never joined the score heap.**
-  `heuristics_reserve_vars` enqueued new vars into VMTF only; the heap's
-  "every var reachable" invariant is repaired at stable ENTRY alone — so
-  Factor's mid-stable extension vars (first reachable under the arrangement's
-  during-search phases, but ANY N1 policy could do this) drain the heap and
-  crash `heuristics_heap_next_unassigned`. Fix: push into the heap at
-  creation when `h->stable`; focused/initial path byte-identical.
-- **Validation:** ctest 31/31; fuzz 10,000/0 (arrangement on); em_11
-  crash→SAT 381 s on release AND clean full run under ASan/asserts; frb45
-  TO→**163 s (beats HEAD 215)**; urq45 TO→280 s UNSAT; mod4block 158→52 s.
-  Same-window B+C gate re-run next.
-
-### 2026-07-24 (evening) — S4 TRUE arrangement, first same-window B+C: B even + battleship CRUSHED; C loses on per-phase cost
-- Runs `20260724-1711*` (HEAD vs `TACTIX_ARRANGEMENT=1` on the wired binary
-  `c30a10d`). **Tier B: arr2 14/14 @ 32.54 vs HEAD 33.42** — even overall,
-  wildly bimodal: **battleship 197→1.4 s (beats kissat's 6.6 s — the 184 s
-  residual S2b routed here is GONE)**, FmlaEquiv 62→23, crypto1 21→7,
-  summle 19→10; but mod4block 14→158 (9 eliminations / 1.49 M wasted
-  resolutions across 13 phases — deferred BVE cannot re-find its
-  preprocessing wins there), mp1-blockpuzzle 63→119, rbsat 8→36.
-- **Tier C: arr2 22/30 @ 868.48 vs HEAD 26/30 @ 537.30 — gate NOT met as one
-  unit.** Cracks **Ptn-7824 TO→42 s** and **SCPC-1000-18 TO→375 s (the
-  undiagnosed pre-T3 instance!)**, Grain −188, DLTM −87, mp1-Nb5T15 7.5→1.1 —
-  but 6 new TOs (em_11, frb45, goldcrest, urq45, StConn, T105) + a dozen
-  +100–500 s diffuse losses. Diagnosis hypothesis: per-phase COST, not the
-  arrangement idea — every during-search phase re-runs the UNMETERED canonical
-  rounds (Congruence/Factor/Substitute full closures) plus Vivify's unbounded
-  round; kissat meters every during-search technique in ticks. Attribution
-  probes next (em_11/urq45/frb45 single-instance arms). Note Tier C window
-  noise: HEAD 537.30 here vs 481.31 this morning (L6 — same-window only).
-
-### 2026-07-24 (later) — S4 attribution collected + a mischaracterization found: the "deferral" arm never ran BVE
-- **Attribution answered (novi arm = lite minus Vivify, runs `20260724-1118*-{B,C}-novi`):
-  Vivify IS the mod2c/Grain culprit** — removing it recovers mod2c 505→64.5 and
-  Grain 744→473 — **but it is also the Ptn-7824 win (108→TO without it) and the
-  mod4block protector on B (25→228 s without)**. Net: novi loses BOTH tiers
-  (B 48.36 vs lite 34.27; C 457.39 vs 441.03). So the Vivify dose, not its
-  presence, is the lever — consistent with its unbounded canonical round vs
-  kissat's 100‰ tick budget.
-- **Correction (code-read, `update_inprocess_limit`): the "full deferral" arm
-  measured NO-BVE, not the arrangement.** `TACTIX_ARRANGEMENT=1` defers BVE out
-  of the conflicts==0 phase, but `update_inprocess_limit` still sets
-  `next_conflicts = UINT64_MAX` (the increment-2 growth path is `#if 0`), so no
-  during-search phase ever fires ⇒ **BVE never ran at all in the arr arm**.
-  Yesterday's "deferral wins B" is really "probing-first rescues the no-BVE loss"
-  (L1's 32.82 → 30.59 < HEAD 33.22, cluster window) — a real finding, but **the
-  target arrangement (BVE dosed during search) is still unmeasured.** Next
-  increment: wire the growing interval under `arrangement_` and re-run B+C.
-
-### 2026-07-24 — S4 gate, first arms: the arrangement trades bimodally; lite wins Tier C
-- Mechanism landed behind `TACTIX_ARRANGEMENT` (probing family joins the slot,
-  BVE deferred out of conflicts==0, interval-only phase firing; commit
-  `4943044`). Same-window arms on the S3-charged binary (HEAD B 33.22 14/14,
-  HEAD C 481.31 27/30):
-  - **Full deferral: Tier B 30.59 (the FIRST positive arrangement measurement
-    — 14/14) but Tier C 529.07** — bimodal: cracks Ptn-7824 (TO→449, the L1
-    loser!) and halves T87/T105 (1191→462, 1121→391), but drowns mp1-Nb5T15
-    (7.5 s→TO — blockpuzzle needs EARLY elimination) + diffuse losses.
-  - **Arrangement-lite (probing on, BVE last at preprocessing — kissat's
-    probe-before-eliminate order without deferral): Tier C 441.03 (27/30) —
-    Ptn TO→108, StConn −293, DLTM −146, ContextModel 74→5, af-synth 90→6,
-    frb45 fixed — but Tier B 34.27 (deferral's B-win gone)** and T87 lost
-    (knife-edge 1191→TO); mp1-Nb5T15 preserved.
-  - **mod2c (+441/+444) and Grain (+332/+359) lose under BOTH arms** — they
-    hate the probing family itself; single-rule attribution probe in flight
-    (job 1560524). No default flip yet (gate = one unit, B+C together).
-    *(Superseded by the “(later)” entry above: the arr arm never ran BVE, and
-    the attribution landed on Vivify.)*
 
 ### 2026-07-24 — S2b: composite grids land default-OFF; every non-arrangement mp1 lever now dead
 - Verified kissat IS composite (factor.c `resize_factoring` + fresh-var flag
