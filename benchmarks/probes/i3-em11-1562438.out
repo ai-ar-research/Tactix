@@ -1,0 +1,20 @@
+=== em_11 ARM 1: shipped default ===
+c conflicts   2110685
+c bve         0 rounds, 69 eliminated, 1105932 resolutions
+s SATISFIABLE
+WALL 158 s
+=== em_11 ARM 2: doses forced (density=0) ===
+c conflicts   1031069
+c bve         0 rounds, 110 eliminated, 3319811 resolutions
+s SATISFIABLE
+WALL 78 s
+=== em_11 ARM 3: CADENCE (density=0) ===
+c conflicts   661175
+c bve         0 rounds, 106 eliminated, 2189307 resolutions
+s SATISFIABLE
+WALL 41 s
+=== em_11 ARM 4: CADENCE (density unchanged) ===
+c conflicts   2118885
+c bve         0 rounds, 8 eliminated, 585115 resolutions
+s SATISFIABLE
+WALL 153 s

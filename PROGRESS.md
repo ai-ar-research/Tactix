@@ -42,12 +42,14 @@ disagree, the plan is authoritative — fix this file.
      8a6e7ec debt): damage = drip-paced incomplete recurrence; one
      completed dose ≈ free; depth saturates (245 @ slack-16, U-shape);
      kissat's profit = completion-gated calls at geometric conflict
-     intervals, largest call LAST. Next is **I3 refined = the CADENCE
-     port** (geometric conflict-interval dose admission + per-dose
-     completion allowance on top of `bve_level_`; report §5). Density gate
-     STAYS for admission (mod4block intrinsic, L10; finding 3: no default
-     flip before I8 arrays). `TACTIX_BVE_ONESHOT` retained as A/B arm.
-     Target: crypto1 16.1 → ~4 s class; em_11 re-checked under cadence.
+     intervals, largest call LAST. **I3 cadence arm MEASURED**
+     (`TACTIX_BVE_CADENCE`): crypto1 AND em_11 (158→41 s!) flip to profit
+     under gate-open cadence; x9 (+10 s, chaotic) and mod4block
+     (intrinsic) lose → Tier B says NOT default (10.92 vs 11.97). Next:
+     the **I8-style Tier C three-arm array** (shipped / cadence+density=0
+     / SLOT_DISABLE=BVE) — decides the gate's C-side validity + whether
+     cadence cracks any of the 4 TOs; then a dated report. Both knobs
+     stay A/B arms; density gate default unchanged (finding 3).
   2. **C residual toward T3:** arm C 520.76 vs CaDiCaL 302.64 ≈ 1.72× (was
      2.15× two days ago). SCPC/128_125/T105/T87 still TO. Legacy-C regressed
      under dedup (475→538) — probe pass owed only if legacy is re-shipped.
@@ -325,6 +327,20 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 — I3 cadence arm measured: flips crypto1 AND em_11 to profit; NOT default (x9/mod4block); I8 arrays next
+- `TACTIX_BVE_CADENCE` (A/B arm): completion allowance + one dose/phase on
+  the existing NLOG2N phase interval = kissat's call shape. Same-window
+  probes: **crypto1 512k conflicts/13 s vs 566k/16 s dose-off** (first
+  during-search BVE profit there; probe 1562435) and **em_11 158→41 s**
+  (gate false positive CONFIRMED — forced drip 78 s, cadence 41 s; probe
+  1562438). mp1 held/cheaper (resolutions −61 %); battleship identical.
+- NOT a default: Tier B same-window arrays (runs `20260725-10295{8,9}-B-*`)
+  shipped 10.92 vs cadence 11.97 — x9 +10 s (tiny completed doses, timing
+  perturbation on the TB2-chaotic instance; probe 1562469) and mod4block
+  intrinsic (L10). Four instances, four optimal dosing policies — the
+  §5.6 exhibit's strongest data yet. Fuzz 10k/0 ×2 formats cadence-forced
+  (1562436/37); ctest 31/31.
 
 ### 2026-07-25 — BVE-tolerance I2 CLOSED: recurrence (drip-paced, incomplete) is the crypto1 mechanism; report frozen
 - `TACTIX_BVE_ONESHOT` (temp A/B knob, policy-side): crypto1 same-window

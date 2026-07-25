@@ -566,6 +566,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (e.doses == 0 && e.retry_advice &&
             std::getenv("TACTIX_BVE_ONESHOT"))
           e.limit = e.meter(k) + 700000000ull;
+        // I3 cadence arm (bve-tolerance plan, report §5 routing): under
+        // TACTIX_BVE_CADENCE every admitted BVE dose gets the completion
+        // allowance — the phase schedule already fires on the growing
+        // NLOG2N conflict interval (kissat's eliminate cadence analog),
+        // so "one COMPLETED call per phase" (the outer==0 gate below)
+        // reproduces kissat's profitable shape: completion-gated calls at
+        // geometric conflict spacing, ladder advancing per completion.
+        // The I2 decider showed the damage is drip-paced INCOMPLETE
+        // recurrence; this arm removes the drip while keeping recurrence.
+        if (e.retry_advice && std::getenv("TACTIX_BVE_CADENCE"))
+          e.limit = e.meter(k) + 700000000ull;
         e.anchor = now;
       }
       for (int outer = 0; outer < INPROCESS_PHASE_ROUNDS && !phase_unsat;
@@ -625,6 +636,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 e.retry_advice && std::getenv("TACTIX_BVE_ONESHOT");
             if (bve_oneshot && e.doses > 0)
               continue; // the one shot is consumed
+            // I3 cadence arm (see the phase-entry allowance above): ONE
+            // completed call per phase — outer rounds 1-2 are declined so
+            // the phase cannot re-drip what the completed call finished.
+            if (e.retry_advice && outer > 0 &&
+                std::getenv("TACTIX_BVE_CADENCE"))
+              continue;
             // BVE growth-slack RAMP (Track S · S1b, BveBoundPolicy): drive
             // k.bve_bound cheap-first over the sub-policy's passes (kissat
             // eliminate.c set_next_elimination_bound), so the non-growing
