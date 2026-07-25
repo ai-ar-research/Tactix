@@ -38,6 +38,13 @@ struct Stats {
   uint64_t conflicts = 0;
   uint64_t propagations = 0;
   uint64_t ticks = 0; // propagation memory-traffic proxy (see propagate.cpp)
+  // Share of `propagations` spent inside simplification phases — POLICY-
+  // written bookkeeping (accumulated at phase exit, mirroring the policy's
+  // inprocess-ticks split), never read by kernel or guards. Splitting the
+  // headline props/s into search vs inprocessing is TB5's first step: the
+  // 1.39× throughput gap vs kissat is only comparable on the search share
+  // (kissat keeps search_ticks and probing_ticks apart).
+  uint64_t inprocess_propagations = 0;
   uint64_t switched = 0; // mode switches (S4)
   uint64_t target_saved = 0; // target-phase snapshots
   uint64_t best_saved = 0;   // best-phase snapshots

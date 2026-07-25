@@ -245,17 +245,21 @@ tail instances were 69 % of our Tier B time; each had a different cause.
   onto highest-level literals, one-literal-on-conflict-level shortcut, unit
   chrono routing, snapshot timing, `jumpreasons`, cadical's `chronoreusetrail`)
 - [ ] **TB5** · propagation throughput 1.39× (14.8 vs 20.6 M props/s), flat on
-  every instance — plausibly the highest-value T4 item. First split the
-  counter (search vs preprocessing; sites `kernel.cpp:496/562/622`)
+  every instance — plausibly the highest-value T4 item. **Counter split
+  DONE 2026-07-25** (`inprocess_propagations` stats bookkeeping, policy-
+  written at phase exit; probe 1562598): inprocess share is ≤3.3 %
+  everywhere (s055 0.07 %, FmlaEquiv 1.8 %) ⇒ metering artifact RULED
+  OUT — the gap is the search inner loop itself. Next: perf-counter
+  profile vs kissat (§5.4 evidence), then the engineering lane
 - [ ] **TB6** · mode switching may hurt (focused-only refutes FmlaEquiv in
   407 k conflicts vs kissat's 623 k default; we sit in stable). Cheapest test:
   a force-focused env knob
 - [ ] **TB2** · `x9-08014` is pure search (801 694 conflicts, inprocessing
   inert) — route via debug-performance; shares a category with `clique`
-- [ ] **TB3** · stale in-code claim: `default_policy.cpp`'s Factor comment
-  records x9 801 k → 453 k that no longer reproduces (0 factorings on the
-  LEGACY composition; re-check under the arrangement default). A silently
-  inert rule is worse than a missing one
+- [x] **TB3** · RESOLVED 2026-07-25: the stale 801 k → 453 k comment is
+  already gone from the code, and Factor is verifiably non-inert on x9
+  under the arrangement (80 factorings @ 371,995 conflicts, probe 1562469;
+  current in-code x9 claim `factor.cpp:72` is fresh — 347 k vs 364 k)
 
 ### ▶ Track S — the effort-budgeted target arrangement — S4 CLOSED
 

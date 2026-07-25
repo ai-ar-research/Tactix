@@ -503,6 +503,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // capping an O(applications × formula) loop rather than capping
       // simplification.
       const uint64_t phase_ticks_at_entry = k.stats.ticks;
+      const uint64_t phase_props_at_entry = k.stats.propagations;
       k.stats.inprocess_phases++;
       if (k.level > 0 && restart_guard(k))
         restart_apply_to(k, 0);
@@ -972,6 +973,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       kernel_dense_disconnect(k);
       k.factor_match = nullptr; // scope the arm to the phase (see entry)
       inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
+      k.stats.inprocess_propagations +=
+          k.stats.propagations - phase_props_at_entry;
       if (phase_unsat)
         return 20;
       // The phase FIRED (whether or not it simplified anything): count it —

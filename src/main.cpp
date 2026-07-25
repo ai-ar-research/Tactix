@@ -271,8 +271,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.decisions,
            (unsigned long long)kernel.stats.api_decisions);
     printf("c conflicts   %llu\n", (unsigned long long)kernel.stats.conflicts);
-    printf("c propagations %llu\n",
-           (unsigned long long)kernel.stats.propagations);
+    printf("c propagations %llu (%llu search, %llu inprocess)\n",
+           (unsigned long long)kernel.stats.propagations,
+           (unsigned long long)(kernel.stats.propagations -
+                                kernel.stats.inprocess_propagations),
+           (unsigned long long)kernel.stats.inprocess_propagations);
     printf("c learned     %llu (%llu units)\n",
            (unsigned long long)kernel.stats.learned,
            (unsigned long long)kernel.stats.learned_units);

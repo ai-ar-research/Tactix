@@ -1,0 +1,25 @@
+=== s055 (Tier A, the 1.40x solo gap) ===
+c conflicts   938705
+c propagations 58747900 (58703870 search, 44030 inprocess)
+s UNSATISFIABLE
+WALL 31 s
+=== FmlaEquiv (TB5 flat 1.39x) ===
+c conflicts   576941
+c propagations 195431397 (191840135 search, 3591262 inprocess)
+s UNSATISFIABLE
+WALL 25 s
+=== x9 ===
+c conflicts   371995
+c propagations 36142379 (36000008 search, 142371 inprocess)
+s UNSATISFIABLE
+WALL 13 s
+=== mp1 (dosing-heavy sanity) ===
+c conflicts   178335
+c propagations 32989899 (31903231 search, 1086668 inprocess)
+s UNSATISFIABLE
+WALL 5 s
+=== crypto1 (trajectory identity check: expect 566404) ===
+c conflicts   566404
+c propagations 66417169 (66069022 search, 348147 inprocess)
+s SATISFIABLE
+WALL 17 s
