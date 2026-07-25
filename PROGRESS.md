@@ -523,8 +523,13 @@ Consolidated from seven same-day entries; full detail in the cited commits.
   <1 % vivified/tried). Probes held BOTH sides (mod4block TO→25 s, em
   383→75 ≈ HEAD, goldcrest/urq kept). **arr5 Tier B 18.16 (2.2× kissat
   8.18; beats kissat on battleship + summle; tail = mp1 8.2× + the flat
-  2–3× search/throughput class).** C same-window verdict pending
-  (runs `20260724-2213*`).
+  2–3× search/throughput class). Tier C verdict (`20260724-2213*`):
+  arr5 24/30 @ 703.67 vs head7 27/30 @ 475.46 — GATE NOT MET; ≈ C-neutral
+  vs arr3 (676.73, different window). Method lesson re-learned: several
+  solo-probe recoveries did not reproduce at array concurrency (goldcrest
+  328→TO, frb 163→504) — L6, solo probes mislead.** Arrangement stays
+  opt-in; next lever = the Factor-dosing increments (design frozen), which
+  attack both the mp1 tail and one of the two untamed C costs.
 - Validation across the day: ctest 31/31 ×5; fuzz 6 legs × 10,000 cases, 0
   failures (logs `tools/fuzz/slurm-arr*-quick-*.log`, committed).
 
