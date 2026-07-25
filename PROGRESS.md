@@ -7,8 +7,8 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 67 (2026-07-24)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-23
-- **▶ RESUME HERE (2026-07-23).** Phase 3, **T3 gate open**. **The HPC
+- **Last updated:** 2026-07-24
+- **▶ RESUME HERE (2026-07-24).** Phase 3, **T3 gate open**. **The HPC
   migration is COMPLETE** (Log 2026-07-23; plan revs 64/65): builds + tests
   green, solvers/checkers verified, cache repopulated, shared history.
   **Run everything per plan §8.1 + the slurm-jobs skill** — tier runs
@@ -34,23 +34,31 @@ disagree, the plan is authoritative — fix this file.
   and a fresh Tier B noise band (repeat same-shape runs) before any "beats
   noise" claim.
 
-  **▶▶ WHAT JUST LANDED (2026-07-23): the S2a design pass** —
-  `docs/design/s2a-factor-matcher-design.md` (frozen). Lift Factor's
-  grid-selection matcher out of the proof rule into a **`FactorMatchPolicy`**
-  (2nd SubPolicy, `Kernel::bve_bound` precedent); the BVA primitive
-  `apply_factoring` is untouched → soundness invariant. Corrected framing:
-  kissat's own `factor=1` BVA is the comparison target (not SBVA); the
-  quality lever (`next_factor_score` chain-width) is UNCERTAIN and the
-  obvious levers are measured-DEAD — design §7 + Log entry below.
-
-  **▶ NEXT STEP (2026-07-24 pm): S4 in flight.** First arms measured + attribution
-  collected (Log “(later)” entry): lite wins C (441.03), the “deferral” arm turned
-  out to be **no-BVE** (never fired a during-search phase — `update_inprocess_limit`
-  still parks at UINT64_MAX), Vivify is the mod2c/Grain culprit AND the Ptn win.
-  **Current increment: wire the growing during-search interval under
-  `arrangement_` so BVE gets its effort-ledger doses, then same-window HEAD+arr
-  on Tier B+C.** After that: per-technique Vivify dosing if mod2c/Grain persist.
-  (Battleship RESOLVED overnight 2026-07-24 — **Tier B
+  **▶ NEXT STEP (2026-07-24 night): S4 mechanism COMPLETE, gate NOT met —
+  the next lever is adaptive dosing.** The full arrangement (probing family
+  in the slot, BVE deferred out of preprocessing, NLOG2N during-search
+  phases, Vivify tick budget `Kernel::vivify_tick_budget`, new-material
+  gating for the unmetered closures — commits `c30a10d`/`e17c76b`/`ce39e66`,
+  all behind `TACTIX_ARRANGEMENT`, default OFF and byte-identical) measured
+  over 4 same-window B+C arm pairs (Log night 1–3):
+  **deferral+dosed wins Tier B 20.70 vs HEAD 32.37 (−36 %, battleship
+  197→1.4 s BEATS kissat, FmlaEquiv 62→23); every during-search arm loses
+  Tier C +33–41 % (best 676.73 vs 480.39); Tier C's best stays lite =
+  probing-at-preprocessing only (441.03, `TACTIX_SLOT_ENABLE=Probe,
+  Backbone,TransitiveReduce,Vivify`).** Blocker, precisely characterized:
+  **dose demand is instance-bimodal** — Ptn-7824/SCPC-1000-18 are cracked
+  ONLY by the unbounded Vivify blast that TOs urq45/mod2c/Grain; mp1-Nb5T15/
+  mod4block want early BVE that overdoses crypto1. A fixed permille or
+  composition cannot serve both. **Options for next session (pick one):**
+  (a) adaptive per-instance dose feedback (grow a technique's budget when
+  its doses keep producing, kissat-style success scaling); (b) ship the
+  B-winning deferral arm mode-gated (e.g. arrangement only when the
+  formula/search profile matches its winner class — risky, no static
+  separator per L5); (c) route to the phase-6 arm surface (arrangement
+  on/off IS a slot arm — the learned policy's job). Also owed: the latent
+  mid-stable heap fix (`heuristics.cpp`) is N1-relevant beyond S4 — a
+  stress-policy pass driving Factor mid-stable would harden it
+  (stress-policy skill). (Battleship RESOLVED overnight 2026-07-24 — **Tier B
   14/14 @ PAR-2 32.23**, det fix + density 6, Log + report. Tier C
   re-baseline DONE: ceiling-8 confirmed, fresh pins kissat 221.68 / CaDiCaL
   302.64, T3 gap ≈ 1.45×. S2a Increments 1+2 landed; Increment 3 is now
@@ -373,10 +381,11 @@ why none of them needs a trade-off against the others.
   B even (32.54 vs 33.42; battleship 197→1.4 s BEATS kissat), C loses
   (868.48 vs 537.30, 22/30 vs 26/30) on diffuse per-phase cost — the
   unmetered rules (Congruence/Factor/Substitute) + unbounded Vivify re-run
-  every during-search phase. **Cost attributed + DOSED (Log night entry):
-  Vivify tick budget + new-material gating for the unmetered rules; also
-  fixed the latent mid-stable heap bug Factor's extension vars exposed.
-  Dosed same-window B+C gate re-run in flight.**
+  every during-search phase. **Cost attributed + DOSED + measured over 4
+  same-window arm pairs (Log night 1–3): B won −36 % by deferral+dosed
+  (20.70), C lost by every during-search arm (+33–41 %) — gate NOT met;
+  blocker = instance-bimodal dose demand (see the resume anchor). Also
+  fixed the latent mid-stable heap bug Factor's extension vars exposed.**
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`.
 
 ### Other phase-3 items
@@ -434,6 +443,23 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-24 (night 3) — lite+dosed arm closes the day: during-search phases are a B superpower and a C liability
+- Runs `20260724-2024*`: **arrlite (KEEP_PREBVE) B 31.27 vs head5 36.20 —
+  worse than pure deferral's 20.70** (preprocessing BVE re-overdoses crypto1
+  51.7 and does NOT rescue mod4block 153.8); **C 24/30 @ 696.00 vs head5
+  26/30 @ 524.06 — does NOT recover lite's 441** (goldcrest/T105 TO,
+  jgiraldez +786, trig-bhaskara +526; but DLTM −183, frb45 −101). Fuzz
+  10,000/0 (`slurm-arrlite-quick-1560949.log`).
+- **Day's verdict (each arm vs its same-window HEAD): deferral+dosed wins
+  Tier B −36% (20.70, first Tier-B-band win); every during-search arm loses
+  Tier C +33–41%; Tier C's best remains lite = probing-at-preprocessing
+  only (441). The one-unit B+C gate is NOT met.** The blocker is now
+  precisely characterized: the dose demand is instance-bimodal (Ptn/SCPC
+  want the unbounded Vivify blast that kills urq/mod2c/Grain; mp1-Nb5T15/
+  mod4block want early BVE that overdoses crypto1) — a fixed permille/
+  composition cannot serve both. That is the adaptive/per-instance shape
+  (effort feedback, or the phase-6 arm surface).
 
 ### 2026-07-24 (night 2) — dosed gate: Tier B −36% (20.70!), Tier C still behind — the dose trades Ptn/SCPC for urq/mod2c
 - Same-window arrays `20260724-1935*` (HEAD vs dosed arrangement):
