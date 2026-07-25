@@ -1,0 +1,38 @@
+=== tactix perf stat: FmlaEquiv ===
+
+ Performance counter stats for 'timeout 600 /home/hwu/SAT-solving/build/release/tactix /tmp/perf-NtYf/fmla.cnf':
+
+    98,149,241,757      cycles                                                                  (71.42%)
+   184,617,066,561      instructions                     #    1.88  insn per cycle              (71.43%)
+     9,430,698,902      cache-references                                                        (71.43%)
+       920,569,107      cache-misses                     #    9.76% of all cache refs           (71.43%)
+     6,699,408,728      L1-dcache-load-misses                                                   (71.43%)
+   <not supported>      LLC-load-misses                                                       
+     1,098,369,656      branch-misses                                                           (71.43%)
+        36,712,009      dTLB-load-misses                                                        (71.42%)
+
+      25.970427589 seconds time elapsed
+
+      25.611979000 seconds user
+       0.096987000 seconds sys
+
+
+=== kissat perf stat: FmlaEquiv ===
+
+ Performance counter stats for 'timeout 600 /home/hwu/SAT-solving/tools/solvers/bin/kissat /tmp/perf-NtYf/fmla.cnf':
+
+    43,178,680,362      cycles                                                                  (71.42%)
+   107,296,993,428      instructions                     #    2.48  insn per cycle              (71.43%)
+     2,589,301,648      cache-references                                                        (71.43%)
+       303,630,609      cache-misses                     #   11.73% of all cache refs           (71.43%)
+     1,719,449,018      L1-dcache-load-misses                                                   (71.44%)
+   <not supported>      LLC-load-misses                                                       
+       538,769,906      branch-misses                                                           (71.44%)
+         9,307,917      dTLB-load-misses                                                        (71.42%)
+
+      11.426272984 seconds time elapsed
+
+      11.226136000 seconds user
+       0.082890000 seconds sys
+
+

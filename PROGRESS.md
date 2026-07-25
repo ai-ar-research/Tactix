@@ -336,6 +336,21 @@ Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-25 — TB5 profile: gap = 1.53× conflicts × 1.23× props/conflict × ~1.2× per-prop; TR quadratic memset FIXED (7 % of cycles)
+- Perf on FmlaEquiv (probes 1562599–1601): wall 2.27× = instructions
+  1.72× × IPC deficit 1.32× (memory-bound: 3.9× L1d, 3.9× dTLB misses).
+  TB1's 3.09× conflicts is stale — now 1.53× (576,941 vs 377,701).
+  kernel_propagate ≈156 vs ≈125 cycles/prop (1.25×).
+- **Hotspot landed:** `transitive_reduce_try` built a fresh Walk per dosed
+  candidate — three O(2·nvars) zero-fills + 3 allocations each; 7.1 % of
+  ALL cycles (2.77 M candidates on FmlaEquiv). Fix: persistent
+  thread_local scratch, re-init only on nvars growth — behavior-identical
+  by the Walk clean-between-calls invariant. Gates: conflicts EXACT on
+  FmlaEquiv/crypto1/s055 (probe 1562602), ctest 31/31 ×2, fuzz 10k/0 ×2
+  formats (1562603/04); memset gone from the profile. Remaining TB5
+  leads: TR decline overhead (2.77 M checked → 3,263 deleted), congruence
+  machinery ~14 % on a 0-merge instance, per-prop 1.25× (watch layout).
+
 ### 2026-07-25 — yield probes: NO runtime signal separates cadence winners from losers; admission is the learner's
 - Clean rerun (array 1562588; the first array 1562578 was CONTAMINATED —
   array tasks clobbered a shared `$TMPDIR/inst.cnf`; outputs purged, hazard

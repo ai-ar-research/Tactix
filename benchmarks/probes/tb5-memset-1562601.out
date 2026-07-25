@@ -1,0 +1,47 @@
+=== callers of __memset (call-graph) ===
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 5K of event 'cycles:P'
+# Event count (approx.): 94517966346
+#
+# Overhead  Command  Shared Object  Symbol                            
+# ........  .......  .............  ..................................
+#
+     7.25%  tactix   libc.so.6      [.] __memset_avx512_unaligned_erms
+            |          
+             --7.11%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       tactix::default_solve(tactix::Kernel&, int volatile*)
+                       tactix::DefaultPolicy::solve(tactix::Kernel&, int volatile*)
+                       tactix::transitive_reduce_try(tactix::Kernel&, unsigned int)
+                       |          
+                        --7.09%--__memset_avx512_unaligned_erms
+
+
+
+#
+# (Tip: To filter subset of samples with report or script add --time X-Y or --cpu A,B,C or --socket-filter ...)
+#
+=== callers of malloc ===
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 5K of event 'cycles:P'
+# Event count (approx.): 94517966346
+#
+# Overhead  Command  Shared Object  Symbol         
+# ........  .......  .............  ...............
+#
+     1.77%  tactix   libc.so.6      [.] _int_malloc
+
+
+#
+# (Tip: To show IPC for sampling periods use perf record -e '{cycles,instructions}:S' and then browse context)
+#
