@@ -174,21 +174,26 @@ uint64_t meter_transitive(const Kernel &k) { return k.stats.transitive_checked; 
 // does not filter its own instance enumeration with it — that would hide legal
 // applications from RandomPolicy and from the phase-6 learned policy, whose
 // action space IS the instance surface.
+// `budget_aware` marks a BATCH rule whose canonical apply reads
+// Kernel::work_budget (in its own currency) and stops mid-round — the policy
+// hands such an entry its remaining ledger budget around r.apply(k) instead
+// of only metering it after the fact (S4 dosing; kissat SET_EFFORT_LIMIT).
 struct EffortSpec {
   const char *name;
   uint32_t permille;
   uint64_t (*meter)(const Kernel &);
   bool dosed;
   bool retry_advice;
+  bool budget_aware;
 };
 constexpr EffortSpec EFFORT_SPECS[] = {
-    {"BVE", 100, meter_bve, true, true},
-    {"Probe", 20, meter_ticks, true, false},
-    {"Backbone", 20, meter_ticks, true, false},
-    {"TransitiveReduce", 20, meter_transitive, true, false},
-    {"Vivify", 100, meter_ticks, false, false},
-    {"Strengthen", 100, meter_strengthen, false, false},
-    {"SubsumeForward", 100, meter_forward, false, false},
+    {"BVE", 100, meter_bve, true, true, false},
+    {"Probe", 20, meter_ticks, true, false, false},
+    {"Backbone", 20, meter_ticks, true, false, false},
+    {"TransitiveReduce", 20, meter_transitive, true, false, false},
+    {"Vivify", 100, meter_ticks, false, false, true},
+    {"Strengthen", 100, meter_strengthen, false, false, false},
+    {"SubsumeForward", 100, meter_forward, false, false, false},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -404,6 +409,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             e.meter = s->meter;
             e.dosed = s->dosed;
             e.retry_advice = s->retry_advice;
+            e.budget_aware = s->budget_aware;
           }
           inprocess_slot.push_back(e);
         }
@@ -704,13 +710,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             continue;
           if (!r.guard(k))
             continue;
-          // Vivify dose (kernel.hpp vivify_tick_budget): hand the round its
-          // REMAINING ledger budget so one canonical round cannot overrun the
-          // dose — the other dominant diffuse Tier C cost. Scoped to the
+          // Budget handoff (kernel.hpp work_budget): a budget-aware batch
+          // entry gets the phase's REMAINING ledger budget — in the rule's
+          // own currency — around its apply, so one canonical round cannot
+          // overrun the dose (a dominant diffuse Tier C cost). Scoped to the
           // apply; 0 restores the unbounded legacy path for all other
-          // callers (API, RandomPolicy).
+          // callers (API, RandomPolicy). Vivify keeps its kissat scope/delay
+          // tier split inside the branch; other budget-aware rules (S4:
+          // Factor) take the plain handoff.
+          const bool budgeted = e.meter && !e.dosed && e.budget_aware;
           const bool vivify_dose =
-              e.meter && !e.dosed && !std::strcmp(r.name, "Vivify");
+              budgeted && !std::strcmp(r.name, "Vivify");
           ApplyResult ar;
           if (vivify_dose) {
             // kissat vivify.c structure: the REDUNDANT (learned) tiers always
@@ -726,7 +736,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               e.delay_count--;
             // redundant pass (always; full budget when irr is delayed)
             k.vivify_scope = 1;
-            k.vivify_tick_budget =
+            k.work_budget =
                 irr_delayed ? remaining : std::max<uint64_t>(1, remaining * 7 / 10);
             ar = r.apply(k);
             // irredundant pass (delay-gated, ratio-tracked on ITS deltas)
@@ -738,7 +748,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               const uint64_t produced_before =
                   k.stats.vivified + k.stats.vivify_deleted;
               k.vivify_scope = 2;
-              k.vivify_tick_budget = irr_budget;
+              k.work_budget = irr_budget;
               const ApplyResult ar2 = r.apply(k);
               if (ar2 == ApplyResult::Unsat)
                 ar = ar2;
@@ -761,7 +771,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               }
             }
             k.vivify_scope = 0;
-            k.vivify_tick_budget = 0;
+            k.work_budget = 0;
+          } else if (budgeted) {
+            // plain handoff (S4: Factor) — remaining budget, no tier split
+            const uint64_t remaining0 = limit - e.meter(k);
+            k.work_budget = remaining0 ? remaining0 : 1;
+            ar = r.apply(k);
+            k.work_budget = 0;
           } else {
             ar = r.apply(k);
           }

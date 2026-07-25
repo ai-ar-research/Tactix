@@ -322,6 +322,10 @@ public:
     uint64_t (*meter)(const Kernel &) = nullptr;
     bool dosed = false;   // apply per-instance to a budget vs one canonical round
     bool retry_advice = false; // rule maintains a per-variable retry bit to consult
+    // BATCH rule whose canonical apply reads Kernel::work_budget in its own
+    // currency and stops mid-round; the policy hands it the remaining ledger
+    // budget around r.apply(k) (S4 dosing — see EffortSpec in the .cpp).
+    bool budget_aware = false;
     uint64_t anchor = 0;  // search_ticks when this entry last ran (cadical last.NAME.ticks)
     uint64_t limit = 0;   // meter ceiling for the CURRENT phase (set at phase entry)
     // S4 arrangement (TACTIX_ARRANGEMENT): defer this entry out of the

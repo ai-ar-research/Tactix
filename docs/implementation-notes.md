@@ -232,19 +232,27 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   above deliberately stays rule-side too — its home is the effort scheduler, not
   `FactorMatchPolicy`. Design: `docs/design/s2a-factor-matcher-design.md`.
 
-- **Vivify per-round tick budget is configuration, not a guard (S4, 2026-07-24).**
-  `Kernel::vivify_tick_budget` (0 = unbounded, the default): the canonical
-  round stops visiting further candidates once the round has spent the
-  configured propagation ticks. Same class as `bve_bound`/`bve_gate_mask` —
-  any value is sound because a bounded round's effect is a prefix of the
-  unbounded round's, and each rewrite is individually justified; the abstract
-  C3 entry (per-instance distillation) is untouched, and the per-candidate
-  instance surface (`vivify_try`) still reaches every application (N1).
-  Added because the S4 arrangement's during-search phases must dose Vivify:
-  the unbounded round measured as the dominant diffuse Tier C cost
-  (attribution probes 2026-07-24: urq45 156→TO from Vivify alone).
+- **Per-round work budget is configuration, not a guard (S4, 2026-07-24;
+  generalized from Vivify to any budget-aware rule the same day).**
+  `Kernel::work_budget` (0 = unbounded, the default; formerly
+  `vivify_tick_budget`): a budget-aware canonical round stops visiting
+  further candidates once it has spent this much work in its OWN currency —
+  Vivify meters propagation ticks (`stats.ticks`), Factor its cache-line
+  `stats.factor_ticks` (1 + bytes/128 per watch walk and heap re-score,
+  kissat `kissat_cache_lines`; quit points before each popped seed and
+  inside the grow loop, kissat factor.c:442,914). Same class as
+  `bve_bound`/`bve_gate_mask` — any value is sound because a bounded round's
+  effect is a prefix/subset of the unbounded round's, and each rewrite is
+  individually justified; the abstract rule entries are untouched, and the
+  per-candidate instance surfaces still reach every application (N1).
+  Added because the S4 arrangement's during-search phases must dose their
+  techniques: the unbounded Vivify round measured as the dominant diffuse
+  Tier C cost (attribution probes 2026-07-24: urq45 156→TO from Vivify
+  alone); Factor's dosing is the mp1 gap
+  (`docs/design/s4-factor-dosing-design.md`).
   DefaultPolicy sets it to the entry's remaining effort-ledger budget for the
-  scoped apply and clears it after; all other callers see 0/unbounded.
+  scoped apply (`budget_aware` in `EFFORT_SPECS`) and clears it after; all
+  other callers see 0/unbounded.
   **Companion config `Kernel::vivify_scope`** (0 = all/default, 1 = redundant
   only, 2 = irredundant only — same soundness argument: a scoped round is a
   subset of the full round): mirrors kissat's vivify structure, where the
@@ -253,6 +261,21 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   the WHOLE round measured as a Tier B loss (mod4block TO, arr4 2026-07-24).
   DefaultPolicy scopes both configs to its two per-phase applies and clears
   them after.
+  **Companion Factor configs (S4 dosing increment 1, 2026-07-24):**
+  `Kernel::factor_bound` (uint32, default 0): accept a grid iff
+  `delta > factor_bound`; default ≡ the legacy `FACTOR_MIN_GAIN = 1` floor,
+  so the default path is unchanged. Class of `bve_bound` — larger values
+  only narrow WHICH positive-gain grids reach the byte-identical
+  `apply_factoring`; an attached `FactorMatchPolicy` keeps precedence
+  (the hook subsumes the scalar). Ports kissat's
+  `factoring->bound = bounds.eliminate.additional_clauses`
+  (factor.c:72,939) — the S1b ramp policy couples it to the last COMPLETED
+  BVE bound in dosing increment 3. `Kernel::factor_composite` (bool,
+  default false): promotes the S2b `TACTIX_FACTOR_COMPOSITE` env knob to
+  config (the env var remains as an A/B override); termination stays
+  delta-monotone (S2b §4), and the single-blast regression that keeps it
+  default-OFF is banked in S2b §7 — it turns on only inside the
+  arrangement's small doses (increment 3).
 
 - **Cross-STL determinism is a standing invariant (2026-07-24).** Any
   order-affecting comparator must be a strict TOTAL order (no ties), and no

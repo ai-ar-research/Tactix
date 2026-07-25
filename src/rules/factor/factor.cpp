@@ -24,14 +24,25 @@ constexpr uint64_t FACTOR_MAX_PER_APPLY = 1u << 20;
 // cap the grid dimensions (bounds the proof + detection cost).
 constexpr uint32_t FACTOR_DIM_LIMIT = 4096;
 
+// Factor work currency (kissat factor.c:274 etc., utilities.h
+// kissat_cache_lines): 1 + one tick per 128 bytes touched. Our watch entries
+// are uint32_t words (binary = 1 word, large = 2), so a walk over `words`
+// entries costs 1 + (4·words)/128. Approximate — kissat meters DENSE deduped
+// watches, ours keep duplicates — but mp1's native spend (0.94 M of a 700 M
+// allowance) leaves wide margin (design §5.4).
+inline void charge_factor_ticks(Kernel &k, uint32_t words) {
+  k.stats.factor_ticks += 1 + (words >> 5);
+}
+
 // DISTINCT binary partners of `l`: each `p` with a live binary (l ∨ p),
 // all-unassigned and below the extension boundary `limit`. Deduplicated via the
 // caller's `seen` marker (sized `limit`) — duplicate binaries in the watch list
 // would otherwise inflate the grid dimensions and the gain, and produce repeated
 // (undeletable) grid pairs. Each distinct partner is returned once.
-void binary_partners(const Kernel &k, Lit l, Lit limit, std::vector<Lit> &out,
+void binary_partners(Kernel &k, Lit l, Lit limit, std::vector<Lit> &out,
                      std::vector<uint8_t> &seen) {
   out.clear();
+  charge_factor_ticks(k, k.watches.heads[l].size);
   const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
   const uint32_t sz = k.watches.heads[l].size;
   for (uint32_t i = 0; i < sz;) {
@@ -218,7 +229,7 @@ ApplyResult factor_apply(Kernel &k) {
   // 1.37 M → 2.18 M (the L4 over-application U-shape, Factor edition), and
   // the grid cap does not move. Kept for the S4 arrangement, whose small
   // interleaved doses are where kissat's own cross-round composition lives.**
-  const bool composite = [] {
+  const bool composite = k.factor_composite || [] {
     const char *s = std::getenv("TACTIX_FACTOR_COMPOSITE");
     return s && s[0] == '1';
   }();
@@ -249,8 +260,17 @@ ApplyResult factor_apply(Kernel &k) {
   if (fm)
     fm->begin_sweep(k);
   const auto score_of = [&](Lit l) -> uint32_t {
+    charge_factor_ticks(k, k.watches.heads[l].size); // heap (re-)score
     return fm ? static_cast<uint32_t>(fm->seed_score(k, l))
               : watch_score(k, l);
+  };
+  // k.work_budget (kernel.hpp): stop the round once it has spent this many
+  // factor_ticks; 0 = unbounded (legacy path). Two quit points, mirroring
+  // kissat's (factor.c:442 mid-count, :914 before each popped seed).
+  const uint64_t tick_start = k.stats.factor_ticks;
+  const uint64_t budget = k.work_budget;
+  const auto over_budget = [&]() {
+    return budget && k.stats.factor_ticks - tick_start > budget;
   };
   std::priority_queue<std::pair<uint32_t, Lit>> pq;
   std::vector<uint8_t> tried(live_lits, 0);
@@ -259,6 +279,8 @@ ApplyResult factor_apply(Kernel &k) {
       pq.push({score_of(l), l});
 
   while (applied < FACTOR_MAX_PER_APPLY && !pq.empty()) {
+    if (over_budget()) // quit point 1: before each popped seed
+      break;
     const std::pair<uint32_t, Lit> top = pq.top();
     pq.pop();
     const Lit seed = top.second;
@@ -281,7 +303,7 @@ ApplyResult factor_apply(Kernel &k) {
     best_R.clear();
 
     // greedily grow the factor set, tracking the max-delta prefix.
-    while (F.size() < FACTOR_DIM_LIMIT && R.size() >= 2) {
+    while (F.size() < FACTOR_DIM_LIMIT && R.size() >= 2 && !over_budget()) {
       // count candidate next-factors by co-occurrence across the current R.
       touched.clear();
       for (const Lit r : R) {
@@ -347,10 +369,16 @@ ApplyResult factor_apply(Kernel &k) {
     for (const Lit r : R) // unmark whatever R ended as
       inR[r] = 0;
 
+    // Acceptance: an attached FactorMatchPolicy keeps precedence (the hook
+    // subsumes the scalar); otherwise k.factor_bound (kissat's
+    // `reduction > bound`, factor.c:939) — default 0 ≡ the legacy
+    // delta ≥ FACTOR_MIN_GAIN = 1. The structural delta ≥ 1 floor stays
+    // unconditional (termination is delta-monotone; an empty best_F must
+    // never reach apply_factoring).
     if (best_delta >= FACTOR_MIN_GAIN &&
-        (!fm || fm->accept(static_cast<uint32_t>(best_F.size()),
-                           static_cast<uint32_t>(best_R.size()),
-                           best_delta))) {
+        (fm ? fm->accept(static_cast<uint32_t>(best_F.size()),
+                         static_cast<uint32_t>(best_R.size()), best_delta)
+            : best_delta > static_cast<int>(k.factor_bound))) {
       if (std::getenv("TACTIX_GRID_TRACE")) // S2a Inc 3a: grid dims surface
         std::fprintf(stderr, "[grid] %zux%zu delta=%d\n", best_F.size(),
                      best_R.size(), best_delta);

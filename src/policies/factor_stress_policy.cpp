@@ -86,6 +86,16 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   AdversarialFactorMatch fm(seed);
   k.factor_match = &fm; // cleared on every return below (never dangles)
 
+  // S4 Inc-1 budget-boundary stress: a seed-drawn WORK-BUDGET mode drives
+  // Factor's two mid-round quit points (kernel.hpp work_budget; design §4.1).
+  // Mode 0 leaves the budget unbounded (the pre-budget schedule, byte-
+  // identical); modes 1/2 redraw a fresh tiny/medium budget before EVERY
+  // apply, so successive root fixpoints cut the round at ever-different
+  // boundary positions — before the first seed pop (a few hundred ticks
+  // seeds a ≤100-var fuzz CNF) and mid-grow. A budget-cut NoOp just falls
+  // through to Decide; the next fixpoint retries with a new budget.
+  const uint64_t budget_mode = fs_hash(seed ^ 0xb0d6e7u) % 3;
+
   auto step = [&](const char *what) {
     if (trace)
       fprintf(stderr,
@@ -98,6 +108,7 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   };
   auto done = [&](int res) {
     k.factor_match = nullptr;
+    k.work_budget = 0;
     return res;
   };
 
@@ -131,7 +142,11 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     // previous sweep just rewrote — grid-on-grid chains over adversarial
     // seed/tie orders, the schedule DefaultFactorMatch never steers into.
     if (factor.guard(k)) {
+      if (budget_mode)
+        k.work_budget =
+            1 + fs_random(rng) % (budget_mode == 1 ? 4096u : 65536u);
       const ApplyResult r = factor.apply(k);
+      k.work_budget = 0;
       if (r == ApplyResult::Unsat)
         return done(20);
       if (r == ApplyResult::Ok) {

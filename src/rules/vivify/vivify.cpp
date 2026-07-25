@@ -260,12 +260,12 @@ ApplyResult vivify_apply(Kernel &k) {
   vivify_candidates(k, candidates);
   uint64_t changed = 0;
   bool ended = false;
-  // k.vivify_tick_budget (kernel.hpp): stop visiting candidates once the
-  // round has spent the configured ticks; 0 = unbounded (legacy path).
+  // k.work_budget (kernel.hpp), in Vivify's currency (propagation ticks):
+  // stop visiting candidates once the round has spent the configured ticks;
+  // 0 = unbounded (legacy path).
   const uint64_t tick_start = k.stats.ticks;
   for (const Ref cref : candidates) {
-    if (k.vivify_tick_budget &&
-        k.stats.ticks - tick_start > k.vivify_tick_budget)
+    if (k.work_budget && k.stats.ticks - tick_start > k.work_budget)
       break;
     const ApplyResult r = vivify_one(k, cref, &ended);
     if (r == ApplyResult::Unsat)

@@ -102,6 +102,11 @@ struct Stats {
   // an XOR whose representative inputs all cancel forces its output.
   uint64_t congruence_units = 0;
   uint64_t factorings = 0;         // Factor/BVA applications (E2) — grids replaced
+  // Factor's unit of WORK and hence its budget currency (kissat
+  // statistics.factor_ticks, cache-line granularity): 1 + one per 128 bytes
+  // touched, charged per watch-list walk and per heap (re-)score. The
+  // factoring count cannot express the seed-scan cost, which dominates.
+  uint64_t factor_ticks = 0;
   uint64_t bve_rounds = 0;         // BVE canonical-apply calls (E1; a policy
                                    // that doses per instance never bumps this)
   uint64_t bve_eliminated = 0;     // variables eliminated by BVE resolution
@@ -374,19 +379,38 @@ struct Kernel {
   // whether one does). Non-owning; DefaultPolicy scopes it to the inprocess
   // phase (set at entry, cleared at exit) so it never dangles.
   FactorMatchPolicy *factor_match = nullptr;
-  // C3 Vivify per-round work budget in propagation ticks (kissat's vivify
-  // tick limit): a canonical vivify round stops visiting further candidates
-  // once the round has spent this many ticks. 0 = unbounded (the default —
-  // byte-identical legacy behaviour). CONFIGURATION like bve_bound, not a
-  // guard: stopping early only makes the round's effect a prefix of the
-  // unbounded round's, and every prefix is sound (each rewrite is
-  // individually justified). Added for the S4 arrangement, whose during-
-  // search phases must dose vivify — an unbounded round measured as the
-  // dominant diffuse Tier C loss (attribution probes 2026-07-24).
-  uint64_t vivify_tick_budget = 0;
+  // S4 Factor acceptance bound (kissat init_factoring's bound =
+  // bounds.eliminate.additional_clauses, factor.c:72,939): accept a grid iff
+  // delta > this. Default 0 ≡ the legacy FACTOR_MIN_GAIN = 1 acceptance.
+  // CONFIGURATION like bve_bound — any value is sound (it only narrows WHICH
+  // positive-gain grids reach the byte-identical apply_factoring); the S1b
+  // ramp policy couples it to the last completed BVE bound so factoring gets
+  // pickier as elimination gets more permissive. An attached FactorMatchPolicy
+  // (factor_match) keeps precedence — the hook subsumes the scalar.
+  uint32_t factor_bound = 0;
+  // S4 composite grids (S2b, kissat resize_factoring): widen Factor's
+  // factor/remainder universe to ALL live literals — extension vars included,
+  // growing as the pass applies. Default false (measured: composition
+  // over-applies in a single preprocessing blast, S2b §7; it belongs to the
+  // arrangement's small interleaved doses). CONFIGURATION like bve_bound —
+  // any value sound, termination stays delta-monotone (S2b §4).
+  // TACTIX_FACTOR_COMPOSITE=1 remains as an env override for A/Bs.
+  bool factor_composite = false;
+  // Per-round work budget, read by any budget-aware canonical apply in its
+  // OWN currency (kissat SET_EFFORT_LIMIT): Vivify meters propagation ticks
+  // (stats.ticks), Factor its cache-line factor_ticks (S4 dosing — kissat
+  // factor.c:442,914 quits mid-round on the same counter). A round stops
+  // visiting further candidates once it has spent this much; 0 = unbounded
+  // (the default — byte-identical legacy behaviour). CONFIGURATION like
+  // bve_bound, not a guard: stopping early only makes the round's effect a
+  // prefix/subset of the unbounded round's, and every prefix is sound (each
+  // rewrite is individually justified). Added for the S4 arrangement, whose
+  // during-search phases must dose their techniques — an unbounded round
+  // measured as the dominant diffuse Tier C loss (attribution 2026-07-24).
+  uint64_t work_budget = 0;
   // C3 Vivify round scope (kissat's redundant-tier vs irredundant split):
   // 0 = all candidates (default, legacy), 1 = redundant (learned) clauses
-  // only, 2 = irredundant only. CONFIGURATION like vivify_tick_budget — a
+  // only, 2 = irredundant only. CONFIGURATION like work_budget — a
   // scoped round's effect is a subset of the full round's, each rewrite
   // individually justified. Lets the policy mirror kissat's structure where
   // the redundant tiers ALWAYS run within budget and only the irredundant

@@ -7,7 +7,7 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 67 (2026-07-24)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-24
+- **Last updated:** 2026-07-24 (late — S4 gate judged, dosing increment 1)
 - **▶ RESUME HERE (2026-07-24).** Phase 3, **T3 gate open**. Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only). M3-Pro numbers are INVALID —
@@ -20,38 +20,48 @@ disagree, the plan is authoritative — fix this file.
   a fresh Tier B noise band. rev-66 nightlies GREEN at 400k-case scale
   (Log 2026-07-24; logs committed).
 
-  **▶ NEXT STEP — Track S · S4, two live threads:**
-  1. **(TOP PRIORITY, user directive 2026-07-24 late) Factor gets kissat's
-     exact dosing** — own tick meter (`factor_ticks`, cache-line units),
-     ~700M-tick initial allowance + 50‰ effort after, mid-round quit,
-     factor-LAST ordering, composite ON, uniform budget handoff in
-     DefaultPolicy (generalize `vivify_tick_budget`) — to crack
-     **mp1-blockpuzzle (74 s vs kissat 9, the dominant Tier B tail)**.
-     Design pass in flight → `docs/design/s4-factor-dosing-design.md`
-     (kissat evidence: factor.c metering/quit, options.h constants,
-     probe.c factor-last order; our S2a/S2b negatives must not be
-     re-proposed). Kissat mp1 profile probe: `benchmarks/probes/
-     kissat-mp1-profile2-*.out` (answers the missing-rule question — V5
-     Sweep is the one candidate rule we lack).
-  2. **S4 gate state:** mechanism complete behind `TACTIX_ARRANGEMENT`
-     (default OFF, byte-identical; commits `c30a10d`→`0510177`). After the
-     adaptive-dosing increments (kissat delay + tier split), **Tier B
-     arr5 = 18.16, 2.2× kissat 8.18, beats kissat on battleship 1.4 s +
-     summle** — and probes recovered em/goldcrest/urq/mod4block/qwh on C.
-     **Tier C same-window verdict (head7/arr5, runs `20260724-2213*`)
-     pending — judge it, then either flip the default (gate = B+C as one
-     unit) or iterate the C residual** (watch the Ptn/SCPC class: they
-     want heavier Vivify than the fixed budget gives). Also owed: a
-     stress-policy pass driving Factor mid-stable (hardens the heap fix,
-     `heuristics.cpp`).
+  **▶ NEXT STEP — Track S · S4 Factor dosing (TOP PRIORITY, user directive
+  2026-07-24 late): merge the mp1 gap (74 s vs kissat 9) without
+  compromising the rest of Tier B.** Design FROZEN →
+  `docs/design/s4-factor-dosing-design.md` (kissat factor.c metering/quit,
+  options.h constants, factor-last order; S2a/S2b negatives must not be
+  re-proposed; mp1 profile settled the missing-rule question — kissat's
+  sweep produces ZERO there, so no rule we lack is load-bearing).
+  - **Increment 1 DONE (2026-07-24 late):** `stats.factor_ticks` cache-line
+    currency + two mid-round quit points; `vivify_tick_budget` →
+    `Kernel::work_budget` (uniform budget handoff, `budget_aware` spec
+    flag); `factor_bound` + `factor_composite` config fields (defaults
+    byte-identical); factor_stress budget-boundary modes. Gates green:
+    ctest 31/31 both presets; fuzz 27.5k/0 across 6 legs (quick 10k DRAT,
+    LRAT, random-policy DRAT+LRAT, factor-stress DRAT+LRAT, jobs
+    1561152–57); mp1 factored dump BYTE-IDENTICAL vs cebba5f (probe
+    1561159).
+  - **Next: increment 2 (policy handoff, arrangement-scoped)** — EFFORT_SPECS
+    Factor 50‰ + 700M first dose, Factor-LAST order, factordelay log10
+    gate, completion-gated watermark advance; gates: mp1 probe ≤30 s w/
+    multi-round trace, **battleship ≤~1.4 s + mod4block ≤~25 s MUST hold**,
+    fuzz 10k arrangement-on, stress pass driving Factor mid-stable
+    (hardens the heap fix, `heuristics.cpp`). Then increment 3 (composite
+    ON in doses + bound coupling; proof-size spot check — see goldcrest
+    below) and increment 4 (same-window Tier B+C arrays + report).
+  - **S4 gate JUDGED (2026-07-24 late, runs `20260724-2213*`): default
+    stays OFF.** Tier C head7 **475.46 (27/30)** vs arr5 **703.67
+    (24/30)** — arr5 loses T105/T87 to TO and goldcrest to a drat-trim
+    CHECKER timeout (752 MB proof, ~30× head7's — proof-size risk §5.3 is
+    real), broad 1.5–4× slowdowns (j3037 205→884, trig-bhaskara 200→749)
+    against a few wins (af-synthesis 101→8.7, mp1-Nb5T15 7.3→2.7). Tier B
+    arr5 18.16 vs head7 32.31 stands. Gate = B+C one unit → the dosing
+    increments above ARE the C-residual iteration (watch Ptn/SCPC: they
+    want heavier Vivify than the fixed budget gives).
 
   **▶ Ordered work after S4:** Track T (Tier B tail: **TB5** propagation
   counter split [sites `kernel.cpp:496/562/622`], TB4b chrono completion, TB6
   mode cadence, TB2 x9 — FmlaEquiv/x9 are the diagnosed pure-search residuals),
-  then **T3 gate** (CaDiCaL same-window + noise band first). Independently
-  available: **V5 Sweep** (kitten sub-solver, plan O11) — promoted if the mp1
-  profile shows kissat leans on sweep. Recently completed: Track C (congruence
-  unit channel), Track H, S1b/S1c ramp, S2a/S2b (all closed; Log + design docs).
+  then **T3 gate** (CaDiCaL same-window + noise band first). V5 Sweep's
+  promotion conditional is CLOSED not-promoted (mp1 profile: sweep produced
+  zero product there; V5 stays phase 4). Recently completed: Track C
+  (congruence unit channel), Track H, S1b/S1c ramp, S2a/S2b (all closed; Log
+  + design docs).
 
 
 - **Standing lessons — measured, do not re-derive.** (Detail in the commits and
@@ -147,12 +157,14 @@ disagree, the plan is authoritative — fix this file.
     Never compare across job counts.
 
 - **Open items (small, none blocking).** `D-CONG-LRAT`/`D-CONG-DELETE` were
-  CLOSED by C4 (the stale claim here predated it); what C4 left open is
+  CLOSED by C4; what C4 left open is
   **C4-perf** (LRAT replay ~250× on gate-heavy miters; fix = structural
   chains via `CongGate::side_ids`) and **C3b** (remaining degeneracies) —
-  see Track C. Still owed: the `stress-policy` pass V6's unit channel
-  (can return `Unsat`; ledger `docs/implementation-notes.md` §2) and one
-  for Factor-mid-stable (the heap-fix hardening, anchor).
+  see Track C. The V6 unit-channel stress pass is DONE, three times over
+  (`4f2b53e`; 10k congstress nightly, PROGRESS §C4 gates; 4k leg gating
+  `3434097`) — the "owed" claim here was stale. Still owed: the
+  Factor-mid-stable stress pass (heap-fix hardening — scheduled inside
+  dosing increment 2, anchor).
   **Task #39** — `--random-policy` livelock on 5
   tiny cases in `tools/fuzz/known-hangs/` (N1 robustness, not soundness).
   `examples/demo3_scripted_default.c` keeps `SLOT_IN_DEFAULT 0` (search +
@@ -333,13 +345,15 @@ why none of them needs a trade-off against the others.
 - [ ] **S4 · the TARGET ARRANGEMENT as ONE gated unit** — no BVE at preprocessing + probing first + elimination in the search loop; behind `TACTIX_ARRANGEMENT` (default OFF); gated on Tier B+C together (recorded §8.3 exception; L1/L2).
   **Status 2026-07-24 night (Log campaign entry):** mechanism COMPLETE incl.
   adaptive dosing (kissat delay + tier split); **B won: arr5 18.16 vs kissat
-  8.18, beats kissat on battleship+summle; C same-window verdict pending
-  (`20260724-2213*`)**. Latent mid-stable heap bug found+fixed en route.
-  **Next increment (TOP PRIORITY, user directive): kissat-exact Factor dosing
-  — design frozen in `docs/design/s4-factor-dosing-design.md`** (uniform
-  `Kernel::work_budget`, `stats.factor_ticks` cache-line currency, 50‰ +
-  700M-init allowance, factor-LAST order, composite ON, bound coupled to the
-  S1b ramp; 4 gated increments). **mp1 needs NO missing rule** — kissat's
+  8.18, beats kissat on battleship+summle; C same-window verdict JUDGED —
+  default stays OFF (head7 475.46/27 vs arr5 703.67/24, anchor detail)**.
+  Latent mid-stable heap bug found+fixed en route.
+  **Current increment (TOP PRIORITY, user directive): kissat-exact Factor
+  dosing — design frozen in `docs/design/s4-factor-dosing-design.md`**
+  (uniform `Kernel::work_budget`, `stats.factor_ticks` cache-line currency,
+  50‰ + 700M-init allowance, factor-LAST order, composite ON, bound coupled
+  to the S1b ramp; 4 gated increments — **increment 1 landed 2026-07-24
+  late**, anchor detail). **mp1 needs NO missing rule** — kissat's
   sweep produces 0 there (profile `benchmarks/probes/kissat-mp1-profile2-*`).
 
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`.
@@ -399,6 +413,30 @@ re-read every bootstrap, so its length is a recurring cost, and each entry's
 detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
+
+### 2026-07-24 late — S4 gate judged (default stays OFF) + Factor-dosing increment 1 lands
+- **C same-window verdict (`20260724-2213*`): head7 475.46 (27/30) vs arr5
+  703.67 (24/30)** — anchor has the instance detail incl. goldcrest's 752 MB
+  proof hitting drat-trim's 2400 s cap (checker timeout, not a rejection —
+  but proof-size risk §5.3 is live). B+C one-unit gate NOT met; the dosing
+  increments are the C-residual iteration.
+- **Dosing increment 1 (this commit):** `stats.factor_ticks` (cache-line
+  currency) + Factor's two mid-round quit points; `vivify_tick_budget` →
+  uniform `Kernel::work_budget` with a `budget_aware` EFFORT_SPECS flag
+  (Vivify unchanged, plain handoff ready for Factor); `factor_bound` +
+  `factor_composite` kernel configs (defaults byte-identical);
+  factor_stress budget-boundary modes (seed-drawn tiny budgets hit both
+  quit points). Ledger updated (implementation-notes). Gates: ctest 31/31
+  ×2; fuzz 27.5k/0 over 6 legs (1561152–57); **mp1 factored dump
+  BYTE-IDENTICAL vs cebba5f** (probe 1561159).
+- **Open-items audit (26-agent workflow):** 66 items — 52 valid all with
+  scheduled homes; closed here: V5-Sweep conditional (not promoted),
+  P2-unknown watch (discharged), L7's "ramp alone" next-step (done by
+  S1b/c), §8.1 revise-plan owed (done by revs 64/65), V6 unit-channel
+  stress owed (stale — superseded wording), paths-matcher ship question,
+  shakedown watch, Track-H deferral record (H7 completed the ownership
+  half). ~421 of 843 lines identified losslessly compressible →
+  compact-docs pass at next wrap-up.
 
 ### 2026-07-24 — Track S · S4 campaign (one day, 8 commits): mechanism complete, B won −36 %, C verdict pending
 Consolidated from seven same-day entries; full detail in the cited commits.
