@@ -351,6 +351,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // confirmed the halves are individually neutral-at-best).
       const bool arrangement = std::getenv("TACTIX_ARRANGEMENT") != nullptr;
       arrangement_ = arrangement;
+      // TACTIX_ARRANGEMENT_KEEP_PREBVE=1 — the "lite+dosed" S4 arm: keep the
+      // during-search dosed phases (the Tier B win) but let BVE also run at
+      // preprocessing (kissat fastel default, not 0). Probes 2026-07-24:
+      // the dosed-deferral losers (mp1-Nb5T15 34 vs 7.5, mod4block 54 vs 14,
+      // em_11 429 vs 61) all want their early elimination back.
+      const bool keep_prebve =
+          arrangement && std::getenv("TACTIX_ARRANGEMENT_KEEP_PREBVE");
       const auto env_list = [](const char *var, const char *nm) {
         const char *s = std::getenv(var);
         if (!s)
@@ -388,7 +395,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (env_list("TACTIX_SLOT_DISABLE", nm))
             on = false;
           SlotEntry e;
-          e.arrangement_defer = arrangement && !std::strcmp(nm, "BVE");
+          e.arrangement_defer =
+              arrangement && !keep_prebve && !std::strcmp(nm, "BVE");
           e.rule = i;
           e.enabled = on;
           if (const EffortSpec *s = effort_spec(nm)) {

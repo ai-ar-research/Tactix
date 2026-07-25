@@ -435,6 +435,23 @@ detail already exists in its commit message and/or a `benchmarks/reports/`
 report. Plan revisions are indexed in DEVELOPMENT_PLAN.md §13 + their
 `plan rev N` commits, not re-narrated here. Newest first.
 
+### 2026-07-24 (night 2) — dosed gate: Tier B −36% (20.70!), Tier C still behind — the dose trades Ptn/SCPC for urq/mod2c
+- Same-window arrays `20260724-1935*` (HEAD vs dosed arrangement):
+  **Tier B: arr3 14/14 @ 20.70 vs HEAD 32.37 — the first Tier-B-band win of
+  the whole S4 campaign** (battleship 1.5 s, FmlaEquiv 23.1, summle 9.8;
+  residuals mod4block 54 vs 14, mp1-blockpuzzle +20, 9vliw +8).
+  **Tier C: arr3 24/30 @ 676.73 vs HEAD 27/30 @ 480.39** — better than
+  undosed (868) but the Vivify budget TOOK BACK the arrangement's own
+  trophies: Ptn-7824 + SCPC-1000-18 (cracked by the unbounded blast) are TO
+  again, while urq45 283 / mod2c 69.7 / Grain 499 recovered from their TOs.
+  **The dose is instance-bimodal — a fixed permille cannot serve both
+  classes; this is the adaptive-budget / phase-6 arm shape.**
+- Next arm in flight: **lite+dosed** (`TACTIX_ARRANGEMENT_KEEP_PREBVE=1` —
+  during-search dosed phases kept, BVE also at preprocessing): the dosed
+  losers mp1-Nb5T15 (34 vs 7.5), mod4block (54 vs 14), em_11 (429 vs 61)
+  all want early elimination back, and lite was the day's best Tier C (441).
+  Runs `20260724-20*-{B,C}-{arrlite,head5}`; fuzz leg 1560949.
+
 ### 2026-07-24 (night) — S4 per-phase cost attributed + dosed; latent mid-stable heap bug found and fixed
 - **Attribution (probes 1560738-46, em_11/urq45/frb45 × disable arms):
   Vivify's unbounded round is the dominant diffuse killer** (urq45 recovers
