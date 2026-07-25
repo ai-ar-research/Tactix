@@ -49,12 +49,12 @@ bool bve_guard(const Kernel &);
 // deferred-slot, correctness-first choice, matching Subsume/Strengthen's occs).
 // Large clauses are arena Refs; a binary (l ∨ o) is recorded in `binary[l]` as
 // the partner literal o (its id is kernel_binary_id(k, l, o)).
+// Flat COUNTS only (review 2026-07-25 item 6): the sole consumer,
+// bve_schedule's ranking, reads count(l) — the per-literal Ref/partner lists
+// were built and thrown away. Same scans, same counts, identical ranking.
 struct BveOccurrences {
-  std::vector<std::vector<Ref>> large;  // by lit
-  std::vector<std::vector<Lit>> binary; // by lit: partner of each (lit ∨ partner)
-  uint32_t count(Lit l) const {
-    return static_cast<uint32_t>(large[l].size() + binary[l].size());
-  }
+  std::vector<uint32_t> counts; // by lit
+  uint32_t count(Lit l) const { return counts[l]; }
 };
 void bve_build_occurrences(const Kernel &, BveOccurrences &);
 

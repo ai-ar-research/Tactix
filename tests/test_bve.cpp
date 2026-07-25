@@ -34,18 +34,12 @@ static void test_occurrences() {
 
   BveOccurrences occ;
   bve_build_occurrences(k, occ);
-  // +1 in the large clause only; ¬1 in the binary only
-  assert(occ.large[internalize(1)].size() == 1);
-  assert(occ.binary[internalize(1)].empty());
+  // count-level contract (the struct is flat counts since the 2026-07-25
+  // review): +1 large only; ¬1 binary only; +2 in both; +3 large only
   assert(occ.count(internalize(1)) == 1);
-  assert(occ.binary[internalize(-1)].size() == 1 &&
-         occ.binary[internalize(-1)][0] == internalize(2));
   assert(occ.count(internalize(-1)) == 1);
-  // +2 in both the large clause and the binary
-  assert(occ.large[internalize(2)].size() == 1);
-  assert(occ.binary[internalize(2)].size() == 1 &&
-         occ.binary[internalize(2)][0] == internalize(-1));
   assert(occ.count(internalize(2)) == 2);
+  assert(occ.count(internalize(-2)) == 0);
   assert(occ.count(internalize(3)) == 1);
 }
 

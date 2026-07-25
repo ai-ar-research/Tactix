@@ -33,19 +33,17 @@ static constexpr uint32_t BVE_CLSLIM = 100;
 // slack (to the ramp ceiling) to learn the exact slack a rejected variable needs,
 // caching it in `k.bve_min_bound` so the policy can skip it at lower ramp levels
 // instead of re-resolving it at each (the S1b needed-bound follow-up).
-// TACTIX_BVE_BOUND pins it for A/B tuning, overriding the policy's ramp.
-static uint32_t bve_bound(const Kernel &k) {
-  if (const char *s = std::getenv("TACTIX_BVE_BOUND"))
-    return static_cast<uint32_t>(std::atoi(s));
-  return k.bve_bound;
-}
+// (The TACTIX_BVE_BOUND in-rule env pin — a rule silently overriding policy
+// writes, the rev-17 inversion — was deleted in the 2026-07-25 review pass;
+// the config field is the one channel. TACTIX_BVE_RAMP_MAX sweeps the ramp
+// ceiling policy-side.)
+static uint32_t bve_bound(const Kernel &k) { return k.bve_bound; }
 
 bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
 void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
   const uint32_t nlits = 2 * k.nvars;
-  occ.large.assign(nlits, {});
-  occ.binary.assign(nlits, {});
+  occ.counts.assign(nlits, 0);
   // large IRREDUNDANT clauses. BVE eliminates over F (the irredundant core); the
   // learned set R is redundant and not resolved.
   if (k.dense) {
@@ -57,7 +55,7 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
         continue;
       for (const Ref ref : k.dense->large[l])
         if (!clause_at(k.arena, ref)->garbage())
-          occ.large[l].push_back(ref);
+          occ.counts[l]++;
     }
   } else {
     for (Ref ref = 0; ref < k.arena.size();) {
@@ -65,7 +63,7 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
       if (!c->garbage() && !c->redundant())
         for (const Lit l : *c)
           if (k.values[l] == 0) // active-variable literals only
-            occ.large[l].push_back(ref);
+            occ.counts[l]++;
       ref += clause_words(c->size);
     }
   }
@@ -82,7 +80,7 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
       if (w.binary()) {
         const Lit o = w.other();
         if (k.values[o] == 0)
-          occ.binary[l].push_back(o);
+          occ.counts[l]++;
         i += 1;
       } else {
         i += 2; // large watch: blocking word + ref word
