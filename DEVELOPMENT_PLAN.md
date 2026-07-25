@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-24 (rev. 67). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-25 (rev. 68). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -750,6 +750,30 @@ status** (catalog note, §5.2):
   heuristics remain the rankers. Where several rankers exist they may be
   arms (VMTF vs scores — the Kissat-MAB trick, already our S4).
 
+**The elimination-dosing exhibit (rev 68, 2026-07-25) — the module's
+strongest measured motivation, and a NAMED learning target.** Whether
+during-search elimination (and by extension each inprocessing dose) should
+fire *on this instance in this state* is a real, valuable, unsolved
+decision: a single static feature (binary density) with hand-picked
+thresholds was worth **−7 PAR-2 on Tier B and −32 on Tier C in one
+morning** (crypto1 66.7→16.1 s, mod4block 60→13.6 s, Tier C's Ptn/urq45
+class simultaneously), taking DefaultPolicy past CaDiCaL on Tier B —
+while kissat, which lacks the decision entirely, runs 4× slower than its
+own no-eliminate ablation on mod4block, and conversely *gains* 2× from
+elimination on crypto1 where ours (mechanism gap, under study) loses 4×.
+Three sibling gates now encode the placeholder policy (Factor density 6,
+composite 50, BVE-dose 6 — `benchmarks/reports/2026-07-25-s4-gate-mp1.md`
++ the density-gate commits), with known errors in both directions (em_11:
+sparse but elimination-loving; crypto1: the ceiling needs the mechanism
+fix, not just the gate). The phase-6 obligation is explicit: **the learner
+must subsume these gates** — DefaultPolicy's thresholds become the
+permanent arm, the gate features (binary density, dose productivity,
+elimination yield per resolution) become L2 context dimensions (they join
+the O12 feature set; "binary-clause fraction" was already listed), and
+per-entry dose on/off becomes a scheduled choice point. Success looks
+like: the learner matches the gates where they are right, recovers em_11
+where they are wrong, and no hand threshold survives as load-bearing.
+
 **The three-cost trade-off** — granularity vs cost-to-learn vs cost-to-decide:
 
 | Level | Choice frequency | Decide-cost budget | Samples/solve | Consequence |
@@ -1293,3 +1317,4 @@ conflate them.
 - **rev. 65** (2026-07-23, user): no solver execution outside a submitted job — sbatch only (srun-from-session becomes a job step), local `--jobs` mode demoted to harness debugging; job-hygiene rule: cancel by explicit id only (§8.1).
 - **rev. 66** (2026-07-23, user): fuzz cadence scaled 10× for the cluster — quick 1k→10k, nightly 20k→200k, 50 harness threads per fuzz job (§8.2; run.sh/slurm.sh + fuzz/slurm-jobs skills synced).
 - **rev. 67** (2026-07-24, user): phase 3.5 PINNED between phases 3 and 4 (§9, no renumbering) — "engineering ingenuity on top of kissat" once kissat performance is matched; deliberately unelaborated, concretize at phase-3 exit (§11 O15).
+- **rev. 68** (2026-07-25, user): §5.6 elimination-dosing exhibit — per-instance/state inprocessing dosing PROMOTED to a named phase-6 learning target with an explicit subsume-the-gates obligation (density-gate family = placeholder policy + L2 context features; DefaultPolicy thresholds = permanent arm); grounded in the 2026-07-25 density-gate measurements + kissat `--no-eliminate` ablation.
