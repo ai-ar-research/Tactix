@@ -84,19 +84,13 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   //  - BVE retry filter: this clause is new material for every variable in
   //    it. Redundant clauses are excluded on purpose — BVE does not resolve
   //    them, and learned-clause traffic would mark everything.
-  // TACTIX_BVE_RETRY_REMOVAL_ONLY=1 is the kissat-exact A/B arm (inline.h:
-  // added literals feed subsume/factor candidacy, REMOVED literals feed
-  // eliminate). Measured 2026-07-25 and NOT adopted: it did not fix
-  // mod4block's dose churn (identical conflicts, probe 1561191) and it cost
-  // the arrangement's mp1 win 5.3 → 15.5 s (B-arr7 array vs probe 1561180 —
-  // Factor's fresh divider/quotient binaries re-arm elimination exactly
-  // where the dosed phases need it).
-  static const bool removal_only =
-      std::getenv("TACTIX_BVE_RETRY_REMOVAL_ONLY") != nullptr;
+  //    NOTE the kissat-exact alternative (removal-only marking, inline.h)
+  //    was measured 2026-07-25 and NOT adopted — it cost the arrangement's
+  //    mp1 win 5.3 → 15.5 s without fixing mod4block; the arm was removed
+  //    in the negative-arm cleanup (ledger + gate report §2 bank it).
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
-      if (!removal_only)
-        kernel_mark_bve_retry(k, var_of(lits[i]));
+      kernel_mark_bve_retry(k, var_of(lits[i]));
       if (k.dense)
         k.dense->large[lits[i]].push_back(ref);
     }
@@ -115,15 +109,10 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   // free choice before deletion existed and is not one now.
   k.binary_ids.insert_or_assign(kernel_binary_key(a, b), id);
   // BVE retry filter: binaries have an irredundant lifecycle in this kernel,
-  // so every added pair is new elimination material for both variables.
-  // TACTIX_BVE_RETRY_REMOVAL_ONLY=1 = the kissat-exact A/B arm, measured and
-  // NOT adopted (see kernel_add_large_clause above).
-  static const bool removal_only =
-      std::getenv("TACTIX_BVE_RETRY_REMOVAL_ONLY") != nullptr;
-  if (!removal_only) {
-    kernel_mark_bve_retry(k, var_of(a));
-    kernel_mark_bve_retry(k, var_of(b));
-  }
+  // so every added pair is new elimination material for both variables
+  // (removal-only marking measured and rejected — see kernel_add_large_clause).
+  kernel_mark_bve_retry(k, var_of(a));
+  kernel_mark_bve_retry(k, var_of(b));
 }
 
 bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {

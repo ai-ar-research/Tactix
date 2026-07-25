@@ -218,7 +218,7 @@ ApplyResult factor_apply(Kernel &k) {
   const Lit orig_lits = static_cast<Lit>(2 * kernel_num_output_vars(k));
 
   // S2b composite grids (docs/design/s2b-composite-grids-design.md):
-  // TACTIX_FACTOR_COMPOSITE=1 widens the factor/remainder universe to ALL
+  // k.factor_composite widens the factor/remainder universe to ALL
   // live literals — prior-pass extension vars and this pass's own fresh vars
   // included — growing as the pass applies (kissat resize_factoring).
   // Termination needs no var-class exclusion: every accepted grid has
@@ -229,10 +229,10 @@ ApplyResult factor_apply(Kernel &k) {
   // 1.37 M → 2.18 M (the L4 over-application U-shape, Factor edition), and
   // the grid cap does not move. Kept for the S4 arrangement, whose small
   // interleaved doses are where kissat's own cross-round composition lives.**
-  const bool composite = k.factor_composite || [] {
-    const char *s = std::getenv("TACTIX_FACTOR_COMPOSITE");
-    return s && s[0] == '1';
-  }();
+  // (The TACTIX_FACTOR_COMPOSITE blast-composition env — the S2b negative —
+  // was removed in the 2026-07-25 negative-arm cleanup; k.factor_composite
+  // is the one switch, set by policies for density-scoped doses.)
+  const bool composite = k.factor_composite;
   Lit live_lits = composite ? static_cast<Lit>(2 * k.nvars) : orig_lits;
 
   std::vector<uint8_t> inR(live_lits, 0);       // R membership

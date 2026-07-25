@@ -394,7 +394,8 @@ struct Kernel {
   // over-applies in a single preprocessing blast, S2b §7; it belongs to the
   // arrangement's small interleaved doses). CONFIGURATION like bve_bound —
   // any value sound, termination stays delta-monotone (S2b §4).
-  // TACTIX_FACTOR_COMPOSITE=1 remains as an env override for A/Bs.
+  // (The TACTIX_FACTOR_COMPOSITE env override was removed in the 2026-07-25
+  // negative-arm cleanup — this field is the one switch.)
   bool factor_composite = false;
   // Per-round work budget, read by any budget-aware canonical apply in its
   // OWN currency (kissat SET_EFFORT_LIMIT): Vivify meters propagation ticks

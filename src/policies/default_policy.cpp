@@ -180,9 +180,6 @@ uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 // Kernel::work_budget (in its own currency) and stops mid-round — the policy
 // hands such an entry its remaining ledger budget around r.apply(k) instead
 // of only metering it after the fact (S4 dosing; kissat SET_EFFORT_LIMIT).
-// `arrangement_only` scopes a spec to TACTIX_ARRANGEMENT (S4): without the
-// arrangement the entry keeps its unmetered legacy shape, so the default
-// path stays byte-identical until the S4 gate flips (design §3.b).
 struct EffortSpec {
   const char *name;
   uint32_t permille;
@@ -190,21 +187,20 @@ struct EffortSpec {
   bool dosed;
   bool retry_advice;
   bool budget_aware;
-  bool arrangement_only;
 };
 constexpr EffortSpec EFFORT_SPECS[] = {
-    {"BVE", 100, meter_bve, true, true, false, false},
-    {"Probe", 20, meter_ticks, true, false, false, false},
-    {"Backbone", 20, meter_ticks, true, false, false, false},
-    {"TransitiveReduce", 20, meter_transitive, true, false, false, false},
-    {"Vivify", 100, meter_ticks, false, false, true, false},
-    {"Strengthen", 100, meter_strengthen, false, false, false, false},
-    {"SubsumeForward", 100, meter_forward, false, false, false, false},
+    {"BVE", 100, meter_bve, true, true, false},
+    {"Probe", 20, meter_ticks, true, false, false},
+    {"Backbone", 20, meter_ticks, true, false, false},
+    {"TransitiveReduce", 20, meter_transitive, true, false, false},
+    {"Vivify", 100, meter_ticks, false, false, true},
+    {"Strengthen", 100, meter_strengthen, false, false, false},
+    {"SubsumeForward", 100, meter_forward, false, false, false},
     // S4 Factor dosing (design §3.b): kissat factoreffort 50‰ (options.h:57
     // — half of vivify/eliminate's 100), currency = factor_ticks. The first
     // dose per solve bypasses the permille formula with kissat's
     // factoriniticks 700M allowance (set at phase entry below).
-    {"Factor", 50, meter_factor, false, false, true, true},
+    {"Factor", 50, meter_factor, false, false, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -219,15 +215,11 @@ const EffortSpec *effort_spec(const char *name) {
 bool DefaultPolicy::want_inprocess(const Kernel &k) const {
   if (!inprocess.initialized || k.stats.conflicts < inprocess.next_conflicts)
     return false;
-  // S4 arrangement: the during-search phases CARRY the elimination value
-  // (BVE is deferred out of preprocessing), so they fire on the interval
-  // alone — kissat's eliminate does not wait for new material either.
-  if (arrangement_)
-    return true;
-  // new-material gate (see default_policy.hpp): skip passes that cannot
-  // find anything instead of paying the scan + root restart
-  return !inprocess.ran || k.binary_ids.size() > inprocess.binaries_seen ||
-         kernel_root_fixed(k) > inprocess.root_fixed_seen;
+  // The during-search phases CARRY the elimination value (BVE is deferred
+  // out of preprocessing), so they fire on the interval alone. (The legacy
+  // composition's new-material gate left with the legacy path, 2026-07-25
+  // negative-arm cleanup.)
+  return true;
 }
 
 // kissat kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N,
@@ -240,27 +232,16 @@ void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
   // dense OccIndex + a real tick budget make a during-search phase cheap and
   // small enough to be SAT-safe. The growing periodic interval below (kissat
   // NLOG2N, phase-count-scaled) is what increment 2 restores.
-  // TACTIX_INPROCESS_INTERVAL=N — the S1 experiment knob (L7's open question).
-  // Re-enables during-search phases at a FIXED conflict interval, varying ONLY
-  // the interval: no growth, no size scaling, nothing else moves. That isolation
-  // is the whole point — L7 established that the cost of repeated BVE is NOT the
-  // resolvent work (33 % fewer resolvents, identical wall time), leaving the
-  // per-phase overhead as the suspect, and the way to test that is to see whether
-  // time tracks phase COUNT. Unset = today's behaviour (preprocessing only), so
-  // the default path is byte-identical.
-  if (const char *iv = std::getenv("TACTIX_INPROCESS_INTERVAL")) {
-    const long n = std::strtol(iv, nullptr, 10);
-    if (n > 0) {
-      inprocess.next_conflicts = k.stats.conflicts + static_cast<uint64_t>(n);
-      return;
-    }
-  }
+  // (The TACTIX_INPROCESS_INTERVAL fixed-interval experiment knob — L7's
+  // instrument, which established that the interval is the wrong control —
+  // was removed in the 2026-07-25 negative-arm cleanup; L7 in PROGRESS +
+  // `775eefc` bank the result.)
   // S4 arrangement: the during-search phases CARRY the elimination value
   // (BVE is deferred out of conflicts==0), so the growing interval below —
   // increment 2's shape, kissat UPDATE_CONFLICT_LIMIT(eliminate, NLOG2N),
   // size-scaled — is load-bearing here, not optional. Without it the first
   // gate arms (2026-07-24) silently measured probing-first + NO BVE.
-  if (arrangement_) {
+  {
     uint64_t n = inprocess.rounds; // policy-local growth key (rev 17)
     if (!n)
       n = 1;
@@ -271,8 +252,6 @@ void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
         k.stats.conflicts + scale_inprocessing_delta(k, delta);
     return;
   }
-  inprocess.next_conflicts = UINT64_MAX;
-  (void)k;
 }
 
 // arithmetically growing reduce interval
@@ -369,23 +348,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // slot, and BVE leaves the conflicts==0 preprocessing phase (kissat
       // fastel=0) — its doses come from the during-search phases, which then
       // run on a formula probing has simplified.
-      // **DEFAULT ON since 2026-07-25 — the Tier B+C one-unit gate PASSED**
-      // on same-window post-dedup arrays (report
-      // benchmarks/reports/2026-07-25-s4-gate-mp1.md): B 17.45 vs default
-      // 43.86 (arr −60%, mp1 5.6 s vs kissat 9.1), C 552.91 vs 537.83
-      // (−2.8%, within the tier's SAT-variance band), Tier A 0.82 vs 0.79
-      // (199/200 both). TACTIX_NO_ARRANGEMENT=1 reverts to the legacy
-      // composition (the pre-gate default); TACTIX_ARRANGEMENT stays
-      // accepted for script compatibility (now a no-op).
-      const bool arrangement = !std::getenv("TACTIX_NO_ARRANGEMENT");
-      arrangement_ = arrangement;
-      // TACTIX_ARRANGEMENT_KEEP_PREBVE=1 — the "lite+dosed" S4 arm: keep the
-      // during-search dosed phases (the Tier B win) but let BVE also run at
-      // preprocessing (kissat fastel default, not 0). Probes 2026-07-24:
-      // the dosed-deferral losers (mp1-Nb5T15 34 vs 7.5, mod4block 54 vs 14,
-      // em_11 429 vs 61) all want their early elimination back.
-      const bool keep_prebve =
-          arrangement && std::getenv("TACTIX_ARRANGEMENT_KEEP_PREBVE");
+      // **UNCONDITIONAL since 2026-07-25** — the Tier B+C one-unit gate
+      // PASSED (report benchmarks/reports/2026-07-25-s4-gate-mp1.md: B
+      // 17.45→10.62 vs legacy 43.86, mp1 5.5 s vs kissat 9.1) and the
+      // legacy composition + its TACTIX_NO_ARRANGEMENT/KEEP_PREBVE reverts
+      // were removed in the same day's negative-arm cleanup (user
+      // directive); the pre-gate composition lives in git history.
       const auto env_list = [](const char *var, const char *nm) {
         const char *s = std::getenv(var);
         if (!s)
@@ -413,28 +381,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                     // grid pairs are removed). Full kissat-level benefit
                     // still wants SBVA selection (S2) + large remainders (S4).
                     !std::strcmp(nm, "Substitute");
-          if (arrangement &&
-              (!std::strcmp(nm, "Probe") || !std::strcmp(nm, "Backbone") ||
-               !std::strcmp(nm, "TransitiveReduce") ||
-               !std::strcmp(nm, "Vivify")))
-            on = true;
+          if (!std::strcmp(nm, "Probe") || !std::strcmp(nm, "Backbone") ||
+              !std::strcmp(nm, "TransitiveReduce") || !std::strcmp(nm, "Vivify"))
+            on = true; // the probing family is part of the arrangement
           if (env_list("TACTIX_SLOT_ENABLE", nm))
             on = true;
           if (env_list("TACTIX_SLOT_DISABLE", nm))
             on = false;
           SlotEntry e;
-          e.arrangement_defer =
-              arrangement && !keep_prebve && !std::strcmp(nm, "BVE");
+          e.arrangement_defer = !std::strcmp(nm, "BVE");
           e.rule = i;
           e.enabled = on;
           if (const EffortSpec *s = effort_spec(nm)) {
-            if (!s->arrangement_only || arrangement) {
-              e.permille = s->permille;
-              e.meter = s->meter;
-              e.dosed = s->dosed;
-              e.retry_advice = s->retry_advice;
-              e.budget_aware = s->budget_aware;
-            }
+            e.permille = s->permille;
+            e.meter = s->meter;
+            e.dosed = s->dosed;
+            e.retry_advice = s->retry_advice;
+            e.budget_aware = s->budget_aware;
           }
           inprocess_slot.push_back(e);
         }
@@ -446,9 +409,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // Factor/Congruence/Substitute simplify — matches kissat: clique 222→4.2s
       // (53×, beats kissat), Tier B PAR-2 42.6→21.0, Tier C 28→29/30 (gains
       // aes_decry), Tier A neutral, fuzz sound. STOPGAP for the effort-budgeted
-      // scheduler (plan rev 53) which supersedes it. `TACTIX_BVE_FIRST` reverts to
-      // the old order for that A/B.
-      if (!std::getenv("TACTIX_BVE_FIRST")) {
+      // scheduler (plan rev 53) which supersedes it. (The TACTIX_BVE_FIRST
+      // revert knob was removed in the 2026-07-25 negative-arm cleanup.)
+      {
         const std::vector<RuleVTable> &rr = tactix_rules();
         for (size_t j = 0; j < inprocess_slot.size(); j++)
           if (!std::strcmp(rr[inprocess_slot[j].rule].name, "BVE")) {
@@ -466,7 +429,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // phases. The default (non-arrangement) order is NOT touched: the
       // BVE-LAST measurements (clique 222→4.2 s) were taken on
       // Factor-before-BVE and stay valid until the S4 gate flips.
-      if (arrangement) {
+      {
         const std::vector<RuleVTable> &rr = tactix_rules();
         for (size_t j = 0; j < inprocess_slot.size(); j++)
           if (!std::strcmp(rr[inprocess_slot[j].rule].name, "Factor")) {
@@ -595,13 +558,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // reads it only there, so once per phase suffices. Scoped set/clear
       // (mirrors the dense index) so the kernel never holds a dangling
       // pointer into this policy after solve returns.
-      // TACTIX_FACTOR_MATCH=paths selects the shelved Inc-3 experiment arm;
-      // unset = the bit-exact default watch-size arm.
-      FactorMatchPolicy *fm_arm = &default_factor_match_;
-      if (const char *fs = std::getenv("TACTIX_FACTOR_MATCH"))
-        if (!std::strcmp(fs, "paths"))
-          fm_arm = &paths_factor_match_;
-      k.factor_match = factor_match ? factor_match : fm_arm;
+      k.factor_match = factor_match ? factor_match : &default_factor_match_;
       // Phase structure (kissat eliminate-round shape): a few OUTER rounds,
       // each giving every enabled technique one dose, so a technique can pick
       // up what the others exposed. Dose granularity follows the rule's
@@ -685,7 +642,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // (Two earlier attempts banked in the gate report §2: the
             // adaptive delay — mp1's productivity is bursty — and
             // removal-only retry marking; neither recovered the pair.)
-            if (arrangement_ && e.retry_advice && k.stats.conflicts > 0) {
+            if (e.retry_advice && k.stats.conflicts > 0) {
               uint64_t dose_density = 6;
               if (const char *dd = std::getenv("TACTIX_BVE_DOSE_DENSITY"))
                 dose_density = std::strtoull(dd, nullptr, 10);
@@ -709,11 +666,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // LEVEL (see bve_level_ in the header) replaces the
             // all-levels-per-dose ramp — one pass per dose at the current
             // level; the level doubles below only when the dose completes.
-            // TACTIX_NO_BVE_LEVEL=1: A/B kill switch — fall back to the
-            // eager all-levels-per-dose S1c ramp inside arrangement doses
-            // (the arr5-era shape; crypto1 regression bisect 2026-07-25).
-            const bool level_mode = arrangement_ && e.retry_advice && ramp &&
-                                    !std::getenv("TACTIX_NO_BVE_LEVEL");
+            // (The TACTIX_NO_BVE_LEVEL eager-ramp kill switch — the crypto1
+            // bisect instrument, level pacing = 24 s of that 57 s regression
+            // — was removed in the 2026-07-25 negative-arm cleanup; the
+            // density gate below superseded it.)
+            const bool level_mode = e.retry_advice && ramp;
             const uint32_t passes = level_mode ? 1
                                     : ramp     ? ramp->num_passes()
                                                : 1;
@@ -834,7 +791,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // faithful-looking but one-decade-stricter 10^(e+4) reading).
           // Active ≈ unassigned − BVE-eliminated (decade granularity makes
           // the approximation safe).
-          if (factor_entry && arrangement_) {
+          if (factor_entry) {
             const uint64_t elim = k.stats.bve_eliminated;
             const uint64_t active =
                 k.unassigned > elim ? k.unassigned - elim : 0;
@@ -861,7 +818,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // Substitute) re-runs only on new material since ITS last run —
           // repeating the full closures every phase was a dominant diffuse
           // Tier C cost, while dropping them entirely breaks urq45.
-          if (!e.meter && arrangement_ && k.stats.conflicts > 0 &&
+          if (!e.meter && k.stats.conflicts > 0 &&
               k.binary_ids.size() <= e.binaries_mark &&
               kernel_root_fixed(k) <= e.root_fixed_mark)
             continue;
@@ -942,7 +899,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // init_factoring: bound = bounds.eliminate.additional_clauses,
             // factor.c:72): as elimination gets more permissive, factoring
             // gets pickier. Scoped set/clear so no other caller sees them.
-            if (factor_entry && arrangement_) {
+            if (factor_entry) {
               // Composite doses are DENSITY-SCOPED (probes 1561187/1561512
               // + build-race postmortem: composite ON is what takes
               // post-dedup mp1 from 15.5 to 5.4 s — 645k → 178k conflicts —
@@ -953,28 +910,26 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               // binary-dense formulas (≥ 50×): clique 17.5, x9 8.2,
               // battleship 6 stay non-composite. A SELECTIVITY heuristic
               // like the density gate itself — proper home is the learned
-              // policy; TACTIX_COMPOSITE_DENSITY overrides the threshold,
-              // TACTIX_FACTOR_COMPOSITE_DOSES=1 forces ON for A/Bs.
-              // The BOUND COUPLING stays measured-dead default OFF (probes
-              // 1561190/91: rejects the small-delta top-up grids the dosed
-              // regime exists to add; design §3.e verdict reversed;
-              // TACTIX_FACTOR_BOUND_COUPLE=1 re-enables).
+              // policy; TACTIX_COMPOSITE_DENSITY overrides the threshold
+              // (0 disables, small values ≈ force-on).
+              // (The eliminate-level BOUND COUPLING — design §3.e, measured
+              // dead: it rejects the small-delta top-up grids the dosed
+              // regime exists to add, mp1 5.3→14.9 s, probes 1561190/91 —
+              // was removed in the 2026-07-25 negative-arm cleanup along
+              // with its TACTIX_FACTOR_BOUND_COUPLE knob; Kernel::factor_bound
+              // stays as plain N1 config, always 0 from this policy.)
               uint64_t comp_density = 50;
               if (const char *cd = std::getenv("TACTIX_COMPOSITE_DENSITY"))
                 comp_density = std::strtoull(cd, nullptr, 10);
-              if (std::getenv("TACTIX_FACTOR_COMPOSITE_DOSES") ||
-                  (comp_density &&
-                   k.binary_ids.size() >=
-                       comp_density * kernel_num_output_vars(k)))
+              if (comp_density &&
+                  k.binary_ids.size() >=
+                      comp_density * kernel_num_output_vars(k))
                 k.factor_composite = true;
-              if (std::getenv("TACTIX_FACTOR_BOUND_COUPLE"))
-                k.factor_bound = bve_level_;
             }
             k.work_budget = handed;
             ar = r.apply(k);
             k.work_budget = 0;
             k.factor_composite = false;
-            k.factor_bound = 0;
             // A zero-spend NoOp (Factor's density short-circuit returns
             // before the seed scan) consumes NEITHER the first-dose
             // allowance NOR the watermark — kissat's skipped call leaves
@@ -1048,54 +1003,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
   DefaultPolicy policy;
   return policy.solve(k, stop);
-}
-
-// S2a Inc-3 `paths` arm: bounded path-count BFS from the chain's seed over
-// the binary graph (kissat factor.c distinct_paths, factorhops=3 — its
-// off-by-default structural variant). Cached per (seed, graph generation):
-// one O(3·binary-edges) sweep per seed pop instead of per tie-break call.
-// Duplicate watch-list binaries inflate counts slightly (kissat reads the
-// deduped DENSE view); acceptable for a ranking heuristic.
-double PathsFactorMatch::next_factor_score(const Kernel &k, Lit c, uint32_t,
-                                           Lit seed) {
-  const uint64_t gen = k.stats.factorings;
-  if (seed != cached_seed_ || gen != cached_gen_) {
-    cached_seed_ = seed;
-    cached_gen_ = gen;
-    const size_t nlits = 2 * static_cast<size_t>(k.nvars);
-    paths_.assign(nlits, 0);
-    std::vector<uint32_t> cur(nlits, 0), nxt(nlits, 0);
-    std::vector<Lit> frontier, nfront;
-    cur[seed] = 1;
-    frontier.push_back(seed);
-    for (int hop = 0; hop < 3 && !frontier.empty(); hop++) {
-      nfront.clear();
-      for (const Lit l : frontier) {
-        const uint32_t cnt = cur[l];
-        const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-        const uint32_t sz = k.watches.heads[l].size;
-        for (uint32_t i = 0; i < sz;) {
-          const Watch w{ws[i]};
-          if (w.binary()) {
-            const Lit p = w.other();
-            if (nxt[p] == 0)
-              nfront.push_back(p);
-            nxt[p] += cnt;
-            i += 1;
-          } else {
-            i += 2;
-          }
-        }
-      }
-      for (const Lit p : nfront)
-        paths_[p] += nxt[p];
-      for (const Lit l : frontier)
-        cur[l] = 0;
-      cur.swap(nxt); // nxt is now all-zero except stale frontier slots,
-      frontier.swap(nfront); // which the pre-swap loop above cleared
-    }
-  }
-  return c < paths_.size() ? static_cast<double>(paths_[c]) : 0.0;
 }
 
 } // namespace tactix

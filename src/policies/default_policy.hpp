@@ -97,35 +97,10 @@ public:
   bool accept(uint32_t, uint32_t, int delta) override { return delta >= 1; }
 };
 
-// ---- S2a Increment-3: SHELVED experiment arm (env TACTIX_FACTOR_MATCH=paths).
-// The mp1 grid-quality A/B (Log 2026-07-24) DISCONFIRMED the tie-break
-// steering hypothesis: the 27x27 grid cap is invariant under three tie orders
-// (default 1.37M / paths 1.31M / sparse-inverse 2.43M downstream-conflict
-// proxy vs kissat-native 305k), so no tie-break ships as default (design §4
-// bar: proxy must move materially). `paths` stays shelved for future arms;
-// the width gap's live hypothesis is the extension-var composite-grid
-// boundary (S2b in PROGRESS). ----
-
-// kissat's structural coherence (factor.c distinct_paths, factorhops=3, its
-// off-by-default factorstructural variant): score a tied candidate by the
-// number of distinct binary-graph paths (length <= 3) connecting it to the
-// chain's seed — cached per (seed, graph generation), one bounded BFS per
-// seed instead of per call.
-class PathsFactorMatch final : public FactorMatchPolicy {
-public:
-  const char *name() const override { return "distinct-paths"; }
-  double seed_score(const Kernel &k, Lit s) override {
-    return k.watches.heads[s].size;
-  }
-  double next_factor_score(const Kernel &k, Lit c, uint32_t, Lit seed) override;
-  bool accept(uint32_t, uint32_t, int delta) override { return delta >= 1; }
-  void end_sweep() override { paths_.clear(); cached_seed_ = ~0u; }
-
-private:
-  std::vector<uint32_t> paths_; // path counts to the cached seed, by literal
-  Lit cached_seed_ = ~0u;
-  uint64_t cached_gen_ = ~0ull;
-};
+// (The S2a Inc-3 `paths` matcher arm — kissat distinct_paths coherence,
+// measured −4 % and shelved — was REMOVED in the 2026-07-25 negative-arm
+// cleanup; re-derive from the commit history / `docs/design/
+// s2a-factor-matcher-design.md` §4 if a future arm wants it.)
 
 class DefaultPolicy final : public Policy {
 public:
@@ -328,10 +303,9 @@ public:
     bool budget_aware = false;
     uint64_t anchor = 0;  // search_ticks when this entry last ran (cadical last.NAME.ticks)
     uint64_t limit = 0;   // meter ceiling for the CURRENT phase (set at phase entry)
-    // S4 arrangement (TACTIX_ARRANGEMENT): defer this entry out of the
-    // conflicts==0 preprocessing phase (kissat fastel=0 — elimination only
-    // ever runs on a formula probing has already simplified, in dosed
-    // during-search phases).
+    // Defer this entry out of the conflicts==0 preprocessing phase (kissat
+    // fastel=0 — elimination only ever runs on a formula probing has already
+    // simplified, in dosed during-search phases). BVE only.
     bool arrangement_defer = false;
     // Per-entry new-material watermarks (S4 dosing increment 2): an UNMETERED
     // entry (Congruence/Factor/Substitute — full canonical closure per run,
@@ -360,7 +334,6 @@ public:
     uint32_t delay_current = 0;
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
-  bool arrangement_ = false; // S4 (TACTIX_ARRANGEMENT); set at slot build
   // S4 factordelay analog (kissat factor.c:1068-1085, design §3.b): count of
   // dosed BVE rounds executed this solve. Factor's entry fires only when
   // log10(active vars) ≤ this + 4 — instances up to 10^4 active vars factor
@@ -423,7 +396,6 @@ private:
   GlueTieredReduction default_reduction_;
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;
-  PathsFactorMatch paths_factor_match_; // shelved Inc-3 arm (TACTIX_FACTOR_MATCH)
   std::vector<Ref> reduce_scratch_;
   std::vector<uint64_t> inprocess_payloads_; // instance snapshot, reused
 };

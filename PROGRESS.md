@@ -29,7 +29,9 @@ disagree, the plan is authoritative — fix this file.
   gate, so tactix-C comes from arr11 `20260725-0558`, adjacent window).
   **T3 live ratio: 520.76 / 299.23 ≈ 1.74×**; the owed clean CaDiCaL
   same-window is DONE. mp1-blockpuzzle 5.5 s BEATS kissat 9.1 (proof
-  VERIFIED). `TACTIX_NO_ARRANGEMENT=1` reverts to the legacy composition.
+  VERIFIED). (2026-07-25 late: the legacy composition + all measured-negative
+  A/B arms REMOVED per user directive — the arrangement is unconditional;
+  negatives live in the ledger/report/git history.)
 
   **▶ NEXT STEP:**
   1. **Execute the BVE-tolerance plan** — LANDED frozen at
@@ -147,10 +149,10 @@ disagree, the plan is authoritative — fix this file.
 
 Every rule lands N1-exposed + random-policy-fuzzed regardless of whether
 DefaultPolicy schedules it; per-rule detail in its design doc + commit,
-semantics in `docs/calculus.md`. **Since 2026-07-25 the default composition is
-the S4 arrangement** (probing family + simplifiers + during-search dosed
-BVE/Factor, density-gated; `TACTIX_NO_ARRANGEMENT=1` = legacy {BVE-last,
-Factor, Strengthen, SubsumeForward, Congruence, Substitute} preprocessing-only).
+semantics in `docs/calculus.md`. **Since 2026-07-25 the composition is
+the S4 arrangement, unconditionally** (probing family + simplifiers +
+during-search dosed BVE/Factor, density-gated; the legacy preprocessing-only
+composition was removed with the negative arms — git history has it).
 
 - [x] **C1 SubsumeForward**, **C2 Strengthen + the registry-driven slot** (slot = data; the phase-6 arm space), **C3 Vivify** (LCM scope), **V1 Probe**, **V2 Backbone**, **V4 TransitiveReduce** (`kernel_delete_binary` primitive), **V3 Substitute** (first ρ consumer; `docs/design/v3-substitute-design.md`) — all 2026-07-15..17, one-liners suffice; corpus 002/003 found en route
 - [x] **E1 BVE — COMPLETE (E1a–E1d)**: drained-root elimination, RUP-only resolvents, syntactic gate extraction, `--bve-gates` knob; design `docs/design/e1-bve-design.md`; `bve_stress_policy` reusable. Remaining: ITE/XOR gates + kitten (O11), phase 4
@@ -248,7 +250,8 @@ tail instances were 69 % of our Tier B time; each had a different cause.
   residual fix (`1dbd439`): **B 10.62, C 520.76**. Root causes + measured
   negatives: report `benchmarks/reports/2026-07-25-s4-gate-mp1.md`; dosing
   design frozen `docs/design/s4-factor-dosing-design.md` (its §3.e bound
-  coupling REVERSED by measurement — report §2)
+  coupling REVERSED by measurement — report §2). 2026-07-25 late: legacy
+  composition + negative arms removed (user directive)
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`
 
 ### Other phase-3 items
