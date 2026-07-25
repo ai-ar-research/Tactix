@@ -916,18 +916,29 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // factor.c:72): as elimination gets more permissive, factoring
             // gets pickier. Scoped set/clear so no other caller sees them.
             if (factor_entry && arrangement_) {
-              // BOTH increment-3 features default OFF — the 2×2 bisect
-              // (probes 1561180/1561187/1561190/1561191) measured each
-              // harmful alone: COMPOSITE breaks battleship (1.3 → 197 s,
-              // any bound setting) and the BOUND COUPLING breaks mp1
-              // (5.3 → 14.9 s — the dosed regime's top-up grids are
-              // small-delta BY DESIGN, so kissat's bound=eliminate-level
-              // rejects exactly the grids the arrangement exists to add;
-              // composite ON was masking this, 5.48 s). Design §3.e's
-              // "wire it" verdict is thereby measured-dead in our dosed
-              // regime; both stay available as A/B knobs
-              // (TACTIX_FACTOR_COMPOSITE_DOSES=1 / TACTIX_FACTOR_BOUND_COUPLE=1).
-              if (std::getenv("TACTIX_FACTOR_COMPOSITE_DOSES"))
+              // Composite doses are DENSITY-SCOPED (probes 1561187/1561512
+              // + build-race postmortem: composite ON is what takes
+              // post-dedup mp1 from 15.5 to 5.4 s — 645k → 178k conflicts —
+              // and simultaneously what breaks battleship 1.3 → 197 s).
+              // The two sit far apart on the same axis the Factor density
+              // short-circuit already uses: binaries-per-output-var ≈ 103
+              // (mp1) vs ≈ 6 (battleship). Compose only on extremely
+              // binary-dense formulas (≥ 50×): clique 17.5, x9 8.2,
+              // battleship 6 stay non-composite. A SELECTIVITY heuristic
+              // like the density gate itself — proper home is the learned
+              // policy; TACTIX_COMPOSITE_DENSITY overrides the threshold,
+              // TACTIX_FACTOR_COMPOSITE_DOSES=1 forces ON for A/Bs.
+              // The BOUND COUPLING stays measured-dead default OFF (probes
+              // 1561190/91: rejects the small-delta top-up grids the dosed
+              // regime exists to add; design §3.e verdict reversed;
+              // TACTIX_FACTOR_BOUND_COUPLE=1 re-enables).
+              uint64_t comp_density = 50;
+              if (const char *cd = std::getenv("TACTIX_COMPOSITE_DENSITY"))
+                comp_density = std::strtoull(cd, nullptr, 10);
+              if (std::getenv("TACTIX_FACTOR_COMPOSITE_DOSES") ||
+                  (comp_density &&
+                   k.binary_ids.size() >=
+                       comp_density * kernel_num_output_vars(k)))
                 k.factor_composite = true;
               if (std::getenv("TACTIX_FACTOR_BOUND_COUPLE"))
                 k.factor_bound = bve_level_;
