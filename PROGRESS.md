@@ -7,7 +7,7 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 70 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-25 (compact-docs pass; density gate landed, B 10.62)
+- **Last updated:** 2026-07-25 end-of-day (review fix-now complete, plan rev 70; B 10.48–11.26 band, C ~521)
 - **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
