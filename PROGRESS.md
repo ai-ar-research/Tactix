@@ -42,14 +42,18 @@ disagree, the plan is authoritative — fix this file.
      8a6e7ec debt): damage = drip-paced incomplete recurrence; one
      completed dose ≈ free; depth saturates (245 @ slack-16, U-shape);
      kissat's profit = completion-gated calls at geometric conflict
-     intervals, largest call LAST. **I3 cadence arm MEASURED**
-     (`TACTIX_BVE_CADENCE`): crypto1 AND em_11 (158→41 s!) flip to profit
-     under gate-open cadence; x9 (+10 s, chaotic) and mod4block
-     (intrinsic) lose → Tier B says NOT default (10.92 vs 11.97). Next:
-     the **I8-style Tier C three-arm array** (shipped / cadence+density=0
-     / SLOT_DISABLE=BVE) — decides the gate's C-side validity + whether
-     cadence cracks any of the 4 TOs; then a dated report. Both knobs
-     stay A/B arms; density gate default unchanged (finding 3).
+     intervals, largest call LAST. **I3 cadence arm + I8-style arrays
+     DONE**, report FROZEN (`benchmarks/reports/2026-07-25-bve-dosing-arms.md`):
+     B {shipped 10.92 · cadence 11.97 · bve-off 11.57}; C {shipped 528.66
+     · cadence-open 524.55 · bve-off 516.55 · **oracle 489.27**, cadence
+     best on 11/30}. Shipped does NOT beat the bve-off control on C; no
+     arm touches the 4 TOs. **USER BASELINE (standing): rule-off configs
+     are diagnostics only — never shippable; fix the SCHEDULING**
+     ([[no-rule-off-configs]]). Next: runtime-feedback BVE schedule
+     (cadenced completed calls + productivity backoff to quiet the
+     Ptn/ContextModel/af-synthesis class without a static gate; target
+     ≥ bve-off everywhere measured) — yield probes array 1562578 supply
+     the signal; then B+C arrays vs shipped before any default change.
   2. **C residual toward T3:** arm C 520.76 vs CaDiCaL 302.64 ≈ 1.72× (was
      2.15× two days ago). SCPC/128_125/T105/T87 still TO. Legacy-C regressed
      under dedup (475→538) — probe pass owed only if legacy is re-shipped.
@@ -327,6 +331,21 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 — I8 arrays complete: 3-arm B+C matrix, oracle 489.27 vs shipped 528.66; user baseline recorded
+- Report FROZEN `benchmarks/reports/2026-07-25-bve-dosing-arms.md`. Shipped
+  loses to the bve-off CONTROL on C (528.66 vs 516.55) and only x9+9vliw
+  carry BVE on B — the current dose scheduling is a measured net defect
+  outside its win set. Cadence-open best arm on 11/30 C (goldcrest
+  435.8→288.9 proof-verified, Grain 582.9→373.5, em_11 181.6→48.5,
+  jgiraldez 135.6→11.0) but activates losers the gate kept quiet (Ptn
+  +264, ContextModel +236, mod2c +123). Four instances, four best
+  schedules — the §5.6 exhibit's oracle baseline.
+- **User directive (standing): no rule-off configs, ever — rule-off arms
+  localize scheduling defects; fix the scheduling** (memory:
+  no-rule-off-configs). Follow-up in flight: yield-probe array 1562578
+  (per-call elimination yield on 5 cadence winners + 4 losers + php17) →
+  runtime-feedback backoff design.
 
 ### 2026-07-25 — I3 cadence arm measured: flips crypto1 AND em_11 to profit; NOT default (x9/mod4block); I8 arrays next
 - `TACTIX_BVE_CADENCE` (A/B arm): completion allowance + one dose/phase on
