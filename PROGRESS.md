@@ -7,7 +7,7 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 70 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-25 late session (TB5 closed-reframed: per-prop at parity, residual = search shape; TB2 closed; B ~10.6, C 401.17 @ 28/30, live T3 ratio ≈1.26×)
+- **Last updated:** 2026-07-25 late session (TB5 closed-reframed; TB2 closed; CLEAN T3 window: C 398.74 vs CaDiCaL 304.21 = ratio 1.31×)
 - **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
@@ -18,32 +18,29 @@ disagree, the plan is authoritative — fix this file.
 
   **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
   closure-delay ladder** (S4 gate report `2026-07-25-s4-gate-mp1.md`;
-  ladder default ON `2639a5a`). Current same-window standings (Tier C
-  window `20260725-131*-C-*-t3`; B `20260725-1241*`; baselines on C ran
-  with proof writing — clean ratio slightly worse):
+  ladder default ON `2639a5a`). Current same-window standings (Tier C =
+  the CLEAN window `20260725-193123-C-t3clean`, baselines proof-free via
+  `--baseline`; B `20260725-1241*`):
   | | tactix | kissat 4.0.4 | CaDiCaL |
   |---|---|---|---|
-  | Tier A | 0.82 (199/200, s055 = TB5) | — | — |
+  | Tier A | 0.82 (199/200, s055 = TB5 reframe) | — | — |
   | Tier B | **10.56** (14/14) | 8.26 (14/14, morning window) | 19.06 (14/14, morning window) |
-  | Tier C | **401.17** (28/30, 15/15 proofs) | 227.05 (29/30) | 317.51 (29/30) |
+  | Tier C | **398.74** (28/30, 15/15 proofs) | 223.01 (29/30) | 304.21 (29/30) |
 
-  **T3 live ratio ≈ 1.26×** (was 1.74× at morning standings). mp1 5.5 s
+  **T3 clean ratio = 1.31×** vs CaDiCaL (1.79× vs kissat). mp1 5.5 s
   BEATS kissat 9.1 (proof VERIFIED). (The legacy composition + all
   measured-negative A/B arms were removed 2026-07-25 per user directive;
   negatives live in the ledger/reports/git history.)
 
   **▶ NEXT STEP:**
-  1. **T3 standings (2026-07-25 late, window `20260725-131*-C-*-t3`):**
-     tactix **401.17 (28/30, 15/15 proofs verified)** · CaDiCaL 317.51
-     (29/30) · kissat 227.05 (29/30) → **live ratio ≈ 1.26×** (was 1.72×
-     that morning; C 528.66 → 401.17 in one day — TR-scratch fix +
-     closure-delay default + T105/T87 cracked; only SCPC-1000-18 +
-     128_125 remain TO). Caveats: baselines scored verdict+time (their 5
-     "proof rejects" are drat-trim 2400 s budget caps, zero verdict
-     mismatches) and ran WITH proof writing (`--solver` misuse — use
-     `--baseline` next time), so the clean ratio is slightly worse,
-     ~1.3×. **Next:** re-run baselines clean if a precise ratio is
-     needed; then the remaining T3 residual is **search shape, not
+  1. **T3 standings — CLEAN window `20260725-193123-C-t3clean`
+     (baselines proof-free, the `--baseline` path):** tactix **398.74
+     (28/30, 15/15 proofs verified)** · CaDiCaL 304.21 (29/30) · kissat
+     223.01 (29/30) → **T3 clean ratio = 1.31×** (C 528.66 → ~400 in one
+     day — TR-scratch fix + closure-delay default + T105/T87 cracked;
+     only SCPC-1000-18 + 128_125 remain TO; tactix reproduced 398.74 vs
+     morning 401.17 = ±0.6 % window noise). **Next:** the T3 residual is
+     **search shape, not
      engineering** (TB5 closed-reframed: per-prop AT PARITY, probes
      1562819–26): FmlaEquiv-class conflicts 1.53× (suspects: TB4b,
      minimization depth, retention), the s055 restart-rate lead (34 vs
@@ -358,6 +355,13 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 late — clean T3 window: 398.74 vs CaDiCaL 304.21 = ratio 1.31×
+- `20260725-193123-C-t3clean` (jobs 1562828/29), baselines proof-free:
+  tactix 398.74 (28/30, 15/15 proofs) · CaDiCaL 304.21 (29/30) · kissat
+  223.01 (29/30). Proof-writing had inflated baselines ~4 % (kissat
+  227.05→223.01, CaDiCaL 317.51→304.21); tactix window noise ±0.6 %
+  (401.17→398.74). The anchor's standings table now cites this window.
 
 ### 2026-07-25 late — TB5 closed-reframed: per-prop AT PARITY; the residual is search shape; TB2 closed
 - s055 perf pair (probes 1562819/20, per-symbol): conflicts 938,705 vs
