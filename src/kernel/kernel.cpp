@@ -77,21 +77,25 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
     c->lits[i] = lits[i];
   k.watches.push_large(lits[0], lits[1], ref);
   k.watches.push_large(lits[1], lits[0], ref);
-  // IRREDUNDANT clauses only: a new irredundant large clause joins the shared
-  // dense occurrence index (Refs are arena offsets — stable across the resize
-  // above; only GC rewrites them). NOTE the BVE retry filter is deliberately
-  // NOT marked here: kissat marks eliminate candidacy on literal REMOVAL only
-  // (inline.h kissat_mark_removed_literal; kissat_mark_added_literal feeds
-  // subsume/factor instead) — an ADDED clause can only make elimination
-  // harder, and add-marking kept during-search doses re-resolving hopeless
-  // variables (mod4block 3.5 M resolutions / 34 eliminations, probe 1561187).
-  // Every deletion/strengthening path still marks. TACTIX_BVE_RETRY_ON_ADD=1
-  // restores the old marking for A/Bs.
-  static const bool retry_on_add =
-      std::getenv("TACTIX_BVE_RETRY_ON_ADD") != nullptr;
+  // IRREDUNDANT clauses only, for both consumers below:
+  //  - dense phase (increment 2): a new irredundant large clause joins the
+  //    shared occurrence index. Refs are arena offsets — stable across the
+  //    resize above; only GC rewrites them.
+  //  - BVE retry filter: this clause is new material for every variable in
+  //    it. Redundant clauses are excluded on purpose — BVE does not resolve
+  //    them, and learned-clause traffic would mark everything.
+  // TACTIX_BVE_RETRY_REMOVAL_ONLY=1 is the kissat-exact A/B arm (inline.h:
+  // added literals feed subsume/factor candidacy, REMOVED literals feed
+  // eliminate). Measured 2026-07-25 and NOT adopted: it did not fix
+  // mod4block's dose churn (identical conflicts, probe 1561191) and it cost
+  // the arrangement's mp1 win 5.3 → 15.5 s (B-arr7 array vs probe 1561180 —
+  // Factor's fresh divider/quotient binaries re-arm elimination exactly
+  // where the dosed phases need it).
+  static const bool removal_only =
+      std::getenv("TACTIX_BVE_RETRY_REMOVAL_ONLY") != nullptr;
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
-      if (retry_on_add)
+      if (!removal_only)
         kernel_mark_bve_retry(k, var_of(lits[i]));
       if (k.dense)
         k.dense->large[lits[i]].push_back(ref);
@@ -110,13 +114,13 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   // equally valid (both clauses are live), which is why first-vs-last was a
   // free choice before deletion existed and is not one now.
   k.binary_ids.insert_or_assign(kernel_binary_key(a, b), id);
-  // BVE retry filter: deliberately NOT marked on add — kissat marks eliminate
-  // candidacy on literal REMOVAL only (see kernel_add_large_clause above; the
-  // same TACTIX_BVE_RETRY_ON_ADD=1 A/B restores the old behavior). Advice
-  // only — under-marking can at most delay an elimination (N1 unaffected).
-  static const bool retry_on_add =
-      std::getenv("TACTIX_BVE_RETRY_ON_ADD") != nullptr;
-  if (retry_on_add) {
+  // BVE retry filter: binaries have an irredundant lifecycle in this kernel,
+  // so every added pair is new elimination material for both variables.
+  // TACTIX_BVE_RETRY_REMOVAL_ONLY=1 = the kissat-exact A/B arm, measured and
+  // NOT adopted (see kernel_add_large_clause above).
+  static const bool removal_only =
+      std::getenv("TACTIX_BVE_RETRY_REMOVAL_ONLY") != nullptr;
+  if (!removal_only) {
     kernel_mark_bve_retry(k, var_of(a));
     kernel_mark_bve_retry(k, var_of(b));
   }
