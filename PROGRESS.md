@@ -7,13 +7,14 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 70 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-25 late session (BVE-tolerance study concluded; closure-delay default ON; B ~10.6, C 401.17 @ 28/30, live T3 ratio ≈1.26×)
+- **Last updated:** 2026-07-25 late session (TB5 closed-reframed: per-prop at parity, residual = search shape; TB2 closed; B ~10.6, C 401.17 @ 28/30, live T3 ratio ≈1.26×)
 - **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
   never compare cluster ↔ M3-Pro (revs 64/65). Standing: `tr-n300-s055` misses
-  its Tier A budget by the flat **TB5 1.40× throughput gap** (not an anomaly;
-  TB5 comes early in Track T).
+  its Tier A budget by a **props/conflict volume gap (1.43× at conflict
+  parity — TB5 reframe; per-prop cost is at PARITY with kissat)**; the one
+  mechanism delta left there is restart rate (34 vs 41 conflicts/restart).
 
   **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
   closure-delay ladder** (S4 gate report `2026-07-25-s4-gate-mp1.md`;
@@ -42,10 +43,12 @@ disagree, the plan is authoritative — fix this file.
      mismatches) and ran WITH proof writing (`--solver` misuse — use
      `--baseline` next time), so the clean ratio is slightly worse,
      ~1.3×. **Next:** re-run baselines clean if a precise ratio is
-     needed; then the remaining T3 residual is TB5's leads (per-prop
-     1.25× watch-layout work, conflicts 1.53× search quality — see the
-     Track T table) + the two TOs; TB4b and TB2 are the open Track T
-     items.
+     needed; then the remaining T3 residual is **search shape, not
+     engineering** (TB5 closed-reframed: per-prop AT PARITY, probes
+     1562819–26): FmlaEquiv-class conflicts 1.53× (suspects: TB4b,
+     minimization depth, retention), the s055 restart-rate lead (34 vs
+     41 conflicts/restart), and the two TOs. TB4b is the only open
+     Track T item (TB2 closed — x9 normalized to 1.17×).
   2. **BVE-tolerance study CONCLUDED 2026-07-25** (both reports frozen:
      `2026-07-25-crypto1-bve-mechanism.md`, `2026-07-25-bve-dosing-arms.md`).
      Mechanism: drip-paced incomplete recurrence hurts; completed
@@ -241,21 +244,41 @@ tail instances were 69 % of our Tier B time; each had a different cause.
 - [ ] **TB4b** · remaining chrono divergences from that audit (watch repair
   onto highest-level literals, one-literal-on-conflict-level shortcut, unit
   chrono routing, snapshot timing, `jumpreasons`, cadical's `chronoreusetrail`)
-- [ ] **TB5** · propagation throughput 1.39× (14.8 vs 20.6 M props/s), flat on
-  every instance — plausibly the highest-value T4 item. **Counter split
-  DONE 2026-07-25** (`inprocess_propagations` stats bookkeeping, policy-
-  written at phase exit; probe 1562598): inprocess share is ≤3.3 %
-  everywhere (s055 0.07 %, FmlaEquiv 1.8 %) ⇒ metering artifact RULED
-  OUT — the gap is the search inner loop itself. Next: perf-counter
-  profile vs kissat (§5.4 evidence), then the engineering lane
+- [x] **TB5** · CLOSED-REFRAMED 2026-07-25 late (probes 1562819–26): the
+  "flat 1.39× props/s" premise is STALE — after the TR-scratch + closure-
+  delay fixes, **per-propagation cost is at parity with kissat on all
+  three residual instances** (s055 per-symbol ≈1700 vs ≈1615 cyc/prop;
+  FmlaEquiv 9.37 vs 9.11 M props/s wall-basis; x9 ~1.07×). The surviving
+  gap is per-instance SEARCH SHAPE: s055 = props/conflict **1.43×** at
+  conflict parity (938,705 vs 927,770), FmlaEquiv = conflicts 1.53× ×
+  props/conflict 1.21×, x9 ≈ parity. Watch-layout/clause-header
+  engineering lane measured-dead. s055 kissat ablations (1562823/24):
+  eliminate = only ~10 % of its props (conflicts identical without it),
+  walker neutral, vivify-off makes kissat FASTER (17.4 s vs 22.6 s —
+  single-seed chaos, don't over-read); our props/conflict 62.6 exceeds
+  EVERY kissat config's (42–49) ⇒ structural to our search shape. Open
+  lead (only mechanism delta left): s055 restart rate 34 vs 41
+  conflicts/restart — restart-discipline audit vs kissat. Forced-BVE
+  diagnostic arm (TACTIX_BVE_DOSE_DENSITY=0 + CADENCE, probe 1562822):
+  32 eliminated, props/conflict −4 % but conflicts +5.4 %, wall WORSE
+  (32.5 vs 30.6 s) — s055 joins the phase-6 admission exhibit as a
+  labeled instance (elimination cheap, dose still net-negative).
+  Counting note: kissat's `propagations` stat INCLUDES probing+warming
+  props (proprobe.c/propbeyond.c) — its pure search volume is lower,
+  so quoted volume ratios are conservative.
 - [x] **TB6** · CLOSED 2026-07-25 (probe 1562605, `TACTIX_FORCE_MODE`
   knob banked): the era-stale 407 k claim does NOT reproduce — the default
   alternation now BEATS both pinned modes on FmlaEquiv (577 k vs focused
   809 k vs stable 1.21 M); focused pinning is catastrophic on s055
   (2.54 M vs 939 k) and bad on x9, but −23 % on clique — mode schedule is
   another context-dependent phase-6 arm, not a static defect
-- [ ] **TB2** · `x9-08014` is pure search (801 694 conflicts, inprocessing
-  inert) — route via debug-performance; shares a category with `clique`
+- [x] **TB2** · CLOSED 2026-07-25 late: the outlier premise dissolved
+  under the accumulated fixes — x9 now 12.47/12.78 s vs kissat
+  10.66/10.71 s (probe 1562826 + window `20260725-1241*`) = 1.17–1.19×,
+  inside the healthy-instance band (circuit 1.28×, qwh 1.08×); conflicts
+  371,995 vs 353,471 (1.05×), props/conflict 1.03×. No dedicated
+  campaign warranted; any residual rides the general FmlaEquiv-class
+  search-quality work
 - [x] **TB3** · RESOLVED 2026-07-25: the stale 801 k → 453 k comment is
   already gone from the code, and Factor is verifiably non-inert on x9
   under the arrangement (80 factorings @ 371,995 conflicts, probe 1562469;
@@ -335,6 +358,25 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 late — TB5 closed-reframed: per-prop AT PARITY; the residual is search shape; TB2 closed
+- s055 perf pair (probes 1562819/20, per-symbol): conflicts 938,705 vs
+  927,770 (**parity**), per-prop ≈1700 vs ≈1615 cyc (86 % vs 78 %
+  propagate share) — wall 1.34× is **props/conflict 1.43×** (62.6 vs
+  44.4). Generalization (probe 1562826): FmlaEquiv = conflicts 1.53× ×
+  volume 1.21× at per-prop ~parity (9.37 vs 9.11 M props/s); x9 1.17×
+  wall ≈ parity everywhere → **the flat-1.39×-throughput premise was
+  stale**; watch-layout/header engineering lane measured-dead; TB2's
+  outlier premise dissolved.
+- s055 attribution (kissat ablations 1562823/24): eliminate = ~10 % of
+  its props at identical conflicts; walker neutral; vivify-off makes
+  kissat FASTER (single-seed chaos); our props/conflict exceeds every
+  kissat config ⇒ our search shape, not their simplifiers. Only
+  mechanism delta: restart rate 34 vs 41 conflicts/restart (s055 only).
+  Forced-BVE diagnostic (1562822): wall WORSE (32.5 vs 30.6 s) at
+  conflicts +5.4 % — s055 labeled into the phase-6 admission exhibit.
+- Counting note: kissat `propagations` includes probing+warming
+  (proprobe.c/propbeyond.c) — quoted volume ratios are conservative.
 
 ### 2026-07-25 — closure-delay ladder DEFAULT ON; C 395.56 @ 28/30 (T105+T87 cracked); TB6 closed
 - **Closure delay** (commits `3cef985`+`2639a5a`): kissat delay ladder on
