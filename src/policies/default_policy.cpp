@@ -288,6 +288,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   bve_level_ = 0;
   for (SlotEntry &e : inprocess_slot)
     e.doses = 0;
+  // TB6 A/B knob: TACTIX_FORCE_MODE=focused|stable (0 = off; see the
+  // SwitchMode decline below). Read once — the check sits on the CDCL
+  // outer loop.
+  force_mode_ = 0;
+  if (const char *fm = std::getenv("TACTIX_FORCE_MODE")) {
+    if (!std::strcmp(fm, "focused"))
+      force_mode_ = 1;
+    else if (!std::strcmp(fm, "stable"))
+      force_mode_ = 2;
+  }
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)
@@ -449,7 +459,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       update_reduce_limit(k);
       continue;
     }
-    if (want_switch_mode(k) && switchmode_guard(k)) {
+    // TB6 A/B knob (force_mode_ read once at solve entry): pin the search
+    // mode by declining every SwitchMode application (pure policy
+    // scheduling — the rule stays guard-true and N1-appliable throughout).
+    // The solve starts focused, so "focused" never switches; "stable"
+    // lets exactly the first switch through, then pins.
+    const bool pin_mode =
+        force_mode_ == 1 || (force_mode_ == 2 && k.h->stable);
+    if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
       switchmode_apply(k);
       mode.count++;
       if (k.h->stable) // entering stable: fresh reluctant sequence

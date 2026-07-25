@@ -329,6 +329,11 @@ public:
   // log10(active vars) ≤ this + 4 — instances up to 10^4 active vars factor
   // from the very first probe; each BVE round buys one more decade.
   uint32_t bve_rounds_run_ = 0;
+  // TB6 A/B knob (TACTIX_FORCE_MODE, read once per solve): 0 = off,
+  // 1 = pin focused (decline every switch), 2 = pin stable (allow only
+  // the first switch). Pure scheduling state — SwitchMode stays
+  // guard-true and N1-appliable.
+  uint32_t force_mode_ = 0;
   // S4 arrangement BVE bound level (kissat bounds.eliminate.additional_clauses,
   // eliminate.c set_next_elimination_bound): starts 0 (non-growing
   // eliminations only) and DOUBLES 0→1→2→4→8 only when a dose COMPLETES

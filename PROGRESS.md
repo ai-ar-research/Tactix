@@ -251,9 +251,12 @@ tail instances were 69 % of our Tier B time; each had a different cause.
   everywhere (s055 0.07 %, FmlaEquiv 1.8 %) ⇒ metering artifact RULED
   OUT — the gap is the search inner loop itself. Next: perf-counter
   profile vs kissat (§5.4 evidence), then the engineering lane
-- [ ] **TB6** · mode switching may hurt (focused-only refutes FmlaEquiv in
-  407 k conflicts vs kissat's 623 k default; we sit in stable). Cheapest test:
-  a force-focused env knob
+- [x] **TB6** · CLOSED 2026-07-25 (probe 1562605, `TACTIX_FORCE_MODE`
+  knob banked): the era-stale 407 k claim does NOT reproduce — the default
+  alternation now BEATS both pinned modes on FmlaEquiv (577 k vs focused
+  809 k vs stable 1.21 M); focused pinning is catastrophic on s055
+  (2.54 M vs 939 k) and bad on x9, but −23 % on clique — mode schedule is
+  another context-dependent phase-6 arm, not a static defect
 - [ ] **TB2** · `x9-08014` is pure search (801 694 conflicts, inprocessing
   inert) — route via debug-performance; shares a category with `clique`
 - [x] **TB3** · RESOLVED 2026-07-25: the stale 801 k → 453 k comment is
