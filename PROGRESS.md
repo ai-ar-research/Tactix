@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 69 (2026-07-25)
+- **Plan revision tracked:** rev. 70 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-25 (compact-docs pass; density gate landed, B 10.62)
 - **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
@@ -268,7 +268,7 @@ Concretize at the T3 gate via revise-plan.
 
 ## Phase 4 — tuning, bindings, extensibility proof
 
-- [ ] Catalog rules remaining: **S6 Walk, S7 Reorder, V5 Sweep** (kitten, O11), **X1 BCE**
+- [ ] Catalog rules remaining: **S6 Walk, S7 Reorder, V5 Sweep** (kitten, O11), **X1 BCE**; **decide O16b at phase entry** (PR/SR clause learning as a catalog candidate — the checkable form of auto-invented rules; needs dpr-trim or PR→DRAT in the N2 story)
 - [ ] Independent-lineage candidates: CMS best_inv rephase (with Walk), rotation presets (O6)
 - [ ] Python bindings; policy presets (MAB scheduler, classification) — §5.6 seed
 - [ ] Demo policies 4–6 incl. external branching (N1 end-to-end)

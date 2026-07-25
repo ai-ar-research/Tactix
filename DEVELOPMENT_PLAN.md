@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-25 (rev. 69). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-25 (rev. 70). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -830,7 +830,9 @@ competition path):**
    its experiment budget, it dies and the result is recorded.
 4. **Offline layer:** per-family presets (classify → preset; presets become
    online arms). Deep/GNN policies remain research-track via the N1 external
-   surface (Python), never in the competition binary.
+   surface (Python), never in the competition binary — as does generative
+   proof-rule synthesis (O16c: propose rules in the five-primitive
+   vocabulary, let the §8.2 harness referee).
 
 **What TACO (Cubing for Tuning — Wu/Barrett/Narodytska, AAAI 2025)
 contributes, and what it deliberately does not (rev 27 absorbed, rev 28
@@ -1216,6 +1218,7 @@ discovered during development get added here rather than answered ad hoc.
 | O13 | Distillation: do stable cross-instance learned schedules feed back into DefaultPolicy constants (benefiting N3), or stay LearnedPolicy-only? | phase-6 exit |
 | O14 | Cubing capability for strategy evaluation → *closed rev 28 (user): no cube re-solving, no sub-problems — learning stays inside the single run under the §5.6 always-on principle; segment attribution replaces terminal cube costs. Assumption-interface machinery remains O7 territory if incremental solving ever needs it* | ~~phase 6~~ closed |
 | O15 | Phase 3.5 (pin, user 2026-07-24): the "engineering ingenuity on top of kissat" pass — scope, deliverables, exit criterion, and its relation to phase 4's T4 push | phase-3 exit (T3), before phase-4 work begins |
+| O16 | **Auto-invention of proof rules** (user 2026-07-25). The architecture is pre-adapted: an invented rule must express its effect in the closed five-primitive proof vocabulary (§5.3) and emits checkable certificates on every path (N2), so the inventor need not be trusted — the fuzz harness (§8.2) + checkers are the referee, and the §5.3 contract (one directory + one registry line) is the insertion surface. Three forms, cheapest-first: (a) composed-rule discovery = phase-6 L3, already planned; (b) **PR/SR clause learning** (Heule et al. SDCL; PReLearn) — an established, checkable rule family; CAVEAT: PR is not directly DRAT-expressible — adoption needs dpr-trim in the checker toolchain or the PR→DRAT extension-variable translation (an N2 decision); (c) **generative rule synthesis** — an LLM/search proposes guard/instances/apply in the primitive vocabulary, the rule-dev DoD (fuzz both formats + stress policy + calculus entry) runs automatically, benchmarks decide adoption. (b) is a phase-4 catalog CANDIDATE; (c) is research-track via the N1 external surface and never gates a competition milestone | decide at phase-4 entry: admit (b) to the catalog?; (c) revisit alongside phase 6 |
 
 ## 12. Key references
 
@@ -1327,3 +1330,4 @@ conflate them.
 - **rev. 67** (2026-07-24, user): phase 3.5 PINNED between phases 3 and 4 (§9, no renumbering) — "engineering ingenuity on top of kissat" once kissat performance is matched; deliberately unelaborated, concretize at phase-3 exit (§11 O15).
 - **rev. 68** (2026-07-25, user): §5.6 elimination-dosing exhibit — per-instance/state inprocessing dosing PROMOTED to a named phase-6 learning target with an explicit subsume-the-gates obligation (density-gate family = placeholder policy + L2 context features; DefaultPolicy thresholds = permanent arm); grounded in the 2026-07-25 density-gate measurements + kissat `--no-eliminate` ablation.
 - **rev. 69** (2026-07-25, user): §5.1 additive API — TACTIX_STAT ids 22–25 (dosing currencies: factorings/factor_ticks/bve_eliminated/bve_resolutions) + kernel config setters (bve_bound/factor_bound/factor_composite/work_budget/vivify_scope) so the §5.6 learner can read its reward currencies and pose the config surface; contract test added.
+- **rev. 70** (2026-07-25, user): §11 O16 — auto-invention of proof rules recorded (PR/SR clause learning = phase-4 catalog candidate with the DRAT-expressibility caveat; generative rule synthesis = research-track via N1, non-gating; composed-rule discovery already = phase-6 L3). Decide-by: phase-4 entry.
