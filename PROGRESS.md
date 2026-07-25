@@ -32,12 +32,13 @@ disagree, the plan is authoritative — fix this file.
   VERIFIED). `TACTIX_NO_ARRANGEMENT=1` reverts to the legacy composition.
 
   **▶ NEXT STEP:**
-  1. **Land the BVE-tolerance study plan** (a 10-agent workflow was in flight
-     at session end — kissat gating / round-shape / post-state lenses; re-run
-     if lost). Target: crypto1's mechanism gap — kissat's elimination HELPS
-     it (4.1 s vs 9.2 without) where ours hurt (66.7 vs 16.0); our shipped
-     16.1 s leaves ~4× on the table. em_11 (93→183, the density gate's known
-     false positive) should fall out of the same study.
+  1. **Execute the BVE-tolerance plan** — LANDED frozen at
+     `docs/design/bve-tolerance-plan.md` (increments I1–I8 with per-step
+     discriminating gates + 7 BINDING reviewer findings at the bottom;
+     start with I1 consuming the already-landed probes 1561950–52: kissat
+     eliminates 601 on crypto1 while HELPING — quantity exonerated,
+     scheduling indicted). Target: crypto1 16.1 → ~4 s class; em_11 (the
+     density gate's known false positive) falls out of the same work.
   2. **C residual toward T3:** arm C 520.76 vs CaDiCaL 302.64 ≈ 1.72× (was
      2.15× two days ago). SCPC/128_125/T105/T87 still TO. Legacy-C regressed
      under dedup (475→538) — probe pass owed only if legacy is re-shipped.

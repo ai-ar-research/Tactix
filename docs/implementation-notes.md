@@ -294,14 +294,19 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   of them, and dedup + the S4 arrangement took it from 74 s to **5.3 s vs
   kissat's 9.1** (probes 1561180/81, proof drat-trim VERIFIED).
 
-- **BVE retry advice is REMOVAL-driven (2026-07-25).** Clause ADDS no
-  longer set `bve_retry` — kissat marks eliminate candidacy on removed
-  literals only (`inline.h`; added literals feed subsume/factor candidacy
-  instead), since an addition can only make elimination harder. Every
-  deletion/strengthening path still marks. Advice only (scheduling); the
-  instance surface never narrows (N1). `TACTIX_BVE_RETRY_ON_ADD=1`
-  restores the old marking for A/Bs. The retry-filter contract test in
-  `tests/test_bve.cpp` documents this.
+- **BVE retry advice: ADD-marking is the adopted default; removal-only is
+  the measured-negative A/B arm (2026-07-25, corrected same day).** The
+  kissat-exact form (added literals feed subsume/factor candidacy, REMOVED
+  literals feed eliminate — `kissat/src/inline.h`) was implemented, measured,
+  and NOT adopted: it did not fix mod4block's dose churn (identical
+  conflicts) and it cost the arrangement's mp1 win 5.3 → 15.5 s — our
+  factor→eliminate coupling runs through add-marking, a channel kissat
+  replaces with dense-sweep rescans (commit `ade3f54`; gate report §2).
+  Every deletion/strengthening path marks in both arms. Advice only
+  (scheduling); the instance surface never narrows (N1).
+  `TACTIX_BVE_RETRY_REMOVAL_ONLY=1` selects the kissat arm for A/Bs. The
+  retry-filter contract test in `tests/test_bve.cpp` documents the adopted
+  semantics and the negative.
 
 - **Cross-STL determinism is a standing invariant (2026-07-24).** Any
   order-affecting comparator must be a strict TOTAL order (no ties), and no
