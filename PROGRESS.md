@@ -527,9 +527,12 @@ Consolidated from seven same-day entries; full detail in the cited commits.
   arr5 24/30 @ 703.67 vs head7 27/30 @ 475.46 — GATE NOT MET; ≈ C-neutral
   vs arr3 (676.73, different window). Method lesson re-learned: several
   solo-probe recoveries did not reproduce at array concurrency (goldcrest
-  328→TO, frb 163→504) — L6, solo probes mislead.** Arrangement stays
-  opt-in; next lever = the Factor-dosing increments (design frozen), which
-  attack both the mp1 tail and one of the two untamed C costs.
+  328→TO, frb 163→504) — L6, solo probes mislead.** *(Historical end-state
+  of 2026-07-24 only — superseded overnight: the Factor-dosing increments +
+  the input-binary dedup PASSED the gate and flipped the arrangement to
+  default ON; see the 2026-07-25 entries + report
+  `benchmarks/reports/2026-07-25-s4-gate-mp1.md`. The stale conclusion
+  committed in `378975c` is corrected here.)*
 - Validation across the day: ctest 31/31 ×5; fuzz 6 legs × 10,000 cases, 0
   failures (logs `tools/fuzz/slurm-arr*-quick-*.log`, committed).
 
