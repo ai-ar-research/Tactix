@@ -139,10 +139,9 @@ static void test_instance_surface() {
 static void test_slot_schedule_as_data() {
   // the registry-driven slot (rev 26): the tier tag is readable, posed
   // slots are honored in order with enabled flags, and a disabled entry
-  // never runs. (Default construction is exercised whenever
-  // SLOT_IN_DEFAULT is on; while the slot is deferred from the default
-  // schedule, tests pose it — the same override surface presets and the
-  // phase-6 learner use.)
+  // never runs. (The default composition is the always-on S4 arrangement;
+  // tests POSE slots — the same override surface presets and the phase-6
+  // learner use.)
   const std::vector<RuleVTable> &rules = tactix_rules();
   const int strengthen_id = tactix_rule_id("Strengthen");
   const int subsume_id = tactix_rule_id("SubsumeForward");

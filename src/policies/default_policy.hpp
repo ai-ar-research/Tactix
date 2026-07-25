@@ -134,7 +134,6 @@ public:
   // kissat_scale_delta's formula-size factor — the constants presuppose
   // the scaling exactly like the restart constants presuppose the EMA
   // warm-up (measured lesson, 2026-07-14 carried-items log)
-  static constexpr uint64_t SUBSUME_INTERVAL_INIT = 500; // eliminateinit
   static constexpr uint64_t SUBSUME_INTERVAL = 500;      // eliminateint
   // Effort budgets (plan rev 53, docs/design/effort-scheduler-design.md).
   // kissat kimits.h SET_EFFORT_LIMIT: a technique's dose is a fixed per-mille
@@ -258,29 +257,20 @@ public:
   // consume one (rev-20: no fields without readers). CMS's comma-string
   // simplify schedule is the design precedent for slot-as-ordered-list.
   //
-  // Whether the slot is in the default schedule at all. ACTIVATED 2026-07-19 by
-  // the inprocessing revamp (docs/design/inprocessing-revamp-design.md, report
-  // benchmarks/reports/2026-07-19-inprocessing-revamp.md): the slot runs as a
-  // SAT-safe bounded simplification phase — preprocessing at conflicts=0 (before
-  // search state exists) + rare interval-grown inprocessing, each a bounded
-  // fixpoint. Net-positive on Tier B and battleship-safe.
-  //
-  // WHY that shape: the earlier during-search slot was net-negative in EVERY
-  // composition and interval (~157 PAR-2 vs 116), and the whole gap was one lost
-  // SAT instance — battleship-14-26 solved in 14 s slot-off and timed out
-  // slot-on at every setting, because the composed root-restart-to-0 that gives
-  // the slot a quiescent root derails a productive SAT search (the classic
-  // inprocessing-hurts-SAT hazard; report
-  // benchmarks/reports/2026-07-18-e1-slot-activation.md). Preprocessing at
-  // conflicts=0 removes the trajectory to derail. Keep that in mind before
-  // moving any technique back into the search loop.
-  //
-  // Live composition is built in default_policy.cpp (see the comment there):
-  // BVE (ordered LAST), Factor, Strengthen, SubsumeForward, Congruence,
-  // Substitute enabled; Probe/Vivify/Backbone/TransitiveReduce disabled as
-  // SAT-disruptive. Every rule stays registered, N1-exposed, and
-  // random-policy-fuzzed regardless of its `enabled` bit.
-  static constexpr bool SLOT_IN_DEFAULT = true;
+  // The live composition is the S4 ARRANGEMENT, unconditional since the
+  // 2026-07-25 gate (report benchmarks/reports/2026-07-25-s4-gate-mp1.md):
+  // every Inprocess-tier rule enabled; phases = probing family →
+  // simplifiers → dosed BVE (density-gated, deferred out of conflicts=0 —
+  // kissat fastel=0) → Factor last; effort-ledger budgets per entry;
+  // growing NLOG2N conflict interval. WHY it works: elimination runs on a
+  // formula probing already simplified, doses are bounded in each rule's
+  // own work currency, and the density gates keep during-search
+  // elimination off the sparse instances it measurably harms (L9,
+  // plan §5.6 elimination-dosing exhibit — the gates are the phase-6
+  // learner's named target). During-search phases are SAT-safe because
+  // they are budgeted and material-gated — the unbudgeted version was not
+  // (L2/L3; reports 2026-07-18/19). Every rule stays registered,
+  // N1-exposed, and random-policy-fuzzed regardless of its `enabled` bit.
   struct SlotEntry {
     int rule = -1;
     bool enabled = true;
@@ -306,7 +296,7 @@ public:
     // Defer this entry out of the conflicts==0 preprocessing phase (kissat
     // fastel=0 — elimination only ever runs on a formula probing has already
     // simplified, in dosed during-search phases). BVE only.
-    bool arrangement_defer = false;
+    bool defer_preprocess = false;
     // Per-entry new-material watermarks (S4 dosing increment 2): an UNMETERED
     // entry (Congruence/Factor/Substitute — full canonical closure per run,
     // nothing to titrate) re-runs in a during-search arrangement phase only
@@ -350,19 +340,14 @@ public:
   uint32_t bve_level_ = 0;
   OccIndex inprocess_occ; // shared occurrence index, reused per phase (incr. 2)
   // Slot timing (kissat eliminate-slot schedule — C1-era machinery kept):
-  // first limit size-scaled at solve entry (kissat inits limits after
-  // parsing). After the first round, rounds are additionally gated on NEW
-  // material (kissat eliminate.c kissat_eliminating's variables trigger):
-  // under the slot's current scope new relations only come from new
-  // binaries or new root-fixed variables (measured on tr-n300-s055: 8
-  // ungated rounds, 0 found, +1.5 s solo before the gate)
+  // First limit size-scaled at solve entry (kissat inits limits after
+  // parsing); after that, phases fire on the growing NLOG2N interval alone
+  // (the S4 arrangement — the legacy new-material gate left with the legacy
+  // composition, commit a7de35d).
   struct {
     bool initialized = false;
-    bool ran = false; // the initial full round is never gated
     uint64_t next_conflicts = 0;
     uint64_t rounds = 0; // interval growth key (policy-local, rev 17)
-    uint64_t binaries_seen = 0;
-    uint64_t root_fixed_seen = 0;
     // Ticks spent inside simplification phases. The kernel keeps ONE global
     // propagation meter (kernel.cpp:426,456) covering search and probing alike;
     // kissat keeps them apart (search_ticks vs probing_ticks) because every

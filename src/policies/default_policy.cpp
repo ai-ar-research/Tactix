@@ -9,7 +9,7 @@
 #include "rules/reduce/reduce.hpp"
 #include "policies/ops/rephase/rephase.hpp"
 #include "rules/restart/restart.hpp"
-#include "rules/subsume_forward/subsume_forward.hpp"
+#include "rules/registry.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
 
 #include <cmath>
@@ -225,22 +225,10 @@ bool DefaultPolicy::want_inprocess(const Kernel &k) const {
 // kissat kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N,
 // true): interval grows as eliminateint · n·log10(n+9)², size-scaled
 void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
-  // Increment 1 is PREPROCESSING-ONLY: one simplification phase at conflicts=0,
-  // then never again. During-search BVE phases (each a root descent + hundreds
-  // of eliminations) knock high-variance SAT searches off their trajectory
-  // (Tier B: FmlaEquiv 27→198). They return in increment 2, once the shared
-  // dense OccIndex + a real tick budget make a during-search phase cheap and
-  // small enough to be SAT-safe. The growing periodic interval below (kissat
-  // NLOG2N, phase-count-scaled) is what increment 2 restores.
-  // (The TACTIX_INPROCESS_INTERVAL fixed-interval experiment knob — L7's
-  // instrument, which established that the interval is the wrong control —
-  // was removed in the 2026-07-25 negative-arm cleanup; L7 in PROGRESS +
-  // `775eefc` bank the result.)
-  // S4 arrangement: the during-search phases CARRY the elimination value
-  // (BVE is deferred out of conflicts==0), so the growing interval below —
-  // increment 2's shape, kissat UPDATE_CONFLICT_LIMIT(eliminate, NLOG2N),
-  // size-scaled — is load-bearing here, not optional. Without it the first
-  // gate arms (2026-07-24) silently measured probing-first + NO BVE.
+  // The during-search phases CARRY the elimination value (BVE is deferred
+  // out of conflicts==0), so the growing interval is load-bearing: kissat
+  // UPDATE_CONFLICT_LIMIT(eliminate, NLOG2N), size-scaled. A fixed interval
+  // is the wrong control (L7, `775eefc`).
   {
     uint64_t n = inprocess.rounds; // policy-local growth key (rev 17)
     if (!n)
@@ -303,11 +291,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)
-  if (SLOT_IN_DEFAULT) {
-    // the slot itself: registry-driven (RuleTier::Inprocess), registry
-    // order; default composition per default_policy.hpp. A preposed
-    // (nonempty) slot is left untouched — to run nothing, prepose
-    // disabled entries, not an empty vector
+  {
+    // the slot: registry-driven (RuleTier::Inprocess), registry order;
+    // composition per default_policy.hpp. A preposed (nonempty) slot is
+    // left untouched — to run nothing, prepose disabled entries, not an
+    // empty vector
     if (inprocess_slot.empty()) {
       // Inprocessing-revamp (landed): BVE + Strengthen + SubsumeForward run as a
       // SAT-safe bounded preprocessing phase (at conflicts=0) in the kissat
@@ -367,29 +355,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess) {
           const char *nm = rules[i].name;
-          bool on = (!std::strcmp(nm, "BVE") && !bve_off) ||
-                    (!std::strcmp(nm, "Factor") && !factor_off) ||
-                    !std::strcmp(nm, "Strengthen") ||
-                    !std::strcmp(nm, "SubsumeForward") ||
-                    !std::strcmp(nm, "Congruence") ||
-                    // Factor (E2 BVA) ON: net-positive once the duplicate-
-                    // binary bug was fixed (kernel_delete_binary_all_copies
-                    // lets a factoring remove its whole grid even when grid
-                    // binaries are duplicated; before, deletes refused →
-                    // bloat → no benefit). x9 801k→453k conflicts (39s→23s),
-                    // mp1 4.19M→3.66M, base search unchanged (only Factor's
-                    // grid pairs are removed). Full kissat-level benefit
-                    // still wants SBVA selection (S2) + large remainders (S4).
-                    !std::strcmp(nm, "Substitute");
-          if (!std::strcmp(nm, "Probe") || !std::strcmp(nm, "Backbone") ||
-              !std::strcmp(nm, "TransitiveReduce") || !std::strcmp(nm, "Vivify"))
-            on = true; // the probing family is part of the arrangement
+          // The S4 arrangement enables every Inprocess-tier rule; the two
+          // named ablation knobs + the slot-surgery lists are the A/B
+          // surface (same overrides presets/the phase-6 learner use).
+          bool on = !(bve_off && !std::strcmp(nm, "BVE")) &&
+                    !(factor_off && !std::strcmp(nm, "Factor"));
           if (env_list("TACTIX_SLOT_ENABLE", nm))
             on = true;
           if (env_list("TACTIX_SLOT_DISABLE", nm))
             on = false;
           SlotEntry e;
-          e.arrangement_defer = !std::strcmp(nm, "BVE");
+          e.defer_preprocess = !std::strcmp(nm, "BVE");
           e.rule = i;
           e.enabled = on;
           if (const EffortSpec *s = effort_spec(nm)) {
@@ -401,44 +377,25 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           }
           inprocess_slot.push_back(e);
         }
-      // BVE-LAST ordering (the bimodal-BVE fix, 2026-07-21). kissat eliminates on
-      // a formula ALREADY simplified by its probing/vivify/sweep/factor pipeline
-      // (clique occ 36→5), making elimination benign; a name-sorted slot runs BVE
-      // FIRST on the RAW formula, where partial elimination of symmetric structure
-      // makes an intrinsically-hard formula (clique 222s). Running BVE LAST — after
-      // Factor/Congruence/Substitute simplify — matches kissat: clique 222→4.2s
-      // (53×, beats kissat), Tier B PAR-2 42.6→21.0, Tier C 28→29/30 (gains
-      // aes_decry), Tier A neutral, fuzz sound. STOPGAP for the effort-budgeted
-      // scheduler (plan rev 53) which supersedes it. (The TACTIX_BVE_FIRST
-      // revert knob was removed in the 2026-07-25 negative-arm cleanup.)
-      {
+      // Phase order (what works and why): name-sorted slot, then BVE moved
+      // last (kissat eliminates on a formula its pipeline already
+      // simplified — clique 222→4.2 s when BVE stopped running FIRST on raw
+      // structure), then Factor last of all (kissat probe.c:41 — each phase
+      // is probing-family → simplifiers → BVE → Factor, so the NEXT phase's
+      // BVE sees the factored formula; the eliminate/factor alternation in
+      // one-slot form, design §3.c).
+      const auto move_to_back = [this](const char *name) {
         const std::vector<RuleVTable> &rr = tactix_rules();
         for (size_t j = 0; j < inprocess_slot.size(); j++)
-          if (!std::strcmp(rr[inprocess_slot[j].rule].name, "BVE")) {
+          if (!std::strcmp(rr[inprocess_slot[j].rule].name, name)) {
             const SlotEntry e = inprocess_slot[j];
             inprocess_slot.erase(inprocess_slot.begin() + j);
             inprocess_slot.push_back(e);
             break;
           }
-      }
-      // S4 Factor-LAST (arrangement-scoped, design §3.c): kissat runs factor
-      // after EVERYTHING in every probe round (probe.c:41) and last in
-      // preprocessing too. Each phase becomes probing-family → simplifiers →
-      // BVE → Factor, and the NEXT phase's BVE sees the factored formula —
-      // kissat's eliminate/factor alternation expressed in our one-slot
-      // phases. The default (non-arrangement) order is NOT touched: the
-      // BVE-LAST measurements (clique 222→4.2 s) were taken on
-      // Factor-before-BVE and stay valid until the S4 gate flips.
-      {
-        const std::vector<RuleVTable> &rr = tactix_rules();
-        for (size_t j = 0; j < inprocess_slot.size(); j++)
-          if (!std::strcmp(rr[inprocess_slot[j].rule].name, "Factor")) {
-            const SlotEntry e = inprocess_slot[j];
-            inprocess_slot.erase(inprocess_slot.begin() + j);
-            inprocess_slot.push_back(e);
-            break;
-          }
-      }
+      };
+      move_to_back("BVE");
+      move_to_back("Factor");
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;
@@ -614,13 +571,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                          "guard=%d dosed=%d meter=%llu limit=%llu\n",
                          (unsigned long long)k.stats.inprocess_phases, outer,
                          rules[e.rule].name, (int)e.enabled,
-                         (int)e.arrangement_defer, (int)rules[e.rule].guard(k),
+                         (int)e.defer_preprocess, (int)rules[e.rule].guard(k),
                          (int)e.dosed,
                          (unsigned long long)(e.meter ? e.meter(k) : 0),
                          (unsigned long long)e.limit);
           if (!e.enabled || phase_unsat)
             continue;
-          if (e.arrangement_defer && k.stats.conflicts == 0)
+          if (e.defer_preprocess && k.stats.conflicts == 0)
             continue; // S4: no elimination at preprocessing (kissat fastel=0)
           const RuleVTable &r = rules[e.rule];
           const uint64_t limit = e.limit;
@@ -981,14 +938,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
       if (phase_unsat)
         return 20;
-      // The phase FIRED (whether or not it simplified anything): count it (the
-      // interval-growth key) and refresh the new-material watermarks so an
-      // unproductive pass does not re-fire every interval — that repeated root
-      // restart is exactly what disrupts a high-variance SAT search.
-      inprocess.ran = true;
+      // The phase FIRED (whether or not it simplified anything): count it —
+      // the interval-growth key for the NLOG2N schedule.
       inprocess.rounds++;
-      inprocess.binaries_seen = k.binary_ids.size();
-      inprocess.root_fixed_seen = kernel_root_fixed(k);
       update_inprocess_limit(k);
       continue;
     }

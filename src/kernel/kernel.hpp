@@ -379,14 +379,13 @@ struct Kernel {
   // whether one does). Non-owning; DefaultPolicy scopes it to the inprocess
   // phase (set at entry, cleared at exit) so it never dangles.
   FactorMatchPolicy *factor_match = nullptr;
-  // S4 Factor acceptance bound (kissat init_factoring's bound =
-  // bounds.eliminate.additional_clauses, factor.c:72,939): accept a grid iff
-  // delta > this. Default 0 ≡ the legacy FACTOR_MIN_GAIN = 1 acceptance.
-  // CONFIGURATION like bve_bound — any value is sound (it only narrows WHICH
-  // positive-gain grids reach the byte-identical apply_factoring); the S1b
-  // ramp policy couples it to the last completed BVE bound so factoring gets
-  // pickier as elimination gets more permissive. An attached FactorMatchPolicy
-  // (factor_match) keeps precedence — the hook subsumes the scalar.
+  // Factor acceptance bound: accept a grid iff delta > this. Default 0 ≡
+  // the FACTOR_MIN_GAIN = 1 floor. CONFIGURATION like bve_bound — any value
+  // is sound (it only narrows WHICH positive-gain grids reach the
+  // byte-identical apply_factoring); an attached FactorMatchPolicy keeps
+  // precedence. N1 config surface for external/learned policies; no shipped
+  // policy writes it (the kissat eliminate-level coupling was measured dead
+  // — gate report §2 — and removed).
   uint32_t factor_bound = 0;
   // S4 composite grids (S2b, kissat resize_factoring): widen Factor's
   // factor/remainder universe to ALL live literals — extension vars included,
