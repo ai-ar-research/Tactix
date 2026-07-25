@@ -325,13 +325,17 @@ static void test_retry_filter() {
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);
   assert(!worth_retry(x));
-  // a NEW IRREDUNDANT clause on x is new material: retry. (var 14 is otherwise
-  // unused, so this adds an occurrence without forming a gate)
+  // an ADDED clause on x is NOT elimination material (removal-only marking,
+  // 2026-07-25): kissat feeds added literals to subsume/factor candidacy and
+  // eliminate candidacy to REMOVED literals only (inline.h
+  // kissat_mark_added_literal / kissat_mark_removed_literal) — an addition
+  // can only make elimination harder, and add-marking kept during-search
+  // doses re-resolving hopeless variables (mod4block, probe 1561187).
+  // TACTIX_BVE_RETRY_ON_ADD=1 restores the old marking for A/Bs. (var 14 is
+  // otherwise unused, so this adds an occurrence without forming a gate)
   kernel_add_binary_clause(k, internalize(1), internalize(14));
-  assert(worth_retry(x));
-  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
-         ApplyResult::NoOp);
   assert(!worth_retry(x));
+  assert(offered(x)); // the instance surface never narrows (N1)
   // deleting one of x's clauses is new material too
   assert(kernel_delete_binary(k, internalize(1), internalize(14)));
   assert(worth_retry(x));

@@ -334,10 +334,24 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     }
   }
 
-  // ---- gather x's BINARIES (watch scan) + duplicate-binary hazard pre-check ----
-  auto gather_bin = [&](Lit lit, std::vector<MClause> &live) -> bool {
+  // ---- gather x's BINARIES (watch scan, DEDUPLICATED) ----
+  // Duplicate copies of a pair collapse to ONE logical clause: both copies
+  // share one binary_ids id (kernel.hpp invariant), the reconstruction
+  // witness wants one entry, and deletion goes through
+  // kernel_delete_binary_all_copies (the Factor precedent — one proof `del`
+  // per copy, LRAT-fuzz-proven). The old per-copy hazard ("the singular
+  // kernel_delete_binary can't name a duplicated pair") aborted the WHOLE
+  // candidate — on mp1-blockpuzzle, whose input has 137,700 duplicated
+  // binary pairs touching all 2,700 variables, that silently disabled BVE
+  // outright (0 eliminations vs kissat's 661; found 2026-07-25 chasing the
+  // arrangement's bve=0 trace). Dedup also makes `base` count DISTINCT
+  // clauses, matching kissat's DENSE deduped occurrences.
+  std::vector<uint8_t> seen_bin(2 * k.nvars, 0);
+  std::vector<Lit> touched_bin;
+  auto gather_bin = [&](Lit lit, std::vector<MClause> &live) {
     const uint32_t *ws = k.watches.arena.data() + k.watches.heads[lit].offset;
     const uint32_t sz = k.watches.heads[lit].size;
+    touched_bin.clear();
     for (uint32_t i = 0; i < sz;) {
       const Watch w{ws[i]};
       if (!w.binary()) {
@@ -346,8 +360,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       }
       const Lit o = w.other();
       i += 1;
-      if (bve_binary_copies(k, lit, o) >= 2)
-        return false; // duplicated pair: kernel_delete_binary can't name it
+      if (seen_bin[o]) // duplicate copy: same logical clause, same id
+        continue;
+      seen_bin[o] = 1;
+      touched_bin.push_back(o);
       if (k.value(o) > 0) { // satisfied
         del_bin.emplace_back(lit, o);
         continue;
@@ -361,10 +377,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       m.active = {lit, o};
       live.push_back(std::move(m));
     }
-    return true;
+    for (const Lit o : touched_bin) // clear for the other polarity's gather
+      seen_bin[o] = 0;
   };
-  if (!gather_bin(px, pos) || !gather_bin(nx, neg))
-    return ApplyResult::NoOp; // duplicate-binary hazard
+  gather_bin(px, pos);
+  gather_bin(nx, neg);
 
   if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty()) {
     return ApplyResult::NoOp; // x occurs nowhere resolvable
@@ -547,7 +564,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   }
 
   // delete every clause on x: live (pos/neg) + delete-only (redundant/satisfied/
-  // tautology). Large → proof del + GARBAGE; binary → kernel_delete_binary.
+  // tautology). Large → proof del + GARBAGE; binary →
+  // kernel_delete_binary_all_copies (gathers are deduplicated, so each pair is
+  // deleted once — the primitive removes every copy and emits one proof `del`
+  // per copy; identical to the singular delete when copies == 1).
   auto del_large_ref = [&](Ref ref) {
     Clause *c = clause_at(k.arena, ref);
     if (c->garbage())
@@ -561,7 +581,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
       if (m.ref != INVALID_REF) {
         del_large_ref(m.ref);
       } else {
-        const bool ok = kernel_delete_binary(k, m.ba, m.bb);
+        const bool ok = kernel_delete_binary_all_copies(k, m.ba, m.bb);
         assert(ok);
         (void)ok;
       }
@@ -572,7 +592,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   for (const Ref ref : del_large)
     del_large_ref(ref);
   for (const auto &pr : del_bin) {
-    const bool ok = kernel_delete_binary(k, pr.first, pr.second);
+    const bool ok = kernel_delete_binary_all_copies(k, pr.first, pr.second);
     assert(ok);
     (void)ok;
   }
