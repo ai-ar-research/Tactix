@@ -103,9 +103,9 @@ disagree, the plan is authoritative — fix this file.
   gate-heavy miters; fix = structural chains via `CongGate::side_ids`) and
   **C3b** (remaining degeneracies) — see Track C. **Task #39** —
   `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/`
-  (N1 robustness, not soundness). `examples/demo3_scripted_default.c` keeps
-  `SLOT_IN_DEFAULT 0` — documented as intentional (stat contract = §8.4
-  within-noise); the full slot mirror is a deferred demo enhancement.
+  (N1 robustness, not soundness). demo3 is a SEARCH-only mirror by permanent
+  design (stat contract = §8.4 within-noise; the deferred full-slot-mirror
+  enhancement was dropped 2026-07-25, user decision).
   Stress-pass ledger: V6 unit-channel DONE (`4f2b53e` + congstress nightly);
   Factor-mid-stable DONE (2026-07-25 arrangement mid-stable legs, 9k/0).
   Post-Track-H soundness: random-policy ASan 8000/0 both formats.
@@ -168,7 +168,7 @@ composition was removed with the negative arms — git history has it).
 ### Track C — V6 Congruence completion (rev 56) — done except C4-perf/C3b (non-blocking)
 
 - [x] **C0** XOR output-sign fix (`1a365da`; pinned by tests over both convention axes) · **C1** `add_equivalence` all-or-nothing (dropping an inference is sound, an unverifiable certificate is not; D-CONG-SKIP) · **C2** degenerate-ITE filter (gates −23 %, equivalences identical) · **C3** the unit channel (`hwmcc` 48.77 → 6.67 s, refuted at 0 decisions; the conclusion needs the degeneracy ladder — drat-trim-validated in all four shapes BEFORE implementation, and it turned out to be kissat's own construction) · **C4** LRAT chains REPLAYED not derived (checker-order by construction; subtle load-bearing case: a lemma literal already forced TRUE is also a conflict). Detail: Track C commits + Log 2026-07-21
-- [ ] **C4-perf** · the LRAT path is ~250× slower on a miter (`hwmcc` 1680 s vs 6.67 s DRAT): one replay propagation per top-level ladder lemma. Fix = derive the top level structurally via `CongGate::side_ids` (declared, never populated); keep the replay as fallback + oracle
+- [ ] **C4-perf** · the LRAT path is ~250× slower on a miter (`hwmcc` 1680 s vs 6.67 s DRAT): one replay propagation per top-level ladder lemma. Fix = derive the top level structurally via a per-gate side-clause-id list (the unpopulated `side_ids` scaffolding was removed 2026-07-25 — re-add it WITH the code that fills it); keep the replay as fallback + oracle
 - [ ] **C3b** · remaining degeneracies (AND clashing input → unit, idempotent dup → unary merge, `x≡¬x` → refutation). Measured 0 firings on `hwmcc` AND `FmlaEquiv` (TB1's direct count) — completeness/N1 hygiene, not a tail fix. AND chains carry a duplicated-hint subtlety the XOR ones do not
 
 ### Track H — `H` out of the Kernel (rev 60) — COMPLETE 2026-07-23

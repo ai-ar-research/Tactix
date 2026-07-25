@@ -24,10 +24,12 @@ enum class GateKind : uint8_t { And, Xor, Ite };
 //        every polarity). `inputs` sorted; `input_bin_ids` the (¬output∨inputᵢ) ids.
 //   Xor: output = in₁ ⊕ … ⊕ inₖ, encoded by all 2^k parity clauses (each size k+1).
 //        `inputs` stored sorted & ALL-POSITIVE — the clause parity is absorbed into
-//        `output`'s sign. `side_ids` holds the 2^k side-clause ids (parity-walk
-//        order) for the match proof chain. The structural key is (kind, sorted
+//        `output`'s sign. The structural key is (kind, sorted
 //        representative inputs); XOR re-canonicalization folds input-sign into the
 //        output parity under the union-find. base_id is the all-positive base.
+//        (C4-perf's structural-chain fix will re-add a `side_ids` field holding
+//        the 2^k parity side-clause ids — removed as unpopulated scaffolding
+//        in the 2026-07-25 cleanup; see the Track C item.)
 //   Ite: output = cond ? then : else, `inputs` = [cond, then, else] in that fixed
 //        order (NOT sorted — the key is the normalized triple; normalize_ite puts
 //        cond & then positive, absorbing any flip into the output sign).
@@ -37,7 +39,6 @@ struct CongGate {
   std::vector<Lit> inputs;             // canonical (sorted) — the structural key
   uint64_t base_id = 0;                // AND/XOR base clause proof id
   std::vector<uint64_t> input_bin_ids; // And: (¬output ∨ inputᵢ) ids ∥ inputs
-  std::vector<uint64_t> side_ids;      // Xor: the 2^k parity side-clause ids
 };
 
 // Extract AND/OR gates from the irredundant large clauses (bounded arity). Rule-

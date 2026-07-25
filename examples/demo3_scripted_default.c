@@ -54,14 +54,13 @@ static int rule_id(const char *name) {
 #define SUBSUME_INTERVAL 500
 #define INPROCESS_PHASE_BUDGET 300
 #define INPROCESS_PHASE_ROUNDS 3
-/* This demo mirrors DefaultPolicy's SEARCH + PREPROCESSING trajectory. It does
- * NOT replicate the full inprocessing SLOT (DefaultPolicy runs {BVE, Factor,
- * Strengthen, SubsumeForward, Congruence, Substitute} at conflicts=0) — doing so
- * is a deferred demo enhancement, so SLOT_IN_DEFAULT is intentionally 0 here even
- * though DefaultPolicy::SLOT_IN_DEFAULT is now true. The stat-for-stat contract is
- * therefore within-noise on inprocessing-heavy instances (§8.4), not exact. Set
- * this to 1 (and compose the slot below) to extend the mirror. */
-#define SLOT_IN_DEFAULT 0
+/* This demo mirrors DefaultPolicy's SEARCH trajectory. It deliberately does
+ * NOT replicate the inprocessing slot (DefaultPolicy runs the full S4
+ * arrangement — probing family + simplifiers + dosed BVE/Factor), so its
+ * stat contract is within-noise on inprocessing-heavy instances (§8.4), not
+ * exact. That scope is intentional and permanent: the demo exists to prove
+ * the N1 stepping surface drives kissat-shaped SEARCH, and the arrangement's
+ * slot is exercised end-to-end by the registry demos + fuzz instead. */
 
 /* bias-corrected EMA (mirror of DefaultPolicy::Smooth / kissat smooth.c) */
 struct smooth {
@@ -187,8 +186,7 @@ static int scripted_solve(tactix *s) {
    * DefaultPolicy's lazy init */
   /* preprocessing-only: the first (and only) phase fires at conflicts=0,
      before search state exists (DefaultPolicy update_inprocess_limit) */
-  p.inprocess_next = SLOT_IN_DEFAULT ? tactix_stat(s, TACTIX_STAT_CONFLICTS)
-                                     : UINT64_MAX;
+  p.inprocess_next = UINT64_MAX; /* no slot mirror — see the scope note above */
   const int propagate = rule_id("Propagate");
   const int conflictanalysis = rule_id("ConflictAnalysis");
   const int decide = rule_id("Decide");
