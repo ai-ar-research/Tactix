@@ -62,6 +62,12 @@ disagree, the plan is authoritative — fix this file.
      **fresh same-window CaDiCaL C run OWED before any T3 judgment**
      (§8.1). Attribution: TR-scratch fix + closure-delay + window; the
      morning dosing-arms matrix numbers are superseded by this window.
+     **IN FLIGHT at last update: the T3-judging three-solver C window**
+     (arrays 1562704 tactix / 1562735 cadical / 1562766 kissat; results
+     land in `benchmarks/runs/20260725-1310*/1311*-C-*-t3/logs/
+     aggregate.log`) — read those, compute the live ratio, and if
+     ≤ 1.10× vs CaDiCaL run the full T3 gate evaluation (§9 + a fresh
+     Tier B noise band) and write the gate report.
   3. Then **Track T** (TB5 propagation counter split [`kernel.cpp:496/562/622`],
      TB4b chrono completion, TB6 mode cadence, TB2 x9), then the **T3 gate**
      (CaDiCaL clean same-window C + a fresh Tier B noise band first — the B
