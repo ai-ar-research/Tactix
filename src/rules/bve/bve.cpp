@@ -479,29 +479,12 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   }
 
   // ---- COMMIT: add resolvents (RUP, add-before-delete), witnesses, delete ----
-  std::vector<Lit> units;                              // collapsed root units
-  std::vector<Lit> pending_unit(k.nvars, INVALID_LIT); // record_unit dedup by var
-  // {u},{¬u} in one round ⊢ ∅ (V3's record_unit, corpus 007).
+  // Batched root units + opposite-sign refutation: the shared kernel idiom
+  // (PendingUnits, kernel.hpp — corpus 007 is the mandating regression).
+  PendingUnits pending;
+  pending.init(k.nvars);
   auto record_unit = [&](Lit u, uint64_t id) -> bool {
-    const Var v = var_of(u);
-    if (pending_unit[v] == INVALID_LIT) {
-      pending_unit[v] = u;
-      k.unit_ids[v] = id;
-      units.push_back(u);
-      return false;
-    }
-    if (pending_unit[v] == u)
-      return false; // duplicate same-sign
-    if (k.proof) {
-      if (lrat) {
-        const uint64_t ch[2] = {id, k.unit_ids[v]};
-        k.proof->add_empty(++k.next_clause_id, ch, 2);
-      } else {
-        k.proof->add_empty(0, nullptr, 0);
-      }
-    }
-    k.inconsistent = true;
-    return true;
+    return pending.record(k, u, id) == PendingUnits::Outcome::Refuted;
   };
 
   for (Resolvent &r : resolvents) {
@@ -596,7 +579,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   }
 
   // assert collapsed root units un-propagated; M1 owns the cascade.
-  for (const Lit u : units)
+  for (const Lit u : pending.units)
     if (k.value(u) == 0)
       kernel_assign_unit(k, u);
 

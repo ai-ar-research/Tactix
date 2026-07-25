@@ -117,27 +117,23 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
     else
       k.proof->add_rup(0, lits.data(), static_cast<uint32_t>(lits.size()),
                        nullptr, 0);
-    k.proof->del(id, c->id(), c->lits, c->size);
   }
-  kernel_mark_garbage(k, c);
   k.stats.vivified++;
-  if (lits.empty()) { // under-derived root only (corpus 002)
-    k.inconsistent = true;
+  // shared replacement tail (kernel_replace_clause); glue is a
+  // redundant-clause concept — 0 for irredundant (review-aligned)
+  switch (kernel_replace_clause(k, c, id, lits.data(),
+                                static_cast<uint32_t>(lits.size()), redundant,
+                                redundant ? glue : 0, nullptr)) {
+  case ReplaceOutcome::Refuted:
     return ApplyResult::Unsat;
-  }
-  if (lits.size() == 1) {
+  case ReplaceOutcome::Unit:
     k.unit_ids[var_of(lits[0])] = id;
     kernel_assign_unit(k, lits[0]);
     *ended_round = true; // values changed: the round's reasoning is stale
     return ApplyResult::Ok;
-  }
-  if (lits.size() == 2) {
-    kernel_add_binary_clause(k, lits[0], lits[1], id);
+  default:
     return ApplyResult::Ok;
   }
-  kernel_add_large_clause(k, lits.data(), static_cast<uint32_t>(lits.size()),
-                          redundant, glue, id);
-  return ApplyResult::Ok;
 }
 
 // probe one candidate; on an actionable outcome, rewrite. Returns NoOp

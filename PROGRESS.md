@@ -307,6 +307,15 @@ Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-25 — review fix-now executed: items 6–10 + rev-69 API (task #7)
+- `0e5ac25` flat counts + in-rule env pin deleted; `610a1a7` rev-69 stat
+  ids 22–25 + config setters + contract test; items 7+8: the shared proof
+  idioms are kernel primitives now (`kernel_emit_empty_from_pair`,
+  `PendingUnits`, `kernel_replace_clause` — 4+3 rule-side copies replaced,
+  byte-identical; the latent glue divergence aligned to 0-for-irredundant).
+  Gates: ctest ×2 per step; 21k fuzz / 0 across 5 legs both formats incl.
+  bve/congruence/factor stress; Tier A 0.73 / B 11.26 (noise band).
+
 ### 2026-07-25 — GC cost measured: a NEGATIVE — well under 1 % everywhere
 - Review §c item 2 resolved via temporary instrumentation (probe 1562204;
   counters NOT kept, user decision): heaviest case walks ~2 GB over 296 s

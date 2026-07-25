@@ -314,9 +314,11 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     }
   }
 
-  std::vector<Lit> units;              // collapsed root units, asserted at end
   std::vector<uint8_t> seen(nlits, 0); // dedup scratch for a rewritten clause
-  std::vector<Lit> pending_unit(k.nvars, INVALID_LIT); // by var: batched unit
+  // Batched root units + opposite-sign refutation: the shared kernel idiom
+  // (PendingUnits, kernel.hpp).
+  PendingUnits pending;
+  pending.init(k.nvars);
   bool changed = false;
 
   // Record a size-collapsed root unit `u` (clause {u}, proof id `id`), deduping
@@ -327,25 +329,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // `¬x` (e.g. an SCC member forced true by one clause and false by another)
   // would assert the first and silently drop the second, losing the conflict.
   auto record_unit = [&](Lit u, uint64_t id) -> bool {
-    const Var v = var_of(u);
-    if (pending_unit[v] == INVALID_LIT) {
-      pending_unit[v] = u;
-      k.unit_ids[v] = id;
-      units.push_back(u);
-      return false;
-    }
-    if (pending_unit[v] == u)
-      return false; // same-sign duplicate — harmless (redundant unit clause)
-    if (k.proof) {  // opposite sign: {u} + {¬u} ⊢ ∅
-      if (lrat) {
-        const uint64_t ch[2] = {id, k.unit_ids[v]};
-        k.proof->add_empty(++k.next_clause_id, ch, 2);
-      } else {
-        k.proof->add_empty(0, nullptr, 0);
-      }
-    }
-    k.inconsistent = true;
-    return true;
+    return pending.record(k, u, id) == PendingUnits::Outcome::Refuted;
   };
 
   // Rewrite one literal sequence: apply repr, strip root-false literals (their
@@ -437,24 +421,21 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         k.proof->add_rup(0, out.data(), static_cast<uint32_t>(out.size()),
                          nullptr, 0);
       }
-      k.proof->del(id, cid, c->lits, c->size);
     }
-    kernel_mark_garbage(k, c); // before the arena-mutating add below
     changed = true;
-    if (out.empty()) { // all-false rewrite (unreachable at a quiescent root)
-      k.inconsistent = true;
-      return ApplyResult::Unsat;
-    }
-    if (out.size() == 1) {
+    // shared replacement tail; glue 0 for irredundant (review-aligned);
+    // c dangles after (arena may reallocate) and is not touched again
+    switch (kernel_replace_clause(
+        k, c, id, out.data(), static_cast<uint32_t>(out.size()), credundant,
+        credundant ? std::min<uint32_t>(cglue, out.size()) : 0, nullptr)) {
+    case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
+      return ApplyResult::Unsat;  // quiescent root)
+    case ReplaceOutcome::Unit:
       if (record_unit(out[0], id))
         return ApplyResult::Unsat;
-    } else if (out.size() == 2) {
-      kernel_add_binary_clause(k, out[0], out[1], id);
-    } else {
-      kernel_add_large_clause(k, out.data(), static_cast<uint32_t>(out.size()),
-                              credundant,
-                              std::min<uint32_t>(cglue, out.size()), id);
-      // c now dangles (arena may have reallocated); it is not touched again.
+      break;
+    default:
+      break;
     }
   }
 
@@ -570,7 +551,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
 
   // (G) assert the collapsed root units un-propagated; M1 owns the cascade and
   // emits nothing new (each unit already carries its add-RUP id).
-  for (const Lit u : units)
+  for (const Lit u : pending.units)
     if (k.value(u) == 0)
       kernel_assign_unit(k, u);
 

@@ -411,6 +411,56 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
     kernel_backtrack_impl<false>(k, target, update_phases);
 }
 
+// --- shared proof idioms (review 2026-07-25 item 7; decls in kernel.hpp) ----
+void kernel_emit_empty_from_pair(Kernel &k, uint64_t id_a, uint64_t id_b) {
+  if (k.proof) {
+    if (k.proof->lrat()) {
+      const uint64_t ch[2] = {id_a, id_b};
+      k.proof->add_empty(++k.next_clause_id, ch, 2);
+    } else {
+      k.proof->add_empty(0, nullptr, 0);
+    }
+  }
+  k.inconsistent = true;
+}
+
+PendingUnits::Outcome PendingUnits::record(Kernel &k, Lit u, uint64_t id) {
+  const Var v = var_of(u);
+  if (by_var[v] == INVALID_LIT) {
+    by_var[v] = u;
+    k.unit_ids[v] = id;
+    units.push_back(u);
+    return Outcome::Recorded;
+  }
+  if (by_var[v] == u)
+    return Outcome::Duplicate; // same-sign duplicate: a redundant unit
+  kernel_emit_empty_from_pair(k, id, k.unit_ids[v]); // {u} + {¬u} ⊢ ∅
+  return Outcome::Refuted;
+}
+
+ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
+                                     const Lit *lits, uint32_t size,
+                                     bool redundant, uint32_t glue,
+                                     Ref *large_ref) {
+  if (k.proof)
+    k.proof->del(id, c->id(), c->lits, c->size);
+  kernel_mark_garbage(k, c); // before any arena-mutating add below
+  if (size == 0) { // under-derived root only (corpus 002): the ADD just
+    k.inconsistent = true; // emitted IS the refutation
+    return ReplaceOutcome::Refuted;
+  }
+  if (size == 1)
+    return ReplaceOutcome::Unit; // caller owns unit semantics
+  if (size == 2) {
+    kernel_add_binary_clause(k, lits[0], lits[1], id);
+    return ReplaceOutcome::Binary;
+  }
+  const Ref r = kernel_add_large_clause(k, lits, size, redundant, glue, id);
+  if (large_ref)
+    *large_ref = r;
+  return ReplaceOutcome::Large;
+}
+
 // --- propagation engine ------------------------------------------------
 // Transliterated from kissat/src/proplit.h (MIT, Biere et al.): blocking
 // literals, binary clauses inlined in watch lists, in-place watch-list

@@ -267,37 +267,29 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
       k.proof->add_rup(0, lits.data(), static_cast<uint32_t>(lits.size()),
                        nullptr, 0);
     }
-    k.proof->del(id, c->id(), c->lits, c->size);
   }
-  kernel_mark_garbage(k, c); // before any allocation moves the arena
   k.stats.strengthened++;
   (*changed)++;
-  if (lits.empty()) {
-    // possible only in an under-derived root state (see corpus regression
-    // 002: engine quiescence != semantic quiescence under N1 histories) —
-    // the empty clause just emitted IS the refutation
-    k.inconsistent = true;
-    return 5;
-  }
-  if (lits.size() == 1) { // unit: assert at root, end the round
-    k.unit_ids[var_of(lits[0])] = id;
-    kernel_assign_unit(k, lits[0]);
-    return 4;
-  }
-  if (lits.size() == 2) {
-    kernel_add_binary_clause(k, lits[0], lits[1], id);
-    return 3;
-  }
   // rewrites preserve redundancy (the round's candidates are irredundant,
   // but the flush pre-pass rewrites redundant clauses too); glue can only
-  // shrink with the clause
+  // shrink with the clause — read BEFORE the replacement garbages `c`
   const bool redundant = c->redundant();
   const uint32_t glue =
       std::min<uint32_t>(c->glue(), static_cast<uint32_t>(lits.size()));
-  *ref = kernel_add_large_clause(k, lits.data(),
-                                 static_cast<uint32_t>(lits.size()),
-                                 redundant, redundant ? glue : 0, id);
-  return 2;
+  switch (kernel_replace_clause(k, c, id, lits.data(),
+                                static_cast<uint32_t>(lits.size()), redundant,
+                                redundant ? glue : 0, ref)) {
+  case ReplaceOutcome::Refuted:
+    return 5; // corpus 002: the empty clause just emitted IS the refutation
+  case ReplaceOutcome::Unit: // unit: assert at root, end the round
+    k.unit_ids[var_of(lits[0])] = id;
+    kernel_assign_unit(k, lits[0]);
+    return 4;
+  case ReplaceOutcome::Binary:
+    return 3;
+  default:
+    return 2;
+  }
 }
 
 // canonical instance: one full round (fused subsume-or-strengthen;

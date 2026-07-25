@@ -451,6 +451,42 @@ void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest)
 // Call once on a SAT result before reading k.values as the model.
 void kernel_extend_model(Kernel &);
 
+// --- shared proof idioms (review 2026-07-25 item 7) -------------------------
+// {a} + {¬a} ⊢ ∅: emit the empty clause (LRAT chain {id_a, id_b}; DRAT bare)
+// and set `inconsistent`. The pair-refutation emission lives in exactly one
+// place (the kernel_reason_walk precedent) — copy drift here is a soundness
+// risk, which is why four rules share this instead of inlining it.
+void kernel_emit_empty_from_pair(Kernel &, uint64_t id_a, uint64_t id_b);
+
+// Batched root units for one simplification round (V3's record_unit; corpus
+// 007 is the regression that mandates the opposite-sign refutation): deduped
+// per variable; {u} and {¬u} recorded in one round refute via
+// kernel_emit_empty_from_pair. The caller has already emitted the unit's
+// proof clause under `id`; Recorded installs it as the variable's unit id.
+struct PendingUnits {
+  std::vector<Lit> units;  // first-recorded order (assert after the round)
+  std::vector<Lit> by_var; // INVALID_LIT = none recorded yet
+  enum class Outcome { Recorded, Duplicate, Refuted };
+  void init(uint32_t nvars) {
+    units.clear();
+    by_var.assign(nvars, INVALID_LIT);
+  }
+  Outcome record(Kernel &, Lit u, uint64_t id);
+};
+
+// Clause-replacement tail (review 2026-07-25 item 8): after the caller has
+// emitted the shrunken clause's proof ADD under `id`, delete the original
+// (proof `del` + garbage mark) and materialize `lits` by size. Unit handling
+// stays with the CALLER (rules differ: Vivify asserts + ends its round,
+// Substitute batches via PendingUnits); the empty clause refutes here. Large
+// clauses carry (redundant, glue) — glue is a redundant-clause concept, so
+// callers pass 0 for irredundant (the divergence the review aligned).
+enum class ReplaceOutcome { Refuted, Unit, Binary, Large };
+ReplaceOutcome kernel_replace_clause(Kernel &, Clause *orig, uint64_t id,
+                                     const Lit *lits, uint32_t size,
+                                     bool redundant, uint32_t glue,
+                                     Ref *large_ref); // nullable
+
 // --- BVE retry filter (see Kernel::bve_retry) -------------------------------
 inline void kernel_mark_bve_retry(Kernel &k, Var v) { k.bve_retry[v] = 1; }
 // Fold every ROOT-FIXED literal not yet accounted for into `bve_retry`: fixing

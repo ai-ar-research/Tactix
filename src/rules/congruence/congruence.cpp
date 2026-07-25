@@ -947,14 +947,16 @@ ApplyResult congruence_apply(Kernel &k) {
   // it has already computed, and M1 owns the propagation cascade. Deduped per
   // variable; an opposite-sign pair within one round IS a refutation ({u} and
   // {¬u} resolve to ∅ — V3's record_unit, corpus 007).
-  std::vector<Lit> units;
-  std::vector<Lit> pending_unit(k.nvars, INVALID_LIT);
+  // Batched root units via the shared kernel idiom (PendingUnits), behind a
+  // congruence-specific preamble: skip already-true units, and a unit that
+  // contradicts a unit ALREADY ON THE TRAIL refutes against the trail id
+  // (read before it could be overwritten), not the batch.
+  PendingUnits pending;
+  pending.init(k.nvars);
   auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain) -> bool {
     const Var v = var_of(u);
     if (k.value(u) > 0)
       return false; // already true at the root — the inference adds nothing
-    // Read the incumbent id BEFORE overwriting it: if u contradicts a unit
-    // already on the trail, that unit's id is the second antecedent of ∅.
     const uint64_t trail_id = k.unit_ids[v];
     const bool contradicts_trail = k.value(u) < 0;
     const uint64_t id = ++k.next_clause_id;
@@ -962,36 +964,13 @@ ApplyResult congruence_apply(Kernel &k) {
       k.proof->add_rup(lrat ? id : 0, &u, 1, lrat ? uchain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(uchain.size()) : 0);
     if (contradicts_trail) {
-      if (k.proof) {
-        if (lrat) {
-          const uint64_t ch[2] = {id, trail_id};
-          k.proof->add_empty(++k.next_clause_id, ch, 2);
-        } else {
-          k.proof->add_empty(0, nullptr, 0);
-        }
-      }
-      k.inconsistent = true;
+      kernel_emit_empty_from_pair(k, id, trail_id);
       return true;
     }
-    if (pending_unit[v] == INVALID_LIT) {
-      pending_unit[v] = u;
-      k.unit_ids[v] = id;
-      units.push_back(u);
+    const PendingUnits::Outcome o = pending.record(k, u, id);
+    if (o == PendingUnits::Outcome::Recorded)
       k.stats.congruence_units++;
-      return false;
-    }
-    if (pending_unit[v] == u)
-      return false; // same-sign duplicate (the s gates of one relation agree)
-    if (k.proof) { // opposite sign: {u} + {¬u} ⊢ ∅
-      if (lrat) {
-        const uint64_t ch[2] = {id, k.unit_ids[v]};
-        k.proof->add_empty(++k.next_clause_id, ch, 2);
-      } else {
-        k.proof->add_empty(0, nullptr, 0);
-      }
-    }
-    k.inconsistent = true;
-    return true;
+    return o == PendingUnits::Outcome::Refuted;
   };
 
   // Merge two provably-equivalent literals: unite their classes and reschedule
@@ -1140,16 +1119,16 @@ ApplyResult congruence_apply(Kernel &k) {
   // every output XOR then cancels to the unit ¬outᵢ, and propagating those units
   // falsifies the miter's output constraint — a refutation inside congruence at
   // zero conflicts, which is how kissat solves that family.
-  for (const Lit u : units) {
+  for (const Lit u : pending.units) {
     assert(k.value(u) >= 0 && "record_unit refutes rather than batching a false unit");
     if (k.value(u) == 0)
       kernel_assign_unit(k, u);
   }
-  if (!units.empty() && inprocess_reach_root(k))
+  if (!pending.units.empty() && inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (k.inconsistent)
     return ApplyResult::Unsat;
-  return (neq || !units.empty()) ? ApplyResult::Ok : ApplyResult::NoOp;
+  return (neq || !pending.units.empty()) ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
 uint32_t congruence_instances(Kernel &, uint64_t *out, uint32_t cap) {

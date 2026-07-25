@@ -308,6 +308,20 @@ mechanics*, not proof-rule guards, so they live here rather than in the calculus
   retry-filter contract test in `tests/test_bve.cpp` documents the adopted
   semantics and the negative.
 
+- **Shared proof idioms are kernel primitives (2026-07-25 review items 7–8).**
+  `kernel_emit_empty_from_pair` ({a}+{¬a} ⊢ ∅), `PendingUnits` (batched root
+  units with the corpus-007 opposite-sign refutation), and
+  `kernel_replace_clause` (proof-del + garbage + size-dispatched
+  materialization after the caller's ADD) replace four and three
+  near-verbatim rule-side copies respectively — proof-emitting copy drift is
+  a soundness risk, so these live once, on the `kernel_reason_walk`
+  precedent. Byte-identical extractions (emission order unchanged per site);
+  unit semantics stay rule-side (Vivify asserts + ends its round; Substitute/
+  BVE batch). The latent glue divergence is resolved: glue is a
+  redundant-clause concept — every replacement site now passes 0 for
+  irredundant clauses (was: Strengthen 0, Vivify/Substitute clamped glue;
+  irredundant glue is unread, so the alignment is behavior-preserving).
+
 - **Cross-STL determinism is a standing invariant (2026-07-24).** Any
   order-affecting comparator must be a strict TOTAL order (no ties), and no
   trajectory-affecting code may iterate an unordered container in hash order —
