@@ -298,14 +298,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     else if (!std::strcmp(fm, "stable"))
       force_mode_ = 2;
   }
-  // TACTIX_CLOSURE_DELAY (A/B arm, default off): kissat-style delay
-  // ladder on UNPRODUCTIVE unmetered closures (Congruence/Substitute) —
-  // probe 1562606: FmlaEquiv re-ran the full congruence closure 24 times
-  // for zero yield (~14 % of cycles in gate extraction) because ordinary
-  // learned binaries re-arm the new-material marks every outer round.
-  // Yield signal = the registry contract itself (Ok vs NoOp); a delay,
-  // never a disable (no-rule-off baseline).
-  closure_delay_ = std::getenv("TACTIX_CLOSURE_DELAY") != nullptr;
+  // Closure delay ladder — DEFAULT ON (2026-07-25 arrays: B 10.56 vs
+  // 10.67, C 395.56 vs 398.94, equal solves, fuzz 10k/0 ×2 formats):
+  // kissat-style delay ladder on UNPRODUCTIVE unmetered closures
+  // (Congruence/Substitute) — probe 1562606: FmlaEquiv re-ran the full
+  // congruence closure 24 times for zero yield (~14 % of cycles in gate
+  // extraction) because ordinary learned binaries re-arm the new-material
+  // marks every outer round. Yield signal = the registry contract itself
+  // (Ok vs NoOp); a delay, never a disable (no-rule-off baseline).
+  // TACTIX_NO_CLOSURE_DELAY reverts for A/Bs.
+  closure_delay_ = std::getenv("TACTIX_NO_CLOSURE_DELAY") == nullptr;
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)

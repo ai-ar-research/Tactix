@@ -54,9 +54,14 @@ disagree, the plan is authoritative — fix this file.
      Ptn/ContextModel/af-synthesis class without a static gate; target
      ≥ bve-off everywhere measured) — yield probes array 1562578 supply
      the signal; then B+C arrays vs shipped before any default change.
-  2. **C residual toward T3:** arm C 520.76 vs CaDiCaL 302.64 ≈ 1.72× (was
-     2.15× two days ago). SCPC/128_125/T105/T87 still TO. Legacy-C regressed
-     under dedup (475→538) — probe pass owed only if legacy is re-shipped.
+  2. **C residual toward T3 — MAJOR MOVE 2026-07-25 late:** C now
+     **395.56, 28/30** (closure-delay default, window `20260725-1241*`) —
+     **T105 (612 s) and T87 (889 s) CRACKED** (were 2 of the 4 standing
+     TOs; only SCPC-1000-18 + 128_125 remain). vs the STALE 07-23 CaDiCaL
+     pin 302.64 the ratio is ≈ **1.31×** (was 1.72× this morning) —
+     **fresh same-window CaDiCaL C run OWED before any T3 judgment**
+     (§8.1). Attribution: TR-scratch fix + closure-delay + window; the
+     morning dosing-arms matrix numbers are superseded by this window.
   3. Then **Track T** (TB5 propagation counter split [`kernel.cpp:496/562/622`],
      TB4b chrono completion, TB6 mode cadence, TB2 x9), then the **T3 gate**
      (CaDiCaL clean same-window C + a fresh Tier B noise band first — the B
@@ -338,6 +343,16 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 — closure-delay DEFAULT ON; C 395.56 @ 28/30 — T105+T87 cracked; ratio vs stale CaDiCaL pin ≈1.31×
+- Both-arm same-window arrays (`20260725-1241*`): B {default 10.67,
+  closure-delay **10.56**} · C {default 398.94, closure-delay **395.56**},
+  equal solves, fuzz 10k/0 ×2 formats (1562610/11) → default FLIPPED
+  (`TACTIX_NO_CLOSURE_DELAY` reverts). ctest 31/31 ×2.
+- Same window: **T105 671→612 s and T87 873→889 s now SOLVE** (UNSAT,
+  proofs checked; were TOs all morning); StConn −228, trig −202, Grain
+  −166 vs the morning shipped arm. C 528.66 → 395.56 in one day.
+  CaDiCaL clean same-window re-measure owed before T3 judgment.
 
 ### 2026-07-25 — closure-delay ladder: FmlaEquiv −17 % wall at IDENTICAL trajectory; TB6 closed (stale claim refuted)
 - **Closure delay** (`TACTIX_CLOSURE_DELAY`, default OFF pending arrays):
