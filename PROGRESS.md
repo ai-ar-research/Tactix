@@ -7,8 +7,8 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 71 (2026-07-26)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-25 night (Track C COMPLETE: C3b + C4-perf closed — hwmcc LRAT 1680→9.6 s; B 9.93, A 0.71, clean T3 1.31×)
-- **▶ RESUME HERE (2026-07-25 night).** Phase 3, **T3 gate open**. Cluster
+- **Last updated:** 2026-07-26 (Track W: S6 Walk lands — SCPC-1000-18 TO → 259.9 s, Tier B 9.88 → 8.97, Tier C flat; reference-matching exhausted, residual is dosing)
+- **▶ RESUME HERE (2026-07-26).** Phase 3, **T3 gate open**. Cluster
   protocol: everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X
   --slurm`, fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are
   INVALID — never compare cluster ↔ M3-Pro (revs 64/65).
@@ -32,15 +32,17 @@ disagree, the plan is authoritative — fix this file.
   glue) plus the two C TOs.
 
   **▶ NEXT STEP (in order of expected value):**
-  1. **Track W · S6 `Walk`** — DIAGNOSED 2026-07-26, now an implementation
-     job (plan rev 71 moved S6 into phase 3). SCPC-1000-18 was routed
-     through debug-performance and came back a MISSING RULE, not a search
-     residual: local search. Evidence (report
-     `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`): kissat's own
-     Tier B PAR-2 8.62 → **29.22** with `--walkeffort=0`, and a monotone
-     cadical dose–response on SCPC (walkeffort 800/80/8/0 → 3.0 s / 24.7 s /
-     452.7 s / TO). W1–W4a LANDED (Tier B −9.2 %, SCPC solved, Tier C flat);
-     **W4b (the dose) is the open item** — see Track W.
+  1. **Track W · S6 `Walk` — LANDED and CLOSED except W4d** (plan rev 71;
+     report `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`, design
+     `docs/design/s6-walk-design.md`). Same-window: **Tier B 8.97 vs 9.88**,
+     **Tier C 386.54 vs 387.83 (flat)**, SCPC-1000-18 **1200 s TO → 259.9 s**.
+     Tier C is flat because mp1-Nb5T15 goes 3.66 s → TIMEOUT, cancelling the
+     SCPC gain. That loss is DIAGNOSED (a target-phase-channel effect, not a
+     dose effect) and **reference-matching is exhausted** — six kissat/cadical
+     behaviours tested, five dead or context-dependent (design §6 ledger). Do
+     NOT re-port them blind. **Open: W4d** — hand the five knob-gated arms +
+     `stats.walk_minimum` to the §5.6 dosing exhibit as its second mechanism
+     family. That is phase-6 work, so the next *phase-3* item is TB4b below.
   2. **TB4b** — the only open Track T item: the six chrono divergences
      from the TB4 audit (watch repair onto highest-level literals,
      one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
