@@ -13,8 +13,12 @@ disagree, the plan is authoritative — fix this file.
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
   never compare cluster ↔ M3-Pro (revs 64/65). Standing: `tr-n300-s055` misses
   its Tier A budget by a **props/conflict volume gap (1.43× at conflict
-  parity — TB5 reframe; per-prop cost is at PARITY with kissat)**; the one
-  mechanism delta left there is restart rate (34 vs 41 conflicts/restart).
+  parity — TB5 reframe; per-prop cost is at PARITY with kissat)**. The
+  restart machinery was audited FAITHFUL (2026-07-25 late: trigger, margin,
+  EMA windows 33/1e5 + bias correction, update point, reluctant 1024/2^20,
+  limit staleness, level-0 guard, both-mode reuse) — the 34-vs-41
+  conflicts/restart delta is a SYMPTOM of hotter learned-clause glue, i.e.
+  the same clause-quality residual as FmlaEquiv's conflicts gap.
 
   **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
   closure-delay ladder** (S4 gate report `2026-07-25-s4-gate-mp1.md`;
@@ -253,9 +257,12 @@ tail instances were 69 % of our Tier B time; each had a different cause.
   eliminate = only ~10 % of its props (conflicts identical without it),
   walker neutral, vivify-off makes kissat FASTER (17.4 s vs 22.6 s —
   single-seed chaos, don't over-read); our props/conflict 62.6 exceeds
-  EVERY kissat config's (42–49) ⇒ structural to our search shape. Open
-  lead (only mechanism delta left): s055 restart rate 34 vs 41
-  conflicts/restart — restart-discipline audit vs kissat. Forced-BVE
+  EVERY kissat config's (42–49) ⇒ structural to our search shape. The
+  s055 restart-rate delta (34 vs 41 conflicts/restart) was audited
+  2026-07-25 late: machinery FAITHFUL (trigger/margin/EMA windows+bias/
+  reluctant/limit staleness/level-0/reuse all match restart.c+smooth.c) —
+  the delta is glue-distribution input, folding into the clause-quality
+  residual (minimization depth, retention). Forced-BVE
   diagnostic arm (TACTIX_BVE_DOSE_DENSITY=0 + CADENCE, probe 1562822):
   32 eliminated, props/conflict −4 % but conflicts +5.4 %, wall WORSE
   (32.5 vs 30.6 s) — s055 joins the phase-6 admission exhibit as a
@@ -355,6 +362,16 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 late — s055 restart-rate lead closed: machinery faithful, delta = glue distribution
+- Line-by-line audit vs kissat restart.c/smooth.c/reluctant.h/mode.c:
+  trigger shape, margin 1.10, EMA windows 33/1e5 with bias correction,
+  per-learned-clause update, per-mode averages, reluctant 1024/2^20
+  ticked per stable learn, focused-only limit refresh + stable staleness,
+  level-0 guard (restart.cpp:14), both-mode trail reuse — ALL faithful.
+  No porting defect exists; the 34-vs-41 conflicts/restart delta on s055
+  is the EMA responding to hotter learned glue → joins the clause-quality
+  residual (minimization depth, retention) with FmlaEquiv's 1.53×.
 
 ### 2026-07-25 late — clean T3 window: 398.74 vs CaDiCaL 304.21 = ratio 1.31×
 - `20260725-193123-C-t3clean` (jobs 1562828/29), baselines proof-free:
