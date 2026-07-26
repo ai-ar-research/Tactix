@@ -8,68 +8,56 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 70 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-25 night (Track C COMPLETE: C3b + C4-perf closed — hwmcc LRAT 1680→9.6 s; B 9.93, A 0.71, clean T3 1.31×)
-- **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
-  everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
-  fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
-  never compare cluster ↔ M3-Pro (revs 64/65). Standing: `tr-n300-s055` misses
-  its Tier A budget by a **props/conflict volume gap (1.43× at conflict
-  parity — TB5 reframe; per-prop cost is at PARITY with kissat)**. The
-  restart machinery was audited FAITHFUL (2026-07-25 late: trigger, margin,
-  EMA windows 33/1e5 + bias correction, update point, reluctant 1024/2^20,
-  limit staleness, level-0 guard, both-mode reuse) — the 34-vs-41
-  conflicts/restart delta is a SYMPTOM of hotter learned-clause glue, i.e.
-  the same clause-quality residual as FmlaEquiv's conflicts gap.
+- **▶ RESUME HERE (2026-07-25 night).** Phase 3, **T3 gate open**. Cluster
+  protocol: everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X
+  --slurm`, fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are
+  INVALID — never compare cluster ↔ M3-Pro (revs 64/65).
 
   **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
   closure-delay ladder** (S4 gate report `2026-07-25-s4-gate-mp1.md`;
-  ladder default ON `2639a5a`). Current same-window standings (Tier C =
-  the CLEAN window `20260725-193123-C-t3clean`, baselines proof-free via
-  `--baseline`; B `20260725-1241*`):
+  ladder default ON `2639a5a`). Standings (Tier C = clean window
+  `20260725-193123-C-t3clean`, baselines proof-free; B/A `21030*`):
   | | tactix | kissat 4.0.4 | CaDiCaL |
   |---|---|---|---|
-  | Tier A | 0.71 (199/200, s055 = TB5 reframe; window `210305`) | — | — |
-  | Tier B | **9.93** (14/14, window `210304` — first sub-10; congruence-extraction engineering, hwmcc 11.4 → 6.6) | 8.26 (14/14, morning window) | 19.06 (14/14, morning window) |
+  | Tier A | 0.71 (199/200; miss = s055, search-shape) | — | — |
+  | Tier B | **9.93** (14/14, first sub-10) | 8.26 (morning window) | 19.06 (morning window) |
   | Tier C | **398.74** (28/30, 15/15 proofs) | 223.01 (29/30) | 304.21 (29/30) |
 
-  **T3 clean ratio = 1.31×** vs CaDiCaL (1.79× vs kissat); **B ratio
-  1.20× vs kissat**. mp1 5.5 s
-  BEATS kissat 9.1 (proof VERIFIED). (The legacy composition + all
-  measured-negative A/B arms were removed 2026-07-25 per user directive;
-  negatives live in the ledger/reports/git history.)
+  **T3 clean ratio 1.31×** vs CaDiCaL; **B 1.20×** vs kissat; mp1 5.5 s
+  beats kissat 9.1 (proof VERIFIED). hwmcc native LRAT 9.6 s (was 1680).
+  The 2026-07-25 evidence (TB5 reframe, probes 1562819–26): per-prop cost
+  is at PARITY with kissat — **the whole residual is search shape**
+  (FmlaEquiv-class conflicts 1.53×, s055 props/conflict 1.43× at conflict
+  parity; restart machinery audited faithful, the delta is hotter learned
+  glue) plus the two C TOs.
 
-  **▶ NEXT STEP:**
-  1. **T3 standings — CLEAN window `20260725-193123-C-t3clean`
-     (baselines proof-free, the `--baseline` path):** tactix **398.74
-     (28/30, 15/15 proofs verified)** · CaDiCaL 304.21 (29/30) · kissat
-     223.01 (29/30) → **T3 clean ratio = 1.31×** (C 528.66 → ~400 in one
-     day — TR-scratch fix + closure-delay default + T105/T87 cracked;
-     only SCPC-1000-18 + 128_125 remain TO; tactix reproduced 398.74 vs
-     morning 401.17 = ±0.6 % window noise). **Next:** the T3 residual is
-     **search shape, not
-     engineering** (TB5 closed-reframed: per-prop AT PARITY, probes
-     1562819–26): FmlaEquiv-class conflicts 1.53× (suspects: TB4b,
-     minimization depth, retention), the s055 restart-rate lead (34 vs
-     41 conflicts/restart), and the two TOs. TB4b is the only open
-     Track T item (TB2 closed — x9 normalized to 1.17×). Per-instance B
-     decomposition (probes 1562919/20): **hwmcc = congruence-extraction
-     engineering** (~51 % of cycles + 23 % allocator, zero search — the
-     next tractable item), 9vliw carries TR's priced-but-unbudgeted 28 %
-     (both budget arms banked negative — TR dosing joins the §5.6
-     exhibit), crypto1 stays with the admission exhibit.
-  2. **BVE-tolerance study CONCLUDED 2026-07-25** (both reports frozen:
-     `2026-07-25-crypto1-bve-mechanism.md`, `2026-07-25-bve-dosing-arms.md`).
-     Mechanism: drip-paced incomplete recurrence hurts; completed
-     cadenced calls profit where the formula rewards elimination; no
-     runtime signal separates winners from losers → **dose ADMISSION is
-     the phase-6 learner's** (oracle 489.27 + 13 labeled instances = its
-     exhibit baseline). Knobs banked: `TACTIX_BVE_ONESHOT`,
-     `TACTIX_BVE_CADENCE`, `TACTIX_FORCE_MODE`. **USER BASELINE
-     (standing): rule-off configs are diagnostics only — never shippable;
-     fix the SCHEDULING** ([[no-rule-off-configs]]). Density gate stays
-     shipped; contingent increments I4–I7/I9 lapse unless the learner
-     work revives them.
-  3. V5 Sweep's promotion conditional is CLOSED not-promoted (mp1
-     profile: sweep produced zero there; V5 stays phase 4).
+  **▶ NEXT STEP (in order of expected value):**
+  1. **SCPC-1000-18** — the biggest single PAR-2 item (each C TO costs 80
+     PAR-2; BOTH baselines solve it, CaDiCaL in 25 s ⇒ mechanism gap, not
+     difficulty). Route via debug-performance: first a long-timeout
+     diagnostic run (how far off are we?) + stats decomposition; suspect
+     overlap with CaDiCaL-specific mechanisms (chrono trail reuse — TB4b's
+     `chronoreusetrail` item).
+  2. **TB4b** — the only open Track T item: the six chrono divergences
+     from the TB4 audit (watch repair onto highest-level literals,
+     one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
+     timing, `jumpreasons`, cadical `chronoreusetrail`). Aims at
+     FmlaEquiv's 1.53× conflicts (chrono fires 51 k/solve there). Port ONE
+     behavior at a time, same-window gates; TB4's lesson: audit any
+     negative verdict before accepting it.
+  3. **Clause-quality decomposition probe** before touching minimization
+     depth or retention: compare learned size/glue distributions +
+     minimization rates vs kissat on FmlaEquiv/s055/9vliw — pick the lever
+     with evidence (the restart-rate delta and both conflict gaps all
+     point at learned-clause quality).
+  4. Standing (not now): the **§5.6 phase-6 dosing exhibit** now holds
+     three mechanism families (BVE admission — reports
+     `2026-07-25-crypto1-bve-mechanism.md` / `-bve-dosing-arms.md`, oracle
+     489.27 + labeled instances incl. s055; TR dosing — Log 2026-07-25
+     late; mode schedule — TB6). **USER BASELINE (standing): rule-off
+     configs are diagnostics only; fix the SCHEDULING**
+     ([[no-rule-off-configs]]). V5 Sweep stays phase 4 (not-promoted);
+     O16 auto-invention decided at phase-4 entry.
 
 - **Standing lessons — measured, do not re-derive** (detail in the cited
   commits/reports; one-liners so the next session does not repeat them):
@@ -199,8 +187,8 @@ composition was removed with the negative arms — git history has it).
 ### Track C — V6 Congruence completion (rev 56) — COMPLETE 2026-07-25
 
 - [x] **C0** XOR output-sign fix (`1a365da`; pinned by tests over both convention axes) · **C1** `add_equivalence` all-or-nothing (dropping an inference is sound, an unverifiable certificate is not; D-CONG-SKIP) · **C2** degenerate-ITE filter (gates −23 %, equivalences identical) · **C3** the unit channel (`hwmcc` 48.77 → 6.67 s, refuted at 0 decisions; the conclusion needs the degeneracy ladder — drat-trim-validated in all four shapes BEFORE implementation, and it turned out to be kissat's own construction) · **C4** LRAT chains REPLAYED not derived (checker-order by construction; subtle load-bearing case: a lemma literal already forced TRUE is also a conflict). Detail: Track C commits + Log 2026-07-21
-- [x] **C4-perf** · CLOSED 2026-07-25 night: `hwmcc` native LRAT **1680 s → 9.64 s (174×)**, proof byte-identical and lrat-check-VERIFIED (1.8 s). The item's theory was WRONG — the cost was never replay propagation; it was O(nvars) fill-initialized scratch per proof-chain operation, three sightings of one defect shape: `big_path_chain`'s parent/parent_edge/seen trio (~13 MB memset PER BRIDGE — 97 % of all cycles, probes 1563224/1563236), `congruence_rup_chain`'s per-lemma `seen`, and vivify's per-candidate twin. Fix = persistent thread_local scratch, restored in O(marked) (`kernel_reason_walk` grew an optional `touched` out-list). The replay architecture stands vindicated — no `side_ids` structural-chain machinery needed. Gates: ctest 31/31 ×2, LRAT fuzz 10k/0 ×4 legs (quick+congstress, two rounds)
-- [x] **C3b** · CLOSED 2026-07-25 late: AND clash → unit ¬out, idempotent dup → key dedup (down to unary merge), `x≡¬x` → refutation at BOTH merge sites (justify the equivalence binaries as usual, then resolve the two opposing replayed units to ∅). AND conclusions are directly RUP ⇒ the degeneracy ladder's `top==0` form covers them (replay under LRAT, bare adds under DRAT). The duplicated-hint subtlety materialized in `add_equivalence`'s bridge assembly (shared path segments), closed by order-preserving id dedup. Residuals (sound, in the ledger): ITE collapses stay Skip; literal-form `x≡¬x` refuted for AND, dropped for XOR/ITE. Tests: 5 unit tests (+2 orphaned unit-channel tests re-wired, one rebuilt — its old construction predated the assigned-var extraction guard); corpus 008/009/010 (proof-checked every fuzz run); fuzz 10k/0 ×4 legs (quick+congstress × DRAT+LRAT)
+- [x] **C3b** · CLOSED 2026-07-25 late: AND clash → unit, idempotent dup → unary merge, `x≡¬x` → refutation (both merge sites); AND conclusions directly RUP ⇒ ladder top==0 replay covers chains; dup-hint hazard closed in `add_equivalence` (id dedup). Residuals in the D-CONG-UNIT ledger row (ITE collapses Skip; XOR/ITE literal-form dropped). Tests ×5 + corpus 008/009/010 + fuzz 10k/0 ×4. `2998029`
+- [x] **C4-perf** · CLOSED 2026-07-25 night: hwmcc native LRAT **1680 s → 9.64 s (174×)**, proof byte-identical, lrat-check 1.8 s; LRAT ≈1.3× DRAT. Root cause was NOT replay propagation but O(nvars) fill-initialized scratch per proof-chain op (three sightings; probes 1563224/36); fix = persistent scratch + O(marked) restore, `kernel_reason_walk` grew a `touched` out-list. No side_ids machinery needed — replay architecture vindicated. `d2f7695`
 
 ### Track H — `H` out of the Kernel (rev 60) — COMPLETE 2026-07-23
 
@@ -250,44 +238,14 @@ tail instances were 69 % of our Tier B time; each had a different cause.
 - [ ] **TB4b** · remaining chrono divergences from that audit (watch repair
   onto highest-level literals, one-literal-on-conflict-level shortcut, unit
   chrono routing, snapshot timing, `jumpreasons`, cadical's `chronoreusetrail`)
-- [x] **TB5** · CLOSED-REFRAMED 2026-07-25 late (probes 1562819–26): the
-  "flat 1.39× props/s" premise is STALE — after the TR-scratch + closure-
-  delay fixes, **per-propagation cost is at parity with kissat on all
-  three residual instances** (s055 per-symbol ≈1700 vs ≈1615 cyc/prop;
-  FmlaEquiv 9.37 vs 9.11 M props/s wall-basis; x9 ~1.07×). The surviving
-  gap is per-instance SEARCH SHAPE: s055 = props/conflict **1.43×** at
-  conflict parity (938,705 vs 927,770), FmlaEquiv = conflicts 1.53× ×
-  props/conflict 1.21×, x9 ≈ parity. Watch-layout/clause-header
-  engineering lane measured-dead. s055 kissat ablations (1562823/24):
-  eliminate = only ~10 % of its props (conflicts identical without it),
-  walker neutral, vivify-off makes kissat FASTER (17.4 s vs 22.6 s —
-  single-seed chaos, don't over-read); our props/conflict 62.6 exceeds
-  EVERY kissat config's (42–49) ⇒ structural to our search shape. The
-  s055 restart-rate delta (34 vs 41 conflicts/restart) was audited
-  2026-07-25 late: machinery FAITHFUL (trigger/margin/EMA windows+bias/
-  reluctant/limit staleness/level-0/reuse all match restart.c+smooth.c) —
-  the delta is glue-distribution input, folding into the clause-quality
-  residual (minimization depth, retention). Forced-BVE
-  diagnostic arm (TACTIX_BVE_DOSE_DENSITY=0 + CADENCE, probe 1562822):
-  32 eliminated, props/conflict −4 % but conflicts +5.4 %, wall WORSE
-  (32.5 vs 30.6 s) — s055 joins the phase-6 admission exhibit as a
-  labeled instance (elimination cheap, dose still net-negative).
-  Counting note: kissat's `propagations` stat INCLUDES probing+warming
-  props (proprobe.c/propbeyond.c) — its pure search volume is lower,
-  so quoted volume ratios are conservative.
+- [x] **TB5** · CLOSED-REFRAMED 2026-07-25 late (probes 1562819–26): per-prop cost AT PARITY with kissat on all residuals — the flat-1.39×-throughput premise was stale; the residual is SEARCH SHAPE (s055 props/conflict 1.43× at conflict parity; FmlaEquiv conflicts 1.53×; x9 parity). Watch-layout engineering lane measured-dead; s055 → phase-6 admission exhibit; lesson: kissat's `propagations` stat includes probing+warming. Detail: Log 2026-07-25 late + `9bbcdf2`
 - [x] **TB6** · CLOSED 2026-07-25 (probe 1562605, `TACTIX_FORCE_MODE`
   knob banked): the era-stale 407 k claim does NOT reproduce — the default
   alternation now BEATS both pinned modes on FmlaEquiv (577 k vs focused
   809 k vs stable 1.21 M); focused pinning is catastrophic on s055
   (2.54 M vs 939 k) and bad on x9, but −23 % on clique — mode schedule is
   another context-dependent phase-6 arm, not a static defect
-- [x] **TB2** · CLOSED 2026-07-25 late: the outlier premise dissolved
-  under the accumulated fixes — x9 now 12.47/12.78 s vs kissat
-  10.66/10.71 s (probe 1562826 + window `20260725-1241*`) = 1.17–1.19×,
-  inside the healthy-instance band (circuit 1.28×, qwh 1.08×); conflicts
-  371,995 vs 353,471 (1.05×), props/conflict 1.03×. No dedicated
-  campaign warranted; any residual rides the general FmlaEquiv-class
-  search-quality work
+- [x] **TB2** · CLOSED 2026-07-25 late: x9's outlier premise dissolved — 1.17–1.19× vs kissat, inside the healthy band (probe 1562826 + window `1241*`); residual rides the FmlaEquiv-class search-quality work
 - [x] **TB3** · RESOLVED 2026-07-25: the stale 801 k → 453 k comment is
   already gone from the code, and Factor is verifiably non-inert on x9
   under the arrangement (80 factorings @ 371,995 conflicts, probe 1562469;
@@ -369,117 +327,62 @@ rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 
 ### 2026-07-25 night — C4-perf CLOSED: hwmcc native LRAT 1680 s → 9.64 s (174×); Track C complete
-- The item's theory (replay propagation cost; fix via side_ids structural
-  chains) was WRONG. Perf probes 1563224/1563236: 97 % of ALL cycles in
-  memset — O(nvars) fill-initialized scratch per proof-chain operation,
-  the same defect shape three times: `big_path_chain`'s
-  parent/parent_edge/seen trio (~13 MB PER BRIDGE on the AND-dominated
-  miter), `congruence_rup_chain`'s per-lemma `seen`, vivify's
-  per-candidate twin. Fix: persistent thread_local scratch restored in
-  O(marked); `kernel_reason_walk`/`kernel_conflict_reason_walk` grew an
-  optional `touched` out-list. Proof BYTE-IDENTICAL (same 103,195,999-byte
-  LRAT), lrat-check 1.8 s. LRAT now ~1.3× DRAT on hwmcc (9.64 vs 7.45 s).
-  The replay architecture is vindicated — its trustworthiness argument
-  (checker-order by construction) never was the cost. Gates: ctest 31/31
-  ×2, LRAT fuzz 10k/0 ×4 (quick+congstress, two rounds — logs committed).
+- The replay-propagation theory was WRONG: 97 % of cycles were memset —
+  O(nvars) fill-initialized scratch per proof-chain op, three sightings of
+  one shape (`big_path_chain`'s trio ~13 MB/bridge, `congruence_rup_chain`'s
+  per-lemma `seen`, vivify's twin; probes 1563224/1563236). Fix: persistent
+  scratch restored in O(marked); proof BYTE-IDENTICAL, lrat-check 1.8 s;
+  LRAT now ~1.3× DRAT. Replay architecture vindicated. `d2f7695`.
 
-### 2026-07-25 late — C3b CLOSED: AND degeneracies + contradictory merge; D-CONG-UNIT ledger row closed
-- The AND half of D-CONG-UNIT and the `x≡¬x` refutation landed (calculus §6
-  V6 + ledger updated in the same commit): AND clash ⇒ unit, idempotent dup
-  ⇒ dedup/unary merge, contradictory merge ⇒ justify-binaries-then-refute
-  via two replayed opposing units → ∅ (PendingUnits). Key insight: AND
-  conclusions are DIRECTLY RUP, so the existing ladder's `top==0` replay
-  form covers every chain — no new proof machinery. The predicted
-  duplicated-hint hazard was real but sat in `add_equivalence`'s bridge
-  assembly; closed by order-preserving id dedup (safe because a repeated
-  hint propagates nothing). Two orphaned unit-channel tests found never
-  wired into main() — re-added (one rebuilt: its trail-assert construction
-  predated the assigned-var extraction guard and could no longer reach the
-  channel). Coverage: 5 new/rewired unit tests, corpus 008/009/010, fuzz
-  10k/0 ×4 (quick + congruence-stress, DRAT + LRAT).
+### 2026-07-25 late — C3b CLOSED: AND degeneracies + contradictory merge; D-CONG-UNIT closed
+- AND clash → unit, idempotent dup → unary merge, `x≡¬x` → refutation at
+  both merge sites; AND conclusions are directly RUP so the ladder's top==0
+  replay covers every chain. The duplicated-hint hazard sat in
+  `add_equivalence`'s bridge assembly (closed by order-preserving id dedup).
+  Two orphaned unit-channel tests re-wired (one rebuilt). Calculus + ledger
+  synced same commit; corpus 008/009/010; fuzz 10k/0 ×4. `2998029`.
 
-### 2026-07-25 late — congruence AND-extraction literal-major over the occ index: hwmcc −21 %, trajectory-identical
-- The hwmcc pipeline item (below) landed its first increment: extraction
-  now iterates OUTPUT-LITERAL-major over the phase OccIndex (k.dense) —
-  each ¬out binary-partner list is marked ONCE per literal instead of once
-  per clause-occurrence — with a (ref, candidate-index) tag sort restoring
-  the exact clause-major emission sequence, so the closure's merge order
-  cannot fork between paths (arena-scan fallback kept for N1 when no
-  index is connected). Gates: conflicts EXACT ×5 (hwmcc/FmlaEquiv/9vliw/
-  x9/s055, probe 1562988), **hwmcc 9.70 → 7.67 s**, others in-noise;
-  fuzz 10k/0 ×2 formats (1562989/90); ctest 31/31 ×2. **Increment 2
-  (SmallKey)**: the XOR/ITE ClauseIndex + dedup sets moved off
-  vector<Lit> keys onto a fixed 5-slot zero-padded key (exact vector
-  ordering/equality semantics under ingest's duplicate-literal removal;
-  probes replace their per-lookup std::sort with a 5-element insertion
-  sort). Gates: conflicts EXACT ×5 (probe 1562992), **hwmcc 9.29 →
-  6.62 s combined** (the two increments together halve the pipeline gap:
-  9.15 → 6.62 vs kissat 3.30), others in-noise; fuzz 10k/0 ×2
-  (1562994/95); ctest 31/31 ×2. Lane STOPPED here — the remaining
-  profile (index build 11 %, per-node map allocs, CongGate per-gate
-  vectors ~22 % allocator share) is a CongGate/closure SoA refactor:
-  revamp-scale, diminishing returns.
+### 2026-07-25 late — congruence extraction engineering: hwmcc 9.15 → 6.62 s, trajectory-identical ×2
+- Increment 1: AND/OR extraction literal-major over the phase OccIndex
+  (partner lists marked once per literal), tag sort restores exact
+  clause-major emission order; arena-scan fallback kept (N1). `c6d388f`.
+- Increment 2: XOR/ITE ClauseIndex + dedup sets on fixed 5-slot SmallKey
+  (exact vector ordering/equality semantics). `947ab4e`. Both: conflicts
+  EXACT ×5, fuzz 10k/0 ×2 each. Lane stopped: remainder is CongGate-SoA
+  revamp-scale. Standings after: **B 9.93 first sub-10, A 0.71** (`96f321a`).
 
-### 2026-07-25 late — Tier B losses decomposed per-instance; TR budget arms BANKED NEGATIVE; walk cost now priced
-- Stats probe 1562919 splits the B losses into four mechanisms:
-  **FmlaEquiv** conflicts 1.53× (chrono active BOTH sides, 51 k vs 28 k —
-  TB4b live); **9vliw** conflicts 1.27× + inprocessing-cycle share;
-  **hwmcc** ZERO search both solvers — pure pipeline gap 9.15 vs 3.30 s,
-  ~51 % of our cycles in congruence EXTRACTION + ~23 % allocator churn
-  (per-round rebuild of an unordered_map<vector<Lit>,id> — kissat's whole
-  congruence is 27 % of 3.3 s; probe 1562920) → next engineering item,
-  no trajectory risk (no search to perturb); **crypto1** 3.64× conflicts =
-  the known phase-6 admission exhibit; **clique** parity.
-- Perf probe 1562920: TR's exhaustive walk = **28 % of ALL 9vliw cycles**
-  (reduce_source 27.94 %) under an intended 20‰ budget — the meter
-  counted CANDIDATES against a tick-denominated reference. Fix attempted,
-  both arms same-window measured, both LOSE, both banked (code comments at
-  meter_transitive + TR deviation 3): ticks-meter @ kissat 20‰ → B 12.22
-  vs 10.67 (rbsat +17 s, mp1 OUT of sentinel envelope; 9vliw did win
-  −17 %); + kissat early exit → B 13.92 vs 10.60 (FmlaEquiv conflicts 2×,
-  9vliw +43 %). Verdict: the exhaustive unbudgeted reduction is
-  LOAD-BEARING for trajectory on FmlaEquiv/9vliw-class instances — TR
-  dosing is context-dependent (joins the §5.6 elimination-dosing exhibit
-  as its second mechanism family). KEPT: `stats.transitive_ticks` walk
-  pricing (pure accounting, `c transitive ... ticks` in stats; fuzz
-  10k/0 ×4 legs across both arms, ctest 31/31 ×2). 9vliw's 28 % stands as
-  a paid, PRICED cost until a context-aware policy doses it.
+### 2026-07-25 late — B losses decomposed per-instance; TR budget arms BANKED NEGATIVE; walk cost priced
+- Probe 1562919: FmlaEquiv = conflicts 1.53× (chrono active both sides —
+  TB4b live); 9vliw = TR's 28 %-of-cycles exhaustive walk; hwmcc = pure
+  congruence-extraction pipeline (fixed above); crypto1 = admission
+  exhibit; clique parity. TR meter defect (candidates vs ticks) found and
+  priced (`stats.transitive_ticks` kept, trajectory-identical), but BOTH
+  honest-budget arms lose same-window (B 12.22 / 13.92 vs 10.6x; mp1 out
+  of envelope) — exhaustive unbudgeted TR is load-bearing; TR dosing joins
+  the §5.6 exhibit as its second mechanism family. `8b95dfc`.
 
 ### 2026-07-25 late — s055 restart-rate lead closed: machinery faithful, delta = glue distribution
-- Line-by-line audit vs kissat restart.c/smooth.c/reluctant.h/mode.c:
-  trigger shape, margin 1.10, EMA windows 33/1e5 with bias correction,
-  per-learned-clause update, per-mode averages, reluctant 1024/2^20
-  ticked per stable learn, focused-only limit refresh + stable staleness,
-  level-0 guard (restart.cpp:14), both-mode trail reuse — ALL faithful.
-  No porting defect exists; the 34-vs-41 conflicts/restart delta on s055
-  is the EMA responding to hotter learned glue → joins the clause-quality
-  residual (minimization depth, retention) with FmlaEquiv's 1.53×.
+- Line-by-line audit vs kissat restart.c/smooth.c/reluctant.h: ALL faithful
+  (trigger, margin, EMA 33/1e5+bias, reluctant 1024/2^20, staleness,
+  level-0, both-mode reuse). The 34-vs-41 conflicts/restart delta is the
+  EMA responding to hotter learned glue → clause-quality residual. `1bb8e79`.
 
 ### 2026-07-25 late — clean T3 window: 398.74 vs CaDiCaL 304.21 = ratio 1.31×
-- `20260725-193123-C-t3clean` (jobs 1562828/29), baselines proof-free:
-  tactix 398.74 (28/30, 15/15 proofs) · CaDiCaL 304.21 (29/30) · kissat
-  223.01 (29/30). Proof-writing had inflated baselines ~4 % (kissat
-  227.05→223.01, CaDiCaL 317.51→304.21); tactix window noise ±0.6 %
-  (401.17→398.74). The anchor's standings table now cites this window.
+- `20260725-193123-C-t3clean`, baselines proof-free: proof writing had
+  inflated them ~4 %; tactix window noise ±0.6 %. `cede6d4`.
 
-### 2026-07-25 late — TB5 closed-reframed: per-prop AT PARITY; the residual is search shape; TB2 closed
-- s055 perf pair (probes 1562819/20, per-symbol): conflicts 938,705 vs
-  927,770 (**parity**), per-prop ≈1700 vs ≈1615 cyc (86 % vs 78 %
-  propagate share) — wall 1.34× is **props/conflict 1.43×** (62.6 vs
-  44.4). Generalization (probe 1562826): FmlaEquiv = conflicts 1.53× ×
-  volume 1.21× at per-prop ~parity (9.37 vs 9.11 M props/s); x9 1.17×
-  wall ≈ parity everywhere → **the flat-1.39×-throughput premise was
-  stale**; watch-layout/header engineering lane measured-dead; TB2's
-  outlier premise dissolved.
-- s055 attribution (kissat ablations 1562823/24): eliminate = ~10 % of
-  its props at identical conflicts; walker neutral; vivify-off makes
-  kissat FASTER (single-seed chaos); our props/conflict exceeds every
-  kissat config ⇒ our search shape, not their simplifiers. Only
-  mechanism delta: restart rate 34 vs 41 conflicts/restart (s055 only).
-  Forced-BVE diagnostic (1562822): wall WORSE (32.5 vs 30.6 s) at
-  conflicts +5.4 % — s055 labeled into the phase-6 admission exhibit.
-- Counting note: kissat `propagations` includes probing+warming
-  (proprobe.c/propbeyond.c) — quoted volume ratios are conservative.
+### 2026-07-25 late — TB5 closed-reframed: per-prop AT PARITY; residual = search shape; TB2 closed
+- s055 perf pair (1562819/20): conflicts PARITY (938,705 vs 927,770),
+  per-prop ≈1700 vs ≈1615 cyc — wall 1.34× is props/conflict 1.43×.
+  Generalization (1562826): FmlaEquiv = conflicts 1.53× × volume 1.21× at
+  per-prop parity; x9 1.17× ≈ parity → the flat-1.39×-throughput premise
+  was STALE; watch-layout engineering lane measured-dead; TB2 dissolved.
+- s055 kissat ablations (1562823/24): eliminate ~10 % of props at identical
+  conflicts, walker neutral, vivify-off FASTER (chaos) — our props/conflict
+  exceeds every kissat config ⇒ our search shape. Forced-BVE arm worse
+  (32.5 vs 30.6 s): s055 labeled into the phase-6 admission exhibit.
+  Kissat's `propagations` includes probing+warming — ratios conservative.
+  `9bbcdf2`.
 
 ### 2026-07-25 — closure-delay ladder DEFAULT ON; C 395.56 @ 28/30 (T105+T87 cracked); TB6 closed
 - **Closure delay** (commits `3cef985`+`2639a5a`): kissat delay ladder on
