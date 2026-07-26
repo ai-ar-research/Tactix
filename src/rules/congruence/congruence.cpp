@@ -590,13 +590,26 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   uint64_t last = 0;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
   if (conflict) {
-    std::vector<uint8_t> seen(k.nvars, 0);
+    // Persistent walk scratch (C4-perf, probe 1563224): a fresh
+    // seen(k.nvars, 0) here was one O(nvars) zero-fill PER REPLAYED LEMMA —
+    // 97 % of ALL cycles on the hwmcc native-LRAT path, the entire "LRAT
+    // ~250× slower on miters" symptom. Same clean-between-calls invariant
+    // as TransitiveReduce's Walk scratch: grown on demand, restored
+    // all-zero in O(marked) via `touched`, so it is clean on entry for ANY
+    // kernel this thread touches.
+    static thread_local std::vector<uint8_t> seen;
+    static thread_local std::vector<Var> touched;
+    if (seen.size() < k.nvars)
+      seen.resize(k.nvars, 0);
+    touched.clear();
     if (implied != UINT32_MAX)
       // the walk includes the implied literal's OWN reason, and sorting by trail
       // position puts it last — so it closes the chain, no separate conflict id
-      kernel_reason_walk(k, implied, seen, entries);
+      kernel_reason_walk(k, implied, seen, entries, &touched);
     else
-      last = kernel_conflict_reason_walk(k, seen, entries);
+      last = kernel_conflict_reason_walk(k, seen, entries, &touched);
+    for (const Var tv : touched)
+      seen[tv] = 0;
   }
   k.conflict_valid = false;
   k.conflict_ref = INVALID_REF;

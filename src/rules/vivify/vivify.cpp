@@ -176,9 +176,18 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
     return ApplyResult::NoOp; // effectively binary: C2 territory
   const uint64_t cid = c->id();
   std::vector<std::pair<uint32_t, uint64_t>> entries;
-  std::vector<uint8_t> seen; // lrat-gated (review #9): only the reason walk
-  if (lrat)                  // reads it, so a proofs-off round pays nothing
-    seen.assign(k.nvars, 0);
+  // Persistent walk scratch (C4-perf twin of congruence_rup_chain's): the
+  // old per-candidate seen.assign(k.nvars, 0) was an O(nvars) zero-fill per
+  // vivified candidate under LRAT. Grown on demand; restored all-zero in
+  // O(marked) at the single exit below. lrat-gated (review #9): only the
+  // reason walk reads it, so a proofs-off round pays nothing.
+  static thread_local std::vector<uint8_t> seen;
+  static thread_local std::vector<Var> seen_touched;
+  if (lrat) {
+    if (seen.size() < k.nvars)
+      seen.resize(k.nvars, 0);
+    seen_touched.clear();
+  }
   std::vector<Lit> next;
   ApplyResult res = ApplyResult::NoOp;
   // one probing scope per candidate: everything the assumption propagations
@@ -202,7 +211,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
       // entry) is the conflicting hint under the ¬li assumption; the
       // candidate is NOT cited (a hint after the conflict is illegal)
       if (lrat)
-        kernel_reason_walk(k, var_of(li), seen, entries);
+        kernel_reason_walk(k, var_of(li), seen, entries, &seen_touched);
       unwind(k);
       res = rewrite(k, cref, next, entries, 0, ended_round);
       break;
@@ -212,7 +221,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
       next.assign(probes.begin(), probes.end());
       next.erase(next.begin() + i);
       if (lrat) {
-        kernel_reason_walk(k, var_of(li), seen, entries);
+        kernel_reason_walk(k, var_of(li), seen, entries, &seen_touched);
         for (const uint64_t u : absorbed)
           entries.emplace_back(0, u);
       }
@@ -232,7 +241,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
       next.assign(probes.begin(), probes.begin() + i + 1);
       uint64_t last = 0;
       if (lrat)
-        last = kernel_conflict_reason_walk(k, seen, entries);
+        last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
       unwind(k);
       res = rewrite(k, cref, next, entries, last, ended_round);
       break;
@@ -241,6 +250,8 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
   if (k.level > 0 || k.conflict_valid)
     unwind(k);
   kernel_probing_end(k); // idempotent; closes the `no strict gain` break path
+  for (const Var tv : seen_touched) // restore the persistent scratch all-zero
+    seen[tv] = 0;
   return res;
 }
 

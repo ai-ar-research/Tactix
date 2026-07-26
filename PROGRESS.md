@@ -7,7 +7,7 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 70 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-25 night (TB5 reframed + TB2 closed; clean T3 = 1.31×; congruence-extraction engineering → B 9.93 first sub-10, A 0.71)
+- **Last updated:** 2026-07-25 night (Track C COMPLETE: C3b + C4-perf closed — hwmcc LRAT 1680→9.6 s; B 9.93, A 0.71, clean T3 1.31×)
 - **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
@@ -131,9 +131,8 @@ disagree, the plan is authoritative — fix this file.
     banks the measured-dead knobs (bound coupling, removal-only marking,
     dosed-BVE delay) + the build-race probe hazard (build → verify → submit).
 
-- **Open items (small, none blocking).** **C4-perf** (LRAT replay ~250× on
-  gate-heavy miters; fix = structural chains via `CongGate::side_ids`) — see
-  Track C (C3b closed 2026-07-25 late). **Task #39** —
+- **Open items (small, none blocking).** Track C is COMPLETE (C3b + C4-perf
+  both closed 2026-07-25 late/night). **Task #39** —
   `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/`
   (N1 robustness, not soundness). demo3 is a SEARCH-only mirror by permanent
   design (stat contract = §8.4 within-noise; the deferred full-slot-mirror
@@ -193,14 +192,14 @@ composition was removed with the negative arms — git history has it).
 - [x] **N1/N2/N3 audit + canonical-batch fuzz** (2026-07-15) — upheld; deferred backlog `benchmarks/reports/2026-07-15-codebase-review.md`
 - [x] **Nightlies GREEN at scale** (DRAT 20k/0 `nightly-rev59-lrat.log`; native-LRAT 20k/0 `nightly-rev59-native-lrat.log` — the C4-gating leg, both paths draw the same inferences; congruence-stress 10k/0). Lesson: nightly scale catches what `--quick` misses (corpus 006, 007)
 - [x] **Calculus formalized** (rev 36): `docs/calculus.md` + `docs/implementation-notes.md` + the calculus skill; **guard purification COMPLETE** for every removable deviation (revs 37–43; only D-ROOT remains, by design). Corpus 004/005/006 regression bed
-- [x] **V6 Congruence — ships ON** (2026-07-19): AND+XOR+ITE union-find closure; Tier B −30 %, +1 solve; design + report in `docs/design/` / `benchmarks/reports/2026-07-19-*`. Deviations closed by C3/C4; C4-perf/C3b open (Track C)
+- [x] **V6 Congruence — ships ON** (2026-07-19): AND+XOR+ITE union-find closure; Tier B −30 %, +1 solve; design + report in `docs/design/` / `benchmarks/reports/2026-07-19-*`. Deviations closed by C3/C4; Track C COMPLETE (C3b + C4-perf closed 2026-07-25)
 - [x] **E2 Factor (BVA) — ships ON** (2026-07-20): net-positive after the duplicate-binary deletion fix; S2a/S2b closed 2026-07-24 (steering disconfirmed); **the mp1 gap CLOSED 2026-07-25** (input dedup + dosing + composite; gate report) — nothing remains on E2
 - [x] **Inprocessing revamp — slot ACTIVATED** (2026-07-19): preprocessing at conflicts=0 + `Kernel::dense` shared index + kissat phase structure; report + design docs. (Superseded as default by the S4 arrangement, 2026-07-25)
 
-### Track C — V6 Congruence completion (rev 56) — done except C4-perf/C3b (non-blocking)
+### Track C — V6 Congruence completion (rev 56) — COMPLETE 2026-07-25
 
 - [x] **C0** XOR output-sign fix (`1a365da`; pinned by tests over both convention axes) · **C1** `add_equivalence` all-or-nothing (dropping an inference is sound, an unverifiable certificate is not; D-CONG-SKIP) · **C2** degenerate-ITE filter (gates −23 %, equivalences identical) · **C3** the unit channel (`hwmcc` 48.77 → 6.67 s, refuted at 0 decisions; the conclusion needs the degeneracy ladder — drat-trim-validated in all four shapes BEFORE implementation, and it turned out to be kissat's own construction) · **C4** LRAT chains REPLAYED not derived (checker-order by construction; subtle load-bearing case: a lemma literal already forced TRUE is also a conflict). Detail: Track C commits + Log 2026-07-21
-- [ ] **C4-perf** · the LRAT path is ~250× slower on a miter (`hwmcc` 1680 s vs 6.67 s DRAT): one replay propagation per top-level ladder lemma. Fix = derive the top level structurally via a per-gate side-clause-id list (the unpopulated `side_ids` scaffolding was removed 2026-07-25 — re-add it WITH the code that fills it); keep the replay as fallback + oracle
+- [x] **C4-perf** · CLOSED 2026-07-25 night: `hwmcc` native LRAT **1680 s → 9.64 s (174×)**, proof byte-identical and lrat-check-VERIFIED (1.8 s). The item's theory was WRONG — the cost was never replay propagation; it was O(nvars) fill-initialized scratch per proof-chain operation, three sightings of one defect shape: `big_path_chain`'s parent/parent_edge/seen trio (~13 MB memset PER BRIDGE — 97 % of all cycles, probes 1563224/1563236), `congruence_rup_chain`'s per-lemma `seen`, and vivify's per-candidate twin. Fix = persistent thread_local scratch, restored in O(marked) (`kernel_reason_walk` grew an optional `touched` out-list). The replay architecture stands vindicated — no `side_ids` structural-chain machinery needed. Gates: ctest 31/31 ×2, LRAT fuzz 10k/0 ×4 legs (quick+congstress, two rounds)
 - [x] **C3b** · CLOSED 2026-07-25 late: AND clash → unit ¬out, idempotent dup → key dedup (down to unary merge), `x≡¬x` → refutation at BOTH merge sites (justify the equivalence binaries as usual, then resolve the two opposing replayed units to ∅). AND conclusions are directly RUP ⇒ the degeneracy ladder's `top==0` form covers them (replay under LRAT, bare adds under DRAT). The duplicated-hint subtlety materialized in `add_equivalence`'s bridge assembly (shared path segments), closed by order-preserving id dedup. Residuals (sound, in the ledger): ITE collapses stay Skip; literal-form `x≡¬x` refuted for AND, dropped for XOR/ITE. Tests: 5 unit tests (+2 orphaned unit-channel tests re-wired, one rebuilt — its old construction predated the assigned-var extraction guard); corpus 008/009/010 (proof-checked every fuzz run); fuzz 10k/0 ×4 legs (quick+congstress × DRAT+LRAT)
 
 ### Track H — `H` out of the Kernel (rev 60) — COMPLETE 2026-07-23
@@ -368,6 +367,21 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 night — C4-perf CLOSED: hwmcc native LRAT 1680 s → 9.64 s (174×); Track C complete
+- The item's theory (replay propagation cost; fix via side_ids structural
+  chains) was WRONG. Perf probes 1563224/1563236: 97 % of ALL cycles in
+  memset — O(nvars) fill-initialized scratch per proof-chain operation,
+  the same defect shape three times: `big_path_chain`'s
+  parent/parent_edge/seen trio (~13 MB PER BRIDGE on the AND-dominated
+  miter), `congruence_rup_chain`'s per-lemma `seen`, vivify's
+  per-candidate twin. Fix: persistent thread_local scratch restored in
+  O(marked); `kernel_reason_walk`/`kernel_conflict_reason_walk` grew an
+  optional `touched` out-list. Proof BYTE-IDENTICAL (same 103,195,999-byte
+  LRAT), lrat-check 1.8 s. LRAT now ~1.3× DRAT on hwmcc (9.64 vs 7.45 s).
+  The replay architecture is vindicated — its trustworthiness argument
+  (checker-order by construction) never was the cost. Gates: ctest 31/31
+  ×2, LRAT fuzz 10k/0 ×4 (quick+congstress, two rounds — logs committed).
 
 ### 2026-07-25 late — C3b CLOSED: AND degeneracies + contradictory merge; D-CONG-UNIT ledger row closed
 - The AND half of D-CONG-UNIT and the `x≡¬x` refutation landed (calculus §6

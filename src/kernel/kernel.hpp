@@ -697,16 +697,23 @@ void kernel_lrat_chain(Kernel &, uint64_t closing_id);
 // emitted clause). Ascending trail position unit-propagates for the checker;
 // the caller closes the chain with the conflicting/final hint. `seen` is a
 // caller-owned scratch (a var-indexed byte vector), so the walk never
-// allocates and consecutive calls can share/dedup one buffer.
+// allocates and consecutive calls can share/dedup one buffer. When `touched`
+// is non-null every newly-marked var is recorded there, so a PERSISTENT
+// `seen` can be restored all-zero in O(marked) instead of a fresh
+// O(nvars) zero-fill per walk (C4-perf: that memset was 97 % of ALL cycles
+// on the hwmcc native-LRAT path — one per replayed ladder lemma; probe
+// 1563224).
 void kernel_reason_walk(Kernel &, Var start, std::vector<uint8_t> &seen,
-                        std::vector<std::pair<uint32_t, uint64_t>> &entries);
+                        std::vector<std::pair<uint32_t, uint64_t>> &entries,
+                        std::vector<Var> *touched = nullptr);
 // Seed the walk from the recorded conflict (binary in conflict_bin, else the
 // large clause at conflict_ref): walk every conflicting literal's reason and
 // return the conflicting clause's id (the RUP chain's closing hint). The
 // probe-conflict case of every probing rule.
 uint64_t kernel_conflict_reason_walk(
     Kernel &, std::vector<uint8_t> &seen,
-    std::vector<std::pair<uint32_t, uint64_t>> &entries);
+    std::vector<std::pair<uint32_t, uint64_t>> &entries,
+    std::vector<Var> *touched = nullptr);
 
 // (decision-ranking dispatch — heuristics_next_decision_var /
 // heuristics_decide_lit — moved to policies/heuristics.hpp, Track H · H4.)

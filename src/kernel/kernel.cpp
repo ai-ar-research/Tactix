@@ -868,7 +868,8 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
 }
 
 void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
-                        std::vector<std::pair<uint32_t, uint64_t>> &out) {
+                        std::vector<std::pair<uint32_t, uint64_t>> &out,
+                        std::vector<Var> *touched) {
   std::vector<Var> todo; // explicit stack: trails can be arbitrarily deep
   todo.push_back(start);
   while (!todo.empty()) {
@@ -877,6 +878,8 @@ void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
     if (seen[v])
       continue;
     seen[v] = 1;
+    if (touched)
+      touched->push_back(v);
     const Assigned &a = k.assigned[v];
     if (a.reason == DECISION_REASON)
       continue; // probe assumption: the negation of the emitted clause
@@ -900,18 +903,19 @@ void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
 
 uint64_t kernel_conflict_reason_walk(
     Kernel &k, std::vector<uint8_t> &seen,
-    std::vector<std::pair<uint32_t, uint64_t>> &entries) {
+    std::vector<std::pair<uint32_t, uint64_t>> &entries,
+    std::vector<Var> *touched) {
   if (k.conflict_ref == INVALID_REF) { // binary conflict
     const uint64_t last =
         kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1]);
-    kernel_reason_walk(k, var_of(k.conflict_bin[0]), seen, entries);
-    kernel_reason_walk(k, var_of(k.conflict_bin[1]), seen, entries);
+    kernel_reason_walk(k, var_of(k.conflict_bin[0]), seen, entries, touched);
+    kernel_reason_walk(k, var_of(k.conflict_bin[1]), seen, entries, touched);
     return last;
   }
   const Clause *conf = clause_at(k.arena, k.conflict_ref);
   const uint64_t last = conf->id();
   for (const Lit m : *conf)
-    kernel_reason_walk(k, var_of(m), seen, entries);
+    kernel_reason_walk(k, var_of(m), seen, entries, touched);
   return last;
 }
 

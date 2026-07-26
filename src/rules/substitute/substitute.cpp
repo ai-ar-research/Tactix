@@ -155,10 +155,24 @@ SccResult substitute_find_sccs(const Kernel &k) {
 bool big_path_chain(const Kernel &k, Lit from, Lit to,
                     std::vector<uint64_t> &chain) {
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
-  std::vector<Lit> parent(nlits, INVALID_LIT);
-  std::vector<uint64_t> parent_edge(nlits, 0);
-  std::vector<uint8_t> seen(nlits, 0);
-  std::vector<Lit> queue;
+  // Persistent scratch (C4-perf, probes 1563224/1563236): three fresh
+  // fill-initialized O(nlits) vectors here were ~97 % of ALL cycles on the
+  // hwmcc native-LRAT path — one ~13 MB memset set PER BRIDGE, the whole
+  // "LRAT ~250× slower on miters" symptom (third sighting of this defect
+  // shape after TR's Walk and the reason-walk `seen`). parent/parent_edge
+  // need no clearing: they are read only behind the `seen` guard and every
+  // marked literal writes both first. `seen` restores all-zero in
+  // O(marked) — every marked literal is on the queue except `to`.
+  static thread_local std::vector<Lit> parent;
+  static thread_local std::vector<uint64_t> parent_edge;
+  static thread_local std::vector<uint8_t> seen;
+  static thread_local std::vector<Lit> queue;
+  if (seen.size() < static_cast<size_t>(nlits)) {
+    parent.resize(nlits);
+    parent_edge.resize(nlits);
+    seen.resize(nlits, 0);
+  }
+  queue.clear();
   queue.push_back(from);
   seen[from] = 1;
   bool found = false;
@@ -187,12 +201,20 @@ bool big_path_chain(const Kernel &k, Lit from, Lit to,
       queue.push_back(q);
     }
   }
-  if (!found)
+  const auto restore_seen = [&] {
+    for (const Lit l : queue)
+      seen[l] = 0;
+    seen[to] = 0; // marked without being queued when found
+  };
+  if (!found) {
+    restore_seen();
     return false;
+  }
   chain.clear();
   for (Lit cur = to; cur != from; cur = parent[cur])
     chain.push_back(parent_edge[cur]);
   std::reverse(chain.begin(), chain.end());
+  restore_seen();
   return true;
 }
 
