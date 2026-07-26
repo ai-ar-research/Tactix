@@ -241,11 +241,19 @@ public:
     bool trigger = false;
   } reluctant;
   // S3 rephase schedule (kissat rephase.c: stable-only trigger, interval
-  // grows rephaseint·n·log³n; rotation B,B,I,B,B,O — kissat's B,W,I,B,W,O
-  // with the Walking slots deferred to phase 4)
+  // grows rephaseint·n·log³n; rotation B,W,I,B,W,O — the W slots are S6
+  // Walk since rev 71)
   struct {
     uint64_t next_conflicts = REPHASE_INTERVAL_INIT;
+    // rephase EVENTS (rotation index + interval growth). Distinct from
+    // stats.rephased, which counts rephase OPS: a B+W slot is one event and
+    // two ops. Identical to stats.rephased on the pre-Walk path.
+    uint64_t count = 0;
   } rephase;
+  // S6 Walk effort (kissat options.h walkeffort = 50 per mille of the search
+  // work since the last walk; the floor is the shared MIN_EFFORT_TICKS)
+  static constexpr uint64_t WALK_PERMILLE = 50;
+  uint64_t walk_anchor = 0; // search_ticks when the last walk ran
   // --- the inprocessing SLOT (registry-driven scheduler, rev 26) --------
   // Schedule-as-data: the slot is a plain vector of {rule id, enabled}
   // entries built from the registry (RuleTier::Inprocess — the tier's

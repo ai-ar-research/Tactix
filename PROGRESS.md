@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 70 (2026-07-25)
+- **Plan revision tracked:** rev. 71 (2026-07-26)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-25 night (Track C COMPLETE: C3b + C4-perf closed — hwmcc LRAT 1680→9.6 s; B 9.93, A 0.71, clean T3 1.31×)
 - **▶ RESUME HERE (2026-07-25 night).** Phase 3, **T3 gate open**. Cluster
@@ -32,12 +32,14 @@ disagree, the plan is authoritative — fix this file.
   glue) plus the two C TOs.
 
   **▶ NEXT STEP (in order of expected value):**
-  1. **SCPC-1000-18** — the biggest single PAR-2 item (each C TO costs 80
-     PAR-2; BOTH baselines solve it, CaDiCaL in 25 s ⇒ mechanism gap, not
-     difficulty). Route via debug-performance: first a long-timeout
-     diagnostic run (how far off are we?) + stats decomposition; suspect
-     overlap with CaDiCaL-specific mechanisms (chrono trail reuse — TB4b's
-     `chronoreusetrail` item).
+  1. **Track W · S6 `Walk`** — DIAGNOSED 2026-07-26, now an implementation
+     job (plan rev 71 moved S6 into phase 3). SCPC-1000-18 was routed
+     through debug-performance and came back a MISSING RULE, not a search
+     residual: local search. Evidence (report
+     `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`): kissat's own
+     Tier B PAR-2 8.62 → **29.22** with `--walkeffort=0`, and a monotone
+     cadical dose–response on SCPC (walkeffort 800/80/8/0 → 3.0 s / 24.7 s /
+     452.7 s / TO). Increments W1–W4 in the Track W section.
   2. **TB4b** — the only open Track T item: the six chrono divergences
      from the TB4 audit (watch repair onto highest-level literals,
      one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
@@ -273,6 +275,41 @@ tail instances were 69 % of our Tier B time; each had a different cause.
   composition + negative arms removed (user directive)
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`
 
+### ▶ Track W — S6 `Walk` local search (plan rev 71) — the T3 lever
+
+Diagnosed 2026-07-26 via debug-performance on the SCPC-1000-18 timeout; report
+`benchmarks/reports/2026-07-26-scpc-walk-profiling.md`. **Local search is the
+largest missing mechanism**, not a tail nicety: neutralizing kissat's walk
+(`--walkeffort=0`) takes its Tier B PAR-2 from 8.62 to **29.22** (battleship
+19.4×, mod4block 8.4×, crypto1 4.5×, clique 2.1× — our own historical pain
+set), and our shipped 9.93 already beats that walk-less kissat by 3×. S6 is an
+`H`-only policy op (no proof delta, no calculus entry): `src/policies/ops/walk/`
+plus the `W` slots the rephase rotation has been standing in for with `Best`.
+
+- [x] **W1** walker core (`src/policies/ops/walk/walk.{hpp,cpp}`, one registry
+  line): walker-owned value array + CSR occurrence index (kernel untouched, so
+  the op is legal at ANY level — N1), ProbSAT break-value scoring with the CB
+  table, effort-ledger budget in `walk_steps`, writes the best assignment into
+  `h->saved` on improvement. `tests/test_walk.cpp` (7 cases). Fuzz: quick DRAT
+  10k/0, native LRAT 10k/0, **random-policy 10k/0** (Walk reachable at
+  arbitrary schedule points)
+- [x] **W2** schedule — **Walk AUGMENTS Best, it does not replace it.** Porting
+  kissat's `B,W,I,B,W,O` literally REGRESSED Tier B (13.63 vs 10.04). The
+  dry-walk control (`TACTIX_WALK_DRY`: walk runs, result discarded) located the
+  cause: with the phases thrown away the same rotation is 4–7× worse than
+  baseline, so the damage was the lost Best consumption, not the walk — the walk
+  was repairing half its own slot's damage. Cause: kissat saves phases at ASSIGN
+  time, we save at unassign, so its saved array already carries what our Best
+  restores. Shipped `B,B+W,I,B,B+W,O`; `rephase.count` (events) now drives
+  rotation + interval, `stats.rephased` still counts ops
+- [x] **W3** warmup — measured, **NOT adopted** (battleship/rbsat bit-identical,
+  mod4block 1.32 M → 2.07 M conflicts): our saved phases come from a real trail
+  and are already propagation-consistent, which is exactly what kissat's warmup
+  buys it. Removed rather than kept dead (§5.5)
+- [ ] **W4** remaining: walk stress policy (stress-policy skill); the dose
+  (`WALK_PERMILLE`) as a §5.6 arm — rbsat 0.42× and FmlaEquivChain 0.72× say
+  "when to walk" is a dosing question like elimination (rev 68)
+
 ### Other phase-3 items
 
 - [x] Effort-budgeted scheduler increment 1 + prerequisites (revs 53–55; design `docs/design/effort-scheduler-design.md`)
@@ -287,7 +324,7 @@ Concretize at the T3 gate via revise-plan.
 
 ## Phase 4 — tuning, bindings, extensibility proof
 
-- [ ] Catalog rules remaining: **S6 Walk, S7 Reorder, V5 Sweep** (kitten, O11), **X1 BCE**; **decide O16b at phase entry** (PR/SR clause learning as a catalog candidate — the checkable form of auto-invented rules; needs dpr-trim or PR→DRAT in the N2 story)
+- [ ] Catalog rules remaining: **S7 Reorder, V5 Sweep** (kitten, O11), **X1 BCE** (S6 Walk moved to phase 3, rev 71); **decide O16b at phase entry** (PR/SR clause learning as a catalog candidate — the checkable form of auto-invented rules; needs dpr-trim or PR→DRAT in the N2 story)
 - [ ] Independent-lineage candidates: CMS best_inv rephase (with Walk), rotation presets (O6)
 - [ ] Python bindings; policy presets (MAB scheduler, classification) — §5.6 seed
 - [ ] Demo policies 4–6 incl. external branching (N1 end-to-end)
@@ -325,6 +362,32 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-26 — S6 `Walk` lands (plan rev 71): SCPC-1000-18 TO → solved, Tier B 9.84 → 8.94
+- **Diagnosis first** (debug-performance, report
+  `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`): the sole actionable
+  Tier C timeout is a MISSING RULE, not a search residual. SCPC-1000-18 is a
+  set-covering-with-conflicts formula (50,108 all-negative binaries = a
+  G(1000,0.1) conflict graph + 895 all-positive covering clauses; models are
+  independent sets of ~53 columns) with *provably zero* inprocessing surface.
+  cadical's `walkeffort` gives a monotone dose–response (800/80/8/0 → 3.0 s /
+  24.7 s / 452.7 s / TO); kissat's `--walkeffort=0` likewise times out. Step 4:
+  our search matches BOTH walk-less baselines conflict-for-conflict (30.7 M vs
+  cadical 29.7 M vs kissat 37.5 M, all TO) — the whole gap was the rule.
+- **Generalization:** kissat with walk neutralized loses Tier B PAR-2 8.62 →
+  29.22 and Tier C 221.19 → 282.48. Our shipped 9.93 already beat walk-less
+  kissat by 3×.
+- **The port needed a real correction.** kissat's `B,W,I,B,W,O` (Walk REPLACES
+  Best) regressed us to 13.63. A dry-walk control (walk runs, result discarded)
+  proved the cause was the lost Best consumption, not the phases — 4–7× worse
+  with the walk's own output thrown away. Root cause: kissat saves phases at
+  ASSIGN time, we save at unassign. Shipped `B,B+W,I,B,B+W,O` (Walk augments
+  Best, seeded from it): **Tier B 8.94 vs 9.84** same-window (battleship 7.3×,
+  crypto1 14.7×, mod4block 1.9×; rbsat 0.42× and FmlaEquivChain 0.72× are the
+  dosing residual → §5.6 arm). **SCPC-1000-18: 1200 s TO → 976 s solve.**
+- Warmup (both references run it) measured and NOT adopted — our saved phases
+  are already propagation-consistent by construction. Fuzz green ×3 legs
+  (DRAT / native LRAT / random-policy, 10k/0 each).
 
 ### 2026-07-25 night — C4-perf CLOSED: hwmcc native LRAT 1680 s → 9.64 s (174×); Track C complete
 - The replay-propagation theory was WRONG: 97 % of cycles were memset —

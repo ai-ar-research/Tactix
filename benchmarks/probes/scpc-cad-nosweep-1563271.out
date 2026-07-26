@@ -1,0 +1,11 @@
+c [trimmed to the cited lines; full verbose log was 353 lines]
+s SATISFIABLE
+c         0.80    4.88% walk
+c chronological:            112273        24.13 %  of conflicts
+c conflicts:                465226     28409.67    per second
+c decisions:                580867     35471.45    per second
+c eliminated:                 5015        82.02 %  of all variables
+c propagations:           34834897         2.13 M  per second
+c rephased:                     30     15507.53    interval
+c walked:                        9     51691.78    interval
+c total real time since initialization:           16.49    seconds

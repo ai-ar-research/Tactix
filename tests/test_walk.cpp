@@ -1,0 +1,158 @@
+// S6 Walk unit tests (plan §5.2 policy op, rev 71): the walker must find an
+// assignment on a formula the phases get wrong, must leave the kernel
+// untouched (it is `H`-only), must respect the trail, and must be
+// deterministic. Uses the shape the diagnosis was written on — an
+// independent-set/covering formula, where the all-true default phase
+// falsifies every conflict binary.
+#undef NDEBUG
+#include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
+#include "policies/ops/walk/walk.hpp"
+#include "rules/registry.hpp"
+
+#include <cassert>
+#include <cstdio>
+#include <vector>
+
+using namespace tactix;
+
+// (x1..xn) pairwise-conflicting + one covering clause: the model must set
+// exactly one variable true, so the all-positive default phase is maximally
+// wrong (n-choose-2 falsified binaries) and only a search over phases fixes it.
+static void build_conflict_cover(Kernel &k, int n) {
+  kernel_reserve_vars(k, n);
+  for (int i = 1; i <= n; i++)
+    for (int j = i + 1; j <= n; j++)
+      kernel_add_binary_clause(k, internalize(-i), internalize(-j));
+  std::vector<Lit> cover;
+  for (int i = 1; i <= n; i++)
+    cover.push_back(internalize(i));
+  kernel_add_large_clause(k, cover.data(), (uint32_t)cover.size(), false, 0);
+}
+
+// the walk finds the (unique-shape) model and writes it into the saved phases
+static void test_finds_model() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  build_conflict_cover(k, 8);
+  for (Var v = 0; v < k.nvars; v++)
+    assert(k.h->saved[v] == 1); // the wrong assignment: 28 broken binaries
+
+  assert(walk_guard(k));
+  assert(walk_apply(k) == ApplyResult::Ok); // improved
+  assert(k.stats.walks == 1 && k.stats.walk_improved == 1);
+  assert(k.stats.walk_flips > 0);
+
+  int trues = 0;
+  for (Var v = 0; v < k.nvars; v++)
+    trues += (k.h->saved[v] > 0);
+  assert(trues == 1); // exactly one: every binary satisfied, cover satisfied
+  for (Var v = 0; v < k.nvars; v++)
+    assert(k.h->target[v] == k.h->saved[v]); // the rephase tail ran
+  assert(k.h->target_assigned == 0);
+  assert(k.stats.rephased == 1);
+}
+
+// `H`-only: no clause, trail, level or proof state may move
+static void test_kernel_untouched() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  build_conflict_cover(k, 6);
+  const size_t arena = k.arena.size();
+  const size_t trail = k.trail.size();
+  const uint32_t level = k.level;
+  const uint64_t confl = k.stats.conflicts, props = k.stats.propagations;
+  walk_apply(k);
+  assert(k.arena.size() == arena);
+  assert(k.trail.size() == trail);
+  assert(k.level == level);
+  assert(k.stats.conflicts == confl && k.stats.propagations == props);
+  assert(!k.inconsistent);
+}
+
+// trail-assigned literals are FIXED: the walk may not flip them, and clauses
+// they already satisfy are out of the walk entirely
+static void test_respects_trail() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  build_conflict_cover(k, 6);
+  kernel_assign_decision(k, internalize(3)); // x3 true at level 1
+  assert(k.level == 1);
+  walk_apply(k);
+  assert(k.h->saved[2] == 1); // var 3 (0-based 2) keeps its assigned phase
+  int trues = 0;
+  for (Var v = 0; v < k.nvars; v++)
+    trues += (k.h->saved[v] > 0);
+  assert(trues == 1); // the other five must go false around it
+}
+
+// same formula, same walk count => same result (determinism traces depend on
+// the walker being a pure function of kernel state)
+static void test_deterministic() {
+  int8_t first[10] = {0};
+  for (int run = 0; run < 2; run++) {
+    Kernel k;
+    ScopedHeuristics _h(k);
+    build_conflict_cover(k, 10);
+    walk_apply(k);
+    if (!run)
+      for (Var v = 0; v < k.nvars; v++)
+        first[v] = k.h->saved[v];
+    else
+      for (Var v = 0; v < k.nvars; v++)
+        assert(k.h->saved[v] == first[v]);
+  }
+}
+
+// a starved budget still terminates and stays sound (NoOp when it cannot
+// improve); an already-satisfied formula reports NoOp rather than Ok
+static void test_budget_and_noop() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  build_conflict_cover(k, 8);
+  assert(walk_apply_steps(k, 1) != ApplyResult::Conflict); // terminates
+  Kernel k2;
+  ScopedHeuristics _h2(k2);
+  kernel_reserve_vars(k2, 3);
+  kernel_add_binary_clause(k2, internalize(1), internalize(2));
+  // all-true default phase already satisfies it: nothing to improve
+  assert(walk_apply(k2) == ApplyResult::NoOp);
+  assert(k2.stats.walk_improved == 0);
+}
+
+// the registry surface: registered as a policy op with a working instance pair
+static void test_registry() {
+  const int id = tactix_rule_id("Walk");
+  assert(id >= 0);
+  const RuleVTable &vt = tactix_rules()[id];
+  assert(vt.kind == ActionKind::PolicyOp);
+  Kernel k;
+  ScopedHeuristics _h(k);
+  build_conflict_cover(k, 8);
+  assert(vt.guard(k));
+  uint64_t insts[4];
+  assert(vt.instances(k, insts, 4) == 1);
+  assert(insts[0] == INSTANCE_CANONICAL);
+  assert(vt.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Ok);
+  assert(vt.apply_instance(k, 50000) != ApplyResult::Conflict); // any payload
+}
+
+// H5: a kernel without `H` has no phases to improve — the guard must reject
+static void test_no_heuristics_guard() {
+  Kernel k;
+  build_conflict_cover(k, 4);
+  assert(k.h == nullptr);
+  assert(!walk_guard(k));
+}
+
+int main() {
+  test_finds_model();
+  test_kernel_untouched();
+  test_respects_trail();
+  test_deterministic();
+  test_budget_and_noop();
+  test_registry();
+  test_no_heuristics_guard();
+  printf("test_walk: all passed\n");
+  return 0;
+}

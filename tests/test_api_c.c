@@ -266,15 +266,17 @@ static void test_action_kind(void) {
       "Decide",     "Factor",     "Lucky",            "Probe",
       "Propagate",  "Reduce",     "Rephase",          "Restart",
       "Strengthen", "Substitute", "SubsumeForward",   "SwitchMode",
-      "TransitiveReduce", "Vivify"};
+      "TransitiveReduce", "Vivify",  "Walk"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)
     assert(!strcmp(tactix_rule_name(i), golden[i]));
 
-  /* the two policy operations (rev 59/60) */
+  /* the policy operations (rev 59/60; Walk joined in rev 71 — it sorts last,
+   * so no existing id moved) */
   assert(tactix_action_kind(rule_id("Rephase")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("SwitchMode")) == TACTIX_ACTION_POLICY_OP);
+  assert(tactix_action_kind(rule_id("Walk")) == TACTIX_ACTION_POLICY_OP);
 
   /* spot-check proof rules, and assert exactly those two are policy ops */
   assert(tactix_action_kind(rule_id("Propagate")) == TACTIX_ACTION_PROOF_RULE);
@@ -287,7 +289,7 @@ static void test_action_kind(void) {
     if (k == TACTIX_ACTION_POLICY_OP)
       policy_ops++;
   }
-  assert(policy_ops == 2);
+  assert(policy_ops == 3);
 
   /* out-of-range → -1 (same convention as tactix_rule_id) */
   assert(tactix_action_kind(-1) == -1);

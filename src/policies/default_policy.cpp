@@ -8,6 +8,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
 #include "policies/ops/rephase/rephase.hpp"
+#include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
@@ -124,13 +125,14 @@ bool DefaultPolicy::want_rephase(const Kernel &k) const {
 
 // kissat kimits.h UPDATE_CONFLICT_LIMIT(rephase, rephased, NLOG3N):
 // interval grows as rephaseint · n·log10(n+9)³ of the rephase count
+// Counts rephase EVENTS, not ops (rephase.count): a B+W slot must not grow
+// the interval twice. Identical to stats.rephased before Walk joined.
 void DefaultPolicy::update_rephase_limit(const Kernel &k) {
-  const double lg = std::log10(static_cast<double>(k.stats.rephased) + 9);
+  const double n = static_cast<double>(rephase.count);
+  const double lg = std::log10(n + 9);
   rephase.next_conflicts =
       k.stats.conflicts +
-      static_cast<uint64_t>(REPHASE_INTERVAL *
-                            static_cast<double>(k.stats.rephased) * lg * lg *
-                            lg);
+      static_cast<uint64_t>(REPHASE_INTERVAL * n * lg * lg * lg);
 }
 
 // kissat kimits.c kissat_scale_delta: inprocessing intervals scale with
@@ -508,15 +510,38 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // recorded in rephase.cpp) — the root restart IS a restart
       if (restart_guard(k))
         restart_apply_to(k, 0);
-      // rotation B,B,I,B,B,O — kissat's B,W,I,B,W,O with Best standing in
-      // for the phase-4 Walking slots: the destructive types (I/O wipe
-      // every saved phase) keep kissat's 1/3 slot frequency; a plain
-      // B,I,B,O rotation doubled their share and measurably hurt the
-      // transition instances (s055) without Walk's repair after them
+      // rotation B,B+W,I,B,B+W,O — kissat rotates B,W,I,B,W,O, i.e. Walk
+      // REPLACES Best at two slots. Measured 2026-07-26 (probes 1563472–84):
+      // replacing them costs far more than the walk gains, and a DRY-walk
+      // control (walk runs, result discarded — TACTIX_WALK_DRY) isolated the
+      // cause to the lost Best consumption, not to the phases the walk writes:
+      // battleship 110 k conflicts (B,B,I,B,B,O) → 927 k with walk-for-best →
+      // 2.12 M dry. Our `best` is load-bearing where kissat's is not, because
+      // kissat saves phases at ASSIGN time (every propagation) while we save
+      // at unassign — so kissat's saved phases already carry what our Best
+      // slot has to restore. Walk therefore AUGMENTS Best here: consume best,
+      // then let local search improve the result before it becomes target.
+      static constexpr uint64_t WALK_SLOT = UINT64_MAX;
       static constexpr uint64_t ROTATION[6] = {
-          REPHASE_BEST, REPHASE_BEST, REPHASE_INVERTED,
-          REPHASE_BEST, REPHASE_BEST, REPHASE_ORIGINAL};
-      rephase_apply_type(k, ROTATION[k.stats.rephased % 6]);
+          REPHASE_BEST, WALK_SLOT, REPHASE_INVERTED,
+          REPHASE_BEST, WALK_SLOT, REPHASE_ORIGINAL};
+      const uint64_t type = ROTATION[rephase.count % 6];
+      rephase.count++; // ONE rephase event, whatever it is composed of
+      if (type == WALK_SLOT && walk_guard(k)) {
+        rephase_apply_type(k, REPHASE_BEST); // the slot keeps its Best
+        // effort budget in Walk's own currency, denominated in SEARCH work
+        // the way every other budget is (kissat SET_EFFORT_LIMIT(walk),
+        // walkeffort = 50 per mille, floored at mineffort)
+        uint64_t reference = search_ticks(k) - walk_anchor;
+        if (reference < MIN_EFFORT_TICKS)
+          reference = MIN_EFFORT_TICKS;
+        k.work_budget = reference / 1000 * WALK_PERMILLE;
+        walk_apply(k);
+        k.work_budget = 0;
+        walk_anchor = search_ticks(k);
+      } else {
+        rephase_apply_type(k, type == WALK_SLOT ? REPHASE_BEST : type);
+      }
       update_rephase_limit(k);
       continue;
     }

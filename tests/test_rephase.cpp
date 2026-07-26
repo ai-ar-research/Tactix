@@ -97,10 +97,17 @@ static void test_policy_trigger() {
   assert(!p.want_rephase(k)); // focused: never
   k.h->stable = true;
   assert(p.want_rephase(k));
-  k.stats.rephased = 1;
+  // the interval grows with rephase EVENTS (rephase.count), not with the op
+  // count stats.rephased — a B+W slot (rev 71) is one event and two ops
+  p.rephase.count = 1;
+  k.stats.rephased = 2; // deliberately different: must not affect the limit
   p.update_rephase_limit(k);
   assert(!p.want_rephase(k)); // limit pushed out (n·log³n growth)
   assert(p.rephase.next_conflicts > k.stats.conflicts + 900);
+  const uint64_t one_event = p.rephase.next_conflicts;
+  k.stats.rephased = 7;
+  p.update_rephase_limit(k);
+  assert(p.rephase.next_conflicts == one_event);
 }
 
 int main() {

@@ -348,6 +348,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.best_saved);
     printf("c lucky       %llu probes\n",
            (unsigned long long)kernel.stats.lucky_probes);
+    printf("c walk        %llu walks (%llu improved, %llu flips, %llu steps)\n",
+           (unsigned long long)kernel.stats.walks,
+           (unsigned long long)kernel.stats.walk_improved,
+           (unsigned long long)kernel.stats.walk_flips,
+           (unsigned long long)kernel.stats.walk_steps);
     printf("c subsume     %llu rounds (%llu checked, %llu subsumed)\n",
            (unsigned long long)kernel.stats.forward_subsumptions,
            (unsigned long long)kernel.stats.forward_checked,

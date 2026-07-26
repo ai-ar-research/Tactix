@@ -1,0 +1,29 @@
+c tactix 0.1.0
+c decisions   1167504 (0 via API)
+c conflicts   493923
+c propagations 147703782 (145390936 search, 2312846 inprocess)
+c learned     493923 (6 units)
+c minimized   6911872 lits
+c shrunken    10027601 lits
+c otfs        1453 strengthened (27 conflicts subsumed)
+c strengthen  23 rounds, 285 strengthened, 53 subsumed, 5797 flushed
+c vivify      21 rounds, 579 vivified, 0 deleted
+c probe       0 rounds, 1443 probed, 0 failed
+c backbone    0 rounds, 43078 probed, 0 failed
+c transitive  0 rounds, 480480 checked, 34 deleted, 0 failed, 90348544 ticks
+c substitute  8 rounds
+c chrono      0 chronological, 0 stale backjumps
+c inprocess   8 phases
+c congruence  8 rounds, 0 units, 0 unjustified
+c factor      2753 factorings
+c bve         0 rounds, 40 eliminated, 322944 resolutions
+c restarts    17540 (13913 reused a trail prefix)
+c reductions  51 (438754 clauses deleted, 192977 promoted)
+c mode        stable after 27 switches (534874326 ticks, 154 target phases saved)
+c rephased    15 (55 best phases saved)
+c lucky       6 probes
+c walk        5 walks (0 improved, 144449 flips, 16899034 steps)
+c subsume     23 rounds (16297 checked, 0 subsumed)
+s SATISFIABLE
+Command exited with non-zero status 10
+WALL 15.85

@@ -39,6 +39,7 @@ add_library(tactix_lib OBJECT
   src/rules/transitive_reduce/transitive_reduce.cpp
   src/rules/bve/bve.cpp
   src/policies/ops/switchmode/switchmode.cpp
+  src/policies/ops/walk/walk.cpp
   src/policies/heuristics.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp

@@ -1,0 +1,188 @@
+c [trimmed to the cited lines; full verbose log was 188 lines]
+c --walkeffort=50                  (same as default '50')
+c --walkinitially=false            (same as default 'false')
+c [walk-1] imported 4660 decision phases 100%
+c [walk-1] initially 23 unsatisfied binary clauses 0% out of 31810
+c [walk-1] initially 163 unsatisfied large clauses 18% out of 895
+c [walk-1] initially 186 unsatisfied irredundant clauses 1% out of 32705
+c [walk-1] average clause size 3.43
+c [walk-1] CB 2.65 with inverse 0.38 as base
+c [walk-1] table size 765 and epsilon 4.94066e-324
+c [walk-1] new minimum 33 after 2152 flips
+c [walk-1] saving improved assignment of 33 unsatisfied clauses
+c [rephase-2] walking phases in stable search mode
+c [eliminate-1] eliminated 6 variables 0% in round 1
+c [eliminate-1] eliminated 0 variables 0% in round 2
+c [eliminate-1] eliminated 6 variables 0% out of 4660 in 2 rounds
+c [walk-2] imported 4654 decision phases 100%
+c [walk-2] initially 3 unsatisfied binary clauses 0% out of 31810
+c [walk-2] initially 93 unsatisfied large clauses 10% out of 895
+c [walk-2] initially 96 unsatisfied irredundant clauses 0% out of 32705
+c [walk-2] average clause size 3.43
+c [walk-2] CB 2.00 with inverse 0.50 as base
+c [walk-2] table size 1075 and epsilon 4.94066e-324
+c [walk-2] new minimum 27 after 1830 flips
+c [walk-2] saving improved assignment of 27 unsatisfied clauses
+c [rephase-5] walking phases in stable search mode
+c [eliminate-2] eliminated 1085 variables 23% in round 1
+c [eliminate-2] eliminated 0 variables 0% in round 2
+c [eliminate-2] eliminated 1085 variables 23% out of 4654 in 2 rounds
+c [walk-3] imported 3574 decision phases 100%
+c [walk-3] initially 1 unsatisfied binary clauses 0% out of 32880
+c [walk-3] initially 127 unsatisfied large clauses 14% out of 895
+c [walk-3] initially 128 unsatisfied irredundant clauses 0% out of 33775
+c [walk-3] average clause size 3.39
+c [walk-3] CB 2.64 with inverse 0.38 as base
+c [walk-3] table size 769 and epsilon 4.94066e-324
+c [walk-3] new minimum 17 after 3574 flips
+c [walk-3] saving improved assignment of 17 unsatisfied clauses
+c [rephase-8] walking phases in stable search mode
+c [eliminate-3] eliminated 555 variables 16% in round 1
+c [eliminate-3] eliminated 0 variables 0% in round 2
+c [eliminate-3] eliminated 555 variables 16% out of 3574 in 2 rounds
+c [eliminate-4] eliminated 656 variables 22% in round 1
+c [eliminate-4] eliminated 0 variables 0% in round 2
+c [eliminate-4] eliminated 656 variables 22% out of 3019 in 2 rounds
+c [walk-4] imported 2363 decision phases 100%
+c [walk-4] initially 0 unsatisfied binary clauses 0% out of 36239
+c [walk-4] initially 96 unsatisfied large clauses 11% out of 895
+c [walk-4] initially 96 unsatisfied irredundant clauses 0% out of 37134
+c [walk-4] average clause size 3.26
+c [walk-4] CB 2.00 with inverse 0.50 as base
+c [walk-4] table size 1075 and epsilon 4.94066e-324
+c [walk-4] new minimum 22 after 2406 flips
+c [walk-4] saving improved assignment of 22 unsatisfied clauses
+c [rephase-11] walking phases in stable search mode
+c [eliminate-5] eliminated 642 variables 27% in round 1
+c [eliminate-5] eliminated 0 variables 0% in round 2
+c [eliminate-5] eliminated 642 variables 27% out of 2363 in 2 rounds
+c [eliminate-6] eliminated 565 variables 33% in round 1
+c [eliminate-6] eliminated 0 variables 0% in round 2
+c [eliminate-6] eliminated 565 variables 33% out of 1721 in 2 rounds
+c [walk-5] imported 1194 decision phases 100%
+c [walk-5] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-5] initially 46 unsatisfied large clauses 5% out of 895
+c [walk-5] initially 46 unsatisfied irredundant clauses 0% out of 47347
+c [walk-5] average clause size 2.99
+c [walk-5] CB 2.50 with inverse 0.40 as base
+c [walk-5] table size 814 and epsilon 4.94066e-324
+c [walk-5] new minimum 9 after 2800 flips
+c [walk-5] saving improved assignment of 9 unsatisfied clauses
+c [rephase-14] walking phases in stable search mode
+c [eliminate-7] eliminated 0 variables 0% in round 1
+c [eliminate-7] eliminated 0 variables 0% out of 1194 in 1 rounds
+c [walk-6] imported 1194 decision phases 100%
+c [walk-6] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-6] initially 78 unsatisfied large clauses 9% out of 895
+c [walk-6] initially 78 unsatisfied irredundant clauses 0% out of 47347
+c [walk-6] average clause size 2.99
+c [walk-6] CB 2.00 with inverse 0.50 as base
+c [walk-6] table size 1075 and epsilon 4.94066e-324
+c [walk-6] new minimum 35 after 1944 flips
+c [walk-6] saving improved assignment of 35 unsatisfied clauses
+c [rephase-17] walking phases in stable search mode
+c [walk-7] imported 1194 decision phases 100%
+c [walk-7] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-7] initially 63 unsatisfied large clauses 7% out of 895
+c [walk-7] initially 63 unsatisfied irredundant clauses 0% out of 47347
+c [walk-7] average clause size 2.99
+c [walk-7] CB 2.50 with inverse 0.40 as base
+c [walk-7] table size 814 and epsilon 4.94066e-324
+c [walk-7] new minimum 5 after 16870 flips
+c [walk-7] saving improved assignment of 5 unsatisfied clauses
+c [rephase-20] walking phases in stable search mode
+c [walk-8] imported 1194 decision phases 100%
+c [walk-8] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-8] initially 41 unsatisfied large clauses 5% out of 895
+c [walk-8] initially 41 unsatisfied irredundant clauses 0% out of 47347
+c [walk-8] average clause size 2.99
+c [walk-8] CB 2.00 with inverse 0.50 as base
+c [walk-8] table size 1075 and epsilon 4.94066e-324
+c [walk-8] new minimum 15 after 35968 flips
+c [walk-8] saving improved assignment of 15 unsatisfied clauses
+c [rephase-23] walking phases in stable search mode
+c [walk-9] imported 1194 decision phases 100%
+c [walk-9] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-9] initially 46 unsatisfied large clauses 5% out of 895
+c [walk-9] initially 46 unsatisfied irredundant clauses 0% out of 47347
+c [walk-9] average clause size 2.99
+c [walk-9] CB 2.50 with inverse 0.40 as base
+c [walk-9] table size 814 and epsilon 4.94066e-324
+c [walk-9] new minimum 10 after 64966 flips
+c [walk-9] saving improved assignment of 10 unsatisfied clauses
+c [rephase-26] walking phases in stable search mode
+c [walk-10] imported 1194 decision phases 100%
+c [walk-10] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-10] initially 58 unsatisfied large clauses 6% out of 895
+c [walk-10] initially 58 unsatisfied irredundant clauses 0% out of 47347
+c [walk-10] average clause size 2.99
+c [walk-10] CB 2.00 with inverse 0.50 as base
+c [walk-10] table size 1075 and epsilon 4.94066e-324
+c [walk-10] new minimum 25 after 91904 flips
+c [walk-10] saving improved assignment of 25 unsatisfied clauses
+c [rephase-29] walking phases in stable search mode
+c [walk-11] imported 1194 decision phases 100%
+c [walk-11] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-11] initially 99 unsatisfied large clauses 11% out of 895
+c [walk-11] initially 99 unsatisfied irredundant clauses 0% out of 47347
+c [walk-11] average clause size 2.99
+c [walk-11] CB 2.50 with inverse 0.40 as base
+c [walk-11] table size 814 and epsilon 4.94066e-324
+c [walk-11] new minimum 9 after 118198 flips
+c [walk-11] saving improved assignment of 9 unsatisfied clauses
+c [rephase-32] walking phases in stable search mode
+c [walk-12] imported 1194 decision phases 100%
+c [walk-12] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-12] initially 85 unsatisfied large clauses 9% out of 895
+c [walk-12] initially 85 unsatisfied irredundant clauses 0% out of 47347
+c [walk-12] average clause size 2.99
+c [walk-12] CB 2.00 with inverse 0.50 as base
+c [walk-12] table size 1075 and epsilon 4.94066e-324
+c [walk-12] new minimum 20 after 166410 flips
+c [walk-12] saving improved assignment of 20 unsatisfied clauses
+c [rephase-35] walking phases in stable search mode
+c [walk-13] imported 1194 decision phases 100%
+c [walk-13] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-13] initially 52 unsatisfied large clauses 6% out of 895
+c [walk-13] initially 52 unsatisfied irredundant clauses 0% out of 47347
+c [walk-13] average clause size 2.99
+c [walk-13] CB 2.50 with inverse 0.40 as base
+c [walk-13] table size 814 and epsilon 4.94066e-324
+c [walk-13] new minimum 7 after 213596 flips
+c [walk-13] saving improved assignment of 7 unsatisfied clauses
+c [rephase-38] walking phases in stable search mode
+c [walk-14] imported 1194 decision phases 100%
+c [walk-14] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-14] initially 54 unsatisfied large clauses 6% out of 895
+c [walk-14] initially 54 unsatisfied irredundant clauses 0% out of 47347
+c [walk-14] average clause size 2.99
+c [walk-14] CB 2.00 with inverse 0.50 as base
+c [walk-14] table size 1075 and epsilon 4.94066e-324
+c [walk-14] new minimum 13 after 258564 flips
+c [walk-14] saving improved assignment of 13 unsatisfied clauses
+c [rephase-41] walking phases in stable search mode
+c [walk-15] imported 1194 decision phases 100%
+c [walk-15] initially 0 unsatisfied binary clauses 0% out of 46452
+c [walk-15] initially 88 unsatisfied large clauses 10% out of 895
+c [walk-15] initially 88 unsatisfied irredundant clauses 0% out of 47347
+c [walk-15] average clause size 2.99
+c [walk-15] CB 2.50 with inverse 0.40 as base
+c [walk-15] table size 814 and epsilon 4.94066e-324
+c [walk-15] new minimum 2 after 314984 flips
+c [walk-15] saving improved assignment of 2 unsatisfied clauses
+c [rephase-44] walking phases in stable search mode
+s SATISFIABLE
+c           1.53    0.95 %  walking
+c chronological:                           32                0 %  conflicts
+c conflicts:                          5648737            35047.82 per second
+c decisions:                         27624517                4.89 per conflict
+c eliminated:                            3509              351 %  variables
+c fast_eliminated:                          0                0 %  eliminated
+c propagations:                     456816283          2834335    per second
+c rephased:                                44           128380    interval
+c sweep:                                    9           627637    interval
+c walks:                                   15           376582    interval
+c walk_steps:                      1420988889 
+c warming_decisions:                     7001              466.73 per walk
+c warmups:                                 15              100 %  walks
+c process-time:                         2m 41s             161.17 seconds

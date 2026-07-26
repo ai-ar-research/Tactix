@@ -1,0 +1,13 @@
+c [trimmed to the cited lines; full verbose log was 594 lines]
+c --walkeffort=500                 (different from default '50')
+c --walkinitially=true             (different from default 'false')
+s SATISFIABLE
+c           1.57    3.37 %  walking
+c chronological:                           26                0 %  conflicts
+c conflicts:                          1477082            31625.19 per second
+c decisions:                         10799333                7.31 per conflict
+c eliminated:                            3507              351 %  variables
+c propagations:                     145797839          3121617    per second
+c rephased:                                26            56811    interval
+c walks:                                    9           164120    interval
+c process-time:                            47s              46.70 seconds

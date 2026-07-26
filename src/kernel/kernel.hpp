@@ -50,6 +50,12 @@ struct Stats {
   uint64_t best_saved = 0;   // best-phase snapshots
   uint64_t rephased = 0;     // Rephase applications (S3)
   uint64_t lucky_probes = 0; // Lucky probes run (S5)
+  // S6 Walk (policy op): applications, literal flips, and the rule's own
+  // effort currency (occurrence-list entries scanned = kissat walk_steps).
+  uint64_t walks = 0;
+  uint64_t walk_flips = 0;
+  uint64_t walk_steps = 0;
+  uint64_t walk_improved = 0; // walks that lowered the unsatisfied count
   uint64_t promoted = 0;     // glue promotions on use (kissat deduce.c)
   uint64_t learned = 0;
   uint64_t learned_units = 0;
