@@ -171,9 +171,15 @@ bool build_table(Walker &w, const Kernel &k) {
 void seed_values(Walker &w, const Kernel &k) {
   w.values.resize(2 * k.nvars);
   w.best_values.resize(k.nvars);
+  // TACTIX_WALK_PREV (DIAGNOSTIC, cadical-shaped arm): resume from the previous
+  // walk's assignment (cadical phases.prev) instead of the decision phases.
+  static const bool use_prev = std::getenv("TACTIX_WALK_PREV") != nullptr;
+  const bool have_prev = use_prev && k.h->walk_prev.size() == k.nvars;
   for (Var v = 0; v < k.nvars; v++) {
     const Lit pos_lit = make_lit(v, false);
     int8_t val = k.value(pos_lit);
+    if (!val && have_prev)
+      val = k.h->walk_prev[v];
     if (!val)
       val = negated(heuristics_decide_lit(k, v)) ? -1 : 1;
     w.values[pos_lit] = val;
@@ -456,6 +462,9 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
           k.h->saved[v] = w.best_values[v];
       k.stats.walk_improved++;
       improved = true;
+      static const bool keep_prev = std::getenv("TACTIX_WALK_PREV") != nullptr;
+      if (keep_prev)
+        k.h->walk_prev = w.best_values; // cadical phases.prev continuity
     }
   }
   // the rephase tail every type runs (kissat reset_phases): the fresh saved

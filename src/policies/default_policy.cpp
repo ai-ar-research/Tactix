@@ -120,7 +120,13 @@ bool DefaultPolicy::want_reduce(const Kernel &k) const {
 
 // kissat rephase.c kissat_rephasing: stable mode only
 bool DefaultPolicy::want_rephase(const Kernel &k) const {
-  return k.h->stable && k.stats.conflicts > rephase.next_conflicts;
+  // TACTIX_REPHASE_BOTH_MODES (DIAGNOSTIC, cadical-shaped arm): cadical
+  // rephases -- and therefore walks -- in focused mode too (rephase.cpp,
+  // opts.rephase=1; the stable gate applies only at opts.rephase==2), and is
+  // 6.6x faster than kissat on the walk-decisive SCPC-1000-18. kissat and we
+  // rephase stable-only.
+  static const bool both = std::getenv("TACTIX_REPHASE_BOTH_MODES") != nullptr;
+  return (both || k.h->stable) && k.stats.conflicts > rephase.next_conflicts;
 }
 
 // kissat kimits.h UPDATE_CONFLICT_LIMIT(rephase, rephased, NLOG3N):

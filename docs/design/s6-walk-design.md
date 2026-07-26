@@ -187,11 +187,39 @@ Read together they are decisive about the *shape* of the problem:
   including learned binaries — our one unmeasured divergence from kissat's
   `walkredundant=false` — is empirically irrelevant on both.
 
+### The reference-matching ledger — six attempts, one context arm, no default win
+
+"Look at how kissat/cadical do walk and match it" was tested exhaustively, since
+our flipper is already a transliteration of `kissat/src/walk.c` and every
+remaining difference is *scheduling*:
+
+| # | reference behaviour we lacked | source | result |
+|---|---|---|---|
+| 1 | rotation `B,W,I,B,W,O` (Walk replaces Best) | kissat | regressed; dry-walk control isolated the cause → shipped `B,B+W,I,B,B+W,O` |
+| 2 | effort anchored on the last elimination | kissat | Tier B 9.69 vs **8.97** → reverted |
+| 3 | warmup before every walk | both | Tier C **360.20 vs 388.16** (SCPC 106 vs 255) but Tier B **12.30 vs 8.99** → opt-in arm |
+| 4 | exclude redundant clauses (`walkredundant=false`) | kissat | empirically vacuous — no learned binaries reach the table |
+| 5 | rephase (hence walk) in BOTH modes | cadical | SCPC 248 s → **TIMEOUT**, crypto1 1.16 → 11.17 s |
+| 6 | `phases.prev` walk continuity | cadical | SCPC 248 → 719 s, crypto1 1.16 → 4.95 s |
+
+Five of six are dead or context-dependent, and #1/#2 failed for one traceable
+architectural reason (§8 of `implementation-notes.md`: we save phases at
+unassign, kissat at assign). The conclusion is not "port more faithfully" — it
+is that the reference schedules are tuned against state maintenance we do not
+share, and the residual is a scheduling problem, not a mechanism gap.
+
+Note on reading the dose numbers: the SCPC dose axis is noisy (uncapped 248 s,
+`MAX_STEPS=1e5` 423 s, `MAX_STEPS=1e6` 1186 s — non-monotone), as single SAT
+runs on a threshold instance will be. The robust claims are the ones that
+repeat at tier scale or across an order of magnitude.
+
 So "when to walk", "how hard", and "through which phase channel" join "when to
 eliminate" as measured, context-dependent levers with no hand-written setting
 that works — a second mechanism family for the §5.6 exhibit (rev 68), and one
-that arrives with its reward signal (`stats.walk_minimum`) and three
-ready-made arms already implemented behind knobs.
+that arrives with its reward signal (`stats.walk_minimum`) and five ready-made
+arms already implemented behind knobs (`TACTIX_WALK_NO_TARGET`,
+`TACTIX_WALK_MAX_STEPS`, `TACTIX_WALK_WARMUP`, `TACTIX_WALK_PREV`,
+`TACTIX_REPHASE_BOTH_MODES`).
 
 ### Warmup: measured, NOT adopted
 

@@ -336,10 +336,20 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   `TACTIX_WALK_WARMUP` (**SCPC 248→102 s, beating kissat's 166 s**; Tier B
   8.99→12.30, crypto1 1.16→24.13 s). Closed as a non-issue: learned binaries in
   the walk objective (the table is constant across a solve on both instances)
-- [ ] **W4c** hand the three arms + `stats.walk_minimum` (the reward signal) to
-  the §5.6 exhibit; still unqueued from the cadical side: **walk in focused
-  mode too** (cadical rephases in both modes and is 6.6× faster than kissat on
-  SCPC) and `phases.prev` walk continuity
+- [x] **W4c REFERENCE-MATCHING EXHAUSTED** 2026-07-26 (design §6 ledger). Six
+  attempts to close the remaining gap by matching kissat/cadical more closely;
+  the flipper was already a transliteration, so all six were *scheduling*:
+  (1) `B,W,I,B,W,O` rotation → regressed; (2) effort anchored on the last
+  elimination → 9.69 vs 8.97; (3) warmup → Tier C **360.20 vs 388.16** (SCPC
+  106 vs 255) but Tier B **12.30 vs 8.99** → opt-in arm; (4) `walkredundant=
+  false` → empirically vacuous (no learned binaries reach the table);
+  (5) cadical's both-modes rephase → SCPC **TIMEOUT**, crypto1 1.16→11.17 s;
+  (6) cadical's `phases.prev` → SCPC 248→719 s, crypto1 1.16→4.95 s. Five of
+  six dead or context-dependent, and (1)/(2) failed for the one architectural
+  reason in implementation-notes §8. **The residual is a scheduling problem,
+  not a mechanism gap** — five arms now sit behind knobs for the §5.6 exhibit
+- [ ] **W4d** (open) hand the five arms + `stats.walk_minimum` (the reward
+  signal) to the §5.6 exhibit as the second dosing mechanism family
 
 ### Other phase-3 items
 

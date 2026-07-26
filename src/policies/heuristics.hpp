@@ -52,6 +52,10 @@ struct Heuristics {
   // only resets when Rephase consumes it (type Best).
   std::vector<int8_t> best; // by var: +1/-1, 0 = never saved
   uint32_t best_assigned = 0;
+  // cadical phases.prev (S6 Walk, DIAGNOSTIC arm TACTIX_WALK_PREV): the
+  // previous walk's assignment, so local search resumes where it left off
+  // instead of restarting from the decision phases. Empty = no walk yet.
+  std::vector<int8_t> walk_prev;
 };
 
 // grow the `H` per-variable state for vars [old, nvars) and set h->nvars. Split
