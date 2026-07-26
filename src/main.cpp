@@ -10,6 +10,7 @@
 #include "policies/congruence_stress_policy.hpp"
 #include "policies/factor_stress_policy.hpp"
 #include "policies/probing_stress_policy.hpp"
+#include "policies/walk_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
 #include "proof/proof.hpp"
@@ -83,6 +84,7 @@ int main(int argc, char **argv) {
   bool congruence_stress_policy = false;
   bool factor_stress_policy = false;
   bool probing_stress_policy = false;
+  bool walk_stress_policy = false;
   bool no_heuristics = false; // run with H detached (unguided; Track H · H5)
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
@@ -124,6 +126,14 @@ int main(int argc, char **argv) {
       probing_stress_policy = true;
       if (a[23] == '=')
         random_seed = strtoull(a + 24, nullptr, 10);
+    } else if (!strncmp(a, "--walk-stress-policy", 20)) {
+      // W4 stress mode: S6 Walk at random decision levels, off propagation
+      // fixpoints, with tiny/huge budgets and mode flips — the walker is legal
+      // anywhere, and DefaultPolicy only ever walks at a quiescent stable root
+      // (stress-policy skill)
+      walk_stress_policy = true;
+      if (a[20] == '=')
+        random_seed = strtoull(a + 21, nullptr, 10);
     } else if (!strncmp(a, "--factor-stress-policy", 22)) {
       // S2a Increment-2 stress mode: adversarial FactorMatchPolicy (hash /
       // all-tied / reversed scores, maximizing accept) + Factor maximized at
@@ -253,6 +263,8 @@ int main(int argc, char **argv) {
   const int res =
       probing_stress_policy
           ? probing_stress_solve(kernel, random_seed, &caught_signal)
+      : walk_stress_policy
+          ? walk_stress_solve(kernel, random_seed, &caught_signal)
       : factor_stress_policy
           ? factor_stress_solve(kernel, random_seed, &caught_signal)
       : congruence_stress_policy

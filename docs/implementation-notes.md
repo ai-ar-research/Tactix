@@ -506,3 +506,37 @@ so it has no bookkeeping to protect.
 `ticks` meter differs, by the 10,780 ticks the round legitimately spent). N1 is
 untouched: this is a kernel primitive, not a guard — every rule stays applicable
 in every state, and the conditional restore means no schedule can make it unsound.
+
+## 8. Design decision: phases are saved at UNASSIGN, and kissat's rephase rotation does not port
+
+**The divergence.** Kissat writes `phases.saved[idx]` at **assign** time, on
+every assignment including propagated ones (`kissat/src/inlineassign.h`). We
+write `h->saved[v]` at **unassign** time, for the literals a backtrack pops
+(`kernel.cpp`). Both end up with "the phase this variable last had", so the two
+looked interchangeable — and for phase *saving* they are.
+
+**Where it bites.** They are not interchangeable for anything scheduled *around*
+them, because kissat's saved array is continuously refreshed by propagation
+while ours is refreshed only when the trail shrinks. Two consequences, both
+measured 2026-07-26 (Track W):
+
+1. **`Best` is load-bearing for us, not for kissat.** Kissat's rephase rotation
+   `B,W,I,B,W,O` spends two of six slots on Walk instead of Best. Porting that
+   literally cost 4–7× on Tier B instances — and a dry-walk control (the walk
+   runs, its assignment discarded) showed the damage was there *without* the
+   walk's phases, i.e. it was the missing Best consumption. Kissat can afford
+   to skip Best because its saved array already carries the information Best
+   restores for us. Shipped composition: `B, B+W, I, B, B+W, O` — Walk augments
+   Best rather than replacing it (`docs/design/s6-walk-design.md` §6).
+2. **Warmup buys us nothing.** Both references run a warmup (decide +
+   propagate-beyond-conflicts) before every walk so the walk's seed is
+   propagation-consistent. Implemented and measured: two instances
+   bit-identical, one clearly worse. Our saved phases come from a real trail and
+   are propagation-consistent *by construction* — which is exactly the property
+   warmup manufactures for kissat. Not adopted; not kept as dead code.
+
+**The general rule this is an instance of.** A reference solver's *schedule* is
+tuned against its own state-maintenance choices. Before porting a schedule,
+check whether the state it reads is maintained the same way here — and when a
+port regresses, ablate the schedule change separately from the mechanism it
+carries (L8). The dry-run control (`TACTIX_WALK_DRY`) is kept for exactly that.

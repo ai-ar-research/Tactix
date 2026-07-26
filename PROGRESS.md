@@ -306,9 +306,14 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   mod4block 1.32 M → 2.07 M conflicts): our saved phases come from a real trail
   and are already propagation-consistent, which is exactly what kissat's warmup
   buys it. Removed rather than kept dead (§5.5)
-- [ ] **W4** remaining: walk stress policy (stress-policy skill); the dose
-  (`WALK_PERMILLE`) as a §5.6 arm — rbsat 0.42× and FmlaEquivChain 0.72× say
-  "when to walk" is a dosing question like elimination (rev 68)
+- [x] **W4a** `--walk-stress-policy` (stress-policy skill): Walk at random
+  decision levels, deliberately off propagation fixpoints, tiny→huge budgets,
+  mode flips mid-solve — the schedules DefaultPolicy never takes (it only ever
+  walks at a quiescent stable root). Per-step `kernel_check_invariants`
+- [ ] **W4b** the dose (`WALK_PERMILLE`) as a §5.6 arm — rbsat 0.42× and
+  FmlaEquivChain 0.72× say "when to walk" is a dosing question like elimination
+  (rev 68). Also unqueued: `phases.prev` walk continuity (cadical keeps a fifth
+  phase array seeding the next walk from the previous walk's result)
 
 ### Other phase-3 items
 

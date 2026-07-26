@@ -350,9 +350,12 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
     k.stats.walk_flips += w.flips;
     k.stats.walk_steps += w.steps;
     // TACTIX_WALK_DRY (DIAGNOSTIC ONLY, never a shipped config): run the walk
-    // but discard its assignment.  Separates the two things the B,W,I,B,W,O
-    // rotation changes at once — the phases the walk writes, versus no longer
-    // consuming `best` at those two slots (L8: ablate one thing at a time).
+    // but discard its assignment — the control that separates "the phases the
+    // walk writes" from "what else the slot changed" (L8: ablate one thing at
+    // a time).  It is what showed kissat's Walk-replaces-Best rotation to be
+    // 4-7x worse than the baseline with the walk's own output thrown away, so
+    // the regression was the lost Best consumption, not local search; see
+    // docs/design/s6-walk-design.md §6.  Kept as the durable control.
     static const bool dry = std::getenv("TACTIX_WALK_DRY") != nullptr;
     if (w.minimum < w.initial && !dry) {
       sync_best(w); // materialise the winning prefix into best_values

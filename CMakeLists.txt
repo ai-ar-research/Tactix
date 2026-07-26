@@ -48,6 +48,7 @@ add_library(tactix_lib OBJECT
   src/policies/congruence_stress_policy.cpp
   src/policies/factor_stress_policy.cpp
   src/policies/probing_stress_policy.cpp
+  src/policies/walk_stress_policy.cpp
   src/frontend/parse.cpp
   src/api/api.cpp
 )
