@@ -77,6 +77,117 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
   // dual: for OR, `¬out` is the base literal and the same scan on the negated
   // clause finds them, so trying every literal of every clause as the output
   // covers both.)
+  const auto emit = [&](const Clause *c, Lit outp) {
+    const Lit nout = negate(outp);
+    CongGate g;
+    g.output = outp;
+    g.base_id = c->id();
+    for (const Lit l : *c)
+      if (l != outp) {
+        const Lit inp = negate(l);
+        g.inputs.push_back(inp);
+        if (lrat)
+          g.input_bin_ids.push_back(kernel_binary_id(k, nout, inp));
+      }
+    // canonicalize inputs (the structural key) — keep bin_ids parallel
+    if (lrat) {
+      std::vector<std::pair<Lit, uint64_t>> pairs(g.inputs.size());
+      for (size_t i = 0; i < g.inputs.size(); i++)
+        pairs[i] = {g.inputs[i], g.input_bin_ids[i]};
+      std::sort(pairs.begin(), pairs.end());
+      for (size_t i = 0; i < pairs.size(); i++) {
+        g.inputs[i] = pairs[i].first;
+        g.input_bin_ids[i] = pairs[i].second;
+      }
+    } else {
+      std::sort(g.inputs.begin(), g.inputs.end());
+    }
+    out.push_back(std::move(g));
+  };
+  // "candidate (c, i) is tried" ≡ lits[0..i] all unassigned: the clause-major
+  // path below BREAKS its candidate scan at the first assigned literal, and
+  // the literal-major path must reproduce that exactly.
+  if (k.dense) {
+    // Literal-major over the phase occ index: mark ¬out's binary partners
+    // ONCE per output literal instead of once per clause-occurrence — the
+    // clause-major scans were ~51 % of hwmcc's cycles (probe 1562920,
+    // 2026-07-25; kissat's whole congruence pass costs less than our
+    // extraction did). The tag sort below restores the EXACT clause-major
+    // emission sequence, so the closure's merge order — and the search
+    // trajectory — cannot fork between the two paths (the battleship
+    // lesson: anything feeding merge order feeds the trajectory).
+    struct Tag {
+      Ref ref;
+      uint32_t idx;  // outp's index within the clause
+      uint32_t gate; // index into `out` where the gate was appended
+    };
+    std::vector<Tag> tags;
+    const size_t base = out.size();
+    const Lit nlits = 2 * k.nvars;
+    for (Lit outp = 0; outp < nlits; outp++) {
+      const std::vector<Ref> &occ = k.dense->large[outp];
+      if (occ.empty())
+        continue;
+      const Lit nout = negate(outp);
+      bool marked = false;
+      for (const Ref ref : occ) {
+        const Clause *c = clause_at(k.arena, ref);
+        if (c->garbage() || c->redundant() || c->size < 3 ||
+            c->size > CONG_ARITY_LIMIT + 1)
+          continue;
+        // locate outp, verifying the unassigned prefix up to it
+        uint32_t idx = UINT32_MAX;
+        for (uint32_t j = 0; j < c->size; j++) {
+          if (k.value(c->lits[j]) != 0)
+            break; // clause-major would have stopped here
+          if (c->lits[j] == outp) {
+            idx = j;
+            break;
+          }
+        }
+        if (idx == UINT32_MAX)
+          continue; // assigned prefix, or a stale occ entry
+        if (!marked) {
+          mark_bin_partners<1>(k, nout, mark);
+          marked = true;
+        }
+        bool all = true;
+        for (const Lit l : *c) {
+          if (l == outp)
+            continue;
+          if (!mark[negate(l)]) { // need binary (¬out ∨ ¬l)
+            all = false;
+            break;
+          }
+        }
+        if (!all)
+          continue;
+        tags.push_back({ref, idx, static_cast<uint32_t>(out.size())});
+        emit(c, outp);
+      }
+      if (marked)
+        mark_bin_partners<0>(k, nout, mark); // unmark once per literal
+    }
+    // restore clause-major order: (arena ref, candidate index within clause)
+    std::sort(tags.begin(), tags.end(), [](const Tag &a, const Tag &b) {
+      return a.ref != b.ref ? a.ref < b.ref : a.idx < b.idx;
+    });
+    std::vector<CongGate> ordered;
+    ordered.reserve(tags.size());
+    // replicate the clause-major CONG_GATE_LIMIT semantics: the cap is
+    // checked before each new CLAUSE, never mid-clause
+    for (size_t i = 0; i < tags.size();) {
+      if (base + ordered.size() >= CONG_GATE_LIMIT)
+        break;
+      const Ref r = tags[i].ref;
+      for (; i < tags.size() && tags[i].ref == r; i++)
+        ordered.push_back(std::move(out[tags[i].gate]));
+    }
+    out.resize(base);
+    for (CongGate &g : ordered)
+      out.push_back(std::move(g));
+    return;
+  }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
@@ -103,30 +214,7 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
       mark_bin_partners<0>(k, nout, mark); // unmark
       if (!all)
         continue;
-      CongGate g;
-      g.output = outp;
-      g.base_id = c->id();
-      for (const Lit l : *c)
-        if (l != outp) {
-          const Lit inp = negate(l);
-          g.inputs.push_back(inp);
-          if (lrat)
-            g.input_bin_ids.push_back(kernel_binary_id(k, nout, inp));
-        }
-      // canonicalize inputs (the structural key) — keep bin_ids parallel
-      if (lrat) {
-        std::vector<std::pair<Lit, uint64_t>> pairs(g.inputs.size());
-        for (size_t i = 0; i < g.inputs.size(); i++)
-          pairs[i] = {g.inputs[i], g.input_bin_ids[i]};
-        std::sort(pairs.begin(), pairs.end());
-        for (size_t i = 0; i < pairs.size(); i++) {
-          g.inputs[i] = pairs[i].first;
-          g.input_bin_ids[i] = pairs[i].second;
-        }
-      } else {
-        std::sort(g.inputs.begin(), g.inputs.end());
-      }
-      out.push_back(std::move(g));
+      emit(c, outp);
     }
   }
 }
