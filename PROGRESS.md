@@ -293,7 +293,9 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   table, effort-ledger budget in `walk_steps`, writes the best assignment into
   `h->saved` on improvement. `tests/test_walk.cpp` (7 cases). Fuzz: quick DRAT
   10k/0, native LRAT 10k/0, **random-policy 10k/0** (Walk reachable at
-  arbitrary schedule points)
+  arbitrary schedule points). Re-run on the SHIPPED build after the dosing
+  experiments: DRAT 10k/0, native LRAT 10k/0, `--walk-stress-policy` 10k/0
+  (jobs 1563687–89; the two debug legs under ASan+UBSan)
 - [x] **W2** schedule — **Walk AUGMENTS Best, it does not replace it.** Porting
   kissat's `B,W,I,B,W,O` literally REGRESSED Tier B (13.63 vs 10.04). The
   dry-walk control (`TACTIX_WALK_DRY`: walk runs, result discarded) located the
