@@ -123,6 +123,36 @@ rotation and the interval, while `stats.rephased` keeps counting ops.
 
 Trigger and interval are otherwise unchanged (stable-only, `rephaseint·n·log³n`).
 
+### Measured-dead dosing knobs (banked, do not retry blind)
+
+`mp1-Nb5T15` is the counter-example that defines the open dosing problem: 3.66 s
+without Walk, **timeout with it**, and it alone cancels SCPC's gain on Tier C.
+Two fixes were tried and measured:
+
+1. **Budget anchored on the last inprocessing phase** instead of the last walk
+   — the faithful reading of kissat, whose `SET_EFFORT_LIMIT` reads
+   `last.ticks.eliminate`. It does halve total walk work (mp1-Nb5T15: 450 M →
+   223 M steps) and is free on the winners (battleship 0.18 s, crypto1 1.12 s
+   unchanged), but it does **not** rescue mp1-Nb5T15 — so the pathology is the
+   phases, not the effort — and a clean same-window **3-arm** Tier B measured it
+   WORSE overall: PAR-2 9.69 (inprocess anchor) vs **8.97** (last-walk anchor)
+   vs 9.88 (pre-Walk), the whole difference being rbsat (19.91 s vs 12.06 s).
+   **REVERTED**; the anchor stays on the last walk. A reminder that faithfulness
+   to a reference is evidence, not an argument (§5).
+2. **Accept a walk only if it beats every previous walk** (`minimum <` the
+   running watermark; reject = re-apply Best, which is free because `best` is
+   still intact). Rationale was sound — every walk "improves" on its own seed by
+   construction, and on mp1-Nb5T15 the minimum merely oscillated (61, 73, 38,
+   30, 20, 25, 46, …) while the search was re-targeted at each one. **MEASURED
+   NEGATIVE and reverted:** crypto1 1.14 s → 16.45 s, Ptn-7824 3.80 s → 162.5 s
+   (worse than *both* the Walk and the pre-Walk arms), and mp1-Nb5T15 still
+   timed out. Rejecting a walk is evidently not free in trajectory terms even
+   when it restores the same phases.
+
+So "when to walk" joins "when to eliminate" as a measured, context-dependent
+lever with no hand-written threshold that works — i.e. a §5.6 phase-6 arm
+(rev 68's elimination-dosing exhibit, now with a second mechanism family).
+
 ### Warmup: measured, NOT adopted
 
 Both references run a warmup (decide + propagate-beyond-conflicts) before every

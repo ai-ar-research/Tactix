@@ -39,7 +39,8 @@ disagree, the plan is authoritative — fix this file.
      `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`): kissat's own
      Tier B PAR-2 8.62 → **29.22** with `--walkeffort=0`, and a monotone
      cadical dose–response on SCPC (walkeffort 800/80/8/0 → 3.0 s / 24.7 s /
-     452.7 s / TO). Increments W1–W4 in the Track W section.
+     452.7 s / TO). W1–W4a LANDED (Tier B −9.2 %, SCPC solved, Tier C flat);
+     **W4b (the dose) is the open item** — see Track W.
   2. **TB4b** — the only open Track T item: the six chrono divergences
      from the TB4 audit (watch repair onto highest-level literals,
      one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
@@ -306,6 +307,16 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   mod4block 1.32 M → 2.07 M conflicts): our saved phases come from a real trail
   and are already propagation-consistent, which is exactly what kissat's warmup
   buys it. Removed rather than kept dead (§5.5)
+- [x] **W4** gates + two measured-dead dosing knobs. Same-window Tier B (3 arms,
+  windows `20260726-0144*`): **8.97** vs 9.88 pre-Walk (−9.2 %), 14/14, proofs
+  verified. Same-window Tier C (`20260726-0042*`): **386.54 vs 387.83 — FLAT**,
+  28/30 both. Tier C is flat because Walk both wins and loses big: SCPC
+  1200 s TO → **259.9 s**, Ptn-7824 14.8×, jgiraldezlevy 11.8×, frb45 10.5×,
+  DLTM 2.8× — against **mp1-Nb5T15 3.66 s → TIMEOUT**, which alone costs the
+  ~80 PAR-2 that SCPC gains. Banked negatives (do not retry blind): (a) budget
+  anchored on the last inprocessing phase (kissat's own reading) — 9.69 vs 8.97,
+  all of it rbsat; (b) accept-a-walk-only-if-it-beats-all-previous — crypto1
+  1.14 → 16.45 s, Ptn 3.80 → 162.5 s, worse than BOTH arms
 - [x] **W4a** `--walk-stress-policy` (stress-policy skill): Walk at random
   decision levels, deliberately off propagation fixpoints, tiny→huge budgets,
   mode flips mid-solve — the schedules DefaultPolicy never takes (it only ever
@@ -392,9 +403,13 @@ Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
   proved the cause was the lost Best consumption, not the phases — 4–7× worse
   with the walk's own output thrown away. Root cause: kissat saves phases at
   ASSIGN time, we save at unassign. Shipped `B,B+W,I,B,B+W,O` (Walk augments
-  Best, seeded from it): **Tier B 8.94 vs 9.84** same-window (battleship 7.3×,
-  crypto1 14.7×, mod4block 1.9×; rbsat 0.42× and FmlaEquivChain 0.72× are the
-  dosing residual → §5.6 arm). **SCPC-1000-18: 1200 s TO → 976 s solve.**
+  Best, seeded from it): same-window Tier B **8.97 vs 9.88** (3 arms;
+  battleship 7.3×, crypto1 14.5×, mod4block 1.9×), **SCPC-1000-18 1200 s TO →
+  259.9 s**. Tier C is **FLAT (386.54 vs 387.83)**: the SCPC gain is cancelled
+  exactly by mp1-Nb5T15 going 3.66 s → TIMEOUT. Two dosing knobs measured dead
+  (kissat's own effort anchor; accept-only-if-better) — "when to walk" joins
+  "when to eliminate" as a §5.6 phase-6 arm, now a second mechanism family in
+  the rev-68 exhibit.
 - Warmup (both references run it) measured and NOT adopted — our saved phases
   are already propagation-consistent by construction. Fuzz green ×3 legs
   (DRAT / native LRAT / random-policy, 10k/0 each).

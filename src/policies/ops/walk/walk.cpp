@@ -18,6 +18,7 @@
 #include "policies/heuristics.hpp"
 
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -349,6 +350,15 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
     local_search(w, steps ? steps : WALK_DEFAULT_STEPS);
     k.stats.walk_flips += w.flips;
     k.stats.walk_steps += w.steps;
+    k.stats.walk_minimum = w.minimum;
+    if (std::getenv("TACTIX_WALK_TRACE"))
+      fprintf(stderr,
+              "c walk#%llu clauses=%u initial=%u minimum=%u flips=%llu "
+              "steps=%llu budget=%llu conflicts=%llu\n",
+              (unsigned long long)k.stats.walks, w.nclauses, w.initial,
+              w.minimum, (unsigned long long)w.flips,
+              (unsigned long long)w.steps, (unsigned long long)steps,
+              (unsigned long long)k.stats.conflicts);
     // TACTIX_WALK_DRY (DIAGNOSTIC ONLY, never a shipped config): run the walk
     // but discard its assignment — the control that separates "the phases the
     // walk writes" from "what else the slot changed" (L8: ablate one thing at

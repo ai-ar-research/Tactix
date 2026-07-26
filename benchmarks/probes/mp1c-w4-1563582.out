@@ -1,0 +1,45 @@
+c walk#1 clauses=25201 initial=141 minimum=61 flips=12461 steps=500008 budget=500000 conflicts=2002
+c walk#2 clauses=25201 initial=147 minimum=73 flips=21153 steps=906564 budget=906550 conflicts=24432
+c walk#3 clauses=25201 initial=67 minimum=38 flips=35641 steps=1424666 budget=1424650 conflicts=63039
+c walk#4 clauses=25201 initial=55 minimum=30 flips=117267 steps=4412014 budget=4412000 conflicts=163910
+c walk#5 clauses=25202 initial=62 minimum=20 flips=139832 steps=5357673 budget=5357650 conflicts=278356
+c walk#6 clauses=25204 initial=65 minimum=25 flips=223584 steps=8044335 budget=8044300 conflicts=430618
+c walk#7 clauses=25204 initial=112 minimum=46 flips=355533 steps=12827858 budget=12827850 conflicts=638005
+c walk#8 clauses=25204 initial=145 minimum=52 flips=489300 steps=18280850 budget=18280850 conflicts=900136
+c walk#9 clauses=25205 initial=70 minimum=25 flips=679761 steps=24010657 budget=24010650 conflicts=1220854
+c walk#10 clauses=25205 initial=86 minimum=35 flips=978593 steps=34679156 budget=34679100 conflicts=1622450
+c walk#11 clauses=25205 initial=108 minimum=35 flips=929825 steps=33946765 budget=33946750 conflicts=1997979
+c walk#12 clauses=25205 initial=93 minimum=25 flips=1316018 steps=45608028 budget=45608000 conflicts=2421554
+c walk#13 clauses=25205 initial=132 minimum=47 flips=1907653 steps=68805704 budget=68805700 conflicts=3023726
+c walk#14 clauses=25205 initial=63 minimum=25 flips=2540707 steps=86139151 budget=86139150 conflicts=3703493
+c walk#15 clauses=25205 initial=76 minimum=24 flips=3144592 steps=106423753 budget=106423750 conflicts=4503729
+c walk#16 clauses=25205 initial=74 minimum=25 flips=3800591 steps=132428111 budget=132428100 conflicts=5401898
+c tactix 0.1.0
+c decisions   28990523 (0 via API)
+c conflicts   5570022
+c propagations 1697109261 (1693728416 search, 3380845 inprocess)
+c learned     5570022 (0 units)
+c minimized   60119470 lits
+c shrunken    43000889 lits
+c otfs        16820 strengthened (81 conflicts subsumed)
+c strengthen  23 rounds, 0 strengthened, 0 subsumed, 0 flushed
+c vivify      27 rounds, 255 vivified, 0 deleted
+c probe       0 rounds, 44115 probed, 0 failed
+c backbone    0 rounds, 76860 probed, 0 failed
+c transitive  0 rounds, 232798 checked, 0 deleted, 0 failed, 8909419 ticks
+c substitute  1 rounds
+c chrono      167 chronological, 0 stale backjumps
+c inprocess   21 phases
+c congruence  1 rounds, 0 units, 0 unjustified
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    185769 (14103 reused a trail prefix)
+c reductions  186 (5364650 clauses deleted, 1331061 promoted)
+c mode        stable after 63 switches (13196129105 ticks, 1030 target phases saved)
+c rephased    63 (756 best phases saved)
+c lucky       6 probes
+c walk        16 walks (16 improved, 16692511 flips, 583795293 steps)
+c subsume     23 rounds (346725 checked, 0 subsumed)
+s UNKNOWN
+Command exited with non-zero status 124
+WALL 300.00

@@ -531,7 +531,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         rephase_apply_type(k, REPHASE_BEST); // the slot keeps its Best
         // effort budget in Walk's own currency, denominated in SEARCH work
         // the way every other budget is (kissat SET_EFFORT_LIMIT(walk),
-        // walkeffort = 50 per mille, floored at mineffort)
+        // walkeffort = 50 per mille, floored at mineffort). The reference is
+        // the search work since the LAST WALK. kissat anchors this on its
+        // last elimination instead (SET_EFFORT_LIMIT reads
+        // last.ticks.eliminate); porting that faithfully was measured WORSE
+        // for us — same-window 3-arm Tier B, PAR-2 9.69 vs 8.97, all of it
+        // rbsat (19.91 s vs 12.06 s) — so the anchor stays on the last walk
+        // (windows `20260726-0144*`).
         uint64_t reference = search_ticks(k) - walk_anchor;
         if (reference < MIN_EFFORT_TICKS)
           reference = MIN_EFFORT_TICKS;

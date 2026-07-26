@@ -56,6 +56,10 @@ struct Stats {
   uint64_t walk_flips = 0;
   uint64_t walk_steps = 0;
   uint64_t walk_improved = 0; // walks that lowered the unsatisfied count
+  // unsatisfied-clause count the last walk reached (UINT64_MAX = never walked).
+  // Read by the policy to decide whether to KEEP a walk's phases (rev 17: the
+  // op owns the mechanism, the policy owns the accept/reject decision).
+  uint64_t walk_minimum = UINT64_MAX;
   uint64_t promoted = 0;     // glue promotions on use (kissat deduce.c)
   uint64_t learned = 0;
   uint64_t learned_units = 0;
