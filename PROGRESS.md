@@ -312,8 +312,11 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   walks at a quiescent stable root). Per-step `kernel_check_invariants`
 - [ ] **W4b** the dose (`WALK_PERMILLE`) as a §5.6 arm — rbsat 0.42× and
   FmlaEquivChain 0.72× say "when to walk" is a dosing question like elimination
-  (rev 68). Also unqueued: `phases.prev` walk continuity (cadical keeps a fifth
-  phase array seeding the next walk from the previous walk's result)
+  (rev 68). Two unqueued candidates with a stated rationale: (a) **walk in
+  focused mode too** — rephase (hence walk) is stable-only for us and for
+  kissat, but cadical rephases in BOTH modes and is 6.6× faster than kissat on
+  SCPC; (b) `phases.prev` walk continuity (cadical keeps a fifth phase array so
+  each walk resumes from the previous walk's result)
 
 ### Other phase-3 items
 
@@ -378,7 +381,9 @@ Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
   cadical's `walkeffort` gives a monotone dose–response (800/80/8/0 → 3.0 s /
   24.7 s / 452.7 s / TO); kissat's `--walkeffort=0` likewise times out. Step 4:
   our search matches BOTH walk-less baselines conflict-for-conflict (30.7 M vs
-  cadical 29.7 M vs kissat 37.5 M, all TO) — the whole gap was the rule.
+  cadical 29.7 M vs kissat 37.5 M, all TO) — the whole gap was the rule. Not a
+  "3× too slow" instance either: at a 3600 s budget the pre-Walk build burned
+  109.6 M conflicts / 24.0 G props and still returned UNKNOWN (probe 1563267).
 - **Generalization:** kissat with walk neutralized loses Tier B PAR-2 8.62 →
   29.22 and Tier C 221.19 → 282.48. Our shipped 9.93 already beat walk-less
   kissat by 3×.

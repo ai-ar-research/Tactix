@@ -19,6 +19,11 @@ In the clean T3 window (`20260725-193123-C-t3clean`) this is one of two unsolved
 Tier C instances, and the other (`128_125`) defeats all three solvers — so it is
 **the only actionable Tier C timeout**, worth 80 PAR-2 by itself.
 
+It is not a "3× too slow" instance. Given a 3600 s budget (probe 1563267,
+3× the tier cap) the pre-Walk solver burned **109,626,468 conflicts /
+24.0 G propagations / 1,258,332 restarts and still returned UNKNOWN** — 156×
+cadical's conflict count without reaching an answer.
+
 ## 1. The instance: an independent-set/covering formula (a WalkSAT landscape)
 
 Measured by scanning the CNF (no solver run):
