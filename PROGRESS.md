@@ -7,7 +7,7 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 70 (2026-07-25)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-25 late session (TB5 closed-reframed; TB2 closed; CLEAN T3 window: C 398.74 vs CaDiCaL 304.21 = ratio 1.31×)
+- **Last updated:** 2026-07-25 night (TB5 reframed + TB2 closed; clean T3 = 1.31×; congruence-extraction engineering → B 9.93 first sub-10, A 0.71)
 - **▶ RESUME HERE (2026-07-25).** Phase 3, **T3 gate open**. Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
@@ -27,11 +27,12 @@ disagree, the plan is authoritative — fix this file.
   `--baseline`; B `20260725-1241*`):
   | | tactix | kissat 4.0.4 | CaDiCaL |
   |---|---|---|---|
-  | Tier A | 0.82 (199/200, s055 = TB5 reframe) | — | — |
-  | Tier B | **10.56** (14/14) | 8.26 (14/14, morning window) | 19.06 (14/14, morning window) |
+  | Tier A | 0.71 (199/200, s055 = TB5 reframe; window `210305`) | — | — |
+  | Tier B | **9.93** (14/14, window `210304` — first sub-10; congruence-extraction engineering, hwmcc 11.4 → 6.6) | 8.26 (14/14, morning window) | 19.06 (14/14, morning window) |
   | Tier C | **398.74** (28/30, 15/15 proofs) | 223.01 (29/30) | 304.21 (29/30) |
 
-  **T3 clean ratio = 1.31×** vs CaDiCaL (1.79× vs kissat). mp1 5.5 s
+  **T3 clean ratio = 1.31×** vs CaDiCaL (1.79× vs kissat); **B ratio
+  1.20× vs kissat**. mp1 5.5 s
   BEATS kissat 9.1 (proof VERIFIED). (The legacy composition + all
   measured-negative A/B arms were removed 2026-07-25 per user directive;
   negatives live in the ledger/reports/git history.)
