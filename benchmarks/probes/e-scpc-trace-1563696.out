@@ -1,0 +1,19 @@
+c walk#1 clauses=33023 initial=241 minimum=45 flips=1253 steps=501048 budget=500000 conflicts=2003
+c walk#2 clauses=33023 initial=107 minimum=44 flips=985 steps=500545 budget=500000 conflicts=20523
+c walk#3 clauses=33023 initial=104 minimum=15 flips=3910 steps=1601573 budget=1600250 conflicts=80571
+c walk#4 clauses=33023 initial=88 minimum=15 flips=3518 steps=1829339 budget=1827800 conflicts=152179
+c walk#5 clauses=33023 initial=118 minimum=7 flips=9083 steps=4381269 budget=4381250 conflicts=316494
+c walk#6 clauses=33023 initial=94 minimum=9 flips=12209 steps=6356818 budget=6356750 conflicts=548953
+c walk#7 clauses=33023 initial=83 minimum=7 flips=17446 steps=8926707 budget=8926100 conflicts=883965
+c walk#8 clauses=33023 initial=103 minimum=4 flips=27367 steps=12118787 budget=12117100 conflicts=1311470
+c walk#9 clauses=33023 initial=55 minimum=5 flips=34085 steps=15729262 budget=15727500 conflicts=1872601
+c walk#10 clauses=33023 initial=91 minimum=5 flips=41183 steps=19872727 budget=19871850 conflicts=2549474
+c walk#11 clauses=33023 initial=36 minimum=5 flips=47809 steps=25170427 budget=25168450 conflicts=3343574
+c walk#12 clauses=33023 initial=39 minimum=5 flips=58426 steps=30616262 budget=30615250 conflicts=4296829
+c walk#13 clauses=33023 initial=34 minimum=3 flips=81932 steps=36563022 budget=36562400 conflicts=5424738
+c walk#14 clauses=33023 initial=46 minimum=2 flips=91070 steps=43408712 budget=43407800 conflicts=6729526
+c walk#15 clauses=33023 initial=48 minimum=2 flips=117629 steps=50660027 budget=50658550 conflicts=8211478
+c conflicts   8286793
+c walk        15 walks (15 improved, 547905 flips, 258236525 steps)
+s SATISFIABLE
+WALL 248.00

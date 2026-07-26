@@ -323,13 +323,23 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   decision levels, deliberately off propagation fixpoints, tiny→huge budgets,
   mode flips mid-solve — the schedules DefaultPolicy never takes (it only ever
   walks at a quiescent stable root). Per-step `kernel_check_invariants`
-- [ ] **W4b** the dose (`WALK_PERMILLE`) as a §5.6 arm — rbsat 0.42× and
-  FmlaEquivChain 0.72× say "when to walk" is a dosing question like elimination
-  (rev 68). Two unqueued candidates with a stated rationale: (a) **walk in
-  focused mode too** — rephase (hence walk) is stable-only for us and for
-  kissat, but cadical rephases in BOTH modes and is 6.6× faster than kissat on
-  SCPC; (b) `phases.prev` walk continuity (cadical keeps a fifth phase array so
-  each walk resumes from the previous walk's result)
+- [x] **W4b DIAGNOSED** 2026-07-26 (probes 1563690–98; design §6 table). The
+  mp1-Nb5T15 poisoning travels through the **target** channel, not the dose:
+  a 50× smaller dose changes nothing, while suppressing the target copy turns
+  its TIMEOUT into a 240 s solve. Framing facts: pre-Walk solves it in 130,941
+  conflicts while walks fire at 2,003 / 24,432 / 63,039, and **kissat has the
+  same problem there** (72.5 s with walk vs 54.0 s without) on an instance our
+  search does in 3.45 s. Three arms now exist behind knobs, each a big win on
+  one class and a 3–20× loss on the other — no setting is right for both:
+  `TACTIX_WALK_NO_TARGET` (mp1 TO→240 s; SCPC 248→788 s),
+  `TACTIX_WALK_MAX_STEPS` (mp1 no change; SCPC 248→423 s),
+  `TACTIX_WALK_WARMUP` (**SCPC 248→102 s, beating kissat's 166 s**; Tier B
+  8.99→12.30, crypto1 1.16→24.13 s). Closed as a non-issue: learned binaries in
+  the walk objective (the table is constant across a solve on both instances)
+- [ ] **W4c** hand the three arms + `stats.walk_minimum` (the reward signal) to
+  the §5.6 exhibit; still unqueued from the cadical side: **walk in focused
+  mode too** (cadical rephases in both modes and is 6.6× faster than kissat on
+  SCPC) and `phases.prev` walk continuity
 
 ### Other phase-3 items
 

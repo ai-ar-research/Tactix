@@ -182,6 +182,75 @@ void seed_values(Walker &w, const Kernel &k) {
   }
 }
 
+// WARMUP (kissat warmup.c + propbeyond.c; cadical warmup.cpp — on by default in
+// both): complete the seed into a propagation-
+// consistent assignment before walking — decide every variable in turn at its
+// decision phase and propagate the consequences, ignoring conflicts (kissat
+// ignoring conflicts. Run over the walker's OWN structures, so no kernel
+// propagate-beyond-conflicts primitive is needed and nothing outside `H` moves.
+// An earlier measurement called this neutral-to-negative, but it was taken in
+// the walk-REPLACES-Best rotation and only on instances where walk is not
+// decisive; re-measured on SCPC-1000-18 in the shipped rotation it is worth
+// 2.4x (248 s -> 102 s, and the walker reaches minimum 1 instead of 2 in 11
+// walks instead of 15). Warms up in variable-index order: the references use
+// decision-heuristic order, which would mean popping the score heap / VMTF
+// queue — the very `H` state this op must leave alone.
+// NOT the default, and this is the point: the same knob is worth 2.4x on
+// SCPC-1000-18 and -37% on Tier B (PAR-2 12.30 vs 8.99, crypto1 1.16 s ->
+// 24.13 s, mod4block 6.98 -> 29.39, windows `20260726-0856*`). Opt-in via
+// TACTIX_WALK_WARMUP; a §5.6 dosing arm, not a constant anyone can set right.
+void warmup(Walker &w) {
+  const uint32_t nlits = w.nlits();
+  std::vector<int8_t> val(nlits, 0); // tri-state: 0 unassigned
+  std::vector<uint32_t> ntrue(w.nclauses, 0);
+  std::vector<uint32_t> nfree(w.nclauses);
+  for (uint32_t c = 0; c < w.nclauses; c++)
+    nfree[c] = w.cl_beg[c + 1] - w.cl_beg[c];
+  std::vector<Lit> queue;
+  const auto assign = [&](Lit lit) {
+    val[lit] = 1;
+    val[negate(lit)] = -1;
+    queue.push_back(lit);
+  };
+  const auto propagate = [&]() {
+    while (!queue.empty()) {
+      const Lit lit = queue.back();
+      queue.pop_back();
+      for (uint32_t i = w.occ_beg[lit]; i < w.occ_beg[lit + 1]; i++)
+        ntrue[w.occ[i]]++, nfree[w.occ[i]]--;
+      const Lit nl = negate(lit);
+      for (uint32_t i = w.occ_beg[nl]; i < w.occ_beg[nl + 1]; i++) {
+        const uint32_t c = w.occ[i];
+        if (--nfree[c] || ntrue[c])
+          continue; // still open, or already satisfied
+        // no free literal left => falsified; propagating BEYOND it is the point
+        for (uint32_t j = w.cl_beg[c]; j < w.cl_beg[c + 1]; j++)
+          if (!val[w.cl_lits[j]]) {
+            assign(w.cl_lits[j]);
+            break;
+          }
+      }
+      w.steps += (w.occ_beg[lit + 1] - w.occ_beg[lit]) +
+                 (w.occ_beg[nl + 1] - w.occ_beg[nl]) + 1;
+    }
+  };
+  for (Var v = 0; v < w.k->nvars; v++) {
+    const Lit pos_lit = make_lit(v, false);
+    if (val[pos_lit])
+      continue;
+    assign(w.values[pos_lit] > 0 ? pos_lit : negate(pos_lit));
+    propagate();
+  }
+  for (Var v = 0; v < w.k->nvars; v++) {
+    const Lit pos_lit = make_lit(v, false);
+    if (!val[pos_lit])
+      continue; // variable in no walkable clause: keep its decision phase
+    w.values[pos_lit] = val[pos_lit];
+    w.values[pos_lit ^ 1] = val[pos_lit ^ 1];
+    w.best_values[v] = val[pos_lit];
+  }
+}
+
 void init_counters(Walker &w) {
   w.count.assign(w.nclauses, 0);
   w.pos.assign(w.nclauses, 0);
@@ -346,8 +415,21 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
   bool improved = false;
   if (build_table(w, k)) {
     seed_values(w, k);
+    static const bool want_warmup = std::getenv("TACTIX_WALK_WARMUP") != nullptr;
+    if (want_warmup)
+      warmup(w);
     init_counters(w);
-    local_search(w, steps ? steps : WALK_DEFAULT_STEPS);
+    uint64_t limit = steps ? steps : WALK_DEFAULT_STEPS;
+    // TACTIX_WALK_MAX_STEPS (DIAGNOSTIC): hard-cap the per-walk dose, on top
+    // of the policy's budget — the dose-response axis for the mp1-Nb5T15
+    // poisoning (design §6, "measured-dead dosing knobs").
+    static const char *const cap_env = std::getenv("TACTIX_WALK_MAX_STEPS");
+    if (cap_env) {
+      const uint64_t cap = std::strtoull(cap_env, nullptr, 10);
+      if (cap && limit > cap)
+        limit = cap;
+    }
+    local_search(w, limit);
     k.stats.walk_flips += w.flips;
     k.stats.walk_steps += w.steps;
     k.stats.walk_minimum = w.minimum;
@@ -379,8 +461,14 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
   // the rephase tail every type runs (kissat reset_phases): the fresh saved
   // phases become the target ones.  `best` is NOT consumed here — kissat
   // resets its watermark only on type Best.
-  std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
-  k.h->target_assigned = 0;
+  // TACTIX_WALK_NO_TARGET (DIAGNOSTIC): skip the target copy, so the walk
+  // reaches only FOCUSED-mode decisions (stable decisions read target first).
+  // Discriminates which phase channel carries the damage.
+  static const bool no_target = std::getenv("TACTIX_WALK_NO_TARGET") != nullptr;
+  if (!no_target) {
+    std::copy(k.h->saved.begin(), k.h->saved.end(), k.h->target.begin());
+    k.h->target_assigned = 0;
+  }
   k.stats.rephased++;
   return improved ? ApplyResult::Ok : ApplyResult::NoOp;
 }

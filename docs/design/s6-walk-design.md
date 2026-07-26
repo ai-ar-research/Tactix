@@ -149,9 +149,49 @@ Two fixes were tried and measured:
    timed out. Rejecting a walk is evidently not free in trajectory terms even
    when it restores the same phases.
 
-So "when to walk" joins "when to eliminate" as a measured, context-dependent
-lever with no hand-written threshold that works — i.e. a §5.6 phase-6 arm
-(rev 68's elimination-dosing exhibit, now with a second mechanism family).
+### The dosing arms, measured on both sides (2026-07-26)
+
+`mp1-Nb5T15` was then diagnosed properly (probes 1563690–98). Two facts frame it:
+the pre-Walk solve takes 130,941 conflicts while walks fire at conflicts 2,003 /
+24,432 / 63,039 — the walk diverts the search long before it would have finished
+— and **kissat has the same problem there** (72.5 s with walk vs 54.0 s without,
+from the Tier C sweep) on an instance our search does in 3.45 s. It is not that
+our walk is broken; it is that our search is exceptional there and any phase
+perturbation costs more than local search can pay back.
+
+Three knobs, each measured on the instance it helps AND the instance it hurts:
+
+| knob | mp1-Nb5T15 (walk poisons) | SCPC-1000-18 (walk decisive) | Tier B |
+|---|---|---|---|
+| shipped | TIMEOUT | 248 s | 8.99 |
+| `TACTIX_WALK_NO_TARGET` (write `saved`, not `target`) | **TIMEOUT → 240 s** | 248 → **788 s** | — |
+| `TACTIX_WALK_MAX_STEPS=100000` (50× smaller dose) | TIMEOUT (no change) | 248 → 423 s | — |
+| `TACTIX_WALK_WARMUP` | TIMEOUT (no change) | 248 → **102 s** (beats kissat's 166 s) | **12.30** (crypto1 1.16 → 24.13 s) |
+
+Read together they are decisive about the *shape* of the problem:
+
+- The poisoning travels through the **target** channel, not the dose: cutting
+  the dose 50× changes nothing on mp1-Nb5T15, while suppressing the target copy
+  recovers the solve. Stable-mode decisions read `target` first, so a walk's
+  assignment becomes the search's plan wholesale.
+- **Every knob that fixes one instance breaks the other**, by 3–20×. There is
+  no setting of these three that is right for both, which is exactly the
+  hypothesis the phase-6 exhibit needs — not an argument for a better constant.
+- Warmup deserves special note: it is what closes the *remaining* gap to
+  cadical on the walk-decisive class (SCPC 248 → 102 s, walker reaching minimum
+  1 instead of 2 in 11 walks instead of 15), and it is a 37 % Tier B regression.
+  An earlier "warmup is neutral" note here was measured in the walk-replaces-Best
+  rotation on instances where walk is not decisive — a stale verdict, corrected.
+- Non-issue, checked and closed: the walk table stays constant across a solve
+  (SCPC 33,023 clauses over 15 walks; mp1-Nb5T15 25,201 → 25,205 over 16), so
+  including learned binaries — our one unmeasured divergence from kissat's
+  `walkredundant=false` — is empirically irrelevant on both.
+
+So "when to walk", "how hard", and "through which phase channel" join "when to
+eliminate" as measured, context-dependent levers with no hand-written setting
+that works — a second mechanism family for the §5.6 exhibit (rev 68), and one
+that arrives with its reward signal (`stats.walk_minimum`) and three
+ready-made arms already implemented behind knobs.
 
 ### Warmup: measured, NOT adopted
 
