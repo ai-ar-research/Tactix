@@ -138,16 +138,84 @@ static void test_xor_cancel_learns_unit() {
   assert(k.stats.congruence_units >= 1);
 }
 
-// The same collapse, but the formula also asserts `out` — so the derived unit
-// contradicts a root unit and the round must REFUTE rather than assign. Before
-// the unit channel, V6 could never return Unsat at all.
+// Two XOR relations with OPPOSITE parity constants collapse onto the same
+// output variable: {3,4,5} with R=0 cancels to ¬5 while {6,7,5} with R=1
+// cancels to 5. The two derived units are an opposite-sign pair in one round,
+// which PendingUnits resolves to the empty clause — the round must REFUTE
+// rather than assign. (An earlier form asserted `out` on the trail instead,
+// but a root-assigned output suppresses gate extraction entirely, so that
+// construction can no longer reach the unit channel.)
 static void test_xor_cancel_refutes() {
   Kernel k;
-  kernel_reserve_vars(k, 5);
+  kernel_reserve_vars(k, 7); // p=1 q=2 a=3 b=4 out=5 c=6 d=7
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2); // 3 ≡ 4
+  and_gate(k, 6, 1, 2);
+  and_gate(k, 7, 1, 2); // 6 ≡ 7 (and ≡ 3, transitively)
+  xor_gate(k, 5, 3, 4); // 3⊕4⊕5 = 0: cancels to the unit ¬5
+  // 6⊕7⊕5 = 1 (the even-negation clause set): the gate on {6,7} outputs ¬5,
+  // and once 6 ≡ 7 it cancels to the unit 5 — the opposing pair refutes.
+  add3(k, 6, 7, 5);
+  add3(k, -6, -7, 5);
+  add3(k, -6, 7, -5);
+  add3(k, 6, -7, -5);
+  assert(congruence_guard(k));
+  assert(congruence_apply(k) == ApplyResult::Unsat);
+  assert(k.inconsistent);
+}
+
+// --- the AND degeneracies + contradictory merge (C3b) -----------------------
+
+static void add4(Kernel &k, int a, int b, int c, int d) {
+  Lit lits[4] = {internalize(a), internalize(b), internalize(c),
+                 internalize(d)};
+  kernel_add_large_clause(k, lits, 4, /*redundant=*/false, /*glue=*/0);
+}
+
+// c = AND(a,¬b,r) where the closure first proves a ≡ b: the canonical inputs
+// clash (x with ¬x), the gate's value is constant 0, and ¬c is a root unit.
+static void test_and_clash_learns_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 6); // p=1 q=2 a=3 b=4 r=5 c=6
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
-  xor_gate(k, 5, 3, 4);
-  kernel_assign_unit(k, internalize(5)); // assert out — now UNSAT
+  // c = AND(a, ¬b, r): binaries (¬c∨a),(¬c∨¬b),(¬c∨r) + base (c∨¬a∨b∨¬r)
+  kernel_add_binary_clause(k, internalize(-6), internalize(3));
+  kernel_add_binary_clause(k, internalize(-6), internalize(-4));
+  kernel_add_binary_clause(k, internalize(-6), internalize(5));
+  add4(k, 6, -3, 4, -5);
+  assert(congruence_guard(k));
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(equivalence_added(k, 3, 4));  // the enabling merge
+  assert(k.value(internalize(6)) < 0); // ¬c asserted at the root
+  assert(k.stats.congruence_units >= 1);
+}
+
+// c = AND(a,b) where a ≡ b: the key deduplicates to the unary gate AND(x),
+// so c merges with the representative — no second gate needed.
+static void test_and_idempotent_unary_merge() {
+  Kernel k;
+  kernel_reserve_vars(k, 5); // p=1 q=2 a=3 b=4 c=5
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  and_gate(k, 5, 3, 4); // collapses to AND(rep) once 3 ≡ 4
+  assert(congruence_guard(k));
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(equivalence_added(k, 3, 4)); // the enabling merge
+  assert(equivalence_added(k, 5, 3)); // the unary merge c ≡ a
+}
+
+// a = AND(p,q) and ¬b = AND(p,q) while a ≡ b: the closure derives b ≡ ¬b's
+// class — a contradictory merge, and the formula is UNSAT (C3b refutation).
+static void test_contradictory_merge_refutes() {
+  Kernel k;
+  kernel_reserve_vars(k, 4); // p=1 q=2 a=3 b=4
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  // ¬b = AND(p,q): binaries (b∨p),(b∨q) + base (¬b∨¬p∨¬q)
+  kernel_add_binary_clause(k, internalize(4), internalize(1));
+  kernel_add_binary_clause(k, internalize(4), internalize(2));
+  add3(k, -4, -1, -2);
   assert(congruence_guard(k));
   assert(congruence_apply(k) == ApplyResult::Unsat);
   assert(k.inconsistent);
@@ -234,6 +302,11 @@ int main() {
   test_ite_congruent();
   test_no_congruence();
   test_kind_isolation();
+  test_xor_cancel_learns_unit();
+  test_xor_cancel_refutes();
+  test_and_clash_learns_unit();
+  test_and_idempotent_unary_merge();
+  test_contradictory_merge_refutes();
   test_xor_output_sign_even_arity();
   test_xor_output_sign_odd_relation();
   test_xor_output_sign_odd_arity();

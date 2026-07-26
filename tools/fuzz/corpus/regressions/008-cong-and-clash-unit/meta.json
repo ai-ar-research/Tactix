@@ -1,0 +1,7 @@
+{
+  "slug": "008-cong-and-clash-unit",
+  "found": "2026-07-25 C3b implementation - hand-written micro-formula promoted for permanent proof-checked coverage (not a fuzz failure)",
+  "failure_kind": ["coverage"],
+  "diagnosis": "V6 AND clashing-input degeneracy (C3b): 3=AND(1,2) and 4=AND(1,2) merge, so 6=AND(3,-4,5) canonicalizes to inputs {x,-x,...} and its value is constant 0 - the root unit -6. The clauses (6 1),(6 -1) force 6, so the formula is UNSAT and the degeneracy's proof line participates in every checked refutation.",
+  "note": "Covers Canon::Unit for AND (cancelled empty, top==0 ladder = direct replay under LRAT, bare RUP add under DRAT)."
+}

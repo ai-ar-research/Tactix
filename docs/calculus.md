@@ -322,12 +322,17 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
 
   A round with no new merge is `NoOp`; a merge of `x` with `¬x` sets
   `inconsistent` → `Unsat`.
-  *(Implemented: the XOR unit + unary-merge cases. Still deferred — the AND
-  degeneracies, the ITE collapses, and the contradictory merge; ledger row
-  **D-CONG-UNIT**. Note the ITE `then ≡ ¬else` collapse is measurably redundant
-  in practice: the same four clauses are already extracted as that very XOR, so
-  the implementation drops those candidates at extraction rather than collapsing
-  them.)*
+  *(Implemented: the XOR unit + unary-merge cases (C3, 2026-07-21) and the AND
+  degeneracies + the contradictory merge (C3b, 2026-07-25) — AND conclusions
+  are directly RUP over the live DB, so the degeneracy ladder's `top==0` form
+  covers them; the contradictory merge justifies the equivalence binaries as
+  usual, then resolves the two opposing units to ∅. Still deferred, sound:
+  the ITE collapses (`Canon::Skip`), and the literal-form `x ≡ ¬x` for
+  XOR/ITE, whose "binaries" degenerate to units (AND refutes it directly).
+  Ledger row **D-CONG-UNIT** (closed; residuals listed there). Note the ITE
+  `then ≡ ¬else` collapse is measurably redundant in practice: the same four
+  clauses are already extracted as that very XOR, so the implementation drops
+  those candidates at extraction rather than collapsing them.)*
 - **Proof δ:** add-RUP. AND — each equivalence binary is RUP from the two gates’
   clauses (bridged by the equivalence binaries added earlier in the closure).
   XOR — a parity-elimination **ladder**: eliminate one rhs variable per level, at

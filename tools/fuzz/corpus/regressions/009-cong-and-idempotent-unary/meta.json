@@ -1,0 +1,7 @@
+{
+  "slug": "009-cong-and-idempotent-unary",
+  "found": "2026-07-25 C3b implementation - hand-written micro-formula promoted for permanent proof-checked coverage (not a fuzz failure)",
+  "failure_kind": ["coverage"],
+  "diagnosis": "V6 AND idempotent-duplicate degeneracy (C3b): 3=AND(1,2) and 4=AND(1,2) merge, so 5=AND(3,4) deduplicates to the unary gate AND(rep) and merges 5 with the representative. The clauses (5 3),(-5 -3) assert 5 = NOT 3, so the merge refutes the formula downstream - UNSAT, proof checked.",
+  "note": "Covers Canon::Merge for AND (key deduplication to size 1; equivalence binaries via the top==0 ladder)."
+}

@@ -1,0 +1,7 @@
+{
+  "slug": "010-cong-contradictory-merge",
+  "found": "2026-07-25 C3b implementation - hand-written micro-formula promoted for permanent proof-checked coverage (not a fuzz failure)",
+  "failure_kind": ["coverage"],
+  "diagnosis": "V6 contradictory merge (C3b): 3=AND(1,2), 4=AND(1,2), and NOT-4=AND(1,2) all extract; after 3=4 merges, the third gate matches the stored key with find(out_i) == negate(find(out_j)) - x = -x. The closure justifies the equivalence binaries as usual, then derives the two opposing units by replay and resolves them to the empty clause (PendingUnits Refuted): Unsat inside congruence, zero conflicts.",
+  "note": "Covers the generic (distinct-variable) x = -x refutation at the match site. The unit-test twin covers the same shape; the literal-form corner (same variable) is AND-handled / XOR-dropped, see congruence.cpp."
+}

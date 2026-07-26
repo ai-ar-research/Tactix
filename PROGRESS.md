@@ -132,8 +132,8 @@ disagree, the plan is authoritative — fix this file.
     dosed-BVE delay) + the build-race probe hazard (build → verify → submit).
 
 - **Open items (small, none blocking).** **C4-perf** (LRAT replay ~250× on
-  gate-heavy miters; fix = structural chains via `CongGate::side_ids`) and
-  **C3b** (remaining degeneracies) — see Track C. **Task #39** —
+  gate-heavy miters; fix = structural chains via `CongGate::side_ids`) — see
+  Track C (C3b closed 2026-07-25 late). **Task #39** —
   `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/`
   (N1 robustness, not soundness). demo3 is a SEARCH-only mirror by permanent
   design (stat contract = §8.4 within-noise; the deferred full-slot-mirror
@@ -201,7 +201,7 @@ composition was removed with the negative arms — git history has it).
 
 - [x] **C0** XOR output-sign fix (`1a365da`; pinned by tests over both convention axes) · **C1** `add_equivalence` all-or-nothing (dropping an inference is sound, an unverifiable certificate is not; D-CONG-SKIP) · **C2** degenerate-ITE filter (gates −23 %, equivalences identical) · **C3** the unit channel (`hwmcc` 48.77 → 6.67 s, refuted at 0 decisions; the conclusion needs the degeneracy ladder — drat-trim-validated in all four shapes BEFORE implementation, and it turned out to be kissat's own construction) · **C4** LRAT chains REPLAYED not derived (checker-order by construction; subtle load-bearing case: a lemma literal already forced TRUE is also a conflict). Detail: Track C commits + Log 2026-07-21
 - [ ] **C4-perf** · the LRAT path is ~250× slower on a miter (`hwmcc` 1680 s vs 6.67 s DRAT): one replay propagation per top-level ladder lemma. Fix = derive the top level structurally via a per-gate side-clause-id list (the unpopulated `side_ids` scaffolding was removed 2026-07-25 — re-add it WITH the code that fills it); keep the replay as fallback + oracle
-- [ ] **C3b** · remaining degeneracies (AND clashing input → unit, idempotent dup → unary merge, `x≡¬x` → refutation). Measured 0 firings on `hwmcc` AND `FmlaEquiv` (TB1's direct count) — completeness/N1 hygiene, not a tail fix. AND chains carry a duplicated-hint subtlety the XOR ones do not
+- [x] **C3b** · CLOSED 2026-07-25 late: AND clash → unit ¬out, idempotent dup → key dedup (down to unary merge), `x≡¬x` → refutation at BOTH merge sites (justify the equivalence binaries as usual, then resolve the two opposing replayed units to ∅). AND conclusions are directly RUP ⇒ the degeneracy ladder's `top==0` form covers them (replay under LRAT, bare adds under DRAT). The duplicated-hint subtlety materialized in `add_equivalence`'s bridge assembly (shared path segments), closed by order-preserving id dedup. Residuals (sound, in the ledger): ITE collapses stay Skip; literal-form `x≡¬x` refuted for AND, dropped for XOR/ITE. Tests: 5 unit tests (+2 orphaned unit-channel tests re-wired, one rebuilt — its old construction predated the assigned-var extraction guard); corpus 008/009/010 (proof-checked every fuzz run); fuzz 10k/0 ×4 legs (quick+congstress × DRAT+LRAT)
 
 ### Track H — `H` out of the Kernel (rev 60) — COMPLETE 2026-07-23
 
@@ -368,6 +368,21 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 late — C3b CLOSED: AND degeneracies + contradictory merge; D-CONG-UNIT ledger row closed
+- The AND half of D-CONG-UNIT and the `x≡¬x` refutation landed (calculus §6
+  V6 + ledger updated in the same commit): AND clash ⇒ unit, idempotent dup
+  ⇒ dedup/unary merge, contradictory merge ⇒ justify-binaries-then-refute
+  via two replayed opposing units → ∅ (PendingUnits). Key insight: AND
+  conclusions are DIRECTLY RUP, so the existing ladder's `top==0` replay
+  form covers every chain — no new proof machinery. The predicted
+  duplicated-hint hazard was real but sat in `add_equivalence`'s bridge
+  assembly; closed by order-preserving id dedup (safe because a repeated
+  hint propagates nothing). Two orphaned unit-channel tests found never
+  wired into main() — re-added (one rebuilt: its trail-assert construction
+  predated the assigned-var extraction guard and could no longer reach the
+  channel). Coverage: 5 new/rewired unit tests, corpus 008/009/010, fuzz
+  10k/0 ×4 (quick + congruence-stress, DRAT + LRAT).
 
 ### 2026-07-25 late — congruence AND-extraction literal-major over the occ index: hwmcc −21 %, trajectory-identical
 - The hwmcc pipeline item (below) landed its first increment: extraction
