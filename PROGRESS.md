@@ -49,7 +49,12 @@ disagree, the plan is authoritative — fix this file.
      1562819–26): FmlaEquiv-class conflicts 1.53× (suspects: TB4b,
      minimization depth, retention), the s055 restart-rate lead (34 vs
      41 conflicts/restart), and the two TOs. TB4b is the only open
-     Track T item (TB2 closed — x9 normalized to 1.17×).
+     Track T item (TB2 closed — x9 normalized to 1.17×). Per-instance B
+     decomposition (probes 1562919/20): **hwmcc = congruence-extraction
+     engineering** (~51 % of cycles + 23 % allocator, zero search — the
+     next tractable item), 9vliw carries TR's priced-but-unbudgeted 28 %
+     (both budget arms banked negative — TR dosing joins the §5.6
+     exhibit), crypto1 stays with the admission exhibit.
   2. **BVE-tolerance study CONCLUDED 2026-07-25** (both reports frozen:
      `2026-07-25-crypto1-bve-mechanism.md`, `2026-07-25-bve-dosing-arms.md`).
      Mechanism: drip-paced incomplete recurrence hurts; completed
@@ -362,6 +367,31 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-25 late — Tier B losses decomposed per-instance; TR budget arms BANKED NEGATIVE; walk cost now priced
+- Stats probe 1562919 splits the B losses into four mechanisms:
+  **FmlaEquiv** conflicts 1.53× (chrono active BOTH sides, 51 k vs 28 k —
+  TB4b live); **9vliw** conflicts 1.27× + inprocessing-cycle share;
+  **hwmcc** ZERO search both solvers — pure pipeline gap 9.15 vs 3.30 s,
+  ~51 % of our cycles in congruence EXTRACTION + ~23 % allocator churn
+  (per-round rebuild of an unordered_map<vector<Lit>,id> — kissat's whole
+  congruence is 27 % of 3.3 s; probe 1562920) → next engineering item,
+  no trajectory risk (no search to perturb); **crypto1** 3.64× conflicts =
+  the known phase-6 admission exhibit; **clique** parity.
+- Perf probe 1562920: TR's exhaustive walk = **28 % of ALL 9vliw cycles**
+  (reduce_source 27.94 %) under an intended 20‰ budget — the meter
+  counted CANDIDATES against a tick-denominated reference. Fix attempted,
+  both arms same-window measured, both LOSE, both banked (code comments at
+  meter_transitive + TR deviation 3): ticks-meter @ kissat 20‰ → B 12.22
+  vs 10.67 (rbsat +17 s, mp1 OUT of sentinel envelope; 9vliw did win
+  −17 %); + kissat early exit → B 13.92 vs 10.60 (FmlaEquiv conflicts 2×,
+  9vliw +43 %). Verdict: the exhaustive unbudgeted reduction is
+  LOAD-BEARING for trajectory on FmlaEquiv/9vliw-class instances — TR
+  dosing is context-dependent (joins the §5.6 elimination-dosing exhibit
+  as its second mechanism family). KEPT: `stats.transitive_ticks` walk
+  pricing (pure accounting, `c transitive ... ticks` in stats; fuzz
+  10k/0 ×4 legs across both arms, ctest 31/31 ×2). 9vliw's 28 % stands as
+  a paid, PRICED cost until a context-aware policy doses it.
 
 ### 2026-07-25 late — s055 restart-rate lead closed: machinery faithful, delta = glue distribution
 - Line-by-line audit vs kissat restart.c/smooth.c/reluctant.h/mode.c:

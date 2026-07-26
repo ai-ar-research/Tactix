@@ -305,11 +305,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.backbone_probed,
            (unsigned long long)kernel.stats.backbone_failed);
     printf("c transitive  %llu rounds, %llu checked, %llu deleted, "
-           "%llu failed\n",
+           "%llu failed, %llu ticks\n",
            (unsigned long long)kernel.stats.transitive_rounds,
            (unsigned long long)kernel.stats.transitive_checked,
            (unsigned long long)kernel.stats.transitive_deleted,
-           (unsigned long long)kernel.stats.transitive_failed);
+           (unsigned long long)kernel.stats.transitive_failed,
+           (unsigned long long)kernel.stats.transitive_ticks);
     printf("c substitute  %llu rounds\n",
            (unsigned long long)kernel.stats.substitute_rounds);
     // V6 + E2 ship ON by default but had no stats line, so "did congruence /

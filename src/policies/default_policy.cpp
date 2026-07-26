@@ -157,6 +157,17 @@ uint64_t meter_ticks(const Kernel &k) { return k.stats.ticks; }
 uint64_t meter_bve(const Kernel &k) { return k.stats.bve_resolutions; }
 uint64_t meter_strengthen(const Kernel &k) { return k.stats.strengthen_checked; }
 uint64_t meter_forward(const Kernel &k) { return k.stats.forward_checked; }
+// V4 meters CANDIDATES, and that under-prices its work on purpose — a
+// "checked" is a whole BFS walk, and stats.transitive_ticks (charged by the
+// rule) shows it running to 28 % of 9vliw's cycles (probe 1562920). Both
+// honest-currency arms were measured and BANKED NEGATIVE 2026-07-25
+// (same-window Tier B, windows `20260725-2022*`/`20260725-2028*`):
+// ticks-meter @ kissat's 20‰ = 12.22 vs 10.67 (rbsat +17 s, mp1 out of
+// envelope), + kissat's early exit = 13.92 vs 10.60 (FmlaEquiv conflicts
+// 2×, 9vliw +43 %). The unbudgeted exhaustive reduction is load-bearing
+// for trajectory on FmlaEquiv/9vliw-class instances; its 9vliw cost is a
+// PAID, PRICED cost until a context-aware policy (phase-6 dosing exhibit)
+// can dose it per instance.
 uint64_t meter_transitive(const Kernel &k) { return k.stats.transitive_checked; }
 uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 

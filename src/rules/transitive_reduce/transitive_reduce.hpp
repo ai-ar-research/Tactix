@@ -51,9 +51,15 @@
 //     a property of the walk itself rather than a corollary of another check.
 // (3) NO EARLY EXIT when dst is reached (kissat transitive.c:130 breaks). We
 //     run each walk to exhaustion so the failed-literal detection (deviation
-//     5) sees the whole reachable set. Costs a full walk per candidate; the
-//     slot is deferred, so there is no budget to blow, and the honest handoff
-//     to V1 Probe is worth more than the constant factor here.
+//     5) sees the whole reachable set. Costs a full walk per candidate, and
+//     the cost is now PRICED (the walk charges cache-line traffic to
+//     stats.transitive_ticks — 28 % of 9vliw's cycles, probe 1562920) but
+//     deliberately NOT budgeted: both honest-budget arms were measured and
+//     banked negative 2026-07-25 (ticks-meter @20‰ → Tier B 12.22 vs 10.67;
+//     + kissat's early exit → 13.92 vs 10.60, FmlaEquiv conflicts 2× — the
+//     exhaustive unbudgeted reduction is load-bearing for trajectory; see
+//     meter_transitive in default_policy.cpp). Dosing TR per instance is
+//     phase-6 exhibit material, not a static constant.
 // (4) NO hyper-binary resolution and NO cheaper-direction search
 //     (cadical transred.cpp:116-120, `min(|watches(¬src)|,|watches(dst)|)`):
 //     both are pure cost optimizations; revisit if V4 is ever promoted into
@@ -78,7 +84,10 @@
 // (7) NO steps/effort budget in the rule: WHEN and HOW MUCH are policy
 //     territory (rev 17). kissat's `transitive_ticks` and CaDiCaL's
 //     propagation-scaled limit are slot/policy budgets in our architecture; a
-//     policy wanting bounded work applies per-source instances.
+//     policy wanting bounded work applies per-source instances. The rule DOES
+//     charge its walk traffic to stats.transitive_ticks (bookkeeping, not a
+//     budget — the same split as propagate charging stats.ticks), because a
+//     work-priced meter is the only way a policy budget can be honest.
 // (8) DUPLICATE PAIRS ARE NEVER DELETED. binary_ids holds ONE id per literal
 //     PAIR, so a pair with two live copies cannot be deleted by pair name: the
 //     `del` would retire the id the surviving copy is still cited by, and

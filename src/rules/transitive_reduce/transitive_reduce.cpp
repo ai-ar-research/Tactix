@@ -47,6 +47,9 @@ struct Walk {
   std::vector<Lit> dead_list;   // the tombstoned x's of the current source
   std::vector<uint8_t> copies;  // by lit x: live copies of (src ∨ x), capped
   std::vector<Lit> cands;       // the current source's canonical candidates
+  uint64_t ticks = 0;           // cache lines scanned; reduce_source flushes
+                                // into stats.transitive_ticks (const-walk
+                                // helpers charge here instead of the kernel)
 
   void init(const Kernel &k) {
     const size_t nlits = 2 * static_cast<size_t>(k.nvars);
@@ -80,6 +83,9 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
     const Lit nl = negate(l); // edges l → q are the binary watches of ¬l
     const uint32_t *ws = wbase(k, nl);
     const uint32_t sz = wsize(k, nl);
+    // the walk's real memory traffic, in propagate's cache-line unit
+    // (kernel.cpp:536): this scan is the whole cost of visiting `l`
+    w.ticks += 1 + (static_cast<uint64_t>(sz) >> 4);
     for (uint32_t i = 0; i < sz;) {
       const Watch wt{ws[i]};
       if (!wt.binary()) {
@@ -125,6 +131,7 @@ uint32_t collect_candidates(const Kernel &k, Walk &w, Lit src) {
   // count IS ¬src's out-degree
   const uint32_t *ws = wbase(k, src);
   const uint32_t sz = wsize(k, src);
+  w.ticks += 1 + (static_cast<uint64_t>(sz) >> 4); // src-list scan traffic
   for (uint32_t i = 0; i < sz;) {
     const Watch wt{ws[i]};
     if (!wt.binary()) {
@@ -168,8 +175,11 @@ uint32_t collect_candidates(const Kernel &k, Walk &w, Lit src) {
 // Preconditions: guard holds, src is in range and active. Leaves w clean.
 ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
   const uint32_t out_degree = collect_candidates(k, w, src);
-  if (out_degree < 2 || w.cands.empty())
+  if (out_degree < 2 || w.cands.empty()) {
+    k.stats.transitive_ticks += w.ticks;
+    w.ticks = 0;
     return ApplyResult::NoOp; // a lone out-edge has no alternate path
+  }
 
   for (const Lit dst : w.cands) {
     k.stats.transitive_checked++;
@@ -185,6 +195,8 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
       for (const Lit d : w.dead_list)
         w.dead[d] = 0;
       w.dead_list.clear();
+      k.stats.transitive_ticks += w.ticks;
+      w.ticks = 0;
       return ApplyResult::NoOp;
     }
     if (redundant)
@@ -204,6 +216,8 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
     w.dead[dst] = 0;
   }
   w.dead_list.clear();
+  k.stats.transitive_ticks += w.ticks;
+  w.ticks = 0;
   return res;
 }
 

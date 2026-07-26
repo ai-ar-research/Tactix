@@ -84,6 +84,10 @@ struct Stats {
   uint64_t backbone_failed = 0;  // failed literals -> root units derived (V2)
   uint64_t transitive_rounds = 0;  // TransitiveReduce rounds (V4)
   uint64_t transitive_checked = 0; // candidate edges walked (V4)
+  uint64_t transitive_ticks = 0;   // cache lines scanned by V4's walks — the
+                                   // policy's budget currency (kissat
+                                   // transitive_ticks; same 16-words/line
+                                   // unit as stats.ticks)
   uint64_t transitive_deleted = 0; // transitively redundant binaries deleted
   uint64_t transitive_failed = 0;  // sources abandoned to Probe as failed (V4)
   uint64_t substitute_rounds = 0;  // Substitute rounds (V3) — detection passes
