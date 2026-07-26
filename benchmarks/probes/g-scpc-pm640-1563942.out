@@ -1,0 +1,13 @@
+c walk#1 clauses=33023 initial=241 minimum=27 flips=15904 steps=6400322 budget=6400000 conflicts=2003
+c walk#2 clauses=33023 initial=136 minimum=23 flips=14641 steps=6400369 budget=6400000 conflicts=19993
+c walk#3 clauses=33023 initial=123 minimum=11 flips=38392 steps=15994892 budget=15993600 conflicts=66465
+c walk#4 clauses=33023 initial=90 minimum=8 flips=59772 steps=29402466 budget=29401600 conflicts=152074
+c walk#5 clauses=33023 initial=65 minimum=8 flips=135786 steps=57597841 budget=57596800 conflicts=314742
+c walk#6 clauses=33023 initial=113 minimum=7 flips=167616 steps=81856055 budget=81856000 conflicts=545889
+c walk#7 clauses=33023 initial=92 minimum=3 flips=217780 steps=113384454 budget=113383040 conflicts=869118
+c walk#8 clauses=33023 initial=44 minimum=1 flips=275192 steps=155654982 budget=155653120 conflicts=1305377
+c walk#9 clauses=33023 initial=26 minimum=1 flips=377334 steps=204715080 budget=204714880 conflicts=1854204
+c conflicts   2292008
+c walk        9 walks (9 improved, 1302417 flips, 671406461 steps)
+s SATISFIABLE
+WALL 67.40

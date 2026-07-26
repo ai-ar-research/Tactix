@@ -547,7 +547,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         uint64_t reference = search_ticks(k) - walk_anchor;
         if (reference < MIN_EFFORT_TICKS)
           reference = MIN_EFFORT_TICKS;
-        k.work_budget = reference / 1000 * WALK_PERMILLE;
+        // TACTIX_WALK_PERMILLE (DIAGNOSTIC sweep knob): the dose magnitude.
+        // Ours and kissat's budgets are scaled from CACHE-LINE search ticks but
+        // SPENT in per-entry walk steps, while cadical spends in cache-line
+        // ticks too (1 tick ~ 16 entries, internal.hpp cache_lines) at 80 per
+        // mille -- so cadical buys ~13x more walk scanning per unit of search
+        // work than we do. Our effective dose is cadical-equivalent ~6 per
+        // mille, and cadical's own dose-response on SCPC-1000-18 is 452.7 s at
+        // walkeffort 8 vs 24.7 s at 80. Audit 2026-07-26.
+        static const char *const pm_env = std::getenv("TACTIX_WALK_PERMILLE");
+        const uint64_t permille =
+            pm_env ? std::strtoull(pm_env, nullptr, 10) : WALK_PERMILLE;
+        k.work_budget = reference / 1000 * permille;
         walk_apply(k);
         k.work_budget = 0;
         walk_anchor = search_ticks(k);

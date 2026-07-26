@@ -187,6 +187,60 @@ Read together they are decisive about the *shape* of the problem:
   including learned binaries — our one unmeasured divergence from kissat's
   `walkredundant=false` — is empirically irrelevant on both.
 
+### THE DOSE IS ~13x UNDER CADICAL — a unit confusion, not a schedule choice (2026-07-26, audit)
+
+A line-by-line audit of the flipper against `kissat/src/walk.c` found it
+**equivalent** (table construction, break-count semantics, CB table + alternation
+parity, roulette wheel incl. the strict-`<` threshold and rounding fallback,
+flip ordering, the trail-based best-save with overflow/resync, the improvement
+gate, termination and limit off-by-ones). What it found instead was a **metering
+confusion in the BUDGET**, verified directly in all three sources:
+
+| | charges per occurrence scan | budget spent in |
+|---|---|---|
+| ours (`walk.cpp` `w.steps +=`) | `1 + n` entries | entries |
+| kissat (`walk.c:444-454`) | `1 + n` entries | entries |
+| cadical (`walk.cpp:271`) | `1 + cache_lines(n·8B)` = `1 + n/16` | **cache-line ticks** |
+
+`cadical/src/internal.hpp:736`: `cache_lines(bytes) = (bytes+127)/128`. All three
+scale a per-mille of *cache-line-denominated search ticks*, but cadical also
+SPENDS in that unit, so **it buys ~16× more walk scanning per unit of budget**
+(×80/50 per-mille, ÷2 for our 64 B tick lines vs their 128 B ⇒ **~13× more than
+us**, ~26× more than kissat). Our effective dose is cadical-equivalent
+`walkeffort ≈ 6`, and cadical's own measured dose–response on SCPC is 452.7 s at
+`walkeffort=8` vs 24.7 s at 80 — our 248 s sat exactly on that curve.
+
+**Corollary: any dose statement calibrated against cadical numbers is confounded
+by up to 16×**, including the "258 M steps vs 43 M walk-ticks" framing that
+motivated the audit — converted, cadical does MORE raw walk work than we do.
+Comparisons against kissat are unaffected (same currency).
+
+Measured dose sweep (`TACTIX_WALK_PERMILLE`, probes 1563941–49):
+
+| per-mille | SCPC-1000-18 | mp1-Nb5T15 | battleship | crypto1 | mod4block | rbsat | FmlaEquiv |
+|---|---|---|---|---|---|---|---|
+| 50 (shipped) | 248 s | **TIMEOUT** | 0.20 | 1.15 | 6.93 | 12.06 | 29.37 |
+| 200 | 75.8 s | — | — | — | — | — | — |
+| 640 | 67.4 s | **26.1 s** | 7.16 | 6.65 | 24.14 | 23.99 | 31.15 |
+| 1600 | **26.6 s** | — | — | — | — | — | — |
+
+Two results that overturn the previous reading:
+
+1. **SCPC is monotone in the dose** (248 → 75.8 → 67.4 → 26.6 s) and at
+   per-mille 1600 we are at **cadical's 24.7 s**.
+2. **mp1-Nb5T15's "poisoning" is UNDER-dosing, not over-dosing.** At 13× the
+   dose the timeout becomes a 26.1 s solve. The walk was not damaging because it
+   ran; it was damaging because it ran too weakly — repeatedly re-targeting the
+   search at a half-optimised assignment. This kills the "stop walking when it
+   stops paying" hypothesis outright (and vindicates keeping kissat's
+   unconditional schedule).
+
+The cost is the Tier B walk-sensitive set (battleship 0.20 → 7.16 s, crypto1
+1.15 → 6.65, mod4block 6.93 → 24.14, rbsat 12.06 → 24.0). **So the dose is a
+genuine two-sided lever and the right value is an open, gateable question** —
+the next experiment is a same-window Tier B + Tier C sweep over per-mille
+∈ {50, 200, 640, 1600}, not a guess.
+
 ### The reference-matching ledger — six attempts, one context arm, no default win
 
 "Look at how kissat/cadical do walk and match it" was tested exhaustively, since

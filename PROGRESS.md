@@ -14,14 +14,20 @@ disagree, the plan is authoritative — fix this file.
   INVALID — never compare cluster ↔ M3-Pro (revs 64/65).
 
   **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
-  closure-delay ladder** (S4 gate report `2026-07-25-s4-gate-mp1.md`;
+  closure-delay ladder + S6 Walk (rev 71)** (S4 gate report `2026-07-25-s4-gate-mp1.md`;
   ladder default ON `2639a5a`). Standings (Tier C = clean window
   `20260725-193123-C-t3clean`, baselines proof-free; B/A `21030*`):
-  | | tactix | kissat 4.0.4 | CaDiCaL |
-  |---|---|---|---|
-  | Tier A | 0.71 (199/200; miss = s055, search-shape) | — | — |
-  | Tier B | **9.93** (14/14, first sub-10) | 8.26 (morning window) | 19.06 (morning window) |
-  | Tier C | **398.74** (28/30, 15/15 proofs) | 223.01 (29/30) | 304.21 (29/30) |
+  **SAME-WINDOW 3-solver standings, 2026-07-26** (windows `20260726-0951*`,
+  one array per tier — the authoritative T3 numbers; earlier cross-window
+  ratios are superseded):
+  | | tactix | kissat 4.0.4 | CaDiCaL | vs kissat | vs CaDiCaL |
+  |---|---|---|---|---|---|
+  | Tier B | **9.11** (14/14) | 8.27 (14/14) | 19.13 (14/14) | 1.10× | 0.48× |
+  | Tier C | **382.94** (28/30) | 221.28 (29/30) | 300.99 (29/30) | 1.73× | **1.27×** |
+  Tier A not re-run since Walk landed (0.71, 199/200 as of 07-25; Walk only
+  fires in stable mode past ~2 k conflicts, so most 30 s Tier A instances never
+  reach it — an assumption, not a measurement). Tier C unsolved: `128_125`
+  (all three solvers fail) + `mp1-Nb5T15` (the Walk dose regression above).
 
   **T3 clean ratio 1.31×** vs CaDiCaL; **B 1.20×** vs kissat; mp1 5.5 s
   beats kissat 9.1 (proof VERIFIED). hwmcc native LRAT 9.6 s (was 1680).
@@ -40,10 +46,23 @@ disagree, the plan is authoritative — fix this file.
      SCPC gain. That loss is DIAGNOSED (a target-phase-channel effect, not a
      dose effect) and **reference-matching is exhausted** — six kissat/cadical
      behaviours tested, five dead or context-dependent (design §6 ledger). Do
-     NOT re-port them blind. **W4d is the open PHASE-3 item and the single
-     highest-value thing on this list: recover `mp1-Nb5T15` (92 % of the Tier C
-     gap to CaDiCaL) without losing SCPC** — see Track W for the intervention
-     and its arithmetic. W4e (the §5.6 hand-off) is phase-6 and deferred.
+     NOT re-port them blind. **▶ THE ONE THING TO DO NEXT: gate the WALK DOSE.**
+     A 2026-07-26 audit found the flipper EQUIVALENT to kissat's line-by-line,
+     and the real defect in the BUDGET: ours and kissat's are scaled from
+     cache-line search ticks but SPENT in per-entry walk steps, while cadical
+     spends in cache-line ticks too (1 tick ≈ 16 entries) — so **our effective
+     dose is ~13× under cadical's** (cadical-equivalent `walkeffort ≈ 6`).
+     Measured sweep (`TACTIX_WALK_PERMILLE`, probes 1563941–49): SCPC 248 →
+     75.8 → 67.4 → **26.6 s** at per-mille 50/200/640/1600 (cadical is 24.7),
+     and **`mp1-Nb5T15`'s timeout becomes a 26.1 s solve at 640** — the
+     poisoning was UNDER-dosing, so the "stop walking when it stops paying"
+     idea is dead and kissat's unconditional schedule is right. Cost is the
+     Tier B walk-sensitive set (battleship 0.20 → 7.16 s, crypto1 1.15 → 6.65,
+     mod4block 6.93 → 24.14, rbsat 12.06 → 24.0). **Next: same-window Tier B +
+     Tier C sweep over per-mille {50, 200, 640, 1600}** and pick on measured
+     PAR-2 — do NOT guess a value. If both Tier C timeouts fall, Tier C lands
+     near ~300 vs CaDiCaL 300.99, i.e. T3's ratio criterion (a projection —
+     the sweep decides). W4e (§5.6 hand-off) is phase-6 and deferred.
   2. **TB4b** — the only open Track T item: the six chrono divergences
      from the TB4 audit (watch repair onto highest-level literals,
      one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
@@ -351,8 +370,13 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   six dead or context-dependent, and (1)/(2) failed for the one architectural
   reason in implementation-notes §8. **The residual is a scheduling problem,
   not a mechanism gap** — five arms now sit behind knobs for the §5.6 exhibit
-- [ ] **W4d · PHASE-3, THE OPEN ONE: recover `mp1-Nb5T15` without losing
-  SCPC.** This is 92 % of the Tier C gap to CaDiCaL (2,279 of 2,470 s) and it
+- [x] **W4d · DIAGNOSED AND SUPERSEDED 2026-07-26** — the flipper audit (below)
+  showed `mp1-Nb5T15` is UNDER-dosed, not over-perturbed: at 13× the walk dose
+  its timeout becomes a 26.1 s solve. The "stop scheduling walks when they stop
+  paying" intervention proposed here is therefore DEAD (and would have been a
+  novel mechanism neither reference has). Superseded by W4f. Original text kept
+  for the reasoning trail:
+- ~~**W4d (superseded): recover `mp1-Nb5T15` without losing SCPC.**~~ This is 92 % of the Tier C gap to CaDiCaL (2,279 of 2,470 s) and it
   is a regression Walk introduced — the instance was 3.66 s before. Arithmetic:
   restoring it puts Tier C at ~306.7 vs CaDiCaL 304.2, i.e. the T3 10 % ratio
   criterion met (a PROJECTION, not a measurement — every knob tried so far that
@@ -366,6 +390,20 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   Then conditional warmup on the same signal (SCPC 255→106 s, Tier B −37 %, so
   it must be gated, not global). Flipper-level audit in flight 2026-07-26
   (kissat semantic diff — the schedule axis is exhausted, §6 ledger)
+- [ ] **W4f · THE OPEN PHASE-3 ITEM: gate the walk DOSE.** Audit 2026-07-26
+  (design §6 "THE DOSE IS ~13× UNDER CADICAL"): the flipper is line-by-line
+  equivalent to kissat's; the defect is a unit confusion in the BUDGET — we and
+  kissat scale a per-mille of cache-line search ticks but SPEND in per-entry
+  walk steps, while cadical spends in cache-line ticks (1 ≈ 16 entries), buying
+  ~13× more walk scanning per unit of search work. Sweep measured on single
+  instances (probes 1563941–49): SCPC 248 → 75.8 → 67.4 → **26.6 s** at
+  per-mille 50/200/640/1600 (CaDiCaL 24.7); **mp1-Nb5T15 TIMEOUT → 26.1 s at
+  640**; cost on the Tier B walk-sensitive set (battleship 0.20 → 7.16, crypto1
+  1.15 → 6.65, mod4block 6.93 → 24.14, rbsat 12.06 → 24.0). **DO: same-window
+  Tier B + Tier C sweep over per-mille {50, 200, 640, 1600}, pick on measured
+  PAR-2, then fuzz + commit the constant.** Knob already in
+  `default_policy.cpp` (`TACTIX_WALK_PERMILLE`); the shipped constant is
+  `WALK_PERMILLE = 50` in `default_policy.hpp`
 - [ ] **W4e · PHASE-6 hand-off** (deferred by design, not near-term work): the
   five knob-gated arms + `stats.walk_minimum` as reward proxy become the second
   dosing mechanism family in the §5.6 exhibit, alongside elimination dosing
