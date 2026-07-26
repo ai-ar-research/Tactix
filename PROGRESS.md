@@ -377,10 +377,18 @@ Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
   cannot fork between paths (arena-scan fallback kept for N1 when no
   index is connected). Gates: conflicts EXACT ×5 (hwmcc/FmlaEquiv/9vliw/
   x9/s055, probe 1562988), **hwmcc 9.70 → 7.67 s**, others in-noise;
-  fuzz 10k/0 ×2 formats (1562989/90); ctest 31/31 ×2. Remaining hwmcc
-  gap vs kissat 3.3 s: the XOR/ITE ClauseIndex rebuild (~19 % of the old
-  profile — unordered_map<vector<Lit>,id> + sorted_keys) — next
-  increment.
+  fuzz 10k/0 ×2 formats (1562989/90); ctest 31/31 ×2. **Increment 2
+  (SmallKey)**: the XOR/ITE ClauseIndex + dedup sets moved off
+  vector<Lit> keys onto a fixed 5-slot zero-padded key (exact vector
+  ordering/equality semantics under ingest's duplicate-literal removal;
+  probes replace their per-lookup std::sort with a 5-element insertion
+  sort). Gates: conflicts EXACT ×5 (probe 1562992), **hwmcc 9.29 →
+  6.62 s combined** (the two increments together halve the pipeline gap:
+  9.15 → 6.62 vs kissat 3.30), others in-noise; fuzz 10k/0 ×2
+  (1562994/95); ctest 31/31 ×2. Lane STOPPED here — the remaining
+  profile (index build 11 %, per-node map allocs, CongGate per-gate
+  vectors ~22 % allocator share) is a CongGate/closure SoA refactor:
+  revamp-scale, diminishing returns.
 
 ### 2026-07-25 late — Tier B losses decomposed per-instance; TR budget arms BANKED NEGATIVE; walk cost now priced
 - Stats probe 1562919 splits the B losses into four mechanisms:

@@ -239,22 +239,73 @@ struct InputsHash {
 // From the relation we emit s XOR gates, one per choice of output vᵢ: inputs =
 // the other variables (all positive), output literal = pos(vᵢ)^c so its value is
 // c⊕vᵢ = ⊕_{j≠i} vⱼ. Two gates with the same input set have equivalent outputs.
-using ClauseIndex = std::unordered_map<std::vector<Lit>, uint64_t, InputsHash>;
+// Fixed-capacity key for the small-clause index and the XOR/ITE dedup sets
+// (all hold ≤ CONG_XOR_ARITY+1 literals): no per-key heap node, no vector
+// hashing — the vector-keyed map + its allocator churn were ~30 % of hwmcc's
+// remaining cycles after the AND-extraction fix (probe 1562991). Semantics
+// are EXACTLY the old std::vector key's: ingest strips duplicate literals,
+// so a sorted key is strictly increasing and literal 0 can only sit in slot
+// 0 — the zero padding therefore compares like vector's shorter-prefix-first
+// operator< and can never alias a genuine literal in equality.
+struct SmallKey {
+  Lit lits[CONG_XOR_ARITY + 1] = {0, 0, 0, 0, 0};
+  uint32_t size = 0;
+  bool operator==(const SmallKey &o) const {
+    if (size != o.size)
+      return false;
+    for (uint32_t i = 0; i < CONG_XOR_ARITY + 1; i++)
+      if (lits[i] != o.lits[i])
+        return false;
+    return true;
+  }
+  bool operator<(const SmallKey &o) const {
+    for (uint32_t i = 0; i < CONG_XOR_ARITY + 1; i++)
+      if (lits[i] != o.lits[i])
+        return lits[i] < o.lits[i];
+    return size < o.size; // unreachable under the strict-increase invariant
+  }
+};
+struct SmallKeyHash {
+  size_t operator()(const SmallKey &sk) const {
+    size_t h = 1469598103934665603ull;
+    for (uint32_t i = 0; i < CONG_XOR_ARITY + 1; i++) {
+      h ^= static_cast<size_t>(sk.lits[i]);
+      h *= 1099511628211ull;
+    }
+    h ^= sk.size;
+    h *= 1099511628211ull;
+    return h;
+  }
+};
+// sorted key from ≤ CONG_XOR_ARITY+1 literals (replaces the std::sort each
+// probe used to pay on its vector)
+inline SmallKey small_key(const Lit *ls, uint32_t n) {
+  SmallKey sk;
+  sk.size = n;
+  for (uint32_t i = 0; i < n; i++) {
+    const Lit x = ls[i];
+    uint32_t j = i;
+    for (; j > 0 && sk.lits[j - 1] > x; j--)
+      sk.lits[j] = sk.lits[j - 1];
+    sk.lits[j] = x;
+  }
+  return sk;
+}
+
+using ClauseIndex = std::unordered_map<SmallKey, uint64_t, SmallKeyHash>;
 
 // Iterating an unordered_map is implementation-ordered (libstdc++ and libc++
 // disagree), and anything feeding gate/emission ORDER feeds the closure's
 // merge order and hence the search trajectory — which must not fork across
 // toolchains (the battleship lesson, Log 2026-07-23). Extraction loops
 // iterate via these sorted keys instead.
-static std::vector<const std::vector<Lit> *> sorted_keys(const ClauseIndex &index) {
-  std::vector<const std::vector<Lit> *> keys;
+static std::vector<const SmallKey *> sorted_keys(const ClauseIndex &index) {
+  std::vector<const SmallKey *> keys;
   keys.reserve(index.size());
   for (const auto &e : index)
     keys.push_back(&e.first);
   std::sort(keys.begin(), keys.end(),
-            [](const std::vector<Lit> *a, const std::vector<Lit> *b) {
-              return *a < *b;
-            });
+            [](const SmallKey *a, const SmallKey *b) { return *a < *b; });
   return keys;
 }
 
@@ -281,24 +332,25 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
     }
     if (!ok)
       continue;
-    std::sort(ls.begin(), ls.end());
-    index.emplace(ls, c->id());
+    index.emplace(small_key(ls.data(), static_cast<uint32_t>(ls.size())),
+                  c->id());
   }
 }
 
 void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
                             std::vector<CongGate> &out) {
   (void)k;
-  std::unordered_set<std::vector<Lit>, InputsHash> seen; // by sorted positive vars
-  std::vector<Lit> pos;                                  // positive lits, sorted
-  std::vector<Lit> probe;
-  for (const std::vector<Lit> *base_p : sorted_keys(index)) {
-    const std::vector<Lit> &base = *base_p;
-    const uint32_t s = static_cast<uint32_t>(base.size());
+  std::unordered_set<SmallKey, SmallKeyHash> seen; // by sorted positive vars
+  std::vector<Lit> pos;                            // positive lits, sorted
+  Lit probe[CONG_XOR_ARITY + 1];
+  for (const SmallKey *base_p : sorted_keys(index)) {
+    const SmallKey &base = *base_p;
+    const uint32_t s = base.size;
     // positive-lit form of the variables, sorted; dedup a relation to once.
     pos.clear();
     int base_parity = 0;
-    for (const Lit l : base) {
+    for (uint32_t bi = 0; bi < s; bi++) {
+      const Lit l = base.lits[bi];
       pos.push_back(make_lit(var_of(l), false));
       base_parity ^= static_cast<int>(negated(l));
     }
@@ -309,27 +361,25 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
         dup = true;
         break;
       }
-    if (dup || seen.count(pos))
+    if (dup || seen.count(small_key(pos.data(), s)))
       continue;
     // require all 2^{s-1} clauses of parity == base_parity to exist.
     bool all = true;
     const uint32_t combos = 1u << (s - 1);
     for (uint32_t m = 0; m < combos && all; m++) {
       int par = 0;
-      probe.assign(s, 0);
       for (uint32_t i = 0; i + 1 < s; i++) {
         const int sign = (m >> i) & 1;
         par ^= sign;
         probe[i] = pos[i] ^ static_cast<Lit>(sign);
       }
       probe[s - 1] = pos[s - 1] ^ static_cast<Lit>(base_parity ^ par); // fix parity
-      std::sort(probe.begin(), probe.end());
-      if (!index.count(probe))
+      if (!index.count(small_key(probe, s)))
         all = false;
     }
     if (!all)
       continue;
-    seen.insert(pos);
+    seen.insert(small_key(pos.data(), s));
     // The relation's parity R. A clause whose negated-literal set is N is
     // falsified by exactly the assignment "vⱼ true iff j ∈ N", whose true-count
     // parity is |N| ≡ base_parity; requiring ALL clauses of that negation parity
@@ -740,20 +790,17 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
 void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
                             std::vector<CongGate> &out) {
   (void)k;
-  std::vector<Lit> probe(3);
   auto has = [&](Lit a, Lit b, Lit c) -> bool {
-    probe[0] = a;
-    probe[1] = b;
-    probe[2] = c;
-    std::sort(probe.begin(), probe.end());
-    return index.count(probe) > 0;
+    const Lit probe[3] = {a, b, c};
+    return index.count(small_key(probe, 3)) > 0;
   };
   // collect conditional equivalences per lhs literal
   std::unordered_map<Lit, std::vector<std::pair<Lit, Lit>>> ce;
-  for (const std::vector<Lit> *cl_p : sorted_keys(index)) {
-    const std::vector<Lit> &cl = *cl_p; // sorted 3 lits
+  for (const SmallKey *cl_p : sorted_keys(index)) {
+    const SmallKey &cl = *cl_p; // sorted; first 3 lits scanned (as before)
     for (int li = 0; li < 3; li++) {
-      const Lit L = cl[li], A = cl[(li + 1) % 3], B = cl[(li + 2) % 3];
+      const Lit L = cl.lits[li], A = cl.lits[(li + 1) % 3],
+                B = cl.lits[(li + 2) % 3];
       // (A∨B∨L) + (A∨¬B∨¬L) ⇒ L≡¬B when ¬A
       if (has(A, negate(B), negate(L)))
         ce[L].push_back({negate(A), negate(B)});
@@ -762,7 +809,7 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
         ce[L].push_back({negate(B), negate(A)});
     }
   }
-  std::unordered_set<std::vector<Lit>, InputsHash> seen;
+  std::unordered_set<SmallKey, SmallKeyHash> seen;
   std::vector<Lit> ce_keys; // canonical order (see sorted_keys)
   ce_keys.reserve(ce.size());
   for (const auto &kv : ce)
@@ -808,7 +855,14 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
               has(negate(cond), negate(then_l), L) &&
               has(negate(cond), then_l, negate(L))))
           continue;
-        std::vector<Lit> keyd = {L, cond, then_l, else_l};
+        // identity key in FIXED sequence [L,cond,then,else] — deliberately
+        // unsorted, exactly like the vector key it replaces
+        SmallKey keyd;
+        keyd.size = 4;
+        keyd.lits[0] = L;
+        keyd.lits[1] = cond;
+        keyd.lits[2] = then_l;
+        keyd.lits[3] = else_l;
         if (!seen.insert(keyd).second)
           continue;
         CongGate g;
