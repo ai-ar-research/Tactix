@@ -32,7 +32,7 @@ disagree, the plan is authoritative — fix this file.
   glue) plus the two C TOs.
 
   **▶ NEXT STEP (in order of expected value):**
-  1. **Track W · S6 `Walk` — LANDED and CLOSED except W4d** (plan rev 71;
+  1. **Track W · S6 `Walk` — MECHANISM LANDED, SCHEDULING HALF-DONE** (rev 71;
      report `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`, design
      `docs/design/s6-walk-design.md`). Same-window: **Tier B 8.97 vs 9.88**,
      **Tier C 386.54 vs 387.83 (flat)**, SCPC-1000-18 **1200 s TO → 259.9 s**.
@@ -40,9 +40,10 @@ disagree, the plan is authoritative — fix this file.
      SCPC gain. That loss is DIAGNOSED (a target-phase-channel effect, not a
      dose effect) and **reference-matching is exhausted** — six kissat/cadical
      behaviours tested, five dead or context-dependent (design §6 ledger). Do
-     NOT re-port them blind. **Open: W4d** — hand the five knob-gated arms +
-     `stats.walk_minimum` to the §5.6 dosing exhibit as its second mechanism
-     family. That is phase-6 work, so the next *phase-3* item is TB4b below.
+     NOT re-port them blind. **W4d is the open PHASE-3 item and the single
+     highest-value thing on this list: recover `mp1-Nb5T15` (92 % of the Tier C
+     gap to CaDiCaL) without losing SCPC** — see Track W for the intervention
+     and its arithmetic. W4e (the §5.6 hand-off) is phase-6 and deferred.
   2. **TB4b** — the only open Track T item: the six chrono divergences
      from the TB4 audit (watch repair onto highest-level literals,
      one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
@@ -350,8 +351,25 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   six dead or context-dependent, and (1)/(2) failed for the one architectural
   reason in implementation-notes §8. **The residual is a scheduling problem,
   not a mechanism gap** — five arms now sit behind knobs for the §5.6 exhibit
-- [ ] **W4d** (open) hand the five arms + `stats.walk_minimum` (the reward
-  signal) to the §5.6 exhibit as the second dosing mechanism family
+- [ ] **W4d · PHASE-3, THE OPEN ONE: recover `mp1-Nb5T15` without losing
+  SCPC.** This is 92 % of the Tier C gap to CaDiCaL (2,279 of 2,470 s) and it
+  is a regression Walk introduced — the instance was 3.66 s before. Arithmetic:
+  restoring it puts Tier C at ~306.7 vs CaDiCaL 304.2, i.e. the T3 10 % ratio
+  criterion met (a PROJECTION, not a measurement — every knob tried so far that
+  fixed one of mp1/SCPC broke the other by 3–20×; do not quote 306.7 as a
+  result). Untried intervention: **stop SCHEDULING walks once they stop paying**
+  (as opposed to the accept/reject-phases version, banked negative above). The
+  walker's own minimum trajectory separates the classes — SCPC descends
+  45→44→15→…→2, mp1-Nb5T15 oscillates 61→73→38→30→20→25→46→52→25 and never
+  approaches 0 — so "stop after K consecutive walks that fail to beat the best
+  minimum" is the shape; K ≥ 3 (SCPC sits at minimum 2 for its last two walks).
+  Then conditional warmup on the same signal (SCPC 255→106 s, Tier B −37 %, so
+  it must be gated, not global). Flipper-level audit in flight 2026-07-26
+  (kissat semantic diff — the schedule axis is exhausted, §6 ledger)
+- [ ] **W4e · PHASE-6 hand-off** (deferred by design, not near-term work): the
+  five knob-gated arms + `stats.walk_minimum` as reward proxy become the second
+  dosing mechanism family in the §5.6 exhibit, alongside elimination dosing
+  (rev 68). Nothing to build in phase 3
 
 ### Other phase-3 items
 
