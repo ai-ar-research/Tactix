@@ -28,6 +28,13 @@ static constexpr uint8_t REMOVABLE = 2; // proven redundant
 static constexpr uint8_t POISONED = 4;  // proven not redundant
 static constexpr uint8_t SHRINKABLE = 8; // in the current block-shrink walk
 static constexpr uint8_t CHAINED = 16;   // antecedent recorded (LRAT)
+static constexpr uint8_t REASON_BUMP = 32; // marked by reason-side bumping
+
+// the BUMP set = SEEN (resolution-visited / in the clause) ∪ REASON_BUMP.
+// kissat keeps exactly this set on its `analyzed` stack and bumps all of it;
+// our k.analyzed is wider (minimization scratch + LRAT antecedents), which is
+// why the predicate is a flag test and the size is counted separately.
+static constexpr uint8_t BUMPED = SEEN | REASON_BUMP;
 
 // --- native LRAT antecedent capture (plan O4; CaDiCaL's id scheme with a
 // simpler ordering: entries carry the trail position of the literal their
@@ -107,13 +114,19 @@ static void mark_used(Kernel &k, Clause *c) {
     return;
   c->set_used(Clause::MAX_USED);
   const uint32_t old_glue = c->glue();
-  if (old_glue <= 1)
-    return;
-  const uint32_t glue = count_glue(k, c->lits, c->size, old_glue);
-  if (glue < old_glue) {
-    c->set_glue(glue);
-    k.stats.promoted++;
+  if (old_glue > 1) {
+    const uint32_t glue = count_glue(k, c->lits, c->size, old_glue);
+    if (glue < old_glue) {
+      c->set_glue(glue);
+      k.stats.promoted++;
+    }
   }
+  // per-mode histogram of the glues that ACTUALLY get used in analysis, with
+  // the post-promotion glue (kissat deduce.c:20-22). Reduce's dynamic tier
+  // limits are quantiles of this distribution; the counters are free when
+  // nothing reads them.
+  const uint32_t mode = (k.h && k.h->stable) ? 1u : 0u;
+  k.stats.used_glue[mode][std::min<uint32_t>(c->glue(), Stats::MAX_GLUE_USED)]++;
 }
 
 bool analyze_guard(const Kernel &k) {
@@ -238,6 +251,8 @@ static void radix_sort_analyzed_by_stamp(Kernel &k) {
 // relative recency (kissat bump.c). Stable: EVSIDS score bump + one
 // increment decay per conflict — order-independent, so no sort.
 static void bump_and_reset_analyzed(Kernel &k) {
+  k.analyzed_seen = 0;
+  k.reason_bumped.clear();
   if (!k.h) {
     // Unguided (no `H`, H5): no scores/queue to bump, but the analysis scratch
     // (SEEN flags + `analyzed`) is kernel state and must still be cleared.
@@ -248,7 +263,7 @@ static void bump_and_reset_analyzed(Kernel &k) {
   }
   if (k.h->stable) {
     for (const Var v : k.analyzed) {
-      if (k.seen[v] & SEEN)
+      if (k.seen[v] & BUMPED)
         heuristics_score_bump(k, v);
       k.seen[v] = 0;
     }
@@ -258,11 +273,80 @@ static void bump_and_reset_analyzed(Kernel &k) {
   }
   radix_sort_analyzed_by_stamp(k);
   for (const Var v : k.analyzed) {
-    if (k.seen[v] & SEEN)
+    if (k.seen[v] & BUMPED)
       heuristics_queue_bump(k, v);
     k.seen[v] = 0;
   }
   k.analyzed.clear();
+}
+
+// --- reason-side bumping (kissat analyze.c analyze_reason_side_literals;
+// cadical analyze.cpp bump_also_all_reason_literals; MapleCOMSPS 2016) ------
+// After the learned clause is final, ALSO bump the literals of the reasons of
+// the clause's own literals — one level deep, capped at
+// `k.bump_reason_limit × |bump set|` new marks, all-or-nothing (over the cap
+// the whole round rolls back, so the bump set is never a truncation artefact
+// of clause order). `H`-only: it changes which variables get a VMTF
+// move-to-front / EVSIDS increment, nothing else.
+static void mark_reason_side(Kernel &k, Lit m) {
+  const Var v = var_of(m);
+  if (k.var_level(v) == 0)
+    return; // root-fixed: kissat `a->level`
+  if (k.seen[v] & BUMPED)
+    return; // already in the bump set (kissat `a->analyzed`)
+  // NB: NOT `if (k.seen[v])` — a var may sit in k.analyzed carrying only
+  // REMOVABLE/POISONED/CHAINED. kissat keeps those on separate stacks, so its
+  // `!a->analyzed` test admits them; testing the whole byte would silently
+  // bump a much smaller set than the reference.
+  if (!k.seen[v])
+    k.analyzed.push_back(v);
+  k.seen[v] |= REASON_BUMP;
+  k.reason_bumped.push_back(v);
+  k.analyzed_seen++;
+  k.stats.reason_bumped++;
+}
+
+static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
+  const uint32_t saved = k.analyzed_seen;
+  const uint64_t limit =
+      static_cast<uint64_t>(k.bump_reason_limit) * saved;
+  k.reason_bumped.clear();
+  k.stats.reason_bump_rounds++;
+  for (const Lit l : learned) {
+    const Var v = var_of(l);
+    const Assigned &a = k.assigned[v];
+    if (a.reason == DECISION_REASON || a.reason == UNIT_REASON)
+      continue; // no reason side (kissat returns on DECISION_REASON)
+    if (a.binary) {
+      mark_reason_side(k, a.reason);
+    } else {
+      k.stats.ticks++; // kissat charges one search tick per reason deref
+      const Clause *r = clause_at(k.arena, a.reason);
+      const Lit self = negate(l); // `l` is false in the clause; the var's
+                                  // true literal is the one `r` propagated
+      for (const Lit m : *r) {
+        if (m == self)
+          continue;
+        mark_reason_side(k, m);
+        if (k.analyzed_seen > limit)
+          break;
+      }
+    }
+    if (k.analyzed_seen > limit)
+      break;
+  }
+  if (k.analyzed_seen > limit) { // over budget: undo the whole round
+    for (const Var v : k.reason_bumped)
+      k.seen[v] &= static_cast<uint8_t>(~REASON_BUMP);
+    k.stats.reason_bumped -= k.reason_bumped.size();
+    k.analyzed_seen = saved;
+    k.stats.reason_bump_aborted++;
+    // vars newly pushed to k.analyzed stay there with seen == 0 — harmless,
+    // bump_and_reset_analyzed skips them and clears unconditionally. (kissat
+    // pops its stack; ours is not a suffix, since a reason-side var may have
+    // been in k.analyzed already as minimization scratch.)
+  }
+  k.reason_bumped.clear();
 }
 
 // --- on-the-fly subsumption (kissat/src/deduce.c + strengthen.c) ----------
@@ -467,6 +551,8 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
   const Var uv = var_of(uip);
   if (!k.seen[uv])
     k.analyzed.push_back(uv);
+  if (!(k.seen[uv] & BUMPED))
+    k.analyzed_seen++;
   k.seen[uv] |= SEEN; // new clause literal: bump + minimization anchor
   // walked literals resolve to ¬uip, now in the clause — mark removable so
   // lower blocks' chains may bottom out in them (kissat
@@ -565,6 +651,7 @@ ApplyResult analyze_apply(Kernel &k) {
         return;
       k.seen[v] = SEEN;
       k.analyzed.push_back(v);
+      k.analyzed_seen++;
       resolvent_size++;
       if (lv == alevel)
         open++;
@@ -706,6 +793,13 @@ ApplyResult analyze_apply(Kernel &k) {
       k.marked_levels[lv] = 0;
     k.touched_levels.clear();
   }
+
+  // reason-side bumping, on the FINAL clause and before the bump (kissat
+  // analyze.c:566, between shrink/minimize and learn). Off unless a policy
+  // set the limit; never on the OTFS restart path (kissat skips it there too)
+  // nor on the root-refutation exit above.
+  if (k.bump_reason_limit)
+    bump_reason_side(k, learned);
 
   // glue (LBD) + backjump level from the non-asserting literals
   const uint32_t glue = count_glue(k, learned.data() + 1,

@@ -15,6 +15,13 @@ bool reduce_guard(const Kernel &);
 // filtering is the rule's). Pure query apart from transient reason locks.
 void reduce_candidates(Kernel &, std::vector<Ref> &out);
 
+// recompute Kernel::tier1/tier2 as the 50 %/90 % quantiles of the used-glue
+// histogram (kissat 4.0 tiers.c). Pure configuration update: no proof delta,
+// no formula change — it only moves which clauses reduce_candidates offers.
+// WHEN to call it is the policy's decision (kissat: at every reduction and on
+// a doubling conflict interval).
+void reduce_retier(Kernel &);
+
 // delete exactly refs[0..n) (re-validating: reasons/garbage are skipped),
 // emit proof deletes, then collect garbage. The CHOICE of n is the
 // policy's (plan §5 rev 17: ReductionPolicy sub-policy).

@@ -67,6 +67,15 @@ struct Stats {
   uint64_t shrunken = 0;  // literals removed by all-UIP block shrinking
   uint64_t otfs_strengthened = 0; // reasons strengthened on the fly
   uint64_t otfs_subsumed = 0;     // conflicts subsumed by the resolvent
+  // glue histogram of clauses USED in conflict analysis, per search mode
+  // (kissat statistics.h used[2].glue): the input to Reduce's dynamic tier
+  // quantiles. Always maintained; read only when the arm is on.
+  static constexpr uint32_t MAX_GLUE_USED = 127;
+  uint64_t used_glue[2][MAX_GLUE_USED + 1] = {};
+  uint64_t retiered = 0;           // dynamic tier recomputations
+  uint64_t reason_bumped = 0;      // extra vars marked by reason-side bumping
+  uint64_t reason_bump_rounds = 0; // conflicts the reason-side pass ran on
+  uint64_t reason_bump_aborted = 0; // rounds rolled back at the mark limit
   uint64_t api_decisions = 0; // externally chosen branches (N1)
   uint64_t restarts = 0;
   uint64_t restarts_reused = 0; // restarts that kept a trail prefix
@@ -286,6 +295,13 @@ struct Kernel {
   std::vector<uint8_t> seen;   // by var
   std::vector<Var> analyzed;   // vars marked seen
   std::vector<Var> shrinkable; // vars marked during a block-shrink walk
+  // |{v ∈ analyzed : seen[v] & (SEEN|REASON_BUMP)}| — the BUMP set size,
+  // which is what kissat's `analyzed` stack holds (its removable/poisoned
+  // marks live on separate stacks). Ours is a flag-cleanup list that also
+  // carries minimization scratch and, in LRAT mode, recorded antecedents,
+  // so `analyzed.size()` is neither the bump-set size nor mode-independent.
+  uint32_t analyzed_seen = 0;
+  std::vector<Var> reason_bumped; // REASON_BUMP marks, for rollback
   std::vector<Lit> learned_scratch; // the clause under construction
   std::vector<Lit> otfs_scratch;    // OTFS resolvent assembly
   std::vector<Var> radix_scratch;   // radix-sort double buffer
@@ -442,6 +458,23 @@ struct Kernel {
   // pass is delay-gated (vivifyirr) — delaying the whole round measured as
   // a Tier B loss (mod4block TO, 2026-07-24 arr4).
   uint8_t vivify_scope = 0;
+  // Reason-side bumping (kissat option bumpreasonslimit, cadical
+  // bumpreasonlimit — both 10): after the learned clause is final, also mark
+  // for bumping the literals of the REASONS of the clause's own literals, up
+  // to `this × |bump set|` marks; 0 = off (the default, byte-identical to not
+  // having the mechanism). CONFIGURATION like bve_bound: it changes only
+  // which variables `H` bumps, so every value is sound and proof-neutral —
+  // the clause database, the trail and the certificate are untouched. The
+  // GATE (decision-rate EMA + delay ladder) is scheduling and lives in the
+  // policy (rev 17), which scopes this field around ConflictAnalysis.
+  uint32_t bump_reason_limit = 0;
+  // Reduce retention tiers (kissat options tier1/tier2, defaults 2/6): glue
+  // bands that survive a reduction while recently used. CONFIGURATION like
+  // bve_bound — retention is policy, and every value is sound (Reduce only
+  // ever deletes redundant clauses). A policy that wants kissat 4.0's
+  // DYNAMIC tiers calls reduce_retier(), which overwrites these with
+  // quantiles of Stats::used_glue.
+  uint32_t tier1 = 2, tier2 = 6;
 
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }

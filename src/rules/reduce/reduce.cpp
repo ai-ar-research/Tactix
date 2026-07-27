@@ -18,8 +18,50 @@
 
 namespace tactix {
 
-static constexpr uint32_t TIER1_GLUE = 2;
-static constexpr uint32_t TIER2_GLUE = 6;
+// kissat 4.0's DYNAMIC tier limits (tiers.c compute_tier_limits): quantiles
+// of the glue distribution of the clauses that were actually USED in conflict
+// analysis — tier1 at 50 %, tier2 at 90 % (options tier1relative/
+// tier2relative). With no data yet, the option defaults 2/6 stand, which is
+// exactly the pair we have been using as a constant. The histogram read is
+// the FOCUSED one in both modes (kissat internal.h TIEDX with
+// focusedtiers = 1): the stable-mode limits are computed and never read.
+// Integer thresholds, not `total * 0.5`, so the result cannot depend on the
+// libm/rounding of the host (the battleship cross-toolchain determinism
+// lesson). The rule owns the computation; WHEN to recompute is the policy's.
+void reduce_retier(Kernel &k) {
+  const uint64_t *used = k.stats.used_glue[0];
+  uint64_t total = 0;
+  for (uint32_t g = 0; g <= Stats::MAX_GLUE_USED; g++)
+    total += used[g];
+  k.stats.retiered++;
+  if (!total) {
+    k.tier1 = 2;
+    k.tier2 = 6;
+    return;
+  }
+  const uint64_t lim1 = total / 2;           // tier1relative 500 per mille
+  const uint64_t lim2 = (total * 9 + 9) / 10; // tier2relative 900, rounded up
+  uint64_t acc = 0;
+  uint32_t t1 = 0;
+  for (uint32_t g = 0;; g++) {
+    acc += used[g];
+    if (acc >= lim1 || g == Stats::MAX_GLUE_USED) {
+      t1 = g;
+      break;
+    }
+  }
+  uint32_t t2 = t1;
+  if (acc < lim2)
+    for (uint32_t g = t1 + 1; g <= Stats::MAX_GLUE_USED; g++) {
+      acc += used[g];
+      if (acc >= lim2) {
+        t2 = g;
+        break;
+      }
+    }
+  k.tier1 = t1;
+  k.tier2 = t2;
+}
 
 // soundness: deleting redundant clauses is always sound as long as
 // reason-locked clauses and the pending learned clause survive; only a
@@ -55,6 +97,8 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
     uint32_t glue, size;
   };
   std::vector<Victim> candidates;
+  const uint32_t t1 = k.tier1;              // kissat reduce.c:62-63
+  const uint32_t t2 = std::max(t1, k.tier2);
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (c->redundant() && !c->garbage()) {
@@ -64,8 +108,8 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
       const uint32_t used = c->used();
       const uint32_t glue = c->glue();
       const bool keep =
-          c->reason() || (glue <= TIER1_GLUE && used) ||
-          (glue <= TIER2_GLUE && used >= Clause::MAX_USED - 1);
+          c->reason() || (glue <= t1 && used) ||
+          (glue <= t2 && used >= Clause::MAX_USED - 1);
       if (!keep)
         candidates.push_back({ref, glue, c->size});
     }

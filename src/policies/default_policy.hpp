@@ -37,6 +37,9 @@ class GlueTieredReduction final : public ReductionPolicy {
 public:
   const char *name() const override { return "glue-tiered"; }
   size_t victims(const Kernel &, size_t candidates) override;
+  // kissat's ramped fraction instead of the flat canonical one; set by
+  // DefaultPolicy together with its √-cadence arm (the two go together).
+  bool ramp = false;
 };
 
 // canonical BVE growth-slack ramp: kissat's cheap-first doubling 0,1,2,4,8
@@ -121,12 +124,18 @@ public:
   static constexpr double EMA_SLOW_WINDOW = 1e5;    // emaslow
   static constexpr uint64_t REDUCE_INTERVAL_INIT = 2000;
   static constexpr uint64_t REDUCE_INTERVAL_STEP = 300;
+  static constexpr uint64_t REDUCE_INTERVAL_KISSAT = 1000; // reduceint
   static constexpr uint64_t MODE_INITIAL_CONFLICTS = 1000; // modeinit
   static constexpr uint64_t MODE_INTERVAL = 1000;          // modeint
   static constexpr uint64_t RELUCTANT_PERIOD = 1024;    // reluctantint
   static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;  // reluctantlim
   static constexpr uint64_t REPHASE_INTERVAL_INIT = 1000; // rephaseinit
   static constexpr uint64_t REPHASE_INTERVAL = 1000;      // rephaseint
+  // reason-side bumping (kissat bumpreasonslimit/bumpreasonsrate; cadical
+  // agrees on the limit and says 100 for the rate — the one constant the
+  // references disagree on, hence the sweep knob)
+  static constexpr uint32_t BUMP_REASONS_LIMIT = 10;
+  static constexpr double BUMP_REASONS_RATE = 10.0;
   // C1 SubsumeForward occupies the kissat eliminate slot (eliminate.c
   // kissat_eliminating / kimits.h UPDATE_CONFLICT_LIMIT(eliminate, ...,
   // NLOG2N, true)) until C2/C3/E1 join it in this phase: interval =
@@ -213,6 +222,11 @@ public:
   struct ModeAverages {
     bool initialized = false;
     Smooth fast_glue, slow_glue;
+    // decisions per conflict, per mode (kissat averages.h decision_rate,
+    // window emaslow). Gates reason-side bumping: kissat only pays for it
+    // while the search is averaging few decisions per conflict.
+    Smooth decision_rate;
+    uint64_t saved_decisions = 0;
   };
 
   // scheduling state — public so tests (and future presets) can pose
@@ -250,9 +264,20 @@ public:
     // two ops. Identical to stats.rephased on the pre-Walk path.
     uint64_t count = 0;
   } rephase;
-  // S6 Walk effort (kissat options.h walkeffort = 50 per mille of the search
-  // work since the last walk; the floor is the shared MIN_EFFORT_TICKS)
-  static constexpr uint64_t WALK_PERMILLE = 50;
+  // S6 Walk effort, per mille of the search work since the last walk (floor
+  // MIN_EFFORT_TICKS). NOT kissat's walkeffort = 50: kissat and we scale the
+  // budget from cache-line search ticks but SPEND it in per-entry walk steps,
+  // while cadical spends in cache-line ticks too, so cadical's walkeffort = 80
+  // buys ~13x more walk scanning than our 50 did (audit 2026-07-26,
+  // docs/design/s6-walk-design.md §6). 640 is the cadical-equivalent dose, and
+  // it is what the measured sweep picked: same-window Tier C (window
+  // 20260727-000127) PAR-2 392.98 / 389.64 / 328.42 / **322.80** / 374.67 /
+  // 416.22 at per-mille 50 / 200 / 400 / 640 / 1600 / 3200 — 640 is the only
+  // arm that both solves mp1-Nb5T15 (TIMEOUT -> 26.1 s) and keeps SCPC-1000-18
+  // fast (68.1 s), against cadical's 306.01 in the same window. It is a
+  // two-sided lever: Tier B pays for it (9.32 -> 11.98), which is why "how
+  // hard to walk" is a §5.6 dosing exhibit and not a constant we believe in.
+  static constexpr uint64_t WALK_PERMILLE = 640;
   uint64_t walk_anchor = 0; // search_ticks when the last walk ran
   // --- the inprocessing SLOT (registry-driven scheduler, rev 26) --------
   // Schedule-as-data: the slot is a plain vector of {rule id, enabled}
@@ -346,6 +371,31 @@ public:
   // read once per solve): delay unproductive unmetered closures (see the
   // slot's unmetered branch).
   bool closure_delay_ = true;
+  // Reason-side bumping arm (TACTIX_BUMP_REASONS, read once per solve).
+  // 0 = off (default, byte-identical to not having the mechanism);
+  // otherwise the per-conflict mark limit handed to ConflictAnalysis.
+  uint32_t bump_reasons_limit_ = 0;
+  double bump_reasons_rate_ = BUMP_REASONS_RATE;
+  // kissat's delay ladder (kimits.c bump/reduce_delay): every round that
+  // hits the mark limit doubles the number of conflicts the pass is skipped
+  // for, every round that fits halves it. This is what keeps the extra
+  // marking (and the wider per-conflict VMTF sort) off instances where it
+  // would only cost throughput.
+  struct {
+    uint32_t count = 0, current = 0;
+  } bump_reasons_delay_;
+  // Reduce-cadence arm (TACTIX_REDUCE_SQRT, read once per solve): kissat's
+  // reduceint·√reductions interval + ramped deletion fraction instead of our
+  // arithmetic interval + flat 75 %.
+  bool reduce_sqrt_ = false;
+  // Dynamic retention tiers (TACTIX_DYNAMIC_TIERS, read once per solve):
+  // kissat 4.0 / cadical 3.0 both ship this ON and both use our fixed 2/6
+  // only as the no-data fallback.
+  bool dynamic_tiers_ = false;
+  struct {
+    uint64_t next_conflicts = 2;
+    uint64_t interval = 2;
+  } retier_;
   // S4 arrangement BVE bound level (kissat bounds.eliminate.additional_clauses,
   // eliminate.c set_next_elimination_bound): starts 0 (non-growing
   // eliminations only) and DOUBLES 0→1→2→4→8 only when a dose COMPLETES
@@ -394,6 +444,8 @@ public:
 
 private:
   void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs
+  void observe_decision_rate(const Kernel &);       // before each analysis
+  uint32_t want_bump_reasons(const Kernel &);       // the kissat gate ladder
   DefaultBranching default_branching_;
   GlueTieredReduction default_reduction_;
   DefaultBveBoundRamp default_bve_ramp_;

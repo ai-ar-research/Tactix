@@ -32,10 +32,45 @@ void DefaultPolicy::observe_glue(const Kernel &k, uint32_t glue) {
   if (!avg.initialized) { // lazy, once per mode (kissat init_averages)
     avg.fast_glue.init(EMA_FAST_WINDOW);
     avg.slow_glue.init(EMA_SLOW_WINDOW);
+    avg.decision_rate.init(EMA_SLOW_WINDOW);
     avg.initialized = true;
   }
   avg.fast_glue.update(glue);
   avg.slow_glue.update(glue);
+}
+
+// decisions since the previous conflict IN THIS MODE (kissat analyze.c
+// update_decision_rate_average, at the top of every non-probing analysis).
+// The per-mode `saved_decisions` baseline is re-anchored at every mode switch
+// (kissat mode.c) — without that, the first sample after a switch is the
+// other mode's entire decision count and the EMA stays pinned high for
+// ~emaslow conflicts, silently disabling the gate below.
+void DefaultPolicy::observe_decision_rate(const Kernel &k) {
+  ModeAverages &avg = averages[k.h->stable];
+  if (!avg.initialized) {
+    avg.fast_glue.init(EMA_FAST_WINDOW);
+    avg.slow_glue.init(EMA_SLOW_WINDOW);
+    avg.decision_rate.init(EMA_SLOW_WINDOW);
+    avg.initialized = true;
+  }
+  const uint64_t cur = k.stats.decisions;
+  const uint64_t prev = avg.saved_decisions;
+  avg.saved_decisions = cur;
+  avg.decision_rate.update(static_cast<double>(cur - prev));
+}
+
+// kissat's gate ladder for reason-side bumping, in its exact order: option,
+// then the DESTRUCTIVE delay countdown, then the decision-rate test.
+uint32_t DefaultPolicy::want_bump_reasons(const Kernel &k) {
+  if (!bump_reasons_limit_)
+    return 0;
+  if (bump_reasons_delay_.count) {
+    bump_reasons_delay_.count--;
+    return 0;
+  }
+  if (averages[k.h->stable].decision_rate.value >= bump_reasons_rate_)
+    return 0;
+  return bump_reasons_limit_;
 }
 
 // reluctant doubling (Knuth's formulation of Luby; kissat reluctant.c):
@@ -261,14 +296,42 @@ void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
   }
 }
 
-// arithmetically growing reduce interval
+// reduce cadence. Default: arithmetically growing interval (phase-1 choice).
+// TACTIX_REDUCE_SQRT selects kissat's schedule instead — reduceint·√reductions
+// (kimits.h UPDATE_CONFLICT_LIMIT(reduce, reductions, SQRT, false),
+// reduceint = 1000). The two diverge fast: at 100 reductions kissat's next
+// interval is 10 k conflicts and ours is 32 k, so our steady-state redundant
+// database is several times larger and its `used` bits age several times
+// slower. That is a candidate mechanism for the standing residual (s055
+// props/conflict 1.43× kissat AT conflict parity).
 void DefaultPolicy::update_reduce_limit(const Kernel &k) {
+  if (reduce_sqrt_) {
+    const double n = static_cast<double>(
+        k.stats.reductions ? k.stats.reductions : 1);
+    reduce.next_conflicts =
+        k.stats.conflicts +
+        static_cast<uint64_t>(REDUCE_INTERVAL_KISSAT * std::sqrt(n));
+    return;
+  }
   reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_INIT +
                           REDUCE_INTERVAL_STEP * k.stats.reductions;
 }
 
-size_t GlueTieredReduction::victims(const Kernel &, size_t candidates) {
-  return reduce_canonical_victims(candidates);
+// how much of the ranked candidate list dies. Default: kissat's flat 75 %.
+// Under TACTIX_REDUCE_SQRT, kissat's RAMP (reduce.c
+// mark_less_useful_clauses_as_garbage): percent = high − (high−low)/log10(r+9)
+// with reducelow/reducehigh = 50/90 per mille-of-ten, i.e. 50 % at the first
+// reduction rising towards 90 %. The ramp belongs with the cadence — a
+// frequent reducer must delete less each time.
+size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
+  if (!ramp)
+    return reduce_canonical_victims(candidates);
+  // kissat increments `reductions` at the top of its reduce; ours is still
+  // the pre-increment count here, hence +1.
+  const double r = static_cast<double>(k.stats.reductions) + 1.0;
+  const double percent = 90.0 - 40.0 / std::log10(r + 9.0);
+  return static_cast<size_t>(static_cast<double>(candidates) * percent /
+                             100.0);
 }
 
 Lit DefaultBranching::pick(Kernel &k) {
@@ -327,6 +390,29 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // (Ok vs NoOp); a delay, never a disable (no-rule-off baseline).
   // TACTIX_NO_CLOSURE_DELAY reverts for A/Bs.
   closure_delay_ = std::getenv("TACTIX_NO_CLOSURE_DELAY") == nullptr;
+  // Reason-side bumping arm (kissat bumpreasons / cadical bumpreason, both
+  // default ON there; OFF here until measured). TACTIX_BUMP_REASONS enables
+  // it; the two sweep knobs exist because the references disagree 10x on the
+  // rate. Per-solve reset of the delay ladder, like every other per-solve
+  // scheduling counter above.
+  bump_reasons_limit_ =
+      std::getenv("TACTIX_BUMP_REASONS") ? BUMP_REASONS_LIMIT : 0;
+  if (const char *bl = std::getenv("TACTIX_BUMP_REASONS_LIMIT"))
+    bump_reasons_limit_ = static_cast<uint32_t>(std::strtoul(bl, nullptr, 10));
+  bump_reasons_rate_ = BUMP_REASONS_RATE;
+  if (const char *br = std::getenv("TACTIX_BUMP_REASONS_RATE"))
+    bump_reasons_rate_ = std::strtod(br, nullptr);
+  bump_reasons_delay_ = {};
+  // Reduce-cadence arm: kissat's √ interval + ramped fraction (reduceinit
+  // 1000 is its first limit, against our 2000).
+  reduce_sqrt_ = std::getenv("TACTIX_REDUCE_SQRT") != nullptr;
+  default_reduction_.ramp = reduce_sqrt_;
+  if (reduce_sqrt_)
+    reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_KISSAT;
+  dynamic_tiers_ = std::getenv("TACTIX_DYNAMIC_TIERS") != nullptr;
+  retier_ = {};
+  if (dynamic_tiers_)
+    retier_.next_conflicts = k.stats.conflicts + retier_.interval;
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)
@@ -458,9 +544,34 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return 10;
     }
     if (r == ApplyResult::Conflict) {
-      if (analyze_apply(k) == ApplyResult::Unsat)
+      observe_decision_rate(k); // kissat: before the analysis, once per conflict
+      // reason-side bumping is CONFIGURATION on the rule, scoped to this one
+      // application so it never leaks to the API or RandomPolicy
+      k.bump_reason_limit = want_bump_reasons(k);
+      const uint64_t br_rounds = k.stats.reason_bump_rounds;
+      const uint64_t br_aborted = k.stats.reason_bump_aborted;
+      const ApplyResult ar = analyze_apply(k);
+      k.bump_reason_limit = 0;
+      if (k.stats.reason_bump_rounds != br_rounds) { // the pass actually ran
+        if (k.stats.reason_bump_aborted != br_aborted) // over the mark limit
+          bump_reasons_delay_.current +=
+              (bump_reasons_delay_.current < UINT32_MAX);
+        else if (bump_reasons_delay_.current)
+          bump_reasons_delay_.current /= 2;
+        bump_reasons_delay_.count = bump_reasons_delay_.current;
+      }
+      if (ar == ApplyResult::Unsat)
         return 20;
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
+      // second retier channel (kissat analyze.c update_tier_limits): a
+      // doubling conflict interval starting at 2, capped at 2^16, so the
+      // bands settle quickly at the start of a solve and then stop churning
+      if (dynamic_tiers_ && k.stats.conflicts > retier_.next_conflicts) {
+        reduce_retier(k);
+        if (retier_.interval < (1u << 16))
+          retier_.interval *= 2;
+        retier_.next_conflicts = k.stats.conflicts + retier_.interval;
+      }
       if (k.h->stable)
         tick_reluctant(); // per learned clause (kissat learn.c)
       {
@@ -480,6 +591,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_reduce(k) && reduce_guard(k)) {
       // sub-policy chooses HOW MUCH of the rule's ranked candidates die
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
+      // kissat recomputes the tier limits at the TOP of every reduce, so the
+      // selection below already sees the new bands (reduce.c:159 → :179)
+      if (dynamic_tiers_)
+        reduce_retier(k);
       reduce_candidates(k, reduce_scratch_);
       reduce_apply_refs(
           k, reduce_scratch_.data(),
@@ -498,6 +613,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
       switchmode_apply(k);
       mode.count++;
+      // re-anchor the entered mode's decision-rate baseline (kissat mode.c)
+      averages[k.h->stable].saved_decisions = k.stats.decisions;
       if (k.h->stable) // entering stable: fresh reluctant sequence
         reluctant = {};
       update_mode_limits(k);
