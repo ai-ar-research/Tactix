@@ -390,13 +390,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // (Ok vs NoOp); a delay, never a disable (no-rule-off baseline).
   // TACTIX_NO_CLOSURE_DELAY reverts for A/Bs.
   closure_delay_ = std::getenv("TACTIX_NO_CLOSURE_DELAY") == nullptr;
-  // Reason-side bumping arm (kissat bumpreasons / cadical bumpreason, both
-  // default ON there; OFF here until measured). TACTIX_BUMP_REASONS enables
-  // it; the two sweep knobs exist because the references disagree 10x on the
-  // rate. Per-solve reset of the delay ladder, like every other per-solve
-  // scheduling counter above.
+  // Reason-side bumping — DEFAULT ON since 2026-07-27, TOGETHER with dynamic
+  // tiers below: measured same-window Tier C (window `20260727-005552-C-pairs`)
+  // 322.84 shipped -> **273.21** for the pair, against cadical 308.10, while
+  // EITHER ALONE LOSES (bumping alone 391.90, tiers alone 424.26 in window
+  // `20260727-003627`). That is not a coincidence to shrug at: kissat's
+  // retention bands are quantiles of the glue distribution of clauses the
+  // search actually uses, and reason-side bumping changes which clauses those
+  // are — the two references ship them together because they are one
+  // mechanism. TACTIX_NO_BUMP_REASONS / TACTIX_NO_DYNAMIC_TIERS revert
+  // independently (both were measured). The two sweep knobs exist because the
+  // references disagree 10x on the rate. Per-solve reset of the delay ladder,
+  // like every other per-solve scheduling counter above.
   bump_reasons_limit_ =
-      std::getenv("TACTIX_BUMP_REASONS") ? BUMP_REASONS_LIMIT : 0;
+      std::getenv("TACTIX_NO_BUMP_REASONS") ? 0 : BUMP_REASONS_LIMIT;
   if (const char *bl = std::getenv("TACTIX_BUMP_REASONS_LIMIT"))
     bump_reasons_limit_ = static_cast<uint32_t>(std::strtoul(bl, nullptr, 10));
   bump_reasons_rate_ = BUMP_REASONS_RATE;
@@ -409,7 +416,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   default_reduction_.ramp = reduce_sqrt_;
   if (reduce_sqrt_)
     reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_KISSAT;
-  dynamic_tiers_ = std::getenv("TACTIX_DYNAMIC_TIERS") != nullptr;
+  dynamic_tiers_ = std::getenv("TACTIX_NO_DYNAMIC_TIERS") == nullptr;
   retier_ = {};
   if (dynamic_tiers_)
     retier_.next_conflicts = k.stats.conflicts + retier_.interval;

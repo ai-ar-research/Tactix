@@ -51,26 +51,43 @@ disagree, the plan is authoritative — fix this file.
   have. Reason-side bumping is the one exception worth having: it is the
   largest single item in kissat's own ablation.
 
+  **▶ THE SECOND LANDING (2026-07-27): reason-side bumping + dynamic tiers,
+  ON TOGETHER.** Same-window Tier C (`20260727-005552-C-pairs`), shipped
+  default = 322.84 with the 640 dose:
+  | arm | Tier C | Tier B |
+  |---|---|---|
+  | shipped (dose only) | 322.84 | 13.46 |
+  | + reason-side bumping alone | 391.90 | 52.20 (mod4block TO) |
+  | + dynamic tiers alone | 424.26 | 11.40 |
+  | **+ BOTH (now the default)** | **273.21** | 14.58 |
+  | + both + `REDUCE_SQRT` | 294.78 | 52.60 |
+  | BVE `cadence-open` | 422.73 | 53.57 |
+  | Walk `NO_TARGET` | 361.44 | 12.26 |
+  | kissat / cadical | 228.30 / 308.10 | 8.89 / 19.53 |
+  Either alone loses, the pair wins by 50 — kissat's retention bands are
+  quantiles of the glue distribution of the clauses the search USES, and
+  reason-side bumping changes which clauses those are, so the two references
+  ship them together and so do we (`docs/implementation-notes.md` §9).
+  `TACTIX_NO_BUMP_REASONS` / `TACTIX_NO_DYNAMIC_TIERS` revert independently;
+  `TACTIX_REDUCE_SQRT` stays a default-off §5.6 dosing arm.
+  Shipping-build fuzz: **10 k/0 DRAT, 10 k/0 native LRAT, 10 k/0
+  `--random-policy`** (jobs 1565456/57/58).
+
   **▶ NEXT STEP (in order of expected value):**
-  1. **The three measured arms, all implemented and default-OFF, A/B in
-     flight** (arrays 1564695 Tier C / 1564798 Tier B, windows
-     `20260727-0036*`; arms `base|bump|sqrt|tiers|all3` + kissat + cadical):
-     - `TACTIX_BUMP_REASONS` — reason-side variable bumping (kissat
-       `analyze.c` `analyze_reason_side_literals` + the decision-rate EMA and
-       delay ladder; cadical agrees on the mechanism, disagrees 10× on the
-       rate constant). Fuzz 10 k/0 DRAT + 10 k/0 native LRAT.
-     - `TACTIX_REDUCE_SQRT` — kissat's reduce cadence `reduceint·√reductions`
-       + the ramped 50 %→90 % deletion fraction, instead of our arithmetic
-       `2000 + 300·reductions` + flat 75 %. At 100 reductions kissat's next
-       interval is 10 k conflicts and ours is 32 k, so our steady-state
-       redundant DB is several times larger and its `used` bits age several
-       times slower — a candidate mechanism for the standing s055
-       props/conflict 1.43× AT conflict parity.
-     - `TACTIX_DYNAMIC_TIERS` — kissat 4.0 / cadical 3.0 tier1/tier2 as the
-       50 %/90 % quantiles of the used-glue histogram (`tiers.c`); our fixed
-       2/6 is literally their no-data fallback.
-     Flip on measured PAR-2 only; keep the knob as the revert.
-  2. **TB4b** — the only open Track T item: the six chrono divergences
+  1. **Re-pick the walk dose ON TOP of the pair** (arrays 1566194 Tier B /
+     1566307 Tier C, windows `20260727-0132*`, arms per-mille
+     {50, 200, 400, 640, 1000}). The 640 dose was chosen against the OLD
+     search; the pair changed the trajectory, and Tier B is where the dose
+     hurts (crypto1 37.3 vs kissat 4.2, qwh 32.9 vs 11.0, rbsat 21.1 vs 5.8
+     in the gate window). If a lower dose keeps Tier C's mp1-Nb5T15 solve, it
+     buys Tier B back for free. **Re-run the three-tier gate after any
+     change.**
+  2. **The `bumpreasons` rate constant is unswept** — kissat says 10,
+     cadical says 100, and the knobs exist (`TACTIX_BUMP_REASONS_RATE`,
+     `TACTIX_BUMP_REASONS_LIMIT`). One same-window B+C array over
+     {2, 10, 100}; the mechanism is now load-bearing, so its one disputed
+     constant is worth measuring.
+  3. **TB4b** — the only open Track T item: the six chrono divergences
      from the TB4 audit (watch repair onto highest-level literals,
      one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
      timing, `jumpreasons`, cadical `chronoreusetrail`). Aims at

@@ -371,9 +371,10 @@ public:
   // read once per solve): delay unproductive unmetered closures (see the
   // slot's unmetered branch).
   bool closure_delay_ = true;
-  // Reason-side bumping arm (TACTIX_BUMP_REASONS, read once per solve).
-  // 0 = off (default, byte-identical to not having the mechanism);
-  // otherwise the per-conflict mark limit handed to ConflictAnalysis.
+  // Reason-side bumping (DEFAULT ON; TACTIX_NO_BUMP_REASONS reverts, read
+  // once per solve). 0 = off; otherwise the per-conflict mark limit handed to
+  // ConflictAnalysis. Ships together with dynamic_tiers_ — see the solve()
+  // comment for why the pair is one mechanism.
   uint32_t bump_reasons_limit_ = 0;
   double bump_reasons_rate_ = BUMP_REASONS_RATE;
   // kissat's delay ladder (kimits.c bump/reduce_delay): every round that
@@ -388,10 +389,10 @@ public:
   // reduceint·√reductions interval + ramped deletion fraction instead of our
   // arithmetic interval + flat 75 %.
   bool reduce_sqrt_ = false;
-  // Dynamic retention tiers (TACTIX_DYNAMIC_TIERS, read once per solve):
+  // Dynamic retention tiers (DEFAULT ON; TACTIX_NO_DYNAMIC_TIERS reverts):
   // kissat 4.0 / cadical 3.0 both ship this ON and both use our fixed 2/6
   // only as the no-data fallback.
-  bool dynamic_tiers_ = false;
+  bool dynamic_tiers_ = true;
   struct {
     uint64_t next_conflicts = 2;
     uint64_t interval = 2;

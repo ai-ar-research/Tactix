@@ -540,3 +540,74 @@ tuned against its own state-maintenance choices. Before porting a schedule,
 check whether the state it reads is maintained the same way here — and when a
 port regresses, ablate the schedule change separately from the mechanism it
 carries (L8). The dry-run control (`TACTIX_WALK_DRY`) is kept for exactly that.
+
+## 9. Design decision: reason-side bumping and dynamic tiers are ONE mechanism
+
+Both landed 2026-07-27, both default ON, both revertible
+(`TACTIX_NO_BUMP_REASONS`, `TACTIX_NO_DYNAMIC_TIERS`). Neither is a proof rule:
+
+- **Reason-side bumping** (kissat `analyze.c analyze_reason_side_literals`,
+  cadical `bump_also_all_reason_literals`; MapleCOMSPS 2016) marks, in addition
+  to the resolution-visited variables, the variables occurring in the *reasons*
+  of the final learned clause's literals — one level deep, capped, and rolled
+  back all-or-nothing if the cap is exceeded. It changes only which variables
+  the VMTF queue / EVSIDS heap bump: **`H`-only, no proof delta, no
+  `docs/calculus.md` entry.**
+- **Dynamic tiers** (kissat 4.0 `tiers.c`, cadical 3.0 `tier.cpp`) replaces the
+  fixed retention bands `tier1 = 2 / tier2 = 6` with the 50 %/90 % quantiles of
+  the glue distribution of the clauses the search actually *used*. Deleting
+  redundant clauses is sound for any bands, so the bands are **configuration**
+  (`Kernel::tier1/tier2`, alongside `bve_bound`/`work_budget`), not a guard.
+
+**Why they ship together.** Same-window Tier C (`20260727-005552-C-pairs` and
+`20260727-003627-C-arms`, one array per window, shipped default = 322.84):
+
+| arm | Tier C PAR-2 | Tier B PAR-2 |
+|---|---|---|
+| shipped (dose 640 only) | 322.84 | 13.46 |
+| + reason-side bumping alone | 391.90 | 52.20 (mod4block TIMEOUT) |
+| + dynamic tiers alone | 424.26 | 11.40 |
+| **+ both** | **273.21** | 14.58 |
+| cadical 3.0.0 (same window) | 308.10 | 19.53 |
+
+Either alone is a clear loss and the pair is a clear win, which is a real
+mechanism story rather than a coincidence: the retention bands are quantiles of
+*the glue distribution of the clauses the search uses*, and reason-side bumping
+changes which clauses the search uses. Fixed bands calibrated for one search do
+not fit the other. Both references ship both; neither ships one.
+
+**Two port traps, both load-bearing.**
+
+1. *The bump-set size is not `k.analyzed.size()`.* kissat keeps
+   `analyzed`/`removable`/`poisoned`/`shrinkable` on four separate stacks; we
+   pack all the marks into one `Kernel::seen` byte and use `k.analyzed` as a
+   flag-cleanup list that additionally carries minimization scratch and, in
+   LRAT mode, recorded antecedents. Using its size as the cap denominator would
+   inflate the cap by the minimization fan-out *and* make the search trajectory
+   differ between `--drat` and `--lrat`. Hence the explicit
+   `Kernel::analyzed_seen` counter, and hence the mark test is
+   `seen[v] & (SEEN|REASON_BUMP)` and not `seen[v]` — the latter would silently
+   skip every minimization-chain variable and bump a much smaller set than the
+   reference. Same failure shape as §8: a flag layout, not an algorithm.
+2. *The rollback cannot be a stack pop.* kissat pops its `analyzed` stack back
+   to the saved size; our extras are not a suffix (a reason-side variable may
+   already be in `k.analyzed` as minimization scratch), so the rollback clears
+   `REASON_BUMP` over an explicit `Kernel::reason_bumped` list.
+
+**Where the gate lives.** Per rev 17 the rule owns the bump SET and the tier
+COMPUTATION; the policy owns WHEN. `DefaultPolicy` holds the per-mode
+decision-rate EMA (with kissat's `mode.c` re-anchor at every mode switch —
+omit it and the EMA stays pinned above the rate threshold and the mechanism
+silently never fires), kissat's doubling delay ladder, and the two retier
+channels (at every reduction, and on a doubling conflict interval capped at
+2^16). The tier quantiles use integer thresholds, never `total * 0.5`, so the
+bands cannot depend on host libm — the battleship cross-toolchain determinism
+lesson.
+
+**Measured and NOT adopted:** kissat's reduce cadence
+`reduceint·√reductions` + its ramped 50 %→90 % deletion fraction
+(`TACTIX_REDUCE_SQRT`, default off). The arithmetic divergence is real — at 100
+reductions kissat's next interval is 10 k conflicts and ours is 32 k — but
+measured it is a loss on both tiers with the pair above (Tier C 294.78 with all
+three vs 273.21 for the pair; Tier B 52.60 vs 14.58). Kept as a knob because
+the cadence is a §5.6 dosing arm, not because it is dead.
