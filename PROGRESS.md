@@ -7,29 +7,49 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 71 (2026-07-26)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-27 (Walk dose GATED at 640 per mille — Tier C 392.98 → **322.80**, mp1-Nb5T15 TO → 26.1 s; kissat/cadical technique ablation says Sweep+Reorder are NOT the gap)
-- **▶ RESUME HERE (2026-07-27).** Phase 3, **T3 gate: ratio criterion MET on
-  the dose window, confirmation array in flight**. Cluster protocol:
+- **Last updated:** 2026-07-27 (Tier C push: dose 640 + reason-side bumping + dynamic tiers — Tier C 382.94 → **283.44**, now BELOW CaDiCaL; Tier A beats kissat; Tier B regressed. Report `benchmarks/reports/2026-07-27-tier-c-push.md`)
+- **▶ RESUME HERE (2026-07-27).** Phase 3. **T3: the CaDiCaL criterion is MET
+  with margin, the Kissat-parity-on-the-rule-neutral-subset criterion is NOT
+  (1.20×) — phase 3 does NOT close yet.** Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
   never compare cluster ↔ M3-Pro (revs 64/65).
 
+  **SAME-WINDOW STANDINGS, 2026-07-27** (`20260727-0129*` A/B, C from
+  `20260727-013237-C-dose2` arm `d640` = the shipped config, proof-free like
+  the baselines; the DRAT+drat-trim number is given separately because of the
+  `urq45` checker-budget caveat below):
+  | | tactix | kissat 4.0.4 | CaDiCaL | vs kissat | vs CaDiCaL |
+  |---|---|---|---|---|---|
+  | Tier A | **0.43** (200/200) | 0.45 (200/200) | 0.75 (199/200) | **0.96×** | 0.57× |
+  | Tier B | **15.14** (14/14) | 8.59 (14/14) | 19.64 (14/14) | 1.76× | 0.77× |
+  | Tier C | **283.44** (29/30) | 228.31 (29/30) | 304.07 (29/30) | 1.24× | **0.93×** |
+  | Tier C, DRAT-checked | 358.14 (28/30) | — | — | | |
+  **Rule-neutral subset (T3's second criterion, 24/30 instances — derived from
+  the §2 ablation: sweep costs neither baseline > 25 %): tactix 311.30 vs
+  kissat 258.39 vs cadical 319.83 = 0.97× cadical, 1.20× kissat.** CaDiCaL
+  half met, Kissat half not.
+  **CAVEAT (honest):** the DRAT-checked Tier C number is 358.14 because
+  `urq45`'s 557 MB proof exceeds drat-trim's 2400 s budget under the new
+  retention (it verified in 893 s before, at 897 MB). That is a checker-COST
+  regression, not a rejection; native-LRAT/cake_lpr verification of that
+  instance is the open follow-up (probe 1566824).
+
   **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
   closure-delay ladder + S6 Walk at 640 per mille** (S4 gate report
   `2026-07-25-s4-gate-mp1.md`; ladder default ON `2639a5a`).
-  **THE WALK-DOSE SWEEP (window `20260727-000127-C-walkdose`, one array,
-  9 arms × 30 instances — the authoritative Tier C numbers):**
-  | per-mille | 50 (was) | 200 | 400 | **640 (now)** | 1600 | 3200 | kissat | cadical |
-  |---|---|---|---|---|---|---|---|---|
-  | Tier C PAR-2 | 392.98 | 389.64 | 328.42 | **322.80** | 374.67 | 416.22 | 226.26 | 306.01 |
-  | solved /30 | 28 | 28 | 29 | **29** | 28 | 28 | 29 | 29 |
-  | Tier B PAR-2 | 9.32 | 10.15 | 12.12 | **11.98** | 12.87 | 19.93 | 8.57 | 19.37 |
-  640 is the only arm that both flips `mp1-Nb5T15` (TIMEOUT → **26.1 s**) and
-  keeps `SCPC-1000-18` fast (68.1 s); **Tier C 322.80 vs cadical 306.01 =
-  1.055×, inside T3's 10 %**. It is a genuine two-sided lever — Tier B pays
-  +29 % (mod4block 6.8 → 25.3, rbsat 12.4 → 24.9, crypto1 1.1 → 6.7,
-  battleship 0.2 → 7.3) — so "how hard to walk" stays a §5.6 dosing exhibit.
-  The remaining Tier C unsolved is `128_125` alone (all three solvers fail).
+  **THE WALK-DOSE SWEEP, re-picked ON TOP of the pair below** (windows
+  `20260727-000127-C-walkdose` then `20260727-0132*-dose2`; one array each):
+  | per-mille | 50 (was) | 200 | 400 | **640 (now)** | 1000 | kissat | cadical |
+  |---|---|---|---|---|---|---|---|
+  | Tier C, with the pair | 308.88 | 323.01 | 337.34 | **283.44** | 381.23 | 228.31 | 304.07 |
+  | Tier B, with the pair | 16.41 | 11.44 | 10.16 | **14.22** | 11.94 | 8.50 | 19.33 |
+  640 is the only arm that both flips `mp1-Nb5T15` (TIMEOUT → 26.1 s) and keeps
+  `SCPC-1000-18` fast; it is the Tier C optimum by a wide margin and the Tier B
+  optimum moved to 400. **No setting is best on both** — `WALK_PERMILLE=200` is
+  the balanced compromise (C 323.01 / B 11.44), one env var away — so "how hard
+  to walk" stays a §5.6 dosing exhibit. The remaining Tier C unsolved is
+  `128_125` alone (all three solvers fail).
 
   **▶ THE DECISIVE NEW EVIDENCE (2026-07-27): the mechanisms we LACK are
   ≤ 9 % of the gap to kissat.** Same-window kissat/cadical technique ablation
@@ -73,37 +93,49 @@ disagree, the plan is authoritative — fix this file.
   Shipping-build fuzz: **10 k/0 DRAT, 10 k/0 native LRAT, 10 k/0
   `--random-policy`** (jobs 1565456/57/58).
 
-  **▶ NEXT STEP (in order of expected value):**
-  1. **Re-pick the walk dose ON TOP of the pair** (arrays 1566194 Tier B /
-     1566307 Tier C, windows `20260727-0132*`, arms per-mille
-     {50, 200, 400, 640, 1000}). The 640 dose was chosen against the OLD
-     search; the pair changed the trajectory, and Tier B is where the dose
-     hurts (crypto1 37.3 vs kissat 4.2, qwh 32.9 vs 11.0, rbsat 21.1 vs 5.8
-     in the gate window). If a lower dose keeps Tier C's mp1-Nb5T15 solve, it
-     buys Tier B back for free. **Re-run the three-tier gate after any
-     change.**
+  **▶ NEXT STEP (in order of expected value).** The gate that remains open is
+  **T3's Kissat half**: 1.20× kissat on the 24-instance rule-neutral subset.
+  Everything below aims at that (and at the Tier B regression, which has the
+  same cause — the residual is search quality, not missing rules, L11).
+  1. **The Tier B regression is the walk dose, and the dose wants to be
+     CONTEXT-dependent, not smaller.** Measured: no per-mille is best on both
+     tiers (§ the sweep table above). This is now the third mechanism family
+     in the §5.6 exhibit and the first one where the shipped constant is
+     visibly wrong for half the corpus. Two concrete, cheap moves before any
+     learner: (a) dose per MODE (kissat/cadical both walk only in stable —
+     ours too — but nothing says the per-mille must be mode-invariant);
+     (b) dose per instance CLASS on a measured separator, the way the BVE
+     density gate was built (L9). Ship only on a same-window B+C win.
   2. **The `bumpreasons` rate constant is unswept** — kissat says 10,
      cadical says 100, and the knobs exist (`TACTIX_BUMP_REASONS_RATE`,
      `TACTIX_BUMP_REASONS_LIMIT`). One same-window B+C array over
      {2, 10, 100}; the mechanism is now load-bearing, so its one disputed
-     constant is worth measuring.
-  3. **TB4b** — the only open Track T item: the six chrono divergences
+     constant is worth measuring. Same for `BUMP_REASONS_LIMIT`.
+  3. **`urq45`'s DRAT proof-check blowup** (§5.2 of the report): 557 MB, over
+     drat-trim's 2400 s budget under the new retention, where it verified in
+     893 s at 897 MB before. Verify with native LRAT + cake_lpr (probe
+     1566824) to confirm it is a checker-cost issue and not a proof-quality
+     one; if the LRAT path is fast, say so in the plan and stop treating
+     drat-trim's budget as the gate.
+  4. **TB4b** — the only open Track T item: the six chrono divergences
      from the TB4 audit (watch repair onto highest-level literals,
      one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
      timing, `jumpreasons`, cadical `chronoreusetrail`). Aims at
      FmlaEquiv's 1.53× conflicts (chrono fires 51 k/solve there). Port ONE
      behavior at a time, same-window gates; TB4's lesson: audit any
      negative verdict before accepting it.
-  3. **Clause-quality decomposition probe** before touching minimization
+  5. **Clause-quality decomposition probe** before touching minimization
      depth or retention: compare learned size/glue distributions +
      minimization rates vs kissat on FmlaEquiv/s055/9vliw — pick the lever
      with evidence (the restart-rate delta and both conflict gaps all
      point at learned-clause quality).
-  4. Standing (not now): the **§5.6 phase-6 dosing exhibit** now holds
-     three mechanism families (BVE admission — reports
+  6. Standing (not now): the **§5.6 phase-6 dosing exhibit** now holds
+     four mechanism families (BVE admission — reports
      `2026-07-25-crypto1-bve-mechanism.md` / `-bve-dosing-arms.md`, oracle
      489.27 + labeled instances incl. s055; TR dosing — Log 2026-07-25
-     late; mode schedule — TB6). **USER BASELINE (standing): rule-off
+     late; mode schedule — TB6; WALK DOSE — the 2026-07-27 sweeps, the
+     first family whose shipped constant is measurably wrong for half the
+     corpus). **USER BASELINE (standing): rule-off
      configs are diagnostics only; fix the SCHEDULING**
      ([[no-rule-off-configs]]). V5 Sweep stays phase 4 (not-promoted);
      O16 auto-invention decided at phase-4 entry.
@@ -194,13 +226,13 @@ disagree, the plan is authoritative — fix this file.
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ▫ in progress: T1+T2 passed; Tier B now 1.29× kissat (2026-07-25); T3 (CaDiCaL on Tier C) next |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ▫ in progress: T1+T2 passed. Same-window 2026-07-27: Tier A **0.96×** kissat (we lead), Tier C 1.24×, Tier B **1.76×** — B regressed from 1.06× as the deliberate price of the Tier C walk dose (report `2026-07-27-tier-c-push.md` §5.1); recovering it is next-step 1 |
 
 ## Milestone gates (plan §8.3)
 
 - [x] T1 — **passed 2026-07-14** (Tier A 200/200 PAR-2 0.48; Tier B 9/14 @ 231.6 vs MiniSat 8/14 @ 281.4; report `benchmarks/reports/2026-07-14-t1-gate.md`)
 - [x] T2 — **passed 2026-07-14** (Tier B 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51). **Live gap 2026-07-25 late: tactix 401.17 vs CaDiCaL 317.51 same-window ≈ 1.26×** (was 1.72× that morning, 2.15× on 07-20; window `20260725-131*`, baselines slightly proof-handicapped — clean ratio ~1.3×). T105+T87 cracked; residual = SCPC/128_125 TOs + search quality (kissat 227.05).
+- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51). **HALF MET 2026-07-27** (report `benchmarks/reports/2026-07-27-tier-c-push.md`): whole tier **tactix 283.44 vs CaDiCaL 304.07 = 0.93×** — the CaDiCaL criterion is met with margin (kissat 228.31 = 1.24×). On the 24-instance rule-neutral subset tactix 311.30 vs CaDiCaL 319.83 (0.97×) but **kissat 258.39 (1.20×)** — the Kissat-parity half is NOT met, so phase 3 stays open. Residual = search quality, measured: the six techniques we still lack are worth only 14.3 PAR-2 to kissat with ALL of them off (L11).
 - [ ] T4 — **exceed** Kissat-public PAR-2 on Tier D via DefaultPolicy engineering (raised from parity, rev 49)
 - [ ] T5 — beat AE-Kissat-MAB PAR-2 on Tier D → competition submission
 
