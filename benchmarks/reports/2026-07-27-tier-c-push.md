@@ -125,6 +125,42 @@ The 640 dose was chosen against the *old* search, so it was re-swept:
 finding as §1 — `TACTIX_WALK_PERMILLE=200` is the balanced compromise
 (C 323.01 / B 11.44) and is one environment variable away.
 
+## 4b. The `bumpreasons` constants (windows `20260727-0225*`)
+
+kissat and cadical disagree 10× on the one gate constant (rate 10 vs 100), so
+it was swept, together with the mark limit both agree on (10):
+
+| arm | Tier C | Tier B |
+|---|---|---|
+| rate 2 | 320.64 | 53.76 (13/14) |
+| **rate 10 (default)** | **280.02** | 14.60 |
+| rate 30 | 332.50 | **8.64** |
+| rate 100 (cadical's) | 317.50 | 22.16 |
+| limit 5 | 309.04 | 51.73 (13/14) |
+| limit 20 | 294.17 | 15.45 |
+| kissat / cadical | 224.90 / 304.01 | 8.33 / 18.98 |
+
+kissat's 10 is the Tier C optimum and is kept. **`RATE=30` restores Tier B to
+kissat parity (8.64 vs 8.33) at a Tier C cost of ~52** — and Tier C would still
+clear T3's CaDiCaL criterion there (332.50 vs 304.01 = 1.09×). That is a real,
+documented balanced configuration, one environment variable away.
+
+## 4c. The finding underneath all of it: every lever is two-sided
+
+Four independent knobs were swept tonight — the walk dose (twice), the
+`bumpreasons` rate, its mark limit, and the reduce cadence. **Every single one
+has its Tier B optimum at a different setting from its Tier C optimum**, and
+the two optima are far apart (walk dose 400 vs 640; rate 30 vs 10). This is not
+a tuning failure to be fixed with better constants — it is the same shape as
+the elimination-dosing exhibit (rev 68) and the walk-channel exhibit, arriving
+now for three more mechanisms at once. The corpus contains at least two
+populations, and a single global constant must be wrong for one of them.
+
+That makes §5.6's context-dependent scheduling the *measured* next move rather
+than a speculative one, and it is why nothing here was tuned to a compromise:
+the compromise settings are recorded (walk 200, rate 30) so the learner has
+labelled arms rather than a hand-picked midpoint.
+
 ## 5. Honest caveats
 
 1. **Tier B regressed, 9.11 → 15.14 vs kissat's 8.59** (1.06× → 1.76×).
@@ -132,15 +168,18 @@ finding as §1 — `TACTIX_WALK_PERMILLE=200` is the balanced compromise
    (11.0), FmlaEquivChain 30.1 (12.9), rbsat 21.1 (5.8). The T3 gate is Tier C
    and the directive was Tier C, so the trade was taken deliberately.
 2. **`urq45`'s DRAT proof no longer verifies inside the runner's checker
-   budget.** Under the new default the instance solves in 363.6 s and emits a
-   557 MB proof (*smaller* than the previous 897 MB), but drat-trim exceeds its
-   2400 s budget on it, where before it verified in 893 s. Per plan §2 that
-   scores as unsolved, which is the whole difference between the proof-free
-   283.44 and the DRAT-checked 358.14. This is a checker-cost regression, not a
-   rejection; retention changes alter the deletion structure drat-trim's
-   backward check depends on. Our certificate path of record is native LRAT
-   (which the competition also wants) — the LRAT/cake_lpr verification of this
-   instance is the open follow-up.
+   budget — but the LRAT proof verifies in 77 s.** Under the new default the
+   instance solves in 363.6 s and emits a 557 MB DRAT proof (*smaller* than the
+   previous 897 MB), and drat-trim exceeds its 2400 s budget on it where before
+   it verified in 893 s. Per plan §2 that scores as unsolved, which is the whole
+   difference between the proof-free 283.44 and the DRAT-checked 358.14.
+   **RESOLVED as a checker-cost artefact** (probe 1566825): the same solve under
+   `--lrat` produces a 2.08 GB native-LRAT certificate that **cake_lpr verifies
+   in 77 s — `s VERIFIED UNSAT`**, against drat-trim's > 2400 s on the DRAT form.
+   The proof is fine; drat-trim's backward search is what the new retention
+   hurts (different deletion structure). Our certificate path of record is
+   native LRAT, which is also what the competition's proof track wants, so the
+   runner's drat-trim budget — not the solver — is what needs revisiting.
 3. **T3's second criterion is NOT met.** The gate is "within 10 % PAR-2 of
    CaDiCaL on Tier C **and** match both CaDiCaL and Kissat on the rule-neutral
    subset" (plan §9, rev 51). Deriving the rule-neutral subset from §2's
@@ -164,11 +203,12 @@ No verdict mismatch anywhere in any array in this report.
 
 ## 7. Routing
 
-- Open, ranked: re-pick the dose per mode/context rather than globally (the
-  §5.6 exhibit now has a third mechanism family); sweep the `bumpreasons` rate
-  constant (kissat 10 vs cadical 100 — both knobs exist and the mechanism is
-  now load-bearing); TB4b's six chrono divergences; the LRAT verification of
-  `urq45`.
+- Open, ranked: re-pick the dose per context rather than globally (the §5.6
+  exhibit now has a fourth mechanism family, and this is the first one whose
+  shipped constant is measurably wrong for half the corpus); sweep the
+  `bumpreasons` rate constant (kissat 10 vs cadical 100 — both knobs exist and
+  the mechanism is now load-bearing); TB4b's six chrono divergences; decide
+  whether the bench runner should verify LRAT rather than DRAT, given §5.2.
 - Closed by measurement: V5 Sweep and S7 Reorder as Tier C levers (§2, L11);
   `TACTIX_REDUCE_SQRT`, BVE `cadence-open` and Walk `NO_TARGET` as defaults
   (§3).

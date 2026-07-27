@@ -29,11 +29,14 @@ disagree, the plan is authoritative — fix this file.
   the §2 ablation: sweep costs neither baseline > 25 %): tactix 311.30 vs
   kissat 258.39 vs cadical 319.83 = 0.97× cadical, 1.20× kissat.** CaDiCaL
   half met, Kissat half not.
-  **CAVEAT (honest):** the DRAT-checked Tier C number is 358.14 because
-  `urq45`'s 557 MB proof exceeds drat-trim's 2400 s budget under the new
+  **CAVEAT (honest, and RESOLVED):** the DRAT-checked Tier C number is 358.14
+  because `urq45`'s 557 MB proof exceeds drat-trim's 2400 s budget under the new
   retention (it verified in 893 s before, at 897 MB). That is a checker-COST
-  regression, not a rejection; native-LRAT/cake_lpr verification of that
-  instance is the open follow-up (probe 1566824).
+  artefact, not a rejection: the same solve under `--lrat` emits a 2.08 GB
+  native-LRAT certificate that **cake_lpr verifies in 77 s, `s VERIFIED UNSAT`**
+  (probe 1566825). The proof is sound; drat-trim's backward search is what the
+  new retention hurts. Open question for the runner, not the solver: verify
+  LRAT rather than DRAT (it is also what the competition proof track wants).
 
   **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
   closure-delay ladder + S6 Walk at 640 per mille** (S4 gate report
@@ -97,26 +100,31 @@ disagree, the plan is authoritative — fix this file.
   **T3's Kissat half**: 1.20× kissat on the 24-instance rule-neutral subset.
   Everything below aims at that (and at the Tier B regression, which has the
   same cause — the residual is search quality, not missing rules, L11).
-  1. **The Tier B regression is the walk dose, and the dose wants to be
-     CONTEXT-dependent, not smaller.** Measured: no per-mille is best on both
-     tiers (§ the sweep table above). This is now the third mechanism family
-     in the §5.6 exhibit and the first one where the shipped constant is
-     visibly wrong for half the corpus. Two concrete, cheap moves before any
-     learner: (a) dose per MODE (kissat/cadical both walk only in stable —
-     ours too — but nothing says the per-mille must be mode-invariant);
-     (b) dose per instance CLASS on a measured separator, the way the BVE
-     density gate was built (L9). Ship only on a same-window B+C win.
-  2. **The `bumpreasons` rate constant is unswept** — kissat says 10,
-     cadical says 100, and the knobs exist (`TACTIX_BUMP_REASONS_RATE`,
-     `TACTIX_BUMP_REASONS_LIMIT`). One same-window B+C array over
-     {2, 10, 100}; the mechanism is now load-bearing, so its one disputed
-     constant is worth measuring. Same for `BUMP_REASONS_LIMIT`.
-  3. **`urq45`'s DRAT proof-check blowup** (§5.2 of the report): 557 MB, over
-     drat-trim's 2400 s budget under the new retention, where it verified in
-     893 s at 897 MB before. Verify with native LRAT + cake_lpr (probe
-     1566824) to confirm it is a checker-cost issue and not a proof-quality
-     one; if the LRAT path is fast, say so in the plan and stop treating
-     drat-trim's budget as the gate.
+  1. **EVERY LEVER SWEPT TONIGHT IS TWO-SIDED — that is the finding, and it
+     names the next move.** Four independent knobs (walk dose ×2, bumpreasons
+     rate, bumpreasons limit, reduce cadence): **every one has its Tier B
+     optimum at a different setting from its Tier C optimum, and far apart**
+     (walk 400 vs 640; rate 30 vs 10). A single global constant must be wrong
+     for one of the two populations in the corpus. So the next move is
+     CONTEXT-DEPENDENT scheduling, now measured rather than speculative:
+     dose per instance CLASS on a measured separator, the way the BVE density
+     gate was built (L9). Do NOT hand-pick a compromise — the compromise
+     settings are recorded (walk 200, rate 30) so the §5.6 learner inherits
+     labelled arms instead of a midpoint. Ship only on a same-window B+C win.
+  2. **DONE tonight, and it made the point sharper** (windows
+     `20260727-0225*`): the `bumpreasons` constants were swept. kissat's
+     rate 10 is the Tier C optimum (280.02) and is kept — but
+     **`TACTIX_BUMP_REASONS_RATE=30` puts Tier B at 8.64 vs kissat's 8.33,
+     i.e. PARITY**, for a Tier C cost of ~52 (332.50, still 1.09× cadical and
+     so still inside T3's CaDiCaL criterion). That is the documented balanced
+     configuration. Rate 100 (cadical's) 317.50 / 22.16; limit 20
+     294.17 / 15.45; limit 5 and rate 2 both lose mod4block.
+  3. **Decide whether the bench runner should verify LRAT, not DRAT.**
+     `urq45` settled it empirically (probe 1566825): DRAT + drat-trim > 2400 s,
+     native LRAT + cake_lpr **77 s, VERIFIED**. Our DRAT-checked tier numbers
+     are now hostage to drat-trim's backward search, which the retention change
+     happens to hurt. Route through revise-plan (§2/§8.1 name drat-trim
+     explicitly) — this is a measurement-protocol change, not a solver one.
   4. **TB4b** — the only open Track T item: the six chrono divergences
      from the TB4 audit (watch repair onto highest-level literals,
      one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
