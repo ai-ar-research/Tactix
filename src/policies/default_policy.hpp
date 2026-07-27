@@ -135,7 +135,14 @@ public:
   // agrees on the limit and says 100 for the rate — the one constant the
   // references disagree on, hence the sweep knob)
   static constexpr uint32_t BUMP_REASONS_LIMIT = 10;
-  static constexpr double BUMP_REASONS_RATE = 10.0;
+  // NOT kissat's 10 and not cadical's 100: 20, measured. Bumping fires when
+  // the decision rate is BELOW this, so a larger value fires it in more
+  // situations. Rate 10 was a 5.6-point Tier B regression concentrated in
+  // three instances (crypto1 38.1 s, qwh 30.1, rbsat 20.4); every rate in
+  // {15, 20, 25} fixes all three, so the plateau is real and only mod4block
+  // — instance-intrinsic pathology, L10 — distinguishes them. Tier B 14.57 →
+  // 7.57, i.e. from 1.76× kissat to 0.92×. Windows `20260727-0820*`/`-0848*`.
+  static constexpr double BUMP_REASONS_RATE = 20.0;
   // C1 SubsumeForward occupies the kissat eliminate slot (eliminate.c
   // kissat_eliminating / kimits.h UPDATE_CONFLICT_LIMIT(eliminate, ...,
   // NLOG2N, true)) until C2/C3/E1 join it in this phase: interval =
@@ -270,14 +277,18 @@ public:
   // while cadical spends in cache-line ticks too, so cadical's walkeffort = 80
   // buys ~13x more walk scanning than our 50 did (audit 2026-07-26,
   // docs/design/s6-walk-design.md §6). 640 is the cadical-equivalent dose, and
-  // it is what the measured sweep picked: same-window Tier C (window
-  // 20260727-000127) PAR-2 392.98 / 389.64 / 328.42 / **322.80** / 374.67 /
-  // 416.22 at per-mille 50 / 200 / 400 / 640 / 1600 / 3200 — 640 is the only
-  // arm that both solves mp1-Nb5T15 (TIMEOUT -> 26.1 s) and keeps SCPC-1000-18
-  // fast (68.1 s), against cadical's 306.01 in the same window. It is a
-  // two-sided lever: Tier B pays for it (9.32 -> 11.98), which is why "how
-  // hard to walk" is a §5.6 dosing exhibit and not a constant we believe in.
-  static constexpr uint64_t WALK_PERMILLE = 640;
+  // and a large dose is what solves mp1-Nb5T15 (TIMEOUT -> 26.1 s) while
+  // keeping SCPC-1000-18 fast. The exact value matters less than it looked:
+  // re-swept at the shipped bumpreasons rate (windows `20260727-0848*`), Tier C
+  // over per-mille 400..800 is 308.8 / 279.8 / 300.1 / 314.5 / 307.3 — no
+  // trend, all inside the per-instance chaos band — so the sharp Tier C
+  // preference for 640 measured at rate 10 was itself an artefact of that
+  // rate. Tier B does have a clean step: at <= 500 `mod4block` costs ~65 s, at
+  // >= 560 it costs 9.1 s. 560 is the low end of that plateau and had the
+  // better Tier C of the plateau in BOTH windows that measured it (295.7 and
+  // 300.1, vs 640's 310.3 and 314.5). "How hard to walk" remains a §5.6 dosing
+  // exhibit, not a constant we believe in.
+  static constexpr uint64_t WALK_PERMILLE = 560;
   uint64_t walk_anchor = 0; // search_ticks when the last walk ran
   // --- the inprocessing SLOT (registry-driven scheduler, rev 26) --------
   // Schedule-as-data: the slot is a plain vector of {rule id, enabled}

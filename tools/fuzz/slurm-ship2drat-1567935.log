@@ -1,4 +1,4 @@
-== fuzz job 1565456: node=node017 cpus=24 mem/cpu=8G ==
+== fuzz job 1567935: node=node017 cpus=24 mem/cpu=8G ==
 == regression corpus ==
 corpus: 10 entries, 0 failures
 == fuzz: 10000 cases, solver=build/debug/tactix oracle=/home/hwu/SAT-solving/tools/solvers/bin/kissat ==
@@ -102,4 +102,4 @@ corpus: 10 entries, 0 failures
 ... 9800/10000 cases, 0 failures
 ... 9900/10000 cases, 0 failures
 ... 10000/10000 cases, 0 failures
-fuzz: 10000 cases, 0 failures | verdicts: SAT=5713 TIMEOUT=296 UNSAT=3991
+fuzz: 10000 cases, 0 failures | verdicts: SAT=5713 TIMEOUT=304 UNSAT=3983

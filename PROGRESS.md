@@ -7,36 +7,33 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 71 (2026-07-26)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-27 (Tier C push: dose 640 + reason-side bumping + dynamic tiers — Tier C 382.94 → **283.44**, now BELOW CaDiCaL; Tier A beats kissat; Tier B regressed. Report `benchmarks/reports/2026-07-27-tier-c-push.md`)
+- **Last updated:** 2026-07-27 (Tier C push + the Tier B recovery: walk dose 560 + reason-side bumping + dynamic tiers, bumpreasons rate 20 — **Tier C 382.94 → 303.21 = CaDiCaL parity, Tier B 9.11 → 8.10 = AHEAD of kissat, Tier A 200/200**. Report `benchmarks/reports/2026-07-27-tier-c-push.md`, incl. §8 addendum)
 - **▶ RESUME HERE (2026-07-27).** Phase 3. **T3: the CaDiCaL criterion is MET
-  with margin, the Kissat-parity-on-the-rule-neutral-subset criterion is NOT
-  (1.20×) — phase 3 does NOT close yet.** Cluster protocol:
+  (1.00×), the Kissat-parity-on-the-rule-neutral-subset criterion is NOT
+  (1.37×) — phase 3 does NOT close yet.** Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
   never compare cluster ↔ M3-Pro (revs 64/65).
 
-  **SAME-WINDOW STANDINGS, 2026-07-27** (`20260727-0129*` A/B, C from
-  `20260727-013237-C-dose2` arm `d640` = the shipped config, proof-free like
-  the baselines; the DRAT+drat-trim number is given separately because of the
-  `urq45` checker-budget caveat below):
+  **SAME-WINDOW STANDINGS, 2026-07-27** (windows `20260727-0922*`, one array
+  per tier. tactix WRITES DRAT and every UNSAT is drat-trim verified; the
+  baselines are timed proof-free — the conservative direction):
   | | tactix | kissat 4.0.4 | CaDiCaL | vs kissat | vs CaDiCaL |
   |---|---|---|---|---|---|
-  | Tier A | **0.43** (200/200) | 0.45 (200/200) | 0.75 (199/200) | **0.96×** | 0.57× |
-  | Tier B | **15.14** (14/14) | 8.59 (14/14) | 19.64 (14/14) | 1.76× | 0.77× |
-  | Tier C | **283.44** (29/30) | 228.31 (29/30) | 304.07 (29/30) | 1.24× | **0.93×** |
-  | Tier C, DRAT-checked | 358.14 (28/30) | — | — | | |
-  **Rule-neutral subset (T3's second criterion, 24/30 instances — derived from
-  the §2 ablation: sweep costs neither baseline > 25 %): tactix 311.30 vs
-  kissat 258.39 vs cadical 319.83 = 0.97× cadical, 1.20× kissat.** CaDiCaL
-  half met, Kissat half not.
-  **CAVEAT (honest, and RESOLVED):** the DRAT-checked Tier C number is 358.14
-  because `urq45`'s 557 MB proof exceeds drat-trim's 2400 s budget under the new
-  retention (it verified in 893 s before, at 897 MB). That is a checker-COST
-  artefact, not a rejection: the same solve under `--lrat` emits a 2.08 GB
-  native-LRAT certificate that **cake_lpr verifies in 77 s, `s VERIFIED UNSAT`**
-  (probe 1566825). The proof is sound; drat-trim's backward search is what the
-  new retention hurts. Open question for the runner, not the solver: verify
-  LRAT rather than DRAT (it is also what the competition proof track wants).
+  | Tier A | 0.45 (200/200) | 0.45 (200/200) | 0.75 (199/200) | 1.00× | 0.60× |
+  | Tier B | **8.10** (14/14) | 8.48 (14/14) | 19.62 (14/14) | **0.96×** | 0.41× |
+  | Tier C | **303.21** (29/30) | 223.14 (29/30) | 304.08 (29/30) | 1.36× | **1.00×** |
+  Session start was Tier A 0.71 / Tier B 9.11 / Tier C 382.94, so **all three
+  tiers improved** and Tier B ended ahead of kissat rather than merely
+  recovered. Tier C unsolved: `128_125` alone (all three solvers fail).
+  **Rule-neutral subset (T3's second criterion, 24/30 — derived from the kissat
+  /cadical ablation: sweep costs neither baseline > 25 %): tactix 345.42 vs
+  cadical 320.86 (1.08×, inside 10 %) vs kissat 252.93 (1.37×).** CaDiCaL half
+  met, Kissat half not — and the residual now sits on the rule-neutral UNSAT
+  families, exactly where the ablation said the remaining work is.
+  (The earlier `urq45` DRAT-check blowup is GONE at this configuration: 194.7 s,
+  349 MB, drat-trim VERIFIED in 1446.8 s. It belonged to the rate-10 arm, not
+  to dynamic tiers. All 15 Tier C UNSAT proofs verify.)
 
   **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
   closure-delay ladder + S6 Walk at 640 per mille** (S4 gate report
@@ -93,24 +90,29 @@ disagree, the plan is authoritative — fix this file.
   ship them together and so do we (`docs/implementation-notes.md` §9).
   `TACTIX_NO_BUMP_REASONS` / `TACTIX_NO_DYNAMIC_TIERS` revert independently;
   `TACTIX_REDUCE_SQRT` stays a default-off §5.6 dosing arm.
-  Shipping-build fuzz: **10 k/0 DRAT, 10 k/0 native LRAT, 10 k/0
-  `--random-policy`** (jobs 1565456/57/58).
+  Shipping-build fuzz (re-run on the FINAL binary): **10 k/0 DRAT, 10 k/0
+  native LRAT, 10 k/0 `--random-policy`** (jobs 1567935/36/37).
+  **The `bumpreasons` RATE is the second shipped constant that is not the
+  reference's**: kissat says 10, cadical 100, we ship **20** — measured, and
+  the reason it matters is §8 of the report (it, not the walk dose, was the
+  Tier B regression).
 
   **▶ NEXT STEP (in order of expected value).** The gate that remains open is
   **T3's Kissat half**: 1.20× kissat on the 24-instance rule-neutral subset.
   Everything below aims at that (and at the Tier B regression, which has the
   same cause — the residual is search quality, not missing rules, L11).
-  1. **EVERY LEVER SWEPT TONIGHT IS TWO-SIDED — that is the finding, and it
-     names the next move.** Four independent knobs (walk dose ×2, bumpreasons
-     rate, bumpreasons limit, reduce cadence): **every one has its Tier B
-     optimum at a different setting from its Tier C optimum, and far apart**
-     (walk 400 vs 640; rate 30 vs 10). A single global constant must be wrong
-     for one of the two populations in the corpus. So the next move is
-     CONTEXT-DEPENDENT scheduling, now measured rather than speculative:
-     dose per instance CLASS on a measured separator, the way the BVE density
-     gate was built (L9). Do NOT hand-pick a compromise — the compromise
-     settings are recorded (walk 200, rate 30) so the §5.6 learner inherits
-     labelled arms instead of a midpoint. Ship only on a same-window B+C win.
+  1. **CLOSED — and the "every lever is two-sided" reading was WRONG.** It
+     looked that way because the dose sweep was run at the wrong `bumpreasons`
+     rate. A per-instance driver grid (probe 1567225, report §8.1) showed that
+     of the four instances carrying the whole Tier B regression, two are
+     dose-FLAT, one is dose-CHAOTIC (crypto1, 11.8× spread, no trend) and only
+     one has a real dose threshold — while ALL FOUR respond to the rate. Rate
+     10 → 20 took Tier B 14.57 → 7.57, and re-sweeping the dose at rate 20
+     showed **Tier C has no dose trend at all over 400–800** (279.8–314.5, the
+     chaos band). The apparent two-sidedness was an artefact of one constant
+     being wrong. **Method lesson: decompose per instance BEFORE reading a
+     trend off a tier aggregate** — this is L7's "the interval is the wrong
+     control" repeating in a new mechanism. Shipped: dose 560, rate 20.
   2. **DONE tonight, and it made the point sharper** (windows
      `20260727-0225*`): the `bumpreasons` constants were swept. kissat's
      rate 10 is the Tier C optimum (283.44, 29/30) and is kept — moving the
@@ -184,6 +186,16 @@ disagree, the plan is authoritative — fix this file.
     over-invest, so a single-ablation delta is an inflated upper bound.
     **Always run the all-off control** (it killed the congruence lead on
     FmlaEquiv and the first chrono verdict). Applies to search features too.
+  - **L12 · Decompose per instance BEFORE reading a trend off a tier
+    aggregate.** The 2026-07-27 Tier B "walk-dose regression" was not a dose
+    effect: a 4-instance × 8-dose grid (probe 1567225) showed two drivers
+    dose-FLAT, one dose-CHAOTIC (crypto1, 11.8× spread, no trend) and one with
+    a real threshold — while all four responded to the `bumpreasons` rate.
+    Fixing the rate (10 → 20) took Tier B 14.57 → 7.57 and made the Tier C dose
+    curve go FLAT (279.8–314.5 over per-mille 400–800). The tier aggregate had
+    read a trend off one chaotic instance landing badly at one grid point, and
+    a whole "every lever is two-sided" narrative was built on it. Same shape as
+    L7 ("the interval is the wrong control"), a new mechanism.
   - **L11 · The rules we still LACK are ≤ 9 % of the gap to kissat on Tier C**
     (window `20260727-002213-C-kabl`): kissat with sweep + reorder +
     bumpreasons + randec + eagersubsume + definitions ALL disabled loses only
@@ -235,13 +247,13 @@ disagree, the plan is authoritative — fix this file.
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ▫ in progress: T1+T2 passed. Same-window 2026-07-27: Tier A **0.96×** kissat (we lead), Tier C 1.24×, Tier B **1.76×** — B regressed from 1.06× as the deliberate price of the Tier C walk dose (report `2026-07-27-tier-c-push.md` §5.1); recovering it is next-step 1 |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed; same-window 2026-07-27 (`20260727-0922*`, tactix proof-checked vs proof-free baselines): **Tier B 0.96× kissat and Tier A 1.00× — comparable-or-better on both** — Tier C 1.36×. "Comparable" now holds on two of three tiers; Tier D (T4) is where it counts |
 
 ## Milestone gates (plan §8.3)
 
 - [x] T1 — **passed 2026-07-14** (Tier A 200/200 PAR-2 0.48; Tier B 9/14 @ 231.6 vs MiniSat 8/14 @ 281.4; report `benchmarks/reports/2026-07-14-t1-gate.md`)
 - [x] T2 — **passed 2026-07-14** (Tier B 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51). **HALF MET 2026-07-27** (report `benchmarks/reports/2026-07-27-tier-c-push.md`): whole tier **tactix 283.44 vs CaDiCaL 304.07 = 0.93×** — the CaDiCaL criterion is met with margin (kissat 228.31 = 1.24×). On the 24-instance rule-neutral subset tactix 311.30 vs CaDiCaL 319.83 (0.97×) but **kissat 258.39 (1.20×)** — the Kissat-parity half is NOT met, so phase 3 stays open. Residual = search quality, measured: the six techniques we still lack are worth only 14.3 PAR-2 to kissat with ALL of them off (L11).
+- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51). **HALF MET 2026-07-27** (report `benchmarks/reports/2026-07-27-tier-c-push.md` §8.3): whole tier **tactix 303.21 vs CaDiCaL 304.08 = 1.00×** with all 15 UNSAT proofs verified — the CaDiCaL criterion is met (kissat 223.14 = 1.36×). On the 24-instance rule-neutral subset tactix 345.42 vs CaDiCaL 320.86 (1.08×, inside 10 %) but **kissat 252.93 (1.37×)** — the Kissat-parity half is NOT met, so phase 3 stays open. Residual = search quality on the rule-neutral UNSAT families, measured: the six techniques we still lack are worth only 14.3 PAR-2 to kissat with ALL of them off (L11).
 - [ ] T4 — **exceed** Kissat-public PAR-2 on Tier D via DefaultPolicy engineering (raised from parity, rev 49)
 - [ ] T5 — beat AE-Kissat-MAB PAR-2 on Tier D → competition submission
 

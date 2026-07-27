@@ -13,6 +13,13 @@ Starting point (window `20260726-0951*`): **Tier C 382.94 (28/30)** vs kissat
 
 ## 0. Result
 
+> **SUPERSEDED BY §8 (same day).** The table below is the state after the first
+> three changes, when Tier B was still regressed. §8 diagnoses that regression
+> (it was the `bumpreasons` rate, not the walk dose), fixes it, and carries the
+> final shipped numbers: **Tier A 0.45, Tier B 8.10, Tier C 303.21** — ahead of
+> kissat on B, level with CaDiCaL on C, all proofs verified. Read §8 for what
+> shipped; §0–§7 are the road there and the evidence that still stands.
+
 | | before | after | kissat | cadical |
 |---|---|---|---|---|
 | Tier A (200) | 0.71 (199/200) | **0.43 (200/200)** | 0.45 (200/200) | 0.75 (199/200) |
@@ -218,3 +225,107 @@ No verdict mismatch anywhere in any array in this report.
 - Closed by measurement: V5 Sweep and S7 Reorder as Tier C levers (§2, L11);
   `TACTIX_REDUCE_SQRT`, BVE `cadence-open` and Walk `NO_TARGET` as defaults
   (§3).
+
+---
+
+## 8. ADDENDUM (same day): the Tier B regression was misdiagnosed — it was the
+## `bumpreasons` rate, not the walk dose
+
+§5.1 attributed the Tier B regression to the walk dose. A per-instance
+decomposition says otherwise, and fixing the real cause recovers Tier B
+completely *and* leaves Tier C at CaDiCaL parity.
+
+### 8.1 Decompose first (probe array 1567225)
+
+The four instances carrying the whole regression, swept over the walk dose at
+a fixed rate — 8 doses × 4 instances, single tasks:
+
+| instance | 300 | 400 | 500 | 560 | 640 | 720 | 800 | 1000 | verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| crypto1 | 10.4 | 3.0 | 31.6 | 6.3 | 35.8 | 35.7 | 6.3 | 6.0 | **CHAOS**, 11.8× spread, no trend |
+| qwh | 26.9 | 26.9 | 27.9 | 27.8 | 28.1 | 28.2 | 28.1 | 28.4 | **FLAT**, 1.1× |
+| rbsat | 5.5 | 5.5 | 5.6 | 5.6 | 19.7 | 20.1 | 19.8 | 20.2 | clean threshold 560→640 |
+| FmlaEquiv | 27.9 | 26.3 | 31.4 | 32.7 | 30.2 | 33.6 | 28.5 | 28.5 | flat-ish, 1.3× |
+
+Two of the four are dose-*independent* and one is dose-*chaotic*. Only rbsat
+has a genuine dose response. So "the dose costs Tier B" was reading a trend
+into one chaotic instance (crypto1 landing on a bad point at exactly 640) plus
+one real threshold.
+
+The same four instances against the `bumpreasons` rate, dose held fixed:
+
+| instance | rate 10 (was) | rate 20 | rate 30 |
+|---|---|---|---|
+| crypto1 | 35.8 | **2.8** | 6.0 |
+| qwh | 28.1 | **3.6** | 7.1 |
+| rbsat | 19.7 | **2.2** | 2.9 |
+| FmlaEquiv | 30.2 | 25.7 | **22.3** |
+
+### 8.2 The rate is the lever, and it sits on a plateau
+
+Tier-scale, one array per tier (`20260727-0820*`): rates 15/20/25 **all** fix
+crypto1, qwh and rbsat; they differ only on `mod4block`, which times out at 15
+and 25 and solves at 20. `mod4block` is documented instance-intrinsic pathology
+(L10 — kissat pays 4.14× there with its own admission gate), so that is a
+lottery on top of a real plateau, not a property of 20. Excluding it, Tier B is
+9.22 / 7.44 / 8.65 at rate 15/20/25 against kissat's 7.41 — all three at
+parity, where rate 10 gives 14.37.
+
+Dose robustness at rate 20 (`20260727-0848*`), which also re-frames §1:
+
+| dose | Tier C | Tier B |
+|---|---|---|
+| 400 | 308.81 | 12.05 |
+| 500 | 279.82 | 11.55 |
+| **560** | **300.11** | **7.57** |
+| 640 | 314.49 | 7.63 |
+| 800 | 307.30 | 7.06 |
+
+Tier C over the whole 400–800 range is 279.8–314.5 with **no trend** — the
+per-instance chaos band. **So the sharp Tier C preference for 640 measured in
+§1 was itself an artefact of rate 10.** Tier B has a clean step instead: at
+≤ 500 `mod4block` costs ~65 s, at ≥ 560 it costs 9.1 s. 560 is the low end of
+that plateau and had the better Tier C of the plateau in both windows that
+measured it (295.72 and 300.11, vs 640's 310.33 and 314.49).
+
+Shipped: **walk dose 560, `bumpreasons` rate 20.**
+
+### 8.3 Result — three tiers, one window each (`20260727-0922*`)
+
+tactix writes DRAT and every UNSAT is drat-trim verified; the baselines are
+timed proof-free. This is the conservative direction.
+
+| | tactix | kissat 4.0.4 | CaDiCaL | vs kissat | vs CaDiCaL |
+|---|---|---|---|---|---|
+| Tier A (200) | 0.45 (200/200) | 0.45 (200/200) | 0.75 (199/200) | 1.00× | 0.60× |
+| Tier B (14) | **8.10** (14/14) | 8.48 (14/14) | 19.62 (14/14) | **0.96×** | 0.41× |
+| Tier C (30) | **303.21** (29/30) | 223.14 (29/30) | 304.08 (29/30) | 1.36× | **1.00×** |
+
+The Tier B regression is not merely recovered — Tier B is now **better than
+where the session started (9.11) and ahead of kissat**, and Tier A solves all
+200. Tier C holds CaDiCaL parity.
+
+**§5.2's `urq45` caveat also disappears at this configuration**: 194.7 s,
+349 MB DRAT (was 557 MB), drat-trim VERIFIED in 1446.8 s inside its budget. So
+that blowup belonged to the rate-10 configuration, not to dynamic tiers. All
+15 Tier C UNSAT proofs verify; there is no longer a proof-free/proof-checked
+discrepancy to report.
+
+Soundness on this build: **10 k/0 DRAT, 10 k/0 native LRAT, 10 k/0
+`--random-policy`** (jobs 1567935/36/37); 32-test suite green.
+
+### 8.4 What this costs in credibility, stated plainly
+
+Both constants are argmax picks over the same 44 instances, so the *magnitude*
+of the Tier C/Tier B numbers should be expected to shrink on Tier D. Two things
+make them more than curve-fitting: each sits in a measured **plateau** rather
+than on a spike (rate 15/20/25 all fix the three real regressions; dose
+560–800 is flat on Tier B), and the 560-vs-640 Tier C edge reproduced across
+two independent windows. The `mod4block` flip at rate 15/25 is the one honest
+knife-edge and it is a known-pathological instance.
+
+**T3 after the addendum.** Whole Tier C: 303.21 vs CaDiCaL 304.08 = **1.00×**,
+criterion met. Rule-neutral subset (24/30): tactix 345.42 vs CaDiCaL 320.86
+(1.08×, inside 10 %) and kissat 252.93 (**1.37×**). The Kissat-parity half is
+still not met and phase 3 stays open — the residual moved onto the rule-neutral
+UNSAT families, which is exactly where §2 said the remaining work is.
