@@ -113,12 +113,13 @@ disagree, the plan is authoritative — fix this file.
      labelled arms instead of a midpoint. Ship only on a same-window B+C win.
   2. **DONE tonight, and it made the point sharper** (windows
      `20260727-0225*`): the `bumpreasons` constants were swept. kissat's
-     rate 10 is the Tier C optimum (280.02) and is kept — but
-     **`TACTIX_BUMP_REASONS_RATE=30` puts Tier B at 8.64 vs kissat's 8.33,
-     i.e. PARITY**, for a Tier C cost of ~52 (332.50, still 1.09× cadical and
-     so still inside T3's CaDiCaL criterion). That is the documented balanced
-     configuration. Rate 100 (cadical's) 317.50 / 22.16; limit 20
-     294.17 / 15.45; limit 5 and rate 2 both lose mod4block.
+     rate 10 is the Tier C optimum (283.44, 29/30) and is kept — moving the
+     rate either way costs a solve (rate 2 → 389.95, rate 100 → 386.92, both
+     28/30) — but **`TACTIX_BUMP_REASONS_RATE=30` puts Tier B at 8.64 vs
+     kissat's 8.33, i.e. PARITY**, for a Tier C cost of ~49 (332.50, 29/30,
+     still 1.09× cadical and so still inside T3's CaDiCaL criterion). That is
+     the documented balanced configuration. Limit 20 → 294.17 / 15.45;
+     limit 5 → 309.04 / 51.73 (loses mod4block on B).
   3. **Decide whether the bench runner should verify LRAT, not DRAT.**
      `urq45` settled it empirically (probe 1566825): DRAT + drat-trim > 2400 s,
      native LRAT + cake_lpr **77 s, VERIFIED**. Our DRAT-checked tier numbers

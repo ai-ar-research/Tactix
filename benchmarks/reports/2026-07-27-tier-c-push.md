@@ -130,20 +130,26 @@ finding as §1 — `TACTIX_WALK_PERMILLE=200` is the balanced compromise
 kissat and cadical disagree 10× on the one gate constant (rate 10 vs 100), so
 it was swept, together with the mark limit both agree on (10):
 
-| arm | Tier C | Tier B |
-|---|---|---|
-| rate 2 | 320.64 | 53.76 (13/14) |
-| **rate 10 (default)** | **280.02** | 14.60 |
-| rate 30 | 332.50 | **8.64** |
-| rate 100 (cadical's) | 317.50 | 22.16 |
-| limit 5 | 309.04 | 51.73 (13/14) |
-| limit 20 | 294.17 | 15.45 |
-| kissat / cadical | 224.90 / 304.01 | 8.33 / 18.98 |
+| arm | Tier C | solved /30 | Tier B |
+|---|---|---|---|
+| rate 2 | 389.95 | 28 | 53.76 (13/14) |
+| **rate 10 (default)** | **283.44** | **29** | 14.60 |
+| rate 30 | 332.50 | 29 | **8.64** |
+| rate 100 (cadical's) | 386.92 | 28 | 22.16 |
+| limit 5 | 309.04 | 29 | 51.73 (13/14) |
+| limit 20 | 294.17 | 29 | 15.45 |
+| kissat / cadical | 224.90 / 304.01 | 29 / 29 | 8.33 / 18.98 |
 
-kissat's 10 is the Tier C optimum and is kept. **`RATE=30` restores Tier B to
-kissat parity (8.64 vs 8.33) at a Tier C cost of ~52** — and Tier C would still
-clear T3's CaDiCaL criterion there (332.50 vs 304.01 = 1.09×). That is a real,
-documented balanced configuration, one environment variable away.
+(The Tier C default cell is the `d640` arm of §4, the identical configuration
+measured in the adjacent window; this window's own default arm is
+proof-checked and carries the §5.2 `urq45` artefact, 350.69.)
+
+kissat's 10 is the Tier C optimum and is kept — moving the rate in *either*
+direction costs a solve. **`RATE=30` restores Tier B to kissat parity (8.64 vs
+8.33) at a Tier C cost of ~49** — and Tier C would still clear T3's CaDiCaL
+criterion there (332.50 vs 304.01 = 1.09×). That is a real, documented balanced
+configuration, one environment variable away. Notably cadical's own constant
+(100) is clearly wrong *for us*, which is the §4c point again.
 
 ## 4c. The finding underneath all of it: every lever is two-sided
 
