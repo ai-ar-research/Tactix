@@ -400,6 +400,10 @@ def main() -> int:
     ap.add_argument("--throttle", type=int, default=None,
                     help="cap concurrent array tasks (sbatch %%N) for "
                          "lower-contention gate runs")
+    ap.add_argument("--no-check", action="store_true",
+                    help="do not write/check proofs for the solver under "
+                         "test (baseline-ablation arrays: every arm is a "
+                         "reference solver, timed the way baselines are)")
     ap.add_argument("--dry-run", action="store_true",
                     help="with --slurm: write manifest + scripts, do not "
                          "submit")
@@ -428,10 +432,19 @@ def main() -> int:
 
     sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"],
                          capture_output=True, text=True).stdout.strip()
-    solvers = [(name, shlex.split(args.solver), True)]
+    solvers = [(name, shlex.split(args.solver), not args.no_check)]
     for b in args.baseline:
-        solvers.append((os.path.basename(shlex.split(BASELINES.get(b, b))[0]),
-                        shlex.split(BASELINES.get(b, b)), False))
+        # `label=<command>` gives the arm an explicit name — required when
+        # several arms share a leading token (`env VAR=x build/release/tactix`
+        # would otherwise all be named "env" and collide in results.json).
+        bname = None
+        if "=" in shlex.split(b)[0]:
+            bname, b = b.split("=", 1)
+        spec = BASELINES.get(b, b)
+        solvers.append((bname or os.path.basename(shlex.split(spec)[0]),
+                        shlex.split(spec), False))
+    if len({s[0] for s in solvers}) != len(solvers):
+        sys.exit("error: duplicate solver names; use --baseline label=<cmd>")
 
     stage = os.path.join(outdir, "staged")
     paths = stage_instances(entries, stage)
