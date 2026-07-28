@@ -46,6 +46,18 @@ public:
 
   void flush(); // signal-safe enough: fflush on the buffered stream
 
+  // A tautological (or duplicate-carrying) lemma is CHECKER-DIVERGENT: DRAT
+  // accepts it for free (negating it self-conflicts, so RUP passes without
+  // touching the formula) while every LRAT checker walks the hint chain,
+  // finds the hints already satisfied, and REJECTS the proof — the T105.2.0
+  // defect (2026-07-27). Rules must therefore never hand one to the proof;
+  // the emission sites test this and skip the inference instead (the
+  // D-CONG-SKIP discipline: losing an inference is sound, emitting an
+  // uncheckable line is not). Debug builds assert on it in `add_rup`/
+  // `add_rat` so any future rule that regresses is caught by the debug fuzz
+  // legs rather than by a gigabyte-scale tier proof.
+  static bool tautological(const Lit *lits, uint32_t size);
+
 private:
   void put_lit(Lit l);
   void put_u64(uint64_t v);

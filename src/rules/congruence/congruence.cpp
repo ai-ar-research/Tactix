@@ -635,6 +635,18 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     chain.push_back(e.second);
   if (last)
     chain.push_back(last);
+  // An EMPTY chain is not a proof (D-CONG-TAUT, 2026-07-27). It arises when the
+  // lemma is trivially true — for `{x,¬x,z}` the replay assumes ¬x, immediately
+  // finds x false, and reports a conflict whose only "reason" is the assumption
+  // itself, so the reason walk yields no antecedents. The line would then be
+  // `<id> <lits> 0 0`, which every LRAT checker rejects (cake_lpr and lrat-check
+  // both did, on `tierC/T105.2.0`) while DRAT accepts the same clause for free.
+  // Refusing here covers ALL THREE ladders (ITE match, XOR match, degeneracy)
+  // at their one shared choke point: the caller then skips the merge, which is
+  // sound — dropping an inference costs completeness, emitting an uncheckable
+  // line costs N2.
+  if (chain.empty())
+    return false;
   return true;
 }
 
@@ -695,6 +707,12 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
           lemma.push_back(cancelled[static_cast<size_t>(i)] ^
                           static_cast<Lit>((m >> i) & 1));
         lemma.insert(lemma.end(), concl[c].begin(), concl[c].end());
+        // A cancelled literal can reappear in the conclusion with either
+        // polarity, making this rung tautological — uncheckable under LRAT
+        // (see Proof::tautological). Skip the merge in both formats.
+        if (Proof::tautological(lemma.data(),
+                                static_cast<uint32_t>(lemma.size())))
+          return false;
         if (!lrat) {
           k.proof->add_rup(0, lemma.data(),
                            static_cast<uint32_t>(lemma.size()), nullptr, 0);
@@ -744,8 +762,19 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
     return true;
   const bool lrat = k.proof->lrat();
   const int top = static_cast<int>(rhs.size()) - 1;
-  if (top < 1)
-    return true; // nothing to eliminate; the binaries stand on the gates alone
+  if (top < 1) {
+    // Nothing to eliminate; the binaries stand on the gates alone. Under DRAT
+    // the checker searches for that itself, but under LRAT "stands alone" would
+    // mean emitting both binaries with EMPTY hint chains — the same uncheckable
+    // line D-CONG-TAUT is about. Replay each binary for its own chain instead;
+    // a failed replay skips the merge (sound).
+    if (!lrat)
+      return true;
+    const Lit fwd[2] = {negate(a), b};
+    const Lit rev[2] = {a, negate(b)};
+    return congruence_rup_chain(k, fwd, 2, chain_fwd) &&
+           congruence_rup_chain(k, rev, 2, chain_rev);
+  }
   std::vector<Lit> lemma;
   std::vector<uint64_t> prev, cur, ch;
   for (int size = top; size >= 1; size--) {
@@ -764,6 +793,16 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
           lemma.push_back(a);
           lemma.push_back(negate(b));
         }
+        // A merged output can coincide with an rhs literal (or with the other
+        // output), making this rung tautological or DUPLICATE-carrying. Both
+        // are fatal downstream and in different ways: a tautology's replay
+        // yields an empty chain, and a repeated literal makes cake_lpr's
+        // LPR-compatible parser read the second copy as a PR WITNESS and
+        // reject the line ("not satisfied by witness", T105.2.0) even though
+        // lrat-check accepts it. Skip the merge in both formats.
+        if (Proof::tautological(lemma.data(),
+                                static_cast<uint32_t>(lemma.size())))
+          return false;
         if (!lrat) {
           k.proof->add_rup(0, lemma.data(),
                            static_cast<uint32_t>(lemma.size()), nullptr, 0);
@@ -923,6 +962,14 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
   // (¬a∨b) closes on its two cond-sides; (a∨¬b) on the other two.
   auto emit = [&](Lit x, Lit y, Lit z, std::vector<uint64_t> &into) -> bool {
     const Lit l[3] = {x, y, z};
+    // The case-split literal can coincide with (the negation of) a merged
+    // output — `cond == a`, or two gates whose outputs are already the same
+    // literal — making the lemma tautological. Skip the whole merge rather
+    // than emit it: DRAT would accept it and LRAT checkers reject the chain
+    // (T105.2.0, 2026-07-27). Both formats bail so the two proof modes keep
+    // the same search trajectory.
+    if (Proof::tautological(l, 3))
+      return false;
     if (!lrat) {
       k.proof->add_rup(0, l, 3, nullptr, 0);
       return true;
@@ -1021,6 +1068,10 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
   auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
     if (binary_exists(k, x, y))
       return;
+    // a degenerate pair (the two outputs equal, or complementary) would make
+    // this binary duplicate-carrying or tautological — neither is emittable
+    // (see Proof::tautological); the callers' guards should have caught it
+    assert(x != y && x != negate(y));
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {x, y};
     if (k.proof)
@@ -1038,13 +1089,26 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
 // searches for the antecedents itself. Under LRAT each binary carries the chain
 // its ladder returned (its two size-1 parents), so no hint-less line is ever
 // emitted (the invariant C1 established).
-void add_equivalence_chained(Kernel &k, Lit a, Lit b,
+bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
                              const std::vector<uint64_t> &chain_fwd,
                              const std::vector<uint64_t> &chain_rev) {
   const bool lrat = k.proof && k.proof->lrat();
+  // All-or-nothing, checked BEFORE either binary is added (add_equivalence's
+  // discipline): under LRAT a binary that is still missing needs a non-empty
+  // chain, or the line is uncheckable (D-CONG-TAUT). Skipping is sound.
+  if (lrat) {
+    if (!binary_exists(k, negate(a), b) && chain_fwd.empty())
+      return false;
+    if (!binary_exists(k, a, negate(b)) && chain_rev.empty())
+      return false;
+  }
   auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
     if (binary_exists(k, x, y))
       return;
+    // a degenerate pair (the two outputs equal, or complementary) would make
+    // this binary duplicate-carrying or tautological — neither is emittable
+    // (see Proof::tautological); the callers' guards should have caught it
+    assert(x != y && x != negate(y));
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {x, y};
     if (k.proof)
@@ -1054,6 +1118,7 @@ void add_equivalence_chained(Kernel &k, Lit a, Lit b,
   };
   add_bin(negate(a), b, chain_fwd);
   add_bin(a, negate(b), chain_rev);
+  return true;
 }
 
 } // namespace — public rule entry points (header-declared) below
@@ -1264,7 +1329,11 @@ ApplyResult congruence_apply(Kernel &k) {
         k.stats.congruence_unjustified++;
         continue; // ladder did not replay — emit nothing, drop the inference
       }
-      add_equivalence_chained(k, out_i, other, cch[0], cch[1]);
+      if (!add_equivalence_chained(k, out_i, other, cch[0], cch[1])) {
+        k.stats.congruence_unjustified++;
+        delete_transients(k, transient);
+        continue; // an unjustifiable binary — drop the inference, keep N2
+      }
       delete_transients(k, transient);
       if (clash) {
         if (refute_contradictory(out_i)) {
@@ -1337,7 +1406,11 @@ ApplyResult congruence_apply(Kernel &k) {
         if (cong_probe) std::fprintf(stderr, "[cong-probe] MATCH chain failed (kind=%d)\n", (int)gates[i].kind);
         continue; // no checkable chain — drop the inference, keep N2
       }
-      add_equivalence_chained(k, out_j, out_i, cf, cr);
+      if (!add_equivalence_chained(k, out_j, out_i, cf, cr)) {
+        k.stats.congruence_unjustified++;
+        delete_transients(k, transient);
+        continue; // an unjustifiable binary — drop the inference, keep N2
+      }
       delete_transients(k, transient);
     } else if (!add_equivalence(k, gates[j], gates[i], find)) {
       k.stats.congruence_unjustified++;

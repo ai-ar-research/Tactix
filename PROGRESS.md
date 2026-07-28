@@ -5,7 +5,7 @@ the same commit as (a) completing/starting any checklist item, (b) any revision
 of DEVELOPMENT_PLAN.md (via the revise-plan skill). If this file and the plan
 disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 71 (2026-07-26)
+- **Plan revision tracked:** rev. 72 (2026-07-27)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-27 (Tier C push + the Tier B recovery: walk dose 560 + reason-side bumping + dynamic tiers, bumpreasons rate 20 — **Tier C 382.94 → 303.21 = CaDiCaL parity, Tier B 9.11 → 8.10 = AHEAD of kissat, Tier A 200/200**. Report `benchmarks/reports/2026-07-27-tier-c-push.md`, incl. §8 addendum)
 - **▶ RESUME HERE (2026-07-27).** Phase 3. **T3: the CaDiCaL criterion is MET
@@ -206,6 +206,19 @@ disagree, the plan is authoritative — fix this file.
     than all six together — L8's inflation in action, but still the largest
     single item), which is why reason-side bumping was implemented the same
     night. Do not re-open Sweep/Reorder without new evidence.
+  - **L13 · The more PERMISSIVE proof format is not the safer one to check
+    against.** DRAT accepts a trivially-true clause for free (negating it
+    self-conflicts, so RUP passes without reading the formula); every LRAT
+    checker instead walks the hint chain and rejects a hint-less line. So a
+    congruence bug that emitted `<id> <lits> 0 0` sat behind a *verified* DRAT
+    proof on every tier run and every fuzz leg until the like-for-like protocol
+    work ran both formats over a whole tier (2026-07-27, `tierC/T105.2.0`).
+    Cross-format checking is coverage, not redundancy — and the two debug
+    asserts now in `Proof::add_rup` (no tautology, no empty LRAT chain) are the
+    cheap permanent version of that coverage. Corollary for measurement: a
+    checker that OOMs (cake_lpr needed 4.2 GB where the array task had 8 GB
+    total) is indistinguishable from a rejection unless the runner records the
+    checker's own output — it did not, and that cost a probe to disambiguate.
   - **L6 · Measurement hygiene:** solo spot-checks MISLEAD; only same-window
     A/B at equal concurrency counts; never compare across job counts. (The
     old 20.60–23.01 noise band was M3-era — re-establish bands on the cluster
@@ -496,6 +509,36 @@ plus the `W` slots the rephase rotation has been standing in for with `Best`.
   dosing mechanism family in the §5.6 exhibit, alongside elimination dosing
   (rev 68). Nothing to build in phase 3
 
+### Track R — the full reference rule inventory (plan rev 72, user 2026-07-27)
+
+**User directive:** implement/enable every proof rule Kissat and CaDiCaL have,
+and measure with proof generation on BOTH sides. Recorded counter-evidence so
+the sequencing stays honest (not a reason to skip the work — a reason to run
+the search-quality tracks in parallel): L11 measured kissat losing only 14.3
+PAR-2 on Tier C with all six of these techniques disabled, against our 80–161
+PAR-2 gap. Order below is measured-value-per-cost, cheapest first; each lands
+under the §5.3 contract (one directory + one registry line) with its own
+stress-policy + fuzz legs on both proof formats and a same-window gate.
+
+- [ ] **R1 · X2 `HyperTernaryRes`** (cadical `ternary.cpp`) — add-RUP only, no
+      witness, no new primitive: the cheapest genuine rule in the gap
+- [ ] **R2 · X1 `BCE`** (cadical `block.cpp`) — delete + push-witness; reuses
+      E1's occurrence index and reconstruction stack. Note kissat 4 DROPPED it
+- [ ] **R3 · X4 `Instantiate`** (cadical `instantiate.cpp`) — add/delete
+- [ ] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only policy op, no proof
+      obligation. Measured worth ~0 to kissat (`--reorder=0` costs it nothing,
+      L11) — landed for inventory completeness, not for PAR-2
+- [ ] **R5 · V5 `Sweep` + the embedded sub-solver** (kissat `sweep.c`+`kitten.c`;
+      §11 O11 now due) — the largest single item in kissat's own ablation
+      (+14 alone) and the biggest build: it also unlocks kitten-based
+      **definition extraction** for E1 (the last E1 gap, +6.1 to kissat)
+- [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles
+      as the §5.3 **extensibility acceptance test** (pure plugin, no kernel edit)
+- [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
+- [ ] **R8 · the dosing/H-only items kissat ablates**: eager subsumption of
+      learned clauses (+5.9) and random decisions (+7.9) — scheduling arms on
+      existing machinery, not new rule families
+
 ### Other phase-3 items
 
 - [x] Effort-budgeted scheduler increment 1 + prerequisites (revs 53–55; design `docs/design/effort-scheduler-design.md`)
@@ -548,6 +591,60 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-27 (late) — N2 DEFECT FOUND AND FIXED: native LRAT emitted hint-less lines
+- **Found by measurement, not by fuzzing.** The 6-arm proof-format array
+  (`20260727-204153-C-prooffmt`) ran every Tier C instance as DRAT and as native
+  LRAT; `T105.2.0`'s DRAT proof verified (99.8 MB, 22.3 s) while its **LRAT proof
+  was rejected** (1.12 GB). Not a checker artefact — two independent checkers
+  agreed once given enough memory: cake_lpr *"Checking failed at line 762952"*,
+  lrat-check *"NOT VERIFIED"*. (The array task's own failure was ALSO a cake_lpr
+  OOM under the 8 GB cgroup — a second, independent defect in the measurement
+  setup; cake_lpr needs 4.2 GB on this proof.)
+- **Root cause (`congruence_rup_chain`):** it returned SUCCESS with an **empty
+  hint chain** for a trivially-true lemma. Replaying `{x,¬x,z}` assumes `¬x`,
+  immediately finds `x` false, and reports a conflict whose only "reason" is the
+  assumption itself — so the reason walk yields no antecedents. All three ladders
+  (ITE match, XOR match, degeneracy) then wrote `<id> <lits> 0 0`. **DRAT accepts
+  such a clause for free** (negating a tautology self-conflicts, so RUP passes
+  without touching the formula), which is why every DRAT-checked tier run and
+  every fuzz leg missed it for months. Exactly the failure mode the C1-era
+  comment already described — re-entering through a different door.
+- **Fix at the one shared choke point:** `congruence_rup_chain` returns false on
+  an empty chain (caller skips the merge — sound, D-CONG-TAUT); the XOR matcher's
+  `top < 1` path now REPLAYS both binaries instead of returning empty chains;
+  `add_equivalence_chained` is all-or-nothing and returns bool; both call sites
+  count `congruence_unjustified` and skip. Two debug asserts in `Proof::add_rup`/
+  `add_rat` make the class self-detecting from now on: no tautological clause, and
+  no LRAT line without antecedents.
+- **Lesson (L13): a proof format that ACCEPTS more is not the safer one to check
+  against.** DRAT's tolerance of trivially-true clauses hid an uncheckable-LRAT
+  bug behind a verified-DRAT result on every single run. Cross-format checking is
+  not redundancy, it is coverage — and the defect surfaced only because the
+  like-for-like protocol work ran both formats over a whole tier.
+- Evidence: fuzz 10k/0 congruence-stress + native LRAT (1569454) and 10k/0
+  default + native LRAT (1569455), both on the assert-enabled debug build;
+  probes 1569178 / 1569447 / 1569453.
+
+### 2026-07-27 (late) — plan rev 72 + Track R opened: like-for-like measurement, full reference rule inventory
+- **User directive:** compare against Kissat/CaDiCaL **with proof generation on
+  both sides**, and implement every proof rule the references have.
+- **Measured tax, Tier B same window** (`20260727-212407-B-tactix-drat`):
+  tactix 7.96 on / 7.44 off (+6.9 %), kissat 8.72 / 8.35 (+4.4 %), cadical
+  20.06 / 19.10 (+5.0 %). Like-for-like Tier B is **0.91× kissat** (both
+  logging) or 0.89× (both proof-free) — the old proof-free-baseline convention
+  had reported 0.95× and understated us. drat-trim's cost is NOT ours alone:
+  kissat's 221 MB of Tier B certificates took 269 s to check vs our 255 MB in
+  104 s.
+- Plan rev 72: §8.1 proof-generation protocol (every arm writes proofs;
+  asymmetric scoring — our failed check = unsolved, a baseline's is recorded
+  only; checker budget `max(3600 s, 4 × timeout)` replacing `2 ×`), and the
+  reference rule families pulled into phase 3 (Track R checklist above).
+- **X2 `HyperTernaryRes` implemented** (first Track R item): resolvents that
+  collapse to ≤ 3 literals, `add_rup` with a fixed two-parent chain — E1's
+  resolvent argument, so no new primitive and no witness. Calculus §6c; 7 unit
+  tests; registered but **not yet scheduled** by DefaultPolicy (`TACTIX_SLOT_ENABLE`
+  is its measurement arm) so it cannot move numbers before its own A/B.
 
 ### 2026-07-26 — S6 `Walk` lands (plan rev 71): SCPC-1000-18 TO → solved, Tier B 9.84 → 8.94
 - **Diagnosis first** (debug-performance, report

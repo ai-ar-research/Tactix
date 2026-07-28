@@ -1,0 +1,45 @@
+== solve with the FIXED binary (--lrat) ==
+c tactix 0.1.0
+c decisions   1755113 (0 via API)
+c conflicts   321675
+c propagations 3127599864 (3068020089 search, 59579775 inprocess)
+c learned     321674 (273 units)
+c minimized   3184352 lits
+c shrunken    1926925 lits
+c reasonbump  14338742 vars in 317118 rounds (2941 aborted)
+c otfs        21102 strengthened (163 conflicts subsumed)
+c strengthen  13 rounds, 157290 strengthened, 312662 subsumed, 16007 flushed
+c vivify      14 rounds, 1369 vivified, 0 deleted
+c probe       0 rounds, 0 probed, 0 failed
+c backbone    0 rounds, 192013 probed, 118 failed
+c transitive  0 rounds, 34042667 checked, 22976 deleted, 5962 failed, 13427924647 ticks
+c substitute  7 rounds
+c chrono      4134 chronological, 0 stale backjumps
+c inprocess   5 phases
+c congruence  12 rounds, 11 units, 1 unjustified
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    12794 (5608 reused a trail prefix)
+c reductions  40 (245286 clauses deleted, 112295 promoted)
+c mode        stable after 23 switches (4614926201 ticks, 693 target phases saved)
+c rephased    20 (619 best phases saved)
+c lucky       6 probes
+c walk        5 walks (5 improved, 21145006 flips, 1504002776 steps)
+c subsume     13 rounds (71703088 checked, 3505 subsumed)
+s UNSATISFIABLE
+Command exited with non-zero status 20
+solve 564.05 s, peak 3048132 KB
+solver exit=20
+-rw-r----- 1 hwu hwu 830999003 Jul 27 22:17 /tmp/T105.2.0.lrat
+== cake_lpr (verified checker) ==
+s VERIFIED UNSAT
+cake_lpr 42.42 s, peak 4198004 KB
+cake_lpr exit=0
+== lrat-check (independent implementation) ==
+c WARNING hint already satisfied in lemma with index 10689486
+c WARNING hint already satisfied in lemma with index 10689492
+c VERIFIED
+c allocated 1536 72122392 30944310
+c Added clauses = 11436144.  Deleted clauses = 814842.  Max live clauses = 10690177
+c verification time = 9.77 secs
+== done ==

@@ -1,0 +1,45 @@
+== solve with the FIXED binary (--lrat) ==
+c tactix 0.1.0
+c decisions   1795080 (0 via API)
+c conflicts   363905
+c propagations 3543367028 (3485525284 search, 57841744 inprocess)
+c learned     363904 (296 units)
+c minimized   3649756 lits
+c shrunken    2304851 lits
+c reasonbump  15931464 vars in 359518 rounds (2858 aborted)
+c otfs        21505 strengthened (240 conflicts subsumed)
+c strengthen  13 rounds, 157583 strengthened, 312220 subsumed, 12048 flushed
+c vivify      12 rounds, 3824 vivified, 0 deleted
+c probe       0 rounds, 0 probed, 0 failed
+c backbone    0 rounds, 128983 probed, 70 failed
+c transitive  0 rounds, 35930572 checked, 22208 deleted, 5922 failed, 13665676626 ticks
+c substitute  7 rounds
+c chrono      3692 chronological, 0 stale backjumps
+c inprocess   5 phases
+c congruence  11 rounds, 6 units, 0 unjustified
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    13460 (7013 reused a trail prefix)
+c reductions  43 (287238 clauses deleted, 132910 promoted)
+c mode        focused after 24 switches (5269900350 ticks, 688 target phases saved)
+c rephased    20 (577 best phases saved)
+c lucky       6 probes
+c walk        5 walks (5 improved, 16316331 flips, 1110556666 steps)
+c subsume     13 rounds (71700598 checked, 3505 subsumed)
+s UNSATISFIABLE
+Command exited with non-zero status 20
+solve 584.02 s, peak 3043012 KB
+solver exit=20
+-rw-r----- 1 hwu hwu 1121899259 Jul 27 21:51 /tmp/T105.2.0.lrat
+== cake_lpr (verified checker) ==
+c Checking failed at line: 762952. Reason: clause index has no reduction sequence but is not satisfied by witness: 10901724
+cake_lpr 12.90 s, peak 4198004 KB
+cake_lpr exit=0
+== lrat-check (independent implementation) ==
+c start 817018 first 0
+c WARNING: Verification incomplete. Last line checked = 10901726
+c NOT VERIFIED
+c allocated 1536 72122392 30944310
+c Added clauses = 10901725.  Deleted clauses = 546027.  Max live clauses = 10690177
+c verification time = 2.73 secs
+== done ==

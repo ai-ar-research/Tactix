@@ -1,5 +1,6 @@
 #include "proof/proof.hpp"
 
+#include <cassert>
 #include <cinttypes>
 #include <cstdlib>
 
@@ -46,8 +47,25 @@ void Proof::end_line() {
     fputs("0\n", file_);
 }
 
+// Duplicate/complementary-literal scan. Small clauses only reach here, so the
+// quadratic form beats any scratch allocation; it runs in debug builds only.
+bool Proof::tautological(const Lit *lits, uint32_t size) {
+  for (uint32_t i = 0; i < size; i++)
+    for (uint32_t j = i + 1; j < size; j++)
+      if (lits[i] == lits[j] || lits[i] == negate(lits[j]))
+        return true;
+  return false;
+}
+
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
                     const uint64_t *chain, uint32_t nchain) {
+  assert(!tautological(lits, size)); // see Proof::tautological
+  // Under LRAT a non-empty clause with NO antecedents is uncheckable: the
+  // checker has nothing to propagate and rejects the line (`<id> <lits> 0 0`).
+  // Rules must skip the inference instead of emitting one — the T105.2.0
+  // defect (2026-07-27), where a trivially-true lemma's replay produced an
+  // empty chain and three ladders emitted it.
+  assert(!(format_ == ProofFormat::Lrat && size > 0 && nchain == 0));
   if (!file_)
     return;
   if (format_ == ProofFormat::Lrat) {
@@ -69,6 +87,7 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                     const int64_t *hints, uint32_t nhints) {
+  assert(!tautological(lits, size)); // see Proof::tautological
   if (!file_)
     return;
   if (format_ == ProofFormat::Lrat) {
