@@ -131,6 +131,8 @@ public:
   static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;  // reluctantlim
   static constexpr uint64_t REPHASE_INTERVAL_INIT = 1000; // rephaseinit
   static constexpr uint64_t REPHASE_INTERVAL = 1000;      // rephaseint
+  static constexpr uint64_t REORDER_INTERVAL_INIT = 10000; // reorderinit
+  static constexpr uint64_t REORDER_INTERVAL = 10000;      // reorderint
   // reason-side bumping (kissat bumpreasonslimit/bumpreasonsrate; cadical
   // agrees on the limit and says 100 for the rate — the one constant the
   // references disagree on, hence the sweep knob)
@@ -271,6 +273,13 @@ public:
     // two ops. Identical to stats.rephased on the pre-Walk path.
     uint64_t count = 0;
   } rephase;
+  // S7 Reorder schedule (kissat reorder.c/kimits.c: initial `reorderinit`,
+  // then LINEAR growth `reorderint · count`). OFF unless TACTIX_REORDER is set
+  // — see want_reorder.
+  struct {
+    uint64_t next_conflicts = REORDER_INTERVAL_INIT;
+    uint64_t count = 0;
+  } reorder;
   // S6 Walk effort, per mille of the search work since the last walk (floor
   // MIN_EFFORT_TICKS). NOT kissat's walkeffort = 50: kissat and we scale the
   // budget from cache-line search ticks but SPEND it in per-entry walk steps,
@@ -446,12 +455,14 @@ public:
   bool want_reduce(const Kernel &) const;
   bool want_switch_mode(const Kernel &) const;
   bool want_rephase(const Kernel &) const;
+  bool want_reorder(const Kernel &) const;
   bool want_inprocess(const Kernel &) const;
   void tick_reluctant();                   // per-conflict in stable mode
   void update_mode_limits(const Kernel &); // after a switch
   void update_restart_limit(const Kernel &); // after a restart
   void update_reduce_limit(const Kernel &);  // after a reduction
   void update_rephase_limit(const Kernel &); // after a rephase
+  void update_reorder_limit(const Kernel &); // after a reorder
   void update_inprocess_limit(const Kernel &); // after a slot pass
 
 private:

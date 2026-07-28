@@ -7,7 +7,9 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 72 (2026-07-27)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-27 (Tier C push + the Tier B recovery: walk dose 560 + reason-side bumping + dynamic tiers, bumpreasons rate 20 — **Tier C 382.94 → 303.21 = CaDiCaL parity, Tier B 9.11 → 8.10 = AHEAD of kissat, Tier A 200/200**. Report `benchmarks/reports/2026-07-27-tier-c-push.md`, incl. §8 addendum)
+- **Last updated:** 2026-07-28 (Track R · R4 `Reorder` lands, ships OFF —
+  Tier B UNSAT at parity, SAT 3.4× worse; the R3 `Instantiate` Tier B A/B
+  harvested. Earlier: Tier C push + the Tier B recovery: walk dose 560 + reason-side bumping + dynamic tiers, bumpreasons rate 20 — **Tier C 382.94 → 303.21 = CaDiCaL parity, Tier B 9.11 → 8.10 = AHEAD of kissat, Tier A 200/200**. Report `benchmarks/reports/2026-07-27-tier-c-push.md`, incl. §8 addendum)
 - **▶ RESUME HERE (2026-07-27, late session).** Phase 3. Read this block, then
   the two entries at the top of the Log.
   1. **MEASUREMENT PROTOCOL CHANGED (plan rev 72, user):** every arm — ours and
@@ -35,9 +37,13 @@ disagree, the plan is authoritative — fix this file.
      registered — and they **ship OFF**, by measurement, not by caution: the
      Tier B A/B says +X2 = 27.56 and +BCE = 239.91 (9/14) against 7.89 shipped.
      They are correct; the scheduling is not (no effort spec + BCE's naive cost
-     model — see the Log entry). **NEXT for Track R: give them effort specs and
-     re-measure, then R3–R8** (checklist under Track R; R5 Sweep has a design
-     pass at `docs/design/v5-sweep-design.md`).
+     model — see the Log entry). **R3 `Instantiate` and R4 `Reorder` have since
+     landed, both ships-OFF by measurement. NEXT for Track R: R5–R8**
+     (checklist under Track R; R5 Sweep has a design pass at
+     `docs/design/v5-sweep-design.md`). R4's A/B produced the one result Track R
+     has yielded that is not just an inventory tick: **Reorder is at PARITY on
+     Tier B's UNSAT half and 3.4× worse on its SAT half** — a SAT-vs-UNSAT
+     context axis for the §5.6 exhibit that no existing family carries.
   4. Then the two search-quality items that the evidence says actually carry
      the Kissat gap: **TB4b** (six chrono divergences) and the
      **clause-quality decomposition probe**.
@@ -179,7 +185,10 @@ disagree, the plan is authoritative — fix this file.
      GUIDANCE. Report §6; lesson L14. Do not re-open the analysis pipeline
      without new evidence.
   6. Standing (not now): the **§5.6 phase-6 dosing exhibit** now holds
-     four mechanism families (BVE admission — reports
+     FIVE mechanism families — the fifth, S7 Reorder, is the first whose
+     context is the VERDICT rather than a formula/progress feature (parity on
+     Tier B's UNSAT half, 3.4× worse on its SAT half; Log 2026-07-28) — plus
+     the original four (BVE admission — reports
      `2026-07-25-crypto1-bve-mechanism.md` / `-bve-dosing-arms.md`, oracle
      489.27 + labeled instances incl. s055; TR dosing — Log 2026-07-25
      late; mode schedule — TB6; WALK DOSE — the 2026-07-27 sweeps, the
@@ -629,9 +638,46 @@ stress-policy + fuzz legs on both proof formats and a same-window gate.
       26.00 → 28.77 s; x9 28 probes / 0 removals; 9vliw no candidates at all.
       That is the reference's own verdict too: **cadical ships `instantiate`
       default OFF** (options.hpp), keeping the idea only as `vivifyinst`.
-- [ ] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only policy op, no proof
-      obligation. Measured worth ~0 to kissat (`--reorder=0` costs it nothing,
-      L11) — landed for inventory completeness, not for PAR-2
+      **Tier-level A/B confirms it** (window `20260728-181900-B-shipped`, every
+      arm writing DRAT and checked): shipped **7.66** / +Instantiate **12.67** /
+      kissat 8.52, all 14/14. The damage is TWO instances — crypto1
+      2.32 → 53.11 and mod4block 9.31 → 24.79 — and the other twelve are flat
+      (±0.2 s). Both are the known trajectory-poison families (L7/L9), so this
+      is the same "when, not how" story as BVE dosing, not a cost defect
+- [x] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only **policy op**, no
+      proof obligation, so no calculus entry (the rev-61 classification test).
+      **IMPLEMENTED 2026-07-28** as `src/policies/ops/reorder/`: a literal's
+      weight is `2^-(size-2)` summed over the irredundant clauses it occurs in,
+      a variable's is `max(w⁺,w⁻) + 2·min(w⁺,w⁻)`; focused mode moves every
+      variable to the queue front in ascending weight order, stable mode
+      rescales the scores and ADDS the weight. Instance surface = WHICH ranking
+      to rewrite (queue / heap), canonical = the active mode's. 8 unit tests,
+      full ctest green; three deviations recorded in `implementation-notes.md`
+      §10, all toward a WEAKER guard than kissat's (no `level == 0` conjunct —
+      that lives in the schedule, as with Rephase's root backtrack).
+      **Ships OFF** (`TACTIX_REORDER`, kissat's option values: 1 = stable only,
+      2 = both modes). **The measurement is decisive AND decomposes cleanly**
+      (window `20260728-190456-B-shipped`, every arm writing DRAT and checked):
+      shipped **7.72** vs reorder-stable 13.55 vs reorder-both 14.14 (kissat
+      8.40), all 14/14 — but split by verdict, **the entire loss is SAT-side**:
+      | Tier B mean | shipped | +stable-only | +both modes |
+      |---|---|---|---|
+      | SAT (7) | **5.28** | 16.99 | 17.93 |
+      | UNSAT (7) | 10.16 | **10.11** | 10.36 |
+      On UNSAT it is at parity with real per-instance wins (FmlaEquiv
+      26.12 → 24.19, mp1 6.71 → 4.47, 9vliw 13.50 → 12.39); on SAT it is 3.4×
+      (battleship 1.13 → 20.29, mod4block 9.32 → 65.83, qwh 4.23 → 15.16).
+      Re-ranking by structure discards the decision/phase continuity a
+      satisfying assignment is built out of, and buys nothing on refutation.
+      Probe 1571114 confirms the default path is untouched (off arm =
+      938,595 conflicts on FmlaEquiv, the shipped number on record) and that
+      the rule really fires when enabled (13 re-rankings, conflicts
+      938,595 → 811,424 = −13.5 %). Soundness on the assert-enabled build with
+      `--random-policy` (so the op is applied at arbitrary schedule points,
+      including MID-TRAIL, which our guard permits and kissat's call site does
+      not): **10k/0 DRAT (1571053) and 10k/0 native LRAT (1571054)**.
+      **New §5.6 dosing-exhibit axis: SAT-vs-UNSAT
+      context**, which none of the four existing families carry
 - [ ] **R5 · V5 `Sweep` + the embedded sub-solver** (kissat `sweep.c`+`kitten.c`;
       §11 O11 now due) — the largest single item in kissat's own ablation
       (+14 alone) and the biggest build: it also unlocks kitten-based
@@ -703,6 +749,40 @@ Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-28 — Track R · R4 `Reorder` lands (ships OFF): the loss is ENTIRELY SAT-side
+S7 `Reorder` implemented as a policy operation (`H`-only, no proof delta, no
+calculus entry) under the §5.3 contract — one directory + one registry line.
+kissat's structural weight, both rankings it can rewrite exposed as the instance
+surface, and two new `H` primitives (`heuristics_score_set`,
+`heuristics_rescale_scores`) it needed.
+- **The A/B decomposes, which is the result worth keeping** (window
+  `20260728-190456-B-shipped`, every arm writing DRAT and checked, all 14/14):
+  shipped 7.72, +stable-only 13.55, +both-modes 14.14, kissat 8.40. Split by
+  verdict, **UNSAT is at parity (10.16 → 10.11 / 10.36) and SAT is 3.4× worse
+  (5.28 → 16.99 / 17.93)** — and the UNSAT side is not flat-by-accident, it has
+  real wins (FmlaEquiv 26.12 → 24.19, mp1 6.71 → 4.47, 9vliw 13.50 → 12.39)
+  cancelling real losses. Mechanism: re-ranking every variable by formula
+  structure discards the decision/phase continuity a satisfying assignment is
+  assembled from, while a refutation does not depend on that continuity.
+- **This is a new axis for the §5.6 exhibit.** The four families already there
+  (BVE admission, TR dosing, mode schedule, walk dose) are all dosed by formula
+  or progress features; "reorder helps on refutation and poisons model-finding"
+  is a SAT-vs-UNSAT *context* signal, which no static gate can read but a
+  contextual bandit can learn from run-time proxies.
+- Confirms L11 at the tier level from our side (kissat's `--reorder=0` costs it
+  −0.7 PAR-2), while sharpening WHY: not "worth nothing", but "worth something
+  on half the corpus and much more negative on the other half".
+- Evidence: 8 unit tests + full ctest green (release and debug); probe 1571114
+  (default path untouched — off arm reproduces the shipped 938,595 conflicts on
+  FmlaEquiv exactly — and the rule fires, 13 re-rankings, −13.5 % conflicts);
+  fuzz `--random-policy` 10k/0 DRAT (1571053) and 10k/0 native LRAT (1571054).
+- Guard note (`implementation-notes.md` §10): our guard is `!inconsistent · H`
+  and drops kissat's `level == 0`, which is a property of its call site, not a
+  precondition — so a policy may reorder MID-TRAIL and the weight is then read
+  off the current assignment. Two smaller deviations (the `size < 2` table
+  clamp kissat's call site makes unnecessary; "assigned" standing in for
+  kissat's `flags.active`) are recorded there too.
+
 ### 2026-07-28 — Track R · R3 `Instantiate` lands (ships OFF); two doc-sync gaps closed
 X4 Instantiate implemented as a rule family under the §5.3 contract (one
 directory + one registry line), reusing C3 Vivify's probing-scope primitives:
@@ -721,6 +801,13 @@ placement). No witness, no new primitive.
   probes / 0 removals; 9vliw has no candidates at all. **cadical ships this rule
   default OFF too**, keeping the idea only as `vivifyinst` — recorded in the
   header so the next reader does not re-derive it.
+- **Tier-B A/B harvested** (window `20260728-181900-B-shipped`, launched at the
+  end of that session): shipped 7.66 / +Instantiate 12.67 / kissat 8.52, all
+  14/14 with proofs written and checked on every arm. Per-instance, the whole
+  loss is crypto1 (2.32 → 53.11) and mod4block (9.31 → 24.79); the other twelve
+  move by ≤ 0.2 s. Same two trajectory-poison families as the BVE dosing work
+  (L7/L9) — the rule is not expensive, it is mis-scheduled, which is exactly the
+  §5.6 exhibit's shape.
 - Two DOC-SYNC GAPS found and closed while syncing the calculus: **X1 BCE had
   no calculus entry and no guard row** (it landed 2026-07-27 without them), and
   the only mention of BCE in `calculus.md` still called it "phase 4". Both are

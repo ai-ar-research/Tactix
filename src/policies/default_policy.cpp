@@ -8,6 +8,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/reduce/reduce.hpp"
 #include "policies/ops/rephase/rephase.hpp"
+#include "policies/ops/reorder/reorder.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
@@ -162,6 +163,34 @@ bool DefaultPolicy::want_rephase(const Kernel &k) const {
   // rephase stable-only.
   static const bool both = std::getenv("TACTIX_REPHASE_BOTH_MODES") != nullptr;
   return (both || k.h->stable) && k.stats.conflicts > rephase.next_conflicts;
+}
+
+// S7 Reorder (Track R · R4). TACTIX_REORDER mirrors kissat's `reorder` option:
+// 0 = off (OUR default), 1 = stable mode only, 2 = both modes (kissat's
+// default). It ships OFF by the Track R convention — a newly registered family
+// lands N1-exposed and registry-visible first, scheduled only once its own
+// same-window A/B says it pays — and L11 already measured `--reorder=0` costing
+// kissat NOTHING on Tier C (−0.7 PAR-2), so the prior is that it will not.
+// kissat additionally requires `!solver->level`; that is kept here in the
+// SCHEDULE (where the coupled root restart also lives, as with Rephase) rather
+// than in the rule's guard, which stays a pure precondition (N1).
+bool DefaultPolicy::want_reorder(const Kernel &k) const {
+  static const char *const env = std::getenv("TACTIX_REORDER");
+  static const int mode = env ? std::atoi(env) : 0;
+  if (mode <= 0)
+    return false;
+  if (!k.h->stable && mode < 2)
+    return false;
+  if (k.level != 0)
+    return false; // kissat's own trigger: reorder only at the root
+  return k.stats.conflicts >= reorder.next_conflicts;
+}
+
+// kissat kimits.h UPDATE_CONFLICT_LIMIT(reorder, reordered, LINEAR, false):
+// interval = reorderint · (number of reorders so far)
+void DefaultPolicy::update_reorder_limit(const Kernel &k) {
+  reorder.next_conflicts =
+      k.stats.conflicts + REORDER_INTERVAL * reorder.count;
 }
 
 // kissat kimits.h UPDATE_CONFLICT_LIMIT(rephase, rephased, NLOG3N):
@@ -662,6 +691,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       reluctant.trigger = false; // consumed (kissat reluctant.h)
       if (!k.h->stable) // kissat restart.c: focused-only limit update
         update_restart_limit(k);
+      continue;
+    }
+    // kissat search.c order: reduce, switch, restart, REORDER, rephase, probe,
+    // eliminate. Off unless TACTIX_REORDER is set (want_reorder).
+    if (want_reorder(k) && reorder_guard(k)) {
+      reorder_apply(k);
+      reorder.count++;
+      update_reorder_limit(k);
       continue;
     }
     if (want_rephase(k) && rephase_guard(k)) {

@@ -209,6 +209,23 @@ void heuristics_score_bump(Kernel &k, Var v) {
     rescale_scores(k);
 }
 
+void heuristics_score_set(Kernel &k, Var v, double score) {
+  const double old = k.h->scores.score[v];
+  if (score == old)
+    return;
+  k.h->scores.score[v] = score;
+  if (heuristics_heap_contains(k, v)) {
+    if (score > old)
+      heap_bubble_up(k, v);
+    else
+      heap_bubble_down(k, v);
+  }
+  if (score > MAX_SCORE)
+    rescale_scores(k);
+}
+
+void heuristics_rescale_scores(Kernel &k) { rescale_scores(k); }
+
 void heuristics_scores_decay(Kernel &k) {
   k.h->scinc *= 1.0 / (1.0 - SCORE_DECAY);
   if (k.h->scinc > MAX_SCORE)

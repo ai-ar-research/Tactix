@@ -49,6 +49,7 @@ struct Stats {
   uint64_t target_saved = 0; // target-phase snapshots
   uint64_t best_saved = 0;   // best-phase snapshots
   uint64_t rephased = 0;     // Rephase applications (S3)
+  uint64_t reordered = 0;    // Reorder applications (S7, policy op)
   uint64_t lucky_probes = 0; // Lucky probes run (S5)
   // S6 Walk (policy op): applications, literal flips, and the rule's own
   // effort currency (occurrence-list entries scanned = kissat walk_steps).

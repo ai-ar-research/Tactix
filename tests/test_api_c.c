@@ -258,14 +258,15 @@ static void test_stats_and_config_surface(void) {
 /* H1 · Track H: pin the frozen registry id/name assignment (a permanent
  * id-drift guard — reclassifying Rephase/SwitchMode in place must NOT move any
  * id) and each entry's ActionKind. Rephase and SwitchMode are POLICY OPERATIONS
- * (H-only, plan rev 59/60); every other entry is a PROOF RULE. Adding a rule
+ * (H-only, plan rev 59/60), as are Walk and Reorder; every other entry is a PROOF RULE. Adding a rule
  * renumbers ids by the name sort — update this golden list deliberately then. */
 static void test_action_kind(void) {
   static const char *const golden[] = {
       "BCE",        "BVE",        "Backbone",         "ConflictAnalysis",
       "Congruence", "Decide",     "Factor",           "HyperTernaryRes",
       "Instantiate", "Lucky",     "Probe",            "Propagate",
-      "Reduce",     "Rephase",    "Restart",          "Strengthen",
+      "Reduce",     "Reorder",    "Rephase",          "Restart",
+      "Strengthen",
       "Substitute", "SubsumeForward", "SwitchMode",   "TransitiveReduce",
       "Vivify",     "Walk"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
@@ -278,8 +279,9 @@ static void test_action_kind(void) {
   assert(tactix_action_kind(rule_id("Rephase")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("SwitchMode")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("Walk")) == TACTIX_ACTION_POLICY_OP);
+  assert(tactix_action_kind(rule_id("Reorder")) == TACTIX_ACTION_POLICY_OP);
 
-  /* spot-check proof rules, and assert exactly those two are policy ops */
+  /* spot-check proof rules, and assert exactly those four are policy ops */
   assert(tactix_action_kind(rule_id("Propagate")) == TACTIX_ACTION_PROOF_RULE);
   assert(tactix_action_kind(rule_id("BVE")) == TACTIX_ACTION_PROOF_RULE);
   assert(tactix_action_kind(rule_id("Lucky")) == TACTIX_ACTION_PROOF_RULE);
@@ -290,7 +292,7 @@ static void test_action_kind(void) {
     if (k == TACTIX_ACTION_POLICY_OP)
       policy_ops++;
   }
-  assert(policy_ops == 3);
+  assert(policy_ops == 4);
 
   /* out-of-range → -1 (same convention as tactix_rule_id) */
   assert(tactix_action_kind(-1) == -1);

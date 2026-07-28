@@ -21,6 +21,10 @@ add_executable(test_rephase test_rephase.cpp)
 target_link_libraries(test_rephase PRIVATE tactix_lib)
 add_test(NAME rephase COMMAND test_rephase)
 
+add_executable(test_reorder test_reorder.cpp)
+target_link_libraries(test_reorder PRIVATE tactix_lib)
+add_test(NAME reorder COMMAND test_reorder)
+
 add_executable(test_walk test_walk.cpp)
 target_link_libraries(test_walk PRIVATE tactix_lib)
 add_test(NAME walk COMMAND test_walk)

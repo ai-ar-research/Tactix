@@ -1,0 +1,30 @@
+=== FmlaEquivChain_4_6_6.sanitized  TACTIX_REORDER=off ===
+c decisions   15708836 (0 via API)
+c conflicts   938595
+c reordered   0 decision re-rankings
+s UNSATISFIABLE
+=== FmlaEquivChain_4_6_6.sanitized  TACTIX_REORDER=1 ===
+c decisions   13911886 (0 via API)
+c conflicts   865071
+c reordered   13 decision re-rankings
+s UNSATISFIABLE
+=== FmlaEquivChain_4_6_6.sanitized  TACTIX_REORDER=2 ===
+c decisions   13739088 (0 via API)
+c conflicts   811424
+c reordered   13 decision re-rankings
+s UNSATISFIABLE
+=== 9vliw_bp_mc.shuffled  TACTIX_REORDER=off ===
+c decisions   2416962 (0 via API)
+c conflicts   236719
+c reordered   0 decision re-rankings
+s UNSATISFIABLE
+=== 9vliw_bp_mc.shuffled  TACTIX_REORDER=1 ===
+c decisions   2859726 (0 via API)
+c conflicts   317212
+c reordered   7 decision re-rankings
+s UNSATISFIABLE
+=== 9vliw_bp_mc.shuffled  TACTIX_REORDER=2 ===
+c decisions   2588520 (0 via API)
+c conflicts   220745
+c reordered   6 decision re-rankings
+s UNSATISFIABLE

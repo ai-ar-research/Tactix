@@ -399,6 +399,8 @@ int main(int argc, char **argv) {
     printf("c rephased    %llu (%llu best phases saved)\n",
            (unsigned long long)kernel.stats.rephased,
            (unsigned long long)kernel.stats.best_saved);
+    printf("c reordered   %llu decision re-rankings\n",
+           (unsigned long long)kernel.stats.reordered);
     printf("c lucky       %llu probes\n",
            (unsigned long long)kernel.stats.lucky_probes);
     printf("c walk        %llu walks (%llu improved, %llu flips, %llu steps)\n",

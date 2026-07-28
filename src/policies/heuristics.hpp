@@ -92,6 +92,17 @@ void heuristics_reset_queue_search(Kernel &);
 void heuristics_heap_push(Kernel &, Var v);    // insert (must not be contained)
 void heuristics_score_bump(Kernel &, Var v);   // score += scinc, sift, rescale
 void heuristics_scores_decay(Kernel &);        // scinc /= (1 - decay), rescale
+// set an arbitrary score and re-sift (kissat inlineheap.h kissat_update_heap).
+// Unlike score_bump the new value may be LOWER, so this sifts in both
+// directions; a var not currently in the heap only gets its score written (it
+// is re-pushed, and bubbled, when stable mode next unassigns it).
+void heuristics_score_set(Kernel &, Var v, double score);
+// normalize every score (and scinc) by the current maximum — relative order is
+// untouched. Public because S7 Reorder ADDS structural weights to the scores
+// and needs the existing ones brought back into [0,1] first, or the weights
+// would be lost in the noise of a long-running EVSIDS scale (kissat reorder.c
+// calls kissat_rescale_scores for exactly this reason).
+void heuristics_rescale_scores(Kernel &);
 void heuristics_update_scores(Kernel &);       // push all missing vars (enter stable)
 Var heuristics_heap_next_unassigned(Kernel &); // max-score unassigned (lazy pop)
 inline bool heuristics_heap_contains(const Kernel &k, Var v) {

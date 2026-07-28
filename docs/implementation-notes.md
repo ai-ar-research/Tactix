@@ -615,3 +615,53 @@ reductions kissat's next interval is 10 k conflicts and ours is 32 k — but
 measured it is a loss on both tiers with the pair above (Tier C 294.78 with all
 three vs 273.21 for the pair; Tier B 52.60 vs 14.58). Kept as a knob because
 the cadence is a §5.6 dosing arm, not because it is dead.
+
+## 10. Design decision: S7 `Reorder` — the guard is weaker than kissat's trigger
+
+Landed 2026-07-28 (Track R · R4) as a **policy operation**: it rewrites only the
+decision ranking, so it has no proof delta, no `docs/calculus.md` entry and no
+ledger row (§1's carve-out). Ships **OFF** (`TACTIX_REORDER`, mirroring kissat's
+`reorder` option: 0 = off, 1 = stable only, 2 = both modes).
+
+**What it computes.** A literal's weight is the sum over the irredundant clauses
+it occurs in of `2^-(size-2)`, size counting only OPEN literals (so a binary is
+worth 1, a ternary ½, …, floored at `reordermaxsize = 100`); a variable's weight
+is `max(w⁺,w⁻) + 2·min(w⁺,w⁻)`, which rewards variables carrying mass on BOTH
+polarities. Focused mode then moves every variable to the queue front in
+ascending weight order; stable mode rescales the scores first and ADDS the
+weight, so the structural ranking dominates and the accumulated EVSIDS order
+survives only as a tiebreak. Binaries are read off the watch lists (they never
+materialize in the arena) and, exactly as in kissat, redundant binaries count
+while redundant large clauses do not — an asymmetry of kissat's data layout that
+we inherit because our layout has the same shape.
+
+**Three recorded deviations, all in the direction of a WEAKER guard (N1).**
+
+1. `kissat_reordering` also requires `!solver->level`. That is a property of its
+   call site, not a precondition: the weight is read off the *current*
+   assignment, which at a drained root coincides with the root formula. The
+   level test therefore lives in `DefaultPolicy::want_reorder` (the schedule),
+   not in `reorder_guard` — same split as Rephase's coupled root backtrack.
+2. kissat's size→weight table is `nalloc`'d and never initializes entries 0/1,
+   which is safe only because at its call site an unsatisfied irredundant clause
+   always has ≥ 2 open literals. Off a fixpoint that fails, so our table lookup
+   clamps to 2.
+3. kissat skips inactive (fixed/eliminated/substituted) variables via
+   `flags.active`; we have no such flag, and the closest analogue —
+   "assigned under the current assignment" — is what the value tests use.
+**Why the focused path needs no search-cache repair** (checked, because it is
+the obvious place for a mid-trail application to break). `queue_bump` refreshes
+the VMTF search cache only for variables it actually MOVES, and early-returns on
+one that is already the tail — so a defensive `reset_queue_search` looks
+warranted. It is not: the invariant is "every variable after `search_idx` is
+assigned", the only variable that can fail to move is the incoming tail X, and
+if X is unassigned the incoming invariant already forces `search_idx == X`.
+Everything bumped afterwards goes behind it in ascending weight order, with the
+last unassigned one refreshing the cache. The suffix past the cache stays
+all-assigned for any trail state, so the reset would be a no-op with a cost.
+
+**Prior on the measurement.** L11 already has kissat's own ablation:
+`--reorder=0` costs kissat −0.7 PAR-2 on Tier C, i.e. nothing. It is landed for
+inventory completeness under the user's "implement every reference rule"
+directive, and the A/B is expected to confirm the reference's own verdict rather
+than to promote it.
