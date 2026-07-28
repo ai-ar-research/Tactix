@@ -1,0 +1,78 @@
+TMPDIR=/tmp using /tmp/kmin-1570878
+=== FmlaEquivChain_4_6_6.sanitized : xz rc=0 size=8784880 ===
+kissat rc=20
+s UNSATISFIABLE
+c clauses_learned:                     345137               91 %  conflicts
+c conflicts:                           377701            33457.58 per second
+=== 9vliw_bp_mc.shuffled : xz rc=0 size=3383601 ===
+kissat rc=20
+s UNSATISFIABLE
+c clauses_learned:                     200519               97 %  conflicts
+c conflicts:                           206660            25866.21 per second
+=== x9-08014.sat.sanitized : xz rc=0 size=44138 ===
+kissat rc=20
+s UNSATISFIABLE
+c clauses_learned:                     353116              100 %  conflicts
+c conflicts:                           353471            33306.34 per second
+=== raw sample (FmlaEquiv, first 60 stat lines) ===
+c probing_ticks:                    114919577 
+c propagations:                     104061252          9217974    per second
+c random_sequences:                       121             3121    interval
+c reductions:                              68             5554    interval
+c reordered:                                8            47213    interval
+c rephased:                                17            22218    interval
+c restarts:                             10991               34    interval
+c retiered:                                19            19879    interval
+c searches:                                 1           377701    interval
+c search_ticks:                     440947491 
+c strengthened:                         36230                0 %  checks
+c substituted:                            772                1 %  variables
+c substitute_ticks:                  18003566 
+c subsumed:                             14154                0 %  checks
+c subsumption_checks:                11859885 
+c sweep:                                   10            37770    interval
+c sweep_completed:                          0                0.00 sweeps
+c sweep_equivalences:                      56                0 %  variables
+c sweep_solved:                        125606               25 %  kitten_solved
+c sweep_units:                            266                0 %  variables
+c switched:                                21            17986    interval
+c transitive_ticks:                  16468809 
+c units:                                11411               21 %  variables
+c variables_activated:                  69361                1.27 per variable
+c variables_eliminate:                 155167                2.85 variables
+c variables_extension:                  14950                0.27 per variable
+c variables_factor:                         0                0.00 per variable
+c variables_original:                   54411                1.00 per variable
+c variables_subsume:                   111131                2.04 per variable
+c vivifications:                           28            13489    interval
+c vivified:                             61994               51 %  checks
+c vivify_checks:                       120676             4310    per vivify
+c vivify_probes:                       726753                6.02 per check
+c vivify_reused:                       272670               38 %  probes
+c walks:                                    6            62950    interval
+c walk_steps:                        10289825 
+c warming_decisions:                    66893            11148.83 per walk
+c warming_propagations:                220116                0 %  propagations
+c warmups:                                  6              100 %  walks
+c
+c ---- [ glue usage ] --------------------------------------------------------
+c
+c focused glue 1 used 340182 clauses 66.99% accumulated 66.99% tier1
+c focused glue 2 used  94278 clauses 18.57% accumulated 85.56%
+c focused glue 3 used  27040 clauses  5.33% accumulated 90.89% tier2
+c
+c stable glue 2   used 164764 clauses 10.29% accumulated 57.92% tier1
+c stable glue 3   used  84407 clauses  5.27% accumulated 63.19%
+c stable glue 4-9 used 389891 clauses 24.36% accumulated 87.55%
+c stable glue 10  used  25327 clauses  1.58% accumulated 89.13%
+c stable glue 11  used  28688 clauses  1.79% accumulated 90.93% tier2
+c
+c ---- [ resources ] ---------------------------------------------------------
+c
+c maximum-resident-set-size:         56487936 bytes         54 MB
+c process-time:                            11s              11.29 seconds
+c
+c ---- [ shutting down ] -----------------------------------------------------
+c
+c exit 20
+DONE

@@ -91,3 +91,59 @@ an optional refinement.
 `Stats::learned_lits`, `learned_glue_sum`, `learned_raw_lits` and two printed
 lines (`c learnedsize`, `c reduction`). Counters only — no trajectory effect,
 verified by the unchanged Tier A/B numbers in the same session.
+
+## 6. ADDENDUM (same day, probe 1570882) — THE LEVER IN §4 IS DEAD
+
+§3 flagged that the kissat column came from EMA progress rows and said the
+re-measurement from equivalent counters "is the first step of any follow-up, not
+an optional refinement". It was run before any code was touched, and it
+**refutes §4's recommendation**.
+
+`literals_deduced` / `literals_minimized` / `literals_shrunken` are METRIC-level
+counters in kissat: absent from the pinned `-s` build, present only under
+`./configure --metrics`. A metrics build of the same 4.0.4 source (staged
+outside the repo — `tools/solvers/bin/kissat` is a symlink INTO the reference
+clone, so the clone must not be rebuilt in place) gives the cumulative numbers
+that match ours definitionally: `deduced = learned + shrunken + minimized`
+(verified: 5,837,744 + 1,658,392 + 0 = 7,496,136 vs the reported 7,496,128).
+
+| instance | our yield | **kissat yield** | our raw 1-UIP size | kissat raw | our final size | kissat final |
+|---|---|---|---|---|---|---|
+| FmlaEquivChain | 21.6 % | **22.1 %** | 23.97 | 21.72 | 18.79 | 16.91 |
+| 9vliw_bp_mc | 40.8 % | **42.2 %** | 41.99 | 38.99 | 24.86 | 22.55 |
+| x9-08014 | 38.5 % | **43.7 %** | 26.08 | 28.79 | 16.04 | 16.22 |
+
+**Minimize+shrink is AT PARITY with kissat on all three instances, and
+FmlaEquiv's 21.6 % is a property of the instance, not of our implementation —
+kissat gets 22.1 % on it.** The internal contrast that generated the target
+(21.6 % here vs ~40 % there) is real but says nothing about us: kissat shows the
+same 22-vs-42 spread across the same instances. **The "21.6 % → ~40 %" target in
+§4 is withdrawn.**
+
+The size half of §3's caveat also resolves against the earlier reading:
+kissat's cumulative mean learned size on FmlaEquiv is **16.91**, not the ~10 the
+progress-row EMA suggested, so the real gap is **1.11×**, not 1.9×. Glue stays
+non-comparable — kissat keeps no cumulative glue counter at all (only the
+`fast_glue`/`slow_glue` EMAs and the glue-usage histogram), so no glue claim
+should be sized off the progress row either.
+
+**Every stage of clause construction is at parity**: the raw 1-UIP clause before
+minimization (1.10× / 1.08× / 0.91×), the yield of minimize+shrink, and the
+final size (1.11× / 1.10× / 0.99×). Our transliteration of `shrink.c` +
+`minimize.c` is behaving like the original, and the one documented deviation
+(we minimize singleton blocks, which kissat skips) costs nothing visible.
+
+Also worth recording for whoever reads these counters next: **in kissat's
+default configuration `literals_minimized` is identically 0** — `shrink=3` makes
+`kissat_minimize_clause` return after pushing removables, so all removal is
+counted under `literals_shrunken` (with `literals_minshrunken` the per-literal
+part inside blocks). Our `minimized`/`shrunken` split is drawn at a different
+place; only the SUM is comparable.
+
+**Corrected conclusion.** FmlaEquiv's 2.49× conflict deficit is not a
+clause-quality deficit in any measurable sense. What we learn, per conflict,
+matches kissat; we simply need more conflicts to refute the instance. That
+routes the residual to search GUIDANCE (decisions, restarts, mode schedule,
+what inprocessing does to this family) — TB5's reframe and the phase-6 dosing
+question — and it closes clause quality as a lever. Nothing was built on the
+dead target: the control cost one probe.

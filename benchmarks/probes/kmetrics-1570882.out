@@ -1,0 +1,40 @@
+=== FmlaEquivChain_4_6_6.sanitized : kissat 4.0.4 (metrics build) ===
+rc=20
+c clauses_learned:                     345137               91 %  conflicts
+c conflicts:                           377701            33490.03 per second
+c literals_bumped:                   20183176               58.48 per clause
+c literals_deduced:                   7496128               21.72 per clause
+c literals_factor:                     242291                4.45 per variable
+c literals_factored:                   194061                2.01 per factored
+c literals_learned:                   5837744               16.91 per clause
+c literals_minimized:                       0                0 %  deduced
+c literals_minshrunken:                486377               29 %  shrunken
+c literals_shrunken:                  1658392               22 %  deduced
+c literals_unfactored:                 305967                2.03 per unfactored
+=== 9vliw_bp_mc.shuffled : kissat 4.0.4 (metrics build) ===
+rc=20
+c clauses_learned:                     200519               97 %  conflicts
+c conflicts:                           206660            24510.51 per second
+c literals_bumped:                   14043985               70.04 per clause
+c literals_deduced:                   7818658               38.99 per clause
+c literals_factor:                     114457                5.98 per variable
+c literals_factored:                   148828                2.01 per factored
+c literals_learned:                   4522208               22.55 per clause
+c literals_minimized:                       0                0 %  deduced
+c literals_minshrunken:                541280               16 %  shrunken
+c literals_shrunken:                  3296460               42 %  deduced
+c literals_unfactored:                 371273                2.02 per unfactored
+=== x9-08014.sat.sanitized : kissat 4.0.4 (metrics build) ===
+rc=20
+c clauses_learned:                     353116              100 %  conflicts
+c conflicts:                           353471            33368.25 per second
+c literals_bumped:                   23690601               67.09 per clause
+c literals_deduced:                  10166347               28.79 per clause
+c literals_factor:                       2412                6.03 per variable
+c literals_factored:                     1600                2.00 per factored
+c literals_learned:                   5727396               16.22 per clause
+c literals_minimized:                       0                0 %  deduced
+c literals_minshrunken:                971178               22 %  shrunken
+c literals_shrunken:                  4438971               44 %  deduced
+c literals_unfactored:                   3994                2.00 per unfactored
+DONE

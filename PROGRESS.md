@@ -169,11 +169,15 @@ disagree, the plan is authoritative — fix this file.
      FmlaEquiv's 1.53× conflicts (chrono fires 51 k/solve there). Port ONE
      behavior at a time, same-window gates; TB4's lesson: audit any
      negative verdict before accepting it.
-  5. **Clause-quality decomposition probe** before touching minimization
-     depth or retention: compare learned size/glue distributions +
-     minimization rates vs kissat on FmlaEquiv/s055/9vliw — pick the lever
-     with evidence (the restart-rate delta and both conflict gaps all
-     point at learned-clause quality).
+  5. **DONE 2026-07-28 — and it closed clause quality as a lever, negatively.**
+     The probe ran, named a target (FmlaEquiv minimize+shrink yield
+     21.6 % → ~40 %), and the follow-up control it demanded then killed that
+     target: **kissat's yield on the same instance is 22.1 %** (metrics build,
+     probe 1570882). Raw 1-UIP size, minimize+shrink yield and final learned
+     size are ALL at parity (≤ 1.11×) on all three residual instances, so
+     FmlaEquiv's 2.49× conflicts is not a clause-quality deficit — it is search
+     GUIDANCE. Report §6; lesson L14. Do not re-open the analysis pipeline
+     without new evidence.
   6. Standing (not now): the **§5.6 phase-6 dosing exhibit** now holds
      four mechanism families (BVE admission — reports
      `2026-07-25-crypto1-bve-mechanism.md` / `-bve-dosing-arms.md`, oracle
@@ -230,6 +234,18 @@ disagree, the plan is authoritative — fix this file.
     read a trend off one chaotic instance landing badly at one grid point, and
     a whole "every lever is two-sided" narrative was built on it. Same shape as
     L7 ("the interval is the wrong control"), a new mechanism.
+  - **L14 · An internal cross-instance contrast is NOT a defect signal — get the
+    reference's number on the SAME instance.** "Our minimization removes 21.6 %
+    on FmlaEquiv against ~40 % on the other two" looked like a located defect
+    with a target; kissat removes **22.1 %** on that instance and ~42 % on the
+    others, i.e. the whole contrast is instance structure and we were at parity
+    all along (2026-07-28, probe 1570882). Same family as L8: a measurement that
+    varies one axis (instance) while the interesting axis (us vs the reference)
+    is never varied cannot support a conclusion about that axis. Corollary:
+    reference counters may need a non-default build (kissat's METRIC tier is
+    compiled out of `-s`), and `tools/solvers/bin/*` are SYMLINKS into the
+    reference clones — build such a variant outside the repo or the pinned
+    baseline binary is silently replaced.
   - **L11 · The rules we still LACK are ≤ 9 % of the gap to kissat on Tier C**
     (window `20260727-002213-C-kabl`): kissat with sweep + reorder +
     bumpreasons + randec + eagersubsume + definitions ALL disabled loses only
@@ -670,6 +686,43 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-28 — CLAUSE QUALITY CLOSED: minimize+shrink is AT PARITY with kissat, the 21.6 % target is dead
+Report `benchmarks/reports/2026-07-28-clause-quality.md` §6 (probe 1570882).
+This morning's probe named the next lever "FmlaEquiv minimize+shrink yield
+21.6 % → ~40 %" and flagged, in the same breath, that the kissat column came
+from EMA progress rows and had to be re-measured from equivalent counters
+BEFORE anyone sized a fix. That control was run first, and it kills the lever.
+
+`literals_deduced`/`_minimized`/`_shrunken` are METRIC-level in kissat (absent
+from a plain `-s` build; need `./configure --metrics`). A metrics build of the
+same 4.0.4 source — staged OUTSIDE the repo, because
+`tools/solvers/bin/kissat` is a symlink INTO the reference clone and rebuilding
+it in place would silently replace the pinned baseline binary — gives:
+
+| instance | our yield | **kissat yield** | our raw 1-UIP | kissat raw | our final | kissat final |
+|---|---|---|---|---|---|---|
+| FmlaEquivChain | 21.6 % | **22.1 %** | 23.97 | 21.72 | 18.79 | 16.91 |
+| 9vliw_bp_mc | 40.8 % | **42.2 %** | 41.99 | 38.99 | 24.86 | 22.55 |
+| x9-08014 | 38.5 % | **43.7 %** | 26.08 | 28.79 | 16.04 | 16.22 |
+
+**Kissat gets 22.1 % on FmlaEquiv too** — the low yield is the instance, not
+our implementation, and the 21.6-vs-40 internal contrast that generated the
+target reproduces exactly in kissat. Every stage of clause construction is at
+parity: raw 1-UIP size 1.10×/1.08×/0.91×, yield ±2 points on two of three,
+final size 1.11×/1.10×/0.99×. The size half of the EMA caveat also resolves
+against the earlier reading — kissat's cumulative mean learned size on
+FmlaEquiv is **16.91, not ~10**, so that gap is 1.11× rather than 1.9×; glue
+stays non-comparable (kissat keeps NO cumulative glue counter, only EMAs).
+Counter note for future readers: in kissat's default config
+`literals_minimized` is identically **0** (`shrink=3` returns early from
+`kissat_minimize_clause`); only the SUM `minimized+shrunken` is comparable to
+ours.
+**So FmlaEquiv's 2.49× conflicts is not a clause-quality deficit in any
+measurable sense** — what we learn per conflict matches kissat, we just need
+more conflicts. The residual routes to search GUIDANCE (decisions, restarts,
+mode schedule, what inprocessing does to this family), not to the analysis
+pipeline. Cost of the control: one probe, no code.
 
 ### 2026-07-27 (late) — N2 DEFECT FOUND AND FIXED: native LRAT emitted hint-less lines
 - **Found by measurement, not by fuzzing.** The 6-arm proof-format array
