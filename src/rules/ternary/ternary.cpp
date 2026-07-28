@@ -211,7 +211,14 @@ ApplyResult ternary_apply(Kernel &k) {
   std::vector<Lit> pivots;
   ternary_pivots(k, pivots);
   bool added = false;
+  // Budget-aware batch rule (EffortSpec budget_aware): stop mid-round when the
+  // policy's ledger in our currency (ternary_ticks) is spent. Unbudgeted, this
+  // round added enough redundant clauses to cost Tier B 9.7 -> 270.0 on
+  // mod4block (2026-07-27 A/B).
+  const uint64_t tick_start = k.stats.ternary_ticks;
   for (const Lit p : pivots) {
+    if (k.work_budget && k.stats.ternary_ticks - tick_start > k.work_budget)
+      break;
     const ApplyResult r = ternary_try(k, p);
     if (r == ApplyResult::Unsat)
       return r;

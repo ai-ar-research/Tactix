@@ -1,0 +1,6 @@
+=== corpus WITH conflict-reuse (TB4b A on) ===
+CORPUS FAIL 002-underived-root-consequence: [('crash', 'exit code -6, s-line None')]
+CORPUS FAIL 005-chrono-backjump-mislevels-escaped-unit: [('crash', 'exit code -6, s-line None')]
+corpus: 10 entries, 2 failures
+=== corpus WITHOUT (knob off = pre-TB4b behaviour) ===
+corpus: 10 entries, 0 failures

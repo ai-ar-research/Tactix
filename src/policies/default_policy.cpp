@@ -213,6 +213,8 @@ uint64_t meter_forward(const Kernel &k) { return k.stats.forward_checked; }
 // can dose it per instance.
 uint64_t meter_transitive(const Kernel &k) { return k.stats.transitive_checked; }
 uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
+uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
+uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 
 // name -> {effort per mille, currency, dosed}. Fractions are kissat's
 // options.h defaults (eliminateeffort/forwardeffort/vivifyeffort 100,
@@ -255,6 +257,19 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // dose per solve bypasses the permille formula with kissat's
     // factoriniticks 700M allowance (set at phase entry below).
     {"Factor", 50, meter_factor, false, false, true},
+    // Track R (rev 72). Both take LITERAL payloads, so both are `dosed` — the
+    // policy enumerates once and applies candidates up to the budget. The
+    // first A/B (2026-07-27) ran them UNDOSED, which is not the composition
+    // either reference names: cadical runs `ternary` under a steps budget
+    // inside its preprocessing rounds. 20‰ is the cheap-probing-family rate
+    // (Probe/Backbone/TransitiveReduce) — a starting point to sweep, not a
+    // ported constant, since neither reference exposes a comparable fraction.
+    // BATCH + budget_aware, NOT per-instance `dosed`: both build a round-local
+    // occurrence index, so dosing them one instance at a time would rebuild
+    // that index per application. They read Kernel::work_budget and stop
+    // mid-round instead (Vivify's arrangement).
+    {"HyperTernaryRes", 20, meter_ternary, false, false, true},
+    {"BCE", 20, meter_bce, false, false, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {

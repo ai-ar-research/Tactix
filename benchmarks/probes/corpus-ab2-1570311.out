@@ -1,0 +1,4 @@
+=== corpus WITH conflict-reuse (TB4b A on) ===
+corpus: 10 entries, 0 failures
+=== corpus WITHOUT (knob off = pre-TB4b behaviour) ===
+corpus: 10 entries, 0 failures

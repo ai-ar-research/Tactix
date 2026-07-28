@@ -577,6 +577,7 @@ ApplyResult analyze_apply(Kernel &k) {
   const bool lrat = lrat_active(k);
   uint64_t conflict_chain_id = 0; // the round's conflict, emitted last
   Lit uip = INVALID_LIT;
+  bool first_round = true; // TB4b(A) fires only here — see below
   for (;;) { // one round per conflict; OTFS restarts with a stronger one
     uint32_t csize;
     const Lit *clits = conflict_lits(k, &csize);
@@ -632,6 +633,90 @@ ApplyResult analyze_apply(Kernel &k) {
     // always puts a conflict literal at the current level, so alevel == k.level.
     if (alevel < k.level)
       kernel_backtrack(k, alevel);
+
+    // TB4b(A) · REUSE THE CONFLICT AS THE DRIVING CLAUSE (kissat analyze.c
+    // `one_literal_on_conflict_level`, the `literals_on_conflict_level == 1`
+    // tail). When exactly ONE conflict literal sits at the conflict level, the
+    // conflict clause is ALREADY an asserting clause: backtrack to the
+    // second-highest level `jump2` and every other literal stays false while
+    // that one becomes unassigned, so the clause is unit and implies it. kissat
+    // then assigns it with the conflict as its reason and learns NOTHING. We
+    // learn a fresh clause in that situation, which is why our learned count
+    // (and proof size) runs ahead of kissat's on conflict-heavy instances —
+    // FmlaEquiv's 1.53x conflicts is the target.
+    //
+    // Deviation: kissat routes the target through `determine_new_level`
+    // (its chrono decision) — ours is the plain non-chronological `jump2`,
+    // because the chrono target is POLICY territory here (rev 38: the backjump
+    // target is M3's instance surface, chosen in default_policy.cpp) and this
+    // path bypasses that surface. Chronological reuse is a later TB4b item.
+    // Deviation: `jump2 == 0` falls through to normal learning. The shortcut
+    // would assign a ROOT unit, which under LRAT needs a derived-unit line with
+    // its own chain; the normal path already learns that unit correctly, so the
+    // restriction costs nothing but the proof machinery.
+    // Restricted to the FIRST round. An OTFS round's conflict is a clause this
+    // analysis just strengthened, and reusing it as a REASON requires it to be
+    // a real, watched, id-carrying clause; the original propagation conflict
+    // always is. kissat takes the shortcut on OTFS rounds too — porting that
+    // needs the OTFS product's clause identity pinned down first, so it is a
+    // separate TB4b step rather than a silent widening.
+    if (alevel > 0 && first_round && k.conflict_reuse) {
+      uint32_t at_alevel = 0, jump2 = 0;
+      Lit forced = INVALID_LIT;
+      for (uint32_t i = 0; i < csize; i++) {
+        const uint32_t lv = k.var_level(var_of(clits[i]));
+        if (lv == alevel) {
+          at_alevel++;
+          forced = clits[i];
+        } else if (lv > jump2) {
+          jump2 = lv;
+        }
+      }
+      // WATCH INVARIANT (TB4b item 1, the divergence this one is coupled to).
+      // Reusing the conflict as a REASON only works if the clause watches the
+      // literal it now implies and a false literal at the highest remaining
+      // level — otherwise a later backtrack unassigns `forced` and propagation
+      // never revisits the clause, leaving it unit at a claimed fixpoint. That
+      // is precisely corpus 005's "unit large clause escaped propagation", and
+      // both 002 and 005 aborted on the first version of this shortcut.
+      // kissat repairs the watches instead (analyze.c, the `conflict_size > 2`
+      // block that swaps the two highest-level literals into positions 0/1).
+      // Porting that repair needs an unwatch primitive this kernel does not
+      // have, so it is TB4b's next step; until then the shortcut simply
+      // DECLINES when the invariant does not already hold — sound, and it
+      // still fires on the common propagation-conflict shape where the watched
+      // literals are the relevant ones. Binary conflicts always qualify.
+      bool watch_ok = true;
+      if (at_alevel == 1 && k.conflict_ref != INVALID_REF) {
+        const Clause *cc = clause_at(k.arena, k.conflict_ref);
+        if (cc->size > 2) {
+          const bool forced_watched =
+              cc->lits[0] == forced || cc->lits[1] == forced;
+          const Lit other_w = cc->lits[0] == forced ? cc->lits[1] : cc->lits[0];
+          watch_ok = forced_watched &&
+                     k.var_level(var_of(other_w)) == jump2;
+        }
+      }
+      if (at_alevel == 1 && jump2 > 0 && watch_ok) {
+        const Ref cref = k.conflict_ref;
+        const Lit other = cref == INVALID_REF
+                              ? (k.conflict_bin[0] ^ k.conflict_bin[1] ^ forced)
+                              : INVALID_LIT;
+        kernel_backtrack(k, jump2);
+        if (cref == INVALID_REF)
+          kernel_assign(k, forced, jump2, other, /*binary=*/true);
+        else
+          kernel_assign(k, forced, jump2, cref, /*binary=*/false);
+        k.conflict_valid = false;
+        k.conflict_ref = INVALID_REF;
+        k.pending.valid = false; // nothing to assert: no clause was learned
+        k.stats.conflict_reused++;
+        bump_and_reset_analyzed(k);
+        return ApplyResult::Ok;
+      }
+    }
+
+    first_round = false;
     const Ref conflict_ref0 = k.conflict_ref; // may be garbage'd by OTFS
 
     learned.clear();
@@ -825,6 +910,8 @@ ApplyResult analyze_apply(Kernel &k) {
                        static_cast<uint32_t>(learned.size()), nullptr, 0);
   }
   k.stats.learned++;
+  k.stats.learned_lits += learned.size();
+  k.stats.learned_glue_sum += glue;
 
   PendingLearned &p = k.pending;
   p.lits = learned;
@@ -866,6 +953,9 @@ static ApplyResult conflictanalysis_apply(Kernel &k) {
   const ApplyResult r = analyze_apply(k);
   if (r != ApplyResult::Ok)
     return r; // root refutation (Unsat) — analyze set no pending clause
+  if (!k.pending.valid)
+    return ApplyResult::Ok; // TB4b(A): conflict reused as its own driver —
+                            // the implied literal is already assigned
   return backjump_apply(k); // asserts the UIP at jump_level; clears pending
 }
 
@@ -887,6 +977,13 @@ static ApplyResult conflictanalysis_apply_instance(Kernel &k, uint64_t inst) {
   const ApplyResult r = analyze_apply(k);
   if (r != ApplyResult::Ok)
     return r; // root refutation
+  if (!k.pending.valid)
+    return ApplyResult::Ok; // TB4b(A): conflict reused as its own driver, so
+                            // there is no clause to assert and no target to
+                            // honour — the instance payload is moot. Missing
+                            // this is what aborted corpus 002/005: the canonical
+                            // path was patched, the INSTANCE path (which the
+                            // random policy drives) was not.
   if (inst == INSTANCE_CANONICAL)
     return backjump_apply(k); // jump_level
   const uint32_t target =

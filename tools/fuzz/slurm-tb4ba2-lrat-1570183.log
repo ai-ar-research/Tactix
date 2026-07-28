@@ -1,0 +1,5 @@
+== fuzz job 1570183: node=node017 cpus=40 mem/cpu=8G ==
+== regression corpus ==
+CORPUS FAIL 002-underived-root-consequence: [('crash', 'exit code -6, s-line None')]
+CORPUS FAIL 005-chrono-backjump-mislevels-escaped-unit: [('crash', 'exit code -6, s-line None')]
+corpus: 10 entries, 2 failures

@@ -231,6 +231,12 @@ int main(int argc, char **argv) {
   if (!no_heuristics)
     kernel.h = &heuristics;
   kernel.bve_gate_mask = bve_gate_mask;
+  // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
+  // every policy — the corpus replays run --random-policy, which never enters
+  // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a
+  // usable A/B arm.
+  if (getenv("TACTIX_NO_CONFLICT_REUSE"))
+    kernel.conflict_reuse = false;
   Proof proof;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
@@ -291,6 +297,20 @@ int main(int argc, char **argv) {
     printf("c learned     %llu (%llu units)\n",
            (unsigned long long)kernel.stats.learned,
            (unsigned long long)kernel.stats.learned_units);
+    // clause QUALITY (2026-07-28): mean size and glue of what we learn, and
+    // how much minimize+shrink actually removes — the decomposition the
+    // conflict-count gap vs kissat needs (kissat prints the same via -s).
+    if (kernel.stats.learned) {
+      printf("c learnedsize %.2f avg lits, %.2f avg glue\n",
+             (double)kernel.stats.learned_lits / (double)kernel.stats.learned,
+             (double)kernel.stats.learned_glue_sum /
+                 (double)kernel.stats.learned);
+      const double kept = (double)kernel.stats.learned_lits;
+      const double removed =
+          (double)(kernel.stats.minimized + kernel.stats.shrunken);
+      printf("c reduction   %.1f%% of resolved lits removed by minimize+shrink\n",
+             100.0 * removed / (kept + removed));
+    }
     printf("c minimized   %llu lits\n",
            (unsigned long long)kernel.stats.minimized);
     printf("c shrunken    %llu lits\n",

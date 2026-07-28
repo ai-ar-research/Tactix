@@ -1,0 +1,3 @@
+c clauses_learned:                     345137               91 %  conflicts
+c clauses_used:                       2108452              611 %  learned
+c literals_factor:                     242291                4.45 per variable

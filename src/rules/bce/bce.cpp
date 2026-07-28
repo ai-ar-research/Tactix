@@ -56,33 +56,32 @@ bool opposite_relevant(const Kernel &k, const Clause *c) {
 // `(39 ∨ 9)`, a clause nobody had deleted.
 enum class Side { Cand, Opposite };
 
-void collect_occs(const Kernel &k, Lit l, Side side, std::vector<Occ> &out) {
-  out.clear();
-  auto wanted = [&](const Clause *c) {
-    return side == Side::Cand ? candidate_clause(k, c) : opposite_relevant(k, c);
-  };
-  // The dense index lists IRREDUNDANT large clauses only, which is exactly what
-  // a candidate needs but NOT what the opposite side needs — so the opposite
-  // side always takes the arena scan.
-  if (k.dense && side == Side::Cand) {
-    for (const Ref ref : k.dense->large[l])
-      if (wanted(clause_at(k.arena, ref)))
-        out.push_back({ref, 0});
-  } else {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_words(c->size);
-      if (wanted(c))
-        for (const Lit x : *c)
-          if (x == l) {
-            out.push_back({ref, 0});
-            break;
-          }
-      ref += words;
-    }
+// Round-local literal→large-clause index over the clauses BCE must see:
+// every live, non-root-satisfied clause, REDUNDANT ONES INCLUDED. `Kernel::dense`
+// cannot serve here — it carries irredundant clauses only, and blockedness must
+// quantify over redundant ones too — so one arena pass per ROUND builds this,
+// replacing the per-literal arena scan of the first implementation. That scan
+// made a canonical round O(nlits × arena) and is the measured reason the first
+// A/B put Tier B at 239.91 (2026-07-27 log entry).
+struct BceIndex {
+  std::vector<std::vector<Ref>> occ; // by literal; may hold stale garbage Refs
+};
+
+void build_index(const Kernel &k, BceIndex &idx) {
+  idx.occ.assign(2 * k.nvars, {});
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (opposite_relevant(k, c))
+      for (const Lit x : *c)
+        idx.occ[x].push_back(ref);
+    ref += words;
   }
-  // binaries live in the watch lists, not the arena; all of them are
-  // irredundant in this kernel (V4 deviation 6)
+}
+
+// Binaries live in the watch lists, not the arena; all of them are irredundant
+// in this kernel (V4 deviation 6).
+void collect_binaries(const Kernel &k, Lit l, Side side, std::vector<Occ> &out) {
   const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
   const uint32_t sz = k.watches.heads[l].size;
   for (uint32_t i = 0; i < sz;) {
@@ -102,6 +101,19 @@ void collect_occs(const Kernel &k, Lit l, Side side, std::vector<Occ> &out) {
   }
 }
 
+void collect_occs(const Kernel &k, const BceIndex &idx, Lit l, Side side,
+                  std::vector<Occ> &out) {
+  out.clear();
+  for (const Ref ref : idx.occ[l]) {
+    const Clause *c = clause_at(k.arena, ref);
+    // the index is built with the OPPOSITE predicate (the weaker one), so a
+    // candidate still has to pass its own, stricter test
+    if (side == Side::Cand ? candidate_clause(k, c) : !c->garbage())
+      out.push_back({ref, 0});
+  }
+  collect_binaries(k, l, side, out);
+}
+
 } // namespace
 
 bool bce_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
@@ -113,19 +125,22 @@ void bce_literals(const Kernel &k, std::vector<Lit> &out) {
       out.push_back(l);
 }
 
-ApplyResult bce_try(Kernel &k, Lit blocking) {
+// One blocking literal, against an already-built index. `marked` is caller-owned
+// scratch, cleared on exit — a fresh vector per literal was an O(nvars) fill per
+// call, the per-call linear-scratch hazard the codebase has hit four times.
+ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
+                            std::vector<uint8_t> &marked) {
   if (!root_open(k, blocking))
     return ApplyResult::NoOp;
   std::vector<Occ> cands, opposite;
-  collect_occs(k, blocking, Side::Cand, cands);
-  collect_occs(k, negate(blocking), Side::Opposite, opposite);
+  collect_occs(k, idx, blocking, Side::Cand, cands);
+  collect_occs(k, idx, negate(blocking), Side::Opposite, opposite);
   k.stats.bce_ticks += cands.size() + opposite.size();
   if (cands.empty())
     return ApplyResult::NoOp;
 
   // `marked[lit]` = "¬lit occurs in the candidate" — the tautology test reduces
   // to "does D contain a literal whose negation is in C\{blocking}".
-  std::vector<uint8_t> marked(2 * k.nvars, 0);
   std::vector<Lit> lits, rest;
   std::vector<Occ> blocked;
 
@@ -208,12 +223,32 @@ ApplyResult bce_try(Kernel &k, Lit blocking) {
   return ApplyResult::Ok;
 }
 
+// N1 single-instance entry: one literal, so it pays for its own index. One
+// arena pass, not one per literal.
+ApplyResult bce_try(Kernel &k, Lit blocking) {
+  if (!root_open(k, blocking))
+    return ApplyResult::NoOp;
+  BceIndex idx;
+  build_index(k, idx);
+  std::vector<uint8_t> marked(2 * k.nvars, 0);
+  return bce_try_indexed(k, blocking, idx, marked);
+}
+
 ApplyResult bce_apply(Kernel &k) {
   std::vector<Lit> lits;
   bce_literals(k, lits);
+  BceIndex idx;
+  build_index(k, idx); // ONE arena pass for the whole round
+  std::vector<uint8_t> marked(2 * k.nvars, 0);
   bool any = false;
+  // Budget-aware batch rule (EffortSpec budget_aware): the policy hands us its
+  // remaining ledger in OUR currency (bce_ticks) and we stop mid-round rather
+  // than being metered after the fact. Vivify's idiom, vivify.cpp:275.
+  const uint64_t tick_start = k.stats.bce_ticks;
   for (const Lit l : lits) {
-    const ApplyResult r = bce_try(k, l);
+    if (k.work_budget && k.stats.bce_ticks - tick_start > k.work_budget)
+      break;
+    const ApplyResult r = bce_try_indexed(k, l, idx, marked);
     if (r == ApplyResult::Unsat)
       return r;
     any |= (r == ApplyResult::Ok);

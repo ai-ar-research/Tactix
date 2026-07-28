@@ -63,6 +63,12 @@ struct Stats {
   uint64_t promoted = 0;     // glue promotions on use (kissat deduce.c)
   uint64_t learned = 0;
   uint64_t learned_units = 0;
+  // Clause-QUALITY instrumentation (2026-07-28 probe): the size/glue
+  // distribution of what we learn, which the conflict-count gap vs kissat
+  // (FmlaEquiv 1.53x) is a symptom of. Counters only — no trajectory effect.
+  uint64_t learned_lits = 0;      // sum of FINAL learned clause sizes
+  uint64_t learned_glue_sum = 0;  // sum of learned glues
+  uint64_t learned_raw_lits = 0;  // sum of sizes BEFORE minimize+shrink
   uint64_t minimized = 0; // literals removed by clause minimization
   uint64_t shrunken = 0;  // literals removed by all-UIP block shrinking
   uint64_t otfs_strengthened = 0; // reasons strengthened on the fly
@@ -128,6 +134,9 @@ struct Stats {
   // invisible in a full Tier B run: `chronological` counts chrono targets taken,
   // `backjump_stale` counts pending clauses discarded because the asserting
   // literal was still assigned after the backtrack — the latter should be 0.
+  // TB4b(A): conflicts resolved by REUSING the conflict as the driving clause
+  // (kissat one_literal_on_conflict_level) — no clause learned, no proof line.
+  uint64_t conflict_reused = 0;
   uint64_t chronological = 0;
   uint64_t backjump_stale = 0;
   uint64_t inprocess_phases = 0;
@@ -467,6 +476,13 @@ struct Kernel {
   // pass is delay-gated (vivifyirr) — delaying the whole round measured as
   // a Tier B loss (mod4block TO, 2026-07-24 arr4).
   uint8_t vivify_scope = 0;
+  // TB4b(A): reuse the conflict as its own driving clause when exactly one of
+  // its literals sits at the conflict level (kissat
+  // one_literal_on_conflict_level) instead of learning a fresh clause.
+  // CONFIGURATION like work_budget/vivify_scope — the policy owns the on/off
+  // (TACTIX_NO_CONFLICT_REUSE), the rule owns the mechanism. Both settings are
+  // sound; they differ only in trajectory and in how many clauses are learned.
+  bool conflict_reuse = true;
   // Reason-side bumping (kissat option bumpreasonslimit, cadical
   // bumpreasonlimit — both 10): after the learned clause is final, also mark
   // for bumping the literals of the REASONS of the clause's own literals, up

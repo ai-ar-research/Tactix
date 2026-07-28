@@ -397,6 +397,25 @@ tail instances were 69 % of our Tier B time; each had a different cause.
 - [ ] **TB4b** · remaining chrono divergences from that audit (watch repair
   onto highest-level literals, one-literal-on-conflict-level shortcut, unit
   chrono routing, snapshot timing, `jumpreasons`, cadical's `chronoreusetrail`)
+  - [x] **TB4b(A) · the one-literal shortcut IMPLEMENTED** (2026-07-28,
+    `Kernel::conflict_reuse`, A/B arm `TACTIX_NO_CONFLICT_REUSE`): when exactly
+    one conflict literal sits at the conflict level, the conflict clause is
+    already asserting — backtrack to the second-highest level and assign that
+    literal WITH THE CONFLICT AS ITS REASON, learning nothing. Fewer learned
+    clauses and fewer proof lines per conflict.
+    **The audit's list is not six independent items — (A) and the watch-repair
+    item are ONE change.** The first version took the shortcut without repairing
+    watches and corpus 002 + 005 aborted immediately ("unit large clause escaped
+    propagation"): reusing a clause as a reason requires it to watch the literal
+    it now implies, or a later backtrack strands it unit at a claimed fixpoint.
+    kissat repairs the watches in the same function (analyze.c, the
+    `conflict_size > 2` swap block); we have no unwatch primitive, so the
+    shortcut currently DECLINES when the invariant does not already hold —
+    sound, still fires on the common propagation-conflict shape. **Removal
+    path = TB4b's next step: the watch-repair primitive, which then also
+    unblocks the OTFS-round case** (the shortcut is restricted to the first
+    analysis round because an OTFS-strengthened conflict's clause identity is
+    not pinned down yet)
 - [x] **TB5** · CLOSED-REFRAMED 2026-07-25 late (probes 1562819–26): per-prop cost AT PARITY with kissat on all residuals — the flat-1.39×-throughput premise was stale; the residual is SEARCH SHAPE (s055 props/conflict 1.43× at conflict parity; FmlaEquiv conflicts 1.53×; x9 parity). Watch-layout engineering lane measured-dead; s055 → phase-6 admission exhibit; lesson: kissat's `propagations` stat includes probing+warming. Detail: Log 2026-07-25 late + `9bbcdf2`
 - [x] **TB6** · CLOSED 2026-07-25 (probe 1562605, `TACTIX_FORCE_MODE`
   knob banked): the era-stale 407 k claim does NOT reproduce — the default
@@ -677,6 +696,56 @@ Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 - Evidence: fuzz 10k/0 congruence-stress + native LRAT (1569454) and 10k/0
   default + native LRAT (1569455), both on the assert-enabled debug build;
   probes 1569178 / 1569447 / 1569453.
+
+### 2026-07-28 — clause-quality probe: the conflict gap is ONE INSTANCE, not a pattern
+Report `benchmarks/reports/2026-07-28-clause-quality.md` (probes 1570461/64;
+new counters `learned_lits`/`learned_glue_sum` + the `c learnedsize` /
+`c reduction` lines).
+
+| instance | tactix conflicts | kissat | ratio |
+|---|---|---|---|
+| FmlaEquivChain | 669,260 | 377,701 | **1.77×** |
+| 9vliw_bp_mc | 195,297 | 206,660 | **0.94×** |
+| x9-08014 | 274,180 | 353,471 | **0.78×** |
+
+**On two of the three named residual carriers we need FEWER conflicts than
+kissat and are still not faster** — so "our clause quality is worse" is retired
+as a general claim; it is an FmlaEquiv-family statement. The sharp internal
+signal is our own minimization: it removes **27.2 %** of resolved literals on
+FmlaEquiv against ~38 % on both other instances, and our learned clauses there
+average 19.66 lits at glue 7.67 (kissat's end-of-run progress row reads ~10 and
+~1.8 — EMA vs our cumulative mean, so re-measure from an equivalent counter
+before sizing a fix off it). **Next lever, with a target rather than a
+vibe: minimize+shrink effectiveness on the FmlaEquiv family, 27.2 % → ~38 %.**
+The 9vliw/x9 puzzle (fewer conflicts, no win on time) is TB5's per-conflict-cost
+question and stays separate.
+
+### 2026-07-28 — Track R, round 2: dosing recovers most of the damage, not enough to ship
+Effort specs added (`HyperTernaryRes` and `BCE` at 20‰, BATCH + `budget_aware`
+rather than per-instance `dosed` — both build a round-local index, so dosing
+them one instance at a time would rebuild it per application), and BCE's cost
+model fixed: ONE arena pass per round into a literal→clause index that carries
+redundant clauses too (`Kernel::dense` cannot serve, it is irredundant-only),
+replacing the per-literal arena scan that made a round O(nlits × arena).
+
+Same-window Tier B (`20260728-081739-B-shipped`), against the undosed numbers:
+
+| arm | undosed | **dosed** | vs shipped 7.75 |
+|---|---|---|---|
+| + `BCE` | 239.91 (9/14) | **22.01** (14/14) | 2.8× worse |
+| + `HyperTernaryRes` | 27.56 | **53.06** (13/14) | 6.8× worse |
+| + both | 198.91 (10/14) | **10.84** (14/14) | 1.4× worse |
+| kissat | 8.67 | 8.55 | — |
+
+BCE improves 11× and the pair 18×, and every arm solves 14/14 again except
+ternary — but nothing pays, so **both stay OFF**. Two findings worth keeping:
+(1) **the pair is far better than either alone** (10.84 vs 22.01 / 53.06) — X2
+adds clauses and BCE removes blocked ones, so they partly cancel; a rule's
+value here is not separable from its neighbours, which is the §5.6 exhibit's
+whole thesis. (2) **dosing made X2 WORSE** (27.56 → 53.06), i.e. 20‰ is not
+the right rate rather than dosing being the wrong idea — the per-mille sweep is
+the open lever, and it is exactly the kind of constant the phase-6 learner is
+meant to subsume rather than us hand-tuning it now.
 
 ### 2026-07-27 (late) — Track R A/B: BOTH new rules ship OFF (measured, decisive)
 Same-window Tier B (`20260727-223610-B-shipped`, throttle 48, all arms writing
