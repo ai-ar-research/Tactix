@@ -7,7 +7,8 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 72 (2026-07-27)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-28 (Track R · R4 `Reorder` lands, ships OFF —
+- **Last updated:** 2026-07-28 (Track R · R5 increment S-a: the Sweep
+  sub-solver lands, 1M brute-force iterations green. R4 `Reorder` ships OFF —
   Tier B UNSAT at parity, SAT 3.4× worse; the R3 `Instantiate` Tier B A/B
   harvested. Earlier: Tier C push + the Tier B recovery: walk dose 560 + reason-side bumping + dynamic tiers, bumpreasons rate 20 — **Tier C 382.94 → 303.21 = CaDiCaL parity, Tier B 9.11 → 8.10 = AHEAD of kissat, Tier A 200/200**. Report `benchmarks/reports/2026-07-27-tier-c-push.md`, incl. §8 addendum)
 - **▶ RESUME HERE (2026-07-27, late session).** Phase 3. Read this block, then
@@ -38,7 +39,10 @@ disagree, the plan is authoritative — fix this file.
      Tier B A/B says +X2 = 27.56 and +BCE = 239.91 (9/14) against 7.89 shipped.
      They are correct; the scheduling is not (no effort spec + BCE's naive cost
      model — see the Log entry). **R3 `Instantiate` and R4 `Reorder` have since
-     landed, both ships-OFF by measurement. NEXT for Track R: R5–R8**
+     landed, both ships-OFF by measurement, and R5's first increment (S-a, the
+     embedded sub-solver) is in. NEXT for Track R: S-b — antecedent recording +
+     core extraction, the increment that makes Sweep's proof obligation payable
+     — then S-c…S-f, then R6–R8**
      (checklist under Track R; R5 Sweep has a design pass at
      `docs/design/v5-sweep-design.md`). R4's A/B produced the one result Track R
      has yielded that is not just an inventory tick: **Reorder is at PARITY on
@@ -689,6 +693,23 @@ stress-policy + fuzz legs on both proof formats and a same-window gate.
       a swept equivalence is entailed but NOT RUP, so the chain must come from
       the sub-solver's core (strategy b) with V6's replay trick as a fast path
       (strategy a). Six independently landable increments S-a…S-f
+  - [x] **S-a · the embedded sub-solver** (`src/rules/sweep/subsolver.{hpp,cpp}`,
+        2026-07-28). Minimal CDCL: two-watched propagation, 1-UIP learning,
+        arithmetic restarts, MiniSat-shaped assumptions, tick budget, fixed
+        decision order with saved phases. Owns its arena/watches/trail and
+        NEVER touches `Kernel` state, so a policy may run it anywhere (L3: even
+        a non-mutating pass that reorders watch lists moves the trajectory).
+        Deterministic by construction — no randomness, no clock. **No registry
+        line yet**: it is a component, not a rule; Sweep registers at S-c/S-d.
+        Records no antecedents and emits no proof, so nothing it concludes may
+        justify a rewrite until S-b — enforced by the fact that an unanalyzable
+        conflict returns `Budget` ("no conclusion"), never `Unsat`.
+        Evidence: `tests/test_subsolver.cpp`, an EXHAUSTIVE oracle — **1,000,000
+        random formulas (2–8 vars) verdict-checked against brute force**, half
+        under random assumptions, every reported model re-checked against the
+        clauses and the assumptions; plus degenerate inputs, the assumption
+        paths, a PHP(6,5) budget/determinism check (same formula ⇒ same tick
+        count; a starved solve returns `Budget`). Clean under ASan+UBSan
 - [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles
       as the §5.3 **extensibility acceptance test** (pure plugin, no kernel edit)
 - [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
@@ -748,6 +769,30 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-28 — Track R · R5 increment S-a: the embedded sub-solver, brute-force verified
+`src/rules/sweep/subsolver.{hpp,cpp}` — the O11 decision executed (design
+`docs/design/v5-sweep-design.md` §3: write ~600 focused lines rather than
+transliterate kitten's 2877). Ordinary CDCL; the three places it deliberately
+differs from the kernel are documented at the top of the .cpp — per-literal
+watch vectors instead of the flat arena (an environment is a few dozen clauses,
+so the flat layout buys nothing and the delayed-relocation hazard disappears),
+fixed decision order instead of an activity heuristic (§3 asks for determinism
+and a bounded budget, not search quality), MiniSat-shaped assumptions.
+- **Verified by exhaustion, because there is nothing else to verify it with**
+  yet: no proof is emitted until S-b, so the checkers cannot see it and the fuzz
+  oracles do not reach it. `tests/test_subsolver.cpp` enumerates all 2^n
+  assignments of each random formula and compares verdicts — **1,000,000
+  iterations green**, 410 k SAT / 590 k UNSAT, 334 k of them under assumptions,
+  with every reported model re-checked against both the clauses and the
+  assumptions. Also clean under ASan+UBSan.
+- **The safety property that matters for S-b onward:** an unanalyzable conflict
+  returns `Budget` ("draw no conclusion"), never `Unsat`. A refutation this
+  engine reports will become a proof obligation on the main formula, so the one
+  failure mode worth engineering against is it claiming a refutation it cannot
+  support — the budget path is the honest answer everywhere it is unsure.
+- Not a rule yet: no registry line, no guard/apply, nothing scheduled. Sweep
+  registers at S-c/S-d, once it can produce a chain.
 
 ### 2026-07-28 — Track R · R4 `Reorder` lands (ships OFF): the loss is ENTIRELY SAT-side
 S7 `Reorder` implemented as a policy operation (`H`-only, no proof delta, no
