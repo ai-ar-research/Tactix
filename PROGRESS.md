@@ -23,17 +23,15 @@ disagree, the plan is authoritative — fix this file.
      hint-less lines that DRAT accepted for free. Verified fixed on the
      instance that exposed it (cake_lpr `s VERIFIED UNSAT`).
   3. **Track R opened** (the user's "implement every reference rule" directive):
-     X2 `HyperTernaryRes` and X1 `BCE` are implemented, unit-tested, registered
-     and N1-exposed, but **deliberately NOT scheduled** by DefaultPolicy —
-     `TACTIX_SLOT_ENABLE=<name>` is each one's measurement arm. **NEXT: their
-     same-window A/B on Tier B+C, then R3–R8** (checklist under Track R).
-  4. **BCE is not yet proven sound** — fuzz caught one wrong-SAT (fixed, with
-     the shrunk case as a regression test) and one crash (fixed). The
-     confirming legs on a FROZEN binary were still running at session end:
-     jobs 1569473 (random-policy DRAT) / 1569474 (native LRAT). **Read those
-     logs before trusting BCE**; the isolation leg with BCE unregistered
-     (1569472) was clean, so any remaining failure is BCE's.
-  5. Then the two search-quality items that the evidence says actually carry
+     X2 `HyperTernaryRes` and X1 `BCE` are implemented, unit-tested, fuzz-green
+     (10k/0 on both proof formats with `--random-policy` applying them), and
+     registered — and they **ship OFF**, by measurement, not by caution: the
+     Tier B A/B says +X2 = 27.56 and +BCE = 239.91 (9/14) against 7.89 shipped.
+     They are correct; the scheduling is not (no effort spec + BCE's naive cost
+     model — see the Log entry). **NEXT for Track R: give them effort specs and
+     re-measure, then R3–R8** (checklist under Track R; R5 Sweep has a design
+     pass at `docs/design/v5-sweep-design.md`).
+  4. Then the two search-quality items that the evidence says actually carry
      the Kissat gap: **TB4b** (six chrono divergences) and the
      **clause-quality decomposition probe**.
 
@@ -549,10 +547,21 @@ PAR-2 gap. Order below is measured-value-per-cost, cheapest first; each lands
 under the §5.3 contract (one directory + one registry line) with its own
 stress-policy + fuzz legs on both proof formats and a same-window gate.
 
-- [ ] **R1 · X2 `HyperTernaryRes`** (cadical `ternary.cpp`) — add-RUP only, no
-      witness, no new primitive: the cheapest genuine rule in the gap
-- [ ] **R2 · X1 `BCE`** (cadical `block.cpp`) — delete + push-witness; reuses
-      E1's occurrence index and reconstruction stack. Note kissat 4 DROPPED it
+- [x] **R1 · X2 `HyperTernaryRes`** (cadical `ternary.cpp`) — add-RUP only, no
+      witness, no new primitive: the cheapest genuine rule in the gap.
+      **IMPLEMENTED** `d0bb6ec` (calculus §6c, 7 unit tests, registered,
+      DefaultPolicy-unscheduled pending its A/B)
+- [x] **R2 · X1 `BCE`** (cadical `block.cpp`) — delete + push-witness; reuses
+      E1's occurrence index and reconstruction stack. Note kissat 4 DROPPED it.
+      **IMPLEMENTED** `d0bb6ec`/`1a9afb1`, 7 unit tests + the shrunk fuzz case.
+      Two defects found by fuzz and fixed: a wrong-SAT (the blockedness test's
+      OPPOSITE side must skip only ROOT-SATISFIED clauses — filtering it like
+      the candidate side hid a live clause with a root-false literal) and a
+      crash (the kernel refuses to delete a duplicated binary pair).
+      **Soundness GREEN on the fixed build** (frozen binary, both new rules
+      registered so `--random-policy` applies them): 10k/0 DRAT (1569473) and
+      10k/0 native LRAT (1569474), plus a 10k/0 control with BCE unregistered
+      (1569472) that localized the earlier failures to BCE
 - [ ] **R3 · X4 `Instantiate`** (cadical `instantiate.cpp`) — add/delete
 - [ ] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only policy op, no proof
       obligation. Measured worth ~0 to kissat (`--reorder=0` costs it nothing,
@@ -560,7 +569,14 @@ stress-policy + fuzz legs on both proof formats and a same-window gate.
 - [ ] **R5 · V5 `Sweep` + the embedded sub-solver** (kissat `sweep.c`+`kitten.c`;
       §11 O11 now due) — the largest single item in kissat's own ablation
       (+14 alone) and the biggest build: it also unlocks kitten-based
-      **definition extraction** for E1 (the last E1 gap, +6.1 to kissat)
+      **definition extraction** for E1 (the last E1 gap, +6.1 to kissat).
+      **DESIGN PASS DONE** — `docs/design/v5-sweep-design.md` (2026-07-27):
+      O11 recommendation is to WRITE a minimal sub-solver, not vendor kitten
+      (verbatim copying is barred anyway, and we need LRAT-grade antecedents
+      kitten's core does not give); the real risk is the proof obligation —
+      a swept equivalence is entailed but NOT RUP, so the chain must come from
+      the sub-solver's core (strategy b) with V6's replay trick as a fast path
+      (strategy a). Six independently landable increments S-a…S-f
 - [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles
       as the §5.3 **extensibility acceptance test** (pure plugin, no kernel edit)
 - [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
@@ -654,6 +670,38 @@ Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
 - Evidence: fuzz 10k/0 congruence-stress + native LRAT (1569454) and 10k/0
   default + native LRAT (1569455), both on the assert-enabled debug build;
   probes 1569178 / 1569447 / 1569453.
+
+### 2026-07-27 (late) — Track R A/B: BOTH new rules ship OFF (measured, decisive)
+Same-window Tier B (`20260727-223610-B-shipped`, throttle 48, all arms writing
+DRAT), enabling each new rule in the S4 slot via `TACTIX_SLOT_ENABLE`:
+
+| arm | Tier B PAR-2 | solved |
+|---|---|---|
+| shipped (both OFF) | **7.89** | 14/14 |
+| + X2 `HyperTernaryRes` | 27.56 | 14/14 |
+| + X1 `BCE` | 239.91 | **9/14** |
+| + both | 198.91 | 10/14 |
+| kissat | 8.67 | 14/14 |
+
+Per instance the damage is concentrated and brutal: BCE turns 6 instances into
+timeouts (`summle_steps7` 6.4 → 600, `mod4block` 9.7 → 600, `hwmcc17miters`
+7.7 → 600, `9vliw` 13.0 → 600, `FmlaEquivChain` 27.1 → 600) and X2 costs
+`mod4block` 9.7 → 270.0. **Both stay OFF; the rules are correct (10k/0 fuzz on
+both proof formats), the SCHEDULING is not.**
+
+Two causes, both actionable and neither a soundness issue:
+1. **No effort spec.** The slot runs every enabled rule each phase; the new
+   families have no `EffortSpec` entry, so they run unbudgeted where both
+   references dose them hard (cadical runs `ternary` under a steps budget
+   inside preprocessing rounds, and BCE likewise). "Enabled in our slot" is NOT
+   the same composition as "enabled in cadical".
+2. **BCE's cost model is naive** — the opposite side always takes a full arena
+   scan (the dense index carries irredundant clauses only, and blockedness must
+   quantify over redundant ones too), so a round is O(nlits × arena).
+This is textbook §5.6 dosing-exhibit material: a mechanism whose value is
+entirely in WHEN and HOW MUCH, added to the four families already in the
+exhibit. It also re-confirms L11 from the other side — importing the reference
+inventory does not import the reference's performance.
 
 ### 2026-07-27 (late) — plan rev 72 + Track R opened: like-for-like measurement, full reference rule inventory
 - **User directive:** compare against Kissat/CaDiCaL **with proof generation on
