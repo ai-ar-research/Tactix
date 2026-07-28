@@ -397,8 +397,16 @@ tail instances were 69 % of our Tier B time; each had a different cause.
 - [ ] **TB4b** · remaining chrono divergences from that audit (watch repair
   onto highest-level literals, one-literal-on-conflict-level shortcut, unit
   chrono routing, snapshot timing, `jumpreasons`, cadical's `chronoreusetrail`)
-  - [x] **TB4b(A) · the one-literal shortcut IMPLEMENTED** (2026-07-28,
-    `Kernel::conflict_reuse`, A/B arm `TACTIX_NO_CONFLICT_REUSE`): when exactly
+  - [x] **TB4b(A) · the one-literal shortcut IMPLEMENTED, ships OFF** (2026-07-28,
+    `Kernel::conflict_reuse`, enable with `TACTIX_CONFLICT_REUSE=1`).
+    **Measured negative tier-wide** — Tier B 8.32 vs 7.62, Tier C 330.17/310.93
+    vs 312.17/307.07 over two windows — but note the Tier C noise band at
+    throttle 48 is ~6 % (the SAME arm read 330.17 and 310.93), so only the
+    DIRECTION is solid. It wins where it was aimed: FmlaEquiv 26.00 → 22.45 s
+    and −29 % conflicts (938,595 → 669,260), 9vliw 13.28 → 11.67, crypto1
+    2.20 → 1.03; it loses more on one instance (qwh 4.04 → 15.71) than the whole
+    aggregate delta. The version measured is CRIPPLED (see below), so this is a
+    verdict on the restricted mechanism, not on kissat's. Mechanism: when exactly
     one conflict literal sits at the conflict level, the conflict clause is
     already asserting — backtrack to the second-highest level and assign that
     literal WITH THE CONFLICT AS ITS REASON, learning nothing. Fewer learned
@@ -702,23 +710,27 @@ Report `benchmarks/reports/2026-07-28-clause-quality.md` (probes 1570461/64;
 new counters `learned_lits`/`learned_glue_sum` + the `c learnedsize` /
 `c reduction` lines).
 
-| instance | tactix conflicts | kissat | ratio |
-|---|---|---|---|
-| FmlaEquivChain | 669,260 | 377,701 | **1.77×** |
-| 9vliw_bp_mc | 195,297 | 206,660 | **0.94×** |
-| x9-08014 | 274,180 | 353,471 | **0.78×** |
+| instance | tactix (shipped) | kissat | ratio | our minimize+shrink yield |
+|---|---|---|---|---|
+| FmlaEquivChain | 938,595 | 377,701 | **2.49×** | **21.6 %** |
+| 9vliw_bp_mc | 236,719 | 206,660 | 1.15× | 40.8 % |
+| x9-08014 | 274,180 | 353,471 | **0.78×** | 38.5 % |
 
-**On two of the three named residual carriers we need FEWER conflicts than
-kissat and are still not faster** — so "our clause quality is worse" is retired
-as a general claim; it is an FmlaEquiv-family statement. The sharp internal
-signal is our own minimization: it removes **27.2 %** of resolved literals on
-FmlaEquiv against ~38 % on both other instances, and our learned clauses there
-average 19.66 lits at glue 7.67 (kissat's end-of-run progress row reads ~10 and
-~1.8 — EMA vs our cumulative mean, so re-measure from an equivalent counter
-before sizing a fix off it). **Next lever, with a target rather than a
-vibe: minimize+shrink effectiveness on the FmlaEquiv family, 27.2 % → ~38 %.**
-The 9vliw/x9 puzzle (fewer conflicts, no win on time) is TB5's per-conflict-cost
-question and stays separate.
+**On x9 we need FEWER conflicts than kissat and are still not faster**, and
+9vliw is near parity — so "our clause quality is worse" is retired as a general
+claim; it is an FmlaEquiv-family statement, and there the deficit is BIGGER than
+anyone had recorded (2.49× against the 1.53× on file). The sharp internal signal
+is our own minimization: **21.6 %** yield on FmlaEquiv against ~40 % on both
+others. **Next lever, with a target rather than a vibe: 21.6 % → ~40 % on the
+FmlaEquiv family.**
+**The depth cap is NOT it** (probe 1570502): `TACTIX_MINIMIZE_DEPTH` 900 /
+1000 / 100000 give byte-identical results, which closes the standing deferred
+item "`literal_redundant` depth cap 900 vs 1000" as measured-dead.
+**Correction recorded in the report:** the first pass of this probe was taken
+with `conflict_reuse` still defaulted ON, so its 1.77× / 0.94× figures described
+an experimental build; the table above is the shipped configuration.
+The x9/9vliw puzzle (conflict parity-or-better, no win on time) is TB5's
+per-conflict-cost question and stays separate.
 
 ### 2026-07-28 — Track R, round 2: dosing recovers most of the damage, not enough to ship
 Effort specs added (`HyperTernaryRes` and `BCE` at 20‰, BATCH + `budget_aware`

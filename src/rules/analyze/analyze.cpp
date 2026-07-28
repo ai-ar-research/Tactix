@@ -19,6 +19,7 @@
 #include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
 
 #include <algorithm>
+#include <cstdlib>
 
 namespace tactix {
 
@@ -154,7 +155,19 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
 // unrecorded near-miss found in the 2026-07-15 §5.5 sweep. The VALUE is
 // trajectory-affecting, so aligning it is a measured fidelity question
 // (PROGRESS phase-3 deferred items), not a simplification.
-static constexpr unsigned MINIMIZE_DEPTH_LIMIT = 900;
+static unsigned minimize_depth_limit() {
+  // Probe knob (2026-07-28): the clause-quality probe found minimize+shrink
+  // removing only 27.2 % of resolved literals on FmlaEquiv against ~38 % on
+  // 9vliw/x9, and this cap is a standing deferred item (900 with `>` vs
+  // kissat's minimizedepth 1000). Env-gated so the question is measurable
+  // rather than argued.
+  static const unsigned v = [] {
+    if (const char *e = std::getenv("TACTIX_MINIMIZE_DEPTH"))
+      return static_cast<unsigned>(std::strtoul(e, nullptr, 10));
+    return 900u;
+  }();
+  return v;
+}
 
 static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   const Var v = var_of(l);
@@ -163,7 +176,7 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     return true;
   if (k.seen[v] & POISONED)
     return false;
-  if (a.reason == DECISION_REASON || depth > MINIMIZE_DEPTH_LIMIT ||
+  if (a.reason == DECISION_REASON || depth > minimize_depth_limit() ||
       !k.marked_levels[a.level]) {
     const uint8_t before = k.seen[v];
     k.seen[v] |= POISONED;

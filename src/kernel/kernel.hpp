@@ -479,10 +479,21 @@ struct Kernel {
   // TB4b(A): reuse the conflict as its own driving clause when exactly one of
   // its literals sits at the conflict level (kissat
   // one_literal_on_conflict_level) instead of learning a fresh clause.
-  // CONFIGURATION like work_budget/vivify_scope — the policy owns the on/off
-  // (TACTIX_NO_CONFLICT_REUSE), the rule owns the mechanism. Both settings are
-  // sound; they differ only in trajectory and in how many clauses are learned.
-  bool conflict_reuse = true;
+  // CONFIGURATION like work_budget/vivify_scope — the frontend owns the on/off
+  // (TACTIX_CONFLICT_REUSE=1 enables), the rule owns the mechanism. Both
+  // settings are sound; they differ only in trajectory and in how many clauses
+  // are learned.
+  // DEFAULT OFF, by measurement (2026-07-28): Tier B 8.32 vs 7.62, Tier C
+  // 330.17/310.93 vs 312.17/307.07 across two windows — consistently negative,
+  // though the Tier C noise band at throttle 48 is ~6 % (the SAME arm read
+  // 330.17 and 310.93), so only the direction is solid, not the size. It wins
+  // on the instances it targets (FmlaEquiv 26.00 -> 22.45, 9vliw 13.28 ->
+  // 11.67, crypto1 2.20 -> 1.03) and loses more on one (qwh 4.04 -> 15.71).
+  // The version measured is CRIPPLED — it declines whenever the watch
+  // invariant does not already hold, and only on the first analysis round —
+  // so this is a verdict on the restricted mechanism, not on kissat's. Revisit
+  // when the watch-repair primitive lands (TB4b next step).
+  bool conflict_reuse = false;
   // Reason-side bumping (kissat option bumpreasonslimit, cadical
   // bumpreasonlimit — both 10): after the learned clause is final, also mark
   // for bumping the literals of the REASONS of the clause's own literals, up

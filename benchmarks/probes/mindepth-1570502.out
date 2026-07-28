@@ -1,0 +1,24 @@
+=== TACTIX_MINIMIZE_DEPTH=900 ===
+c conflicts   938595
+c learnedsize 18.79 avg lits, 7.99 avg glue
+c reduction   21.6% of resolved lits removed by minimize+shrink
+c minimized   3347732 lits
+c shrunken    1518602 lits
+c reductions  73 (836953 clauses deleted, 297432 promoted)
+wall 24.38 s
+=== TACTIX_MINIMIZE_DEPTH=1000 ===
+c conflicts   938595
+c learnedsize 18.79 avg lits, 7.99 avg glue
+c reduction   21.6% of resolved lits removed by minimize+shrink
+c minimized   3347732 lits
+c shrunken    1518602 lits
+c reductions  73 (836953 clauses deleted, 297432 promoted)
+wall 24.37 s
+=== TACTIX_MINIMIZE_DEPTH=100000 ===
+c conflicts   938595
+c learnedsize 18.79 avg lits, 7.99 avg glue
+c reduction   21.6% of resolved lits removed by minimize+shrink
+c minimized   3347732 lits
+c shrunken    1518602 lits
+c reductions  73 (836953 clauses deleted, 297432 promoted)
+wall 24.40 s

@@ -235,8 +235,8 @@ int main(int argc, char **argv) {
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a
   // usable A/B arm.
-  if (getenv("TACTIX_NO_CONFLICT_REUSE"))
-    kernel.conflict_reuse = false;
+  if (getenv("TACTIX_CONFLICT_REUSE"))
+    kernel.conflict_reuse = true;
   Proof proof;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
