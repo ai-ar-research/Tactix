@@ -1,0 +1,33 @@
+== fuzz job 1569474: node=node017 cpus=40 mem/cpu=8G ==
+== regression corpus ==
+corpus: 10 entries, 0 failures
+== fuzz: 10000 cases, solver=build/frozen/tactix --random-policy --lrat oracle=/home/hwu/SAT-solving/tools/solvers/bin/kissat ==
+... 100/10000 cases, 0 failures
+... 200/10000 cases, 0 failures
+... 300/10000 cases, 0 failures
+... 400/10000 cases, 0 failures
+... 500/10000 cases, 0 failures
+... 600/10000 cases, 0 failures
+... 700/10000 cases, 0 failures
+... 800/10000 cases, 0 failures
+... 900/10000 cases, 0 failures
+... 1000/10000 cases, 0 failures
+... 1100/10000 cases, 0 failures
+... 1200/10000 cases, 0 failures
+... 1300/10000 cases, 0 failures
+... 1400/10000 cases, 0 failures
+... 1500/10000 cases, 0 failures
+... 1600/10000 cases, 0 failures
+... 1700/10000 cases, 0 failures
+... 1800/10000 cases, 0 failures
+... 1900/10000 cases, 0 failures
+... 2000/10000 cases, 0 failures
+... 2100/10000 cases, 0 failures
+... 2200/10000 cases, 0 failures
+... 2300/10000 cases, 0 failures
+... 2400/10000 cases, 0 failures
+... 2500/10000 cases, 0 failures
+... 2600/10000 cases, 0 failures
+... 2700/10000 cases, 0 failures
+... 2800/10000 cases, 0 failures
+... 2900/10000 cases, 0 failures

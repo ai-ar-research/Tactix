@@ -182,11 +182,14 @@ ApplyResult bce_try(Kernel &k, Lit blocking) {
   for (const Occ &b : blocked) {
     rest.clear();
     if (b.ref == INVALID_REF) {
+      // The primitive REFUSES a duplicated pair (two live copies sharing one
+      // binary_ids id — V4 deviation 8). Skip it, and push no witness: a
+      // witness for a clause still in the formula is not wrong, but it is a
+      // lie about what ρ contains.
+      if (!kernel_delete_binary_all_copies(k, blocking, b.partner))
+        continue;
       rest.push_back(b.partner);
       kernel_push_witness(k, blocking, rest.data(), 1);
-      const bool ok = kernel_delete_binary_all_copies(k, blocking, b.partner);
-      assert(ok);
-      (void)ok;
     } else {
       Clause *c = clause_at(k.arena, b.ref);
       if (c->garbage())

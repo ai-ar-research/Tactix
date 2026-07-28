@@ -8,7 +8,36 @@ disagree, the plan is authoritative — fix this file.
 - **Plan revision tracked:** rev. 72 (2026-07-27)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-27 (Tier C push + the Tier B recovery: walk dose 560 + reason-side bumping + dynamic tiers, bumpreasons rate 20 — **Tier C 382.94 → 303.21 = CaDiCaL parity, Tier B 9.11 → 8.10 = AHEAD of kissat, Tier A 200/200**. Report `benchmarks/reports/2026-07-27-tier-c-push.md`, incl. §8 addendum)
-- **▶ RESUME HERE (2026-07-27).** Phase 3. **T3: the CaDiCaL criterion is MET
+- **▶ RESUME HERE (2026-07-27, late session).** Phase 3. Read this block, then
+  the two entries at the top of the Log.
+  1. **MEASUREMENT PROTOCOL CHANGED (plan rev 72, user):** every arm — ours and
+     every baseline — is now timed WITH proof generation, our failed check
+     scores unsolved while a baseline's is recorded only, and the checker gets
+     `max(3600 s, 4 × timeout)`. Report `2026-07-27-like-for-like-proofs.md`.
+     **Like-for-like standings: Tier B 0.91× kissat, Tier C 1.41× kissat and
+     1.00× CaDiCaL.** Tier B improved by the honest protocol (0.95× → 0.91×),
+     Tier C got worse (1.38× → 1.41×) — our proof tax is +6.9 %/+2.8 % vs
+     kissat's +4.4 %/+0.6 %. Both directions reported. We are clearly ahead on
+     certificate cost: 7.65 GB / 5231 s vs kissat 9.93 GB / 13498 s.
+  2. **An N2 defect was found and fixed** (`716948d`, L13): native LRAT emitted
+     hint-less lines that DRAT accepted for free. Verified fixed on the
+     instance that exposed it (cake_lpr `s VERIFIED UNSAT`).
+  3. **Track R opened** (the user's "implement every reference rule" directive):
+     X2 `HyperTernaryRes` and X1 `BCE` are implemented, unit-tested, registered
+     and N1-exposed, but **deliberately NOT scheduled** by DefaultPolicy —
+     `TACTIX_SLOT_ENABLE=<name>` is each one's measurement arm. **NEXT: their
+     same-window A/B on Tier B+C, then R3–R8** (checklist under Track R).
+  4. **BCE is not yet proven sound** — fuzz caught one wrong-SAT (fixed, with
+     the shrunk case as a regression test) and one crash (fixed). The
+     confirming legs on a FROZEN binary were still running at session end:
+     jobs 1569473 (random-policy DRAT) / 1569474 (native LRAT). **Read those
+     logs before trusting BCE**; the isolation leg with BCE unregistered
+     (1569472) was clean, so any remaining failure is BCE's.
+  5. Then the two search-quality items that the evidence says actually carry
+     the Kissat gap: **TB4b** (six chrono divergences) and the
+     **clause-quality decomposition probe**.
+
+  **T3: the CaDiCaL criterion is MET
   (1.00×), the Kissat-parity-on-the-rule-neutral-subset criterion is NOT
   (1.37×) — phase 3 does NOT close yet.** Cluster protocol:
   everything per plan §8.1 + the slurm-jobs skill (`run.py --tier X --slurm`,

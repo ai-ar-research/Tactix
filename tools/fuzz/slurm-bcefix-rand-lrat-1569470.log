@@ -46,3 +46,74 @@ FAIL case 824 seed 20261533 (mut-n26-m119): [('crash', 'exit code -6, s-line Non
 ... 4100/10000 cases, 1 failures
 ... 4200/10000 cases, 1 failures
 FAIL case 239 seed 20260948 (ksat-k3-n37-m148): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000239-crash-seed20260948
+... 4300/10000 cases, 2 failures
+FAIL case 317 seed 20261026 (ksat-k3-n37-m170): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000317-crash-seed20261026
+... 4400/10000 cases, 3 failures
+... 4500/10000 cases, 3 failures
+... 4600/10000 cases, 3 failures
+... 4700/10000 cases, 3 failures
+FAIL case 653 seed 20261362 (mut-n56-m227): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000653-crash-seed20261362
+... 4800/10000 cases, 4 failures
+... 4900/10000 cases, 4 failures
+... 5000/10000 cases, 4 failures
+... 5100/10000 cases, 4 failures
+FAIL case 1160 seed 20261869 (ksat-k3-n37-m157): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001160-crash-seed20261869
+... 5200/10000 cases, 5 failures
+... 5300/10000 cases, 5 failures
+... 5400/10000 cases, 5 failures
+... 5500/10000 cases, 5 failures
+... 5600/10000 cases, 5 failures
+... 5700/10000 cases, 5 failures
+... 5800/10000 cases, 5 failures
+... 5900/10000 cases, 5 failures
+... 6000/10000 cases, 5 failures
+... 6100/10000 cases, 5 failures
+... 6200/10000 cases, 5 failures
+... 6300/10000 cases, 5 failures
+... 6400/10000 cases, 5 failures
+... 6500/10000 cases, 5 failures
+... 6600/10000 cases, 5 failures
+... 6700/10000 cases, 5 failures
+... 6800/10000 cases, 5 failures
+FAIL case 2800 seed 20263509 (mut-n44-m175): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/002800-crash-seed20263509
+... 6900/10000 cases, 6 failures
+... 7000/10000 cases, 6 failures
+FAIL case 6841 seed 20267550 (mut-n59-m269): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/006841-crash-seed20267550
+Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 396, in <module>
+    sys.exit(main())
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 392, in main
+    return args.func(args)
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 299, in cmd_run
+    list(ex.map(one_case, range(args.n)))
+  File "/cm/local/apps/python3/lib/python3.9/concurrent/futures/_base.py", line 609, in result_iterator
+    yield fs.pop().result()
+  File "/cm/local/apps/python3/lib/python3.9/concurrent/futures/_base.py", line 446, in result
+    return self.__get_result()
+  File "/cm/local/apps/python3/lib/python3.9/concurrent/futures/_base.py", line 391, in __get_result
+    raise self._exception
+  File "/cm/local/apps/python3/lib/python3.9/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 272, in one_case
+    bundle = save_bundle(outdir, i, seed, name, cnf, outcome,
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 220, in save_bundle
+    nv, cls, evals = minimize(pred, nvars, clauses, max_seconds=120)
+  File "/home/hwu/SAT-solving/tools/fuzz/shrink.py", line 79, in minimize
+    clauses = _literal_sweep(pred, nvars, clauses, budget)
+  File "/home/hwu/SAT-solving/tools/fuzz/shrink.py", line 34, in _literal_sweep
+    if pred(nvars, candidate):
+  File "/home/hwu/SAT-solving/tools/fuzz/shrink.py", line 63, in pred
+    return inner_pred(nv, cls)
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 214, in pred
+    o = run_case(cand, solver, shrink_oracle, timeout, False,
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 110, in run_case
+    code, stdout, stderr = run_cmd(solver + [cnf_path, proof], timeout)
+  File "/home/hwu/SAT-solving/tools/fuzz/fuzz.py", line 70, in run_cmd
+    r = subprocess.run(cmd, capture_output=True, text=True,
+  File "/cm/local/apps/python3/lib/python3.9/subprocess.py", line 505, in run
+    with Popen(*popenargs, **kwargs) as process:
+  File "/cm/local/apps/python3/lib/python3.9/subprocess.py", line 951, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/cm/local/apps/python3/lib/python3.9/subprocess.py", line 1837, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'build/fixdbg/tactix'
