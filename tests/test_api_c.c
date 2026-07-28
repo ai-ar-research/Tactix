@@ -264,10 +264,10 @@ static void test_action_kind(void) {
   static const char *const golden[] = {
       "BCE",        "BVE",        "Backbone",         "ConflictAnalysis",
       "Congruence", "Decide",     "Factor",           "HyperTernaryRes",
-      "Lucky",      "Probe",      "Propagate",        "Reduce",
-      "Rephase",    "Restart",    "Strengthen",       "Substitute",
-      "SubsumeForward", "SwitchMode", "TransitiveReduce", "Vivify",
-      "Walk"};
+      "Instantiate", "Lucky",     "Probe",            "Propagate",
+      "Reduce",     "Rephase",    "Restart",          "Strengthen",
+      "Substitute", "SubsumeForward", "SwitchMode",   "TransitiveReduce",
+      "Vivify",     "Walk"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)

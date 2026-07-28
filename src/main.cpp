@@ -356,6 +356,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bce_rounds,
            (unsigned long long)kernel.stats.bce_deleted,
            (unsigned long long)kernel.stats.bce_ticks);
+    printf("c instantiate %llu rounds, %llu literals removed, %llu probed\n",
+           (unsigned long long)kernel.stats.instantiate_rounds,
+           (unsigned long long)kernel.stats.instantiated,
+           (unsigned long long)kernel.stats.instantiate_checked);
     printf("c ternary     %llu rounds, %llu resolvents, %llu binaries, "
            "%llu ticks\n",
            (unsigned long long)kernel.stats.ternary_rounds,

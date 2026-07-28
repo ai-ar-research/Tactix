@@ -1,0 +1,44 @@
+=== 9vliw_bp_mc.shuffled [off] ===
+c conflicts   236719
+c vivify      20 rounds, 441 vivified, 0 deleted
+c instantiate 0 rounds, 0 literals removed, 0 probed
+s UNSATISFIABLE
+Command exited with non-zero status 20
+wall 12.67 s
+=== 9vliw_bp_mc.shuffled [on] ===
+c conflicts   236719
+c vivify      20 rounds, 441 vivified, 0 deleted
+c instantiate 0 rounds, 0 literals removed, 0 probed
+s UNSATISFIABLE
+Command exited with non-zero status 20
+wall 12.66 s
+=== x9-08014.sat.sanitized [off] ===
+c conflicts   274180
+c vivify      10 rounds, 403 vivified, 0 deleted
+c instantiate 0 rounds, 0 literals removed, 0 probed
+s UNSATISFIABLE
+Command exited with non-zero status 20
+wall 7.81 s
+=== x9-08014.sat.sanitized [on] ===
+c conflicts   274180
+c vivify      10 rounds, 401 vivified, 0 deleted
+c instantiate 0 rounds, 0 literals removed, 28 probed
+s UNSATISFIABLE
+Command exited with non-zero status 20
+wall 7.88 s
+=== FmlaEquivChain_4_6_6.sanitized [off] ===
+c conflicts   938595
+c vivify      36 rounds, 413 vivified, 0 deleted
+c instantiate 0 rounds, 0 literals removed, 0 probed
+s UNSATISFIABLE
+Command exited with non-zero status 20
+wall 26.00 s
+=== FmlaEquivChain_4_6_6.sanitized [on] ===
+c conflicts   1025143
+c vivify      43 rounds, 859 vivified, 0 deleted
+c instantiate 4 rounds, 5 literals removed, 57357 probed
+s UNSATISFIABLE
+Command exited with non-zero status 20
+wall 28.77 s
+MISSING mod4block_2vars_8gates.sanitized
+DONE

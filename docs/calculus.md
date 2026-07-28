@@ -380,6 +380,51 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   deletes, and the ternary/binary clause space over a fixed variable set is
   finite, so repeated application reaches a fixpoint.
 
+### X1 · BCE — blocked clause elimination
+- **Precondition (abstract):** a clause `C ∈ F` and a literal `l ∈ C` such that
+  every resolvent of `C` with a clause `D ∈ F`, `¬l ∈ D`, resolved on `l`, is
+  **tautological** — i.e. `C` is *blocked* on `l`.
+- **Effect:** delete `C` from `F` and push the witness `(l, C)` onto `ρ`. `τ`
+  and `π` are untouched; unlike every other deletion rule, `F` after the step is
+  **not equivalent** to `F` before, only equisatisfiable.
+- **Proof δ:** `del(C)` + `push-witness` — nothing is added, so there is no
+  chain and no format-specific hazard (a deletion line is accepted
+  unconditionally; it only makes later RUP checks harder, never easier). The
+  blockedness argument is a *solver*-soundness obligation, discharged by the
+  rule's test, exactly as V4's redundancy argument is — not a proof obligation.
+- **Soundness:** Kullmann's blocked-clause result / Järvisalo–Biere–Heule: a
+  model of `F \ {C}` is repaired into a model of `F` by setting `l` true, which
+  cannot falsify any `¬l`-clause `D` — every such `D` resolves tautologically
+  with `C`, so `D` holds by the literal that made the resolvent a tautology.
+  Soundness is therefore equisatisfiability **modulo ρ**, the same contract E1
+  BVE and V3 Substitute carry, and `ρ` must record the witness or SAT answers
+  become wrong.
+- **Note:** this weakens `F` (a deletion no equivalence justifies), so it is one
+  of the two rules — with E1 — whose omission from `ρ` is a *model* bug rather
+  than a proof bug. It is also the reason BCE is irredundant-only: a learned
+  clause is already deletable by S2 Reduce with no witness at all.
+
+## 6d. Clause strengthening by instantiation (X4)
+
+### X4 · Instantiate — removing a literal a probe refutes
+- **Precondition (abstract):** a clause `C = D ∨ l` in `F` such that the
+  assignment `l ∧ ¬D` (assume `l` true and every literal of `D` false) is
+  refuted by unit propagation over `F`.
+- **Effect:** replace `C` by `D` (add-before-delete). `τ`/`ρ`/`π` untouched; the
+  clause set strictly strengthens.
+- **Proof δ:** `add_rup(D)` + `del(C)`, the C2 Strengthen pair. `D` is RUP
+  against `F` **alone**, which is the step worth spelling out because the probe
+  assumed something `¬D` does not: under `¬D` the clause `C = D ∨ l` is unit, so
+  `C` itself propagates `l`, reproducing the probe's state and hence its
+  conflict. The LRAT chain therefore contains `C` at the trail position where
+  `l` entered, ahead of the reasons walked from the conflict.
+- **Soundness:** the refutation of `l ∧ ¬D` establishes `F ⊨ ¬l ∨ D`, which
+  resolves with `C = l ∨ D` on `l` to give `F ⊨ D`. Adding an entailed clause
+  and deleting a superset of it preserves the model set exactly — no witness,
+  no reconstruction entry (contrast X1/E1).
+- **Termination:** every apply strictly shortens one clause and never adds a
+  literal, so repeated application terminates.
+
 ## 6b. Variable elimination & addition (E1–E2) — the resolution family and its inverse
 
 ### E1 · BVE — bounded variable elimination by resolution

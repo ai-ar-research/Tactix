@@ -612,7 +612,23 @@ stress-policy + fuzz legs on both proof formats and a same-window gate.
       registered so `--random-policy` applies them): 10k/0 DRAT (1569473) and
       10k/0 native LRAT (1569474), plus a 10k/0 control with BCE unregistered
       (1569472) that localized the earlier failures to BCE
-- [ ] **R3 · X4 `Instantiate`** (cadical `instantiate.cpp`) — add/delete
+- [x] **R3 · X4 `Instantiate`** (cadical `instantiate.cpp`) — add/delete.
+      **IMPLEMENTED 2026-07-28**: for `C = D ∨ l` with `l` rare, assume `l` TRUE
+      and all of `D` FALSE and propagate; a conflict proves `F ⊨ ¬l ∨ D`, which
+      resolves against `C` to give `D`. Proof delta = C2's `add_rup(D)` +
+      `del(C)`, no witness, no new primitive — and `D` is RUP against `F` alone
+      because `¬D` leaves `C` unit and so propagates `l` itself (the chain cites
+      `C` at `l`'s trail position, cadical's own construction). Reuses C3
+      Vivify's probing-scope primitives; 9 unit tests; calculus §6d + guard row.
+      Fuzz on the shipping build with `--random-policy` (so the rule is applied
+      at arbitrary schedule points, every UNSAT checked): **10k/0 DRAT (1570888)
+      and 10k/0 native LRAT (1570889)**.
+      **Ships OFF** like R1/R2 (`TACTIX_SLOT_ENABLE=Instantiate` is the arm).
+      First evidence (probe 1570890): it FIRES but pays nothing — FmlaEquiv
+      57,357 probes yield **5 literals**, at 938,595 → 1,025,143 conflicts and
+      26.00 → 28.77 s; x9 28 probes / 0 removals; 9vliw no candidates at all.
+      That is the reference's own verdict too: **cadical ships `instantiate`
+      default OFF** (options.hpp), keeping the idea only as `vivifyinst`.
 - [ ] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only policy op, no proof
       obligation. Measured worth ~0 to kissat (`--reorder=0` costs it nothing,
       L11) — landed for inventory completeness, not for PAR-2
@@ -686,6 +702,34 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-28 — Track R · R3 `Instantiate` lands (ships OFF); two doc-sync gaps closed
+X4 Instantiate implemented as a rule family under the §5.3 contract (one
+directory + one registry line), reusing C3 Vivify's probing-scope primitives:
+assume `l` TRUE and the rest of `C` FALSE, propagate, and on a conflict replace
+`C` by `C ∖ {l}`. The proof point worth keeping: the strengthened clause is RUP
+against `F` **alone** even though the probe assumed `l`, because `¬(C ∖ {l})`
+leaves `C` unit and propagates `l` itself — so the LRAT chain cites `C` at `l`'s
+trail position (cadical's construction, with our sorted-by-trail chain doing the
+placement). No witness, no new primitive.
+- Evidence: 9 unit tests; full ctest green; fuzz on the shipping build with
+  `--random-policy` **10k/0 DRAT (1570888)** and **10k/0 native LRAT (1570889)**
+  — the rule is applied at arbitrary schedule points and every UNSAT is checked.
+- **Ships OFF** (Track R convention; `TACTIX_SLOT_ENABLE=Instantiate`). Probe
+  1570890: it fires but pays nothing — 57,357 probes buy **5 literals** on
+  FmlaEquiv while conflicts go 938,595 → 1,025,143 (26.00 → 28.77 s); x9 28
+  probes / 0 removals; 9vliw has no candidates at all. **cadical ships this rule
+  default OFF too**, keeping the idea only as `vivifyinst` — recorded in the
+  header so the next reader does not re-derive it.
+- Two DOC-SYNC GAPS found and closed while syncing the calculus: **X1 BCE had
+  no calculus entry and no guard row** (it landed 2026-07-27 without them), and
+  the only mention of BCE in `calculus.md` still called it "phase 4". Both are
+  now written (§6c for X1, §6d for X4, plus both guard rows) — the calculus
+  skill's invariant is that every registered rule has an entry, and BCE had
+  slipped through.
+- The registry golden list in `tests/test_api_c.c` moved by one (Instantiate
+  sorts between HyperTernaryRes and Lucky) — the deliberate update that guard
+  exists to force.
 
 ### 2026-07-28 — CLAUSE QUALITY CLOSED: minimize+shrink is AT PARITY with kissat, the 21.6 % target is dead
 Report `benchmarks/reports/2026-07-28-clause-quality.md` §6 (probe 1570882).

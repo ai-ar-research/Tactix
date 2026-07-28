@@ -270,6 +270,11 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // mid-round instead (Vivify's arrangement).
     {"HyperTernaryRes", 20, meter_ternary, false, false, true},
     {"BCE", 20, meter_bce, false, false, true},
+    // X4 Instantiate (R3): its probes ARE propagation, so the currency is
+    // ticks (C3 Vivify's) and the rate is the cheap-probing-family 20 —
+    // Probe/Backbone/TransitiveReduce. BATCH + budget_aware for the round-2
+    // reason: the round builds one occurrence-count pass up front.
+    {"Instantiate", 20, meter_ticks, false, false, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -515,7 +520,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                     // arrangement and move every number in the same commit
                     // that introduces it.
                     std::strcmp(nm, "HyperTernaryRes") != 0 &&
-                    std::strcmp(nm, "BCE") != 0;
+                    std::strcmp(nm, "BCE") != 0 &&
+                    std::strcmp(nm, "Instantiate") != 0;
           if (env_list("TACTIX_SLOT_ENABLE", nm))
             on = true;
           if (env_list("TACTIX_SLOT_DISABLE", nm))
