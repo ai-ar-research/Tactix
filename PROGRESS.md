@@ -19,6 +19,13 @@ disagree, the plan is authoritative — fix this file.
      Tier C got worse (1.38× → 1.41×) — our proof tax is +6.9 %/+2.8 % vs
      kissat's +4.4 %/+0.6 %. Both directions reported. We are clearly ahead on
      certificate cost: 7.65 GB / 5231 s vs kissat 9.93 GB / 13498 s.
+     **End-of-session validation of the SHIPPED binary under the new protocol**
+     (every arm writing DRAT, throttle 48, windows `20260727-2244*`):
+     **Tier A 0.44 (200/200) vs kissat 0.45 = 0.98×; Tier B 7.91 (14/14) vs
+     kissat 8.67 = 0.91×, CaDiCaL 19.96** — all 118 Tier A + 7 Tier B UNSAT
+     proofs drat-trim-verified. The congruence fix changes DRAT trajectories
+     too (the tautology skip is format-independent by design); this run is the
+     evidence it cost nothing (7.89 → 7.91 is inside noise).
   2. **An N2 defect was found and fixed** (`716948d`, L13): native LRAT emitted
      hint-less lines that DRAT accepted for free. Verified fixed on the
      instance that exposed it (cake_lpr `s VERIFIED UNSAT`).
