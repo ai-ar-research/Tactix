@@ -356,6 +356,30 @@ reasoning a consistent `M` is a genuine abstract precondition — whereas the pu
   genuinely holds and the merged equivalence is entailed. The union-find only
   ever equates literals proven equivalent; `x ≡ ¬x` is a refutation.
 
+## 6c. Bounded clause addition (X2) — the reference families pulled in by rev 72
+
+### X2 · HyperTernaryRes — hyper ternary resolution
+- **Precondition (abstract):** two ternary clauses `C = (p ∨ a ∨ b)` and
+  `D = (¬p ∨ c ∨ d)` in `F` whose resolvent on `p` has **at most three
+  literals** — i.e. `{a,b}` and `{c,d}` overlap — and is not tautological.
+- **Effect:** add the resolvent `R = (C \ {p}) ∪ (D \ {¬p})`. `F` grows by one
+  entailed clause; nothing is deleted, no variable is eliminated, `τ`/`ρ`/`π`
+  are untouched. Adding an already-present clause is excluded by the
+  precondition's "not already in `F`" reading (the implementation checks it, so
+  the rule reaches a fixpoint and `NoOp`s there).
+- **Proof δ:** `add_rup(R, [C.id, D.id])` — a fixed two-parent chain, in
+  checker-propagation order. Assume `¬R`: every literal of `C` except `p` is
+  then false, so `C` forces `p`; every literal of `D` except `¬p` is false, so
+  `D` conflicts. Exactly E1's resolvent argument, which is why X2 needs no new
+  primitive, no witness, and no reason walk.
+- **Soundness:** `R` is a resolvent of two clauses of `F`, hence entailed:
+  `F ≡ F ∪ {R}`, so the model set is unchanged in both directions and no
+  reconstruction entry is required. (Contrast E1, which *removes* clauses and
+  therefore owes `ρ` a witness.)
+- **Termination:** each apply adds only clauses not already present and never
+  deletes, and the ternary/binary clause space over a fixed variable set is
+  finite, so repeated application reaches a fixpoint.
+
 ## 6b. Variable elimination & addition (E1–E2) — the resolution family and its inverse
 
 ### E1 · BVE — bounded variable elimination by resolution

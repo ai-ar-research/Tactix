@@ -52,13 +52,16 @@ mechanism. The bench runner computes it as
 
 | Tier | solver timeout | per-task --time |
 |---|---|---|
-| A | 30 s | 00:03:30 |
-| B | 300 s | 00:17:00 |
-| C | 1200 s | 01:02:00 |
-| D | 5000 s | 04:12:00 |
+| A | 30 s | 01:02:00 |
+| B | 300 s | 01:07:00 |
+| C | 1200 s | 01:42:00 |
+| D | 5000 s | 07:00:00 |
 
-The proof-check term is load-bearing: a Tier C UNSAT may legitimately spend
-2× the solve timeout in drat-trim. For manual `--wrap` probes, size the same
+The proof-check term is load-bearing and it dominates the small tiers: since
+plan rev 72 the checker budget is `max(3600 s, 4 × solve timeout)` (was
+`2 × timeout`, which scored `urq45` unsolved for a checker-budget reason the
+competition would not have applied), and **every arm writes proofs now**, so
+baselines carry the same term. For manual `--wrap` probes, size the same
 way: inner `timeout` cap + slack. Fuzz wrapper default is 24 h (nightly-leg
 scale); pass `--time` for smaller legs.
 

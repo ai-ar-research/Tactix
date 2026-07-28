@@ -491,7 +491,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // named ablation knobs + the slot-surgery lists are the A/B
           // surface (same overrides presets/the phase-6 learner use).
           bool on = !(bve_off && !std::strcmp(nm, "BVE")) &&
-                    !(factor_off && !std::strcmp(nm, "Factor"));
+                    !(factor_off && !std::strcmp(nm, "Factor")) &&
+                    // Track R lands each new reference family N1-exposed and
+                    // registry-visible FIRST, scheduled only once its own
+                    // same-window A/B says it pays (`TACTIX_SLOT_ENABLE`
+                    // is the measurement arm). Without this a newly
+                    // registered Inprocess rule would silently join the S4
+                    // arrangement and move every number in the same commit
+                    // that introduces it.
+                    std::strcmp(nm, "HyperTernaryRes") != 0 &&
+                    std::strcmp(nm, "BCE") != 0;
           if (env_list("TACTIX_SLOT_ENABLE", nm))
             on = true;
           if (env_list("TACTIX_SLOT_DISABLE", nm))

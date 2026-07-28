@@ -19,11 +19,18 @@ Usage:
 - Tier lists are frozen files `benchmarks/tiers/<tier>.list`; each
   non-comment line is `<relpath> <SAT|UNSAT|UNKNOWN> <ref_seconds>` with
   paths relative to `benchmarks/cache/`.
-- For the solver under test, every UNSAT answer's DRAT proof is checked with
-  drat-trim; a rejected (or missing) proof counts as UNSOLVED,
-  competition-style. Verdicts are also checked against the expected status
+- For the solver under test, every UNSAT answer's proof is checked; a rejected
+  (or missing) proof counts as UNSOLVED, competition-style. The arm's own
+  command picks the format (fuzz-harness convention): `--lrat` in the command
+  => native LRAT verified by cake_lpr, otherwise DRAT verified by drat-trim.
+  Verdicts are also checked against the expected status
   in the list — any mismatch is a correctness bug (stop and use the fuzz
-  skill). Baselines are timed without proof logging (performance reference).
+  skill).
+- EVERY arm writes proofs, baselines included (plan §8.1 rev 72): timing a
+  proof-writing solver against proof-free references compares two different
+  workloads. A baseline's proof is still checked, but a failed check is
+  RECORDED, never scored against it (--no-baseline-proofs restores the old,
+  non-comparable behaviour). Checker budget: max(3600 s, 4 x solve timeout).
 - Score: PAR-2 = mean(runtime if solved else 2*timeout), reported with
   #solved and SAT/UNSAT split, proof-check time, and proof size.
 - Up to 8 parallel single-threaded solver jobs (plan §8.1); the concurrency
@@ -53,6 +60,7 @@ CACHE = os.path.join(ROOT, "benchmarks", "cache")
 TIERS = os.path.join(ROOT, "benchmarks", "tiers")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
+CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 
 TIER_TIMEOUT = {"A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0}
 TIER_MEM_GB = {"D": 16}
@@ -94,15 +102,66 @@ def parse_verdict(exitcode, stdout):
     return "UNKNOWN"
 
 
+def proof_format(cmd):
+    """Which certificate this arm emits — the solver's own flag decides.
+
+    Same convention as the fuzz harness: an arm whose command carries
+    `--lrat` writes native LRAT (checked by the verified cake_lpr), anything
+    else writes DRAT (checked by drat-trim). No separate runner switch, so a
+    single array can time a DRAT arm and an LRAT arm in the same window."""
+    return "lrat" if "--lrat" in cmd else "drat"
+
+
+def checker_budget(timeout):
+    """Plan §8.1 rev 72: max(3600 s, 4 x the tier's solve timeout).
+
+    The old `2 x timeout` scored instances unsolved for a checker-budget reason
+    the competition would not have applied (urq45: 1447 s to verify under a
+    2400 s budget, and over it one commit earlier)."""
+    return max(3600.0, 4 * timeout)
+
+
+def check_proof(fmt, cnf, proof, budget):
+    """Verify one certificate. Returns (ok, message).
+
+    The message matters: a checker that OOMs or times out is otherwise
+    indistinguishable from one that REJECTS, and that ambiguity cost a probe on
+    2026-07-27 (cake_lpr needs 4.2 GB on a gigabyte-scale LRAT; the array task
+    had 8 GB total, so it died at malloc and looked like a rejected proof)."""
+    argv = ([CAKE_LPR, cnf, proof] if fmt == "lrat"
+            else [DRAT_TRIM, cnf, proof])
+    try:
+        c = subprocess.run(argv, capture_output=True, text=True,
+                           errors="replace", timeout=budget)
+    except subprocess.TimeoutExpired:
+        return False, f"checker exceeded its {budget:g}s budget"
+    # drat-trim: "s VERIFIED"; cake_lpr: "s VERIFIED UNSAT"
+    if "s VERIFIED" in c.stdout:
+        return True, "VERIFIED"
+    tail = (c.stderr.strip() or c.stdout.strip()).splitlines()
+    return False, (tail[-1][:200] if tail else f"exit {c.returncode}, no output")
+
+
 def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
-                 mem_gb=None):
+                 mem_gb=None, score_proofs=True):
+    """`score_proofs` False = write and verify the proof, RECORD the outcome,
+    but never count a failed check as unsolved. That is the baseline setting
+    (plan §8.1 rev 72): baselines are a performance reference, and scoring
+    their certificates against our checker budget would flatter us — measured,
+    it did: on Tier C 2026-07-27 kissat lost 2 instances and CaDiCaL 3 to the
+    old budget alone, which would have read as us beating kissat by 55 PAR-2
+    when we are in fact 1.41x behind it."""
+    fmt = proof_format(cmd)
     res = {"instance": rel, "expected": expected, "verdict": "UNKNOWN",
            "time": timeout, "solved": False, "mismatch": False,
-           "proof_ok": None, "proof_bytes": None, "proof_check_time": None}
+           "proof_ok": None, "proof_bytes": None, "proof_check_time": None,
+           "proof_format": fmt if check_proofs else None,
+           "proof_scored": bool(check_proofs and score_proofs),
+           "proof_msg": None}
     if cnf is None or not os.path.exists(cnf):
         res["verdict"] = "MISSING"
         return res
-    proof = os.path.join(workdir, rel.replace("/", "_") + ".drat")
+    proof = os.path.join(workdir, rel.replace("/", "_") + "." + fmt)
     argv = cmd + [cnf] + ([proof] if check_proofs else [])
 
     def limits():
@@ -136,21 +195,17 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
         elif verdict == "UNSAT" and check_proofs:
             if not os.path.exists(proof):
                 res["proof_ok"] = False
-                res["solved"] = False
+                res["proof_msg"] = "no proof file written"
+                if score_proofs:
+                    res["solved"] = False
             else:
                 res["proof_bytes"] = os.path.getsize(proof)
                 t1 = time.monotonic()
-                try:
-                    c = subprocess.run([DRAT_TRIM, cnf, proof],
-                                       capture_output=True, text=True,
-                                       errors="replace",
-                                       timeout=max(60.0, 2 * timeout))
-                    ok = "s VERIFIED" in c.stdout
-                except subprocess.TimeoutExpired:
-                    ok = False
+                ok, msg = check_proof(fmt, cnf, proof, checker_budget(timeout))
                 res["proof_check_time"] = round(time.monotonic() - t1, 3)
                 res["proof_ok"] = ok
-                if not ok:          # rejected proof = unsolved (plan §2)
+                res["proof_msg"] = msg
+                if not ok and score_proofs:  # rejected proof = unsolved (§2)
                     res["solved"] = False
     if check_proofs and os.path.exists(proof):
         os.unlink(proof)
@@ -178,16 +233,29 @@ def summarize(name, results, timeout, shape):
         f"(SAT {len(sat)}, UNSAT {len(uns)})  [{shape}]"
     ]
     if pbytes:
-        lines.append(f"  proofs: {len(pbytes)} checked, "
+        fmts = sorted({r.get("proof_format") or "drat" for r in results
+                       if r["proof_bytes"]})
+        lines.append(f"  proofs ({'/'.join(fmts)}): {len(pbytes)} checked, "
                      f"total {sum(pbytes) / 1e6:.1f} MB, "
                      f"check time {sum(pctime):.1f} s")
     if mism:
         lines.append(f"  !! VERDICT MISMATCHES ({len(mism)}): "
                      + ", ".join(r["instance"] for r in mism[:5]))
-    if prej:
-        lines.append(f"  !! PROOFS REJECTED/MISSING ({len(prej)}): "
-                     + ", ".join(r["instance"] for r in prej[:5]))
-    return "\n".join(lines), bool(mism or prej)
+    # scored arms (ours): a failed check is a correctness stop. Unscored arms
+    # (baselines): recorded with the checker's own message, never held against
+    # them — plan §8.1 rev 72.
+    scored_rej = [r for r in prej if r.get("proof_scored")]
+    noted_rej = [r for r in prej if not r.get("proof_scored")]
+    if scored_rej:
+        lines.append(f"  !! PROOFS REJECTED/MISSING ({len(scored_rej)}): "
+                     + ", ".join(f"{r['instance']} [{r.get('proof_msg')}]"
+                                 for r in scored_rej[:5]))
+    if noted_rej:
+        lines.append(f"  (baseline proofs not verified, NOT scored against it, "
+                     f"{len(noted_rej)}): "
+                     + ", ".join(f"{r['instance']} [{r.get('proof_msg')}]"
+                                 for r in noted_rej[:5]))
+    return "\n".join(lines), bool(mism or scored_rej)
 
 
 def stage_instances(entries, stage):
@@ -246,7 +314,7 @@ def slurm_run_one(outdir, idx):
     try:
         res = run_instance(s["cmd"], t["rel"], t["staged"], t["expected"],
                            man["timeout"], s["check_proofs"], workdir,
-                           man["mem_gb"])
+                           man["mem_gb"], s.get("score_proofs", True))
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
     res["node"] = os.environ.get("SLURMD_NODENAME")
@@ -278,7 +346,9 @@ def slurm_aggregate(outdir):
             r = {"instance": t["rel"], "expected": t["expected"],
                  "verdict": "MISSING", "time": man["timeout"],
                  "solved": False, "mismatch": False, "proof_ok": None,
-                 "proof_bytes": None, "proof_check_time": None}
+                 "proof_bytes": None, "proof_check_time": None,
+                 "proof_format": None, "proof_scored": False,
+                 "proof_msg": None}
         all_results[man["solvers"][t["solver"]]["name"]].append(r)
     any_bug = False
     for s in man["solvers"]:
@@ -331,8 +401,9 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
            "git": sha, "date": stamp, "shape": shape,
            "slurm": {"partition": args.partition, "cpus_per_task": cpus,
                      "mem_per_cpu_gb": 8, "throttle": args.throttle},
-           "solvers": [{"name": n, "cmd": resolve_cmd(c), "check_proofs": k}
-                       for n, c, k in solvers],
+           "solvers": [{"name": n, "cmd": resolve_cmd(c), "check_proofs": k,
+                        "score_proofs": sc}
+                       for n, c, k, sc in solvers],
            "tasks": tasks}
     with open(os.path.join(outdir, "manifest.json"), "w") as f:
         json.dump(man, f, indent=2)
@@ -341,8 +412,8 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
     me = os.path.abspath(__file__)
     array = f"0-{len(tasks) - 1}" + (f"%{args.throttle}"
                                      if args.throttle else "")
-    # per-task wall limit: solve + drat-trim budget + slack
-    tlimit = fmt_time(timeout + max(60.0, 2 * timeout) + 120)
+    # per-task wall limit: solve + the plan §8.1 checker budget + slack
+    tlimit = fmt_time(timeout + checker_budget(timeout) + 120)
     apath = os.path.join(outdir, "array.sbatch")
     with open(apath, "w") as f:
         f.write(f"""#!/usr/bin/env bash
@@ -389,6 +460,10 @@ def main() -> int:
     ap.add_argument("--name", default=None, help="label for the solver")
     ap.add_argument("--baseline", action="append", default=[],
                     help="baseline solver: kissat|cadical|<command>")
+    ap.add_argument("--checked-arm", action="append", default=[],
+                    help="extra arm timed WITH proof logging and checking, "
+                         "`label=<command>` (baselines are timed proof-free) "
+                         "— e.g. a DRAT arm vs an `--lrat` arm in one window")
     ap.add_argument("--jobs", type=int, default=8,
                     help="local mode: parallel solver processes (1..8)")
     ap.add_argument("--timeout", type=float, default=None,
@@ -404,6 +479,10 @@ def main() -> int:
                     help="do not write/check proofs for the solver under "
                          "test (baseline-ablation arrays: every arm is a "
                          "reference solver, timed the way baselines are)")
+    ap.add_argument("--no-baseline-proofs", action="store_true",
+                    help="time baselines WITHOUT proof logging (pre-rev-72 "
+                         "behaviour; the numbers are then not comparable to "
+                         "ours and must not be reported as a ratio)")
     ap.add_argument("--dry-run", action="store_true",
                     help="with --slurm: write manifest + scripts, do not "
                          "submit")
@@ -432,7 +511,15 @@ def main() -> int:
 
     sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"],
                          capture_output=True, text=True).stdout.strip()
-    solvers = [(name, shlex.split(args.solver), not args.no_check)]
+    # (name, cmd, check_proofs, score_proofs). Plan §8.1 rev 72: EVERY arm
+    # writes proofs; only ours is SCORED on the check (baselines are a
+    # performance reference — see run_instance's docstring).
+    solvers = [(name, shlex.split(args.solver), not args.no_check, True)]
+    for a in args.checked_arm:
+        if "=" not in shlex.split(a)[0]:
+            sys.exit("error: --checked-arm needs an explicit label=<command>")
+        aname, acmd = a.split("=", 1)
+        solvers.append((aname, shlex.split(acmd), True, True))
     for b in args.baseline:
         # `label=<command>` gives the arm an explicit name — required when
         # several arms share a leading token (`env VAR=x build/release/tactix`
@@ -442,7 +529,7 @@ def main() -> int:
             bname, b = b.split("=", 1)
         spec = BASELINES.get(b, b)
         solvers.append((bname or os.path.basename(shlex.split(spec)[0]),
-                        shlex.split(spec), False))
+                        shlex.split(spec), not args.no_baseline_proofs, False))
     if len({s[0] for s in solvers}) != len(solvers):
         sys.exit("error: duplicate solver names; use --baseline label=<cmd>")
 
@@ -455,7 +542,7 @@ def main() -> int:
 
     all_results = {}
     any_bug = False
-    for sname, cmd, check_proofs in solvers:
+    for sname, cmd, check_proofs, score_proofs in solvers:
         print(f"== {sname} on Tier {args.tier} "
               f"({len(entries)} instances, timeout {timeout:g}s, "
               f"jobs {args.jobs}) ==", flush=True)
@@ -463,7 +550,7 @@ def main() -> int:
             results = list(ex.map(
                 lambda e: run_instance(cmd, e[0], paths[e[0]], e[1],
                                        timeout, check_proofs, outdir,
-                                       mem_gb),
+                                       mem_gb, score_proofs),
                 entries))
         summary, bug = summarize(sname, results, timeout,
                                  f"jobs={args.jobs}")
@@ -473,7 +560,7 @@ def main() -> int:
 
     meta = {"tier": args.tier, "timeout": timeout, "jobs": args.jobs,
             "git": sha, "date": stamp, "mem_gb": mem_gb,
-            "solvers": {n: " ".join(c) for n, c, _ in solvers},
+            "solvers": {n: " ".join(c) for n, c, _, _ in solvers},
             "results": all_results}
     shutil.rmtree(stage, ignore_errors=True)
     with open(os.path.join(outdir, "results.json"), "w") as f:

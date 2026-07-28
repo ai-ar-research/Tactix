@@ -329,6 +329,19 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.transitive_ticks);
     printf("c substitute  %llu rounds\n",
            (unsigned long long)kernel.stats.substitute_rounds);
+    // Track R families: registered and N1-reachable, not scheduled by
+    // DefaultPolicy yet — without these lines "did the new rule even fire?"
+    // is unanswerable from a normal run (the same gap V6/E2 once had).
+    printf("c bce         %llu rounds, %llu deleted, %llu ticks\n",
+           (unsigned long long)kernel.stats.bce_rounds,
+           (unsigned long long)kernel.stats.bce_deleted,
+           (unsigned long long)kernel.stats.bce_ticks);
+    printf("c ternary     %llu rounds, %llu resolvents, %llu binaries, "
+           "%llu ticks\n",
+           (unsigned long long)kernel.stats.ternary_rounds,
+           (unsigned long long)kernel.stats.ternary_resolvents,
+           (unsigned long long)kernel.stats.ternary_binaries,
+           (unsigned long long)kernel.stats.ternary_ticks);
     // V6 + E2 ship ON by default but had no stats line, so "did congruence /
     // Factor even fire on this instance?" was unanswerable from a normal run.
     printf("c chrono      %llu chronological, %llu stale backjumps\n",

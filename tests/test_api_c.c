@@ -262,11 +262,12 @@ static void test_stats_and_config_surface(void) {
  * renumbers ids by the name sort — update this golden list deliberately then. */
 static void test_action_kind(void) {
   static const char *const golden[] = {
-      "BVE",        "Backbone",   "ConflictAnalysis", "Congruence",
-      "Decide",     "Factor",     "Lucky",            "Probe",
-      "Propagate",  "Reduce",     "Rephase",          "Restart",
-      "Strengthen", "Substitute", "SubsumeForward",   "SwitchMode",
-      "TransitiveReduce", "Vivify",  "Walk"};
+      "BCE",        "BVE",        "Backbone",         "ConflictAnalysis",
+      "Congruence", "Decide",     "Factor",           "HyperTernaryRes",
+      "Lucky",      "Probe",      "Propagate",        "Reduce",
+      "Rephase",    "Restart",    "Strengthen",       "Substitute",
+      "SubsumeForward", "SwitchMode", "TransitiveReduce", "Vivify",
+      "Walk"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)

@@ -103,6 +103,15 @@ struct Stats {
   uint64_t backbone_failed = 0;  // failed literals -> root units derived (V2)
   uint64_t transitive_rounds = 0;  // TransitiveReduce rounds (V4)
   uint64_t transitive_checked = 0; // candidate edges walked (V4)
+  uint64_t bce_rounds = 0;         // X1 rounds that deleted something
+  uint64_t bce_deleted = 0;        // blocked clauses deleted (witnessed)
+  uint64_t bce_ticks = 0;          // occurrences + pairs scanned — X1's budget
+                                   // currency for a policy (deviation 3)
+  uint64_t ternary_rounds = 0;     // X2 rounds that added something
+  uint64_t ternary_resolvents = 0; // ternary resolvents added (redundant)
+  uint64_t ternary_binaries = 0;   // binary resolvents added (permanent)
+  uint64_t ternary_ticks = 0;      // occurrence entries + pairs examined — X2's
+                                   // budget currency for a policy (deviation 2)
   uint64_t transitive_ticks = 0;   // cache lines scanned by V4's walks — the
                                    // policy's budget currency (kissat
                                    // transitive_ticks; same 16-words/line

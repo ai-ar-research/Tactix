@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-26 (rev. 71). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-27 (rev. 72). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -96,6 +96,12 @@ AE-Kissat-MAB's PAR-2 2264.73 on the SC25 set is the T5 target number (§8.3).
   if the proof fails or the checker times out ⇒ proof *size and checkability* are
   first-class performance concerns. Organizers flagged that LRAT checks much
   faster and floated combining solver+checker time — native LRAT is a strategic bet.
+  **Consequence for our own measurement (rev 72, user decision 2026-07-27): every
+  arm, ours and every baseline, is timed WITH proof generation.** Timing a
+  proof-writing solver against proof-free references compares two different
+  workloads; the tax is real and solver-specific (Tier B, same window: tactix
+  +6.9 %, kissat +4.4 %, CaDiCaL +5.0 %), so the old convention both understated
+  our standing and hid whose certificate machinery is cheaper. Protocol in §8.1.
 - **2025 memory issues**: several solvers died at ~20 GB on parsing/proof volume.
   Budget memory deliberately (arena-based storage, streaming proof output).
 
@@ -498,7 +504,7 @@ the rule registry under the §5.3 contract.
 | S3 | `Rephase` (best/inverted/original/target phases) | rephase, phases | none (`H`-only) | 2 |
 | S4 | `SwitchMode` (stable ⇄ focused) | mode | none (`H`-only) | 1 (moved rev 19) |
 | S6 | `Walk` (WalkSAT phase improvement) | walk, warmup | none (`H`-only) | **3** (moved rev 71) |
-| S7 | `Reorder` (decision-queue reordering) | reorder | none (`H`-only) | 4 |
+| S7 | `Reorder` (decision-queue reordering) | reorder | none (`H`-only) | **3** (moved from 4, rev 72) |
 
 S6 `Walk` moved to phase 3 in rev 71: measured as the single largest missing
 mechanism at the T3 gate — with kissat's local search neutralized
@@ -531,7 +537,7 @@ into `src/policies/ops/` is Track H (PROGRESS.md); design
 | V2 | `Backbone` (binary-implication backbone) | backbone | add-RUP units | 3 |
 | V3 | `Substitute` (equivalent-literal SCC substitution) | substitute, equivalences | add-RUP + delete + push-witness | 3 |
 | V4 | `TransitiveReduce` (binary implication graph) | transitive | delete | 3 |
-| V5 | `Sweep` (SAT sweeping via embedded kitten; equivalence extraction with core-derived hints) | sweep, kitten | add-RUP + delete | 4 |
+| V5 | `Sweep` (SAT sweeping via embedded kitten; equivalence extraction with core-derived hints) | sweep, kitten | add-RUP + delete | **3** (moved from 4, rev 72) |
 | V6 | `Congruence` (gate congruence closure, AND/XOR/ITE; new in Kissat 4) — **pulled forward from phase 4, rev 47** | congruence | add-RUP + delete | 3 |
 
 **Binary-clause deletion — the kernel primitive introduced with V4 (rev 32).**
@@ -583,11 +589,26 @@ open to external policies per N1.
 
 | # | Family | Source | Proof delta | Phase |
 |---|---|---|---|---|
-| X1 | `BCE` (blocked clause elimination — in CaDiCaL, dropped from Kissat 4) | cadical `block.cpp` | delete (RAT-justified) + push-witness | 4 |
-| X2 | `HyperTernaryRes` | cadical `ternary.cpp` | add-RUP | backlog |
-| X3 | `CCE` (covered clause elimination) | cadical `cover.cpp` | delete + push-witness | backlog (also the §5.3 extensibility acceptance test) |
-| X4 | `Instantiate` | cadical `instantiate.cpp` | add/delete | backlog |
-| X5 | `Condition` (conditional autarkies) | cadical `condition.cpp` | delete + push-witness | backlog |
+| X1 | `BCE` (blocked clause elimination — in CaDiCaL, dropped from Kissat 4) | cadical `block.cpp` | delete (RAT-justified) + push-witness | **3** (moved from 4, rev 72) |
+| X2 | `HyperTernaryRes` | cadical `ternary.cpp` | add-RUP | **3** (moved from backlog, rev 72) |
+| X3 | `CCE` (covered clause elimination) | cadical `cover.cpp` | delete + push-witness | **3** (moved from backlog, rev 72; also the §5.3 extensibility acceptance test) |
+| X4 | `Instantiate` | cadical `instantiate.cpp` | add/delete | **3** (moved from backlog, rev 72) |
+| X5 | `Condition` (conditional autarkies) | cadical `condition.cpp` | delete + push-witness | **3** (moved from backlog, rev 72) |
+
+**Rev 72 (user decision 2026-07-27): every proof rule the references implement
+is in scope NOW.** The families above plus V5 `Sweep`, S7 `Reorder` and
+kitten-based definition extraction (§11 O11, part of E1) move into phase 3 —
+the standing goal is to close the Kissat gap, and the user's judgment is that
+the rule inventory should match the references' before that gap is attributed
+elsewhere. Recorded counter-evidence, so the sequencing stays honest rather
+than being re-derived: the 2026-07-27 baseline ablation (PROGRESS L11) measured
+kissat losing only **14.3 PAR-2 on Tier C with sweep + reorder + bumpreasons +
+randec + eagersubsume + definitions ALL disabled**, against our 80–161 PAR-2
+gap — so these families are expected to be a small part of the deficit, and the
+search-quality work (TB4b, clause quality) proceeds in parallel rather than
+after them. Implementation order is by measured value per unit cost, cheapest
+first, each landing under the §5.3 contract with its own fuzz + same-window
+gate.
 
 The remaining deltas of recent winners over Kissat are, per their solver
 descriptions, **heuristic-layer, not new proof rules**: MAB/bandit selection
@@ -967,6 +988,34 @@ gate**, never against an old pin. **All PAR-2 / wall-clock seconds pinned
 before 2026-07-23 describe the retired workstation** — re-pin on the cluster
 before using one in a comparison; conflict/resolution counts carry over.
 
+**Proof-generation protocol (rev 72, user decision 2026-07-27).** Every arm in
+every tier run — the solver under test and every baseline — is invoked with a
+proof path, so all arms pay the certificate tax and the comparison is
+like-for-like (§2). Two asymmetries are deliberate and must be stated in every
+report:
+- **Scoring.** A rejected or missing proof scores *our* instance UNSOLVED
+  (competition-style, N2 discipline). A baseline's failed check is **recorded,
+  never scored against it** — baselines are a performance reference, and
+  scoring their certificates against our checker budget would flatter us.
+- **Checker budget = `max(3600 s, 4 × the tier's solve timeout)`** (Tier A/B
+  3600 s, C 4800 s, D 20000 s), replacing the runner's old `2 ×` timeout. An
+  instance scored unsolved because drat-trim's backward search outran a budget
+  the competition would not have applied is a measurement artefact, not a
+  solver result (`urq45`, 2026-07-27: 1447 s to verify under a 2400 s budget,
+  and > 2400 s at the configuration one commit earlier). The competition's own
+  allowance is 45000 s (§2); we stop short of it because the budget also sets
+  every array task's wall limit, and 4× covers the measured worst case by ~3×.
+  A proof that outruns even this is re-checked as native LRAT before the
+  instance is called unsolved (`--lrat` + cake_lpr verified `urq45` in 77 s
+  where drat-trim needed 1447 s). Proof-check time and proof size stay first-class
+  reported metrics (§8.3) and are never added to the solve time.
+The arm's own command selects the certificate format (a `--lrat` arm writes
+native LRAT verified by cake_lpr; otherwise binary DRAT verified by drat-trim).
+DRAT remains the scored default: it is what the competition pipeline consumes,
+and native LRAT costs 15–30 % solve time and 4–28× proof size (measured
+2026-07-27, Tiers B and C) for a checking speedup that reverses on the largest
+certificates.
+
 - **Tier A — "seconds" set (development inner loop; total runtime < 2 min).**
   ~200 generated instances with known status, solvable by a basic CDCL
   solver — with restarts and clause-DB reduction; measured rev 12: plain
@@ -1098,7 +1147,8 @@ Components:
 - **Baselines:** MiniSat 2.2, Glucose, CaDiCaL 3.0.0 (pinned `rel-3.0.0`,
   `tools/solvers/setup.sh`), Kissat 4.0.4, and SC25
   winners' binaries (AE-Kissat-MAB, CaDiCaL-SC2025) where obtainable — all run
-  on the same tiers with the same limits.
+  on the same tiers with the same limits **and with proof generation enabled
+  (rev 72, §8.1's proof-generation protocol)**.
 - **Staged targets (gate each phase):**
   - T1: solve all of Tier A without timeout (≤ 30 s each); ≥ MiniSat on Tier B.
   - T2: ≥ Glucose on Tier B; propagation microbenchmark within 20% of Kissat.
@@ -1173,10 +1223,10 @@ Components:
 | 0 (setup) | Repo, CI; **baseline solvers built on the evaluation machine** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
 | 1 | Kernel + Propagate/Decide/Analyze/Backjump + Restart/Reduce (S1–S2, moved from phase 2 in rev 12) + SwitchMode w/ stable mode: EVSIDS heap, reluctant restarts, target phases (S4, moved rev 19) + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
 | 2 | Rephasing, lucky probes (S3, S5); native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
-| 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V6, E1–E2): subsumption, strengthening, vivification, probing, backbone, substitution, transitive reduction, congruence, BVE, and bounded variable addition; **the S6 `Walk` policy op (moved here rev 71 — the measured T3-gate lever, §5.2)**; the reconstruction stack; Tier C built and frozen. **Current focus: the effort-budgeted inprocessing scheduler** — kissat's arrangement, i.e. all inprocessing rules active under per-technique effort budgets, no BVE at preprocessing, and elimination moved into the search loop. Two kernel prerequisites were established by measurement and both have landed: a per-variable BVE retry filter whose **N1 constraint** is that it may prune only `instances()` while `apply_instance` stays total, and a probing propagation path that restores search's bookkeeping. **Landing discipline (a scoped exception to §8.3 per-increment gating):** each half of the target arrangement measures worse alone, so it is built behind the slot's `enabled` flags and gated as ONE unit on Tier B+C. Status, sequencing and per-item evidence: PROGRESS.md (phase-3 checklist); design `docs/design/effort-scheduler-design.md`. | T3 on Tier C — **incl. CaDiCaL/Kissat parity on the rule-neutral subset (search-quality isolation, rev 51)**; nightly random-policy fuzzing green |
+| 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V6, E1–E2): subsumption, strengthening, vivification, probing, backbone, substitution, transitive reduction, congruence, BVE, and bounded variable addition; **the S6 `Walk` policy op (moved here rev 71 — the measured T3-gate lever, §5.2)**; **the full reference rule inventory (rev 72, user): V5 `Sweep` + kitten (§11 O11), S7 `Reorder`, and the CaDiCaL families X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE` (doubles as the §5.3 extensibility acceptance test), X4 `Instantiate`, X5 `Condition`**; the reconstruction stack; Tier C built and frozen. **Current focus: the effort-budgeted inprocessing scheduler** — kissat's arrangement, i.e. all inprocessing rules active under per-technique effort budgets, no BVE at preprocessing, and elimination moved into the search loop. Two kernel prerequisites were established by measurement and both have landed: a per-variable BVE retry filter whose **N1 constraint** is that it may prune only `instances()` while `apply_instance` stays total, and a probing propagation path that restores search's bookkeeping. **Landing discipline (a scoped exception to §8.3 per-increment gating):** each half of the target arrangement measures worse alone, so it is built behind the slot's `enabled` flags and gated as ONE unit on Tier B+C. Status, sequencing and per-item evidence: PROGRESS.md (phase-3 checklist); design `docs/design/effort-scheduler-design.md`. | T3 on Tier C — **incl. CaDiCaL/Kissat parity on the rule-neutral subset (search-quality isolation, rev 51)**; nightly random-policy fuzzing green |
 | 3.5 (pin) | **PIN (user, 2026-07-24; deliberately unelaborated — §11 O15):** once kissat performance is matched, a dedicated pass asking for **engineering ingenuity on top of kissat** — novel ideas beyond the reference lineage, not just gap-closing. Scope, deliverables, and exit criterion to be written when phase 3 closes (revise-plan concretize mode). | TBD (O15) |
-| 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; phase-4 rules from catalog (§5.2: Sweep, Reorder, BCE); **the engineering push to *exceed* Kissat (search-quality + inprocessing ingenuity, not just the remaining rules)** | **T4 on Tier D — exceed Kissat by engineering** (before any learned policy); §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin)** |
-| 5 | Competition packaging (Docker, description doc); backlog rules as warranted (X2, X4, X5); tuning campaign | T5 or best-effort; submission-ready |
+| 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; **the engineering push to *exceed* Kissat (search-quality + inprocessing ingenuity, not just the remaining rules)** | **T4 on Tier D — exceed Kissat by engineering** (before any learned policy); §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin — lands in phase 3 per rev 72, so the test is evaluated there)** |
+| 5 | Competition packaging (Docker, description doc); tuning campaign | T5 or best-effort; submission-ready |
 | 6 | **Learned scheduling — the RL module (§5.6, always-on):** offline replay/reward-proxy harness (dev instrumentation); L1 windowed-UCB bandit over the macro scheduler's slot choice points with segment attribution (default schedule = permanent arm); LearnedPolicy in the fuzz rotation; L2 contextual (tabular); L3 batch-sequencing experiment under its kill criterion, neighbor-move arm proposals; offline per-family preset layer | §8.5 gates: L-safe on Tier C, then L-win on Tier D + anytime check; stretch — improves the T5 configuration. **Note: learning is upside *on top of* an engineering base that already exceeds Kissat (T4) — not the first thing to surpass it (R5).** |
 
 Treat phases as gates, not a calendar; each phase ends with a benchmark report
@@ -1220,7 +1270,7 @@ discovered during development get added here rather than answered ad hoc.
 | O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 5 |
 | O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | before the T4 evaluation |
 | O10 | Solver name ("Tactix" is a placeholder) → *decided rev 23 (user): the solver is named Tactix — header wording made final* | ~~before any external artifact~~ decided |
-| O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | first needed: E1 completion (phase 3); hard by V5 (phase 4) |
+| O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | **now due — V5 moved to phase 3 (rev 72)**; decide at V5 implementation start |
 | O12 | Contextual-bandit feature set (which cheap state features; tabular bands) and warm-start/serialization policy for learned state across runs (competition rules permitting) | phase 6, L2 implementation |
 | O13 | Distillation: do stable cross-instance learned schedules feed back into DefaultPolicy constants (benefiting N3), or stay LearnedPolicy-only? | phase-6 exit |
 | O14 | Cubing capability for strategy evaluation → *closed rev 28 (user): no cube re-solving, no sub-problems — learning stays inside the single run under the §5.6 always-on principle; segment attribution replaces terminal cube costs. Assumption-interface machinery remains O7 territory if incremental solving ever needs it* | ~~phase 6~~ closed |
@@ -1339,3 +1389,4 @@ conflate them.
 - **rev. 69** (2026-07-25, user): §5.1 additive API — TACTIX_STAT ids 22–25 (dosing currencies: factorings/factor_ticks/bve_eliminated/bve_resolutions) + kernel config setters (bve_bound/factor_bound/factor_composite/work_budget/vivify_scope) so the §5.6 learner can read its reward currencies and pose the config surface; contract test added.
 - **rev. 70** (2026-07-25, user): §11 O16 — auto-invention of proof rules recorded (PR/SR clause learning = phase-4 catalog candidate with the DRAT-expressibility caveat; generative rule synthesis = research-track via N1, non-gating; composed-rule discovery already = phase-6 L3). Decide-by: phase-4 entry.
 - **rev. 71** (2026-07-26): S6 `Walk` (WalkSAT phase improvement, `H`-only policy op) moved phase 4 → **3** (§5.2, §9) — measured as the largest missing mechanism at the T3 gate: kissat Tier B PAR-2 8.62 → 29.22 with walk neutralized, and a monotone `walkeffort` dose–response on the sole actionable Tier C timeout (report `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`).
+- **rev. 72** (2026-07-27, user): (a) every arm is timed WITH proof generation — like-for-like measurement protocol, asymmetric scoring (our failed check = unsolved, a baseline's is recorded only), checker budget raised to §2's competition allowance (§2, §8.1, §8.3); (b) the full reference rule inventory pulled into phase 3 — V5 `Sweep` + kitten, S7 `Reorder`, X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE`, X4 `Instantiate`, X5 `Condition` (§5.2, §9, §11 O11), with L11's counter-evidence recorded in §5.2 so the sequencing stays honest.

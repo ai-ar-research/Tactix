@@ -45,6 +45,14 @@ add_executable(test_backbone test_backbone.cpp)
 target_link_libraries(test_backbone PRIVATE tactix_lib)
 add_test(NAME backbone COMMAND test_backbone)
 
+add_executable(test_bce test_bce.cpp)
+target_link_libraries(test_bce PRIVATE tactix_lib)
+add_test(NAME bce COMMAND test_bce)
+
+add_executable(test_ternary test_ternary.cpp)
+target_link_libraries(test_ternary PRIVATE tactix_lib)
+add_test(NAME ternary COMMAND test_ternary)
+
 add_executable(test_decide test_decide.cpp)
 target_link_libraries(test_decide PRIVATE tactix_lib)
 add_test(NAME decide COMMAND test_decide)
