@@ -514,6 +514,15 @@ so our dependence there is a tactix-specific crutch, not evidence the rule is ne
 clauses in DENSE neighbourhoods (the cap cuts it to 535), which is exactly what a dense-neighbourhood cap
 forbids. **One axis, opposite signs, both large.** cadical can afford the cap only because it does not
 depend on BCE at all. So the cap stays a §5.6 arm; it is not a constant, and neither is BCE's on/off.
+**4. Tier C, BCE-off: PARITY WITH CADICAL** (same window `20260729-171411`, array 1573270, all arms
+writing+checking DRAT): **shipped 405.38 (28/30) / no-BCE 318.18 (29/30) / cadical 316.13 (29/30)** ⇒
+**no-BCE is 1.0065× cadical — T3's CaDiCaL half MET outright**, against shipped's 1.282×. It is a BROAD
+win on this tier, not just j3037: af-synthesis −136, constraints_25 −124, ContextModel −113, EDP3 −113,
+asconhash −79, em_11 −77, Grain −68, frb45 −57, jgiraldez −33, Ptn −25 against minxor +137,
+sat-bench-trig +109, T87 +84, goldcrest +50, DLTM +35 — net **−87 PAR-2**, and **−12.7 even with j3037
+excluded entirely**. Also: **j3037 TIMED OUT under BCE in this window** (it read 1162.8 / 978.4 / 2400
+across three windows today), so BCE-on makes our whole Tier C score metastable around the 1200 s cap.
+
 **▶ STATE OF THE QUESTION (open, and it is the user's directive to scope).** BCE is ~80 % of the Tier C gap
 to cadical (j3037 alone) and ~41 PAR-2 of Tier B value (mod4block alone). No global setting serves both:
 on/off, round caps (L17), dose/rate (L15 + the 2026-07-29 rate work), and now the occurrence cap have ALL
@@ -523,6 +532,12 @@ which is itself the finding — **BCE is the project's cleanest contextual-admis
 (phase-6); (c) narrow the all-rules-ON directive for rules the references themselves ship off — which would
 also touch **R6 X3 CCE, next on Track R, since cadical ships `cover` OFF too**. Ask before flipping
 ([[no-rule-off-configs]]).
+**The trade, stated once, in gate terms:** BCE ON = Tier B 9.46 / Tier C 1.282× cadical (T3 half MISSED).
+BCE OFF = Tier B 50.96 with mod4block the ONLY loss / Tier C **1.0065×** (T3 half MET). Tier C is the T3
+gate tier and Tier B is a development tier, so the gate-relevant reading favours OFF — but that is a
+directive question, and the honest engineering answer is neither: it is per-instance admission, i.e. the
+§5.6 exhibit, with mod4block's dependence on BCE itself a tactix-specific weakness worth fixing directly
+(kissat needs no BCE there).
 
 ### 2026-07-29 — `c timing`: per-rule wall clock, and j3037's 45× gap is BCE mis-scheduling
 **Phase timers land** (`docs/implementation-notes.md` §11): `Stats.rule_nanos[]/rule_calls[]` charged by a
