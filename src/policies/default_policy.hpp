@@ -350,6 +350,16 @@ public:
     // fastel=0 — elimination only ever runs on a formula probing has already
     // simplified, in dosed during-search phases). BVE only.
     bool defer_preprocess = false;
+    // DIAGNOSTIC cap: stop scheduling this entry after `max_applies` phases
+    // (0 = uncapped, the default and the only shipped setting). Exists because
+    // the mechanism behind BCE's Tier C damage is ROUNDS, not dose — j3037's
+    // conflicts track BCE rounds 48/37/27/0 -> 7.60M/4.47M/1.63M/1.28M while
+    // BCE's own runtime is 1.385 s of a 983 s solve (0.1%) — and a rate change
+    // shrinks each round without ever stopping round 2 (all-rules-on report).
+    // Set via TACTIX_SLOT_MAX_APPLIES=Name:N. Never read by a guard: this is
+    // the POLICY declining to schedule, not the rule declining to apply (N1).
+    uint32_t max_applies = 0;
+    uint32_t applies = 0;
 
     // Per-entry new-material watermarks (S4 dosing increment 2): an UNMETERED
     // entry (Congruence/Factor/Substitute — full canonical closure per run,

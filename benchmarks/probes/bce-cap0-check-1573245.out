@@ -1,0 +1,8 @@
+[slot] phase=1 outer=0 BCE enabled=1 defer=0 guard=1 dosed=0 meter=0 limit=200000
+[slot] phase=1 outer=1 BCE enabled=1 defer=0 guard=1 dosed=0 meter=200004 limit=200000
+[slot] phase=1 outer=2 BCE enabled=1 defer=0 guard=1 dosed=0 meter=200004 limit=200000
+[slot] phase=2 outer=0 BCE enabled=1 defer=0 guard=1 dosed=0 meter=200004 limit=732064
+[slot] phase=2 outer=1 BCE enabled=1 defer=0 guard=1 dosed=0 meter=200004 limit=732064
+[slot] phase=2 outer=2 BCE enabled=1 defer=0 guard=1 dosed=0 meter=200004 limit=732064
+[slot] phase=3 outer=0 BCE enabled=1 defer=0 guard=1 dosed=0 meter=200004 limit=1716564
+[slot] phase=3 outer=1 BCE enabled=1 defer=0 guard=1 dosed=0 meter=200004 limit=1716564

@@ -583,6 +583,19 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 }
             }
           }
+          // TACTIX_SLOT_MAX_APPLIES=Name:N (DIAGNOSTIC, same shape): cap how
+          // many phases may schedule this entry. Parsed for EVERY entry, not
+          // just those with an EffortSpec, because the cap is about rounds and
+          // an unmetered entry has rounds too.
+          if (const char *mx = std::getenv("TACTIX_SLOT_MAX_APPLIES")) {
+            const size_t n = std::strlen(nm);
+            for (const char *p = mx; (p = std::strstr(p, nm)); p += n)
+              if ((p == mx || p[-1] == ',') && p[n] == ':') {
+                e.max_applies =
+                    static_cast<uint32_t>(strtoul(p + n + 1, nullptr, 10));
+                break;
+              }
+          }
           inprocess_slot.push_back(e);
         }
       // Phase order (what works and why): name-sorted slot, then BVE moved
@@ -898,8 +911,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                          (unsigned long long)e.limit);
           if (!e.enabled || phase_unsat)
             continue;
+          if (e.max_applies && e.applies >= e.max_applies)
+            continue; // DIAGNOSTIC round cap (see SlotEntry::max_applies)
           if (e.defer_preprocess && k.stats.conflicts == 0)
             continue; // S4: no elimination at preprocessing (kissat fastel=0)
+          e.applies++;
           const RuleVTable &r = rules[e.rule];
           const uint64_t limit = e.limit;
           if (e.dosed && r.instances && r.apply_instance) {

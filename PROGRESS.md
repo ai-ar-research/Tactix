@@ -132,6 +132,17 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   unrepaired; three died on mod4block alone (L10's intrinsic pathology). Method: measure a family TOGETHER before judging a member, and "a clean
   separating feature exists" is insufficient — the yield axis separated by an order of magnitude (13 vs 477–6,726 ticks/deletion) and gating on
   it still lost 43 PAR-2. (`benchmarks/reports/2026-07-28-all-rules-on.md`.)
+- **L17 · A rule's whole damage can live in its FIRST application — then dose, rate and round-count are not
+  levers at all, and only per-instance ADMISSION is.** On `j3037_9_rggt_b`, BCE capped at ONE round (7,951
+  clauses deleted, 200 k ticks = 0.02 % of the solve's work) costs **952.7 s / 7.35 M conflicts** against
+  **148.6 s / 1.28 M with BCE off** — while 48 uncapped rounds cost 978.4 s, i.e. rounds 2–48 are ~free and
+  round 1 is everything. µs/conflict is flat (111–129) and `c timing` prices BCE's own runtime at **1.385 s
+  of 983 s (0.1 %)**, so the cost is purely what it does to the search. Two corollaries. (a) The opposite
+  Tier-B mechanism — "BCE's value is one round on the raw formula, its cost is the rounds after it"
+  (all-rules-ON report) — is INSTANCE-SPECIFIC and inverts here; do not carry a dose mechanism across
+  corpora. (b) Method: a monotone-looking trend across arms that differ in WHICH RULES RUN is not a
+  controlled comparison — the first version of this finding read exactly such a trend off the −X2/−X4 arms
+  and got the causality backwards. Same family as L12/L16. (probes 1573169–77, 1573242–44; Log 2026-07-29.)
 - **L16 · A per-instance-REPRODUCIBLE effect can still give a non-reproducible tier aggregate — and an aggregate that matches its prediction
   can be a coincidence of sums.** The slot-rate-2‰ arm saved 26.1 PAR-2 in one Tier C window (1.065× cadical, gate met) and 8.8 in the next
   (1.101×, gate missed), while **28 of 30 instances kept the same sign and near-identical magnitude** — the swing came from a few 500–1100 s
@@ -490,9 +501,26 @@ verified so: 5 instances reproduce **decisions AND conflicts to the digit** vs t
 | kissat | 135.6 | 1,910,509 | — | 71 |
 | cadical | 24.0 | 217,547 | — | 110 |
 
-**Conflicts track BCE ROUNDS monotonically — 48 → 7.60 M, 37 → 4.47 M, 27 → 1.63 M, 0 → 1.28 M — while
-µs/conflict is FLAT at 111–129.** So the 6.6× wall-time blowup is entirely tree size; BCE's own 108 M
-ticks are not the cost, what BCE does to the search is.
+**µs/conflict is FLAT at 111–129, so the 6.6× wall-time blowup is entirely TREE SIZE** — BCE's own runtime
+is not the cost, what BCE does to the search is. The `c timing` block prices that exactly: **BCE itself is
+1.385 s of a 983 s solve (0.1 %), and the whole inprocessing slot is 2.6 %** — 1 ms of BCE buys ≈ 0.6 s of
+extra search.
+**▶ CORRECTION (controlled follow-up, probe 1573244). An earlier version of this entry read a monotone
+"conflicts track BCE rounds" story off the −X2/−X4 rows. That was wrong: those arms differ in WHICH RULES
+RUN, not just in round count, so they were never a controlled comparison.** The controlled experiment is
+the new `TACTIX_SLOT_MAX_APPLIES=BCE:1` cap, and it is decisive the other way: **one round — 7,951 clauses
+deleted for 200 k ticks, 0.02 % of the solve's work — gives 952.7 s / 7,349,567 conflicts, i.e. essentially
+the ENTIRE damage** (48 rounds: 978.4 s / 7.60 M; zero rounds: 148.6 s / 1.28 M). **BCE's FIRST application
+is the whole cost on this instance.** Consequence: dose, rate and round-count are NOT levers here — the
+Tier-B mechanism from the all-rules-ON report ("BCE's value is one round on the raw formula, its cost is
+the rounds after it", measured on clique/rbsat) does NOT generalize to j3037, where it is inverted.
+**▶ AND NEITHER REFERENCE SHIPS BCE.** `cadical/src/options.hpp:34` — `OPTION( block, 0, 0, 1, …)` — BCE
+defaults **OFF** in cadical, and **kissat 4 has no BCE module at all** (dropped; already noted in R2).
+cadical also ships `cover` (CCE = our R6/X3, next on Track R) **off**. So the shipped default runs, ON, a
+rule one reference defaults off and the other deleted — and that rule is ~80 % of our Tier C gap to cadical.
+That is a question about the all-rules-ON directive's SCOPE, not something to flip unilaterally
+([[no-rule-off-configs]]); BCE-off diagnostic arms are measuring the full price on both tiers now
+(arrays 1573270 Tier C / 1573320 Tier B, window `20260729-1714*`).
 
 **BCE alone is the whole thing** (ladder step 2/4): with it off we need **fewer conflicts than kissat**
 (1.28 M vs 1.91 M) at 148.6 s vs its 135.6 — parity, so **our search is NOT the defect**. The damage is
@@ -506,10 +534,15 @@ conflicts), so the rule is real but it is not what makes cadical 6× better than
 **Two separate findings, do not conflate them:** (i) the actionable 1000 s is BCE scheduling, ours to fix;
 (ii) cadical reaching 217 k conflicts where kissat needs 1.91 M and we need 1.28 M is a second, unexplained
 advantage — NOT sweep, and not sized yet.
-**Routing:** (i) → rule-dev/scheduling, with the L15 tension stated honestly — "BCE preprocess-only" is one
-of the four admission designs already measured-dead **on Tier B** (27.68 vs 9.17), so a Tier-C-motivated
-"run BCE once" must be re-measured on BOTH tiers before it can ship. (ii) → a separate debug-performance
-pass, not started.
+**Routing, as revised by the correction above:** (i) is NOT a scheduling fix — "run BCE once" is now dead by
+direct experiment on this instance, so no dose/round/rate constant can recover j3037. The only axes left are
+**per-instance admission** (a §5.6 contextual question, not a hand-tunable constant — and note that gating
+BCE's rounds is measured-dead on Tier B, where excluding mod4block "preprocess-only" costs +7.3 % rather
+than the headline 3×) or **rule quality** — why deleting 7,951 blocked clauses costs 5.7× conflicts on a SAT
+instance, i.e. which clauses BCE should decline to delete (cadical's `blockminclslim`/`blockmaxclslim`/
+`blockocclim` limits are the reference's answer and we have no analogue). (ii) cadical needing 217 k
+conflicts where kissat needs 1.91 M and we need 1.28 M is a second, unexplained advantage — NOT sweep, not
+sized, not started.
 
 ### 2026-07-29 — slot rate 2‰ does NOT reliably clear T3: it is a REPRODUCIBLE per-instance trade, marginal in aggregate — §5.6 arm, not a constant
 **Replication decided it** (window `20260729-112753`, array 1573008, same arms, same throttle): **shipped 357.31 / rate2 348.57 / cadical 316.58**,

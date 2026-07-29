@@ -1,0 +1,6 @@
+c conflicts   7349567
+c bce         1 rounds, 7951 deleted, 200004 ticks
+c timing      952646 ms solve
+c timing      23704 ms (2.5%) inprocessing slot, 928942 ms (97.5%) search+scaffolding outside it
+s SATISFIABLE
+wall 952.67
