@@ -236,6 +236,12 @@ int main(int argc, char **argv) {
   if (!no_heuristics)
     kernel.h = &heuristics;
   kernel.bve_gate_mask = bve_gate_mask;
+  // TACTIX_BCE_OCC_LIMIT=<n> (DIAGNOSTIC arm; 0 = uncapped, the pre-2026-07-29
+  // behaviour): X1 BCE's candidate-occurrence ceiling. A Kernel CONFIG field, so
+  // this only exposes it for an A/B — the shipped value is its default (100,
+  // cadical's blockocclim). See Kernel::bce_occ_limit.
+  if (const char *ol = getenv("TACTIX_BCE_OCC_LIMIT"))
+    kernel.bce_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a

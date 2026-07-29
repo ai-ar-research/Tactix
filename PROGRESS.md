@@ -478,6 +478,40 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-29 — BCE: its whole VALUE is one instance and its whole COST is another, on the SAME axis
+Follow-up to the j3037 diagnosis below. Three measurements, and each one killed a framing I had just
+written down — recorded in that order because the sequence is the lesson.
+**1. BCE-off is a DISASTER on Tier B** (diagnostic arm, window `20260729-171440`, array 1573320):
+**shipped 9.46 vs no-BCE 50.96 (13/14)**, kissat 8.84. So BCE is worth ~41 PAR-2 — and that killed the
+"neither reference ships BCE, so drop it" reading (`cadical` ships `block` OFF, kissat 4 deleted the module).
+**2. But that value is ONE INSTANCE.** Per-instance: **mod4block 13.56 → 600 TO (+586 s)**, clique +5.7,
+crypto1 +4.2, against rbsat **13.20 → 2.55 (−10.7)**, mp1 −4.0, 9vliw −1.5, summle −1.2. **Excluding
+mod4block, BCE-OFF IS BETTER: 8.72 vs 9.14.** And **kissat does mod4block in 19.4 s with no BCE at all**,
+so our dependence there is a tactix-specific crutch, not evidence the rule is needed.
+**3. cadical's occurrence cap is MEASURED-DEAD as a default, and fails on the axis that matters** (probes
+1573405–07). We lacked cadical's `blockocclim`/`blockmaxclslim`/`blockminclslim` entirely; added
+`Kernel::bce_occ_limit` (config, `TACTIX_BCE_OCC_LIMIT`, **ships 0 = uncapped**):
+
+| instance | cap 100 | cap 1000 | uncapped |
+|---|---|---|---|
+| j3037 | **354.5 s** / 2.67 M conflicts | — | 993.4 s / 7.60 M |
+| mod4block | **600 TO** / 10.2 M (535 deleted) | **600 TO** | **13.2 s** / 0.42 M (6,343 deleted) |
+| clique | 0.11 s, 1,530 deleted | — | 0.09 s, 1,530 deleted |
+
+**The cap is a 2.8× WIN on j3037 and a TIMEOUT on mod4block** — because mod4block needs BCE to delete 6,343
+clauses in DENSE neighbourhoods (the cap cuts it to 535), which is exactly what a dense-neighbourhood cap
+forbids. **One axis, opposite signs, both large.** cadical can afford the cap only because it does not
+depend on BCE at all. So the cap stays a §5.6 arm; it is not a constant, and neither is BCE's on/off.
+**▶ STATE OF THE QUESTION (open, and it is the user's directive to scope).** BCE is ~80 % of the Tier C gap
+to cadical (j3037 alone) and ~41 PAR-2 of Tier B value (mod4block alone). No global setting serves both:
+on/off, round caps (L17), dose/rate (L15 + the 2026-07-29 rate work), and now the occurrence cap have ALL
+been measured, and every one of them trades one instance for the other. That exhausts the static options,
+which is itself the finding — **BCE is the project's cleanest contextual-admission exhibit** and the seventh
+§5.6 family. Options for the user: (a) keep BCE ON and accept the Tier C cost; (b) per-instance admission
+(phase-6); (c) narrow the all-rules-ON directive for rules the references themselves ship off — which would
+also touch **R6 X3 CCE, next on Track R, since cadical ships `cover` OFF too**. Ask before flipping
+([[no-rule-off-configs]]).
+
 ### 2026-07-29 — `c timing`: per-rule wall clock, and j3037's 45× gap is BCE mis-scheduling
 **Phase timers land** (`docs/implementation-notes.md` §11): `Stats.rule_nanos[]/rule_calls[]` charged by a
 registry-level dispatch wrapper (`apply_rule`/`apply_rule_instance`, so the C API and every stress/random

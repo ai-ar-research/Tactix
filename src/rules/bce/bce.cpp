@@ -132,6 +132,14 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
                             std::vector<uint8_t> &marked) {
   if (!root_open(k, blocking))
     return ApplyResult::NoOp;
+  // Occurrence ceiling (Kernel::bce_occ_limit, cadical `blockocclim`): a literal
+  // in a dense neighbourhood is declined before any scan. Checked on the RAW
+  // index sizes so the decision costs O(1) and cannot itself be the cost, and on
+  // BOTH sides because blockedness quantifies over the opposite occurrences too.
+  if (k.bce_occ_limit &&
+      (idx.occ[blocking].size() > k.bce_occ_limit ||
+       idx.occ[negate(blocking)].size() > k.bce_occ_limit))
+    return ApplyResult::NoOp;
   std::vector<Occ> cands, opposite;
   collect_occs(k, idx, blocking, Side::Cand, cands);
   collect_occs(k, idx, negate(blocking), Side::Opposite, opposite);

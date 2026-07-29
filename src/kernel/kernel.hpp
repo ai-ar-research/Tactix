@@ -448,6 +448,25 @@ struct Kernel {
   // kissat's fine-grained dose ramps it 0,1,2,4,8,16, re-scheduling every
   // variable at each level (eliminate.c set_next_elimination_bound).
   uint32_t bve_bound = 16;
+  // X1 BCE candidate-occurrence ceiling (cadical option `blockocclim`, whose own
+  // default is 1e2): decline a blocking literal occurring more than this many
+  // times. CONFIGURATION like bve_bound — any policy may set it at any time and
+  // any value is sound, because it only narrows WHICH candidates the rule offers
+  // (a within-rule scope choice, the same category as BCE's irredundant-only
+  // filter — implementation-notes §1's X1 row), never whether a deletion is
+  // justified.
+  //
+  // **Ships 0 = UNCAPPED, and porting cadical's 100 is MEASURED-DEAD** (probes
+  // 1573405-07, 2026-07-29). It is a real lever in both directions on the same
+  // axis, which is why it stays as a §5.6 arm rather than a constant:
+  //   j3037_9_rggt_b  993 s -> 354 s  (2.8x FASTER capped; 7.60M -> 2.67M conflicts)
+  //   mod4block       13.2 s -> TIMEOUT at 100 AND at 1000 (BCE's deletions there
+  //                   drop 6,343 -> 535: the clauses mod4block needs removed are
+  //                   exactly the ones a dense-neighbourhood cap forbids)
+  //   clique          identical (1,530 deleted either way)
+  // cadical can afford the cap because it does not depend on BCE at all (it ships
+  // `block` OFF); we do, on mod4block. Set via TACTIX_BCE_OCC_LIMIT for an A/B.
+  uint32_t bce_occ_limit = 0;
   // Factor grid-selection strategy (Track S · S2a): consulted by factor_apply
   // for its scoring/accept scalars when set; null = the built-in watch-size
   // path, byte-identical to pre-S2a. CONFIGURATION like bve_bound — any policy
