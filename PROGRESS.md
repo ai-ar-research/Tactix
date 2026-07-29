@@ -58,6 +58,17 @@ disagree, the plan is authoritative — fix this file.
      preprocess-only, L9's density gate, and a yield backoff — all landing
      27–52 PAR-2 against 9.17 for NO admission at all, three of them killed by
      mod4block alone. Any PARTIAL suppression breaks the rules' mutual repair.
+     **The joint-admission lever is narrower than it looks, and the constraint
+     is measured.** mod4block is NON-MONOTONE in how consistently the trio runs:
+     never 9.26, always 13.17, **once-then-stop 263.87**. Doing the rewrite and
+     then withdrawing the maintenance is far worse than either extreme, so the
+     trio has to run CONSISTENTLY — all solve or none. That kills every
+     mid-solve decision (you cannot measure the trio's productivity without
+     already having run it, and having run it you cannot stop), leaving only a
+     STATIC per-instance decision taken before the first round. L5 is the
+     warning on that path: a static "skip on harmful structure" separator was
+     measured ≈ chance (4/13). Treat it as a phase-6 context feature, not an
+     engineering lever, unless new evidence appears.
      **NEXT for Track R: S-c** (Sweep candidate selection + environment
      construction), then S-d…S-f, then R6–R8 — each landing ON.
   4. Then the two search-quality items that the evidence says actually carry
@@ -355,9 +366,7 @@ disagree, the plan is authoritative — fix this file.
 
 - [x] T1 — **passed 2026-07-14** (Tier A 200/200 PAR-2 0.48; Tier B 9/14 @ 231.6 vs MiniSat 8/14 @ 281.4; report `benchmarks/reports/2026-07-14-t1-gate.md`)
 - [x] T2 — **passed 2026-07-14** (Tier B 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51). **HALF MET 2026-07-27** (report `benchmarks/reports/2026-07-27-tier-c-push.md` §8.3): whole tier **tactix 303.21 vs CaDiCaL 304.08 = 1.00×** with all 15 UNSAT proofs verified — the CaDiCaL criterion is met (kissat 223.14 = 1.36×). On the 24-instance rule-neutral subset tactix 345.42 vs CaDiCaL 320.86 (1.08×, inside 10 %) but **kissat 252.93 (1.37×)** — the Kissat-parity half is NOT met, so phase 3 stays open. Residual = search quality on the rule-neutral UNSAT families, measured: the six techniques we still lack are worth only 14.3 PAR-2 to kissat with ALL of them off (L11).
-- [ ] T4 — **exceed** Kissat-public PAR-2 on Tier D via DefaultPolicy engineering (raised from parity, rev 49)
-- [ ] T5 — beat AE-Kissat-MAB PAR-2 on Tier D → competition submission
+- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51). **STATUS CHANGED 2026-07-29 by the all-rules-ON directive.** With the rules OFF the CaDiCaL half was MET (2026-07-27: 303.21 vs 304.08 = 1.00×; re-confirmed same-window 2026-07-29: rules-off 313.20 vs cadical 314.49 = **1.00×**). With every proof rule ON — the shipped default since `3fb85bd` — **tactix 357.23 vs cadical 314.49 = 1.14×, i.e. OUTSIDE the 10 % band, so the CaDiCaL half is NOT currently met** (window `20260729-003352`, 29/30 all arms). The Kissat half was already not met (1.37× on the 24-instance rule-neutral subset). **BUT the regression is TWO INSTANCES, not a broad loss: j3037_9_rggt_b (138.8 → 1152.4, +1014 s) and asconhashv12 (324.4 → 627.4, +303 s) account for 100 % of the +1322 s; the other 28 net to zero, with minxor128 −234, T87.2.0 −198 and sat-bench-trig −163 paying for the rest.** Recovering those two recovers the gate. Report `benchmarks/reports/2026-07-28-all-rules-on.md`
 
 ## Phase 0 — setup (complete 2026-07-09)
 
