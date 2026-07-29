@@ -1,0 +1,90 @@
+=== clique_n2_k10.sanitized  [shipped] ===
+c conflicts   434299
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s UNSATISFIABLE
+=== clique_n2_k10.sanitized  [BCE] ===
+c conflicts   14315
+c bce         1 rounds, 1530 deleted, 20592 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s UNSATISFIABLE
+=== clique_n2_k10.sanitized  [HyperTernaryRes] ===
+c conflicts   434299
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s UNSATISFIABLE
+=== clique_n2_k10.sanitized  [Instantiate] ===
+c conflicts   434299
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 700 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s UNSATISFIABLE
+=== clique_n2_k10.sanitized  [HyperTernaryRes,BCE,Instantiate] ===
+c conflicts   14315
+c bce         1 rounds, 1530 deleted, 20592 ticks
+c instantiate 0 rounds, 0 literals removed, 360 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s UNSATISFIABLE
+=== rbsat-v760c43649gyes10  [shipped] ===
+c conflicts   80052
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+=== rbsat-v760c43649gyes10  [BCE] ===
+c conflicts   322371
+c bce         2 rounds, 5814 deleted, 3886512 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+=== rbsat-v760c43649gyes10  [HyperTernaryRes] ===
+c conflicts   80052
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+=== rbsat-v760c43649gyes10  [Instantiate] ===
+c conflicts   80052
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 674 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+=== rbsat-v760c43649gyes10  [HyperTernaryRes,BCE,Instantiate] ===
+c conflicts   392306
+c bce         2 rounds, 5814 deleted, 6181468 ticks
+c instantiate 0 rounds, 0 literals removed, 1242 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+=== combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2  [shipped] ===
+c conflicts   81589
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+=== combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2  [BCE] ===
+c conflicts   129414
+c bce         3 rounds, 1000 deleted, 1699610 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+=== combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2  [HyperTernaryRes] ===
+c conflicts   1375683
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     36 rounds, 5544 resolvents, 0 binaries, 908523 ticks
+s SATISFIABLE
+=== combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2  [Instantiate] ===
+c conflicts   1533180
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 3 rounds, 22 literals removed, 270 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+=== combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2  [HyperTernaryRes,BCE,Instantiate] ===
+c conflicts   235874
+c bce         4 rounds, 1192 deleted, 4093135 ticks
+c instantiate 1 rounds, 20 literals removed, 91 probed
+c ternary     15 rounds, 2307 resolvents, 0 binaries, 376848 ticks
+s SATISFIABLE

@@ -539,24 +539,27 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // The S4 arrangement enables every Inprocess-tier rule; the two
           // named ablation knobs + the slot-surgery lists are the A/B
           // surface (same overrides presets/the phase-6 learner use).
+          // EVERY implemented proof rule is scheduled (user directive,
+          // 2026-07-28: "all implemented proof rules need to be turned on").
+          // The Track R "ships OFF until its own A/B pays" convention is DEAD —
+          // it contradicted the standing baseline that a rule-off arm is a
+          // diagnostic for a SCHEDULING defect, never a shipped default. The
+          // two named ablation knobs + the slot-surgery lists remain the A/B
+          // surface (the same overrides presets and the phase-6 learner use).
           bool on = !(bve_off && !std::strcmp(nm, "BVE")) &&
-                    !(factor_off && !std::strcmp(nm, "Factor")) &&
-                    // Track R lands each new reference family N1-exposed and
-                    // registry-visible FIRST, scheduled only once its own
-                    // same-window A/B says it pays (`TACTIX_SLOT_ENABLE`
-                    // is the measurement arm). Without this a newly
-                    // registered Inprocess rule would silently join the S4
-                    // arrangement and move every number in the same commit
-                    // that introduces it.
-                    std::strcmp(nm, "HyperTernaryRes") != 0 &&
-                    std::strcmp(nm, "BCE") != 0 &&
-                    std::strcmp(nm, "Instantiate") != 0;
+                    !(factor_off && !std::strcmp(nm, "Factor"));
           if (env_list("TACTIX_SLOT_ENABLE", nm))
             on = true;
           if (env_list("TACTIX_SLOT_DISABLE", nm))
             on = false;
           SlotEntry e;
           e.defer_preprocess = !std::strcmp(nm, "BVE");
+          // TACTIX_SLOT_PREPROCESS_ONLY=Name[,Name...] (DIAGNOSTIC admission
+          // arm): confine a rule to the preprocessing phase. The rate sweep
+          // said dose is the WRONG control for the Track R rules — every rate
+          // loses on rbsat/crypto1/mp1 while clique's 50x win is completely
+          // dose-insensitive — which is L7's "the interval is the wrong
+          // control" in a new mechanism. WHERE, not how hard.
           e.rule = i;
           e.enabled = on;
           if (const EffortSpec *s = effort_spec(nm)) {
@@ -565,6 +568,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             e.dosed = s->dosed;
             e.retry_advice = s->retry_advice;
             e.budget_aware = s->budget_aware;
+            // TACTIX_SLOT_PERMILLE=Name:rate[,Name:rate...] (DIAGNOSTIC sweep
+            // knob, the shape TACTIX_WALK_PERMILLE has): override a slot
+            // entry's effort rate without a rebuild. "How hard to run rule X"
+            // is a §5.6 dosing question — the phase-6 learner is meant to
+            // subsume these constants — and sweeping one needs the whole tier
+            // in ONE window, which is only affordable as an env arm.
+            if (const char *pm = std::getenv("TACTIX_SLOT_PERMILLE")) {
+              const size_t n = std::strlen(nm);
+              for (const char *p = pm; (p = std::strstr(p, nm)); p += n)
+                if ((p == pm || p[-1] == ',') && p[n] == ':') {
+                  e.permille = static_cast<uint32_t>(strtoul(p + n + 1, nullptr, 10));
+                  break;
+                }
+            }
           }
           inprocess_slot.push_back(e);
         }

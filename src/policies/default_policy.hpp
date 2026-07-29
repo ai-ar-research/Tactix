@@ -350,6 +350,7 @@ public:
     // fastel=0 — elimination only ever runs on a formula probing has already
     // simplified, in dosed during-search phases). BVE only.
     bool defer_preprocess = false;
+
     // Per-entry new-material watermarks (S4 dosing increment 2): an UNMETERED
     // entry (Congruence/Factor/Substitute — full canonical closure per run,
     // nothing to titrate) re-runs in a during-search arrangement phase only

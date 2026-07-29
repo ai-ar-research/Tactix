@@ -33,24 +33,33 @@ disagree, the plan is authoritative — fix this file.
   2. **An N2 defect was found and fixed** (`716948d`, L13): native LRAT emitted
      hint-less lines that DRAT accepted for free. Verified fixed on the
      instance that exposed it (cake_lpr `s VERIFIED UNSAT`).
-  3. **Track R opened** (the user's "implement every reference rule" directive):
-     X2 `HyperTernaryRes` and X1 `BCE` are implemented, unit-tested, fuzz-green
-     (10k/0 on both proof formats with `--random-policy` applying them), and
-     registered — and they **ship OFF**, by measurement, not by caution: the
-     Tier B A/B says +X2 = 27.56 and +BCE = 239.91 (9/14) against 7.89 shipped.
-     They are correct; the scheduling is not (no effort spec + BCE's naive cost
-     model — see the Log entry). **R3 `Instantiate` and R4 `Reorder` have since
-     landed, both ships-OFF by measurement, and R5's first two increments are in:
-     S-a (the embedded sub-solver) and S-b (its refutation derivation, verified
-     by real drat-trim + lrat-check). NEXT for Track R: S-c — candidate
-     selection + environment construction, `NoOp` on every proof path; the
-     measurable question it answers is whether Sweep finds equivalences at all
-     on our instances, and how many — then S-d…S-f, then R6–R8**
-     (checklist under Track R; R5 Sweep has a design pass at
-     `docs/design/v5-sweep-design.md`). R4's A/B produced the one result Track R
-     has yielded that is not just an inventory tick: **Reorder is at PARITY on
-     Tier B's UNSAT half and 3.4× worse on its SAT half** — a SAT-vs-UNSAT
-     context axis for the §5.6 exhibit that no existing family carries.
+  3. **Track R opened** (the user's "implement every reference rule" directive).
+     X2 `HyperTernaryRes`, X1 `BCE`, X4 `Instantiate` and S7 `Reorder` are all
+     implemented, unit-tested, fuzz-green and registered.
+     **▶ ALL THREE PROOF RULES ARE NOW ON BY DEFAULT** (user directive
+     2026-07-28: "all implemented proof rules need to be turned on!!"). The
+     audit says the default now schedules **13 of 13** Inprocess rules; the
+     hardcoded ships-OFF exclusions are gone. Cost, measured honestly:
+     **Tier B 7.94 → 9.27** (5 windows; kissat 8.55) and **Tier C 314.25 →
+     349.60** (kissat 226.53), i.e. Tier B 0.93× → 1.08× kissat, **no solves
+     lost on either tier** (14/14 and 29/30). The default flip is bit-identical
+     to the measured env arm (probe 1572137, conflict counts equal on three
+     instances). Report `benchmarks/reports/2026-07-28-all-rules-on.md`.
+     **▶ T3 CONSEQUENCE, OWED: the CaDiCaL half of T3 must be re-measured.** It
+     was MET at 303.21 vs CaDiCaL 304.08 (1.00×) with the rules off; at 349.60
+     the margin against a ~304–319 CaDiCaL is 1.10–1.15×, i.e. at or past the
+     10 % criterion. No same-window CaDiCaL arm has been run since the flip —
+     do that before claiming or disclaiming T3.
+     Two results from that campaign matter more than the number:
+     (a) **no rule is separable** — alone they cost 21.79 (BCE) / 53.26 (X2,
+     13/14) / 13.08 (Instantiate) against 9.22 for all three together, so the
+     old one-at-a-time A/B was the one measurement that could not see this;
+     (b) **four hand-designed admission gates are measured-dead** — dose sweep,
+     preprocess-only, L9's density gate, and a yield backoff — all landing
+     27–52 PAR-2 against 9.17 for NO admission at all, three of them killed by
+     mod4block alone. Any PARTIAL suppression breaks the rules' mutual repair.
+     **NEXT for Track R: S-c** (Sweep candidate selection + environment
+     construction), then S-d…S-f, then R6–R8 — each landing ON.
   4. Then the two search-quality items that the evidence says actually carry
      the Kissat gap: **TB4b** (six chrono divergences) and the
      **clause-quality decomposition probe**.
@@ -285,6 +294,20 @@ disagree, the plan is authoritative — fix this file.
     checker that OOMs (cake_lpr needed 4.2 GB where the array task had 8 GB
     total) is indistinguishable from a rejection unless the runner records the
     checker's own output — it did not, and that cost a probe to disambiguate.
+  - **L15 · A rule family's value can be non-separable, and hand-designed
+    admission on such a family is a trap.** X1/X2/X4 alone cost 21.79 / 53.26 /
+    13.08 Tier B PAR-2; all three together cost 9.22 (shipped 7.94). They repair
+    each other — X2 adds ternary resolvents, BCE deletes blocked clauses — so
+    the one-at-a-time A/B that produced three "ships OFF" verdicts was measuring
+    each rule at its worst. Worse, **four independent admission gates all lost
+    badly to NO gate** (dose sweep, preprocess-only, density, yield backoff:
+    27–52 vs 9.17), because each removes one rule's rounds and leaves another
+    rule's damage unrepaired; three of the four died on mod4block alone (L10's
+    intrinsic pathology). Corollary for method: measure a rule family TOGETHER
+    before judging any member, and treat "a clean separating feature exists" as
+    insufficient — the yield axis separated by an order of magnitude (13 vs
+    477–6,726 ticks per deletion) and gating on it still lost 43 PAR-2.
+    (2026-07-28, `benchmarks/reports/2026-07-28-all-rules-on.md`.)
   - **L6 · Measurement hygiene:** solo spot-checks MISLEAD; only same-window
     A/B at equal concurrency counts; never compare across job counts. (The
     old 20.60–23.01 noise band was M3-era — re-establish bands on the cluster
@@ -613,6 +636,16 @@ PAR-2 gap. Order below is measured-value-per-cost, cheapest first; each lands
 under the §5.3 contract (one directory + one registry line) with its own
 stress-policy + fuzz legs on both proof formats and a same-window gate.
 
+**LANDING CONVENTION (user, 2026-07-28 — "all implemented proof rules need to be
+turned on!!"): a rule lands ON.** The earlier "ships OFF until its own A/B says
+it pays" convention is DEAD — it contradicted the standing baseline that a
+rule-off arm is a diagnostic for a SCHEDULING defect, never a shipped default
+([[no-rule-off-configs]]), and it judged rules ONE AT A TIME, which is the one
+measurement that cannot see this family's dominant effect: each of X1/X2/X4
+alone is a disaster (21.79 / 53.26 / 13.08 Tier B) and all three together are
+nearly neutral (9.22 vs 7.94 shipped). Report
+`benchmarks/reports/2026-07-28-all-rules-on.md`.
+
 - [x] **R1 · X2 `HyperTernaryRes`** (cadical `ternary.cpp`) — add-RUP only, no
       witness, no new primitive: the cheapest genuine rule in the gap.
       **IMPLEMENTED** `d0bb6ec` (calculus §6c, 7 unit tests, registered,
@@ -639,7 +672,7 @@ stress-policy + fuzz legs on both proof formats and a same-window gate.
       Fuzz on the shipping build with `--random-policy` (so the rule is applied
       at arbitrary schedule points, every UNSAT checked): **10k/0 DRAT (1570888)
       and 10k/0 native LRAT (1570889)**.
-      **Ships OFF** like R1/R2 (`TACTIX_SLOT_ENABLE=Instantiate` is the arm).
+      **NOW ON by default** (2026-07-28 directive; it was ships-OFF at landing).
       First evidence (probe 1570890): it FIRES but pays nothing — FmlaEquiv
       57,357 probes yield **5 literals**, at 938,595 → 1,025,143 conflicts and
       26.00 → 28.77 s; x9 28 probes / 0 removals; 9vliw no candidates at all.
@@ -801,6 +834,50 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-28 — EVERY PROOF RULE IS ON; four admission gates are measured-dead
+User directive: "all implemented proof rules need to be turned on!!" — which
+closes a drift, because the standing baseline already said a rule-off arm is a
+diagnostic for a scheduling defect, never a shipped default
+([[no-rule-off-configs]]). Track R had grown a "ships OFF until its own A/B
+pays" convention anyway. Report `benchmarks/reports/2026-07-28-all-rules-on.md`
+(7 same-window Tier B arrays, probes 1571606/1571678).
+- **Audit first:** `TACTIX_SLOT_TRACE` showed X1 `BCE`, X2 `HyperTernaryRes` and
+  X4 `Instantiate` were the ONLY disabled entries. The default now schedules
+  **13 of 13** Inprocess rules; the hardcoded name exclusions are gone.
+- **The price, stated plainly: Tier B 7.94 → 9.27** (shipped over 7 windows
+  7.69–8.23, all-on over 5 windows 9.07–9.62; kissat 8.55), i.e. 0.93× → 1.08×
+  kissat, 14/14 throughout. The scheduling that removes this is the open item.
+- **NO RULE IS SEPARABLE, and the old convention could not have seen it.** Alone:
+  +BCE 21.79, +X2 **53.26 (13/14)**, +Instantiate 13.08. Together: **9.22**. X2
+  adds ternary resolvents and BCE deletes blocked clauses, so they cancel; a
+  one-at-a-time A/B measures each rule at its worst and every one of them
+  "fails". Judging rules individually is what produced the ships-OFF verdicts.
+- **Dose is the wrong control (L7/L12 in a third mechanism).** The common-rate
+  sweep 2/5/10/20/50‰ gave 9.99/25.64/19.52/9.62/13.76 — non-monotone — and
+  per-instance decomposition showed **mod4block alone** swinging
+  13/232/139/14/49 with no trend, manufacturing the whole aggregate shape.
+  Underneath it everything is rate-INDEPENDENT: clique wins 50× at every rate.
+  Probe 1571606 gives the mechanism: **BCE's entire value is ONE round on the
+  raw formula** (clique 434,299 → 14,315 conflicts) **and its entire cost is the
+  rounds after it** (rbsat 2 rounds → 4× conflicts). A rate change shrinks each
+  round; it never stops round 2.
+- **FOUR admission designs, all dead** (L15): dose reduction, preprocess-only
+  (27.68), L9's density gate generalized (51.99; at threshold 20, 29.08), and a
+  yield backoff on cost-per-unit-output (52.21) — against **9.17 for no
+  admission at all**. Each helped its target instances (crypto1 6.69→4.93 under
+  density; rbsat 12.7→9.8 under yield) and each was killed by mod4block
+  (263.87 / 300.00 TO / 300.00 TO). The yield axis was an order of magnitude
+  clean — BCE costs 13 ticks/deletion on clique vs 477–6,726 where it hurts, and
+  472k/885k ticks for ZERO deletions on battleship/qwh (probe 1571678) — and it
+  STILL lost 43 PAR-2. **Any partial suppression breaks the mutual repair.**
+  All four are out of the tree per the negative-arm convention; banked in the
+  report. Do not re-run them.
+- Soundness on the new default composition: **10k/0 DRAT (1571808), 10k/0 native
+  LRAT (1571809), 10k/0 `--random-policy` (1571810)**; full ctest green in
+  release and debug.
+- Kept: `TACTIX_SLOT_PERMILLE=Name:rate[,...]`, a §5.6 dosing arm in the shape
+  of `TACTIX_WALK_PERMILLE`.
 
 ### 2026-07-28 — Track R · R5 increment S-b: the refutation is now a payable proof obligation
 The sub-solver records antecedents and hands back a derivation: an ordered lemma
