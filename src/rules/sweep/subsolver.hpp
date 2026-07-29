@@ -98,6 +98,8 @@ public:
   // The rule's effort currency, charged per watch-list entry inspected — the
   // same unit `transitive_ticks` / `ternary_ticks` / `bce_ticks` use.
   uint64_t ticks() const { return ticks_; }
+  // no consumer yet by design: S-f reports it beside `ticks()` when Sweep gets
+  // an effort spec, the way every other rule reports a (yield, effort) pair
   uint64_t conflicts() const { return conflicts_; }
   uint32_t nvars() const { return nvars_; }
   // Ids <= this are original clauses; above it are derived lemmas.

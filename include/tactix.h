@@ -79,6 +79,17 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_FACTOR_TICKS 23     /* Factor work, cache-line units */
 #define TACTIX_STAT_BVE_ELIMINATED 24   /* variables eliminated (E1) */
 #define TACTIX_STAT_BVE_RESOLUTIONS 25  /* BVE work: resolvent attempts */
+/* The Track R families, scheduled since 2026-07-29. Each is exposed as a
+   (yield, effort) PAIR because the 2026-07-28 campaign showed cost-per-unit-
+   output is the axis that orders these rules' outcomes — BCE costs 13 ticks per
+   deletion where it buys a 50x speedup and 7,700..43,000 where it costs us — so
+   a §5.6 learner reading only the yield could not tell those apart. */
+#define TACTIX_STAT_BCE_DELETED 26      /* blocked clauses deleted (X1) */
+#define TACTIX_STAT_BCE_TICKS 27        /* BCE work: occurrences + pairs */
+#define TACTIX_STAT_TERNARY_RESOLVENTS 28 /* ternary resolvents added (X2) */
+#define TACTIX_STAT_TERNARY_TICKS 29    /* X2 work: occurrences + pairs */
+#define TACTIX_STAT_INSTANTIATED 30     /* literals removed (X4) */
+#define TACTIX_STAT_REORDERED 31        /* decision re-rankings (S7 policy op) */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);

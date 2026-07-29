@@ -248,10 +248,13 @@ static void test_stats_and_config_surface(void) {
   tactix_set_work_budget(s, 0);
   tactix_set_vivify_scope(s, 0);
   assert(tactix_solve(s) == 20);
-  /* completeness: every documented id 1..25 answers */
-  for (id = 1; id <= 25; id++)
+  /* completeness: every documented id 1..31 answers. Ids 26-31 are the Track R
+     families' yield/effort pairs — the §5.6 learner reads these as rewards, and
+     the 2026-07-28 campaign showed cost-per-unit-output is the axis that orders
+     their outcomes, so yield alone would not be enough. */
+  for (id = 1; id <= 31; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
-  assert(tactix_stat(s, 26) == UINT64_MAX); /* first unknown id */
+  assert(tactix_stat(s, 32) == UINT64_MAX); /* first unknown id */
   tactix_release(s);
 }
 

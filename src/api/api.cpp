@@ -245,6 +245,19 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.bve_eliminated;
   case 25: // TACTIX_STAT_BVE_RESOLUTIONS
     return k.stats.bve_resolutions;
+  // Track R families (scheduled since 2026-07-29), each as a yield/effort pair
+  case 26: // TACTIX_STAT_BCE_DELETED
+    return k.stats.bce_deleted;
+  case 27: // TACTIX_STAT_BCE_TICKS
+    return k.stats.bce_ticks;
+  case 28: // TACTIX_STAT_TERNARY_RESOLVENTS
+    return k.stats.ternary_resolvents;
+  case 29: // TACTIX_STAT_TERNARY_TICKS
+    return k.stats.ternary_ticks;
+  case 30: // TACTIX_STAT_INSTANTIATED
+    return k.stats.instantiated;
+  case 31: // TACTIX_STAT_REORDERED
+    return k.stats.reordered;
   default:
     return UINT64_MAX;
   }

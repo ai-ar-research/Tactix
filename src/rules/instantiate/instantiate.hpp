@@ -29,10 +29,13 @@
 //    `instantiate` **default OFF** (options.hpp: 0). The idea survives in its
 //    default configuration only as `vivifyinst` — instantiating the LAST
 //    literal during vivification. So the reference itself does not schedule
-//    the standalone rule, and Track R's round-2 result (both new families
-//    measured negative tier-wide, PROGRESS 2026-07-28) is the prior here too.
-//    This lands for inventory completeness + the N1/phase-6 action space; it
-//    ships OFF until its own same-window A/B says otherwise.
+//    the standalone rule. That prior held for us too when the rule was measured
+//    ALONE (Tier B 13.08 vs 8.05 shipped) — but measuring it alone turned out to
+//    be the wrong experiment: with X1 BCE and X2 HyperTernaryRes on beside it the
+//    trio costs 9.22, far less than any member alone, because the families repair
+//    each other (L15). **SCHEDULED since 2026-07-29** — every implemented proof
+//    rule is ON (user directive); `TACTIX_SLOT_DISABLE=Instantiate` is the
+//    ablation arm.
 //
 // Deviations recorded:
 // (1) SCOPE = IRREDUNDANT CLAUSES, matching cadical (its occurrence lists are

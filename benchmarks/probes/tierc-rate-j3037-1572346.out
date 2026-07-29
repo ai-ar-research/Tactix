@@ -1,0 +1,13 @@
+=== j3037_9_rggt_b rate=off ===
+c conflicts   1123032
+c bce         0 rounds, 0 deleted, 0 ticks
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+s SATISFIABLE
+wall 121.19
+=== j3037_9_rggt_b rate=1 ===
+c conflicts   3736531
+c bce         18 rounds, 5698 deleted, 13463464 ticks
+c ternary     43 rounds, 15036 resolvents, 0 binaries, 5751161 ticks
+s SATISFIABLE
+wall 466.59
+=== j3037_9_rggt_b rate=2 ===

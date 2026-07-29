@@ -69,7 +69,6 @@ struct Stats {
   // (FmlaEquiv 1.53x) is a symptom of. Counters only — no trajectory effect.
   uint64_t learned_lits = 0;      // sum of FINAL learned clause sizes
   uint64_t learned_glue_sum = 0;  // sum of learned glues
-  uint64_t learned_raw_lits = 0;  // sum of sizes BEFORE minimize+shrink
   uint64_t minimized = 0; // literals removed by clause minimization
   uint64_t shrunken = 0;  // literals removed by all-UIP block shrinking
   uint64_t otfs_strengthened = 0; // reasons strengthened on the fly

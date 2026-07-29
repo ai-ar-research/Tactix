@@ -1,1 +1,16 @@
 === asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c [rules-off] ===
+c conflicts   1562969
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+c factor      0 factorings
+s UNSATISFIABLE
+=== asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c [HyperTernaryRes,BCE,Instantiate] ===
+c conflicts   2969229
+c bce         15 rounds, 3833 deleted, 165640050 ticks
+c instantiate 2 rounds, 2 literals removed, 4112 probed
+c ternary     43 rounds, 484756 resolvents, 0 binaries, 123355617 ticks
+c factor      0 factorings
+s UNSATISFIABLE
+/home/hwu/SAT-solving/benchmarks/probes/j3037-firing.sh: line 30: syntax error near unexpected token `done'
+/home/hwu/SAT-solving/benchmarks/probes/j3037-firing.sh: line 30: `done'
