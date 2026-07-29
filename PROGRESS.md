@@ -6,7 +6,8 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Plan revision tracked:** rev. 73 (2026-07-29)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-29 — every implemented proof rule is ON (user directive); Track R R3/R4 landed, R5 at S-b; codebase review + hygiene
-  pass done; W4f closed; the rate-2 confirmation has **Tier B COMPLETE, Tier C in flight** (resume action 1).
+  pass done; W4f closed; docs compacted (`011c81f`, rev 73); **the rate-2 confirmation MEASURED — 2‰ clears T3's CaDiCaL half (1.065×) but its
+  premise is refuted, so a replication decides whether it ships** (resume action 1).
 
 ## ▶ RESUME HERE (2026-07-29) — phase 3, T3 open
 
@@ -21,20 +22,24 @@ asconhash +303 s = 100 % of it), so fixing those two recovers the gate.
 
 **NEXT ACTIONS (expected value order).**
 
-1. **▶ the rate-2 confirmation — Tier B done, Tier C decides it.** Arms: shipped default vs rate2
-   (`TACTIX_SLOT_PERMILLE=HyperTernaryRes:2,BCE:2,Instantiate:2`) vs kissat (both tiers) + cadical (Tier C, so the T3 criterion reads directly);
-   all arms write and check proofs; throttle 48, binary `build/pin-rate2/tactix`. **Tier B COMPLETE** (array **1572818**, agg 1572819, rundir
-   `benchmarks/runs/20260729-094218-B-shipped`): **shipped 9.10 / rate2 9.53 / kissat 8.51, 14/14 every arm, proofs written and checked** — rate
-   2 costs ~5 % on Tier B, matching the probe's prediction that Tier B is nearly rate-flat and slightly favours 20; the +6.0 s is summle +8.1 /
-   mp1 +3.9 / square +2.0 against rbsat −5.1 / 9vliw −2.3 / FmlaEquiv −2.0. **Tier C STILL RUNNING** (array **1572861**, agg 1572862, rundir
-   `benchmarks/runs/20260729-094225-C-shipped`) — it is the criterion. **If it holds, bake rate 2 into `EFFORT_SPECS` in
-   `src/policies/default_policy.cpp` and re-run the T3 row.** *Why rate 2* — sweep table ARCHIVED in `50e8d80` +
-   `benchmarks/probes/tierc-rate-{j3037,ascon}-*.out` (jobs 1572346/1572347): rate 2 is the best NON-ZERO rate on BOTH regression instances
-   (rules-off is 410 s on the pair vs 721 at rate 2, but rule-off is never a shipped default — [[no-rule-off-configs]]), saving ~780 s ≈
-   **26 Tier C PAR-2** ⇒ Tier C ≈ 324 vs cadical 314.49 ≈ 1.03×, inside T3's band. Mechanism: the budget is a per-mille of CUMULATIVE search work, so a long
-   solve grants a runaway allowance (BCE 48 rounds / 108 M ticks at 20‰ vs 16 / 16 M at 2‰) — why short Tier B instances cannot see it
-   (rate-flat, 9.62 at 20 vs 9.99 at 2). Curves non-monotone between 1 and 2 (L12). The 26 PAR-2 estimate assumes the other 28 Tier C instances
-   are unmoved — NOT established, and what this run tests.
+1. **▶ DECIDE THE SLOT RATE — measured, and the replication is in flight.** Arms: shipped default vs rate2
+   (`TACTIX_SLOT_PERMILLE=HyperTernaryRes:2,BCE:2,Instantiate:2`), all writing and checking DRAT, throttle 48, binary `build/pin-rate2/tactix`.
+   **Measured 2026-07-29** — Tier B (`20260729-094218-B-shipped`, array 1572818): shipped 9.10 / rate2 9.53 / kissat 8.51, 14/14.
+   Tier C (`20260729-094225-C-shipped`, array 1572861), 29/30 all arms: shipped 361.89 = 1.147× cadical 315.42 / **rate2 335.81 = 1.065×, INSIDE
+   T3's 10 % band** / kissat 229.71. So **2‰ clears T3's CaDiCaL half for +4.7 % Tier B.**
+   **▶ BUT DO NOT SHIP IT ON THIS ALONE.** The probe's premise — "only the two regression instances move" — is REFUTED: **20 of 30 instances move
+   ≥10 s**, the two targets give −1,133 s and the *other 28 net +349 s* (wins constraints_25 −147, T105 −118, EDP3 −117, af-synthesis −92,
+   constraints_18 −68, DLTM −53, sat-bench-trig −48, goldcrest −33; losses **em_11 +304, ContextModel +296**, frb45 +167, Ptn-7824 +139, T87 +78,
+   minxor128 +69). The rate is a corpus-wide, chaotic, two-sided dose — the L7/L12 shape — so the −26 PAR-2 matching the predicted 26 is a
+   coincidence of sums, not a confirmed mechanism, and a chaotic lever replicates poorly.
+   **NEXT: harvest replication window `20260729-112753` (array 1573008, agg 1573009; shipped vs rate2 vs cadical).** If −26 replicates, bake 2‰
+   into `EFFORT_SPECS` (`src/policies/default_policy.cpp`), fuzz, and write the T3 gate report; if it does not, record the negative and treat the
+   slot rate as a §5.6 phase-6 dosing arm rather than a constant — which is where a chaotic two-sided lever belongs anyway. Either way this does
+   NOT contradict L15 (which kills *partial* suppression; a uniform rate keeps every rule running every round).
+   *Why 2‰* — sweep table archived in `50e8d80` + `benchmarks/probes/tierc-rate-{j3037,ascon}-*.out` (jobs 1572346/1572347): best NON-ZERO rate on
+   both regression instances (rules-off is 410 s on the pair vs 721 at 2‰, but rule-off is never a shipped default — [[no-rule-off-configs]]).
+   Mechanism: the budget is a per-mille of CUMULATIVE search work, so a long solve grants a runaway allowance (BCE 48 rounds / 108 M ticks at 20‰
+   vs 16 / 16 M at 2‰) — why short Tier B instances cannot see it. Curves non-monotone between 1 and 2 (L12).
 2. **Track R next: S-c** (Sweep candidate selection + environment construction). Definition of done MUST include fuzz legs on both proof formats
    — review finding R1: the sub-solver is exhaustively unit-tested but never fuzzed, and S-c makes it reachable. Then S-d…S-f, R6–R8, each
    landing ON.
@@ -161,6 +166,12 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   j3037_9_rggt_b (138.8 → 1152.4, +1014 s) and asconhashv12 (324.4 → 627.4, +303 s) account for 100 % of the +1322 s; the other 28 net to zero,
   with minxor128 −234, T87.2.0 −198 and sat-bench-trig −163 paying for the rest.** Recovering those two recovers the gate. Report
   `benchmarks/reports/2026-07-28-all-rules-on.md`
+  **▶ MEASURED 2026-07-29: a uniform slot rate of 2‰ CLEARS this half** — same window `20260729-094225` (29/30 all arms, all writing and checking
+  DRAT): shipped 361.89 = 1.147× cadical 315.42, **rate2 335.81 = 1.065×, inside the band**; kissat 229.71. Cost Tier B 9.10 → 9.53 (+4.7 %,
+  14/14). **NOT yet the shipped default and not yet a gate pass:** the probe's premise ("only the two regression instances move") is REFUTED — 20
+  of 30 instances move ≥10 s and the non-target 28 net +349 s, so this is a corpus-wide chaotic dose (L7/L12), which replicates poorly by
+  construction. Replication window `20260729-112753` (array 1573008) decides whether to bake 2‰ into `EFFORT_SPECS`
+  (`src/policies/default_policy.cpp`) and write the gate report. The Kissat half remains untouched by this.
 
 ## Phase 0 — setup (complete 2026-07-09)
 
@@ -449,10 +460,30 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
-### 2026-07-29 — rate-2 confirmation launched; the living docs compacted
-Tier B array **1572818 COMPLETE: shipped 9.10 / rate2 9.53 / kissat 8.51, 14/14** — rate 2 ~5 % worse on Tier B, as predicted; Tier C array **1572861 still running**
-(cadical baseline, so T3 reads directly). Docs pass (this one follows `c498206`'s): PROGRESS/plan/calculus/implementation-notes condensed to result+pointer one-liners; two drift sites closed — the
-shipped walk dose is **560** (`WALK_PERMILLE`, `default_policy.hpp`), not 640, and W4f was complete but never ticked.
+### 2026-07-29 — rate 2 CLEARS T3's CaDiCaL half, but its stated premise is REFUTED (it is a broad two-sided lever)
+Same-window Tier C (`20260729-094225`, arrays 1572861/1572862, throttle 48, every arm writing and checking DRAT, 29/30 all arms): **shipped 361.89 /
+**rate2 335.81** / cadical 315.42 / kissat 229.71** ⇒ rate 2 is **1.065× cadical, INSIDE T3's 10 % band**, shipped is 1.147×, outside. The saving is
+**−26.1 PAR-2**, which is the probe's predicted 26 almost exactly — **and that agreement is a coincidence of sums, not a confirmation of the
+mechanism.** The probe's premise was "the other 28 instances are unmoved"; **20 of 30 move by ≥10 s.** The two targets give −1,133 s (j3037
+1162.8 → 291.3, asconhash 744.2 → 482.9) and the other 28 net **+349 s**: non-target wins constraints_25 −147, T105 −118, EDP3 −117,
+af-synthesis −92, constraints_18 −68, DLTM −53, sat-bench-trig −48, goldcrest −33 against non-target losses **em_11 +304, ContextModel +296**,
+frb45 +167, Ptn-7824 +139, T87 +78, minxor128 +69. So the slot rate is a **corpus-wide, chaotic, two-sided dose** — the L7/L12 shape — not the
+targeted two-instance fix it was sold as, and a chaotic lever replicates poorly. **Not baked into `EFFORT_SPECS` on one window:** replication
+window `20260729-112753` (array 1573008/1573009, shipped vs rate2 vs cadical) is in flight, and the decision waits on it. Tier B cost measured the
+same day: 9.10 → 9.53 (+4.7 %), 14/14 (array 1572818, `20260729-094218-B-shipped`). NOTE this does NOT contradict L15 — L15 kills *partial*
+suppression (admission gates that stop one rule's rounds while another's damage stands); a uniform rate cut keeps all three rules running every
+round and only shrinks each round.
+
+### 2026-07-29 — the living docs compacted (4,069 → 3,001 lines); two drift sites closed
+`011c81f`, plan rev 73. compact-docs pass, two rounds, each draft adversarially audited for LOSS — which is what made the cut lossless and what
+found the drift. PROGRESS 1482 → 809, plan 1392 → 1251, implementation-notes 667 → 517, calculus 528 → 424 (this one follows `c498206`'s pass).
+**Drift closed:** the shipped walk dose is `WALK_PERMILLE` **560**, not the 640 this file claimed (`0c52fdd` set 640, `61138b8` retuned to 560 once
+the `bumpreasons` rate was fixed; the "200 balanced / 640 Tier C / 400 Tier B" readings were rate ARTEFACTS — L12 — superseded by
+`2026-07-27-tier-c-push.md` §8.2), and **W4f was complete but never ticked** while still telling readers the constant was 50. Also: the Log had no
+entry for `8f6cae4` or `50e8d80`; `implementation-notes` described D-CONG-TAUT as an LRAT-path deviation when it bails in BOTH formats
+deliberately (`congruence.cpp:712/802/969`); PROGRESS cited "plan §5.7" for a design-doc section; plan §5 said "Two obligations" over three.
+Invariants held: 47 → 48 `[x]` (the delta is W4f), all 47 Log entries + 3 new, all 15 lessons, 19/19 rules with calculus entries, every ledger row
+keeping its removal path, ctest 38/38.
 
 ### 2026-07-29 — Tier C rate probe: rate 2 would recover T3's CaDiCaL half
 `50e8d80`, jobs 1572346/1572347 (`benchmarks/probes/tierc-rate-{j3037,ascon}-*.out`). Wall s on the two regression instances, rate off/1/2/5/20(shipped): j3037
