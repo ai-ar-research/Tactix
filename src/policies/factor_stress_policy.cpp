@@ -145,7 +145,7 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       if (budget_mode)
         k.work_budget =
             1 + fs_random(rng) % (budget_mode == 1 ? 4096u : 65536u);
-      const ApplyResult r = factor.apply(k);
+      const ApplyResult r = apply_rule(factor, k);
       k.work_budget = 0;
       if (r == ApplyResult::Unsat)
         return done(20);

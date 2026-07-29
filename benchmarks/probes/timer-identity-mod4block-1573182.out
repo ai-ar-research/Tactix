@@ -1,0 +1,14 @@
+=== OLD mod4block ===
+c decisions   1352448 (0 via API)
+c conflicts   418796
+c propagations 11587871 (11557439 search, 30432 inprocess)
+c learned     418796 (7 units)
+s SATISFIABLE
+wall 12.98
+=== NEW mod4block ===
+c decisions   1352448 (0 via API)
+c conflicts   418796
+c propagations 11587871 (11557439 search, 30432 inprocess)
+c learned     418796 (7 units)
+s SATISFIABLE
+wall 12.99

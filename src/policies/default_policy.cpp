@@ -798,6 +798,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // simplification.
       const uint64_t phase_ticks_at_entry = k.stats.ticks;
       const uint64_t phase_props_at_entry = k.stats.propagations;
+      // Wall clock for the WHOLE slot, so the `c timing` report can separate
+      // the rules' own time (charged per id by apply_rule) from the phase
+      // scaffolding around them — index build, garbage collection, the
+      // scheduling itself. Diagnostic only; nothing reads it back. The phase
+      // has exactly one exit (below), so one accumulate covers every path.
+      const uint64_t phase_nanos_at_entry = now_nanos();
       k.stats.inprocess_phases++;
       if (k.level > 0 && restart_guard(k))
         restart_apply_to(k, 0);
@@ -1031,7 +1037,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                     continue;
                 }
                 const ApplyResult ar =
-                    r.apply_instance(k, inprocess_payloads_[i]);
+                    apply_rule_instance(r, k, inprocess_payloads_[i]);
                 if (ar == ApplyResult::Unsat || k.inconsistent) {
                   phase_unsat = true;
                   break;
@@ -1149,7 +1155,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             k.vivify_scope = 1;
             k.work_budget =
                 irr_delayed ? remaining : std::max<uint64_t>(1, remaining * 7 / 10);
-            ar = r.apply(k);
+            ar = apply_rule(r, k);
             // irredundant pass (delay-gated, ratio-tracked on ITS deltas)
             if (!irr_delayed && ar != ApplyResult::Unsat && !k.inconsistent) {
               const uint64_t spent = e.meter(k);
@@ -1160,7 +1166,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                   k.stats.vivified + k.stats.vivify_deleted;
               k.vivify_scope = 2;
               k.work_budget = irr_budget;
-              const ApplyResult ar2 = r.apply(k);
+              const ApplyResult ar2 = apply_rule(r, k);
               if (ar2 == ApplyResult::Unsat)
                 ar = ar2;
               else if (ar2 == ApplyResult::Ok && ar != ApplyResult::Ok)
@@ -1224,7 +1230,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 k.factor_composite = true;
             }
             k.work_budget = handed;
-            ar = r.apply(k);
+            ar = apply_rule(r, k);
             k.work_budget = 0;
             k.factor_composite = false;
             // A zero-spend NoOp (Factor's density short-circuit returns
@@ -1244,7 +1250,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               e.root_fixed_mark = kernel_root_fixed(k);
             }
           } else {
-            ar = r.apply(k);
+            ar = apply_rule(r, k);
           }
           if (!e.meter) {
             e.binaries_mark = k.binary_ids.size();
@@ -1287,6 +1293,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
       k.stats.inprocess_propagations +=
           k.stats.propagations - phase_props_at_entry;
+      k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
       if (phase_unsat)
         return 20;
       // The phase FIRED (whether or not it simplified anything): count it —

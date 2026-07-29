@@ -72,7 +72,7 @@ int bve_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     // deciding. bve.apply drains root closure at entry and eliminates the best
     // schedulable candidate (or NoOp when none stays within budget).
     if (k.level == 0) {
-      const ApplyResult r = bve.apply(k);
+      const ApplyResult r = apply_rule(bve, k);
       if (r == ApplyResult::Unsat)
         return 20;
       if (r == ApplyResult::Ok) {

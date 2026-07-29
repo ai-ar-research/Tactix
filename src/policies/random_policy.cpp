@@ -87,9 +87,9 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       const uint64_t inst = (m == 0 || next_random(rng) % 3 == 0)
                                 ? INSTANCE_CANONICAL
                                 : insts[next_random(rng) % m];
-      r = rules[id].apply_instance(k, inst);
+      r = apply_rule_instance(rules[id], k, inst);
     } else {
-      r = rules[id].apply(k);
+      r = apply_rule(rules[id], k);
     }
     // per-step rule trace, env-gated (zero cost when off): the diagnostic that
     // pins an N1-schedule bug — it names the rule + result + state at every step

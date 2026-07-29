@@ -83,7 +83,7 @@ int congruence_stress_solve(Kernel &k, uint64_t seed,
       for (uint32_t round = 0; round < max_rounds; round++) {
         if (!cong.guard(k))
           break;
-        const ApplyResult r = cong.apply(k);
+        const ApplyResult r = apply_rule(cong, k);
         if (r == ApplyResult::Unsat)
           return 20; // V6 refuted — the path that did not exist before C3
         if (r != ApplyResult::Ok)
@@ -94,7 +94,7 @@ int congruence_stress_solve(Kernel &k, uint64_t seed,
         // further gates congruent and further XOR keys cancel, so the next round
         // sees genuinely new degeneracies rather than the same ones.
         if (!no_subst && subst.guard(k)) {
-          const ApplyResult s = subst.apply(k);
+          const ApplyResult s = apply_rule(subst, k);
           if (s == ApplyResult::Unsat)
             return 20;
           if (s == ApplyResult::Ok)

@@ -45,6 +45,20 @@ struct Stats {
   // 1.39× throughput gap vs kissat is only comparable on the search share
   // (kissat keeps search_ticks and probing_ticks apart).
   uint64_t inprocess_propagations = 0;
+  // --- wall-clock accounting (DIAGNOSTIC ONLY) ------------------------------
+  // Same contract as inprocess_propagations above: written by the rule-dispatch
+  // wrapper and the policy, NEVER read by the kernel, a guard, or any decision
+  // — so no trajectory can depend on a clock and runs stay bit-reproducible.
+  // Only the statically-dispatched search path (Propagate/Decide/Analyze) is
+  // deliberately NOT timed: it runs per-conflict, so a clock call there would
+  // be the very hot-path cost N3 cannot afford. Search time is therefore
+  // DERIVED as solve_nanos − (everything measured here), which is exactly the
+  // quantity worth reporting anyway (see `c timing` in main.cpp).
+  static constexpr uint32_t MAX_TIMED_RULES = 64;
+  uint64_t rule_nanos[MAX_TIMED_RULES] = {}; // per registry rule id
+  uint64_t rule_calls[MAX_TIMED_RULES] = {};
+  uint64_t inprocess_nanos = 0; // whole slot, incl. scheduling not in a rule
+  uint64_t solve_nanos = 0;     // wall time of solve(), set by the frontend
   uint64_t switched = 0; // mode switches (S4)
   uint64_t target_saved = 0; // target-phase snapshots
   uint64_t best_saved = 0;   // best-phase snapshots

@@ -92,7 +92,7 @@ int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) 
         const RuleVTable &r = *probers[order[i]];
         if (!r.guard(k))
           continue;
-        const ApplyResult ar = r.apply(k);
+        const ApplyResult ar = apply_rule(r, k);
         if (ar == ApplyResult::Unsat)
           return 20;
         step(r.name);

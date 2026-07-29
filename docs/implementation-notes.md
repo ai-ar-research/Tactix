@@ -515,3 +515,38 @@ refreshing the cache. The reset would be a no-op with a cost.
 **Prior on the measurement (L11).** kissat's own ablation: `--reorder=0` costs kissat −0.7 PAR-2 on Tier
 C, i.e. nothing. Landed for inventory completeness under the "implement every reference rule" directive;
 the A/B is expected to confirm the reference's own verdict rather than promote it.
+
+## 11. Design decision: wall-clock phase timers are diagnostic-only, and search is DERIVED
+
+`Stats` carries `rule_nanos[]`/`rule_calls[]` (per registry rule id), `inprocess_nanos` (the whole
+slot) and `solve_nanos` (set by the frontend); `main.cpp` prints them as the `c timing` block. Three
+decisions are load-bearing.
+
+**(a) Nothing may read a clock back.** The fields follow `inprocess_propagations`' contract exactly:
+written by the dispatch wrapper and the policy, never read by the kernel, a guard, or any decision.
+A clock that reached a decision would make runs irreproducible and would silently break every
+bit-exactness gate the project relies on (Track H, TB4, the corpus). Enforced by inspection — the
+identifiers appear only in `kernel.hpp` (declaration), `registry.cpp` + `default_policy.cpp` (writes)
+and `main.cpp` (the report) — and empirically: 5 instances across both verdicts reproduce decisions
+AND conflicts to the digit against the pre-timer build, and a same-window Tier B A/B writes
+byte-identical proofs (251.5 MB both arms) at 9.04 vs 9.21 PAR-2, i.e. no measurable cost.
+
+**(b) The per-conflict path is deliberately NOT timed.** DefaultPolicy dispatches M1/M2/M3
+statically, so a timer there would fire per propagation/conflict — exactly the hot-path cost N3
+cannot pay. Instead the *interruptions* are measured (the inprocessing slot, and every rule reached
+through the registry) and **search is derived as `solve − slot`**. That is also the more useful
+quantity: the question the block exists to answer is "how much of the wall clock is inprocessing, and
+which rule", not "how many ns is one propagation".
+
+**(c) The seam is the registry, not DefaultPolicy.** `apply_rule` / `apply_rule_instance` wrap
+`vt.apply` / `vt.apply_instance`, and every dispatch outside `src/rules/` routes through them — the
+C API (`tactix_apply`, `tactix_apply_instance`), the random and stress policies, and DefaultPolicy's
+slot. Instrumenting DefaultPolicy alone would measure the default schedule only; N1's whole point is
+that any policy may drive the rules, and a profile that goes blind under an external policy is the
+wrong instrument for the §5.6 learner. `RuleVTable::id` (index after the name-sort) is what lets a
+vtable reference charge its own slot without callers threading ids around; an id at or beyond
+`Stats::MAX_TIMED_RULES` drops the measurement rather than scribbling on a neighbour.
+
+**Known gap:** a rule that applied another rule internally would double-count. No rule does today
+(§5.3 keeps them self-contained), and the slot's `(unattributed)` line — `inprocess_nanos` minus the
+rules charged inside it — is where such a discrepancy would show up as scaffolding cost.

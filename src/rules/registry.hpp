@@ -90,7 +90,26 @@ struct RuleVTable {
   // (TACTIX_REGISTER_RULE ⇒ ProofRule, TACTIX_REGISTER_POLICY_OP ⇒ PolicyOp),
   // not by the brace-init, so existing registration lines are unchanged.
   ActionKind kind = ActionKind::ProofRule;
+  // This rule's id == its index in tactix_rules(). Stamped there after the
+  // name-sort, so a vtable reference can charge its own timing slot without the
+  // caller threading the id through. Not set by registration.
+  uint32_t id = 0;
 };
+
+// --- rule-dispatch timing (diagnostic; see Stats' wall-clock block) ---------
+// Monotonic nanoseconds. CLOCK_MONOTONIC via the vDSO is ~20 ns, and these
+// wrappers only ever fire on registry dispatch — the inprocessing slot, the C
+// API, and the fuzz/stress policies — never on the per-conflict search path,
+// which DefaultPolicy dispatches statically.
+uint64_t now_nanos();
+
+// Apply a rule THROUGH the registry, charging its wall time to the rule's slot.
+// Every registry dispatch should go through these two so the accounting covers
+// N1's whole surface (any policy, plus tactix_apply/tactix_apply_instance) and
+// not merely DefaultPolicy's slot. Timing is pure bookkeeping: the return value
+// and every kernel effect are exactly vt.apply's.
+ApplyResult apply_rule(const RuleVTable &vt, Kernel &k);
+ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k, uint64_t inst);
 
 // registration (called from static initializers in rule modules); the macros
 // pass the ActionKind, which stamps the vtable before it is stored.

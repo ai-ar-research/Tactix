@@ -15,6 +15,11 @@
 #include "policies/random_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp" // BveGate enum for --bve-gates
+#include "rules/registry.hpp" // now_nanos + the rule list for `c timing`
+
+#include <algorithm>
+#include <utility>
+#include <vector>
 
 #include <csignal>
 #include <cstdlib>
@@ -266,6 +271,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  const uint64_t solve_t0 = tactix::now_nanos();
   const int res =
       probing_stress_policy
           ? probing_stress_solve(kernel, random_seed, &caught_signal)
@@ -281,6 +287,7 @@ int main(int argc, char **argv) {
           ? adversarial_solve(kernel, random_seed, &caught_signal)
       : random_policy ? random_solve(kernel, random_seed, &caught_signal)
                       : default_solve(kernel, &caught_signal);
+  kernel.stats.solve_nanos = tactix::now_nanos() - solve_t0;
 
   proof.flush();
   if (!quiet) {
@@ -412,6 +419,40 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.forward_subsumptions,
            (unsigned long long)kernel.stats.forward_checked,
            (unsigned long long)kernel.stats.forward_subsumed);
+    // --- `c timing`: where the wall clock actually goes ---------------------
+    // Rules are charged individually by the registry dispatch wrapper; the SLOT
+    // line is the whole inprocessing phase, so (slot − Σ rules in it) is the
+    // scaffolding (occurrence index, garbage collection, scheduling). SEARCH is
+    // DERIVED as solve − slot, because the per-conflict path is deliberately
+    // untimed (a clock there is exactly the hot-path cost N3 cannot pay), and
+    // it is the residual that matters anyway. Rules dispatched OUTSIDE the slot
+    // (the C API, the fuzz/stress policies) are charged too, so under those
+    // policies "search" is the residual after them as well.
+    {
+      const double total_ms = kernel.stats.solve_nanos / 1e6;
+      const double slot_ms = kernel.stats.inprocess_nanos / 1e6;
+      auto pct = [&](double ms) { return total_ms > 0 ? 100.0 * ms / total_ms : 0.0; };
+      printf("c timing      %.0f ms solve\n", total_ms);
+      printf("c timing      %.0f ms (%.1f%%) inprocessing slot, %.0f ms (%.1f%%) "
+             "search+scaffolding outside it\n",
+             slot_ms, pct(slot_ms), total_ms - slot_ms, pct(total_ms - slot_ms));
+      // per-rule, biggest first; only rules that actually ran
+      const auto &rules = tactix::tactix_rules();
+      std::vector<std::pair<uint64_t, size_t>> ranked;
+      double charged_ms = 0;
+      for (size_t i = 0; i < rules.size() && i < tactix::Stats::MAX_TIMED_RULES; i++)
+        if (kernel.stats.rule_calls[i]) {
+          ranked.push_back({kernel.stats.rule_nanos[i], i});
+          charged_ms += kernel.stats.rule_nanos[i] / 1e6;
+        }
+      std::sort(ranked.rbegin(), ranked.rend());
+      for (const auto &e : ranked)
+        printf("c timing        %-16s %9.0f ms (%5.1f%%) in %llu applications\n",
+               rules[e.second].name, e.first / 1e6, pct(e.first / 1e6),
+               (unsigned long long)kernel.stats.rule_calls[e.second]);
+      printf("c timing        %-16s %9.0f ms (%5.1f%%)\n", "(unattributed)",
+             slot_ms - charged_ms, pct(slot_ms - charged_ms));
+    }
   }
   if (res == 10) {
     kernel_extend_model(kernel); // rebuild the model through rho (plan §4)

@@ -151,7 +151,7 @@ int tactix_apply(tactix_solver *s, int rule_id) {
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
     return -1;
-  const ApplyResult res = r.apply(s->kernel);
+  const ApplyResult res = apply_rule(r, s->kernel);
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(res);
 }
@@ -182,9 +182,9 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
     return -1;
   ApplyResult res;
   if (instance == INSTANCE_CANONICAL || !r.apply_instance)
-    res = r.apply(s->kernel); // canonical (the only instance if no slot)
+    res = apply_rule(r, s->kernel); // canonical (the only instance if no slot)
   else
-    res = r.apply_instance(s->kernel, instance);
+    res = apply_rule_instance(r, s->kernel, instance);
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(res);
 }

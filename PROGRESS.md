@@ -467,6 +467,50 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-29 — `c timing`: per-rule wall clock, and j3037's 45× gap is BCE mis-scheduling
+**Phase timers land** (`docs/implementation-notes.md` §11): `Stats.rule_nanos[]/rule_calls[]` charged by a
+registry-level dispatch wrapper (`apply_rule`/`apply_rule_instance`, so the C API and every stress/random
+policy are covered too, not just DefaultPolicy's slot), plus `inprocess_nanos` for the whole slot and
+`solve_nanos`; `main.cpp` prints `c timing`. **Search is DERIVED as solve − slot** — the per-conflict path
+is deliberately untimed because a clock there is the one hot-path cost N3 cannot pay. Diagnostic-only, and
+verified so: 5 instances reproduce **decisions AND conflicts to the digit** vs the pre-timer build
+(probes 1573179–83), same-window Tier B **9.04 vs 9.21 PAR-2 with byte-identical 251.5 MB proofs**
+(`20260729-151019-B-pretimer`) ⇒ no measurable overhead. ctest 38/38.
+**And it was built to answer a question that the probes then answered outright.** debug-performance on
+`j3037_9_rggt_b` — 1162.8 s vs cadical 25.8 (45×), alone 37.9 of the 47.2 PAR-2 Tier C gap (probes
+1573169–77, `benchmarks/probes/j3037-decompose.sh`):
+
+| arm | wall | conflicts | BCE rounds | µs/conflict |
+|---|---|---|---|---|
+| shipped | 978.4 | 7,604,704 | 48 | 129 |
+| −X2 | 545.2 | 4,467,557 | 37 | 122 |
+| −X4 | 181.5 | 1,628,530 | 27 | 111 |
+| **−BCE** | **148.6** | **1,278,932** | 0 | 116 |
+| −all three | 128.1 | 1,123,032 | 0 | 114 |
+| kissat | 135.6 | 1,910,509 | — | 71 |
+| cadical | 24.0 | 217,547 | — | 110 |
+
+**Conflicts track BCE ROUNDS monotonically — 48 → 7.60 M, 37 → 4.47 M, 27 → 1.63 M, 0 → 1.28 M — while
+µs/conflict is FLAT at 111–129.** So the 6.6× wall-time blowup is entirely tree size; BCE's own 108 M
+ticks are not the cost, what BCE does to the search is.
+
+**BCE alone is the whole thing** (ladder step 2/4): with it off we need **fewer conflicts than kissat**
+(1.28 M vs 1.91 M) at 148.6 s vs its 135.6 — parity, so **our search is NOT the defect**. The damage is
+CONFLICTS, not BCE's own runtime (L7's shape in a new mechanism): every extra round inflates the tree.
+This is the same mechanism the all-rules-ON report named — "BCE's entire value is ONE round on the raw
+formula and its entire cost is the rounds after it" — now with a per-instance price tag on it.
+**Step 3, the missing-rule check, comes back NEGATIVE and is worth banking:** `cadical --sweep=false` is
+**21.1 s vs its 23.97** — unchanged — so V5 Sweep (R5, the one big pass we lack) does NOT explain
+cadical's advantage here. kissat's sweep IS worth 2× to kissat (135.6 → 277.3 s, 1.91 M → 3.90 M
+conflicts), so the rule is real but it is not what makes cadical 6× better than kissat on this instance.
+**Two separate findings, do not conflate them:** (i) the actionable 1000 s is BCE scheduling, ours to fix;
+(ii) cadical reaching 217 k conflicts where kissat needs 1.91 M and we need 1.28 M is a second, unexplained
+advantage — NOT sweep, and not sized yet.
+**Routing:** (i) → rule-dev/scheduling, with the L15 tension stated honestly — "BCE preprocess-only" is one
+of the four admission designs already measured-dead **on Tier B** (27.68 vs 9.17), so a Tier-C-motivated
+"run BCE once" must be re-measured on BOTH tiers before it can ship. (ii) → a separate debug-performance
+pass, not started.
+
 ### 2026-07-29 — slot rate 2‰ does NOT reliably clear T3: it is a REPRODUCIBLE per-instance trade, marginal in aggregate — §5.6 arm, not a constant
 **Replication decided it** (window `20260729-112753`, array 1573008, same arms, same throttle): **shipped 357.31 / rate2 348.57 / cadical 316.58**,
 29/30 all arms ⇒ rate2 = **1.101× cadical, OUTSIDE the 10 % band**, against 1.065× (inside) in window `20260729-094225` two hours earlier. The
