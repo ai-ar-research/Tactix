@@ -7,73 +7,64 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 72 (2026-07-27)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-28 (Track R · R5 increments S-a and S-b: the Sweep
-  sub-solver lands (1M brute-force iterations green) and its refutations are now
-  derivations verified by drat-trim + lrat-check. R4 `Reorder` ships OFF —
-  Tier B UNSAT at parity, SAT 3.4× worse; the R3 `Instantiate` Tier B A/B
-  harvested. Earlier: Tier C push + the Tier B recovery: walk dose 560 + reason-side bumping + dynamic tiers, bumpreasons rate 20 — **Tier C 382.94 → 303.21 = CaDiCaL parity, Tier B 9.11 → 8.10 = AHEAD of kissat, Tier A 200/200**. Report `benchmarks/reports/2026-07-27-tier-c-push.md`, incl. §8 addendum)
-- **▶ RESUME HERE (2026-07-27, late session).** Phase 3. Read this block, then
-  the two entries at the top of the Log.
-  1. **MEASUREMENT PROTOCOL CHANGED (plan rev 72, user):** every arm — ours and
-     every baseline — is now timed WITH proof generation, our failed check
-     scores unsolved while a baseline's is recorded only, and the checker gets
-     `max(3600 s, 4 × timeout)`. Report `2026-07-27-like-for-like-proofs.md`.
-     **Like-for-like standings: Tier B 0.91× kissat, Tier C 1.41× kissat and
-     1.00× CaDiCaL.** Tier B improved by the honest protocol (0.95× → 0.91×),
-     Tier C got worse (1.38× → 1.41×) — our proof tax is +6.9 %/+2.8 % vs
-     kissat's +4.4 %/+0.6 %. Both directions reported. We are clearly ahead on
-     certificate cost: 7.65 GB / 5231 s vs kissat 9.93 GB / 13498 s.
-     **End-of-session validation of the SHIPPED binary under the new protocol**
-     (every arm writing DRAT, throttle 48, windows `20260727-2244*`):
-     **Tier A 0.44 (200/200) vs kissat 0.45 = 0.98×; Tier B 7.91 (14/14) vs
-     kissat 8.67 = 0.91×, CaDiCaL 19.96** — all 118 Tier A + 7 Tier B UNSAT
-     proofs drat-trim-verified. The congruence fix changes DRAT trajectories
-     too (the tautology skip is format-independent by design); this run is the
-     evidence it cost nothing (7.89 → 7.91 is inside noise).
-  2. **An N2 defect was found and fixed** (`716948d`, L13): native LRAT emitted
-     hint-less lines that DRAT accepted for free. Verified fixed on the
-     instance that exposed it (cake_lpr `s VERIFIED UNSAT`).
-  3. **Track R opened** (the user's "implement every reference rule" directive).
-     X2 `HyperTernaryRes`, X1 `BCE`, X4 `Instantiate` and S7 `Reorder` are all
-     implemented, unit-tested, fuzz-green and registered.
-     **▶ ALL THREE PROOF RULES ARE NOW ON BY DEFAULT** (user directive
-     2026-07-28: "all implemented proof rules need to be turned on!!"). The
-     audit says the default now schedules **13 of 13** Inprocess rules; the
-     hardcoded ships-OFF exclusions are gone. Cost, measured honestly:
-     **Tier B 7.94 → 9.27** (5 windows; kissat 8.55) and **Tier C 314.25 →
-     349.60** (kissat 226.53), i.e. Tier B 0.93× → 1.08× kissat, **no solves
-     lost on either tier** (14/14 and 29/30). The default flip is bit-identical
-     to the measured env arm (probe 1572137, conflict counts equal on three
-     instances). Report `benchmarks/reports/2026-07-28-all-rules-on.md`.
-     **▶ T3 CONSEQUENCE, OWED: the CaDiCaL half of T3 must be re-measured.** It
-     was MET at 303.21 vs CaDiCaL 304.08 (1.00×) with the rules off; at 349.60
-     the margin against a ~304–319 CaDiCaL is 1.10–1.15×, i.e. at or past the
-     10 % criterion. No same-window CaDiCaL arm has been run since the flip —
-     do that before claiming or disclaiming T3.
-     Two results from that campaign matter more than the number:
-     (a) **no rule is separable** — alone they cost 21.79 (BCE) / 53.26 (X2,
-     13/14) / 13.08 (Instantiate) against 9.22 for all three together, so the
-     old one-at-a-time A/B was the one measurement that could not see this;
-     (b) **four hand-designed admission gates are measured-dead** — dose sweep,
-     preprocess-only, L9's density gate, and a yield backoff — all landing
-     27–52 PAR-2 against 9.17 for NO admission at all, three of them killed by
-     mod4block alone. Any PARTIAL suppression breaks the rules' mutual repair.
-     **The joint-admission lever is narrower than it looks, and the constraint
-     is measured.** mod4block is NON-MONOTONE in how consistently the trio runs:
+- **Last updated:** 2026-07-29 — every implemented proof rule is now ON
+  (user directive); Track R R3/R4 landed and R5 reached S-b; codebase review +
+  hygiene pass done.
+- **▶ RESUME HERE (2026-07-29).** Phase 3. Read this block, then the top Log
+  entries.
+  1. **WHAT SHIPS + WHERE WE STAND.** Like-for-like (every arm writes and checks
+     proofs, plan rev 72): **Tier A 0.44 (200/200) vs kissat 0.45; Tier B 9.27
+     vs kissat 8.55; Tier C 349.60 (29/30) vs kissat 226.53, cadical 314.49.**
+     **Both T3 criteria are open**: the Kissat half at 1.37× on the rule-neutral
+     subset (never met), and the CaDiCaL half at 1.14× — *lost by the
+     all-rules-ON flip*, which the T3 row records in full. **The whole Tier C
+     cost is TWO instances** (j3037 +1014 s, asconhash +303 s = 100 % of it),
+     so the gate is recoverable by fixing those two.
+  2. **THE ALL-RULES-ON DIRECTIVE** (user, 2026-07-28: "all implemented proof
+     rules need to be turned on!!"). 13 of 13 Inprocess rules are scheduled;
+     the hardcoded ships-OFF exclusions are gone (`3fb85bd`). Two results carry
+     forward — **no rule is separable** (alone: BCE 21.79, X2 53.26, X4 13.08;
+     together 9.22) and **four hand-designed admission gates all lost to no gate
+     at all** (27–52 vs 9.17). Both are lesson L15; report
+     `benchmarks/reports/2026-07-28-all-rules-on.md`. Standing baseline
+     ([[no-rule-off-configs]]): a rule-off arm is a diagnostic for a SCHEDULING
+     defect, never a shipped default. **Scope word: *proof rule*.** S7 `Reorder`
+     is a policy op and is NOT covered — ask before flipping it.
+  3. **Track R** (the "implement every reference rule" directive). X2
+     `HyperTernaryRes`, X1 `BCE`, X4 `Instantiate` and S7 `Reorder` are
+     implemented, unit-tested, fuzz-green and registered; R5 `Sweep` has its
+     sub-solver (S-a) and its refutation derivation (S-b). Per-item detail is in
+     the Track R checklist below.
+     **The joint-admission lever is narrower than it looks, and the constraint is
+     measured.** mod4block is NON-MONOTONE in how consistently the trio runs:
      never 9.26, always 13.17, **once-then-stop 263.87**. Doing the rewrite and
      then withdrawing the maintenance is far worse than either extreme, so the
-     trio has to run CONSISTENTLY — all solve or none. That kills every
-     mid-solve decision (you cannot measure the trio's productivity without
-     already having run it, and having run it you cannot stop), leaving only a
-     STATIC per-instance decision taken before the first round. L5 is the
-     warning on that path: a static "skip on harmful structure" separator was
-     measured ≈ chance (4/13). Treat it as a phase-6 context feature, not an
-     engineering lever, unless new evidence appears.
+     trio must run all-solve or not at all. That kills every mid-solve decision
+     (you cannot measure the trio's productivity without having run it, and
+     having run it you cannot stop), leaving only a STATIC per-instance decision
+     — which is what L5 measured at chance. Treat it as a phase-6 context
+     feature, not an engineering lever, absent new evidence.
+     **▶ IN FLIGHT AT SESSION END (2026-07-29 ~04:00): jobs 1572346 (j3037) and
+     1572347 (asconhash)** — a rate sweep (off/1/2/5/20‰) on the two instances
+     that are 100 % of the Tier C regression, writing to
+     `benchmarks/probes/tierc-rate-{j3037,ascon}-<jobid>.out`. **Harvest these
+     first.** Partial result already in hand and promising: **j3037 at rate 1 is
+     466.59 s against 1152 s at the shipped rate 20 and 121 s with the rules
+     off**, and **rate 2 is better still at 257.97 s** (16 BCE rounds / 16 M
+     ticks, against 48 / 108 M at the shipped rate). Non-monotone between 1 and
+     2, so decompose before reading a trend (L12). So dose
+     reduction recovers most of the damage in the LONG-SOLVE regime — the
+     opposite of Tier B, where every rate lost. That is why the Tier B sweep
+     could not see it: those instances are short, and the budget is a per-mille
+     of CUMULATIVE search work, so only a long solve grants a runaway allowance.
+     If it holds, a rate cut is the cheapest route back to T3's CaDiCaL half —
+     confirm on Tier B **and** C before shipping, since Tier B is the tier that
+     punished low rates.
      **NEXT for Track R: S-c** (Sweep candidate selection + environment
-     construction), then S-d…S-f, then R6–R8 — each landing ON.
-  4. Then the two search-quality items that the evidence says actually carry
-     the Kissat gap: **TB4b** (six chrono divergences) and the
-     **clause-quality decomposition probe**.
+     construction) — its definition of done MUST include fuzz legs on both proof
+     formats (review finding R1: the sub-solver is exhaustively unit-tested but
+     never fuzzed, and S-c is what makes it reachable). Then S-d…S-f, R6–R8 —
+     each landing ON.
 
   **T3: the CaDiCaL criterion is MET
   (1.00×), the Kissat-parity-on-the-rule-neutral-subset criterion is NOT
@@ -82,135 +73,57 @@ disagree, the plan is authoritative — fix this file.
   fuzz via `tools/fuzz/slurm.sh`, sbatch-only); M3-Pro numbers are INVALID —
   never compare cluster ↔ M3-Pro (revs 64/65).
 
-  **SAME-WINDOW STANDINGS, 2026-07-27** (windows `20260727-0922*`, one array
-  per tier. tactix WRITES DRAT and every UNSAT is drat-trim verified; the
-  baselines are timed proof-free — the conservative direction):
-  | | tactix | kissat 4.0.4 | CaDiCaL | vs kissat | vs CaDiCaL |
-  |---|---|---|---|---|---|
-  | Tier A | 0.45 (200/200) | 0.45 (200/200) | 0.75 (199/200) | 1.00× | 0.60× |
-  | Tier B | **8.10** (14/14) | 8.48 (14/14) | 19.62 (14/14) | **0.96×** | 0.41× |
-  | Tier C | **303.21** (29/30) | 223.14 (29/30) | 304.08 (29/30) | 1.36× | **1.00×** |
-  Session start was Tier A 0.71 / Tier B 9.11 / Tier C 382.94, so **all three
-  tiers improved** and Tier B ended ahead of kissat rather than merely
-  recovered. Tier C unsolved: `128_125` alone (all three solvers fail).
-  **Rule-neutral subset (T3's second criterion, 24/30 — derived from the kissat
-  /cadical ablation: sweep costs neither baseline > 25 %): tactix 345.42 vs
-  cadical 320.86 (1.08×, inside 10 %) vs kissat 252.93 (1.37×).** CaDiCaL half
-  met, Kissat half not — and the residual now sits on the rule-neutral UNSAT
-  families, exactly where the ablation said the remaining work is.
-  (The earlier `urq45` DRAT-check blowup is GONE at this configuration: 194.7 s,
-  349 MB, drat-trim VERIFIED in 1446.8 s. It belonged to the rate-10 arm, not
-  to dynamic tiers. All 15 Tier C UNSAT proofs verify.)
+  **STANDINGS.** Current, at the all-rules-ON default (like-for-like, every arm
+  writing and checking proofs): **Tier A 0.44 (200/200) vs kissat 0.45**;
+  **Tier B 9.27 vs kissat 8.55**; **Tier C 349.60 (29/30) vs kissat 226.53 and
+  cadical 314.49**. With the rules off the same windows give Tier B 7.94 and
+  Tier C 313–314 — see the T3 row and
+  `benchmarks/reports/2026-07-28-all-rules-on.md` for the full decomposition.
+  We remain far ahead on certificate cost (Tier C: 7.6 GB / 4,809 s vs kissat
+  9.9 GB / 16,975 s, one kissat proof over the checker budget).
 
-  **Shipped default = the S4 ARRANGEMENT + density-gated doses + the
-  closure-delay ladder + S6 Walk at 640 per mille** (S4 gate report
-  `2026-07-25-s4-gate-mp1.md`; ladder default ON `2639a5a`).
-  **THE WALK-DOSE SWEEP, re-picked ON TOP of the pair below** (windows
-  `20260727-000127-C-walkdose` then `20260727-0132*-dose2`; one array each):
-  | per-mille | 50 (was) | 200 | 400 | **640 (now)** | 1000 | kissat | cadical |
-  |---|---|---|---|---|---|---|---|
-  | Tier C, with the pair | 308.88 | 323.01 | 337.34 | **283.44** | 381.23 | 228.31 | 304.07 |
-  | Tier B, with the pair | 16.41 | 11.44 | 10.16 | **14.22** | 11.94 | 8.50 | 19.33 |
-  640 is the only arm that both flips `mp1-Nb5T15` (TIMEOUT → 26.1 s) and keeps
-  `SCPC-1000-18` fast; it is the Tier C optimum by a wide margin and the Tier B
-  optimum moved to 400. **No setting is best on both** — `WALK_PERMILLE=200` is
-  the balanced compromise (C 323.01 / B 11.44), one env var away — so "how hard
-  to walk" stays a §5.6 dosing exhibit. The remaining Tier C unsolved is
-  `128_125` alone (all three solvers fail).
+  **Shipped default = the S4 ARRANGEMENT + density-gated BVE doses + the
+  closure-delay ladder + S6 Walk at 640‰ + reason-side bumping and dynamic tiers
+  (they ship as ONE mechanism — `implementation-notes.md` §9) + `bumpreasons`
+  rate 20 + EVERY implemented proof rule.** Reports:
+  `2026-07-25-s4-gate-mp1.md`, `2026-07-27-tier-c-push.md`,
+  `2026-07-28-all-rules-on.md`. Dosing knobs that are §5.6 arms rather than
+  settled constants: `TACTIX_WALK_PERMILLE` (200 is the balanced compromise;
+  640 is the Tier C optimum and 400 the Tier B one — no setting wins both),
+  `TACTIX_BUMP_REASONS_RATE` (30 gives Tier B parity for ~49 Tier C),
+  `TACTIX_SLOT_PERMILLE`.
 
-  **▶ THE DECISIVE NEW EVIDENCE (2026-07-27): the mechanisms we LACK are
-  ≤ 9 % of the gap to kissat.** Same-window kissat/cadical technique ablation
-  on the whole of Tier C (window `20260727-002213-C-kabl`, proof-free):
-  | kissat arm | Tier C PAR-2 | Δ |
-  |---|---|---|
-  | default | 228.14 | — |
-  | `--reorder=0` | 227.47 | **−0.7 (nothing)** |
-  | `--eagersubsume=0` | 234.08 | +5.9 |
-  | `--definitions=0` | 234.19 | +6.1 |
-  | `--randec=0` | 236.05 | +7.9 |
-  | `--sweep=0` | 242.14 | +14.0 |
-  | **ALL SIX off** (the L8 all-off control) | **242.46** | **+14.3** |
-  | `--bumpreasons=0` | 265.99 | **+37.9** |
-  Our gap to kissat is 161 PAR-2 (382.94 − 221.28, pre-dose). Turning off
-  *every* technique we lack costs kissat 14.3. **So V5 Sweep and S7 Reorder
-  are not the Tier C gap** (sweep 14 as an inflated single ablation, reorder
-  literally nothing) — the gap is the QUALITY AND DOSING of what we already
-  have. Reason-side bumping is the one exception worth having: it is the
-  largest single item in kissat's own ablation.
+  **L11, the standing counter-evidence on missing rules** (window
+  `20260727-002213-C-kabl`): kissat with sweep + reorder + bumpreasons + randec
+  + eagersubsume + definitions ALL disabled loses only **14.3** PAR-2, against
+  our ~90–130 gap; `--reorder=0` costs it nothing. So V5 Sweep and S7 Reorder
+  are inventory completeness, not the Tier C lever — the gap is the quality and
+  dosing of what we already have. The one exception, reason-side bumping
+  (`--bumpreasons=0` costs kissat 37.9 alone), was implemented the same night.
 
-  **▶ THE SECOND LANDING (2026-07-27): reason-side bumping + dynamic tiers,
-  ON TOGETHER.** Same-window Tier C (`20260727-005552-C-pairs`), shipped
-  default = 322.84 with the 640 dose:
-  | arm | Tier C | Tier B |
-  |---|---|---|
-  | shipped (dose only) | 322.84 | 13.46 |
-  | + reason-side bumping alone | 391.90 | 52.20 (mod4block TO) |
-  | + dynamic tiers alone | 424.26 | 11.40 |
-  | **+ BOTH (now the default)** | **273.21** | 14.58 |
-  | + both + `REDUCE_SQRT` | 294.78 | 52.60 |
-  | BVE `cadence-open` | 422.73 | 53.57 |
-  | Walk `NO_TARGET` | 361.44 | 12.26 |
-  | kissat / cadical | 228.30 / 308.10 | 8.89 / 19.53 |
-  Either alone loses, the pair wins by 50 — kissat's retention bands are
-  quantiles of the glue distribution of the clauses the search USES, and
-  reason-side bumping changes which clauses those are, so the two references
-  ship them together and so do we (`docs/implementation-notes.md` §9).
-  `TACTIX_NO_BUMP_REASONS` / `TACTIX_NO_DYNAMIC_TIERS` revert independently;
-  `TACTIX_REDUCE_SQRT` stays a default-off §5.6 dosing arm.
-  Shipping-build fuzz (re-run on the FINAL binary): **10 k/0 DRAT, 10 k/0
-  native LRAT, 10 k/0 `--random-policy`** (jobs 1567935/36/37).
-  **The `bumpreasons` RATE is the second shipped constant that is not the
-  reference's**: kissat says 10, cadical 100, we ship **20** — measured, and
-  the reason it matters is §8 of the report (it, not the walk dose, was the
-  Tier B regression).
-
-  **▶ NEXT STEP (in order of expected value).** The gate that remains open is
-  **T3's Kissat half**: 1.20× kissat on the 24-instance rule-neutral subset.
-  Everything below aims at that (and at the Tier B regression, which has the
-  same cause — the residual is search quality, not missing rules, L11).
-  1. **CLOSED — and the "every lever is two-sided" reading was WRONG.** It
-     looked that way because the dose sweep was run at the wrong `bumpreasons`
-     rate. A per-instance driver grid (probe 1567225, report §8.1) showed that
-     of the four instances carrying the whole Tier B regression, two are
-     dose-FLAT, one is dose-CHAOTIC (crypto1, 11.8× spread, no trend) and only
-     one has a real dose threshold — while ALL FOUR respond to the rate. Rate
-     10 → 20 took Tier B 14.57 → 7.57, and re-sweeping the dose at rate 20
-     showed **Tier C has no dose trend at all over 400–800** (279.8–314.5, the
-     chaos band). The apparent two-sidedness was an artefact of one constant
-     being wrong. **Method lesson: decompose per instance BEFORE reading a
-     trend off a tier aggregate** — this is L7's "the interval is the wrong
-     control" repeating in a new mechanism. Shipped: dose 560, rate 20.
-  2. **DONE tonight, and it made the point sharper** (windows
-     `20260727-0225*`): the `bumpreasons` constants were swept. kissat's
-     rate 10 is the Tier C optimum (283.44, 29/30) and is kept — moving the
-     rate either way costs a solve (rate 2 → 389.95, rate 100 → 386.92, both
-     28/30) — but **`TACTIX_BUMP_REASONS_RATE=30` puts Tier B at 8.64 vs
-     kissat's 8.33, i.e. PARITY**, for a Tier C cost of ~49 (332.50, 29/30,
-     still 1.09× cadical and so still inside T3's CaDiCaL criterion). That is
-     the documented balanced configuration. Limit 20 → 294.17 / 15.45;
-     limit 5 → 309.04 / 51.73 (loses mod4block on B).
-  3. **Decide whether the bench runner should verify LRAT, not DRAT.**
-     `urq45` settled it empirically (probe 1566825): DRAT + drat-trim > 2400 s,
-     native LRAT + cake_lpr **77 s, VERIFIED**. Our DRAT-checked tier numbers
-     are now hostage to drat-trim's backward search, which the retention change
-     happens to hurt. Route through revise-plan (§2/§8.1 name drat-trim
-     explicitly) — this is a measurement-protocol change, not a solver one.
-  4. **TB4b** — the only open Track T item: the six chrono divergences
-     from the TB4 audit (watch repair onto highest-level literals,
-     one-literal-on-conflict-level shortcut, unit chrono routing, snapshot
-     timing, `jumpreasons`, cadical `chronoreusetrail`). Aims at
-     FmlaEquiv's 1.53× conflicts (chrono fires 51 k/solve there). Port ONE
-     behavior at a time, same-window gates; TB4's lesson: audit any
-     negative verdict before accepting it.
-  5. **DONE 2026-07-28 — and it closed clause quality as a lever, negatively.**
-     The probe ran, named a target (FmlaEquiv minimize+shrink yield
-     21.6 % → ~40 %), and the follow-up control it demanded then killed that
-     target: **kissat's yield on the same instance is 22.1 %** (metrics build,
-     probe 1570882). Raw 1-UIP size, minimize+shrink yield and final learned
-     size are ALL at parity (≤ 1.11×) on all three residual instances, so
-     FmlaEquiv's 2.49× conflicts is not a clause-quality deficit — it is search
-     GUIDANCE. Report §6; lesson L14. Do not re-open the analysis pipeline
-     without new evidence.
+  **▶ NEXT STEP (in order of expected value).** Two gate criteria are open:
+  **T3's Kissat half** (1.37× on the 24-instance rule-neutral subset) and, since
+  the all-rules-ON flip, **T3's CaDiCaL half** (1.14×; see the T3 row).
+  1. **Harvest the in-flight rate probe** (jobs 1572346/1572347, above) and, if
+     it holds, take a rate cut through a full Tier B+C confirmation. This is the
+     cheapest route back to the CaDiCaL criterion.
+  2. **TB4b** — the only open Track T item: the remaining chrono divergences
+     (watch repair onto highest-level literals, unit chrono routing, snapshot
+     timing, `jumpreasons`, cadical `chronoreusetrail`). TB4b(A), the one-literal
+     shortcut, is implemented and ships OFF; its removal path is the watch-repair
+     primitive. Aims at FmlaEquiv's conflict gap. Port ONE behavior at a time;
+     TB4's lesson is to audit any negative verdict before accepting it.
+  3. **Decide whether the bench runner should verify LRAT, not DRAT.** `urq45`
+     settled it empirically (probe 1566825): DRAT + drat-trim > 2400 s, native
+     LRAT + cake_lpr **77 s, VERIFIED**. Our DRAT-checked tier numbers are
+     hostage to drat-trim's backward search. Route through revise-plan (§2/§8.1
+     name drat-trim explicitly) — a measurement-protocol change, not a solver one.
+  4. **CLOSED, do not re-open** (each left a standing lesson, cited there):
+     the walk-dose "every lever is two-sided" reading — an artefact of a wrong
+     `bumpreasons` rate, L12; the `bumpreasons` constant sweep — rate 20 shipped,
+     30 is the documented Tier-B-parity alternative; **clause quality** — we are
+     at parity with kissat on every stage of clause construction, L14; the
+     minimize depth cap — byte-identical across 900/1000/100000.
   6. Standing (not now): the **§5.6 phase-6 dosing exhibit** now holds
      FIVE mechanism families — the fifth, S7 Reorder, is the first whose
      context is the VERDICT rather than a formula/progress feature (parity on
@@ -360,7 +273,7 @@ disagree, the plan is authoritative — fix this file.
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed; same-window 2026-07-27 (`20260727-0922*`, tactix proof-checked vs proof-free baselines): **Tier B 0.96× kissat and Tier A 1.00× — comparable-or-better on both** — Tier C 1.36×. "Comparable" now holds on two of three tiers; Tier D (T4) is where it counts |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. Like-for-like 2026-07-29 at the all-rules-ON default: **Tier A 0.98× kissat, Tier B 1.08×, Tier C 1.54×**. With the rules off Tier A/B were 0.98×/0.93× — the flip cost Tier B its lead, and recovering it is the open scheduling work (resume block item 3). Tier D (T4) is where it counts |
 
 ## Milestone gates (plan §8.3)
 
@@ -656,77 +569,27 @@ nearly neutral (9.22 vs 7.94 shipped). Report
 `benchmarks/reports/2026-07-28-all-rules-on.md`.
 
 - [x] **R1 · X2 `HyperTernaryRes`** (cadical `ternary.cpp`) — add-RUP only, no
-      witness, no new primitive: the cheapest genuine rule in the gap.
-      **IMPLEMENTED** `d0bb6ec` (calculus §6c, 7 unit tests, registered,
-      DefaultPolicy-unscheduled pending its A/B)
-- [x] **R2 · X1 `BCE`** (cadical `block.cpp`) — delete + push-witness; reuses
-      E1's occurrence index and reconstruction stack. Note kissat 4 DROPPED it.
-      **IMPLEMENTED** `d0bb6ec`/`1a9afb1`, 7 unit tests + the shrunk fuzz case.
-      Two defects found by fuzz and fixed: a wrong-SAT (the blockedness test's
-      OPPOSITE side must skip only ROOT-SATISFIED clauses — filtering it like
-      the candidate side hid a live clause with a root-false literal) and a
-      crash (the kernel refuses to delete a duplicated binary pair).
-      **Soundness GREEN on the fixed build** (frozen binary, both new rules
-      registered so `--random-policy` applies them): 10k/0 DRAT (1569473) and
-      10k/0 native LRAT (1569474), plus a 10k/0 control with BCE unregistered
-      (1569472) that localized the earlier failures to BCE
-- [x] **R3 · X4 `Instantiate`** (cadical `instantiate.cpp`) — add/delete.
-      **IMPLEMENTED 2026-07-28**: for `C = D ∨ l` with `l` rare, assume `l` TRUE
-      and all of `D` FALSE and propagate; a conflict proves `F ⊨ ¬l ∨ D`, which
-      resolves against `C` to give `D`. Proof delta = C2's `add_rup(D)` +
-      `del(C)`, no witness, no new primitive — and `D` is RUP against `F` alone
-      because `¬D` leaves `C` unit and so propagates `l` itself (the chain cites
-      `C` at `l`'s trail position, cadical's own construction). Reuses C3
-      Vivify's probing-scope primitives; 9 unit tests; calculus §6d + guard row.
-      Fuzz on the shipping build with `--random-policy` (so the rule is applied
-      at arbitrary schedule points, every UNSAT checked): **10k/0 DRAT (1570888)
-      and 10k/0 native LRAT (1570889)**.
-      **NOW ON by default** (2026-07-28 directive; it was ships-OFF at landing).
-      First evidence (probe 1570890): it FIRES but pays nothing — FmlaEquiv
-      57,357 probes yield **5 literals**, at 938,595 → 1,025,143 conflicts and
-      26.00 → 28.77 s; x9 28 probes / 0 removals; 9vliw no candidates at all.
-      That is the reference's own verdict too: **cadical ships `instantiate`
-      default OFF** (options.hpp), keeping the idea only as `vivifyinst`.
-      **Tier-level A/B confirms it** (window `20260728-181900-B-shipped`, every
-      arm writing DRAT and checked): shipped **7.66** / +Instantiate **12.67** /
-      kissat 8.52, all 14/14. The damage is TWO instances — crypto1
-      2.32 → 53.11 and mod4block 9.31 → 24.79 — and the other twelve are flat
-      (±0.2 s). Both are the known trajectory-poison families (L7/L9), so this
-      is the same "when, not how" story as BVE dosing, not a cost defect
-- [x] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only **policy op**, no
-      proof obligation, so no calculus entry (the rev-61 classification test).
-      **IMPLEMENTED 2026-07-28** as `src/policies/ops/reorder/`: a literal's
-      weight is `2^-(size-2)` summed over the irredundant clauses it occurs in,
-      a variable's is `max(w⁺,w⁻) + 2·min(w⁺,w⁻)`; focused mode moves every
-      variable to the queue front in ascending weight order, stable mode
-      rescales the scores and ADDS the weight. Instance surface = WHICH ranking
-      to rewrite (queue / heap), canonical = the active mode's. 8 unit tests,
-      full ctest green; three deviations recorded in `implementation-notes.md`
-      §10, all toward a WEAKER guard than kissat's (no `level == 0` conjunct —
-      that lives in the schedule, as with Rephase's root backtrack).
-      **Ships OFF** (`TACTIX_REORDER`, kissat's option values: 1 = stable only,
-      2 = both modes). **The measurement is decisive AND decomposes cleanly**
-      (window `20260728-190456-B-shipped`, every arm writing DRAT and checked):
-      shipped **7.72** vs reorder-stable 13.55 vs reorder-both 14.14 (kissat
-      8.40), all 14/14 — but split by verdict, **the entire loss is SAT-side**:
-      | Tier B mean | shipped | +stable-only | +both modes |
-      |---|---|---|---|
-      | SAT (7) | **5.28** | 16.99 | 17.93 |
-      | UNSAT (7) | 10.16 | **10.11** | 10.36 |
-      On UNSAT it is at parity with real per-instance wins (FmlaEquiv
-      26.12 → 24.19, mp1 6.71 → 4.47, 9vliw 13.50 → 12.39); on SAT it is 3.4×
-      (battleship 1.13 → 20.29, mod4block 9.32 → 65.83, qwh 4.23 → 15.16).
-      Re-ranking by structure discards the decision/phase continuity a
-      satisfying assignment is built out of, and buys nothing on refutation.
-      Probe 1571114 confirms the default path is untouched (off arm =
-      938,595 conflicts on FmlaEquiv, the shipped number on record) and that
-      the rule really fires when enabled (13 re-rankings, conflicts
-      938,595 → 811,424 = −13.5 %). Soundness on the assert-enabled build with
-      `--random-policy` (so the op is applied at arbitrary schedule points,
-      including MID-TRAIL, which our guard permits and kissat's call site does
-      not): **10k/0 DRAT (1571053) and 10k/0 native LRAT (1571054)**.
-      **New §5.6 dosing-exhibit axis: SAT-vs-UNSAT
-      context**, which none of the four existing families carry
+      witness. Landed `d0bb6ec`; **ON by default since `3fb85bd`**.
+- [x] **R2 · X1 `BCE`** (cadical `block.cpp`) — delete + push-witness; reuses E1's
+      occurrence index and reconstruction stack (kissat 4 dropped it). Landed
+      `d0bb6ec`/`1a9afb1`; two defects found by fuzz and fixed (a wrong-SAT from
+      filtering the blockedness test's opposite side, and a duplicated-binary
+      crash). **ON since `3fb85bd`.**
+- [x] **R3 · X4 `Instantiate`** (cadical `instantiate.cpp`) — add/delete; the
+      strengthened clause is RUP against `F` alone because `¬(C∖{l})` leaves `C`
+      unit and propagates `l` itself. Landed 2026-07-28 (`2085429`); 9 unit tests,
+      fuzz 10k/0 both formats. Fires but yields ~nothing alone (FmlaEquiv 57,357
+      probes → 5 literals); **ON since `3fb85bd`** — lesson L15: measured alone is
+      the wrong experiment for this family.
+- [x] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only **policy op**, no proof
+      obligation, so no calculus entry. Landed 2026-07-28 (`4482bb5`); 8 unit
+      tests, fuzz 10k/0 both formats, deviations in `implementation-notes.md` §10.
+      **Ships OFF** (`TACTIX_REORDER`, kissat's 1/2 values) — the ONE measured
+      result Track R has produced that is not an inventory tick: **parity on Tier
+      B's UNSAT half (10.16 → 10.11) and 3.4× worse on its SAT half (5.28 →
+      16.99)**, a SAT-vs-UNSAT context axis no other §5.6 family carries. NOTE the
+      scope word: it is a policy op, NOT a proof rule, so the all-rules-ON
+      directive does not cover it — ask before flipping.
 - [ ] **R5 · V5 `Sweep` + the embedded sub-solver** (kissat `sweep.c`+`kitten.c`;
       §11 O11 now due) — the largest single item in kissat's own ablation
       (+14 alone) and the biggest build: it also unlocks kitten-based
@@ -739,51 +602,22 @@ nearly neutral (9.22 vs 7.94 shipped). Report
       the sub-solver's core (strategy b) with V6's replay trick as a fast path
       (strategy a). Six independently landable increments S-a…S-f
   - [x] **S-a · the embedded sub-solver** (`src/rules/sweep/subsolver.{hpp,cpp}`,
-        2026-07-28). Minimal CDCL: two-watched propagation, 1-UIP learning,
-        arithmetic restarts, MiniSat-shaped assumptions, tick budget, fixed
-        decision order with saved phases. Owns its arena/watches/trail and
-        NEVER touches `Kernel` state, so a policy may run it anywhere (L3: even
-        a non-mutating pass that reorders watch lists moves the trajectory).
-        Deterministic by construction — no randomness, no clock. **No registry
-        line yet**: it is a component, not a rule; Sweep registers at S-c/S-d.
-        Records no antecedents and emits no proof, so nothing it concludes may
-        justify a rewrite until S-b — enforced by the fact that an unanalyzable
-        conflict returns `Budget` ("no conclusion"), never `Unsat`.
-        Evidence: `tests/test_subsolver.cpp`, an EXHAUSTIVE oracle — **1,000,000
-        random formulas (2–8 vars) verdict-checked against brute force**, half
-        under random assumptions, every reported model re-checked against the
-        clauses and the assumptions; plus degenerate inputs, the assumption
-        paths, a PHP(6,5) budget/determinism check (same formula ⇒ same tick
-        count; a starved solve returns `Budget`). Clean under ASan+UBSan
-  - [x] **S-b · antecedent recording + core extraction** (2026-07-28).
-        `derivation()` returns the refutation as an ordered lemma list, each
-        lemma carrying an LRAT chain over the environment's clause ids, plus the
-        core. Construction is the kernel's, transplanted: antecedents collected
-        as (trail position, id) and emitted sorted ascending with the
-        conflicting clause last (`kernel_lrat_chain`). Every lemma is a
-        consequence of the ENVIRONMENT ALONE — assumptions enter as decisions
-        and leave as clause literals — so lemmas stay valid across assumption
-        sets and restarts. Two refutation shapes: a level-0 conflict gives the
-        empty clause; a falsified assumption gives `¬a₁ ∨ … ∨ ¬aₖ` over exactly
-        the assumptions in the reason cone. Binaries were moved INTO the arena
-        in the same change (every clause now needs an id to appear in a chain),
-        which deleted the binary special case from propagate/analyze.
-        Evidence, three independent checks because a derivation can be wrong
-        three ways: an **LRAT replay** of every step (in-test, ~40 lines),
-        **entailment by enumeration** of every target (so a bug in the chain
-        cannot hide behind a bug in the replay), and **core discipline** (every
-        chain entry is a core original or an earlier lemma). Soak: **207,503
-        refutations checked**, 56,915 of them over assumptions, chains up to 50
-        steps. Plus `tests/sweep_proofs.sh` — 40 emitted micro cases through the
-        **real drat-trim AND lrat-check** (design §6's requirement), 22 of them
-        multi-step. Clean under ASan+UBSan.
-        **Method note worth keeping:** the first version of both the oracle and
-        the emitter produced only ONE-STEP derivations — the generator was easy
-        enough that every refutation came from propagation alone, so the lemma
-        chains that are S-b's entire point were never exercised. Both now run a
-        3-SAT phase-transition regime and both ASSERT a multi-step floor, so the
-        suite cannot silently go trivial again (same shape as L14: a test that
-        never varies the interesting axis cannot support a conclusion about it)
+        `8ac2199`). Minimal CDCL: two-watch propagation, 1-UIP, restarts,
+        MiniSat-shaped assumptions, tick budget, fixed decision order. Owns its
+        arena/watches/trail, never touches `Kernel`, deterministic. Verified by
+        exhaustion — **1 M random formulas vs brute force**, half under
+        assumptions. Safety property: an unanalyzable conflict returns `Budget`,
+        never `Unsat`.
+  - [x] **S-b · antecedent recording + core extraction** (`9db22df`).
+        `derivation()` returns the refutation as ordered lemmas with LRAT chains
+        over environment ids, plus the core; chain order is the kernel's
+        (ascending trail position, conflict last). Verified three independent
+        ways — LRAT replay, entailment by enumeration, core discipline —
+        **207 k refutations**, plus 40 micro cases through the REAL drat-trim and
+        lrat-check (`tests/sweep_proofs.sh`). Lesson: the first version of both
+        the oracle and the emitter produced only ONE-STEP derivations, so the
+        lemma chains went untested while green; both now assert a multi-step
+        floor.
 - [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles
       as the §5.3 **extensibility acceptance test** (pure plugin, no kernel edit)
 - [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
@@ -843,6 +677,34 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-29 — codebase review: drift closed, and the learner's missing reward ids
+`revisit-codebase` pass after the session's two rule families, the sub-solver and
+the default-composition change. Report
+`benchmarks/reports/2026-07-29-review-post-track-r.md`; fixes in `3daef1a`.
+- **The drift was the worst finding.** Four sites documented the OPPOSITE of what
+  ships: `implementation-notes.md` §1's rows for X1/X2/X4 all said "Not scheduled
+  by DefaultPolicy", and `instantiate.hpp` said it "ships OFF until its own A/B
+  says otherwise" — all three had been ON since `3fb85bd`. The guard table is
+  what a reader trusts for the shipped solver's behaviour, so this ranked above
+  any code finding.
+- **The §5.6 gap worth having caught early:** the three newly-scheduled rules had
+  **no reward ids**. Every other inprocessing rule exposes its output via
+  `tactix_stat` (13, 17–25); BCE/X2/X4 exposed nothing, so a phase-6 learner
+  could not read the yield of the rules it most needs to dose. Added ids 26–31 as
+  **(yield, effort) pairs** — not yield alone — because this session measured
+  cost-per-unit-output as the axis that orders their outcomes (BCE: 13
+  ticks/deletion where it buys a 50× speedup, 7,700–43,000 where it costs us).
+- Also removed `Stats::learned_raw_lits` (declared, never written, never read —
+  a leftover of the clause-quality work L14 closed). `SubSolver::conflicts()`
+  kept with the reason recorded at the site (S-f reports it beside `ticks()`).
+- Behaviour-preserving, verified: ctest green release + debug, **Tier A 0.44
+  (200/200) vs kissat 0.45 — unchanged**, fuzz `--random-policy` 10k/0 (1572349).
+- Four findings routed rather than half-fixed (report §"Routed"): **R1 (med) —
+  S-c MUST add sub-solver fuzz legs the moment it becomes reachable**; R2 Reorder
+  has no stress policy; R3 `benchmarks/probes/` needs a retention rule (10
+  scripts, several with closed questions); R4/R5 small duplication + allocation
+  watch items.
 
 ### 2026-07-28 — EVERY PROOF RULE IS ON; four admission gates are measured-dead
 User directive: "all implemented proof rules need to be turned on!!" — which
