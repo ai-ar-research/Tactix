@@ -1,1 +1,15 @@
 === j3037_9_rggt_b [rules-off] ===
+c conflicts   1123032
+c bce         0 rounds, 0 deleted, 0 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+c factor      0 factorings
+s SATISFIABLE
+=== j3037_9_rggt_b [HyperTernaryRes,BCE,Instantiate] ===
+c conflicts   7604704
+c bce         48 rounds, 13971 deleted, 108145628 ticks
+c instantiate 16 rounds, 62 literals removed, 78341 probed
+c ternary     73 rounds, 26644 resolvents, 0 binaries, 10468323 ticks
+c factor      0 factorings
+s SATISFIABLE
+MISSING tierC/asconhashv12_opt64_H4_M2-LOD9_m0_2_UNKNOWN

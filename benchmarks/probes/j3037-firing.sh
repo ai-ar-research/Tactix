@@ -7,7 +7,7 @@
 set -u
 R=/home/hwu/SAT-solving
 T=$R/build/release/tactix
-for inst in tierC/j3037_9_rggt_b tierC/asconhashv12_opt64_H4_M2-LOD9_m0_2_UNKNOWN; do
+for inst in tierC/j3037_9_rggt_b tierC/asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c; do
   f=$(ls $R/benchmarks/cache/$inst*.cnf.xz 2>/dev/null | head -1)
   [ -n "$f" ] || { echo "MISSING $inst"; continue; }
   name=$(basename "$f" .cnf.xz)
