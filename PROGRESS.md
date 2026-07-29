@@ -17,8 +17,9 @@ Read this block, then the top Log entries.
 kissat 8.55; Tier C 349.60 (29/30) vs kissat 226.53, cadical 314.49.** Rules OFF, same windows: Tier B 7.94, Tier C 313–314. Certificate cost
 stays lopsided in our favour (Tier C 7,641 MB / 4,809 s vs kissat 9,926 MB / 16,975 s, one kissat proof over the checker budget —
 `2026-07-28-all-rules-on.md`). **Both T3 criteria are open; full statement in the T3 row under "Milestone gates"** — Kissat half 1.37× on the
-rule-neutral subset (never met), CaDiCaL half 1.14× (lost by the all-rules-ON flip), and the *whole* Tier C cost is TWO instances (j3037 +1014 s,
-asconhash +303 s = 100 % of it), so fixing those two recovers the gate.
+rule-neutral subset (never met), CaDiCaL half 1.14× (lost by the all-rules-ON flip). The all-rules-ON A/B attributed the *whole* Tier C cost to
+TWO instances (j3037 +1014 s, asconhash +303 s = 100 % of it) — **but that framing is SUPERSEDED (2026-07-29): the only lever found that fixes
+those two reliably pays it back elsewhere** (slot rate 2‰, next action 1), so "recover j3037+asconhash and the gate follows" is not a plan.
 
 **NEXT ACTIONS (expected value order).**
 
