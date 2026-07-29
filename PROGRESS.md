@@ -29,8 +29,14 @@ those two reliably pays it back elsewhere** (slot rate 2‰, next action 1), so 
    ContextModel/em_11/frb45/Ptn-7824 by ~300/300/170/140 s every time. That is the sixth §5.6 dosing family and the cleanest labelled signal any of
    them has. **Do NOT hand-build a static separator on it** — L5 and L15 killed separators that looked this clean. Log 2026-07-29 has the table.
    **So T3's CaDiCaL half is open again, and the next move on it is a different lever than the rate** — the two-instance framing is superseded
-   (the rate trade shows the regression is not localizable to j3037+asconhash without paying it back elsewhere). Candidates, cheapest first:
-   TB4b (item 3), and a debug-performance pass on `ContextModel`/`em_11` — the two instances the ON-rules composition most reliably damages.
+   (the rate trade shows the regression is not localizable to j3037+asconhash without paying it back elsewhere).
+   **▶ IN FLIGHT — debug-performance on `j3037_9_rggt_b`, the correct single target.** Ranked by gap to cadical at the shipped default
+   (window `20260729-094225`), it is **1162.8 s vs cadical 25.8 (45×) and kissat 161.7 (7.2×) — alone +1137 s = 37.9 of the 47.2 PAR-2 total gap,
+   ~80 % of the whole deficit**; the next four (asconhash +489, T87 +399, T105 +384, goldcrest +369) together are less. It is a SAT instance, and
+   rules-off it is 138.8 s, so the ON composition costs it ~1000 s. Probes 1573169–77 (`benchmarks/probes/j3037-decompose.sh`) run
+   shipped / −BCE / −X2 / −X4 / −all-three / cadical / kissat / cadical−sweep / kissat−sweep in one window: which rule costs it, and whether
+   sweep (V5/R5, the one big pass we lack) explains the baselines' advantage. NOTE `ContextModel`/`em_11` are NOT targets — they are fast at the
+   shipped default (127 s / 141 s) and only break under the rate cut.
 2. **Track R next: S-c** (Sweep candidate selection + environment construction). Definition of done MUST include fuzz legs on both proof formats
    — review finding R1: the sub-solver is exhaustively unit-tested but never fuzzed, and S-c makes it reachable. Then S-d…S-f, R6–R8, each
    landing ON.
