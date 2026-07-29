@@ -6,8 +6,8 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Plan revision tracked:** rev. 73 (2026-07-29)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-29 — every implemented proof rule is ON (user directive); Track R R3/R4 landed, R5 at S-b; codebase review + hygiene
-  pass done; W4f closed; docs compacted (`011c81f`, rev 73); **the rate-2 confirmation MEASURED — 2‰ clears T3's CaDiCaL half (1.065×) but its
-  premise is refuted, so a replication decides whether it ships** (resume action 1).
+  pass done; W4f closed; docs compacted (`011c81f`, rev 73); **the slot-rate question is SETTLED — 2‰ rejected as a constant over two windows
+  (1.065× then 1.101× cadical), banked as the sixth §5.6 dosing family; T3's CaDiCaL half is open and needs a different lever** (resume action 1).
 
 ## ▶ RESUME HERE (2026-07-29) — phase 3, T3 open
 
@@ -22,24 +22,14 @@ asconhash +303 s = 100 % of it), so fixing those two recovers the gate.
 
 **NEXT ACTIONS (expected value order).**
 
-1. **▶ DECIDE THE SLOT RATE — measured, and the replication is in flight.** Arms: shipped default vs rate2
-   (`TACTIX_SLOT_PERMILLE=HyperTernaryRes:2,BCE:2,Instantiate:2`), all writing and checking DRAT, throttle 48, binary `build/pin-rate2/tactix`.
-   **Measured 2026-07-29** — Tier B (`20260729-094218-B-shipped`, array 1572818): shipped 9.10 / rate2 9.53 / kissat 8.51, 14/14.
-   Tier C (`20260729-094225-C-shipped`, array 1572861), 29/30 all arms: shipped 361.89 = 1.147× cadical 315.42 / **rate2 335.81 = 1.065×, INSIDE
-   T3's 10 % band** / kissat 229.71. So **2‰ clears T3's CaDiCaL half for +4.7 % Tier B.**
-   **▶ BUT DO NOT SHIP IT ON THIS ALONE.** The probe's premise — "only the two regression instances move" — is REFUTED: **20 of 30 instances move
-   ≥10 s**, the two targets give −1,133 s and the *other 28 net +349 s* (wins constraints_25 −147, T105 −118, EDP3 −117, af-synthesis −92,
-   constraints_18 −68, DLTM −53, sat-bench-trig −48, goldcrest −33; losses **em_11 +304, ContextModel +296**, frb45 +167, Ptn-7824 +139, T87 +78,
-   minxor128 +69). The rate is a corpus-wide, chaotic, two-sided dose — the L7/L12 shape — so the −26 PAR-2 matching the predicted 26 is a
-   coincidence of sums, not a confirmed mechanism, and a chaotic lever replicates poorly.
-   **NEXT: harvest replication window `20260729-112753` (array 1573008, agg 1573009; shipped vs rate2 vs cadical).** If −26 replicates, bake 2‰
-   into `EFFORT_SPECS` (`src/policies/default_policy.cpp`), fuzz, and write the T3 gate report; if it does not, record the negative and treat the
-   slot rate as a §5.6 phase-6 dosing arm rather than a constant — which is where a chaotic two-sided lever belongs anyway. Either way this does
-   NOT contradict L15 (which kills *partial* suppression; a uniform rate keeps every rule running every round).
-   *Why 2‰* — sweep table archived in `50e8d80` + `benchmarks/probes/tierc-rate-{j3037,ascon}-*.out` (jobs 1572346/1572347): best NON-ZERO rate on
-   both regression instances (rules-off is 410 s on the pair vs 721 at 2‰, but rule-off is never a shipped default — [[no-rule-off-configs]]).
-   Mechanism: the budget is a per-mille of CUMULATIVE search work, so a long solve grants a runaway allowance (BCE 48 rounds / 108 M ticks at 20‰
-   vs 16 / 16 M at 2‰) — why short Tier B instances cannot see it. Curves non-monotone between 1 and 2 (L12).
+1. **THE SLOT RATE IS SETTLED — 2‰ REJECTED as a constant, do not re-run it** (two Tier C windows, `20260729-094225` and `-112753`: 1.065× then
+   1.101× cadical, saving 26.1 then 8.8 PAR-2; Tier B 9.10 → 9.53). It stays the `TACTIX_SLOT_PERMILLE` §5.6 arm. **What it left behind is the
+   real asset:** a rate change is a *reproducible per-instance* trade — 28/30 same-sign across both windows, fixing j3037/asconhash and breaking
+   ContextModel/em_11/frb45/Ptn-7824 by ~300/300/170/140 s every time. That is the sixth §5.6 dosing family and the cleanest labelled signal any of
+   them has. **Do NOT hand-build a static separator on it** — L5 and L15 killed separators that looked this clean. Log 2026-07-29 has the table.
+   **So T3's CaDiCaL half is open again, and the next move on it is a different lever than the rate** — the two-instance framing is superseded
+   (the rate trade shows the regression is not localizable to j3037+asconhash without paying it back elsewhere). Candidates, cheapest first:
+   TB4b (item 3), and a debug-performance pass on `ContextModel`/`em_11` — the two instances the ON-rules composition most reliably damages.
 2. **Track R next: S-c** (Sweep candidate selection + environment construction). Definition of done MUST include fuzz legs on both proof formats
    — review finding R1: the sub-solver is exhaustively unit-tested but never fuzzed, and S-c makes it reachable. Then S-d…S-f, R6–R8, each
    landing ON.
@@ -65,10 +55,12 @@ ask before flipping it. Shipped default = the **S4 arrangement** + density-gated
 **CLUSTER PROTOCOL.** Plan §8.1 + slurm-jobs skill (`run.py --tier X --slurm`, fuzz via `tools/fuzz/slurm.sh`, sbatch-only). M3-Pro numbers are
 INVALID — never compare cluster ↔ M3-Pro (revs 64/65).
 
-**§5.6 phase-6 dosing exhibit — standing, not now.** FIVE mechanism families: BVE admission (`2026-07-25-crypto1-bve-mechanism.md` /
+**§5.6 phase-6 dosing exhibit — standing, not now.** SIX mechanism families: BVE admission (`2026-07-25-crypto1-bve-mechanism.md` /
 `-bve-dosing-arms.md`; oracle 489.27 + labeled instances incl. s055), TR dosing (Log 2026-07-25 late), mode schedule (TB6), WALK DOSE (the
 2026-07-27 sweeps — first family whose shipped constant is measurably wrong for half the corpus), S7 Reorder (first whose context is the VERDICT,
-not a formula/progress feature — Log 2026-07-28). O16 auto-invention decided at phase-4 entry.
+not a formula/progress feature — Log 2026-07-28), and **the inprocessing SLOT RATE** (`TACTIX_SLOT_PERMILLE`; the cleanest labelled signal of
+the six — 28/30 instances carry a same-sign, near-same-magnitude effect across two windows, yet no single rate wins the tier — Log 2026-07-29).
+O16 auto-invention decided at phase-4 entry.
 
 ## Standing lessons — measured, do not re-derive
 
@@ -133,6 +125,14 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   unrepaired; three died on mod4block alone (L10's intrinsic pathology). Method: measure a family TOGETHER before judging a member, and "a clean
   separating feature exists" is insufficient — the yield axis separated by an order of magnitude (13 vs 477–6,726 ticks/deletion) and gating on
   it still lost 43 PAR-2. (`benchmarks/reports/2026-07-28-all-rules-on.md`.)
+- **L16 · A per-instance-REPRODUCIBLE effect can still give a non-reproducible tier aggregate — and an aggregate that matches its prediction
+  can be a coincidence of sums.** The slot-rate-2‰ arm saved 26.1 PAR-2 in one Tier C window (1.065× cadical, gate met) and 8.8 in the next
+  (1.101×, gate missed), while **28 of 30 instances kept the same sign and near-identical magnitude** — the swing came from a few 500–1100 s
+  instances whose absolute times move 50–150 s between windows, not from instability in the mechanism. Also: the 26.1 matched the probe's
+  predicted 26 while the probe's premise ("only the two target instances move") was false — ±1,100 s of offsetting per-instance moves summed
+  to the right number. So (a) a tier PAR-2 near a gate boundary needs a second window before it is a verdict, and (b) agreement between a
+  prediction and an aggregate is not evidence for the prediction's mechanism — check the decomposition it claimed. Converse of L12: there the
+  aggregate hid per-instance chaos; here the aggregate hid per-instance ORDER. (Windows `20260729-094225` / `-112753`; Log 2026-07-29.)
 
 ## Open items (small, none blocking)
 
@@ -166,12 +166,12 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   j3037_9_rggt_b (138.8 → 1152.4, +1014 s) and asconhashv12 (324.4 → 627.4, +303 s) account for 100 % of the +1322 s; the other 28 net to zero,
   with minxor128 −234, T87.2.0 −198 and sat-bench-trig −163 paying for the rest.** Recovering those two recovers the gate. Report
   `benchmarks/reports/2026-07-28-all-rules-on.md`
-  **▶ MEASURED 2026-07-29: a uniform slot rate of 2‰ CLEARS this half** — same window `20260729-094225` (29/30 all arms, all writing and checking
-  DRAT): shipped 361.89 = 1.147× cadical 315.42, **rate2 335.81 = 1.065×, inside the band**; kissat 229.71. Cost Tier B 9.10 → 9.53 (+4.7 %,
-  14/14). **NOT yet the shipped default and not yet a gate pass:** the probe's premise ("only the two regression instances move") is REFUTED — 20
-  of 30 instances move ≥10 s and the non-target 28 net +349 s, so this is a corpus-wide chaotic dose (L7/L12), which replicates poorly by
-  construction. Replication window `20260729-112753` (array 1573008) decides whether to bake 2‰ into `EFFORT_SPECS`
-  (`src/policies/default_policy.cpp`) and write the gate report. The Kissat half remains untouched by this.
+  **▶ TESTED AND REJECTED 2026-07-29: a uniform slot rate of 2‰ does NOT reliably clear this half.** Two same-day windows, same arms/throttle,
+  every arm writing and checking DRAT, 29/30 throughout: `20260729-094225` shipped 361.89 / **rate2 335.81 = 1.065× cadical 315.42 (inside)**;
+  `20260729-112753` shipped 357.31 / **rate2 348.57 = 1.101× cadical 316.58 (outside)** — the saving shrank 26.1 → 8.8 PAR-2, so the criterion is
+  not met robustly. Tier B cost 9.10 → 9.53 (+4.7 %, 14/14). **2‰ is not shipped**; `TACTIX_SLOT_PERMILLE` stays a §5.6 dosing arm. Both halves of
+  T3 therefore remain open, and the two-instance framing of the regression is superseded: the rate fixes j3037/asconhash reproducibly and breaks
+  ContextModel/em_11/frb45/Ptn-7824 reproducibly (28/30 same-sign across the two windows — Log 2026-07-29).
 
 ## Phase 0 — setup (complete 2026-07-09)
 
@@ -460,7 +460,21 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
-### 2026-07-29 — rate 2 CLEARS T3's CaDiCaL half, but its stated premise is REFUTED (it is a broad two-sided lever)
+### 2026-07-29 — slot rate 2‰ does NOT reliably clear T3: it is a REPRODUCIBLE per-instance trade, marginal in aggregate — §5.6 arm, not a constant
+**Replication decided it** (window `20260729-112753`, array 1573008, same arms, same throttle): **shipped 357.31 / rate2 348.57 / cadical 316.58**,
+29/30 all arms ⇒ rate2 = **1.101× cadical, OUTSIDE the 10 % band**, against 1.065× (inside) in window `20260729-094225` two hours earlier. The
+saving shrank **26.1 → 8.8 PAR-2**. **Verdict: 2‰ is NOT shipped**; `TACTIX_SLOT_PERMILLE` stays a §5.6 dosing arm, and the T3 CaDiCaL half stays
+open.
+**The interesting part is WHY it is marginal, and it is not noise.** **28 of 30 instances carry the same-sign effect in both windows**, most at
+near-identical magnitude — so the rate's per-instance effect is highly REPRODUCIBLE, and my first-window reading of it as "corpus-wide chaos" was
+wrong. It reliably fixes exactly what it was aimed at (j3037 −871 / −771, asconhash −261 / −107) and reliably breaks four others (**ContextModel
++296 / +306, em_11 +304 / +302**, frb45 +167 / +175, Ptn-7824 +139 / +147, minxor +69 / +48), while reliably helping constraints_25 −147 / −132,
+EDP3 −117 / −122, af-synthesis −92 / −79, T105 −118 / −63. The aggregate straddles the gate only because a handful of 500–1100 s instances vary
+50–150 s window to window (the shipped arm itself reproduces to 258 s total / 82 s max across all 30). **So this is a per-instance dosing decision
+with a clean, learnable signal — exactly the §5.6 exhibit's shape — and the SIXTH family in it.** Caution before anyone builds a static separator
+on it: L5 and L15 both killed hand-designed separators that looked at least this clean.
+
+### 2026-07-29 — rate 2 clears T3's CaDiCaL half in ONE window; the premise it was sold on is REFUTED (superseded above)
 Same-window Tier C (`20260729-094225`, arrays 1572861/1572862, throttle 48, every arm writing and checking DRAT, 29/30 all arms): **shipped 361.89 /
 **rate2 335.81** / cadical 315.42 / kissat 229.71** ⇒ rate 2 is **1.065× cadical, INSIDE T3's 10 % band**, shipped is 1.147×, outside. The saving is
 **−26.1 PAR-2**, which is the probe's predicted 26 almost exactly — **and that agreement is a coincidence of sums, not a confirmation of the
