@@ -17,3 +17,14 @@ c ternary     37 rounds, 13279 resolvents, 0 binaries, 5171791 ticks
 s SATISFIABLE
 wall 257.97
 === j3037_9_rggt_b rate=5 ===
+c conflicts   4795076
+c bce         29 rounds, 8936 deleted, 70831228 ticks
+c ternary     58 rounds, 20706 resolvents, 0 binaries, 8276693 ticks
+s SATISFIABLE
+wall 618.99
+=== j3037_9_rggt_b rate=20 ===
+c conflicts   7604704
+c bce         48 rounds, 13971 deleted, 108145628 ticks
+c ternary     73 rounds, 26644 resolvents, 0 binaries, 10468323 ticks
+s SATISFIABLE
+wall 972.78

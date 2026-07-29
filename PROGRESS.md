@@ -9,7 +9,8 @@ disagree, the plan is authoritative — fix this file.
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-29 — every implemented proof rule is now ON
   (user directive); Track R R3/R4 landed and R5 reached S-b; codebase review +
-  hygiene pass done.
+  hygiene pass done; **the Tier C rate probe landed and names a concrete fix for
+  the gate it cost — resume block item 3.**
 - **▶ RESUME HERE (2026-07-29).** Phase 3. Read this block, then the top Log
   entries.
   1. **WHAT SHIPS + WHERE WE STAND.** Like-for-like (every arm writes and checks
@@ -44,22 +45,32 @@ disagree, the plan is authoritative — fix this file.
      having run it you cannot stop), leaving only a STATIC per-instance decision
      — which is what L5 measured at chance. Treat it as a phase-6 context
      feature, not an engineering lever, absent new evidence.
-     **▶ IN FLIGHT AT SESSION END (2026-07-29 ~04:00): jobs 1572346 (j3037) and
-     1572347 (asconhash)** — a rate sweep (off/1/2/5/20‰) on the two instances
-     that are 100 % of the Tier C regression, writing to
-     `benchmarks/probes/tierc-rate-{j3037,ascon}-<jobid>.out`. **Harvest these
-     first.** Partial result already in hand and promising: **j3037 at rate 1 is
-     466.59 s against 1152 s at the shipped rate 20 and 121 s with the rules
-     off**, and **rate 2 is better still at 257.97 s** (16 BCE rounds / 16 M
-     ticks, against 48 / 108 M at the shipped rate). Non-monotone between 1 and
-     2, so decompose before reading a trend (L12). So dose
-     reduction recovers most of the damage in the LONG-SOLVE regime — the
-     opposite of Tier B, where every rate lost. That is why the Tier B sweep
-     could not see it: those instances are short, and the budget is a per-mille
-     of CUMULATIVE search work, so only a long solve grants a runaway allowance.
-     If it holds, a rate cut is the cheapest route back to T3's CaDiCaL half —
-     confirm on Tier B **and** C before shipping, since Tier B is the tier that
-     punished low rates.
+     **▶ THE RATE PROBE LANDED (jobs 1572346/1572347, outputs
+     `benchmarks/probes/tierc-rate-{j3037,ascon}-*.out`) AND IT POINTS AT A FIX.**
+     Wall seconds on the two instances that ARE 100 % of the Tier C regression:
+     | ‰ | j3037 | asconhash | sum |
+     |---|---|---|---|
+     | off | 121 | 289 | 410 |
+     | 1 | 467 | 514 | 981 |
+     | **2** | **258** | **463** | **721** |
+     | 5 | 619 | 516 | 1135 |
+     | 20 (shipped) | 973 | 528 | 1501 |
+     **Rate 2 is the optimum on BOTH** (and both are non-monotone between 1 and 2
+     — decompose, do not read a trend, L12). It saves ~780 s across the pair
+     ≈ **26 Tier C PAR-2**, which would put Tier C near 324 against cadical
+     314.49 ≈ 1.03× — **inside T3's 10 % band, i.e. it would recover the CaDiCaL
+     half the all-rules-ON flip cost.** The mechanism is visible in the counters:
+     BCE runs 48 rounds / 108 M ticks at rate 20 and 16 / 16 M at rate 2, because
+     the budget is a per-mille of CUMULATIVE search work and a long solve grants a
+     runaway allowance. Tier B is nearly rate-flat by comparison (9.62 at 20 vs
+     9.99 at 2), so the trade looks strongly favourable.
+     **▶ THE NEXT ACTION, ready to run:** a same-window **Tier B + Tier C**
+     confirmation of `TACTIX_SLOT_PERMILLE=HyperTernaryRes:2,BCE:2,Instantiate:2`
+     against the shipped default, with cadical as the Tier C baseline so the T3
+     criterion is read directly. The ~26 PAR-2 estimate assumes the other 28
+     Tier C instances are unmoved by the rate — that is NOT established and is
+     exactly what the confirmation tests. If it holds, bake rate 2 into
+     `EFFORT_SPECS` (default_policy.cpp) and re-run the T3 row.
      **NEXT for Track R: S-c** (Sweep candidate selection + environment
      construction) — its definition of done MUST include fuzz legs on both proof
      formats (review finding R1: the sub-solver is exhaustively unit-tested but

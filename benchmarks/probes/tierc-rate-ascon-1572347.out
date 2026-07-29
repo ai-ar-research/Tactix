@@ -11,3 +11,20 @@ c ternary     16 rounds, 75449 resolvents, 0 binaries, 18128631 ticks
 s UNSATISFIABLE
 wall 514.45
 === asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c rate=2 ===
+c conflicts   2517441
+c bce         10 rounds, 1206 deleted, 28983883 ticks
+c ternary     19 rounds, 117444 resolvents, 0 binaries, 28984594 ticks
+s UNSATISFIABLE
+wall 463.19
+=== asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c rate=5 ===
+c conflicts   2972116
+c bce         19 rounds, 3807 deleted, 97462765 ticks
+c ternary     34 rounds, 335519 resolvents, 0 binaries, 84774996 ticks
+s UNSATISFIABLE
+wall 515.97
+=== asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c rate=20 ===
+c conflicts   2969229
+c bce         15 rounds, 3833 deleted, 165640050 ticks
+c ternary     43 rounds, 484756 resolvents, 0 binaries, 123355617 ticks
+s UNSATISFIABLE
+wall 527.77
