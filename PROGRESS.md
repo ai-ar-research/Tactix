@@ -62,11 +62,13 @@ ask before flipping it. Shipped default = the **S4 arrangement** + density-gated
 **CLUSTER PROTOCOL.** Plan §8.1 + slurm-jobs skill (`run.py --tier X --slurm`, fuzz via `tools/fuzz/slurm.sh`, sbatch-only). M3-Pro numbers are
 INVALID — never compare cluster ↔ M3-Pro (revs 64/65).
 
-**§5.6 phase-6 dosing exhibit — standing, not now.** SIX mechanism families: BVE admission (`2026-07-25-crypto1-bve-mechanism.md` /
+**§5.6 phase-6 dosing exhibit — standing, not now.** SEVEN mechanism families: BVE admission (`2026-07-25-crypto1-bve-mechanism.md` /
 `-bve-dosing-arms.md`; oracle 489.27 + labeled instances incl. s055), TR dosing (Log 2026-07-25 late), mode schedule (TB6), WALK DOSE (the
 2026-07-27 sweeps — first family whose shipped constant is measurably wrong for half the corpus), S7 Reorder (first whose context is the VERDICT,
-not a formula/progress feature — Log 2026-07-28), and **the inprocessing SLOT RATE** (`TACTIX_SLOT_PERMILLE`; the cleanest labelled signal of
-the six — 28/30 instances carry a same-sign, near-same-magnitude effect across two windows, yet no single rate wins the tier — Log 2026-07-29).
+not a formula/progress feature — Log 2026-07-28), and **the inprocessing SLOT RATE** (`TACTIX_SLOT_PERMILLE`; 28/30 instances carry a same-sign,
+near-same-magnitude effect across two windows, yet no single rate wins the tier — Log 2026-07-29), and **X1 BCE ADMISSION** — the cleanest of the
+seven: its whole Tier B value is mod4block (+586 s without BCE) and its whole Tier C cost is j3037 (+830 s with it), and on/off, round caps, dose,
+rate AND cadical's occurrence cap have each been measured to trade one for the other (L18; Log 2026-07-29).
 O16 auto-invention decided at phase-4 entry.
 
 ## Standing lessons — measured, do not re-derive
@@ -143,6 +145,16 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   corpora. (b) Method: a monotone-looking trend across arms that differ in WHICH RULES RUN is not a
   controlled comparison — the first version of this finding read exactly such a trend off the −X2/−X4 arms
   and got the causality backwards. Same family as L12/L16. (probes 1573169–77, 1573242–44; Log 2026-07-29.)
+- **L18 · Every STATIC control over BCE has now been measured, and each one trades j3037 against
+  mod4block.** on/off (Tier B 9.46 vs 50.96 — but 9.14 vs 8.72 EXCLUDING mod4block), round cap (L17),
+  dose/rate (L15 + the 2026-07-29 rate work), and cadical's occurrence cap (j3037 993 → 354 s; mod4block
+  13.2 s → TIMEOUT at 100 AND at 1000). The two instances sit at OPPOSITE ends of the same axis:
+  mod4block needs BCE to delete 6,343 clauses in DENSE neighbourhoods, j3037 is destroyed by exactly
+  those deletions. **Do not look for a fifth static setting — the exhaustion IS the result**, and it makes
+  BCE admission the §5.6 exhibit's cleanest labelled signal. Corollary: a reference's own limit is not
+  portable when we depend on the rule and the reference does not (cadical ships `block` OFF). Also note
+  kissat does mod4block in 19.4 s with NO BCE, so our dependence there is a tactix-specific crutch.
+  (probes 1573320/1573405–07; Log 2026-07-29.)
 - **L16 · A per-instance-REPRODUCIBLE effect can still give a non-reproducible tier aggregate — and an aggregate that matches its prediction
   can be a coincidence of sums.** The slot-rate-2‰ arm saved 26.1 PAR-2 in one Tier C window (1.065× cadical, gate met) and 8.8 in the next
   (1.101×, gate missed), while **28 of 30 instances kept the same sign and near-identical magnitude** — the swing came from a few 500–1100 s
