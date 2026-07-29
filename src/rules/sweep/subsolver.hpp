@@ -1,4 +1,5 @@
-// V5 Sweep · increment S-a: the embedded sub-solver.
+// V5 Sweep · increments S-a and S-b: the embedded sub-solver and its
+// refutation derivation.
 //
 // A minimal, self-contained CDCL used to REFUTE candidate equivalences on a
 // small extracted environment (`docs/design/v5-sweep-design.md` §3, decision
@@ -14,12 +15,13 @@
 //    (rule charges, policy budgets — §5.2 rev 17);
 //  - it is deterministic: no randomness, no wall-clock, fixed decision order.
 //
-// This increment is the engine alone — propagation, 1-UIP learning, restarts,
-// assumptions, budget. It records NO antecedents and emits NO proof, so nothing
-// here may be used to justify a formula rewrite yet; S-b adds antecedent
-// recording and core extraction, and only then can Sweep emit a chain (§4 —
-// a swept equivalence is entailed but NOT RUP, so the chain must come from
-// this solver's refutation, never from a RUP check over the main formula).
+// S-b makes its refutations PAYABLE as proof obligations. A swept equivalence
+// is entailed but not RUP (design §4), so the chain cannot come from a RUP
+// check over the main formula — it has to come from this solver's own
+// resolution. `derivation()` returns the refutation as an ordered lemma list,
+// each lemma carrying an LRAT-style antecedent chain over the environment's
+// clause ids, plus the core (the original clauses actually used). S-e maps
+// those ids to main-formula ids; nothing here knows about the main formula.
 #pragma once
 
 #include <cstdint>
@@ -39,9 +41,28 @@ inline SubVar sub_var_of(SubLit l) { return l >> 1; }
 inline SubLit sub_negate(SubLit l) { return l ^ 1u; }
 
 enum class SubResult {
-  Sat,    // a total model was found (`values` holds it)
+  Sat,    // a total model was found (`model()` holds it)
   Unsat,  // refuted under the assumptions
   Budget, // the tick budget ran out — NO conclusion may be drawn
+};
+
+// One derived clause: `lits` follows from the clauses named in `chain`, in the
+// LRAT sense — assume every literal of `lits` false, then propagate `chain` in
+// order; each entry is unit or (the last one) conflicting. An empty `lits` is
+// the empty clause.
+struct SubStep {
+  uint32_t id = 0;
+  std::vector<SubLit> lits;
+  std::vector<uint32_t> chain;
+};
+
+// A complete refutation. `steps` is in derivation order and pruned to what the
+// target depends on; the LAST step is the target clause. `core` is the ids of
+// the ORIGINAL clauses the refutation uses (ascending) — kitten's core, plus
+// the derivation order kitten does not give.
+struct SubDerivation {
+  std::vector<SubStep> steps;
+  std::vector<uint32_t> core;
 };
 
 class SubSolver {
@@ -51,16 +72,26 @@ public:
   // not pay an allocation per environment.
   void reset(uint32_t nvars);
 
-  // Add an irredundant clause. Duplicate literals are collapsed and tautologies
-  // dropped; the empty clause and root units are absorbed directly. Must not be
-  // called after `solve` (the formula is fixed for the lifetime of a solve).
-  void add_clause(const std::vector<SubLit> &lits);
+  // Add an original clause and return its id. Ids are handed out from 1 in add
+  // order, so they match the clause numbering of a DIMACS file written in the
+  // same order — which is what an LRAT checker expects, and what makes the
+  // derivation directly replayable. Every call consumes an id, including a
+  // tautology (dropped, but the id space must stay aligned with the caller's).
+  // Must not be called after `solve`.
+  uint32_t add_clause(const std::vector<SubLit> &lits);
 
   // Solve under `assumptions`. `ticks_budget == 0` means unlimited.
   // Deterministic: same formula + same assumptions => same result and same
   // tick count, which is what makes it usable inside a reproducible schedule.
   SubResult solve(const std::vector<SubLit> &assumptions,
                   uint64_t ticks_budget);
+
+  // The refutation behind the last `Unsat`. False when there is none to give:
+  // no refutation yet, or the assumptions were DIRECTLY contradictory (nothing
+  // was derived from the formula, so there is no chain to hand back and the
+  // target clause would be a tautology — which `Proof::add_rup` rightly
+  // refuses, L13).
+  bool derivation(SubDerivation &out) const;
 
   // Model, by variable: +1 true, -1 false (valid only after `Sat`).
   const std::vector<int8_t> &model() const { return model_; }
@@ -69,30 +100,57 @@ public:
   uint64_t ticks() const { return ticks_; }
   uint64_t conflicts() const { return conflicts_; }
   uint32_t nvars() const { return nvars_; }
+  // Ids <= this are original clauses; above it are derived lemmas.
+  uint32_t original_clauses() const { return original_clauses_; }
 
 private:
-  // A clause is a length-prefixed run in `arena_`; a Ref is the index of its
-  // first literal, so `arena_[ref - 1]` is the size. Binaries are inlined into
-  // the watch lists exactly as the kernel does, so they never reach the arena.
+  // A clause is a run in `arena_` with a two-word header: `arena_[ref - 2]` is
+  // its id and `arena_[ref - 1]` its size, so a `SubRef` (the index of the
+  // first literal) identifies the clause AND names it for the proof. Unlike the
+  // kernel, binaries are NOT inlined into the watch lists: every clause needs
+  // an id to appear in a chain, and at this scale the uniformity is worth more
+  // than the binary fast path.
   using SubRef = uint32_t;
   static constexpr SubRef NO_REF = UINT32_MAX;
 
   struct SubWatch {
-    SubLit blocking; // binary: the other literal; large: a blocking literal
-    SubRef ref;      // NO_REF marks a binary watch
+    SubLit blocking;
+    SubRef ref;
   };
 
-  void assign(SubLit l, SubRef reason, SubLit binary_reason);
-  bool propagate();            // false on conflict (conflict_* are then set)
+  void assign(SubLit l, SubRef reason);
+  bool propagate();            // false on conflict (conflict_ref_ is then set)
   void backtrack(uint32_t level);
-  bool analyze();              // false when the conflict is at level 0
+  bool analyze();              // false when the conflict cannot be analyzed
   SubLit next_decision();
-  void attach(SubRef ref, SubLit a, SubLit b);
+  void attach(SubRef ref);
+  SubRef add_derived(const std::vector<SubLit> &lits,
+                     const std::vector<uint32_t> &chain);
+  SubLit *clause_lits(SubRef ref) { return &arena_[ref]; }
   const SubLit *clause_lits(SubRef ref) const { return &arena_[ref]; }
   uint32_t clause_size(SubRef ref) const { return arena_[ref - 1]; }
+  uint32_t clause_id(SubRef ref) const { return arena_[ref - 2]; }
+
+  // --- proof plumbing (S-b) ---
+  // Transitively record the reason cone of `v`: every clause that propagated a
+  // literal `v` depends on, as a (trail position, id) pair. Sorting those by
+  // trail position reproduces the checker's own propagation order — the same
+  // construction `kernel_lrat_chain` uses. Decision variables terminate the
+  // walk and, when `decisions` is non-null, are reported through it (they are
+  // the assumptions the target clause will negate).
+  void record_cone(SubVar v, std::vector<SubLit> *decisions);
+  void chain_clear();
+  // sorted ids, with `closing` appended last when it is not NO_REF
+  std::vector<uint32_t> chain_build(SubRef closing);
+  void refute_empty(SubRef conflict); // the empty clause, from a level-0 conflict
 
   uint32_t nvars_ = 0;
   bool inconsistent_ = false; // the empty clause was derived or added
+  bool solved_ = false;       // `solve` has run: no more original clauses
+  // an input clause that refuted the formula on its own (a stated empty clause,
+  // or a unit clashing with an earlier one). Its target is built at the first
+  // solve, so that lemma ids never land below the original-id watershed.
+  SubRef pending_refutation_ = NO_REF;
 
   std::vector<SubLit> arena_;
   std::vector<std::vector<SubWatch>> watches_; // by literal
@@ -101,21 +159,29 @@ private:
   std::vector<int8_t> phase_;                  // by variable: saved phase
 
   std::vector<SubLit> trail_;
-  std::vector<uint32_t> frames_; // trail height at the start of each level
-  std::vector<uint32_t> level_;  // by variable
-  std::vector<SubRef> reason_;   // by variable (NO_REF = decision or binary)
-  std::vector<SubLit> binary_reason_; // by variable, when reason_ is NO_REF
+  std::vector<uint32_t> frames_;   // trail index where each level starts
+  std::vector<uint32_t> level_;    // by variable
+  std::vector<uint32_t> trail_pos_; // by variable
+  std::vector<SubRef> reason_;     // by variable (NO_REF = decision)
   uint32_t propagate_head_ = 0;
 
   // conflict handoff and analysis scratch, persistent so the conflict loop
   // never allocates (the kernel keeps its analyze stacks for the same reason)
   SubRef conflict_ref_ = NO_REF;
-  SubLit conflict_bin_[2] = {0, 0};
-  bool conflict_is_binary_ = false;
   std::vector<uint8_t> seen_; // by variable
   std::vector<SubVar> analyzed_;
   std::vector<SubLit> learned_;
+  std::vector<uint8_t> cone_seen_; // by variable
+  std::vector<SubVar> cone_touched_;
+  std::vector<SubVar> cone_stack_;
+  std::vector<std::pair<uint32_t, uint32_t>> chain_entries_; // (trail pos, id)
 
+  std::vector<SubStep> derived_; // every lemma learned, in derivation order
+  SubStep target_;               // the last refutation's target clause
+  bool have_derivation_ = false;
+
+  uint32_t next_id_ = 1;
+  uint32_t original_clauses_ = 0;
   SubVar decision_cursor_ = 0; // fixed decision order (§3: VSIDS-free)
   uint64_t ticks_ = 0;
   uint64_t budget_ = 0;

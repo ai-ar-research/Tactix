@@ -114,6 +114,13 @@ add_test(NAME micro_proofs
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
+# V5 Sweep S-b: the sub-solver's derivations replayed through the real checkers
+# (drat-trim for the lemmas, lrat-check for the chains). Skips with 77 without.
+add_test(NAME sweep_proofs
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh
+                 $<TARGET_FILE:test_subsolver> ${CMAKE_SOURCE_DIR})
+set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
+
 # V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,
 # model sets compared by enumeration (the ONLY direct test that V4's deletions
 # are equivalence-preserving — a proof checker accepts any delete line). Pass a

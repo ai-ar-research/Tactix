@@ -7,8 +7,9 @@ disagree, the plan is authoritative — fix this file.
 
 - **Plan revision tracked:** rev. 72 (2026-07-27)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-28 (Track R · R5 increment S-a: the Sweep
-  sub-solver lands, 1M brute-force iterations green. R4 `Reorder` ships OFF —
+- **Last updated:** 2026-07-28 (Track R · R5 increments S-a and S-b: the Sweep
+  sub-solver lands (1M brute-force iterations green) and its refutations are now
+  derivations verified by drat-trim + lrat-check. R4 `Reorder` ships OFF —
   Tier B UNSAT at parity, SAT 3.4× worse; the R3 `Instantiate` Tier B A/B
   harvested. Earlier: Tier C push + the Tier B recovery: walk dose 560 + reason-side bumping + dynamic tiers, bumpreasons rate 20 — **Tier C 382.94 → 303.21 = CaDiCaL parity, Tier B 9.11 → 8.10 = AHEAD of kissat, Tier A 200/200**. Report `benchmarks/reports/2026-07-27-tier-c-push.md`, incl. §8 addendum)
 - **▶ RESUME HERE (2026-07-27, late session).** Phase 3. Read this block, then
@@ -39,10 +40,12 @@ disagree, the plan is authoritative — fix this file.
      Tier B A/B says +X2 = 27.56 and +BCE = 239.91 (9/14) against 7.89 shipped.
      They are correct; the scheduling is not (no effort spec + BCE's naive cost
      model — see the Log entry). **R3 `Instantiate` and R4 `Reorder` have since
-     landed, both ships-OFF by measurement, and R5's first increment (S-a, the
-     embedded sub-solver) is in. NEXT for Track R: S-b — antecedent recording +
-     core extraction, the increment that makes Sweep's proof obligation payable
-     — then S-c…S-f, then R6–R8**
+     landed, both ships-OFF by measurement, and R5's first two increments are in:
+     S-a (the embedded sub-solver) and S-b (its refutation derivation, verified
+     by real drat-trim + lrat-check). NEXT for Track R: S-c — candidate
+     selection + environment construction, `NoOp` on every proof path; the
+     measurable question it answers is whether Sweep finds equivalences at all
+     on our instances, and how many — then S-d…S-f, then R6–R8**
      (checklist under Track R; R5 Sweep has a design pass at
      `docs/design/v5-sweep-design.md`). R4's A/B produced the one result Track R
      has yielded that is not just an inventory tick: **Reorder is at PARITY on
@@ -710,6 +713,35 @@ stress-policy + fuzz legs on both proof formats and a same-window gate.
         clauses and the assumptions; plus degenerate inputs, the assumption
         paths, a PHP(6,5) budget/determinism check (same formula ⇒ same tick
         count; a starved solve returns `Budget`). Clean under ASan+UBSan
+  - [x] **S-b · antecedent recording + core extraction** (2026-07-28).
+        `derivation()` returns the refutation as an ordered lemma list, each
+        lemma carrying an LRAT chain over the environment's clause ids, plus the
+        core. Construction is the kernel's, transplanted: antecedents collected
+        as (trail position, id) and emitted sorted ascending with the
+        conflicting clause last (`kernel_lrat_chain`). Every lemma is a
+        consequence of the ENVIRONMENT ALONE — assumptions enter as decisions
+        and leave as clause literals — so lemmas stay valid across assumption
+        sets and restarts. Two refutation shapes: a level-0 conflict gives the
+        empty clause; a falsified assumption gives `¬a₁ ∨ … ∨ ¬aₖ` over exactly
+        the assumptions in the reason cone. Binaries were moved INTO the arena
+        in the same change (every clause now needs an id to appear in a chain),
+        which deleted the binary special case from propagate/analyze.
+        Evidence, three independent checks because a derivation can be wrong
+        three ways: an **LRAT replay** of every step (in-test, ~40 lines),
+        **entailment by enumeration** of every target (so a bug in the chain
+        cannot hide behind a bug in the replay), and **core discipline** (every
+        chain entry is a core original or an earlier lemma). Soak: **207,503
+        refutations checked**, 56,915 of them over assumptions, chains up to 50
+        steps. Plus `tests/sweep_proofs.sh` — 40 emitted micro cases through the
+        **real drat-trim AND lrat-check** (design §6's requirement), 22 of them
+        multi-step. Clean under ASan+UBSan.
+        **Method note worth keeping:** the first version of both the oracle and
+        the emitter produced only ONE-STEP derivations — the generator was easy
+        enough that every refutation came from propagation alone, so the lemma
+        chains that are S-b's entire point were never exercised. Both now run a
+        3-SAT phase-transition regime and both ASSERT a multi-step floor, so the
+        suite cannot silently go trivial again (same shape as L14: a test that
+        never varies the interesting axis cannot support a conclusion about it)
 - [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles
       as the §5.3 **extensibility acceptance test** (pure plugin, no kernel edit)
 - [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
@@ -769,6 +801,44 @@ the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 Entries are concise (headline + result + a commit/report ref where the full
 rationale lives); detail lives in commit messages and `benchmarks/reports/`.
 Plan revisions are indexed in DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-28 — Track R · R5 increment S-b: the refutation is now a payable proof obligation
+The sub-solver records antecedents and hands back a derivation: an ordered lemma
+list, each lemma with an LRAT chain over the environment's clause ids, plus the
+core (design §4 — a swept equivalence is entailed but NOT RUP, so the chain has
+to come from this solver's own resolution, and S-b is what makes the §5.2 proof
+delta honest rather than aspirational).
+- Construction is the kernel's, transplanted: antecedents are collected as
+  (trail position, clause id) and emitted sorted ascending with the conflicting
+  clause last — the order the checker's own propagation visits them
+  (`kernel_lrat_chain`). Every lemma follows from the ENVIRONMENT ALONE, because
+  assumptions enter as decisions and leave as literals of the learned clause;
+  that is what lets lemmas stay valid across assumption sets and restarts.
+- Two refutation shapes, both derived: a level-0 conflict yields the empty
+  clause from the reason cones of its literals; a falsified assumption yields
+  `¬a₁ ∨ … ∨ ¬aₖ` over exactly the assumptions in the cone of `¬a`. Directly
+  contradictory assumptions yield NOTHING — the formula proved nothing and the
+  target would be a tautology, which `Proof::add_rup` rightly refuses (L13).
+- **Binaries moved into the arena** in the same change: every clause now needs
+  an id to appear in a chain, so the kernel's binary-inlining (a cache
+  optimization for the search hot loop) buys nothing here and cost a special
+  case in propagate and analyze. Net simplification.
+- **Verified three independent ways**, because a derivation can be wrong in
+  three ways: an LRAT REPLAY of every step; ENTAILMENT of every target by
+  enumeration (so a bug in the chain construction cannot hide behind a bug in
+  the replay, or vice versa); and CORE DISCIPLINE (every chain entry is a
+  reported-core original or an earlier lemma). Soak: **207,503 refutations**,
+  56,915 over assumptions, chains up to 50 steps. Then the design's own
+  requirement — `tests/sweep_proofs.sh` puts 40 emitted micro cases through the
+  **real drat-trim and lrat-check**, 22 multi-step. Clean under ASan+UBSan.
+- **The bug the numbers caught, worth recording as method.** The first version
+  of both the oracle and the emitter reported `1.0 steps` per derivation: the
+  generator was easy enough that every refutation came from propagation alone,
+  so no chain ever ran through a learned lemma and S-b's entire mechanism was
+  untested while the suite was green. Both now include a 3-SAT
+  phase-transition regime AND assert a multi-step floor, so it cannot go trivial
+  again unnoticed. Same shape as L14 — a measurement that never varies the
+  interesting axis cannot support a conclusion about it.
 
 ### 2026-07-28 — Track R · R5 increment S-a: the embedded sub-solver, brute-force verified
 `src/rules/sweep/subsolver.{hpp,cpp}` — the O11 decision executed (design
