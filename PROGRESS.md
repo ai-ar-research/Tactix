@@ -588,10 +588,14 @@ finding stands.
 sighting** of that shape — the X1/X2/X4 trio (L15), BCE's round cap (L17/L18), and now V4 on klieber. The
 lever for klieber is V4 **ADMISSION** (on/off per instance), not V4 dosing; a budget buys the worst of both
 worlds. **Do not retry a V4 budget as a recovery for klieber.**
+**Tier C (`20260730-142439`) confirms the kill by being FLAT:** shipped **323.67** (29/30) / v4ticks 325.87
+(29/30) / cadical 313.18. So R1 is negative on Tier B and neutral on Tier C — dead on both.
 **What survives R1:** the meter is still a genuine unit defect (a budget that cannot bind is not a budget),
 and it is now measured SAFE on the four instances that previously blocked it — so it remains available as a
-§5.6 arm, just not as a klieber fix. Shipped default unchanged (candidates). Tier C arm in flight
-(`20260730-142439`).
+§5.6 arm, just not as a klieber fix. Shipped default unchanged (candidates).
+**Third window on the landed X2 change:** shipped here is **323.67 vs cadical 313.18 = 1.034×**, after
+1.0068× and 1.015×. **T3's CaDiCaL half holds in THREE independent windows**, all 29/30, all inside the
+10 % band — well past what L16 asks for.
 **Method note: two of the diagnosis's top three leads have now failed at tier level (R2, R1), while both
 sub-agent pre-tests were single-instance and rate-based.** Single-instance pre-tests bound risk on the
 instances tested and predict nothing about the tier — the same lesson as L12/L16, now on the recovery side
