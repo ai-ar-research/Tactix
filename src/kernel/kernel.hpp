@@ -500,6 +500,14 @@ struct Kernel {
   // yield: L10's forced doses on mod4block are 34 eliminations for 3.53 M
   // resolutions (~104,000 EACH) with the candidate set never shrinking, an
   // outlier no productive instance shows.
+  // V4 TransitiveReduce: exit the reachability walk as soon as `dst` is reached
+  // (kissat transitive.c:130). Ships FALSE — deviation 3 in
+  // transitive_reduce.hpp runs each walk to exhaustion so the failed-literal
+  // detection sees the whole reachable set, so this changes INFERENCE (fewer
+  // derived units), not just cost. Sound either way (dropping an inference never
+  // makes a deletion unjustified); measured separately from the meter arm
+  // because only the meter is a pure unit fix. CONFIGURATION, policy-owned.
+  bool transitive_early_exit = false;
   uint32_t bve_cost_limit = 0;
   uint32_t ternary_occ_limit = 100;
   uint32_t ternary_max_add_percent = 1000;

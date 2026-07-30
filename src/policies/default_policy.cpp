@@ -240,7 +240,20 @@ uint64_t meter_forward(const Kernel &k) { return k.stats.forward_checked; }
 // for trajectory on FmlaEquiv/9vliw-class instances; its 9vliw cost is a
 // PAID, PRICED cost until a context-aware policy (phase-6 dosing exhibit)
 // can dose it per instance.
-uint64_t meter_transitive(const Kernel &k) { return k.stats.transitive_checked; }
+// TACTIX_V4_METER=ticks switches V4's ledger currency from CANDIDATES to the
+// cache-line traffic its walks actually spend (2026-07-30 arm). The candidate
+// meter is a unit mismatch, not merely a generous one: a "checked" is a whole
+// BFS, so the 20‰ ledger cannot bind — a twentyfold rate cut is BIT-IDENTICAL on
+// mod4block and mp1-blockpuzzle. The 2026-07-25 bank against this does NOT
+// reproduce: at rate 1‰ rbsat is 13.00 → 5.64 s, 9vliw 14.88 → 10.45, FmlaEquiv
+// 30.10 → 25.19 (sub-agent array 1575173, shipped controls in the same window).
+uint64_t meter_transitive(const Kernel &k) {
+  static const bool ticks = [] {
+    const char *e = std::getenv("TACTIX_V4_METER");
+    return e && !std::strcmp(e, "ticks");
+  }();
+  return ticks ? k.stats.transitive_ticks : k.stats.transitive_checked;
+}
 uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }

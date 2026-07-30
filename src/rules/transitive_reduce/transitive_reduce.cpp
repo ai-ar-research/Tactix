@@ -114,8 +114,12 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
         *failed = true; // ¬src implies both polarities of q
         return false;
       }
-      if (q == dst)
-        found = true; // no early exit: the walk finishes (deviation 3)
+      if (q == dst) {
+        found = true; // deviation 3: normally NO early exit — the walk runs to
+                      // exhaustion so failed-literal detection sees everything
+        if (k.transitive_early_exit)
+          return true; // kissat transitive.c:130; forfeits this walk's units
+      }
       w.queue.push_back(q);
     }
   }

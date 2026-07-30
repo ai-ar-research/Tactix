@@ -562,6 +562,41 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-30 — R1 KILLED, and a THIRD sighting of "partial is worse than either extreme"
+Second lead from the Tier B timeout diagnosis. Two arms, deliberately separated because only one is a pure
+unit fix: `TACTIX_V4_METER=ticks` (V4's ledger counts CANDIDATES while each candidate is a whole BFS, so a
+20‰ budget cannot bind — a twentyfold rate cut is bit-identical on mod4block/mp1-blockpuzzle) and
+`TACTIX_V4_EARLY_EXIT=1` (kissat `transitive.c:130`, which changes INFERENCE not just cost — deviation 3
+runs each walk to exhaustion so failed-literal detection sees the whole reachable set).
+**Tier B(28), window `20260730-142436`:** shipped **105.40** (24/28) / v4ticks **123.29 (23/28)** /
+v4ticks+early-exit 123.72 (23/28) / kissat 9.91. **+17.9 PAR-2 and a LOST SOLVE**; the early exit adds
+nothing on top of the meter.
+**The four pre-registered KILL instances did NOT fire** — rbsat −1.4, mp1-blockpuzzle −0.9, FmlaEquiv −0.4,
+9vliw +1.1, all neutral or better. **So the 2026-07-25 TR-dosing bank genuinely does not reproduce**, and
+the meter change is safe for exactly the instances that banked it negative. That part of the sub-agent's
+finding stands.
+**▶ BUT THE INSTANCE R1 WAS AIMED AT INVERTED: klieber 118.1 s → 600 TIMEOUT**, outside the pre-registered
+60–350 s range. Put the three points together:
+
+| V4 on klieber | wall |
+|---|---|
+| **OFF** (`−TransitiveReduce`) | **18.4 s** |
+| FULL (shipped, unbudgeted) | 118.1 s |
+| **PARTIAL** (ticks-budgeted) | **600 TIMEOUT** |
+
+**NON-MONOTONE: a partially-applied V4 is worse than either extreme.** This is the **THIRD independent
+sighting** of that shape — the X1/X2/X4 trio (L15), BCE's round cap (L17/L18), and now V4 on klieber. The
+lever for klieber is V4 **ADMISSION** (on/off per instance), not V4 dosing; a budget buys the worst of both
+worlds. **Do not retry a V4 budget as a recovery for klieber.**
+**What survives R1:** the meter is still a genuine unit defect (a budget that cannot bind is not a budget),
+and it is now measured SAFE on the four instances that previously blocked it — so it remains available as a
+§5.6 arm, just not as a klieber fix. Shipped default unchanged (candidates). Tier C arm in flight
+(`20260730-142439`).
+**Method note: two of the diagnosis's top three leads have now failed at tier level (R2, R1), while both
+sub-agent pre-tests were single-instance and rate-based.** Single-instance pre-tests bound risk on the
+instances tested and predict nothing about the tier — the same lesson as L12/L16, now on the recovery side
+rather than the regression side.
+
 ### 2026-07-30 — R2 KILLED as pre-registered: the BVE density gate is a ONE-INSTANCE defense, and it is load-bearing
 First lead from the Tier B timeout diagnosis (task #8). Pre-registered kill criterion was "mod4block or
 crypto1 blowing up". It fired. Windows `20260730-111850` (B, 28) and `-111853` (C), pin verified against
