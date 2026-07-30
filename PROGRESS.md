@@ -5,21 +5,51 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 74 (2026-07-29)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-29 — every implemented proof rule is ON (user directive); Track R R3/R4 landed, R5 at S-b; codebase review + hygiene
+- **Last updated:** 2026-07-30 (overnight) — **Tier B doubled to 28 and immediately found FOUR order-of-magnitude failures (up to 187× kissat); that now outranks T3.** T3/BCE fully diagnosed and parked on one directive decision (see resume block). Phase timers landed; docs compacted (rev 73); Tier B rev 74. Nightly fuzz 1574586/1574587 running.
   pass done; W4f closed; docs compacted (`011c81f`, rev 73); **the slot-rate question is SETTLED — 2‰ rejected as a constant over two windows
   (1.065× then 1.101× cadical), banked as the sixth §5.6 dosing family; T3's CaDiCaL half is open and needs a different lever** (resume action 1).
 
-## ▶ RESUME HERE (2026-07-29) — phase 3, T3 open
+## ▶ RESUME HERE (2026-07-30 morning) — phase 3, T3 open, and the priority CHANGED overnight
 
-Read this block, then the top Log entries.
+Read this block, then the top Log entries. Overnight work: 2026-07-29 evening/night entries.
 
-**WHERE WE STAND.** Like-for-like (every arm writes *and* checks proofs, plan rev 72): **Tier A 0.44 (200/200) vs kissat 0.45; Tier B 9.27 vs
-kissat 8.55; Tier C 349.60 (29/30) vs kissat 226.53, cadical 314.49.** Rules OFF, same windows: Tier B 7.94, Tier C 313–314. Certificate cost
-stays lopsided in our favour (Tier C 7,641 MB / 4,809 s vs kissat 9,926 MB / 16,975 s, one kissat proof over the checker budget —
-`2026-07-28-all-rules-on.md`). **Both T3 criteria are open; full statement in the T3 row under "Milestone gates"** — Kissat half 1.37× on the
-rule-neutral subset (never met), CaDiCaL half 1.14× (lost by the all-rules-ON flip). The all-rules-ON A/B attributed the *whole* Tier C cost to
-TWO instances (j3037 +1014 s, asconhash +303 s = 100 % of it) — **but that framing is SUPERSEDED (2026-07-29): the only lever found that fixes
-those two reliably pays it back elsewhere** (slot rate 2‰, next action 1), so "recover j3037+asconhash and the gate follows" is not a plan.
+**▶ THE HEADLINE: the augmented Tier B found four order-of-magnitude failures, and they outrank T3.**
+Tier B is now **28 instances / 28 families** on one cluster clock (plan rev 74, `ff32e6f`+`77fc578`). First
+tactix run on it (`20260729-220951`): **tactix 102.28 PAR-2 at 24/28 vs kissat 9.54 at 28/28** —
+`veer_axi…p23_trans` **600 TO vs kissat 3.2 s (187×)**, `or_randxor` 48×, `mp1-klieber2017s` 48×,
+`unsat-set-b-fclqcolor` 36×. **Not regressions** — instances the set never contained. Every Tier B number
+this project ever recorded was taken on a set omitting its four worst cases. **Start here**, with
+`veer_axi` (biggest ratio, 3.2 s reference ⇒ cheap iteration); check for a shared cause before treating them
+separately. Do NOT tune on them (§8.1).
+
+**WHERE WE STAND.** Like-for-like, every arm writing *and* checking proofs. **Tier B (28, NEW): 102.28
+(24/28) vs kissat 9.54.** Tier B (core 14, comparable to the archive): 9.46 vs kissat 8.84. **Tier C 361.89–
+405.38 (29/30) vs cadical 315.42, kissat 229.71** — the spread is real, j3037 straddles the 1200 s cap under
+BCE. Tier A 0.44 (200/200) vs 0.45. **NEVER mix 14- and 28-instance Tier B PAR-2** — filter `core14`.
+
+**THE T3/BCE THREAD IS FULLY DIAGNOSED AND PARKED ON ONE DECISION THAT IS YOURS.** Measured: the X1/X2/X4
+trio is mutually stabilizing and it is all-on or all-off (L15 a third time, mechanism now named — **BCE was
+silently BOUNDING X2**: with BCE off X2 runs 6,048 → 32,155 resolvents and mod4block dies). **Trio OFF gives
+Tier B 7.94 AND Tier C 313.20 = 1.00× cadical, i.e. T3's CaDiCaL half MET — better than shipped on BOTH
+tiers.** BCE-off alone is the WRONG cut (Tier C 1.0065× but Tier B 50.96 at 13/14, X2 left unbounded).
+**I did not flip it:** that is the all-rules-ON directive's scope and it is yours to set
+([[no-rule-off-configs]]). The directive-COMPATIBLE alternative, untested and cheap: **X2 has NO governor
+while cadical bounds ternary FOUR ways** — `ternaryrounds=2` (we ran 83), `ternaryeffort=8‰` (we use 20),
+`ternarymaxadd`, `ternaryocclim`. Porting those is the obvious next move and keeps every rule ON.
+NOTE `TACTIX_SLOT_MAX_APPLIES` counts slot CONSIDERATIONS (~3/phase), not productive rounds, so `:2` ≈ rule
+OFF — it cannot emulate `ternaryrounds` without a real per-round counter.
+
+**NOT DONE / OWED.** (a) The four Tier B failures — nothing started. (b) Track R: R5 S-c (Sweep candidate
+selection; its DoD MUST include fuzz legs on both proof formats, review finding R1) then S-d…S-f, R6–R8 —
+and R6 CCE/R7 Condition are rules **cadical ships OFF**, a class decision worth taking once. (c) TB4b.
+(d) The LRAT-vs-DRAT bench-runner question. (e) §8.1 still describes Tier C on the M3 clock — same defect
+rev 74 just fixed for Tier B; Tier C's `ref_seconds` are M3 seconds.
+
+**NIGHTLY (running as you read this).** Jobs **1574586** (DRAT) and **1574587** (native LRAT), both
+`--random-policy --nightly` (~200k cases, 50 cores) on the debug/sanitizer build. Green ⇒ logs
+`tools/fuzz/slurm-nightly-rev74-{drat,lrat}-<jobid>.log` tail clean AND
+`find tools/fuzz/failures -newermt '2026-07-29 22:20'` empty. **Check these first** — everything below
+assumes they passed.
 
 **NEXT ACTIONS (expected value order).**
 
@@ -199,7 +229,7 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. Like-for-like 2026-07-29 at the all-rules-ON default: Tier A 0.98× kissat, Tier B 1.08×, Tier C 1.54× (standings in the resume block; gate statement in the T3 row). With the rules off Tier A/B were 0.98×/0.93× — the flip cost Tier B its lead, and recovering it is the open scheduling work. Tier D (T4) is where it counts |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-07-30, on the NEW 28-instance Tier B: 102.28 vs kissat 9.54, 24/28 — four instances at 36–187× (resume block). This is the honest N3 picture; the old 14-instance 1.08× was measured on a set omitting them.** Tier B core14 9.46 vs 8.84; Tier C 1.15–1.28× cadical, 1.57× kissat; Tier A 0.98×. Tier D (T4) is where it counts |
 
 ## Milestone gates (plan §8.3)
 
