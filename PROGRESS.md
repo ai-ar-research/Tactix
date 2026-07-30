@@ -58,11 +58,14 @@ and R6 CCE/R7 Condition are rules **cadical ships OFF**, a class decision worth 
 (d) The LRAT-vs-DRAT bench-runner question. (e) §8.1 still describes Tier C on the M3 clock — same defect
 rev 74 just fixed for Tier B; Tier C's `ref_seconds` are M3 seconds.
 
-**NIGHTLY (running as you read this).** Jobs **1574586** (DRAT) and **1574587** (native LRAT), both
-`--random-policy --nightly` (~200k cases, 50 cores) on the debug/sanitizer build. Green ⇒ logs
-`tools/fuzz/slurm-nightly-rev74-{drat,lrat}-<jobid>.log` tail clean AND
-`find tools/fuzz/failures -newermt '2026-07-29 22:20'` empty. **Check these first** — everything below
-assumes they passed.
+**NIGHTLY: GREEN, both legs, nothing for you to check.** `--random-policy --nightly` on the
+debug/sanitizer build, 50 cores each: **DRAT 200,000/200,000 cases 0 failures** (job 1574586, SAT 98,470 /
+UNSAT 66,173 / TIMEOUT 35,357) and **native LRAT 200,000/200,000 cases 0 failures** (job 1574587, SAT 98,412
+/ UNSAT 66,086 / TIMEOUT 35,502); `tools/fuzz/failures/` gained nothing. So **66,173 DRAT proofs verified by
+drat-trim and 66,086 native-LRAT proofs verified by lrat-check, every one under an arbitrary legal rule
+schedule** — the strongest N2 evidence we take, and it covers today's two kernel-touching changes (the
+`c timing` dispatch wrapper and `Kernel::bce_occ_limit`). Logs committed as evidence:
+`tools/fuzz/slurm-nightly-rev74-{drat,lrat}-*.log`.
 
 **NEXT ACTIONS (expected value order).**
 
@@ -551,6 +554,18 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-30 — nightly GREEN on both proof formats: 400k cases, 0 failures
+`--random-policy --nightly` on the debug (ASan/UBSan) build, 50 cores per leg. **DRAT 200,000/200,000 cases,
+0 failures** (1574586; SAT 98,470 / UNSAT 66,173 / TIMEOUT 35,357) and **native LRAT 200,000/200,000 cases,
+0 failures** (1574587; SAT 98,412 / UNSAT 66,086 / TIMEOUT 35,502). `tools/fuzz/failures/` gained no entries.
+**132,259 UNSAT certificates checked across the two formats** — drat-trim on the DRAT leg, lrat-check on our
+own antecedent chains in the LRAT leg — every one produced under an arbitrary legal schedule. Both formats
+are mandatory and neither subsumes the other (drat-trim re-derives by RUP and ignores our chains; lrat-check
+validates the chains), so this is the full N2 gate.
+Covers the two kernel-touching changes of 2026-07-29: the `c timing` registry dispatch wrapper
+(`apply_rule`/`apply_rule_instance`, which now sits on EVERY rule application including the random policy's)
+and `Kernel::bce_occ_limit`. Logs committed as evidence per the nightly-*.log convention.
 
 ### 2026-07-29 (night) — ▶ THE AUGMENTED TIER B FINDS FOUR ORDER-OF-MAGNITUDE FAILURES. This outranks T3.
 First tactix run on the 28-instance list (window `20260729-220951`, array 1574528, throttle 48, both arms
