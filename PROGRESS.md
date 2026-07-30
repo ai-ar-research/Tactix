@@ -555,6 +555,52 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-30 — ▶ THE FOUR TIER B TIMEOUTS ARE **TWO DEFECTS**, and our SEARCH is not one of them
+Sub-agent diagnosis, 209 solver runs over four arrays (1574764/1574882/1574949/1575173), pinned binary
+verified against mod4block's baseline BEFORE any arm was read. Report
+`benchmarks/reports/2026-07-30-tierB-timeouts-diagnosis.md`, commit `37eb21b`.
+
+| instance | dominant term |
+|---|---|
+| `veer_axi` | **TransitiveReduce's OWN runtime** — 8.7×10⁹ ticks, 26–49 % of the clock (kissat spends **0.03 s** there) + zero elimination. It DOES solve: **2,199.8 s** at a 3600 s cap = **687× kissat** |
+| `or_randxor` | search-tree size only (slot 1.8 %, props/conflict 0.83× kissat) — needs BVA on non-binary clauses |
+| `mp1-klieber2017s` | TransitiveReduce TRAJECTORY damage (own time 1.7 %; **823 binary deletions cost 15× the conflicts**) + zero elimination |
+| `fclqcolor` | search-tree size at engine parity (props/conflict 1.06×, conflicts/restart 38 vs 43) |
+| `2013113162201nw` | **HyperTernaryRes** — own time 0.06 %, but `−X2` is **75.4 → 1.42 s** |
+| `DivS_862_11` | **Strengthen + SubsumeForward own runtime = 98.2 % of the clock** |
+
+**Our search is NOT the defect** — on rxor/klieber/fclq our conflict count sits on top of the baseline
+stripped of its load-bearing pass, and **on fclqcolor we beat CaDiCaL outright** (369 s vs its TO@300).
+**DEFECT A — the slot's dosing is calibrated on binary-DENSE formulas.** Every Tier B instance we lose by
+> 2.3× is below **6 binaries/var — the threshold of BOTH elimination gates** (`factor.cpp:206`,
+`default_policy.cpp:940`), so we run with **zero BVE and zero BVA** where kissat eliminates 40–86 % of
+variables. Removing the BVE gate: **klieber 390.5 → 42.5 s, veer 2,199.8 → 550.4 s, nw 75.4 → 35.7 s, and
+nothing regresses.** Second half of the same defect: **TransitiveReduce's ledger is denominated in
+CANDIDATES where the reference's is in search ticks** — a twentyfold rate cut is BIT-IDENTICAL (same
+conflicts, same 90,614 candidates, same ticks), i.e. its budget has never bound. kissat uses
+`transitive_ticks` and checks INSIDE the walk. Re-metering measured: **rbsat 13.0 → 5.6 s, 9vliw 14.9 →
+10.5, FmlaEquiv 30.1 → 25.2**, mp1-blockpuzzle/mod4block identical. **NOTE this contradicts the
+2026-07-25 "TR dosing" banked negative, which does not reproduce.**
+**DEFECT B — a rule-SCOPE gap: our Factor is binary-clause-driven; kissat's `factorsize` default is 5.**
+`kissat --factorsize=2` loses rxor entirely (TO@300 vs 12.3 s) and costs fclq 12.6× — the same as
+`--no-factor`; CaDiCaL also loses rxor without factor. This is the only path to rxor and fclq, worth
+**≈ 40 Tier B PAR-2, the largest single item.**
+**Same defect: klieber + nw (+ veer partly). Distinct twins: rxor + fclq (B). DivS is its own** (the only
+two slot entries with no mid-round budget).
+**RANKED, with kill criteria:** (1) replace the BVE binary-density admission — the only cheap change with a
+MEASURED solve; kill = mod4block/crypto1 regressing (L9, which is where that gate came from). (2) Meter
+TransitiveReduce in ticks + kissat's early exit; honest caveat pre-registered by the sub-agent — klieber's
+damage is V4's OUTPUT not its work, so its payoff there is unproven. (3) Extend Factor beyond binaries.
+**L11 upheld: Sweep is not the lever on any of the four.**
+**▶ AND A CAUTION ON THE X2 EFFORT CUT (entry below):** on these instances `HyperTernaryRes:8` is worth
+only **1.8× on nw and 1.5× on klieber** against **53× and 6.2× for the rule OFF** — so the binding knob
+there is `ternaryrounds` (we run 25), not the effort share. j3037's 3.65× may be substantially
+instance-specific; the Tier C A/B decides whether 8‰ ships.
+**Owed instrumentation the diagnosis was blocked on:** `c congruence` prints neither gates nor merges, so
+whether Substitute actually removes the 161,462 equivalences Congruence finds on veer is UNKNOWN — add
+`congruence_merged` / `substituted_vars`. And veer's remaining 385 s (best config 387 s = 121× kissat,
+where CaDiCaL needs **3 conflicts**) needs a PROFILE, not another rule-off arm; all of those have been run.
+
 ### 2026-07-30 — ▶ X2's EFFORT SHARE is the governor: cadical's 8‰ gives j3037 3.65× at zero cost elsewhere
 The second candidate from the inert-limits entry below. We give X2 **20‰** where cadical gives
 `ternaryeffort` **8‰** — 2.5× the reference's share of the effort ledger. Probes 1574853–60 (job-unique
