@@ -562,6 +562,39 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-30 — R2 KILLED as pre-registered: the BVE density gate is a ONE-INSTANCE defense, and it is load-bearing
+First lead from the Tier B timeout diagnosis (task #8). Pre-registered kill criterion was "mod4block or
+crypto1 blowing up". It fired. Windows `20260730-111850` (B, 28) and `-111853` (C), pin verified against
+mod4block's baseline first (418,796 conflicts / 12.66 s).
+
+| tier | shipped (density 6) | density 0 |
+|---|---|---|
+| B(28) | **105.21**, 24/28 | 105.84, 24/28 |
+| C | **324.24**, 29/30 | **516.91, 26/30 — three solves lost** |
+
+**Tier C settles it: +192.67 PAR-2 and T105 / T87 / asconhash all go 564–720 s → TIMEOUT.** Removing the
+gate is not shippable in any form. **But the Tier B decomposition is the useful part, because the flat
+aggregate hides a one-for-one swap** — gained `sted5` **600 TO → 2.4 s**, klieber 118.4 → **6.5**, b22_1
+40.9 → 10.5, DivS 118.9 → 105.5, FmlaEquiv 30.1 → 23.7; lost **mod4block 13.5 → 600 TO**, nw 41.3 → 166.9,
+PRP 51.9 → 103.3. Tier C likewise: constraints_25 −334, goldcrest −212, Grain −123, EDP3 −116 against the
+three timeouts.
+**▶ TWO FINDINGS THAT CHANGE THE DESIGN.** (1) **`crypto1` IMPROVED, 7.0 → 3.3 s.** L9 justified this gate
+on crypto1 AND mod4block; half of that justification is refuted — on Tier B it is a **one-instance
+defense**, and that instance is L10's intrinsic-elimination-damage case. Same shape as BCE: one instance
+dictating a global constant. (2) On Tier C the gate defends a REAL and different set (T105/T87/asconhash),
+so it is not merely a mod4block artefact — it is load-bearing on the harder tier, which is why "make it
+instance-aware" and not "tune the threshold" is the route.
+**NEXT (the shippable form the report predicted): a COST test, not a density test.** The signal is already
+measured — L10's forced doses on mod4block: **34 eliminations for 3.53 M resolutions** (~104,000
+resolutions PER elimination) with the candidate set never shrinking (n ≈ 350 across 30 doses). That is an
+enormous cost-per-yield outlier and it is the axis an occurrence-weighted resolution budget would catch,
+while leaving klieber/sted5/crypto1 alone. Pre-register before building: it must hold mod4block ≤ 14 s AND
+T105/T87/asconhash solved, while recovering sted5.
+**BONUS — the T3 replication debt is DISCHARGED.** The shipped arm here is a fresh window and reads
+**324.24 vs cadical 319.47 = 1.015×**, against 319.19 / 317.04 = 1.0068× in `20260730-085509`. **T3's
+CaDiCaL half holds in TWO independent windows**, both 29/30, which is what L16 asks for before a gate
+report.
+
 ### 2026-07-30 — ▶▶ T3's CaDiCaL HALF IS MET, WITH EVERY RULE ON: X2 at cadical's 8‰
 The chain closed. X2 had no governor, its ported size limits are inert (entry below), and the operative
 bound turned out to be the **effort share**: we gave `HyperTernaryRes` **20‰** against cadical's
