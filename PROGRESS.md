@@ -261,6 +261,13 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   j3037_9_rggt_b (138.8 → 1152.4, +1014 s) and asconhashv12 (324.4 → 627.4, +303 s) account for 100 % of the +1322 s; the other 28 net to zero,
   with minxor128 −234, T87.2.0 −198 and sat-bench-trig −163 paying for the rest.** Recovering those two recovers the gate. Report
   `benchmarks/reports/2026-07-28-all-rules-on.md`
+  **▶▶ THE CaDiCaL HALF IS MET 2026-07-30, WITH EVERY RULE ON.** X2's effort share was the missing
+  governor: we gave `HyperTernaryRes` **20‰** where cadical's `ternaryeffort` is **8‰**. Same-window A/B
+  `20260730-085509` (all arms writing and checking DRAT): **shipped 397.94 (28/30) → 8‰ 319.19 (29/30)
+  against cadical 317.04 = 1.0068×, INSIDE the 10 % band, and it GAINS a solve.** Tier B(28) flat
+  (103.24 → 103.68, 24/28 both). Not a single-instance artefact: 7 instances win ≥15 s and 5 lose, and it
+  is still **−11.8 PAR-2 excluding j3037** (which itself goes TIMEOUT → 392.8 s). Landed in `EFFORT_SPECS`.
+  **The Kissat half is still NOT met** and is what remains of T3.
   **▶ TESTED AND REJECTED 2026-07-29: a uniform slot rate of 2‰ does NOT reliably clear this half.** Two same-day windows, same arms/throttle,
   every arm writing and checking DRAT, 29/30 throughout: `20260729-094225` shipped 361.89 / **rate2 335.81 = 1.065× cadical 315.42 (inside)**;
   `20260729-112753` shipped 357.31 / **rate2 348.57 = 1.101× cadical 316.58 (outside)** — the saving shrank 26.1 → 8.8 PAR-2, so the criterion is
@@ -554,6 +561,36 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-30 — ▶▶ T3's CaDiCaL HALF IS MET, WITH EVERY RULE ON: X2 at cadical's 8‰
+The chain closed. X2 had no governor, its ported size limits are inert (entry below), and the operative
+bound turned out to be the **effort share**: we gave `HyperTernaryRes` **20‰** against cadical's
+`ternaryeffort` **8‰** (`options.hpp:240`) — 2.5×. Same-window A/B `20260730-085509`, every arm writing and
+checking DRAT:
+
+| arm | Tier C PAR-2 | solved | ×cadical |
+|---|---|---|---|
+| shipped (20‰) | 397.94 | 28/30 | 1.255 |
+| **8‰ (LANDED)** | **319.19** | **29/30** | **1.0068 — INSIDE the band** |
+| cadical | 317.04 | 29/30 | — |
+| kissat | 229.64 | 29/30 | — |
+
+**−78.75 PAR-2 and a gained solve, with Tier B(28) flat** (103.24 → 103.68, 24/28 both — the ship criterion
+was "Tier C improves AND Tier B(28) does not regress"). **Not a single-instance artefact:** 12 of 30 move
+≥15 s — wins j3037 −2007 (TIMEOUT → 392.8 s), T105 −152, ContextModel −109, T87 −91, asconhash −91,
+goldcrest −77, af-synthesis −17; losses constraints_25 +88, sat-bench-trig +50, em_11 +46, jgiraldez +36,
+ecarev +18 — and **still −11.8 PAR-2 excluding j3037 entirely**.
+**This satisfies the directive and the gate together** (user, 2026-07-30: "I don't think we should disable
+X1, X2, and X4. We should work on scheduling"): all 13 Inprocess rules remain ON, and the fix is one
+constant matched to the reference. `EFFORT_SPECS` in `default_policy.cpp`.
+**Honest caveats, both recorded.** (a) The sub-agent measured `HyperTernaryRes:8` at only 1.8× / 1.5× on
+`2013113162201nw` / `klieber` against 53× / 6.2× for X2 OFF, so the effort share is a WEAK lever on those
+— the Tier C win is real but its size is carried by the instances above, and `ternaryrounds` (we run 25)
+remains an untested stronger bound. (b) The shipped arm read 397.94 here against 361.89 / 357.31 / 405.38
+in earlier windows because j3037 straddles the 1200 s cap under 20‰; the DELTA is same-window and is what
+the decision rests on, but a replication before the T3 gate report is still owed (L16).
+**Owed to close T3 fully:** the Kissat half (1.37× on the rule-neutral subset) is untouched, and a gate
+report belongs in `benchmarks/reports/`. Fuzz legs on the new default: jobs 1575238 (DRAT) / 1575239 (LRAT).
 
 ### 2026-07-30 — ▶ THE FOUR TIER B TIMEOUTS ARE **TWO DEFECTS**, and our SEARCH is not one of them
 Sub-agent diagnosis, 209 solver runs over four arrays (1574764/1574882/1574949/1575173), pinned binary

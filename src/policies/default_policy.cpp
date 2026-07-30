@@ -297,7 +297,16 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // occurrence index, so dosing them one instance at a time would rebuild
     // that index per application. They read Kernel::work_budget and stop
     // mid-round instead (Vivify's arrangement).
-    {"HyperTernaryRes", 20, meter_ternary, false, false, true},
+    // 8, not 20: cadical's `ternaryeffort` (options.hpp:240). We had been giving
+    // X2 2.5x the reference's share of the effort ledger, and X2 is the one rule
+    // with no internal governor — its size limits (ternaryocclim/ternarymaxadd,
+    // ported 2026-07-30) are inert at cadical's defaults, ~38x too loose to
+    // bind, so the ledger share IS its bound. Same-window A/B `20260730-085509`:
+    // Tier C 397.94 (28/30) -> **319.19 (29/30)**, i.e. 1.255x -> **1.0068x
+    // cadical (T3's CaDiCaL half MET)**, with Tier B(28) flat (103.24 -> 103.68,
+    // 24/28 both). j3037 TIMEOUT -> 392.8 s, and the win survives excluding it
+    // (-11.8 PAR-2 over the other 29; 7 instances win >=15 s, 5 lose).
+    {"HyperTernaryRes", 8, meter_ternary, false, false, true},
     {"BCE", 20, meter_bce, false, false, true},
     // X4 Instantiate (R3): its probes ARE propagation, so the currency is
     // ticks (C3 Vivify's) and the rate is the cheap-probing-family 20 —
