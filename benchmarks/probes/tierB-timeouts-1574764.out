@@ -8,7 +8,7 @@ report: benchmarks/reports/2026-07-30-tierB-timeouts-diagnosis.md
 ==============================================================================
    1 sanity-mod4block                     13.52 s  SATIS  conflicts=418796       slot=42.1
    2 veer-shipped                       2199.81 s  UNSAT  conflicts=137637       slot=30.9
-   3 rxor-shipped                             ? s  TO     conflicts=             slot=
+   3 rxor-shipped                       3600.01 s  UNKNO  conflicts=42481210     slot=1.9
    4 klie-shipped                        390.54 s  SATIS  conflicts=646204       slot=4.3
    5 fclq-shipped                        368.93 s  UNSAT  conflicts=15288656     slot=2.7
    6 nw-shipped                           75.42 s  SATIS  conflicts=711461       slot=2.9
@@ -6773,3 +6773,62 @@ s SATISFIABLE
 Command exited with non-zero status 10
 wall 41.79 s   maxrss 36488 KB
 === done 2026-07-30T09:11:01-04:00
+
+------------------------------------------------------------------------------
+--- tbto-raw/3.out
+------------------------------------------------------------------------------
+=== label=rxor-shipped instance=or_randxor_k3_n540_m540 cap=3600s arm=shipped
+=== host=node017 date=2026-07-30T08:35:05-04:00 bytes=144874
+p cnf 1080 7287
+c tactix 0.1.0
+c decisions   88476397 (0 via API)
+c conflicts   42481210
+c propagations 2657450582 (2656583241 search, 867341 inprocess)
+c learned     42481210 (0 units)
+c learnedsize 36.11 avg lits, 23.37 avg glue
+c reduction   31.7% of resolved lits removed by minimize+shrink
+c minimized   702436733 lits
+c shrunken    10213786 lits
+c reasonbump  906199601 vars in 42479760 rounds (940 aborted)
+c otfs        293677 strengthened (31826 conflicts subsumed)
+c strengthen  95 rounds, 0 strengthened, 0 subsumed, 135 flushed
+c vivify      58 rounds, 840 vivified, 0 deleted, 219788 checked
+c probe       0 rounds, 918 probed, 1 failed
+c backbone    0 rounds, 918 probed, 0 failed
+c transitive  0 rounds, 683 checked, 0 deleted, 0 failed, 104098 ticks
+c substitute  7 rounds
+c bce         6 rounds, 1454 deleted, 263429199 ticks
+c instantiate 0 rounds, 0 literals removed, 86 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 18720 ticks
+c chrono      45 chronological, 0 stale backjumps
+c inprocess   46 phases
+c congruence  7 rounds, 0 units, 0 unjustified
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    924378 (813309 reused a trail prefix)
+c reductions  526 (42498758 clauses deleted, 20470884 promoted)
+c mode        focused after 140 switches (185817191697 ticks, 871 target phases saved)
+c rephased    123 (573 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        31 walks (31 improved, 899060619 flips, 91191642157 steps)
+c subsume     95 rounds (552039 checked, 0 subsumed)
+c timing      3599997 ms solve
+c timing      66651 ms (1.9%) inprocessing slot, 3533346 ms (98.1%) search+scaffolding outside it
+c timing        Vivify               63325 ms (  1.8%) in 58 applications
+c timing        BCE                   2248 ms (  0.1%) in 91 applications
+c timing        Strengthen             557 ms (  0.0%) in 95 applications
+c timing        SubsumeForward         224 ms (  0.0%) in 95 applications
+c timing        Probe                   85 ms (  0.0%) in 918 applications
+c timing        Instantiate             55 ms (  0.0%) in 46 applications
+c timing        HyperTernaryRes         44 ms (  0.0%) in 95 applications
+c timing        Congruence              17 ms (  0.0%) in 7 applications
+c timing        Backbone                 1 ms (  0.0%) in 918 applications
+c timing        TransitiveReduce         1 ms (  0.0%) in 720 applications
+c timing        Substitute               0 ms (  0.0%) in 7 applications
+c timing        Factor                   0 ms (  0.0%) in 95 applications
+c timing        (unattributed)          96 ms (  0.0%)
+s UNKNOWN
+Command exited with non-zero status 124
+wall 3600.01 s   maxrss 446492 KB
+=== done 2026-07-30T09:35:05-04:00

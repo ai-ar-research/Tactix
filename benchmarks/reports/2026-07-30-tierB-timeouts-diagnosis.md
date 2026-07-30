@@ -40,7 +40,7 @@ Diagnostic arms do **not** write proofs; §5 prices that at ±2 %.
 | `mp1-klieber2017s` | `TransitiveReduce` trajectory damage — **823 binary deletions cost 15× the conflicts**, its own time is 1.7 % — plus no elimination | **A** | force-BVE **390.5 → 42.5 s**; `−TransitiveReduce` **→ 18.4 s**; all three levers → **12.97 s = kissat parity** |
 | `2013113162201nw` (near-miss) | `HyperTernaryRes` trajectory damage (own time: 0.06 %) | **A** | `−HyperTernaryRes` **75.4 → 1.4 s** |
 | `veer_axi…p23` | `TransitiveReduce` **own runtime, 26–49 % of the clock** (8.7 × 10⁹ ticks; kissat spends 0.03 s there) + no elimination + a large unexplained residual | **A + open** | force-BVE **2,200 → 550 s**; all three → **387 s** (still over the 300 s cap). Shipped default **does** solve it — in **2,199.81 s**, i.e. 687× kissat |
-| `or_randxor` | search-tree size; **BVA on non-binary clauses is missing** | **B** | none — 20 of 20 arms are TO |
+| `or_randxor` | search-tree size; **BVA on non-binary clauses is missing**. The only true wall: **unsolved at 3,600 s, 42.5 M conflicts = 69× kissat's 617 k**, at engine parity (props/conflict 0.99×) | **B** | none — 20 of 20 arms are TO |
 | `unsat-set-b-fclqcolor` | search-tree size; same missing BVA | **B** | none — best arm 241 s |
 | `DivS_862_11` (near-miss) | `Strengthen`+`SubsumeForward` **own runtime, 98.2 %** | **C** | `−all rules` **123 → 9.2 s** |
 
@@ -124,19 +124,22 @@ it.
 prints full statistics on the SIGTERM path, so a capped arm is still a full
 decomposition.
 
-**Three of the four are a constant factor, not a wall.** At a 3600 s cap the
+**Three of the four are a constant factor; one is a wall.** At a 3600 s cap the
 shipped default **solves veer in 2,199.81 s** (UNSAT, 137,637 conflicts) —
 **687× kissat's 3.20 s**; klieber (390.54 s) and fclq (368.93 s) already solve
-inside 600 s. `or_randxor` is the exception: unsolved at 600 s under **all
-twenty** configurations tried (10.7–12.2 M conflicts every time), and its
-3600 s shipped arm (`1574764_3`) was still running when this report was
-written — the answer changes nothing in §3–§5, since kissat itself is unsolved
-at 300 s once Factor is restricted to binaries.
+inside 600 s. **`or_randxor` is the exception and it is qualitatively
+different: still UNSOLVED at 3,600 s after 42,481,210 conflicts** — **69× the
+617 k conflicts kissat needs** — with the slot at 1.9 %, i.e. 98 % of an hour
+spent in a search that is not converging. It is also unsolved at 600 s under
+**all twenty** configurations tried (10.7–12.2 M conflicts every time). That is
+consistent with §5a′: without BVA over non-binary clauses the formula is simply
+not the one the references search, and kissat itself is unsolved at 300 s once
+`--factorsize=2` restricts it to our variant.
 
 | instance | tactix | conflicts | props/conf | dec/conf | **slot %** | kissat | conflicts | props/conf | cadical |
 |---|---|---|---|---|---|---|---|---|---|
 | veer | **2,199.81 s** (600 s cap: TO) | 137,637 (@600: 18,424) | **71,367** | **4,213** | **30.9 %** (@600: 54.2 %) | 3.37 s | 2,967 | 2,002 | 4.03 s / **3 conflicts** |
-| rxor | **TO @600** | 10,794,198 | 53.0 | 2.56 | 1.8 % | 12.27 s | 616,974 | 63.5 | 17.91 s |
+| rxor | **TO @3600** | 42,481,210 (@600: 10,794,198) | 62.6 | 2.08 | 1.9 % | 12.27 s | 616,974 | 63.5 | 17.91 s |
 | klieber | 390.54 s | 646,204 | **6,416** | 1.94 | 4.3 % | 12.29 s | 64,149 | 2,308 | 65.35 s |
 | fclq | 368.93 s | **15,288,656** | 27.8 | 1.87 | 2.7 % | 16.16 s | 918,618 | 26.3 | **TO @300** (12.2 M) |
 | nw | 75.42 s | 711,461 | 623 | 2.14 | 2.9 % | 5.97 s | 107,093 | 358 | 19.07 s |
@@ -147,7 +150,7 @@ at 300 s once Factor is restricted to binaries.
 | instance | dominant term | evidence |
 |---|---|---|
 | **veer** | **`TransitiveReduce`'s own runtime — 26–49 % of the clock** (585.7 s of the 2,200 s solve; 292.9 s of one 600 s window and 152.9 s of another at the same 8.7 × 10⁹ ticks, so read the ticks, not the seconds), *plus* a search that needs 71,367 props/conflict | `c timing TransitiveReduce 585653 ms (26.6 %) in 1,298,245 applications` (full solve); `c transitive … 8,719,976,746 ticks` over 998,760 candidates = **8,731 ticks each**; **kissat spends 0.03 s (0.91 %) on transitive on this instance** |
-| **rxor** | **search-tree size**, nothing else. Slot 1.8 %, props/conflict 0.83× kissat | 10.79 M conflicts at 600 s and still unsolved vs kissat's 617 k |
+| **rxor** | **search-tree size**, nothing else. Slot 1.9 %, props/conflict **0.99× kissat** (62.6 vs 63.5 — engine parity to within 1 %) | **42.48 M conflicts at 3,600 s and still unsolved**, against kissat's 617 k; 20 of 20 configurations behave identically |
 | **klieber** | **`TransitiveReduce` trajectory damage** (its own time is 1.7 %) + a formula never eliminated (props/conflict 2.78× kissat) | `−TransitiveReduce` = **18.37 s** (21×), 42,174 conflicts |
 | **fclq** | **search-tree size** (16.6× conflicts) at engine parity (props/conf 1.06×, conflicts/restart 38 vs 43) | slot 2.7 %; best rule-off arm only 241 s |
 | **nw** | **`HyperTernaryRes` trajectory damage** (its own time is 46 ms = 0.06 %) | `−HyperTernaryRes` = **1.42 s** (53×), 22,700 conflicts vs 711,461 |
@@ -194,7 +197,7 @@ Compare our conflict count with the **baseline stripped of exactly that pass**:
 
 | instance | tactix conflicts | baseline-minus-its-pass | verdict |
 |---|---|---|---|
-| rxor | 10.79 M (TO @600) | kissat `−factor` 9.77 M (TO @300) | **parity** — our search ≈ kissat without Factor |
+| rxor | 10.79 M @600 s, **42.48 M @3600 s** (unsolved) | kissat `−factor` 9.77 M (TO @300) | **parity** — our search ≈ kissat without Factor, and neither converges |
 | klieber | 646,204 (solved, 390 s) | kissat `−eliminate` 563,721 (TO @300) | **parity** |
 | fclq | 15.29 M (solved, 369 s) | kissat `−factor` 13.73 M (192 s); kissat all-off 14.51 M; **cadical 12.25 M, TO @300** | **parity — and we BEAT CaDiCaL here** |
 | veer | 18,424 (TO @600) | cadical `−congruence` 1.84 M (TO @300) | **not comparable**: we make ~100× *fewer* conflicts but each costs 51× more propagation. Distinct mechanism (§5) |
@@ -234,7 +237,7 @@ like-for-like test, and it is unambiguous:
 
 | instance | kissat default | **kissat `--factorsize=2`** | kissat `--no-factor` | tactix |
 |---|---|---|---|---|
-| **rxor** | 12.27 s / 617 k | **TO @300, 10.02 M conflicts** | TO @300, 9.77 M | TO, 10.79 M @600 |
+| **rxor** | 12.27 s / 617 k | **TO @300, 10.02 M conflicts** | TO @300, 9.77 M | TO @3600, 42.48 M |
 | **fclq** | 16.16 s / 919 k | **203.94 s, 14.30 M** | 192.02 s, 13.73 M | 368.93 s, 15.29 M |
 | **klieber** | 12.29 s / 64 k | **95.14 s, 706 k** (`factored` 723 → 1) | — | 390.54 s, 646 k |
 | **nw** | 5.97 s / 107 k | **17.41 s, 330 k** | — | 75.42 s, 711 k |
@@ -383,7 +386,7 @@ the task asked for:
 |---|---|
 | **klieber** and **nw** (near-miss) | **SAME defect**, twice: an over-dosed cheap-probing-family rule (TR / X2) on top of a suppressed BVE. Each is fixed by a single existing knob (18.4 s, 1.4 s). |
 | **veer** | **SAME defect + a large unexplained residual.** TR is 48.8 % of its clock (klieber's mechanism in its self-time form) and forcing BVE alone already takes it from unsolved to 550 s. But the best of every combination is **387 s** — solved, yet still 4× over Tier B's cap and 115× kissat. The extra term is scale (521 k variables, 101,854 props/conflict) and it is **not localized** by this report (§9.1). |
-| **rxor** and **fclq** | **DISTINCT from the other two, and the SAME as each other — a rule-SCOPE gap.** Both need BVA on **non-binary** clauses (kissat `factorsize=5`); restricting kissat to our binary-only variant costs it rxor entirely and fclq 12.6×, and CaDiCaL loses rxor too. rxor has **zero** binaries, so no dose, gate or schedule of our Factor can ever fire; no arm of the 17 we ran moves it (10.7–12.2 M conflicts, all TO). fclq additionally carries a ~1.8×-per-conflict residual and CaDiCaL times out on it as well. |
+| **rxor** and **fclq** | **DISTINCT from the other two, and the SAME as each other — a rule-SCOPE gap.** Both need BVA on **non-binary** clauses (kissat `factorsize=5`); restricting kissat to our binary-only variant costs it rxor entirely and fclq 12.6×, and CaDiCaL loses rxor too. rxor has **zero** binaries, so no dose, gate or schedule of our Factor can ever fire; no arm of the 20 we ran moves it (10.7–12.2 M conflicts at 600 s, all TO; 42.48 M at 3,600 s, still TO). fclq additionally carries a ~1.8×-per-conflict residual and CaDiCaL times out on it as well. |
 | **DivS** (near-miss) | **DISTINCT — the unbounded-round defect**: `Strengthen`/`SubsumeForward` have no mid-round budget. |
 
 ---
@@ -636,12 +639,24 @@ its own — which is why §9.1 is the single most important open question here.
 * **CONFIRMS / KILLS / prediction.** −10 s on veer, nothing elsewhere; only
   worth doing after R1/R2. Listed so it is not lost.
 
-### R7 — Price the walk dose on UNSAT instances
+### R7 — The walk step counts on UNSAT instances look alarming and are NOT the lever
 
-* rxor spends **12.4 × 10⁹ walk steps** and fclq **10.4 × 10⁹** — on UNSAT
-  formulas. `klie-walk0` is 212 s vs 390 s shipped; `nw-walk0` 70 s vs 75 s;
-  `rxor-walk0` still TO. So walk is *not* the lever on the four, but its dose on
-  a refutation is worth a §5.6 note.
+Worth writing down precisely because the counter invites the wrong conclusion.
+On a **refutation**, rxor spends **91.2 × 10⁹ walk steps** over its 3,600 s run
+(899 M flips, 31 walks) and fclq **10.4 × 10⁹**. That is a local search on a
+formula with no model, and it is invisible in `c timing` because Walk is a
+policy op, not a registry rule — it lands inside "search + scaffolding".
+
+**But the walk-off arm prices it at ~4 %, not at the 25–50 % the step count
+suggests.** Like-for-like at a 600 s cap, no proofs: `rxor-walk0` 11,254,103
+conflicts vs `−BCE` 10,850,103 and `−Vivify` 10,797,513 — i.e. removing walk
+buys about 4 % more conflicts. The steps are cheap (a 1,080-variable formula
+fits in L1). `klie-walk0` 212 s vs 390 s shipped is the one instance where walk
+is expensive, and klieber is SAT.
+
+**Conclusion: do not act on this.** It is a §5.6 dosing note (walk dose on
+refutations), not a defect, and it is exactly the L14 shape — a huge counter
+that evaporates when you measure the thing it supposedly implies.
 
 ### Not to do
 
