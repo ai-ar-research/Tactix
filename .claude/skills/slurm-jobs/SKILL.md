@@ -100,6 +100,15 @@ scale); pass `--time` for smaller legs.
 - Before ending a session: `squeue -u hwu` must show only the user's own jobs
   (+ the session shell). Anything this session submitted must be COMPLETED or
   explicitly cancelled by id.
+- **Also check for LEAKED LOCAL PROCESSES, not just SLURM jobs**
+  (`ps -u hwu -o pid,etime,cmd --sort=-etime`). This shell aliases `cp` to
+  `cp -i`, so a bare `cp` over an existing file in a scripted chain blocks
+  FOREVER on an "overwrite?" prompt that nothing will answer. One sat for 18 h
+  (2026-07-29/30); worse, killing it let the 18-hour-old parent shell resume and
+  submit a stale `sbatch` from a command whose question had long been answered.
+  **Never `cp` onto an existing path in a chain — use `cat src > dst` (or
+  `cp -f`)** — and if you find such a process, expect the rest of its command
+  line to run when you kill it: check `squeue` immediately afterwards.
 - Never cancel the session's own interactive job (named `bash`, on `cpu-q`) —
   that kills the running Claude session.
 
