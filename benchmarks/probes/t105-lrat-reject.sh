@@ -13,7 +13,7 @@
 set -u
 ROOT=/home/hwu/SAT-solving
 KEEP=/home/hwu/proof-debug
-CNF=$TMPDIR/T105.2.0.cnf
+CNF=$TMPDIR/T105.2.0.$SLURM_JOB_ID.cnf
 PROOF=$TMPDIR/T105.2.0.lrat
 mkdir -p "$KEEP"
 

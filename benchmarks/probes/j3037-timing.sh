@@ -7,7 +7,7 @@
 set -u
 T=/home/hwu/SAT-solving/build/pin-timer/tactix
 f=/home/hwu/SAT-solving/benchmarks/cache/tierC/j3037_9_rggt_b.cnf.xz
-cnf=$TMPDIR/j3037.cnf
+cnf=$TMPDIR/j3037.$SLURM_JOB_ID.cnf
 xz -dc "$f" > "$cnf"
 case "$1" in
   shipped) /usr/bin/time -f "wall %e" timeout 1250 "$T" "$cnf" ;;

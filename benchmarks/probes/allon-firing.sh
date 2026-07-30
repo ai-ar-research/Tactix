@@ -10,7 +10,7 @@ for inst in tierB/clique_n2_k10.sanitized.cnf.xz \
             tierB/rbsat-v760c43649gyes10.cnf.xz \
             tierB/combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2.cnf.xz; do
   name=$(basename "$inst" .cnf.xz)
-  cnf=$TMPDIR/$name.cnf
+  cnf=$TMPDIR/$name.$SLURM_JOB_ID.cnf
   xz -dc "$R/benchmarks/cache/$inst" > "$cnf"
   for arm in "" "BCE" "HyperTernaryRes" "Instantiate" "HyperTernaryRes,BCE,Instantiate"; do
     echo "=== $name  [${arm:-shipped}] ==="

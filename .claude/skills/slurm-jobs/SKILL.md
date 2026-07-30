@@ -116,6 +116,18 @@ scale); pass `--time` for smaller legs.
 - One-off probe logs: write them under the session job dir
   (`$CLAUDE_JOB_DIR/tmp`), never into the repo — they vanish with the session.
 
+**`$TMPDIR` IS `/tmp` AND IS SHARED PER NODE — not per job (verified 2026-07-30,
+job 1574810).** Two concurrent probes that decompress to the same `$TMPDIR`
+filename CLOBBER each other. Always make the scratch name job-unique:
+`cnf=$TMPDIR/<name>.$SLURM_JOB_ID.cnf`. This failure is silent and produces
+plausible numbers: a rate sweep over two instances that shared `$TMPDIR/x.cnf`
+returned 0.03 s / 1 conflict / **UNSATISFIABLE** for both — caught only because
+both instances are SAT. Same-instance collisions are usually benign (identical
+bytes), which is why the hazard hides until two DIFFERENT instances collide.
+**Sanity-check every probe against the expected verdict** — a wrong verdict, a
+1-conflict solve, or a sub-second time on a hard instance means the input, not
+the solver.
+
 ## Environment facts (verified 2026-07-23)
 
 - Partition `cpu-dense-hwulab-q`: node017–018, 192 cores / ~750 GB each;

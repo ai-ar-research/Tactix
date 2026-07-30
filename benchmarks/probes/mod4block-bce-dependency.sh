@@ -10,7 +10,7 @@ set -u
 T=/home/hwu/SAT-solving/build/pin-occ/tactix
 K=/home/hwu/SAT-solving/tools/solvers/bin/kissat
 f=$(ls /home/hwu/SAT-solving/benchmarks/cache/tierB/mod4block*.cnf.xz | head -1)
-cnf=$TMPDIR/mod4block.cnf
+cnf=$TMPDIR/mod4block.$SLURM_JOB_ID.cnf
 xz -dc "$f" > "$cnf"
 run() { echo "=== $1 ==="; shift; /usr/bin/time -f "wall %e" timeout 600 "$@" "$cnf" 2>&1 |
   grep -E "^s |wall |^c conflicts|^c bce |^c factor|^c bve |^c timing      [0-9]"; }

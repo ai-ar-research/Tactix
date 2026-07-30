@@ -14,7 +14,7 @@
 set -u
 R=/home/hwu/SAT-solving
 f=$(ls $R/benchmarks/cache/tierB/mod4block*.cnf.xz | head -1)
-cnf=$TMPDIR/m.cnf
+cnf=$TMPDIR/m.$SLURM_JOB_ID.cnf
 xz -dc "$f" > "$cnf"
 rate="$1"; bce="$2"
 [ "$bce" = off ] && export TACTIX_SLOT_DISABLE=BCE

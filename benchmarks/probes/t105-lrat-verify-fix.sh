@@ -6,7 +6,7 @@
 # on the tautological lemma `309268 -309268 -309297`.
 set -u
 R=/home/hwu/SAT-solving
-CNF=$TMPDIR/T105.2.0.cnf
+CNF=$TMPDIR/T105.2.0.$SLURM_JOB_ID.cnf
 PROOF=$TMPDIR/T105.2.0.lrat
 
 xz -dc "$R/benchmarks/cache/tierC/T105.2.0.cnf.xz" > "$CNF"

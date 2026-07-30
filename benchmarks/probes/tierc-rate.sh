@@ -11,7 +11,7 @@ T=$R/build/release/tactix
 inst="$1"
 f=$(ls $R/benchmarks/cache/$inst*.cnf.xz | head -1)
 name=$(basename "$f" .cnf.xz)
-cnf=$TMPDIR/$name.cnf
+cnf=$TMPDIR/$name.$SLURM_JOB_ID.cnf
 xz -dc "$f" > "$cnf"
 for r in off 1 2 5 20; do
   echo "=== $name rate=$r ==="

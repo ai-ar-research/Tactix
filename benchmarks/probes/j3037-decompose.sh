@@ -19,7 +19,7 @@ T=$R/build/release/tactix
 CAD=$R/tools/solvers/bin/cadical
 KIS=$R/tools/solvers/bin/kissat
 f=$R/benchmarks/cache/tierC/j3037_9_rggt_b.cnf.xz
-cnf=$TMPDIR/j3037.cnf
+cnf=$TMPDIR/j3037.$SLURM_JOB_ID.cnf
 xz -dc "$f" > "$cnf"
 
 arm="$1"

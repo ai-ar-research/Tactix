@@ -11,7 +11,7 @@ R=/home/hwu/SAT-solving
 T=$R/build/adm/tactix
 for inst in $(cat $R/benchmarks/tiers/B.list | grep -v '^#' | awk '{print $1}'); do
   name=$(basename "$inst" .cnf.xz)
-  cnf=$TMPDIR/$name.cnf
+  cnf=$TMPDIR/$name.$SLURM_JOB_ID.cnf
   xz -dc "$R/benchmarks/cache/$inst" > "$cnf"
   echo "=== $name ==="
   TACTIX_SLOT_ENABLE=HyperTernaryRes,BCE,Instantiate timeout 300 "$T" "$cnf" 2>&1 |

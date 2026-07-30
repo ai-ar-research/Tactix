@@ -16,7 +16,7 @@ for inst in tierB/FmlaEquivChain_4_6_6.sanitized.cnf.xz \
             tierB/x9-08014.sat.sanitized.cnf.xz \
             tierB/hwmcc17miters-xits-iso-oski15a08b00s.sanitized.cnf.xz; do
   name=$(basename "$inst" .cnf.xz)
-  cnf=$TMPDIR/$name.cnf
+  cnf=$TMPDIR/$name.$SLURM_JOB_ID.cnf
   xz -dc "$R/benchmarks/cache/$inst" > "$cnf"
   echo "################ $name ################"
   echo "--- tactix ---"

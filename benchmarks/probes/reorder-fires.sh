@@ -12,7 +12,7 @@ T=$R/build/release/tactix
 for inst in tierB/FmlaEquivChain_4_6_6.sanitized.cnf.xz \
             tierB/9vliw_bp_mc.shuffled.cnf.xz; do
   name=$(basename "$inst" .cnf.xz)
-  cnf=$TMPDIR/$name.cnf
+  cnf=$TMPDIR/$name.$SLURM_JOB_ID.cnf
   xz -dc "$R/benchmarks/cache/$inst" > "$cnf"
   for arm in off 1 2; do
     echo "=== $name  TACTIX_REORDER=$arm ==="

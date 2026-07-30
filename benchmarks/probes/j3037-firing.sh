@@ -11,7 +11,7 @@ for inst in tierC/j3037_9_rggt_b tierC/asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c;
   f=$(ls $R/benchmarks/cache/$inst*.cnf.xz 2>/dev/null | head -1)
   [ -n "$f" ] || { echo "MISSING $inst"; continue; }
   name=$(basename "$f" .cnf.xz)
-  cnf=$TMPDIR/$name.cnf
+  cnf=$TMPDIR/$name.$SLURM_JOB_ID.cnf
   xz -dc "$f" > "$cnf"
   for arm in "" "HyperTernaryRes,BCE,Instantiate"; do
     echo "=== $name [${arm:-rules-off}] ==="
