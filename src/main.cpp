@@ -242,6 +242,12 @@ int main(int argc, char **argv) {
   // cadical's blockocclim). See Kernel::bce_occ_limit.
   if (const char *ol = getenv("TACTIX_BCE_OCC_LIMIT"))
     kernel.bce_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
+  // X2 governors (DIAGNOSTIC arms; 0 = unlimited, the pre-2026-07-30 behaviour).
+  // See Kernel::ternary_occ_limit / ternary_max_add_percent.
+  if (const char *ol = getenv("TACTIX_TERNARY_OCC_LIMIT"))
+    kernel.ternary_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
+  if (const char *ma = getenv("TACTIX_TERNARY_MAXADD"))
+    kernel.ternary_max_add_percent = (uint32_t)strtoul(ma, nullptr, 10);
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a

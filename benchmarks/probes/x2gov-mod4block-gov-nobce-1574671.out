@@ -1,0 +1,6 @@
+=== mod4block arm=gov-nobce ===
+c conflicts   10770264
+c bce         0 rounds, 0 deleted, 0 ticks
+c ternary     83 rounds, 32155 resolvents, 0 binaries, 127818 ticks
+s UNKNOWN
+wall 600.00

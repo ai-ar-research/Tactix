@@ -467,6 +467,26 @@ struct Kernel {
   // cadical can afford the cap because it does not depend on BCE at all (it ships
   // `block` OFF); we do, on mod4block. Set via TACTIX_BCE_OCC_LIMIT for an A/B.
   uint32_t bce_occ_limit = 0;
+  // X2 HyperTernaryRes governors, ported from cadical (`ternary.cpp`), which
+  // bounds ternary resolution FOUR ways where we had NONE. CONFIGURATION like
+  // bve_bound — the POLICY sets them, any value is sound (they only narrow which
+  // resolvents the rule offers), 0 = unlimited.
+  //
+  // Measured motivation (2026-07-29): X2 has no bound of its own, and BCE was
+  // silently serving as one — deleting blocked clauses shrinks X2's candidate
+  // pool. With BCE disabled on tierB/mod4block, X2 ran from 6,048 resolvents in
+  // 17 rounds to **32,155 in 83 rounds** and the solve died. cadical allows 2
+  // rounds. Giving X2 its own governor is what lets the trio be scheduled
+  // instead of having one rule police another (user decision 2026-07-30: do not
+  // disable X1/X2/X4 — fix the scheduling).
+  //
+  // `ternary_occ_limit` = cadical `ternaryocclim` (default 100): skip a pivot
+  // whose EITHER polarity has more ternary occurrences than this
+  // (`ternary.cpp:247`). `ternary_max_add_percent` = cadical `ternarymaxadd`
+  // (default 1000, i.e. 1000 %): stop a round once it has added more clauses
+  // than `total_clauses * pct / 100` (`ternary.cpp:387`).
+  uint32_t ternary_occ_limit = 100;
+  uint32_t ternary_max_add_percent = 1000;
   // Factor grid-selection strategy (Track S · S2a): consulted by factor_apply
   // for its scoring/accept scalars when set; null = the built-in watch-size
   // path, byte-identical to pre-S2a. CONFIGURATION like bve_bound — any policy

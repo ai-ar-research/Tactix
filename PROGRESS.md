@@ -555,6 +555,36 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-30 — user decision: X1/X2/X4 STAY ON, fix the scheduling. First port is INERT.
+**Decision (user, 2026-07-30):** "I don't think we should disable X1, X2, and X4. We should work on
+scheduling." So the all-rules-ON directive stands, the all-on/all-off question is CLOSED in favour of ON,
+and the T3 route is the directive-compatible chain: govern X2 so it stops needing BCE as its bound.
+**First attempt ported cadical's two size limits — and they are INERT at cadical's own defaults**
+(probes 1574669–78; `Kernel::ternary_occ_limit=100` = `ternaryocclim`, `ternary_max_add_percent=1000` =
+`ternarymaxadd`, both new, we had NO governor at all):
+
+| arm | mod4block | j3037 |
+|---|---|---|
+| ungoverned | 12.92 s / 418,796 | 1051.9 s / 7,604,704 |
+| governed | 12.97 s / **418,796** | 973.6 s / **7,604,704** |
+| gov−BCE | 600 TO / 83 rounds / **32,155** resolvents | 146.7 s |
+| ungov−BCE | 600 TO / 83 rounds / **32,155** resolvents | 146.2 s |
+
+**Byte-identical: same conflicts, same rounds, same resolvents.** The arithmetic says why —
+`ternarymaxadd = 1000 %` caps additions at `total_clauses × 10` ≈ **1.2 M** on mod4block against X2's
+32,155, i.e. **38× above the runaway it was supposed to bound**, and no literal reaches 100 *ternary*
+occurrences so the occ-limit never fires. **Do not re-port these expecting them to bind** — they are
+faithful and they are simply not cadical's operative constraint. Kept at cadical's defaults (they cost
+nothing measured and may bind on ternary-dense formulas, e.g. random-XOR), but they are UNVALIDATED
+until a tier A/B covers them.
+**▶ So cadical's real bound on ternary is elsewhere, and the candidates are named:** `ternaryrounds = 2`
+(**we run 83**) and `ternaryeffort = 8‰` (**we use 20‰**, 2.5× cadical's share). The round bound is the
+one `TACTIX_SLOT_MAX_APPLIES` cannot express — it counts slot considerations, not productive rounds. The
+effort share is testable immediately and is being measured now (probes 1574756–63, X2 at 8‰ vs 20‰ × BCE
+on/off on both decisive instances). NOTE the prior: L16 rejected a UNIFORM 2‰ across all three rules as a
+chaotic two-sided lever, but that is a different experiment from matching cadical's per-rule share for X2
+alone.
+
 ### 2026-07-30 — nightly GREEN on both proof formats: 400k cases, 0 failures
 `--random-policy --nightly` on the debug (ASan/UBSan) build, 50 cores per leg. **DRAT 200,000/200,000 cases,
 0 failures** (1574586; SAT 98,470 / UNSAT 66,173 / TIMEOUT 35,357) and **native LRAT 200,000/200,000 cases,

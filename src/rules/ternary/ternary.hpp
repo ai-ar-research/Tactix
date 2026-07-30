@@ -80,7 +80,10 @@ namespace tactix {
 bool ternary_guard(const Kernel &);
 // canonical pivot order: variables carrying at least one ternary occurrence in
 // EACH polarity (no pair exists otherwise), ascending by literal code
-void ternary_pivots(const Kernel &, std::vector<Lit> &out);
+// `total_clauses` (optional out) is the live clause count from the same arena
+// pass, the base for the max-add governor (Kernel::ternary_max_add_percent).
+void ternary_pivots(const Kernel &, std::vector<Lit> &out,
+                    uint64_t *total_clauses = nullptr);
 // one pivot: add every collapsing resolvent. Ok = something added, NoOp = none
 ApplyResult ternary_try(Kernel &, Lit pivot);
 ApplyResult ternary_apply(Kernel &); // canonical: the full round

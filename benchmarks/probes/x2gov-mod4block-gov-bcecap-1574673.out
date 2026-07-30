@@ -1,0 +1,6 @@
+=== mod4block arm=gov-bcecap ===
+c conflicts   10717965
+c bce         9 rounds, 535 deleted, 90843 ticks
+c ternary     83 rounds, 40705 resolvents, 0 binaries, 160681 ticks
+s UNKNOWN
+wall 600.35

@@ -1,0 +1,6 @@
+=== j3037_9_rggt_b arm=gov-bcecap ===
+c conflicts   2668804
+c bce         34 rounds, 12968 deleted, 25411331 ticks
+c ternary     46 rounds, 16692 resolvents, 0 binaries, 6726720 ticks
+s SATISFIABLE
+wall 303.72

@@ -141,22 +141,35 @@ bool resolve(const Tern &c, const Tern &d, Lit pivot, std::vector<Lit> &res) {
 
 bool ternary_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
-void ternary_pivots(const Kernel &k, std::vector<Lit> &out) {
+void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
+                   uint64_t *total_clauses) {
   out.clear();
   const uint32_t nlits = 2 * k.nvars;
   std::vector<uint32_t> tern(nlits, 0);
+  uint64_t clauses = 0;
   // one pass over the arena (or the dense lists) to count ternary occurrences
-  // per literal; a pivot needs at least one on EACH side for a pair to exist
+  // per literal; a pivot needs at least one on EACH side for a pair to exist.
+  // The same pass totals live clauses, which is the base for the max-add
+  // governor below (cadical sizes its htrs_limit off the clause count too).
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
+    if (!c->garbage())
+      clauses++;
     if (ternary_candidate(k, c))
       for (const Lit l : *c)
         tern[l]++;
     ref += words;
   }
+  clauses += k.binary_ids.size();
+  if (total_clauses)
+    *total_clauses = clauses;
+  const uint32_t occ_lim = k.ternary_occ_limit;
   for (Lit l = 0; l < nlits; l += 2) // positive literal of each variable
-    if (tern[l] && tern[negate(l)])
+    if (tern[l] && tern[negate(l)] &&
+        // cadical ternary.cpp:247 — a pivot in a dense neighbourhood is skipped
+        // on BOTH polarities before any resolution work is attempted.
+        !(occ_lim && (tern[l] > occ_lim || tern[negate(l)] > occ_lim)))
       out.push_back(l);
 }
 
@@ -209,15 +222,30 @@ ApplyResult ternary_try(Kernel &k, Lit pivot) {
 
 ApplyResult ternary_apply(Kernel &k) {
   std::vector<Lit> pivots;
-  ternary_pivots(k, pivots);
+  uint64_t total_clauses = 0;
+  ternary_pivots(k, pivots, &total_clauses);
   bool added = false;
   // Budget-aware batch rule (EffortSpec budget_aware): stop mid-round when the
   // policy's ledger in our currency (ternary_ticks) is spent. Unbudgeted, this
   // round added enough redundant clauses to cost Tier B 9.7 -> 270.0 on
   // mod4block (2026-07-27 A/B).
   const uint64_t tick_start = k.stats.ternary_ticks;
+  // GROWTH governor (cadical `ternarymaxadd`, ternary.cpp:387): the ticks budget
+  // bounds WORK, not OUTPUT, and X2's failure mode is output — 32,155 resolvents
+  // on mod4block once BCE stopped shrinking its candidate pool. This bounds the
+  // clauses one round may add to a fraction of the formula it is growing.
+  const uint64_t add_start =
+      k.stats.ternary_resolvents + k.stats.ternary_binaries;
+  const uint64_t add_limit =
+      k.ternary_max_add_percent
+          ? total_clauses * k.ternary_max_add_percent / 100
+          : 0;
   for (const Lit p : pivots) {
     if (k.work_budget && k.stats.ternary_ticks - tick_start > k.work_budget)
+      break;
+    if (add_limit &&
+        (k.stats.ternary_resolvents + k.stats.ternary_binaries) - add_start >=
+            add_limit)
       break;
     const ApplyResult r = ternary_try(k, p);
     if (r == ApplyResult::Unsat)
