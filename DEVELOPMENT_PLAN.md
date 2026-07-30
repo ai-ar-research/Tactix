@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-29 (rev. 73). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-30 (rev. 74). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -905,19 +905,29 @@ certificates.
     tuning, which §8.1 still forbids) before the work is considered
     complete. Consistency is part of the claim — verify with repeat
     runs at the standard allocation shape, not one lucky pass.
-- **Tier B — "5–30 s" competition subset (daily driver; total ≈ 2–8 CPU-min).**
-  10–15 instances from the SC 2023–2025 main tracks selected by *reference
-  runtime*: Kissat 4.0.4 takes **between 5 s and 30 s** each on our hardware
-  (we measure once and freeze the list; GBD runtime data as a cross-check).
-  The lower bound keeps trivial instances out so each timing carries signal;
-  the small count keeps the set cheap enough to run on every meaningful
-  change, not just daily. Stratified: ~50% SAT / 50% UNSAT, diverse families
-  (no more than 2 instances per family). Timeout for our solver: 300 s (10×
-  the reference — room to be slower while still measuring progress). Primary
-  dev metric: PAR-2 on Tier B + ratio vs Kissat. Caveat of the small count:
-  a single instance moves PAR-2 by ~7–10%, so compare per-instance times and
-  repeat runs (report medians) before believing any small delta; Tier C is
-  where claims become statistically meaningful.
+- **Tier B — competition subset (daily driver; total ≈ 4–16 CPU-min).**
+  **28 instances** from the SC 2023–2025 main tracks selected by *reference
+  runtime*: Kissat 4.0.4 in the band **[3.5, 19.0] s measured ON THE CLUSTER**
+  (rev 73 — the original "5–30 s" band was Apple-M3-Pro seconds, and the
+  M3→cluster ratio is 1.13–1.76 per instance, so it could not be rescaled; all
+  28 are now measured in one window). The lower bound keeps trivial instances
+  out so each timing carries signal. Stratified ~50 % SAT / 50 % UNSAT, and
+  since rev 73 **one instance per family — 28 instances, 28 distinct families**,
+  disjoint from Tier C. Timeout for our solver: 300 s. Primary dev metric:
+  PAR-2 on Tier B + ratio vs Kissat.
+  **Why it doubled (rev 73):** at n=14 one instance dominated verdicts — a
+  solved→timeout flip was 42.9 PAR-2 points, and `mod4block` alone accounted
+  for the ENTIRE Tier B value of the X1/X2/X4 trio (+586 s of a +581 s net),
+  flipping that A/B's verdict when excluded. At n=28 max single-instance share
+  of the reference mass is 7.1 % (was 16.2 %) and a flip is 21.4 points.
+  **Halved, not removed** — a flip can still outvote every other instance, so
+  the standing caveat holds: compare per-instance times and repeat runs before
+  believing a small delta, and Tier C is where claims become meaningful.
+  **The original 14 are preserved as a marked `core14` subset** so the whole
+  pre-rev-73 measurement archive (Tier B 7.94 / 9.27 / 9.46, kissat 8.51 …)
+  stays recomputable by filtering any `results.json`. **Never mix 14- and
+  28-instance PAR-2 in one comparison.** List construction + the candidate
+  reserve pool: `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
 - **Tier C — "≤ 300 s" subset (weekly; total ≈ a few CPU-hours).** Same
   construction with Kissat-runtime ≤ 300 s, ~30 instances; timeout for our
   solver: **1200 s (20 min; rev 29, user decision** — the original 10×
@@ -1249,3 +1259,4 @@ conflate them.
 - **rev. 71** (2026-07-26): S6 `Walk` moved phase 4 → **3** (§5.2, §9) — measured as the largest missing mechanism at the T3 gate (kissat Tier B 8.62 → 29.22 with walk neutralized; monotone `walkeffort` dose–response on the sole actionable Tier C timeout). Report `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`.
 - **rev. 72** (2026-07-27, user): (a) every arm is timed WITH proof generation — like-for-like protocol, asymmetric scoring (our failed check = unsolved, a baseline's is recorded only), checker budget raised (§2, §8.1, §8.3); (b) the full reference rule inventory pulled into phase 3 — V5 `Sweep` + kitten, S7 `Reorder`, X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE`, X4 `Instantiate`, X5 `Condition` (§5.2, §9, §11 O11), with L11's counter-evidence recorded in §5.2 so the sequencing stays honest.
 - **rev. 73** (2026-07-29): compaction pass (compact-docs) — completed work and closed items condensed to result+pointer one-liners across the four living docs; §5.1/§5/§5.2/§5.6 prose densified with no scope, gate, catalog or §11 content changed; restored the two facts with no other home (the measured-dead BVE internals list and the instrumented-Kissat occurrence exhibit, ≈5 vs ≈36) and corrected "Two obligations" → "Three" in §5. No N1–N3 change.
+- **rev. 74** (2026-07-29, user): Tier B doubled 14 → **28 instances, 28 distinct families**, recalibrated on the CLUSTER (band [3.5, 19.0] s; the old 5–30 s band was M3-Pro seconds and the M3→cluster ratio 1.13–1.76 made rescaling impossible). Motivation: at n=14 one instance flipped A/B verdicts (mod4block was the whole Tier B value of the X1/X2/X4 trio). Max single-instance share 16.2 % → 7.1 %. The original 14 stay as a marked `core14` subset so the archive remains recomputable; never mix the two counts. Report `benchmarks/reports/2026-07-29-tier-b-expansion.md`.

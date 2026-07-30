@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 73 (2026-07-29)
+- **Plan revision tracked:** rev. 74 (2026-07-29)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-29 — every implemented proof rule is ON (user directive); Track R R3/R4 landed, R5 at S-b; codebase review + hygiene
   pass done; W4f closed; docs compacted (`011c81f`, rev 73); **the slot-rate question is SETTLED — 2‰ rejected as a constant over two windows
@@ -508,6 +508,27 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-29 (night) — Tier B DOUBLED to 28 instances, 28 families, one clock (plan rev 74)
+`ff32e6f` (sub-agent) + rev 74. **28 instances, 28 DISTINCT families**, all measured in one cluster window:
+kissat band **[3.33, 19.40] s**, PAR-2 9.63/9.78/9.88 over 3 repeats, 28/28 solved, 14/14 UNSAT proofs
+drat-trim-verified. Report `benchmarks/reports/2026-07-29-tier-b-expansion.md`; candidate reserve pool (all
+64 in-band candidates with measurements + GBD hashes) `benchmarks/probes/tierB-expansion-candidates-2026-07-29.tsv`.
+- **Why:** at n=14 one instance decided A/Bs — a solved→timeout flip was 42.9 PAR-2 points, and mod4block
+  alone was the ENTIRE Tier B value of the X1/X2/X4 trio (+586 s of a +581 s net), flipping that verdict
+  when excluded. Now: max single-instance share of the reference mass **16.2 % → 7.1 %**, a flip 21.4
+  points. **Halved, not removed** — the report says so plainly.
+- **The old band was a dead clock.** `ref_seconds` were M3-Pro seconds and the M3→cluster ratio is
+  **1.13–1.76 per instance** (median 1.33), so rescaling was never possible — the whole set had to be
+  re-measured. Core 14 on the cluster: [3.58, 19.40] s, mean 8.55.
+- **`core14` is preserved as a marked subset**, so the pre-rev-74 archive (7.94 / 9.27 / 9.46, kissat 8.51)
+  stays recomputable by filtering any `results.json`. **NEVER mix 14- and 28-instance PAR-2.**
+- Two protocol findings folded into the benchmarks skill: the GBD 404 was a HOSTNAME artefact
+  (`benchmark-database.de` is live and `fetch.py` needed no change; the skill's `gbd.iti.kit.edu` URL was
+  dead), and only a LOW-CONTENTION probe can reject a candidate for irreproducibility — ±10–20 % at
+  throttle 48 is a protocol property, since core14's own FmlaEquivChain shows 0.199 spread there.
+- **Owed:** tactix has NOT yet run on the augmented set — `run.py --tier B --solver <build>/tactix
+  --baseline kissat --slurm --throttle 48`. Selection was kissat-blind; tactix never ran.
 
 ### 2026-07-29 (night) — CORRECTION: there is NO mod4block search gap. X2 runs away and BCE was bounding it
 **This entry corrects the one below it, which was wrong.** That entry concluded mod4block's BCE dependency
