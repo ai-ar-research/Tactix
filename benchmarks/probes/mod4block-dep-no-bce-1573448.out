@@ -1,0 +1,9 @@
+=== no-bce ===
+c conflicts   10077488
+c bce         0 rounds, 0 deleted, 0 ticks
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c timing      599972 ms solve
+c timing      27251 ms (4.5%) inprocessing slot, 572720 ms (95.5%) search+scaffolding outside it
+s UNKNOWN
+wall 600.00

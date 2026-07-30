@@ -1,0 +1,12 @@
+=== density=0 BCE=off ===
+c conflicts   9646770
+c bce         0 rounds, 0 deleted, 0 ticks
+c factor      73 factorings
+s SATISFIABLE
+wall 575.37
+=== density=0 BCE=on ===
+c conflicts   1458421
+c bce         4 rounds, 7874 deleted, 29613899 ticks
+c factor      40 factorings
+s SATISFIABLE
+wall 46.05

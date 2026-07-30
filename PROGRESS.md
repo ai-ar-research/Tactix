@@ -509,6 +509,41 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-29 — mod4block's BCE dependency is a SEARCH-QUALITY gap of ours, not a rule interaction (diagnosis closed)
+The narrow question from the resume anchor — why does mod4block need BCE when kissat does it in 18.3 s with
+none? — is answered, and the answer closes every rule-interaction branch. Probes 1573447–54,
+`benchmarks/probes/mod4block-bce-dependency.sh`.
+
+| arm | wall | conflicts | factorings |
+|---|---|---|---|
+| shipped | **13.16** | 418,796 | 0 |
+| −Factor | 12.94 | 418,796 (BIT-IDENTICAL) | 0 |
+| −BCE | 600 TO | 10,077,488 | 0 |
+| −BCE −Factor | 600 TO | 10,069,374 | 0 |
+| −BCE −BVE | 600 TO | 10,058,594 | 0 |
+| −BCE −BVE −Factor | 600 TO | 10,079,890 | 0 |
+| Factor FORCED on, BCE off | 579.6 | 9,646,770 | 73 |
+| Factor FORCED on, BCE on | 46.6 | 1,458,421 | 40 |
+| **kissat (has no BCE at all)** | **18.30** | **715,338** | **912** |
+
+- **Factor-creates-the-blocked-clauses: REFUTED.** `c factor 0 factorings` — our density gate
+  (`factor.cpp:206`, threshold 6) suppresses Factor entirely on this binary-SPARSE instance (~4.1
+  binaries/var), and `−Factor` is BIT-IDENTICAL to shipped.
+- **Elimination interaction: REFUTED.** All four −BCE arms time out within **0.2 %** of each other
+  (10.06–10.08 M conflicts) whether BVE and Factor are on or off. Neither rule is involved.
+- **"Factor is absent, and BCE compensates for the BVA our gate suppresses": REFUTED, and the gate is
+  VINDICATED.** Forcing Factor on does not replace BCE (579.6 s vs 13.16), and with BCE on it is **3.5×
+  WORSE** (46.6 s / 1.46 M vs 13.16 s / 0.42 M). The density gate is making the right call here.
+- **▶ WHAT IT ACTUALLY IS: our search needs ~14× kissat's conflicts on the RAW formula.** No BCE on either
+  side: **us 10.08 M and unsolved at 600 s, kissat 715 k in 18.3 s.** BCE (6,343 deletions) collapses ours to
+  418,796 — a 24× conflict reduction — so **BCE is MASKING a search-quality deficiency, and mod4block's
+  "dependency" is that mask.** kissat needs no mask because its search does not have the deficiency.
+- **Consequence for the BCE decision (L18):** the trade is REAL, not an artefact — BCE-off costs mod4block
+  because our search is genuinely weak there. It stops being a trade only if that search gap is closed, which
+  is a fresh **debug-performance target and a SEARCH question, not a rule one**: "with BCE off, why do we
+  need 14× kissat's conflicts on mod4block?" That is the highest-value known lever on Tier B, and closing it
+  would ALSO unlock Tier C parity with cadical (BCE-off = 1.0065×) at no Tier B cost.
+
 ### 2026-07-29 — BCE: its whole VALUE is one instance and its whole COST is another, on the SAME axis
 Follow-up to the j3037 diagnosis below. Three measurements, and each one killed a framing I had just
 written down — recorded in that order because the sequence is the lesson.
