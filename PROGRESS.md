@@ -30,7 +30,26 @@ those two reliably pays it back elsewhere** (slot rate 2‰, next action 1), so 
    them has. **Do NOT hand-build a static separator on it** — L5 and L15 killed separators that looked this clean. Log 2026-07-29 has the table.
    **So T3's CaDiCaL half is open again, and the next move on it is a different lever than the rate** — the two-instance framing is superseded
    (the rate trade shows the regression is not localizable to j3037+asconhash without paying it back elsewhere).
-   **▶ IN FLIGHT — debug-performance on `j3037_9_rggt_b`, the correct single target.** Ranked by gap to cadical at the shipped default
+   **▶ WHERE THE DEBUG-PERFORMANCE THREAD ACTUALLY IS (2026-07-29 evening).** j3037 resolved: the cause is
+   **X1 BCE** (Log below + L17/L18), and **BCE-off gives Tier C 318.18 = 1.0065× cadical — T3's CaDiCaL half
+   MET** — at the price of ONE Tier B instance, `mod4block` (13.2 s → 600 TO). So the live question is
+   narrower than "fix Tier C": **why does mod4block depend on BCE when kissat does it in 18.3 s with no BCE
+   at all?** If that dependency is a tactix defect rather than a real need, BCE-off is free on Tier B and the
+   gate half comes with it. Probe series `benchmarks/probes/mod4block-bce-dependency.sh`:
+   - **Factor-creates-it: REFUTED.** `c factor 0 factorings` on mod4block — our density gate
+     (`factor.cpp:206`, threshold 6) suppresses Factor entirely there because the instance is binary-SPARSE
+     (~4.1 binaries/var); `no-factor` is bit-identical to shipped (418,796 conflicts both).
+   - **▶ CURRENT HYPOTHESIS, inverted from that: Factor is ABSENT, not guilty.** kissat **factors 912
+     variables** on mod4block and needs no BCE; we factor none and need BCE. So BCE may be compensating for
+     the BVA our own density gate suppresses — i.e. the defect would be the GATE, not BCE. In flight: arms
+     forcing `TACTIX_FACTOR_DENSITY=1/0` with BCE off (jobs 1573453/1573454), plus −BCE−BVE / −BCE−Factor /
+     −BCE−BVE−Factor (1573448–52) to rule out the elimination interaction.
+   - Method note: the first submission of these arms was INVALID — the pinned binary predated the
+     occurrence-cap revert, so every arm silently ran a configuration already measured as a mod4block
+     timeout. Re-pinned and **verified against a known baseline (12.79 s / 418,796 conflicts / 6,343
+     deleted) before trusting any arm.** Do that whenever a probe runs off a pinned copy.
+
+   **(superseded framing kept for the trail) — debug-performance on `j3037_9_rggt_b`, the correct single target.** Ranked by gap to cadical at the shipped default
    (window `20260729-094225`), it is **1162.8 s vs cadical 25.8 (45×) and kissat 161.7 (7.2×) — alone +1137 s = 37.9 of the 47.2 PAR-2 total gap,
    ~80 % of the whole deficit**; the next four (asconhash +489, T87 +399, T105 +384, goldcrest +369) together are less. It is a SAT instance, and
    rules-off it is 138.8 s, so the ON composition costs it ~1000 s. Probes 1573169–77 (`benchmarks/probes/j3037-decompose.sh`) run
