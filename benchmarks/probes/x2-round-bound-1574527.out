@@ -17,3 +17,4 @@ c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
 s SATISFIABLE
 wall 24.39
 === j3037_9_rggt_b baseline ===
+[2026-07-29T22:24:33.099] error: *** JOB 1574527 ON node017 CANCELLED AT 2026-07-29T22:24:33 DUE to SIGNAL Terminated ***
