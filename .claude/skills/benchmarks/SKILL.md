@@ -19,13 +19,14 @@ Authoritative spec: DEVELOPMENT_PLAN.md §8.1 and §8.3. This skill operationali
 Hard rules:
 - **Never tune heuristic defaults on Tier A** (random 3-SAT rewards the wrong heuristics). Tiers A–B answer "correct and not embarrassingly slow"; only C–D answer "competitive".
 - Tier lists are frozen, versioned files in `benchmarks/tiers/*.list` (instance name + expected status + reference runtime). Changing a list requires a commit explaining why — never silently.
-- Instances live in `benchmarks/cache/` (untracked); `tools/bench/fetch.py` downloads by hash from the Global Benchmark Database (gbd.iti.kit.edu) / competition mirrors.
+- Instances live in `benchmarks/cache/` (untracked); `tools/bench/fetch.py` downloads by hash from the Global Benchmark Database, host **`benchmark-database.de`** (`/file/<hash>`; the old `gbd.iti.kit.edu` alias no longer resolves).
 
 ## Building/refreshing Tier B or C lists
 
-1. Run Kissat 4.0.4 (`../kissat/build/kissat` or wherever built) over candidate SC main-track instances with the tier's reference timeout, one instance at a time, wall-clock measured.
-2. Select instances in the tier's reference band (Tier B: 5–30 s — the lower bound keeps trivial instances out; Tier C: ≤ 300 s), stratify ~50% SAT / 50% UNSAT, cap instances per benchmark family (Tier B: 2; Tier C: 3).
-3. Record: instance, status (from competition results or Kissat), Kissat runtime, hardware string.
+0. **Candidate pool:** `curl https://benchmark-database.de/getdatabase` → GBD's *meta* sqlite (`features` + hash→value tables `track`, `filename`; join, don't read `features.track` directly), `…/getdatabase/base` → structural features (`clauses`, `variables`, `bytes`). `track ∈ {main_2023, main_2024, main_2025}` is 400 instances each; drop `result = unknown`. Worked example (1186-instance pool → 721 screened): `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
+1. Run Kissat 4.0.4 (the pinned `tools/solvers/bin/kissat`) over the candidates as a job array (one task per instance, **sbatch only**), proof logging on so the numbers match a real tier run.
+2. Select instances in the tier's reference band (Tier B: cluster-measured [3.5, 19] s, the span of the core 14 — the lower bound keeps trivial instances out; Tier C: ≤ 300 s), stratify ~50% SAT / 50% UNSAT, cap instances per benchmark family (Tier B: 2; Tier C: 3), and confirm the verdict against the competition status.
+3. Record: instance, status, Kissat runtime as a **median of ≥ 3 repeats in one window**, per-instance spread (an instance whose spread survives `--throttle 5` is unusable — it will forge A/B verdicts), and the allocation shape.
 
 ## Running an evaluation
 

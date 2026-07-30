@@ -1,4 +1,5 @@
-# GBD hashes for Tier B (benchmark-database.de); used by fetch.py
+# GBD hashes for Tier B (https://benchmark-database.de/file/<hash>); fetch.py
+# --- core14 (frozen 2026-07-09) ---
 f86dad4ba35369eb720a0c9ddc45037a combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2.cnf.xz
 909f704d5f4127c1197a086705468624 rbsat-v760c43649gyes10.cnf.xz
 7083b70c1976162e2693d7a493717ffd battleship-14-26-sat.cnf.xz
@@ -13,3 +14,18 @@ fd1fbc1b090c14746a883b3a17259743 9vliw_bp_mc.shuffled.cnf.xz
 c76f3c6c2e2eae85fc5f3d499f3db88d mp1-blockpuzzle_5x10_s7_free4.cnf.xz
 f296fe701a562022c0de0cf565fbca7d x9-08014.sat.sanitized.cnf.xz
 9cd3acdb765c15163bc239ae3a57f880 FmlaEquivChain_4_6_6.sanitized.cnf.xz
+# --- new14 (added 2026-07-29) ---
+028d0cc7af63e9bba5795f20e24db4f6 pyhala-braun-sat-35-4-04.shuffled.cnf.xz
+e4ac15cf2373fe0a3601065225178916 2013113162201nw.shuffled-as.sat03-1668.cnf.xz
+f50eaf02a8041510b64104998cc81d2f sted5_0x24204-50.cnf.xz
+1d18837c0ced5c18a3a4693993e61728 SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50.normalised.cnf.xz
+0876c518e5653369e20fb1ee0bb8db40 mp1-klieber2017s-0500-023-t12.cnf.xz
+3a7a64e1d6cf5ce969b2b05b5464f707 PRP_30_38.cnf.xz
+74931e82fd208ed949fa44bccd80df6b DivS_862_11.cnf.sanitized.cnf.xz
+df813fe752353c2cc3b9040865aecfe4 veer_axi_yosyshq_appnote_123_veer_axi-p23_transition.cnf.xz
+37d40a1092b58ad28285b9453872d211 DecompressReader_read_12.cnf.xz
+a7e7d0f855781da215aed50e523a821c b22_1.cnf.xz
+965bc4f6691b2e5f7388aaa9ba68f768 SCPC-500-5.cnf.xz
+e6d247292b525447a220323901842e4c or_randxor_k3_n540_m540.cnf.xz
+a45b60e53917968f922b97c6f8aa8db3 unsat-set-b-fclqcolor-10-07-09.sat05-1282.reshuffled-07.cnf.xz
+c569d4b2b2e90a1a70bd23a1169355ef oddball_13_5_ttf.normalised.cnf.xz
