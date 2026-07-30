@@ -509,6 +509,35 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-29 (night) — ▶ THE AUGMENTED TIER B FINDS FOUR ORDER-OF-MAGNITUDE FAILURES. This outranks T3.
+First tactix run on the 28-instance list (window `20260729-220951`, array 1574528, throttle 48, both arms
+writing and checking DRAT): **tactix PAR-2 102.28 at 24/28 vs kissat 9.54 at 28/28.** The expansion paid for
+itself on its first use.
+
+| instance | tactix | kissat | ×kissat |
+|---|---|---|---|
+| `veer_axi_…-p23_trans` | **600 TO** | **3.2** | **187×** |
+| `or_randxor_k3_n540_m540` | **600 TO** | 12.4 | 48× |
+| `mp1-klieber2017s-0500-023-t12` | **600 TO** | 12.5 | 48× |
+| `unsat-set-b-fclqcolor-10-07-09` | **600 TO** | 16.5 | 36× |
+| `DivS_862_11` | 115.5 | 16.5 | 7.0× |
+| `2013113162201nw` | 72.6 | 6.0 | 12.1× |
+
+**These are NOT regressions** — they are instances our benchmark set had never contained, so the weaknesses
+were always there and invisible. The core 14 continue to read normally (FmlaEquivChain 28.6, etc.).
+**Why this reprioritizes everything:** the whole T3 effort concerns a 1.14× ratio on Tier C, while the daily
+driver now shows **four instances at 36–187×, one of which kissat finishes in 3.2 seconds.** An instance we
+cannot solve in 600 s that the reference solves in 3.2 s is a different KIND of defect from a dosing
+imbalance, and it is far more likely to be a single identifiable cause. Under plan §8.1's own logic — Tier B
+answers "correct and not embarrassingly slow" — we are currently embarrassingly slow on 4 of 28.
+**Also: the user's instinct to expand was right, and the measurement justifies it retroactively.** At n=14
+none of these four existed in any window, so no amount of care on the old set could have found them; every
+Tier B verdict this project has recorded was taken on a set that omitted its four worst cases.
+**NEXT (this outranks the T3/BCE thread):** debug-performance on `veer_axi` first (largest ratio, cheapest
+reference run at 3.2 s, so iteration is fast), then the other three; check whether they share a cause before
+treating them separately. Do NOT tune on them — they are now part of the frozen set (L-lesson: §8.1 forbids
+tuning on the tier you measure with).
+
 ### 2026-07-29 (night) — Tier B DOUBLED to 28 instances, 28 families, one clock (plan rev 74)
 `ff32e6f` (sub-agent) + rev 74. **28 instances, 28 DISTINCT families**, all measured in one cluster window:
 kissat band **[3.33, 19.40] s**, PAR-2 9.63/9.78/9.88 over 3 repeats, 28/28 solved, 14/14 UNSAT proofs
