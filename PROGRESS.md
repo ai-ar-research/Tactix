@@ -563,7 +563,7 @@ verified against mod4block's baseline BEFORE any arm was read. Report
 | instance | dominant term |
 |---|---|
 | `veer_axi` | **TransitiveReduce's OWN runtime** — 8.7×10⁹ ticks, 26–49 % of the clock (kissat spends **0.03 s** there) + zero elimination. It DOES solve: **2,199.8 s** at a 3600 s cap = **687× kissat** |
-| `or_randxor` | search-tree size only (slot 1.8 %, props/conflict 0.83× kissat) — needs BVA on non-binary clauses |
+| `or_randxor` | **THE ONE TRUE WALL — UNSOLVED at 3,600 s after 42,481,210 conflicts, 69× the 617 k kissat needs**, at engine PARITY (slot 1.9 %, props/conflict 0.99×). No scheduling change touches it; needs BVA over non-binary clauses |
 | `mp1-klieber2017s` | TransitiveReduce TRAJECTORY damage (own time 1.7 %; **823 binary deletions cost 15× the conflicts**) + zero elimination |
 | `fclqcolor` | search-tree size at engine parity (props/conflict 1.06×, conflicts/restart 38 vs 43) |
 | `2013113162201nw` | **HyperTernaryRes** — own time 0.06 %, but `−X2` is **75.4 → 1.42 s** |
@@ -587,6 +587,11 @@ conflicts, same 90,614 candidates, same ticks), i.e. its budget has never bound.
 **≈ 40 Tier B PAR-2, the largest single item.**
 **Same defect: klieber + nw (+ veer partly). Distinct twins: rxor + fclq (B). DivS is its own** (the only
 two slot entries with no mid-round budget).
+**The two 3600 s arms changed one conclusion: `veer_axi` is a CONSTANT FACTOR, not a wall** (2,199.81 s /
+137,637 conflicts = 687× kissat's 3.20 s; TransitiveReduce alone 585.7 s = 26.6 % of it, over 1,298,245
+applications, where kissat spends 0.03 s). **`or_randxor` is the only genuine wall** — 42.5 M conflicts and
+still unsolved at 3,600 s with props/conflict at 0.99× kissat, i.e. our engine is at parity and our search
+tree is 69× too big. That one is defect B and nothing else.
 **RANKED, with kill criteria:** (1) replace the BVE binary-density admission — the only cheap change with a
 MEASURED solve; kill = mod4block/crypto1 regressing (L9, which is where that gate came from). (2) Meter
 TransitiveReduce in ticks + kissat's early exit; honest caveat pre-registered by the sub-agent — klieber's
@@ -596,6 +601,8 @@ damage is V4's OUTPUT not its work, so its payoff there is unproven. (3) Extend 
 only **1.8× on nw and 1.5× on klieber** against **53× and 6.2× for the rule OFF** — so the binding knob
 there is `ternaryrounds` (we run 25), not the effort share. j3037's 3.65× may be substantially
 instance-specific; the Tier C A/B decides whether 8‰ ships.
+**Banked L14 trap, do NOT act on it:** rxor spends 91.2×10⁹ walk steps on a refutation, which looks like a
+smoking gun — the walk-off arm prices them at **~4 %**.
 **Owed instrumentation the diagnosis was blocked on:** `c congruence` prints neither gates nor merges, so
 whether Substitute actually removes the 161,462 equivalences Congruence finds on veer is UNKNOWN — add
 `congruence_merged` / `substituted_vars`. And veer's remaining 385 s (best config 387 s = 121× kissat,
