@@ -1,0 +1,7 @@
+input bytes=3529898 expect=SAT
+=== mod4block X2rate=20 BCE=on ===
+c conflicts   418796
+c bce         5 rounds, 6343 deleted, 5870519 ticks
+c ternary     17 rounds, 6048 resolvents, 0 binaries, 25343 ticks
+s SATISFIABLE
+wall 13.37

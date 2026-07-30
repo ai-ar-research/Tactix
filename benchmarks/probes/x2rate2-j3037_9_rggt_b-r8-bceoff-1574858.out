@@ -1,0 +1,7 @@
+input bytes=1471029 expect=SAT
+=== j3037_9_rggt_b X2rate=8 BCE=off ===
+c conflicts   836885
+c bce         0 rounds, 0 deleted, 0 ticks
+c ternary     26 rounds, 9646 resolvents, 0 binaries, 3945802 ticks
+s SATISFIABLE
+wall 91.49

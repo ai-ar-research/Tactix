@@ -555,6 +555,33 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-30 — ▶ X2's EFFORT SHARE is the governor: cadical's 8‰ gives j3037 3.65× at zero cost elsewhere
+The second candidate from the inert-limits entry below. We give X2 **20‰** where cadical gives
+`ternaryeffort` **8‰** — 2.5× the reference's share of the effort ledger. Probes 1574853–60 (job-unique
+scratch + input-size + verdict assertions, after the `$TMPDIR` collision below invalidated the first run):
+
+| instance | BCE | X2 @ 20‰ (ours) | X2 @ 8‰ (cadical's) |
+|---|---|---|---|
+| **j3037** | on | **1051.7 s / 7,604,704 confl / 73 rounds / 26,644 resolvents** | **288.3 s / 2,564,047 / 44 / 15,733** |
+| j3037 | off | 144.9 s / 1,278,932 | 91.5 s / 836,885 |
+| mod4block | on | 13.37 s / 418,796 | 12.97 s / **418,796 — IDENTICAL** |
+| mod4block | off | 600 TO / 10.28 M | 600 TO / 10.22 M |
+
+**3.65× on j3037 — the instance that is ~80 % of our Tier C gap — and the budget is not even binding on
+mod4block** (byte-identical conflicts there, so the trio's stabilizing composition is untouched). This is
+the directive-compatible governor the chain was looking for: X2 gets its own bound from the effort ledger,
+rather than relying on BCE to shrink its candidate pool. Rough arithmetic: j3037 1052 → 288 is ~29 Tier C
+PAR-2 (more where it times out), which would put Tier C ≈ 333 against cadical ≈ 316 = **1.05×, INSIDE T3's
+10 % band, with every rule ON.**
+**NOT LANDED — arithmetic is not a measurement (L16: an aggregate matching a prediction is not evidence for
+the prediction).** Same-window A/B in flight on BOTH tiers, every arm writing and checking proofs: Tier C
+array **1574965** (`20260730-085509`, vs cadical + kissat) and Tier B(28) array **1575015**
+(`20260730-085538`, vs kissat). Ship only if Tier C improves AND Tier B(28) does not regress. If it holds,
+bake 8 into `EFFORT_SPECS` (`default_policy.cpp`) — the one-line change — and re-run the T3 row.
+**Caveat worth stating:** L16 rejected a UNIFORM 2‰ across all three rules as a chaotic two-sided lever.
+This is a different experiment — one rule, matched to the reference's own published share, with the other
+two untouched — and the mod4block column shows it is not simply "less X2 everywhere".
+
 ### 2026-07-30 — user decision: X1/X2/X4 STAY ON, fix the scheduling. First port is INERT.
 **Decision (user, 2026-07-30):** "I don't think we should disable X1, X2, and X4. We should work on
 scheduling." So the all-rules-ON directive stands, the all-on/all-off question is CLOSED in favour of ON,
