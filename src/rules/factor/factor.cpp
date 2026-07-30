@@ -62,6 +62,45 @@ void binary_partners(Kernel &k, Lit l, Lit limit, std::vector<Lit> &out,
     seen[p] = 0;
 }
 
+// --- remainder interning (R5, docs/design/e2-factorsize-design.md §3) --------
+// A REMAINDER is `C \ {f}` for a grid clause C. Today every remainder is a
+// single literal (the binary variant); raising Kernel::factor_size makes them
+// sub-clauses, and the set operations the grid search runs on R — membership,
+// intersection, dedup — then need identity, which a sub-clause does not have.
+// So remainders are interned into dense ids for the duration of ONE apply.
+//
+// INCREMENT 1 (this commit) introduces the abstraction ONLY: `intern_unit` is
+// the sole entry point and every remainder is still one literal, so the search
+// is unchanged and `factor_size == 2` must be BIT-IDENTICAL — that is the gate,
+// not a nicety (design §5). Increment 2 adds the multi-literal intern (hash over
+// the sorted literals) and the occurrence scan that produces them.
+//
+// Scratch discipline: `unit_id` is indexed by literal and grows on demand rather
+// than being fill-initialized per call — the O(nvars)-per-call hazard this
+// codebase has hit four times ([[per-call-linear-scratch-hazard]]).
+struct RemPool {
+  std::vector<Lit> pool;            // flat literal storage
+  std::vector<uint32_t> off, len;   // per id
+  std::vector<int32_t> unit_id;     // literal -> id for |r| == 1, -1 = unseen
+
+  uint32_t intern_unit(Lit l) {
+    if (unit_id.size() <= static_cast<size_t>(l))
+      unit_id.resize(static_cast<size_t>(l) + 1, -1);
+    if (unit_id[l] >= 0)
+      return static_cast<uint32_t>(unit_id[l]);
+    const uint32_t id = static_cast<uint32_t>(off.size());
+    off.push_back(static_cast<uint32_t>(pool.size()));
+    len.push_back(1);
+    pool.push_back(l);
+    unit_id[l] = static_cast<int32_t>(id);
+    return id;
+  }
+  uint32_t count() const { return static_cast<uint32_t>(off.size()); }
+  uint32_t size_of(uint32_t id) const { return len[id]; }
+  const Lit *lits_of(uint32_t id) const { return pool.data() + off[id]; }
+  Lit lit0(uint32_t id) const { return pool[off[id]]; }
+};
+
 // Seed/tie-break score — kissat's `watches_score` (factor.c:310), the raw
 // watch-list size. Kissat reads it in DENSE mode, where large watches are
 // flushed and duplicate binaries physically deleted, so for it this is the
@@ -84,7 +123,7 @@ bool contains(const std::vector<Lit> &v, Lit l) {
 // (x∨f), the quotients (¬x∨r), then deletes the grid — in that proof order so the
 // quotients' RAT-on-¬x resolves against the dividers to the still-live originals.
 void apply_factoring(Kernel &k, const std::vector<Lit> &F,
-                     const std::vector<Lit> &R) {
+                     const std::vector<uint32_t> &R, const RemPool &pool) {
   const Var xv = kernel_new_extension_vars(k, 1);
   const Lit px = make_lit(xv, false); // x
   const Lit nx = make_lit(xv, true);  // ¬x
@@ -110,7 +149,12 @@ void apply_factoring(Kernel &k, const std::vector<Lit> &F,
   // come last), hence RUP by that original's id. Hints are the flat signed stream
   // [-dividerᵢ, orig(fᵢ,rⱼ)]ᵢ. kernel_binary_id must be read before deletion.
   std::vector<int64_t> hints;
-  for (const Lit r : R) {
+  for (const uint32_t rid : R) {
+    // INCREMENT 1: every remainder is one literal, so this is the binary
+    // quotient exactly as before. Increment 2 widens `lits` to {¬x} ∪ r; the
+    // RAT-on-¬x argument is indifferent to |r| (design §4), and the hint stream
+    // below is already per-divider, so only the literal vector changes.
+    const Lit r = pool.lit0(rid);
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {nx, r}; // pivot (¬x) first
     if (lrat) {
@@ -130,8 +174,8 @@ void apply_factoring(Kernel &k, const std::vector<Lit> &F,
   // binary is fully replaced by the aux-var definition, and the plain
   // kernel_delete_binary refuses copies>1 (see kernel.cpp).
   for (const Lit f : F)
-    for (const Lit r : R)
-      kernel_delete_binary_all_copies(k, f, r);
+    for (const uint32_t rid : R)
+      kernel_delete_binary_all_copies(k, f, pool.lit0(rid));
 }
 
 // DEBUG (S2 diagnosis): dump the current clause DB as DIMACS and exit, to feed
@@ -235,10 +279,31 @@ ApplyResult factor_apply(Kernel &k) {
   const bool composite = k.factor_composite;
   Lit live_lits = composite ? static_cast<Lit>(2 * k.nvars) : orig_lits;
 
-  std::vector<uint8_t> inR(live_lits, 0);       // R membership
+  // R-side scratch is now indexed by REMAINDER ID, not literal (R5 increment 1).
+  // `inR` grows with the pool rather than being sized up front, since the pool
+  // is bounded by material actually seen, not by 2*nvars.
+  RemPool pool;
+  std::vector<uint8_t> inR;                     // R membership, by remainder id
+  const auto mark_R = [&](uint32_t rid, uint8_t v) {
+    if (inR.size() <= rid)
+      inR.resize(rid + 1, 0);
+    inR[rid] = v;
+  };
+  const auto in_R = [&](uint32_t rid) {
+    return rid < inR.size() && inR[rid];
+  };
+  // Intern one literal-remainder, preserving the caller's order — bit-identity
+  // at factor_size == 2 depends on R being iterated in binary_partners' order.
+  const auto intern_all = [&](const std::vector<Lit> &src,
+                              std::vector<uint32_t> &dst) {
+    dst.clear();
+    for (const Lit p : src)
+      dst.push_back(pool.intern_unit(p));
+  };
   std::vector<uint8_t> seen(live_lits, 0);      // binary_partners dedup scratch
   std::vector<uint32_t> cofactor(live_lits, 0); // co-occurrence counts
-  std::vector<Lit> touched, partners, R, newR, F, best_F, best_R;
+  std::vector<Lit> touched, partners, partner_lits, F, best_F;
+  std::vector<uint32_t> R, newR, best_R;
   uint64_t applied = 0;
 
   // Seed schedule. Kissat pops seed candidates from a max-heap keyed by
@@ -292,11 +357,12 @@ ApplyResult factor_apply(Kernel &k) {
       continue;
     }
     tried[seed] = 1;
-    binary_partners(k, seed, live_lits, R, seen);
+    binary_partners(k, seed, live_lits, partner_lits, seen);
+    intern_all(partner_lits, R);
     if (R.size() < 2 || R.size() > FACTOR_DIM_LIMIT)
       continue;
-    for (const Lit r : R)
-      inR[r] = 1;
+    for (const uint32_t rid : R)
+      mark_R(rid, 1);
     F.assign(1, seed);
     int best_delta = 0;
     best_F.clear();
@@ -306,8 +372,11 @@ ApplyResult factor_apply(Kernel &k) {
     while (F.size() < FACTOR_DIM_LIMIT && R.size() >= 2 && !over_budget()) {
       // count candidate next-factors by co-occurrence across the current R.
       touched.clear();
-      for (const Lit r : R) {
-        binary_partners(k, r, live_lits, partners, seen);
+      for (const uint32_t rid : R) {
+        // INCREMENT 1: |r| == 1, so "the literals h with {h} ∪ r a clause" is
+        // exactly binary_partners(r). Increment 2 replaces this with the
+        // occurrence scan for clauses {h} ∪ r of size ≤ factor_size.
+        binary_partners(k, pool.lit0(rid), live_lits, partners, seen);
         for (const Lit h : partners) {
           if (var_of(h) == var_of(seed) || contains(F, h))
             continue;
@@ -346,9 +415,11 @@ ApplyResult factor_apply(Kernel &k) {
       // newR = R ∩ partners(g)  (the r in R with (g∨r) present)
       binary_partners(k, g, live_lits, partners, seen);
       newR.clear();
-      for (const Lit p : partners)
-        if (inR[p])
-          newR.push_back(p);
+      for (const Lit p : partners) {
+        const uint32_t rid = pool.intern_unit(p);
+        if (in_R(rid))
+          newR.push_back(rid);
+      }
       const uint32_t m = static_cast<uint32_t>(F.size()) + 1;
       const uint32_t n = static_cast<uint32_t>(newR.size());
       const int delta = static_cast<int>(m * n) - static_cast<int>(m + n);
@@ -360,14 +431,14 @@ ApplyResult factor_apply(Kernel &k) {
       }
       // commit g and shrink R to newR to keep growing.
       F.push_back(g);
-      for (const Lit r : R)
-        inR[r] = 0;
-      for (const Lit r : newR)
-        inR[r] = 1;
+      for (const uint32_t rid : R)
+        mark_R(rid, 0);
+      for (const uint32_t rid : newR)
+        mark_R(rid, 1);
       R.swap(newR);
     }
-    for (const Lit r : R) // unmark whatever R ended as
-      inR[r] = 0;
+    for (const uint32_t rid : R) // unmark whatever R ended as
+      mark_R(rid, 0);
 
     // Acceptance: an attached FactorMatchPolicy keeps precedence (the hook
     // subsumes the scalar); otherwise k.factor_bound (kissat's
@@ -382,7 +453,7 @@ ApplyResult factor_apply(Kernel &k) {
       if (std::getenv("TACTIX_GRID_TRACE")) // S2a Inc 3a: grid dims surface
         std::fprintf(stderr, "[grid] %zux%zu delta=%d\n", best_F.size(),
                      best_R.size(), best_delta);
-      apply_factoring(k, best_F, best_R);
+      apply_factoring(k, best_F, best_R, pool);
       applied++;
       k.stats.factorings++;
       // S2b: grow the pass universe over the fresh var (kissat
@@ -392,8 +463,7 @@ ApplyResult factor_apply(Kernel &k) {
       // delta-monotone regardless, design §4).
       if (composite && static_cast<Lit>(2 * k.nvars) > live_lits) {
         live_lits = static_cast<Lit>(2 * k.nvars);
-        inR.resize(live_lits, 0);
-        seen.resize(live_lits, 0);
+        seen.resize(live_lits, 0); // inR is remainder-id indexed, grows in mark_R
         cofactor.resize(live_lits, 0);
         tried.resize(live_lits, 0);
         pq.push({score_of(live_lits - 2), static_cast<Lit>(live_lits - 2)});
