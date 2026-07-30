@@ -6,8 +6,6 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Plan revision tracked:** rev. 74 (2026-07-29)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-30 (overnight) — **Tier B doubled to 28 and immediately found FOUR order-of-magnitude failures (up to 187× kissat); that now outranks T3.** T3/BCE fully diagnosed and parked on one directive decision (see resume block). Phase timers landed; docs compacted (rev 73); Tier B rev 74. Nightly fuzz 1574586/1574587 running.
-  pass done; W4f closed; docs compacted (`011c81f`, rev 73); **the slot-rate question is SETTLED — 2‰ rejected as a constant over two windows
-  (1.065× then 1.101× cadical), banked as the sixth §5.6 dosing family; T3's CaDiCaL half is open and needs a different lever** (resume action 1).
 
 ## ▶ RESUME HERE (2026-07-30 morning) — phase 3, T3 open, and the priority CHANGED overnight
 
