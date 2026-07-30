@@ -1,0 +1,11 @@
+=== FmlaEquivChain arm=tiered BCE=on ===
+c conflicts   797924
+c learnedsize 20.70 avg lits, 8.53 avg glue
+c reduction   22.2% of resolved lits removed by minimize+shrink
+c vivify      89 rounds, 822 vivified, 0 deleted, 13623 checked
+c reductions  67 (706668 clauses deleted, 238244 promoted)
+c timing      26060 ms solve
+c timing      8101 ms (31.1%) inprocessing slot, 17960 ms (68.9%) search+scaffolding outside it
+c timing        Vivify                1129 ms (  4.3%) in 89 applications
+s UNSATISFIABLE
+wall 26.14

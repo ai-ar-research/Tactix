@@ -1,0 +1,16 @@
+=== mod4block pin-viv ===
+c decisions   1352448 (0 via API)
+c conflicts   418796
+s SATISFIABLE
+=== mod4block pin-final ===
+c decisions   1352448 (0 via API)
+c conflicts   418796
+s SATISFIABLE
+=== FmlaEquivChain pin-viv ===
+c decisions   16700215 (0 via API)
+c conflicts   982451
+s UNSATISFIABLE
+=== FmlaEquivChain pin-final ===
+c decisions   16700215 (0 via API)
+c conflicts   982451
+s UNSATISFIABLE

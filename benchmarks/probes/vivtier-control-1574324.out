@@ -1,0 +1,15 @@
+=== A: shipped baseline (pin-viv, pre-change) ===
+c conflicts   418796
+c vivify      15 rounds, 46 vivified, 0 deleted, 1721 checked
+s SATISFIABLE
+wall 12.75
+=== B: new build, UNTIERED (must equal A exactly) ===
+c conflicts   418796
+c vivify      15 rounds, 46 vivified, 0 deleted, 1721 checked
+s SATISFIABLE
+wall 12.89
+=== C: new build, TIERED ===
+c conflicts   4978337
+c vivify      164 rounds, 1102 vivified, 0 deleted, 27628 checked
+s SATISFIABLE
+wall 209.38

@@ -341,10 +341,19 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed,
            (unsigned long long)kernel.stats.flushed);
-    printf("c vivify      %llu rounds, %llu vivified, %llu deleted\n",
+    // `checked` is printed because `vivified` alone is uninterpretable — it is a
+    // rate, not a count. Added 2026-07-29 while chasing a mod4block "46 vs
+    // kissat's 47,526" gap that turned out NOT to be like-for-like: kissat's
+    // `vivified` is an AGGREGATE (statistics.h:247, a % of checks) incremented
+    // for subsumed, PROMOTED (a tier move, not a clause change), shrunken,
+    // implied, asym and instantiated, where ours counts only clauses we
+    // strengthened. Comparing the two needs both denominators — the L14 trap,
+    // and the reason this counter now ships.
+    printf("c vivify      %llu rounds, %llu vivified, %llu deleted, %llu checked\n",
            (unsigned long long)kernel.stats.vivify_rounds,
            (unsigned long long)kernel.stats.vivified,
-           (unsigned long long)kernel.stats.vivify_deleted);
+           (unsigned long long)kernel.stats.vivify_deleted,
+           (unsigned long long)kernel.stats.vivify_checked);
     printf("c probe       %llu rounds, %llu probed, %llu failed\n",
            (unsigned long long)kernel.stats.probe_rounds,
            (unsigned long long)kernel.stats.probed,

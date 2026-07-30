@@ -1,0 +1,22 @@
+=== vivify=1000 permille, BCE=off ===
+c conflicts   12471835
+c strengthen  90 rounds, 21997 strengthened, 15589 subsumed, 88505 flushed
+c vivify      55 rounds, 19218 vivified, 0 deleted, 577080 checked
+c bce         0 rounds, 0 deleted, 0 ticks
+c subsume     90 rounds (4246652 checked, 11552 subsumed)
+c timing      899972 ms solve
+c timing      154730 ms (17.2%) inprocessing slot, 745242 ms (82.8%) search+scaffolding outside it
+c timing        Vivify              137322 ms ( 15.3%) in 55 applications
+c timing        Strengthen           11176 ms (  1.2%) in 90 applications
+c timing        SubsumeForward        4981 ms (  0.6%) in 90 applications
+c timing        Probe                  403 ms (  0.0%) in 6209 applications
+c timing        Instantiate            352 ms (  0.0%) in 30 applications
+c timing        Congruence             218 ms (  0.0%) in 15 applications
+c timing        HyperTernaryRes         96 ms (  0.0%) in 90 applications
+c timing        TransitiveReduce        77 ms (  0.0%) in 18430 applications
+c timing        Backbone                 6 ms (  0.0%) in 8086 applications
+c timing        Substitute               3 ms (  0.0%) in 15 applications
+c timing        Factor                   0 ms (  0.0%) in 90 applications
+c timing        (unattributed)          95 ms (  0.0%)
+s UNKNOWN
+wall 900.00

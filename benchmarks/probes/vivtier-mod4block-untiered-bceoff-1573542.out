@@ -1,0 +1,11 @@
+=== mod4block arm=untiered BCE=off ===
+c conflicts   4794639
+c learnedsize 29.12 avg lits, 19.17 avg glue
+c reduction   19.0% of resolved lits removed by minimize+shrink
+c vivify      34 rounds, 402 vivified, 0 deleted, 23445 checked
+c reductions  172 (4737522 clauses deleted, 1971134 promoted)
+c timing      182582 ms solve
+c timing      15325 ms (8.4%) inprocessing slot, 167257 ms (91.6%) search+scaffolding outside it
+c timing        Vivify                2371 ms (  1.3%) in 34 applications
+s SATISFIABLE
+wall 182.61

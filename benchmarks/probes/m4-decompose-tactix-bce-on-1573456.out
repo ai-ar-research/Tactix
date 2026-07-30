@@ -1,0 +1,51 @@
+c tactix 0.1.0
+c decisions   1352448 (0 via API)
+c conflicts   418796
+c propagations 11587871 (11557439 search, 30432 inprocess)
+c learned     418796 (7 units)
+c learnedsize 22.87 avg lits, 15.00 avg glue
+c reduction   13.0% of resolved lits removed by minimize+shrink
+c minimized   1234838 lits
+c shrunken    200326 lits
+c reasonbump  12470067 vars in 415572 rounds (2540 aborted)
+c otfs        10894 strengthened (536 conflicts subsumed)
+c strengthen  21 rounds, 21427 strengthened, 13001 subsumed, 81225 flushed
+c vivify      15 rounds, 46 vivified, 0 deleted
+c probe       0 rounds, 185 probed, 1 failed
+c backbone    0 rounds, 1526 probed, 2 failed
+c transitive  0 rounds, 10512 checked, 14 deleted, 0 failed, 1359624 ticks
+c substitute  8 rounds
+c bce         5 rounds, 6343 deleted, 5870519 ticks
+c instantiate 3 rounds, 20 literals removed, 794 probed
+c ternary     17 rounds, 6048 resolvents, 0 binaries, 25343 ticks
+c chrono      4 chronological, 0 stale backjumps
+c inprocess   7 phases
+c congruence  8 rounds, 0 units, 0 unjustified
+c factor      0 factorings
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    17395 (7201 reused a trail prefix)
+c reductions  47 (395828 clauses deleted, 168032 promoted)
+c mode        stable after 21 switches (411448877 ticks, 150 target phases saved)
+c rephased    24 (114 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        6 walks (5 improved, 77245 flips, 158536014 steps)
+c subsume     21 rounds (1209627 checked, 9647 subsumed)
+c timing      12896 ms solve
+c timing      5750 ms (44.6%) inprocessing slot, 7145 ms (55.4%) search+scaffolding outside it
+c timing        Strengthen            3806 ms ( 29.5%) in 21 applications
+c timing        SubsumeForward        1583 ms ( 12.3%) in 21 applications
+c timing        Congruence             128 ms (  1.0%) in 8 applications
+c timing        Vivify                 104 ms (  0.8%) in 15 applications
+c timing        BCE                     67 ms (  0.5%) in 9 applications
+c timing        Instantiate             26 ms (  0.2%) in 7 applications
+c timing        HyperTernaryRes          9 ms (  0.1%) in 21 applications
+c timing        TransitiveReduce         6 ms (  0.0%) in 2470 applications
+c timing        Probe                    2 ms (  0.0%) in 185 applications
+c timing        Substitute               1 ms (  0.0%) in 8 applications
+c timing        Backbone                 1 ms (  0.0%) in 1526 applications
+c timing        Factor                   0 ms (  0.0%) in 21 applications
+c timing        (unattributed)          18 ms (  0.1%)
+s SATISFIABLE
+Command exited with non-zero status 10
+wall 12.92

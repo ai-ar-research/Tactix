@@ -509,6 +509,49 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-29 (night) — CORRECTION: there is NO mod4block search gap. X2 runs away and BCE was bounding it
+**This entry corrects the one below it, which was wrong.** That entry concluded mod4block's BCE dependency
+was a ~14x search-quality deficiency of ours. It is not. Two independent checks killed it:
+- **The comparison was never like-for-like.** Our "-BCE" arm still ran **X2 HyperTernaryRes**, which ADDS
+  ternary resolvents; **kissat has no ternary module at all**. So "no BCE on either side" was false — L14's
+  trap, in the arm design rather than in a counter.
+- **We are FASTER than kissat on mod4block, and always were.** Run archive: at `9db22df`, before the trio
+  was enabled, shipped was **9.30 s vs kissat 20.55** (window `20260728-232402`); with the trio on it is
+  13.06–13.56 vs kissat 18.93–19.38. A solver 2.2x faster than the reference has no search deficiency there.
+
+**THE MECHANISM (probe 1574441, `benchmarks/probes/mod4block-trio-separation-*.out`):**
+
+| disabled | wall | conflicts | X2 resolvents | BCE deleted |
+|---|---|---|---|---|
+| BCE | **600 TO** | 11,587,329 | **32,155** (83 rounds) | 0 |
+| BCE + X2 | 24.11 | 810,983 | 0 | 0 |
+| **BCE + X2 + X4** | **9.13** | 321,902 | 0 | 0 |
+| X2 | 87.23 | 2,651,385 | 0 | 6,310 (37.8 M ticks) |
+| none (shipped) | 12.89 | 418,796 | 6,048 (17 rounds) | 6,343 (5.9 M ticks) |
+
+**BCE was silently BOUNDING X2.** With BCE on, X2 emits 6,048 resolvents in 17 rounds; with BCE off it runs
+to **32,155 in 83 rounds** and the solve dies. Deleting blocked clauses shrinks X2's candidate set — that is
+the coupling, and it is why removing either one alone is catastrophic (BCE off = TO; X2 off = 87.23 s).
+**All three off is the BEST configuration on this instance (9.13 s), matching the pre-trio 9.30.**
+**L15 confirmed a third time, now with the mechanism named:** the trio is mutually stabilizing, every
+partial configuration is worse than either extreme, and it is all-on or all-off.
+**Consequence for T3 (this is the decision, and it is the user's):** the route to Tier C parity is the TRIO,
+not BCE alone. Trio OFF measures **Tier B 7.94 and Tier C 313.20 = 1.00x cadical (CaDiCaL half MET)** —
+better than shipped on BOTH tiers (9.27–9.46 / 1.14–1.28x). BCE-off ALONE is the wrong cut: Tier C 1.0065x
+but Tier B 50.96 at 13/14, because it leaves X2 unbounded. **Not flipped:** the all-rules-ON directive is
+the user's and its scope is theirs to set ([[no-rule-off-configs]]). What tonight adds is that the standing
+baseline's own framing — a rule-off arm diagnoses a SCHEDULING defect — now points somewhere specific and
+directive-COMPATIBLE: **bound X2's resolvent growth** so it does not need BCE as its governor.
+**Method note, two errors of mine worth keeping.** (1) I built a tiered-vivify change on a "1000x
+vivification deficit" (46 vs kissat's 47,526) that was NOT like-for-like: kissat's `vivified` is an
+AGGREGATE counter (`statistics.h:247`) incremented for subsumed, PROMOTED (a tier move, not a clause
+change), shrunken, implied, asym and instantiated, where ours counts only strengthened clauses. My own L14
+says check the reference's counter semantics FIRST. (2) The tiering arms were void for a day because I made
+a glue sort unconditional, so the "untiered" control was not the shipped baseline (it read 575 s / 10.9 M
+against the known 12.98 s / 418,796). Both changes are REVERTED; only the `c vivify ... checked` counter is
+kept, because a rate is uninterpretable without its denominator. Tiered vivify is separately
+MEASURED-NEGATIVE on mod4block (209.4 s / 4.98 M vs 12.75 s / 418,796) — do not retry it as a default.
+
 ### 2026-07-29 — mod4block's BCE dependency is a SEARCH-QUALITY gap of ours, not a rule interaction (diagnosis closed)
 The narrow question from the resume anchor — why does mod4block need BCE when kissat does it in 18.3 s with
 none? — is answered, and the answer closes every rule-interaction branch. Probes 1573447–54,
