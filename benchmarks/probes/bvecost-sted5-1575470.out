@@ -1,0 +1,5 @@
+=== sted5 (admission=none, doses everywhere) ===
+c conflicts   40604
+c bve         0 rounds, 118 eliminated, 943644 resolutions
+s SATISFIABLE
+wall 2.31

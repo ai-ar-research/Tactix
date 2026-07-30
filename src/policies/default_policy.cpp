@@ -902,10 +902,33 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           e.limit = e.meter(k) + 700000000ull;
         e.anchor = now;
       }
-      for (int outer = 0; outer < INPROCESS_PHASE_ROUNDS && !phase_unsat;
+      // §6 STOP RESPONSIVENESS: the slot polls `stop` at every entry boundary and
+      // inside the dosed per-instance loop. Before 2026-07-30 it was checked at
+      // exactly ONE site (the outer search loop below), so a long inprocessing
+      // phase left the solver deaf to SIGTERM for its whole duration — measured
+      // at ~1,100 s on T105/T87 with the BVE admission disabled (jobs
+      // 1575474/1575475, which produced no output and died on the SLURM wall).
+      // A competition harness escalates to SIGKILL, losing the proof file, so
+      // this is a §6 defect and not merely a latency nuisance. The phase has a
+      // single exit, so breaking out here still runs its cleanup (dense
+      // disconnect, GC, ledger accounting) and the proof stays well-formed.
+      // MEASURED RESIDUAL — this does NOT fix the case that exposed it. A single
+      // rule APPLICATION is still uninterruptible, and on T105.2.0 the blocker is
+      // V6 Congruence: `c timing` prices it at 131,327 ms over 3 applications
+      // (89.5 % of a 146 s run that never reached search, conflicts == 0), and it
+      // is an UNMETERED slot entry (`meter=0 limit=0` — full canonical closure
+      // per run, nothing to titrate). SIGTERM-to-exit lag is 40 s BEFORE this
+      // change and 41 s after (jobs 1575548/1575549) — i.e. one Congruence call.
+      // So this bounds latency to one APPLICATION instead of one PHASE, which is
+      // correct but invisible here. The real fix is a termination flag the RULES
+      // poll, which is a rule-layer change (task: §6 compliance).
+      for (int outer = 0;
+           outer < INPROCESS_PHASE_ROUNDS && !phase_unsat && !(stop && *stop);
            outer++) {
         bool round_changed = false;
         for (SlotEntry &e : inprocess_slot) {
+          if (stop && *stop)
+            break; // §6: leave the phase promptly; cleanup runs at its exit
           // TACTIX_SLOT_TRACE: per-entry scheduling visibility (debug aid —
           // "did rule X even get considered, and what gated it?")
           if (std::getenv("TACTIX_SLOT_TRACE"))
@@ -945,14 +968,38 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // (Two earlier attempts banked in the gate report §2: the
             // adaptive delay — mp1's productivity is bursty — and
             // removal-only retry marking; neither recovered the pair.)
+            //
+            // ADMISSION MODE (`TACTIX_BVE_ADMIT`, default `density` = shipped):
+            //   density — the proxy above.
+            //   cost    — decline once MEASURED cost-per-yield (resolutions per
+            //             eliminated variable) exceeds `Kernel::bve_cost_limit`.
+            //             The FIRST dose always runs: the ratio cannot be known
+            //             before eliminating anything, so this is learn-then-
+            //             decide, not a static separator (L5/L15 killed four of
+            //             those). It is the axis L10 measured — mod4block burns
+            //             ~104,000 resolutions per elimination and its candidate
+            //             set never shrinks.
+            //   none    — no admission (measured: +192.67 Tier C PAR-2, three
+            //             lost solves; NOT shippable, kept as the A/B floor).
             if (e.retry_advice && k.stats.conflicts > 0) {
-              uint64_t dose_density = 6;
-              if (const char *dd = std::getenv("TACTIX_BVE_DOSE_DENSITY"))
-                dose_density = std::strtoull(dd, nullptr, 10);
-              if (dose_density &&
-                  k.binary_ids.size() <
-                      dose_density * kernel_num_output_vars(k))
-                continue;
+              static const char *const admit_env = std::getenv("TACTIX_BVE_ADMIT");
+              const bool admit_cost = admit_env && !std::strcmp(admit_env, "cost");
+              const bool admit_none = admit_env && !std::strcmp(admit_env, "none");
+              if (admit_cost) {
+                const uint64_t elim = k.stats.bve_eliminated;
+                const uint64_t lim = k.bve_cost_limit;
+                if (lim && elim &&
+                    k.stats.bve_resolutions / elim > lim)
+                  continue; // this formula is paying too much per elimination
+              } else if (!admit_none) {
+                uint64_t dose_density = 6;
+                if (const char *dd = std::getenv("TACTIX_BVE_DOSE_DENSITY"))
+                  dose_density = std::strtoull(dd, nullptr, 10);
+                if (dose_density &&
+                    k.binary_ids.size() <
+                        dose_density * kernel_num_output_vars(k))
+                  continue;
+              }
             }
             // I2 one-shot (TEMPORARY, see phase-entry carve-out above): the
             // BVE entry fires exactly ONE dose per solve — full ramp,
@@ -1061,6 +1108,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                       (!ramp || k.bve_min_bound[var_of(rl)] > k.bve_bound))
                     continue;
                 }
+                if (stop && *stop)
+                  break; // §6: a dose can enumerate thousands of candidates
                 const ApplyResult ar =
                     apply_rule_instance(r, k, inprocess_payloads_[i]);
                 if (ar == ApplyResult::Unsat || k.inconsistent) {

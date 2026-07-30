@@ -485,6 +485,22 @@ struct Kernel {
   // (`ternary.cpp:247`). `ternary_max_add_percent` = cadical `ternarymaxadd`
   // (default 1000, i.e. 1000 %): stop a round once it has added more clauses
   // than `total_clauses * pct / 100` (`ternary.cpp:387`).
+  // E1 BVE dose ADMISSION by measured COST-PER-YIELD (resolutions per eliminated
+  // variable), replacing the binary-density proxy for during-search doses.
+  // CONFIGURATION like bve_bound: policy-owned, any value sound (it only
+  // declines doses), 0 = no limit.
+  //
+  // Why cost and not density (measured 2026-07-30, windows `20260730-1118*`):
+  // removing the density gate is +192.67 Tier C PAR-2 and THREE lost solves
+  // (T105/T87/asconhash), so the gate is load-bearing — but on Tier B it is a
+  // ONE-INSTANCE defense: `crypto1` IMPROVED without it (7.0 -> 3.3 s), while
+  // it costs `sted5` a solve (600 TO -> 2.4 s), klieber 118.4 -> 6.5 and b22_1
+  // 40.9 -> 10.5. Density is a proxy for "elimination is safe here" that is
+  // false on every sparse instance in the tier. The DIRECT signal is cost per
+  // yield: L10's forced doses on mod4block are 34 eliminations for 3.53 M
+  // resolutions (~104,000 EACH) with the candidate set never shrinking, an
+  // outlier no productive instance shows.
+  uint32_t bve_cost_limit = 0;
   uint32_t ternary_occ_limit = 100;
   uint32_t ternary_max_add_percent = 1000;
   // Factor grid-selection strategy (Track S · S2a): consulted by factor_apply

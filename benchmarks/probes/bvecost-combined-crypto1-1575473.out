@@ -1,0 +1,5 @@
+=== combined-crypto1 (admission=none, doses everywhere) ===
+c conflicts   134569
+c bve         0 rounds, 98 eliminated, 379991 resolutions
+s SATISFIABLE
+wall 3.19

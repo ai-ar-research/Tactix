@@ -248,6 +248,10 @@ int main(int argc, char **argv) {
     kernel.ternary_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
   if (const char *ma = getenv("TACTIX_TERNARY_MAXADD"))
     kernel.ternary_max_add_percent = (uint32_t)strtoul(ma, nullptr, 10);
+  // BVE cost-per-yield ceiling; only consulted under TACTIX_BVE_ADMIT=cost.
+  // See Kernel::bve_cost_limit.
+  if (const char *cl = getenv("TACTIX_BVE_COST_LIMIT"))
+    kernel.bve_cost_limit = (uint32_t)strtoul(cl, nullptr, 10);
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a
