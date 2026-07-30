@@ -36,6 +36,21 @@ while cadical bounds ternary FOUR ways** — `ternaryrounds=2` (we ran 83), `ter
 `ternarymaxadd`, `ternaryocclim`. Porting those is the obvious next move and keeps every rule ON.
 NOTE `TACTIX_SLOT_MAX_APPLIES` counts slot CONSIDERATIONS (~3/phase), not productive rounds, so `:2` ≈ rule
 OFF — it cannot emulate `ternaryrounds` without a real per-round counter.
+**▶ AND THERE IS A CHAIN HERE WORTH TRYING BEFORE TOUCHING THE DIRECTIVE — it would close Tier C with every
+rule ON.** Tonight's two "measured-dead" governor results were each measured while the OTHER rule was
+unbounded, so neither is actually dead in the configuration that matters:
+  1. **Govern X2** (port cadical's `ternaryrounds=2` / `ternarymaxadd` / `ternaryocclim`; we have none).
+  2. Then mod4block should no longer NEED BCE, because BCE's whole value there was bounding X2 — which is
+     exactly what step 1 does properly.
+  3. Then **BCE's occurrence cap becomes affordable**. It was rejected only because it timed out mod4block
+     (13.2 s → TO at both 100 and 1000) — i.e. it was killed by mod4block's X2-induced dependency, not on
+     its own merits. On j3037, the cap is a **2.8× win (993 → 354 s)**, which is most of the Tier C gap.
+  So: X2 governed + BCE capped could give Tier C parity with **all three rules still ON**, satisfying the
+  directive and the gate together. Each step is independently measurable and step 1 is cheap. **This is the
+  first thing to try on the T3 thread — before the all-on/all-off decision, which becomes moot if it works.**
+  Caveat, stated honestly: L15/L17/L18 killed four admission designs and two caps, so the prior on any
+  partial-suppression scheme is poor. What is different here is that the two caps were each measured under
+  the other rule's runaway; that confound is real and removable, which no previous attempt could say.
 
 **NOT DONE / OWED.** (a) The four Tier B failures — nothing started. (b) Track R: R5 S-c (Sweep candidate
 selection; its DoD MUST include fuzz legs on both proof formats, review finding R1) then S-d…S-f, R6–R8 —
