@@ -1,0 +1,4 @@
+x9                       default              s UNSATISFIABLE|c conflicts: 353471 33214.79 per second|c eliminated: 206 52 % variables|c factored: 80 20 % variables|wall 10.68|
+x9                       --factorsize=2       s UNSATISFIABLE|c conflicts: 361344 33202.25 per second|c eliminated: 212 53 % variables|c factored: 80 20 % variables|wall 10.93|
+x9                       --no-factor          s UNSATISFIABLE|c conflicts: 799898 37875.83 per second|c eliminated: 113 28 % variables|wall 21.20|
+x9                       --eliminatebound=0   s UNSATISFIABLE|c conflicts: 394585 24997.66 per second|c factored: 80 20 % variables|wall 15.85|

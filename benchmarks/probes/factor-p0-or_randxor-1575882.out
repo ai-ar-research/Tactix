@@ -1,0 +1,4 @@
+or_randxor               default              s UNSATISFIABLE|c conflicts: 616974 50386.20 per second|c eliminated: 1257 121 % variables|c factored: 446 43 % variables|wall 12.30|
+or_randxor               --factorsize=2       c conflicts: 10427053 34902.63 per second|c eliminated: 228 22 % variables|wall 300.00|
+or_randxor               --no-factor          c conflicts: 10479338 35090.70 per second|c eliminated: 228 22 % variables|wall 300.00|
+or_randxor               --eliminatebound=0   s UNSATISFIABLE|c conflicts: 329909 48484.09 per second|c eliminated: 1177 113 % variables|c factored: 446 43 % variables|wall 6.83|

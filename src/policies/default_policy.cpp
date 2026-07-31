@@ -1191,6 +1191,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // incomplete (budget-cut) round re-fires and resumes.
             if (k.stats.conflicts > 0 &&
                 k.binary_ids.size() <= e.binaries_mark &&
+                k.arena.size() <= e.arena_mark &&
                 kernel_root_fixed(k) <= e.root_fixed_mark)
               continue;
           }
@@ -1334,6 +1335,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // round leaves them, so it re-fires next phase and resumes.
             if (spent > 0 && spent <= handed) {
               e.binaries_mark = k.binary_ids.size();
+              e.arena_mark = k.arena.size();
               e.root_fixed_mark = kernel_root_fixed(k);
             }
           } else {
@@ -1341,6 +1343,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           }
           if (!e.meter) {
             e.binaries_mark = k.binary_ids.size();
+            e.arena_mark = k.arena.size();
             e.root_fixed_mark = kernel_root_fixed(k);
             // Ladder maintenance (vivify idiom, :872-876): a NoOp closure
             // bumps the delay, a productive one halves it.

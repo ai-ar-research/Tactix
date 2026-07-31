@@ -520,6 +520,25 @@ struct Kernel {
   // Motivation: `kissat --factorsize=2`, i.e. kissat restricted to OUR variant,
   // loses or_randxor entirely (TO@300 vs 12.27 s) and costs fclqcolor 12.6x.
   uint32_t factor_size = 2;
+  // E2 Factor SCOPE-FRACTION admission (R5 joint admission, 2026-07-30). Admit
+  // Factor when at least this PERCENT of the live irredundant clauses are within
+  // its clause-size scope (<= factor_size). 0 = use the legacy binaries-per-var
+  // density gate instead.
+  //
+  // Why a fraction and not a density. The shipped gate is binaries/var >= 6,
+  // which its own comment calls an overfit magic number, and the obvious
+  // scope-aware version (small-clauses/var) does NOT separate: mod4block scores
+  // 20.18 against or_randxor's 6.49, so any threshold admitting rxor admits
+  // mod4block too. The FRACTION does separate, cleanly and with a reason —
+  // "most of the formula is inside Factor's scope" vs "Factor is nibbling at the
+  // edge of a formula it cannot see":
+  //     ON  rxor 96 %, fclq 99 %, sted5 96 %, mp1 100 %, battleship 92 %, x9 98 %
+  //     OFF mod4block 8 %, crypto1 24 %
+  // It is also automatically scope-aware: raising factor_size moves exactly the
+  // instances that gain material across the threshold (rxor 0 % at size 2, 96 %
+  // at size 5), which is what makes the size widening and the admission ONE
+  // decision rather than two interacting ones.
+  uint32_t factor_scope_percent = 0;
   bool transitive_early_exit = false;
   uint32_t bve_cost_limit = 0;
   uint32_t ternary_occ_limit = 100;

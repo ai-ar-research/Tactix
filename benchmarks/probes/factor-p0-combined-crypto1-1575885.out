@@ -1,0 +1,4 @@
+combined-crypto1         default              s SATISFIABLE|c conflicts: 162604 39721.55 per second|c eliminated: 601 35 % variables|c factored: 98 6 % variables|wall 4.11|
+combined-crypto1         --factorsize=2       s SATISFIABLE|c conflicts: 136330 43582.37 per second|c eliminated: 237 14 % variables|c factored: 57 3 % variables|wall 3.14|
+combined-crypto1         --no-factor          s SATISFIABLE|c conflicts: 144901 46031.03 per second|c eliminated: 271 16 % variables|wall 3.16|
+combined-crypto1         --eliminatebound=0   s SATISFIABLE|c conflicts: 194413 36215.92 per second|c eliminated: 425 25 % variables|c factored: 211 12 % variables|wall 5.39|

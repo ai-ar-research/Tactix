@@ -256,6 +256,8 @@ int main(int argc, char **argv) {
     kernel.transitive_early_exit = true;
   if (const char *fs = getenv("TACTIX_FACTOR_SIZE"))
     kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
+  if (const char *sp = getenv("TACTIX_FACTOR_SCOPE_PCT"))
+    kernel.factor_scope_percent = (uint32_t)strtoul(sp, nullptr, 10);
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a

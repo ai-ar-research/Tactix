@@ -1,0 +1,4 @@
+mp1-blockpuzzle          default              s UNSATISFIABLE|c conflicts: 305691 33751.29 per second|c eliminated: 661 24 % variables|c factored: 855 32 % variables|wall 9.09|
+mp1-blockpuzzle          --factorsize=2       s UNSATISFIABLE|c conflicts: 304502 34182.51 per second|c eliminated: 660 24 % variables|c factored: 851 32 % variables|wall 8.94|
+mp1-blockpuzzle          --no-factor          s UNSATISFIABLE|c conflicts: 9909182 45557.16 per second|c eliminated: 50 2 % variables|wall 218.35|
+mp1-blockpuzzle          --eliminatebound=0   s UNSATISFIABLE|c conflicts: 259124 31029.82 per second|c eliminated: 282 10 % variables|c factored: 891 33 % variables|wall 8.38|

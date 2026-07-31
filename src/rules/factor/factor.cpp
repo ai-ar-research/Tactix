@@ -475,6 +475,16 @@ ApplyResult factor_apply(Kernel &k) {
   // heuristic — proper home is the policy, N1 keeps the guard pure); the
   // effort-budgeted scheduler (plan rev 53) supersedes it.
   // `TACTIX_FACTOR_DENSITY` overrides for A/B.
+  // NOTE (reference study, docs/design/2026-07-30-factor-admission-reference-study.md):
+  // a SCOPE-FRACTION admission was prototyped here and DROPPED unbuilt. Neither
+  // kissat nor cadical measures that axis — kissat has NO formula-shape
+  // admission at all — it would have been the FIFTH hand-designed per-instance
+  // separator on the family L15 measured dead (27–52 vs 9.17 for no gate), and
+  // its separation is an artifact of `factor_size` itself. It also had a real
+  // bug: the arena scan charged factor_ticks BEFORE returning NoOp, so a
+  // REJECTED call consumed the once-per-solve 700M first-dose allowance and
+  // advanced the new-material watermark, which the shipped O(1) gate avoids by
+  // construction. The statistic survives as a §5.6 feature, not a gate.
   uint32_t density = 6;
   if (const char *s = std::getenv("TACTIX_FACTOR_DENSITY"))
     density = static_cast<uint32_t>(std::atoi(s));

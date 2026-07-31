@@ -358,6 +358,14 @@ public:
     // shrinks each round without ever stopping round 2 (all-rules-on report).
     // Set via TACTIX_SLOT_MAX_APPLIES=Name:N. Never read by a guard: this is
     // the POLICY declining to schedule, not the rule declining to apply (N1).
+    // New-material watermark for Factor's arena side. `binaries_mark` was exact
+    // while Factor was binary-only; once Kernel::factor_size > 2 its material
+    // also includes small LARGE clauses, and a watermark that only watches
+    // binary_ids silently skips re-runs that had new work to do — which would
+    // confound every admission arm. Arena size is a conservative proxy: it grows
+    // whenever a clause is added, so the entry may re-run needlessly but never
+    // wrongly declines. (Reference study, 2026-07-30.)
+    uint64_t arena_mark = 0;
     uint32_t max_applies = 0;
     uint32_t applies = 0;
 
