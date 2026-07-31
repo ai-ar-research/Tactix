@@ -5,10 +5,13 @@
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp" // inprocess_reach_root
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <queue>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -93,6 +96,30 @@ struct RemPool {
     len.push_back(1);
     pool.push_back(l);
     unit_id[l] = static_cast<int32_t>(id);
+    return id;
+  }
+  // Multi-literal intern (R5 increment 2): `b[0..n)` must be SORTED ascending —
+  // the caller builds it from a clause minus one literal, so the literals are
+  // already distinct. Identity is by content, which is what makes `inR`,
+  // intersection and dedup work over sub-clauses at all.
+  std::unordered_map<uint64_t, std::vector<uint32_t>> buckets;
+  uint32_t intern(const Lit *b, uint32_t n) {
+    if (n == 1)
+      return intern_unit(b[0]);
+    uint64_t h = 1469598103934665603ull; // FNV-1a over the sorted literals
+    for (uint32_t i = 0; i < n; i++) {
+      h ^= b[i];
+      h *= 1099511628211ull;
+    }
+    auto &bucket = buckets[h];
+    for (const uint32_t id : bucket)
+      if (len[id] == n && !std::memcmp(pool.data() + off[id], b, n * sizeof(Lit)))
+        return id;
+    const uint32_t id = static_cast<uint32_t>(off.size());
+    off.push_back(static_cast<uint32_t>(pool.size()));
+    len.push_back(n);
+    pool.insert(pool.end(), b, b + n);
+    bucket.push_back(id);
     return id;
   }
   uint32_t count() const { return static_cast<uint32_t>(off.size()); }

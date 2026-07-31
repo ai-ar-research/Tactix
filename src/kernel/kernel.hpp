@@ -507,6 +507,15 @@ struct Kernel {
   // derived units), not just cost. Sound either way (dropping an inference never
   // makes a deletion unjustified); measured separately from the meter arm
   // because only the meter is a pure unit fix. CONFIGURATION, policy-owned.
+  // E2 Factor clause-size scope (kissat `factorsize`, default 5). 2 = the
+  // binary-only variant we shipped through 2026-07-30; >= 3 lets the grid range
+  // over clauses up to this size, i.e. remainders become sub-clauses rather than
+  // single literals. CONFIGURATION, policy-owned, any value sound (it only
+  // widens which factorings the rule offers; the add-RAT argument is
+  // indifferent to |r| — docs/design/e2-factorsize-design.md §4).
+  // Motivation: `kissat --factorsize=2`, i.e. kissat restricted to OUR variant,
+  // loses or_randxor entirely (TO@300 vs 12.27 s) and costs fclqcolor 12.6x.
+  uint32_t factor_size = 2;
   bool transitive_early_exit = false;
   uint32_t bve_cost_limit = 0;
   uint32_t ternary_occ_limit = 100;
