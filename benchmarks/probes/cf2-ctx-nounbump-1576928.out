@@ -1,0 +1,15 @@
+=== ctx-nounbump :: ContextModel_output_7_3_9.bul_.dimacs :: flags=[--factorunbump=false] ===
+wall_seconds 49
+s SATISFIABLE
+c conflicts:                540028     10910.58    per second
+c decisions:               3837058     77522.89    per second
+c eliminated:                 5730        39.70 %  of all variables
+c factored:                    636        10.47 %  of variables
+c propagations:          224819453         4.54 M  per second
+c restarts:                  27776        19.44    interval
+c substituted:                 750         5.20 %  of all variables
+c subsumed:                  46074         6.96 %  of all clauses
+c   --factorunbump=false           (different from default 'true')
+c         0.43    0.86% factor
+c factored:                    636        10.47 %  of variables
+=== done ctx-nounbump ===

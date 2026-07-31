@@ -1,0 +1,52 @@
+=== LOSER-jgiraldez-demote :: jgiraldezlevy.2200.9086.08.40.41 :: arm=[TACTIX_FACTOR_SIZE=5 TACTIX_FACTOR_SCOPE_PCT=50 TACTIX_FACTOR_DEMOTE=1] ===
+c tactix 0.1.0
+c decisions   11303983 (0 via API)
+c conflicts   5424361
+c propagations 1666061161 (1661561034 search, 4500127 inprocess)
+c learned     5424361 (38 units)
+c learnedsize 27.06 avg lits, 12.95 avg glue
+c reduction   37.0% of resolved lits removed by minimize+shrink
+c minimized   67415694 lits
+c shrunken    18955852 lits
+c reasonbump  167170740 vars in 5423521 rounds (835 aborted)
+c otfs        6387 strengthened (214 conflicts subsumed)
+c strengthen  60 rounds, 152 strengthened, 694 subsumed, 8023 flushed
+c vivify      34 rounds, 3343 vivified, 0 deleted, 188054 checked
+c probe       0 rounds, 28793 probed, 2 failed
+c backbone    0 rounds, 28789 probed, 2 failed
+c transitive  0 rounds, 52180 checked, 844 deleted, 9 failed, 4405686 ticks
+c substitute  13 rounds
+c bce         24 rounds, 124 deleted, 42036005 ticks
+c instantiate 6 rounds, 20 literals removed, 3064 probed
+c ternary     56 rounds, 71400 resolvents, 1 binaries, 4331035 ticks
+c chrono      6 chronological, 0 stale backjumps
+c inprocess   20 phases
+c congruence  13 rounds, 0 units, 0 unjustified
+c factor      89 factorings, 1323735 large remainders offered
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    173330 (70776 reused a trail prefix)
+c reductions  184 (5373701 clauses deleted, 1354278 promoted)
+c mode        stable after 63 switches (23501884820 ticks, 559 target phases saved)
+c rephased    63 (337 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        16 walks (16 improved, 297546551 flips, 12040961304 steps)
+c subsume     60 rounds (434076 checked, 11 subsumed)
+c timing      493288 ms solve
+c timing      11437 ms (2.3%) inprocessing slot, 481851 ms (97.7%) search+scaffolding outside it
+c timing        Vivify                9320 ms (  1.9%) in 34 applications
+c timing        Factor                 571 ms (  0.1%) in 59 applications
+c timing        BCE                    485 ms (  0.1%) in 59 applications
+c timing        Probe                  341 ms (  0.1%) in 28793 applications
+c timing        Strengthen             268 ms (  0.1%) in 60 applications
+c timing        SubsumeForward         108 ms (  0.0%) in 60 applications
+c timing        Instantiate             93 ms (  0.0%) in 20 applications
+c timing        HyperTernaryRes         87 ms (  0.0%) in 56 applications
+c timing        Congruence              47 ms (  0.0%) in 13 applications
+c timing        TransitiveReduce        37 ms (  0.0%) in 39860 applications
+c timing        Backbone                10 ms (  0.0%) in 28789 applications
+c timing        Substitute               2 ms (  0.0%) in 13 applications
+c timing        (unattributed)          68 ms (  0.0%)
+s SATISFIABLE
+wall_seconds 493
+=== done LOSER-jgiraldez-demote ===

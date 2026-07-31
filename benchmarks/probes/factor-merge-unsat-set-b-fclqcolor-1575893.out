@@ -1,0 +1,3 @@
+unsat-set-b-fclqcolor    shipped    c conflicts 13415965|c factor 0 factorings, 0 large remainders offered|s UNKNOWN|wall 300.00|
+unsat-set-b-fclqcolor    force-s2   c conflicts 11740255|c factor 20 factorings, 0 large remainders offered|s UNKNOWN|wall 300.00|
+unsat-set-b-fclqcolor    force-s5   c conflicts 10471636|c factor 78 factorings, 41097 large remainders offered|s UNKNOWN|wall 300.00|

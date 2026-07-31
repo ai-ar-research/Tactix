@@ -1,0 +1,14 @@
+=== ctx-def :: ContextModel_output_7_3_9.bul_.dimacs :: flags=[default] ===
+wall_seconds 60
+s SATISFIABLE
+c conflicts:                661875     11093.35    per second
+c decisions:               5195290     87075.60    per second
+c eliminated:                 6235        43.23 %  of all variables
+c factored:                    627        11.29 %  of variables
+c propagations:          262902080         4.41 M  per second
+c restarts:                  40399        16.38    interval
+c substituted:                 735         5.10 %  of all variables
+c subsumed:                  66194         8.40 %  of all clauses
+c         0.51    0.85% factor
+c factored:                    627        11.29 %  of variables
+=== done ctx-def ===

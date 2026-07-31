@@ -1,0 +1,16 @@
+=== jgi-eager :: jgiraldezlevy.2200.9086.08.40.41 :: flags=[--factordelay=0 --factorthresh=0] ===
+wall_seconds 60
+s SATISFIABLE
+c conflicts:               1176154     19679.12    per second
+c decisions:               2800812     46862.49    per second
+c eliminated:                  582        26.26 %  of all variables
+c factored:                     16         1.06 %  of variables
+c propagations:          215900137         3.61 M  per second
+c restarts:                  56790        20.71    interval
+c substituted:                  48         2.17 %  of all variables
+c subsumed:                 121831        10.33 %  of all clauses
+c   --factordelay=0                (different from default '4')
+c   --factorthresh=0               (different from default '7')
+c         0.20    0.33% factor
+c factored:                     16         1.06 %  of variables
+=== done jgi-eager ===

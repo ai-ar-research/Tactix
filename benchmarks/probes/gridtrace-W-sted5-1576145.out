@@ -1,0 +1,9 @@
+--- accepted-gain histogram W-sted5
+total=572 sum_gain=7712 mean=13.5
+  delta 1            57
+  delta 2-3          98
+  delta 4-7          64
+  delta 8-15        127
+  delta 16-31       190
+  delta 32-127       36
+  delta 128+          0

@@ -1,0 +1,53 @@
+=== ctx-noext :: ContextModel_output_7_3_9.bul_.dimacs :: arm=[TACTIX_FACTOR_SCOPE_PCT=50 TACTIX_NO_EXT_DECISIONS=1] ===
+c tactix 0.1.0
+c decisions   6805565 (0 via API)
+c conflicts   938676
+c propagations 922261578 (917526206 search, 4735372 inprocess)
+c learned     938676 (7 units)
+c learnedsize 78.22 avg lits, 40.26 avg glue
+c reduction   39.3% of resolved lits removed by minimize+shrink
+c minimized   36040071 lits
+c shrunken    11413969 lits
+c reasonbump  92381262 vars in 934726 rounds (3641 aborted)
+c otfs        2610 strengthened (13 conflicts subsumed)
+c strengthen  29 rounds, 327 strengthened, 218 subsumed, 10030 flushed
+c vivify      14 rounds, 8003 vivified, 0 deleted, 79820 checked
+c probe       0 rounds, 61076 probed, 0 failed
+c backbone    0 rounds, 133654 probed, 183 failed
+c transitive  0 rounds, 384067 checked, 851 deleted, 0 failed, 7530434 ticks
+c substitute  11 rounds
+c bce         5 rounds, 855 deleted, 36210042 ticks
+c instantiate 2 rounds, 28 literals removed, 32743 probed
+c ternary     18 rounds, 170290 resolvents, 0 binaries, 21047834 ticks
+c chrono      21 chronological, 0 stale backjumps
+c inprocess   10 phases
+c congruence  9 rounds, 0 units, 0 unjustified
+c extension   459 vars added, 153 decisions on them (0.00% of 6805565)
+c factor      459 factorings, 3341586 large remainders offered
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    61514 (16480 reused a trail prefix)
+c reductions  73 (939226 clauses deleted, 386354 promoted)
+c mode        stable after 33 switches (4047800469 ticks, 396 target phases saved)
+c rephased    28 (224 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        7 walks (7 improved, 18073824 flips, 1539638562 steps)
+c subsume     29 rounds (1328102 checked, 1507 subsumed)
+c timing      122645 ms solve
+c timing      4995 ms (4.1%) inprocessing slot, 117650 ms (95.9%) search+scaffolding outside it
+c timing        Factor                1541 ms (  1.3%) in 20 applications
+c timing        Vivify                1203 ms (  1.0%) in 14 applications
+c timing        Strengthen             562 ms (  0.5%) in 29 applications
+c timing        BCE                    468 ms (  0.4%) in 24 applications
+c timing        SubsumeForward         277 ms (  0.2%) in 29 applications
+c timing        Congruence             249 ms (  0.2%) in 9 applications
+c timing        Probe                  206 ms (  0.2%) in 61076 applications
+c timing        HyperTernaryRes        185 ms (  0.2%) in 18 applications
+c timing        Instantiate            125 ms (  0.1%) in 10 applications
+c timing        TransitiveReduce        73 ms (  0.1%) in 233653 applications
+c timing        Backbone                24 ms (  0.0%) in 133688 applications
+c timing        Substitute              13 ms (  0.0%) in 11 applications
+c timing        (unattributed)          68 ms (  0.1%)
+s SATISFIABLE
+wall_seconds 123
+=== done ctx-noext ===

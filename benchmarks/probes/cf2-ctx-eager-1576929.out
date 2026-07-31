@@ -1,0 +1,16 @@
+=== ctx-eager :: ContextModel_output_7_3_9.bul_.dimacs :: flags=[--factordelay=0 --factorthresh=0] ===
+wall_seconds 53
+s SATISFIABLE
+c conflicts:                524479      9922.80    per second
+c decisions:               4143710     78396.30    per second
+c eliminated:                 8598        59.57 %  of all variables
+c factored:                    637        18.99 %  of variables
+c propagations:          214930184         4.07 M  per second
+c restarts:                  31219        16.80    interval
+c substituted:                 738         5.11 %  of all variables
+c subsumed:                  47329         7.01 %  of all clauses
+c   --factordelay=0                (different from default '4')
+c   --factorthresh=0               (different from default '7')
+c         0.36    0.69% factor
+c factored:                    637        18.99 %  of variables
+=== done ctx-eager ===

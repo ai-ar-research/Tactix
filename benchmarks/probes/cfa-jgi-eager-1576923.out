@@ -1,0 +1,43 @@
+=== jgi-eager :: jgiraldezlevy.2200.9086.08.40.41 :: flags=[--factordelay=0 --factorthresh=0] ===
+c   --factordelay=0                (different from default '4')
+c   --factorthresh=0               (different from default '7')
+c  seconds  reduction conflicts       size tier2     variables
+c         MB    restarts   redundant    glue  trail       remaining
+c  seconds   reduction conflicts       size tier2     variables
+c         MB     restarts   redundant    glue  trail       remaining
+c  seconds  reduction conflicts       size tier2     variables
+c         MB    restarts   redundant    glue  trail       remaining
+c  seconds  reduction conflicts       size  tier2     variables
+c         MB    restarts   redundant     glue  trail       remaining
+c  seconds  reductions conflicts       size  tier2     variables
+c         MB    restarts    redundant     glue  trail       remaining
+c  seconds  reductions   conflicts       size  tier2     variables
+c         MB     restarts     redundant     glue  trail       remaining
+c  seconds  reductions   conflicts       size   tier2     variables
+c         MB     restarts     redundant     glue   trail       remaining
+c  seconds  reductions   conflicts        size   tier2     variables
+c         MB     restarts      redundant     glue   trail       remaining
+c  seconds  reductions   conflicts       size tier2     variables
+c         MB     restarts     redundant    glue  trail       remaining
+c  seconds  reductions   conflicts       size tier2     variables
+c         MB     restarts     redundant    glue  trail       remaining
+c  seconds  reductions   conflicts       size   tier2     variables
+c         MB     restarts     redundant     glue   trail       remaining
+c  seconds  reductions   conflicts        size   tier2     variables
+c         MB     restarts      redundant     glue   trail       remaining
+c  seconds  reductions   conflicts        size  tier2     variables
+c         MB     restarts      redundant     glue  trail       remaining
+c  seconds  reductions    conflicts        size  tier2      variables
+c         MB      restarts      redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size   tier2      variables
+c         MB      restarts       redundant     glue   trail        remaining
+c  seconds  reductions    conflicts         size   tier2      variables
+c         MB      restarts       redundant     glue   trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+wall_seconds 60
+=== done jgi-eager ===

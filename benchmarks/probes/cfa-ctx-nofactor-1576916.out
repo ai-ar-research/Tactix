@@ -1,0 +1,43 @@
+=== ctx-nofactor :: ContextModel_output_7_3_9.bul_.dimacs :: flags=[--factor=false] ===
+c   --factor=false                 (different from default 'true')
+c  seconds  reduction conflicts       size tier2       variables
+c         MB    restarts   redundant    glue  trail         remaining
+c  seconds   reduction conflicts       size   tier2      variables
+c         MB     restarts   redundant     glue   trail        remaining
+c  seconds   reductions conflicts       size    tier2       variables
+c         MB     restarts    redundant     glue     trail        remaining
+c  seconds   reductions  conflicts       size    tier2       variables
+c         MB      restarts    redundant     glue     trail        remaining
+c  seconds   reductions   conflicts        size    tier2       variables
+c         MB      restarts      redundant     glue     trail        remaining
+c  seconds  reductions   conflicts       size    tier2       variables
+c         MB     restarts     redundant     glue     trail        remaining
+c  seconds  reductions   conflicts         size    tier2       variables
+c         MB     restarts       redundant     glue     trail        remaining
+c  seconds  reductions   conflicts         size    tier2       variables
+c         MB     restarts       redundant     glue     trail        remaining
+c  seconds  reductions   conflicts         size    tier2       variables
+c         MB     restarts       redundant     glue     trail        remaining
+c  seconds   reductions    conflicts         size    tier2       variables
+c         MB       restarts       redundant     glue     trail        remaining
+c  seconds  reductions    conflicts         size    tier2       variables
+c         MB      restarts       redundant     glue     trail        remaining
+c  seconds   reductions    conflicts         size    tier2       variables
+c         MB       restarts       redundant     glue     trail        remaining
+c  seconds  reductions    conflicts         size   tier2       variables
+c         MB      restarts       redundant     glue    trail        remaining
+c  seconds  reductions    conflicts         size    tier2       variables
+c         MB      restarts       redundant     glue     trail        remaining
+c  seconds  reductions    conflicts         size    tier2       variables
+c         MB      restarts       redundant     glue     trail        remaining
+c  seconds  reductions    conflicts         size    tier2       variables
+c         MB      restarts       redundant     glue     trail        remaining
+c  seconds  reductions    conflicts         size    tier2       variables
+c         MB      restarts       redundant     glue     trail        remaining
+c  seconds  reductions    conflicts         size    tier2       variables
+c         MB      restarts       redundant     glue     trail        remaining
+c  seconds  reductions    conflicts         size    tier2       variables
+c         MB      restarts       redundant     glue     trail        remaining
+c  seconds  reductions    conflicts         size    tier2       variables
+wall_seconds 246
+=== done ctx-nofactor ===

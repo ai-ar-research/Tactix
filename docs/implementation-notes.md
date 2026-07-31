@@ -200,6 +200,15 @@ mechanics*, not proof-rule guards:
   never *whether* one is legal. **Default 2 → 5 on 2026-07-31** (kissat's own default), on Tier C −9.51 PAR-2
   / 1.066× → 1.036× cadical with Tier B unchanged; report
   `benchmarks/reports/2026-07-31-factor-scope-and-admission.md`.
+  `Kernel::factor_cand_rounds` (kissat `factorcandrounds`) is the same kind of within-rule scope choice — it
+  prunes candidate clauses containing a literal that occurs < 2 times, iterated to fixpoint. **Default 0**
+  (the unfiltered set): measured byte-identical on all seven task-#11 probes, because that filter can only
+  reach 0.7–0.9 % of literals on formulas this dense and **0.00 %** on sted5. Kept because it matches the
+  reference and costs nothing; profiling report `2026-07-31-factor-broad-admission-profiling.md` §5.
+- **`Kernel::no_ext_decisions` is a DIAGNOSTIC, never a default.** It makes Decide skip extension variables,
+  which **narrows the policy's action space and therefore violates N1** — it exists only to attribute the
+  damage broad Factor admission does (ContextModel 450 → 123 s, sted5 17 s → killed; same report §4). Any
+  future *shipped* control over extension-variable priority must be a ranking/`H` change, not an exclusion.
 - **BVE never schedules an extension variable.** BVE on Factor's `x` resolves its dividers against its
   quotients straight back to the grid — *exactly reversing* Factor; unguarded the two thrash every round
   (thousands of factorings/round, a 741 MB churn proof). `bve_schedule` skips `v ≥

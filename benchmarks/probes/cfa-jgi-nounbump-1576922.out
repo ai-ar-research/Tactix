@@ -1,0 +1,43 @@
+=== jgi-nounbump :: jgiraldezlevy.2200.9086.08.40.41 :: flags=[--factorunbump=false] ===
+c   --factorunbump=false           (different from default 'true')
+c  seconds  reduction conflicts       size tier2     variables
+c         MB    restarts   redundant    glue  trail       remaining
+c  seconds   reduction conflicts       size tier2     variables
+c         MB     restarts   redundant    glue  trail       remaining
+c  seconds  reduction conflicts       size tier2     variables
+c         MB    restarts   redundant    glue  trail       remaining
+c  seconds  reduction conflicts       size tier2     variables
+c         MB    restarts   redundant    glue  trail       remaining
+c  seconds  reductions conflicts       size  tier2     variables
+c         MB    restarts    redundant     glue  trail       remaining
+c  seconds  reductions   conflicts       size  tier2     variables
+c         MB     restarts     redundant     glue  trail       remaining
+c  seconds  reductions   conflicts       size tier2     variables
+c         MB     restarts     redundant    glue  trail       remaining
+c  seconds  reductions   conflicts       size tier2     variables
+c         MB     restarts     redundant    glue  trail       remaining
+c  seconds  reductions   conflicts       size tier2     variables
+c         MB     restarts     redundant    glue  trail       remaining
+c  seconds  reductions   conflicts       size   tier2     variables
+c         MB     restarts     redundant     glue   trail       remaining
+c  seconds  reductions   conflicts       size   tier2     variables
+c         MB     restarts     redundant     glue   trail       remaining
+c  seconds  reductions   conflicts        size  tier2     variables
+c         MB     restarts      redundant     glue  trail       remaining
+c  seconds  reductions   conflicts        size  tier2     variables
+c         MB     restarts      redundant     glue  trail       remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size   tier2      variables
+c         MB      restarts       redundant     glue   trail        remaining
+c  seconds  reductions    conflicts         size   tier2      variables
+c         MB      restarts       redundant     glue   trail        remaining
+c  seconds  reductions    conflicts         size   tier2      variables
+c         MB      restarts       redundant     glue   trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size   tier2      variables
+wall_seconds 193
+=== done jgi-nounbump ===

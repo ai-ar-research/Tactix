@@ -7,133 +7,84 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-30 (overnight) — **Tier B doubled to 28 and immediately found FOUR order-of-magnitude failures (up to 187× kissat); that now outranks T3.** T3/BCE fully diagnosed and parked on one directive decision (see resume block). Phase timers landed; docs compacted (rev 73); Tier B rev 74. Nightly fuzz 1574586/1574587 running.
 
-## ▶ RESUME HERE (2026-07-30 morning) — phase 3, T3 open, and the priority CHANGED overnight
+## ▶ RESUME HERE (2026-07-31) — phase 3; T3's CaDiCaL half MET; the Tier B gap is the open work
 
-Read this block, then the top Log entries. Overnight work: 2026-07-29 evening/night entries.
+Read this block, then the top Log entries. Full per-instance numbers: the tier tables directly below.
 
-**▶ THE HEADLINE: the augmented Tier B found four order-of-magnitude failures, and they outrank T3.**
-Tier B is now **28 instances / 28 families** on one cluster clock (plan rev 74, `ff32e6f`+`77fc578`). First
-tactix run on it (`20260729-220951`): **tactix 102.28 PAR-2 at 24/28 vs kissat 9.54 at 28/28** —
-`veer_axi…p23_trans` **600 TO vs kissat 3.2 s (187×)**, `or_randxor` 48×, `mp1-klieber2017s` 48×,
-`unsat-set-b-fclqcolor` 36×. **Not regressions** — instances the set never contained. Every Tier B number
-this project ever recorded was taken on a set omitting its four worst cases. **Start here**, with
-`veer_axi` (biggest ratio, 3.2 s reference ⇒ cheap iteration); check for a shared cause before treating them
-separately. Do NOT tune on them (§8.1).
+**WHERE WE STAND** (window `20260731-0216`, every arm writing *and* checking DRAT, throttle 48).
+**Tier C 327.99 (29/30) vs cadical 316.64 = 1.036×** — T3's CaDiCaL half MET. **Tier B(28) 105.30 (24/28)
+vs kissat 10.12 = 10.4×** — wide open, and it is the work. Tier A 0.45 (200/200). Nightly fuzz green:
+2 × 200,000 cases, 0 failures, DRAT + native LRAT (the LRAT leg under `--random-policy`).
+**NEVER mix 14- and 28-instance Tier B PAR-2** — filter `core14`.
 
-**WHERE WE STAND.** Like-for-like, every arm writing *and* checking proofs. **Tier B (28, NEW): 102.28
-(24/28) vs kissat 9.54.** Tier B (core 14, comparable to the archive): 9.46 vs kissat 8.84. **Tier C 361.89–
-405.38 (29/30) vs cadical 315.42, kissat 229.71** — the spread is real, j3037 straddles the 1200 s cap under
-BCE. Tier A 0.44 (200/200) vs 0.45. **NEVER mix 14- and 28-instance Tier B PAR-2** — filter `core14`.
+**READ EVERY TIER C DELTA AGAINST THE MEASURED NOISE FLOOR.** Three *bit-identical* arms in one window
+scored **346.16 / 356.95 / 353.99 — 10.8 PAR-2 of spread**, per-instance range averaging 24.7 s, goldcrest
+alone 245 s (72 %). An aggregate move smaller than that is not a result; prefer a per-instance delta with
+its own replicate range. The shipped Tier C ratio itself moves **1.007–1.066× across windows at an unchanged
+default**, so always quote a window. (Report `2026-07-31-factor-scope-and-admission.md` §7.)
 
-**THE T3/BCE THREAD IS FULLY DIAGNOSED AND PARKED ON ONE DECISION THAT IS YOURS.** Measured: the X1/X2/X4
-trio is mutually stabilizing and it is all-on or all-off (L15 a third time, mechanism now named — **BCE was
-silently BOUNDING X2**: with BCE off X2 runs 6,048 → 32,155 resolvents and mod4block dies). **Trio OFF gives
-Tier B 7.94 AND Tier C 313.20 = 1.00× cadical, i.e. T3's CaDiCaL half MET — better than shipped on BOTH
-tiers.** BCE-off alone is the WRONG cut (Tier C 1.0065× but Tier B 50.96 at 13/14, X2 left unbounded).
-**I did not flip it:** that is the all-rules-ON directive's scope and it is yours to set
-([[no-rule-off-configs]]). The directive-COMPATIBLE alternative, untested and cheap: **X2 has NO governor
-while cadical bounds ternary FOUR ways** — `ternaryrounds=2` (we ran 83), `ternaryeffort=8‰` (we use 20),
-`ternarymaxadd`, `ternaryocclim`. Porting those is the obvious next move and keeps every rule ON.
-NOTE `TACTIX_SLOT_MAX_APPLIES` counts slot CONSIDERATIONS (~3/phase), not productive rounds, so `:2` ≈ rule
-OFF — it cannot emulate `ternaryrounds` without a real per-round counter.
-**▶ AND THERE IS A CHAIN HERE WORTH TRYING BEFORE TOUCHING THE DIRECTIVE — it would close Tier C with every
-rule ON.** Tonight's two "measured-dead" governor results were each measured while the OTHER rule was
-unbounded, so neither is actually dead in the configuration that matters:
-  1. **Govern X2** (port cadical's `ternaryrounds=2` / `ternarymaxadd` / `ternaryocclim`; we have none).
-  2. Then mod4block should no longer NEED BCE, because BCE's whole value there was bounding X2 — which is
-     exactly what step 1 does properly.
-  3. Then **BCE's occurrence cap becomes affordable**. It was rejected only because it timed out mod4block
-     (13.2 s → TO at both 100 and 1000) — i.e. it was killed by mod4block's X2-induced dependency, not on
-     its own merits. On j3037, the cap is a **2.8× win (993 → 354 s)**, which is most of the Tier C gap.
-  So: X2 governed + BCE capped could give Tier C parity with **all three rules still ON**, satisfying the
-  directive and the gate together. Each step is independently measurable and step 1 is cheap. **This is the
-  first thing to try on the T3 thread — before the all-on/all-off decision, which becomes moot if it works.**
-  Caveat, stated honestly: L15/L17/L18 killed four admission designs and two caps, so the prior on any
-  partial-suppression scheme is poor. What is different here is that the two caps were each measured under
-  the other rule's runaway; that confound is real and removable, which no previous attempt could say.
+**▶ THE NEXT STEP — task #11, and it is the Tier B gap.** Broad Factor admission
+(`TACTIX_FACTOR_SCOPE_PCT=50`) is worth **Tier B 105.30 → 65.86 and 24 → 26 solves** (it solves `sted5` and
+`or_randxor`), but costs Tier C **357.64 = 1.129×, outside T3's band**, so it is an arm, not the default.
+The whole Tier C cost is **two instances** — ContextModel +464 s, jgiraldez +396 s — where **cadical runs
+Factor broadly with no shape gate and is 7–28× faster than us**. Fix that and the gate becomes free.
+DIAGNOSED 2026-07-31 (report `2026-07-31-factor-broad-admission-profiling.md`), not fixed:
+- **Three MUTUALLY EXCLUSIVE mechanisms** (`TACTIX_NO_EXT_DECISIONS` ablation): ContextModel 450 → **123 s**
+  (ext-var branching IS its damage — **31.4 % of its decisions** land on 459 extension vars), jgiraldez
+  unaffected (0.38 %), **sted5 17 s → killed >528 s** (ext vars are *essential* there). No single static
+  extension-var priority serves all three — which is why every knob so far trades one instance for another.
+- **ELIMINATED, do not retry:** scope threshold; payoff bound (costs sted5 19 → 274 s); candidate reduction
+  `factorcandrounds` (implemented, byte-identical on 7 probes — a TRUE negative: its <2-occurrence filter can
+  prune only 0.72 % / 0.89 % / **0.00 %** of literals on ctx / jgi / sted5); and **our own one-shot fresh-var
+  demotion**, which *fails at its purpose* (ext-decision share 31.4 % → 32.2 %, because conflict analysis
+  re-bumps them to `queue_last`).
+- **SURVIVING LEVER: *when* Factor runs.** Forcing cadical eager (`--factordelay=0 --factorthresh=0`)
+  degrades **cadical itself** 2.3–9× toward our regime on both instances. We factor in the preprocessing
+  blast; cadical delays BVA between eliminations (`factordelay=4`) and skips it when ticks are small vs the
+  clause count (`factorthresh=7`). Secondary lever: extension-var priority must be **adaptive and
+  persistent**, not one-shot. This is rule-dev + the scheduling track, and it touches DefaultPolicy's slot
+  structure — **not** a fifth formula-shape separator (that family is **0 for 5**).
 
-**NOT DONE / OWED.** (a) The four Tier B failures — nothing started. (b) Track R: R5 S-c (Sweep candidate
-selection; its DoD MUST include fuzz legs on both proof formats, review finding R1) then S-d…S-f, R6–R8 —
-and R6 CCE/R7 Condition are rules **cadical ships OFF**, a class decision worth taking once. (c) TB4b.
-(d) The LRAT-vs-DRAT bench-runner question. (e) §8.1 still describes Tier C on the M3 clock — same defect
-rev 74 just fixed for Tier B; Tier C's `ref_seconds` are M3 seconds.
+**THEN, in order.** (a) **Task #10** — §6 compliance: the inprocessing slot barely polls the stop flag; the
+real blocker is V6 Congruence, 131,327 ms over 3 applications, unmetered (SIGTERM-deaf ~1,100 s).
+(b) The remaining Tier B walls: **`veer_axi`** (V4 TransitiveReduce's own runtime is 26–49 % of its clock,
+8.7 × 10⁹ ticks where kissat spends 0.03 s — a ~1000× engineering gap on one rule; even a 4× fix leaves it
+at 550 s against a 300 s cap) and **`unsat-set-b-fclqcolor`**. (c) Track R: R5 S-c (Sweep candidate
+selection — its DoD MUST include fuzz legs on both proof formats) then S-d…S-f, R6–R8. (d) TB4b.
+(e) Bench runner: verify LRAT not DRAT (`urq45` probe 1566825 — DRAT+drat-trim >2400 s, native LRAT+cake_lpr
+**77 s VERIFIED**); route via revise-plan, it is a measurement-protocol change. (f) §8.1 still describes
+Tier C on the M3 clock — the defect rev 74 fixed for Tier B.
 
-**NIGHTLY: GREEN, both legs, nothing for you to check.** `--random-policy --nightly` on the
-debug/sanitizer build, 50 cores each: **DRAT 200,000/200,000 cases 0 failures** (job 1574586, SAT 98,470 /
-UNSAT 66,173 / TIMEOUT 35,357) and **native LRAT 200,000/200,000 cases 0 failures** (job 1574587, SAT 98,412
-/ UNSAT 66,086 / TIMEOUT 35,502); `tools/fuzz/failures/` gained nothing. So **66,173 DRAT proofs verified by
-drat-trim and 66,086 native-LRAT proofs verified by lrat-check, every one under an arbitrary legal rule
-schedule** — the strongest N2 evidence we take, and it covers today's two kernel-touching changes (the
-`c timing` dispatch wrapper and `Kernel::bce_occ_limit`). Logs committed as evidence:
-`tools/fuzz/slurm-nightly-rev74-{drat,lrat}-*.log`.
+**CLOSED — do not re-open** (each left a standing lesson): the X2-governor / trio-off thread (**resolved**:
+X2 at cadical's 8‰ met T3's CaDiCaL half with every rule ON, `29811a8`); BVE's binary-density gate R2 (Tier B
+flat 105.21 → 105.84 — per-instance 9.2× on klieber does NOT survive aggregation, L16); the walk-dose
+"every lever is two-sided" reading (artefact of a wrong `bumpreasons` rate, L12); the `bumpreasons` constant
+sweep; **clause quality** (parity with kissat at every stage, L14); the minimize depth cap; the 2‰ slot rate.
 
-**NEXT ACTIONS (expected value order).**
+**STANDING DIRECTIVES + SHIPPED CONFIG.** *Every implemented proof rule ships ON* (user, 2026-07-28: "all
+implemented proof rules need to be turned on!!"): 13 of 13 Inprocess rules scheduled, hardcoded ships-OFF
+exclusions gone (`3fb85bd`); a rule-off arm is a diagnostic for a SCHEDULING defect, never a shipped default
+([[no-rule-off-configs]]). **Scope word: *proof rule*** — S7 `Reorder` is a policy op, NOT covered; ask
+before flipping it. Shipped default = the **S4 arrangement** + density-gated BVE doses + the closure-delay
+ladder + **S6 Walk at `WALK_PERMILLE` 560** + reason-side bumping and dynamic tiers (ONE mechanism —
+`implementation-notes.md` §9) + `bumpreasons` rate 20 + **X2 at 8‰** + **`factor_size = 5`** + every
+implemented proof rule. Reports: `2026-07-25-s4-gate-mp1.md`, `2026-07-27-tier-c-push.md`,
+`2026-07-28-all-rules-on.md`, `2026-07-31-factor-scope-and-admission.md`. Dosing knobs that are §5.6 arms,
+not settled constants: `TACTIX_WALK_PERMILLE` (shipped 560), `TACTIX_BUMP_REASONS_RATE` (30 buys Tier B
+parity for ~49 Tier C), `TACTIX_SLOT_PERMILLE`, `TACTIX_FACTOR_SCOPE_PCT` (the Tier B lever above).
 
-1. **THE SLOT RATE IS SETTLED — 2‰ REJECTED as a constant, do not re-run it** (two Tier C windows, `20260729-094225` and `-112753`: 1.065× then
-   1.101× cadical, saving 26.1 then 8.8 PAR-2; Tier B 9.10 → 9.53). It stays the `TACTIX_SLOT_PERMILLE` §5.6 arm. **What it left behind is the
-   real asset:** a rate change is a *reproducible per-instance* trade — 28/30 same-sign across both windows, fixing j3037/asconhash and breaking
-   ContextModel/em_11/frb45/Ptn-7824 by ~300/300/170/140 s every time. That is the sixth §5.6 dosing family and the cleanest labelled signal any of
-   them has. **Do NOT hand-build a static separator on it** — L5 and L15 killed separators that looked this clean. Log 2026-07-29 has the table.
-   **So T3's CaDiCaL half is open again, and the next move on it is a different lever than the rate** — the two-instance framing is superseded
-   (the rate trade shows the regression is not localizable to j3037+asconhash without paying it back elsewhere).
-   **▶ WHERE THE DEBUG-PERFORMANCE THREAD ACTUALLY IS (2026-07-29 evening).** j3037 resolved: the cause is
-   **X1 BCE** (Log below + L17/L18), and **BCE-off gives Tier C 318.18 = 1.0065× cadical — T3's CaDiCaL half
-   MET** — at the price of ONE Tier B instance, `mod4block` (13.2 s → 600 TO). So the live question is
-   narrower than "fix Tier C": **why does mod4block depend on BCE when kissat does it in 18.3 s with no BCE
-   at all?** If that dependency is a tactix defect rather than a real need, BCE-off is free on Tier B and the
-   gate half comes with it. Probe series `benchmarks/probes/mod4block-bce-dependency.sh`:
-   - **Factor-creates-it: REFUTED.** `c factor 0 factorings` on mod4block — our density gate
-     (`factor.cpp:206`, threshold 6) suppresses Factor entirely there because the instance is binary-SPARSE
-     (~4.1 binaries/var); `no-factor` is bit-identical to shipped (418,796 conflicts both).
-   - **▶ CURRENT HYPOTHESIS, inverted from that: Factor is ABSENT, not guilty.** kissat **factors 912
-     variables** on mod4block and needs no BCE; we factor none and need BCE. So BCE may be compensating for
-     the BVA our own density gate suppresses — i.e. the defect would be the GATE, not BCE. In flight: arms
-     forcing `TACTIX_FACTOR_DENSITY=1/0` with BCE off (jobs 1573453/1573454), plus −BCE−BVE / −BCE−Factor /
-     −BCE−BVE−Factor (1573448–52) to rule out the elimination interaction.
-   - Method note: the first submission of these arms was INVALID — the pinned binary predated the
-     occurrence-cap revert, so every arm silently ran a configuration already measured as a mod4block
-     timeout. Re-pinned and **verified against a known baseline (12.79 s / 418,796 conflicts / 6,343
-     deleted) before trusting any arm.** Do that whenever a probe runs off a pinned copy.
+**CLUSTER PROTOCOL.** Plan §8.1 + slurm-jobs skill (`run.py --tier X --slurm`, fuzz via
+`tools/fuzz/slurm.sh`, sbatch-only). M3-Pro numbers are INVALID — never compare cluster ↔ M3-Pro (revs
+64/65).
 
-   **(superseded framing kept for the trail) — debug-performance on `j3037_9_rggt_b`, the correct single target.** Ranked by gap to cadical at the shipped default
-   (window `20260729-094225`), it is **1162.8 s vs cadical 25.8 (45×) and kissat 161.7 (7.2×) — alone +1137 s = 37.9 of the 47.2 PAR-2 total gap,
-   ~80 % of the whole deficit**; the next four (asconhash +489, T87 +399, T105 +384, goldcrest +369) together are less. It is a SAT instance, and
-   rules-off it is 138.8 s, so the ON composition costs it ~1000 s. Probes 1573169–77 (`benchmarks/probes/j3037-decompose.sh`) run
-   shipped / −BCE / −X2 / −X4 / −all-three / cadical / kissat / cadical−sweep / kissat−sweep in one window: which rule costs it, and whether
-   sweep (V5/R5, the one big pass we lack) explains the baselines' advantage. NOTE `ContextModel`/`em_11` are NOT targets — they are fast at the
-   shipped default (127 s / 141 s) and only break under the rate cut.
-2. **Track R next: S-c** (Sweep candidate selection + environment construction). Definition of done MUST include fuzz legs on both proof formats
-   — review finding R1: the sub-solver is exhaustively unit-tested but never fuzzed, and S-c makes it reachable. Then S-d…S-f, R6–R8, each
-   landing ON.
-3. **TB4b** — the only open Track T item (remaining chrono divergences; detail + the live watch-repair constraint in the Track T checklist).
-4. **Decide whether the bench runner should verify LRAT, not DRAT.** `urq45` settled it (probe 1566825): DRAT + drat-trim > 2400 s; native LRAT +
-   cake_lpr **77 s, VERIFIED**. Our DRAT-checked tier numbers are hostage to drat-trim's backward search. Route through revise-plan (§2/§8.1 name
-   drat-trim explicitly) — a measurement-protocol change, not a solver one.
-
-**CLOSED — do not re-open** (each left a standing lesson): the walk-dose "every lever is two-sided" reading (artefact of a wrong `bumpreasons`
-rate, L12); the `bumpreasons` constant sweep (rate 20 shipped, 30 the documented Tier-B-parity alternative); **clause quality** (parity with
-kissat at every stage of clause construction, L14); the minimize depth cap (byte-identical across 900/1000/100000).
-
-**STANDING DIRECTIVES + SHIPPED CONFIG.** *Every implemented proof rule ships ON* (user, 2026-07-28: "all implemented proof rules need to be
-turned on!!"): 13 of 13 Inprocess rules scheduled, hardcoded ships-OFF exclusions gone (`3fb85bd`); a rule-off arm is a diagnostic for a
-SCHEDULING defect, never a shipped default ([[no-rule-off-configs]]). **Scope word: *proof rule*** — S7 `Reorder` is a policy op, NOT covered;
-ask before flipping it. Shipped default = the **S4 arrangement** + density-gated BVE doses + the closure-delay ladder + **S6 Walk at
-`WALK_PERMILLE` 560** (`0c52fdd` set 640‰, `61138b8` retuned to 560) + reason-side bumping and dynamic tiers (ONE mechanism —
-`implementation-notes.md` §9) + `bumpreasons` rate 20 + every implemented proof rule. Reports: `2026-07-25-s4-gate-mp1.md`,
-`2026-07-27-tier-c-push.md`, `2026-07-28-all-rules-on.md`. Dosing knobs that are §5.6 arms, not settled constants: `TACTIX_WALK_PERMILLE`
-(**shipped 560**; the older "200 balanced / 640 Tier C / 400 Tier B" readings were `bumpreasons`-rate ARTEFACTS, superseded by W4f's re-sweep),
-`TACTIX_BUMP_REASONS_RATE` (30 buys Tier B parity for ~49 Tier C), `TACTIX_SLOT_PERMILLE`.
-
-**CLUSTER PROTOCOL.** Plan §8.1 + slurm-jobs skill (`run.py --tier X --slurm`, fuzz via `tools/fuzz/slurm.sh`, sbatch-only). M3-Pro numbers are
-INVALID — never compare cluster ↔ M3-Pro (revs 64/65).
-
-**§5.6 phase-6 dosing exhibit — standing, not now.** SEVEN mechanism families: BVE admission (`2026-07-25-crypto1-bve-mechanism.md` /
-`-bve-dosing-arms.md`; oracle 489.27 + labeled instances incl. s055), TR dosing (Log 2026-07-25 late), mode schedule (TB6), WALK DOSE (the
-2026-07-27 sweeps — first family whose shipped constant is measurably wrong for half the corpus), S7 Reorder (first whose context is the VERDICT,
-not a formula/progress feature — Log 2026-07-28), and **the inprocessing SLOT RATE** (`TACTIX_SLOT_PERMILLE`; 28/30 instances carry a same-sign,
-near-same-magnitude effect across two windows, yet no single rate wins the tier — Log 2026-07-29), and **X1 BCE ADMISSION** — the cleanest of the
-seven: its whole Tier B value is mod4block (+586 s without BCE) and its whole Tier C cost is j3037 (+830 s with it), and on/off, round caps, dose,
-rate AND cadical's occurrence cap have each been measured to trade one for the other (L18; Log 2026-07-29).
+**§5.6 phase-6 dosing exhibit — standing, not now.** SEVEN mechanism families: BVE admission
+(`2026-07-25-crypto1-bve-mechanism.md` / `-bve-dosing-arms.md`), TR dosing (Log 2026-07-25 late), mode
+schedule (TB6), WALK DOSE (the 2026-07-27 sweeps), S7 Reorder (context is the VERDICT, not a formula
+feature — Log 2026-07-28), the inprocessing SLOT RATE (`TACTIX_SLOT_PERMILLE` — 28/30 instances carry a
+same-sign effect across two windows, yet no single rate wins the tier), and **X1 BCE ADMISSION** (its whole
+Tier B value is mod4block, its whole Tier C cost is j3037; on/off, round caps, dose, rate and cadical's
+occurrence cap each trade one for the other — L18). **E2 Factor admission is now the eighth and best-labelled
+of them** (three named mechanisms, §5.6 features already measured per instance).
 O16 auto-invention decided at phase-4 entry.
 
 ## ▶ CURRENT TIER TABLES (plan §8.1 rev 75 — full per-instance, newest window first)
@@ -694,8 +645,9 @@ Report: `benchmarks/reports/2026-07-31-factor-scope-and-admission.md`. The 2026-
 changes; they are separable and pull opposite ways. **Scope (`factor_size` 2→5) ships:** Tier C 337.50 →
 **327.99** (1.066× → **1.036×** cadical), Tier B 104.79 → 105.30 (+0.50, noise), no solve-count change, all
 four pre-registered KILL instances clean (x9 +0.8, mp1-blockpuzzle −0.0, FmlaEquiv −0.6, mod4block +0.4).
-Fuzz on the new default **4 × 10,000 cases, 0 failures** (DRAT + native LRAT, each ± `--random-policy`);
-ctest 38/38. **Admission (`factor_scope_percent`) does NOT ship:** it is Tier B **65.86 (26/28)** — solving
+Fuzz on the new default **4 × 10,000 cases, 0 failures** (DRAT + native LRAT, each ± `--random-policy`;
+legs `1576699/1576700/1576701/1576702`) **plus 2 × 200,000-case nightly legs, 0 failures**
+(`slurm-s5def-nightly-{drat-1576904,lrat-1576905}.log`, the LRAT leg under `--random-policy`); ctest 38/38. **Admission (`factor_scope_percent`) does NOT ship:** it is Tier B **65.86 (26/28)** — solving
 `sted5` and `or_randxor` — but Tier C **357.64 = 1.129×, OUTSIDE T3's 10 % band**.
 - **The entire Tier C regression is TWO instances** (ContextModel +464 s, jgiraldez +396 s = +860 vs a net
   +623); excluding them broad admission would *improve* Tier C by −7.9. **cadical runs Factor broadly with
@@ -722,41 +674,13 @@ ctest 38/38. **Admission (`factor_scope_percent`) does NOT ship:** it is Tier B 
   against a 2.5 s replicate range, conflicts 2.15 M → 318 k), not by the aggregate. Read every Tier C delta
   against this bar from now on.
 
-### 2026-07-31 — the Factor admission trade DECOMPOSED: damage not cost, one phantom, and TWO dead separators
-Union admission (`TACTIX_FACTOR_SIZE=5 TACTIX_FACTOR_SCOPE_PCT=50`) is **Tier B +41.7 PAR-2 / +2 solves**
-(104.97 → 63.24, 24 → 26; replicated 105.30 → 64.27 next window) and **Tier C −21.4** (322.54 → 343.97,
-1.013× → 1.080× cadical, still inside T3's 10 % band). Pre-registered criterion said "B improves AND C does
-not regress", so it is **NOT shipped by default**; everything below is why, and what the night eliminated.
-- **The two changes are separable and pull opposite ways.** By admission class: instances Factor ALREADY ran
-  on (density gate) net **−173** from size 2→5, while NEWLY scope-admitted instances net **+1078**. All the
-  damage is the gate. But **100 % of Tier B's gain is also in the newly-admitted class** (its density class is
-  exactly +0.0 — no Tier B instance passes the density gate at all), so `factor_size=5` alone cannot merge
-  Tier B. The tiers pull on the same lever in opposite directions.
-- **Mechanism: DAMAGE, not cost.** Conflicts explode where Factor is newly admitted — ContextModel 335 k →
-  2.83 M (8.4×), jgiraldez 3.9×, mp1-Nb5T15 2.4× — while the winners win on search too (sted5 **14× fewer**
-  conflicts, 3.78 M → 271 k). Factor's own time is not the lever; the factored formula is what is harder.
-- **One "regression" is a PHANTOM.** goldcrest-and-9 (+129.8 in the table) runs **0 factorings and 272,082
-  conflicts in BOTH arms** — a bit-identical search — and the probe reproduces 430 vs 431 s. ≈ 130 s of the
-  +642.7 Tier C total is measurement variance, not effect. Always check `c factor` before believing a delta.
-- **Dead separator 1 — scope threshold.** Winners and losers sit at the SAME scope fraction (j3037 100.0 %
-  −99.7 vs ContextModel 99.8 % +400); raising 50 → 90 % cannot separate them. L15 again.
-- **Dead separator 2 — payoff bound.** Accepted-gain histograms straddle: winners span mean 1.4 (edp3 — 1686
-  of 2717 factorings at δ=1, its whole benefit) to 13.5 (sted5), losers sit at 4.2/4.8 between them. Measured:
-  sted5 19 s → 274 s (b8) → 118 s (b16). The bound costs Tier B and cannot buy Tier C.
-- **A real N1 bug found by that sweep:** `Kernel::factor_bound` was **unreachable under DefaultPolicy** — the
-  rule accepts via `fm ? fm->accept(…) : delta > k.factor_bound` and DefaultPolicy ALWAYS attaches
-  `DefaultFactorMatch`, whose `accept` was hardcoded `delta >= 1`. A documented config surface no shipped path
-  could exercise; the sweep returned byte-identical proofs, which is how it surfaced. Fixed (bound copied in at
-  the attach site; `bound = 0` reproduces `delta >= 1` exactly).
-- **New arm, mixed — banked not shipped:** `TACTIX_FACTOR_DEMOTE` repairs a genuine FOCUSED-mode defect —
-  `heuristics_reserve_vars` appends fresh vars at `queue_last`, which is where VMTF's decision search STARTS,
-  so every variable Factor adds became a most-preferred branching candidate (kissat's
-  `adjust_scores_and_phases_of_fresh_varaibles` demotes them; our stable-mode heap was already correct at
-  score 0.0). It rescues j3037 207 → 88 s, edp3 74 → 39 s, rxor 49 → 36 s — but costs **sted5 16 → 150 s**,
-  one of the two Tier B rescues. Non-separable; default OFF pending its own tier pair.
-- Evidence: `benchmarks/probes/fcd-*`, `gridtrace-*`, `demote-*`, `fb-bite-*`; runs `20260731-013514-B-boundsweep`,
-  `20260731-013523-C-boundsweep`. Default identity re-verified on mod4block (**418,796** conflicts) for every
-  binary built tonight; ctest 38/38.
+### 2026-07-31 — the Factor admission trade decomposed (superseded by the two entries above; kept for the lesson)
+`2a40126`. First pass of the same investigation: damage-not-cost, the goldcrest phantom, and the two dead
+separators — all folded into the entries above and
+`benchmarks/reports/2026-07-31-factor-scope-and-admission.md`. **Lesson worth keeping: an A/B arm whose
+artefacts are byte-identical was SKIPPED, not tested** — a payoff-bound sweep returned identical 430.5 MB
+proofs in all three arms, which is how `Kernel::factor_bound`'s unreachability under DefaultPolicy surfaced.
+Check the artefact, not just the score.
 
 ### 2026-07-30 — R5 increment 2: the widened Factor grid, and **or_randxor (the one true wall) SOLVES**
 `9f20813` design · `4c13bfd` inc 1 · `b9416c9` inc 2a · `2191466` inc 2b · `687e86f` inc 2c.

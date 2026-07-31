@@ -1,0 +1,51 @@
+=== WINNER-j3037-shipped :: j3037_9_rggt_b :: arm=[default] ===
+c tactix 0.1.0
+c decisions   6825450 (0 via API)
+c conflicts   2564047
+c propagations 4041859327 (4005760930 search, 36098397 inprocess)
+c learned     2564047 (12 units)
+c learnedsize 33.57 avg lits, 16.89 avg glue
+c reduction   39.4% of resolved lits removed by minimize+shrink
+c minimized   43165286 lits
+c shrunken    12870080 lits
+c reasonbump  101862526 vars in 2563549 rounds (453 aborted)
+c otfs        2107 strengthened (23 conflicts subsumed)
+c strengthen  48 rounds, 378 strengthened, 628 subsumed, 16851 flushed
+c vivify      44 rounds, 1052 vivified, 0 deleted, 56478 checked
+c probe       0 rounds, 0 probed, 0 failed
+c backbone    0 rounds, 427421 probed, 23 failed
+c transitive  0 rounds, 1538888 checked, 765 deleted, 15 failed, 106914118 ticks
+c substitute  12 rounds
+c bce         35 rounds, 12985 deleted, 45875047 ticks
+c instantiate 13 rounds, 58 literals removed, 39053 probed
+c ternary     44 rounds, 15733 resolvents, 0 binaries, 6381193 ticks
+c chrono      0 chronological, 0 stale backjumps
+c inprocess   16 phases
+c congruence  12 rounds, 0 units, 0 unjustified
+c factor      0 factorings, 0 large remainders offered
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    98850 (35168 reused a trail prefix)
+c reductions  124 (2483313 clauses deleted, 779626 promoted)
+c mode        stable after 49 switches (10785215153 ticks, 425 target phases saved)
+c rephased    45 (275 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        11 walks (11 improved, 75114933 flips, 4189366574 steps)
+c subsume     48 rounds (1495897 checked, 60 subsumed)
+c timing      312332 ms solve
+c timing      10083 ms (3.2%) inprocessing slot, 302249 ms (96.8%) search+scaffolding outside it
+c timing        Vivify                5606 ms (  1.8%) in 44 applications
+c timing        Instantiate           1124 ms (  0.4%) in 14 applications
+c timing        TransitiveReduce      1061 ms (  0.3%) in 530839 applications
+c timing        BCE                    834 ms (  0.3%) in 44 applications
+c timing        Strengthen             477 ms (  0.2%) in 48 applications
+c timing        Backbone               253 ms (  0.1%) in 427455 applications
+c timing        SubsumeForward         252 ms (  0.1%) in 48 applications
+c timing        Congruence             193 ms (  0.1%) in 12 applications
+c timing        HyperTernaryRes        112 ms (  0.0%) in 45 applications
+c timing        Substitute              22 ms (  0.0%) in 12 applications
+c timing        Factor                   0 ms (  0.0%) in 48 applications
+c timing        (unattributed)         148 ms (  0.0%)
+s SATISFIABLE
+wall_seconds 313
+=== done WINNER-j3037-shipped ===

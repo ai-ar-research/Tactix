@@ -1,0 +1,52 @@
+=== LOSER-nb5t15-shipped :: mp1-Nb5T15 :: arm=[default] ===
+c tactix 0.1.0
+c decisions   8598330 (0 via API)
+c conflicts   1456950
+c propagations 467413717 (466181529 search, 1232188 inprocess)
+c learned     1456950 (0 units)
+c learnedsize 55.23 avg lits, 31.98 avg glue
+c reduction   28.6% of resolved lits removed by minimize+shrink
+c minimized   11683563 lits
+c shrunken    20624533 lits
+c reasonbump  133220459 vars in 1445262 rounds (5646 aborted)
+c otfs        5530 strengthened (35 conflicts subsumed)
+c strengthen  14 rounds, 0 strengthened, 0 subsumed, 0 flushed
+c vivify      17 rounds, 157 vivified, 0 deleted, 51855 checked
+c probe       0 rounds, 16476 probed, 0 failed
+c backbone    0 rounds, 43920 probed, 0 failed
+c transitive  0 rounds, 141730 checked, 0 deleted, 0 failed, 3104941 ticks
+c substitute  1 rounds
+c bce         0 rounds, 0 deleted, 10810284 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 1183168 ticks
+c chrono      34 chronological, 0 stale backjumps
+c inprocess   12 phases
+c congruence  1 rounds, 0 units, 0 unjustified
+c factor      0 factorings, 0 large remainders offered
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    62145 (9504 reused a trail prefix)
+c reductions  92 (1368410 clauses deleted, 365284 promoted)
+c mode        stable after 39 switches (2084102355 ticks, 464 target phases saved)
+c rephased    36 (313 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        9 walks (9 improved, 25376162 flips, 895581821 steps)
+c subsume     14 rounds (211050 checked, 0 subsumed)
+c timing      62560 ms solve
+c timing      1333 ms (2.1%) inprocessing slot, 61227 ms (97.9%) search+scaffolding outside it
+c timing        Vivify                 850 ms (  1.4%) in 17 applications
+c timing        Probe                  163 ms (  0.3%) in 16476 applications
+c timing        BCE                    144 ms (  0.2%) in 12 applications
+c timing        Strengthen              63 ms (  0.1%) in 14 applications
+c timing        SubsumeForward          35 ms (  0.1%) in 14 applications
+c timing        HyperTernaryRes         18 ms (  0.0%) in 14 applications
+c timing        TransitiveReduce        16 ms (  0.0%) in 47250 applications
+c timing        Congruence              12 ms (  0.0%) in 1 applications
+c timing        Backbone                10 ms (  0.0%) in 43920 applications
+c timing        Instantiate              4 ms (  0.0%) in 12 applications
+c timing        Substitute               0 ms (  0.0%) in 1 applications
+c timing        Factor                   0 ms (  0.0%) in 14 applications
+c timing        (unattributed)          19 ms (  0.0%)
+s SATISFIABLE
+wall_seconds 63
+=== done LOSER-nb5t15-shipped ===

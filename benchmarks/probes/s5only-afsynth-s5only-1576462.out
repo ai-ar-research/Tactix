@@ -1,0 +1,53 @@
+=== afsynth-s5only :: af-synthesis_stb_50_120_4_sat :: arm=[TACTIX_FACTOR_SIZE=5] ===
+c tactix 0.1.0
+c decisions   743081 (0 via API)
+c conflicts   318157
+c propagations 529896613 (517910606 search, 11986007 inprocess)
+c learned     318157 (1 units)
+c learnedsize 20.02 avg lits, 11.55 avg glue
+c reduction   55.4% of resolved lits removed by minimize+shrink
+c minimized   3941584 lits
+c shrunken    3961852 lits
+c reasonbump  6676649 vars in 317746 rounds (65 aborted)
+c otfs        781 strengthened (20 conflicts subsumed)
+c strengthen  18 rounds, 1279 strengthened, 3464 subsumed, 2283 flushed
+c vivify      12 rounds, 62 vivified, 0 deleted, 13075 checked
+c probe       0 rounds, 117 probed, 0 failed
+c backbone    0 rounds, 221459 probed, 3 failed
+c transitive  0 rounds, 3040219 checked, 246 deleted, 0 failed, 310969096 ticks
+c substitute  8 rounds
+c bce         2 rounds, 128 deleted, 14250338 ticks
+c instantiate 1 rounds, 2 literals removed, 436 probed
+c ternary     14 rounds, 228 resolvents, 0 binaries, 586387 ticks
+c chrono      32 chronological, 0 stale backjumps
+c inprocess   6 phases
+c congruence  8 rounds, 0 units, 0 unjustified
+c factor      16643 factorings, 544184 large remainders offered
+c bve         0 rounds, 3638 eliminated, 788217 resolutions
+c restarts    16421 (10542 reused a trail prefix)
+c reductions  40 (286233 clauses deleted, 92356 promoted)
+c mode        stable after 21 switches (987158118 ticks, 203 target phases saved)
+c rephased    21 (142 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        5 walks (5 improved, 3166504 flips, 392805400 steps)
+c subsume     18 rounds (417059 checked, 154 subsumed)
+c timing      37725 ms solve
+c timing      7530 ms (20.0%) inprocessing slot, 30195 ms (80.0%) search+scaffolding outside it
+c timing        TransitiveReduce      1921 ms (  5.1%) in 298816 applications
+c timing        BCE                   1437 ms (  3.8%) in 8 applications
+c timing        Factor                1312 ms (  3.5%) in 16 applications
+c timing        BVE                    766 ms (  2.0%) in 31328 applications
+c timing        Vivify                 610 ms (  1.6%) in 12 applications
+c timing        Strengthen             592 ms (  1.6%) in 18 applications
+c timing        SubsumeForward         290 ms (  0.8%) in 18 applications
+c timing        Congruence             176 ms (  0.5%) in 8 applications
+c timing        Backbone               123 ms (  0.3%) in 221473 applications
+c timing        Substitute              45 ms (  0.1%) in 8 applications
+c timing        Instantiate             41 ms (  0.1%) in 3 applications
+c timing        HyperTernaryRes         18 ms (  0.0%) in 16 applications
+c timing        Probe                    4 ms (  0.0%) in 117 applications
+c timing        (unattributed)         196 ms (  0.5%)
+s SATISFIABLE
+wall_seconds 37
+=== done afsynth-s5only ===

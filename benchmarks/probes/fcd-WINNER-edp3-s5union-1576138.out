@@ -1,0 +1,52 @@
+=== WINNER-edp3-s5union :: EDP3-11000 :: arm=[TACTIX_FACTOR_SIZE=5 TACTIX_FACTOR_SCOPE_PCT=50] ===
+c tactix 0.1.0
+c decisions   4742044 (0 via API)
+c conflicts   191093
+c propagations 313613135 (311395995 search, 2217140 inprocess)
+c learned     191093 (0 units)
+c learnedsize 192.09 avg lits, 96.16 avg glue
+c reduction   11.1% of resolved lits removed by minimize+shrink
+c minimized   4432744 lits
+c shrunken    160404 lits
+c reasonbump  50538643 vars in 70595 rounds (3609 aborted)
+c otfs        384 strengthened (10 conflicts subsumed)
+c strengthen  10 rounds, 0 strengthened, 0 subsumed, 0 flushed
+c vivify      8 rounds, 2483 vivified, 0 deleted, 54880 checked
+c probe       0 rounds, 115158 probed, 0 failed
+c backbone    0 rounds, 397905 probed, 0 failed
+c transitive  0 rounds, 1109021 checked, 0 deleted, 0 failed, 4306875 ticks
+c substitute  5 rounds
+c bce         4 rounds, 1892 deleted, 15266009 ticks
+c instantiate 0 rounds, 0 literals removed, 13869 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 6112739 ticks
+c chrono      3537 chronological, 0 stale backjumps
+c inprocess   5 phases
+c congruence  5 rounds, 0 units, 0 unjustified
+c factor      2717 factorings, 20570102 large remainders offered
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    10467 (612 reused a trail prefix)
+c reductions  30 (154660 clauses deleted, 49138 promoted)
+c mode        stable after 19 switches (964010428 ticks, 584 target phases saved)
+c rephased    15 (367 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        4 walks (4 improved, 4194204 flips, 478847005 steps)
+c subsume     10 rounds (5566450 checked, 0 subsumed)
+c timing      73812 ms solve
+c timing      19318 ms (26.2%) inprocessing slot, 54494 ms (73.8%) search+scaffolding outside it
+c timing        Factor                8771 ms ( 11.9%) in 6 applications
+c timing        Congruence            4842 ms (  6.6%) in 5 applications
+c timing        Strengthen            2272 ms (  3.1%) in 10 applications
+c timing        SubsumeForward        1620 ms (  2.2%) in 10 applications
+c timing        Vivify                 863 ms (  1.2%) in 8 applications
+c timing        BCE                    333 ms (  0.5%) in 5 applications
+c timing        TransitiveReduce       112 ms (  0.2%) in 738385 applications
+c timing        Probe                  109 ms (  0.1%) in 115158 applications
+c timing        Backbone                62 ms (  0.1%) in 397905 applications
+c timing        Instantiate             53 ms (  0.1%) in 4 applications
+c timing        HyperTernaryRes         39 ms (  0.1%) in 5 applications
+c timing        Substitute              36 ms (  0.0%) in 5 applications
+c timing        (unattributed)         206 ms (  0.3%)
+s SATISFIABLE
+wall_seconds 74
+=== done WINNER-edp3-s5union ===

@@ -1,0 +1,43 @@
+=== jgi-nofactor :: jgiraldezlevy.2200.9086.08.40.41 :: flags=[--factor=false] ===
+c   --factor=false                 (different from default 'true')
+c  seconds  reduction conflicts       size tier2     variables
+c         MB    restarts   redundant    glue  trail       remaining
+c  seconds   reduction conflicts       size tier2     variables
+c         MB     restarts   redundant    glue  trail       remaining
+c  seconds  reduction conflicts       size tier2     variables
+c         MB    restarts   redundant    glue  trail       remaining
+c  seconds  reduction conflicts       size  tier2     variables
+c         MB    restarts   redundant     glue  trail       remaining
+c  seconds  reductions conflicts       size  tier2     variables
+c         MB    restarts    redundant     glue  trail       remaining
+c  seconds  reductions   conflicts       size  tier2     variables
+c         MB     restarts     redundant     glue  trail       remaining
+c  seconds  reductions   conflicts       size   tier2     variables
+c         MB     restarts     redundant     glue   trail       remaining
+c  seconds  reductions   conflicts        size   tier2     variables
+c         MB     restarts      redundant     glue   trail       remaining
+c  seconds  reductions   conflicts       size   tier2     variables
+c         MB     restarts     redundant     glue   trail       remaining
+c  seconds  reductions   conflicts       size  tier2     variables
+c         MB     restarts     redundant     glue  trail       remaining
+c  seconds  reductions   conflicts       size  tier2     variables
+c         MB     restarts     redundant     glue  trail       remaining
+c  seconds  reductions   conflicts       size   tier2     variables
+c         MB     restarts     redundant     glue   trail       remaining
+c  seconds  reductions    conflicts       size   tier2      variables
+c         MB      restarts     redundant     glue   trail        remaining
+c  seconds  reductions    conflicts         size   tier2      variables
+c         MB      restarts       redundant     glue   trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size  tier2      variables
+c         MB      restarts       redundant     glue  trail        remaining
+c  seconds  reductions    conflicts         size   tier2      variables
+wall_seconds 27
+=== done jgi-nofactor ===

@@ -1,0 +1,3 @@
+or_randxor               shipped    c conflicts 7169719|c factor 0 factorings, 0 large remainders offered|s UNKNOWN|wall 300.00|
+or_randxor               force-s2   c conflicts 7249732|c factor 1 factorings, 0 large remainders offered|s UNKNOWN|wall 300.00|
+or_randxor               force-s5   c conflicts 1039595|c factor 297 factorings, 29186 large remainders offered|s UNSATISFIABLE|wall 48.76|

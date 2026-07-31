@@ -1,0 +1,53 @@
+=== ctx-union-demote :: ContextModel_output_7_3_9.bul_.dimacs :: arm=[TACTIX_FACTOR_SCOPE_PCT=50 TACTIX_FACTOR_DEMOTE=1] ===
+c tactix 0.1.0
+c decisions   17586894 (0 via API)
+c conflicts   2422331
+c propagations 2047095320 (2037735680 search, 9359640 inprocess)
+c learned     2422331 (5 units)
+c learnedsize 75.89 avg lits, 39.86 avg glue
+c reduction   39.7% of resolved lits removed by minimize+shrink
+c minimized   86079539 lits
+c shrunken    35154929 lits
+c reasonbump  218671811 vars in 2413569 rounds (8283 aborted)
+c otfs        5236 strengthened (35 conflicts subsumed)
+c strengthen  44 rounds, 331 strengthened, 291 subsumed, 10022 flushed
+c vivify      20 rounds, 21332 vivified, 0 deleted, 172890 checked
+c probe       0 rounds, 126414 probed, 0 failed
+c backbone    0 rounds, 200682 probed, 185 failed
+c transitive  0 rounds, 575253 checked, 851 deleted, 0 failed, 14394813 ticks
+c substitute  13 rounds
+c bce         5 rounds, 855 deleted, 81457522 ticks
+c instantiate 2 rounds, 28 literals removed, 52214 probed
+c ternary     33 rounds, 360378 resolvents, 0 binaries, 44379777 ticks
+c chrono      70 chronological, 0 stale backjumps
+c inprocess   15 phases
+c congruence  11 rounds, 0 units, 0 unjustified
+c extension   459 vars added, 5668303 decisions on them (32.23% of 17586894)
+c factor      459 factorings, 5851482 large remainders offered
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    123593 (30681 reused a trail prefix)
+c reductions  121 (2567718 clauses deleted, 1002234 promoted)
+c mode        stable after 49 switches (12624547411 ticks, 571 target phases saved)
+c rephased    41 (294 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        10 walks (10 improved, 52839696 flips, 4785408855 steps)
+c subsume     44 rounds (2013254 checked, 1507 subsumed)
+c timing      352281 ms solve
+c timing      12718 ms (3.6%) inprocessing slot, 339563 ms (96.4%) search+scaffolding outside it
+c timing        Vivify                4206 ms (  1.2%) in 20 applications
+c timing        Factor                3691 ms (  1.0%) in 35 applications
+c timing        BCE                   1065 ms (  0.3%) in 39 applications
+c timing        Strengthen            1047 ms (  0.3%) in 44 applications
+c timing        Probe                  752 ms (  0.2%) in 126414 applications
+c timing        SubsumeForward         526 ms (  0.1%) in 44 applications
+c timing        HyperTernaryRes        425 ms (  0.1%) in 33 applications
+c timing        Instantiate            334 ms (  0.1%) in 15 applications
+c timing        Congruence             326 ms (  0.1%) in 11 applications
+c timing        TransitiveReduce       139 ms (  0.0%) in 355088 applications
+c timing        Backbone                46 ms (  0.0%) in 200716 applications
+c timing        Substitute              18 ms (  0.0%) in 13 applications
+c timing        (unattributed)         142 ms (  0.0%)
+s SATISFIABLE
+wall_seconds 352
+=== done ctx-union-demote ===

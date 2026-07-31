@@ -1,0 +1,3 @@
+battleship               shipped    c conflicts 65573|c factor 78 factorings, 0 large remainders offered|s SATISFIABLE|wall 1.08|
+battleship               force-s2   c conflicts 65573|c factor 78 factorings, 0 large remainders offered|s SATISFIABLE|wall 1.06|
+battleship               force-s5   c conflicts 65573|c factor 78 factorings, 0 large remainders offered|s SATISFIABLE|wall 1.06|

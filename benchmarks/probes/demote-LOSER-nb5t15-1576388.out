@@ -1,0 +1,52 @@
+=== LOSER-nb5t15-demote :: mp1-Nb5T15 :: arm=[TACTIX_FACTOR_SIZE=5 TACTIX_FACTOR_SCOPE_PCT=50 TACTIX_FACTOR_DEMOTE=1] ===
+c tactix 0.1.0
+c decisions   57045316 (0 via API)
+c conflicts   11399959
+c propagations 3651906437 (3643229557 search, 8676880 inprocess)
+c learned     11399959 (0 units)
+c learnedsize 75.45 avg lits, 39.29 avg glue
+c reduction   21.4% of resolved lits removed by minimize+shrink
+c minimized   169073993 lits
+c shrunken    65293508 lits
+c reasonbump  1498090145 vars in 11303288 rounds (81851 aborted)
+c otfs        27909 strengthened (261 conflicts subsumed)
+c strengthen  34 rounds, 0 strengthened, 0 subsumed, 0 flushed
+c vivify      37 rounds, 259 vivified, 0 deleted, 317085 checked
+c probe       0 rounds, 92103 probed, 0 failed
+c backbone    0 rounds, 136380 probed, 0 failed
+c transitive  0 rounds, 268910 checked, 0 deleted, 0 failed, 9289198 ticks
+c substitute  3 rounds
+c bce         0 rounds, 0 deleted, 56359198 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     0 rounds, 0 resolvents, 0 binaries, 2834704 ticks
+c chrono      198 chronological, 0 stale backjumps
+c inprocess   29 phases
+c congruence  3 rounds, 0 units, 0 unjustified
+c factor      540 factorings, 733470 large remainders offered
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    365824 (57305 reused a trail prefix)
+c reductions  269 (11194136 clauses deleted, 2796295 promoted)
+c mode        stable after 81 switches (31205817935 ticks, 1284 target phases saved)
+c rephased    85 (827 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        21 walks (21 improved, 484324921 flips, 14433766811 steps)
+c subsume     34 rounds (512550 checked, 0 subsumed)
+c timing      837432 ms solve
+c timing      16947 ms (2.0%) inprocessing slot, 820486 ms (98.0%) search+scaffolding outside it
+c timing        Vivify               13047 ms (  1.6%) in 37 applications
+c timing        Probe                 2249 ms (  0.3%) in 92103 applications
+c timing        BCE                    683 ms (  0.1%) in 31 applications
+c timing        Factor                 317 ms (  0.0%) in 15 applications
+c timing        Strengthen             208 ms (  0.0%) in 34 applications
+c timing        SubsumeForward         123 ms (  0.0%) in 34 applications
+c timing        TransitiveReduce        61 ms (  0.0%) in 124155 applications
+c timing        HyperTernaryRes         59 ms (  0.0%) in 32 applications
+c timing        Backbone                49 ms (  0.0%) in 136380 applications
+c timing        Congruence              33 ms (  0.0%) in 3 applications
+c timing        Instantiate             29 ms (  0.0%) in 29 applications
+c timing        Substitute               0 ms (  0.0%) in 3 applications
+c timing        (unattributed)          90 ms (  0.0%)
+s SATISFIABLE
+wall_seconds 837
+=== done LOSER-nb5t15-demote ===
