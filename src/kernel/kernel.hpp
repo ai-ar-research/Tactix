@@ -519,7 +519,16 @@ struct Kernel {
   // indifferent to |r| — docs/design/e2-factorsize-design.md §4).
   // Motivation: `kissat --factorsize=2`, i.e. kissat restricted to OUR variant,
   // loses or_randxor entirely (TO@300 vs 12.27 s) and costs fclqcolor 12.6x.
-  uint32_t factor_size = 2;
+  // DEFAULT 2 -> 5 on 2026-07-31, one window, throttle 48: **Tier C 337.50 ->
+  // 327.99 PAR-2 (-9.51)**, Tier B 104.79 -> 105.30 (+0.50, inside noise), no
+  // solve-count change on either tier. The gain is real rather than variance —
+  // af-synthesis -190.9 s against a measured identical-config range of 2.5 s,
+  // constraints_25 -51.6 (range 15.0), j3037 -15.6 (range 2.5) — and the R5
+  // design's pre-registered KILL instances are all clean (x9 +0.8,
+  // mp1-blockpuzzle -0.0, FmlaEquivChain -0.6, mod4block +0.4).
+  // NOTE this is the SCOPE half only. It admits no new instances, so it cannot
+  // cause the damage the union-admission arm does (factor_scope_percent below).
+  uint32_t factor_size = 5;
   // E2 Factor SCOPE-FRACTION admission (R5 joint admission, 2026-07-30). Admit
   // Factor when at least this PERCENT of the live irredundant clauses are within
   // its clause-size scope (<= factor_size). 0 = use the legacy binaries-per-var

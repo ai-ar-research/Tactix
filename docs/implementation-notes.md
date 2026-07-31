@@ -181,6 +181,25 @@ mechanics*, not proof-rule guards:
   `dense->large` to `2·nvars`. Without it `bve_build_occurrences` indexes out of bounds for an extension
   literal — the mp1 `EXC_BAD_ACCESS`. General hazard for **any** var-adding rule, hence a kernel-level
   fix.
+- **Fresh extension variables must be the LEAST-preferred decision candidates.** `heuristics_reserve_vars`
+  appends every new var at `queue_last` — correct for the initial load and for bumping, but in VMTF
+  `queue_last` is exactly where the decision search *starts*, so each variable Factor added jumped to the
+  head of the decision order. Kissat demotes them explicitly
+  (`factor.c adjust_scores_and_phases_of_fresh_varaibles`: score 0 **and** re-inserted at the bottom of the
+  queue). Ours is a **focused-mode-only** defect — the stable-mode heap push already uses score 0.0, which
+  sits at the bottom of a max-heap. `heuristics_demote_fresh_vars(k, first)` implements the repair over the
+  contiguous range `[first, nvars)`, called **once per rule application** (it is O(#queue); once per fresh
+  *variable* would be the per-call linear-scratch hazard). Heuristic-only (`H`): no proof delta, no σ change,
+  so a rule may call it. Gated behind `Kernel::factor_demote_fresh`, **default false** — measured 2026-07-31
+  as non-separable (rescues j3037 207→88 s, edp3 74→39, rxor 49→36; costs sted5 16→150 s), so it awaits its
+  own tier pair.
+- **Clause-size scope is a within-rule scope choice, not a guard.** `Kernel::factor_size` (kissat
+  `factorsize`) bounds the size of grid clauses; remainders are sub-clauses rather than single literals once
+  it exceeds 2. Any value is sound — the add-RAT argument for the quotients is indifferent to `|r|`
+  (`docs/design/e2-factorsize-design.md` §4), so this narrows/widens *which* factorings the rule offers and
+  never *whether* one is legal. **Default 2 → 5 on 2026-07-31** (kissat's own default), on Tier C −9.51 PAR-2
+  / 1.066× → 1.036× cadical with Tier B unchanged; report
+  `benchmarks/reports/2026-07-31-factor-scope-and-admission.md`.
 - **BVE never schedules an extension variable.** BVE on Factor's `x` resolves its dividers against its
   quotients straight back to the grid — *exactly reversing* Factor; unguarded the two thrash every round
   (thousands of factorings/round, a 741 MB churn proof). `bve_schedule` skips `v ≥

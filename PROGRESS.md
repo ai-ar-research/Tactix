@@ -143,85 +143,102 @@ result, replaces the table below. Keep the newest window at the top; drop supers
 stacking them. Record the window stamp AND the git SHA — a table without them cannot be reproduced or
 compared.
 
-#### Tier B (28) — window `20260730-142436` (git `b8ece6d`), shipped default, every arm writing + checking DRAT
+#### Tier B (28) — window `20260731-021612` (git `2a40126`), **new default `factor_size=5`**, every arm writing + checking DRAT
 
 `●` marks the frozen **core14**; the pre-2026-07-29 archive (7.94 / 9.27 / 9.46 …) is computed on
 those alone. **Never mix 14- and 28-instance PAR-2.**
 
 | # | instance | c14 | st | tactix | kissat | ×kis |
 |---|---|---|---|---|---|---|
-| 1 | `sted5_0x24204-50.cnf.xz` |  | UNK | 600.0 **TO** | 8.5 | 70.7 |
-| 2 | `veer_axi_yosyshq_appnote_123_veer_axi-p2` |  | UNK | 600.0 **TO** | 3.2 | 187.4 |
-| 3 | `or_randxor_k3_n540_m540.cnf.xz` |  | UNK | 600.0 **TO** | 12.6 | 47.8 |
-| 4 | `unsat-set-b-fclqcolor-10-07-09.sat05-128` |  | UNK | 600.0 **TO** | 16.7 | 36.0 |
-| 5 | `DivS_862_11.cnf.sanitized.cnf.xz` |  | SAT | 121.5 | 18.7 | 6.5 |
-| 6 | `mp1-klieber2017s-0500-023-t12.cnf.xz` |  | SAT | 118.1 | 13.1 | 9.0 |
-| 7 | `PRP_30_38.cnf.xz` |  | SAT | 52.3 | 16.9 | 3.1 |
-| 8 | `2013113162201nw.shuffled-as.sat03-1668.c` |  | SAT | 41.7 | 5.9 | 7.1 |
-| 9 | `b22_1.cnf.xz` |  | UNS | 41.5 | 8.7 | 4.8 |
-| 10 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | ● | UNS | 30.7 | 14.0 | 2.2 |
-| 11 | `circuit_48in64out_with_800gates_4in4out_` | ● | SAT | 14.7 | 11.1 | 1.3 |
-| 12 | `9vliw_bp_mc.shuffled.cnf.xz` | ● | UNS | 14.4 | 8.6 | 1.7 |
-| 13 | `mod4block_2vars_10gates_u2_autoenc-sc200` | ● | SAT | 13.6 | 19.7 | 0.7 |
-| 14 | `rbsat-v760c43649gyes10.cnf.xz` | ● | SAT | 13.0 | 5.9 | 2.2 |
-| 15 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | ● | UNS | 10.7 | 9.3 | 1.2 |
-| 16 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.` | ● | SAT | 10.2 | 6.0 | 1.7 |
-| 17 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` |  | SAT | 9.6 | 4.0 | 2.4 |
-| 18 | `SCPC-500-5.cnf.xz` |  | UNS | 9.4 | 11.5 | 0.8 |
-| 19 | `hwmcc17miters-xits-iso-oski15a08b00s.san` | ● | UNS | 8.2 | 3.5 | 2.3 |
-| 20 | `DecompressReader_read_12.cnf.xz` |  | UNS | 7.8 | 6.6 | 1.2 |
-| 21 | `x9-08014.sat.sanitized.cnf.xz` | ● | UNS | 7.3 | 11.0 | 0.7 |
-| 22 | `combined-crypto1-wff-seed-1-wffvars-450-` | ● | SAT | 7.0 | 4.3 | 1.6 |
-| 23 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50` |  | SAT | 6.8 | 11.5 | 0.6 |
-| 24 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.x` | ● | SAT | 4.2 | 11.1 | 0.4 |
-| 25 | `square.2.0.i.smt2-cvc4.cnf.xz` | ● | UNS | 4.0 | 3.5 | 1.1 |
-| 26 | `oddball_13_5_ttf.normalised.cnf.xz` |  | UNS | 3.2 | 19.0 | 0.2 |
-| 27 | `battleship-14-26-sat.cnf.xz` | ● | SAT | 1.1 | 6.9 | 0.2 |
+| 1 | `sted5_0x24204-50.cnf.xz` |  | UNK | 600.0 **TO** | 8.6 | 69.7 |
+| 2 | `veer_axi_yosyshq_appnote_123_veer_axi-p2` |  | UNK | 600.0 **TO** | 3.7 | 161.9 |
+| 3 | `or_randxor_k3_n540_m540.cnf.xz` |  | UNK | 600.0 **TO** | 12.9 | 46.5 |
+| 4 | `unsat-set-b-fclqcolor-10-07-09.sat05-128` |  | UNK | 600.0 **TO** | 16.8 | 35.7 |
+| 5 | `DivS_862_11.cnf.sanitized.cnf.xz` |  | SAT | 129.0 | 19.3 | 6.7 |
+| 6 | `mp1-klieber2017s-0500-023-t12.cnf.xz` |  | SAT | 110.8 | 12.9 | 8.6 |
+| 7 | `PRP_30_38.cnf.xz` |  | SAT | 47.9 | 16.5 | 2.9 |
+| 8 | `2013113162201nw.shuffled-as.sat03-1668.c` |  | SAT | 43.7 | 6.0 | 7.3 |
+| 9 | `b22_1.cnf.xz` |  | UNS | 35.4 | 9.0 | 3.9 |
+| 10 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | ● | UNS | 32.4 | 13.7 | 2.4 |
+| 11 | `circuit_48in64out_with_800gates_4in4out_` | ● | SAT | 15.4 | 11.2 | 1.4 |
+| 12 | `9vliw_bp_mc.shuffled.cnf.xz` | ● | UNS | 14.7 | 8.8 | 1.7 |
+| 13 | `mod4block_2vars_10gates_u2_autoenc-sc200` | ● | SAT | 13.8 | 20.4 | 0.7 |
+| 14 | `rbsat-v760c43649gyes10.cnf.xz` | ● | SAT | 13.0 | 6.0 | 2.2 |
+| 15 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | ● | UNS | 10.8 | 9.3 | 1.2 |
+| 16 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.` | ● | SAT | 10.0 | 6.7 | 1.5 |
+| 17 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` |  | SAT | 9.9 | 4.1 | 2.4 |
+| 18 | `SCPC-500-5.cnf.xz` |  | UNS | 9.5 | 11.6 | 0.8 |
+| 19 | `hwmcc17miters-xits-iso-oski15a08b00s.san` | ● | UNS | 8.5 | 4.0 | 2.1 |
+| 20 | `DecompressReader_read_12.cnf.xz` |  | UNS | 8.4 | 6.7 | 1.3 |
+| 21 | `x9-08014.sat.sanitized.cnf.xz` | ● | UNS | 8.2 | 11.0 | 0.7 |
+| 22 | `combined-crypto1-wff-seed-1-wffvars-450-` | ● | SAT | 6.8 | 4.2 | 1.6 |
+| 23 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50` |  | SAT | 6.7 | 11.5 | 0.6 |
+| 24 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.x` | ● | SAT | 4.6 | 11.9 | 0.4 |
+| 25 | `square.2.0.i.smt2-cvc4.cnf.xz` | ● | UNS | 4.5 | 3.9 | 1.1 |
+| 26 | `oddball_13_5_ttf.normalised.cnf.xz` |  | UNS | 3.3 | 19.2 | 0.2 |
+| 27 | `battleship-14-26-sat.cnf.xz` | ● | SAT | 1.1 | 7.2 | 0.2 |
 | 28 | `clique_n2_k10.sanitized.cnf.xz` | ● | UNS | 0.1 | 6.1 | 0.0 |
-| | **PAR-2 / solved** | | | **105.40** (24/28) | 9.91 (28/28) | **10.63** |
+|  | **PAR-2 / solved** |  |  | **105.30** (24/28) | 10.12 (28/28) | **10.408** |
 
-#### Tier C (30) — window `20260730-142439` (git `b8ece6d`), shipped default, every arm writing + checking DRAT
+Same window, other arms: old default (`factor_size=2`) **104.79** (24/28) — the new default is +0.50, inside
+noise; **`s5union` (scope-fraction admission, NOT shipped) 65.86 (26/28)** — it solves `sted5` and
+`or_randxor`, and is the open Tier B lever (see Log 2026-07-31).
+
+#### Tier C (30) — window `20260731-021615` (git `2a40126`), **new default `factor_size=5`**, every arm writing + checking DRAT
 
 | # | instance | st | tactix | cadical | ×cad |
 |---|---|---|---|---|---|
 | 1 | `128_125.sanitized.cnf.xz` | UNK | 2400.0 **TO** | 2400.0 | 1.0 |
-| 2 | `T87.2.0.cnf.xz` | UNS | 778.0 | 404.5 | 1.9 |
-| 3 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c` | UNS | 673.6 | 282.5 | 2.4 |
-| 4 | `T105.2.0.cnf.xz` | UNS | 640.6 | 263.1 | 2.4 |
-| 5 | `goldcrest-and-9.cnf.xz` | UNS | 461.2 | 128.2 | 3.6 |
-| 6 | `constraints_25_4_5_12_12_0_0_0.sanitized` | UNS | 436.0 | 194.9 | 2.2 |
-| 7 | `Grain_no_init_ver1_out200_known_last105_` | UNS | 370.0 | 259.4 | 1.4 |
-| 8 | `minxor128.cnf.xz` | UNS | 357.3 | 290.0 | 1.2 |
-| 9 | `j3037_9_rggt_b.cnf.xz` | SAT | 335.0 | 25.9 | 12.9 |
-| 10 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 321.4 | 414.6 | 0.8 |
-| 11 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 260.1 | 260.4 | 1.0 |
-| 12 | `circuit_32in32out_with_500gates_6in6out_` | SAT | 245.6 | 500.0 | 0.5 |
-| 13 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 239.7 | 194.4 | 1.2 |
-| 14 | `StConn_8_32.sanitized.cnf.xz` | UNS | 232.8 | 940.1 | 0.2 |
-| 15 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat` | SAT | 228.6 | 186.2 | 1.2 |
-| 16 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 202.5 | 138.2 | 1.5 |
-| 17 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 201.5 | 173.3 | 1.2 |
-| 18 | `urq45.cnf.xz` | UNS | 194.0 | 1010.6 | 0.2 |
-| 19 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 179.7 | 255.4 | 0.7 |
-| 20 | `SCPC-1000-18.cnf.xz` | SAT | 171.3 | 26.0 | 6.6 |
-| 21 | `EDP3-11000.cnf.xz` | SAT | 148.7 | 186.5 | 0.8 |
-| 22 | `em_11_3_4_cmp.cnf.xz` | SAT | 105.3 | 108.9 | 1.0 |
-| 23 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 93.6 | 163.7 | 0.6 |
-| 24 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 82.1 | 77.0 | 1.1 |
-| 25 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 77.6 | 262.2 | 0.3 |
-| 26 | `Ptn-7824-b18.cnf.xz` | SAT | 75.8 | 10.1 | 7.5 |
-| 27 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 75.4 | 16.3 | 4.6 |
-| 28 | `mp1-Nb5T15.cnf.xz` | SAT | 65.4 | 129.2 | 0.5 |
-| 29 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 37.2 | 27.1 | 1.4 |
-| 30 | `ContextModel_output_7_3_9.bul_.dimacs.cn` | SAT | 20.3 | 66.7 | 0.3 |
-| | **PAR-2 / solved** | | **323.67** (29/30) | 313.18 (29/30) | **1.033** |
+| 2 | `T87.2.0.cnf.xz` | UNS | 842.3 | 407.0 | 2.1 |
+| 3 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c` | UNS | 749.9 | 269.0 | 2.8 |
+| 4 | `T105.2.0.cnf.xz` | UNS | 659.7 | 276.1 | 2.4 |
+| 5 | `goldcrest-and-9.cnf.xz` | UNS | 550.2 | 174.2 | 3.2 |
+| 6 | `constraints_25_4_5_12_12_0_0_0.sanitized` | UNS | 422.5 | 201.6 | 2.1 |
+| 7 | `Grain_no_init_ver1_out200_known_last105_` | UNS | 382.9 | 265.5 | 1.4 |
+| 8 | `minxor128.cnf.xz` | UNS | 375.5 | 291.1 | 1.3 |
+| 9 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 329.8 | 420.2 | 0.8 |
+| 10 | `j3037_9_rggt_b.cnf.xz` | SAT | 312.3 | 26.1 | 12.0 |
+| 11 | `urq45.cnf.xz` | UNS | 252.7 | 994.2 | 0.3 |
+| 12 | `StConn_8_32.sanitized.cnf.xz` | UNS | 247.3 | 948.6 | 0.3 |
+| 13 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 244.7 | 254.2 | 1.0 |
+| 14 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat` | SAT | 243.7 | 185.5 | 1.3 |
+| 15 | `circuit_32in32out_with_500gates_6in6out_` | SAT | 230.2 | 490.7 | 0.5 |
+| 16 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 214.5 | 191.6 | 1.1 |
+| 17 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 208.9 | 173.1 | 1.2 |
+| 18 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 189.9 | 255.7 | 0.7 |
+| 19 | `SCPC-1000-18.cnf.xz` | SAT | 176.7 | 26.8 | 6.6 |
+| 20 | `EDP3-11000.cnf.xz` | SAT | 137.4 | 222.0 | 0.6 |
+| 21 | `em_11_3_4_cmp.cnf.xz` | SAT | 102.6 | 121.1 | 0.8 |
+| 22 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 87.6 | 164.9 | 0.5 |
+| 23 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 83.2 | 73.8 | 1.1 |
+| 24 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 79.0 | 16.8 | 4.7 |
+| 25 | `Ptn-7824-b18.cnf.xz` | SAT | 78.1 | 10.4 | 7.5 |
+| 26 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 75.0 | 276.5 | 0.3 |
+| 27 | `mp1-Nb5T15.cnf.xz` | SAT | 67.5 | 129.5 | 0.5 |
+| 28 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 40.3 | 25.8 | 1.6 |
+| 29 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 35.0 | 143.0 | 0.2 |
+| 30 | `ContextModel_output_7_3_9.bul_.dimacs.cn` | SAT | 20.4 | 64.2 | 0.3 |
+|  | **PAR-2 / solved** |  | **327.99** (29/30) | 316.64 (29/30) | **1.036** |
 
+Same window, other arms: old default (`factor_size=2`) **337.50** (1.066× cadical) — the new default is
+**−9.51 PAR-2, 1.036×**; `s5union` **357.64 (1.129×, OUTSIDE T3's 10 % band)** — which is why the Tier B
+lever is not shipped. `128_125` is unsolved for **every** arm including cadical by **OOM at 8 GB**, not
+timeout; it scores 2×TO identically everywhere.
+
+**Noise floor, measured (window `20260731-013523`):** three **bit-identical** arms (a payoff-bound sweep
+that turned out to be inert — Log) scored **346.16 / 356.95 / 353.99**, i.e. **10.8 PAR-2 of aggregate
+spread between identical configs**, and a per-instance range averaging **24.7 s** (goldcrest alone
+**245 s = 72 %**). Read every Tier C delta below that bar as noise, and prefer per-instance
+evidence with its own replicate range over an aggregate difference.
 
 **Older windows** (aggregates only — the per-instance detail is in each run's `results.json`):
-`20260730-111850-B` shipped 105.21 (24/28) · `20260730-085538-B` 103.24 (24/28) · `20260729-220951-B`
-102.28 (24/28), the first run on the expanded list. Tier C: `20260730-111853` 324.24 (29/30) ·
-`20260730-085509` 319.19 (29/30) vs cadical 317.04 · `20260729-094225` 361.89 (28/30) at X2 20‰, the
-pre-fix baseline. **Pre-2026-07-29 Tier B numbers (7.94 / 9.27 / 9.46, kissat 8.51) are `core14` only.**
+`20260731-013514-B` 105.30 (24/28) · `20260730-142436-B` 105.40 (24/28) · `20260730-111850-B` 105.21
+(24/28) · `20260730-085538-B` 103.24 (24/28) · `20260729-220951-B` 102.28 (24/28), the first run on the
+expanded list. Tier C: `20260731-013523` 331.60 (29/30) vs cadical 316.25 · `20260730-142439` 323.67
+(29/30) vs 313.18 · `20260730-111853` 324.24 (29/30) · `20260730-085509` 319.19 (29/30) vs cadical 317.04
+· `20260729-094225` 361.89 (28/30) at X2 20‰, the pre-fix baseline. **The shipped Tier C ratio moves
+1.007–1.066× across windows at an unchanged default — T3's CaDiCaL half is met, but its margin is
+window-dependent, so quote a window, never a single best number.** **Pre-2026-07-29 Tier B numbers (7.94 / 9.27 / 9.46, kissat 8.51) are `core14` only.**
 
 ## Standing lessons — measured, do not re-derive
 
@@ -648,6 +665,39 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
+
+### 2026-07-31 — ▶ `factor_size = 5` SHIPPED (Tier C −9.51, 1.036× cadical); the Tier B lever is held back and WHY
+Report: `benchmarks/reports/2026-07-31-factor-scope-and-admission.md`. The 2026-07-30 union arm bundled TWO
+changes; they are separable and pull opposite ways. **Scope (`factor_size` 2→5) ships:** Tier C 337.50 →
+**327.99** (1.066× → **1.036×** cadical), Tier B 104.79 → 105.30 (+0.50, noise), no solve-count change, all
+four pre-registered KILL instances clean (x9 +0.8, mp1-blockpuzzle −0.0, FmlaEquiv −0.6, mod4block +0.4).
+Fuzz on the new default **4 × 10,000 cases, 0 failures** (DRAT + native LRAT, each ± `--random-policy`);
+ctest 38/38. **Admission (`factor_scope_percent`) does NOT ship:** it is Tier B **65.86 (26/28)** — solving
+`sted5` and `or_randxor` — but Tier C **357.64 = 1.129×, OUTSIDE T3's 10 % band**.
+- **The entire Tier C regression is TWO instances** (ContextModel +464 s, jgiraldez +396 s = +860 vs a net
+  +623); excluding them broad admission would *improve* Tier C by −7.9. **cadical runs Factor broadly with
+  no shape gate and solves both** — ContextModel 65.8 s (us 453.7), jgiraldez 16.4 s (us 465.4). So broad
+  admission is not wrong; **our Factor is 7–28× worse than cadical's under it**. That is the open lever, and
+  fixing it is what merges the Tier B gap. Task #11.
+- Mechanism is **search DAMAGE, not cost**: conflicts 2.4–8.4× on the losers, and 14× *fewer* on sted5.
+- **Two separators measured dead.** Scope threshold: winners and losers sit at the same scope fraction
+  (j3037 100.0 % −99.7 vs ContextModel 99.8 % +400). Payoff bound: gain histograms straddle — edp3 is a
+  WINNER at mean gain 1.4 (1686/2717 factorings at δ=1) while sted5 is a winner at 13.5 and the losers sit
+  between; measured, it costs sted5 19 → 274 s (b8) / 118 s (b16). **Do not try a third.**
+- **N1 bug:** `Kernel::factor_bound` was **unreachable under DefaultPolicy** (`fm ? fm->accept(…) : …`, and
+  DefaultPolicy always attaches `DefaultFactorMatch` with `accept` hardcoded `delta >= 1`) — a documented
+  config surface no shipped path could exercise. Found only because the sweep returned **byte-identical
+  proofs**. Fixed. *An A/B arm producing identical artefacts was skipped, not tested.*
+- **Banked arm `TACTIX_FACTOR_DEMOTE`:** fresh extension vars were the MOST-preferred branching candidates
+  (`heuristics_reserve_vars` appends at `queue_last` = where VMTF search starts; kissat demotes them; our
+  stable heap was already right). Rescues j3037 207→88 s, edp3 74→39, rxor 49→36, but costs **sted5
+  16→150 s**. Default OFF pending its own tier pair.
+- **NOISE FLOOR, now measured** (the inert bound sweep left three bit-identical Tier C arms): **10.8 PAR-2
+  aggregate spread between identical configs**, per-instance mean range **24.7 s**, goldcrest alone **245 s
+  (72 %)**. So goldcrest's ±70/45 swings are noise (0 factorings, 272,082 conflicts in BOTH arms), and
+  `s5only`'s −9.51 sits INSIDE that band — the flip is justified **per-instance** (af-synthesis −190.9 s
+  against a 2.5 s replicate range, conflicts 2.15 M → 318 k), not by the aggregate. Read every Tier C delta
+  against this bar from now on.
 
 ### 2026-07-31 — the Factor admission trade DECOMPOSED: damage not cost, one phantom, and TWO dead separators
 Union admission (`TACTIX_FACTOR_SIZE=5 TACTIX_FACTOR_SCOPE_PCT=50`) is **Tier B +41.7 PAR-2 / +2 solves**
