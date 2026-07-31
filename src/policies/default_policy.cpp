@@ -851,6 +851,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // reads it only there, so once per phase suffices. Scoped set/clear
       // (mirrors the dense index) so the kernel never holds a dangling
       // pointer into this policy after solve returns.
+      default_factor_match_.bound = k.factor_bound; // see DefaultFactorMatch
       k.factor_match = factor_match ? factor_match : &default_factor_match_;
       // Phase structure (kissat eliminate-round shape): a few OUTER rounds,
       // each giving every enabled technique one dose, so a technique can pick

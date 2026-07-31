@@ -258,6 +258,15 @@ int main(int argc, char **argv) {
     kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
   if (const char *sp = getenv("TACTIX_FACTOR_SCOPE_PCT"))
     kernel.factor_scope_percent = (uint32_t)strtoul(sp, nullptr, 10);
+  // Kernel::factor_bound — kissat's `reduction > bound` acceptance threshold
+  // (factor.c:939). Default 0 keeps the legacy "any positive gain applies".
+  // This is the PAYOFF axis, and it is formula-shape-blind, which is why it is
+  // the candidate for making broad admission safe where a scope gate cannot be
+  // (winners and losers sit at the same scope fraction — 2026-07-31).
+  if (const char *fb = getenv("TACTIX_FACTOR_BOUND"))
+    kernel.factor_bound = (uint32_t)strtoul(fb, nullptr, 10);
+  if (getenv("TACTIX_FACTOR_DEMOTE"))
+    kernel.factor_demote_fresh = true;
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a

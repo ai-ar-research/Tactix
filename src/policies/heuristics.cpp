@@ -68,6 +68,46 @@ static void queue_restamp(Kernel &k) {
   heuristics_reset_queue_search(k);
 }
 
+// Transliterated from kissat/src/factor.c
+// `adjust_scores_and_phases_of_fresh_varaibles` (MIT): the extension variables
+// a variable-ADDING rule creates (E2 Factor is our only one) must be the LEAST
+// attractive decision candidates, not the most.
+//
+// The defect this repairs: heuristics_reserve_vars appends every new var at
+// `queue_last` ("most recent = preferred") — correct for the initial load and
+// for bumping, but in VMTF `queue_last` is exactly where the decision search
+// STARTS, so each variable Factor added jumped to the head of the decision
+// order. Measured 2026-07-31: applying 459-2717 factorings blew conflicts up
+// 2.4-8.4x (ContextModel 335k -> 2.83M) — search damage, not Factor's cost.
+//
+// FOCUSED MODE ONLY. Stable mode is already correct by construction: its heap
+// push uses score 0.0, which sits at the BOTTOM of a max-heap, matching
+// kissat's "unbumping fresh" half. So only the queue needs repair, and the
+// EVSIDS scores are already 0 (never bumped between creation and here).
+//
+// Cost is O(#queue) per CALL, so it must be called once per rule application
+// (after all of that application's factorings), never once per fresh variable
+// — the per-call linear-scratch hazard.
+void heuristics_demote_fresh_vars(Kernel &k, Var first) {
+  if (!k.h || first >= k.h->nvars)
+    return;
+  for (Var v = first; v < k.h->nvars; v++)
+    queue_dequeue(k, v);
+  // Re-insert at the FRONT (least preferred), preserving relative order.
+  for (Var v = k.h->nvars; v-- > first;) {
+    Link &l = k.h->links[v];
+    l.prev = UINT32_MAX;
+    l.next = k.h->queue_first;
+    if (k.h->queue_first != UINT32_MAX)
+      k.h->links[k.h->queue_first].prev = v;
+    else
+      k.h->queue_last = v;
+    k.h->queue_first = v;
+  }
+  queue_restamp(k); // renumber in queue order + reset the search cache
+}
+
+
 void heuristics_queue_bump(Kernel &k, Var v) {
   if (k.h->queue_last == v)
     return;

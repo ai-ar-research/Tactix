@@ -87,6 +87,10 @@ void heuristics_queue_bump(Kernel &, Var v); // move to front (most recent)
 Var heuristics_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
 // reset the queue search cache to the queue tail (entering focused mode)
 void heuristics_reset_queue_search(Kernel &);
+// Demote the extension variables [first, nvars) to the BOTTOM of the decision
+// queue (kissat factor.c adjust_scores_and_phases_of_fresh_varaibles). Call
+// ONCE per variable-adding rule application — it is O(#queue) per call.
+void heuristics_demote_fresh_vars(Kernel &, Var first);
 
 // --- EVSIDS score heap (stable mode) ----------------------------------------
 void heuristics_heap_push(Kernel &, Var v);    // insert (must not be contained)

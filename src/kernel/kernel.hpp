@@ -559,6 +559,14 @@ struct Kernel {
   // policy writes it (the kissat eliminate-level coupling was measured dead
   // — gate report §2 — and removed).
   uint32_t factor_bound = 0;
+  // Demote Factor's fresh extension variables to the BOTTOM of the decision
+  // queue after an application (kissat factor.c
+  // adjust_scores_and_phases_of_fresh_varaibles). Repairs a FOCUSED-mode
+  // defect: heuristics_reserve_vars appends new vars at `queue_last`, which is
+  // where VMTF's decision search starts, so every variable Factor adds becomes
+  // a most-preferred branching candidate. Default false = today's behaviour
+  // until the tier pair says otherwise (`TACTIX_FACTOR_DEMOTE`).
+  bool factor_demote_fresh = false;
   // S4 composite grids (S2b, kissat resize_factoring): widen Factor's
   // factor/remainder universe to ALL live literals — extension vars included,
   // growing as the pass applies. Default false (measured: composition

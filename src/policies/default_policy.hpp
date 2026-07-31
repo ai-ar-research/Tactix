@@ -97,7 +97,17 @@ public:
                            Lit /*seed*/) override {
     return k.watches.heads[c].size; // == today's tie-break
   }
-  bool accept(uint32_t, uint32_t, int delta) override { return delta >= 1; }
+  // Honours Kernel::factor_bound (kissat's `reduction > bound`, factor.c:939),
+  // copied in at the attach site. BUG FIX 2026-07-31: the rule's acceptance is
+  // `fm ? fm->accept(...) : delta > k.factor_bound`, and DefaultPolicy ALWAYS
+  // attaches this matcher — so the scalar was unreachable under the shipped
+  // policy, i.e. a documented N1 config surface that no shipped path could
+  // exercise (a bound sweep came back byte-identical, which is how it
+  // surfaced). `bound = 0` reproduces the historical `delta >= 1` exactly.
+  uint32_t bound = 0;
+  bool accept(uint32_t, uint32_t, int delta) override {
+    return delta >= 1 && delta > static_cast<int>(bound);
+  }
 };
 
 // (The S2a Inc-3 `paths` matcher arm — kissat distinct_paths coherence,

@@ -649,6 +649,42 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-31 — the Factor admission trade DECOMPOSED: damage not cost, one phantom, and TWO dead separators
+Union admission (`TACTIX_FACTOR_SIZE=5 TACTIX_FACTOR_SCOPE_PCT=50`) is **Tier B +41.7 PAR-2 / +2 solves**
+(104.97 → 63.24, 24 → 26; replicated 105.30 → 64.27 next window) and **Tier C −21.4** (322.54 → 343.97,
+1.013× → 1.080× cadical, still inside T3's 10 % band). Pre-registered criterion said "B improves AND C does
+not regress", so it is **NOT shipped by default**; everything below is why, and what the night eliminated.
+- **The two changes are separable and pull opposite ways.** By admission class: instances Factor ALREADY ran
+  on (density gate) net **−173** from size 2→5, while NEWLY scope-admitted instances net **+1078**. All the
+  damage is the gate. But **100 % of Tier B's gain is also in the newly-admitted class** (its density class is
+  exactly +0.0 — no Tier B instance passes the density gate at all), so `factor_size=5` alone cannot merge
+  Tier B. The tiers pull on the same lever in opposite directions.
+- **Mechanism: DAMAGE, not cost.** Conflicts explode where Factor is newly admitted — ContextModel 335 k →
+  2.83 M (8.4×), jgiraldez 3.9×, mp1-Nb5T15 2.4× — while the winners win on search too (sted5 **14× fewer**
+  conflicts, 3.78 M → 271 k). Factor's own time is not the lever; the factored formula is what is harder.
+- **One "regression" is a PHANTOM.** goldcrest-and-9 (+129.8 in the table) runs **0 factorings and 272,082
+  conflicts in BOTH arms** — a bit-identical search — and the probe reproduces 430 vs 431 s. ≈ 130 s of the
+  +642.7 Tier C total is measurement variance, not effect. Always check `c factor` before believing a delta.
+- **Dead separator 1 — scope threshold.** Winners and losers sit at the SAME scope fraction (j3037 100.0 %
+  −99.7 vs ContextModel 99.8 % +400); raising 50 → 90 % cannot separate them. L15 again.
+- **Dead separator 2 — payoff bound.** Accepted-gain histograms straddle: winners span mean 1.4 (edp3 — 1686
+  of 2717 factorings at δ=1, its whole benefit) to 13.5 (sted5), losers sit at 4.2/4.8 between them. Measured:
+  sted5 19 s → 274 s (b8) → 118 s (b16). The bound costs Tier B and cannot buy Tier C.
+- **A real N1 bug found by that sweep:** `Kernel::factor_bound` was **unreachable under DefaultPolicy** — the
+  rule accepts via `fm ? fm->accept(…) : delta > k.factor_bound` and DefaultPolicy ALWAYS attaches
+  `DefaultFactorMatch`, whose `accept` was hardcoded `delta >= 1`. A documented config surface no shipped path
+  could exercise; the sweep returned byte-identical proofs, which is how it surfaced. Fixed (bound copied in at
+  the attach site; `bound = 0` reproduces `delta >= 1` exactly).
+- **New arm, mixed — banked not shipped:** `TACTIX_FACTOR_DEMOTE` repairs a genuine FOCUSED-mode defect —
+  `heuristics_reserve_vars` appends fresh vars at `queue_last`, which is where VMTF's decision search STARTS,
+  so every variable Factor adds became a most-preferred branching candidate (kissat's
+  `adjust_scores_and_phases_of_fresh_varaibles` demotes them; our stable-mode heap was already correct at
+  score 0.0). It rescues j3037 207 → 88 s, edp3 74 → 39 s, rxor 49 → 36 s — but costs **sted5 16 → 150 s**,
+  one of the two Tier B rescues. Non-separable; default OFF pending its own tier pair.
+- Evidence: `benchmarks/probes/fcd-*`, `gridtrace-*`, `demote-*`, `fb-bite-*`; runs `20260731-013514-B-boundsweep`,
+  `20260731-013523-C-boundsweep`. Default identity re-verified on mod4block (**418,796** conflicts) for every
+  binary built tonight; ctest 38/38.
+
 ### 2026-07-30 — R5 increment 2: the widened Factor grid, and **or_randxor (the one true wall) SOLVES**
 `9f20813` design · `4c13bfd` inc 1 · `b9416c9` inc 2a · `2191466` inc 2b · `687e86f` inc 2c.
 `Kernel::factor_size` (default 2 = binary-only, unchanged) widens remainders from literals to sub-clauses;

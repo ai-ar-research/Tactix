@@ -1,7 +1,8 @@
 #include "rules/factor/factor.hpp"
 
 #include "kernel/kernel.hpp"
-#include "policies/subpolicy.hpp" // FactorMatchPolicy (S2a grid selection)
+#include "policies/heuristics.hpp" // heuristics_demote_fresh_vars (fresh vars)
+#include "policies/subpolicy.hpp"  // FactorMatchPolicy (S2a grid selection)
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp" // inprocess_reach_root
 
@@ -488,8 +489,42 @@ ApplyResult factor_apply(Kernel &k) {
   uint32_t density = 6;
   if (const char *s = std::getenv("TACTIX_FACTOR_DENSITY"))
     density = static_cast<uint32_t>(std::atoi(s));
-  if (k.binary_ids.size() < density * kernel_num_output_vars(k) &&
-      !std::getenv("TACTIX_FACTOR_FORCE"))
+  bool admit = k.binary_ids.size() >= density * kernel_num_output_vars(k);
+  // UNION admission (arm, Kernel::factor_scope_percent > 0): additionally admit
+  // when at least that PERCENT of live irredundant clauses are inside Factor's
+  // clause-size scope. STRICTLY ADDITIVE — everything the density gate admits
+  // today is still admitted, so today's beneficiaries cannot regress by
+  // construction; it only reaches instances the gate currently blocks.
+  //
+  // Measured need: the gate blocks exactly the instances the widened scope
+  // fixes — `sted5` (1.12 binaries/var) 300 TO -> 15.96 s and `or_randxor`
+  // (0.00) 300 TO -> ~47 s at size 5 — while `mod4block` (4.17, and only 8 % of
+  // its clauses in scope) is destroyed by Factor at any size. Scope fraction
+  // separates those: rxor 96 %, sted5 96 %, mod4block 8 %, crypto1 24 %.
+  //
+  // STATED PLAINLY: this is a hand-designed per-instance separator, the family
+  // L15 measured dead four times over, and the 2026-07-30 reference study found
+  // NO such axis in kissat or cadical. It ships only if the tier pair says so.
+  // The scan does NOT charge factor_ticks: a rejected call must not consume the
+  // once-per-solve first-dose allowance or advance the new-material watermark,
+  // which is the bug the first prototype had.
+  if (!admit && k.factor_scope_percent) {
+    uint64_t total = k.binary_ids.size(), in_scope = k.binary_ids.size();
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_words(c->size);
+      if (!c->garbage() && !c->redundant()) {
+        total++;
+        if (c->size <= k.factor_size)
+          in_scope++;
+      }
+      ref += words;
+    }
+    if (total && in_scope * 100 >=
+                     static_cast<uint64_t>(k.factor_scope_percent) * total)
+      admit = true;
+  }
+  if (!admit && !std::getenv("TACTIX_FACTOR_FORCE"))
     return ApplyResult::NoOp;
 
   // Anti-loop boundary: only ORIGINAL literals may be factors/remainders — never
@@ -498,6 +533,13 @@ ApplyResult factor_apply(Kernel &k) {
   // second apply, treat the first apply's extension vars as original and factor
   // over them → unbounded self-factoring.
   const Lit orig_lits = static_cast<Lit>(2 * kernel_num_output_vars(k));
+
+  // Fresh-variable boundary for the post-application demotion (see
+  // Kernel::factor_demote_fresh). Every var this application adds lands in
+  // [fresh_first, k.nvars) — contiguous, so no list has to be threaded through
+  // the grid loop, and the O(#queue) repair is paid ONCE per application
+  // rather than once per factoring.
+  const Var fresh_first = k.nvars;
 
   // S2b composite grids (docs/design/s2b-composite-grids-design.md):
   // k.factor_composite widens the factor/remainder universe to ALL
@@ -772,6 +814,13 @@ ApplyResult factor_apply(Kernel &k) {
       }
     }
   }
+
+  // Fresh extension vars must not out-rank the original variables in the
+  // decision order (kissat factor.c). Heuristic-only (`H`) — no proof delta,
+  // no σ change — so this is legal from a rule per the H contract, and it is a
+  // no-op when nothing was applied or when the solver is unguided.
+  if (k.factor_demote_fresh && applied)
+    heuristics_demote_fresh_vars(k, fresh_first);
 
   if (fm)
     fm->end_sweep();
