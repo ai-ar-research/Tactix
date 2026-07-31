@@ -1,0 +1,4 @@
+mp1-blockpuzzle    size=2  c conflicts   291305 c factor      686 factorings, 0 large remainders offered 
+mp1-blockpuzzle    size=5  c conflicts   291305 c factor      686 factorings, 43 large remainders offered 
+x9                 size=2  c conflicts   261375 c factor      80 factorings, 0 large remainders offered 
+x9                 size=5  c conflicts   261375 c factor      80 factorings, 3865 large remainders offered 

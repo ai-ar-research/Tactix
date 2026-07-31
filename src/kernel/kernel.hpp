@@ -167,7 +167,11 @@ struct Stats {
   // Root units derived from degenerate gates (V6's unit channel, D-CONG-UNIT):
   // an XOR whose representative inputs all cancel forces its output.
   uint64_t congruence_units = 0;
-  uint64_t factorings = 0;         // Factor/BVA applications (E2) — grids replaced
+  uint64_t factorings = 0;
+  // R5 diagnostic: multi-literal remainders OFFERED by the widened grid scope.
+  // Zero here with factor_size >= 3 means the widened branch never fired at all,
+  // which is a different bug from "fired but never won the delta contest".
+  uint64_t factor_large_remainders = 0;         // Factor/BVA applications (E2) — grids replaced
   // Factor's unit of WORK and hence its budget currency (kissat
   // statistics.factor_ticks, cache-line granularity): 1 + one per 128 bytes
   // touched, charged per watch-list walk and per heap (re-)score. The

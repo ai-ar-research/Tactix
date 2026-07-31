@@ -193,11 +193,17 @@ bool remainder_of(const Kernel &k, const Clause *c, Lit l, Lit limit,
 void remainders_of(Kernel &k, const FactorIndex &idx, RemPool &pool, Lit l,
                    Lit limit, std::vector<Lit> &partner_scratch,
                    std::vector<Lit> &rem_scratch, std::vector<uint8_t> &seen,
-                   std::vector<uint32_t> &out, std::vector<uint8_t> &dedup) {
+                   std::vector<uint32_t> &out, std::vector<uint8_t> &dedup,
+                   std::vector<Ref> *out_refs = nullptr) {
   out.clear();
+  if (out_refs)
+    out_refs->clear();
   binary_partners(k, l, limit, partner_scratch, seen);
-  for (const Lit p : partner_scratch)
+  for (const Lit p : partner_scratch) {
     out.push_back(pool.intern_unit(p));
+    if (out_refs)
+      out_refs->push_back(INVALID_REF); // binary: id via kernel_binary_id
+  }
   // BOUNDS: the index is a SNAPSHOT sized at apply entry, while `live_lits` and
   // `k.nvars` GROW during a composite pass as Factor adds extension variables.
   // A literal past the snapshot simply has no indexed large clauses — its only
@@ -221,6 +227,9 @@ void remainders_of(Kernel &k, const FactorIndex &idx, RemPool &pool, Lit l,
       continue;
     dedup[rid] = 1;
     out.push_back(rid);
+    k.stats.factor_large_remainders++;
+    if (out_refs)
+      out_refs->push_back(ref);
   }
   for (const uint32_t rid : out) // restore the dedup marks we set
     if (rid < dedup.size())
@@ -230,7 +239,7 @@ void remainders_of(Kernel &k, const FactorIndex &idx, RemPool &pool, Lit l,
 // The grid clause {f} ∪ r, if it is live. Returns its Ref, or INVALID_REF for a
 // binary (whose id comes from kernel_binary_id) — and sets `found` false when the
 // pair is not a grid member at all. Both the LRAT hint and the delete need it.
-Ref find_grid_clause(const Kernel &k, const FactorIndex &idx, Lit f,
+Ref find_grid_clause(Kernel &k, const FactorIndex &idx, Lit f,
                      const RemPool &pool, uint32_t rid, bool *found) {
   *found = false;
   const uint32_t n = pool.size_of(rid);
@@ -243,6 +252,7 @@ Ref find_grid_clause(const Kernel &k, const FactorIndex &idx, Lit f,
   const Lit *r = pool.lits_of(rid);
   for (const Ref ref : idx.occ[f]) {
     const Clause *c = clause_at(k.arena, ref);
+    charge_factor_ticks(k, c->size); // the budget must be able to stop this
     if (c->garbage() || c->size != n + 1)
       continue;
     // {f} ∪ r as a set: every literal of c is f or in the sorted remainder
@@ -284,9 +294,37 @@ bool contains(const std::vector<Lit> &v, Lit l) {
 // Apply the factoring F × R (all (f∨r) present). Adds a fresh var x, the dividers
 // (x∨f), the quotients (¬x∨r), then deletes the grid — in that proof order so the
 // quotients' RAT-on-¬x resolves against the dividers to the still-live originals.
+// The grid's clause ids/Refs, resolved ONCE per factoring.
+//
+// Cost fix (R5 increment 2c): the first cut called find_grid_clause per lookup,
+// i.e. O(occ(f)) × m × n × 2 — once per LRAT hint and once per delete — which is
+// why size 5 ran past its timeout on every target instance. Enumerating each
+// factor's remainders once is O(occ(f)) × m, an n-fold reduction, and it reuses
+// the enumeration the search already knows how to do.
+struct GridMap {
+  // per factor index: remainder id -> Ref (INVALID_REF = binary)
+  std::vector<std::unordered_map<uint32_t, Ref>> by_factor;
+};
+
+void build_grid_map(Kernel &k, const FactorIndex &idx, const std::vector<Lit> &F,
+                    RemPool &pool, Lit limit, std::vector<Lit> &partner_scratch,
+                    std::vector<Lit> &rem_scratch, std::vector<uint8_t> &seen,
+                    std::vector<uint8_t> &dedup, GridMap &gm) {
+  gm.by_factor.assign(F.size(), {});
+  std::vector<uint32_t> ids;
+  std::vector<Ref> refs;
+  for (size_t i = 0; i < F.size(); i++) {
+    remainders_of(k, idx, pool, F[i], limit, partner_scratch, rem_scratch, seen,
+                  ids, dedup, &refs);
+    for (size_t j = 0; j < ids.size(); j++)
+      gm.by_factor[i].emplace(ids[j], refs[j]);
+  }
+}
+
 void apply_factoring(Kernel &k, const FactorIndex &idx,
                      const std::vector<Lit> &F,
-                     const std::vector<uint32_t> &R, const RemPool &pool) {
+                     const std::vector<uint32_t> &R, const RemPool &pool,
+                     const GridMap &gm) {
   const Var xv = kernel_new_extension_vars(k, 1);
   const Lit px = make_lit(xv, false); // x
   const Lit nx = make_lit(xv, true);  // ¬x
@@ -327,8 +365,8 @@ void apply_factoring(Kernel &k, const FactorIndex &idx,
     if (lrat) {
       hints.clear();
       for (size_t i = 0; i < F.size(); i++) {
-        bool found = false;
-        const Ref gref = find_grid_clause(k, idx, F[i], pool, rid, &found);
+        const auto it = gm.by_factor[i].find(rid);
+        const Ref gref = (it == gm.by_factor[i].end()) ? INVALID_REF : it->second;
         const uint64_t gid = (gref == INVALID_REF)
                                  ? kernel_binary_id(k, F[i], rl[0])
                                  : clause_at(k.arena, gref)->id();
@@ -350,17 +388,18 @@ void apply_factoring(Kernel &k, const FactorIndex &idx,
   // Delete the originals LAST (proof `del`); ALL copies — a duplicated grid
   // binary is fully replaced by the aux-var definition, and the plain
   // kernel_delete_binary refuses copies>1 (see kernel.cpp).
-  for (const Lit f : F)
+  for (size_t i = 0; i < F.size(); i++)
     for (const uint32_t rid : R) {
       if (pool.size_of(rid) == 1) {
-        kernel_delete_binary_all_copies(k, f, pool.lit0(rid));
+        kernel_delete_binary_all_copies(k, F[i], pool.lit0(rid));
         continue;
       }
-      bool found = false;
-      const Ref gref = find_grid_clause(k, idx, f, pool, rid, &found);
-      if (!found || gref == INVALID_REF)
+      const auto it = gm.by_factor[i].find(rid);
+      if (it == gm.by_factor[i].end() || it->second == INVALID_REF)
         continue; // already gone; the definition still subsumes it
-      Clause *c = clause_at(k.arena, gref);
+      Clause *c = clause_at(k.arena, it->second);
+      if (c->garbage())
+        continue;
       if (k.proof)
         k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
       kernel_mark_garbage(k, c);
@@ -493,6 +532,7 @@ ApplyResult factor_apply(Kernel &k) {
   std::vector<uint32_t> cofactor(live_lits, 0); // co-occurrence counts
   std::vector<Lit> touched, partners, partner_lits, F, best_F;
   std::vector<uint32_t> R, newR, best_R, partner_rids;
+  GridMap gmap;
   uint64_t applied = 0;
 
   // Seed schedule. Kissat pops seed candidates from a max-heap keyed by
@@ -573,9 +613,25 @@ ApplyResult factor_apply(Kernel &k) {
           partners.clear();
           const uint32_t rn = pool.size_of(rid);
           const Lit *rl = pool.lits_of(rid);
-          if (rl[0] >= fidx.occ.size())
+          // Scan the RAREST literal of the remainder, not the first: every
+          // clause containing r contains all of them, so any one works, and the
+          // cheapest is cadical's `min(|watches|)` direction search
+          // (transred.cpp:116-120 idiom; deviation 4 in the header noted we did
+          // not do this, and at |r| > 1 it is the difference between scanning a
+          // rare literal's list and a hub's).
+          Lit scan = INVALID_LIT;
+          size_t scan_occ = SIZE_MAX;
+          for (uint32_t i = 0; i < rn; i++) {
+            if (rl[i] >= fidx.occ.size())
+              continue;
+            if (fidx.occ[rl[i]].size() < scan_occ) {
+              scan_occ = fidx.occ[rl[i]].size();
+              scan = rl[i];
+            }
+          }
+          if (scan == INVALID_LIT)
             continue; // index snapshot bound (see remainders_of)
-          for (const Ref ref : fidx.occ[rl[0]]) {
+          for (const Ref ref : fidx.occ[scan]) {
             const Clause *c = clause_at(k.arena, ref);
             if (c->size != rn + 1 || !grid_clause_live(k, c))
               continue;
@@ -668,7 +724,9 @@ ApplyResult factor_apply(Kernel &k) {
       if (std::getenv("TACTIX_GRID_TRACE")) // S2a Inc 3a: grid dims surface
         std::fprintf(stderr, "[grid] %zux%zu delta=%d\n", best_F.size(),
                      best_R.size(), best_delta);
-      apply_factoring(k, fidx, best_F, best_R, pool);
+      build_grid_map(k, fidx, best_F, pool, live_lits, partner_lits,
+                     rem_scratch, seen, rem_dedup, gmap);
+      apply_factoring(k, fidx, best_F, best_R, pool, gmap);
       applied++;
       k.stats.factorings++;
       // S2b: grow the pass universe over the fresh var (kissat

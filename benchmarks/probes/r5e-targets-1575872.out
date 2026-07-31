@@ -1,0 +1,5 @@
+or_randxor               FORCE size=2  c conflicts   7380198 c factor      1 factorings, 0 large remainders offered s UNKNOWN wall 300.00 
+or_randxor               FORCE size=5  c conflicts   1039595 c factor      297 factorings, 27570 large remainders offered s UNSATISFIABLE wall 47.55 
+unsat-set-b-fclqcolor    FORCE size=2  c conflicts   12794327 c factor      20 factorings, 0 large remainders offered s UNKNOWN wall 300.00 
+unsat-set-b-fclqcolor    FORCE size=5  c conflicts   11559656 c factor      78 factorings, 27324 large remainders offered s UNKNOWN wall 300.00 
+kissat reference: or_randxor 12.38 s, fclqcolor 16.46 s

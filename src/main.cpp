@@ -413,8 +413,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.congruence_rounds,
            (unsigned long long)kernel.stats.congruence_units,
            (unsigned long long)kernel.stats.congruence_unjustified);
-    printf("c factor      %llu factorings\n",
-           (unsigned long long)kernel.stats.factorings);
+    printf("c factor      %llu factorings, %llu large remainders offered\n",
+           (unsigned long long)kernel.stats.factorings,
+           (unsigned long long)kernel.stats.factor_large_remainders);
     printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
