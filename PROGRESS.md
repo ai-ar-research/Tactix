@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 74 (2026-07-29)
+- **Plan revision tracked:** rev. 75 (2026-07-30)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-07-30 (overnight) — **Tier B doubled to 28 and immediately found FOUR order-of-magnitude failures (up to 187× kissat); that now outranks T3.** T3/BCE fully diagnosed and parked on one directive decision (see resume block). Phase timers landed; docs compacted (rev 73); Tier B rev 74. Nightly fuzz 1574586/1574587 running.
 
@@ -135,6 +135,93 @@ near-same-magnitude effect across two windows, yet no single rate wins the tier 
 seven: its whole Tier B value is mod4block (+586 s without BCE) and its whole Tier C cost is j3037 (+830 s with it), and on/off, round caps, dose,
 rate AND cadical's occurrence cap have each been measured to trade one for the other (L18; Log 2026-07-29).
 O16 auto-invention decided at phase-4 entry.
+
+## ▶ CURRENT TIER TABLES (plan §8.1 rev 75 — full per-instance, newest window first)
+
+**Maintenance contract:** every tier run that changes the shipped default, or that a Log entry cites as a
+result, replaces the table below. Keep the newest window at the top; drop superseded ones rather than
+stacking them. Record the window stamp AND the git SHA — a table without them cannot be reproduced or
+compared.
+
+#### Tier B (28) — window `20260730-142436` (git `b8ece6d`), shipped default, every arm writing + checking DRAT
+
+`●` marks the frozen **core14**; the pre-2026-07-29 archive (7.94 / 9.27 / 9.46 …) is computed on
+those alone. **Never mix 14- and 28-instance PAR-2.**
+
+| # | instance | c14 | st | tactix | kissat | ×kis |
+|---|---|---|---|---|---|---|
+| 1 | `sted5_0x24204-50.cnf.xz` |  | UNK | 600.0 **TO** | 8.5 | 70.7 |
+| 2 | `veer_axi_yosyshq_appnote_123_veer_axi-p2` |  | UNK | 600.0 **TO** | 3.2 | 187.4 |
+| 3 | `or_randxor_k3_n540_m540.cnf.xz` |  | UNK | 600.0 **TO** | 12.6 | 47.8 |
+| 4 | `unsat-set-b-fclqcolor-10-07-09.sat05-128` |  | UNK | 600.0 **TO** | 16.7 | 36.0 |
+| 5 | `DivS_862_11.cnf.sanitized.cnf.xz` |  | SAT | 121.5 | 18.7 | 6.5 |
+| 6 | `mp1-klieber2017s-0500-023-t12.cnf.xz` |  | SAT | 118.1 | 13.1 | 9.0 |
+| 7 | `PRP_30_38.cnf.xz` |  | SAT | 52.3 | 16.9 | 3.1 |
+| 8 | `2013113162201nw.shuffled-as.sat03-1668.c` |  | SAT | 41.7 | 5.9 | 7.1 |
+| 9 | `b22_1.cnf.xz` |  | UNS | 41.5 | 8.7 | 4.8 |
+| 10 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | ● | UNS | 30.7 | 14.0 | 2.2 |
+| 11 | `circuit_48in64out_with_800gates_4in4out_` | ● | SAT | 14.7 | 11.1 | 1.3 |
+| 12 | `9vliw_bp_mc.shuffled.cnf.xz` | ● | UNS | 14.4 | 8.6 | 1.7 |
+| 13 | `mod4block_2vars_10gates_u2_autoenc-sc200` | ● | SAT | 13.6 | 19.7 | 0.7 |
+| 14 | `rbsat-v760c43649gyes10.cnf.xz` | ● | SAT | 13.0 | 5.9 | 2.2 |
+| 15 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | ● | UNS | 10.7 | 9.3 | 1.2 |
+| 16 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.` | ● | SAT | 10.2 | 6.0 | 1.7 |
+| 17 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` |  | SAT | 9.6 | 4.0 | 2.4 |
+| 18 | `SCPC-500-5.cnf.xz` |  | UNS | 9.4 | 11.5 | 0.8 |
+| 19 | `hwmcc17miters-xits-iso-oski15a08b00s.san` | ● | UNS | 8.2 | 3.5 | 2.3 |
+| 20 | `DecompressReader_read_12.cnf.xz` |  | UNS | 7.8 | 6.6 | 1.2 |
+| 21 | `x9-08014.sat.sanitized.cnf.xz` | ● | UNS | 7.3 | 11.0 | 0.7 |
+| 22 | `combined-crypto1-wff-seed-1-wffvars-450-` | ● | SAT | 7.0 | 4.3 | 1.6 |
+| 23 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50` |  | SAT | 6.8 | 11.5 | 0.6 |
+| 24 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.x` | ● | SAT | 4.2 | 11.1 | 0.4 |
+| 25 | `square.2.0.i.smt2-cvc4.cnf.xz` | ● | UNS | 4.0 | 3.5 | 1.1 |
+| 26 | `oddball_13_5_ttf.normalised.cnf.xz` |  | UNS | 3.2 | 19.0 | 0.2 |
+| 27 | `battleship-14-26-sat.cnf.xz` | ● | SAT | 1.1 | 6.9 | 0.2 |
+| 28 | `clique_n2_k10.sanitized.cnf.xz` | ● | UNS | 0.1 | 6.1 | 0.0 |
+| | **PAR-2 / solved** | | | **105.40** (24/28) | 9.91 (28/28) | **10.63** |
+
+#### Tier C (30) — window `20260730-142439` (git `b8ece6d`), shipped default, every arm writing + checking DRAT
+
+| # | instance | st | tactix | cadical | ×cad |
+|---|---|---|---|---|---|
+| 1 | `128_125.sanitized.cnf.xz` | UNK | 2400.0 **TO** | 2400.0 | 1.0 |
+| 2 | `T87.2.0.cnf.xz` | UNS | 778.0 | 404.5 | 1.9 |
+| 3 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c` | UNS | 673.6 | 282.5 | 2.4 |
+| 4 | `T105.2.0.cnf.xz` | UNS | 640.6 | 263.1 | 2.4 |
+| 5 | `goldcrest-and-9.cnf.xz` | UNS | 461.2 | 128.2 | 3.6 |
+| 6 | `constraints_25_4_5_12_12_0_0_0.sanitized` | UNS | 436.0 | 194.9 | 2.2 |
+| 7 | `Grain_no_init_ver1_out200_known_last105_` | UNS | 370.0 | 259.4 | 1.4 |
+| 8 | `minxor128.cnf.xz` | UNS | 357.3 | 290.0 | 1.2 |
+| 9 | `j3037_9_rggt_b.cnf.xz` | SAT | 335.0 | 25.9 | 12.9 |
+| 10 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 321.4 | 414.6 | 0.8 |
+| 11 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 260.1 | 260.4 | 1.0 |
+| 12 | `circuit_32in32out_with_500gates_6in6out_` | SAT | 245.6 | 500.0 | 0.5 |
+| 13 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 239.7 | 194.4 | 1.2 |
+| 14 | `StConn_8_32.sanitized.cnf.xz` | UNS | 232.8 | 940.1 | 0.2 |
+| 15 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat` | SAT | 228.6 | 186.2 | 1.2 |
+| 16 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 202.5 | 138.2 | 1.5 |
+| 17 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 201.5 | 173.3 | 1.2 |
+| 18 | `urq45.cnf.xz` | UNS | 194.0 | 1010.6 | 0.2 |
+| 19 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 179.7 | 255.4 | 0.7 |
+| 20 | `SCPC-1000-18.cnf.xz` | SAT | 171.3 | 26.0 | 6.6 |
+| 21 | `EDP3-11000.cnf.xz` | SAT | 148.7 | 186.5 | 0.8 |
+| 22 | `em_11_3_4_cmp.cnf.xz` | SAT | 105.3 | 108.9 | 1.0 |
+| 23 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 93.6 | 163.7 | 0.6 |
+| 24 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 82.1 | 77.0 | 1.1 |
+| 25 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 77.6 | 262.2 | 0.3 |
+| 26 | `Ptn-7824-b18.cnf.xz` | SAT | 75.8 | 10.1 | 7.5 |
+| 27 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 75.4 | 16.3 | 4.6 |
+| 28 | `mp1-Nb5T15.cnf.xz` | SAT | 65.4 | 129.2 | 0.5 |
+| 29 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 37.2 | 27.1 | 1.4 |
+| 30 | `ContextModel_output_7_3_9.bul_.dimacs.cn` | SAT | 20.3 | 66.7 | 0.3 |
+| | **PAR-2 / solved** | | **323.67** (29/30) | 313.18 (29/30) | **1.033** |
+
+
+**Older windows** (aggregates only — the per-instance detail is in each run's `results.json`):
+`20260730-111850-B` shipped 105.21 (24/28) · `20260730-085538-B` 103.24 (24/28) · `20260729-220951-B`
+102.28 (24/28), the first run on the expanded list. Tier C: `20260730-111853` 324.24 (29/30) ·
+`20260730-085509` 319.19 (29/30) vs cadical 317.04 · `20260729-094225` 361.89 (28/30) at X2 20‰, the
+pre-fix baseline. **Pre-2026-07-29 Tier B numbers (7.94 / 9.27 / 9.46, kissat 8.51) are `core14` only.**
 
 ## Standing lessons — measured, do not re-derive
 
@@ -562,500 +649,138 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
-### 2026-07-30 — R1 KILLED, and a THIRD sighting of "partial is worse than either extreme"
-Second lead from the Tier B timeout diagnosis. Two arms, deliberately separated because only one is a pure
-unit fix: `TACTIX_V4_METER=ticks` (V4's ledger counts CANDIDATES while each candidate is a whole BFS, so a
-20‰ budget cannot bind — a twentyfold rate cut is bit-identical on mod4block/mp1-blockpuzzle) and
-`TACTIX_V4_EARLY_EXIT=1` (kissat `transitive.c:130`, which changes INFERENCE not just cost — deviation 3
-runs each walk to exhaustion so failed-literal detection sees the whole reachable set).
-**Tier B(28), window `20260730-142436`:** shipped **105.40** (24/28) / v4ticks **123.29 (23/28)** /
-v4ticks+early-exit 123.72 (23/28) / kissat 9.91. **+17.9 PAR-2 and a LOST SOLVE**; the early exit adds
-nothing on top of the meter.
-**The four pre-registered KILL instances did NOT fire** — rbsat −1.4, mp1-blockpuzzle −0.9, FmlaEquiv −0.4,
-9vliw +1.1, all neutral or better. **So the 2026-07-25 TR-dosing bank genuinely does not reproduce**, and
-the meter change is safe for exactly the instances that banked it negative. That part of the sub-agent's
-finding stands.
-**▶ BUT THE INSTANCE R1 WAS AIMED AT INVERTED: klieber 118.1 s → 600 TIMEOUT**, outside the pre-registered
-60–350 s range. Put the three points together:
+### 2026-07-30 — R5 increment 2: the widened Factor grid, and **or_randxor (the one true wall) SOLVES**
+`9f20813` design · `4c13bfd` inc 1 · `b9416c9` inc 2a · `2191466` inc 2b · `687e86f` inc 2c.
+`Kernel::factor_size` (default 2 = binary-only, unchanged) widens remainders from literals to sub-clauses;
+`TACTIX_FACTOR_SIZE` is the arm. **Target: `or_randxor` 3,600 s TO / 42.5 M conflicts → 47.55 s SOLVED**
+(297 factorings, 27,570 large remainders; kissat 12.38 s), inside the design's predicted 15–60 s.
+**`fclqcolor` does NOT recover** (78 factorings, still TO) — the scope was necessary for rxor, not
+sufficient for fclq; the design's 30–120 s prediction there was wrong.
+- **BOTH conditions are needed and that is the open problem:** the widened scope only helps where Factor
+  RUNS, and the density gate suppresses it on exactly these binary-sparse instances (rxor: 1 factoring
+  without FORCE). Joint admission is UNRESOLVED — a reference study of kissat's real mechanism is in
+  flight, because I was inventing a gate instead of reading `factor.c` first (plan §5).
+- **Cost work (2c) was structural:** grid resolved ONCE per factoring (was O(occ(f))·m·n, twice over),
+  rarest-literal direction search (cadical's `min(|watches|)`), and `find_grid_clause` now charges
+  `factor_ticks` so the effort ledger can actually stop it. Before it, every target ran past its timeout.
+- **A bug increment 1 hid from me, worth the lesson:** `best_R` became remainder IDS but the re-seed loop
+  still indexed `tried[]` with them — an ASan heap-buffer-overflow that **bit-identity on four instances
+  passed clean, twice**, because ids stay small at size 2. The regression corpus under `--random-policy`
+  caught it. Bit-identity and fuzz are both required; neither subsumes the other.
+- Evidence: bit-identical at size 2 on all four gate instances (incl. mp1-blockpuzzle 686 / x9 80
+  factorings); corpus 10/10 and 10k/0 on DRAT and native LRAT at size 5, all `--random-policy`; ctest 38/38.
+- `stats.factor_large_remainders` added — it is what distinguished "the widened branch never fired" from
+  "it fired and never won the delta contest".
 
-| V4 on klieber | wall |
-|---|---|
-| **OFF** (`−TransitiveReduce`) | **18.4 s** |
-| FULL (shipped, unbudgeted) | 118.1 s |
-| **PARTIAL** (ticks-budgeted) | **600 TIMEOUT** |
+### 2026-07-30 — R1 and R2 both KILLED at tier level: for this rule family the lever is ADMISSION, not dosing
+Both top leads from the Tier B timeout diagnosis died on their pre-registered kill criteria; shipped
+defaults unchanged throughout, every arm retained as a §5.6 knob.
+- **R2** (remove the BVE binary-density gate, `TACTIX_BVE_DOSE_DENSITY=0`): Tier B(28) flat 105.21 → 105.84
+  but **Tier C 324.24 → 516.91 with THREE lost solves** (T105/T87/asconhash). Residue worth keeping:
+  **`crypto1` IMPROVED** without the gate (7.0 → 3.3), so half of L9's justification is refuted and on
+  Tier B it is a ONE-INSTANCE (mod4block) defense — while on Tier C it defends a real and different set.
+  The flat Tier B aggregate hid a one-for-one swap (gained `sted5` 600 TO → 2.4 s, klieber 118.4 → 6.5;
+  lost mod4block 13.5 → 600 TO). Cost-based admission calibrated too: mod4block is a clean outlier at
+  **109,573 resolutions/elimination** vs 33–7,997 for the ENABLE set, but **asconhash needs suppressing at
+  151** while eliminating 42,570 vars cheaply — L2/L7 trajectory damage, which cost-per-yield cannot see
+  by construction. So cost is a better signal for one class and does NOT subsume density.
+- **R1** (meter V4 in ticks + kissat's early exit): Tier B(28) **105.40 → 123.29, a lost solve**; Tier C
+  flat 323.67 → 325.87. The four pre-registered kill instances did NOT fire (rbsat −1.4, mp1-blockpuzzle
+  −0.9, FmlaEquiv −0.4, 9vliw +1.1), so the **2026-07-25 TR-dosing bank does not reproduce** and the meter
+  is safe there — but klieber INVERTED, 118.1 → 600 TO, giving **off 18.4 / full 118.1 / partial 600**.
+- **THIRD sighting of "partial is worse than either extreme"** after the X1/X2/X4 trio (L15) and BCE's
+  round cap (L17/L18). Four dosing attempts have now failed the same way. **Do not retry a V4 budget as a
+  klieber recovery.** Arms: `TACTIX_BVE_ADMIT`, `TACTIX_BVE_COST_LIMIT`, `TACTIX_V4_METER`,
+  `TACTIX_V4_EARLY_EXIT`.
+- Method note: both sub-agent pre-tests were single-instance and rate-based and both predicted the opposite
+  of the tier result — L12/L16 on the recovery side.
 
-**NON-MONOTONE: a partially-applied V4 is worse than either extreme.** This is the **THIRD independent
-sighting** of that shape — the X1/X2/X4 trio (L15), BCE's round cap (L17/L18), and now V4 on klieber. The
-lever for klieber is V4 **ADMISSION** (on/off per instance), not V4 dosing; a budget buys the worst of both
-worlds. **Do not retry a V4 budget as a recovery for klieber.**
-**Tier C (`20260730-142439`) confirms the kill by being FLAT:** shipped **323.67** (29/30) / v4ticks 325.87
-(29/30) / cadical 313.18. So R1 is negative on Tier B and neutral on Tier C — dead on both.
-**What survives R1:** the meter is still a genuine unit defect (a budget that cannot bind is not a budget),
-and it is now measured SAFE on the four instances that previously blocked it — so it remains available as a
-§5.6 arm, just not as a klieber fix. Shipped default unchanged (candidates).
-**Third window on the landed X2 change:** shipped here is **323.67 vs cadical 313.18 = 1.034×**, after
-1.0068× and 1.015×. **T3's CaDiCaL half holds in THREE independent windows**, all 29/30, all inside the
-10 % band — well past what L16 asks for.
-**Method note: two of the diagnosis's top three leads have now failed at tier level (R2, R1), while both
-sub-agent pre-tests were single-instance and rate-based.** Single-instance pre-tests bound risk on the
-instances tested and predict nothing about the tier — the same lesson as L12/L16, now on the recovery side
-rather than the regression side.
+### 2026-07-30 — ▶▶ T3's CaDiCaL HALF IS MET, with every rule ON: X2 at cadical's 8‰ (`29811a8`)
+We gave `HyperTernaryRes` **20‰** where cadical's `ternaryeffort` is **8** — 2.5× the reference's share, and
+X2 is the one rule with no internal governor (its ported size limits `ternaryocclim`/`ternarymaxadd` are
+INERT, ~38× too loose to bind — `75b6308`). Same-window A/B `20260730-085509`: **Tier C 397.94 (28/30) →
+319.19 (29/30) vs cadical 317.04 = 1.0068×, INSIDE the band, gaining a solve**, with Tier B(28) flat
+(103.24 → 103.68). Not a single-instance artefact: 12 of 30 move ≥15 s and it is **−11.8 PAR-2 even
+excluding j3037** (which goes TIMEOUT → 392.8 s).
+- **Replicated in THREE independent windows** — 1.0068× / 1.015× / 1.034×, all 29/30 — well past L16's bar.
+- Satisfies the directive and the gate together (user, 2026-07-30: "I don't think we should disable X1, X2
+  and X4. We should work on scheduling"): all 13 Inprocess rules stay ON and the fix is one constant.
+- Caveat: the sub-agent measured 8‰ at only 1.8×/1.5× on nw/klieber against 53×/6.2× for X2 OFF, so
+  `ternaryrounds` (we run 25) remains an untested and likely stronger bound. **T3's Kissat half is still
+  NOT met** (1.37× on the rule-neutral subset).
 
-### 2026-07-30 — R2 KILLED as pre-registered: the BVE density gate is a ONE-INSTANCE defense, and it is load-bearing
-First lead from the Tier B timeout diagnosis (task #8). Pre-registered kill criterion was "mod4block or
-crypto1 blowing up". It fired. Windows `20260730-111850` (B, 28) and `-111853` (C), pin verified against
-mod4block's baseline first (418,796 conflicts / 12.66 s).
+### 2026-07-30 — the four Tier B timeouts are TWO defects, and our SEARCH is not one of them
+Sub-agent diagnosis, 209 solver runs over four arrays; report
+`benchmarks/reports/2026-07-30-tierB-timeouts-diagnosis.md`, commits `37eb21b`/`b769965`.
+- **Our search is not the defect** — on rxor/klieber/fclq our conflict count sits on top of the baseline
+  stripped of its load-bearing pass, and **on fclqcolor we beat CaDiCaL outright** (369 s vs its TO@300).
+- **DEFECT A — dosing calibrated on binary-DENSE formulas.** Every Tier B instance we lose by >2.3× is
+  below 6 binaries/var, the threshold of BOTH elimination gates, so we do zero BVE and zero BVA where
+  kissat eliminates 40–86 % of variables. Second half: **TransitiveReduce's ledger is in CANDIDATES against
+  a search-tick reference**, so a 20× rate cut is BIT-IDENTICAL — its budget has never bound.
+- **DEFECT B — rule-SCOPE.** `kissat --factorsize=2` (kissat restricted to our variant) loses rxor entirely
+  and costs fclq 12.6×, the same as `--no-factor`. → R5 above.
+- `veer_axi` is a CONSTANT FACTOR, not a wall: **2,199.8 s vs kissat 3.2 (687×)**, TransitiveReduce alone
+  585.7 s of it where kissat spends 0.03 s. **`or_randxor` was the only true wall** (42.5 M conflicts
+  unsolved at 3,600 s, props/conflict 0.99× — now solved by R5).
+- **L14 trap banked:** rxor spends 91.2×10⁹ walk steps on a refutation; the walk-off arm prices them at
+  ~4 %. Do not act on them. **L11 upheld** — Sweep is not the lever on any of the four.
+- Owed instrumentation: `c congruence` prints neither gates nor merges, so whether Substitute removes the
+  161,462 equivalences Congruence finds on veer is UNKNOWN.
 
-| tier | shipped (density 6) | density 0 |
-|---|---|---|
-| B(28) | **105.21**, 24/28 | 105.84, 24/28 |
-| C | **324.24**, 29/30 | **516.91, 26/30 — three solves lost** |
+### 2026-07-30 — §6 defect: the inprocessing slot never polled the stop flag (partially fixed, `0a1e0aa`)
+`*stop` was checked at exactly ONE site (the outer search loop), so a long inprocessing phase left the
+solver **deaf to SIGTERM for ~1,100 s** (T105/T87 with BVE admission off, jobs 1575474/1575475, killed by
+the SLURM wall having printed nothing). A competition harness escalates to SIGKILL and the proof is lost —
+a §6 compliance defect, not a latency nuisance. Polling added at the phase round loop, each slot-entry
+boundary, and inside the dosed per-instance loop.
+**It does NOT fix the observed case and the code says so:** lag is 40 s before and 41 s after, because the
+block is INSIDE one application — `c timing` names it, **V6 Congruence, 131,327 ms over 3 applications,
+89.5 % of a 146 s run that never reached search**, and an UNMETERED slot entry. This bounds latency to one
+application instead of one phase; the real fix is a termination flag the RULES poll. Task open.
 
-**Tier C settles it: +192.67 PAR-2 and T105 / T87 / asconhash all go 564–720 s → TIMEOUT.** Removing the
-gate is not shippable in any form. **But the Tier B decomposition is the useful part, because the flat
-aggregate hides a one-for-one swap** — gained `sted5` **600 TO → 2.4 s**, klieber 118.4 → **6.5**, b22_1
-40.9 → 10.5, DivS 118.9 → 105.5, FmlaEquiv 30.1 → 23.7; lost **mod4block 13.5 → 600 TO**, nw 41.3 → 166.9,
-PRP 51.9 → 103.3. Tier C likewise: constraints_25 −334, goldcrest −212, Grain −123, EDP3 −116 against the
-three timeouts.
-**▶ TWO FINDINGS THAT CHANGE THE DESIGN.** (1) **`crypto1` IMPROVED, 7.0 → 3.3 s.** L9 justified this gate
-on crypto1 AND mod4block; half of that justification is refuted — on Tier B it is a **one-instance
-defense**, and that instance is L10's intrinsic-elimination-damage case. Same shape as BCE: one instance
-dictating a global constant. (2) On Tier C the gate defends a REAL and different set (T105/T87/asconhash),
-so it is not merely a mod4block artefact — it is load-bearing on the harder tier, which is why "make it
-instance-aware" and not "tune the threshold" is the route.
-**NEXT (the shippable form the report predicted): a COST test, not a density test.** The signal is already
-measured — L10's forced doses on mod4block: **34 eliminations for 3.53 M resolutions** (~104,000
-resolutions PER elimination) with the candidate set never shrinking (n ≈ 350 across 30 doses). That is an
-enormous cost-per-yield outlier and it is the axis an occurrence-weighted resolution budget would catch,
-while leaving klieber/sted5/crypto1 alone. Pre-register before building: it must hold mod4block ≤ 14 s AND
-T105/T87/asconhash solved, while recovering sted5.
-**BONUS — the T3 replication debt is DISCHARGED.** The shipped arm here is a fresh window and reads
-**324.24 vs cadical 319.47 = 1.015×**, against 319.19 / 317.04 = 1.0068× in `20260730-085509`. **T3's
-CaDiCaL half holds in TWO independent windows**, both 29/30, which is what L16 asks for before a gate
-report.
-
-### 2026-07-30 — ▶▶ T3's CaDiCaL HALF IS MET, WITH EVERY RULE ON: X2 at cadical's 8‰
-The chain closed. X2 had no governor, its ported size limits are inert (entry below), and the operative
-bound turned out to be the **effort share**: we gave `HyperTernaryRes` **20‰** against cadical's
-`ternaryeffort` **8‰** (`options.hpp:240`) — 2.5×. Same-window A/B `20260730-085509`, every arm writing and
-checking DRAT:
-
-| arm | Tier C PAR-2 | solved | ×cadical |
-|---|---|---|---|
-| shipped (20‰) | 397.94 | 28/30 | 1.255 |
-| **8‰ (LANDED)** | **319.19** | **29/30** | **1.0068 — INSIDE the band** |
-| cadical | 317.04 | 29/30 | — |
-| kissat | 229.64 | 29/30 | — |
-
-**−78.75 PAR-2 and a gained solve, with Tier B(28) flat** (103.24 → 103.68, 24/28 both — the ship criterion
-was "Tier C improves AND Tier B(28) does not regress"). **Not a single-instance artefact:** 12 of 30 move
-≥15 s — wins j3037 −2007 (TIMEOUT → 392.8 s), T105 −152, ContextModel −109, T87 −91, asconhash −91,
-goldcrest −77, af-synthesis −17; losses constraints_25 +88, sat-bench-trig +50, em_11 +46, jgiraldez +36,
-ecarev +18 — and **still −11.8 PAR-2 excluding j3037 entirely**.
-**This satisfies the directive and the gate together** (user, 2026-07-30: "I don't think we should disable
-X1, X2, and X4. We should work on scheduling"): all 13 Inprocess rules remain ON, and the fix is one
-constant matched to the reference. `EFFORT_SPECS` in `default_policy.cpp`.
-**Honest caveats, both recorded.** (a) The sub-agent measured `HyperTernaryRes:8` at only 1.8× / 1.5× on
-`2013113162201nw` / `klieber` against 53× / 6.2× for X2 OFF, so the effort share is a WEAK lever on those
-— the Tier C win is real but its size is carried by the instances above, and `ternaryrounds` (we run 25)
-remains an untested stronger bound. (b) The shipped arm read 397.94 here against 361.89 / 357.31 / 405.38
-in earlier windows because j3037 straddles the 1200 s cap under 20‰; the DELTA is same-window and is what
-the decision rests on, but a replication before the T3 gate report is still owed (L16).
-**Owed to close T3 fully:** the Kissat half (1.37× on the rule-neutral subset) is untouched, and a gate
-report belongs in `benchmarks/reports/`. Fuzz legs on the new default: jobs 1575238 (DRAT) / 1575239 (LRAT).
-
-### 2026-07-30 — ▶ THE FOUR TIER B TIMEOUTS ARE **TWO DEFECTS**, and our SEARCH is not one of them
-Sub-agent diagnosis, 209 solver runs over four arrays (1574764/1574882/1574949/1575173), pinned binary
-verified against mod4block's baseline BEFORE any arm was read. Report
-`benchmarks/reports/2026-07-30-tierB-timeouts-diagnosis.md`, commit `37eb21b`.
-
-| instance | dominant term |
-|---|---|
-| `veer_axi` | **TransitiveReduce's OWN runtime** — 8.7×10⁹ ticks, 26–49 % of the clock (kissat spends **0.03 s** there) + zero elimination. It DOES solve: **2,199.8 s** at a 3600 s cap = **687× kissat** |
-| `or_randxor` | **THE ONE TRUE WALL — UNSOLVED at 3,600 s after 42,481,210 conflicts, 69× the 617 k kissat needs**, at engine PARITY (slot 1.9 %, props/conflict 0.99×). No scheduling change touches it; needs BVA over non-binary clauses |
-| `mp1-klieber2017s` | TransitiveReduce TRAJECTORY damage (own time 1.7 %; **823 binary deletions cost 15× the conflicts**) + zero elimination |
-| `fclqcolor` | search-tree size at engine parity (props/conflict 1.06×, conflicts/restart 38 vs 43) |
-| `2013113162201nw` | **HyperTernaryRes** — own time 0.06 %, but `−X2` is **75.4 → 1.42 s** |
-| `DivS_862_11` | **Strengthen + SubsumeForward own runtime = 98.2 % of the clock** |
-
-**Our search is NOT the defect** — on rxor/klieber/fclq our conflict count sits on top of the baseline
-stripped of its load-bearing pass, and **on fclqcolor we beat CaDiCaL outright** (369 s vs its TO@300).
-**DEFECT A — the slot's dosing is calibrated on binary-DENSE formulas.** Every Tier B instance we lose by
-> 2.3× is below **6 binaries/var — the threshold of BOTH elimination gates** (`factor.cpp:206`,
-`default_policy.cpp:940`), so we run with **zero BVE and zero BVA** where kissat eliminates 40–86 % of
-variables. Removing the BVE gate: **klieber 390.5 → 42.5 s, veer 2,199.8 → 550.4 s, nw 75.4 → 35.7 s, and
-nothing regresses.** Second half of the same defect: **TransitiveReduce's ledger is denominated in
-CANDIDATES where the reference's is in search ticks** — a twentyfold rate cut is BIT-IDENTICAL (same
-conflicts, same 90,614 candidates, same ticks), i.e. its budget has never bound. kissat uses
-`transitive_ticks` and checks INSIDE the walk. Re-metering measured: **rbsat 13.0 → 5.6 s, 9vliw 14.9 →
-10.5, FmlaEquiv 30.1 → 25.2**, mp1-blockpuzzle/mod4block identical. **NOTE this contradicts the
-2026-07-25 "TR dosing" banked negative, which does not reproduce.**
-**DEFECT B — a rule-SCOPE gap: our Factor is binary-clause-driven; kissat's `factorsize` default is 5.**
-`kissat --factorsize=2` loses rxor entirely (TO@300 vs 12.3 s) and costs fclq 12.6× — the same as
-`--no-factor`; CaDiCaL also loses rxor without factor. This is the only path to rxor and fclq, worth
-**≈ 40 Tier B PAR-2, the largest single item.**
-**Same defect: klieber + nw (+ veer partly). Distinct twins: rxor + fclq (B). DivS is its own** (the only
-two slot entries with no mid-round budget).
-**The two 3600 s arms changed one conclusion: `veer_axi` is a CONSTANT FACTOR, not a wall** (2,199.81 s /
-137,637 conflicts = 687× kissat's 3.20 s; TransitiveReduce alone 585.7 s = 26.6 % of it, over 1,298,245
-applications, where kissat spends 0.03 s). **`or_randxor` is the only genuine wall** — 42.5 M conflicts and
-still unsolved at 3,600 s with props/conflict at 0.99× kissat, i.e. our engine is at parity and our search
-tree is 69× too big. That one is defect B and nothing else.
-**RANKED, with kill criteria:** (1) replace the BVE binary-density admission — the only cheap change with a
-MEASURED solve; kill = mod4block/crypto1 regressing (L9, which is where that gate came from). (2) Meter
-TransitiveReduce in ticks + kissat's early exit; honest caveat pre-registered by the sub-agent — klieber's
-damage is V4's OUTPUT not its work, so its payoff there is unproven. (3) Extend Factor beyond binaries.
-**L11 upheld: Sweep is not the lever on any of the four.**
-**▶ AND A CAUTION ON THE X2 EFFORT CUT (entry below):** on these instances `HyperTernaryRes:8` is worth
-only **1.8× on nw and 1.5× on klieber** against **53× and 6.2× for the rule OFF** — so the binding knob
-there is `ternaryrounds` (we run 25), not the effort share. j3037's 3.65× may be substantially
-instance-specific; the Tier C A/B decides whether 8‰ ships.
-**Banked L14 trap, do NOT act on it:** rxor spends 91.2×10⁹ walk steps on a refutation, which looks like a
-smoking gun — the walk-off arm prices them at **~4 %**.
-**Owed instrumentation the diagnosis was blocked on:** `c congruence` prints neither gates nor merges, so
-whether Substitute actually removes the 161,462 equivalences Congruence finds on veer is UNKNOWN — add
-`congruence_merged` / `substituted_vars`. And veer's remaining 385 s (best config 387 s = 121× kissat,
-where CaDiCaL needs **3 conflicts**) needs a PROFILE, not another rule-off arm; all of those have been run.
-
-### 2026-07-30 — ▶ X2's EFFORT SHARE is the governor: cadical's 8‰ gives j3037 3.65× at zero cost elsewhere
-The second candidate from the inert-limits entry below. We give X2 **20‰** where cadical gives
-`ternaryeffort` **8‰** — 2.5× the reference's share of the effort ledger. Probes 1574853–60 (job-unique
-scratch + input-size + verdict assertions, after the `$TMPDIR` collision below invalidated the first run):
-
-| instance | BCE | X2 @ 20‰ (ours) | X2 @ 8‰ (cadical's) |
-|---|---|---|---|
-| **j3037** | on | **1051.7 s / 7,604,704 confl / 73 rounds / 26,644 resolvents** | **288.3 s / 2,564,047 / 44 / 15,733** |
-| j3037 | off | 144.9 s / 1,278,932 | 91.5 s / 836,885 |
-| mod4block | on | 13.37 s / 418,796 | 12.97 s / **418,796 — IDENTICAL** |
-| mod4block | off | 600 TO / 10.28 M | 600 TO / 10.22 M |
-
-**3.65× on j3037 — the instance that is ~80 % of our Tier C gap — and the budget is not even binding on
-mod4block** (byte-identical conflicts there, so the trio's stabilizing composition is untouched). This is
-the directive-compatible governor the chain was looking for: X2 gets its own bound from the effort ledger,
-rather than relying on BCE to shrink its candidate pool. Rough arithmetic: j3037 1052 → 288 is ~29 Tier C
-PAR-2 (more where it times out), which would put Tier C ≈ 333 against cadical ≈ 316 = **1.05×, INSIDE T3's
-10 % band, with every rule ON.**
-**NOT LANDED — arithmetic is not a measurement (L16: an aggregate matching a prediction is not evidence for
-the prediction).** Same-window A/B in flight on BOTH tiers, every arm writing and checking proofs: Tier C
-array **1574965** (`20260730-085509`, vs cadical + kissat) and Tier B(28) array **1575015**
-(`20260730-085538`, vs kissat). Ship only if Tier C improves AND Tier B(28) does not regress. If it holds,
-bake 8 into `EFFORT_SPECS` (`default_policy.cpp`) — the one-line change — and re-run the T3 row.
-**Caveat worth stating:** L16 rejected a UNIFORM 2‰ across all three rules as a chaotic two-sided lever.
-This is a different experiment — one rule, matched to the reference's own published share, with the other
-two untouched — and the mod4block column shows it is not simply "less X2 everywhere".
-
-### 2026-07-30 — user decision: X1/X2/X4 STAY ON, fix the scheduling. First port is INERT.
-**Decision (user, 2026-07-30):** "I don't think we should disable X1, X2, and X4. We should work on
-scheduling." So the all-rules-ON directive stands, the all-on/all-off question is CLOSED in favour of ON,
-and the T3 route is the directive-compatible chain: govern X2 so it stops needing BCE as its bound.
-**First attempt ported cadical's two size limits — and they are INERT at cadical's own defaults**
-(probes 1574669–78; `Kernel::ternary_occ_limit=100` = `ternaryocclim`, `ternary_max_add_percent=1000` =
-`ternarymaxadd`, both new, we had NO governor at all):
-
-| arm | mod4block | j3037 |
-|---|---|---|
-| ungoverned | 12.92 s / 418,796 | 1051.9 s / 7,604,704 |
-| governed | 12.97 s / **418,796** | 973.6 s / **7,604,704** |
-| gov−BCE | 600 TO / 83 rounds / **32,155** resolvents | 146.7 s |
-| ungov−BCE | 600 TO / 83 rounds / **32,155** resolvents | 146.2 s |
-
-**Byte-identical: same conflicts, same rounds, same resolvents.** The arithmetic says why —
-`ternarymaxadd = 1000 %` caps additions at `total_clauses × 10` ≈ **1.2 M** on mod4block against X2's
-32,155, i.e. **38× above the runaway it was supposed to bound**, and no literal reaches 100 *ternary*
-occurrences so the occ-limit never fires. **Do not re-port these expecting them to bind** — they are
-faithful and they are simply not cadical's operative constraint. Kept at cadical's defaults (they cost
-nothing measured and may bind on ternary-dense formulas, e.g. random-XOR), but they are UNVALIDATED
-until a tier A/B covers them.
-**▶ So cadical's real bound on ternary is elsewhere, and the candidates are named:** `ternaryrounds = 2`
-(**we run 83**) and `ternaryeffort = 8‰` (**we use 20‰**, 2.5× cadical's share). The round bound is the
-one `TACTIX_SLOT_MAX_APPLIES` cannot express — it counts slot considerations, not productive rounds. The
-effort share is testable immediately and is being measured now (probes 1574756–63, X2 at 8‰ vs 20‰ × BCE
-on/off on both decisive instances). NOTE the prior: L16 rejected a UNIFORM 2‰ across all three rules as a
-chaotic two-sided lever, but that is a different experiment from matching cadical's per-rule share for X2
-alone.
-
-### 2026-07-30 — nightly GREEN on both proof formats: 400k cases, 0 failures
-`--random-policy --nightly` on the debug (ASan/UBSan) build, 50 cores per leg. **DRAT 200,000/200,000 cases,
-0 failures** (1574586; SAT 98,470 / UNSAT 66,173 / TIMEOUT 35,357) and **native LRAT 200,000/200,000 cases,
-0 failures** (1574587; SAT 98,412 / UNSAT 66,086 / TIMEOUT 35,502). `tools/fuzz/failures/` gained no entries.
-**132,259 UNSAT certificates checked across the two formats** — drat-trim on the DRAT leg, lrat-check on our
-own antecedent chains in the LRAT leg — every one produced under an arbitrary legal schedule. Both formats
-are mandatory and neither subsumes the other (drat-trim re-derives by RUP and ignores our chains; lrat-check
-validates the chains), so this is the full N2 gate.
-Covers the two kernel-touching changes of 2026-07-29: the `c timing` registry dispatch wrapper
-(`apply_rule`/`apply_rule_instance`, which now sits on EVERY rule application including the random policy's)
-and `Kernel::bce_occ_limit`. Logs committed as evidence per the nightly-*.log convention.
-
-### 2026-07-29 (night) — ▶ THE AUGMENTED TIER B FINDS FOUR ORDER-OF-MAGNITUDE FAILURES. This outranks T3.
-First tactix run on the 28-instance list (window `20260729-220951`, array 1574528, throttle 48, both arms
-writing and checking DRAT): **tactix PAR-2 102.28 at 24/28 vs kissat 9.54 at 28/28.** The expansion paid for
-itself on its first use.
-
-| instance | tactix | kissat | ×kissat |
-|---|---|---|---|
-| `veer_axi_…-p23_trans` | **600 TO** | **3.2** | **187×** |
-| `or_randxor_k3_n540_m540` | **600 TO** | 12.4 | 48× |
-| `mp1-klieber2017s-0500-023-t12` | **600 TO** | 12.5 | 48× |
-| `unsat-set-b-fclqcolor-10-07-09` | **600 TO** | 16.5 | 36× |
-| `DivS_862_11` | 115.5 | 16.5 | 7.0× |
-| `2013113162201nw` | 72.6 | 6.0 | 12.1× |
-
-**These are NOT regressions** — they are instances our benchmark set had never contained, so the weaknesses
-were always there and invisible. The core 14 continue to read normally (FmlaEquivChain 28.6, etc.).
-**Why this reprioritizes everything:** the whole T3 effort concerns a 1.14× ratio on Tier C, while the daily
-driver now shows **four instances at 36–187×, one of which kissat finishes in 3.2 seconds.** An instance we
-cannot solve in 600 s that the reference solves in 3.2 s is a different KIND of defect from a dosing
-imbalance, and it is far more likely to be a single identifiable cause. Under plan §8.1's own logic — Tier B
-answers "correct and not embarrassingly slow" — we are currently embarrassingly slow on 4 of 28.
-**Also: the user's instinct to expand was right, and the measurement justifies it retroactively.** At n=14
-none of these four existed in any window, so no amount of care on the old set could have found them; every
-Tier B verdict this project has recorded was taken on a set that omitted its four worst cases.
-**NEXT (this outranks the T3/BCE thread):** debug-performance on `veer_axi` first (largest ratio, cheapest
-reference run at 3.2 s, so iteration is fast), then the other three; check whether they share a cause before
-treating them separately. Do NOT tune on them — they are now part of the frozen set (L-lesson: §8.1 forbids
-tuning on the tier you measure with).
-
-### 2026-07-29 (night) — Tier B DOUBLED to 28 instances, 28 families, one clock (plan rev 74)
-`ff32e6f` (sub-agent) + rev 74. **28 instances, 28 DISTINCT families**, all measured in one cluster window:
-kissat band **[3.33, 19.40] s**, PAR-2 9.63/9.78/9.88 over 3 repeats, 28/28 solved, 14/14 UNSAT proofs
-drat-trim-verified. Report `benchmarks/reports/2026-07-29-tier-b-expansion.md`; candidate reserve pool (all
-64 in-band candidates with measurements + GBD hashes) `benchmarks/probes/tierB-expansion-candidates-2026-07-29.tsv`.
-- **Why:** at n=14 one instance decided A/Bs — a solved→timeout flip was 42.9 PAR-2 points, and mod4block
-  alone was the ENTIRE Tier B value of the X1/X2/X4 trio (+586 s of a +581 s net), flipping that verdict
-  when excluded. Now: max single-instance share of the reference mass **16.2 % → 7.1 %**, a flip 21.4
-  points. **Halved, not removed** — the report says so plainly.
-- **The old band was a dead clock.** `ref_seconds` were M3-Pro seconds and the M3→cluster ratio is
-  **1.13–1.76 per instance** (median 1.33), so rescaling was never possible — the whole set had to be
-  re-measured. Core 14 on the cluster: [3.58, 19.40] s, mean 8.55.
-- **`core14` is preserved as a marked subset**, so the pre-rev-74 archive (7.94 / 9.27 / 9.46, kissat 8.51)
-  stays recomputable by filtering any `results.json`. **NEVER mix 14- and 28-instance PAR-2.**
-- Two protocol findings folded into the benchmarks skill: the GBD 404 was a HOSTNAME artefact
-  (`benchmark-database.de` is live and `fetch.py` needed no change; the skill's `gbd.iti.kit.edu` URL was
-  dead), and only a LOW-CONTENTION probe can reject a candidate for irreproducibility — ±10–20 % at
-  throttle 48 is a protocol property, since core14's own FmlaEquivChain shows 0.199 spread there.
-- **Owed:** tactix has NOT yet run on the augmented set — `run.py --tier B --solver <build>/tactix
-  --baseline kissat --slurm --throttle 48`. Selection was kissat-blind; tactix never ran.
-
-### 2026-07-29 (night) — CORRECTION: there is NO mod4block search gap. X2 runs away and BCE was bounding it
-**This entry corrects the one below it, which was wrong.** That entry concluded mod4block's BCE dependency
-was a ~14x search-quality deficiency of ours. It is not. Two independent checks killed it:
-- **The comparison was never like-for-like.** Our "-BCE" arm still ran **X2 HyperTernaryRes**, which ADDS
-  ternary resolvents; **kissat has no ternary module at all**. So "no BCE on either side" was false — L14's
-  trap, in the arm design rather than in a counter.
-- **We are FASTER than kissat on mod4block, and always were.** Run archive: at `9db22df`, before the trio
-  was enabled, shipped was **9.30 s vs kissat 20.55** (window `20260728-232402`); with the trio on it is
-  13.06–13.56 vs kissat 18.93–19.38. A solver 2.2x faster than the reference has no search deficiency there.
-
-**THE MECHANISM (probe 1574441, `benchmarks/probes/mod4block-trio-separation-*.out`):**
+### 2026-07-29 (night) — the trio's MECHANISM: **BCE was silently bounding X2** (`5a44365`)
+Corrects an earlier entry that read mod4block's BCE dependency as a ~14× SEARCH gap of ours. It is not:
+that comparison was never like-for-like (our −BCE arm still ran X2, which ADDS ternary resolvents, while
+kissat has no ternary module), and the run archive shows we are FASTER than kissat there — 9.30 s vs 20.55
+before the trio landed, 13.1–13.6 vs 18.9–19.4 with it. Probe 1574441:
 
 | disabled | wall | conflicts | X2 resolvents | BCE deleted |
 |---|---|---|---|---|
 | BCE | **600 TO** | 11,587,329 | **32,155** (83 rounds) | 0 |
 | BCE + X2 | 24.11 | 810,983 | 0 | 0 |
 | **BCE + X2 + X4** | **9.13** | 321,902 | 0 | 0 |
-| X2 | 87.23 | 2,651,385 | 0 | 6,310 (37.8 M ticks) |
-| none (shipped) | 12.89 | 418,796 | 6,048 (17 rounds) | 6,343 (5.9 M ticks) |
+| X2 | 87.23 | 2,651,385 | 0 | 6,310 |
+| none (shipped) | 12.89 | 418,796 | 6,048 (17 rounds) | 6,343 |
 
-**BCE was silently BOUNDING X2.** With BCE on, X2 emits 6,048 resolvents in 17 rounds; with BCE off it runs
-to **32,155 in 83 rounds** and the solve dies. Deleting blocked clauses shrinks X2's candidate set — that is
-the coupling, and it is why removing either one alone is catastrophic (BCE off = TO; X2 off = 87.23 s).
-**All three off is the BEST configuration on this instance (9.13 s), matching the pre-trio 9.30.**
-**L15 confirmed a third time, now with the mechanism named:** the trio is mutually stabilizing, every
-partial configuration is worse than either extreme, and it is all-on or all-off.
-**Consequence for T3 (this is the decision, and it is the user's):** the route to Tier C parity is the TRIO,
-not BCE alone. Trio OFF measures **Tier B 7.94 and Tier C 313.20 = 1.00x cadical (CaDiCaL half MET)** —
-better than shipped on BOTH tiers (9.27–9.46 / 1.14–1.28x). BCE-off ALONE is the wrong cut: Tier C 1.0065x
-but Tier B 50.96 at 13/14, because it leaves X2 unbounded. **Not flipped:** the all-rules-ON directive is
-the user's and its scope is theirs to set ([[no-rule-off-configs]]). What tonight adds is that the standing
-baseline's own framing — a rule-off arm diagnoses a SCHEDULING defect — now points somewhere specific and
-directive-COMPATIBLE: **bound X2's resolvent growth** so it does not need BCE as its governor.
-**Method note, two errors of mine worth keeping.** (1) I built a tiered-vivify change on a "1000x
-vivification deficit" (46 vs kissat's 47,526) that was NOT like-for-like: kissat's `vivified` is an
-AGGREGATE counter (`statistics.h:247`) incremented for subsumed, PROMOTED (a tier move, not a clause
-change), shrunken, implied, asym and instantiated, where ours counts only strengthened clauses. My own L14
-says check the reference's counter semantics FIRST. (2) The tiering arms were void for a day because I made
-a glue sort unconditional, so the "untiered" control was not the shipped baseline (it read 575 s / 10.9 M
-against the known 12.98 s / 418,796). Both changes are REVERTED; only the `c vivify ... checked` counter is
-kept, because a rate is uninterpretable without its denominator. Tiered vivify is separately
-MEASURED-NEGATIVE on mod4block (209.4 s / 4.98 M vs 12.75 s / 418,796) — do not retry it as a default.
+**Deleting blocked clauses shrinks X2's candidate set** — so with BCE off X2 runs 6,048 → 32,155 resolvents
+and the solve dies. That is why removing either alone is catastrophic, and it is what made X2's own
+governor (the effort share, above) the fix. L15 a third time, mechanism named.
 
-### 2026-07-29 — mod4block's BCE dependency is a SEARCH-QUALITY gap of ours, not a rule interaction (diagnosis closed)
-The narrow question from the resume anchor — why does mod4block need BCE when kissat does it in 18.3 s with
-none? — is answered, and the answer closes every rule-interaction branch. Probes 1573447–54,
-`benchmarks/probes/mod4block-bce-dependency.sh`.
+### 2026-07-29 (night) — Tier B DOUBLED to 28 instances / 28 families, one clock (plan rev 74, `ff32e6f`)
+Sub-agent expansion. kissat band [3.33, 19.40] s over 3 repeats, 28/28 solved, 14/14 UNSAT proofs verified;
+report `benchmarks/reports/2026-07-29-tier-b-expansion.md`, reserve pool
+`benchmarks/probes/tierB-expansion-candidates-2026-07-29.tsv`. **Why:** at n=14 one instance decided A/Bs —
+mod4block alone was the ENTIRE Tier B value of the trio (+586 s of a +581 s net) and flipped that verdict
+when excluded. Max single-instance share of the reference mass **16.2 % → 7.1 %**; a solved→timeout flip
+42.9 → 21.4 points. **Halved, not removed.** The old `ref_seconds` were M3-Pro seconds and the M3→cluster
+ratio is 1.13–1.76 per instance, so the whole set had to be re-measured. `core14` preserved as a marked
+subset. Two protocol findings folded into the benchmarks skill: the GBD 404 was a HOSTNAME artefact
+(`fetch.py` needed no change), and only a LOW-CONTENTION probe can reject a candidate for irreproducibility.
 
-| arm | wall | conflicts | factorings |
-|---|---|---|---|
-| shipped | **13.16** | 418,796 | 0 |
-| −Factor | 12.94 | 418,796 (BIT-IDENTICAL) | 0 |
-| −BCE | 600 TO | 10,077,488 | 0 |
-| −BCE −Factor | 600 TO | 10,069,374 | 0 |
-| −BCE −BVE | 600 TO | 10,058,594 | 0 |
-| −BCE −BVE −Factor | 600 TO | 10,079,890 | 0 |
-| Factor FORCED on, BCE off | 579.6 | 9,646,770 | 73 |
-| Factor FORCED on, BCE on | 46.6 | 1,458,421 | 40 |
-| **kissat (has no BCE at all)** | **18.30** | **715,338** | **912** |
+### 2026-07-29 (night) — the augmented Tier B immediately found FOUR order-of-magnitude failures
+First tactix run on the 28-instance list (`20260729-220951`): **102.28 PAR-2 at 24/28 vs kissat 9.54 at
+28/28** — `veer_axi` 600 TO vs 3.2 s, `or_randxor` vs 12.4, `mp1-klieber2017s` vs 12.5,
+`unsat-set-b-fclqcolor` vs 16.5. **NOT regressions** — instances the set never contained, so the weaknesses
+were always there and invisible. Every Tier B verdict this project had recorded was taken on a set omitting
+its four worst cases. This reset the roadmap above T3 and is what the 2026-07-30 diagnosis then decomposed.
 
-- **Factor-creates-the-blocked-clauses: REFUTED.** `c factor 0 factorings` — our density gate
-  (`factor.cpp:206`, threshold 6) suppresses Factor entirely on this binary-SPARSE instance (~4.1
-  binaries/var), and `−Factor` is BIT-IDENTICAL to shipped.
-- **Elimination interaction: REFUTED.** All four −BCE arms time out within **0.2 %** of each other
-  (10.06–10.08 M conflicts) whether BVE and Factor are on or off. Neither rule is involved.
-- **"Factor is absent, and BCE compensates for the BVA our gate suppresses": REFUTED, and the gate is
-  VINDICATED.** Forcing Factor on does not replace BCE (579.6 s vs 13.16), and with BCE on it is **3.5×
-  WORSE** (46.6 s / 1.46 M vs 13.16 s / 0.42 M). The density gate is making the right call here.
-- **▶ WHAT IT ACTUALLY IS: our search needs ~14× kissat's conflicts on the RAW formula.** No BCE on either
-  side: **us 10.08 M and unsolved at 600 s, kissat 715 k in 18.3 s.** BCE (6,343 deletions) collapses ours to
-  418,796 — a 24× conflict reduction — so **BCE is MASKING a search-quality deficiency, and mod4block's
-  "dependency" is that mask.** kissat needs no mask because its search does not have the deficiency.
-- **Consequence for the BCE decision (L18):** the trade is REAL, not an artefact — BCE-off costs mod4block
-  because our search is genuinely weak there. It stops being a trade only if that search gap is closed, which
-  is a fresh **debug-performance target and a SEARCH question, not a rule one**: "with BCE off, why do we
-  need 14× kissat's conflicts on mod4block?" That is the highest-value known lever on Tier B, and closing it
-  would ALSO unlock Tier C parity with cadical (BCE-off = 1.0065×) at no Tier B cost.
-
-### 2026-07-29 — BCE: its whole VALUE is one instance and its whole COST is another, on the SAME axis
-Follow-up to the j3037 diagnosis below. Three measurements, and each one killed a framing I had just
-written down — recorded in that order because the sequence is the lesson.
-**1. BCE-off is a DISASTER on Tier B** (diagnostic arm, window `20260729-171440`, array 1573320):
-**shipped 9.46 vs no-BCE 50.96 (13/14)**, kissat 8.84. So BCE is worth ~41 PAR-2 — and that killed the
-"neither reference ships BCE, so drop it" reading (`cadical` ships `block` OFF, kissat 4 deleted the module).
-**2. But that value is ONE INSTANCE.** Per-instance: **mod4block 13.56 → 600 TO (+586 s)**, clique +5.7,
-crypto1 +4.2, against rbsat **13.20 → 2.55 (−10.7)**, mp1 −4.0, 9vliw −1.5, summle −1.2. **Excluding
-mod4block, BCE-OFF IS BETTER: 8.72 vs 9.14.** And **kissat does mod4block in 19.4 s with no BCE at all**,
-so our dependence there is a tactix-specific crutch, not evidence the rule is needed.
-**3. cadical's occurrence cap is MEASURED-DEAD as a default, and fails on the axis that matters** (probes
-1573405–07). We lacked cadical's `blockocclim`/`blockmaxclslim`/`blockminclslim` entirely; added
-`Kernel::bce_occ_limit` (config, `TACTIX_BCE_OCC_LIMIT`, **ships 0 = uncapped**):
-
-| instance | cap 100 | cap 1000 | uncapped |
-|---|---|---|---|
-| j3037 | **354.5 s** / 2.67 M conflicts | — | 993.4 s / 7.60 M |
-| mod4block | **600 TO** / 10.2 M (535 deleted) | **600 TO** | **13.2 s** / 0.42 M (6,343 deleted) |
-| clique | 0.11 s, 1,530 deleted | — | 0.09 s, 1,530 deleted |
-
-**The cap is a 2.8× WIN on j3037 and a TIMEOUT on mod4block** — because mod4block needs BCE to delete 6,343
-clauses in DENSE neighbourhoods (the cap cuts it to 535), which is exactly what a dense-neighbourhood cap
-forbids. **One axis, opposite signs, both large.** cadical can afford the cap only because it does not
-depend on BCE at all. So the cap stays a §5.6 arm; it is not a constant, and neither is BCE's on/off.
-**4. Tier C, BCE-off: PARITY WITH CADICAL** (same window `20260729-171411`, array 1573270, all arms
-writing+checking DRAT): **shipped 405.38 (28/30) / no-BCE 318.18 (29/30) / cadical 316.13 (29/30)** ⇒
-**no-BCE is 1.0065× cadical — T3's CaDiCaL half MET outright**, against shipped's 1.282×. It is a BROAD
-win on this tier, not just j3037: af-synthesis −136, constraints_25 −124, ContextModel −113, EDP3 −113,
-asconhash −79, em_11 −77, Grain −68, frb45 −57, jgiraldez −33, Ptn −25 against minxor +137,
-sat-bench-trig +109, T87 +84, goldcrest +50, DLTM +35 — net **−87 PAR-2**, and **−12.7 even with j3037
-excluded entirely**. Also: **j3037 TIMED OUT under BCE in this window** (it read 1162.8 / 978.4 / 2400
-across three windows today), so BCE-on makes our whole Tier C score metastable around the 1200 s cap.
-
-**▶ STATE OF THE QUESTION (open, and it is the user's directive to scope).** BCE is ~80 % of the Tier C gap
-to cadical (j3037 alone) and ~41 PAR-2 of Tier B value (mod4block alone). No global setting serves both:
-on/off, round caps (L17), dose/rate (L15 + the 2026-07-29 rate work), and now the occurrence cap have ALL
-been measured, and every one of them trades one instance for the other. That exhausts the static options,
-which is itself the finding — **BCE is the project's cleanest contextual-admission exhibit** and the seventh
-§5.6 family. Options for the user: (a) keep BCE ON and accept the Tier C cost; (b) per-instance admission
-(phase-6); (c) narrow the all-rules-ON directive for rules the references themselves ship off — which would
-also touch **R6 X3 CCE, next on Track R, since cadical ships `cover` OFF too**. Ask before flipping
-([[no-rule-off-configs]]).
-**The trade, stated once, in gate terms:** BCE ON = Tier B 9.46 / Tier C 1.282× cadical (T3 half MISSED).
-BCE OFF = Tier B 50.96 with mod4block the ONLY loss / Tier C **1.0065×** (T3 half MET). Tier C is the T3
-gate tier and Tier B is a development tier, so the gate-relevant reading favours OFF — but that is a
-directive question, and the honest engineering answer is neither: it is per-instance admission, i.e. the
-§5.6 exhibit, with mod4block's dependence on BCE itself a tactix-specific weakness worth fixing directly
-(kissat needs no BCE there).
-
-### 2026-07-29 — `c timing`: per-rule wall clock, and j3037's 45× gap is BCE mis-scheduling
-**Phase timers land** (`docs/implementation-notes.md` §11): `Stats.rule_nanos[]/rule_calls[]` charged by a
-registry-level dispatch wrapper (`apply_rule`/`apply_rule_instance`, so the C API and every stress/random
-policy are covered too, not just DefaultPolicy's slot), plus `inprocess_nanos` for the whole slot and
-`solve_nanos`; `main.cpp` prints `c timing`. **Search is DERIVED as solve − slot** — the per-conflict path
-is deliberately untimed because a clock there is the one hot-path cost N3 cannot pay. Diagnostic-only, and
-verified so: 5 instances reproduce **decisions AND conflicts to the digit** vs the pre-timer build
-(probes 1573179–83), same-window Tier B **9.04 vs 9.21 PAR-2 with byte-identical 251.5 MB proofs**
-(`20260729-151019-B-pretimer`) ⇒ no measurable overhead. ctest 38/38.
-**And it was built to answer a question that the probes then answered outright.** debug-performance on
-`j3037_9_rggt_b` — 1162.8 s vs cadical 25.8 (45×), alone 37.9 of the 47.2 PAR-2 Tier C gap (probes
-1573169–77, `benchmarks/probes/j3037-decompose.sh`):
-
-| arm | wall | conflicts | BCE rounds | µs/conflict |
-|---|---|---|---|---|
-| shipped | 978.4 | 7,604,704 | 48 | 129 |
-| −X2 | 545.2 | 4,467,557 | 37 | 122 |
-| −X4 | 181.5 | 1,628,530 | 27 | 111 |
-| **−BCE** | **148.6** | **1,278,932** | 0 | 116 |
-| −all three | 128.1 | 1,123,032 | 0 | 114 |
-| kissat | 135.6 | 1,910,509 | — | 71 |
-| cadical | 24.0 | 217,547 | — | 110 |
-
-**µs/conflict is FLAT at 111–129, so the 6.6× wall-time blowup is entirely TREE SIZE** — BCE's own runtime
-is not the cost, what BCE does to the search is. The `c timing` block prices that exactly: **BCE itself is
-1.385 s of a 983 s solve (0.1 %), and the whole inprocessing slot is 2.6 %** — 1 ms of BCE buys ≈ 0.6 s of
-extra search.
-**▶ CORRECTION (controlled follow-up, probe 1573244). An earlier version of this entry read a monotone
-"conflicts track BCE rounds" story off the −X2/−X4 rows. That was wrong: those arms differ in WHICH RULES
-RUN, not just in round count, so they were never a controlled comparison.** The controlled experiment is
-the new `TACTIX_SLOT_MAX_APPLIES=BCE:1` cap, and it is decisive the other way: **one round — 7,951 clauses
-deleted for 200 k ticks, 0.02 % of the solve's work — gives 952.7 s / 7,349,567 conflicts, i.e. essentially
-the ENTIRE damage** (48 rounds: 978.4 s / 7.60 M; zero rounds: 148.6 s / 1.28 M). **BCE's FIRST application
-is the whole cost on this instance.** Consequence: dose, rate and round-count are NOT levers here — the
-Tier-B mechanism from the all-rules-ON report ("BCE's value is one round on the raw formula, its cost is
-the rounds after it", measured on clique/rbsat) does NOT generalize to j3037, where it is inverted.
-**▶ AND NEITHER REFERENCE SHIPS BCE.** `cadical/src/options.hpp:34` — `OPTION( block, 0, 0, 1, …)` — BCE
-defaults **OFF** in cadical, and **kissat 4 has no BCE module at all** (dropped; already noted in R2).
-cadical also ships `cover` (CCE = our R6/X3, next on Track R) **off**. So the shipped default runs, ON, a
-rule one reference defaults off and the other deleted — and that rule is ~80 % of our Tier C gap to cadical.
-That is a question about the all-rules-ON directive's SCOPE, not something to flip unilaterally
-([[no-rule-off-configs]]); BCE-off diagnostic arms are measuring the full price on both tiers now
-(arrays 1573270 Tier C / 1573320 Tier B, window `20260729-1714*`).
-
-**BCE alone is the whole thing** (ladder step 2/4): with it off we need **fewer conflicts than kissat**
-(1.28 M vs 1.91 M) at 148.6 s vs its 135.6 — parity, so **our search is NOT the defect**. The damage is
-CONFLICTS, not BCE's own runtime (L7's shape in a new mechanism): every extra round inflates the tree.
-This is the same mechanism the all-rules-ON report named — "BCE's entire value is ONE round on the raw
-formula and its entire cost is the rounds after it" — now with a per-instance price tag on it.
-**Step 3, the missing-rule check, comes back NEGATIVE and is worth banking:** `cadical --sweep=false` is
-**21.1 s vs its 23.97** — unchanged — so V5 Sweep (R5, the one big pass we lack) does NOT explain
-cadical's advantage here. kissat's sweep IS worth 2× to kissat (135.6 → 277.3 s, 1.91 M → 3.90 M
-conflicts), so the rule is real but it is not what makes cadical 6× better than kissat on this instance.
-**Two separate findings, do not conflate them:** (i) the actionable 1000 s is BCE scheduling, ours to fix;
-(ii) cadical reaching 217 k conflicts where kissat needs 1.91 M and we need 1.28 M is a second, unexplained
-advantage — NOT sweep, and not sized yet.
-**Routing, as revised by the correction above:** (i) is NOT a scheduling fix — "run BCE once" is now dead by
-direct experiment on this instance, so no dose/round/rate constant can recover j3037. The only axes left are
-**per-instance admission** (a §5.6 contextual question, not a hand-tunable constant — and note that gating
-BCE's rounds is measured-dead on Tier B, where excluding mod4block "preprocess-only" costs +7.3 % rather
-than the headline 3×) or **rule quality** — why deleting 7,951 blocked clauses costs 5.7× conflicts on a SAT
-instance, i.e. which clauses BCE should decline to delete (cadical's `blockminclslim`/`blockmaxclslim`/
-`blockocclim` limits are the reference's answer and we have no analogue). (ii) cadical needing 217 k
-conflicts where kissat needs 1.91 M and we need 1.28 M is a second, unexplained advantage — NOT sweep, not
-sized, not started.
-
-### 2026-07-29 — slot rate 2‰ does NOT reliably clear T3: it is a REPRODUCIBLE per-instance trade, marginal in aggregate — §5.6 arm, not a constant
-**Replication decided it** (window `20260729-112753`, array 1573008, same arms, same throttle): **shipped 357.31 / rate2 348.57 / cadical 316.58**,
-29/30 all arms ⇒ rate2 = **1.101× cadical, OUTSIDE the 10 % band**, against 1.065× (inside) in window `20260729-094225` two hours earlier. The
-saving shrank **26.1 → 8.8 PAR-2**. **Verdict: 2‰ is NOT shipped**; `TACTIX_SLOT_PERMILLE` stays a §5.6 dosing arm, and the T3 CaDiCaL half stays
-open.
-**The interesting part is WHY it is marginal, and it is not noise.** **28 of 30 instances carry the same-sign effect in both windows**, most at
-near-identical magnitude — so the rate's per-instance effect is highly REPRODUCIBLE, and my first-window reading of it as "corpus-wide chaos" was
-wrong. It reliably fixes exactly what it was aimed at (j3037 −871 / −771, asconhash −261 / −107) and reliably breaks four others (**ContextModel
-+296 / +306, em_11 +304 / +302**, frb45 +167 / +175, Ptn-7824 +139 / +147, minxor +69 / +48), while reliably helping constraints_25 −147 / −132,
-EDP3 −117 / −122, af-synthesis −92 / −79, T105 −118 / −63. The aggregate straddles the gate only because a handful of 500–1100 s instances vary
-50–150 s window to window (the shipped arm itself reproduces to 258 s total / 82 s max across all 30). **So this is a per-instance dosing decision
-with a clean, learnable signal — exactly the §5.6 exhibit's shape — and the SIXTH family in it.** Caution before anyone builds a static separator
-on it: L5 and L15 both killed hand-designed separators that looked at least this clean.
-
-### 2026-07-29 — rate 2 clears T3's CaDiCaL half in ONE window; the premise it was sold on is REFUTED (superseded above)
-Same-window Tier C (`20260729-094225`, arrays 1572861/1572862, throttle 48, every arm writing and checking DRAT, 29/30 all arms): **shipped 361.89 /
-**rate2 335.81** / cadical 315.42 / kissat 229.71** ⇒ rate 2 is **1.065× cadical, INSIDE T3's 10 % band**, shipped is 1.147×, outside. The saving is
-**−26.1 PAR-2**, which is the probe's predicted 26 almost exactly — **and that agreement is a coincidence of sums, not a confirmation of the
-mechanism.** The probe's premise was "the other 28 instances are unmoved"; **20 of 30 move by ≥10 s.** The two targets give −1,133 s (j3037
-1162.8 → 291.3, asconhash 744.2 → 482.9) and the other 28 net **+349 s**: non-target wins constraints_25 −147, T105 −118, EDP3 −117,
-af-synthesis −92, constraints_18 −68, DLTM −53, sat-bench-trig −48, goldcrest −33 against non-target losses **em_11 +304, ContextModel +296**,
-frb45 +167, Ptn-7824 +139, T87 +78, minxor128 +69. So the slot rate is a **corpus-wide, chaotic, two-sided dose** — the L7/L12 shape — not the
-targeted two-instance fix it was sold as, and a chaotic lever replicates poorly. **Not baked into `EFFORT_SPECS` on one window:** replication
-window `20260729-112753` (array 1573008/1573009, shipped vs rate2 vs cadical) is in flight, and the decision waits on it. Tier B cost measured the
-same day: 9.10 → 9.53 (+4.7 %), 14/14 (array 1572818, `20260729-094218-B-shipped`). NOTE this does NOT contradict L15 — L15 kills *partial*
-suppression (admission gates that stop one rule's rounds while another's damage stands); a uniform rate cut keeps all three rules running every
-round and only shrinks each round.
+### 2026-07-30 — nightly GREEN on both proof formats: 400k cases, 0 failures (`2c9387c`)
+`--random-policy --nightly` on the debug/ASan/UBSan build, 50 cores per leg: **DRAT 200,000/200,000 cases 0
+failures** (1574586) and **native LRAT 200,000/200,000 cases 0 failures** (1574587); `tools/fuzz/failures/`
+gained nothing. **132,259 UNSAT certificates checked across the two formats** — drat-trim on one, lrat-check
+on our own antecedent chains on the other — every one under an arbitrary legal schedule. Covers the
+`c timing` registry dispatch wrapper and `Kernel::bce_occ_limit`. Logs committed as evidence.
 
 ### 2026-07-29 — the living docs compacted (4,069 → 3,001 lines); two drift sites closed
 `011c81f`, plan rev 73. compact-docs pass, two rounds, each draft adversarially audited for LOSS — which is what made the cut lossless and what
@@ -1067,14 +792,6 @@ entry for `8f6cae4` or `50e8d80`; `implementation-notes` described D-CONG-TAUT a
 deliberately (`congruence.cpp:712/802/969`); PROGRESS cited "plan §5.7" for a design-doc section; plan §5 said "Two obligations" over three.
 Invariants held: 47 → 48 `[x]` (the delta is W4f), all 47 Log entries + 3 new, all 15 lessons, 19/19 rules with calculus entries, every ledger row
 keeping its removal path, ctest 38/38.
-
-### 2026-07-29 — Tier C rate probe: rate 2 would recover T3's CaDiCaL half
-`50e8d80`, jobs 1572346/1572347 (`benchmarks/probes/tierc-rate-{j3037,ascon}-*.out`). Wall s on the two regression instances, rate off/1/2/5/20(shipped): j3037
-121/467/258/619/973, ascon 289/514/463/516/528 — **rate 2 optimal on BOTH**, ~780 s ≈ 26 Tier C PAR-2 → Tier C ~324 vs cadical 314.49 ≈ **1.03×, inside T3's band**; Tier
-B near rate-flat (9.62 at 20 vs 9.99 at 2). Mechanism: BCE 48 rounds/108 M ticks at rate 20 vs 16/16 M at rate 2 — the budget is a per-mille of CUMULATIVE search work, so
-a LONG solve grants a runaway absolute allowance. **No contradiction with the 2026-07-28 "dose is the wrong control / rate-independent" banking: that was measured on
-SHORT Tier B instances; this asks the rate question in the long-solve regime.** Curves non-monotone between 1 and 2 ⇒ per-instance, not a trend (L12); the other 28 Tier C
-instances are ASSUMED unmoved, NOT established — hence the confirmation arrays; rate 2 goes into `EFFORT_SPECS` (`default_policy.cpp`) only if Tier C holds.
 
 ### 2026-07-29 — codebase review: drift closed, and the learner's missing reward ids
 `revisit-codebase`; report `benchmarks/reports/2026-07-29-review-post-track-r.md`, fixes `3daef1a`. **Worst finding was DRIFT:** four sites said the opposite of what

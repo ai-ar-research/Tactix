@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-30 (rev. 74). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-07-30 (rev. 75). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -928,6 +928,16 @@ certificates.
   stays recomputable by filtering any `results.json`. **Never mix 14- and
   28-instance PAR-2 in one comparison.** List construction + the candidate
   reserve pool: `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
+- **PROGRESS.md MUST carry the FULL per-instance tables for Tier B and Tier C**
+  (rev 75, user directive), newest window at the TOP, older ones below or
+  dropped once superseded. Not the aggregate — every instance, with its verdict,
+  our time, the baseline's, and the ratio, plus the window stamp and git SHA the
+  numbers came from. The aggregate alone has repeatedly hidden the finding:
+  Tier B's X1/X2/X4 verdict inverted when one instance was excluded (mod4block
+  was the entire effect), the BVE-gate A/B looked FLAT while swapping one solve
+  for another, and the four order-of-magnitude failures that reset the roadmap
+  were invisible in a PAR-2 number. A reader must be able to see WHICH instances
+  moved without re-running anything or opening a results.json.
 - **Tier C — "≤ 300 s" subset (weekly; total ≈ a few CPU-hours).** Same
   construction with Kissat-runtime ≤ 300 s, ~30 instances; timeout for our
   solver: **1200 s (20 min; rev 29, user decision** — the original 10×
@@ -1260,3 +1270,4 @@ conflate them.
 - **rev. 72** (2026-07-27, user): (a) every arm is timed WITH proof generation — like-for-like protocol, asymmetric scoring (our failed check = unsolved, a baseline's is recorded only), checker budget raised (§2, §8.1, §8.3); (b) the full reference rule inventory pulled into phase 3 — V5 `Sweep` + kitten, S7 `Reorder`, X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE`, X4 `Instantiate`, X5 `Condition` (§5.2, §9, §11 O11), with L11's counter-evidence recorded in §5.2 so the sequencing stays honest.
 - **rev. 73** (2026-07-29): compaction pass (compact-docs) — completed work and closed items condensed to result+pointer one-liners across the four living docs; §5.1/§5/§5.2/§5.6 prose densified with no scope, gate, catalog or §11 content changed; restored the two facts with no other home (the measured-dead BVE internals list and the instrumented-Kissat occurrence exhibit, ≈5 vs ≈36) and corrected "Two obligations" → "Three" in §5. No N1–N3 change.
 - **rev. 74** (2026-07-29, user): Tier B doubled 14 → **28 instances, 28 distinct families**, recalibrated on the CLUSTER (band [3.5, 19.0] s; the old 5–30 s band was M3-Pro seconds and the M3→cluster ratio 1.13–1.76 made rescaling impossible). Motivation: at n=14 one instance flipped A/B verdicts (mod4block was the whole Tier B value of the X1/X2/X4 trio). Max single-instance share 16.2 % → 7.1 %. The original 14 stay as a marked `core14` subset so the archive remains recomputable; never mix the two counts. Report `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
+- **rev. 75** (2026-07-30, user): §8.1 — PROGRESS.md must carry the FULL per-instance Tier B and Tier C tables, newest window first, not just the aggregates. Motivated by three cases where the aggregate hid the finding (the trio verdict inverting on one instance, a FLAT A/B that swapped a solve for a solve, and four order-of-magnitude failures invisible in PAR-2).
