@@ -128,6 +128,141 @@ struct RemPool {
   Lit lit0(uint32_t id) const { return pool[off[id]]; }
 };
 
+// --- the clause index for factor_size >= 3 (R5 increment 2b) -----------------
+// Occurrence lists over IRREDUNDANT clauses with 3 <= size <= factor_size. Built
+// with ONE arena pass per apply, the same N1-safe shape BCE uses (bce.cpp
+// build_index) rather than depending on `Kernel::dense`, which is null outside
+// an inprocessing phase — a rule must work standalone through the public API.
+//
+// Binaries are deliberately NOT indexed: they are already O(1)-enumerable from
+// the watch lists, and routing them through here would change the enumeration
+// ORDER that factor_size == 2 bit-identity depends on.
+//
+// Redundant clauses are excluded, as in kissat. A redundant grid member could be
+// deleted by S2 Reduce between selection and application, which is a correctness
+// hazard rather than a tuning choice (design §6).
+struct FactorIndex {
+  std::vector<std::vector<Ref>> occ; // by literal
+  bool built = false;
+};
+
+void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
+  idx.occ.assign(2 * k.nvars, {});
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size)
+      for (const Lit l : *c)
+        idx.occ[l].push_back(ref);
+    ref += words;
+  }
+  idx.built = true;
+}
+
+// Is clause `c` live and usable as a grid member? (root-satisfied clauses are
+// excluded: a grid whose member is already true is not a real m×n grid)
+bool grid_clause_live(const Kernel &k, const Clause *c) {
+  if (c->garbage() || c->redundant())
+    return false;
+  for (const Lit l : *c)
+    if (k.value(l) > 0)
+      return false;
+  return true;
+}
+
+// The remainder `C \ {l}`, written SORTED into `out`. Returns false if any other
+// literal is assigned (an unassigned remainder is what the grid needs).
+bool remainder_of(const Kernel &k, const Clause *c, Lit l, Lit limit,
+                  std::vector<Lit> &out) {
+  out.clear();
+  for (const Lit x : *c) {
+    if (x == l)
+      continue;
+    if (x >= limit || k.value(x) != 0)
+      return false; // extension-var boundary, or not free
+    out.push_back(x);
+  }
+  std::sort(out.begin(), out.end());
+  return !out.empty();
+}
+
+// All remainders of `l`: its binary partners (interned as |r| == 1, in watch
+// order — the factor_size == 2 path, unchanged) followed by, when factor_size
+// >= 3, one remainder per indexed clause containing `l`. Dedup is by interned
+// id, so a repeated remainder is offered once.
+void remainders_of(Kernel &k, const FactorIndex &idx, RemPool &pool, Lit l,
+                   Lit limit, std::vector<Lit> &partner_scratch,
+                   std::vector<Lit> &rem_scratch, std::vector<uint8_t> &seen,
+                   std::vector<uint32_t> &out, std::vector<uint8_t> &dedup) {
+  out.clear();
+  binary_partners(k, l, limit, partner_scratch, seen);
+  for (const Lit p : partner_scratch)
+    out.push_back(pool.intern_unit(p));
+  // BOUNDS: the index is a SNAPSHOT sized at apply entry, while `live_lits` and
+  // `k.nvars` GROW during a composite pass as Factor adds extension variables.
+  // A literal past the snapshot simply has no indexed large clauses — its only
+  // clauses are the dividers/quotients this pass just created, which are not
+  // grid material. (Found by the regression corpus under --random-policy,
+  // 2026-07-30: without this the widened path reads past occ[] and ASan fires.)
+  if (!idx.built || k.factor_size < 3 || l >= idx.occ.size())
+    return;
+  for (const Ref ref : idx.occ[l]) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!grid_clause_live(k, c))
+      continue;
+    charge_factor_ticks(k, c->size);
+    if (!remainder_of(k, c, l, limit, rem_scratch))
+      continue;
+    const uint32_t rid =
+        pool.intern(rem_scratch.data(), static_cast<uint32_t>(rem_scratch.size()));
+    if (dedup.size() <= rid)
+      dedup.resize(rid + 1, 0);
+    if (dedup[rid])
+      continue;
+    dedup[rid] = 1;
+    out.push_back(rid);
+  }
+  for (const uint32_t rid : out) // restore the dedup marks we set
+    if (rid < dedup.size())
+      dedup[rid] = 0;
+}
+
+// The grid clause {f} ∪ r, if it is live. Returns its Ref, or INVALID_REF for a
+// binary (whose id comes from kernel_binary_id) — and sets `found` false when the
+// pair is not a grid member at all. Both the LRAT hint and the delete need it.
+Ref find_grid_clause(const Kernel &k, const FactorIndex &idx, Lit f,
+                     const RemPool &pool, uint32_t rid, bool *found) {
+  *found = false;
+  const uint32_t n = pool.size_of(rid);
+  if (n == 1) {
+    *found = true;
+    return INVALID_REF; // binary (f ∨ r) — the caller uses kernel_binary_id
+  }
+  if (!idx.built || f >= idx.occ.size())
+    return INVALID_REF; // see the bounds note in remainders_of
+  const Lit *r = pool.lits_of(rid);
+  for (const Ref ref : idx.occ[f]) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (c->garbage() || c->size != n + 1)
+      continue;
+    // {f} ∪ r as a set: every literal of c is f or in the sorted remainder
+    bool ok = true;
+    for (const Lit x : *c) {
+      if (x == f)
+        continue;
+      if (!std::binary_search(r, r + n, x)) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) {
+      *found = true;
+      return ref;
+    }
+  }
+  return INVALID_REF;
+}
+
 // Seed/tie-break score — kissat's `watches_score` (factor.c:310), the raw
 // watch-list size. Kissat reads it in DENSE mode, where large watches are
 // flushed and duplicate binaries physically deleted, so for it this is the
@@ -149,7 +284,8 @@ bool contains(const std::vector<Lit> &v, Lit l) {
 // Apply the factoring F × R (all (f∨r) present). Adds a fresh var x, the dividers
 // (x∨f), the quotients (¬x∨r), then deletes the grid — in that proof order so the
 // quotients' RAT-on-¬x resolves against the dividers to the still-live originals.
-void apply_factoring(Kernel &k, const std::vector<Lit> &F,
+void apply_factoring(Kernel &k, const FactorIndex &idx,
+                     const std::vector<Lit> &F,
                      const std::vector<uint32_t> &R, const RemPool &pool) {
   const Var xv = kernel_new_extension_vars(k, 1);
   const Lit px = make_lit(xv, false); // x
@@ -176,33 +312,59 @@ void apply_factoring(Kernel &k, const std::vector<Lit> &F,
   // come last), hence RUP by that original's id. Hints are the flat signed stream
   // [-dividerᵢ, orig(fᵢ,rⱼ)]ᵢ. kernel_binary_id must be read before deletion.
   std::vector<int64_t> hints;
+  std::vector<Lit> qlits;
   for (const uint32_t rid : R) {
-    // INCREMENT 1: every remainder is one literal, so this is the binary
-    // quotient exactly as before. Increment 2 widens `lits` to {¬x} ∪ r; the
-    // RAT-on-¬x argument is indifferent to |r| (design §4), and the hint stream
-    // below is already per-divider, so only the literal vector changes.
-    const Lit r = pool.lit0(rid);
+    const uint32_t rn = pool.size_of(rid);
+    const Lit *rl = pool.lits_of(rid);
+    // Quotient {¬x} ∪ r, PIVOT FIRST. The RAT-on-¬x argument is indifferent to
+    // |r| (design §4): the only clauses containing x are the m dividers, and
+    // (¬x ∨ r) ⊗ₓ (x ∨ fᵢ) = {fᵢ} ∪ r, an original grid clause still live
+    // because the deletes come last. So the hint stream stays per-divider —
+    // only the literal vector and the grid clause's id lookup widen.
+    qlits.assign(1, nx);
+    qlits.insert(qlits.end(), rl, rl + rn);
     const uint64_t id = ++k.next_clause_id;
-    const Lit lits[2] = {nx, r}; // pivot (¬x) first
     if (lrat) {
       hints.clear();
       for (size_t i = 0; i < F.size(); i++) {
+        bool found = false;
+        const Ref gref = find_grid_clause(k, idx, F[i], pool, rid, &found);
+        const uint64_t gid = (gref == INVALID_REF)
+                                 ? kernel_binary_id(k, F[i], rl[0])
+                                 : clause_at(k.arena, gref)->id();
         hints.push_back(-static_cast<int64_t>(divider_ids[i]));
-        hints.push_back(static_cast<int64_t>(kernel_binary_id(k, F[i], r)));
+        hints.push_back(static_cast<int64_t>(gid));
       }
     }
     if (k.proof)
-      k.proof->add_rat(id, lits, 2, hints.data(),
-                       static_cast<uint32_t>(hints.size()));
-    kernel_add_binary_clause(k, nx, r, id);
+      k.proof->add_rat(id, qlits.data(), static_cast<uint32_t>(qlits.size()),
+                       hints.data(), static_cast<uint32_t>(hints.size()));
+    if (rn == 1)
+      kernel_add_binary_clause(k, nx, rl[0], id);
+    else
+      kernel_add_large_clause(k, qlits.data(),
+                              static_cast<uint32_t>(qlits.size()),
+                              /*redundant=*/false, /*glue=*/0, id);
   }
 
   // Delete the originals LAST (proof `del`); ALL copies — a duplicated grid
   // binary is fully replaced by the aux-var definition, and the plain
   // kernel_delete_binary refuses copies>1 (see kernel.cpp).
   for (const Lit f : F)
-    for (const uint32_t rid : R)
-      kernel_delete_binary_all_copies(k, f, pool.lit0(rid));
+    for (const uint32_t rid : R) {
+      if (pool.size_of(rid) == 1) {
+        kernel_delete_binary_all_copies(k, f, pool.lit0(rid));
+        continue;
+      }
+      bool found = false;
+      const Ref gref = find_grid_clause(k, idx, f, pool, rid, &found);
+      if (!found || gref == INVALID_REF)
+        continue; // already gone; the definition still subsumes it
+      Clause *c = clause_at(k.arena, gref);
+      if (k.proof)
+        k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
+      kernel_mark_garbage(k, c);
+    }
 }
 
 // DEBUG (S2 diagnosis): dump the current clause DB as DIMACS and exit, to feed
@@ -310,6 +472,14 @@ ApplyResult factor_apply(Kernel &k) {
   // `inR` grows with the pool rather than being sized up front, since the pool
   // is bounded by material actually seen, not by 2*nvars.
   RemPool pool;
+  // One arena pass per apply, only when the widened scope is actually enabled —
+  // at factor_size == 2 the index is never built and the binary path is
+  // untouched (which is what the bit-identity gate checks).
+  FactorIndex fidx;
+  if (k.factor_size >= 3)
+    build_factor_index(k, fidx, k.factor_size);
+  std::vector<uint8_t> rem_dedup;               // remainders_of dedup, by id
+  std::vector<Lit> rem_scratch;                 // one remainder, sorted
   std::vector<uint8_t> inR;                     // R membership, by remainder id
   const auto mark_R = [&](uint32_t rid, uint8_t v) {
     if (inR.size() <= rid)
@@ -319,18 +489,10 @@ ApplyResult factor_apply(Kernel &k) {
   const auto in_R = [&](uint32_t rid) {
     return rid < inR.size() && inR[rid];
   };
-  // Intern one literal-remainder, preserving the caller's order — bit-identity
-  // at factor_size == 2 depends on R being iterated in binary_partners' order.
-  const auto intern_all = [&](const std::vector<Lit> &src,
-                              std::vector<uint32_t> &dst) {
-    dst.clear();
-    for (const Lit p : src)
-      dst.push_back(pool.intern_unit(p));
-  };
   std::vector<uint8_t> seen(live_lits, 0);      // binary_partners dedup scratch
   std::vector<uint32_t> cofactor(live_lits, 0); // co-occurrence counts
   std::vector<Lit> touched, partners, partner_lits, F, best_F;
-  std::vector<uint32_t> R, newR, best_R;
+  std::vector<uint32_t> R, newR, best_R, partner_rids;
   uint64_t applied = 0;
 
   // Seed schedule. Kissat pops seed candidates from a max-heap keyed by
@@ -384,8 +546,8 @@ ApplyResult factor_apply(Kernel &k) {
       continue;
     }
     tried[seed] = 1;
-    binary_partners(k, seed, live_lits, partner_lits, seen);
-    intern_all(partner_lits, R);
+    remainders_of(k, fidx, pool, seed, live_lits, partner_lits, rem_scratch,
+                  seen, R, rem_dedup);
     if (R.size() < 2 || R.size() > FACTOR_DIM_LIMIT)
       continue;
     for (const uint32_t rid : R)
@@ -400,10 +562,37 @@ ApplyResult factor_apply(Kernel &k) {
       // count candidate next-factors by co-occurrence across the current R.
       touched.clear();
       for (const uint32_t rid : R) {
-        // INCREMENT 1: |r| == 1, so "the literals h with {h} ∪ r a clause" is
-        // exactly binary_partners(r). Increment 2 replaces this with the
-        // occurrence scan for clauses {h} ∪ r of size ≤ factor_size.
-        binary_partners(k, pool.lit0(rid), live_lits, partners, seen);
+        // The next-factor candidates for remainder r are the literals h with
+        // {h} ∪ r a live clause. For |r| == 1 that is exactly the binary
+        // partners of r (the unchanged path). For |r| > 1 scan the occurrences
+        // of r's FIRST literal — every clause containing r contains it — and
+        // keep those of size |r|+1 whose extra literal is the candidate.
+        if (pool.size_of(rid) == 1) {
+          binary_partners(k, pool.lit0(rid), live_lits, partners, seen);
+        } else {
+          partners.clear();
+          const uint32_t rn = pool.size_of(rid);
+          const Lit *rl = pool.lits_of(rid);
+          if (rl[0] >= fidx.occ.size())
+            continue; // index snapshot bound (see remainders_of)
+          for (const Ref ref : fidx.occ[rl[0]]) {
+            const Clause *c = clause_at(k.arena, ref);
+            if (c->size != rn + 1 || !grid_clause_live(k, c))
+              continue;
+            charge_factor_ticks(k, c->size);
+            Lit extra = INVALID_LIT;
+            bool ok = true;
+            for (const Lit x : *c) {
+              if (std::binary_search(rl, rl + rn, x))
+                continue;
+              if (extra != INVALID_LIT) { ok = false; break; }
+              extra = x;
+            }
+            if (ok && extra != INVALID_LIT && extra < live_lits &&
+                k.value(extra) == 0)
+              partners.push_back(extra);
+          }
+        }
         for (const Lit h : partners) {
           if (var_of(h) == var_of(seed) || contains(F, h))
             continue;
@@ -440,13 +629,12 @@ ApplyResult factor_apply(Kernel &k) {
       if (g == INVALID_LIT) // no factor shares ≥ 2 remainders
         break;
       // newR = R ∩ partners(g)  (the r in R with (g∨r) present)
-      binary_partners(k, g, live_lits, partners, seen);
+      remainders_of(k, fidx, pool, g, live_lits, partner_lits, rem_scratch,
+                    seen, partner_rids, rem_dedup);
       newR.clear();
-      for (const Lit p : partners) {
-        const uint32_t rid = pool.intern_unit(p);
+      for (const uint32_t rid : partner_rids)
         if (in_R(rid))
           newR.push_back(rid);
-      }
       const uint32_t m = static_cast<uint32_t>(F.size()) + 1;
       const uint32_t n = static_cast<uint32_t>(newR.size());
       const int delta = static_cast<int>(m * n) - static_cast<int>(m + n);
@@ -480,7 +668,7 @@ ApplyResult factor_apply(Kernel &k) {
       if (std::getenv("TACTIX_GRID_TRACE")) // S2a Inc 3a: grid dims surface
         std::fprintf(stderr, "[grid] %zux%zu delta=%d\n", best_F.size(),
                      best_R.size(), best_delta);
-      apply_factoring(k, best_F, best_R, pool);
+      apply_factoring(k, fidx, best_F, best_R, pool);
       applied++;
       k.stats.factorings++;
       // S2b: grow the pass universe over the fresh var (kissat
@@ -503,9 +691,17 @@ ApplyResult factor_apply(Kernel &k) {
       for (const Lit f : best_F)
         if (!tried[f])
           pq.push({score_of(f), f});
-      for (const Lit r : best_R)
-        if (!tried[r])
-          pq.push({score_of(r), r});
+      // best_R holds REMAINDER IDS, not literals (R5 increment 1) — re-seed the
+      // literals INSIDE each remainder. Indexing `tried` with an id was a real
+      // out-of-bounds that the bit-identity check could not see (ids stay small
+      // at factor_size == 2) and the regression corpus caught under
+      // --random-policy: ASan heap-buffer-overflow, factor.cpp:695, 2026-07-30.
+      for (const uint32_t rid : best_R) {
+        const Lit *rl = pool.lits_of(rid);
+        for (uint32_t i = 0; i < pool.size_of(rid); i++)
+          if (rl[i] < live_lits && !tried[rl[i]])
+            pq.push({score_of(rl[i]), rl[i]});
+      }
     }
   }
 
