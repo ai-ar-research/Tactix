@@ -1,0 +1,4 @@
+expect SAT 418,796 conflicts (defaults unchanged)
+c conflicts   418796
+c transitive  0 rounds, 10512 checked, 14 deleted, 0 failed, 1359624 ticks
+s SATISFIABLE
