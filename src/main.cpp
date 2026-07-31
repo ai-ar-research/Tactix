@@ -267,6 +267,10 @@ int main(int argc, char **argv) {
     kernel.factor_bound = (uint32_t)strtoul(fb, nullptr, 10);
   if (getenv("TACTIX_FACTOR_DEMOTE"))
     kernel.factor_demote_fresh = true;
+  if (const char *cr = getenv("TACTIX_FACTOR_CAND_ROUNDS"))
+    kernel.factor_cand_rounds = (uint32_t)strtoul(cr, nullptr, 10);
+  if (getenv("TACTIX_NO_EXT_DECISIONS"))
+    kernel.no_ext_decisions = true; // diagnostic, see Kernel::no_ext_decisions
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a
@@ -424,6 +428,17 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.congruence_rounds,
            (unsigned long long)kernel.stats.congruence_units,
            (unsigned long long)kernel.stats.congruence_unjustified);
+    printf("c extension   %u vars added, %llu decisions on them (%.2f%% of "
+           "%llu)\n",
+           kernel.first_extension_var == UINT32_MAX
+               ? 0u
+               : kernel.nvars - kernel.first_extension_var,
+           (unsigned long long)kernel.stats.decisions_extension,
+           kernel.stats.decisions
+               ? 100.0 * (double)kernel.stats.decisions_extension /
+                     (double)kernel.stats.decisions
+               : 0.0,
+           (unsigned long long)kernel.stats.decisions);
     printf("c factor      %llu factorings, %llu large remainders offered\n",
            (unsigned long long)kernel.stats.factorings,
            (unsigned long long)kernel.stats.factor_large_remainders);

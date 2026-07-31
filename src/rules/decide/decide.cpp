@@ -37,6 +37,8 @@ ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
   if (k.propagate_head < k.trail.size())
     k.trail_tainted = true;
   k.stats.decisions++;
+  if (k.first_extension_var != UINT32_MAX && var_of(lit) >= k.first_extension_var)
+    k.stats.decisions_extension++; // task #11 diagnostic (see kernel.hpp)
   if (external)
     k.stats.api_decisions++;
   kernel_assign_decision(k, lit);

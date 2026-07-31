@@ -141,6 +141,32 @@ Var heuristics_queue_next_unassigned(Kernel &k) {
   return v;
 }
 
+// See the header. Diagnostic: prefer any non-extension unassigned variable,
+// scanning the ACTIVE order (heap in stable, queue in focused) and falling back
+// to the ordinary choice when only extension vars remain.
+Var heuristics_next_decision_var_no_ext(Kernel &k) {
+  const Var ext = k.first_extension_var;
+  if (!k.h->stable) {
+    for (Var v = k.h->search_idx; v != UINT32_MAX; v = k.h->links[v].prev)
+      if (k.values[make_lit(v, false)] == 0 && v < ext) {
+        k.h->search_idx = v;
+        k.h->search_stamp = k.h->links[v].stamp;
+        return v;
+      }
+    return heuristics_queue_next_unassigned(k); // only extension vars left
+  }
+  // Stable: the heap is not fully ordered, so take the best NON-extension var
+  // by score directly. O(nvars) per decision — fine for a diagnostic arm only.
+  Var best = UINT32_MAX;
+  double bs = -1.0;
+  for (Var v = 0; v < ext && v < k.nvars; v++)
+    if (k.values[make_lit(v, false)] == 0 && k.h->scores.score[v] > bs) {
+      bs = k.h->scores.score[v];
+      best = v;
+    }
+  return best != UINT32_MAX ? best : heuristics_heap_next_unassigned(k);
+}
+
 void heuristics_reset_queue_search(Kernel &k) {
   // kissat queue.c kissat_reset_search_of_queue: entering focused mode,
   // the cache must again point at the queue tail

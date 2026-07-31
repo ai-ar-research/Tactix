@@ -119,7 +119,18 @@ inline bool heuristics_heap_contains(const Kernel &k, Var v) {
 void heuristics_update_target_phases(Kernel &);
 
 // --- decision ranking dispatch (§5.1) ---------------------------------------
+// DIAGNOSTIC ONLY (task #11, `TACTIX_NO_EXT_DECISIONS`): skip E2 Factor's
+// extension variables when choosing a branch, falling back to them only when
+// nothing else is unassigned (so the search stays complete). This is NOT
+// shippable — it narrows the policy's action space, which N1 forbids — it
+// exists to answer one question: is the damage broad Factor admission does to
+// our search actually *caused* by branching on extension variables? Measured
+// 2026-07-31: 31 % of ContextModel's decisions land on 459 extension vars.
+Var heuristics_next_decision_var_no_ext(Kernel &k);
+
 inline Var heuristics_next_decision_var(Kernel &k) {
+  if (k.no_ext_decisions && k.first_extension_var != UINT32_MAX)
+    return heuristics_next_decision_var_no_ext(k);
   return k.h->stable ? heuristics_heap_next_unassigned(k)
                      : heuristics_queue_next_unassigned(k);
 }

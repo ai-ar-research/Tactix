@@ -97,6 +97,12 @@ struct Stats {
   uint64_t reason_bump_rounds = 0; // conflicts the reason-side pass ran on
   uint64_t reason_bump_aborted = 0; // rounds rolled back at the mark limit
   uint64_t api_decisions = 0; // externally chosen branches (N1)
+  // Decisions that landed on an E2 Factor EXTENSION variable. Diagnostic for
+  // task #11: cadical's `factorunbump` (kissat's
+  // adjust_scores_and_phases_of_fresh_varaibles) is worth 10x on jgiraldezlevy,
+  // so "are we branching on extension vars?" must be answerable from a normal
+  // run rather than inferred. Counts vars >= first_extension_var.
+  uint64_t decisions_extension = 0;
   uint64_t restarts = 0;
   uint64_t restarts_reused = 0; // restarts that kept a trail prefix
   uint64_t reductions = 0;
@@ -576,6 +582,19 @@ struct Kernel {
   // a most-preferred branching candidate. Default false = today's behaviour
   // until the tier pair says otherwise (`TACTIX_FACTOR_DEMOTE`).
   bool factor_demote_fresh = false;
+  // E2 Factor CANDIDATE REDUCTION rounds (kissat `factorcandrounds`, cadical
+  // `--factorcandrounds`, both default 2). A large clause is grid material only
+  // if every literal in it occurs in >= 2 candidate clauses; the prune iterates
+  // to fixpoint, bounded by this. 0 = the unfiltered pre-2026-07-31 candidate
+  // set (bit-identical to before). CONFIGURATION, policy-owned, any value sound
+  // -- it only narrows which grids the rule OFFERS, never whether one is legal.
+  uint32_t factor_cand_rounds = 0;
+  // DIAGNOSTIC ONLY (task #11, `TACTIX_NO_EXT_DECISIONS`) — never ship this on.
+  // Skips E2 Factor's extension variables when branching (falling back only
+  // when nothing else is unassigned). It NARROWS the policy's action space,
+  // which N1 forbids for a default; it exists to test whether branching on
+  // extension vars is what makes broad Factor admission damage our search.
+  bool no_ext_decisions = false;
   // S4 composite grids (S2b, kissat resize_factoring): widen Factor's
   // factor/remainder universe to ALL live literals — extension vars included,
   // growing as the pass applies. Default false (measured: composition

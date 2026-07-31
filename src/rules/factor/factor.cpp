@@ -147,8 +147,97 @@ struct FactorIndex {
   bool built = false;
 };
 
+// Count binary clauses per literal — the `bincount` half of kissat's candidate
+// reduction (factor.c:1019). Binaries are never pruned (they are the grid's
+// other side); they only contribute to whether a LARGE clause survives.
+static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
+  bincount.assign(2 * k.nvars, 0);
+  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++) {
+    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
+    const uint32_t sz = k.watches.heads[l].size;
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < sz;) {
+      if (Watch{ws[i]}.binary()) {
+        n++;
+        i += 1;
+      } else {
+        i += 2;
+      }
+    }
+    bincount[l] = n;
+  }
+}
+
 void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   idx.occ.assign(2 * k.nvars, {});
+  // --- candidate reduction (kissat `factorcandrounds`, factor.c:1000; cadical
+  // `--factorcandrounds` default 2) -----------------------------------------
+  // A large clause is grid material only if EVERY one of its literals occurs in
+  // at least two candidate clauses — a literal seen once can never be a grid
+  // column. Dropping such a clause can drop its neighbours below the bar too,
+  // so the prune is iterated to fixpoint (bounded by k.factor_cand_rounds).
+  //
+  // This is a STRUCTURAL quality filter, not a per-instance separator (the
+  // family L15 has killed four of those): it asks the incidence structure
+  // whether repeated structure exists, and answers "no" on random-ish formulas
+  // by itself. That is exactly the measured gap in task #11 — on jgiraldezlevy
+  // (random 3-SAT) we applied 76 factorings to cadical's 25 and lost 6x, while
+  // on genuinely structured instances the reduction keeps the grids intact.
+  //
+  // `factor_cand_rounds = 0` restores the unfiltered pre-2026-07-31 candidate
+  // set exactly (the loop body never runs and `alive` stays all-ones).
+  std::vector<uint8_t> alive;
+  if (k.factor_cand_rounds && max_size >= 3) {
+    std::vector<uint32_t> bincount, largecount, newcount;
+    count_binaries(k, bincount);
+    // seed: every in-scope irredundant large clause is a candidate
+    largecount.assign(2 * k.nvars, 0);
+    std::vector<Ref> cand;
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_words(c->size);
+      if (!c->garbage() && !c->redundant() && c->size >= 3 &&
+          c->size <= max_size) {
+        cand.push_back(ref);
+        for (const Lit l : *c)
+          largecount[l]++;
+      }
+      ref += words;
+    }
+    alive.assign(cand.size(), 1);
+    size_t live = cand.size();
+    for (uint32_t round = 0; round < k.factor_cand_rounds; round++) {
+      newcount.assign(2 * k.nvars, 0);
+      size_t now = 0;
+      for (size_t i = 0; i < cand.size(); i++) {
+        if (!alive[i])
+          continue;
+        const Clause *c = clause_at(k.arena, cand[i]);
+        bool keep = true;
+        for (const Lit l : *c)
+          if (bincount[l] + largecount[l] < 2) {
+            keep = false;
+            break;
+          }
+        alive[i] = keep;
+        if (!keep)
+          continue;
+        for (const Lit l : *c)
+          newcount[l]++;
+        now++;
+      }
+      largecount.swap(newcount);
+      if (now == live) // fixpoint: nothing dropped this round
+        break;
+      live = now;
+    }
+    for (size_t i = 0; i < cand.size(); i++)
+      if (alive[i])
+        for (const Lit l : *clause_at(k.arena, cand[i]))
+          idx.occ[l].push_back(cand[i]);
+    idx.built = true;
+    return;
+  }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);

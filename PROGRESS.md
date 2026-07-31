@@ -666,6 +666,29 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
 
+### 2026-07-31 — task #11 DIAGNOSED (not fixed): three mechanisms, four causes eliminated, the lever is WHEN Factor runs
+Report: `benchmarks/reports/2026-07-31-factor-broad-admission-profiling.md`. Why broad Factor admission is
+7–28× worse for us than cadical on ContextModel / jgiraldezlevy.
+- **cadical's Factor is load-bearing there, not idle** — `--factor=false` costs it 5.9× conflicts on
+  ContextModel, and it adds MORE extension vars than we do (627 vs 459) while still being 7× faster. So the
+  gate is not the defect and application COUNT is not the story.
+- **New instrumentation `c extension`** (`stats.decisions_extension`): **31.4 % of ContextModel's decisions
+  land on its 459 extension variables** (jgiraldez 0.38 %, sted5 6.2 %). Previously unanswerable from a run.
+- **Decisive ablation** (`TACTIX_NO_EXT_DECISIONS`, diagnostic only — narrowing the action space violates
+  N1): ContextModel 450 → **123 s (3.7×)**, jgiraldez 452 → 518 (no effect), **sted5 17 s → killed >528 s**.
+  **Three mutually exclusive mechanisms** — ContextModel wants extension vars near-never, sted5 needs them
+  freely, jgiraldez doesn't care. That is precisely why every static knob trades one instance for another.
+- **Four causes eliminated:** scope threshold (dead), payoff bound (dead), **candidate reduction**
+  (`factorcandrounds`, implemented; byte-identical on all 7 probes — a TRUE negative: the filter needs a
+  literal occurring <2×, which is 0.72 % / 0.89 % / **0.00 %** of literals on ctx / jgi / sted5), and **our
+  own demotion**, which *fails at its purpose* — ctx's extension-decision share moves 31.4 % → 32.2 %,
+  because conflict analysis bumps extension vars straight back to `queue_last`. A one-shot reordering cannot
+  hold against continuous re-bumping.
+- **Surviving lever: WHEN Factor runs.** Forcing cadical eager (`--factordelay=0 --factorthresh=0`) degrades
+  it 2.3–9× toward our regime on both instances; we factor in the preprocessing blast, cadical delays BVA
+  between eliminations. Plus: extension-variable priority must be **adaptive and persistent**, not one-shot.
+  Routed to rule-dev + the scheduling track — **not** to a fifth formula-shape separator (that family is 0/5).
+
 ### 2026-07-31 — ▶ `factor_size = 5` SHIPPED (Tier C −9.51, 1.036× cadical); the Tier B lever is held back and WHY
 Report: `benchmarks/reports/2026-07-31-factor-scope-and-admission.md`. The 2026-07-30 union arm bundled TWO
 changes; they are separable and pull opposite ways. **Scope (`factor_size` 2→5) ships:** Tier C 337.50 →
