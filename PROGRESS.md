@@ -5,10 +5,9 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 75 (2026-07-30)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-08-01 — `R<n>` namespace collision fixed (four namespaces, prefix key under `## Log`; nothing renumbered). Before that,
-  2026-07-30 (overnight) — **Tier B doubled to 28 and immediately found FOUR order-of-magnitude failures (up to 187× kissat); that now outranks T3.** T3/BCE fully diagnosed and parked on one directive decision (see resume block). Phase timers landed; docs compacted (rev 73); Tier B rev 74. Nightly fuzz 1574586/1574587 running.
+- **Last updated:** 2026-08-01 — **task #11 closed** (mechanism located + reference-anchored, fix refuted at tier level; report `2026-08-01-task11-factor-admission-mechanism.md`; new lessons L19–L21) and **TB4b merged** (watch-repair primitive + a DefaultPolicy defect that retires its July verdict; ships OFF). Earlier: the `R<n>` namespace collision fixed (four namespaces, key under `## Log`).
 
-## ▶ RESUME HERE (2026-07-31) — phase 3; T3's CaDiCaL half MET; the Tier B gap is the open work
+## ▶ RESUME HERE (2026-08-01) — phase 3; T3's CaDiCaL half MET; task #11 CLOSED, TB4b DONE; next is task #10
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables directly below.
 
@@ -24,52 +23,51 @@ alone 245 s (72 %). An aggregate move smaller than that is not a result; prefer 
 its own replicate range. The shipped Tier C ratio itself moves **1.007–1.066× across windows at an unchanged
 default**, so always quote a window. (Report `2026-07-31-factor-scope-and-admission.md` §7.)
 
-**▶ THE NEXT STEP — task #11, and it is the Tier B gap.** Broad Factor admission
-(`TACTIX_FACTOR_SCOPE_PCT=50`) is worth **Tier B 105.30 → 65.86 and 24 → 26 solves** (it solves `sted5` and
-`or_randxor`), but costs Tier C **357.64 = 1.129×, outside T3's band**, so it is an arm, not the default.
-The whole Tier C cost is **two instances** — ContextModel +464 s, jgiraldez +396 s — where **cadical runs
-Factor broadly with no shape gate and is 7–28× faster than us**. Fix that and the gate becomes free.
-DIAGNOSED 2026-07-31 (report `2026-07-31-factor-broad-admission-profiling.md`), not fixed:
-- **Three MUTUALLY EXCLUSIVE mechanisms** (`TACTIX_NO_EXT_DECISIONS` ablation): ContextModel 450 → **123 s**
-  (ext-var branching IS its damage — **31.4 % of its decisions** land on 459 extension vars), jgiraldez
-  unaffected (0.38 %), **sted5 17 s → killed >528 s** (ext vars are *essential* there). No single static
-  extension-var priority serves all three — which is why every knob so far trades one instance for another.
-- **ELIMINATED, do not retry:** scope threshold; payoff bound (costs sted5 19 → 274 s); candidate reduction
-  `factorcandrounds` (implemented, byte-identical on 7 probes — a TRUE negative: its <2-occurrence filter can
-  prune only 0.72 % / 0.89 % / **0.00 %** of literals on ctx / jgi / sted5); and **our own one-shot fresh-var
-  demotion**, which *fails at its purpose* (ext-decision share 31.4 % → 32.2 %, because conflict analysis
-  re-bumps them to `queue_last`).
-- **~~SURVIVING LEVER: *when* Factor runs~~ — REFUTED 2026-08-01, do not pursue** (Log + **L19**). That
-  routing rested on a misread probe: `factorthresh` is **dead code in cadical** (declared, never read) and
-  `factordelay` is an *allowance added* to the elimination-round count, so `=0` is the MOST-delayed setting —
-  the probe showed delaying Factor **more** costs cadical 2.3–9×. On both losers the gate **never binds for
-  either solver** (log10 13,797 = 4 ≤ 0+4; log10 2,200 = 3 ≤ 0+4), and ours admits at active < 10⁵ with zero
-  BVE rounds: **we already match cadical exactly here.** The family's last member, the first-dose allowance
-  (kissat 700M vs cadical 300M), is **measured INERT** — bit-identical on all three mechanism instances,
-  because Factor's whole-solve spend is only 10.9–104M ticks (probe 1577487).
-- **▶ WHAT ACTUALLY REMAINS — and it is now reference-anchored** (probe 1577499, Log 2026-08-01). Cadical
-  branches on ITS extension vars **0.10 %** of decisions on ContextModel where we do **31.4 %** (**314×**),
-  **0.01 % vs 0.38 %** on jgiraldez — but **8.81 % vs our 6.19 % on sted5, i.e. MORE than us**, while adding
-  more ext vars overall (627 vs 459). **Cadical does not suppress extension variables; it DISCRIMINATES.**
-  A static priority cannot produce that shape by construction — which is precisely why all five knobs traded
-  one instance for another, and why `TACTIX_FACTOR_DEMOTE` rescues j3037/edp3/rxor and costs sted5 16 → 150 s.
-  Our machinery fails to hold them down *even when enabled* (31.4 % off / 32.2 % on, vs 0.10 %), so this is
-  not a missing demotion — burying at birth is already what both solvers do.
-  **Next increment: count BUMP events on extension vars, not just decisions.** That separates the two live
-  hypotheses — (H1) our factorings are structurally more active, so ext vars keep re-entering conflict
-  analysis (the "WHICH factorings" axis), vs (H2) a re-promotion mechanism gap (both bump reason-side
-  literals; cadical `bumpreasonrate` 100, kissat 10, ours 20, and cadical caps `bumpreasondepth` at 1).
-  Still **not** a fifth formula-shape separator (0 for 5).
+**▶ TASK #11 IS CLOSED AS A PHASE-3 FIX — every static control over Factor admission is now measured.**
+Report `benchmarks/reports/2026-08-01-task11-factor-admission-mechanism.md` (supersedes the 2026-07-31
+profiling report's §6 routing). Read that before touching E2 admission again.
+- **The prize is real and reproduced.** Broad admission (`TACTIX_FACTOR_SCOPE_PCT=50`) alone is **Tier B
+  64.15 (26/28) vs shipped 105.65** in a same-window 4-arm factorial (`20260801-105456`), solving `sted5` and
+  `or_randxor` — an independent confirmation of 2026-07-31's 65.86/26. **The Tier C cost is the blocker**
+  (357.64 = 1.129×, outside T3's band), so it stays an arm, not the default.
+- **FOUR FAMILIES OF CONTROL, ALL MEASURED DEAD — do not open a fifth.** (1) Formula-shape separators: 0 for
+  5. (2) *When* Factor runs: `factorthresh` is dead code in cadical, `factordelay`'s polarity was read
+  backwards, and the gate **never binds on either loser for either solver** — we already match cadical
+  exactly (**L19**). (3) First-dose allowance (kissat 700M vs cadical 300M): **inert**, bit-identical,
+  because Factor's whole-solve spend is 10.9–104M ticks. (4) Extension-var priority: the one-shot demotion
+  fails at its purpose (31.4 % → 32.2 %), and the reason-side arm is **independently harmful** — Tier B
+  **alone 127.42 (23/28)**, Tier C with broad admission **468.43 (27/30)**, losing mp1-Nb5T15 and j3037.
+- **What the campaign DID establish — the §5.6 exhibit, now the best-labelled in the repo.** Cadical
+  **discriminates rather than suppresses**: **0.10 %** of its decisions land on extension vars on
+  ContextModel where **31.39 %** of ours do (314×), yet **8.81 % vs our 6.19 % on sted5**, while it adds MORE
+  ext vars overall (627 vs 459). The channel is **reason-side bumping** — ext vars take 2.97× the bumps per
+  variable on ContextModel and **71.68 % of those are reason-side ONLY**, because a BVA extension variable
+  *is* the hub of the clauses it replaced, so it is promoted for POSITION not evidence, self-reinforcingly.
+  Named channel + instrumented per-instance feature (`c extbumps`) + measured reference target. **Per L18's
+  precedent the exhaustion IS the result**: the decision belongs to the phase-6 learner, not a sixth constant.
+- **Read ContextModel's numbers through L20 before reusing them.** It is rock-stable under replication
+  (20.06/19.97) and ~20× fragile under ANY perturbation — TB4b's conflict reuse costs it 19.1×, with nothing
+  to do with Factor — while at the default we beat cadical there **3×** (19–20 s vs 64.2 s). Task #11's
+  founding framing ("our Factor is 7–28× worse than cadical's") is **overstated** on that evidence.
+- **If anyone reopens this:** the untested axis is **WHICH factorings we choose** (cadical adds more ext vars
+  and is still faster, so neither count nor timing explains the gap). Everything else above is measured.
 
-**THEN, in order.** (a) **Task #10** — §6 compliance: the inprocessing slot barely polls the stop flag; the
-real blocker is V6 Congruence, 131,327 ms over 3 applications, unmetered (SIGTERM-deaf ~1,100 s).
+
+**▶ THE NEXT STEP IS (a).** (a) **Task #10** — §6 compliance: the inprocessing slot barely polls the stop
+flag; the real blocker is V6 Congruence, 131,327 ms over 3 applications, unmetered (SIGTERM-deaf ~1,100 s).
+A competition harness escalates to SIGKILL and the proof is lost, so this is a compliance defect, not a
+latency nuisance; the fix is a termination flag the RULES poll.
 (b) The remaining Tier B walls: **`veer_axi`** (V4 TransitiveReduce's own runtime is 26–49 % of its clock,
 8.7 × 10⁹ ticks where kissat spends 0.03 s — a ~1000× engineering gap on one rule; even a 4× fix leaves it
 at 550 s against a 300 s cap) and **`unsat-set-b-fclqcolor`**. (c) Track R · R5 S-c (Sweep candidate
-selection — its DoD MUST include fuzz legs on both proof formats) then S-d…S-f, Track R · R6–R8. (d) TB4b.
+selection — its DoD MUST include fuzz legs on both proof formats) then S-d…S-f, Track R · R6–R8.
+(d) **TB4b — DONE 2026-08-01** (watch-repair primitive + the DefaultPolicy `pending.valid` defect; ships
+OFF, K5 fired). Its open follow-ons: widen the repair to every size>2 conflict (kissat's actual scope) and
+the OTFS-round case.
 (e) Bench runner: verify LRAT not DRAT (`urq45` probe 1566825 — DRAT+drat-trim >2400 s, native LRAT+cake_lpr
-**77 s VERIFIED**); route via revise-plan, it is a measurement-protocol change. (f) §8.1 still describes
-Tier C on the M3 clock — the defect rev 74 fixed for Tier B.
+**77 s VERIFIED**); route via revise-plan, it is a measurement-protocol change. **This one just bit again:**
+in window `20260801-092459` cadical's `urq45` proof went UNVERIFIED at a 4800 s checker budget and was
+dropped from scoring. (f) §8.1 still describes Tier C on the M3 clock — the defect rev 74 fixed for Tier B.
 
 **CLOSED — do not re-open** (each left a standing lesson): the X2-governor / trio-off thread (**resolved**:
 X2 at cadical's 8‰ met T3's CaDiCaL half with every rule ON, `29811a8`); BVE's binary-density gate TD-R2 (Tier B
@@ -199,6 +197,7 @@ spread between identical configs**, and a per-instance range averaging **24.7 s*
 evidence with its own replicate range over an aggregate difference.
 
 **Older windows** (aggregates only — the per-instance detail is in each run's `results.json`):
+**`20260801-105456-B` shipped 105.65 (24/28) · broad-alone 64.15 (26/28) · nerb-alone 127.42 (23/28) · broad+nerb 113.45 (24/28), kissat 9.91** and **`20260801-092459-C` shipped 323.88 (29/30) vs cadical 315.38 = 1.027×, broad+nerb 468.43 (27/30)** — task #11's factorial; **both shared the partition with a concurrent TB4b array, so absolute PAR-2 is not cross-window comparable** (within-window A/B and the cadical ratio are). ·
 `20260731-013514-B` 105.30 (24/28) · `20260730-142436-B` 105.40 (24/28) · `20260730-111850-B` 105.21
 (24/28) · `20260730-085538-B` 103.24 (24/28) · `20260729-220951-B` 102.28 (24/28), the first run on the
 expanded list. Tier C: `20260731-013523` 331.60 (29/30) vs cadical 316.25 · `20260730-142439` 323.67
@@ -291,6 +290,16 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   portable when we depend on the rule and the reference does not (cadical ships `block` OFF). Also note
   kissat does mod4block in 19.4 s with NO BCE, so our dependence there is a tactix-specific crutch.
   (probes 1573320/1573405–07; Log 2026-07-29.)
+- **L21 · MEASURE A CANDIDATE FIX AGAINST THE SHIPPED DEFAULT, NOT AGAINST THE BROKEN ARM IT REPAIRS.** The
+  task-#11 reason-side arm was probed against *broad admission* — the configuration it existed to repair —
+  and read as a 2.4× win on ContextModel (403 → 166 s). Against the **shipped default**, which is what any
+  ship decision is actually measured against, the same instance is **19.1 → 189.6 s, still 10× WORSE**. The
+  arm was never a fix; it was a partial recovery of damage the default does not have. Its tier verdict then
+  came out flatly negative (Tier B **alone** 127.42 vs shipped 105.65, −1 solve). Corollary, and the second
+  half of the same error: **do not estimate a tier from a two-instance decomposition** — from ContextModel
+  −288 s and jgiraldez −431 s the predicted Tier B/C were ~87/~334, measured 113.45/468.43, because the other
+  26 instances moved (`DecompressReader_read_12` 8.5 → 300 TO). That half is L12/L16 committed again, so the
+  standing rule now has three sightings. (Report `2026-08-01-task11-factor-admission-mechanism.md` §4.)
 - **L20 · AN INSTANCE CAN BE ROCK-STABLE UNDER REPLICATION AND CATASTROPHICALLY FRAGILE UNDER PERTURBATION —
   so a huge regression there is WEAK evidence about the mechanism that perturbed it.** On 2026-08-01 two
   entirely unrelated changes each cost `ContextModel_output_7_3_9` ~**19–20×**: TB4b's conflict-clause reuse
@@ -727,128 +736,41 @@ audit) and `a489bb7` (the attribution arm). Ships OFF — **no default flip reco
 - Fuzz 6 × 10k/0 (DRAT + native LRAT × default / `--random-policy` / `--reuse-stress-policy`, ASan+UBSan),
   corpus 10/10 incl. 002+005, `backjump_stale` 0 everywhere, ctest 38/38 both builds.
 
-### 2026-08-01 — task #11: the reason-side channel is CONFIRMED CAUSAL (2.4× and 12.3×) — blanket withholding is DEAD-TRADE
-Probe 1577506, same binary + same window both arms, broad admission throughout.
-
-| instance | base | `TACTIX_NO_EXT_REASON_BUMP=1` | |
-|---|---|---|---|
-| ContextModel | 403.1 s / 2.83 M conf / **31.39 %** ext-dec | **166.3 s / 1.37 M / 2.36 %** | **2.4×** |
-| jgiraldezlevy | 425.8 s / 5.07 M / 0.38 % | **34.5 s / 0.66 M / 0.10 %** | **12.3×** |
-| sted5 | 16.8 s / 0.27 M / 6.19 % | 312.6 s / 3.43 M / 1.26 % | **0.05× (18.6× WORSE)** |
-
-- **The mechanism is proven.** Removing ONE bump channel takes both Tier C losers to cadical-like
-  ext-decision shares — 2.36 % and 0.10 % against cadical's measured 0.10 % and 0.01 % — and buys 2.4× and
-  12.3×. No previous task-#11 knob moved either instance in the right direction at all. Conflicts fall with
-  the share (2.07× and 7.7×), so this is search quality, not overhead.
-- **And it is DEAD-TRADE as a BLANKET policy** (pre-registered kill: sted5 worse than 5×). sted5 needs the
-  opposite: cadical branches **8.81 %** there, the arm drove us to 1.26 %, and it costs 18.6×. A blanket rule
-  cannot express what cadical does, which is the whole point of the 2026-08-01 discrimination finding.
-- **Do NOT fit a static separator to this.** The reason-side share does order the three instances correctly
-  (ctx 71.7 % → withhold, jgi 46.4 % → withhold, sted5 36.2 % → do not), but that is a **3-point separation
-  with a 10-point margin**, and **L15** is explicit that a clean separating feature is insufficient — four
-  such gates lost badly to no gate, and formula-shape separators are 0 for 5. This is the SIXTH knob to trade
-  one instance for another (after L15's trio, L17's round cap, L18's BCE controls, and the V4 budget).
-- **▶ THE STANDING VALUE: E2 Factor admission is now the best-instrumented §5.6 exhibit we have** — a named
-  channel (`REASON_BUMP` on `v >= first_extension_var`), a per-instance feature already measured
-  (`c extbumps` reason-side share), a measured reference target (cadical's per-instance ext-decision share),
-  and a two-sided payoff of 2.4–12.3× against 18.6×. The phase-6 learner does not need a new mechanism here,
-  only the decision.
-- **▶ WORTH A TIER PAIR NOW, THOUGH** — because the arm fixes exactly the two instances that made broad
-  admission unshippable. Arithmetic on the shipped numbers: ContextModel −288 s and jgiraldez −431 s is
-  −24 PAR-2 on Tier C, taking broad admission's **357.64 → ~334 (~1.054× cadical, INSIDE T3's 10 % band)**,
-  while Tier B loses sted5 back to the 300 s cap, taking **65.86 → ~87, still −18 against the shipped
-  105.30**. If that holds, broad admission ships and the Tier B gap halves. Estimated, NOT measured —
-  the tier pair is the next action.
-
-### 2026-08-01 — task #11: the channel is REASON-SIDE BUMPING — 71.7 % of ContextModel's ext-var bumps, and it self-reinforces
-Probe 1577502 (`c extbumps`, new counters `Stats::bumps{,_extension,_ext_reason_only}`) attributes every bump
-to its channel — conflict-side (`SEEN`: resolution-visited or in the learned clause) vs reason-side only.
-
-| instance | bumps per EXT var vs per ORIGINAL var | ext bumps that are REASON-SIDE ONLY |
-|---|---|---|
-| **ContextModel** | 133,575 vs 44,911 = **2.97× more** | **71.68 %** |
-| jgiraldezlevy | 70,211 vs 244,820 = 0.29× | 46.38 % |
-| sted5 | 5,458 vs 12,369 = 0.44× | 36.16 % |
-
-- **On the poisoned instance, extension vars are bumped ~3× more often PER VARIABLE than original ones, and
-  72 % of those bumps arrive through the reason-side channel alone** — the variable was never
-  resolution-visited and never in the learned clause. On the two instances that do NOT suffer, ext vars are
-  bumped *less* per variable than originals (0.29×/0.44×) and the reason-side share is far lower.
-- **The mechanism is structural and self-reinforcing.** A BVA extension variable *is* by construction the hub
-  of the clauses it replaced, so it appears in the reason of a great many propagated literals. Reason-side
-  bumping therefore promotes it for its POSITION rather than for evidence — and promotion feeds itself
-  (promoted → decided more → appears in more reasons → promoted more). That is a mechanism our one-shot
-  burial cannot survive, and it explains why demotion moved the share 31.4 % → 32.2 % and nothing else.
-- **Arm implemented, default OFF: `TACTIX_NO_EXT_REASON_BUMP`** (`Kernel::no_ext_reason_bump`) withholds
-  extension vars from the reason-side channel ONLY; conflict-side bumping is untouched, so an ext var still
-  rises whenever it earns it. **This is N1-CLEAN and shippable, unlike `no_ext_decisions`** — reason-side
-  bumping is `H`-only advice with no proof obligation, and the arm changes only the ORDER candidates are
-  offered in, never which are legal (rule-dev: rank freely, never omit). It is also the shape cadical
-  exhibits: discrimination by evidence, not suppression. Measurement pre-registered in probe 1577506.
-- ctest 38/38; mod4block identity re-confirmed at **418,796** conflicts (no ext vars there ⇒ the counters and
-  the arm are both inert on it, as they must be).
-
-### 2026-08-01 — task #11: cadical branches on ITS extension vars **0.10 %** where we do **31.4 %** — and it DISCRIMINATES
-The L14 move the diagnosis never made: get the reference's number on the SAME instance. Patched cadical copy
-built OUTSIDE the repo (`/home/hwu/cadical-extdiag`, same version 3.0.0; `stats.decisions_extension` counted in
-`decide()` against a `max_var` snapshot taken at `Internal::solve` entry), probe 1577499.
-
-| instance | ours (broad admission) | **cadical** | |
-|---|---|---|---|
-| ContextModel | **31.39 %** (5,907,203 / 18.8 M) | **0.10 %** (5,294 / 5.2 M) | **314×** |
-| jgiraldezlevy | 0.38 % (40,081) | 0.01 % (98) | 38× |
-| sted5 | 6.19 % (45,829) | **8.81 %** (47,900) | **cadical branches MORE** |
-
-- **The anomaly is CONFIRMED and it is enormous** — 314× on ContextModel, not a subtle divergence. L14 is
-  discharged: this is now a reference-anchored gap, not an internal cross-instance contrast.
-- **▶ THE FINDING THAT REROUTES THE TASK: cadical is not SUPPRESSING extension variables, it is
-  DISCRIMINATING.** Near-zero where ext branching is poison (ContextModel 0.10 %), **more than ours** where ext
-  vars are essential (sted5 8.81 % vs 6.19 % — and killing them takes sted5 17 s → >528 s). It does this while
-  adding *more* ext vars than we do (627 vs 459). **A static priority cannot reproduce that shape by
-  construction** — which is exactly why all five of our knobs traded one instance for another, and why
-  `TACTIX_FACTOR_DEMOTE` rescues j3037/edp3/rxor but costs sted5 16 → 150 s. The §5.6 "three mutually
-  exclusive mechanisms" framing was right about the data and wrong about the conclusion: the three instances
-  do not need three different static settings, they need ONE mechanism that responds to evidence.
-- **Our machinery does not hold them down even when enabled**: 31.4 % with demotion OFF (this probe) and
-  32.2 % with `TACTIX_FACTOR_DEMOTE=1` (report §5.4) — against cadical's 0.10 %. So the gap is NOT "we forgot
-  to demote"; burying at birth is already what both solvers do (`heuristics_demote_fresh_vars` ≙
-  `adjust_scores_and_phases_of_fresh_variables`), and ours is washed out while cadical's is not.
-- **Two hypotheses remain, and they are separable.** (H1) our ext variables are *structurally* more active —
-  our factorings differ from cadical's, so ours keep entering conflict analysis and re-bumping themselves
-  (this is the "WHICH factorings" axis). (H2) a mechanism gap in what re-promotes them: both solvers bump
-  reason-side literals, but the rates differ — cadical `bumpreasonrate` **100**, kissat `bumpreasonsrate`
-  **10**, ours **20** — and cadical additionally caps `bumpreasondepth` at 1. **Next increment: count BUMP
-  events on extension vars, not just decisions** — that discriminates H1 from H2 directly.
-
-### 2026-08-01 — task #11: the WHOLE "when Factor runs" family is now eliminated — the routed lever was a misread probe
-The entry below routed task #11 to "*when* Factor runs". **That routing is wrong, and all three members of the
-family are now closed** (source-verified + probe 1577487; new standing lesson **L19**).
-- **`factorthresh` is dead code in cadical** — declared `options.hpp:125`, never read anywhere in its source.
-  The diagnosis probe `--factordelay=0 --factorthresh=0` therefore measured `factordelay` ALONE.
-- **`factordelay`'s polarity was read backwards.** It is an allowance ADDED to the elimination-round count
-  (`factor.cpp:941`), so `=0` is the MOST-delayed setting: the probe showed that delaying Factor **more**
-  costs cadical 2.3–9×, not that cadical's delay is what saves it.
-- **The gate never binds on either loser, for either solver** — log10(13,797)=4 ≤ 0+4 (ContextModel),
-  log10(2,200)=3 ≤ 0+4 (jgiraldez); ours (`default_policy.cpp:1176`) admits at active < 10⁵ with zero BVE
-  rounds. **We already match cadical here exactly.** "We factor in the preprocessing blast, cadical delays"
-  is false for the two instances task #11 is about.
-- **The first-dose allowance is measured INERT** — the one real reference divergence in this family (kissat
-  `factoriniticks` 700M, which we copied, vs cadical 300M). Probe 1577487, broad admission, 300M vs 700M:
-  **bit-identical on all three mechanism instances** (ctx 2,830,051 conflicts, jgi 5,071,531, sted5 271,014).
-  Not a skipped arm — the new `c factor … ticks` counter *explains* the inertness: Factor's spend over the
-  WHOLE solve is **104.4M / 10.9M / 30.9M ticks**, far under either constant, so neither can bind
-  ([[ab-arm-identical-artefacts]] discharged by evidence, as `factorcandrounds` was). Knob kept as a readable
-  arm (`TACTIX_FACTOR_INIT_TICKS`), default unchanged; sanity task reproduced mod4block at **418,796**
-  conflicts exactly, so shipped behaviour did not move. ctest 38/38.
-- **What this leaves.** The report's §4 mechanism still stands (ContextModel's damage IS ext-var branching,
-  31.4 % of decisions, 3.7× on the ablation), but its remedy — persistent/adaptive extension-var priority — is
-  now known to be a **NOVEL mechanism, not reference-matching**: our `heuristics_demote_fresh_vars`
-  (`heuristics.cpp:91`) is already a faithful analogue of cadical's
-  `adjust_scores_and_phases_of_fresh_variables` (`factor.cpp:769` — dequeue, bury, restamp), and **cadical's is
-  equally one-shot**; conflict analysis re-bumps there too. The banked `TACTIX_FACTOR_DEMOTE` arm already
-  shows the predicted trade (sted5 16 → 150 s). **One non-novel axis remains unexamined: WHICH factorings we
-  choose** — cadical adds *more* extension vars (627 vs 459) and is still 7× faster, so the choice, not the
-  count nor the timing, is where a like-for-like gap could still hide.
+### 2026-08-01 — ▶ task #11: mechanism LOCATED and reference-anchored; the fix REFUTED; broad admission's Tier B value REPRODUCED
+Report `benchmarks/reports/2026-08-01-task11-factor-admission-mechanism.md` (supersedes the routed lever of
+the 2026-07-31 profiling report §6). Four increments, four probes, three tier runs; new lessons **L19–L21**.
+- **The routed lever is refuted four ways** — `factorthresh` is dead code in cadical; `factordelay`'s polarity
+  was read backwards (`=0` is the MOST-delayed setting, so the probe showed delaying Factor *more* costs
+  cadical 2.3–9×); the gate **never binds on either loser for either solver**, i.e. we already match cadical
+  exactly; and the first-dose allowance (kissat 700M vs cadical 300M) is **measured inert**, explained by
+  Factor's 10.9–104M whole-solve tick spend. **L19.**
+- **The mechanism, anchored to the reference** (patched cadical built OUTSIDE the repo, L14): cadical branches
+  on ITS extension vars **0.10 %** of decisions on ContextModel where we do **31.39 %** (314×), 0.01 % vs
+  0.38 % on jgiraldez — but **8.81 % vs our 6.19 % on sted5, MORE than us**, while adding more ext vars
+  overall (627 vs 459). **Cadical DISCRIMINATES rather than suppresses**, which no static priority can do.
+  The channel is **reason-side bumping**: on ContextModel ext vars take **2.97× as many bumps per variable**
+  as originals and **71.68 % of those are reason-side ONLY**. A BVA extension variable *is* the hub of the
+  clauses it replaced, so it is promoted for its structural POSITION, not for evidence — and it
+  self-reinforces, which is why one-shot burial moves the share only 31.4 % → 32.2 %.
+- **The fix is REFUTED at tier level.** `TACTIX_NO_EXT_REASON_BUMP` (N1-clean, ships OFF) looked excellent
+  per-instance (ContextModel 2.4×, jgiraldez 12.3×) and is a **tier-wide negative**. Tier B 4-arm factorial
+  `20260801-105456`: shipped **105.65** (24/28) · **broad alone 64.15 (26/28)** · **arm ALONE 127.42 (23/28)**
+  · broad+arm 113.45 (24/28). Tier C `20260801-092459`: shipped **323.88 (29/30) vs cadical 315.38 = 1.027×**
+  · broad+arm **468.43 (27/30)**, losing mp1-Nb5T15 and j3037 outright. **The arm is independently harmful**,
+  not a trade.
+- **Two extrapolation errors of mine, banked as L21**: estimating a tier from a two-instance decomposition
+  (predicted B/C ~87/~334, measured 113.45/468.43), and measuring the fix against the arm it repaired rather
+  than against the shipped default (against the default ContextModel is **19.1 → 189.6 s, still 10× worse**).
+- **▶ THE STANDING POSITIVE: broad Factor admission alone reproduces, cleanly** — **64.15 (26/28) vs shipped
+  105.65** in a same-window factorial, independently confirming 2026-07-31's 65.86/26. It solves `sted5` and
+  `or_randxor`. Its Tier C cost remains the blocker, and every static control over it has now been measured:
+  formula shape (0 for 5), when it runs (matched), first-dose allowance (inert), extension-var priority
+  (refuted). **Per L18's precedent the exhaustion IS the result** — E2 Factor admission is the best-labelled
+  §5.6 dosing exhibit in the repo, with a named channel, an instrumented per-instance feature
+  (`c extbumps`) and a measured reference target. The decision belongs to the phase-6 learner.
+- Artefacts, all default-off/inert with mod4block identity re-confirmed at **418,796** conflicts:
+  `c factor … ticks`, `c extbumps` + `Stats::bumps{,_extension,_ext_reason_only}`,
+  `Kernel::no_ext_reason_bump`, `DefaultPolicy::FACTOR_INIT_TICKS`. ctest 38/38 throughout.
 
 ### 2026-07-31 — task #11 DIAGNOSED (not fixed): three mechanisms, four causes eliminated, the lever is WHEN Factor runs
 **SUPERSEDED IN PART by the 2026-08-01 entry above: its §6 routed lever ("*when* Factor runs") is refuted.**
