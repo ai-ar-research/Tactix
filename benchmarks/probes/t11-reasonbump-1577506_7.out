@@ -1,0 +1,58 @@
+=== label=sted5-nerb instance=sted5_0x24204-50 tier=tierB cap=600s arm=broad-nerb
+=== host=node017 date=2026-08-01T09:14:48-04:00 bin=/home/hwu/SAT-solving/build/pin-t11-c/tactix
+p cnf 2345 61876
+=== env: SCOPE_PCT=50 NO_EXT_REASON_BUMP=1
+c tactix 0.1.0
+c decisions   7273467 (0 via API)
+c conflicts   3426722
+c propagations 1062691650 (1058218726 search, 4472924 inprocess)
+c learned     3426722 (1 units)
+c learnedsize 32.56 avg lits, 12.45 avg glue
+c reduction   41.5% of resolved lits removed by minimize+shrink
+c minimized   58923356 lits
+c shrunken    20206226 lits
+c reasonbump  137604186 vars in 3425686 rounds (1027 aborted)
+c otfs        2482 strengthened (32 conflicts subsumed)
+c strengthen  54 rounds, 1214 strengthened, 2025 subsumed, 10466 flushed
+c vivify      25 rounds, 356 vivified, 0 deleted, 76061 checked
+c probe       0 rounds, 33639 probed, 0 failed
+c backbone    0 rounds, 40613 probed, 0 failed
+c transitive  0 rounds, 161027 checked, 1315 deleted, 0 failed, 12813281 ticks
+c substitute  15 rounds
+c bce         6 rounds, 13 deleted, 58116826 ticks
+c instantiate 0 rounds, 0 literals removed, 189 probed
+c ternary     49 rounds, 553560 resolvents, 0 binaries, 14386077 ticks
+c chrono      0 chronological, 0 stale backjumps
+c inprocess   18 phases
+c congruence  12 rounds, 0 units, 0 unjustified
+c extension   581 vars added, 91808 decisions on them (1.26% of 7273467)
+c extbumps    27823260 of 462147717 bumps on extension vars (6.02%), 0 reason-side only (0.00% of those)
+c factor      581 factorings, 10593530 large remainders offered, 126663354 ticks
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    119477 (53212 reused a trail prefix)
+c reductions  145 (3872952 clauses deleted, 860964 promoted)
+c mode        stable after 55 switches (15402979514 ticks, 446 target phases saved)
+c rephased    49 (308 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        12 walks (12 improved, 24579548 flips, 6366753249 steps)
+c subsume     54 rounds (2344661 checked, 67 subsumed)
+c timing      312329 ms solve
+c timing      13558 ms (4.3%) inprocessing slot, 298770 ms (95.7%) search+scaffolding outside it
+c timing        Vivify                5157 ms (  1.7%) in 25 applications
+c timing        Factor                4255 ms (  1.4%) in 49 applications
+c timing        Strengthen            1489 ms (  0.5%) in 54 applications
+c timing        SubsumeForward         888 ms (  0.3%) in 54 applications
+c timing        BCE                    607 ms (  0.2%) in 49 applications
+c timing        Probe                  461 ms (  0.1%) in 33639 applications
+c timing        Congruence             263 ms (  0.1%) in 12 applications
+c timing        HyperTernaryRes        219 ms (  0.1%) in 49 applications
+c timing        TransitiveReduce        87 ms (  0.0%) in 58719 applications
+c timing        Instantiate             17 ms (  0.0%) in 18 applications
+c timing        Backbone                14 ms (  0.0%) in 40613 applications
+c timing        Substitute               8 ms (  0.0%) in 15 applications
+c timing        (unattributed)          93 ms (  0.0%)
+s SATISFIABLE
+Command exited with non-zero status 10
+wall 312.57 s   maxrss 176448 KB
+=== done 2026-08-01T09:20:00-04:00

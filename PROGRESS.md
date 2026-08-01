@@ -667,6 +667,39 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-01 — task #11: the reason-side channel is CONFIRMED CAUSAL (2.4× and 12.3×) — blanket withholding is DEAD-TRADE
+Probe 1577506, same binary + same window both arms, broad admission throughout.
+
+| instance | base | `TACTIX_NO_EXT_REASON_BUMP=1` | |
+|---|---|---|---|
+| ContextModel | 403.1 s / 2.83 M conf / **31.39 %** ext-dec | **166.3 s / 1.37 M / 2.36 %** | **2.4×** |
+| jgiraldezlevy | 425.8 s / 5.07 M / 0.38 % | **34.5 s / 0.66 M / 0.10 %** | **12.3×** |
+| sted5 | 16.8 s / 0.27 M / 6.19 % | 312.6 s / 3.43 M / 1.26 % | **0.05× (18.6× WORSE)** |
+
+- **The mechanism is proven.** Removing ONE bump channel takes both Tier C losers to cadical-like
+  ext-decision shares — 2.36 % and 0.10 % against cadical's measured 0.10 % and 0.01 % — and buys 2.4× and
+  12.3×. No previous task-#11 knob moved either instance in the right direction at all. Conflicts fall with
+  the share (2.07× and 7.7×), so this is search quality, not overhead.
+- **And it is DEAD-TRADE as a BLANKET policy** (pre-registered kill: sted5 worse than 5×). sted5 needs the
+  opposite: cadical branches **8.81 %** there, the arm drove us to 1.26 %, and it costs 18.6×. A blanket rule
+  cannot express what cadical does, which is the whole point of the 2026-08-01 discrimination finding.
+- **Do NOT fit a static separator to this.** The reason-side share does order the three instances correctly
+  (ctx 71.7 % → withhold, jgi 46.4 % → withhold, sted5 36.2 % → do not), but that is a **3-point separation
+  with a 10-point margin**, and **L15** is explicit that a clean separating feature is insufficient — four
+  such gates lost badly to no gate, and formula-shape separators are 0 for 5. This is the SIXTH knob to trade
+  one instance for another (after L15's trio, L17's round cap, L18's BCE controls, and the V4 budget).
+- **▶ THE STANDING VALUE: E2 Factor admission is now the best-instrumented §5.6 exhibit we have** — a named
+  channel (`REASON_BUMP` on `v >= first_extension_var`), a per-instance feature already measured
+  (`c extbumps` reason-side share), a measured reference target (cadical's per-instance ext-decision share),
+  and a two-sided payoff of 2.4–12.3× against 18.6×. The phase-6 learner does not need a new mechanism here,
+  only the decision.
+- **▶ WORTH A TIER PAIR NOW, THOUGH** — because the arm fixes exactly the two instances that made broad
+  admission unshippable. Arithmetic on the shipped numbers: ContextModel −288 s and jgiraldez −431 s is
+  −24 PAR-2 on Tier C, taking broad admission's **357.64 → ~334 (~1.054× cadical, INSIDE T3's 10 % band)**,
+  while Tier B loses sted5 back to the 300 s cap, taking **65.86 → ~87, still −18 against the shipped
+  105.30**. If that holds, broad admission ships and the Tier B gap halves. Estimated, NOT measured —
+  the tier pair is the next action.
+
 ### 2026-08-01 — task #11: the channel is REASON-SIDE BUMPING — 71.7 % of ContextModel's ext-var bumps, and it self-reinforces
 Probe 1577502 (`c extbumps`, new counters `Stats::bumps{,_extension,_ext_reason_only}`) attributes every bump
 to its channel — conflict-side (`SEEN`: resolution-visited or in the learned clause) vs reason-side only.
