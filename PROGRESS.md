@@ -452,9 +452,12 @@ residuals): the four tail instances were 69 % of Tier B time, each with a differ
     `20260801-092756`.** The un-crippling is REAL (DRAT bytes −12.0 %; FmlaEquiv **−18.7 % conflicts / −12 % wall, non-overlapping replicate
     ranges**, where the crippled version gives +1.3 %). Cost: **+2.0 % on Tier B(28)** — but **core14 and new14 give OPPOSITE orderings of
     ON vs CRIPPLED** (core14: ON inside the OFF noise band, CRIPPLED ~7 % above it; new14: ON +2 %, CRIPPLED free), so neither aggregate is the
-    verdict — L12/L16 in one table. **The July −9.2 % does NOT reproduce for the un-crippled arm on its own instrument.** **qwh reproduces at 3.1×
-    (pre-registered kill K5) — ships OFF, no default flip recommended.** Real home = the §5.6 exhibit: **one** reuse halves crypto1's conflicts,
-    67 quadruple qwh's — chaotic in the dose (L12), no static separator to look for
+    verdict — L12/L16 in one table. **The July −9.2 % does NOT reproduce for the un-crippled arm on its own instrument.** **Tier C(30)
+    `20260801-094032`, replicate spread 2.40: OFF 331.33/333.73 · ON 343.85 · CRIPPLED 342.63 — ON and CRIPPLED indistinguishable**, and the whole
+    +3.4 % is TWO instances (ContextModel **19.1×** off the tier's most reproducible instance, af-synthesis 5.1×) against big wins elsewhere
+    (EDP3 0.35×, DLTM 0.41×, em_11 0.57×, T105 0.77×). **qwh 3.1× + those two = pre-registered kills K5 → ships OFF, no default flip
+    recommended.** Real home = the §5.6 exhibit: **one** reuse halves crypto1's conflicts, 67 quadruple qwh's — chaotic in the dose (L12), and the
+    proof-size axis FLIPS SIGN between tiers (B −12.0 %, C +8.1 %), so "fewer learned clauses" is not a proxy for whether it pays
 - [x] **TB5** · CLOSED-REFRAMED 2026-07-25 (probes 1562819–26): per-prop cost is AT PARITY with kissat on all residuals — the
   flat-1.39×-throughput premise was stale; the residual is SEARCH SHAPE (s055 props/conflict 1.43× at conflict parity; FmlaEquiv conflicts 1.53×;
   x9 parity). Watch-layout engineering lane measured-dead; s055 → phase-6 admission exhibit; lesson: kissat's `propagations` stat includes
@@ -670,6 +673,11 @@ audit) and `a489bb7` (the attribution arm). Ships OFF — **no default flip reco
   kill), PRP 1.63×, Timetable 1.65×. **But core14 and new14 order ON vs CRIPPLED OPPOSITELY** (core14: ON
   inside the OFF band 10.27–10.84, CRIPPLED 11.11 above all of it; new14: ON +2 %, CRIPPLED free), so neither
   aggregate is the verdict. The July −9.2 % does NOT reproduce for the un-crippled arm on its own instrument.
+- **Tier C(30) `20260801-094032`, replicate spread 2.40:** OFF 331.33/333.73 · ON 343.85 · CRIPPLED 342.63 —
+  **ON and CRIPPLED indistinguishable**, so on Tier C the cost is the MECHANISM, not the repair. The whole
+  +3.4 % is TWO instances (ContextModel **19.1×** — off a 20.06/19.97 replicate pair, the tier's most stable —
+  and af-synthesis 5.1×) against EDP3 0.35×, DLTM 0.41×, em_11 0.57×, T105 0.77×, asconhash 0.83×.
+  Proof bytes FLIP SIGN between tiers (B −12.0 %, C +8.1 %): "fewer learned clauses" is not a payoff proxy.
 - **Lesson (L12 family):** the effect is CHAOTIC IN THE DOSE — **one** reuse halves crypto1's conflicts, 67
   quadruple qwh's. There is no static separator to look for; this is §5.6 exhibit material, cleanly labelled.
 - Fuzz 6 × 10k/0 (DRAT + native LRAT × default / `--random-policy` / `--reuse-stress-policy`, ASan+UBSan),

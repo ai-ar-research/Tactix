@@ -189,9 +189,46 @@ Four things this table settles.
    the bump set both diverge from the first firing onward; magnitude is uncorrelated with dose. Same
    family as L12.
 
-### 5.3 Tier C(30), window `20260801-094032`
+### 5.3 Tier C(30), window `20260801-094032` (4 arms, one window, throttle 24)
 
-<!--TIERC-->
+| arm | PAR-2 | solved | DRAT bytes |
+|---|---|---|---|
+| `tb4b-off`  | **331.33** | 29/30 | 7,591.3 MB |
+| `tb4b-offB` | **333.73** | 29/30 | 7,591.3 MB |
+| `tb4b-on`   | 343.85 | 29/30 | 8,206.3 MB |
+| `tb4b-crip` | 342.63 | 29/30 | 8,209.3 MB |
+
+Same 29/30 in every arm, 0 mismatches, 0 proof rejections, all 15 UNSAT proofs drat-trim-VERIFIED.
+**Measured replicate spread this window: 2.40 PAR-2** (tighter than the standing ~10.8 floor, which
+was taken at throttle 48) — but per instance the OFF pair still spans **0.88–1.30×**
+(sat-bench-trig-bhaskara 1.30, DLTM 1.18, asconhash 0.92).
+
+OFF mean 332.53 → ON 343.85 = **+11.3 PAR-2 (+3.4 %)**, about 5× the aggregate replicate spread, so
+real as an aggregate — but it is **two instances**, and the arm is otherwise two-sided:
+
+| instance | off | offB | on | crip | on/off |
+|---|---|---|---|---|---|
+| ContextModel_output_7_3_9 | 20.06 | 19.97 | **382.74** | 376.03 | **19.1×** |
+| af-synthesis_stb_50_120_4 | 38.27 | 33.73 | **196.71** | 266.28 | **5.1×** |
+| minxor128 | 355.36 | 370.36 | 523.57 | 456.66 | 1.47× |
+| mp1-Nb5T15 | 70.65 | 68.30 | 96.52 | 119.95 | 1.37× |
+| … | | | | | |
+| T105.2.0 | 655.09 | 671.94 | 504.12 | 678.16 | 0.77× |
+| asconhashv12 | 865.99 | 794.95 | 716.35 | 628.35 | 0.83× |
+| em_11_3_4_cmp | 106.42 | 113.64 | 60.15 | 73.01 | 0.57× |
+| DLTM_twitter690 | 76.80 | 90.99 | 31.59 | 35.88 | 0.41× |
+| EDP3-11000 | 146.29 | 160.52 | **51.07** | 19.55 | **0.35×** |
+
+ContextModel's OFF pair is 20.06 / 19.97 — the single most reproducible instance in the tier — and the
+arm takes it to 382.74 s. That is the same instance the *Factor* broad-admission work found
+pathological (task #11, 31.4 % of its decisions on extension variables), which is a hint about where
+the sensitivity lives, not a finding.
+
+**On Tier C the crippled and un-crippled arms are indistinguishable** (342.63 vs 343.85, inside the
+2.40 spread), and both carry the two catastrophic instances. So Tier C says the *mechanism* is the
+problem here, not the repair — the same conclusion §5.2 reached on qwh from the opposite direction.
+Proof bytes go the OTHER way from Tier B (+8.1 % rather than −12.0 %): reuse learns nothing per
+event, but the trajectories it opens are longer on this set.
 
 ## 6. Verdict
 
@@ -202,12 +239,20 @@ Four things this table settles.
   band (ON/OFF ≈ 1.01 against a ±0.5 PAR-2 spread), while the *crippled* arm is the one that lands
   ~7 % above OFF. What the mechanism costs today is **~2 % on Tier B(28)**, concentrated in three
   new14 instances.
-- **K5 fired**, so by the pre-registered rule I do **not** recommend flipping the default. The
-  shipped default stays OFF, and this is the user's call in any case.
-- What the shortcut *is*, on this evidence, is an **eighth §5.6 dosing/admission exhibit with an
-  unusually clean label**: the same mechanism is −18.7 % conflicts on FmlaEquiv and +310 % on qwh,
-  the effect is chaotic in the dose (one firing halves crypto1), and both extremes are visible at
-  every setting. There is no static separator here to look for — L15/L18's shape exactly.
+- **K5 fired**, and Tier C adds two more: ContextModel **19.1×** off the most reproducible instance in
+  the tier, af-synthesis **5.1×**. By the pre-registered rule I do **not** recommend flipping the
+  default. The shipped default stays OFF, and this is the user's call in any case.
+- **Tier C: OFF 331.33 / 333.73 vs ON 343.85 (+3.4 %), and CRIPPLED 342.63 — indistinguishable from
+  ON.** So on Tier C the cost belongs to the *mechanism*, not to the repair. Combined with §5.2's
+  finding that the repair *mitigates* qwh (7.8× → 4.1× conflicts), the repair is not what makes this
+  arm expensive anywhere we measured.
+- What the shortcut *is*, on this evidence, is a **§5.6 dosing/admission exhibit with an unusually
+  clean label**: the same mechanism is −18.7 % conflicts on FmlaEquiv, −65 % wall on EDP3-11000 and
+  −59 % on DLTM, against +310 % on qwh and +1,808 % on ContextModel — and it is **chaotic in the
+  dose** (one firing halves crypto1's conflicts; 67 quadruple qwh's). Both extremes are present at
+  every setting, so there is no static separator to look for — L15/L18's shape exactly. Note the
+  proof-size axis flips sign between tiers (Tier B −12.0 %, Tier C +8.1 %), which kills "fewer learned
+  clauses" as a proxy for whether it is paying.
 
 ## 7. Not done (next steps, in the order TB4b lists them)
 
