@@ -171,6 +171,10 @@ struct Stats {
   uint64_t transitive_deleted = 0; // transitively redundant binaries deleted
   uint64_t transitive_failed = 0;  // sources abandoned to Probe as failed (V4)
   uint64_t substitute_rounds = 0;  // Substitute rounds (V3) — detection passes
+  // Variables actually SUBSTITUTED away by V3, summed over applications. The
+  // consumer side of `congruence_merges`: the 2026-07-30 diagnosis could not
+  // tell whether V3 removes the 161,462 equivalences V6 finds on `veer_axi`.
+  uint64_t substitute_vars = 0;
   // Inprocessing PHASES run by the policy (each = a root descent + one dose per
   // enabled technique). Counted in the kernel so it survives into the stats
   // block: L7's open question is whether repeated-BVE cost tracks this number
@@ -200,6 +204,13 @@ struct Stats {
   // Root units derived from degenerate gates (V6's unit channel, D-CONG-UNIT):
   // an XOR whose representative inputs all cancel forces its output.
   uint64_t congruence_units = 0;
+  // Owed instrumentation, flagged by the 2026-07-30 Tier B timeout diagnosis:
+  // `c congruence` printed neither gates nor merges, so on `veer_axi` whether
+  // V3 Substitute actually consumes the 161,462 equivalences V6 finds was
+  // UNANSWERABLE from a run. Gates EXTRACTED and equivalences MERGED, summed
+  // over all applications.
+  uint64_t congruence_gates = 0;
+  uint64_t congruence_merges = 0;
   uint64_t factorings = 0;
   // R5 diagnostic: multi-literal remainders OFFERED by the widened grid scope.
   // Zero here with factor_size >= 3 means the widened branch never fired at all,

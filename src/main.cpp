@@ -417,8 +417,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.transitive_deleted,
            (unsigned long long)kernel.stats.transitive_failed,
            (unsigned long long)kernel.stats.transitive_ticks);
-    printf("c substitute  %llu rounds\n",
-           (unsigned long long)kernel.stats.substitute_rounds);
+    printf("c substitute  %llu rounds, %llu vars substituted\n",
+           (unsigned long long)kernel.stats.substitute_rounds,
+           (unsigned long long)kernel.stats.substitute_vars);
     // Track R families: registered and N1-reachable, not scheduled by
     // DefaultPolicy yet — without these lines "did the new rule even fire?"
     // is unanswerable from a normal run (the same gap V6/E2 once had).
@@ -449,8 +450,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.conflict_watch_repaired);
     printf("c inprocess   %llu phases\n",
            (unsigned long long)kernel.stats.inprocess_phases);
-    printf("c congruence  %llu rounds, %llu units, %llu unjustified\n",
+    printf("c congruence  %llu rounds, %llu gates, %llu merges, %llu units, "
+           "%llu unjustified\n",
            (unsigned long long)kernel.stats.congruence_rounds,
+           (unsigned long long)kernel.stats.congruence_gates,
+           (unsigned long long)kernel.stats.congruence_merges,
            (unsigned long long)kernel.stats.congruence_units,
            (unsigned long long)kernel.stats.congruence_unjustified);
     printf("c extension   %u vars added, %llu decisions on them (%.2f%% of "

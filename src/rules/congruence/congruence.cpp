@@ -1472,6 +1472,8 @@ ApplyResult congruence_apply(Kernel &k) {
   if (std::getenv("TACTIX_CONG_TRACE"))
     std::fprintf(stderr, "[cong] %zu gates, %llu equivalences added\n",
                  gates.size(), (unsigned long long)neq);
+  k.stats.congruence_gates += gates.size();
+  k.stats.congruence_merges += neq;
   if (unsat)
     return ApplyResult::Unsat;
 

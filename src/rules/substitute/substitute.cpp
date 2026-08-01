@@ -566,6 +566,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       continue;
     const Lit s = r.repr[l];
     const Lit rest_a[1] = {s};
+    k.stats.substitute_vars++; // one per substituted variable (see Stats)
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
     const Lit rest_b[1] = {negate(s)};
     kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}

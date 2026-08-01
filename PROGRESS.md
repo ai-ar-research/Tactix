@@ -57,7 +57,9 @@ profiling report's §6 routing). Read that before touching E2 admission again.
 polled by V6 Congruence at five safe points; worst-case SIGTERM latency **18.4 → 2.9 s**, proof
 byte-identical when uninterrupted, stop-fuzz 4 × 10k/0). Residual: ~2–3 s still unattributed, and the
 original ~40 s/~1,100 s case was never reproduced — other long rules have no polls yet.
-(b) The remaining Tier B walls: **`veer_axi`** (V4 TransitiveReduce's own runtime is 26–49 % of its clock,
+(b) The remaining Tier B walls. **`veer_axi` — START WITH THE NEW LEAD, not TransitiveReduce: V6 finds
+**179,110 merges** and V3 Substitute consumes **ZERO** (probe 1578218, Log 2026-08-01).** The old framing
+(V4 TransitiveReduce's own runtime is 26–49 % of its clock,
 8.7 × 10⁹ ticks where kissat spends 0.03 s — a ~1000× engineering gap on one rule; even a 4× fix leaves it
 at 550 s against a 300 s cap) and **`unsat-set-b-fclqcolor`**. (c) Track R · R5 S-c (Sweep candidate
 selection — its DoD MUST include fuzz legs on both proof formats) then S-d…S-f, Track R · R6–R8.
@@ -720,6 +722,29 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-01 — ▶ veer_axi: V6 finds **179,110 merges** and V3 Substitute consumes **ZERO** — the owed question, answered
+The 2026-07-30 Tier B timeout diagnosis flagged this as owed instrumentation: "`c congruence` prints neither
+gates nor merges, so whether Substitute removes the 161,462 equivalences Congruence finds on veer is
+UNKNOWN". Both counters added (`congruence_gates`/`congruence_merges`, and `substitute_vars` — `c substitute`
+previously printed only ROUNDS, so the consumer side was equally unanswerable). Probe 1578218, 300 s cap:
+```
+c substitute  5 rounds, 0 vars substituted
+c congruence  6 rounds, 2325340 gates, 179110 merges, 0 units, 0 unjustified
+c transitive  0 rounds, 999154 checked, 210966 deleted, 2 failed, 8736859973 ticks
+c timing      TransitiveReduce 109697 ms (36.6%) in 544088 applications · Congruence 9705 ms · Substitute 310 ms
+```
+- **V3 is INERT on veer_axi despite 179,110 equivalences being available** — five rounds, 310 ms, zero
+  variables substituted. The equivalences are found, proof-logged as binaries, and then **not collapsed**.
+  V6's own cost is only 3.2 % here, so this is not V6 being wasteful; it is V6's OUTPUT being dropped.
+- **This is a new, concrete lead and it is NOT the TransitiveReduce engineering gap** (which is real and
+  separate: 36.6 % of the clock, 8.7 × 10⁹ ticks, **544,088 applications**, against kissat's 0.03 s).
+  Hypotheses, untested: V3 detects equivalences independently rather than reading V6's union-find; a budget
+  cuts it; the phase order runs V3 before V6 so it never sees the new binaries; or `substitutable()` is
+  blocked by something structural on this instance. **Cheap to discriminate and worth doing before any
+  TransitiveReduce work** — 179k unconsumed equivalences is a larger prize than a constant-factor fix on a
+  rule whose 4× improvement still leaves the instance over the cap.
+- Instrumentation is default-on, counter-only; ctest 38/38.
 
 ### 2026-08-01 — ▶ task #10 DONE: rules now poll the interrupt; worst-case SIGTERM latency 18.4 s → 2.9 s
 The §6 defect closed. `stop` was a `Policy::solve` PARAMETER, so no rule could see it — and polling at the

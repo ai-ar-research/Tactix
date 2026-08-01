@@ -1,0 +1,10 @@
+p cnf 521158 1306928
+### veer_axi, 300 s cap (Tier B cap) — does V3 consume what V6 finds?
+c conflicts   15927
+c transitive  0 rounds, 999154 checked, 210966 deleted, 2 failed, 8736859973 ticks
+c substitute  5 rounds, 0 vars substituted
+c congruence  6 rounds, 2325340 gates, 179110 merges, 0 units, 0 unjustified
+c timing        TransitiveReduce    109697 ms ( 36.6%) in 544088 applications
+c timing        Congruence            9705 ms (  3.2%) in 6 applications
+c timing        Substitute             310 ms (  0.1%) in 5 applications
+s UNKNOWN
