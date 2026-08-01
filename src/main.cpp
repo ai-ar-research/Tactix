@@ -288,6 +288,8 @@ int main(int argc, char **argv) {
   // usable A/B arm.
   if (getenv("TACTIX_CONFLICT_REUSE"))
     kernel.conflict_reuse = true;
+  if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
+    kernel.conflict_reuse_no_repair = true;
   Proof proof;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {

@@ -645,6 +645,13 @@ struct Kernel {
   // (implementation-notes.md §12). Both that defect and the watch-repair
   // crippling are fixed; see PROGRESS TB4b for the re-measurement.
   bool conflict_reuse = false;
+  // DIAGNOSTIC ONLY (TACTIX_CONFLICT_REUSE_NOREPAIR=1, needs conflict_reuse
+  // too): restore the CRIPPLED behaviour — decline the shortcut instead of
+  // repairing the watches. It exists to attribute the arm's tier verdict
+  // between "the crippling" and "the mechanism", which is otherwise
+  // unanswerable: an ON-vs-OFF pair cannot tell them apart. Not a shipped
+  // setting and not a policy surface; both values are sound.
+  bool conflict_reuse_no_repair = false;
   // Reason-side bumping (kissat option bumpreasonslimit, cadical
   // bumpreasonlimit — both 10): after the learned clause is final, also mark
   // for bumping the literals of the REASONS of the clause's own literals, up
