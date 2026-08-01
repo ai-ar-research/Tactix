@@ -1,0 +1,7 @@
+sanity|tierB|mod4block_2vars_10gates_u2_autoenc|300|default
+ctx-a700|tierC|ContextModel_output_7_3_9|1200|broad
+ctx-a300|tierC|ContextModel_output_7_3_9|1200|broad-300
+jgi-a700|tierC|jgiraldezlevy.2200.9086|1200|broad
+jgi-a300|tierC|jgiraldezlevy.2200.9086|1200|broad-300
+sted5-a700|tierB|sted5_0x24204-50|600|broad
+sted5-a300|tierB|sted5_0x24204-50|600|broad-300

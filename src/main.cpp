@@ -439,9 +439,14 @@ int main(int argc, char **argv) {
                      (double)kernel.stats.decisions
                : 0.0,
            (unsigned long long)kernel.stats.decisions);
-    printf("c factor      %llu factorings, %llu large remainders offered\n",
+    // factor_ticks is the S4 dosing currency (and what the first-dose
+    // allowance FACTOR_INIT_TICKS caps): printing it is what distinguishes
+    // "the allowance bound the opening burst" from "the arm was inert".
+    printf("c factor      %llu factorings, %llu large remainders offered, "
+           "%llu ticks\n",
            (unsigned long long)kernel.stats.factorings,
-           (unsigned long long)kernel.stats.factor_large_remainders);
+           (unsigned long long)kernel.stats.factor_large_remainders,
+           (unsigned long long)kernel.stats.factor_ticks);
     printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,

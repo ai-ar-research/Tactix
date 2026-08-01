@@ -39,12 +39,21 @@ DIAGNOSED 2026-07-31 (report `2026-07-31-factor-broad-admission-profiling.md`), 
   prune only 0.72 % / 0.89 % / **0.00 %** of literals on ctx / jgi / sted5); and **our own one-shot fresh-var
   demotion**, which *fails at its purpose* (ext-decision share 31.4 % → 32.2 %, because conflict analysis
   re-bumps them to `queue_last`).
-- **SURVIVING LEVER: *when* Factor runs.** Forcing cadical eager (`--factordelay=0 --factorthresh=0`)
-  degrades **cadical itself** 2.3–9× toward our regime on both instances. We factor in the preprocessing
-  blast; cadical delays BVA between eliminations (`factordelay=4`) and skips it when ticks are small vs the
-  clause count (`factorthresh=7`). Secondary lever: extension-var priority must be **adaptive and
-  persistent**, not one-shot. This is rule-dev + the scheduling track, and it touches DefaultPolicy's slot
-  structure — **not** a fifth formula-shape separator (that family is **0 for 5**).
+- **~~SURVIVING LEVER: *when* Factor runs~~ — REFUTED 2026-08-01, do not pursue** (Log + **L19**). That
+  routing rested on a misread probe: `factorthresh` is **dead code in cadical** (declared, never read) and
+  `factordelay` is an *allowance added* to the elimination-round count, so `=0` is the MOST-delayed setting —
+  the probe showed delaying Factor **more** costs cadical 2.3–9×. On both losers the gate **never binds for
+  either solver** (log10 13,797 = 4 ≤ 0+4; log10 2,200 = 3 ≤ 0+4), and ours admits at active < 10⁵ with zero
+  BVE rounds: **we already match cadical exactly here.** The family's last member, the first-dose allowance
+  (kissat 700M vs cadical 300M), is **measured INERT** — bit-identical on all three mechanism instances,
+  because Factor's whole-solve spend is only 10.9–104M ticks (probe 1577487).
+- **WHAT ACTUALLY REMAINS.** The ext-var-branching mechanism (§4) stands, but its remedy — persistent/adaptive
+  extension-var priority — is a **NOVEL mechanism, not reference-matching**: our `heuristics_demote_fresh_vars`
+  already faithfully mirrors cadical's `adjust_scores_and_phases_of_fresh_variables`, and **cadical's is
+  equally one-shot** (analysis re-bumps there too). Prior evidence predicts it trades sted5
+  (`TACTIX_FACTOR_DEMOTE`: 16 → 150 s). **The one non-novel axis still unexamined is WHICH factorings we
+  choose** — cadical adds *more* extension vars (627 vs 459) and is still 7× faster, so neither the count nor
+  the timing explains the gap. Start there. Still **not** a fifth formula-shape separator (0 for 5).
 
 **THEN, in order.** (a) **Task #10** — §6 compliance: the inprocessing slot barely polls the stop flag; the
 real blocker is V6 Congruence, 131,327 ms over 3 applications, unmetered (SIGTERM-deaf ~1,100 s).
@@ -276,6 +285,21 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   portable when we depend on the rule and the reference does not (cadical ships `block` OFF). Also note
   kissat does mod4block in 19.4 s with NO BCE, so our dependence there is a tactix-specific crutch.
   (probes 1573320/1573405–07; Log 2026-07-29.)
+- **L19 · READ A REFERENCE OPTION'S SOURCE BEFORE INTERPRETING A PROBE THAT SETS IT — polarity and even
+  liveness cannot be inferred from the name or the help string.** The task-#11 diagnosis routed its primary
+  lever off the probe `cadical --factordelay=0 --factorthresh=0`. Both halves were misread. (a) **`factorthresh`
+  is declared at `options.hpp:125` and never read anywhere in cadical's source** — that half of the probe was
+  dead code, so the measured effect belongs entirely to the other flag. (b) **`factordelay` is an ALLOWANCE
+  ADDED to the elimination-round count**, not a delay in the plain sense (`factor.cpp:941`:
+  `delay_limit = eliminations + delay`, skip when `log_active > delay_limit`; kissat `factor.c:1074` is the
+  same shape) — so `=0` is the MOST-delayed setting and the probe showed that delaying Factor **more** costs
+  cadical 2.3–9×, the OPPOSITE of the "cadical delays, we blast" reading it was given. (c) Checked against the
+  instances, the gate **never binds for either solver**: log10(13,797) = 4 ≤ 0+4 on ContextModel,
+  log10(2,200) = 3 ≤ 0+4 on jgiraldez, and our analogue (`default_policy.cpp:1176`) admits at
+  active < 10⁵ with zero BVE rounds — **behaviourally identical**. A frozen report's routed lever survived
+  three windows on a flag that does nothing and a flag read backwards. Corollary, same family as L14: when a
+  probe's verdict rests on a reference's knob, `grep` the knob in the reference's *source*, not its options
+  table. (2026-08-01; probe 1577487 + `benchmarks/probes/t11-initticks.sh` header.)
 - **L16 · A per-instance-REPRODUCIBLE effect can still give a non-reproducible tier aggregate — and an aggregate that matches its prediction
   can be a coincidence of sums.** The slot-rate-2‰ arm saved 26.1 PAR-2 in one Tier C window (1.065× cadical, gate met) and 8.8 in the next
   (1.101×, gate missed), while **28 of 30 instances kept the same sign and near-identical magnitude** — the swing came from a few 500–1100 s
@@ -637,7 +661,38 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-01 — task #11: the WHOLE "when Factor runs" family is now eliminated — the routed lever was a misread probe
+The entry below routed task #11 to "*when* Factor runs". **That routing is wrong, and all three members of the
+family are now closed** (source-verified + probe 1577487; new standing lesson **L19**).
+- **`factorthresh` is dead code in cadical** — declared `options.hpp:125`, never read anywhere in its source.
+  The diagnosis probe `--factordelay=0 --factorthresh=0` therefore measured `factordelay` ALONE.
+- **`factordelay`'s polarity was read backwards.** It is an allowance ADDED to the elimination-round count
+  (`factor.cpp:941`), so `=0` is the MOST-delayed setting: the probe showed that delaying Factor **more**
+  costs cadical 2.3–9×, not that cadical's delay is what saves it.
+- **The gate never binds on either loser, for either solver** — log10(13,797)=4 ≤ 0+4 (ContextModel),
+  log10(2,200)=3 ≤ 0+4 (jgiraldez); ours (`default_policy.cpp:1176`) admits at active < 10⁵ with zero BVE
+  rounds. **We already match cadical here exactly.** "We factor in the preprocessing blast, cadical delays"
+  is false for the two instances task #11 is about.
+- **The first-dose allowance is measured INERT** — the one real reference divergence in this family (kissat
+  `factoriniticks` 700M, which we copied, vs cadical 300M). Probe 1577487, broad admission, 300M vs 700M:
+  **bit-identical on all three mechanism instances** (ctx 2,830,051 conflicts, jgi 5,071,531, sted5 271,014).
+  Not a skipped arm — the new `c factor … ticks` counter *explains* the inertness: Factor's spend over the
+  WHOLE solve is **104.4M / 10.9M / 30.9M ticks**, far under either constant, so neither can bind
+  ([[ab-arm-identical-artefacts]] discharged by evidence, as `factorcandrounds` was). Knob kept as a readable
+  arm (`TACTIX_FACTOR_INIT_TICKS`), default unchanged; sanity task reproduced mod4block at **418,796**
+  conflicts exactly, so shipped behaviour did not move. ctest 38/38.
+- **What this leaves.** The report's §4 mechanism still stands (ContextModel's damage IS ext-var branching,
+  31.4 % of decisions, 3.7× on the ablation), but its remedy — persistent/adaptive extension-var priority — is
+  now known to be a **NOVEL mechanism, not reference-matching**: our `heuristics_demote_fresh_vars`
+  (`heuristics.cpp:91`) is already a faithful analogue of cadical's
+  `adjust_scores_and_phases_of_fresh_variables` (`factor.cpp:769` — dequeue, bury, restamp), and **cadical's is
+  equally one-shot**; conflict analysis re-bumps there too. The banked `TACTIX_FACTOR_DEMOTE` arm already
+  shows the predicted trade (sted5 16 → 150 s). **One non-novel axis remains unexamined: WHICH factorings we
+  choose** — cadical adds *more* extension vars (627 vs 459) and is still 7× faster, so the choice, not the
+  count nor the timing, is where a like-for-like gap could still hide.
+
 ### 2026-07-31 — task #11 DIAGNOSED (not fixed): three mechanisms, four causes eliminated, the lever is WHEN Factor runs
+**SUPERSEDED IN PART by the 2026-08-01 entry above: its §6 routed lever ("*when* Factor runs") is refuted.**
 Report: `benchmarks/reports/2026-07-31-factor-broad-admission-profiling.md`. Why broad Factor admission is
 7–28× worse for us than cadical on ContextModel / jgiraldezlevy.
 - **cadical's Factor is load-bearing there, not idle** — `--factor=false` costs it 5.9× conflicts on

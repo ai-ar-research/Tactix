@@ -1,0 +1,57 @@
+=== label=jgi-a300 instance=jgiraldezlevy.2200.9086 tier=tierC cap=1200s arm=broad-300
+=== host=node017 date=2026-08-01T08:44:28-04:00 bin=/home/hwu/SAT-solving/build/pin-t11-a/tactix
+p cnf 2200 9086
+=== env: SCOPE_PCT=50 INIT_TICKS=300000000
+c tactix 0.1.0
+c decisions   10598704 (0 via API)
+c conflicts   5071531
+c propagations 1558693916 (1554426789 search, 4267127 inprocess)
+c learned     5071531 (37 units)
+c learnedsize 27.68 avg lits, 13.28 avg glue
+c reduction   36.7% of resolved lits removed by minimize+shrink
+c minimized   63034059 lits
+c shrunken    18469657 lits
+c reasonbump  159865437 vars in 5070724 rounds (802 aborted)
+c otfs        6041 strengthened (198 conflicts subsumed)
+c strengthen  60 rounds, 148 strengthened, 688 subsumed, 9851 flushed
+c vivify      34 rounds, 2826 vivified, 0 deleted, 183879 checked
+c probe       0 rounds, 28794 probed, 2 failed
+c backbone    0 rounds, 28791 probed, 2 failed
+c transitive  0 rounds, 50330 checked, 798 deleted, 9 failed, 4192365 ticks
+c substitute  13 rounds
+c bce         10 rounds, 111 deleted, 43941845 ticks
+c instantiate 5 rounds, 18 literals removed, 2977 probed
+c ternary     56 rounds, 71214 resolvents, 1 binaries, 4329904 ticks
+c chrono      6 chronological, 0 stale backjumps
+c inprocess   20 phases
+c congruence  13 rounds, 0 units, 0 unjustified
+c extension   76 vars added, 40081 decisions on them (0.38% of 10598704)
+c factor      76 factorings, 1326536 large remainders offered, 10865378 ticks
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    161278 (65540 reused a trail prefix)
+c reductions  177 (4986087 clauses deleted, 1282264 promoted)
+c mode        stable after 61 switches (21553874217 ticks, 463 target phases saved)
+c rephased    59 (254 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        15 walks (15 improved, 256821441 flips, 10513192328 steps)
+c subsume     60 rounds (434220 checked, 11 subsumed)
+c timing      451124 ms solve
+c timing      10655 ms (2.4%) inprocessing slot, 440469 ms (97.6%) search+scaffolding outside it
+c timing        Vivify                8585 ms (  1.9%) in 34 applications
+c timing        Factor                 555 ms (  0.1%) in 59 applications
+c timing        BCE                    472 ms (  0.1%) in 59 applications
+c timing        Probe                  334 ms (  0.1%) in 28794 applications
+c timing        Strengthen             263 ms (  0.1%) in 60 applications
+c timing        SubsumeForward         108 ms (  0.0%) in 60 applications
+c timing        Instantiate             98 ms (  0.0%) in 20 applications
+c timing        HyperTernaryRes         85 ms (  0.0%) in 56 applications
+c timing        Congruence              47 ms (  0.0%) in 13 applications
+c timing        TransitiveReduce        35 ms (  0.0%) in 39103 applications
+c timing        Backbone                10 ms (  0.0%) in 28791 applications
+c timing        Substitute               2 ms (  0.0%) in 13 applications
+c timing        (unattributed)          60 ms (  0.0%)
+s SATISFIABLE
+Command exited with non-zero status 10
+wall 451.18 s   maxrss 119792 KB
+=== done 2026-08-01T08:51:59-04:00

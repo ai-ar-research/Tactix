@@ -426,6 +426,18 @@ public:
   // comment for why the pair is one mechanism.
   uint32_t bump_reasons_limit_ = 0;
   double bump_reasons_rate_ = BUMP_REASONS_RATE;
+  // Factor's FIRST-DOSE allowance (S4 design §3.b). The two references
+  // DISAGREE here and we inherited kissat's: kissat `factoriniticks` 700
+  // (options.h:59, millions) vs cadical `factoriniticks` 300 (options.hpp:123)
+  // — cadical gives its opening BVA burst 2.3x LESS room, and cadical is the
+  // solver that is 7-28x faster than us on the two instances broad admission
+  // loses (task #11). This is the one surviving "how much Factor runs up
+  // front" lever that is grounded in a reference constant rather than a novel
+  // mechanism; `factordelay` is NOT (see the 2026-08-01 log entry: our gate
+  // and cadical's are behaviourally identical on both losers — neither binds).
+  // Arm: TACTIX_FACTOR_INIT_TICKS (raw ticks). Default unchanged.
+  static constexpr uint64_t FACTOR_INIT_TICKS = 700000000ull;
+  uint64_t factor_init_ticks_ = FACTOR_INIT_TICKS;
   // kissat's delay ladder (kimits.c bump/reduce_delay): every round that
   // hits the mark limit doubles the number of conflicts the pass is skipped
   // for, every round that fits halves it. This is what keeps the extra

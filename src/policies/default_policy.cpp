@@ -480,6 +480,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   bump_reasons_rate_ = BUMP_REASONS_RATE;
   if (const char *br = std::getenv("TACTIX_BUMP_REASONS_RATE"))
     bump_reasons_rate_ = std::strtod(br, nullptr);
+  factor_init_ticks_ = FACTOR_INIT_TICKS;
+  if (const char *fi = std::getenv("TACTIX_FACTOR_INIT_TICKS"))
+    factor_init_ticks_ = std::strtoull(fi, nullptr, 10);
   bump_reasons_delay_ = {};
   // Reduce-cadence arm: kissat's √ interval + ramped fraction (reduceinit
   // 1000 is its first limit, against our 2000).
@@ -890,10 +893,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // S4 (design §3.b): the FIRST Factor dose per solve bypasses the
         // permille formula with kissat's factoriniticks allowance — an
         // effectively unbounded first round (700M ticks; mp1's completed
-        // first round spends ~1M). kissat factor.c:1106-1117.
+        // first round spends ~1M). kissat factor.c:1106-1117. cadical's own
+        // constant is 300M — see FACTOR_INIT_TICKS.
         if (e.doses == 0 && e.budget_aware &&
             !std::strcmp(rules[e.rule].name, "Factor"))
-          e.limit = e.meter(k) + 700000000ull;
+          e.limit = e.meter(k) + factor_init_ticks_;
         // I2 (bve-tolerance plan, TEMPORARY experiment knob): under
         // TACTIX_BVE_ONESHOT the first during-search BVE dose mirrors
         // Factor's first-dose allowance — effectively unbounded, so the
