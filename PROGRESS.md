@@ -744,6 +744,17 @@ c timing      TransitiveReduce 109697 ms (36.6%) in 544088 applications · Congr
   blocked by something structural on this instance. **Cheap to discriminate and worth doing before any
   TransitiveReduce work** — 179k unconsumed equivalences is a larger prize than a constant-factor fix on a
   rule whose 4× improvement still leaves the instance over the cap.
+- **Hypothesis space NARROWED by code read (no cluster time), so the next session can go straight at it.**
+  V3 detects equivalences INDEPENDENTLY — iterative Tarjan SCC over the binary implication graph, reading the
+  binary watches of `negate(p)` — and never reads V6's union-find. That is correct per the contract (rules
+  never call rules), and two explanations are ruled out **by construction**: the Tarjan is explicitly
+  complete (the header records the deliberate choice NOT to take CryptoMiniSat's `max_scc_depth`
+  early-return, "which silently drops deep SCCs"), and the out-edge scan applies no redundancy filter.
+  **What remains: (i) V6's equivalence binaries are not PRESENT/watched when V3 runs** — deleted by V4
+  TransitiveReduce (210,966 deleted on this run), garbage-collected, or a phase-order artefact (5 substitute
+  rounds vs 6 congruence rounds); **or (ii) SCCs are found and the CALLER rejects them** (`substitutable()`
+  reads a `sub[]` selection built outside `substitute_find_sccs`). Discriminate with one counter — SCCs of
+  size ≥ 2 found per round — which separates "never detected" from "detected then dropped".
 - Instrumentation is default-on, counter-only; ctest 38/38.
 
 ### 2026-08-01 — ▶ task #10 DONE: rules now poll the interrupt; worst-case SIGTERM latency 18.4 s → 2.9 s
