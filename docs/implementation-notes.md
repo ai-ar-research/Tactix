@@ -578,3 +578,65 @@ vtable reference charge its own slot without callers threading ids around; an id
 **Known gap:** a rule that applied another rule internally would double-count. No rule does today
 (§5.3 keeps them self-contained), and the slot's `(unattributed)` line — `inprocess_nanos` minus the
 rules charged inside it — is where such a discrepancy would show up as scaffolding cost.
+
+## 12. Design decision: the watch-repair primitive, and what the conflict-reuse shortcut needs from it
+
+TB4b(A) (`Kernel::conflict_reuse`, kissat `analyze.c one_literal_on_conflict_level`) resolves a
+conflict whose literals are all below the conflict level except one by **backtracking to the
+second-highest level and assigning that literal with the conflict clause itself as its reason** —
+learning nothing, emitting no proof line. Reusing a clause as a REASON is what makes it a watch
+problem.
+
+**The invariant.** The two-watched-literal scheme survives backtracking because of one property: a
+FALSE watched literal at level `d` is always paired with a watch that is TRUE at level `≤ d`, so
+unassigning can only ever take the false watch out first, never strand the clause. After the reuse
+the forced literal is the clause's only true literal and it sits at `jump2`; therefore the other
+watch must be a literal at **exactly `jump2`**, not merely at or below it. With a lower-level partner
+a backtrack under `jump2` unassigns the forced literal while the partner stays false, nothing
+rescans the clause, and it sits unit at a claimed fixpoint — the
+`unit large clause escaped propagation` assertion that aborted regression corpus **002 and 005** on
+the first version of the shortcut.
+
+**The primitive.** The kernel could ADD a large-clause watch (`WatchLists::push_large`) but never
+REMOVE one without deleting the clause, so every rule that needed to re-point a watch allocated a
+fresh clause instead (`otfs_strengthen` does exactly that). `kernel_unwatch_large` is the missing
+inverse — the same write-cursor compaction `kernel_delete_binary` uses, entry-aware because a large
+watch is two words and a binary one — and `kernel_promote_watched_lit` is the unwatch/swap/watch
+triple built on it (kissat `watch.h`). Both change only WHICH literals a live clause watches:
+membership, size, id, redundancy and arena position are untouched, so the proof stream, the dense
+occurrence index, every recorded `Ref` and every LRAT chain stay valid. Preconditions (asserted): the
+clause is live and watched by the named literal, no propagation scan is in flight (`delayed` empty —
+a scan holds raw pointers into the slice being compacted), and no probing scope is recording (its
+rollback log would not see the edit).
+
+**Layering.** The level ranking lives in the RULE (`repair_conflict_watches`, analyze.cpp); only the
+watch transfer is a kernel primitive, because the watch arena's relocation hazards are kernel
+knowledge. Nothing here is scheduling: the repair fires exactly when the shortcut fires, so every
+path the shortcut declines is byte-identical to before.
+
+**Deviations from kissat, both deliberate.** (a) kissat runs the repair for EVERY conflict of size
+> 2, before it knows whether the shortcut applies, so its ordinary analysis also starts from a
+re-sorted clause; we run it only when the shortcut is about to fire, which keeps the learning path
+unchanged. Widening it is a separate TB4b divergence with its own measurement. (b) The shortcut is
+still restricted to the FIRST analysis round (an OTFS-strengthened conflict is a clause this analysis
+just built; kissat takes the shortcut there too).
+
+**Why it is chrono-only, and why that governs how it must be tested.** Under complete propagation on
+a level-sorted trail "exactly one literal at the conflict level" is IMPOSSIBLE: if every other
+literal sat below level `M`, the clause was already unit before `M` and would have propagated. The
+shape exists only after a CHRONOLOGICAL backjump, which keeps out-of-order literals and re-propagates
+from the level boundary. Measured consequence: at the shipped `chrono_levels = 100` a 90-variable
+random 3-SAT produces **0 reuses over 2,105 conflicts**, so a small-instance test of this mechanism
+measures nothing ([[ab-arm-identical-artefacts]]). `--reuse-stress-policy` forces the ingredients
+(reuse ON, every backjump chronological at the top of the legal range, frequent drops to random
+levels each followed by propagation to a fixpoint and `kernel_check_invariants`).
+
+**Audit finding — the 2026-07-28 negative tier verdict was on a BROKEN arm, not a crippled one.**
+`analyze_apply` clears `pending.valid` on the reuse path, and `conflictanalysis_apply_instance`
+checked it from the start; **DefaultPolicy's white-box micro-loop did not**. With the arm ON every
+reuse therefore ran the whole learn/backjump tail on the PREVIOUS conflict's pending record: a stale
+glue sample into the restart EMA, then `backjump_apply_to` clamping to a stale `jump_level` (forced
+to 0 whenever that record was a learned UNIT), **backtracking away the reuse's own assignment**, and
+finally counting a `backjump_stale` — TB4's standing must-stay-0 signal. Only DefaultPolicy was
+affected, which is why `--random-policy` and the regression corpus stayed green. Same family as TB4's
+own lesson: audit a negative verdict before accepting it.

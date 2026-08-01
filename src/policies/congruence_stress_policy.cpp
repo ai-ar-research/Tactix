@@ -68,7 +68,10 @@ int congruence_stress_solve(Kernel &k, uint64_t seed,
     if (k.conflict_valid) {
       if (analyze_apply(k) == ApplyResult::Unsat)
         return 20;
-      backjump_apply(k);
+      // TB4b(A): see bve_stress_policy — a reused conflict leaves nothing
+      // pending, so Backjump's guard is false.
+      if (backjump_guard(k))
+        backjump_apply(k);
       step("analyze+backjump");
       continue;
     }

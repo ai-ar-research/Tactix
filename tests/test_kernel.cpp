@@ -189,6 +189,75 @@ static void test_default_solve_sat() {
   assert(k.values[internalize(1)] > 0);
 }
 
+// TB4b: the watch-repair primitives. `kernel_unwatch_large` is the inverse the
+// kernel lacked (push_large had no counterpart), and
+// `kernel_promote_watched_lit` is the unwatch/swap/watch triple built on it.
+static bool watched_by(const Kernel &k, Lit l, Ref ref) {
+  const WatchHead &h = k.watches.heads[l];
+  const uint32_t *ws = k.watches.arena.data() + h.offset;
+  for (uint32_t i = 0; i < h.size;) {
+    if (Watch{ws[i]}.binary()) {
+      i += 1;
+    } else {
+      if (ws[i + 1] == ref)
+        return true;
+      i += 2;
+    }
+  }
+  return false;
+}
+
+static void test_watch_repair_primitive() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  // three clauses share literal -1's watch list so the compaction has real
+  // neighbours to preserve on both sides of the removed entry; a binary too,
+  // since a large entry is TWO words and a binary one (the walk must be
+  // entry-aware, not word-aware)
+  const Lit c1[4] = {internalize(-1), internalize(-2), internalize(-3),
+                     internalize(-4)};
+  const Lit c2[3] = {internalize(-1), internalize(5), internalize(6)};
+  const Lit c3[3] = {internalize(-1), internalize(-5), internalize(-6)};
+  const Ref r1 = kernel_add_large_clause(k, c1, 4, false, 0);
+  const Ref r2 = kernel_add_large_clause(k, c2, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  const Ref r3 = kernel_add_large_clause(k, c3, 3, false, 0);
+  const uint32_t before = k.watches.size(internalize(-1));
+
+  kernel_unwatch_large(k, internalize(-1), r2);
+  assert(!watched_by(k, internalize(-1), r2));
+  assert(watched_by(k, internalize(-1), r1)); // neighbours survive, both sides
+  assert(watched_by(k, internalize(-1), r3));
+  assert(k.watches.size(internalize(-1)) == before - 2); // exactly one entry
+  // the binary mirror and the OTHER watch of r2 are untouched
+  assert(watched_by(k, internalize(5), r2));
+  k.watches.push_large(internalize(-1), internalize(6), r2); // put it back
+  assert(watched_by(k, internalize(-1), r2));
+
+  // promote position 3 of c1 into watched slot 0: the displaced literal takes
+  // position 3 and the watch follows the promoted one
+  kernel_promote_watched_lit(k, r1, 0, 3);
+  const Clause *c = clause_at(k.arena, r1);
+  assert(c->lits[0] == internalize(-4));
+  assert(c->lits[3] == internalize(-1));
+  assert(c->lits[1] == internalize(-2)); // the other watch is unmoved
+  assert(watched_by(k, internalize(-4), r1));
+  assert(!watched_by(k, internalize(-1), r1));
+  assert(watched_by(k, internalize(-2), r1));
+  kernel_check_invariants(k); // every live clause watched on lits[0]/lits[1]
+
+  // and the repaired clause still propagates: falsify -4, -2, -3 and the
+  // remaining literal must be derived through the NEW watch pair
+  kernel_assign_decision(k, internalize(4));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(2));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(3));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(k.values[internalize(-1)] > 0); // c1 propagated it
+  kernel_check_invariants(k);
+}
+
 int main() {
   test_lit_encoding();
   test_unit_chain();
@@ -197,6 +266,7 @@ int main() {
   test_backtrack_restores();
   test_probing_propagation_restores();
   test_default_solve_sat();
+  test_watch_repair_primitive();
   puts("test_kernel OK");
   return 0;
 }

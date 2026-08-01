@@ -3,12 +3,14 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "policies/heuristics.hpp"
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <cassert>
 #include <cstdio>
+#include <vector>
 
 using namespace tactix;
 
@@ -221,6 +223,141 @@ static void test_backjump_target_clamps() {
   assert(default_solve(k) == 10);
 }
 
+// --- TB4b: the conflict-reuse shortcut and its watch repair ----------------
+
+static bool watched_by(const Kernel &k, Lit l, Ref ref) {
+  const WatchHead &h = k.watches.heads[l];
+  const uint32_t *ws = k.watches.arena.data() + h.offset;
+  for (uint32_t i = 0; i < h.size;) {
+    if (Watch{ws[i]}.binary()) {
+      i += 1;
+    } else {
+      if (ws[i + 1] == ref)
+        return true;
+      i += 2;
+    }
+  }
+  return false;
+}
+
+// The shape the CRIPPLED version declined: exactly one conflict literal at the
+// conflict level, but the clause's two watched literals are NOT the two
+// highest-level ones. Reusing such a conflict as a reason without repairing the
+// watches is what aborted regression corpus 002/005 — the clause is later left
+// unit with no watch to fire on. Built white-box (decisions first, clause
+// second) because ordinary propagation always leaves a conflict watched on the
+// last two literals it falsified; the wrong pair arises from chronological
+// backtracking, whose trail is not level-sorted.
+static void test_conflict_reuse_repairs_watches() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  k.conflict_reuse = true;
+  for (int v = 1; v <= 4; v++) { // levels 1..4, one decision each
+    kernel_assign_decision(k, internalize(v));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+  }
+  // watches land on lits[0], lits[1] = -1 (level 1) and -2 (level 2); the two
+  // HIGHEST levels are -4 (4, the unique conflict-level literal) and -3 (3)
+  const Lit cl[4] = {internalize(-1), internalize(-2), internalize(-3),
+                     internalize(-4)};
+  const Ref ref = kernel_add_large_clause(k, cl, 4, false, 0);
+  assert(watched_by(k, internalize(-1), ref));
+  assert(watched_by(k, internalize(-2), ref));
+  k.conflict_valid = true; // the clause is falsified: record it as the conflict
+  k.conflict_ref = ref;
+
+  assert(analyze_guard(k));
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.conflict_reused == 1);        // the shortcut fired...
+  assert(k.stats.conflict_watch_repaired == 1); // ...and needed the repair
+  assert(!k.pending.valid);                     // nothing learned, nothing to assert
+
+  const Clause *c = clause_at(k.arena, ref);
+  assert(c->lits[0] == internalize(-4));                 // the forced literal
+  assert(k.var_level(var_of(c->lits[1])) == 3);          // ...paired at jump2
+  assert(watched_by(k, internalize(-4), ref));
+  assert(watched_by(k, c->lits[1], ref));
+  assert(!watched_by(k, internalize(-1), ref)); // old watches transferred
+  assert(!watched_by(k, internalize(-2), ref));
+
+  assert(k.level == 3);                       // backtracked to jump2
+  assert(k.values[internalize(-4)] > 0);      // forced, with the conflict...
+  assert(k.assigned[var_of(internalize(4))].reason == ref); // ...as its reason
+  assert(k.assigned[var_of(internalize(4))].level == 3);
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_check_invariants(k);
+
+  // THE REGRESSION: drop below jump2 (unassigning the forced literal), then
+  // re-falsify the level-3 literal. With the repaired watch pair the clause is
+  // rescanned and propagates; with the ORIGINAL pair (-1, -2, both still false)
+  // nothing would fire and it would sit unit at a claimed fixpoint.
+  kernel_backtrack(k, 2);
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_check_invariants(k);
+  assert(k.values[internalize(-4)] == 0);
+  kernel_assign_decision(k, internalize(3));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(k.values[internalize(-4)] > 0); // derived through the repaired watch
+  kernel_check_invariants(k);
+  assert(k.stats.backjump_stale == 0);
+}
+
+// The shortcut resolves the conflict INSIDE Analyze and leaves no pending
+// record, so DefaultPolicy's white-box micro-loop must skip the whole
+// learn/backjump tail. It did not before TB4b's audit: it ran that tail on the
+// PREVIOUS conflict's pending record, backtracking away the reuse's own
+// assignment and counting a stale backjump. `backjump_stale` is TB4's standing
+// regression signal and must stay 0 with the arm ON.
+static void test_conflict_reuse_under_default_policy() {
+  // Random 3-SAT above the threshold, solved with chrono ALWAYS on.
+  //
+  // The chrono setting is load-bearing, not decoration: under COMPLETE
+  // propagation on a level-sorted trail "exactly one literal at the conflict
+  // level" is IMPOSSIBLE — if the other literals were all below level M the
+  // clause was already unit before level M and would have propagated. Only a
+  // chronological backtrack (which keeps out-of-order literals and re-propagates
+  // from the level boundary) produces the shape. At the shipped
+  // `chrono_levels = 100` a 90-variable instance can never reach a backjump gap
+  // of 100 levels, so the first two versions of this test measured NOTHING
+  // (`conflict_reused == 0` over 2,105 conflicts — [[ab-arm-identical-artefacts]]);
+  // the reachability assertions at the bottom are what keep it honest.
+  uint64_t total_reused = 0, total_repaired = 0;
+  for (int seed = 1; seed <= 6; seed++) {
+    Kernel k;
+    ScopedHeuristics hg(k);
+    const uint32_t N = 90;
+    kernel_reserve_vars(k, N);
+    uint64_t rng = static_cast<uint64_t>(seed) * 0x9E3779B97F4A7C15ull + 1;
+    auto next = [&]() {
+      rng ^= rng >> 12;
+      rng ^= rng << 25;
+      rng ^= rng >> 27;
+      return rng * 0x2545F4914F6CDD1Dull;
+    };
+    for (int i = 0; i < 430; i++) { // m/n ~ 4.8: UNSAT side, still quick
+      Lit ls[3];
+      for (int j = 0; j < 3; j++) {
+        const Var v = static_cast<Var>(next() % N);
+        ls[j] = make_lit(v, (next() & 1) != 0);
+      }
+      if (var_of(ls[0]) == var_of(ls[1]) || var_of(ls[0]) == var_of(ls[2]) ||
+          var_of(ls[1]) == var_of(ls[2]))
+        continue; // no duplicate/tautological literals
+      kernel_add_large_clause(k, ls, 3, false, 0);
+    }
+    k.conflict_reuse = true;
+    DefaultPolicy policy;
+    policy.chrono_levels = 0; // always chronological
+    const int r = policy.solve(k);
+    assert(r == 10 || r == 20);
+    assert(k.stats.backjump_stale == 0); // TB4's standing invariant
+    total_reused += k.stats.conflict_reused;
+    total_repaired += k.stats.conflict_watch_repaired;
+  }
+  assert(total_reused > 0);   // the arm was actually exercised...
+  assert(total_repaired > 0); // ...including the un-crippled (repair) path
+}
+
 int main() {
   test_uip();
   test_conflictanalysis_atomic();
@@ -229,6 +366,8 @@ int main() {
   test_otfs();
   test_chrono_backjump_clamps_to_jump_level();
   test_backjump_target_clamps();
+  test_conflict_reuse_repairs_watches();
+  test_conflict_reuse_under_default_policy();
   puts("test_analyze OK");
   return 0;
 }

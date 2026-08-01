@@ -161,6 +161,11 @@ struct Stats {
   // TB4b(A): conflicts resolved by REUSING the conflict as the driving clause
   // (kissat one_literal_on_conflict_level) — no clause learned, no proof line.
   uint64_t conflict_reused = 0;
+  // Of those, the ones that needed the watch-repair primitive first — i.e. the
+  // reuses the CRIPPLED version declined (TB4b). Reachability evidence for the
+  // un-crippling: 0 here with conflict_reuse ON means the repair path never
+  // executed and any A/B on it measured nothing ([[ab-arm-identical-artefacts]]).
+  uint64_t conflict_watch_repaired = 0;
   uint64_t chronological = 0;
   uint64_t backjump_stale = 0;
   uint64_t inprocess_phases = 0;
@@ -632,16 +637,13 @@ struct Kernel {
   // (TACTIX_CONFLICT_REUSE=1 enables), the rule owns the mechanism. Both
   // settings are sound; they differ only in trajectory and in how many clauses
   // are learned.
-  // DEFAULT OFF, by measurement (2026-07-28): Tier B 8.32 vs 7.62, Tier C
-  // 330.17/310.93 vs 312.17/307.07 across two windows — consistently negative,
-  // though the Tier C noise band at throttle 48 is ~6 % (the SAME arm read
-  // 330.17 and 310.93), so only the direction is solid, not the size. It wins
-  // on the instances it targets (FmlaEquiv 26.00 -> 22.45, 9vliw 13.28 ->
-  // 11.67, crypto1 2.20 -> 1.03) and loses more on one (qwh 4.04 -> 15.71).
-  // The version measured is CRIPPLED — it declines whenever the watch
-  // invariant does not already hold, and only on the first analysis round —
-  // so this is a verdict on the restricted mechanism, not on kissat's. Revisit
-  // when the watch-repair primitive lands (TB4b next step).
+  // DEFAULT OFF. The 2026-07-28 tier verdict against it (Tier B 8.32 vs 7.62,
+  // Tier C 330.17/310.93 vs 312.17/307.07) is RETIRED: it was measured on a
+  // BROKEN arm, not merely a crippled one — DefaultPolicy ran its whole
+  // learn/backjump tail on a stale `pending` record after every reuse, undoing
+  // the reuse's own assignment and tripping TB4's must-stay-0 `backjump_stale`
+  // (implementation-notes.md §12). Both that defect and the watch-repair
+  // crippling are fixed; see PROGRESS TB4b for the re-measurement.
   bool conflict_reuse = false;
   // Reason-side bumping (kissat option bumpreasonslimit, cadical
   // bumpreasonlimit — both 10): after the learned clause is final, also mark
@@ -768,6 +770,43 @@ void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // DRAT-only: remove EVERY copy of pair (a,b) (E2 Factor grid removal; see impl).
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
+
+// --- watch repair (TB4b) ---------------------------------------------------
+// The kernel could ADD a large-clause watch (WatchLists::push_large) but never
+// REMOVE one without deleting the clause; every rule that needed to re-point a
+// watch had to allocate a fresh clause instead (otfs_strengthen, Strengthen,
+// Vivify). These two primitives close that gap. They mutate WHICH literals a
+// live clause watches and nothing else: membership, size, id, redundancy and
+// arena position are untouched, so the proof stream, the dense occurrence
+// index, every recorded Ref and every LRAT chain stay valid. Sound for the
+// same reason the propagation engine's own watch relocation is: two-watched-
+// literal completeness constrains only which literals are watched, and the
+// caller owns re-establishing it (see kernel_promote_watched_lit's contract).
+//
+// PRECONDITIONS (both):
+//   - `ref` is a live (non-garbage) large clause currently watched by the
+//     literal named — i.e. that literal is lits[0] or lits[1];
+//   - NO propagation scan is in flight (`delayed` empty): a scan holds raw
+//     pointers into the very slice these compact, and a push can relocate any
+//     list (watch.hpp);
+//   - NOT inside a kernel_probing_begin/end scope — the probing rollback log
+//     records only the scan's own edits, so an unlogged watch move would
+//     survive kernel_probing_end.
+//
+// Remove the large-clause watch of `ref` from watches[l]: the exact inverse of
+// WatchLists::push_large (kissat watch.h kissat_unwatch_blocking). In-place
+// compaction of l's slice — no growth, so no other list moves.
+void kernel_unwatch_large(Kernel &, Lit l, Ref ref);
+
+// Move clause `ref`'s literal at position `from` (>= 2) into WATCHED slot
+// `slot` (0 or 1); the displaced literal takes position `from` and the watch
+// follows the promoted literal (kissat analyze.c's unwatch / swap / watch
+// triple). The caller is responsible for the two-watched-literal invariant it
+// leaves behind: a false watched literal at level d must be paired with a
+// watch that is TRUE at level <= d, or an unassigning backtrack can strand the
+// clause unit with no watch to fire on (regression corpus 002/005).
+void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
+                                uint32_t from);
 
 // Mark a large clause deleted. THE single home for large-clause deletion: every
 // rule that retires a clause goes through here, so the bookkeeping that must
