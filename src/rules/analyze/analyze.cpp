@@ -604,6 +604,75 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
   return true;
 }
 
+// --- watch repair for the conflict-reuse shortcut (TB4b) -------------------
+// Re-point the conflict clause's two WATCHES at its two highest-LEVEL literals,
+// transferring the watch entries as it goes (kissat analyze.c, the
+// `conflict_size > 2` block; two passes, each promoting the highest remaining
+// literal into watched slot i). Returns the number of watch entries actually
+// moved — 0 when the clause already had them in the right place, which is the
+// shape the crippled version was restricted to.
+//
+// WHY THIS IS THE INVARIANT THE SHORTCUT NEEDS. After the shortcut backtracks
+// to `jump2` and assigns `forced` with this clause as its reason, every other
+// literal is false at some level <= jump2 and at least one is at exactly jump2.
+// The two-watched-literal scheme survives backtracking because a FALSE watched
+// literal at level d is always paired with a watch that is TRUE at level <= d:
+// unassigning can then only ever remove the false watch first. Here `forced` is
+// the only true literal (so it must be one watch, which is also the reason-
+// clause requirement), and its level is jump2 — so the other watch must be a
+// literal at exactly jump2, not merely <= it. Otherwise a backtrack below jump2
+// unassigns `forced` while the other watch stays false, and nothing rescans the
+// clause: it sits unit at a claimed fixpoint. That is exactly what aborted
+// regression corpus 002 and 005 on the first version of this shortcut ("unit
+// large clause escaped propagation"), and it is what the crippled version
+// avoided by DECLINING instead of repairing.
+//
+// FITS-OUR-ARCHITECTURE (plan §5). The level ranking is analysis logic and
+// stays in this rule; the watch transfer is a kernel primitive
+// (kernel_promote_watched_lit) because it edits the watch arena, whose
+// relocation hazards only the kernel knows about. Nothing here is scheduling:
+// the repair fires exactly when the shortcut fires, so it changes no state on
+// any path the shortcut declines. Legal at any N1 schedule point that can reach
+// conflict analysis — it needs only a recorded conflict and no in-flight scan,
+// both guaranteed by analyze_guard.
+//
+// DEVIATION from kissat, deliberately NARROWER: kissat runs this repair for
+// EVERY conflict of size > 2, before it even knows whether the shortcut
+// applies, so its non-shortcut analysis also starts from a re-sorted clause. We
+// run it only when the shortcut is about to fire, which keeps the ordinary
+// learning path bit-identical to before this change. Widening it is a separate
+// TB4b divergence with its own measurement.
+static uint32_t repair_conflict_watches(Kernel &k, Ref ref, uint32_t alevel) {
+  const uint32_t size = clause_at(k.arena, ref)->size;
+  if (size <= 2)
+    return 0; // binaries watch both literals permanently: nothing to repair
+  uint32_t moved = 0;
+  for (uint32_t slot = 0; slot < 2; slot++) {
+    const Clause *c = clause_at(k.arena, ref);
+    uint32_t best = slot;
+    uint32_t best_level = k.var_level(var_of(c->lits[slot]));
+    for (uint32_t j = slot + 1; j < size; j++) {
+      const uint32_t lv = k.var_level(var_of(c->lits[j]));
+      if (best_level >= lv)
+        continue; // first maximum wins (kissat's `>=` tie-break)
+      best = j;
+      best_level = lv;
+      if (best_level == alevel)
+        break; // nothing can beat the conflict level
+    }
+    if (best == slot)
+      continue;
+    if (best > 1) {
+      kernel_promote_watched_lit(k, ref, slot, best);
+      moved++;
+    } else { // slot 0 vs slot 1: both are watched already, so only the literal
+      Clause *cw = clause_at(k.arena, ref); // order changes, not the watches
+      std::swap(cw->lits[0], cw->lits[1]);
+    }
+  }
+  return moved;
+}
+
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
@@ -705,36 +774,47 @@ ApplyResult analyze_apply(Kernel &k) {
           jump2 = lv;
         }
       }
-      // WATCH INVARIANT (TB4b item 1, the divergence this one is coupled to).
-      // Reusing the conflict as a REASON only works if the clause watches the
-      // literal it now implies and a false literal at the highest remaining
-      // level — otherwise a later backtrack unassigns `forced` and propagation
-      // never revisits the clause, leaving it unit at a claimed fixpoint. That
-      // is precisely corpus 005's "unit large clause escaped propagation", and
-      // both 002 and 005 aborted on the first version of this shortcut.
-      // kissat repairs the watches instead (analyze.c, the `conflict_size > 2`
-      // block that swaps the two highest-level literals into positions 0/1).
-      // Porting that repair needs an unwatch primitive this kernel does not
-      // have, so it is TB4b's next step; until then the shortcut simply
-      // DECLINES when the invariant does not already hold — sound, and it
-      // still fires on the common propagation-conflict shape where the watched
-      // literals are the relevant ones. Binary conflicts always qualify.
-      bool watch_ok = true;
-      if (at_alevel == 1 && k.conflict_ref != INVALID_REF) {
+      // DIAGNOSTIC ARM (k.conflict_reuse_no_repair): the CRIPPLED decline test,
+      // kept only so a tier window can attribute the arm's verdict between the
+      // crippling and the mechanism. Sound, and inert unless the knob is set.
+      bool crippled_declines = false;
+      if (k.conflict_reuse_no_repair && at_alevel == 1 &&
+          k.conflict_ref != INVALID_REF) {
         const Clause *cc = clause_at(k.arena, k.conflict_ref);
-        if (cc->size > 2) {
-          const bool forced_watched =
-              cc->lits[0] == forced || cc->lits[1] == forced;
-          const Lit other_w = cc->lits[0] == forced ? cc->lits[1] : cc->lits[0];
-          watch_ok = forced_watched &&
-                     k.var_level(var_of(other_w)) == jump2;
-        }
+        if (cc->size > 2)
+          crippled_declines =
+              !((cc->lits[0] == forced || cc->lits[1] == forced) &&
+                k.var_level(var_of(cc->lits[0] == forced ? cc->lits[1]
+                                                         : cc->lits[0])) ==
+                    jump2);
       }
-      if (at_alevel == 1 && jump2 > 0 && watch_ok) {
+      if (at_alevel == 1 && jump2 > 0 && !crippled_declines) {
         const Ref cref = k.conflict_ref;
         const Lit other = cref == INVALID_REF
                               ? (k.conflict_bin[0] ^ k.conflict_bin[1] ^ forced)
                               : INVALID_LIT;
+        // WATCH REPAIR (TB4b, the divergence this shortcut is coupled to).
+        // Reusing the conflict as a REASON only works if the clause watches the
+        // literal it now implies AND a false literal at exactly `jump2`; see
+        // repair_conflict_watches above for why, and for what the first version
+        // of this shortcut did to regression corpus 002/005 without it. Until
+        // the kernel had an unwatch primitive this code DECLINED whenever the
+        // invariant did not already hold (the crippled version whose negative
+        // tier verdict is on record); it now repairs instead, so the shortcut
+        // fires on every one-literal-on-conflict-level conflict rather than
+        // only the subset whose propagation happened to leave the right pair
+        // watched.
+        if (cref != INVALID_REF && repair_conflict_watches(k, cref, alevel))
+          k.stats.conflict_watch_repaired++;
+#ifndef NDEBUG
+        if (cref != INVALID_REF) { // post-repair: exactly the invariant above
+          const Clause *cc = clause_at(k.arena, cref);
+          if (cc->size > 2) {
+            assert(cc->lits[0] == forced);
+            assert(k.var_level(var_of(cc->lits[1])) == jump2);
+          }
+        }
+#endif
         kernel_backtrack(k, jump2);
         if (cref == INVALID_REF)
           kernel_assign(k, forced, jump2, other, /*binary=*/true);

@@ -683,6 +683,26 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       }
       if (ar == ApplyResult::Unsat)
         return 20;
+      // TB4b(A) · THE CONFLICT WAS REUSED AS ITS OWN DRIVING CLAUSE. Analyze
+      // resolved it in place (backtracked, assigned the forced literal with the
+      // conflict as its reason) and learned NOTHING, so there is no pending
+      // record: no glue sample, no clause to assert, no backjump target. Every
+      // line below reads `k.pending`, whose fields still describe the PREVIOUS
+      // conflict — so without this branch a reuse ran the whole learn/backjump
+      // tail on a stale record: `backjump_apply_to` clamped to a stale
+      // `jump_level`, BACKTRACKED (undoing the reuse's own assignment), then
+      // found the stale asserting literal already assigned and counted a
+      // `backjump_stale`. That is why the 2026-07-28 tier verdict on
+      // `conflict_reuse` was a verdict on a BROKEN arm, not a crippled one: the
+      // INSTANCE path (conflictanalysis_apply_instance) had this check from the
+      // start, and only DefaultPolicy's white-box micro-loop was missing it, so
+      // --random-policy and the corpus could not see it.
+      // kissat does the same thing structurally: one_literal_on_conflict_level
+      // returning true makes kissat_analyze return before kissat_learn_clause,
+      // so its glue sample, tier update and restart tick are all skipped too
+      // (analyze.c:545 vs :567).
+      if (!k.pending.valid) // `stats.conflict_reused` already counted it
+        continue;
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       // second retier channel (kissat analyze.c update_tier_limits): a
       // doubling conflict interval starting at 2, capped at 2^16, so the

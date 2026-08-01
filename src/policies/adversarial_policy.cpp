@@ -62,7 +62,10 @@ int adversarial_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       const ApplyResult r = analyze_apply(k);
       if (r == ApplyResult::Unsat)
         return 20;
-      backjump_apply(k); // asserts the UIP at jump_level; clears pending
+      // TB4b(A): see bve_stress_policy — a reused conflict leaves nothing
+      // pending, so Backjump's guard is false.
+      if (backjump_guard(k))
+        backjump_apply(k); // asserts the UIP at jump_level; clears pending
       since_prop = 0;
       step("analyze+backjump");
       continue;

@@ -255,6 +255,56 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
+// --- watch repair (TB4b) ---------------------------------------------------
+// Contract + preconditions in kernel.hpp. Transliterated from kissat watch.h
+// (kissat_unwatch_blocking / kissat_watch_blocking, MIT, Biere et al.) onto the
+// flat watch arena: kissat's per-literal vector removal becomes the same
+// write-cursor compaction kernel_delete_binary already uses, because a large
+// watch occupies TWO consecutive words and a binary one, so the walk must be
+// entry-aware rather than word-aware.
+void kernel_unwatch_large(Kernel &k, Lit l, Ref ref) {
+  assert(k.delayed.empty());     // no scan may hold pointers into this slice
+  assert(!k.probing.recording);  // an unlogged edit would survive the rollback
+  uint32_t *const begin = k.watches.begin(l);
+  uint32_t *q = begin;
+  const uint32_t *p = begin;
+  const uint32_t *const end = k.watches.end(l);
+  bool removed = false;
+  while (p != end) {
+    if (Watch{*p}.binary()) {
+      *q++ = *p++;
+    } else if (!removed && p[1] == ref) {
+      removed = true; // drop this entry's blocking word + ref word
+      p += 2;
+    } else {
+      *q++ = *p++; // large: blocking word...
+      *q++ = *p++; // ...+ ref word
+    }
+  }
+  assert(removed && "unwatch of a clause this literal does not watch");
+  k.watches.truncate(l, static_cast<uint32_t>(q - begin));
+}
+
+void kernel_promote_watched_lit(Kernel &k, Ref ref, uint32_t slot,
+                                uint32_t from) {
+  assert(slot < 2 && from >= 2);
+  Clause *c = clause_at(k.arena, ref);
+  assert(!c->garbage());
+  assert(from < c->size);
+  const Lit displaced = c->lits[slot];
+  const Lit promoted = c->lits[from];
+  kernel_unwatch_large(k, displaced, ref);
+  // `c` survives both calls: unwatch and push_large touch the WATCH arena,
+  // never the clause arena, so no clause is relocated here.
+  c->lits[slot] = promoted;
+  c->lits[from] = displaced;
+  // The blocking literal of the OTHER watch's entry still names `displaced`,
+  // which is still a member of the clause — blocking literals are hints, valid
+  // for any member (kissat leaves the same staleness behind for the same
+  // reason). `c->searched` stays in [2, size) and is likewise only a hint.
+  k.watches.push_large(promoted, c->lits[slot ^ 1], ref);
+}
+
 // See kernel.hpp for the contract. Two occurrence sources, mirroring how BVE
 // itself reads the formula: binaries from the watch lists, irredundant large
 // clauses from the shared dense index when a simplification phase has attached

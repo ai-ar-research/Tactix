@@ -10,6 +10,7 @@
 #include "policies/congruence_stress_policy.hpp"
 #include "policies/factor_stress_policy.hpp"
 #include "policies/probing_stress_policy.hpp"
+#include "policies/reuse_stress_policy.hpp"
 #include "policies/walk_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
@@ -90,6 +91,7 @@ int main(int argc, char **argv) {
   bool factor_stress_policy = false;
   bool probing_stress_policy = false;
   bool walk_stress_policy = false;
+  bool reuse_stress_policy = false;
   bool no_heuristics = false; // run with H detached (unguided; Track H · H5)
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
@@ -131,6 +133,15 @@ int main(int argc, char **argv) {
       probing_stress_policy = true;
       if (a[23] == '=')
         random_seed = strtoull(a + 24, nullptr, 10);
+    } else if (!strncmp(a, "--reuse-stress-policy", 21)) {
+      // TB4b stress mode: forces the conflict-reuse shortcut ON, backjumps
+      // ALWAYS chronologically (the only way to reach a conflict with one
+      // literal at the conflict level), and drops to random levels with a
+      // fixpoint invariant check after each — the watch-repair oracle
+      // (stress-policy skill)
+      reuse_stress_policy = true;
+      if (a[21] == '=')
+        random_seed = strtoull(a + 22, nullptr, 10);
     } else if (!strncmp(a, "--walk-stress-policy", 20)) {
       // W4 stress mode: S6 Walk at random decision levels, off propagation
       // fixpoints, with tiny/huge budgets and mode flips — the walker is legal
@@ -279,6 +290,8 @@ int main(int argc, char **argv) {
   // usable A/B arm.
   if (getenv("TACTIX_CONFLICT_REUSE"))
     kernel.conflict_reuse = true;
+  if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
+    kernel.conflict_reuse_no_repair = true;
   Proof proof;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
@@ -314,6 +327,8 @@ int main(int argc, char **argv) {
           ? probing_stress_solve(kernel, random_seed, &caught_signal)
       : walk_stress_policy
           ? walk_stress_solve(kernel, random_seed, &caught_signal)
+      : reuse_stress_policy
+          ? reuse_stress_solve(kernel, random_seed, &caught_signal)
       : factor_stress_policy
           ? factor_stress_solve(kernel, random_seed, &caught_signal)
       : congruence_stress_policy
@@ -424,6 +439,12 @@ int main(int argc, char **argv) {
     printf("c chrono      %llu chronological, %llu stale backjumps\n",
            (unsigned long long)kernel.stats.chronological,
            (unsigned long long)kernel.stats.backjump_stale);
+    // TB4b(A): "did the shortcut fire, and did it need the watch repair?" —
+    // the second number is what separates the un-crippled mechanism from the
+    // subset the declining version could take ([[ab-arm-identical-artefacts]]).
+    printf("c reuse       %llu conflicts reused, %llu needed watch repair\n",
+           (unsigned long long)kernel.stats.conflict_reused,
+           (unsigned long long)kernel.stats.conflict_watch_repaired);
     printf("c inprocess   %llu phases\n",
            (unsigned long long)kernel.stats.inprocess_phases);
     printf("c congruence  %llu rounds, %llu units, %llu unjustified\n",
