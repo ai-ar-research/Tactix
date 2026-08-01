@@ -5,7 +5,8 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 75 (2026-07-30)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-07-30 (overnight) — **Tier B doubled to 28 and immediately found FOUR order-of-magnitude failures (up to 187× kissat); that now outranks T3.** T3/BCE fully diagnosed and parked on one directive decision (see resume block). Phase timers landed; docs compacted (rev 73); Tier B rev 74. Nightly fuzz 1574586/1574587 running.
+- **Last updated:** 2026-08-01 — `R<n>` namespace collision fixed (four namespaces, prefix key under `## Log`; nothing renumbered). Before that,
+  2026-07-30 (overnight) — **Tier B doubled to 28 and immediately found FOUR order-of-magnitude failures (up to 187× kissat); that now outranks T3.** T3/BCE fully diagnosed and parked on one directive decision (see resume block). Phase timers landed; docs compacted (rev 73); Tier B rev 74. Nightly fuzz 1574586/1574587 running.
 
 ## ▶ RESUME HERE (2026-07-31) — phase 3; T3's CaDiCaL half MET; the Tier B gap is the open work
 
@@ -49,14 +50,14 @@ DIAGNOSED 2026-07-31 (report `2026-07-31-factor-broad-admission-profiling.md`), 
 real blocker is V6 Congruence, 131,327 ms over 3 applications, unmetered (SIGTERM-deaf ~1,100 s).
 (b) The remaining Tier B walls: **`veer_axi`** (V4 TransitiveReduce's own runtime is 26–49 % of its clock,
 8.7 × 10⁹ ticks where kissat spends 0.03 s — a ~1000× engineering gap on one rule; even a 4× fix leaves it
-at 550 s against a 300 s cap) and **`unsat-set-b-fclqcolor`**. (c) Track R: R5 S-c (Sweep candidate
-selection — its DoD MUST include fuzz legs on both proof formats) then S-d…S-f, R6–R8. (d) TB4b.
+at 550 s against a 300 s cap) and **`unsat-set-b-fclqcolor`**. (c) Track R · R5 S-c (Sweep candidate
+selection — its DoD MUST include fuzz legs on both proof formats) then S-d…S-f, Track R · R6–R8. (d) TB4b.
 (e) Bench runner: verify LRAT not DRAT (`urq45` probe 1566825 — DRAT+drat-trim >2400 s, native LRAT+cake_lpr
 **77 s VERIFIED**); route via revise-plan, it is a measurement-protocol change. (f) §8.1 still describes
 Tier C on the M3 clock — the defect rev 74 fixed for Tier B.
 
 **CLOSED — do not re-open** (each left a standing lesson): the X2-governor / trio-off thread (**resolved**:
-X2 at cadical's 8‰ met T3's CaDiCaL half with every rule ON, `29811a8`); BVE's binary-density gate R2 (Tier B
+X2 at cadical's 8‰ met T3's CaDiCaL half with every rule ON, `29811a8`); BVE's binary-density gate TD-R2 (Tier B
 flat 105.21 → 105.84 — per-instance 9.2× on klieber does NOT survive aggregation, L16); the walk-dose
 "every lever is two-sided" reading (artefact of a wrong `bumpreasons` rate, L12); the `bumpreasons` constant
 sweep; **clause quality** (parity with kissat at every stage, L14); the minimize depth cap; the 2‰ slot rate.
@@ -291,8 +292,9 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   2026-07-25, user decision).
 - Stress-pass ledger: V6 unit-channel DONE (`4f2b53e` + congstress nightly); Factor-mid-stable DONE (2026-07-25 arrangement mid-stable legs,
   9k/0). Post-Track-H: random-policy ASan 8000/0 both formats.
-- Routed by the 2026-07-29 review (`benchmarks/reports/2026-07-29-review-post-track-r.md`): R2 Reorder has no stress policy; R3
-  `benchmarks/probes/` needs a retention rule; R4/R5 small duplication + allocation watch items. (R1 → resume action 2.)
+- Routed by the 2026-07-29 review (`benchmarks/reports/2026-07-29-review-post-track-r.md`; `RV-` namespace — Log key): **RV-R2** Reorder has no
+  stress policy; **RV-R3** `benchmarks/probes/` needs a retention rule; **RV-R4/RV-R5** small duplication + allocation watch items.
+  (**RV-R1** → Track R · R5's S-c definition of done.)
 
 ## Non-negotiables status (plan §1.1)
 
@@ -512,6 +514,9 @@ W item is W4e, a phase-6 hand-off with nothing to build now.**
 
 ### Track R — the full reference rule inventory (plan rev 72, user 2026-07-27)
 
+**Numbering:** within this section `R<n>` always means **Track R · R<n>** (the rules below). Three other
+`R<n>` namespaces exist — see the key under `## Log` before reading a bare `R<n>` anywhere else.
+
 **User directive:** implement/enable every proof rule Kissat and CaDiCaL have, and measure with proof generation on BOTH sides. Order is
 measured-value-per-cost, cheapest first; each lands under the §5.3 contract (one directory + one registry line) with its own stress-policy + fuzz
 legs on both proof formats and a same-window gate. Counter-evidence kept so the sequencing stays honest (not a reason to skip the work — a reason
@@ -545,7 +550,7 @@ lever, absent new evidence.
   anyway, and we need LRAT-grade antecedents kitten's core does not give); the real risk is the proof obligation — a swept equivalence is
   entailed but NOT RUP, so the chain must come from the sub-solver's core (strategy b) with V6's replay trick as a fast path (strategy a). Six
   landable increments S-a…S-f; **S-a/S-b done (below), next is S-c** — candidate selection + environment construction, whose definition of done
-  MUST include sub-solver fuzz legs on both proof formats (review finding R1) — then S-d…S-f
+  MUST include sub-solver fuzz legs on both proof formats (review finding **RV-R1**) — then S-d…S-f
   - [x] **S-a · the embedded sub-solver** (`src/rules/sweep/subsolver.{hpp,cpp}`, `8ac2199`): minimal CDCL (two-watch propagation, 1-UIP,
     restarts, MiniSat-shaped assumptions, tick budget, fixed decision order), owns its arena/watches/trail, never touches `Kernel`,
     deterministic. Verified by exhaustion — **1 M random formulas vs brute force**, half under assumptions. Safety property: an unanalyzable
@@ -576,7 +581,7 @@ lineage. Concretize at the T3 gate via revise-plan.
 ## Phase 4 — tuning, bindings, extensibility proof
 
 - [ ] Catalog rules remaining: **S7 Reorder, V5 Sweep** (kitten, O11), **X1 BCE** (S6 Walk moved to phase 3, rev 71) — *reconcile at phase entry:
-  Reorder and BCE landed in phase 3 Track R, and Sweep is in progress there (R5)*; **decide O16b at phase entry** (PR/SR clause learning as a
+  Reorder and BCE landed in phase 3 Track R, and Sweep is in progress there (Track R · R5)*; **decide O16b at phase entry** (PR/SR clause learning as a
   catalog candidate — the checkable form of auto-invented rules; needs dpr-trim or PR→DRAT in the N2 story)
 - [ ] Independent-lineage candidates: CMS best_inv rephase (with Walk), rotation presets (O6)
 - [ ] Python bindings; policy presets (MAB scheduler, classification) — §5.6 seed
@@ -587,7 +592,7 @@ lineage. Concretize at the T3 gate via revise-plan.
 
 ## Phase 5 — competition readiness
 
-- [ ] Backlog rules as warranted (X2, X4, X5) — *X2/X4 landed in phase 3 Track R; X5 Condition is R7*
+- [ ] Backlog rules as warranted (X2, X4, X5) — *X2/X4 landed in phase 3 Track R; X5 Condition is Track R · R7*
 - [ ] Docker + run scripts; solver description; license/attribution audit
 - [ ] Full toolchain rehearsal on Tier B (solver → proof → verified checker, 16 GB cap)
 - **Exit:** T5 or best effort; submission-ready
@@ -616,6 +621,21 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.
+
+**`R<n>` IS FOUR DIFFERENT NAMESPACES — always read the prefix.** The numbers are cited in frozen reports, so
+they are **never renumbered**; they are disambiguated by prefix instead (2026-08-01). The frozen reports and
+design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-design.md` "§5a′/R5" = TD-R5)
+— decode them with this key, which is the only home for it:
+
+| prefix | namespace | owner |
+|---|---|---|
+| `plan R1–R5` | project REQUIREMENTS — R1 proof certificates · R2 competition I/O · R3 proof-rule API · R4 automatic policy · **R5 exceed Kissat** | DEVELOPMENT_PLAN.md §1 |
+| `Track R · R1–R8` | the reference RULE INVENTORY — **R5 = V5 `Sweep`**, R1 = X2, R2 = X1 BCE | PROGRESS.md "Track R" |
+| `TD-R1–R5` | the Tier B TIMEOUT-DIAGNOSIS leads — **R5 = Factor scope (`factor_size`)**, R1 = V4 meter, R2 = BVE density gate | `benchmarks/reports/2026-07-30-tierB-timeouts-diagnosis.md` |
+| `RV-R1–R5` | the codebase-REVIEW routed items — **R1 = Sweep sub-solver fuzz legs**, R2 = Reorder stress policy | `benchmarks/reports/2026-07-29-review-post-track-r.md` |
+
+The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
+`TD-` namespace, NOT Track R's.
 
 ### 2026-07-31 — task #11 DIAGNOSED (not fixed): three mechanisms, four causes eliminated, the lever is WHEN Factor runs
 Report: `benchmarks/reports/2026-07-31-factor-broad-admission-profiling.md`. Why broad Factor admission is
@@ -682,7 +702,8 @@ artefacts are byte-identical was SKIPPED, not tested** — a payoff-bound sweep 
 proofs in all three arms, which is how `Kernel::factor_bound`'s unreachability under DefaultPolicy surfaced.
 Check the artefact, not just the score.
 
-### 2026-07-30 — R5 increment 2: the widened Factor grid, and **or_randxor (the one true wall) SOLVES**
+### 2026-07-30 — TD-R5 increment 2: the widened Factor grid, and **or_randxor (the one true wall) SOLVES**
+*(**TD-R5** = the timeout-diagnosis lead "rule SCOPE" — `factor_size`. NOT Track R · R5, which is V5 `Sweep`.)*
 `9f20813` design · `4c13bfd` inc 1 · `b9416c9` inc 2a · `2191466` inc 2b · `687e86f` inc 2c.
 `Kernel::factor_size` (default 2 = binary-only, unchanged) widens remainders from literals to sub-clauses;
 `TACTIX_FACTOR_SIZE` is the arm. **Target: `or_randxor` 3,600 s TO / 42.5 M conflicts → 47.55 s SOLVED**
@@ -705,10 +726,10 @@ sufficient for fclq; the design's 30–120 s prediction there was wrong.
 - `stats.factor_large_remainders` added — it is what distinguished "the widened branch never fired" from
   "it fired and never won the delta contest".
 
-### 2026-07-30 — R1 and R2 both KILLED at tier level: for this rule family the lever is ADMISSION, not dosing
-Both top leads from the Tier B timeout diagnosis died on their pre-registered kill criteria; shipped
-defaults unchanged throughout, every arm retained as a §5.6 knob.
-- **R2** (remove the BVE binary-density gate, `TACTIX_BVE_DOSE_DENSITY=0`): Tier B(28) flat 105.21 → 105.84
+### 2026-07-30 — TD-R1 and TD-R2 both KILLED at tier level: for this rule family the lever is ADMISSION, not dosing
+Both top leads from the Tier B timeout diagnosis (`TD-` namespace — Log key; NOT Track R's rules) died on
+their pre-registered kill criteria; shipped defaults unchanged throughout, every arm retained as a §5.6 knob.
+- **TD-R2** (remove the BVE binary-density gate, `TACTIX_BVE_DOSE_DENSITY=0`): Tier B(28) flat 105.21 → 105.84
   but **Tier C 324.24 → 516.91 with THREE lost solves** (T105/T87/asconhash). Residue worth keeping:
   **`crypto1` IMPROVED** without the gate (7.0 → 3.3), so half of L9's justification is refuted and on
   Tier B it is a ONE-INSTANCE (mod4block) defense — while on Tier C it defends a real and different set.
@@ -717,7 +738,7 @@ defaults unchanged throughout, every arm retained as a §5.6 knob.
   **109,573 resolutions/elimination** vs 33–7,997 for the ENABLE set, but **asconhash needs suppressing at
   151** while eliminating 42,570 vars cheaply — L2/L7 trajectory damage, which cost-per-yield cannot see
   by construction. So cost is a better signal for one class and does NOT subsume density.
-- **R1** (meter V4 in ticks + kissat's early exit): Tier B(28) **105.40 → 123.29, a lost solve**; Tier C
+- **TD-R1** (meter V4 in ticks + kissat's early exit): Tier B(28) **105.40 → 123.29, a lost solve**; Tier C
   flat 323.67 → 325.87. The four pre-registered kill instances did NOT fire (rbsat −1.4, mp1-blockpuzzle
   −0.9, FmlaEquiv −0.4, 9vliw +1.1), so the **2026-07-25 TR-dosing bank does not reproduce** and the meter
   is safe there — but klieber INVERTED, 118.1 → 600 TO, giving **off 18.4 / full 118.1 / partial 600**.
@@ -752,10 +773,10 @@ Sub-agent diagnosis, 209 solver runs over four arrays; report
   kissat eliminates 40–86 % of variables. Second half: **TransitiveReduce's ledger is in CANDIDATES against
   a search-tick reference**, so a 20× rate cut is BIT-IDENTICAL — its budget has never bound.
 - **DEFECT B — rule-SCOPE.** `kissat --factorsize=2` (kissat restricted to our variant) loses rxor entirely
-  and costs fclq 12.6×, the same as `--no-factor`. → R5 above.
+  and costs fclq 12.6×, the same as `--no-factor`. → TD-R5 above.
 - `veer_axi` is a CONSTANT FACTOR, not a wall: **2,199.8 s vs kissat 3.2 (687×)**, TransitiveReduce alone
   585.7 s of it where kissat spends 0.03 s. **`or_randxor` was the only true wall** (42.5 M conflicts
-  unsolved at 3,600 s, props/conflict 0.99× — now solved by R5).
+  unsolved at 3,600 s, props/conflict 0.99× — now solved by TD-R5).
 - **L14 trap banked:** rxor spends 91.2×10⁹ walk steps on a refutation; the walk-off arm prices them at
   ~4 %. Do not act on them. **L11 upheld** — Sweep is not the lever on any of the four.
 - Owed instrumentation: `c congruence` prints neither gates nor merges, so whether Substitute removes the
@@ -833,8 +854,8 @@ since `3fb85bd`; the guard table is what a reader trusts for shipped behaviour. 
 the three newly-scheduled ones exposed nothing → ids 26–31 added as **(yield, effort) PAIRS**, cost-per-unit-output being the axis that orders their outcomes (BCE: 13
 ticks/deletion where it buys a 50× speedup, 7,700–43,000 where it costs). Dead `Stats::learned_raw_lits` removed; `SubSolver::conflicts()` KEPT, reason recorded at the
 site (S-f reports it beside `ticks()`). Behaviour-preserving: ctest green release+debug, **Tier A 0.44 (200/200) vs kissat 0.45 unchanged**, fuzz `--random-policy` 10k/0
-(1572349). Routed, not fixed (report §"Routed"): **R1 (med) — S-c MUST add sub-solver fuzz legs when it becomes reachable**; R2 Reorder has no stress policy; R3
-`benchmarks/probes/` needs a retention rule; R4/R5 duplication + allocation.
+(1572349). Routed, not fixed (report §"Routed"; the `RV-` namespace — Log key): **RV-R1 (med) — Track R · R5's S-c MUST add sub-solver fuzz legs
+when it becomes reachable**; RV-R2 Reorder has no stress policy; RV-R3 `benchmarks/probes/` needs a retention rule; RV-R4/RV-R5 duplication + allocation.
 
 ### 2026-07-29 — T3's CaDiCaL half is NOT met with the rules on; the cause is TWO instances
 `8f6cae4`, same-window Tier C `20260729-003352` (29/30 every arm): all-on 357.23 = **1.14× cadical, OUTSIDE the 10 % band**; rules-off 313.20 = 1.00×; cadical 3.0.0
