@@ -274,10 +274,23 @@ static void bump_and_reset_analyzed(Kernel &k) {
     k.analyzed.clear();
     return;
   }
+  // Task #11 increment 3: attribute each bump to its channel and to whether it
+  // landed on an extension variable (see Stats::bumps_extension).
+  const Var ext_first = k.first_extension_var;
+  auto count_bump = [&](Var v) {
+    k.stats.bumps++;
+    if (v >= ext_first) {
+      k.stats.bumps_extension++;
+      if (!(k.seen[v] & SEEN))
+        k.stats.bumps_ext_reason_only++;
+    }
+  };
   if (k.h->stable) {
     for (const Var v : k.analyzed) {
-      if (k.seen[v] & BUMPED)
+      if (k.seen[v] & BUMPED) {
+        count_bump(v);
         heuristics_score_bump(k, v);
+      }
       k.seen[v] = 0;
     }
     k.analyzed.clear();
@@ -286,8 +299,10 @@ static void bump_and_reset_analyzed(Kernel &k) {
   }
   radix_sort_analyzed_by_stamp(k);
   for (const Var v : k.analyzed) {
-    if (k.seen[v] & BUMPED)
+    if (k.seen[v] & BUMPED) {
+      count_bump(v);
       heuristics_queue_bump(k, v);
+    }
     k.seen[v] = 0;
   }
   k.analyzed.clear();
@@ -305,6 +320,11 @@ static void mark_reason_side(Kernel &k, Lit m) {
   const Var v = var_of(m);
   if (k.var_level(v) == 0)
     return; // root-fixed: kissat `a->level`
+  // Task #11 arm: withhold extension vars from THIS channel only (see
+  // Kernel::no_ext_reason_bump). The conflict-side channel still bumps them,
+  // so they rise on evidence rather than on being a BVA hub.
+  if (k.no_ext_reason_bump && v >= k.first_extension_var)
+    return;
   if (k.seen[v] & BUMPED)
     return; // already in the bump set (kissat `a->analyzed`)
   // NB: NOT `if (k.seen[v])` — a var may sit in k.analyzed carrying only

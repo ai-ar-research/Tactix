@@ -103,6 +103,19 @@ struct Stats {
   // so "are we branching on extension vars?" must be answerable from a normal
   // run rather than inferred. Counts vars >= first_extension_var.
   uint64_t decisions_extension = 0;
+  // Task #11 increment 3: WHICH CHANNEL re-promotes extension variables.
+  // cadical branches on its ext vars 0.10% of decisions where we do 31.4%
+  // (probe 1577499) while burying them at birth exactly as we do, so something
+  // keeps lifting ours back out. The two candidates are separable at the bump
+  // site: conflict-side (SEEN — the var was resolution-visited or sits in the
+  // learned clause) vs reason-side only (REASON_BUMP without SEEN — the
+  // bumpreasons extension, where cadical's rate is 100, kissat's 10, ours 20).
+  // A high reason-side share is a MECHANISM gap with a targeted fix; a high
+  // conflict-side share means our factorings are structurally more active and
+  // the lever is WHICH factorings we choose.
+  uint64_t bumps = 0;                // bump events (both modes, both channels)
+  uint64_t bumps_extension = 0;      // ...of which landed on an extension var
+  uint64_t bumps_ext_reason_only = 0; // ...of those, reason-side ONLY
   uint64_t restarts = 0;
   uint64_t restarts_reused = 0; // restarts that kept a trail prefix
   uint64_t reductions = 0;
@@ -595,6 +608,27 @@ struct Kernel {
   // which N1 forbids for a default; it exists to test whether branching on
   // extension vars is what makes broad Factor admission damage our search.
   bool no_ext_decisions = false;
+  // Task #11 (`TACTIX_NO_EXT_REASON_BUMP`, arm — default off). Withhold E2
+  // Factor's extension variables from the REASON-SIDE bump channel only; the
+  // conflict-side channel (resolution-visited / in the learned clause) is
+  // untouched, so an extension var still rises whenever it earns it.
+  //
+  // UNLIKE `no_ext_decisions` above this is N1-CLEAN and shippable: reason-side
+  // bumping is `H`-only advice with no proof obligation, and this changes only
+  // the ORDER candidates are offered in, never which are legal (rule-dev: rank
+  // freely, never omit). Every variable remains decidable at every point.
+  //
+  // Measured motivation (probe 1577502, broad admission): on ContextModel
+  // extension vars take 2.97x as many bumps PER VARIABLE as original vars and
+  // **71.68 % of those bumps are reason-side ONLY** (46 % on jgiraldez, 36 % on
+  // sted5). A BVA extension variable IS by construction the hub of the clauses
+  // it replaced, so it appears in a great many reasons — reason-side bumping
+  // promotes it for its structural position rather than for evidence, and the
+  // promotion self-reinforces (promoted -> decided more -> in more reasons).
+  // This is the channel that plausibly separates us from cadical's 0.10 %
+  // ext-decision share on the same instance (probe 1577499) while preserving
+  // its 8.81 % on sted5 — i.e. DISCRIMINATION, not suppression.
+  bool no_ext_reason_bump = false;
   // S4 composite grids (S2b, kissat resize_factoring): widen Factor's
   // factor/remainder universe to ALL live literals — extension vars included,
   // growing as the pass applies. Default false (measured: composition

@@ -667,6 +667,34 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-01 — task #11: the channel is REASON-SIDE BUMPING — 71.7 % of ContextModel's ext-var bumps, and it self-reinforces
+Probe 1577502 (`c extbumps`, new counters `Stats::bumps{,_extension,_ext_reason_only}`) attributes every bump
+to its channel — conflict-side (`SEEN`: resolution-visited or in the learned clause) vs reason-side only.
+
+| instance | bumps per EXT var vs per ORIGINAL var | ext bumps that are REASON-SIDE ONLY |
+|---|---|---|
+| **ContextModel** | 133,575 vs 44,911 = **2.97× more** | **71.68 %** |
+| jgiraldezlevy | 70,211 vs 244,820 = 0.29× | 46.38 % |
+| sted5 | 5,458 vs 12,369 = 0.44× | 36.16 % |
+
+- **On the poisoned instance, extension vars are bumped ~3× more often PER VARIABLE than original ones, and
+  72 % of those bumps arrive through the reason-side channel alone** — the variable was never
+  resolution-visited and never in the learned clause. On the two instances that do NOT suffer, ext vars are
+  bumped *less* per variable than originals (0.29×/0.44×) and the reason-side share is far lower.
+- **The mechanism is structural and self-reinforcing.** A BVA extension variable *is* by construction the hub
+  of the clauses it replaced, so it appears in the reason of a great many propagated literals. Reason-side
+  bumping therefore promotes it for its POSITION rather than for evidence — and promotion feeds itself
+  (promoted → decided more → appears in more reasons → promoted more). That is a mechanism our one-shot
+  burial cannot survive, and it explains why demotion moved the share 31.4 % → 32.2 % and nothing else.
+- **Arm implemented, default OFF: `TACTIX_NO_EXT_REASON_BUMP`** (`Kernel::no_ext_reason_bump`) withholds
+  extension vars from the reason-side channel ONLY; conflict-side bumping is untouched, so an ext var still
+  rises whenever it earns it. **This is N1-CLEAN and shippable, unlike `no_ext_decisions`** — reason-side
+  bumping is `H`-only advice with no proof obligation, and the arm changes only the ORDER candidates are
+  offered in, never which are legal (rule-dev: rank freely, never omit). It is also the shape cadical
+  exhibits: discrimination by evidence, not suppression. Measurement pre-registered in probe 1577506.
+- ctest 38/38; mod4block identity re-confirmed at **418,796** conflicts (no ext vars there ⇒ the counters and
+  the arm are both inert on it, as they must be).
+
 ### 2026-08-01 — task #11: cadical branches on ITS extension vars **0.10 %** where we do **31.4 %** — and it DISCRIMINATES
 The L14 move the diagnosis never made: get the reference's number on the SAME instance. Patched cadical copy
 built OUTSIDE the repo (`/home/hwu/cadical-extdiag`, same version 3.0.0; `stats.decisions_extension` counted in

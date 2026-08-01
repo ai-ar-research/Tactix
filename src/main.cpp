@@ -271,6 +271,8 @@ int main(int argc, char **argv) {
     kernel.factor_cand_rounds = (uint32_t)strtoul(cr, nullptr, 10);
   if (getenv("TACTIX_NO_EXT_DECISIONS"))
     kernel.no_ext_decisions = true; // diagnostic, see Kernel::no_ext_decisions
+  if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
+    kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a
@@ -439,6 +441,18 @@ int main(int argc, char **argv) {
                      (double)kernel.stats.decisions
                : 0.0,
            (unsigned long long)kernel.stats.decisions);
+    printf("c extbumps    %llu of %llu bumps on extension vars (%.2f%%), "
+           "%llu reason-side only (%.2f%% of those)\n",
+           (unsigned long long)kernel.stats.bumps_extension,
+           (unsigned long long)kernel.stats.bumps,
+           kernel.stats.bumps ? 100.0 * (double)kernel.stats.bumps_extension /
+                                    (double)kernel.stats.bumps
+                              : 0.0,
+           (unsigned long long)kernel.stats.bumps_ext_reason_only,
+           kernel.stats.bumps_extension
+               ? 100.0 * (double)kernel.stats.bumps_ext_reason_only /
+                     (double)kernel.stats.bumps_extension
+               : 0.0);
     // factor_ticks is the S4 dosing currency (and what the first-dose
     // allowance FACTOR_INIT_TICKS caps): printing it is what distinguishes
     // "the allowance bound the opening burst" from "the arm was inert".
