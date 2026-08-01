@@ -430,19 +430,31 @@ residuals): the four tail instances were 69 % of Tier B time, each with a differ
 - [ ] **TB4b** · the remaining chrono divergences from that audit: **watch repair onto highest-level literals**, unit chrono routing, snapshot
   timing, `jumpreasons`, cadical's `chronoreusetrail`. Aims at FmlaEquiv's conflict gap. Port ONE behavior at a time; TB4's lesson is to audit
   any negative verdict before accepting it.
-  **LIVE CONSTRAINT — the list is not six independent items: (A) and watch repair are ONE change.** Reusing a conflict clause as a reason
-  requires it to watch the literal it now implies, or a later backtrack strands it unit at a claimed fixpoint (the unrepaired first version
-  aborted corpus 002 + 005, "unit large clause escaped propagation"). kissat repairs watches in the same function (`analyze.c`, the
-  `conflict_size > 2` swap block); **we have no unwatch primitive**, so the shortcut currently DECLINES when the invariant does not already hold
-  — sound, still fires on the common propagation-conflict shape. **Next step = the watch-repair primitive**, which also unblocks the OTFS-round
-  case (the shortcut is restricted to the first analysis round because an OTFS-strengthened conflict's clause identity is not pinned down yet).
-  - [x] **TB4b(A) · the one-literal-on-conflict-level shortcut IMPLEMENTED, ships OFF** — when exactly one conflict literal sits at the conflict
-    level the clause is already asserting, so backtrack to the second-highest level and assign that literal WITH THE CONFLICT AS ITS REASON,
-    learning nothing (fewer learned clauses and proof lines) (`Kernel::conflict_reuse`, `TACTIX_CONFLICT_REUSE=1`;
-    `1c5f2c5`, measured `88cff2d`). Negative tier-wide — Tier B 8.32 vs 7.62, Tier C 330.17/310.93 vs 312.17/307.07 over two windows, DIRECTION
-    only (Tier C noise at throttle 48 is ~6 % — the SAME arm read 330.17 and 310.93). Wins where aimed (FmlaEquiv 26.00 → 22.45 s, −29 %
-    conflicts; 9vliw 13.28 → 11.67; crypto1 2.20 → 1.03), loses more on qwh alone (4.04 → 15.71) than the whole aggregate delta. **The verdict is
-    on the CRIPPLED version** (parent's live constraint), not on kissat's
+  The old live constraint ((A) and watch repair are ONE change) is DISCHARGED by TB4b(B) below.
+  - [x] **TB4b(A) · the one-literal-on-conflict-level shortcut** — when exactly one conflict literal sits at the conflict level the clause is
+    already asserting, so backtrack to the second-highest level and assign that literal WITH THE CONFLICT AS ITS REASON, learning nothing (fewer
+    learned clauses and proof lines) (`Kernel::conflict_reuse`, `TACTIX_CONFLICT_REUSE=1`; `1c5f2c5`, measured `88cff2d`).
+    **THE 2026-07-28 NEGATIVE VERDICT IS RETIRED — it was on a BROKEN arm, not a crippled one** (audit 2026-08-01, report
+    `benchmarks/reports/2026-08-01-tb4b-watch-repair.md` §1). `analyze_apply` clears `pending.valid` on the reuse path and the INSTANCE path
+    checked it, but **DefaultPolicy's micro-loop did not**: every reuse ran the learn/backjump tail on the PREVIOUS conflict's record — stale glue
+    sample, `backjump_apply_to` clamped to a stale `jump_level` (forced to 0 when that record was a learned unit), a real `kernel_backtrack` that
+    UNDID the reuse's own assignment, then a `backjump_stale` (TB4's must-stay-0 signal). Only DefaultPolicy was hit, so `--random-policy` and the
+    corpus stayed green. Fixed `fc57eff`; six other policies had the same unguarded call and are now guarded
+  - [x] **TB4b(B) · THE WATCH-REPAIR PRIMITIVE, and the shortcut un-crippled** (`fc57eff`; diagnostic arm `a489bb7`). `kernel_unwatch_large` (the
+    inverse `push_large` never had) + `kernel_promote_watched_lit`; the level ranking stays in the rule (`repair_conflict_watches`). Deliberately
+    NARROWER than kissat: it runs only when the shortcut fires, so the ordinary learning path is byte-identical — **proved**: arm-OFF and
+    pre-change HEAD wrote byte-identical DRAT totals (357,623,690 B over 11 UNSAT proofs). Design + deviations `implementation-notes.md` §12.
+    **The mechanism is CHRONO-ONLY** — on a level-sorted trail "one literal at the conflict level" is impossible (the clause would already have
+    propagated), so at `chrono_levels=100` a 90-var random 3-SAT gives **0 reuses over 2,105 conflicts**; two versions of the audit test measured
+    nothing before that was understood ([[ab-arm-identical-artefacts]]). New `--reuse-stress-policy` forces the ingredients. ctest 38/38
+    release+debug; **six fuzz legs 10k/0 each** (DRAT + native LRAT × {default, `--random-policy`, `--reuse-stress-policy`}, ASan+UBSan, corpus
+    10/10 incl. 002/005), `backjump_stale` 0 everywhere. **Measured (report §5), two same-window Tier B runs + a 5-arm attribution window
+    `20260801-092756`.** The un-crippling is REAL (DRAT bytes −12.0 %; FmlaEquiv **−18.7 % conflicts / −12 % wall, non-overlapping replicate
+    ranges**, where the crippled version gives +1.3 %). Cost: **+2.0 % on Tier B(28)** — but **core14 and new14 give OPPOSITE orderings of
+    ON vs CRIPPLED** (core14: ON inside the OFF noise band, CRIPPLED ~7 % above it; new14: ON +2 %, CRIPPLED free), so neither aggregate is the
+    verdict — L12/L16 in one table. **The July −9.2 % does NOT reproduce for the un-crippled arm on its own instrument.** **qwh reproduces at 3.1×
+    (pre-registered kill K5) — ships OFF, no default flip recommended.** Real home = the §5.6 exhibit: **one** reuse halves crypto1's conflicts,
+    67 quadruple qwh's — chaotic in the dose (L12), no static separator to look for
 - [x] **TB5** · CLOSED-REFRAMED 2026-07-25 (probes 1562819–26): per-prop cost is AT PARITY with kissat on all residuals — the
   flat-1.39×-throughput premise was stale; the residual is SEARCH SHAPE (s055 props/conflict 1.43× at conflict parity; FmlaEquiv conflicts 1.53×;
   x9 parity). Watch-layout engineering lane measured-dead; s055 → phase-6 admission exhibit; lesson: kissat's `propagations` stat includes
@@ -636,6 +648,32 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-01 — TB4b: the watch-repair primitive lands, and the shortcut's negative verdict turns out to be a DefaultPolicy bug
+Report `benchmarks/reports/2026-08-01-tb4b-watch-repair.md`; commits `fc57eff` (primitive + un-crippling +
+audit) and `a489bb7` (the attribution arm). Ships OFF — **no default flip recommended**, K5 fired.
+- **The July verdict is RETIRED.** `analyze_apply` clears `pending.valid` on the reuse path; the INSTANCE
+  path checked it, **DefaultPolicy's micro-loop did not**, so every reuse ran the learn/backjump tail on the
+  previous conflict's record — stale glue, a real backtrack that UNDID the reuse's own assignment, then a
+  `backjump_stale`. Only DefaultPolicy was hit, so `--random-policy` and the corpus never saw it. Pinned by a
+  unit test that aborts on `assert(backjump_guard)` with the fix reverted. TB4's lesson, second time.
+- **The primitive:** `kernel_unwatch_large` (the inverse `push_large` never had) + `kernel_promote_watched_lit`.
+  Watch-only edit — membership/size/id/arena position untouched, so proofs, the dense index and every LRAT
+  chain stay valid. `implementation-notes.md` §12. OFF-path inertness PROVED by byte-identical DRAT totals
+  against pre-change HEAD.
+- **The mechanism is CHRONO-ONLY** (on a level-sorted trail the shape cannot occur — the clause would already
+  have propagated), so at `chrono_levels=100` a 90-var random 3-SAT gives **0 reuses in 2,105 conflicts**; two
+  versions of the audit test measured nothing before that was understood. `--reuse-stress-policy` added.
+- **Three-way attribution** (5 arms + replicates, `20260801-092756`). The un-crippling is real (DRAT −12.0 %;
+  FmlaEquiv **−18.7 % conflicts, −12 % wall** with non-overlapping replicate ranges, where crippled gives
+  +1.3 %) and costs **+2.0 % on Tier B(28)**, in three instances — **qwh 3.1× reproduces** (pre-registered
+  kill), PRP 1.63×, Timetable 1.65×. **But core14 and new14 order ON vs CRIPPLED OPPOSITELY** (core14: ON
+  inside the OFF band 10.27–10.84, CRIPPLED 11.11 above all of it; new14: ON +2 %, CRIPPLED free), so neither
+  aggregate is the verdict. The July −9.2 % does NOT reproduce for the un-crippled arm on its own instrument.
+- **Lesson (L12 family):** the effect is CHAOTIC IN THE DOSE — **one** reuse halves crypto1's conflicts, 67
+  quadruple qwh's. There is no static separator to look for; this is §5.6 exhibit material, cleanly labelled.
+- Fuzz 6 × 10k/0 (DRAT + native LRAT × default / `--random-policy` / `--reuse-stress-policy`, ASan+UBSan),
+  corpus 10/10 incl. 002+005, `backjump_stale` 0 everywhere, ctest 38/38 both builds.
 
 ### 2026-07-31 — task #11 DIAGNOSED (not fixed): three mechanisms, four causes eliminated, the lever is WHEN Factor runs
 Report: `benchmarks/reports/2026-07-31-factor-broad-admission-profiling.md`. Why broad Factor admission is

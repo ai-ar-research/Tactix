@@ -639,4 +639,6 @@ glue sample into the restart EMA, then `backjump_apply_to` clamping to a stale `
 to 0 whenever that record was a learned UNIT), **backtracking away the reuse's own assignment**, and
 finally counting a `backjump_stale` — TB4's standing must-stay-0 signal. Only DefaultPolicy was
 affected, which is why `--random-policy` and the regression corpus stayed green. Same family as TB4's
-own lesson: audit a negative verdict before accepting it.
+own lesson: audit a negative verdict before accepting it. The re-measurement (which does **not**
+conclude the mechanism is free — it costs ~2 % Tier B(28), and core14 vs new14 order the crippled and
+un-crippled arms oppositely) is `benchmarks/reports/2026-08-01-tb4b-watch-repair.md`.
