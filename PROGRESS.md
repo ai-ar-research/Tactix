@@ -291,6 +291,20 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   portable when we depend on the rule and the reference does not (cadical ships `block` OFF). Also note
   kissat does mod4block in 19.4 s with NO BCE, so our dependence there is a tactix-specific crutch.
   (probes 1573320/1573405–07; Log 2026-07-29.)
+- **L20 · AN INSTANCE CAN BE ROCK-STABLE UNDER REPLICATION AND CATASTROPHICALLY FRAGILE UNDER PERTURBATION —
+  so a huge regression there is WEAK evidence about the mechanism that perturbed it.** On 2026-08-01 two
+  entirely unrelated changes each cost `ContextModel_output_7_3_9` ~**19–20×**: TB4b's conflict-clause reuse
+  (20.06/19.97 → 382.74/376.03 = 19.1×, a backjump/learning change) and task #11's broad Factor admission
+  (20.4 → 453.7 ≈ 20×, a BVA/preprocessing change). Its OFF replicate pair is **the most reproducible in
+  Tier C**, so this is not the L12 noise-chaos pattern — it is stable-but-knife-edge: our default trajectory
+  there is unusually GOOD (**20.4 s vs cadical's 64.2 s — we are 3× FASTER**) and almost any substantial
+  perturbation falls off it. Consequence for task #11: its founding framing — ContextModel's +464 s proves
+  "our Factor is 7–28× worse than cadical's" — is **overstated**, because the same instance pays ~20× for a
+  change that has nothing to do with Factor. Method: before attributing a large single-instance regression to
+  the mechanism you changed, check whether that instance also collapses under an UNRELATED change; if it
+  does, it is measuring fragility, not your mechanism. Distinguish from L12 by the replicate spread — L12's
+  crypto1 was chaotic *between identical runs*, this one is not. (Log 2026-08-01; TB4b report §Tier C +
+  probes 1577487/1577506.)
 - **L19 · READ A REFERENCE OPTION'S SOURCE BEFORE INTERPRETING A PROBE THAT SETS IT — polarity and even
   liveness cannot be inferred from the name or the help string.** The task-#11 diagnosis routed its primary
   lever off the probe `cadical --factordelay=0 --factorthresh=0`. Both halves were misread. (a) **`factorthresh`
