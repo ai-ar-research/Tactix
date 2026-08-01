@@ -47,13 +47,19 @@ DIAGNOSED 2026-07-31 (report `2026-07-31-factor-broad-admission-profiling.md`), 
   BVE rounds: **we already match cadical exactly here.** The family's last member, the first-dose allowance
   (kissat 700M vs cadical 300M), is **measured INERT** — bit-identical on all three mechanism instances,
   because Factor's whole-solve spend is only 10.9–104M ticks (probe 1577487).
-- **WHAT ACTUALLY REMAINS.** The ext-var-branching mechanism (§4) stands, but its remedy — persistent/adaptive
-  extension-var priority — is a **NOVEL mechanism, not reference-matching**: our `heuristics_demote_fresh_vars`
-  already faithfully mirrors cadical's `adjust_scores_and_phases_of_fresh_variables`, and **cadical's is
-  equally one-shot** (analysis re-bumps there too). Prior evidence predicts it trades sted5
-  (`TACTIX_FACTOR_DEMOTE`: 16 → 150 s). **The one non-novel axis still unexamined is WHICH factorings we
-  choose** — cadical adds *more* extension vars (627 vs 459) and is still 7× faster, so neither the count nor
-  the timing explains the gap. Start there. Still **not** a fifth formula-shape separator (0 for 5).
+- **▶ WHAT ACTUALLY REMAINS — and it is now reference-anchored** (probe 1577499, Log 2026-08-01). Cadical
+  branches on ITS extension vars **0.10 %** of decisions on ContextModel where we do **31.4 %** (**314×**),
+  **0.01 % vs 0.38 %** on jgiraldez — but **8.81 % vs our 6.19 % on sted5, i.e. MORE than us**, while adding
+  more ext vars overall (627 vs 459). **Cadical does not suppress extension variables; it DISCRIMINATES.**
+  A static priority cannot produce that shape by construction — which is precisely why all five knobs traded
+  one instance for another, and why `TACTIX_FACTOR_DEMOTE` rescues j3037/edp3/rxor and costs sted5 16 → 150 s.
+  Our machinery fails to hold them down *even when enabled* (31.4 % off / 32.2 % on, vs 0.10 %), so this is
+  not a missing demotion — burying at birth is already what both solvers do.
+  **Next increment: count BUMP events on extension vars, not just decisions.** That separates the two live
+  hypotheses — (H1) our factorings are structurally more active, so ext vars keep re-entering conflict
+  analysis (the "WHICH factorings" axis), vs (H2) a re-promotion mechanism gap (both bump reason-side
+  literals; cadical `bumpreasonrate` 100, kissat 10, ours 20, and cadical caps `bumpreasondepth` at 1).
+  Still **not** a fifth formula-shape separator (0 for 5).
 
 **THEN, in order.** (a) **Task #10** — §6 compliance: the inprocessing slot barely polls the stop flag; the
 real blocker is V6 Congruence, 131,327 ms over 3 applications, unmetered (SIGTERM-deaf ~1,100 s).
@@ -660,6 +666,38 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-01 — task #11: cadical branches on ITS extension vars **0.10 %** where we do **31.4 %** — and it DISCRIMINATES
+The L14 move the diagnosis never made: get the reference's number on the SAME instance. Patched cadical copy
+built OUTSIDE the repo (`/home/hwu/cadical-extdiag`, same version 3.0.0; `stats.decisions_extension` counted in
+`decide()` against a `max_var` snapshot taken at `Internal::solve` entry), probe 1577499.
+
+| instance | ours (broad admission) | **cadical** | |
+|---|---|---|---|
+| ContextModel | **31.39 %** (5,907,203 / 18.8 M) | **0.10 %** (5,294 / 5.2 M) | **314×** |
+| jgiraldezlevy | 0.38 % (40,081) | 0.01 % (98) | 38× |
+| sted5 | 6.19 % (45,829) | **8.81 %** (47,900) | **cadical branches MORE** |
+
+- **The anomaly is CONFIRMED and it is enormous** — 314× on ContextModel, not a subtle divergence. L14 is
+  discharged: this is now a reference-anchored gap, not an internal cross-instance contrast.
+- **▶ THE FINDING THAT REROUTES THE TASK: cadical is not SUPPRESSING extension variables, it is
+  DISCRIMINATING.** Near-zero where ext branching is poison (ContextModel 0.10 %), **more than ours** where ext
+  vars are essential (sted5 8.81 % vs 6.19 % — and killing them takes sted5 17 s → >528 s). It does this while
+  adding *more* ext vars than we do (627 vs 459). **A static priority cannot reproduce that shape by
+  construction** — which is exactly why all five of our knobs traded one instance for another, and why
+  `TACTIX_FACTOR_DEMOTE` rescues j3037/edp3/rxor but costs sted5 16 → 150 s. The §5.6 "three mutually
+  exclusive mechanisms" framing was right about the data and wrong about the conclusion: the three instances
+  do not need three different static settings, they need ONE mechanism that responds to evidence.
+- **Our machinery does not hold them down even when enabled**: 31.4 % with demotion OFF (this probe) and
+  32.2 % with `TACTIX_FACTOR_DEMOTE=1` (report §5.4) — against cadical's 0.10 %. So the gap is NOT "we forgot
+  to demote"; burying at birth is already what both solvers do (`heuristics_demote_fresh_vars` ≙
+  `adjust_scores_and_phases_of_fresh_variables`), and ours is washed out while cadical's is not.
+- **Two hypotheses remain, and they are separable.** (H1) our ext variables are *structurally* more active —
+  our factorings differ from cadical's, so ours keep entering conflict analysis and re-bumping themselves
+  (this is the "WHICH factorings" axis). (H2) a mechanism gap in what re-promotes them: both solvers bump
+  reason-side literals, but the rates differ — cadical `bumpreasonrate` **100**, kissat `bumpreasonsrate`
+  **10**, ours **20** — and cadical additionally caps `bumpreasondepth` at 1. **Next increment: count BUMP
+  events on extension vars, not just decisions** — that discriminates H1 from H2 directly.
 
 ### 2026-08-01 — task #11: the WHOLE "when Factor runs" family is now eliminated — the routed lever was a misread probe
 The entry below routed task #11 to "*when* Factor runs". **That routing is wrong, and all three members of the
