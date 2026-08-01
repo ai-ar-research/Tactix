@@ -5,7 +5,7 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 75 (2026-07-30)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-08-01 — **task #10 DONE** (§6: rules poll the interrupt; SIGTERM latency 18.4 → 2.9 s; L22), **task #11 closed** (mechanism located + reference-anchored, fix refuted at tier level; report `2026-08-01-task11-factor-admission-mechanism.md`; new lessons L19–L21) and **TB4b merged** (watch-repair primitive + a DefaultPolicy defect that retires its July verdict; ships OFF). Earlier: the `R<n>` namespace collision fixed (four namespaces, key under `## Log`).
+- **Last updated:** 2026-08-01 — **V3 per-SCC hazard skip SHIPPED** (Tier B 104.06 → 95.61, `veer_axi` TO → 238.7 s, +1 solve; L23), **task #10 DONE** (§6: rules poll the interrupt; SIGTERM latency 18.4 → 2.9 s; L22), **task #11 closed** (mechanism located + reference-anchored, fix refuted at tier level; report `2026-08-01-task11-factor-admission-mechanism.md`; new lessons L19–L21) and **TB4b merged** (watch-repair primitive + a DefaultPolicy defect that retires its July verdict; ships OFF). Earlier: the `R<n>` namespace collision fixed (four namespaces, key under `## Log`).
 
 ## ▶ RESUME HERE (2026-08-01) — phase 3; T3's CaDiCaL half MET; task #11 CLOSED, TB4b DONE; next is task #10
 
@@ -57,9 +57,9 @@ profiling report's §6 routing). Read that before touching E2 admission again.
 polled by V6 Congruence at five safe points; worst-case SIGTERM latency **18.4 → 2.9 s**, proof
 byte-identical when uninterrupted, stop-fuzz 4 × 10k/0). Residual: ~2–3 s still unattributed, and the
 original ~40 s/~1,100 s case was never reproduced — other long rules have no polls yet.
-(b) The remaining Tier B walls. **`veer_axi` — START WITH THE NEW LEAD, not TransitiveReduce: V6 finds
-**179,110 merges** and V3 Substitute consumes **ZERO** (probe 1578218, Log 2026-08-01).** The old framing
-(V4 TransitiveReduce's own runtime is 26–49 % of its clock,
+(b) The remaining Tier B walls. **`veer_axi` IS SOLVED as of 2026-08-01** (V3's per-SCC hazard skip; TO →
+238.7 s, Tier B −8.45) — what remains there is that it is still 238.7 s against kissat's 3.7, and V4
+TransitiveReduce is the standing suspect (26–49 % of its clock,
 8.7 × 10⁹ ticks where kissat spends 0.03 s — a ~1000× engineering gap on one rule; even a 4× fix leaves it
 at 550 s against a 300 s cap) and **`unsat-set-b-fclqcolor`**. (c) Track R · R5 S-c (Sweep candidate
 selection — its DoD MUST include fuzz legs on both proof formats) then S-d…S-f, Track R · R6–R8.
@@ -110,87 +110,89 @@ result, replaces the table below. Keep the newest window at the top; drop supers
 stacking them. Record the window stamp AND the git SHA — a table without them cannot be reproduced or
 compared.
 
-#### Tier B (28) — window `20260731-021612` (git `2a40126`), **new default `factor_size=5`**, every arm writing + checking DRAT
+#### Tier B (28) — window `20260801-154122` (git `c906d26`), **new default: V3's PER-SCC hazard skip**, every arm writing + checking DRAT
 
-`●` marks the frozen **core14**; the pre-2026-07-29 archive (7.94 / 9.27 / 9.46 …) is computed on
-those alone. **Never mix 14- and 28-instance PAR-2.**
+`●` marks the frozen **core14**; the pre-2026-07-29 archive is computed on those alone.
+**Never mix 14- and 28-instance PAR-2.**
 
 | # | instance | c14 | st | tactix | kissat | ×kis |
 |---|---|---|---|---|---|---|
-| 1 | `sted5_0x24204-50.cnf.xz` |  | UNK | 600.0 **TO** | 8.6 | 69.7 |
-| 2 | `veer_axi_yosyshq_appnote_123_veer_axi-p2` |  | UNK | 600.0 **TO** | 3.7 | 161.9 |
-| 3 | `or_randxor_k3_n540_m540.cnf.xz` |  | UNK | 600.0 **TO** | 12.9 | 46.5 |
-| 4 | `unsat-set-b-fclqcolor-10-07-09.sat05-128` |  | UNK | 600.0 **TO** | 16.8 | 35.7 |
-| 5 | `DivS_862_11.cnf.sanitized.cnf.xz` |  | SAT | 129.0 | 19.3 | 6.7 |
-| 6 | `mp1-klieber2017s-0500-023-t12.cnf.xz` |  | SAT | 110.8 | 12.9 | 8.6 |
-| 7 | `PRP_30_38.cnf.xz` |  | SAT | 47.9 | 16.5 | 2.9 |
-| 8 | `2013113162201nw.shuffled-as.sat03-1668.c` |  | SAT | 43.7 | 6.0 | 7.3 |
-| 9 | `b22_1.cnf.xz` |  | UNS | 35.4 | 9.0 | 3.9 |
-| 10 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | ● | UNS | 32.4 | 13.7 | 2.4 |
-| 11 | `circuit_48in64out_with_800gates_4in4out_` | ● | SAT | 15.4 | 11.2 | 1.4 |
-| 12 | `9vliw_bp_mc.shuffled.cnf.xz` | ● | UNS | 14.7 | 8.8 | 1.7 |
-| 13 | `mod4block_2vars_10gates_u2_autoenc-sc200` | ● | SAT | 13.8 | 20.4 | 0.7 |
-| 14 | `rbsat-v760c43649gyes10.cnf.xz` | ● | SAT | 13.0 | 6.0 | 2.2 |
-| 15 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | ● | UNS | 10.8 | 9.3 | 1.2 |
-| 16 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.` | ● | SAT | 10.0 | 6.7 | 1.5 |
-| 17 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` |  | SAT | 9.9 | 4.1 | 2.4 |
-| 18 | `SCPC-500-5.cnf.xz` |  | UNS | 9.5 | 11.6 | 0.8 |
-| 19 | `hwmcc17miters-xits-iso-oski15a08b00s.san` | ● | UNS | 8.5 | 4.0 | 2.1 |
-| 20 | `DecompressReader_read_12.cnf.xz` |  | UNS | 8.4 | 6.7 | 1.3 |
-| 21 | `x9-08014.sat.sanitized.cnf.xz` | ● | UNS | 8.2 | 11.0 | 0.7 |
-| 22 | `combined-crypto1-wff-seed-1-wffvars-450-` | ● | SAT | 6.8 | 4.2 | 1.6 |
-| 23 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50` |  | SAT | 6.7 | 11.5 | 0.6 |
-| 24 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.x` | ● | SAT | 4.6 | 11.9 | 0.4 |
-| 25 | `square.2.0.i.smt2-cvc4.cnf.xz` | ● | UNS | 4.5 | 3.9 | 1.1 |
-| 26 | `oddball_13_5_ttf.normalised.cnf.xz` |  | UNS | 3.3 | 19.2 | 0.2 |
-| 27 | `battleship-14-26-sat.cnf.xz` | ● | SAT | 1.1 | 7.2 | 0.2 |
+| 1 | `sted5_0x24204-50.cnf.xz` |  | UNK | 300.0 **TO** | 8.6 | 35.0 |
+| 2 | `or_randxor_k3_n540_m540.cnf.xz` |  | UNK | 300.0 **TO** | 12.5 | 23.9 |
+| 3 | `unsat-set-b-fclqcolor-10-07-09.sat05-1282.re` |  | UNK | 300.0 **TO** | 16.4 | 18.3 |
+| 4 | `veer_axi_yosyshq_appnote_123_veer_axi-p23_tr` |  | UNS | 238.7 | 3.3 | 72.5 |
+| 5 | `2013113162201nw.shuffled-as.sat03-1668.cnf.x` |  | SAT | 129.6 | 6.0 | 21.8 |
+| 6 | `DivS_862_11.cnf.sanitized.cnf.xz` |  | SAT | 117.3 | 18.3 | 6.4 |
+| 7 | `PRP_30_38.cnf.xz` |  | SAT | 81.4 | 16.1 | 5.1 |
+| 8 | `mp1-klieber2017s-0500-023-t12.cnf.xz` |  | SAT | 57.2 | 12.8 | 4.5 |
+| 9 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.cnf.` | ● | SAT | 49.0 | 6.2 | 7.9 |
+| 10 | `b22_1.cnf.xz` |  | UNS | 34.6 | 10.0 | 3.4 |
+| 11 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | ● | UNS | 28.0 | 14.1 | 2.0 |
+| 12 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` |  | SAT | 16.9 | 4.0 | 4.2 |
+| 13 | `mod4block_2vars_10gates_u2_autoenc-sc2009.cn` | ● | SAT | 13.8 | 19.4 | 0.7 |
+| 14 | `9vliw_bp_mc.shuffled.cnf.xz` | ● | UNS | 13.4 | 8.5 | 1.6 |
+| 15 | `rbsat-v760c43649gyes10.cnf.xz` | ● | SAT | 13.3 | 6.0 | 2.2 |
+| 16 | `circuit_48in64out_with_800gates_4in4out_dist` | ● | SAT | 12.0 | 11.6 | 1.0 |
+| 17 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | ● | UNS | 10.8 | 9.3 | 1.2 |
+| 18 | `SCPC-500-5.cnf.xz` |  | UNS | 9.4 | 11.8 | 0.8 |
+| 19 | `DecompressReader_read_12.cnf.xz` |  | UNS | 8.2 | 6.7 | 1.2 |
+| 20 | `hwmcc17miters-xits-iso-oski15a08b00s.sanitiz` | ● | UNS | 8.1 | 3.8 | 2.1 |
+| 21 | `x9-08014.sat.sanitized.cnf.xz` | ● | UNS | 8.1 | 11.0 | 0.7 |
+| 22 | `combined-crypto1-wff-seed-1-wffvars-450-cryp` | ● | SAT | 7.2 | 4.2 | 1.7 |
+| 23 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50.nor` |  | SAT | 6.8 | 12.2 | 0.6 |
+| 24 | `square.2.0.i.smt2-cvc4.cnf.xz` | ● | UNS | 4.4 | 3.5 | 1.3 |
+| 25 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.xz` | ● | SAT | 4.3 | 11.5 | 0.4 |
+| 26 | `oddball_13_5_ttf.normalised.cnf.xz` |  | UNS | 3.3 | 19.1 | 0.2 |
+| 27 | `battleship-14-26-sat.cnf.xz` | ● | SAT | 1.2 | 7.0 | 0.2 |
 | 28 | `clique_n2_k10.sanitized.cnf.xz` | ● | UNS | 0.1 | 6.1 | 0.0 |
-|  | **PAR-2 / solved** |  |  | **105.30** (24/28) | 10.12 (28/28) | **10.408** |
+|  | **PAR-2 / solved** |  |  | **95.61** (25/28) | 10.00 (28/28) | **9.561** |
 
-Same window, other arms: old default (`factor_size=2`) **104.79** (24/28) — the new default is +0.50, inside
-noise; **`s5union` (scope-fraction admission, NOT shipped) 65.86 (26/28)** — it solves `sted5` and
-`or_randxor`, and is the open Tier B lever (see Log 2026-07-31).
+Same window, the A/B arm from the SAME binary (`TACTIX_SUBST_HAZARD_ROUND=1`, the old per-ROUND skip):
+**104.06 (24/28)**. The fix is **−8.45 PAR-2 and +1 solve**, and the gained solve is exactly the predicted
+one — **`veer_axi` 300.0 TO → 238.7 s**, nothing lost. Remaining movement is ordinary trajectory churn
+(2013113162201nw +86.7, summle +38.7, PRP +32.9 against klieber −44.8).
 
-#### Tier C (30) — window `20260731-021615` (git `2a40126`), **new default `factor_size=5`**, every arm writing + checking DRAT
+#### Tier C (30) — window `20260801-154125` (git `c906d26`), **new default: V3's PER-SCC hazard skip**, every arm writing + checking DRAT
 
 | # | instance | st | tactix | cadical | ×cad |
 |---|---|---|---|---|---|
-| 1 | `128_125.sanitized.cnf.xz` | UNK | 2400.0 **TO** | 2400.0 | 1.0 |
-| 2 | `T87.2.0.cnf.xz` | UNS | 842.3 | 407.0 | 2.1 |
-| 3 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c` | UNS | 749.9 | 269.0 | 2.8 |
-| 4 | `T105.2.0.cnf.xz` | UNS | 659.7 | 276.1 | 2.4 |
-| 5 | `goldcrest-and-9.cnf.xz` | UNS | 550.2 | 174.2 | 3.2 |
-| 6 | `constraints_25_4_5_12_12_0_0_0.sanitized` | UNS | 422.5 | 201.6 | 2.1 |
-| 7 | `Grain_no_init_ver1_out200_known_last105_` | UNS | 382.9 | 265.5 | 1.4 |
-| 8 | `minxor128.cnf.xz` | UNS | 375.5 | 291.1 | 1.3 |
-| 9 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 329.8 | 420.2 | 0.8 |
-| 10 | `j3037_9_rggt_b.cnf.xz` | SAT | 312.3 | 26.1 | 12.0 |
-| 11 | `urq45.cnf.xz` | UNS | 252.7 | 994.2 | 0.3 |
-| 12 | `StConn_8_32.sanitized.cnf.xz` | UNS | 247.3 | 948.6 | 0.3 |
-| 13 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 244.7 | 254.2 | 1.0 |
-| 14 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat` | SAT | 243.7 | 185.5 | 1.3 |
-| 15 | `circuit_32in32out_with_500gates_6in6out_` | SAT | 230.2 | 490.7 | 0.5 |
-| 16 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 214.5 | 191.6 | 1.1 |
-| 17 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 208.9 | 173.1 | 1.2 |
-| 18 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 189.9 | 255.7 | 0.7 |
-| 19 | `SCPC-1000-18.cnf.xz` | SAT | 176.7 | 26.8 | 6.6 |
-| 20 | `EDP3-11000.cnf.xz` | SAT | 137.4 | 222.0 | 0.6 |
-| 21 | `em_11_3_4_cmp.cnf.xz` | SAT | 102.6 | 121.1 | 0.8 |
-| 22 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 87.6 | 164.9 | 0.5 |
-| 23 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 83.2 | 73.8 | 1.1 |
-| 24 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 79.0 | 16.8 | 4.7 |
-| 25 | `Ptn-7824-b18.cnf.xz` | SAT | 78.1 | 10.4 | 7.5 |
-| 26 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 75.0 | 276.5 | 0.3 |
-| 27 | `mp1-Nb5T15.cnf.xz` | SAT | 67.5 | 129.5 | 0.5 |
-| 28 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 40.3 | 25.8 | 1.6 |
-| 29 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 35.0 | 143.0 | 0.2 |
-| 30 | `ContextModel_output_7_3_9.bul_.dimacs.cn` | SAT | 20.4 | 64.2 | 0.3 |
-|  | **PAR-2 / solved** |  | **327.99** (29/30) | 316.64 (29/30) | **1.036** |
+| 1 | `T87.2.0.cnf.xz` | UNS | 928.5 | 419.3 | 2.2 |
+| 2 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf` | UNS | 663.0 | 285.2 | 2.3 |
+| 3 | `T105.2.0.cnf.xz` | UNS | 618.5 | 278.8 | 2.2 |
+| 4 | `minxor128.cnf.xz` | UNS | 491.8 | 276.3 | 1.8 |
+| 5 | `goldcrest-and-9.cnf.xz` | UNS | 398.8 | 172.4 | 2.3 |
+| 6 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 350.5 | 407.7 | 0.9 |
+| 7 | `j3037_9_rggt_b.cnf.xz` | SAT | 320.1 | 26.0 | 12.3 |
+| 8 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 263.2 | 188.8 | 1.4 |
+| 9 | `urq45.cnf.xz` | UNS | 260.3 | 1029.9 | 0.3 |
+| 10 | `constraints_25_4_5_12_12_0_0_0.sanitized.cnf` | UNS | 256.7 | 185.0 | 1.4 |
+| 11 | `StConn_8_32.sanitized.cnf.xz` | UNS | 253.0 | 963.9 | 0.3 |
+| 12 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2` | SAT | 246.9 | 184.2 | 1.3 |
+| 13 | `circuit_32in32out_with_500gates_6in6out_dist` | SAT | 244.2 | 506.4 | 0.5 |
+| 14 | `Grain_no_init_ver1_out200_known_last105_0_u.` | UNS | 242.1 | 266.9 | 0.9 |
+| 15 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 226.7 | 235.6 | 1.0 |
+| 16 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 210.9 | 173.9 | 1.2 |
+| 17 | `em_11_3_4_cmp.cnf.xz` | SAT | 204.3 | 114.5 | 1.8 |
+| 18 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 203.1 | 17.1 | 11.9 |
+| 19 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 199.7 | 266.1 | 0.8 |
+| 20 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 192.4 | 256.0 | 0.8 |
+| 21 | `SCPC-1000-18.cnf.xz` | SAT | 177.7 | 26.0 | 6.8 |
+| 22 | `EDP3-11000.cnf.xz` | SAT | 151.1 | 202.1 | 0.7 |
+| 23 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 94.6 | 163.5 | 0.6 |
+| 24 | `Ptn-7824-b18.cnf.xz` | SAT | 78.0 | 10.1 | 7.8 |
+| 25 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 76.4 | 77.5 | 1.0 |
+| 26 | `mp1-Nb5T15.cnf.xz` | SAT | 66.1 | 128.3 | 0.5 |
+| 27 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 34.8 | 135.4 | 0.3 |
+| 28 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 33.8 | 26.5 | 1.3 |
+| 29 | `128_125.sanitized.cnf.xz` | UNK | 24.7 **TO** | 3.7 | 6.6 |
+| 30 | `ContextModel_output_7_3_9.bul_.dimacs.cnf.xz` | SAT | 20.0 | 63.9 | 0.3 |
+|  | **PAR-2 / solved** |  | **330.24** (29/30) | 316.23 (29/30) | **1.044** |
 
-Same window, other arms: old default (`factor_size=2`) **337.50** (1.066× cadical) — the new default is
-**−9.51 PAR-2, 1.036×**; `s5union` **357.64 (1.129×, OUTSIDE T3's 10 % band)** — which is why the Tier B
-lever is not shipped. `128_125` is unsolved for **every** arm including cadical by **OOM at 8 GB**, not
-timeout; it scores 2×TO identically everywhere.
+Same window, same binary, old per-ROUND skip: **328.27 (29/30)** — the fix is **+1.97, well inside the
+measured ~10.8 PAR-2 noise floor**, with no solve change. **1.044× cadical keeps T3's CaDiCaL half MET.**
+`128_125` is unsolved for **every** arm including cadical by **OOM at 8 GB**, not timeout. cadical's own
+`urq45` proof exceeded the 4800 s checker budget and is not scored against (a baseline-side measurement
+issue — see resume action (e)).
 
 **Noise floor, measured (window `20260731-013523`):** three **bit-identical** arms (a payoff-bound sweep
 that turned out to be inert — Log) scored **346.16 / 356.95 / 353.99**, i.e. **10.8 PAR-2 of aggregate
@@ -292,6 +294,19 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   portable when we depend on the rule and the reference does not (cadical ships `block` OFF). Also note
   kissat does mod4block in 19.4 s with NO BCE, so our dependence there is a tactix-specific crutch.
   (probes 1573320/1573405–07; Log 2026-07-29.)
+- **L23 · AN ALL-OR-NOTHING SAFETY SKIP WHOSE PRECONDITION IS PER-ITEM BECOMES UNIVERSAL AT SCALE — scope the
+  skip to the granularity the PROOF needs, not to the whole round.** V3 Substitute's step-(A) hazard check
+  refused to rewrite when any binary pair had ≥2 live copies (`kernel_delete_binary` cannot name two clauses)
+  and skipped the ENTIRE ROUND, on a comment reading "Rare; the erratum's finer per-SCC skip is a future
+  refinement". "Rare" was a claim about a LITERAL while the skip was per ROUND, so P(round survives) decays
+  with the marked set — and the instances richest in equivalences mark the most literals. Measured 2026-08-01:
+  on `veer_axi` V3 detected **1,458,092 non-trivial SCCs**, marked 1.8 M literals, and lost **5 of 5 rounds**,
+  substituting **0** variables and wasting all **179,110** equivalences V6 had just handed it — because
+  **284 literals out of 406,256 (0.07 %)** were hazardous. The rule was most inert exactly where it would pay
+  most. Poisoning only the offending equivalence CLASS (both endpoints) preserves the all-or-nothing property
+  the proof actually requires and took Tier B **104.06 → 95.61 with `veer_axi` TO → 238.7 s**. Method: a
+  deferred "rare case, coarse handling" note is a MEASURABLE claim — instrument the skip rate before
+  believing it, and read the skip's granularity against the size of the set it can veto.
 - **L22 · A STRESS KNOB IS WORTHLESS UNTIL IT IS PROVEN TO FIRE ON THE SIZE CLASS THE FUZZ HARNESS ACTUALLY
   GENERATES — and the counter that proves it must sit at the SOURCE.** Task #10's abort paths were fuzzed
   4 × 10,000 cases, 0 failures, and the whole thing was **vacuous**; three independent ways, each of which
@@ -373,7 +388,7 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-07-30, on the NEW 28-instance Tier B: 102.28 vs kissat 9.54, 24/28 — four instances at 36–187× (resume block). This is the honest N3 picture; the old 14-instance 1.08× was measured on a set omitting them.** Tier B core14 9.46 vs 8.84; Tier C 1.15–1.28× cadical, 1.57× kissat; Tier A 0.98×. Tier D (T4) is where it counts |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-01: Tier B(28) 95.61 vs kissat 10.00, 25/28 — `veer_axi` now solves. Earlier 2026-07-30: 102.28 vs 9.54, 24/28 — four instances at 36–187× (resume block). This is the honest N3 picture; the old 14-instance 1.08× was measured on a set omitting them.** Tier B core14 9.46 vs 8.84; Tier C 1.15–1.28× cadical, 1.57× kissat; Tier A 0.98×. Tier D (T4) is where it counts |
 
 ## Milestone gates (plan §8.3)
 
@@ -722,6 +737,25 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-01 — ▶▶ SHIPPED: V3's PER-SCC hazard skip — Tier B **104.06 → 95.61**, `veer_axi` TO → **238.7 s** (+1 solve)
+The fix for the cause found below, gated on a same-window tier pair from ONE binary
+(`TACTIX_SUBST_HAZARD_ROUND=1` restores the old per-ROUND skip, so the A/B isolates exactly the granularity).
+Pre-registered ship criteria — Tier B must improve WITH the predicted solve and lose none; Tier C must stay
+in T3's band and within the noise floor; no verdict/proof failures — **all met**.
+- **Tier B `20260801-154122`: 95.61 (25/28) vs 104.06 (24/28)** — −8.45 and **+1 solve**, and the gained
+  solve is the predicted one: **`veer_axi` 300.0 TO → 238.7 s**, **nothing lost**. 202,986 vars substituted
+  where the old code substituted **0**.
+- **Tier C `20260801-154125`: 330.24 (29/30) vs 328.27** — +1.97, **well inside the ~10.8 noise floor**, no
+  solve change, and **1.044× cadical keeps T3's CaDiCaL half MET**.
+- **The defect in one line:** the hazard skip's "rare" precondition is per LITERAL, the skip was per ROUND.
+  On veer, **284 hazardous literals out of 406,256 (0.07 %)** vetoed 100 % of the work, five rounds running.
+  Banked as **L23**.
+- **Correctness:** ctest 38/38; fuzz **4 × 10,000 cases, 0 failures** (DRAT + native LRAT × ± `--random-policy`,
+  ASan+UBSan), no new bundles in `tools/fuzz/failures/` (all five there date from 2026-07-27); both tier arms
+  wrote and checked DRAT with no rejections (12 proofs checked on Tier B, up from 11 — the new solve).
+- Instrumentation kept: `c substitute` now reports non-trivial SCCs, literals, vars substituted, and rounds
+  skipped/partial — the counters that turned "V3 is inert" into a located defect in two probes.
 
 ### 2026-08-01 — ▶ veer_axi CAUSE FOUND: V3's hazard pre-check skips **5 of 5 rounds**; the "rare" case is universal at scale
 The counter the entry below asked for, added (`substitute_sccs` / `substitute_scc_lits` /

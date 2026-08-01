@@ -190,6 +190,10 @@ struct Stats {
   // survives falls as the marked set grows — exactly backwards, since the
   // instances with the most equivalences to exploit mark the most literals.
   uint64_t substitute_hazard_skips = 0;
+  // Rounds that survived the hazard check with SOME classes poisoned, and the
+  // literals those classes cost — the per-SCC skip's yield.
+  uint64_t substitute_hazard_partial = 0;
+  uint64_t substitute_hazard_lits = 0;
   // Inprocessing PHASES run by the policy (each = a root descent + one dose per
   // enabled technique). Counted in the kernel so it survives into the stats
   // block: L7's open question is whether repeated-BVE cost tracks this number
@@ -669,6 +673,12 @@ struct Kernel {
   // ext-decision share on the same instance (probe 1577499) while preserving
   // its 8.81 % on sted5 — i.e. DISCRIMINATION, not suppression.
   bool no_ext_reason_bump = false;
+  // A/B knob for the 2026-08-01 V3 hazard fix (`TACTIX_SUBST_HAZARD_ROUND=1`):
+  // restore the OLD per-ROUND skip, so both arms come from one binary (L6).
+  // Default false = the per-SCC skip. Diagnostic only; the per-SCC form is the
+  // fix, and the per-round form is what wasted all 179,110 of veer_axi's
+  // equivalences by losing 5 of 5 rounds to 284 poisoned literals in 406,256.
+  bool subst_hazard_round = false;
   // §6 COMPLIANCE (task #10). External interrupt, published to the RULES.
   //
   // `stop` was a `Policy::solve` parameter only, so the longest-running rule

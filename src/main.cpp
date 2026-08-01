@@ -284,6 +284,8 @@ int main(int argc, char **argv) {
     kernel.no_ext_decisions = true; // diagnostic, see Kernel::no_ext_decisions
   if (const char *sf = getenv("TACTIX_STOP_FUZZ"))
     kernel.stop_fuzz = (uint32_t)strtoul(sf, nullptr, 10); // see kernel_terminating
+  if (getenv("TACTIX_SUBST_HAZARD_ROUND"))
+    kernel.subst_hazard_round = true; // A/B, see Kernel::subst_hazard_round
   if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
     kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
@@ -418,12 +420,15 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.transitive_failed,
            (unsigned long long)kernel.stats.transitive_ticks);
     printf("c substitute  %llu rounds, %llu non-trivial SCCs (%llu lits), "
-           "%llu vars substituted, %llu rounds skipped on the hazard check\n",
+           "%llu vars substituted, %llu rounds skipped / %llu partial "
+           "(%llu lits poisoned) on the hazard check\n",
            (unsigned long long)kernel.stats.substitute_rounds,
            (unsigned long long)kernel.stats.substitute_sccs,
            (unsigned long long)kernel.stats.substitute_scc_lits,
            (unsigned long long)kernel.stats.substitute_vars,
-           (unsigned long long)kernel.stats.substitute_hazard_skips);
+           (unsigned long long)kernel.stats.substitute_hazard_skips,
+           (unsigned long long)kernel.stats.substitute_hazard_partial,
+           (unsigned long long)kernel.stats.substitute_hazard_lits);
     // Track R families: registered and N1-reachable, not scheduled by
     // DefaultPolicy yet — without these lines "did the new rule even fire?"
     // is unanswerable from a normal run (the same gap V6/E2 once had).

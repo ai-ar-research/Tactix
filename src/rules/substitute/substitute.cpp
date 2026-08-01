@@ -286,13 +286,39 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
                             const std::vector<uint8_t> &sub) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
-  auto substitutable = [&](Lit l) { return l < nlits && sub[l]; };
+  // The active substitution set. Starts as the caller's `sub`; step (A) may
+  // narrow it to `sub_filtered`. The lambda reads through the pointer, so
+  // repointing it below re-aims every later use in one place.
+  std::vector<uint8_t> sub_filtered;
+  const std::vector<uint8_t> *subp = &sub;
+  auto substitutable = [&](Lit l) { return l < nlits && (*subp)[l]; };
 
-  // (A) hazard pre-check: a pair with ≥2 live copies cannot be deleted by name
-  // (kernel_delete_binary refuses — one id can't name two clauses), so skip the
-  // whole round rather than emit a half-applied proof. Rare; the erratum's
-  // finer per-SCC skip is a future refinement (deferred slot, correctness-
-  // first). Scan only the member binaries we would touch.
+  // (A) hazard pre-check, PER-SCC. A pair with ≥2 live copies cannot be deleted
+  // by name (kernel_delete_binary refuses — one id can't name two clauses).
+  //
+  // This USED TO SKIP THE WHOLE ROUND, on the reasoning that the case is
+  // "rare". Measured 2026-08-01, that inverts at scale: "rare" is a claim about
+  // a LITERAL while the skip was per ROUND, so P(round survives) collapses as
+  // the marked set grows — and the instances with the most equivalences to
+  // exploit mark the most literals. On `veer_axi` V3 marked ~363 k literals per
+  // round and lost **5 of 5 rounds**, wasting all 179,110 equivalences V6 had
+  // just found; 9vliw lost 5 of 11. The rule was most inert exactly where it
+  // would pay most.
+  //
+  // So poison only the offending EQUIVALENCE CLASS instead. Per-SCC keeps the
+  // all-or-nothing granularity the proof needs (a class is either rewritten
+  // whole or untouched), while denying one bad pair a veto over the round.
+  // BOTH endpoints' classes are poisoned: rewriting a surviving class could
+  // otherwise still rename a literal of the duplicated pair.
+  std::vector<uint8_t> poisoned(nlits, 0);
+  bool any_hazard = false;
+  auto poison_class = [&](Lit rep) {
+    if (rep >= nlits)
+      return;
+    poisoned[rep] = 1;
+    poisoned[negate(rep)] = 1;
+    any_hazard = true;
+  };
   for (Lit l = 0; l < nlits; l++) {
     if (!substitutable(l))
       continue;
@@ -305,11 +331,38 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         continue;
       }
       if (binary_copies(k, l, w.other()) >= 2) {
-        k.stats.substitute_hazard_skips++;
-        return ApplyResult::NoOp; // duplicated original — unsafe this round
+        if (k.subst_hazard_round) { // A/B: the old per-ROUND skip
+          k.stats.substitute_hazard_skips++;
+          return ApplyResult::NoOp;
+        }
+        poison_class(r.repr[l]);
+        const Lit o = w.other();
+        if (o < nlits && r.repr[o] != INVALID_LIT)
+          poison_class(r.repr[o]);
       }
       i += 1;
     }
+  }
+  if (any_hazard) {
+    sub_filtered = sub;
+    uint64_t survivors = 0;
+    for (Lit l = 0; l < nlits; l++) {
+      if (!sub_filtered[l])
+        continue;
+      const Lit rep = r.repr[l];
+      if (rep < nlits && poisoned[rep]) {
+        sub_filtered[l] = 0;
+        k.stats.substitute_hazard_lits++;
+      } else {
+        survivors++;
+      }
+    }
+    subp = &sub_filtered;
+    if (!survivors) {
+      k.stats.substitute_hazard_skips++; // nothing left — a true round skip
+      return ApplyResult::NoOp;
+    }
+    k.stats.substitute_hazard_partial++;
   }
 
   // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal.
