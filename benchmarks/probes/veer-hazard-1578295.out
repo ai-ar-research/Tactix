@@ -1,0 +1,16 @@
+########## veer_axi
+c substitute  5 rounds, 1458092 non-trivial SCCs (1815902 lits), 0 vars substituted, 5 rounds skipped on the hazard check
+c congruence  6 rounds, 2325340 gates, 179110 merges, 0 units, 0 unjustified
+s UNKNOWN
+########## FmlaEquivChain
+c substitute  9 rounds, 328 non-trivial SCCs (1398 lits), 0 vars substituted, 6 rounds skipped on the hazard check
+c congruence  9 rounds, 405609 gates, 0 merges, 0 units, 0 unjustified
+s UNSATISFIABLE
+########## 9vliw_bp_mc
+c substitute  11 rounds, 890 non-trivial SCCs (1148 lits), 42 vars substituted, 5 rounds skipped on the hazard check
+c congruence  9 rounds, 36967 gates, 39 merges, 0 units, 0 unjustified
+s UNSATISFIABLE
+########## x9-08014
+c substitute  5 rounds, 0 non-trivial SCCs (0 lits), 0 vars substituted, 0 rounds skipped on the hazard check
+c congruence  5 rounds, 1600 gates, 0 merges, 0 units, 0 unjustified
+s UNSATISFIABLE

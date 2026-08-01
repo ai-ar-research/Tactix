@@ -417,9 +417,13 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.transitive_deleted,
            (unsigned long long)kernel.stats.transitive_failed,
            (unsigned long long)kernel.stats.transitive_ticks);
-    printf("c substitute  %llu rounds, %llu vars substituted\n",
+    printf("c substitute  %llu rounds, %llu non-trivial SCCs (%llu lits), "
+           "%llu vars substituted, %llu rounds skipped on the hazard check\n",
            (unsigned long long)kernel.stats.substitute_rounds,
-           (unsigned long long)kernel.stats.substitute_vars);
+           (unsigned long long)kernel.stats.substitute_sccs,
+           (unsigned long long)kernel.stats.substitute_scc_lits,
+           (unsigned long long)kernel.stats.substitute_vars,
+           (unsigned long long)kernel.stats.substitute_hazard_skips);
     // Track R families: registered and N1-reachable, not scheduled by
     // DefaultPolicy yet — without these lines "did the new rule even fire?"
     // is unanswerable from a normal run (the same gap V6/E2 once had).

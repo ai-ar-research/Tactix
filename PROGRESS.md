@@ -723,6 +723,38 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-01 — ▶ veer_axi CAUSE FOUND: V3's hazard pre-check skips **5 of 5 rounds**; the "rare" case is universal at scale
+The counter the entry below asked for, added (`substitute_sccs` / `substitute_scc_lits` /
+`substitute_hazard_skips`). It **refuted** the leading hypothesis and found the real cause. Probes
+1578294/1578295, 300 s cap:
+
+| instance | non-trivial SCCs (lits) | vars substituted | **rounds skipped on the hazard check** |
+|---|---|---|---|
+| **veer_axi** | **1,458,092 (1,815,902)** | **0** | **5 of 5** |
+| FmlaEquivChain | 328 (1,398) | 0 | 6 of 9 |
+| 9vliw_bp_mc | 890 (1,148) | 42 | 5 of 11 |
+| x9-08014 | 0 (0) | 0 | 0 of 5 (control: no SCCs ⇒ no skips) |
+
+- **NOT a detection failure — the opposite.** V3 finds **1.46 M non-trivial SCCs** on veer and marks 1.82 M
+  literals substitutable. Hypothesis (i) ("V6's binaries aren't in the BIG when V3 runs") is **dead**.
+- **The cause is `do_substitution` step (A)**, the duplicated-binary hazard pre-check: a pair with ≥2 live
+  copies cannot be deleted by name, so the code **skips the WHOLE ROUND** rather than emit a half-applied
+  proof. Its own comment calls this "Rare" and defers "the erratum's finer per-SCC skip".
+- **"Rare" is a PER-LITERAL claim while the skip is PER-ROUND, so it inverts at scale**: P(round survives)
+  falls as the marked set grows, and the instances with the most equivalences to exploit mark the most
+  literals. veer marks ~363 k literals/round → **5/5 skipped**; 9vliw marks ~104 → 5/11 skipped and 42 vars
+  actually substituted. The rule is most inert exactly where it would pay most.
+- **Consequence:** veer's 179,110 congruence merges are found, proof-logged as binaries, and then **entirely
+  wasted** — V3 is 100 % inert there for a reason that has nothing to do with the equivalences themselves.
+- **The fix is the one the code already names**: unmark only the offending SCC class (all members sharing
+  that representative) and proceed with the rest — per-SCC keeps the all-or-nothing granularity the proof
+  needs, without letting one bad pair veto a round of 363 k literals. **NOT yet claimed: that fixing this
+  speeds veer_axi up.** V4 TransitiveReduce is still 36.6 % of its clock, and L20 warns against attributing
+  an instance's wall time to the mechanism you happen to be holding.
+- Method note: the first version of the hazard counter made the round's `return` **unconditional** (inserted
+  a statement into a brace-less `if`), so `do_substitution` always returned NoOp — caught immediately by
+  `ctest` (test_substitute contradictory-units). ctest 38/38 after the fix.
+
 ### 2026-08-01 — ▶ veer_axi: V6 finds **179,110 merges** and V3 Substitute consumes **ZERO** — the owed question, answered
 The 2026-07-30 Tier B timeout diagnosis flagged this as owed instrumentation: "`c congruence` prints neither
 gates nor merges, so whether Substitute removes the 161,462 equivalences Congruence finds on veer is

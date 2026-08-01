@@ -175,6 +175,21 @@ struct Stats {
   // consumer side of `congruence_merges`: the 2026-07-30 diagnosis could not
   // tell whether V3 removes the 161,462 equivalences V6 finds on `veer_axi`.
   uint64_t substitute_vars = 0;
+  // Discriminates "V3 never DETECTED an equivalence" from "V3 detected some and
+  // the caller DROPPED them" — the open veer_axi question (V6 reports 179,110
+  // merges, V3 substitutes 0). Non-trivial SCCs (size > 1) returned by
+  // substitute_find_sccs, and the literals inside them, summed over rounds.
+  // If both are 0 while congruence_merges is large, V6's equivalence binaries
+  // are not in the binary implication graph by the time V3 walks it.
+  uint64_t substitute_sccs = 0;
+  uint64_t substitute_scc_lits = 0;
+  // V3 rounds abandoned WHOLESALE by do_substitution's step-(A) hazard
+  // pre-check (a binary pair with >=2 live copies cannot be deleted by name, so
+  // the round is skipped rather than half-applied). The check is all-or-nothing
+  // and its "rare" assumption is PER LITERAL, so the probability a round
+  // survives falls as the marked set grows — exactly backwards, since the
+  // instances with the most equivalences to exploit mark the most literals.
+  uint64_t substitute_hazard_skips = 0;
   // Inprocessing PHASES run by the policy (each = a root descent + one dose per
   // enabled technique). Counted in the kernel so it survives into the stats
   // block: L7's open question is whether repeated-BVE cost tracks this number

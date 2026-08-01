@@ -304,8 +304,10 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         i += 2;
         continue;
       }
-      if (binary_copies(k, l, w.other()) >= 2)
+      if (binary_copies(k, l, w.other()) >= 2) {
+        k.stats.substitute_hazard_skips++;
         return ApplyResult::NoOp; // duplicated original — unsafe this round
+      }
       i += 1;
     }
   }
@@ -601,13 +603,17 @@ ApplyResult substitute_apply(Kernel &k) {
     emit_unsat(k, r.contradiction_lit);
     return ApplyResult::Unsat;
   }
+  k.stats.substitute_sccs += r.nontrivial_reps.size(); // counted before the
+  // early return, so "no SCC found" is distinguishable from "found, dropped"
   if (r.nontrivial_reps.empty())
     return ApplyResult::NoOp;
   // every non-representative member of a non-trivial SCC is substitutable
   std::vector<uint8_t> sub(2 * k.nvars, 0);
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
-    if (r.repr[l] != INVALID_LIT && r.repr[l] != l)
+    if (r.repr[l] != INVALID_LIT && r.repr[l] != l) {
       sub[l] = 1;
+      k.stats.substitute_scc_lits++;
+    }
   return do_substitution(k, r, sub);
 }
 
@@ -648,6 +654,7 @@ static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
   }
   // substitute only the requested class: members whose representative is rep or
   // ¬rep (the mirror). If the requested SCC dissolved, nothing is marked → NoOp.
+  k.stats.substitute_sccs += r.nontrivial_reps.size();
   const Lit nrep = negate(rep);
   std::vector<uint8_t> sub(2 * k.nvars, 0);
   bool any = false;
