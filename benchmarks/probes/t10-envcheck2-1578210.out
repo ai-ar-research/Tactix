@@ -1,0 +1,32 @@
+########## battleship
+--- TACTIX_STOP_FUZZ=0
+c conflicts   65573
+c congruence  2 rounds, 0 units, 0 unjustified
+c interrupt   0 rule applications aborted on the stop flag
+s SATISFIABLE
+--- TACTIX_STOP_FUZZ=500
+c conflicts   65573
+c congruence  2 rounds, 0 units, 0 unjustified
+c interrupt   0 rule applications aborted on the stop flag
+s SATISFIABLE
+--- TACTIX_STOP_FUZZ=50
+c conflicts   65573
+c congruence  2 rounds, 0 units, 0 unjustified
+c interrupt   0 rule applications aborted on the stop flag
+s SATISFIABLE
+########## T105.2.0
+--- TACTIX_STOP_FUZZ=0
+c conflicts   165435
+c congruence  10 rounds, 7 units, 0 unjustified
+c interrupt   0 rule applications aborted on the stop flag
+s UNKNOWN
+--- TACTIX_STOP_FUZZ=500
+c conflicts   223996
+c congruence  8 rounds, 0 units, 0 unjustified
+c interrupt   8 rule applications aborted on the stop flag
+s UNSATISFIABLE
+--- TACTIX_STOP_FUZZ=50
+c conflicts   357578
+c congruence  9 rounds, 0 units, 0 unjustified
+c interrupt   9 rule applications aborted on the stop flag
+s UNSATISFIABLE

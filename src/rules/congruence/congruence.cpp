@@ -188,7 +188,11 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
       out.push_back(std::move(g));
     return;
   }
+  // §6: extraction is READ-ONLY — abort is free here, the caller returns NoOp.
+  uint32_t xtick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
+    if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
+      { k.stats.rule_interrupted++; return; }
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
     ref += words;
@@ -315,7 +319,11 @@ static std::vector<const SmallKey *> sorted_keys(const ClauseIndex &index) {
 // snapshot is valid for the whole closure.
 void build_clause_index(const Kernel &k, ClauseIndex &index) {
   std::vector<Lit> ls;
+  // §6: extraction is READ-ONLY — abort is free here, the caller returns NoOp.
+  uint32_t xtick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
+    if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
+      { k.stats.rule_interrupted++; return; }
     const Clause *c = clause_at(k.arena, ref);
     ref += clause_words(c->size);
     if (c->garbage() || c->redundant() || c->size < 3 ||
@@ -343,7 +351,10 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
   std::unordered_set<SmallKey, SmallKeyHash> seen; // by sorted positive vars
   std::vector<Lit> pos;                            // positive lits, sorted
   Lit probe[CONG_XOR_ARITY + 1];
+  uint32_t xtick = 0;
   for (const SmallKey *base_p : sorted_keys(index)) {
+    if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
+      { k.stats.rule_interrupted++; return; }
     const SmallKey &base = *base_p;
     const uint32_t s = base.size;
     // positive-lit form of the variables, sorted; dedup a relation to once.
@@ -864,7 +875,10 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   };
   // collect conditional equivalences per lhs literal
   std::unordered_map<Lit, std::vector<std::pair<Lit, Lit>>> ce;
+  uint32_t xtick = 0;
   for (const SmallKey *cl_p : sorted_keys(index)) {
+    if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
+      { k.stats.rule_interrupted++; return; }
     const SmallKey &cl = *cl_p; // sorted; first 3 lits scanned (as before)
     for (int li = 0; li < 3; li++) {
       const Lit L = cl.lits[li], A = cl.lits[(li + 1) % 3],
@@ -1155,6 +1169,12 @@ ApplyResult congruence_apply(Kernel &k) {
   congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
   if (gates.empty())
     return ApplyResult::NoOp;
+  // §6: extraction is READ-ONLY, so an interrupt raised during it costs
+  // nothing to honour — nothing has been applied yet.
+  if (kernel_terminating(k)) {
+    k.stats.rule_interrupted++;
+    return ApplyResult::NoOp;
+  }
 
   // Internal congruence closure (kissat), incremental worklist: a union-find over
   // literals; two gates that canonicalize (under the current representatives) to
@@ -1265,7 +1285,18 @@ ApplyResult congruence_apply(Kernel &k) {
         }
   };
 
+  // §6 (task #10): the closure is the long block — 131,327 ms over 3
+  // applications on T105/T87. Abort BETWEEN worklist items: each item either
+  // merges (equivalence binaries + proof chain both emitted) or does not, so
+  // every merge already made is complete and logged, and the batched root
+  // units below are still asserted from whatever the closure did reach.
+  // Checked every 256 items — the flag is volatile, the loop body is cheap.
+  uint32_t stop_tick = 0;
   while (!work.empty() && !unsat) {
+    if ((k.stop_fuzz || !(++stop_tick & 255)) && kernel_terminating(k)) {
+      k.stats.rule_interrupted++;
+      break;
+    }
     const uint32_t i = work.front();
     work.pop_front();
     inq[i] = 0;

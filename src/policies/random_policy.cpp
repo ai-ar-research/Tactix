@@ -28,6 +28,7 @@ static Lit random_unassigned_literal(Kernel &k, uint64_t &rng) {
 }
 
 int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
+  KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const auto &rules = tactix_rules();
   const int decide_id = tactix_rule_id("Decide");

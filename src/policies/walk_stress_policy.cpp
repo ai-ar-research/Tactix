@@ -34,6 +34,7 @@ Lit ws_random_unassigned_literal(Kernel &k, uint64_t &rng) {
 } // namespace
 
 int walk_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
+  KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const bool trace = getenv("TACTIX_TRACE") != nullptr;
 

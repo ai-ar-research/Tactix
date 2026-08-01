@@ -282,6 +282,8 @@ int main(int argc, char **argv) {
     kernel.factor_cand_rounds = (uint32_t)strtoul(cr, nullptr, 10);
   if (getenv("TACTIX_NO_EXT_DECISIONS"))
     kernel.no_ext_decisions = true; // diagnostic, see Kernel::no_ext_decisions
+  if (const char *sf = getenv("TACTIX_STOP_FUZZ"))
+    kernel.stop_fuzz = (uint32_t)strtoul(sf, nullptr, 10); // see kernel_terminating
   if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
     kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
   // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
@@ -462,6 +464,10 @@ int main(int argc, char **argv) {
                      (double)kernel.stats.decisions
                : 0.0,
            (unsigned long long)kernel.stats.decisions);
+    printf("c interrupt   %llu rule applications aborted on the stop flag "
+           "(%llu stress fires)\n",
+           (unsigned long long)kernel.stats.rule_interrupted,
+           (unsigned long long)kernel.stats.stop_fuzz_fires);
     printf("c extbumps    %llu of %llu bumps on extension vars (%.2f%%), "
            "%llu reason-side only (%.2f%% of those)\n",
            (unsigned long long)kernel.stats.bumps_extension,

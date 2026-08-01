@@ -1,0 +1,6 @@
+=== label=postfix-100 bin=pin-t10-a delay=100s host=node017 date=2026-08-01T11:17:30-04:00
+RESULT: sigterm_to_exit=1.723125044 s   exit_rc=0
+proofbytes=10706226
+s UNKNOWN
+c timing        Congruence           72302 ms ( 74.0%) in 4 applications
+=== done 2026-08-01T11:19:12-04:00

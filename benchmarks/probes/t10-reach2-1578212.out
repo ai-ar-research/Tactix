@@ -1,0 +1,31 @@
+### corpus regressions (the size class the fuzz legs actually run)
+-- 001-empty-formula-frames  p cnf 0 0
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s SATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s SATISFIABLE 
+-- 002-underived-root-consequence  p cnf 94 516
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+-- 003-stale-root-reason-after-gc  p cnf 14 15
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s SATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s SATISFIABLE 
+-- 004-decide-on-unpropagated-trail  p cnf 62 248
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s SATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s SATISFIABLE 
+-- 005-chrono-backjump-mislevels-escaped-unit  p cnf 74 334
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s SATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s SATISFIABLE 
+-- 006-analyze-overwrites-pending-learned  p cnf 96 375
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+-- 007-substitute-contradictory-units  p cnf 7 7
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+-- 008-cong-and-clash-unit  p cnf 6 12
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+-- 009-cong-and-idempotent-unary  p cnf 5 11
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+-- 010-cong-contradictory-merge  p cnf 4 9
+     STOP_FUZZ=0   : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 
+     STOP_FUZZ=20  : c interrupt   0 rule applications aborted on the stop flag s UNSATISFIABLE 

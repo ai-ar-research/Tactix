@@ -1,0 +1,6 @@
+=== label=prefix-T105-30 bin=pin-t11-c delay=30s host=node017 date=2026-08-01T11:29:29-04:00
+RESULT: sigterm_to_exit=18.362817898 s   exit_rc=0
+proofbytes=7872573
+s UNKNOWN
+c timing        Congruence           36811 ms ( 83.1%) in 2 applications
+=== done 2026-08-01T11:30:17-04:00

@@ -5,7 +5,7 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 75 (2026-07-30)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-08-01 — **task #11 closed** (mechanism located + reference-anchored, fix refuted at tier level; report `2026-08-01-task11-factor-admission-mechanism.md`; new lessons L19–L21) and **TB4b merged** (watch-repair primitive + a DefaultPolicy defect that retires its July verdict; ships OFF). Earlier: the `R<n>` namespace collision fixed (four namespaces, key under `## Log`).
+- **Last updated:** 2026-08-01 — **task #10 DONE** (§6: rules poll the interrupt; SIGTERM latency 18.4 → 2.9 s; L22), **task #11 closed** (mechanism located + reference-anchored, fix refuted at tier level; report `2026-08-01-task11-factor-admission-mechanism.md`; new lessons L19–L21) and **TB4b merged** (watch-repair primitive + a DefaultPolicy defect that retires its July verdict; ships OFF). Earlier: the `R<n>` namespace collision fixed (four namespaces, key under `## Log`).
 
 ## ▶ RESUME HERE (2026-08-01) — phase 3; T3's CaDiCaL half MET; task #11 CLOSED, TB4b DONE; next is task #10
 
@@ -53,10 +53,10 @@ profiling report's §6 routing). Read that before touching E2 admission again.
   and is still faster, so neither count nor timing explains the gap). Everything else above is measured.
 
 
-**▶ THE NEXT STEP IS (a).** (a) **Task #10** — §6 compliance: the inprocessing slot barely polls the stop
-flag; the real blocker is V6 Congruence, 131,327 ms over 3 applications, unmetered (SIGTERM-deaf ~1,100 s).
-A competition harness escalates to SIGKILL and the proof is lost, so this is a compliance defect, not a
-latency nuisance; the fix is a termination flag the RULES poll.
+**▶ THE NEXT STEP IS (b).** (a) **Task #10 — DONE 2026-08-01** (`Kernel::stop` + `kernel_terminating()`,
+polled by V6 Congruence at five safe points; worst-case SIGTERM latency **18.4 → 2.9 s**, proof
+byte-identical when uninterrupted, stop-fuzz 4 × 10k/0). Residual: ~2–3 s still unattributed, and the
+original ~40 s/~1,100 s case was never reproduced — other long rules have no polls yet.
 (b) The remaining Tier B walls: **`veer_axi`** (V4 TransitiveReduce's own runtime is 26–49 % of its clock,
 8.7 × 10⁹ ticks where kissat spends 0.03 s — a ~1000× engineering gap on one rule; even a 4× fix leaves it
 at 550 s against a 300 s cap) and **`unsat-set-b-fclqcolor`**. (c) Track R · R5 S-c (Sweep candidate
@@ -290,6 +290,22 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   portable when we depend on the rule and the reference does not (cadical ships `block` OFF). Also note
   kissat does mod4block in 19.4 s with NO BCE, so our dependence there is a tactix-specific crutch.
   (probes 1573320/1573405–07; Log 2026-07-29.)
+- **L22 · A STRESS KNOB IS WORTHLESS UNTIL IT IS PROVEN TO FIRE ON THE SIZE CLASS THE FUZZ HARNESS ACTUALLY
+  GENERATES — and the counter that proves it must sit at the SOURCE.** Task #10's abort paths were fuzzed
+  4 × 10,000 cases, 0 failures, and the whole thing was **vacuous**; three independent ways, each of which
+  produces a GREEN result that means nothing. (a) **Wrong binary** — the env check ran `pin-t10-b`, built
+  before the knob existed, so the arm was silently ignored and the two arms came out byte-identical
+  ([[ab-arm-identical-artefacts]], caught by exactly that signature). (b) **Unreachable cadence** — the poll
+  sites were gated on `!(++tick & 255)` for throughput, so formulas smaller than one poll window never reach
+  a first check at all: measured, `battleship` (65,573 conflicts) aborts **zero** times at every setting, and
+  the harness's random CNFs are far smaller. (c) **Blind counter** — the extraction abort sites did not
+  increment (a "the caller counts it" comment), and the caller's check sat behind an earlier
+  `if (gates.empty()) return`, so a reading of 0 could not distinguish *didn't happen* from *wasn't
+  measured*. Fix for all three: count inside `kernel_terminating()` ITSELF (`stats.stop_fuzz_fires`), so
+  reachability is independent of any abort site remembering to increment, and bypass the production cadence
+  whenever the stress knob is set. Only then did corpus 002/005 show **6 fires**. Method: before trusting a
+  stress leg, run the knob against a handful of corpus regressions and require a NON-ZERO fire count.
+  (Probes 1578209–13; Log 2026-08-01.)
 - **L21 · MEASURE A CANDIDATE FIX AGAINST THE SHIPPED DEFAULT, NOT AGAINST THE BROKEN ARM IT REPAIRS.** The
   task-#11 reason-side arm was probed against *broad admission* — the configuration it existed to repair —
   and read as a 2.4× win on ContextModel (403 → 166 s). Against the **shipped default**, which is what any
@@ -705,6 +721,33 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-01 — ▶ task #10 DONE: rules now poll the interrupt; worst-case SIGTERM latency 18.4 s → 2.9 s
+The §6 defect closed. `stop` was a `Policy::solve` PARAMETER, so no rule could see it — and polling at the
+phase round loop + slot boundaries (`0a1e0aa`) bounds latency to ONE APPLICATION, which is exactly the block
+that is too long (V6 Congruence, 131,327 ms over 3 applications). A harness escalates to SIGKILL and **the
+proof is lost**, so this is N2/§6, not a latency nuisance.
+- **The mechanism:** `Kernel::stop` + `kernel_terminating()`, published by every policy through the RAII
+  `KernelStopPublisher` (restores rather than nulls, so nested solves compose and an early return cannot
+  leave a dangling pointer). NOT policy knowledge — external-environment state, the same category as
+  `k.proof`, so the kernel stays policy-free (§5.3).
+- **Congruence polls at five SAFE points:** the four read-only extraction loops (abort is free — nothing is
+  applied yet, the caller just returns `NoOp`) and the closure worklist, where each completed merge has
+  already emitted BOTH its equivalence binaries and its proof chain. **Soundness: aborting means the rule did
+  LESS.** Everything done is proof-logged, abort points are between complete units of work, never
+  mid-mutation — the contract Factor's tick-budget cuts already satisfy. It cannot change a verdict.
+- **Measured** (probe 1578198, T105, `TACTIX_BVE_ADMIT=off`): SIGTERM→exit at 30 s **18.36 → 1.94 s**, at 45 s
+  3.07 → 2.91, at 60 s 5.63 → 2.29. Worst case **18.36 → 2.91 s**. `c interrupt` ≥1 on every interrupted
+  post-fix run and **0** on the identity run — reachability proven, not inferred.
+- **Inert when uninterrupted:** identity leg reproduces the pre-fix proof **byte-for-byte** (68,947,155 B,
+  `s UNSATISFIABLE`) in two independent rounds.
+- **Correctness:** ctest **38/38 release and 38/38 ASan+UBSan**; new `TACTIX_STOP_FUZZ` stress mode fuzzed
+  **4 × 10,000 cases, 0 failures** (DRAT + native LRAT, `--random-policy`, ASan+UBSan) — after **L22**, which
+  is the story of the first four legs passing vacuously.
+- Residual, not claimed as fixed: 1.9–2.9 s of latency remains unattributed (proof flush, other unpolled
+  rules, or the exit path), and the original ~40 s / ~1,100 s case was NOT reproduced on this config — its
+  congruence applications were ~18–25 s, not ~44 s. The fix bounds the worst case measured; it is not proven
+  against the worst case reported.
+
 ### 2026-08-01 — TB4b: the watch-repair primitive lands, and the shortcut's negative verdict turns out to be a DefaultPolicy bug
 Report `benchmarks/reports/2026-08-01-tb4b-watch-repair.md`; commits `fc57eff` (primitive + un-crippling +
 audit) and `a489bb7` (the attribution arm). Ships OFF — **no default flip recommended**, K5 fired.
@@ -924,7 +967,8 @@ solver **deaf to SIGTERM for ~1,100 s** (T105/T87 with BVE admission off, jobs 1
 the SLURM wall having printed nothing). A competition harness escalates to SIGKILL and the proof is lost —
 a §6 compliance defect, not a latency nuisance. Polling added at the phase round loop, each slot-entry
 boundary, and inside the dosed per-instance loop.
-**It does NOT fix the observed case and the code says so:** lag is 40 s before and 41 s after, because the
+**SUPERSEDED 2026-08-01 — task #10 is DONE (see the 2026-08-01 entry): rules now poll via `Kernel::stop`.**
+**It did NOT fix the observed case and the code says so:** lag is 40 s before and 41 s after, because the
 block is INSIDE one application — `c timing` names it, **V6 Congruence, 131,327 ms over 3 applications,
 89.5 % of a 146 s run that never reached search**, and an UNMETERED slot entry. This bounds latency to one
 application instead of one phase; the real fix is a termination flag the RULES poll. Task open.

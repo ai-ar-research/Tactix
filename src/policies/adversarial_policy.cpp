@@ -34,6 +34,7 @@ static uint32_t env_u32(const char *name, uint32_t dflt) {
 }
 
 int adversarial_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
+  KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const uint32_t burst = env_u32("TACTIX_ADV_BURST", 4);
   const uint32_t prop_pct = env_u32("TACTIX_ADV_PROP", 15);

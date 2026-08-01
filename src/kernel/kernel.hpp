@@ -7,6 +7,7 @@
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 
+#include <csignal>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -113,6 +114,14 @@ struct Stats {
   // A high reason-side share is a MECHANISM gap with a targeted fix; a high
   // conflict-side share means our factorings are structurally more active and
   // the lever is WHICH factorings we choose.
+  // §6 (task #10): how many rule applications ABORTED on the interrupt.
+  // Reachability evidence — a latency claim is unfalsifiable without it
+  // ([[ab-arm-identical-artefacts]]: prove the path was taken).
+  mutable uint64_t rule_interrupted = 0;
+  // Times kernel_terminating() ITSELF reported stop under the stress knob.
+  // Counted at the source, so it is independent of whether any particular
+  // abort site remembers to increment — the reachability instrument.
+  mutable uint64_t stop_fuzz_fires = 0;
   uint64_t bumps = 0;                // bump events (both modes, both channels)
   uint64_t bumps_extension = 0;      // ...of which landed on an extension var
   uint64_t bumps_ext_reason_only = 0; // ...of those, reason-side ONLY
@@ -634,6 +643,35 @@ struct Kernel {
   // ext-decision share on the same instance (probe 1577499) while preserving
   // its 8.81 % on sted5 — i.e. DISCRIMINATION, not suppression.
   bool no_ext_reason_bump = false;
+  // §6 COMPLIANCE (task #10). External interrupt, published to the RULES.
+  //
+  // `stop` was a `Policy::solve` parameter only, so the longest-running rule
+  // applications could not see it: V6 Congruence spent 131,327 ms over 3
+  // applications on T105/T87 and left the solver SIGTERM-deaf for ~1,100 s.
+  // A competition harness escalates to SIGKILL, and then the PROOF IS LOST —
+  // so this is an N2/§6 defect, not a latency nuisance. Polling at the phase
+  // round loop and slot boundaries (`0a1e0aa`) bounds latency to ONE
+  // application, which is exactly the block that is too long.
+  //
+  // NOT policy knowledge (the kernel stays policy-free, §5.3): this is
+  // external-environment state, the same category as `proof`. The policy
+  // publishes its own `stop` here on entry and clears it on exit.
+  //
+  // SOUNDNESS: aborting is always legal because a rule that stops early has
+  // simply done LESS. Everything it did is already proof-logged, and abort
+  // points are chosen between complete units of work, never mid-mutation — the
+  // same contract budget-cut doses already satisfy (Factor's tick limit). It
+  // can therefore never change a verdict, only how much simplification happens.
+  volatile sig_atomic_t *stop = nullptr;
+  // Stress knob for the abort paths above (0 = off). `mutable` because the
+  // extraction half of V6 takes a `const Kernel &` — diagnostic state only,
+  // never read by a guard, so it cannot affect which rules are APPLICABLE (N1).
+  // NB: the poll sites bypass their 256-iteration cadence when this is set.
+  // Without that, small formulas never reach a first poll at all — measured:
+  // `battleship` (65,573 conflicts, 2 congruence rounds) aborts ZERO times at
+  // every setting, so a fuzz leg over tiny CNFs would pass vacuously.
+  uint32_t stop_fuzz = 0;
+  mutable uint64_t stop_fuzz_state = 0x9E3779B97F4A7C15ull;
   // S4 composite grids (S2b, kissat resize_factoring): widen Factor's
   // factor/remainder universe to ALL live literals — extension vars included,
   // growing as the pass applies. Default false (measured: composition
@@ -987,6 +1025,45 @@ bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 // policies/heuristics.hpp — Track H · H4.)
 
 // number of root-fixed assignments (the level-0 trail prefix)
+// §6: has an external interrupt arrived? Rules poll this at their own safe
+// abort points (see Kernel::stop). Cheap enough for a coarse cadence inside a
+// long rule loop; never call it per-literal.
+inline bool kernel_terminating(const Kernel &k) {
+  // STRESS MODE (`TACTIX_STOP_FUZZ=n`, diagnostic): report "terminating" on a
+  // deterministic 1-in-n cadence so rules abort at MANY different interior
+  // points, while the POLICY's own `stop` (a separate parameter it never reads
+  // through here) stays clear — so the solve still runs to a real verdict and
+  // the fuzz oracles can check it. This is what makes "aborting a rule
+  // mid-application is sound" a TESTED claim rather than an argued one: the
+  // abort points are new control flow, and the risk they carry is leaving
+  // kernel state or the proof stream inconsistent.
+  if (k.stop_fuzz) {
+    // LCG, deterministic in the seed — same input + same knob ⇒ same trace.
+    k.stop_fuzz_state = k.stop_fuzz_state * 6364136223846793005ull + 1442695040888963407ull;
+    if ((k.stop_fuzz_state >> 33) % k.stop_fuzz == 0) {
+      k.stats.stop_fuzz_fires++;
+      return true;
+    }
+  }
+  return k.stop && *k.stop;
+}
+
+// RAII publisher for Kernel::stop — a policy's solve() publishes its interrupt
+// for the duration of the call and always withdraws it, so an early return can
+// never leave a dangling pointer in the kernel. Restores the previous value
+// rather than nulling, so nested/reentrant solves compose.
+struct KernelStopPublisher {
+  Kernel &k;
+  volatile sig_atomic_t *saved;
+  KernelStopPublisher(Kernel &kk, volatile sig_atomic_t *s)
+      : k(kk), saved(kk.stop) {
+    k.stop = s;
+  }
+  ~KernelStopPublisher() { k.stop = saved; }
+  KernelStopPublisher(const KernelStopPublisher &) = delete;
+  KernelStopPublisher &operator=(const KernelStopPublisher &) = delete;
+};
+
 inline uint32_t kernel_root_fixed(const Kernel &k) {
   return k.level == 0 ? static_cast<uint32_t>(k.trail.size()) : k.frames[1];
 }

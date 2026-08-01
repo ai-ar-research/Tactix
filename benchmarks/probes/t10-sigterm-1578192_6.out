@@ -1,0 +1,53 @@
+=== label=identity-prefix bin=pin-t11-c delay=nones host=node017 date=2026-08-01T11:17:30-04:00
+c tactix 0.1.0
+c decisions   1407257 (0 via API)
+c conflicts   253412
+c propagations 2709900861 (2620744004 search, 89156857 inprocess)
+c learned     253411 (279 units)
+c learnedsize 33.99 avg lits, 8.17 avg glue
+c reduction   26.3% of resolved lits removed by minimize+shrink
+c minimized   1843050 lits
+c shrunken    1228744 lits
+c reasonbump  8453032 vars in 251131 rounds (1147 aborted)
+c otfs        18858 strengthened (204 conflicts subsumed)
+c strengthen  13 rounds, 158174 strengthened, 313329 subsumed, 43637 flushed
+c vivify      16 rounds, 261 vivified, 0 deleted, 38714 checked
+c probe       0 rounds, 0 probed, 0 failed
+c backbone    0 rounds, 214892 probed, 182 failed
+c transitive  0 rounds, 37897994 checked, 23962 deleted, 7483 failed, 15518417500 ticks
+c substitute  7 rounds
+c bce         4 rounds, 49697 deleted, 75671499 ticks
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c ternary     5 rounds, 300412 resolvents, 0 binaries, 30268584 ticks
+c chrono      1989 chronological, 0 stale backjumps
+c inprocess   5 phases
+c congruence  12 rounds, 14 units, 1 unjustified
+c extension   0 vars added, 0 decisions on them (0.00% of 1407257)
+c extbumps    0 of 50272772 bumps on extension vars (0.00%), 0 reason-side only (0.00% of those)
+c factor      0 factorings, 0 large remainders offered, 0 ticks
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c restarts    12578 (3900 reused a trail prefix)
+c reductions  35 (334006 clauses deleted, 108613 promoted)
+c mode        stable after 21 switches (4035516563 ticks, 678 target phases saved)
+c rephased    19 (566 best phases saved)
+c reordered   0 decision re-rankings
+c lucky       6 probes
+c walk        5 walks (5 improved, 38366827 flips, 2155178793 steps)
+c subsume     13 rounds (71615111 checked, 3506 subsumed)
+c timing      592487 ms solve
+c timing      363110 ms (61.3%) inprocessing slot, 229377 ms (38.7%) search+scaffolding outside it
+c timing        Congruence          205971 ms ( 34.8%) in 12 applications
+c timing        TransitiveReduce     94047 ms ( 15.9%) in 14848751 applications
+c timing        Strengthen           25883 ms (  4.4%) in 13 applications
+c timing        SubsumeForward       15654 ms (  2.6%) in 13 applications
+c timing        Vivify                6237 ms (  1.1%) in 16 applications
+c timing        BCE                   4285 ms (  0.7%) in 5 applications
+c timing        Substitute            2434 ms (  0.4%) in 7 applications
+c timing        Backbone              1479 ms (  0.2%) in 215183 applications
+c timing        HyperTernaryRes        882 ms (  0.1%) in 5 applications
+c timing        (unattributed)        6240 ms (  1.1%)
+s UNSATISFIABLE
+Command exited with non-zero status 20
+wall 596.38 s
+proofbytes=68947155
+=== done 2026-08-01T11:27:27-04:00

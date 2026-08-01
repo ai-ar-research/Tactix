@@ -37,6 +37,7 @@ static uint32_t cs_env_u32(const char *name, uint32_t dflt) {
 
 int congruence_stress_solve(Kernel &k, uint64_t seed,
                             volatile sig_atomic_t *stop) {
+  KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const bool trace = getenv("TACTIX_TRACE") != nullptr;
   const bool no_subst = getenv("TACTIX_CONG_STRESS_NOSUBST") != nullptr;

@@ -28,6 +28,7 @@ static Lit bs_random_unassigned_literal(Kernel &k, uint64_t &rng) {
 }
 
 int bve_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
+  KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const bool trace = getenv("TACTIX_TRACE") != nullptr;
   const int bve_id = tactix_rule_id("BVE");

@@ -1,0 +1,3 @@
+########## *.cnf
+  STOP_FUZZ=0    : s UNKNOWN 
+  STOP_FUZZ=20   : s UNKNOWN 

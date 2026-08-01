@@ -417,6 +417,7 @@ Lit DefaultBranching::pick(Kernel &k) {
 // (in kissat search.c's check order) by THIS policy's state (rev 17:
 // rules carry no scheduling). S3/S5 join in phase 2.
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+  KernelStopPublisher stop_published(k, stop);
   if (const char *cl = std::getenv("TACTIX_CHRONO_LEVELS")) {
     const long n = std::strtol(cl, nullptr, 10);
     if (n >= 0)

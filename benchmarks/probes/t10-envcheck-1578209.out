@@ -1,0 +1,12 @@
+### env as seen by the job: TACTIX_STOP_FUZZ=50
+### arm A: no stop-fuzz
+c conflicts   65573
+c interrupt   0 rule applications aborted on the stop flag
+s SATISFIABLE
+### arm B: TACTIX_STOP_FUZZ=50 (explicit)
+c conflicts   65573
+c interrupt   0 rule applications aborted on the stop flag
+s SATISFIABLE
+### arm C: inherited from submission env
+c interrupt   0 rule applications aborted on the stop flag
+s SATISFIABLE

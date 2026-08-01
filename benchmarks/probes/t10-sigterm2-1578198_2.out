@@ -1,0 +1,7 @@
+=== label=postfix-T105-60 bin=pin-t10-b delay=60s host=node017 date=2026-08-01T11:29:29-04:00
+RESULT: sigterm_to_exit=2.289482773 s   exit_rc=0
+proofbytes=7924309
+s UNKNOWN
+c interrupt   1 rule applications aborted on the stop flag
+c timing        Congruence           50173 ms ( 85.9%) in 3 applications
+=== done 2026-08-01T11:30:31-04:00
