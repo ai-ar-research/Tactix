@@ -171,6 +171,19 @@ Var heuristics_queue_next_unassigned(Kernel &k) {
   }
   k.h->search_idx = v;
   k.h->search_stamp = k.h->links[v].stamp;
+  // R-c: decline RETIRED variables while any non-retired candidate remains.
+  // The cache above must still advance normally (it is the queue's own search
+  // hint, not a decision), so the scan for a non-retired variable runs from it
+  // WITHOUT writing it back — otherwise the hint would leap past unassigned
+  // variables and later decisions would miss them.
+  if (k.retire_enabled && kernel_var_retired(k, v)) {
+    for (Var u = v; u != UINT32_MAX; u = k.h->links[u].prev)
+      if (k.values[make_lit(u, false)] == 0 && !kernel_var_retired(k, u))
+        return u;
+    // Nothing but retired variables left: fall back. `decide_guard` is
+    // `unassigned > 0` and SAT means EVERY variable assigned, so these must
+    // still be assignable — they are simply never walked through on a descent.
+  }
   return v;
 }
 
@@ -346,6 +359,37 @@ Var heuristics_heap_next_unassigned(Kernel &k) {
     heap_pop_max(k); // lazy deletion (kissat decide.c)
     assert(!k.h->scores.stack.empty());
     v = k.h->scores.stack[0];
+  }
+  // R-c: decline retired variables. The heap is only partially ordered, so
+  // (unlike the queue) there is no cheap ordered scan — pop retired maxima
+  // aside, take the first non-retired one, and push the set back so the heap is
+  // unchanged for the caller. Retired variables are a fixed set, so this cost
+  // is bounded by their count and is paid only while they sit at the top.
+  if (k.retire_enabled && kernel_var_retired(k, v)) {
+    std::vector<Var> parked;
+    Var pick = UINT32_MAX;
+    while (true) {
+      const Var top = k.h->scores.stack[0];
+      if (k.values[make_lit(top, false)] != 0) { // stale: lazy-delete as above
+        heap_pop_max(k);
+        if (k.h->scores.stack.empty())
+          break;
+        continue;
+      }
+      if (!kernel_var_retired(k, top)) {
+        pick = top;
+        break;
+      }
+      parked.push_back(top);
+      heap_pop_max(k);
+      if (k.h->scores.stack.empty())
+        break;
+    }
+    for (const Var u : parked)
+      heuristics_heap_push(k, u); // restore: heap looks untouched to the caller
+    if (pick != UINT32_MAX)
+      return pick;
+    // only retired variables remain — fall back (see the queue path)
   }
   return v;
 }

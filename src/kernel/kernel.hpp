@@ -314,6 +314,13 @@ struct ProbingLog {
   std::vector<ClauseSnap> clauses;
 };
 
+// Retirement cause for a variable rewritten out of the formula. See
+// Kernel::var_status. cadical carries the same concept as Flags::status
+// {ACTIVE, FIXED, ELIMINATED, SUBSTITUTED, PURE}; we keep only what a rule of
+// ours actually produces, and route it through advice rather than the decision
+// loop (design §3).
+enum class VarStatus : uint8_t { Active = 0, Substituted, Eliminated };
+
 struct Kernel {
   uint32_t nvars = 0;
   // Variables at index >= first_extension_var are NON-ORIGINAL "extension"
@@ -688,14 +695,30 @@ struct Kernel {
   // fix, and the per-round form is what wasted all 179,110 of veer_axi's
   // equivalences by losing 5 of 5 rounds to 284 poisoned literals in 406,256.
   bool subst_hazard_round = false;
-  // Set for every variable V3 has substituted away (see stats.decisions_substituted).
-  // NOT a decidability restriction — N1 keeps every variable decidable; this only
-  // lets the POLICY rank them last, the same distinction that makes
-  // no_ext_reason_bump legal where no_ext_decisions is not.
-  std::vector<uint8_t> substituted;
+  // VARIABLE RETIREMENT (design `docs/design/variable-retirement-design.md`,
+  // plan §11 O17 / §1.1 N1 scope note, rev 76). A variable a rule has rewritten
+  // out of every clause occurs in NO clause, so deciding it propagates nothing
+  // and only deepens the trail — measured at 84.03 % of `veer_axi`'s decisions.
+  //
+  // ADVICE, NOT A RESTRICTION. `Decide::instances()` still enumerates these and
+  // any policy may decide them (N1 binds the API, not DefaultPolicy's taste);
+  // DefaultPolicy merely declines while a non-retired candidate exists. That is
+  // the `bve_retry` shape, and the line that separates this from
+  // `no_ext_decisions` (which removes the capability).
+  //
+  // The CAUSE is kept, not just a bit: the two causes have different owners and
+  // different invariants, and `c retired` reports them apart when diagnosing.
+  // Empty vector == every variable Active.
+  std::vector<VarStatus> var_status;
   // Demote substituted variables to the bottom of the decision order after each
   // V3 round (`TACTIX_SUBST_DEMOTE=1`). Ranking advice only.
   bool subst_demote = false;
+  // R-c: DefaultPolicy declines RETIRED variables while any non-retired
+  // candidate is unassigned (`TACTIX_RETIRE=1`). Falls back to a retired
+  // variable when nothing else is left — `decide_guard` is `unassigned > 0` and
+  // SAT means EVERY variable assigned, so retired variables must still be
+  // assignable at the end; they are simply not walked through on every descent.
+  bool retire_enabled = false;
   // §6 COMPLIANCE (task #10). External interrupt, published to the RULES.
   //
   // `stop` was a `Policy::solve` parameter only, so the longest-running rule
@@ -1081,6 +1104,11 @@ bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 // §6: has an external interrupt arrived? Rules poll this at their own safe
 // abort points (see Kernel::stop). Cheap enough for a coarse cadence inside a
 // long rule loop; never call it per-literal.
+// Has a rule rewritten v out of the formula? (Empty status vector == none.)
+inline bool kernel_var_retired(const Kernel &k, Var v) {
+  return v < k.var_status.size() && k.var_status[v] != VarStatus::Active;
+}
+
 inline bool kernel_terminating(const Kernel &k) {
   // STRESS MODE (`TACTIX_STOP_FUZZ=n`, diagnostic): report "terminating" on a
   // deterministic 1-in-n cadence so rules abort at MANY different interior

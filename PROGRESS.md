@@ -739,6 +739,40 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-02 — R-a…R-c implemented: R-a/R-b BIT-IDENTICAL, R-c is NOT viable yet (my prediction was wrong twice)
+Increments R-a (`Kernel::var_status` + `kernel_var_retired`), R-b (V3 retires at the witness push), R-c
+(DefaultPolicy declines retired variables, skip-with-fallback, `TACTIX_RETIRE`, **default OFF**). Design
+`docs/design/variable-retirement-design.md`.
+- **Implementation detail the design did not pin down:** `decide_guard` is `unassigned > 0` and SAT means
+  EVERY variable assigned, so retired variables must stay assignable — R-c is **skip-with-fallback**, not
+  skip-outright, or SAT instances become unfinishable.
+- **R-a/R-b are inert as designed:** mod4block **418,796** conflicts on both binaries; `x9-08014`, where
+  nothing is retired, is **bit-identical** under R-c too (409,967 decisions / 276,755 conflicts).
+- **The mechanism works:** `substdec` **0.00 %** on every instance. **R-c helps** FmlaEquiv (33.98 → 25.49 s)
+  and 9vliw (14.51 → 12.76 s) in-window.
+- **▶ BUT veer_axi REGRESSES 204 → 600 s TIMEOUT, and the pre-registered prediction (design §8) is REFUTED.**
+  The design predicted retirement would beat demotion on veer AND avoid the FmlaEquiv/9vliw regressions. The
+  second half held; the first failed outright.
+- **The premise is NOT what failed.** The intended effect landed exactly: decisions 1.61 G → 5.79 M,
+  decisions/conflict **80,124 → 1,777**. What collapsed was THROUGHPUT.
+- **Two wrong hypotheses, both banked so they are not retried.** (1) "The heap park/restore is the cost" —
+  sank retired scores once at retirement; **moved nothing** (3,257 → 3,258 conflicts). (2) "The queue scan
+  length is the cost" — the physical reorder (`+demote`) raised per-decision throughput **9.6 k/s → 266 k/s**
+  and it **still times out**.
+- **The actual cost, isolated by normalising to REAL-variable decisions:** off does 257 M real decisions in
+  204 s; retire+demote does 160 M in 600 s — **~4.7× slower per real decision**. The scan runs in the **TAIL
+  of every descent**: once all non-retired variables are assigned, the search hint sits inside the retired
+  block and every remaining decision walks ~195 k links before falling back.
+- **▶ NEXT INCREMENT (R-c2), precisely specified:** maintain an O(1) count of unassigned NON-RETIRED
+  variables (decrement/increment beside `k.unassigned`); when it hits zero go straight to the fallback
+  instead of scanning. That removes the only remaining O(retired) path. **Do not attempt another fix without
+  it** — the two above were guesses and both cost a probe cycle.
+- **Standing meanwhile: DEMOTION is the pragmatic win on veer** (204.43 → **129.60 s**, still default OFF and
+  still a trade elsewhere), and it is the fallback if R-c2 does not land.
+- **Correctness is not in question:** ctest 38/38; fuzz **4 × 10,000 cases, 0 failures** with `TACTIX_RETIRE=1`
+  (DRAT + native LRAT × ± `--random-policy`, ASan+UBSan), no new bundles — model-checking is the load-bearing
+  oracle here (a retired variable with no witness is a wrong-SAT, design §5 invariant 2).
+
 ### 2026-08-01 — plan rev 76 + the retirement DESIGN: N1 permits retiring rewritten-away variables, as ADVICE
 Design `docs/design/variable-retirement-design.md` (DESIGN, not implemented). Plan rev 76 adds and decides
 **§11 O17** and adds an N1 scope note to §1.1.

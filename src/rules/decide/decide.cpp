@@ -39,8 +39,7 @@ ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
   k.stats.decisions++;
   if (k.first_extension_var != UINT32_MAX && var_of(lit) >= k.first_extension_var)
     k.stats.decisions_extension++; // task #11 diagnostic (see kernel.hpp)
-  if (!k.substituted.empty() && var_of(lit) < k.substituted.size() &&
-      k.substituted[var_of(lit)])
+  if (kernel_var_retired(k, var_of(lit)))
     k.stats.decisions_substituted++; // see Stats::decisions_substituted
   if (external)
     k.stats.api_decisions++;

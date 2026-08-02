@@ -623,9 +623,13 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     const Lit s = r.repr[l];
     const Lit rest_a[1] = {s};
     k.stats.substitute_vars++; // one per substituted variable (see Stats)
-    if (k.substituted.size() < k.nvars)
-      k.substituted.resize(k.nvars, 0);
-    k.substituted[v] = 1;
+    // R-b: retire v HERE, at the witness push — design §4 requires the status
+    // and the reconstruction witness to be created together, because a retired
+    // variable with no witness is never decided AND never reconstructed, i.e. a
+    // WRONG-SAT rather than a crash (design §5 invariant 2).
+    if (k.var_status.size() < k.nvars)
+      k.var_status.resize(k.nvars, VarStatus::Active);
+    k.var_status[v] = VarStatus::Substituted;
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
     const Lit rest_b[1] = {negate(s)};
     kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}
@@ -642,8 +646,25 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // Rank substituted variables last: they occur in no clause, so deciding one
   // propagates nothing and only deepens the trail. ADVICE, not a restriction —
   // they stay decidable (N1); the policy simply reaches them last.
-  if (changed && k.subst_demote)
-    heuristics_demote_marked_vars(k, k.substituted);
+  // R-c performance: a retired variable keeps whatever EVSIDS score it had when
+  // it was substituted, so in STABLE mode it can sit high in the max-heap — and
+  // then heap_next_unassigned pays to park and restore it on EVERY decision
+  // (measured: veer_axi 209.75 s -> 600 s TIMEOUT with the skip alone, at only
+  // 5.4 conflicts/s). Sink them ONCE here instead, so the heap top is naturally
+  // non-retired and the park loop degenerates to the rare fallback path.
+  // Once per APPLICATION, never per variable-decision (the per-call linear
+  // scratch hazard). The queue needs no equivalent: retired variables are never
+  // bumped again, so they drift to the least-preferred end on their own.
+  if (changed && k.h)
+    for (Var v = 0; v < k.nvars; v++)
+      if (kernel_var_retired(k, v) && k.h->scores.score[v] != 0.0)
+        heuristics_score_set(k, v, 0.0);
+  if (changed && k.subst_demote) {
+    std::vector<uint8_t> mark(k.nvars, 0);
+    for (Var v = 0; v < k.nvars; v++)
+      mark[v] = kernel_var_retired(k, v) ? 1 : 0;
+    heuristics_demote_marked_vars(k, mark);
+  }
   return changed ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 

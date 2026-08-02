@@ -284,6 +284,8 @@ int main(int argc, char **argv) {
     kernel.no_ext_decisions = true; // diagnostic, see Kernel::no_ext_decisions
   if (const char *sf = getenv("TACTIX_STOP_FUZZ"))
     kernel.stop_fuzz = (uint32_t)strtoul(sf, nullptr, 10); // see kernel_terminating
+  if (getenv("TACTIX_RETIRE"))
+    kernel.retire_enabled = true; // R-c, see Kernel::retire_enabled
   if (getenv("TACTIX_SUBST_DEMOTE"))
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
   if (getenv("TACTIX_SUBST_HAZARD_ROUND"))
@@ -468,6 +470,20 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.congruence_merges,
            (unsigned long long)kernel.stats.congruence_units,
            (unsigned long long)kernel.stats.congruence_unjustified);
+    {
+      uint64_t n_sub = 0, n_elim = 0;
+      for (Var v = 0; v < kernel.nvars; v++) {
+        if (v < kernel.var_status.size() &&
+            kernel.var_status[v] == VarStatus::Substituted)
+          n_sub++;
+        else if (v < kernel.var_status.size() &&
+                 kernel.var_status[v] == VarStatus::Eliminated)
+          n_elim++;
+      }
+      printf("c retired     %llu vars (%llu substituted, %llu eliminated) of %u\n",
+             (unsigned long long)(n_sub + n_elim), (unsigned long long)n_sub,
+             (unsigned long long)n_elim, kernel.nvars);
+    }
     printf("c substdec    %llu decisions on substituted vars (%.2f%% of %llu)\n",
            (unsigned long long)kernel.stats.decisions_substituted,
            kernel.stats.decisions

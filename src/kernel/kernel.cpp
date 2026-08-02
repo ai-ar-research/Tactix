@@ -27,6 +27,10 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // starts retry-worthy (kissat activate_variable marks it removed+added).
   // A DERIVED INDEX, not `H` (implementation-notes §6) — stays kernel-side.
   k.bve_retry.resize(nvars, 1);
+  // Retirement status: a brand-new variable is Active (design R-a). Only grown
+  // once something has retired a variable, so the common case stays empty.
+  if (!k.var_status.empty())
+    k.var_status.resize(nvars, VarStatus::Active);
   // Paired with bve_retry (init is irrelevant — the retry bit starts set, so the
   // first attempt always recomputes it before any read).
   k.bve_min_bound.resize(nvars, 0);
