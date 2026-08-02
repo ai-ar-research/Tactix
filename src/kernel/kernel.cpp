@@ -425,7 +425,18 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
     if constexpr (HasH) {
       // ranking-structure maintenance (loop-invariant k.h->stable; hoisted by the
       // optimizer, so identical codegen to the pre-H2 `const bool stable`)
-      if (k.h->stable) {
+      //
+      // R-d: a RETIRED variable must not re-enter either structure here. This
+      // was the defect that made deactivation degenerate into demotion — the
+      // heap re-push put it straight back, and in focused mode the hint update
+      // pointed `search_idx` at a DEQUEUED variable, whose `values` are 0, so
+      // `heuristics_queue_next_unassigned` returned it immediately. Measured:
+      // 195,977 deactivations, 0 re-bumps, and still 42.03 % of decisions on
+      // retired variables. kissat never hits this because its deactivated
+      // variables are never on the trail to be unassigned.
+      if (k.retire_enabled && kernel_var_retired(k, v)) {
+        // leave both structures alone; it stays out for good
+      } else if (k.h->stable) {
         if (!heuristics_heap_contains(k, v))
           heuristics_heap_push(k, v);
       } else if (k.h->links[v].stamp > k.h->search_stamp) {

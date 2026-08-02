@@ -484,6 +484,9 @@ int main(int argc, char **argv) {
              (unsigned long long)(n_sub + n_elim), (unsigned long long)n_sub,
              (unsigned long long)n_elim, kernel.nvars);
     }
+    printf("c deactivate  %llu deactivations, %llu re-bumps of retired vars\n",
+           (unsigned long long)kernel.stats.deactivations,
+           (unsigned long long)kernel.stats.reactivations);
     printf("c substdec    %llu decisions on substituted vars (%.2f%% of %llu)\n",
            (unsigned long long)kernel.stats.decisions_substituted,
            kernel.stats.decisions

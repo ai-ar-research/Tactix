@@ -1,0 +1,15 @@
+### IDENTITY: mod4block
+  base   : c conflicts   418796
+  retire : c conflicts   418796
+########## veer_axi
+--- off     c decisions   1611949266 (0 via API) c conflicts   20118 c deactivate  0 deactivations, 0 re-bumps of retired vars c substdec    1354519748 decisions on substituted vars (84.03% of 1611949266) s UNSATISFIABLE wall 211.00 s 
+--- retire  c decisions   221100578 (0 via API) c conflicts   18635 c deactivate  195413 deactivations, 0 re-bumps of retired vars c substdec    527965 decisions on substituted vars (0.24% of 221100578) s UNSATISFIABLE wall 108.21 s 
+########## FmlaEquivChain
+--- off     c decisions   16419541 (0 via API) c conflicts   818452 c deactivate  0 deactivations, 0 re-bumps of retired vars c substdec    491 decisions on substituted vars (0.00% of 16419541) s UNSATISFIABLE wall 24.80 s 
+--- retire  c decisions   17583395 (0 via API) c conflicts   984068 c deactivate  222 deactivations, 0 re-bumps of retired vars c substdec    26 decisions on substituted vars (0.00% of 17583395) s UNSATISFIABLE wall 28.39 s 
+########## 9vliw_bp_mc
+--- off     c decisions   2627178 (0 via API) c conflicts   231561 c deactivate  0 deactivations, 0 re-bumps of retired vars c substdec    6670 decisions on substituted vars (0.25% of 2627178) s UNSATISFIABLE wall 11.81 s 
+--- retire  c decisions   2596703 (0 via API) c conflicts   239193 c deactivate  851 deactivations, 0 re-bumps of retired vars c substdec    745 decisions on substituted vars (0.03% of 2596703) s UNSATISFIABLE wall 12.86 s 
+########## x9-08014
+--- off     c decisions   409967 (0 via API) c conflicts   276755 c deactivate  0 deactivations, 0 re-bumps of retired vars c substdec    0 decisions on substituted vars (0.00% of 409967) s UNSATISFIABLE wall 7.75 s 
+--- retire  c decisions   409967 (0 via API) c conflicts   276755 c deactivate  0 deactivations, 0 re-bumps of retired vars c substdec    0 decisions on substituted vars (0.00% of 409967) s UNSATISFIABLE wall 7.76 s 

@@ -739,6 +739,43 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-02 — ▶▶ R-d WORKS (Tier B **−34.19, +2 solves**) but is HELD: Tier C 1.129× breaks T3's band, and it is THREE instances
+Retirement by deactivation (kissat's `deactivate_variable` shape). Windows `20260802-112851-B` /
+`20260802-112853-C`, both arms from one binary via `TACTIX_RETIRE`.
+
+| | base | **retire** | |
+|---|---|---|---|
+| **Tier B** | 109.60 (24/28) | **75.41 (26/28)** | **−34.19, +2 solves** (`veer_axi` AND `sted5`, both TO → solved) |
+| **Tier C** | 329.63 (29/30) | 358.12 (29/30) | **+28.49** |
+| vs cadical 317.32 | 1.039× | **1.129×** | **OUTSIDE T3's 10 % band** |
+
+- **The mechanism is right at last:** `substdec` **84.03 % → 0.24 %**, 195,413 deactivations, **0** re-bumps,
+  conflicts essentially held (20,118 → 18,635) — the win is removed waste, not a traded trajectory.
+  `veer_axi` 211.00 → **108.21 s** on the probe (beating demotion's 137.83 by 27 %), and on the tier it
+  SOLVES at 200.0 s where base times out.
+- **HELD, per the pre-registered criterion.** Tier B is the biggest gain of the session and Tier C is the
+  blocker: **1.129× breaks T3's CaDiCaL half**, which base meets at 1.039×. Shipping would knowingly
+  regress a milestone gate.
+- **▶ THE LEAD — Tier C's regression is THREE INSTANCES**, exactly the Factor-admission shape: **j3037
+  +707.6, jgiraldezlevy +602.4, urq45 +444.4 = +1,754 s** against a NET of +853. **Excluding them R-d
+  IMPROVES Tier C by ~900 s** (em_11 −141, T87 −140, DLTM −137, constraints_25 −127, …). Tier B is broad by
+  contrast: net −357.1 with the two worst instances costing +5.3 combined.
+- **Note j3037 and jgiraldezlevy are the SAME pair that broke broad Factor admission** (task #11). Two
+  independent mechanisms concentrate their damage on them — worth checking against **L20** (are they
+  perturbation-fragile like ContextModel?) before attributing the cost to retirement itself.
+- **Correctness, on the CORRECTED binary:** fuzz **4 × 10,000 cases, 0 failures** (DRAT + native LRAT × ±
+  `--random-policy`, ASan+UBSan), no new bundles; ctest 38/38; `x9` and mod4block **bit-identical**.
+- **The bug that made the first R-d measurement void, and how it was found.** Deactivation was silently
+  undone in `kernel_unassign`: a retired variable was re-pushed into the score heap (stable) or captured the
+  search hint (focused, whereupon `values == 0` made the queue walk return it immediately). The arm therefore
+  DEGENERATED INTO DEMOTION — the tell was it reproducing demote's decision count to nine significant figures
+  (**394,247,671** exactly). Found by instrumenting, not guessing: `deactivations` 195,977 with `reactivations`
+  **0** eliminated the bump paths and left exactly one. **The fuzz legs run before the fix are VOID, not
+  stale** — they exercised the degenerate build ([[ab-arm-identical-artefacts]], L22).
+- **Standing:** ships OFF. **Next: decompose the three Tier C losers.** If they are L20-style
+  perturbation-fragile the cost is not retirement's; if the damage is real, R-d needs admission — which under
+  rev 77 is a defect-fix question, not a §5.6 dosing arm.
+
 ### 2026-08-02 — rev-77 audit, 5 rounds: **2 real deficits, 3 clean negatives** (the negatives are the point too)
 The directive applied systematically. Each round takes a DIFFERENT axis — repeating one grep would only
 re-find round 1's answer. Two new ledger rows, two stale-comment fixes, and three areas confirmed at parity

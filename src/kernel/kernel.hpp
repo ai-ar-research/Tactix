@@ -200,6 +200,11 @@ struct Stats {
   // literals those classes cost — the per-SCC skip's yield.
   uint64_t substitute_hazard_partial = 0;
   uint64_t substitute_hazard_lits = 0;
+  // R-d reachability (L22): deactivations actually performed, and how many of
+  // those variables were later RE-INSERTED into a ranking structure (which
+  // would silently undo the deactivation).
+  uint64_t deactivations = 0;
+  uint64_t reactivations = 0;
   // Inprocessing PHASES run by the policy (each = a root descent + one dose per
   // enabled technique). Counted in the kernel so it survives into the stats
   // block: L7's open question is whether repeated-BVE cost tracks this number

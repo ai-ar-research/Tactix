@@ -113,6 +113,7 @@ static void heap_remove(Kernel &k, Var v); // defined with the heap, below
 void heuristics_deactivate_var(Kernel &k, Var v) {
   if (!k.h || v >= k.h->nvars)
     return;
+  k.stats.deactivations++;
   queue_dequeue(k, v);            // out of the VMTF queue
   heap_remove(k, v);              // out of the EVSIDS heap, if present
   // The queue search hint may have pointed AT v; re-seat it on the queue tail
@@ -155,6 +156,9 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
 }
 
 void heuristics_queue_bump(Kernel &k, Var v) {
+  if (k.retire_enabled && kernel_var_retired(k, v))
+    k.stats.reactivations++; // R-d: this would UNDO the deactivation
+
   if (k.h->queue_last == v)
     return;
   queue_dequeue(k, v);
@@ -333,6 +337,9 @@ static void rescale_scores(Kernel &k) {
 }
 
 void heuristics_score_bump(Kernel &k, Var v) {
+  if (k.retire_enabled && kernel_var_retired(k, v))
+    k.stats.reactivations++; // R-d: this would UNDO the deactivation
+
   const double new_score = k.h->scores.score[v] + k.h->scinc;
   k.h->scores.score[v] = new_score;
   if (heuristics_heap_contains(k, v))
