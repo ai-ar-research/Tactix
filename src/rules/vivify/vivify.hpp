@@ -17,8 +17,11 @@
 //     scheduling (kissat's vivifier sorts by usage counts and reuses the
 //     assumed prefix across sorted candidates): each candidate probes
 //     from and returns to the root (kernel_backtrack update_phases=false,
-//     the Lucky primitive). Cost, not soundness; revisit when the slot
-//     gains tick budgets.
+//     the Lucky primitive). Cost, not soundness. NOTE 2026-08-02: the old
+//     closer read "revisit when the slot gains tick budgets" — that trigger
+//     HAS FIRED (EFFORT_SPECS gives Vivify 100 permille of meter_ticks and
+//     the slot is active), so this is now a tracked rev-77 deficit with a
+//     named closer: ledger row D-VIVIFY-SCHED.
 // (2) One rewrite per candidate per round (kissat/CaDiCaL iterate
 //     within the candidate); rounds repeat via the slot schedule.
 // (3) Probe order = clause literal order (kissat sorts by inverse

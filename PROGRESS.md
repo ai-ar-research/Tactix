@@ -739,6 +739,30 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-02 — rev-77 audit, 5 rounds: **2 real deficits, 3 clean negatives** (the negatives are the point too)
+The directive applied systematically. Each round takes a DIFFERENT axis — repeating one grep would only
+re-find round 1's answer. Two new ledger rows, two stale-comment fixes, and three areas confirmed at parity
+with citations rather than from memory.
+
+| # | axis | result |
+|---|---|---|
+| 1 | effort/round bounds vs kissat's options | **`D-SUBST-UNBOUNDED`** — V3 absent from `EFFORT_SPECS` where kissat bounds it twice (`substituteeffort` 10‰, `substituterounds` 2) |
+| 2 | tunable CONSTANTS vs kissat defaults | **clean** — `emafast` 33, `emaslow` 1e5, `reduceint` 1e3, `modeinit`/`modeint` 1e3, `rephaseinit`/`rephaseint` 1e3, `bumpreasonslimit` 10, `eliminateint` 500, `mineffort` 10M all match; the 2 that differ (reduce-init 2000 vs 1000, `bumpreasons` rate 20) each carry a measured justification |
+| 3 | recorded DEVIATION lists — still true? closer named? | **`D-VIVIFY-SCHED`** — three unclosed approximations of kissat's vivifier, and deviation (1)'s closer ("revisit when the slot gains tick budgets") **had already fired** |
+| 4 | mechanisms we lack ENTIRELY | **clean** — `sweep` → Track R · R5 (in progress), `definitions` → §11 O11 (due at V5); nothing missing-and-untracked |
+| 5 | ENGINEERING / data structures | **clean, all measured**: per-prop cost at parity (TB5), watch-layout lane measured-dead, GC "well under 1 % everywhere", minimize+shrink at parity (L14) |
+
+- **`D-VIVIFY-SCHED` is the substantive one.** kissat sorts vivification candidates by usage count and
+  **reuses the assumed prefix** across the sorted run; we probe every candidate from the root, do one rewrite
+  per candidate where both references iterate within it, and probe in clause-literal order where kissat sorts
+  by inverse trail/counts. Motive is measured: veer_axi vivifies **2,937 of 233,588 checked — a 1.3 % hit
+  rate** — which is exactly what candidate sorting exists to raise. `vivify.hpp`'s stale closer corrected in
+  place.
+- **Method note the audit itself produced:** of six candidates examined, **two were retracted before being
+  recorded** (V6 Congruence is at parity — we carry kissat's arity caps and kissat has no congruence *effort*
+  option either; Factor's "Approximate" metering carries measured justification). A guideline that only ever
+  finds deficits is being applied wrong; the retractions are evidence it is being applied honestly.
+
 ### 2026-08-02 — rev-77 audit #1 + R-d built: retirement by DEACTIVATION (kissat's shape), no calculus change needed
 - **R-d implemented** (`heuristics_deactivate_var`: unlink from the VMTF queue + new `heap_remove` for the
   score heap, kissat `flags.c` shape). **R-c's skip code and the score-sink hack are DELETED, not parked** —
