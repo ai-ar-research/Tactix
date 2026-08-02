@@ -284,8 +284,8 @@ int main(int argc, char **argv) {
     kernel.no_ext_decisions = true; // diagnostic, see Kernel::no_ext_decisions
   if (const char *sf = getenv("TACTIX_STOP_FUZZ"))
     kernel.stop_fuzz = (uint32_t)strtoul(sf, nullptr, 10); // see kernel_terminating
-  if (getenv("TACTIX_RETIRE"))
-    kernel.retire_enabled = true; // R-c, see Kernel::retire_enabled
+  if (const char *rt = getenv("TACTIX_RETIRE"))
+    kernel.retire_enabled = (*rt != '0'); // R-d ships ON; =0 reverts
   if (getenv("TACTIX_SUBST_DEMOTE"))
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
   if (getenv("TACTIX_SUBST_HAZARD_ROUND"))

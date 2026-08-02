@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-02 (rev. 77). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-02 (rev. 78). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -1047,6 +1047,20 @@ Components:
 
 - **Primary metric:** PAR-2 + #solved (SAT/UNSAT split) on the tier appropriate
   to the phase; plus proof-check time and proof size as first-class metrics.
+- **Priority when the two conflict (rev 78, user 2026-08-02): #SOLVED WINS.** A
+  change that gains solved instances without losing any is banked even when it
+  costs PAR-2 — including when the PAR-2 cost pushes a gate ratio outside its
+  band. Rationale: an unsolved instance is an unbounded loss and a competition
+  scores solutions; a slower solve is a bounded one. Consequences, so this is not
+  a licence to regress: (a) the PAR-2 cost is still MEASURED, REPORTED and given
+  a named closer exactly as §5's fourth obligation requires — banking a win never
+  makes its cost invisible; (b) a change that LOSES a solve is not covered by
+  this priority no matter what it does to PAR-2; (c) the T4/N3 bar is unchanged —
+  N3 is about being competitive overall, and this ordering is how we get there,
+  not a weakening of it. First application: **R-d variable retirement** shipped
+  at Tier B 109.60 → 75.41 with **+2 solves**, against Tier C 329.63 → 358.12
+  (1.039× → 1.129× cadical, outside T3's 10 % band) — the Tier C cost is three
+  instances and carries its own action item.
 - **Baselines:** MiniSat 2.2, Glucose, CaDiCaL 3.0.0 (pinned `rel-3.0.0`,
   `tools/solvers/setup.sh`), Kissat 4.0.4, and SC25
   winners' binaries (AE-Kissat-MAB, CaDiCaL-SC2025) where obtainable — all run
@@ -1294,3 +1308,4 @@ conflate them.
 - **rev. 75** (2026-07-30, user): §8.1 — PROGRESS.md must carry the FULL per-instance Tier B and Tier C tables, newest window first, not just the aggregates. Motivated by three cases where the aggregate hid the finding (the trio verdict inverting on one instance, a FLAT A/B that swapped a solve for a solve, and four order-of-magnitude failures invisible in PAR-2).
 - **rev. 76** (2026-08-01): §11 O17 added and decided, plus an N1 scope note in §1.1 — variable RETIREMENT is N1-compliant when implemented as advice the policy may decline (`Decide::instances()` still enumerates it; capability removed = violation, default heuristic declining = compliant). Unblocks `docs/design/variable-retirement-design.md`; motivated by 84.03 % of `veer_axi`'s decisions landing on already-substituted variables. No N1–N3 weakening: the API guarantee is unchanged and now stated more precisely.
 - **rev. 77** (2026-08-02, user): §5 gains a FOURTH reference obligation — no crude approximations of an understood mechanism; implement what is known to match or exceed Kissat, or ship the approximation with a stated reason AND a named closing action item in the engineering-deviation ledger. The operative guideline for phase 3. Exhibit: V3's per-ROUND hazard skip (a "future refinement" note with no action item) discarded all 179,110 of `veer_axi`'s equivalences over 0.07 % hazardous literals and cost a Tier B solve. No N1–N3 change.
+- **rev. 78** (2026-08-02, user): §8.3 — when #solved and PAR-2 conflict, **#solved wins**; a change gaining solves without losing any is banked even if the PAR-2 cost pushes a gate ratio outside its band, provided the cost is measured, reported and given a named closer (§5 obligation 4). Losing a solve is never covered. N3/T4 unchanged. First application: R-d retirement (Tier B −34.19 PAR-2, **+2 solves**; Tier C 1.039× → 1.129× cadical, three instances, closer named).

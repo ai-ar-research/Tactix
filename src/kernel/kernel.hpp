@@ -728,12 +728,14 @@ struct Kernel {
   // Demote substituted variables to the bottom of the decision order after each
   // V3 round (`TACTIX_SUBST_DEMOTE=1`). Ranking advice only.
   bool subst_demote = false;
-  // R-c: DefaultPolicy declines RETIRED variables while any non-retired
-  // candidate is unassigned (`TACTIX_RETIRE=1`). Falls back to a retired
-  // variable when nothing else is left — `decide_guard` is `unassigned > 0` and
-  // SAT means EVERY variable assigned, so retired variables must still be
-  // assignable at the end; they are simply not walked through on every descent.
-  bool retire_enabled = false;
+  // R-d, SHIPPED ON 2026-08-02. DefaultPolicy retires variables a rule has
+  // rewritten out of the formula: `heuristics_deactivate_var` unlinks them from
+  // the VMTF queue and the score heap (kissat `flags.c` deactivate_variable),
+  // `kernel_unassign` keeps them out, and the SAT test counts ACTIVE variables.
+  // Worth **Tier B 109.60 → 75.41 PAR-2 and +2 SOLVES** (`veer_axi`, `sted5`).
+  // `TACTIX_RETIRE=0` reverts. N1 intact: `decide_candidates` enumerates from
+  // `k.nvars`, never from `H`, so the API still offers every variable.
+  bool retire_enabled = true;
   // §6 COMPLIANCE (task #10). External interrupt, published to the RULES.
   //
   // `stop` was a `Policy::solve` parameter only, so the longest-running rule

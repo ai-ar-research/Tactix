@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 77 (2026-08-02)
+- **Plan revision tracked:** rev. 78 (2026-08-02)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-01 — **V3 per-SCC hazard skip SHIPPED** (Tier B 104.06 → 95.61, `veer_axi` TO → 238.7 s, +1 solve; L23), **task #10 DONE** (§6: rules poll the interrupt; SIGTERM latency 18.4 → 2.9 s; L22), **task #11 closed** (mechanism located + reference-anchored, fix refuted at tier level; report `2026-08-01-task11-factor-admission-mechanism.md`; new lessons L19–L21) and **TB4b merged** (watch-repair primitive + a DefaultPolicy defect that retires its July verdict; ships OFF). Earlier: the `R<n>` namespace collision fixed (four namespaces, key under `## Log`).
 
@@ -738,6 +738,24 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-02 — ▶▶ R-d SHIPPED (plan rev 78: **#solved wins**) — Tier B **109.60 → 75.41, +2 solves**
+User directive: bank the win, prioritise **number of solutions over runtime**. Recorded as plan **rev 78**
+(§8.3) rather than applied silently, because it changes how a gate is READ.
+- **Shipped:** `Kernel::retire_enabled` defaults **true**; `TACTIX_RETIRE=0` reverts. Tier B
+  **109.60 → 75.41 (24/28 → 26/28)** — gains **`veer_axi` AND `sted5`**, both previously TIMEOUTS — with no
+  solve lost anywhere. Tier C holds 29/30.
+- **The cost is recorded, not hidden** (rev 78 requires exactly this): Tier C **329.63 → 358.12**,
+  **1.039× → 1.129× cadical, outside T3's 10 % band**. New ledger row **`D-RETIRE-TIERC`** with a named
+  closer. **T3's CaDiCaL half is therefore NOT met at the shipped default** and that is a deliberate,
+  recorded trade, not an oversight.
+- **The closer is precise:** Tier C's regression is **three instances** — j3037 +707.6, jgiraldezlevy +602.4,
+  urq45 +444.4 = **+1,754 s against a net +853**; excluding them R-d *improves* Tier C by ~900 s. First test
+  whether those three are **L20 perturbation-fragile** (j3037/jgiraldezlevy are the same pair that broke
+  broad Factor admission) — fitting an admission gate to fragility would be fitting to noise.
+- **Evidence:** fuzz **4 × 10,000 cases, 0 failures** on the corrected binary (DRAT + native LRAT × ±
+  `--random-policy`, ASan+UBSan), no new bundles; ctest 38/38; `x9` and mod4block **bit-identical**;
+  `substdec` 84.03 % → 0.24 % with 195,413 deactivations and 0 re-bumps.
 
 ### 2026-08-02 — ▶▶ R-d WORKS (Tier B **−34.19, +2 solves**) but is HELD: Tier C 1.129× breaks T3's band, and it is THREE instances
 Retirement by deactivation (kissat's `deactivate_variable` shape). Windows `20260802-112851-B` /
