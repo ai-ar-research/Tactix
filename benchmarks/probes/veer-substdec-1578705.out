@@ -1,0 +1,51 @@
+########## veer_axi
+--- arm=base
+c decisions   1611949266 (0 via API)
+c conflicts   20118
+c propagations 1821752370 (1739729501 search, 82022869 inprocess)
+c substitute  6 rounds, 328914 non-trivial SCCs (406256 lits), 202986 vars substituted, 0 rounds skipped / 6 partial (284 lits poisoned) on the hazard check
+c substdec    1354519748 decisions on substituted vars (84.03% of 1611949266)
+s UNSATISFIABLE
+  wall 201.31 s
+--- arm=demote
+c decisions   394247671 (0 via API)
+c conflicts   17557
+c propagations 1541932138 (1481834870 search, 60097268 inprocess)
+c substitute  6 rounds, 316828 non-trivial SCCs (392044 lits), 195977 vars substituted, 0 rounds skipped / 6 partial (90 lits poisoned) on the hazard check
+c substdec    165721373 decisions on substituted vars (42.03% of 394247671)
+s UNSATISFIABLE
+  wall 131.40 s
+########## 9vliw_bp_mc
+--- arm=base
+c decisions   2627178 (0 via API)
+c conflicts   231561
+c propagations 72878208 (70168532 search, 2709676 inprocess)
+c substitute  14 rounds, 950 non-trivial SCCs (1094 lits), 479 vars substituted, 0 rounds skipped / 5 partial (136 lits poisoned) on the hazard check
+c substdec    6670 decisions on substituted vars (0.25% of 2627178)
+s UNSATISFIABLE
+  wall 11.82 s
+--- arm=demote
+c decisions   2396864 (0 via API)
+c conflicts   235470
+c propagations 68832549 (65393629 search, 3438920 inprocess)
+c substitute  18 rounds, 2102 non-trivial SCCs (2612 lits), 914 vars substituted, 0 rounds skipped / 12 partial (784 lits poisoned) on the hazard check
+c substdec    985 decisions on substituted vars (0.04% of 2396864)
+s UNSATISFIABLE
+  wall 12.27 s
+########## FmlaEquivChain
+--- arm=base
+c decisions   16419541 (0 via API)
+c conflicts   818452
+c propagations 236347886 (230669586 search, 5678300 inprocess)
+c substitute  14 rounds, 418 non-trivial SCCs (1718 lits), 8 vars substituted, 7 rounds skipped / 4 partial (1702 lits poisoned) on the hazard check
+c substdec    491 decisions on substituted vars (0.00% of 16419541)
+s UNSATISFIABLE
+  wall 24.41 s
+--- arm=demote
+c decisions   20114797 (0 via API)
+c conflicts   1214270
+c propagations 313399913 (304873976 search, 8525937 inprocess)
+c substitute  21 rounds, 1426 non-trivial SCCs (7614 lits), 200 vars substituted, 9 rounds skipped / 9 partial (7214 lits poisoned) on the hazard check
+c substdec    56 decisions on substituted vars (0.00% of 20114797)
+s UNSATISFIABLE
+  wall 33.56 s

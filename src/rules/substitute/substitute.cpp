@@ -9,6 +9,7 @@
 #include "rules/propagate/propagate.hpp"
 
 #include "kernel/watch.hpp"
+#include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -622,6 +623,9 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     const Lit s = r.repr[l];
     const Lit rest_a[1] = {s};
     k.stats.substitute_vars++; // one per substituted variable (see Stats)
+    if (k.substituted.size() < k.nvars)
+      k.substituted.resize(k.nvars, 0);
+    k.substituted[v] = 1;
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
     const Lit rest_b[1] = {negate(s)};
     kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}
@@ -635,6 +639,11 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
 
   if (changed)
     kernel_collect_garbage(k); // reclaim the garbaged large clauses
+  // Rank substituted variables last: they occur in no clause, so deciding one
+  // propagates nothing and only deepens the trail. ADVICE, not a restriction —
+  // they stay decidable (N1); the policy simply reaches them last.
+  if (changed && k.subst_demote)
+    heuristics_demote_marked_vars(k, k.substituted);
   return changed ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 

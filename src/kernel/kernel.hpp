@@ -104,6 +104,12 @@ struct Stats {
   // so "are we branching on extension vars?" must be answerable from a normal
   // run rather than inferred. Counts vars >= first_extension_var.
   uint64_t decisions_extension = 0;
+  // Decisions landing on a variable V3 Substitute has already rewritten away.
+  // Such a variable occurs in NO clause, so deciding it propagates nothing and
+  // only deepens the trail — pure wasted depth. Measured on veer_axi 2026-08-01:
+  // 80,124 decisions per conflict against kissat's 147, at 1.13 propagations
+  // per decision.
+  uint64_t decisions_substituted = 0;
   // Task #11 increment 3: WHICH CHANNEL re-promotes extension variables.
   // cadical branches on its ext vars 0.10% of decisions where we do 31.4%
   // (probe 1577499) while burying them at birth exactly as we do, so something
@@ -679,6 +685,14 @@ struct Kernel {
   // fix, and the per-round form is what wasted all 179,110 of veer_axi's
   // equivalences by losing 5 of 5 rounds to 284 poisoned literals in 406,256.
   bool subst_hazard_round = false;
+  // Set for every variable V3 has substituted away (see stats.decisions_substituted).
+  // NOT a decidability restriction — N1 keeps every variable decidable; this only
+  // lets the POLICY rank them last, the same distinction that makes
+  // no_ext_reason_bump legal where no_ext_decisions is not.
+  std::vector<uint8_t> substituted;
+  // Demote substituted variables to the bottom of the decision order after each
+  // V3 round (`TACTIX_SUBST_DEMOTE=1`). Ranking advice only.
+  bool subst_demote = false;
   // §6 COMPLIANCE (task #10). External interrupt, published to the RULES.
   //
   // `stop` was a `Policy::solve` parameter only, so the longest-running rule

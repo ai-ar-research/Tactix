@@ -108,6 +108,39 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first) {
 }
 
 
+void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) {
+  if (!k.h || mark.empty())
+    return;
+  const Var n = std::min<Var>(k.h->nvars, static_cast<Var>(mark.size()));
+  // Dequeue first, then re-insert at the FRONT (least preferred) in reverse so
+  // relative order is preserved — the heuristics_demote_fresh_vars idiom.
+  bool any = false;
+  for (Var v = 0; v < n; v++)
+    if (mark[v]) {
+      queue_dequeue(k, v);
+      any = true;
+    }
+  if (!any)
+    return;
+  for (Var v = n; v-- > 0;)
+    if (mark[v]) {
+      Link &l = k.h->links[v];
+      l.prev = UINT32_MAX;
+      l.next = k.h->queue_first;
+      if (k.h->queue_first != UINT32_MAX)
+        k.h->links[k.h->queue_first].prev = v;
+      else
+        k.h->queue_last = v;
+      k.h->queue_first = v;
+    }
+  queue_restamp(k); // renumber in queue order + reset the search cache
+  // Stable mode ranks by score, so floor those too (a substituted variable
+  // occurs in no clause; any score it still carries is stale).
+  for (Var v = 0; v < n; v++)
+    if (mark[v] && k.h->scores.score[v] != 0.0)
+      heuristics_score_set(k, v, 0.0);
+}
+
 void heuristics_queue_bump(Kernel &k, Var v) {
   if (k.h->queue_last == v)
     return;

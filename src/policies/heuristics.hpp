@@ -91,6 +91,12 @@ void heuristics_reset_queue_search(Kernel &);
 // queue (kissat factor.c adjust_scores_and_phases_of_fresh_varaibles). Call
 // ONCE per variable-adding rule application — it is O(#queue) per call.
 void heuristics_demote_fresh_vars(Kernel &, Var first);
+// Same idea for a SCATTERED set (V3's substituted variables, which are not a
+// contiguous suffix): move every marked variable to the least-preferred end of
+// the VMTF queue, preserving relative order, and floor its EVSIDS score. Pure
+// ranking advice — every variable stays decidable (N1). O(#queue) per CALL, so
+// call it once per rule application, never per variable.
+void heuristics_demote_marked_vars(Kernel &, const std::vector<uint8_t> &mark);
 
 // --- EVSIDS score heap (stable mode) ----------------------------------------
 void heuristics_heap_push(Kernel &, Var v);    // insert (must not be contained)

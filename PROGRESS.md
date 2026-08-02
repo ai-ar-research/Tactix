@@ -739,6 +739,39 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-01 — ▶▶ veer_axi's REAL defect: **84 % of its decisions land on variables V3 already substituted away**
+Decomposition after TR was cleared (probes 1578702/1578703/1578705). The reference comparison is brutal and
+it is **not** conflict count:
+
+| | tactix | kissat | |
+|---|---|---|---|
+| conflicts | 20,118 | 2,967 | 6.8× |
+| decisions | **1,611,949,266** | **435,946** | **3,697×** |
+| **decisions / conflict** | **80,124** | **147** | **545×** |
+
+- **The cause, measured directly** (`c substdec`, new): **1,354,519,748 = 84.03 %** of our decisions land on
+  variables V3 Substitute has already rewritten out of every clause. Such a variable occurs in **no clause**,
+  so deciding it propagates nothing and only deepens the trail — which is exactly the 1.13 propagations per
+  decision and the 80,124 decisions/conflict. Search is 93.7 % of the clock; every rule together is 6.3 %.
+- **Nothing retires them.** `substitute.cpp` makes no `heuristics_*` call, and the kernel has no
+  active/inactive notion at all — **BVE-eliminated variables have the same gap**. N1 keeps every variable
+  decidable, so they may not be REMOVED; but ranking is advice, not narrowing (the distinction that makes
+  `no_ext_reason_bump` legal where `no_ext_decisions` is not).
+- **Note this is partly SELF-INFLICTED**: before the per-SCC fix V3 substituted 0 variables on veer, so there
+  was nothing to waste decisions on. The fix is still strongly net-positive (Tier B −8.45, +1 solve), but it
+  converted "V3 does nothing" into "V3 does a lot and leaves 202,986 variables loose in the decision order".
+- **Demotion arm (`TACTIX_SUBST_DEMOTE`, default OFF; `heuristics_demote_marked_vars`, the scattered-set
+  analogue of the fresh-var demotion):** veer **201.31 → 131.40 s (1.53×)**, decisions 1.61 G → 394 M,
+  substdec share 84.03 % → 42.03 %. **But it is a TRADE**: FmlaEquiv **24.41 → 33.56 s (+37 %**, conflicts
+  818 k → 1.21 M) and 9vliw 11.82 → 12.27 — both instances where substdec was ≤ 0.25 %, so they pay the
+  trajectory perturbation and collect none of the benefit. Tier pair required before any ship decision.
+- **The residual says demotion is not the real fix**: even demoted, **42 %** of decisions still land on
+  substituted variables, because ranking them last still means deciding them once everything else is
+  assigned. The real fix is RETIREMENT — an inactive-variable notion the kernel lacks, which would serve BVE
+  too, and which needs an explicit N1 reading (a rewritten-away variable is not a meaningful branching
+  choice; its value is fixed by its representative and the reconstruction witness). **Architecture question,
+  route via revise-plan/revamp — do not bolt it onto V3.**
+
 ### 2026-08-01 — ▶ TransitiveReduce is NO LONGER veer_axi's problem: the V3 fix collapsed it 37×, and the residual is TRAJECTORY
 Probe 1578698 (post-V3-fix, shipped binary). The standing "V4 TR is a ~1000× engineering gap on one rule"
 framing is **retired** — it was measured before V3 started substituting.
