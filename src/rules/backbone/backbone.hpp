@@ -28,7 +28,11 @@
 //
 // Deviations recorded (V1 Probe's list applies verbatim — see probe.hpp — the
 // two rules share every deviation but the propagation engine):
-// (1) no tick/propagation budget yet (slot deferred); (2) candidate order
+// (1) STALE as written — corrected 2026-08-02: DefaultPolicy DOES budget both
+//     (EFFORT_SPECS `Probe`/`Backbone`, 20 permille of search ticks) and the
+//     inprocessing slot was activated 2026-07-19. What is still absent is a
+//     RULE-side budget, which only matters for a policy that is not
+//     DefaultPolicy; (2) candidate order
 //     (var asc, positive-first), no RNG/ranking; (3) BIG-head candidates;
 //     (4) no HBR / (5) no lifting / (6) no UIP analysis; (7) both polarities
 //     probed independently, once-forced-per-round `forced` mark; (8) a round

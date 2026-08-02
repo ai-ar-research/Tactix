@@ -108,6 +108,19 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first) {
 }
 
 
+static void heap_remove(Kernel &k, Var v); // defined with the heap, below
+
+void heuristics_deactivate_var(Kernel &k, Var v) {
+  if (!k.h || v >= k.h->nvars)
+    return;
+  queue_dequeue(k, v);            // out of the VMTF queue
+  heap_remove(k, v);              // out of the EVSIDS heap, if present
+  // The queue search hint may have pointed AT v; re-seat it on the queue tail
+  // so the next decision starts from a live link (kissat resets the same way).
+  if (k.h->search_idx == v)
+    heuristics_reset_queue_search(k);
+}
+
 void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) {
   if (!k.h || mark.empty())
     return;
@@ -171,22 +184,6 @@ Var heuristics_queue_next_unassigned(Kernel &k) {
   }
   k.h->search_idx = v;
   k.h->search_stamp = k.h->links[v].stamp;
-  // R-c: decline RETIRED variables while any non-retired candidate remains.
-  // The cache above must still advance normally (it is the queue's own search
-  // hint, not a decision), so the scan for a non-retired variable runs from it
-  // WITHOUT writing it back — otherwise the hint would leap past unassigned
-  // variables and later decisions would miss them.
-  if (k.retire_enabled && kernel_var_retired(k, v) && k.unassigned_active) {
-    // R-c2: only scan when a non-retired candidate actually EXISTS. Without the
-    // guard this walked the whole retired block on every decision in the tail of
-    // a descent — the quadratic path that cost veer_axi 204 s -> 600 s.
-    for (Var u = v; u != UINT32_MAX; u = k.h->links[u].prev)
-      if (k.values[make_lit(u, false)] == 0 && !kernel_var_retired(k, u))
-        return u;
-    // Nothing but retired variables left: fall back. `decide_guard` is
-    // `unassigned > 0` and SAT means EVERY variable assigned, so these must
-    // still be assignable — they are simply never walked through on a descent.
-  }
   return v;
 }
 
@@ -291,6 +288,26 @@ void heuristics_heap_push(Kernel &k, Var v) {
   heap_bubble_up(k, v);
 }
 
+// Remove an ARBITRARY element (kissat inlineheap.h kissat_pop_heap): swap the
+// last element into its slot, shrink, then restore the invariant in whichever
+// direction the moved element needs. `heap_pop_max` is the pos==0 special case.
+static void heap_remove(Kernel &k, Var v) {
+  if (!heuristics_heap_contains(k, v))
+    return;
+  const uint32_t vpos = k.h->scores.pos[v];
+  const Var last = k.h->scores.stack.back();
+  k.h->scores.stack.pop_back();
+  k.h->scores.pos[v] = UINT32_MAX;
+  if (last == v)
+    return; // v WAS the last element; nothing moved
+  k.h->scores.stack[vpos] = last;
+  k.h->scores.pos[last] = vpos;
+  // `last` may belong either above or below vpos — try both, each is a no-op
+  // when the invariant already holds.
+  heap_bubble_up(k, last);
+  heap_bubble_down(k, last);
+}
+
 static void heap_pop_max(Kernel &k) {
   assert(!k.h->scores.stack.empty());
   const Var max = k.h->scores.stack[0];
@@ -362,37 +379,6 @@ Var heuristics_heap_next_unassigned(Kernel &k) {
     heap_pop_max(k); // lazy deletion (kissat decide.c)
     assert(!k.h->scores.stack.empty());
     v = k.h->scores.stack[0];
-  }
-  // R-c: decline retired variables. The heap is only partially ordered, so
-  // (unlike the queue) there is no cheap ordered scan — pop retired maxima
-  // aside, take the first non-retired one, and push the set back so the heap is
-  // unchanged for the caller. Retired variables are a fixed set, so this cost
-  // is bounded by their count and is paid only while they sit at the top.
-  if (k.retire_enabled && kernel_var_retired(k, v) && k.unassigned_active) {
-    std::vector<Var> parked; // R-c2: guarded, see the queue path
-    Var pick = UINT32_MAX;
-    while (true) {
-      const Var top = k.h->scores.stack[0];
-      if (k.values[make_lit(top, false)] != 0) { // stale: lazy-delete as above
-        heap_pop_max(k);
-        if (k.h->scores.stack.empty())
-          break;
-        continue;
-      }
-      if (!kernel_var_retired(k, top)) {
-        pick = top;
-        break;
-      }
-      parked.push_back(top);
-      heap_pop_max(k);
-      if (k.h->scores.stack.empty())
-        break;
-    }
-    for (const Var u : parked)
-      heuristics_heap_push(k, u); // restore: heap looks untouched to the caller
-    if (pick != UINT32_MAX)
-      return pick;
-    // only retired variables remain — fall back (see the queue path)
   }
   return v;
 }

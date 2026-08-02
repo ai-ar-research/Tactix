@@ -739,6 +739,33 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-02 — rev-77 audit #1 + R-d built: retirement by DEACTIVATION (kissat's shape), no calculus change needed
+- **R-d implemented** (`heuristics_deactivate_var`: unlink from the VMTF queue + new `heap_remove` for the
+  score heap, kissat `flags.c` shape). **R-c's skip code and the score-sink hack are DELETED, not parked** —
+  both measured dead in the 2×2, and keeping a dead alternative around is precisely the silent-deficit
+  pattern rev 77 forbids.
+- **Design v2's one feared complication evaporated on inspection:** `k.unassigned == 0` is DefaultPolicy's
+  SAT test (`default_policy.cpp:731`), a **policy** decision — not `decide_guard`. So R-d2 is a policy
+  change, `decide_guard` is untouched, **no calculus revision is needed**, and N1 is unaffected. Soundness:
+  a retired variable occurs in no clause (all clauses already satisfied) and `kernel_extend_model` supplies
+  its value from ρ before `print_model` — verified at `main.cpp:598`, not assumed.
+- **▶ REV-77 AUDIT of the existing tree** (the directive applied backwards, since the V3 hazard skip proved
+  these hide in plain sight). Two findings, and two claims I checked and RETRACTED before recording:
+  - **NEW LEDGER ROW `D-SUBST-UNBOUNDED`:** V3 Substitute has **no effort or round bound** — absent from
+    `EFFORT_SPECS` entirely — where kissat bounds the same rule **twice** (`substituteeffort` **10‰**,
+    `substituterounds` **2**). Named closer recorded: add a `Substitute` EffortSpec at kissat's 10‰ plus a
+    round cap, gated on a tier pair. Now materially more relevant since the per-SCC fix (202,986
+    substitutions on veer), and unbounded rules are the family that produced the §6 SIGTERM defect.
+  - **Stale-comment drift fixed:** `backbone.hpp` deviation (1) claimed "no tick/propagation budget yet
+    (slot deferred)" — both halves untrue since 2026-07-19 (`EFFORT_SPECS` gives Probe/Backbone 20‰ and the
+    slot is active). Same class as the 2026-07-29 review's "worst finding was DRIFT".
+  - **RETRACTED before recording — V6 Congruence is at PARITY, not weaker.** We already carry kissat's
+    `congruenceandarity`/`congruencexorarity` caps, and kissat has **no** congruence *effort* option either,
+    so "kissat meters congruence and we don't" would have been an overclaim. Its 131 s application is
+    instance size, not a missing bound.
+  - **RETRACTED — Factor's tick metering** is documented "Approximate" but carries measured justification
+    (0.94 M native spend against a 700 M allowance), which is a stated reason, not a silent deficit.
+
 ### 2026-08-02 — plan rev 77 (user): **no crude approximations of an understood mechanism** — the phase-3 guideline
 §5's "references are evidence, not templates" gains a **fourth obligation**. Once a reference's mechanism is
 understood, implement what is **known to match or exceed** it — not a cheaper lookalike. An approximation

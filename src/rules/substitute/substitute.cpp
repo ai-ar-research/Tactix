@@ -635,6 +635,11 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       k.unassigned_active--;
     }
     k.var_status[v] = VarStatus::Substituted;
+    // R-d: remove it from DefaultPolicy's ranking structures outright (kissat
+    // deactivate_variable). No decision-time cost, no scan, no fallback — the
+    // three shapes v1's R-c tried and all of which were measured dead.
+    if (k.retire_enabled)
+      heuristics_deactivate_var(k, v);
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
     const Lit rest_b[1] = {negate(s)};
     kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}
@@ -651,19 +656,6 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // Rank substituted variables last: they occur in no clause, so deciding one
   // propagates nothing and only deepens the trail. ADVICE, not a restriction —
   // they stay decidable (N1); the policy simply reaches them last.
-  // R-c performance: a retired variable keeps whatever EVSIDS score it had when
-  // it was substituted, so in STABLE mode it can sit high in the max-heap — and
-  // then heap_next_unassigned pays to park and restore it on EVERY decision
-  // (measured: veer_axi 209.75 s -> 600 s TIMEOUT with the skip alone, at only
-  // 5.4 conflicts/s). Sink them ONCE here instead, so the heap top is naturally
-  // non-retired and the park loop degenerates to the rare fallback path.
-  // Once per APPLICATION, never per variable-decision (the per-call linear
-  // scratch hazard). The queue needs no equivalent: retired variables are never
-  // bumped again, so they drift to the least-preferred end on their own.
-  if (changed && k.h)
-    for (Var v = 0; v < k.nvars; v++)
-      if (kernel_var_retired(k, v) && k.h->scores.score[v] != 0.0)
-        heuristics_score_set(k, v, 0.0);
   if (changed && k.subst_demote) {
     std::vector<uint8_t> mark(k.nvars, 0);
     for (Var v = 0; v < k.nvars; v++)

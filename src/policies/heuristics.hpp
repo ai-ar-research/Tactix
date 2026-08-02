@@ -98,6 +98,15 @@ void heuristics_demote_fresh_vars(Kernel &, Var first);
 // call it once per rule application, never per variable.
 void heuristics_demote_marked_vars(Kernel &, const std::vector<uint8_t> &mark);
 
+// R-d (design v2 §3, kissat `flags.c` deactivate_variable): remove a RETIRED
+// variable from the ranking structures outright — unlink from the VMTF queue
+// and drop it from the score heap. After this DefaultPolicy can never offer it,
+// with NO per-decision cost: the structures hold only active variables, so
+// there is no skip, no scan and no fallback (all three of which were measured
+// dead — v1's R-c). N1 is untouched: `decide_candidates` builds the instance
+// surface from `k.nvars`, never from `H`, so the API still offers the variable.
+void heuristics_deactivate_var(Kernel &, Var v);
+
 // --- EVSIDS score heap (stable mode) ----------------------------------------
 void heuristics_heap_push(Kernel &, Var v);    // insert (must not be contained)
 void heuristics_score_bump(Kernel &, Var v);   // score += scinc, sift, rescale

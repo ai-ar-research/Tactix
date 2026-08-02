@@ -728,7 +728,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       }
       continue;
     }
-    if (k.unassigned == 0)
+    // R-d2: SAT when every ACTIVE variable is assigned. A retired variable
+    // occurs in no clause, so every clause is already satisfied; ρ supplies its
+    // value in kernel_extend_model. This is a POLICY decision, not a rule guard
+    // — `decide_guard` is untouched and an external policy may still decide a
+    // retired variable (N1). kissat does the same thing by decrementing its own
+    // `unassigned` at deactivation (flags.c).
+    if (k.retire_enabled ? k.unassigned_active == 0 : k.unassigned == 0)
       return 10;
     if (want_reduce(k) && reduce_guard(k)) {
       // sub-policy chooses HOW MUCH of the rule's ranked candidates die
