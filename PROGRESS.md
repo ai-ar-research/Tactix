@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 76 (2026-08-01)
+- **Plan revision tracked:** rev. 77 (2026-08-02)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-01 — **V3 per-SCC hazard skip SHIPPED** (Tier B 104.06 → 95.61, `veer_axi` TO → 238.7 s, +1 solve; L23), **task #10 DONE** (§6: rules poll the interrupt; SIGTERM latency 18.4 → 2.9 s; L22), **task #11 closed** (mechanism located + reference-anchored, fix refuted at tier level; report `2026-08-01-task11-factor-admission-mechanism.md`; new lessons L19–L21) and **TB4b merged** (watch-repair primitive + a DefaultPolicy defect that retires its July verdict; ships OFF). Earlier: the `R<n>` namespace collision fixed (four namespaces, key under `## Log`).
 
@@ -738,6 +738,29 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-02 — plan rev 77 (user): **no crude approximations of an understood mechanism** — the phase-3 guideline
+§5's "references are evidence, not templates" gains a **fourth obligation**. Once a reference's mechanism is
+understood, implement what is **known to match or exceed** it — not a cheaper lookalike. An approximation
+ships ONLY with (a) a stated reason and (b) a **named action item** closing the gap, both in the
+engineering-deviation ledger (`docs/implementation-notes.md`), which is already the one home for
+"deliberately weaker than the reference + removal path". **An approximation with no named closer is a silent
+permanent deficit.**
+- **Exhibit, measured yesterday:** V3's hazard check skipped the WHOLE ROUND on the comment *"Rare; the
+  erratum's finer per-SCC skip is a future refinement (deferred slot)"* — no action item. It discarded **all
+  179,110 equivalences V6 had just found, 5 rounds of 5, over 284 hazardous literals in 406,256 (0.07 %)**,
+  and cost a Tier B solve until the per-SCC form landed (−8.45 PAR-2, `veer_axi` TO → 238.7 s).
+- **Corollary in the plan text:** an approximation of a known mechanism is **a defect, not an arm** — it must
+  not be parked in the §5.6 dosing exhibit.
+- **▶ IMMEDIATE APPLICATION — the live demotion decision.** `TACTIX_SUBST_DEMOTE` **is** a crude
+  approximation of kissat's `deactivate_variable` (it DEFERS the wasted decisions; kissat removes the
+  variables from the queue and heap and stops counting them, so they are never decided at all). Under rev 77
+  it may ship only as an interim measure, explicitly labelled, with **R-d** (`variable-retirement-design-v2.md`)
+  as the named closer and a ledger entry. Otherwise the guideline says: build R-d instead.
+- Measured basis for calling it crude, not merely different: demotion leaves **42 % of decisions still on
+  substituted variables**, and kissat's own counters show it collapses the SAME work we do
+  (`congruent_matched` **179,812** vs our ~179,110) while spending **435,946 decisions total against our
+  1.61 G** — the gap is what happens after the collapse, not the collapse.
 
 ### 2026-08-02 — ▶▶ REFERENCE STUDY settles it: we filter at DECISION time, kissat DEACTIVATES once — R-c is measured dead
 Design v2 `docs/design/variable-retirement-design-v2.md` (supersedes v1 §4's mechanism; v1's problem

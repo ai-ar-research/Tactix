@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-01 (rev. 76). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-02 (rev. 77). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -318,7 +318,7 @@ Design commitments:
   replayable through ScriptedPolicy — flexibility proof and debugging tool at once.
 - **Reference solvers are evidence, not templates (rev 14; ex "Kissat as reference, not as fork").**
   We transliterate proven techniques but keep our own rule/policy skeleton; never copy code
-  verbatim; attribute (Kissat is MIT). Three obligations when adopting a technique or scheme:
+  verbatim; attribute (Kissat is MIT). Four obligations when adopting a technique or scheme:
   1. *Adopt on argument, not by default.* "Kissat does it this way" is never sufficient: state
      (commit message or code comment) why the approach fits *this* architecture — the §5.3
      contract, N1–N3, our data structures — and where our design points elsewhere, deviate
@@ -343,6 +343,20 @@ Design commitments:
      formula. Reordering BVE after Factor cut clique 192 s → 3.6 s; the bug was pipeline order, not
      the rule (`benchmarks/reports/2026-07-20-bve-bimodal-profiling.md`). Hence rule ordering is a
      first-class DefaultPolicy/§5.6-RL concern.
+  4. *No crude approximations of an understood mechanism (rev 77, user 2026-08-02).* Once a
+     reference's mechanism is understood, implement the thing that is **known to match or exceed
+     it** — not a cheaper lookalike. A weaker approximation may ship ONLY with (a) a stated reason
+     and (b) a **named action item** that closes the gap, both recorded in the engineering-deviation
+     ledger (`docs/implementation-notes.md`), which is the one home for "we are deliberately weaker
+     than the reference, and here is the removal path". An approximation with no named closer is a
+     silent permanent deficit. Exhibit (measured 2026-08-01): V3 Substitute's duplicated-binary
+     hazard check skipped the WHOLE ROUND on a comment reading *"Rare; the erratum's finer per-SCC
+     skip is a future refinement (deferred slot)"* — no action item. On `veer_axi` that discarded
+     **all 179,110 equivalences V6 had just found, five rounds out of five, because 284 literals in
+     406,256 (0.07 %) were hazardous**, and it cost a Tier B solve until the per-SCC form landed
+     (−8.45 PAR-2, `veer_axi` TO → 238.7 s). Corollary: "it is a defect, not an arm" — an
+     approximation of a known mechanism is not a §5.6 dosing question and must not be parked there.
+     This is the operative guideline for **phase 3**.
 
 ### 5.1 The public API (v1, C level — frozen at the phase-2 review, rev 20)
 
@@ -1279,3 +1293,4 @@ conflate them.
 - **rev. 74** (2026-07-29, user): Tier B doubled 14 → **28 instances, 28 distinct families**, recalibrated on the CLUSTER (band [3.5, 19.0] s; the old 5–30 s band was M3-Pro seconds and the M3→cluster ratio 1.13–1.76 made rescaling impossible). Motivation: at n=14 one instance flipped A/B verdicts (mod4block was the whole Tier B value of the X1/X2/X4 trio). Max single-instance share 16.2 % → 7.1 %. The original 14 stay as a marked `core14` subset so the archive remains recomputable; never mix the two counts. Report `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
 - **rev. 75** (2026-07-30, user): §8.1 — PROGRESS.md must carry the FULL per-instance Tier B and Tier C tables, newest window first, not just the aggregates. Motivated by three cases where the aggregate hid the finding (the trio verdict inverting on one instance, a FLAT A/B that swapped a solve for a solve, and four order-of-magnitude failures invisible in PAR-2).
 - **rev. 76** (2026-08-01): §11 O17 added and decided, plus an N1 scope note in §1.1 — variable RETIREMENT is N1-compliant when implemented as advice the policy may decline (`Decide::instances()` still enumerates it; capability removed = violation, default heuristic declining = compliant). Unblocks `docs/design/variable-retirement-design.md`; motivated by 84.03 % of `veer_axi`'s decisions landing on already-substituted variables. No N1–N3 weakening: the API guarantee is unchanged and now stated more precisely.
+- **rev. 77** (2026-08-02, user): §5 gains a FOURTH reference obligation — no crude approximations of an understood mechanism; implement what is known to match or exceed Kissat, or ship the approximation with a stated reason AND a named closing action item in the engineering-deviation ledger. The operative guideline for phase 3. Exhibit: V3's per-ROUND hazard skip (a "future refinement" note with no action item) discarded all 179,110 of `veer_axi`'s equivalences over 0.07 % hazardous literals and cost a Tier B solve. No N1–N3 change.
