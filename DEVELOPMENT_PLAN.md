@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-07-30 (rev. 75). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-01 (rev. 76). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -58,6 +58,12 @@ revision, and merge is checked against them (see also the revise-plan skill):
   This is the enabling interface for externally driven solving (LLM- or
   RL-based policies steering the solver step by step); it must exist in every
   build and every mode, never compiled out or feature-gated away.
+  *Scope (rev 76): N1 binds the **API's availability**, not DefaultPolicy's
+  taste. A rule's `instances()` surface must keep offering every legal choice —
+  narrowing it, or making `Decide` unable to return a variable, breaks N1 — but
+  the built-in policy may freely DECLINE a choice it judges worthless, via the
+  advice channel (`Kernel::bve_retry` is the standing shape). Capability
+  removed = violation; default heuristic declining = compliant.*
 - **N2 — Proof production.** Every mode, policy, and rule-application path
   emits checkable certificates (DRAT/LRAT) and competition-format output. No
   feature lands that only works with proofs disabled.
@@ -1157,6 +1163,7 @@ the PROGRESS Log, and the commit.
 | O13 | Distillation: do stable cross-instance learned schedules feed back into DefaultPolicy constants (benefiting N3), or stay LearnedPolicy-only? | phase-6 exit |
 | O14 | Cubing capability for strategy evaluation → *closed rev 28 (user): no cube re-solving, no sub-problems — learning stays inside the single run (§5.6 always-on); segment attribution replaces terminal cube costs; assumption machinery is O7 territory* | ~~phase 6~~ closed |
 | O15 | Phase 3.5 (pin, user 2026-07-24): the "engineering ingenuity on top of kissat" pass — scope, deliverables, exit criterion, and its relation to phase 4's T4 push | phase-3 exit (T3), before phase-4 work begins |
+| O17 | Does N1 permit RETIRING a variable (one a rule has rewritten out of every clause — V3-substituted, E1-eliminated) from DefaultPolicy's decision order? → *decided rev 76: **yes, as advice**. N1 binds the API, so `Decide::instances()` must still enumerate the variable and any external/Random/learned policy must still be able to decide it; DefaultPolicy declining is compliant, exactly as `Kernel::bve_retry` already works. Narrowing the instance surface, or making `Decide` unable to return it, remains forbidden (§1.1 N1 scope note). Motivation: measured 84.03 % of `veer_axi`'s 1.61 G decisions land on already-substituted variables that occur in no clause. Design `docs/design/variable-retirement-design.md`* | ~~blocking the retirement design~~ decided |
 | O16 | **Auto-invention of proof rules** (user 2026-07-25). The architecture is pre-adapted: an invented rule must express its effect in the closed five-primitive proof vocabulary (§5.3) and emit checkable certificates on every path (N2), so the inventor need not be trusted — the fuzz harness (§8.2) + checkers are the referee, and the §5.3 contract (one directory + one registry line) is the insertion surface. Three forms, cheapest-first: (a) composed-rule discovery = phase-6 L3, already planned; (b) **PR/SR clause learning** (Heule et al. SDCL; PReLearn) — an established, checkable rule family; **CAVEAT: PR is not directly DRAT-expressible** — adoption needs dpr-trim in the checker toolchain or the PR→DRAT extension-variable translation (an N2 decision); (c) **generative rule synthesis** — an LLM/search proposes guard/instances/apply in the primitive vocabulary, the rule-dev DoD runs automatically, benchmarks decide adoption. (b) is a phase-4 catalog CANDIDATE; (c) is research-track via the N1 external surface and never gates a competition milestone | decide at phase-4 entry: admit (b) to the catalog?; (c) revisit alongside phase 6 |
 
 ## 12. Key references
@@ -1271,3 +1278,4 @@ conflate them.
 - **rev. 73** (2026-07-29): compaction pass (compact-docs) — completed work and closed items condensed to result+pointer one-liners across the four living docs; §5.1/§5/§5.2/§5.6 prose densified with no scope, gate, catalog or §11 content changed; restored the two facts with no other home (the measured-dead BVE internals list and the instrumented-Kissat occurrence exhibit, ≈5 vs ≈36) and corrected "Two obligations" → "Three" in §5. No N1–N3 change.
 - **rev. 74** (2026-07-29, user): Tier B doubled 14 → **28 instances, 28 distinct families**, recalibrated on the CLUSTER (band [3.5, 19.0] s; the old 5–30 s band was M3-Pro seconds and the M3→cluster ratio 1.13–1.76 made rescaling impossible). Motivation: at n=14 one instance flipped A/B verdicts (mod4block was the whole Tier B value of the X1/X2/X4 trio). Max single-instance share 16.2 % → 7.1 %. The original 14 stay as a marked `core14` subset so the archive remains recomputable; never mix the two counts. Report `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
 - **rev. 75** (2026-07-30, user): §8.1 — PROGRESS.md must carry the FULL per-instance Tier B and Tier C tables, newest window first, not just the aggregates. Motivated by three cases where the aggregate hid the finding (the trio verdict inverting on one instance, a FLAT A/B that swapped a solve for a solve, and four order-of-magnitude failures invisible in PAR-2).
+- **rev. 76** (2026-08-01): §11 O17 added and decided, plus an N1 scope note in §1.1 — variable RETIREMENT is N1-compliant when implemented as advice the policy may decline (`Decide::instances()` still enumerates it; capability removed = violation, default heuristic declining = compliant). Unblocks `docs/design/variable-retirement-design.md`; motivated by 84.03 % of `veer_axi`'s decisions landing on already-substituted variables. No N1–N3 weakening: the API guarantee is unchanged and now stated more precisely.

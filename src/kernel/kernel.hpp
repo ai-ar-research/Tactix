@@ -654,9 +654,12 @@ struct Kernel {
   uint32_t factor_cand_rounds = 0;
   // DIAGNOSTIC ONLY (task #11, `TACTIX_NO_EXT_DECISIONS`) — never ship this on.
   // Skips E2 Factor's extension variables when branching (falling back only
-  // when nothing else is unassigned). It NARROWS the policy's action space,
-  // which N1 forbids for a default; it exists to test whether branching on
-  // extension vars is what makes broad Factor admission damage our search.
+  // when nothing else is unassigned). It makes `Decide` itself unable to RETURN
+  // those variables, i.e. it removes the capability — which N1 forbids for a
+  // default (plan §1.1 N1 scope note, rev 76). Contrast RETIREMENT and
+  // `no_ext_reason_bump`, which only change what the POLICY prefers and are
+  // therefore compliant. It exists to test whether branching on extension vars
+  // is what makes broad Factor admission damage our search.
   bool no_ext_decisions = false;
   // Task #11 (`TACTIX_NO_EXT_REASON_BUMP`, arm — default off). Withhold E2
   // Factor's extension variables from the REASON-SIDE bump channel only; the

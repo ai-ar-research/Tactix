@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 75 (2026-07-30)
+- **Plan revision tracked:** rev. 76 (2026-08-01)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-01 — **V3 per-SCC hazard skip SHIPPED** (Tier B 104.06 → 95.61, `veer_axi` TO → 238.7 s, +1 solve; L23), **task #10 DONE** (§6: rules poll the interrupt; SIGTERM latency 18.4 → 2.9 s; L22), **task #11 closed** (mechanism located + reference-anchored, fix refuted at tier level; report `2026-08-01-task11-factor-admission-mechanism.md`; new lessons L19–L21) and **TB4b merged** (watch-repair primitive + a DefaultPolicy defect that retires its July verdict; ships OFF). Earlier: the `R<n>` namespace collision fixed (four namespaces, key under `## Log`).
 
@@ -738,6 +738,32 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-01 — plan rev 76 + the retirement DESIGN: N1 permits retiring rewritten-away variables, as ADVICE
+Design `docs/design/variable-retirement-design.md` (DESIGN, not implemented). Plan rev 76 adds and decides
+**§11 O17** and adds an N1 scope note to §1.1.
+- **The N1 question, resolved:** N1 binds the **API's availability**, not DefaultPolicy's taste.
+  `Decide::instances()` must keep enumerating every legal choice and any external/Random/learned policy must
+  still be able to decide a retired variable — but the built-in policy may **decline**, through the advice
+  channel `Kernel::bve_retry` already exemplifies. **Capability removed = violation; default heuristic
+  declining = compliant.** This also corrects our own over-strong `no_ext_decisions` comment, which said
+  "narrows the policy's action space, which N1 forbids" — read literally that would forbid retirement too.
+- **Reference-grounded:** cadical carries `status ∈ {ACTIVE, FIXED, ELIMINATED, SUBSTITUTED, PURE}` with
+  `substituted()` first-class; kissat has `active`/`eliminated`/`fixed` bits. We adopt the CONCEPT, not the
+  mechanism — theirs is consulted directly by the decision loop, ours must route through advice so the
+  instance surface stays intact.
+- **Design shape:** `Kernel::var_status` set by the rule at the point it pushes the reconstruction witness
+  (the two facts must not drift), read only by `H`'s two next-unassigned scans. No proof delta, no calculus
+  entry — pure heuristic layer. Five increments R-a…R-e, E1 BVE's half measured separately since its
+  magnitude is unknown (BVE eliminated 0 on veer).
+- **Load-bearing invariant:** a retired variable must have a reconstruction witness, or it is never decided
+  AND never reconstructed — a **wrong-SAT**, not a crash. `checkmodel` is the oracle; the DoD therefore
+  weights SAT-heavy fuzz and requires a stress policy that deliberately decides retired variables, since
+  R-c removes the only coverage that path had.
+- **Pre-registered prediction:** retirement should beat the demotion arm on veer AND avoid its FmlaEquiv
+  (+37 %) and 9vliw regressions, because those instances have ≤ 0.25 % substituted-variable decisions and so
+  should be near bit-identical. **If FmlaEquiv still regresses, the design's premise is wrong** and the cause
+  is queue reordering rather than the decisions themselves.
 
 ### 2026-08-01 — ▶▶ veer_axi's REAL defect: **84 % of its decisions land on variables V3 already substituted away**
 Decomposition after TR was cleared (probes 1578702/1578703/1578705). The reference comparison is brutal and
