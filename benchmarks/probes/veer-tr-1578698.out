@@ -1,0 +1,24 @@
+p cnf 521158 1306928
+########## A: tactix shipped default
+c conflicts   20118
+c transitive  0 rounds, 554654 checked, 325 deleted, 2 failed, 434185028 ticks
+c substitute  6 rounds, 328914 non-trivial SCCs (406256 lits), 202986 vars substituted, 0 rounds skipped / 6 partial (284 lits poisoned) on the hazard check
+c congruence  5 rounds, 1200052 gates, 162947 merges, 0 units, 0 unjustified
+c timing        Congruence            3549 ms (  1.8%) in 5 applications
+c timing        TransitiveReduce      2940 ms (  1.5%) in 227610 applications
+c timing        Probe                   18 ms (  0.0%) in 39840 applications
+s UNSATISFIABLE
+  wall 201.19 s
+########## B: tactix, TransitiveReduce DISABLED (diagnostic ablation)
+c conflicts   15401
+c transitive  0 rounds, 0 checked, 0 deleted, 0 failed, 0 ticks
+c substitute  6 rounds, 318482 non-trivial SCCs (393696 lits), 196804 vars substituted, 0 rounds skipped / 6 partial (88 lits poisoned) on the hazard check
+c congruence  5 rounds, 1205284 gates, 163403 merges, 0 units, 0 unjustified
+s UNSATISFIABLE
+  wall 157.25 s
+########## C: kissat default (reference, L14)
+s UNSATISFIABLE
+  wall 2.72 s
+########## D: kissat --transitive=false
+s UNSATISFIABLE
+  wall 2.69 s

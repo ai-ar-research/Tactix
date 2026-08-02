@@ -58,8 +58,9 @@ polled by V6 Congruence at five safe points; worst-case SIGTERM latency **18.4 �
 byte-identical when uninterrupted, stop-fuzz 4 × 10k/0). Residual: ~2–3 s still unattributed, and the
 original ~40 s/~1,100 s case was never reproduced — other long rules have no polls yet.
 (b) The remaining Tier B walls. **`veer_axi` IS SOLVED as of 2026-08-01** (V3's per-SCC hazard skip; TO →
-238.7 s, Tier B −8.45) — what remains there is that it is still 238.7 s against kissat's 3.7, and V4
-TransitiveReduce is the standing suspect (26–49 % of its clock,
+238.7 s, Tier B −8.45). **V4 TransitiveReduce is NO LONGER the suspect there** — the V3 fix collapsed it to
+**1.5 % of the clock** and TR-off still leaves **58×** vs kissat (probe 1578698, Log). The old framing
+(26–49 % of its clock,
 8.7 × 10⁹ ticks where kissat spends 0.03 s — a ~1000× engineering gap on one rule; even a 4× fix leaves it
 at 550 s against a 300 s cap) and **`unsat-set-b-fclqcolor`**. (c) Track R · R5 S-c (Sweep candidate
 selection — its DoD MUST include fuzz legs on both proof formats) then S-d…S-f, Track R · R6–R8.
@@ -737,6 +738,37 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-01 — ▶ TransitiveReduce is NO LONGER veer_axi's problem: the V3 fix collapsed it 37×, and the residual is TRAJECTORY
+Probe 1578698 (post-V3-fix, shipped binary). The standing "V4 TR is a ~1000× engineering gap on one rule"
+framing is **retired** — it was measured before V3 started substituting.
+
+| | before the V3 fix | **now** |
+|---|---|---|
+| TR time | 109,697 ms (**36.6 %**) | **2,940 ms (1.5 %)** |
+| TR ticks | 8,736,859,973 | 434,185,028 |
+| TR deletions | 210,966 | **325** |
+
+- **The V3 per-SCC fix fixed TR as a side effect.** V3 now removes 202,986 variables before TR walks, so the
+  binary implication graph TR traverses is vastly smaller: **37× less time, 20× fewer ticks**. Any TR
+  *engineering* work is now worth ≤ 2.9 s of a 201 s solve. **Do not start there.**
+- **The residual TR cost is TRAJECTORY, not runtime** (L7/L9 shape). Ablation: shipped **201.19 s / 20,118
+  conflicts** vs `TACTIX_SLOT_DISABLE=TransitiveReduce` **157.25 s / 15,401** — TR costs **~44 s** while its
+  own clock is 2.9 s, for a yield of **325 deletions out of 554,654 checks (0.06 %)**. n=1, so indicative,
+  not a verdict; but the conflict delta says the mechanism is real.
+- **This is NOT a missing-capability gap** (L14, reference on the same instance): kissat solves veer in
+  **2.72 s**, and `kissat --transitive=false` in **2.69 s** — its own transitive reduction is worth
+  **nothing** there. So "match kissat's TR" is not the lever either.
+- **▶ The gap is elsewhere and the ablation bounds it:** TR-off still leaves **157 s vs kissat's 2.72 s =
+  58×**. Removing the entire suspect removes ~22 % of the gap. Whatever veer's real problem is, it is not
+  TransitiveReduce — and per **L8** a single ablation is an inflated upper bound, so 22 % is generous.
+- **Standing:** V4 admission/dosing on veer (325 deletions bought with 44 s of trajectory) is a clean §5.6
+  signal in the same family as BVE admission — NOT a shipped rule-off ([[no-rule-off-configs]]: every
+  implemented proof rule ships ON; a rule-off arm is a diagnostic for a SCHEDULING defect).
+- Also available, unused: `TACTIX_V4_EARLY_EXIT` — our walk deliberately runs to exhaustion where kissat
+  breaks at `dst` (`transitive_reduce.cpp` deviation 3, to feed failed-literal detection). That was measured
+  only BUNDLED with the tick meter in TD-R1 and killed; at 1.5 % of the clock it is no longer worth
+  unbundling for veer.
 
 ### 2026-08-01 — ▶▶ SHIPPED: V3's PER-SCC hazard skip — Tier B **104.06 → 95.61**, `veer_axi` TO → **238.7 s** (+1 solve)
 The fix for the cause found below, gated on a same-window tier pair from ONE binary
