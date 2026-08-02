@@ -1,0 +1,14 @@
+### IDENTITY: mod4block
+  pin-ret-c : c conflicts   418796
+########## veer_axi
+--- off     c decisions   1611961831 (0 via API) c conflicts   20217 c substdec    1354519269 decisions on substituted vars (84.03% of 1611961831) s UNSATISFIABLE wall 210.08 s 
+--- retire  c decisions   5842074 (0 via API) c conflicts   3271 c substdec    0 decisions on substituted vars (0.00% of 5842074) s UNKNOWN wall 600.13 s 
+########## FmlaEquivChain
+--- off     c decisions   19890411 (0 via API) c conflicts   1205067 c substdec    519 decisions on substituted vars (0.00% of 19890411) s UNSATISFIABLE wall 34.54 s 
+--- retire  c decisions   15907717 (0 via API) c conflicts   668865 c substdec    0 decisions on substituted vars (0.00% of 15907717) s UNSATISFIABLE wall 25.80 s 
+########## 9vliw_bp_mc
+--- off     c decisions   3274536 (0 via API) c conflicts   321623 c substdec    6382 decisions on substituted vars (0.19% of 3274536) s UNSATISFIABLE wall 14.61 s 
+--- retire  c decisions   2311530 (0 via API) c conflicts   227986 c substdec    0 decisions on substituted vars (0.00% of 2311530) s UNSATISFIABLE wall 12.81 s 
+########## x9-08014
+--- off     c decisions   409967 (0 via API) c conflicts   276755 c substdec    0 decisions on substituted vars (0.00% of 409967) s UNSATISFIABLE wall 7.72 s 
+--- retire  c decisions   409967 (0 via API) c conflicts   276755 c substdec    0 decisions on substituted vars (0.00% of 409967) s UNSATISFIABLE wall 7.79 s 

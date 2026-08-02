@@ -739,6 +739,50 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-02 — ▶▶ REFERENCE STUDY settles it: we filter at DECISION time, kissat DEACTIVATES once — R-c is measured dead
+Design v2 `docs/design/variable-retirement-design-v2.md` (supersedes v1 §4's mechanism; v1's problem
+statement stands). Probe 1578771, the full 2×2 on veer_axi:
+
+| arm | veer_axi | conflicts |
+|---|---|---|
+| off | 210.34 s UNSAT | 20,217 |
+| **demote** (rank last) | **137.83 s UNSAT** | 17,557 |
+| retire (skip) | **600 TO** | 3,271 |
+| retire + demote | **600 TO** | 11,590 |
+
+- **R-c is DEAD in both cells** — with physical segregation AND with the O(1) tail guard. Three fix attempts,
+  all banked so they are not retried: heap park/restore (no movement), segregation (throughput 9.6 k/s →
+  266 k/s, still TO), O(1) `unassigned_active` guard (no movement). **Three failed mechanisms is the
+  finding**: the shape is wrong, not the tuning.
+- **▶ WHAT THE REFERENCES DO** (`kissat/src/flags.c` `deactivate_variable`): retirement is a ONE-TIME
+  deactivation — `f->active=false`, `kissat_dequeue` out of the VMTF queue, `kissat_pop_heap` out of the
+  score heap, and the caller does **`solver->unassigned--`**. cadical carries the same concept as
+  first-class `Flags::status {ACTIVE, FIXED, ELIMINATED, SUBSTITUTED, PURE}` with `stats.active--`, lazier at
+  the decision site — two independent lineages agreeing on the CONCEPT, differing on mechanism, so the
+  concept is what we adopt (plan §5).
+- **▶ WHAT WE DO DIFFERENTLY — three, and they compound.** (1) **We filter at DECISION time; kissat removes
+  at RETIREMENT time** — we pay per decision forever, they pay once per variable; skipping a scattered subset
+  of a recency-ordered linked list is inherently a scan, which is why segregating helped 28× and still lost.
+  (2) **Our `unassigned` counts retired variables; kissat's does not** — the load-bearing one: because SAT is
+  "all assigned" over ALL variables, retired ones must still be assigned, which FORCED skip-with-fallback,
+  and the fallback is the quadratic tail. kissat never assigns them; ρ supplies their values. (3) **Our
+  kernel has no active/inactive notion at all** — E1 BVE shares the defect, unmeasured.
+- **N1 verified, not assumed:** `decide_candidates` (`decide.cpp:65`) builds the instance surface from
+  `k.nvars` filtered on assignment, and never reads `H`'s queue or heap — so `H`-side removal does NOT narrow
+  `Decide::instances()`. Exactly the rev-76 line: capability removed = violation, default heuristic declining
+  = compliant.
+- **The complication R-d must respect:** making the count active-only turns `decide_guard` false while
+  retired variables remain unassigned — sound (they occur in no clause; ρ has their values) but it changes a
+  **rule guard, i.e. the CALCULUS**. Route R-d2 through the calculus skill + `docs/calculus.md`; do not slip
+  it in. `unassigned_active` (R-c2) already implements the required accounting and keeps its recount assert.
+- **▶ STANDING RECOMMENDATION while R-d is unbuilt: DEMOTION is the pragmatic win on veer** (210.34 →
+  **137.83 s**), already implemented and default OFF. It is a TRADE (earlier windows: FmlaEquiv +37 %, 9vliw
+  ~+4 %), so it needs its own same-window tier pair — **the cheapest available progress on the veer gap, and
+  it does not depend on R-d landing.**
+- **Pre-registered for R-d, because v1's prediction was refuted:** recover veer to ≤ 137.83 s while keeping
+  FmlaEquiv 25.80 s and 9vliw 12.81 s, `x9` bit-identical. **If R-d also fails to beat demotion, STOP** —
+  ship demotion on a tier pair and record retirement as measured-dead. Do not attempt a fifth mechanism.
+
 ### 2026-08-02 — R-a…R-c implemented: R-a/R-b BIT-IDENTICAL, R-c is NOT viable yet (my prediction was wrong twice)
 Increments R-a (`Kernel::var_status` + `kernel_var_retired`), R-b (V3 retires at the witness push), R-c
 (DefaultPolicy declines retired variables, skip-with-fallback, `TACTIX_RETIRE`, **default OFF**). Design

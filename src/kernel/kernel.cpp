@@ -46,6 +46,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   if (k.dense)
     k.dense->large.resize(2 * nvars);
   k.unassigned += nvars - old;
+  k.unassigned_active += nvars - old; // fresh variables are Active (R-a)
   // fixed-capacity trail/frames: the inlined assign hot path must never
   // reallocate, and its push_back capacity branch becomes always-false
   k.trail.reserve(nvars);
@@ -419,6 +420,8 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
     k.values[lit] = 0;
     k.values[negate(lit)] = 0;
     k.unassigned++;
+    if (!kernel_var_retired(k, v))
+      k.unassigned_active++;
     if constexpr (HasH) {
       // ranking-structure maintenance (loop-invariant k.h->stable; hoisted by the
       // optimizer, so identical codegen to the pre-H2 `const bool stable`)
@@ -1000,6 +1003,13 @@ void kernel_check_invariants(const Kernel &k) {
       assigned_count++;
   }
   assert(assigned_count + k.unassigned == k.nvars);
+  {
+    uint32_t active = 0; // R-c2: the counter must equal a recount
+    for (Var v = 0; v < k.nvars; v++)
+      if (k.values[make_lit(v, false)] == 0 && !kernel_var_retired(k, v))
+        active++;
+    assert(active == k.unassigned_active);
+  }
   assert(assigned_count == k.trail.size());
   assert(k.propagate_head <= k.trail.size());
   assert(k.frames.size() == k.level + 1);

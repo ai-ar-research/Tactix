@@ -629,6 +629,11 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     // WRONG-SAT rather than a crash (design §5 invariant 2).
     if (k.var_status.size() < k.nvars)
       k.var_status.resize(k.nvars, VarStatus::Active);
+    if (k.var_status[v] == VarStatus::Active &&
+        k.values[make_lit(v, false)] == 0) {
+      assert(k.unassigned_active > 0); // R-c2: leaves the active pool
+      k.unassigned_active--;
+    }
     k.var_status[v] = VarStatus::Substituted;
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
     const Lit rest_b[1] = {negate(s)};

@@ -176,7 +176,10 @@ Var heuristics_queue_next_unassigned(Kernel &k) {
   // hint, not a decision), so the scan for a non-retired variable runs from it
   // WITHOUT writing it back — otherwise the hint would leap past unassigned
   // variables and later decisions would miss them.
-  if (k.retire_enabled && kernel_var_retired(k, v)) {
+  if (k.retire_enabled && kernel_var_retired(k, v) && k.unassigned_active) {
+    // R-c2: only scan when a non-retired candidate actually EXISTS. Without the
+    // guard this walked the whole retired block on every decision in the tail of
+    // a descent — the quadratic path that cost veer_axi 204 s -> 600 s.
     for (Var u = v; u != UINT32_MAX; u = k.h->links[u].prev)
       if (k.values[make_lit(u, false)] == 0 && !kernel_var_retired(k, u))
         return u;
@@ -365,8 +368,8 @@ Var heuristics_heap_next_unassigned(Kernel &k) {
   // aside, take the first non-retired one, and push the set back so the heap is
   // unchanged for the caller. Retired variables are a fixed set, so this cost
   // is bounded by their count and is paid only while they sit at the top.
-  if (k.retire_enabled && kernel_var_retired(k, v)) {
-    std::vector<Var> parked;
+  if (k.retire_enabled && kernel_var_retired(k, v) && k.unassigned_active) {
+    std::vector<Var> parked; // R-c2: guarded, see the queue path
     Var pick = UINT32_MAX;
     while (true) {
       const Var top = k.h->scores.stack[0];

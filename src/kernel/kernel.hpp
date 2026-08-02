@@ -359,6 +359,16 @@ struct Kernel {
   std::vector<uint32_t> frames = {0};
   uint32_t level = 0;
   uint32_t unassigned = 0;
+  // R-c2: of those, how many are NOT retired. Lets the retirement skip answer
+  // "is any non-retired candidate left?" in O(1) instead of walking the queue.
+  // Without it the skip is quadratic in the TAIL of every descent: once all
+  // non-retired variables are assigned, each remaining decision walked ~195 k
+  // links before falling back (measured — veer_axi 204 s -> 600 s TIMEOUT).
+  // Kept exact by the same three sites that move `unassigned`, plus retirement.
+  // A drift here is a PERFORMANCE bug only, never a soundness one: too low
+  // falls back early (decides a retired variable while real ones remain), too
+  // high scans and finds nothing, then falls through to the same answer.
+  uint32_t unassigned_active = 0;
 
   Arena arena;
   WatchLists watches;
@@ -1000,6 +1010,11 @@ inline uint64_t kernel_binary_id(const Kernel &k, Lit a, Lit b) {
 // assignment per propagated literal, and a cross-TU call there costs
 // measurably at 10^6+ props/sec — the store sequence must inline into the
 // watch-scan loop.
+// Has a rule rewritten v out of the formula? (Empty status vector == none.)
+inline bool kernel_var_retired(const Kernel &k, Var v) {
+  return v < k.var_status.size() && k.var_status[v] != VarStatus::Active;
+}
+
 inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,
                           uint32_t reason, bool binary) {
   assert(k.values[lit] == 0);
@@ -1011,6 +1026,10 @@ inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,
   k.trail.push_back(lit);
   assert(k.unassigned > 0);
   k.unassigned--;
+  if (!kernel_var_retired(k, v)) {
+    assert(k.unassigned_active > 0);
+    k.unassigned_active--;
+  }
 }
 inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
   k.level++;
@@ -1104,11 +1123,6 @@ bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 // §6: has an external interrupt arrived? Rules poll this at their own safe
 // abort points (see Kernel::stop). Cheap enough for a coarse cadence inside a
 // long rule loop; never call it per-literal.
-// Has a rule rewritten v out of the formula? (Empty status vector == none.)
-inline bool kernel_var_retired(const Kernel &k, Var v) {
-  return v < k.var_status.size() && k.var_status[v] != VarStatus::Active;
-}
-
 inline bool kernel_terminating(const Kernel &k) {
   // STRESS MODE (`TACTIX_STOP_FUZZ=n`, diagnostic): report "terminating" on a
   // deterministic 1-in-n cadence so rules abort at MANY different interior
