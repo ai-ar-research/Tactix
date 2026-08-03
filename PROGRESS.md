@@ -761,9 +761,22 @@ both ~3.1 M vars / ~10.9 M clauses).
   both axes at once. Neither solver meters congruence by effort (kissat's controls are structural —
   `congruenceandarity` 1e6, `congruencexorarity` 4, `congruencexorcounts` 2, plus `congruenceonce` /
   `preprocesscongruence`), so a budget is the wrong instrument; the extractor is the thing to fix.
-- **Next:** gate-kind breakdown landed (`c conggates`, mirroring kissat's `congruent_gates_ands/_ites/_xors`)
-  to identify WHICH extractor produces the 78 M — probe 1579467. Then compare that extractor's admission
-  against kissat's structural bounds.
+- **▶ GATE-KIND SPLIT (probe 1579467, T105): `26,393,284 and · 26,976,045 xor · 2,068 ite`.** XOR alone is
+  **50.5 %** of the volume; for scale kissat's own split (on veer) is ands 59 % / ites 30 % / **xors 11 %**.
+- **The arity caps are NOT the cause — we already match or beat kissat**: `CONG_XOR_ARITY` **4** = kissat's
+  `congruencexorarity` 4, and `CONG_ARITY_LIMIT` **64** is far STRICTER than kissat's `congruenceandarity`
+  1e6. So the gap is in what the extractor *emits*, not what it admits.
+- **Structural fact found while reading it:** XOR extraction dedups relations correctly (a `seen` set over
+  sorted positive vars) but then emits **ONE GATE PER CHOICE OF OUTPUT** — `s` gates for an `s`-variable
+  relation. That is needed for congruence matching, but it means the gate count is `s ×` the relation count
+  by construction, and it is the first thing to compare against kissat's counter semantics: **if kissat
+  counts RELATIONS where we count (relation × output), the 12.5× is partly a measurement artefact and the
+  real gap is smaller than it looks.** Probe 1579468 gets kissat's `congruent_gates_*` on the SAME instance
+  to settle that before any code changes.
+- **Do not "fix" the extractor until that comparison lands** — the arithmetic already does not close (27 M
+  XOR gates would need ~5.4 M relations × 16 clauses = 86 M clause-participations from a 10.7 M-clause
+  formula), which means either the emission multiplicity or the counter semantics explains it, and those two
+  route to completely different work.
 - Also visible in the same runs: **V4 TransitiveReduce at 18,773,159 applications on T87** (118,524 ms,
   15.4 %) and 8,548,660 on T105 — a second, separate lead on the same instances.
 

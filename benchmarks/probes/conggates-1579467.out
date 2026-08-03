@@ -1,1 +1,6 @@
 ### T105.2.0 — which extractor produces the 53 M gates?
+c conflicts   232223
+c conggates   26393284 and, 26976045 xor, 2068 ite
+c congruence  11 rounds, 53371397 gates, 3713 merges, 14 units, 0 unjustified
+c timing        Congruence          172529 ms ( 38.2%) in 11 applications
+s UNSATISFIABLE
