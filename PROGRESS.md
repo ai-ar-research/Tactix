@@ -739,6 +739,36 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-03 — ▶▶ CORRECTION: congruence's gap is **MATCHING, not extraction** — and ITE extraction is ~dead
+Probe 1579468 — kissat's `congruent_gates_*` on T105, the comparison I should have had before reading
+anything into our gate count. **It refutes the extraction-volume conclusion I banked an hour earlier.**
+
+| | ours | kissat | |
+|---|---|---|---|
+| gates extracted | 53,371,397 (11 rounds) | **18,474,261** (7 closures) | 2.9× more, NOT an explosion |
+| XOR share | 50.5 % | **58 %** | ours is LOWER — XOR-heavy is normal here |
+| **ITE gates** | **2,068** | **247,798** | **~120× fewer for us** |
+| **matched** | **3,713 merges** | **674,830** | **~182× fewer for us** |
+| congruence time | 172,872 ms | 22,750 ms | 7.6× |
+
+- **What was wrong:** I read "78 M gates, 7.2 per clause" as the anomaly. It is not — kissat extracts the
+  same order of magnitude, with a HIGHER XOR proportion. Extraction volume is roughly comparable.
+- **What is actually wrong:** we spend **7.6× the time to produce 182× fewer congruences.** kissat's matched
+  set is **80 % XOR** (540,379 of 674,830); ours is 3,713 merges in total. **The defect is in the CLOSURE /
+  KEY MATCHING, not in how much we extract** — structurally identical XOR gates are evidently not colliding
+  on their key.
+- **Second, separate defect: our ITE extractor is ~dead** — 2,068 gates against kissat's 247,798 on the same
+  formula, and kissat matches 131 ITEs from them. Ours is a rounding error (0.004 % of our gates vs kissat's
+  1 %). C2's degenerate-ITE filter (Track C, "gates −23 %, equivalences identical") is the first suspect.
+- **Method note, and the reason this correction exists:** the gate-count ratio looked damning in isolation
+  and I nearly built an extractor fix on it. What stopped me was arithmetic that would not close (27 M XOR
+  gates need ~86 M clause-participations from a 10.7 M-clause formula) — so I got the reference's counters
+  on the SAME instance first (L14) instead of acting. **Two of today's three "obvious" mechanism reads have
+  now been overturned by that same check** (TransitiveReduce's "~1000× gap", and this).
+- **Next:** instrument the closure — count key collisions attempted vs merges accepted, split by kind. If
+  XOR keys are colliding but merges are being rejected, the fault is in `add_equivalence`/the proof chain; if
+  they are not colliding at all, it is the canonicalization (C0's sign-absorption is the standing suspect).
+
 ### 2026-08-03 — ▶▶ V6 Congruence: kissat finds **3.3× MORE congruences in 12.5× LESS time** — a real rev-77 gap
 Probe 1579464, the L14 comparison on the two instances where V6 owns the clock (`T87.2.0`, `T105.2.0` —
 both ~3.1 M vars / ~10.9 M clauses).
@@ -751,9 +781,10 @@ both ~3.1 M vars / ~10.9 M clauses).
 - **This is outcome (2) of the three I pre-registered: the same job done far more expensively AND with a
   worse result.** Not inherent to the instances (kissat is fast on them), not a scheduling gap (16 and 11
   rounds, not dozens).
-- **The anomaly is EXTRACTION VOLUME: 78.65 M gates from a 10.9 M-clause formula = 7.2 gates per clause**,
-  converted into merges at **0.005 %**. For scale, on `veer_axi` we extract 0.9 gates/clause — so these
-  instances make our extractor produce ~8× its normal density while the yield collapses.
+- **~~The anomaly is EXTRACTION VOLUME~~ — REFUTED 2026-08-03 by kissat's own counters on the same instance
+  (probe 1579468); see the correcting entry above. kissat extracts 18.47 M gates to our 53.37 M (2.9×, not an
+  explosion) and its XOR share is 58 % against our 50.5 %, so XOR-heavy extraction is NORMAL here. The real
+  gap is MATCHING.**
 - **My pre-registered prediction was WRONG and usefully so.** I predicted ~45 rounds (repeated full
   re-extraction) from the veer cost model; it is 16. So the cost is NOT re-running extraction often — it is
   extracting far too much EACH time. That rules out the scheduling fix I would otherwise have built.
