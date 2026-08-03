@@ -239,6 +239,14 @@ struct Stats {
   // V3 Substitute actually consumes the 161,462 equivalences V6 finds was
   // UNANSWERABLE from a run. Gates EXTRACTED and equivalences MERGED, summed
   // over all applications.
+  // Extraction split by gate kind, mirroring kissat's congruent_gates_ands /
+  // _ites / _xors so the two are directly comparable. Motive (probe 1579464):
+  // on T87 we extract **78,652,093 gates — 7.2 per clause** and convert 0.005 %
+  // of them into merges, while kissat finds 3.3x MORE congruences in 12.5x less
+  // time. Which extractor produces the 78 M is the whole question.
+  mutable uint64_t congruence_gates_and = 0;
+  mutable uint64_t congruence_gates_xor = 0;
+  mutable uint64_t congruence_gates_ite = 0;
   uint64_t congruence_gates = 0;
   uint64_t congruence_merges = 0;
   uint64_t factorings = 0;

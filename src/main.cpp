@@ -463,6 +463,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.conflict_watch_repaired);
     printf("c inprocess   %llu phases\n",
            (unsigned long long)kernel.stats.inprocess_phases);
+    printf("c conggates   %llu and, %llu xor, %llu ite\n",
+           (unsigned long long)kernel.stats.congruence_gates_and,
+           (unsigned long long)kernel.stats.congruence_gates_xor,
+           (unsigned long long)kernel.stats.congruence_gates_ite);
     printf("c congruence  %llu rounds, %llu gates, %llu merges, %llu units, "
            "%llu unjustified\n",
            (unsigned long long)kernel.stats.congruence_rounds,

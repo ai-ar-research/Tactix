@@ -1,2 +1,30 @@
 ########## T87.2.0  p cnf 3165161 10917078
 --- tactix (shipped)
+c conflicts   515887
+c substitute  18 rounds, 28204 non-trivial SCCs (36554 lits), 14933 vars substituted, 1 rounds skipped / 17 partial (6688 lits poisoned) on the hazard check
+c congruence  16 rounds, 78652093 gates, 3979 merges, 10 units, 0 unjustified
+c timing        Congruence          253989 ms ( 32.9%) in 16 applications
+c timing        TransitiveReduce    118524 ms ( 15.4%) in 18773159 applications
+c timing        Substitute            9318 ms (  1.2%) in 18 applications
+s UNSATISFIABLE
+--- kissat (reference, same instance)
+s UNSATISFIABLE
+c          20.38    9.85 %  congruence
+c conflicts:                           343808             1661.68 per second
+c congruent:                            13227                0 %  variables
+c substituted:                          17456                1 %  variables
+########## T105.2.0  p cnf 3094431 10684799
+--- tactix (shipped)
+c conflicts   232223
+c substitute  12 rounds, 10444 non-trivial SCCs (15628 lits), 6548 vars substituted, 0 rounds skipped / 9 partial (2532 lits poisoned) on the hazard check
+c congruence  11 rounds, 53371397 gates, 3713 merges, 14 units, 0 unjustified
+c timing        Congruence          172872 ms ( 38.2%) in 11 applications
+c timing        TransitiveReduce     50943 ms ( 11.3%) in 8548660 applications
+c timing        Substitute            5856 ms (  1.3%) in 12 applications
+s UNSATISFIABLE
+--- kissat (reference, same instance)
+s UNSATISFIABLE
+c          22.75    9.61 %  congruence
+c conflicts:                           393595             1662.08 per second
+c congruent:                            14461                0 %  variables
+c substituted:                          19531                1 %  variables

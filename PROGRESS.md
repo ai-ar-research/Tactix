@@ -739,6 +739,34 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-03 — ▶▶ V6 Congruence: kissat finds **3.3× MORE congruences in 12.5× LESS time** — a real rev-77 gap
+Probe 1579464, the L14 comparison on the two instances where V6 owns the clock (`T87.2.0`, `T105.2.0` —
+both ~3.1 M vars / ~10.9 M clauses).
+
+| | ours | kissat |
+|---|---|---|
+| **T87** congruence | **253,989 ms (32.9 % of solve)**, 16 rounds, **78,652,093 gates**, **3,979 merges** | **20.38 s (9.85 %)**, **13,227 congruent vars** |
+| **T105** congruence | **172,872 ms (38.2 %)**, 11 rounds, **53,371,397 gates**, 3,713 merges | **22.75 s (9.61 %)**, **14,461 congruent vars** |
+
+- **This is outcome (2) of the three I pre-registered: the same job done far more expensively AND with a
+  worse result.** Not inherent to the instances (kissat is fast on them), not a scheduling gap (16 and 11
+  rounds, not dozens).
+- **The anomaly is EXTRACTION VOLUME: 78.65 M gates from a 10.9 M-clause formula = 7.2 gates per clause**,
+  converted into merges at **0.005 %**. For scale, on `veer_axi` we extract 0.9 gates/clause — so these
+  instances make our extractor produce ~8× its normal density while the yield collapses.
+- **My pre-registered prediction was WRONG and usefully so.** I predicted ~45 rounds (repeated full
+  re-extraction) from the veer cost model; it is 16. So the cost is NOT re-running extraction often — it is
+  extracting far too much EACH time. That rules out the scheduling fix I would otherwise have built.
+- **Under rev 77 this is a "match or exceed" gap, not a dosing question:** kissat is strictly better here on
+  both axes at once. Neither solver meters congruence by effort (kissat's controls are structural —
+  `congruenceandarity` 1e6, `congruencexorarity` 4, `congruencexorcounts` 2, plus `congruenceonce` /
+  `preprocesscongruence`), so a budget is the wrong instrument; the extractor is the thing to fix.
+- **Next:** gate-kind breakdown landed (`c conggates`, mirroring kissat's `congruent_gates_ands/_ites/_xors`)
+  to identify WHICH extractor produces the 78 M — probe 1579467. Then compare that extractor's admission
+  against kissat's structural bounds.
+- Also visible in the same runs: **V4 TransitiveReduce at 18,773,159 applications on T87** (118,524 ms,
+  15.4 %) and 8,548,660 on T105 — a second, separate lead on the same instances.
+
 ### 2026-08-02 — ▶ the three Tier C "losers" are FRAGILE, not damaged — `D-RETIRE-TIERC` CLOSED, no gate built
 L20 test (probe 1579386): per instance, 2 base replicates + retire + **three UNRELATED perturbations**
 (walk dose, bump rate, chrono off). **The premise inverts.**

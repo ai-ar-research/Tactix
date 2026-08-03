@@ -1139,12 +1139,18 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
 
 void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
                               bool with_xor_ite) {
+  const size_t base = out.size();
   congruence_extract(k, out);
+  k.stats.congruence_gates_and += out.size() - base; // see Stats
   if (with_xor_ite) {
     ClauseIndex index; // built once, shared by XOR + ITE extraction
     build_clause_index(k, index);
+    const size_t before_xor = out.size();
     congruence_extract_xor(k, index, out);
+    k.stats.congruence_gates_xor += out.size() - before_xor;
+    const size_t before_ite = out.size();
     congruence_extract_ite(k, index, out);
+    k.stats.congruence_gates_ite += out.size() - before_ite;
   }
 }
 
