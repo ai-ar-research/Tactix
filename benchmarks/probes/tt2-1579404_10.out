@@ -1,0 +1,20 @@
+=== tierB clique_n2_k10.sanitized.cnf.xz cap=300s
+c decisions   32943 (0 via API)
+c conflicts   14315
+c timing      95 ms solve
+c timing      2 ms (1.8%) inprocessing slot, 93 ms (98.2%) search+scaffolding outside it
+c timing        Factor                   1 ms (  0.6%) in 2 applications
+c timing        BCE                      0 ms (  0.4%) in 2 applications
+c timing        TransitiveReduce         0 ms (  0.2%) in 342 applications
+c timing        Instantiate              0 ms (  0.2%) in 2 applications
+c timing        Probe                    0 ms (  0.1%) in 450 applications
+c timing        Backbone                 0 ms (  0.1%) in 450 applications
+c timing        Substitute               0 ms (  0.0%) in 2 applications
+c timing        Congruence               0 ms (  0.0%) in 2 applications
+c timing        Strengthen               0 ms (  0.0%) in 2 applications
+c timing        Vivify                   0 ms (  0.0%) in 4 applications
+c timing        SubsumeForward           0 ms (  0.0%) in 2 applications
+c timing        HyperTernaryRes          0 ms (  0.0%) in 2 applications
+c timing        (unattributed)           0 ms (  0.1%)
+s UNSATISFIABLE
+=== end

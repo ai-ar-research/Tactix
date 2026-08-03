@@ -1,0 +1,20 @@
+=== tierC mp1-Nb5T15.cnf.xz cap=1200s
+c decisions   8598330 (0 via API)
+c conflicts   1456950
+c timing      61401 ms solve
+c timing      1243 ms (2.0%) inprocessing slot, 60158 ms (98.0%) search+scaffolding outside it
+c timing        Vivify                 771 ms (  1.3%) in 17 applications
+c timing        Probe                  155 ms (  0.3%) in 16476 applications
+c timing        BCE                    140 ms (  0.2%) in 12 applications
+c timing        Strengthen              65 ms (  0.1%) in 14 applications
+c timing        SubsumeForward          34 ms (  0.1%) in 14 applications
+c timing        HyperTernaryRes         18 ms (  0.0%) in 14 applications
+c timing        TransitiveReduce        16 ms (  0.0%) in 47250 applications
+c timing        Congruence              13 ms (  0.0%) in 1 applications
+c timing        Backbone                10 ms (  0.0%) in 43920 applications
+c timing        Instantiate              4 ms (  0.0%) in 12 applications
+c timing        Substitute               0 ms (  0.0%) in 1 applications
+c timing        Factor                   0 ms (  0.0%) in 14 applications
+c timing        (unattributed)          17 ms (  0.0%)
+s SATISFIABLE
+=== end

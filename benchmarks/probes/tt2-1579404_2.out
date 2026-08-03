@@ -1,0 +1,20 @@
+=== tierB rbsat-v760c43649gyes10.cnf.xz cap=300s
+c decisions   876752 (0 via API)
+c conflicts   392306
+c timing      12943 ms solve
+c timing      967 ms (7.5%) inprocessing slot, 11975 ms (92.5%) search+scaffolding outside it
+c timing        TransitiveReduce       392 ms (  3.0%) in 36265 applications
+c timing        Vivify                 175 ms (  1.4%) in 19 applications
+c timing        Factor                 153 ms (  1.2%) in 9 applications
+c timing        BCE                     71 ms (  0.5%) in 11 applications
+c timing        BVE                     70 ms (  0.5%) in 4027 applications
+c timing        Strengthen              39 ms (  0.3%) in 21 applications
+c timing        Instantiate             18 ms (  0.1%) in 7 applications
+c timing        Backbone                18 ms (  0.1%) in 35526 applications
+c timing        SubsumeForward           8 ms (  0.1%) in 21 applications
+c timing        Congruence               2 ms (  0.0%) in 8 applications
+c timing        Substitute               2 ms (  0.0%) in 8 applications
+c timing        HyperTernaryRes          2 ms (  0.0%) in 21 applications
+c timing        (unattributed)          17 ms (  0.1%)
+s SATISFIABLE
+=== end

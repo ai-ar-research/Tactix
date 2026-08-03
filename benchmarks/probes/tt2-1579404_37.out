@@ -1,0 +1,21 @@
+=== tierC SCPC-1000-18.cnf.xz cap=1200s
+c decisions   7423432 (0 via API)
+c conflicts   4408771
+c timing      169344 ms solve
+c timing      3596 ms (2.1%) inprocessing slot, 165748 ms (97.9%) search+scaffolding outside it
+c timing        BCE                   1075 ms (  0.6%) in 20 applications
+c timing        TransitiveReduce      1054 ms (  0.6%) in 60567 applications
+c timing        Factor                 517 ms (  0.3%) in 19 applications
+c timing        Probe                  273 ms (  0.2%) in 1639 applications
+c timing        Strengthen             209 ms (  0.1%) in 22 applications
+c timing        Vivify                 180 ms (  0.1%) in 28 applications
+c timing        Backbone                99 ms (  0.1%) in 172734 applications
+c timing        SubsumeForward          41 ms (  0.0%) in 22 applications
+c timing        BVE                     36 ms (  0.0%) in 1000 applications
+c timing        Instantiate             32 ms (  0.0%) in 18 applications
+c timing        HyperTernaryRes         16 ms (  0.0%) in 22 applications
+c timing        Congruence               5 ms (  0.0%) in 4 applications
+c timing        Substitute               1 ms (  0.0%) in 4 applications
+c timing        (unattributed)          58 ms (  0.0%)
+s SATISFIABLE
+=== end

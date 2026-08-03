@@ -1,0 +1,17 @@
+=== tierC T105.2.0.cnf.xz cap=1200s
+c decisions   1289625 (0 via API)
+c conflicts   232223
+c timing      507305 ms solve
+c timing      296531 ms (58.5%) inprocessing slot, 210774 ms (41.5%) search+scaffolding outside it
+c timing        Congruence          188243 ms ( 37.1%) in 11 applications
+c timing        TransitiveReduce     56401 ms ( 11.1%) in 8548660 applications
+c timing        Strengthen           19243 ms (  3.8%) in 10 applications
+c timing        SubsumeForward       13740 ms (  2.7%) in 10 applications
+c timing        Substitute            6056 ms (  1.2%) in 12 applications
+c timing        Vivify                4227 ms (  0.8%) in 12 applications
+c timing        BCE                   2769 ms (  0.5%) in 4 applications
+c timing        HyperTernaryRes        626 ms (  0.1%) in 4 applications
+c timing        Backbone               504 ms (  0.1%) in 69758 applications
+c timing        (unattributed)        4722 ms (  0.9%)
+s UNSATISFIABLE
+=== end

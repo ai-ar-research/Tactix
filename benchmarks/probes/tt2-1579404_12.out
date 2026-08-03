@@ -1,0 +1,21 @@
+=== tierB mp1-blockpuzzle_5x10_s7_free4.cnf.xz cap=300s
+c decisions   694326 (0 via API)
+c conflicts   291305
+c timing      10389 ms solve
+c timing      565 ms (5.4%) inprocessing slot, 9824 ms (94.6%) search+scaffolding outside it
+c timing        Vivify                 126 ms (  1.2%) in 17 applications
+c timing        BVE                     92 ms (  0.9%) in 4554 applications
+c timing        Factor                  83 ms (  0.8%) in 9 applications
+c timing        TransitiveReduce        82 ms (  0.8%) in 19377 applications
+c timing        BCE                     57 ms (  0.5%) in 13 applications
+c timing        Substitute              47 ms (  0.5%) in 8 applications
+c timing        Strengthen              26 ms (  0.2%) in 18 applications
+c timing        Backbone                14 ms (  0.1%) in 9901 applications
+c timing        Probe                   13 ms (  0.1%) in 253 applications
+c timing        SubsumeForward           6 ms (  0.1%) in 18 applications
+c timing        Instantiate              6 ms (  0.1%) in 4 applications
+c timing        Congruence               2 ms (  0.0%) in 8 applications
+c timing        HyperTernaryRes          1 ms (  0.0%) in 18 applications
+c timing        (unattributed)           9 ms (  0.1%)
+s UNSATISFIABLE
+=== end

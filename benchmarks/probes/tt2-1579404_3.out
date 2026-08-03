@@ -1,0 +1,21 @@
+=== tierB battleship-14-26-sat.cnf.xz cap=300s
+c decisions   80140 (0 via API)
+c conflicts   65573
+c timing      1080 ms solve
+c timing      20 ms (1.8%) inprocessing slot, 1060 ms (98.2%) search+scaffolding outside it
+c timing        BCE                      7 ms (  0.6%) in 4 applications
+c timing        BVE                      3 ms (  0.3%) in 364 applications
+c timing        Vivify                   2 ms (  0.2%) in 7 applications
+c timing        Probe                    2 ms (  0.2%) in 1121 applications
+c timing        Strengthen               1 ms (  0.1%) in 4 applications
+c timing        Factor                   1 ms (  0.1%) in 4 applications
+c timing        TransitiveReduce         1 ms (  0.1%) in 1430 applications
+c timing        Backbone                 0 ms (  0.0%) in 1924 applications
+c timing        SubsumeForward           0 ms (  0.0%) in 4 applications
+c timing        Instantiate              0 ms (  0.0%) in 4 applications
+c timing        HyperTernaryRes          0 ms (  0.0%) in 4 applications
+c timing        Congruence               0 ms (  0.0%) in 2 applications
+c timing        Substitute               0 ms (  0.0%) in 2 applications
+c timing        (unattributed)           1 ms (  0.1%)
+s SATISFIABLE
+=== end

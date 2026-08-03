@@ -1,0 +1,19 @@
+=== tierC urq45.cnf.xz cap=1200s
+c decisions   22766391 (0 via API)
+c conflicts   18911843
+c timing      611831 ms solve
+c timing      33991 ms (5.6%) inprocessing slot, 577840 ms (94.4%) search+scaffolding outside it
+c timing        Vivify               32521 ms (  5.3%) in 37 applications
+c timing        BCE                   1144 ms (  0.2%) in 50 applications
+c timing        Strengthen             193 ms (  0.0%) in 50 applications
+c timing        SubsumeForward          37 ms (  0.0%) in 50 applications
+c timing        HyperTernaryRes         25 ms (  0.0%) in 50 applications
+c timing        Instantiate             25 ms (  0.0%) in 29 applications
+c timing        Congruence               0 ms (  0.0%) in 2 applications
+c timing        Factor                   0 ms (  0.0%) in 50 applications
+c timing        Substitute               0 ms (  0.0%) in 2 applications
+c timing        Probe                    0 ms (  0.0%) in 4 applications
+c timing        Backbone                 0 ms (  0.0%) in 4 applications
+c timing        (unattributed)          46 ms (  0.0%)
+s UNSATISFIABLE
+=== end

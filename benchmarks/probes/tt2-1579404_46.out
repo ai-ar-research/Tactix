@@ -1,0 +1,20 @@
+=== tierC constraints_25_4_5_12_12_0_0_0.sanitized.cnf.xz cap=1200s
+c decisions   4970641 (0 via API)
+c conflicts   2743869
+c timing      144483 ms solve
+c timing      17684 ms (12.2%) inprocessing slot, 126799 ms (87.8%) search+scaffolding outside it
+c timing        Strengthen            9773 ms (  6.8%) in 48 applications
+c timing        SubsumeForward        4909 ms (  3.4%) in 48 applications
+c timing        Vivify                1311 ms (  0.9%) in 39 applications
+c timing        BCE                    712 ms (  0.5%) in 35 applications
+c timing        Instantiate            269 ms (  0.2%) in 14 applications
+c timing        TransitiveReduce       207 ms (  0.1%) in 232575 applications
+c timing        Congruence             151 ms (  0.1%) in 12 applications
+c timing        HyperTernaryRes         87 ms (  0.1%) in 38 applications
+c timing        Substitute              73 ms (  0.1%) in 27 applications
+c timing        Backbone                69 ms (  0.0%) in 87367 applications
+c timing        Probe                   22 ms (  0.0%) in 662 applications
+c timing        Factor                   0 ms (  0.0%) in 48 applications
+c timing        (unattributed)         101 ms (  0.1%)
+s UNSATISFIABLE
+=== end

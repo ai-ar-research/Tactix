@@ -1,0 +1,20 @@
+=== tierB combined-crypto1-wff-seed-1-wffvars-450-cryptocplx-40-overlap-2.cnf.xz cap=300s
+c decisions   305426 (0 via API)
+c conflicts   127607
+c timing      2954 ms solve
+c timing      498 ms (16.9%) inprocessing slot, 2456 ms (83.1%) search+scaffolding outside it
+c timing        Strengthen             281 ms (  9.5%) in 12 applications
+c timing        SubsumeForward         112 ms (  3.8%) in 12 applications
+c timing        Vivify                  39 ms (  1.3%) in 9 applications
+c timing        BCE                     22 ms (  0.7%) in 4 applications
+c timing        Congruence              15 ms (  0.5%) in 6 applications
+c timing        Probe                    7 ms (  0.2%) in 2707 applications
+c timing        HyperTernaryRes          7 ms (  0.2%) in 12 applications
+c timing        TransitiveReduce         3 ms (  0.1%) in 4785 applications
+c timing        Substitute               3 ms (  0.1%) in 6 applications
+c timing        Instantiate              2 ms (  0.1%) in 4 applications
+c timing        Backbone                 2 ms (  0.1%) in 5370 applications
+c timing        Factor                   0 ms (  0.0%) in 12 applications
+c timing        (unattributed)           6 ms (  0.2%)
+s SATISFIABLE
+=== end

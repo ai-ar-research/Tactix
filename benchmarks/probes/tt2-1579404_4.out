@@ -1,0 +1,19 @@
+=== tierB summle_X4044_steps7_I1-2-2-4-4-8-25-100.cnf.xz cap=300s
+c decisions   1312316 (0 via API)
+c conflicts   127192
+c timing      20743 ms solve
+c timing      2126 ms (10.2%) inprocessing slot, 18617 ms (89.8%) search+scaffolding outside it
+c timing        Congruence             746 ms (  3.6%) in 10 applications
+c timing        Strengthen             352 ms (  1.7%) in 12 applications
+c timing        Vivify                 282 ms (  1.4%) in 16 applications
+c timing        SubsumeForward         215 ms (  1.0%) in 12 applications
+c timing        BCE                    159 ms (  0.8%) in 7 applications
+c timing        Substitute             103 ms (  0.5%) in 12 applications
+c timing        TransitiveReduce        93 ms (  0.4%) in 36297 applications
+c timing        Backbone                44 ms (  0.2%) in 42460 applications
+c timing        Instantiate             38 ms (  0.2%) in 2 applications
+c timing        HyperTernaryRes         33 ms (  0.2%) in 5 applications
+c timing        Factor                   0 ms (  0.0%) in 12 applications
+c timing        (unattributed)          61 ms (  0.3%)
+s SATISFIABLE
+=== end

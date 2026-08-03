@@ -1,0 +1,17 @@
+=== tierC sat-bench-trig-bhaskara.cnf.xz cap=1200s
+c decisions   4811086 (0 via API)
+c conflicts   1008722
+c timing      275923 ms solve
+c timing      138038 ms (50.0%) inprocessing slot, 137885 ms (50.0%) search+scaffolding outside it
+c timing        Congruence           88956 ms ( 32.2%) in 26 applications
+c timing        TransitiveReduce     15575 ms (  5.6%) in 2906560 applications
+c timing        Strengthen           12328 ms (  4.5%) in 25 applications
+c timing        SubsumeForward        8645 ms (  3.1%) in 25 applications
+c timing        Vivify                4190 ms (  1.5%) in 29 applications
+c timing        Substitute            3287 ms (  1.2%) in 27 applications
+c timing        BCE                   1873 ms (  0.7%) in 9 applications
+c timing        Backbone               463 ms (  0.2%) in 184343 applications
+c timing        HyperTernaryRes        440 ms (  0.2%) in 9 applications
+c timing        (unattributed)        2281 ms (  0.8%)
+s UNSATISFIABLE
+=== end

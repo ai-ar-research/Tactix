@@ -1,0 +1,21 @@
+=== tierC ER_400_20_4.apx_2_DC-ST.cnf.xz cap=1200s
+c decisions   8500128 (0 via API)
+c conflicts   5259994
+c timing      195370 ms solve
+c timing      5962 ms (3.1%) inprocessing slot, 189408 ms (96.9%) search+scaffolding outside it
+c timing        Vivify                3243 ms (  1.7%) in 31 applications
+c timing        BCE                    818 ms (  0.4%) in 39 applications
+c timing        TransitiveReduce       758 ms (  0.4%) in 30144 applications
+c timing        Probe                  481 ms (  0.2%) in 1747 applications
+c timing        Strengthen             239 ms (  0.1%) in 45 applications
+c timing        Factor                 152 ms (  0.1%) in 23 applications
+c timing        BVE                     72 ms (  0.0%) in 2642 applications
+c timing        SubsumeForward          38 ms (  0.0%) in 45 applications
+c timing        Backbone                38 ms (  0.0%) in 41442 applications
+c timing        Substitute              17 ms (  0.0%) in 11 applications
+c timing        Instantiate             17 ms (  0.0%) in 21 applications
+c timing        HyperTernaryRes         17 ms (  0.0%) in 45 applications
+c timing        Congruence               9 ms (  0.0%) in 11 applications
+c timing        (unattributed)          60 ms (  0.0%)
+s UNSATISFIABLE
+=== end

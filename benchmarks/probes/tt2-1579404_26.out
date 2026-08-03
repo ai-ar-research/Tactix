@@ -1,0 +1,20 @@
+=== tierB or_randxor_k3_n540_m540.cnf.xz cap=300s
+c decisions   20478310 (0 via API)
+c conflicts   7306705
+c timing      301768 ms solve
+c timing      4984 ms (1.7%) inprocessing slot, 296783 ms (98.3%) search+scaffolding outside it
+c timing        Vivify                4201 ms (  1.4%) in 31 applications
+c timing        BCE                    411 ms (  0.1%) in 43 applications
+c timing        Strengthen             215 ms (  0.1%) in 47 applications
+c timing        SubsumeForward          87 ms (  0.0%) in 47 applications
+c timing        Congruence              16 ms (  0.0%) in 7 applications
+c timing        Probe                   11 ms (  0.0%) in 414 applications
+c timing        Instantiate             11 ms (  0.0%) in 22 applications
+c timing        HyperTernaryRes          9 ms (  0.0%) in 47 applications
+c timing        Substitute               0 ms (  0.0%) in 7 applications
+c timing        TransitiveReduce         0 ms (  0.0%) in 336 applications
+c timing        Backbone                 0 ms (  0.0%) in 414 applications
+c timing        Factor                   0 ms (  0.0%) in 47 applications
+c timing        (unattributed)          22 ms (  0.0%)
+s UNKNOWN
+=== end

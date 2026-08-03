@@ -1,0 +1,20 @@
+=== tierC em_11_3_4_cmp.cnf.xz cap=1200s
+c decisions   28489686 (0 via API)
+c conflicts   625874
+c timing      61339 ms solve
+c timing      4344 ms (7.1%) inprocessing slot, 56995 ms (92.9%) search+scaffolding outside it
+c timing        Strengthen            1505 ms (  2.5%) in 25 applications
+c timing        SubsumeForward         775 ms (  1.3%) in 25 applications
+c timing        Vivify                 720 ms (  1.2%) in 13 applications
+c timing        BCE                    423 ms (  0.7%) in 14 applications
+c timing        Congruence             381 ms (  0.6%) in 8 applications
+c timing        TransitiveReduce       188 ms (  0.3%) in 132949 applications
+c timing        Probe                  123 ms (  0.2%) in 10004 applications
+c timing        HyperTernaryRes         55 ms (  0.1%) in 20 applications
+c timing        Substitute              48 ms (  0.1%) in 12 applications
+c timing        Backbone                34 ms (  0.1%) in 66338 applications
+c timing        Instantiate             11 ms (  0.0%) in 7 applications
+c timing        Factor                   0 ms (  0.0%) in 25 applications
+c timing        (unattributed)          81 ms (  0.1%)
+s SATISFIABLE
+=== end

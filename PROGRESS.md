@@ -739,6 +739,41 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-02 — ▶ the three Tier C "losers" are FRAGILE, not damaged — `D-RETIRE-TIERC` CLOSED, no gate built
+L20 test (probe 1579386): per instance, 2 base replicates + retire + **three UNRELATED perturbations**
+(walk dose, bump rate, chrono off). **The premise inverts.**
+
+| instance | retired vars | base ×2 | retire | walk | bump | chrono | spread |
+|---|---|---|---|---|---|---|---|
+| j3037 | **251 / 18,913** | 332.69 / 333.90 | 994.17 | **44.74** | 438.14 | **42.62** | **23×** |
+| jgiraldezlevy | **1 / 2,200** | 202.42 / 204.30 | 733.13 | 76.69 | 173.04 | 293.50 | **9.6×** |
+| urq45 | **1 / 74** | 205.73 / 207.26 | 622.68 | 208.94 | **596.86** | 74.56 | **8.4×** |
+
+- **Retirement is not what hurts them.** It retires **1, 1 and 251** variables there — one variable out of
+  2,200 cannot cost 3.6× through removed decisions. The mechanism barely fires; what moves is the trajectory.
+- **All three are the L20 shape**: ≤0.8 % between base replicates, **8–23× under unrelated perturbations**.
+  `urq45`'s `bump` arm costs **2.9×**, indistinguishable from retire's **3.0×**. `j3037` runs **7.8× FASTER**
+  under `chrono=0` and `walk=400` than at the default.
+- **`D-RETIRE-TIERC` CLOSED as measured-not-actionable. No admission gate** — fitting one to these three
+  would be fitting to noise, the L15/L20 trap that killed five knobs earlier. **R-d's ship decision stands
+  and is strengthened**: its Tier C cost is chaos, not damage.
+- **Standing consequence:** these three make small Tier C aggregate deltas unreliable. Quote per-instance
+  replicate ranges when a verdict rides on them.
+
+### 2026-08-02 — ▶ per-instance RUNTIME BREAKDOWN: search is ~90 % of the median solve, but TWO rules own specific instances
+Probe 1579404, all 58 instances, no proof writing. Median inprocessing-slot share: **Tier B 10.9 %, Tier C
+7.7 %** — search is ~90 % of a median solve. The tail is where the leads are:
+- **▶ V6 Congruence owns the two slowest Tier C UNSATs: `T87.2.0` 274.0 s of 825.7 (58.2 % slot) and
+  `T105.2.0` 188.2 s of 507.3 (58.5 %)** — 462 s across two instances. **V6 has arity caps but NO effort
+  meter** (it is absent from `EFFORT_SPECS`; kissat has no congruence-effort option either, so this is not a
+  rev-77 deficit — but it is the largest single runtime lead on Tier C). Same rule as the §6 SIGTERM defect.
+- **▶ C2 Strengthen owns `circuit_32in32out` 146.2 s of 215.8 (80.8 %) and `DivS_862_11` 97.8 s of 109.0
+  (89.7 % — the rule IS the solve)**. Strengthen has a 100‰ meter, so the meter is not binding there.
+- **The four Tier B timeouts are PURE SEARCH** — slot share 1.7–11.7 % (`or_randxor` 1.7, `fclqcolor` 2.3,
+  `sted5` 3.8, `veer_axi` 11.7). No inprocessing tuning will solve them.
+- Contrast: `hwmcc17miters` 93.8 % slot, `SC25_Timetable` 72.3 %, `PRP_30_38` 70.7 % — instances where the
+  slot legitimately IS the work.
+
 ### 2026-08-02 — ▶▶ R-d SHIPPED (plan rev 78: **#solved wins**) — Tier B **109.60 → 75.41, +2 solves**
 User directive: bank the win, prioritise **number of solutions over runtime**. Recorded as plan **rev 78**
 (§8.3) rather than applied silently, because it changes how a gate is READ.

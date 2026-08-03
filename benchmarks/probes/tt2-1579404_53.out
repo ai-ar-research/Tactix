@@ -1,0 +1,19 @@
+=== tierC minxor128.cnf.xz cap=1200s
+c decisions   16925567 (0 via API)
+c conflicts   1734390
+c timing      410900 ms solve
+c timing      26139 ms (6.4%) inprocessing slot, 384761 ms (93.6%) search+scaffolding outside it
+c timing        TransitiveReduce     18834 ms (  4.6%) in 1419336 applications
+c timing        Vivify                3029 ms (  0.7%) in 39 applications
+c timing        BCE                   1203 ms (  0.3%) in 33 applications
+c timing        Strengthen             653 ms (  0.2%) in 39 applications
+c timing        Congruence             597 ms (  0.1%) in 15 applications
+c timing        Instantiate            550 ms (  0.1%) in 10 applications
+c timing        Backbone               450 ms (  0.1%) in 743896 applications
+c timing        Substitute             305 ms (  0.1%) in 32 applications
+c timing        SubsumeForward         197 ms (  0.0%) in 39 applications
+c timing        HyperTernaryRes         91 ms (  0.0%) in 38 applications
+c timing        Factor                   0 ms (  0.0%) in 39 applications
+c timing        (unattributed)         232 ms (  0.1%)
+s UNSATISFIABLE
+=== end

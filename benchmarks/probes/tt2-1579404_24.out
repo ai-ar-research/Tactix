@@ -1,0 +1,18 @@
+=== tierB b22_1.cnf.xz cap=300s
+c decisions   4976790 (0 via API)
+c conflicts   455863
+c timing      32499 ms solve
+c timing      3060 ms (9.4%) inprocessing slot, 29439 ms (90.6%) search+scaffolding outside it
+c timing        TransitiveReduce      1183 ms (  3.6%) in 527636 applications
+c timing        Vivify                 392 ms (  1.2%) in 19 applications
+c timing        Congruence             378 ms (  1.2%) in 14 applications
+c timing        BCE                    330 ms (  1.0%) in 14 applications
+c timing        Strengthen             222 ms (  0.7%) in 20 applications
+c timing        Backbone               153 ms (  0.5%) in 104063 applications
+c timing        SubsumeForward         132 ms (  0.4%) in 20 applications
+c timing        Substitute             101 ms (  0.3%) in 18 applications
+c timing        HyperTernaryRes         67 ms (  0.2%) in 17 applications
+c timing        Factor                   0 ms (  0.0%) in 20 applications
+c timing        (unattributed)         102 ms (  0.3%)
+s UNSATISFIABLE
+=== end
