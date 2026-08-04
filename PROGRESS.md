@@ -43,51 +43,49 @@ the binding constraint on phase-3 exit**, and steering on cadical was steering o
   absorption** (correct; kissat's extraction does the identical rotation) · **the ITE extractor** (we draw 0
   merges, kissat 18).
 
-**THEN, in order** — re-ranked by the 2026-08-03 audit, which corrected one mis-filing (`or_randxor` was
-listed as pure-search; it is rule-SCOPE with a twice-measured fix), bounded three items that were listed
-without a ceiling, and filed two that were missing. V6 above remains the headline next step (largest single
-Tier C item); (a) below is the cheapest Tier B win and is independent of it.
-**(a) RE-MEASURE BROAD FACTOR ADMISSION UNDER PLAN REV 78** (`TACTIX_FACTOR_SCOPE_PCT`) — the highest-value
-unclaimed item in the repo, and one env var to test. It was HELD on 07-31/08-01 *because* it pushed Tier C to
-**1.129× cadical** — and rev 78 (08-02) then shipped R-d at **exactly 1.129×** under "#solved wins". The
-holding rationale was superseded by a plan revision one day later and nobody re-ran it. Broad-alone measured
-**65.86 (26/28)** and **64.15 (26/28)** vs shipped 105.65 (24/28), i.e. ≈**−20 PAR-2 and +1 solve** if
-`or_randxor` lands at its measured 47.55 s. **Untested composition risk:** broad-alone and R-d BOTH gain
-`sted5`, so the union is not additive (residual unique gain ≈ `or_randxor` alone), and stacking two 1.129×
-Tier C trades has never been measured. Broad-alone has **no recorded Tier C solve loss** — the 27/30 at
-468.43 belongs to broad+`nerb`, a refuted arm. Needs one same-window B+C pair with arms {shipped, broad,
-broad+R-d}.
-(b) `D-VIVIFY-SCHED` — kissat sorts vivify candidates by usage count and **reuses the
-assumed prefix**; we do neither, at a **1.3 % hit rate** (2,937 of 233,588 checked). Its closer's trigger
-already fired. **Bound:** Vivify is 0.7–1.9 % of clock everywhere probed, so this is a yield fix, not a cost
-fix, and the yield direction is unmeasured.
-(c) `D-SUBST-UNBOUNDED` — V3 has no effort/round bound where kissat has `substituteeffort`
-10‰ + `substituterounds` 2. **Bound (audit):** kissat WITH both bounds substitutes MORE than we do on T105
-(19,531 vs 6,548), so the missing bound is demonstrably not what limits our substitution — expect ~0, and
-note the unbounded behaviour is part of what bought `veer_axi`.
-(d) **`unsat-set-b-fclqcolor` — THE LAST TIER B TIMEOUT** once (a) ships, so ≈−19.5 PAR-2 and the **28th
-solve**. **It is NOT pure search.** The 07-30 ablation classified it **cause B: "search-tree size; same
-missing BVA"** — the
-SAME class as `or_randxor` — and recorded that **our search on it BEATS CaDiCaL outright (369 s vs cadical's
-TO@300)**, with kissat restricted to *our* Factor variant paying **12.6×** there. Slot share 2.3 % says it is
-not a rule-COST problem; it is a rule-SCOPE problem, like (a).
-**▶ The sharp fact:** broad admission cracks the OTHER cause-B instance (`or_randxor`, TO → 65.5 s) and
-**not this one** — under broad, Factor DOES run on fclqcolor (78 factorings) and it still TOs at 300 s
-(shipped/broad/broadnord all TO; kissat 16.6 s). So the scope GATE is no longer the blocker here; what
-remains is what our Factor DOES on a ternary-dense formula — fclqcolor is **205 vars / 4,549 clauses,
-78.1 % ternary, occ/var 62.3, "tiny and dense"**, and the diagnosed mechanism is **BVA on non-binary
-clauses**.
-**▶ Concrete next step (the instrument already exists):** re-run the 07-30 "kissat restricted to our Factor
-variant" ablation now that our variant has changed (`factor_size` 5 since 07-31, broad admission since
-08-03) — it prices exactly how much of the 12.6× fclq penalty we have closed and how much is left.
-(e) **C1/C2 mid-round budget** — C2 Strengthen owns **97.8 s of 109.0 (89.7 %)** of `DivS_862_11` in FOUR
-applications, and Strengthen + SubsumeForward are the only slot entries neither dosed nor budget-aware (one
-round cannot be interrupted). **Newly filed by the audit: this had no ledger row and no checklist item.**
-(f) V4 TransitiveReduce at **18.7 M applications** on T87 (15.4 % of clock) — ceiling ≈−5.7 PAR-2, barely
-above the noise floor, and both obvious fixes are tier-level negatives (TD-R1).
-(g) Track R · R5 S-c (Sweep candidate selection; DoD MUST include sub-solver fuzz legs on both proof
-formats). (h) TB4b's remaining chrono divergences. (i) Bench runner: verify LRAT not DRAT (route via
-revise-plan).
+**THEN, in order** — re-ranked 2026-08-03 after the night's measurements.
+
+**(a) `unsat-set-b-fclqcolor` — THE LAST TIER B TIMEOUT, and the acceptance path is LOCATED.** Worth
+≈−19.5 PAR-2 and the 28th solve. Cause B (missing non-binary BVA) is CONFIRMED: `kissat --no-factor` costs
+kissat **11.7×** here, and `--factorsize=2` (203 s) is no better than no Factor at all, so the value is
+entirely in non-binary factorings. **Our applied factorings SATURATE at 78 across `factor_size` 3/5/7/9**
+while offers rise 42,471 → 51,417 — a hard ceiling in ACCEPTANCE, not scope. **Price the 27×27 grid cap
+(S2a, structural) first.** `factor_bound` is not it (default 0 is already more permissive than kissat's
+`reduction > bound`; forcing 1 *lowers* applications to 67). Route: **rule-dev**.
+
+**(b) V6 Congruence's COST — see the headline block above.** Attack extraction and the `SmallKey` index
+sort, NOT the closure table (profiled: 6.1 % + ~13.6 % vs 1.2 %). Route: **revamp**.
+
+**(c) V6's UNIT CHANNEL — `congruent_units` 2,231 vs our 14**, and the split says it is a real gap: kissat's
+`find_units` (our V1 Probe's job) is only **844** of it, the propagated residual **4,222**. Our closure is
+value-blind — `canonicalize` never reads `k.value` — where kissat's propagates each unit and re-simplifies
+every gate touching a newly assigned literal. Stage 1 = value-aware `canonicalize` + an outer fixpoint;
+gating condition **`congruence_unjustified` must stay 0**. This also plausibly feeds V6's 2.89× VOLUME
+factor, since kissat RETIRES value-resolved gates and we re-canonicalize them every round. Route: **rule-dev**.
+
+**(d) BROAD FACTOR ADMISSION — measured and HELD, do not re-run as-is.** Tier B 46.79 (27/28), a real
++1 solve; **Tier C 27/30, which rev 78 never covers.** R-d and broad are ANTAGONISTIC on Tier C (either
+alone 29/30, together 27/30) while on Tier B the ordering inverts. The genuine loss is `j3037` — a measured
+perturbation-FRAGILE instance whose three arms span 218.5 s → 1092.2 s → TO in one window — so **replicating
+that loss is the cheapest next move**; the other "loss" (`urq45`) was a correct 619.3 s solve whose DRAT
+check blew its budget.
+
+**(e) The T3 KISSAT half is the phase-3 exit constraint** — 1.271× on the subset, improved from 1.37×, while
+we are already 0.987× cadical there. Every Tier C run must keep `--baseline kissat --baseline cadical`.
+
+**(f) MEASUREMENT INTEGRITY, cheap and load-bearing:** re-derive `C-ruleneutral.list` with ≥3 ablation
+repeats (4 of its 6 exclusions are perturbation-fragile instances, and they are exactly where R-d costs
+Tier C); and re-measure the Tier C noise floor on an idle partition (the standing 10.8 bar was itself taken
+under a ~1 h 12 m overlap with another array).
+
+**(g)** Track R · R5 S-c (Sweep candidate selection; DoD MUST include sub-solver fuzz legs on both proof
+formats). **(h)** TB4b's remaining chrono divergences. **(i)** Bench runner: verify LRAT not DRAT (route via
+revise-plan). **(j)** `--track` flag for Tier D so T4's SC25-set PAR-2 is a first-class number.
+
+**BOUNDED, do not over-invest:** `D-VIVIFY-SCHED` is a yield fix (Vivify is 0.7–1.9 % of clock) with an
+unmeasured yield direction; `D-SUBST-UNBOUNDED` should be expected to buy ~0 (kissat WITH both bounds
+substitutes MORE than we do unbounded, 19,531 vs 6,548); V4 TransitiveReduce's ceiling is ≈−5.7 PAR-2, near
+the noise floor; the V6 ITE extractor is dead (we draw 0 merges, kissat 18).
 
 **STANDING DIRECTIVES.** *Every implemented proof rule ships ON* ([[no-rule-off-configs]]). **Plan rev 77:
 no crude approximations of an understood mechanism** — implement what matches or exceeds kissat, or ship the
