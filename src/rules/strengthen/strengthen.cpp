@@ -380,7 +380,7 @@ ApplyResult strengthen_apply(Kernel &k) {
   // the next round re-derives them. 0 = unbounded (legacy path).
   const uint64_t check_start = k.stats.strengthen_checked;
   for (Ref cref : candidates) {
-    if (k.work_budget &&
+    if (k.midround_budget && k.work_budget &&
         k.stats.strengthen_checked - check_start > k.work_budget) {
       k.stats.budget_stops_c2++;
       break;

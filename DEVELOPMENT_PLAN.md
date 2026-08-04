@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-02 (rev. 78). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-03 (rev. 79). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -880,6 +880,17 @@ report:
   (competition-style, N2 discipline). A baseline's failed check is **recorded,
   never scored against it** — baselines are a performance reference, and
   scoring their certificates against our checker budget would flatter us.
+- **Baselines WRITE proofs but are NOT VERIFIED by default (rev 79).** Writing
+  is the like-for-like *timing* requirement and applies to every arm; verifying
+  a baseline's certificate cannot change any verdict, precisely because the
+  scoring asymmetry above already discards its outcome. Measured on Tier C
+  window `20260803-211105`: baseline checking was **6.07 h of 9.08 h (67 %) of
+  all checking wall-clock**, and the single longest task in the run — 61.5 min —
+  was drat-trim on kissat's proof. `run.py --verify-baseline-proofs` opts back
+  in for a submission-grade claim. `proof_bytes` is still recorded for every
+  arm, so proof size stays a reported metric. **OUR arms' checker budget is
+  unchanged and must stay so** — it is what the `urq45` artefact below is
+  about, and shrinking it is how a solved instance gets scored unsolved.
 - **Checker budget = `max(3600 s, 4 × the tier's solve timeout)`** (Tier A/B
   3600 s, C 4800 s, D 20000 s), replacing the runner's old `2 ×` timeout. An
   instance scored unsolved because drat-trim's backward search outran a budget
@@ -972,6 +983,19 @@ certificates.
 - **Tier D — full SC main-track sets (milestone gates only).** SC 2024 + SC 2025
   full 400-instance sets, 5000 s, memory capped at 16 GB to mirror competition
   conditions. Run only at phase exits (§9) and before any external claim.
+  **Built and frozen 2026-08-03: `benchmarks/tiers/D.list`, 793 instances, not
+  800 (rev 79)** — GBD is content-addressed and **7 instances appear in BOTH
+  tracks**, so listing them twice would fetch one file twice and double-count it
+  in PAR-2. Each track's 400 stays exactly reconstructible from the list's
+  `shared` / per-track blocks: `400 = shared(7) + track-only(393)`. Composition
+  345 SAT / 377 UNSAT / 71 UNKNOWN over 118 families; UNKNOWN is retained
+  because the full track is the point (`run_instance` guards its correctness
+  check with `expected in {SAT,UNSAT}`, so UNKNOWN never trips a mismatch).
+  **Tier D is NOT independent of Tiers B and C** — 18 of Tier B's 28 and 19 of
+  Tier C's 30 are also in it, so a Tier D gate is not independent confirmation
+  of a B/C result. **T4 is gated on the SC25 set specifically; `--tier D` runs
+  all 793 and there is no per-track flag**, so that PAR-2 must be recomputed
+  from `results.json` using the block markers until one is added.
 
 Selection bias warning, recorded here deliberately: Tiers A–B over-represent easy
 instances, and improvements there (especially on random 3-SAT, which rewards
@@ -1309,3 +1333,4 @@ conflate them.
 - **rev. 76** (2026-08-01): §11 O17 added and decided, plus an N1 scope note in §1.1 — variable RETIREMENT is N1-compliant when implemented as advice the policy may decline (`Decide::instances()` still enumerates it; capability removed = violation, default heuristic declining = compliant). Unblocks `docs/design/variable-retirement-design.md`; motivated by 84.03 % of `veer_axi`'s decisions landing on already-substituted variables. No N1–N3 weakening: the API guarantee is unchanged and now stated more precisely.
 - **rev. 77** (2026-08-02, user): §5 gains a FOURTH reference obligation — no crude approximations of an understood mechanism; implement what is known to match or exceed Kissat, or ship the approximation with a stated reason AND a named closing action item in the engineering-deviation ledger. The operative guideline for phase 3. Exhibit: V3's per-ROUND hazard skip (a "future refinement" note with no action item) discarded all 179,110 of `veer_axi`'s equivalences over 0.07 % hazardous literals and cost a Tier B solve. No N1–N3 change.
 - **rev. 78** (2026-08-02, user): §8.3 — when #solved and PAR-2 conflict, **#solved wins**; a change gaining solves without losing any is banked even if the PAR-2 cost pushes a gate ratio outside its band, provided the cost is measured, reported and given a named closer (§5 obligation 4). Losing a solve is never covered. N3/T4 unchanged. First application: R-d retirement (Tier B −34.19 PAR-2, **+2 solves**; Tier C 1.039× → 1.129× cadical, three instances, closer named).
+- **rev. 79** (2026-08-03): §8.1 — (a) baselines WRITE proofs but are **no longer VERIFIED by default**; writing is the like-for-like timing requirement, while verifying a baseline's certificate cannot change a verdict (the scoring asymmetry already discards its outcome) and cost **67 % of Tier C checking wall-clock**, the longest task in the window being drat-trim on kissat's proof. `--verify-baseline-proofs` opts back in; OUR arms' checker budget is unchanged. (b) Tier D built and frozen at **793** instances, not 800 — 7 appear in both SC tracks and GBD is content-addressed, so each track's 400 is reconstructible as shared(7) + track-only(393); Tier D overlaps Tiers B and C, so it is not independent confirmation. No N1–N3 change.

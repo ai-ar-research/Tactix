@@ -634,6 +634,11 @@ struct Kernel {
   // mp1-blockpuzzle -0.0, FmlaEquivChain -0.6, mod4block +0.4).
   // NOTE this is the SCOPE half only. It admits no new instances, so it cannot
   // cause the damage the union-admission arm does (factor_scope_percent below).
+  // A/B hatch for ledger D-STRENGTHEN-BUDGET (`TACTIX_NO_MIDROUND_BUDGET=1`):
+  // restores the pre-2026-08-03 behaviour where C1/C2 could not stop once a
+  // round began. Exists so both arms run in ONE window — a cross-window A/B is
+  // exactly what §8.1 forbids. CONFIGURATION, like work_budget.
+  bool midround_budget = true;
   uint32_t factor_size = 5;
   // E2 Factor SCOPE-FRACTION admission (R5 joint admission, 2026-07-30). Admit
   // Factor when at least this PERCENT of the live irredundant clauses are within

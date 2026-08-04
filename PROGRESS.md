@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 78 (2026-08-02)
+- **Plan revision tracked:** rev. 79 (2026-08-03)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-03 — **variable retirement (R-a…R-d) SHIPPED** (Tier B 105.30 → 75.41 PAR-2, 24 → 26 solves, across two fixes); plan revs 76/77/78. V6 Congruence measured: gate matching at parity, the gap is cost. T3's instrument (rule-neutral subset + kissat arm) restored.
 
@@ -876,6 +876,21 @@ The one per-kind outcome gap left after gate matching measured at parity: `congr
   **Gating condition either way: `congruence_unjustified` must stay 0** — value-aware closure assigns many
   more literals mid-round, and `big_path_chain` (`substitute.cpp:193`) already skips BIG nodes with a
   non-zero value, so that counter is what moves first.
+
+### 2026-08-03 — plan rev 79: baselines write proofs but are no longer VERIFIED; Tier D frozen at 793
+- **§8.1(a): baseline proofs are written, not checked.** Writing is the like-for-like TIMING requirement and
+  applies to every arm (rev 72); verifying a BASELINE's certificate cannot change a verdict, because the
+  scoring asymmetry already records-and-discards its outcome. Measured on Tier C window `20260803-211105`:
+  baseline checking was **6.07 h of 9.08 h — 67 % of all checking wall-clock** — and the longest task in the
+  run (**61.5 min**) was drat-trim on kissat's proof. `run.py --verify-baseline-proofs` opts back in for a
+  submission-grade claim; `proof_bytes` is still recorded for every arm. **OUR arms' checker budget is
+  UNCHANGED** — shrinking that is exactly how `urq45` got scored unsolved at a 619.3 s solve in the same
+  window. `run.py` now separates `check_proofs` (write) from `verify_proofs` (check) from `score_proofs`.
+- **§8.1(b): Tier D is 793, not 800** — 7 instances appear in both SC24 and SC25 and GBD is
+  content-addressed; each track's 400 stays reconstructible as shared(7) + track-only(393). Also recorded:
+  Tier D overlaps 18 of Tier B's 28 and 19 of Tier C's 30, so it is **not independent confirmation** of a
+  B/C result, and T4's SC25-set PAR-2 must be recomputed from `results.json` block markers until `--tier D`
+  gains a per-track flag.
 
 ### 2026-08-03 — ▶▶ V6 COST PROFILED: it is EXTRACTION + the SmallKey index, NOT the closure table
 `perf record -F 199` over a full `T105.2.0` solve (job 1580096, `build/pin-sb`, RelWithDebInfo). Self-time

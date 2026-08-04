@@ -161,7 +161,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // 0 = unbounded (legacy path).
   const uint64_t check_start = k.stats.forward_checked;
   for (const Ref ref : candidates) {
-    if (k.work_budget &&
+    if (k.midround_budget && k.work_budget &&
         k.stats.forward_checked - check_start > k.work_budget) {
       k.stats.budget_stops_c1++;
       break;
