@@ -967,6 +967,43 @@ shares over the whole solve; V6 is ~38 % of that clock.
   whether gate volume per round falls once resolved gates are dropped.
 - **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
 
+### 2026-08-04 — ▶▶ COMPOSITION SHIPPED (neutral, removes the density gate); the mod4block trade is BROAD's, not composition's
+Gate windows `20260804-080512-B-comp` / `20260804-080524-C-comp`, git `675a953`, hatch
+`TACTIX_COMPOSITE_DENSITY=50` restores the old gate as the `nocomp` arm.
+
+| arm | Tier B | Tier C |
+|---|---|---|
+| **comp** (unconditional — SHIPPED) | 75.75 (26/28) | **346.98** (29/30) |
+| nocomp (old ≥ 50 binaries/var gate) | 74.34 (26/28) | 349.63 (29/30) |
+| compbroad (+ `FACTOR_SCOPE_PCT=50`) | **55.16 (27/28)** | — |
+| kissat / cadical | 10.05 (28/28) | 226.02 / 309.69 |
+
+- **Composition alone is NEUTRAL: +1.41 B, −2.65 C, both inside the 6.72 clean noise floor, no solve changes
+  on either tier.** Shipped on that basis — it removes a hand-designed formula-shape separator (plan rev 77;
+  the L15/L19 family) at no measured cost, and closes a real capability gap: applied factorings on
+  `fclqcolor` go **78 → 164**, where 78 was ~kissat's BINARY-restricted 80.
+- **▶ THE `mod4block` TRADE BELONGS TO BROAD ADMISSION, NOT COMPOSITION.** `mod4block` is **14.0 s with
+  composition vs 13.8 s without**; only the `compbroad` arm loses it (300 TO). And `fclqcolor` needs BOTH —
+  composition alone leaves it a timeout. So `compbroad` reaches 27/28 by **trading `mod4block` for
+  `fclqcolor`**, at a 284.7 s/300 s cliff. Broad admission stays HELD.
+- **▶ THERE IS NO REFERENCE MECHANISM TO PORT FOR `mod4block`, and L10 already said so:** *"no reference
+  solver defends; the density gate is ours alone"* — kissat pays **4.14×** there with its own scheduling
+  (18.9 s against our 13.3 s). The gate was not a crude approximation of something kissat has; it was an
+  advantage kissat lacks. Removing it is safe only because composition alone does not disturb `mod4block`.
+- **▶ kissat's fourth governor (d) is INERT here and was NOT shipped.** Its acceptance test is
+  `reduction > bounds.eliminate.additional_clauses` (`factor.c:72/939`); our analogue is `bve_level_`
+  (both start at 0, both double on a completed elimination). Probes 1581094–97: on `mod4block` the coupled
+  and uncoupled arms are **byte-identical — 239 factorings, 589,034 offers, both TO** — because `bve_level_`
+  is **0** when Factor runs there, so the bound never binds. On `fclqcolor` it is mildly negative
+  (157 factorings vs 164, still UNSAT). The identical coupling was already measured dead 2026-07-25
+  (design §3.e, mp1 5.3 → 14.9 s); re-measuring WITH composition on was justified — the old negative was
+  taken with composition gated off — but the answer is the same. **Reverted; do not re-try without a new
+  mechanism.**
+- **What remains for `fclqcolor`:** it needs composition AND broad admission, and broad is held on its own
+  Tier C solve loss. The open question is now narrow and is a §5.6 admission question — **WHEN to widen
+  Factor's scope** — alongside BVE dosing and BCE, not a static rule.
+
+
 ### 2026-08-04 — ▶▶ `fclqcolor` SOLVED in a probe: the COMPOSITION density gate was the whole blocker
 Probes 1580855/1580856. **The last Tier B timeout falls.**
 
