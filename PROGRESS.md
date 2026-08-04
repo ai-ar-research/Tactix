@@ -919,6 +919,61 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-04 late — ▶▶ THE FACTOR ORACLE: our admission gate is never the best of the three arms
+Report `benchmarks/reports/2026-08-04-factor-oracle-ablation.md`. Three arms (`shipped` density gate ·
+`facon` = always admit · `facoff` = `TACTIX_NO_FACTOR`) + both baselines, one submission per tier
+(`20260804-1655`, git `91afdc4`). The ORACLE is the per-instance best of on/off — the ceiling on ANY
+admission mechanism.
+
+| arm | Tier B (28) | Tier C (30) |
+|---|---|---|
+| `facoff` never | 150.14 (22/28) | **285.90 (29/30)** |
+| `shipped` gate | 86.42 (25/28) | 296.82 (29/30) |
+| `facon` always | **34.59 (28/28)** | 406.55 (28/30) |
+| **ORACLE** | **32.25 (28/28)** | **254.55 (29/30)** |
+
+- **Headroom left on the table: +54.17 PAR-2 AND +3 SOLVES on Tier B, +42.27 PAR-2 on Tier C** (6.3
+  noise floors). That is the size of item (b′).
+- **Tier B wants Factor ON** (`facon` within 2.3 PAR-2 of the oracle, solves all 28); **Tier C wants it
+  OFF** (`facoff` beats the gate by 10.9 = 1.6 floors). The gate beats the WRONG trivial policy on each
+  tier by a wide margin, but **on neither tier is it the best of the three**, and it is mis-calibrated
+  in OPPOSITE directions on the two.
+- **Labels: Tier B helps 12 / hurts 2 / neutral 14** (6 of the 12 are TIMEOUT → solve); **Tier C helps 3
+  / hurts 10 / neutral 17.** The tiers genuinely disagree about Factor. "Value falls as instances get
+  harder" is the obvious candidate feature — a 58-instance tier-level correlation, NOT a per-instance
+  predictor; turning such a correlation straight into a threshold is what L15 measured dead four times.
+- **▶ DOES NOT LICENSE porting kissat's per-grid bound** — refuted three ways (below).
+- **▶ AND A DEFECT IN THE GATE ITSELF:** `k.binary_ids` is size-monotone (deletion keeps the key,
+  `kernel.hpp:472-476`) and **learned binaries enter the same map** (`analyze.cpp:441`), so the
+  numerator is "binaries EVER created" against a fixed original-variable denominator. **The gate
+  LOOSENS monotonically over the solve** — an instance below 6 at `conflicts==0` crosses it purely by
+  learning. It is not the formula-shape test its comment describes, and it explains why `mod4block`
+  (7.9 % scope at t=0, predicted inert) moved TO → 245.8 s under broad admission: a t=0 classification
+  is a LOWER BOUND on reachability.
+
+### 2026-08-04 late — the 07-30 Factor reference study VERIFIED against live source, with corrections
+Three source-reading agents re-checked `docs/design/2026-07-30-factor-admission-reference-study.md`
+against kissat 4.0.4 and cadical 3.0.0 at HEAD. The study's core claim **holds**: kissat has NO
+formula-shape admission of any kind — its entire "when" logic is an option, the `factordelay`
+`log10(active) <= eliminations + 4` warm-up, a completion-gated new-material watermark, and a tick
+budget; damage is bounded per GRID by `reduction > bound` ramping 0→1→2→4→8→16 with elimination
+progress (`factor.c:939`/`:72`, `eliminate.c:363-365`). Corrections:
+- **cadical's `factorthresh` is DEAD CODE** — declared `options.hpp:125`, never read anywhere. The
+  study's §3.1/§10 present it as cadical's one admission-shaped condition; that is wrong. (The frozen
+  doc is not edited — this entry is the correction, per doc discipline.) Same family as L19.
+- `INC (eliminations)` is the FIRST statement of `kissat_eliminate` (`eliminate.c:595-598`), so it
+  counts ENTERED not completed calls; it coincides only because there is one call site. Do not conflate
+  it with the genuine `complete` flag that drives the bound ladder.
+- **▶ WE ARE FOUR SITES FROM THE COUPLING, AND IT STILL WOULD NOT HELP.** `bve_level_` exists and
+  doubles on completed BVE doses (`default_policy.cpp:1183-1186`); `factor_bound` consumes exactly what
+  kissat feeds from there; they are simply never connected — the purest form of "we own the mechanism
+  but never wire it" (§5 obligation 5, shape (a)). **But porting it is REFUTED three ways:** (1) P0's
+  own arm — kissat at `--eliminatebound=0`, its bound pinned to ZERO, *improved* `mod4block`
+  18.35 → 6.54 s, so the bound is not what saves kissat; (2) the gain histograms STRADDLE — winners at
+  mean δ 1.4 (`edp3`) and δ 13.5 (`sted5`), losers at 4.2/4.8 BETWEEN them, and bound 8 cost `sted5`
+  19 → 274 s; (3) the coupling measured negative three times, latest 2026-08-04 with composition ON.
+  **Recorded verdict: do not re-try without a NEW mechanism.**
+
 ### 2026-08-04 late — plan rev 80: **N4, the strategy floor**, is now a non-negotiable
 User directive after observing this as a repeating theme. §1.1 gains a FOURTH non-negotiable:
 **DefaultPolicy's SCHEDULING of the proof rules — order, effort budgets, warm-ups, watermarks,
