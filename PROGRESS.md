@@ -1010,6 +1010,37 @@ just timed out) and verifies with cake_lpr.
   again if Tier D ever rescues.
 
 
+### 2026-08-04 — ▶▶ `mod4block` IS A LOTTERY FOR BOTH SOLVERS — no per-instance verdict on it may gate a change
+Two of tonight's HOLD decisions were decided by per-instance results on this instance. Both were decided by
+noise. **kissat's own range on `mod4block` is 4.36 s → TIMEOUT, over 73×:**
+
+| kissat arm | conflicts | wall |
+|---|---|---|
+| `--chrono=0` | 175,401 | **4.36 s** |
+| base (default) | 715,338 | 19.32 s |
+| `--chronolevels=60` | 1,365,970 | 35.83 s |
+| `--chronolevels=160` | 6,987,130 | **247.50 s** |
+| `--restartint=8` | 9,081,119 | **TO** |
+
+- **`chronolevels` alone swings KISSAT 12.8×** (60 → 160). Ours swings 7.6× (100 → 120) on a knob that
+  changes at most **4 backtracks** — chrono fires 4 times there and it learns 7 units.
+- **kissat is NOT efficient on `mod4block` — it is PAYING.** Its default is **4.4× worse than its own
+  chrono-off** (19.32 vs 4.36 s). And it needs **715,338 conflicts** where our baseline needs **418,796**, so
+  **our 13.6 s was a lucky draw, never an engineering advantage.** L10's "no reference solver defends; the
+  density gate is ours alone" rests on that same draw and should be read accordingly.
+- **▶▶ STANDING RULE: `mod4block` may not gate a change on its per-instance result.** Judge changes on the
+  27-instance remainder, or on a replicated distribution, never on this instance's single draw. It has now
+  vetoed **broad Factor admission** and **unit chrono routing** in one night; the second veto was overturned
+  when priced without it (+15.83 PAR-2 with it, **−5.30 without**, identical solves on 27 of 28).
+- **The same suspicion attaches to `j3037`**, which is what actually held broad Factor admission on Tier C —
+  it is one of the three measured perturbation-FRAGILE instances, and its three arms spanned
+  218.5 s → 1092.2 s → TO in a single window. **Broad Factor admission deserves re-evaluation on the same
+  basis before its hold is treated as settled.**
+- **Method:** the discriminator is cheap and should be run BEFORE any per-instance verdict gates anything —
+  perturb the BASELINE with knobs that cannot matter mechanically (here `chrono_levels` ±1, ±20 against a
+  rule that fires 4 times) and see whether the instance moves. It took four jobs.
+
+
 ### 2026-08-04 — ▶▶ THE FRAGILE THREE ARE A CHRONO DEFECT (3 of 3); `veer_axi` is NOT, and stays unexplained
 Two findings, deliberately kept apart because the first tempted an over-broad conclusion the second refutes.
 
