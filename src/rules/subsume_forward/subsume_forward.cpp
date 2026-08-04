@@ -153,7 +153,19 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<std::vector<Ref>> occs(2 * k.nvars);
   uint64_t deleted = 0;
+  // D-STRENGTHEN-BUDGET (ledger): `k.work_budget` in C1's own currency
+  // (candidate checks), the Vivify/Factor idiom. This rule had an ENTRY budget
+  // (100 per mille = kissat's `forwardeffort`) but could not stop once a round
+  // began; see the twin comment in strengthen.cpp for the measured motive.
+  // Stopping early is sound: survivors remain candidates for the next round.
+  // 0 = unbounded (legacy path).
+  const uint64_t check_start = k.stats.forward_checked;
   for (const Ref ref : candidates) {
+    if (k.work_budget &&
+        k.stats.forward_checked - check_start > k.work_budget) {
+      k.stats.budget_stops_c1++;
+      break;
+    }
     Clause *c = clause_at(k.arena, ref);
     k.stats.forward_checked++;
     mark_candidate(k, marks, c, 1);

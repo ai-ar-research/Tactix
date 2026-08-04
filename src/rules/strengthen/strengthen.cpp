@@ -368,7 +368,23 @@ ApplyResult strengthen_apply(Kernel &k) {
     strengthen_candidates(k, candidates);
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<std::vector<Ref>> occs(2 * k.nvars);
+  // D-STRENGTHEN-BUDGET (ledger): `k.work_budget` in C2's own currency
+  // (candidate checks), the Vivify/Factor idiom. Until 2026-08-03 this rule had
+  // an ENTRY budget (100 per mille, matching kissat's `forwardeffort`) but no
+  // way to stop once a round started, so the budget bounded how OFTEN a round
+  // ran and never how much one round did — measured at `DivS_862_11`, where C2
+  // owns 97.8 s of a 109.0 s solve in FOUR applications (~24 s per
+  // uninterruptible round). cadical bounds the same family PER round
+  // (`subsumeeffort` with `subsumemaxeff`/`subsumemineff`, options.hpp:218-221).
+  // Stopping early is sound and loses no work: the survivors stay candidates and
+  // the next round re-derives them. 0 = unbounded (legacy path).
+  const uint64_t check_start = k.stats.strengthen_checked;
   for (Ref cref : candidates) {
+    if (k.work_budget &&
+        k.stats.strengthen_checked - check_start > k.work_budget) {
+      k.stats.budget_stops_c2++;
+      break;
+    }
     for (;;) { // strengthening cascades on the same candidate
       Clause *c = clause_at(k.arena, cref);
       k.stats.strengthen_checked++;

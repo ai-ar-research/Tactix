@@ -566,6 +566,18 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.forward_subsumptions,
            (unsigned long long)kernel.stats.forward_checked,
            (unsigned long long)kernel.stats.forward_subsumed);
+    printf("c strengthen  %llu rounds (%llu checked, %llu strengthened, "
+           "%llu subsumed)\n",
+           (unsigned long long)kernel.stats.strengthen_rounds,
+           (unsigned long long)kernel.stats.strengthen_checked,
+           (unsigned long long)kernel.stats.strengthened,
+           (unsigned long long)kernel.stats.strengthen_subsumed);
+    // Ledger D-STRENGTHEN-BUDGET reachability witness: rounds cut short by the
+    // mid-round work budget. ZERO means the budget never bound, so any run
+    // claiming to have exercised it is vacuous ([[ab-arm-identical-artefacts]]).
+    printf("c budgetstop  %llu C1 rounds, %llu C2 rounds stopped mid-round\n",
+           (unsigned long long)kernel.stats.budget_stops_c1,
+           (unsigned long long)kernel.stats.budget_stops_c2);
     // --- `c timing`: where the wall clock actually goes ---------------------
     // Rules are charged individually by the registry dispatch wrapper; the SLOT
     // line is the whole inprocessing phase, so (slot − Σ rules in it) is the

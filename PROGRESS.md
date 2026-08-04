@@ -11,17 +11,16 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**WHERE WE STAND** (windows `20260802-112851-B` / `20260802-112853-C`, **git `31593d5` + uncommitted R-d**,
-every arm writing + checking DRAT). **Tier B 75.41 (26/28)** vs kissat 10.05 = **7.504×** — down from
-105.30/24 at session start, via two landed fixes (V3's per-SCC hazard skip, then R-d variable retirement).
-**Tier C 358.12 (29/30) vs cadical 317.32 = 1.129×** — **T3's CaDiCaL half is NOT met at the shipped
-default**, a deliberate rev-78 trade (#solved wins; the OFF arm is 1.039×). Fuzz green: 4 × 10,000 cases, 0
-failures, DRAT + native LRAT × ± `--random-policy` on ASan+UBSan. ctest 38/38.
-**Two framings that govern how to read the numbers above.** (i) Tier C's
-gap is a TAIL, not a broad loss: the **median Tier C instance is 0.830× cadical** and we are faster on 15 of
-29; excluding the three fragile instances the shipped arm is **0.971×** and the OFF arm *inverts* to 1.077×.
-(ii) **cadical is not the hard Tier C baseline — kissat is**: same-tier kissat scored **229.64** on
-`20260730-085509`, i.e. we are ~**1.56×** kissat there, and Tier C has had NO kissat arm since 07-30.
+**WHERE WE STAND** (windows `20260803-211056-B` / `20260803-211105-C`, git `014e3b2`, every arm writing +
+checking DRAT, kissat arm on BOTH tiers). **Tier B 73.33 (26/28)** vs kissat 9.81 = **7.475×**.
+**Tier C 350.56 (29/30)** vs cadical 313.75 = **1.117×** and vs **kissat 228.48 = 1.534×**.
+Fuzz green: 3 × 10,000 cases, 0 failures, DRAT + native LRAT × ± `--random-policy` on ASan+UBSan.
+ctest 38/38.
+
+**▶ T3, BOTH HALVES MEASURED (first time since 07-30).** CaDiCaL half **1.117×** — NOT met, by 0.017, far
+inside the noise floor. Kissat half **1.271×** on the rule-neutral subset — NOT met, but **improved from
+1.37× (07-27)**. On the subset we are **0.987× cadical**, i.e. already better than it. **The KISSAT half is
+the binding constraint on phase-3 exit**, and steering on cadical was steering on the easier baseline.
 
 **▶ THE NEXT STEP — V6 Congruence's COST: 7.6× kissat's congruence time for a comparable outcome.** V6 owns
 **32.9 % / 38.2 %** of the clock on `T87` / `T105` (~462 s across the two) — the largest single Tier C item.
@@ -123,46 +122,45 @@ stacking them. Record the window stamp AND the git SHA — a table without them 
 compared. **Take the SHA from the run's own `manifest.json`/`results.json`, never from the commit that later
 shipped the change** — the 2026-08-02 tables were labelled with the ship SHA and were not reproducible.
 
-#### Tier B (28) — window `20260802-112851` (git `31593d5` + uncommitted R-d, see the reproducibility note below), **new default: R-d variable RETIREMENT**, every arm writing + checking DRAT
+#### Tier B (28) — window `20260803-211056` (git `014e3b2`), shipped default (R-d retirement), every arm writing + checking DRAT
 
-`●` marks the frozen **core14**. **Never mix 14- and 28-instance PAR-2.**
+| # | instance | st | tactix | kissat | ×kis |
+|---|---|---|---|---|---|
+| 1 | `or_randxor_k3_n540_m540.cnf.xz` | UNK | **TO** | 12.4 | 48.4 |
+| 2 | `unsat-set-b-fclqcolor-10-07-09.sat05-1282.re` | UNK | **TO** | 16.6 | 36.1 |
+| 3 | `sted5_0x24204-50.cnf.xz` | SAT | 240.7 | 8.7 | 27.6 |
+| 4 | `veer_axi_yosyshq_appnote_123_veer_axi-p23_tr` | UNS | 157.9 | 3.0 | 52.4 |
+| 5 | `DivS_862_11.cnf.sanitized.cnf.xz` | SAT | 110.8 | 17.0 | 6.5 |
+| 6 | `PRP_30_38.cnf.xz` | SAT | 56.3 | 15.8 | 3.6 |
+| 7 | `2013113162201nw.shuffled-as.sat03-1668.cnf.x` | SAT | 46.6 | 6.0 | 7.7 |
+| 8 | `b22_1.cnf.xz` | UNS | 34.8 | 9.3 | 3.7 |
+| 9 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | UNS | 32.1 | 12.6 | 2.6 |
+| 10 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.cnf.` | SAT | 21.4 | 5.9 | 3.6 |
+| 11 | `mp1-klieber2017s-0500-023-t12.cnf.xz` | SAT | 19.6 | 12.6 | 1.6 |
+| 12 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` | SAT | 15.4 | 4.1 | 3.7 |
+| 13 | `9vliw_bp_mc.shuffled.cnf.xz` | UNS | 14.5 | 8.2 | 1.8 |
+| 14 | `mod4block_2vars_10gates_u2_autoenc-sc2009.cn` | SAT | 13.4 | 19.8 | 0.7 |
+| 15 | `rbsat-v760c43649gyes10.cnf.xz` | SAT | 13.3 | 6.0 | 2.2 |
+| 16 | `circuit_48in64out_with_800gates_4in4out_dist` | SAT | 10.7 | 11.3 | 0.9 |
+| 17 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | UNS | 10.7 | 9.2 | 1.2 |
+| 18 | `SCPC-500-5.cnf.xz` | UNS | 9.5 | 11.5 | 0.8 |
+| 19 | `hwmcc17miters-xits-iso-oski15a08b00s.sanitiz` | UNS | 8.1 | 3.7 | 2.2 |
+| 20 | `x9-08014.sat.sanitized.cnf.xz` | UNS | 7.9 | 10.8 | 0.7 |
+| 21 | `DecompressReader_read_12.cnf.xz` | UNS | 7.9 | 6.7 | 1.2 |
+| 22 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50.nor` | SAT | 6.6 | 10.8 | 0.6 |
+| 23 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.xz` | SAT | 4.4 | 12.1 | 0.4 |
+| 24 | `square.2.0.i.smt2-cvc4.cnf.xz` | UNS | 3.8 | 3.7 | 1.0 |
+| 25 | `combined-crypto1-wff-seed-1-wffvars-450-cryp` | SAT | 3.1 | 4.2 | 0.7 |
+| 26 | `oddball_13_5_ttf.normalised.cnf.xz` | UNS | 2.6 | 19.2 | 0.1 |
+| 27 | `battleship-14-26-sat.cnf.xz` | SAT | 1.2 | 7.2 | 0.2 |
+| 28 | `clique_n2_k10.sanitized.cnf.xz` | UNS | 0.1 | 6.1 | 0.0 |
+|  | **PAR-2 / solved** |  | **73.33** (26/28) | 9.81 (28/28) | **7.475** |
 
-| # | instance | c14 | st | tactix | kissat | ×kis |
-|---|---|---|---|---|---|---|
-| 1 | `or_randxor_k3_n540_m540.cnf.xz` |  | UNK | 300.0 **TO** | 13.1 | 22.9 |
-| 2 | `unsat-set-b-fclqcolor-10-07-09.sat05-1282.re` |  | UNK | 300.0 **TO** | 17.6 | 17.0 |
-| 3 | `sted5_0x24204-50.cnf.xz` |  | SAT | 243.5 | 8.8 | 27.7 |
-| 4 | `veer_axi_yosyshq_appnote_123_veer_axi-p23_tr` |  | UNS | 200.0 | 3.7 | 53.5 |
-| 5 | `DivS_862_11.cnf.sanitized.cnf.xz` |  | SAT | 127.1 | 19.6 | 6.5 |
-| 6 | `PRP_30_38.cnf.xz` |  | SAT | 56.4 | 17.4 | 3.2 |
-| 7 | `2013113162201nw.shuffled-as.sat03-1668.cnf.x` |  | SAT | 48.9 | 6.0 | 8.1 |
-| 8 | `b22_1.cnf.xz` |  | UNS | 34.8 | 9.7 | 3.6 |
-| 9 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | ● | UNS | 29.8 | 13.0 | 2.3 |
-| 10 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.cnf.` | ● | SAT | 20.3 | 6.6 | 3.1 |
-| 11 | `mp1-klieber2017s-0500-023-t12.cnf.xz` |  | SAT | 18.3 | 13.6 | 1.3 |
-| 12 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` |  | SAT | 15.3 | 4.1 | 3.7 |
-| 13 | `9vliw_bp_mc.shuffled.cnf.xz` | ● | UNS | 14.1 | 8.5 | 1.7 |
-| 14 | `mod4block_2vars_10gates_u2_autoenc-sc2009.cn` | ● | SAT | 13.3 | 18.9 | 0.7 |
-| 15 | `rbsat-v760c43649gyes10.cnf.xz` | ● | SAT | 13.0 | 5.9 | 2.2 |
-| 16 | `circuit_48in64out_with_800gates_4in4out_dist` | ● | SAT | 10.9 | 11.2 | 1.0 |
-| 17 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | ● | UNS | 10.7 | 9.2 | 1.2 |
-| 18 | `SCPC-500-5.cnf.xz` |  | UNS | 9.5 | 12.2 | 0.8 |
-| 19 | `DecompressReader_read_12.cnf.xz` |  | UNS | 8.3 | 7.1 | 1.2 |
-| 20 | `x9-08014.sat.sanitized.cnf.xz` | ● | UNS | 8.0 | 10.9 | 0.7 |
-| 21 | `hwmcc17miters-xits-iso-oski15a08b00s.sanitiz` | ● | UNS | 7.5 | 3.5 | 2.1 |
-| 22 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50.nor` |  | SAT | 7.3 | 9.3 | 0.8 |
-| 23 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.xz` | ● | SAT | 4.4 | 11.3 | 0.4 |
-| 24 | `square.2.0.i.smt2-cvc4.cnf.xz` | ● | UNS | 3.6 | 3.5 | 1.0 |
-| 25 | `combined-crypto1-wff-seed-1-wffvars-450-cryp` | ● | SAT | 3.0 | 4.2 | 0.7 |
-| 26 | `oddball_13_5_ttf.normalised.cnf.xz` |  | UNS | 2.6 | 19.4 | 0.1 |
-| 27 | `battleship-14-26-sat.cnf.xz` | ● | SAT | 1.2 | 6.9 | 0.2 |
-| 28 | `clique_n2_k10.sanitized.cnf.xz` | ● | UNS | 0.1 | 6.1 | 0.0 |
-|  | **PAR-2 / solved** |  |  | **75.41** (26/28) | 10.05 (28/28) | **7.504** |
-
-Same window, same binary, retirement OFF (**the arm ran with NO env var set — see the reproduction trap
-below**): **109.60 (24/28)**. R-d is **−34.19 PAR-2 and +2 SOLVES** — it gains **`veer_axi` and `sted5`**,
-both previously timeouts, and loses none. Shipped under plan rev 78 (#solved wins); its Tier C cost is
-recorded below and in ledger row `D-RETIRE-TIERC`.
+**Same-window arms.** `broad` (`TACTIX_FACTOR_SCOPE_PCT=50`) **46.79 (27/28)** — it takes `or_randxor`
+TO → 65.5 s and `sted5` 240.7 → 13.0 s, and loses nothing here · `broadnord` (broad + `TACTIX_RETIRE=0`)
+**68.55 (26/28)**, which loses `veer_axi` back to TO and so confirms R-d is still load-bearing. **Broad is
+HELD on its Tier C solve loss** — see the Tier C table below and
+`benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`.
 
 **▶ REPRODUCIBILITY NOTE for both 2026-08-02 tables (audit 2026-08-03).** The artefacts record git
 **`31593d5`** (08-02 10:50), not the ship commit `a927131` (08-02 17:30): the binary
@@ -174,60 +172,67 @@ window.** **Reproduction trap:** at `31593d5` `main.cpp:287` was a *presence* ch
 (`if (getenv("TACTIX_RETIRE"))`), so `TACTIX_RETIRE=0` on THAT binary turns retirement **ON**. Value parsing
 (`*rt != '0'`) exists only from `a927131`. To reproduce the OFF arm at that build, unset the variable.
 
-#### Tier C (30) — window `20260802-112853` (git `31593d5` + uncommitted R-d, see the reproducibility note above), **new default: R-d variable RETIREMENT**, every arm writing + checking DRAT
+#### Tier C (30) — window `20260803-211105` (git `014e3b2`), shipped default (R-d retirement), **kissat arm restored**, every arm writing + checking DRAT
 
-| # | instance | st | tactix | cadical | ×cad |
-|---|---|---|---|---|---|
-| 1 | `j3037_9_rggt_b.cnf.xz` | SAT | 1055.3 | 26.2 | 40.23 |
-| 2 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 808.9 | 17.3 | 46.86 |
-| 3 | `T87.2.0.cnf.xz` | UNS | 784.0 | 400.6 | 1.96 |
-| 4 | `urq45.cnf.xz` | UNS | 645.1 | 995.1 | 0.65 |
-| 5 | `T105.2.0.cnf.xz` | UNS | 565.1 | 258.9 | 2.18 |
-| 6 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf` | UNS | 533.2 | 254.1 | 2.10 |
-| 7 | `minxor128.cnf.xz` | UNS | 493.2 | 277.3 | 1.78 |
-| 8 | `goldcrest-and-9.cnf.xz` | UNS | 355.0 | 180.8 | 1.96 |
-| 9 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 343.3 | 413.8 | 0.83 |
-| 10 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 280.0 | 195.9 | 1.43 |
-| 11 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2` | SAT | 247.0 | 186.7 | 1.32 |
-| 12 | `circuit_32in32out_with_500gates_6in6out_dist` | SAT | 226.2 | 502.9 | 0.45 |
-| 13 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 219.8 | 266.4 | 0.83 |
-| 14 | `Grain_no_init_ver1_out200_known_last105_0_u.` | UNS | 216.8 | 262.9 | 0.82 |
-| 15 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 200.7 | 176.8 | 1.14 |
-| 16 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 192.6 | 253.7 | 0.76 |
-| 17 | `StConn_8_32.sanitized.cnf.xz` | UNS | 184.9 | 1006.5 | 0.18 |
-| 18 | `SCPC-1000-18.cnf.xz` | SAT | 172.8 | 27.2 | 6.35 |
-| 19 | `constraints_25_4_5_12_12_0_0_0.sanitized.cnf` | UNS | 150.8 | 204.0 | 0.74 |
-| 20 | `EDP3-11000.cnf.xz` | SAT | 135.2 | 211.3 | 0.64 |
-| 21 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 94.5 | 165.4 | 0.57 |
-| 22 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 74.9 | 248.4 | 0.30 |
-| 23 | `Ptn-7824-b18.cnf.xz` | SAT | 72.8 | 10.7 | 6.81 |
-| 24 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 71.9 | 76.5 | 0.94 |
-| 25 | `em_11_3_4_cmp.cnf.xz` | SAT | 70.8 | 125.8 | 0.56 |
-| 26 | `mp1-Nb5T15.cnf.xz` | SAT | 70.7 | 134.1 | 0.53 |
-| 27 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 36.6 | 29.0 | 1.26 |
-| 28 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 34.0 | 144.3 | 0.24 |
-| 29 | `128_125.sanitized.cnf.xz` | UNK | 24.5 **OOM** | 4.0 **OOM** | — |
-| 30 | `ContextModel_output_7_3_9.bul_.dimacs.cnf.xz` | SAT | 7.6 | 67.0 | 0.11 |
-|  | **PAR-2 / solved** |  | **358.12** (29/30) | 317.32 (29/30) | **1.129** |
+| # | instance | st | tactix | kissat | cadical | ×cad |
+|---|---|---|---|---|---|---|
+| 1 | `128_125.sanitized.cnf.xz` | UNK | **TO** | **TO** | **TO** | 1.00 |
+| 2 | `j3037_9_rggt_b.cnf.xz` | SAT | 1092.2 | 150.7 | 25.6 | 42.62 |
+| 3 | `T87.2.0.cnf.xz` | UNS | 823.4 | 254.7 | 413.9 | 1.99 |
+| 4 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 808.0 | 112.9 | 16.7 | 48.27 |
+| 5 | `urq45.cnf.xz` | UNS | 598.0 | 118.7 | 1020.5 | 0.59 |
+| 6 | `T105.2.0.cnf.xz` | UNS | 556.2 | 289.8 | 264.7 | 2.10 |
+| 7 | `minxor128.cnf.xz` | UNS | 456.7 | 233.0 | 280.9 | 1.63 |
+| 8 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf` | UNS | 448.9 | 100.4 | 262.3 | 1.71 |
+| 9 | `goldcrest-and-9.cnf.xz` | UNS | 360.6 | 92.2 | 174.8 | 2.06 |
+| 10 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 305.5 | 376.3 | 438.5 | 0.70 |
+| 11 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 271.7 | 227.8 | 197.6 | 1.38 |
+| 12 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2` | SAT | 230.7 | 40.4 | 186.2 | 1.24 |
+| 13 | `circuit_32in32out_with_500gates_6in6out_dist` | SAT | 223.7 | 110.5 | 540.9 | 0.41 |
+| 14 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 212.9 | 189.1 | 257.1 | 0.83 |
+| 15 | `Grain_no_init_ver1_out200_known_last105_0_u.` | UNS | 212.9 | 228.1 | 271.5 | 0.78 |
+| 16 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 193.6 | 148.2 | 174.3 | 1.11 |
+| 17 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 180.1 | 182.4 | 253.6 | 0.71 |
+| 18 | `StConn_8_32.sanitized.cnf.xz` | UNS | 173.1 | 261.6 | 914.6 | 0.19 |
+| 19 | `SCPC-1000-18.cnf.xz` | SAT | 173.0 | 165.6 | 25.8 | 6.70 |
+| 20 | `constraints_25_4_5_12_12_0_0_0.sanitized.cnf` | UNS | 143.9 | 136.2 | 194.7 | 0.74 |
+| 21 | `EDP3-11000.cnf.xz` | SAT | 128.9 | 53.8 | 194.2 | 0.66 |
+| 22 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 93.5 | 93.2 | 161.5 | 0.58 |
+| 23 | `Ptn-7824-b18.cnf.xz` | SAT | 76.1 | 250.6 | 9.9 | 7.67 |
+| 24 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 71.5 | 131.2 | 185.7 | 0.39 |
+| 25 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 70.1 | 87.7 | 76.4 | 0.92 |
+| 26 | `em_11_3_4_cmp.cnf.xz` | SAT | 68.4 | 107.0 | 120.3 | 0.57 |
+| 27 | `mp1-Nb5T15.cnf.xz` | SAT | 65.3 | 76.0 | 122.5 | 0.53 |
+| 28 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 36.2 | 62.1 | 27.0 | 1.34 |
+| 29 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 34.1 | 134.7 | 134.2 | 0.25 |
+| 30 | `ContextModel_output_7_3_9.bul_.dimacs.cnf.xz` | SAT | 7.7 | 39.5 | 66.4 | 0.12 |
+|  | **PAR-2 / solved** |  | **350.56** (29/30) | **228.48** (29/30) | 313.75 (29/30) | **1.117** |
 
-Same window, same binary, retirement OFF: **329.63 (29/30) = 1.039× cadical**. **T3's CaDiCaL half is NOT met
-at the shipped default (1.129×)** — a deliberate, recorded trade under plan rev 78, since R-d buys +2 Tier B
-solves. The cost is **three instances** (j3037 +707.6, jgiraldezlevy +602.4, urq45 +444.4 = **+1,754.3 s**,
-i.e. **96.5 % of the +1,817.8 s gross regression** — seven other instances add the remaining +63.5 s — against
-a net **+854.75 s**, so the three are what flip the net sign); excluding them R-d *improves* Tier C by ~900 s.
-Those three are **measured perturbation-FRAGILE, not damaged** (probe 1579386, `D-RETIRE-TIERC` closed): they
-retire 251/1/1 variables respectively and swing 8–23× under unrelated knobs. `128_125` is unsolved for
-**every** arm including cadical by **OOM at 8 GB**, not timeout — the table row says OOM, and it flatters both
-ratios by contributing 2×1200 s to numerator and denominator alike (dropping it moves shipped 1.129 →
-1.172×).
+**Same-window arms.** `broad` (`TACTIX_FACTOR_SCOPE_PCT=50`) **448.72 (27/30)** · `broadnord`
+(broad + `TACTIX_RETIRE=0`) **342.97 (29/30)**. **Broad admission is HELD: it LOSES a Tier C solve**, which
+plan rev 78 never covers. See `benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`.
+- Its two "lost" solves are different things. **`j3037` is a genuine loss** (shipped 1092.2 s SAT → broad
+  1200 TO) and is what holds the change. **`urq45` is NOT** — broad SOLVED it in 619.3 s with the correct
+  verdict and the DRAT check blew the 4800 s budget, the same artefact that scored it unsolved on 07-27.
+  **No arm returned a wrong verdict anywhere in this window** (`mismatch` false throughout), so the runner's
+  "CORRECTNESS BUG" banner is the checker-budget mode, not a soundness failure.
+- **R-d and broad are ANTAGONISTIC on Tier C** — either alone is 29/30 (350.56 / 342.97), together 27/30.
+  On Tier B the ordering INVERTS: the combination is the only arm reaching 27/28. A real interaction, and
+  the reason composition had to be measured rather than inferred from the separate 07-31/08-01 results.
+- `j3037` is one of the three measured perturbation-FRAGILE instances and our three arms span
+  **218.5 s → 1092.2 s → TO** on it in this one window — inside its documented chaos band. The loss needs
+  replication before it is a settled effect; the burden is on shipping, not on holding.
 
-**▶ THE TAIL IS THE GAP — do not read this aggregate as a broad loss (audit 2026-08-03).** The **median
-per-instance ratio is 0.830× cadical**; we are FASTER than cadical on **15 of 29** solved instances and below
-0.5× on five. 13 losses total +3,563 s against 16 wins totalling −2,339 s. **Excluding the three fragile
-instances the shipped arm is 304.97 = 0.971× cadical** (inside T3's band with margin) **and the retirement-OFF
-arm inverts to 1.077×** — i.e. which arm looks better depends entirely on whether the fragile three are in the
-average. **cadical is also not the hard baseline here: same-tier kissat scored 229.64** (`20260730-085509`),
-so Tier C is ~**1.56× kissat**, and no Tier C window has carried a kissat arm since 2026-07-30.
+**▶ T3, BOTH HALVES, from this one window** (`tools/bench/subset_score.py`, subset = 24 of 30):
+
+| half | requirement | measured | status |
+|---|---|---|---|
+| **CaDiCaL** | within 10 % on Tier C | **1.117×** | **NOT met** — by 0.017, far inside the noise floor |
+| **Kissat** | parity on the rule-neutral subset | **1.271×** | **NOT met** — improved from **1.37×** (07-27), first measurement in a week |
+
+On the subset we are **0.987× cadical** — better than it — while sitting **1.271× kissat**. **The Kissat
+half is the binding constraint**, and optimising against cadical (the number the runner emitted) was
+steering on the easier baseline. Full tier vs kissat: **1.534×**.
 
 **Noise floor, measured (window `20260731-013523`):** three **bit-identical** arms (a payoff-bound sweep
 that turned out to be inert — Log) scored **346.16 / 356.95 / 353.99**, i.e. **10.8 PAR-2 of aggregate
@@ -478,16 +483,14 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
 
   | half | requirement | status |
   |---|---|---|
-  | CaDiCaL | ≤ 1.10× cadical, whole Tier C | **NOT MET at the shipped default: 358.12 vs 317.32 = 1.129×** (window `20260802-112853`). Miss = **+9.07 PAR-2 = 0.84 × the measured noise floor**, so the failure is not robustly measured either. **MET by the retirement-OFF arm** (329.63 = 1.039×, ~1.8 floors inside) and by the pre-R-d default (1.0068×, 07-30). Deliberate rev-78 trade for +2 Tier B solves. |
-  | Kissat | parity on the rule-neutral subset | **NOT MET, and currently UNMEASURABLE.** Only measurement ever: **1.37 ×**, 2026-07-27 (`benchmarks/reports/2026-07-27-tier-c-push.md`) — four shipped changes ago (X2 8‰, `factor_size=5`, V3 per-SCC, R-d). **No 24-instance subset list is materialized** (`benchmarks/tiers/` has none, `tools/bench/` has no subset filter) and **Tier C has carried no kissat arm since 2026-07-30**, so re-measuring means re-deriving the ablation AND re-adding a kissat arm. |
+  | CaDiCaL | ≤ 1.10× cadical, whole Tier C | **NOT MET: 350.56 vs 313.75 = 1.117×** (window `20260803-211105`, git `014e3b2`). Misses by **0.017**, far inside the measured noise floor, so the failure is not robustly measured. On the rule-neutral subset the same arm is **0.987×**, i.e. BETTER than cadical. |
+  | Kissat | parity on the rule-neutral subset | **NOT MET: 1.271×** (same window) — **improved from 1.37×** (2026-07-27), the first measurement in a week. **This is the BINDING half**: we are already better than cadical on the subset while 1.271× kissat, and 1.534× kissat on the full tier. |
 
-  **Owed before this gate can be evaluated at all:** (1) materialize the rule-neutral subset as a real list
-  under `benchmarks/tiers/`; (2) put a kissat arm back on Tier C. Both are prerequisites, not results.
-  **Note (audit 2026-08-03, unverified — worth confirming, not banking):** re-deriving the subset from the
-  same rule on window `20260727-002213-C-kabl` reproduces the 24 instances exactly, and on the current
-  window the shipped R-d arm scores ≈1.005× cadical on that subset while the OFF arm scores ≈1.081× — i.e.
-  R-d may *help* on precisely the subset the gate uses to isolate search quality, with its whole cost landing
-  on instances the subset excludes. Confirm with a real run before relying on it.
+  **Both prerequisites are now DONE** (2026-08-03): `benchmarks/tiers/C-ruleneutral.list` is materialized and
+  `tools/bench/subset_score.py` scores both views from one window, and every Tier C run carries
+  `--baseline kissat --baseline cadical`. **Caveat that still stands:** the subset is derived from a
+  SINGLE-SHOT sweep ablation and 4 of its 6 exclusions are measured perturbation-FRAGILE instances, so the
+  list itself needs re-deriving with replicates before a near-parity verdict on it is trustworthy.
 
   **History (chronological).** **STATUS CHANGED 2026-07-29 by the
   all-rules-ON directive.** With the rules OFF the CaDiCaL half was MET (2026-07-27: 303.21 vs 304.08 = 1.00×; re-confirmed same-window
@@ -871,6 +874,25 @@ The one per-kind outcome gap left after gate matching measured at parity: `congr
   **Gating condition either way: `congruence_unjustified` must stay 0** — value-aware closure assigns many
   more literals mid-round, and `big_path_chain` (`substitute.cpp:193`) already skips BIG nodes with a
   non-zero value, so that counter is what moves first.
+
+### 2026-08-03 — ▶ D-STRENGTHEN-BUDGET closed: C1/C2 stop mid-round (reachability proven, tier gate pending)
+Strengthen and SubsumeForward were the only two `EFFORT_SPECS` entries with `dosed=false` AND
+`budget_aware=false` (`default_policy.cpp:295-296`), so their 100 per mille budget bounded how OFTEN a round
+started and never how much one round did. Both now poll `Kernel::work_budget` in their own currency
+(`strengthen_checked` / `forward_checked`) and break out of the candidate loop — the Vivify/Factor idiom.
+Stopping early is sound and loses no work: survivors stay candidates and the next round re-derives them.
+Guards and the single-candidate `apply_instance` surfaces are untouched, so N1 is unaffected.
+- **REACHABILITY PROVEN, not assumed.** New counter `c budgetstop` (`stats.budget_stops_c1/_c2`) exists
+  because a `break` that never executes makes every green fuzz leg vacuous for this change
+  ([[ab-arm-identical-artefacts]]). On the sentinel `DivS_862_11` at the DEFAULT budget it reads
+  **1 C1 round, 1 C2 round stopped mid-round** — the budget binds without any dosing knob.
+- **Sentinel effect (single runs, probes 1580087/1580088 — NOT a verdict):** `DivS_862_11` solves in
+  **80.1 s** with Strengthen at 65.5 s (81.8 % of the solve), against 110.8–127.1 s across recent windows.
+  Forcing 1 per mille takes it to **11.5 s** with the slot at 33.1 % instead of 98.3 %. One instance is not a
+  tier result (L6/L12) — the Tier B+C gate is what decides.
+- Fuzz: DRAT 10,000/0 and native LRAT + `--random-policy` 10,000/0 on the sanitizer build; a third leg with
+  the budget forced to 1 per mille is running so the soundness evidence is non-vacuous. ctest 38/38.
+- Ledger row moved Open → Closed in `docs/implementation-notes.md`.
 
 ### 2026-08-03 — ▶▶ `fclqcolor` LOCATED: our Factor OFFERS the widened candidates and ACCEPTS almost none
 Probes 1580079–1580084 (`benchmarks/probes/fclq-factor-2026-08-03.sh`), single instance, 300 s cap. The last

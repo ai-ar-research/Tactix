@@ -143,6 +143,13 @@ struct Stats {
   uint64_t strengthen_checked = 0; // Strengthen candidate checks (C2)
   uint64_t strengthened = 0;       // clauses strengthened (C2 add+delete)
   uint64_t strengthen_subsumed = 0; // deletions by C2's fused round
+  // Rounds cut short by `Kernel::work_budget` (ledger D-STRENGTHEN-BUDGET).
+  // REACHABILITY WITNESS, not decoration: a `break` that never executes makes
+  // every green fuzz leg vacuous for this change, which is exactly how the
+  // identical-artefacts trap works. Assert this is NONZERO in any run that
+  // claims to have exercised the mid-round budget.
+  uint64_t budget_stops_c1 = 0; // SubsumeForward rounds stopped mid-round
+  uint64_t budget_stops_c2 = 0; // Strengthen rounds stopped mid-round
   uint64_t flushed = 0; // root-satisfied deletions + root-falsified
                         // literal strips by C2's flush pre-pass
   uint64_t vivify_rounds = 0;  // Vivify rounds (C3)

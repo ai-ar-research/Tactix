@@ -292,8 +292,13 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     {"Backbone", 20, meter_ticks, true, false, false},
     {"TransitiveReduce", 20, meter_transitive, true, false, false},
     {"Vivify", 100, meter_ticks, false, false, true},
-    {"Strengthen", 100, meter_strengthen, false, false, false},
-    {"SubsumeForward", 100, meter_forward, false, false, false},
+    // budget_aware since 2026-08-03 (ledger D-STRENGTHEN-BUDGET). These were
+    // the only two specs with dosed=false AND budget_aware=false, i.e. the
+    // 100 per mille bounded how OFTEN a round started and never how much one
+    // round did; C2 owned 97.8 s of `DivS_862_11`'s 109.0 s in FOUR rounds.
+    // Both now poll Kernel::work_budget in their own currency and stop.
+    {"Strengthen", 100, meter_strengthen, false, false, true},
+    {"SubsumeForward", 100, meter_forward, false, false, true},
     // S4 Factor dosing (design §3.b): kissat factoreffort 50‰ (options.h:57
     // — half of vivify/eliminate's 100), currency = factor_ticks. The first
     // dose per solve bypasses the permille formula with kissat's
