@@ -265,8 +265,9 @@ int main(int argc, char **argv) {
     kernel.bve_cost_limit = (uint32_t)strtoul(cl, nullptr, 10);
   if (getenv("TACTIX_V4_EARLY_EXIT"))
     kernel.transitive_early_exit = true;
-  if (getenv("TACTIX_NO_MIDROUND_BUDGET"))
-    kernel.midround_budget = false; // ledger D-STRENGTHEN-BUDGET A/B hatch
+  if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
+    kernel.midround_budget = (*mb != '0'); // D-STRENGTHEN-BUDGET, default OFF
+                                           // (measured negative; see kernel.hpp)
   if (const char *fs = getenv("TACTIX_FACTOR_SIZE"))
     kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
   if (const char *sp = getenv("TACTIX_FACTOR_SCOPE_PCT"))
