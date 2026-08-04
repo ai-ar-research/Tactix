@@ -834,6 +834,35 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-03 — ▶▶ `fclqcolor` LOCATED: our Factor OFFERS the widened candidates and ACCEPTS almost none
+Probes 1580079–1580084 (`benchmarks/probes/fclq-factor-2026-08-03.sh`), single instance, 300 s cap. The last
+Tier B timeout once broad admission ships — worth ≈−19.5 PAR-2 and the 28th solve.
+
+| arm | factorings | conflicts | time |
+|---|---|---|---|
+| kissat default (`factorsize` 5) | **120** | 918,618 | **16.3 s** |
+| kissat `--factorsize=2` | 80 | 14,296,915 | 203.0 s |
+| kissat `--no-factor` | — | 13,726,436 | 190.8 s |
+| **ours, broad admission, `factor_size` 5** | **78** | 11,460,304 | **TO** |
+| ours, shipped default | **0** | 14,471,375 | TO |
+
+- **Cause B (rule-scope/BVA) is CONFIRMED, not refuted.** `--no-factor` costs kissat **11.7×** here, so Factor
+  IS its lever; and `--factorsize=2` (203 s) is no better than no Factor at all, so the value is entirely in
+  the NON-BINARY factorings.
+- **Our search is at parity where neither side factors:** our shipped default does **0** factorings (the
+  density gate blocks it — bin/var 4.76 < 6) and takes **14.47 M** conflicts against kissat-no-factor's
+  **13.73 M**.
+- **▶▶ THE DEFECT: our widened Factor FIRES but does not APPLY.** Broad admission gets Factor running and it
+  offers **42,471 large remainders** — so the `factor_size >= 3` branch is not inert, which is the case
+  `Kernel::factor_large_remainders` exists to distinguish — yet only **78 factorings** are applied, matching
+  kissat's BINARY-RESTRICTED 80 rather than its default 120. The ~42 factorings kissat finds beyond binary
+  scope are worth **93 % of its conflicts** (13.73 M → 0.92 M). **The bottleneck is the acceptance / delta
+  contest, not the scope**, and the counters are like-for-like (both increment once per applied factoring:
+  `kissat/src/factor.c:825`, `factor.cpp:872`).
+- **Next:** the acceptance path — the per-seed grid delta contest and `Kernel::factor_bound` (default 0 =
+  "any positive gain", already MORE permissive than kissat's `reduction > bound`, so permissiveness is not
+  the blocker). The 27×27 grid cap is structural (S2a) and is the first thing to price. Route: **rule-dev**.
+
 ### 2026-08-03 — ▶▶ V6 Congruence: gate matching is AT PARITY; the gap is COST (7.6×) and the UNIT channel
 Probes 1579464 (both solvers' timings), 1579467/1579468 (gate-kind splits), 1579948/1579949 (our closure
 funnel), 1580063/1580064 (kissat per-kind `congruent_*`, `kissat-metrics` build). Two instances, `T87.2.0`
