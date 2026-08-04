@@ -940,8 +940,14 @@ Guards and the single-candidate `apply_instance` surfaces are untouched, so N1 i
   making the default round interruptible at 100 per mille is not, because one stopped round just defers the
   work to the next.
 - **Verdict pending Tier C**; on Tier B alone this does not earn its place.
-- Fuzz: DRAT 10,000/0 and native LRAT + `--random-policy` 10,000/0 on the sanitizer build; a third leg with
-  the budget forced to 1 per mille is running so the soundness evidence is non-vacuous. ctest 38/38.
+- **Fuzz is green but VACUOUS for this change — say so rather than claim coverage.** DRAT 10,000/0, native
+  LRAT + `--random-policy` 10,000/0, and a third leg with `TACTIX_SLOT_PERMILLE=Strengthen:1,
+  SubsumeForward:1`. The third was meant to force the break; its verdict distribution is
+  **SAT 5715 / TO 270 / UNSAT 4015 against the default leg's 5715 / 271 / 4014** — near-identical, the
+  [[ab-arm-identical-artefacts]] signature. Cause: on tiny fuzz instances the budget computes to 0 and the
+  guard is `if (k.work_budget && …)`, so the break never fires. **The real soundness coverage for the
+  mid-round break is the two tier gates** — 58 real instances, every UNSAT proof-checked, no mismatch and no
+  rejection. ctest 38/38.
 - Ledger row moved Open → Closed in `docs/implementation-notes.md`.
 
 ### 2026-08-03 — ▶▶ `fclqcolor` LOCATED: our Factor OFFERS the widened candidates and ACCEPTS almost none
