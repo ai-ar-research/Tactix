@@ -967,6 +967,40 @@ shares over the whole solve; V6 is ~38 % of that clock.
   whether gate volume per round falls once resolved gates are dropped.
 - **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
 
+### 2026-08-04 — ▶▶ `fclqcolor` SOLVED in a probe: the COMPOSITION density gate was the whole blocker
+Probes 1580855/1580856. **The last Tier B timeout falls.**
+
+| arm | factorings | conflicts | result |
+|---|---|---|---|
+| broad admission, no composition | 78 | 11.46 M | **TO @ 300 s** |
+| **broad + composition** (`TACTIX_COMPOSITE_DENSITY=1`) | **164** | **5.80 M** | **`s UNSATISFIABLE`** |
+
+- **Mechanism.** Composition (`Kernel::factor_composite`) widens the factor/remainder universe over the
+  extension variables Factor itself creates, so later chains in the same pass compose over them — kissat's
+  `resize_factoring`, which it calls from `apply_factoring` (`factor.c:838`) **with no gate at all**. We
+  gated it at **≥ 50 binaries/var**; `fclqcolor` sits at **4.76**, so we never composed. That is exactly why
+  applied factorings saturated at **78 across `factor_size` 3/5/7/9** while offers rose 42 k → 51 k, and why
+  78 ≈ kissat's **binary-restricted 80** rather than its default 120. With composition we reach **164**.
+- **The gate was the hand-designed-separator family** plan rev 77 forbids and L15/L19 measured **0-for-5**.
+  Removed rather than re-tuned (user directive 2026-08-04).
+- **▶ WHAT BOUNDS COMPOSITION INSTEAD — kissat's real governors, and we already have three of four.**
+  (a) the `factor_ticks` effort budget, checked in kissat's main loop (`if (*ticks > limit) break`,
+  `factor.c:914`) and here as the EffortSpec 50 ‰ handoff; (b) a **score-ordered candidate heap**, so the
+  budget is spent best-first; (c) one attempt per literal per pass. **(d) is the one we lack: kissat accepts
+  a grid only when `reduction > factoring.bound`, where `bound = solver->bounds.eliminate.additional_clauses`
+  (`factor.c:72/939`) — the acceptance threshold is COUPLED to BVE's growth allowance, so factoring gets
+  pickier exactly as elimination gets more permissive.** Ours (`Kernel::factor_bound`) is a flat **0** =
+  "any positive gain".
+- **▶ IF THE TIER GATE REGRESSES, PORT (d) — DO NOT REINSTATE A DENSITY GATE.** Known risk: composite ON took
+  `mp1` 15.5 → 5.4 s and broke `battleship` 1.3 → 197 s. A version of the bound coupling was measured dead
+  on 2026-07-25 (design §3.e — it rejected the small-delta top-up grids the dosed regime exists to add, mp1
+  5.3 → 14.9 s), **but that was measured with composition GATED OFF, so the negative does not transfer.**
+  `TACTIX_COMPOSITE_DENSITY=<n>` is retained as an A/B hatch that restores the old gate at threshold n.
+- Gates running: Tier B `20260804-080512` (arms comp / nocomp / comp+broad / kissat), Tier C
+  `20260804-080524`. Fuzz legs `1580858` (DRAT) and `1580859` (LRAT + `--random-policy`) on the sanitizer
+  build.
+
+
 ### 2026-08-04 — ▶ Tier C NOISE FLOOR re-measured on an IDLE partition: **6.72 PAR-2**, not 10.8
 Window `20260804-030938-C-nf1`, three **bit-identical** arms of `build/pin-sbgate/tactix`, nothing else on
 the partition. **nf1 364.50 · nf2 362.17 · nf3 357.78, all 29/30 → aggregate spread 6.72 PAR-2.**
