@@ -5,29 +5,25 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 79 (2026-08-03)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-08-03 (overnight) — plan revs 76–79. **T3's BOTH halves measured** (CaDiCaL 1.117×, Kissat **1.271×** on the subset — the kissat half is the binding phase-3 constraint). **Broad Factor admission measured and HELD** (Tier B 27/28, but Tier C 27/30). **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **`fclqcolor` located to Factor's ACCEPTANCE path** (saturates at 78 factorings across every scope). **Tier D built and frozen** (793). Baseline proofs written but no longer verified (rev 79).
+- **Last updated:** 2026-08-04 — plan revs 76–79. **T3's BOTH halves measured** (CaDiCaL 1.117×, Kissat **1.271×** on the subset — the kissat half is the binding phase-3 constraint). **Broad Factor admission measured and HELD** (Tier B 27/28, but Tier C 27/30). **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **`fclqcolor` located to Factor's ACCEPTANCE path** (saturates at 78 factorings across every scope). **Tier D built and frozen** (793). Baseline proofs written but no longer verified (rev 79).
 
-## ▶ RESUME HERE (2026-08-04) — phase 3; **next step = TB4b's chrono divergences** (a) below
+## ▶ RESUME HERE (2026-08-04) — phase 3; **next step = re-test broad Factor admission's HOLD** (a) below
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**▶ IN FLIGHT / CARRIED OVER — read these FIRST.**
-- **HEAD tier pair running: arrays `1581284` (B) / `1581341` (C)** against `build/pin-cong-opt` (code-identical
-  to HEAD). The tables below are `38b5e2d` and so **predate the −50 % V6 speedup** — expect Tier C to improve,
-  since `T87`/`T105` are two of its heaviest instances. Read those windows before quoting a current number.
-- **A `D-LRAT-FALLBACK` sub-agent may still be running** against `tools/bench/run.py`; check `git log` and
-  `squeue` before editing that file.
-- ~~Tier C noise-floor run~~ — **DONE: the clean floor is 6.72 PAR-2, not 10.8** (window
-  `20260804-030938`, three bit-identical arms on an idle partition; per-instance median 4.8 s). The old bar
-  was contention-inflated. Folded into MEASUREMENT HYGIENE below and the Log.
-- **`D-LRAT-FALLBACK` is specified but NOT implemented** (task, and Open items). A **ready-to-apply patch**
-  with trigger, scope guard, cost and verification steps is at
-  the Open-items entry below (self-contained; the scratch copy under `$CLAUDE_JOB_DIR` is ephemeral).
-  **Apply only when no aggregate job is queued against `run.py`.**
+**▶ IN FLIGHT AT SESSION END — read these FIRST.**
+- **Tier C gates still running: array `1581854` + aggregate `1581855`** (dir `benchmarks/runs/20260804-141431-C-tb4b`),
+  the confirming Tier C for the TB4b ship, and `1581633`/`1581634` (`…-C-ucr`, unit-routing-only, now
+  superseded — read it only as a second sample). If tasks are MISSING, resubmit those indices and re-run
+  `run.py --aggregate <dir>`. **The Tier B half already passed** (see the Log).
+- **`build/pin-tb4b` is the shipped binary** (code-identical to HEAD). Do NOT rebuild it while those arrays
+  run — never reuse a `build/pin-*` dir at all; give every new binary a new name.
 
-**WHERE WE STAND** (windows `20260803-211056-B` / `20260803-211105-C`, git `014e3b2`, every arm writing +
-checking DRAT, kissat arm on BOTH tiers). **Tier B 73.33 (26/28)** vs kissat 9.81 = **7.475×**.
-**Tier C 350.56 (29/30)** vs cadical 313.75 = **1.117×** and vs **kissat 228.48 = 1.534×**.
+**WHERE WE STAND.** Latest full pair at the pre-TB4b default (`20260804-1220`, git `ee9f3ab`): **Tier B
+75.69 (26/28)** vs kissat 9.64 · **Tier C 355.11 (29/30)** vs cadical 308.31 and **kissat 226.02 = 1.57×**.
+**With TB4b shipped** (`20260804-141429-B`, git `8118c68`): Tier B **85.30 (25/28)** all-28, but **66.23 vs
+75.01 = −8.78 PAR-2 on the 27 non-lottery instances at identical solves** — the whole penalty is
+`mod4block`, which is a coin flip (see the Log). Tier C confirming gate was still running at session end.
 Fuzz green: 3 × 10,000 cases, 0 failures, DRAT + native LRAT × ± `--random-policy` on ASan+UBSan.
 ctest 38/38.
 
@@ -65,46 +61,40 @@ outcome. V6 owns
   absorption** (correct; kissat's extraction does the identical rotation) · **the ITE extractor** (we draw 0
   merges, kissat 18).
 
-**THEN, in order** — re-ranked 2026-08-04 against the Tier C gap-to-KISSAT decomposition (the BINDING half
-of T3). Total gap 3,629 s; **top 3 instances = 54 %, top 8 = 97 %**; we win on 11 of 30.
+**THEN, in order** — re-ranked 2026-08-04 after the lottery finding.
 
-**(a) TB4b — THE CHRONO DIVERGENCES. Now the largest identified item on T3's binding half, not cleanup.**
-`j3037` + `jgiraldezlevy` + `urq45` own **54 %** of the Tier C gap to kissat, and turning chrono OFF is
-**7.8× faster on `j3037`** and **2.8× on `urq45`** (it is 1.45× *slower* on `jgiraldezlevy`, so scope this to
-three instances and expect the third to behave differently). kissat's chrono is neutral-to-mild on the same
-instances (1.00–1.26×), and both baselines are stable there (bands 2.6–3.1 %), so this is OURS. The named
-sub-items already exist: watch repair onto highest-level literals, unit chrono routing, snapshot timing,
-`jumpreasons`, cadical's `chronoreusetrail`. **Do not just turn chrono off** — TB4 measured it worth −2.4 %
-overall once the porting error was fixed; the divergences are the work.
+**(a) RE-TEST BROAD FACTOR ADMISSION'S HOLD — it may be a free +1 Tier B solve.** It was held on a Tier C
+solve loss on **`j3037`**, one of the three measured perturbation-FRAGILE instances, whose three arms spanned
+**218.5 s → 1092.2 s → TO in a single window**. Tonight's `mod4block` result showed exactly this shape being
+a coin flip. **Run the [[chaotic-instance-veto]] discriminator on `j3037` first** (perturb the BASELINE with
+a knob that cannot matter; four jobs), then re-price broad admission excluding it. If the loss does not
+replicate, broad admission buys `or_randxor` and Tier B goes 26/28 → 27/28.
 
-**(b) `veer_axi` — 65× kissat, the worst Tier B ratio, and now UNEXPLAINED.** 507× the decisions and 262× the
-propagations for 6.3× the conflicts, at 7.03 props/decision, search 90 % of clock. **Ruled out:**
-substituted-variable decisions (R-d took them 84 % → 0.24 %), restart cadence, trail reuse (85 % of restarts
-reuse a prefix; our `restart.cpp` faithfully transliterates kissat's), rule cost (9.7 %), chrono (10 %, and
-inside this instance's 32 % wall-clock contention band). Next: what makes trails this deep and
-conflict-free — the untested `TACTIX_SUBST_DEMOTE` arm took it 201 → 131 s pre-R-d (Tier C cost +28.39, so
-it was held) and its interaction with retirement has never been measured.
+**(b) `fclqcolor` — the last Tier B timeout.** Needs composition (shipped) AND broad admission, so it is
+downstream of (a). Its own defect is located: applied factorings SATURATE at 78 across `factor_size`
+3/5/7/9 while offers rise 42 k → 51 k — the bottleneck is ACCEPTANCE, and the **27×27 grid cap (S2a)** is
+the first thing to price.
 
-**(c) V6's remaining cost.** −50 % already banked at byte-identical proofs (`ee9f3ab`); T87+T105 are still
-**19 %** of the kissat gap. **Re-profile before touching anything** — the old proportions no longer describe
-the remaining ~98 s. Untouched leads recorded in that Log entry: `CongGate` vectors → arena (blocked only by
-`tests/test_congruence.cpp:246`), the closure's duplicate-accumulating `occ`, ITE's node-based `ce` map.
+**(c) V6's remaining cost.** −50 % banked at byte-identical proofs (`ee9f3ab`); T87+T105 are still ~19 % of
+the Tier C kissat gap. **Re-profile first** — the old proportions no longer describe the remaining ~98 s.
+Untouched leads: `CongGate` vectors → arena (blocked only by `tests/test_congruence.cpp:246`), the closure's
+duplicate-accumulating `occ`, ITE's node-based `ce` map.
 
-**(d) `D-LRAT-FALLBACK`** — the runner still discards correct solves (`urq45`, three times). Spec is
-self-contained in Open items.
+**(d) The rest of TB4b.** `jumpreasons` and cadical's `chronoreusetrail` are unported. Motive: trail reuse
+COLLAPSED 85 % → 17 % on `veer_axi` once trails got deeper, and `chronoreusetrail` is by name that
+interaction. **`j3037`/`urq45` chrono sensitivity is NOT explained** — they learn ~10 units in 3.4 M
+conflicts, so unit routing is irrelevant there; a different divergence drives their 7.8×/2.8×.
 
-**(e) `fclqcolor`** — needs composition AND broad admission; broad is HELD on its own Tier C solve loss, and
-it trades `mod4block`. The open question is **WHEN to widen Factor's scope** — a §5.6 admission question, and
-downstream of (a)/(b), since broad's blocker is `j3037`.
+**(e) V6's unit channel** (2,231 vs our 14; `find_units` is only 844 of it — the rest is real).
+**(f)** First Tier D run — built and frozen (793), never executed, a phase-3-exit prerequisite.
+**(g)** Track R · R5 S-c. **(h)** `--track` flag so T4's SC25-set PAR-2 is first-class.
+**(i)** Revisit `D-LRAT-FALLBACK`'s doubled per-task wall limit (Tier C 1:42 → 3:22) — it reserves 2× the
+wall for a rarely-firing path.
 
-**(f)** V6's unit channel (2,231 vs 14; `find_units` is only 844 of it). **(g)** Track R · R5 S-c.
-**(h)** First Tier D run — built and frozen (793), never executed, a phase-3-exit prerequisite.
-**(i)** `--track` flag so T4's SC25-set PAR-2 is first-class.
-
-**BOUNDED, do not over-invest:** `D-VIVIFY-SCHED` is a yield fix (Vivify 0.7–1.9 % of clock) with unmeasured
-direction; `D-SUBST-UNBOUNDED` should buy ~0 (kissat WITH both bounds substitutes MORE than we do without);
-V4 TransitiveReduce's ceiling is ≈−5.7 PAR-2; V6's ITE extractor is dead (0 merges, kissat 18); the
-mid-round C1/C2 budget is measured-negative at the default (dose axis still live).
+**BOUNDED, do not over-invest:** `D-VIVIFY-SCHED` is a yield fix (Vivify 0.7–1.9 % of clock, direction
+unmeasured); `D-SUBST-UNBOUNDED` should buy ~0 (kissat WITH both bounds substitutes MORE than we do without);
+V4 TransitiveReduce ceiling ≈−5.7 PAR-2; V6's ITE extractor is dead (0 merges, kissat 18); the mid-round
+C1/C2 budget is measured-negative at the default (the DOSE axis is still live).
 
 **STANDING DIRECTIVES.** *Every implemented proof rule ships ON* ([[no-rule-off-configs]]). **Plan rev 77:
 no crude approximations of an understood mechanism** — implement what matches or exceeds kissat, or ship the
@@ -1008,6 +998,34 @@ just timed out) and verifies with cake_lpr.
 - **NOT done:** LRAT is 3.6× the DRAT size here (3.3 GB); on a larger instance cake_lpr's RSS (4.02 GiB
   here) could approach the 8 GB cap. The rescue reuses `checker_budget` rather than a separate knob — look
   again if Tier D ever rescues.
+
+
+### 2026-08-04 — ▶▶ TB4b UNIT CHRONO ROUTING SHIPPED: `veer_axi` 6×, −8.78 PAR-2 on the 27 non-lottery instances
+`8118c68`. Two changes, different evidence — see the commit for the split.
+- **Unit chrono routing (the measured win).** A learned unit was forced to `target = 0`, discarding the whole
+  descent; kissat routes it through the same chrono determination (`learn.c learn_unit` →
+  `determine_new_level(solver, 0)`) and steps back ONE level. Sound because `kernel_assign_unit` stamps at
+  level 0 explicitly (true-level assignment, D-LEVEL-2) wherever the solver stands.
+  **Motive:** on `veer_axi` **14,088 of 18,635 conflicts learn a unit**, and the caller COUNTED 14,108
+  chronological backtracks while `backjump` overrode 14,088 of them — so we backtracked chronologically on
+  **20 conflicts (0.1 %)** where kissat does on **2,821 of 2,967 (95 %)**. The `c chronological` stat was
+  reporting behaviour we did not perform.
+  **Result: `veer_axi` 195.5 → 31.9 s** (second window; 202.6 → 36.0 s in the first), 65× kissat → ~9×.
+- **The after-conflict snapshot order** (`kissat_backtrack_after_conflict`: step down one level, THEN
+  snapshot target/best, THEN go to target). Ours snapshotted at the full trail, inflating the
+  `target_assigned`/`best_assigned` high-water mark by the conflict level's own literals. `kernel_backtrack`
+  is now the analogue of `..._without_updating_phases`; the four call sites snapshot explicitly. **Inert on
+  both decisive instances**, but the combined gate is better than unit-routing alone (−8.78 vs −5.30), the
+  first evidence it helps.
+- **Gates, priced BOTH ways** (`20260804-141429-B`): all 28 → **85.30 (25/28)** vs pre 72.82 (26/28);
+  **excluding `mod4block` → 66.23 vs 75.01 = −8.78 PAR-2 at identical solves on 27 of 28.** The entire
+  penalty is one lottery instance (see the entry below). Tier C `20260804-141431` was still running at
+  session end.
+- Fuzz 10,000/0 × 4 legs (DRAT + LRAT × ± forced). **The default unit-routing legs are VACUOUS by
+  construction** — the path needs `level-1 > 100` and fuzz CNFs are ~90 vars — hence a `chrono_levels=0` leg;
+  the snapshot legs ARE non-vacuous (verdicts 5715/280/4005 vs 5713/285/4002). ctest 38/38.
+- Three test assertions changed: `test_switchmode`/`test_rephase` called `kernel_backtrack` directly and
+  asserted it snapshots phases — they encoded the coupling, not an invariant.
 
 
 ### 2026-08-04 — ▶▶ `mod4block` IS A LOTTERY FOR BOTH SOLVERS — no per-instance verdict on it may gate a change
