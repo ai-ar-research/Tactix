@@ -140,7 +140,7 @@ the solver.
 ## Environment facts (verified 2026-07-23)
 
 - Partition `cpu-dense-hwulab-q`: node017–018, 192 cores / ~750 GB each;
-  `MaxArraySize=100000` — even Tier D (800 tasks) needs no array chunking.
+  `MaxArraySize=100000` — even Tier D (793 instances x arms) needs no array chunking.
 - Toolchain: gcc/13.1.0 module (loaded by default; `export CC=gcc CXX=g++` —
   bare `cc` is 11.5); cmake/ninja are pip user installs in `~/.local/bin`
   (no system/module cmake exists).
