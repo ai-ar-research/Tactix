@@ -143,20 +143,39 @@ def check_proof(fmt, cnf, proof, budget):
 
 
 def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
-                 mem_gb=None, score_proofs=True):
-    """`score_proofs` False = write and verify the proof, RECORD the outcome,
-    but never count a failed check as unsolved. That is the baseline setting
-    (plan §8.1 rev 72): baselines are a performance reference, and scoring
-    their certificates against our checker budget would flatter us — measured,
-    it did: on Tier C 2026-07-27 kissat lost 2 instances and CaDiCaL 3 to the
-    old budget alone, which would have read as us beating kissat by 55 PAR-2
-    when we are in fact 1.41x behind it."""
+                 mem_gb=None, score_proofs=True, verify_proofs=True):
+    """`check_proofs` = hand the solver a proof path, i.e. make it WRITE one.
+    `verify_proofs` = actually run the checker over what it wrote.
+    `score_proofs` = let a failed check count the instance unsolved.
+
+    The three are separate because they answer separate questions.
+
+    WRITING is a TIMING requirement and applies to every arm (plan §8.1 rev 72):
+    proof generation costs 4.4-6.9 % and the tax is solver-specific, so a
+    proof-free baseline number is not comparable to ours.
+
+    VERIFYING a BASELINE's proof buys nothing and is expensive. `score_proofs`
+    is already False for baselines — their failed checks are recorded and never
+    held against them — so the check cannot change any verdict. Measured on
+    Tier C window 20260803-211105: baseline checking was 6.07 h of 9.08 h, i.e.
+    **67 % of all checking wall-clock for zero verdict impact**, and the single
+    longest task in the run (61.5 min) was drat-trim on kissat's proof. Hence
+    `verify_proofs` defaults to False for baselines (--verify-baseline-proofs
+    opts back in for a submission-grade claim). `proof_bytes` is still recorded
+    from a stat, so proof size stays a tracked metric for every arm.
+
+    `score_proofs` False without `verify_proofs` False = the pre-2026-08-03
+    behaviour: verify, record, never score. Scoring a baseline's certificate
+    against OUR checker budget would flatter us — measured, it did: on Tier C
+    2026-07-27 kissat lost 2 instances and CaDiCaL 3 to the old budget alone,
+    which would have read as us beating kissat by 55 PAR-2 when we are in fact
+    1.41x behind it."""
     fmt = proof_format(cmd)
     res = {"instance": rel, "expected": expected, "verdict": "UNKNOWN",
            "time": timeout, "solved": False, "mismatch": False,
            "proof_ok": None, "proof_bytes": None, "proof_check_time": None,
            "proof_format": fmt if check_proofs else None,
-           "proof_scored": bool(check_proofs and score_proofs),
+           "proof_scored": bool(check_proofs and verify_proofs and score_proofs),
            "proof_msg": None}
     if cnf is None or not os.path.exists(cnf):
         res["verdict"] = "MISSING"
@@ -199,14 +218,19 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                 if score_proofs:
                     res["solved"] = False
             else:
+                # size is free from a stat and is a tracked metric for EVERY arm
                 res["proof_bytes"] = os.path.getsize(proof)
-                t1 = time.monotonic()
-                ok, msg = check_proof(fmt, cnf, proof, checker_budget(timeout))
-                res["proof_check_time"] = round(time.monotonic() - t1, 3)
-                res["proof_ok"] = ok
-                res["proof_msg"] = msg
-                if not ok and score_proofs:  # rejected proof = unsolved (§2)
-                    res["solved"] = False
+                if not verify_proofs:
+                    res["proof_msg"] = "written, not verified (§8.1: baseline)"
+                else:
+                    t1 = time.monotonic()
+                    ok, msg = check_proof(fmt, cnf, proof,
+                                          checker_budget(timeout))
+                    res["proof_check_time"] = round(time.monotonic() - t1, 3)
+                    res["proof_ok"] = ok
+                    res["proof_msg"] = msg
+                    if not ok and score_proofs:  # rejected proof = unsolved (§2)
+                        res["solved"] = False
     if check_proofs and os.path.exists(proof):
         os.unlink(proof)
     return res
@@ -314,7 +338,10 @@ def slurm_run_one(outdir, idx):
     try:
         res = run_instance(s["cmd"], t["rel"], t["staged"], t["expected"],
                            man["timeout"], s["check_proofs"], workdir,
-                           man["mem_gb"], s.get("score_proofs", True))
+                           man["mem_gb"], s.get("score_proofs", True),
+                           # older manifests predate the split: verifying was
+                           # unconditional, so default True for replayability
+                           s.get("verify_proofs", True))
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
     res["node"] = os.environ.get("SLURMD_NODENAME")
@@ -402,8 +429,9 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
            "slurm": {"partition": args.partition, "cpus_per_task": cpus,
                      "mem_per_cpu_gb": 8, "throttle": args.throttle},
            "solvers": [{"name": n, "cmd": resolve_cmd(c), "check_proofs": k,
+                        "verify_proofs": v,
                         "score_proofs": sc}
-                       for n, c, k, sc in solvers],
+                       for n, c, k, v, sc in solvers],
            "tasks": tasks}
     with open(os.path.join(outdir, "manifest.json"), "w") as f:
         json.dump(man, f, indent=2)
@@ -479,6 +507,12 @@ def main() -> int:
                     help="do not write/check proofs for the solver under "
                          "test (baseline-ablation arrays: every arm is a "
                          "reference solver, timed the way baselines are)")
+    ap.add_argument("--verify-baseline-proofs", action="store_true",
+                    help="run the checker over BASELINE proofs too. Off by "
+                         "default since 2026-08-03: a baseline's check is "
+                         "recorded and never scored, so it cannot change a "
+                         "verdict, and it was 67%% of Tier C checking "
+                         "wall-clock. Turn on for a submission-grade claim.")
     ap.add_argument("--no-baseline-proofs", action="store_true",
                     help="time baselines WITHOUT proof logging (pre-rev-72 "
                          "behaviour; the numbers are then not comparable to "
@@ -511,15 +545,19 @@ def main() -> int:
 
     sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"],
                          capture_output=True, text=True).stdout.strip()
-    # (name, cmd, check_proofs, score_proofs). Plan §8.1 rev 72: EVERY arm
-    # writes proofs; only ours is SCORED on the check (baselines are a
-    # performance reference — see run_instance's docstring).
-    solvers = [(name, shlex.split(args.solver), not args.no_check, True)]
+    # (name, cmd, check_proofs, verify_proofs, score_proofs). Plan §8.1 rev 72:
+    # EVERY arm WRITES proofs (a timing requirement — the tax is
+    # solver-specific). Only ours is VERIFIED and SCORED by default; a
+    # baseline's check cannot change a verdict, so since 2026-08-03 it is not
+    # run at all unless --verify-baseline-proofs asks for it. See
+    # run_instance's docstring for the measured cost.
+    solvers = [(name, shlex.split(args.solver), not args.no_check,
+                not args.no_check, True)]
     for a in args.checked_arm:
         if "=" not in shlex.split(a)[0]:
             sys.exit("error: --checked-arm needs an explicit label=<command>")
         aname, acmd = a.split("=", 1)
-        solvers.append((aname, shlex.split(acmd), True, True))
+        solvers.append((aname, shlex.split(acmd), True, True, True))
     for b in args.baseline:
         # `label=<command>` gives the arm an explicit name — required when
         # several arms share a leading token (`env VAR=x build/release/tactix`
@@ -529,7 +567,8 @@ def main() -> int:
             bname, b = b.split("=", 1)
         spec = BASELINES.get(b, b)
         solvers.append((bname or os.path.basename(shlex.split(spec)[0]),
-                        shlex.split(spec), not args.no_baseline_proofs, False))
+                        shlex.split(spec), not args.no_baseline_proofs,
+                        bool(args.verify_baseline_proofs), False))
     if len({s[0] for s in solvers}) != len(solvers):
         sys.exit("error: duplicate solver names; use --baseline label=<cmd>")
 
@@ -542,7 +581,7 @@ def main() -> int:
 
     all_results = {}
     any_bug = False
-    for sname, cmd, check_proofs, score_proofs in solvers:
+    for sname, cmd, check_proofs, verify_proofs, score_proofs in solvers:
         print(f"== {sname} on Tier {args.tier} "
               f"({len(entries)} instances, timeout {timeout:g}s, "
               f"jobs {args.jobs}) ==", flush=True)
@@ -550,7 +589,7 @@ def main() -> int:
             results = list(ex.map(
                 lambda e: run_instance(cmd, e[0], paths[e[0]], e[1],
                                        timeout, check_proofs, outdir,
-                                       mem_gb, score_proofs),
+                                       mem_gb, score_proofs, verify_proofs),
                 entries))
         summary, bug = summarize(sname, results, timeout,
                                  f"jobs={args.jobs}")
