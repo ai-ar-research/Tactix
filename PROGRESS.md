@@ -7,9 +7,22 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-03 (overnight) — plan revs 76–79. **T3's BOTH halves measured** (CaDiCaL 1.117×, Kissat **1.271×** on the subset — the kissat half is the binding phase-3 constraint). **Broad Factor admission measured and HELD** (Tier B 27/28, but Tier C 27/30). **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **`fclqcolor` located to Factor's ACCEPTANCE path** (saturates at 78 factorings across every scope). **Tier D built and frozen** (793). Baseline proofs written but no longer verified (rev 79).
 
-## ▶ RESUME HERE (2026-08-03) — phase 3; **next step = V6 Congruence's COST** (outcome is at parity)
+## ▶ RESUME HERE (2026-08-04) — phase 3; **next step = `fclqcolor`'s Factor ACCEPTANCE path** (a) below
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
+
+**▶ IN FLIGHT WHEN THE OVERNIGHT SESSION ENDED — check these FIRST.**
+- **Tier C noise-floor run, array `1580762` + aggregate `1580763`**, dir
+  `benchmarks/runs/20260804-030938-C-nf1`: **3 BIT-IDENTICAL arms** of `build/pin-sbgate/tactix` on an idle
+  partition, re-measuring the standing **~10.8 PAR-2** floor (the old one was taken under a ~1 h 12 m
+  overlap with another array, so it is an upper bound, not a floor). If it finished, read
+  `logs/aggregate.log`: the aggregate spread across the three arms IS the number, and it should replace the
+  floor quoted in MEASUREMENT HYGIENE below. If tasks are MISSING, resubmit those indices and re-run
+  `run.py --aggregate <dir>`.
+- **`D-LRAT-FALLBACK` is specified but NOT implemented** (task, and Open items). A **ready-to-apply patch**
+  with trigger, scope guard, cost and verification steps is at
+  the Open-items entry below (self-contained; the scratch copy under `$CLAUDE_JOB_DIR` is ephemeral).
+  **Apply only when no aggregate job is queued against `run.py`.**
 
 **WHERE WE STAND** (windows `20260803-211056-B` / `20260803-211105-C`, git `014e3b2`, every arm writing +
 checking DRAT, kissat arm on BOTH tiers). **Tier B 73.33 (26/28)** vs kissat 9.81 = **7.475×**.
@@ -22,7 +35,15 @@ inside the noise floor. Kissat half **1.271×** on the rule-neutral subset — N
 1.37× (07-27)**. On the subset we are **0.987× cadical**, i.e. already better than it. **The KISSAT half is
 the binding constraint on phase-3 exit**, and steering on cadical was steering on the easier baseline.
 
-**▶ THE NEXT STEP — V6 Congruence's COST: 7.6× kissat's congruence time for a comparable outcome.** V6 owns
+**▶ WHAT THE OVERNIGHT SESSION SETTLED (2026-08-03/04).** Broad Factor admission **measured and HELD**
+(Tier B 27/28, Tier C 27/30 — rev 78 never covers a lost solve). The mid-round C1/C2 budget was implemented,
+gated, and **REVERTED as measured-negative** (+1.7 B / +13.3 C PAR-2, no solves, both T3 halves worse).
+**Nothing shipped to the solver.** What landed is measurement capability: T3's instrument, Tier D (793),
+baseline proofs no longer verified (rev 79, ~2× faster Tier C runs), and four mechanism hypotheses killed
+before anything was built on them.
+
+**▶ THE V6 COST LEAD — second in line, and fully diagnosed.** 7.6× kissat's congruence time for a comparable
+outcome. V6 owns
 **32.9 % / 38.2 %** of the clock on `T87` / `T105` (~462 s across the two) — the largest single Tier C item.
 - **The outcome is AT PARITY — do not re-open it.** Per kind on T105: **AND 3,423 vs kissat's 4,348 (1.27×),
   XOR 268 vs 531, ITE 0 vs 18.** kissat's headline `congruent` BUNDLES a binary-clause equivalent-literal
@@ -444,6 +465,16 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   wall-clock checking it. **Fix:** on a scored arm whose DRAT check exhausts its budget, re-run with
   `--lrat` and verify with cake_lpr before calling the instance unsolved. Costs one re-solve plus a ~77 s
   check against 4800 s burned. Route: bench runner (and it subsumes the older "verify LRAT not DRAT" item).
+  **Implementation, self-contained:** the trigger is `check_proof`'s own message — it returns
+  `(False, "checker exceeded its {budget}s budget")` on timeout, and **only that** may trigger the fallback;
+  a genuine REJECTION (checker ran and said no) must still score unsolved, since that is a real N2 failure.
+  It must be a **re-SOLVE with `--lrat`, not a conversion** — turning DRAT into LRAT needs the same
+  drat-trim backward search that just timed out. Guard it to `score_proofs` arms (since rev 79 baselines are
+  not verified at all, so that implies our arm, whose CLI takes `--lrat`). Record the rescue in the result
+  (`proof_rescue`, `proof_rescue_time`) and surface a count in `summarize()`. **Verify by: (1) ctest; (2) a
+  targeted `tierC/urq45` probe that ASSERTS the rescue actually fired — a silent non-trigger is the
+  identical-artefacts trap; (3) confirming a genuinely rejected proof still scores unsolved, via the fuzz
+  corpus's deliberately-broken wrappers.**
 - **Filed by the 2026-08-03 doc audit** (details in the Log entry of that date):
   - **`D-STRENGTHEN-BUDGET`** — C1 Strengthen / SubsumeForward are the only inprocessing slot entries that are
     neither dosed nor budget-aware, and one round cannot be interrupted. C2 Strengthen owns **97.8 s of 109.0
