@@ -35,21 +35,24 @@ clock on `T87`/`T105`, ~462 s across the two.
   `COUNTER (congruent, 1, PCNT_VARIABLES, …)`) = **14,461 / 13,227**. **Real outcome gap 3.9× (T105) and
   3.3× (T87), not 182×.** The lever SURVIVES — 7.6× the time for ~3.9× fewer congruences is still the
   largest single Tier C item — but do not size the fix off the retracted figure.
-- **The defect is still the CLOSURE / KEY MATCHING, not extraction** — the cost/outcome ratio is ~30× either
-  way. But the corrected magnitude means "structurally identical XOR gates never collide at all" is now the
-  LESS likely reading; a 3.9× shortfall is compatible with partial canonicalization loss.
-- **Do this first — the discriminator, not a fix:** instrument the closure to count **key collisions
-  ATTEMPTED vs merges ACCEPTED, split by gate kind**, and compare against `congruent`, NOT
-  `congruent_matched`. If XOR keys collide but merges are rejected → the fault is in `add_equivalence` / the
-  proof chain. If they never collide → canonicalization, and C0's sign-absorption is the standing suspect
-  (`congruence.cpp`, the `base_parity`/`r` computation).
-- **Second, separate defect on the same instances: our ITE extractor is ~dead** — **2,068** gates against
-  kissat's **247,798**. C2's degenerate-ITE filter (Track C) is the first suspect. **But bound the payoff
-  before spending on it:** kissat MATCHES only **131** of its 247,798 ITEs, so closing this buys ~10² gate
-  matches against a 14,461-variable target. Diagnostic value (one rejection-reason counter), not a lever.
+- **▶▶ THE DISCRIMINATOR HAS RUN AND RESOLVED (probes 1579948/1579949, Log) — the fault is
+  CANONICALIZATION.** We emit ~27 M / ~39.7 M XOR gates and they collide **818 / 913 times (0.0030 % /
+  0.0023 %)**. `chain_fail = 0` on every kind on both instances, so **`add_equivalence` and the proof chain
+  are EXONERATED**; `stale = 0`, so the eviction policy is not it either. Structurally identical XOR gates
+  never meet on their key.
+- **▶ NEXT IS A FIX, NOT ANOTHER PROBE:** read C0's key construction against kissat's, at the point where the
+  XOR output's sign/parity is absorbed (`congruence.cpp`, `base_parity`/`r`). **Pre-registered prediction:**
+  if sign lands in the KEY rather than in `out_lit`, two gates over the same variable set with opposite
+  output parity are keyed apart, and the fix collapses `insert` into `collide` by orders of magnitude. The
+  funnel (`TACTIX_CONG_PROBE`) is the before/after instrument.
+- **ITE IS DEAD — do not spend on it.** It draws **ZERO** merges from the 2,076 / 2,292 gates that reach
+  canonicalize (2,016 / 2,216 are `canon_skip`), consistent with kissat matching only 131 of its own 247,798.
+  The earlier "our ITE extractor is ~dead, C2's filter is the suspect" line is correct but is a rounding
+  error, not a lever.
 - **ALREADY REFUTED, do not redo:** "extraction volume is the anomaly" (kissat extracts the same order);
   arity caps (`CONG_XOR_ARITY` 4 = kissat's; our AND cap 64 ≪ kissat's 1e6); a round/effort budget (16 and 11
-  rounds, and NEITHER solver meters congruence by effort — kissat's controls are structural).
+  rounds, and NEITHER solver meters congruence by effort — kissat's controls are structural); **the proof
+  chain / `add_equivalence` (`chain_fail = 0`, measured)**; **the stale-key eviction policy (`stale = 0`)**.
 
 **THEN, in order** — re-ranked by the 2026-08-03 audit, which corrected one mis-filing (`or_randxor` was
 listed as pure-search; it is rule-SCOPE with a twice-measured fix), bounded three items that were listed
@@ -820,6 +823,47 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-03 — ▶▶ V6's DISCRIMINATOR RESOLVES: XOR gates collide **0.003 % of the time** — the fault is CANONICALIZATION, and the proof chain is EXONERATED
+Probes 1579948 (`T105.2.0`) / 1579949 (`T87.2.0`), the closure funnel added in `014e3b2`
+(`TACTIX_CONG_PROBE`). The resume block posed a two-branch discriminator; **it lands unambiguously on
+branch 2, and both instances give the same shape.**
+
+| T105 | canon_ok | insert | **collide** | stale | already_eq | **chain_fail** | merged |
+|---|---|---|---|---|---|---|---|
+| and | 26,397,263 | 26,350,881 | 46,382 | 0 | 42,959 | **0** | 3,423 |
+| xor | 26,976,595 | 26,975,777 | **818** | 0 | 550 | **0** | 268 |
+| ite | 60 | 30 | 30 | 0 | 30 | **0** | **0** |
+
+| T87 | canon_ok | insert | **collide** | stale | already_eq | **chain_fail** | merged |
+|---|---|---|---|---|---|---|---|
+| and | 38,994,960 | 38,948,080 | 46,880 | 0 | 43,225 | **0** | 3,655 |
+| xor | 39,660,474 | 39,659,561 | **913** | 0 | 612 | **0** | **301** |
+| ite | 76 | 38 | 38 | 0 | 38 | **0** | **0** |
+
+- **▶▶ THE FINDING: we emit ~27 M / ~39.7 M XOR gates and they collide 818 / 913 times — 0.0030 % and
+  0.0023 %.** Structurally identical XOR gates essentially NEVER meet on their key. **The fault is in the
+  KEY / CANONICALIZATION**, and C0's sign absorption (`base_parity`/`r`) is now the only standing suspect.
+- **`chain_fail = 0` ON EVERY KIND, BOTH INSTANCES — `add_equivalence` and the proof chain are EXONERATED.**
+  That was the other branch of the discriminator and it is dead: not one inference is being dropped for
+  want of a checkable chain. (Consistent with `congruence_unjustified` reading 0 on both runs.)
+- **`stale = 0` everywhere** — the evict-on-stale-key policy is eating nothing; not a lever.
+- **AND collides ~58× more often per gate than XOR** (0.176 % vs 0.0030 % on T105) — so whatever the key
+  defect is, it is far worse for XOR, which is also 50.5 % of our emission volume. And **93 % of AND
+  collisions are `already_eq`** (42,959 of 46,382): even when AND keys DO meet, the outputs are usually
+  already in one class, i.e. that work was genuinely redundant.
+- **ITE draws ZERO merges** from 2,076 / 2,292 gates that reach canonicalize (2,016 / 2,216 of them
+  `canon_skip`). It is a rounding error, not a lever — consistent with kissat matching only 131 of its own
+  247,798 ITEs. **Do not spend on the ITE extractor.**
+- **A structural hint worth carrying into the fix:** the absolute collision counts barely move between the
+  two instances (AND 46,382 vs 46,880; XOR 818 vs 913) although T87 emits **1.5× more gates**. Collisions do
+  not scale with emission volume, which is what you would expect if they come from a small structural core
+  and the rest of the emission is keyed apart by something that should not be in the key.
+- **NEXT (a real fix now, not a probe):** read C0's key construction against kissat's, specifically where the
+  XOR output's sign/parity is absorbed. The prediction to pre-register: if sign lands in the KEY rather than
+  in `out_lit`, then two gates over the same variable set with opposite output parity are keyed apart, and
+  the fix collapses `insert` into `collide` by orders of magnitude. Measure the funnel before/after — it is
+  now the instrument for exactly this.
 
 ### 2026-08-03 — ▶ MY ERROR: I rebuilt the binary two in-flight arrays were executing; both runs cancelled and redone
 Recorded because it is the [[s4-gate-negatives]] build-race hazard and I walked straight into it **while
