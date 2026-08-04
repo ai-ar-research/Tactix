@@ -997,90 +997,18 @@ exceeds 25 % — the test single-shot data could not support. Analysis `tools/be
   config differ by a median **1.9 s**, against **2.8 s** between two checked arms.
 
 ### 2026-08-04 — ▶▶ D-STRENGTHEN-BUDGET: interruptible C1/C2 is MEASURED NEGATIVE, default REVERTED
-Same-window A/B via the `TACTIX_NO_MIDROUND_BUDGET` hatch (windows `20260803-231532-B` /
-`20260803-231548-C`). Report `benchmarks/reports/2026-08-04-midround-budget-negative.md`.
-
-| | Tier B | Tier C | subset | ×cad | ×kis (subset) |
-|---|---|---|---|---|---|
-| **midbudget** (interruptible) | 72.22 (26/28) | **366.58** (29/30) | 342.41 | 1.177× | 1.323× |
-| **nomb** (pre-change) | **70.51** (26/28) | **353.26** (29/30) | 330.98 | 1.134× | 1.278× |
-
-- **Costs ~1.7 (B) and ~13.3 (C) PAR-2, gains no solves, and worsens BOTH T3 halves.** Default reverted to
-  OFF (`TACTIX_MIDROUND_BUDGET=1` enables).
-- **Inert on its own sentinel:** `DivS_862_11` **102.4 s on vs 103.2 s off**, where C2 owns 89.7 % of the
-  solve. **Mechanism:** at 100 per mille the budget binds ~once per solve and a stopped round just DEFERS its
-  candidates to the next round — the work is rescheduled, not saved.
-- **The DOSE axis is live where interruptibility is dead:** 1 per mille takes DivS to **11.5 s** with the
-  slot at 33.1 % instead of 98.3 %. Ledger row re-scoped from "make C1/C2 interruptible" to "**dose** C1/C2"
-  and moved back to Open; the mechanism and the `c budgetstop` reachability counter stay as a §5.6 arm.
-- **Two traps, both walked into and out of.** (i) The motivating probe read DivS at 80.1 s against
-  cross-window numbers — an apparent −25 % that the one-window hatch measured as **−0.8 %**. A hatch costs
-  minutes; a cross-window read costs a wrong default. (ii) The fuzz leg built to make coverage non-vacuous
-  WAS vacuous — verdicts **5715/270/4015** against the control's **5715/271/4014**, because on tiny
-  instances the budget computes to 0 and the guard short-circuits. **Real coverage = the two tier gates**
-  (58 instances, every UNSAT proof-checked, no mismatch, no rejection). Logs committed as the evidence for
-  that vacuity claim: `tools/fuzz/slurm-sbbudget-1580077.log`, `slurm-sbbudget-lrat-1580078.log`,
-  `slurm-sbtiny-1580095.log`.
-- Also landed alongside: `c strengthen` now has a stats line (it had none), and `c budgetstop` reports
-  rounds cut short.
-
-### 2026-08-03 — ▶▶ V6 COST PROFILED: it is EXTRACTION + the SmallKey index, NOT the closure table
-`perf record -F 199` over a full `T105.2.0` solve (job 1580096, `build/pin-sb`, RelWithDebInfo). Self-time
-shares over the whole solve; V6 is ~38 % of that clock.
-
-| symbol | self | attribution |
-|---|---|---|
-| `propagate_literal<false>` | 24.33 % | search + probing (not V6) |
-| `reduce_source` | 14.72 % | S6 Walk (not V6) |
-| **`congruence_extract_gates`** | **6.13 %** | **V6 extraction** |
-| **`SmallKey` hashtable `_M_find_before_node`** | **5.88 %** | **V6 small-clause index / dedup sets** |
-| **`sorted_keys` + its introsort** | **5.44 %** | **V6 — sorting the index keys, every round** |
-| allocator (`_int_malloc`, `malloc_consolidate`, `_int_free`, …) | **~13.6 %** | spread across everything |
-| `SmallKey` `find` / set find / set insert | 2.28 % | V6 |
-| **`InputsHash` (the vector-keyed CLOSURE table)** | **0.80 % + 0.41 % rehash** | **V6 — and it is NOT the cost** |
-| `congruence_extract` / `congruence_apply` | 1.10 % | V6 |
-
-- **▶▶ MY STRUCTURAL HYPOTHESIS IS REFUTED.** The lead recorded earlier — that the closure's
-  `std::unordered_map<std::vector<Lit>, uint32_t>` (`congruence.cpp:1242`) was the per-gate cost, by analogy
-  with probe 1562991's ~30 % vector-key finding — is **1.2 % of the solve**. Swapping it for a
-  small-buffer key would buy approximately nothing. **Do not do it.**
-- **What the cost actually is:** **extraction (6.1 %)** plus **the `SmallKey` machinery that supports it
-  (~13.6 %: 8.2 % lookups + 5.4 % sorting)**. `sorted_keys` alone — sorting the small-clause index before
-  each XOR extraction pass — is **5.4 %**, larger than the closure table by 4×. We do that 13 rounds.
-- **This re-points the 2.89× VOLUME factor at extraction**, and lines up with the unit-channel finding: kissat
-  RETIRES value-resolved gates while we re-extract and re-canonicalize them every round. The cheapest test is
-  whether gate volume per round falls once resolved gates are dropped.
-- **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
-
-### 2026-08-03 — ▶ D-STRENGTHEN-BUDGET closed: C1/C2 stop mid-round (reachability proven, tier gate pending)
-Strengthen and SubsumeForward were the only two `EFFORT_SPECS` entries with `dosed=false` AND
-`budget_aware=false` (`default_policy.cpp:295-296`), so their 100 per mille budget bounded how OFTEN a round
-started and never how much one round did. Both now poll `Kernel::work_budget` in their own currency
-(`strengthen_checked` / `forward_checked`) and break out of the candidate loop — the Vivify/Factor idiom.
-Stopping early is sound and loses no work: survivors stay candidates and the next round re-derives them.
-Guards and the single-candidate `apply_instance` surfaces are untouched, so N1 is unaffected.
-- **REACHABILITY PROVEN, not assumed.** New counter `c budgetstop` (`stats.budget_stops_c1/_c2`) exists
-  because a `break` that never executes makes every green fuzz leg vacuous for this change
-  ([[ab-arm-identical-artefacts]]). On the sentinel `DivS_862_11` at the DEFAULT budget it reads
-  **1 C1 round, 1 C2 round stopped mid-round** — the budget binds without any dosing knob.
-- **▶▶ THE SENTINEL EFFECT DID NOT SURVIVE A CONTROLLED A/B.** The single probe read `DivS_862_11` at
-  **80.1 s** against 110.8–127.1 s "across recent windows" — a cross-window comparison, which is exactly the
-  L6/L12 trap. **Same-window A/B (`20260803-231532`, hatch `TACTIX_NO_MIDROUND_BUDGET=1`): DivS is 102.4 s
-  budget-aware vs 103.2 s without — inert on its own sentinel.** Tier B overall **72.22 vs 70.51 (26/28
-  both)**, i.e. the change COSTS ~1.7 PAR-2 and buys nothing measurable there; the largest single move is
-  `veer_axi` +35.2 s. Forcing 1 per mille still takes DivS to 11.5 s, so the DOSE is a real lever — but
-  making the default round interruptible at 100 per mille is not, because one stopped round just defers the
-  work to the next.
-- **Verdict pending Tier C**; on Tier B alone this does not earn its place.
-- **Fuzz is green but VACUOUS for this change — say so rather than claim coverage.** DRAT 10,000/0, native
-  LRAT + `--random-policy` 10,000/0, and a third leg with `TACTIX_SLOT_PERMILLE=Strengthen:1,
-  SubsumeForward:1`. The third was meant to force the break; its verdict distribution is
-  **SAT 5715 / TO 270 / UNSAT 4015 against the default leg's 5715 / 271 / 4014** — near-identical, the
-  [[ab-arm-identical-artefacts]] signature. Cause: on tiny fuzz instances the budget computes to 0 and the
-  guard is `if (k.work_budget && …)`, so the break never fires. **The real soundness coverage for the
-  mid-round break is the two tier gates** — 58 real instances, every UNSAT proof-checked, no mismatch and no
-  rejection. ctest 38/38.
-- Ledger row moved Open → Closed in `docs/implementation-notes.md`.
+Same-window A/B via the `TACTIX_NO_MIDROUND_BUDGET` hatch. **Tier B 72.22 vs 70.51 · Tier C 366.58 vs
+353.26**, identical solves (26/28, 29/30), both T3 halves worse — and **inert on its own sentinel**
+(`DivS_862_11` 102.4 s on vs 103.2 s off, where C2 owns 89.7 % of the solve). **Mechanism:** at 100 per mille
+the budget binds ~once per solve and a stopped round just DEFERS its candidates to the next round — the work
+is rescheduled, not saved. **The DOSE axis is live where interruptibility is dead** (1 per mille → DivS
+11.5 s), so the mechanism stays behind `TACTIX_MIDROUND_BUDGET=1` as a §5.6 arm and the ledger row is
+re-scoped to "**dose** C1/C2". Kept: the `c strengthen` stats line (it had none) and the `c budgetstop`
+reachability witness. **Two method traps, both caught:** the motivating probe's 80.1 s "win" was
+cross-window and measured **−0.8 %** once both arms ran in one window; and the fuzz leg built to make
+coverage non-vacuous **was itself vacuous** (verdicts 5715/270/4015 vs the control's 5715/271/4014 — on tiny
+instances the budget computes to 0 and the guard short-circuits), so the real coverage is the two tier
+gates. Full detail: `benchmarks/reports/2026-08-04-midround-budget-negative.md`.
 
 ### 2026-08-03 — ▶▶ `fclqcolor` LOCATED: our Factor OFFERS the widened candidates and ACCEPTS almost none
 Probes 1580079–1580084 (`benchmarks/probes/fclq-factor-2026-08-03.sh`), single instance, 300 s cap. The last
