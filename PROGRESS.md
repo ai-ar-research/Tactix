@@ -856,8 +856,10 @@ The one per-kind outcome gap left after gate matching measured at parity: `congr
 - **The 2,231 OVERSTATES the gap — one channel is a different rule of ours.** kissat's `find_units`
   (`congruence.c:4029-4079`) is a standalone depth-1 binary-clause failed-literal scan; **V1 Probe does the
   full failed-literal test over the same candidate set** (`probe.cpp:20-41`), counted as `probe_failed`. Same
-  bundling as `congruent_equivalences` → V3 Substitute. **Probe 1580094 splits kissat's 2,231 into
-  `find_units` vs the propagated residual; size nothing until it lands.**
+  bundling as `congruent_equivalences` → V3 Substitute. **Split MEASURED (probe 1580094, `-v -v` on T105):
+  `find_units` contributes 844, the propagated residual 4,222** — so the V1-Probe-equivalent channel is only
+  ~17 % of the total. **Unlike `congruent_matched` and `congruent_equivalences`, this gap is NOT mostly a
+  scope artefact**, and the value-driven propagation is where it lives.
 - **Not a proof-obligation loss.** `congruence_unjustified` is **0** on both instances, and it is the single
   counter behind both D-CONG-SKIP and D-CONG-TAUT — so those deviations drop NOTHING here. The missing units
   are never attempted, not deliberately skipped.
@@ -919,9 +921,25 @@ Tier B timeout once broad admission ships — worth ≈−19.5 PAR-2 and the 28t
   scope are worth **93 % of its conflicts** (13.73 M → 0.92 M). **The bottleneck is the acceptance / delta
   contest, not the scope**, and the counters are like-for-like (both increment once per applied factoring:
   `kissat/src/factor.c:825`, `factor.cpp:872`).
-- **Next:** the acceptance path — the per-seed grid delta contest and `Kernel::factor_bound` (default 0 =
-  "any positive gain", already MORE permissive than kissat's `reduction > bound`, so permissiveness is not
-  the blocker). The 27×27 grid cap is structural (S2a) and is the first thing to price. Route: **rule-dev**.
+- **▶▶ APPLIED FACTORINGS SATURATE AT 78, INDEPENDENT OF SCOPE** (probes 1580089–1580093, same instance):
+
+  | `factor_size` | 3 | 5 | 7 | 9 | +`factor_bound=1` |
+  |---|---|---|---|---|---|
+  | large remainders OFFERED | 42,471 | 42,471 | 42,681 | 51,417 | 46,859 |
+  | **factorings APPLIED** | **78** | **78** | **78** | **78** | 67 |
+  | conflicts (M) | 10.85 | 11.46 | 10.90 | 10.95 | 10.33 |
+
+  Widening the scope raises what the grid OFFERS by 21 % and changes what it APPLIES by **zero** — a hard
+  ceiling in the acceptance path, not a scope shortfall, and why `factor_size` 2 → 5 was a Tier C win that
+  bought nothing here. (The `size2` arm reads 0 because broad admission is itself scope-keyed: at size 2 only
+  21.4 % of fclq's clauses are in scope, under the 50 % threshold, so Factor is never admitted. That arm is
+  confounded and is NOT comparable to kissat's `--factorsize=2`.)
+- **The asymmetry it exposes:** kissat restricted to binaries still applies **80** factorings where our
+  binary path applies **0**. Both our binary and our widened path differ from kissat's.
+- **Next:** price the **27×27 grid cap** (S2a, structural) FIRST — a hard ceiling at 78 across four scopes is
+  what a structural cap looks like. `Kernel::factor_bound` is NOT the blocker (default 0 = "any positive
+  gain" is already more permissive than kissat's `reduction > bound`, and forcing 1 *lowers* applications to
+  67). Route: **rule-dev**.
 
 ### 2026-08-03 — ▶▶ V6 Congruence: gate matching is AT PARITY; the gap is COST (7.6×) and the UNIT channel
 Probes 1579464 (both solvers' timings), 1579467/1579468 (gate-kind splits), 1579948/1579949 (our closure
