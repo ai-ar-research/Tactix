@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 79 (2026-08-03)
+- **Plan revision tracked:** rev. 80 (2026-08-04) — **N4, the strategy floor**, is now a non-negotiable
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-04 late — plan revs 76–79. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run.
 
@@ -549,7 +549,8 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-03 (window `20260803-2110`): Tier B(28) 73.33 vs kissat 9.81, 26/28 = 7.475×. Tier C 350.56 vs cadical 313.75 = 1.117×, and vs KISSAT 228.48 = 1.534×.** T3's CaDiCaL half misses by 0.017 (inside the noise floor); its **Kissat half is 1.271× on the rule-neutral subset, improved from 1.37× and now the binding phase-3 constraint** — on that subset we are 0.987× cadical, i.e. better than it. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (`benchmarks/tiers/D.list`, 793 instances, rev 79) — never yet RUN, and running it is a phase-3-exit prerequisite (§11 O9). |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-04 (window `20260804-1543`, git `6018366`): Tier B(28) 86.51 (25/28) vs kissat 9.78 · Tier C 309.05 (29/30) vs kissat 230.74 and cadical 312.02.** T3 halves: **kissat subset 1.346×** (the binding phase-3 constraint; was 1.271× pre-TB4b), cadical subset 1.069× / full tier 0.990×. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (`benchmarks/tiers/D.list`, 793 instances, rev 79) — never yet RUN, and running it is a phase-3-exit prerequisite (§11 O9). |
+| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80, user 2026-08-04) | ✗ **KNOWN UNMET — the scheduling-parity ledger does not exist yet and building it is live work (see the resume anchor).** Two confirmed gaps already: (a) `Kernel::factor_bound` IS kissat's `reduction > bound` acceptance test but defaults to 0 and is **never coupled to elimination progress** (kissat ramps it 0→1→2→4→8→16, `factor.c:72/939`); (b) our `binaries ≥ 6·vars` Factor admission gate has **no counterpart in either reference** and measured **worse than no gate at all** on Tier B (86.42 vs 34.59 for always-admit; oracle 32.25; −3 solves). N4 is a *mechanism* floor — it may not be discharged by a tier number, and never deferred to §5.6. |
 
 ## Milestone gates (plan §8.3)
 
@@ -917,6 +918,26 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-04 late — plan rev 80: **N4, the strategy floor**, is now a non-negotiable
+User directive after observing this as a repeating theme. §1.1 gains a FOURTH non-negotiable:
+**DefaultPolicy's SCHEDULING of the proof rules — order, effort budgets, warm-ups, watermarks,
+acceptance bounds and their ramps, and the couplings between them — must be at least as sophisticated
+as Kissat's default strategy, preferably more.**
+- **N3 measures the OUTCOME; N4 constrains the MECHANISM.** A rule scheduled more crudely than Kissat
+  schedules its counterpart is an *unmet requirement, not a tuning question*, and **may not be deferred
+  to the phase-6 learner** — §5.6 exists to exceed a reference-strength strategy, never to excuse a
+  weaker one.
+- **Made checkable by the scheduling-parity ledger** (N4's operational test): per Kissat scheduling
+  mechanism, either an at-least-as-strong analogue or a deviation-ledger row with a named closer.
+  Reviewed at every phase gate; an empty or stale ledger is itself a finding. **It does not exist yet.**
+- **§5 gains obligation 5**, the scheduling analogue of rev 77, naming the two shapes that have actually
+  shipped: **(a) we own the mechanism but never wire it** — the more dangerous, because the mechanism's
+  presence makes the gap invisible to a reader and to `grep`; **(b) we substitute an instance-level gate
+  for a per-application quality bound.**
+- Strengthening only: N1–N3 unchanged. R4 now points at N4. Living `N1–N3` references updated to
+  `N1–N4` across the plan, CLAUDE.md, `docs/README.md`, `docs/calculus.md` and six skills (the §13
+  history entries and frozen design docs keep their original wording, as records).
 
 ### 2026-08-04 late — ▶▶ BROAD FACTOR ADMISSION: HELD, and the `j3037` veto RETIRED
 Item (a) closed. Report `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md`; one same-window

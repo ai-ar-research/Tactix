@@ -99,7 +99,7 @@ For each finding, exactly one outcome, written down:
   quick fuzz including ≥1 random-policy round + (when solver code was touched)
   Tier A and the determinism check (identical stats on repeated runs). Performance
   must not regress — spot-check the Tier B reference instance if the change is
-  near the hot path. **N1–N3 are never traded for simplicity; when in doubt
+  near the hot path. **N1–N4 are never traded for simplicity; when in doubt
   whether an API or proof path is load-bearing, it is.**
 - **Keep, with reason.** It looks removable but isn't (N1 surface, a proof
   obligation, performance-load-bearing per a profile, a future phase item already

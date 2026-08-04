@@ -90,6 +90,6 @@ that genuinely *consumes* that flag (`Analyze` consumes `conflict_valid`).
   (`add_rup` / `add_derived_unit` / `add_empty` / `del` / `push_witness` /
   none) — including the LRAT-vs-DRAT asymmetries (e.g. a failed-literal unit is
   `add_rup`, not `add_derived_unit`, so DRAT sees it).
-- The calculus never weakens N1/N2/N3: it *documents* deviations so they can be
+- The calculus never weakens N1/N2/N3/N4: it *documents* deviations so they can be
   removed, and a removal only lands with the fuzz + corpus evidence that the
   relaxed guard stays sound.

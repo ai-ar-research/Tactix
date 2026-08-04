@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-03 (rev. 79). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-04 (rev. 80). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -35,7 +35,9 @@ Build a CDCL SAT solver that:
    rules are currently applicable* and *apply a chosen rule instance*. Rule order
    must not be hardcoded into the kernel.
 4. **R4 — Automatic policy.** A default policy object schedules rule applications so
-   the system behaves as a state-of-the-art CDCL solver with inprocessing.
+   the system behaves as a state-of-the-art CDCL solver with inprocessing. *"State
+   of the art" is not a figure of speech: the scheduling itself must be at least as
+   sophisticated as Kissat's default strategy — **N4**, §1.1.*
 5. **R5 — Performance that exceeds Kissat (by engineering, before learning).** The
    engineering constraint that dominates the whole design: with the default policy
    — through engineering ingenuity, *before* any learned policy — the solver must
@@ -49,7 +51,7 @@ Build a CDCL SAT solver that:
 
 ### 1.1 Non-negotiables
 
-Three requirements can never be compromised; every design decision, plan
+Four requirements can never be compromised; every design decision, plan
 revision, and merge is checked against them (see also the revise-plan skill):
 
 - **N1 — Universal rule applicability through the API.** At any solver state,
@@ -74,9 +76,45 @@ revision, and merge is checked against them (see also the revise-plan skill):
   by the strengthened T4, §8.3. N3 is the minimum; T4 is the target.)*
   Flexibility never excuses a slow default: if an abstraction costs the default
   policy real performance, the abstraction gets redesigned, not the target.
+- **N4 — Scheduling sophistication (the strategy floor; rev 80, user
+  2026-08-04).** DefaultPolicy's **scheduling of the proof rules** — when each
+  rule runs, in what order, how much effort it gets, how its acceptance
+  thresholds move over the solve, and how those choices are **coupled to each
+  other** — must be **at least as sophisticated as Kissat's default strategy,
+  and preferably more.** Owning the rule *inventory* is not the requirement;
+  N3 measures the outcome, N4 constrains the mechanism that produces it. A rule
+  we schedule more crudely than Kissat schedules its counterpart is an **unmet
+  requirement, not a tuning question**, and it may not be deferred to the
+  phase-6 learner: §5.6 exists to *exceed* a reference-strength strategy, never
+  to excuse a weaker one.
+  *Operational test (this is what makes N4 checkable rather than aspirational).*
+  For every scheduling mechanism in Kissat's default — effort budgets and how
+  they are scaled, warm-ups/delays, new-material watermarks, per-application
+  acceptance bounds **and the way those bounds ramp**, and every coupling
+  between two mechanisms — DefaultPolicy must either implement an analogue that
+  is at least as strong, **or** carry a row in the engineering-deviation ledger
+  (`docs/implementation-notes.md`) naming the gap and its closer. The inventory
+  of those mechanisms and our counterpart status is the **scheduling-parity
+  ledger**; it is reviewed at every phase gate, and an empty or stale ledger is
+  itself a finding.
+  *And the failure mode this exists to stop:* replacing a reference mechanism
+  with a **cruder stand-in of our own invention** — most sharply, substituting a
+  formula-shape **admission gate** ("should this rule run on this instance?")
+  for a per-application **quality bound** ("is this particular application worth
+  it?"). That is a **defect** under §5 obligation 4, not a §5.6 arm. Exhibit
+  (measured 2026-08-04): Kissat accepts a factoring only when
+  `reduction > bound` with the bound doubling 0→1→2→4→8→16 as elimination grows
+  more permissive, so it bounds *damage per grid*; we accept any positive gain
+  forever and bound *opportunity per instance* with a `binaries ≥ 6·vars` gate
+  that has no counterpart in Kissat or CaDiCaL — and that gate measured **worse
+  than having no gate at all** on Tier B (86.42 vs 34.59 PAR-2 for always-admit,
+  against a per-instance oracle of 32.25), costing three solves.
 
 Trade-off ordering when goals conflict: soundness of N1/N2 first, then N3, then
-everything else. What's special about this tool is efficiently enabling N1. The
+N4, then everything else. (N4 is instrumental to N3 and R5 rather than a rival
+goal — it says *how* the floor is to be reached — so the two should rarely
+conflict; when they appear to, the usual cause is a crude mechanism that happens
+to score well on the current tier, which is exactly the case N4 governs.) What's special about this tool is efficiently enabling N1. The
 static default may specialize aggressively — acceptable — but not by making the
 API unavailable (N1) or by skipping proof emission (N2).
 
@@ -321,7 +359,7 @@ Design commitments:
   verbatim; attribute (Kissat is MIT). Four obligations when adopting a technique or scheme:
   1. *Adopt on argument, not by default.* "Kissat does it this way" is never sufficient: state
      (commit message or code comment) why the approach fits *this* architecture — the §5.3
-     contract, N1–N3, our data structures — and where our design points elsewhere, deviate
+     contract, N1–N4, our data structures — and where our design points elsewhere, deviate
      deliberately and record why (precedent: Analyze runs at the conflict's max level, not the
      current decision level, because N1 admits schedules Kissat never sees). Adopting unchanged is
      often the conclusion — never the reflex.
@@ -357,6 +395,20 @@ Design commitments:
      (−8.45 PAR-2, `veer_axi` TO → 238.7 s). Corollary: "it is a defect, not an arm" — an
      approximation of a known mechanism is not a §5.6 dosing question and must not be parked there.
      This is the operative guideline for **phase 3**.
+  5. *The same rule binds the SCHEDULING layer, and that is where it keeps being broken
+     (rev 80, user 2026-08-04).* Obligation 4 is usually read as being about a rule's internals;
+     **N4 (§1.1) extends it to the strategy** — the budgets, warm-ups, watermarks, acceptance
+     bounds, their ramps, and above all the **couplings between mechanisms**. Two recurring shapes
+     to check for by name, because both have shipped: (a) **we own the mechanism but never wire
+     it** — `Kernel::factor_bound` is Kissat's `reduction > bound` acceptance test, present since
+     E2 and documented as such (`main.cpp:275`), yet it defaults to 0 and *nothing in the codebase
+     ever couples it to elimination progress* the way `factor.c:72/939` does; (b) **we substitute a
+     gate for a bound** — an instance-level formula-shape switch standing in for a per-application
+     quality test (the `binaries ≥ 6·vars` Factor gate). Shape (a) is the more dangerous, because
+     the mechanism's *presence* in the code makes the gap invisible to a reader and to `grep`.
+     When either is found, the fix is the reference-strength mechanism, and the crude stand-in is
+     **deleted rather than tuned**. Record every open instance in the **scheduling-parity ledger**
+     (N4's operational test) so the gap is visible without re-deriving it.
 
 ### 5.1 The public API (v1, C level — frozen at the phase-2 review, rev 20)
 
@@ -638,7 +690,7 @@ kernel-reaching, or (c) fuzz / invariant-checker findings cluster around one des
 
 Execution follows the **revamp skill** (evidence → mini-design with a measurable success criterion →
 green base → one coherent unit → full two-policy revalidation → revert as a first-class outcome).
-N1–N3 are never weakened by a revamp — if the best design appears to require that, it is a
+N1–N4 are never weakened by a revamp — if the best design appears to require that, it is a
 revise-plan discussion, not a rewrite. Precedents: per-literal watch vectors → flat watch arena
 (2.4× single-instance speedup); scheduling budgets fused into guards → guard/advised split (restored
 N1); the inprocessing revamp (`docs/design/inprocessing-revamp-design.md`, report
@@ -658,7 +710,7 @@ owning the checklist and procedure (inventory → judge each finding: simplify n
 recorded reason / escalate to §5.4 → dedicated behavior-preserving commits → full revalidation). Two
 hard constraints live here, not in the skill: **the N1 API surface is never "speculative
 generality"** — deleting "unused" rule-introspection/application capability is an N1 violation, not
-a simplification — and N1–N3 are never traded for simplicity. Distinction from §5.4: a revamp
+a simplification — and N1–N4 are never traded for simplicity. Distinction from §5.4: a revamp
 *changes structure* to buy performance or contract fit; simplification *removes what no longer earns
 its place* without changing behavior.
 
@@ -1334,3 +1386,4 @@ conflate them.
 - **rev. 77** (2026-08-02, user): §5 gains a FOURTH reference obligation — no crude approximations of an understood mechanism; implement what is known to match or exceed Kissat, or ship the approximation with a stated reason AND a named closing action item in the engineering-deviation ledger. The operative guideline for phase 3. Exhibit: V3's per-ROUND hazard skip (a "future refinement" note with no action item) discarded all 179,110 of `veer_axi`'s equivalences over 0.07 % hazardous literals and cost a Tier B solve. No N1–N3 change.
 - **rev. 78** (2026-08-02, user): §8.3 — when #solved and PAR-2 conflict, **#solved wins**; a change gaining solves without losing any is banked even if the PAR-2 cost pushes a gate ratio outside its band, provided the cost is measured, reported and given a named closer (§5 obligation 4). Losing a solve is never covered. N3/T4 unchanged. First application: R-d retirement (Tier B −34.19 PAR-2, **+2 solves**; Tier C 1.039× → 1.129× cadical, three instances, closer named).
 - **rev. 79** (2026-08-03): §8.1 — (a) baselines WRITE proofs but are **no longer VERIFIED by default**; writing is the like-for-like timing requirement, while verifying a baseline's certificate cannot change a verdict (the scoring asymmetry already discards its outcome) and cost **67 % of Tier C checking wall-clock**, the longest task in the window being drat-trim on kissat's proof. `--verify-baseline-proofs` opts back in; OUR arms' checker budget is unchanged. (b) Tier D built and frozen at **793** instances, not 800 — 7 appear in both SC tracks and GBD is content-addressed, so each track's 400 is reconstructible as shared(7) + track-only(393); Tier D overlaps Tiers B and C, so it is not independent confirmation. No N1–N3 change.
+- **rev. 80** (2026-08-04, user): §1.1 gains a FOURTH non-negotiable — **N4, the strategy floor**: DefaultPolicy's *scheduling* of the proof rules (order, effort budgets, warm-ups, watermarks, acceptance bounds and their ramps, and the couplings between them) must be **at least as sophisticated as Kissat's default strategy, preferably more**. N3 measures the outcome; N4 constrains the mechanism, and it may not be deferred to the phase-6 learner (§5.6 exists to exceed a reference-strength strategy, never to excuse a weaker one). Made checkable by the **scheduling-parity ledger** — per Kissat scheduling mechanism, either an at-least-as-strong analogue or a deviation-ledger row with a named closer — reviewed at every phase gate. §5 gains obligation 5 (the scheduling analogue of rev 77) naming the two shapes that have actually shipped: *we own the mechanism but never wire it* (`Kernel::factor_bound` IS Kissat's `reduction > bound` but defaults to 0 and is never coupled to elimination progress) and *we substitute a gate for a bound* (the `binaries ≥ 6·vars` Factor admission gate, which has no counterpart in either reference and measured **worse than no gate at all** on Tier B — 86.42 vs 34.59 PAR-2, three solves). R4 now points at N4. Strengthening only: N1–N3 are unchanged.

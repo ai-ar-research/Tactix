@@ -11,7 +11,7 @@ one-off edits.
 
 ## The non-negotiables — check FIRST, before editing
 
-These three requirements (plan §1.1) can never be weakened, reordered below
+These four requirements (plan §1.1) can never be weakened, reordered below
 other goals, deferred out of the plan, or made optional by a revision:
 
 1. **N1 — Universal rule applicability.** Any proof rule whose guard holds is
@@ -22,8 +22,20 @@ other goals, deferred out of the plan, or made optional by a revision:
    DRAT/LRAT certificates and competition-format output.
 3. **N3 — Kissat-comparable mode.** At least one shipped policy (DefaultPolicy)
    reaches performance comparable to Kissat (T4 gate: parity on Tier D, §8.3).
+4. **N4 — Scheduling sophistication (the strategy floor).** DefaultPolicy's
+   *scheduling* of the proof rules — order, effort budgets, warm-ups,
+   watermarks, acceptance bounds and their ramps, and the couplings between
+   them — is at least as sophisticated as Kissat's default strategy. N3
+   measures the outcome; N4 constrains the mechanism. A rule scheduled more
+   crudely than Kissat schedules its counterpart is an unmet requirement, not
+   a tuning question, and never a §5.6 arm. Checked via the
+   **scheduling-parity ledger** (§1.1): per Kissat mechanism, either an
+   at-least-as-strong analogue or a deviation-ledger row with a named closer.
+   Watch for the two shapes that have shipped — *we own the mechanism but
+   never wire it*, and *we substitute an instance-level gate for a
+   per-application quality bound* (§5 obligation 5).
 
-If a requested revision conflicts with N1–N3: do not silently comply. State the
+If a requested revision conflicts with N1–N4: do not silently comply. State the
 conflict explicitly, propose an alternative that preserves the invariant, and
 proceed only on the user's explicit, informed confirmation — and if they do
 confirm, record the decision and its consequences in the revision history.
