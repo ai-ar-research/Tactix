@@ -63,7 +63,23 @@ ApplyResult propagate_service(Kernel &k) {
   const bool lrat = k.proof && k.proof->lrat();
   const size_t assigned_before = k.trail.size();
   const bool conflict = kernel_propagate(k);
-  if (lrat && k.level == 0)
+  // NOT `&& k.level == 0`. A propagation-forced literal is stamped at its TRUE
+  // level (D-LEVEL-2, `kernel_assign_ref`/`kernel_assign_binary`) — the max
+  // level among its reason's other literals — so a clause whose other literals
+  // are all root-false forces a literal at level 0 *while the solver stands
+  // higher*. Gating the sweep on the SOLVER's level therefore skipped exactly
+  // those literals, leaving `unit_ids[v] == 0`; 0 is LRAT's chain terminator,
+  // so any later chain citing them (analyze/strengthen/substitute/bve) emitted
+  // a TRUNCATED antecedent list and the checker rejects the proof.
+  //
+  // Latent until 2026-08-04: pre-chrono the true level always equalled the
+  // current level at a fixpoint, and pre-TB4b a learned unit backjumped to 0
+  // before propagating. TB4b's unit chrono routing (`e404668`) asserts a
+  // learned unit at level 0 while standing higher (14,088 of 18,635 conflicts
+  // on `veer_axi`), which is what made this reachable. DRAT cannot see it —
+  // it re-derives units itself — so every tier run and DRAT fuzz leg was blind.
+  // `emit_root_units` already applies the correct PER-LITERAL test at :33.
+  if (lrat)
     emit_root_units(k, assigned_before);
   if (conflict) {
     k.stats.conflicts++;
