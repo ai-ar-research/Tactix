@@ -937,8 +937,19 @@ void kernel_dense_disconnect(Kernel &k) { k.dense = nullptr; }
 void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
   std::sort(k.lrat_entries.begin(), k.lrat_entries.end());
   k.lrat_chain.clear();
-  for (const auto &e : k.lrat_entries)
+  for (const auto &e : k.lrat_entries) {
+    // 0 is LRAT's line terminator, so a zero antecedent does not produce a
+    // wrong chain — it produces a TRUNCATED one, silently dropping every
+    // later antecedent. `unit_ids[v] == 0` means "this literal has no unit
+    // clause in the proof yet", which any direct citation site must have
+    // ruled out before getting here (the reason-walk sites cannot hit it:
+    // they only read unit_ids under `reason == UNIT_REASON`). Cheap
+    // permanent guard, same family as Proof::add_rup's no-tautology and
+    // no-empty-chain asserts (L13: the two debug asserts are what make a
+    // whole class of certificate defects visible to the debug fuzz legs).
+    assert(e.second != 0 && "LRAT chain cites a literal with no unit id");
     k.lrat_chain.push_back(e.second);
+  }
   k.lrat_chain.push_back(closing_id);
 }
 

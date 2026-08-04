@@ -302,6 +302,26 @@ against a current one.
 
 Full detail in the cited commits/reports. Numbers are cited across the repo — **never renumber**.
 
+- **L25 · A PER-LITERAL PROPERTY GATED ON AN AGGREGATE CONDITION, AND THE TEST THAT CANNOT FAIL.** Two
+  halves, both reusable. **(a) The defect shape.** `propagate_service` gated the LRAT root-unit sweep on
+  the SOLVER's level while the sweep already applied the correct PER-LITERAL test inside. Under true-level
+  assignment (D-LEVEL-2) a literal's level is a property of its REASON, not of where the solver stands, so
+  the aggregate test and the per-literal test stopped agreeing the moment chrono shipped — and TB4b's unit
+  routing made the disagreement routine (14,088 of 18,635 conflicts on `veer_axi`). Cost: `unit_ids[v] == 0`
+  on those literals, and since **0 is LRAT's line terminator** the result was a TRUNCATED chain, not a wrong
+  one. **Mirror image of L23** (there: an all-or-nothing skip whose precondition was per-item; here: a
+  per-item sweep whose TRIGGER was aggregate) — whenever a guard and the thing it guards are scoped
+  differently, ask what makes them agree, and what would break it.
+  **(b) A GREEN TEST IS EVIDENCE ONLY IF YOU HAVE SEEN IT FAIL.** The first reproduction — 10,000 LRAT
+  cases with chrono forced — came back **0 failures**, and the honest reading was nearly "unproven, ship on
+  the construction argument". It was green because `kernel_reason_walk` reads `unit_ids` ONLY under
+  `reason == UNIT_REASON`, so most chains are structurally immune and only the direct citation sites are
+  exposed. **The instrument that worked: an invariant ASSERT at the point of harm, plus two binaries
+  differing in exactly the one conjunct** — unfixed 36 aborts in ~2,600 cases, fixed 0 in 10,000. Extends
+  **L22** (prove the knob fires) with its converse: **prove the TEST can fail, by running it against the
+  unfixed binary, before believing the fixed one.** Also, pass the knob IN THE COMMAND (`/usr/bin/env
+  VAR=v prog`), never via the environment — SLURM propagation was unverifiable and a silently-unset knob is
+  indistinguishable from a clean run ([[ab-arm-identical-artefacts]]). (2026-08-04; corpus 011.)
 - **L24 · A KNOB'S BLAST RADIUS IS OFTEN COMPUTABLE FROM THE FORMULA — compute it BEFORE you spend a job,
   and the instances it CANNOT touch are a free in-window noise estimator.** Broad Factor admission's whole
   design question was settled by two guard conditions (`factor.cpp:581` density, `:600` the `!admit`
@@ -464,9 +484,21 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   probes 1577487/1577506.)
 - **L19 · READ A REFERENCE OPTION'S SOURCE BEFORE INTERPRETING A PROBE THAT SETS IT — polarity and even
   liveness cannot be inferred from the name or the help string.** The task-#11 diagnosis routed its primary
-  lever off the probe `cadical --factordelay=0 --factorthresh=0`. Both halves were misread. (a) **`factorthresh`
+  lever off the probe `cadical --factordelay=0 --factorthresh=0`. Both halves were misread. (a) ~~**`factorthresh`
   is declared at `options.hpp:125` and never read anywhere in cadical's source** — that half of the probe was
-  dead code, so the measured effect belongs entirely to the other flag. (b) **`factordelay` is an ALLOWANCE
+  dead code, so the measured effect belongs entirely to the other flag.~~
+  **▶ CORRECTION 2026-08-04 — (a) IS ITSELF WRONG, and its error is a DEEPER instance of this very lesson.**
+  `factorthresh` is **LIVE**. It is read through a TOKEN-PASTE inside a macro — `limit.hpp:150`
+  `const int64_t THRESH = opts.NAME##thresh * clauses.size();`, instantiated at `factor.cpp:962`
+  `SET_EFFORT_LIMIT (limit, factor, stats.factor)` — so the identifier `factorthresh` **never appears
+  literally in cadical's source** and `grep factorthresh` finds only the declaration. Semantics: once
+  `stats.factor` is non-zero, cadical **returns false and delays factoring** while
+  `DELTA < factorthresh * |clauses|`, accumulating budget until a pass is worth its setup cost
+  (`vivifythresh` 20 and `ternarythresh` 6 use the same macro). **So cadical DOES have an
+  accumulate-until-worthwhile admission-shaped condition, we LACK it, and the probe's measured effect can
+  NOT be attributed entirely to `factordelay`.** **Corollary to L19, and the operative half from here:
+  grep is not a source read for C/C++ — a token-pasted or macro-generated identifier is invisible to it.
+  Check the reference's macros before concluding an option is dead.** (b) **`factordelay` is an ALLOWANCE
   ADDED to the elimination-round count**, not a delay in the plain sense (`factor.cpp:941`:
   `delay_limit = eliminations + delay`, skip when `log_active > delay_limit`; kissat `factor.c:1074` is the
   same shape) — so `=0` is the MOST-delayed setting and the probe showed that delaying Factor **more** costs
@@ -958,9 +990,12 @@ formula-shape admission of any kind — its entire "when" logic is an option, th
 `log10(active) <= eliminations + 4` warm-up, a completion-gated new-material watermark, and a tick
 budget; damage is bounded per GRID by `reduction > bound` ramping 0→1→2→4→8→16 with elimination
 progress (`factor.c:939`/`:72`, `eliminate.c:363-365`). Corrections:
-- **cadical's `factorthresh` is DEAD CODE** — declared `options.hpp:125`, never read anywhere. The
-  study's §3.1/§10 present it as cadical's one admission-shaped condition; that is wrong. (The frozen
-  doc is not edited — this entry is the correction, per doc discipline.) Same family as L19.
+- ~~**cadical's `factorthresh` is DEAD CODE**~~ — **THIS ENTRY WAS WRONG; RETRACTED SAME DAY.** The
+  07-30 study was RIGHT: `factorthresh` is live and IS cadical's one admission-shaped condition. It is
+  read via TOKEN-PASTE (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the
+  identifier never appears literally and `grep` finds only the declaration — which is exactly how both
+  this entry and L19's exhibit (a) got it wrong. See the L19 correction. **Nothing was built on the
+  retracted claim**; it appeared in this Log and in commit `b0779e0`'s message, both superseded here.
 - `INC (eliminations)` is the FIRST statement of `kissat_eliminate` (`eliminate.c:595-598`), so it
   counts ENTERED not completed calls; it coincides only because there is one call site. Do not conflate
   it with the genuine `complete` flag that drives the bound ladder.
@@ -973,6 +1008,36 @@ progress (`factor.c:939`/`:72`, `eliminate.c:363-365`). Corrections:
   mean δ 1.4 (`edp3`) and δ 13.5 (`sted5`), losers at 4.2/4.8 BETWEEN them, and bound 8 cost `sted5`
   19 → 274 s; (3) the coupling measured negative three times, latest 2026-08-04 with composition ON.
   **Recorded verdict: do not re-try without a NEW mechanism.**
+
+### 2026-08-04 late — ▶▶ N2 DEFECT FIXED: LRAT unit ids were missed off the root level (shipped in TB4b, same day)
+Found by the calculus-conformance review (25 candidates filed, 16 refuted by adversarial verifiers, 9
+survived; this was the only soundness-severity one). **Certificate defect on the LRAT path only — no
+verdict was ever wrong.**
+- **The bug.** `propagate_service` gated the LRAT root-unit sweep on the **SOLVER's** level
+  (`if (lrat && k.level == 0)`) while `emit_root_units` already applies the correct **per-literal** test
+  (`a.level != 0 → continue`, `propagate.cpp:33`). A propagation-forced literal is stamped at its TRUE
+  level (D-LEVEL-2: `kernel_assign_ref` takes the max level among the reason's other literals, **starting
+  at 0**), so a clause whose other literals are all root-false forces a literal at level 0 **while the
+  solver stands higher**. Those literals kept `unit_ids[v] == 0`, and **0 is LRAT's line terminator**, so a
+  later direct citation emitted a **TRUNCATED** antecedent list — rejected by every LRAT checker.
+- **Introduced by TB4b's unit chrono routing (`e404668`), TODAY.** Pre-chrono the true level always equalled
+  the current level at a fixpoint; pre-TB4b a learned unit backjumped to 0 before propagating. TB4b asserts
+  a learned unit at level 0 while standing higher — 14,088 of 18,635 conflicts on `veer_axi`.
+- **Why nothing caught it.** DRAT re-derives units itself, so **every tier run and every DRAT leg was
+  blind**; and the shipped LRAT legs were **vacuous on this path** (fuzz CNFs are ~90 vars, the routing
+  needs `level-1 > chrono_levels = 100`) — already recorded as vacuous, but the non-vacuous version was
+  never built.
+- **▶ THE FIRST REPRODUCTION CAME BACK GREEN, and the reason is the finding's other half.**
+  `kernel_reason_walk` reads `unit_ids` **only** under `reason == UNIT_REASON`; otherwise it cites the
+  reason clause and recurses. **Reason-walk chains are structurally immune**, so only the direct citation
+  sites are exposed — rare enough to pass 10,000 LRAT cases, and the reason the defect could exist at all.
+- **Fix + permanent guard.** Drop the `k.level == 0` conjunct; **assert in `kernel_lrat_chain` that no
+  antecedent id is 0** (family of `Proof::add_rup`'s no-tautology / no-empty-chain asserts, **L13**).
+- **Demonstrated, not argued** — two debug binaries differing ONLY in that conjunct, both asserting, chrono
+  forced *in the command* (env propagation through SLURM was unconfirmed, [[ab-arm-identical-artefacts]]):
+  **unfixed 36 assert-aborts** before the max-failures cap (~2,600 cases) · **fixed 0 in 10,000**.
+  Release confirmation **10,000/0 × 3** (DRAT · LRAT · `--random-policy --lrat`). ctest 38/38.
+  Regression corpus **011-lrat-unit-id-missed-off-root-level** (39 vars, ddmin-shrunk).
 
 ### 2026-08-04 late — ▶▶ WHY our scheduling is cruder than Kissat's — diagnosed, and it is STRUCTURAL
 Design pass `docs/design/2026-08-04-scheduling-sophistication-diagnosis.md` (frozen). User question:
@@ -1994,7 +2059,9 @@ audit) and `a489bb7` (the attribution arm). Ships OFF — **no default flip reco
 ### 2026-08-01 — ▶ task #11: mechanism LOCATED and reference-anchored; the fix REFUTED; broad admission's Tier B value REPRODUCED
 Report `benchmarks/reports/2026-08-01-task11-factor-admission-mechanism.md` (supersedes the routed lever of
 the 2026-07-31 profiling report §6). Four increments, four probes, three tier runs; new lessons **L19–L21**.
-- **The routed lever is refuted four ways** — `factorthresh` is dead code in cadical; `factordelay`'s polarity
+- **The routed lever is refuted four ways** — ~~`factorthresh` is dead code in cadical~~ (**RETRACTED
+  2026-08-04: it is LIVE via token-paste — see the L19 correction; this leg of the refutation falls, the
+  other three stand**); `factordelay`'s polarity
   was read backwards (`=0` is the MOST-delayed setting, so the probe showed delaying Factor *more* costs
   cadical 2.3–9×); the gate **never binds on either loser for either solver**, i.e. we already match cadical
   exactly; and the first-dose allowance (kissat 700M vs cadical 300M) is **measured inert**, explained by
