@@ -52,11 +52,26 @@ def main():
     T = run["timeout"]
 
     # group arms by family: k_* / knosw_* / c_* / cnosw_*
+    #
+    # TIMING IS VERDICT-BASED, NOT SCORE-BASED, and deliberately so. This is a
+    # BASELINE ablation: the question is "does removing Sweep change how long
+    # the solver takes", and proof checking happens AFTER the solve and never
+    # affects it. Plan §8.1 rev 72 says a baseline's failed check is recorded
+    # and never scored against it — the runner nevertheless scores arms passed
+    # via --checked-arm, which is a harness quirk (that flag forces
+    # score_proofs=True), not a measurement intent. Using the scored `solved`
+    # flag here would charge an arm 2*timeout for a checker-budget timeout on a
+    # correctly solved instance and destroy the replicate bands.
+    # Verified on run 20260804-004328: an unchecked arm and a checked arm of the
+    # SAME configuration differ by a median 1.9 s in solve time, against 2.8 s
+    # between two checked arms — i.e. checking does not shift solve time.
+    # A genuine wrong answer (`mismatch`) still counts as unsolved.
     fams = {}
     for arm, recs in run["results"].items():
         fam = arm.rsplit("_", 1)[0]
         for r in recs:
-            t = r["time"] if r["solved"] else 2 * T
+            ok = r["verdict"] in ("SAT", "UNSAT") and not r["mismatch"]
+            t = r["time"] if ok else 2 * T
             fams.setdefault(fam, {}).setdefault(r["instance"], []).append(t)
 
     need = {"k", "knosw", "c", "cnosw"}
