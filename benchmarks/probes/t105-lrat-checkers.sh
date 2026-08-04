@@ -5,8 +5,8 @@
 # PRESERVED proof with stdout and stderr captured separately, and characterize
 # the file (total lines, longest line) to test the "checker capacity" reading.
 set -u
-K=/home/hwu/proof-debug
-R=/home/hwu/SAT-solving
+K=${PROOF_DEBUG_DIR:-$(git rev-parse --show-toplevel)/benchmarks/probes/scratch/proof-debug}
+R=$(git rev-parse --show-toplevel)
 CNF=$K/T105.2.0.cnf
 PROOF=$K/T105.2.0.lrat
 

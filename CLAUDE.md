@@ -17,6 +17,19 @@
   with an explicit fits-our-architecture argument, and check recent
   competition winners (CaDiCaL-SC2025, AE-Kissat-MAB, SBVA-CaDiCaL), not
   just plain Kissat.
+- **Everything this project creates lives under `SAT-solving/`. `$HOME` holds the
+  user's OTHER projects — never write there** (re-org 2026-08-03, which pulled
+  back 589 MB of patched builds, a stray git worktree, and a 565 MB proof dump).
+  Homes: patched/instrumented reference builds → `tools/solvers/variants/<name>/`
+  (gitignored; this satisfies L14's real constraint — a variant must not be built
+  inside the *pinned clone*, since `tools/solvers/bin/*` symlink into it);
+  regenerable probe artifacts → `benchmarks/probes/scratch/`; extra worktrees →
+  `.claude/worktrees/`; throwaway job logs → `$CLAUDE_JOB_DIR/tmp`. Scripts use
+  `$(git rev-parse --show-toplevel)`, never a hardcoded absolute path.
+- **Build-dir discipline:** a submitted SLURM array OWNS its binary path until it
+  finishes — build into a fresh `build/pin-<experiment>/`, submit, then never
+  touch that dir again; the next change goes in the next dir. Sweep stale
+  `build/pin-*` at wrap-up (they are all reproducible from their commits).
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
   revise-plan, revamp, revisit-codebase, calculus, stress-policy, compact-docs,
   wrap-up, debug-performance, slurm-jobs — use them for the matching workflows.

@@ -11,8 +11,8 @@
 #       lrat-check (independent implementation) should say why.
 # The proof is preserved for post-mortem if anything rejects it.
 set -u
-ROOT=/home/hwu/SAT-solving
-KEEP=/home/hwu/proof-debug
+ROOT=$(git rev-parse --show-toplevel)
+KEEP=${PROOF_DEBUG_DIR:-$(git rev-parse --show-toplevel)/benchmarks/probes/scratch/proof-debug}
 CNF=$TMPDIR/T105.2.0.$SLURM_JOB_ID.cnf
 PROOF=$TMPDIR/T105.2.0.lrat
 mkdir -p "$KEEP"

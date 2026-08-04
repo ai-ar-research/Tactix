@@ -313,8 +313,20 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
 - **L14 · An internal cross-instance contrast is NOT a defect signal — get the reference's number on the SAME instance.** "Our minimization
   removes 21.6 % on FmlaEquiv against ~40 % on the other two" looked like a located defect; kissat removes **22.1 %** there and ~42 % on the
   others, i.e. parity all along (2026-07-28, probe 1570882). Same family as L8. Corollary: reference counters may need a non-default build
-  (kissat's METRIC tier is compiled out of `-s`), and `tools/solvers/bin/*` are SYMLINKS into the reference clones — build such a variant OUTSIDE
-  the repo or the pinned baseline binary is silently replaced.
+  (kissat's METRIC tier is compiled out of `-s`), and `tools/solvers/bin/*` are SYMLINKS into the reference clones — build such a variant
+  **outside the PINNED CLONE**, or the baseline binary every tier run measures against is silently replaced.
+  **▶ WORDING AMENDED 2026-08-03: the original said "outside the REPO", and that is what scattered patched
+  builds across `$HOME` alongside the user's other projects.** The constraint is only that a variant must not
+  live where a rebuild can clobber a pinned baseline — **`tools/solvers/variants/<name>/` (gitignored)
+  satisfies it exactly**, and `kissat-metrics` / `cadical-extdiag` now live there. Nothing this project
+  builds belongs outside `SAT-solving/`.
+  **▶ L14 SHARPENED AGAIN 2026-08-03 (the congruence arc, four overturned reads): getting the reference's
+  number on the same instance is NECESSARY BUT NOT SUFFICIENT.** Twice in one night a same-instance number
+  was compared to the wrong one of ours — first the wrong COUNTER (`congruent_matched`, a lookup statistic,
+  read as an outcome: 182× that was really 3.9×), then the wrong SCOPE (`congruent`, which BUNDLES a binary
+  equivalence channel we implement in a different rule: 3.9× that was really parity). **Before quoting a
+  reference counter, read its DECLARATION (`statistics.h` line + unit) and every `INC` site, and confirm our
+  analogue covers the same scope — then cite both in the writeup.**
 - **L15 · A rule family's value can be non-separable, and hand-designed admission on such a family is a trap.** X1/X2/X4 alone cost 21.79 / 53.26
   / 13.08 Tier B PAR-2; together 9.22 (shipped 7.94) — they repair each other (X2 adds ternary resolvents, BCE deletes blocked clauses), so the
   one-at-a-time A/B behind three "ships OFF" verdicts measured each rule at its worst. Worse, **four independent admission gates all lost badly
@@ -1807,8 +1819,9 @@ guard rows; the golden registry list in `tests/test_api_c.c` moved by one, the u
 `639d50e`; report `benchmarks/reports/2026-07-28-clause-quality.md` §6 (probe 1570882). The control ran first and killed the lever: **kissat gets 22.1 % on FmlaEquiv
 against our 21.6 %** (42.2 % vs 40.8 % on 9vliw, 43.7 % vs 38.5 % on x9), so the contrast that generated the target reproduces in kissat and every stage is at parity (raw
 1-UIP 1.10/1.08/0.91×, final size 1.11/1.10/0.99×; kissat's cumulative mean learned size on FmlaEquiv is **16.91, not ~10**) — **L14**. Counter notes: METRIC-level in
-kissat (`./configure --metrics`), and such a build must be staged OUTSIDE the repo because `tools/solvers/bin/kissat` is a SYMLINK into the clone (in-place rebuild
-silently replaces the pinned baseline); in kissat's default config `literals_minimized` is identically 0 (`shrink=3` returns early), so only the SUM minimized+shrunken is
+kissat (`./configure --metrics`), and such a build must be staged outside the PINNED CLONE because `tools/solvers/bin/kissat` is a SYMLINK into it (in-place rebuild
+silently replaces the pinned baseline) — **"outside the repo" as originally written here is AMENDED: variants live in `tools/solvers/variants/` since the 2026-08-03
+re-org, see L14**; in kissat's default config `literals_minimized` is identically 0 (`shrink=3` returns early), so only the SUM minimized+shrunken is
 comparable; kissat keeps no cumulative glue counter. **FmlaEquiv's 2.49× conflicts is therefore not a clause-quality deficit** — the residual routes to search GUIDANCE,
 not the analysis pipeline.
 

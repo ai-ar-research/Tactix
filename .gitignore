@@ -11,6 +11,15 @@ winners/
 tools/solvers/bin/
 tools/checkers/bin/
 
+# PATCHED/INSTRUMENTED reference builds (L14: a variant must not be built inside
+# the PINNED CLONE, because tools/solvers/bin/* symlink into it and a rebuild
+# would silently replace the baseline every tier run measures against). They live
+# here rather than in $HOME — same safety property, no spillover (re-org 2026-08-03).
+tools/solvers/variants/
+
+# Probe scratch (regenerable artifacts: preserved proofs, decompressed CNFs)
+benchmarks/probes/scratch/
+
 # Build artifacts
 build/
 *.o

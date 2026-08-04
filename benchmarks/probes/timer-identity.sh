@@ -6,10 +6,16 @@
 # build vs the pre-timer HEAD build, conflicts/decisions/propagations must match
 # EXACTLY. Any difference means a clock leaked into the trajectory.
 set -u
-NEW=/home/hwu/SAT-solving/build/release/tactix
-OLD=/home/hwu/tactix-pretimer/build/release/tactix
+# OLD was a worktree at $HOME/tactix-pretimer, removed in the 2026-08-03 re-org.
+# It is fully reproducible -- fdc0bea is the pre-timer HEAD:
+#   git worktree add .claude/worktrees/pretimer fdc0bea
+#   cmake -S <that> -B <that>/build/release -DCMAKE_BUILD_TYPE=Release && cmake --build ...
+# then point OLD at it. Never build a worktree over a path an in-flight job uses.
+ROOT=$(git rev-parse --show-toplevel)
+NEW=${NEW:-$ROOT/build/release/tactix}
+OLD=${OLD:?set OLD to a pre-timer build -- see the header (fdc0bea)}
 inst="$1"
-f=$(ls /home/hwu/SAT-solving/benchmarks/cache/tier[BC]/${inst}*.cnf.xz | head -1)
+f=$(ls "$ROOT"/benchmarks/cache/tier[BC]/${inst}*.cnf.xz | head -1)
 cnf=$TMPDIR/$(basename "$f" .cnf.xz).cnf
 xz -dc "$f" > "$cnf"
 for b in OLD NEW; do
