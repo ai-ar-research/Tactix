@@ -53,8 +53,14 @@ ApplyResult restart_apply_to(Kernel &k, uint32_t keep_level) {
     keep_level = k.level; // keep at most the whole trail
   if (keep_level > 0)
     k.stats.restarts_reused++;
-  if (keep_level < k.level)
+  if (keep_level < k.level) {
+    // kissat `kissat_backtrack_in_consistent_state` (backtrack.c:150): snapshot
+    // target/best FIRST, at the full trail, then unwind. No level-1 step here —
+    // that is only on the conflict path.
+    if (k.h)
+      heuristics_update_target_phases(k);
     kernel_backtrack(k, keep_level);
+  }
   k.stats.restarts++;
   return ApplyResult::Ok;
 }

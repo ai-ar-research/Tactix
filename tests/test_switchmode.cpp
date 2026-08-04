@@ -83,7 +83,14 @@ static void test_stable_decide_and_target_phases() {
   assert(heuristics_decide_lit(k, v) == internalize(1));
   decide_apply(k, internalize(1), false);
   assert(propagate_apply(k) == ApplyResult::Ok); // forces 2
-  // consistent backtrack snapshots target phases (deepest trail = 2)
+  // Consistent backtrack snapshots target phases (deepest trail = 2).
+  // TB4b (2026-08-04): the snapshot moved OUT of kernel_backtrack to the call
+  // sites, matching kissat's split between
+  // `kissat_backtrack_without_updating_phases` and the wrappers that snapshot
+  // (`..._in_consistent_state` / `..._after_conflict`). The kernel primitive no
+  // longer performs this `H`-policy action; this mirrors what
+  // `restart_apply_to` now does.
+  heuristics_update_target_phases(k);
   kernel_backtrack(k, 0);
   assert(k.h->target_assigned == 2);
   assert(k.h->target[0] == 1 && k.h->target[1] == 1);

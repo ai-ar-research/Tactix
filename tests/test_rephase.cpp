@@ -22,11 +22,15 @@ static void test_best_snapshot() {
   k.h->stable = true;
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(-2));
+  // TB4b (2026-08-04): the snapshot moved out of kernel_backtrack to the call
+  // sites (kissat's `..._without_updating_phases` vs the snapshotting wrappers).
+  heuristics_update_target_phases(k);
   kernel_backtrack(k, 0); // deepest so far: snapshot both
   assert(k.h->best[0] == 1 && k.h->best[1] == -1 && k.h->best[2] == 0);
   assert(k.h->best_assigned == 2);
   assert(k.stats.best_saved == 1);
   kernel_assign_decision(k, internalize(2));
+  heuristics_update_target_phases(k);
   kernel_backtrack(k, 0); // shallower: best untouched
   assert(k.h->best[1] == -1);
   assert(k.stats.best_saved == 1);
@@ -39,6 +43,7 @@ static void test_types() {
   k.h->stable = true;
   kernel_assign_decision(k, internalize(-1));
   kernel_assign_decision(k, internalize(3));
+  heuristics_update_target_phases(k); // TB4b: snapshot is the caller's job now
   kernel_backtrack(k, 0); // best = {-1, 0, +3, 0}, saved updated too
 
   // Inverted: every saved phase forced negative; target restarts

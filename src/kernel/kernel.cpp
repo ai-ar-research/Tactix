@@ -386,10 +386,17 @@ template <bool HasH>
 static void kernel_backtrack_impl(Kernel &k, uint32_t target,
                                   bool update_phases) {
   assert(target < k.level);
-  if constexpr (HasH) {
-    if (update_phases)
-      heuristics_update_target_phases(k); // before unassigning (backtrack.c)
-  }
+  // TB4b · SNAPSHOT TIMING (2026-08-04). This function is now the analogue of
+  // kissat's `kissat_backtrack_without_updating_phases` (backtrack.c:72): it
+  // SAVES phases (gated by `update_phases`, our probing exclusion — kissat's is
+  // `if (!probing)` at assign time, inlineassign.h:53) but no longer snapshots
+  // target/best. The snapshot moved to the CALL SITES because kissat takes it at
+  // a different moment on the conflict path than we did: it steps down ONE level
+  // FIRST, then snapshots, then goes to the real target
+  // (`kissat_backtrack_after_conflict`, backtrack.c:156). Taking it here meant
+  // our high-water `target_assigned`/`best_assigned` always included the
+  // conflict level's own literals — systematically inflating the mark, so later
+  // genuinely-longer trails could fail to update and target phases went stale.
   // COMPACTING backtrack (rev 38, D-LEVEL-2): with true-level assignment the
   // trail is no longer level-sorted, so we cannot truncate by position. Scan
   // the suffix above the target frame and KEEP (compact down, re-propagate)
