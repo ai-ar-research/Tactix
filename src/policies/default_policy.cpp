@@ -1328,31 +1328,52 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // factor.c:72): as elimination gets more permissive, factoring
             // gets pickier. Scoped set/clear so no other caller sees them.
             if (factor_entry) {
-              // Composite doses are DENSITY-SCOPED (probes 1561187/1561512
-              // + build-race postmortem: composite ON is what takes
-              // post-dedup mp1 from 15.5 to 5.4 s — 645k → 178k conflicts —
-              // and simultaneously what breaks battleship 1.3 → 197 s).
-              // The two sit far apart on the same axis the Factor density
-              // short-circuit already uses: binaries-per-output-var ≈ 103
-              // (mp1) vs ≈ 6 (battleship). Compose only on extremely
-              // binary-dense formulas (≥ 50×): clique 17.5, x9 8.2,
-              // battleship 6 stay non-composite. A SELECTIVITY heuristic
-              // like the density gate itself — proper home is the learned
-              // policy; TACTIX_COMPOSITE_DENSITY overrides the threshold
-              // (0 disables, small values ≈ force-on).
-              // (The eliminate-level BOUND COUPLING — design §3.e, measured
-              // dead: it rejects the small-delta top-up grids the dosed
-              // regime exists to add, mp1 5.3→14.9 s, probes 1561190/91 —
-              // was removed in the 2026-07-25 negative-arm cleanup along
-              // with its TACTIX_FACTOR_BOUND_COUPLE knob; Kernel::factor_bound
-              // stays as plain N1 config, always 0 from this policy.)
-              uint64_t comp_density = 50;
-              if (const char *cd = std::getenv("TACTIX_COMPOSITE_DENSITY"))
-                comp_density = std::strtoull(cd, nullptr, 10);
-              if (comp_density &&
-                  k.binary_ids.size() >=
-                      comp_density * kernel_num_output_vars(k))
-                k.factor_composite = true;
+              // COMPOSITION IS UNCONDITIONAL (2026-08-04), matching kissat:
+              // `resize_factoring` is called from `apply_factoring`
+              // (factor.c:838) with no gate, so the factoring universe always
+              // grows over the fresh extension variables and later chains in
+              // the SAME pass can compose over them.
+              //
+              // The former >= 50 binaries/var gate was the entire reason
+              // `unsat-set-b-fclqcolor` (4.76 binaries/var) could not be
+              // solved: without composition our applied factorings SATURATE at
+              // 78 across `factor_size` 3/5/7/9 while offers rise 42k -> 51k,
+              // and 78 is ~kissat's BINARY-restricted 80. Composing takes it to
+              // **164 factorings, 11.46M -> 5.80M conflicts, TIMEOUT -> UNSAT**.
+              // The gate was also exactly the hand-designed-separator family
+              // plan rev 77 forbids and L15/L19 measured 0-for-5.
+              //
+              // WHAT BOUNDS COMPOSITION INSTEAD — kissat's real governors, all
+              // of which we already have: (a) the factor_ticks effort budget,
+              // checked in its main loop (`if (*ticks > limit) break`,
+              // factor.c:914) and here as the EffortSpec 50 per mille handoff;
+              // (b) a score-ordered candidate heap, so the budget is spent
+              // best-first; (c) one attempt per literal per pass.
+              //
+              // kissat has a FOURTH governor we do not: its acceptance test is
+              // `reduction > factoring.bound` where
+              // `bound = solver->bounds.eliminate.additional_clauses`
+              // (factor.c:72/939) — the acceptance threshold is COUPLED to
+              // BVE's growth allowance, so factoring gets pickier as
+              // elimination gets more permissive. Ours is `Kernel::factor_bound`,
+              // default 0 ("any positive gain"). We measured a version of that
+              // coupling dead in 2026-07-25 (design §3.e: it rejected the
+              // small-delta top-up grids the dosed regime exists to add, mp1
+              // 5.3 -> 14.9 s) — but that was measured WITH composition gated
+              // off, so the negative does not transfer. **If unconditional
+              // composition regresses the tier pair, port (d) — do NOT
+              // reinstate a density gate.** Known risk: composite ON took mp1
+              // 15.5 -> 5.4 s and broke battleship 1.3 -> 197 s.
+              //
+              // TACTIX_COMPOSITE_DENSITY is retained as an A/B hatch only:
+              // a non-zero value restores the old gate at that threshold.
+              k.factor_composite = true;
+              if (const char *cd = std::getenv("TACTIX_COMPOSITE_DENSITY")) {
+                const uint64_t d = std::strtoull(cd, nullptr, 10);
+                k.factor_composite =
+                    d ? k.binary_ids.size() >= d * kernel_num_output_vars(k)
+                      : false;
+              }
             }
             k.work_budget = handed;
             ar = apply_rule(r, k);
