@@ -645,3 +645,68 @@ affected, which is why `--random-policy` and the regression corpus stayed green.
 own lesson: audit a negative verdict before accepting it. The re-measurement (which does **not**
 conclude the mechanism is free — it costs ~2 % Tier B(28), and core14 vs new14 order the crippled and
 un-crippled arms oppositely) is `benchmarks/reports/2026-08-01-tb4b-watch-repair.md`.
+
+## 13. The scheduling-parity ledger (N4's operational test)
+
+**Plan rev 80 §1.1 N4** requires that DefaultPolicy's *scheduling* — order, effort budgets, warm-ups,
+watermarks, acceptance bounds and their ramps, and the couplings between them — be **at least as
+sophisticated as Kissat's default strategy**. This section is the register that makes that checkable:
+**per reference scheduling mechanism, either an at-least-as-strong analogue, or a row here naming the
+gap and its closer.** It is reviewed at every phase gate; **an empty or stale ledger is itself a
+finding.** §2 (guard purity) stays a separate register — a scheduling gap is usually not a guard, which
+is exactly why rev 77's guard-shaped register could not hold these (diagnosis §5).
+
+**Provenance:** first pass 2026-08-04, **216 mechanisms audited, 132 gaps (27 high / 53 med / 15 low)**,
+full table frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`; the *why* at
+`docs/design/2026-08-04-scheduling-sophistication-diagnosis.md`; remediation = **Track N4** in
+`PROGRESS.md`.
+
+**▶ THIS LEDGER IS A LOWER BOUND, BY CONSTRUCTION.** The first pass was organised by OUR rule families,
+so it cannot surface a mechanism we never knew to look for — the dominant failure mode per the
+diagnosis. **N4-A3 regenerates it from the REFERENCE's option set** (`kissat/src/options.h`,
+`cadical/src/options.hpp`), each row citing the option's default AND the execution path that reaches
+it. Until that lands, absence of a row is not evidence of parity.
+**And check the macros: `grep` is not a source read** — cadical's `factorthresh` is reached by
+token-paste (`limit.hpp:150` `opts.NAME##thresh`) and reading it as dead code cost this project two
+wrong published claims (L19 correction, 2026-08-04).
+
+### 13.1 The six themes — what the gaps have in common
+
+Ranked by how much they explain. These, not the individual rows, are what a fix should target.
+
+| | theme | shape |
+|---|---|---|
+| **T1** | **We port mechanisms; we drop the WIRES between them.** *The master pattern.* | Intra-rule fidelity is high; **every high-severity gap is a cross-mechanism wire.** Recognisable sub-shape in six rows: *we own the mechanism, the field is named after the reference's, and nothing writes it* (`factor_bound`, `VIVIFY_TIER2` vs `k.tier2`, `factor_cand_rounds`, `factor_demote_fresh`, `bve_cost_limit`, `bce_occ_limit`, `used_glue[1]`, `arena_mark`). **Worse than a missing mechanism, because grep finds it and reports parity.** |
+| **T2** | **Repetition, not dose, is the damage axis — and we govern dose.** *The largest cluster.* | Both references make round k+1 cost **O(new material)**; ours costs **O(whole formula)**. Missing per-item marks, resumption cursors, attempt bits. Two compounding consequences: a binding budget + fixed order + no resumption makes a whole candidate class **dead code** (under a cutting budget, **ordering IS the scheduler**); and measured damage tracks **rounds, not work** (j3037's conflicts track BCE *round count* while BCE is 0.1 % of the solve). Our one repetition suppressor, the delay ladder, is gated on `!e.meter` — so exactly the metered batch rules that repeat can never back off. |
+| **T3** | **Right FORMULA, wrong METER.** | `SET_EFFORT_LIMIT`'s shape and floor are faithful; but `meter_ticks` is the **global** propagation counter for Probe, Backbone, Vivify and Instantiate, so earlier slot entries spend later entries' budgets, and nothing distinguishes *starved* from *nothing to do*. Ceilings are frozen at phase entry, and the anchor advances on occasions the rule never ran. **Consequence: every prior dose negative measured through this meter is VOID and must be re-derived.** |
+| **T4** | **Static instance gates substituting for per-application quality bounds.** | We invent formula-shape switches neither reference has; measured **0-for-5**. The survivor (Factor's `binaries ≥ 6·vars`) measured **worse than no gate at all** on Tier B. Causal mechanism in diagnosis §4: per-instance PAR-2 at n≈30 *selects* for this shape. |
+| **T5** | **The ramps we lack are exactly the ramps keyed on ANOTHER mechanism's counter.** | Self-contained ramps we ported faithfully; cross-keyed ones we did not (BVE's bound → Factor's acceptance; C1/C2 completeness → BVE's bound advance; reduce cadence ↔ deletion fraction). A refinement of T1. |
+| **T6** | **The schedule is emergent, not authored.** *Cheapest to fix.* | Our slot order is `strcmp` over rule names + `move_to_back`; both references fix an argued order. Four consequences are pure accidents of the alphabet. |
+
+### 13.2 Open gaps — HIGH severity
+
+Full rows (with cadical's column and file:line on all three sides) in the frozen audit. Closer =
+Track N4 item.
+
+| id | mechanism | Kissat / CaDiCaL | Tactix | verdict | closer |
+|---|---|---|---|---|---|
+| SP-SLOT-1 | **Two inprocessing clocks** — probe family vs elimination family | Independent: `probeint=100`×NLOGN vs `eliminateint=500`×NLOG2N (kissat `probe.c:85`/`eliminate.c:600`); cadical `lim.inprobe` vs `lim.elim` (`internal.cpp:489`/`:459`) | **ONE** slot, everything on the ELIMINATION cadence (`default_policy.cpp:345,357-372`) | WE_ARE_CRUDER | **N4-D2** — probing fires ~5× less often and **the gap WIDENS** (NLOGN grows slower than NLOG2N) |
+| SP-SLOT-2 | **Effort-meter privacy** | Private per-technique tick counters | `meter_ticks(k) = k.stats.ticks`, the GLOBAL counter, for Probe/Backbone/Vivify/Instantiate | WE_ARE_CRUDER | **N4-B2** — earlier entries spend later entries' budgets |
+| SP-SLOT-3 | **Ceiling computed at RUN time; anchor advanced only on the ADMITTED path** | `OLD_LIMIT` read when the technique begins; anchor written only on a call that ran | Ceilings for ALL entries frozen at phase entry (`:917-954`); anchor advanced for every enabled entry (`:953`) before the guard | WE_ARE_CRUDER | **N4-B1** |
+| SP-SLOT-4 | **Authored slot ORDER** | Argued orders (kissat `probe.c:32-41`; cadical `probe.cpp:934-952`, subsume-before-elim) | `strcmp` on rule names + `move_to_back("BVE"/"Factor")` | WE_ARE_CRUDER | **N4-D1** — Backbone/Probe before our ELS on an un-decomposed BIG; Vivify after TransitiveReduce; BCE first |
+| SP-SLOT-5 | Slot-level new-material watermark | Interval necessary but NOT sufficient (kissat `eliminate.c:33-38`; cadical `elim.cpp:71-81`) | Interval alone | WE_LACK_IT | **N4-D3** |
+| SP-FACTOR-1 | Acceptance bound coupled to BVE progress | `reduction > bound`, ramp 0→1→2→4→8→16 | `factor_bound` present, **default 0, never written** | WE_ARE_CRUDER | **N4-C2** — but wiring it is measured negative 3×; needs a new mechanism, not the port |
+| SP-VIVIFY-1 | Dynamic reduce tiers as Vivify's scope | kissat reads `solver->tier1[0]` | `constexpr VIVIFY_TIER2 = 6` while `k.tier2` is computed every reduce and **read by nothing else** | WE_ARE_CRUDER | **N4-C1** |
+| SP-FACTOR-2 | Fresh extension vars demoted in the branching heuristic | Both references demote unconditionally | `factor_demote_fresh = false` — every var Factor adds becomes a **most-preferred** VMTF decision | WE_LACK_IT | **N4-C5** |
+| SP-CAD-1 | Accumulate-until-worthwhile threshold | cadical `NAMEthresh` via token-paste (`limit.hpp:150`): return false while `DELTA < thresh·|clauses|` | ABSENT (`MIN_EFFORT_TICKS` is the same lever pointed the other way) | WE_LACK_IT | **N4-B1** |
+| SP-REPEAT-* | Per-item new-material marks / resumption cursors (T2) | `flags->subsume`, per-literal `factor`/`block`, per-var `ternary`, per-clause `instantiated`, `Clause::vivify`, cadical `c->transred`, persistent `probes` | Absent throughout; delay ladder gated on `!e.meter` so metered repeaters cannot back off | WE_LACK_IT | **N4-F1…F5** |
+
+### 13.3 Accepted deviations — measured, keep the simpler version
+
+Ported faithfully, **measured worse**, simpler version kept on evidence. **N4 does not require closing
+these**, and a future pass must not "fix" them: sqrt reduce cadence (Tier C 294.78 vs 273.21) · Walk
+effort anchored on the last elimination (Tier B 9.69 vs 8.97) · mid-round C1/C2 interruptibility (Tier C
+366.58 vs 353.26, inert on its own sentinel) · Factor's coupled acceptance bound (mp1 5.3 → 14.9 s, and
+kissat at `--eliminatebound=0` is FINE) · `factorcandrounds` (byte-identical, 7/7) · minimize depth
+(byte-identical at 900/1000/100000). Counter-rule from the rephase episode: **check whether the state a
+reference schedule reads is maintained the same way here before porting the schedule** (§8).
