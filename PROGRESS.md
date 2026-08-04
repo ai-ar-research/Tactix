@@ -974,6 +974,42 @@ shares over the whole solve; V6 is ~38 % of that clock.
   whether gate volume per round falls once resolved gates are dropped.
 - **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
 
+### 2026-08-04 — ▶▶ `D-LRAT-FALLBACK` SHIPPED: the runner no longer discards correct solves (`3c3de3b`)
+Plan §8.1 has always required it; `run.py` never did it. On a DRAT check that outruns its budget the runner
+now re-**solves** with `--lrat` (a conversion is impossible — DRAT→LRAT needs the same backward search that
+just timed out) and verifies with cake_lpr.
+
+| stage | `tierC/urq45.cnf.xz` |
+|---|---|
+| solve | 591.0 s → 919 MB DRAT |
+| drat-trim | **exhausted its budget** |
+| `--lrat` re-solve | 618.8 s → 3,289 MB LRAT |
+| **cake_lpr** | **119.0 s — VERIFIED** |
+| record | `solved: true`, `proof_rescue: "lrat"` |
+
+- **cake_lpr 119.0 s against drat-trim's 4,491.98 s on the same instance = 37.7×.**
+- **▶▶ AND THE REAL NUMBER TO WORRY ABOUT: `urq45` verified in 4,491.98 s of a 4,800 s budget — 93.6 %.**
+  It scraped through today's gate; a busier node flips it to a false unsolved. That is the argument for this
+  feature, and it says the instance has been ~6 % from the cliff on every window we have quoted.
+- **Trigger is exactly one condition** — `check_proof`'s timeout message, now the single-sourced constant
+  `CHECKER_TIMEOUT_PREFIX` because it is a control signal. A genuine REJECTION still scores unsolved (N2);
+  a verdict DISAGREEMENT on the re-solve is never rescued and is recorded as such; baselines are never
+  re-solved.
+- **Verified three ways**: the forced-rescue probe with 8 pre-registered assertions including
+  `proof_rescue == "lrat"` and "the check TIMED OUT, did not reject" (all PASS — a non-firing rescue looks
+  exactly like a working one, so this was asserted, not eyeballed); a rejected proof still scoring unsolved
+  via `tools/fuzz/broken/truncate-proof.sh`; and ctest 38/38.
+- **⚠ COST: the per-task SLURM wall limit doubled** to `2*(timeout + checker_budget) + 120` — Tier C tasks go
+  **1:42 → 3:22** — because the old limit could not fit the runner's own worst case and SLURM would SIGKILL
+  mid-rescue, returning MISSING. **This trade is worth revisiting**: it reserves 2× the wall for a path that
+  fires rarely.
+- Drive-by fix: local `--jobs` mode unpacked 4 of a 5-tuple and would have raised `ValueError` — collateral
+  from the rev-79 `verify_proofs` split, never exercised because every run goes through SLURM.
+- **NOT done:** LRAT is 3.6× the DRAT size here (3.3 GB); on a larger instance cake_lpr's RSS (4.02 GiB
+  here) could approach the 8 GB cap. The rescue reuses `checker_budget` rather than a separate knob — look
+  again if Tier D ever rescues.
+
+
 ### 2026-08-04 — ▶▶ THE FRAGILE THREE ARE A CHRONO DEFECT (3 of 3); `veer_axi` is NOT, and stays unexplained
 Two findings, deliberately kept apart because the first tempted an over-broad conclusion the second refutes.
 
