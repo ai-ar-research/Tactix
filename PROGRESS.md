@@ -438,9 +438,13 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
     neither dosed nor budget-aware, and one round cannot be interrupted. C2 Strengthen owns **97.8 s of 109.0
     (89.7 %)** of `DivS_862_11` in **four applications**. Had no ledger row and no checklist item. Route via
     the calculus skill when it becomes a guard change.
-  - **`D-FACTOR-REV78`** — re-measure broad Factor admission (`TACTIX_FACTOR_SCOPE_PCT`) under plan rev 78.
-    Held on 08-01 at 1.129× Tier C; rev 78 then shipped R-d at exactly 1.129×. ≈−20 Tier B PAR-2 and +1 solve
-    if it reproduces. One same-window B+C pair, arms {shipped, broad, broad+R-d}.
+  - ~~`D-FACTOR-REV78`~~ — **DONE 2026-08-03, verdict HELD.** Broad Factor admission re-measured under rev 78
+    in one same-window B+C pair: Tier B **46.79 (27/28)**, a real +1 solve, against Tier C **27/30**, which
+    rev 78 never covers. R-d and broad are ANTAGONISTIC on Tier C (either alone 29/30). The one genuine loss
+    is `j3037`, a perturbation-fragile instance spanning 218.5 s → 1092.2 s → TO across three arms in that
+    window — **replicating that loss is the open follow-up**; the other apparent loss (`urq45`) was a correct
+    619.3 s solve whose DRAT check blew its budget. Report
+    `benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`.
   - **T3 instrument — CLOSED 2026-08-03.** `benchmarks/tiers/C-ruleneutral.list` (24 of 30,
     derived from window `20260727-002213-C-kabl`, frozen with its known defect + closer in the header) and
     `tools/bench/subset_score.py` (scores any Tier C run over the subset AND the full tier from one
@@ -448,7 +452,9 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
     `run.py` already takes repeatable `--baseline`, it had simply stopped being passed on Tier C. **Standing
     rule from here: every Tier C run carries `--baseline kissat --baseline cadical`**, or T3's kissat half
     goes unmeasurable again.
-  - **Tier D does not exist** (no `D.list`, 0 runs) though N3/T4 gate on it — §11 O9, due at phase-3 exit.
+  - ~~**Tier D does not exist**~~ — **BUILT AND FROZEN 2026-08-03** (793 instances, plan rev 79). Never RUN;
+    running it is the phase-3-exit prerequisite (§11 O9), and `--tier D` still has no per-track flag for T4's
+    SC25-set PAR-2.
   - **Re-measure the Tier C noise floor on an idle partition** — the 10.8 PAR-2 bar was itself taken under a
     ~1 h 12 m overlap with another full Tier C array.
 - **Task #39** — `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/` (N1 robustness, not soundness).
@@ -466,7 +472,7 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-03: Tier B(28) 75.41 vs kissat 10.05, 26/28 = 7.504×** (from 105.30/24 — `veer_axi` and `sted5` both now solve). Tier C 358.12 vs cadical 317.32 = **1.129×**, outside T3's band at the shipped default — a recorded rev-78 trade (#solved wins); the retirement-OFF arm is 1.039×. **vs KISSAT on Tier C ≈1.56×** (kissat 229.64, `20260730-085509`; no kissat arm since). Tier A 0.98×. **⚠ Tier D — the tier N3/T4 actually gate on — HAS NEVER BEEN BUILT** (no `benchmarks/tiers/D.list`, 0 Tier-D runs), so every "kissat parity" statement to date rests on a 28-instance hand-curated Tier B. Building Tier D is a phase-3-exit prerequisite (§11 O9) |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-03 (window `20260803-2110`): Tier B(28) 73.33 vs kissat 9.81, 26/28 = 7.475×. Tier C 350.56 vs cadical 313.75 = 1.117×, and vs KISSAT 228.48 = 1.534×.** T3's CaDiCaL half misses by 0.017 (inside the noise floor); its **Kissat half is 1.271× on the rule-neutral subset, improved from 1.37× and now the binding phase-3 constraint** — on that subset we are 0.987× cadical, i.e. better than it. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (`benchmarks/tiers/D.list`, 793 instances, rev 79) — never yet RUN, and running it is a phase-3-exit prerequisite (§11 O9). |
 
 ## Milestone gates (plan §8.3)
 
