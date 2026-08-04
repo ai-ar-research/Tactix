@@ -5,9 +5,9 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 78 (2026-08-02)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-08-03 — **variable retirement (R-a…R-d) SHIPPED** (Tier B 105.30 → 75.41 PAR-2, 24 → 26 solves, across two fixes); plan revs 76/77/78; V6 Congruence's matching gap located and is the next step. **Doc audit the same day corrected the congruence headline (182× → 3.3–3.9×, counter semantics), the window SHA, and the stale T3 gate row — Log.**
+- **Last updated:** 2026-08-03 — **variable retirement (R-a…R-d) SHIPPED** (Tier B 105.30 → 75.41 PAR-2, 24 → 26 solves, across two fixes); plan revs 76/77/78. V6 Congruence measured: gate matching at parity, the gap is cost. T3's instrument (rule-neutral subset + kissat arm) restored.
 
-## ▶ RESUME HERE (2026-08-03) — phase 3; **next step = V6 Congruence's MATCHING gap** (concrete, instrumented)
+## ▶ RESUME HERE (2026-08-03) — phase 3; **next step = V6 Congruence's COST** (outcome is at parity)
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
@@ -17,44 +17,32 @@ every arm writing + checking DRAT). **Tier B 75.41 (26/28)** vs kissat 10.05 = *
 **Tier C 358.12 (29/30) vs cadical 317.32 = 1.129×** — **T3's CaDiCaL half is NOT met at the shipped
 default**, a deliberate rev-78 trade (#solved wins; the OFF arm is 1.039×). Fuzz green: 4 × 10,000 cases, 0
 failures, DRAT + native LRAT × ± `--random-policy` on ASan+UBSan. ctest 38/38.
-**Two framings the 2026-08-03 audit corrected — read them before acting on the numbers above.** (i) Tier C's
+**Two framings that govern how to read the numbers above.** (i) Tier C's
 gap is a TAIL, not a broad loss: the **median Tier C instance is 0.830× cadical** and we are faster on 15 of
 29; excluding the three fragile instances the shipped arm is **0.971×** and the OFF arm *inverts* to 1.077×.
 (ii) **cadical is not the hard Tier C baseline — kissat is**: same-tier kissat scored **229.64** on
 `20260730-085509`, i.e. we are ~**1.56×** kissat there, and Tier C has had NO kissat arm since 07-30.
 
-**▶ THE NEXT STEP — V6 Congruence finds 3.3–3.9× fewer congruences at 7.6× the time.** Measured on
-`T105.2.0` (probe 1579468, both solvers, same instance): extraction is COMPARABLE (ours 53.4 M gates vs
-kissat 18.5 M, and kissat's XOR share is *higher*), but we produce **3,713 merges against kissat's 14,461
-congruent variables** while spending **7.6× the time** (172.9 s vs 22.75 s). V6 owns 32.9 % / 38.2 % of the
-clock on `T87`/`T105`, ~462 s across the two.
-- **⚠ THE "182×" IN THIS BLOCK WAS A COUNTER-SEMANTICS ERROR (corrected 2026-08-03, audit — Log).** kissat's
-  `congruent_matched` (674,830) counts **hash-table find-hits inside `find_gate_lits`**
-  (`kissat/src/congruence.c:510`), bumped during gate CONSTRUCTION — it is not an outcome count. The
-  like-for-like analogue of our `merges` is `congruent` (`congruence.c:948`,
-  `COUNTER (congruent, 1, PCNT_VARIABLES, …)`) = **14,461 / 13,227**. **Real outcome gap 3.9× (T105) and
-  3.3× (T87), not 182×.** The lever SURVIVES — 7.6× the time for ~3.9× fewer congruences is still the
-  largest single Tier C item — but do not size the fix off the retracted figure.
-- **▶▶ THE OUTCOME GAP IS CLOSED AS AN ARTIFACT — V6's GATE MATCHING IS AT PARITY** (probes 1580063/1580064,
-  Log). Per kind on T105: **AND 3,423 vs kissat's 4,348 (1.27×), XOR 268 vs 531, ITE 0 vs 18.** kissat's
-  `congruent` total BUNDLES a binary-clause equivalent-literal scan (`congruent_equivalences`, 24 % of its
-  total) that we implement in **V3 Substitute**, a different rule — so the 3.9× compared our V6 against its
-  V6+V3. **Do not re-open "V6 finds fewer congruences"; it does not.**
-- **▶ WHAT IS ACTUALLY LEFT, and it is a COST problem:** V6 spends **7.6× kissat's congruence time** for a
-  comparable outcome, and owns 32.9 %/38.2 % of the clock on `T87`/`T105`. Concrete lead from the source
-  read: **kissat checks the table at CONSTRUCTION** (`congruence.c:1206` — on a hit it merges and returns 0
-  *without materializing the gate*), where we materialize every rotation into a `std::vector<CongGate>` and
-  table it in a second pass. Attack the time, not the merge count.
-- **▶ The one real OUTCOME gap is the UNIT channel: `congruent_units` 2,231 vs our 14 (159×)** — C3's unit
-  channel, the only per-kind number where we are not close.
-- **ITE IS DEAD — do not spend on it.** ZERO merges from the ~2,076 gates that reach canonicalize, and
-  **kissat gets 18**. Both solvers get nothing from ITE here.
-- **ALREADY REFUTED, do not redo:** "extraction volume is the anomaly" (kissat extracts the same order);
-  arity caps (`CONG_XOR_ARITY` 4 = kissat's; our AND cap 64 ≪ kissat's 1e6); a round/effort budget (16 and 11
-  rounds, and NEITHER solver meters congruence by effort); **the proof chain / `add_equivalence`
-  (`chain_fail = 0`, measured)**; **the stale-key eviction policy (`stale = 0`, measured)**; **the XOR
-  collision rate (0.003 % is NORMAL — kissat gets 531 XOR congruences from comparable volume)**; **C0
-  sign absorption (read and correct; kissat's extraction does the identical rotation)**.
+**▶ THE NEXT STEP — V6 Congruence's COST: 7.6× kissat's congruence time for a comparable outcome.** V6 owns
+**32.9 % / 38.2 %** of the clock on `T87` / `T105` (~462 s across the two) — the largest single Tier C item.
+- **The outcome is AT PARITY — do not re-open it.** Per kind on T105: **AND 3,423 vs kissat's 4,348 (1.27×),
+  XOR 268 vs 531, ITE 0 vs 18.** kissat's headline `congruent` BUNDLES a binary-clause equivalent-literal
+  scan (`congruent_equivalences`, 24 % of its total) that we implement in **V3 Substitute**, a different
+  rule. The one real outcome gap is **`congruent_units`: 2,231 vs our 14** (C3's unit channel).
+- **The cost decomposes exactly: 2.89× volume × 2.63× per-gate = 7.60×**, nothing left over. Ours is
+  **3.24 µs/gate** vs kissat's 1.23, near-identical across instances — a fixed engineering cost.
+- **Where to look:** the closure table is `std::unordered_map<std::vector<Lit>, uint32_t>`
+  (`congruence.cpp:1242`), ~27 M inserts/instance, and `CongGate` holds two `std::vector`s across 53.4 M
+  materialized gates. **`SmallKey` already exists in this file because this exact pattern measured ~30 % of
+  cycles** (probe 1562991) — it was applied to the small-clause index and the XOR/ITE dedup sets, not to the
+  closure's own table. Blocker for a naive swap: `CONG_ARITY_LIMIT` 64 vs `SmallKey`'s 5; kissat's mean gate
+  arity is **2.10**, so a small-buffer key (inline ~8, heap overflow) covers nearly everything and XOR
+  (arity ≤ 4) fits today. **Confirm with the perf profile before changing anything.**
+- **MEASURED DEAD, do not redo:** extraction volume · arity caps · a round/effort budget · **the proof chain /
+  `add_equivalence`** (`chain_fail = 0`) · **the stale-key eviction policy** (`stale = 0`) · **the XOR
+  collision rate** (0.003 % is normal — kissat gets 531 XOR congruences from comparable volume) · **C0 sign
+  absorption** (correct; kissat's extraction does the identical rotation) · **the ITE extractor** (we draw 0
+  merges, kissat 18).
 
 **THEN, in order** — re-ranked by the 2026-08-03 audit, which corrected one mis-filing (`or_randxor` was
 listed as pure-search; it is rule-SCOPE with a twice-measured fix), bounded three items that were listed
@@ -78,10 +66,21 @@ fix, and the yield direction is unmeasured.
 10‰ + `substituterounds` 2. **Bound (audit):** kissat WITH both bounds substitutes MORE than we do on T105
 (19,531 vs 6,548), so the missing bound is demonstrably not what limits our substitution — expect ~0, and
 note the unbounded behaviour is part of what bought `veer_axi`.
-(d) **`unsat-set-b-fclqcolor`** — 16.6× kissat's conflicts at engine parity (props/conflict 1.06×, slot
-2.3 %): **PURE SEARCH**, no named suspect, ≈−19.5 PAR-2 and +1 solve if cracked. **`or_randxor` is NOT in
-this class — it was mis-filed here.** Its slot share (1.7 %) says it is not a rule-*cost* problem, but it is
-a rule-*scope* problem with a twice-measured fix; see (a).
+(d) **`unsat-set-b-fclqcolor` — THE LAST TIER B TIMEOUT** once (a) ships, so ≈−19.5 PAR-2 and the **28th
+solve**. **It is NOT pure search.** The 07-30 ablation classified it **cause B: "search-tree size; same
+missing BVA"** — the
+SAME class as `or_randxor` — and recorded that **our search on it BEATS CaDiCaL outright (369 s vs cadical's
+TO@300)**, with kissat restricted to *our* Factor variant paying **12.6×** there. Slot share 2.3 % says it is
+not a rule-COST problem; it is a rule-SCOPE problem, like (a).
+**▶ The sharp fact:** broad admission cracks the OTHER cause-B instance (`or_randxor`, TO → 65.5 s) and
+**not this one** — under broad, Factor DOES run on fclqcolor (78 factorings) and it still TOs at 300 s
+(shipped/broad/broadnord all TO; kissat 16.6 s). So the scope GATE is no longer the blocker here; what
+remains is what our Factor DOES on a ternary-dense formula — fclqcolor is **205 vars / 4,549 clauses,
+78.1 % ternary, occ/var 62.3, "tiny and dense"**, and the diagnosed mechanism is **BVA on non-binary
+clauses**.
+**▶ Concrete next step (the instrument already exists):** re-run the 07-30 "kissat restricted to our Factor
+variant" ablation now that our variant has changed (`factor_size` 5 since 07-31, broad admission since
+08-03) — it prices exactly how much of the 12.6× fclq penalty we have closed and how much is left.
 (e) **C1/C2 mid-round budget** — C2 Strengthen owns **97.8 s of 109.0 (89.7 %)** of `DivS_862_11` in FOUR
 applications, and Strengthen + SubsumeForward are the only slot entries neither dosed nor budget-aware (one
 round cannot be interrupted). **Newly filed by the audit: this had no ledger row and no checklist item.**
@@ -166,7 +165,7 @@ both previously timeouts, and loses none. Shipped under plan rev 78 (#solved win
 recorded below and in ledger row `D-RETIRE-TIERC`.
 
 **▶ REPRODUCIBILITY NOTE for both 2026-08-02 tables (audit 2026-08-03).** The artefacts record git
-**`31593d5`** (08-02 10:50), not `a927131` (08-02 17:30) as these headings previously claimed: the binary
+**`31593d5`** (08-02 10:50), not the ship commit `a927131` (08-02 17:30): the binary
 `build/pin-rd-c/tactix` was built from an **uncommitted working tree**, R-d first lands in `4f88e10`
 (13:15), and `a927131` is the ship commit 6 h after the run. The measured `retire` arm IS behaviourally the
 shipped default — `git diff 4f88e10..a927131 -- src/ include/` is only the default flip
@@ -315,18 +314,15 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   others, i.e. parity all along (2026-07-28, probe 1570882). Same family as L8. Corollary: reference counters may need a non-default build
   (kissat's METRIC tier is compiled out of `-s`), and `tools/solvers/bin/*` are SYMLINKS into the reference clones — build such a variant
   **outside the PINNED CLONE**, or the baseline binary every tier run measures against is silently replaced.
-  **▶ WORDING AMENDED 2026-08-03: the original said "outside the REPO", and that is what scattered patched
-  builds across `$HOME` alongside the user's other projects.** The constraint is only that a variant must not
-  live where a rebuild can clobber a pinned baseline — **`tools/solvers/variants/<name>/` (gitignored)
-  satisfies it exactly**, and `kissat-metrics` / `cadical-extdiag` now live there. Nothing this project
-  builds belongs outside `SAT-solving/`.
-  **▶ L14 SHARPENED AGAIN 2026-08-03 (the congruence arc, four overturned reads): getting the reference's
-  number on the same instance is NECESSARY BUT NOT SUFFICIENT.** Twice in one night a same-instance number
-  was compared to the wrong one of ours — first the wrong COUNTER (`congruent_matched`, a lookup statistic,
-  read as an outcome: 182× that was really 3.9×), then the wrong SCOPE (`congruent`, which BUNDLES a binary
-  equivalence channel we implement in a different rule: 3.9× that was really parity). **Before quoting a
-  reference counter, read its DECLARATION (`statistics.h` line + unit) and every `INC` site, and confirm our
-  analogue covers the same scope — then cite both in the writeup.**
+  The constraint is only that a variant must not live where a rebuild can clobber a pinned baseline:
+  **`tools/solvers/variants/<name>/` (gitignored) satisfies it**, and that is where `kissat-metrics` and
+  `cadical-extdiag` live. Nothing this project builds belongs outside `SAT-solving/`.
+  **▶ Same-instance is necessary but NOT SUFFICIENT — the counter must also have the same SCOPE.** A
+  reference's aggregate can bundle channels we implement in a different rule (kissat's `congruent` folds in a
+  binary-equivalence scan that is our V3 Substitute), and a plausible-looking counter can be an internal
+  lookup statistic rather than an outcome (`congruent_matched` counts hash-table find-hits during gate
+  construction). **Before quoting a reference counter: read its DECLARATION (`statistics.h` line + unit) and
+  every `INC` site, confirm our analogue covers the same scope, and cite both in the writeup.**
 - **L15 · A rule family's value can be non-separable, and hand-designed admission on such a family is a trap.** X1/X2/X4 alone cost 21.79 / 53.26
   / 13.08 Tier B PAR-2; together 9.22 (shipped 7.94) — they repair each other (X2 adds ternary resolvents, BCE deletes blocked clauses), so the
   one-at-a-time A/B behind three "ships OFF" verdicts measured each rule at its worst. Worse, **four independent admission gates all lost badly
@@ -442,7 +438,7 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   - **`D-FACTOR-REV78`** — re-measure broad Factor admission (`TACTIX_FACTOR_SCOPE_PCT`) under plan rev 78.
     Held on 08-01 at 1.129× Tier C; rev 78 then shipped R-d at exactly 1.129×. ≈−20 Tier B PAR-2 and +1 solve
     if it reproduces. One same-window B+C pair, arms {shipped, broad, broad+R-d}.
-  - ~~**T3 instrument gaps**~~ — **BOTH CLOSED 2026-08-03.** `benchmarks/tiers/C-ruleneutral.list` (24 of 30,
+  - **T3 instrument — CLOSED 2026-08-03.** `benchmarks/tiers/C-ruleneutral.list` (24 of 30,
     derived from window `20260727-002213-C-kabl`, frozen with its known defect + closer in the header) and
     `tools/bench/subset_score.py` (scores any Tier C run over the subset AND the full tier from one
     `results.json` — the subset is a scoring VIEW, never a separate run). The kissat arm needed no code:
@@ -508,9 +504,9 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   (103.24 → 103.68, 24/28 both). Not a single-instance artefact: 7 instances win ≥15 s and 5 lose, and it
   is still **−11.8 PAR-2 excluding j3037** (which itself goes TIMEOUT → 392.8 s). Landed in `EFFORT_SPECS`.
   **The Kissat half is still NOT met** and is what remains of T3.
-  **▶ SUPERSEDED 2026-08-02 — the CaDiCaL half is NOT met at the current default.** R-d retirement took Tier
-  C 329.63 → 358.12 (1.039× → 1.129×) in exchange for +2 Tier B solves, banked under plan rev 78. This entry
-  ("THE CaDiCaL HALF IS MET") stood uncorrected for a day and is what the status table above now governs.
+  **▶ SUPERSEDED 2026-08-02:** R-d retirement took Tier C 329.63 → 358.12 (1.039× → 1.129×) in exchange for
+  +2 Tier B solves, banked under plan rev 78 — so the CaDiCaL half is NOT met at the current default. The
+  status table at the top of this gate row governs.
   **▶ TESTED AND REJECTED 2026-07-29: a uniform slot rate of 2‰ does NOT reliably clear this half.** Two same-day windows, same arms/throttle,
   every arm writing and checking DRAT, 29/30 throughout: `20260729-094225` shipped 361.89 / **rate2 335.81 = 1.065× cadical 315.42 (inside)**;
   `20260729-112753` shipped 357.31 / **rate2 348.57 = 1.101× cadical 316.58 (outside)** — the saving shrank 26.1 → 8.8 PAR-2, so the criterion is
@@ -838,275 +834,75 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
-### 2026-08-03 — ▶▶ CORRECTION #2: V6's gate matching is AT PARITY with kissat. The "3.3–3.9× fewer congruences" was ANOTHER counter-scope artifact
-Probes 1580063/1580064 — kissat's **per-kind** `congruent_*` on the same two instances (`kissat-metrics`
-build). This is the comparison that should have preceded both of today's congruence entries, and it retires
-the lever they ranked #1.
+### 2026-08-03 — ▶▶ V6 Congruence: gate matching is AT PARITY; the gap is COST (7.6×) and the UNIT channel
+Probes 1579464 (both solvers' timings), 1579467/1579468 (gate-kind splits), 1579948/1579949 (our closure
+funnel), 1580063/1580064 (kissat per-kind `congruent_*`, `kissat-metrics` build). Two instances, `T87.2.0`
+and `T105.2.0`, ~3.1 M vars / ~10.9 M clauses each, where V6 owns **32.9 % / 38.2 %** of the clock (~462 s
+across the two) — the largest single Tier C item.
 
-| T105, by kind | kissat | ours | ratio |
-|---|---|---|---|
-| AND congruences | 4,348 | **3,423** | **1.27×** |
-| XOR congruences | **531** | **268** | 1.98× |
-| ITE congruences | 18 | 0 | — |
-| `congruent_equivalences` | **3,513 (24 %)** | — (we have no such channel in V6) | — |
-| `congruent_units` | **2,231** | **14** | **159×** |
-| **`congruent` total** | 14,589 | (3,713 merges) | 3.9× |
+**Outcome, per kind (T105).** Ours vs kissat: **AND 3,423 vs 4,348 (1.27×)** · **XOR 268 vs 531** · **ITE 0
+vs 18**. That is parity. kissat's headline `congruent` (14,589) is a **BUNDLE**: 24 % of it is
+`congruent_equivalences`, a binary-clause equivalent-literal scan run inside its closure
+(`congruence.c:4118` — for a marked literal, find `other` with both polarities present, `merge_literals`),
+which we implement in **V3 Substitute's SCC over the binary implication graph**, a separate rule. Comparing
+our V6 merges to that total compares our V6 against kissat's V6+V3.
 
-- **▶▶ OUR GATE MATCHING IS FINE.** AND **1.27×**, XOR **1.98×** — that is parity, not a 3.9× defect. The
-  aggregate gap was never gate matching.
-- **`congruent` is a BUNDLE, and we were comparing it to one component.** kissat's total folds in
-  `congruent_equivalences` — a **binary-clause equivalent-literal scan** run inside the closure
-  (`congruence.c:4118-4137`: for a marked literal, find `other` with both polarities present and
-  `merge_literals`) — worth **24 % of its congruences**. **We implement that mechanism, in V3 Substitute's
-  SCC over the binary implication graph, as a separate rule.** So the 3.9× compares our V6 against kissat's
-  V6+V3-equivalent. Same error shape as the 182×, one level up: **the first comparison used the wrong
-  counter, the second used the wrong SCOPE.**
-- **The one real outcome gap left is `congruent_units`: 2,231 vs our 14 (159×)** — C3's unit channel. That
-  is now the only per-kind number where we are not close, and it is the actionable lead.
-- **▶ THE XOR "0.003 % COLLISION RATE" IS NORMAL, NOT A DEFECT** — the entry below reads it as a
-  canonicalization fault. **Retracted:** kissat gets only **531** XOR congruences on this instance from a
-  comparable XOR volume (`congruent_arity_xors` 22.8 M). Millions of XOR gates yielding hundreds of merges is
-  what BOTH solvers do. There is no canonicalization bug to fix, and the C0 sign-absorption suspect is
-  cleared — I read `canonicalize` (`congruence.cpp:552-578`) and it absorbs sign into `parity` correctly, and
-  kissat's own extraction (`congruence.c:2939`) does the **identical** one-gate-per-output rotation we do.
-- **WHAT SURVIVES:** V6's **cost**. 7.6× kissat's congruence time (172.9 s vs 22.75 s) for a comparable
-  outcome is still real and still 32.9 %/38.2 % of the clock on these two instances. The gap is TIME, not
-  merges. One concrete cost lead from the source read: kissat checks the table at CONSTRUCTION
-  (`new_xor_gate:1206` — on a hit it merges and returns 0 **without materializing the gate**), where we
-  materialize every rotation into a `std::vector<CongGate>` and table it in a second pass.
-- **METHOD — this is the fourth mechanism read overturned in 24 h** (TransitiveReduce's "1000×", extraction
-  volume, the 182×, and now this). All four failed the same way: **a reference counter was compared without
-  first establishing what it counts and what it bundles.** L14 said "get the reference's number on the SAME
-  instance"; that is necessary and was not sufficient. **Sharpened rule: before comparing to a reference
-  counter, read its DECLARATION and its INCREMENT SITES, and confirm our analogue covers the same scope —
-  cite `statistics.h` line + every `INC` site in the writeup.**
+**The one real outcome gap: `congruent_units` 2,231 vs our 14** (T87: 2,614 vs 10) — C3's unit channel.
 
-### 2026-08-03 — ▶▶ (SUPERSEDED IN PART — see the correction above) V6's DISCRIMINATOR RESOLVES: XOR gates collide **0.003 % of the time**
-Probes 1579948 (`T105.2.0`) / 1579949 (`T87.2.0`), the closure funnel added in `014e3b2`
-(`TACTIX_CONG_PROBE`). The resume block posed a two-branch discriminator; **it lands unambiguously on
-branch 2, and both instances give the same shape.**
+**Cost decomposes exactly.** 172.9 s vs 22.75 s = 7.60×, and
+**2.89× volume × 2.63× per-gate = 7.60×** with nothing left over. Ours is **3.24 µs/gate** against kissat's
+1.23, and near-identical across instances (T87 3.23) — a fixed engineering cost, not instance shape. Volume
+splits as 1.84× gates/round × 1.57× rounds (11 vs 7 closures).
 
-| T105 | canon_ok | insert | **collide** | stale | already_eq | **chain_fail** | merged |
-|---|---|---|---|---|---|---|---|
-| and | 26,397,263 | 26,350,881 | 46,382 | 0 | 42,959 | **0** | 3,423 |
-| xor | 26,976,595 | 26,975,777 | **818** | 0 | 550 | **0** | 268 |
-| ite | 60 | 30 | 30 | 0 | 30 | **0** | **0** |
+**Where the per-gate cost points.** The closure table is `std::unordered_map<std::vector<Lit>, uint32_t>`
+(`congruence.cpp:1242`) taking ~27 M inserts per instance, and `CongGate` holds two `std::vector`s with
+53.4 M gates materialized. `SmallKey` (fixed-capacity, no heap node) already exists in this file **because
+this exact pattern measured ~30 % of cycles** (probe 1562991) — but it was applied to the small-clause index
+and the XOR/ITE dedup sets, not to the closure's own table. A naive swap is blocked by `CONG_ARITY_LIMIT`
+64 vs `SmallKey`'s 5; kissat's mean gate arity is **2.10**, so a small-buffer key with inline capacity ~8
+and heap overflow covers nearly everything, and XOR (arity ≤ 4) fits `SmallKey` as-is. Perf profile queued
+to confirm before any change.
 
-| T87 | canon_ok | insert | **collide** | stale | already_eq | **chain_fail** | merged |
-|---|---|---|---|---|---|---|---|
-| and | 38,994,960 | 38,948,080 | 46,880 | 0 | 43,225 | **0** | 3,655 |
-| xor | 39,660,474 | 39,659,561 | **913** | 0 | 612 | **0** | **301** |
-| ite | 76 | 38 | 38 | 0 | 38 | **0** | **0** |
+**The closure funnel** (`TACTIX_CONG_PROBE`, per kind: canon_ok → insert → collide → {stale, already_eq,
+clash, chain_fail, merged}). T105 AND 26,397,263 / 26,350,881 / 46,382 / 0 / 42,959 / — / 0 / 3,423; XOR
+26,976,595 / 26,975,777 / **818** / 0 / 550 / — / 0 / 268; ITE 60 / 30 / 30 / 0 / 30 / — / 0 / **0**. T87 the
+same shape.
 
-- **▶▶ THE FINDING: we emit ~27 M / ~39.7 M XOR gates and they collide 818 / 913 times — 0.0030 % and
-  0.0023 %.** Structurally identical XOR gates essentially NEVER meet on their key. **The fault is in the
-  KEY / CANONICALIZATION**, and C0's sign absorption (`base_parity`/`r`) is now the only standing suspect.
-- **`chain_fail = 0` ON EVERY KIND, BOTH INSTANCES — `add_equivalence` and the proof chain are EXONERATED.**
-  That was the other branch of the discriminator and it is dead: not one inference is being dropped for
-  want of a checkable chain. (Consistent with `congruence_unjustified` reading 0 on both runs.)
-- **`stale = 0` everywhere** — the evict-on-stale-key policy is eating nothing; not a lever.
-- **AND collides ~58× more often per gate than XOR** (0.176 % vs 0.0030 % on T105) — so whatever the key
-  defect is, it is far worse for XOR, which is also 50.5 % of our emission volume. And **93 % of AND
-  collisions are `already_eq`** (42,959 of 46,382): even when AND keys DO meet, the outputs are usually
-  already in one class, i.e. that work was genuinely redundant.
-- **ITE draws ZERO merges** from 2,076 / 2,292 gates that reach canonicalize (2,016 / 2,216 of them
-  `canon_skip`). It is a rounding error, not a lever — consistent with kissat matching only 131 of its own
-  247,798 ITEs. **Do not spend on the ITE extractor.**
-- **A structural hint worth carrying into the fix:** the absolute collision counts barely move between the
-  two instances (AND 46,382 vs 46,880; XOR 818 vs 913) although T87 emits **1.5× more gates**. Collisions do
-  not scale with emission volume, which is what you would expect if they come from a small structural core
-  and the rest of the emission is keyed apart by something that should not be in the key.
-- **NEXT (a real fix now, not a probe):** read C0's key construction against kissat's, specifically where the
-  XOR output's sign/parity is absorbed. The prediction to pre-register: if sign lands in the KEY rather than
-  in `out_lit`, then two gates over the same variable set with opposite output parity are keyed apart, and
-  the fix collapses `insert` into `collide` by orders of magnitude. Measure the funnel before/after — it is
-  now the instrument for exactly this.
+**MEASURED DEAD — do not re-open.** Extraction volume (kissat extracts the same order, and its XOR share is
+*higher*) · arity caps (`CONG_XOR_ARITY` 4 = kissat's; our AND cap 64 ≪ kissat's 1e6) · a round/effort
+budget (neither solver meters congruence by effort; kissat's controls are structural) · **the proof chain /
+`add_equivalence`** (`chain_fail = 0`, every kind, both instances) · **the stale-key eviction policy**
+(`stale = 0`) · **the XOR collision rate** (0.003 % is NORMAL — kissat gets 531 XOR congruences from
+comparable volume) · **C0 sign absorption** (`canonicalize`, `congruence.cpp:552-578`, absorbs sign into
+`parity` correctly, and kissat's extraction at `congruence.c:2939` does the identical one-gate-per-output
+rotation) · **the ITE extractor** (we draw 0 merges, kissat draws 18 — both get nothing here).
 
-### 2026-08-03 — ▶ MY ERROR: I rebuilt the binary two in-flight arrays were executing; both runs cancelled and redone
-Recorded because it is the [[s4-gate-negatives]] build-race hazard and I walked straight into it **while
-holding the memory that names it**. Submitted Tier B (1579587) and Tier C (1579688) against
-`build/pin-t3a/tactix` at 21:03, then at 21:08 rebuilt **that same path** with the congruence
-instrumentation. Tier B was 107/112 done; **Tier C was 31/150**, so ~119 Tier C tasks would have run a
-different binary from the first 31 — arms and instances mixed across two builds, in a window whose whole
-purpose is an arm-vs-arm comparison.
-- **Cancelled all four job ids** (1579587/1579588/1579688/1579689 — by explicit id, never account-wide) and
-  **deleted both run dirs** rather than salvaging. A partially-contaminated window is worth less than no
-  window: it produces plausible numbers, which is exactly how [[ab-arm-identical-artefacts]] and the
-  `$TMPDIR` collision both did their damage.
-- **What made it recoverable:** the watchers fired on cancellation, because the skill's condition is
-  "job gone from the queue", not "results file exists". A file-exists watcher would have hung forever.
-- **The rule, restated so the next session does not need to rediscover it: a submitted array OWNS its
-  binary path until it finishes.** Build the measurement binary into a fresh `build/pin-*` dir, submit, and
-  do not touch that dir again — put the NEXT change in the NEXT dir. Resubmitted against `build/pin-t3b`
-  (arrays 1579784 B / 1579883 C) and staged the probe binary as a separate copy under the session job dir so
-  no later rebuild can reach it either.
+**Also visible in these runs:** V4 TransitiveReduce at **18,773,159 applications on T87** (118,524 ms,
+15.4 %) and 8,548,660 on T105.
 
-### 2026-08-03 — ▶ T3's INSTRUMENT restored: the rule-neutral subset is a real list, and Tier C carries a kissat arm again
-T3 has two halves and one of them had been **unmeasurable** for a week — the rule-neutral subset existed only
-as a number in a frozen report, and Tier C stopped carrying a kissat arm after 07-30. Both closed.
-- **`benchmarks/tiers/C-ruleneutral.list`** — 24 of 30, derived (not re-measured) from the ablation window
-  `20260727-002213-C-kabl`: exclude an instance iff ablating Sweep moves EITHER baseline >25 %. Reproduces
-  the documented 24/30 exactly, so it stays comparable with the 1.37 × the half was last measured at.
-- **The list ships with its own defect recorded in the header**, because the derivation deserves less trust
-  than its reuse implies. The ablation is SINGLE-SHOT, so a ratio cannot separate "sweep matters here" from
-  "this instance is chaotic" — and **4 of the 6 exclusions (ContextModel, j3037, jgiraldezlevy, urq45) are on
-  the measured perturbation-FRAGILE list**, with sweep ratios (1.54–2.54) sitting INSIDE their 8–23 × bands
-  (probe 1579386, where the perturbations were walk/bump/chrono — none of them sweep). Only `em_11` (both
-  baselines move, 2.65×/2.30×) and `DLTM` (kissat 3.57×) survive that objection. **Closer: re-run the sweep
-  ablation with ≥3 repeats and require the sweep delta to exceed the instance's own replicate band.**
-- **Consequence, stated up front so it is not banked by accident:** the subset excludes precisely the
-  instances where R-d costs Tier C, so **"R-d helps on the subset" may be an artefact of the subset's defect
-  rather than a finding.** The arithmetic is now reproducible on demand — `subset_score.py` on window
-  `20260802-112853` gives **retire 1.005 × cadical on the subset against 1.129 × on the full tier, and base
-  1.081 × subset against 1.039 × full**, i.e. the two views RANK THE ARMS OPPOSITELY. That is a reason to fix
-  the subset, not a reason to celebrate.
-- **A max-over-five-lacked-techniques criterion was tested and REJECTED**: it excludes 16 of 30 and is plainly
-  noise-amplifying — `mp1-Nb5T15` shows **10.18× from `--eagersubsume=0`**, a technique worth **+5.94 PAR-2
-  across the whole tier**. Taking a max over five single-shot ablations is L8 inflation five times over.
-- **`tools/bench/subset_score.py`** scores any existing Tier C run over both views from one `results.json` —
-  no re-running, so the subset number always comes from the same window as the full-tier number.
-- The kissat arm needed **no code change**: `run.py --baseline` is already repeatable and was simply not
-  being passed. Standing rule: **every Tier C run carries `--baseline kissat --baseline cadical`.**
-
-### 2026-08-03 — ▶▶ DOC AUDIT of the Tier B/C gap claims: **the "182×" congruence headline is a counter-semantics error**, plus 9 further doc-vs-data defects
-Read-only audit of every headline number in the resume block, the tier tables and the gate section against
-the raw `benchmarks/runs/*/results.json` and the kissat sources. **All four headline PAR-2 claims RECOMPUTE
-EXACTLY** (Tier B 75.41471 / kissat 10.04932 / 7.504×; Tier C 358.1191 / OFF 329.6273 / cadical 317.3166 /
-1.129× / 1.039×), arms are genuinely distinct runs, no `mismatch:true`, no tactix `proof_ok:false`. **The
-standing is real; several of the framings around it were not.**
-- **▶▶ D2, the one that matters: "we match 3,713 where kissat matches 674,830" (182×) compares two different
-  counters.** kissat's `congruent_matched` is incremented inside `find_gate_lits` on every **hash-table
-  find-hit** (`kissat/src/congruence.c:510`), during gate CONSTRUCTION — an internal lookup statistic, not an
-  outcome. The like-for-like analogue of our `merges` is `congruent`
-  (`congruence.c:948`, `COUNTER (congruent, 1, PCNT_VARIABLES, …)` at `statistics.h:54`) = **14,461 (T105) /
-  13,227 (T87)**. **Real outcome gap: 3.9× and 3.3×, not 182×** — and the 08-03 entry below already had the
-  right numbers before the correction entry replaced them with the wrong one. **The lever survives** (7.6× the
-  time for ~3.9× fewer congruences is still the largest single Tier C item) **but was sized off a figure
-  ~47× too large.** Same failure mode as L14, one level deeper: I got the reference's counter on the same
-  instance, and then compared it to the wrong one of ours. **Rule going in: when quoting a reference counter,
-  quote its DECLARATION (`statistics.h` line + unit) alongside the value.**
-- **D1 · the tier tables' git SHA was wrong.** Both artefacts record **`31593d5`**; the tables said
-  `a927131`. The binary was built from an **uncommitted tree** (R-d lands in `4f88e10`, 2 h after the run;
-  `a927131` ships it 6 h after). The measured `retire` arm IS the shipped default — the intervening src diff
-  is only the default flip — but **no recorded SHA reproduces the window**, which is exactly what the tables'
-  own maintenance contract exists to prevent. Contract amended: take the SHA from the run's `manifest.json`,
-  never from the commit that later shipped the change.
-- **D8 · reproduction trap:** the OFF arm is documented as `TACTIX_RETIRE=0`, but at `31593d5`
-  `main.cpp:287` was a **presence** check — `TACTIX_RETIRE=0` on that binary turns retirement **ON**. The
-  arm actually ran with the variable unset. Value parsing exists only from `a927131`.
-- **D13 · the gate section was stale in the one place a reader consults for gate status** — it still ended on
-  "▶▶ THE CaDiCaL HALF IS MET 2026-07-30" while the 1.129× miss was recorded correctly 200 lines earlier. T3
-  now leads with a current-status table.
-- **Framing corrections banked into the tier tables.** (i) **Tier C's gap is a TAIL, not a broad loss**:
-  median instance **0.830× cadical**, faster on 15 of 29; excluding the three fragile instances the shipped
-  arm is **0.971×** and the OFF arm *inverts* to **1.077×**. (ii) **cadical is not the hard Tier C baseline —
-  kissat is**: 229.64 vs our 358.12 ≈ **1.56×**, and no Tier C window has carried a kissat arm since 07-30.
-  (iii) The T3 miss (**+9.07 PAR-2**) is **smaller than the noise floor** (10.8); the OFF arm's pass is not.
-  (iv) `veer_axi` is a **cliff solve** — the OFF base solved it in 286.7 s against a 300 s cap in the adjacent
-  window, so "+2 solves" is partly a cliff effect (the within-window A/B still stands).
-- **D6 · the noise floor itself was measured under contention** — `20260731-013523` (01:35–03:28) overlapped
-  the full Tier C array `20260731-021615` (02:16–04:04) by ~1 h 12 m. 10.8 PAR-2 is an upper bound on
-  quiet-partition noise, presented until now without caveat.
-- **D7 · pre-2026-07-28 Tier C aggregates are protocol-incomparable:** an instance whose DRAT check blew the
-  2400 s checker budget was scored UNSOLVED **even when tactix solved it** — `20260727-082011` scored `urq45`
-  unsolved at a **354.5 s solve** with a 2400.1 s check. Inflation up to ~+68 PAR-2.
-- **D3/D4/D9/D11 · four factual slips in the tables**, all verified against raw JSON and fixed:
-  `20260729-094225` is **29/30** not 28/30; `20260730-085509`'s 319.19 is the **`x2rate8`** arm (the arm named
-  `shipped` there is 397.94 at 28/30); `128_125` is an **OOM at 24.5 s against a 1200 s cap**, not a `TO`
-  (and it flatters both ratios — dropping it moves shipped 1.129 → 1.172×); R-d's three losers own **96.5 %**
-  of the gross regression, not 100 % (seven others add +63.5 s), against an exact net of **+854.75 s**.
-- **Two gaps in the work list, now filed** (Open items + the resume block's ordered list): **C2 Strengthen has
-  no budget item** despite owning **89.7 % of `DivS_862_11`** in four applications, and **broad Factor
-  admission was never re-measured under plan rev 78** — it was held at 1.129× Tier C on 08-01, and rev 78
-  shipped R-d at exactly 1.129× on 08-02. Also: **rev 78 requires a banked trade to carry a named closer, and
-  R-d's closer (`D-RETIRE-TIERC`) was discharged as not-actionable**, so the 1.129× cost currently has **no
-  open action item at all** — defensible on the evidence (an admission gate would fit noise), but the
-  safeguard produced zero follow-up work and that should be a conscious choice, not an accident.
-- **Not re-verified, left as-is:** the frag3 replicate bound (`≤0.8 %` → the audit re-read it as ≤1.0 %;
-  argument unaffected) and the `7.94 / 9.27` core14 figures (cross-window aggregates, now annotated).
-
-### 2026-08-03 — ▶▶ CORRECTION: congruence's gap is **MATCHING, not extraction** — and ITE extraction is ~dead
-Probe 1579468 — kissat's `congruent_gates_*` on T105, the comparison I should have had before reading
-anything into our gate count. **It refutes the extraction-volume conclusion I banked an hour earlier.**
-
-| | ours | kissat | |
-|---|---|---|---|
-| gates extracted | 53,371,397 (11 rounds) | **18,474,261** (7 closures) | 2.9× more, NOT an explosion |
-| XOR share | 50.5 % | **58 %** | ours is LOWER — XOR-heavy is normal here |
-| **ITE gates** | **2,068** | **247,798** | **~120× fewer for us** |
-| ~~**matched**~~ | ~~3,713 merges~~ | ~~674,830~~ | ~~**~182× fewer for us**~~ **← WRONG COUNTER, see below** |
-| **congruent (corrected)** | **3,713 merges** | **14,461 `congruent`** | **3.9× fewer for us** |
-| congruence time | 172,872 ms | 22,750 ms | 7.6× |
-
-**▶▶ THE "182×" ROW IS RETRACTED (audit 2026-08-03, entry above).** `congruent_matched` counts hash-table
-**find-hits inside `find_gate_lits`** (`kissat/src/congruence.c:510`), bumped during gate construction — not
-an outcome. The analogue of our `merges` is `congruent` (`congruence.c:948`,
-`COUNTER (congruent, 1, PCNT_VARIABLES, …)`) = **14,461 / 13,227**, i.e. **3.9× / 3.3×** — the figure the
-entry BELOW already had right. Everything else in this entry stands; the conclusion (matching, not
-extraction) stands; only the magnitude was inflated ~47×.
-
-- **What was wrong:** I read "78 M gates, 7.2 per clause" as the anomaly. It is not — kissat extracts the
-  same order of magnitude, with a HIGHER XOR proportion. Extraction volume is roughly comparable.
-- **What is actually wrong:** we spend **7.6× the time to produce ~~182×~~ 3.9× fewer congruences**
-  (3,713 merges vs kissat's 14,461 `congruent` variables — the 182× used `congruent_matched`, a gate-construction
-  lookup counter; retracted above). **The defect is in the CLOSURE / KEY MATCHING, not in how much we
-  extract.** Note the corrected magnitude weakens the sub-claim that structurally identical XOR gates never
-  collide at all: a 3.9× shortfall is equally compatible with partial canonicalization loss, so the
-  collisions-attempted-vs-merges-accepted instrumentation is still the right discriminator — just do not
-  expect a 100×-scale finding.
-- **Second, separate defect: our ITE extractor is ~dead** — 2,068 gates against kissat's 247,798 on the same
-  formula, and kissat matches 131 ITEs from them. Ours is a rounding error (0.004 % of our gates vs kissat's
-  1 %). C2's degenerate-ITE filter (Track C, "gates −23 %, equivalences identical") is the first suspect.
-- **Method note, and the reason this correction exists:** the gate-count ratio looked damning in isolation
-  and I nearly built an extractor fix on it. What stopped me was arithmetic that would not close (27 M XOR
-  gates need ~86 M clause-participations from a 10.7 M-clause formula) — so I got the reference's counters
-  on the SAME instance first (L14) instead of acting. **Two of today's three "obvious" mechanism reads have
-  now been overturned by that same check** (TransitiveReduce's "~1000× gap", and this).
-- **Next:** instrument the closure — count key collisions attempted vs merges accepted, split by kind. If
-  XOR keys are colliding but merges are being rejected, the fault is in `add_equivalence`/the proof chain; if
-  they are not colliding at all, it is the canonicalization (C0's sign-absorption is the standing suspect).
-
-### 2026-08-03 — ▶▶ V6 Congruence: kissat finds **3.3× MORE congruences in 12.5× LESS time** — a real rev-77 gap
-Probe 1579464, the L14 comparison on the two instances where V6 owns the clock (`T87.2.0`, `T105.2.0` —
-both ~3.1 M vars / ~10.9 M clauses).
-
-| | ours | kissat |
-|---|---|---|
-| **T87** congruence | **253,989 ms (32.9 % of solve)**, 16 rounds, **78,652,093 gates**, **3,979 merges** | **20.38 s (9.85 %)**, **13,227 congruent vars** |
-| **T105** congruence | **172,872 ms (38.2 %)**, 11 rounds, **53,371,397 gates**, 3,713 merges | **22.75 s (9.61 %)**, **14,461 congruent vars** |
-
-- **This is outcome (2) of the three I pre-registered: the same job done far more expensively AND with a
-  worse result.** Not inherent to the instances (kissat is fast on them), not a scheduling gap (16 and 11
-  rounds, not dozens).
-- **~~The anomaly is EXTRACTION VOLUME~~ — REFUTED 2026-08-03 by kissat's own counters on the same instance
-  (probe 1579468); see the correcting entry above. kissat extracts 18.47 M gates to our 53.37 M (2.9×, not an
-  explosion) and its XOR share is 58 % against our 50.5 %, so XOR-heavy extraction is NORMAL here. The real
-  gap is MATCHING.**
-- **My pre-registered prediction was WRONG and usefully so.** I predicted ~45 rounds (repeated full
-  re-extraction) from the veer cost model; it is 16. So the cost is NOT re-running extraction often — it is
-  extracting far too much EACH time. That rules out the scheduling fix I would otherwise have built.
-- **Under rev 77 this is a "match or exceed" gap, not a dosing question:** kissat is strictly better here on
-  both axes at once. Neither solver meters congruence by effort (kissat's controls are structural —
-  `congruenceandarity` 1e6, `congruencexorarity` 4, `congruencexorcounts` 2, plus `congruenceonce` /
-  `preprocesscongruence`), so a budget is the wrong instrument; the extractor is the thing to fix.
-- **▶ GATE-KIND SPLIT (probe 1579467, T105): `26,393,284 and · 26,976,045 xor · 2,068 ite`.** XOR alone is
-  **50.5 %** of the volume; for scale kissat's own split (on veer) is ands 59 % / ites 30 % / **xors 11 %**.
-- **The arity caps are NOT the cause — we already match or beat kissat**: `CONG_XOR_ARITY` **4** = kissat's
-  `congruencexorarity` 4, and `CONG_ARITY_LIMIT` **64** is far STRICTER than kissat's `congruenceandarity`
-  1e6. So the gap is in what the extractor *emits*, not what it admits.
-- **Structural fact found while reading it:** XOR extraction dedups relations correctly (a `seen` set over
-  sorted positive vars) but then emits **ONE GATE PER CHOICE OF OUTPUT** — `s` gates for an `s`-variable
-  relation. That is needed for congruence matching, but it means the gate count is `s ×` the relation count
-  by construction, and it is the first thing to compare against kissat's counter semantics: **if kissat
-  counts RELATIONS where we count (relation × output), the 12.5× is partly a measurement artefact and the
-  real gap is smaller than it looks.** Probe 1579468 gets kissat's `congruent_gates_*` on the SAME instance
-  to settle that before any code changes.
-- **Do not "fix" the extractor until that comparison lands** — the arithmetic already does not close (27 M
-  XOR gates would need ~5.4 M relations × 16 clauses = 86 M clause-participations from a 10.7 M-clause
-  formula), which means either the emission multiplicity or the counter semantics explains it, and those two
-  route to completely different work.
-- Also visible in the same runs: **V4 TransitiveReduce at 18,773,159 applications on T87** (118,524 ms,
-  15.4 %) and 8,548,660 on T105 — a second, separate lead on the same instances.
+### 2026-08-03 — ▶ T3's INSTRUMENT restored: the rule-neutral subset is a real list, Tier C carries a kissat arm
+T3 has two halves and the kissat half had been unmeasurable for a week — the subset existed only as a number
+in a frozen report, and Tier C stopped carrying a kissat arm after 07-30.
+- **`benchmarks/tiers/C-ruleneutral.list`** — 24 of 30, derived (not re-measured) from ablation window
+  `20260727-002213-C-kabl`: exclude an instance iff ablating Sweep moves EITHER baseline > 25 %. Reproduces
+  the documented 24/30 exactly, so it stays comparable with the 1.37× the half was last measured at.
+- **The list carries a KNOWN DEFECT in its header, with a named closer.** The ablation is SINGLE-SHOT, so a
+  ratio cannot separate "sweep matters here" from "this instance is chaotic" — and **4 of the 6 exclusions
+  (ContextModel, j3037, jgiraldezlevy, urq45) are on the measured perturbation-FRAGILE list**, with sweep
+  ratios 1.54–2.54 sitting inside their 8–23× bands (probe 1579386, perturbations were walk/bump/chrono, none
+  of them sweep). Only `em_11` (both baselines move, 2.65×/2.30×) and `DLTM` (kissat 3.57×) survive that
+  objection. **Consequence: the subset excludes exactly the instances where R-d costs Tier C, so "R-d helps
+  on the subset" may be an artefact of the defect, not a finding** — `subset_score.py` on window
+  `20260802-112853` gives retire **1.005×** cadical on the subset against **1.129×** full, and base 1.081×
+  subset against 1.039× full, i.e. **the two views rank the arms OPPOSITELY.** Closer: re-run the ablation
+  with ≥ 3 repeats and require the sweep delta to exceed the instance's own replicate band.
+- A max-over-five-lacked-techniques criterion was **tested and rejected**: it excludes 16 of 30 and is
+  noise-amplifying — `mp1-Nb5T15` shows **10.18× from `--eagersubsume=0`**, a technique worth +5.94 PAR-2
+  across the whole tier.
+- **`tools/bench/subset_score.py`** scores any Tier C run over both views from one `results.json`, so the two
+  numbers always come from the same window. The subset is a scoring VIEW, never a separate run.
+- The kissat arm needed no code change (`run.py --baseline` is already repeatable). **Standing rule: every
+  Tier C run carries `--baseline kissat --baseline cadical`.**
 
 ### 2026-08-02 — ▶ the three Tier C "losers" are FRAGILE, not damaged — `D-RETIRE-TIERC` CLOSED, no gate built
 L20 test (probe 1579386): per instance, 2 base replicates + retire + **three UNRELATED perturbations**
@@ -1138,8 +934,11 @@ Probe 1579404, all 58 instances, no proof writing. Median inprocessing-slot shar
   rev-77 deficit — but it is the largest single runtime lead on Tier C). Same rule as the §6 SIGTERM defect.
 - **▶ C2 Strengthen owns `circuit_32in32out` 146.2 s of 215.8 (80.8 %) and `DivS_862_11` 97.8 s of 109.0
   (89.7 % — the rule IS the solve)**. Strengthen has a 100‰ meter, so the meter is not binding there.
-- **The four Tier B timeouts are PURE SEARCH** — slot share 1.7–11.7 % (`or_randxor` 1.7, `fclqcolor` 2.3,
-  `sted5` 3.8, `veer_axi` 11.7). No inprocessing tuning will solve them.
+- **The four Tier B timeouts have LOW SLOT SHARE — 1.7–11.7 %** (`or_randxor` 1.7, `fclqcolor` 2.3,
+  `sted5` 3.8, `veer_axi` 11.7) — **and all four are nonetheless RULE problems.** Three have since fallen to
+  rule work: `veer_axi` and `sted5` to R-d retirement, `or_randxor` to broad Factor admission; only
+  `fclqcolor` remains (cause B, missing non-binary BVA). **A low slot share bounds the COST lever, not the
+  CAPABILITY lever — never file an instance as pure-search from a slot share alone.**
 - Contrast: `hwmcc17miters` 93.8 % slot, `SC25_Timetable` 72.3 %, `PRP_30_38` 70.7 % — instances where the
   slot legitimately IS the work.
 
@@ -1234,7 +1033,7 @@ statement stands). Probe 1578771, the full 2×2 on veer_axi:
   FmlaEquiv 25.80 s and 9vliw 12.81 s, `x9` bit-identical. **If R-d also fails to beat demotion, STOP** —
   ship demotion on a tier pair and record retirement as measured-dead. Do not attempt a fifth mechanism.
 
-### 2026-08-02 — R-a…R-c implemented: R-a/R-b BIT-IDENTICAL, R-c is NOT viable yet (my prediction was wrong twice)
+### 2026-08-02 — R-a…R-c implemented: R-a/R-b BIT-IDENTICAL, R-c is NOT viable yet
 Increments R-a (`Kernel::var_status` + `kernel_var_retired`), R-b (V3 retires at the witness push), R-c
 (DefaultPolicy declines retired variables, skip-with-fallback, `TACTIX_RETIRE`, **default OFF**). Design
 `docs/design/variable-retirement-design.md`.
@@ -1820,8 +1619,7 @@ guard rows; the golden registry list in `tests/test_api_c.c` moved by one, the u
 against our 21.6 %** (42.2 % vs 40.8 % on 9vliw, 43.7 % vs 38.5 % on x9), so the contrast that generated the target reproduces in kissat and every stage is at parity (raw
 1-UIP 1.10/1.08/0.91×, final size 1.11/1.10/0.99×; kissat's cumulative mean learned size on FmlaEquiv is **16.91, not ~10**) — **L14**. Counter notes: METRIC-level in
 kissat (`./configure --metrics`), and such a build must be staged outside the PINNED CLONE because `tools/solvers/bin/kissat` is a SYMLINK into it (in-place rebuild
-silently replaces the pinned baseline) — **"outside the repo" as originally written here is AMENDED: variants live in `tools/solvers/variants/` since the 2026-08-03
-re-org, see L14**; in kissat's default config `literals_minimized` is identically 0 (`shrink=3` returns early), so only the SUM minimized+shrunken is
+silently replaces the pinned baseline; variants live in `tools/solvers/variants/`, see L14); in kissat's default config `literals_minimized` is identically 0 (`shrink=3` returns early), so only the SUM minimized+shrunken is
 comparable; kissat keeps no cumulative glue counter. **FmlaEquiv's 2.49× conflicts is therefore not a clause-quality deficit** — the residual routes to search GUIDANCE,
 not the analysis pipeline.
 
