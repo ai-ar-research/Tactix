@@ -443,6 +443,41 @@ void delete_transients(Kernel &k, std::vector<TransientLemma> &t) {
 static const bool cong_probe = std::getenv("TACTIX_CONG_PROBE") != nullptr;
 static uint64_t cong_n_and = 0, cong_n_ite = 0, cong_n_xor = 0, cong_n_clash = 0;
 
+// TACTIX_CONG_PROBE, part 2 — the CLOSURE/MATCHING discriminator (2026-08-03).
+//
+// The measured gap on T87/T105 is that we spend 7.6x kissat's congruence time
+// and produce ~3.3-3.9x FEWER congruences (3,713 merges vs kissat's 14,461
+// `congruent` variables; the "182x" that stood here briefly compared our merges
+// against kissat's `congruent_matched`, a gate-CONSTRUCTION lookup counter, and
+// is retracted). Extraction volume is comparable, so the loss is somewhere
+// between "a gate enters the table" and "a merge is accepted".
+//
+// This splits that interval, per gate kind. Read it as a funnel:
+//
+//   canon_ok -> insert (no key collision yet)
+//            -> collide -> stale        (stored gate's key moved on; evicted)
+//                       -> already_eq   (outputs already in one class)
+//                       -> clash        (x = !x; refuted, not merged)
+//                       -> chain_fail   (no checkable proof chain -> dropped)
+//                       -> merged       (the inference we wanted)
+//
+// The discriminator the resume block asks for: if XOR shows `collide` ~ 0 against
+// a large `insert`, structurally identical gates are NOT colliding and the fault
+// is CANONICALIZATION (C0 sign absorption, the base_parity/r computation). If
+// `collide` is large but `merged` is small, the fault is downstream and the
+// column that eats it says which -- `chain_fail` points at add_equivalence / the
+// proof chain, `stale` at the eviction policy, `already_eq` at nothing (that
+// work was genuinely redundant).
+//
+// Env-gated, default-identical, zero cost when off -- same contract as the
+// degeneracy counters above.
+struct CongMatchStats {
+  uint64_t canon_ok = 0, canon_skip = 0, canon_unit = 0, canon_merge = 0;
+  uint64_t insert = 0, collide = 0, stale = 0, already_eq = 0;
+  uint64_t clash = 0, chain_fail = 0, merged = 0;
+};
+static CongMatchStats cong_match[3]; // indexed by GateKind
+
 // What canonicalizing a gate under the current representatives yielded.
 // A degenerate gate is NOT a dead end — each degeneracy is itself an inference
 // over F (calculus §6), which is what deviation D-CONG-UNIT was about.
@@ -1308,6 +1343,12 @@ ApplyResult congruence_apply(Kernel &k) {
     inq[i] = 0;
     Lit out_i;
     const Canon ci = canonicalize(gates[i], find, key, out_i, cancelled);
+    CongMatchStats &cm = cong_match[static_cast<int>(gates[i].kind)];
+    if (cong_probe)
+      (ci == Canon::Ok     ? cm.canon_ok
+       : ci == Canon::Skip ? cm.canon_skip
+       : ci == Canon::Unit ? cm.canon_unit
+                           : cm.canon_merge)++;
     if (ci == Canon::Skip)
       continue; // degenerate in a way this rule does not exploit — sound
     // --- D-CONG-UNIT: a degenerate gate is an inference, not a dead end ------
@@ -1387,9 +1428,13 @@ ApplyResult congruence_apply(Kernel &k) {
     auto &tab = table[static_cast<int>(gates[i].kind)];
     auto it = tab.find(key);
     if (it == tab.end()) {
+      if (cong_probe)
+        cm.insert++;
       tab.emplace(key, i);
       continue;
     }
+    if (cong_probe)
+      cm.collide++;
     // Recompute the stored gate's current canonical form: the union-find may have
     // moved on since it was inserted (stale key). Only merge when both gates share
     // the SAME current key — then their outputs are provably equal. A stored gate
@@ -1400,17 +1445,24 @@ ApplyResult congruence_apply(Kernel &k) {
     Lit out_j;
     if (canonicalize(gates[j], find, key_j, out_j, cancelled_j) != Canon::Ok ||
         key_j != key) {
+      if (cong_probe)
+        cm.stale++;
       it->second = i; // evict stale/degenerate entry; current gate represents key
       continue;
     }
     const Lit oa = find(out_j);
     const Lit ob = find(out_i);
-    if (oa == ob)
+    if (oa == ob) {
+      if (cong_probe)
+        cm.already_eq++;
       continue; // already equal
+    }
     // x ≡ ¬x: justify the congruence like any other match, then refute (C3b)
     const bool clash = (oa == negate(ob));
-    if (clash && cong_probe)
+    if (clash && cong_probe) {
       cong_n_clash++;
+      cm.clash++;
+    }
     if (clash && out_i == negate(out_j)) {
       // literal-form contradiction (same variable, opposite signs): the
       // equivalence binaries degenerate to units. AND refutes directly;
@@ -1440,17 +1492,24 @@ ApplyResult congruence_apply(Kernel &k) {
                                              transient); // key[0] = cond
       if (!ok) {
         k.stats.congruence_unjustified++;
-        if (cong_probe) std::fprintf(stderr, "[cong-probe] MATCH chain failed (kind=%d)\n", (int)gates[i].kind);
+        if (cong_probe) {
+          cm.chain_fail++;
+          std::fprintf(stderr, "[cong-probe] MATCH chain failed (kind=%d)\n", (int)gates[i].kind);
+        }
         continue; // no checkable chain — drop the inference, keep N2
       }
       if (!add_equivalence_chained(k, out_j, out_i, cf, cr)) {
         k.stats.congruence_unjustified++;
+        if (cong_probe)
+          cm.chain_fail++;
         delete_transients(k, transient);
         continue; // an unjustifiable binary — drop the inference, keep N2
       }
       delete_transients(k, transient);
     } else if (!add_equivalence(k, gates[j], gates[i], find)) {
       k.stats.congruence_unjustified++;
+      if (cong_probe)
+        cm.chain_fail++;
       continue; // no checkable chain — drop the inference, keep the proof valid
     }
     if (clash) {
@@ -1460,13 +1519,15 @@ ApplyResult congruence_apply(Kernel &k) {
       }
       continue; // replay failed — inference dropped (D-CONG-SKIP)
     }
+    if (cong_probe)
+      cm.merged++;
     merge_lits(out_j, out_i);
     if (k.inconsistent) {
       unsat = true;
       break;
     }
   }
-  if (cong_probe)
+  if (cong_probe) {
     std::fprintf(stderr,
                  "[cong-probe] degeneracies (AND/XOR/clash DRAWN since C3b; "
                  "ITE-share still a discard): "
@@ -1475,6 +1536,31 @@ ApplyResult congruence_apply(Kernel &k) {
                  (unsigned long long)cong_n_and, (unsigned long long)cong_n_ite,
                  (unsigned long long)cong_n_xor,
                  (unsigned long long)cong_n_clash);
+    // The closure funnel, per kind. `collide` vs `insert` separates a
+    // canonicalization defect (keys never meet) from a downstream one (they
+    // meet and the merge is refused); the four columns after `collide` say
+    // which downstream stage eats them. Cumulative across every application in
+    // the process, like the degeneracy counters above.
+    static const char *kind_name[3] = {"and", "xor", "ite"};
+    std::fprintf(stderr,
+                 "[cong-probe] closure funnel (cumulative, per kind)\n"
+                 "[cong-probe] %-4s %12s %12s %12s %12s %12s %10s %10s %10s\n",
+                 "kind", "canon_ok", "canon_skip", "insert", "collide", "stale",
+                 "already_eq", "chain_fail", "merged");
+    for (int kk = 0; kk < 3; ++kk) {
+      const CongMatchStats &c = cong_match[kk];
+      std::fprintf(stderr,
+                   "[cong-probe] %-4s %12llu %12llu %12llu %12llu %12llu "
+                   "%10llu %10llu %10llu\n",
+                   kind_name[kk], (unsigned long long)c.canon_ok,
+                   (unsigned long long)c.canon_skip,
+                   (unsigned long long)c.insert, (unsigned long long)c.collide,
+                   (unsigned long long)c.stale,
+                   (unsigned long long)c.already_eq,
+                   (unsigned long long)c.chain_fail,
+                   (unsigned long long)c.merged);
+    }
+  }
   if (std::getenv("TACTIX_CONG_TRACE"))
     std::fprintf(stderr, "[cong] %zu gates, %llu equivalences added\n",
                  gates.size(), (unsigned long long)neq);
