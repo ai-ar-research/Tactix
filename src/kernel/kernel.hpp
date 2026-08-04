@@ -634,11 +634,22 @@ struct Kernel {
   // mp1-blockpuzzle -0.0, FmlaEquivChain -0.6, mod4block +0.4).
   // NOTE this is the SCOPE half only. It admits no new instances, so it cannot
   // cause the damage the union-admission arm does (factor_scope_percent below).
-  // A/B hatch for ledger D-STRENGTHEN-BUDGET (`TACTIX_NO_MIDROUND_BUDGET=1`):
-  // restores the pre-2026-08-03 behaviour where C1/C2 could not stop once a
-  // round began. Exists so both arms run in ONE window — a cross-window A/B is
-  // exactly what §8.1 forbids. CONFIGURATION, like work_budget.
-  bool midround_budget = true;
+  // D-STRENGTHEN-BUDGET: let C1/C2 stop mid-round on `work_budget`.
+  // **DEFAULT OFF — MEASURED NEGATIVE 2026-08-03.** Same-window A/B
+  // (`20260803-231532-B` / `20260803-231548-C`, hatch below): Tier B 72.22 vs
+  // 70.51 and Tier C **366.58 vs 353.26**, 26/28 and 29/30 in both arms — the
+  // interruptible default costs ~1.7 and ~13.3 PAR-2 for NO solve gain, and
+  // makes both T3 halves worse (1.177x vs 1.134x cadical; 1.323x vs 1.278x
+  // kissat on the subset). It is also inert on its own sentinel: `DivS_862_11`
+  // 102.4 s on vs 103.2 s off, where C2 owns 89.7 % of the solve.
+  // Mechanism, so the negative is understood rather than merely recorded: at
+  // 100 per mille the budget binds about once per solve, and one stopped round
+  // just defers its candidates to the next round — the work is rescheduled, not
+  // saved. The DOSE is a real lever where interruptibility is not (forcing
+  // 1 per mille takes DivS to 11.5 s), which is why the mechanism stays here as
+  // a §5.6 dosing arm rather than being deleted.
+  // `TACTIX_MIDROUND_BUDGET=1` turns it on.
+  bool midround_budget = false;
   uint32_t factor_size = 5;
   // E2 Factor SCOPE-FRACTION admission (R5 joint admission, 2026-07-30). Admit
   // Factor when at least this PERCENT of the live irredundant clauses are within
