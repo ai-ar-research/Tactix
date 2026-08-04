@@ -5,27 +5,32 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 79 (2026-08-03)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-08-04 — plan revs 76–79. **T3's BOTH halves measured** (CaDiCaL 1.117×, Kissat **1.271×** on the subset — the kissat half is the binding phase-3 constraint). **Broad Factor admission measured and HELD** (Tier B 27/28, but Tier C 27/30). **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **`fclqcolor` located to Factor's ACCEPTANCE path** (saturates at 78 factorings across every scope). **Tier D built and frozen** (793). Baseline proofs written but no longer verified (rev 79).
+- **Last updated:** 2026-08-04 late — plan revs 76–79. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run.
 
-## ▶ RESUME HERE (2026-08-04) — phase 3; **next step = re-test broad Factor admission's HOLD** (a) below
+## ▶ RESUME HERE (2026-08-04 late) — phase 3; **item (a) is CLOSED (HOLD); next step = (b′) targeted Factor admission**
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**▶ IN FLIGHT AT SESSION END — read these FIRST.**
-- **Tier C gates still running: array `1581854` + aggregate `1581855`** (dir `benchmarks/runs/20260804-141431-C-tb4b`),
-  the confirming Tier C for the TB4b ship, and `1581633`/`1581634` (`…-C-ucr`, unit-routing-only, now
-  superseded — read it only as a second sample). If tasks are MISSING, resubmit those indices and re-run
-  `run.py --aggregate <dir>`. **The Tier B half already passed** (see the Log).
-- **`build/pin-tb4b` is the shipped binary** (code-identical to HEAD). Do NOT rebuild it while those arrays
-  run — never reuse a `build/pin-*` dir at all; give every new binary a new name.
+**NOTHING IN FLIGHT.** All arrays from this session completed and are collected: TB4b's confirming Tier C
+(`1581854`), the broad re-price pair (`1582011` Tier B / `1582116` Tier C), and probes `1581982` / `1582186` /
+`1582267`. **`build/pin-bfa` is the current HEAD binary and is byte-identical to `build/pin-tb4b`** — both are
+now free; still never reuse a `build/pin-*` dir, give every new binary a new name.
 
-**WHERE WE STAND.** Latest full pair at the pre-TB4b default (`20260804-1220`, git `ee9f3ab`): **Tier B
-75.69 (26/28)** vs kissat 9.64 · **Tier C 355.11 (29/30)** vs cadical 308.31 and **kissat 226.02 = 1.57×**.
-**With TB4b shipped** (`20260804-141429-B`, git `8118c68`): Tier B **85.30 (25/28)** all-28, but **66.23 vs
-75.01 = −8.78 PAR-2 on the 27 non-lottery instances at identical solves** — the whole penalty is
-`mod4block`, which is a coin flip (see the Log). Tier C confirming gate was still running at session end.
-Fuzz green: 3 × 10,000 cases, 0 failures, DRAT + native LRAT × ± `--random-policy` on ASan+UBSan.
-ctest 38/38.
+**WHERE WE STAND** (window `20260804-1543`, git `6018366`, idle partition, one submission each):
+**Tier B 86.51 (25/28)** vs kissat 9.78 and cadical 40.38 · **Tier C 309.05 (29/30)** vs kissat 230.74 and
+cadical 312.02. **T3 both halves: kissat subset 1.346× · cadical subset 1.069× / full 0.990×.**
+Note the kissat half moved **1.271× (08-03, pre-TB4b) → 1.346× (today, post-TB4b)** — see (c′).
+Fuzz green as of the TB4b ship: 4 × 10,000 cases, 0 failures, DRAT + native LRAT × ± forced. ctest 38/38.
+
+**▶ ITEM (a) IS SETTLED: broad Factor admission is HELD, and the `j3037` veto is RETIRED.** Report
+`benchmarks/reports/2026-08-04-broad-factor-admission-retest.md`. The three things to carry forward:
+- **`j3037` was a LOTTERY** (K′=11 paired draws, probes 1581982+1582186): the 08-03 pattern did not
+  reproduce in ANY of 18 pairs, and in the new tier window broad is **26× FASTER** there. That hold was
+  decided by a coin flip. **Do not cite it again.**
+- **The real loss is `ContextModel`** — 10.0 s → 1200 TO (120×), and it **replicates 3/3 windows for this
+  knob** (22.2× / 54.9× / 120.2× across three bases). That is what distinguishes it from `j3037`.
+- **Broad is +3 Tier B solves (incl. `fclqcolor`) and −1 Tier C solve, and costs T3 on BOTH halves**
+  (kissat 1.346 → 1.500×). The gate decides it.
 
 **▶ T3, BOTH HALVES MEASURED (first time since 07-30).** CaDiCaL half **1.117×** — NOT met, by 0.017, far
 inside the noise floor. Kissat half **1.271×** on the rule-neutral subset — NOT met, but **improved from
@@ -61,19 +66,29 @@ outcome. V6 owns
   absorption** (correct; kissat's extraction does the identical rotation) · **the ITE extractor** (we draw 0
   merges, kissat 18).
 
-**THEN, in order** — re-ranked 2026-08-04 after the lottery finding.
+**THEN, in order** — re-ranked 2026-08-04 late, after the broad-admission re-test.
 
-**(a) RE-TEST BROAD FACTOR ADMISSION'S HOLD — it may be a free +1 Tier B solve.** It was held on a Tier C
-solve loss on **`j3037`**, one of the three measured perturbation-FRAGILE instances, whose three arms spanned
-**218.5 s → 1092.2 s → TO in a single window**. Tonight's `mod4block` result showed exactly this shape being
-a coin flip. **Run the [[chaotic-instance-veto]] discriminator on `j3037` first** (perturb the BASELINE with
-a knob that cannot matter; four jobs), then re-price broad admission excluding it. If the loss does not
-replicate, broad admission buys `or_randxor` and Tier B goes 26/28 → 27/28.
+**(b′) TARGETED FACTOR ADMISSION — the biggest measured prize on the board, and now cleanly labelled.**
+Broad admission's ledger is **+3 Tier B solves** (`or_randxor`, `mod4block`, **`fclqcolor` — the last Tier B
+timeout**) against **−1 Tier C solve** (`ContextModel`) plus one more concentrated regression
+(`mp1-Nb5T15` +801 s). **Those two instances ARE the entire Tier C cost**: quarantine them and broad is
+**+8.89 PAR-2, ~1.3 noise floors**, while Tier B more than halves. So the blanket knob is the wrong
+instrument, not the wrong idea. **What is new: per-instance outcomes on BOTH sides of the admission decision
+over the 14/28 B and 19/30 C instances broad flips** — the strongest labelled signal §5.6's admission-dosing
+exhibit has had. Prior art says a hand-designed separator will fail (L15's four dead gates, L5 at chance, and
+the 2026-07-30 reference study found no such axis in kissat or cadical), so **do not build a fifth static
+gate**; this is phase-6 arm material and the honest near-term move is to bank the labelled data. Report §7.
 
-**(b) `fclqcolor` — the last Tier B timeout.** Needs composition (shipped) AND broad admission, so it is
-downstream of (a). Its own defect is located: applied factorings SATURATE at 78 across `factor_size`
-3/5/7/9 while offers rise 42 k → 51 k — the bottleneck is ACCEPTANCE, and the **27×27 grid cap (S2a)** is
-the first thing to price.
+**(b) `fclqcolor`** is NO LONGER blocked on "needs broad admission" — broad solves it (TO → 244.3 s). It is
+blocked on *targeted* admission. Its own defect is unchanged and still worth pricing independently: applied
+factorings SATURATE at 78 across `factor_size` 3/5/7/9 while offers rise 42 k → 51 k — the bottleneck is
+ACCEPTANCE, and the **27×27 grid cap (S2a)** is the first thing to price.
+
+**(c′) TB4b's own gate is NOT clean — reconsider it.** Its confirming Tier C (`20260804-141431`) is
+**−36.54 PAR-2 over all 30 but +27.56 EXCLUDING the fragile three**, i.e. the entire win is the three
+instances it targeted. `frb45` is ~2/3 of that cost and is **newly measured chaotic** (Log), softening it to
+**+9.45**, ~1.4 noise floors — but T3's binding kissat half also moved **1.271× → 1.346×** across the same
+ship. **Not a revert order**; an unclosed question with a real number attached.
 
 **(c) V6's remaining cost.** −50 % banked at byte-identical proofs (`ee9f3ab`); T87+T105 are still ~19 % of
 the Tier C kissat gap. **Re-profile first** — the old proportions no longer describe the remaining ~98 s.
@@ -108,10 +123,16 @@ bit-identical arms on an IDLE partition (window `20260804-030938`; per-instance 
 under contention (window `20260731-013523`,
 01:35–03:28, overlapped the full Tier C array `20260731-021615`, 02:16–04:04, by ~1 h 12 m). Treat 10.8 as an
 upper bound on quiet-partition noise, and re-measure it on an idle partition before any verdict hangs on it.
-**`j3037`, `jgiraldezlevy`, `urq45` are measured perturbation-FRAGILE** (probe 1579386): stable under
-replication (≤1.0 %) but **8–23× under unrelated knobs**, so small Tier C aggregates near them
-are unreliable — quote per-instance replicate ranges. Same shape as **L20**'s ContextModel. **Never mix 14-
-and 28-instance Tier B PAR-2.**
+**▶ THE MAY-NOT-GATE SET (a per-instance verdict on any of these is inadmissible until it replicates).**
+`j3037`, `jgiraldezlevy`, `urq45` (probe 1579386: stable under replication ≤1.0 %, **8–23× under unrelated
+knobs**) · `mod4block` (`2c77bce`: 73× for kissat too) · **`frb45-21-2` — ADDED 2026-08-04** (probe 1582186:
+bit-identical under replication and under `chrono` 90/105/115, but **6.2×** across `walk600` 105.1 s →
+`bumplim9` 652.3 s) · **`ContextModel`** (L20's knife-edge). Small Tier C aggregates near any of them are
+unreliable — quote per-instance replicate ranges.
+**The set is not a licence to quarantine at will.** A NEW loss is real until it goes through the
+discriminator itself, and quarantining by analogy is the specific error the 2026-08-04 pre-registration
+forbade — `ContextModel` looked like `j3037` and was the opposite (it REPLICATES 3/3 windows).
+**Never mix 14- and 28-instance Tier B PAR-2.**
 **▶ AND WALL CLOCK MOVES INDEPENDENTLY OF TRAJECTORY UNDER CONTENTION.** `veer_axi` gave **201,607 ms** and
 **152,283 ms** on two runs of the SAME binary with **bit-identical** decisions, conflicts and propagations —
 a **32 %** spread, from sharing the partition with a tier array. **Read wall-clock deltas against the
@@ -136,117 +157,107 @@ stacking them. Record the window stamp AND the git SHA — a table without them 
 compared. **Take the SHA from the run's own `manifest.json`/`results.json`, never from the commit that later
 shipped the change** — the 2026-08-02 tables were labelled with the ship SHA and were not reproducible.
 
-#### Tier B (28) — window `20260803-211056` (git `014e3b2`), shipped default (R-d retirement), every arm writing + checking DRAT
+#### Tier B (28) — window `20260804-154329` (git `6018366`), shipped default, `broad` = `TACTIX_FACTOR_SCOPE_PCT=50`, every arm writing DRAT
 
-| # | instance | st | tactix | kissat | ×kis |
-|---|---|---|---|---|---|
-| 1 | `or_randxor_k3_n540_m540.cnf.xz` | UNK | **TO** | 12.4 | 48.4 |
-| 2 | `unsat-set-b-fclqcolor-10-07-09.sat05-1282.re` | UNK | **TO** | 16.6 | 36.1 |
-| 3 | `sted5_0x24204-50.cnf.xz` | SAT | 240.7 | 8.7 | 27.6 |
-| 4 | `veer_axi_yosyshq_appnote_123_veer_axi-p23_tr` | UNS | 157.9 | 3.0 | 52.4 |
-| 5 | `DivS_862_11.cnf.sanitized.cnf.xz` | SAT | 110.8 | 17.0 | 6.5 |
-| 6 | `PRP_30_38.cnf.xz` | SAT | 56.3 | 15.8 | 3.6 |
-| 7 | `2013113162201nw.shuffled-as.sat03-1668.cnf.x` | SAT | 46.6 | 6.0 | 7.7 |
-| 8 | `b22_1.cnf.xz` | UNS | 34.8 | 9.3 | 3.7 |
-| 9 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | UNS | 32.1 | 12.6 | 2.6 |
-| 10 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.cnf.` | SAT | 21.4 | 5.9 | 3.6 |
-| 11 | `mp1-klieber2017s-0500-023-t12.cnf.xz` | SAT | 19.6 | 12.6 | 1.6 |
-| 12 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` | SAT | 15.4 | 4.1 | 3.7 |
-| 13 | `9vliw_bp_mc.shuffled.cnf.xz` | UNS | 14.5 | 8.2 | 1.8 |
-| 14 | `mod4block_2vars_10gates_u2_autoenc-sc2009.cn` | SAT | 13.4 | 19.8 | 0.7 |
-| 15 | `rbsat-v760c43649gyes10.cnf.xz` | SAT | 13.3 | 6.0 | 2.2 |
-| 16 | `circuit_48in64out_with_800gates_4in4out_dist` | SAT | 10.7 | 11.3 | 0.9 |
-| 17 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | UNS | 10.7 | 9.2 | 1.2 |
-| 18 | `SCPC-500-5.cnf.xz` | UNS | 9.5 | 11.5 | 0.8 |
-| 19 | `hwmcc17miters-xits-iso-oski15a08b00s.sanitiz` | UNS | 8.1 | 3.7 | 2.2 |
-| 20 | `x9-08014.sat.sanitized.cnf.xz` | UNS | 7.9 | 10.8 | 0.7 |
-| 21 | `DecompressReader_read_12.cnf.xz` | UNS | 7.9 | 6.7 | 1.2 |
-| 22 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50.nor` | SAT | 6.6 | 10.8 | 0.6 |
-| 23 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.xz` | SAT | 4.4 | 12.1 | 0.4 |
-| 24 | `square.2.0.i.smt2-cvc4.cnf.xz` | UNS | 3.8 | 3.7 | 1.0 |
-| 25 | `combined-crypto1-wff-seed-1-wffvars-450-cryp` | SAT | 3.1 | 4.2 | 0.7 |
-| 26 | `oddball_13_5_ttf.normalised.cnf.xz` | UNS | 2.6 | 19.2 | 0.1 |
-| 27 | `battleship-14-26-sat.cnf.xz` | SAT | 1.2 | 7.2 | 0.2 |
-| 28 | `clique_n2_k10.sanitized.cnf.xz` | UNS | 0.1 | 6.1 | 0.0 |
-|  | **PAR-2 / solved** |  | **73.33** (26/28) | 9.81 (28/28) | **7.475** |
-
-**Same-window arms.** `broad` (`TACTIX_FACTOR_SCOPE_PCT=50`) **46.79 (27/28)** — it takes `or_randxor`
-TO → 65.5 s and `sted5` 240.7 → 13.0 s, and loses nothing here · `broadnord` (broad + `TACTIX_RETIRE=0`)
-**68.55 (26/28)**, which loses `veer_axi` back to TO and so confirms R-d is still load-bearing. **Broad is
-HELD on its Tier C solve loss** — see the Tier C table below and
-`benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`.
-
-**▶ REPRODUCIBILITY NOTE for both 2026-08-02 tables (audit 2026-08-03).** The artefacts record git
-**`31593d5`** (08-02 10:50), not the ship commit `a927131` (08-02 17:30): the binary
-`build/pin-rd-c/tactix` was built from an **uncommitted working tree**, R-d first lands in `4f88e10`
-(13:15), and `a927131` is the ship commit 6 h after the run. The measured `retire` arm IS behaviourally the
-shipped default — `git diff 4f88e10..a927131 -- src/ include/` is only the default flip
-(`kernel.hpp retire_enabled false→true`, `main.cpp` env parse) — but **no recorded SHA reproduces this
-window.** **Reproduction trap:** at `31593d5` `main.cpp:287` was a *presence* check
-(`if (getenv("TACTIX_RETIRE"))`), so `TACTIX_RETIRE=0` on THAT binary turns retirement **ON**. Value parsing
-(`*rt != '0'`) exists only from `a927131`. To reproduce the OFF arm at that build, unset the variable.
-
-#### Tier C (30) — window `20260803-211105` (git `014e3b2`), shipped default (R-d retirement), **kissat arm restored**, every arm writing + checking DRAT
-
-| # | instance | st | tactix | kissat | cadical | ×cad |
+| # | instance | st | shipped | broad | kissat | ×kis |
 |---|---|---|---|---|---|---|
-| 1 | `128_125.sanitized.cnf.xz` | UNK | **TO** | **TO** | **TO** | 1.00 |
-| 2 | `j3037_9_rggt_b.cnf.xz` | SAT | 1092.2 | 150.7 | 25.6 | 42.62 |
-| 3 | `T87.2.0.cnf.xz` | UNS | 823.4 | 254.7 | 413.9 | 1.99 |
-| 4 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 808.0 | 112.9 | 16.7 | 48.27 |
-| 5 | `urq45.cnf.xz` | UNS | 598.0 | 118.7 | 1020.5 | 0.59 |
-| 6 | `T105.2.0.cnf.xz` | UNS | 556.2 | 289.8 | 264.7 | 2.10 |
-| 7 | `minxor128.cnf.xz` | UNS | 456.7 | 233.0 | 280.9 | 1.63 |
-| 8 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf` | UNS | 448.9 | 100.4 | 262.3 | 1.71 |
-| 9 | `goldcrest-and-9.cnf.xz` | UNS | 360.6 | 92.2 | 174.8 | 2.06 |
-| 10 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 305.5 | 376.3 | 438.5 | 0.70 |
-| 11 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 271.7 | 227.8 | 197.6 | 1.38 |
-| 12 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2` | SAT | 230.7 | 40.4 | 186.2 | 1.24 |
-| 13 | `circuit_32in32out_with_500gates_6in6out_dist` | SAT | 223.7 | 110.5 | 540.9 | 0.41 |
-| 14 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 212.9 | 189.1 | 257.1 | 0.83 |
-| 15 | `Grain_no_init_ver1_out200_known_last105_0_u.` | UNS | 212.9 | 228.1 | 271.5 | 0.78 |
-| 16 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 193.6 | 148.2 | 174.3 | 1.11 |
-| 17 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 180.1 | 182.4 | 253.6 | 0.71 |
-| 18 | `StConn_8_32.sanitized.cnf.xz` | UNS | 173.1 | 261.6 | 914.6 | 0.19 |
-| 19 | `SCPC-1000-18.cnf.xz` | SAT | 173.0 | 165.6 | 25.8 | 6.70 |
-| 20 | `constraints_25_4_5_12_12_0_0_0.sanitized.cnf` | UNS | 143.9 | 136.2 | 194.7 | 0.74 |
-| 21 | `EDP3-11000.cnf.xz` | SAT | 128.9 | 53.8 | 194.2 | 0.66 |
-| 22 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 93.5 | 93.2 | 161.5 | 0.58 |
-| 23 | `Ptn-7824-b18.cnf.xz` | SAT | 76.1 | 250.6 | 9.9 | 7.67 |
-| 24 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 71.5 | 131.2 | 185.7 | 0.39 |
-| 25 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 70.1 | 87.7 | 76.4 | 0.92 |
-| 26 | `em_11_3_4_cmp.cnf.xz` | SAT | 68.4 | 107.0 | 120.3 | 0.57 |
-| 27 | `mp1-Nb5T15.cnf.xz` | SAT | 65.3 | 76.0 | 122.5 | 0.53 |
-| 28 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 36.2 | 62.1 | 27.0 | 1.34 |
-| 29 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 34.1 | 134.7 | 134.2 | 0.25 |
-| 30 | `ContextModel_output_7_3_9.bul_.dimacs.cnf.xz` | SAT | 7.7 | 39.5 | 66.4 | 0.12 |
-|  | **PAR-2 / solved** |  | **350.56** (29/30) | **228.48** (29/30) | 313.75 (29/30) | **1.117** |
+| 1 | `mod4block_2vars_10gates_u2_autoenc-sc2009.cn` | UNK | **TO** | 245.8 | 18.7 | 32.1 |
+| 2 | `or_randxor_k3_n540_m540.cnf.xz` | UNK | **TO** | 19.4 | 12.4 | 48.4 |
+| 3 | `unsat-set-b-fclqcolor-10-07-09.sat05-1282.re` | UNK | **TO** | 244.3 | 17.3 | 34.7 |
+| 4 | `DivS_862_11.cnf.sanitized.cnf.xz` | SAT | 113.1 | 117.9 | 18.7 | 6.1 |
+| 5 | `sted5_0x24204-50.cnf.xz` | SAT | 80.2 | 31.4 | 8.5 | 9.4 |
+| 6 | `mp1-klieber2017s-0500-023-t12.cnf.xz` | SAT | 68.5 | 60.8 | 12.2 | 5.6 |
+| 7 | `PRP_30_38.cnf.xz` | SAT | 46.4 | 42.6 | 16.8 | 2.8 |
+| 8 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.xz` | SAT | 45.7 | 45.9 | 11.1 | 4.1 |
+| 9 | `2013113162201nw.shuffled-as.sat03-1668.cnf.x` | SAT | 44.9 | 51.3 | 6.2 | 7.2 |
+| 10 | `b22_1.cnf.xz` | UNS | 39.7 | 35.2 | 9.2 | 4.3 |
+| 11 | `veer_axi_yosyshq_appnote_123_veer_axi-p23_tr` | UNS | 32.9 | 29.8 | 3.2 | 10.2 |
+| 12 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | UNS | 25.0 | 26.2 | 12.6 | 2.0 |
+| 13 | `combined-crypto1-wff-seed-1-wffvars-450-cryp` | SAT | 17.5 | 16.8 | 4.2 | 4.1 |
+| 14 | `9vliw_bp_mc.shuffled.cnf.xz` | UNS | 15.8 | 15.4 | 8.6 | 1.8 |
+| 15 | `circuit_48in64out_with_800gates_4in4out_dist` | SAT | 15.1 | 17.2 | 11.3 | 1.3 |
+| 16 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.cnf.` | SAT | 14.7 | 5.4 | 5.9 | 2.5 |
+| 17 | `x9-08014.sat.sanitized.cnf.xz` | UNS | 13.1 | 13.0 | 10.8 | 1.2 |
+| 18 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | UNS | 12.9 | 12.7 | 9.2 | 1.4 |
+| 19 | `SCPC-500-5.cnf.xz` | UNS | 8.4 | 8.4 | 11.5 | 0.7 |
+| 20 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50.nor` | SAT | 6.8 | 6.5 | 9.2 | 0.7 |
+| 21 | `rbsat-v760c43649gyes10.cnf.xz` | SAT | 5.8 | 5.8 | 5.9 | 1.0 |
+| 22 | `hwmcc17miters-xits-iso-oski15a08b00s.sanitiz` | UNS | 5.7 | 5.7 | 3.8 | 1.5 |
+| 23 | `square.2.0.i.smt2-cvc4.cnf.xz` | UNS | 3.9 | 4.8 | 4.0 | 1.0 |
+| 24 | `oddball_13_5_ttf.normalised.cnf.xz` | UNS | 3.1 | 3.1 | 19.0 | 0.2 |
+| 25 | `battleship-14-26-sat.cnf.xz` | SAT | 1.6 | 1.6 | 6.8 | 0.2 |
+| 26 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` | SAT | 0.9 | 7.3 | 4.0 | 0.2 |
+| 27 | `DecompressReader_read_12.cnf.xz` | UNS | 0.5 | 0.5 | 6.5 | 0.1 |
+| 28 | `clique_n2_k10.sanitized.cnf.xz` | UNS | 0.0 | 0.0 | 6.1 | 0.0 |
+|  | **PAR-2 / solved** |  | **86.51** (25/28) | **38.39** (28/28) | **9.78** (28/28) | **8.845** |
 
-**Same-window arms.** `broad` (`TACTIX_FACTOR_SCOPE_PCT=50`) **448.72 (27/30)** · `broadnord`
-(broad + `TACTIX_RETIRE=0`) **342.97 (29/30)**. **Broad admission is HELD: it LOSES a Tier C solve**, which
-plan rev 78 never covers. See `benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`.
-- Its two "lost" solves are different things. **`j3037` is a genuine loss** (shipped 1092.2 s SAT → broad
-  1200 TO) and is what holds the change. **`urq45` is NOT** — broad SOLVED it in 619.3 s with the correct
-  verdict and the DRAT check blew the 4800 s budget, the same artefact that scored it unsolved on 07-27.
-  **No arm returned a wrong verdict anywhere in this window** (`mismatch` false throughout), so the runner's
-  "CORRECTNESS BUG" banner is the checker-budget mode, not a soundness failure.
-- **R-d and broad are ANTAGONISTIC on Tier C** — either alone is 29/30 (350.56 / 342.97), together 27/30.
-  On Tier B the ordering INVERTS: the combination is the only arm reaching 27/28. A real interaction, and
-  the reason composition had to be measured rather than inferred from the separate 07-31/08-01 results.
-- `j3037` is one of the three measured perturbation-FRAGILE instances and our three arms span
-  **218.5 s → 1092.2 s → TO** on it in this one window — inside its documented chaos band. The loss needs
-  replication before it is a settled effect; the burden is on shipping, not on holding.
+**The `broad` arm is the item-(a) re-test and it is HELD** — see the Log and
+`benchmarks/reports/2026-08-04-broad-factor-admission-retest.md`. It is **+3 solves here**
+(`or_randxor`, `mod4block`, and **`fclqcolor`, the last Tier B timeout**) and beats cadical's 40.38,
+but it loses a Tier C solve and costs T3 on both halves. Ex-`mod4block` (documented lottery):
+shipped 67.49 (25/27) vs broad 30.70 (27/27).
+
+#### Tier C (30) — window `20260804-154341` (git `6018366`), same submission, both baselines carried
+
+| # | instance | st | shipped | broad | kissat | cadical | ×kis |
+|---|---|---|---|---|---|---|---|
+| 1 | `128_125.sanitized.cnf.xz` | UNK | **TO** | **TO** | **TO** | **TO** | 1.0 |
+| 2 | `T87.2.0.cnf.xz` | UNS | 768.2 | 802.0 | 259.7 | 399.5 | 3.0 |
+| 3 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf` | UNS | 623.1 | 609.4 | 100.3 | 271.6 | 6.2 |
+| 4 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 598.4 | 598.6 | 93.4 | 158.0 | 6.4 |
+| 5 | `T105.2.0.cnf.xz` | UNS | 583.2 | 588.2 | 288.0 | 259.2 | 2.0 |
+| 6 | `goldcrest-and-9.cnf.xz` | UNS | 538.6 | 493.1 | 103.9 | 169.8 | 5.2 |
+| 7 | `j3037_9_rggt_b.cnf.xz` | SAT | 467.7 | 18.0 | 157.4 | 25.3 | 3.0 |
+| 8 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 352.2 | 355.8 | 378.5 | 402.5 | 0.9 |
+| 9 | `minxor128.cnf.xz` | UNS | 308.5 | 506.3 | 230.3 | 279.3 | 1.3 |
+| 10 | `Grain_no_init_ver1_out200_known_last105_0_u.` | UNS | 244.8 | 205.0 | 234.2 | 264.0 | 1.0 |
+| 11 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 243.5 | 243.6 | 196.8 | 249.7 | 1.2 |
+| 12 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 242.7 | 258.1 | 224.3 | 190.6 | 1.1 |
+| 13 | `circuit_32in32out_with_500gates_6in6out_dist` | SAT | 225.3 | 224.2 | 114.7 | 475.8 | 2.0 |
+| 14 | `StConn_8_32.sanitized.cnf.xz` | UNS | 192.7 | 258.6 | 276.8 | 957.3 | 0.7 |
+| 15 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 181.5 | 180.9 | 152.1 | 172.5 | 1.2 |
+| 16 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 175.4 | 171.5 | 180.8 | 242.3 | 1.0 |
+| 17 | `constraints_25_4_5_12_12_0_0_0.sanitized.cnf` | UNS | 167.2 | 177.3 | 132.5 | 192.2 | 1.3 |
+| 18 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2` | SAT | 147.2 | 153.5 | 40.8 | 185.2 | 3.6 |
+| 19 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 133.3 | 134.2 | 141.6 | 136.0 | 0.9 |
+| 20 | `Ptn-7824-b18.cnf.xz` | SAT | 131.3 | 40.9 | 254.9 | 10.2 | 0.5 |
+| 21 | `urq45.cnf.xz` | UNS | 127.9 | 127.1 | 118.9 | 989.1 | 1.1 |
+| 22 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 121.9 | 48.7 | 116.7 | 272.6 | 1.0 |
+| 23 | `em_11_3_4_cmp.cnf.xz` | SAT | 102.2 | 237.5 | 107.4 | 102.0 | 1.0 |
+| 24 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 71.5 | 70.9 | 90.5 | 79.1 | 0.8 |
+| 25 | `SCPC-1000-18.cnf.xz` | SAT | 39.8 | 39.8 | 169.1 | 26.0 | 0.2 |
+| 26 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 39.7 | 40.6 | 59.6 | 28.4 | 0.7 |
+| 27 | `EDP3-11000.cnf.xz` | SAT | 24.0 | 40.4 | 67.2 | 210.8 | 0.4 |
+| 28 | `ContextModel_output_7_3_9.bul_.dimacs.cnf.xz` | SAT | 10.0 | **TO** | 39.4 | 64.8 | 0.3 |
+| 29 | `mp1-Nb5T15.cnf.xz` | SAT | 5.2 | 806.1 | 78.0 | 129.2 | 0.1 |
+| 30 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 4.7 | 210.7 | 114.3 | 17.4 | 0.0 |
+|  | **PAR-2 / solved** |  | **309.05** (29/30) | **414.70** (28/30) | **230.74** (29/30) | **312.02** (29/30) | **1.339** |
+
+**Reading this table.**
+- **`broad` loses exactly one solve — `ContextModel`, 10.0 s → TO (120×)** — and that loss **replicates
+  3/3 windows for this knob** (22.2× / 54.9× / 120.2× across three bases), which is what makes it real
+  where `j3037`'s was not. No proof rescue fired and no verdict mismatch anywhere in this window.
+- **The whole Tier C cost is TWO instances:** `ContextModel` +2,390 s and `mp1-Nb5T15` +801 s of a
+  +3,170 s delta (7 instances >10 % worse, 4 >10 % better, **19 flat**). Quarantining both leaves broad at
+  **+8.89 PAR-2**, ~1.3 noise floors. That is the (b′) argument.
+- **`j3037` inverted:** 467.7 → **18.0 s, broad 26× FASTER**, confirming the LOTTERY verdict from probes
+  1581982/1582186 and retiring the veto that held this change on 08-03.
+- **The free control set.** The nine instances broad provably cannot admit Factor on at t=0 must run
+  identical trajectories; their wall ratios here are **0.84 / 0.99 / 1.00 / 1.06 / 0.99** (Tier C) and
+  **0.96 / 1.04 / 1.14** (Tier B) — an in-window contention estimate at zero cost. **Membership must be
+  argued per instance, not assumed:** the classification is a t=0 LOWER BOUND (the gate is re-evaluated on
+  the live formula), and `mod4block` — predicted inert at 7.9 % scope — in fact moved TO → 245.8 s.
 
 **▶ T3, BOTH HALVES, from this one window** (`tools/bench/subset_score.py`, subset = 24 of 30):
 
 | half | requirement | measured | status |
 |---|---|---|---|
-| **CaDiCaL** | within 10 % on Tier C | **1.117×** | **NOT met** — by 0.017, far inside the noise floor |
-| **Kissat** | parity on the rule-neutral subset | **1.271×** | **NOT met** — improved from **1.37×** (07-27), first measurement in a week |
+| **CaDiCaL** | within 10 % on Tier C | **1.069×** (subset) / **0.990×** (full) | **MET on the full tier**, 0.069 over on the subset |
+| **Kissat** | parity on the rule-neutral subset | **1.346×** | **NOT met** — and WORSE than 08-03's 1.271× (pre-TB4b); see (c′) |
 
-On the subset we are **0.987× cadical** — better than it — while sitting **1.271× kissat**. **The Kissat
-half is the binding constraint**, and optimising against cadical (the number the runner emitted) was
-steering on the easier baseline. Full tier vs kissat: **1.534×**.
+**The Kissat half remains the binding constraint.** The `broad` arm moves it the wrong way —
+**1.346 → 1.500×** (cadical 1.069 → 1.191×) — which is what decides item (a) independently of the
+solve count.
 
 **Noise floor — USE 6.72 (window `20260804-030938`, idle partition, three bit-identical arms: 364.50 /
 362.17 / 357.78, per-instance median 4.8 s).** The older 10.8 below is the CONTENDED bar; keep it only for
@@ -283,6 +294,24 @@ against a current one.
 ## Standing lessons — measured, do not re-derive
 
 Full detail in the cited commits/reports. Numbers are cited across the repo — **never renumber**.
+
+- **L24 · A KNOB'S BLAST RADIUS IS OFTEN COMPUTABLE FROM THE FORMULA — compute it BEFORE you spend a job,
+  and the instances it CANNOT touch are a free in-window noise estimator.** Broad Factor admission's whole
+  design question was settled by two guard conditions (`factor.cpp:581` density, `:600` the `!admit`
+  short-circuit that makes scope strictly additive) plus arithmetic over the CNFs: it flips Factor ON for
+  **14 of 28 Tier B and 19 of 30 Tier C** instances, and its 50 % threshold is a **long-clause detector**,
+  not the fine separator its name and its comment imply. The planned reachability pre-flight was answered
+  before it ran, and `j3037`'s status — density 2.10 vs a gate of 6.0, no clause longer than 4, so scope
+  100 % — turned out to be **Factor-OFF vs Factor-ON for the whole solve**, not a marginal tweak.
+  **The dual is worth as much:** instances a knob provably cannot act on must run identical trajectories,
+  so their wall spread in the SAME window is a contention estimate that costs nothing and rides along in
+  the gate run (measured 0.84–1.14 over nine of them). That estimator is what showed `j3037`'s 08-03
+  "loss" (1.10× at 91 % of the cap) sitting inside the band, on data already on disk.
+  **Two caveats, both hit in the same session.** (a) The classification is a **t=0 LOWER BOUND** — the gate
+  is re-evaluated on the live formula, so an instance can cross it mid-solve: `mod4block`, predicted inert
+  at 7.9 % scope, moved TIMEOUT → 245.8 s. Membership in the control set must be argued per instance, never
+  assumed. (b) A control that MOVES is information, not a broken control — it located exactly the case the
+  static reading missed. (2026-08-04; report `2026-08-04-broad-factor-admission-retest.md` §1/§8.)
 
 - **L1 · Removing BVE from preprocessing *alone* loses** (Tier B 20.6→32.8, C −2 solves; `benchmarks/reports/2026-07-20-bve-tierC-ab.md`) — valid
   only as half of the arrangement.
@@ -478,13 +507,14 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
     neither dosed nor budget-aware, and one round cannot be interrupted. C2 Strengthen owns **97.8 s of 109.0
     (89.7 %)** of `DivS_862_11` in **four applications**. Had no ledger row and no checklist item. Route via
     the calculus skill when it becomes a guard change.
-  - ~~`D-FACTOR-REV78`~~ — **DONE 2026-08-03, verdict HELD.** Broad Factor admission re-measured under rev 78
-    in one same-window B+C pair: Tier B **46.79 (27/28)**, a real +1 solve, against Tier C **27/30**, which
-    rev 78 never covers. R-d and broad are ANTAGONISTIC on Tier C (either alone 29/30). The one genuine loss
-    is `j3037`, a perturbation-fragile instance spanning 218.5 s → 1092.2 s → TO across three arms in that
-    window — **replicating that loss is the open follow-up**; the other apparent loss (`urq45`) was a correct
-    619.3 s solve whose DRAT check blew its budget. Report
-    `benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`.
+  - ~~`D-FACTOR-REV78`~~ — **CLOSED 2026-08-04 late. Verdict still HELD, but on a DIFFERENT instance.**
+    The 08-03 pass held it on `j3037`; the follow-up it filed ("replicating that loss") ran and
+    **REFUTED it** — `j3037` is a lottery (K′=11 paired draws; broad **26× faster** on it in the new
+    window). The re-test at HEAD holds broad on **`ContextModel`** instead, which replicates 3/3 windows,
+    and on T3 (kissat 1.346 → 1.500×). Its other 08-03 "loss", `urq45`, was indeed the checker-budget
+    artefact and is scored correctly now that `D-LRAT-FALLBACK` has shipped. **When citing the 08-03
+    report, cite the 08-04 one with it** — `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md`
+    supersedes its per-instance conclusion. Live work continues as **(b′)**.
   - **T3 instrument — CLOSED 2026-08-03.** `benchmarks/tiers/C-ruleneutral.list` (24 of 30,
     derived from window `20260727-002213-C-kabl`, frozen with its known defect + closer in the header) and
     `tools/bench/subset_score.py` (scores any Tier C run over the subset AND the full tier from one
@@ -880,6 +910,51 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-04 late — ▶▶ BROAD FACTOR ADMISSION: HELD, and the `j3037` veto RETIRED
+Item (a) closed. Report `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md`; one same-window
+Tier B + Tier C pair at git `6018366` (`20260804-154329-B` / `20260804-154341-C`) plus probes 1581982 /
+1582186 / 1582267.
+- **What the knob IS (computed from the CNFs, zero jobs).** The scope test is guarded by `!admit`
+  (`factor.cpp:600`), so it is strictly additive over the density gate (`:581`). Classifying every instance
+  at t=0: broad flips Factor **ON for 14 of 28 Tier B and 19 of 30 Tier C**. **The 50 % threshold is a
+  LONG-CLAUSE DETECTOR, not a fine separator** — ≥95 % of clauses are size ≤5 nearly everywhere, so it
+  excludes only `crypto1`/`mod4block`/`urq45`/`Grain`/`constraints_*`/`circuit_*`. Call it "Factor ON almost
+  everywhere", not "broad admission". **On `j3037` it is literally Factor-OFF vs Factor-ON** (density 2.10 vs
+  a gate of 6.0; no clause longer than 4 ⇒ scope fraction 100 %) — confirmed in every probe task: 0
+  factorings shipped, ~1,690 broad, and `TACTIX_FACTOR_DENSITY=0` reproduces the broad arm **bit-identically**
+  (161,045 conflicts both).
+- **`j3037` was a LOTTERY — the hold it produced was a coin flip.** 18 paired draws over Factor-independent
+  knobs, K′=11 clean. **The 08-03 pattern did not reproduce in ANY pair**: broad never timed out, shipped
+  timed out once; median conflict ratio 0.82 with an IQR spanning 0.44–1.24. In the new tier window
+  `j3037` is **467.7 → 18.0 s, broad 26× FASTER**. Registered as a falsifiable prediction before the run.
+- **The real loss is `ContextModel`**, 10.0 s → 1200 TO, and it **REPLICATES 3/3 windows for this knob**
+  (22.2× on 08-01, 54.9× on 08-03, 120.2× today, three different bases). Replication for the specific knob
+  is exactly what `j3037` lacked. No proof rescue fired and no verdict mismatch anywhere in the window.
+- **The ledger.** Tier B **38.39 (28/28)** vs shipped 86.51 (25/28) — **+3 solves** (`or_randxor`,
+  `mod4block`, **`fclqcolor`, the last Tier B timeout**), beating cadical's 40.38. Tier C **414.70 (28/30)**
+  vs shipped 309.05 (29/30). **T3 decides it: broad moves the binding kissat half 1.346 → 1.500×** and the
+  cadical half 1.069 → 1.191×. HOLD.
+- **But the Tier C cost is TWO INSTANCES** — `ContextModel` +2,390 s and `mp1-Nb5T15` +801 s of a +3,170 s
+  delta (7 instances >10 % worse, 4 better, 19 flat). Quarantine both and broad is **+8.89 PAR-2**. Routed
+  to (b′): the blanket knob is the wrong instrument, not the wrong idea.
+- **Method (see report §8).** Two of the four decisive facts cost **zero jobs**. The instances a knob
+  provably cannot touch are a **free in-window noise estimator** — measured 0.84–1.14 across nine of them,
+  which is also what showed `j3037`'s 08-03 "loss" (1.10×) sitting inside the same band. Pre-registration
+  paid twice: it forced a second probe batch when K′ came in at 5 against a floor of 6, and it forbade
+  quarantining `ContextModel` by analogy — which would have shipped a change that costs the gate.
+
+### 2026-08-04 late — TB4b's confirming Tier C, and `frb45` joins the may-not-gate set
+`20260804-141431-C-tb4b` (array 1581854), collected.
+- **tb4b 304.91 (29/30) vs pre 341.45 (29/30) — −36.54 PAR-2, no solve change.** But **EXCLUDING the fragile
+  three it is +27.56**, i.e. the entire win is `jgiraldez` 801→4.5 s, `urq45` 635→127 s, `j3037` 978→442 s —
+  precisely the instances TB4b targeted.
+- **`frb45-21-2` is ~2/3 of that cost** (90.2 → 588.6 s, 6.53×) and probe 1582186 measures it **CHAOTIC**:
+  bit-identical under replication AND under `chrono` 90/105/115 (7,856,563 conflicts every time), but
+  **6.2×** from `walk600` (105.1 s) to `bumplim9` (652.3 s). Excluding it too, TB4b costs **+9.45 PAR-2**,
+  ~1.4 noise floors.
+- **Open, filed as (c′):** T3's binding kissat half moved **1.271× (08-03, pre-TB4b) → 1.346× (today)**.
+  Not a revert order; a real number attached to an unclosed question.
 
 ### 2026-08-03 — ▶ V6's UNIT CHANNEL: our closure is VALUE-BLIND where kissat's is value-driven
 The one per-kind outcome gap left after gate matching measured at parity: `congruent_units` **2,231 vs our
