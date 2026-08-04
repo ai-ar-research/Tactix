@@ -23,6 +23,9 @@ Usage:
   (or missing) proof counts as UNSOLVED, competition-style. The arm's own
   command picks the format (fuzz-harness convention): `--lrat` in the command
   => native LRAT verified by cake_lpr, otherwise DRAT verified by drat-trim.
+  A DRAT check that OUTRUNS its budget is not final: the arm is re-solved with
+  `--lrat` and cake_lpr verifies that instead (§8.1, `lrat_rescue`). A checker
+  that REJECTS still scores the instance unsolved — that is an N2 failure.
   Verdicts are also checked against the expected status
   in the list — any mismatch is a correctness bug (stop and use the fuzz
   skill).
@@ -61,6 +64,11 @@ TIERS = os.path.join(ROOT, "benchmarks", "tiers")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
+
+# The one message `check_proof` emits when the checker RAN OUT OF TIME rather
+# than REJECTED. Single-sourced because it is a control signal, not prose: it,
+# and only it, may trigger the §8.1 native-LRAT re-check (`lrat_rescue`).
+CHECKER_TIMEOUT_PREFIX = "checker exceeded its "
 
 TIER_TIMEOUT = {"A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0}
 TIER_MEM_GB = {"D": 16}
@@ -134,12 +142,93 @@ def check_proof(fmt, cnf, proof, budget):
         c = subprocess.run(argv, capture_output=True, text=True,
                            errors="replace", timeout=budget)
     except subprocess.TimeoutExpired:
-        return False, f"checker exceeded its {budget:g}s budget"
+        return False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget"
     # drat-trim: "s VERIFIED"; cake_lpr: "s VERIFIED UNSAT"
     if "s VERIFIED" in c.stdout:
         return True, "VERIFIED"
     tail = (c.stderr.strip() or c.stdout.strip()).splitlines()
     return False, (tail[-1][:200] if tail else f"exit {c.returncode}, no output")
+
+
+def solve_once(argv, timeout, mem_gb):
+    """One solver invocation under the wall timeout + kernel backstops.
+
+    Returns (verdict, elapsed). Shared by the timed run and the §8.1 LRAT
+    re-solve so the rescue runs under exactly the same limits as the
+    measurement it is rescuing."""
+    def limits():
+        # kernel-enforced CPU backstop: subprocess.run(timeout=) only kills the
+        # child on the normal timeout path; if the parent dies abruptly the child
+        # is reparented to init and spins forever. RLIMIT_CPU makes the kernel
+        # stop it regardless of parent state (slack keeps wall-timeout primary).
+        cap = int(timeout) + 5
+        resource.setrlimit(resource.RLIMIT_CPU, (cap, cap + 2))
+        if mem_gb:
+            b = mem_gb << 30
+            resource.setrlimit(resource.RLIMIT_AS, (b, b))
+
+    t0 = time.monotonic()
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True,
+                           errors="replace", timeout=timeout,
+                           preexec_fn=limits)
+        return parse_verdict(r.returncode, r.stdout), time.monotonic() - t0
+    except subprocess.TimeoutExpired:
+        return "UNKNOWN", timeout
+
+
+def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
+    """Plan §8.1: "a proof that outruns even this [budget] is re-checked as
+    native LRAT before the instance is called unsolved".
+
+    It must be a RE-SOLVE, not a conversion: producing LRAT from DRAT needs
+    exactly drat-trim's backward search, the search that just timed out. So the
+    arm is re-run with `--lrat` appended and cake_lpr verifies what it writes —
+    measured on `urq45`, cake_lpr took 77 s where drat-trim needed 1447 s
+    (probe 1566825).
+
+    Why this exists: without it a checker-budget overrun discards a CORRECT
+    solve. It did, three times, all on `urq45` — 2026-07-27 (354.5 s solve,
+    2400.1 s check) and 2026-08-03, when it took a scored 619.3 s UNSAT off the
+    `broad` arm, one of the 27/30 that held broad Factor admission.
+
+    Sets res["proof_rescue"] to "lrat" when a certificate verified, else to a
+    "failed: <reason>" string, and returns whether the instance is proof-clean.
+    A re-solve that answers DIFFERENTLY is never rescued: that is a genuine
+    anomaly and it must stay visible as an unsolved instance."""
+    # The DRAT proof has already been sized and judged, and the LRAT one is
+    # bigger; drop it before writing a second multi-GB file into the same
+    # (node-shared) scratch.
+    if os.path.exists(proof):
+        os.unlink(proof)
+    lproof = proof + ".rescue.lrat"
+    t0 = time.monotonic()
+    try:
+        verdict, solve_s = solve_once(cmd + ["--lrat", cnf, lproof],
+                                      timeout, mem_gb)
+        if verdict != res["verdict"]:
+            res["proof_rescue"] = (f"failed: --lrat re-solve answered "
+                                   f"{verdict}, not {res['verdict']}")
+        elif not os.path.exists(lproof):
+            res["proof_rescue"] = "failed: --lrat re-solve wrote no proof"
+        else:
+            lbytes = os.path.getsize(lproof)
+            t1 = time.monotonic()
+            ok, msg = check_proof("lrat", cnf, lproof, checker_budget(timeout))
+            detail = (f"re-solve {solve_s:.1f}s, {lbytes / 1e6:.0f} MB LRAT, "
+                      f"cake_lpr {time.monotonic() - t1:.1f}s: {msg}")
+            if ok:
+                res["proof_rescue"] = "lrat"
+                res["proof_ok"] = True
+                res["proof_msg"] += f"; RESCUED as native LRAT ({detail})"
+                return True
+            res["proof_rescue"] = f"failed: {detail}"
+    finally:
+        if os.path.exists(lproof):
+            os.unlink(lproof)
+        res["proof_rescue_time"] = round(time.monotonic() - t0, 3)
+    res["proof_msg"] += f" [{res['proof_rescue']}]"
+    return False
 
 
 def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
@@ -176,33 +265,19 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
            "proof_ok": None, "proof_bytes": None, "proof_check_time": None,
            "proof_format": fmt if check_proofs else None,
            "proof_scored": bool(check_proofs and verify_proofs and score_proofs),
-           "proof_msg": None}
+           "proof_msg": None,
+           # §8.1 native-LRAT re-check: "lrat" when it saved the instance, a
+           # "failed: ..." reason when it was tried and did not, None when the
+           # DRAT check never ran out of time. Always present so the schema is
+           # stable across runs and the count is aggregatable.
+           "proof_rescue": None, "proof_rescue_time": None}
     if cnf is None or not os.path.exists(cnf):
         res["verdict"] = "MISSING"
         return res
     proof = os.path.join(workdir, rel.replace("/", "_") + "." + fmt)
     argv = cmd + [cnf] + ([proof] if check_proofs else [])
 
-    def limits():
-        # kernel-enforced CPU backstop: subprocess.run(timeout=) only kills the
-        # child on the normal timeout path; if the parent dies abruptly the child
-        # is reparented to init and spins forever. RLIMIT_CPU makes the kernel
-        # stop it regardless of parent state (slack keeps wall-timeout primary).
-        cap = int(timeout) + 5
-        resource.setrlimit(resource.RLIMIT_CPU, (cap, cap + 2))
-        if mem_gb:
-            b = mem_gb << 30
-            resource.setrlimit(resource.RLIMIT_AS, (b, b))
-
-    t0 = time.monotonic()
-    try:
-        r = subprocess.run(argv, capture_output=True, text=True,
-                           errors="replace", timeout=timeout,
-                           preexec_fn=limits)
-        elapsed = time.monotonic() - t0
-        verdict = parse_verdict(r.returncode, r.stdout)
-    except subprocess.TimeoutExpired:
-        elapsed, verdict = timeout, "UNKNOWN"
+    verdict, elapsed = solve_once(argv, timeout, mem_gb)
     res["time"] = round(elapsed, 3)
     res["verdict"] = verdict
 
@@ -229,6 +304,15 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                     res["proof_check_time"] = round(time.monotonic() - t1, 3)
                     res["proof_ok"] = ok
                     res["proof_msg"] = msg
+                    # §8.1 second chance, deliberately narrow. Only a checker
+                    # that RAN OUT OF TIME qualifies: a REJECTION is a real N2
+                    # failure and silencing it would be a correctness hole.
+                    # Only a SCORED arm (ours — a baseline's check cannot change
+                    # a verdict and its CLI need not take `--lrat`), and only a
+                    # DRAT arm (an `--lrat` arm has nothing left to re-check).
+                    if (not ok and score_proofs and fmt == "drat"
+                            and msg.startswith(CHECKER_TIMEOUT_PREFIX)):
+                        ok = lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb)
                     if not ok and score_proofs:  # rejected proof = unsolved (§2)
                         res["solved"] = False
     if check_proofs and os.path.exists(proof):
@@ -262,6 +346,21 @@ def summarize(name, results, timeout, shape):
         lines.append(f"  proofs ({'/'.join(fmts)}): {len(pbytes)} checked, "
                      f"total {sum(pbytes) / 1e6:.1f} MB, "
                      f"check time {sum(pctime):.1f} s")
+    # §8.1: instances whose DRAT check outran the budget and were saved (or not)
+    # by a native-LRAT re-solve. Never silent — a rescue means an instance would
+    # have been scored unsolved for a checker-budget reason.
+    resc = [r for r in results if r.get("proof_rescue") == "lrat"]
+    rfail = [r for r in results
+             if (r.get("proof_rescue") or "").startswith("failed")]
+    if resc:
+        lines.append(f"  LRAT rescues ({len(resc)}, DRAT budget outrun -> "
+                     f"re-solved with --lrat, cake_lpr VERIFIED): "
+                     + ", ".join(f"{r['instance']} (+{r['proof_rescue_time']:.0f} s)"
+                                 for r in resc[:5]))
+    if rfail:
+        lines.append(f"  !! LRAT RESCUES ATTEMPTED AND FAILED ({len(rfail)}): "
+                     + ", ".join(f"{r['instance']} [{r['proof_rescue']}]"
+                                 for r in rfail[:5]))
     if mism:
         lines.append(f"  !! VERDICT MISMATCHES ({len(mism)}): "
                      + ", ".join(r["instance"] for r in mism[:5]))
@@ -375,7 +474,8 @@ def slurm_aggregate(outdir):
                  "solved": False, "mismatch": False, "proof_ok": None,
                  "proof_bytes": None, "proof_check_time": None,
                  "proof_format": None, "proof_scored": False,
-                 "proof_msg": None}
+                 "proof_msg": None, "proof_rescue": None,
+                 "proof_rescue_time": None}
         all_results[man["solvers"][t["solver"]]["name"]].append(r)
     any_bug = False
     for s in man["solvers"]:
@@ -440,8 +540,12 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
     me = os.path.abspath(__file__)
     array = f"0-{len(tasks) - 1}" + (f"%{args.throttle}"
                                      if args.throttle else "")
-    # per-task wall limit: solve + the plan §8.1 checker budget + slack
-    tlimit = fmt_time(timeout + checker_budget(timeout) + 120)
+    # Per-task wall limit: solve + the plan §8.1 checker budget, TWICE, + slack.
+    # The second copy pays for `lrat_rescue` — a re-solve plus a cake_lpr run.
+    # A limit that cannot fit the runner's own worst case is exactly the trap
+    # this file just closed: SLURM would SIGKILL the task mid-rescue and the
+    # instance would come back MISSING instead of solved.
+    tlimit = fmt_time(2 * (timeout + checker_budget(timeout)) + 120)
     apath = os.path.join(outdir, "array.sbatch")
     with open(apath, "w") as f:
         f.write(f"""#!/usr/bin/env bash
@@ -599,7 +703,7 @@ def main() -> int:
 
     meta = {"tier": args.tier, "timeout": timeout, "jobs": args.jobs,
             "git": sha, "date": stamp, "mem_gb": mem_gb,
-            "solvers": {n: " ".join(c) for n, c, _, _ in solvers},
+            "solvers": {n: " ".join(c) for n, c, *_ in solvers},
             "results": all_results}
     shutil.rmtree(stage, ignore_errors=True)
     with open(os.path.join(outdir, "results.json"), "w") as f:

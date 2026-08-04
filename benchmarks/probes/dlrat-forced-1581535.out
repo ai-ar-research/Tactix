@@ -1,0 +1,2 @@
+host=node017 work=/tmp/dlrat-1581535-ul97rm57 leg=forced git=f50ae41
+leg forced: /home/hwu/SAT-solving/build/pin-ship/tactix on tierC/urq45.cnf.xz, solve timeout 1200s, checker budget 600s (shrunk; drat-trim needs ~4492 s here)
