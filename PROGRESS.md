@@ -433,6 +433,17 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
 
 ## Open items (small, none blocking)
 
+- **▶ `D-LRAT-FALLBACK` — the plan REQUIRES an LRAT re-check that `run.py` does not implement.** §8.1:
+  *"A proof that outruns even this is re-checked as native LRAT before the instance is called unsolved
+  (`--lrat` + cake_lpr verified `urq45` in 77 s where drat-trim needed 1447 s)."* The runner picks the format
+  ONCE from the arm's command (`proof_format()`, `run.py:112`) and has no re-check path, so a DRAT check that
+  blows the budget scores our instance **unsolved** with no second chance. **This has cost real results
+  three times, all on `urq45`:** 2026-07-27 (354.5 s solve, 2400.1 s check); **2026-08-03, where it took a
+  scored solve off the `broad` arm** — a correct UNSAT in 619.3 s — and so contributed to the 27/30 that
+  HELD broad Factor admission; and again the same night, where both our arms spent ~1 h of the gate's
+  wall-clock checking it. **Fix:** on a scored arm whose DRAT check exhausts its budget, re-run with
+  `--lrat` and verify with cake_lpr before calling the instance unsolved. Costs one re-solve plus a ~77 s
+  check against 4800 s burned. Route: bench runner (and it subsumes the older "verify LRAT not DRAT" item).
 - **Filed by the 2026-08-03 doc audit** (details in the Log entry of that date):
   - **`D-STRENGTHEN-BUDGET`** — C1 Strengthen / SubsumeForward are the only inprocessing slot entries that are
     neither dosed nor budget-aware, and one round cannot be interrupted. C2 Strengthen owns **97.8 s of 109.0
