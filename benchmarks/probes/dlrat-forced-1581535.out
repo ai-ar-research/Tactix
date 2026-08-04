@@ -1,2 +1,30 @@
 host=node017 work=/tmp/dlrat-1581535-ul97rm57 leg=forced git=f50ae41
 leg forced: /home/hwu/SAT-solving/build/pin-ship/tactix on tierC/urq45.cnf.xz, solve timeout 1200s, checker budget 600s (shrunk; drat-trim needs ~4492 s here)
+
+=== leg forced ===
+{
+  "expected": "UNSAT",
+  "instance": "tierC/urq45.cnf.xz",
+  "mismatch": false,
+  "proof_bytes": 919019909,
+  "proof_check_time": 600.149,
+  "proof_format": "drat",
+  "proof_msg": "checker exceeded its 600s budget; RESCUED as native LRAT (re-solve 618.8s, 3289 MB LRAT, cake_lpr 119.0s: VERIFIED)",
+  "proof_ok": true,
+  "proof_rescue": "lrat",
+  "proof_rescue_time": 738.105,
+  "proof_scored": true,
+  "solved": true,
+  "time": 591.033,
+  "verdict": "UNSAT"
+}
+  [PASS] verdict is UNSAT
+  [PASS] DRAT check ran the full 600s budget
+  [PASS] the DRAT check TIMED OUT (it did not reject)
+  [PASS] RESCUE FIRED: proof_rescue == 'lrat'
+  [PASS] rescue cost recorded
+  [PASS] proof_ok True (a certificate WAS verified)
+  [PASS] SCORED SOLVED — this is the instance the old runner discarded
+  [PASS] proof_bytes kept (the DRAT arm's proof size)
+
+PROBE PASSED (all pre-registered checks held)
