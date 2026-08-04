@@ -1,0 +1,6 @@
+ctx-shipped|ContextModel_output_7_3_9|tierC|off|none|1200
+ctx-broad|ContextModel_output_7_3_9|tierC|50|none|1200
+ctx-dens0|ContextModel_output_7_3_9|tierC|dens0|none|1200
+mp1-shipped|mp1-Nb5T15|tierC|off|none|1200
+mp1-broad|mp1-Nb5T15|tierC|50|none|1200
+mp1-dens0|mp1-Nb5T15|tierC|dens0|none|1200
