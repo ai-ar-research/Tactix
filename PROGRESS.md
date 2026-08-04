@@ -967,6 +967,47 @@ shares over the whole solve; V6 is ~38 % of that clock.
   whether gate volume per round falls once resolved gates are dropped.
 - **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
 
+### 2026-08-04 — ▶▶ V6 COST: HALF THE CLOCK GONE, byte-identical proofs (zero trajectory change) — `ee9f3ab`
+The trajectory-PRESERVING half of the V6 cost item, landed by a sub-agent under the byte-identical-DRAT
+oracle. **This is engineering only: same conflicts, same merges, same proof — less wall clock.**
+
+| instance | V6 before | V6 after | Δ | solve |
+|---|---|---|---|---|
+| `T105.2.0` | 193,772 ms (37.0 %) | **97,800 ms (22.6 %)** | **−49.5 %** | 524.4 → 433.2 s |
+| `T87.2.0` | 248,725 ms (33.6 %) | **115,886 ms (20.8 %)** | **−53.4 %** | 740.1 → 555.8 s |
+| `hwmcc17miters-…oski15a08b00s` | 5,627 ms (89.0 %) | 2,875 ms | −48.9 % | 8.34 → 5.45 s |
+| `FmlaEquivChain_4_6_6` | 3,030 ms | 1,165 ms | −61.6 % | 33.06 → 29.67 s |
+
+Reproduced on an independent second Tier C sample (jobs 1581275–78).
+
+- **PROOF IDENTITY HELD ON ALL FOUR — 297,468,966 B of byte-identical DRAT**, matching md5s, and identical
+  `c conflicts` / `c conggates` (per kind) / `c congruence` (rounds, gates, merges, units, unjustified).
+  That is what licenses landing it without a tier gate.
+- **The biggest lever was not the sort — the clause index's mapped clause id was NEVER READ.** XOR and ITE
+  only ask "does this clause exist", so an `unordered_map<SmallKey,uint64_t>` was a *set*. It is now a flat
+  open-addressed `SmallKeySet` with keys stored in the bucket array: one cache line per probe instead of a
+  bucket read plus a node chase, one contiguous allocation instead of one malloc per indexed clause. XOR
+  probes it **2^(s−1)** times and ITE 6 times **per indexed clause per apply**.
+- Also: `sorted_keys` computed **once** per apply instead of twice (the second introsort recomputed a
+  bit-identical answer over data the code documents as immutable), keys materialised by value into a
+  contiguous vector, exact `reserve()` on `CongGate`'s two vectors, LRAT `pairs` and XOR `reps` buffers
+  hoisted to caller-owned scratch, and `find` demoted from `std::function` to a template parameter so the
+  union-find lookup in the hottest loop inlines.
+- **Verified at HEAD after merge: `11 rounds, 53,371,397 gates, 3,713 merges, 14 units, 0 unjustified` on
+  T105** — the alarm counter for D-CONG-SKIP/D-CONG-TAUT is **0**, unchanged.
+- **Side effect worth knowing: composition (`675a953`) cut congruence's own volume ~15 %** — pre-composition
+  T105 is `13 rounds / 63,076,649 gates`, HEAD is `11 / 53,371,397`. Factor reshaping the formula gives V6
+  less to chew on, compounding with the engineering win.
+- **NOT done, deliberately** (all recorded by the agent): `CongGate`'s two vectors → arena, blocked only by
+  a `tests/test_congruence.cpp:246` comparison; ITE's node-based `ce` map (ITE yield is ~dead); the
+  closure's `occ` re-registering duplicates on every re-pop; the AND-extraction `tags` sort (~6 s of the
+  remaining 98 s). **Re-profile before picking any of these up — the old profile's proportions no longer
+  describe the remaining time.**
+- **Process note banked:** editing a probe script *while jobs are executing it* truncates the running
+  instance — bash reads scripts incrementally. Cost one Tier C round's md5 lines. A warning now sits at the
+  top of `benchmarks/probes/cong-proofid-2026-08-04.sh`.
+
+
 ### 2026-08-04 — ▶▶ COMPOSITION SHIPPED (neutral, removes the density gate); the mod4block trade is BROAD's, not composition's
 Gate windows `20260804-080512-B-comp` / `20260804-080524-C-comp`, git `675a953`, hatch
 `TACTIX_COMPOSITE_DENSITY=50` restores the old gate as the `nocomp` arm.
