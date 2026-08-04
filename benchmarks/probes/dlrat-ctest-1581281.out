@@ -1,0 +1,86 @@
+tree copied from git 38b5e2d at 2026-08-04T12:03:35-04:00
+[ 99%] Built target test_factor
+[100%] Linking CXX executable test_tr_bruteforce
+[100%] Built target test_tr_bruteforce
+Test project /tmp/dlrat-ctest-1581281/b
+      Start  1: kernel
+      Start  2: analyze
+      Start  3: restart_reduce
+      Start  4: switchmode
+      Start  5: rephase
+      Start  6: subsolver
+      Start  7: reorder
+      Start  8: walk
+ 1/38 Test  #1: kernel ...........................   Passed    0.01 sec
+ 2/38 Test  #3: restart_reduce ...................   Passed    0.01 sec
+ 3/38 Test  #4: switchmode .......................   Passed    0.00 sec
+ 4/38 Test  #5: rephase ..........................   Passed    0.00 sec
+      Start  9: subsume
+      Start 10: strengthen
+      Start 11: instantiate
+      Start 12: vivify
+ 5/38 Test  #7: reorder ..........................   Passed    0.01 sec
+ 6/38 Test  #8: walk .............................   Passed    0.01 sec
+ 7/38 Test  #9: subsume ..........................   Passed    0.00 sec
+ 8/38 Test #10: strengthen .......................   Passed    0.00 sec
+      Start 13: probe
+      Start 14: backbone
+      Start 15: bce
+      Start 16: ternary
+ 9/38 Test #11: instantiate ......................   Passed    0.01 sec
+      Start 17: decide
+10/38 Test #12: vivify ...........................   Passed    0.01 sec
+11/38 Test #13: probe ............................   Passed    0.01 sec
+12/38 Test #14: backbone .........................   Passed    0.00 sec
+      Start 18: reconstruct
+      Start 19: substitute
+      Start 20: congruence
+13/38 Test #15: bce ..............................   Passed    0.01 sec
+14/38 Test #16: ternary ..........................   Passed    0.01 sec
+      Start 21: binary_deletion
+      Start 22: transitive_reduce
+15/38 Test #17: decide ...........................   Passed    0.01 sec
+16/38 Test #18: reconstruct ......................   Passed    0.01 sec
+      Start 23: bve
+      Start 24: lucky
+17/38 Test #19: substitute .......................   Passed    0.01 sec
+18/38 Test #20: congruence .......................   Passed    0.01 sec
+      Start 25: api_n1
+      Start 26: random_policy
+19/38 Test #21: binary_deletion ..................   Passed    0.01 sec
+20/38 Test #22: transitive_reduce ................   Passed    0.01 sec
+      Start 27: micro_proofs
+      Start 28: sweep_proofs
+21/38 Test #23: bve ..............................   Passed    0.01 sec
+22/38 Test #24: lucky ............................   Passed    0.01 sec
+      Start 29: tr_bruteforce_0
+      Start 30: tr_bruteforce_1
+23/38 Test #25: api_n1 ...........................   Passed    0.01 sec
+      Start 31: tr_bruteforce_2
+24/38 Test  #2: analyze ..........................   Passed    0.03 sec
+      Start 32: tr_bruteforce_3
+25/38 Test #26: random_policy ....................   Passed    0.14 sec
+      Start 33: factor
+26/38 Test #33: factor ...........................   Passed    0.00 sec
+      Start 34: no_heuristics
+27/38 Test #34: no_heuristics ....................   Passed    0.00 sec
+      Start 35: kernel_h_boundary
+28/38 Test #35: kernel_h_boundary ................   Passed    0.01 sec
+      Start 36: demo1_dpll
+29/38 Test #36: demo1_dpll .......................   Passed    0.00 sec
+      Start 37: demo2_no_restarts
+30/38 Test #37: demo2_no_restarts ................   Passed    0.00 sec
+      Start 38: demo3_scripted_default
+31/38 Test #31: tr_bruteforce_2 ..................   Passed    0.17 sec
+32/38 Test #30: tr_bruteforce_1 ..................   Passed    0.18 sec
+33/38 Test #32: tr_bruteforce_3 ..................   Passed    0.18 sec
+34/38 Test #29: tr_bruteforce_0 ..................   Passed    0.20 sec
+35/38 Test #38: demo3_scripted_default ...........   Passed    0.16 sec
+36/38 Test  #6: subsolver ........................   Passed    0.86 sec
+37/38 Test #27: micro_proofs .....................   Passed    1.21 sec
+38/38 Test #28: sweep_proofs .....................   Passed    2.19 sec
+
+100% tests passed out of 38
+
+Total Test time (real) =   2.22 sec
+CTEST EXIT=0

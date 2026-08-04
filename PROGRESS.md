@@ -7,11 +7,16 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-03 (overnight) — plan revs 76–79. **T3's BOTH halves measured** (CaDiCaL 1.117×, Kissat **1.271×** on the subset — the kissat half is the binding phase-3 constraint). **Broad Factor admission measured and HELD** (Tier B 27/28, but Tier C 27/30). **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **`fclqcolor` located to Factor's ACCEPTANCE path** (saturates at 78 factorings across every scope). **Tier D built and frozen** (793). Baseline proofs written but no longer verified (rev 79).
 
-## ▶ RESUME HERE (2026-08-04) — phase 3; **next step = `fclqcolor`'s Factor ACCEPTANCE path** (a) below
+## ▶ RESUME HERE (2026-08-04) — phase 3; **next step = TB4b's chrono divergences** (a) below
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**▶ CARRIED OVER FROM THE OVERNIGHT SESSION — read these FIRST.**
+**▶ IN FLIGHT / CARRIED OVER — read these FIRST.**
+- **HEAD tier pair running: arrays `1581284` (B) / `1581341` (C)** against `build/pin-cong-opt` (code-identical
+  to HEAD). The tables below are `38b5e2d` and so **predate the −50 % V6 speedup** — expect Tier C to improve,
+  since `T87`/`T105` are two of its heaviest instances. Read those windows before quoting a current number.
+- **A `D-LRAT-FALLBACK` sub-agent may still be running** against `tools/bench/run.py`; check `git log` and
+  `squeue` before editing that file.
 - ~~Tier C noise-floor run~~ — **DONE: the clean floor is 6.72 PAR-2, not 10.8** (window
   `20260804-030938`, three bit-identical arms on an idle partition; per-instance median 4.8 s). The old bar
   was contention-inflated. Folded into MEASUREMENT HYGIENE below and the Log.
@@ -60,49 +65,46 @@ outcome. V6 owns
   absorption** (correct; kissat's extraction does the identical rotation) · **the ITE extractor** (we draw 0
   merges, kissat 18).
 
-**THEN, in order** — re-ranked 2026-08-03 after the night's measurements.
+**THEN, in order** — re-ranked 2026-08-04 against the Tier C gap-to-KISSAT decomposition (the BINDING half
+of T3). Total gap 3,629 s; **top 3 instances = 54 %, top 8 = 97 %**; we win on 11 of 30.
 
-**(a) `unsat-set-b-fclqcolor` — THE LAST TIER B TIMEOUT, and the acceptance path is LOCATED.** Worth
-≈−19.5 PAR-2 and the 28th solve. Cause B (missing non-binary BVA) is CONFIRMED: `kissat --no-factor` costs
-kissat **11.7×** here, and `--factorsize=2` (203 s) is no better than no Factor at all, so the value is
-entirely in non-binary factorings. **Our applied factorings SATURATE at 78 across `factor_size` 3/5/7/9**
-while offers rise 42,471 → 51,417 — a hard ceiling in ACCEPTANCE, not scope. **Price the 27×27 grid cap
-(S2a, structural) first.** `factor_bound` is not it (default 0 is already more permissive than kissat's
-`reduction > bound`; forcing 1 *lowers* applications to 67). Route: **rule-dev**.
+**(a) TB4b — THE CHRONO DIVERGENCES. Now the largest identified item on T3's binding half, not cleanup.**
+`j3037` + `jgiraldezlevy` + `urq45` own **54 %** of the Tier C gap to kissat, and turning chrono OFF is
+**7.8× faster on `j3037`** and **2.8× on `urq45`** (it is 1.45× *slower* on `jgiraldezlevy`, so scope this to
+three instances and expect the third to behave differently). kissat's chrono is neutral-to-mild on the same
+instances (1.00–1.26×), and both baselines are stable there (bands 2.6–3.1 %), so this is OURS. The named
+sub-items already exist: watch repair onto highest-level literals, unit chrono routing, snapshot timing,
+`jumpreasons`, cadical's `chronoreusetrail`. **Do not just turn chrono off** — TB4 measured it worth −2.4 %
+overall once the porting error was fixed; the divergences are the work.
 
-**(b) V6 Congruence's COST — see the headline block above.** Attack extraction and the `SmallKey` index
-sort, NOT the closure table (profiled: 6.1 % + ~13.6 % vs 1.2 %). Route: **revamp**.
+**(b) `veer_axi` — 65× kissat, the worst Tier B ratio, and now UNEXPLAINED.** 507× the decisions and 262× the
+propagations for 6.3× the conflicts, at 7.03 props/decision, search 90 % of clock. **Ruled out:**
+substituted-variable decisions (R-d took them 84 % → 0.24 %), restart cadence, trail reuse (85 % of restarts
+reuse a prefix; our `restart.cpp` faithfully transliterates kissat's), rule cost (9.7 %), chrono (10 %, and
+inside this instance's 32 % wall-clock contention band). Next: what makes trails this deep and
+conflict-free — the untested `TACTIX_SUBST_DEMOTE` arm took it 201 → 131 s pre-R-d (Tier C cost +28.39, so
+it was held) and its interaction with retirement has never been measured.
 
-**(c) V6's UNIT CHANNEL — `congruent_units` 2,231 vs our 14**, and the split says it is a real gap: kissat's
-`find_units` (our V1 Probe's job) is only **844** of it, the propagated residual **4,222**. Our closure is
-value-blind — `canonicalize` never reads `k.value` — where kissat's propagates each unit and re-simplifies
-every gate touching a newly assigned literal. Stage 1 = value-aware `canonicalize` + an outer fixpoint;
-gating condition **`congruence_unjustified` must stay 0**. This also plausibly feeds V6's 2.89× VOLUME
-factor, since kissat RETIRES value-resolved gates and we re-canonicalize them every round. Route: **rule-dev**.
+**(c) V6's remaining cost.** −50 % already banked at byte-identical proofs (`ee9f3ab`); T87+T105 are still
+**19 %** of the kissat gap. **Re-profile before touching anything** — the old proportions no longer describe
+the remaining ~98 s. Untouched leads recorded in that Log entry: `CongGate` vectors → arena (blocked only by
+`tests/test_congruence.cpp:246`), the closure's duplicate-accumulating `occ`, ITE's node-based `ce` map.
 
-**(d) BROAD FACTOR ADMISSION — measured and HELD, do not re-run as-is.** Tier B 46.79 (27/28), a real
-+1 solve; **Tier C 27/30, which rev 78 never covers.** R-d and broad are ANTAGONISTIC on Tier C (either
-alone 29/30, together 27/30) while on Tier B the ordering inverts. The genuine loss is `j3037` — a measured
-perturbation-FRAGILE instance whose three arms span 218.5 s → 1092.2 s → TO in one window — so **replicating
-that loss is the cheapest next move**; the other "loss" (`urq45`) was a correct 619.3 s solve whose DRAT
-check blew its budget.
+**(d) `D-LRAT-FALLBACK`** — the runner still discards correct solves (`urq45`, three times). Spec is
+self-contained in Open items.
 
-**(e) The T3 KISSAT half is the phase-3 exit constraint** — 1.271× on the subset, improved from 1.37×, while
-we are already 0.987× cadical there. Every Tier C run must keep `--baseline kissat --baseline cadical`.
+**(e) `fclqcolor`** — needs composition AND broad admission; broad is HELD on its own Tier C solve loss, and
+it trades `mod4block`. The open question is **WHEN to widen Factor's scope** — a §5.6 admission question, and
+downstream of (a)/(b), since broad's blocker is `j3037`.
 
-**(f) MEASUREMENT INTEGRITY, cheap and load-bearing:** re-derive `C-ruleneutral.list` with ≥3 ablation
-repeats (4 of its 6 exclusions are perturbation-fragile instances, and they are exactly where R-d costs
-Tier C); and re-measure the Tier C noise floor on an idle partition (the standing 10.8 bar was itself taken
-under a ~1 h 12 m overlap with another array).
+**(f)** V6's unit channel (2,231 vs 14; `find_units` is only 844 of it). **(g)** Track R · R5 S-c.
+**(h)** First Tier D run — built and frozen (793), never executed, a phase-3-exit prerequisite.
+**(i)** `--track` flag so T4's SC25-set PAR-2 is first-class.
 
-**(g)** Track R · R5 S-c (Sweep candidate selection; DoD MUST include sub-solver fuzz legs on both proof
-formats). **(h)** TB4b's remaining chrono divergences. **(i)** Bench runner: verify LRAT not DRAT (route via
-revise-plan). **(j)** `--track` flag for Tier D so T4's SC25-set PAR-2 is a first-class number.
-
-**BOUNDED, do not over-invest:** `D-VIVIFY-SCHED` is a yield fix (Vivify is 0.7–1.9 % of clock) with an
-unmeasured yield direction; `D-SUBST-UNBOUNDED` should be expected to buy ~0 (kissat WITH both bounds
-substitutes MORE than we do unbounded, 19,531 vs 6,548); V4 TransitiveReduce's ceiling is ≈−5.7 PAR-2, near
-the noise floor; the V6 ITE extractor is dead (we draw 0 merges, kissat 18).
+**BOUNDED, do not over-invest:** `D-VIVIFY-SCHED` is a yield fix (Vivify 0.7–1.9 % of clock) with unmeasured
+direction; `D-SUBST-UNBOUNDED` should buy ~0 (kissat WITH both bounds substitutes MORE than we do without);
+V4 TransitiveReduce's ceiling is ≈−5.7 PAR-2; V6's ITE extractor is dead (0 merges, kissat 18); the
+mid-round C1/C2 budget is measured-negative at the default (dose axis still live).
 
 **STANDING DIRECTIVES.** *Every implemented proof rule ships ON* ([[no-rule-off-configs]]). **Plan rev 77:
 no crude approximations of an understood mechanism** — implement what matches or exceeds kissat, or ship the
@@ -120,6 +122,11 @@ upper bound on quiet-partition noise, and re-measure it on an idle partition bef
 replication (≤1.0 %) but **8–23× under unrelated knobs**, so small Tier C aggregates near them
 are unreliable — quote per-instance replicate ranges. Same shape as **L20**'s ContextModel. **Never mix 14-
 and 28-instance Tier B PAR-2.**
+**▶ AND WALL CLOCK MOVES INDEPENDENTLY OF TRAJECTORY UNDER CONTENTION.** `veer_axi` gave **201,607 ms** and
+**152,283 ms** on two runs of the SAME binary with **bit-identical** decisions, conflicts and propagations —
+a **32 %** spread, from sharing the partition with a tier array. **Read wall-clock deltas against the
+trajectory counters** (decisions/conflicts/propagations are deterministic; wall time is not), and pair A/B
+arms in ONE submission. A single probe on that instance cannot resolve anything under ~1.3×.
 **The current T3 miss is SMALLER THAN THE NOISE FLOOR** (band 349.05, shipped 358.12, miss **+9.07 PAR-2** =
 0.84 floors) — so "the CaDiCaL half is missed" is a *reported* status, not a robust measurement. The
 retirement-OFF pass at 1.039× sits ~1.8 floors inside the band and IS robust. **`veer_axi` is likewise a
@@ -966,6 +973,59 @@ shares over the whole solve; V6 is ~38 % of that clock.
   RETIRES value-resolved gates while we re-extract and re-canonicalize them every round. The cheapest test is
   whether gate volume per round falls once resolved gates are dropped.
 - **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
+
+### 2026-08-04 — ▶▶ THE FRAGILE THREE ARE A CHRONO DEFECT (3 of 3); `veer_axi` is NOT, and stays unexplained
+Two findings, deliberately kept apart because the first tempted an over-broad conclusion the second refutes.
+
+**(1) The "fragile three" own 54 % of the Tier C gap to KISSAT, and chrono is implicated on all three.**
+Gap decomposition (window `20260804-080524`, ours 10,409 s vs kissat 6,781 s = 3,629 s): `j3037` **848 s
+(6.26×)** · `jgiraldezlevy` **639 s (6.79×)** · `urq45` **473 s (5.04×)** — **top 3 = 54 %, top 8 = 97 %**;
+we WIN on 11 of 30 worth −473 s.
+- **Same-magnitude perturbation, both solvers — chrono OFF:**
+
+  | instance | ours | kissat |
+  |---|---|---|
+  | `j3037` | 332.7 → **42.6 s (7.8× FASTER)** | 146.3 → 116.2 (1.26×) |
+  | `jgiraldezlevy` | 202.4 → 293.5 (1.45× slower) | 110.5 → **45.4 (2.4× faster)** |
+  | `urq45` | 205.7 → **74.6 s (2.8× FASTER)** | 111.1 → 111.4 (**inert**) |
+
+- **These instances are NOT intrinsically unmeasurable.** Both baselines are stable run-to-run there —
+  kissat bands **4.1 / 3.5 / 3.1 s (2.6–3.1 %)**, cadical 2.1 / 0.7 / 19.8 — *lower* than kissat's own band
+  on `goldcrest` (8.3 %) or `minxor128` (6.4 %). At comparable perturbation magnitude kissat ranges
+  **1.23–2.43×** where we range **8.4–23×**.
+- **Method guards.** `--walkinitially=1` was **vacuous** — byte-identical conflicts to base on all three
+  (1,910,509 / 2,481,889 / 10,255,109); caught only by capturing conflicts, not wall time. `--bump=0` is
+  **not** a comparable perturbation (it times kissat out on two of three, 22.9 M and 75.6 M conflicts) and is
+  excluded rather than quoted as "kissat swings 13×".
+- **Routes to TB4b**, the one open Tier B track ("watch repair onto highest-level literals, unit chrono
+  routing, snapshot timing, `jumpreasons`, cadical's `chronoreusetrail`") — filed as cleanup, actually the
+  largest identified item on T3's BINDING half. **Scope it to three instances, not four.**
+
+**(2) `veer_axi` is NOT a chrono defect — hypothesis tested and REFUTED.** Paired arms, one submission:
+
+| | base | chrono off |
+|---|---|---|
+| decisions | 221,100,578 | 192,469,369 (0.87×) |
+| conflicts | 18,635 | 20,454 (**1.10× WORSE**) |
+| propagations | 1,554,104,528 | 1,216,272,653 |
+| solve | 152.3 s | 137.5 s (**0.90×**) |
+
+10 %, not a collapse. **So `veer_axi` does not join the fragile three and TB4b does not consolidate it.**
+- **What R-d DID fix, measured at HEAD:** decisions on substituted variables **84.03 % → 0.24 %**, decisions
+  1.61 G → 221 M. The original defect is closed.
+- **What remains, unexplained:** **507× kissat's decisions and 262× its propagations for 6.3× the
+  conflicts** (221 M / 1.554 G / 18,635 vs 436 K / 5.94 M / 2,967), at **7.03 props per decision** — so these
+  are real, propagating descents that almost never conflict, not dead variables. Search is 90 % of the clock.
+  **Ruled out:** substituted-variable decisions, restart cadence, **trail reuse** (2,324 restarts, 1,980
+  reused a prefix — our `restart.cpp` is a faithful transliteration of kissat's stable/focused
+  `reuse_trail`), rule cost (9.7 %), and chrono.
+
+**▶ MEASUREMENT HYGIENE — `veer_axi` moves 32 % on WALL CLOCK at a BIT-IDENTICAL trajectory.** Two runs of
+the same binary on the same input gave **201,607 ms** and **152,283 ms** with identical decisions, conflicts
+AND propagations; the slow one shared the partition with a tier array. **A single probe on this instance
+cannot resolve anything under ~1.3×** — pair the arms in one submission, and read wall-clock deltas against
+the trajectory counters, which are deterministic.
+
 
 ### 2026-08-04 — ▶▶ V6 COST: HALF THE CLOCK GONE, byte-identical proofs (zero trajectory change) — `ee9f3ab`
 The trajectory-PRESERVING half of the V6 cost item, landed by a sub-agent under the byte-identical-DRAT
