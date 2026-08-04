@@ -578,7 +578,15 @@ ApplyResult factor_apply(Kernel &k) {
   uint32_t density = 6;
   if (const char *s = std::getenv("TACTIX_FACTOR_DENSITY"))
     density = static_cast<uint32_t>(std::atoi(s));
-  bool admit = k.binary_ids.size() >= density * kernel_num_output_vars(k);
+  // uint64 multiply, deliberately: both operands are uint32, so the product
+  // WRAPS in uint32 arithmetic. The shipped density of 6 is safe everywhere,
+  // but `tierC/128_125` has 48,505,464 variables, so any TACTIX_FACTOR_DENSITY
+  // >= 89 overflows there — and an A/B arm setting it HIGH to suppress Factor
+  // would wrap to a small bound and silently ADMIT it instead, i.e. the knob
+  // inverts exactly where it is being used as an off-switch. (Use
+  // TACTIX_NO_FACTOR to disable the rule; this only makes the bound honest.)
+  bool admit = k.binary_ids.size() >=
+               static_cast<uint64_t>(density) * kernel_num_output_vars(k);
   // UNION admission (arm, Kernel::factor_scope_percent > 0): additionally admit
   // when at least that PERCENT of live irredundant clauses are inside Factor's
   // clause-size scope. STRICTLY ADDITIVE — everything the density gate admits
