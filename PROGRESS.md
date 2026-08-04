@@ -989,7 +989,9 @@ Tier B timeout once broad admission ships — worth ≈−19.5 PAR-2 and the 28t
 
   Widening the scope raises what the grid OFFERS by 21 % and changes what it APPLIES by **zero** — a hard
   ceiling in the acceptance path, not a scope shortfall, and why `factor_size` 2 → 5 was a Tier C win that
-  bought nothing here. (The `size2` arm reads 0 because broad admission is itself scope-keyed: at size 2 only
+  bought nothing here. **Read the conflict row as THROUGHPUT, not progress:** every arm hits the 300 s cap,
+  so conflicts-at-timeout says how fast an arm churned, not how close it came. Nothing in that row separates
+  the arms. (The `size2` arm reads 0 because broad admission is itself scope-keyed: at size 2 only
   21.4 % of fclq's clauses are in scope, under the 50 % threshold, so Factor is never admitted. That arm is
   confounded and is NOT comparable to kissat's `--factorsize=2`.)
 - **The asymmetry it exposes:** kissat restricted to binaries still applies **80** factorings where our
