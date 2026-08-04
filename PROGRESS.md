@@ -821,6 +821,25 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-03 — ▶ MY ERROR: I rebuilt the binary two in-flight arrays were executing; both runs cancelled and redone
+Recorded because it is the [[s4-gate-negatives]] build-race hazard and I walked straight into it **while
+holding the memory that names it**. Submitted Tier B (1579587) and Tier C (1579688) against
+`build/pin-t3a/tactix` at 21:03, then at 21:08 rebuilt **that same path** with the congruence
+instrumentation. Tier B was 107/112 done; **Tier C was 31/150**, so ~119 Tier C tasks would have run a
+different binary from the first 31 — arms and instances mixed across two builds, in a window whose whole
+purpose is an arm-vs-arm comparison.
+- **Cancelled all four job ids** (1579587/1579588/1579688/1579689 — by explicit id, never account-wide) and
+  **deleted both run dirs** rather than salvaging. A partially-contaminated window is worth less than no
+  window: it produces plausible numbers, which is exactly how [[ab-arm-identical-artefacts]] and the
+  `$TMPDIR` collision both did their damage.
+- **What made it recoverable:** the watchers fired on cancellation, because the skill's condition is
+  "job gone from the queue", not "results file exists". A file-exists watcher would have hung forever.
+- **The rule, restated so the next session does not need to rediscover it: a submitted array OWNS its
+  binary path until it finishes.** Build the measurement binary into a fresh `build/pin-*` dir, submit, and
+  do not touch that dir again — put the NEXT change in the NEXT dir. Resubmitted against `build/pin-t3b`
+  (arrays 1579784 B / 1579883 C) and staged the probe binary as a separate copy under the session job dir so
+  no later rebuild can reach it either.
+
 ### 2026-08-03 — ▶ T3's INSTRUMENT restored: the rule-neutral subset is a real list, and Tier C carries a kissat arm again
 T3 has two halves and one of them had been **unmeasurable** for a week — the rule-neutral subset existed only
 as a number in a frozen report, and Tier C stopped carrying a kissat arm after 07-30. Both closed.
