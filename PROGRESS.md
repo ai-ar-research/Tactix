@@ -834,6 +834,44 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
+### 2026-08-03 — ▶ V6's UNIT CHANNEL: our closure is VALUE-BLIND where kissat's is value-driven
+The one per-kind outcome gap left after gate matching measured at parity: `congruent_units` **2,231 vs our
+14** on `T105` (2,614 vs 10 on `T87`). Source analysis, both sides.
+
+- **The mechanism.** kissat's `learn_congruence_unit` (`congruence.c:794-812`) **propagates** the unit it
+  learns (`kissat_learned_unit` + `kissat_probing_propagate` at `:807-808`), and the fixpoint loop
+  `propagate_units_and_equivalences` (`:4210`) re-simplifies every gate touching a newly assigned literal.
+  Unit → BCP → gate simplification against the new VALUES → more units. **Our `canonicalize`
+  (`congruence.cpp:497-586`) contains zero `k.value` reads**, and units are batched into `PendingUnits` and
+  asserted only after the worklist loop (`:1578-1584`), which is never re-entered.
+- **Five of kissat's six unit-deriving conditions have no analogue in ours:** merge with an assigned literal
+  (`:912/919`); AND with a root-false input or assigned unary lhs (`:1489/1493/1495`); **XOR value-cancellation
+  to arity 0** (`:1696/1700/1702` via the parity fold at `:1806-1813`); ITE with both branches assigned
+  (`:1857/1859`); equivalence-binary degeneracy (`:838`). Ours derives units from exactly two conditions, both
+  representative-level: AND with `x` and `¬x` among representatives (`congruence.cpp:527`) and XOR whose key
+  empties by even multiplicity (`:581`). We cancel on `x ⊕ x`, never on `x ⊕ 1`.
+- **The 2,231 OVERSTATES the gap — one channel is a different rule of ours.** kissat's `find_units`
+  (`congruence.c:4029-4079`) is a standalone depth-1 binary-clause failed-literal scan; **V1 Probe does the
+  full failed-literal test over the same candidate set** (`probe.cpp:20-41`), counted as `probe_failed`. Same
+  bundling as `congruent_equivalences` → V3 Substitute. **Probe 1580094 splits kissat's 2,231 into
+  `find_units` vs the propagated residual; size nothing until it lands.**
+- **Not a proof-obligation loss.** `congruence_unjustified` is **0** on both instances, and it is the single
+  counter behind both D-CONG-SKIP and D-CONG-TAUT — so those deviations drop NOTHING here. The missing units
+  are never attempted, not deliberately skipped.
+- **▶ THE LINK TO THE COST PROBLEM (the reason this matters more than 2,217 units).** kissat's value-driven
+  simplification **retires** resolved gates (`mark_gate_as_garbage`, `:1512/1726/1919`); we never drop a gate
+  for being value-resolved, so resolved gates stay in `occ` and the table and get re-canonicalized every
+  round — 26.4 M AND `canon_ok` events per instance. **That plausibly feeds the 2.89× VOLUME factor in V6's
+  7.6× cost gap.** Unverified, and the cheapest thing to check while working the cost item.
+- **Route:** rule-dev, staged. Stage 1 — make `canonicalize` value-aware (AND drop root-true inputs / unit on
+  root-false; XOR fold root-true into `parity` and drop root-false; ITE handle assigned branches) plus an
+  outer fixpoint that re-seeds the worklist from `occ` of newly assigned literals. Reuses `occ`,
+  `PendingUnits` and `congruence_rup_chain` unchanged. Stage 2 (assert + BCP inside the loop, kissat's exact
+  shape) only if Stage 1 measures well — it puts `gates[].base_id` and the `occ` lists on a moving formula.
+  **Gating condition either way: `congruence_unjustified` must stay 0** — value-aware closure assigns many
+  more literals mid-round, and `big_path_chain` (`substitute.cpp:193`) already skips BIG nodes with a
+  non-zero value, so that counter is what moves first.
+
 ### 2026-08-03 — ▶▶ `fclqcolor` LOCATED: our Factor OFFERS the widened candidates and ACCEPTS almost none
 Probes 1580079–1580084 (`benchmarks/probes/fclq-factor-2026-08-03.sh`), single instance, 300 s cap. The last
 Tier B timeout once broad admission ships — worth ≈−19.5 PAR-2 and the 28th solve.
