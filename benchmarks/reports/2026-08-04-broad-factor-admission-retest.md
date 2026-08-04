@@ -140,6 +140,31 @@ exactly the kind of substantial perturbation it falls off. **Per the pre-registe
 finding on `j3037` disqualifies `j3037` and nothing else**; a new loss is real until it goes through
 the same discriminator, and this one additionally replicates.
 
+## 5b. The damage is FACTOR ITSELF, not the scope knob (probe 1582267)
+
+Both Tier C regressions re-run at HEAD under three arms: shipped, broad, and `TACTIX_FACTOR_DENSITY=0`
+(Factor-ON reached through the density gate, sharing no code with the scope branch).
+
+| instance | arm | verdict | wall | conflicts | factorings |
+|---|---|---|---|---|---|
+| `ContextModel` | shipped | SAT | 9.5 s | 178,044 | 0 |
+| | broad | **TO** | 1200 | 6,365,394 | 578 |
+| | **dens0** | **TO** | 1200 | 6,378,735 | 578 |
+| `mp1-Nb5T15` | shipped | SAT | 4.9 s | 135,591 | 0 |
+| | broad | SAT | 812.2 s | 11,249,172 | 540 |
+| | **dens0** | SAT | 815.3 s | **11,249,172** | 540 |
+
+- **`mp1-Nb5T15` under broad and under dens0 is BIT-IDENTICAL** — 11,249,172 conflicts, 540 factorings.
+  `ContextModel`'s two arms differ by 0.2 %, which is only where the 1200 s wall landed. **Two independent
+  admission routes, one trajectory: the scope knob is innocent and Factor's PRESENCE is the cause.**
+- **It is trajectory poison, not overhead** — 36× the conflicts on `ContextModel` and **83×** on
+  `mp1-Nb5T15`. Same shape as L7 (during-search BVE costs trajectory, r=+0.99 with conflicts, per-phase
+  overhead dead) and L9.
+- **Consequence for the routing:** the open question is *on which instances Factor should run*, not *what
+  the scope threshold should be*. Tuning the threshold cannot separate these cases, because the threshold
+  is not what reaches them. This is the L9 "when to eliminate is the measured lever" result, now
+  reproduced for Factor with per-instance labels on both sides.
+
 ## 6. The gate metric decides it
 
 T3's binding half is kissat parity on the rule-neutral subset (`tools/bench/subset_score.py`,

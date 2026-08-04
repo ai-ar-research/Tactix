@@ -78,6 +78,13 @@ over the 14/28 B and 19/30 C instances broad flips** — the strongest labelled 
 exhibit has had. Prior art says a hand-designed separator will fail (L15's four dead gates, L5 at chance, and
 the 2026-07-30 reference study found no such axis in kissat or cadical), so **do not build a fifth static
 gate**; this is phase-6 arm material and the honest near-term move is to bank the labelled data. Report §7.
+**▶ AND THE QUESTION IS "WHEN TO RUN FACTOR", NOT "WHAT THRESHOLD" (probe 1582267, report §5b).** Both
+regressions reproduce **bit-identically** under `TACTIX_FACTOR_DENSITY=0` — Factor-ON reached through a
+route sharing no code with the scope branch (`mp1-Nb5T15` 11,249,172 conflicts under BOTH arms; both
+`ContextModel` arms TO at 578 factorings). **The scope knob is innocent; Factor's PRESENCE is the cause**,
+and it is **trajectory poison, not overhead** (36× / **83×** the conflicts). Tuning the threshold cannot
+separate these cases because the threshold is not what reaches them — L9's "when to eliminate is the
+measured lever", now reproduced for Factor with labels on both sides.
 
 **(b) `fclqcolor`** is NO LONGER blocked on "needs broad admission" — broad solves it (TO → 244.3 s). It is
 blocked on *targeted* admission. Its own defect is unchanged and still worth pricing independently: applied
