@@ -19,6 +19,11 @@ effect is not evidence about sweep, and it stays IN the subset.
 
     tools/bench/subset_rederive.py benchmarks/runs/<stamp>-C-<name> [--write]
 
+Criterion validated on synthetic data 2026-08-03: a tight-band 3x sweep move is
+EXCLUDED; a 200 s sweep move sitting inside a 400 s replicate band is KEPT (the
+single-shot rule would have excluded it as a 1.33x move -- that is exactly the
+shape of the four perturbation-fragile instances the shipped list drops).
+
 Prints the per-instance table and the proposed list; --write updates
 benchmarks/tiers/C-ruleneutral.list in place (header regenerated).
 """
