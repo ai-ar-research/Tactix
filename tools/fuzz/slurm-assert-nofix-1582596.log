@@ -1,0 +1,67 @@
+== fuzz job 1582596: node=node017 cpus=24 mem/cpu=8G ==
+== regression corpus ==
+corpus: 10 entries, 0 failures
+== fuzz: 10000 cases, solver=/usr/bin/env TACTIX_CHRONO_LEVELS=0 /home/hwu/SAT-solving/build/pin-assert-nofix/tactix --lrat oracle=/home/hwu/SAT-solving/tools/solvers/bin/kissat ==
+... 100/10000 cases, 0 failures
+... 200/10000 cases, 0 failures
+... 300/10000 cases, 0 failures
+... 400/10000 cases, 0 failures
+... 500/10000 cases, 0 failures
+... 600/10000 cases, 0 failures
+... 700/10000 cases, 0 failures
+... 800/10000 cases, 0 failures
+... 900/10000 cases, 0 failures
+... 1000/10000 cases, 0 failures
+... 1100/10000 cases, 0 failures
+... 1200/10000 cases, 0 failures
+... 1300/10000 cases, 0 failures
+... 1400/10000 cases, 0 failures
+... 1500/10000 cases, 0 failures
+... 1600/10000 cases, 0 failures
+... 1700/10000 cases, 0 failures
+FAIL case 116 seed 20260825 (ksat-k5-n43-m1114): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000116-crash-seed20260825
+FAIL case 376 seed 20261085 (mut-n59-m274): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000376-crash-seed20261085
+FAIL case 444 seed 20261153 (ksat-k3-n72-m396): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000444-crash-seed20261153
+FAIL case 537 seed 20261246 (ksat-k3-n59-m271): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000537-crash-seed20261246
+FAIL case 244 seed 20260953 (mut-n76-m803): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000244-crash-seed20260953
+... 1800/10000 cases, 5 failures
+FAIL case 587 seed 20261296 (mut-n57-m717): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000587-crash-seed20261296
+FAIL case 552 seed 20261261 (ksat-k4-n70-m836): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000552-crash-seed20261261
+FAIL case 405 seed 20261114 (ksat-k4-n95-m1317): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000405-crash-seed20261114
+FAIL case 757 seed 20261466 (ksat-k4-n56-m769): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000757-crash-seed20261466
+... 1900/10000 cases, 9 failures
+FAIL case 910 seed 20261619 (mut-n67-m961): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/000910-crash-seed20261619
+FAIL case 1037 seed 20261746 (ksat-k3-n87-m370): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001037-crash-seed20261746
+FAIL case 1110 seed 20261819 (mut-n79-m337): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001110-crash-seed20261819
+... 2000/10000 cases, 12 failures
+FAIL case 1196 seed 20261905 (ksat-k3-n74-m407): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001196-crash-seed20261905
+FAIL case 1235 seed 20261944 (ksat-k3-n90-m413): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001235-crash-seed20261944
+FAIL case 1093 seed 20261802 (mut-n85-m1128): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001093-crash-seed20261802
+... 2100/10000 cases, 15 failures
+FAIL case 1249 seed 20261958 (mut-n46-m580): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001249-crash-seed20261958
+FAIL case 1268 seed 20261977 (ksat-k3-n96-m528): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001268-crash-seed20261977
+... 2200/10000 cases, 17 failures
+... 2300/10000 cases, 17 failures
+FAIL case 1411 seed 20262120 (ksat-k4-n62-m667): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001411-crash-seed20262120
+... 2400/10000 cases, 18 failures
+FAIL case 1454 seed 20262163 (ksat-k4-n37-m399): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001454-crash-seed20262163
+... 2500/10000 cases, 19 failures
+FAIL case 1637 seed 20262346 (ksat-k4-n58-m622): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001637-crash-seed20262346
+stopping after 20 failures
+FAIL case 1706 seed 20262415 (ksat-k4-n74-m956): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001706-crash-seed20262415
+FAIL case 1742 seed 20262451 (ksat-k3-n92-m506): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001742-crash-seed20262451
+FAIL case 1748 seed 20262457 (mut-n74-m314): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001748-crash-seed20262457
+FAIL case 1779 seed 20262488 (ksat-k3-n82-m349): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001779-crash-seed20262488
+FAIL case 1895 seed 20262604 (mut-n71-m301): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001895-crash-seed20262604
+FAIL case 1791 seed 20262500 (ksat-k3-n88-m404): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001791-crash-seed20262500
+FAIL case 1804 seed 20262513 (mut-n34-m979): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001804-crash-seed20262513
+FAIL case 1820 seed 20262529 (ksat-k4-n60-m596): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001820-crash-seed20262529
+FAIL case 2392 seed 20263101 (ksat-k3-n69-m293): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/002392-crash-seed20263101
+FAIL case 2360 seed 20263069 (mut-n76-m350): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/002360-crash-seed20263069
+FAIL case 1928 seed 20262637 (ksat-k5-n46-m1231): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/001928-crash-seed20262637
+FAIL case 2335 seed 20263044 (ksat-k3-n82-m377): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/002335-crash-seed20263044
+FAIL case 2003 seed 20262712 (ksat-k4-n41-m557): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/002003-crash-seed20262712
+FAIL case 2062 seed 20262771 (mut-n91-m386): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/002062-crash-seed20262771
+FAIL case 2310 seed 20263019 (mut-n39-m908): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/002310-crash-seed20263019
+FAIL case 2365 seed 20263074 (mut-n95-m404): [('crash', 'exit code -6, s-line None')] -> /home/hwu/SAT-solving/tools/fuzz/failures/002365-crash-seed20263074
+fuzz: 10000 cases, 36 failures {'crash': 36} | verdicts: CRASH=36 SAT=1479 TIMEOUT=65 UNSAT=1017
