@@ -35,24 +35,26 @@ clock on `T87`/`T105`, ~462 s across the two.
   `COUNTER (congruent, 1, PCNT_VARIABLES, …)`) = **14,461 / 13,227**. **Real outcome gap 3.9× (T105) and
   3.3× (T87), not 182×.** The lever SURVIVES — 7.6× the time for ~3.9× fewer congruences is still the
   largest single Tier C item — but do not size the fix off the retracted figure.
-- **▶▶ THE DISCRIMINATOR HAS RUN AND RESOLVED (probes 1579948/1579949, Log) — the fault is
-  CANONICALIZATION.** We emit ~27 M / ~39.7 M XOR gates and they collide **818 / 913 times (0.0030 % /
-  0.0023 %)**. `chain_fail = 0` on every kind on both instances, so **`add_equivalence` and the proof chain
-  are EXONERATED**; `stale = 0`, so the eviction policy is not it either. Structurally identical XOR gates
-  never meet on their key.
-- **▶ NEXT IS A FIX, NOT ANOTHER PROBE:** read C0's key construction against kissat's, at the point where the
-  XOR output's sign/parity is absorbed (`congruence.cpp`, `base_parity`/`r`). **Pre-registered prediction:**
-  if sign lands in the KEY rather than in `out_lit`, two gates over the same variable set with opposite
-  output parity are keyed apart, and the fix collapses `insert` into `collide` by orders of magnitude. The
-  funnel (`TACTIX_CONG_PROBE`) is the before/after instrument.
-- **ITE IS DEAD — do not spend on it.** It draws **ZERO** merges from the 2,076 / 2,292 gates that reach
-  canonicalize (2,016 / 2,216 are `canon_skip`), consistent with kissat matching only 131 of its own 247,798.
-  The earlier "our ITE extractor is ~dead, C2's filter is the suspect" line is correct but is a rounding
-  error, not a lever.
+- **▶▶ THE OUTCOME GAP IS CLOSED AS AN ARTIFACT — V6's GATE MATCHING IS AT PARITY** (probes 1580063/1580064,
+  Log). Per kind on T105: **AND 3,423 vs kissat's 4,348 (1.27×), XOR 268 vs 531, ITE 0 vs 18.** kissat's
+  `congruent` total BUNDLES a binary-clause equivalent-literal scan (`congruent_equivalences`, 24 % of its
+  total) that we implement in **V3 Substitute**, a different rule — so the 3.9× compared our V6 against its
+  V6+V3. **Do not re-open "V6 finds fewer congruences"; it does not.**
+- **▶ WHAT IS ACTUALLY LEFT, and it is a COST problem:** V6 spends **7.6× kissat's congruence time** for a
+  comparable outcome, and owns 32.9 %/38.2 % of the clock on `T87`/`T105`. Concrete lead from the source
+  read: **kissat checks the table at CONSTRUCTION** (`congruence.c:1206` — on a hit it merges and returns 0
+  *without materializing the gate*), where we materialize every rotation into a `std::vector<CongGate>` and
+  table it in a second pass. Attack the time, not the merge count.
+- **▶ The one real OUTCOME gap is the UNIT channel: `congruent_units` 2,231 vs our 14 (159×)** — C3's unit
+  channel, the only per-kind number where we are not close.
+- **ITE IS DEAD — do not spend on it.** ZERO merges from the ~2,076 gates that reach canonicalize, and
+  **kissat gets 18**. Both solvers get nothing from ITE here.
 - **ALREADY REFUTED, do not redo:** "extraction volume is the anomaly" (kissat extracts the same order);
   arity caps (`CONG_XOR_ARITY` 4 = kissat's; our AND cap 64 ≪ kissat's 1e6); a round/effort budget (16 and 11
-  rounds, and NEITHER solver meters congruence by effort — kissat's controls are structural); **the proof
-  chain / `add_equivalence` (`chain_fail = 0`, measured)**; **the stale-key eviction policy (`stale = 0`)**.
+  rounds, and NEITHER solver meters congruence by effort); **the proof chain / `add_equivalence`
+  (`chain_fail = 0`, measured)**; **the stale-key eviction policy (`stale = 0`, measured)**; **the XOR
+  collision rate (0.003 % is NORMAL — kissat gets 531 XOR congruences from comparable volume)**; **C0
+  sign absorption (read and correct; kissat's extraction does the identical rotation)**.
 
 **THEN, in order** — re-ranked by the 2026-08-03 audit, which corrected one mis-filing (`or_randxor` was
 listed as pure-search; it is rule-SCOPE with a twice-measured fix), bounded three items that were listed
@@ -824,7 +826,50 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
 
-### 2026-08-03 — ▶▶ V6's DISCRIMINATOR RESOLVES: XOR gates collide **0.003 % of the time** — the fault is CANONICALIZATION, and the proof chain is EXONERATED
+### 2026-08-03 — ▶▶ CORRECTION #2: V6's gate matching is AT PARITY with kissat. The "3.3–3.9× fewer congruences" was ANOTHER counter-scope artifact
+Probes 1580063/1580064 — kissat's **per-kind** `congruent_*` on the same two instances (`kissat-metrics`
+build). This is the comparison that should have preceded both of today's congruence entries, and it retires
+the lever they ranked #1.
+
+| T105, by kind | kissat | ours | ratio |
+|---|---|---|---|
+| AND congruences | 4,348 | **3,423** | **1.27×** |
+| XOR congruences | **531** | **268** | 1.98× |
+| ITE congruences | 18 | 0 | — |
+| `congruent_equivalences` | **3,513 (24 %)** | — (we have no such channel in V6) | — |
+| `congruent_units` | **2,231** | **14** | **159×** |
+| **`congruent` total** | 14,589 | (3,713 merges) | 3.9× |
+
+- **▶▶ OUR GATE MATCHING IS FINE.** AND **1.27×**, XOR **1.98×** — that is parity, not a 3.9× defect. The
+  aggregate gap was never gate matching.
+- **`congruent` is a BUNDLE, and we were comparing it to one component.** kissat's total folds in
+  `congruent_equivalences` — a **binary-clause equivalent-literal scan** run inside the closure
+  (`congruence.c:4118-4137`: for a marked literal, find `other` with both polarities present and
+  `merge_literals`) — worth **24 % of its congruences**. **We implement that mechanism, in V3 Substitute's
+  SCC over the binary implication graph, as a separate rule.** So the 3.9× compares our V6 against kissat's
+  V6+V3-equivalent. Same error shape as the 182×, one level up: **the first comparison used the wrong
+  counter, the second used the wrong SCOPE.**
+- **The one real outcome gap left is `congruent_units`: 2,231 vs our 14 (159×)** — C3's unit channel. That
+  is now the only per-kind number where we are not close, and it is the actionable lead.
+- **▶ THE XOR "0.003 % COLLISION RATE" IS NORMAL, NOT A DEFECT** — the entry below reads it as a
+  canonicalization fault. **Retracted:** kissat gets only **531** XOR congruences on this instance from a
+  comparable XOR volume (`congruent_arity_xors` 22.8 M). Millions of XOR gates yielding hundreds of merges is
+  what BOTH solvers do. There is no canonicalization bug to fix, and the C0 sign-absorption suspect is
+  cleared — I read `canonicalize` (`congruence.cpp:552-578`) and it absorbs sign into `parity` correctly, and
+  kissat's own extraction (`congruence.c:2939`) does the **identical** one-gate-per-output rotation we do.
+- **WHAT SURVIVES:** V6's **cost**. 7.6× kissat's congruence time (172.9 s vs 22.75 s) for a comparable
+  outcome is still real and still 32.9 %/38.2 % of the clock on these two instances. The gap is TIME, not
+  merges. One concrete cost lead from the source read: kissat checks the table at CONSTRUCTION
+  (`new_xor_gate:1206` — on a hit it merges and returns 0 **without materializing the gate**), where we
+  materialize every rotation into a `std::vector<CongGate>` and table it in a second pass.
+- **METHOD — this is the fourth mechanism read overturned in 24 h** (TransitiveReduce's "1000×", extraction
+  volume, the 182×, and now this). All four failed the same way: **a reference counter was compared without
+  first establishing what it counts and what it bundles.** L14 said "get the reference's number on the SAME
+  instance"; that is necessary and was not sufficient. **Sharpened rule: before comparing to a reference
+  counter, read its DECLARATION and its INCREMENT SITES, and confirm our analogue covers the same scope —
+  cite `statistics.h` line + every `INC` site in the writeup.**
+
+### 2026-08-03 — ▶▶ (SUPERSEDED IN PART — see the correction above) V6's DISCRIMINATOR RESOLVES: XOR gates collide **0.003 % of the time**
 Probes 1579948 (`T105.2.0`) / 1579949 (`T87.2.0`), the closure funnel added in `014e3b2`
 (`TACTIX_CONG_PROBE`). The resume block posed a two-branch discriminator; **it lands unambiguously on
 branch 2, and both instances give the same shape.**
