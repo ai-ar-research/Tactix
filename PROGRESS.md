@@ -425,8 +425,13 @@ Full detail in the cited commits/reports. Numbers are cited across the repo — 
   - **`D-FACTOR-REV78`** — re-measure broad Factor admission (`TACTIX_FACTOR_SCOPE_PCT`) under plan rev 78.
     Held on 08-01 at 1.129× Tier C; rev 78 then shipped R-d at exactly 1.129×. ≈−20 Tier B PAR-2 and +1 solve
     if it reproduces. One same-window B+C pair, arms {shipped, broad, broad+R-d}.
-  - **T3 instrument gaps** — the rule-neutral subset is not materialized as a list under `benchmarks/tiers/`
-    and Tier C has carried no kissat arm since 07-30, so T3's kissat half cannot currently be evaluated.
+  - ~~**T3 instrument gaps**~~ — **BOTH CLOSED 2026-08-03.** `benchmarks/tiers/C-ruleneutral.list` (24 of 30,
+    derived from window `20260727-002213-C-kabl`, frozen with its known defect + closer in the header) and
+    `tools/bench/subset_score.py` (scores any Tier C run over the subset AND the full tier from one
+    `results.json` — the subset is a scoring VIEW, never a separate run). The kissat arm needed no code:
+    `run.py` already takes repeatable `--baseline`, it had simply stopped being passed on Tier C. **Standing
+    rule from here: every Tier C run carries `--baseline kissat --baseline cadical`**, or T3's kissat half
+    goes unmeasurable again.
   - **Tier D does not exist** (no `D.list`, 0 runs) though N3/T4 gate on it — §11 O9, due at phase-3 exit.
   - **Re-measure the Tier C noise floor on an idle partition** — the 10.8 PAR-2 bar was itself taken under a
     ~1 h 12 m overlap with another full Tier C array.
@@ -815,6 +820,33 @@ design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-de
 
 The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
 `TD-` namespace, NOT Track R's.
+
+### 2026-08-03 — ▶ T3's INSTRUMENT restored: the rule-neutral subset is a real list, and Tier C carries a kissat arm again
+T3 has two halves and one of them had been **unmeasurable** for a week — the rule-neutral subset existed only
+as a number in a frozen report, and Tier C stopped carrying a kissat arm after 07-30. Both closed.
+- **`benchmarks/tiers/C-ruleneutral.list`** — 24 of 30, derived (not re-measured) from the ablation window
+  `20260727-002213-C-kabl`: exclude an instance iff ablating Sweep moves EITHER baseline >25 %. Reproduces
+  the documented 24/30 exactly, so it stays comparable with the 1.37 × the half was last measured at.
+- **The list ships with its own defect recorded in the header**, because the derivation deserves less trust
+  than its reuse implies. The ablation is SINGLE-SHOT, so a ratio cannot separate "sweep matters here" from
+  "this instance is chaotic" — and **4 of the 6 exclusions (ContextModel, j3037, jgiraldezlevy, urq45) are on
+  the measured perturbation-FRAGILE list**, with sweep ratios (1.54–2.54) sitting INSIDE their 8–23 × bands
+  (probe 1579386, where the perturbations were walk/bump/chrono — none of them sweep). Only `em_11` (both
+  baselines move, 2.65×/2.30×) and `DLTM` (kissat 3.57×) survive that objection. **Closer: re-run the sweep
+  ablation with ≥3 repeats and require the sweep delta to exceed the instance's own replicate band.**
+- **Consequence, stated up front so it is not banked by accident:** the subset excludes precisely the
+  instances where R-d costs Tier C, so **"R-d helps on the subset" may be an artefact of the subset's defect
+  rather than a finding.** The arithmetic is now reproducible on demand — `subset_score.py` on window
+  `20260802-112853` gives **retire 1.005 × cadical on the subset against 1.129 × on the full tier, and base
+  1.081 × subset against 1.039 × full**, i.e. the two views RANK THE ARMS OPPOSITELY. That is a reason to fix
+  the subset, not a reason to celebrate.
+- **A max-over-five-lacked-techniques criterion was tested and REJECTED**: it excludes 16 of 30 and is plainly
+  noise-amplifying — `mp1-Nb5T15` shows **10.18× from `--eagersubsume=0`**, a technique worth **+5.94 PAR-2
+  across the whole tier**. Taking a max over five single-shot ablations is L8 inflation five times over.
+- **`tools/bench/subset_score.py`** scores any existing Tier C run over both views from one `results.json` —
+  no re-running, so the subset number always comes from the same window as the full-tier number.
+- The kissat arm needed **no code change**: `run.py --baseline` is already repeatable and was simply not
+  being passed. Standing rule: **every Tier C run carries `--baseline kissat --baseline cadical`.**
 
 ### 2026-08-03 — ▶▶ DOC AUDIT of the Tier B/C gap claims: **the "182×" congruence headline is a counter-semantics error**, plus 9 further doc-vs-data defects
 Read-only audit of every headline number in the resume block, the tier tables and the gate section against

@@ -1,0 +1,62 @@
+# Tier C rule-neutral SUBSET — frozen 2026-08-03. Derived, NOT re-measured.
+#
+# PURPOSE: the instance set for T3's parity half (plan §8.3) — 'instances where the
+# phase-4 rules we still LACK do not materially help the baselines, verified by
+# baseline ablation'. Score BOTH baselines (kissat AND cadical) on this subset.
+#
+# DERIVATION: window `20260727-002213-C-kabl` (git 5ba6cda, proof-free ablation array).
+# An instance is EXCLUDED iff ablating Sweep changes EITHER baseline's runtime by
+# >25%: max(kissat --sweep=0 / kissat, cadical --sweep=false / cadical) > 1.25.
+# Sweep is the dominant technique we still lack (+14.00 PAR-2 to kissat; the other
+# four are -0.67..+7.91 — L11). 24 of 30 instances are kept; the 6 dropped are listed
+# at the foot with their ratios.
+#
+# ▶ KNOWN DEFECT — READ BEFORE TRUSTING A VERDICT ON THIS SUBSET.
+# The ablation is SINGLE-SHOT (one run per arm), so a ratio cannot distinguish
+# 'sweep matters here' from 'this instance is chaotic'. FOUR of the six exclusions
+# (ContextModel, j3037, jgiraldezlevy, urq45) are on the measured perturbation-FRAGILE
+# list (probe 1579386: 8-23x swings under walk/bump/chrono, none of which is sweep),
+# and their sweep ratios (1.54-2.54) sit INSIDE those bands. Only em_11 (both baselines
+# move, 2.65x/2.30x) and DLTM (kissat 3.57x) survive that objection.
+# CONSEQUENCE: the subset excludes exactly the instances where variable retirement
+# costs Tier C, so 'R-d helps on the subset' may be an artefact of this defect, not a
+# finding. Do not bank that conclusion off this list.
+# CLOSER: re-run the sweep ablation with >=3 repeats per arm and re-derive; an
+# exclusion should require the sweep delta to exceed the instance's own replicate band.
+#
+# A max-over-five-lacked-techniques criterion was TESTED AND REJECTED: it excludes 16
+# of 30 and is plainly noise-amplifying (mp1-Nb5T15 shows 10.18x from --eagersubsume=0,
+# a technique worth +5.94 PAR-2 across the WHOLE tier).
+
+tierC/1-ET-256-K-70.sanitized.cnf.xz UNSAT 48.2
+tierC/128_125.sanitized.cnf.xz SAT 90.8
+tierC/EDP3-11000.cnf.xz SAT 41.5
+tierC/ER_400_20_4.apx_2_DC-ST.cnf.xz UNSAT 117.2
+tierC/Grain_no_init_ver1_out200_known_last105_0_u.cnf.xz UNSAT 166.0
+tierC/Ptn-7824-b18.cnf.xz SAT 174.3
+tierC/SCPC-1000-18.cnf.xz SAT 129.3
+tierC/StConn_8_32.sanitized.cnf.xz UNSAT 207.5
+tierC/T105.2.0.cnf.xz UNSAT 203.1
+tierC/T87.2.0.cnf.xz UNSAT 177.8
+tierC/aes_decry_2_rounds.debugged.cnf.xz UNSAT 68.8
+tierC/af-synthesis_stb_50_120_4_sat.cnf.xz SAT 93.1
+tierC/asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf.xz UNSAT 76.7
+tierC/circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf.xz SAT 86.4
+tierC/constraints_18_0.3_2.sanitized.cnf.xz UNSAT 145.5
+tierC/constraints_25_4_5_12_12_0_0_0.sanitized.cnf.xz UNSAT 93.8
+tierC/ecarev-110-4099-22-30-7.cnf.xz SAT 174.9
+tierC/frb45-21-2.used-as.sat04-884.cnf.xz SAT 75.6
+tierC/goldcrest-and-9.cnf.xz UNSAT 73.3
+tierC/minxor128.cnf.xz UNSAT 167.0
+tierC/mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2534.cnf.xz SAT 30.7
+tierC/mp1-Nb5T15.cnf.xz SAT 57.7
+tierC/php17-mixed-35percent-blocked.cnf.xz UNSAT 136.7
+tierC/sat-bench-trig-bhaskara.cnf.xz UNSAT 260.0
+
+# EXCLUDED (6) — sweep-sensitivity ratio kissat / cadical:
+#   DLTM_twitter690_74_16.cnf.xz                          3.57 /  1.05 [evidence-backed]
+#   em_11_3_4_cmp.cnf.xz                                  2.65 /  2.30 [evidence-backed]
+#   ContextModel_output_7_3_9.bul_.dimacs.cnf.xz          2.54 /  1.64 [CHAOS-SUSPECT: measured perturbation-fragile]
+#   urq45.cnf.xz                                          0.98 /  2.46 [CHAOS-SUSPECT: measured perturbation-fragile]
+#   j3037_9_rggt_b.cnf.xz                                 1.98 /  0.91 [CHAOS-SUSPECT: measured perturbation-fragile]
+#   jgiraldezlevy.2200.9086.08.40.41.cnf.xz               1.03 /  1.54 [CHAOS-SUSPECT: measured perturbation-fragile]
