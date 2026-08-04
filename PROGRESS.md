@@ -974,6 +974,42 @@ progress (`factor.c:939`/`:72`, `eliminate.c:363-365`). Corrections:
   19 → 274 s; (3) the coupling measured negative three times, latest 2026-08-04 with composition ON.
   **Recorded verdict: do not re-try without a NEW mechanism.**
 
+### 2026-08-04 late — ▶▶ WHY our scheduling is cruder than Kissat's — diagnosed, and it is STRUCTURAL
+Design pass `docs/design/2026-08-04-scheduling-sophistication-diagnosis.md` (frozen). User question:
+*"I felt this has been a repeating theme… why is that?"* Four independent auditors; the load-bearing
+claims re-verified by hand before landing.
+- **The crudeness is concentrated in the layer BETWEEN rules, and that layer has never been anyone's
+  unit of work.** Rule-INTERNAL fidelity is genuinely high (the rev-77 audit's own retractions prove
+  it). **Coverage is opportunistic, not systematic:** every scheduling coupling we have is one that sat
+  adjacent to a rule someone was porting; the gaps live in files we never had a rule-shaped reason to
+  open (`tiers.c`'s consumers, `classify.c`, `eliminate.c`'s `variable_score`).
+- **Five causes.** (A) the unit of work is a RULE — nothing is the unit of work for scheduling.
+  (B) the rule/policy seam has no wiring owner. (C) missing kernel state makes the faithful port not
+  compile, and the cheapest substitute is a constant that then reads as a tunable. (D) **the eval loop
+  SELECTS for admission gates** — per-instance PAR-2 at n≈30 with no held-out set is a classifier-fitting
+  instrument, and the record is **0-for-5**. (E) rev 77 recurs because its register has the wrong schema
+  and its closers are prose. **Four of the five are STRUCTURAL** — "be more rigorous" fixes ~none.
+- **▶ VERIFIED BY HAND (three claims, all held).** (1) `k.tier1/k.tier2` are recomputed every reduce from
+  the glue distribution (`reduce.cpp:38-62`) and have **no reader outside `reduce.cpp`**, while Vivify
+  tests `constexpr VIVIFY_TIER2 = 6` (`vivify.hpp:56`, used `vivify.cpp:26,151`) — kissat reads
+  `solver->tier1[0]` (`vivify.c:128-133`). **We compute the dynamic tier and consume the hardcoded one.**
+  (2) `factor_bound`'s only writers are the env knob and the API setter; `bve_level_` ramps
+  (`default_policy.cpp:1185`) and feeds `k.bve_bound` (`:1119`) but never `factor_bound`.
+  (3) **N1 IS NOT THE CAUSE — hypothesis REFUTED**: `restart.cpp:22-48`, a RULE, reads `k.h->stable`,
+  `k.h->scores.score[]`, `k.h->links[].stamp` directly, and §5.3 sanctions H-state accessors. The seam is
+  a **convention gap, not a prohibition**, so the fix is cheap. N1's one distorting effect runs the other
+  way: purity pushed the density gate into the rule body where the policy cannot reach it.
+- **Five rev-77 closers have FIRED SILENTLY**, incl. `D-VIVIFY-SCHED` whose own row admits "the condition
+  was met and nothing was revisited". A CLOSED row can also hide open residuals (`D-CONG-UNIT`), and **ten
+  rule headers carry deviation lists the ledger cross-references zero times.**
+- **The counterweight, kept deliberately:** six mechanisms we ported FAITHFULLY, measured WORSE, and
+  correctly kept the simpler version (sqrt reduce cadence, Walk's elimination anchor, mid-round C1/C2,
+  Factor's coupled bound, `factorcandrounds`, minimize depth). Those are compliant and must not be "fixed".
+- **Route: Track N4** (staged plan, below). The two items that change outcomes are (1) build the ledger by
+  enumerating the REFERENCE's option set, not our own recall, and (2) make the benchmark runner print a
+  per-instance ORACLE column by default, so a gate must beat both always-on and the oracle to ship —
+  de-selecting cause D at the instrument, the only level at which a selection pressure can be removed.
+
 ### 2026-08-04 late — plan rev 80: **N4, the strategy floor**, is now a non-negotiable
 User directive after observing this as a repeating theme. §1.1 gains a FOURTH non-negotiable:
 **DefaultPolicy's SCHEDULING of the proof rules — order, effort budgets, warm-ups, watermarks,
