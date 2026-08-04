@@ -11,14 +11,10 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**▶ IN FLIGHT WHEN THE OVERNIGHT SESSION ENDED — check these FIRST.**
-- **Tier C noise-floor run, array `1580762` + aggregate `1580763`**, dir
-  `benchmarks/runs/20260804-030938-C-nf1`: **3 BIT-IDENTICAL arms** of `build/pin-sbgate/tactix` on an idle
-  partition, re-measuring the standing **~10.8 PAR-2** floor (the old one was taken under a ~1 h 12 m
-  overlap with another array, so it is an upper bound, not a floor). If it finished, read
-  `logs/aggregate.log`: the aggregate spread across the three arms IS the number, and it should replace the
-  floor quoted in MEASUREMENT HYGIENE below. If tasks are MISSING, resubmit those indices and re-run
-  `run.py --aggregate <dir>`.
+**▶ CARRIED OVER FROM THE OVERNIGHT SESSION — read these FIRST.**
+- ~~Tier C noise-floor run~~ — **DONE: the clean floor is 6.72 PAR-2, not 10.8** (window
+  `20260804-030938`, three bit-identical arms on an idle partition; per-instance median 4.8 s). The old bar
+  was contention-inflated. Folded into MEASUREMENT HYGIENE below and the Log.
 - **`D-LRAT-FALLBACK` is specified but NOT implemented** (task, and Open items). A **ready-to-apply patch**
   with trigger, scope guard, cost and verification steps is at
   the Open-items entry below (self-contained; the scratch copy under `$CLAUDE_JOB_DIR` is ephemeral).
@@ -114,8 +110,10 @@ approximation with a stated reason AND a named closer in the deviation ledger; a
 mechanism is **a defect, not a §5.6 arm**. **Plan rev 78: when #solved and PAR-2 conflict, #SOLVED WINS**
 (cost still measured, reported, and given a closer; losing a solve is never covered).
 
-**MEASUREMENT HYGIENE — read before trusting any delta.** Tier C noise floor **~10.8 PAR-2** between
-bit-identical arms — **but that bar was itself measured under contention** (window `20260731-013523`,
+**MEASUREMENT HYGIENE — read before trusting any delta.** Tier C noise floor **6.72 PAR-2** between
+bit-identical arms on an IDLE partition (window `20260804-030938`; per-instance median **4.8 s**). The older
+**10.8** figure is the CONTENDED bar — keep it for runs that shared the partition, since it was measured
+under contention (window `20260731-013523`,
 01:35–03:28, overlapped the full Tier C array `20260731-021615`, 02:16–04:04, by ~1 h 12 m). Treat 10.8 as an
 upper bound on quiet-partition noise, and re-measure it on an idle partition before any verdict hangs on it.
 **`j3037`, `jgiraldezlevy`, `urq45` are measured perturbation-FRAGILE** (probe 1579386): stable under
@@ -253,7 +251,10 @@ On the subset we are **0.987× cadical** — better than it — while sitting **
 half is the binding constraint**, and optimising against cadical (the number the runner emitted) was
 steering on the easier baseline. Full tier vs kissat: **1.534×**.
 
-**Noise floor, measured (window `20260731-013523`):** three **bit-identical** arms (a payoff-bound sweep
+**Noise floor — USE 6.72 (window `20260804-030938`, idle partition, three bit-identical arms: 364.50 /
+362.17 / 357.78, per-instance median 4.8 s).** The older 10.8 below is the CONTENDED bar; keep it only for
+runs that shared the partition.
+**Superseded measurement (window `20260731-013523`):** three **bit-identical** arms (a payoff-bound sweep
 that turned out to be inert — Log) scored **346.16 / 356.95 / 353.99**, i.e. **10.8 PAR-2 of aggregate
 spread between identical configs**, and a per-instance range averaging **24.7 s** (goldcrest alone
 **245 s = 72 %**). Read every Tier C delta below that bar as noise, and prefer per-instance
@@ -965,6 +966,22 @@ shares over the whole solve; V6 is ~38 % of that clock.
   RETIRES value-resolved gates while we re-extract and re-canonicalize them every round. The cheapest test is
   whether gate volume per round falls once resolved gates are dropped.
 - **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
+
+### 2026-08-04 — ▶ Tier C NOISE FLOOR re-measured on an IDLE partition: **6.72 PAR-2**, not 10.8
+Window `20260804-030938-C-nf1`, three **bit-identical** arms of `build/pin-sbgate/tactix`, nothing else on
+the partition. **nf1 364.50 · nf2 362.17 · nf3 357.78, all 29/30 → aggregate spread 6.72 PAR-2.**
+Per-instance range: **median 4.8 s, mean 11.9 s**; worst `jgiraldezlevy` 69.2 s, `j3037` 52.7 s,
+`T87` 49.1 s.
+- **The standing 10.8 was CONTENTION-INFLATED, as suspected** — it came from `20260731-013523`, which
+  overlapped another full Tier C array for ~1 h 12 m. The clean floor is **62 %** of it. **Use 6.72 for a
+  quiet partition; 10.8 remains the right bar for a run that shared one.**
+- **What it changes.** T3's CaDiCaL half misses by **5.44 PAR-2** (350.56 against a 345.12 band) — **still
+  INSIDE the clean floor**, so that half stays not-robustly-missed. The mid-round budget's Tier C cost
+  (**+13.32**) is now **clearly ABOVE** the floor, strengthening its negative verdict.
+- **Quote the per-instance number for a single instance:** a median of 4.8 s means most Tier C instances
+  reproduce to a few seconds, and the aggregate floor is carried by a handful of large swingers — the same
+  fragile set (`jgiraldezlevy`, `j3037`) that dominates every other Tier C delta.
+
 
 ### 2026-08-04 — ▶ SUBSET RE-DERIVED with replicates: T3's kissat half is ROBUST to the list's composition
 Window `20260804-004328-C-k_a`, 12 arms (kissat/cadical × ±sweep × 3 repeats) × 30 instances.
