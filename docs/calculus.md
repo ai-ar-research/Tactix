@@ -416,7 +416,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   conjunct may be *stronger* than the abstract precondition only if it appears in the
   `implementation-notes.md` ledger with a root cause and a removal path; **the proof δ named in an entry
   matches the actual `proof->…` calls** (incl. the LRAT-vs-DRAT asymmetries); and no entry weakens
-  N1–N3.
+  N1–N4.
 - Keep the entries **clean**: a rule entry must not read as if it requires an engineering condition
   (e.g. a propagation fixpoint) — that belongs in `implementation-notes.md`, tagged as the deviation it
   is.

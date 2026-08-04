@@ -38,7 +38,7 @@ guard/advised split (restored N1's meaning).
 1. **Evidence first.** A profile, a fuzz-failure cluster, or a concrete
    contract violation — written down. No evidence, no revamp.
 2. **Mini-design (in the commit message or a docs/ note):** what changes,
-   what stays, which invariants are preserved, how N1–N3 survive, and what
+   what stays, which invariants are preserved, how N1–N4 survive, and what
    the measurable success criterion is (e.g. "props/sec ≥ 2×", "rule X
    registers with zero kernel edits").
 3. **Green base:** start from a commit where units, both fuzz modes

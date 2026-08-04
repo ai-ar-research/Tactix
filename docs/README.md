@@ -17,7 +17,7 @@ everything else is a frozen, dated artifact.
 The four **living** docs, and what each owns (see protocol 1):
 
 - **`DEVELOPMENT_PLAN.md`** — scope, architecture, roadmap (requirements,
-  non-negotiables N1–N3, rule catalog §5.2, tiers/gates §8, milestones §9, open
+  non-negotiables N1–N4, rule catalog §5.2, tiers/gates §8, milestones §9, open
   decisions §11). *The map.* Changes go through the **revise-plan** skill.
 - **`PROGRESS.md`** — live checklist + newest-first log. *"Where are we now."*
   Synced with the plan in the same commit (mandatory).

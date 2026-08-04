@@ -24,7 +24,7 @@ trigger.
 After a compaction pass, a **fresh agent session** reading only `PROGRESS.md`
 (plus the plan's top matter) must be able to state, in ~2 minutes:
 
-1. **What the project is** and the non-negotiables (N1–N3).
+1. **What the project is** and the non-negotiables (N1–N4).
 2. **Current phase** and the next gate.
 3. **What was last completed** (headline + pointer, not the full narrative).
 4. **The next 1–3 undone steps.**
@@ -107,4 +107,4 @@ Scan each living doc for:
   a list of *whats*. Terse ≠ cryptic.
 - **Not a substitute** for `revise-plan` / `calculus` / the sync rule — it composes
   with them. It decides *when and what* to trim; they are *how* the edit lands.
-- **N1–N3 and the roadmap are never trimmed away** — only their redundant retelling.
+- **N1–N4 and the roadmap are never trimmed away** — only their redundant retelling.

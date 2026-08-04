@@ -75,7 +75,7 @@
 - **When blocked or the plan is wrong/vague:** underspecified point → plan §11 +
   the revise-plan skill's concretize mode (decide minimally, annotate the
   register, keep going). Plan contradicts reality → revise the plan via
-  revise-plan (never silently diverge; never weaken N1–N3).
+  revise-plan (never silently diverge; never weaken N1–N4).
 - **Phase transitions:** when a phase's exit criteria (§9) are met, run the gate
   evaluation, write the report to `benchmarks/reports/`, tick the gate in
   PROGRESS.md, and start the next phase.
