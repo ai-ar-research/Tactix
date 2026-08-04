@@ -10,7 +10,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
-#include <functional>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -77,11 +76,19 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
   // dual: for OR, `¬out` is the base literal and the same scan on the negated
   // clause finds them, so trying every literal of every clause as the output
   // covers both.)
+  // Reused across emits: a fresh vector here was one malloc+free PER GATE, and
+  // T105 materialises 53.4 M gates (perf 1580096 charged ~13.6 % of the solve
+  // to the allocator). Same for the exact `reserve`s below — push_back's
+  // geometric growth cost 2-3 mallocs per gate where one exact one does.
+  std::vector<std::pair<Lit, uint64_t>> pairs;
   const auto emit = [&](const Clause *c, Lit outp) {
     const Lit nout = negate(outp);
     CongGate g;
     g.output = outp;
     g.base_id = c->id();
+    g.inputs.reserve(c->size - 1);
+    if (lrat)
+      g.input_bin_ids.reserve(c->size - 1);
     for (const Lit l : *c)
       if (l != outp) {
         const Lit inp = negate(l);
@@ -91,7 +98,8 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
       }
     // canonicalize inputs (the structural key) — keep bin_ids parallel
     if (lrat) {
-      std::vector<std::pair<Lit, uint64_t>> pairs(g.inputs.size());
+      pairs.clear();
+      pairs.resize(g.inputs.size());
       for (size_t i = 0; i < g.inputs.size(); i++)
         pairs[i] = {g.inputs[i], g.input_bin_ids[i]};
       std::sort(pairs.begin(), pairs.end());
@@ -296,27 +304,106 @@ inline SmallKey small_key(const Lit *ls, uint32_t n) {
   return sk;
 }
 
-using ClauseIndex = std::unordered_map<SmallKey, uint64_t, SmallKeyHash>;
+// Flat open-addressed SmallKey set (2026-08-04) — the clause index and both
+// extraction dedup sets. It replaces `unordered_map<SmallKey,uint64_t>` /
+// `unordered_set<SmallKey>`; three measured reasons, none of them touching
+// order:
+//   * the mapped clause id was never READ — XOR and ITE only ever ask "does
+//     this clause exist" — so the index is a set, not a map;
+//   * the lookup path is the hot one (XOR probes 2^(s-1) times and ITE 6 times
+//     per indexed clause, per apply), and keys live IN the bucket array here,
+//     so a probe touches one cache line instead of a bucket read plus a node
+//     chase (perf 1580096 charged 8.2 % of a whole T105 solve to these
+//     lookups);
+//   * one contiguous allocation instead of one malloc per indexed clause.
+// `size == 0` is the empty marker: every key ever stored holds ≥ 3 literals.
+// Iteration order is bucket order, i.e. hash-dependent — see `sorted_keys`.
+class SmallKeySet {
+public:
+  SmallKeySet() : buckets_(64), mask_(63) {}
+  size_t size() const { return size_; }
+  const std::vector<SmallKey> &buckets() const { return buckets_; }
+  bool contains(const SmallKey &sk) const {
+    return buckets_[slot(sk)].size != 0;
+  }
+  // true iff `sk` was NOT already present (std::unordered_set::insert().second,
+  // and the first-insertion-wins semantics of std::unordered_map::emplace).
+  bool insert(const SmallKey &sk) {
+    if ((size_ + 1) * 10 > (static_cast<size_t>(mask_) + 1) * 7)
+      grow();
+    const uint32_t b = slot(sk);
+    if (buckets_[b].size != 0)
+      return false;
+    buckets_[b] = sk;
+    size_++;
+    return true;
+  }
 
-// Iterating an unordered_map is implementation-ordered (libstdc++ and libc++
-// disagree), and anything feeding gate/emission ORDER feeds the closure's
-// merge order and hence the search trajectory — which must not fork across
-// toolchains (the battleship lesson, Log 2026-07-23). Extraction loops
-// iterate via these sorted keys instead.
-static std::vector<const SmallKey *> sorted_keys(const ClauseIndex &index) {
-  std::vector<const SmallKey *> keys;
+private:
+  // FNV's low bits mix poorly across key positions, which linear probing
+  // punishes; finalize with the murmur3 avalanche. Bucket placement only —
+  // nothing downstream reads it.
+  static uint32_t bucket_hash(const SmallKey &sk) {
+    uint64_t h = SmallKeyHash{}(sk);
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdull;
+    h ^= h >> 29;
+    return static_cast<uint32_t>(h);
+  }
+  // the bucket holding `sk`, or the empty bucket it would take (load factor is
+  // held below 70 %, so the probe always terminates)
+  uint32_t slot(const SmallKey &sk) const {
+    uint32_t b = bucket_hash(sk) & mask_;
+    while (buckets_[b].size != 0 && !(buckets_[b] == sk))
+      b = (b + 1) & mask_;
+    return b;
+  }
+  void grow() {
+    std::vector<SmallKey> old;
+    old.swap(buckets_);
+    buckets_.assign(2 * old.size(), SmallKey{});
+    mask_ = static_cast<uint32_t>(buckets_.size() - 1);
+    for (const SmallKey &sk : old)
+      if (sk.size != 0)
+        buckets_[slot(sk)] = sk;
+  }
+  std::vector<SmallKey> buckets_;
+  uint32_t mask_;
+  size_t size_ = 0;
+};
+
+using ClauseIndex = SmallKeySet;
+
+// Iterating a hash table is implementation-ordered (libstdc++ and libc++
+// disagree, and an open-addressed table orders by hash), and anything feeding
+// gate/emission ORDER feeds the closure's merge order and hence the search
+// trajectory — which must not fork across toolchains (the battleship lesson,
+// Log 2026-07-23). Extraction loops iterate via these sorted keys instead.
+// `operator<` is a TOTAL order on the stored keys — two distinct keys differ in
+// some `lits[]` slot or in `size`, exactly what it compares — so the result is
+// independent of the table's own order.
+//
+// Built ONCE per apply and shared by XOR and ITE extraction (2026-08-04): the
+// index is immutable for the whole apply, so the second sort was recomputing a
+// bit-identical answer (perf 1580096: `sorted_keys` + its introsort were 5.4 %
+// of a whole T105 solve, over 13 rounds × 2 sorts). Keys are materialised BY
+// VALUE rather than as pointers into the table: the sort and both consuming
+// scans then run over contiguous memory instead of chasing 24-byte keys
+// scattered across the table.
+static std::vector<SmallKey> sorted_keys(const ClauseIndex &index) {
+  std::vector<SmallKey> keys;
   keys.reserve(index.size());
-  for (const auto &e : index)
-    keys.push_back(&e.first);
-  std::sort(keys.begin(), keys.end(),
-            [](const SmallKey *a, const SmallKey *b) { return *a < *b; });
+  for (const SmallKey &sk : index.buckets())
+    if (sk.size != 0)
+      keys.push_back(sk);
+  std::sort(keys.begin(), keys.end());
   return keys;
 }
 
-// Index every irredundant, fully-unassigned clause of size 3..CONG_XOR_ARITY+1 by
-// its sorted literal vector → proof id. Shared by XOR and ITE extraction (built
-// once per apply); the gate CLAUSES are never rewritten within an apply, so one
-// snapshot is valid for the whole closure.
+// Index every irredundant, fully-unassigned clause of size 3..CONG_XOR_ARITY+1
+// by its sorted literal vector. Shared by XOR and ITE extraction (built once per
+// apply); the gate CLAUSES are never rewritten within an apply, so one snapshot
+// is valid for the whole closure.
 void build_clause_index(const Kernel &k, ClauseIndex &index) {
   std::vector<Lit> ls;
   // §6: extraction is READ-ONLY — abort is free here, the caller returns NoOp.
@@ -340,22 +427,21 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
     }
     if (!ok)
       continue;
-    index.emplace(small_key(ls.data(), static_cast<uint32_t>(ls.size())),
-                  c->id());
+    index.insert(small_key(ls.data(), static_cast<uint32_t>(ls.size())));
   }
 }
 
 void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
+                            const std::vector<SmallKey> &sorted,
                             std::vector<CongGate> &out) {
   (void)k;
-  std::unordered_set<SmallKey, SmallKeyHash> seen; // by sorted positive vars
-  std::vector<Lit> pos;                            // positive lits, sorted
+  SmallKeySet seen;     // by sorted positive vars
+  std::vector<Lit> pos; // positive lits, sorted
   Lit probe[CONG_XOR_ARITY + 1];
   uint32_t xtick = 0;
-  for (const SmallKey *base_p : sorted_keys(index)) {
+  for (const SmallKey &base : sorted) {
     if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
       { k.stats.rule_interrupted++; return; }
-    const SmallKey &base = *base_p;
     const uint32_t s = base.size;
     // positive-lit form of the variables, sorted; dedup a relation to once.
     pos.clear();
@@ -372,7 +458,10 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
         dup = true;
         break;
       }
-    if (dup || seen.count(small_key(pos.data(), s)))
+    if (dup)
+      continue;
+    const SmallKey pos_key = small_key(pos.data(), s);
+    if (seen.contains(pos_key))
       continue;
     // require all 2^{s-1} clauses of parity == base_parity to exist.
     bool all = true;
@@ -385,12 +474,12 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
         probe[i] = pos[i] ^ static_cast<Lit>(sign);
       }
       probe[s - 1] = pos[s - 1] ^ static_cast<Lit>(base_parity ^ par); // fix parity
-      if (!index.count(small_key(probe, s)))
+      if (!index.contains(small_key(probe, s)))
         all = false;
     }
     if (!all)
       continue;
-    seen.insert(small_key(pos.data(), s));
+    seen.insert(pos_key);
     // The relation's parity R. A clause whose negated-literal set is N is
     // falsified by exactly the assignment "vⱼ true iff j ∈ N", whose true-count
     // parity is |N| ≡ base_parity; requiring ALL clauses of that negation parity
@@ -408,6 +497,7 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
       CongGate g;
       g.kind = GateKind::Xor;
       g.output = pos[i] ^ r; // value = R ⊕ vᵢ = ⊕_{j≠i} vⱼ
+      g.inputs.reserve(s - 1); // exact — push_back's growth was 2-3 mallocs/gate
       for (uint32_t j = 0; j < s; j++)
         if (j != i)
           g.inputs.push_back(pos[j]); // all positive, already sorted
@@ -494,9 +584,15 @@ enum class Canon {
 // the distinct positive representative variables that dropped out of an XOR key
 // (each occurred an even number of times) — the ladder in
 // `add_xor_degeneracy_chain` quantifies over exactly those.
-Canon canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
-                   std::vector<Lit> &key, Lit &out_lit,
-                   std::vector<Lit> &cancelled) {
+// `reps` is caller-owned scratch, not an output: a local vector here was one
+// malloc+free per XOR canonicalization, i.e. per worklist pop of the ~50 % of
+// gate volume that is XOR (2026-08-04). `Find` is a template parameter for the
+// same reason the scratch is hoisted — a `std::function` made every
+// representative lookup an opaque indirect call in the hottest loop V6 has.
+template <class Find>
+Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
+                   Lit &out_lit, std::vector<Lit> &cancelled,
+                   std::vector<Lit> &reps) {
   cancelled.clear();
   if (g.kind == GateKind::And) {
     key.assign(g.inputs.begin(), g.inputs.end());
@@ -552,7 +648,7 @@ Canon canonicalize(const CongGate &g, const std::function<Lit(Lit)> &find,
   // XOR: map inputs to reps, absorb each rep's sign into a global parity, and
   // cancel repeated variables (x⊕x=0). The parity flips the output literal.
   int parity = 0;
-  std::vector<Lit> reps;
+  reps.clear();
   reps.reserve(g.inputs.size());
   for (const Lit in : g.inputs) {
     Lit r = find(in);
@@ -902,19 +998,20 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
 // defining clauses before emission, so a mis-detected condeq can never yield an
 // unsound gate. Output = lhs, inputs = [cond,then,else] (canonicalized later).
 void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
+                            const std::vector<SmallKey> &sorted,
                             std::vector<CongGate> &out) {
   (void)k;
   auto has = [&](Lit a, Lit b, Lit c) -> bool {
     const Lit probe[3] = {a, b, c};
-    return index.count(small_key(probe, 3)) > 0;
+    return index.contains(small_key(probe, 3));
   };
   // collect conditional equivalences per lhs literal
   std::unordered_map<Lit, std::vector<std::pair<Lit, Lit>>> ce;
   uint32_t xtick = 0;
-  for (const SmallKey *cl_p : sorted_keys(index)) {
+  for (const SmallKey &cl : sorted) {
+    // sorted; first 3 lits scanned (as before)
     if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
       { k.stats.rule_interrupted++; return; }
-    const SmallKey &cl = *cl_p; // sorted; first 3 lits scanned (as before)
     for (int li = 0; li < 3; li++) {
       const Lit L = cl.lits[li], A = cl.lits[(li + 1) % 3],
                 B = cl.lits[(li + 2) % 3];
@@ -926,7 +1023,7 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
         ce[L].push_back({negate(B), negate(A)});
     }
   }
-  std::unordered_set<SmallKey, SmallKeyHash> seen;
+  SmallKeySet seen;
   std::vector<Lit> ce_keys; // canonical order (see sorted_keys)
   ce_keys.reserve(ce.size());
   for (const auto &kv : ce)
@@ -980,7 +1077,7 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
         keyd.lits[1] = cond;
         keyd.lits[2] = then_l;
         keyd.lits[3] = else_l;
-        if (!seen.insert(keyd).second)
+        if (!seen.insert(keyd))
           continue;
         CongGate g;
         g.kind = GateKind::Ite;
@@ -1057,8 +1154,9 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
 // EMPTY hint list, which every checker rejects — measured on both lrat-check and
 // cake_lpr. Unreachable then only because nothing assigned mid-round; C3's unit
 // channel makes it reachable.)
+template <class Find>
 bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
-                     const std::function<Lit(Lit)> &find) {
+                     Find &find) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit a = ga.output, b = gb.output;
   std::vector<uint64_t> chain, br;
@@ -1180,11 +1278,15 @@ void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
   if (with_xor_ite) {
     ClauseIndex index; // built once, shared by XOR + ITE extraction
     build_clause_index(k, index);
+    // …and so is its canonical iteration order: the index is immutable for the
+    // whole apply, so XOR and ITE sorting it separately produced two
+    // bit-identical vectors (2026-08-04).
+    const std::vector<SmallKey> sorted = sorted_keys(index);
     const size_t before_xor = out.size();
-    congruence_extract_xor(k, index, out);
+    congruence_extract_xor(k, index, sorted, out);
     k.stats.congruence_gates_xor += out.size() - before_xor;
     const size_t before_ite = out.size();
-    congruence_extract_ite(k, index, out);
+    congruence_extract_ite(k, index, sorted, out);
     k.stats.congruence_gates_ite += out.size() - before_ite;
   }
 }
@@ -1228,7 +1330,7 @@ ApplyResult congruence_apply(Kernel &k) {
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
     repr[l] = l;
-  std::function<Lit(Lit)> find = [&](Lit l) {
+  auto find = [&](Lit l) {
     while (repr[l] != l)
       l = repr[l] = repr[repr[l]];
     return l;
@@ -1250,6 +1352,7 @@ ApplyResult congruence_apply(Kernel &k) {
   uint64_t neq = 0;
   bool unsat = false;
   std::vector<Lit> key, key_j, cancelled, cancelled_j;
+  std::vector<Lit> reps; // canonicalize's XOR scratch (not reentrant — one buffer)
   std::vector<TransientLemma> transient; // ladder lemmas, del'd after each use
 
   // Root units derived from degenerate gates (D-CONG-UNIT). Asserted in a batch
@@ -1342,7 +1445,7 @@ ApplyResult congruence_apply(Kernel &k) {
     work.pop_front();
     inq[i] = 0;
     Lit out_i;
-    const Canon ci = canonicalize(gates[i], find, key, out_i, cancelled);
+    const Canon ci = canonicalize(gates[i], find, key, out_i, cancelled, reps);
     CongMatchStats &cm = cong_match[static_cast<int>(gates[i].kind)];
     if (cong_probe)
       (ci == Canon::Ok     ? cm.canon_ok
@@ -1443,7 +1546,8 @@ ApplyResult congruence_apply(Kernel &k) {
     // own pop draws the inference.
     const uint32_t j = it->second;
     Lit out_j;
-    if (canonicalize(gates[j], find, key_j, out_j, cancelled_j) != Canon::Ok ||
+    if (canonicalize(gates[j], find, key_j, out_j, cancelled_j, reps) !=
+            Canon::Ok ||
         key_j != key) {
       if (cong_probe)
         cm.stale++;
