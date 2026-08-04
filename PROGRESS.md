@@ -935,6 +935,36 @@ shares over the whole solve; V6 is ~38 % of that clock.
   whether gate volume per round falls once resolved gates are dropped.
 - **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
 
+### 2026-08-04 — ▶ SUBSET RE-DERIVED with replicates: T3's kissat half is ROBUST to the list's composition
+Window `20260804-004328-C-k_a`, 12 arms (kissat/cadical × ±sweep × 3 repeats) × 30 instances.
+Criterion: exclude iff the sweep delta exceeds that instance's OWN replicate band AND the relative move
+exceeds 25 % — the test single-shot data could not support. Analysis `tools/bench/subset_rederive.py`.
+
+- **▶▶ THE DECISION-RELEVANT RESULT — the gate verdict does not depend on this list.** Scoring the
+  `20260803-211105` window over the corrected **15**-instance subset gives **shipped/kissat 1.269×** against
+  the shipped 24-instance list's **1.271×**. **T3's binding half is robust to the subset's composition.** The
+  cadical half does move (0.987× → 1.181×) because the corrected list drops instances where we beat cadical
+  heavily (`StConn` 0.41×, `EDP3` 0.11×, `circuit_32in32out`) — but that half is not the constraint.
+- **The shipped list was UNDER-excluding, not over-excluding.** The replicated criterion excludes **15 of
+  30** where the single-shot one excluded 6: nine instances are genuinely sweep-sensitive and were being
+  kept, e.g. `em_11` (kissat 2.77×, cadical 2.53×, bands 27/32), `DLTM` (kissat 4.10×, band 56), `StConn`
+  (cadical 0.41×, d=660 ≫ band=66).
+- **▶ I HAD THE FRAGILITY ARGUMENT BACKWARDS, and the replicates say so.** The list's header warns that four
+  exclusions are "chaos-suspect" because `ContextModel`/`j3037`/`jgiraldezlevy`/`urq45` swing 8–23× under
+  unrelated knobs. **That fragility is OURS, measured on tactix arms (probe 1579386); the criterion is about
+  the BASELINES.** kissat's own replicate band on `j3037` is **39 s** against a sweep delta of **203 s**, so
+  its exclusion is well-founded — a baseline can be perfectly stable where we are chaotic. Do not carry a
+  fragility measurement across solvers.
+- **Not replacing the frozen list tonight.** The verdict is unchanged either way, the new list halves the
+  instrument (15 vs 24 instances, so a noisier aggregate), and a gate artefact changes by review, not at
+  03:00. Evidence and tooling are committed; the swap is a one-line decision when someone wants it.
+- **Harness defect found and worked around:** `--no-check` applies only to the solver-under-test arm, while
+  `--checked-arm` hardcodes check AND score — so `k_a` ran proof-free while `k_b`/`k_c` were checked and
+  scored, and several arms lost solves to checker-budget timeouts. Analysis therefore uses **verdict-based**
+  solve times, not the scored flag, which is correct for a baseline ablation anyway (§8.1: a baseline's
+  failed check is never scored against it). Verified harmless: an unchecked vs checked arm of the SAME
+  config differ by a median **1.9 s**, against **2.8 s** between two checked arms.
+
 ### 2026-08-04 — ▶▶ D-STRENGTHEN-BUDGET: interruptible C1/C2 is MEASURED NEGATIVE, default REVERTED
 Same-window A/B via the `TACTIX_NO_MIDROUND_BUDGET` hatch (windows `20260803-231532-B` /
 `20260803-231548-C`). Report `benchmarks/reports/2026-08-04-midround-budget-negative.md`.
