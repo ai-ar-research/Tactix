@@ -733,8 +733,11 @@ ApplyResult analyze_apply(Kernel &k) {
     // 7-win/7-lose bimodality that tracked trail depth exactly.
     // No-op when chrono is off: complete propagation on a level-sorted trail
     // always puts a conflict literal at the current level, so alevel == k.level.
-    if (alevel < k.level)
+    if (alevel < k.level) {
+      if (k.h)
+        heuristics_update_target_phases(k); // was inside kernel_backtrack
       kernel_backtrack(k, alevel);
+    }
 
     // TB4b(A) · REUSE THE CONFLICT AS THE DRIVING CLAUSE (kissat analyze.c
     // `one_literal_on_conflict_level`, the `literals_on_conflict_level == 1`
@@ -815,6 +818,8 @@ ApplyResult analyze_apply(Kernel &k) {
           }
         }
 #endif
+        if (k.h)
+          heuristics_update_target_phases(k); // was inside kernel_backtrack
         kernel_backtrack(k, jump2);
         if (cref == INVALID_REF)
           kernel_assign(k, forced, jump2, other, /*binary=*/true);
