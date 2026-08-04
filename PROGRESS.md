@@ -931,10 +931,15 @@ Guards and the single-candidate `apply_instance` surfaces are untouched, so N1 i
   because a `break` that never executes makes every green fuzz leg vacuous for this change
   ([[ab-arm-identical-artefacts]]). On the sentinel `DivS_862_11` at the DEFAULT budget it reads
   **1 C1 round, 1 C2 round stopped mid-round** — the budget binds without any dosing knob.
-- **Sentinel effect (single runs, probes 1580087/1580088 — NOT a verdict):** `DivS_862_11` solves in
-  **80.1 s** with Strengthen at 65.5 s (81.8 % of the solve), against 110.8–127.1 s across recent windows.
-  Forcing 1 per mille takes it to **11.5 s** with the slot at 33.1 % instead of 98.3 %. One instance is not a
-  tier result (L6/L12) — the Tier B+C gate is what decides.
+- **▶▶ THE SENTINEL EFFECT DID NOT SURVIVE A CONTROLLED A/B.** The single probe read `DivS_862_11` at
+  **80.1 s** against 110.8–127.1 s "across recent windows" — a cross-window comparison, which is exactly the
+  L6/L12 trap. **Same-window A/B (`20260803-231532`, hatch `TACTIX_NO_MIDROUND_BUDGET=1`): DivS is 102.4 s
+  budget-aware vs 103.2 s without — inert on its own sentinel.** Tier B overall **72.22 vs 70.51 (26/28
+  both)**, i.e. the change COSTS ~1.7 PAR-2 and buys nothing measurable there; the largest single move is
+  `veer_axi` +35.2 s. Forcing 1 per mille still takes DivS to 11.5 s, so the DOSE is a real lever — but
+  making the default round interruptible at 100 per mille is not, because one stopped round just defers the
+  work to the next.
+- **Verdict pending Tier C**; on Tier B alone this does not earn its place.
 - Fuzz: DRAT 10,000/0 and native LRAT + `--random-policy` 10,000/0 on the sanitizer build; a third leg with
   the budget forced to 1 per mille is running so the soundness evidence is non-vacuous. ctest 38/38.
 - Ledger row moved Open → Closed in `docs/implementation-notes.md`.
