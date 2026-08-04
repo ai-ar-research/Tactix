@@ -987,7 +987,9 @@ Same-window A/B via the `TACTIX_NO_MIDROUND_BUDGET` hatch (windows `20260803-231
   minutes; a cross-window read costs a wrong default. (ii) The fuzz leg built to make coverage non-vacuous
   WAS vacuous — verdicts **5715/270/4015** against the control's **5715/271/4014**, because on tiny
   instances the budget computes to 0 and the guard short-circuits. **Real coverage = the two tier gates**
-  (58 instances, every UNSAT proof-checked, no mismatch, no rejection).
+  (58 instances, every UNSAT proof-checked, no mismatch, no rejection). Logs committed as the evidence for
+  that vacuity claim: `tools/fuzz/slurm-sbbudget-1580077.log`, `slurm-sbbudget-lrat-1580078.log`,
+  `slurm-sbtiny-1580095.log`.
 - Also landed alongside: `c strengthen` now has a stats line (it had none), and `c budgetstop` reports
   rounds cut short.
 
