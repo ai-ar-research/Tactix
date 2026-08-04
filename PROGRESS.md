@@ -5,7 +5,7 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 79 (2026-08-03)
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-08-03 — **variable retirement (R-a…R-d) SHIPPED** (Tier B 105.30 → 75.41 PAR-2, 24 → 26 solves, across two fixes); plan revs 76/77/78. V6 Congruence measured: gate matching at parity, the gap is cost. T3's instrument (rule-neutral subset + kissat arm) restored.
+- **Last updated:** 2026-08-03 (overnight) — plan revs 76–79. **T3's BOTH halves measured** (CaDiCaL 1.117×, Kissat **1.271×** on the subset — the kissat half is the binding phase-3 constraint). **Broad Factor admission measured and HELD** (Tier B 27/28, but Tier C 27/30). **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **`fclqcolor` located to Factor's ACCEPTANCE path** (saturates at 78 factorings across every scope). **Tier D built and frozen** (793). Baseline proofs written but no longer verified (rev 79).
 
 ## ▶ RESUME HERE (2026-08-03) — phase 3; **next step = V6 Congruence's COST** (outcome is at parity)
 
@@ -30,13 +30,13 @@ the binding constraint on phase-3 exit**, and steering on cadical was steering o
   rule. The one real outcome gap is **`congruent_units`: 2,231 vs our 14** (C3's unit channel).
 - **The cost decomposes exactly: 2.89× volume × 2.63× per-gate = 7.60×**, nothing left over. Ours is
   **3.24 µs/gate** vs kissat's 1.23, near-identical across instances — a fixed engineering cost.
-- **Where to look:** the closure table is `std::unordered_map<std::vector<Lit>, uint32_t>`
-  (`congruence.cpp:1242`), ~27 M inserts/instance, and `CongGate` holds two `std::vector`s across 53.4 M
-  materialized gates. **`SmallKey` already exists in this file because this exact pattern measured ~30 % of
-  cycles** (probe 1562991) — it was applied to the small-clause index and the XOR/ITE dedup sets, not to the
-  closure's own table. Blocker for a naive swap: `CONG_ARITY_LIMIT` 64 vs `SmallKey`'s 5; kissat's mean gate
-  arity is **2.10**, so a small-buffer key (inline ~8, heap overflow) covers nearly everything and XOR
-  (arity ≤ 4) fits today. **Confirm with the perf profile before changing anything.**
+- **▶ WHERE TO LOOK — PROFILED (job 1580096, `perf record` over a full T105 solve).** Self-time over the
+  whole solve: **`congruence_extract_gates` 6.13 %**, the **`SmallKey` machinery supporting it ~13.6 %**
+  (8.2 % hashtable lookups + **5.4 % in `sorted_keys` and its introsort — sorting the small-clause index
+  before every XOR extraction pass, 13 rounds on this instance**), allocator ~13.6 % spread across
+  everything. **The closure's `std::unordered_map<std::vector<Lit>, uint32_t>` is 0.80 % + 0.41 % rehash =
+  1.2 %** — swapping it for a small-buffer key would buy approximately nothing. **Attack EXTRACTION and the
+  index sort; do NOT touch the closure table.** Route: revamp.
 - **MEASURED DEAD, do not redo:** extraction volume · arity caps · a round/effort budget · **the proof chain /
   `add_equivalence`** (`chain_fail = 0`) · **the stale-key eviction policy** (`stale = 0`) · **the XOR
   collision rate** (0.003 % is normal — kissat gets 531 XOR congruences from comparable volume) · **C0 sign
