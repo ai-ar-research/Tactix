@@ -877,6 +877,34 @@ The one per-kind outcome gap left after gate matching measured at parity: `congr
   more literals mid-round, and `big_path_chain` (`substitute.cpp:193`) already skips BIG nodes with a
   non-zero value, so that counter is what moves first.
 
+### 2026-08-03 — ▶▶ V6 COST PROFILED: it is EXTRACTION + the SmallKey index, NOT the closure table
+`perf record -F 199` over a full `T105.2.0` solve (job 1580096, `build/pin-sb`, RelWithDebInfo). Self-time
+shares over the whole solve; V6 is ~38 % of that clock.
+
+| symbol | self | attribution |
+|---|---|---|
+| `propagate_literal<false>` | 24.33 % | search + probing (not V6) |
+| `reduce_source` | 14.72 % | S6 Walk (not V6) |
+| **`congruence_extract_gates`** | **6.13 %** | **V6 extraction** |
+| **`SmallKey` hashtable `_M_find_before_node`** | **5.88 %** | **V6 small-clause index / dedup sets** |
+| **`sorted_keys` + its introsort** | **5.44 %** | **V6 — sorting the index keys, every round** |
+| allocator (`_int_malloc`, `malloc_consolidate`, `_int_free`, …) | **~13.6 %** | spread across everything |
+| `SmallKey` `find` / set find / set insert | 2.28 % | V6 |
+| **`InputsHash` (the vector-keyed CLOSURE table)** | **0.80 % + 0.41 % rehash** | **V6 — and it is NOT the cost** |
+| `congruence_extract` / `congruence_apply` | 1.10 % | V6 |
+
+- **▶▶ MY STRUCTURAL HYPOTHESIS IS REFUTED.** The lead recorded earlier — that the closure's
+  `std::unordered_map<std::vector<Lit>, uint32_t>` (`congruence.cpp:1242`) was the per-gate cost, by analogy
+  with probe 1562991's ~30 % vector-key finding — is **1.2 % of the solve**. Swapping it for a
+  small-buffer key would buy approximately nothing. **Do not do it.**
+- **What the cost actually is:** **extraction (6.1 %)** plus **the `SmallKey` machinery that supports it
+  (~13.6 %: 8.2 % lookups + 5.4 % sorting)**. `sorted_keys` alone — sorting the small-clause index before
+  each XOR extraction pass — is **5.4 %**, larger than the closure table by 4×. We do that 13 rounds.
+- **This re-points the 2.89× VOLUME factor at extraction**, and lines up with the unit-channel finding: kissat
+  RETIRES value-resolved gates while we re-extract and re-canonicalize them every round. The cheapest test is
+  whether gate volume per round falls once resolved gates are dropped.
+- **Route: revamp** (§5.4) on the extraction path and the index's sort, NOT on the closure table.
+
 ### 2026-08-03 — ▶ D-STRENGTHEN-BUDGET closed: C1/C2 stop mid-round (reachability proven, tier gate pending)
 Strengthen and SubsumeForward were the only two `EFFORT_SPECS` entries with `dosed=false` AND
 `budget_aware=false` (`default_policy.cpp:295-296`), so their 100 per mille budget bounded how OFTEN a round
