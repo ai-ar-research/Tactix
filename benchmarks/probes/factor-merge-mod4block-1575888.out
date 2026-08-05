@@ -1,3 +1,0 @@
-mod4block                shipped    c conflicts 418796|c factor 0 factorings, 0 large remainders offered|s SATISFIABLE|wall 12.79|
-mod4block                force-s2   c conflicts 1458421|c factor 40 factorings, 0 large remainders offered|s SATISFIABLE|wall 46.72|
-mod4block                force-s5   c conflicts 6621822|c factor 495 factorings, 2317913 large remainders offered|s UNKNOWN|wall 300.00|

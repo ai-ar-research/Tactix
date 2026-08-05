@@ -1,5 +1,0 @@
-expect SAT ~13 s / 418,796 conflicts (X2 rate does not bind here)
-c conflicts   418796
-c ternary     17 rounds, 6048 resolvents, 0 binaries, 25343 ticks
-s SATISFIABLE
-wall 12.66

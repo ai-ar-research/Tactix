@@ -1,8 +1,0 @@
-mp1-blockpuzzle          size=2  c conflicts   291305 c factor      686 factorings s UNSATISFIABLE wall 10.02 
-mp1-blockpuzzle          size=5  c conflicts   291305 c factor      686 factorings s UNSATISFIABLE wall 10.06 
-x9                       size=2  c conflicts   261375 c factor      80 factorings s UNSATISFIABLE wall 7.10 
-x9                       size=5  c conflicts   261375 c factor      80 factorings s UNSATISFIABLE wall 7.09 
-or_randxor               size=2  c conflicts   7321989 c factor      0 factorings s UNKNOWN wall 300.00 
-or_randxor               size=5  c conflicts   7327462 c factor      0 factorings s UNKNOWN wall 300.00 
-unsat-set-b-fclqcolor    size=2  c conflicts   14638003 c factor      0 factorings s UNKNOWN wall 300.00 
-unsat-set-b-fclqcolor    size=5  c conflicts   14623526 c factor      0 factorings s UNKNOWN wall 300.00 

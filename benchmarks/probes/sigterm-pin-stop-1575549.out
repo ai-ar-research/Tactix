@@ -1,4 +1,0 @@
-=== pin-stop T105.2.0 cap=120s (admission=none, the config that exposed it) ===
-c conflicts   0
-s UNKNOWN
-elapsed=161s  cap=120s  SIGTERM-to-exit lag=41s

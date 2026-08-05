@@ -1,9 +1,0 @@
---- accepted-gain histogram W-rxor
-total=297 sum_gain=2207 mean=7.4
-  delta 1            60
-  delta 2-3          56
-  delta 4-7          73
-  delta 8-15         65
-  delta 16-31        42
-  delta 32-127        1
-  delta 128+          0

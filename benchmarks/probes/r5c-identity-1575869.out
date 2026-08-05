@@ -1,8 +1,0 @@
-mod4block        pin-r1   c conflicts   418796 c factor      0 factorings s SATISFIABLE 
-mod4block        pin-r5c  c conflicts   418796 c factor      0 factorings s SATISFIABLE 
-mp1-blockpuzzle  pin-r1   c conflicts   291305 c factor      686 factorings s UNSATISFIABLE 
-mp1-blockpuzzle  pin-r5c  c conflicts   291305 c factor      686 factorings s UNSATISFIABLE 
-x9               pin-r1   c conflicts   261375 c factor      80 factorings s UNSATISFIABLE 
-x9               pin-r5c  c conflicts   261375 c factor      80 factorings s UNSATISFIABLE 
-FmlaEquivChain   pin-r1   c conflicts   982451 c factor      0 factorings s UNSATISFIABLE 
-FmlaEquivChain   pin-r5c  c conflicts   982451 c factor      0 factorings s UNSATISFIABLE 

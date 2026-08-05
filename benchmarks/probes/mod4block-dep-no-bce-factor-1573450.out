@@ -1,9 +1,0 @@
-=== no-bce-factor ===
-c conflicts   10069374
-c bce         0 rounds, 0 deleted, 0 ticks
-c factor      0 factorings
-c bve         0 rounds, 0 eliminated, 0 resolutions
-c timing      599971 ms solve
-c timing      27419 ms (4.6%) inprocessing slot, 572552 ms (95.4%) search+scaffolding outside it
-s UNKNOWN
-wall 600.00

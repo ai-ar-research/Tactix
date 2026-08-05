@@ -1,6 +1,0 @@
-xz: /home/hwu/SAT-solving/benchmarks/cache/tierC/mod4block_2x2_reduced.cnf.xz: No such file or directory
-c conflicts   0
-c factor      0 factorings, 0 large remainders offered
-c conflicts   0
-c otfs        0 strengthened (0 conflicts subsumed)
-s SATISFIABLE

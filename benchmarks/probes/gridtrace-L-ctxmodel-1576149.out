@@ -1,9 +1,0 @@
---- accepted-gain histogram L-ctxmodel
-total=459 sum_gain=2200 mean=4.8
-  delta 1           248
-  delta 2-3          12
-  delta 4-7          44
-  delta 8-15        155
-  delta 16-31         0
-  delta 32-127        0
-  delta 128+          0

@@ -1,3 +1,0 @@
-combined-crypto1         shipped    c conflicts 235874|c factor 0 factorings, 0 large remainders offered|s SATISFIABLE|wall 6.60|
-combined-crypto1         force-s2   c conflicts 509957|c factor 62 factorings, 0 large remainders offered|s SATISFIABLE|wall 15.14|
-combined-crypto1         force-s5   c conflicts 289395|c factor 62 factorings, 223030 large remainders offered|s SATISFIABLE|wall 7.99|
