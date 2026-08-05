@@ -33,40 +33,6 @@ Note the kissat half moved **1.271× (08-03, pre-TB4b) → 1.346× (today, post-
 - **Broad is +3 Tier B solves (incl. `fclqcolor`) and −1 Tier C solve, and costs T3 on BOTH halves**
   (kissat 1.346 → 1.500×). The gate decides it.
 
-**▶ T3, BOTH HALVES MEASURED (first time since 07-30).** CaDiCaL half **1.117×** — NOT met, by 0.017, far
-inside the noise floor. Kissat half **1.271×** on the rule-neutral subset — NOT met, but **improved from
-1.37× (07-27)**. On the subset we are **0.987× cadical**, i.e. already better than it. **The KISSAT half is
-the binding constraint on phase-3 exit**, and steering on cadical was steering on the easier baseline.
-
-**▶ WHAT THE OVERNIGHT SESSION SETTLED (2026-08-03/04).** Broad Factor admission **measured and HELD**
-(Tier B 27/28, Tier C 27/30 — rev 78 never covers a lost solve). The mid-round C1/C2 budget was implemented,
-gated, and **REVERTED as measured-negative** (+1.7 B / +13.3 C PAR-2, no solves, both T3 halves worse).
-**Nothing shipped to the solver.** What landed is measurement capability: T3's instrument, Tier D (793),
-baseline proofs no longer verified (rev 79, ~2× faster Tier C runs), and four mechanism hypotheses killed
-before anything was built on them.
-
-**▶ THE V6 COST LEAD — second in line, and fully diagnosed.** 7.6× kissat's congruence time for a comparable
-outcome. V6 owns
-**32.9 % / 38.2 %** of the clock on `T87` / `T105` (~462 s across the two) — the largest single Tier C item.
-- **The outcome is AT PARITY — do not re-open it.** Per kind on T105: **AND 3,423 vs kissat's 4,348 (1.27×),
-  XOR 268 vs 531, ITE 0 vs 18.** kissat's headline `congruent` BUNDLES a binary-clause equivalent-literal
-  scan (`congruent_equivalences`, 24 % of its total) that we implement in **V3 Substitute**, a different
-  rule. The one real outcome gap is **`congruent_units`: 2,231 vs our 14** (C3's unit channel).
-- **The cost decomposes exactly: 2.89× volume × 2.63× per-gate = 7.60×**, nothing left over. Ours is
-  **3.24 µs/gate** vs kissat's 1.23, near-identical across instances — a fixed engineering cost.
-- **▶ WHERE TO LOOK — PROFILED (job 1580096, `perf record` over a full T105 solve).** Self-time over the
-  whole solve: **`congruence_extract_gates` 6.13 %**, the **`SmallKey` machinery supporting it ~13.6 %**
-  (8.2 % hashtable lookups + **5.4 % in `sorted_keys` and its introsort — sorting the small-clause index
-  before every XOR extraction pass, 13 rounds on this instance**), allocator ~13.6 % spread across
-  everything. **The closure's `std::unordered_map<std::vector<Lit>, uint32_t>` is 0.80 % + 0.41 % rehash =
-  1.2 %** — swapping it for a small-buffer key would buy approximately nothing. **Attack EXTRACTION and the
-  index sort; do NOT touch the closure table.** Route: revamp.
-- **MEASURED DEAD, do not redo:** extraction volume · arity caps · a round/effort budget · **the proof chain /
-  `add_equivalence`** (`chain_fail = 0`) · **the stale-key eviction policy** (`stale = 0`) · **the XOR
-  collision rate** (0.003 % is normal — kissat gets 531 XOR congruences from comparable volume) · **C0 sign
-  absorption** (correct; kissat's extraction does the identical rotation) · **the ITE extractor** (we draw 0
-  merges, kissat 18).
-
 **▶▶ TOP OF THE QUEUE — `N4-N1FIX`, an OPEN N1 BREACH.** `Factor`'s guard reports applicable and
 `factor_instances` offers an instance, but `factor_apply` NoOps on the density gate, so **no API caller —
 LLM, RL, or RandomPolicy — can apply a legal factoring on a binary-sparse formula.** N1 is the top
@@ -105,8 +71,15 @@ instances it targeted. `frb45` is ~2/3 of that cost and is **newly measured chao
 **+9.45**, ~1.4 noise floors — but T3's binding kissat half also moved **1.271× → 1.346×** across the same
 ship. **Not a revert order**; an unclosed question with a real number attached.
 
-**(c) V6's remaining cost.** −50 % banked at byte-identical proofs (`ee9f3ab`); T87+T105 are still ~19 % of
-the Tier C kissat gap. **Re-profile first** — the old proportions no longer describe the remaining ~98 s.
+**(c) V6's remaining cost** — now **Track N4 · N4-G1**. −50 % banked at byte-identical proofs (`ee9f3ab`);
+T87+T105 are still ~19 % of the Tier C kissat gap. **Re-profile first** — the old proportions no longer
+describe the remaining ~98 s. **The outcome is AT PARITY; do not re-open it** (per kind on T105: AND 3,423
+vs kissat 4,348, XOR 268 vs 531, ITE 0 vs 18 — and kissat's headline `congruent` BUNDLES a scan that is our
+V3, L14). **Attack EXTRACTION and the index sort, NOT the closure table** (profiled job 1580096:
+`congruence_extract_gates` 6.13 %, `SmallKey` machinery ~13.6 %, the closure map only 1.2 % — that
+structural hypothesis was REFUTED). **Measured dead, do not redo:** extraction volume · arity caps · a
+round/effort budget · the proof chain (`chain_fail = 0`) · stale-key eviction (`stale = 0`) · the XOR
+collision rate · C0 sign absorption · the ITE extractor (0 merges vs kissat's 18).
 Untouched leads: `CongGate` vectors → arena (blocked only by `tests/test_congruence.cpp:246`), the closure's
 duplicate-accumulating `occ`, ITE's node-based `ce` map.
 
@@ -274,8 +247,16 @@ shipped 67.49 (25/27) vs broad 30.70 (27/27).
 **1.346 → 1.500×** (cadical 1.069 → 1.191×) — which is what decides item (a) independently of the
 solve count.
 
-**Noise floor — USE 6.72 (window `20260804-030938`, idle partition, three bit-identical arms: 364.50 /
-362.17 / 357.78, per-instance median 4.8 s).** The older 10.8 below is the CONTENDED bar; keep it only for
+**▶ WITHIN-WINDOW vs ACROSS-WINDOW ARE DIFFERENT BARS, and the second is BIGGER (measured 2026-08-04).**
+The 6.72 floor is between bit-identical arms *inside one window*. **Across windows the same shipped solver
+moved 12.23 PAR-2**: Tier C **309.05** (`20260804-154341`) vs **296.82** (`20260804-165516`) — two runs the
+same day, on an idle partition, at commits that differ only in documentation, i.e. **byte-identical solver
+behaviour**. That is **1.8 within-window floors**. Tier B was stable across the same pair (86.51 vs 86.42).
+**Consequence: never compare an absolute Tier C PAR-2 across windows** — only same-window arms, which is
+L6 with a number attached. Quoting "where we stand" from one window is precise to about ±12 on Tier C.
+
+**Noise floor — USE 6.72 for SAME-WINDOW arms (window `20260804-030938`, idle partition, three
+bit-identical arms: 364.50 / 362.17 / 357.78, per-instance median 4.8 s).** The older 10.8 below is the CONTENDED bar; keep it only for
 runs that shared the partition.
 **Superseded measurement (window `20260731-013523`):** three **bit-identical** arms (a payoff-bound sweep
 that turned out to be inert — Log) scored **346.16 / 356.95 / 353.99**, i.e. **10.8 PAR-2 of aggregate
@@ -397,8 +378,8 @@ per-instance magnitudes need replication before being cited as fact.
 
   | half | requirement | status |
   |---|---|---|
-  | CaDiCaL | ≤ 1.10× cadical, whole Tier C | **NOT MET: 350.56 vs 313.75 = 1.117×** (window `20260803-211105`, git `014e3b2`). Misses by **0.017**, far inside the measured noise floor, so the failure is not robustly measured. On the rule-neutral subset the same arm is **0.987×**, i.e. BETTER than cadical. |
-  | Kissat | parity on the rule-neutral subset | **NOT MET: 1.271×** (same window) — **improved from 1.37×** (2026-07-27), the first measurement in a week. **This is the BINDING half**: we are already better than cadical on the subset while 1.271× kissat, and 1.534× kissat on the full tier. |
+  | CaDiCaL | ≤ 1.10× cadical, whole Tier C | **MET on the full tier: 0.990×** (window `20260804-154341`, git `6018366`); **1.069×** on the rule-neutral subset, i.e. 0.069 over there. Superseded the 08-03 reading of 1.117×. |
+  | Kissat | parity on the rule-neutral subset | **NOT MET: 1.346×** (window `20260804-154341`, git `6018366`). **This is the BINDING half** — and it REGRESSED across the TB4b ship, 1.271× (08-03, pre-TB4b) → 1.346×, which is the open question filed as (c′). Full tier 1.339× kissat. |
 
   **Both prerequisites are now DONE** (2026-08-03): `benchmarks/tiers/C-ruleneutral.list` is materialized and
   `tools/bench/subset_score.py` scores both views from one window, and every Tier C run carries
