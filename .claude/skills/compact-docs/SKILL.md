@@ -51,9 +51,9 @@ Scan each living doc for:
   runs to a multi-sentence paragraph is the most common bloat source, and it
   defeats the checklist's job as a *scannable status surface*. The moment an item
   goes `[ ]` → `[x]`, compress it (an in-flight `[ ]` item may still carry working
-  detail). The one thing that survives compression is the **lesson** (see "never
-  prune") — as a single clause in the one-liner, *"…; lesson: X was really Y
-  (commit)"*, never a paragraph.
+  detail). What survives compression is the **knowledge** — as a single clause in
+  the one-liner, *"…; X turned out to be Y (commit)"*, never a paragraph, and
+  stated as the finding itself rather than as a pointer to a lesson number.
 - **Superseded / irrelevant content.** Plans that were replaced, dead option
   branches, stale numbers, resolved TODOs. Remove — with a pointer if any residual
   value remains.
@@ -68,46 +68,45 @@ Scan each living doc for:
 
 - The **big picture**, the **non-negotiables**, the **current phase/status**, and
   the **undone / next steps**. These are the reason the doc exists.
-- **Lessons — the CONTENT, not the claim.** A failed experiment or a rejected
-  approach is not "irrelevant" — it stops the next session repeating it. Compress
-  it to one line — *"tried X → failed because Y (commit/report)"*.
-  **But a lesson is NOT protected from being wrong** — see "Re-validating lessons".
+- **The KNOWLEDGE in a lesson** — a failed experiment or a rejected approach is
+  not "irrelevant"; it stops the next session repeating it. Keep the finding and
+  its evidence. **But the lesson ENTRY is not protected** — it may be rewritten
+  or deleted outright when the evidence no longer supports it. See "Lessons are a
+  working aid, not an authority".
 - Any fact whose **only home is the living doc.** If detail looks prunable but
   isn't archived anywhere, it is not yet safe to cut — either keep it, or move it
   to its correct home (calculus / a design doc / a report) *first*, then link.
 
-## Re-validating lessons (user directive, 2026-08-04) — supersedes "never delete"
+## Lessons are a working aid, not an authority (user directive, 2026-08-04)
 
-**A wrong or inaccurate lesson is WORSE than no lesson.** A lesson reads as
-*settled* and gets cited to justify decisions, so it carries more authority than
-a log entry and does more damage when it is wrong. Our lessons are induced from a
-handful of local instances, and more evidence routinely changes them. Two proven
-failures: **L19's exhibit (a)** asserted a cadical option was dead code, survived
-three windows, routed a lever, and was flatly wrong (the option is read via
-token-paste); **L10's headline** rests on a single draw of an instance later
-measured as a 73× lottery. Both were "preserved" under the old rule while being
-false.
+**A wrong or inaccurate lesson is WORSE than no lesson.** It reads as *settled* and gets cited to
+justify decisions, so it carries more weight than a log entry and does more damage when wrong. Ours are
+induced from a handful of local instances, and more evidence routinely changes them.
 
-So a compaction pass **re-validates**, it does not merely condense:
+**Two rules, and the first causes the second:**
 
-- **Attack the evidence base, not the prose.** For each lesson ask: how many
-  instances, how many draws, one probe or a replicated window? Separate the
-  **method claim** from the **empirical magnitude** — they often have different
-  verdicts, and the method usually survives when the magnitude does not.
-- **The killer question: does it rest on an instance since measured CHAOTIC?**
-  (the may-not-gate set in PROGRESS). A per-instance magnitude drawn once from one
-  of those is a coin flip, not a measurement — narrow or retract it.
-- **Four verdicts: STANDS · NARROW · RETRACT · UNVERIFIABLE.** "Unverifiable"
-  (the cited probe/window no longer exists or was never recorded) is a retraction
-  candidate, not a pass.
-- **RETRACT means out of the active list — but the NUMBER stays resolvable.**
-  Numbers are cited in frozen reports, design snapshots and `docs/log/` archives,
-  so a retracted lesson becomes a one-line **tombstone** in a RETRACTED register:
-  what it claimed, why it fell, what replaces it. A tombstone is not guidance; do
-  not cite it as one.
-- **Prevention beats retraction:** a single-instance magnitude should never become
-  a lesson in the first place. Promote a finding to a numbered lesson only once it
-  is reference-anchored, replicated, or mechanism-level.
+- **DO NOT CITE A LESSON NUMBER IN ANY DOCUMENT** — not reports, design docs, commit messages, code
+  comments, or PROGRESS. Citation is exactly what made lessons immutable: once `L15` is in a frozen
+  report the number can never change, so a wrong lesson gets carried rather than corrected. When a
+  lesson informs a decision, **write the finding and its primary evidence into the document** instead of
+  pointing at a numbered claim. The reader then needs no lookup and the argument rests on the
+  measurement.
+- **Therefore lessons are FREELY REVISABLE** — rewrite, merge, narrow, or DELETE any entry the evidence
+  no longer supports. No tombstones, no renumbering ceremony, no preservation for a citation's sake.
+  Historical artifacts still contain `L<n>` references and are never edited; read them as a record of
+  what was believed when written.
+
+**Re-validating, when a compaction pass touches them** — condense *and* re-check, never just condense:
+
+- **Attack the evidence base, not the prose.** How many instances, how many draws, one probe or a
+  replicated window? Separate the **method claim** from the **empirical magnitude** — they often get
+  different verdicts, and the method usually survives when the magnitude does not.
+- **The killer question: does it rest on an instance since measured CHAOTIC?** (the may-not-gate set in
+  PROGRESS). A per-instance magnitude drawn once from one of those is a coin flip, not a measurement.
+- **Four verdicts: STANDS · NARROW · RETRACT · UNVERIFIABLE.** "Unverifiable" (the cited probe or window
+  no longer exists) is a deletion candidate, not a pass.
+- **Prevention beats correction:** a single-instance magnitude should never become a lesson at all.
+  Promote a finding only once it is reference-anchored, replicated, or mechanism-level.
 
 ## Procedure
 
