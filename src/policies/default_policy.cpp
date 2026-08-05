@@ -947,44 +947,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // technique's rounds share one budget): the dose is `permille` of the
       // search work done since this entry last ran, floored so a technique that
       // has had no search to amortize still gets a usable first dose.
-      for (SlotEntry &e : inprocess_slot) {
-        if (!e.enabled || !e.meter)
-          continue;
-        const uint64_t now = search_ticks(k);
-        uint64_t reference = now - e.anchor;
-        if (reference < MIN_EFFORT_TICKS)
-          reference = MIN_EFFORT_TICKS;
-        e.limit = e.meter(k) + reference / 1000 * e.permille;
-        // S4 (design §3.b): the FIRST Factor dose per solve bypasses the
-        // permille formula with kissat's factoriniticks allowance — an
-        // effectively unbounded first round (700M ticks; mp1's completed
-        // first round spends ~1M). kissat factor.c:1106-1117. cadical's own
-        // constant is 300M — see FACTOR_INIT_TICKS.
-        if (e.doses == 0 && e.budget_aware &&
-            !std::strcmp(rules[e.rule].name, "Factor"))
-          e.limit = e.meter(k) + factor_init_ticks_;
-        // I2 (bve-tolerance plan, TEMPORARY experiment knob): under
-        // TACTIX_BVE_ONESHOT the first during-search BVE dose mirrors
-        // Factor's first-dose allowance — effectively unbounded, so the
-        // dose runs its whole schedule to completion (kissat-shape:
-        // eliminate once, early, to completion). The dosed branch below
-        // runs the full ramp and retires the entry after this one dose.
-        if (e.doses == 0 && e.retry_advice &&
-            std::getenv("TACTIX_BVE_ONESHOT"))
-          e.limit = e.meter(k) + 700000000ull;
-        // I3 cadence arm (bve-tolerance plan, report §5 routing): under
-        // TACTIX_BVE_CADENCE every admitted BVE dose gets the completion
-        // allowance — the phase schedule already fires on the growing
-        // NLOG2N conflict interval (kissat's eliminate cadence analog),
-        // so "one COMPLETED call per phase" (the outer==0 gate below)
-        // reproduces kissat's profitable shape: completion-gated calls at
-        // geometric conflict spacing, ladder advancing per completion.
-        // The I2 decider showed the damage is drip-paced INCOMPLETE
-        // recurrence; this arm removes the drip while keeping recurrence.
-        if (e.retry_advice && std::getenv("TACTIX_BVE_CADENCE"))
-          e.limit = e.meter(k) + 700000000ull;
-        e.anchor = now;
-      }
+      // SCHED-B1: limits are now computed per entry at the point of use
+      // (set_entry_limit), and the anchor advances only on the ADMITTED
+      // path, so a declined occasion no longer discards its accrued
+      // entitlement. Both were previously done here, for every entry,
+      // before any of them ran.
+
       // §6 STOP RESPONSIVENESS: the slot polls `stop` at every entry boundary and
       // inside the dosed per-instance loop. Before 2026-07-30 it was checked at
       // exactly ONE site (the outer search loop below), so a long inprocessing
@@ -1039,6 +1007,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           }
           e.applies++;
           const RuleVTable &r = rules[e.rule];
+          // SCHED-B1: ceiling computed HERE, against the state the rule will
+          // actually see, rather than frozen at phase entry for all entries.
+          if (e.enabled && e.meter)
+            set_entry_limit(e, k);
           const uint64_t limit = e.limit;
           if (e.dosed && r.instances && r.apply_instance) {
             if (!r.guard(k)) {
@@ -1243,6 +1215,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               bve_rounds_run_++;
             if (bve_oneshot)
               e.doses++; // consume the one shot (skipped hereafter)
+            // SCHED-B1: the anchor advances HERE, on the ADMITTED path only. kissat
+            // writes `last.NAME.ticks` inside SET_EFFORT_LIMIT, i.e. only on a call
+            // that actually runs, so a skipped occasion leaves the reference window
+            // growing and the next one affordable. Ours advanced it for every enabled
+            // entry at phase entry, so a DECLINED occasion silently discarded its
+            // accrued entitlement — charged for search work it never spent against.
+            e.anchor = search_ticks(k);
             e.tm.admitted++; // the dosed branch ran; it exits here, not below
             continue;
           }
@@ -1314,6 +1293,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             e.tm.dec_guard++;
             continue;
           }
+          // SCHED-B1: the anchor advances HERE, on the ADMITTED path only. kissat
+          // writes `last.NAME.ticks` inside SET_EFFORT_LIMIT, i.e. only on a call
+          // that actually runs, so a skipped occasion leaves the reference window
+          // growing and the next one affordable. Ours advanced it for every enabled
+          // entry at phase entry, so a DECLINED occasion silently discarded its
+          // accrued entitlement — charged for search work it never spent against.
+          e.anchor = search_ticks(k);
           e.tm.admitted++;
           // Budget handoff (kernel.hpp work_budget): a budget-aware batch
           // entry gets the phase's REMAINING ledger budget — in the rule's
@@ -1618,6 +1604,50 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     BranchingPolicy &bp = branching ? *branching : default_branching_;
     decide_apply(k, bp.pick(k), false);
   }
+}
+
+void DefaultPolicy::set_entry_limit(SlotEntry &e, Kernel &k) {
+  // SCHED-B1: computed at the moment the entry is REACHED, not once for every
+  // entry at phase entry. kissat reads OLD_LIMIT inside SET_EFFORT_LIMIT when
+  // the technique begins (kimits.h:138), so its budget is a delta from where
+  // the technique actually starts. Ours was frozen for all thirteen entries
+  // before any of them ran, which means an entry late in the slot was handed a
+  // ceiling computed against a formula and a tick count that no longer existed
+  // by the time it got there.
+  const std::vector<RuleVTable> &rules = tactix_rules();
+        const uint64_t now = search_ticks(k);
+        uint64_t reference = now - e.anchor;
+        if (reference < MIN_EFFORT_TICKS)
+          reference = MIN_EFFORT_TICKS;
+        e.limit = e.meter(k) + reference / 1000 * e.permille;
+        // S4 (design §3.b): the FIRST Factor dose per solve bypasses the
+        // permille formula with kissat's factoriniticks allowance — an
+        // effectively unbounded first round (700M ticks; mp1's completed
+        // first round spends ~1M). kissat factor.c:1106-1117. cadical's own
+        // constant is 300M — see FACTOR_INIT_TICKS.
+        if (e.doses == 0 && e.budget_aware &&
+            !std::strcmp(rules[e.rule].name, "Factor"))
+          e.limit = e.meter(k) + factor_init_ticks_;
+        // I2 (bve-tolerance plan, TEMPORARY experiment knob): under
+        // TACTIX_BVE_ONESHOT the first during-search BVE dose mirrors
+        // Factor's first-dose allowance — effectively unbounded, so the
+        // dose runs its whole schedule to completion (kissat-shape:
+        // eliminate once, early, to completion). The dosed branch below
+        // runs the full ramp and retires the entry after this one dose.
+        if (e.doses == 0 && e.retry_advice &&
+            std::getenv("TACTIX_BVE_ONESHOT"))
+          e.limit = e.meter(k) + 700000000ull;
+        // I3 cadence arm (bve-tolerance plan, report §5 routing): under
+        // TACTIX_BVE_CADENCE every admitted BVE dose gets the completion
+        // allowance — the phase schedule already fires on the growing
+        // NLOG2N conflict interval (kissat's eliminate cadence analog),
+        // so "one COMPLETED call per phase" (the outer==0 gate below)
+        // reproduces kissat's profitable shape: completion-gated calls at
+        // geometric conflict spacing, ladder advancing per completion.
+        // The I2 decider showed the damage is drip-paced INCOMPLETE
+        // recurrence; this arm removes the drip while keeping recurrence.
+        if (e.retry_advice && std::getenv("TACTIX_BVE_CADENCE"))
+          e.limit = e.meter(k) + 700000000ull;
 }
 
 void DefaultPolicy::report_slot(const Kernel &k) const {
