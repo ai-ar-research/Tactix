@@ -479,6 +479,36 @@ size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
 
 Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
+  // SCHED-C7. Focused mode only (kissat randecstable defaults to 0), and a new
+  // sequence may only begin at level <= 1, matching decide.c:103.
+  if (randec_enabled && !k.h->stable) {
+    const uint64_t c = k.stats.conflicts;
+    if (c >= randec_until && k.level <= 1 && c >= randec_next) {
+      randec_sequences++;
+      const double n = static_cast<double>(randec_sequences);
+      const double logn = std::log10(n + 9.0);
+      randec_until = c + static_cast<uint64_t>(RANDEC_LENGTH * logn) + 1;
+      randec_next = c + static_cast<uint64_t>(RANDEC_INIT * logn);
+      k.stats.random_sequences++;
+    }
+    if (c < randec_until) {
+      // uniform over UNASSIGNED variables; splitmix64 so the schedule stays
+      // reproducible (a random policy that is not replayable is not testable)
+      for (uint32_t tries = 0; tries < 64; tries++) {
+        randec_rng += 0x9E3779B97F4A7C15ull;
+        uint64_t z = randec_rng;
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+        z ^= z >> 31;
+        const Var v = static_cast<Var>(z % k.nvars);
+        if (k.values[make_lit(v, true)] == 0 && !kernel_var_retired(k, v)) {
+          k.stats.random_decisions++;
+          return heuristics_decide_lit(k, v);
+        }
+      }
+      // dense assignment: fall through to the heuristic rather than spin
+    }
+  }
   const Var v = heuristics_next_decision_var(k);
   return heuristics_decide_lit(k, v);
 }

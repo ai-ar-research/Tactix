@@ -200,6 +200,9 @@ struct Stats {
   uint64_t sweep_binaries = 0;     // S-d: equivalence binaries ADDED with a proof
   uint64_t sweep_not_rup = 0;      // S-d: equivalences declined (not RUP) -> S-e
   uint64_t sweep_general = 0;      // S-e: pairs emitted via the general path
+  // SCHED-C7 (kissat randec): H-only, no proof delta.
+  uint64_t random_sequences = 0;   // random-decision sequences started
+  uint64_t random_decisions = 0;   // decisions actually taken at random
   uint64_t sweep_known = 0;        // pairs the formula already states as binaries
   uint64_t sweep_env_unsat = 0;    // environments refuted outright (F is UNSAT)
   uint64_t sweep_budget = 0;       // solves abandoned on the tick budget

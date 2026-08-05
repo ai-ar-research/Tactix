@@ -583,6 +583,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.walk_improved,
            (unsigned long long)kernel.stats.walk_flips,
            (unsigned long long)kernel.stats.walk_steps);
+    printf("c randec      %llu sequences, %llu random decisions\n",
+           (unsigned long long)kernel.stats.random_sequences,
+           (unsigned long long)kernel.stats.random_decisions);
     printf("c subsume     %llu rounds (%llu checked, %llu visits, %llu subsumed)\n",
            (unsigned long long)kernel.stats.forward_subsumptions,
            (unsigned long long)kernel.stats.forward_checked,

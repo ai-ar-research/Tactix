@@ -28,6 +28,24 @@ class DefaultBranching final : public BranchingPolicy {
 public:
   const char *name() const override { return "vmtf-evsids"; }
   Lit pick(Kernel &) override;
+
+  // SCHED-C7 random decisions (kissat decide.c `randec`). A pure H operation:
+  // it changes WHICH variable is decided, never the formula, so there is no
+  // proof delta and no calculus entry -- it is policy, like Rephase or Reorder.
+  // kissat ships randec=1 with randecfocused=1 and randecstable=0, so the
+  // sequences run in FOCUSED mode only. Length is `randeclength * LOGN(count)`
+  // conflicts (options.h:103-108).
+  //
+  // The sequence is tracked as an END CONFLICT rather than a countdown, which is
+  // equivalent to kissat's per-conflict decrement and needs no new hook on the
+  // conflict path.
+  static constexpr uint64_t RANDEC_INIT = 500;   // randecinit
+  static constexpr uint64_t RANDEC_LENGTH = 10;  // randeclength
+  uint64_t randec_until = 0;      // conflict count at which the sequence ends
+  uint64_t randec_next = RANDEC_INIT; // next conflict count that may start one
+  uint64_t randec_sequences = 0;
+  uint64_t randec_rng = 0x9E3779B97F4A7C15ull; // deterministic, seeded fixed
+  bool randec_enabled = true;
 };
 
 // canonical reduction volume: the rule's canonical fraction of the ranked
