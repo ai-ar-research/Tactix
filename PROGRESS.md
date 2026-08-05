@@ -66,6 +66,12 @@ all); a rule with no spec runs unmetered and unbudgeted.
   conclusion is invalidated**: 0 mismatches and 0 written-but-unverified solves in 205 windows / 8 678
   UNSAT answers, and all 16 windows with unchecked scored arms predate Sweep by 8 days. The width
   evidence was right: S-d emits only width-2 and the failing lemmas are width 1/3/4/5.
+  **POST-FIX SURVEY CLEAN** (`1584189`, same 58 tasks at **`f451344`**, DRAT/drat-trim, report
+  `benchmarks/reports/2026-08-05-sweep-n2-postfix-survey.md`): **0 rejections**. `asconhashv12` is the
+  ONLY row byte-identical across both windows (97,549 conflicts, 12 rnd / 9 equiv) yet flipping
+  REJECTED→VERIFIED — proof that the fix was proof-only. **The emitting set did NOT move under C5**
+  (same 4 instances, same counts) even though **C5 moved 26 of 58 trajectories**, so the C5 A/B has
+  real reach and brought no new Sweep exposure.
   **FIXED 2026-08-05** (branch `sweep-n2-fix`) — S-e decoded sub-solver literals with the PARITY
   INVERTED, so every general-path lemma was the negation of the clause the sub-solver derived (`F` and
   the verdict were always right; only the proof lines were wrong). One shared `sweep_kernel_lit`. The
