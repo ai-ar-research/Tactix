@@ -941,6 +941,43 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-04 late — ▶▶ THE AGGREGATOR NOW REPORTS SINGLE-INSTANCE SENSITIVITY — and the back-audit is ugly
+
+Three gates in a row had their SIGN decided by one instance, each caught only by hand-decomposing after
+the fact: broad Factor admission, Stage B Tier B (+17.75 → −2.38 without `mod4block`), Stage B Tier C
+(+46.57 → −32.27 without `mp1-Nb5T15`). A real regression and a one-instance lottery print identically in
+the headline, so `run.py --aggregate` now computes the **minimum number of instances whose removal flips
+the sign** and names them. `k=1` prints **UNDECIDED** — not a claim the instance is a lottery, a claim
+that the run has not answered the question and paired draws come next.
+
+It discriminates rather than crying wolf: Tier B verdicts mostly come back robust ("survives removing any
+4 instances"), Tier C mostly does not. **Re-running it over the last 12 windows:**
+
+| window | headline | flips on |
+|---|---|---|
+| C-b1gate (Stage B) | +46.57 | **1** — `mp1-Nb5T15` |
+| B-b1gate (Stage B) | +17.75 | **1** — `mod4block` |
+| C-preB1 | +107.10 | 2 — `mp1-Nb5T15`, `urq45` |
+| C-shipped facon | +109.72 | 3 — `ContextModel`, `mp1-Nb5T15`, `minxor128` |
+| C-shipped facoff | −10.92 | **1** — `frb45` |
+| **C-tb4b (a LANDED change)** | +36.54 | 2 — `jgiraldezlevy`, `j3037` |
+| C-ucr | +13.70 | **1** — `jgiraldezlevy` |
+| B-tb4b | −12.48 | **1** — `mod4block` |
+| B-ucr | −15.83 | **1** — `mod4block` |
+| B-shipped facon | −51.83 | robust (survives 4) |
+| B-shipped broad | −48.12 | robust (survives 4) |
+
+Two things fall out. **(1) `mp1-Nb5T15` is a chronic sign-flipper** — it decides four separate Tier C
+windows. That is independent prior evidence, gathered without looking for it, that Stage B's Tier C loss
+is a lottery draw rather than a defect, and it corroborates the paired draws. It belongs in the
+may-not-gate set. **(2) TB4b's confirming Tier C was 2-instance fragile**, and both are already
+may-not-gate members — a landed change whose confirmation was weaker than it read at the time.
+
+Structural note: Tier C fragility is not bad luck. At timeout 1200 a solve flip is worth 2400 PAR-2, which
+dwarfs every non-flip move on the tier, so **any Tier C verdict that changes a solve count is
+single-instance decided by construction**. `#solved` and the fragility line, not the PAR-2 headline, are
+the things to read there.
+
 ### 2026-08-04 late — ▶▶ `mod4block` DOES NOT CONVICT STAGE B: 0 of 7 clean draws reproduce the timeout
 
 Stage B's only Tier B solve loss was `mod4block` (36.50 s → timeout), replicating 2/2 across windows —
