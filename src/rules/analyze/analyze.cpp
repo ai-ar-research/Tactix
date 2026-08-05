@@ -195,6 +195,12 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     } else if (!(k.seen[mv] & SEEN) && !literal_redundant(k, m, depth + 1))
       ok = false;
   } else {
+    // kissat minimize.c:52 charges one search tick per reason deref here
+    // (option `minimizeticks`, default 1). Ours is the same walk, so the same
+    // charge: `search_ticks` denominates the stable-mode budget and every
+    // effort limit, and omitting minimize/shrink made it under-count search
+    // work, which stretched those windows.
+    kernel_charge_ticks(k, 1);
     const Clause *reason = clause_at(k.arena, a.reason);
     for (const Lit m : *reason) {
       if (m == assigned_lit)
@@ -554,6 +560,8 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
       else
         open += tmp;
     } else {
+      // kissat shrink.c:180, same `minimizeticks` charge as minimize above.
+      kernel_charge_ticks(k, 1);
       const Clause *reason = clause_at(k.arena, a.reason);
       for (const Lit m : *reason) {
         if (m == x)
