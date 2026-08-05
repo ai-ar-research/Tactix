@@ -170,8 +170,9 @@ bool DefaultPolicy::want_rephase(const Kernel &k) const {
 // 0 = off (OUR default), 1 = stable mode only, 2 = both modes (kissat's
 // default). It ships OFF by the Track R convention — a newly registered family
 // lands N1-exposed and registry-visible first, scheduled only once its own
-// same-window A/B says it pays — and L11 already measured `--reorder=0` costing
-// kissat NOTHING on Tier C (−0.7 PAR-2), so the prior is that it will not.
+// same-window A/B says it pays. The prior is that it will not pay much: ablating
+// kissat's own reordering (`--reorder=0`) moved Tier C by −0.67 PAR-2, which is a
+// NON-DETECTION inside the 6.72 floor, not a measured zero.
 // kissat additionally requires `!solver->level`; that is kept here in the
 // SCHEDULE (where the coupled root restart also lives, as with Rephase) rather
 // than in the rule's guard, which stays a pure precondition (N1).
@@ -391,7 +392,7 @@ void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
   // The during-search phases CARRY the elimination value (BVE is deferred
   // out of conflicts==0), so the growing interval is load-bearing: kissat
   // UPDATE_CONFLICT_LIMIT(eliminate, NLOG2N), size-scaled. A fixed interval
-  // is the wrong control (L7, `775eefc`).
+  // is the wrong control (`775eefc`).
   {
     uint64_t n = inprocess.rounds; // policy-local growth key (rev 17)
     if (!n)
@@ -622,8 +623,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // arm): confine a rule to the preprocessing phase. The rate sweep
           // said dose is the WRONG control for the Track R rules — every rate
           // loses on rbsat/crypto1/mp1 while clique's 50x win is completely
-          // dose-insensitive — which is L7's "the interval is the wrong
-          // control" in a new mechanism. WHERE, not how hard.
+          // dose-insensitive — the same "the interval is the wrong control"
+          // shape `775eefc` found, in a new mechanism. WHERE, not how hard.
           e.rule = i;
           e.enabled = on;
           if (const EffortSpec *s = effort_spec(nm)) {
@@ -1038,7 +1039,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // the same axis and threshold as Factor's density short-circuit.
             // Every measured dose-loser is sparse (crypto1 ≈ 3.0
             // binaries/var: 70.8 → 15.95 s; mod4block ≈ 4.1: 60 → 13.19 s —
-            // both L2-class trajectory damage), while post-dedup mp1
+            // both trajectory damage rather than overhead), while post-dedup mp1
             // (≈ 103) holds 5.77 s with doses off entirely — its win is
             // dedup + dosed Factor + composite. Dense Tier C instances
             // (mp1-Nb5T15 10.0 s) keep their doses. A SELECTIVITY heuristic
@@ -1055,8 +1056,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             //             eliminated variable) exceeds `Kernel::bve_cost_limit`.
             //             The FIRST dose always runs: the ratio cannot be known
             //             before eliminating anything, so this is learn-then-
-            //             decide, not a static separator (L5/L15 killed four of
-            //             those). It is the axis L10 measured — mod4block burns
+            //             decide, not a static separator (four of those have
+            //             been measured dead). The axis is cost per yield:
+            //             mod4block burns
             //             ~104,000 resolutions per elimination and its candidate
             //             set never shrinks.
             //   none    — no admission (measured: +192.67 Tier C PAR-2, three
@@ -1104,7 +1106,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // eliminate.c set_next_elimination_bound), so the non-growing
             // eliminations happen first and later ones are measured against an
             // already-simplified formula — the adaptive version of a single fixed
-            // bound, dodging the crypto1 BVE U-shape (L4). A null ramp (or a
+            // bound. (This used to cite a "crypto1 BVE U-shape"; that curve is
+            // withdrawn — see DefaultBveBoundRamp::ceiling. The cheap-first
+            // argument is kissat's own and does not need it.) A null ramp (or a
             // non-BVE dosed entry) = one pass at the current bound (the pre-S1b
             // behaviour, bit-exact). The dose is SHARED across passes.
             BveBoundPolicy *ramp = nullptr;
@@ -1409,7 +1413,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               // and 78 is ~kissat's BINARY-restricted 80. Composing takes it to
               // **164 factorings, 11.46M -> 5.80M conflicts, TIMEOUT -> UNSAT**.
               // The gate was also exactly the hand-designed-separator family
-              // plan rev 77 forbids and L15/L19 measured 0-for-5.
+              // plan rev 77 forbids and which has measured 0-for-5.
               //
               // WHAT BOUNDS COMPOSITION INSTEAD — kissat's real governors, all
               // of which we already have: (a) the factor_ticks effort budget,

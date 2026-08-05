@@ -8,8 +8,9 @@
 // one the active mode reads (heap while stable, queue while focused), so a
 // policy that just wants "reorder now" gets kissat's behaviour. WHEN to reorder
 // is policy state (rev 17): DefaultPolicy carries kissat's linearly-growing
-// conflict interval, and it is OFF by default (Track R convention + L11 —
-// kissat's own `--reorder=0` ablation costs it nothing).
+// conflict interval, and it is OFF by default (Track R convention; ablating
+// kissat's own `--reorder=0` moved Tier C −0.67 PAR-2 — a non-detection inside the
+// 6.72 noise floor rather than a measured zero).
 #pragma once
 
 #include "rules/registry.hpp"

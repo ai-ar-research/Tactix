@@ -449,8 +449,8 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
               (unsigned long long)k.stats.conflicts);
     // TACTIX_WALK_DRY (DIAGNOSTIC ONLY, never a shipped config): run the walk
     // but discard its assignment — the control that separates "the phases the
-    // walk writes" from "what else the slot changed" (L8: ablate one thing at
-    // a time).  It is what showed kissat's Walk-replaces-Best rotation to be
+    // walk writes" from "what else the slot changed" — ablate one thing at a
+    // time.  It is what showed kissat's Walk-replaces-Best rotation to be
     // 4-7x worse than the baseline with the walk's own output thrown away, so
     // the regression was the lost Best consumption, not local search; see
     // docs/design/s6-walk-design.md §6.  Kept as the durable control.

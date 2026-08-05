@@ -45,21 +45,31 @@ public:
 // canonical BVE growth-slack ramp: kissat's cheap-first doubling 0,1,2,4,8
 // (eliminate.c set_next_elimination_bound), capped at slack-8 for our single
 // preprocessing blast — see ceiling(). The first SubPolicy of a NEW category
-// (Track S · S1b) — the schedule that dodges the crypto1 BVE U-shape.
+// (Track S · S1b).
 class DefaultBveBoundRamp final : public BveBoundPolicy {
 public:
   const char *name() const override { return "kissat-ramp"; }
-  // Growth-slack ceiling. 8, NOT kissat's 16: kissat reaches slack-16 GRADUALLY
-  // across many interleaved eliminate calls and reins in harmful growth with its
-  // mode/effort feedback; our BVE runs as one preprocessing blast with no such
-  // feedback, so an efficient ramp to 16 over-eliminates straight into the BVE
-  // U-shape (crypto1 7→27 s, 71→385 eliminations, Tier B PAR-2 16.7→17.8). Slack-8
-  // is where the single blast matches kissat's effective frontier — crypto1's L4
-  // 71-elimination sweet spot — giving Tier B PAR-2 15.1, beating both slack-16 and
-  // a flat fixed bound=8 (15.9) because the cheap-first ordering still helps.
+  // Growth-slack ceiling. 8, NOT kissat's 16 — and the warrant is WEAKER than this
+  // comment used to claim. The architectural half stands: kissat reaches slack-16
+  // gradually across many interleaved eliminate calls and reins in harmful growth
+  // with mode/effort feedback our single preprocessing blast does not have.
+  //
+  // The empirical half is ONE same-window three-arm Tier B A/B (`489fab1`, jobs=4):
+  // HEAD 16.66 / ceiling-16 17.76 / ceiling-8 15.08, with a flat fixed bound=8 at
+  // 15.85 — so the cheap-first ORDERING pays on top of the ceiling, and this is a
+  // real ramp rather than a fixed number. Two cautions belong next to the constant:
+  // the delta is single-instance-dominated (FmlaEquiv −19.3 s of it), and TIER B HAS
+  // NO MEASURED NOISE FLOOR — the 6.72 bar is Tier C — so nothing here establishes
+  // that 15.08 and 15.85 are distinguishable at all.
+  //
+  // What is NOT the warrant, though it was written as one: a "BVE U-shape" with a
+  // crypto1 71-elimination sweet spot. That curve came from single draws on a
+  // dose-chaotic instance and is withdrawn. The ceiling ships on the A/B above.
   // (Before the S1b needed-bound cache the ceiling was moot: the dose cap stopped
   // the ramp near the slack-8 frontier by accident — the cache made the ceiling the
-  // real lever.) TACTIX_BVE_RAMP_MAX=N re-sweeps it; Tier C/D validation owed.
+  // real lever.) TACTIX_BVE_RAMP_MAX=N re-sweeps it. Tier C/D validation was owed
+  // at `489fab1` (2026-07-25) and is STILL owed — with the U-shape withdrawn it is
+  // now the only thing that would give this constant a warrant beyond one tier.
   static uint32_t ceiling() {
     if (const char *s = std::getenv("TACTIX_BVE_RAMP_MAX"))
       return static_cast<uint32_t>(std::atoi(s));
@@ -152,7 +162,8 @@ public:
   // situations. Rate 10 was a 5.6-point Tier B regression concentrated in
   // three instances (crypto1 38.1 s, qwh 30.1, rbsat 20.4); every rate in
   // {15, 20, 25} fixes all three, so the plateau is real and only mod4block
-  // — instance-intrinsic pathology, L10 — distinguishes them. Tier B 14.57 →
+  // — pathological in its cost per elimination, not at any particular rate —
+  // distinguishes them. Tier B 14.57 →
   // 7.57, i.e. from 1.76× kissat to 0.92×. Windows `20260727-0820*`/`-0848*`.
   static constexpr double BUMP_REASONS_RATE = 20.0;
   // C1 SubsumeForward occupies the kissat eliminate slot (eliminate.c
@@ -328,11 +339,11 @@ public:
   // growing NLOG2N conflict interval. WHY it works: elimination runs on a
   // formula probing already simplified, doses are bounded in each rule's
   // own work currency, and the density gates keep during-search
-  // elimination off the sparse instances it measurably harms (L9,
-  // plan §5.6 elimination-dosing exhibit — the gates are the phase-6
+  // elimination off the sparse instances it measurably harms (plan §5.6
+  // elimination-dosing exhibit — the gates are the phase-6
   // learner's named target). During-search phases are SAT-safe because
   // they are budgeted and material-gated — the unbudgeted version was not
-  // (L2/L3; reports 2026-07-18/19). Every rule stays registered,
+  // (reports 2026-07-18/19). Every rule stays registered,
   // N1-exposed, and random-policy-fuzzed regardless of its `enabled` bit.
   struct SlotEntry {
     int rule = -1;
@@ -506,7 +517,8 @@ public:
   // (schedule exhausted within budget). Replaces the all-levels-per-dose S1c
   // ramp in arrangement doses — running 0..8 in the very first dose
   // over-eliminates (mp1: 1,223 eliminated vs kissat 661, conflicts 1.5M→3.5M,
-  // the L4 U-shape; probe 1561169). The default preprocessing ramp is
+  // probe 1561169 — a solo probe, which is valid for exactly this kind of counter
+  // read and not for an effect size). The default preprocessing ramp is
   // untouched. Also Factor's acceptance bound (design §3.e) reads this level.
   uint32_t bve_level_ = 0;
   OccIndex inprocess_occ; // shared occurrence index, reused per phase (incr. 2)
