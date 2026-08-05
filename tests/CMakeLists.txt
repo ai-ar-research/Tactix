@@ -160,9 +160,9 @@ add_test(NAME config_wiring
 # SCHED-A2b: the same shape, one level up -- every rule the inprocessing SLOT
 # schedules (i.e. every RuleTier::Inprocess registry line, since registering IS
 # scheduling) must have a governor: an EFFORT_SPECS row, or a named alternate
-# one whose mechanism is still in the source. V5 Sweep shipped with neither and
-# nothing caught it (fuzz is green on a performance regression; the unit tests
-# call sweep_apply directly and never traverse the slot).
+# one whose mechanism is still in the source. Nothing else covers this: fuzz is
+# green on a performance regression, and the unit tests call a rule's apply
+# directly without traversing the slot.
 add_test(NAME effort_specs
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-effort-specs.py)

@@ -9,13 +9,11 @@ enables every Inprocess-tier rule"). The effort ledger is a SEPARATE table —
 it gets `meter = nullptr, permille = 0`: it runs with no meter and no budget,
 one full canonical round on every inprocessing phase, forever.
 
-That is not hypothetical. V5 `Sweep` shipped exactly that way (2026-08-04):
-registered, therefore scheduled, with no `EFFORT_SPECS` row. `9vliw` went from
-~14 s to unsolved at 300 s. Nothing caught it — `check-config-wiring.py`
-catches the MIRROR image (a config field we own and never write), the unit
-tests call `sweep_apply` directly and never traverse the slot, and fuzz was
-green because an unmetered rule is a PERFORMANCE regression, not a soundness
-one. The gap is structural: two tables, one registry line, no link between them.
+The gap is structural — two tables, one registry line, no link between them —
+and no other check covers it: `check-config-wiring.py` catches the MIRROR image
+(a config field we own and never write), the unit tests call a rule's `apply`
+directly and never traverse the slot, and fuzz stays green because an unmetered
+rule is a PERFORMANCE regression, not a soundness one.
 
     METERED             has an `EFFORT_SPECS` row. The default expectation, and
                         what a new inprocessing rule should almost always be.
@@ -72,9 +70,7 @@ TABLE = {
     "HyperTernaryRes":  (METERED, "cadical ternaryeffort 8 permille + ternarythresh 6"),
     "BCE":              (METERED, "20 permille, bce_ticks currency"),
     "Instantiate":      (METERED, "20 permille, tick currency"),
-    "Sweep":            (METERED, "kissat sweepeffort 100 permille. THE EXHIBIT: this "
-                                  "row was missing on 2026-08-04 and Sweep ran unmetered "
-                                  "on every phase (9vliw 14 s -> unsolved at 300 s)."),
+    "Sweep":            (METERED, "kissat sweepeffort 100 permille, sweep_ticks currency"),
     # --- deliberately unmetered: a different mechanism governs them --------
     # Both are CLOSURES with no titratable instance surface: one canonical pass
     # over the current formula, whose cost is bounded by the formula rather
@@ -82,10 +78,11 @@ TABLE = {
     # occasion, decayed by the delay ladder when unproductive" is a real bound
     # on the work. That argument does NOT transfer to a search-shaped rule
     # (Sweep), which is why Sweep is METERED and not parked here.
-    # KNOWN WEAKNESS, recorded rather than papered over: this governs how
-    # OFTEN, not how much. `c timing` prices ONE Congruence application at
-    # ~44 s on T105.2.0 (default_policy.cpp:1044). Metering Congruence is an
-    # open task, not an accepted shape — see the SCHED-A2b Log entry.
+    # KNOWN WEAKNESS, recorded rather than papered over: this bounds how OFTEN
+    # a round starts, not how much one round does, and a single Congruence
+    # application has been priced in the tens of seconds (default_policy.cpp
+    # :1044). Metering it is an open task, not an accepted shape -- see
+    # PROGRESS, SCHED-A2b.
     "Congruence":       (ALT, "new-material watermark + closure delay ladder "
                               "(the two `!e.meter` declines in the slot loop, "
                               "default_policy.cpp:1379/1390); no instance surface",
@@ -168,8 +165,7 @@ def main():
                          f"a METERED line in TABLE in "
                          f"{os.path.relpath(__file__, ROOT)}, or classify it "
                          f"ALTERNATE-GOVERNOR and name what bounds it. Registering an "
-                         f"Inprocess rule IS scheduling it — that is how V5 Sweep "
-                         f"shipped ungoverned.")
+                         f"Inprocess rule IS scheduling it.")
 
     for n, row in TABLE.items():
         kind, why = row[0], row[1]
@@ -188,8 +184,7 @@ def main():
                 fails.append(f"UNGOVERNED: `{n}` is tagged METERED ({why}) but has NO "
                              f"EFFORT_SPECS row in {POLICY_REL}. The slot will run it "
                              f"with meter=nullptr and permille=0 — one unbudgeted "
-                             f"canonical round on EVERY inprocessing phase. This is "
-                             f"the exact shape V5 Sweep shipped in.")
+                             f"canonical round on EVERY inprocessing phase.")
                 continue
             ok = True
             if s["meter"] in ("nullptr", "NULL", ""):
@@ -205,8 +200,7 @@ def main():
                 fails.append(f"`{n}`'s EFFORT_SPECS row is neither `dosed` nor "
                              f"`budget_aware`, so its share bounds only how OFTEN a "
                              f"round starts, never how much ONE round does — the "
-                             f"D-STRENGTHEN-BUDGET defect (C2 owned 97.8 s of "
-                             f"DivS_862_11's 109.0 s in four rounds).")
+                             f"D-STRENGTHEN-BUDGET shape (implementation-notes.md).")
             if ok:
                 notes.append(f"METERED {n:17} <- {s['permille']} permille, "
                              f"{s['meter']}"
