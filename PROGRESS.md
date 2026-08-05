@@ -969,8 +969,22 @@ It discriminates rather than crying wolf: Tier B verdicts mostly come back robus
 
 Two things fall out. **(1) `mp1-Nb5T15` is a chronic sign-flipper** — it decides four separate Tier C
 windows. That is independent prior evidence, gathered without looking for it, that Stage B's Tier C loss
-is a lottery draw rather than a defect, and it corroborates the paired draws. It belongs in the
-may-not-gate set. **(2) TB4b's confirming Tier C was 2-instance fragile**, and both are already
+is a lottery draw rather than a defect, and it corroborates the paired draws. **It should NOT go in the
+may-not-gate set** (user, 2026-08-04, and they are right): that set is a PERMANENT BLANKET exclusion, and
+at a 1200 s timeout an instance that normally solves in 3–73 s and instead exceeds 1200 s is not sitting
+near a decision boundary — it is a ≥16× blowup, a real tail. A list that hides it would blind the tier to
+genuine tail-risk regressions, which is a worse failure than occasionally spending 12 draws. The draws
+support keeping it visible: both arms solve fast in nearly every draw (base 3.11–72.62 s, Stage B
+2.07–32.56 s, Stage B mostly FASTER than the base's median), so this is not a broadly chaotic instance —
+it has a rare catastrophic branch that Stage B's unperturbed trajectory happens to land in, and we want to
+notice if some future change lands there systematically.
+
+**▶ THE FRAGILITY LINE SUPERSEDES THE LIST.** The may-not-gate set is a blunt permanent instrument that
+predates having a per-run test. `k=1 → UNDECIDED, named instance` does the same job per-comparison and
+prompts draws without permanently blinding the tier. **The set should stop growing**; prefer the
+per-comparison test, and treat existing members as "expect fragility here", not as "inadmissible".
+
+**(2) TB4b's confirming Tier C was 2-instance fragile**, and both are already
 may-not-gate members — a landed change whose confirmation was weaker than it read at the time.
 
 Structural note: Tier C fragility is not bad luck. At timeout 1200 a solve flip is worth 2400 PAR-2, which
