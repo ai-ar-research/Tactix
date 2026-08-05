@@ -1,21 +1,19 @@
-// V3 Substitute (plan §5.2): equivalent-literal substitution over the binary
+// Substitute (plan §5.2): equivalent-literal substitution over the binary
 // implication graph. Literals in one SCC of the BIG are logically equivalent;
 // each non-representative is rewritten to its SCC's representative, and an SCC
 // that contains a literal together with its own negation forces UNSAT
 // (l ≡ ¬l). Proof delta: add-RUP + delete + push-witness.
 //
-// Scope (complete):
-//   V3a — SCC DETECTION (guard + iterative Tarjan), unit-tested in isolation.
-//   V3b-1 — the UNSAT path (x ≡ ¬x ⇒ refutation: two RUP units + the empty
-//     clause via the rule-local BIG-path walk) + registration in the DEFERRED
-//     slot. Landed first to de-risk big_path_chain (the design's #1 risk) with a
-//     mutation-free, LRAT-checkable increment before the rewrite depended on it.
-//   V3b-3 — the equivalent-literal rewrite: every non-representative SCC member
-//     is rewritten to its representative across all large + binary occurrences
-//     (add-before-delete), transient equivalence lemmas justify each rewrite in
-//     LRAT, size-collapsed root units are asserted un-propagated, and a
-//     reconstruction witness pair is pushed per eliminated variable (first ρ
-//     consumer). See do_substitution in substitute.cpp.
+// Scope:
+//   SCC DETECTION — guard + iterative Tarjan, unit-tested in isolation.
+//   THE UNSAT PATH — x ≡ ¬x ⇒ refutation: two RUP units + the empty clause via
+//     the rule-local BIG-path walk.
+//   THE REWRITE — every non-representative SCC member is rewritten to its
+//     representative across all large + binary occurrences (add-before-delete),
+//     transient equivalence lemmas justify each rewrite in LRAT, size-collapsed
+//     root units are asserted un-propagated, and a reconstruction witness pair
+//     is pushed per eliminated variable. See do_substitution in
+//     substitute.cpp.
 #pragma once
 
 #include "rules/registry.hpp"
@@ -50,10 +48,10 @@ struct SccResult {
 };
 SccResult substitute_find_sccs(const Kernel &k);
 
-// Rule surface (registered in the DEFERRED inprocessing slot, so DefaultPolicy
-// never runs it; N1-exposed + random-policy-fuzzed). Payload = an SCC
-// representative literal via lit_instance/lit_of_instance (registry.hpp;
-// rev 34). INSTANCE_CANONICAL = the full round (every non-trivial SCC); a single
+// Rule surface (registered at RuleTier::Inprocess, so DefaultPolicy's slot
+// schedules it; N1-exposed + random-policy-fuzzed). Payload = an SCC
+// representative literal via lit_instance/lit_of_instance (registry.hpp).
+// INSTANCE_CANONICAL = the full round (every non-trivial SCC); a single
 // instance substitutes the requested representative's class + its mirror.
 // On x ≡ ¬x, apply refutes (Unsat).
 ApplyResult substitute_apply(Kernel &); // canonical: full round

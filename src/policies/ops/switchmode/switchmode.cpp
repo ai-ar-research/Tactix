@@ -3,7 +3,7 @@
 // kissat/src/mode.c switch_to_stable_mode / switch_to_focused_mode (MIT).
 // Pure H-state (proof delta: none) — flipping is sound in any state, so
 // the guard only excludes a refuted kernel. WHEN to switch (kissat's
-// conflicts-in / ticks-out alternation) is policy state (plan §5 rev 17),
+// conflicts-in / ticks-out alternation) is policy state (plan §5),
 // as are the per-mode restart regimes (EMA vs reluctant doubling).
 #include "policies/ops/switchmode/switchmode.hpp"
 #include "policies/heuristics.hpp"
@@ -32,9 +32,9 @@ ApplyResult switchmode_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-// Policy operation (plan §4 rev 59): H-only (flips the decision-ranking
+// Policy operation (plan §4): H-only (flips the decision-ranking
 // heuristic — the VMTF-vs-EVSIDS MAB arm), no proof delta. Registered in-place
-// with the same name/tier/fns, so its id is unchanged (Track H · H1).
+// with the same name/tier/fns, so its id is unchanged.
 TACTIX_REGISTER_POLICY_OP(SwitchMode, RuleTier::Macro, switchmode_guard,
                           switchmode_apply);
 

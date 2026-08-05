@@ -117,13 +117,12 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
   // the literal-major path must reproduce that exactly.
   if (k.dense) {
     // Literal-major over the phase occ index: mark ¬out's binary partners
-    // ONCE per output literal instead of once per clause-occurrence — the
-    // clause-major scans were ~51 % of hwmcc's cycles (probe 1562920,
-    // 2026-07-25; kissat's whole congruence pass costs less than our
-    // extraction did). The tag sort below restores the EXACT clause-major
-    // emission sequence, so the closure's merge order — and the search
-    // trajectory — cannot fork between the two paths (the battleship
-    // lesson: anything feeding merge order feeds the trajectory).
+    // ONCE per output literal instead of once per clause-occurrence. The
+    // clause-major scan is roughly half of total cycles on gate-rich
+    // instances. The tag sort below restores the EXACT clause-major emission
+    // sequence, so the closure's merge order — and hence the search
+    // trajectory — cannot fork between the two paths. ANYTHING feeding merge
+    // order feeds the trajectory; treat that as a hard constraint here.
     struct Tag {
       Ref ref;
       uint32_t idx;  // outp's index within the clause
@@ -253,9 +252,9 @@ struct InputsHash {
 // c⊕vᵢ = ⊕_{j≠i} vⱼ. Two gates with the same input set have equivalent outputs.
 // Fixed-capacity key for the small-clause index and the XOR/ITE dedup sets
 // (all hold ≤ CONG_XOR_ARITY+1 literals): no per-key heap node, no vector
-// hashing — the vector-keyed map + its allocator churn were ~30 % of hwmcc's
-// remaining cycles after the AND-extraction fix (probe 1562991). Semantics
-// are EXACTLY the old std::vector key's: ingest strips duplicate literals,
+// hashing — a vector-keyed map plus its allocator churn costs roughly a third
+// of this rule's remaining cycles on gate-rich instances. Semantics are
+// EXACTLY a std::vector key's: ingest strips duplicate literals,
 // so a sorted key is strictly increasing and literal 0 can only sit in slot
 // 0 — the zero padding therefore compares like vector's shorter-prefix-first
 // operator< and can never alias a genuine literal in equality.
@@ -304,8 +303,8 @@ inline SmallKey small_key(const Lit *ls, uint32_t n) {
   return sk;
 }
 
-// Flat open-addressed SmallKey set (2026-08-04) — the clause index and both
-// extraction dedup sets. It replaces `unordered_map<SmallKey,uint64_t>` /
+// Flat open-addressed SmallKey set — the clause index and both extraction
+// dedup sets. It replaces `unordered_map<SmallKey,uint64_t>` /
 // `unordered_set<SmallKey>`; three measured reasons, none of them touching
 // order:
 //   * the mapped clause id was never READ — XOR and ITE only ever ask "does
@@ -313,8 +312,7 @@ inline SmallKey small_key(const Lit *ls, uint32_t n) {
 //   * the lookup path is the hot one (XOR probes 2^(s-1) times and ITE 6 times
 //     per indexed clause, per apply), and keys live IN the bucket array here,
 //     so a probe touches one cache line instead of a bucket read plus a node
-//     chase (perf 1580096 charged 8.2 % of a whole T105 solve to these
-//     lookups);
+//     chase — worth several percent of a whole solve on gate-rich instances;
 //   * one contiguous allocation instead of one malloc per indexed clause.
 // `size == 0` is the empty marker: every key ever stored holds ≥ 3 literals.
 // Iteration order is bucket order, i.e. hash-dependent — see `sorted_keys`.
@@ -377,19 +375,18 @@ using ClauseIndex = SmallKeySet;
 // Iterating a hash table is implementation-ordered (libstdc++ and libc++
 // disagree, and an open-addressed table orders by hash), and anything feeding
 // gate/emission ORDER feeds the closure's merge order and hence the search
-// trajectory — which must not fork across toolchains (the battleship lesson,
-// Log 2026-07-23). Extraction loops iterate via these sorted keys instead.
+// trajectory — which must not fork across toolchains or standard libraries.
+// Extraction loops iterate via these sorted keys instead.
 // `operator<` is a TOTAL order on the stored keys — two distinct keys differ in
 // some `lits[]` slot or in `size`, exactly what it compares — so the result is
 // independent of the table's own order.
 //
-// Built ONCE per apply and shared by XOR and ITE extraction (2026-08-04): the
-// index is immutable for the whole apply, so the second sort was recomputing a
-// bit-identical answer (perf 1580096: `sorted_keys` + its introsort were 5.4 %
-// of a whole T105 solve, over 13 rounds × 2 sorts). Keys are materialised BY
-// VALUE rather than as pointers into the table: the sort and both consuming
-// scans then run over contiguous memory instead of chasing 24-byte keys
-// scattered across the table.
+// Built ONCE per apply and shared by XOR and ITE extraction: the index is
+// immutable for the whole apply, so sorting twice recomputes a bit-identical
+// answer — worth several percent of a whole solve on gate-rich instances.
+// Keys are materialised BY VALUE rather than as pointers into the table: the
+// sort and both consuming scans then run over contiguous memory instead of
+// chasing 24-byte keys scattered across the table.
 static std::vector<SmallKey> sorted_keys(const ClauseIndex &index) {
   std::vector<SmallKey> keys;
   keys.reserve(index.size());
@@ -486,12 +483,11 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
     // therefore forbids exactly the assignments of true-parity base_parity, so
     //     ⊕ⱼ vⱼ = base_parity ⊕ 1 =: R.
     // For output vᵢ, ⊕_{j≠i} vⱼ = R ⊕ vᵢ, so the output literal is pos[i]
-    // flipped by R. (Until 2026-07-21 this also XORed in `s`, which negated the
-    // output of every even-arity gate. That was invisible: the only consumer is
-    // XOR↔XOR key matching, and cancellation removes variables in even multiples,
-    // so two gates sharing a key share their arity parity and the offset cancels
-    // in the equivalence. It is NOT invisible to a unit/merge channel that reads
-    // the output's polarity — see PROGRESS item C0.)
+    // flipped by R. Do NOT also XOR in `s`: that negates the output of every
+    // even-arity gate. It is INVISIBLE to XOR↔XOR key matching (cancellation
+    // removes variables in even multiples, so two gates sharing a key share
+    // their arity parity and the offset cancels in the equivalence), and NOT
+    // invisible to any unit/merge channel that reads the output's polarity.
     const Lit r = static_cast<Lit>(base_parity ^ 1);
     for (uint32_t i = 0; i < s; i++) {
       CongGate g;
@@ -528,19 +524,19 @@ void delete_transients(Kernel &k, std::vector<TransientLemma> &t) {
 }
 
 // TACTIX_CONG_PROBE: count the degenerate-gate discards by cause. These are the
-// inferences V6 does NOT draw (deviation D-CONG-UNIT) — the diagnostic that sizes
-// closing it. Env-gated, default-identical, like TACTIX_CONG_TRACE.
+// inferences this rule does NOT draw (deviation D-CONG-UNIT) — the diagnostic
+// that sizes closing it. Env-gated, default-identical, like TACTIX_CONG_TRACE.
 static const bool cong_probe = std::getenv("TACTIX_CONG_PROBE") != nullptr;
 static uint64_t cong_n_and = 0, cong_n_ite = 0, cong_n_xor = 0, cong_n_clash = 0;
 
-// TACTIX_CONG_PROBE, part 2 — the CLOSURE/MATCHING discriminator (2026-08-03).
+// TACTIX_CONG_PROBE, part 2 — the CLOSURE/MATCHING discriminator.
 //
-// The measured gap on T87/T105 is that we spend 7.6x kissat's congruence time
-// and produce ~3.3-3.9x FEWER congruences (3,713 merges vs kissat's 14,461
-// `congruent` variables; the "182x" that stood here briefly compared our merges
-// against kissat's `congruent_matched`, a gate-CONSTRUCTION lookup counter, and
-// is retracted). Extraction volume is comparable, so the loss is somewhere
-// between "a gate enters the table" and "a merge is accepted".
+// The measured gap on gate-rich instances is that we spend several times
+// kissat's congruence time and produce several times FEWER congruences, at
+// comparable extraction volume — so the loss is somewhere between "a gate
+// enters the table" and "a merge is accepted". (When comparing against
+// kissat's counters, note that `congruent_matched` is a gate-CONSTRUCTION
+// lookup statistic, not an outcome; `congruent` is the comparable one.)
 //
 // This splits that interval, per gate kind. Read it as a funnel:
 //
@@ -584,11 +580,11 @@ enum class Canon {
 // the distinct positive representative variables that dropped out of an XOR key
 // (each occurred an even number of times) — the ladder in
 // `add_xor_degeneracy_chain` quantifies over exactly those.
-// `reps` is caller-owned scratch, not an output: a local vector here was one
-// malloc+free per XOR canonicalization, i.e. per worklist pop of the ~50 % of
-// gate volume that is XOR (2026-08-04). `Find` is a template parameter for the
-// same reason the scratch is hoisted — a `std::function` made every
-// representative lookup an opaque indirect call in the hottest loop V6 has.
+// `reps` is caller-owned scratch, not an output: a local vector here is one
+// malloc+free per XOR canonicalization, i.e. per worklist pop of the roughly
+// half of gate volume that is XOR. `Find` is a template parameter for the same
+// reason the scratch is hoisted — a `std::function` makes every representative
+// lookup an opaque indirect call in this rule's hottest loop.
 template <class Find>
 Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
                    Lit &out_lit, std::vector<Lit> &cancelled,
@@ -732,13 +728,12 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   uint64_t last = 0;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
   if (conflict) {
-    // Persistent walk scratch (C4-perf, probe 1563224): a fresh
-    // seen(k.nvars, 0) here was one O(nvars) zero-fill PER REPLAYED LEMMA —
-    // 97 % of ALL cycles on the hwmcc native-LRAT path, the entire "LRAT
-    // ~250× slower on miters" symptom. Same clean-between-calls invariant
-    // as TransitiveReduce's Walk scratch: grown on demand, restored
-    // all-zero in O(marked) via `touched`, so it is clean on entry for ANY
-    // kernel this thread touches.
+    // Persistent walk scratch. A fresh `seen(k.nvars, 0)` here is one
+    // O(nvars) zero-fill PER REPLAYED LEMMA, which on miter-shaped instances
+    // dominates the whole native-LRAT path — do not reintroduce it. Same
+    // clean-between-calls invariant as TransitiveReduce's walk scratch: grown
+    // on demand, restored all-zero in O(marked) via `touched`, so it is clean
+    // on entry for ANY kernel this thread touches.
     static thread_local std::vector<uint8_t> seen;
     static thread_local std::vector<Var> touched;
     if (seen.size() < k.nvars)
@@ -777,12 +772,12 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     chain.push_back(e.second);
   if (last)
     chain.push_back(last);
-  // An EMPTY chain is not a proof (D-CONG-TAUT, 2026-07-27). It arises when the
+  // An EMPTY chain is not a proof (calculus D-CONG-TAUT). It arises when the
   // lemma is trivially true — for `{x,¬x,z}` the replay assumes ¬x, immediately
   // finds x false, and reports a conflict whose only "reason" is the assumption
   // itself, so the reason walk yields no antecedents. The line would then be
-  // `<id> <lits> 0 0`, which every LRAT checker rejects (cake_lpr and lrat-check
-  // both did, on `tierC/T105.2.0`) while DRAT accepts the same clause for free.
+  // `<id> <lits> 0 0`, which every LRAT checker rejects while DRAT accepts the
+  // same clause for free.
   // Refusing here covers ALL THREE ladders (ITE match, XOR match, degeneracy)
   // at their one shared choke point: the caller then skips the merge, which is
   // sound — dropping an inference costs completeness, emitting an uncheckable
@@ -811,9 +806,9 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
 // variable, so one goes unit and the other falsifies); the size-0 lemmas ARE the
 // conclusions, added persistently by the caller with the chains returned here.
 //
-// Validated against drat-trim BEFORE implementation, in all four shapes —
-// |cancelled| = 1 and 2, both relation parities, and the unary-survivor form —
-// with the bare conclusion rejected in every one. See the 2026-07-21 log entry.
+// Validated against drat-trim in all four shapes — |cancelled| = 1 and 2, both
+// relation parities, and the unary-survivor form — with the bare conclusion
+// rejected in every one. The ladder is not optional.
 bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
                               const std::vector<std::vector<Lit>> &concl,
                               std::vector<std::vector<uint64_t>> &concl_chains,
@@ -1111,9 +1106,9 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
     // The case-split literal can coincide with (the negation of) a merged
     // output — `cond == a`, or two gates whose outputs are already the same
     // literal — making the lemma tautological. Skip the whole merge rather
-    // than emit it: DRAT would accept it and LRAT checkers reject the chain
-    // (T105.2.0, 2026-07-27). Both formats bail so the two proof modes keep
-    // the same search trajectory.
+    // than emit it: DRAT accepts such a clause and LRAT checkers reject the
+    // chain. Both formats bail so the two proof modes keep the same search
+    // trajectory.
     if (Proof::tautological(l, 3))
       return false;
     if (!lrat) {
@@ -1143,17 +1138,16 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
 // input in its representative class, and gb's base then conflicts. (a∨¬b) mirrors.
 // DRAT emits bare adds (the checker searches).
 //
-// **Returns false iff the equivalence could NOT be justified** — under LRAT the
+// RETURNS FALSE iff the equivalence could NOT be justified — under LRAT the
 // bridging chain can fail (a `big_path_chain` whose only route runs through a
 // root-assigned literal is not traversable), and there is then no checkable line
-// to emit. The caller must SKIP the merge: losing an inference is sound, emitting
-// an unverifiable proof line is not (N2). All-or-nothing — both binaries are
-// justified before either is added, so the formula never carries one half of an
-// equivalence the union-find believes in whole. (Before 2026-07-21 a failed chain
-// silently emitted `add_rup(id, lits, 2, nullptr, 0)`, i.e. an LRAT line with an
-// EMPTY hint list, which every checker rejects — measured on both lrat-check and
-// cake_lpr. Unreachable then only because nothing assigned mid-round; C3's unit
-// channel makes it reachable.)
+// to emit. The caller must SKIP the merge: losing an inference is sound,
+// emitting an unverifiable proof line is not (N2). All-or-nothing — both
+// binaries are justified before either is added, so the formula never carries
+// one half of an equivalence the union-find believes in whole. Emitting
+// `add_rup(id, lits, 2, nullptr, 0)` on a failed chain instead produces an LRAT
+// line with an EMPTY hint list, which every checker rejects; the unit channel
+// makes that reachable.
 template <class Find>
 bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
                      Find &find) {
@@ -1270,7 +1264,7 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
 
 } // namespace — public rule entry points (header-declared) below
 
-// External-linkage forwarders for the two primitives V5 Sweep shares (S-d).
+// External-linkage forwarders for the two primitives Sweep shares.
 // The implementations stay internal; only these names cross the TU boundary.
 bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
                            std::vector<uint64_t> &chain) {
@@ -1289,8 +1283,8 @@ void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
     ClauseIndex index; // built once, shared by XOR + ITE extraction
     build_clause_index(k, index);
     // …and so is its canonical iteration order: the index is immutable for the
-    // whole apply, so XOR and ITE sorting it separately produced two
-    // bit-identical vectors (2026-08-04).
+    // whole apply, so XOR and ITE sorting it separately would produce two
+    // bit-identical vectors.
     const std::vector<SmallKey> sorted = sorted_keys(index);
     const size_t before_xor = out.size();
     congruence_extract_xor(k, index, sorted, out);

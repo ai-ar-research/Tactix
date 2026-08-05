@@ -4,7 +4,7 @@
 // (self-subsuming resolution) is C2's add-RUP + delete territory.
 //
 // References (plan §5 "evidence, not templates"; independent lineages per
-// rev 25 — Glucose ships only MiniSat-style preprocessing backward
+// — Glucose ships only MiniSat-style preprocessing backward
 // subsumption (simp/SimpSolver.cc, same 1000 clause-size cap), and
 // CryptoMiniSat's subsumeimplicit.cpp subsumes THROUGH the watch lists,
 // the closest precedent for this rule's binary-subsumers-from-watches and
@@ -27,10 +27,10 @@
 // binary_ids — one id per literal PAIR — cannot name. V4 deletes only
 // pairs with a single live copy; the sweep would need per-copy ids. (3)
 // No steps/effort budget in
-// the rule: WHEN and HOW MUCH are policy territory (rev 17) — a policy
-// wanting bounded work applies per-candidate instances.
+// the rule: WHEN and HOW MUCH are policy territory  — a policy
+// wanting bounded work applies per-candidate instances().
 //
-// V4 RECONCILIATION (rev 33) — why binary subsumers still need no
+// V4 RECONCILIATION  — why binary subsumers still need no
 // redundancy check now that binaries ARE deletable (kernel_delete_binary):
 // this rule deletes an irredundant candidate C on the strength of a
 // subsuming binary D = (a ∨ b) ⊆ C, so C's constraint afterwards survives
@@ -48,15 +48,17 @@
 // would be dead code today.
 //
 // FORWARD-LOOKING CONDITION (not coded — the trigger to code it): if a
-// future rule ever introduces genuinely redundant binaries (hyper-binary
-// resolvents carrying a stored redundant bit) or deletes a binary
-// NON-equivalence-preservingly (a V3b substitute-rewrite re-points edges
-// at an SCC representative — model-preserving only modulo the witness
-// pushed onto ρ, which is a strictly weaker property than the equivalence
-// argued above), then a `binary_is_redundant(k, a, b)` guard becomes
-// MANDATORY at all three binary-subsumer sites: subsumed_by_binary and
-// subsume_forward_try below, and strengthen.cpp's phase-0 SUBSUMED branch
-// (identical reliance). V4 introduces neither, so it stays deferred.
+// rule introduces genuinely redundant binaries (hyper-binary resolvents
+// carrying a stored redundant bit) or deletes a binary
+// NON-equivalence-preservingly (Substitute's rewrite re-points edges at an
+// SCC representative — model-preserving only modulo the witness pushed onto
+// ρ, which is a strictly weaker property than the equivalence argued above),
+// then a `binary_is_redundant(k, a, b)` guard becomes MANDATORY at all three
+// binary-subsumer sites: subsumed_by_binary and subsume_forward_try below,
+// and strengthen.cpp's phase-0 SUBSUMED branch (identical reliance).
+// TransitiveReduce introduces neither. NOTE that the Substitute case named
+// above is no longer hypothetical — that rule ships and is scheduled — so
+// this condition is OPEN and owes a re-check, not a standing deferral.
 //
 // Instance space (plan §5.1 v1 encoding): payload = the arena Ref of a
 // candidate clause; apply_instance tries to forward-subsume exactly that

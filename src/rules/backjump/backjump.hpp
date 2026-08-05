@@ -3,7 +3,7 @@
 // reason. Owns all trail (τ) changes of the conflict-analysis pair.
 // Proof delta: none.
 //
-// Instance space (API-freeze decision, 2026-07-14; narrowed rev 31):
+// Instance space (API-freeze decision):
 // pending.jump_level is the assertion level and, under this kernel's
 // current-level assignment, the ONLY sound target — a target above it
 // stamps the asserting literal too deep, and a later partial restart can

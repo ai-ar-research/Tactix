@@ -10,7 +10,7 @@ namespace tactix {
 
 // formal model (plan §4): Decide iff no conflict and unassigned vars exist and
 // F is not refuted — a PURE soundness precondition, no propagation-fixpoint
-// requirement (D-LEVEL-1, calculus §3, rev 40). A policy may take multiple
+// requirement (D-LEVEL-1, calculus §3). A policy may take multiple
 // decisions in a row without unit propagation between them (the N1 capability a
 // learned/LLM policy reasons over). Off-fixpoint decide used to break the
 // watched-literal invariant — a not-yet-run scan rests a watch on an "ahead"

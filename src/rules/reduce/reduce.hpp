@@ -24,7 +24,7 @@ void reduce_retier(Kernel &);
 
 // delete exactly refs[0..n) (re-validating: reasons/garbage are skipped),
 // emit proof deletes, then collect garbage. The CHOICE of n is the
-// policy's (plan §5 rev 17: ReductionPolicy sub-policy).
+// policy's (plan §5: ReductionPolicy sub-policy).
 ApplyResult reduce_apply_refs(Kernel &, const Ref *refs, size_t n);
 ApplyResult reduce_apply(Kernel &);
 

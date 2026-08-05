@@ -201,10 +201,10 @@ void seed_values(Walker &w, const Kernel &k) {
 // walks instead of 15). Warms up in variable-index order: the references use
 // decision-heuristic order, which would mean popping the score heap / VMTF
 // queue — the very `H` state this op must leave alone.
-// NOT the default, and this is the point: the same knob is worth 2.4x on
-// SCPC-1000-18 and -37% on Tier B (PAR-2 12.30 vs 8.99, crypto1 1.16 s ->
-// 24.13 s, mod4block 6.98 -> 29.39, windows `20260726-0856*`). Opt-in via
-// TACTIX_WALK_WARMUP; a §5.6 dosing arm, not a constant anyone can set right.
+// NOT the default, and this is the point: the same knob is a multiple-x WIN on
+// the walk-decisive instance and a large tier-scale LOSS elsewhere. Opt-in via
+// TACTIX_WALK_WARMUP; a plan §5.6 dosing arm, not a constant anyone can set
+// right.
 void warmup(Walker &w) {
   const uint32_t nlits = w.nlits();
   std::vector<int8_t> val(nlits, 0); // tri-state: 0 unassigned
@@ -502,7 +502,7 @@ static ApplyResult walk_apply_instance(Kernel &k, uint64_t inst) {
   return walk_apply_steps(k, inst);
 }
 
-// Policy operation (plan §4 rev 59, §5.2 rev 71): `H`-only, no proof delta.
+// Policy operation (plan §4, §5.2): `H`-only, no proof delta.
 TACTIX_REGISTER_POLICY_OP(Walk, RuleTier::Macro, walk_guard, walk_apply,
                           walk_instances, walk_apply_instance);
 

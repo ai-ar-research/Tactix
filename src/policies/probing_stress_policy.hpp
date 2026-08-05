@@ -7,7 +7,7 @@
 
 namespace tactix {
 
-// N1 stress policy (Track S · S3, stress-policy skill): hammers P2's
+// N1 stress policy (stress-policy skill): hammers the
 // snapshot/restore scope (kernel_probing_begin/end — watch-relocation and
 // `searched` rollback) far harder than any uniform schedule: at every root
 // visit it applies the probing-family rules (Probe, Backbone, Vivify,

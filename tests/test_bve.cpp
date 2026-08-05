@@ -11,7 +11,7 @@
 using namespace tactix;
 
 // guard: pure quiescent-root precondition (level 0, not refuted). No fixpoint
-// requirement (D-LEVEL purified rev 43).
+// requirement (D-LEVEL purified).
 static void test_guard() {
   Kernel k;
   kernel_reserve_vars(k, 2);
@@ -34,8 +34,8 @@ static void test_occurrences() {
 
   BveOccurrences occ;
   bve_build_occurrences(k, occ);
-  // count-level contract (the struct is flat counts since the 2026-07-25
-  // review): +1 large only; ¬1 binary only; +2 in both; +3 large only
+  // count-level contract (BveOccurrences is flat counts):
+  // +1 large only; ¬1 binary only; +2 in both; +3 large only
   assert(occ.count(internalize(1)) == 1);
   assert(occ.count(internalize(-1)) == 1);
   assert(occ.count(internalize(2)) == 2);
@@ -321,10 +321,8 @@ static void test_retry_filter() {
   assert(!worth_retry(x));
   // a NEW IRREDUNDANT clause on x is new material: retry. (var 14 is
   // otherwise unused, so this adds an occurrence without forming a gate.)
-  // NOTE the kissat-exact alternative (removal-only marking,
-  // TACTIX_BVE_RETRY_REMOVAL_ONLY=1) was measured 2026-07-25 and NOT
-  // adopted — it cost the S4 arrangement's mp1 win (5.3 → 15.5 s) without
-  // fixing mod4block; see kernel.cpp kernel_add_large_clause.
+  // DEVIATION: kissat marks on REMOVAL only. That variant was measured here
+  // and is negative; see kernel.cpp kernel_add_large_clause.
   kernel_add_binary_clause(k, internalize(1), internalize(14));
   assert(worth_retry(x));
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
