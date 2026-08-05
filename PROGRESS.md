@@ -918,6 +918,51 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-05 — C1/C2's deferred `binary_is_redundant` condition: the trigger FIRED, and there is NO defect
+
+`subsume_forward.hpp` carried a FORWARD-LOOKING CONDITION naming *"a V3b substitute-rewrite re-points
+edges at an SCC representative"* as the event that would make a `binary_is_redundant` guard MANDATORY at
+three sites (`subsumed_by_binary`, `subsume_forward_try`, and `strengthen.cpp`'s phase-0 SUBSUMED
+branch). **The named event has fired** — V3 Substitute's rewrite ships and is scheduled — and it is not
+alone: X1 BCE, E1 BVE and E2 Factor have all deleted binaries non-equivalence-preservingly since the note
+was written (2026-07-17, when V4 was the only binary deleter).
+
+**No guard is needed, because the note's criterion was the wrong one.** It demanded that *no rule later
+delete `D` in a way that enlarges the model set*. What soundness actually needs is only that `D ∈ F`
+(irredundant) **at the moment `C` is deleted** — the argument closes there, and every later `F`-rewrite
+carries its own obligation (leave `F ⊨ D`, or push the `ρ` witness that repairs it), which composes with
+an earlier equivalence-preserving deletion. The single fatal fate is `D` being **FORGOTTEN** — dropped
+from `R` with neither entailment nor witness — and no binary can be: `kernel_add_binary_clause` has no
+`redundant` parameter, the watch word has no spare bit, and the Forget paths (S2 Reduce; BVE's redundant
+pivot clauses) act on arena `Ref`s only. All five binary deleters are enumerated and classified in
+`docs/implementation-notes.md` §14; `binary_is_redundant` would be a constant `false`. **Severity at all
+three sites: neither (c)** — no unsound deletion and no unverifiable certificate (`D ⊆ C` propagates at
+least as strongly as `C`, so removing `C` while `D` lives cannot cost a later RUP/RAT check).
+
+**Landed:** the stale comment replaced by the corrected argument + the ONE remaining trigger (a redundant
+binary lifecycle) in `subsume_forward.hpp`, `subsume_forward.cpp`, `strengthen.hpp`, `strengthen.cpp`;
+`calculus.md` C1/C2 soundness lines; `implementation-notes.md` §14 (+ the C1/C2/C3 guard-table row).
+`docs/design/v4-transitive-reduce-design.md` §5 is frozen and now **superseded on this point**.
+**Test:** `tests/test_subsume.cpp` `test_binary_subsumer_then_substitute` runs the composition end to end
+(C1 deletes `C` on binary `D`; V3 deletes `D` and rewrites it; `ρ` restores `C` under the worst
+assignment to the substituted variable). **Negative control:** suppress V3's `kernel_push_witness` pair —
+the exact "constraint evaporates with no repair" fate the guard was meant to prevent — and the new test
+FAILS on `k.values[l4] > 0`, so it is load-bearing. ctest 43/43.
+
+**Reachability counted at the source** (temporary probe on the two C1 sites, the C2 site and both
+`kernel_delete_binary*`, reverted before commit). Random-policy **DRAT** 1 500 cases: 3 826
+binary-subsumer uses, **553 of those binaries later deleted**, in **15.8 %** of solver processes — 1
+failure, the pre-existing case-888 Sweep one below. Random-policy **native LRAT** 1 500 cases: 2 983
+uses, **269 later deleted, 65 of them by V3 Substitute** (the named trigger), in **8.4 %** of processes —
+**0 failures**. The uniform policy saturates this pattern, so no bespoke stress policy was written.
+
+**Unrelated finding, relayed not owned:** the known `--random-policy` DRAT-only failure at index 888
+reproduces on a clean build (pre-existing, not from this diff). Its failing line is `26 -3 0` at proof
+line 150 — the **second half of an equivalence pair** whose first half (`-26 3 0`, line 149) verifies and
+duplicates a clause already at line 45. Stats show V5 Sweep emitted 8 equivalences and Substitute /
+Congruence / Ternary emitted no binaries at all, so this case points at **Sweep's equivalence emission**,
+the same subsystem as `asconhashv12` — not at C1/C2.
+
 ### 2026-08-05 — SCHED-C5: fresh extension vars are demoted BY DEFAULT — and the port was reversed
 
 **Half 1 landed; the T4 half is scoped out, not done (below).** `Kernel::factor_demote_fresh` now
