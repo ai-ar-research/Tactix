@@ -846,8 +846,12 @@ register has the wrong schema. Fix the instrument before spending a tier window 
   moved both, so neither was ever priceable: a win could be the schedule, the deletion ramp, or one paying
   for the other. Now `TACTIX_REDUCE_CADENCE=sqrt|arith` and `TACTIX_REDUCE_RAMP=0|1`, with
   `TACTIX_REDUCE_SQRT` kept as the compound alias so every banked number still reproduces. · [ ] **SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)** `[wire]`
-- [ ] **SCHED-C6 · eager subsumption of learned clauses** `[arch]` · [ ] **SCHED-C7 · random decisions
-  (`randec`)** `[arch]` — **moved here from Track R · R8 on 2026-08-04.** They were filed under the rule
+- [ ] **SCHED-C6 · eager subsumption of learned clauses** `[arch]` · [x] **SCHED-C7 · random decisions
+  (`randec`)** `[arch]` — H-only, no proof delta. kissat ships `randec=1`/`randecfocused=1`/
+  `randecstable=0`, so sequences run in FOCUSED mode only, start at level ≤1 past the conflict limit, and
+  last `randeclength·LOGN(count)` conflicts (`decide.c:57-113`). Tracked as an END CONFLICT rather than a
+  countdown — equivalent, and needs no hook on the conflict path. Reachability measured: `9vliw` 90
+  sequences / 648,250 random decisions, `rbsat` 226 / 305,053, both still solving. **UNPRICED** — **moved here from Track R · R8 on 2026-08-04.** They were filed under the rule
   INVENTORY, but R8's own text called them *"scheduling arms on existing machinery, not new rule
   families"*, so running them under Track R meant two tracks editing the scheduler for the same reason.
   Both are things kissat HAS and we LACK (N4 ledger `WE_LACK_IT`), and both are cheap: C6 subsumes a
@@ -968,6 +972,23 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-05 — SCHED-C7: random decisions (`randec`), the last cheap Stage C wire
+
+A pure **H** operation — it changes WHICH variable is decided, never the formula — so no proof delta and
+no calculus entry, the same category as Rephase and Reorder.
+
+Ported from `decide.c:57-113` with the option defaults read rather than assumed: `randec=1`,
+`randecfocused=1`, **`randecstable=0`** — so the sequences run in FOCUSED mode ONLY, which is the half a
+"kissat does random decisions" summary would have got wrong. A sequence may start only at level ≤ 1 once
+the conflict limit is reached, and runs `randeclength(10)·LOGN(count)` conflicts.
+
+Implementation note: the sequence is tracked as an **end conflict count**, not a countdown. That is
+equivalent to kissat's per-conflict decrement and needs no new hook on the conflict path. The RNG is
+splitmix64 with a fixed seed — a random policy that is not replayable is not testable.
+
+**Reachability measured, not assumed:** `9vliw` 90 sequences / 648,250 random decisions (UNSAT), `rbsat`
+226 / 305,053 (SAT). Both still solve. **Unpriced** — no tier A/B yet.
 
 ### 2026-08-05 — ▶▶ S-f: Sweep was ALREADY SCHEDULED by S-d, and unbudgeted. Corrected + given kissat's effort
 
