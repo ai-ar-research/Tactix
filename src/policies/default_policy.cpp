@@ -991,18 +991,27 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                          (int)e.dosed,
                          (unsigned long long)(e.meter ? e.meter(k) : 0),
                          (unsigned long long)e.limit);
-          if (!e.enabled || phase_unsat)
+          e.tm.occasions++;
+          if (!e.enabled || phase_unsat) {
+            e.tm.dec_disabled++;
             continue;
-          if (e.max_applies && e.applies >= e.max_applies)
+          }
+          if (e.max_applies && e.applies >= e.max_applies) {
+            e.tm.dec_cap++;
             continue; // DIAGNOSTIC round cap (see SlotEntry::max_applies)
-          if (e.defer_preprocess && k.stats.conflicts == 0)
+          }
+          if (e.defer_preprocess && k.stats.conflicts == 0) {
+            e.tm.dec_preprocess++;
             continue; // S4: no elimination at preprocessing (kissat fastel=0)
+          }
           e.applies++;
           const RuleVTable &r = rules[e.rule];
           const uint64_t limit = e.limit;
           if (e.dosed && r.instances && r.apply_instance) {
-            if (!r.guard(k))
+            if (!r.guard(k)) {
+              e.tm.dec_guard++;
               continue;
+            }
             // S4 residual fix (2026-07-25 morning, probe 1561900): a
             // during-search BVE dose fires only on binary-DENSE formulas —
             // the same axis and threshold as Factor's density short-circuit.
@@ -1039,16 +1048,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 const uint64_t elim = k.stats.bve_eliminated;
                 const uint64_t lim = k.bve_cost_limit;
                 if (lim && elim &&
-                    k.stats.bve_resolutions / elim > lim)
+                    k.stats.bve_resolutions / elim > lim) {
+                  e.tm.dec_density++;
                   continue; // this formula is paying too much per elimination
+                }
               } else if (!admit_none) {
                 uint64_t dose_density = 6;
                 if (const char *dd = std::getenv("TACTIX_BVE_DOSE_DENSITY"))
                   dose_density = std::strtoull(dd, nullptr, 10);
                 if (dose_density &&
                     k.binary_ids.size() <
-                        dose_density * kernel_num_output_vars(k))
+                        dose_density * kernel_num_output_vars(k)) {
+                  e.tm.dec_density++;
                   continue;
+                }
               }
             }
             // I2 one-shot (TEMPORARY, see phase-entry carve-out above): the
@@ -1193,11 +1206,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               bve_rounds_run_++;
             if (bve_oneshot)
               e.doses++; // consume the one shot (skipped hereafter)
+            e.tm.admitted++; // the dosed branch ran; it exits here, not below
             continue;
           }
           // batch / unmetered: one canonical round, metered post hoc
-          if (e.meter && e.meter(k) > limit)
+          if (e.meter && e.meter(k) > limit) {
+            e.tm.dec_budget++;
             continue;
+          }
           const bool factor_entry =
               e.budget_aware && !std::strcmp(r.name, "Factor");
           // S4 factordelay (kissat factor.c:1068-1085, arrangement-scoped):
@@ -1218,8 +1234,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 bve_rounds_run_ > 14 ? 19u : bve_rounds_run_ + 5;
             for (uint32_t d = 0; d < decades; d++)
               threshold *= 10;
-            if (active >= threshold)
+            if (active >= threshold) {
+              e.tm.dec_warmup++;
               continue;
+            }
             // Completion-gated new-material watermark (kissat's
             // literals_factor analog for a binary-only Factor, design
             // §3.b): re-fire only on new binaries / root-fixed vars since
@@ -1229,8 +1247,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             if (k.stats.conflicts > 0 &&
                 k.binary_ids.size() <= e.binaries_mark &&
                 k.arena.size() <= e.arena_mark &&
-                kernel_root_fixed(k) <= e.root_fixed_mark)
+                kernel_root_fixed(k) <= e.root_fixed_mark) {
+              e.tm.dec_material++;
               continue;
+            }
           }
           // S4 dosing (attribution probes 2026-07-24): in a during-search
           // arrangement phase, an UNMETERED closure (Congruence/Factor/
@@ -1239,8 +1259,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // Tier C cost, while dropping them entirely breaks urq45.
           if (!e.meter && k.stats.conflicts > 0 &&
               k.binary_ids.size() <= e.binaries_mark &&
-              kernel_root_fixed(k) <= e.root_fixed_mark)
+              kernel_root_fixed(k) <= e.root_fixed_mark) {
+            e.tm.dec_material++;
             continue;
+          }
           // Closure delay ladder (see solve entry): consume one delayed
           // occasion AFTER material admission, so the ladder counts real
           // scheduling occasions (kissat kimits delay semantics — same
@@ -1248,10 +1270,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (closure_delay_ && !e.meter && k.stats.conflicts > 0 &&
               e.delay_count > 0) {
             e.delay_count--;
+            e.tm.dec_delay++;
             continue;
           }
-          if (!r.guard(k))
+          if (!r.guard(k)) {
+            e.tm.dec_guard++;
             continue;
+          }
+          e.tm.admitted++;
           // Budget handoff (kernel.hpp work_budget): a budget-aware batch
           // entry gets the phase's REMAINING ledger budget — in the rule's
           // own currency — around its apply, so one canonical round cannot
@@ -1408,7 +1434,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // density gate rejected, so today's beneficiaries cannot regress. Its
             // arena scan deliberately charges no factor_ticks — a rejected call
             // must not consume the once-per-solve first-dose allowance.
-            {
+            if (factor_entry) {
               uint32_t density = 6;
               if (const char *d = std::getenv("TACTIX_FACTOR_DENSITY"))
                 density = static_cast<uint32_t>(std::atoi(d));
@@ -1437,6 +1463,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                   admit = true;
               }
               k.factor_admit = admit;
+              if (!admit) {
+                e.tm.admitted--; // counted above; the policy is declining it
+                e.tm.dec_density++;
+              }
             }
             k.work_budget = handed;
             ar = apply_rule(r, k);
@@ -1449,6 +1479,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // limits.factor.marked untouched (factor.c:1094-1101); the
             // re-entry cost is one O(1) density check per phase.
             const uint64_t spent = e.meter(k) - spent_before;
+            e.tm.handed += handed;
+            e.tm.spent += spent;
             if (spent > 0)
               e.doses++;
             // Completion-gated watermark advance (kissat factor.c:1153):
@@ -1456,6 +1488,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             // exhaustion — advance the new-material marks. A budget-cut
             // round leaves them, so it re-fires next phase and resumes.
             if (spent > 0 && spent <= handed) {
+              e.tm.completed++;
               e.binaries_mark = k.binary_ids.size();
               e.arena_mark = k.arena.size();
               e.root_fixed_mark = kernel_root_fixed(k);
@@ -1477,6 +1510,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               e.delay_count = e.delay_current;
             }
           }
+          if (ar == ApplyResult::Ok)
+            e.tm.ok++;
           if (ar == ApplyResult::Unsat || k.inconsistent) {
             phase_unsat = true;
             break;
@@ -1522,9 +1557,60 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   }
 }
 
+void DefaultPolicy::report_slot(const Kernel &k) const {
+  // SCHED-A1. One line per slot entry. DIAGNOSTIC ONLY — no scheduling decision
+  // reads any of it. It exists to answer the question today's stats cannot:
+  // was an entry STARVED (declined for budget) or IDLE (ran and found nothing)?
+  // Those are opposite defects with opposite fixes and identical signatures in
+  // `c stats`, which is why the dose axis has been uninterpretable.
+  //
+  // `spent/handed` is the one to read first: persistently << 1 means the entry
+  // finishes early and its per-mille is not the binding constraint; ~1 with
+  // `completed` far below `admitted` means it is being CUT mid-round and its
+  // budget IS binding. `dec_budget` counts occasions it never started at all.
+  const std::vector<RuleVTable> &rules = tactix_rules();
+  for (const SlotEntry &e : inprocess_slot) {
+    const SlotEntry::Telem &t = e.tm;
+    if (!t.occasions)
+      continue;
+    // SELF-CHECK: occasions must equal admitted + every decline reason. If it
+    // does not, a `continue` was added without a counter and this entry's
+    // numbers are silently incomplete — which is worse than no telemetry,
+    // because it reads as a finding. Printed, not asserted, so a release build
+    // still reports rather than dying mid-solve.
+    const uint64_t declined =
+        t.dec_disabled + t.dec_cap + t.dec_preprocess + t.dec_guard +
+        t.dec_budget + t.dec_delay + t.dec_material + t.dec_warmup +
+        t.dec_density + t.dec_oneshot + t.dec_nonviable;
+    const char *balance = (t.admitted + declined == t.occasions) ? "" : "  ***UNACCOUNTED***";
+    std::printf(
+        "c slot %-18s occ %6llu adm %5llu ok %5llu | dec dis %llu cap %llu "
+        "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu dns %llu "
+        "one %llu nv %llu | handed %llu spent %llu completed %llu%s\n",
+        rules[e.rule].name, (unsigned long long)t.occasions,
+        (unsigned long long)t.admitted, (unsigned long long)t.ok,
+        (unsigned long long)t.dec_disabled, (unsigned long long)t.dec_cap,
+        (unsigned long long)t.dec_preprocess, (unsigned long long)t.dec_guard,
+        (unsigned long long)t.dec_budget, (unsigned long long)t.dec_delay,
+        (unsigned long long)t.dec_material, (unsigned long long)t.dec_warmup,
+        (unsigned long long)t.dec_density, (unsigned long long)t.dec_oneshot,
+        (unsigned long long)t.dec_nonviable, (unsigned long long)t.handed,
+        (unsigned long long)t.spent, (unsigned long long)t.completed, balance);
+  }
+  (void)k;
+}
+
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
   DefaultPolicy policy;
-  return policy.solve(k, stop);
+  const int res = policy.solve(k, stop);
+  // SCHED-A1: opt-in via TACTIX_SLOT_STATS. Deliberately NOT on by default —
+  // `default_solve` does not know main's `quiet`, and competition stdout must
+  // stay exactly what the runner expects. Off by default also makes this
+  // increment provably behaviour-preserving: no output changes, so the
+  // byte-identical gate covers the whole change rather than most of it.
+  if (std::getenv("TACTIX_SLOT_STATS"))
+    policy.report_slot(k);
+  return res;
 }
 
 } // namespace tactix

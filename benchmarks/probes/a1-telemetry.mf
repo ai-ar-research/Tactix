@@ -1,0 +1,6 @@
+base|9vliw_bp_mc.shuffled|tierB|pin-n1fix|300|0
+telem|9vliw_bp_mc.shuffled|tierB|pin-a1|300|1
+base|sted5_0x24204-50|tierB|pin-n1fix|300|0
+telem|sted5_0x24204-50|tierB|pin-a1|300|1
+base|b22_1|tierB|pin-a1|300|0
+telem|b22_1|tierB|pin-a1|300|1
