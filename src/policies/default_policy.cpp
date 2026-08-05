@@ -126,7 +126,16 @@ void DefaultPolicy::update_mode_limits(const Kernel &k) {
     const uint64_t focused_ticks = search_ticks(k) - mode.ticks_at_focus_entry;
     mode.ticks_limit = search_ticks(k) + focused_ticks;
   } else { // just entered focused
-    const uint64_t n = (mode.count / 2) + 1;
+    // Growth key = kissat's `(statistics->switched + 1) / 2` (mode.c:90).
+    // `switched` and `limits.mode.count` are incremented at the SAME site
+    // (mode.c:204-205) from the same zero, so they are equal here, and this
+    // branch runs only when mode.count is EVEN — for even c, (c+1)/2 == c/2.
+    // This used to read `(mode.count / 2) + 1`, one AHEAD of the reference: on
+    // the first focused re-entry it scaled by 2·log10(11)^4 ≈ 2.35 rather than
+    // 1·log10(10)^4 = 1, so every focused interval was too long and stable mode
+    // got correspondingly less of the search. max(1) keeps nlogpown's count > 0
+    // precondition if the key is ever read at count 0.
+    const uint64_t n = mode.count / 2 ? mode.count / 2 : 1;
     const double log4 = std::pow(std::log10(static_cast<double>(n) + 9), 4);
     mode.conflicts_limit =
         k.stats.conflicts +

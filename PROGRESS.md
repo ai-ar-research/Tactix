@@ -805,8 +805,14 @@ register has the wrong schema. Fix the instrument before spending a tier window 
 - [ ] **SCHED-B2 · private per-rule tick meters (`Kernel::tick_sink`)** `[arch]` — a `uint64_t *` the kernel's
   charge sites increment IN ADDITION to `stats.ticks`; pure accounting, nothing in the kernel reads it.
 - [ ] **SCHED-B3 · V4 currency → ticks, together with a resumption cursor** `[arch]`
-- [ ] **SCHED-B4 · C1/C2 currency → per-partner-visit** `[wire]` · [ ] **SCHED-B5 · SwitchMode growth-key
-  off-by-one + `search_ticks` scope** `[wire]`
+- [ ] **SCHED-B4 · C1/C2 currency → per-partner-visit** `[wire]` · [x] **SCHED-B5 · SwitchMode growth-key
+  off-by-one + `search_ticks` scope** `[wire]` — both halves verified against the reference source, not
+  inferred: the growth key was `(mode.count/2)+1` against kissat's `(switched+1)/2` (`mode.c:90`), and
+  `switched`/`mode.count` are incremented at the SAME site from the same zero (`mode.c:204-205`), so ours
+  ran exactly one ahead — 2·log10(11)⁴ ≈ 2.35× the reference's scale on the first focused re-entry. And
+  `search_ticks` was missing kissat's minimize/shrink charges (`minimize.c:52`, `shrink.c:180`, option
+  `minimizeticks` **default 1**), so it under-counted search work and stretched every window denominated
+  in it. Priced with the rest of Stage B.
 
 #### Stage C — the free wires (T1/T5): mechanisms we own and never wired
 
@@ -940,6 +946,34 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-04 late — SCHED-B5: the mode growth key ran one switch ahead of kissat, and `search_ticks` under-counted
+
+Two `[wire]` defects, both read off the reference source rather than inferred from behaviour.
+
+**The growth key.** `update_mode_limits` used `n = (mode.count / 2) + 1`; kissat uses
+`count = (statistics->switched + 1) / 2` (`mode.c:90`). Those look different but resolve cleanly:
+`switched` and `limits.mode.count` are incremented at the *same* site from the same zero
+(`mode.c:204-205`), so they are equal here, and the focused branch runs only when `mode.count` is EVEN —
+for even `c`, `(c+1)/2 == c/2`. So the reference key is `c/2` and ours was `c/2 + 1`, **exactly one
+ahead**. On the first focused re-entry that scales the interval by `2·log10(11)⁴ ≈ 2.35` instead of
+`1·log10(10)⁴ = 1`: focused mode ran long and stable mode got correspondingly less of the search, growing
+in the same direction forever after. `kissat_nlogpown(c,4) = c·(log10(c+9))⁴` (`kimits.c:27`) — our scale
+FUNCTION already matched; only its argument was wrong.
+
+**`search_ticks` scope.** kissat charges `search_ticks` additively from four search-side sites —
+`propsearch.c:24`, `analyze.c:158`, `minimize.c:52`, `shrink.c:180` — the last two under option
+`minimizeticks`, whose default is **1**, so they are live in the shipped configuration. We compute the
+same quantity *subtractively* (`k.stats.ticks − inprocess.ticks`) and had only the analyze charge. So
+minimize and shrink derefs were free in our accounting, `search_ticks` under-counted search work, and
+every window denominated in it — the stable-mode budget, every effort limit — ran longer than the
+reference's. Added the two charges at `analyze.cpp:198` (minimize) and `:562` (shrink).
+
+Checked and NOT changed: Walk charges no kernel ticks at all, so it is not part of this gap; and kissat
+re-anchors `solver->mode.ticks` on both branches while we anchor only on focused entry — equivalent,
+since the delta is consumed only when leaving focused.
+
+ctest 41/41. Behaviour change is certain but its size is unpriced — it goes into the Stage B measurement.
 
 ### 2026-08-04 late — ▶▶ THE AGGREGATOR NOW REPORTS SINGLE-INSTANCE SENSITIVITY — and the back-audit is ugly
 
