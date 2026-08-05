@@ -11,12 +11,11 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**IN FLIGHT: R5 Sweep S-c's fuzz legs** (jobs `1582651` sweep-reach2, `1582652` fuzz-swc-ctrl), submitted by the parallel Track R stream — its work lives in a git WORKTREE and is not on `main` yet. Everything else from this session is complete and collected.
-**▶ NO *RELEASE* BUILD MATCHES HEAD — build a fresh dir before the next measurement**, and never reuse one
-([[build-path-ownership]]). `pin-lratfix` (Release) carries the propagate fix but predates the
-`kernel_lrat_chain` assert; `pin-facablate` predates both. Only `pin-assert-fixed`/`-nofix` are current, and
-they are **Debug** builds for the N2 demonstration — not usable for timing. Sweep the 19 stale `build/pin-*`
-at wrap-up; all are reproducible from their commits.
+**NOTHING IN FLIGHT** — R5 Sweep S-c's fuzz legs completed (4000/0 on both formats plus an OFF
+control). **But S-c lives in worktree `agent-acf1ed0ff40f20677` (commit `2b5062e`) and is NOT on
+`main`** — verified no-effect if merged (byte-identical proofs and trajectories), so the merge is a
+judgement call, not a risk: merging keeps the branch from drifting against Stage B's edits to
+`default_policy.cpp`; holding keeps ~1,300 inert lines off `main` until S-d makes them load-bearing.
 
 **WHERE WE STAND** (window `20260804-1543`, git `6018366`, idle partition, one submission each):
 **Tier B 86.51 (25/28)** vs kissat 9.78 and cadical 40.38 · **Tier C 309.05 (29/30)** vs kissat 230.74 and
@@ -96,7 +95,7 @@ conflicts, so unit routing is irrelevant there; a different divergence drives th
 
 **(e) V6's unit channel** (2,231 vs our 14; `find_units` is only 844 of it — the rest is real).
 **(f)** First Tier D run — built and frozen (793), never executed, a phase-3-exit prerequisite.
-**(g)** Track R · R5 S-c. **(h)** `--track` flag so T4's SC25-set PAR-2 is first-class.
+**(g)** Track R · R5 **S-d** (S-c is implemented, unmerged). **(h)** `--track` flag so T4's SC25-set PAR-2 is first-class.
 **(i)** Revisit `D-LRAT-FALLBACK`'s doubled per-task wall limit (Tier C 1:42 → 3:22) — it reserves 2× the
 wall for a rarely-firing path.
 
@@ -612,6 +611,31 @@ lever, absent new evidence.
     Verified three independent ways — LRAT replay, entailment by enumeration, core discipline — over **207 k refutations**, plus 40 micro cases
     through the REAL drat-trim and lrat-check (`tests/sweep_proofs.sh`). Lesson: the first version of BOTH oracle and emitter produced only
     ONE-STEP derivations, so the lemma chains went untested while green; both now assert a multi-step floor
+  - [◐] **S-c · candidate selection + environment construction — IMPLEMENTED, NOT MERGED.** Detector only:
+    seeds, BFS environment with per-clause provenance, two-direction refutation. **`NoOp` on every proof
+    path, and deliberately NOT registered** — an always-NoOp registry entry would report guard-true and
+    apply nothing, the same shape as the Factor N1 breach; the registry line lands with S-d. Verified
+    no-effect on `main`: byte-identical proofs and trajectories on 2 instances. Evidence: ctest 39/39
+    Release+Debug/ASan; a 20k-formula brute-force oracle (62,870 environments, 4,380 claims each
+    re-checked against every model); fuzz both formats 4000/0 + an OFF control; **reachability counted at
+    the source** — 8,174 environments, 32,358 sub-solver solves, 807 equivalences (its FIRST probe was
+    vacuous — fixed generator seed instead of the harness's `seed+i` — and was redone).
+    Worktree `agent-acf1ed0ff40f20677`, commit `2b5062e`. **Decision owed: merge now or hold until S-d.**
+  - [ ] **S-d · emission via strategy (a), the RUP fast path.** The first increment where Sweep DOES
+    something. After the sub-solver claims `x ≡ y`, assume `x ∧ ¬y` in the MAIN kernel at probing scope and
+    propagate; a conflict hands back a checker-ordered chain via `congruence_rup_chain` — V6's C4 idiom,
+    already proven against two checkers. **Deliberately the narrow version:** it only works where the
+    equivalence is RUP over the main formula, "which is exactly the easy case sweep is not for" (design
+    §4), so it is a FAST PATH, not the strategy. Landing it proves detect → emit → checker end-to-end
+    before the harder core mapping. **This is where the registry line, the `docs/calculus.md` entry and the
+    default-on decision all land**, because it is where Sweep first has a proof delta.
+  - [ ] **S-e · emission via strategy (b), the general path.** Map the sub-solver's core back to
+    main-formula clause ids and emit the resolution chain. What kissat does, and the honest general answer
+    — a swept equivalence is entailed but NOT RUP, which is the whole reason kitten exists.
+  - [ ] **S-f · scheduling.** `TACTIX_SLOT_ENABLE=Sweep` A/B on Tier B+C, then a default decision.
+    **Gate it after SCHED Stage B** — it is a dosing measurement and the meter is not yet honest. Also
+    doses the probe, which is currently unbounded (it turned 9 UNSAT verdicts into timeouts at the fuzz
+    5 s cap), so `TACTIX_SWEEP_PROBE` must not be set in any tier run until then.
 - [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles as the §5.3 **extensibility acceptance test** (pure plugin, no
   kernel edit)
 - [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
