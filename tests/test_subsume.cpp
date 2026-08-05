@@ -5,6 +5,7 @@
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/registry.hpp"
+#include "rules/substitute/substitute.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
 
 #include <cassert>
@@ -214,6 +215,57 @@ static void test_proof_deltas() {
   assert(saw_delete); // exactly the subsumed clause was deleted
 }
 
+static bool has_binary(const Kernel &k, Lit a, Lit b) {
+  const WatchHead &h = k.watches.heads[a];
+  for (uint32_t i = 0; i < h.size;) {
+    const Watch w{k.watches.arena[h.offset + i]};
+    if (!w.binary()) {
+      i += 2;
+      continue;
+    }
+    if (w.other() == b)
+      return true;
+    i += 1;
+  }
+  return false;
+}
+
+// C1 -> V3 composition. C1 deletes an irredundant clause on a BINARY's
+// strength with no redundancy check; V3 Substitute then deletes that very
+// binary, replacing it with its rewrite onto an SCC representative and
+// pushing a reconstruction witness for the substituted variable. The
+// subsumed clause carries no witness of its own, so rho is the only thing
+// that can restore it. Pinned here for the WORST search assignment to the
+// substituted variable (the one falsifying both original clauses).
+static void test_binary_subsumer_then_substitute() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit l1 = internalize(1), l2 = internalize(2), l4 = internalize(4);
+  add(k, {1, 4, 3}); // C, irredundant, subsumed by D
+  kernel_add_binary_clause(k, l1, l4, ++k.next_clause_id);              // D
+  kernel_add_binary_clause(k, negate(l4), l2, ++k.next_clause_id);      // 4 -> 2
+  kernel_add_binary_clause(k, negate(l2), l4, ++k.next_clause_id);      // 2 -> 4
+  assert(subsume_forward_apply(k) == ApplyResult::Ok);
+  assert(k.stats.forward_subsumed == 1 && live_clauses(k) == 0);
+  // repr of the SCC {lit(2), lit(4)} is the smaller literal, lit(2), so
+  // variable 4 is the one eliminated and D is the binary that dies.
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(k.stats.substitute_vars == 1);
+  assert(!has_binary(k, l1, l4)); // the subsumer is GONE
+  assert(has_binary(k, l1, l2));  // only its rewrite survives
+  // adversarial model of the FINAL formula: (1 v 2) satisfied through 2, and
+  // the eliminated variable assigned so that the ORIGINAL C and D are false.
+  const int8_t model[4] = {-1, 1, -1, -1}; // vars 1..4
+  for (int v = 0; v < 4; v++) {
+    k.values[make_lit(v, false)] = model[v];
+    k.values[make_lit(v, true)] = static_cast<int8_t>(-model[v]);
+  }
+  kernel_extend_model(k);
+  assert(k.values[l4] > 0); // rho recovered 4 from its representative
+  assert(k.values[l1] > 0 || k.values[l4] > 0);                     // D
+  assert(k.values[l1] > 0 || k.values[l4] > 0 || k.values[internalize(3)] > 0); // C
+}
+
 int main() {
   test_guard();
   test_basic_subsume();
@@ -224,6 +276,7 @@ int main() {
   test_registry_instance_surface();
   test_enumeration_purity();
   test_proof_deltas();
+  test_binary_subsumer_then_substitute();
   printf("test_subsume: all ok\n");
   return 0;
 }

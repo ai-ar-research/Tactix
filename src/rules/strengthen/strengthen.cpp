@@ -133,8 +133,8 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
           k.stats.strengthen_visits++; // SCHED-B4: a binary partner compared
           const Lit o = w.other();
           if (phase == 0) {
-            // no redundancy check on the binary partner: subsume_forward.hpp's
-            // V4 reconciliation (deviation 3 above) covers this branch
+            // no redundancy check on the binary partner: the binary-subsumer
+            // argument in subsume_forward.hpp (deviation 3 above) covers this
             if (marks[o]) { // (l ∨ o), both in candidate: subsumes
               p.res.kind = CheckResult::SUBSUMED;
               if (lrat)
