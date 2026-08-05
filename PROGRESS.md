@@ -12,10 +12,11 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
 **NOTHING IN FLIGHT** — every array and fuzz leg from this session is complete and collected.
-**▶ NO `build/pin-*` DIR MATCHES HEAD.** `pin-lratfix` carries the propagate fix but predates the
-`kernel_lrat_chain` assert; `pin-facablate` (ex-`pin-bfa`) predates both. **Build a fresh dir before the next
-measurement** — and never reuse one ([[build-path-ownership]]). Sweep the 17 stale `build/pin-*` at wrap-up;
-all are reproducible from their commits.
+**▶ NO *RELEASE* BUILD MATCHES HEAD — build a fresh dir before the next measurement**, and never reuse one
+([[build-path-ownership]]). `pin-lratfix` (Release) carries the propagate fix but predates the
+`kernel_lrat_chain` assert; `pin-facablate` predates both. Only `pin-assert-fixed`/`-nofix` are current, and
+they are **Debug** builds for the N2 demonstration — not usable for timing. Sweep the 19 stale `build/pin-*`
+at wrap-up; all are reproducible from their commits.
 
 **WHERE WE STAND** (window `20260804-1543`, git `6018366`, idle partition, one submission each):
 **Tier B 86.51 (25/28)** vs kissat 9.78 and cadical 40.38 · **Tier C 309.05 (29/30)** vs kissat 230.74 and
@@ -49,16 +50,20 @@ timeout**) against **−1 Tier C solve** (`ContextModel`) plus one more concentr
 **+8.89 PAR-2, ~1.3 noise floors**, while Tier B more than halves. So the blanket knob is the wrong
 instrument, not the wrong idea. **What is new: per-instance outcomes on BOTH sides of the admission decision
 over the 14/28 B and 19/30 C instances broad flips** — the strongest labelled signal §5.6's admission-dosing
-exhibit has had. Prior art says a hand-designed separator will fail (L15's four dead gates, L5 at chance, and
-the 2026-07-30 reference study found no such axis in kissat or cadical), so **do not build a fifth static
-gate**; this is phase-6 arm material and the honest near-term move is to bank the labelled data. Report §7.
+exhibit has had. **Prior art says a hand-designed separator will fail:** four independent admission gates
+were each measured against NO gate and all four lost badly (27–52 vs 9.17 PAR-2, `2026-07-28-all-rules-on.md`);
+the best static BVE-skip separator made 4/13 misclassifications, i.e. chance
+(`2026-07-20-bve-skip-feasibility.md`); and the 2026-07-30 reference study found no such axis in kissat or
+cadical. So **do not build a fifth static gate**; this is phase-6 arm material and the honest near-term move is to bank the labelled data. Report §7.
 **▶ AND THE QUESTION IS "WHEN TO RUN FACTOR", NOT "WHAT THRESHOLD" (probe 1582267, report §5b).** Both
 regressions reproduce **bit-identically** under `TACTIX_FACTOR_DENSITY=0` — Factor-ON reached through a
 route sharing no code with the scope branch (`mp1-Nb5T15` 11,249,172 conflicts under BOTH arms; both
 `ContextModel` arms TO at 578 factorings). **The scope knob is innocent; Factor's PRESENCE is the cause**,
 and it is **trajectory poison, not overhead** (36× / **83×** the conflicts). Tuning the threshold cannot
-separate these cases because the threshold is not what reaches them — L9's "when to eliminate is the
-measured lever", now reproduced for Factor with labels on both sides.
+separate these cases because the threshold is not what reaches them. **WHEN to eliminate is a large
+measured lever** — removing BVE admission entirely costs **+192.67 Tier C PAR-2 and three solves**
+(window `20260730-111853`) — but no shipped admission FEATURE has earned it: the same density predicate on
+Factor is never the best of three arms, and on Tier B(28) removing it is flat (105.21 vs 105.84).
 
 **(b) `fclqcolor`** is NO LONGER blocked on "needs broad admission" — broad solves it (TO → 244.3 s). It is
 blocked on *targeted* admission. Its own defect is unchanged and still worth pricing independently: applied
@@ -258,39 +263,18 @@ L6 with a number attached. Quoting "where we stand" from one window is precise t
 **Noise floor — USE 6.72 for SAME-WINDOW arms (window `20260804-030938`, idle partition, three
 bit-identical arms: 364.50 / 362.17 / 357.78, per-instance median 4.8 s).** The older 10.8 below is the CONTENDED bar; keep it only for
 runs that shared the partition.
-**Superseded measurement (window `20260731-013523`):** three **bit-identical** arms (a payoff-bound sweep
-that turned out to be inert — Log) scored **346.16 / 356.95 / 353.99**, i.e. **10.8 PAR-2 of aggregate
-spread between identical configs**, and a per-instance range averaging **24.7 s** (goldcrest alone
-**245 s = 72 %**). Read every Tier C delta below that bar as noise, and prefer per-instance
-evidence with its own replicate range over an aggregate difference. **Caveat (audit 2026-08-03): this window
-ran 01:35–03:28 and overlapped the full Tier C array `20260731-021615` (02:16–04:04) by ~1 h 12 m plus ~20
-single-instance probes**, so 10.8 is an upper bound on quiet-partition noise, not a clean measurement of it.
-Re-measure on an idle partition before letting a verdict rest on the bar itself.
+**The older 10.8 bar** was three bit-identical arms in a CONTENDED window (`20260731-013523`, which overlapped a full Tier C array by ~1 h 12 m), so it is an upper bound on contended noise, not a measurement of quiet-partition noise. Use 6.72 for idle, 10.8 only for runs that shared the partition.
 
-**Older windows** (aggregates only — the per-instance detail is in each run's `results.json`):
-**`20260801-105456-B` shipped 105.65 (24/28) · broad-alone 64.15 (26/28) · nerb-alone 127.42 (23/28) · broad+nerb 113.45 (24/28), kissat 9.91** and **`20260801-092459-C` shipped 323.88 (29/30) vs cadical 315.38 = 1.027×, broad+nerb 468.43 (27/30)** — task #11's factorial; **both shared the partition with a concurrent TB4b array, so absolute PAR-2 is not cross-window comparable** (within-window A/B and the cadical ratio are). ·
-`20260731-013514-B` 105.30 (24/28) · `20260730-142436-B` 105.40 (24/28) · `20260730-111850-B` 105.21
-(24/28) · `20260730-085538-B` 103.24 (24/28) · `20260729-220951-B` 102.28 (24/28), the first run on the
-expanded list. Tier C: `20260731-013523` 331.60 (29/30) vs cadical 316.25 · `20260730-142439` 323.67
-(29/30) vs 313.18 · `20260730-111853` 324.24 (29/30) · `20260730-085509` **`x2rate8` arm** 319.19 (29/30) vs
-cadical 317.04 (**the arm literally named `shipped` in that window is 397.94 at 28/30** — 319.19 is the arm
-subsequently ADOPTED; the gate section below states this correctly)
-· `20260729-094225` 361.89 (**29/30**, not 28/30) at X2 20‰, the pre-fix baseline. **The shipped Tier C
-ratio moved 1.007–1.066× across these windows at an unchanged default; it is now 1.129× at the R-d default —
-so quote a window, never a single best number.** **Pre-2026-07-29 Tier B numbers (7.94 / 9.27 / 9.46, kissat
-8.51) are `core14` only** (7.94 and 9.27 are cross-window aggregates, not any single run's PAR-2).
+**Older windows** — aggregates only, per-instance detail in each run's `results.json`, and **not cross-window comparable** (see the bar above). The shipped Tier C ratio moved 1.007–1.066× across the 07-29→07-31 windows at an UNCHANGED default, which is the whole argument for same-window A/B. **Never mix 14- and 28-instance Tier B PAR-2** — pre-2026-07-29 Tier B numbers are `core14`.
 
-**▶ PROTOCOL BREAK — pre-2026-07-28 Tier C aggregates are NOT comparable to anything after it.** Until the
-like-for-like proof protocol settled, an instance whose DRAT check exceeded the 2400 s checker budget was
-scored **UNSOLVED even though tactix solved it**, costing a full 2×1200 s penalty. Verified example:
-`20260727-082011-C` scored `urq45` unsolved at a **354.5 s solve** because its check took **2400.1 s**.
-Such windows overstate tactix's Tier C PAR-2 by up to ~+68. Never quote a pre-07-28 Tier C aggregate
-against a current one.
+**▶ PROTOCOL BREAK — never quote a pre-2026-07-28 Tier C aggregate against a current one.** Before the like-for-like proof protocol settled, an instance whose DRAT check exceeded the checker budget was scored UNSOLVED even though we solved it (verified: `urq45`, a 354.5 s solve scored unsolved on a 2400.1 s check), overstating our Tier C PAR-2 by up to ~+68.
 
 ## Standing lessons — measured, do not re-derive
 
-**▶ MOVED to [`docs/lessons.md`](docs/lessons.md)** (L1–L25, living, never renumbered). Look them up
-there; they are cited by number across commits, reports and the `docs/log/` archives.
+**▶ MOVED to [`docs/lessons.md`](docs/lessons.md)** — 22 active entries, freely revisable, **not to be
+cited by number in any document.** They exist to guide research and decisions; when one informs a choice,
+write the finding and its primary evidence into the document instead of pointing at a number. Six were
+DELETED on 2026-08-04 for resting on single draws from chaotic instances.
 
 **What stays here, because it is STATUS not a lesson — the may-not-gate set.** A per-instance verdict on
 `mod4block`, `j3037`, `jgiraldezlevy`, `urq45`, `frb45` or `ContextModel` **may not gate a change alone**
@@ -577,7 +561,8 @@ Report `benchmarks/reports/2026-07-28-all-rules-on.md`.
 **MEASURED CONSTRAINT on the joint-admission lever — narrower than it looks.** mod4block is NON-MONOTONE in how consistently the trio runs: never
 9.26, always 13.17, **once-then-stop 263.87** — doing the rewrite then withdrawing the maintenance is far worse than either extreme, so the trio
 must run all-solve or not at all. That kills every mid-solve decision (you cannot measure the trio's productivity without running it, and having
-run it you cannot stop), leaving only a STATIC per-instance decision, which L5 measured at chance. Phase-6 context feature, not an engineering
+run it you cannot stop), leaving only a STATIC per-instance decision — and the best such separator measured
+4/13 misclassifications, i.e. chance (`2026-07-20-bve-skip-feasibility.md`). Phase-6 context feature, not an engineering
 lever, absent new evidence.
 
 - [x] **R1 · X2 `HyperTernaryRes`** (cadical `ternary.cpp`) — add-RUP only, no witness. Landed `d0bb6ec`; **ON since `3fb85bd`**
