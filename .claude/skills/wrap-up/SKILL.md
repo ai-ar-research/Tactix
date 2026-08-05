@@ -43,7 +43,17 @@ resume anchor, step 6).
    ```
    tools/docs/archive-log.py --check     # exit 1 = archiving is due
    tools/docs/archive-log.py             # do it
+   tools/docs/check-progress.py          # exit 1 = the status surface is STALE
    ```
+
+   **`check-progress.py` is the anchor's staleness check.** ERRORs are facts that
+   have become false and must be fixed before the session ends: a citation of a
+   lesson that no longer exists, or a "NOTHING IN FLIGHT" claim contradicted by
+   the queue. It also prints ground truth the anchor is usually wrong about —
+   which `build/pin-*` dirs are current and of what build type, and the newest
+   completed tier run — so the anchor is checked against reality rather than
+   against memory. *Asked twice in one session whether the anchor was current,
+   the answer was no both times.*
 
    `PROGRESS.md`'s Log holds the **current ISO week only**; completed weeks move
    verbatim to `docs/log/<ISO-week>.md`. If it archived anything: **update
