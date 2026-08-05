@@ -7,150 +7,46 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-04 late — **plan rev 80 (N4, the strategy floor, is now a non-negotiable)**. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run. **Also this session: an N2 defect FIXED** (LRAT unit ids missed off the root level, shipped in TB4b the same day — `52a4e8f`), the **N4 scheduling-parity ledger LANDED** (pass 1: 216 mechanisms, 132 gaps; **pass 2 = SCHED-A3's option-set enumeration, all 418 reference options, +15 gaps incl. 4 HIGH and 6 corrections to pass 1**) with **Track SCHED** staged, and an **OPEN N1 BREACH recorded** in `Factor` (`SCHED-N1FIX`, top of the queue).
 
-## ▶ RESUME HERE (2026-08-05) — phase 3; **next = SCHED-C5/C6/C7, then Stage D; and S-f**
+## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = `SCHED-C5`, then `C6`, then Stage D**
 
-Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
+**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **42/42**, fuzz green at HEAD
+(random-policy+LRAT 4000/0, DRAT 10000/0 — jobs `1583885`/`1583886`).
 
-**▶ DONE OVERNIGHT (all committed + pushed, ctest 42/42):** SCHED **B1–B5 complete AND MEASURED**
-(Tier B −13.23 / Tier C neutral, both deciders shown to be lotteries by paired draws) · SCHED **C1, C3,
-C4** · V5 Sweep **S-d and S-e** (Sweep is now a REGISTERED rule with a proof delta) · a new
-`tests/test_scheduling.cpp` · the aggregator now reports **single-instance sensitivity**.
+**Where we stand.** Tier B **92.32 (25/28)** vs kissat 10.0 / cadical 41.0 · Tier C **406.25 (28/30)** vs
+kissat 228 / cadical 313 (window `20260805-0023*-sf2`, node017-pinned). T3 unchanged.
 
-**▶ NOT DONE — the honest remainder of the overnight ask:**
-- **S-f — DONE, verdict = keep Sweep ON at 100‰.** Measured a wash on both tiers once the fragile
-  instances come out (−0.08 B / +3.90 C), but **Tier C loses one solve (29 → 28)**; paired draws on that
-  instance are OWED before the wash reading is final.
-- **SCHED C2, C5, C6** — not started (C7 is done). C2 is a *documentation* item (accepted-deviation row; the naive
-  port is measured negative 3× and must NOT be re-run).
-- **SCHED Stages D, E, F, G** (D1–D3, E1–E2, F1–F2, G1–G2) — not started.
+**▶ THE EXACT NEXT STEP.** `SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)`
+(checklist under Track SCHED → Stage C). `Kernel::factor_demote_fresh` (kernel.hpp:752) exists and is
+tagged **ENV**, defaulting OFF, while `SP-FACTOR-2` records that **both references demote
+unconditionally** — so this is the "ENV is the status quo, not the target" shape: make it the default,
+measure, and move the row off ENV. Then `C6` (eager subsumption of learned clauses, `[arch]`), then
+Stage D (`D1` authored phase order as data → `D2` PROBE/ELIMINATE split → `D3` watermark).
 
-**▶ IN FLIGHT:** final fuzz legs `1583614` (random-policy+LRAT) / `1583615` (DRAT) on the asserting build.
+**▶ FIRST, WRITE THIS TEST** (highest-value item on the board, ~30 min): a conformance check that
+**every scheduled `Inprocess` rule has an `EffortSpec` row**, next to `tools/docs/check-config-wiring.py`.
+Last night's worst defect was V5 Sweep scheduled *without a governor* — `9vliw` 14 s → unsolved at 300 s —
+and nothing caught it: `check-config-wiring` catches the mirror image (config we own and never wire), the
+unit tests call `sweep_apply` directly and never traverse the slot, and **fuzz was green because it is a
+performance regression**. Registering an `Inprocess` rule SCHEDULES it (the S4 arrangement enables them
+all); a rule with no spec runs unmetered and unbudgeted.
 
-**WHERE WE STAND** (window `20260804-1543`, git `6018366`, idle partition, one submission each):
-**Tier B 86.51 (25/28)** vs kissat 9.78 and cadical 40.38 · **Tier C 309.05 (29/30)** vs kissat 230.74 and
-cadical 312.02. **T3 both halves: kissat subset 1.346× · cadical subset 1.069× / full 0.990×.**
-Note the kissat half moved **1.271× (08-03, pre-TB4b) → 1.346× (today, post-TB4b)** — see (c′).
-**Fuzz green at HEAD:** 10,000/0 on each of DRAT · native LRAT · `--random-policy --lrat` (jobs 1582606–08), plus the paired assert demonstration behind the N2 fix (unfixed 36 aborts / fixed 0). ctest 41/41. Regression corpus now 11 entries.
+**▶ OWED MEASUREMENTS (each is a job, none blocks the next step).**
+- **Paired draws on the Tier C instance Sweep costs** (S-f verdict is otherwise a wash). Protocol: the
+  `mod4block`/`sted5` one — 12 perturbations mechanically independent of the rule, K′ counted only on
+  draws where the BASE trajectory moved. **3 for 3 so far every headline decider has been a lottery.**
+- **C7 (`randec`) and C1/C3/C4 are UNPRICED** — landed on reference-parity grounds, no tier A/B.
+- **The BVE ramp slack-8 ceiling has no warrant beyond one tier** (its U-shape justification was
+  withdrawn); Tier C/D re-sweep owed since `489fab1`.
+- **`tools/solvers/variants/` + 35 `build/pin-*` dirs** are sweepable (all reproducible from commits).
 
-**▶ ITEM (a) IS SETTLED: broad Factor admission is HELD, and the `j3037` veto is RETIRED.** Report
-`benchmarks/reports/2026-08-04-broad-factor-admission-retest.md`. The three things to carry forward:
-- **`j3037` was a LOTTERY** (K′=11 paired draws, probes 1581982+1582186): the 08-03 pattern did not
-  reproduce in ANY of 18 pairs, and in the new tier window broad is **26× FASTER** there. That hold was
-  decided by a coin flip. **Do not cite it again.**
-- **The real loss is `ContextModel`** — 10.0 s → 1200 TO (120×), and it **replicates 3/3 windows for this
-  knob** (22.2× / 54.9× / 120.2× across three bases). That is what distinguishes it from `j3037`.
-- **Broad is +3 Tier B solves (incl. `fclqcolor`) and −1 Tier C solve, and costs T3 on BOTH halves**
-  (kissat 1.346 → 1.500×). The gate decides it.
+**▶ READ BEFORE TRUSTING ANY DELTA.** `--aggregate` now prints a **fragility line**: the minimum number
+of instances whose removal flips the sign. **`k=1` means the run has NOT answered the question** — run
+paired draws on the named instance before reading the headline as a verdict. On Tier C a solve flip is
+worth 2400 PAR-2, so any verdict that changes `#solved` is single-instance decided *by construction*;
+read `#solved`, not the aggregate. Noise floor **6.72 PAR-2** (Tier C, same-window, node-pinned).
 
-**▶▶ TOP OF THE QUEUE — `SCHED-N1FIX`, an OPEN N1 BREACH.** `Factor`'s guard reports applicable and
-`factor_instances` offers an instance, but `factor_apply` NoOps on the density gate, so **no API caller —
-LLM, RL, or RandomPolicy — can apply a legal factoring on a binary-sparse formula.** N1 is the top
-non-negotiable and this outranks every performance item below. Fix = MOVE the predicate to DefaultPolicy
-(BVE's identical gate already lives there correctly); DefaultPolicy behaviour is byte-identical, the API
-surface is restored, and whether to KEEP the predicate stays a separate measured question. Track SCHED.
-
-**THEN, in order** — re-ranked 2026-08-04 late, after the broad-admission re-test.
-
-**(b′) TARGETED FACTOR ADMISSION — the biggest measured prize on the board, and now cleanly labelled.**
-Broad admission's ledger is **+3 Tier B solves** (`or_randxor`, `mod4block`, **`fclqcolor` — the last Tier B
-timeout**) against **−1 Tier C solve** (`ContextModel`) plus one more concentrated regression
-(`mp1-Nb5T15` +801 s). **Those two instances ARE the entire Tier C cost**: quarantine them and broad is
-**+8.89 PAR-2, ~1.3 noise floors**, while Tier B more than halves. So the blanket knob is the wrong
-instrument, not the wrong idea. **What is new: per-instance outcomes on BOTH sides of the admission decision
-over the 14/28 B and 19/30 C instances broad flips** — the strongest labelled signal §5.6's admission-dosing
-exhibit has had. **Prior art says a hand-designed separator will fail:** four independent admission gates
-were each measured against NO gate and all four lost badly (27–52 vs 9.17 PAR-2, `2026-07-28-all-rules-on.md`);
-the best static BVE-skip separator made 4/13 misclassifications, i.e. chance
-(`2026-07-20-bve-skip-feasibility.md`); and the 2026-07-30 reference study found no such axis in kissat or
-cadical. So **do not build a fifth static gate**; this is phase-6 arm material and the honest near-term move is to bank the labelled data. Report §7.
-**▶ AND THE QUESTION IS "WHEN TO RUN FACTOR", NOT "WHAT THRESHOLD" (probe 1582267, report §5b).** Both
-regressions reproduce **bit-identically** under `TACTIX_FACTOR_DENSITY=0` — Factor-ON reached through a
-route sharing no code with the scope branch (`mp1-Nb5T15` 11,249,172 conflicts under BOTH arms; both
-`ContextModel` arms TO at 578 factorings). **The scope knob is innocent; Factor's PRESENCE is the cause**,
-and it is **trajectory poison, not overhead** (36× / **83×** the conflicts). Tuning the threshold cannot
-separate these cases because the threshold is not what reaches them. **WHEN to eliminate is a large
-measured lever** — removing BVE admission entirely costs **+192.67 Tier C PAR-2 and three solves**
-(window `20260730-111853`) — but no shipped admission FEATURE has earned it: the same density predicate on
-Factor is never the best of three arms, and on Tier B(28) removing it is flat (105.21 vs 105.84).
-
-**(b) `fclqcolor`** is NO LONGER blocked on "needs broad admission" — broad solves it (TO → 244.3 s). It is
-blocked on *targeted* admission. Its own defect is unchanged and still worth pricing independently: applied
-factorings SATURATE at 78 across `factor_size` 3/5/7/9 while offers rise 42 k → 51 k — the bottleneck is
-ACCEPTANCE, and the **27×27 grid cap (S2a)** is the first thing to price.
-
-**(c′) TB4b's own gate is NOT clean — reconsider it.** Its confirming Tier C (`20260804-141431`) is
-**−36.54 PAR-2 over all 30 but +27.56 EXCLUDING the fragile three**, i.e. the entire win is the three
-instances it targeted. `frb45` is ~2/3 of that cost and is **newly measured chaotic** (Log), softening it to
-**+9.45**, ~1.4 noise floors — but T3's binding kissat half also moved **1.271× → 1.346×** across the same
-ship. **Not a revert order**; an unclosed question with a real number attached.
-
-**(c) V6's remaining cost** — now **Track SCHED · SCHED-G1**. −50 % banked at byte-identical proofs (`ee9f3ab`);
-T87+T105 are still ~19 % of the Tier C kissat gap. **Re-profile first** — the old proportions no longer
-describe the remaining ~98 s. **The outcome is AT PARITY; do not re-open it** (per kind on T105: AND 3,423
-vs kissat 4,348, XOR 268 vs 531, ITE 0 vs 18 — and kissat's headline `congruent` BUNDLES a scan that is our
-V3, so the aggregates are not comparable at face value).
-**Attack EXTRACTION and the index sort, NOT the closure table** (profiled job 1580096:
-`congruence_extract_gates` 6.13 %, `SmallKey` machinery ~13.6 %, the closure map only 1.2 % — that
-structural hypothesis was REFUTED). **Measured dead, do not redo:** extraction volume · arity caps · a
-round/effort budget · the proof chain (`chain_fail = 0`) · stale-key eviction (`stale = 0`) · the XOR
-collision rate · C0 sign absorption · the ITE extractor (0 merges vs kissat's 18).
-Untouched leads: `CongGate` vectors → arena (blocked only by `tests/test_congruence.cpp:246`), the closure's
-duplicate-accumulating `occ`, ITE's node-based `ce` map.
-
-**(d) The rest of TB4b.** `jumpreasons` and cadical's `chronoreusetrail` are unported. Motive: trail reuse
-COLLAPSED 85 % → 17 % on `veer_axi` once trails got deeper, and `chronoreusetrail` is by name that
-interaction. **`j3037`/`urq45` chrono sensitivity is NOT explained** — they learn ~10 units in 3.4 M
-conflicts, so unit routing is irrelevant there; a different divergence drives their 7.8×/2.8×.
-
-**(e) V6's unit channel** (2,231 vs our 14; `find_units` is only 844 of it — the rest is real).
-**(f)** First Tier D run — built and frozen (793), never executed, a phase-3-exit prerequisite.
-**(g)** Track R · R5 S-d (S-c landed). **(h)** `--track` flag so T4's SC25-set PAR-2 is first-class.
-**(i)** Revisit `D-LRAT-FALLBACK`'s doubled per-task wall limit (Tier C 1:42 → 3:22) — it reserves 2× the
-wall for a rarely-firing path.
-
-**BOUNDED, do not over-invest:** `D-VIVIFY-SCHED` is a yield fix (Vivify 0.7–1.9 % of clock, direction
-unmeasured); `D-SUBST-UNBOUNDED` should buy ~0 (kissat WITH both bounds substitutes MORE than we do without);
-V4 TransitiveReduce ceiling ≈−5.7 PAR-2; V6's ITE extractor is dead (0 merges, kissat 18); the mid-round
-C1/C2 budget is measured-negative at the default (the DOSE axis is still live).
-
-**STANDING DIRECTIVES.** *Every implemented proof rule ships ON* ([[no-rule-off-configs]]). **Plan rev 77:
-no crude approximations of an understood mechanism** — implement what matches or exceeds kissat, or ship the
-approximation with a stated reason AND a named closer in the deviation ledger; an approximation of a known
-mechanism is **a defect, not a §5.6 arm**. **Plan rev 78: when #solved and PAR-2 conflict, #SOLVED WINS**
-(cost still measured, reported, and given a closer; losing a solve is never covered).
-
-**MEASUREMENT HYGIENE — read before trusting any delta.** Tier C noise floor **6.72 PAR-2** between
-bit-identical arms on an IDLE partition (window `20260804-030938`; per-instance median **4.8 s**). The older
-**10.8** figure is the CONTENDED bar — keep it for runs that shared the partition, since it was measured
-under contention (window `20260731-013523`,
-01:35–03:28, overlapped the full Tier C array `20260731-021615`, 02:16–04:04, by ~1 h 12 m). Treat 10.8 as an
-upper bound on quiet-partition noise, and re-measure it on an idle partition before any verdict hangs on it.
-**▶ THE MAY-NOT-GATE SET (a per-instance verdict on any of these is inadmissible until it replicates).**
-`j3037`, `jgiraldezlevy`, `urq45` (probe 1579386: stable under replication ≤1.0 %, **8–23× under unrelated
-knobs**) · `mod4block` (`2c77bce`: 73× for kissat too) · **`frb45-21-2` — ADDED 2026-08-04** (probe 1582186:
-bit-identical under replication and under `chrono` 90/105/115, but **6.2×** across `walk600` 105.1 s →
-`bumplim9` 652.3 s) · **`ContextModel`** (the most reproducible replicate pair in Tier C, yet **~19–20×**
-under each of two unrelated changes — knife-edge, not noisy). Small Tier C aggregates near any of them are
-unreliable — quote per-instance replicate ranges.
-**The set is not a licence to quarantine at will.** A NEW loss is real until it goes through the
-discriminator itself, and quarantining by analogy is the specific error the 2026-08-04 pre-registration
-forbade — `ContextModel` looked like `j3037` and was the opposite (it REPLICATES 3/3 windows).
-**Never mix 14- and 28-instance Tier B PAR-2.**
-**▶ AND WALL CLOCK MOVES INDEPENDENTLY OF TRAJECTORY UNDER CONTENTION.** `veer_axi` gave **201,607 ms** and
-**152,283 ms** on two runs of the SAME binary with **bit-identical** decisions, conflicts and propagations —
-a **32 %** spread, from sharing the partition with a tier array. **Read wall-clock deltas against the
-trajectory counters** (decisions/conflicts/propagations are deterministic; wall time is not), and pair A/B
-arms in ONE submission. A single probe on that instance cannot resolve anything under ~1.3×.
-**The current T3 miss is SMALLER THAN THE NOISE FLOOR** (band 349.05, shipped 358.12, miss **+9.07 PAR-2** =
-0.84 floors) — so "the CaDiCaL half is missed" is a *reported* status, not a robust measurement. The
-retirement-OFF pass at 1.039× sits ~1.8 floors inside the band and IS robust. **`veer_axi` is likewise a
-cliff solve:** in the adjacent window `20260802-093011-B-base` the retirement-OFF base solved it in 286.7 s
-against a 300 s cap (98.05, 25/28), so the OFF baseline is 98.05–109.60 across builds and one of R-d's two
-headline solves sits ~13 s from the cutoff. The within-window A/B stands; the headline "+2 solves" is partly
-a cliff effect.
-
-**CLUSTER PROTOCOL.** Plan §8.1 + slurm-jobs skill (`run.py --tier X --slurm`, fuzz via `tools/fuzz/slurm.sh`,
-sbatch-only). M3-Pro numbers are INVALID.
+**▶ NOT DONE from the overnight ask:** SCHED **C2** (documentation only — an accepted-deviation row; the
+naive port is measured negative 3× and must NOT be re-run), **C5, C6**, and Stages **D, E, F, G**.
 
 ## ▶ CURRENT TIER TABLES (plan §8.1 rev 75 — full per-instance, newest window first)
 
@@ -806,26 +702,19 @@ register has the wrong schema. Fix the instrument before spending a tier window 
 
 #### Stage B — an honest meter (T3). *Every dose number in the solver is currently unreliable.*
 
-- [x] **SCHED-B1 · ceiling at RUN time · anchor on the ADMITTED path · per-entry `thresh`** `[wire]`+`[arch]`
-  (`806ce20`+`8b5667c`) — parts 1-2 alone made the batch pre-check UNFIREABLE (`limit = meter(k) + delta`,
-  checked as `meter(k) > limit`, meter cannot move between), so part 3 is a fix, not an addition.
-- [x] **SCHED-B2 · private per-rule tick meters (`Kernel::tick_sink`)** `[arch]` (`80ec42d`) — a `uint64_t *` the kernel's
-  charge sites increment IN ADDITION to `stats.ticks`; pure accounting, nothing in the kernel reads it.
-- [x] **SCHED-B3 · V4 currency → ticks, together with a resumption cursor** `[arch]` — the meter alone was
-  banked NEGATIVE twice (2026-07-25); the missing half was that `instances()` emitted the FIRST `cap`
-  sources every round, so a truncated round replayed its head and the tail was never reduced. Rotating by
-  `Kernel::transitive_cursor` is kissat's `flags[idx].transitive` pending bit (`transitivekeep` **default
-  1**) in one word. N1 intact: `apply_instance` still takes any source, so rotation removes no capability.
-- [x] **SCHED-B4 · C1/C2 currency → per-partner-visit** `[wire]` — cadical's `stats.subchecks`
-  (`subsume.cpp:86,362,459`). Measured under-pricing: `DivS_862_11` Strengthen **2,823,550 checked vs
-  7,657,144,162 visits — 2712×**; Subsume 622×; `9vliw` 238×. · [x] **SCHED-B5 · SwitchMode growth-key
-  off-by-one + `search_ticks` scope** `[wire]` — both halves verified against the reference source, not
-  inferred: the growth key was `(mode.count/2)+1` against kissat's `(switched+1)/2` (`mode.c:90`), and
-  `switched`/`mode.count` are incremented at the SAME site from the same zero (`mode.c:204-205`), so ours
-  ran exactly one ahead — 2·log10(11)⁴ ≈ 2.35× the reference's scale on the first focused re-entry. And
-  `search_ticks` was missing kissat's minimize/shrink charges (`minimize.c:52`, `shrink.c:180`, option
-  `minimizeticks` **default 1**), so it under-counted search work and stretched every window denominated
-  in it. Priced with the rest of Stage B.
+- [x] **SCHED-B1** ceiling at RUN time · anchor on the ADMITTED path · per-entry `thresh`
+  (`806ce20`+`8b5667c`) — parts 1-2 alone made the batch pre-check *unfireable*; part 3 is the fix.
+- [x] **SCHED-B2** private per-rule tick meters `Kernel::tick_sink` (`80ec42d`)
+- [x] **SCHED-B3** V4 currency → ticks **+ a resumption cursor** (`33940b8`) — the meter alone banked
+  negative twice; `instances()` replayed its head every round, so an honest budget bought starvation.
+  `Kernel::transitive_cursor` rotates (N1-safe: `apply_instance` still takes any source).
+- [x] **SCHED-B4** C1/C2 currency → per-partner-visit (`33940b8`) — cadical `subsume.cpp:86,362,459`.
+  Under-pricing measured: `DivS` Strengthen **2712×**, Subsume 622×, `9vliw` 238×.
+- [x] **SCHED-B5** SwitchMode growth-key off-by-one + `search_ticks` scope (`c33cba8`) — key was
+  `(c/2)+1` vs kissat's `c/2` (`mode.c:90`); `search_ticks` missed minimize/shrink (`minimizeticks`=1).
+- [x] **STAGE B GATE (B1–B5), `24eba22`:** Tier B **−13.23** / Tier C **neutral** ex-lottery; both
+  deciders (`sted5`, `j3037`) shown lotteries by paired draws. Report
+  `benchmarks/reports/2026-08-04-sched-stage-b-gate.md`. **B3/B4/B5 added no measurable Tier C value.**
 
 #### Stage C — the free wires (T1/T5): mechanisms we own and never wired
 
@@ -1226,54 +1115,7 @@ ctest 41/41. Behaviour change is certain but its size is unpriced — it goes in
 
 ### 2026-08-04 late — ▶▶ THE AGGREGATOR NOW REPORTS SINGLE-INSTANCE SENSITIVITY — and the back-audit is ugly
 
-Three gates in a row had their SIGN decided by one instance, each caught only by hand-decomposing after
-the fact: broad Factor admission, Stage B Tier B (+17.75 → −2.38 without `mod4block`), Stage B Tier C
-(+46.57 → −32.27 without `mp1-Nb5T15`). A real regression and a one-instance lottery print identically in
-the headline, so `run.py --aggregate` now computes the **minimum number of instances whose removal flips
-the sign** and names them. `k=1` prints **UNDECIDED** — not a claim the instance is a lottery, a claim
-that the run has not answered the question and paired draws come next.
-
-It discriminates rather than crying wolf: Tier B verdicts mostly come back robust ("survives removing any
-4 instances"), Tier C mostly does not. **Re-running it over the last 12 windows:**
-
-| window | headline | flips on |
-|---|---|---|
-| C-b1gate (Stage B) | +46.57 | **1** — `mp1-Nb5T15` |
-| B-b1gate (Stage B) | +17.75 | **1** — `mod4block` |
-| C-preB1 | +107.10 | 2 — `mp1-Nb5T15`, `urq45` |
-| C-shipped facon | +109.72 | 3 — `ContextModel`, `mp1-Nb5T15`, `minxor128` |
-| C-shipped facoff | −10.92 | **1** — `frb45` |
-| **C-tb4b (a LANDED change)** | +36.54 | 2 — `jgiraldezlevy`, `j3037` |
-| C-ucr | +13.70 | **1** — `jgiraldezlevy` |
-| B-tb4b | −12.48 | **1** — `mod4block` |
-| B-ucr | −15.83 | **1** — `mod4block` |
-| B-shipped facon | −51.83 | robust (survives 4) |
-| B-shipped broad | −48.12 | robust (survives 4) |
-
-Two things fall out. **(1) `mp1-Nb5T15` is a chronic sign-flipper** — it decides four separate Tier C
-windows. That is independent prior evidence, gathered without looking for it, that Stage B's Tier C loss
-is a lottery draw rather than a defect, and it corroborates the paired draws. **It should NOT go in the
-may-not-gate set** (user, 2026-08-04, and they are right): that set is a PERMANENT BLANKET exclusion, and
-at a 1200 s timeout an instance that normally solves in 3–73 s and instead exceeds 1200 s is not sitting
-near a decision boundary — it is a ≥16× blowup, a real tail. A list that hides it would blind the tier to
-genuine tail-risk regressions, which is a worse failure than occasionally spending 12 draws. The draws
-support keeping it visible: both arms solve fast in nearly every draw (base 3.11–72.62 s, Stage B
-2.07–32.56 s, Stage B mostly FASTER than the base's median), so this is not a broadly chaotic instance —
-it has a rare catastrophic branch that Stage B's unperturbed trajectory happens to land in, and we want to
-notice if some future change lands there systematically.
-
-**▶ THE FRAGILITY LINE SUPERSEDES THE LIST.** The may-not-gate set is a blunt permanent instrument that
-predates having a per-run test. `k=1 → UNDECIDED, named instance` does the same job per-comparison and
-prompts draws without permanently blinding the tier. **The set should stop growing**; prefer the
-per-comparison test, and treat existing members as "expect fragility here", not as "inadmissible".
-
-**(2) TB4b's confirming Tier C was 2-instance fragile**, and both are already
-may-not-gate members — a landed change whose confirmation was weaker than it read at the time.
-
-Structural note: Tier C fragility is not bad luck. At timeout 1200 a solve flip is worth 2400 PAR-2, which
-dwarfs every non-flip move on the tier, so **any Tier C verdict that changes a solve count is
-single-instance decided by construction**. `#solved` and the fragility line, not the PAR-2 headline, are
-the things to read there.
+`d955602`. `--aggregate` now reports the **minimum number of instances whose removal flips the sign**, names them, and prints the flipped value; `k=1` prints **UNDECIDED**. Back-run over 12 windows: most Tier C verdicts are 1–2 instance decided, including TB4b's confirming run (a landed change). Structural: at a 1200 s timeout a solve flip is worth 2400 PAR-2, so **any Tier C verdict that changes a solve count is single-instance decided by construction** — read `#solved` and the fragility line there, not the PAR-2 headline. `mp1-Nb5T15` decides four separate windows but is deliberately NOT in the may-not-gate set (see below).
 
 ### 2026-08-04 late — ▶▶ `mod4block` DOES NOT CONVICT STAGE B: 0 of 7 clean draws reproduce the timeout
 
@@ -1342,99 +1184,11 @@ No Stage B verdict yet: Tier C (`1583008`, pinned) is still running.
 
 ### 2026-08-04 late — ~~THE RUNNER WAS MANUFACTURING A CONFOUND~~ — **THE NODE EXPLANATION IS REFUTED**
 
-> **CORRECTED by the entry above.** The runner *did* correlate arm with node, and the interleave +
-> `--nodelist` fixes are kept as hygiene. But the claim below that the node explained the PER-INSTANCE
-> SIGNS is WRONG: the pinned re-run reproduces every one of those wins on a single node. Read the
-> entry above for the real Tier B numbers; read this one only for the instrument change.
-
-The Stage B gate's Tier B half (window `20260804-221715-B-preB1`) came back a regression — pre-B1
-**88.37 (25/28)** vs Stage B **106.12 (24/28)**, a lost solve. It cannot be read, and the reason is the
-instrument, not Stage B. (kissat 9.89 28/28, cadical 40.69 27/28 in the same window.)
-
-The lost solve is `mod4block`, which is IN THE MAY-NOT-GATE SET, so the headline is inadmissible on its
-face. Ex-`mod4block` the run is **−66.78** — a Stage B win. But drop that subset's single biggest mover
-too and it is **+14.65**. Sign flips on which one instance you remove, in both directions. That alone
-means no verdict.
-
-**Then the node column explained it.** `tools/bench/run.py` built its array SOLVER-MAJOR — `for si: for
-rel:` — so arm 0 owns task indices 0..N-1 and SLURM packs it onto whichever node it fills first, spilling
-later arms elsewhere. Arm `preB1` ran **28/28 on node017**; arm `stageB` ran **21 on node017 and 7 on
-node018**. And the sign of the delta tracked the NODE, not the arm:
-
-| subset | n | Stage B delta |
-|---|---|---|
-| same-node, ex-`mod4block` | 20 | **+52.82** (Stage B worse) |
-| cross-node (`stageB` on node018) | 7 | **−119.60** (Stage B better) |
-
-Every visible cross-node pair favours the node018 arm, including the two largest magnitudes in the whole
-run (−81.43, −27.55). The mechanism is not exotic silicon — `sinfo` mid-run: **node017 60/132 cores
-allocated, node018 6/186**. The spilling arm got the quiet machine and won instances it did not earn.
-
-This is not a Stage B problem; it is a defect in every multi-arm run the runner has ever produced this
-way, and it is invisible unless you look at `node`, which nothing did. It also explains why the recorded
-**6.72 PAR-2 floor understates real noise**: those three bit-identical arms all ran on node017, so the
-floor never priced cross-node contention at all — PROGRESS already suspected this and now has the
-mechanism.
-
-**Fixed, two ways.** (1) Task order is now INSTANCE-MAJOR, so an arm spreads over all nodes evenly and one
-instance's arms are adjacent in dispatch. Safe because the aggregator resolves arms through
-`man["solvers"][t["solver"]]`, never index arithmetic. (2) New `--nodelist`, and A/B runs should use it:
-pinning every arm to one node makes them contend alike AND makes the run directly comparable to the 6.72
-floor, which was measured all-on-node017.
-
-The first Stage B submission (`1582685`/`1582754`) is cancelled; resubmitted pinned and interleaved as
-`1582923` (B) / `1583008` (C). No Stage B verdict is recorded from the confounded window — the numbers
-above are evidence about the INSTRUMENT, not about B1.
+`e670fb2` + `9c9344d`. The runner DID correlate arm with node (solver-major task order); fixed by instance-major ordering + a `--nodelist` pin, and both are kept as hygiene. **But the claim that the node explained the per-instance SIGNS is REFUTED by its own re-run:** pinned, the aggregate reproduced to within 0.02 PAR-2 and the seven "cross-node winners" scored −129.64 s pinned vs −119.60 s unpinned. Seven of 28 spilled and happened to be instances where Stage B genuinely wins; I read a post-hoc pattern on a hand-picked subset as evidence.
 
 ### 2026-08-04 late — the BVE ramp ceiling's stated warrant was RETRACTED evidence; the constant stays, the reason changes
 
-Cleared the last 18 lesson-number citations out of `src/policies/**`. Most were mechanical, but three
-justified a shipped constant by the **crypto1 BVE U-shape** — a curve drawn through single draws on an
-instance since found to be dose-chaotic, and deleted from the standing lessons as unsound. A comment whose
-warrant has been retracted is worse than an uncommented constant: it stops the next reader from re-asking.
-
-**What actually holds up the slack-8 ceiling**, checked against `489fab1` rather than assumed: a legitimate
-same-window three-arm Tier B A/B at jobs=4 — HEAD 16.66 / ceiling-16 17.76 / ceiling-8 15.08, plus flat
-fixed bound=8 at 15.85. The form is clean — three arms, one window, equal concurrency. Two things the
-old comment did not say: the delta is
-**single-instance-dominated** (FmlaEquiv −19.3 s of it), and **Tier B has no measured noise floor at all** —
-the 6.72 bar is Tier C — so nothing on record says 15.08 and 15.85 are distinguishable. The architectural
-argument (kissat reaches slack-16 gradually with mode/effort feedback our single blast lacks) is untouched
-and is why the constant stays shipped rather than being reverted to 16 pending measurement.
-
-The Tier C/D re-sweep was owed at landing and is still owed; with the U-shape gone it is now the *only*
-thing that would warrant the constant beyond one tier. Recorded on S1c.
-
-Also fixed a related overstatement in two places: `--reorder=0` was written as costing kissat **nothing**.
-It measured −0.67 PAR-2 on Tier C, which is a **non-detection inside the 6.72 floor**, not a zero. The
-conclusion (Reorder ships OFF) is unchanged; the strength of the prior is not.
-
-ctest 41/41 (comment-only, plus the PROGRESS resync). No behaviour change.
-
-One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
-revisions: DEVELOPMENT_PLAN.md §13. Newest first.
-
-**`R<n>` IS FOUR DIFFERENT NAMESPACES — always read the prefix.** The numbers are cited in frozen reports, so
-they are **never renumbered**; they are disambiguated by prefix instead (2026-08-01). The frozen reports and
-design docs themselves still say bare `R<n>` (e.g. `docs/design/e2-factorsize-design.md` "§5a′/R5" = TD-R5)
-— decode them with this key, which is the only home for it:
-
-| prefix | namespace | owner |
-|---|---|---|
-| `plan R1–R5` | project REQUIREMENTS — R1 proof certificates · R2 competition I/O · R3 proof-rule API · R4 automatic policy · **R5 exceed Kissat** | DEVELOPMENT_PLAN.md §1 |
-| `Track R · R1–R8` | the reference RULE INVENTORY — **R5 = V5 `Sweep`**, R1 = X2, R2 = X1 BCE | PROGRESS.md "Track R" |
-| `TD-R1–R5` | the Tier B TIMEOUT-DIAGNOSIS leads — **R5 = Factor scope (`factor_size`)**, R1 = V4 meter, R2 = BVE density gate | `benchmarks/reports/2026-07-30-tierB-timeouts-diagnosis.md` |
-| `RV-R1–R5` | the codebase-REVIEW routed items — **R1 = Sweep sub-solver fuzz legs**, R2 = Reorder stress policy | `benchmarks/reports/2026-07-29-review-post-track-r.md` |
-
-The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-07-30 log entries below use the
-`TD-` namespace, NOT Track R's.
-
-
-**▶ THIS LOG HOLDS THE CURRENT ISO WEEK ONLY (2026-W32).** Completed weeks are frozen verbatim in
-`docs/log/` — index and the maintenance contract at [`docs/log/README.md`](docs/log/README.md).
-W31 (41 entries: all-rules-ON, TB4b, task #11, R-d, five new standing lessons) · W30 (31: E2 Factor, V6, S4, Walk) ·
-W29 (2) · W28 (2). **Archives are never edited**; where an archived number was later corrected, the
-standing lessons and the current tier tables above are authoritative.
+`7e3d74a`. Cleared the last 18 lesson-number citations from `src/policies/**`. Three justified the slack-8 BVE ramp ceiling by a "crypto1 BVE U-shape" — a curve drawn through single draws on a dose-chaotic instance, since withdrawn. What survives: one same-window three-arm Tier B A/B (`489fab1`) — HEAD 16.66 / ceil-16 17.76 / ceil-8 15.08, flat fixed-8 15.85 — **single-instance-dominated (FmlaEquiv −19.3 s), on a tier with no measured noise floor.** The ceiling ships on that, not on the curve; the Tier C/D re-sweep is still owed. Also: `--reorder=0` costs kissat a **non-detection** (−0.67, inside the 6.72 floor), not "nothing".
 
 ### 2026-08-04 late — V5 Sweep S-c: the detector lands, DETECTION ONLY (Track R · R5)
 `src/rules/sweep/sweep.{hpp,cpp}` + `tests/test_sweep.cpp`. Seed order → depth/clause/variable-capped BFS environment →
