@@ -21,8 +21,9 @@
   user's OTHER projects — never write there** (re-org 2026-08-03, which pulled
   back 589 MB of patched builds, a stray git worktree, and a 565 MB proof dump).
   Homes: patched/instrumented reference builds → `tools/solvers/variants/<name>/`
-  (gitignored; this satisfies L14's real constraint — a variant must not be built
-  inside the *pinned clone*, since `tools/solvers/bin/*` symlink into it);
+  (gitignored; reference counters often need a non-default build — kissat's METRIC
+  tier is compiled out of `-s` — but a variant must never be built inside the
+  *pinned clone*, since `tools/solvers/bin/*` symlink into it);
   regenerable probe artifacts → `benchmarks/probes/scratch/`; extra worktrees →
   `.claude/worktrees/`; throwaway job logs → `$CLAUDE_JOB_DIR/tmp`. Scripts use
   `$(git rev-parse --show-toplevel)`, never a hardcoded absolute path.

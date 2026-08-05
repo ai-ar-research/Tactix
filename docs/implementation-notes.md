@@ -52,7 +52,7 @@ conjunct.
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). |
 | V6 Congruence | `root` | **D-ROOT:** `level==0`. Live V6 deviations are **D-CONG-SKIP** (LRAT path only) and **D-CONG-TAUT** (drops the merge in **both** formats, deliberately, so DRAT and LRAT keep the same trajectory) — completeness branches in the *effect*, not guard conjuncts (§2). D-CONG-LRAT / D-CONG-UNIT / D-CONG-DELETE are CLOSED (§2; D-CONG-UNIT's sound residuals are listed there). |
 | X2 HyperTernaryRes | `!inconsistent · root` | **D-ROOT:** `level==0`. Otherwise pure — "resolvent ≤ 3 literals, non-tautological, not already present" is the abstract precondition itself (`calculus.md` §6c), not a guard. |
-| X1 BCE | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — blockedness is the abstract precondition (`calculus.md` §6c), tested per candidate. Irredundant-only and "units are not candidates" are within-rule scope choices (§4), not guards. **Lesson L15:** measured negative ALONE (Tier B 21.79 vs 8.05) but near-neutral beside X2/X4 (9.22) — the families repair each other, so judge them together. |
+| X1 BCE | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — blockedness is the abstract precondition (`calculus.md` §6c), tested per candidate. Irredundant-only and "units are not candidates" are within-rule scope choices (§4), not guards. **Judge it with X2/X4, never alone:** measured negative ALONE (Tier B 21.79 vs 8.05) but near-neutral beside them (9.22) — the families repair each other (`benchmarks/reports/2026-07-28-all-rules-on.md`). |
 | X4 Instantiate | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — "the probe `l ∧ ¬D` is refuted by propagation" is the abstract precondition (`calculus.md` §6d), tested per (clause, literal) pair. The candidate FILTERS (irredundant-only, size ≥ 3, occurrences ≤ 1, ≥ 3 unassigned) are within-rule *scope*, not guards (§4) — each only narrows which instances the rule offers, and the rule deliberately keeps NO "already tried" memo so the instance surface stays complete under N1 (cadical's `instantiateonce` is a scheduling memo we push to the policy). |
 | E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Native LRAT emits real `add_rat` (D-FACTOR-LRAT closed 2026-07-20). A binary-**density short-circuit** (threshold + history in §5) is a selectivity `NoOp`, not a guard conjunct. **Grid-selection scalars are policy-owned since S2a** (2026-07-23): `Kernel::factor_match` (`FactorMatchPolicy` — seed score, next-factor tie-break, accept); null = the built-in watch-size path, byte-identical either way (§5; `docs/design/s2a-factor-matcher-design.md`). ON since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
 
@@ -457,7 +457,10 @@ continuously refreshed by propagation, ours only when the trail shrinks. Two con
 **The general rule this instantiates.** A reference solver's *schedule* is tuned against its own
 state-maintenance choices: before porting one, check whether the state it reads is maintained the same
 way here — and when a port regresses, ablate the schedule change separately from the mechanism it
-carries (L8). The dry-run control (`TACTIX_WALK_DRY`) is kept for that.
+carries: ablating one feature never measures that feature, since the survivors re-allocate the effort —
+kissat's single-technique Tier C ablations sum to **+33.23** PAR-2 while all of them together cost
+**+14.32** (`20260727-002213-C-kabl`), a 2.3× inflation. The dry-run control (`TACTIX_WALK_DRY`) is kept
+for that.
 
 ## 9. Design decision: reason-side bumping and dynamic tiers are ONE mechanism
 
@@ -543,8 +546,9 @@ to move is the incoming tail X, and if X is unassigned the invariant forces `sea
 everything bumped afterwards goes behind it in ascending weight order, the last unassigned one
 refreshing the cache. The reset would be a no-op with a cost.
 
-**Prior on the measurement (L11).** kissat's own ablation: `--reorder=0` costs kissat −0.7 PAR-2 on Tier
-C, i.e. nothing. Landed for inventory completeness under the "implement every reference rule" directive;
+**Prior on the measurement.** kissat's own whole-tier ablation (`20260727-002213-C-kabl`): `--reorder=0`
+costs kissat **−0.67** PAR-2 on Tier C — a non-detection inside the noise floor, not a measured zero, and
+certainly not a lever. Landed for inventory completeness under the "implement every reference rule" directive;
 the A/B is expected to confirm the reference's own verdict rather than promote it.
 
 ## 11. Design decision: wall-clock phase timers are diagnostic-only, and search is DERIVED
@@ -669,8 +673,9 @@ diagnosis. **SCHED-A3 regenerates it from the REFERENCE's option set** (`kissat/
 `cadical/src/options.hpp`), each row citing the option's default AND the execution path that reaches
 it. Until that lands, absence of a row is not evidence of parity.
 **And check the macros: `grep` is not a source read** — cadical's `factorthresh` is reached by
-token-paste (`limit.hpp:150` `opts.NAME##thresh`) and reading it as dead code cost this project two
-wrong published claims (L19 correction, 2026-08-04).
+token-paste (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never
+appears literally; reading it as dead code cost this project two wrong published claims, both retracted
+2026-08-04.
 
 ### 13.1 The six themes — what the gaps have in common
 
