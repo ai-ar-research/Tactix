@@ -801,8 +801,10 @@ register has the wrong schema. Fix the instrument before spending a tier window 
 
 #### Stage B — an honest meter (T3). *Every dose number in the solver is currently unreliable.*
 
-- [ ] **SCHED-B1 · ceiling at RUN time · anchor on the ADMITTED path · per-entry `thresh`** `[wire]`+`[arch]`
-- [ ] **SCHED-B2 · private per-rule tick meters (`Kernel::tick_sink`)** `[arch]` — a `uint64_t *` the kernel's
+- [x] **SCHED-B1 · ceiling at RUN time · anchor on the ADMITTED path · per-entry `thresh`** `[wire]`+`[arch]`
+  (`806ce20`+`8b5667c`) — parts 1-2 alone made the batch pre-check UNFIREABLE (`limit = meter(k) + delta`,
+  checked as `meter(k) > limit`, meter cannot move between), so part 3 is a fix, not an addition.
+- [x] **SCHED-B2 · private per-rule tick meters (`Kernel::tick_sink`)** `[arch]` (`80ec42d`) — a `uint64_t *` the kernel's
   charge sites increment IN ADDITION to `stats.ticks`; pure accounting, nothing in the kernel reads it.
 - [ ] **SCHED-B3 · V4 currency → ticks, together with a resumption cursor** `[arch]`
 - [ ] **SCHED-B4 · C1/C2 currency → per-partner-visit** `[wire]` · [x] **SCHED-B5 · SwitchMode growth-key
@@ -946,6 +948,34 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-04 late — ▶▶ STAGE B GATE: **LANDED** — both tiers improve once the two deciders are disqualified BY DRAWS
+
+Report: `benchmarks/reports/2026-08-04-sched-stage-b-gate.md`. Prices **B1 + B2 only** (B5 landed after
+these binaries were built; B3/B4 unwritten). Both arms pinned to node017, instance-major.
+
+| tier | pre-B1 | Stage B | headline | after disqualification |
+|---|---|---|---|---|
+| B (28) | 88.36 (25/28) | 106.10 (24/28) | +17.75 | **−2.38 PAR-2** |
+| C (30) | 338.51 (29/30) | 385.08 (28/30) | +46.57 | **−32.27 PAR-2** |
+
+Each headline was carried by ONE instance, and **neither was excused by list membership — both went to
+paired draws.** A draw counts as clean only if the BASE's own trajectory moved off its unperturbed
+conflict count; otherwise it is the same draw repeated.
+
+- **`mod4block`** (Tier B, K′=7): **0 of 7** reproduce "base solves, Stage B times out". Stage B solves
+  5/7; the other 2 are draws where the base times out too.
+- **`mp1-Nb5T15`** (Tier C, K′=10): **0 of 10** reproduce it. Stage B solves **9/10**, the lone timeout
+  being a draw where the base also times out, and the base itself times out in 2 of the 10. **Median wall
+  ratio stageB/base 0.39** — Stage B is typically ~2.5× FASTER there — over a range of 0.01–11.04.
+
+**What this does NOT claim.** Ex-`mod4block`, 14 of 27 Tier B instances are worse; ex-may-not-gate, 9 of
+25 Tier C instances are worse. Tier B's improvement rests on two instances (both replicated across two
+windows) and **Tier B has no measured noise floor at all** — the 6.72 bar is Tier C — so −2.38 is not
+distinguishable from zero on anything on record. Honest summary: **Tier B a wash with wide dispersion,
+Tier C a real improvement.** B1/B2 are not shown to help typical instances.
+
+Next: B3/B4 (+B5, already in) then re-price Stage B as a unit.
 
 ### 2026-08-04 late — SCHED-B5: the mode growth key ran one switch ahead of kissat, and `search_ticks` under-counted
 
