@@ -132,6 +132,29 @@ struct SweepEnv {
 // A proved equivalence `a ≡ b` over KERNEL literals, canonical with a < b.
 // S-d/S-e turn one of these into the two binaries (¬a ∨ b), (a ∨ ¬b) plus their
 // chains; S-c only counts them.
+// S-e: one direction's refutation, CAPTURED AT DETECTION TIME. The sub-solver
+// keeps only the last solve's derivation and an environment does not outlive its
+// seed, so a refutation that is not copied out here is gone by emission time.
+// `steps` stays in sub-solver space; `orig_ids` and `vars` are the translation
+// tables (sub clause id -> main proof id, sub var -> kernel var) captured with
+// it. Bounded by SWEEP_MAX_PROOF_STEPS so a pathological refutation cannot make
+// detection allocate without limit.
+constexpr uint32_t SWEEP_MAX_PROOF_STEPS = 4096;
+struct SweepDirProof {
+  // The binary THIS direction proves, in kernel literals. Recorded explicitly
+  // because `SweepEquiv` normalises its pair to {min,max}: when the seed is the
+  // larger literal, deriving the targets from that normalised pair silently
+  // swaps the two directions and every translation then fails its target check.
+  Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
+  std::vector<SubStep> steps;
+  std::vector<uint64_t> orig_ids;
+  std::vector<Var> vars;
+  bool ok = false;
+};
+struct SweepPairProof {
+  SweepDirProof fwd, rev;
+};
+
 struct SweepEquiv {
   Lit a = INVALID_LIT;
   Lit b = INVALID_LIT;
@@ -147,6 +170,7 @@ struct SweepRound {
   const std::vector<std::vector<Ref>> *occ = nullptr; // by literal
   std::vector<Lit> repr;                   // union-find over literals
   std::vector<SweepEquiv> found;
+  std::vector<SweepPairProof> proofs; // S-e, parallel to `found`
   std::vector<Var> seeds;
   // candidate literals still agreeing with the seed in every model seen
   std::vector<Lit> candidates;

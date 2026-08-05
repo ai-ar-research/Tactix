@@ -423,6 +423,39 @@ static void test_sd_declines_non_rup(void) {
   printf("  S-d: non-RUP pairs declined, F unchanged\n");
 }
 
+// --- S-e: the GENERAL path, and its reachability ---------------------------
+//
+// This is the test S-e exists for. `non_rup_formula()` carries an equivalence
+// that unit propagation CANNOT refute in either direction -- the fixture asserts
+// that premise itself above -- so the S-d fast path must decline it, and only
+// the replayed sub-solver refutation can justify it.
+//
+// The `sweep_general` assertion is the reachability proof, not a nicety: the
+// existing oracle finds only 8 non-RUP claims in 4380, so a green suite proves
+// nothing about this path unless something forces it. If this ever stops firing,
+// S-e has silently become dead code and every "sweep is fine" run is vacuous
+// with respect to it.
+static void test_se_general_path_emits(void) {
+  const std::vector<std::vector<int>> cls = non_rup_formula();
+  Kernel k;
+  build(k, 4, cls);
+  const Lit x = internalize(1), y = internalize(2);
+  assert(!is_rup_binary(k, negate(x), y)); // premise: S-d cannot do this
+  assert(!is_rup_binary(k, x, negate(y)));
+
+  const ApplyResult r = sweep_apply(k);
+  assert(r == ApplyResult::Ok && "the general path must justify what RUP cannot");
+  assert(k.stats.sweep_not_rup >= 1 && "S-d must have declined first");
+  assert(k.stats.sweep_general >= 1 &&
+         "S-e NEVER FIRED -- the general path is unreachable and untested");
+  assert(k.stats.sweep_binaries >= 2 && "an equivalence is two binaries");
+  // and the formula now literally states it
+  assert(is_rup_binary(k, negate(x), y));
+  assert(is_rup_binary(k, x, negate(y)));
+  printf("  S-e: general path emitted %llu binaries for a non-RUP equivalence\n",
+         (unsigned long long)k.stats.sweep_binaries);
+}
+
 int main(int argc, char **argv) {
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
@@ -435,6 +468,7 @@ int main(int argc, char **argv) {
   test_env_unsat();
   test_sd_emits_rup_equivalence();
   test_sd_declines_non_rup();
+  test_se_general_path_emits();
   test_brute_force_oracle(rounds);
   printf("test_sweep: all tests passed\n");
   return 0;

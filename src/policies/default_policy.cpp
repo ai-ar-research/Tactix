@@ -1615,9 +1615,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // The scratch is stack-local on purpose: a diagnostic that costs an
       // allocation per phase, and nothing at all when it is off.
       if (!phase_unsat && std::getenv("TACTIX_SWEEP_PROBE")) {
-        SweepRound sweep;
-        const SweepLimits lim = sweep_limits_from_env();
-        sweep_detect_round(k, lim, sweep);
+        // S-d/S-e: the probe now APPLIES (detect + emit) rather than only
+        // detecting, so it exercises the proof path a checker will see. Still
+        // diagnostic-only and still unbudgeted, so it must not be set in a tier
+        // run (S-f); its job is to make V5 reachable from a real solve before
+        // the scheduler owns it.
+        if (sweep_apply(k) == ApplyResult::Unsat)
+          phase_unsat = true;
       }
       // Reclaim what the dosed applications garbaged. The canonical rounds
       // reclaim themselves; the per-instance path deliberately does not, so

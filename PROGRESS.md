@@ -653,7 +653,7 @@ lever, absent new evidence.
     §4), so it is a FAST PATH, not the strategy. Landing it proves detect → emit → checker end-to-end
     before the harder core mapping. **This is where the registry line, the `docs/calculus.md` entry and the
     default-on decision all land**, because it is where Sweep first has a proof delta.
-  - [ ] **S-e · emission via strategy (b), the general path.** Map the sub-solver's core back to
+  - [x] **S-e · emission via strategy (b), the general path.** Map the sub-solver's core back to
     main-formula clause ids and emit the resolution chain. What kissat does, and the honest general answer
     — a swept equivalence is entailed but NOT RUP, which is the whole reason kitten exists.
   - [ ] **S-f · scheduling.** `TACTIX_SLOT_ENABLE=Sweep` A/B on Tier B+C, then a default decision.
@@ -954,6 +954,44 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-05 — V5 Sweep S-e: the general path, and the N2 defect it exposed in S-d
+
+**S-e lands.** When a swept equivalence is not RUP over `F` — the case a sub-solver exists for — the
+sub-solver's own refutation is replayed into the main proof: every lemma it derived is emitted in
+derivation order with its antecedents translated from sub-solver clause ids to main-formula proof ids,
+and the final lemma IS the target binary. This rests on `env ⊆ F` holding LITERALLY (S-c), so an original
+antecedent maps to a real id rather than something reconstructed. Anything unmappable — an unnamed
+antecedent, a tautological lemma, a target that is not the binary asked for — **declines**, because a
+wrong line here is an unverifiable proof rather than a missed optimisation. A pair is validated DRY in
+both directions before either half is written, so it lands whole or not at all.
+
+Two things worth recording because guessing cost time on both:
+- **The direction targets are READ OFF the derivation, not predicted from the assumptions.** `SweepEquiv`
+  normalises its pair to `{min,max}`, so predicting the target silently swaps the two directions whenever
+  the seed is the larger literal — and every translation then fails its target check, making the general
+  path look merely "unreachable" rather than mis-wired.
+- **Reachability is asserted, not hoped for.** The oracle finds only **8 non-RUP claims in 4380**, so a
+  green suite proves nothing here unless something forces the path. `test_se_general_path_emits` uses the
+  fixture that proves its own premise (neither direction is RUP) and asserts `sweep_general >= 1`; if that
+  ever stops firing, S-e is dead code and every "sweep is fine" run is vacuous with respect to it.
+
+**▶ AND AN N2 DEFECT IN S-d, FOUND BY FUZZ (job `1583559`, 49 crashes).** `sweep_guard` is a pure
+precondition — `!inconsistent && level == 0` — and deliberately does NOT demand a root FIXPOINT, since
+demanding one would make the guard depend on scheduling state and cost N1. But `sweep_apply` never
+completed the closure itself, which every other inprocessing rule does (`inprocess_reach_root`, the
+"D-LEVEL guard purification" idiom). So Sweep could run with propagation pending; the RUP replay then ran
+off a non-fixpoint root, and literals it forced at level 0 never passed through `propagate_service` — the
+only place `unit_ids[v]` is written. The next LRAT chain citing one tripped `kernel_lrat_chain`'s "cites a
+literal with no unit id".
+
+**Attributed rather than assumed:** a `TACTIX_NO_SWEEP` kill switch gave **3/3 crash with Sweep, 0/3
+without**, which refuted the tempting hypothesis that this was pre-existing in the shared RUP-replay
+primitive. **DRAT could not see it** — it re-derives its own units — so only the LRAT leg exposed it.
+After the fix: **4000 cases, 0 failures** (SAT 1990 / UNSAT 1206). ctest 42/42.
+
+Also: the `TACTIX_SWEEP_PROBE` hook now APPLIES rather than only detecting, so the probe exercises the
+proof path a checker will see.
 
 ### 2026-08-04 late — V5 Sweep S-d: it EMITS. Registry line, calculus entry, and a scheduling test suite
 
