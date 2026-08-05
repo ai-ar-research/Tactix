@@ -5,9 +5,9 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 - **Plan revision tracked:** rev. 80 (2026-08-04) — **N4, the strategy floor**, is now a non-negotiable
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Last updated:** 2026-08-04 late — **plan rev 80 (N4, the strategy floor, is now a non-negotiable)**. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run. **Also this session: an N2 defect FIXED** (LRAT unit ids missed off the root level, shipped in TB4b the same day — `52a4e8f`), the **N4 scheduling-parity ledger LANDED** (216 mechanisms, 132 gaps) with **Track N4** staged, and an **OPEN N1 BREACH recorded** in `Factor` (`N4-N1FIX`, top of the queue).
+- **Last updated:** 2026-08-04 late — **plan rev 80 (N4, the strategy floor, is now a non-negotiable)**. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run. **Also this session: an N2 defect FIXED** (LRAT unit ids missed off the root level, shipped in TB4b the same day — `52a4e8f`), the **N4 scheduling-parity ledger LANDED** (216 mechanisms, 132 gaps) with **Track SCHED** staged, and an **OPEN N1 BREACH recorded** in `Factor` (`SCHED-N1FIX`, top of the queue).
 
-## ▶ RESUME HERE (2026-08-04 late) — phase 3; **next step = `N4-N1FIX` (an OPEN N1 BREACH), then (b′)**
+## ▶ RESUME HERE (2026-08-04 late) — phase 3; **next step = `SCHED-N1FIX` (an OPEN N1 BREACH), then (b′)**
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
@@ -33,12 +33,12 @@ Note the kissat half moved **1.271× (08-03, pre-TB4b) → 1.346× (today, post-
 - **Broad is +3 Tier B solves (incl. `fclqcolor`) and −1 Tier C solve, and costs T3 on BOTH halves**
   (kissat 1.346 → 1.500×). The gate decides it.
 
-**▶▶ TOP OF THE QUEUE — `N4-N1FIX`, an OPEN N1 BREACH.** `Factor`'s guard reports applicable and
+**▶▶ TOP OF THE QUEUE — `SCHED-N1FIX`, an OPEN N1 BREACH.** `Factor`'s guard reports applicable and
 `factor_instances` offers an instance, but `factor_apply` NoOps on the density gate, so **no API caller —
 LLM, RL, or RandomPolicy — can apply a legal factoring on a binary-sparse formula.** N1 is the top
 non-negotiable and this outranks every performance item below. Fix = MOVE the predicate to DefaultPolicy
 (BVE's identical gate already lives there correctly); DefaultPolicy behaviour is byte-identical, the API
-surface is restored, and whether to KEEP the predicate stays a separate measured question. Track N4.
+surface is restored, and whether to KEEP the predicate stays a separate measured question. Track SCHED.
 
 **THEN, in order** — re-ranked 2026-08-04 late, after the broad-admission re-test.
 
@@ -71,7 +71,7 @@ instances it targeted. `frb45` is ~2/3 of that cost and is **newly measured chao
 **+9.45**, ~1.4 noise floors — but T3's binding kissat half also moved **1.271× → 1.346×** across the same
 ship. **Not a revert order**; an unclosed question with a real number attached.
 
-**(c) V6's remaining cost** — now **Track N4 · N4-G1**. −50 % banked at byte-identical proofs (`ee9f3ab`);
+**(c) V6's remaining cost** — now **Track SCHED · SCHED-G1**. −50 % banked at byte-identical proofs (`ee9f3ab`);
 T87+T105 are still ~19 % of the Tier C kissat gap. **Re-profile first** — the old proportions no longer
 describe the remaining ~98 s. **The outcome is AT PARITY; do not re-open it** (per kind on T105: AND 3,423
 vs kissat 4,348, XOR 268 vs 531, ITE 0 vs 18 — and kissat's headline `congruent` BUNDLES a scan that is our
@@ -360,10 +360,10 @@ per-instance magnitudes need replication before being cited as fact.
 
 | | Requirement | Status |
 |---|---|---|
-| N1 | Any applicable rule appliable via API at any time, incl. branching choice | **✗ ONE OPEN BREACH (found 2026-08-04, N4 audit): `Factor`.** Its guard reports applicable and `factor_instances` offers `INSTANCE_CANONICAL`, but `factor_apply` NoOps on the density gate, so **no API caller can apply a legal factoring on a binary-sparse formula**; the comment at `factor.cpp:552` claims the opposite and `TACTIX_FACTOR_FORCE` is an env hatch, not an API capability. Fix = MOVE the predicate to DefaultPolicy (where BVE's identical gate correctly lives) — **Track N4 · N4-N1FIX, lands regardless of any A/B.** Otherwise: ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
+| N1 | Any applicable rule appliable via API at any time, incl. branching choice | **✗ ONE OPEN BREACH (found 2026-08-04, N4 audit): `Factor`.** Its guard reports applicable and `factor_instances` offers `INSTANCE_CANONICAL`, but `factor_apply` NoOps on the density gate, so **no API caller can apply a legal factoring on a binary-sparse formula**; the comment at `factor.cpp:552` claims the opposite and `TACTIX_FACTOR_FORCE` is an env hatch, not an API capability. Fix = MOVE the predicate to DefaultPolicy (where BVE's identical gate correctly lives) — **Track SCHED · SCHED-N1FIX, lands regardless of any A/B.** Otherwise: ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
 | N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-04 (window `20260804-1543`, git `6018366`): Tier B(28) 86.51 (25/28) vs kissat 9.78 · Tier C 309.05 (29/30) vs kissat 230.74 and cadical 312.02.** T3 halves: **kissat subset 1.346×** (the binding phase-3 constraint; was 1.271× pre-TB4b), cadical subset 1.069× / full tier 0.990×. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (`benchmarks/tiers/D.list`, 793 instances, rev 79) — never yet RUN, and running it is a phase-3-exit prerequisite (§11 O9). |
-| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80, user 2026-08-04) | ✗ **KNOWN UNMET, now MEASURED: 216 mechanisms audited, 132 gaps (27 high).** Ledger LANDED (`docs/implementation-notes.md` §13, living; full audit frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`); remediation staged as **Track N4**. Four structural highs: ONE inprocessing clock where both references keep TWO · effort meters SHARED where both keep them private · slot order emergent from `strcmp` · ceilings frozen at phase entry. Two confirmed gaps already: (a) `Kernel::factor_bound` IS kissat's `reduction > bound` acceptance test but defaults to 0 and is **never coupled to elimination progress** (kissat ramps it 0→1→2→4→8→16, `factor.c:72/939`); (b) our `binaries ≥ 6·vars` Factor admission gate has **no counterpart in either reference** and measured **worse than no gate at all** on Tier B (86.42 vs 34.59 for always-admit; oracle 32.25; −3 solves). N4 is a *mechanism* floor — it may not be discharged by a tier number, and never deferred to §5.6. |
+| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80, user 2026-08-04) | ✗ **KNOWN UNMET, now MEASURED: 216 mechanisms audited, 132 gaps (27 high).** Ledger LANDED (`docs/implementation-notes.md` §13, living; full audit frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`); remediation staged as **Track SCHED**. Four structural highs: ONE inprocessing clock where both references keep TWO · effort meters SHARED where both keep them private · slot order emergent from `strcmp` · ceilings frozen at phase entry. Two confirmed gaps already: (a) `Kernel::factor_bound` IS kissat's `reduction > bound` acceptance test but defaults to 0 and is **never coupled to elimination progress** (kissat ramps it 0→1→2→4→8→16, `factor.c:72/939`); (b) our `binaries ≥ 6·vars` Factor admission gate has **no counterpart in either reference** and measured **worse than no gate at all** on Tier B (86.42 vs 34.59 for always-admit; oracle 32.25; −3 solves). N4 is a *mechanism* floor — it may not be discharged by a tier number, and never deferred to §5.6. |
 
 ## Milestone gates (plan §8.3)
 
@@ -614,9 +614,15 @@ lever, absent new evidence.
 - [ ] **R8 · the dosing/H-only items kissat ablates**: eager subsumption of learned clauses (+5.9) and random decisions (+7.9) — scheduling arms
   on existing machinery, not new rule families
 
-### ▶ Track N4 — the scheduling floor (plan rev 80 §1.1 N4, §5 obligation 5)
+### ▶ Track SCHED — the scheduling floor (plan rev 80 §1.1 N4, §5 obligation 5)
 
-**Namespace:** `N4-<stage><n>` is a NEW id space — never read a bare `B1`/`C2` here as Track S/Track R.
+**Namespace:** `SCHED-<stage><n>` is a NEW id space — never read a bare `B1`/`C2` here as Track S/Track R.
+**▶ RENAMED from "Track N4" on 2026-08-04, hours after it landed.** It was named after the
+non-negotiable it discharges, which gave `N4` two meanings — a REQUIREMENT (plan §1.1) and a TRACK —
+and produced ids like `N4-N1FIX` carrying both non-negotiable names at once. That is the `R<n>` mistake
+again (see the four-namespace key under `## Log`), caught early enough to be free. **`N4` alone now
+always means the non-negotiable.** The two frozen 2026-08-04 design docs still say "Track N4"; frozen
+docs are never edited, so read that as Track SCHED.
 **Work list:** the scheduling-parity ledger (`docs/implementation-notes.md` §13, living) + the frozen
 audit `docs/design/2026-08-04-n4-scheduling-parity-audit.md` + the diagnosis
 `docs/design/2026-08-04-scheduling-sophistication-diagnosis.md`. **216 mechanisms audited, 132 gaps
@@ -637,9 +643,9 @@ per-entry per-mille sweep on a ticks-metered rule, and the BVE ramp-ceiling 8-vs
 
 **Track exit (checked at the phase-3 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT`
 without a closure or an accepted deviation row carrying a measurement, AND the ledger has been
-regenerated from the REFERENCE's option set (N4-A3).
+regenerated from the REFERENCE's option set (SCHED-A3).
 
-- [ ] **▶▶ N4-N1FIX · Factor's density gate is an N1 VIOLATION — fix regardless of any A/B** `[wire]`
+- [ ] **▶▶ SCHED-N1FIX · Factor's density gate is an N1 VIOLATION — fix regardless of any A/B** `[wire]`
   **This is a non-negotiable breach, not a performance item, and it outranks everything else in the track.**
   `factor_guard` is the pure `level==0` precondition and reports APPLICABLE; `factor_instances`
   (`factor.cpp:937-941`) offers exactly one instance; `factor_apply_instance` routes it straight back into
@@ -662,79 +668,79 @@ regenerated from the REFERENCE's option set (N4-A3).
 Causes (D) and (E) of the diagnosis are INSTRUMENT defects — the eval loop selects for gates, and the
 register has the wrong schema. Fix the instrument before spending a tier window on a mechanism.
 
-- [ ] **N4-A1 · per-entry slot telemetry** `[arch]` — one `c slot` line per entry per solve:
+- [ ] **SCHED-A1 · per-entry slot telemetry** `[arch]` — one `c slot` line per entry per solve:
   occasions / admitted / declined{preprocess,material,delay,density,guard,budget,cap} / handed / spent /
   applies / yield / completed, mirrored into `TACTIX_STAT` ids. **Removes the "starved vs nothing to do"
   blindness that makes today's dose experiments uninterpretable**, and is the readout every later item
   pre-registers against. Gate: byte-identical proofs + identical `c stats` on 3 instances.
-- [ ] **N4-A2 · config-wiring conformance test** `[arch]` — a table of every `Kernel` scheduling-config
+- [ ] **SCHED-A2 · config-wiring conformance test** `[arch]` — a table of every `Kernel` scheduling-config
   field with its intended writer, and a ctest that FAILS if a field tagged `DefaultPolicy` has no writer in
   the policy. **Structurally de-selects T1's sub-shape "we own the mechanism and nothing writes it"** —
   the most common high-severity row (`factor_bound`, `bve_cost_limit`, `bce_occ_limit`,
   `factor_cand_rounds`, `factor_demote_fresh`, `used_glue[1]`, `arena_mark`). Ships with the doc-drift
   corrections the audit found.
-- [ ] **N4-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — every option in
+- [ ] **SCHED-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — every option in
   `kissat/src/options.h` + `cadical/src/options.hpp` gets a row naming our counterpart (file:line) or a
   gap; a test fails when an option has no row. **The only item that converts coverage from opportunistic to
   complete** (diagnosis cause A). **Must read MACROS, not just grep** — cadical's `factorthresh` is
   token-pasted and reading it as dead code produced two wrong published claims (L19 correction).
-- [ ] **N4-A4 · per-instance ORACLE column in the benchmark runner, on by default** `[arch]` — a gate must
+- [ ] **SCHED-A4 · per-instance ORACLE column in the benchmark runner, on by default** `[arch]` — a gate must
   beat BOTH always-on and the oracle to ship. **De-selects cause D at the instrument**, the only level at
   which a selection pressure can be removed. It is what exposed the Factor gate in one window.
 
 #### Stage B — an honest meter (T3). *Every dose number in the solver is currently unreliable.*
 
-- [ ] **N4-B1 · ceiling at RUN time · anchor on the ADMITTED path · per-entry `thresh`** `[wire]`+`[arch]`
-- [ ] **N4-B2 · private per-rule tick meters (`Kernel::tick_sink`)** `[arch]` — a `uint64_t *` the kernel's
+- [ ] **SCHED-B1 · ceiling at RUN time · anchor on the ADMITTED path · per-entry `thresh`** `[wire]`+`[arch]`
+- [ ] **SCHED-B2 · private per-rule tick meters (`Kernel::tick_sink`)** `[arch]` — a `uint64_t *` the kernel's
   charge sites increment IN ADDITION to `stats.ticks`; pure accounting, nothing in the kernel reads it.
-- [ ] **N4-B3 · V4 currency → ticks, together with a resumption cursor** `[arch]`
-- [ ] **N4-B4 · C1/C2 currency → per-partner-visit** `[wire]` · [ ] **N4-B5 · SwitchMode growth-key
+- [ ] **SCHED-B3 · V4 currency → ticks, together with a resumption cursor** `[arch]`
+- [ ] **SCHED-B4 · C1/C2 currency → per-partner-visit** `[wire]` · [ ] **SCHED-B5 · SwitchMode growth-key
   off-by-one + `search_ticks` scope** `[wire]`
 
 #### Stage C — the free wires (T1/T5): mechanisms we own and never wired
 
-- [ ] **N4-C1 · Vivify ← the dynamic tiers** `[wire]` — `VIVIFY_TIER2 = 6` while `k.tier2` is computed
+- [ ] **SCHED-C1 · Vivify ← the dynamic tiers** `[wire]` — `VIVIFY_TIER2 = 6` while `k.tier2` is computed
   every reduce and read by nothing else. **Cheapest high-severity item on the board.**
-- [ ] **N4-C2 · Factor acceptance bound ← `bve_level_`** `[wire]` — **do NOT re-try the naive port**: it is
+- [ ] **SCHED-C2 · Factor acceptance bound ← `bve_level_`** `[wire]` — **do NOT re-try the naive port**: it is
   measured negative 3× and kissat at `--eliminatebound=0` is fine, so this needs a NEW mechanism or an
   accepted-deviation row, not a re-run.
-- [ ] **N4-C3 · BVE bound-ramp advance guarded to phase completion** `[wire]` · [ ] **N4-C4 · split
+- [ ] **SCHED-C3 · BVE bound-ramp advance guarded to phase completion** `[wire]` · [ ] **SCHED-C4 · split
   `TACTIX_REDUCE_SQRT` into cadence and ramp** `[wire]` (one env var moves both, so they cannot be measured
-  apart) · [ ] **N4-C5 · demote fresh extension vars + retire the invented gates (T4)** `[wire]`
+  apart) · [ ] **SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)** `[wire]`
 
 #### Stage D — the authored schedule and the two clocks (T6 + the global slot rows)
 
-- [ ] **N4-D1 · an explicit, authored phase order AS DATA** `[wire]` — replaces `strcmp` + `move_to_back`.
+- [ ] **SCHED-D1 · an explicit, authored phase order AS DATA** `[wire]` — replaces `strcmp` + `move_to_back`.
   Cheap, and it makes order a first-class policy object rather than an accident of the alphabet.
-- [ ] **N4-D2 · split the slot into a PROBE group and an ELIMINATE group** `[arch]` — the two clocks both
+- [ ] **SCHED-D2 · split the slot into a PROBE group and an ELIMINATE group** `[arch]` — the two clocks both
   references keep. **The largest single structural gap**: probing currently fires ~5× less often and the
   gap widens over the solve.
-- [ ] **N4-D3 · slot-level new-material watermark + the reduce coupling** `[arch]`
+- [ ] **SCHED-D3 · slot-level new-material watermark + the reduce coupling** `[arch]`
 
 #### Stage E — order and resumption become POLICY OBJECTS (the architecture the RL agent needs)
 
-- [ ] **N4-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]`
-- [ ] **N4-E2 · the ordering arms, one per rule, each independently gated** `[wire]`
+- [ ] **SCHED-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]`
+- [ ] **SCHED-E2 · the ordering arms, one per rule, each independently gated** `[wire]`
 
 #### Stage F — repetition suppression (T2): the touched-epoch substrate
 
-- [ ] **N4-F1 · the substrate + its first consumer (C1/C2)** `[arch]` · [ ] **N4-F2 · C1/C2 completeness +
-  resume, and the C1→BVE bound coupling it enables** `[arch]` · [ ] **N4-F3 · X1/X2/X4 repetition
-  suppressors + the delay ladder for metered entries** `[arch]` · [ ] **N4-F4 · Factor per-literal marks**
-  `[arch]` · [ ] **N4-F5 · Vivify yield package** `[arch]`
+- [ ] **SCHED-F1 · the substrate + its first consumer (C1/C2)** `[arch]` · [ ] **SCHED-F2 · C1/C2 completeness +
+  resume, and the C1→BVE bound coupling it enables** `[arch]` · [ ] **SCHED-F3 · X1/X2/X4 repetition
+  suppressors + the delay ladder for metered entries** `[arch]` · [ ] **SCHED-F4 · Factor per-literal marks**
+  `[arch]` · [ ] **SCHED-F5 · Vivify yield package** `[arch]`
 
 #### Stage G — the genuine revamps (each needs its own design pass)
 
-- [ ] **N4-G1 · Congruence: budget + honest pricing, then the value-driven closure** `[revamp]` — the
+- [ ] **SCHED-G1 · Congruence: budget + honest pricing, then the value-driven closure** `[revamp]` — the
   largest single gap in the project (`congruent_units` 2,231 vs our 14).
-- [ ] **N4-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **the cheapest decisive check on the board.**
-- [ ] **N4-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **N4-G4 · V5 Sweep** `[revamp]`
-  (already Track R · R5) · [ ] **N4-G5 · binary-first watch layout** `[revamp]`
+- [ ] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **the cheapest decisive check on the board.**
+- [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G4 · V5 Sweep** `[revamp]`
+  (already Track R · R5) · [ ] **SCHED-G5 · binary-first watch layout** `[revamp]`
 
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
-- [ ] **N4-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds · [ ] **N4-H2** per-solve reset of
-  restart/reduce/rephase/mode/reorder/averages/walk_anchor · [ ] **N4-H3** Reduce `first_reducible` scan
+- [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds · [ ] **SCHED-H2** per-solve reset of
+  restart/reduce/rephase/mode/reorder/averages/walk_anchor · [ ] **SCHED-H3** Reduce `first_reducible` scan
   bound
 
 **▶ WHY THIS SERVES PHASE 6 (the user's explicit requirement).** Every `[arch]` item above adds
@@ -745,7 +751,7 @@ possible; E1 makes candidate ORDER a policy object — and under a cutting budge
 scheduler**, so this is a control surface, not a micro-optimisation; F1's touched-epoch substrate is what
 lets an agent ask "what is new since I last acted?" instead of re-deriving state. **None of it narrows
 `instances()` or touches a guard** — the N1 argument is per-item in the frozen audit's companion, and the
-one genuine N1 breach in the codebase (N4-N1FIX) is *repaired* by this track, not created by it.
+one genuine N1 breach in the codebase (SCHED-N1FIX) is *repaired* by this track, not created by it.
 
 ### Other phase-3 items
 
@@ -944,7 +950,7 @@ claims re-verified by hand before landing.
 - **The counterweight, kept deliberately:** six mechanisms we ported FAITHFULLY, measured WORSE, and
   correctly kept the simpler version (sqrt reduce cadence, Walk's elimination anchor, mid-round C1/C2,
   Factor's coupled bound, `factorcandrounds`, minimize depth). Those are compliant and must not be "fixed".
-- **Route: Track N4** (staged plan, below). The two items that change outcomes are (1) build the ledger by
+- **Route: Track SCHED** (staged plan, below). The two items that change outcomes are (1) build the ledger by
   enumerating the REFERENCE's option set, not our own recall, and (2) make the benchmark runner print a
   per-instance ORACLE column by default, so a gate must beat both always-on and the oracle to ship —
   de-selecting cause D at the instrument, the only level at which a selection pressure can be removed.
@@ -1347,7 +1353,7 @@ detail, so the Log keeps result + pointer only.
   the suspect for the 2.89× volume factor. Five of kissat's six unit-deriving conditions have no
   analogue. `congruence_unjustified` is 0, so nothing is being deliberately skipped. Route: rule-dev,
   staged (Stage 1 value-aware `canonicalize` + an outer fixpoint; gating condition
-  `congruence_unjustified` stays 0). **Now folded into Track N4 · N4-G1.**
+  `congruence_unjustified` stays 0). **Now folded into Track SCHED · SCHED-G1.**
 - **V6 COST PROFILED (job 1580096, `perf record` over a full T105 solve):** `congruence_extract_gates`
   **6.13 %**, the `SmallKey` machinery supporting it **~13.6 %** (8.2 % lookups + **5.4 % `sorted_keys`
   and its introsort**), allocator ~13.6 % spread. **The closure's `unordered_map<vector<Lit>,uint32_t>`
