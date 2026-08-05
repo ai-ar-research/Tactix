@@ -88,6 +88,15 @@ struct Stats {
   uint64_t shrunken = 0;  // literals removed by all-UIP block shrinking
   uint64_t otfs_strengthened = 0; // reasons strengthened on the fly
   uint64_t otfs_subsumed = 0;     // conflicts subsumed by the resolvent
+  // Eager subsumption of recently learned clauses (SP-EAGERSUB-1). The
+  // pre-registered REACHABILITY readout: `tried` counts register entries the
+  // containment test actually ran on (kissat `eagertried`), `subsumed` the
+  // deletions (kissat `eagerly_subsumed`), `reason_skipped` the subsumed
+  // candidates KEPT because they are still a trail reason — our one deviation
+  // from kissat, so its cost has to be visible rather than inferred.
+  uint64_t eager_tried = 0;
+  uint64_t eager_subsumed = 0;
+  uint64_t eager_reason_skipped = 0;
   // glue histogram of clauses USED in conflict analysis, per search mode
   // (kissat statistics.h used[2].glue): the input to Reduce's dynamic tier
   // quantiles. Always maintained; read only when the arm is on.
@@ -494,6 +503,24 @@ struct Kernel {
   std::vector<Var> radix_scratch;   // radix-sort double buffer
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
+
+  // --- eager subsumption of recently learned clauses (SP-EAGERSUB-1) --------
+  // Transliterated from kissat `last_learned` (learn.c:70-72,133-187, MIT): a
+  // small SHIFT REGISTER of the refs of the most recently learned LARGE
+  // clauses. Every learn tests the fresh clause against the register and
+  // garbages any entry it STRICTLY subsumes. Kissat's register, not cadical's
+  // backwards walk over `clauses` (analyze.cpp:728-765), because our arena is a
+  // flat variable-record vector with no clause-pointer vector — it cannot be
+  // traversed backwards at all, so cadical's shape has no home here (design
+  // note: implementation-notes.md §15).
+  static constexpr uint32_t EAGER_SUBSUME_SLOTS = 4; // kissat's option maximum
+  Ref eager_recent[EAGER_SUBSUME_SLOTS] = {INVALID_REF, INVALID_REF,
+                                           INVALID_REF, INVALID_REF};
+  // per-LITERAL marks for the containment test. Persistent + touched-restore
+  // (never fill-initialised per call): this runs once per conflict, and an
+  // O(nvars) memset there is the per-call linear scratch hazard that has cost
+  // this project four sightings. INVARIANT: all-zero between uses.
+  std::vector<uint8_t> eager_marks;
 
   // --- proof clause ids (native LRAT; CaDiCaL's id scheme) ------------
   // every clause — including input tautologies/duplicates that are never
@@ -947,6 +974,16 @@ struct Kernel {
   // GATE (decision-rate EMA + delay ladder) is scheduling and lives in the
   // policy, which scopes this field around ConflictAnalysis.
   uint32_t bump_reason_limit = 0;
+  // Eager subsumption of recently learned clauses (kissat option
+  // `eagersubsume`, default and maximum 4): how many slots of the
+  // `eager_recent` shift register a learn compares itself against; 0 = off
+  // (byte-identical to not having the mechanism). CONFIGURATION like
+  // bump_reason_limit: every value is sound, because the only clauses it
+  // deletes are REDUNDANT ones, which S2 Reduce may delete unconditionally —
+  // the subsumption test is a *selection* heuristic, not the justification
+  // (implementation-notes.md §15). Ships ON at kissat's default;
+  // TACTIX_EAGER_SUBSUME=0 reverts (the A/B arm).
+  uint32_t eager_subsume = EAGER_SUBSUME_SLOTS;
   // Reduce retention tiers (kissat options tier1/tier2, defaults 2/6): glue
   // bands that survive a reduction while recently used. CONFIGURATION like
   // bve_bound — retention is policy, and every value is sound (Reduce only

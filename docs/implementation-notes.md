@@ -757,7 +757,7 @@ None of these had a row in pass 1. Ordered by severity, then by cost-to-close.
 | id | mechanism | Kissat / CaDiCaL (default · use site) | Tactix | verdict | sev |
 |---|---|---|---|---|---|
 | SP-BVE-BWD-1 | **BVE's fresh resolvents are fed straight into subsumption** | cadical `elimbackward`=1: the eliminator keeps a **queue of newly added resolvents** (`backward.cpp:12-30`) drained per elimination (`elim.cpp:731`), backward-subsuming/strengthening existing clauses with them | ABSENT. Resolvents wait for the next SubsumeForward/Strengthen slot entry, on their own budget and candidate set, with no knowledge of what BVE just added | WE_LACK_IT | **med-high** — a T1 wire, and it is what makes cadical's `elimrounds`=2 sufficient |
-| SP-EAGERSUB-1 | **Eager subsumption of recently-learned clauses** | kissat `eagersubsume`=**4** — a 4-slot shift register of the last learned refs (`learn.c:72,135,154,205`); every `kissat_learn_clause` garbages any register entry the new clause strictly subsumes. cadical `eagersubsume`=1 + `eagersubsumelim`=20 (`analyze.cpp:728-765`): walk `clauses` **backwards**, ≤21 candidates per conflict | ABSENT. Per-conflict, O(1)-bounded, default-ON in both, and it is the only subsumption either reference applies to the *redundant* DB outside reduce | WE_LACK_IT | med |
+| ~~SP-EAGERSUB-1~~ | **Eager subsumption of recently-learned clauses** | kissat `eagersubsume`=**4** — a 4-slot shift register of the last learned refs (`learn.c:72,135,154,205`); every `kissat_learn_clause` garbages any register entry the new clause strictly subsumes. cadical `eagersubsume`=1 + `eagersubsumelim`=20 (`analyze.cpp:728-765`): walk `clauses` **backwards**, ≤ 21 candidates per conflict | **CLOSED 2026-08-05 (SCHED-C6)** — kissat's shift register, transliterated as a sub-step of M3 `ConflictAnalysis` rather than a rule (§15). Ships ON at `eager_subsume`=4; `TACTIX_EAGER_SUBSUME=0` is the A/B arm. cadical's shape was rejected on architecture: it walks the `clauses` **vector** backwards and our arena is a flat variable-record buffer with no such vector and no backward traversal | CLOSED | med |
 | SP-COMPACT-1 | **Variable compaction (renumbering out dead variables)** | kissat `compact`=1 / `compactlim`=10 % (`collect.c:633-642`) — checked **inside every reduce**; renumber once `inactive > 10 %·vars`. cadical `compact`=1 / `compactint`=2e3 / `compactlim`=1e2‰ / `compactmin`=1e2 (`compact.cpp:13-27`, dispatched `internal.cpp:326`), interval grows linearly | We compact **watch lists** only (`kernel.cpp:155,232`) and never renumber. Direct sequel to the variable-retirement episode: R-d added an active flag to `H`, the kernel still lacks the concept, and compaction is how both references make a dead variable cost literally nothing | WE_LACK_IT | med |
 | SP-ARENA-1 | **Candidate enumeration order is search-coupled there, creation order here** | cadical `arenatype`=**3** (`collect.cpp:353-401`) copies clauses into the fresh arena in **VMTF decision-queue order × likely phase**, and `arenasort`=1 (`collect.cpp:427`) re-sorts the global `clauses` vector by arena address — so reduce's candidate collection, the vivify/subsume schedules and eager subsumption all inherit it | `kernel_collect_garbage` (`kernel.cpp:852-866`) preserves creation order, and every candidate scan is `for (Ref ref = 0; …)`. Under a cutting budget **ordering IS the scheduler** (T2), so this silently selects the dose content of five rules | WE_ARE_CRUDER | med |
 | SP-CHRONO-1 | **Analyze-side trail reuse (the twin of restart trail reuse)** | cadical `chronoreusetrail`=1 (`analyze.cpp:675-717`): after computing `jump`, find the single most important variable in the trail suffix and back up only far enough to KEEP it assigned; counts as a chronological backtrack | We have restart-side reuse (`restart.cpp:22-48`) and `chrono`/`chronolevels` at parity, but **no reuse on the conflict path** — every backjump goes to `jump` or to `level−1`, nothing in between | WE_LACK_IT | med |
@@ -876,3 +876,81 @@ uses, **553 of those binaries later deleted**, in **15.8 %** of solver processes
 LRAT, 1 500 cases: 2 983 uses, **269 later deleted — 65 of them by V3 `Substitute`** (the named trigger),
 in **8.4 %** of processes. So the green legs are not vacuous. The uniform policy saturates the pattern,
 which is why no bespoke stress policy was written for it.
+
+## 15. Design decision: eager subsumption is a `ConflictAnalysis` sub-step, not a rule
+
+**The question (SCHED-C6, ledger `SP-EAGERSUB-1`).** Eager subsumption deletes clauses, so it has a
+proof delta and N2 applies. Does it get a registry entry, a `guard`/`instances`/`apply` triple and a
+`calculus.md` rule of its own?
+
+**No, and the reason is not convenience.** The clauses it deletes are **redundant**. Deleting a
+redundant clause is licensed *unconditionally* by S2 `Forget`/`Reduce` — no subsumer required, no
+entailment argument, nothing. So the subsumption test is not the deletion's **justification**, it is
+only how the victims are **chosen**, and §5 puts selection in the policy layer, never in a guard. A
+registry entry would have to carry `∃ d ∈ R : d ⊋ c` as its precondition, which is a heuristic wearing
+a precondition's clothes: strictly stronger than soundness requires, and therefore exactly the
+"guard encodes a scheduling heuristic" shape N1 forbids.
+
+Contrast **C1 `SubsumeForward`**, which *is* a rule: it deletes **irredundant** clauses, and there the
+subsumer is the whole argument (`m ⊨ F∖{C} ⟹ m ⊨ D ⟹ m ⊨ C`, §14). Redundant-vs-irredundant is the
+line, not "does it subsume".
+
+**Three architectural facts point the same way.**
+1. It fires **once per conflict**. `registry.hpp` states the registry is dispatched by the inprocessing
+   slot, the C API and the fuzz policies, and deliberately *never* on the per-conflict search path,
+   which DefaultPolicy composes statically. A `Macro` entry would put a vtable dispatch there.
+2. `Inprocess` is the quiescent-root slot; this must run mid-descent with a live register, so the tier
+   is simply wrong — and registering at that tier *is* scheduling it (SCHED-A2b), which would demand an
+   `EFFORT_SPECS` row for something that is O(1) by construction. **No `EFFORT_SPECS` row is owed
+   because no rule was registered**; `effort_specs` stays green untouched.
+3. Its guard would be "the previous action was a learn" — control state observable at a rule boundary,
+   which is precisely the `pending` handoff D-SPLIT removed (§4).
+
+**Precedent, already in the calculus.** M3's proof δ has said "*and a `del` of each clause it
+subsumes*" since OTFS landed: conflict analysis already deletes a clause it discovers it subsumes. And
+`Kernel::bump_reason_limit` is already an optional, policy-parameterised sub-step of the same rule.
+Eager subsumption is the same seat: mechanism in `analyze.cpp`, control in `Kernel::eager_subsume`
+(config-wiring class **ENV**, ships ON at kissat's default 4, `TACTIX_EAGER_SUBSUME=0` reverts).
+
+**Which reference, and why.** kissat's **shift register** (`learn.c:70-208`, MIT), not cadical's
+backwards walk (`analyze.cpp:728-765`). cadical scans its `clauses` **vector** from the end for up to
+`eagersubsumelim+1 = 21` candidates; we have no such vector — large clauses live in a flat
+`std::vector<uint32_t>` arena of variable-length records, which cannot be traversed backwards at all,
+so cadical's shape has no home here short of adding a clause-pointer vector. kissat's four-slot
+register is 16 bytes of kernel state and needs nothing. (kissat's `arenasort`/`arenatype` ordering,
+which is what makes cadical's tail-first walk pick *recent* clauses, is itself an open gap here —
+`SP-ARENA-1` — so the backwards walk would not even select the same population.)
+
+**The one deviation from kissat: we skip a candidate that is still a trail REASON.** Kissat does not
+check. We must, twice over: `kernel_collect_garbage`'s only garbage-reason case is a root-fixed
+literal (regression corpus 003), and — the N2 half — an LRAT chain that later walks that reason would
+cite a **deleted** id, which `cake_lpr`/`lrat-check` reject while drat-trim happily verifies. Both are
+consequences of our design, not of the technique.
+
+**Where the call sits, and the measurement that put it there.** In `backjump_apply_to`, after the
+backtrack — kissat's own position (`kissat_learn_clause` = learn, backtrack, assign, eager-subsume),
+one step earlier than the assert (equivalent: asserting the UIP can only make the *pending* clause a
+reason, and it is not a candidate). The obvious alternative, the tail of `analyze_apply`, is a single
+chokepoint for every driver and looks strictly simpler — and it is **worthless**, for a reason that is
+a theorem rather than an accident: `kernel_assign_ref` stamps a forced literal with the max level of
+its reason's other literals, and a candidate `C ⊋ D` contains `D`'s UIP, so `C`'s forced literal sits
+at or above the conflict level and is always still assigned before the backjump. Measured over 60
+Tier A instances: pre-backjump **8 297 deletions and 28 000 reason-skips**, of which the
+freed-by-backjump probe counted **28 000 — all of them**; post-backjump **30 613 deletions and 0
+reason-skips** (192 818 → 187 466 conflicts, 48 of 60 instances firing). The reason check stays
+regardless, because `backjump_apply_to` honours chronological targets and N1 lets a policy pick any
+level in `[jump_level, level-1]`.
+
+**Reachability of the guard itself.** Because of that theorem, DefaultPolicy reaches the reason skip
+**zero** times, so no fuzz or tier leg can exercise the branch that protects N2 here. It is pinned
+instead by `tests/test_analyze.cpp` `test_eager_subsume` case (c), which builds the state directly —
+the alternative was a green leg that is vacuous exactly where it matters
+([[ab-arm-identical-artefacts]]).
+
+**No bespoke stress policy, and why.** The `stress-policy` obligation is for a change that opens NEW
+schedules. This one opens none: no rule is registered, no `guard` or `instances()` moves, and every
+policy already drives `ConflictAnalysis`. The two genuinely new interactions — a register Ref surviving
+across a `kernel_collect_garbage`, and a redundant clause dying mid-descent rather than at a Reduce —
+are exactly what `--random-policy` produces by construction, since it interleaves Reduce and the
+inprocessing slot with search at random. The third, the reason guard, is *unreachable by schedule*
+(above), so no stress policy could reach it either; only the direct unit test can.

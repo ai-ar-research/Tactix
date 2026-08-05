@@ -35,6 +35,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // first attempt always recomputes it before any read).
   k.bve_min_bound.resize(nvars, 0);
   k.seen.resize(nvars, 0);
+  k.eager_marks.resize(2 * nvars, 0); // all-zero between uses; see the field
   k.marked_levels.resize(nvars + 1, 0);
   k.probing.stamp.resize(2 * nvars, 0);
   // The dense occurrence index is per-literal kernel state (null outside a
@@ -847,6 +848,14 @@ bool kernel_propagate_binary(Kernel &k) {
 // the large-watch entries. Watched pairs stay lits[0]/lits[1], so all
 // watch invariants survive collection unchanged.
 void kernel_collect_garbage(Kernel &k) {
+  // The eager-subsumption register holds raw arena Refs and this function
+  // relocates every one of them, so it is reset here rather than forwarded —
+  // kissat does exactly the same at each of its three collect sites
+  // (kissat_reset_last_learned, collect.c:274/514/702). Forwarding instead
+  // would buy at most four extra candidates and would need `searched` read off
+  // a possibly-garbage clause, the corpus-003 shape.
+  for (Ref &r : k.eager_recent)
+    r = INVALID_REF;
   Arena fresh;
   fresh.reserve(k.arena.size());
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -1056,8 +1065,18 @@ void kernel_check_invariants(const Kernel &k) {
     assert(a.level == 0 || i >= k.frames[a.level]);
   }
   // every live large clause is watched on exactly lits[0] and lits[1]
+  // (and, folded into the same walk, the eager-subsumption register holds only
+  // real clause STARTS — a stale Ref left there by a collect would index the
+  // middle of some other clause and read a bogus header, which is the single
+  // way that register can go wrong)
+  uint32_t eager_seen = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
+    for (const Ref r : k.eager_recent)
+      if (r == ref) {
+        assert(c->redundant() && "eager register entry is not a learned clause");
+        eager_seen++;
+      }
     if (!c->garbage()) {
       for (int w = 0; w < 2; w++) {
         const Lit lit = c->lits[w];
@@ -1077,6 +1096,13 @@ void kernel_check_invariants(const Kernel &k) {
       }
     }
     ref += clause_words(c->size);
+  }
+  {
+    uint32_t eager_live = 0;
+    for (const Ref r : k.eager_recent)
+      if (r != INVALID_REF)
+        eager_live++;
+    assert(eager_seen == eager_live && "stale eager-subsumption register ref");
   }
   // binary watch symmetry: every binary entry (l -> other) must have its
   // mirror (other -> l); losing one side silently kills the clause

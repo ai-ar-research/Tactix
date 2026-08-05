@@ -110,6 +110,16 @@ all); a rule with no spec runs unmetered and unbudgeted.
   landed *unconditionally* (no arm exists; C1's only lever, `TACTIX_NO_DYNAMIC_TIERS`, also moves
   reduce's tiers, so it confounds rather than ablates), and C4 is a pure refactor of an existing knob
   with no default change.
+- **SCHED-C6 (eager subsumption) — READY TO RUN, one window, Tier B then Tier C.** Arms (knob IN THE
+  COMMAND, never in the submitting shell — [[same-window-ab-hatch]]):
+  `--solver 'build/pin-c6/tactix' --name eagon`
+  `--checked-arm 'eagoff=env TACTIX_EAGER_SUBSUME=0 build/pin-c6/tactix'` (+ `--baseline kissat`).
+  ONE build dir, one binary, both arms — the knob is the only difference, so nothing can drift.
+  **Check the source counter FIRST: `c eagersub` must be non-zero on `eagon` and exactly
+  `0 subsumed of 0 tried ... register 0` on `eagoff`.** Ship criterion: `eagon` not worse on
+  `#solved` and inside the 6.72 noise floor on Tier C PAR-2 — it stays ON as N4 mechanism parity
+  unless it LOSES a solve or exceeds the floor negatively, in which case dose it (`=1`/`=2`) before
+  reverting. Sizing caveat: kissat's single-technique ablation prices it at +7.9, a **ceiling**.
 - **The BVE ramp slack-8 ceiling has no warrant beyond one tier** (its U-shape justification was
   withdrawn); Tier C/D re-sweep owed since `489fab1`.
 - **`tools/solvers/variants/` + 35 `build/pin-*` dirs** are sweepable (all reproducible from commits).
@@ -121,7 +131,9 @@ worth 2400 PAR-2, so any verdict that changes `#solved` is single-instance decid
 read `#solved`, not the aggregate. Noise floor **6.72 PAR-2** (Tier C, same-window, node-pinned).
 
 **▶ NOT DONE from the overnight ask:** SCHED **C2** (documentation only — an accepted-deviation row; the
-naive port is measured negative 3× and must NOT be re-run), **C5, C6**, and Stages **D, E, F, G**.
+naive port is measured negative 3× and must NOT be re-run) and Stages **D, E, F, G**. **C5 and C6 have
+LANDED and both are UNPRICED** — C5's tier A/B and C6's (`TACTIX_EAGER_SUBSUME=0` vs the shipped default,
+source counter `c eagersub`) are queued behind the campaign the other agent owns.
 
 ## ▶ CURRENT TIER TABLES (plan §8.1 rev 75 — full per-instance, newest window first)
 
@@ -831,7 +843,29 @@ register has the wrong schema. Fix the instrument before spending a tier window 
   five T4 items two are refuted by the reference option set and one is misfiled (ledger §13.5 C7/C8),
   and the three that survive are the binary-density family, whose retirement IS the broad-admission
   experiment (verdict HOLD) — i.e. item **(b′) targeted admission**, not a Stage C wire.
-- [ ] **SCHED-C6 · eager subsumption of learned clauses** `[arch]` · [x] **SCHED-C7 · random decisions
+- [x] **SCHED-C6 · DONE 2026-08-05 — eager subsumption of learned clauses** `[arch]`. **NOT a rule, and
+  that is the substance:** it deletes only REDUNDANT clauses, whose deletion S2 `Forget` already licenses
+  unconditionally, so the subsumption test is a *selection heuristic*, not a precondition — a registry
+  entry would put a heuristic in a guard. It lands as a sub-step of M3 `ConflictAnalysis`, the seat OTFS
+  subsumption (already in M3's proof δ) and `bump_reason_limit` occupy. **No `EFFORT_SPECS` row is owed:
+  nothing was registered at `Inprocess`**, and `effort_specs` stays 43/43 untouched. kissat's 4-slot
+  shift register, not cadical's backwards walk over `clauses` — we have no clause-pointer vector and a
+  flat variable-record arena cannot be walked backwards at all. **Ships ON at `eager_subsume`=4 (kissat's
+  own default); `TACTIX_EAGER_SUBSUME=0` is the A/B arm; UNPRICED — A/B spec below.**
+  **The finding worth keeping:** the obvious call site (end of `analyze_apply`, the one chokepoint every
+  driver shares) is nearly worthless, and provably so. `kernel_assign_ref` stamps a forced literal at the
+  max level of its reason's other literals, and a candidate `C ⊋ D` contains `D`'s UIP, so `C`'s forced
+  literal sits at or above the conflict level and is ALWAYS still a reason before the backjump. Measured
+  over 60 Tier A instances: pre-backjump **8 297 deletions / 28 000 reason-skips**, freed-by-backjump
+  probe **28 000 — all of them**; moved into `backjump_apply_to` (kissat's own position) it is **30 613
+  deletions / 0 reason-skips**, 48 of 60 instances firing. Source counter `c eagersub`.
+  **One deviation from kissat, and it cannot be dropped:** we skip a candidate that is still a trail
+  reason. Kissat does not check; we must, because a garbage reason breaks `kernel_collect_garbage`
+  (corpus 003) and puts a DELETED id into the next LRAT chain — the N2 half. Because of the theorem
+  above DefaultPolicy reaches that branch **zero** times, so no fuzz or tier leg can cover the guard that
+  protects N2; it is pinned by `tests/test_analyze.cpp::test_eager_subsume` case (c) instead
+  ([[ab-arm-identical-artefacts]]). Docs: `docs/implementation-notes.md` §15 + M3's calculus entry.
+  · [x] **SCHED-C7 · random decisions
   (`randec`)** `[arch]` — H-only, no proof delta. kissat ships `randec=1`/`randecfocused=1`/
   `randecstable=0`, so sequences run in FOCUSED mode only, start at level ≤1 past the conflict limit, and
   last `randeclength·LOGN(count)` conflicts (`decide.c:57-113`). Tracked as an END CONFLICT rather than a
@@ -958,6 +992,68 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-05 — SCHED-C6: eager subsumption is a `ConflictAnalysis` sub-step, and WHERE it runs is the whole result
+
+**Layering first.** Ledger row `SP-EAGERSUB-1` closed. The mechanism deletes clauses, so N2 applies — but
+the clauses are **redundant**, and S2 `Forget` deletes those with no justification at all. The subsumption
+test therefore selects victims; it does not license the deletion. A registry entry would have to carry
+`∃ d ∈ R : d ⊋ c` as its precondition, i.e. a heuristic in a guard, which is what §5/N1 forbid. The line
+is redundant-vs-irredundant, not "does it subsume": C1 `SubsumeForward` **is** a rule because there the
+subsumer is the entire argument (§14). Three architectural facts agree — it fires per conflict, and
+`registry.hpp` says the registry is never dispatched there; `Inprocess` is the quiescent-root slot and
+registering at it IS scheduling (SCHED-A2b), which would demand an `EFFORT_SPECS` row for an O(1) step;
+and its guard would be "the previous action was a learn", the `pending` control state D-SPLIT removed.
+So: sub-step of M3, mechanism in `analyze.cpp`, control in `Kernel::eager_subsume` (config class **ENV**,
+ships ON at 4). **`effort_specs` is 43/43 with no new row, because no rule was registered.**
+
+**Reference choice.** kissat's four-slot shift register (`learn.c:70-208`), not cadical's backwards walk
+over `clauses` (`analyze.cpp:728-765`): our arena is a flat buffer of variable-length records with no
+clause-pointer vector, so a backwards walk has no home here — and the ordering that makes cadical's
+tail-first scan pick *recent* clauses (`arenasort`/`arenatype`) is itself an open gap here, `SP-ARENA-1`.
+
+**The result that was not in either reference.** The obvious call site — the tail of `analyze_apply`, the
+one chokepoint every driver shares — is nearly worthless, and provably: `kernel_assign_ref` stamps a
+forced literal at the max level of its reason's other literals, and a candidate `C ⊋ D` contains `D`'s
+UIP, so `C`'s forced literal sits at or above the conflict level and is still a reason at that point,
+*always*. Measured over 60 Tier A instances (192 818 conflicts): **8 297 deletions, 28 000 reason-skips,
+and a freed-by-backjump probe of 28 000 — every one of them.** Moved into `backjump_apply_to` after the
+backtrack (kissat's own position): **30 613 deletions, 0 reason-skips**, 48 of 60 instances firing. A
+3.7× swing decided entirely by placement, invisible to any A/B that only asked on-vs-off.
+
+**The one deviation from kissat, kept.** We skip a candidate that is still a trail reason; kissat does
+not check. Both halves are ours, not the technique's: `kernel_collect_garbage`'s only garbage-reason case
+is a root literal (corpus 003), and an LRAT chain walking that reason would cite a **deleted** id —
+rejected by cake_lpr/lrat-check, verified by drat-trim, i.e. exactly the shape of the two N2 breaches
+found this week. **And by the theorem above DefaultPolicy reaches that branch zero times**, so no fuzz or
+tier leg can cover the guard that protects N2. It is pinned by `tests/test_analyze.cpp::test_eager_subsume`
+case (c), which builds the state directly — a green leg here would have been vacuous precisely where it
+matters ([[ab-arm-identical-artefacts]]).
+
+**Fuzz — ALL FIVE LEGS GREEN, rebased onto the frontend N2 fix** (sanitizer build, seed 20260805; run
+inside the session's own 4-core `cpu-q` allocation, no sbatch — the campaign queue is owned elsewhere
+today). `--random-policy` × native **DRAT**, the quadrant that caught the Sweep breach: **1500/0**.
+`--random-policy --lrat` (native LRAT under arbitrary schedules): **1500/0**. DefaultPolicy DRAT
+**1200/0**, DefaultPolicy `--lrat` **1200/0**, `--random-policy --no-binary` (ASCII DRAT) **1200/0**.
+Regression corpus **14/14** under both DefaultPolicy and `--random-policy`.
+**The pre-rebase run is worth recording because it is the attribution:** against the *old* parent the two
+native-LRAT legs were red (18/501 and 11/485 UNSAT) and **all 29 were the frontend `ingest_clause` breach,
+shown two independent ways before it landed** — 29/29 inputs carry a repeated literal (drat-trim says so
+itself: `WARNING: detected and deleted duplicate literal … s VERIFIED`) and 29/29 reproduced on the
+pre-SCHED-C6 binary under the identical command. On those 18, eager subsumption fires `0/0`. Rebasing
+onto the fix took both legs to 0 with nothing else changed.
+**Direct N2 evidence where the mechanism IS heavily active, which fuzz cannot supply** (these are
+≤100-var cases with few conflicts): `php-8` with **11 385 eager deletions** verifies on **drat-trim**,
+**cake_lpr** and **lrat-check**. ctest **43/43** on both the release and the ASan/UBSan build, with
+`micro_proofs` and `sweep_proofs` actually running.
+
+**The OFF arm is a genuine control, verified not asserted:** `TACTIX_EAGER_SUBSUME=0` at the new HEAD is
+**byte-identical to the pre-change binary** — same DRAT SHA and same full `c` stats block on `php-8`,
+`over-n280-s014`, `tr-n260-s002`, `color-n18-k3-s010`.
+
+**UNPRICED.** Ships ON (both references default it ON; N4 is a mechanism floor, not a tier number). A/B:
+`TACTIX_EAGER_SUBSUME=0` vs the shipped default, passed IN THE COMMAND, Tier B+C same window, pre-registered
+source counter `c eagersub` (an arm whose `tried` is 0 was not tested). Sizing caveat: kissat's own
+single-technique ablation prices it at +7.9 PAR-2, which is a **ceiling**, not a forecast.
 ### 2026-08-05 — ▶▶ N2 CLOSED (2/2): the frontend's input normalization, enumerated end to end
 
 Branch `frontend-dedup-n2`; report `benchmarks/reports/2026-08-05-input-clause-normalization-n2.md`.
