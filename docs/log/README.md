@@ -3,10 +3,20 @@
 `PROGRESS.md`'s Log keeps only the **current ISO week**. Completed weeks are split out here,
 **verbatim and frozen** — an archive file is never edited after it lands.
 
-**Maintenance contract (enforced at wrap-up):** when the ISO week rolls over, or whenever
-`PROGRESS.md` exceeds its size budget, move every entry older than the current week into
-`docs/log/<ISO-week>.md` and add its row below. Never summarise on the way out — the Log is the
-durable record; compression happens *before* an entry is written, not after.
+**Maintenance contract — MECHANICAL, run at every wrap-up (step 4):**
+
+```
+tools/docs/archive-log.py --check     # exit 1 = archiving is due
+tools/docs/archive-log.py             # do it, then update the table below
+```
+
+The script moves every entry older than the current ISO week out of `PROGRESS.md`, **verbatim**, and
+merges into an existing week file date-sorted if one is already there. Commit the archives and
+`PROGRESS.md` in ONE commit — the entries must never exist in both places, or in neither.
+**Never summarise on the way out:** the Log is the durable record, so compression happens *before* an
+entry is written, not after. It is a script rather than a wrap-up instruction because this project's
+own record is that prose triggers do not fire (2026-08-04 diagnosis, cause E: five closers went off
+silently, one admitting it in its own text).
 
 | week | dates | entries | what it covers |
 |---|---|---|---|
