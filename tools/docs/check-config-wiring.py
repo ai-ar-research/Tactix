@@ -89,7 +89,7 @@ TABLE = {
 # that looks like a scalar with a default is config and must be classified.
 CONFIG_START = "bve_retry_fixed_head"
 # Fields below the marker that are solver STATE, not config.
-NOT_CONFIG = {"bve_retry_fixed_head", "lvl"}
+NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor"}
 
 
 def declared_fields():

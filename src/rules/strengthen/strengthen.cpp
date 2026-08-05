@@ -130,6 +130,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
             continue;
           }
           i += 1;
+          k.stats.strengthen_visits++; // SCHED-B4: a binary partner compared
           const Lit o = w.other();
           if (phase == 0) {
             // no redundancy check on the binary partner: subsume_forward.hpp's
@@ -162,6 +163,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       if (os.size() > STRENGTHEN_OCCLIM)
         continue;
       for (const Ref dref : os) {
+        k.stats.strengthen_visits++; // SCHED-B4
         const Clause *d = clause_at(k.arena, dref);
         const CheckResult r = check_marked(k, marks, d);
         if (r.kind == CheckResult::NONE)
@@ -203,6 +205,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         i += 2;
         if (dref == self)
           continue;
+        k.stats.strengthen_visits++; // SCHED-B4
         const Clause *d = clause_at(k.arena, dref);
         if (d->garbage() || d->redundant() || d->size > c->size)
           continue;
@@ -378,10 +381,11 @@ ApplyResult strengthen_apply(Kernel &k) {
   // (`subsumeeffort` with `subsumemaxeff`/`subsumemineff`, options.hpp:218-221).
   // Stopping early is sound and loses no work: the survivors stay candidates and
   // the next round re-derives them. 0 = unbounded (legacy path).
-  const uint64_t check_start = k.stats.strengthen_checked;
+  // SCHED-B4: polled in PARTNER VISITS (Stats::strengthen_visits).
+  const uint64_t check_start = k.stats.strengthen_visits;
   for (Ref cref : candidates) {
     if (k.midround_budget && k.work_budget &&
-        k.stats.strengthen_checked - check_start > k.work_budget) {
+        k.stats.strengthen_visits - check_start > k.work_budget) {
       k.stats.budget_stops_c2++;
       break;
     }
