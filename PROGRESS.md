@@ -53,7 +53,23 @@ all); a rule with no spec runs unmetered and unbudgeted.
   evidence is withdrawn (re-scored: +4.90 PAR-2, under one noise floor). Timing between arms is a
   lottery, 5-for-5. **Report: `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`; fixing this
   now gates the "keep Sweep at 100‰" decision.**
-- **C7 (`randec`) and C1/C3/C4 are UNPRICED** — landed on reference-parity grounds, no tier A/B.
+  **BLAST RADIUS SIZED** (survey `1583923`, 58 tasks at `5ea27ee`, report
+  `benchmarks/reports/2026-08-05-sweep-n2-blast-radius.md`): of 26 UNSAT answers over Tiers B+C, Sweep
+  RUNS on 25 but EMITS on only **4** (all Tier C) and exactly **1** is rejected — **Tier B is wholly
+  unaffected**, and rejection is NOT monotone in emission (9 equivs fail, 127 pass). **NO banked
+  conclusion is invalidated**: 0 mismatches and 0 written-but-unverified solves in 205 windows / 8 678
+  UNSAT answers, and all 16 windows with unchecked scored arms predate Sweep by 8 days. For the fix:
+  the failing lemmas are width 1/3/4/5, and S-d emits **only** width-2 — so the **S-e general path
+  (`ca3522e`)** is implicated by width alone. **`sweep_binaries`/`sweep_not_rup`/`sweep_general` exist
+  in `kernel.hpp:200-202` but are NOT printed**, so "did S-e fire here?" is unanswerable from a run —
+  adding them to the `c sweep` line is the highest-value change for the fix's regression test.
+- **C7 (`randec`) is UNPRICED and NOT PRICEABLE TODAY** — there is no knob. `randec_enabled`
+  (`default_policy.hpp:48`) is initialised `true` and never assigned; no CLI flag, no `TACTIX_*RANDEC*`.
+  An A/B needs a one-line source change (`= std::getenv("TACTIX_NO_RANDEC") == nullptr`), which queues
+  behind the N2 fix. · **C1/C3/C4: NOTHING TO PRICE — closed 2026-08-05, do not re-open.** C1 and C3
+  landed *unconditionally* (no arm exists; C1's only lever, `TACTIX_NO_DYNAMIC_TIERS`, also moves
+  reduce's tiers, so it confounds rather than ablates), and C4 is a pure refactor of an existing knob
+  with no default change.
 - **The BVE ramp slack-8 ceiling has no warrant beyond one tier** (its U-shape justification was
   withdrawn); Tier C/D re-sweep owed since `489fab1`.
 - **`tools/solvers/variants/` + 35 `build/pin-*` dirs** are sweepable (all reproducible from commits).
