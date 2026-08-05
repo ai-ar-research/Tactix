@@ -56,9 +56,9 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     // binary_ids ⟺ a live stored copy. kissat's dense mode likewise
     // dedups before its inprocessing ever runs; duplicated input pairs
     // otherwise inflate Factor's watch-score seeds and block BVE via the
-    // singular-delete hazard — on mp1-blockpuzzle (137,700 duplicated
-    // pairs) deduplication alone took the arrangement from 74 s to 5.3 s
-    // vs kissat's 9.1 (probe 1561180, 2026-07-25).
+    // singular-delete hazard. On an instance whose input carries six figures
+    // of duplicated pairs, this deduplication alone is worth an order of
+    // magnitude.
     if (k.binary_ids.count(kernel_binary_key(scratch[0], scratch[1])))
       return;
     kernel_add_binary_clause(k, scratch[0], scratch[1], id);

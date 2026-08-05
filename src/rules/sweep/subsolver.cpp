@@ -1,4 +1,4 @@
-// V5 Sweep · S-a (the engine) + S-b (its refutation derivation).
+// Sweep's sub-solver engine and its refutation derivation.
 // See subsolver.hpp for the contract; docs/design/v5-sweep-design.md §3/§4 for
 // why this exists at all.
 //
@@ -23,7 +23,7 @@
 //    assumption list), and a falsified assumption ends the solve as `Unsat`,
 //    i.e. UNSAT *under the assumptions*.
 //
-// THE PROOF CONSTRUCTION (S-b) is the kernel's, transplanted: antecedents are
+// THE PROOF CONSTRUCTION is the kernel's, transplanted: antecedents are
 // collected as (trail position, clause id) pairs and emitted sorted ascending
 // with the conflicting clause last, which is exactly the order a checker's own
 // propagation visits them (`kernel_lrat_chain`). Every lemma this file records

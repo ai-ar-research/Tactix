@@ -4,7 +4,7 @@
 // yields c ∖ {f}, which replaces c. Proof delta: add-RUP (the shortened
 // clause, LRAT chain [absorbed units..., d, c]) + delete (the original).
 //
-// References (plan §5; independent lineages per rev 25): the fused
+// References (plan §5; independent lineages per): the fused
 // subsume-or-strengthen check is CaDiCaL subsume.cpp subsume_check (MIT,
 // transliterated) — all candidate literals marked BY LITERAL (phase-
 // aware); a clause with every literal marked subsumes, with exactly one
@@ -33,7 +33,7 @@
 //     strengtheners — c' implies c regardless — but redundant-aware
 //     strengthening arrives with C3's tier-aware vivification, once, not
 //     twice). ALL binaries subsume/strengthen, with no redundancy check —
-//     since rev 33 binaries ARE deletable (kernel_delete_binary), so the
+//     since binaries ARE deletable (kernel_delete_binary), so the
 //     justification is no longer "structurally permanent" but the V4
 //     equivalence-preservation argument recorded in subsume_forward.hpp,
 //     which covers this SUBSUMED branch verbatim (it, too, deletes an

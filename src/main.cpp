@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
   bool probing_stress_policy = false;
   bool walk_stress_policy = false;
   bool reuse_stress_policy = false;
-  bool no_heuristics = false; // run with H detached (unguided; Track H · H5)
+  bool no_heuristics = false; // run with H detached (unguided)
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
 
@@ -120,21 +120,21 @@ int main(int argc, char **argv) {
       if (a[20] == '=')
         random_seed = strtoull(a + 21, nullptr, 10);
     } else if (!strncmp(a, "--bve-stress-policy", 19)) {
-      // E1c stress mode: maximizes BVE at the root (gate detection +
+      // Stress mode: maximizes BVE at the root (gate detection +
       // resolution + reconstruction), the N1 schedule the uniform random
       // policy under-samples (stress-policy skill)
       bve_stress_policy = true;
       if (a[19] == '=')
         random_seed = strtoull(a + 20, nullptr, 10);
     } else if (!strncmp(a, "--probing-stress-policy", 23)) {
-      // S3 stress mode: hammers P2's kernel_probing snapshot/restore scope —
+      // Stress mode: hammers the kernel_probing snapshot/restore scope —
       // the probing family in random order at every root, densely interleaved
       // with search that reuses the restored watch lists (stress-policy skill)
       probing_stress_policy = true;
       if (a[23] == '=')
         random_seed = strtoull(a + 24, nullptr, 10);
     } else if (!strncmp(a, "--reuse-stress-policy", 21)) {
-      // TB4b stress mode: forces the conflict-reuse shortcut ON, backjumps
+      // Stress mode: forces the conflict-reuse shortcut ON, backjumps
       // ALWAYS chronologically (the only way to reach a conflict with one
       // literal at the conflict level), and drops to random levels with a
       // fixpoint invariant check after each — the watch-repair oracle
@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
       if (a[21] == '=')
         random_seed = strtoull(a + 22, nullptr, 10);
     } else if (!strncmp(a, "--walk-stress-policy", 20)) {
-      // W4 stress mode: S6 Walk at random decision levels, off propagation
+      // Stress mode: Walk at random decision levels, off propagation
       // fixpoints, with tiny/huge budgets and mode flips — the walker is legal
       // anywhere, and DefaultPolicy only ever walks at a quiescent stable root
       // (stress-policy skill)
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
       if (a[20] == '=')
         random_seed = strtoull(a + 21, nullptr, 10);
     } else if (!strncmp(a, "--factor-stress-policy", 22)) {
-      // S2a Increment-2 stress mode: adversarial FactorMatchPolicy (hash /
+      // Stress mode: adversarial FactorMatchPolicy (hash /
       // all-tied / reversed scores, maximizing accept) + Factor maximized at
       // the root — the grid-selection schedules DefaultFactorMatch never
       // steers into (stress-policy skill)
@@ -159,19 +159,19 @@ int main(int argc, char **argv) {
       if (a[22] == '=')
         random_seed = strtoull(a + 23, nullptr, 10);
     } else if (!strncmp(a, "--congruence-stress-policy", 26)) {
-      // C3 stress mode: maximizes V6's newly-legal schedules -- deriving root
-      // units, refuting, and re-entering congruence off a fixpoint on the
+      // Stress mode: maximizes Congruence's newly-legal schedules -- deriving
+      // root units, refuting, and re-entering congruence off a fixpoint on the
       // formula its own previous round changed (stress-policy skill)
       congruence_stress_policy = true;
       if (a[26] == '=')
         random_seed = strtoull(a + 27, nullptr, 10);
     } else if (!strcmp(a, "--no-heuristics")) {
-      // Track H · H5: detach `H` (an unguided solver — `k.h == nullptr`). Sound
+      // Detach `H` (an unguided solver — `k.h == nullptr`). Sound
       // but slow; DefaultPolicy needs `H`, so pair with --random-policy (which
       // drives the solve purely through the null-safe rule API).
       no_heuristics = true;
     } else if (!strncmp(a, "--bve-gates=", 12)) {
-      // BVE gate-type selection (E1d): comma list of {equiv,andor}, or
+      // BVE gate-type selection: comma list of {equiv,andor}, or
       // all / none. A performance knob — every setting is sound (a disabled
       // gate type only falls BVE back to the full cross product).
       const char *spec = a + 12;
@@ -231,8 +231,8 @@ int main(int argc, char **argv) {
   // Only RandomPolicy drives the solve purely through the null-safe rule API and
   // tolerates a null H. Gate on the SELECTED policy, not just the flag: the
   // dispatch below is a precedence chain where the stress policies sit ABOVE
-  // random_policy, so `--no-heuristics --random-policy --adversarial-policy` would
-  // otherwise slip a stress policy (or DefaultPolicy) through with no H (H5).
+  // random_policy, so `--no-heuristics --random-policy --adversarial-policy`
+  // would otherwise slip a stress policy (or DefaultPolicy) through with no H.
   if (no_heuristics && (!random_policy || adversarial_policy ||
                         bve_stress_policy || congruence_stress_policy)) {
     fprintf(stderr, "tactix: --no-heuristics requires --random-policy alone "
@@ -241,20 +241,20 @@ int main(int argc, char **argv) {
     return 1;
   }
   Kernel kernel;
-  Heuristics heuristics; // the session owns H (Track H · H7); the kernel holds
+  Heuristics heuristics; // the session owns H; the kernel holds
                          // only a non-owning pointer. --no-heuristics leaves it
                          // unattached (null) so the whole run is H-free.
   if (!no_heuristics)
     kernel.h = &heuristics;
   kernel.bve_gate_mask = bve_gate_mask;
-  // TACTIX_BCE_OCC_LIMIT=<n> (DIAGNOSTIC arm; 0 = uncapped, the pre-2026-07-29
-  // behaviour): X1 BCE's candidate-occurrence ceiling. A Kernel CONFIG field, so
-  // this only exposes it for an A/B — the shipped value is its default (100,
-  // cadical's blockocclim). See Kernel::bce_occ_limit.
+  // TACTIX_BCE_OCC_LIMIT=<n> (DIAGNOSTIC arm): BCE's candidate-occurrence
+  // ceiling. A Kernel CONFIG field, so this only exposes it for an A/B; the
+  // shipped value is its default, which is 0 = UNCAPPED. See
+  // Kernel::bce_occ_limit for why cadical's 100 is not ported.
   if (const char *ol = getenv("TACTIX_BCE_OCC_LIMIT"))
     kernel.bce_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
-  // X2 governors (DIAGNOSTIC arms; 0 = unlimited, the pre-2026-07-30 behaviour).
-  // See Kernel::ternary_occ_limit / ternary_max_add_percent.
+  // HyperTernaryRes governors (DIAGNOSTIC arms; 0 = unlimited). See
+  // Kernel::ternary_occ_limit / ternary_max_add_percent.
   if (const char *ol = getenv("TACTIX_TERNARY_OCC_LIMIT"))
     kernel.ternary_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
   if (const char *ma = getenv("TACTIX_TERNARY_MAXADD"))
@@ -266,17 +266,17 @@ int main(int argc, char **argv) {
   if (getenv("TACTIX_V4_EARLY_EXIT"))
     kernel.transitive_early_exit = true;
   if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
-    kernel.midround_budget = (*mb != '0'); // D-STRENGTHEN-BUDGET, default OFF
-                                           // (measured negative; see kernel.hpp)
+    kernel.midround_budget = (*mb != '0'); // default OFF, measured negative;
+                                           // see Kernel::midround_budget
   if (const char *fs = getenv("TACTIX_FACTOR_SIZE"))
     kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
   if (const char *sp = getenv("TACTIX_FACTOR_SCOPE_PCT"))
     kernel.factor_scope_percent = (uint32_t)strtoul(sp, nullptr, 10);
   // Kernel::factor_bound — kissat's `reduction > bound` acceptance threshold
-  // (factor.c:939). Default 0 keeps the legacy "any positive gain applies".
-  // This is the PAYOFF axis, and it is formula-shape-blind, which is why it is
-  // the candidate for making broad admission safe where a scope gate cannot be
-  // (winners and losers sit at the same scope fraction — 2026-07-31).
+  // (factor.c:939). Default 0 = "any positive gain applies". This is the PAYOFF
+  // axis and it is formula-shape-blind, which is why it is the candidate for
+  // making broad admission safe where a scope gate cannot be: Factor's winners
+  // and losers sit at the same scope fraction.
   if (const char *fb = getenv("TACTIX_FACTOR_BOUND"))
     kernel.factor_bound = (uint32_t)strtoul(fb, nullptr, 10);
   if (getenv("TACTIX_FACTOR_DEMOTE"))
@@ -288,14 +288,14 @@ int main(int argc, char **argv) {
   if (const char *sf = getenv("TACTIX_STOP_FUZZ"))
     kernel.stop_fuzz = (uint32_t)strtoul(sf, nullptr, 10); // see kernel_terminating
   if (const char *rt = getenv("TACTIX_RETIRE"))
-    kernel.retire_enabled = (*rt != '0'); // R-d ships ON; =0 reverts
+    kernel.retire_enabled = (*rt != '0'); // retirement ships ON; =0 reverts
   if (getenv("TACTIX_SUBST_DEMOTE"))
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
   if (getenv("TACTIX_SUBST_HAZARD_ROUND"))
     kernel.subst_hazard_round = true; // A/B, see Kernel::subst_hazard_round
   if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
     kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
-  // TB4b(A) A/B arm, read HERE rather than in DefaultPolicy so it applies under
+  // A/B arm, read HERE rather than in DefaultPolicy so it applies under
   // every policy — the corpus replays run --random-policy, which never enters
   // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a
   // usable A/B arm.
@@ -367,9 +367,9 @@ int main(int argc, char **argv) {
     printf("c learned     %llu (%llu units)\n",
            (unsigned long long)kernel.stats.learned,
            (unsigned long long)kernel.stats.learned_units);
-    // clause QUALITY (2026-07-28): mean size and glue of what we learn, and
-    // how much minimize+shrink actually removes — the decomposition the
-    // conflict-count gap vs kissat needs (kissat prints the same via -s).
+    // clause QUALITY: mean size and glue of what we learn, and how much
+    // minimize+shrink actually removes — the decomposition a conflict-count
+    // gap vs kissat needs (kissat prints the same via -s).
     if (kernel.stats.learned) {
       printf("c learnedsize %.2f avg lits, %.2f avg glue\n",
              (double)kernel.stats.learned_lits / (double)kernel.stats.learned,
@@ -398,15 +398,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed,
            (unsigned long long)kernel.stats.flushed);
-    // `checked` is printed because `vivified` alone is uninterpretable — it is a
-    // rate, not a count. Added 2026-07-29 while chasing a mod4block "46 vs
-    // kissat's 47,526" gap that turned out NOT to be like-for-like: kissat's
-    // `vivified` is an AGGREGATE (statistics.h:247, a % of checks) incremented
-    // for subsumed, PROMOTED (a tier move, not a clause change), shrunken,
-    // implied, asym and instantiated, where ours counts only clauses we
-    // strengthened. Comparing the two needs both denominators: a reference
-    // counter is comparable only after reading its DECLARATION and every INC
-    // site, and that is the reason this counter now ships.
+    // `checked` is printed because `vivified` alone is uninterpretable — it is
+    // a rate, not a count, and it is NOT comparable to kissat's counter of the
+    // same name: kissat's `vivified` is an AGGREGATE (statistics.h:247)
+    // incremented for subsumed, PROMOTED (a tier move, not a clause change),
+    // shrunken, implied, asym and instantiated, where ours counts only clauses
+    // we strengthened. Comparing them needs both denominators.
     printf("c vivify      %llu rounds, %llu vivified, %llu deleted, %llu checked\n",
            (unsigned long long)kernel.stats.vivify_rounds,
            (unsigned long long)kernel.stats.vivified,
@@ -437,9 +434,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.substitute_hazard_skips,
            (unsigned long long)kernel.stats.substitute_hazard_partial,
            (unsigned long long)kernel.stats.substitute_hazard_lits);
-    // Track R families: registered and N1-reachable, not scheduled by
-    // DefaultPolicy yet — without these lines "did the new rule even fire?"
-    // is unanswerable from a normal run (the same gap V6/E2 once had).
+    // Every registered rule gets a stats line: without one, "did this rule
+    // even fire on this instance?" is unanswerable from a normal run.
     printf("c bce         %llu rounds, %llu deleted, %llu ticks\n",
            (unsigned long long)kernel.stats.bce_rounds,
            (unsigned long long)kernel.stats.bce_deleted,
@@ -448,10 +444,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.instantiate_rounds,
            (unsigned long long)kernel.stats.instantiated,
            (unsigned long long)kernel.stats.instantiate_checked);
-    // V5 Sweep · S-c: detection only (no rule, no proof delta yet — see
-    // src/rules/sweep/sweep.hpp). This line IS the increment's deliverable and
-    // the reachability witness for its fuzz legs: `environments 0` means the
-    // detector never ran, so any green leg over it is vacuous.
+    // Also the reachability witness for Sweep's fuzz legs: `environments 0`
+    // means the detector never ran, so any green leg over it is vacuous.
     printf("c sweep       %llu rounds, %llu environments (%llu clauses), "
            "%llu solves, %llu candidates, %llu equivalences (%llu already "
            "binary), %llu env-unsat, %llu budget, %llu ticks\n",
@@ -471,14 +465,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.ternary_resolvents,
            (unsigned long long)kernel.stats.ternary_binaries,
            (unsigned long long)kernel.stats.ternary_ticks);
-    // V6 + E2 ship ON by default but had no stats line, so "did congruence /
-    // Factor even fire on this instance?" was unanswerable from a normal run.
+    // `stale backjumps` should be 0: a nonzero value means conflicts are being
+    // dropped and re-derived, which is otherwise invisible in a tier run.
     printf("c chrono      %llu chronological, %llu stale backjumps\n",
            (unsigned long long)kernel.stats.chronological,
            (unsigned long long)kernel.stats.backjump_stale);
-    // TB4b(A): "did the shortcut fire, and did it need the watch repair?" —
-    // the second number is what separates the un-crippled mechanism from the
-    // subset the declining version could take ([[ab-arm-identical-artefacts]]).
+    // "did the conflict-reuse shortcut fire, and did it need the watch
+    // repair?" — the second number is what separates the full mechanism from
+    // the subset a version that DECLINES instead of repairing could take.
     printf("c reuse       %llu conflicts reused, %llu needed watch repair\n",
            (unsigned long long)kernel.stats.conflict_reused,
            (unsigned long long)kernel.stats.conflict_watch_repaired);
@@ -546,7 +540,7 @@ int main(int argc, char **argv) {
                ? 100.0 * (double)kernel.stats.bumps_ext_reason_only /
                      (double)kernel.stats.bumps_extension
                : 0.0);
-    // factor_ticks is the S4 dosing currency (and what the first-dose
+    // factor_ticks is Factor's dosing currency (and what the first-dose
     // allowance FACTOR_INIT_TICKS caps): printing it is what distinguishes
     // "the allowance bound the opening burst" from "the arm was inert".
     printf("c factor      %llu factorings, %llu large remainders offered, "
@@ -598,9 +592,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthen_visits,
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed);
-    // Ledger D-STRENGTHEN-BUDGET reachability witness: rounds cut short by the
-    // mid-round work budget. ZERO means the budget never bound, so any run
-    // claiming to have exercised it is vacuous ([[ab-arm-identical-artefacts]]).
+    // Reachability witness for Kernel::midround_budget: rounds cut short by
+    // the mid-round work budget. ZERO means the budget never bound, so any run
+    // claiming to have exercised it proves nothing.
     printf("c budgetstop  %llu C1 rounds, %llu C2 rounds stopped mid-round\n",
            (unsigned long long)kernel.stats.budget_stops_c1,
            (unsigned long long)kernel.stats.budget_stops_c2);

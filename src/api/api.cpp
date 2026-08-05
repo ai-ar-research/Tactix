@@ -18,7 +18,7 @@ using namespace tactix;
 
 struct tactix_solver {
   Kernel kernel;
-  Heuristics heuristics; // the SESSION owns H (Track H · H7); Kernel holds only a
+  Heuristics heuristics; // the SESSION owns H; Kernel holds only a
                          // non-owning pointer. Attached below; outlives every
                          // solve(), so tactix_decide before any solve has an H.
   Proof proof;
@@ -67,7 +67,7 @@ void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
   s->kernel.bve_gate_mask = mask;
 }
 
-// Kernel configuration setters (rev 69) — the §5.6 pose surface. Plain
+// Kernel configuration setters  — the §5.6 pose surface. Plain
 // writes to CONFIG fields (kernel.hpp documents each field's soundness
 // class); no scheduling state, no guard interaction.
 void tactix_set_bve_bound(tactix_solver *s, unsigned bound) {
@@ -245,7 +245,7 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.bve_eliminated;
   case 25: // TACTIX_STAT_BVE_RESOLUTIONS
     return k.stats.bve_resolutions;
-  // Track R families (scheduled since 2026-07-29), each as a yield/effort pair
+  // BCE / HyperTernaryRes / Instantiate / Reorder, each a yield/effort pair
   case 26: // TACTIX_STAT_BCE_DELETED
     return k.stats.bce_deleted;
   case 27: // TACTIX_STAT_BCE_TICKS

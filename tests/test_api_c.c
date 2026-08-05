@@ -87,7 +87,7 @@ static void test_external_branching(void) {
   tactix_release(s);
 }
 
-/* v1 instance surface (plan §5.1 rev 20): generic enumeration + chosen-
+/* v1 instance surface (plan §5.1): generic enumeration + chosen-
  * instance application across the payload encodings */
 static void test_instance_surface(void) {
   tactix *s = tactix_init();
@@ -121,10 +121,10 @@ static void test_instance_surface(void) {
   assert(tactix_stat(s, TACTIX_STAT_LEVEL) == 1);
   assert(tactix_decide(s, -3) == -1); /* already assigned */
 
-  /* N1: EVERY literal must be expressible as an instance, -1 included. The
-     rev-20 encoding sign-extended it onto TACTIX_INSTANCE_CANONICAL, so this
-     branched on the solver's own pick instead of the one we asked for (found
-     2026-07-17; the payload space is now zero-extended and disjoint). */
+  /* N1: EVERY literal must be expressible as an instance, -1 included. A
+     SIGN-extending encoding maps -1 onto TACTIX_INSTANCE_CANONICAL, which
+     silently branches on the solver's own pick instead of the one asked for;
+     the payload space is zero-extended and disjoint. */
   assert(TACTIX_LIT_INSTANCE(-1) != TACTIX_INSTANCE_CANONICAL);
   for (int i = 0; i < n; i++)
     assert(insts[i] != TACTIX_INSTANCE_CANONICAL); /* no literal aliases it */
@@ -248,17 +248,17 @@ static void test_stats_and_config_surface(void) {
   tactix_set_work_budget(s, 0);
   tactix_set_vivify_scope(s, 0);
   assert(tactix_solve(s) == 20);
-  /* completeness: every documented id 1..31 answers. Ids 26-31 are the Track R
-     families' yield/effort pairs — the §5.6 learner reads these as rewards, and
-     the 2026-07-28 campaign showed cost-per-unit-output is the axis that orders
-     their outcomes, so yield alone would not be enough. */
+  /* completeness: every documented id 1..31 answers. Ids 26-31 come in
+     yield/effort PAIRS because the plan §5.6 learner reads them as rewards and
+     cost-per-unit-output — not yield alone — is the axis that orders rule
+     outcomes. */
   for (id = 1; id <= 31; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
   assert(tactix_stat(s, 32) == UINT64_MAX); /* first unknown id */
   tactix_release(s);
 }
 
-/* H1 · Track H: pin the frozen registry id/name assignment (a permanent
+/* Pin the frozen registry id/name assignment (a permanent
  * id-drift guard — reclassifying Rephase/SwitchMode in place must NOT move any
  * id) and each entry's ActionKind. Rephase and SwitchMode are POLICY OPERATIONS
  * (H-only, plan rev 59/60), as are Walk and Reorder; every other entry is a PROOF RULE. Adding a rule
@@ -278,7 +278,7 @@ static void test_action_kind(void) {
   for (int i = 0; i < n; i++)
     assert(!strcmp(tactix_rule_name(i), golden[i]));
 
-  /* the policy operations (rev 59/60; Walk joined in rev 71 — it sorts last,
+  /* the policy operations (rev 59/60; Walk joined in — it sorts last,
    * so no existing id moved) */
   assert(tactix_action_kind(rule_id("Rephase")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("SwitchMode")) == TACTIX_ACTION_POLICY_OP);

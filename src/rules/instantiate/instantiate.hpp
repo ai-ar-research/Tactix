@@ -1,4 +1,4 @@
-// X4 Instantiate (plan §5.2, rev 72 — Track R item R3): variable
+// Instantiate (plan §5.2): variable
 // instantiation, the removal of a RARE literal from a clause. For a clause
 // C = D ∨ l, assume l TRUE and every literal of D FALSE and propagate: a
 // conflict proves F ⊨ ¬l ∨ D, which resolves against C = l ∨ D to give D.
@@ -26,19 +26,15 @@
 //  - kissat 4.0.4 has NO instantiation rule at all, so CaDiCaL is the only
 //    reference here (as with X2).
 //  - CONTEXT WORTH KEEPING (it calibrates what to expect): cadical ships
-//    `instantiate` **default OFF** (options.hpp: 0). The idea survives in its
+//    `instantiate` DEFAULT OFF (options.hpp: 0). The idea survives in its
 //    default configuration only as `vivifyinst` — instantiating the LAST
 //    literal during vivification. So the reference itself does not schedule
-//    the standalone rule. That prior held for us too when the rule was measured
-//    ALONE (Tier B 13.08 vs 8.05 shipped) — but measuring it alone turned out to
-//    be the wrong experiment: with X1 BCE and X2 HyperTernaryRes on beside it the
-//    trio costs 9.22, far less than any member alone (X1/X2/X4 alone are
-//    21.79/53.26/13.08 on that same Tier B(14) list, though X2's arm there is
-//    ~93 % one instance), because the families repair each other — so a member
-//    of a family must be judged WITH its family, never on its own arm.
-//    **SCHEDULED since 2026-07-29** — every implemented proof
-//    rule is ON (user directive); `TACTIX_SLOT_DISABLE=Instantiate` is the
-//    ablation arm.
+//    the standalone rule, and measured ALONE this rule is a clear loss for us
+//    too. That is the WRONG experiment: with BCE and HyperTernaryRes on
+//    beside it the trio costs far less than any member alone, because the
+//    families repair each other. Judge a rule WITH its family, never on its
+//    own arm. It is SCHEDULED, like every implemented proof rule;
+//    `TACTIX_SLOT_DISABLE=Instantiate` is the ablation arm.
 //
 // Deviations recorded:
 // (1) SCOPE = IRREDUNDANT CLAUSES, matching cadical (its occurrence lists are
@@ -57,10 +53,10 @@
 //     shrink RandomPolicy's and the phase-6 learner's action space (the
 //     §5.3 instance-surface rule; the same argument that moved BVE's retry
 //     filter out to the policy). Cost: repeated rounds re-probe failures.
-// (4) NO STEPS BUDGET IN THE RULE, the §5.2 rev-17 split: WHEN and HOW MUCH is
+// (4) NO STEPS BUDGET IN THE RULE, the §5.2 split: WHEN and HOW MUCH is
 //     policy territory. The canonical round is budget_aware — it reads
 //     `Kernel::work_budget` in propagation ticks and stops mid-round, the
-//     arrangement Track R's round 2 showed these families need.
+//     arrangement these families need.
 // (5) THE LRAT CHAIN CITES THE CANDIDATE CLAUSE ITSELF at l's trail position,
 //     and only when the conflict's reason walk actually reached l. This is
 //     cadical's guard (`if (flags (lit).seen) lrat_chain.push_back (c->id)`)

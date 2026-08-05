@@ -5,9 +5,9 @@
 // (the distilled clause, LRAT chain from a reason walk of the probe
 // trail) + delete (the original); a root-satisfied candidate is deleted.
 //
-// References (plan §5; rev 25 lineages): kissat vivify.c / CaDiCaL
-// vivify.cpp (MIT, transliterated in essence). SCOPE INCLUDES LEARNED
-// TIERS (irredundant + redundant glue <= tier2): the Maple-lineage LCM
+// References (plan §5; docs/design/independent-lineage-survey.md): kissat
+// vivify.c / CaDiCaL vivify.cpp (MIT, transliterated in essence). SCOPE
+// INCLUDES LEARNED TIERS (irredundant + redundant glue <= tier2): the Maple LCM
 // discipline (Luo/Li/Xiao/Manyà/Lü IJCAI'17, SC17 winners onward), which
 // CaDiCaL also adopted; Glucose core has no vivification (simp-only
 // preprocessing), CMS runs `occ-vivif` in its schedule string.
@@ -17,11 +17,9 @@
 //     scheduling (kissat's vivifier sorts by usage counts and reuses the
 //     assumed prefix across sorted candidates): each candidate probes
 //     from and returns to the root (kernel_backtrack update_phases=false,
-//     the Lucky primitive). Cost, not soundness. NOTE 2026-08-02: the old
-//     closer read "revisit when the slot gains tick budgets" — that trigger
-//     HAS FIRED (EFFORT_SPECS gives Vivify 100 permille of meter_ticks and
-//     the slot is active), so this is now a tracked rev-77 deficit with a
-//     named closer: ledger row D-VIVIFY-SCHED.
+//     the Lucky primitive). Cost, not soundness — but a tracked deficit now
+//     that the slot budgets Vivify: see the D-VIVIFY-SCHED ledger row in
+//     docs/implementation-notes.md.
 // (2) One rewrite per candidate per round (kissat/CaDiCaL iterate
 //     within the candidate); rounds repeat via the slot schedule.
 // (3) Probe order = clause literal order (kissat sorts by inverse

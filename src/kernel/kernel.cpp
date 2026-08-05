@@ -8,7 +8,7 @@
 
 namespace tactix {
 
-// The kernel does NOT own `H` (Track H · H7): it is a non-owning `Heuristics *`
+// The kernel does NOT own `H`: it is a non-owning `Heuristics *`
 // (kernel.hpp), attached by whoever owns the storage (the session / a policy).
 // So Kernel needs no ctor/dtor for it. heuristics.hpp is still included above —
 // kernel_backtrack_impl<true> reads `k.h->…`, which needs the complete type.
@@ -51,7 +51,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // reallocate, and its push_back capacity branch becomes always-false
   k.trail.reserve(nvars);
   k.frames.reserve(nvars + 1);
-  // --- search-guidance (`H`) growth (Track H · H2: extracted seam) ---
+  // --- search-guidance (`H`) growth: the extracted seam ---
   // Conditional on `H` being present (H5): an unguided solver (`k.h == nullptr`)
   // has no per-var `H` state to grow. DefaultPolicy always has `H` → unchanged.
   if (k.h)
@@ -83,16 +83,14 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   k.watches.push_large(lits[0], lits[1], ref);
   k.watches.push_large(lits[1], lits[0], ref);
   // IRREDUNDANT clauses only, for both consumers below:
-  //  - dense phase (increment 2): a new irredundant large clause joins the
-  //    shared occurrence index. Refs are arena offsets — stable across the
-  //    resize above; only GC rewrites them.
+  //  - dense phase: a new irredundant large clause joins the shared
+  //    occurrence index. Refs are arena offsets — stable across the resize
+  //    above; only GC rewrites them.
   //  - BVE retry filter: this clause is new material for every variable in
   //    it. Redundant clauses are excluded on purpose — BVE does not resolve
   //    them, and learned-clause traffic would mark everything.
-  //    NOTE the kissat-exact alternative (removal-only marking, inline.h)
-  //    was measured 2026-07-25 and NOT adopted — it cost the arrangement's
-  //    mp1 win 5.3 → 15.5 s without fixing mod4block; the arm was removed
-  //    in the negative-arm cleanup (ledger + gate report §2 bank it).
+  //    DEVIATION: kissat marks on REMOVAL only (inline.h). That variant was
+  //    measured here and is NEGATIVE; do not re-derive it.
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
       kernel_mark_bve_retry(k, var_of(lits[i]));
@@ -105,7 +103,7 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
-  // LAST id wins (rev 33). The map must always name a clause the checker still
+  // LAST id wins . The map must always name a clause the checker still
   // holds, and since kernel_delete_binary can retire this pair's id, a re-add
   // MUST install its fresh one — Analyze/Strengthen/Vivify can all re-derive a
   // binary V4 deleted, and keeping the retired id would make every later LRAT
@@ -375,7 +373,7 @@ void kernel_bve_retry_sync_fixed(Kernel &k) {
 
 // kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)
 
-// H2 (Track H): the H-hook seam. `HasH` selects at COMPILE TIME whether this
+// The H-hook seam. `HasH` selects at COMPILE TIME whether this
 // backtrack maintains search guidance — the four `H` touches (target/best
 // snapshot, phase save, heap re-insert, VMTF search-cache) are each under
 // `if constexpr (HasH)`, so the null-`H` instantiation's inner loop is branch-
@@ -386,28 +384,27 @@ template <bool HasH>
 static void kernel_backtrack_impl(Kernel &k, uint32_t target,
                                   bool update_phases) {
   assert(target < k.level);
-  // TB4b · SNAPSHOT TIMING (2026-08-04). This function is now the analogue of
-  // kissat's `kissat_backtrack_without_updating_phases` (backtrack.c:72): it
-  // SAVES phases (gated by `update_phases`, our probing exclusion — kissat's is
-  // `if (!probing)` at assign time, inlineassign.h:53) but no longer snapshots
-  // target/best. The snapshot moved to the CALL SITES because kissat takes it at
-  // a different moment on the conflict path than we did: it steps down ONE level
-  // FIRST, then snapshots, then goes to the real target
-  // (`kissat_backtrack_after_conflict`, backtrack.c:156). Taking it here meant
-  // our high-water `target_assigned`/`best_assigned` always included the
-  // conflict level's own literals — systematically inflating the mark, so later
-  // genuinely-longer trails could fail to update and target phases went stale.
-  // COMPACTING backtrack (rev 38, D-LEVEL-2): with true-level assignment the
+  // SNAPSHOT TIMING. This is the analogue of kissat's
+  // `kissat_backtrack_without_updating_phases` (backtrack.c:72): it SAVES
+  // phases (gated by `update_phases`, our probing exclusion — kissat's is
+  // `if (!probing)` at assign time, inlineassign.h:53) but deliberately does
+  // NOT snapshot target/best. That snapshot belongs at the CALL SITES, because
+  // on the conflict path kissat steps down ONE level FIRST, then snapshots,
+  // then goes to the real target (`kissat_backtrack_after_conflict`,
+  // backtrack.c:156). Snapshotting here makes the high-water
+  // `target_assigned`/`best_assigned` include the conflict level's own
+  // literals, systematically inflating the mark, so later genuinely-longer
+  // trails fail to update and the target phases go stale.
+  // COMPACTING backtrack (implementation-notes D-LEVEL-2): with true-level
+  // assignment the
   // trail is no longer level-sorted, so we cannot truncate by position. Scan
   // the suffix above the target frame and KEEP (compact down, re-propagate)
   // every literal whose true level <= target; unassign only those above it.
   // Transliterated from cadical backtrack.cpp / kissat backtrack.c. Under a
   // level-sorted trail the suffix is exactly the level>target literals, so
-  // nothing is kept and this reduces to the old truncation. That WAS
-  // DefaultPolicy's situation and it made this change bit-exact at the time;
-  // since chrono was enabled by default (2026-07-22) DefaultPolicy's trail is
-  // no longer level-sorted, so the keep-and-compact path is live in the default
-  // configuration.
+  // nothing is kept and this reduces to plain truncation — which is why it is
+  // inert while chrono is off. Chrono is on by default, so the keep-and-compact
+  // path is live in the default configuration.
   const uint32_t boundary = k.frames[target + 1];
   const uint32_t end = static_cast<uint32_t>(k.trail.size());
   uint32_t j = boundary; // write cursor for kept (out-of-order) literals
@@ -476,7 +473,7 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
 }
 
 void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
-  // Track H · H5: dispatch ONCE per backtrack on whether `H` is present. With no
+  // Dispatch ONCE per backtrack on whether `H` is present. With no
   // `H` (an unguided solver) the <false> instantiation runs the same σ unwind but
   // its inner loop is branch-free w.r.t. `H` (every hook is `if constexpr (HasH)`,
   // compiled out). DefaultPolicy always has `H`, so it takes <true> — bit-exact.
@@ -486,7 +483,7 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
     kernel_backtrack_impl<false>(k, target, update_phases);
 }
 
-// --- shared proof idioms (review 2026-07-25 item 7; decls in kernel.hpp) ----
+// --- shared proof idioms (decls in kernel.hpp) ------------------------------
 void kernel_emit_empty_from_pair(Kernel &k, uint64_t id_a, uint64_t id_b) {
   if (k.proof) {
     if (k.proof->lrat()) {
@@ -542,9 +539,9 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
 // compaction, `searched` scan resumption, and DELAYED watch relocation —
 // with the flat watch arena, pushing to another literal's list during a
 // scan can move the arena, so relocations queue in kernel.delayed and
-// flush after each literal's scan. Lived in rules/propagate until the S5
-// probes needed propagation as a subroutine (rules never call rules) —
-// reviewed §5.3 kernel-primitive addition, 2026-07-14.
+// flush after each literal's scan. It lives in the kernel rather than in the
+// Propagate rule because the probing rules need propagation as a subroutine
+// and rules never call rules — a reviewed §5.3 kernel-primitive addition.
 
 // Probing bookkeeping log (see ProbingLog in kernel.hpp): snapshot `l`'s watch
 // list the FIRST time this scope touches it — either the scan of `l` is about

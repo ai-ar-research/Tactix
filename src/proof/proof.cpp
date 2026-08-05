@@ -62,9 +62,8 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
   assert(!tautological(lits, size)); // see Proof::tautological
   // Under LRAT a non-empty clause with NO antecedents is uncheckable: the
   // checker has nothing to propagate and rejects the line (`<id> <lits> 0 0`).
-  // Rules must skip the inference instead of emitting one — the T105.2.0
-  // defect (2026-07-27), where a trivially-true lemma's replay produced an
-  // empty chain and three ladders emitted it.
+  // Rules must skip the inference instead of emitting one; a trivially-true
+  // lemma whose replay produces an empty chain is the way this happens.
   assert(!(format_ == ProofFormat::Lrat && size > 0 && nchain == 0));
   if (!file_)
     return;

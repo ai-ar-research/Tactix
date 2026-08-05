@@ -60,9 +60,8 @@ static void unwind(Kernel &k) {
 }
 
 // The reason walk (kernel_reason_walk) + conflict seed (kernel_conflict_
-// reason_walk) are shared kernel helpers (kernel.cpp), used by C3 Vivify,
-// V1 Probe and V2 Backbone — the proof-critical DFS lives in exactly one
-// place (review 2026-07-15 #1).
+// reason_walk) are shared kernel helpers (kernel.cpp), used by Vivify, Probe
+// and Backbone — the proof-critical DFS lives in exactly one place.
 
 // emit the add-RUP unit {lit} with the sorted reason chain closed by `last`
 // (the conflicting clause id). LRAT mode only; the caller handles DRAT.

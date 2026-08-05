@@ -30,7 +30,7 @@ static bool has_binary(const Kernel &k, Lit a, Lit b) {
 // extension boundary, and keeps the model-output count at the original variables.
 static void test_extension_var_boundary() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 5); // 5 original vars: 0..4
   assert(k.nvars == 5);
   assert(k.first_extension_var == UINT32_MAX);
@@ -55,7 +55,7 @@ static void test_extension_var_boundary() {
 // quotients (5 clauses) over a fresh x; originals are deleted.
 static void test_factoring_2x3() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 5); // a=0 b=1 p=2 q=3 r=4
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false), q = make_lit(3, false), r = make_lit(4, false);
@@ -82,10 +82,9 @@ static void test_factoring_2x3() {
 }
 
 int main() {
-  // No TACTIX_FACTOR_FORCE needed since SCHED-N1FIX (2026-08-04): the density
-  // selectivity heuristic moved OUT of the rule and into DefaultPolicy, so these
-  // tiny below-threshold grids now factor through the rule's own surface. The
-  // workaround this used to need was itself the symptom of the N1 breach.
+  // No TACTIX_FACTOR_FORCE needed: the density admission heuristic lives in
+  // DefaultPolicy, not in the rule, so these tiny below-threshold grids factor
+  // through the rule's own surface (see tests/test_factor_n1.cpp).
   test_extension_var_boundary();
   test_factoring_2x3();
   std::printf("test_factor: all passed\n");

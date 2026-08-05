@@ -1,6 +1,6 @@
 // S1 Restart (plan §5.2): abandon the current assignment prefix (a
 // heuristically-reusable prefix is kept), keeping all learned clauses and
-// heuristic state. WHEN to restart is policy state (rev 17: focused = EMA
+// heuristic state. WHEN to restart is policy state (focused = EMA
 // trigger, stable = reluctant doubling, both in DefaultPolicy). Proof
 // delta: none.
 #pragma once
@@ -21,7 +21,7 @@ uint32_t restart_reuse_level(Kernel &);
 // N1 instance surface: restart keeping exactly the first `keep_level`
 // decision levels — every keep-level is a legal instance (clamped to the
 // current level; 0 = full restart). The CHOICE of keep-level is the
-// policy's; this module owns only HOW (plan §5 rev 17).
+// policy's; this module owns only HOW (plan §5).
 ApplyResult restart_apply_to(Kernel &, uint32_t keep_level);
 
 // canonical instance: keep the reusable prefix
