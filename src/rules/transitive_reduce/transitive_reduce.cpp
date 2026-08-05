@@ -262,10 +262,10 @@ ApplyResult transitive_reduce_try(Kernel &k, Lit src) {
     return ApplyResult::Unsat;
   if (var_of(src) >= k.nvars || k.values[src] != 0)
     return ApplyResult::NoOp; // out of range / root-fixed
-  // Persistent per-instance scratch (TB5 hotspot, probe 1562601): a fresh
-  // Walk here cost three O(2·nvars) zero-fills + three allocations PER
-  // DOSED CANDIDATE — 7 % of ALL cycles on FmlaEquiv. Reuse is behavior-
-  // identical because every Walk array is invariant-clean between calls
+  // Persistent per-instance scratch. A fresh Walk here costs three
+  // O(2·nvars) zero-fills + three allocations PER DOSED CANDIDATE, which is
+  // several percent of a whole solve. Reuse is behaviour-identical because
+  // every Walk array is invariant-clean between calls
   // (`dead`/`copies` restored on exit, `reached` cleared at walk entry via
   // `touched`); re-init only when nvars grew (Factor/BVE extension vars).
   // thread_local keeps the scratch rule-scoped (nothing leaks into the

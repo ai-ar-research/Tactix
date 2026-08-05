@@ -1,4 +1,4 @@
-// Policy interface (plan §5, rev 17 — load-bearing): rule-application
+// Policy interface (plan §5 — load-bearing): rule-application
 // ORDER is decided by a Policy object; DefaultPolicy is one instantiation
 // with no special architectural status. ALL scheduling heuristics and
 // their state (restart triggers, reduce intervals, mode switching,

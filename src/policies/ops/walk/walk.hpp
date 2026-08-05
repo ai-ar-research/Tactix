@@ -9,7 +9,7 @@
 //
 // The application is kissat's whole walking rephase slot: local search, then
 // the same tail every rephase type runs (target := saved, watermark reset,
-// `stats.rephased++`). WHEN to walk is policy state (rev 17) — DefaultPolicy
+// `stats.rephased++`). WHEN to walk is policy state  — DefaultPolicy
 // puts it in the B,W,I,B,W,O rotation.
 #pragma once
 

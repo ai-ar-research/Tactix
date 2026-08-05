@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Submit a fuzz leg as ONE multi-core SLURM job (cluster protocol,
-# PROGRESS Log 2026-07-23): partition cpu-dense-hwulab-q, 8 GB/core,
-# harness --jobs pinned to the allocation. Results are identical at any
-# job count (fuzz skill) — only wall-clock changes.
+# Submit a fuzz leg as ONE multi-core SLURM job (see the slurm-jobs skill):
+# partition cpu-dense-hwulab-q, 8 GB/core, harness --jobs pinned to the
+# allocation. Results are identical at any job count — only wall-clock
+# changes.
 #
 #   slurm.sh [--cpus C] [--time T] [--name NAME] -- <run.sh args...>
 #
-# Examples (default --cpus 50, the rev-66 scale):
+# Examples (default --cpus 50):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
 #   slurm.sh --name nightly -- --nightly --solver "build/release/tactix --random-policy --lrat"
 #
@@ -19,7 +19,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 
-CPUS=50 # rev-66 cluster scale
+CPUS=50 # cluster scale
 TIME=24:00:00
 NAME=fuzz
 PARTITION=cpu-dense-hwulab-q

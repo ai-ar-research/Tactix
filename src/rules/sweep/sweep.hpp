@@ -1,23 +1,14 @@
-// V5 Sweep · increment S-c: CANDIDATE SELECTION + ENVIRONMENT CONSTRUCTION.
-// (design `docs/design/v5-sweep-design.md` §6.3 — "NoOp on every proof path;
-// measurable: does it find equivalences at all, and how many?")
+// Sweep (design `docs/design/v5-sweep-design.md`): prove `x ≡ y` by a budgeted
+// refutation over a LOCAL clause set around a seed, then add the two
+// equivalence binaries with a checkable chain — a RUP fast path where one
+// exists, and a general core→chain path otherwise.
 //
-// This is the DETECTION half of Sweep. It answers one question and changes
-// nothing: which literal pairs `x ≡ y` does a budgeted refutation over a LOCAL
-// clause set prove? The deriving half (emit the two binaries with a checkable
-// chain) is S-d (the RUP fast path) and S-e (the general core→chain path).
-//
-// WHY THERE IS NO `TACTIX_REGISTER_RULE` LINE HERE YET. A registered rule whose
-// `apply` can only ever return `NoOp` would (a) put an inert move into N1's
-// action space — the surface `RandomPolicy` enumerates and the phase-6 learner
-// reasons over — and (b) be ON by default in the S4 arrangement (every
-// Inprocess-tier entry is enabled), i.e. an unmeasured cost for zero yield.
-// It would also be the exact shape of the open `Factor` N1 breach: guard true,
-// apply NoOp. The registry line, the `docs/calculus.md` entry and the default-on
-// decision all land together with the first PROOF-CARRYING application (S-d).
-// Until then the detector is reachable through the policy's TACTIX_SWEEP_PROBE
-// hook (default_policy.cpp), which is what makes the counters below — and the
-// fuzz legs over them — non-vacuous.
+// The rule is registered (sweep.cpp) and scheduled like every other
+// Inprocess-tier rule; DefaultPolicy meters it in `Stats::sweep_ticks`. Note
+// that a rule whose `apply` could only ever return NoOp must NOT be registered:
+// it would put an inert move into N1's action space — the surface
+// `RandomPolicy` enumerates and the phase-6 learner reasons over — and be
+// scheduled by default for zero yield.
 //
 // THE SOUNDNESS ARGUMENT, in one line: the environment is a SUBSET OF F, so
 // `env ⊨ x ≡ y` implies `F ⊨ x ≡ y`. Everything in `sweep_env_build` exists to
@@ -29,8 +20,8 @@
 //            clause is really IN the proof (a variable fixed by root
 //            propagation has no unit clause of its own — citing one would build
 //            a chain naming a clause the checker never saw)
-// Nothing is strengthened, shrunk, or invented on the way in. S-e maps a core
-// entry back to a main-formula clause by indexing `SweepEnv::clause_ids`.
+// Nothing is strengthened, shrunk, or invented on the way in. Emission maps a
+// core entry back to a main-formula clause by indexing `SweepEnv::clause_ids`.
 //
 // References (plan §5 "evidence, not templates"; MIT, transliterated in
 // essence, no code copied):
@@ -41,8 +32,8 @@
 //    representative map (`sweep_repr`) so one class is not re-proved from
 //    every member.
 //  - cadical `sweep.cpp`: same idea, newer and smaller.
-//  - kitten's core is deliberately NOT our interface — S-b already gives the
-//    stronger thing (an ordered LRAT derivation), see subsolver.hpp.
+//  - kitten's core is deliberately NOT our interface — our sub-solver gives
+//    the stronger thing (an ordered LRAT derivation), see subsolver.hpp.
 //
 // Deviations from kissat, and why (the ledger entries; each is a WEAKENING of
 // what we detect, never of what we may conclude):
@@ -53,8 +44,8 @@
 //     variable's UNIT clause when the proof holds one, which gives the
 //     sub-solver the same information with an id attached. When it does not
 //     (root propagation, `unit_ids[v] == 0`), the literal simply stays free:
-//     a weaker environment, never a wrong one. Closing it needs the unit's
-//     reason cone (`kernel_reason_walk`) threaded into the chain — S-e's call.
+//     a weaker environment, never a wrong one. Closing it would need the
+//     unit's reason cone (`kernel_reason_walk`) threaded into the chain.
 // (2) IRREDUNDANT CLAUSES ONLY. Learned clauses are entailed, so using them
 //     would be sound today, but `Reduce` may delete one between detection and
 //     emission, and a chain citing a deleted id is a rejected proof. kissat
@@ -66,9 +57,9 @@
 //     does not expose. Revisit if the solve count dominates.
 // (4) NO BACKBONE HALF. kissat's sweeper extracts root units from the same
 //     environments (`sweep_backbone_candidate`). Ours would need its own proof
-//     delta (add-RUP unit) and V1 Probe/V2 Backbone already own that delta; the
-//     hook exists (`SweepStats::env_unsat` counts environments refuted outright)
-//     but deriving from it is S-d work.
+//     delta (add-RUP unit) and Probe/Backbone already own that delta; the hook
+//     exists (`Stats::sweep_env_unsat` counts environments refuted outright)
+//     but nothing derives from it.
 // (5) SEED-ANCHORED CANDIDATES, not kissat's full partition stack. We refine
 //     "which literals still agree with the SEED in every model seen" rather
 //     than a general partition over all environment literals, so one
@@ -77,8 +68,7 @@
 //
 // EFFORT. Every scan and every sub-solver tick is charged to
 // `Stats::sweep_ticks` — the currency `transitive_ticks`/`bce_ticks`/
-// `ternary_ticks` use — so a policy can dose Sweep the moment S-d gives it
-// something to schedule (rule charges, policy budgets; plan §5.2 rev 17).
+// `ternary_ticks` use. The rule CHARGES, the policy BUDGETS (plan §5.2).
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -89,7 +79,7 @@
 
 namespace tactix {
 
-// "How hard to sweep" is a POLICY decision (plan §5 rev 17), so the limits are
+// "How hard to sweep" is a POLICY decision (plan §5), so the limits are
 // a caller-owned parameter rather than rule state or a Kernel field. Defaults
 // are kissat's option values scaled to one environment (sweepdepth 2,
 // sweepvars 256, sweepclauses 1024); `env_ticks` is in the sub-solver's own
@@ -108,7 +98,7 @@ constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
 
 // The local clause set around one seed, encoded for the sub-solver, plus the
 // two mappings the rest of V5 needs: sub var → kernel var, and environment
-// clause id → main-formula proof id (S-e's core lookup).
+// clause id → main-formula proof id (the core lookup at emission).
 struct SweepEnv {
   SubSolver solver;
   std::vector<Var> vars;            // sub var -> kernel var
@@ -118,7 +108,7 @@ struct SweepEnv {
   // clause_ids[i] is the main-formula proof id of environment clause i+1
   // (the sub-solver hands out ids from 1 in add order). 0 = the kernel holds
   // the clause but the proof has no id for it, which only happens in modes
-  // that do not track ids; S-e must decline such a core rather than cite 0.
+  // that do not track ids; emission must decline such a core, never cite 0.
   std::vector<uint64_t> clause_ids;
   std::vector<uint64_t> keys;       // dedup keys, parallel to clause_ids
   std::vector<Lit> clause_lits;     // flat kernel literals
@@ -129,11 +119,8 @@ struct SweepEnv {
   }
 };
 
-// A proved equivalence `a ≡ b` over KERNEL literals, canonical with a < b.
-// S-d/S-e turn one of these into the two binaries (¬a ∨ b), (a ∨ ¬b) plus their
-// chains; S-c only counts them.
-// S-e: one direction's refutation, CAPTURED AT DETECTION TIME. The sub-solver
-// keeps only the last solve's derivation and an environment does not outlive its
+// One direction's refutation, CAPTURED AT DETECTION TIME. The sub-solver keeps
+// only the last solve's derivation and an environment does not outlive its
 // seed, so a refutation that is not copied out here is gone by emission time.
 // `steps` stays in sub-solver space; `orig_ids` and `vars` are the translation
 // tables (sub clause id -> main proof id, sub var -> kernel var) captured with
@@ -155,6 +142,9 @@ struct SweepPairProof {
   SweepDirProof fwd, rev;
 };
 
+// A proved equivalence `a ≡ b` over KERNEL literals, canonical with a < b.
+// Emission turns one of these into the two binaries (¬a ∨ b), (a ∨ ¬b) plus
+// their chains.
 struct SweepEquiv {
   Lit a = INVALID_LIT;
   Lit b = INVALID_LIT;
@@ -170,22 +160,22 @@ struct SweepRound {
   const std::vector<std::vector<Ref>> *occ = nullptr; // by literal
   std::vector<Lit> repr;                   // union-find over literals
   std::vector<SweepEquiv> found;
-  std::vector<SweepPairProof> proofs; // S-e, parallel to `found`
+  std::vector<SweepPairProof> proofs; // parallel to `found`
   std::vector<Var> seeds;
   // candidate literals still agreeing with the seed in every model seen
   std::vector<Lit> candidates;
   std::vector<SubLit> sub_scratch, assumptions;
 };
 
-// The (future) guard: quiescent root, consistent. A pure precondition — the
-// environment cites level-0 unit ids and reads the watch lists, and both mean
-// what they say only at a drained root (the C1/C2/C3/V1/V2/V3/V4 argument).
+// Guard: quiescent root, consistent. A pure precondition — the environment
+// cites level-0 unit ids and reads the watch lists, and both mean what they
+// say only at a drained root (the same argument every inprocessing rule makes).
 bool sweep_guard(const Kernel &);
 
 // Canonical seed order: active, unassigned variables with at least one
-// occurrence, ascending. This is the ACTION SURFACE S-d will expose as
-// `instances()` (payload = the seed literal), so it deliberately ranks rather
-// than filters — no "unlikely to pay off" omissions (rule-dev §instances).
+// occurrence, ascending. This is the ACTION SURFACE `instances()` exposes
+// (payload = the seed literal), so it deliberately ranks rather than filters —
+// no "unlikely to pay off" omissions (rule-dev §instances).
 void sweep_seeds(const Kernel &, std::vector<Var> &out);
 
 // Start a round: prepare the occurrence index over irredundant large clauses
@@ -200,7 +190,7 @@ bool sweep_env_build(Kernel &, Var seed, const SweepLimits &, SweepRound &);
 
 // One seed: build the environment, refute both directions of each surviving
 // candidate pair, append what is proved to `round.found`. Returns the number of
-// equivalences found. Changes NOTHING in `F/R/τ/ρ` — S-c is detection only.
+// equivalences found. DETECTION ONLY: changes nothing in `F/R/τ/ρ`.
 uint32_t sweep_detect_seed(Kernel &, Var seed, const SweepLimits &,
                            SweepRound &);
 
@@ -208,9 +198,9 @@ uint32_t sweep_detect_seed(Kernel &, Var seed, const SweepLimits &,
 // found (also in `round.found`).
 uint32_t sweep_detect_round(Kernel &, const SweepLimits &, SweepRound &);
 
-// S-d: the canonical full apply -- detect, then emit each equivalence that is
-// RUP over the main formula as two binaries (declining the rest). Exposed for
-// tests as well as the registry entry.
+// The canonical full apply: detect, then emit each equivalence that is RUP
+// over the main formula as two binaries (declining the rest). Exposed for
+// tests as well as for the registry entry.
 ApplyResult sweep_apply(Kernel &);
 
 // Read the SweepLimits overrides from the environment (TACTIX_SWEEP_DEPTH /

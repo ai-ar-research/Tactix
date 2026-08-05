@@ -1,4 +1,4 @@
-// V4 TransitiveReduce (plan §5.2, rev 32-33): transitive reduction of the
+// V4 TransitiveReduce (plan §5.2): transitive reduction of the
 // binary implication graph. A binary clause (src ∨ dst) IS the BIG edge
 // ¬src → dst (and, by contraposition, ¬dst → src). The edge is TRANSITIVELY
 // REDUNDANT when dst is still reachable from ¬src along a path of OTHER
@@ -8,9 +8,9 @@
 // SubsumeForward's binary-subsumer shortcut now rests on, see
 // subsume_forward.hpp's V4 reconciliation).
 //
-// This is the first rule to DELETE binaries (kernel_delete_binary, rev 33);
+// This is the first rule to DELETE binaries (kernel_delete_binary);
 // its whole proof delta is `delete`, which is why it was chosen as the
-// primitive's introduction point (V3b Substitute reuses it — plan rev 32).
+// primitive's introduction point (V3b Substitute reuses it — plan).
 // Deleting needs no justification from any checker (a deletion only shrinks
 // the clause set), so V4 emits no `add` line and needs no LRAT chain:
 //   DRAT  `d src dst 0`
@@ -51,27 +51,26 @@
 //     a property of the walk itself rather than a corollary of another check.
 // (3) NO EARLY EXIT when dst is reached (kissat transitive.c:130 breaks). We
 //     run each walk to exhaustion so the failed-literal detection (deviation
-//     5) sees the whole reachable set. Costs a full walk per candidate, and
-//     the cost is now PRICED (the walk charges cache-line traffic to
-//     stats.transitive_ticks — 28 % of 9vliw's cycles, probe 1562920) but
-//     deliberately NOT budgeted: both honest-budget arms were measured and
-//     banked negative 2026-07-25 (ticks-meter @20‰ → Tier B 12.22 vs 10.67;
-//     + kissat's early exit → 13.92 vs 10.60, FmlaEquiv conflicts 2× — the
-//     exhaustive unbudgeted reduction is load-bearing for trajectory; see
-//     meter_transitive in default_policy.cpp). Dosing TR per instance is
-//     phase-6 exhibit material, not a static constant.
+//     5) sees the whole reachable set. That costs a full walk per candidate,
+//     and the cost is PRICED (the walk charges cache-line traffic to
+//     stats.transitive_ticks — a large share of cycles on walk-heavy
+//     instances). The exhaustive reduction is load-bearing for trajectory, so
+//     porting the early exit is measured NEGATIVE; see meter_transitive in
+//     default_policy.cpp for the budgeting story. Dosing this rule per
+//     instance is phase-6 exhibit material, not a static constant.
 // (4) NO hyper-binary resolution and NO cheaper-direction search
 //     (cadical transred.cpp:116-120, `min(|watches(¬src)|,|watches(dst)|)`):
-//     both are pure cost optimizations; revisit if V4 is ever promoted into
-//     the default slot and profiles show the walk dominating.
-// (5) FAILED LITERALS ARE NOT V4's JOB (the delta stays delete-only). If a
+//     both are pure cost optimizations; revisit if profiles show the walk
+//     dominating.
+// (5) FAILED LITERALS ARE NOT THIS RULE'S JOB (the delta stays delete-only).
+//     If a
 //     walk reaches some q together with ¬q, then ¬src implies a
 //     contradiction, so src is a forced unit. kissat asserts it there and
 //     then (transitive.c) and CaDiCaL builds an LRAT chain for it
 //     (transred.cpp:232) — we instead ABORT that source (deleting nothing)
-//     and leave the unit to V1 Probe, which owns add-RUP units and their
-//     reason-walk chains. Keeping the delta chain-free is what makes V4's
-//     N2 story a one-liner.
+//     and leave the unit to Probe, which owns add-RUP units and their
+//     reason-walk chains. Keeping the delta chain-free is what makes the N2
+//     story here a one-liner.
 // (6) NO irredundant-path-only filter (cadical transred.cpp:128,159; CMS
 //     hyperengine.cpp:213). That filter exists to stop an irredundant clause
 //     being deleted on the strength of a path that Reduce may later delete.
@@ -82,7 +81,7 @@
 //     dead code; it becomes MANDATORY the day redundant binaries exist (the
 //     same trigger recorded in subsume_forward.hpp).
 // (7) NO steps/effort budget in the rule: WHEN and HOW MUCH are policy
-//     territory (rev 17). kissat's `transitive_ticks` and CaDiCaL's
+//     territory . kissat's `transitive_ticks` and CaDiCaL's
 //     propagation-scaled limit are slot/policy budgets in our architecture; a
 //     policy wanting bounded work applies per-source instances. The rule DOES
 //     charge its walk traffic to stats.transitive_ticks (bookkeeping, not a

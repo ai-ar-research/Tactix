@@ -49,8 +49,8 @@ public:
   // A tautological (or duplicate-carrying) lemma is CHECKER-DIVERGENT: DRAT
   // accepts it for free (negating it self-conflicts, so RUP passes without
   // touching the formula) while every LRAT checker walks the hint chain,
-  // finds the hints already satisfied, and REJECTS the proof — the T105.2.0
-  // defect (2026-07-27). Rules must therefore never hand one to the proof;
+  // finds the hints already satisfied, and REJECTS the proof. Rules must
+  // therefore never hand one to the proof;
   // the emission sites test this and skip the inference instead (the
   // D-CONG-SKIP discipline: losing an inference is sound, emitting an
   // uncheckable line is not). Debug builds assert on it in `add_rup`/

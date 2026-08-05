@@ -24,7 +24,7 @@ static void test_lit_encoding() {
 static void test_unit_chain() {
   // 1, (-1 2), (-2 3), (-3 4): propagates 1,2,3,4
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 4);
   kernel_assign_unit(k, internalize(1));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -40,7 +40,7 @@ static void test_unit_chain() {
 static void test_large_clause_propagation() {
   // (1 2 3) with 1,2 false forces 3
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 3);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, lits, 3, false, 0);
@@ -53,7 +53,7 @@ static void test_large_clause_propagation() {
 static void test_root_conflict_is_unsat() {
   // 1, (-1 2), (-1 -2): root conflict
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 2);
   kernel_assign_unit(k, internalize(1));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -64,7 +64,7 @@ static void test_root_conflict_is_unsat() {
 
 static void test_backtrack_restores() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 3);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(-2));
@@ -130,7 +130,7 @@ static void test_probing_propagation_restores() {
   // control: the plain engine DOES churn the bookkeeping (without this the
   // identity assertion below could pass vacuously)
   Kernel a;
-  ScopedHeuristics _hg_a(a); // Track H · H7: attach H
+  ScopedHeuristics _hg_a(a); // attach H (the session owns it)
   build_probing_formula(a);
   const BookKeeping a0 = bookkeeping(a);
   kernel_assign_decision(a, internalize(-1)); // probe assumption
@@ -141,7 +141,7 @@ static void test_probing_propagation_restores() {
 
   // probing engine: same derivation, bookkeeping handed back untouched
   Kernel b;
-  ScopedHeuristics _hg_b(b); // Track H · H7: attach H
+  ScopedHeuristics _hg_b(b); // attach H (the session owns it)
   build_probing_formula(b);
   const BookKeeping b0 = bookkeeping(b);
   assert(same(b0, a0));
@@ -166,7 +166,7 @@ static void test_probing_propagation_restores() {
   // safety valve: a scope closed on a trail that was NOT unwound keeps the
   // updates (they are load-bearing for the literals still assigned)
   Kernel c;
-  ScopedHeuristics _hg_c(c); // Track H · H7: attach H
+  ScopedHeuristics _hg_c(c); // attach H (the session owns it)
   build_probing_formula(c);
   kernel_probing_begin(c);
   kernel_assign_decision(c, internalize(-1));
@@ -179,7 +179,7 @@ static void test_probing_propagation_restores() {
 static void test_default_solve_sat() {
   // (1 2) (-1 2) (1 -2): SAT with 1,2 true
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));

@@ -1,21 +1,17 @@
-// N1 REGRESSION (SCHED-N1FIX, 2026-08-04).
+// N1 REGRESSION: Factor's admission heuristic must not live inside the rule.
 //
-// Until this fix, Factor's binary-density selectivity heuristic lived INSIDE
-// `factor_apply` as a NoOp. The consequence was an N1 breach, not a tuning
-// choice: `factor_guard` reported APPLICABLE, `factor_instances` offered its
-// canonical instance, and applying that instance did NOTHING on any
-// binary-sparse formula. So no caller of the public rule API — an LLM policy,
-// an RL policy, RandomPolicy — could apply a legal factoring there at all.
-// Plan rev 76 permits the built-in POLICY to decline a choice; it does not
-// permit a RULE to refuse everyone, which is a capability removed.
+// As a NoOp inside `factor_apply` it is an N1 breach, not a tuning choice:
+// `factor_guard` reports APPLICABLE, `factor_instances` offers its canonical
+// instance, and applying that instance does NOTHING on any binary-sparse
+// formula. So no caller of the public rule API — an LLM policy, an RL policy,
+// RandomPolicy — can apply a legal factoring there at all. The N1 carve-out
+// permits the built-in POLICY to decline a choice; it does not permit a RULE
+// to refuse everyone, which is a capability removed.
 //
-// The predicate now lives in DefaultPolicy and reaches the rule as
+// The predicate lives in DefaultPolicy and reaches the rule as
 // `Kernel::factor_admit`, which DEFAULTS TRUE. This test pins that default:
 // a formula BELOW the density threshold, carrying a genuine factorable grid,
 // must factor when driven through the rule's own surface.
-//
-// This test FAILS on the pre-fix build — verified, not assumed. That is what
-// makes it a regression test rather than a restatement of the fix.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/factor/factor.hpp"

@@ -6,13 +6,13 @@ Usage:
   run.py --tier C --solver ./build/tactix --baseline kissat --slurm
   run.py --aggregate benchmarks/runs/<dir>      # re-merge a --slurm run
 
-- SLURM mode (cluster protocol, PROGRESS Log 2026-07-23): submits one array
-  task per solver x instance to cpu-dense-hwulab-q (8 GB/core rule:
-  cpus-per-task = ceil(mem_gb/8), default 1 core / 8 GB), plus a dependent
-  aggregate job that merges the per-task JSONs into the identical
-  results.json a local run writes. The allocation shape (partition,
-  cpus/mem per task, throttle) is recorded in place of the local jobs
-  count — compare numbers only across identical shapes (L6 generalized).
+- SLURM mode (see the slurm-jobs skill): submits one array task per
+  solver x instance to cpu-dense-hwulab-q (8 GB/core rule: cpus-per-task =
+  ceil(mem_gb/8), default 1 core / 8 GB), plus a dependent aggregate job that
+  merges the per-task JSONs into the identical results.json a local run
+  writes. The allocation shape (partition, cpus/mem per task, throttle) is
+  recorded in place of the local jobs count — COMPARE NUMBERS ONLY ACROSS
+  IDENTICAL SHAPES.
   --throttle caps concurrent tasks for lower-contention gate runs;
   --dry-run writes manifest + sbatch scripts without submitting.
 
@@ -29,7 +29,7 @@ Usage:
   Verdicts are also checked against the expected status
   in the list — any mismatch is a correctness bug (stop and use the fuzz
   skill).
-- EVERY arm writes proofs, baselines included (plan §8.1 rev 72): timing a
+- EVERY arm writes proofs, baselines included (plan §8.1): timing a
   proof-writing solver against proof-free references compares two different
   workloads. A baseline's proof is still checked, but a failed check is
   RECORDED, never scored against it (--no-baseline-proofs restores the old,
@@ -42,7 +42,8 @@ Usage:
   is the ceiling a per-instance admission mechanism could reach, so a gate is
   worth shipping only if it beats the trivial always-on arm AND takes a fair
   share of that gap (docs/design/2026-08-04-scheduling-sophistication-
-  diagnosis.md §4: at n≈30 the instrument otherwise selects a crude gate).
+  diagnosis.md §4: at these tier sizes, with no held-out set, the instrument
+  otherwise selects a crude gate every time).
 - Up to 8 parallel single-threaded solver jobs (plan §8.1); the concurrency
   level is recorded in the results and must accompany any reported number.
 
@@ -128,11 +129,11 @@ def proof_format(cmd):
 
 
 def checker_budget(timeout):
-    """Plan §8.1 rev 72: max(3600 s, 4 x the tier's solve timeout).
+    """Plan §8.1: max(3600 s, 4 x the tier's solve timeout).
 
-    The old `2 x timeout` scored instances unsolved for a checker-budget reason
-    the competition would not have applied (urq45: 1447 s to verify under a
-    2400 s budget, and over it one commit earlier)."""
+    A tighter budget scores instances unsolved for a checker-budget reason the
+    competition would not have applied — measured, `2 x timeout` did exactly
+    that on a real UNSAT."""
     return max(3600.0, 4 * timeout)
 
 
@@ -140,9 +141,9 @@ def check_proof(fmt, cnf, proof, budget):
     """Verify one certificate. Returns (ok, message).
 
     The message matters: a checker that OOMs or times out is otherwise
-    indistinguishable from one that REJECTS, and that ambiguity cost a probe on
-    2026-07-27 (cake_lpr needs 4.2 GB on a gigabyte-scale LRAT; the array task
-    had 8 GB total, so it died at malloc and looked like a rejected proof)."""
+    INDISTINGUISHABLE from one that REJECTS. cake_lpr needs several GB on a
+    gigabyte-scale LRAT, so an under-provisioned array task dies at malloc and
+    looks exactly like a rejected proof."""
     argv = ([CAKE_LPR, cnf, proof] if fmt == "lrat"
             else [DRAT_TRIM, cnf, proof])
     try:
@@ -190,14 +191,12 @@ def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
 
     It must be a RE-SOLVE, not a conversion: producing LRAT from DRAT needs
     exactly drat-trim's backward search, the search that just timed out. So the
-    arm is re-run with `--lrat` appended and cake_lpr verifies what it writes —
-    measured on `urq45`, cake_lpr took 77 s where drat-trim needed 1447 s
-    (probe 1566825).
+    arm is re-run with `--lrat` appended and cake_lpr verifies what it writes.
+    Measured, cake_lpr can be an order of magnitude faster than drat-trim on
+    exactly the proofs that overrun the budget.
 
-    Why this exists: without it a checker-budget overrun discards a CORRECT
-    solve. It did, three times, all on `urq45` — 2026-07-27 (354.5 s solve,
-    2400.1 s check) and 2026-08-03, when it took a scored 619.3 s UNSAT off the
-    `broad` arm, one of the 27/30 that held broad Factor admission.
+    Why this exists: without it a checker-budget overrun DISCARDS A CORRECT
+    SOLVE, which has silently changed tier verdicts more than once.
 
     Sets res["proof_rescue"] to "lrat" when a certificate verified, else to a
     "failed: <reason>" string, and returns whether the instance is proof-clean.
@@ -252,20 +251,17 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
 
     VERIFYING a BASELINE's proof buys nothing and is expensive. `score_proofs`
     is already False for baselines — their failed checks are recorded and never
-    held against them — so the check cannot change any verdict. Measured on
-    Tier C window 20260803-211105: baseline checking was 6.07 h of 9.08 h, i.e.
-    **67 % of all checking wall-clock for zero verdict impact**, and the single
-    longest task in the run (61.5 min) was drat-trim on kissat's proof. Hence
-    `verify_proofs` defaults to False for baselines (--verify-baseline-proofs
-    opts back in for a submission-grade claim). `proof_bytes` is still recorded
-    from a stat, so proof size stays a tracked metric for every arm.
+    held against them — so the check cannot change any verdict. Measured, it
+    is also the majority of all checking wall-clock in a tier run, for zero
+    verdict impact. Hence `verify_proofs` defaults to False for baselines
+    (--verify-baseline-proofs opts back in for a submission-grade claim).
+    `proof_bytes` is still recorded from a stat, so proof size stays a tracked
+    metric for every arm.
 
-    `score_proofs` False without `verify_proofs` False = the pre-2026-08-03
-    behaviour: verify, record, never score. Scoring a baseline's certificate
-    against OUR checker budget would flatter us — measured, it did: on Tier C
-    2026-07-27 kissat lost 2 instances and CaDiCaL 3 to the old budget alone,
-    which would have read as us beating kissat by 55 PAR-2 when we are in fact
-    1.41x behind it."""
+    `score_proofs` False without `verify_proofs` False = verify, record, never
+    score. Do NOT score a baseline's certificate against OUR checker budget:
+    measured, that alone costs the references several instances and reads as a
+    large win for us where we are in fact behind."""
     fmt = proof_format(cmd)
     res = {"instance": rel, "expected": expected, "verdict": "UNKNOWN",
            "time": timeout, "solved": False, "mismatch": False,
@@ -330,8 +326,8 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
 def inst_cost(r, timeout):
     """One instance's PAR-2 contribution: its runtime if solved, else 2x the
     timeout. The 2x is the whole point of PAR-2 and is easy to get wrong by
-    hand (charging 1x inverted a conclusion on 2026-08-04), so every
-    PAR-2-shaped number in this file goes through here."""
+    hand — charging 1x has inverted a conclusion — so every PAR-2-shaped
+    number in this file goes through here."""
     return r["time"] if r["solved"] else 2 * timeout
 
 
@@ -361,16 +357,13 @@ def oracle(scored, timeout):
     classifier every time).
 
     One caveat when reading it: a min over K arms is also a min over K
-    measurement noises, so the oracle is optimistically biased and the bias
-    grows with K. Measured on `20260804-165514-B-shipped`: over the two
-    trivial policies (`facon`/`facoff`) the oracle is 32.25, and adding the
-    gated `shipped` arm — which on any given instance IS one of the other two
-    — moves it only to 32.14, nearly all of that from sub-3 % margins between
-    arms running the same code path (Tier C the same day: 254.55 -> 250.55,
-    inside that tier's 6.72 PAR-2 noise floor). To ask "how good could this
-    gate get", read the oracle over the policies the gate chooses BETWEEN
-    (`oracle()` takes any arm subset); the all-arms number printed here is the
-    slightly looser ceiling for the window as a whole.
+    measurement noises, so the oracle is OPTIMISTICALLY BIASED and the bias
+    grows with K. Measured, adding an arm that on any given instance simply IS
+    one of the arms already present still moves the oracle slightly, and all of
+    that movement is noise. To ask "how good could this gate get", read the
+    oracle over the policies the gate chooses BETWEEN (`oracle()` takes any arm
+    subset); the all-arms number printed here is the slightly looser ceiling
+    for the window as a whole.
 
     Instances are matched by name, in the first arm's order; an arm that is
     missing one simply does not compete for it. Returns None for <2 arms.
@@ -699,16 +692,13 @@ def leave_one_out(a_name, a_res, b_name, b_res, timeout):
 
 def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
                  stamp, sha, name):
-    # INSTANCE-MAJOR, deliberately. Solver-major ordering (what this was until
-    # 2026-08-04) gives arm 0 the task indices 0..N-1, so SLURM packs that whole
-    # arm onto whichever node it fills first and spills later arms elsewhere --
-    # ARM IDENTITY ENDS UP CORRELATED WITH NODE IDENTITY, which is a confound the
-    # runner itself manufactures. Measured on the Stage B gate (window
-    # 20260804-221715-B-preB1): `preB1` ran 28/28 on node017 while `stageB` ran
-    # 21 there and 7 on node018, and the SIGN of the per-instance delta tracked
-    # the node rather than the arm (same-node subset +52.8 PAR-2, cross-node
-    # subset -119.6). Interleaving spreads each arm over all nodes evenly and puts
-    # one instance's arms adjacent in dispatch order, so they contend alike.
+    # INSTANCE-MAJOR, deliberately. Solver-major ordering gives arm 0 the task
+    # indices 0..N-1, so SLURM packs that whole arm onto whichever node it fills
+    # first and spills later arms elsewhere -- ARM IDENTITY ENDS UP CORRELATED
+    # WITH NODE IDENTITY, a confound the runner itself manufactures. Measured,
+    # the SIGN of the per-instance delta then tracks the NODE rather than the
+    # arm. Interleaving spreads each arm over all nodes evenly and puts one
+    # instance's arms adjacent in dispatch order, so they contend alike.
     # Safe to reorder: the aggregator resolves the arm through
     # `man["solvers"][t["solver"]]`, never from index arithmetic.
     tasks = []
@@ -737,16 +727,16 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
                                      if args.throttle else "")
     # Per-task wall limit: solve + the plan §8.1 checker budget, TWICE, + slack.
     # The second copy pays for `lrat_rescue` — a re-solve plus a cake_lpr run.
-    # A limit that cannot fit the runner's own worst case is exactly the trap
-    # this file just closed: SLURM would SIGKILL the task mid-rescue and the
-    # instance would come back MISSING instead of solved.
+    # A limit that cannot fit the runner's own worst case is a trap: SLURM
+    # SIGKILLs the task mid-rescue and the instance comes back MISSING instead
+    # of solved.
     tlimit = fmt_time(2 * (timeout + checker_budget(timeout)) + 120)
     # PIN EVERY ARM TO ONE NODE (--nodelist). For an A/B this is not a nicety:
-    # the arms must contend alike, and the partition's nodes do NOT (measured
-    # 2026-08-04, mid-run: node017 60/132 cores allocated, node018 6/186). An arm
-    # that spills onto the quiet node wins instances it did not earn. Pinning also
-    # makes a run directly comparable to the recorded 6.72 PAR-2 noise floor, which
-    # was itself measured with all three bit-identical arms on node017.
+    # the arms must contend alike, and the partition's nodes do NOT -- their
+    # allocation can differ by a factor of several at any moment. An arm that
+    # spills onto the quiet node wins instances it did not earn. Pinning also
+    # makes a run comparable to the recorded PAR-2 noise floor, which was itself
+    # measured with all arms pinned to one node.
     nodeline = f"#SBATCH --nodelist={args.nodelist}" if args.nodelist else ""
     apath = os.path.join(outdir, "array.sbatch")
     with open(apath, "w") as f:
@@ -821,14 +811,14 @@ def main() -> int:
                          "reference solver, timed the way baselines are)")
     ap.add_argument("--verify-baseline-proofs", action="store_true",
                     help="run the checker over BASELINE proofs too. Off by "
-                         "default since 2026-08-03: a baseline's check is "
+                         "default: a baseline's check is "
                          "recorded and never scored, so it cannot change a "
-                         "verdict, and it was 67%% of Tier C checking "
+                         "verdict, and it is the majority of all checking "
                          "wall-clock. Turn on for a submission-grade claim.")
     ap.add_argument("--no-baseline-proofs", action="store_true",
-                    help="time baselines WITHOUT proof logging (pre-rev-72 "
-                         "behaviour; the numbers are then not comparable to "
-                         "ours and must not be reported as a ratio)")
+                    help="time baselines WITHOUT proof logging; the numbers "
+                         "are then NOT comparable to ours and must not be "
+                         "reported as a ratio")
     ap.add_argument("--dry-run", action="store_true",
                     help="with --slurm: write manifest + scripts, do not "
                          "submit")
@@ -857,12 +847,11 @@ def main() -> int:
 
     sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"],
                          capture_output=True, text=True).stdout.strip()
-    # (name, cmd, check_proofs, verify_proofs, score_proofs). Plan §8.1 rev 72:
+    # (name, cmd, check_proofs, verify_proofs, score_proofs). Plan §8.1:
     # EVERY arm WRITES proofs (a timing requirement — the tax is
     # solver-specific). Only ours is VERIFIED and SCORED by default; a
-    # baseline's check cannot change a verdict, so since 2026-08-03 it is not
-    # run at all unless --verify-baseline-proofs asks for it. See
-    # run_instance's docstring for the measured cost.
+    # baseline's check cannot change a verdict, so it is not run at all unless
+    # --verify-baseline-proofs asks for it. See run_instance's docstring.
     solvers = [(name, shlex.split(args.solver), not args.no_check,
                 not args.no_check, True)]
     for a in args.checked_arm:

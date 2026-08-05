@@ -33,7 +33,7 @@ enum BveGate : uint32_t {
   BVE_GATE_AND_OR = 1u << 1, // AND/OR         x ↔ OR/AND(a₁…aₖ)  (base + binaries)
 };
 
-// Pure quiescent-root precondition (D-LEVEL purified, rev 43 — no fixpoint
+// Pure quiescent-root precondition (D-LEVEL purified — no fixpoint
 // conjunct; the elimination round will drain the root closure U at apply entry).
 // Maximum growth slack (kissat option eliminatebound). `Kernel::bve_bound`
 // defaults to this; a policy ramps it 0,1,2,4,8,16 for kissat's fine-grained
@@ -45,13 +45,10 @@ bool bve_guard(const Kernel &);
 // Round-local occurrence index over the elimination clause set — the IRREDUNDANT
 // large clauses plus all binaries (binaries are irredundant-lifecycle here) —
 // indexed by literal for BOTH polarities, over active-variable literals only.
-// Rule-local by design (NOT a kernel "dense mode" — design §1 B1: the
-// deferred-slot, correctness-first choice, matching Subsume/Strengthen's occs).
-// Large clauses are arena Refs; a binary (l ∨ o) is recorded in `binary[l]` as
-// the partner literal o (its id is kernel_binary_id(k, l, o)).
-// Flat COUNTS only (review 2026-07-25 item 6): the sole consumer,
-// bve_schedule's ranking, reads count(l) — the per-literal Ref/partner lists
-// were built and thrown away. Same scans, same counts, identical ranking.
+// Rule-local by design (NOT a kernel "dense mode" — docs/design/e1-bve-design.md
+// §1 B1), matching Subsume/Strengthen's occurrence handling.
+// Flat COUNTS only: the sole consumer, bve_schedule's ranking, reads count(l),
+// so per-literal Ref/partner lists would be built and thrown away.
 struct BveOccurrences {
   std::vector<uint32_t> counts; // by lit
   uint32_t count(Lit l) const { return counts[l]; }

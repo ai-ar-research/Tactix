@@ -3,7 +3,7 @@
 // self-subsuming minimization), all-UIP block shrinking after
 // kissat/src/shrink.c (Fleury–Biere, SAT'20), and on-the-fly subsumption
 // after kissat/src/deduce.c + strengthen.c — all MIT, transliterated.
-// Reference survey (plan §5 rev 14): kissat-sc2024 and AE-Kissat-MAB
+// Reference survey (plan §5): kissat-sc2024 and AE-Kissat-MAB
 // (SC25 winner) ship these files byte-identical to kissat 4.0.4;
 // CaDiCaL-SC2025 implements the same pair independently — 4.0.4 is the
 // state of the art here. Deliberate deviations: (1) the analysis runs at
@@ -106,7 +106,7 @@ static uint32_t count_glue(Kernel &k, const Lit *lits, uint32_t n,
   return glue;
 }
 
-// mark a redundant clause recently-used (Reduce protects it) and
+// mark() a redundant clause recently-used (Reduce protects it) and
 // recompute+promote its glue over the current levels — every literal is
 // assigned at both call sites (conflict: all false; reason: all assigned)
 // (kissat deduce.c mark_clause_as_used + recompute_and_promote)
@@ -150,17 +150,13 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
 // Level filter: a chain can only bottom out in the clause if it stays on
 // levels the clause touches (marked_levels).
 //
-// Recursion cap: kissat's minimizedepth option defaults to 1000 (poisoned
-// at depth >= 1000); ours has been 900 with `>` since phase 1 — an
-// unrecorded near-miss found in the 2026-07-15 §5.5 sweep. The VALUE is
-// trajectory-affecting, so aligning it is a measured fidelity question
-// (PROGRESS phase-3 deferred items), not a simplification.
+// Recursion cap. DEVIATION: kissat's minimizedepth defaults to 1000 (poisoned
+// at depth >= 1000); ours is 900 with `>`. The value is trajectory-affecting,
+// so aligning it is a measured fidelity question, not a simplification.
 static unsigned minimize_depth_limit() {
-  // Probe knob (2026-07-28): the clause-quality probe found minimize+shrink
-  // removing only 27.2 % of resolved literals on FmlaEquiv against ~38 % on
-  // 9vliw/x9, and this cap is a standing deferred item (900 with `>` vs
-  // kissat's minimizedepth 1000). Env-gated so the question is measurable
-  // rather than argued.
+  // TACTIX_MINIMIZE_DEPTH: env-gated so the deviation above is measurable
+  // rather than argued. How much minimize+shrink removes is one of the
+  // decompositions a conflict-count gap vs kissat needs.
   static const unsigned v = [] {
     if (const char *e = std::getenv("TACTIX_MINIMIZE_DEPTH"))
       return static_cast<unsigned>(std::strtoul(e, nullptr, 10));
@@ -396,7 +392,7 @@ static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
 // very first resolution and the resolvent is also smaller than the
 // conflict, the conflict is subsumed too and is deleted.
 //
-// Deviation from kissat (plan §5 rev 14): kissat strengthens the reason
+// Deviation from kissat (plan §5): kissat strengthens the reason
 // clause IN PLACE, which (a) transiently leaves t's reason not containing
 // t and (b) requires shrunken-clause padding in every arena walk (GC,
 // Reduce, the invariant checker). Our N1 contract returns control to the
@@ -453,10 +449,10 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     // levels. Lexicographic (level, trail) (rev 38, D-LEVEL-2): a persistent
     // strengthened clause must be watched on its two highest-LEVEL literals or
     // a compacting backtrack can strand it unit with no watch firing. On a
-    // level-sorted trail higher level <=> higher trail, so this reduces
-    // exactly to the old highest-trail selection. That equivalence held while
-    // chrono was off; with chrono ON by default (2026-07-22) the trail is not
-    // level-sorted and the level-based selection is the one that matters.
+    // level-sorted trail higher level <=> higher trail, so this reduces exactly
+    // to highest-trail selection — but that equivalence holds only while chrono
+    // is OFF. Chrono is on by default, the trail is not level-sorted, and the
+    // level-based selection is the one that matters.
     for (uint32_t w = 0; w < 2; w++) {
       uint32_t best = w;
       for (uint32_t j = w + 1; j < lits.size(); j++) {
@@ -734,11 +730,11 @@ ApplyResult analyze_apply(Kernel &k) {
     // three wrong at once — the gap was overstated so the chronological branch
     // fired far too often; the target could land at or above `alevel`, where the
     // conflict is STILL falsified; and `backjump_apply_to` then found the
-    // asserting literal still assigned, declared the pending clause stale and
-    // returned NoOp, so the conflict was silently dropped and re-derived one
+    // asserting literal still assigned, declares the pending clause stale and
+    // returns NoOp, so the conflict is silently dropped and re-derived one
     // level at a time — duplicate learned clauses, duplicate proof lines and
-    // bogus glue samples on every repeat. Measured cost: Tier B +13 % and a
-    // 7-win/7-lose bimodality that tracked trail depth exactly.
+    // bogus glue samples on every repeat. That defect is what made the first
+    // chronological-backtracking measurement read as a large regression.
     // No-op when chrono is off: complete propagation on a level-sorted trail
     // always puts a conflict literal at the current level, so alevel == k.level.
     if (alevel < k.level) {
@@ -760,7 +756,7 @@ ApplyResult analyze_apply(Kernel &k) {
     //
     // Deviation: kissat routes the target through `determine_new_level`
     // (its chrono decision) — ours is the plain non-chronological `jump2`,
-    // because the chrono target is POLICY territory here (rev 38: the backjump
+    // because the chrono target is POLICY territory here (the backjump
     // target is M3's instance surface, chosen in default_policy.cpp) and this
     // path bypasses that surface. Chronological reuse is a later TB4b item.
     // Deviation: `jump2 == 0` falls through to normal learning. The shortcut
@@ -907,9 +903,7 @@ ApplyResult analyze_apply(Kernel &k) {
       } else {
         assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
         Clause *reason = clause_at(k.arena, a.reason);
-        // recently-used + glue recompute/promote (kissat deduce.c;
-        // completes the retention scheme — the deferred-promotion
-        // deviation closed 2026-07-14)
+        // recently-used + glue recompute/promote (kissat deduce.c)
         mark_used(k, reason);
         uint32_t antecedent = 1; // t's own slot in the reason
         for (const Lit l : *reason)
@@ -959,12 +953,12 @@ ApplyResult analyze_apply(Kernel &k) {
     // equal-level literals sit in std::sort's implementation-defined order,
     // which differs between libstdc++ and libc++ — and since this order
     // decides the watched literals of every learned clause, the whole search
-    // trajectory forked across toolchains (battleship 1.95 M → 27.1 M
-    // conflicts). (level desc, trail desc) is a total order (trail positions
-    // are unique among assigned vars), allocation-free, and recency-first
-    // matches the conventional second-watch choice; the stable/asc
-    // alternatives measured equivalent-in-noise on Tier B
-    // (`benchmarks/reports/2026-07-24-battleship-divergence.md`).
+    // trajectory forks across toolchains, by more than an order of magnitude
+    // in conflicts on a fragile instance. (level desc, trail desc) is a TOTAL
+    // order (trail positions are unique among assigned vars), allocation-free,
+    // and recency-first matches the conventional second-watch choice; the
+    // stable/ascending alternatives measured equivalent-in-noise
+    // (benchmarks/reports/2026-07-24-battleship-divergence.md).
     std::sort(learned.begin() + 1, learned.end(), [&](Lit a, Lit b) {
       const uint32_t la = k.var_level(var_of(a));
       const uint32_t lb = k.var_level(var_of(b));
@@ -1066,7 +1060,7 @@ ApplyResult analyze_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-// ConflictAnalysis (rev 37) — the atomic learn+backjump rule (calculus §8,
+// ConflictAnalysis  — the atomic learn+backjump rule (calculus §8,
 // D-SPLIT). One transition from a recorded conflict: derive+emit the learned
 // clause (analyze_apply) and, unless that was a root refutation, assert it by
 // backjumping (backjump_apply). Fusing the two removes the `pending` control

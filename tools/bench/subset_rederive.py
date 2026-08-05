@@ -4,8 +4,8 @@
 The shipped `benchmarks/tiers/C-ruleneutral.list` came from a single-shot
 ablation: exclude an instance iff ablating Sweep moved either baseline by >25 %.
 With one measurement per arm that test cannot separate "sweep matters here" from
-"this instance is chaotic" — and 4 of its 6 exclusions are instances measured to
-swing 8–23x under perturbations that have nothing to do with sweep.
+"this instance is chaotic", and most of its exclusions are instances measured to
+swing by an order of magnitude under perturbations unrelated to sweep.
 
 This applies the criterion that single-shot data could not support:
 
@@ -13,16 +13,16 @@ This applies the criterion that single-shot data could not support:
                  and the relative move exceeds REL_MIN
 
 where band(arm) = max - min over that arm's repeats on that instance. In words:
-**the sweep delta has to stand out against the instance's own variance**, not
+THE SWEEP DELTA HAS TO STAND OUT AGAINST THE INSTANCE'S OWN VARIANCE, not
 against zero. An instance whose replicates already span more than the sweep
 effect is not evidence about sweep, and it stays IN the subset.
 
     tools/bench/subset_rederive.py benchmarks/runs/<stamp>-C-<name> [--write]
 
-Criterion validated on synthetic data 2026-08-03: a tight-band 3x sweep move is
-EXCLUDED; a 200 s sweep move sitting inside a 400 s replicate band is KEPT (the
-single-shot rule would have excluded it as a 1.33x move -- that is exactly the
-shape of the four perturbation-fragile instances the shipped list drops).
+Criterion validated on synthetic data: a tight-band 3x sweep move is EXCLUDED,
+while a move that sits inside its own replicate band is KEPT even though the
+single-shot rule would have excluded it -- which is exactly the shape of the
+perturbation-fragile instances the shipped list drops.
 
 Prints the per-instance table and the proposed list; --write updates
 benchmarks/tiers/C-ruleneutral.list in place (header regenerated).
@@ -62,9 +62,9 @@ def main():
     # score_proofs=True), not a measurement intent. Using the scored `solved`
     # flag here would charge an arm 2*timeout for a checker-budget timeout on a
     # correctly solved instance and destroy the replicate bands.
-    # Verified on run 20260804-004328: an unchecked arm and a checked arm of the
-    # SAME configuration differ by a median 1.9 s in solve time, against 2.8 s
-    # between two checked arms — i.e. checking does not shift solve time.
+    # Verified: an unchecked arm and a checked arm of the SAME configuration
+    # differ in solve time by less than two checked arms do -- i.e. checking
+    # does not shift solve time.
     # A genuine wrong answer (`mismatch`) still counts as unsolved.
     fams = {}
     for arm, recs in run["results"].items():
