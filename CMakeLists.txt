@@ -55,6 +55,7 @@ add_library(tactix_lib OBJECT
   src/policies/factor_stress_policy.cpp
   src/policies/probing_stress_policy.cpp
   src/policies/reuse_stress_policy.cpp
+  src/policies/sweep_stress_policy.cpp
   src/policies/walk_stress_policy.cpp
   src/frontend/parse.cpp
   src/api/api.cpp

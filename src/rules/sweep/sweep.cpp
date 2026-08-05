@@ -228,6 +228,14 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   for (Lit l = 0; l < 2 * k.nvars; l++)
     r.repr[l] = l; // O(nlits) once per ROUND, never per environment
   r.found.clear();
+  // `proofs` is PARALLEL to `found` (sweep_apply indexes it by the same `idx`),
+  // so it has to be reset with it. Clearing one and not the other leaves every
+  // later pair reading the previous round's refutation -- latent today only
+  // because `sweep_apply` builds a fresh SweepRound per apply, and caught
+  // downstream only by the `is_pair` target check, which declines rather than
+  // reporting. Same family as the S-e polarity defect: two things that must
+  // agree, kept in step by hand.
+  r.proofs.clear();
 }
 
 bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
@@ -312,6 +320,20 @@ void refine(const SweepEnv &e, const std::vector<int8_t> &model, Lit seed_lit,
 
 } // namespace
 
+// SUB-SOLVER LITERAL -> KERNEL LITERAL. The one function both S-e call sites go
+// through, because getting it wrong is silent: the two encodings share the
+// `2*v | negated` shape, so an inverted parity still type-checks, still names a
+// real variable, and still produces a well-formed clause -- just the NEGATION of
+// the one the sub-solver derived. This is the exact inverse of the encode in
+// `sweep_detect_seed` (`sub_lit(sub_of_var[var_of(l)], negated(l))`) and of
+// `test_subsolver`'s `dimacs()` (even sub literal = POSITIVE), and it must stay
+// that way. Having the capture and the emitter each spell it out separately is
+// what let them agree with each other and disagree with the sub-solver, which
+// made every emitted general-path lemma unverifiable (N2 breach, 2026-08-05).
+static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
+  return make_lit(vars[sub_var_of(sl)], (sl & 1u) != 0);
+}
+
 // S-e: copy one direction's refutation out of the sub-solver, together with the
 // translation tables it will need later. Both are necessary: `steps` names
 // sub-solver clause ids, and the environment that gives those ids meaning is
@@ -335,11 +357,8 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
   const std::vector<SubLit> &tl = d.steps.back().lits;
   if (tl.size() != 2)
     return; // a unit target is a stronger fact and a different proof delta
-  auto to_lit = [&](SubLit sl) {
-    return make_lit(e.vars[sub_var_of(sl)], (sl & 1u) == 0);
-  };
-  out.t0 = to_lit(tl[0]);
-  out.t1 = to_lit(tl[1]);
+  out.t0 = sweep_kernel_lit(e.vars, tl[0]);
+  out.t1 = sweep_kernel_lit(e.vars, tl[1]);
   out.steps = std::move(d.steps);
   out.orig_ids = e.clause_ids;
   out.vars = e.vars;
@@ -622,10 +641,9 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
     const SubStep &st = p.steps[si];
     lits.clear();
     for (const SubLit sl : st.lits) {
-      const uint32_t sv = sub_var_of(sl);
-      if (sv >= p.vars.size())
+      if (sub_var_of(sl) >= p.vars.size())
         return false;
-      lits.push_back(make_lit(p.vars[sv], (sl & 1u) == 0));
+      lits.push_back(sweep_kernel_lit(p.vars, sl));
     }
     if (lits.empty())
       return false; // the empty clause means F is UNSAT; not this rule's job
@@ -712,6 +730,14 @@ ApplyResult sweep_apply(Kernel &k) {
   // stays a pure clause-addition (proof delta: two `derive`s per pair).
   if (k.inconsistent)
     return ApplyResult::Unsat;
+  // TACTIX_SWEEP_FORCE_GENERAL: route EVERY proved equivalence through S-e by
+  // making the S-d fast path decline. A COVERAGE knob for the sweep stress
+  // policy, not a dosing one -- both paths justify the same two binaries, so
+  // the formula is identical either way and only the proof lines differ. It
+  // exists because S-e fires for the pairs RUP declines, which is ~8 in 4380 on
+  // fuzz-scale formulas: without it a green general-path leg is vacuous, which
+  // is how the 2026-08-05 N2 breach shipped past 14000 green fuzz cases.
+  const bool force_general = std::getenv("TACTIX_SWEEP_FORCE_GENERAL") != nullptr;
   std::vector<uint64_t> chain_fwd, chain_rev;
   bool any = false;
   size_t idx = SIZE_MAX;
@@ -735,7 +761,8 @@ ApplyResult sweep_apply(Kernel &k) {
     // literal's equivalences belong to V1 Probe / V2 Backbone anyway.
     if (k.value(e.a) != 0 || k.value(e.b) != 0)
       continue;
-    if (sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev)) {
+    if (!force_general &&
+        sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev)) {
       any = true; // S-d: RUP over F, the cheap case
       continue;
     }

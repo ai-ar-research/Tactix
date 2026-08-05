@@ -23,12 +23,14 @@
 // cannot be swept (test_seeds).
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/sweep/sweep.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <random>
 #include <vector>
 
@@ -456,7 +458,89 @@ static void test_se_general_path_emits(void) {
          (unsigned long long)k.stats.sweep_binaries);
 }
 
+// --- S-e: the emitted proof, through a REAL CHECKER ------------------------
+//
+// The test above proves S-e EMITS. It cannot prove what it emits is CHECKABLE,
+// and that gap is what shipped an N2 breach: `sweep_capture_dir` and
+// `sweep_emit_general` each decoded a sub-solver literal to a kernel literal
+// with the parity INVERTED, so every general-path lemma was written as the
+// negation of the clause the sub-solver derived. Nothing above notices --
+// detection is unaffected, the two targets still form the pair (each is just
+// the other direction's binary, and `is_pair` accepts either order), F ends up
+// with both correct binaries, so the solver still answers UNSAT. Only a checker
+// sees it, and `sweep_proofs` checked the SUB-SOLVER's derivations in sub-solver
+// space, where the translation does not appear at all.
+//
+// So this writes a complete, self-contained refutation whose middle is
+// literally S-e's output and hands it to drat-trim and lrat-check
+// (tests/sweep_proofs.sh). The fixture is `non_rup_formula()` -- x == y, and
+// neither binary RUP -- closed into an UNSAT formula by (x v y) and (~x v ~y).
+// Sweep supplies the two equivalence binaries with their chains; the last two
+// lemmas below finish the refutation from them, so a rejected general-path lemma
+// is a rejected proof.
+static void emit_se_case(const char *dir) {
+  const std::vector<std::vector<int>> env = non_rup_formula(); // clauses 1..8
+  const uint64_t ID_XY = 9, ID_NXNY = 10;
+
+  char path[512];
+  snprintf(path, sizeof path, "%s/se.cnf", dir);
+  FILE *cnf = fopen(path, "w");
+  assert(cnf);
+  fprintf(cnf, "p cnf 4 %u\n", static_cast<unsigned>(env.size()) + 2);
+  for (const auto &c : env) {
+    for (const int e : c)
+      fprintf(cnf, "%d ", e);
+    fprintf(cnf, "0\n");
+  }
+  fprintf(cnf, "1 2 0\n-1 -2 0\n"); // clauses 9 and 10
+  fclose(cnf);
+
+  for (int fmt = 0; fmt < 2; fmt++) {
+    const bool lrat = fmt == 1;
+    snprintf(path, sizeof path, "%s/se.%s", dir, lrat ? "lrat" : "drat");
+    Proof proof;
+    assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
+    Kernel k;
+    // The KERNEL holds only clauses 1..8. Clauses 9/10 are in the file but not
+    // in F, on purpose: together they refute it, and an environment that is
+    // itself UNSAT makes S-c return before any candidate is solved (there is
+    // then nothing to be equivalent to). Sweep must sweep a SATISFIABLE
+    // environment; the contradiction is closed by hand below, exactly as a real
+    // solve closes it from somewhere outside the swept neighbourhood. The id
+    // cursor skips past 9/10 so no lemma ever reuses their ids.
+    build(k, 4, env);
+    k.next_clause_id = ID_NXNY;
+    k.proof = &proof;
+    const Lit x = internalize(1), y = internalize(2);
+    assert(!is_rup_binary(k, negate(x), y)); // premise: only S-e can do this
+    assert(!is_rup_binary(k, x, negate(y)));
+
+    const ApplyResult r = sweep_apply(k);
+    assert(r == ApplyResult::Ok && k.stats.sweep_general >= 1 &&
+           "S-e must have emitted, or this case checks nothing");
+
+    // Close the refutation from the two binaries Sweep just stated.
+    //   (~x): assume x -> (~x v y) forces y -> (~x v ~y) conflicts.
+    //   ():   (~x) -> (x v y) forces y -> (x v ~y) conflicts.
+    const uint64_t id_fwd = kernel_binary_id(k, negate(x), y);
+    const uint64_t id_rev = kernel_binary_id(k, x, negate(y));
+    assert(id_fwd && id_rev && "the pair must be in F with proof ids");
+    const Lit nx = negate(x);
+    const uint64_t unit_chain[2] = {id_fwd, ID_NXNY};
+    const uint64_t unit_id = ++k.next_clause_id;
+    proof.add_rup(unit_id, &nx, 1, unit_chain, 2);
+    const uint64_t empty_chain[3] = {unit_id, ID_XY, id_rev};
+    proof.add_empty(++k.next_clause_id, empty_chain, 3);
+    proof.flush();
+  }
+  printf("emitted the S-e case to %s\n", dir);
+}
+
 int main(int argc, char **argv) {
+  if (argc > 2 && !strcmp(argv[1], "--emit")) {
+    emit_se_case(argv[2]);
+    return 0;
+  }
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
   test_non_rup_equivalence();
