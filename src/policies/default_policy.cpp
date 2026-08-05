@@ -308,6 +308,7 @@ uint64_t meter_transitive(const Kernel &k) {
 uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
+uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks; }
 
 // name -> {effort per mille, currency, dosed}. Fractions are kissat's
 // options.h defaults (eliminateeffort/forwardeffort/vivifyeffort 100,
@@ -388,6 +389,15 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // Probe/Backbone/TransitiveReduce. BATCH + budget_aware for the round-2
     // reason: the round builds one occurrence-count pass up front.
     {"Instantiate", 20, meter_instantiate, false, false, true, &Stats::instantiate_ticks},
+    // V5 Sweep (S-f). kissat's `sweepeffort` is 100 per mille (options.h:143),
+    // the same share as vivify/eliminate. Currency is the rule's own
+    // `sweep_ticks`. BATCH + budget_aware: a round builds one environment per
+    // seed, so dosing it per instance would rebuild that environment every time.
+    // THIS ENTRY IS NOT OPTIONAL. Registering the rule in S-d put it in the slot
+    // automatically -- the S4 arrangement enables every Inprocess-tier rule --
+    // and without a spec it ran with NO meter and NO budget on every
+    // inprocessing phase. `9vliw` went from ~14 s to unsolved in 300 s.
+    {"Sweep", 100, meter_sweep, false, false, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {

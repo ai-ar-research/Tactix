@@ -17,9 +17,9 @@ C4** · V5 Sweep **S-d and S-e** (Sweep is now a REGISTERED rule with a proof de
 `tests/test_scheduling.cpp` · the aggregator now reports **single-instance sensitivity**.
 
 **▶ NOT DONE — the honest remainder of the overnight ask:**
-- **S-f** (Sweep scheduling A/B + default decision) — NOT started. Sweep is registered but **NOT
-  scheduled**, so default runs are unchanged. This is now unblocked: Stage B is measured, so the meter
-  objection that gated it is gone.
+- **S-f** — HALF done. Sweep turned out to be scheduled ALREADY (S-d's registry line did it) and
+  unbudgeted; it now carries kissat's `sweepeffort` 100‰ against `sweep_ticks`. **The tier A/B is still
+  owed** (`TACTIX_SLOT_DISABLE=Sweep` vs default, Tier B+C).
 - **SCHED C2, C5, C6, C7** — not started. C2 is a *documentation* item (accepted-deviation row; the naive
   port is measured negative 3× and must NOT be re-run).
 - **SCHED Stages D, E, F, G** (D1–D3, E1–E2, F1–F2, G1–G2) — not started.
@@ -969,6 +969,32 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-05 — ▶▶ S-f: Sweep was ALREADY SCHEDULED by S-d, and unbudgeted. Corrected + given kissat's effort
+
+**I got this wrong and it shipped.** The S-d entry says Sweep was "registered but NOT scheduled, so default
+runs are unchanged". False: the S4 arrangement enables **every `Inprocess`-tier rule** — `on` starts true
+and only the named ablation knobs turn it off — so **registering the rule IS scheduling it**. And with no
+`EffortSpec` row, Sweep got no meter and no budget on every inprocessing phase.
+
+Measured cost of that: `9vliw` solves in ~14 s without Sweep and **did not finish in 300 s** at HEAD.
+
+**Why nothing caught it.** `check-config-wiring.py` exists to catch "we own the mechanism and never wire
+it"; this was the mirror image — **wiring a rule without its governor** — and nothing tests for that. The
+unit tests stayed green because they call `sweep_apply` directly and never go through the slot. Fuzz
+stayed green (4000/0 LRAT, 10000/0 DRAT) because it is a PERFORMANCE regression, not a soundness one.
+
+**Fixed with a budget, not an off-switch**, per the standing baseline that every implemented proof rule
+ships ON: `EffortSpec{"Sweep", 100, meter_sweep, batch, budget_aware}` — 100 per mille is kissat's own
+`sweepeffort` (`options.h:143`), the same share it gives vivify/eliminate — and `sweep_apply` now reads
+`Kernel::work_budget` into `round_ticks`, which had defaulted to 0 = unbounded (right for the diagnostic
+probe, catastrophic for a scheduled rule).
+
+**After:** `9vliw` **12.26 s budgeted vs 12.16 s sweep-off**, both UNSAT — 21 rounds, 628 sub-solves,
+65.9 M sweep ticks, 0 equivalences found there. Neutral on that instance, and no longer pathological.
+
+So S-f's question has changed shape: not "should Sweep be scheduled" (it is) but "what budget, and does it
+pay". The budget half is answered with the reference's own constant; the tier A/B is the remaining half.
+
 ### 2026-08-05 — ▶▶ FULL STAGE B (B1–B5) RE-PRICED: neutral-to-positive; both deciders are lotteries
 
 Window `20260804-232942-B-stagebfull` / `20260804-232944-C-stagebfull`, pinned to node017, pre-Stage-B
@@ -1052,8 +1078,9 @@ a line it cannot verify.
 for the hard tail, and that tail is small on random formulas (it will be larger on miters, which is where
 sweeping earns its keep).
 
-Registered but **NOT scheduled** — no slot entry, so default runs are unchanged; S-f decides that. Being
-registered does mean `--random-policy` fuzz now applies it, which is the strongest oracle available.
+~~Registered but NOT scheduled — no slot entry, so default runs are unchanged.~~ **THIS WAS WRONG, see the
+2026-08-05 S-f entry:** the S4 arrangement enables EVERY `Inprocess`-tier rule, so registering the rule IS
+scheduling it, and Sweep ran unbudgeted on `main` until the `EffortSpec` landed.
 
 **▶ NEW: `tests/test_scheduling.cpp`.** The suite was strong where the solver can be WRONG and silent
 where it can be BADLY SCHEDULED. Of today's defects, the soundness ones were caught by tests; **B1, B3, B4

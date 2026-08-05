@@ -698,7 +698,12 @@ ApplyResult sweep_apply(Kernel &k) {
   if (k.level != 0 || k.conflict_valid)
     return ApplyResult::NoOp;
   SweepRound round;
-  const SweepLimits lim = sweep_limits_from_env();
+  SweepLimits lim = sweep_limits_from_env();
+  // S-f: honour the effort ledger. `round_ticks` defaults to 0 = unbounded,
+  // which is right for the diagnostic probe and catastrophic for a scheduled
+  // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
+  if (k.work_budget)
+    lim.round_ticks = k.work_budget;
   const uint32_t found = sweep_detect_round(k, lim, round);
   if (!found)
     return ApplyResult::NoOp;
