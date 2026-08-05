@@ -172,6 +172,23 @@ struct Stats {
   uint64_t instantiate_checked = 0; // (clause, literal) pairs probed
   uint64_t instantiated = 0;        // literals removed by X4
 
+  // V5 Sweep · S-c (DETECTION ONLY — nothing is derived from these yet, so
+  // every counter here is a pure observation; see src/rules/sweep/sweep.hpp).
+  // They are the increment's deliverable: "does sweeping find equivalences at
+  // all, and how many?" (design §6.3), and the reachability witness for its
+  // fuzz legs — a zero `sweep_environments` means the leg never entered the
+  // detector ([[ab-arm-identical-artefacts]]).
+  uint64_t sweep_rounds = 0;       // detection rounds run
+  uint64_t sweep_environments = 0; // environments built AND handed to the solver
+  uint64_t sweep_env_clauses = 0;  // clauses encoded into them
+  uint64_t sweep_solves = 0;       // sub-solver solve() calls
+  uint64_t sweep_candidates = 0;   // candidate-pair directions actually solved
+  uint64_t sweep_equivalences = 0; // pairs PROVED equivalent (S-d/S-e emit these)
+  uint64_t sweep_known = 0;        // pairs the formula already states as binaries
+  uint64_t sweep_env_unsat = 0;    // environments refuted outright (F is UNSAT)
+  uint64_t sweep_budget = 0;       // solves abandoned on the tick budget
+  uint64_t sweep_ticks = 0;        // V5's effort currency (scan + sub-solver)
+
   uint64_t ternary_rounds = 0;     // X2 rounds that added something
   uint64_t ternary_resolvents = 0; // ternary resolvents added (redundant)
   uint64_t ternary_binaries = 0;   // binary resolvents added (permanent)

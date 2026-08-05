@@ -25,6 +25,12 @@ add_executable(test_subsolver test_subsolver.cpp)
 target_link_libraries(test_subsolver PRIVATE tactix_lib)
 add_test(NAME subsolver COMMAND test_subsolver)
 
+# V5 Sweep S-c: candidate selection + environment construction. Pass an
+# iteration count to raise the brute-force oracle's soak size.
+add_executable(test_sweep test_sweep.cpp)
+target_link_libraries(test_sweep PRIVATE tactix_lib)
+add_test(NAME sweep COMMAND test_sweep)
+
 add_executable(test_reorder test_reorder.cpp)
 target_link_libraries(test_reorder PRIVATE tactix_lib)
 add_test(NAME reorder COMMAND test_reorder)

@@ -104,6 +104,11 @@ public:
   uint32_t nvars() const { return nvars_; }
   // Ids <= this are original clauses; above it are derived lemmas.
   uint32_t original_clauses() const { return original_clauses_; }
+  // The FORMULA itself is refuted (not merely refuted under assumptions), so
+  // every later `solve` returns `Unsat` whatever it assumes. A caller reading
+  // per-assumption refutations must check this, or it will read two vacuous
+  // `Unsat`s as an equivalence (S-c, sweep.cpp).
+  bool inconsistent() const { return inconsistent_; }
 
 private:
   // A clause is a run in `arena_` with a two-word header: `arena_[ref - 2]` is
