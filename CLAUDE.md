@@ -40,6 +40,11 @@
     the job is genuinely still in `squeue`; every ambiguous case resolves toward
     releasing, so a dead job can never wedge a directory.
   - A hand-rolled `sbatch` probe should `--acquire <dir> --job <id>` itself.
+  - **A same-window Tier B + Tier C pair needs TWO pin dirs**, one per array —
+    the second `--acquire` correctly refuses a path another live job owns. Build
+    both from the same commit and check the binary shas match; that is the
+    honest resolution, since two concurrent arrays sharing one binary path is
+    exactly the hazard the rule exists to prevent, and it never was safe.
   - Sweep stale `build/pin-*` at wrap-up (all reproducible from their commits) —
     run `--gc` first, since a locked tree is read-only and `rm -rf` will fail on it.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
