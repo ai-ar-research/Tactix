@@ -2,11 +2,13 @@
 // See sweep.hpp for the contract, the soundness argument (env ⊆ F) and the
 // deviation ledger; docs/design/v5-sweep-design.md §6.3 for the increment.
 #include "proof/proof.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/sweep/sweep.hpp"
 
 #include <algorithm>
 #include <cassert>
+#include <cstdio>
 #include <cstdlib>
 
 namespace tactix {
@@ -310,6 +312,40 @@ void refine(const SweepEnv &e, const std::vector<int8_t> &model, Lit seed_lit,
 
 } // namespace
 
+// S-e: copy one direction's refutation out of the sub-solver, together with the
+// translation tables it will need later. Both are necessary: `steps` names
+// sub-solver clause ids, and the environment that gives those ids meaning is
+// rebuilt for the next seed. Failure here is not an error — it just means this
+// pair has no general-path proof and must fall back to the RUP path or be
+// declined.
+// The target is READ OFF the derivation rather than predicted from the
+// assumptions. Predicting it means re-deriving which literal the seed
+// contributed and with which polarity, and getting that subtly wrong silently
+// swaps the two directions -- which is exactly what happened first: the check
+// then fails for every pair and the general path looks merely "unreachable".
+static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
+  out.ok = false;
+  out.t0 = out.t1 = INVALID_LIT;
+  out.steps.clear();
+  SubDerivation d;
+  if (!e.solver.derivation(d) || d.steps.empty())
+    return; // no refutation to hand back (e.g. directly contradictory assumptions)
+  if (d.steps.size() > SWEEP_MAX_PROOF_STEPS)
+    return; // pathological: decline rather than allocate without bound
+  const std::vector<SubLit> &tl = d.steps.back().lits;
+  if (tl.size() != 2)
+    return; // a unit target is a stronger fact and a different proof delta
+  auto to_lit = [&](SubLit sl) {
+    return make_lit(e.vars[sub_var_of(sl)], (sl & 1u) == 0);
+  };
+  out.t0 = to_lit(tl[0]);
+  out.t1 = to_lit(tl[1]);
+  out.steps = std::move(d.steps);
+  out.orig_ids = e.clause_ids;
+  out.vars = e.vars;
+  out.ok = true;
+}
+
 uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
                            SweepRound &r) {
   assert(sweep_guard(k));
@@ -394,6 +430,10 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       r.candidates.pop_back();
       continue;
     }
+    // S-e capture (see sweep_capture_dir): the sub-solver keeps only the LAST
+    // solve's derivation, so direction 1's must be copied out before direction
+    // 2's solve overwrites it.
+    SweepPairProof pair;
     // Direction 1: x ∧ ¬y unsatisfiable ⇔ F ⊨ (¬x ∨ y).
     assumptions.clear();
     assumptions.push_back(sub_lit(e.sub_of_var[seed], false));
@@ -424,6 +464,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
                tl == sub_negate(assumptions[1]));
     }
 #endif
+    sweep_capture_dir(e, pair.fwd);
     // Direction 2: ¬x ∧ y unsatisfiable ⇔ F ⊨ (x ∨ ¬y).
     assumptions.clear();
     assumptions.push_back(sub_lit(e.sub_of_var[seed], true));
@@ -441,8 +482,10 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       continue;
     }
     assert(!e.solver.inconsistent());
+    sweep_capture_dir(e, pair.rev);
     // Both directions refuted over env ⊆ F, so F ⊨ x ≡ y.
     r.found.push_back({std::min(seed_lit, y), std::max(seed_lit, y)});
+    r.proofs.push_back(std::move(pair));
     k.stats.sweep_equivalences++;
     found++;
     repr_unite(r, seed_lit, y);
@@ -539,8 +582,120 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
   return true;
 }
 
+// S-e: emission via strategy (b), the GENERAL path.
+//
+// The RUP fast path (S-d) covers only equivalences that unit propagation can
+// refute over F. A swept equivalence is entailed but generally NOT RUP -- that
+// gap is the whole reason a sub-solver is involved. Here the sub-solver's own
+// refutation is replayed into the main proof: each lemma it derived is emitted
+// as its own line, in derivation order, with its antecedents translated from
+// sub-solver clause ids to main-formula proof ids. The final lemma IS the target
+// binary, and by then every antecedent it names is a line the checker has seen.
+//
+// The translation rests on `env ⊆ F` holding LITERALLY (S-c): every environment
+// clause is a clause the kernel holds, carried with its own proof id, so an
+// original antecedent maps to a real main-formula id rather than to something
+// reconstructed. Anything that cannot be mapped exactly -- an unmapped
+// antecedent, a tautological lemma, a target that is not the binary we asked
+// for -- DECLINES rather than emitting, because a wrong line here is an
+// unverifiable proof, not a missed optimisation.
+// `dry` translates and validates without emitting a line or consuming an id, so
+// a PAIR can be checked whole before either half is written. Emitting one
+// direction and then discovering the other is untranslatable would leave a
+// half-stated equivalence in F -- sound, but not what the rule claims.
+static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
+                               const Lit t0, const Lit t1, bool dry) {
+  if (!p.ok || p.steps.empty())
+    return false;
+  const bool lrat = k.proof && k.proof->lrat();
+  uint32_t max_id = static_cast<uint32_t>(p.orig_ids.size());
+  for (const SubStep &st : p.steps)
+    max_id = std::max(max_id, st.id);
+  std::vector<uint64_t> id_of(static_cast<size_t>(max_id) + 1, 0);
+  for (size_t i = 0; i < p.orig_ids.size(); i++)
+    id_of[i + 1] = p.orig_ids[i]; // sub ids are 1-based, in add order
+
+  std::vector<Lit> lits;
+  std::vector<uint64_t> chain;
+  uint64_t last_id = 0;
+  for (size_t si = 0; si < p.steps.size(); si++) {
+    const SubStep &st = p.steps[si];
+    lits.clear();
+    for (const SubLit sl : st.lits) {
+      const uint32_t sv = sub_var_of(sl);
+      if (sv >= p.vars.size())
+        return false;
+      lits.push_back(make_lit(p.vars[sv], (sl & 1u) == 0));
+    }
+    if (lits.empty())
+      return false; // the empty clause means F is UNSAT; not this rule's job
+    if (Proof::tautological(lits.data(), static_cast<uint32_t>(lits.size())))
+      return false; // uncheckable under LRAT; decline the whole pair // uncheckable under LRAT; decline the whole pair
+    chain.clear();
+    for (const uint32_t c : st.chain) {
+      if (c >= id_of.size() || id_of[c] == 0)
+        return false; // an antecedent we cannot name in the main proof // an antecedent we cannot name in the main proof
+      chain.push_back(id_of[c]);
+    }
+    const bool final_step = (si + 1 == p.steps.size());
+    if (final_step) {
+      // The target must be exactly the binary we are justifying. A shorter
+      // target (a unit) would be a STRONGER fact but a different proof delta,
+      // and it would have been RUP anyway, so S-d already had it.
+      if (lits.size() != 2)
+        return false;
+      const bool same = (lits[0] == t0 && lits[1] == t1) ||
+                        (lits[0] == t1 && lits[1] == t0);
+      if (!same)
+        return false;
+    }
+    if (dry) {
+      if (st.id < id_of.size())
+        id_of[st.id] = UINT64_MAX; // a placeholder is enough to validate naming
+      continue;
+    }
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, lits.data(),
+                       static_cast<uint32_t>(lits.size()),
+                       lrat ? chain.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    if (st.id < id_of.size())
+      id_of[st.id] = id;
+    last_id = id;
+  }
+  if (dry)
+    return true;
+  kernel_add_binary_clause(k, t0, t1, last_id);
+  k.stats.sweep_binaries++;
+  return true;
+}
+
 ApplyResult sweep_apply(Kernel &k) {
+  // TEMPORARY attribution switch (fuzz 1583562): lets a leg run with V5 inert
+  // so a crash can be blamed on Sweep or exonerated.
+  // TACTIX_NO_SWEEP: diagnostic kill switch. It is what attributed fuzz
+  // 1583562's 43 crashes to this rule (3/3 with, 0/3 without) rather than to the
+  // shared RUP-replay primitive, so it stays.
+  if (std::getenv("TACTIX_NO_SWEEP"))
+    return ApplyResult::NoOp;
   if (!sweep_guard(k))
+    return ApplyResult::NoOp;
+  // D-LEVEL guard purification, the idiom every other inprocessing rule already
+  // uses (`transitive_reduce_apply_instance`, `lucky`). `sweep_guard` is a PURE
+  // precondition -- `!inconsistent && level == 0` -- and deliberately does not
+  // demand a root FIXPOINT, because demanding one would make the guard depend on
+  // scheduling state and cost N1. So the apply completes the root closure
+  // itself. Without this, Sweep could run with propagation still pending: the
+  // RUP replay then ran off a non-fixpoint root, and literals it forced at level
+  // 0 never went through `propagate_service`, which is the only place
+  // `unit_ids[v]` is recorded. The next LRAT chain to cite one of them tripped
+  // `kernel_lrat_chain`'s "cites a literal with no unit id" -- 43 crashes in the
+  // random-policy LRAT leg, none in DRAT (which re-derives its own units and so
+  // cannot see the defect).
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (k.level != 0 || k.conflict_valid)
     return ApplyResult::NoOp;
   SweepRound round;
   const SweepLimits lim = sweep_limits_from_env();
@@ -554,17 +709,56 @@ ApplyResult sweep_apply(Kernel &k) {
     return ApplyResult::Unsat;
   std::vector<uint64_t> chain_fwd, chain_rev;
   bool any = false;
+  size_t idx = SIZE_MAX;
   for (const SweepEquiv &e : round.found) {
+    idx++;
     if (k.level != 0 || k.conflict_valid)
       break; // replay needs a quiescent root; stop rather than assert
-    if (congruence_binary_exists(k, negate(e.a), e.b) && congruence_binary_exists(k, e.a, negate(e.b))) {
+    if (congruence_binary_exists(k, negate(e.a), e.b) &&
+        congruence_binary_exists(k, e.a, negate(e.b))) {
       k.stats.sweep_known++;
       continue;
     }
-    if (sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev))
+    // ROOT-ASSIGNED LITERALS ARE NOT OURS (found by fuzz 1583559, 49 crashes).
+    // Detection runs over the seed set, which excludes fixed variables -- but
+    // emission happens after the whole round, and by then an earlier pair can
+    // have fixed one of these literals through the binaries it added, or the
+    // caller can have propagated. Adding a binary over a root-assigned literal
+    // turns it into a root unit that nothing recorded an id for, and the next
+    // LRAT chain to cite that literal trips
+    // `kernel_lrat_chain`'s "cites a literal with no unit id". A fixed
+    // literal's equivalences belong to V1 Probe / V2 Backbone anyway.
+    if (k.value(e.a) != 0 || k.value(e.b) != 0)
+      continue;
+    if (sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev)) {
+      any = true; // S-d: RUP over F, the cheap case
+      continue;
+    }
+    k.stats.sweep_not_rup++;
+    // S-e: not RUP, so replay the sub-solver's own refutation. Validate BOTH
+    // directions DRY before writing either, so the pair lands whole or not at all.
+    if (e.a == e.b || e.a == negate(e.b) || idx >= round.proofs.size())
+      continue;
+    const SweepPairProof &pp = round.proofs[idx];
+    // The two captured targets must BE the equivalence -- one (¬a∨b) and the
+    // other (a∨¬b), in either order. Verified rather than assumed, so a capture
+    // that drifted out of step with `found` declines instead of emitting a
+    // binary the sub-solver did not prove.
+    auto is_pair = [&](const SweepDirProof &p, Lit u, Lit v) {
+      return (p.t0 == u && p.t1 == v) || (p.t0 == v && p.t1 == u);
+    };
+    const Lit f0 = negate(e.a), f1 = e.b, r0 = e.a, r1 = negate(e.b);
+    if (!((is_pair(pp.fwd, f0, f1) && is_pair(pp.rev, r0, r1)) ||
+          (is_pair(pp.fwd, r0, r1) && is_pair(pp.rev, f0, f1))))
+      continue;
+    if (!sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, true) ||
+        !sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, true))
+      continue; // no general proof either: decline, F unchanged
+    if (sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, false) &&
+        sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, false)) {
+      k.stats.sweep_general++;
       any = true;
-    else
-      k.stats.sweep_not_rup++;
+    }
   }
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
