@@ -94,6 +94,24 @@ def parse_verdict(exitcode, stdout):
     return "CRASH", sline
 
 
+def lrat_verified(code, stdout):
+    """Did lrat-check ACCEPT the proof?
+
+    It prints `c VERIFIED` on success and `c NOT VERIFIED` on rejection, so a
+    substring test for "VERIF"/"VERIFIED" matches BOTH — which is what the two
+    native-LRAT oracles here used to do. Every LRAT rejection in the project's
+    fuzz history was therefore recorded as a pass; only crashes and timeouts
+    (`code is None`) ever failed a native-LRAT leg. Found 2026-08-05 while
+    closing the V5 Sweep N2 coverage gap: a 200-case sample rejected 3 proofs
+    that the harness called green. Test for the rejection FIRST.
+    (drat-trim's own `s NOT VERIFIED` does not contain `s VERIFIED`, so the
+    DRAT branches were never affected.)"""
+    if code is None:
+        return False
+    up = stdout.upper()
+    return "NOT VERIFIED" not in up and "VERIFIED" in up
+
+
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
@@ -135,7 +153,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 out.fail("proof", "no proof file produced")
         if os.path.exists(proof) and native_lrat:
             c, o, e = run_cmd([LRAT_CHECK, cnf_path, proof], 120)
-            if c is None or "VERIF" not in o.upper():
+            if not lrat_verified(c, o):
                 out.fail("proof",
                          f"lrat-check rejected the native LRAT (exit {c})")
         elif os.path.exists(proof):
@@ -150,7 +168,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                     out.fail("proof", "drat-trim -L (LRAT emission) failed")
                 else:
                     c, o, e = run_cmd([LRAT_CHECK, cnf_path, lrat_file], 120)
-                    if c is None or "VERIFIED" not in o:
+                    if not lrat_verified(c, o):
                         out.fail("proof", "lrat-check rejected the LRAT proof")
 
     if oracle and verdict in ("SAT", "UNSAT"):
@@ -336,8 +354,31 @@ def cmd_corpus(args):
                     break
             else:
                 continue
-            outcome = run_case(cnf, solver, oracle, args.timeout,
-                               args.lrat, workdir)
+            # A case only reproduces under the SCHEDULE that produced it, and
+            # some of them need a non-default one. meta.json has carried
+            # `solver_args` / `solver_env` since entry 011 and this replay
+            # ignored them, so such an entry passed for the wrong reason -- a
+            # regression test that cannot fail. Both are now applied on top of
+            # the caller's solver command (env restored afterwards; the loop is
+            # sequential, so this is safe).
+            meta = {}
+            meta_path = os.path.join(corpus, entry, "meta.json")
+            if os.path.exists(meta_path):
+                with open(meta_path) as f:
+                    meta = json.load(f)
+            entry_solver = solver + list(meta.get("solver_args", []))
+            entry_env = meta.get("solver_env", {})
+            saved = {k: os.environ.get(k) for k in entry_env}
+            os.environ.update({k: str(v) for k, v in entry_env.items()})
+            try:
+                outcome = run_case(cnf, entry_solver, oracle, args.timeout,
+                                   args.lrat, workdir)
+            finally:
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
             if outcome.failures:
                 nfail += 1
                 print(f"CORPUS FAIL {entry}: {outcome.failures}")

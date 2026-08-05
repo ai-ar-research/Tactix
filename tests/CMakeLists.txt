@@ -124,11 +124,14 @@ add_test(NAME micro_proofs
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
-# V5 Sweep S-b: the sub-solver's derivations replayed through the real checkers
-# (drat-trim for the lemmas, lrat-check for the chains). Skips with 77 without.
+# V5 Sweep S-b + S-e: every proof Sweep produces, replayed through the real
+# checkers (drat-trim for the lemmas, lrat-check for the chains). test_subsolver
+# covers the derivations in SUB-SOLVER space; test_sweep covers the same
+# derivations after the sub-solver -> kernel translation, which is separate code
+# and is where the 2026-08-05 N2 breach lived. Skips with 77 without a checker.
 add_test(NAME sweep_proofs
-         COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh
-                 $<TARGET_FILE:test_subsolver> ${CMAKE_SOURCE_DIR})
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh ${CMAKE_SOURCE_DIR}
+                 $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
 set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
 # V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,

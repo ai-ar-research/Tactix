@@ -37,8 +37,21 @@ all); a rule with no spec runs unmetered and unbudgeted.
   in 124 s / 12.5 MB, and cake_lpr rejects the LRAT too, so the DERIVATION is wrong. Pre-S-f Sweep fired
   **0 rounds** there — S-f's budget exposed a latent defect, it did not create one. The S-f Tier C
   evidence is withdrawn (re-scored: +4.90 PAR-2, under one noise floor). Timing between arms is a
-  lottery, 5-for-5. **Report: `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`; fixing this
-  now gates the "keep Sweep at 100‰" decision.**
+  lottery, 5-for-5. **Report: `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`.**
+  ~~**FIXED 2026-08-05** (branch `sweep-n2-fix`)~~ — S-e decoded sub-solver literals with the PARITY
+  INVERTED, so every general-path lemma was the negation of the clause the sub-solver derived (`F` and
+  the verdict were always right; only the proof lines were wrong). One shared `sweep_kernel_lit`. The
+  `--random-policy` × native-DRAT signature (cases 888/2785/3296) is the SAME bug. `asconhashv12` now
+  verifies on drat-trim AND cake_lpr; regression corpus `012-…`, new `sweep_proofs` leg over S-e's real
+  output, `--sweep-stress-policy`. **Report: `benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`.**
+  **Two things it also found. (a) `fuzz.py`'s native-LRAT oracle accepted the string `NOT VERIFIED`**,
+  so EVERY LRAT-rejection in the project's fuzz history read green and only crashes ever failed an LRAT
+  leg (fixed here; re-read any "LRAT leg green" claim in that light). **(b) A SEPARATE live N2 defect,
+  not Sweep and NOT fixed:** `ingest_clause` dedups literals, so an input clause with a repeat is a
+  different clause for the checker than for us and any chain citing its id fails —
+  `p cnf 1 2 / -1 -1 0 / 1 1 0` rejects on cake_lpr and lrat-check, verifies on DRAT. It hits ~1.5–4 %
+  of UNSAT fuzz cases, so **native-LRAT legs are red until it is fixed** (report §7 sizes it and says
+  why it is not a one-liner). "Keep Sweep at 100‰" is now unblocked on correctness.
 - **C7 (`randec`) and C1/C3/C4 are UNPRICED** — landed on reference-parity grounds, no tier A/B.
 - **The BVE ramp slack-8 ceiling has no warrant beyond one tier** (its U-shape justification was
   withdrawn); Tier C/D re-sweep owed since `489fab1`.
