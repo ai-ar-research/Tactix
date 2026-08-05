@@ -941,6 +941,35 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-04 late — ▶▶ `mod4block` DOES NOT CONVICT STAGE B: 0 of 7 clean draws reproduce the timeout
+
+Stage B's only Tier B solve loss was `mod4block` (36.50 s → timeout), replicating 2/2 across windows —
+enough to make it the deciding question rather than a footnote. Settled it the way the `j3037` veto was
+settled: 12 paired draws `{base, stageB}` under perturbations mechanically independent of B1's threshold
+arithmetic (chrono, bump-rate/limit/off, walk-dose, rephase, reduce), pinned to node017 (job `1583186`).
+
+**Both pre-registered lottery triggers fire, and the strong one fires cleanly.**
+
+- **K′ = 7** strictly-clean draws (the base's own trajectory actually moved off its 1,021,786-conflict
+  path). In **0 of 7** does the 08-04 pattern reproduce — there is no draw where the base solves and
+  Stage B times out. Stage B SOLVES in 5 of 7; the other 2 are draws where **the base times out too**.
+- **The base's own outcome is not constant**: it times out under `bumprate25` and `chrono10`.
+- Every Stage B timeout sits at ~6.4–6.6 M conflicts, and four of them are the *same* trajectory —
+  `p00` and `rep` are the unperturbed draw, and `chrono90`/`walk5`/`walk40` leave the BASE untouched at
+  1,021,786 conflicts while Stage B solves. So the tier's "Stage B loses `mod4block`" is **one draw**,
+  not a repeated measurement, and every perturbation that moves Stage B off it ends in a solve.
+- Median conflict ratio stageB/base over the clean draws is **0.99** — dead even — with a range of
+  **0.15–1.90**, a factor of 12.7. That is the quantitative lottery signature.
+
+`mod4block` is disqualified as a gate for Stage B. **The admissible Tier B read is therefore
+ex-`mod4block`: −2.38 PAR-2, slightly favouring Stage B**, with 14 of 27 instances worse and the win
+resting on two replicated instances — a wash with wide dispersion, not a regression. Tier C (`1583008`)
+still decides the stage.
+
+Note this cost 12 draws to establish something the may-not-gate set already asserted. The set was right;
+what it could not say was whether *this* flip was the lottery or a real Stage B defect, and only paired
+draws separate those.
+
 ### 2026-08-04 late — ▶▶ I WAS WRONG ABOUT THE NODE: the pinned re-run reproduces the wins exactly
 
 Resubmitted the Stage B Tier B half pinned to node017 with both arms interleaved, expecting the
