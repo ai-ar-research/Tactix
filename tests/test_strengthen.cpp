@@ -1,6 +1,6 @@
 // C2 Strengthen unit tests: fused subsume-or-strengthen round, cascades,
 // unit-producing strengthen, instance surface, and the registry-driven
-// inprocessing slot (schedule-as-data, rev 26).
+// inprocessing slot (schedule-as-data).
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -137,7 +137,7 @@ static void test_instance_surface() {
 }
 
 static void test_slot_schedule_as_data() {
-  // the registry-driven slot (rev 26): the tier tag is readable, posed
+  // the registry-driven slot : the tier tag is readable, posed
   // slots are honored in order with enabled flags, and a disabled entry
   // never runs. (The default composition is the always-on S4 arrangement;
   // tests POSE slots — the same override surface presets and the phase-6

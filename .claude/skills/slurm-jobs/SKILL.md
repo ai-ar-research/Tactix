@@ -88,6 +88,35 @@ scale); pass `--time` for smaller legs.
 - Fuzz: `tools/fuzz/slurm-<name>-<jobid>.log` (tracked in git only when cited
   as evidence in PROGRESS, like the nightly-*.log convention).
 
+## Build-path ownership is ENFORCED (`tools/bench/buildlock.py`)
+
+A submitted array owns its binary path until it finishes (plan §8.1, CLAUDE.md).
+That rule was broken **six times** by people who knew it, so it is now a
+mechanism rather than a resolution: the owned tree is made **read-only** and a
+`BUILD-DIR-OWNED` marker names the owning job, so *any* build into it fails —
+`cmake --build`, bare `make`, `ninja`, `cp`, anything — with a message telling
+you which job owns it and how to reclaim it.
+
+- **`run.py --slurm` does this for you**: it `--gc`s stale locks, `--acquire`s
+  every arm's build dir after `sbatch`, and the dependent aggregate job
+  `--release`s when the array finishes. Nothing to remember on the normal path.
+- **A hand-rolled `sbatch` probe must lock its own binary:**
+  `python3 tools/bench/buildlock.py --acquire build/pin-x --job $JID`
+- **Reclaiming a directory:**
+  | situation | command |
+  |---|---|
+  | why is this locked? | `buildlock.py --check build/pin-x` |
+  | job finished, give it back | `buildlock.py --release build/pin-x` |
+  | clear everything a dead job left | `buildlock.py --gc` |
+  | show all locks | `buildlock.py --list` |
+  `--release` refuses only while the job is genuinely in `squeue`; `--force`
+  overrides it and is right only when the array's results are being discarded.
+- **It cannot wedge a directory.** Every ambiguous case — job gone, squeue
+  unavailable, marker corrupt, acquire interrupted — resolves toward releasing,
+  and `chmod` always works for the owner anyway.
+- **Before sweeping stale `build/pin-*`, run `--gc`** — a locked tree is
+  read-only and `rm -rf` fails on it.
+
 ## Cleanup discipline
 
 - **(user) Cancel jobs that are no longer needed, promptly** — superseded

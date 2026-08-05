@@ -8,4 +8,4 @@ Tracking follows the fuzz-log convention (slurm-jobs skill):
 - Uncited probes are transient: delete them at session wrap-up.
 - Probes are append-only evidence once committed — never edited.
 
-Policy decided 2026-07-25 (resolves `docs/design/bve-tolerance-plan.md` §5.7).
+(Policy origin: `docs/design/bve-tolerance-plan.md` §5.7.)

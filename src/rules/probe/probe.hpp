@@ -12,7 +12,7 @@
 // propagate. This is the failed-literal machinery S5 Lucky deferred
 // (lucky.cpp deviation 1).
 //
-// References (plan §5; rev-25 independent-lineage survey):
+// References (plan §5; docs/design/independent-lineage-survey.md):
 //  - kissat 4.0.4: the failed-literal loop, candidate schedule and
 //    round/effort skeleton live in backbone.c (compute_backbone /
 //    schedule_backbone_candidates), driven by probe.c; the propagation
@@ -35,16 +35,15 @@
 //    failed-literal probing is optional, not load-bearing, for a strong core.
 //  MIT/GPL references; transliterated in essence, no code copied verbatim.
 //  The proof-critical reason walk is the shared kernel helper
-//  kernel_reason_walk / kernel_conflict_reason_walk (extracted when V2
-//  Backbone became the third consumer — review 2026-07-15 #1); Vivify,
-//  Probe and Backbone all route their LRAT chains through it.
+//  kernel_reason_walk / kernel_conflict_reason_walk; Vivify, Probe and
+//  Backbone all route their LRAT chains through it.
 //
 // Deviations recorded:
-// (1) No tick/propagation budget — a round probes every BIG-head candidate
-//     (kissat/CaDiCaL gate with SET_EFFORT_LIMIT ≈ 2%/8‰ of search ticks).
-//     Acceptable while the inprocessing slot is deferred (no default-
-//     schedule cost); a step budget joins when the slot gains one. Mirrors
-//     Vivify deviation 1.
+// (1) NO RULE-SIDE tick/propagation budget — a round probes every BIG-head
+//     candidate (kissat/CaDiCaL gate with SET_EFFORT_LIMIT ≈ 2%/8‰ of search
+//     ticks). DefaultPolicy budgets it through the effort ledger; a policy
+//     that is not DefaultPolicy gets no bound from the rule. Mirrors Vivify
+//     deviation 1.
 // (2) Candidate order = (var asc, positive-phase first); no RNG shuffle and
 //     no usage-count / negated-occurrence ranking (kissat/CMS shuffle or
 //     rank). Determinism over adversarial-order robustness — the Vivify

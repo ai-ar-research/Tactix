@@ -79,9 +79,10 @@ void binary_partners(Kernel &k, Lit l, Lit limit, std::vector<Lit> &out,
 // not a nicety (design §5). Increment 2 adds the multi-literal intern (hash over
 // the sorted literals) and the occurrence scan that produces them.
 //
-// Scratch discipline: `unit_id` is indexed by literal and grows on demand rather
-// than being fill-initialized per call — the O(nvars)-per-call hazard this
-// codebase has hit four times ([[per-call-linear-scratch-hazard]]).
+// Scratch discipline: `unit_id` is indexed by literal and grows on demand
+// rather than being fill-initialized per call. An O(nvars) fill-init in a hot
+// per-call path is a recurring performance hazard in this codebase — memset
+// ends up dominating the profile.
 struct RemPool {
   std::vector<Lit> pool;            // flat literal storage
   std::vector<uint32_t> off, len;   // per id
@@ -177,18 +178,15 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   // column. Dropping such a clause can drop its neighbours below the bar too,
   // so the prune is iterated to fixpoint (bounded by k.factor_cand_rounds).
   //
-  // This is a STRUCTURAL quality filter, not a per-instance separator (every
-  // hand-designed admission gate measured against NO gate at all has lost —
-  // 5 arms, 5 for 5 in sign; and Factor's own density gate is never the best of
-  // {gate, always-on, per-instance oracle}: Tier B 86.42 / 34.59 / 32.25,
-  // Tier C 296.82 / 285.90 / 254.55): it asks the incidence structure
-  // whether repeated structure exists, and answers "no" on random-ish formulas
-  // by itself. That is exactly the measured gap in task #11 — on jgiraldezlevy
-  // (random 3-SAT) we applied 76 factorings to cadical's 25 and lost 6x, while
-  // on genuinely structured instances the reduction keeps the grids intact.
+  // This is a STRUCTURAL quality filter, not a per-instance separator — every
+  // hand-designed admission gate that has been measured against NO gate at all
+  // has lost. It asks the incidence structure whether repeated structure
+  // exists, and answers "no" on random-ish formulas by itself, which is where
+  // we over-apply factorings relative to cadical; on genuinely structured
+  // instances it keeps the grids intact.
   //
-  // `factor_cand_rounds = 0` restores the unfiltered pre-2026-07-31 candidate
-  // set exactly (the loop body never runs and `alive` stays all-ones).
+  // `factor_cand_rounds = 0` restores the unfiltered candidate set exactly
+  // (the loop body never runs and `alive` stays all-ones).
   std::vector<uint8_t> alive;
   if (k.factor_cand_rounds && max_size >= 3) {
     std::vector<uint32_t> bincount, largecount, newcount;
@@ -301,8 +299,7 @@ void remainders_of(Kernel &k, const FactorIndex &idx, RemPool &pool, Lit l,
   // `k.nvars` GROW during a composite pass as Factor adds extension variables.
   // A literal past the snapshot simply has no indexed large clauses — its only
   // clauses are the dividers/quotients this pass just created, which are not
-  // grid material. (Found by the regression corpus under --random-policy,
-  // 2026-07-30: without this the widened path reads past occ[] and ASan fires.)
+  // grid material. Without this bound the widened path reads past occ[].
   if (!idx.built || k.factor_size < 3 || l >= idx.occ.size())
     return;
   for (const Ref ref : idx.occ[l]) {
@@ -545,16 +542,16 @@ ApplyResult factor_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
 
-  // ADMISSION IS THE POLICY'S, NOT THE RULE'S (SCHED-N1FIX, 2026-08-04).
-  // A binary-density selectivity heuristic used to live here as a NoOp. It was
-  // an N1 BREACH: the guard reported applicable, `factor_instances` offered its
-  // canonical instance, and apply did nothing on any binary-sparse formula, so
-  // no API caller could apply a legal factoring at all — the rule refused
-  // everyone, which rev 76's "the built-in POLICY may decline" carve-out does
-  // not cover. The predicate now lives in DefaultPolicy's slot (beside BVE's
-  // identical one) and arrives as `Kernel::factor_admit`, which DEFAULTS TRUE,
-  // so an API caller that never sets it gets the full capability.
-  // `TACTIX_FACTOR_FORCE` still overrides, for fuzz on tiny formulas.
+  // ADMISSION IS THE POLICY'S, NOT THE RULE'S. A binary-density selectivity
+  // heuristic must not live here as a NoOp: that is an N1 BREACH — the guard
+  // reports applicable, `factor_instances` offers its canonical instance, and
+  // apply does nothing on any binary-sparse formula, so no API caller can apply
+  // a legal factoring at all. The N1 carve-out covers the built-in POLICY
+  // declining, never the RULE refusing everyone. The predicate lives in
+  // DefaultPolicy's slot (beside BVE's identical one) and arrives as
+  // `Kernel::factor_admit`, which DEFAULTS TRUE, so an API caller that never
+  // sets it gets the full capability. `TACTIX_FACTOR_FORCE` overrides, for
+  // fuzz on tiny formulas.
   if (!k.factor_admit && !std::getenv("TACTIX_FACTOR_FORCE"))
     return ApplyResult::NoOp;
 
@@ -572,27 +569,24 @@ ApplyResult factor_apply(Kernel &k) {
   // rather than once per factoring.
   const Var fresh_first = k.nvars;
 
-  // S2b composite grids (docs/design/s2b-composite-grids-design.md):
-  // k.factor_composite widens the factor/remainder universe to ALL
-  // live literals — prior-pass extension vars and this pass's own fresh vars
+  // Composite grids (docs/design/s2b-composite-grids-design.md):
+  // k.factor_composite widens the factor/remainder universe to ALL live
+  // literals — prior-pass extension vars and this pass's own fresh vars
   // included — growing as the pass applies (kissat resize_factoring).
   // Termination needs no var-class exclusion: every accepted grid has
-  // delta >= 1, strictly decreasing the finite live-binary count (a grid
-  // over a var's own dividers has m = 1, never accepted). **Default OFF —
-  // measured (design §7): in our single preprocessing blast, composition
-  // fires (mp1 940 → 1834 grids) but the downstream-conflict proxy REGRESSES
-  // 1.37 M → 2.18 M — twice the grids for 1.6x the conflicts, over-application
-  // measured on THIS rule — and the grid cap does not move. Kept for the S4 arrangement, whose small
-  // interleaved doses are where kissat's own cross-round composition lives.**
-  // (The TACTIX_FACTOR_COMPOSITE blast-composition env — the S2b negative —
-  // was removed in the 2026-07-25 negative-arm cleanup; k.factor_composite
-  // is the one switch, set by policies for density-scoped doses.)
+  // delta >= 1, strictly decreasing the finite live-binary count (a grid over
+  // a var's own dividers has m = 1, never accepted). DEFAULT OFF because in a
+  // single preprocessing blast composition over-applies — it roughly doubles
+  // the grids and regresses the downstream-conflict proxy. It belongs to the
+  // small interleaved during-search doses, where kissat's own cross-round
+  // composition lives; DefaultPolicy sets it there. `k.factor_composite` is
+  // the only switch.
   const bool composite = k.factor_composite;
   Lit live_lits = composite ? static_cast<Lit>(2 * k.nvars) : orig_lits;
 
-  // R-side scratch is now indexed by REMAINDER ID, not literal (R5 increment 1).
-  // `inR` grows with the pool rather than being sized up front, since the pool
-  // is bounded by material actually seen, not by 2*nvars.
+  // R-side scratch is indexed by REMAINDER ID, not literal. `inR` grows with
+  // the pool rather than being sized up front, since the pool is bounded by
+  // material actually seen, not by 2*nvars.
   RemPool pool;
   // One arena pass per apply, only when the widened scope is actually enabled —
   // at factor_size == 2 the index is never built and the binary path is
@@ -832,11 +826,10 @@ ApplyResult factor_apply(Kernel &k) {
       for (const Lit f : best_F)
         if (!tried[f])
           pq.push({score_of(f), f});
-      // best_R holds REMAINDER IDS, not literals (R5 increment 1) — re-seed the
-      // literals INSIDE each remainder. Indexing `tried` with an id was a real
-      // out-of-bounds that the bit-identity check could not see (ids stay small
-      // at factor_size == 2) and the regression corpus caught under
-      // --random-policy: ASan heap-buffer-overflow, factor.cpp:695, 2026-07-30.
+      // best_R holds REMAINDER IDS, not literals — re-seed the literals INSIDE
+      // each remainder. Do NOT index `tried` with an id: that is an
+      // out-of-bounds a bit-identity check cannot see, because ids stay small
+      // at factor_size == 2.
       for (const uint32_t rid : best_R) {
         const Lit *rl = pool.lits_of(rid);
         for (uint32_t i = 0; i < pool.size_of(rid); i++)
@@ -847,9 +840,15 @@ ApplyResult factor_apply(Kernel &k) {
   }
 
   // Fresh extension vars must not out-rank the original variables in the
-  // decision order (kissat factor.c). Heuristic-only (`H`) — no proof delta,
+  // decision order (kissat `adjust_scores_and_phases_of_fresh_variables`,
+  // factor.c:951, called unconditionally; cadical factor.cpp:907 under
+  // `factorunbump`, default 1). Heuristic-only (`H`) — no proof delta,
   // no σ change — so this is legal from a rule per the H contract, and it is a
   // no-op when nothing was applied or when the solver is unguided.
+  // SCHED-C5: `factor_demote_fresh` now DEFAULTS TRUE; `TACTIX_FACTOR_DEMOTE=0`
+  // is the off arm. Both references run this on EVERY application, so the
+  // `applied` test is the only condition either of them has (kissat's fresh
+  // stack is empty when nothing was factored).
   if (k.factor_demote_fresh && applied)
     heuristics_demote_fresh_vars(k, fresh_first);
 

@@ -5,8 +5,8 @@
  * This client re-implements DefaultPolicy::solve outside the library,
  * pull-based (O5), using only the frozen v1 API: canonical rule
  * applications plus tactix_stat for the counters the built-in policy
- * reads (conflicts, ticks, last learned glue, mode — the rev-21 review
- * finding). Because the arithmetic is replicated exactly (same EMA
+ * reads (conflicts, ticks, last learned glue, mode). Because the
+ * arithmetic is replicated exactly (same EMA
  * updates, same reluctant doubling, same mode-limit formulas — constants
  * from default_policy.hpp), the SEARCH schedule is trajectory-identical.
  * The inprocessing PHASE is reproduced structurally (preprocess at
@@ -386,13 +386,10 @@ int main(int argc, char **argv) {
   /* pinned size: every schedule component must fire on BOTH runs (first mode
    * switch at 1000 conflicts, first reduce at REDUCE_INTERVAL_INIT = 2000,
    * restart floor 50) while the stepped side stays fast under the
-   * per-application invariant checker of debug builds. Re-pinned 2026-07-21
-   * (was 132/562): that size left the built-in run at ~2.4k conflicts, barely
-   * past the reduce threshold, so an ordinary trajectory shift — the rev-53
-   * effort ledger changed BVE's elimination ORDER and moved it to ~2.0k —
-   * dropped it below and the coverage assertions failed on a change that was
-   * neutral on Tier A. The new size clears every threshold by ~3-5x on both
-   * runs, so coverage no longer rides on a trajectory coincidence.
+   * per-application invariant checker of debug builds. Size it so every
+   * threshold is cleared by several times over on BOTH runs: a size that only
+   * just clears them makes the coverage assertions fail on any ordinary
+   * trajectory shift, i.e. on changes that are performance-neutral.
    * argv overrides for exploration: demo3 [N M SEED] */
   int N = 152, M = 647; /* m/n = 4.26 */
   uint64_t SEED = 20260714;

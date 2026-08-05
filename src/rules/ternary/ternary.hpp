@@ -1,18 +1,18 @@
-// X2 HyperTernaryRes (plan §5.2, rev 72): hyper ternary resolution. Two
+// X2 HyperTernaryRes (plan §5.2): hyper ternary resolution. Two
 // TERNARY clauses (p ∨ a ∨ b) and (¬p ∨ c ∨ d) resolve on p to (a ∨ b ∨ c ∨ d);
 // the resolvent is kept only when it COLLAPSES to size ≤ 3, i.e. when the
 // antecedents share literals — (p ∨ a ∨ b),(¬p ∨ a ∨ c) ⊢ (a ∨ b ∨ c) and
 // (p ∨ a ∨ b),(¬p ∨ a ∨ b) ⊢ (a ∨ b). Adding it is model-preserving in the
 // strong direction that needs no witness: a resolvent is ENTAILED by its two
 // parents, so F ∧ r ≡ F and no reconstruction entry is required (the same
-// argument E1 BVE rests on, plan rev 45).
+// argument E1 BVE rests on, plan).
 //
 // Proof delta: add-RUP, chain = [id(C), id(D)] — the resolvent is RUP from its
 // two parents (assume its negation: every literal of C except p is falsified,
 // so C forces p; every literal of D except ¬p is falsified, so D forces ¬p;
 // conflict). This is the SAME two-parent chain BVE emits for its resolvents,
 // so X2 needs no new proof primitive and no witness — the cheapest genuine
-// rule in the reference gap, which is why Track R starts here.
+// rule in the reference gap.
 //
 // References (plan §5 "evidence, not templates"; transliterated in essence,
 // no code copied):
@@ -35,7 +35,7 @@
 //     into X2 would duplicate SubsumeForward's occurrence bookkeeping. The
 //     resolvents are added irredundant-adjacent (deviation 3) and the next
 //     subsumption pass removes what they subsume.
-// (2) NO STEPS BUDGET IN THE RULE (the §5.2 rev-17 split, identical to V4
+// (2) NO STEPS BUDGET IN THE RULE (the §5.2 split, identical to V4
 //     deviation 7): WHEN and HOW MUCH is policy territory. The rule charges
 //     its occurrence traffic to `stats.ternary_ticks` so a policy budget can
 //     be honest, and offers per-pivot instances so a policy can dose it.

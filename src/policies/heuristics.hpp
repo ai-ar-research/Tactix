@@ -1,6 +1,6 @@
 // Search-guidance state `H` (VMTF decision queue, EVSIDS score heap, saved/
-// target/best phases) + its operations. Track H · H4: `H` is policy-owned,
-// OPTIONAL search guidance (plan rev 60), so `struct Kernel` holds only an opaque
+// target/best phases) + its operations. `H` is policy-owned,
+// OPTIONAL search guidance (the plan), so `struct Kernel` holds only an opaque
 // `std::unique_ptr<Heuristics>` (kernel.hpp forward-declares this struct and never
 // depends on its layout). This header includes kernel.hpp for `Kernel`/`Var`/
 // `Lit`/`Link`; kernel.hpp must NOT include it (that is an include cycle). The
@@ -17,7 +17,7 @@ namespace tactix {
 struct Heuristics {
   // `H` tracks its own variable count; heuristics_check asserts it equals
   // Kernel::nvars and every per-var vector is sized to it, so a missed growth
-  // (E2 Factor allocates extension vars mid-solve, ON by default) trips an
+  // (Factor allocates extension vars mid-solve, ON by default) trips an
   // assert/ASan report instead of a silent OOB on the next phase/score read.
   uint32_t nvars = 0;
 
@@ -41,7 +41,7 @@ struct Heuristics {
 
   // active instance-ranking mode for Decide (§5.1): false = VMTF queue
   // (focused), true = score heap (stable). Flipped only by S4 SwitchMode; WHEN
-  // to flip is policy state (rev 17).
+  // to flip is policy state .
   bool stable = false;
 
   // target phases (kissat phases.c): assignment snapshot at the deepest
@@ -59,10 +59,10 @@ struct Heuristics {
 };
 
 // grow the `H` per-variable state for vars [old, nvars) and set h->nvars. Split
-// out of kernel_reserve_vars (Track H); called whenever the kernel grows nvars.
+// out of kernel_reserve_vars; called whenever the kernel grows nvars.
 void heuristics_reserve_vars(Kernel &, uint32_t old, uint32_t nvars);
 
-// The kernel does not own `H` (Track H · H7) — whoever outlives a single solve()
+// The kernel does not own `H` — whoever outlives a single solve()
 // owns the storage and attaches it. This RAII helper is the guided-default owner
 // for tests and simple embeddings: it holds a `Heuristics` for its scope, attaches
 // it to `k`, sizes it to the kernel's CURRENT var count, and detaches on
@@ -134,13 +134,12 @@ inline bool heuristics_heap_contains(const Kernel &k, Var v) {
 void heuristics_update_target_phases(Kernel &);
 
 // --- decision ranking dispatch (§5.1) ---------------------------------------
-// DIAGNOSTIC ONLY (task #11, `TACTIX_NO_EXT_DECISIONS`): skip E2 Factor's
-// extension variables when choosing a branch, falling back to them only when
-// nothing else is unassigned (so the search stays complete). This is NOT
-// shippable — it narrows the policy's action space, which N1 forbids — it
-// exists to answer one question: is the damage broad Factor admission does to
-// our search actually *caused* by branching on extension variables? Measured
-// 2026-07-31: 31 % of ContextModel's decisions land on 459 extension vars.
+// DIAGNOSTIC ONLY (`TACTIX_NO_EXT_DECISIONS`): skip Factor's extension
+// variables when choosing a branch, falling back to them only when nothing
+// else is unassigned (so the search stays complete). NOT shippable — it
+// narrows the policy's action space, which N1 forbids. It exists to answer one
+// question: is the damage broad Factor admission does to our search actually
+// CAUSED by branching on extension variables?
 Var heuristics_next_decision_var_no_ext(Kernel &k);
 
 inline Var heuristics_next_decision_var(Kernel &k) {

@@ -2,17 +2,17 @@
 // instantiation of the Policy interface, no special status. Calls the
 // SAME rule implementations the registry exposes, but through direct
 // (inlinable) calls — the "static dispatch" side of the two-tier design.
-// Owns every scheduling heuristic it uses (rev 17): the focused-mode
-// restart schedule (kissat's bias-corrected per-mode glue EMAs), the
-// stable-mode reluctant-doubling restart schedule, the arithmetic reduce
-// interval, the mode-switch alternation (kissat mode.c: first switch
-// after `modeinit` conflicts, stable phases last the preceding focused
-// phase's ticks, focused intervals grow as modeint·n·log⁴n), the
-// stable-only rephase schedule (kissat rephase.c: rephaseint·n·log³n
-// interval, B,B,I,B,B,O rotation), and the inprocessing slot (kissat
-// eliminate.c intervals, size-scaled — C1 SubsumeForward for now; C2/C3/
-// E1 join it this phase). Constants are the published kissat/Glucose
-// defaults, not benchmark-tuned.
+// Owns every scheduling heuristic it uses: the focused-mode restart
+// schedule (kissat's bias-corrected per-mode glue EMAs), the stable-mode
+// reluctant-doubling restart schedule, the arithmetic reduce interval, the
+// mode-switch alternation (kissat mode.c: first switch after `modeinit`
+// conflicts, stable phases last the preceding focused phase's ticks,
+// focused intervals grow as modeint·n·log⁴n), the stable-only rephase
+// schedule (kissat rephase.c: rephaseint·n·log³n interval, B,W,I,B,W,O
+// rotation), and the inprocessing slot (every registry Inprocess-tier
+// rule, on kissat's size-scaled eliminate.c intervals). Constants are the
+// published kissat/cadical/Glucose defaults unless a comment says
+// otherwise.
 #pragma once
 
 #include "policies/policy.hpp"
@@ -29,16 +29,16 @@ public:
   const char *name() const override { return "vmtf-evsids"; }
   Lit pick(Kernel &) override;
 
-  // SCHED-C7 random decisions (kissat decide.c `randec`). A pure H operation:
-  // it changes WHICH variable is decided, never the formula, so there is no
-  // proof delta and no calculus entry -- it is policy, like Rephase or Reorder.
+  // Random decisions (kissat decide.c `randec`). A pure H operation: it
+  // changes WHICH variable is decided, never the formula, so there is no proof
+  // delta and no calculus entry — it is policy, like Rephase or Reorder.
   // kissat ships randec=1 with randecfocused=1 and randecstable=0, so the
   // sequences run in FOCUSED mode only. Length is `randeclength * LOGN(count)`
   // conflicts (options.h:103-108).
   //
-  // The sequence is tracked as an END CONFLICT rather than a countdown, which is
-  // equivalent to kissat's per-conflict decrement and needs no new hook on the
-  // conflict path.
+  // Deviation: the sequence is tracked as an END CONFLICT rather than a
+  // countdown. Equivalent to kissat's per-conflict decrement, and it needs no
+  // new hook on the conflict path.
   static constexpr uint64_t RANDEC_INIT = 500;   // randecinit
   static constexpr uint64_t RANDEC_LENGTH = 10;  // randeclength
   uint64_t randec_until = 0;      // conflict count at which the sequence ends
@@ -61,33 +61,16 @@ public:
 };
 
 // canonical BVE growth-slack ramp: kissat's cheap-first doubling 0,1,2,4,8
-// (eliminate.c set_next_elimination_bound), capped at slack-8 for our single
-// preprocessing blast — see ceiling(). The first SubPolicy of a NEW category
-// (Track S · S1b).
+// (eliminate.c set_next_elimination_bound), capped at slack-8 — see ceiling().
 class DefaultBveBoundRamp final : public BveBoundPolicy {
 public:
   const char *name() const override { return "kissat-ramp"; }
-  // Growth-slack ceiling. 8, NOT kissat's 16 — and the warrant is WEAKER than this
-  // comment used to claim. The architectural half stands: kissat reaches slack-16
-  // gradually across many interleaved eliminate calls and reins in harmful growth
-  // with mode/effort feedback our single preprocessing blast does not have.
-  //
-  // The empirical half is ONE same-window three-arm Tier B A/B (`489fab1`, jobs=4):
-  // HEAD 16.66 / ceiling-16 17.76 / ceiling-8 15.08, with a flat fixed bound=8 at
-  // 15.85 — so the cheap-first ORDERING pays on top of the ceiling, and this is a
-  // real ramp rather than a fixed number. Two cautions belong next to the constant:
-  // the delta is single-instance-dominated (FmlaEquiv −19.3 s of it), and TIER B HAS
-  // NO MEASURED NOISE FLOOR — the 6.72 bar is Tier C — so nothing here establishes
-  // that 15.08 and 15.85 are distinguishable at all.
-  //
-  // What is NOT the warrant, though it was written as one: a "BVE U-shape" with a
-  // crypto1 71-elimination sweet spot. That curve came from single draws on a
-  // dose-chaotic instance and is withdrawn. The ceiling ships on the A/B above.
-  // (Before the S1b needed-bound cache the ceiling was moot: the dose cap stopped
-  // the ramp near the slack-8 frontier by accident — the cache made the ceiling the
-  // real lever.) TACTIX_BVE_RAMP_MAX=N re-sweeps it. Tier C/D validation was owed
-  // at `489fab1` (2026-07-25) and is STILL owed — with the U-shape withdrawn it is
-  // now the only thing that would give this constant a warrant beyond one tier.
+  // Growth-slack ceiling: 8, a deliberate deviation from kissat's 16. kissat
+  // reaches slack-16 gradually across many interleaved eliminate calls and
+  // reins in harmful growth with mode/effort feedback our single preprocessing
+  // blast does not have. The empirical warrant is ONE Tier B A/B and Tier B has
+  // no measured noise floor, so treat the exact value as unvalidated beyond one
+  // tier; TACTIX_BVE_RAMP_MAX=N re-sweeps it.
   static uint32_t ceiling() {
     if (const char *s = std::getenv("TACTIX_BVE_RAMP_MAX"))
       return static_cast<uint32_t>(std::atoi(s));
@@ -108,13 +91,12 @@ public:
   }
 };
 
-// canonical Factor grid-selection arm (Track S · S2a): today's watch-list-size
-// scoring, bit-exact to the pre-S2a built-in path. Watch sizes are ≤ 2^24, so
-// the double→uint32_t round-trip at the rule's integer heap key / tie-break
-// comparison is order-exact (no tie flips). accept() stays the FACTOR_MIN_GAIN
-// floor — NOT tightened: measured on mp1, kissat's effective accept is ≈
-// delta>0 (329 factorings with Δ≤2 vs our 149; design §2b) — the knob exists
-// for N1/learning arms, not for the default.
+// canonical Factor grid selection: watch-list-size scoring. Watch sizes are
+// ≤ 2^24, so the double→uint32_t round-trip at the rule's integer heap key /
+// tie-break comparison is order-exact (no tie flips). accept() stays the
+// minimum-gain floor and is deliberately NOT tightened — kissat's effective
+// acceptance is ≈ delta>0 (docs/design/s2a-factor-matcher-design.md §2b). The
+// knob exists for N1 / learned-policy arms, not for the default.
 class DefaultFactorMatch final : public FactorMatchPolicy {
 public:
   const char *name() const override { return "watches-size"; }
@@ -125,23 +107,16 @@ public:
                            Lit /*seed*/) override {
     return k.watches.heads[c].size; // == today's tie-break
   }
-  // Honours Kernel::factor_bound (kissat's `reduction > bound`, factor.c:939),
-  // copied in at the attach site. BUG FIX 2026-07-31: the rule's acceptance is
+  // Mirror of Kernel::factor_bound (kissat's `reduction > bound`,
+  // factor.c:939), copied in at the attach site. The rule's own acceptance is
   // `fm ? fm->accept(...) : delta > k.factor_bound`, and DefaultPolicy ALWAYS
-  // attaches this matcher — so the scalar was unreachable under the shipped
-  // policy, i.e. a documented N1 config surface that no shipped path could
-  // exercise (a bound sweep came back byte-identical, which is how it
-  // surfaced). `bound = 0` reproduces the historical `delta >= 1` exactly.
+  // attaches this matcher — so without this member the kernel scalar would be
+  // unreachable under the shipped policy. `bound = 0` is `delta >= 1`.
   uint32_t bound = 0;
   bool accept(uint32_t, uint32_t, int delta) override {
     return delta >= 1 && delta > static_cast<int>(bound);
   }
 };
-
-// (The S2a Inc-3 `paths` matcher arm — kissat distinct_paths coherence,
-// measured −4 % and shelved — was REMOVED in the 2026-07-25 negative-arm
-// cleanup; re-derive from the commit history / `docs/design/
-// s2a-factor-matcher-design.md` §4 if a future arm wants it.)
 
 class DefaultPolicy final : public Policy {
 public:
@@ -149,13 +124,12 @@ public:
   // initializers below must use these, never repeat the values).
   // Restart: kissat's focused trigger — bias-corrected per-mode glue
   // EMAs (smooth.c warm-up), margin (100+restartmargin)/100, interval
-  // restartint + log10(restarts+9)-1. The earlier Glucose-style plain
-  // EMAs (margin 1.25, floor 50) are superseded 2026-07-14: the kissat
-  // constants had measured WORSE without the warm-up (see the 07-13
-  // note); with smooth warm-up + per-mode persistence they are the
-  // faithful package. Mode: kissat mode.c / options.h defaults —
-  // modeinit (first switch) and modeint (growth factor) are distinct
-  // options that happen to share a value.
+  // restartint + log10(restarts+9)-1. The constants presuppose the smooth
+  // warm-up + per-mode persistence: on plain seeded EMAs they measured
+  // WORSE than Glucose's, so port the package, not the numbers. Mode:
+  // kissat mode.c / options.h defaults — modeinit (first switch) and
+  // modeint (growth factor) are distinct options that happen to share a
+  // value.
   static constexpr double RESTART_MARGIN = 1.10;    // restartmargin 10
   static constexpr uint64_t RESTART_INTERVAL = 1;   // restartint
   static constexpr double EMA_FAST_WINDOW = 33;     // emafast
@@ -175,34 +149,26 @@ public:
   // agrees on the limit and says 100 for the rate — the one constant the
   // references disagree on, hence the sweep knob)
   static constexpr uint32_t BUMP_REASONS_LIMIT = 10;
-  // NOT kissat's 10 and not cadical's 100: 20, measured. Bumping fires when
+  // Deviation: 20, neither kissat's 10 nor cadical's 100. Bumping fires when
   // the decision rate is BELOW this, so a larger value fires it in more
-  // situations. Rate 10 was a 5.6-point Tier B regression concentrated in
-  // three instances (crypto1 38.1 s, qwh 30.1, rbsat 20.4); every rate in
-  // {15, 20, 25} fixes all three, so the plateau is real and only mod4block
-  // — pathological in its cost per elimination, not at any particular rate —
-  // distinguishes them. Tier B 14.57 →
-  // 7.57, i.e. from 1.76× kissat to 0.92×. Windows `20260727-0820*`/`-0848*`.
+  // situations; the whole plateau {15, 20, 25} measured equivalent and clearly
+  // better than 10. TACTIX_BUMP_REASONS_RATE re-sweeps it.
   static constexpr double BUMP_REASONS_RATE = 20.0;
-  // C1 SubsumeForward occupies the kissat eliminate slot (eliminate.c
+  // Inprocessing-slot interval, in the kissat eliminate slot (eliminate.c
   // kissat_eliminating / kimits.h UPDATE_CONFLICT_LIMIT(eliminate, ...,
-  // NLOG2N, true)) until C2/C3/E1 join it in this phase: interval =
-  // eliminateint · n·log10(n+9)², init eliminateinit, BOTH scaled by
-  // kissat_scale_delta's formula-size factor — the constants presuppose
-  // the scaling exactly like the restart constants presuppose the EMA
-  // warm-up (measured lesson, 2026-07-14 carried-items log)
+  // NLOG2N, true)): interval = eliminateint · n·log10(n+9)², init
+  // eliminateinit, BOTH scaled by kissat_scale_delta's formula-size factor.
+  // The constants presuppose that scaling, exactly as the restart constants
+  // presuppose the EMA warm-up.
   static constexpr uint64_t SUBSUME_INTERVAL = 500;      // eliminateint
-  // Effort budgets (plan rev 53, docs/design/effort-scheduler-design.md).
-  // kissat kimits.h SET_EFFORT_LIMIT: a technique's dose is a fixed per-mille
-  // fraction of the SEARCH work done since that technique last ran, floored by
-  // an absolute minimum — simplification effort is a bounded fraction of search
-  // effort, which is self-tuning and pathology-proof. This REPLACES the former
-  // INPROCESS_PHASE_BUDGET application count, which was size-blind (300
-  // eliminations on a 1.45 M-variable formula) and whose real job was bounding
-  // an O(applications × formula) loop rather than bounding simplification.
+  // Effort budgets (docs/design/effort-scheduler-design.md). kissat kimits.h
+  // SET_EFFORT_LIMIT: a technique's dose is a fixed per-mille fraction of the
+  // SEARCH work done since that technique last ran, floored by an absolute
+  // minimum — simplification effort is a bounded fraction of search effort,
+  // which is self-tuning and pathology-proof. Bounding by APPLICATION COUNT
+  // instead is size-blind and does not bound simplification at all.
   // kissat mineffort=10 ("in millions"); our tick unit is within 1.6× of
-  // kissat's (measured: tactix 26.6 M ticks/s vs kissat 42.1 M/s on 9vliw), so
-  // the constant transfers directly.
+  // kissat's, so the constant transfers directly.
   static constexpr uint64_t MIN_EFFORT_TICKS = 10000000; // mineffort · 1e6
   // Outer rounds per simplification phase (kissat eliminaterounds): each round
   // runs BVE to its budget + the batch simplifiers (Subsume/Strengthen) once,
@@ -211,23 +177,12 @@ public:
   // chronological backtracking (kissat learn.c kissat_determine_new_level,
   // options chrono=1/chronolevels=100): jumping over more than this many
   // levels is considered inefficient — backtrack one level instead. A pure
-  // policy choice through backjump_apply_to (the freeze's N1 story).
-  // ENABLED 2026-07-22 (TB4) at kissat's own chronolevels=100, after the
-  // go/no-go this comment used to defer. It was measured TWICE. The first run
-  // said +13 % WORSE and was a lie: analyze did not backtrack to the conflict
-  // level first, so the gap that gates chrono was measured from the wrong level
-  // and 84 % of chronological backtracks silently DROPPED the conflict (stale
-  // pending clause -> NoOp) and re-derived it, duplicating learned clauses and
-  // corrupting the glue EMAs. With that fixed, clean interleaved Tier B, two
-  // reps per arm: off 17.35/17.51, on 17.04/16.99 — both on-runs beat both
-  // off-runs, mean 17.43 -> 17.02. DefaultPolicy is deliberately no longer
-  // bit-exact against the old s055 = 932,762 pin; that pin belonged to the
-  // chrono-off trajectory.
+  // policy choice through backjump_apply_to (N1: no rule guard changes).
+  // Chrono is only measurable once analyze backtracks to the conflict level
+  // first; otherwise the gap that gates it is computed from the wrong level and
+  // most chronological backtracks silently drop the conflict as a stale pending
+  // clause. TACTIX_CHRONO_LEVELS=N overrides (N=0 = always chronological).
   static constexpr uint32_t CHRONO_LEVELS = 100;
-  // Runtime override for the T4 go/no-go the comment above asks for:
-  // TACTIX_CHRONO_LEVELS=N (kissat's `chronolevels`, default 100; N=0 means
-  // always chronological). Unset keeps CHRONO_LEVELS, i.e. today's behaviour,
-  // so the default path is untouched until a measurement says otherwise.
   uint32_t chrono_levels = CHRONO_LEVELS;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
@@ -235,8 +190,8 @@ public:
   // sub-policies (swappable without touching any rule; null = built-in)
   BranchingPolicy *branching = nullptr;
   ReductionPolicy *reduction = nullptr;
-  BveBoundPolicy *bve_bound = nullptr; // BVE growth-slack ramp (Track S · S1b)
-  FactorMatchPolicy *factor_match = nullptr; // Factor grid selection (S2a)
+  BveBoundPolicy *bve_bound = nullptr;       // BVE growth-slack ramp
+  FactorMatchPolicy *factor_match = nullptr; // Factor grid selection
 
   // bias-corrected EMA (kissat smooth.c): value = biased / (1 - beta^n)
   // — the Adam-style warm-up makes early averages meaningful, which the
@@ -302,9 +257,8 @@ public:
     uint64_t wait = RELUCTANT_PERIOD;
     bool trigger = false;
   } reluctant;
-  // S3 rephase schedule (kissat rephase.c: stable-only trigger, interval
-  // grows rephaseint·n·log³n; rotation B,W,I,B,W,O — the W slots are S6
-  // Walk since rev 71)
+  // rephase schedule (kissat rephase.c: stable-only trigger, interval
+  // grows rephaseint·n·log³n; rotation B,W,I,B,W,O — the W slots run Walk)
   struct {
     uint64_t next_conflicts = REPHASE_INTERVAL_INIT;
     // rephase EVENTS (rotation index + interval growth). Distinct from
@@ -312,61 +266,50 @@ public:
     // two ops. Identical to stats.rephased on the pre-Walk path.
     uint64_t count = 0;
   } rephase;
-  // S7 Reorder schedule (kissat reorder.c/kimits.c: initial `reorderinit`,
+  // Reorder schedule (kissat reorder.c/kimits.c: initial `reorderinit`,
   // then LINEAR growth `reorderint · count`). OFF unless TACTIX_REORDER is set
   // — see want_reorder.
   struct {
     uint64_t next_conflicts = REORDER_INTERVAL_INIT;
     uint64_t count = 0;
   } reorder;
-  // S6 Walk effort, per mille of the search work since the last walk (floor
-  // MIN_EFFORT_TICKS). NOT kissat's walkeffort = 50: kissat and we scale the
-  // budget from cache-line search ticks but SPEND it in per-entry walk steps,
-  // while cadical spends in cache-line ticks too, so cadical's walkeffort = 80
-  // buys ~13x more walk scanning than our 50 did (audit 2026-07-26,
-  // docs/design/s6-walk-design.md §6). 640 is the cadical-equivalent dose, and
-  // and a large dose is what solves mp1-Nb5T15 (TIMEOUT -> 26.1 s) while
-  // keeping SCPC-1000-18 fast. The exact value matters less than it looked:
-  // re-swept at the shipped bumpreasons rate (windows `20260727-0848*`), Tier C
-  // over per-mille 400..800 is 308.8 / 279.8 / 300.1 / 314.5 / 307.3 — no
-  // trend, all inside the per-instance chaos band — so the sharp Tier C
-  // preference for 640 measured at rate 10 was itself an artefact of that
-  // rate. Tier B does have a clean step: at <= 500 `mod4block` costs ~65 s, at
-  // >= 560 it costs 9.1 s. 560 is the low end of that plateau and had the
-  // better Tier C of the plateau in BOTH windows that measured it (295.7 and
-  // 300.1, vs 640's 310.3 and 314.5). "How hard to walk" remains a §5.6 dosing
-  // exhibit, not a constant we believe in.
+  // Walk effort, per mille of the search work since the last walk (floor
+  // MIN_EFFORT_TICKS). Deviation: NOT kissat's walkeffort = 50, because the
+  // budget is a UNIT MISMATCH there — kissat and we scale from cache-line
+  // search ticks but SPEND in per-entry walk steps, while cadical spends in
+  // cache-line ticks too, so cadical's walkeffort = 80 buys ~13x more walk
+  // scanning than 50 does here (docs/design/s6-walk-design.md §6). 560 is a
+  // cadical-equivalent dose, chosen at the low end of a flat plateau; Tier C
+  // shows no trend at all across 400..800, so do not read precision into it.
+  // "How hard to walk" is a plan §5.6 dosing exhibit — TACTIX_WALK_PERMILLE.
   static constexpr uint64_t WALK_PERMILLE = 560;
   uint64_t walk_anchor = 0; // search_ticks when the last walk ran
-  // --- the inprocessing SLOT (registry-driven scheduler, rev 26) --------
+  // --- the inprocessing SLOT (registry-driven scheduler) -----------------
   // Schedule-as-data: the slot is a plain vector of {rule id, enabled}
   // entries built from the registry (RuleTier::Inprocess — the tier's
   // reader, §5.3), in registry order (name-sorted, deterministic),
   // executed in order at a quiescent root on the kissat eliminate-slot
   // schedule below. PUBLIC and overridable: tests, presets, and the
   // phase-6 learner pose slots by editing entries — these choice points
-  // are the arm space (§5.6). Per-rule budgets join when a rule can
-  // consume one (rev-20: no fields without readers). CMS's comma-string
-  // simplify schedule is the design precedent for slot-as-ordered-list.
+  // are the arm space (§5.6). CMS's comma-string simplify schedule is the
+  // design precedent for slot-as-ordered-list.
   //
-  // The live composition is the S4 ARRANGEMENT, unconditional since the
-  // 2026-07-25 gate (report benchmarks/reports/2026-07-25-s4-gate-mp1.md):
-  // every Inprocess-tier rule enabled; phases = probing family →
-  // simplifiers → dosed BVE (density-gated, deferred out of conflicts=0 —
-  // kissat fastel=0) → Factor last; effort-ledger budgets per entry;
-  // growing NLOG2N conflict interval. WHY it works: elimination runs on a
-  // formula probing already simplified, doses are bounded in each rule's
-  // own work currency, and the density gates keep during-search
+  // The live composition: every Inprocess-tier rule enabled; phases =
+  // probing family → simplifiers → dosed BVE (density-gated, deferred out
+  // of conflicts=0 — kissat fastel=0) → Factor last; effort-ledger budgets
+  // per entry; growing NLOG2N conflict interval. WHY it works: elimination
+  // runs on a formula probing already simplified, doses are bounded in each
+  // rule's own work currency, and the density gates keep during-search
   // elimination off the sparse instances it measurably harms (plan §5.6
-  // elimination-dosing exhibit — the gates are the phase-6
-  // learner's named target). During-search phases are SAT-safe because
-  // they are budgeted and material-gated — the unbudgeted version was not
-  // (reports 2026-07-18/19). Every rule stays registered,
-  // N1-exposed, and random-policy-fuzzed regardless of its `enabled` bit.
+  // elimination-dosing exhibit — the gates are the phase-6 learner's named
+  // target). During-search phases are SAT-safe only because they are
+  // budgeted and material-gated; the unbudgeted version was not. Every rule
+  // stays registered, N1-exposed, and random-policy-fuzzed regardless of
+  // its `enabled` bit.
   struct SlotEntry {
     int rule = -1;
     bool enabled = true;
-    // --- effort ledger (rev 53) ------------------------------------------
+    // --- effort ledger ----------------------------------------------------
     // `permille` is this entry's share of the search work preceding its dose
     // (kissat options.h NAMEeffort); `meter` reads the rule's OWN work counter
     // — its currency (BVE resolutions, Strengthen candidate checks, ticks for
@@ -377,62 +320,56 @@ public:
     // canonical instance, so there is nothing to titrate).
     uint32_t permille = 0;
     uint64_t (*meter)(const Kernel &) = nullptr;
-    // SCHED-B2: this entry's PRIVATE tick counter inside Kernel::stats, or null
-    // when its currency is not ticks (BVE resolutions, C1/C2 candidate checks,
-    // Factor's own factor_ticks, which the rule charges itself). The policy
-    // scopes `Kernel::tick_sink` to this around the apply, so kernel-side
-    // propagation done ON THIS RULE'S BEHALF lands here and nowhere else.
+    // This entry's PRIVATE tick counter inside Kernel::stats, or null when its
+    // currency is not ticks (BVE resolutions, Strengthen/SubsumeForward
+    // candidate checks, Factor's own factor_ticks, which the rule charges
+    // itself). The policy scopes `Kernel::tick_sink` to this around the apply,
+    // so kernel-side propagation done ON THIS RULE'S BEHALF lands here and
+    // nowhere else.
     uint64_t Stats::*tick_counter = nullptr;
-    // SCHED-B1 part 3: cadical's accumulate-until-worthwhile threshold
-    // (`opts.NAMEthresh`, limit.hpp:150 — reached by TOKEN-PASTE, which is why
-    // it reads as dead code to grep). If this occasion's DELTA is smaller than
-    // `thresh` per irredundant clause, decline WITHOUT advancing the anchor, so
-    // the entitlement accrues and a later occasion can afford a worthwhile
-    // pass. 0 = no threshold. cadical ships factor 7, vivify 20, ternary 6.
+    // cadical's accumulate-until-worthwhile threshold (`opts.NAMEthresh`,
+    // limit.hpp:150 — reached by TOKEN-PASTE, which is why it reads as dead
+    // code to grep). If this occasion's DELTA is smaller than `thresh` per
+    // irredundant clause, decline WITHOUT advancing the anchor, so the
+    // entitlement accrues and a later occasion can afford a worthwhile pass.
+    // 0 = no threshold. cadical ships factor 7, vivify 20, ternary 6.
     //
-    // This is not optional trim: parts 1-2 make the old batch pre-check vacuous
-    // by construction (the ceiling is re-baselined at the point of use, so
-    // `meter > limit` cannot fire), and kissat has no such pre-check either —
-    // `thresh` IS its skip. Landing 1-2 without this leaves batch entries with
-    // no budget-based decline at all.
+    // This is the ONLY budget-based decline a batch entry has: `limit` is
+    // re-baselined at the point of use (set_entry_limit), so a `meter > limit`
+    // pre-check can never fire for one.
     uint64_t thresh = 0;
     bool dosed = false;   // apply per-instance to a budget vs one canonical round
     bool retry_advice = false; // rule maintains a per-variable retry bit to consult
     // BATCH rule whose canonical apply reads Kernel::work_budget in its own
     // currency and stops mid-round; the policy hands it the remaining ledger
-    // budget around r.apply(k) (S4 dosing — see EffortSpec in the .cpp).
+    // budget around r.apply(k) (see EffortSpec in the .cpp).
     bool budget_aware = false;
     uint64_t anchor = 0;  // search_ticks when this entry last ran (cadical last.NAME.ticks)
-    uint64_t limit = 0;   // meter ceiling for the CURRENT phase (set at phase entry)
+    uint64_t limit = 0;   // meter ceiling, recomputed per occasion (set_entry_limit)
     // Defer this entry out of the conflicts==0 preprocessing phase (kissat
     // fastel=0 — elimination only ever runs on a formula probing has already
     // simplified, in dosed during-search phases). BVE only.
     bool defer_preprocess = false;
+    // New-material watermark for Factor's arena side. `binaries_mark` alone was
+    // exact only while Factor was binary-only; once Kernel::factor_size > 2 its
+    // material also includes small LARGE clauses, and a binary-only watermark
+    // then silently skips re-runs that had new work to do. Arena size is a
+    // conservative proxy: it grows whenever a clause is added, so the entry may
+    // re-run needlessly but never wrongly declines.
+    uint64_t arena_mark = 0;
     // DIAGNOSTIC cap: stop scheduling this entry after `max_applies` phases
     // (0 = uncapped, the default and the only shipped setting). Exists because
-    // the mechanism behind BCE's Tier C damage is ROUNDS, not dose — j3037's
-    // conflicts track BCE rounds 48/37/27/0 -> 7.60M/4.47M/1.63M/1.28M while
-    // BCE's own runtime is 1.385 s of a 983 s solve (0.1%) — and a rate change
-    // shrinks each round without ever stopping round 2 (all-rules-on report).
-    // Set via TACTIX_SLOT_MAX_APPLIES=Name:N. Never read by a guard: this is
-    // the POLICY declining to schedule, not the rule declining to apply (N1).
-    // New-material watermark for Factor's arena side. `binaries_mark` was exact
-    // while Factor was binary-only; once Kernel::factor_size > 2 its material
-    // also includes small LARGE clauses, and a watermark that only watches
-    // binary_ids silently skips re-runs that had new work to do — which would
-    // confound every admission arm. Arena size is a conservative proxy: it grows
-    // whenever a clause is added, so the entry may re-run needlessly but never
-    // wrongly declines. (Reference study, 2026-07-30.)
-    uint64_t arena_mark = 0;
+    // a rule's tier damage can be driven by how many ROUNDS it gets rather than
+    // by its dose, and a rate change shrinks each round without ever removing
+    // one. Set via TACTIX_SLOT_MAX_APPLIES=Name:N. Never read by a guard: this
+    // is the POLICY declining to schedule, not the rule declining to apply (N1).
     uint32_t max_applies = 0;
     uint32_t applies = 0;
-    // --- SCHED-A1 telemetry -------------------------------------------------
+    // --- telemetry ----------------------------------------------------------
     // Diagnostic only: nothing here is ever READ by a scheduling decision, so
-    // the numbers cannot feed back into behaviour. They exist because today a
-    // dose experiment cannot distinguish "this entry was STARVED of budget" from
-    // "this entry ran and found nothing" — both look like a flat stat — which is
-    // what makes the whole dose axis uninterpretable (SCHED theme T3). Every
-    // later SCHED item pre-registers its readout against these.
+    // the numbers cannot feed back into behaviour. They exist because otherwise
+    // a dose experiment cannot distinguish "this entry was STARVED of budget"
+    // from "this entry ran and found nothing" — both look like a flat stat.
     struct Telem {
       uint64_t occasions = 0;   // times the slot loop reached this entry
       uint64_t admitted = 0;    // times it got as far as apply
@@ -446,43 +383,41 @@ public:
       uint64_t completed = 0;   // rounds that finished inside their budget
     } tm;
 
-    // Per-entry new-material watermarks (S4 dosing increment 2): an UNMETERED
-    // entry (Congruence/Factor/Substitute — full canonical closure per run,
-    // nothing to titrate) re-runs in a during-search arrangement phase only
-    // when the formula gained material it can act on since ITS last run (new
-    // binaries / new root-fixed variables — the same trigger the slot-global
-    // gate uses). Attribution probes 2026-07-24: re-running these closures
-    // every phase is a top-two diffuse Tier C cost, but removing them
-    // entirely breaks urq45 (Congruence is load-bearing) — so gate the
-    // repetition, keep the rule.
+    // Per-entry new-material watermarks: an UNMETERED entry (Congruence /
+    // Factor / Substitute — full canonical closure per run, nothing to
+    // titrate) re-runs in a during-search phase only when the formula gained
+    // material it can act on since ITS last run (new binaries / new root-fixed
+    // variables). Re-running these closures every phase is a large diffuse
+    // Tier C cost, but dropping them entirely loses instances that depend on
+    // Congruence — so gate the repetition, keep the rule.
     uint64_t binaries_mark = 0;
     uint64_t root_fixed_mark = 0;
-    // S4 dosing: budgeted applies of this entry this solve. Read for the
-    // first-dose allowance (Factor's kissat factoriniticks — doses == 0
-    // means the 700M first round has not run yet).
+    // Budgeted applies of this entry this solve. Read for the first-dose
+    // allowance (Factor's kissat factoriniticks — doses == 0 means the opening
+    // round has not run yet).
     uint32_t doses = 0;
-    // kissat delay (kimits.c, ported for S4 adaptive dosing): after an
-    // UNPRODUCTIVE run in a during-search phase — kissat vivifyirr criterion,
-    // vivified/tried < 1 % — skip this entry's next `delay_current` scheduled
-    // occasions (bump: current += 1; productive run: current /= 2; both reset
-    // count = current). Backs a technique off the instances where its dose
-    // keeps buying nothing (the arr3 diffuse Tier C residual) while leaving
-    // it every-phase where it produces. Policy scheduling state only — the
-    // rule stays N1-applicable via the API throughout.
+    // kissat delay ladder (kimits.c): after an UNPRODUCTIVE run in a
+    // during-search phase — kissat vivifyirr criterion, vivified/tried < 1 % —
+    // skip this entry's next `delay_current` scheduled occasions (bump:
+    // current += 1; productive run: current /= 2; both reset count = current).
+    // Backs a technique off the instances where its dose keeps buying nothing
+    // while leaving it every-phase where it produces. Policy scheduling state
+    // only — the rule stays N1-applicable via the API throughout.
     uint32_t delay_count = 0;
     uint32_t delay_current = 0;
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
-  // SCHED-A1: one `c slot` line per entry. Diagnostic only — see the .cpp.
-  // SCHED-B1: compute this entry's meter ceiling at the point it is reached.
+  // Compute this entry's meter ceiling at the point it is reached.
   void set_entry_limit(SlotEntry &, Kernel &);
+  // One `c slot` line per entry. Diagnostic only — see the .cpp.
   void report_slot(const Kernel &) const;
-  // S4 factordelay analog (kissat factor.c:1068-1085, design §3.b): count of
-  // dosed BVE rounds executed this solve. Factor's entry fires only when
-  // log10(active vars) ≤ this + 4 — instances up to 10^4 active vars factor
-  // from the very first probe; each BVE round buys one more decade.
+  // factordelay analog (kissat factor.c:1068-1085,
+  // docs/design/s4-factor-dosing-design.md §3.b): count of dosed BVE rounds
+  // executed this solve. Factor's entry fires only when log10(active vars) ≤
+  // this + 4 — instances up to 10^4 active vars factor from the very first
+  // probe; each BVE round buys one more decade.
   uint32_t bve_rounds_run_ = 0;
-  // TB6 A/B knob (TACTIX_FORCE_MODE, read once per solve): 0 = off,
+  // A/B knob (TACTIX_FORCE_MODE, read once per solve): 0 = off,
   // 1 = pin focused (decline every switch), 2 = pin stable (allow only
   // the first switch). Pure scheduling state — SwitchMode stays
   // guard-true and N1-appliable.
@@ -497,16 +432,11 @@ public:
   // comment for why the pair is one mechanism.
   uint32_t bump_reasons_limit_ = 0;
   double bump_reasons_rate_ = BUMP_REASONS_RATE;
-  // Factor's FIRST-DOSE allowance (S4 design §3.b). The two references
-  // DISAGREE here and we inherited kissat's: kissat `factoriniticks` 700
-  // (options.h:59, millions) vs cadical `factoriniticks` 300 (options.hpp:123)
-  // — cadical gives its opening BVA burst 2.3x LESS room, and cadical is the
-  // solver that is 7-28x faster than us on the two instances broad admission
-  // loses (task #11). This is the one surviving "how much Factor runs up
-  // front" lever that is grounded in a reference constant rather than a novel
-  // mechanism; `factordelay` is NOT (see the 2026-08-01 log entry: our gate
-  // and cadical's are behaviourally identical on both losers — neither binds).
-  // Arm: TACTIX_FACTOR_INIT_TICKS (raw ticks). Default unchanged.
+  // Factor's FIRST-DOSE allowance (docs/design/s4-factor-dosing-design.md
+  // §3.b). We follow kissat `factoriniticks` 700 (options.h:59, millions); the
+  // references disagree — cadical's `factoriniticks` is 300 (options.hpp:123),
+  // i.e. 2.3x less room for the opening BVA burst. Arm:
+  // TACTIX_FACTOR_INIT_TICKS (raw ticks).
   static constexpr uint64_t FACTOR_INIT_TICKS = 700000000ull;
   uint64_t factor_init_ticks_ = FACTOR_INIT_TICKS;
   // kissat's delay ladder (kimits.c bump/reduce_delay): every round that
@@ -529,32 +459,27 @@ public:
     uint64_t next_conflicts = 2;
     uint64_t interval = 2;
   } retier_;
-  // S4 arrangement BVE bound level (kissat bounds.eliminate.additional_clauses,
+  // During-search BVE bound level (kissat bounds.eliminate.additional_clauses,
   // eliminate.c set_next_elimination_bound): starts 0 (non-growing
   // eliminations only) and DOUBLES 0→1→2→4→8 only when a dose COMPLETES
-  // (schedule exhausted within budget). Replaces the all-levels-per-dose S1c
-  // ramp in arrangement doses — running 0..8 in the very first dose
-  // over-eliminates (mp1: 1,223 eliminated vs kissat 661, conflicts 1.5M→3.5M,
-  // probe 1561169 — a solo probe, which is valid for exactly this kind of counter
-  // read and not for an effect size). The default preprocessing ramp is
-  // untouched. Also Factor's acceptance bound (design §3.e) reads this level.
+  // (schedule exhausted within budget). Running the whole 0..8 ramp inside one
+  // dose over-eliminates instead. The preprocessing-phase ramp is untouched.
+  // Factor's acceptance bound reads this level too (s4-factor-dosing §3.e).
   uint32_t bve_level_ = 0;
-  OccIndex inprocess_occ; // shared occurrence index, reused per phase (incr. 2)
-  // Slot timing (kissat eliminate-slot schedule — C1-era machinery kept):
-  // First limit size-scaled at solve entry (kissat inits limits after
-  // parsing); after that, phases fire on the growing NLOG2N interval alone
-  // (the S4 arrangement — the legacy new-material gate left with the legacy
-  // composition, commit a7de35d).
+  OccIndex inprocess_occ; // shared occurrence index, reused per phase
+  // Slot timing (kissat eliminate-slot schedule): the first limit is
+  // size-scaled at solve entry (kissat inits limits after parsing); after that
+  // phases fire on the growing NLOG2N interval alone.
   struct {
     bool initialized = false;
     uint64_t next_conflicts = 0;
-    uint64_t rounds = 0; // interval growth key (policy-local, rev 17)
+    uint64_t rounds = 0; // interval growth key (policy-local)
     // Ticks spent inside simplification phases. The kernel keeps ONE global
-    // propagation meter (kernel.cpp:426,456) covering search and probing alike;
-    // kissat keeps them apart (search_ticks vs probing_ticks) because every
-    // effort budget — and the stable-phase length — is denominated in SEARCH
-    // work. Subtracting this accumulator recovers the split policy-side, with
-    // no kernel change and no scheduling identity leaking into the rules.
+    // propagation meter covering search and probing alike; kissat keeps them
+    // apart (search_ticks vs probing_ticks) because every effort budget — and
+    // the stable-phase length — is denominated in SEARCH work. Subtracting this
+    // accumulator recovers the split policy-side, with no kernel change and no
+    // scheduling identity leaking into the rules.
     uint64_t ticks = 0;
   } inprocess;
   // search work only (kissat statistics.search_ticks)

@@ -4,8 +4,7 @@
 // as an arm over which it learns. The uniform part is IDENTITY + swappability (and,
 // later, a reward hook); the CHOICE signature is category-specific — branching
 // returns a decision literal, a bound schedule returns a growth bound — because
-// those decisions are genuinely different shapes. This umbrella un-defers Track H ·
-// H6's sub-policy super-class now that a 2nd class of arm (the BVE bound ramp) exists.
+// those decisions are genuinely different shapes.
 //
 // Existing scheduling that is NOT yet a SubPolicy (restart triggers, mode switching,
 // rephase, the inprocessing-slot effort budgets) is reparented incrementally; this
@@ -53,7 +52,7 @@ struct BveBoundPolicy : SubPolicy {
   virtual uint32_t bound(uint32_t pass) const = 0;
 };
 
-// Factor grid-selection strategy (Track S · S2a). The BVA PROOF RULE is
+// Factor grid-selection strategy. The BVA PROOF RULE is
 // apply_factoring(x, F, R); WHICH grid to build is a STRATEGY, lifted out of
 // the rule into this swappable/learnable sub-policy — the Factor analog of
 // BveBoundPolicy. The rule (rules/factor/factor.cpp) keeps the MECHANISM (seed

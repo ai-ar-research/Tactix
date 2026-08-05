@@ -1,6 +1,6 @@
-// V5 Sweep · S-c: candidate selection + environment construction.
+// Sweep: candidate selection, environment construction and emission.
 // See sweep.hpp for the contract, the soundness argument (env ⊆ F) and the
-// deviation ledger; docs/design/v5-sweep-design.md §6.3 for the increment.
+// deviation ledger; docs/design/v5-sweep-design.md for the design.
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/congruence/congruence.hpp"
@@ -31,9 +31,9 @@ bool root_fixed(const Kernel &k, Var v) {
 
 // Is (a ∨ b) live in the watch lists? Deliberately NOT `kernel_binary_id != 0`:
 // `binary_ids` is size-monotone (a deleted pair keeps its key, see
-// Kernel::binary_ids), so the id map would report a binary V4 has already
-// deleted and S-c would score a genuinely new equivalence as "already known" —
-// distorting the one number this increment exists to produce.
+// Kernel::binary_ids), so the id map would report a binary TransitiveReduce
+// has already deleted, and a genuinely new equivalence would be scored
+// "already known".
 bool binary_live(const Kernel &k, Lit a, Lit b) {
   const Lit scan = k.watches.size(a) <= k.watches.size(b) ? a : b;
   const Lit want = scan == a ? b : a;
@@ -78,9 +78,10 @@ void repr_unite(SweepRound &r, Lit a, Lit b) {
   // only possible when F is unsatisfiable (every equivalence is then vacuously
   // entailed). Merging anyway would set repr[ra] = ¬ra AND repr[¬ra] = ra — a
   // two-cycle that hangs `repr_find` forever, which is exactly what the random
-  // oracle in tests/test_sweep.cpp found. S-c draws no conclusion from it: the
-  // classes stay apart and the environments that produced the claims are still
-  // counted. (S-d must treat this case as a REFUTATION, not as two binaries.)
+  // oracle in tests/test_sweep.cpp found. DETECTION draws no conclusion from
+  // it: the classes stay apart and the environments that produced the claims
+  // are still counted. EMISSION must treat this case as a REFUTATION, never
+  // as two binaries.
   if (rb == negate(ra))
     return;
   if (rb < ra)
@@ -320,21 +321,21 @@ void refine(const SweepEnv &e, const std::vector<int8_t> &model, Lit seed_lit,
 
 } // namespace
 
-// SUB-SOLVER LITERAL -> KERNEL LITERAL. The one function both S-e call sites go
-// through, because getting it wrong is silent: the two encodings share the
+// SUB-SOLVER LITERAL -> KERNEL LITERAL. Both translation sites go through this
+// one function, because getting it wrong is silent: the two encodings share the
 // `2*v | negated` shape, so an inverted parity still type-checks, still names a
-// real variable, and still produces a well-formed clause -- just the NEGATION of
-// the one the sub-solver derived. This is the exact inverse of the encode in
-// `sweep_detect_seed` (`sub_lit(sub_of_var[var_of(l)], negated(l))`) and of
-// `test_subsolver`'s `dimacs()` (even sub literal = POSITIVE), and it must stay
-// that way. Having the capture and the emitter each spell it out separately is
-// what let them agree with each other and disagree with the sub-solver, which
-// made every emitted general-path lemma unverifiable (N2 breach, 2026-08-05).
+// real variable and still produces a well-formed clause -- just the NEGATION of
+// the one the sub-solver derived. It is the exact inverse of the encode in
+// `sweep_detect_seed` (`sub_lit(sub_of_var[var_of(l)], negated(l))`), and of
+// `test_subsolver`'s `dimacs()` (an even sub literal is POSITIVE). Spelling it
+// out separately at each site is what let the two agree with each other and
+// disagree with the sub-solver, making every general-path lemma unverifiable
+// (N2 breach, `benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`).
 static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
   return make_lit(vars[sub_var_of(sl)], (sl & 1u) != 0);
 }
 
-// S-e: copy one direction's refutation out of the sub-solver, together with the
+// Copy one direction's refutation out of the sub-solver, together with the
 // translation tables it will need later. Both are necessary: `steps` names
 // sub-solver clause ids, and the environment that gives those ids meaning is
 // rebuilt for the next seed. Failure here is not an error — it just means this
@@ -391,7 +392,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     }
     const uint32_t id = e.solver.add_clause(buf);
     // The environment's own numbering IS the sub-solver's, which is what makes
-    // `clause_ids[id - 1]` the main-formula clause S-e must cite.
+    // `clause_ids[id - 1]` the main-formula clause emission must cite.
     assert(id == c + 1);
     (void)id;
   }
@@ -408,8 +409,8 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   }
   if (res == SubResult::Unsat) {
     // The environment alone refutes F (it IS a subset of F). Real, and worth a
-    // count, but turning it into `add-empty` is S-d's proof obligation — S-c
-    // touches nothing.
+    // count, but turning it into `add-empty` would be a separate proof
+    // obligation that nothing here discharges — so detection touches nothing.
     k.stats.sweep_env_unsat++;
     k.stats.sweep_ticks += e.solver.ticks();
     return 0;
@@ -449,7 +450,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       r.candidates.pop_back();
       continue;
     }
-    // S-e capture (see sweep_capture_dir): the sub-solver keeps only the LAST
+    // Refutation capture (see sweep_capture_dir): the sub-solver keeps only the LAST
     // solve's derivation, so direction 1's must be copied out before direction
     // 2's solve overwrites it.
     SweepPairProof pair;
@@ -473,7 +474,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     assert(!e.solver.inconsistent() && "a satisfiable environment cannot then "
                                        "derive the empty clause");
 #ifndef NDEBUG
-    { // S-d/S-e depend on this: a refutation under assumptions must hand back a
+    { // Emission depends on this: a refutation under assumptions must hand back a
       // derivation whose target clause is a sub-clause of the negated
       // assumptions. Checked here, where the assumptions are still in hand.
       SubDerivation d;
@@ -553,20 +554,19 @@ SweepLimits sweep_limits_from_env() {
   return lim;
 }
 
-// ---- S-d: emission via strategy (a), the RUP fast path -------------------
+// ---- emission: the RUP fast path -----------------------------------------
 //
-// Detection (S-c) proves `a ≡ b` inside a small ENVIRONMENT, which is a subset
-// of F. That is a sound entailment, but an entailment is not a proof line: the
+// Detection proves `a ≡ b` inside a small ENVIRONMENT, which is a subset of F.
+// That is a sound entailment, but an entailment is not a proof line: the
 // checker knows nothing of the environment. So we ask the main formula the same
-// question in the one form a checker accepts, RUP, using V6's replay primitive
-// rather than deriving a chain by hand (`congruence_rup_chain` — the chain comes
-// out in the checker's own propagation order by construction).
+// question in the one form a checker accepts, RUP, using Congruence's replay
+// primitive rather than deriving a chain by hand (`congruence_rup_chain` — the
+// chain comes out in the checker's own propagation order by construction).
 //
 // This is DELIBERATELY the narrow path. An equivalence that is RUP over F is
-// "exactly the easy case sweep is not for" (design §4) — the interesting ones
-// need the sub-solver's core mapped back to main-formula ids, which is S-e. So
-// this is a fast path that lands detect -> emit -> checker end to end, and a
-// non-RUP equivalence is DECLINED (counted in `sweep_not_rup`), never emitted.
+// exactly the easy case sweeping is not for (design §4); the interesting ones
+// need the sub-solver's core mapped back to main-formula ids. A non-RUP
+// equivalence is DECLINED (counted in `sweep_not_rup`), never emitted.
 //
 // BOTH directions must replay. `a ≡ b` is two binaries, and emitting one
 // without the other would state an implication the sub-solver did not prove on
@@ -601,9 +601,9 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
   return true;
 }
 
-// S-e: emission via strategy (b), the GENERAL path.
+// Emission, the GENERAL path.
 //
-// The RUP fast path (S-d) covers only equivalences that unit propagation can
+// The RUP fast path above covers only equivalences that unit propagation can
 // refute over F. A swept equivalence is entailed but generally NOT RUP -- that
 // gap is the whole reason a sub-solver is involved. Here the sub-solver's own
 // refutation is replayed into the main proof: each lemma it derived is emitted
@@ -611,7 +611,7 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
 // sub-solver clause ids to main-formula proof ids. The final lemma IS the target
 // binary, and by then every antecedent it names is a line the checker has seen.
 //
-// The translation rests on `env ⊆ F` holding LITERALLY (S-c): every environment
+// The translation rests on `env ⊆ F` holding LITERALLY: every environment
 // clause is a clause the kernel holds, carried with its own proof id, so an
 // original antecedent maps to a real main-formula id rather than to something
 // reconstructed. Anything that cannot be mapped exactly -- an unmapped
@@ -659,7 +659,7 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
     if (final_step) {
       // The target must be exactly the binary we are justifying. A shorter
       // target (a unit) would be a STRONGER fact but a different proof delta,
-      // and it would have been RUP anyway, so S-d already had it.
+      // and it would have been RUP anyway, so the fast path already had it.
       if (lits.size() != 2)
         return false;
       const bool same = (lits[0] == t0 && lits[1] == t1) ||
@@ -717,7 +717,7 @@ ApplyResult sweep_apply(Kernel &k) {
     return ApplyResult::NoOp;
   SweepRound round;
   SweepLimits lim = sweep_limits_from_env();
-  // S-f: honour the effort ledger. `round_ticks` defaults to 0 = unbounded,
+  // Honour the effort ledger. `round_ticks` defaults to 0 = unbounded,
   // which is right for the diagnostic probe and catastrophic for a scheduled
   // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
   if (k.work_budget)
@@ -726,8 +726,8 @@ ApplyResult sweep_apply(Kernel &k) {
   if (!found)
     return ApplyResult::NoOp;
   // A refuted environment means F itself is UNSAT; detection records it and the
-  // caller re-derives it through the normal root path rather than here, so S-d
-  // stays a pure clause-addition (proof delta: two `derive`s per pair).
+  // caller re-derives it through the normal root path rather than here, so this
+  // apply stays a pure clause-addition (proof delta: two `derive`s per pair).
   if (k.inconsistent)
     return ApplyResult::Unsat;
   // TACTIX_SWEEP_FORCE_GENERAL: route EVERY proved equivalence through S-e by
@@ -763,11 +763,11 @@ ApplyResult sweep_apply(Kernel &k) {
       continue;
     if (!force_general &&
         sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev)) {
-      any = true; // S-d: RUP over F, the cheap case
+      any = true; // RUP over F, the cheap case
       continue;
     }
     k.stats.sweep_not_rup++;
-    // S-e: not RUP, so replay the sub-solver's own refutation. Validate BOTH
+    // Not RUP, so replay the sub-solver's own refutation. Validate BOTH
     // directions DRY before writing either, so the pair lands whole or not at all.
     if (e.a == e.b || e.a == negate(e.b) || idx >= round.proofs.size())
       continue;

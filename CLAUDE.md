@@ -27,10 +27,21 @@
   regenerable probe artifacts → `benchmarks/probes/scratch/`; extra worktrees →
   `.claude/worktrees/`; throwaway job logs → `$CLAUDE_JOB_DIR/tmp`. Scripts use
   `$(git rev-parse --show-toplevel)`, never a hardcoded absolute path.
-- **Build-dir discipline:** a submitted SLURM array OWNS its binary path until it
-  finishes — build into a fresh `build/pin-<experiment>/`, submit, then never
-  touch that dir again; the next change goes in the next dir. Sweep stale
-  `build/pin-*` at wrap-up (they are all reproducible from their commits).
+- **Build-dir discipline (now ENFORCED, not remembered):** a submitted SLURM array
+  OWNS its binary path until it finishes — build into a fresh
+  `build/pin-<experiment>/`, submit, then never touch that dir again; the next
+  change goes in the next dir. **`tools/bench/buildlock.py` makes this
+  mechanical**: `run.py --slurm` locks each arm's build dir (marker file +
+  read-only tree) at submission and the dependent aggregate job releases it, so
+  any build into an owned path FAILS with a message naming the owning job. It was
+  added after the SIXTH violation; six resolutions to remember harder did not work.
+  - Reclaim by hand: `buildlock.py --check <dir>` / `--release <dir>` / `--gc`
+    (clears every lock whose job is gone) / `--list`. Release refuses only while
+    the job is genuinely still in `squeue`; every ambiguous case resolves toward
+    releasing, so a dead job can never wedge a directory.
+  - A hand-rolled `sbatch` probe should `--acquire <dir> --job <id>` itself.
+  - Sweep stale `build/pin-*` at wrap-up (all reproducible from their commits) —
+    run `--gc` first, since a locked tree is read-only and `rm -rf` will fail on it.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
   revise-plan, revamp, revisit-codebase, calculus, stress-policy, compact-docs,
   wrap-up, debug-performance, slurm-jobs — use them for the matching workflows.

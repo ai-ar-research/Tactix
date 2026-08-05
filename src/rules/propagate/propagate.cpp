@@ -1,8 +1,8 @@
-// M1 Propagate: a thin wrapper over the kernel propagation engine
-// (kernel_propagate, kissat proplit.h transliteration — moved into the
-// kernel 2026-07-14 as a reviewed §5.3 primitive so probing rules can
-// share it). This rule owns the search semantics: the conflict COUNT,
-// the root-refutation proof delta, and the ApplyResult mapping.
+// Propagate: a thin wrapper over the kernel propagation engine
+// (kernel_propagate, a kissat proplit.h transliteration living in the kernel
+// as a reviewed §5.3 primitive so probing rules can share it). This rule owns
+// the search semantics: the conflict COUNT, the root-refutation proof delta,
+// and the ApplyResult mapping.
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
@@ -13,7 +13,7 @@ namespace tactix {
 
 bool propagate_guard(const Kernel &k) {
   // Pure abstract precondition (calculus M1): not refuted, no unresolved
-  // conflict, and propagation work remains. The rev-35 `¬pending.valid`
+  // conflict, and propagation work remains. The `¬pending.valid`
   // conjunct is GONE since rev 37: with Analyze+Backjump fused into the atomic
   // ConflictAnalysis rule, `pending` never persists across a rule boundary, so
   // the (conflict_valid && pending.valid) state corpus 006 exploited is
@@ -72,13 +72,13 @@ ApplyResult propagate_service(Kernel &k) {
   // so any later chain citing them (analyze/strengthen/substitute/bve) emitted
   // a TRUNCATED antecedent list and the checker rejects the proof.
   //
-  // Latent until 2026-08-04: pre-chrono the true level always equalled the
-  // current level at a fixpoint, and pre-TB4b a learned unit backjumped to 0
-  // before propagating. TB4b's unit chrono routing (`e404668`) asserts a
-  // learned unit at level 0 while standing higher (14,088 of 18,635 conflicts
-  // on `veer_axi`), which is what made this reachable. DRAT cannot see it —
-  // it re-derives units itself — so every tier run and DRAT fuzz leg was blind.
-  // `emit_root_units` already applies the correct PER-LITERAL test at :33.
+  // This is latent without chrono: at a fixpoint the true level always equals
+  // the current level, and a learned unit that backjumps to 0 before
+  // propagating never exercises it. Unit chrono routing (backjump.cpp) asserts
+  // a learned unit at level 0 while standing higher, which is what makes it
+  // reachable. DRAT cannot see the defect at all — it re-derives units itself —
+  // so a DRAT-only fuzz leg is blind to it. `emit_root_units` already applies
+  // the correct PER-LITERAL test.
   if (lrat)
     emit_root_units(k, assigned_before);
   if (conflict) {

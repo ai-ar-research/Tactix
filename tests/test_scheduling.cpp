@@ -1,22 +1,20 @@
 // SCHEDULING REGRESSION TESTS.
 //
-// WHY THIS FILE EXISTS. The suite was strong where the solver can be WRONG
-// (soundness: brute-force oracles, model checks on SAT, proof checks on UNSAT,
-// ASan/UBSan) and silent where it can be BADLY SCHEDULED. That is not a
-// hypothetical gap. Of the defects found on 2026-08-04, the soundness ones
-// (Factor's N1 breach, the LRAT root-unit miss) were caught by tests; the
-// scheduling ones were caught by reading reference source or by staring at a
-// telemetry probe, and not one of them would have failed a single test:
+// WHY THIS FILE EXISTS. The rest of the suite is strong where the solver can be
+// WRONG (soundness: brute-force oracles, model checks on SAT, proof checks on
+// UNSAT, ASan/UBSan) and silent where it can be BADLY SCHEDULED. That gap is
+// not hypothetical — every scheduling defect found so far was caught by reading
+// reference source or by staring at a telemetry probe, and none of them would
+// have failed a test. Their shapes, all pinned below:
 //
-//   SCHED-B1  a batch entry's budget pre-check was UNFIREABLE by construction
-//   SCHED-B5  the mode growth key ran one switch ahead of kissat's
-//   SCHED-B4  C1/C2's effort meter under-priced the work by up to 2712x
-//   SCHED-B3  instances() re-emitted its head every round and starved the tail
+//   * a batch entry's budget pre-check UNFIREABLE by construction
+//   * the mode growth key running one switch ahead of kissat's
+//   * an effort meter under-pricing the work by orders of magnitude
+//   * instances() re-emitting its head every round and starving the tail
 //
-// A defect found by measurement costs a cluster window and an argument. The
-// same defect found here costs 4 ms. Scheduling is deterministic and the policy
-// exposes its transitions "so tests can pose schedules directly", so there was
-// never a technical reason these did not exist.
+// A defect found by measurement costs a cluster window and an argument; the
+// same defect found here costs milliseconds. Scheduling is deterministic and
+// the policy exposes its transitions so tests can pose schedules directly.
 //
 // Each test below pins the REFERENCE'S OWN identity, not our current behaviour,
 // so it fails when we drift from kissat/cadical rather than when we change.
@@ -80,10 +78,10 @@ static void test_mode_growth_key_matches_kissat(void) {
 //
 // The policy can only take `cap` instances per occasion. Emitting the first
 // `cap` sources every round means a budget-truncated round re-derives the same
-// list and starts from the front, so the tail is never reached -- which is why
-// an honest (tighter) effort budget for V4 measured NEGATIVE twice: it bought
-// starvation, not economy. kissat keeps a per-variable pending bit
-// (`transitivekeep`, default 1) to the same end.
+// list and starts from the front, so the tail is never reached. That is why a
+// tighter, honest effort budget for TransitiveReduce measured NEGATIVE without
+// this: it bought starvation, not economy. kissat keeps a per-variable pending
+// bit (`transitivekeep`, default 1) to the same end.
 //
 // N1 note: rotation is the N1-safe shape. It removes no capability, because
 // apply_instance still accepts ANY source literal; only the enumeration ORDER
@@ -127,14 +125,14 @@ static void test_transitive_instances_rotate(void) {
   std::printf("  transitive rotation: enumeration advances after apply\n");
 }
 
-// --- SCHED-B4: C1/C2 must meter PARTNER VISITS, not candidates ------------
+// --- SCHED-B4: subsumption must meter PARTNER VISITS, not candidates ------
 //
 // cadical budgets subsumption in `stats.subchecks` (subsume.cpp:86), bumped once
 // per candidate partner actually compared, because the cost of "checking a
 // clause" is the length of its occurrence lists and not 1. Metering candidates
-// under-prices exactly the expensive ones -- measured at 2712x on DivS_862_11,
-// which is how C2 spent 97.8 s of it inside FOUR "rounds" without ever
-// exceeding its budget.
+// under-prices exactly the expensive ones -- by three orders of magnitude on a
+// hot-literal formula, which is how a rule can own most of a solve inside a
+// handful of "rounds" without ever exceeding its budget.
 //
 // A hot literal shared by many clauses makes the gap structural: one candidate,
 // many partners. If visits ever collapse back to ~checked, the meter has
@@ -174,14 +172,14 @@ static void test_subsume_meters_partner_visits(void) {
               (unsigned long long)k.stats.forward_checked);
 }
 
-// --- SCHED-C1: Vivify's redundant scope must track the LIVE tier ------------
+// --- SCHED-C1: Vivify's redundant scope must track the LIVE tier ----------
 //
 // kissat's vivify_tier2_limit (vivify.c:132) reads solver->tier2[0] whenever
 // `vivifyfocusedtiers` is set, and that option DEFAULTS TO 1 -- the dynamic
 // limit is the shipped behaviour. `Kernel::tier2` is recomputed from the glue
-// distribution on every reduce; before C1 it was read by nothing at all, which
-// is the "we own the mechanism and never wire it" shape the whole SCHED track
-// exists to find. Moving the tier must move what Vivify will touch.
+// distribution on every reduce, and it is easy for that to be read by nothing
+// at all -- the "we own the mechanism and never wire it" shape this file exists
+// to catch. Moving the tier must move what Vivify will touch.
 static void test_vivify_scope_tracks_tier2(void) {
   const RuleVTable *viv = nullptr;
   for (const RuleVTable &r : tactix_rules())

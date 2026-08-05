@@ -1,5 +1,4 @@
-// V5 Sweep · increments S-a and S-b: the embedded sub-solver and its
-// refutation derivation.
+// Sweep's embedded sub-solver and its refutation derivation.
 //
 // A minimal, self-contained CDCL used to REFUTE candidate equivalences on a
 // small extracted environment (`docs/design/v5-sweep-design.md` §3, decision
@@ -8,23 +7,24 @@
 //
 //  - it owns its arena, watches, trail and values, and never reads or writes
 //    `Kernel` state, so a policy may run it at any point without disturbing the
-//    search's bookkeeping — a pass that changes no clause still perturbs the
-//    trajectory, since a probing round that inferred nothing was measured to
-//    relocate watches and rewrite per-clause `searched` hints inside
-//    `kernel_propagate` (snapshot/restore of exactly those two reproduced the
-//    rule-off run bit-identically at 1,951,393 conflicts, `6a8d159`);
+//    search's bookkeeping. That matters: a pass that changes no clause still
+//    perturbs the trajectory, because a probing round that inferred nothing
+//    still relocates watches and rewrites per-clause `searched` hints inside
+//    `kernel_propagate` — snapshot/restore of exactly those two reproduces a
+//    rule-off run bit-identically;
 //  - it is budgeted in its own tick currency and returns `Budget` rather than
 //    guessing, so the effort scheduler can dose it like every other rule
-//    (rule charges, policy budgets — §5.2 rev 17);
+//    (rule charges, policy budgets — plan §5.2);
 //  - it is deterministic: no randomness, no wall-clock, fixed decision order.
 //
-// S-b makes its refutations PAYABLE as proof obligations. A swept equivalence
-// is entailed but not RUP (design §4), so the chain cannot come from a RUP
-// check over the main formula — it has to come from this solver's own
+// Its refutations are PAYABLE as proof obligations. A swept equivalence is
+// entailed but not RUP in general (design §4), so the chain cannot come from a
+// RUP check over the main formula — it has to come from this solver's own
 // resolution. `derivation()` returns the refutation as an ordered lemma list,
 // each lemma carrying an LRAT-style antecedent chain over the environment's
-// clause ids, plus the core (the original clauses actually used). S-e maps
-// those ids to main-formula ids; nothing here knows about the main formula.
+// clause ids, plus the core (the original clauses actually used). Sweep's
+// emission maps those ids to main-formula ids; nothing here knows about the
+// main formula.
 #pragma once
 
 #include <cstdint>
@@ -35,7 +35,7 @@ namespace tactix {
 // Local literal encoding, identical in shape to the kernel's: variable v has
 // literals 2v (positive) and 2v+1 (negative). Kept separate from `Lit` because
 // these index the SUB-SOLVER's compact variable space, not the kernel's — the
-// environment extraction (S-c) owns the mapping between them.
+// environment extraction owns the mapping between them.
 using SubLit = uint32_t;
 using SubVar = uint32_t;
 
@@ -102,8 +102,7 @@ public:
   // The rule's effort currency, charged per watch-list entry inspected — the
   // same unit `transitive_ticks` / `ternary_ticks` / `bce_ticks` use.
   uint64_t ticks() const { return ticks_; }
-  // no consumer yet by design: S-f reports it beside `ticks()` when Sweep gets
-  // an effort spec, the way every other rule reports a (yield, effort) pair
+  // Reported beside `ticks()` as Sweep's (yield, effort) pair.
   uint64_t conflicts() const { return conflicts_; }
   uint32_t nvars() const { return nvars_; }
   // Ids <= this are original clauses; above it are derived lemmas.
@@ -111,7 +110,7 @@ public:
   // The FORMULA itself is refuted (not merely refuted under assumptions), so
   // every later `solve` returns `Unsat` whatever it assumes. A caller reading
   // per-assumption refutations must check this, or it will read two vacuous
-  // `Unsat`s as an equivalence (S-c, sweep.cpp).
+  // `Unsat`s as an equivalence (sweep.cpp).
   bool inconsistent() const { return inconsistent_; }
 
 private:
@@ -142,7 +141,7 @@ private:
   uint32_t clause_size(SubRef ref) const { return arena_[ref - 1]; }
   uint32_t clause_id(SubRef ref) const { return arena_[ref - 2]; }
 
-  // --- proof plumbing (S-b) ---
+  // --- proof plumbing ---
   // Transitively record the reason cone of `v`: every clause that propagated a
   // literal `v` depends on, as a (trail position, id) pair. Sorting those by
   // trail position reproduces the checker's own propagation order — the same
@@ -193,7 +192,7 @@ private:
 
   uint32_t next_id_ = 1;
   uint32_t original_clauses_ = 0;
-  SubVar decision_cursor_ = 0; // fixed decision order (§3: VSIDS-free)
+  SubVar decision_cursor_ = 0; // fixed decision order (design §3: VSIDS-free)
   uint64_t ticks_ = 0;
   uint64_t budget_ = 0;
   uint64_t conflicts_ = 0;

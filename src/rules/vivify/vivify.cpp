@@ -86,8 +86,7 @@ static void unwind(Kernel &k) {
 
 // The reason walk (kernel_reason_walk) and conflict seed (kernel_conflict_
 // reason_walk) are shared kernel helpers (kernel.cpp) — the proof-critical
-// DFS lives in exactly one place, used by C3 Vivify, V1 Probe and V2
-// Backbone (review 2026-07-15 #1).
+// DFS lives in exactly one place, used by Vivify, Probe and Backbone.
 
 // last == 0 means the sorted entries already end in the conflicting hint
 // (the implied literal's own reason); otherwise `last` closes the chain

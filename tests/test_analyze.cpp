@@ -47,7 +47,7 @@ static void test_uip() {
   assert(default_solve(k) == 10);
 }
 
-// D-SPLIT (rev 37): Analyze+Backjump are fused into the single atomic
+// D-SPLIT : Analyze+Backjump are fused into the single atomic
 // ConflictAnalysis rule, so `pending` is consumed WITHIN one apply and never
 // persists at a rule boundary. That makes the corpus-006 state
 // (conflict_valid && pending.valid) unrepresentable — which is why
@@ -169,7 +169,7 @@ static void test_otfs() {
 static void test_chrono_backjump_clamps_to_jump_level() {
   // c1 = (-1 -3 4), c2 = (-1 -3 -4); decide 1 (level 1), decide 2 (level
   // 2, unrelated), decide 3 (level 3): c1 forces 4, c2 conflicts. 1-UIP
-  // learns (-3 -1) with jump level 1. Since rev 38 (D-LEVEL-2) a CHRONOLOGICAL
+  // learns (-3 -1) with jump level 1. Since (D-LEVEL-2) a CHRONOLOGICAL
   // target (2, above the assertion level) is HONORED: true-level assignment
   // stamps the UIP at its true level (jump_level 1) regardless of the target,
   // so backtracking only to level 2 keeps the unrelated level-2 decision and
@@ -318,9 +318,9 @@ static void test_conflict_reuse_under_default_policy() {
   // chronological backtrack (which keeps out-of-order literals and re-propagates
   // from the level boundary) produces the shape. At the shipped
   // `chrono_levels = 100` a 90-variable instance can never reach a backjump gap
-  // of 100 levels, so the first two versions of this test measured NOTHING
-  // (`conflict_reused == 0` over 2,105 conflicts — [[ab-arm-identical-artefacts]]);
-  // the reachability assertions at the bottom are what keep it honest.
+  // of 100 levels, so a test written that way measures NOTHING and still
+  // passes; the reachability assertions at the bottom are what keep it
+  // honest.
   uint64_t total_reused = 0, total_repaired = 0;
   for (int seed = 1; seed <= 6; seed++) {
     Kernel k;

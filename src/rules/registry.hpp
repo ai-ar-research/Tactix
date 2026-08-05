@@ -15,12 +15,12 @@ namespace tactix {
 // schedule-as-data; the tier's reader, plan §5.3)
 enum class RuleTier { Micro, Macro, Inprocess };
 
-// ActionKind (plan §4 rev 59): a registry entry is either a PROOF RULE — its
+// ActionKind (plan §4): a registry entry is either a PROOF RULE — its
 // effect on σ = ⟨F,R,τ,ρ,π⟩ is non-trivial, so it carries a proof obligation and
 // a docs/calculus.md entry — or a POLICY OPERATION: H-only search guidance
 // (Rephase, SwitchMode, Walk, Reorder), a sub-policy with no proof delta. BOTH
 // live in this one name-sorted registry so ids never split (splitting into two
-// id spaces would renumber the frozen v1 API — Track H). The kind is metadata
+// id spaces would renumber the frozen v1 API). The kind is metadata
 // only: the kernel and DefaultPolicy never read it; it is exposed via
 // tactix_action_kind and mirrored to C as TACTIX_ACTION_* (include/tactix.h).
 // Values are frozen (they cross the C ABI).
@@ -34,27 +34,26 @@ enum class ApplyResult {
   Unsat     // empty clause derived (proof emitted)
 };
 
-// Instance payloads (plan §5.1, O3 decided rev 20): a rule instance is a
+// Instance payloads (plan §5.1, O3 decided): a rule instance is a
 // uint64 whose meaning the rule documents (Decide: DIMACS literal, see
 // lit_instance below; Restart: keep-level; Backjump: target level; Reduce:
 // victim count). INSTANCE_CANONICAL always denotes the canonical pick.
 constexpr uint64_t INSTANCE_CANONICAL = UINT64_MAX;
 
 // --- literal payloads (Decide, Probe, Backbone, TransitiveReduce) ----------
-// The DIMACS literal's 32-bit pattern, ZERO-extended (plan §5.1, rev 34).
-// Zero-extension is load-bearing, not a detail: sign-extending a negative
-// literal into the uint64 (the rev-20 encoding) maps DIMACS -1 onto
-// 0xFFFF'FFFF'FFFF'FFFF == INSTANCE_CANONICAL, so a policy asking to branch on
-// -1 was silently given the canonical pick instead — the branching choice N1
-// exists to guarantee (found 2026-07-17 by the V4 review; every literal-payload
-// rule had it). Zero-extension confines the payload space to [1, UINT32_MAX],
+// The DIMACS literal's 32-bit pattern, ZERO-extended (plan §5.1).
+// Zero-extension is load-bearing, not a detail: SIGN-extending a negative
+// literal into the uint64 maps DIMACS -1 onto 0xFFFF'FFFF'FFFF'FFFF ==
+// INSTANCE_CANONICAL, so a policy asking to branch on -1 is silently given the
+// canonical pick instead — losing exactly the branching choice N1 exists to
+// guarantee. Zero-extension confines the payload space to [1, UINT32_MAX],
 // which cannot reach the marker. This encoding lives HERE, beside the marker it
 // must stay disjoint from, so the invariant is checkable in one place.
 inline uint64_t lit_instance(Lit l) {
   return static_cast<uint64_t>(static_cast<uint32_t>(externalize(l)));
 }
 // Decode a literal payload; false = not one, so the rule returns NoOp
-// (apply_instance totality). Rejects INSTANCE_CANONICAL and anything else above
+// (apply_instance() totality). Rejects INSTANCE_CANONICAL and anything else above
 // UINT32_MAX (callers test the marker first), 0 (not a DIMACS literal), and
 // INT32_MIN (internalize's `-elit` would overflow). The var may still be out of
 // range for the kernel — that is the rule's own bounds check.
@@ -73,7 +72,7 @@ inline bool lit_of_instance(uint64_t inst, Lit *out) {
 // Guards may encode conflict/handoff state-machine constraints (a
 // recorded conflict must be analyzed before τ changes) but NEVER
 // scheduling heuristics: WHEN to apply a rule is the Policy object's
-// decision and state, exclusively (plan §5 rev 17).
+// decision and state, exclusively (plan §5).
 struct RuleVTable {
   const char *name;
   RuleTier tier;
@@ -121,13 +120,13 @@ const std::vector<RuleVTable> &tactix_rules();
 int tactix_rule_id(const char *name); // -1 if unknown
 
 // one line per rule: guard, canonical apply, and optionally the instance
-// enumeration/apply pair (plan §5.3 rev 20)
+// enumeration/apply pair (plan §5.3)
 #define TACTIX_REGISTER_RULE(NAME, TIER, ...) \
   static const int tactix_rule_registered_##NAME = \
       ::tactix::tactix_register_rule( \
           ::tactix::ActionKind::ProofRule, {#NAME, TIER, __VA_ARGS__})
 
-// A policy operation (plan §4 rev 59): H-only search guidance, no proof
+// A policy operation (plan §4): H-only search guidance, no proof
 // obligation. Same registry, same name-sorted id space, same guard/apply(/
 // instance) contract — only the ActionKind differs, so a rule reclassified in
 // place (Rephase, SwitchMode) keeps its id.
