@@ -684,23 +684,52 @@ regenerated from the REFERENCE's option set (SCHED-A3).
 Causes (D) and (E) of the diagnosis are INSTRUMENT defects — the eval loop selects for gates, and the
 register has the wrong schema. Fix the instrument before spending a tier window on a mechanism.
 
-- [ ] **SCHED-A1 · per-entry slot telemetry** `[arch]` — one `c slot` line per entry per solve:
-  occasions / admitted / declined{preprocess,material,delay,density,guard,budget,cap} / handed / spent /
-  applies / yield / completed, mirrored into `TACTIX_STAT` ids. **Removes the "starved vs nothing to do"
-  blindness that makes today's dose experiments uninterpretable**, and is the readout every later item
-  pre-registers against. Gate: byte-identical proofs + identical `c stats` on 3 instances.
+- [x] **SCHED-A1 · DONE 2026-08-04 — per-entry slot telemetry** `[arch]` (`TACTIX_SLOT_STATS=1`, one
+  `c slot` line per entry). **Diagnostic only — nothing reads it**, so it cannot feed back into behaviour.
+  **Gate passed: proofs byte-identical + identical trajectory on 3 instances**, and off by default so the
+  whole change is provably behaviour-preserving. **It carries a SELF-CHECK**: `occasions` must equal
+  `admitted` + every decline reason, and a line that fails prints `***UNACCOUNTED***` — telemetry that is
+  silently incomplete is worse than none, because it reads as a finding.
+  **That self-check earned its keep immediately, catching two holes in the first cut:** the DOSED branch
+  exits before the batch path's counter, so Probe/Backbone/TransitiveReduce/BVE showed 33 occasions, 0
+  admitted and 0 declines; and BVE's own density admission had no counter (30 occasions unaccounted).
+  **First readings on `sted5` (below Factor's threshold):** `Factor` declined 33/33 by the density advice
+  and `BVE` 30/33 by its dose-density gate — i.e. on this instance both elimination-family rules are
+  switched off almost entirely, which `c stats` alone could never distinguish from "ran and found
+  nothing". `Congruence`/`Substitute` are declined 21/33 by the delay ladder. `BCE` is budget-declined
+  6/33 while `Instantiate` and `Vivify` are 22/33 — the shared-meter starvation Stage B exists to fix,
+  now visible for the first time.
 - [ ] **SCHED-A2 · config-wiring conformance test** `[arch]` — a table of every `Kernel` scheduling-config
   field with its intended writer, and a ctest that FAILS if a field tagged `DefaultPolicy` has no writer in
   the policy. **Structurally de-selects T1's sub-shape "we own the mechanism and nothing writes it"** —
   the most common high-severity row (`factor_bound`, `bve_cost_limit`, `bce_occ_limit`,
   `factor_cand_rounds`, `factor_demote_fresh`, `used_glue[1]`, `arena_mark`). Ships with the doc-drift
   corrections the audit found.
-- [ ] **SCHED-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — every option in
-  `kissat/src/options.h` + `cadical/src/options.hpp` gets a row naming our counterpart (file:line) or a
-  gap; a test fails when an option has no row. **The only item that converts coverage from opportunistic to
-  complete** (diagnosis cause A). **Must read MACROS, not just grep** — cadical's `factorthresh` is
-  token-pasted (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never
-  appears literally and reading it as dead code produced two wrong published claims.
+- [ ] **SCHED-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — **THE ENUMERATION
+  PASS LANDED 2026-08-04; the CONFORMANCE TEST is what remains** (hence still open).
+  **Landed:** `docs/implementation-notes.md` §13.4–§13.6. All **418** options enumerated (kissat 161 +
+  cadical 257), **148 newly read at their use site**, **83 dismissed** with a grouped roster, **187**
+  matched to a pass-1 row. **15 new gaps — 4 HIGH** (`SP-BVE-GATE-1` ITE/XOR gate extraction, absent, so
+  BVE is charged the full P·N where both references pay P+N−2 · `SP-TIER-2` the dynamic tiers have ONE
+  consumer here and EIGHT in cadical, which supersedes SCHED-C1's scope · `SP-EFFORT-CEIL-1` every
+  reference budget has an UPPER clamp and ours has only a floor · `SP-JUMP-1` `jumpreasons`, default-ON,
+  per-conflict, free) plus 11 med/low (`SP-BVE-BWD-1` `SP-EAGERSUB-1` `SP-COMPACT-1` `SP-ARENA-1`
+  `SP-CHRONO-1` `SP-VIVIFY-3` `SP-PROBE-2` `SP-PREPROC-2` `SP-SUBST-2` `SP-BACKBONE-2` `SP-SHRINK-GLUE-1`
+  `SP-BUMP-2` `SP-SUBSUME-3` `SP-DECIDE-2` `SP-SLOT-6`).
+  **6 CORRECTIONS to pass 1 (§13.5)** — a ~20 % error rate on the rows spot-checked, all of the shape the
+  ledger warns about: cadical runs TWO disjoint effort schemes, not "per-technique equivalents" ·
+  `NAMEthresh` is six options, three inert, and `backbonethresh` is dead at any value · the "no formula
+  classification" excuse for `jumpreasons` is refuted (`bigbigfraction`=990 means **0.99 %**, not 99 % — a
+  per-mille value compared to a 0–100 percentage) · `focusedtiers` is inside `#if 0` · kissat's
+  `backbone`=2 "eager" mode is unreachable · **neither reference has trail-based restart blocking**
+  (`ematrailfast` has zero readers).
+  **Remaining:** the machine-checkable half — a test that FAILS when an option has no row. Pair it with
+  SCHED-A2 (same shape: a table plus a conformance check).
+  **Standing method note** (both traps were live in this pass): **must read MACROS, not just grep** —
+  cadical's `factorthresh` is token-pasted (`limit.hpp:150` `opts.NAME##thresh`, instantiated
+  `factor.cpp:962`), so the identifier never appears literally and reading it as dead code produced two
+  wrong published claims; and **polarity is not inferable from the name** (`factordelay`=0 is the MOST
+  delayed setting).
 - [x] **SCHED-A4 · DONE 2026-08-04 — the ORACLE column ships, on by default.** `tools/bench/run.py` now
   reports, whenever a window has 2+ SCORED arms (ours; baselines are references, never candidates), the
   per-instance best over them — PAR-2 + solved in the per-arm format — plus **each arm's gap to it**, and

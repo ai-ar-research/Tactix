@@ -378,6 +378,25 @@ public:
     uint64_t arena_mark = 0;
     uint32_t max_applies = 0;
     uint32_t applies = 0;
+    // --- SCHED-A1 telemetry -------------------------------------------------
+    // Diagnostic only: nothing here is ever READ by a scheduling decision, so
+    // the numbers cannot feed back into behaviour. They exist because today a
+    // dose experiment cannot distinguish "this entry was STARVED of budget" from
+    // "this entry ran and found nothing" — both look like a flat stat — which is
+    // what makes the whole dose axis uninterpretable (SCHED theme T3). Every
+    // later SCHED item pre-registers its readout against these.
+    struct Telem {
+      uint64_t occasions = 0;   // times the slot loop reached this entry
+      uint64_t admitted = 0;    // times it got as far as apply
+      uint64_t dec_disabled = 0, dec_cap = 0, dec_preprocess = 0;
+      uint64_t dec_guard = 0, dec_budget = 0, dec_delay = 0;
+      uint64_t dec_material = 0, dec_warmup = 0, dec_density = 0;
+      uint64_t dec_oneshot = 0, dec_nonviable = 0;
+      uint64_t handed = 0;      // budget handed to budget-aware entries
+      uint64_t spent = 0;       // meter delta actually consumed
+      uint64_t ok = 0;          // applies returning Ok
+      uint64_t completed = 0;   // rounds that finished inside their budget
+    } tm;
 
     // Per-entry new-material watermarks (S4 dosing increment 2): an UNMETERED
     // entry (Congruence/Factor/Substitute — full canonical closure per run,
@@ -406,6 +425,8 @@ public:
     uint32_t delay_current = 0;
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
+  // SCHED-A1: one `c slot` line per entry. Diagnostic only — see the .cpp.
+  void report_slot(const Kernel &) const;
   // S4 factordelay analog (kissat factor.c:1068-1085, design §3.b): count of
   // dosed BVE rounds executed this solve. Factor's entry fires only when
   // log10(active vars) ≤ this + 4 — instances up to 10^4 active vars factor
