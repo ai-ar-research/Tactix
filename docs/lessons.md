@@ -4,22 +4,30 @@
 reference table, looked up by number — not a timeline. `PROGRESS.md` stays authoritative for status;
 this file is authoritative for the lessons themselves.
 
-**NEVER renumber.** Every `L<n>` is cited across commits, frozen reports, `docs/design/` snapshots and
-the `docs/log/` archives (verified 2026-08-04: L1–L23 each have 2–39 external citations).
+**▶ THESE ARE A WORKING AID, NOT AN AUTHORITY (user directive, 2026-08-04).**
 
-**▶ BUT A LESSON IS NOT PROTECTED FROM BEING WRONG (user directive, 2026-08-04).** These are induced
-from a handful of local instances, and more evidence routinely changes them. **A wrong or inaccurate
-lesson is WORSE than no lesson** — it reads as settled and gets cited to justify decisions. Two proven
-failures: **L19's exhibit (a)** survived three windows, routed a lever, and was flatly wrong; **L10's
-headline** rests on one draw of a 73× lottery. Both were "preserved" while false.
-So this file is **re-validated, not accumulated**: a lesson is condensed, NARROWED (method kept,
-magnitude cut), or **RETRACTED** into the register at the bottom. A retraction keeps the number
-resolvable as a **tombstone** — what was claimed, why it fell — which is *not* guidance and must not be
-cited as such. Protocol in the compact-docs skill.
+**Do not cite a lesson number in any document.** Not in reports, design docs, commit messages, code
+comments, or PROGRESS. A lesson's job is to make you *look in the right place* and ask the right
+question — it is not evidence, and "per L15" is not an argument. When a lesson informs a decision,
+**write the finding and its primary evidence into the document itself**: not *"per L15, do not build a
+fifth gate"* but *"four hand-designed admission gates were each measured against no gate at all and all
+four lost (2026-07-28 all-rules-ON report) — so a fifth needs a new mechanism, not a new threshold."*
+That is strictly more useful to the reader, who then needs no lookup, and it keeps the argument standing
+on the measurement rather than on a numbered claim.
 
+**Why this matters, and it is not style.** Citation is what made these immutable. Once `L15` appears in
+a frozen report the number can never change, so the lesson can never be corrected — and we then carry
+wrong lessons rather than break a reference. Two were carried that way and both were false: one asserted
+a reference option was dead code (it is read via token-paste) and survived three windows while routing a
+lever; another rests on a single draw of an instance later measured as a 73× lottery. **A wrong lesson is
+worse than no lesson**, because it reads as settled.
 
-**Numbers are cited across the repo — NEVER renumber.** Sorted by number (a lookup table, not a
-timeline); gaps in the sequence are impossible by construction.
+**So these are freely revisable.** Rewrite, merge, narrow, or DELETE any entry the evidence no longer
+supports — no tombstone, no renumbering ceremony, no preservation for the sake of a citation. Numbers
+survive only as convenient handles for this file's own ordering. **Historical artifacts (frozen reports,
+`docs/design/`, `docs/log/`) contain ~197 `L<n>` references and are never edited** — read them as a
+record of what was believed when written; each states its own reasoning, so a number that no longer
+resolves here costs nothing.
 
 **▶ READ THIS FIRST — several lessons below rest on per-instance verdicts on instances since MEASURED
 CHAOTIC.** `mod4block`, `j3037`, `jgiraldezlevy`, `urq45`, `frb45`, `ContextModel` may not gate a change
