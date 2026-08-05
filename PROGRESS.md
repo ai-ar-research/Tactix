@@ -31,9 +31,14 @@ performance regression**. Registering an `Inprocess` rule SCHEDULES it (the S4 a
 all); a rule with no spec runs unmetered and unbudgeted.
 
 **▶ OWED MEASUREMENTS (each is a job, none blocks the next step).**
-- **Paired draws on the Tier C instance Sweep costs** (S-f verdict is otherwise a wash). Protocol: the
-  `mod4block`/`sted5` one — 12 perturbations mechanically independent of the rule, K′ counted only on
-  draws where the BASE trajectory moved. **3 for 3 so far every headline decider has been a lottery.**
+- ~~Paired draws on the Tier C instance Sweep costs~~ **DONE 2026-08-05 — and it found an OPEN N2 BREACH.**
+  `asconhashv12` never lost the solve to search (ON 552.8 s vs OFF 546.4 s); it lost it to a **rejected
+  proof**. K′=10 clean draws, **14/14 Sweep-ON rejected, 14/14 Sweep-OFF verified**; reproduces at HEAD
+  in 124 s / 12.5 MB, and cake_lpr rejects the LRAT too, so the DERIVATION is wrong. Pre-S-f Sweep fired
+  **0 rounds** there — S-f's budget exposed a latent defect, it did not create one. The S-f Tier C
+  evidence is withdrawn (re-scored: +4.90 PAR-2, under one noise floor). Timing between arms is a
+  lottery, 5-for-5. **Report: `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`; fixing this
+  now gates the "keep Sweep at 100‰" decision.**
 - **C7 (`randec`) and C1/C3/C4 are UNPRICED** — landed on reference-parity grounds, no tier A/B.
 - **The BVE ramp slack-8 ceiling has no warrant beyond one tier** (its U-shape justification was
   withdrawn); Tier C/D re-sweep owed since `489fab1`.
