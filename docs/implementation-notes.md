@@ -46,7 +46,7 @@ conjunct.
 | S1 Restart | `!inconsistent · !conflict_valid · level>0` | **D-NOOP:** `!conflict_valid`, `level>0` |
 | S2 Reduce | `!inconsistent · !conflict_valid` | **D-NOOP:** `!conflict_valid` |
 | S5 Lucky | `root · !conflict_valid` | **D-ROOT:** `level==0`. (`!conflict_valid` is *abstract* — a SAT-concluding probe needs a consistent start.) |
-| C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. |
+| C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. C1/C2's binary subsumers carry no redundancy check: a structural consequence of the irredundant binary lifecycle, not a deviation (§14). |
 | V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop a consistent `M`. |
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. |
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). |
@@ -795,3 +795,66 @@ Two more dead references recorded so nobody "discovers" them: kissat's **`walkin
 4. **No measurement.** Every row here is a source-reading claim. Nothing in A3 was benchmarked, and per T3 several pass-1 negatives are still awaiting re-derivation through a fixed meter.
 
 **Confirmed at parity by A3** (recorded so they are never re-audited): `chrono`/`chronolevels` (`default_policy.hpp:197`, `:725-732`) · `decay`=50‰ ⇒ `scinc *= 1/(1−0.05)` once per conflict, **stable mode only** — and cadical's `scorefactor`=950 ⇒ `×1000/950` is the *same* 0.95 decay (`heuristics.cpp:235,369`) · `promote` on glue improvement during analysis (`analyze.cpp:112-123`; kissat's `promote.c` only *counts* the tier crossing, the effect is `c->glue = new_glue`) · `otfs` (`analyze.cpp:385-478`) · target phases stable-only (`heuristics.cpp:393-402`) · restart trail reuse · `bumpreasonlimit` all-or-nothing rollback + delay ladder.
+
+## 14. Design decision: binaries have an IRREDUNDANT lifecycle, so binary subsumers need no redundancy check
+
+**Question.** C1 `SubsumeForward` and C2 `Strengthen` delete an *irredundant* candidate `C` on the
+strength of a subsuming **binary** `D ⊆ C`, at three sites — `subsumed_by_binary` and
+`subsume_forward_try` (`subsume_forward.cpp`) and `find_partner`'s phase-0 SUBSUMED branch
+(`strengthen.cpp`) — with no check on `D`. Their large-clause counterparts *do* skip `d->redundant()`.
+Is the missing binary check a defect?
+
+**The criterion (and the one the 2026-07-17 note got wrong).** The invariant a clause deletion must
+preserve is the inprocessing one: *every model of the IRREDUNDANT formula `F` reconstructs through `ρ`
+to a model of `F₀`*. Deleting `C` preserves it whenever `D ∈ F` at that moment — `m ⊨ F∖{C} ⟹ m ⊨ D ⟹
+m ⊨ C`. **That argument closes at the deletion**; it claims nothing about `D`'s future, because every
+later `F`-rewrite carries the same obligation for the state *it* produces (it either leaves `F ⊨ D`, or
+pushes the `ρ` witness that repairs `D`, and witness-covered rewrites compose with an earlier
+equivalence-preserving deletion). The only fate that breaks it is `D` being **FORGETTABLE** — a member
+of the redundant set `R`, which `Forget` may drop with neither entailment nor a witness. That, and only
+that, is what the large-subsumer `d->redundant()` skips exist for.
+
+The header condition written with V4 (`subsume_forward.hpp`, and
+`docs/design/v4-transitive-reduce-design.md` §5 — **frozen, superseded on this point**) instead required
+that *no rule later delete `D` in a way that enlarges the model set*. That is strictly stronger than
+necessary and names the wrong event: a witness-covered rewrite enlarges `F`'s model set by design.
+
+**The enumeration (why no binary is ever forgettable).** `kernel_add_binary_clause` takes no `redundant`
+parameter and the binary watch word has no spare bit (`watch.hpp`), so every binary — including a
+learned one from `Analyze` — has an irredundant lifecycle (`kernel.cpp`). The `Forget` paths — S2
+`Reduce` (`reduce.cpp`) and E1 BVE's redundant clauses on the pivot (`bve.cpp` `del_large`) — act on
+arena `Ref`s only and cannot reach one; `kernel_collect_garbage` copies binary watch slots verbatim.
+Every binary deleter, complete as of 2026-08-05:
+
+| rule | site | why `C`'s constraint survives |
+|---|---|---|
+| V4 `TransitiveReduce` | `transitive_reduce.cpp` | surviving BIG path `P ⊨ D` (equivalence-preserving) |
+| E2 `Factor` | `factor.cpp` | the aux-var definition entails the replaced grid binary |
+| E1 `BVE` | `bve.cpp` `del_bin` | root-satisfied binaries only — entailed by the units |
+| V3 `Substitute` | `substitute.cpp` (satisfied / tautological / already-present rewrite) | entailed by the units or by the surviving rewrite |
+| V3 `Substitute` | `substitute.cpp` (the rewrite proper) | `ρ` witness pair `{r,¬l}` / `{¬r,l}` per substituted variable |
+| X1 `BCE` | `bce.cpp` | `ρ` witness on the blocking literal |
+| E1 `BVE` | `bve.cpp` pivot clauses | `ρ` witness on the pivot |
+
+**Verdict: no defect at any of the three sites** — not an unsound deletion, and not an unverifiable
+certificate either (`D ⊆ C` means `D` propagates at least as strongly as `C`, so removing `C` while `D`
+lives cannot cost a later RUP check; and `del` needs no chain). `binary_is_redundant(k,a,b)` would be a
+constant `false` — dead code.
+
+**The one trigger that reopens it:** a rule that gives binaries a **redundant lifecycle** — a stored
+redundant bit, or any `Forget` that can reach a binary. Then the check becomes mandatory at all three
+sites at once. *A binary deletion that is merely non-equivalence-preserving is NOT a trigger*; V3, X1,
+E1 and E2 all do that today.
+
+**Evidence (2026-08-05).** `tests/test_subsume.cpp` `test_binary_subsumer_then_substitute` pins the V3
+case end to end: C1 deletes `C` on binary `D`'s strength, V3 deletes `D` and rewrites it onto the SCC
+representative, and `ρ` restores `C` under the *worst* search assignment to the substituted variable.
+It is load-bearing, not vacuous: with V3's `kernel_push_witness` pair suppressed (a throwaway
+negative control — exactly the "constraint evaporates with no repair" fate the guard was meant to
+prevent) it fails on `k.values[l4] > 0`.
+Reachability was counted at the source (temporary probe on the two C1 sites, the C2 site and both
+`kernel_delete_binary*`, reverted before commit). Random-policy DRAT, 1 500 cases: 3 826 binary-subsumer
+uses, **553 of those binaries later deleted**, in **15.8 %** of solver processes. Random-policy native
+LRAT, 1 500 cases: 2 983 uses, **269 later deleted — 65 of them by V3 `Substitute`** (the named trigger),
+in **8.4 %** of processes. So the green legs are not vacuous. The uniform policy saturates the pattern,
+which is why no bespoke stress policy was written for it.
