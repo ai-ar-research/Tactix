@@ -53,6 +53,9 @@
 namespace tactix {
 
 constexpr uint32_t VIVIFY_CLSLIM = 100; // probe-cost bound per candidate
+// The STATIC fallback only. The live scope is `Kernel::tier2`, recomputed each
+// reduce from the glue distribution (SCHED-C1); this value is that field's
+// initial value, kept here because it is also kissat's `TIER2` constant.
 constexpr uint32_t VIVIFY_TIER2 = 6;    // redundant scope (LCM): glue <= 6
 
 bool vivify_guard(const Kernel &);

@@ -824,8 +824,11 @@ register has the wrong schema. Fix the instrument before spending a tier window 
 
 #### Stage C — the free wires (T1/T5): mechanisms we own and never wired
 
-- [ ] **SCHED-C1 · Vivify ← the dynamic tiers** `[wire]` — `VIVIFY_TIER2 = 6` while `k.tier2` is computed
-  every reduce and read by nothing else. **Cheapest high-severity item on the board.**
+- [x] **SCHED-C1 · Vivify ← the dynamic tiers** `[wire]` — `VIVIFY_TIER2 = 6` while `k.tier2` was computed
+  every reduce and read by NOTHING. kissat's `vivify_tier2_limit` (`vivify.c:132`) reads the dynamic tier
+  whenever `vivifyfocusedtiers` is set, and that option **defaults to 1**, so the dynamic limit is the
+  reference's shipped behaviour rather than an opt-in. Both scope sites now read `k.tier2`; test pins that
+  moving the tier moves the candidate set (2 → 1 candidate, 10 → 9).
 - [ ] **SCHED-C2 · Factor acceptance bound ← `bve_level_`** `[wire]` — **do NOT re-try the naive port**: it is
   measured negative 3× and kissat at `--eliminatebound=0` is fine, so this needs a NEW mechanism or an
   accepted-deviation row, not a re-run.

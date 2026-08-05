@@ -174,10 +174,48 @@ static void test_subsume_meters_partner_visits(void) {
               (unsigned long long)k.stats.forward_checked);
 }
 
+// --- SCHED-C1: Vivify's redundant scope must track the LIVE tier ------------
+//
+// kissat's vivify_tier2_limit (vivify.c:132) reads solver->tier2[0] whenever
+// `vivifyfocusedtiers` is set, and that option DEFAULTS TO 1 -- the dynamic
+// limit is the shipped behaviour. `Kernel::tier2` is recomputed from the glue
+// distribution on every reduce; before C1 it was read by nothing at all, which
+// is the "we own the mechanism and never wire it" shape the whole SCHED track
+// exists to find. Moving the tier must move what Vivify will touch.
+static void test_vivify_scope_tracks_tier2(void) {
+  const RuleVTable *viv = nullptr;
+  for (const RuleVTable &r : tactix_rules())
+    if (!std::strcmp(r.name, "Vivify"))
+      viv = &r;
+  assert(viv);
+  auto candidates_at = [&](uint32_t tier2) {
+    Kernel k;
+    kernel_reserve_vars(k, 32);
+    k.tier2 = tier2;
+    // redundant clauses spanning a range of glues, all otherwise vivifiable
+    for (uint32_t g = 2; g <= 10; g++) {
+      const Lit c3[3] = {make_lit(g, true), make_lit(g + 10, true),
+                         make_lit(g + 20, true)};
+      const Ref r = kernel_add_large_clause(k, c3, 3, true, g, 0);
+      (void)r;
+    }
+    uint64_t inst[64];
+    return viv->instances ? viv->instances(k, inst, 64) : 0u;
+  };
+  const uint32_t narrow = candidates_at(2);
+  const uint32_t wide = candidates_at(10);
+  assert(wide > narrow &&
+         "Vivify's redundant scope ignored Kernel::tier2 -- it is back on the "
+         "static VIVIFY_TIER2 and the dynamic tier is unwired again (SCHED-C1)");
+  printf("  vivify scope: tier2=2 -> %u candidates, tier2=10 -> %u\n", narrow,
+         wide);
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
   test_transitive_instances_rotate();
   test_subsume_meters_partner_visits();
+  test_vivify_scope_tracks_tier2();
   std::printf("test_scheduling: all passed\n");
   return 0;
 }
