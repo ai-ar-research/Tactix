@@ -702,6 +702,57 @@ def resolve_cmd(cmd):
             for t in cmd]
 
 
+BUILDLOCK = os.path.join(HERE, "buildlock.py")
+
+
+def build_dirs_of(solvers):
+    """The build directories an array's arms will execute out of.
+
+    A pin directory is identified structurally — a path token under `build/`
+    that names an existing file — so `env VAR=1 build/pin-x/tactix` and a bare
+    absolute path both resolve. Reference solvers live outside `build/` and are
+    left alone: they are not ours to lock."""
+    dirs = set()
+    for s in solvers:
+        cmd = s[1] if isinstance(s, (list, tuple)) else s.get("cmd", [])
+        for tok in cmd:
+            if "/" not in tok or not os.path.exists(tok):
+                continue
+            p = os.path.dirname(os.path.abspath(tok))
+            if os.path.abspath(os.path.join(ROOT, "build")) == os.path.dirname(p):
+                dirs.add(p)
+    return sorted(dirs)
+
+
+def _buildlock(*argv):
+    """Run buildlock.py. NEVER fatal: the lock is a safety net, and a safety
+    net that can abort a submission is a worse bug than the one it prevents."""
+    try:
+        r = subprocess.run([sys.executable, BUILDLOCK, *argv],
+                           capture_output=True, text=True, timeout=300)
+        for line in (r.stdout + r.stderr).splitlines():
+            if line.strip():
+                print(line, flush=True)
+        return r.returncode
+    except Exception as e:                                  # pragma: no cover
+        print(f"buildlock: skipped ({e})", file=sys.stderr)
+        return 0
+
+
+def buildlock_gc():
+    _buildlock("--gc")
+
+
+def buildlock_acquire(dirs, jobid, note):
+    if dirs:
+        _buildlock("--acquire", *dirs, "--job", str(jobid), "--note", note)
+
+
+def buildlock_release(dirs):
+    if dirs:
+        _buildlock("--release", *dirs)
+
+
 def sbatch(script, *extra):
     r = subprocess.run(["sbatch", "--parsable", *extra, script],
                        capture_output=True, text=True)
@@ -742,6 +793,10 @@ def slurm_aggregate(outdir):
     """Merge per-task JSONs into the same results.json a local run writes."""
     with open(os.path.join(outdir, "manifest.json")) as f:
         man = json.load(f)
+    # The aggregate job is dependency-chained afterany: the array, so reaching
+    # here means the array is over and its build directories are free. This is
+    # the normal release path — nobody has to remember to run --release.
+    buildlock_release(build_dirs_of(man["solvers"]))
     resdir = os.path.join(outdir, "results")
     all_results = {s["name"]: [] for s in man["solvers"]}
     missing = []
@@ -961,10 +1016,19 @@ exec {sys.executable} {me} --aggregate {outdir}
     if args.dry_run:
         print(f"dry run: wrote {apath} and {gpath}, nothing submitted")
         return 0
+    buildlock_gc()            # reclaim anything a dead job left locked
     jobid = sbatch(apath)
+    # The array now OWNS every build directory its arms point at. Locking is
+    # done AFTER submission (we need the job id) and is best-effort: a failure
+    # here must never cost a submission that already happened.
+    owned = build_dirs_of(solvers)
+    buildlock_acquire(owned, jobid, f"bench {args.tier} {name} {stamp}")
     aggid = sbatch(gpath, f"--dependency=afterany:{jobid}")
     print(f"submitted: array {jobid}, aggregate {aggid} (runs when the "
           f"array finishes)")
+    if owned:
+        print("owned build dirs (read-only until the array finishes): "
+              + ", ".join(os.path.relpath(d, ROOT) for d in owned))
     print(f"watch:     squeue -j {jobid}")
     print(f"summary:   {outdir}/logs/aggregate.log  (re-merge any time: "
           f"{me} --aggregate {outdir})")
