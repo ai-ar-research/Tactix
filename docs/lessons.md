@@ -29,65 +29,32 @@ survive only as convenient handles for this file's own ordering. **Historical ar
 record of what was believed when written; each states its own reasoning, so a number that no longer
 resolves here costs nothing.
 
-**▶ READ THIS FIRST — several lessons below rest on per-instance verdicts on instances since MEASURED
-CHAOTIC.** `mod4block`, `j3037`, `jgiraldezlevy`, `urq45`, `frb45`, `ContextModel` may not gate a change
-alone ([[chaotic-instance-veto]]; the may-not-gate set is in the measurement-hygiene block above).
-**L10, L17 and L18 are built on `mod4block`/`j3037` contrasts and are flagged accordingly** — their
-*method* survives, their per-instance verdicts need replication before being cited as fact.
+**▶ THE MAY-NOT-GATE SET.** A per-instance verdict on `mod4block`, `j3037`, `jgiraldezlevy`, `urq45`,
+`frb45` or `ContextModel` is inadmissible on its own — perturb the baseline with a mechanically-inert
+knob first, and judge on the remainder or a replicated distribution. This is the one piece of *status*
+in this file; PROGRESS carries the authoritative copy.
 
-**Families, for lookup.** *Measurement method:* L6 L8 L12 L16 L20 L21 L24 L25b · *Reading a reference:*
-L11 L14 L19 · *BVE / elimination:* L1 L2 L4 L5 L7 L9 L10 · *Rule families & admission:* L15 L17 L18 ·
-*Proof certificates:* L13 L25a · *Defect shapes:* L3 L22 L23 L25.
+**Re-validated 2026-08-04** (hostile pass, every entry challenged): **6 retracted and DELETED** — L1, L4,
+L5, L9, L17, L18, all of which rested on single draws from instances since measured chaotic, or on
+embargoes their own probe batches contradict. **13 narrowed**, **6 stand**, **3 new** (L26–L28) carry
+what survived. Numbers are handles for this file's ordering, nothing more.
 
-- **L1 · Removing BVE from preprocessing *alone* loses** (Tier B 20.6→32.8, C −2 solves) — valid only as
-  half of the arrangement. (`2026-07-20-bve-tierC-ab.md`)
-- **L2 · During-search BVE *alone* loses** (three variants, all worse). Cause is trajectory damage
-  (L7/L9), NOT per-phase overhead — the overhead version was refuted. (`775eefc` era)
-- **L3 · `NoOp` is not a no-op:** a probing round that changes nothing still reorders watch lists
-  (battleship 12× conflicts; `6a8d159`). Correction 2026-07-21: kissat has NO separate non-mutating
-  probing engine, so **how it tolerates probing's watch mutation is UNKNOWN** — a P2-style design is a
-  novel mechanism with novel-mechanism risk.
-- **L4 · The BVE dose curve is U-shaped**, not monotone (crypto1 8.1 s at ~300 eliminations → 45.5 s at
-  0). Elimination *quality* beats quantity.
-- **L5 · The bimodal-BVE saga is CLOSED** — a Factor↔BVE *ordering* interaction (`5111bc7`). Do not
-  retry: resolvent-subsumption alone, escalating bound alone, `--bve-gates=none`, deep
-  Strengthen/Subsume interleaving, static "skip BVE on harmful structure" separators (best 4/13
-  misclassifications ≈ chance, `2026-07-20-bve-skip-feasibility.md`). Exception per L9: a *density* gate
-  on during-search doses DOES separate.
-- **L6 · Solo spot-checks MISLEAD** — only same-window A/B at equal concurrency; never compare across
-  job counts. (The old 20.60–23.01 band was M3-era; the cluster floor is now measured — **Tier C 6.72
-  PAR-2 on an idle partition**, see the measurement-hygiene block.)
-- **L7 · Repeated during-search BVE costs SEARCH TRAJECTORY** (r=+0.99 with conflicts; per-phase
-  overhead r=+0.01 and resolvent work r=−0.04 both DEAD; `775eefc`). Chaotic in the interval — **no
-  "safe interval" exists, the interval is the wrong control.** Method: a pre-registered prediction kept
-  a mid-sweep false confirmation out of the writeup.
-- **L8 · Ablating ONE feature does not measure that feature** — survivors over-invest, so a single
-  ablation is an inflated upper bound. **Always run the all-off control** (it killed the congruence lead
-  on FmlaEquiv and the first chrono verdict). Search features too.
-- **L9 · During-search elimination is trajectory poison on binary-SPARSE instances and pays on dense
-  ones** — "when to eliminate" is the measured lever (−7 B / −32 C PAR-2 from one crude density-≥6
-  feature), and kissat lacks the decision entirely. Plan §5.6 makes subsuming these gates a phase-6
-  obligation. Measured-dead knobs banked in the gate report §2 ([[s4-gate-negatives]]).
-- **L10 · The `--no-eliminate` control triad** (probes 1561949–52, 1562429–30): **crypto1 is
-  tactix-specific scheduling** (kissat eliminates 601 ≫ our 151 while gaining 2.23× — quantity
-  exonerated); **mp1 benefits kissat ~27 %** from elimination. Forced doses on mod4block never shrink
-  the candidate set (n≈350 across 30 doses) — the decline overhead I3/I7 target.
-  **⚠ PARTLY SUPERSEDED (2026-08-04, `2c77bce`):** its "mod4block damage is instance-intrinsic; no
-  reference solver defends; the density gate is ours alone" rests on a single draw of a **73× lottery**
-  — kissat's own range there is 4.36 s → TIMEOUT. Do not cite that half as fact.
-- **L11 · The rules we still LACK are ≤ 9 % of the gap to kissat on Tier C** (window
-  `20260727-002213-C-kabl`): kissat with sweep + reorder + bumpreasons + randec + eagersubsume +
-  definitions ALL disabled loses only 14.3 PAR-2 against our 161; `--reorder=0` costs it *nothing*. So
-  **V5 Sweep and S7 Reorder are inventory completeness, not the Tier C lever** — the gap is quality and
-  dosing of what we already have. Exception: `--bumpreasons=0` costs kissat 37.9 alone (L8 inflation,
-  but the largest single item) — which is why reason-side bumping shipped that night.
-  **▶ CORROBORATED 2026-08-04 by the N4 audit** (216 mechanisms, 132 gaps): the gap is in the scheduling
-  FRAME, not the inventory. Do not re-open Sweep/Reorder without new evidence.
-- **L12 · Decompose per instance BEFORE reading a trend off a tier aggregate.** The 2026-07-27 "walk-dose
-  regression" was not a dose effect: a 4×8 grid (probe 1567225) showed two drivers dose-FLAT, one
-  dose-CHAOTIC (crypto1, 11.8× spread, no trend), one with a real threshold — while all four responded
-  to the `bumpreasons` rate. Fixing that (10 → 20) took Tier B 14.57 → 7.57. A whole "every lever is
-  two-sided" narrative had been built on one chaotic instance at one grid point.
+- **L2 · UNBUDGETED, undosed during-search BVE loses — ONE arm, not three.** Recurring BVE + growth-slack ramp: Tier B 20.8→32.9 with 13/14 instances worse, replicated 21.3→32.5 with P1 underneath. ⚠ The other two arms (slot-wide interval 20.7→22.5; per-technique 23.0→24.1) are deltas of 1.8 and 1.1 PAR-2, inside the same-day HEAD band, and measure NOTHING — never cite "three variants, all worse". Cause is trajectory damage (L7), NOT per-phase overhead (refuted: 33 % fewer resolvents at identical wall time). ⚠ NOT an argument against during-search elimination — that IS the shipped arrangement since 2026-07-25 (Tier B 43.86 → 17.45 → 10.62). Bounds the unbudgeted form only.
+
+- **L3 · `NoOp` is not a no-op:** a probing round that changes nothing still relocates watches and rewrites per-clause `searched` hints inside `kernel_propagate`, so every policy reasoning about NoOp is misled. Isolated DETERMINISTICALLY — snapshot/restore reproduced the rule-off run bit-identically at 1,951,393 conflicts, VMTF cursor and arena GC each excluded (`6a8d159`). ⚠ The 12× is battleship-SPECIFIC, not a general size: battleship is L20-class (every canonical tie order TOs at 71–75 M conflicts on the raw formula; a gcc-13/libstdc++ switch ALONE cost 14 s → ~300 s). Read it as "a content-free ordering perturbation can cost a fragile instance an order of magnitude". Re-verified at source 2026-08-04: kissat has NO separate non-mutating probing engine (`proprobe.c`/`propsearch.c` both `#include "proplit.h"`; the `c->searched` write :138 and `kissat_delay_watching_large` :146 sit in the SHARED body while `PROBING_PROPAGATION` guards only `ignore` and `INC(conflicts)`); how it tolerates that is UNKNOWN. ⚠ ROUTING DEAD: P2 was never built, all four probing rules ship ON since S4, SAT-disruption measured GONE — L3 gates nothing now; it is a defect SHAPE to recognise.
+
+- **L6 · Performance deltas may be read ONLY from same-window A/B at equal concurrency** — never across windows or job counts. Floor: Tier C **6.72 PAR-2 idle / 10.8 contended**, from three BIT-IDENTICAL arms over 30 instances, twice (per-instance range avg 24.7 s contended, median 4.8 s idle); confirmed 2026-08-04 by the same solver at documentation-only-different commits scoring 309.05 vs 296.82 in two idle windows the same day. ▶ ADDED 2026-08-04: a solo probe IS valid for reachability, bit-identity, counter and mechanism reads — it is invalid only for EFFECT SIZE. Do not let this lesson deter a cheap mechanism probe (L24).
+
+- **L7 · Repeated during-search BVE's cost is SEARCH TRAJECTORY, not per-phase overhead and not resolvent work.** Tier-scale evidence: dosing with no admission at all costs +192.67 Tier C PAR-2 and three solves while BVE's own runtime is ~0.1 %; same shape reproduced bit-identically for Factor (probe 1582267, 36×/83× conflicts via two code-disjoint routes). ⚠ The r triple (+0.99 conflicts / +0.01 overhead / −0.04 resolvent work) is `mod4block` ALONE — six single draws on a measured 73× lottery — and the other instance in the same sweep gives +0.47 and +0.53 for the two supposedly-dead channels. Do NOT quote it as the sweep's result. Operationally: the interval is not a usable control — safe points exist (crypto1 at 1000/3000/30000 is within 4 % of doses-off) but are non-monotone and unpredictable, so do not hunt for one; **admission, not cadence, is the axis**. Method that stands unchanged: pre-register the prediction before the sweep finishes.
+
+- **L8 · Ablating ONE feature does not measure that feature** — survivors re-allocate effort, so an ablate-one delta is an UPPER bound. **Always run the all-off control.** On FmlaEquivChain kissat with ALL simplification off (8.68 s) beats kissat with any single simplifier off (congruence 13.0, eliminate 15.5, sweep 17.0), bounding congruence's whole worth there at ~0.7 s. At tier scale: kissat's six Tier C singles sum to +33.23 PAR-2 while all six together cost +14.32 (2.3× inflation). Applies to SEARCH features — it correctly discounted T4's chrono LEAD (chrono-off costs kissat 54 % on FmlaEquiv). ⚠ CORRECTED 2026-08-04: L8 killed the congruence lead; it did NOT kill chrono. The +13 % Tier B chrono rejection was a PORTING ERROR (analyze never backtracked to the conflict level, dropping 84 % of chrono backtracks); fixed it is −2.4 % and **chrono ships ON** (`93d206d`). ⚠ DIRECTION: this is the ablate-one bias only. For families whose members REPAIR each other, one-at-a-time UNDERSTATES (L15: X1/X2/X4 alone 21.79/53.26/13.08 vs 9.22 together).
+
+- **L10 · Use the reference's own `--no-eliminate` control to ask whether elimination damage is instance-intrinsic or OURS** — but the control is only as good as its replication, and the 2026-07-25 triad was n=1, wall-clock-only. SURVIVES: on `crypto1` our loss is SCHEDULING, not dose quantity — kissat eliminates 601 in four completion-gated calls (89/121/92/299, largest LAST, at 162,604 conflicts; counter scope verified per L14 — `eliminated` INCs only at `eliminate.c:404` and `fastel.c:453`, and fastel is off) against our 151 under forced doses; direction independently confirmed 2026-07-30 when crypto1 went 7.0 → 3.3 s with doses enabled under better scheduling. ⚠ RETRACTED FROM THIS LESSON: the "2.23×", "4.14×" and "mp1 ~27 %" magnitudes (single wall-only draws; mp1's 1.37× sits inside the documented 1.32× bit-identical contention band; all carry an in-eliminate forward-subsumption confound); the `mod4block` half in full, INCLUDING the n≈350 candidate-set trace (kissat's own range there is 4.36 s → TIMEOUT); and the I3/I7 routing (BVE cadence-open measured negative at tier scale, 422.73 C / 53.57 B). Method rider: **a reference control reporting only wall time cannot separate mechanism from contention — record conflicts, or run it K times.**
+
+- **L11 · The reference's own techniques that we LACK are worth ~14 PAR-2 to it on Tier C, and dosing what we already have is worth several times that.** Price a missing mechanism by ablating it IN THE REFERENCE with an all-off control (L8), never by assuming it (window `20260727-002213-C-kabl`, whole tier, same-window): sweep+reorder+randec+eagersubsume+definitions all off costs kissat 14.32 PAR-2, **of which sweep alone is 14.00** — the other four are each at or inside the 6.72 noise floor and are NOT separately resolved (`--reorder=0` at −0.67 is a non-detection, not a measured zero). Replicated on a different set: `--no-sweep` costs kissat 0.0–2.7× on four Tier B timeouts. ⚠ Do NOT quote "≤ 9 % of the gap" — that ratio was against a 161-point gap now measured at 68–78 (`20260804-165516`, `20260804-154341`), making the same residual ~20 %. Routing still holds: V5 Sweep and S7 Reorder are inventory completeness, not the Tier C lever; the lever is quality and dosing of what we have (the Factor oracle puts admission headroom on ONE existing rule at +54 B / +42 C). Exception: `--bumpreasons=0` cost kissat 37.9 alone and shipped that night. ⚠ The N4 audit does NOT corroborate this — it measures no PAR-2 and its own theme T7 declares it structurally blind to missing inventory; it independently lists Sweep and Reorder as WE_LACK_IT.
+
+- **L12 · Decompose per instance BEFORE reading a trend off a tier aggregate.** (Method unchanged — 4×8 grid, probe 1567225, two tier-scale confirmations.) ⚠ Precision fix 2026-08-04: replace "took Tier B 14.57 → 7.57" with "**recovered ~7 Tier B PAR-2** (rate 10 gave 14.37 ex-`mod4block`; rates 15/20/25 all give 7.4–9.2 ex-`mod4block`, confirmed in two windows)" — the old pair mixed two populations. And crypto1's "11.8× spread, no trend" was measured under the then-BROKEN rate-10 config from single draws per cell: it evidences chaos AT THAT CONFIGURATION, not a standing instance property (at rate 20 crypto1 returned at 2.8 s). Separate repo defect to fix: `PROGRESS.md:624` lists crypto1 as may-not-gate while the authoritative block above it does not.
+
 - **L13 · The more PERMISSIVE proof format is not the safer one to check against.** DRAT accepts a
   trivially-true clause for free; every LRAT checker walks the hint chain and rejects a hint-less line.
   So a congruence bug emitting `<id> <lits> 0 0` sat behind a *verified* DRAT proof on every tier run and
@@ -95,6 +62,7 @@ L11 L14 L19 · *BVE / elimination:* L1 L2 L4 L5 L7 L9 L10 · *Rule families & ad
   coverage, not redundancy**; the debug asserts in `Proof::add_rup` (no tautology, no empty chain) are
   the cheap permanent version — the family that later caught L25a. Corollary: a checker that OOMs is
   indistinguishable from a rejection unless the runner records the checker's own output.
+
 - **L14 · An internal cross-instance contrast is NOT a defect signal — get the reference's number on the
   SAME instance.** "Our minimization removes 21.6 % on FmlaEquiv vs ~40 % elsewhere" looked like a
   located defect; kissat removes **22.1 %** there, i.e. parity all along (probe 1570882). Same family as
@@ -105,13 +73,9 @@ L11 L14 L19 · *BVE / elimination:* L1 L2 L4 L5 L7 L9 L10 · *Rule families & ad
   in a binary-equivalence scan that is our V3), and a plausible counter can be an internal lookup
   statistic, not an outcome (`congruent_matched`). **Read the DECLARATION and every `INC` site before
   quoting a reference counter, and cite both.**
-- **L15 · A rule family's value can be non-separable, and hand-designed admission on such a family is a
-  trap.** X1/X2/X4 alone cost 21.79 / 53.26 / 13.08 Tier B PAR-2; together 9.22 — they repair each other,
-  so the one-at-a-time A/B behind three "ships OFF" verdicts measured each rule at its worst. Worse,
-  **four independent admission gates all lost badly to NO gate** (27–52 vs 9.17). Method: measure a
-  family TOGETHER before judging a member, and "a clean separating feature exists" is insufficient — the
-  yield axis separated by an order of magnitude and gating on it still lost 43 PAR-2.
-  (`2026-07-28-all-rules-on.md`; the 0-for-5 tally is completed by the Factor density gate, L24.)
+
+- **L15 · A rule family's value can be NON-SEPARABLE, so measure the family TOGETHER before judging a member — and a clean separating feature is not sufficient warrant to build a gate on it.** Non-separability replicates OUTSIDE the may-not-gate set: `nw` (−X2 alone 1.42 s, force-BVE+−X2 52.38 s), `DivS` (−Strengthen 151 / −SubsumeForward 145 / −everything 9.2 s), `klieber` (one rule off beats all off), the V4 budget, and X1/X2/X4 alone 21.79/53.26/13.08 vs 9.22 together on Tier B(14) — though the X2 arm there is ~93 % `mod4block`. ⚠ MAGNITUDE CUT: "four gates lost badly, 27–52 vs 9.17" is FIVE arms and 95.6–97.9 % `mod4block`, a 73× lottery, on the 14-instance tier retired one day later for that exact reason; ex-`mod4block` the arms cost 0.60–1.12 PAR-2 — **5-for-5 in SIGN, not "badly"**. The broad warrant is now the 58-instance Factor ON/OFF oracle (gate 86.42/296.82 vs oracle 32.25/254.55, never best of three arms) — and note the Factor gate is worse than no gate only on Tier B; on Tier C it beats always-on by 110 PAR-2. Prior art (confounded, cite as one of several, never as proof): no static "skip BVE on harmful structure" separator beat 4/13 misclassifications ≈ chance — but 3 of those 13 labels are single-window draws on may-not-gate instances, so it cannot distinguish "no feature separates" from "the labels are coin flips". The "do not re-run these four" embargo is LIFTED for a cheap ex-`mod4block` re-run at the corrected X2 8‰ rate.
+
 - **L16 · A per-instance-REPRODUCIBLE effect can still give a non-reproducible tier aggregate — and an
   aggregate that matches its prediction can be a coincidence of sums.** The slot-rate-2‰ arm saved 26.1
   PAR-2 in one Tier C window and 8.8 in the next, while **28 of 30 instances kept the same sign and
@@ -120,35 +84,9 @@ L11 L14 L19 · *BVE / elimination:* L1 L2 L4 L5 L7 L9 L10 · *Rule families & ad
   a second window, and (b) agreement between a prediction and an aggregate is not evidence for its
   mechanism — check the decomposition it claimed. Converse of L12 (there the aggregate hid chaos; here it
   hid ORDER).
-- **L17 · A rule's whole damage can live in its FIRST application** — then dose, rate and round-count are
-  not levers at all, and only per-instance ADMISSION is. On `j3037`, BCE capped at ONE round (0.02 % of
-  the solve's work) costs **952.7 s / 7.35 M conflicts** vs **148.6 s / 1.28 M with BCE off**, while 48
-  uncapped rounds cost 978.4 s — rounds 2–48 are ~free and round 1 is everything; BCE's own runtime is
-  0.1 %, so the cost is purely what it does to the search. Corollaries: (a) the opposite Tier-B mechanism
-  ("BCE's value is round 1, its cost is the rounds after") is INSTANCE-SPECIFIC and inverts here — do not
-  carry a dose mechanism across corpora; (b) a monotone trend across arms that differ in WHICH RULES RUN
-  is not a controlled comparison (the first version of this finding got the causality backwards).
-  **⚠ `j3037` is now a measured lottery — the method stands, the magnitude needs replication.**
-  (probes 1573169–77, 1573242–44.)
-- **L18 · Every STATIC control over BCE has been measured, and each trades j3037 against mod4block** —
-  on/off, round cap (L17), dose/rate, and cadical's occurrence cap. The two sit at OPPOSITE ends of one
-  axis: mod4block needs BCE's deletions in dense neighbourhoods, j3037 is destroyed by exactly those.
-  **Do not look for a fifth static setting — the exhaustion IS the result.** Corollary: a reference's own
-  limit is not portable when we depend on the rule and the reference does not (cadical ships `block`
-  OFF). **⚠ BOTH anchor instances are now measured lotteries** — the *exhaustion* argument survives (it
-  is about the shape of the search, not either instance's draw), but any quoted per-instance magnitude
-  needs replication. (probes 1573320/1573405–07.)
-- **L19 · READ A REFERENCE OPTION'S SOURCE — polarity and even liveness cannot be inferred from the name,
-  the help string, OR A GREP.** The task-#11 diagnosis routed its primary lever off
-  `cadical --factordelay=0 --factorthresh=0`; both halves were misread, and so was the first correction.
-  (a) ~~`factorthresh` is dead code~~ — **RETRACTED 2026-08-04: it is LIVE**, read via TOKEN-PASTE
-  (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never appears
-  literally and grep finds only the declaration. cadical DOES have an accumulate-until-worthwhile
-  admission condition; we lack it (N4 ledger SP-CAD-1). **▶ The operative half: GREP IS NOT A SOURCE READ
-  for C/C++ — check the macros before calling an option dead.** (b) `factordelay` is an ALLOWANCE ADDED
-  to the elimination-round count, so `=0` is the MOST-delayed setting and the probe showed the opposite
-  of its reading. (c) The gate never binds for either solver on those instances — we are behaviourally
-  identical there. A frozen report's routed lever survived three windows on two misread flags.
+
+- **L19 · READ A REFERENCE OPTION'S SOURCE — polarity and even liveness cannot be inferred from the name, the help string, OR A GREP.** (a) ~~`factorthresh` is dead code~~ — RETRACTED 2026-08-04: it is LIVE via TOKEN-PASTE (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962` with THRESHHOLD=`stats.factor`, so it binds from the SECOND factor call on). cadical DOES have an accumulate-until-worthwhile admission condition; we lack it (N4 ledger SP-CAD-1). ▶ The operative half: **GREP IS NOT A SOURCE READ for C/C++** — check the macros before calling an option dead. (b) `factordelay` is an ALLOWANCE ADDED to the elimination-round count (`delay_limit = eliminations + delay`, skip when `log_active > delay_limit`), so `=0` is the MOST-delayed setting and the probe showed the opposite of its reading. (c) ⚠ CUT 2026-08-04: what was verified is only that cadical's factordelay gate does not bind on ContextModel/jgiraldezlevy at default. **"We are behaviourally identical there" is FALSE** — cadical carries the live `factorthresh` gate we lack, and OUR density gate (binaries ≥ 6×vars; ContextModel is 1.48/var) blocks Factor there outright: 0 factorings in the shipped arm (probe 1582267) against a cadical that runs Factor and loses 5.9× conflicts without it. Never infer whole-solver parity from parity on one gate.
+
 - **L20 · AN INSTANCE CAN BE ROCK-STABLE UNDER REPLICATION AND CATASTROPHICALLY FRAGILE UNDER
   PERTURBATION** — so a huge regression there is WEAK evidence about the mechanism that perturbed it. Two
   unrelated changes each cost `ContextModel` ~19–20× (a backjump/learning change and a BVA/preprocessing
@@ -157,12 +95,14 @@ L11 L14 L19 · *BVE / elimination:* L1 L2 L4 L5 L7 L9 L10 · *Rule families & ad
   (3× faster than cadical) and almost any substantial perturbation falls off it. **Method: before
   attributing a large single-instance regression to your mechanism, check whether that instance also
   collapses under an UNRELATED change.** This is the origin of the may-not-gate set.
+
 - **L21 · MEASURE A CANDIDATE FIX AGAINST THE SHIPPED DEFAULT, NOT THE BROKEN ARM IT REPAIRS.** The
   task-#11 reason-side arm was probed against *broad admission* — the configuration it existed to repair
   — and read as a 2.4× win on ContextModel; against the shipped default the same instance is **still 10×
   WORSE**, and its tier verdict came out flatly negative. Second half of the same error: **do not
   estimate a tier from a two-instance decomposition** — predicted ~87/~334, measured 113.45/468.43,
   because the other 26 instances moved. (`2026-08-01-task11-factor-admission-mechanism.md` §4.)
+
 - **L22 · A STRESS KNOB IS WORTHLESS UNTIL PROVEN TO FIRE ON THE SIZE CLASS THE HARNESS GENERATES — and
   the counter proving it must sit at the SOURCE.** Task #10's abort paths were fuzzed 4 × 10,000 cases,
   0 failures, and were **vacuous three independent ways**, each producing a GREEN result that means
@@ -173,38 +113,15 @@ L11 L14 L19 · *BVE / elimination:* L1 L2 L4 L5 L7 L9 L10 · *Rule families & ad
   for all three: count inside `kernel_terminating()` ITSELF and bypass the production cadence when the
   knob is set. **Before trusting a stress leg, require a NON-ZERO fire count on the corpus.**
   (probes 1578209–13.)
-- **L23 · AN ALL-OR-NOTHING SAFETY SKIP WHOSE PRECONDITION IS PER-ITEM BECOMES UNIVERSAL AT SCALE** —
-  scope the skip to the granularity the PROOF needs, not to the whole round. V3's hazard check skipped the
-  ENTIRE ROUND on a comment reading "Rare; the finer per-SCC skip is a future refinement". "Rare" was a
-  claim about a LITERAL while the skip was per ROUND, so P(round survives) decays with the marked set —
-  and the instances richest in equivalences mark the most literals. On `veer_axi`: **5 of 5 rounds lost,
-  0 variables substituted, all 179,110 equivalences wasted — because 284 literals of 406,256 (0.07 %)
-  were hazardous.** The rule was most inert exactly where it would pay most; the per-SCC form took Tier B
-  104.06 → 95.61 with `veer_axi` TO → 238.7 s. **A deferred "rare case, coarse handling" note is a
-  MEASURABLE claim — instrument the skip rate before believing it.** (Mirror image: L25a.)
-- **L24 · A KNOB'S BLAST RADIUS IS OFTEN COMPUTABLE FROM THE FORMULA — compute it before spending a job,
-  and the instances it CANNOT touch are a free in-window noise estimator.** Broad Factor admission's
-  design question was settled by two guard conditions plus arithmetic over the CNFs: it flips Factor ON
-  for **14/28 Tier B and 19/30 Tier C**, and its 50 % threshold is a **long-clause detector**, not the
-  fine separator its comment implies. **The dual is worth as much:** instances a knob provably cannot act
-  on must run identical trajectories, so their wall spread in the SAME window is a free contention
-  estimate (measured 0.84–1.14 over nine) — that is what showed `j3037`'s 08-03 "loss" (1.10× at 91 % of
-  the cap) sitting inside the band, on data already on disk. **Two caveats, both hit the same session:**
-  (a) the classification is a **t=0 LOWER BOUND** — the gate is re-evaluated on the live formula, so
-  `mod4block` (predicted inert) moved TO → 245.8 s; argue control-set membership per instance, never
-  assume it. (b) A control that MOVES is information, not a broken control.
-  (`2026-08-04-broad-factor-admission-retest.md` §1/§8.)
-- **L25 · A PER-LITERAL PROPERTY GATED ON AN AGGREGATE CONDITION, AND THE TEST THAT CANNOT FAIL.**
-  **(a) The defect shape.** `propagate_service` gated the LRAT root-unit sweep on the SOLVER's level while
-  the sweep already applied the correct PER-LITERAL test inside. Under true-level assignment a literal's
-  level is a property of its REASON, so the two tests stopped agreeing the moment chrono shipped — and
-  TB4b's unit routing made the disagreement routine. Cost: `unit_ids[v] == 0`, and since **0 is LRAT's
-  line terminator** the result was a TRUNCATED chain, not a wrong one. **Mirror image of L23** — whenever
-  a guard and the thing it guards are scoped differently, ask what makes them agree and what would break
-  it. **(b) A GREEN TEST IS EVIDENCE ONLY IF YOU HAVE SEEN IT FAIL.** The first repro (10,000 LRAT cases,
-  chrono forced) came back 0 failures, because `kernel_reason_walk` reads `unit_ids` only under
-  `reason == UNIT_REASON` — most chains are structurally immune. What worked: **an invariant ASSERT at
-  the point of harm plus two binaries differing in exactly one conjunct** (unfixed 36 aborts in ~2,600
-  cases, fixed 0 in 10,000). Extends L22 with its converse: **prove the TEST can fail before believing
-  the fixed arm.** Also pass a knob IN THE COMMAND (`/usr/bin/env VAR=v prog`), never the environment —
-  propagation is unverifiable and a silently-unset knob looks exactly like a clean run. (corpus 011.)
+
+- **L23 · AN ALL-OR-NOTHING SAFETY SKIP WHOSE PRECONDITION IS PER-ITEM BECOMES UNIVERSAL AT SCALE** — scope the skip to the granularity the PROOF needs, not to the whole round. V3's hazard check skipped the ENTIRE ROUND on a comment reading "Rare; the finer per-SCC skip is a future refinement". "Rare" was a claim about a LITERAL while the skip was per ROUND, so P(round survives) decays with the marked set — and the instances richest in equivalences mark the most literals. On `veer_axi`: **5 of 5 rounds lost, 0 variables substituted, all 179,110 equivalences wasted, because 284 of 406,256 literals (0.07 %) were hazardous**; the per-SCC form substitutes 202,986. Those COUNTERS are the evidence and they are trajectory-deterministic. ⚠ CUT 2026-08-04: the tier headline (Tier B 104.06 → 95.61, +1 solve) is ONE window and is entirely `veer_axi`'s cliff solve at 238.7 s against a 300 s cap — 12.9 PAR-2 of a −8.45 total, with the other 27 instances netting +4.4 AGAINST the fix; the same instance is measured at 32 % wall spread on bit-identical trajectories (so a single probe there cannot resolve under ~1.3×, and TO-vs-238.7 s is 1.26×), and the OFF baseline solved it at 286.7 s in the adjacent window. **Cite the substitution counters, not the PAR-2.** A deferred "rare case, coarse handling" note is a MEASURABLE claim — instrument the skip rate before believing it. (Mirror image: L25a.)
+
+- **L24 · A KNOB'S BLAST RADIUS IS OFTEN COMPUTABLE FROM THE FORMULA — compute it before spending a job.** Broad Factor admission's blast radius (not its ship decision, which needed two tier arrays and three probes) fell out of two guard conditions plus arithmetic over the CNFs: it flips Factor ON for **14/28 Tier B and 19/30 Tier C**, and its 50 % threshold is a **long-clause detector**, not the fine separator its comment implies. Independently re-derived from the cached CNFs 2026-08-04: B 10/14/4, C 6/19/5 — exact. The dual is worth as much: instances a knob provably cannot act on must run identical trajectories, so their wall spread in the SAME window is a free contention estimate — measured **0.84–1.14 over EIGHT** such instances in one window pair. ⚠ Corrections: it is eight, not nine — the ninth predicted-inert instance, `mod4block`, moved TO → 245.8 s and is EXCLUDED from that band, not inside it (the classification is a t=0 LOWER BOUND; the gate is re-evaluated on the live formula, so argue control-set membership per instance). A control that MOVES is information, not a broken control. ⚠ Do NOT cite this lesson for `j3037`'s 08-03 loss: that comparison is CENSORED (1092.2 s against a 1200 s TIMEOUT, so 1.10× is a floor, not a measurement). j3037 was disqualified by the 18-paired-draw discriminator (K′=11, median 0.82, IQR 0.44–1.24), not by the control band.
+
+- **L25 · A PER-LITERAL PROPERTY GATED ON AN AGGREGATE CONDITION, AND THE TEST THAT CANNOT FAIL.** **(a)** `propagate_service` gated the LRAT root-unit sweep on the SOLVER's level while the sweep already applied the correct PER-LITERAL test inside; under true-level assignment a literal's level is a property of its REASON, so the two stopped agreeing the moment chrono shipped, and TB4b's unit routing made the disagreement routine (14,088 of 18,635 conflicts on veer_axi). Cost: `unit_ids[v]==0`, and since 0 is LRAT's line terminator, a TRUNCATED chain — which the format says every LRAT checker must reject (INFERRED from the spec; no rejection of a real truncated chain was ever observed — the defect was found by review and demonstrated by an ASSERT). Mirror image of L23. **(b) A GREEN TEST IS EVIDENCE ONLY IF YOU HAVE SEEN IT FAIL.** What worked: an invariant ASSERT at the point of harm plus two binaries differing in exactly one conjunct, **both with the knob forced IN THE COMMAND** — unfixed 36 aborts in ~2,600 cases, fixed 0 in 10,000. ⚠ CORRECTED 2026-08-04: the first repro's 0/10,000 was NOT explained by reason-walk chains being structurally immune. Its kept log (`tools/fuzz/slurm-buggy-lrat-chrono0-1582594.log`) records `solver=build/pin-facablate/tactix --lrat` with **no `TACTIX_CHRONO_LEVELS=0` in the command**, unlike both assert legs — and at a 1.4 % per-case fire rate under forced chrono, immunity could not account for 10,000 clean cases anyway. The green run was almost certainly the knob never reaching the solver. So the real headline is what was written as a throwaway corollary: **PASS A KNOB IN THE COMMAND (`/usr/bin/env VAR=v prog`), never the environment** — propagation is unverifiable and a silently-unset knob looks exactly like a clean run. This is L22's vacuity family, committed again. (corpus 011.)
+
+- **L26 · WHEN to eliminate is a large measured lever — but no shipped admission FEATURE has earned it.** Some admission beats none: removing BVE admission entirely costs +192.67 Tier C PAR-2 and THREE solves (T105/T87/asconhash, window `20260730-111853`), and a per-instance oracle over three static elimination schedules is worth ~39 Tier C PAR-2 with 7 instances swinging >100 s each way. Reproduced bit-identically for Factor (probe 1582267): it is the rule's PRESENCE on the wrong instances, not overhead and not the threshold. ⚠ This says nothing in favour of the density feature: the same feature on Factor is never the best of three arms (B 86.42 gated / 34.59 always / 32.25 oracle, 3 solves lost; C 296.82 vs 285.90 never) and scored 51.99 vs 9.17 for no gate as a Factor admission. **Owed before the BVE gate may be cited again:** gate vs never-dose vs per-instance oracle on B(28)/C(30) under the current protocol. It has been run once, on the old list and the broken protocol, and the gate LOST.
+
+- **L27 · A rule's whole VALUE can live in round 1, and a monotone trend across arms that differ in WHICH RULES RUN is not a controlled comparison.** Value-in-round-1 is supported on `clique` (434,299 → 14,315 conflicts in one round, bit-identical under the occurrence cap, probe 1573407); dose mechanisms do not transfer across corpora. The non-comparison half is live and was committed again on 2026-08-04: the N4 audit's "harm tracks BCE rounds 48/37/27/0 → 7.60/4.47/1.63/1.28 M" ladder (:207, :311) is assembled from the shipped, X2-off and X4-off arms, not from a round cap.
+
+- **L28 · NO reference schedule backs any of our BCE constants.** kissat 4.0.4 has no blocked-clause elimination and cadical ships `block`=0, so 20‰, the slot position, 3 rounds and MIN_EFFORT_TICKS are inventions — say so wherever they are cited. `mod4block` genuinely depends on BCE's deletions: BCE-off is a 600 s TO with a named mechanism (X2 6,048 → 32,155 resolvents into 11.6 M conflicts, probe 1574441) that survives the X2 20→8‰ correction (probe 1574673, still TO at 40,705 resolvents).
