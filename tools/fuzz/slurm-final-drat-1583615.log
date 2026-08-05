@@ -1,8 +1,0 @@
-== fuzz job 1583615: node=node018 cpus=50 mem/cpu=8G ==
-== regression corpus ==
-corpus: 11 entries, 0 failures
-== fuzz: 10000 cases, solver=/home/hwu/SAT-solving/build/pin-sd-fuzz/tactix oracle=/home/hwu/SAT-solving/tools/solvers/bin/kissat ==
-... 100/10000 cases, 0 failures
-... 200/10000 cases, 0 failures
-... 300/10000 cases, 0 failures
-... 400/10000 cases, 0 failures

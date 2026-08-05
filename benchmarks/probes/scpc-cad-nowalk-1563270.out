@@ -1,9 +1,0 @@
-c [trimmed to the cited lines; full verbose log was 1603 lines]
-c   --walk=false                   (different from default 'true')
-c chronological:           7072361        23.81 %  of conflicts
-c conflicts:              29701240     24885.28    per second
-c decisions:              36430478     30523.40    per second
-c eliminated:                 5031        80.33 %  of all variables
-c propagations:         1916627915         1.61 M  per second
-c rephased:                    243    122227.33    interval
-c total real time since initialization:         1200.00    seconds

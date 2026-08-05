@@ -1,5 +1,0 @@
-########## veer_axi: is the skip SCAN the cost, or the skip itself?
---- off            c decisions   1611961831 (0 via API) c conflicts   20217 c substdec    1354519269 decisions on substituted vars (84.03% of 1611961831) s UNSATISFIABLE wall 204.43 s 
---- retire         c decisions   5786015 (0 via API) c conflicts   3257 c substdec    0 decisions on substituted vars (0.00% of 5786015) s UNKNOWN wall 600.13 s 
---- demote         c decisions   394247671 (0 via API) c conflicts   17557 c substdec    165721373 decisions on substituted vars (42.03% of 394247671) s UNSATISFIABLE wall 129.60 s 
---- retire+demote  c decisions   159686603 (0 via API) c conflicts   11588 c substdec    0 decisions on substituted vars (0.00% of 159686603) s UNKNOWN wall 600.14 s 

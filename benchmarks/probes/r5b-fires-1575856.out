@@ -1,8 +1,0 @@
-or_randxor               size=2  c conflicts   6280448 c factor      1 factorings s UNKNOWN 
-or_randxor               size=5  
-unsat-set-b-fclqcolor    size=2  c conflicts   10580898 c factor      20 factorings s UNKNOWN 
-unsat-set-b-fclqcolor    size=5  
-x9                       size=2  c conflicts   261375 c factor      80 factorings s UNSATISFIABLE 
-x9                       size=5  c conflicts   261375 c factor      80 factorings s UNSATISFIABLE 
-mp1-blockpuzzle          size=2  c conflicts   291305 c factor      686 factorings s UNSATISFIABLE 
-mp1-blockpuzzle          size=5  

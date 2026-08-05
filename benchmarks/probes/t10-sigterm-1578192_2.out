@@ -1,6 +1,0 @@
-=== label=postfix-60 bin=pin-t10-a delay=60s host=node017 date=2026-08-01T11:17:30-04:00
-RESULT: sigterm_to_exit=3.205188431 s   exit_rc=0
-proofbytes=7924309
-s UNKNOWN
-c timing        Congruence           50906 ms ( 85.9%) in 3 applications
-=== done 2026-08-01T11:18:34-04:00

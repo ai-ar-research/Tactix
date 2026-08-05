@@ -1,6 +1,0 @@
-=== j3037_9_rggt_b arm=ungov-nobce ===
-c conflicts   1278932
-c bce         0 rounds, 0 deleted, 0 ticks
-c ternary     34 rounds, 12640 resolvents, 0 binaries, 5218263 ticks
-s SATISFIABLE
-wall 146.23

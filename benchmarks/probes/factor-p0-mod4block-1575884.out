@@ -1,4 +1,0 @@
-mod4block                default              s SATISFIABLE|c conflicts: 715338 39141.48 per second|c eliminated: 763 159 % variables|c factored: 912 190 % variables|wall 18.35|
-mod4block                --factorsize=2       s SATISFIABLE|c conflicts: 712942 44189.48 per second|c eliminated: 120 25 % variables|c factored: 98 20 % variables|wall 16.20|
-mod4block                --no-factor          s SATISFIABLE|c conflicts: 676570 46004.26 per second|c eliminated: 34 7 % variables|wall 14.77|
-mod4block                --eliminatebound=0   s SATISFIABLE|c conflicts: 261323 40098.92 per second|c eliminated: 439 92 % variables|c factored: 1164 243 % variables|wall 6.54|

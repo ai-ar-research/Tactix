@@ -1,9 +1,0 @@
---- accepted-gain histogram W-edp3
-total=2717 sum_gain=3812 mean=1.4
-  delta 1          1686
-  delta 2-3         999
-  delta 4-7          32
-  delta 8-15          0
-  delta 16-31         0
-  delta 32-127        0
-  delta 128+          0

@@ -1,4 +1,0 @@
---- pin-demote DEFAULT (expect 418796)
-c conflicts   418796
-c factor      0 factorings, 0 large remainders offered
-s SATISFIABLE

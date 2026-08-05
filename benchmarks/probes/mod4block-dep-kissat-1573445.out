@@ -1,5 +1,0 @@
-=== kissat ===
-s SATISFIABLE
-c conflicts:                           715338            39245.13 per second
-c factored:                               912              190 %  variables
-wall 18.30

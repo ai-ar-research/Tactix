@@ -1,9 +1,0 @@
---- accepted-gain histogram L-nb5t15
-total=540 sum_gain=2295 mean=4.2
-  delta 1           135
-  delta 2-3         135
-  delta 4-7         270
-  delta 8-15          0
-  delta 16-31         0
-  delta 32-127        0
-  delta 128+          0

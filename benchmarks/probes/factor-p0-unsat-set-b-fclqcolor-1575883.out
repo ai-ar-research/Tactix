@@ -1,4 +1,0 @@
-unsat-set-b-fclqcolor    default              s UNSATISFIABLE|c conflicts: 918618 57272.69 per second|c eliminated: 109 53 % variables|c factored: 120 59 % variables|wall 16.10|
-unsat-set-b-fclqcolor    --factorsize=2       s UNSATISFIABLE|c conflicts: 14296915 71520.00 per second|c eliminated: 99 48 % variables|c factored: 80 39 % variables|wall 200.81|
-unsat-set-b-fclqcolor    --no-factor          s UNSATISFIABLE|c conflicts: 13726436 73309.55 per second|c eliminated: 19 9 % variables|wall 188.08|
-unsat-set-b-fclqcolor    --eliminatebound=0   s UNSATISFIABLE|c conflicts: 618692 40235.11 per second|c eliminated: 33 16 % variables|c factored: 123 60 % variables|wall 15.45|

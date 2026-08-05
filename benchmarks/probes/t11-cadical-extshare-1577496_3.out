@@ -1,7 +1,0 @@
-=== label=sted5 instance=sted5_0x24204-50 tier=tierB cap=600s
-=== host=node017 date=2026-08-01T08:58:50-04:00 bin=/home/hwu/cadical-extdiag/build/cadical
-p cnf 2345 61876
-cadical: error: invalid option '-s'
-Command exited with non-zero status 1
-wall 0.00 s   maxrss 3072 KB
-=== done 2026-08-01T08:58:50-04:00

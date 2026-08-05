@@ -1,4 +1,0 @@
-=== 002-underived-root-consequence ===
-tactix: /home/hwu/SAT-solving/src/rules/backjump/backjump.cpp:14: tactix::ApplyResult tactix::backjump_apply_to(Kernel&, uint32_t): Assertion `backjump_guard(k)' failed.
-=== 005-chrono-backjump-mislevels-escaped-unit ===
-tactix: /home/hwu/SAT-solving/src/rules/backjump/backjump.cpp:14: tactix::ApplyResult tactix::backjump_apply_to(Kernel&, uint32_t): Assertion `backjump_guard(k)' failed.

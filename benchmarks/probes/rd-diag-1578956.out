@@ -1,8 +1,0 @@
-### veer_axi, retire ON — is deactivation firing, and is it being undone?
-c decisions   394247671 (0 via API)
-c conflicts   17557
-c retired     195977 vars (195977 substituted, 0 eliminated) of 521158
-c deactivate  195977 deactivations, 0 re-bumps of retired vars
-c substdec    165721373 decisions on substituted vars (42.03% of 394247671)
-c mode        focused after 6 switches (2954074848 ticks, 264 target phases saved)
-s UNSATISFIABLE

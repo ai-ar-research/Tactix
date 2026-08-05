@@ -1,7 +1,0 @@
-c [trimmed to the cited lines; full verbose log was 2803 lines]
-c chronological:                          546                0 %  conflicts
-c conflicts:                         36183224            30305.86 per second
-c decisions:                        177016626                4.89 per conflict
-c eliminated:                            3510              351 %  variables
-c propagations:                    2782150729          2330236    per second
-c process-time:                        19m 54s            1193.93 seconds
