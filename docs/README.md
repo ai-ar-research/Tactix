@@ -9,9 +9,11 @@ everything else is a frozen, dated artifact.
 | Tier | Files | Keep current? | Role |
 |---|---|---|---|
 | **Living** | `DEVELOPMENT_PLAN.md`, `PROGRESS.md`, `docs/calculus.md`, `docs/implementation-notes.md` | **Yes — these four** | the map + the truth |
+| **Living (reference)** | `docs/lessons.md` | **Yes** | measured lessons, freely revisable. **Never cite one by number** — state the finding and its primary evidence instead |
 | **Contract** | `CLAUDE.md`, `README.md` (repo root) | Rarely (process/pitch change) | standing rules for Claude; elevator pitch for humans |
 | **Design snapshots** | `docs/design/*.md` | **No — frozen on landing** | how a feature was designed / what a reference solver does |
 | **Reports** | `benchmarks/reports/*.md` | **No — immutable evidence** | dated experiment & gate results |
+| **Log archive** | `docs/log/` | **No — frozen weekly** | PROGRESS Log entries archived by ISO week; has its own README + maintenance contract |
 | **Resources** | `docs/papers/` | — | external papers |
 
 The four **living** docs, and what each owns (see protocol 1):
