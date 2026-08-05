@@ -313,9 +313,19 @@ static uint32_t transitive_reduce_instances(Kernel &k, uint64_t *out,
                                             uint32_t cap) {
   std::vector<Lit> srcs;
   transitive_reduce_sources(k, srcs);
-  const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(srcs.size()));
+  const uint32_t total = static_cast<uint32_t>(srcs.size());
+  const uint32_t n = std::min<uint32_t>(cap, total);
+  // SCHED-B3: ROTATE by the resumption cursor instead of always emitting the
+  // first `cap`. Same set, different starting point, so a round truncated by
+  // its effort budget resumes where the last one stopped rather than replaying
+  // the head and starving the tail forever.
+  uint32_t start = 0;
+  while (start < total && srcs[start] < k.transitive_cursor)
+    start++;
+  if (start >= total)
+    start = 0;
   for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(srcs[i]);
+    out[i] = lit_instance(srcs[(start + i) % total]);
   return n;
 }
 
@@ -329,6 +339,7 @@ static ApplyResult transitive_reduce_apply_instance(Kernel &k, uint64_t inst) {
   Lit src;
   if (!lit_of_instance(inst, &src))
     return ApplyResult::NoOp;
+  k.transitive_cursor = src + 1; // SCHED-B3: resume after this source
   return transitive_reduce_try(k, src);
 }
 

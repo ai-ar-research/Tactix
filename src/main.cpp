@@ -583,14 +583,16 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.walk_improved,
            (unsigned long long)kernel.stats.walk_flips,
            (unsigned long long)kernel.stats.walk_steps);
-    printf("c subsume     %llu rounds (%llu checked, %llu subsumed)\n",
+    printf("c subsume     %llu rounds (%llu checked, %llu visits, %llu subsumed)\n",
            (unsigned long long)kernel.stats.forward_subsumptions,
            (unsigned long long)kernel.stats.forward_checked,
+           (unsigned long long)kernel.stats.forward_visits,
            (unsigned long long)kernel.stats.forward_subsumed);
-    printf("c strengthen  %llu rounds (%llu checked, %llu strengthened, "
-           "%llu subsumed)\n",
+    printf("c strengthen  %llu rounds (%llu checked, %llu visits, "
+           "%llu strengthened, %llu subsumed)\n",
            (unsigned long long)kernel.stats.strengthen_rounds,
            (unsigned long long)kernel.stats.strengthen_checked,
+           (unsigned long long)kernel.stats.strengthen_visits,
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed);
     // Ledger D-STRENGTHEN-BUDGET reachability witness: rounds cut short by the

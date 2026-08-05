@@ -264,8 +264,12 @@ uint64_t meter_instantiate(const Kernel &k) { return k.stats.instantiate_ticks; 
 // as a per-rule SPEND meter.
 uint64_t meter_ticks(const Kernel &k) { return k.stats.ticks; }
 uint64_t meter_bve(const Kernel &k) { return k.stats.bve_resolutions; }
-uint64_t meter_strengthen(const Kernel &k) { return k.stats.strengthen_checked; }
-uint64_t meter_forward(const Kernel &k) { return k.stats.forward_checked; }
+// SCHED-B4: C1/C2 meter PARTNER VISITS, not candidates. cadical budgets
+// subsumption in `stats.subchecks` (subsume.cpp:86,362,459) — one per partner
+// compared — because the cost of "checking a clause" is its occurrence lists'
+// length, not 1. Metering candidates under-priced precisely the expensive ones.
+uint64_t meter_strengthen(const Kernel &k) { return k.stats.strengthen_visits; }
+uint64_t meter_forward(const Kernel &k) { return k.stats.forward_visits; }
 // V4 meters CANDIDATES, and that under-prices its work on purpose — a
 // "checked" is a whole BFS walk, and stats.transitive_ticks (charged by the
 // rule) shows it running to 28 % of 9vliw's cycles (probe 1562920). Both
@@ -284,12 +288,22 @@ uint64_t meter_forward(const Kernel &k) { return k.stats.forward_checked; }
 // mod4block and mp1-blockpuzzle. The 2026-07-25 bank against this does NOT
 // reproduce: at rate 1‰ rbsat is 13.00 → 5.64 s, 9vliw 14.88 → 10.45, FmlaEquiv
 // 30.10 → 25.19 (sub-agent array 1575173, shipped controls in the same window).
+// SCHED-B3: the currency is TICKS (kissat transitive.c:320,
+// `SET_EFFORT_LIMIT(limit, transitive, transitive_ticks)`). Candidates
+// under-price the rule badly — one "checked" is a whole BFS walk, and
+// transitive_ticks showed it at 28 % of 9vliw's cycles. The two 2026-07-25 arms
+// that banked this NEGATIVE switched the meter ALONE; without a resumption
+// cursor a truncated round replayed its head next time and the tail was never
+// reduced, so the honest budget bought starvation. The cursor
+// (`Kernel::transitive_cursor`) is the missing half, so this is re-measured as
+// one change, not re-run as the same one. TACTIX_V4_METER=checked restores the
+// old currency for an A/B.
 uint64_t meter_transitive(const Kernel &k) {
-  static const bool ticks = [] {
+  static const bool checked = [] {
     const char *e = std::getenv("TACTIX_V4_METER");
-    return e && !std::strcmp(e, "ticks");
+    return e && !std::strcmp(e, "checked");
   }();
-  return ticks ? k.stats.transitive_ticks : k.stats.transitive_checked;
+  return checked ? k.stats.transitive_checked : k.stats.transitive_ticks;
 }
 uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }

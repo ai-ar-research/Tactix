@@ -806,8 +806,14 @@ register has the wrong schema. Fix the instrument before spending a tier window 
   checked as `meter(k) > limit`, meter cannot move between), so part 3 is a fix, not an addition.
 - [x] **SCHED-B2 · private per-rule tick meters (`Kernel::tick_sink`)** `[arch]` (`80ec42d`) — a `uint64_t *` the kernel's
   charge sites increment IN ADDITION to `stats.ticks`; pure accounting, nothing in the kernel reads it.
-- [ ] **SCHED-B3 · V4 currency → ticks, together with a resumption cursor** `[arch]`
-- [ ] **SCHED-B4 · C1/C2 currency → per-partner-visit** `[wire]` · [x] **SCHED-B5 · SwitchMode growth-key
+- [x] **SCHED-B3 · V4 currency → ticks, together with a resumption cursor** `[arch]` — the meter alone was
+  banked NEGATIVE twice (2026-07-25); the missing half was that `instances()` emitted the FIRST `cap`
+  sources every round, so a truncated round replayed its head and the tail was never reduced. Rotating by
+  `Kernel::transitive_cursor` is kissat's `flags[idx].transitive` pending bit (`transitivekeep` **default
+  1**) in one word. N1 intact: `apply_instance` still takes any source, so rotation removes no capability.
+- [x] **SCHED-B4 · C1/C2 currency → per-partner-visit** `[wire]` — cadical's `stats.subchecks`
+  (`subsume.cpp:86,362,459`). Measured under-pricing: `DivS_862_11` Strengthen **2,823,550 checked vs
+  7,657,144,162 visits — 2712×**; Subsume 622×; `9vliw` 238×. · [x] **SCHED-B5 · SwitchMode growth-key
   off-by-one + `search_ticks` scope** `[wire]` — both halves verified against the reference source, not
   inferred: the growth key was `(mode.count/2)+1` against kissat's `(switched+1)/2` (`mode.c:90`), and
   `switched`/`mode.count` are incremented at the SAME site from the same zero (`mode.c:204-205`), so ours
@@ -948,6 +954,35 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-04 late — SCHED-B3 + B4: the last two Stage B meters, and B4's error was **2712×**
+
+**B4 · C1/C2 → per-partner-visit.** cadical budgets subsumption in `stats.subchecks` — bumped once per
+candidate partner actually compared (`subsume.cpp:86`) with `check_limit = subchecks + delta`
+(`:362`/`:459`) — because the cost of "checking a clause" is its occurrence lists' length, not 1. We
+metered CANDIDATES. Measured on the shipped build, and the gap is not marginal:
+
+| instance · rule | old meter (checked) | actual visits | under-priced by |
+|---|---|---|---|
+| `DivS_862_11` · Strengthen | 2,823,550 | **7,657,144,162** | **2712×** |
+| `DivS_862_11` · Subsume | 1,387,829 | 862,834,600 | 622× |
+| `9vliw` · Strengthen | 457,550 | 108,923,469 | 238× |
+
+That is the mechanism behind the already-recorded symptom of C2 owning 97.8 s of `DivS`'s 109.0 s inside
+FOUR rounds without ever exceeding its budget: the budget was counting the wrong thing by three orders of
+magnitude. Both meters and both in-rule budget polls now use visits.
+
+**B3 · V4 → ticks + a resumption cursor.** The ticks meter ALONE was banked negative twice (2026-07-25),
+and re-running it would have reproduced that. The missing half: `transitive_reduce_instances` emitted the
+**first `cap` sources in the same order every round**, so a budget-truncated round re-derived the same
+list and started from the front — the tail was never reached, and an honest (tighter) budget bought
+starvation rather than economy. kissat has no index either; it keeps a per-variable
+`flags[idx].transitive` pending bit and clears it as each source is processed, so whatever the budget did
+not reach stays scheduled (`transitivekeep`, **default 1**, `options.h:157`). `Kernel::transitive_cursor`
+is that, in one word: `instances()` now ROTATES the same set rather than truncating it, so N1 is
+untouched — `apply_instance` still accepts any source literal, and rotation removes no capability.
+
+ctest 41/41, config-wiring 29/0. Unpriced — Stage B gets re-measured as a unit with B5.
 
 ### 2026-08-04 late — ▶▶ STAGE B GATE: **LANDED** — both tiers improve once the two deciders are disqualified BY DRAWS
 

@@ -138,9 +138,18 @@ struct Stats {
   uint64_t binaries_deleted = 0; // binary clauses deleted (kernel_delete_binary; V4)
   uint64_t forward_subsumptions = 0; // SubsumeForward rounds (C1)
   uint64_t forward_checked = 0;  // SubsumeForward candidates checked (C1)
+  // SCHED-B4: PARTNER VISITS — cadical's `stats.subchecks` (subsume.cpp:86),
+  // bumped once per candidate partner actually compared, which is the unit its
+  // budget is denominated in (`check_limit = stats.subchecks + delta`,
+  // subsume.cpp:362/459). `*_checked` counts CLAUSES, i.e. 1 for a clause whose
+  // occurrence lists hold 10,000 partners and 1 for a clause holding 2 — so it
+  // under-prices exactly the expensive candidates, which is how C2 spent 97.8 s
+  // of DivS_862_11 inside FOUR "rounds" without exceeding its budget.
+  uint64_t forward_visits = 0;
   uint64_t forward_subsumed = 0; // clauses deleted by SubsumeForward
   uint64_t strengthen_rounds = 0;  // Strengthen rounds (C2)
   uint64_t strengthen_checked = 0; // Strengthen candidate checks (C2)
+  uint64_t strengthen_visits = 0;  // SCHED-B4, see forward_visits
   uint64_t strengthened = 0;       // clauses strengthened (C2 add+delete)
   uint64_t strengthen_subsumed = 0; // deletions by C2's fused round
   // Rounds cut short by `Kernel::work_budget` (ledger D-STRENGTHEN-BUDGET).
@@ -549,6 +558,17 @@ struct Kernel {
   // trail index up to which root-fixed literals have been folded into
   // `bve_retry`; see kernel_bve_retry_sync_fixed.
   uint32_t bve_retry_fixed_head = 0;
+  // SCHED-B3 RESUMPTION CURSOR — solver STATE, not config. `instances()` can
+  // only offer `cap` sources per call, and it used to offer the FIRST `cap`
+  // every round, so a budget-truncated round re-derived the same list and
+  // started from the front again: the tail was never reached. kissat has no
+  // index either — it keeps a per-variable `flags[idx].transitive` pending bit
+  // and clears it as each source is processed, so whatever the budget did not
+  // reach stays scheduled for the next round (`transitivekeep`, DEFAULT 1,
+  // options.h:157). This is the same idea in one word. N1 is untouched:
+  // `apply_instance` still accepts ANY source literal directly, so rotating the
+  // enumeration order removes no capability — `instances()` is a convenience.
+  uint32_t transitive_cursor = 0;
   // by var: the MINIMUM growth slack at which x is currently eliminable (its
   // #resolvents − occ⁺ − occ⁻), as last computed by bve_eliminate; UINT16_MAX =
   // never (an oversized resolvent, or growth beyond the tracking ceiling). Only

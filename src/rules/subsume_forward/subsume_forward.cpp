@@ -103,7 +103,7 @@ static uint32_t mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
 // (V4's deletions are equivalence-preserving, and a binary has no redundant
 // bit to test) — and the forward-looking condition that would make one
 // mandatory here.
-static bool subsumed_by_binary(const Kernel &k,
+static bool subsumed_by_binary(Kernel &k,
                                const std::vector<uint8_t> &marks,
                                const Clause *c) {
   for (const Lit l : *c) {
@@ -116,6 +116,7 @@ static bool subsumed_by_binary(const Kernel &k,
     for (uint32_t i = 0; i < h.size;) {
       const Watch w{ws[i]};
       if (w.binary()) {
+        k.stats.forward_visits++; // SCHED-B4
         if (marks[w.other()])
           return true;
         i += 1;
@@ -159,10 +160,13 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // began; see the twin comment in strengthen.cpp for the measured motive.
   // Stopping early is sound: survivors remain candidates for the next round.
   // 0 = unbounded (legacy path).
-  const uint64_t check_start = k.stats.forward_checked;
+  // SCHED-B4: budget polled in PARTNER VISITS, the currency the effort ledger
+  // now meters this rule in (see Stats::forward_visits). Polling in candidates
+  // let one candidate with a saturated occurrence list run unboundedly.
+  const uint64_t check_start = k.stats.forward_visits;
   for (const Ref ref : candidates) {
     if (k.midround_budget && k.work_budget &&
-        k.stats.forward_checked - check_start > k.work_budget) {
+        k.stats.forward_visits - check_start > k.work_budget) {
       k.stats.budget_stops_c1++;
       break;
     }
@@ -178,6 +182,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
         if (os.size() > SUBSUME_OCCLIM)
           continue;
         for (const Ref dref : os) {
+          k.stats.forward_visits++; // SCHED-B4
           const Clause *d = clause_at(k.arena, dref);
           assert(d->size <= c->size); // connected earlier => not larger
           if (subsumes_marked(k, marks, d)) {
@@ -248,6 +253,7 @@ ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
     const uint32_t *ws = k.watches.arena.data() + h.offset;
     for (uint32_t i = 0; i < h.size && !subsumed;) {
       const Watch w{ws[i]};
+      k.stats.forward_visits++; // SCHED-B4
       if (w.binary()) {
         subsumed = marks[w.other()] != 0;
         i += 1;
