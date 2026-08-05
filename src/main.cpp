@@ -372,6 +372,8 @@ int main(int argc, char **argv) {
   proof.flush();
   if (!quiet) {
     printf("c tactix 0.1.0\n");
+    printf("c input       %llu clauses restated (repeated literals)\n",
+           (unsigned long long)kernel.stats.input_restated);
     printf("c decisions   %llu (%llu via API)\n",
            (unsigned long long)kernel.stats.decisions,
            (unsigned long long)kernel.stats.api_decisions);

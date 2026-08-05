@@ -23,14 +23,31 @@ the real emitted proof, `--sweep-stress-policy`, and a `c sweepemit` counter lin
 both verdicts. Every LRAT *rejection* in the project's fuzz history was recorded as a pass; only crashes
 and timeouts ever failed an LRAT leg. Fixed here, and it means any past "native-LRAT leg green" claim
 should be re-read.
-**(b) AN N2 BREACH IS STILL OPEN, and it is NOT Sweep.** `ingest_clause` dedups literals, so an input
-clause with a repeated literal is a different clause for the checker than for us, and any LRAT chain
-citing its id fails. Two-clause reproducer: `p cnf 1 2` / `-1 -1 0` / `1 1 0` — rejected by cake_lpr and
-lrat-check, verified by drat-trim. It hits ~1.5–4 % of UNSAT fuzz cases, so **the native-LRAT legs are
-red until it lands**; every failure seen so far classifies to it (repeated input literal, and
-`c sweepemit 0 binaries, 0 not-rup, 0 general pairs`). Report §7 sizes it and explains why it is not a
-one-liner: input-clause ids must stay aligned `1..N` with the file, so a deduped restatement cannot
-simply take the next id.
+**(b) THE SECOND N2 BREACH IS ALSO CLOSED — 2026-08-05, branch `frontend-dedup-n2`, report
+`benchmarks/reports/2026-08-05-input-clause-normalization-n2.md`.** `ingest_clause` deduped literals, so
+an input clause with a repeat was a different clause for the checker than for us and any LRAT chain
+citing its id failed (`p cnf 1 2` / `-1 -1 0` / `1 1 0`: rejected by cake_lpr and lrat-check, verified by
+drat-trim). **The whole normalization surface was enumerated, and the breach was WIDER than the found
+case:** the parse-time refutation (empty input clause / contradicting input units) also burned an id the
+checker had already given to a later input clause — latent, since all three checkers accept it only
+because it is always the proof's last line. Tautologies, duplicate units/binaries, post-refutation
+clauses and literal order are **not** divergences (an id is only citable if it was recorded, and those
+record none). **Fix:** the deduped clause is restated as a one-antecedent RUP lemma and the stored id
+re-points to it; since the lemma id must exceed every input id and `N` is unknown until the input ends,
+`finish_input` (`frontend/parse.hpp`) defers the restatements *and* the refutation to end-of-input — no
+header count needed, unlike CaDiCaL's `reserve_ids`. Corpus `013` (unit shape) / `014` (general shape,
+ddmin-shrunk) both FAIL on the pre-fix build; `c input` counts restatements so the path's reachability
+is measurable. **The native-LRAT legs are green again.**
+
+**▶ ONE THING THE FRONTEND ENUMERATION FOUND AND DID NOT FIX (sized, deliberately out of scope).** A file
+whose LAST clause has literals but **no terminating `0`** is ingested by us (`parse_dimacs` tolerates it)
+and DROPPED by `lrat-check` (its `parseLine` hits EOF first), so a chain citing that id gets
+`ERROR: using DELETED hint clause N` → `NOT VERIFIED`; cake_lpr refuses the whole file
+(`DIMACS parse failed`). Real unverifiable-certificate path, but the INPUT is malformed and no checker
+accepts it, so nothing on the emission side can repair it — the fix is input validation (reject the
+file, answer `s UNKNOWN`), a `compete`-surface call that trades a correct SAT answer on malformed input
+for a refusal. Report §2.1 has the repro. **Not to be confused with a missing final NEWLINE, which is
+valid DIMACS and must stay tolerated.**
 
 **Where we stand.** Tier B **92.32 (25/28)** vs kissat 10.0 / cadical 41.0 · Tier C, re-scored on the
 answer rather than the rejected proof, **344.67 (29/30)** — the S-f Tier C solve loss is WITHDRAWN
@@ -940,6 +957,56 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-05 — ▶▶ N2 CLOSED (2/2): the frontend's input normalization, enumerated end to end
+
+Branch `frontend-dedup-n2`; report `benchmarks/reports/2026-08-05-input-clause-normalization-n2.md`.
+The second N2 breach the Sweep fix uncovered is closed, and the enumeration found it was **wider than
+the handover's case**.
+
+**The rule.** The checker reads the ORIGINAL FILE and numbers clauses 1..N by position — `lrat-check`
+by construction, cake_lpr strictly enough that it *refuses* a file whose count disagrees with the
+header. So input clause `i` must carry proof id `i`, and a chain citing `i` gets the file's clause,
+repeats and all. Checkers hold a clause as a literal LIST, not a set: `-1 -1` is not unit for them.
+
+**Verdicts (all 10 normalizations).** Repeated literal → **BREACH, fixed**. Empty input clause /
+contradicting input units → **BREACH (latent), fixed**: emitting the refutation mid-input burned an id
+the checker had already given to a later input clause; accepted today only because it is always the
+proof's last line. Tautology, duplicate unit, duplicate binary, post-refutation clauses, literal order,
+a lying header → **not breaches**, and for one reason worth keeping: an id is only citable if it was
+*recorded*, and `ingest_clause` records in exactly three places (`unit_ids`, `binary_ids`, a clause
+header) — everything it drops writes to none. A missing final **`0`** → real divergence, **NOT fixed**,
+sized in report §2.1 (malformed input; no checker accepts the FILE, so nothing on the emission side can
+repair it — an input-validation call for `compete`).
+
+**Fix.** The deduped clause becomes its own one-antecedent RUP lemma and the stored id re-points to it.
+The lemma id must exceed every input id and `N` is unknown until the input ends, so `finish_input`
+(`frontend/parse.hpp`) defers both the restatements and the parse-time refutation to end-of-input, at
+which point `next_clause_id == N` exactly. CaDiCaL takes the same lemma shape but reserves the input
+range from the declared count (`reserve_ids` / `add_new_original_clause`); we cannot, since our parser
+treats that count as advisory — and deferring fixes the refutation-id collision for free. Called from
+`parse_dimacs` and from every C-API entry point that begins reasoning.
+
+**Why enumerating beat symptom-chasing — measured.** A duplicate is only *visible* to the checker when
+the duplicated literal is the one left unassigned; as a conflict antecedent, or when it is the lemma's
+own literal, it passes. Post-fix leg: **440 UNSAT cases reached the path, and pre-fix only 25 of them
+rejected** (5.7 %). Three hand-written duplicate-carrying probes verified pre-fix for exactly that
+reason. Patching the unit shape the report found would have left the rest live.
+
+**Gates.** Six fuzz legs, paired seed 20260805, local. Native LRAT **pre-fix 25 / post-fix 0** (2000
+cases); `--random-policy` native LRAT **pre-fix 26 / post-fix 0**; native DRAT, `--random-policy` DRAT
+and `--random-policy` ASCII-DRAT all **0** (no-regression only — DRAT cites no ids). Every one of the 51
+pre-fix bundles carries a repeated input literal and is a `proof` failure: **0 other signatures**.
+Rates **3.0 %** / **3.9 %** of UNSAT answers, bracketing the handover's 1.5–4 %. Reachability counted at
+the SOURCE via a new `c input` counter that `fuzz.py` now aggregates into every leg summary
+(`reached:`): **547 cases / 440 of 828 UNSAT** on the decisive leg — and only 25 of those 440 rejected,
+which is the measurement that justifies enumerating instead of patching the failing cases. Corpus
+**013** + **014** both FAIL on a pre-fix build (`corpus: 14 entries, 2 failures` → `0 failures`).
+ctest **43/43** with `micro_proofs`/`sweep_proofs` actually running (they skip silently without
+`tools/checkers/bin`); `micro_proofs` gained the three stored widths + the mid-input refutation and
+fails on the pre-fix binary. Also tightened `micro_proofs`'s own `grep -qi 'verif'` — the same substring
+that let `fuzz.py` accept `NOT VERIFIED`; masked there by the exit-code check, so no test was wrong, but
+it was the identical landmine.
 
 ### 2026-08-05 — C1/C2's deferred `binary_is_redundant` condition: the trigger FIRED, and there is NO defect
 

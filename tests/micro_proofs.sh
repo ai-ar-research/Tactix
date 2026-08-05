@@ -35,6 +35,19 @@ with open(sys.argv[1], "w") as f:
 EOF
   # empty clause in input
   printf 'p cnf 2 2\n1 2 0\n0\n' > "$T/empty.cnf"
+  # --- input clause normalization (N2, corpus 013/014) --------------------
+  # A repeated literal makes the clause WE store differ from the clause the
+  # CHECKER reads at that file position, so every chain citing its id needs a
+  # restatement lemma first (frontend/parse.cpp finish_input). All three
+  # stored widths, since each has its own re-pointing target:
+  printf 'p cnf 3 4\n-1 -1 0\n-1 2 3 0\n-2 0\n1 1 0\n' > "$T/dupunit.cnf"
+  printf 'p cnf 5 6\n5 1 0\n-5 4 0\n5 -1 0\n-4 3 3 0\n-2 0\n-4 -3 0\n' \
+    > "$T/dupbinary.cnf"
+  printf 'p cnf 4 8\n1 1 2 3 0\n-2 0\n-3 0\n-1 4 0\n-1 -4 0\n2 3 4 0\n-4 2 0\n-4 3 0\n' \
+    > "$T/duplarge.cnf"
+  # a refutation found DURING input, with input clauses still to come: the
+  # derived empty clause must not take an id the checker gave to clause 3 or 4
+  printf 'p cnf 2 4\n1 0\n-1 0\n2 0\n-2 0\n' > "$T/midrefute.cnf"
   # cyclic xor chain, odd total parity (UNSAT):
   # 1^2=1, 2^3=1, 1^3=1 sums to 0=1
   printf 'p cnf 3 6\n1 2 0\n-1 -2 0\n2 3 0\n-2 -3 0\n1 3 0\n-1 -3 0\n' \
@@ -66,7 +79,7 @@ for cnf in "$T"/*.cnf; do
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under --lrat"; exit 1; }
     "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
       || { echo "FAIL: native LRAT of $cnf rejected"; cat "$T/check"; exit 1; }
-    grep -qi 'verif' "$T/check" \
+    grep -q 'c VERIFIED' "$T/check" \
       || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
   fi
 done
@@ -99,7 +112,7 @@ for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE --lrat"; exit 1; }
     "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
       || { echo "FAIL: native LRAT (BVE) of $cnf rejected"; cat "$T/check"; exit 1; }
-    grep -qi 'verif' "$T/check" \
+    grep -q 'c VERIFIED' "$T/check" \
       || { echo "FAIL: lrat-check gave no verdict on BVE $cnf"; cat "$T/check"; exit 1; }
   fi
 done
@@ -135,7 +148,7 @@ for cnf in "$T/factor.cnf" "$T/factor_dup.cnf"; do
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under Factor --lrat"; exit 1; }
     "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
       || { echo "FAIL: native LRAT (Factor) of $cnf rejected"; cat "$T/check"; exit 1; }
-    grep -qi 'verif' "$T/check" \
+    grep -q 'c VERIFIED' "$T/check" \
       || { echo "FAIL: lrat-check gave no verdict on Factor $cnf"; cat "$T/check"; exit 1; }
   fi
 done

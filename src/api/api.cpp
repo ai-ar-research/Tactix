@@ -41,6 +41,16 @@ void tactix_add(tactix_solver *s, int lit) {
   }
 }
 
+// The C API has no end-of-file, so "the input is complete" is the first call
+// that reasons about it. finish_input settles the proof id space (see
+// frontend/parse.hpp): every entry point below that can consume a derived id —
+// solve, any rule application, any guard/instance query that could — goes
+// through here first. Idempotent, and free once nothing is pending. Adding
+// clauses AFTER this point is outside the v1 contract with a proof attached:
+// their ids would land above already-derived ones, which no checker's file
+// numbering can match.
+static void input_complete(tactix_solver *s) { finish_input(s->kernel); }
+
 int tactix_proof(tactix_solver *s, const char *path, int format) {
   // formats per tactix.h: 0 binary DRAT, 1 ascii DRAT, 2 native LRAT
   ProofFormat f;
@@ -87,6 +97,7 @@ void tactix_set_vivify_scope(tactix_solver *s, unsigned scope) {
 }
 
 int tactix_solve(tactix_solver *s) {
+  input_complete(s);
   const int r = default_solve(s->kernel);
   if (r == 10)
     kernel_extend_model(s->kernel); // rebuild model through rho before reads
@@ -120,6 +131,7 @@ int tactix_action_kind(int rule_id) {
 }
 
 int tactix_rules_applicable(tactix_solver *s, int *out, int cap) {
+  input_complete(s);
   const auto &rules = tactix_rules();
   int n = 0;
   for (size_t i = 0; i < rules.size() && n < cap; i++)
@@ -145,6 +157,7 @@ static int result_code(ApplyResult res) {
 }
 
 int tactix_apply(tactix_solver *s, int rule_id) {
+  input_complete(s);
   const auto &rules = tactix_rules();
   if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
     return -1;
@@ -158,6 +171,7 @@ int tactix_apply(tactix_solver *s, int rule_id) {
 
 int tactix_rule_instances(tactix_solver *s, int rule_id, uint64_t *out,
                           int cap) {
+  input_complete(s);
   const auto &rules = tactix_rules();
   if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()) || cap < 0)
     return -1;
@@ -174,6 +188,7 @@ int tactix_rule_instances(tactix_solver *s, int rule_id, uint64_t *out,
 }
 
 int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
+  input_complete(s);
   const auto &rules = tactix_rules();
   if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
     return -1;
@@ -275,6 +290,7 @@ int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {
 }
 
 int tactix_decide(tactix_solver *s, int elit) {
+  input_complete(s);
   if (!decide_guard(s->kernel))
     return -1;
   const Lit l = internalize(elit);
@@ -286,6 +302,9 @@ int tactix_decide(tactix_solver *s, int elit) {
 }
 
 int tactix_status(tactix_solver *s) {
+  // also a verdict-reporting path: a caller that adds a contradictory input
+  // and then only asks the status must still get the refutation written.
+  input_complete(s);
   if (s->kernel.inconsistent)
     return 20;
   // SAT requires a total, fully propagated assignment with NO conflict
