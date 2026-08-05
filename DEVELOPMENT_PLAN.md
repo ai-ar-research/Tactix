@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-04 (rev. 81). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-04 (rev. 82). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -1143,6 +1143,34 @@ Components:
   at Tier B 109.60 → 75.41 with **+2 solves**, against Tier C 329.63 → 358.12
   (1.039× → 1.129× cadical, outside T3's 10 % band) — the Tier C cost is three
   instances and carries its own action item.
+- **A STAGED LANDING may run at a temporary REGRESSION (rev 82, user 2026-08-04).**
+  Per-increment gating assumes each increment stands alone. Some do not: a
+  sequence can have a genuinely worse intermediate state and a better end state,
+  and forcing every step to be non-negative either blocks the sequence or invites
+  the crude shortcut that keeps the number up. The S4 arrangement is the standing
+  precedent — each half measured worse alone and the pair measured better, so it
+  was built behind flags and gated as ONE unit. Track SCHED is the live case: an
+  honest per-rule meter (Stage B) may cost performance until the wires and the
+  authored schedule that depend on it land.
+  **Permitted only with ALL FIVE, pre-registered BEFORE the regressing increment
+  ships — never argued after seeing the number:**
+  1. **A named sequence** — the specific later items expected to recover it, as
+     checklist ids, not "future work".
+  2. **A MECHANISM argument** for why they recover it. "It should come back" is
+     not one; "these rules are currently spending each other's budget, so their
+     doses are unpriced until the meter is private" is.
+  3. **A recovery point and a ceiling** — by which item, and how much regression
+     is tolerable meanwhile (state it in PAR-2 and in solves).
+  4. **Revertibility** — behind a flag, or a diff small enough to back out as a
+     unit. A staged landing that cannot be undone is not staged, it is shipped.
+  5. **A kill criterion** — what result ends the sequence and triggers the
+     revert, written down first.
+  **Unconditional limits.** This never covers a soundness or certificate
+  regression (N1/N2 are not stageable); a LOST SOLVE still is not covered by
+  rev 78's priority and must be called out explicitly, not absorbed into "the
+  sequence will fix it"; and the debt is discharged or reverted **by the phase
+  gate** — a staged landing may not cross a gate still owing. If the sequence
+  stalls, the revert is the default action, not a renegotiation.
 - **Baselines:** MiniSat 2.2, Glucose, CaDiCaL 3.0.0 (pinned `rel-3.0.0`,
   `tools/solvers/setup.sh`), Kissat 4.0.4, and SC25
   winners' binaries (AE-Kissat-MAB, CaDiCaL-SC2025) where obtainable — all run
@@ -1394,3 +1422,4 @@ conflate them.
 - **rev. 79** (2026-08-03): §8.1 — (a) baselines WRITE proofs but are **no longer VERIFIED by default**; writing is the like-for-like timing requirement, while verifying a baseline's certificate cannot change a verdict (the scoring asymmetry already discards its outcome) and cost **67 % of Tier C checking wall-clock**, the longest task in the window being drat-trim on kissat's proof. `--verify-baseline-proofs` opts back in; OUR arms' checker budget is unchanged. (b) Tier D built and frozen at **793** instances, not 800 — 7 appear in both SC tracks and GBD is content-addressed, so each track's 400 is reconstructible as shared(7) + track-only(393); Tier D overlaps Tiers B and C, so it is not independent confirmation. No N1–N3 change.
 - **rev. 80** (2026-08-04, user): §1.1 gains a FOURTH non-negotiable — **N4, the strategy floor**: DefaultPolicy's *scheduling* of the proof rules (order, effort budgets, warm-ups, watermarks, acceptance bounds and their ramps, and the couplings between them) must be **at least as sophisticated as Kissat's default strategy, preferably more**. N3 measures the outcome; N4 constrains the mechanism, and it may not be deferred to the phase-6 learner (§5.6 exists to exceed a reference-strength strategy, never to excuse a weaker one). Made checkable by the **scheduling-parity ledger** — per Kissat scheduling mechanism, either an at-least-as-strong analogue or a deviation-ledger row with a named closer — reviewed at every phase gate. §5 gains obligation 5 (the scheduling analogue of rev 77) naming the two shapes that have actually shipped: *we own the mechanism but never wire it* (`Kernel::factor_bound` IS Kissat's `reduction > bound` but defaults to 0 and is never coupled to elimination progress) and *we substitute a gate for a bound* (the `binaries ≥ 6·vars` Factor admission gate, which has no counterpart in either reference and measured **worse than no gate at all** on Tier B — 86.42 vs 34.59 PAR-2, three solves). R4 now points at N4. Strengthening only: N1–N3 are unchanged.
 - **rev. 81** (2026-08-04, user): the §5.6 learned-policy staging namespace is renamed **`L1`–`L4` → `RL1`–`RL4`** (17 references across the plan and PROGRESS). Naming only — no scope, requirement or gate change, and N1–N4 untouched. Motive: `L<n>` meant BOTH a standing lesson and an RL stage, so `tools/docs/check-progress.py` could not validate lesson citations without reporting false errors on correct plan text (the RL stages appear as `L1 — non-stationary MAB`, `L4 removed`, `§8.5 L4 discipline`, which no regex separates). Third namespace collision found in one day, after `R<n>` (four meanings) and Track N4 vs non-negotiable N4. `L-safe`/`L-win` keep their names — no digit, no collision. Frozen artifacts still say `L1`–`L4` for the stages and are not edited.
+- **rev. 82** (2026-08-04, user): §8.3 — **a staged landing may run at a temporary REGRESSION**, because per-increment gating assumes each increment stands alone and some sequences have a genuinely worse intermediate state (S4's arrangement is the precedent; Track SCHED's honest meter is the live case). Permitted only with all five pre-registered BEFORE the regressing increment ships: a named sequence of recovering items, a MECHANISM argument for why they recover it, a recovery point plus a stated ceiling, revertibility, and a kill criterion. Never covers N1/N2; a lost solve is still not covered by rev 78 and must be called out; the debt is discharged or reverted BY THE PHASE GATE, with revert as the default if the sequence stalls. No change to N1–N4 or to any gate threshold.
