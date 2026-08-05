@@ -526,7 +526,14 @@ Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a 
   2026-07-25 (user directive)
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`
 
-### ▶ Track W — S6 `Walk` local search (plan rev 71) — CLOSED except the phase-6 hand-off
+### ▶ Track W — S6 `Walk` local search (plan rev 71) — **SHIPPED ON**, closed except the phase-6 hand-off
+
+**▶ WALK IS ENABLED BY DEFAULT — no knob needed.** `ROTATION` fires it on **2 of every 6 rephase events**
+(`default_policy.cpp:809-814`, `{BEST, WALK, INVERTED, BEST, WALK, ORIGINAL}`) at
+**`WALK_PERMILLE = 560`** (`default_policy.hpp:310`); `walk_guard` is only
+`!inconsistent && h != nullptr && nvars > 0` (`walk.cpp:411`) and **there is no off switch** — no
+`TACTIX_NO_WALK` exists. Witness on a stock build: `c walk 12 walks (12 improved, 106,336,087 flips)`.
+*(Wording note: "gated" below means **passed its gate**, i.e. shipped — not switched off.)*
 
 Local search was the largest missing mechanism (`--walkeffort=0` costs kissat Tier B 8.62 → 29.22).
 `H`-only policy op, no proof delta: `src/policies/ops/walk/`, design `docs/design/s6-walk-design.md`
@@ -538,14 +545,14 @@ Local search was the largest missing mechanism (`--walkeffort=0` costs kissat Ti
   literally REGRESSED Tier B (13.63 vs 10.04); cause was the lost Best consumption, not the walk
   (kissat saves phases at ASSIGN, we at unassign — `implementation-notes.md` §8). Shipped `B,B+W,I,B,B+W,O`
 - [x] **W3** warmup measured, **NOT adopted** — our saved phases already come from a real trail
-- [x] **W4** gate: Tier B **8.97 vs 9.88** (−9.2 %), Tier C **FLAT** (Walk wins and loses big).
+- [x] **W4** gate PASSED, shipped ON: Tier B **8.97 vs 9.88** (−9.2 %), Tier C **FLAT** (Walk wins and loses big).
   **Banked negatives, do not retry blind:** effort anchored on the last inprocessing phase (9.69 vs 8.97);
   accept-only-if-better-than-all-previous (worse than both arms)
 - [x] **W4b/W4c/W4d** the `mp1-Nb5T15` poisoning is the **target** channel, not the dose, and **kissat has
   it too**; six reference-matching attempts exhausted, five dead or context-dependent; W4d's
   "stop walking when it stops paying" is DEAD (it was under-dosing, and would have been a novel mechanism
   neither reference has). Five arms sit behind knobs for §5.6
-- [x] **W4f · walk DOSE gated** (`0c52fdd` → `61138b8`, shipped 560 per-mille): root defect was a UNIT
+- [x] **W4f · walk DOSE swept and SHIPPED at 560 per-mille** (`0c52fdd` → `61138b8`): root defect was a UNIT
   confusion — we scale a per-mille of search ticks but SPEND in walk steps (~13× less scanning than
   cadical). Tier C 392.98 → 322.80, `mp1-Nb5T15` TO → 26.1 s. Lesson (L12 again): the sharp Tier C
   preference for 640 was an artefact of the then-wrong `bumpreasons` rate; re-swept, 400..800 shows no
