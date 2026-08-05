@@ -526,7 +526,8 @@ Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a 
   2026-07-25 (user directive)
 - [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`
 
-### ▶ Track W — S6 `Walk` local search (plan rev 71) — **SHIPPED ON**, closed except the phase-6 hand-off
+### ▶ Track W — S6 `Walk` local search (plan rev 71) — **SHIPPED ON, and CLOSED for phase 3**
+*(its phase-6 hand-off moved to the Phase 6 section — nothing in this track is phase-3 work)*
 
 **▶ WALK IS ENABLED BY DEFAULT — no knob needed.** `ROTATION` fires it on **2 of every 6 rephase events**
 (`default_policy.cpp:809-814`, `{BEST, WALK, INVERTED, BEST, WALK, ORIGINAL}`) at
@@ -557,8 +558,6 @@ Local search was the largest missing mechanism (`--walkeffort=0` costs kissat Ti
   cadical). Tier C 392.98 → 322.80, `mp1-Nb5T15` TO → 26.1 s. Lesson (L12 again): the sharp Tier C
   preference for 640 was an artefact of the then-wrong `bumpreasons` rate; re-swept, 400..800 shows no
   trend. Report `2026-07-27-tier-c-push.md` §1/§8.2
-- [ ] **W4e · PHASE-6 hand-off** (deferred by design): the five knob-gated arms + `stats.walk_minimum` as
-  reward proxy become the second dosing family in the §5.6 exhibit. **Nothing to build in phase 3.**
 
 ### Track R — the full reference rule inventory (plan rev 72, user 2026-07-27)
 
@@ -734,8 +733,9 @@ register has the wrong schema. Fix the instrument before spending a tier window 
 - [ ] **SCHED-G1 · Congruence: budget + honest pricing, then the value-driven closure** `[revamp]` — the
   largest single gap in the project (`congruent_units` 2,231 vs our 14).
 - [ ] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **the cheapest decisive check on the board.**
-- [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G4 · V5 Sweep** `[revamp]`
-  (already Track R · R5) · [ ] **SCHED-G5 · binary-first watch layout** `[revamp]`
+- [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G5 · binary-first watch
+  layout** `[revamp]`. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
+  already tracked as **Track R · R5** — not repeated here as a second checkbox.)*
 
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
@@ -756,8 +756,6 @@ one genuine N1 breach in the codebase (SCHED-N1FIX) is *repaired* by this track,
 ### Other phase-3 items
 
 - [x] Effort-budgeted scheduler increment 1 + prerequisites (revs 53–55; design `docs/design/effort-scheduler-design.md`)
-- [ ] Deferred quality items (2026-07-15 §5.5 sweep): SubsumeForward occs/marks alloc; `binary_ids` `.emplace` on the CDCL hot path — escalate
-  via §5.4 only with a profile. (The third, the `literal_redundant` depth cap 900 vs 1000, is CLOSED measured-dead — `88cff2d`, probe 1570502.)
 - **Exit:** T3
 
 ## Phase 3.5 — engineering ingenuity on top of kissat (PIN, rev 67)
@@ -767,14 +765,21 @@ lineage. Concretize at the T3 gate via revise-plan.
 
 ## Phase 4 — tuning, bindings, extensibility proof
 
-- [ ] Catalog rules remaining: **S7 Reorder, V5 Sweep** (kitten, O11), **X1 BCE** (S6 Walk moved to phase 3, rev 71) — *reconcile at phase entry:
-  Reorder and BCE landed in phase 3 Track R, and Sweep is in progress there (Track R · R5)*; **decide O16b at phase entry** (PR/SR clause learning as a
-  catalog candidate — the checkable form of auto-invented rules; needs dpr-trim or PR→DRAT in the N2 story)
+- [ ] **Decide O16b at phase entry** (PR/SR clause learning as a catalog candidate — the checkable form of
+  auto-invented rules; needs dpr-trim or PR→DRAT in the N2 story).
+  *(The old "catalog rules remaining" line is GONE, reconciled 2026-08-04: S7 Reorder and X1 BCE landed in
+  phase 3 Track R, and V5 Sweep is in progress there as Track R · R5 — none of them is phase-4 work.)*
+- [ ] **§5.5 hygiene, conditional (moved from phase 3, 2026-08-04):** SubsumeForward occs/marks alloc and
+  `binary_ids` `.emplace` on the CDCL hot path — **escalate via §5.4 ONLY with a profile**, which is why
+  this is not phase-3 work. (The third item, the `literal_redundant` depth cap 900 vs 1000, is CLOSED
+  measured-dead — `88cff2d`, probe 1570502.)
 - [ ] Independent-lineage candidates: CMS best_inv rephase (with Walk), rotation presets (O6)
 - [ ] Python bindings; policy presets (MAB scheduler, classification) — §5.6 seed
 - [ ] Demo policies 4–6 incl. external branching (N1 end-to-end)
 - [ ] §8.4 overhead budget: default vs hardcoded twin ≤ 5% on Tier B
-- [ ] **Extensibility acceptance test: CCE (X3) as pure plugin (§5.3)**
+- [ ] **Extensibility acceptance test: CCE (X3) as pure plugin (§5.3)** — **the GATE check only.** The
+  rule itself is phase-3 work (**Track R · R6**, catalog §5.2 puts X3 in phase 3 per rev 72), so this
+  row is where the phase-4 exit criterion is *evaluated*, not a second implementation task.
 - **Exit:** T4 (⇒ N3 satisfied)
 
 ## Phase 5 — competition readiness
@@ -803,6 +808,13 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - [ ] Offline per-family preset layer (classify → presets as arms)
 - [ ] Gate L-win measured on Tier D + per-family attribution report (≥ 2 family wins); O13 distillation decision
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
+
+- [ ] **W4e · Walk dosing hand-off (from phase-3 Track W, moved here 2026-08-04).** The five knob-gated
+  Walk arms (`TACTIX_WALK_NO_TARGET`, `_MAX_STEPS`, `_WARMUP`, rotation, effort anchor) +
+  `stats.walk_minimum` as a reward proxy become the **second dosing family** in the §5.6 exhibit,
+  alongside elimination dosing (rev 68). Each arm is a measured big-win-on-one-class /
+  3–20×-loss-on-the-other, which is exactly the labelled signal a learner needs. **Nothing to build
+  before phase 6** — the arms already exist behind knobs.
 
 ## Log
 
