@@ -24,10 +24,47 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TIERS = os.path.join(ROOT, "benchmarks", "tiers")
 
-# Arms that are reference solvers rather than the solver under test. Their
-# proofs are checked but never scored against them (plan §8.1 rev 72), so they
-# are the denominators, not candidates.
+# Reference-solver names, used ONLY as a last resort (see split_arms). Matching
+# an arm by its name is wrong in both directions: run.py's `--baseline
+# label=<command>` gives a baseline any label it likes (`k_nosweep`, `ref`),
+# which would then be scored as a candidate — corrupting the T3 ratio phase-3
+# exit reads — and a `--checked-arm cadical-tuned=...` of ours would be taken
+# for a denominator.
 BASELINE_ARMS = ("kissat", "cadical", "minisat", "glucose")
+
+
+def split_arms(rundir, run, arms):
+    """Split arms into (baselines, candidates) — ours are the ones run.py SCORED.
+
+    Two recorded discriminators, either authoritative: manifest.json carries
+    `score_proofs` per solver (true for our arms, false for `--baseline` —
+    plan §8.1 rev 72), and results.json["oracle"]["arms"] lists the scored arms
+    (present only when a run had 2+ of them).
+
+    Runs from before those fields existed fall back to the name list, and
+    deliberately so: every such run named its baselines `kissat`/`cadical`
+    literally, and re-scoring an old window under a new rule would be a worse
+    failure than the name matching it replaces — an archived number must keep
+    reading the way it read when it was banked.
+    """
+    manifest = os.path.join(rundir, "manifest.json")
+    if os.path.exists(manifest):
+        solvers = json.load(open(manifest)).get("solvers") or []
+        flag = {s["name"]: bool(s["score_proofs"]) for s in solvers
+                if isinstance(s, dict) and "score_proofs" in s}
+        # All-or-nothing: a manifest describing only some arms tells us nothing
+        # about the rest, so fall through rather than mix two rules.
+        if all(a in flag for a in arms):
+            return ([a for a in arms if not flag[a]],
+                    [a for a in arms if flag[a]], "manifest score_proofs")
+    orc = run.get("oracle")
+    if isinstance(orc, dict) and orc.get("arms"):
+        scored = set(orc["arms"])
+        return ([a for a in arms if a not in scored],
+                [a for a in arms if a in scored], "results.json oracle arms")
+    return ([a for a in arms if a.lower() in BASELINE_ARMS],
+            [a for a in arms if a.lower() not in BASELINE_ARMS],
+            "solver-name fallback (run predates the score_proofs flag)")
 
 
 def read_subset(name):
@@ -87,8 +124,9 @@ def main():
               f"{fp:11.2f} {f'{fs}/{fn}':>8}")
 
     # T3 reads as a ratio against each baseline, on both views.
-    baselines = [a for a in rows if a.lower() in BASELINE_ARMS]
-    cands = [a for a in rows if a not in baselines]
+    baselines, cands, how = split_arms(args.rundir, run, list(rows))
+    print(f"\narms   {len(cands)} ours, {len(baselines)} baseline "
+          f"[{how}]")
     if baselines and cands:
         print()
         for b in baselines:
