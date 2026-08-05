@@ -296,8 +296,9 @@ there; they are cited by number across commits, reports and the `docs/log/` arch
 `mod4block`, `j3037`, `jgiraldezlevy`, `urq45`, `frb45` or `ContextModel` **may not gate a change alone**
 ([[chaotic-instance-veto]]); perturb the baseline with a mechanically-inert knob first, and judge on the
 remainder or a replicated distribution. Details in the measurement-hygiene block above.
-**L10, L17 and L18 are built on `mod4block`/`j3037` contrasts** — their method survives, their
-per-instance magnitudes need replication before being cited as fact.
+*(A hostile re-validation on 2026-08-04 DELETED six entries that rested on single draws from these
+instances. Do not cite lesson numbers in documents — state the finding and its primary evidence
+instead; see the policy at the top of `docs/lessons.md`.)*
 
 ## Open items (small, none blocking)
 
