@@ -629,9 +629,21 @@ def slurm_aggregate(outdir):
 
 def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
                  stamp, sha, name):
+    # INSTANCE-MAJOR, deliberately. Solver-major ordering (what this was until
+    # 2026-08-04) gives arm 0 the task indices 0..N-1, so SLURM packs that whole
+    # arm onto whichever node it fills first and spills later arms elsewhere --
+    # ARM IDENTITY ENDS UP CORRELATED WITH NODE IDENTITY, which is a confound the
+    # runner itself manufactures. Measured on the Stage B gate (window
+    # 20260804-221715-B-preB1): `preB1` ran 28/28 on node017 while `stageB` ran
+    # 21 there and 7 on node018, and the SIGN of the per-instance delta tracked
+    # the node rather than the arm (same-node subset +52.8 PAR-2, cross-node
+    # subset -119.6). Interleaving spreads each arm over all nodes evenly and puts
+    # one instance's arms adjacent in dispatch order, so they contend alike.
+    # Safe to reorder: the aggregator resolves the arm through
+    # `man["solvers"][t["solver"]]`, never from index arithmetic.
     tasks = []
-    for si in range(len(solvers)):
-        for rel, status, _ in entries:
+    for rel, status, _ in entries:
+        for si in range(len(solvers)):
             tasks.append({"solver": si, "rel": rel, "expected": status,
                           "staged": paths[rel]})
     cpus = max(1, -(-(mem_gb or 8) // 8))  # 8 GB/core rule
@@ -659,6 +671,13 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
     # this file just closed: SLURM would SIGKILL the task mid-rescue and the
     # instance would come back MISSING instead of solved.
     tlimit = fmt_time(2 * (timeout + checker_budget(timeout)) + 120)
+    # PIN EVERY ARM TO ONE NODE (--nodelist). For an A/B this is not a nicety:
+    # the arms must contend alike, and the partition's nodes do NOT (measured
+    # 2026-08-04, mid-run: node017 60/132 cores allocated, node018 6/186). An arm
+    # that spills onto the quiet node wins instances it did not earn. Pinning also
+    # makes a run directly comparable to the recorded 6.72 PAR-2 noise floor, which
+    # was itself measured with all three bit-identical arms on node017.
+    nodeline = f"#SBATCH --nodelist={args.nodelist}" if args.nodelist else ""
     apath = os.path.join(outdir, "array.sbatch")
     with open(apath, "w") as f:
         f.write(f"""#!/usr/bin/env bash
@@ -669,6 +688,7 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
 #SBATCH --time={tlimit}
 #SBATCH --array={array}
 #SBATCH --output={outdir}/logs/task-%a.log
+{nodeline}
 exec {sys.executable} {me} --run-one {outdir} \
 --task-index $SLURM_ARRAY_TASK_ID
 """)
@@ -717,6 +737,11 @@ def main() -> int:
                     help="submit as a SLURM job array (one task per "
                          "solver x instance) + a dependent aggregate job")
     ap.add_argument("--partition", default="cpu-dense-hwulab-q")
+    ap.add_argument("--nodelist", default=None,
+                    help="pin every array task to this node (e.g. node017). "
+                         "Use for any A/B: arms on different nodes contend "
+                         "differently and the runner will otherwise correlate "
+                         "arm with node.")
     ap.add_argument("--throttle", type=int, default=None,
                     help="cap concurrent array tasks (sbatch %%N) for "
                          "lower-contention gate runs")
