@@ -447,6 +447,23 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.instantiate_rounds,
            (unsigned long long)kernel.stats.instantiated,
            (unsigned long long)kernel.stats.instantiate_checked);
+    // V5 Sweep · S-c: detection only (no rule, no proof delta yet — see
+    // src/rules/sweep/sweep.hpp). This line IS the increment's deliverable and
+    // the reachability witness for its fuzz legs: `environments 0` means the
+    // detector never ran, so any green leg over it is vacuous.
+    printf("c sweep       %llu rounds, %llu environments (%llu clauses), "
+           "%llu solves, %llu candidates, %llu equivalences (%llu already "
+           "binary), %llu env-unsat, %llu budget, %llu ticks\n",
+           (unsigned long long)kernel.stats.sweep_rounds,
+           (unsigned long long)kernel.stats.sweep_environments,
+           (unsigned long long)kernel.stats.sweep_env_clauses,
+           (unsigned long long)kernel.stats.sweep_solves,
+           (unsigned long long)kernel.stats.sweep_candidates,
+           (unsigned long long)kernel.stats.sweep_equivalences,
+           (unsigned long long)kernel.stats.sweep_known,
+           (unsigned long long)kernel.stats.sweep_env_unsat,
+           (unsigned long long)kernel.stats.sweep_budget,
+           (unsigned long long)kernel.stats.sweep_ticks);
     printf("c ternary     %llu rounds, %llu resolvents, %llu binaries, "
            "%llu ticks\n",
            (unsigned long long)kernel.stats.ternary_rounds,

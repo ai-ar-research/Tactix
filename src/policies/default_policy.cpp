@@ -12,6 +12,7 @@
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
+#include "rules/sweep/sweep.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
 
 #include <cmath>
@@ -1526,6 +1527,23 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         }
         if (!round_changed)
           break; // outer fixpoint: nothing changed this round
+      }
+      // V5 Sweep · S-c PROBE — TEMPORARY, and off unless TACTIX_SWEEP_PROBE is
+      // set. Sweeping has no proof delta before S-d, so V5 is deliberately NOT
+      // a registered rule yet (sweep.hpp explains why an always-NoOp registry
+      // entry would be the wrong thing) and the slot above cannot schedule it.
+      // This hook is what makes the detector REACHABLE from a real solve, so
+      // that the `c sweep` counters answer the increment's question ("does it
+      // find equivalences at all, and how many?") and the sub-solver's fuzz
+      // legs are not vacuous. It runs at the quiescent root with `k.dense`
+      // still connected (the occurrence index it wants), reads `F/τ` and writes
+      // only `k.stats` — S-d replaces the whole block with a registry line.
+      // The scratch is stack-local on purpose: a diagnostic that costs an
+      // allocation per phase, and nothing at all when it is off.
+      if (!phase_unsat && std::getenv("TACTIX_SWEEP_PROBE")) {
+        SweepRound sweep;
+        const SweepLimits lim = sweep_limits_from_env();
+        sweep_detect_round(k, lim, sweep);
       }
       // Reclaim what the dosed applications garbaged. The canonical rounds
       // reclaim themselves; the per-instance path deliberately does not, so
