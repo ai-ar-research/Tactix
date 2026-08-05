@@ -7,21 +7,25 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-04 late — **plan rev 80 (N4, the strategy floor, is now a non-negotiable)**. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run. **Also this session: an N2 defect FIXED** (LRAT unit ids missed off the root level, shipped in TB4b the same day — `52a4e8f`), the **N4 scheduling-parity ledger LANDED** (pass 1: 216 mechanisms, 132 gaps; **pass 2 = SCHED-A3's option-set enumeration, all 418 reference options, +15 gaps incl. 4 HIGH and 6 corrections to pass 1**) with **Track SCHED** staged, and an **OPEN N1 BREACH recorded** in `Factor` (`SCHED-N1FIX`, top of the queue).
 
-## ▶ RESUME HERE (2026-08-04 late) — phase 3; **next step = `SCHED-N1FIX` (an OPEN N1 BREACH), then (b′)**
+## ▶ RESUME HERE (2026-08-04 late) — phase 3; **next step = collect the Stage B gate (in flight)**
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**NOTHING IN FLIGHT** — R5 Sweep S-c's fuzz legs completed (4000/0 on both formats plus an OFF
-control). **But S-c lives in worktree `agent-acf1ed0ff40f20677` (commit `2b5062e`) and is NOT on
-`main`** — verified no-effect if merged (byte-identical proofs and trajectories), so the merge is a
-judgement call, not a risk: merging keeps the branch from drifting against Stage B's edits to
-`default_policy.cpp`; holding keeps ~1,300 inert lines off `main` until S-d makes them load-bearing.
+**▶ IN FLIGHT — the STAGE B GATE.** Same-window Tier B+C, pre-B1 (`build/pin-b1base`) vs Stage B
+(`build/pin-b1full`), both references. Tier B array `1582685` is DONE (window
+`20260804-221715-B-preB1`, not yet read into the tables below); Tier C array `1582754` +
+aggregate `1582755` still running. Separately, `SP-BVE-GATE-1` (ITE/XOR gate extraction for BVE) is
+running its fuzz/reachability legs (`1582860`, `1582871`, `1582875`, `1582878`) **in a worktree, NOT on
+`main`**.
+
+R5 Sweep S-c is **MERGED** (`452a853`, user directive): detector only, no registry line, verified
+no-effect (byte-identical proofs and trajectories) — it becomes load-bearing at S-d.
 
 **WHERE WE STAND** (window `20260804-1543`, git `6018366`, idle partition, one submission each):
 **Tier B 86.51 (25/28)** vs kissat 9.78 and cadical 40.38 · **Tier C 309.05 (29/30)** vs kissat 230.74 and
 cadical 312.02. **T3 both halves: kissat subset 1.346× · cadical subset 1.069× / full 0.990×.**
 Note the kissat half moved **1.271× (08-03, pre-TB4b) → 1.346× (today, post-TB4b)** — see (c′).
-**Fuzz green at HEAD:** 10,000/0 on each of DRAT · native LRAT · `--random-policy --lrat` (jobs 1582606–08), plus the paired assert demonstration behind the N2 fix (unfixed 36 aborts / fixed 0). ctest 38/38. Regression corpus now 11 entries.
+**Fuzz green at HEAD:** 10,000/0 on each of DRAT · native LRAT · `--random-policy --lrat` (jobs 1582606–08), plus the paired assert demonstration behind the N2 fix (unfixed 36 aborts / fixed 0). ctest 41/41. Regression corpus now 11 entries.
 
 **▶ ITEM (a) IS SETTLED: broad Factor admission is HELD, and the `j3037` veto is RETIRED.** Report
 `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md`. The three things to carry forward:
@@ -515,7 +519,12 @@ Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a 
 
 - [x] **S1** the PER-PHASE-OVERHEAD explanation for repeated during-search BVE refuted — the cost is search
   TRAJECTORY, not the root descent (`775eefc`) **· S1b** BVE growth-slack ramp, first SubPolicy (`a36b4c2`) **· S1c** needed-bound cache + ceiling 8
-  (`489fab1`; lesson: the old dose cap was an *accidental governor*, [[accidental-governor-trap]]; owed: Tier D re-sweep at gate time) **· S2a**
+  (`489fab1`; the old dose cap was an *accidental governor*, [[accidental-governor-trap]]. **▶ THE CEILING'S
+  WARRANT IS NOW THINNER THAN IT LOOKED:** it was written up as dodging a "crypto1 BVE U-shape"; that curve
+  came from single draws on a dose-chaotic instance and is **withdrawn** (2026-08-04). What survives is one
+  same-window Tier B A/B — HEAD 16.66 / ceil-16 17.76 / ceil-8 15.08, flat fixed-8 15.85 — which is
+  single-instance-dominated (FmlaEquiv −19.3 s) on a tier with **no measured noise floor**. Owed: the Tier
+  C/D re-sweep, now the only thing that would warrant the constant) **· S2a**
   FactorMatchPolicy, steering DISCONFIRMED (27×27 cap is structural; `paths` −4 % shelved) **· S2b** composite grids land default-OFF
   (single-blast composition regresses; reserved for doses — `docs/design/s2b-composite-grids-design.md`) **· S2** probing rules re-measured
   on-cluster: historical SAT-disruption GONE **· S3** P2 follow-ups (probing stress 16.5k/0; `2ed8bcc`)
@@ -931,6 +940,31 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-04 late — the BVE ramp ceiling's stated warrant was RETRACTED evidence; the constant stays, the reason changes
+
+Cleared the last 18 lesson-number citations out of `src/policies/**`. Most were mechanical, but three
+justified a shipped constant by the **crypto1 BVE U-shape** — a curve drawn through single draws on an
+instance since found to be dose-chaotic, and deleted from the standing lessons as unsound. A comment whose
+warrant has been retracted is worse than an uncommented constant: it stops the next reader from re-asking.
+
+**What actually holds up the slack-8 ceiling**, checked against `489fab1` rather than assumed: a legitimate
+same-window three-arm Tier B A/B at jobs=4 — HEAD 16.66 / ceiling-16 17.76 / ceiling-8 15.08, plus flat
+fixed bound=8 at 15.85. The form is clean — three arms, one window, equal concurrency. Two things the
+old comment did not say: the delta is
+**single-instance-dominated** (FmlaEquiv −19.3 s of it), and **Tier B has no measured noise floor at all** —
+the 6.72 bar is Tier C — so nothing on record says 15.08 and 15.85 are distinguishable. The architectural
+argument (kissat reaches slack-16 gradually with mode/effort feedback our single blast lacks) is untouched
+and is why the constant stays shipped rather than being reverted to 16 pending measurement.
+
+The Tier C/D re-sweep was owed at landing and is still owed; with the U-shape gone it is now the *only*
+thing that would warrant the constant beyond one tier. Recorded on S1c.
+
+Also fixed a related overstatement in two places: `--reorder=0` was written as costing kissat **nothing**.
+It measured −0.67 PAR-2 on Tier C, which is a **non-detection inside the 6.72 floor**, not a zero. The
+conclusion (Reorder ships OFF) is unchanged; the strength of the prior is not.
+
+ctest 41/41 (comment-only, plus the PROGRESS resync). No behaviour change.
 
 One line per entry: headline + result + pointer (commit/report/probe/job), unless still active context; rationale lives in commit messages and `benchmarks/reports/`. Plan
 revisions: DEVELOPMENT_PLAN.md §13. Newest first.

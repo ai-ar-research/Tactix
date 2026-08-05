@@ -42,8 +42,11 @@ struct ReductionPolicy : SubPolicy {
 // ≤ occ⁺ + occ⁻ + bound; RAMPING the bound over successive passes does the cheapest
 // (non-growing) eliminations first, so each is measured against a formula already
 // simplified by the cheaper ones — the adaptive, per-instance version of a single
-// fixed bound. This dodges the BVE U-shape (too many eliminations triple the
-// conflicts on high-variance SAT — L4/crypto1). `num_passes()` levels, `bound(p)` the
+// fixed bound. (An earlier version of this comment justified the ramp by a "BVE
+// U-shape" — too many eliminations tripling the conflicts. That curve was drawn
+// through single draws on crypto1, an instance since found to be dose-chaotic, and
+// it is withdrawn. The cheap-first argument above is kissat's own and stands
+// without it.) `num_passes()` levels, `bound(p)` the
 // growth slack at pass p (ascending). The policy drives `Kernel::bve_bound` from it.
 struct BveBoundPolicy : SubPolicy {
   virtual uint32_t num_passes() const = 0;

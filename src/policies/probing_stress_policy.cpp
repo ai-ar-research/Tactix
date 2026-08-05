@@ -107,7 +107,7 @@ int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) 
       }
       if (progressed || k.conflict_valid ||
           k.propagate_head < k.trail.size())
-        continue; // re-enter off the just-changed state (the L3/P2 pattern)
+        continue; // re-enter off the just-changed state
     }
 
     decide_apply(k, ps_random_unassigned_literal(k, rng), true);
