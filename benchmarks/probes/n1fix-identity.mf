@@ -1,0 +1,8 @@
+base|9vliw_bp_mc.shuffled|tierB|pin-n1-base|300
+fix|9vliw_bp_mc.shuffled|tierB|pin-n1fix|300
+base|FmlaEquivChain_4_6_6|tierB|pin-n1-base|300
+fix|FmlaEquivChain_4_6_6|tierB|pin-n1fix|300
+base|b22_1|tierB|pin-n1-base|300
+fix|b22_1|tierB|pin-n1fix|300
+base|sted5_0x24204-50|tierB|pin-n1-base|300
+fix|sted5_0x24204-50|tierB|pin-n1fix|300

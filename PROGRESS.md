@@ -641,7 +641,16 @@ per-entry per-mille sweep on a ticks-metered rule, and the BVE ramp-ceiling 8-vs
 without a closure or an accepted deviation row carrying a measurement, AND the ledger has been
 regenerated from the REFERENCE's option set (SCHED-A3).
 
-- [ ] **▶▶ SCHED-N1FIX · Factor's density gate is an N1 VIOLATION — fix regardless of any A/B** `[wire]`
+- [x] **▶▶ SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed.** The density predicate moved from
+  `factor_apply` into DefaultPolicy's slot (beside BVE's identical one) and reaches the rule as
+  `Kernel::factor_admit`, **defaulting TRUE** — the `bve_retry` advice shape rev 76 names for exactly this.
+  **Both pre-registered gates passed:** (1) DefaultPolicy is **byte-identical** — same conflicts, same
+  factorings, same proof SHA on 4 instances incl. `sted5`, which is BELOW the threshold so the gate
+  actually fires there (an identity check over admitted-only instances would pass vacuously);
+  (2) `tests/test_factor_n1.cpp` drives the REGISTRY surface (guard → `instances()` → `apply_instance`) on
+  a 0.03-binaries/var formula and **fails on the pre-fix build with the intended assertion**, verified by
+  building it. ctest 39/39. `test_factor.cpp` no longer needs `TACTIX_FACTOR_FORCE` — that workaround was
+  itself the symptom.
   **This is a non-negotiable breach, not a performance item, and it outranks everything else in the track.**
   `factor_guard` is the pure `level==0` precondition and reports APPLICABLE; `factor_instances`
   (`factor.cpp:937-941`) offers exactly one instance; `factor_apply_instance` routes it straight back into

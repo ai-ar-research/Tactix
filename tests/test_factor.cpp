@@ -82,10 +82,10 @@ static void test_factoring_2x3() {
 }
 
 int main() {
-  // bypass the density selectivity gate (raised to 8× with the BVE-last fix):
-  // these unit tests exercise the factoring MECHANISM on tiny grids that sit
-  // below the threshold, which is exactly what TACTIX_FACTOR_FORCE is for.
-  setenv("TACTIX_FACTOR_FORCE", "1", 1);
+  // No TACTIX_FACTOR_FORCE needed since SCHED-N1FIX (2026-08-04): the density
+  // selectivity heuristic moved OUT of the rule and into DefaultPolicy, so these
+  // tiny below-threshold grids now factor through the rule's own surface. The
+  // workaround this used to need was itself the symptom of the N1 breach.
   test_extension_var_boundary();
   test_factoring_2x3();
   std::printf("test_factor: all passed\n");

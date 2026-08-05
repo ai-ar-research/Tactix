@@ -135,6 +135,10 @@ add_executable(test_factor test_factor.cpp)
 target_link_libraries(test_factor PRIVATE tactix_lib)
 add_test(NAME factor COMMAND test_factor)
 
+add_executable(test_factor_n1 test_factor_n1.cpp)
+target_link_libraries(test_factor_n1 PRIVATE tactix_lib)
+add_test(NAME factor_n1 COMMAND test_factor_n1)
+
 # Track H . H5: `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)
 target_link_libraries(test_no_heuristics PRIVATE tactix_lib)

@@ -1375,9 +1375,73 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                       : false;
               }
             }
+            // SCHED-N1FIX (2026-08-04): Factor's binary-density selectivity
+            // heuristic. It used to live INSIDE `factor_apply` as a NoOp, which
+            // was an N1 breach — the rule refused every caller on a
+            // binary-sparse formula, not just this policy. It is a SCHEDULING
+            // decision, so it belongs here, next to BVE's identical gate
+            // (:1034-1052), and reaches the rule as advice that DEFAULTS TRUE.
+            //
+            // Measured history, kept with the predicate rather than lost in the
+            // move: raised 1 -> 8 with the BVE-LAST fix (Factor's BVA compresses
+            // dense cardinality structure, so BVE-last is benign there, while on
+            // binary-sparse formulas Factor-then-BVE is harmful), then lowered
+            // 8 -> 6 on 2026-07-24 because battleship's ratio is in [6,7) and the
+            // 8-gate locked it out of its only robust path (with Factor: 78
+            // factorings, 175 s; without: every arm hit 72 M+ conflicts,
+            // `benchmarks/reports/2026-07-24-battleship-divergence.md`).
+            //
+            // STATED PLAINLY, because the measurement is not kind to it: this is
+            // a hand-designed per-instance separator, a family measured dead four
+            // times over (four gates, 27-52 vs 9.17 PAR-2 for NO gate,
+            // `2026-07-28-all-rules-on.md`), and the 2026-07-30 reference study
+            // found no such axis in kissat or cadical. On Tier B it is never the
+            // best of three arms (86.42 gated / 34.59 always-admit / 32.25
+            // per-instance oracle, costing 3 solves;
+            // `2026-08-04-factor-oracle-ablation.md`). It survives only because
+            // Tier C wants it (296.82 vs 406.55 always-admit) and nothing better
+            // exists yet. Its replacement is SCHED's targeted admission, not a
+            // sixth threshold.
+            //
+            // The scope-percent UNION arm (`Kernel::factor_scope_percent`, A/B
+            // only, default 0) is strictly additive: it can only ADMIT where the
+            // density gate rejected, so today's beneficiaries cannot regress. Its
+            // arena scan deliberately charges no factor_ticks — a rejected call
+            // must not consume the once-per-solve first-dose allowance.
+            {
+              uint32_t density = 6;
+              if (const char *d = std::getenv("TACTIX_FACTOR_DENSITY"))
+                density = static_cast<uint32_t>(std::atoi(d));
+              // uint64 multiply: both operands are uint32 and `tierC/128_125`
+              // has 48.5 M variables, so any density >= 89 would WRAP there and
+              // silently admit where it was meant to suppress.
+              bool admit = k.binary_ids.size() >=
+                           static_cast<uint64_t>(density) *
+                               kernel_num_output_vars(k);
+              if (!admit && k.factor_scope_percent) {
+                uint64_t total = k.binary_ids.size();
+                uint64_t in_scope = k.binary_ids.size();
+                for (Ref ref = 0; ref < k.arena.size();) {
+                  const Clause *c = clause_at(k.arena, ref);
+                  const uint32_t words = clause_words(c->size);
+                  if (!c->garbage() && !c->redundant()) {
+                    total++;
+                    if (c->size <= k.factor_size)
+                      in_scope++;
+                  }
+                  ref += words;
+                }
+                if (total &&
+                    in_scope * 100 >=
+                        static_cast<uint64_t>(k.factor_scope_percent) * total)
+                  admit = true;
+              }
+              k.factor_admit = admit;
+            }
             k.work_budget = handed;
             ar = apply_rule(r, k);
             k.work_budget = 0;
+            k.factor_admit = true; // advice is per-occasion; default is NO restriction
             k.factor_composite = false;
             // A zero-spend NoOp (Factor's density short-circuit returns
             // before the seed scan) consumes NEITHER the first-dose
