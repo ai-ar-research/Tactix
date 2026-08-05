@@ -235,6 +235,25 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Soundness:** each deletion is equivalence-preserving; the tombstone prevents the mutual-redundancy
   double-deletion that would gain a model.
 
+### V5 · Sweep — SAT-sweeping equivalences over a local environment
+- **Precondition (abstract):** for literals `a`, `b`, if `F ⊨ a ↔ b` then adding the two binaries
+  `(¬a∨b)` and `(a∨¬b)` is equivalence-preserving. The rule *discovers* such a pair by refuting both
+  `a ∧ ¬b` and `¬a ∧ b` over an ENVIRONMENT `env ⊆ F` — a bounded neighbourhood of a seed variable —
+  which is sound because `env ⊆ F` literally: every environment clause is a clause the kernel holds,
+  carried with its own proof id, so `env ⊨ a ↔ b` implies `F ⊨ a ↔ b`.
+- **Effect:** add both binaries. Proof δ: two `derive`s, no deletion — `F` grows, `R/τ/ρ` untouched, so
+  reconstruction is unaffected. A pair the formula already states is skipped.
+- **Emission (why it is not just "entailed"):** entailment is not a proof line. The checker knows
+  nothing of the environment, so each binary must be justified over `F` in a form a checker accepts.
+  **Strategy (a), the RUP fast path (S-d):** replay the binary's negation at a probing scope in the
+  MAIN kernel and read the antecedents off the conflict — the chain then comes out in the checker's own
+  propagation order by construction. A binary that is *not* RUP over `F` is **declined outright**, never
+  emitted. That is the honest limit of the fast path: a swept equivalence is entailed but generally NOT
+  RUP, which is the whole reason a sub-solver is involved. **Strategy (b) (S-e)** maps the sub-solver's
+  refutation core back to main-formula clause ids and emits the resolution chain, covering the rest.
+- **Soundness:** both directions must replay before either binary is added, so the rule never states an
+  implication it has not justified; and a declined pair leaves `F` unchanged.
+
 ### V6 · Congruence — gate congruence closure (AND/XOR/ITE)
 - **Precondition (abstract):** two gates of the same kind with the same inputs compute the same
   function, so their outputs are equivalent: `out = f(in…)` and `out' = f(in…)` ⇒ `F ⊨ out ↔ out'`.

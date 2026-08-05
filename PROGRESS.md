@@ -645,7 +645,7 @@ lever, absent new evidence.
     **102 ran a detection round, 8,174 environments, 32,358 sub-solver solves, 24,184 candidate directions, 807 equivalences found**, 875
     environments refuted outright, 6,680 budget cut-offs. A green leg over zero environments would have been vacuous
     ([[ab-arm-identical-artefacts]]); it is not
-  - [ ] **S-d · emission via strategy (a), the RUP fast path.** The first increment where Sweep DOES
+  - [x] **S-d · emission via strategy (a), the RUP fast path.** The first increment where Sweep DOES
     something. After the sub-solver claims `x ≡ y`, assume `x ∧ ¬y` in the MAIN kernel at probing scope and
     propagate; a conflict hands back a checker-ordered chain via `congruence_rup_chain` — V6's C4 idiom,
     already proven against two checkers. **Deliberately the narrow version:** it only works where the
@@ -954,6 +954,38 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-04 late — V5 Sweep S-d: it EMITS. Registry line, calculus entry, and a scheduling test suite
+
+Sweep now has a proof delta, so the registry line, `docs/calculus.md` V5 entry and the rule's public
+`sweep_apply` all land together. Detection (S-c) proves `a ≡ b` inside an environment; emission justifies
+each binary over the MAIN formula by REPLAYING its negation at probing scope (V6's `congruence_rup_chain`,
+exported as `congruence_replay_rup`), so the chain comes out in the checker's own propagation order rather
+than being hand-derived. **Both directions must replay before either binary is added** — emitting one
+alone would state an implication the sub-solver never proved. A non-RUP pair is **declined**
+(`sweep_not_rup`), which is the fast path's honest limit and exactly what S-e is for.
+
+The replay runs in **DRAT mode too**, even though DRAT needs no chain: here it is not chain construction
+but the RUP TEST, and a swept equivalence is not RUP in general. Emitting unchecked would hand the checker
+a line it cannot verify.
+
+**How much S-e is actually worth, measured rather than guessed:** the existing 20 k-formula oracle reports
+**4380 claims, 8 not RUP** — the fast path already covers ~99.8 % of what detection finds there. S-e is
+for the hard tail, and that tail is small on random formulas (it will be larger on miters, which is where
+sweeping earns its keep).
+
+Registered but **NOT scheduled** — no slot entry, so default runs are unchanged; S-f decides that. Being
+registered does mean `--random-policy` fuzz now applies it, which is the strongest oracle available.
+
+**▶ NEW: `tests/test_scheduling.cpp`.** The suite was strong where the solver can be WRONG and silent
+where it can be BADLY SCHEDULED. Of today's defects, the soundness ones were caught by tests; **B1, B3, B4
+and B5 were all caught by reading reference source or staring at telemetry, and not one would have failed
+a test.** Three now would, each pinning the REFERENCE's identity rather than our current behaviour:
+kissat's first focused interval is exactly `modeint` (an integer identity the off-by-one cannot satisfy),
+`instances()` must advance after an apply, and C1/C2's meter must exceed its candidate count on a shared
+literal. **Both teeth-checked by re-introducing the original bugs**, which failed them.
+
+ctest **42/42**.
 
 ### 2026-08-04 late — SCHED-B3 + B4: the last two Stage B meters, and B4's error was **2712×**
 

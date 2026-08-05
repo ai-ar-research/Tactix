@@ -61,4 +61,19 @@ bool congruence_guard(const Kernel &); // pure quiescent-root precondition
 // congruence closure, adding equivalence binaries (+ proof). Exposed for tests.
 ApplyResult congruence_apply(Kernel &);
 
+// Replay-based RUP chain builder (D-CONG-LRAT). Assumes the negation of `lits`
+// at a probing scope, propagates, and reads the antecedents off the conflict's
+// reason walk, so the chain comes out in the CHECKER's own propagation order by
+// construction. Returns false when the lemma is not RUP over the current DB, in
+// which case the caller must emit nothing. Shared with V5 Sweep's S-d fast path,
+// which is the same question asked of a swept equivalence.
+// (The implementations live in an anonymous namespace, so these are thin
+// external-linkage forwarders defined at the end of congruence.cpp.)
+bool congruence_replay_rup(Kernel &, const Lit *lits, uint32_t n,
+                           std::vector<uint64_t> &chain);
+
+// True when (a ∨ b) is already a binary of F. Shared with V5 Sweep, which must
+// not re-derive an equivalence the formula already states.
+bool congruence_binary_exists(const Kernel &, Lit a, Lit b);
+
 } // namespace tactix

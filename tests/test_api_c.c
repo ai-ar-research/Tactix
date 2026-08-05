@@ -270,7 +270,8 @@ static void test_action_kind(void) {
       "Instantiate", "Lucky",     "Probe",            "Propagate",
       "Reduce",     "Reorder",    "Rephase",          "Restart",
       "Strengthen",
-      "Substitute", "SubsumeForward", "SwitchMode",   "TransitiveReduce",
+      "Substitute", "SubsumeForward", "Sweep",        "SwitchMode",
+      "TransitiveReduce",
       "Vivify",     "Walk"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);

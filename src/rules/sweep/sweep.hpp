@@ -82,6 +82,7 @@
 #pragma once
 
 #include "kernel/kernel.hpp"
+#include "rules/registry.hpp"
 #include "rules/sweep/subsolver.hpp"
 
 #include <vector>
@@ -182,6 +183,11 @@ uint32_t sweep_detect_seed(Kernel &, Var seed, const SweepLimits &,
 // A full round over `sweep_seeds` order. Returns the number of equivalences
 // found (also in `round.found`).
 uint32_t sweep_detect_round(Kernel &, const SweepLimits &, SweepRound &);
+
+// S-d: the canonical full apply -- detect, then emit each equivalence that is
+// RUP over the main formula as two binaries (declining the rest). Exposed for
+// tests as well as the registry entry.
+ApplyResult sweep_apply(Kernel &);
 
 // Read the SweepLimits overrides from the environment (TACTIX_SWEEP_DEPTH /
 // _VARS / _CLAUSES / _CANDIDATES / _TICKS / _SEEDS / _ROUND_TICKS). Lives here

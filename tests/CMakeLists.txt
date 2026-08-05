@@ -31,6 +31,10 @@ add_executable(test_sweep test_sweep.cpp)
 target_link_libraries(test_sweep PRIVATE tactix_lib)
 add_test(NAME sweep COMMAND test_sweep)
 
+add_executable(test_scheduling test_scheduling.cpp)
+target_link_libraries(test_scheduling PRIVATE tactix_lib)
+add_test(NAME scheduling COMMAND test_scheduling)
+
 add_executable(test_reorder test_reorder.cpp)
 target_link_libraries(test_reorder PRIVATE tactix_lib)
 add_test(NAME reorder COMMAND test_reorder)
