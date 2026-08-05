@@ -40,13 +40,10 @@ LIVING = ["PROGRESS.md", "DEVELOPMENT_PLAN.md", "CLAUDE.md",
           "docs/implementation-notes.md", "docs/calculus.md", "docs/README.md"]
 LESSONS = "docs/lessons.md"
 
-# `L<n>` COLLIDES WITH THE §5.6 RL STAGING NAMESPACE (L1 bandit, L2 contextual,
-# L3 sequencing, L4 cube-sampled) — the same collision as R<n>, and as Track N4
-# vs non-negotiable N4. No regex separates them reliably: the RL stages appear as
-# "L1 — non-stationary MAB", "L4 removed", "§8.5 L4 discipline". So L1..L4 are
-# reported as AMBIGUOUS (a note, never an error) and the real fix is to rename
-# the RL stages. Lessons L5+ are unambiguous and are checked strictly.
-RL_RANGE = {"L1", "L2", "L3", "L4"}
+# `L<n>` means a STANDING LESSON and nothing else since plan rev 81, which renamed
+# the §5.6 RL staging levels L1-L4 -> RL1-RL4 for exactly this reason: with two
+# namespaces sharing the prefix, this checker reported false DANGLING errors on
+# correct plan text and no regex could separate them. All numbers are now strict.
 
 def lesson_numbers():
     p = os.path.join(ROOT, LESSONS)
@@ -61,7 +58,7 @@ def check_citations(errors, warns, notes):
     if known is None:
         errors.append(f"{LESSONS} is missing — cannot validate lesson citations")
         return
-    cited, ambiguous = {}, 0
+    cited = {}
     for rel in LIVING:
         p = os.path.join(ROOT, rel)
         if not os.path.exists(p):
@@ -69,11 +66,13 @@ def check_citations(errors, warns, notes):
         for i, line in enumerate(open(p), 1):
             if "docs/lessons.md" in line:      # the pointer itself
                 continue
-            for m in re.finditer(r"\bL(\d+)\b", line):
+            # Strip inline-code spans first. A CITATION is prose -- "(L20's
+            # knife-edge)", "-- L15: measure the family together". A name in
+            # BACKTICKS is a literal mention of the identifier, not a claim
+            # leaning on it: plan rev 81's own text says `L1`-`L4` -> `RL1`-`RL4`
+            # and must not be flagged as citing deleted lessons.
+            for m in re.finditer(r"\bL(\d+)\b", re.sub(r"`[^`]*`", "", line)):
                 name = "L" + m.group(1)
-                if name in RL_RANGE:
-                    ambiguous += 1
-                    continue
                 if name not in known:
                     errors.append(
                         f"DANGLING lesson citation {name} at {rel}:{i} — no "
@@ -88,11 +87,6 @@ def check_citations(errors, warns, notes):
         warns.append(f"{total} lesson citations remain in living docs ({per}) "
                      f"— policy is to state the finding + evidence, not the "
                      f"number. Run the de-citation sweep.")
-    if ambiguous:
-        notes.append(f"{ambiguous} L1–L4 references skipped as AMBIGUOUS — that "
-                     f"range collides with the §5.6 RL staging namespace. Rename "
-                     f"the RL stages (e.g. RL1–RL4) to make this checkable.")
-
 
 def check_inflight(errors, warns):
     p = os.path.join(ROOT, "PROGRESS.md")

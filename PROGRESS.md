@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 80 (2026-08-04) — **N4, the strategy floor**, is now a non-negotiable
+- **Plan revision tracked:** rev. 81 (2026-08-04) — rev 80 made **N4, the strategy floor**, a non-negotiable; rev 81 renamed the §5.6 RL stages `L1`–`L4` → `RL1`–`RL4`
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-04 late — **plan rev 80 (N4, the strategy floor, is now a non-negotiable)**. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run. **Also this session: an N2 defect FIXED** (LRAT unit ids missed off the root level, shipped in TB4b the same day — `52a4e8f`), the **N4 scheduling-parity ledger LANDED** (216 mechanisms, 132 gaps) with **Track SCHED** staged, and an **OPEN N1 BREACH recorded** in `Factor` (`SCHED-N1FIX`, top of the queue).
 
@@ -782,14 +782,14 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 - [ ] Offline replay/counterfactual harness: exact `--trace` replays + §8.4 config-file ablations; validate reward proxies BEFORE any online
   learning is trusted (§8.5)
-- [ ] L1: windowed/discounted-UCB bandit over the macro scheduler's slot choice points (DefaultPolicy schedule = permanent arm)
+- [ ] RL1: windowed/discounted-UCB bandit over the macro scheduler's slot choice points (DefaultPolicy schedule = permanent arm)
 - [ ] LearnedPolicy joins the random-policy fuzz rotation + determinism trace tests
 - [ ] Gate L-safe measured: within +2% PAR-2 of DefaultPolicy on Tier C medians
-- [ ] L2: contextual bandit, tabular contexts (features per O12; **rev 68: must include the density-gate family — binary density, dose
+- [ ] RL2: contextual bandit, tabular contexts (features per O12; **rev 68: must include the density-gate family — binary density, dose
   productivity, elimination yield — per §5.6's elimination-dosing exhibit**)
 - [ ] **Elimination-dosing exhibit obligations (rev 68, §5.6):** per-entry dose on/off joins the scheduled choice points; DefaultPolicy's gate
   thresholds = permanent arm; success = gates matched where right, em_11 recovered where wrong, no hand threshold load-bearing
-- [ ] L3 experiment: composed-batch sequencing (tabular RL) under its recorded kill criterion; neighbor-move arm proposals (TACO shape, in-run)
+- [ ] RL3 experiment: composed-batch sequencing (tabular RL) under its recorded kill criterion; neighbor-move arm proposals (TACO shape, in-run)
 - [ ] Anytime check (§8.5, rev 28): interrupt LearnedPolicy anywhere — no segment re-solves or sits in a non-solving state
 - [ ] Offline per-family preset layer (classify → presets as arms)
 - [ ] Gate L-win measured on Tier D + per-family attribution report (≥ 2 family wins); O13 distillation decision
@@ -952,6 +952,21 @@ claims re-verified by hand before landing.
   enumerating the REFERENCE's option set, not our own recall, and (2) make the benchmark runner print a
   per-instance ORACLE column by default, so a gate must beat both always-on and the oracle to ship —
   de-selecting cause D at the instrument, the only level at which a selection pressure can be removed.
+
+### 2026-08-04 late — plan rev 81: the §5.6 RL stages are `RL1`–`RL4`; `L<n>` now means a lesson only
+Naming only — no scope, requirement or gate change. 17 references renamed across the plan and PROGRESS.
+- **Motive: a mechanical checker could not do its job.** `tools/docs/check-progress.py` validates that
+  every lesson citation still resolves; with `L<n>` meaning both a standing lesson AND an RL stage it
+  reported **false DANGLING errors on correct plan text**. No regex separates them — the stages appear as
+  `L1 — non-stationary MAB`, `L4 removed`, `§8.5 L4 discipline`. The checker's `AMBIGUOUS` carve-out is
+  now removed, so **all lesson numbers are strictly checked**, and it additionally ignores identifiers in
+  backticks (a name in code font is a MENTION, prose like "(L20's knife-edge)" is a CITATION).
+- **Third namespace collision found in one day**, after `R<n>` (four meanings, with its own key) and
+  `Track N4` vs non-negotiable `N4`. Short shared prefixes are a recurring defect here, not three
+  accidents — **prefix a new id space distinctly at birth** (`RL`, `SCHED`, `SP-`), and prefer a
+  descriptive prefix over the next free letter.
+- `L-safe`/`L-win` keep their names (no digit, no collision). Frozen artifacts still say `L1`–`L4` for the
+  stages and are not edited.
 
 ### 2026-08-04 late — plan rev 80: **N4, the strategy floor**, is now a non-negotiable
 User directive after observing this as a repeating theme. §1.1 gains a FOURTH non-negotiable:
