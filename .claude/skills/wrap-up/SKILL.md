@@ -38,6 +38,29 @@ resume anchor, step 6).
 4. **Compact** — **run `compact-docs` every wrap-up.** It condenses the items this
    session ticked to one-liners and re-compacts any doc that grew unwieldy.
    compact-docs owns the rules for what and how; wrap-up just guarantees it runs.
+   **First, run the archive check — it is a script, not a judgement call:**
+
+   ```
+   tools/docs/archive-log.py --check     # exit 1 = archiving is due
+   tools/docs/archive-log.py             # do it
+   ```
+
+   `PROGRESS.md`'s Log holds the **current ISO week only**; completed weeks move
+   verbatim to `docs/log/<ISO-week>.md`. If it archived anything: **update
+   `docs/log/README.md`'s index table**, and commit the archives together with
+   PROGRESS in ONE commit (the entries must never exist in both places, or in
+   neither). Entries move **verbatim** — the Log is the durable record, so
+   compression happens *before* an entry is written, never on the way out.
+   **If `--check` prints `⚠ OVER BUDGET`**, archiving cannot help (only one week
+   is present) — that is a signal to *compress* in step 4 proper: ticked
+   checklist items to one-liners, and any Log entry whose detail already lives in
+   a frozen report down to result + pointer.
+
+   *Why a script:* this project's own diagnosis (2026-08-04, cause E) is that
+   prose triggers do not fire — five rev-77 closers with natural-language
+   conditions went off silently, one recording in its own text that "the
+   condition was met and nothing was revisited". Make it mechanical, not
+   remembered.
 5. **Prune persistent memory.** Memory is a small set of *currently true*
    durable facts, not an archive — it is loaded into every future session, so a
    stale entry actively misleads and an accreting one crowds out what matters.
