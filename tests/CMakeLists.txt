@@ -157,6 +157,16 @@ add_test(NAME config_wiring
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-config-wiring.py)
 
+# SCHED-A2b: the same shape, one level up -- every rule the inprocessing SLOT
+# schedules (i.e. every RuleTier::Inprocess registry line, since registering IS
+# scheduling) must have a governor: an EFFORT_SPECS row, or a named alternate
+# one whose mechanism is still in the source. V5 Sweep shipped with neither and
+# nothing caught it (fuzz is green on a performance regression; the unit tests
+# call sweep_apply directly and never traverse the slot).
+add_test(NAME effort_specs
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-effort-specs.py)
+
 # Track H . H5: `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)
 target_link_libraries(test_no_heuristics PRIVATE tactix_lib)
