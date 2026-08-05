@@ -13,7 +13,7 @@ Read this block, then the top Log entries. Full per-instance numbers: the tier t
 
 **▶ IN FLIGHT — the STAGE B GATE, RESUBMITTED.** Same-window Tier B+C, pre-B1 (`build/pin-b1base`)
 vs Stage B (`build/pin-b1full`), both references, **pinned to node017 and instance-major**: Tier B
-array `1582923`, Tier C array `1583008`. The FIRST submission (`1582685`/`1582754`) was cancelled —
+Tier B array `1582923` **DONE** (window `20260804-223147-B-b1gate`), Tier C array `1583008` running. The FIRST submission (`1582685`/`1582754`) was cancelled —
 its Tier B half is unreadable, see the Log entry below. Separately `SP-BVE-GATE-1` (ITE/XOR gate
 extraction for BVE) runs its fuzz/reachability legs `1582860`/`1582871`/`1582875`/`1582878` **in a
 worktree, NOT on `main`**.
@@ -941,7 +941,48 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
-### 2026-08-04 late — ▶▶ THE RUNNER WAS MANUFACTURING A CONFOUND: arm identity correlated with NODE
+### 2026-08-04 late — ▶▶ I WAS WRONG ABOUT THE NODE: the pinned re-run reproduces the wins exactly
+
+Resubmitted the Stage B Tier B half pinned to node017 with both arms interleaved, expecting the
+"cross-node winners" to give their wins back. **They did not.** The pinned aggregate reproduces the
+unpinned one to within 0.02 PAR-2 — base **88.36** vs unpinned 88.37, Stage B **106.10** vs 106.12 — and
+the seven instances that had spilled onto the quiet node score **−129.64 s pinned** against −119.60 s
+unpinned. Moving them onto the busy node cost Stage B **+5.23 s in total**. node018 was not buying them
+anything.
+
+So the node correlation was real and the sign pattern was coincidence: 7 of 28 instances spilled, and they
+happened to be ones where Stage B genuinely wins. Five-of-five agreement on a hand-picked subset with no
+control is not evidence, and I published it as if it were. The `run.py` changes (instance-major order,
+`--nodelist`) stay — arms contending alike is right regardless — but they are hygiene, not a fix for
+this.
+
+**THE REAL TIER B READ** (window `20260804-223147-B-b1gate`, both arms node017, kissat 10.06 28/28,
+cadical 40.93 27/28):
+
+| cut | Stage B |
+|---|---|
+| all 28 | **+17.75 PAR-2**, one lost solve |
+| the lost solve | `mod4block` 36.50 → 600.00 — and it **replicates 2/2** across both windows |
+| ex-`mod4block` | **−2.38 PAR-2** (−66.62 s / 28) — slightly favours Stage B |
+| ex-`mod4block`, minus its two biggest wins | **+54.92 s over 25** — favours the baseline |
+
+and **14 of 27 instances are outright worse** under Stage B. Ex-`mod4block` Tier B is a wash with wide
+dispersion, resting on `2013113162201nw` (−84.79) and `sted5` (−36.75); both replicated across the two
+windows, so they are not lottery draws.
+
+`mod4block` is in the may-not-gate set, so its timeout is not admissible as a verdict — but it flipped in
+BOTH windows, which is not the same as noise-by-assumption. The bar that retired the `j3037` veto was
+K′=11 paired draws; two is not that. **It needs paired draws before Stage B is judged**, and that is now
+the deciding question for the stage, not a footnote.
+
+No Stage B verdict yet: Tier C (`1583008`, pinned) is still running.
+
+### 2026-08-04 late — ~~THE RUNNER WAS MANUFACTURING A CONFOUND~~ — **THE NODE EXPLANATION IS REFUTED**
+
+> **CORRECTED by the entry above.** The runner *did* correlate arm with node, and the interleave +
+> `--nodelist` fixes are kept as hygiene. But the claim below that the node explained the PER-INSTANCE
+> SIGNS is WRONG: the pinned re-run reproduces every one of those wins on a single node. Read the
+> entry above for the real Tier B numbers; read this one only for the instrument change.
 
 The Stage B gate's Tier B half (window `20260804-221715-B-preB1`) came back a regression — pre-B1
 **88.37 (25/28)** vs Stage B **106.12 (24/28)**, a lost solve. It cannot be read, and the reason is the
