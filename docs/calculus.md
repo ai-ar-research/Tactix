@@ -101,14 +101,22 @@ Effect / Proof-δ / Soundness only; the **implemented guard** is tabulated in `i
   was a root refutation, backtrack to `jump_level` and assert the UIP there. At root (learned ∅ or a
   top-level conflict) set `inconsistent` and return without asserting. `pending` is internal scratch
   handed from learn to backjump *within this one apply* — never a control state at a rule boundary.
+  **Also (eager subsumption, `Kernel::eager_subsume`):** after backtracking, drop from `R` any of the
+  last few learned clauses that the new clause **strictly subsumes**. This is an `S2 Forget` step folded
+  into M3 for locality, not a new inference — the deleted clauses are *redundant*, so the deletion
+  needs no justification at all and the subsumption test is only how the victims are *chosen*
+  (`implementation-notes.md` §15). It preserves S2's standing invariant: a reason-locked clause is
+  never deleted.
 - **Proof δ:** `add_rup` of the learned clause (LRAT with its antecedent chain / DRAT literals), **plus
-  one `add_rup` per OTFS strengthening round and a `del` of each clause it subsumes** — so M3 is the one
-  M-family rule that also deletes. Root refutation: **`add_rup(∅, chain)` in LRAT** (an RUP addition of
+  one `add_rup` per OTFS strengthening round and a `del` of each clause it subsumes, plus one `del` per
+  eagerly subsumed recent clause** — so M3 is the one M-family rule that also deletes. Root refutation: **`add_rup(∅, chain)` in LRAT** (an RUP addition of
   ∅ with a hint chain, not a dedicated empty line — the one place that asymmetry with M1's `add_empty`
   matters) / `add_empty` in DRAT. The backjump step emits nothing, except a learned unit contradicting a
   root assignment (→ `add_empty`, immediate `Unsat`).
 - **Soundness:** the 1-UIP clause is `F`-entailed (RUP-checkable); minimization/shrinking/OTFS preserve
-  entailment; the assert is a sound unit propagation of the learned clause at `jump_level`. The backjump
+  entailment; eager subsumption inherits S2's (deleting from `R` is equisatisfiability-preserving, and a
+  `del` needs no chain — the subsumer is already in the proof, so no later RUP check is made harder);
+  the assert is a sound unit propagation of the learned clause at `jump_level`. The backjump
   target may be any level in `[jump_level, level-1]`; the asserting literal is stamped at its true level
   `jump_level` regardless, so a higher chronological target keeps the intervening decisions without
   stranding the assertion.

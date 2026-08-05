@@ -82,6 +82,14 @@ TABLE = {
     "subst_hazard_round":      ("ENV", "TACTIX_SUBST_HAZARD_ROUND"),
     "subst_demote":            ("ENV", "TACTIX_SUBST_DEMOTE"),
     "retire_enabled":          ("ENV", "TACTIX_RETIRE; ships ON via the kernel.hpp default"),
+    # SCHED-C6: same shape as retire_enabled / factor_demote_fresh — ships ON
+    # at kissat's own default (`eagersubsume`=4), TACTIX_EAGER_SUBSUME=0
+    # reverts for the A/B arm. NOT POLICY: nothing in default_policy.* needs to
+    # write it, and there is no reference schedule that moves it per-phase
+    # (both references treat it as a fixed option), so an assignment there
+    # would be the fake wiring this test exists to expose.
+    "eager_subsume":           ("ENV", "TACTIX_EAGER_SUBSUME; ships ON at kissat's "
+                                       "default 4 (SP-EAGERSUB-1), =0 reverts"),
     "stop_fuzz":               ("ENV", "TACTIX_STOP_FUZZ, fuzz-only abort knob"),
     "conflict_reuse":          ("ENV", "TACTIX_CONFLICT_REUSE; ships OFF (TB4b(B))"),
     "conflict_reuse_no_repair": ("ENV", "TACTIX_CONFLICT_REUSE_NOREPAIR, diagnostic"),

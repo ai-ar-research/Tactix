@@ -20,4 +20,14 @@ namespace tactix {
 bool analyze_guard(const Kernel &);
 ApplyResult analyze_apply(Kernel &);
 
+// SP-EAGERSUB-1 (kissat `eagersubsume`): the learn-time half of the fused
+// rule's clause maintenance — garbage every recently-learned clause the
+// pending clause strictly subsumes, then enrol the pending clause itself.
+// Owned here (it is ConflictAnalysis's proof delta, alongside OTFS's `del`)
+// but CALLED from `backjump_apply_to`, once the trail is back at the target:
+// the subsumed candidates are reasons until then, measurably all of them.
+// See the definition in analyze.cpp for the measurement and the argument.
+// No-op unless `Kernel::eager_subsume` is nonzero and a clause is pending.
+void analyze_eager_subsume(Kernel &);
+
 } // namespace tactix

@@ -2,6 +2,7 @@
 
 #include "policies/heuristics.hpp" // TB4b snapshot timing (target/best phases)
 #include "proof/proof.hpp"
+#include "rules/analyze/analyze.hpp" // analyze_eager_subsume (SP-EAGERSUB-1)
 
 namespace tactix {
 
@@ -54,6 +55,19 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   }
   if (target < k.level)
     kernel_backtrack(k, target);
+
+  // SP-EAGERSUB-1 — kissat's own position for it (`kissat_learn_clause`:
+  // learn, backtrack, assign, eager-subsume). We run it one step earlier,
+  // before the assert, which is equivalent: asserting the UIP can only make
+  // the PENDING clause a reason, and the pending clause is not a candidate.
+  // It must be here rather than at the end of `analyze_apply` — before the
+  // backtrack every subsumable candidate is still a trail reason (measured:
+  // all 28 000 of them over 60 Tier A instances). Runs on the stale/NoOp and
+  // learned-unit-refutation exits below too: the pending clause is already
+  // stored and in the proof by then, so the deletion is equally justified.
+  // The mechanism lives in analyze.cpp — it is ConflictAnalysis's proof delta.
+  analyze_eager_subsume(k);
+
   const Lit asserting = p.lits[0];
 
   // The pending clause's assertion metadata is only valid in the trail

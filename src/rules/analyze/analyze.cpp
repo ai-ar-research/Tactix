@@ -677,6 +677,132 @@ static uint32_t repair_conflict_watches(Kernel &k, Ref ref, uint32_t alevel) {
   return moved;
 }
 
+// --- eager subsumption of recently learned clauses (SP-EAGERSUB-1) ---------
+// Transliterated from kissat learn.c:70-187 (`insert_last_learned` /
+// `eagerly_subsume_last_learned`, MIT). NOT a registered rule: the clauses it
+// deletes are REDUNDANT, so the deletion is already licensed by S2 Reduce's
+// unconditional Forget and the subsumption test is a selection heuristic, not
+// a precondition. It is a sub-step of M3 ConflictAnalysis, in the same seat as
+// OTFS subsumption (which the calculus already lists in M3's proof δ) and
+// reason-side bumping. Full argument: implementation-notes.md §15.
+//
+// WHY IT RUNS AFTER THE BACKJUMP and not at the end of `analyze_apply` (the
+// obvious single chokepoint every driver shares). A candidate `C` subsumed by
+// the learned clause `D` is the reason of a literal whose TRUE LEVEL is at or
+// above the conflict level — `kernel_assign_ref` stamps a forced literal with
+// the max level of its reason's other literals, and `D ⊆ C∖{forced}` contains
+// the UIP, which sits at the conflict level. So before the backjump EVERY such
+// candidate is still a reason and the safety check below throws it away; after
+// a canonical backjump none of them is. Not a marginal effect: measured over
+// 60 Tier A instances (192 818 conflicts) the pre-backjump position deleted
+// 8 297 clauses and skipped 28 000 as reasons, and a freed-by-backjump probe
+// counted 28 000 — all of them. Post-backjump: 30 613 deleted, 0 skipped.
+// Hence the call sits in `backjump_apply_to`, which is also kissat's own
+// position (`kissat_learn_clause` = learn, backtrack, assign, eager-subsume).
+
+// Is `c` the reason of a literal currently on the trail? Kissat does NOT ask
+// this; we must. Marking a reason garbage would (a) leave a dangling reason
+// for kernel_collect_garbage, whose only garbage-reason case is a ROOT literal
+// (corpus 003), and (b) put a DELETED id into the next LRAT chain that walks
+// that reason — the N2 hazard. Scanned over all literals, not just the two
+// watched ones, and only on the rare path where the containment test already
+// succeeded, so the common case pays nothing. The check is NOT redundant with
+// the placement above: `backjump_apply_to` honours chronological targets, and
+// under N1 a policy may pick any level in [jump_level, level-1], which can
+// leave the candidate assigned. (DefaultPolicy never does — hence the direct
+// unit test, tests/test_analyze.cpp test_eager_subsume case (c).)
+static bool eager_is_reason(const Kernel &k, Ref ref, const Clause *c) {
+  for (const Lit l : *c) {
+    if (k.values[l] <= 0)
+      continue; // a reason's forced literal is TRUE
+    const Assigned &a = k.assigned[var_of(l)];
+    if (!a.binary && a.reason == ref)
+      return true;
+  }
+  return false;
+}
+
+// Delete every register entry STRICTLY subsumed by the just-learned clause.
+// Strictly: kissat skips candidates of size <= |learned|, so an identical
+// clause is never deleted (and neither, therefore, is the clause we are about
+// to insert).
+static void eager_subsume_recent(Kernel &k, const Lit *lits, uint32_t size) {
+  uint8_t *const marks = k.eager_marks.data();
+  for (uint32_t i = 0; i < size; i++)
+    marks[lits[i]] = 1;
+  bool subsumed_any = false;
+  for (uint32_t s = 0; s < k.eager_subsume; s++) {
+    const Ref ref = k.eager_recent[s];
+    if (ref == INVALID_REF)
+      continue;
+    Clause *c = clause_at(k.arena, ref);
+    if (c->garbage() || !c->redundant() || c->size <= size)
+      continue;
+    k.stats.eager_tried++;
+    // kissat's two-counter containment scan: `needed` counts unmatched
+    // literals of the subsumer, `remain` bounds how many of c's literals can
+    // still match. Both are strictly decreasing and neither can underflow
+    // (each loop iteration decrements exactly one, at most c->size times).
+    uint32_t needed = size, remain = c->size;
+    for (const Lit l : *c) {
+      if (marks[l]) {
+        if (!--needed)
+          break;
+      } else if (--remain < needed) {
+        break;
+      }
+    }
+    if (needed)
+      continue;
+    if (eager_is_reason(k, ref, c)) {
+      k.stats.eager_reason_skipped++;
+      continue;
+    }
+    if (k.proof)
+      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
+    kernel_mark_garbage(k, c);
+    k.eager_recent[s] = INVALID_REF;
+    k.stats.eager_subsumed++;
+    subsumed_any = true;
+  }
+  for (uint32_t i = 0; i < size; i++)
+    marks[lits[i]] = 0; // touched-restore: the array is all-zero between uses
+  if (subsumed_any) { // kissat flush_last_learned: compact the live entries
+    uint32_t q = 0;   // to the front so an insert evicts a dead slot first
+    for (uint32_t p = 0; p < Kernel::EAGER_SUBSUME_SLOTS; p++)
+      if (k.eager_recent[p] != INVALID_REF)
+        k.eager_recent[q++] = k.eager_recent[p];
+    while (q < Kernel::EAGER_SUBSUME_SLOTS)
+      k.eager_recent[q++] = INVALID_REF;
+  }
+}
+
+// kissat insert_last_learned: shift the new ref in at the front, the oldest
+// falls off the end of the ACTIVE prefix (slots beyond `eager_subsume` are
+// never read, and stay INVALID_REF so the debug register check holds).
+static void eager_insert_recent(Kernel &k, Ref ref) {
+  Ref prev = ref;
+  for (uint32_t i = 0; i < k.eager_subsume; i++) {
+    const Ref tmp = k.eager_recent[i];
+    k.eager_recent[i] = prev;
+    prev = tmp;
+  }
+}
+
+// The one entry point (declared in analyze.hpp, called by backjump_apply_to):
+// test the pending clause against the register, THEN insert it — kissat's
+// order (learn.c:205-208), so a clause is never compared with itself. Units
+// and binaries subsume too (they are the strongest subsumers); only LARGE
+// clauses become future candidates, since only they have a ref.
+void analyze_eager_subsume(Kernel &k) {
+  if (!k.eager_subsume || !k.pending.valid)
+    return;
+  const PendingLearned &p = k.pending;
+  eager_subsume_recent(k, p.lits.data(), static_cast<uint32_t>(p.lits.size()));
+  if (p.ref != INVALID_REF)
+    eager_insert_recent(k, p.ref);
+}
+
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc

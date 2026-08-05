@@ -358,6 +358,147 @@ static void test_conflict_reuse_under_default_policy() {
   assert(total_repaired > 0); // ...including the un-crippled (repair) path
 }
 
+// SP-EAGERSUB-1 / SCHED-C6. Drives `analyze_eager_subsume` directly on a
+// hand-built register, because the discriminating cases are exactly the ones
+// DefaultPolicy cannot produce. In particular the REASON guard: it is the
+// LRAT-safety guard of the whole mechanism (a deleted id must never reappear
+// in a chain), and under any legal backjump target the candidate's forced
+// literal sits at or above the conflict level and is therefore always
+// unassigned by the time we run — so DefaultPolicy reaches the guard zero
+// times and a "green because it never fired" test would be vacuous.
+static void test_eager_subsume() {
+  auto fresh = [](Kernel &k, uint32_t nvars) { kernel_reserve_vars(k, nvars); };
+
+  { // (a) a strictly smaller learned clause deletes the register entry
+    Kernel k;
+    fresh(k, 8);
+    const Lit big[4] = {internalize(1), internalize(2), internalize(3),
+                        internalize(4)};
+    const Ref victim = kernel_add_large_clause(k, big, 4, true, 4, 101);
+    const Lit small[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref fresh_ref = kernel_add_large_clause(k, small, 3, true, 3, 102);
+    k.eager_recent[0] = victim;
+    k.pending.valid = true;
+    k.pending.ref = fresh_ref;
+    k.pending.lits.assign(small, small + 3);
+    analyze_eager_subsume(k);
+    assert(k.stats.eager_tried == 1);
+    assert(k.stats.eager_subsumed == 1);
+    assert(clause_at(k.arena, victim)->garbage());
+    assert(k.eager_recent[0] == fresh_ref); // dead slot compacted, then insert
+    for (const uint8_t m : k.eager_marks)
+      assert(m == 0); // touched-restore left the scratch clean
+  }
+  { // (b) equal size / not contained / irredundant are all KEPT
+    Kernel k;
+    fresh(k, 8);
+    const Lit same[3] = {internalize(1), internalize(2), internalize(3)};
+    const Lit other[4] = {internalize(1), internalize(2), internalize(5),
+                          internalize(6)};
+    const Lit irr[4] = {internalize(1), internalize(2), internalize(3),
+                        internalize(4)};
+    const Ref r_same = kernel_add_large_clause(k, same, 3, true, 3, 101);
+    const Ref r_other = kernel_add_large_clause(k, other, 4, true, 4, 102);
+    const Ref r_irr = kernel_add_large_clause(k, irr, 4, false, 0, 103);
+    k.eager_recent[0] = r_same;
+    k.eager_recent[1] = r_other;
+    k.eager_recent[2] = r_irr;
+    k.pending.valid = true;
+    k.pending.ref = INVALID_REF; // a learned BINARY subsumes too
+    k.pending.lits = {internalize(1), internalize(2), internalize(3)};
+    analyze_eager_subsume(k);
+    assert(k.stats.eager_subsumed == 0);
+    assert(k.stats.eager_tried == 1); // only `other` is larger AND redundant
+    assert(!clause_at(k.arena, r_same)->garbage());
+    assert(!clause_at(k.arena, r_other)->garbage());
+    assert(!clause_at(k.arena, r_irr)->garbage());
+  }
+  { // (c) THE LRAT-SAFETY GUARD: a subsumed candidate that is still a trail
+    // reason is kept, and the deviation from kissat is counted
+    Kernel k;
+    fresh(k, 8);
+    const Lit big[4] = {internalize(1), internalize(2), internalize(3),
+                        internalize(4)};
+    const Ref victim = kernel_add_large_clause(k, big, 4, true, 4, 101);
+    kernel_assign_decision(k, internalize(-1));      // level 1
+    kernel_assign(k, internalize(4), 1, victim, false); // forced BY the victim
+    k.eager_recent[0] = victim;
+    k.pending.valid = true;
+    k.pending.ref = INVALID_REF;
+    k.pending.lits = {internalize(1), internalize(2), internalize(3)};
+    analyze_eager_subsume(k);
+    assert(k.stats.eager_tried == 1);
+    assert(k.stats.eager_reason_skipped == 1);
+    assert(k.stats.eager_subsumed == 0);
+    assert(!clause_at(k.arena, victim)->garbage()); // reason survived
+    assert(k.eager_recent[0] == victim);
+  }
+  { // (d) the register is reset by garbage collection — it holds raw Refs and
+    // the collect relocates every one (kissat_reset_last_learned)
+    Kernel k;
+    fresh(k, 8);
+    const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
+    const Lit b[3] = {internalize(4), internalize(5), internalize(6)};
+    const Ref dead = kernel_add_large_clause(k, a, 3, true, 3, 101);
+    const Ref live = kernel_add_large_clause(k, b, 3, true, 3, 102);
+    k.eager_recent[0] = live;
+    kernel_mark_garbage(k, clause_at(k.arena, dead));
+    kernel_collect_garbage(k); // `live` moves from offset 8 to offset 0
+    assert(k.eager_recent[0] == INVALID_REF);
+    kernel_check_invariants(k); // the stale-register assertion
+  }
+  { // (e) eager_subsume = 0 is byte-identical to not having the mechanism
+    Kernel k;
+    fresh(k, 8);
+    k.eager_subsume = 0;
+    const Lit big[4] = {internalize(1), internalize(2), internalize(3),
+                        internalize(4)};
+    const Ref victim = kernel_add_large_clause(k, big, 4, true, 4, 101);
+    k.eager_recent[0] = victim;
+    k.pending.valid = true;
+    k.pending.ref = INVALID_REF;
+    k.pending.lits = {internalize(1), internalize(2), internalize(3)};
+    analyze_eager_subsume(k);
+    assert(k.stats.eager_tried == 0 && k.stats.eager_subsumed == 0);
+    assert(!clause_at(k.arena, victim)->garbage());
+  }
+  { // (f) REACHABILITY under DefaultPolicy — the arm is not vacuous where it
+    // actually ships. Same random-3-SAT bed as the conflict-reuse test.
+    uint64_t subsumed = 0, tried = 0;
+    for (int seed = 1; seed <= 6; seed++) {
+      Kernel k;
+      ScopedHeuristics hg(k);
+      const uint32_t N = 90;
+      kernel_reserve_vars(k, N);
+      uint64_t rng = static_cast<uint64_t>(seed) * 0x9E3779B97F4A7C15ull + 1;
+      auto next = [&]() {
+        rng ^= rng >> 12;
+        rng ^= rng << 25;
+        rng ^= rng >> 27;
+        return rng * 0x2545F4914F6CDD1Dull;
+      };
+      for (int i = 0; i < 430; i++) {
+        Lit ls[3];
+        for (int j = 0; j < 3; j++) {
+          const Var v = static_cast<Var>(next() % N);
+          ls[j] = make_lit(v, (next() & 1) != 0);
+        }
+        if (var_of(ls[0]) == var_of(ls[1]) || var_of(ls[0]) == var_of(ls[2]) ||
+            var_of(ls[1]) == var_of(ls[2]))
+          continue;
+        kernel_add_large_clause(k, ls, 3, false, 0);
+      }
+      DefaultPolicy policy;
+      const int r = policy.solve(k);
+      assert(r == 10 || r == 20);
+      subsumed += k.stats.eager_subsumed;
+      tried += k.stats.eager_tried;
+    }
+    assert(tried > 0);
+    assert(subsumed > 0);
+  }
+}
+
 int main() {
   test_uip();
   test_conflictanalysis_atomic();
@@ -368,6 +509,7 @@ int main() {
   test_backjump_target_clamps();
   test_conflict_reuse_repairs_watches();
   test_conflict_reuse_under_default_policy();
+  test_eager_subsume();
   puts("test_analyze OK");
   return 0;
 }

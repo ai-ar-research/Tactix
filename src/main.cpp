@@ -308,6 +308,17 @@ int main(int argc, char **argv) {
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
   if (getenv("TACTIX_SUBST_HAZARD_ROUND"))
     kernel.subst_hazard_round = true; // A/B, see Kernel::subst_hazard_round
+  // SCHED-C6: eager subsumption of recently learned clauses ships ON at
+  // kissat's own default and maximum (`eagersubsume`=4, learn.c). `=0` is the
+  // A/B revert arm; 1..4 dose the register. Read HERE, not in DefaultPolicy,
+  // so the knob applies under --random-policy and the stress policies too — a
+  // knob the regression bed cannot toggle is not a usable arm.
+  if (const char *es = getenv("TACTIX_EAGER_SUBSUME")) {
+    const unsigned long n = strtoul(es, nullptr, 10);
+    kernel.eager_subsume = n > Kernel::EAGER_SUBSUME_SLOTS
+                               ? Kernel::EAGER_SUBSUME_SLOTS
+                               : (uint32_t)n;
+  }
   if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
     kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
   // A/B arm, read HERE rather than in DefaultPolicy so it applies under
@@ -411,6 +422,14 @@ int main(int argc, char **argv) {
     printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
            (unsigned long long)kernel.stats.otfs_strengthened,
            (unsigned long long)kernel.stats.otfs_subsumed);
+    // SCHED-C6 pre-registered readout: an arm of TACTIX_EAGER_SUBSUME whose
+    // `tried` is 0 did not test the mechanism, it skipped it.
+    printf("c eagersub    %llu subsumed of %llu tried (%llu kept as reason), "
+           "register %u\n",
+           (unsigned long long)kernel.stats.eager_subsumed,
+           (unsigned long long)kernel.stats.eager_tried,
+           (unsigned long long)kernel.stats.eager_reason_skipped,
+           (unsigned)kernel.eager_subsume);
     printf("c strengthen  %llu rounds, %llu strengthened, %llu subsumed, "
            "%llu flushed\n",
            (unsigned long long)kernel.stats.strengthen_rounds,
