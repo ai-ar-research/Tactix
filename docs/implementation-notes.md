@@ -281,6 +281,24 @@ mechanics*, not proof-rule guards:
     bound=eliminate-level rejects exactly the grids the arrangement exists to add; design §3.e "wire it"
     is measured-dead here). `TACTIX_FACTOR_BOUND_COUPLE=1` (DefaultPolicy, arrangement doses only) still
     selects the bound arm; the composite-dose env arm went in the negative-arm cleanup (`a7de35d`).
+- **Input clause normalization and the proof id space (N2, 2026-08-05, branch `frontend-dedup-n2`).** The
+  checker reads the ORIGINAL FILE and numbers its clauses 1..N by position, so input clause `i` must
+  carry proof id `i` and a chain citing `i` gets the file's clause — repeated literals and all. Checkers
+  hold a clause as a literal LIST: `-1 -1` is not unit for them, so the deduped clause we stored under
+  that id was not the clause they had, and any chain using it as a *propagating* antecedent was rejected
+  (`multiple literals unassigned` / `clause not empty or singleton after reduction`) — 1.5–4 % of UNSAT
+  fuzz cases, invisible to DRAT, which re-derives instead of citing. **Fix:** the deduped clause is
+  restated as its own one-antecedent RUP lemma (valid: negating it falsifies every literal of the file
+  form) and the stored id re-points to the lemma. The lemma id must exceed *every* input id and N is
+  unknown until the input ends, so `finish_input` (`frontend/parse.hpp`) **defers** the restatements —
+  and the parse-time refutation with them, which used to burn an id the checker had already given to a
+  later input clause. Deferral is why the fix needs no header count: CaDiCaL takes the same lemma shape
+  but reserves the input range from the declared `nCls` (`reserve_ids`, `add_new_original_clause`), which
+  we cannot, since our parser treats that count as advisory. The other normalizations were enumerated
+  and are NOT divergences — tautologies, duplicate units/binaries and post-refutation clauses consume
+  their id but record it nowhere, and literal order is never communicated (full list in `parse.cpp`).
+  Corpus 013 (unit shape) / 014 (general shape); `c input` counts restatements so the path's reachability
+  is measurable; report `benchmarks/reports/2026-08-05-input-clause-normalization-n2.md`.
 - **Input binary deduplication at parse (2026-07-25).** `ingest_clause` skips a binary whose pair is
   already stored (`binary_ids` lookup — nothing is deleted during parse, so presence ⟺ a live copy), the
   duplicate-unit precedent: id consumed, checker keeps its never-referenced input copy, no proof lines;

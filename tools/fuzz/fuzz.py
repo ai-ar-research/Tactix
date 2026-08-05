@@ -19,6 +19,7 @@ import argparse
 import concurrent.futures
 import json
 import os
+import re
 import resource
 import shlex
 import shutil
@@ -110,6 +111,19 @@ def lrat_verified(code, stdout):
         return False
     up = stdout.upper()
     return "NOT VERIFIED" not in up and "VERIFIED" in up
+
+
+_RESTATED_RE = re.compile(r"^c input\s+(\d+) clauses restated", re.M)
+
+
+def input_restated(stdout):
+    """How many input clauses the solver had to restate (repeated literals).
+
+    Reads the solver's own `c input` counter, so this measures the path at its
+    SOURCE rather than re-deriving it from the CNF. 0 when the leg runs the
+    solver with -q (no stats printed) — the standard legs do not."""
+    m = _RESTATED_RE.search(stdout or "")
+    return int(m.group(1)) if m else 0
 
 
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
@@ -251,6 +265,13 @@ def cmd_run(args):
     nfail = 0
     kinds_count = {}
     verdicts = {}
+    # REACHABILITY, counted at the source. A green leg proves nothing about a
+    # path no case reached ([[ab-arm-identical-artefacts]]); the solver prints
+    # `c input <n> clauses restated` for the frontend's input-normalization
+    # path, so tally how many cases actually had a degenerate input clause and
+    # report it next to the pass/fail counts. Add a line here for any other
+    # path whose coverage a leg is supposed to demonstrate.
+    reach = {"restated_cases": 0, "restated_unsat": 0}
     done = 0
     lock = threading.Lock()  # guards the counters + stdout
     stop = threading.Event()  # set once max_failures is reached
@@ -290,8 +311,13 @@ def cmd_run(args):
                 bundle = save_bundle(outdir, i, seed, name, cnf, outcome,
                                      solver, oracle, args.timeout, args.lrat,
                                      not args.no_shrink)
+        restated = input_restated(outcome.solver_out)
         with lock:
             verdicts[outcome.verdict] = verdicts.get(outcome.verdict, 0) + 1
+            if restated:
+                reach["restated_cases"] += 1
+                if outcome.verdict == "UNSAT":
+                    reach["restated_unsat"] += 1
             if outcome.failures:
                 nfail += 1
                 for k, _ in outcome.failures:
@@ -320,7 +346,9 @@ def cmd_run(args):
     vsummary = " ".join(f"{k}={verdicts[k]}" for k in sorted(verdicts))
     print(f"fuzz: {args.n} cases, {nfail} failures"
           + (f" {kinds_count}" if kinds_count else "")
-          + f" | verdicts: {vsummary}")
+          + f" | verdicts: {vsummary}"
+          + f" | reached: input-restated {reach['restated_cases']} cases"
+            f" ({reach['restated_unsat']} UNSAT)")
     return 1 if nfail else 0
 
 

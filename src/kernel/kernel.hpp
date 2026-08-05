@@ -98,6 +98,12 @@ struct Stats {
   uint64_t reason_bump_rounds = 0; // conflicts the reason-side pass ran on
   uint64_t reason_bump_aborted = 0; // rounds rolled back at the mark limit
   uint64_t api_decisions = 0; // externally chosen branches (N1)
+  // Input clauses whose FILE form repeated a literal and that we therefore had
+  // to restate under a fresh id (frontend/parse.cpp). Printed so "did this
+  // instance even reach the input-normalization path?" is answerable from a
+  // run — the Sweep N2 post-mortem's standing lesson is that a green leg over
+  // zero reachable cases proves nothing.
+  uint64_t input_restated = 0;
   // Decisions that landed on a Factor EXTENSION variable (vars >=
   // first_extension_var). Diagnostic: cadical's `factorunbump` (kissat's
   // adjust_scores_and_phases_of_fresh_varaibles) is worth an order of
@@ -522,6 +528,30 @@ struct Kernel {
   // clause negations, roots, or earlier-propagated literals)
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
   std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
+
+  // --- input normalization, deferred to end-of-input (N2) --------------
+  // An input clause whose FILE form repeats a literal is stored deduped, so
+  // id `i` names a different clause for us than for the checker (which reads
+  // the file). `ingest_clause` therefore records a RESTATEMENT here instead
+  // of citing `i`; `finish_input` (frontend/parse.hpp) emits each one as a
+  // one-antecedent RUP lemma and re-points the stored id. The restatement id
+  // must exceed EVERY input id, and input ids run 1..N with N unknown until
+  // the input ends — hence the deferral. See parse.cpp for the full
+  // enumeration of what can and cannot diverge.
+  struct InputRestatement {
+    uint64_t id;    // the file-position id; the lemma's sole antecedent
+    uint32_t begin; // slice of input_restate_lits (the deduped clause)
+    uint32_t size;
+    Ref ref; // large clauses only: the header to re-point
+  };
+  std::vector<InputRestatement> input_restatements;
+  std::vector<Lit> input_restate_lits;
+  // A refutation found DURING input (empty input clause / contradicting input
+  // units) is deferred for the same reason: emitting it mid-input would burn
+  // an id the checker has already given to a later input clause.
+  bool input_refuted = false;
+  uint64_t input_refutation_id = 0; // the refuting input clause
+  uint32_t input_refutation_var = UINT32_MAX; // its unit partner, if any
 
   Proof *proof = nullptr;
   Stats stats;

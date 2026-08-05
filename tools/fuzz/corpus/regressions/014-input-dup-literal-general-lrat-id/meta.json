@@ -1,0 +1,8 @@
+{
+  "seed": 187,
+  "generator": "random k-SAT with one injected repeated-literal clause of width >= 3 (hunt seed 187, 9 vars / 30 clauses), ddmin-shrunk to 6 clauses / 5 vars under the predicate `pre-fix answers UNSAT AND lrat-check rejects AND the rejected hint's FILE clause has >= 3 literals`",
+  "failure": "proof",
+  "solver_args": ["--lrat"],
+  "solver_env": {},
+  "diagnosis": "N2 BREACH in the DIMACS frontend, GENERAL (non-unit) shape -- the companion to entry 013, which covers the unit shape the original report found. Clause 4 is `-4 3 3 0`: ingest_clause dedupes it to the BINARY (3 v -4) and stores it under input id 4, while the checker holds a three-entry clause under that id. It rejects the moment a chain uses id 4 as a PROPAGATING antecedent for the duplicated literal (`multiple literals unassigned in hint 4: 3 3`), which is the normal case in conflict analysis: an antecedent propagates a literal that was resolved away and so is NOT in the lemma, hence not masked as falsified. A repeat that IS falsified at check time -- e.g. when the chain uses the clause as the CONFLICT, or when the duplicated literal is the lemma's own -- passes, which is why only some duplicate-carrying instances ever failed and why the whole class needed enumerating rather than patching the unit case. FIX (2026-08-05): see entry 013. THIS CASE: pre-fix lrat-check and cake_lpr both REJECT; post-fix the restatement `7 3 -4 0 4 0` precedes every chain through it and lrat-check, cake_lpr and drat-trim all verify. Report: benchmarks/reports/2026-08-05-input-clause-normalization-n2.md."
+}
