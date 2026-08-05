@@ -7,19 +7,24 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-04 late — **plan rev 80 (N4, the strategy floor, is now a non-negotiable)**. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run. **Also this session: an N2 defect FIXED** (LRAT unit ids missed off the root level, shipped in TB4b the same day — `52a4e8f`), the **N4 scheduling-parity ledger LANDED** (pass 1: 216 mechanisms, 132 gaps; **pass 2 = SCHED-A3's option-set enumeration, all 418 reference options, +15 gaps incl. 4 HIGH and 6 corrections to pass 1**) with **Track SCHED** staged, and an **OPEN N1 BREACH recorded** in `Factor` (`SCHED-N1FIX`, top of the queue).
 
-## ▶ RESUME HERE (2026-08-04 late) — phase 3; **next step = collect the Stage B gate (in flight)**
+## ▶ RESUME HERE (2026-08-05) — phase 3; **next = SCHED-C5/C6/C7, then Stage D; and S-f**
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**▶ IN FLIGHT — the STAGE B GATE, RESUBMITTED.** Same-window Tier B+C, pre-B1 (`build/pin-b1base`)
-vs Stage B (`build/pin-b1full`), both references, **pinned to node017 and instance-major**: Tier B
-Tier B array `1582923` **DONE** (window `20260804-223147-B-b1gate`), Tier C array `1583008` running. The FIRST submission (`1582685`/`1582754`) was cancelled —
-its Tier B half is unreadable, see the Log entry below. Separately `SP-BVE-GATE-1` (ITE/XOR gate
-extraction for BVE) runs its fuzz/reachability legs `1582860`/`1582871`/`1582875`/`1582878` **in a
-worktree, NOT on `main`**.
+**▶ DONE OVERNIGHT (all committed + pushed, ctest 42/42):** SCHED **B1–B5 complete AND MEASURED**
+(Tier B −13.23 / Tier C neutral, both deciders shown to be lotteries by paired draws) · SCHED **C1, C3,
+C4** · V5 Sweep **S-d and S-e** (Sweep is now a REGISTERED rule with a proof delta) · a new
+`tests/test_scheduling.cpp` · the aggregator now reports **single-instance sensitivity**.
 
-R5 Sweep S-c is **MERGED** (`452a853`, user directive): detector only, no registry line, verified
-no-effect (byte-identical proofs and trajectories) — it becomes load-bearing at S-d.
+**▶ NOT DONE — the honest remainder of the overnight ask:**
+- **S-f** (Sweep scheduling A/B + default decision) — NOT started. Sweep is registered but **NOT
+  scheduled**, so default runs are unchanged. This is now unblocked: Stage B is measured, so the meter
+  objection that gated it is gone.
+- **SCHED C2, C5, C6, C7** — not started. C2 is a *documentation* item (accepted-deviation row; the naive
+  port is measured negative 3× and must NOT be re-run).
+- **SCHED Stages D, E, F, G** (D1–D3, E1–E2, F1–F2, G1–G2) — not started.
+
+**▶ IN FLIGHT:** final fuzz legs `1583614` (random-policy+LRAT) / `1583615` (DRAT) on the asserting build.
 
 **WHERE WE STAND** (window `20260804-1543`, git `6018366`, idle partition, one submission each):
 **Tier B 86.51 (25/28)** vs kissat 9.78 and cadical 40.38 · **Tier C 309.05 (29/30)** vs kissat 230.74 and
