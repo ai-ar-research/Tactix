@@ -1,6 +1,8 @@
 // V5 Sweep · S-c: candidate selection + environment construction.
 // See sweep.hpp for the contract, the soundness argument (env ⊆ F) and the
 // deviation ledger; docs/design/v5-sweep-design.md §6.3 for the increment.
+#include "proof/proof.hpp"
+#include "rules/congruence/congruence.hpp"
 #include "rules/sweep/sweep.hpp"
 
 #include <algorithm>
@@ -488,5 +490,86 @@ SweepLimits sweep_limits_from_env() {
   u64("TACTIX_SWEEP_ROUND_TICKS", lim.round_ticks);
   return lim;
 }
+
+// ---- S-d: emission via strategy (a), the RUP fast path -------------------
+//
+// Detection (S-c) proves `a ≡ b` inside a small ENVIRONMENT, which is a subset
+// of F. That is a sound entailment, but an entailment is not a proof line: the
+// checker knows nothing of the environment. So we ask the main formula the same
+// question in the one form a checker accepts, RUP, using V6's replay primitive
+// rather than deriving a chain by hand (`congruence_rup_chain` — the chain comes
+// out in the checker's own propagation order by construction).
+//
+// This is DELIBERATELY the narrow path. An equivalence that is RUP over F is
+// "exactly the easy case sweep is not for" (design §4) — the interesting ones
+// need the sub-solver's core mapped back to main-formula ids, which is S-e. So
+// this is a fast path that lands detect -> emit -> checker end to end, and a
+// non-RUP equivalence is DECLINED (counted in `sweep_not_rup`), never emitted.
+//
+// BOTH directions must replay. `a ≡ b` is two binaries, and emitting one
+// without the other would state an implication the sub-solver did not prove on
+// its own. If either direction fails, the pair is skipped whole.
+//
+// The replay runs in DRAT mode too, even though DRAT needs no chain: here it is
+// not chain CONSTRUCTION but the RUP TEST itself, and a swept equivalence is not
+// RUP in general. Emitting an unchecked line would hand the checker something it
+// cannot verify — exactly the failure N2 exists to prevent.
+static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
+                             std::vector<uint64_t> &chain_fwd,
+                             std::vector<uint64_t> &chain_rev) {
+  if (a == b || a == negate(b))
+    return false; // degenerate: nothing to state, and not emittable
+  const Lit fwd[2] = {negate(a), b};
+  const Lit rev[2] = {a, negate(b)};
+  if (!congruence_replay_rup(k, fwd, 2, chain_fwd))
+    return false;
+  if (!congruence_replay_rup(k, rev, 2, chain_rev))
+    return false;
+  const bool lrat = k.proof && k.proof->lrat();
+  auto add = [&](const Lit *l, const std::vector<uint64_t> &ch) {
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, l, 2, lrat ? ch.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(ch.size()) : 0);
+    kernel_add_binary_clause(k, l[0], l[1], id);
+  };
+  add(fwd, chain_fwd);
+  add(rev, chain_rev);
+  k.stats.sweep_binaries += 2;
+  return true;
+}
+
+ApplyResult sweep_apply(Kernel &k) {
+  if (!sweep_guard(k))
+    return ApplyResult::NoOp;
+  SweepRound round;
+  const SweepLimits lim = sweep_limits_from_env();
+  const uint32_t found = sweep_detect_round(k, lim, round);
+  if (!found)
+    return ApplyResult::NoOp;
+  // A refuted environment means F itself is UNSAT; detection records it and the
+  // caller re-derives it through the normal root path rather than here, so S-d
+  // stays a pure clause-addition (proof delta: two `derive`s per pair).
+  if (k.inconsistent)
+    return ApplyResult::Unsat;
+  std::vector<uint64_t> chain_fwd, chain_rev;
+  bool any = false;
+  for (const SweepEquiv &e : round.found) {
+    if (k.level != 0 || k.conflict_valid)
+      break; // replay needs a quiescent root; stop rather than assert
+    if (congruence_binary_exists(k, negate(e.a), e.b) && congruence_binary_exists(k, e.a, negate(e.b))) {
+      k.stats.sweep_known++;
+      continue;
+    }
+    if (sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev))
+      any = true;
+    else
+      k.stats.sweep_not_rup++;
+  }
+  return any ? ApplyResult::Ok : ApplyResult::NoOp;
+}
+
+TACTIX_REGISTER_RULE(Sweep, RuleTier::Inprocess, sweep_guard, sweep_apply,
+                     nullptr, nullptr);
 
 } // namespace tactix

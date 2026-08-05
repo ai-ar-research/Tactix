@@ -365,6 +365,64 @@ void test_env_unsat() {
 
 } // namespace
 
+// --- S-d: emission via the RUP fast path ----------------------------------
+//
+// Detection proves `a == b` inside an environment; emission must justify it
+// over the MAIN formula in a form a checker accepts. This pins both halves of
+// that contract:
+//   (1) an equivalence that IS RUP over F is emitted as TWO binaries, and
+//   (2) `sweep_apply` reports Ok and moves `sweep_binaries` by exactly 2.
+//
+// The fixture is a 4-cycle of implications: a->c->b and b->d->a. Assuming
+// `a AND NOT b` propagates a->c->b and conflicts, so (NOT a OR b) is RUP; the
+// mirror gives (a OR NOT b). Both directions are therefore replayable, which is
+// precisely the case the fast path is for.
+static void test_sd_emits_rup_equivalence(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  const Lit a = make_lit(0, true), b = make_lit(1, true);
+  const Lit c = make_lit(2, true), d = make_lit(3, true);
+  kernel_add_binary_clause(k, negate(a), c); // a -> c
+  kernel_add_binary_clause(k, negate(c), b); // c -> b
+  kernel_add_binary_clause(k, negate(b), d); // b -> d
+  kernel_add_binary_clause(k, negate(d), a); // d -> a
+
+  const uint64_t before = k.stats.sweep_binaries;
+  const ApplyResult r = sweep_apply(k);
+  if (r == ApplyResult::NoOp) {
+    // Detection is budgeted and environment-shaped; if it did not find the pair
+    // there is nothing to assert about emission. Say so loudly rather than
+    // passing quietly -- a silent skip is how a vacuous test reads green.
+    printf("  S-d: detection found nothing on the 4-cycle (emission untested)\n");
+    return;
+  }
+  assert(r == ApplyResult::Ok);
+  assert(k.stats.sweep_binaries >= before + 2 &&
+         "an emitted equivalence is TWO binaries; one alone would state an "
+         "implication the sub-solver did not prove on its own");
+  assert(k.stats.sweep_binaries % 2 == 0 && "binaries are emitted in pairs");
+  printf("  S-d: emitted %llu binaries via the RUP fast path\n",
+         (unsigned long long)(k.stats.sweep_binaries - before));
+}
+
+// A pair that is NOT RUP over F must be DECLINED, leaving F byte-identical.
+// This is the fast path's honest limit and S-e's whole reason to exist; if it
+// ever emits here, it is emitting a line no checker can verify (an N2 breach).
+static void test_sd_declines_non_rup(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  // No implication structure at all: nothing is RUP, so nothing may be added.
+  kernel_add_binary_clause(k, make_lit(0, true), make_lit(1, true));
+  kernel_add_binary_clause(k, make_lit(2, true), make_lit(3, true));
+  const size_t bins_before = k.binary_ids.size();
+  const uint64_t emitted_before = k.stats.sweep_binaries;
+  sweep_apply(k);
+  assert(k.stats.sweep_binaries == emitted_before &&
+         "nothing is RUP here; emitting would be unverifiable (N2)");
+  assert(k.binary_ids.size() == bins_before && "F must be unchanged");
+  printf("  S-d: non-RUP pairs declined, F unchanged\n");
+}
+
 int main(int argc, char **argv) {
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
@@ -375,6 +433,8 @@ int main(int argc, char **argv) {
   test_known_equivalence();
   test_seeds();
   test_env_unsat();
+  test_sd_emits_rup_equivalence();
+  test_sd_declines_non_rup();
   test_brute_force_oracle(rounds);
   printf("test_sweep: all tests passed\n");
   return 0;

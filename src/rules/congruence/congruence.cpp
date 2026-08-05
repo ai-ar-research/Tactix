@@ -1270,6 +1270,16 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
 
 } // namespace — public rule entry points (header-declared) below
 
+// External-linkage forwarders for the two primitives V5 Sweep shares (S-d).
+// The implementations stay internal; only these names cross the TU boundary.
+bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
+                           std::vector<uint64_t> &chain) {
+  return congruence_rup_chain(k, lits, n, chain);
+}
+bool congruence_binary_exists(const Kernel &k, Lit a, Lit b) {
+  return binary_exists(k, a, b);
+}
+
 void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
                               bool with_xor_ite) {
   const size_t base = out.size();

@@ -197,6 +197,8 @@ struct Stats {
   uint64_t sweep_solves = 0;       // sub-solver solve() calls
   uint64_t sweep_candidates = 0;   // candidate-pair directions actually solved
   uint64_t sweep_equivalences = 0; // pairs PROVED equivalent (S-d/S-e emit these)
+  uint64_t sweep_binaries = 0;     // S-d: equivalence binaries ADDED with a proof
+  uint64_t sweep_not_rup = 0;      // S-d: equivalences declined (not RUP) -> S-e
   uint64_t sweep_known = 0;        // pairs the formula already states as binaries
   uint64_t sweep_env_unsat = 0;    // environments refuted outright (F is UNSAT)
   uint64_t sweep_budget = 0;       // solves abandoned on the tick budget
