@@ -734,7 +734,12 @@ register has the wrong schema. Fix the instrument before spending a tier window 
   nothing. · [x] **SCHED-C4 · split `TACTIX_REDUCE_SQRT` into cadence and ramp** `[wire]` — one env var
   moved both, so neither was ever priceable: a win could be the schedule, the deletion ramp, or one paying
   for the other. Now `TACTIX_REDUCE_CADENCE=sqrt|arith` and `TACTIX_REDUCE_RAMP=0|1`, with
-  `TACTIX_REDUCE_SQRT` kept as the compound alias so every banked number still reproduces. · [ ] **SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)** `[wire]`
+  `TACTIX_REDUCE_SQRT` kept as the compound alias so every banked number still reproduces. · [x] **SCHED-C5 ·
+  demote fresh extension vars** `[wire]` — landed 2026-08-05, **tier A/B owed** (see the Log). The
+  second half of the old title, "retire the invented gates (T4)", is **scoped out and NOT done**: of the
+  five T4 items two are refuted by the reference option set and one is misfiled (ledger §13.5 C7/C8),
+  and the three that survive are the binary-density family, whose retirement IS the broad-admission
+  experiment (verdict HOLD) — i.e. item **(b′) targeted admission**, not a Stage C wire.
 - [ ] **SCHED-C6 · eager subsumption of learned clauses** `[arch]` · [x] **SCHED-C7 · random decisions
   (`randec`)** `[arch]` — H-only, no proof delta. kissat ships `randec=1`/`randecfocused=1`/
   `randecstable=0`, so sequences run in FOCUSED mode only, start at level ≤1 past the conflict limit, and
@@ -861,6 +866,90 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-05 — SCHED-C5: fresh extension vars are demoted BY DEFAULT — and the port was reversed
+
+**Half 1 landed; the T4 half is scoped out, not done (below).** `Kernel::factor_demote_fresh` now
+defaults **TRUE**; `TACTIX_FACTOR_DEMOTE=0` is the off arm (inverted hatch, so every banked `=1` arm
+still reproduces). Pure **H**, no proof delta, no guard conjunct — no calculus entry, same category as
+Rephase/Reorder/`randec`.
+
+**Reference evidence, read at the use site.** kissat calls
+`adjust_scores_and_phases_of_fresh_variables` unconditionally at the end of every `run_factorization`
+(`factor.c:951`) and has **no option** for it (`grep unbump kissat/src/options.h` is empty). cadical
+gates it on `factorunbump`, whose default is **1** and whose help text reads *"[1: as in kissat]"*
+(`options.hpp:126`). So OFF was our invention, not a status quo either reference ships — the exact
+"ENV is the status quo, not the target" shape SCHED-A2's own note flagged.
+
+**▶ AND THE PORT WAS THE MIRROR IMAGE OF BOTH REFERENCES.** Our re-insert loop ran DESCENDING
+("preserving relative order"), which puts the OLDEST fresh var at the queue front; kissat walks
+`factoring->fresh` begin→end prepending each (`factor.c:867-882`, stack pushed in creation order at
+`:826`) and cadical `queue.bury`s in the same direction (`factor.cpp:799-802`), so in BOTH the NEWEST
+fresh var is the least preferred. This is not cosmetic: Factor adds 2,523 extension vars to `rbsat`'s
+760 originals, so the demoted block **is** most of the decision order there. Measured (release, serial,
+same box): demote-off **483,929 conflicts / 23.1 s** · demote-on with the old descending order
+**415,947 / 16.4 s** · demote-on ascending (= reference) **88,663 / 2.84 s**. The reversal made the knob
+nearly inert, so any pre-08-05 reading of `TACTIX_FACTOR_DEMOTE` measured a different mechanism.
+
+**Pre-registered source readout** (`c factor-dem`, counted at the demotion site, `stats.factor_demotions`
+/ `factor_demoted_vars`): `clique_n2_k10` 1 demotion / 99 fresh vars, `rbsat` 6 / 2,523 under the shipped
+default and **0 / 0** with `=0`, with different conflict counts in each arm — so the arms are not
+byte-identical and neither is skipped ([[ab-arm-identical-artefacts]]). The fuzz generator's own
+distribution reaches the path too, thinly: **18 of 245** verdict-reaching `--random-policy` cases demote.
+**Tier A/B still owed** — the ready-to-run spec is in the handoff; nothing here is a performance verdict.
+`check-config-wiring.py` keeps the row **ENV** (now honestly so: default-ON with an `=0` revert, the
+`retire_enabled` shape). Tagging it POLICY would only force a redundant assignment into
+`default_policy.*` — the fake wiring that test exists to expose.
+
+**Local fuzz at this commit** (in-process, `--jobs 2` each, the cluster queue is owned by another agent):
+regression corpus **11/0** both legs · `--random-policy --lrat` **4,000 cases / 0 failures**
+(SAT 2016 · UNSAT 1290 · TIMEOUT 694) · `--random-policy` native DRAT **4,000 cases / 3 failures**
+(SAT 2017 · UNSAT 1288 · TIMEOUT 695), all three the pre-existing bug below. Beyond fuzz, the demote path
+is proof-checked on a REAL instance where it actually fires: `clique_n2_k10` (99 factorings, 99 fresh
+vars demoted, 792 RAT lemmas in core) is `s VERIFIED` by drat-trim and `c VERIFIED` by lrat-check.
+
+**▶ AND THE FUZZ LEG FOUND A PRE-EXISTING N2 BUG THAT IS NOT THIS CHANGE'S — THE DRAT STREAM IS WRONG
+WHERE THE LRAT CHAINS ARE RIGHT.** `--random-policy` + native DRAT, **3 failures in 4,000** at the
+harness's default seed 20260709: indices **888** (`mut-n32-m147`), **2785** (`mut-n47-m216`) and
+**3296** (`mut-n46-m193`), all correct UNSAT verdicts whose proofs drat-trim rejects —
+on 888, `RAT check on proof pivot failed : 7 -3 0` → `RAT check failed on all possible pivots` →
+**`s NOT VERIFIED` at proof line 88 (modulo deletion errors)**; the other two are the same signature at
+a different line.
+**Not SCHED-C5**, three ways: case 888 reports **0 factorings / 0 demotions**; clean `d9fa5d1` binaries
+(built from `git archive`) reject on 888 **byte-identically** and on 2785 too; and all three reproduce
+with `TACTIX_FACTOR_DEMOTE=0`, which is behaviourally HEAD.
+**The localization is the useful part — a clean 2×2, measured on ALL THREE cases.**
+
+| | native DRAT | native LRAT |
+|---|---|---|
+| **DefaultPolicy** | PASSES | — |
+| **`--random-policy`** | **FAILS** (binary *and* `--no-binary` ASCII) | PASSES lrat-check |
+
+So the derivation is sound and its explicit antecedent chains are right; what is wrong is the **DRAT
+clause/deletion stream** under a non-default schedule — prime suspect a deletion emitted before a later
+RAT check still needs it (exactly the ordering E2's proof-δ note pins as "delete the grid LAST"). Sweep
+is heavy in the two cases whose stats were read (3 rounds / 6 equivalences and 11 rounds / 78
+equivalences) and is the R5 work in flight, so look there first.
+**And this is exactly why HEAD read green** (`ba00e8b`: random-policy+LRAT 4000/0, DRAT 10000/0): the
+only quadrant that fails is the one those two legs do not cover between them. The fuzz skill's own
+warning — *neither leg subsumes the other* — is now measured rather than asserted. **`--random-policy` ×
+native DRAT belongs in the standing per-commit set.**
+Reproduce in one command:
+`python3 tools/fuzz/fuzz.py run --solver "build/debug/tactix --random-policy" --n 900 --max-vars 100`
+(the harness auto-shrinks 888 to 92 clauses). **A rejected proof is release-blocking (§8.2 oracle 2), so
+this is the top open correctness item** — not promoted to `tools/fuzz/corpus/regressions/` yet, per that
+directory's own rule (promote once the bug is understood).
+
+**T4 SCOPING — nothing is free to retire here, and two of the five rows are wrong** (ledger §13.1 T4 +
+§13.5 **C7/C8**). `CONG_ARITY_LIMIT=64` is not invented: both references ship `congruenceandarity`
+(default **1e6**) and `congruencexorarity` (4, which we already match) — it is a 15,000× *value* gap,
+i.e. SCHED-G1 work. X4's `INST_CLSLIM`/`INST_OCCLIM` are cadical's `instantiateclslim`=3 /
+`instantiateocclim`=1 verbatim — nothing to retire. `VIVIFY_CLSLIM=100` has no reference twin but is a
+per-CANDIDATE cost bound, which is the shape T4 *prescribes*. What is left is the binary-density family
+(Factor's `factor_admit`, BVE's identical gate, the dormant `factor_scope_percent`) — and retiring
+Factor's is literally the broad-admission experiment, verdict **HOLD**
+(`2026-08-04-broad-factor-admission-retest.md`), whose live follow-up is **(b′) targeted admission**.
+Re-running it under a new name would have bought a number we already have.
 
 ### 2026-08-05 — S-f MEASURED: Sweep is a WASH once the fragile instances come out, and costs a Tier C solve
 

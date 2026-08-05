@@ -69,9 +69,10 @@ static void queue_restamp(Kernel &k) {
 }
 
 // Transliterated from kissat/src/factor.c
-// `adjust_scores_and_phases_of_fresh_varaibles` (MIT): the extension variables
-// a variable-ADDING rule creates (E2 Factor is our only one) must be the LEAST
-// attractive decision candidates, not the most.
+// `adjust_scores_and_phases_of_fresh_variables` (MIT), cross-checked against
+// cadical `factor.cpp:769` (same name, `queue.bury` per fresh literal): the
+// extension variables a variable-ADDING rule creates (E2 Factor is our only
+// one) must be the LEAST attractive decision candidates, not the most.
 //
 // The defect this repairs: heuristics_reserve_vars appends every new var at
 // `queue_last` ("most recent = preferred") — correct for the initial load and
@@ -93,8 +94,25 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first) {
     return;
   for (Var v = first; v < k.h->nvars; v++)
     queue_dequeue(k, v);
-  // Re-insert at the FRONT (least preferred), preserving relative order.
-  for (Var v = k.h->nvars; v-- > first;) {
+  // Re-insert at the FRONT (least preferred) in CREATION order, so the var
+  // created LAST ends up closest to `queue_first` and is therefore the least
+  // preferred of the whole block. Both references do exactly this and neither
+  // preserves relative order: kissat walks `factoring->fresh` begin->end
+  // prepending each (factor.c:867-882, stack pushed in creation order at
+  // :826), and cadical calls `queue.bury` per fresh literal in the same
+  // direction (factor.cpp:799-802; `bury` = prepend, queue.hpp:61).
+  // SCHED-C5, 2026-08-05: this loop used to run DESCENDING ("preserving
+  // relative order"), which put the OLDEST fresh var at the front — the exact
+  // mirror image of both references within the demoted block. It binds only
+  // once every ORIGINAL variable is assigned, which sounds rare and is not:
+  // Factor adds 2,523 extension vars to `rbsat`'s 760 originals, so the fresh
+  // block IS most of the decision order there. MEASURED (probe, 2026-08-05,
+  // release, same box): demote-off 483,929 conflicts / 23.1 s · demote-on with
+  // the old DESCENDING order 415,947 / 16.4 s · demote-on with this
+  // reference-faithful ASCENDING order **88,663 / 2.84 s**. The reversal made
+  // the knob nearly inert, so it is not cosmetic parity — any earlier reading
+  // of `TACTIX_FACTOR_DEMOTE` measured a different mechanism.
+  for (Var v = first; v < k.h->nvars; v++) {
     Link &l = k.h->links[v];
     l.prev = UINT32_MAX;
     l.next = k.h->queue_first;
@@ -104,6 +122,9 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first) {
       k.h->queue_last = v;
     k.h->queue_first = v;
   }
+  // Reachability, counted at the site (see Kernel::Stats::factor_demotions).
+  k.stats.factor_demotions++;
+  k.stats.factor_demoted_vars += k.h->nvars - first;
   queue_restamp(k); // renumber in queue order + reset the search cache
 }
 

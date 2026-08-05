@@ -279,8 +279,11 @@ int main(int argc, char **argv) {
   // (winners and losers sit at the same scope fraction — 2026-07-31).
   if (const char *fb = getenv("TACTIX_FACTOR_BOUND"))
     kernel.factor_bound = (uint32_t)strtoul(fb, nullptr, 10);
-  if (getenv("TACTIX_FACTOR_DEMOTE"))
-    kernel.factor_demote_fresh = true;
+  // SCHED-C5: ships ON (reference parity, ledger SP-FACTOR-2). The hatch is
+  // now INVERTED — `=0` turns demotion off for the A/B arm, `=1` (every banked
+  // pre-08-05 arm) still means on. See Kernel::factor_demote_fresh.
+  if (const char *fd = getenv("TACTIX_FACTOR_DEMOTE"))
+    kernel.factor_demote_fresh = (*fd != '0');
   if (const char *cr = getenv("TACTIX_FACTOR_CAND_ROUNDS"))
     kernel.factor_cand_rounds = (uint32_t)strtoul(cr, nullptr, 10);
   if (getenv("TACTIX_NO_EXT_DECISIONS"))
@@ -554,6 +557,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.factorings,
            (unsigned long long)kernel.stats.factor_large_remainders,
            (unsigned long long)kernel.stats.factor_ticks);
+    // SCHED-C5 pre-registered readout: an arm of TACTIX_FACTOR_DEMOTE whose
+    // `demoted` count is 0 was not tested ([[ab-arm-identical-artefacts]]).
+    printf("c factor-dem  %llu demotions, %llu fresh vars demoted\n",
+           (unsigned long long)kernel.stats.factor_demotions,
+           (unsigned long long)kernel.stats.factor_demoted_vars);
     printf("c bve         %llu rounds, %llu eliminated, %llu resolutions\n",
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
