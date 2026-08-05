@@ -9,10 +9,26 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = find out what Sweep's governor is costing T3**
 
-**Tree clean, pushed, ctest 43/43, corpus 14/14.** In flight: fuzz jobs **`1584460`** (random-policy ×
-native DRAT) and **`1584461`** (× native LRAT), 6000 cases each against `build/pin-wrapfuzz` — the first
-fuzz of the *merged* combination of this session's five branches. **Check them before trusting HEAD**
-(`tools/fuzz/slurm-wrapfuzz-*.log`); every constituent branch was green on its own.
+**Tree clean, pushed, ctest 43/43, corpus 14/14.**
+
+**▶▶ THE MERGED-TREE FUZZ RUN'S 38 "LRAT" FAILURES ARE NOT OURS — HEAD IS NOT FUZZ-RED.** Job `1584461`
+was **not** a native-LRAT leg: its solver argv has no `--lrat`, so it ran native **DRAT** (which
+drat-trim VERIFIED) plus the harness's `drat-trim -L` → `lrat-check` **conversion cross-check**, and that
+is what rejected. **kissat's and cadical's own DRAT proofs are rejected identically on the same CNFs,
+byte-identical message**, while our native LRAT verifies on every one under both `lrat-check` and
+`cake_lpr`. Cause: drat-trim's parser deletes duplicate literals as it reads the CNF and `-L` then cites
+input clauses by id, while lrat-check re-reads the undeduped file (and, second class, an input empty
+clause makes `-L` write a zero-byte proof). Both are checker-vs-checker disagreements. Fixed **in the
+harness**: `conversion_crosscheck_unsound()` stands the cross-check down on exactly those two classes and
+`fuzz.py` reports `oracles skipped: {...}` per leg so it can never vanish quietly; the native-LRAT oracle
+is deliberately NOT gated. `selftest.sh` pins all of it — and its own `expect_clean kissat` arm was red
+for the same reason until now (masked by the pre-`lrat_verified()` oracle). Report:
+`benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md`. **Re-verified at two seeds: six legs,
+6000 cases each, jobs `1584462`–`1584467`, ALL 0 failures** — including seed `20260709`, the exact
+population that produced the 38, with the restatement path reached by **1321 of 1916 UNSAT answers**.
+Two seeds is now the standing expectation for a proof-path change: one seed is not a population.
+The skip counter also sizes what was being lost — **~1475 of 6000 cases (25 %)** were dropping the
+conversion cross-check silently before this.
 
 **Where we stand.** Tier B **70.71 (26/28)** · Tier C **419.91 (28/30)** vs kissat 228.45 / cadical 312.27
 (window `20260805-115039-C-c5`, git `0418770`, node017-pinned). **T3 is NOT met on either half and BOTH
@@ -919,6 +935,49 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-05 — the merged tree's 38 "LRAT" failures are drat-trim's CONVERTER, not our emitter
+
+Report `benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md`. Reopened against the frontend
+N2 fix; **the fix is complete for what it covers and HEAD is not fuzz-red on native LRAT.**
+
+**The leg was mislabeled.** Job `1584461`'s solver argv is `[tactix, --random-policy]` — no `--lrat` — so
+it ran native **DRAT** (drat-trim: VERIFIED) plus the harness's `drat-trim -L` → `lrat-check` cross-check.
+`fuzz.py` has two LRAT oracles with two messages, and the bundles carry the *conversion* one
+(`lrat-check rejected the LRAT proof`, not `... the native LRAT (exit N)`).
+
+**Decisive experiment.** On the failing CNF, **kissat's and cadical's own DRAT proofs are rejected by the
+same pipeline with the byte-identical message** (`multiple literals unassigned in hint 161: 80 80`; file
+clause 161 is `80 80 0`), while our native LRAT verifies under `lrat-check` AND `cake_lpr`. Three
+solvers, one rejection — the proof is not the variable. Five-clause auditable reproducer in the report.
+
+**Mechanism, in the checkers' source.** (1) drat-trim's parser sorts and DELETES duplicate literals as it
+reads the CNF (`drat-trim.c parse()`), so it holds `80 80` as a unit and passes; `-L` cites input clauses
+BY ID; lrat-check re-reads the undeduped file and cannot propagate that id. Same *shape* as the frontend
+breach, with drat-trim's converter in the producer role. (2) An input empty clause makes `-L` emit a
+**zero-byte** proof → `Verification incomplete`. Both solver-independent. Tautologies, duplicate clauses
+and plain UNSAT are fine — measured, so the predicate stays narrow.
+
+**Fixed in the harness, not the solver.** `conversion_crosscheck_unsound()` returns a reason for exactly
+those two classes and `run_case` skips the cross-check **visibly**: new counted `CaseOutcome.skips`,
+surfaced as `oracles skipped: {'lrat-convert': N}` per leg and in `check-one`. The **native-LRAT oracle is
+deliberately not gated** — it reads ids our own emitter wrote and is what covers the frontend restatement.
+`selftest.sh` pins the skip, the fact that the underlying disagreement is real (so the skip cannot outlive
+its reason), and that the native oracle still fires; its own `expect_clean kissat` arm had been red on
+this since `lrat_verified()` landed.
+
+**No corpus entry, deliberately.** The contract is a case that FAILS on the current binary; here the
+binary is correct and the rejected artifact is produced by `drat-trim -L`. The invariant worth protecting
+is the oracle's, so it lives in `selftest.sh`.
+
+**Gates.** Both bundles stop reproducing on `min.cnf` and `case.cnf` at the recorded seed, with the native
+oracle passing and the path live (`c input 10` / `c input 6` restated — not vacuous); `cake_lpr`
+`s VERIFIED UNSAT` on all four. `selftest.sh` green (its kissat/cadical arms included). ctest 43/43,
+corpus 14/14. Fuzz **at two seeds** (`20260709`, the one that produced the report, and `20260805`),
+6000 cases each, **six legs, all 0 failures** — jobs `1584462`–`1584467`; on the decisive leg the
+restatement path is reached by 1321 of 1916 UNSAT answers. **Two seeds is now the expectation for a
+proof-path change** — the frontend branch was validated at one, which is how a whole case population
+went unexamined.
 
 ### 2026-08-05 — SCHED-C5 PRICED: neutral on both tiers, ships ON on parity; and T3 regressed hard
 
