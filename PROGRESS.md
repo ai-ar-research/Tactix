@@ -254,6 +254,17 @@ shipped 67.49 (25/27) vs broad 30.70 (27/27).
 **1.346 → 1.500×** (cadical 1.069 → 1.191×) — which is what decides item (a) independently of the
 solve count.
 
+**▶ AND A THIRD BAR: ARMS MAY NOT SHARE A NODE (found 2026-08-04 while adding the oracle column).**
+Array task index is `arm × n_instances + instance`, so SLURM fills nodes in INDEX order and **arm 0 lands
+systematically on one node**. Measured in `20260804-165514-B`: `shipped` ran **28/28 on node017** while
+`facon` split 17/11 and `facoff` 19/9. So a small within-window arm delta can carry a node/contention
+artefact — and `shipped` was the strict per-instance best on 12/28 there, typically by 1–6 %.
+**The 6.72 floor is NOT contaminated** — its three bit-identical arms ran **30/30 on node017**, so it is a
+SAME-NODE bar. That is the uncomfortable part: **6.72 may UNDERSTATE the noise for a comparison whose arms
+straddle nodes.** Before believing a within-window delta under ~2 floors, check the `node` field per arm in
+`results.json`. Proper fix (unfiled, needs the runner): interleave task indices so every arm is spread
+across nodes identically.
+
 **▶ WITHIN-WINDOW vs ACROSS-WINDOW ARE DIFFERENT BARS, and the second is BIGGER (measured 2026-08-04).**
 The 6.72 floor is between bit-identical arms *inside one window*. **Across windows the same shipped solver
 moved 12.23 PAR-2**: Tier C **309.05** (`20260804-154341`) vs **296.82** (`20260804-165516`) — two runs the
