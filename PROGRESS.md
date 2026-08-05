@@ -11,12 +11,12 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**▶ IN FLIGHT — the STAGE B GATE.** Same-window Tier B+C, pre-B1 (`build/pin-b1base`) vs Stage B
-(`build/pin-b1full`), both references. Tier B array `1582685` is DONE (window
-`20260804-221715-B-preB1`, not yet read into the tables below); Tier C array `1582754` +
-aggregate `1582755` still running. Separately, `SP-BVE-GATE-1` (ITE/XOR gate extraction for BVE) is
-running its fuzz/reachability legs (`1582860`, `1582871`, `1582875`, `1582878`) **in a worktree, NOT on
-`main`**.
+**▶ IN FLIGHT — the STAGE B GATE, RESUBMITTED.** Same-window Tier B+C, pre-B1 (`build/pin-b1base`)
+vs Stage B (`build/pin-b1full`), both references, **pinned to node017 and instance-major**: Tier B
+array `1582923`, Tier C array `1583008`. The FIRST submission (`1582685`/`1582754`) was cancelled —
+its Tier B half is unreadable, see the Log entry below. Separately `SP-BVE-GATE-1` (ITE/XOR gate
+extraction for BVE) runs its fuzz/reachability legs `1582860`/`1582871`/`1582875`/`1582878` **in a
+worktree, NOT on `main`**.
 
 R5 Sweep S-c is **MERGED** (`452a853`, user directive): detector only, no registry line, verified
 no-effect (byte-identical proofs and trajectories) — it becomes load-bearing at S-d.
@@ -940,6 +940,47 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-04 late — ▶▶ THE RUNNER WAS MANUFACTURING A CONFOUND: arm identity correlated with NODE
+
+The Stage B gate's Tier B half (window `20260804-221715-B-preB1`) came back a regression — pre-B1
+**88.37 (25/28)** vs Stage B **106.12 (24/28)**, a lost solve. It cannot be read, and the reason is the
+instrument, not Stage B. (kissat 9.89 28/28, cadical 40.69 27/28 in the same window.)
+
+The lost solve is `mod4block`, which is IN THE MAY-NOT-GATE SET, so the headline is inadmissible on its
+face. Ex-`mod4block` the run is **−66.78** — a Stage B win. But drop that subset's single biggest mover
+too and it is **+14.65**. Sign flips on which one instance you remove, in both directions. That alone
+means no verdict.
+
+**Then the node column explained it.** `tools/bench/run.py` built its array SOLVER-MAJOR — `for si: for
+rel:` — so arm 0 owns task indices 0..N-1 and SLURM packs it onto whichever node it fills first, spilling
+later arms elsewhere. Arm `preB1` ran **28/28 on node017**; arm `stageB` ran **21 on node017 and 7 on
+node018**. And the sign of the delta tracked the NODE, not the arm:
+
+| subset | n | Stage B delta |
+|---|---|---|
+| same-node, ex-`mod4block` | 20 | **+52.82** (Stage B worse) |
+| cross-node (`stageB` on node018) | 7 | **−119.60** (Stage B better) |
+
+Every visible cross-node pair favours the node018 arm, including the two largest magnitudes in the whole
+run (−81.43, −27.55). The mechanism is not exotic silicon — `sinfo` mid-run: **node017 60/132 cores
+allocated, node018 6/186**. The spilling arm got the quiet machine and won instances it did not earn.
+
+This is not a Stage B problem; it is a defect in every multi-arm run the runner has ever produced this
+way, and it is invisible unless you look at `node`, which nothing did. It also explains why the recorded
+**6.72 PAR-2 floor understates real noise**: those three bit-identical arms all ran on node017, so the
+floor never priced cross-node contention at all — PROGRESS already suspected this and now has the
+mechanism.
+
+**Fixed, two ways.** (1) Task order is now INSTANCE-MAJOR, so an arm spreads over all nodes evenly and one
+instance's arms are adjacent in dispatch. Safe because the aggregator resolves arms through
+`man["solvers"][t["solver"]]`, never index arithmetic. (2) New `--nodelist`, and A/B runs should use it:
+pinning every arm to one node makes them contend alike AND makes the run directly comparable to the 6.72
+floor, which was measured all-on-node017.
+
+The first Stage B submission (`1582685`/`1582754`) is cancelled; resubmitted pinned and interleaved as
+`1582923` (B) / `1583008` (C). No Stage B verdict is recorded from the confounded window — the numbers
+above are evidence about the INSTRUMENT, not about B1.
 
 ### 2026-08-04 late — the BVE ramp ceiling's stated warrant was RETRACTED evidence; the constant stays, the reason changes
 
