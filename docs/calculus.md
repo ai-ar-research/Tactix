@@ -160,8 +160,10 @@ conjunct.
 - **Precondition (abstract):** ∃ live irredundant clauses `d ⊆ c` (modulo the `F`-entailed root units)
   with `d` subsuming `c`.
 - **Effect:** delete each subsumed `c`. Proof δ: `del` only.
-- **Soundness:** `d ⊨ c`, so `F ≡ F \ {c}` while `d` lives. Binary subsumers need no redundancy check —
-  see the V4 equivalence-preservation argument.
+- **Soundness:** `d ⊨ c`, so `F ≡ F \ {c}` while `d` lives, and `d ∈ F` (irredundant) is what closes the
+  argument *at the deletion*: only a FORGETTABLE (redundant) subsumer could later vanish with neither
+  entailment nor a `ρ` witness. Binary subsumers satisfy it structurally — binaries have no redundant
+  lifecycle, so none can be forgotten (`implementation-notes.md` §14).
 
 ### C2 · Strengthen
 - **Precondition (abstract):** ∃ `c,d` resolving on exactly one variable so the resolvent `c′ ⊂ c`
@@ -171,6 +173,8 @@ conjunct.
   + root-falsified strips). The round is *fused* subsume-or-strengthen, so it also takes C1's inference
   when the resolvent subsumes outright — that branch is **`del` with no add**.
 - **Soundness:** `c′` is RUP from `c` and `d`; add-before-delete keeps the core entailed at every step.
+  The fused SUBSUMED branch is C1's inference and inherits its argument, binary partners included
+  (`implementation-notes.md` §14).
 
 ### C3 · Vivify
 - **Precondition (abstract):** ∃ a tier-scoped clause `c` whose distillation by propagation proves a
