@@ -226,6 +226,32 @@ static uint64_t scale_inprocessing_delta(const Kernel &k, uint64_t delta) {
 // probing_ticks are the same idea.
 namespace {
 
+// SCHED-B2: PRIVATE per-rule meters. These four used to read `k.stats.ticks`,
+// the GLOBAL propagation counter, so an earlier slot entry spent the budget a
+// later one had been handed and a starved entry was indistinguishable from an
+// idle one. Each now reads only its own charges, accumulated through
+// `Kernel::tick_sink` while the policy has it scoped around that rule's apply.
+// SCHED-B2: scope the kernel's tick sink to ONE rule's apply. RAII because the
+// apply paths return early and throw-free is not the same as return-free — a
+// leaked sink would silently charge the NEXT rule's propagation to this one,
+// which is the exact misattribution this item exists to remove.
+struct TickSinkScope {
+  Kernel &k;
+  TickSinkScope(Kernel &kk, uint64_t Stats::*ctr) : k(kk) {
+    k.tick_sink = ctr ? &(k.stats.*ctr) : nullptr;
+  }
+  ~TickSinkScope() { k.tick_sink = nullptr; }
+  TickSinkScope(const TickSinkScope &) = delete;
+  TickSinkScope &operator=(const TickSinkScope &) = delete;
+};
+
+uint64_t meter_probe(const Kernel &k) { return k.stats.probe_ticks; }
+uint64_t meter_backbone(const Kernel &k) { return k.stats.backbone_ticks; }
+uint64_t meter_vivify(const Kernel &k) { return k.stats.vivify_ticks; }
+uint64_t meter_instantiate(const Kernel &k) { return k.stats.instantiate_ticks; }
+// The GLOBAL counter still exists and is still the right reference for
+// SEARCH-relative windows (`search_ticks`, the mode limits) — it is only wrong
+// as a per-rule SPEND meter.
 uint64_t meter_ticks(const Kernel &k) { return k.stats.ticks; }
 uint64_t meter_bve(const Kernel &k) { return k.stats.bve_resolutions; }
 uint64_t meter_strengthen(const Kernel &k) { return k.stats.strengthen_checked; }
@@ -286,13 +312,18 @@ struct EffortSpec {
   bool dosed;
   bool retry_advice;
   bool budget_aware;
+  // SCHED-B2: the private tick counter the policy scopes around this rule's
+  // apply, for the entries whose currency is kernel propagation ticks. Null
+  // where the rule charges its own counter (Factor, BCE, HTR, TransitiveReduce)
+  // or where the currency is not ticks at all (BVE, C1/C2).
+  uint64_t Stats::*tick_counter = nullptr;
 };
 constexpr EffortSpec EFFORT_SPECS[] = {
     {"BVE", 100, meter_bve, true, true, false},
-    {"Probe", 20, meter_ticks, true, false, false},
-    {"Backbone", 20, meter_ticks, true, false, false},
+    {"Probe", 20, meter_probe, true, false, false, &Stats::probe_ticks},
+    {"Backbone", 20, meter_backbone, true, false, false, &Stats::backbone_ticks},
     {"TransitiveReduce", 20, meter_transitive, true, false, false},
-    {"Vivify", 100, meter_ticks, false, false, true},
+    {"Vivify", 100, meter_vivify, false, false, true, &Stats::vivify_ticks},
     // budget_aware since 2026-08-03 (ledger D-STRENGTHEN-BUDGET). These were
     // the only two specs with dosed=false AND budget_aware=false, i.e. the
     // 100 per mille bounded how OFTEN a round started and never how much one
@@ -331,7 +362,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // ticks (C3 Vivify's) and the rate is the cheap-probing-family 20 —
     // Probe/Backbone/TransitiveReduce. BATCH + budget_aware for the round-2
     // reason: the round builds one occurrence-count pass up front.
-    {"Instantiate", 20, meter_ticks, false, false, true},
+    {"Instantiate", 20, meter_instantiate, false, false, true, &Stats::instantiate_ticks},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -597,6 +628,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (const EffortSpec *s = effort_spec(nm)) {
             e.permille = s->permille;
             e.meter = s->meter;
+            e.tick_counter = s->tick_counter;
             e.dosed = s->dosed;
             e.retry_advice = s->retry_advice;
             e.budget_aware = s->budget_aware;
@@ -1175,7 +1207,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 if (stop && *stop)
                   break; // §6: a dose can enumerate thousands of candidates
                 const ApplyResult ar =
-                    apply_rule_instance(r, k, inprocess_payloads_[i]);
+                    [&] {
+                      TickSinkScope sink(k, e.tick_counter);
+                      return apply_rule_instance(r, k,
+                                                 inprocess_payloads_[i]);
+                    }();
                 if (ar == ApplyResult::Unsat || k.inconsistent) {
                   phase_unsat = true;
                   break;
@@ -1307,7 +1343,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             k.vivify_scope = 1;
             k.work_budget =
                 irr_delayed ? remaining : std::max<uint64_t>(1, remaining * 7 / 10);
-            ar = apply_rule(r, k);
+            {
+              TickSinkScope sink(k, e.tick_counter);
+              ar = apply_rule(r, k);
+            }
             // irredundant pass (delay-gated, ratio-tracked on ITS deltas)
             if (!irr_delayed && ar != ApplyResult::Unsat && !k.inconsistent) {
               const uint64_t spent = e.meter(k);
@@ -1470,7 +1509,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               }
             }
             k.work_budget = handed;
-            ar = apply_rule(r, k);
+            {
+              TickSinkScope sink(k, e.tick_counter);
+              ar = apply_rule(r, k);
+            }
             k.work_budget = 0;
             k.factor_admit = true; // advice is per-occasion; default is NO restriction
             k.factor_composite = false;
@@ -1495,7 +1537,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               e.root_fixed_mark = kernel_root_fixed(k);
             }
           } else {
-            ar = apply_rule(r, k);
+            {
+              TickSinkScope sink(k, e.tick_counter);
+              ar = apply_rule(r, k);
+            }
           }
           if (!e.meter) {
             e.binaries_mark = k.binary_ids.size();
@@ -1586,6 +1631,16 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
   // finishes early and its per-mille is not the binding constraint; ~1 with
   // `completed` far below `admitted` means it is being CUT mid-round and its
   // budget IS binding. `dec_budget` counts occasions it never started at all.
+  // SCHED-B2 reachability: the private counters must actually accumulate.
+  // If these are zero the per-rule meters are INERT and every rule that
+  // budgets on them is silently unbudgeted -- a green run proves nothing.
+  std::printf("c meters      probe %llu backbone %llu vivify %llu "
+              "instantiate %llu | global ticks %llu\n",
+              (unsigned long long)k.stats.probe_ticks,
+              (unsigned long long)k.stats.backbone_ticks,
+              (unsigned long long)k.stats.vivify_ticks,
+              (unsigned long long)k.stats.instantiate_ticks,
+              (unsigned long long)k.stats.ticks);
   const std::vector<RuleVTable> &rules = tactix_rules();
   for (const SlotEntry &e : inprocess_slot) {
     const SlotEntry::Telem &t = e.tm;
@@ -1615,7 +1670,6 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
         (unsigned long long)t.dec_nonviable, (unsigned long long)t.handed,
         (unsigned long long)t.spent, (unsigned long long)t.completed, balance);
   }
-  (void)k;
 }
 
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {

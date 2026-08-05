@@ -166,6 +166,10 @@ struct Stats {
   uint64_t transitive_checked = 0; // candidate edges walked (V4)
   uint64_t bce_rounds = 0;         // X1 rounds that deleted something
   uint64_t bce_deleted = 0;        // blocked clauses deleted (witnessed)
+  uint64_t probe_ticks = 0;        // V1's own propagation ticks (SCHED-B2)
+  uint64_t backbone_ticks = 0;     // V2's own (SCHED-B2)
+  uint64_t vivify_ticks = 0;       // C3's own (SCHED-B2)
+  uint64_t instantiate_ticks = 0;  // X4's own (SCHED-B2)
   uint64_t bce_ticks = 0;          // occurrences + pairs scanned — X1's budget
                                    // currency for a policy (deviation 3)
   uint64_t instantiate_rounds = 0;  // X4 rounds that strengthened something
@@ -224,15 +228,21 @@ struct Stats {
   // literals those classes cost — the per-SCC skip's yield.
   uint64_t substitute_hazard_partial = 0;
   uint64_t substitute_hazard_lits = 0;
-  // R-d reachability (L22): deactivations actually performed, and how many of
+  // R-d reachability: deactivations actually performed, and how many of
   // those variables were later RE-INSERTED into a ranking structure (which
-  // would silently undo the deactivation).
+  // would silently undo the deactivation). Counted at the site itself, because
+  // without a counter AT the site a reading of 0 cannot tell "never fired" from
+  // "never measured" — task #10's abort paths passed 4 x 10,000 fuzz cases
+  // while being unreachable on every case the harness generates.
   uint64_t deactivations = 0;
   uint64_t reactivations = 0;
   // Inprocessing PHASES run by the policy (each = a root descent + one dose per
   // enabled technique). Counted in the kernel so it survives into the stats
-  // block: L7's open question is whether repeated-BVE cost tracks this number
-  // rather than the work inside a phase, and that is unanswerable without it.
+  // block: repeated during-search BVE's cost is search-TRAJECTORY damage, not
+  // per-phase work (dosing with no admission at all costs +192.67 Tier C PAR-2
+  // and three solves while BVE's own runtime stays ~0.1 %), so the open
+  // question is whether that cost tracks the phase COUNT rather than the work
+  // inside a phase — unanswerable without this counter.
   // Chronological backtracking (TB4). Both were absent for the first chrono
   // experiment, which is why a pathology that dropped conflicts outright was
   // invisible in a full Tier B run: `chronological` counts chrono targets taken,
@@ -624,9 +634,11 @@ struct Kernel {
   // it costs `sted5` a solve (600 TO -> 2.4 s), klieber 118.4 -> 6.5 and b22_1
   // 40.9 -> 10.5. Density is a proxy for "elimination is safe here" that is
   // false on every sparse instance in the tier. The DIRECT signal is cost per
-  // yield: L10's forced doses on mod4block are 34 eliminations for 3.53 M
-  // resolutions (~104,000 EACH) with the candidate set never shrinking, an
-  // outlier no productive instance shows.
+  // yield. What SUGGESTED it: under forced doses `mod4block` spends 3.53 M
+  // resolutions on 34 eliminations (~104,000 EACH), an outlier no productive
+  // instance shows — a counter reading, and taken on an instance whose own wall
+  // time ranges 4.36 s to timeout under a stock kissat, so it motivates the
+  // metric and cannot validate it.
   // V4 TransitiveReduce: exit the reachability walk as soon as `dst` is reached
   // (kissat transitive.c:130). Ships FALSE — deviation 3 in
   // transitive_reduce.hpp runs each walk to exhaustion so the failed-literal
@@ -753,7 +765,10 @@ struct Kernel {
   // its 8.81 % on sted5 — i.e. DISCRIMINATION, not suppression.
   bool no_ext_reason_bump = false;
   // A/B knob for the 2026-08-01 V3 hazard fix (`TACTIX_SUBST_HAZARD_ROUND=1`):
-  // restore the OLD per-ROUND skip, so both arms come from one binary (L6).
+  // restore the OLD per-ROUND skip, so both arms come from one binary and are
+  // comparable in ONE window — a delta read across windows is not readable
+  // (this same solver, at documentation-only-different commits, scored Tier C
+  // 309.05 and 296.82 in two idle windows on one day).
   // Default false = the per-SCC skip. Diagnostic only; the per-SCC form is the
   // fix, and the per-round form is what wasted all 179,110 of veer_axi's
   // equivalences by losing 5 of 5 rounds to 284 poisoned literals in 406,256.
@@ -840,6 +855,28 @@ struct Kernel {
   // complete surface. Sound at any value: declining an application is always
   // sound, and forcing one is what the rule would have done anyway.
   bool factor_admit = true;
+  // SCHED-B2 — PRIVATE PER-RULE TICK METERING.
+  //
+  // `stats.ticks` is the GLOBAL propagation counter, and four slot entries
+  // (Probe, Backbone, Vivify, Instantiate) budget against it. Both references
+  // keep PRIVATE per-technique counters instead, and the difference is not
+  // cosmetic: with one shared meter an earlier slot entry spends the budget a
+  // later one was handed, and nothing distinguishes "this rule was STARVED"
+  // from "this rule ran and found nothing". Measured on `sted5` before this
+  // change: Instantiate and Vivify were budget-declined on 22 occasions of 33.
+  //
+  // When non-null, every kernel tick charge is added HERE as well as to
+  // `stats.ticks`. Pure accounting: the kernel never reads it, no guard
+  // consults it, and no `instances()`/`apply` branches on it, so a null sink
+  // (every caller except DefaultPolicy) is byte-identical to before. The policy
+  // scopes it around one apply, the same discipline as `work_budget`.
+  //
+  // Placement argument: the alternative is each rule charging its own counter,
+  // which would put per-technique accounting inside rules that delegate
+  // propagation to the kernel, and would not survive a rule calling
+  // `kernel_propagate_probing`. The sink keeps the accounting where the work
+  // happens and the INTERPRETATION where the schedule lives.
+  uint64_t *tick_sink = nullptr;
   // Per-round work budget, read by any budget-aware canonical apply in its
   // OWN currency (kissat SET_EFFORT_LIMIT): Vivify meters propagation ticks
   // (stats.ticks), Factor its cache-line factor_ticks (S4 dosing — kissat
@@ -1086,6 +1123,17 @@ inline uint64_t kernel_binary_id(const Kernel &k, Lit a, Lit b) {
 // Has a rule rewritten v out of the formula? (Empty status vector == none.)
 inline bool kernel_var_retired(const Kernel &k, Var v) {
   return v < k.var_status.size() && k.var_status[v] != VarStatus::Active;
+}
+
+// SCHED-B2: the ONE place a tick is charged. Adds to the global counter (the
+// search/mode machinery reads it) and, when the policy has scoped a sink around
+// an apply, to that rule's private counter as well. Routing every site through
+// here is what stops the two drifting: a new charge site cannot accidentally be
+// invisible to per-rule metering, because there is nowhere else to charge.
+inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
+  k.stats.ticks += n;
+  if (k.tick_sink)
+    *k.tick_sink += n;
 }
 
 inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,

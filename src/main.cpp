@@ -404,8 +404,9 @@ int main(int argc, char **argv) {
     // `vivified` is an AGGREGATE (statistics.h:247, a % of checks) incremented
     // for subsumed, PROMOTED (a tier move, not a clause change), shrunken,
     // implied, asym and instantiated, where ours counts only clauses we
-    // strengthened. Comparing the two needs both denominators — the L14 trap,
-    // and the reason this counter now ships.
+    // strengthened. Comparing the two needs both denominators: a reference
+    // counter is comparable only after reading its DECLARATION and every INC
+    // site, and that is the reason this counter now ships.
     printf("c vivify      %llu rounds, %llu vivified, %llu deleted, %llu checked\n",
            (unsigned long long)kernel.stats.vivify_rounds,
            (unsigned long long)kernel.stats.vivified,

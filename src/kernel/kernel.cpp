@@ -564,7 +564,7 @@ static void probing_snapshot_list(Kernel &k, Lit l) {
   // S3: snapshot traffic is real memory work — charge it to the tick
   // currency (same cache-line unit as the scan at :602) so the effort
   // ledger can meter it against the probing techniques' budgets.
-  k.stats.ticks += 1 + (static_cast<uint64_t>(h.size) >> 4);
+  kernel_charge_ticks(k, 1 + (static_cast<uint64_t>(h.size) >> 4));
 }
 
 template <bool RECORD> static inline void flush_delayed(Kernel &k) {
@@ -702,7 +702,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   // above, and every drop site snapshots first
   k.watches.truncate(not_lit, static_cast<uint32_t>(q - begin));
   flush_delayed<RECORD>(k);
-  k.stats.ticks += ticks;
+  kernel_charge_ticks(k, ticks);
   return conflict;
 }
 
@@ -732,7 +732,7 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
   const int8_t *const values = k.values.data();
   const uint32_t *p = k.watches.begin(not_lit);
   const uint32_t *const end = k.watches.end(not_lit);
-  k.stats.ticks += 1 + (static_cast<uint64_t>(end - p) >> 4);
+  kernel_charge_ticks(k, 1 + (static_cast<uint64_t>(end - p) >> 4));
   while (p != end) {
     const Watch w{*p};
     if (!w.binary()) { // large watch occupies two slots; skipped here
@@ -806,13 +806,13 @@ void kernel_probing_end(Kernel &k) {
       c->lits[1] = s.lit1;
       c->searched = s.searched;
     }
-    k.stats.ticks += lg.clauses.size(); // S3: restore traffic, same currency
+    kernel_charge_ticks(k, lg.clauses.size()); // S3: restore traffic, same currency
     for (const ProbingLog::ListSnap &s : lg.lists) {
       k.watches.ensure_capacity(s.lit, s.size); // a defrag may have clamped it
       std::copy(lg.words.begin() + s.off, lg.words.begin() + s.off + s.size,
                 k.watches.arena.begin() + k.watches.heads[s.lit].offset);
       k.watches.heads[s.lit].size = s.size;
-      k.stats.ticks += 1 + (static_cast<uint64_t>(s.size) >> 4);
+      kernel_charge_ticks(k, 1 + (static_cast<uint64_t>(s.size) >> 4));
     }
   }
   lg.lists.clear();
@@ -945,8 +945,11 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
     // ruled out before getting here (the reason-walk sites cannot hit it:
     // they only read unit_ids under `reason == UNIT_REASON`). Cheap
     // permanent guard, same family as Proof::add_rup's no-tautology and
-    // no-empty-chain asserts (L13: the two debug asserts are what make a
-    // whole class of certificate defects visible to the debug fuzz legs).
+    // no-empty-chain asserts: those two are what make a whole class of
+    // certificate defects visible to the debug fuzz legs, since the permissive
+    // format hides them — a congruence bug emitting `<id> <lits> 0 0` sat
+    // behind a VERIFIED DRAT proof on every tier run and every fuzz leg until
+    // an LRAT checker walked the chain and rejected the hint-less line.
     assert(e.second != 0 && "LRAT chain cites a literal with no unit id");
     k.lrat_chain.push_back(e.second);
   }
