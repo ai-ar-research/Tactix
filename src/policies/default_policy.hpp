@@ -354,6 +354,19 @@ public:
     // scopes `Kernel::tick_sink` to this around the apply, so kernel-side
     // propagation done ON THIS RULE'S BEHALF lands here and nowhere else.
     uint64_t Stats::*tick_counter = nullptr;
+    // SCHED-B1 part 3: cadical's accumulate-until-worthwhile threshold
+    // (`opts.NAMEthresh`, limit.hpp:150 — reached by TOKEN-PASTE, which is why
+    // it reads as dead code to grep). If this occasion's DELTA is smaller than
+    // `thresh` per irredundant clause, decline WITHOUT advancing the anchor, so
+    // the entitlement accrues and a later occasion can afford a worthwhile
+    // pass. 0 = no threshold. cadical ships factor 7, vivify 20, ternary 6.
+    //
+    // This is not optional trim: parts 1-2 make the old batch pre-check vacuous
+    // by construction (the ceiling is re-baselined at the point of use, so
+    // `meter > limit` cannot fire), and kissat has no such pre-check either —
+    // `thresh` IS its skip. Landing 1-2 without this leaves batch entries with
+    // no budget-based decline at all.
+    uint64_t thresh = 0;
     bool dosed = false;   // apply per-instance to a budget vs one canonical round
     bool retry_advice = false; // rule maintains a per-variable retry bit to consult
     // BATCH rule whose canonical apply reads Kernel::work_budget in its own

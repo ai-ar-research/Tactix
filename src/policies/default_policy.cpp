@@ -317,13 +317,14 @@ struct EffortSpec {
   // where the rule charges its own counter (Factor, BCE, HTR, TransitiveReduce)
   // or where the currency is not ticks at all (BVE, C1/C2).
   uint64_t Stats::*tick_counter = nullptr;
+  uint64_t thresh = 0; // SCHED-B1 part 3, cadical's NAMEthresh
 };
 constexpr EffortSpec EFFORT_SPECS[] = {
     {"BVE", 100, meter_bve, true, true, false},
     {"Probe", 20, meter_probe, true, false, false, &Stats::probe_ticks},
     {"Backbone", 20, meter_backbone, true, false, false, &Stats::backbone_ticks},
     {"TransitiveReduce", 20, meter_transitive, true, false, false},
-    {"Vivify", 100, meter_vivify, false, false, true, &Stats::vivify_ticks},
+    {"Vivify", 100, meter_vivify, false, false, true, &Stats::vivify_ticks, 20},
     // budget_aware since 2026-08-03 (ledger D-STRENGTHEN-BUDGET). These were
     // the only two specs with dosed=false AND budget_aware=false, i.e. the
     // 100 per mille bounded how OFTEN a round started and never how much one
@@ -335,7 +336,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // — half of vivify/eliminate's 100), currency = factor_ticks. The first
     // dose per solve bypasses the permille formula with kissat's
     // factoriniticks 700M allowance (set at phase entry below).
-    {"Factor", 50, meter_factor, false, false, true},
+    {"Factor", 50, meter_factor, false, false, true, nullptr, 7},
     // Track R (rev 72). Both take LITERAL payloads, so both are `dosed` — the
     // policy enumerates once and applies candidates up to the budget. The
     // first A/B (2026-07-27) ran them UNDOSED, which is not the composition
@@ -356,7 +357,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // cadical (T3's CaDiCaL half MET)**, with Tier B(28) flat (103.24 -> 103.68,
     // 24/28 both). j3037 TIMEOUT -> 392.8 s, and the win survives excluding it
     // (-11.8 PAR-2 over the other 29; 7 instances win >=15 s, 5 lose).
-    {"HyperTernaryRes", 8, meter_ternary, false, false, true},
+    {"HyperTernaryRes", 8, meter_ternary, false, false, true, nullptr, 6},
     {"BCE", 20, meter_bce, false, false, true},
     // X4 Instantiate (R3): its probes ARE propagation, so the currency is
     // ticks (C3 Vivify's) and the rate is the cheap-probing-family 20 —
@@ -629,6 +630,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             e.permille = s->permille;
             e.meter = s->meter;
             e.tick_counter = s->tick_counter;
+            e.thresh = s->thresh;
             e.dosed = s->dosed;
             e.retry_advice = s->retry_advice;
             e.budget_aware = s->budget_aware;
@@ -1011,6 +1013,20 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           // actually see, rather than frozen at phase entry for all entries.
           if (e.enabled && e.meter)
             set_entry_limit(e, k);
+          // SCHED-B1 part 3 — ACCUMULATE UNTIL WORTHWHILE (cadical
+          // limit.hpp:150). Decline while this occasion's delta is too small to
+          // repay the pass's setup, and crucially do NOT advance the anchor, so
+          // the entitlement accrues and a later occasion can afford a real
+          // pass. Without this, parts 1-2 leave batch entries with NO
+          // budget-based decline at all: re-baselining the ceiling at the point
+          // of use makes the old `meter > limit` pre-check unfireable.
+          if (e.enabled && e.meter && e.thresh && e.doses > 0) {
+            const uint64_t delta = e.limit - e.meter(k);
+            if (delta < e.thresh * kernel_irredundant_clauses(k)) {
+              e.tm.dec_budget++;
+              continue; // anchor deliberately NOT advanced
+            }
+          }
           const uint64_t limit = e.limit;
           if (e.dosed && r.instances && r.apply_instance) {
             if (!r.guard(k)) {
