@@ -303,6 +303,15 @@ struct Stats {
   // Zero here with factor_size >= 3 means the widened branch never fired at all,
   // which is a different bug from "fired but never won the delta contest".
   uint64_t factor_large_remainders = 0;         // Factor/BVA applications (E2) — grids replaced
+  // SCHED-C5 reachability, counted AT THE DEMOTION SITE (heuristics.cpp), which
+  // is the only place that can tell "never fired" from "never measured"
+  // ([[ab-arm-identical-artefacts]]): `factor_demotions` = calls to
+  // heuristics_demote_fresh_vars that actually moved something (once per Factor
+  // APPLICATION, never per factoring — the per-call linear-scratch hazard);
+  // `factor_demoted_vars` = extension variables pushed to the queue front.
+  // An A/B arm of this knob whose `factor_demoted_vars` is 0 was NOT tested.
+  uint64_t factor_demotions = 0;
+  uint64_t factor_demoted_vars = 0;
   // Factor's unit of WORK and hence its budget currency (kissat
   // statistics.factor_ticks, cache-line granularity): 1 + one per 128 bytes
   // touched, charged per watch-list walk and per heap (re-)score. The
@@ -747,12 +756,22 @@ struct Kernel {
   uint32_t factor_bound = 0;
   // Demote Factor's fresh extension variables to the BOTTOM of the decision
   // queue after an application (kissat factor.c
-  // adjust_scores_and_phases_of_fresh_varaibles). Repairs a FOCUSED-mode
+  // `adjust_scores_and_phases_of_fresh_variables`). Repairs a FOCUSED-mode
   // defect: heuristics_reserve_vars appends new vars at `queue_last`, which is
   // where VMTF's decision search starts, so every variable Factor adds becomes
-  // a most-preferred branching candidate. Default false = today's behaviour
-  // until the tier pair says otherwise (`TACTIX_FACTOR_DEMOTE`).
-  bool factor_demote_fresh = false;
+  // a most-preferred branching candidate.
+  // DEFAULT TRUE = reference parity (ledger SP-FACTOR-2).
+  // kissat calls the adjustment UNCONDITIONALLY at the end of every
+  // `run_factorization` (factor.c:951 — there is no option gating it, `grep
+  // unbump kissat/src/options.h` is empty); cadical gates it on
+  // `factorunbump`, whose default is 1 and whose help text reads
+  // "[1: as in kissat]" (options.hpp:126). So OFF was our invention, not the
+  // status quo either reference ships. `TACTIX_FACTOR_DEMOTE=0` reverts (the
+  // inverted A/B hatch; `=1` still means ON, so every banked arm reproduces).
+  // HEURISTIC-ONLY (`H`): no proof delta, no sigma change, no guard conjunct —
+  // it reorders the VMTF queue and nothing else, so it is legal from inside a
+  // rule and needs no calculus edit.
+  bool factor_demote_fresh = true;
   // E2 Factor CANDIDATE REDUCTION rounds (kissat `factorcandrounds`, cadical
   // `--factorcandrounds`, both default 2). A large clause is grid material only
   // if every literal in it occurs in >= 2 candidate clauses; the prune iterates
