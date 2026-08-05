@@ -549,8 +549,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   bump_reasons_delay_ = {};
   // Reduce-cadence arm: kissat's √ interval + ramped fraction (reduceinit
   // 1000 is its first limit, against our 2000).
-  reduce_sqrt_ = std::getenv("TACTIX_REDUCE_SQRT") != nullptr;
-  default_reduction_.ramp = reduce_sqrt_;
+  // SCHED-C4: the CADENCE and the RAMP are separate arms and must be separately
+  // settable. One env var moved both, so neither could ever be priced: a win
+  // could be the schedule, the deletion ramp, or one paying for the other.
+  // kissat couples them by design ("a frequent reducer must delete less each
+  // time") and that coupling may well be right -- but "may well be right" is a
+  // hypothesis, and it was untestable. TACTIX_REDUCE_SQRT stays as the COMPOUND
+  // alias so every number already banked against it still reproduces.
+  const bool both = std::getenv("TACTIX_REDUCE_SQRT") != nullptr;
+  const char *cad = std::getenv("TACTIX_REDUCE_CADENCE"); // "sqrt" | "arith"
+  const char *rmp = std::getenv("TACTIX_REDUCE_RAMP");    // "1" | "0"
+  reduce_sqrt_ = cad ? !std::strcmp(cad, "sqrt") : both;
+  default_reduction_.ramp = rmp ? (rmp[0] == '1') : both;
   if (reduce_sqrt_)
     reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_KISSAT;
   dynamic_tiers_ = std::getenv("TACTIX_NO_DYNAMIC_TIERS") == nullptr;
@@ -1150,6 +1160,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                                     : ramp     ? ramp->num_passes()
                                                : 1;
             bool dose_cut = false;
+            // SCHED-C3: kissat advances the bound only at a genuine FIXPOINT --
+            // `complete = !remain && !last_round_eliminated` (eliminate.c:544).
+            // "Finished within budget" is the weaker `!remain` half alone; the
+            // second half matters because a pass that still eliminated something
+            // has not exhausted the CURRENT bound, and advancing there moves to a
+            // more aggressive bound while cheap work remains.
+            uint64_t elim_at_last_pass = k.stats.bve_eliminated;
             // During a ramp the policy consults BOTH the retry bit AND the
             // per-variable needed-bound cache the rule fills (Kernel::bve_min_bound,
             // enabled by bve_track_min_bound below): a variable rejected for growth
@@ -1178,6 +1195,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
               }
               if (ramp)
                 k.bve_bound = level_mode ? bve_level_ : ramp->bound(pass);
+              elim_at_last_pass = k.stats.bve_eliminated; // SCHED-C3
               // Fold newly root-fixed literals into the rule's retry advice before
               // reading it: fixing y changes what BVE computes for y's neighbours
               // with no clause add/delete to mark them. Needed by BOTH the retry
@@ -1245,7 +1263,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             k.bve_track_min_bound = false; // scope the caching to this ramp
             // Level advance (kissat set_next_elimination_bound): only a dose
             // that ran its whole schedule within budget earns the doubling.
-            if (level_mode && !dose_cut && !phase_unsat) {
+            const bool last_pass_eliminated =
+                k.stats.bve_eliminated > elim_at_last_pass;
+            if (level_mode && !dose_cut && !phase_unsat &&
+                !last_pass_eliminated) {
               const uint32_t ceiling = ramp->bound(ramp->num_passes() - 1);
               bve_level_ = bve_level_ ? std::min(bve_level_ * 2, ceiling) : 1;
             }

@@ -832,9 +832,15 @@ register has the wrong schema. Fix the instrument before spending a tier window 
 - [ ] **SCHED-C2 · Factor acceptance bound ← `bve_level_`** `[wire]` — **do NOT re-try the naive port**: it is
   measured negative 3× and kissat at `--eliminatebound=0` is fine, so this needs a NEW mechanism or an
   accepted-deviation row, not a re-run.
-- [ ] **SCHED-C3 · BVE bound-ramp advance guarded to phase completion** `[wire]` · [ ] **SCHED-C4 · split
-  `TACTIX_REDUCE_SQRT` into cadence and ramp** `[wire]` (one env var moves both, so they cannot be measured
-  apart) · [ ] **SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)** `[wire]`
+- [x] **SCHED-C3 · BVE bound-ramp advance guarded to phase completion** `[wire]` — the budget half was
+  already there (`!dose_cut`); the FIXPOINT half was not. kissat advances only when
+  `complete = !remain && !last_round_eliminated` (`eliminate.c:544`), and the second conjunct matters: a
+  pass that still eliminated something has not exhausted the CURRENT bound, so advancing there moves to a
+  more aggressive bound while cheap work remains. Now also requires the last pass to have eliminated
+  nothing. · [x] **SCHED-C4 · split `TACTIX_REDUCE_SQRT` into cadence and ramp** `[wire]` — one env var
+  moved both, so neither was ever priceable: a win could be the schedule, the deletion ramp, or one paying
+  for the other. Now `TACTIX_REDUCE_CADENCE=sqrt|arith` and `TACTIX_REDUCE_RAMP=0|1`, with
+  `TACTIX_REDUCE_SQRT` kept as the compound alias so every banked number still reproduces. · [ ] **SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)** `[wire]`
 - [ ] **SCHED-C6 · eager subsumption of learned clauses** `[arch]` · [ ] **SCHED-C7 · random decisions
   (`randec`)** `[arch]` — **moved here from Track R · R8 on 2026-08-04.** They were filed under the rule
   INVENTORY, but R8's own text called them *"scheduling arms on existing machinery, not new rule
