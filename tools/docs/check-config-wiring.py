@@ -65,9 +65,17 @@ TABLE = {
     "bve_cost_limit":          ("ENV", "TACTIX_BVE_COST_LIMIT"),
     "ternary_occ_limit":       ("ENV", "TACTIX_TERNARY_OCC_LIMIT"),
     "ternary_max_add_percent": ("ENV", "TACTIX_TERNARY_MAXADD"),
-    "factor_demote_fresh":     ("ENV", "TACTIX_FACTOR_DEMOTE — but SP-FACTOR-2 says BOTH "
-                                       "references demote unconditionally; ENV is the "
-                                       "status quo, not the target"),
+    # SCHED-C5 (2026-08-05): was ENV-with-a-caveat — the knob existed, defaulted
+    # OFF, and the row itself said that was the status quo rather than the
+    # target. It now ships ON via the kernel.hpp default, which is what both
+    # references do (kissat unconditionally, cadical `factorunbump`=1), so the
+    # caveat is retired and the row is a plain ENV of the `retire_enabled`
+    # shape: default-ON behaviour with an `=0` revert hatch for the A/B.
+    # NOT tagged POLICY: nothing in default_policy.* needs to write it, and
+    # adding an assignment there purely to satisfy this test would be exactly
+    # the fake wiring the test exists to expose.
+    "factor_demote_fresh":     ("ENV", "TACTIX_FACTOR_DEMOTE; ships ON via the kernel.hpp "
+                                       "default (SP-FACTOR-2 parity), =0 reverts"),
     "factor_cand_rounds":      ("ENV", "TACTIX_FACTOR_CAND_ROUNDS; kissat ships 2, we ship 0"),
     "no_ext_decisions":        ("ENV", "TACTIX_NO_EXT_DECISIONS"),
     "no_ext_reason_bump":      ("ENV", "TACTIX_NO_EXT_REASON_BUMP"),

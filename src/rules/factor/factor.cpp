@@ -847,9 +847,15 @@ ApplyResult factor_apply(Kernel &k) {
   }
 
   // Fresh extension vars must not out-rank the original variables in the
-  // decision order (kissat factor.c). Heuristic-only (`H`) — no proof delta,
+  // decision order (kissat `adjust_scores_and_phases_of_fresh_variables`,
+  // factor.c:951, called unconditionally; cadical factor.cpp:907 under
+  // `factorunbump`, default 1). Heuristic-only (`H`) — no proof delta,
   // no σ change — so this is legal from a rule per the H contract, and it is a
   // no-op when nothing was applied or when the solver is unguided.
+  // SCHED-C5: `factor_demote_fresh` now DEFAULTS TRUE; `TACTIX_FACTOR_DEMOTE=0`
+  // is the off arm. Both references run this on EVERY application, so the
+  // `applied` test is the only condition either of them has (kissat's fresh
+  // stack is empty when nothing was factored).
   if (k.factor_demote_fresh && applied)
     heuristics_demote_fresh_vars(k, fresh_first);
 
