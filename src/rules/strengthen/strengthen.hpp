@@ -33,10 +33,11 @@
 //     strengtheners — c' implies c regardless — but redundant-aware
 //     strengthening arrives with C3's tier-aware vivification, once, not
 //     twice). ALL binaries subsume/strengthen, with no redundancy check —
-//     since binaries ARE deletable (kernel_delete_binary), so the
-//     justification is no longer "structurally permanent" but the V4
-//     equivalence-preservation argument recorded in subsume_forward.hpp,
-//     which covers this SUBSUMED branch verbatim (it, too, deletes an
+//     binaries ARE deletable (kernel_delete_binary), so the justification
+//     is not "structurally permanent" but the binary-subsumer argument
+//     recorded in subsume_forward.hpp: a binary can never be FORGOTTEN,
+//     which is the only fate that would strand this branch's deletion. It
+//     covers this SUBSUMED branch verbatim (it, too, deletes an
 //     irredundant candidate on a binary's strength). The STRENGTHEN
 //     branches are unaffected either way: they emit an add-RUP clause
 //     checked against the whole formula at emit time, so it stands on its
