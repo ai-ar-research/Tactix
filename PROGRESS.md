@@ -95,7 +95,7 @@ conflicts, so unit routing is irrelevant there; a different divergence drives th
 
 **(e) V6's unit channel** (2,231 vs our 14; `find_units` is only 844 of it — the rest is real).
 **(f)** First Tier D run — built and frozen (793), never executed, a phase-3-exit prerequisite.
-**(g)** Track R · R5 **S-d** (S-c is implemented, unmerged). **(h)** `--track` flag so T4's SC25-set PAR-2 is first-class.
+**(g)** Track R · R5 S-d (S-c landed). **(h)** `--track` flag so T4's SC25-set PAR-2 is first-class.
 **(i)** Revisit `D-LRAT-FALLBACK`'s doubled per-task wall limit (Tier C 1:42 → 3:22) — it reserves 2× the
 wall for a rarely-firing path.
 
@@ -351,7 +351,8 @@ instead; see the policy at the top of `docs/lessons.md`.)*
   9k/0). Post-Track-H: random-policy ASan 8000/0 both formats.
 - Routed by the 2026-07-29 review (`benchmarks/reports/2026-07-29-review-post-track-r.md`; `RV-` namespace — Log key): **RV-R2** Reorder has no
   stress policy; **RV-R3** `benchmarks/probes/` needs a retention rule; **RV-R4/RV-R5** small duplication + allocation watch items.
-  (**RV-R1** → Track R · R5's S-c definition of done.)
+  (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats, with the detector
+  reached at the source; see Track R · R5's S-c.)
 
 ## Non-negotiables status (plan §1.1)
 
@@ -600,8 +601,8 @@ lever, absent new evidence.
   **DESIGN PASS DONE** — `docs/design/v5-sweep-design.md`: O11 says WRITE a minimal sub-solver, not vendor kitten (verbatim copying is barred
   anyway, and we need LRAT-grade antecedents kitten's core does not give); the real risk is the proof obligation — a swept equivalence is
   entailed but NOT RUP, so the chain must come from the sub-solver's core (strategy b) with V6's replay trick as a fast path (strategy a). Six
-  landable increments S-a…S-f; **S-a/S-b done (below), next is S-c** — candidate selection + environment construction, whose definition of done
-  MUST include sub-solver fuzz legs on both proof formats (review finding **RV-R1**) — then S-d…S-f
+  landable increments S-a…S-f; **S-a/S-b/S-c done (below), next is S-d** — emission via the RUP fast path, which is also where V5 first becomes
+  a REGISTERED rule (registry line + `docs/calculus.md` entry + the default-on decision all land with the first proof-carrying application)
   - [x] **S-a · the embedded sub-solver** (`src/rules/sweep/subsolver.{hpp,cpp}`, `8ac2199`): minimal CDCL (two-watch propagation, 1-UIP,
     restarts, MiniSat-shaped assumptions, tick budget, fixed decision order), owns its arena/watches/trail, never touches `Kernel`,
     deterministic. Verified by exhaustion — **1 M random formulas vs brute force**, half under assumptions. Safety property: an unanalyzable
@@ -611,16 +612,30 @@ lever, absent new evidence.
     Verified three independent ways — LRAT replay, entailment by enumeration, core discipline — over **207 k refutations**, plus 40 micro cases
     through the REAL drat-trim and lrat-check (`tests/sweep_proofs.sh`). Lesson: the first version of BOTH oracle and emitter produced only
     ONE-STEP derivations, so the lemma chains went untested while green; both now assert a multi-step floor
-  - [◐] **S-c · candidate selection + environment construction — IMPLEMENTED, NOT MERGED.** Detector only:
-    seeds, BFS environment with per-clause provenance, two-direction refutation. **`NoOp` on every proof
-    path, and deliberately NOT registered** — an always-NoOp registry entry would report guard-true and
-    apply nothing, the same shape as the Factor N1 breach; the registry line lands with S-d. Verified
-    no-effect on `main`: byte-identical proofs and trajectories on 2 instances. Evidence: ctest 39/39
-    Release+Debug/ASan; a 20k-formula brute-force oracle (62,870 environments, 4,380 claims each
-    re-checked against every model); fuzz both formats 4000/0 + an OFF control; **reachability counted at
-    the source** — 8,174 environments, 32,358 sub-solver solves, 807 equivalences (its FIRST probe was
-    vacuous — fixed generator seed instead of the harness's `seed+i` — and was redone).
-    Worktree `agent-acf1ed0ff40f20677`, commit `2b5062e`. **Decision owed: merge now or hold until S-d.**
+  - [x] **S-c · candidate selection + environment construction** (`src/rules/sweep/sweep.{hpp,cpp}`): canonical seed order, a
+    depth/clause/variable-capped BFS environment around each seed, the sub-solver encode, model-refined candidates, and the two-direction
+    refutation loop. **DETECTION ONLY — no proof delta, nothing in `F/R/τ/ρ` touched** (design §6.3). The soundness argument is `env ⊆ F`
+    LITERALLY: every environment clause is a clause the kernel holds, carried with its own proof id in `SweepEnv::clause_ids` (S-e's core
+    lookup is that index), so root-false literals are KEPT rather than stripped (kissat strips them; a stripped clause has no id to cite) and
+    a root unit joins only when `unit_ids[v] != 0`. **Deliberately NOT registered yet**: an always-`NoOp` rule would put an inert move in
+    N1's action space *and* be ON by default in the S4 arrangement — the same guard-true/apply-NoOp shape as the open `Factor` breach. Until
+    S-d it is reachable through `TACTIX_SWEEP_PROBE=1` (one detection round per inprocessing phase) and reported by `c sweep`.
+    **Two defects the tests caught before they could ship**: (1) the seed filter "has watch-list occurrences" is WRONG — a large clause is
+    watched on two literals only, so it dropped the seed of the only equivalence in the non-RUP fixture, but *only after a propagation had
+    moved the watches* (green unit test, broken in a solve); (2) uniting a class with its own negation (which F-UNSAT environments produce)
+    built a two-cycle in the representative map and HUNG `repr_find` — found by the random oracle, now a no-op with an S-d note that the case
+    is a refutation, not two binaries.
+    **Evidence**: ctest **39/39 Release and Debug (ASan/UBSan)**; `tests/test_sweep.cpp` = a NON-RUP fixture that proves its own premise (it
+    asserts unit propagation does NOT refute either direction before requiring Sweep to), a **20 k-formula brute-force oracle** (62,870
+    environments, 4,380 claims, every one re-checked against every model of the original formula; 8 of them not RUP), plus provenance
+    (environment clause ≡ F's clause, same literals + same id), limits, seed-surface and env-UNSAT cases.
+    **Fuzz legs, both proof formats, detector ON (RV-R1 discharged)**: native DRAT `1582643` **4000/0** and native LRAT `1582644` **4000/0**
+    (`tools/fuzz/slurm-swc-{drat,lrat}-*.log`), against a detector-OFF control `1582652` 4000/0 — SAT identical (2258), UNSAT 1643 → 1634/1633
+    with TIMEOUT 99 → 108/109, i.e. the unbounded probe costs a few 5 s verdicts and changes none.
+    **Reachability, counted at the source** (job `1582651`, same generator distribution, 411 runs): 126 runs entered an inprocessing phase,
+    **102 ran a detection round, 8,174 environments, 32,358 sub-solver solves, 24,184 candidate directions, 807 equivalences found**, 875
+    environments refuted outright, 6,680 budget cut-offs. A green leg over zero environments would have been vacuous
+    ([[ab-arm-identical-artefacts]]); it is not
   - [ ] **S-d · emission via strategy (a), the RUP fast path.** The first increment where Sweep DOES
     something. After the sub-solver claims `x ≡ y`, assume `x ∧ ¬y` in the MAIN kernel at probing scope and
     propagate; a conflict hands back a checker-ordered chain via `congruence_rup_chain` — V6's C4 idiom,
@@ -941,6 +956,27 @@ The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-0
 W31 (41 entries: all-rules-ON, TB4b, task #11, R-d, five new standing lessons) · W30 (31: E2 Factor, V6, S4, Walk) ·
 W29 (2) · W28 (2). **Archives are never edited**; where an archived number was later corrected, the
 standing lessons and the current tier tables above are authoritative.
+
+### 2026-08-04 late — V5 Sweep S-c: the detector lands, DETECTION ONLY (Track R · R5)
+`src/rules/sweep/sweep.{hpp,cpp}` + `tests/test_sweep.cpp`. Seed order → depth/clause/variable-capped BFS environment →
+sub-solver encode → model-refined candidates → two-direction refutation. **Nothing is emitted and nothing in `F/R/τ/ρ` is
+touched**, so there is no proof delta and no registry line yet: an always-`NoOp` rule would put an inert move in N1's action
+space and be ON by default in the S4 arrangement — the same guard-true/apply-NoOp shape as the open `Factor` breach. Registry
+line + `docs/calculus.md` entry + default-on decision all land together with S-d's first proof-carrying application.
+- **The soundness argument is `env ⊆ F` literally**, not "entailed by F": every environment clause is a clause the kernel holds,
+  carried with its own proof id (`SweepEnv::clause_ids` — S-e's core lookup is exactly that index). Hence the two deliberate
+  weakenings vs kissat: root-false literals are KEPT, not stripped (a stripped clause has no id to cite; kissat can strip because
+  kitten's core is re-justified on the way out), and a root unit joins only when `unit_ids[v] != 0` (a variable fixed by root
+  propagation has no unit clause in the proof). Both are recorded in `sweep.hpp` with their closer.
+- **Two defects found by the new tests, both invisible to a green unit test alone.** The seed filter "has watch-list occurrences"
+  is wrong — a large clause is watched on two literals only, so it dropped the seed of the only equivalence in the non-RUP
+  fixture, but ONLY after a propagation had moved the watches. And uniting a literal class with its own negation (which UNSAT
+  environments produce) built a two-cycle in the representative map that hung `repr_find` — caught by the random oracle.
+- **Fuzz, both formats, detector ON:** DRAT `1582643` 4000/0, LRAT `1582644` 4000/0, control (detector OFF) `1582652` 4000/0.
+  **RV-R1 discharged.** **Reachability** (job `1582651`, same generator distribution): 102 of 411 runs ran a round — 8,174
+  environments, 32,358 solves, 24,184 candidate directions, **807 equivalences**, 875 environments refuted outright.
+- Cost note for S-f: the probe is UNBOUNDED (every seed, 200 k sub-solver ticks each) and that alone moved 9 UNSAT verdicts to
+  TIMEOUT at the fuzz harness's 5 s cap. Dosing is S-f's job; `sweep_ticks` is already charged in the standard currency.
 
 ### 2026-08-04 late — SCHED-A3 enumeration pass: the ledger regenerated from the REFERENCE's option set
 All **418** reference options enumerated (kissat 161 + cadical 257): **148 newly read at their use site**,
