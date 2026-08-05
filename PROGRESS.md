@@ -690,9 +690,18 @@ register has the wrong schema. Fix the instrument before spending a tier window 
   complete** (diagnosis cause A). **Must read MACROS, not just grep** — cadical's `factorthresh` is
   token-pasted (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never
   appears literally and reading it as dead code produced two wrong published claims.
-- [ ] **SCHED-A4 · per-instance ORACLE column in the benchmark runner, on by default** `[arch]` — a gate must
-  beat BOTH always-on and the oracle to ship. **De-selects cause D at the instrument**, the only level at
-  which a selection pressure can be removed. It is what exposed the Factor gate in one window.
+- [x] **SCHED-A4 · DONE 2026-08-04 — the ORACLE column ships, on by default.** `tools/bench/run.py` now
+  reports, whenever a window has 2+ SCORED arms (ours; baselines are references, never candidates), the
+  per-instance best over them — PAR-2 + solved in the per-arm format — plus **each arm's gap to it**, and
+  writes the whole thing (incl. the per-instance winner table) to `results.json` under `"oracle"`. No flag.
+  Reproduced on the two 08-04 windows by `--aggregate` alone: over the arm pair the report scores
+  (`facon`/`facoff`) it gives **exactly 32.25 (28/28)** and **254.55 (29/30)**; over all three scored arms
+  (the shipped default, which includes the gated arm) 32.14 and 250.55. Every existing per-arm number is
+  byte-identical on re-aggregation. **Caveat now recorded in the code:** an oracle is a min over K arms and
+  therefore also a min over K measurement noises — adding a third arm that is itself a blend of the other
+  two bought 0.11 B / 4.00 C PAR-2, the latter inside the 6.72 noise floor. Judge a gate against the oracle
+  over the policies it chooses BETWEEN. A gate must still beat BOTH always-on and the oracle-gap to ship.
+  **De-selects cause D at the instrument**, the only level at which a selection pressure can be removed.
 
 #### Stage B — an honest meter (T3). *Every dose number in the solver is currently unreliable.*
 
@@ -860,6 +869,18 @@ The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-0
 W31 (41 entries: all-rules-ON, TB4b, task #11, R-d, five new standing lessons) · W30 (31: E2 Factor, V6, S4, Walk) ·
 W29 (2) · W28 (2). **Archives are never edited**; where an archived number was later corrected, the
 standing lessons and the current tier tables above are authoritative.
+
+### 2026-08-04 late — SCHED-A4: the ORACLE column is now part of the instrument, on by default
+`tools/bench/run.py` reports an ORACLE line (per-instance best over the SCORED arms — baselines excluded,
+they are references not candidates) plus **each arm's gap to it**, and persists it to `results.json`
+(`"oracle"`, with the per-instance winner table). No flag; `--aggregate` alone recomputes it for any past
+run. Verified against the frozen 08-04 report: over its arm pair (`facon`/`facoff`) **32.25 (28/28)** B and
+**254.55 (29/30)** C, exactly; over all three scored arms 32.14 / 250.55. Existing per-arm numbers unchanged
+on re-aggregation. **New caveat, recorded in `oracle()`'s docstring:** the oracle is a min over K arms, hence
+also a min over K noises — adding the gated arm (itself a blend of the other two) moved C by 4.00, inside
+the 6.72 noise floor. So compare a gate to the oracle over the policies it chooses BETWEEN, and treat the
+all-arms number as the window's looser ceiling. Cause D of the scheduling diagnosis is now de-selected at
+the instrument: a gate must beat the trivial always-on arm AND a fair share of its oracle gap.
 
 ### 2026-08-04 late — ▶▶ THE FACTOR ORACLE: our admission gate is never the best of the three arms
 Report `benchmarks/reports/2026-08-04-factor-oracle-ablation.md`. Three arms (`shipped` density gate ·

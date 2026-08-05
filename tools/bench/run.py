@@ -36,6 +36,13 @@ Usage:
   non-comparable behaviour). Checker budget: max(3600 s, 4 x solve timeout).
 - Score: PAR-2 = mean(runtime if solved else 2*timeout), reported with
   #solved and SAT/UNSAT split, proof-check time, and proof size.
+- ORACLE (always on, 2+ scored arms): the per-instance best over OUR arms
+  (baselines are references, not candidate policies), plus each arm's gap to
+  it — also in results.json under "oracle". It is not a runnable policy; it
+  is the ceiling a per-instance admission mechanism could reach, so a gate is
+  worth shipping only if it beats the trivial always-on arm AND takes a fair
+  share of that gap (docs/design/2026-08-04-scheduling-sophistication-
+  diagnosis.md §4: at n≈30 the instrument otherwise selects a crude gate).
 - Up to 8 parallel single-threaded solver jobs (plan §8.1); the concurrency
   level is recorded in the results and must accompany any reported number.
 
@@ -320,11 +327,110 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
     return res
 
 
+def inst_cost(r, timeout):
+    """One instance's PAR-2 contribution: its runtime if solved, else 2x the
+    timeout. The 2x is the whole point of PAR-2 and is easy to get wrong by
+    hand (charging 1x inverted a conclusion on 2026-08-04), so every
+    PAR-2-shaped number in this file goes through here."""
+    return r["time"] if r["solved"] else 2 * timeout
+
+
 def par2(results, timeout):
     if not results:
         return 0.0
-    return sum(r["time"] if r["solved"] else 2 * timeout
-               for r in results) / len(results)
+    return sum(inst_cost(r, timeout) for r in results) / len(results)
+
+
+def oracle(scored, timeout):
+    """Per-instance best over the SCORED arms — the ceiling for admission.
+
+    `scored` is an ordered list of `(name, results)` for the arms with
+    `score_proofs` (ours). Baselines are excluded deliberately: they are timed
+    as references, not as candidate policies, so "best over the arms" would
+    stop meaning anything if a kissat column could win an instance.
+
+    The ORACLE is not a runnable policy — nothing can consult it at solve time.
+    It is the score a PERFECT per-instance admission mechanism over exactly
+    these arms would get, and therefore the bound any real gate is chasing.
+    That makes the useful number the *gap*: an arm's PAR-2 minus the oracle's
+    is all the headroom an admission mechanism could possibly recover, and a
+    gate is only worth shipping if it beats both the best single arm here and
+    a fair share of that gap (plan §1.1 N4, `docs/design/
+    2026-08-04-scheduling-sophistication-diagnosis.md` §4: at n≈30 with no
+    held-out set, the instrument otherwise selects a crude per-instance
+    classifier every time).
+
+    One caveat when reading it: a min over K arms is also a min over K
+    measurement noises, so the oracle is optimistically biased and the bias
+    grows with K. Measured on `20260804-165514-B-shipped`: over the two
+    trivial policies (`facon`/`facoff`) the oracle is 32.25, and adding the
+    gated `shipped` arm — which on any given instance IS one of the other two
+    — moves it only to 32.14, nearly all of that from sub-3 % margins between
+    arms running the same code path (Tier C the same day: 254.55 -> 250.55,
+    inside that tier's 6.72 PAR-2 noise floor). To ask "how good could this
+    gate get", read the oracle over the policies the gate chooses BETWEEN
+    (`oracle()` takes any arm subset); the all-arms number printed here is the
+    slightly looser ceiling for the window as a whole.
+
+    Instances are matched by name, in the first arm's order; an arm that is
+    missing one simply does not compete for it. Returns None for <2 arms.
+    """
+    order = []
+    seen = set()
+    for _, results in scored:
+        for r in results:
+            if r["instance"] not in seen:
+                seen.add(r["instance"])
+                order.append(r["instance"])
+    if len(scored) < 2 or not order:
+        return None
+    by_arm = {name: {r["instance"]: r for r in results}
+              for name, results in scored}
+    best = {}
+    total = 0.0
+    for rel in order:
+        # ties go to the earliest arm listed (the solver under test first)
+        cand = [(inst_cost(by_arm[n][rel], timeout), i, n)
+                for i, (n, _) in enumerate(scored) if rel in by_arm[n]]
+        cost, _, name = min(cand)
+        r = by_arm[name][rel]
+        total += cost
+        best[rel] = {"arm": name if r["solved"] else None,
+                     "time": r["time"], "solved": r["solved"],
+                     "verdict": r["verdict"] if r["solved"] else "UNKNOWN"}
+    n = len(order)
+    solved = [b for b in best.values() if b["solved"]]
+    return {
+        "arms": [name for name, _ in scored],
+        "instances": n,
+        "par2": round(total / n, 3),
+        "solved": len(solved),
+        "sat": sum(1 for b in solved if b["verdict"] == "SAT"),
+        "unsat": sum(1 for b in solved if b["verdict"] == "UNSAT"),
+        # headroom: what a perfect per-instance chooser would take off this arm
+        "gap": {name: {
+            "par2": round(par2(results, timeout) - total / n, 3),
+            "solved": len(solved) - sum(1 for r in results if r["solved"])}
+            for name, results in scored},
+        "per_instance": best,
+    }
+
+
+def summarize_oracle(orc, shape):
+    """The ORACLE block, in the per-arm summary's own format."""
+    lines = [
+        f"ORACLE (per-instance best of {', '.join(orc['arms'])}): "
+        f"PAR-2 {orc['par2']:.2f}  "
+        f"solved {orc['solved']}/{orc['instances']} "
+        f"(SAT {orc['sat']}, UNSAT {orc['unsat']})  [{shape}]",
+        "  gap to oracle: " + ", ".join(
+            f"{name} {g['par2']:+.2f} ({g['solved']:+d} solves)"
+            for name, g in sorted(orc["gap"].items(),
+                                  key=lambda kv: kv[1]["par2"])),
+        "  (not a runnable policy: the ceiling for per-instance admission over "
+        "these arms — a gate must beat the best arm AND a fair share of its gap)",
+    ]
+    return "\n".join(lines)
 
 
 def summarize(name, results, timeout, shape):
@@ -483,11 +589,18 @@ def slurm_aggregate(outdir):
                                  man["timeout"], man["shape"])
         print(summary, flush=True)
         any_bug |= bug
+    # older manifests predate the split (everything was scored) — same default
+    # as slurm_run_one, so an old run re-aggregates to the same arms
+    orc = oracle([(s["name"], all_results[s["name"]]) for s in man["solvers"]
+                  if s.get("score_proofs", True)], man["timeout"])
+    if orc:
+        print(summarize_oracle(orc, man["shape"]), flush=True)
     meta = {"tier": man["tier"], "timeout": man["timeout"], "jobs": None,
             "slurm": man["slurm"], "git": man["git"], "date": man["date"],
             "mem_gb": man["mem_gb"],
             "solvers": {s["name"]: " ".join(s["cmd"])
                         for s in man["solvers"]},
+            "oracle": orc,
             "results": all_results}
     with open(os.path.join(outdir, "results.json"), "w") as f:
         json.dump(meta, f, indent=2)
@@ -701,9 +814,15 @@ def main() -> int:
         all_results[sname] = results
         any_bug |= bug
 
+    orc = oracle([(n, all_results[n]) for n, _, _, _, sc in solvers if sc],
+                 timeout)
+    if orc:
+        print(summarize_oracle(orc, f"jobs={args.jobs}"), flush=True)
+
     meta = {"tier": args.tier, "timeout": timeout, "jobs": args.jobs,
             "git": sha, "date": stamp, "mem_gb": mem_gb,
             "solvers": {n: " ".join(c) for n, c, *_ in solvers},
+            "oracle": orc,
             "results": all_results}
     shutil.rmtree(stage, ignore_errors=True)
     with open(os.path.join(outdir, "results.json"), "w") as f:
