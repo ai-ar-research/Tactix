@@ -657,13 +657,15 @@ finding.** §2 (guard purity) stays a separate register — a scheduling gap is 
 is exactly why rev 77's guard-shaped register could not hold these (diagnosis §5).
 
 **Provenance:** first pass 2026-08-04, **216 mechanisms audited, 132 gaps (27 high / 53 med / 15 low)**,
-full table frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`; the *why* at
-`docs/design/2026-08-04-scheduling-sophistication-diagnosis.md`; remediation = **Track N4** in
+full table frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md` (which predates the
+rename and says "Track N4" for what is now **Track SCHED** — `N4` alone always means the
+non-negotiable); the *why* at
+`docs/design/2026-08-04-scheduling-sophistication-diagnosis.md`; remediation = **Track SCHED** in
 `PROGRESS.md`.
 
 **▶ THIS LEDGER IS A LOWER BOUND, BY CONSTRUCTION.** The first pass was organised by OUR rule families,
 so it cannot surface a mechanism we never knew to look for — the dominant failure mode per the
-diagnosis. **N4-A3 regenerates it from the REFERENCE's option set** (`kissat/src/options.h`,
+diagnosis. **SCHED-A3 regenerates it from the REFERENCE's option set** (`kissat/src/options.h`,
 `cadical/src/options.hpp`), each row citing the option's default AND the execution path that reaches
 it. Until that lands, absence of a row is not evidence of parity.
 **And check the macros: `grep` is not a source read** — cadical's `factorthresh` is reached by
@@ -686,20 +688,20 @@ Ranked by how much they explain. These, not the individual rows, are what a fix 
 ### 13.2 Open gaps — HIGH severity
 
 Full rows (with cadical's column and file:line on all three sides) in the frozen audit. Closer =
-Track N4 item.
+Track SCHED item.
 
 | id | mechanism | Kissat / CaDiCaL | Tactix | verdict | closer |
 |---|---|---|---|---|---|
-| SP-SLOT-1 | **Two inprocessing clocks** — probe family vs elimination family | Independent: `probeint=100`×NLOGN vs `eliminateint=500`×NLOG2N (kissat `probe.c:85`/`eliminate.c:600`); cadical `lim.inprobe` vs `lim.elim` (`internal.cpp:489`/`:459`) | **ONE** slot, everything on the ELIMINATION cadence (`default_policy.cpp:345,357-372`) | WE_ARE_CRUDER | **N4-D2** — probing fires ~5× less often and **the gap WIDENS** (NLOGN grows slower than NLOG2N) |
-| SP-SLOT-2 | **Effort-meter privacy** | Private per-technique tick counters | `meter_ticks(k) = k.stats.ticks`, the GLOBAL counter, for Probe/Backbone/Vivify/Instantiate | WE_ARE_CRUDER | **N4-B2** — earlier entries spend later entries' budgets |
-| SP-SLOT-3 | **Ceiling computed at RUN time; anchor advanced only on the ADMITTED path** | `OLD_LIMIT` read when the technique begins; anchor written only on a call that ran | Ceilings for ALL entries frozen at phase entry (`:917-954`); anchor advanced for every enabled entry (`:953`) before the guard | WE_ARE_CRUDER | **N4-B1** |
-| SP-SLOT-4 | **Authored slot ORDER** | Argued orders (kissat `probe.c:32-41`; cadical `probe.cpp:934-952`, subsume-before-elim) | `strcmp` on rule names + `move_to_back("BVE"/"Factor")` | WE_ARE_CRUDER | **N4-D1** — Backbone/Probe before our ELS on an un-decomposed BIG; Vivify after TransitiveReduce; BCE first |
-| SP-SLOT-5 | Slot-level new-material watermark | Interval necessary but NOT sufficient (kissat `eliminate.c:33-38`; cadical `elim.cpp:71-81`) | Interval alone | WE_LACK_IT | **N4-D3** |
-| SP-FACTOR-1 | Acceptance bound coupled to BVE progress | `reduction > bound`, ramp 0→1→2→4→8→16 | `factor_bound` present, **default 0, never written** | WE_ARE_CRUDER | **N4-C2** — but wiring it is measured negative 3×; needs a new mechanism, not the port |
-| SP-VIVIFY-1 | Dynamic reduce tiers as Vivify's scope | kissat reads `solver->tier1[0]` | `constexpr VIVIFY_TIER2 = 6` while `k.tier2` is computed every reduce and **read by nothing else** | WE_ARE_CRUDER | **N4-C1** |
-| SP-FACTOR-2 | Fresh extension vars demoted in the branching heuristic | Both references demote unconditionally | `factor_demote_fresh = false` — every var Factor adds becomes a **most-preferred** VMTF decision | WE_LACK_IT | **N4-C5** |
-| SP-CAD-1 | Accumulate-until-worthwhile threshold | cadical `NAMEthresh` via token-paste (`limit.hpp:150`): return false while `DELTA < thresh·|clauses|` | ABSENT (`MIN_EFFORT_TICKS` is the same lever pointed the other way) | WE_LACK_IT | **N4-B1** |
-| SP-REPEAT-* | Per-item new-material marks / resumption cursors (T2) | `flags->subsume`, per-literal `factor`/`block`, per-var `ternary`, per-clause `instantiated`, `Clause::vivify`, cadical `c->transred`, persistent `probes` | Absent throughout; delay ladder gated on `!e.meter` so metered repeaters cannot back off | WE_LACK_IT | **N4-F1…F5** |
+| SP-SLOT-1 | **Two inprocessing clocks** — probe family vs elimination family | Independent: `probeint=100`×NLOGN vs `eliminateint=500`×NLOG2N (kissat `probe.c:85`/`eliminate.c:600`); cadical `lim.inprobe` vs `lim.elim` (`internal.cpp:489`/`:459`) | **ONE** slot, everything on the ELIMINATION cadence (`default_policy.cpp:345,357-372`) | WE_ARE_CRUDER | **SCHED-D2** — probing fires ~5× less often and **the gap WIDENS** (NLOGN grows slower than NLOG2N) |
+| SP-SLOT-2 | **Effort-meter privacy** | Private per-technique tick counters | `meter_ticks(k) = k.stats.ticks`, the GLOBAL counter, for Probe/Backbone/Vivify/Instantiate | WE_ARE_CRUDER | **SCHED-B2** — earlier entries spend later entries' budgets |
+| SP-SLOT-3 | **Ceiling computed at RUN time; anchor advanced only on the ADMITTED path** | `OLD_LIMIT` read when the technique begins; anchor written only on a call that ran | Ceilings for ALL entries frozen at phase entry (`:917-954`); anchor advanced for every enabled entry (`:953`) before the guard | WE_ARE_CRUDER | **SCHED-B1** |
+| SP-SLOT-4 | **Authored slot ORDER** | Argued orders (kissat `probe.c:32-41`; cadical `probe.cpp:934-952`, subsume-before-elim) | `strcmp` on rule names + `move_to_back("BVE"/"Factor")` | WE_ARE_CRUDER | **SCHED-D1** — Backbone/Probe before our ELS on an un-decomposed BIG; Vivify after TransitiveReduce; BCE first |
+| SP-SLOT-5 | Slot-level new-material watermark | Interval necessary but NOT sufficient (kissat `eliminate.c:33-38`; cadical `elim.cpp:71-81`) | Interval alone | WE_LACK_IT | **SCHED-D3** |
+| SP-FACTOR-1 | Acceptance bound coupled to BVE progress | `reduction > bound`, ramp 0→1→2→4→8→16 | `factor_bound` present, **default 0, never written** | WE_ARE_CRUDER | **SCHED-C2** — but wiring it is measured negative 3×; needs a new mechanism, not the port |
+| SP-VIVIFY-1 | Dynamic reduce tiers as Vivify's scope | kissat reads `solver->tier1[0]` | `constexpr VIVIFY_TIER2 = 6` while `k.tier2` is computed every reduce and **read by nothing else** | WE_ARE_CRUDER | **SCHED-C1** |
+| SP-FACTOR-2 | Fresh extension vars demoted in the branching heuristic | Both references demote unconditionally | `factor_demote_fresh = false` — every var Factor adds becomes a **most-preferred** VMTF decision | WE_LACK_IT | **SCHED-C5** |
+| SP-CAD-1 | Accumulate-until-worthwhile threshold | cadical `NAMEthresh` via token-paste (`limit.hpp:150`): return false while `DELTA < thresh·|clauses|` | ABSENT (`MIN_EFFORT_TICKS` is the same lever pointed the other way) | WE_LACK_IT | **SCHED-B1** |
+| SP-REPEAT-* | Per-item new-material marks / resumption cursors (T2) | `flags->subsume`, per-literal `factor`/`block`, per-var `ternary`, per-clause `instantiated`, `Clause::vivify`, cadical `c->transred`, persistent `probes` | Absent throughout; delay ladder gated on `!e.meter` so metered repeaters cannot back off | WE_LACK_IT | **SCHED-F1…F5** |
 
 ### 13.3 Accepted deviations — measured, keep the simpler version
 
