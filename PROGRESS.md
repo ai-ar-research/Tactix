@@ -3,7 +3,7 @@
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 81 (2026-08-04) — rev 80 made **N4, the strategy floor**, a non-negotiable; rev 81 renamed the §5.6 RL stages `L1`–`L4` → `RL1`–`RL4`
+- **Plan revision tracked:** rev. 82 (2026-08-04) — rev 80 made **N4, the strategy floor**, a non-negotiable; rev 81 renamed the §5.6 RL stages `L1`–`L4` → `RL1`–`RL4`
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-04 late — **plan rev 80 (N4, the strategy floor, is now a non-negotiable)**. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run. **Also this session: an N2 defect FIXED** (LRAT unit ids missed off the root level, shipped in TB4b the same day — `52a4e8f`), the **N4 scheduling-parity ledger LANDED** (216 mechanisms, 132 gaps) with **Track SCHED** staged, and an **OPEN N1 BREACH recorded** in `Factor` (`SCHED-N1FIX`, top of the queue).
 
@@ -964,6 +964,19 @@ claims re-verified by hand before landing.
   enumerating the REFERENCE's option set, not our own recall, and (2) make the benchmark runner print a
   per-instance ORACLE column by default, so a gate must beat both always-on and the oracle to ship —
   de-selecting cause D at the instrument, the only level at which a selection pressure can be removed.
+
+### 2026-08-04 late — plan rev 82: a STAGED LANDING may run at a temporary regression
+User directive. Per-increment gating assumes every increment stands alone; some sequences have a
+genuinely worse INTERMEDIATE state and a better end state, and forcing each step non-negative either
+blocks the sequence or invites the crude shortcut that keeps the number up. Precedent: the S4 arrangement
+(each half worse alone, pair better, gated as ONE unit). **Live case: Track SCHED** — an honest per-rule
+meter (Stage B) may cost performance until the wires and authored schedule that depend on it land.
+**Five conditions, ALL pre-registered before the regressing increment ships, never argued after seeing the
+number:** a named sequence of recovering items (checklist ids) · a MECHANISM argument for why they recover
+it · a recovery point AND a ceiling stated in PAR-2 and solves · revertibility (flag or small diff) · a
+kill criterion. **Unconditional limits:** never covers N1/N2; a lost solve is still not covered by rev 78
+and must be called out, not absorbed; the debt is discharged or reverted **by the phase gate**, and if the
+sequence stalls the revert is the default, not a renegotiation.
 
 ### 2026-08-04 late — R8 moved out of Track R into Track SCHED (`SCHED-C6`/`C7`)
 It was scheduling work filed under the rule INVENTORY — its own text called it *"scheduling arms on
