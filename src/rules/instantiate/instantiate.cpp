@@ -33,9 +33,9 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
   return unassigned >= 3;
 }
 
-// irredundant occurrence counts per literal — one arena pass (X2's shape).
-// Per ROUND, not per candidate: the O(nlits) fill is the cost this rule pays
-// once, never inside the probe loop ([[per-call-linear-scratch-hazard]]).
+// irredundant occurrence counts per literal — one arena pass.
+// Per ROUND, not per candidate: an O(nlits) fill inside the probe loop is the
+// per-call linear-scratch hazard, and it dominates the profile when it happens.
 static void occurrence_counts(const Kernel &k, std::vector<uint32_t> &occ) {
   occ.assign(2 * k.nvars, 0);
   for (Ref ref = 0; ref < k.arena.size();) {

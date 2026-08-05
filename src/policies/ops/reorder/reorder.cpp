@@ -192,7 +192,7 @@ static ApplyResult reorder_apply_instance(Kernel &k, uint64_t inst) {
   return reorder_apply_target(k, inst);
 }
 
-// Policy operation (plan §4 rev 59): H-only (re-ranks the decision queue/heap),
+// Policy operation (plan §4): H-only (re-ranks the decision queue/heap),
 // no proof delta — registered as such, so it is N1-appliable and visible to the
 // random-policy fuzzer while DefaultPolicy leaves it unscheduled by default.
 TACTIX_REGISTER_POLICY_OP(Reorder, RuleTier::Macro, reorder_guard, reorder_apply,

@@ -3,13 +3,12 @@
 // (glue <= 2) survives while used at all, tier 2 (glue <= 6) survives
 // while used within the last two reductions; survivors are ranked
 // worst-first by (glue, size). Fixed tier thresholds are kissat's option
-// defaults (tier1=2, tier2=6); kissat's dynamic glue-distribution tiers
-// ablated flat on our instances (2026-07-13) and stay out for now. The
+// defaults (tier1=2, tier2=6); a policy that wants kissat's DYNAMIC
+// glue-distribution tiers calls reduce_retier, which overwrites them. The
 // rule owns the RANKING and every soundness filter (reason locks, pending
-// learned clause, tiers); how MUCH of the ranked list dies is the
-// policy's choice (plan §5 rev 17: ReductionPolicy sub-policy — the
-// canonical instance deletes kissat's default 75%). WHEN is likewise the
-// policy's.
+// learned clause, tiers); how MUCH of the ranked list dies is the policy's
+// choice (ReductionPolicy sub-policy — the canonical instance deletes
+// kissat's default 75%). WHEN is likewise the policy's.
 #include "rules/reduce/reduce.hpp"
 
 #include "proof/proof.hpp"

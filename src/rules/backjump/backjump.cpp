@@ -25,31 +25,27 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     target = p.jump_level;
   if (target + 1 > k.level) // target >= level (guard against underflow)
     target = k.level - 1;
-  // TB4b · UNIT CHRONO ROUTING (2026-08-04). A learned unit used to be forced
-  // to `target = 0`, discarding the whole descent. kissat routes it through the
-  // SAME chrono determination as any other learned clause — `learn_unit` calls
-  // `kissat_determine_new_level (solver, 0)` (learn.c:46), so with jump == 0 and
-  // a deep trail `back - 0 > chronolevels` fires and it steps back ONE level,
-  // keeping the prefix. Sound here because `kernel_assign_unit` stamps the
-  // literal at level 0 explicitly (true-level assignment, D-LEVEL-2) regardless
-  // of the current decision level — the unit is a root fact whatever level the
-  // solver sits at, which is the whole point of that rev-38 change.
+  // UNIT CHRONO ROUTING. A learned unit must NOT be forced to `target = 0`,
+  // which discards the whole descent: kissat routes it through the SAME chrono
+  // determination as any other learned clause — `learn_unit` calls
+  // `kissat_determine_new_level (solver, 0)` (learn.c:46), so with jump == 0
+  // and a deep trail `back - 0 > chronolevels` fires and it steps back ONE
+  // level, keeping the prefix. Sound here because `kernel_assign_unit` stamps
+  // the literal at level 0 explicitly (true-level assignment, D-LEVEL-2)
+  // regardless of the current decision level — the unit is a root fact whatever
+  // level the solver sits at. On unit-heavy instances the override also makes
+  // the `c chronological` counter report backtracks that never happened.
   //
-  // Measured motive (`veer_axi`): 14,088 of our 18,635 conflicts learn a unit,
-  // and the caller COUNTED 14,108 chronological backtracks while this line then
-  // overrode 14,088 of them to 0 — so we genuinely backtracked chronologically
-  // on 20 conflicts (0.1 %) where kissat does so on 2,821 of 2,967 (95 %). The
-  // `c chronological` stat was reporting behaviour we did not perform.
-  // TB4b · SNAPSHOT TIMING — kissat `kissat_backtrack_after_conflict`
+  // SNAPSHOT TIMING — kissat `kissat_backtrack_after_conflict`
   // (backtrack.c:156) in its exact order:
   //     if (level) backtrack_without_updating_phases(level - 1);
   //     update_target_and_best_phases();
   //     backtrack_without_updating_phases(new_level);
   // The one-level step FIRST is the point: the snapshot must NOT see the
-  // conflict level's own literals. Taking it at the full trail (what we did)
-  // inflates the `target_assigned`/`best_assigned` high-water mark by the
-  // conflicting assignments, so later genuinely-longer trails fail to beat it
-  // and the target phases stop tracking the best trail found.
+  // conflict level's own literals. Taking it at the full trail inflates the
+  // `target_assigned`/`best_assigned` high-water mark by the conflicting
+  // assignments, so later genuinely-longer trails fail to beat it and the
+  // target phases stop tracking the best trail found.
   if (k.level) {
     if (k.level - 1 < k.level)
       kernel_backtrack(k, k.level - 1);

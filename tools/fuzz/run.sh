@@ -3,7 +3,7 @@
 #   run.sh --quick  --solver CMD     ~10k cases + regression corpus (per commit)
 #   run.sh --nightly --solver CMD    ~200k cases + LRAT chain
 #   run.sh [fuzz.py args...]         pass-through
-# Sizes are the rev-66 cluster scale (10x the workstation defaults); submit
+# Sizes are the cluster scale (10x the workstation defaults); submit
 # via tools/fuzz/slurm.sh (50 threads), never in the session shell.
 # Default oracle: kissat (cadical when the solver under test IS kissat).
 
