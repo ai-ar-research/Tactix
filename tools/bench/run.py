@@ -595,6 +595,15 @@ def slurm_aggregate(outdir):
                   if s.get("score_proofs", True)], man["timeout"])
     if orc:
         print(summarize_oracle(orc, man["shape"]), flush=True)
+    # single-instance sensitivity for each scored arm against the FIRST scored
+    # arm (the baseline). See leave_one_out(): the headline alone has now hidden
+    # a one-instance verdict three times running.
+    scored = [s2["name"] for s2 in man["solvers"] if s2.get("score_proofs", True)]
+    for other in scored[1:]:
+        loo = leave_one_out(scored[0], all_results[scored[0]],
+                            other, all_results[other], man["timeout"])
+        if loo:
+            print(loo, flush=True)
     meta = {"tier": man["tier"], "timeout": man["timeout"], "jobs": None,
             "slurm": man["slurm"], "git": man["git"], "date": man["date"],
             "mem_gb": man["mem_gb"],
@@ -625,6 +634,67 @@ def slurm_aggregate(outdir):
             if f.startswith("task-"):
                 os.unlink(os.path.join(logdir, f))
     return 0
+
+
+def leave_one_out(a_name, a_res, b_name, b_res, timeout):
+    """Single-instance sensitivity of a paired A/B — printed next to the headline.
+
+    WHY THIS EXISTS. Three gates in a row had their SIGN decided by one
+    instance, and every one was caught only by hand-decomposing the run
+    afterwards: broad Factor admission (a regression that was +0.65..+1.21 once
+    one lottery instance came out), Stage B Tier B (+17.75 -> -2.38 without
+    `mod4block`), Stage B Tier C (+46.57 -> -21.15 without `mp1-Nb5T15`). The
+    tier headline cannot show this — a real regression and a one-instance
+    lottery print identically — so the aggregator computes it rather than
+    leaving it to whoever remembers to ask.
+
+    Reports the MINIMUM number of instances whose removal flips the sign. k=1
+    means the verdict is one coin flip. That is not a claim the instance is a
+    lottery — it is a claim that the run has not answered the question, and the
+    next step is paired draws on the named instance, not a decision.
+    """
+    def par2(rs):
+        return {r["instance"]: (r["time"] if r.get("solved") else 2 * timeout)
+                for r in rs}
+    A, B = par2(a_res), par2(b_res)
+    common = sorted(set(A) & set(B))
+    if len(common) < 3:
+        return None
+    d = {i: B[i] - A[i] for i in common}
+    n = len(common)
+    total = sum(d.values())
+    if total == 0:
+        return None
+    # minimum removals to flip the sign: greedily drop the instances pulling
+    # hardest in the total's own direction.
+    order = sorted(common, key=lambda i: -d[i] if total > 0 else d[i])
+    run, k, dropped = total, 0, []
+    for i in order:
+        if (run > 0) != (total > 0):
+            break
+        run -= d[i]
+        k += 1
+        dropped.append(i)
+    flipped = (run > 0) != (total > 0)
+    top = order[0]
+    out = [f"  A/B {a_name} -> {b_name}: {total / n:+.2f} PAR-2 "
+           f"({total:+.1f} s over {n} instances)"]
+    out.append(f"    largest single mover: {os.path.basename(top)} "
+               f"{d[top]:+.1f} s  ({abs(d[top]) / abs(total) * 100:.0f}% of the total)")
+    if not flipped:
+        out.append("    sign is robust: no subset removal flips it")
+    elif k == 1:
+        out.append(f"    ▶ UNDECIDED: removing {os.path.basename(dropped[0])} "
+                   f"alone flips the sign to {(total - d[dropped[0]]) / n:+.2f} "
+                   f"PAR-2. One instance carries this result — run paired draws "
+                   f"on it before reading the headline as a verdict.")
+    elif k <= max(2, n // 10):
+        out.append(f"    ▶ FRAGILE: {k} instances flip the sign "
+                   f"({', '.join(os.path.basename(x) for x in dropped)}) "
+                   f"-> {run / n:+.2f} PAR-2")
+    else:
+        out.append(f"    sign survives removing any {k - 1} instances")
+    return "\n".join(out)
 
 
 def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
