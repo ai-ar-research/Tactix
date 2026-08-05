@@ -17,10 +17,10 @@ C4** · V5 Sweep **S-d and S-e** (Sweep is now a REGISTERED rule with a proof de
 `tests/test_scheduling.cpp` · the aggregator now reports **single-instance sensitivity**.
 
 **▶ NOT DONE — the honest remainder of the overnight ask:**
-- **S-f** — HALF done. Sweep turned out to be scheduled ALREADY (S-d's registry line did it) and
-  unbudgeted; it now carries kissat's `sweepeffort` 100‰ against `sweep_ticks`. **The tier A/B is still
-  owed** (`TACTIX_SLOT_DISABLE=Sweep` vs default, Tier B+C).
-- **SCHED C2, C5, C6, C7** — not started. C2 is a *documentation* item (accepted-deviation row; the naive
+- **S-f — DONE, verdict = keep Sweep ON at 100‰.** Measured a wash on both tiers once the fragile
+  instances come out (−0.08 B / +3.90 C), but **Tier C loses one solve (29 → 28)**; paired draws on that
+  instance are OWED before the wash reading is final.
+- **SCHED C2, C5, C6** — not started (C7 is done). C2 is a *documentation* item (accepted-deviation row; the naive
   port is measured negative 3× and must NOT be re-run).
 - **SCHED Stages D, E, F, G** (D1–D3, E1–E2, F1–F2, G1–G2) — not started.
 
@@ -972,6 +972,32 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-05 — S-f MEASURED: Sweep is a WASH once the fragile instances come out, and costs a Tier C solve
+
+Windows `20260805-002315-B-sf2` / `20260805-002318-C-sf2`, pinned to node017. Arms: default (Sweep ON at
+kissat's 100‰) vs `TACTIX_SLOT_DISABLE=Sweep`.
+
+| tier | Sweep ON | Sweep OFF | delta (ON vs OFF) | flips on | after |
+|---|---|---|---|---|---|
+| B (28) | **92.32 (25/28)** | 103.19 (24/28) | **−10.86 ON is better**, +1 solve | 2 (`mod4block`, `2013113162201nw`) | −0.08 |
+| C (30) | 406.25 (**28**/30) | **339.77 (29/30)** | **+66.48 ON is worse**, −1 solve | 2 (`ascon…`, `constraints_18…`) | +3.90 |
+
+Both halves are FRAGILE at k=2, and one of Tier B's two is `mod4block` — an established lottery. So the
+honest read is: **once the fragile instances come out, Sweep is a WASH on both tiers** (−0.08 B, +3.90 C).
+It is neither the win the Tier B headline suggests nor the loss the Tier C headline suggests.
+
+**The one thing that is not a wash: Tier C loses a solve with Sweep ON (29 → 28).** On a tier where a
+solve flip is worth 2400 PAR-2, that is the number that matters, and `#solved` is the thing to read there
+rather than the aggregate.
+
+**Decision (mine, per the standing baseline that every implemented proof rule ships ON): keep Sweep
+scheduled at kissat's 100‰**, and treat the Tier C solve as the open question rather than a reason to
+disable a rule. Two reasons: the effort share is the reference's own constant rather than something tuned
+to this window, and a rule-off default would be exactly the "diagnostic arm as shipped default" the
+project has already rejected. **What is owed:** paired draws on the lost Tier C instance, the same
+protocol that cleared `mod4block`, `mp1-Nb5T15` and `sted5` — three for three, every headline decider so
+far has been a lottery, so the prior is strong but that is a prior, not a result.
 
 ### 2026-08-05 — SCHED-C7: random decisions (`randec`), the last cheap Stage C wire
 
