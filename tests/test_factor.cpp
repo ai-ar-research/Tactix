@@ -30,7 +30,7 @@ static bool has_binary(const Kernel &k, Lit a, Lit b) {
 // extension boundary, and keeps the model-output count at the original variables.
 static void test_extension_var_boundary() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 5); // 5 original vars: 0..4
   assert(k.nvars == 5);
   assert(k.first_extension_var == UINT32_MAX);
@@ -55,7 +55,7 @@ static void test_extension_var_boundary() {
 // quotients (5 clauses) over a fresh x; originals are deleted.
 static void test_factoring_2x3() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // Track H · H7: attach H
+  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
   kernel_reserve_vars(k, 5); // a=0 b=1 p=2 q=3 r=4
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false), q = make_lit(3, false), r = make_lit(4, false);
@@ -81,13 +81,50 @@ static void test_factoring_2x3() {
       assert(!has_binary(k, f, rr));
 }
 
+// SCHED-C5: fresh extension vars are demoted to the BOTTOM of the VMTF queue,
+// and the ORDER inside the demoted block matters. Both references prepend in
+// CREATION order (kissat factor.c:867-882 walks `fresh` begin->end; cadical
+// factor.cpp:799-802 `queue.bury`s in the same direction), so the var created
+// LAST ends up at `queue_first` = least preferred. Ours ran the loop backwards
+// for weeks, which is undetectable from any aggregate and cost `rbsat` 4.7x the
+// conflicts. Two disjoint grids in ONE apply are what makes the order testable.
+static void test_demote_fresh_order() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 10); // two disjoint 2x3 grids over 0..4 and 5..9
+  for (Var base : {0u, 5u})
+    for (const Var fv : {base + 0, base + 1})
+      for (const Var rv : {base + 2, base + 3, base + 4})
+        kernel_add_binary_clause(k, make_lit(fv, false), make_lit(rv, false),
+                                 ++k.next_clause_id);
+
+  assert(k.factor_demote_fresh); // the shipped default since SCHED-C5
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 2);
+  assert(k.nvars == 12 && k.first_extension_var == 10); // fresh = 10, 11
+
+  // Fired exactly once for the whole application (never once per factoring —
+  // the O(#queue) per-call cost), and counted both fresh vars.
+  assert(k.stats.factor_demotions == 1);
+  assert(k.stats.factor_demoted_vars == 2);
+
+  // NEWEST fresh var is least preferred, i.e. at the queue front, with the
+  // older one immediately behind it and every original behind both.
+  assert(k.h->queue_first == 11);
+  assert(k.h->links[11].next == 10);
+  assert(k.h->links[10].next < 10); // an original follows the demoted block
+  for (Var v = 0; v < 10; v++)
+    assert(k.h->links[v].stamp > k.h->links[10].stamp &&
+           k.h->links[v].stamp > k.h->links[11].stamp);
+}
+
 int main() {
-  // No TACTIX_FACTOR_FORCE needed since SCHED-N1FIX (2026-08-04): the density
-  // selectivity heuristic moved OUT of the rule and into DefaultPolicy, so these
-  // tiny below-threshold grids now factor through the rule's own surface. The
-  // workaround this used to need was itself the symptom of the N1 breach.
+  // No TACTIX_FACTOR_FORCE needed: the density admission heuristic lives in
+  // DefaultPolicy, not in the rule, so these tiny below-threshold grids factor
+  // through the rule's own surface (see tests/test_factor_n1.cpp).
   test_extension_var_boundary();
   test_factoring_2x3();
+  test_demote_fresh_order();
   std::printf("test_factor: all passed\n");
   return 0;
 }

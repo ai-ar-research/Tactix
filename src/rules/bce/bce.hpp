@@ -1,10 +1,10 @@
-// X1 BCE (plan §5.2, rev 72): blocked clause elimination. A clause `C` is
+// BCE (plan §5.2): blocked clause elimination. A clause `C` is
 // BLOCKED on a literal `l ∈ C` when every resolvent of `C` with a clause
 // containing `¬l`, resolved on `l`, is TAUTOLOGICAL. Such a `C` may be deleted:
 // the formula is not equivalent afterwards (a model of `F \ {C}` need not
 // satisfy `C`), but it is EQUISATISFIABLE, and any model is repaired by setting
 // `l` true — which is exactly a reconstruction witness. Kissat 4 dropped BCE;
-// CaDiCaL keeps it (`block.cpp`), and the user directive (rev 72) is to carry
+// CaDiCaL keeps it (`block.cpp`), and the standing directive is to carry
 // every reference family, so it lands here.
 //
 // Proof delta: `delete` + `push-witness`. Nothing is ADDED, so there is no
@@ -34,7 +34,7 @@
 // (2) BINARIES ARE CANDIDATES, LARGE CLAUSES ARE CANDIDATES, UNITS ARE NOT.
 //     A root unit is already propagated into the formula; "deleting" it would
 //     drop a level-0 assignment the rest of the kernel assumes.
-// (3) NO OCCURRENCE-LIMIT / EFFORT BUDGET IN THE RULE (the §5.2 rev-17 split,
+// (3) NO OCCURRENCE-LIMIT / EFFORT BUDGET IN THE RULE (the §5.2 split,
 //     as in V4 deviation 7 and X2 deviation 2): the rule charges its scanning
 //     to `stats.bce_ticks` and offers per-literal instances; WHEN and HOW MUCH
 //     is policy territory.

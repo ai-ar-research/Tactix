@@ -297,14 +297,12 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // (A) hazard pre-check, PER-SCC. A pair with ≥2 live copies cannot be deleted
   // by name (kernel_delete_binary refuses — one id can't name two clauses).
   //
-  // This USED TO SKIP THE WHOLE ROUND, on the reasoning that the case is
-  // "rare". Measured 2026-08-01, that inverts at scale: "rare" is a claim about
-  // a LITERAL while the skip was per ROUND, so P(round survives) collapses as
-  // the marked set grows — and the instances with the most equivalences to
-  // exploit mark the most literals. On `veer_axi` V3 marked ~363 k literals per
-  // round and lost **5 of 5 rounds**, wasting all 179,110 equivalences V6 had
-  // just found; 9vliw lost 5 of 11. The rule was most inert exactly where it
-  // would pay most.
+  // DO NOT widen this back to a whole-ROUND skip on the reasoning that the
+  // case is "rare". "Rare" is a claim about a LITERAL while the skip would be
+  // per ROUND, so P(round survives) collapses as the marked set grows — and
+  // the instances with the most equivalences to exploit mark the most
+  // literals. Measured, that loses every round on exactly the instances this
+  // rule exists for.
   //
   // So poison only the offending EQUIVALENCE CLASS instead. Per-SCC keeps the
   // all-or-nothing granularity the proof needs (a class is either rewritten
@@ -698,7 +696,7 @@ ApplyResult substitute_apply(Kernel &k) {
 }
 
 // instance surface: payload = an SCC representative literal (lit_instance /
-// lit_of_instance, rev 34); INSTANCE_CANONICAL = the full round. A single
+// lit_of_instance); INSTANCE_CANONICAL = the full round. A single
 // instance substitutes exactly the requested equivalence class — the SCC with
 // representative `rep` AND its mirror SCC (representative ¬rep), so both
 // polarities of every member variable are eliminated together. Total for every

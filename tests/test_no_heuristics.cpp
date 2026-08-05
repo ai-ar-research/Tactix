@@ -1,5 +1,5 @@
-// Track H · H5: `H` (search guidance) is OPTIONAL. A solver with k.h == nullptr
-// is fully sound, just unguided (plan rev 60). This pins the null-`H` contracts:
+// `H` (search guidance) is OPTIONAL. A solver with k.h == nullptr
+// is fully sound, just unguided (the plan). This pins the null-`H` contracts:
 // the `H`-only policy operations become inapplicable, the `H`-consuming reads
 // fall back safely, and Decide degrades to index order (N1 — every unassigned
 // literal is still a legal branch). Soundness + proofs at scale are the

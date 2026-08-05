@@ -93,9 +93,9 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       r = apply_rule(rules[id], k);
     }
     // per-step rule trace, env-gated (zero cost when off): the diagnostic that
-    // pins an N1-schedule bug — it names the rule + result + state at every step
-    // (the every-256 invariant check hides which apply corrupted things). Found
-    // corpus 007. See the `stress-policy` skill / [[n1-handoff-hazard-family]].
+    // pins an N1-schedule bug — it names the rule + result + state at every
+    // step, where the every-256 invariant check only says that SOMETHING
+    // corrupted state. See the `stress-policy` skill.
     if (getenv("TACTIX_TRACE")) {
       static const char *rn[] = {"Ok", "NoOp", "Conflict", "Sat", "Unsat"};
       fprintf(stderr,

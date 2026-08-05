@@ -1,12 +1,12 @@
-// V5 Sweep · S-c: candidate selection + environment construction.
+// Sweep: candidate selection + environment construction.
 //
-// Four things have to be true for S-c to be worth anything, and each has its
+// Four things have to be true for detection to be worth anything, and each has its
 // own test here:
 //
 //  1. IT FINDS EQUIVALENCES RUP CANNOT (test_non_rup_equivalence). The whole
 //     reason V5 exists is that a swept equivalence is entailed but not RUP
 //     (design §4); the fixture proves its own premise by assuming the pair and
-//     propagating in the MAIN kernel — no conflict, so the S-d fast path could
+//     propagating in the MAIN kernel — no conflict, so the RUP fast path could
 //     never get this one — and only then requires the detector to.
 //  2. EVERY CLAIM IS TRUE (test_brute_force_oracle). 20k random formulas, and
 //     every reported `a ≡ b` re-checked by enumerating all models of the
@@ -14,7 +14,7 @@
 //     is not a subset of F, a mis-mapped literal, or a vacuous "refutation".
 //  3. THE ENVIRONMENT IS LITERALLY MADE OF F's CLAUSES (test_env_provenance).
 //     Each environment clause is matched back to a kernel clause with the SAME
-//     literals and the SAME proof id — S-e's core mapping is exactly this
+//     literals and the SAME proof id — the core mapping is exactly this
 //     lookup, and a truncated or strengthened clause would break it silently.
 //  4. THE LIMITS BIND WITHOUT TRUNCATING (test_limits).
 //
@@ -146,8 +146,8 @@ void test_non_rup_equivalence() {
   assert(k.next_clause_id == cls.size());
 }
 
-// The same equivalence, reached through the per-seed entry point (what S-d's
-// `instances()` will drive), and from the OTHER seed — the answer must not
+// The same equivalence, reached through the per-seed entry point (what
+// `instances()` drives), and from the OTHER seed — the answer must not
 // depend on which end of the pair is swept.
 void test_seed_symmetry() {
   const std::vector<std::vector<int>> cls = non_rup_formula();
@@ -200,7 +200,7 @@ void test_brute_force_oracle(uint32_t rounds) {
       assert(e.a < e.b);
       assert(var_of(e.a) != var_of(e.b));
       assert(equivalent_in_all_models(cls, nvars, e.a, e.b));
-      // was it something the formula did not already say? (the S-c question)
+      // was it something the formula did not already say?
       Kernel probe;
       build(probe, nvars, cls);
       nontrivial += !is_rup_binary(probe, negate(e.a), e.b) ||
@@ -210,7 +210,7 @@ void test_brute_force_oracle(uint32_t rounds) {
     assert(k.stats.sweep_equivalences == r.found.size());
   }
   // Reachability, at the source: a green oracle over ZERO environments or ZERO
-  // claims would be vacuous ([[ab-arm-identical-artefacts]]).
+  // claims is vacuous, so assert both are non-zero.
   printf("  oracle: %llu environments, %llu claims (%llu not RUP)\n",
          (unsigned long long)envs, (unsigned long long)claims,
          (unsigned long long)nontrivial);

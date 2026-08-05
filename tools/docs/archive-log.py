@@ -4,12 +4,11 @@
 PROGRESS.md's Log keeps the CURRENT ISO week only; completed weeks move to
 `docs/log/<ISO-week>.md`, verbatim and frozen, indexed by `docs/log/README.md`.
 
-This exists as a SCRIPT rather than a wrap-up instruction on purpose. This
-project's own record (2026-08-04 diagnosis, cause E) is that prose triggers do
-not fire: five rev-77 closers with natural-language conditions went off
-silently, one of them recording in its own text that "the condition was met and
-nothing was revisited". A check that runs is worth more than a rule that is
-remembered.
+This exists as a SCRIPT rather than a wrap-up instruction on purpose: this
+project's record is that PROSE TRIGGERS DO NOT FIRE. Several deferred items
+with natural-language conditions went off silently, one of them recording in
+its own text that the condition had been met and nothing was revisited. A check
+that runs is worth more than a rule that is remembered.
 
     tools/docs/archive-log.py --check    exit 1 if archiving is due (CI/wrap-up)
     tools/docs/archive-log.py            do it

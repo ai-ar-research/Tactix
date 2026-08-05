@@ -1,5 +1,5 @@
-/* Tactix public C API — v1, frozen at the phase-2 review (plan §5.1,
- * rev 20/21; O3 + O5 decided). Post-v1 changes are additive only.
+/* Tactix public C API — v1, frozen at the phase-2 review (plan §5.1).
+ * Post-v1 changes are additive ONLY.
  *
  * N1 guarantee: at any solver state, every rule whose guard holds can be
  * discovered (tactix_rules_applicable), its instances enumerated
@@ -14,9 +14,10 @@
  *
  * Instances (O3): a rule instance is a uint64_t payload whose encoding the
  * rule documents — Decide/Probe/Backbone/TransitiveReduce: the DIMACS
- * literal, ZERO-extended, i.e. TACTIX_LIT_INSTANCE(elit) below (rev 34: the
- * original "cast to int64" sign-extended -1 onto TACTIX_INSTANCE_CANONICAL,
- * so asking to branch on -1 silently got the canonical pick — an N1 hole);
+ * literal, ZERO-extended, i.e. TACTIX_LIT_INSTANCE(elit) below. Zero, never
+ * sign, extension: a plain "cast to int64" maps -1 onto
+ * TACTIX_INSTANCE_CANONICAL, so asking to branch on -1 silently gets the
+ * canonical pick, which is an N1 hole;
  * Restart: the keep-level; Backjump: the target level; Reduce: the number
  * of ranked victims to delete. Rules without per-application choice
  * (Propagate, Analyze, SwitchMode) expose only the canonical instance.
@@ -47,7 +48,7 @@ typedef struct tactix_solver tactix;
 #define TACTIX_PROOF_DRAT_ASCII 1
 #define TACTIX_PROOF_LRAT 2 /* native LRAT: antecedent hints (plan O4) */
 
-/* read-only statistics ids (rev 21); the list grows additively */
+/* read-only statistics ids; the list grows additively */
 #define TACTIX_STAT_CONFLICTS 0
 #define TACTIX_STAT_DECISIONS 1
 #define TACTIX_STAT_PROPAGATIONS 2
@@ -61,33 +62,34 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_LAST_LEARNED_GLUE 10
 #define TACTIX_STAT_STABLE 11
 #define TACTIX_STAT_REPHASED 12
-#define TACTIX_STAT_SUBSUMPTIONS 13 /* SubsumeForward rounds (C1) */
+#define TACTIX_STAT_SUBSUMPTIONS 13 /* SubsumeForward rounds */
 /* live irredundant large clauses + binaries (kissat BINIRR_CLAUSES):
  * the size input of the default inprocessing interval scaling */
 #define TACTIX_STAT_IRREDUNDANT_CLAUSES 14
 #define TACTIX_STAT_ROOT_FIXED 15      /* root-level (fixed) assignments */
 #define TACTIX_STAT_BINARY_CLAUSES 16  /* distinct binary clauses added */
-#define TACTIX_STAT_STRENGTHENED 17    /* clauses strengthened (C2) */
-#define TACTIX_STAT_VIVIFIED 18        /* clauses distilled (C3) */
-#define TACTIX_STAT_PROBE_FAILED 19    /* failed literals -> units (V1) */
-#define TACTIX_STAT_BACKBONE_FAILED 20 /* binary failed literals -> units (V2) */
-#define TACTIX_STAT_TRANSITIVE_DELETED 21 /* redundant binaries deleted (V4) */
-/* The §5.6 reward/cost counters (rev 69): the currencies the arrangement's
- * dosing is denominated in, exposed so an external/learned policy can meter
- * the work its schedule buys (the pull-based reward channel). */
-#define TACTIX_STAT_FACTORINGS 22       /* Factor/BVA grids applied (E2) */
+#define TACTIX_STAT_STRENGTHENED 17    /* clauses strengthened */
+#define TACTIX_STAT_VIVIFIED 18        /* clauses distilled */
+#define TACTIX_STAT_PROBE_FAILED 19    /* failed literals -> units */
+#define TACTIX_STAT_BACKBONE_FAILED 20 /* binary failed literals -> units */
+#define TACTIX_STAT_TRANSITIVE_DELETED 21 /* redundant binaries deleted */
+/* The plan §5.6 reward/cost counters: the currencies dosing is denominated
+ * in, exposed so an external/learned policy can meter the work its schedule
+ * buys (the pull-based reward channel).
+ *
+ * Each rule is exposed as a (yield, effort) PAIR, deliberately.
+ * Cost-per-unit-output — not yield alone — is the axis that orders these
+ * rules' outcomes: the same rule can cost three orders of magnitude more per
+ * unit of yield on one instance than on another, and a learner reading only
+ * the yield cannot tell those apart. */
+#define TACTIX_STAT_FACTORINGS 22       /* Factor/BVA grids applied */
 #define TACTIX_STAT_FACTOR_TICKS 23     /* Factor work, cache-line units */
-#define TACTIX_STAT_BVE_ELIMINATED 24   /* variables eliminated (E1) */
+#define TACTIX_STAT_BVE_ELIMINATED 24   /* variables eliminated */
 #define TACTIX_STAT_BVE_RESOLUTIONS 25  /* BVE work: resolvent attempts */
-/* The Track R families, scheduled since 2026-07-29. Each is exposed as a
-   (yield, effort) PAIR because the 2026-07-28 campaign showed cost-per-unit-
-   output is the axis that orders these rules' outcomes — BCE costs 13 ticks per
-   deletion where it buys a 50x speedup and 7,700..43,000 where it costs us — so
-   a §5.6 learner reading only the yield could not tell those apart. */
-#define TACTIX_STAT_BCE_DELETED 26      /* blocked clauses deleted (X1) */
+#define TACTIX_STAT_BCE_DELETED 26      /* blocked clauses deleted */
 #define TACTIX_STAT_BCE_TICKS 27        /* BCE work: occurrences + pairs */
-#define TACTIX_STAT_TERNARY_RESOLVENTS 28 /* ternary resolvents added (X2) */
-#define TACTIX_STAT_TERNARY_TICKS 29    /* X2 work: occurrences + pairs */
+#define TACTIX_STAT_TERNARY_RESOLVENTS 28 /* ternary resolvents added */
+#define TACTIX_STAT_TERNARY_TICKS 29    /* HyperTernaryRes work */
 #define TACTIX_STAT_INSTANTIATED 30     /* literals removed (X4) */
 #define TACTIX_STAT_REORDERED 31        /* decision re-rankings (S7 policy op) */
 
@@ -111,7 +113,7 @@ int tactix_proof(tactix *, const char *path, int format);
 #define TACTIX_BVE_GATE_AND_OR 2u /* AND/OR x<->OR/AND(...) */
 void tactix_set_bve_gates(tactix *, unsigned mask);
 
-/* Kernel CONFIGURATION setters (rev 69) — the pose surface for external and
+/* Kernel CONFIGURATION setters — the pose surface for external and
  * learned policies (§5.6). Every value is sound: config narrows/reorders
  * WHICH sound applications happen, never their proof obligations (the
  * bve_gates argument above, generalized). Settable at any state (N1).
@@ -140,7 +142,7 @@ int tactix_value(tactix *, int lit);
 int tactix_rule_count(void);
 const char *tactix_rule_name(int rule_id);
 
-/* action kind (plan §4 rev 59, additive): is registry entry rule_id a PROOF
+/* action kind (plan §4): is registry entry rule_id a PROOF
  * RULE — a non-trivial effect on the proof state, so it carries a proof
  * obligation — or an H-only POLICY OPERATION (a sub-policy: Rephase, SwitchMode,
  * ...)? Both share this one name-sorted id space. Returns a TACTIX_ACTION_*
@@ -181,7 +183,7 @@ int tactix_decide(tactix *, int lit); /* 0 ok, -1 not applicable */
  * 20 refuted (UNSAT) */
 int tactix_status(tactix *);
 
-/* read-only statistics (rev 21): returns the counter for a TACTIX_STAT_*
+/* read-only statistics: returns the counter for a TACTIX_STAT_*
  * id, UINT64_MAX for unknown ids. Allocation-free. */
 uint64_t tactix_stat(tactix *, int stat_id);
 

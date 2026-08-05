@@ -25,7 +25,7 @@ add_executable(test_subsolver test_subsolver.cpp)
 target_link_libraries(test_subsolver PRIVATE tactix_lib)
 add_test(NAME subsolver COMMAND test_subsolver)
 
-# V5 Sweep S-c: candidate selection + environment construction. Pass an
+# Sweep: candidate selection + environment construction. Pass an
 # iteration count to raise the brute-force oracle's soak size.
 add_executable(test_sweep test_sweep.cpp)
 target_link_libraries(test_sweep PRIVATE tactix_lib)
@@ -124,11 +124,11 @@ add_test(NAME micro_proofs
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
-# V5 Sweep S-b + S-e: every proof Sweep produces, replayed through the real
-# checkers (drat-trim for the lemmas, lrat-check for the chains). test_subsolver
-# covers the derivations in SUB-SOLVER space; test_sweep covers the same
-# derivations after the sub-solver -> kernel translation, which is separate code
-# and is where the 2026-08-05 N2 breach lived. Skips with 77 without a checker.
+# Sweep: every proof it produces, replayed through the real checkers (drat-trim
+# for the lemmas, lrat-check for the chains). test_subsolver covers the
+# derivations in SUB-SOLVER space; test_sweep covers the same derivations after
+# the sub-solver -> kernel translation, which is separate code and is where the
+# 2026-08-05 N2 breach lived. Skips with 77 without a checker.
 add_test(NAME sweep_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh ${CMAKE_SOURCE_DIR}
                  $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
@@ -152,7 +152,7 @@ add_executable(test_factor_n1 test_factor_n1.cpp)
 target_link_libraries(test_factor_n1 PRIVATE tactix_lib)
 add_test(NAME factor_n1 COMMAND test_factor_n1)
 
-# SCHED-A2: not a unit test but a SOURCE conformance check -- every Kernel
+# Not a unit test but a SOURCE conformance check -- every Kernel
 # scheduling-config field must have the writer its classification claims. Runs
 # in ctest so an unwired POLICY field, or a new unclassified field, breaks the
 # build rather than waiting to be noticed.
@@ -170,12 +170,12 @@ add_test(NAME effort_specs
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-effort-specs.py)
 
-# Track H . H5: `H` is optional -- a null-H solver is sound but unguided.
+# `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)
 target_link_libraries(test_no_heuristics PRIVATE tactix_lib)
 add_test(NAME no_heuristics COMMAND test_no_heuristics)
 
-# Track H boundary guard (plan Sec 5, rev 62): the kernel interface must not
+# Kernel/H boundary guard (plan Sec 5): the kernel interface must not
 # depend on H's layout -- kernel.hpp holds struct Heuristics only as an opaque
 # pointer and must NEVER #include policies/heuristics.hpp. A real include would
 # also compile-fail via the include cycle, but this gives a fast, clear signal.

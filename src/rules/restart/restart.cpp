@@ -1,6 +1,6 @@
 // Restart: abandon the assignment prefix (kissat restart.c). WHEN is
 // policy state (focused: Glucose EMA scheme; stable: reluctant doubling —
-// both in DefaultPolicy, rev 17); HOW — including trail reuse — is here.
+// both in DefaultPolicy); HOW — including trail reuse — is here.
 #include "rules/restart/restart.hpp"
 #include "policies/heuristics.hpp"
 
@@ -8,7 +8,7 @@ namespace tactix {
 
 // soundness: abandoning the assignment prefix is always sound; only a
 // recorded-but-unanalyzed conflict pins the trail (stale conflict record).
-// WHEN to restart is the policy's decision and state (plan §5 rev 17) —
+// WHEN to restart is the policy's decision and state (plan §5) —
 // this module only knows HOW.
 bool restart_guard(const Kernel &k) {
   return !k.conflict_valid && !k.inconsistent && k.level > 0;

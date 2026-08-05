@@ -226,14 +226,15 @@ ApplyResult ternary_apply(Kernel &k) {
   ternary_pivots(k, pivots, &total_clauses);
   bool added = false;
   // Budget-aware batch rule (EffortSpec budget_aware): stop mid-round when the
-  // policy's ledger in our currency (ternary_ticks) is spent. Unbudgeted, this
-  // round added enough redundant clauses to cost Tier B 9.7 -> 270.0 on
-  // mod4block (2026-07-27 A/B).
+  // policy's ledger in our currency (ternary_ticks) is spent. Unbudgeted, one
+  // round can add enough redundant clauses to turn a fast solve into a
+  // timeout.
   const uint64_t tick_start = k.stats.ternary_ticks;
-  // GROWTH governor (cadical `ternarymaxadd`, ternary.cpp:387): the ticks budget
-  // bounds WORK, not OUTPUT, and X2's failure mode is output — 32,155 resolvents
-  // on mod4block once BCE stopped shrinking its candidate pool. This bounds the
-  // clauses one round may add to a fraction of the formula it is growing.
+  // GROWTH governor (cadical `ternarymaxadd`, ternary.cpp:387): the ticks
+  // budget bounds WORK, not OUTPUT, and this rule's failure mode is OUTPUT —
+  // resolvent count runs away once BCE stops shrinking its candidate pool.
+  // This bounds the clauses one round may add to a fraction of the formula it
+  // is growing.
   const uint64_t add_start =
       k.stats.ternary_resolvents + k.stats.ternary_binaries;
   const uint64_t add_limit =

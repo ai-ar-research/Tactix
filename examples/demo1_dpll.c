@@ -2,7 +2,7 @@
  *
  * Expressed with phase-≤2 rules only, through the frozen v1 API: conflict
  * handling is the single atomic ConflictAnalysis rule (Analyze+Backjump
- * fused, rev 37), and "no learning" is Reduce with an everything-sized
+ * fused), and "no learning" is Reduce with an everything-sized
  * victim count right after every conflict. The
  * learned clause exists transiently — N2: it is still in the proof, and
  * clauses locked as reasons survive until the next purge — so this is
@@ -59,10 +59,8 @@ static int dpll_solve(tactix *s) {
       continue;
     }
     if (has(ids, n, conflictanalysis)) {
-      /* atomic learn+backjump (one rule since rev 37 — Analyze and Backjump
-       * fused, calculus §8). Backjumps to the assertion level; the
-       * chronological-target instance choice returns as a ConflictAnalysis
-       * instance parameter once true-level assignment lands (§5.4). */
+      /* atomic learn+backjump (Analyze and Backjump are one rule; calculus
+       * §8). Backjumps to the assertion level. */
       int r = tactix_apply(s, conflictanalysis);
       if (r == 20)
         return 20;

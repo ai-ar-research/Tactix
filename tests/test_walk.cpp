@@ -1,4 +1,4 @@
-// S6 Walk unit tests (plan §5.2 policy op, rev 71): the walker must find an
+// S6 Walk unit tests (plan §5.2 policy op): the walker must find an
 // assignment on a formula the phases get wrong, must leave the kernel
 // untouched (it is `H`-only), must respect the trail, and must be
 // deterministic. Uses the shape the diagnosis was written on — an

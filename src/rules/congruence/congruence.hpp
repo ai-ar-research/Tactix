@@ -27,9 +27,6 @@ enum class GateKind : uint8_t { And, Xor, Ite };
 //        `output`'s sign. The structural key is (kind, sorted
 //        representative inputs); XOR re-canonicalization folds input-sign into the
 //        output parity under the union-find. base_id is the all-positive base.
-//        (C4-perf's structural-chain fix will re-add a `side_ids` field holding
-//        the 2^k parity side-clause ids — removed as unpopulated scaffolding
-//        in the 2026-07-25 cleanup; see the Track C item.)
 //   Ite: output = cond ? then : else, `inputs` = [cond, then, else] in that fixed
 //        order (NOT sorted — the key is the normalized triple; normalize_ite puts
 //        cond & then positive, absorbing any flip into the output sign).
@@ -65,7 +62,7 @@ ApplyResult congruence_apply(Kernel &);
 // at a probing scope, propagates, and reads the antecedents off the conflict's
 // reason walk, so the chain comes out in the CHECKER's own propagation order by
 // construction. Returns false when the lemma is not RUP over the current DB, in
-// which case the caller must emit nothing. Shared with V5 Sweep's S-d fast path,
+// which case the caller must emit nothing. Shared with Sweep's RUP fast path,
 // which is the same question asked of a swept equivalence.
 // (The implementations live in an anonymous namespace, so these are thin
 // external-linkage forwarders defined at the end of congruence.cpp.)

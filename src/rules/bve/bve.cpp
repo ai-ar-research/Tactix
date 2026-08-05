@@ -28,15 +28,13 @@ static constexpr uint32_t BVE_CLSLIM = 100;
 // Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ + bound.
 // The bound is POLICY-DRIVEN state (`k.bve_bound`, defaulting to BVE_MAX_BOUND);
 // DefaultPolicy ramps it cheap-first (0,1,2,4,8) so the eliminations that do not
-// grow the formula happen first — kissat eliminate.c set_next_elimination_bound
-// (rev 53). When `k.bve_track_min_bound` is set the resolvent loop runs PAST this
-// slack (to the ramp ceiling) to learn the exact slack a rejected variable needs,
+// grow the formula happen first — kissat eliminate.c set_next_elimination_bound.
+// When `k.bve_track_min_bound` is set the resolvent loop runs PAST this slack
+// (to the ramp ceiling) to learn the exact slack a rejected variable needs,
 // caching it in `k.bve_min_bound` so the policy can skip it at lower ramp levels
-// instead of re-resolving it at each (the S1b needed-bound follow-up).
-// (The TACTIX_BVE_BOUND in-rule env pin — a rule silently overriding policy
-// writes, the rev-17 inversion — was deleted in the 2026-07-25 review pass;
-// the config field is the one channel. TACTIX_BVE_RAMP_MAX sweeps the ramp
-// ceiling policy-side.)
+// instead of re-resolving it at each. `Kernel::bve_bound` is the ONE channel:
+// no in-rule env pin may override a policy's write. TACTIX_BVE_RAMP_MAX sweeps
+// the ramp ceiling policy-side.
 static uint32_t bve_bound(const Kernel &k) { return k.bve_bound; }
 
 bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
@@ -337,13 +335,12 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   // share one binary_ids id (kernel.hpp invariant), the reconstruction
   // witness wants one entry, and deletion goes through
   // kernel_delete_binary_all_copies (the Factor precedent — one proof `del`
-  // per copy, LRAT-fuzz-proven). The old per-copy hazard ("the singular
-  // kernel_delete_binary can't name a duplicated pair") aborted the WHOLE
-  // candidate — on mp1-blockpuzzle, whose input has 137,700 duplicated
-  // binary pairs touching all 2,700 variables, that silently disabled BVE
-  // outright (0 eliminations vs kissat's 661; found 2026-07-25 chasing the
-  // arrangement's bve=0 trace). Dedup also makes `base` count DISTINCT
-  // clauses, matching kissat's DENSE deduped occurrences.
+  // per copy, LRAT-fuzz-proven). Do NOT abort the whole candidate on the
+  // per-copy hazard ("the singular kernel_delete_binary cannot name a
+  // duplicated pair"): a formula whose input already contains many duplicated
+  // binary pairs then silently gets NO eliminations at all. Dedup also makes
+  // `base` count DISTINCT clauses, matching kissat's DENSE deduped
+  // occurrences.
   std::vector<uint8_t> seen_bin(2 * k.nvars, 0);
   std::vector<Lit> touched_bin;
   auto gather_bin = [&](Lit lit, std::vector<MClause> &live) {
@@ -608,7 +605,7 @@ ApplyResult bve_apply(Kernel &k) {
       // so never collecting is sound) — it is the caller's cost/memory choice.
       // The canonical round stays self-contained; the apply_instance dosing
       // path leaves it to the scheduler, which reclaims once per phase instead
-      // of once per eliminated variable (O(arena) each — rev 53).
+      // of once per eliminated variable (O(arena) each —).
       kernel_collect_garbage(k);
       return ApplyResult::Ok; // eliminated one variable
     }
@@ -618,7 +615,7 @@ ApplyResult bve_apply(Kernel &k) {
 }
 
 // instance surface: payload = a candidate variable via its positive DIMACS
-// literal (lit_instance, rev 34); INSTANCE_CANONICAL = the full round.
+// literal (lit_instance); INSTANCE_CANONICAL = the full round.
 static uint32_t bve_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Var> cand;
   bve_schedule(k, cand);

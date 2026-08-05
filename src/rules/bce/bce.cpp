@@ -59,10 +59,9 @@ enum class Side { Cand, Opposite };
 // Round-local literal→large-clause index over the clauses BCE must see:
 // every live, non-root-satisfied clause, REDUNDANT ONES INCLUDED. `Kernel::dense`
 // cannot serve here — it carries irredundant clauses only, and blockedness must
-// quantify over redundant ones too — so one arena pass per ROUND builds this,
-// replacing the per-literal arena scan of the first implementation. That scan
-// made a canonical round O(nlits × arena) and is the measured reason the first
-// A/B put Tier B at 239.91 (2026-07-27 log entry).
+// quantify over redundant ones too — so one arena pass per ROUND builds this.
+// Do NOT go back to a per-literal arena scan: that makes a canonical round
+// O(nlits × arena), which measured as an order-of-magnitude tier regression.
 struct BceIndex {
   std::vector<std::vector<Ref>> occ; // by literal; may hold stale garbage Refs
 };
@@ -80,7 +79,7 @@ void build_index(const Kernel &k, BceIndex &idx) {
 }
 
 // Binaries live in the watch lists, not the arena; all of them are irredundant
-// in this kernel (V4 deviation 6).
+// in this kernel (transitive_reduce.hpp deviation 6).
 void collect_binaries(const Kernel &k, Lit l, Side side, std::vector<Occ> &out) {
   const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
   const uint32_t sz = k.watches.heads[l].size;
