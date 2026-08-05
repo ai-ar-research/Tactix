@@ -596,8 +596,9 @@ lever, absent new evidence.
 - [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles as the §5.3 **extensibility acceptance test** (pure plugin, no
   kernel edit)
 - [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
-- [ ] **R8 · the dosing/H-only items kissat ablates**: eager subsumption of learned clauses (+5.9) and random decisions (+7.9) — scheduling arms
-  on existing machinery, not new rule families
+- ~~**R8**~~ — **MOVED to Track SCHED (`SCHED-C6`/`C7`) on 2026-08-04.** It was scheduling work filed
+  under the rule inventory; its own text said so. Track R is now purely new rule FAMILIES (R5–R7),
+  which is what makes it parallelisable against Track SCHED once the meter is honest.
 
 ### ▶ Track SCHED — the scheduling floor (plan rev 80 §1.1 N4, §5 obligation 5)
 
@@ -692,6 +693,17 @@ register has the wrong schema. Fix the instrument before spending a tier window 
 - [ ] **SCHED-C3 · BVE bound-ramp advance guarded to phase completion** `[wire]` · [ ] **SCHED-C4 · split
   `TACTIX_REDUCE_SQRT` into cadence and ramp** `[wire]` (one env var moves both, so they cannot be measured
   apart) · [ ] **SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)** `[wire]`
+- [ ] **SCHED-C6 · eager subsumption of learned clauses** `[arch]` · [ ] **SCHED-C7 · random decisions
+  (`randec`)** `[arch]` — **moved here from Track R · R8 on 2026-08-04.** They were filed under the rule
+  INVENTORY, but R8's own text called them *"scheduling arms on existing machinery, not new rule
+  families"*, so running them under Track R meant two tracks editing the scheduler for the same reason.
+  Both are things kissat HAS and we LACK (N4 ledger `WE_LACK_IT`), and both are cheap: C6 subsumes a
+  learned clause at learn time instead of waiting for a subsumption round (a repetition fix, theme T2);
+  C7 is an `H`-only policy op with no proof delta. **Sizing, and the caveat that comes with it:** kissat's
+  own ablation loses **+5.9** and **+7.9** PAR-2 when they are disabled — but a single-ablation delta is an
+  inflated upper bound, because the survivors over-invest, so treat those as ceilings and run the all-off
+  control. Gate each independently after Stage B, never before: both are dosing arms and every dosing
+  number taken through today's shared meter is void.
 
 #### Stage D — the authored schedule and the two clocks (T6 + the global slot rows)
 
@@ -952,6 +964,18 @@ claims re-verified by hand before landing.
   enumerating the REFERENCE's option set, not our own recall, and (2) make the benchmark runner print a
   per-instance ORACLE column by default, so a gate must beat both always-on and the oracle to ship —
   de-selecting cause D at the instrument, the only level at which a selection pressure can be removed.
+
+### 2026-08-04 late — R8 moved out of Track R into Track SCHED (`SCHED-C6`/`C7`)
+It was scheduling work filed under the rule INVENTORY — its own text called it *"scheduling arms on
+existing machinery, not new rule families"* — so leaving it in Track R meant two tracks editing the
+scheduler for the same reason. Split into the two arms it always was: **`SCHED-C6` eager subsumption of
+learned clauses** (a repetition fix, theme T2 — subsume at learn time instead of waiting for a round) and
+**`SCHED-C7` random decisions**, an `H`-only op with no proof delta. Both are `WE_LACK_IT` in the N4
+ledger. kissat's ablation prices them at **+5.9** and **+7.9** PAR-2, but a single-ablation delta is an
+inflated upper bound (survivors over-invest), so those are ceilings, not targets. **Gate each after
+Stage B, never before** — they are dosing arms and every dosing number taken through the shared meter is
+void. **Consequence for sequencing: Track R is now purely new rule FAMILIES (R5–R7)**, which is what makes
+it cleanly parallelisable against Track SCHED once the meter is honest.
 
 ### 2026-08-04 late — plan rev 81: the §5.6 RL stages are `RL1`–`RL4`; `L<n>` now means a lesson only
 Naming only — no scope, requirement or gate change. 17 references renamed across the plan and PROGRESS.
