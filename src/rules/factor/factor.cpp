@@ -542,86 +542,17 @@ ApplyResult factor_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
 
-  // Density short-circuit. BVA only pays off on a dense binary implication graph;
-  // on binary-sparse instances (random 3-SAT) the seed scan is pure overhead and
-  // any incidental factoring of a BVE-derived binary only perturbs a chaotic
-  // search (Tier A tr-n300-s055 tipped over 30 s). Require ≥ ~one binary per
-  // original variable. This is a SELECTIVITY heuristic — its proper home is the
-  // policy's scheduling of Factor (S2); it lives here meanwhile as a cheap NoOp,
-  // not a guard conjunct (the guard stays the pure `level==0` precondition, so
-  // N1 keeps every factoring applicable via the API regardless).
-  // TACTIX_FACTOR_FORCE bypasses the selectivity gate so the fuzz harness
-  // exercises Factor on small instances (which are almost all below it).
-  // Density threshold: fire Factor only when binaries ≥ density·num_output_vars.
-  // Raised 1→8 with the BVE-LAST fix (2026-07-21): Factor's BVA compresses dense
-  // cardinality structure (clique ratio 17.5, mp1 103, x9 8.2) so BVE-last is
-  // benign there, but on binary-SPARSE instances (mod4block 4.1) Factor-then-BVE
-  // is HARMFUL — the gate fires on the dense ones and skips the sparse ones.
-  // Lowered 8→6 (2026-07-24): battleship's ratio is in [6,7) and the 8-gate
-  // locked it out of its ONLY robust path — with Factor it solves (78
-  // factorings, 175 s); without, every trajectory arm hit 72 M+ conflicts
-  // (`benchmarks/reports/2026-07-24-battleship-divergence.md`). mod4block
-  // (4.1) stays excluded. NOTE: still an overfit magic number (a SELECTIVITY
-  // heuristic — proper home is the policy, N1 keeps the guard pure); the
-  // effort-budgeted scheduler (plan rev 53) supersedes it.
-  // `TACTIX_FACTOR_DENSITY` overrides for A/B.
-  // NOTE (reference study, docs/design/2026-07-30-factor-admission-reference-study.md):
-  // a SCOPE-FRACTION admission was prototyped here and DROPPED unbuilt. Neither
-  // kissat nor cadical measures that axis — kissat has NO formula-shape
-  // admission at all — it would have been the FIFTH hand-designed per-instance
-  // separator on the family L15 measured dead (27–52 vs 9.17 for no gate), and
-  // its separation is an artifact of `factor_size` itself. It also had a real
-  // bug: the arena scan charged factor_ticks BEFORE returning NoOp, so a
-  // REJECTED call consumed the once-per-solve 700M first-dose allowance and
-  // advanced the new-material watermark, which the shipped O(1) gate avoids by
-  // construction. The statistic survives as a §5.6 feature, not a gate.
-  uint32_t density = 6;
-  if (const char *s = std::getenv("TACTIX_FACTOR_DENSITY"))
-    density = static_cast<uint32_t>(std::atoi(s));
-  // uint64 multiply, deliberately: both operands are uint32, so the product
-  // WRAPS in uint32 arithmetic. The shipped density of 6 is safe everywhere,
-  // but `tierC/128_125` has 48,505,464 variables, so any TACTIX_FACTOR_DENSITY
-  // >= 89 overflows there — and an A/B arm setting it HIGH to suppress Factor
-  // would wrap to a small bound and silently ADMIT it instead, i.e. the knob
-  // inverts exactly where it is being used as an off-switch. (Use
-  // TACTIX_NO_FACTOR to disable the rule; this only makes the bound honest.)
-  bool admit = k.binary_ids.size() >=
-               static_cast<uint64_t>(density) * kernel_num_output_vars(k);
-  // UNION admission (arm, Kernel::factor_scope_percent > 0): additionally admit
-  // when at least that PERCENT of live irredundant clauses are inside Factor's
-  // clause-size scope. STRICTLY ADDITIVE — everything the density gate admits
-  // today is still admitted, so today's beneficiaries cannot regress by
-  // construction; it only reaches instances the gate currently blocks.
-  //
-  // Measured need: the gate blocks exactly the instances the widened scope
-  // fixes — `sted5` (1.12 binaries/var) 300 TO -> 15.96 s and `or_randxor`
-  // (0.00) 300 TO -> ~47 s at size 5 — while `mod4block` (4.17, and only 8 % of
-  // its clauses in scope) is destroyed by Factor at any size. Scope fraction
-  // separates those: rxor 96 %, sted5 96 %, mod4block 8 %, crypto1 24 %.
-  //
-  // STATED PLAINLY: this is a hand-designed per-instance separator, the family
-  // L15 measured dead four times over, and the 2026-07-30 reference study found
-  // NO such axis in kissat or cadical. It ships only if the tier pair says so.
-  // The scan does NOT charge factor_ticks: a rejected call must not consume the
-  // once-per-solve first-dose allowance or advance the new-material watermark,
-  // which is the bug the first prototype had.
-  if (!admit && k.factor_scope_percent) {
-    uint64_t total = k.binary_ids.size(), in_scope = k.binary_ids.size();
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_words(c->size);
-      if (!c->garbage() && !c->redundant()) {
-        total++;
-        if (c->size <= k.factor_size)
-          in_scope++;
-      }
-      ref += words;
-    }
-    if (total && in_scope * 100 >=
-                     static_cast<uint64_t>(k.factor_scope_percent) * total)
-      admit = true;
-  }
-  if (!admit && !std::getenv("TACTIX_FACTOR_FORCE"))
+  // ADMISSION IS THE POLICY'S, NOT THE RULE'S (SCHED-N1FIX, 2026-08-04).
+  // A binary-density selectivity heuristic used to live here as a NoOp. It was
+  // an N1 BREACH: the guard reported applicable, `factor_instances` offered its
+  // canonical instance, and apply did nothing on any binary-sparse formula, so
+  // no API caller could apply a legal factoring at all — the rule refused
+  // everyone, which rev 76's "the built-in POLICY may decline" carve-out does
+  // not cover. The predicate now lives in DefaultPolicy's slot (beside BVE's
+  // identical one) and arrives as `Kernel::factor_admit`, which DEFAULTS TRUE,
+  // so an API caller that never sets it gets the full capability.
+  // `TACTIX_FACTOR_FORCE` still overrides, for fuzz on tiny formulas.
+  if (!k.factor_admit && !std::getenv("TACTIX_FACTOR_FORCE"))
     return ApplyResult::NoOp;
 
   // Anti-loop boundary: only ORIGINAL literals may be factors/remainders — never

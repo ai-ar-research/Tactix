@@ -805,6 +805,24 @@ struct Kernel {
   // (The TACTIX_FACTOR_COMPOSITE env override was removed in the 2026-07-25
   // negative-arm cleanup — this field is the one switch.)
   bool factor_composite = false;
+  // ADVICE (N1): may the policy's scheduling of Factor decline this occasion?
+  //
+  // DEFAULT true = NO RESTRICTION, and that default is the N1 guarantee. Until
+  // 2026-08-04 the binary-density selectivity heuristic lived inside
+  // `factor_apply` as a NoOp, so `factor_guard` reported APPLICABLE,
+  // `factor_instances` offered its canonical instance, and applying it did
+  // NOTHING on any binary-sparse formula — no caller of the public API (an LLM
+  // policy, an RL policy, RandomPolicy) could apply a legal factoring at all.
+  // The rule's own comment claimed the opposite. That is a capability removed,
+  // which rev 76's carve-out does not cover: the carve-out permits the built-in
+  // POLICY to decline, not the RULE to refuse everyone.
+  //
+  // So the predicate moved to DefaultPolicy (where BVE's identical density gate
+  // already correctly lives) and reaches the rule through this field — the same
+  // advice shape as `bve_retry`. An API caller that never writes it sees the
+  // complete surface. Sound at any value: declining an application is always
+  // sound, and forcing one is what the rule would have done anyway.
+  bool factor_admit = true;
   // Per-round work budget, read by any budget-aware canonical apply in its
   // OWN currency (kissat SET_EFFORT_LIMIT): Vivify meters propagation ticks
   // (stats.ticks), Factor its cache-line factor_ticks (S4 dosing — kissat
