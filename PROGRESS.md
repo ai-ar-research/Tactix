@@ -964,6 +964,32 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-05 — ▶▶ FULL STAGE B (B1–B5) RE-PRICED: neutral-to-positive; both deciders are lotteries
+
+Window `20260804-232942-B-stagebfull` / `20260804-232944-C-stagebfull`, pinned to node017, pre-Stage-B
+(`pin-b1base`) vs all five items.
+
+| tier | headline | flips on | after |
+|---|---|---|---|
+| B (28) | +3.99 PAR-2 | **1** — `sted5` | **−13.23** |
+| C (30) | +50.81 PAR-2 | **1** — `j3037` | **−6.32** |
+
+The new fragility line flagged both as `▶ UNDECIDED` **before** either was read as a verdict, which is
+exactly what it was built for — no hand-decomposition this time.
+
+- **`j3037` needs no new draws**: it is already an established lottery (may-not-gate; its veto was retired
+  on K′=11 paired draws). So **−6.32 is the admissible Tier C read, and that is INSIDE the 6.72 floor** —
+  Tier C is neutral, not a regression.
+- **`sted5` was not established, so it got draws** (job `1583589`). **K′=10 clean draws: Stage B faster in
+  5 of 10, median wall ratio 0.96** — dead even — over a range of **0.01–14.27**. The instance's own
+  spread is **14.3× on the baseline and 101× on Stage B**. That is a lottery, not a Stage B defect.
+
+**Verdict: Stage B lands.** Tier B −13.23 ex-lottery, Tier C neutral. Note the honest comparison against
+B1+B2 alone (−2.38 B / −32.27 C ex-lottery): **B3/B4/B5 did not add measurable value on Tier C** and may
+have cost some. They are kept because each closes a demonstrated reference gap — B4's meter was wrong by
+**2712×** — but the tier does not show them paying, and that is worth saying plainly rather than folding
+them into a green headline.
+
 ### 2026-08-05 — V5 Sweep S-e: the general path, and the N2 defect it exposed in S-d
 
 **S-e lands.** When a swept equivalence is not RUP over `F` — the case a sub-solver exists for — the
