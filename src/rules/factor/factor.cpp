@@ -177,8 +177,11 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   // column. Dropping such a clause can drop its neighbours below the bar too,
   // so the prune is iterated to fixpoint (bounded by k.factor_cand_rounds).
   //
-  // This is a STRUCTURAL quality filter, not a per-instance separator (the
-  // family L15 has killed four of those): it asks the incidence structure
+  // This is a STRUCTURAL quality filter, not a per-instance separator (every
+  // hand-designed admission gate measured against NO gate at all has lost —
+  // 5 arms, 5 for 5 in sign; and Factor's own density gate is never the best of
+  // {gate, always-on, per-instance oracle}: Tier B 86.42 / 34.59 / 32.25,
+  // Tier C 296.82 / 285.90 / 254.55): it asks the incidence structure
   // whether repeated structure exists, and answers "no" on random-ish formulas
   // by itself. That is exactly the measured gap in task #11 — on jgiraldezlevy
   // (random 3-SAT) we applied 76 factorings to cadical's 25 and lost 6x, while
@@ -578,8 +581,8 @@ ApplyResult factor_apply(Kernel &k) {
   // over a var's own dividers has m = 1, never accepted). **Default OFF —
   // measured (design §7): in our single preprocessing blast, composition
   // fires (mp1 940 → 1834 grids) but the downstream-conflict proxy REGRESSES
-  // 1.37 M → 2.18 M (the L4 over-application U-shape, Factor edition), and
-  // the grid cap does not move. Kept for the S4 arrangement, whose small
+  // 1.37 M → 2.18 M — twice the grids for 1.6x the conflicts, over-application
+  // measured on THIS rule — and the grid cap does not move. Kept for the S4 arrangement, whose small
   // interleaved doses are where kissat's own cross-round composition lives.**
   // (The TACTIX_FACTOR_COMPOSITE blast-composition env — the S2b negative —
   // was removed in the 2026-07-25 negative-arm cleanup; k.factor_composite

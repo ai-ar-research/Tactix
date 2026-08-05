@@ -353,7 +353,7 @@ static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
     if (a.binary) {
       mark_reason_side(k, a.reason);
     } else {
-      k.stats.ticks++; // kissat charges one search tick per reason deref
+      kernel_charge_ticks(k, 1); // kissat charges one search tick per reason deref
       const Clause *r = clause_at(k.arena, a.reason);
       const Lit self = negate(l); // `l` is false in the clause; the var's
                                   // true literal is the one `r` propagated

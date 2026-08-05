@@ -8,8 +8,11 @@
 //
 //  - it owns its arena, watches, trail and values, and never reads or writes
 //    `Kernel` state, so a policy may run it at any point without disturbing the
-//    search's bookkeeping (the L3 lesson: even a non-mutating pass that
-//    reorders watch lists changes the trajectory);
+//    search's bookkeeping — a pass that changes no clause still perturbs the
+//    trajectory, since a probing round that inferred nothing was measured to
+//    relocate watches and rewrite per-clause `searched` hints inside
+//    `kernel_propagate` (snapshot/restore of exactly those two reproduced the
+//    rule-off run bit-identically at 1,951,393 conflicts, `6a8d159`);
 //  - it is budgeted in its own tick currency and returns `Budget` rather than
 //    guessing, so the effort scheduler can dose it like every other rule
 //    (rule charges, policy budgets — §5.2 rev 17);
@@ -89,8 +92,9 @@ public:
   // The refutation behind the last `Unsat`. False when there is none to give:
   // no refutation yet, or the assumptions were DIRECTLY contradictory (nothing
   // was derived from the formula, so there is no chain to hand back and the
-  // target clause would be a tautology — which `Proof::add_rup` rightly
-  // refuses, L13).
+  // target clause would be a tautology — which `Proof::add_rup`'s no-tautology
+  // assert rightly refuses, that assert being the only thing that catches it:
+  // DRAT accepts a trivially-true clause for free).
   bool derivation(SubDerivation &out) const;
 
   // Model, by variable: +1 true, -1 false (valid only after `Sat`).

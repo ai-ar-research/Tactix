@@ -32,8 +32,11 @@
 //    the standalone rule. That prior held for us too when the rule was measured
 //    ALONE (Tier B 13.08 vs 8.05 shipped) — but measuring it alone turned out to
 //    be the wrong experiment: with X1 BCE and X2 HyperTernaryRes on beside it the
-//    trio costs 9.22, far less than any member alone, because the families repair
-//    each other (L15). **SCHEDULED since 2026-07-29** — every implemented proof
+//    trio costs 9.22, far less than any member alone (X1/X2/X4 alone are
+//    21.79/53.26/13.08 on that same Tier B(14) list, though X2's arm there is
+//    ~93 % one instance), because the families repair each other — so a member
+//    of a family must be judged WITH its family, never on its own arm.
+//    **SCHEDULED since 2026-07-29** — every implemented proof
 //    rule is ON (user directive); `TACTIX_SLOT_DISABLE=Instantiate` is the
 //    ablation arm.
 //

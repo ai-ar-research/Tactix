@@ -348,6 +348,12 @@ public:
     // canonical instance, so there is nothing to titrate).
     uint32_t permille = 0;
     uint64_t (*meter)(const Kernel &) = nullptr;
+    // SCHED-B2: this entry's PRIVATE tick counter inside Kernel::stats, or null
+    // when its currency is not ticks (BVE resolutions, C1/C2 candidate checks,
+    // Factor's own factor_ticks, which the rule charges itself). The policy
+    // scopes `Kernel::tick_sink` to this around the apply, so kernel-side
+    // propagation done ON THIS RULE'S BEHALF lands here and nowhere else.
+    uint64_t Stats::*tick_counter = nullptr;
     bool dosed = false;   // apply per-instance to a budget vs one canonical round
     bool retry_advice = false; // rule maintains a per-variable retry bit to consult
     // BATCH rule whose canonical apply reads Kernel::work_budget in its own
