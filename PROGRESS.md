@@ -7,15 +7,29 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
 - **Last updated:** 2026-08-04 late — **plan rev 80 (N4, the strategy floor, is now a non-negotiable)**. **Item (a) CLOSED: broad Factor admission re-tested at HEAD and HELD**, but the `j3037` veto that held it on 08-03 is **RETIRED as a measured lottery** (K′=11); the real loss is `ContextModel`, which **replicates 3/3 windows**. Broad is **+3 Tier B solves incl. `fclqcolor`** and **−1 Tier C solve**, and costs T3 on both halves — routed to **(b′) targeted admission**, now the top item. **T3 at HEAD: kissat subset 1.346× (was 1.271× pre-TB4b — see (c′)), cadical 1.069× subset / 0.990× full.** **TB4b's confirming Tier C collected** (−36.54 all-30, +9.45 excluding the chaotic set). **`frb45` newly measured chaotic.** **V6 congruence: outcome at parity, cost profiled to extraction + the index sort.** **Tier D built and frozen** (793), never run. **Also this session: an N2 defect FIXED** (LRAT unit ids missed off the root level, shipped in TB4b the same day — `52a4e8f`), the **N4 scheduling-parity ledger LANDED** (pass 1: 216 mechanisms, 132 gaps; **pass 2 = SCHED-A3's option-set enumeration, all 418 reference options, +15 gaps incl. 4 HIGH and 6 corrections to pass 1**) with **Track SCHED** staged, and an **OPEN N1 BREACH recorded** in `Factor` (`SCHED-N1FIX`, top of the queue).
 
-## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = `SCHED-C5`, then `C6`, then Stage D**
+## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = CLOSE THE N2 BREACH IN SWEEP; everything else waits**
 
-**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **42/42**, fuzz green at HEAD
-(random-policy+LRAT 4000/0, DRAT 10000/0 — jobs `1583885`/`1583886`).
+**▶▶ N2 IS BREACHED AT HEAD — a non-negotiable, so it outranks every item below.** V5 Sweep emits an
+**invalid refutation**: `asconhashv12` (Tier C) answers UNSAT and the certificate is REJECTED by drat-trim
+on DRAT *and* by cake_lpr on native LRAT (`clause not empty or singleton after reduction`), so the
+DERIVATION is wrong, not its encoding. Perfectly separated by the rule — **14/14 Sweep-ON draws rejected,
+14/14 Sweep-OFF verified** — and it reproduces at HEAD in ~124 s / 12.5 MB. Pre-S-f (`33940b8`) Sweep
+fired 0 rounds there and the proof verified, so **S-f's budget EXPOSED a latent emission defect rather
+than creating one**; first rejection in the Tier C archive is at `60c5671`. Report
+`benchmarks/reports/2026-08-05-sweep-proof-rejection.md`. **Consequence: no Tier B/C verdict on an UNSAT
+instance where Sweep fires is trustworthy until this is closed** — do not bank or cite one.
 
-**Where we stand.** Tier B **92.32 (25/28)** vs kissat 10.0 / cadical 41.0 · Tier C **406.25 (28/30)** vs
-kissat 228 / cadical 313 (window `20260805-0023*-sf2`, node017-pinned). T3 unchanged.
+**Fix rules (decided, do not relitigate):** fix the EMISSION. Do NOT disable Sweep and do NOT turn its
+budget down until the case stops being reached — both hide a live defect and contradict the rules-ship-ON
+baseline. Dropping an inference is sound; emitting an unverifiable certificate is not (the D-CONG-SKIP
+precedent). Generic fuzz was GREEN through this (LRAT 4000/0, DRAT 10000/0), so closing the coverage gap
+with a Sweep-emission stress policy is part of the fix, not a follow-up.
 
-**▶ THE EXACT NEXT STEP.** `SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)`
+**Where we stand.** Tier B **92.32 (25/28)** vs kissat 10.0 / cadical 41.0 · Tier C, re-scored on the
+answer rather than the rejected proof, **344.67 (29/30)** — the S-f Tier C solve loss is WITHDRAWN
+(+4.90 PAR-2 vs Sweep-OFF, under one 6.72 noise floor). T3 unchanged. ctest **43/43**.
+
+**▶ THEN, AND ONLY THEN.** `SCHED-C5 · demote fresh extension vars + retire the invented gates (T4)`
 (checklist under Track SCHED → Stage C). `Kernel::factor_demote_fresh` (kernel.hpp:752) exists and is
 tagged **ENV**, defaulting OFF, while `SP-FACTOR-2` records that **both references demote
 unconditionally** — so this is the "ENV is the status quo, not the target" shape: make it the default,
@@ -269,7 +283,7 @@ instead; see the policy at the top of `docs/lessons.md`.)*
 | | Requirement | Status |
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | **✗ ONE OPEN BREACH (found 2026-08-04, N4 audit): `Factor`.** Its guard reports applicable and `factor_instances` offers `INSTANCE_CANONICAL`, but `factor_apply` NoOps on the density gate, so **no API caller can apply a legal factoring on a binary-sparse formula**; the comment at `factor.cpp:552` claims the opposite and `TACTIX_FACTOR_FORCE` is an env hatch, not an API capability. Fix = MOVE the predicate to DefaultPolicy (where BVE's identical gate correctly lives) — **Track SCHED · SCHED-N1FIX, lands regardless of any A/B.** Otherwise: ◐ v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld. Two leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
-| N2 | Proof production on every path (DRAT/LRAT) | ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; audit UPHELD |
+| N2 | Proof production on every path (DRAT/LRAT) | **✗ ONE OPEN BREACH (found 2026-08-05): `Sweep` emits an INVALID refutation.** `asconhashv12` answers UNSAT with a certificate both checkers reject, on both formats, so the derivation is wrong; 14/14 Sweep-ON draws rejected vs 14/14 Sweep-OFF verified. Latent since S-d/S-e emission landed, exposed at `60c5671` when S-f gave Sweep a budget. **Generic fuzz did NOT catch it** (LRAT 4000/0, DRAT 10000/0 green) — a coverage gap the fix must close with a Sweep-emission stress policy. Report `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`; fix on branch `sweep-n2-fix`. Otherwise: ◐ DRAT since phase 1; native LRAT 2026-07-14; every fuzz UNSAT checker-verified on all formats under random schedules; the 2026-07-15 audit was upheld and did not cover Sweep, which did not exist then |
 | N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-04 (window `20260804-1543`, git `6018366`): Tier B(28) 86.51 (25/28) vs kissat 9.78 · Tier C 309.05 (29/30) vs kissat 230.74 and cadical 312.02.** T3 halves: **kissat subset 1.346×** (the binding phase-3 constraint; was 1.271× pre-TB4b), cadical subset 1.069× / full tier 0.990×. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (`benchmarks/tiers/D.list`, 793 instances, rev 79) — never yet RUN, and running it is a phase-3-exit prerequisite (§11 O9). |
 | **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80, user 2026-08-04) | ✗ **KNOWN UNMET, now MEASURED twice.** Pass 1 (rule families): 216 mechanisms, 132 gaps (27 high). **Pass 2 (SCHED-A3, reference option-set enumeration, 2026-08-04): all 418 reference options enumerated, 148 read at their use site, +15 gaps (4 HIGH) and 6 CORRECTIONS to pass 1** — §13.4–§13.6. The four new highs are the ones a rule-family audit is structurally unable to find: ITE/XOR gate extraction absent from BVE · the dynamic tiers have 1 consumer here and 8 there · no upper clamp on any effort budget · `jumpreasons`. Ledger LANDED (`docs/implementation-notes.md` §13, living; full audit frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`); remediation staged as **Track SCHED**. Four structural highs: ONE inprocessing clock where both references keep TWO · effort meters SHARED where both keep them private · slot order emergent from `strcmp` · ceilings frozen at phase entry. Two confirmed gaps already: (a) `Kernel::factor_bound` IS kissat's `reduction > bound` acceptance test but defaults to 0 and is **never coupled to elimination progress** (kissat ramps it 0→1→2→4→8→16, `factor.c:72/939`); (b) our `binaries ≥ 6·vars` Factor admission gate has **no counterpart in either reference** and measured **worse than no gate at all** on Tier B (86.42 vs 34.59 for always-admit; oracle 32.25; −3 solves). N4 is a *mechanism* floor — it may not be discharged by a tier number, and never deferred to §5.6. |
 
