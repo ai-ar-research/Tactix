@@ -22,7 +22,7 @@ unconditionally** — so this is the "ENV is the status quo, not the target" sha
 measure, and move the row off ENV. Then `C6` (eager subsumption of learned clauses, `[arch]`), then
 Stage D (`D1` authored phase order as data → `D2` PROBE/ELIMINATE split → `D3` watermark).
 
-**▶ FIRST, WRITE THIS TEST** (highest-value item on the board, ~30 min): a conformance check that
+**▶ FIRST, WRITE THIS TEST — DONE 2026-08-05** (`SCHED-A2b`, ctest `effort_specs`, 43/43): a conformance check that
 **every scheduled `Inprocess` rule has an `EffortSpec` row**, next to `tools/docs/check-config-wiring.py`.
 Last night's worst defect was V5 Sweep scheduled *without a governor* — `9vliw` 14 s → unsolved at 300 s —
 and nothing caught it: `check-config-wiring` catches the mirror image (config we own and never wire), the
@@ -662,6 +662,22 @@ register has the wrong schema. Fix the instrument before spending a tier window 
   mechanism**, not an oversight. The table is where that distinction is stated once and enforced.
   Likewise the ENV rows are the *status quo*, not the target: `factor_demote_fresh` is ENV while both
   references demote unconditionally, and the row says so.
+- [x] **SCHED-A2b · DONE 2026-08-05 — effort-spec conformance test** (`tools/docs/check-effort-specs.py`,
+  ctest `effort_specs`, **43/43**). Same shape as A2, one level up: **registering an `Inprocess` rule IS
+  scheduling it**, so every one of the **14** scheduled rules must be **METERED** (an `EFFORT_SPECS` row —
+  12) or **ALTERNATE-GOVERNOR** (`Congruence`/`Substitute`: the new-material watermark + closure delay
+  ladder on the `!e.meter` path, whose mechanism the checker re-greps, so deleting the ladder FAILS).
+  An unclassified new rule fails. A METERED row is also checked to be usable: non-null meter, non-zero
+  permille, and `dosed || budget_aware` (a share alone bounds how OFTEN a round starts, never how much
+  one round does — the D-STRENGTHEN-BUDGET shape). **Both failure modes verified by breaking them
+  deliberately** (delete the `Sweep` row → `UNGOVERNED`; add an unclassified `Inprocess` rule →
+  `UNCLASSIFIED`), plus the ladder deletion and the un-dosed row. **The defect it locks out is last
+  night's**: V5 Sweep registered with no spec ran unmetered on every phase, `9vliw` ~14 s → unsolved at
+  300 s, and `check-config-wiring` (mirror image), the unit tests (call `sweep_apply` directly, never
+  traverse the slot) and fuzz (green — it is a *performance* regression) all missed it.
+  **Open, found while classifying:** `Congruence`'s alternate governor bounds occasions, not work — one
+  application is priced at ~44 s on T105.2.0 (`default_policy.cpp:1044`). Metering it is a task, not an
+  accepted shape; the table says so rather than papering over it.
 - [ ] **SCHED-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — **THE ENUMERATION
   PASS LANDED 2026-08-04; the CONFORMANCE TEST is what remains** (hence still open).
   **Landed:** `docs/implementation-notes.md` §13.4–§13.6. All **418** options enumerated (kissat 161 +
@@ -861,6 +877,33 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   before phase 6** — the arms already exist behind knobs.
 
 ## Log
+
+### 2026-08-05 — SCHED-A2b: it is now IMPOSSIBLE to schedule an inprocessing rule without a governor
+
+`tools/docs/check-effort-specs.py`, ctest `effort_specs` (**43/43**). The gap it closes is STRUCTURAL, not
+a mistake someone made: the slot is built from the registry (`rules[i].tier == RuleTier::Inprocess`) and
+the effort ledger is a separate table keyed by NAME, so a registry line alone schedules a rule, and a
+missing `EFFORT_SPECS` row silently yields `meter=nullptr, permille=0` — one unbudgeted canonical round on
+every phase, forever. That is exactly how V5 Sweep shipped.
+
+Classification, following `check-config-wiring.py`: **METERED** (12) or **ALTERNATE-GOVERNOR** (2), with
+the governor NAMED and re-grepped from the policy source, so removing the mechanism fails the test rather
+than silently promoting the rule to unbounded. **An unclassified scheduled rule fails**, which is the half
+that keeps the table honest a year from now. METERED rows are checked for a usable budget too (non-null
+meter, non-zero permille, `dosed || budget_aware`).
+
+Verified by deliberate break, four ways: delete the `Sweep` row → `UNGOVERNED ... This is the exact shape
+V5 Sweep shipped in`; register a new unclassified `Inprocess` rule → `UNCLASSIFIED scheduled rule`; delete
+the closure delay ladder → both ALT-GOV rows go `UNGOVERNED`; flip `Sweep`'s `budget_aware` to false →
+the D-STRENGTHEN-BUDGET message. Restored, green, and the `Sweep` break was re-run THROUGH ctest
+(`38 - effort_specs (Failed)`) so the wiring is proven, not assumed.
+
+**The finding, recorded rather than smoothed over:** `Congruence` and `Substitute` are legitimately
+unmetered (closures with no instance surface, so there is nothing to titrate), but their governors — the
+new-material watermark and the delay ladder — bound how OFTEN a round starts, not how much one round does.
+`c timing` already prices ONE `Congruence` application at ~44 s (`default_policy.cpp:1044`, 89.5 % of a
+146 s run). So the check passes for them today on an argument that is weaker than the METERED one, and the
+table says so. Metering Congruence is the follow-on.
 
 ### 2026-08-05 — S-f MEASURED: Sweep is a WASH once the fragile instances come out, and costs a Tier C solve
 
