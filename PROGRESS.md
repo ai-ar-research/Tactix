@@ -80,7 +80,8 @@ ship. **Not a revert order**; an unclosed question with a real number attached.
 T87+T105 are still ~19 % of the Tier C kissat gap. **Re-profile first** — the old proportions no longer
 describe the remaining ~98 s. **The outcome is AT PARITY; do not re-open it** (per kind on T105: AND 3,423
 vs kissat 4,348, XOR 268 vs 531, ITE 0 vs 18 — and kissat's headline `congruent` BUNDLES a scan that is our
-V3, L14). **Attack EXTRACTION and the index sort, NOT the closure table** (profiled job 1580096:
+V3, so the aggregates are not comparable at face value).
+**Attack EXTRACTION and the index sort, NOT the closure table** (profiled job 1580096:
 `congruence_extract_gates` 6.13 %, `SmallKey` machinery ~13.6 %, the closure map only 1.2 % — that
 structural hypothesis was REFUTED). **Measured dead, do not redo:** extraction volume · arity caps · a
 round/effort budget · the proof chain (`chain_fail = 0`) · stale-key eviction (`stale = 0`) · the XOR
@@ -120,7 +121,8 @@ upper bound on quiet-partition noise, and re-measure it on an idle partition bef
 `j3037`, `jgiraldezlevy`, `urq45` (probe 1579386: stable under replication ≤1.0 %, **8–23× under unrelated
 knobs**) · `mod4block` (`2c77bce`: 73× for kissat too) · **`frb45-21-2` — ADDED 2026-08-04** (probe 1582186:
 bit-identical under replication and under `chrono` 90/105/115, but **6.2×** across `walk600` 105.1 s →
-`bumplim9` 652.3 s) · **`ContextModel`** (L20's knife-edge). Small Tier C aggregates near any of them are
+`bumplim9` 652.3 s) · **`ContextModel`** (the most reproducible replicate pair in Tier C, yet **~19–20×**
+under each of two unrelated changes — knife-edge, not noisy). Small Tier C aggregates near any of them are
 unreliable — quote per-instance replicate ranges.
 **The set is not a licence to quarantine at will.** A NEW loss is real until it goes through the
 discriminator itself, and quarantining by analogy is the specific error the 2026-08-04 pre-registration
@@ -257,8 +259,8 @@ The 6.72 floor is between bit-identical arms *inside one window*. **Across windo
 moved 12.23 PAR-2**: Tier C **309.05** (`20260804-154341`) vs **296.82** (`20260804-165516`) — two runs the
 same day, on an idle partition, at commits that differ only in documentation, i.e. **byte-identical solver
 behaviour**. That is **1.8 within-window floors**. Tier B was stable across the same pair (86.51 vs 86.42).
-**Consequence: never compare an absolute Tier C PAR-2 across windows** — only same-window arms, which is
-L6 with a number attached. Quoting "where we stand" from one window is precise to about ±12 on Tier C.
+**Consequence: never compare an absolute Tier C PAR-2 across windows** — only same-window arms at equal
+concurrency, now with a number attached. Quoting "where we stand" from one window is precise to about ±12 on Tier C.
 
 **Noise floor — USE 6.72 for SAME-WINDOW arms (window `20260804-030938`, idle partition, three
 bit-identical arms: 364.50 / 362.17 / 357.78, per-instance median 4.8 s).** The older 10.8 below is the CONTENDED bar; keep it only for
@@ -480,7 +482,8 @@ byte-identical DRAT.
 Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a different cause.
 **TB1/TB2/TB3/TB5/TB6 are CLOSED** — detail in the W30/W31 log archives and the cited probes.
 
-- [x] **TB1** congruence is NOT the FmlaEquiv gap (the all-off control, L8's origin); structural-hashing
+- [x] **TB1** congruence is NOT the FmlaEquiv gap (the all-off control: kissat with ALL simplification off
+  runs FmlaEquivChain in 8.68 s, faster than with any single simplifier off); structural-hashing
   gap real but ≤ 0.7 s · **TB2** x9's outlier premise dissolved (1.17–1.19× vs kissat) · **TB3** Factor
   verifiably non-inert on x9 · **TB5** per-prop cost is AT PARITY with kissat on all residuals — the
   residual is SEARCH SHAPE, and the watch-layout engineering lane is measured-dead · **TB6** default mode
@@ -499,7 +502,8 @@ Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a 
 
 ### ▶ Track S — the effort-budgeted target arrangement — S4 CLOSED
 
-- [x] **S1** L7 refuted (`775eefc`) **· S1b** BVE growth-slack ramp, first SubPolicy (`a36b4c2`) **· S1c** needed-bound cache + ceiling 8
+- [x] **S1** the PER-PHASE-OVERHEAD explanation for repeated during-search BVE refuted — the cost is search
+  TRAJECTORY, not the root descent (`775eefc`) **· S1b** BVE growth-slack ramp, first SubPolicy (`a36b4c2`) **· S1c** needed-bound cache + ceiling 8
   (`489fab1`; lesson: the old dose cap was an *accidental governor*, [[accidental-governor-trap]]; owed: Tier D re-sweep at gate time) **· S2a**
   FactorMatchPolicy, steering DISCONFIRMED (27×27 cap is structural; `paths` −4 % shelved) **· S2b** composite grids land default-OFF
   (single-blast composition regresses; reserved for doses — `docs/design/s2b-composite-grids-design.md`) **· S2** probing rules re-measured
@@ -540,7 +544,7 @@ Local search was the largest missing mechanism (`--walkeffort=0` costs kissat Ti
   neither reference has). Five arms sit behind knobs for §5.6
 - [x] **W4f · walk DOSE swept and SHIPPED at 560 per-mille** (`0c52fdd` → `61138b8`): root defect was a UNIT
   confusion — we scale a per-mille of search ticks but SPEND in walk steps (~13× less scanning than
-  cadical). Tier C 392.98 → 322.80, `mp1-Nb5T15` TO → 26.1 s. Lesson (L12 again): the sharp Tier C
+  cadical). Tier C 392.98 → 322.80, `mp1-Nb5T15` TO → 26.1 s. Lesson: the sharp Tier C
   preference for 640 was an artefact of the then-wrong `bumpreasons` rate; re-swept, 400..800 shows no
   trend. Report `2026-07-27-tier-c-push.md` §1/§8.2
 
@@ -552,10 +556,13 @@ Local search was the largest missing mechanism (`--walkeffort=0` costs kissat Ti
 **User directive:** implement/enable every proof rule Kissat and CaDiCaL have, and measure with proof generation on BOTH sides. Order is
 measured-value-per-cost, cheapest first; each lands under the §5.3 contract (one directory + one registry line) with its own stress-policy + fuzz
 legs on both proof formats and a same-window gate. Counter-evidence kept so the sequencing stays honest (not a reason to skip the work — a reason
-to run the search-quality tracks in parallel): **L11**.
+to run the search-quality tracks in parallel): **turning off EVERYTHING we lack costs kissat only 14.32 Tier C PAR-2** (sweep + reorder + randec +
+eagersubsume + definitions, whole-tier same-window ablation `20260727-002213-C-kabl`), **of which sweep alone is 14.00** — the other four are inside
+the noise floor and are not separately resolved.
 
 **LANDING CONVENTION (user, 2026-07-28): a rule lands ON.** The earlier "ships OFF until its own A/B says it pays" convention is DEAD — it
-contradicted [[no-rule-off-configs]] and judged rules ONE AT A TIME, the one measurement that cannot see this family's dominant effect (**L15**).
+contradicted [[no-rule-off-configs]] and judged rules ONE AT A TIME, the one measurement that cannot see this family's dominant effect: **X1/X2/X4
+measured alone are 21.79 / 53.26 / 13.08 Tier B PAR-2 against 9.22 for all three together** — they repair each other.
 Report `benchmarks/reports/2026-07-28-all-rules-on.md`.
 
 **MEASURED CONSTRAINT on the joint-admission lever — narrower than it looks.** mod4block is NON-MONOTONE in how consistently the trio runs: never
@@ -571,7 +578,8 @@ lever, absent new evidence.
   duplicated-binary crash). **ON since `3fb85bd`**
 - [x] **R3 · X4 `Instantiate`** (cadical `instantiate.cpp`) — add/delete; the strengthened clause is RUP against `F` alone because `¬(C∖{l})`
   leaves `C` unit and propagates `l` itself. Landed `2085429`; 9 unit tests, fuzz 10k/0 both formats. Fires but yields ~nothing alone (FmlaEquiv
-  57,357 probes → 5 literals); **ON since `3fb85bd`** — L15: measured alone is the wrong experiment for this family
+  57,357 probes → 5 literals); **ON since `3fb85bd`** — alone is the wrong experiment for this family, which is judged with X1/X2
+  (`2026-07-28-all-rules-on.md`)
 - [x] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only **policy op**, no proof obligation, no calculus entry. Landed `4482bb5`; 8 unit
   tests, fuzz 10k/0 both formats, deviations in `implementation-notes.md` §10. **Ships OFF** (`TACTIX_REORDER`, kissat's 1/2 values) — the one
   Track R result that is not an inventory tick: **parity on Tier B's UNSAT half (10.16 → 10.11) and 3.4× worse on its SAT half (5.28 → 16.99)**,
@@ -619,8 +627,10 @@ audit `docs/design/2026-08-04-n4-scheduling-parity-audit.md` + the diagnosis
 
 **Standing protocol (stated once, applies to every item).** Same-window Tier B+C A/B, fresh
 `build/pin-n4-<item>` ([[build-path-ownership]]). **Every item names a SOURCE-LEVEL readout, pre-registered
-and checked FIRST — an arm whose source counter did not move was not tested** ([[ab-arm-identical-artefacts]],
-L22/L25b). Noise floor 6.72; **#solved beats PAR-2**; `mod4block`/`crypto1`/`j3037`/`frb45`/the fragile
+and checked FIRST — an arm whose source counter did not move was not tested** ([[ab-arm-identical-artefacts]];
+task #10's abort paths passed 4 × 10,000 fuzz cases while VACUOUS three independent ways, probes 1578209–13 —
+so require a non-zero fire count, and pass the knob IN THE COMMAND, never through the environment).
+Noise floor 6.72; **#solved beats PAR-2**; `mod4block`/`crypto1`/`j3037`/`frb45`/the fragile
 three may not gate alone ([[chaotic-instance-veto]]). Rule-touching items carry DRAT + native-LRAT +
 random-policy 10k/0; items opening NEW schedules add a stress-policy leg.
 **▶ EVERY PRIOR DOSE NEGATIVE MEASURED THROUGH THE BROKEN METER IS VOID** and must be re-derived after
@@ -669,7 +679,8 @@ register has the wrong schema. Fix the instrument before spending a tier window 
   `kissat/src/options.h` + `cadical/src/options.hpp` gets a row naming our counterpart (file:line) or a
   gap; a test fails when an option has no row. **The only item that converts coverage from opportunistic to
   complete** (diagnosis cause A). **Must read MACROS, not just grep** — cadical's `factorthresh` is
-  token-pasted and reading it as dead code produced two wrong published claims (L19 correction).
+  token-pasted (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never
+  appears literally and reading it as dead code produced two wrong published claims.
 - [ ] **SCHED-A4 · per-instance ORACLE column in the benchmark runner, on by default** `[arch]` — a gate must
   beat BOTH always-on and the oracle to ship. **De-selects cause D at the instrument**, the only level at
   which a selection pressure can be removed. It is what exposed the Factor gate in one window.
@@ -837,7 +848,7 @@ The two that bite hardest: **`R5` alone is ambiguous four ways**, and the 2026-0
 
 **▶ THIS LOG HOLDS THE CURRENT ISO WEEK ONLY (2026-W32).** Completed weeks are frozen verbatim in
 `docs/log/` — index and the maintenance contract at [`docs/log/README.md`](docs/log/README.md).
-W31 (41 entries: all-rules-ON, TB4b, task #11, R-d, L19–L23) · W30 (31: E2 Factor, V6, S4, Walk) ·
+W31 (41 entries: all-rules-ON, TB4b, task #11, R-d, five new standing lessons) · W30 (31: E2 Factor, V6, S4, Walk) ·
 W29 (2) · W28 (2). **Archives are never edited**; where an archived number was later corrected, the
 standing lessons and the current tier tables above are authoritative.
 
@@ -863,7 +874,9 @@ admission mechanism.
 - **Labels: Tier B helps 12 / hurts 2 / neutral 14** (6 of the 12 are TIMEOUT → solve); **Tier C helps 3
   / hurts 10 / neutral 17.** The tiers genuinely disagree about Factor. "Value falls as instances get
   harder" is the obvious candidate feature — a 58-instance tier-level correlation, NOT a per-instance
-  predictor; turning such a correlation straight into a threshold is what L15 measured dead four times.
+  predictor; turning such a correlation straight into a threshold is the move that has now lost **5-for-5 in
+  sign** against no gate at all (`2026-07-28-all-rules-on.md` — ex-`mod4block` the margins are only
+  0.60–1.12 PAR-2, so read the SIGN, not the size).
 - **▶ DOES NOT LICENSE porting kissat's per-grid bound** — refuted three ways (below).
 - **▶ AND A DEFECT IN THE GATE ITSELF:** `k.binary_ids` is size-monotone (deletion keeps the key,
   `kernel.hpp:472-476`) and **learned binaries enter the same map** (`analyze.cpp:441`), so the
@@ -884,8 +897,9 @@ progress (`factor.c:939`/`:72`, `eliminate.c:363-365`). Corrections:
   07-30 study was RIGHT: `factorthresh` is live and IS cadical's one admission-shaped condition. It is
   read via TOKEN-PASTE (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the
   identifier never appears literally and `grep` finds only the declaration — which is exactly how both
-  this entry and L19's exhibit (a) got it wrong. See the L19 correction. **Nothing was built on the
-  retracted claim**; it appeared in this Log and in commit `b0779e0`'s message, both superseded here.
+  this entry and the standing-lessons entry on reading reference options got it wrong (both retracted the
+  same day). **Nothing was built on the retracted claim**; it appeared in this Log and in commit
+  `b0779e0`'s message, both superseded here.
 - `INC (eliminations)` is the FIRST statement of `kissat_eliminate` (`eliminate.c:595-598`), so it
   counts ENTERED not completed calls; it coincides only because there is one call site. Do not conflate
   it with the genuine `complete` flag that drives the bound ladder.
@@ -922,7 +936,9 @@ verdict was ever wrong.**
   reason clause and recurses. **Reason-walk chains are structurally immune**, so only the direct citation
   sites are exposed — rare enough to pass 10,000 LRAT cases, and the reason the defect could exist at all.
 - **Fix + permanent guard.** Drop the `k.level == 0` conjunct; **assert in `kernel_lrat_chain` that no
-  antecedent id is 0** (family of `Proof::add_rup`'s no-tautology / no-empty-chain asserts, **L13**).
+  antecedent id is 0** — the family of `Proof::add_rup`'s no-tautology / no-empty-chain asserts, i.e. the
+  cheap permanent form of the cross-format check that exposed the congruence `<id> <lits> 0 0` chain a
+  *verified* DRAT proof had hidden on every tier run (`tierC/T105.2.0`).
 - **Demonstrated, not argued** — two debug binaries differing ONLY in that conjunct, both asserting, chrono
   forced *in the command* (env propagation through SLURM was unconfirmed, [[ab-arm-identical-artefacts]]):
   **unfixed 36 assert-aborts** before the max-failures cap (~2,600 cases) · **fixed 0 in 10,000**.
@@ -997,7 +1013,8 @@ Naming only — no scope, requirement or gate change. 17 references renamed acro
   reported **false DANGLING errors on correct plan text**. No regex separates them — the stages appear as
   `L1 — non-stationary MAB`, `L4 removed`, `§8.5 L4 discipline`. The checker's `AMBIGUOUS` carve-out is
   now removed, so **all lesson numbers are strictly checked**, and it additionally ignores identifiers in
-  backticks (a name in code font is a MENTION, prose like "(L20's knife-edge)" is a CITATION).
+  backticks (a lesson name in code font is a MENTION; the same name in prose, leaning on it as an argument,
+  is a CITATION).
 - **Third namespace collision found in one day**, after `R<n>` (four meanings, with its own key) and
   `Track N4` vs non-negotiable `N4`. Short shared prefixes are a recurring defect here, not three
   accidents — **prefix a new id space distinctly at birth** (`RL`, `SCHED`, `SP-`), and prefer a
@@ -1150,8 +1167,8 @@ noise. **kissat's own range on `mod4block` is 4.36 s → TIMEOUT, over 73×:**
   changes at most **4 backtracks** — chrono fires 4 times there and it learns 7 units.
 - **kissat is NOT efficient on `mod4block` — it is PAYING.** Its default is **4.4× worse than its own
   chrono-off** (19.32 vs 4.36 s). And it needs **715,338 conflicts** where our baseline needs **418,796**, so
-  **our 13.6 s was a lucky draw, never an engineering advantage.** L10's "no reference solver defends; the
-  density gate is ours alone" rests on that same draw and should be read accordingly.
+  **our 13.6 s was a lucky draw, never an engineering advantage.** The standing claim *"no reference solver
+  defends `mod4block`; the density gate is ours alone"* rested on that same single draw and is **retracted**.
 - **▶▶ STANDING RULE: `mod4block` may not gate a change on its per-instance result.** Judge changes on the
   27-instance remainder, or on a replicated distribution, never on this instance's single draw. It has now
   vetoed **broad Factor admission** and **unit chrono routing** in one night; the second veto was overturned
@@ -1272,16 +1289,19 @@ Gate windows `20260804-080512-B-comp` / `20260804-080524-C-comp`, git `675a953`,
 
 - **Composition alone is NEUTRAL: +1.41 B, −2.65 C, both inside the 6.72 clean noise floor, no solve changes
   on either tier.** Shipped on that basis — it removes a hand-designed formula-shape separator (plan rev 77;
-  the L15/L19 family) at no measured cost, and closes a real capability gap: applied factorings on
-  `fclqcolor` go **78 → 164**, where 78 was ~kissat's BINARY-restricted 80.
+  every such gate measured so far has lost to no gate at all, 5-for-5 in sign) at no measured cost, and
+  closes a real capability gap: applied factorings on `fclqcolor` go **78 → 164**, where 78 was ~kissat's
+  BINARY-restricted 80.
 - **▶ THE `mod4block` TRADE BELONGS TO BROAD ADMISSION, NOT COMPOSITION.** `mod4block` is **14.0 s with
   composition vs 13.8 s without**; only the `compbroad` arm loses it (300 TO). And `fclqcolor` needs BOTH —
   composition alone leaves it a timeout. So `compbroad` reaches 27/28 by **trading `mod4block` for
   `fclqcolor`**, at a 284.7 s/300 s cliff. Broad admission stays HELD.
-- **▶ THERE IS NO REFERENCE MECHANISM TO PORT FOR `mod4block`, and L10 already said so:** *"no reference
-  solver defends; the density gate is ours alone"* — kissat pays **4.14×** there with its own scheduling
-  (18.9 s against our 13.3 s). The gate was not a crude approximation of something kissat has; it was an
-  advantage kissat lacks. Removing it is safe only because composition alone does not disturb `mod4block`.
+- **▶ THERE IS NO REFERENCE MECHANISM TO PORT FOR `mod4block`:** neither reference has a formula-shape
+  admission there, and kissat pays too — 18.9 s against our 13.3 s. **⚠ Both are single draws.** The
+  `mod4block`-is-a-lottery entry above puts kissat's own range on this instance at 4.36 s → TIMEOUT (73×),
+  so the "4.14×" this bullet originally quoted is **retracted — only the SIGN survives**. The gate was
+  still not a crude approximation of something kissat has; removing it is safe only because composition
+  alone does not disturb `mod4block` (14.0 s with, 13.8 s without).
 - **▶ kissat's fourth governor (d) is INERT here and was NOT shipped.** Its acceptance test is
   `reduction > bounds.eliminate.additional_clauses` (`factor.c:72/939`); our analogue is `bve_level_`
   (both start at 0, both double on a completed elimination). Probes 1581094–97: on `mod4block` the coupled
@@ -1310,7 +1330,8 @@ Probes 1580855/1580856. **The last Tier B timeout falls.**
   gated it at **≥ 50 binaries/var**; `fclqcolor` sits at **4.76**, so we never composed. That is exactly why
   applied factorings saturated at **78 across `factor_size` 3/5/7/9** while offers rose 42 k → 51 k, and why
   78 ≈ kissat's **binary-restricted 80** rather than its default 120. With composition we reach **164**.
-- **The gate was the hand-designed-separator family** plan rev 77 forbids and L15/L19 measured **0-for-5**.
+- **The gate was the hand-designed-separator family** plan rev 77 forbids: five such gates have now been
+  measured against no gate at all and **all five lost** (`2026-07-28-all-rules-on.md`).
   Removed rather than re-tuned (user directive 2026-08-04).
 - **▶ WHAT BOUNDS COMPOSITION INSTEAD — kissat's real governors, and we already have three of four.**
   (a) the `factor_ticks` effort budget, checked in kissat's main loop (`if (*ticks > limit) break`,
@@ -1395,7 +1416,8 @@ Compressed 2026-08-04 under compact-docs: each of these has a frozen report or c
 detail, so the Log keeps result + pointer only.
 - **V6 Congruence: gate matching is AT PARITY; the gap is COST (7.6×) and the UNIT channel.** Per kind on
   T105 AND 3,423 vs kissat 4,348, XOR 268 vs 531, ITE 0 vs 18 — kissat's headline `congruent` BUNDLES a
-  binary-equivalence scan that is our V3 (L14's scope rule). The one real outcome gap is
+  binary-equivalence scan that is our V3, so the two counters are not comparable at face value.
+  The one real outcome gap is
   **`congruent_units` 2,231 vs our 14** (`find_units` is only 844 of it; the rest is real).
   **Mechanism: kissat's closure is VALUE-DRIVEN** — it propagates each learned unit and re-simplifies
   gates against the new values, and **retires value-resolved gates**; our `canonicalize`

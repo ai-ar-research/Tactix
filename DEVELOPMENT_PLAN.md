@@ -601,10 +601,11 @@ per N1.
 The X families plus V5 `Sweep`, S7 `Reorder` and kitten-based definition extraction (§11 O11, part
 of E1) move into phase 3 — the inventory should match the references' before the Kissat gap is
 attributed elsewhere. Standing counter-evidence, so the sequencing stays honest rather than being
-re-derived: the 2026-07-27 baseline ablation (PROGRESS L11) measured kissat losing only **14.3 PAR-2
-on Tier C with sweep + reorder + bumpreasons + randec + eagersubsume + definitions ALL disabled**,
-against our 80–161 PAR-2 gap — so these families are expected to be a small part of the deficit and
-the search-quality work (TB4b, clause quality) proceeds in parallel, not after them. Implementation
+re-derived: the 2026-07-27 baseline ablation (whole-tier, same window `20260727-002213-C-kabl`,
+`benchmarks/reports/2026-07-27-tier-c-push.md` §2) measured kissat losing only **14.32 PAR-2
+on Tier C with sweep + reorder + randec + eagersubsume + definitions ALL disabled — of which sweep
+alone is 14.00**, against our 80–161 PAR-2 gap — so these families are expected to be a small part of
+the deficit and the search-quality work (TB4b, clause quality) proceeds in parallel, not after them. Implementation
 order is by measured value per unit cost, cheapest first, each landing under the §5.3 contract with
 its own fuzz + same-window gate.
 
@@ -1412,7 +1413,7 @@ conflate them.
 - **rev. 69** (2026-07-25, user): §5.1 additive API — TACTIX_STAT ids 22–25 (dosing currencies) + kernel config setters (bve_bound/factor_bound/factor_composite/work_budget/vivify_scope) so the §5.6 learner can read its reward currencies and pose the config surface; contract test added.
 - **rev. 70** (2026-07-25, user): §11 O16 — auto-invention of proof rules recorded (PR/SR clause learning = phase-4 catalog candidate with the DRAT-expressibility caveat; generative synthesis = research-track, non-gating; composed-rule discovery = phase-6 RL3). Decide-by: phase-4 entry.
 - **rev. 71** (2026-07-26): S6 `Walk` moved phase 4 → **3** (§5.2, §9) — measured as the largest missing mechanism at the T3 gate (kissat Tier B 8.62 → 29.22 with walk neutralized; monotone `walkeffort` dose–response on the sole actionable Tier C timeout). Report `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`.
-- **rev. 72** (2026-07-27, user): (a) every arm is timed WITH proof generation — like-for-like protocol, asymmetric scoring (our failed check = unsolved, a baseline's is recorded only), checker budget raised (§2, §8.1, §8.3); (b) the full reference rule inventory pulled into phase 3 — V5 `Sweep` + kitten, S7 `Reorder`, X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE`, X4 `Instantiate`, X5 `Condition` (§5.2, §9, §11 O11), with L11's counter-evidence recorded in §5.2 so the sequencing stays honest.
+- **rev. 72** (2026-07-27, user): (a) every arm is timed WITH proof generation — like-for-like protocol, asymmetric scoring (our failed check = unsolved, a baseline's is recorded only), checker budget raised (§2, §8.1, §8.3); (b) the full reference rule inventory pulled into phase 3 — V5 `Sweep` + kitten, S7 `Reorder`, X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE`, X4 `Instantiate`, X5 `Condition` (§5.2, §9, §11 O11), with the kissat-ablation counter-evidence (everything we lack is worth 14.32 Tier C PAR-2 to it) recorded in §5.2 so the sequencing stays honest.
 - **rev. 73** (2026-07-29): compaction pass (compact-docs) — completed work and closed items condensed to result+pointer one-liners across the four living docs; §5.1/§5/§5.2/§5.6 prose densified with no scope, gate, catalog or §11 content changed; restored the two facts with no other home (the measured-dead BVE internals list and the instrumented-Kissat occurrence exhibit, ≈5 vs ≈36) and corrected "Two obligations" → "Three" in §5. No N1–N3 change.
 - **rev. 74** (2026-07-29, user): Tier B doubled 14 → **28 instances, 28 distinct families**, recalibrated on the CLUSTER (band [3.5, 19.0] s; the old 5–30 s band was M3-Pro seconds and the M3→cluster ratio 1.13–1.76 made rescaling impossible). Motivation: at n=14 one instance flipped A/B verdicts (mod4block was the whole Tier B value of the X1/X2/X4 trio). Max single-instance share 16.2 % → 7.1 %. The original 14 stay as a marked `core14` subset so the archive remains recomputable; never mix the two counts. Report `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
 - **rev. 75** (2026-07-30, user): §8.1 — PROGRESS.md must carry the FULL per-instance Tier B and Tier C tables, newest window first, not just the aggregates. Motivated by three cases where the aggregate hid the finding (the trio verdict inverting on one instance, a FLAT A/B that swapped a solve for a solve, and four order-of-magnitude failures invisible in PAR-2).
