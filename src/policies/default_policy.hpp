@@ -432,6 +432,8 @@ public:
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
   // SCHED-A1: one `c slot` line per entry. Diagnostic only — see the .cpp.
+  // SCHED-B1: compute this entry's meter ceiling at the point it is reached.
+  void set_entry_limit(SlotEntry &, Kernel &);
   void report_slot(const Kernel &) const;
   // S4 factordelay analog (kissat factor.c:1068-1085, design §3.b): count of
   // dosed BVE rounds executed this solve. Factor's entry fires only when
