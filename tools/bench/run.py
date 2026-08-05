@@ -77,6 +77,66 @@ CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 # and only it, may trigger the §8.1 native-LRAT re-check (`lrat_rescue`).
 CHECKER_TIMEOUT_PREFIX = "checker exceeded its "
 
+# WHY THE `kind` FIELD EXISTS (2026-08-05). The archive used to record only the
+# checker's LAST output line, and drat-trim always prints "c verification time:
+# …" last — so `s NOT VERIFIED`, `s MEMORY ALLOCATION ERROR` and `s DERIVATION`
+# all landed in results.json as the SAME string. That is the difference between
+# "our proof is wrong" (an N2 breach) and "the checker ran out of room" (a
+# scoring artefact), and it cost a real misreading: the Sweep rejection on
+# `asconhashv12` was first read as a checker OOM because a 988 MB proof "failed"
+# in 20 s (report 2026-08-05-sweep-proof-rejection.md). `check_proof` now
+# classifies the outcome and archives the checker's own diagnostic lines.
+CHK_VERIFIED = "verified"        # s VERIFIED / s VERIFIED UNSAT
+CHK_REJECTED = "rejected"        # s NOT VERIFIED — an N2 failure, never rescued
+CHK_DERIVATION = "derivation"    # s DERIVATION — not a refutation
+CHK_TIMEOUT = "checker-timeout"  # budget outrun — the ONLY rescuable outcome
+CHK_RESOURCE = "checker-oom"     # s MEMORY ALLOCATION ERROR / killed
+CHK_ERROR = "checker-error"      # no recognisable verdict at all
+# Outcomes that mean OUR certificate is bad, as opposed to the checker giving up.
+CHK_OUR_FAULT = (CHK_REJECTED, CHK_DERIVATION)
+
+# Lines worth keeping verbatim: they name the offending lemma and proof line,
+# which is the entire starting point of a shrink.
+_CHK_DIAG = ("RAT check on proof pivot failed", "failed at proof line",
+             "RAT check failed on all possible pivots", "Checking failed at",
+             "c ERROR", "no empty clause")
+
+
+def classify_checker_output(stdout, stderr, returncode):
+    """(kind, msg, detail) for one checker invocation.
+
+    drat-trim prints exactly one of `s VERIFIED` / `s NOT VERIFIED` /
+    `s DERIVATION` / `s MEMORY ALLOCATION ERROR`, each with a LEADING CARRIAGE
+    RETURN, and then always `c verification time: …`. So the verdict must be
+    matched as a SUBSTRING (a `^`-anchored match sees none of them) and the
+    NOT-form must be tested first. cake_lpr prints `s VERIFIED UNSAT`, and on
+    failure a `Checking failed at line: N. Reason: …` on stderr."""
+    both = stdout + "\n" + stderr
+    if "s NOT VERIFIED" in both:
+        kind = CHK_REJECTED
+    elif "s MEMORY ALLOCATION ERROR" in both:
+        kind = CHK_RESOURCE
+    elif "s DERIVATION" in both:
+        kind = CHK_DERIVATION
+    elif "s VERIFIED" in both:
+        kind = CHK_VERIFIED
+    elif "Checking failed at" in both:      # cake_lpr's rejection
+        kind = CHK_REJECTED
+    elif returncode is not None and returncode < 0:
+        kind = CHK_RESOURCE                 # killed by a signal (OOM killer)
+    else:
+        kind = CHK_ERROR
+    detail = [l.strip() for l in both.splitlines()
+              if any(d in l for d in _CHK_DIAG)][:4]
+    if kind == CHK_VERIFIED:
+        msg = "VERIFIED"
+    elif detail:
+        msg = f"{kind}: {detail[0][:160]}"
+    else:
+        tail = (stderr.strip() or stdout.strip()).splitlines()
+        msg = f"{kind}: " + (tail[-1][:160] if tail else f"exit {returncode}")
+    return kind, msg, detail
+
 TIER_TIMEOUT = {"A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0}
 TIER_MEM_GB = {"D": 16}
 BASELINES = {
@@ -137,24 +197,25 @@ def checker_budget(timeout):
 
 
 def check_proof(fmt, cnf, proof, budget):
-    """Verify one certificate. Returns (ok, message).
+    """Verify one certificate. Returns (ok, message, kind, detail).
 
-    The message matters: a checker that OOMs or times out is otherwise
-    indistinguishable from one that REJECTS, and that ambiguity cost a probe on
-    2026-07-27 (cake_lpr needs 4.2 GB on a gigabyte-scale LRAT; the array task
-    had 8 GB total, so it died at malloc and looked like a rejected proof)."""
+    The KIND matters, and used to be lost: a checker that OOMs or times out is
+    otherwise indistinguishable from one that REJECTS. That ambiguity cost a
+    probe on 2026-07-27 (cake_lpr needs 4.2 GB on a gigabyte-scale LRAT; the
+    array task had 8 GB total, so it died at malloc and looked like a rejected
+    proof) and cost a misreading again on 2026-08-05, in the other direction —
+    a genuine `s NOT VERIFIED` was read as an OOM. See classify_checker_output."""
     argv = ([CAKE_LPR, cnf, proof] if fmt == "lrat"
             else [DRAT_TRIM, cnf, proof])
     try:
         c = subprocess.run(argv, capture_output=True, text=True,
                            errors="replace", timeout=budget)
     except subprocess.TimeoutExpired:
-        return False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget"
-    # drat-trim: "s VERIFIED"; cake_lpr: "s VERIFIED UNSAT"
-    if "s VERIFIED" in c.stdout:
-        return True, "VERIFIED"
-    tail = (c.stderr.strip() or c.stdout.strip()).splitlines()
-    return False, (tail[-1][:200] if tail else f"exit {c.returncode}, no output")
+        return (False, f"{CHECKER_TIMEOUT_PREFIX}{budget:g}s budget",
+                CHK_TIMEOUT, [])
+    kind, msg, detail = classify_checker_output(c.stdout, c.stderr,
+                                                c.returncode)
+    return kind == CHK_VERIFIED, msg, kind, detail
 
 
 def solve_once(argv, timeout, mem_gb):
@@ -202,7 +263,15 @@ def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
     Sets res["proof_rescue"] to "lrat" when a certificate verified, else to a
     "failed: <reason>" string, and returns whether the instance is proof-clean.
     A re-solve that answers DIFFERENTLY is never rescued: that is a genuine
-    anomaly and it must stay visible as an unsolved instance."""
+    anomaly and it must stay visible as an unsolved instance.
+
+    RESCUABILITY IS A PRECONDITION, NOT A HINT. Only CHK_TIMEOUT reaches here,
+    and the assert says so structurally: a REJECTED certificate must never be
+    re-scored as a budget overrun, which is precisely what this path would do
+    if the caller's guard ever loosened."""
+    assert res.get("proof_check_kind") == CHK_TIMEOUT, (
+        "lrat_rescue is only for a checker BUDGET overrun; got "
+        f"{res.get('proof_check_kind')!r} on {res.get('instance')!r}")
     # The DRAT proof has already been sized and judged, and the LRAT one is
     # bigger; drop it before writing a second multi-GB file into the same
     # (node-shared) scratch.
@@ -221,7 +290,9 @@ def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
         else:
             lbytes = os.path.getsize(lproof)
             t1 = time.monotonic()
-            ok, msg = check_proof("lrat", cnf, lproof, checker_budget(timeout))
+            ok, msg, rkind, _ = check_proof("lrat", cnf, lproof,
+                                            checker_budget(timeout))
+            res["proof_rescue_kind"] = rkind
             detail = (f"re-solve {solve_s:.1f}s, {lbytes / 1e6:.0f} MB LRAT, "
                       f"cake_lpr {time.monotonic() - t1:.1f}s: {msg}")
             if ok:
@@ -273,11 +344,17 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
            "proof_format": fmt if check_proofs else None,
            "proof_scored": bool(check_proofs and verify_proofs and score_proofs),
            "proof_msg": None,
+           # The classified checker outcome (CHK_*) and the checker's own
+           # diagnostic lines. `proof_msg` is prose and may be truncated;
+           # `proof_check_kind` is the machine-readable fact, and it is what
+           # separates "our certificate is wrong" from "the checker gave up".
+           "proof_check_kind": None, "proof_check_detail": None,
            # §8.1 native-LRAT re-check: "lrat" when it saved the instance, a
            # "failed: ..." reason when it was tried and did not, None when the
            # DRAT check never ran out of time. Always present so the schema is
            # stable across runs and the count is aggregatable.
-           "proof_rescue": None, "proof_rescue_time": None}
+           "proof_rescue": None, "proof_rescue_time": None,
+           "proof_rescue_kind": None}
     if cnf is None or not os.path.exists(cnf):
         res["verdict"] = "MISSING"
         return res
@@ -306,19 +383,23 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                     res["proof_msg"] = "written, not verified (§8.1: baseline)"
                 else:
                     t1 = time.monotonic()
-                    ok, msg = check_proof(fmt, cnf, proof,
-                                          checker_budget(timeout))
+                    ok, msg, kind, detail = check_proof(
+                        fmt, cnf, proof, checker_budget(timeout))
                     res["proof_check_time"] = round(time.monotonic() - t1, 3)
                     res["proof_ok"] = ok
                     res["proof_msg"] = msg
+                    res["proof_check_kind"] = kind
+                    res["proof_check_detail"] = detail or None
                     # §8.1 second chance, deliberately narrow. Only a checker
                     # that RAN OUT OF TIME qualifies: a REJECTION is a real N2
                     # failure and silencing it would be a correctness hole.
                     # Only a SCORED arm (ours — a baseline's check cannot change
                     # a verdict and its CLI need not take `--lrat`), and only a
                     # DRAT arm (an `--lrat` arm has nothing left to re-check).
+                    # The gate is now the CLASSIFIED kind, not a prefix match on
+                    # a prose message — see classify_checker_output.
                     if (not ok and score_proofs and fmt == "drat"
-                            and msg.startswith(CHECKER_TIMEOUT_PREFIX)):
+                            and kind == CHK_TIMEOUT):
                         ok = lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb)
                     if not ok and score_proofs:  # rejected proof = unsolved (§2)
                         res["solved"] = False
@@ -476,15 +557,118 @@ def summarize(name, results, timeout, shape):
     scored_rej = [r for r in prej if r.get("proof_scored")]
     noted_rej = [r for r in prej if not r.get("proof_scored")]
     if scored_rej:
-        lines.append(f"  !! PROOFS REJECTED/MISSING ({len(scored_rej)}): "
-                     + ", ".join(f"{r['instance']} [{r.get('proof_msg')}]"
-                                 for r in scored_rej[:5]))
+        # Split by CLASSIFIED kind: an invalid certificate (N2) and a checker
+        # that gave up (resource/budget) are different incidents and must not
+        # share a headline. Old results.json have no kind — they read as
+        # "unclassified" rather than being silently counted as either.
+        bad = [r for r in scored_rej
+               if r.get("proof_check_kind") in CHK_OUR_FAULT]
+        gave_up = [r for r in scored_rej
+                   if r.get("proof_check_kind") in (CHK_TIMEOUT, CHK_RESOURCE,
+                                                    CHK_ERROR)]
+        rest = [r for r in scored_rej if r not in bad and r not in gave_up]
+        if bad:
+            lines.append(f"  !! INVALID CERTIFICATES — N2 ({len(bad)}): "
+                         + ", ".join(f"{r['instance']} "
+                                     f"[{(r.get('proof_check_detail') or [r.get('proof_msg')])[0]}]"
+                                     for r in bad[:5]))
+        if gave_up:
+            lines.append(f"  !! CHECKER GAVE UP, scored unsolved ({len(gave_up)}): "
+                         + ", ".join(f"{r['instance']} [{r.get('proof_msg')}]"
+                                     for r in gave_up[:5]))
+        if rest:
+            lines.append(f"  !! PROOFS REJECTED/MISSING, unclassified "
+                         f"({len(rest)}): "
+                         + ", ".join(f"{r['instance']} [{r.get('proof_msg')}]"
+                                     for r in rest[:5]))
     if noted_rej:
         lines.append(f"  (baseline proofs not verified, NOT scored against it, "
                      f"{len(noted_rej)}): "
                      + ", ".join(f"{r['instance']} [{r.get('proof_msg')}]"
                                  for r in noted_rej[:5]))
     return "\n".join(lines), bool(mism or scored_rej)
+
+
+CORRECTNESS_SENTINEL = "CORRECTNESS-BUG"
+
+
+def correctness_record(all_results, solver_meta):
+    """The window's correctness state as DATA, not as a line of prose.
+
+    WHY (2026-08-05). `aggregate.log` ended with "CORRECTNESS BUG(S) FOUND —
+    stop performance work", the window shipped a rejected Sweep certificate,
+    and the run was written up as a scheduling result anyway: the banner was
+    advisory and nothing downstream could see it. Every consumer of a run reads
+    results.json, so the state lives THERE, and a `CORRECTNESS-BUG` file is
+    dropped next to it so even `ls` shows it.
+
+    `unverified_scored_arms` is not a bug — it is the SHAPE that would let one
+    hide. An arm that is scored but whose certificates are never checked (an
+    `--no-check` ablation array) can answer UNSAT with an invalid proof and
+    still be counted solved. Recording it makes such a window self-describing
+    instead of something a later audit has to reconstruct from manifests."""
+    mism, bad, gave_up = [], [], []
+    unverified = []
+    for name, results in all_results.items():
+        meta = solver_meta.get(name, {})
+        if meta.get("score_proofs", True) and not (
+                meta.get("check_proofs", True) and meta.get("verify_proofs", True)):
+            unverified.append(name)
+        for r in results:
+            if r.get("mismatch"):
+                mism.append({"arm": name, "instance": r["instance"],
+                             "expected": r.get("expected"),
+                             "answered": r.get("verdict")})
+            if r.get("proof_ok") is False and r.get("proof_scored"):
+                row = {"arm": name, "instance": r["instance"],
+                       "kind": r.get("proof_check_kind"),
+                       "detail": r.get("proof_check_detail"),
+                       "msg": r.get("proof_msg")}
+                (bad if r.get("proof_check_kind") in CHK_OUR_FAULT
+                 or r.get("proof_check_kind") is None else gave_up).append(row)
+    return {
+        "clean": not (mism or bad or gave_up),
+        "verdict_mismatches": mism,
+        "invalid_certificates": bad,      # N2: our proof was rejected
+        "checker_gave_up": gave_up,       # budget/resource, a scoring artefact
+        "unverified_scored_arms": sorted(set(unverified)),
+    }
+
+
+def write_correctness_sentinel(outdir, rec):
+    """Drop (or clear) the `CORRECTNESS-BUG` marker beside results.json."""
+    path = os.path.join(outdir, CORRECTNESS_SENTINEL)
+    if rec["clean"]:
+        if os.path.exists(path):
+            os.unlink(path)
+        return
+    with open(path, "w") as f:
+        f.write("This window is NOT clean. Do not quote its numbers as a "
+                "performance result until this is resolved.\n\n")
+        for k in ("verdict_mismatches", "invalid_certificates",
+                  "checker_gave_up"):
+            for row in rec[k]:
+                f.write(f"{k}: {json.dumps(row)}\n")
+
+
+def correctness_banner(rec):
+    """The stop notice, printed FIRST as well as last."""
+    if rec["clean"]:
+        return None
+    n_m = len(rec["verdict_mismatches"])
+    n_b = len(rec["invalid_certificates"])
+    n_g = len(rec["checker_gave_up"])
+    parts = []
+    if n_m:
+        parts.append(f"{n_m} verdict mismatch(es)")
+    if n_b:
+        parts.append(f"{n_b} INVALID CERTIFICATE(S) — N2")
+    if n_g:
+        parts.append(f"{n_g} checker resource failure(s)")
+    return ("!" * 72 + "\nCORRECTNESS BUG(S) FOUND: " + "; ".join(parts)
+            + "\nStop performance work; follow the fuzz skill's failure "
+              "procedure.\nThis window's numbers are NOT a performance result. "
+              f"Marker file: {CORRECTNESS_SENTINEL}\n" + "!" * 72)
 
 
 def stage_instances(entries, stage):
@@ -583,6 +767,11 @@ def slurm_aggregate(outdir):
                  "proof_msg": None, "proof_rescue": None,
                  "proof_rescue_time": None}
         all_results[man["solvers"][t["solver"]]["name"]].append(r)
+    correctness = correctness_record(
+        all_results, {s["name"]: s for s in man["solvers"]})
+    banner = correctness_banner(correctness)
+    if banner:                       # FIRST, not only last — see the note below
+        print(banner, flush=True)
     any_bug = False
     for s in man["solvers"]:
         summary, bug = summarize(s["name"], all_results[s["name"]],
@@ -610,9 +799,11 @@ def slurm_aggregate(outdir):
             "solvers": {s["name"]: " ".join(s["cmd"])
                         for s in man["solvers"]},
             "oracle": orc,
+            "correctness": correctness,
             "results": all_results}
     with open(os.path.join(outdir, "results.json"), "w") as f:
         json.dump(meta, f, indent=2)
+    write_correctness_sentinel(outdir, correctness)
     print(f"results: {outdir}/results.json")
     if missing:
         print(f"!! {len(missing)} task result(s) MISSING (infrastructure, "
@@ -622,9 +813,11 @@ def slurm_aggregate(outdir):
               + "\n   resubmit those indices, then re-run --aggregate")
         return 2  # staged/ kept so the resubmission can run
     shutil.rmtree(os.path.join(outdir, "staged"), ignore_errors=True)
-    if any_bug:
-        print("CORRECTNESS BUG(S) FOUND — stop performance work; follow the "
-              "fuzz skill's failure procedure.")
+    if any_bug or banner:
+        # Repeated at the END as well as the start: an aggregate.log is read
+        # from both ends, and this one must not be walkable-past from either.
+        print(banner or "CORRECTNESS BUG(S) FOUND — stop performance work; "
+                        "follow the fuzz skill's failure procedure.")
         return 1  # per-task logs kept: they are the debugging record
     # clean run: the per-task logs have served their purpose — per-instance
     # verdict/time/node live on in results.json. Keep aggregate.log only.
@@ -914,18 +1107,25 @@ def main() -> int:
     if orc:
         print(summarize_oracle(orc, f"jobs={args.jobs}"), flush=True)
 
+    correctness = correctness_record(
+        all_results,
+        {n: {"check_proofs": ch, "verify_proofs": ve, "score_proofs": sc}
+         for n, _, ch, ve, sc in solvers})
+    banner = correctness_banner(correctness)
     meta = {"tier": args.tier, "timeout": timeout, "jobs": args.jobs,
             "git": sha, "date": stamp, "mem_gb": mem_gb,
             "solvers": {n: " ".join(c) for n, c, *_ in solvers},
             "oracle": orc,
+            "correctness": correctness,
             "results": all_results}
     shutil.rmtree(stage, ignore_errors=True)
     with open(os.path.join(outdir, "results.json"), "w") as f:
         json.dump(meta, f, indent=2)
+    write_correctness_sentinel(outdir, correctness)
     print(f"results: {outdir}/results.json")
-    if any_bug:
-        print("CORRECTNESS BUG(S) FOUND — stop performance work; follow the "
-              "fuzz skill's failure procedure.")
+    if any_bug or banner:
+        print(banner or "CORRECTNESS BUG(S) FOUND — stop performance work; "
+                        "follow the fuzz skill's failure procedure.")
         return 1
     return 0
 
