@@ -11,7 +11,7 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 Read this block, then the top Log entries. Full per-instance numbers: the tier tables below.
 
-**NOTHING IN FLIGHT** — every array and fuzz leg from this session is complete and collected.
+**IN FLIGHT: R5 Sweep S-c's fuzz legs** (jobs `1582651` sweep-reach2, `1582652` fuzz-swc-ctrl), submitted by the parallel Track R stream — its work lives in a git WORKTREE and is not on `main` yet. Everything else from this session is complete and collected.
 **▶ NO *RELEASE* BUILD MATCHES HEAD — build a fresh dir before the next measurement**, and never reuse one
 ([[build-path-ownership]]). `pin-lratfix` (Release) carries the propagate fix but predates the
 `kernel_lrat_chain` assert; `pin-facablate` predates both. Only `pin-assert-fixed`/`-nofix` are current, and
