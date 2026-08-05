@@ -128,6 +128,64 @@ def chmod_tree(d, writable):
             print(f"buildlock: warning: chmod {p}: {e}", file=sys.stderr)
 
 
+# The permission strip is the GUARANTEE — it stops every tool, including ones
+# nobody thought of. But a bare "Permission denied" does not say why, and a
+# guard you have to investigate is a guard that gets worked around. So the
+# generator's entry point is swapped for a stub that prints the marker and
+# fails. The stub is only the MESSENGER: if the generator is one we do not
+# recognise, or the swap fails, permissions still block the build.
+GEN_ENTRY = ("Makefile", "build.ninja")
+SAVED = ".buildlock-orig"
+
+# Every target depends on FORCE. Without it `make tactix` matches the `%:`
+# pattern, sees the existing binary, prints "'tactix' is up to date" and exits
+# 0 — a LOCKED directory reporting a successful build, which is worse than the
+# confusing error it was meant to replace. Caught by testing the guard rather
+# than assuming it (2026-08-05).
+_MAKE_STUB = """# Installed by tools/bench/buildlock.py — see BUILD-DIR-OWNED.
+# The real Makefile is saved next to this one as Makefile{saved}.
+.DEFAULT_GOAL := __buildlock__
+.PHONY: __buildlock__ FORCE
+__buildlock__: FORCE
+\t@cat {marker} >&2; exit 1
+%: FORCE
+\t@cat {marker} >&2; exit 1
+FORCE:
+"""
+
+_NINJA_STUB = """# Installed by tools/bench/buildlock.py — see BUILD-DIR-OWNED.
+rule buildlock
+  command = cat {marker} >&2; exit 1
+  description = BUILD DIRECTORY LOCKED BY A RUNNING SLURM JOB
+build __buildlock__: buildlock
+default __buildlock__
+"""
+
+
+def swap_entry(d, lock):
+    """Install (lock=True) or restore (lock=False) the generator stub."""
+    for name in GEN_ENTRY:
+        live, saved = os.path.join(d, name), os.path.join(d, name + SAVED)
+        try:
+            if lock:
+                if not os.path.exists(live) or os.path.exists(saved):
+                    continue
+                os.rename(live, saved)
+                stub = _MAKE_STUB if name == "Makefile" else _NINJA_STUB
+                with open(live, "w") as f:
+                    f.write(stub.format(marker=MARKER, saved=SAVED))
+            else:
+                if not os.path.exists(saved):
+                    continue
+                if os.path.exists(live):
+                    os.unlink(live)
+                os.rename(saved, live)
+        except OSError as e:
+            print(f"buildlock: warning: {'installing' if lock else 'restoring'}"
+                  f" {name}: {e} (permissions still guard the tree)",
+                  file=sys.stderr)
+
+
 def status(d):
     """(state, marker) for one directory."""
     m = read_marker(d)
@@ -150,6 +208,7 @@ def acquire(d, jobid, note):
         return 2
     if st in (DEAD, UNKNOWN) and m is not None:
         chmod_tree(d, writable=True)     # reclaim a stale lock silently
+        swap_entry(d, lock=False)
     payload = {"job": str(jobid), "user": getpass.getuser(),
                "host": os.uname().nodename, "acquired": time.strftime("%FT%T%z"),
                "note": note or "", "dir": d}
@@ -165,7 +224,8 @@ def acquire(d, jobid, note):
             f"(it re-checks SLURM and refuses only while the job is still live)\n"
             f"    python3 tools/bench/buildlock.py --gc     # clears ALL stale locks\n\n"
             + json.dumps(payload, indent=2) + "\n")
-    chmod_tree(d, writable=False)
+    swap_entry(d, lock=True)             # the messenger
+    chmod_tree(d, writable=False)        # the guarantee
     print(f"buildlock: LOCKED {d} for job {jobid}")
     return 0
 
@@ -187,6 +247,7 @@ def release(d, force):
               f"squeue; releasing anyway (a wedged directory is worse).",
               file=sys.stderr)
     chmod_tree(d, writable=True)
+    swap_entry(d, lock=False)
     try:
         os.unlink(os.path.join(d, MARKER))
     except OSError:
