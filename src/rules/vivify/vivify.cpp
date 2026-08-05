@@ -23,7 +23,13 @@ bool vivify_guard(const Kernel &k) {
 static bool is_candidate(const Kernel &k, const Clause *c) {
   if (c->garbage() || c->size > VIVIFY_CLSLIM || c->size < 3)
     return false;
-  if (c->redundant() && c->glue() > VIVIFY_TIER2)
+  // SCHED-C1: the LIVE tier, not the static default. kissat's
+  // `vivify_tier2_limit` (vivify.c:132) reads `solver->tier2[0]` whenever
+  // `vivifyfocusedtiers` is set, and that option DEFAULTS TO 1 -- so the dynamic
+  // limit is the reference's shipped behaviour, not an opt-in. `k.tier2` is
+  // recomputed from the live glue distribution on every reduce and, until now,
+  // was read by nothing: we owned the mechanism and never connected it.
+  if (c->redundant() && c->glue() > k.tier2)
     return false;
   for (const Lit l : *c)
     if (k.value(l) > 0)
@@ -148,7 +154,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round) {
       for (const Lit l : *c)
         satisfied |= (k.value(l) > 0 && k.var_level(var_of(l)) == 0);
       if (satisfied &&
-          (!c->redundant() || c->glue() <= VIVIFY_TIER2)) {
+          (!c->redundant() || c->glue() <= k.tier2)) { // SCHED-C1
         if (k.proof)
           k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
         kernel_mark_garbage(k, c);
