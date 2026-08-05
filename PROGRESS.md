@@ -699,12 +699,20 @@ register has the wrong schema. Fix the instrument before spending a tier window 
   nothing". `Congruence`/`Substitute` are declined 21/33 by the delay ladder. `BCE` is budget-declined
   6/33 while `Instantiate` and `Vivify` are 22/33 — the shared-meter starvation Stage B exists to fix,
   now visible for the first time.
-- [ ] **SCHED-A2 · config-wiring conformance test** `[arch]` — a table of every `Kernel` scheduling-config
-  field with its intended writer, and a ctest that FAILS if a field tagged `DefaultPolicy` has no writer in
-  the policy. **Structurally de-selects T1's sub-shape "we own the mechanism and nothing writes it"** —
-  the most common high-severity row (`factor_bound`, `bve_cost_limit`, `bce_occ_limit`,
-  `factor_cand_rounds`, `factor_demote_fresh`, `used_glue[1]`, `arena_mark`). Ships with the doc-drift
-  corrections the audit found.
+- [x] **SCHED-A2 · DONE 2026-08-04 — config-wiring conformance test** (`tools/docs/check-config-wiring.py`,
+  wired into ctest as `config_wiring`, 40/40). Classifies all **29** Kernel scheduling-config fields as
+  **POLICY** (the scheduler must write it — 7 fields) · **RULE** (a rule computes it — `tier1`/`tier2`) ·
+  **ENV** (A/B knob; the shipped value IS the `kernel.hpp` default, so "nothing writes it" is correct) ·
+  **API** (external-policy surface, N1). **A POLICY-tagged field with no writer in `default_policy.*`
+  FAILS** — that is the `factor_bound` shape, the most common high-severity row in the ledger. **And an
+  unclassified NEW field fails too**, so classification happens when a field is added rather than years
+  later. **Both failure modes verified by breaking them deliberately.**
+  **The judgement call, recorded because it is the substance:** `factor_bound` is tagged **API, not
+  POLICY**. Tagging it POLICY would make the test demand we wire it — but wiring it is measured negative
+  three times and kissat at `--eliminatebound=0` is fine, so it is an **accepted gap awaiting a new
+  mechanism**, not an oversight. The table is where that distinction is stated once and enforced.
+  Likewise the ENV rows are the *status quo*, not the target: `factor_demote_fresh` is ENV while both
+  references demote unconditionally, and the row says so.
 - [ ] **SCHED-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — **THE ENUMERATION
   PASS LANDED 2026-08-04; the CONFORMANCE TEST is what remains** (hence still open).
   **Landed:** `docs/implementation-notes.md` §13.4–§13.6. All **418** options enumerated (kissat 161 +
