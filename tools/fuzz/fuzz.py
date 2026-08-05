@@ -44,11 +44,18 @@ class CaseOutcome:
         self.verdict = "UNKNOWN"
         self.oracle_verdict = None
         self.failures = []  # list of (kind, detail)
+        # oracles deliberately NOT applied to this case, with the reason. Never
+        # let an oracle drop out silently: a skip that is not counted is
+        # indistinguishable from a pass ([[ab-arm-identical-artefacts]]).
+        self.skips = []  # list of (oracle, reason)
         self.solver_out = ""
         self.solver_err = ""
 
     def fail(self, kind, detail):
         self.failures.append((kind, detail))
+
+    def skip(self, oracle, reason):
+        self.skips.append((oracle, reason))
 
 
 def _cpu_backstop(timeout):
@@ -113,6 +120,65 @@ def lrat_verified(code, stdout):
     return "NOT VERIFIED" not in up and "VERIFIED" in up
 
 
+def conversion_crosscheck_unsound(path):
+    """Is `drat-trim -L` -> lrat-check a VALID oracle for this CNF?
+
+    Returns a reason string when it is not, else None. Both classes below are
+    disagreements BETWEEN THE TWO CHECKERS, not anything a solver does: with
+    each of them, KISSAT's and CADICAL's own DRAT proofs are rejected exactly
+    as ours are (measured 2026-08-05; three-solver table and a five-clause
+    reproducer in
+    benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md).
+    Before `lrat_verified()` landed the same day, this oracle accepted
+    `c NOT VERIFIED`, so the whole class was invisible — including in this
+    harness's own selftest, where `expect_clean kissat` passed over two of them.
+
+    1. A REPEATED LITERAL in some clause. drat-trim's parser sorts and DELETES
+       duplicate literals as it reads the CNF (drat-trim.c parse(), the
+       `buffer[i] == buffer[i+1]` loop), so it holds `80 80` as the unit `80`
+       and its own RUP check passes; `-L` then cites input clauses BY ID; and
+       lrat-check re-reads the ORIGINAL file without deduping, so that id names
+       a clause it cannot propagate — `FAILED: multiple literals unassigned in
+       hint 161: 80 80`.
+    2. THE EMPTY CLAUSE in the input. drat-trim short-circuits (the formula is
+       refuted at parse) and `-L` writes a ZERO-BYTE proof, so lrat-check never
+       sees an empty-clause derivation: `Verification incomplete` ->
+       `NOT VERIFIED`.
+
+    Tautologies, duplicate clauses and plain UNSAT are all fine — measured, not
+    assumed; do not widen this predicate without the same evidence, because
+    every widening is an oracle you stop running.
+
+    This gates ONLY the conversion cross-check. The NATIVE-LRAT oracle (solver
+    run with --lrat) is deliberately untouched: it checks ids our own emitter
+    wrote, it is the oracle that covers the frontend's input restatement, and
+    it passes on both classes."""
+    dup = False
+    empty = False
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line[0] in "cp%":
+                    continue
+                lits = line.split()
+                if lits and lits[-1] == "0":
+                    lits = lits[:-1]
+                if not lits:
+                    empty = True
+                elif len(set(lits)) != len(lits):
+                    dup = True
+    except OSError:
+        return None
+    if dup and empty:
+        return "repeated input literal + empty input clause"
+    if dup:
+        return "drat-trim -L dedupes the CNF, lrat-check does not"
+    if empty:
+        return "empty input clause: drat-trim -L emits a zero-byte proof"
+    return None
+
+
 _RESTATED_RE = re.compile(r"^c input\s+(\d+) clauses restated", re.M)
 
 
@@ -175,15 +241,24 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             if c is None or "s VERIFIED" not in o:
                 out.fail("proof", f"drat-trim did not verify (exit {c})")
             elif lrat:
-                lrat_file = os.path.join(workdir, "proof.lrat")
-                c, o, e = run_cmd(
-                    [DRAT_TRIM, cnf_path, proof, "-L", lrat_file], 120)
-                if c is None or "s VERIFIED" not in o:
-                    out.fail("proof", "drat-trim -L (LRAT emission) failed")
+                # On some degenerate-but-legal CNFs drat-trim and lrat-check
+                # disagree about the FILE, so the conversion cross-check is not
+                # an oracle — for ANY solver. See conversion_crosscheck_unsound.
+                why = conversion_crosscheck_unsound(cnf_path)
+                if why:
+                    out.skip("lrat-convert", why)
                 else:
-                    c, o, e = run_cmd([LRAT_CHECK, cnf_path, lrat_file], 120)
-                    if not lrat_verified(c, o):
-                        out.fail("proof", "lrat-check rejected the LRAT proof")
+                    lrat_file = os.path.join(workdir, "proof.lrat")
+                    c, o, e = run_cmd(
+                        [DRAT_TRIM, cnf_path, proof, "-L", lrat_file], 120)
+                    if c is None or "s VERIFIED" not in o:
+                        out.fail("proof", "drat-trim -L (LRAT emission) failed")
+                    else:
+                        c, o, e = run_cmd([LRAT_CHECK, cnf_path, lrat_file],
+                                          120)
+                        if not lrat_verified(c, o):
+                            out.fail("proof",
+                                     "lrat-check rejected the LRAT proof")
 
     if oracle and verdict in ("SAT", "UNSAT"):
         code_o, stdout_o, _ = run_cmd(oracle + [cnf_path], timeout)
@@ -272,6 +347,7 @@ def cmd_run(args):
     # report it next to the pass/fail counts. Add a line here for any other
     # path whose coverage a leg is supposed to demonstrate.
     reach = {"restated_cases": 0, "restated_unsat": 0}
+    skips_count = {}  # oracle -> cases where it was deliberately not applied
     done = 0
     lock = threading.Lock()  # guards the counters + stdout
     stop = threading.Event()  # set once max_failures is reached
@@ -318,6 +394,8 @@ def cmd_run(args):
                 reach["restated_cases"] += 1
                 if outcome.verdict == "UNSAT":
                     reach["restated_unsat"] += 1
+            for o, _ in outcome.skips:
+                skips_count[o] = skips_count.get(o, 0) + 1
             if outcome.failures:
                 nfail += 1
                 for k, _ in outcome.failures:
@@ -348,7 +426,8 @@ def cmd_run(args):
           + (f" {kinds_count}" if kinds_count else "")
           + f" | verdicts: {vsummary}"
           + f" | reached: input-restated {reach['restated_cases']} cases"
-            f" ({reach['restated_unsat']} UNSAT)")
+            f" ({reach['restated_unsat']} UNSAT)"
+          + (f" | oracles skipped: {skips_count}" if skips_count else ""))
     return 1 if nfail else 0
 
 
@@ -360,7 +439,8 @@ def cmd_check_one(args):
                            args.lrat, workdir)
     kinds = {k for k, _ in outcome.failures}
     print(f"verdict={outcome.verdict} oracle={outcome.oracle_verdict} "
-          f"failures={outcome.failures}")
+          f"failures={outcome.failures}"
+          + (f" skipped={outcome.skips}" if outcome.skips else ""))
     if args.fail_kind:
         return 0 if args.fail_kind in kinds else 1
     return 0 if kinds else 1
