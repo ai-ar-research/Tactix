@@ -139,6 +139,14 @@ add_executable(test_factor_n1 test_factor_n1.cpp)
 target_link_libraries(test_factor_n1 PRIVATE tactix_lib)
 add_test(NAME factor_n1 COMMAND test_factor_n1)
 
+# SCHED-A2: not a unit test but a SOURCE conformance check -- every Kernel
+# scheduling-config field must have the writer its classification claims. Runs
+# in ctest so an unwired POLICY field, or a new unclassified field, breaks the
+# build rather than waiting to be noticed.
+add_test(NAME config_wiring
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-config-wiring.py)
+
 # Track H . H5: `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)
 target_link_libraries(test_no_heuristics PRIVATE tactix_lib)
