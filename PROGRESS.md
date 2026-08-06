@@ -612,7 +612,9 @@ HIGH rows, **eleven are now closed** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stag
 `SP-SLOT-4` by **D1** · `SP-SLOT-1` by **D2** · `SP-SLOT-5` by **D3** · `SP-EFFORT-CEIL-1` by **E3**, ported and
 measured INERT, its A3 headline corrected — kissat has no upper clamp at all), and **two are accepted deviations
 carrying a measurement and a removal path** (`SP-FACTOR-1`; `SP-TIER-2` by **C10** — cadical's "eight consumers"
-audit down to two live mechanisms, and both filter a clause class Stage F has yet to populate).
+audit down to two live mechanisms; Stage F has since populated the redundant-stamp class as **F6**, and
+measured it counterproductive — the extra stamps only weaken a filter every consumer scopes to irredundant
+clauses, costing `battleship` **820×** the stamps for **zero** additional skips, so F6 ships OFF).
 **`SP-REPEAT-*` is now WE_ARE_CRUDER rather than WE_LACK_IT — Stage F landed the substrate and five of its
 six consumers** (F1 C1/C2 · F2 the resume half, with the bound coupling REFUSED on wedge grounds as a THIRD
 accepted deviation, `SP-REPEAT-COUPLE` · F3 BCE/HyperTernaryRes/Instantiate · F4 Factor · F6 the redundant
