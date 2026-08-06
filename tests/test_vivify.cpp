@@ -87,9 +87,9 @@ static void test_probe_conflict_strengthens() {
 }
 
 static void test_lcm_scope_and_satisfied_delete() {
-  // a redundant tier-2 clause IS vivified (LCM scope); a redundant clause
-  // beyond tier2 is not a candidate. A root-satisfied candidate is
-  // deleted through the instance surface.
+  // a redundant tier-2 clause IS vivified (LCM scope); under that scope a
+  // redundant clause beyond tier2 is not a candidate. A root-satisfied
+  // candidate is deleted through the instance surface.
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
@@ -98,6 +98,10 @@ static void test_lcm_scope_and_satisfied_delete() {
   kernel_add_large_clause(k, d, 3, true, /*glue=*/9); // beyond tier2
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   std::vector<Ref> cands;
+  // scope 1 IS the LCM band, so it is the scope this assertion is about. The
+  // unscoped scope 0 admits all bands including tier3 (tests/test_vivify_n1.cpp
+  // — bounding it there made tier3 unreachable through the API, an N1 breach).
+  k.vivify_scope = 1;
   vivify_candidates(k, cands);
   assert(cands.size() == 1 && cands[0] == r1); // LCM scope: tier2 only
   assert(vivify_apply(k) == ApplyResult::Ok);  // r1 distilled to (1 2)
@@ -157,9 +161,9 @@ static void test_tier3_scope() {
   k.vivify_scope = 1; // legacy redundant band stops at tier2, as it always did
   vivify_candidates(k, cands);
   assert(cands.size() == 2);
-  k.vivify_scope = 0; // and so does the unscoped N1 path
-  vivify_candidates(k, cands);
-  assert(cands.size() == 2);
+  k.vivify_scope = 0; // ... while the unscoped N1 path spans every band, so
+  vivify_candidates(k, cands); // that no band is API-unreachable (N1;
+  assert(cands.size() == 3);   // tests/test_vivify_n1.cpp)
   // and the band MOVES with the live tier (SCHED-C1), so tier3 is not a
   // constant set either: raising tier2 past 9 empties it
   k.tier2 = 10;

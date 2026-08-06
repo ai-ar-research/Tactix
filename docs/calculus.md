@@ -185,8 +185,12 @@ conjunct.
   (`implementation-notes.md` §14).
 
 ### C3 · Vivify
-- **Precondition (abstract):** ∃ a tier-scoped clause `c` whose distillation by propagation proves a
-  strengthened `c′` (or root-satisfaction → delete).
+- **Precondition (abstract):** ∃ a clause `c` whose distillation by propagation proves a
+  strengthened `c′` (or root-satisfaction → delete). The clause's **tier is not part of the
+  precondition** — `Kernel::vivify_scope` selects a band so the policy can spend separate budget shares,
+  and the unscoped setting must therefore span *every* band, tier3 included, or a band becomes
+  unreachable through the API (N1; the guard-says-applicable/apply-declines shape,
+  `implementation-notes.md` §5).
 - **Effect:** three outcomes, not one — replace `c` by the distilled `c′` (add-before-delete), delete a
   root-satisfied `c`, or, when the distillation collapses, **assert the surviving literal as a root
   unit** / **refute on an empty distillation** (`Unsat`). Proof δ: `add_rup(c′)` + `del(c)` (reason-walk
