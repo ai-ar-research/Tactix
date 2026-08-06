@@ -292,7 +292,7 @@ def ledger_corpus():
     s13 = section(notes, "## 13. The scheduling-parity ledger",
                   "\n## 14. ")
     prog = open(PROGRESS).read()
-    track = section(prog, "### ▶ Track SCHED", "\n### Other phase-3 items")
+    track = section(prog, "### ▶ Track SCHED", "\n### Other dosing / admission items")
     return s13 + open(AUDIT).read() + open(DIAGNOSIS).read() + track
 
 

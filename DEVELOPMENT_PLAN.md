@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-04 (rev. 82). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-06 (rev. 83). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -42,9 +42,9 @@ Build a CDCL SAT solver that:
    engineering constraint that dominates the whole design: with the default policy
    — through engineering ingenuity, *before* any learned policy — the solver must
    not merely match if not exceed Kissat's efficiency (PAR-2 on SC benchmark
-   sets), targeted by the end of phase 4 (the strengthened **T4** gate, §8.3).
+   sets), targeted by the end of phase 5 (the strengthened **T4** gate, §8.3).
    Matching the best sequential solvers is the *floor* (N3); exceeding Kissat by
-   engineering is the *goal*; and the phase-6 learned policy (§5.6) is further
+   engineering is the *goal*; and the phase-7 learned policy (§5.6) is further
    upside on top of that — explicitly **not** the first thing that surpasses
    Kissat. This is a deliberate raise in ambition: the flexible rule-API
    architecture must be made to *win on merit*, not merely keep pace.
@@ -85,7 +85,7 @@ revision, and merge is checked against them (see also the revise-plan skill):
   N3 measures the outcome, N4 constrains the mechanism that produces it. A rule
   we schedule more crudely than Kissat schedules its counterpart is an **unmet
   requirement, not a tuning question**, and it may not be deferred to the
-  phase-6 learner: §5.6 exists to *exceed* a reference-strength strategy, never
+  phase-7 learner: §5.6 exists to *exceed* a reference-strength strategy, never
   to excuse a weaker one.
   *Operational test (this is what makes N4 checkable rather than aspirational).*
   For every scheduling mechanism in Kissat's default — effort budgets and how
@@ -573,7 +573,7 @@ proof + ρ machinery; its only new requirement is a both-polarity occurrence ind
 | # | Family | Kissat modules | Proof delta | Phase |
 |---|---|---|---|---|
 | E1 | `BVE` (bounded variable elimination with gate extraction; kitten-based definition extraction may lag — see O11) | eliminate, fastel, resolve, gates, ands, ifthenelse, definition, dense | add-RUP (resolvents) + delete + push-witness | 3 |
-| E2 | `Factor` (bounded variable addition / clause factoring; **generalizes SBVA**, the 2023 winner's preprocessor — structured-BVA heuristic is a Factor instance-selection strategy) | factor | add-RAT (definitions, new vars) + delete + push-witness | 4 |
+| E2 | `Factor` (bounded variable addition / clause factoring; **generalizes SBVA**, the 2023 winner's preprocessor — structured-BVA heuristic is a Factor instance-selection strategy) | factor | add-RAT (definitions, new vars) + delete + push-witness | 3 |
 
 Support services (not schedulable rules): model extension/reconstruction (`extend`, `witness`,
 `weaken`, `restore` — consumed by E1/E2/V3 and the SAT output path), `classify` (instance
@@ -596,6 +596,17 @@ per N1.
 | X3 | `CCE` (covered clause elimination) | cadical `cover.cpp` | delete + push-witness | **3** (moved from backlog, rev 72; also the §5.3 extensibility acceptance test) |
 | X4 | `Instantiate` | cadical `instantiate.cpp` | add/delete | **3** (moved from backlog, rev 72) |
 | X5 | `Condition` (conditional autarkies) | cadical `condition.cpp` | delete + push-witness | **3** (moved from backlog, rev 72) |
+| X6 | `HyperBinaryRes` (hyper binary resolution during probing) | cadical `probe.cpp` (`probehbr`, `probe_dominator`) | add-RUP (binary) + delete | **3** (added rev 83) |
+
+**Rev 83 (user decision 2026-08-06): the inventory IS the phase-3 exit.** X6 is added because the
+scheduling-parity ledger's own row (`SP-PROBE-2`) records that its closer is a rule, not a schedule
+fix — so leaving it out would let phase 3 close on an inventory that is not actually complete. A family
+may exit phase 3 either implemented (registered, guard/instances/apply, N1-exposed, N2-clean,
+fuzz-green) or as a **reasoned no-implement** with its evidence and reopening path in
+`docs/implementation-notes.md`; X5 `Condition` is the standing instance of the second form
+(`SP-COND-1` — its witness is a cube and `ρ` carries one in-clause literal). *Yield* is explicitly not
+part of this bar: a rule that is scheduled and sound but under-productive is a phase-4 dosing item, and
+V5 `Sweep` is the standing instance.
 
 **Rev 72 (user decision 2026-07-27): every proof rule the references implement is in scope NOW.**
 The X families plus V5 `Sweep`, S7 `Reorder` and kitten-based definition extraction (§11 O11, part
@@ -666,7 +677,7 @@ What makes this possible (obligations on the core, enforced from phase 1):
   tick budgets are declared in the rule module and surface automatically in
   `--help`, stats output, and the API.
 
-**Acceptance test (phase 4 exit):** implement CCE (X3) — a real technique we
+**Acceptance test (phase 5 exit):** implement CCE (X3) — a real technique we
 did not design for — end-to-end (guard, lazy instances, apply, witnesses,
 options, tests) with a diff confined to `src/rules/cce/` plus its registration
 line. If that diff needs to touch the kernel, another rule, a policy, or the
@@ -864,7 +875,7 @@ judged on DefaultPolicy, the hand-tuned baseline.
   (the 2025 checker options), inside the same container we'd submit.
 - Dockerfile + StarExec-style run scripts kept working from phase 1 (compliance
   tests run in-container); full submission packaging and the solver description
-  document (required for submission) are polished in phase 5.
+  document (required for submission) are polished in phase 6.
 
 ## 7. Performance strategy (R5)
 
@@ -885,7 +896,7 @@ analysis, then inprocessing. Plan of attack:
 5. **Beyond parity — where "exceed" can come from:** the policy layer as research vehicle (MAB
    selection over macro-rule schedules — AE-Kissat-MAB's win shows this works; offline-tuned
    per-family budgets; instance-family classification (`classify.c` in Kissat) driving presets —
-   full program §5.6, gated per §8.5, seeded by the phase-4 presets/MAB items); native LRAT to win
+   full program §5.6, gated per §8.5, seeded by the phase-5 presets/MAB items); native LRAT to win
    any combined solver+checker metric; portfolio-of-policies in one binary where competition rules
    permit. Realism check: matching Kissat is multi-year, PhD-grade; §8.3's staged targets keep us
    honest.
@@ -1183,13 +1194,17 @@ Components:
   - T3: within 10% PAR-2 of CaDiCaL on Tier C — **and match both CaDiCaL and
     Kissat on the *rule-neutral* subset** (instances where the phase-4 rules we
     still lack — Factor/SBVA, Sweep — do not materially help the baselines,
-    verified by baseline ablation via the **debug-performance** skill). Rationale
-    (rev 51): phase 3 is about **search + engineering quality**; the 2026-07-20
-    profiling showed the aggregate Tier-C gap is *substantially the missing
-    Factor/Sweep rules*, not our search — so gating phase 3 on the full set would
-    penalise us for phase-4 work. On the rule-neutral subset we must be at
-    baseline parity (that isolates and proves search quality); instances whose gap
-    is a missing phase-4 rule are re-gated at T4/phase 4 when Factor/Sweep land.
+    verified by baseline ablation via the **debug-performance** skill).
+    **T3 gates PHASE 4 (rev 83)**, not phase 3: phase 3 exits on rule
+    completeness, so by the time T3 is evaluated the inventory is complete and no
+    instance's gap can be excused as a missing rule. The subset clause therefore
+    survives as a *strengthening* — full-tier parity with CaDiCaL is not allowed to
+    hide a search-quality deficit that shows up where the rules are neutral — and no
+    longer as a carve-out. Its original rationale (rev 51) was the opposite: phase 3
+    was then a performance phase, the 2026-07-20 profiling attributed the aggregate
+    Tier-C gap substantially to the then-missing Factor/Sweep rules, and gating on
+    the full set would have penalised us for work not yet scheduled. That
+    carve-out is spent — Factor and Sweep both ship.
   - T4: **exceed** Kissat-public PAR-2 on Tier D (SC25 set) — via DefaultPolicy
     engineering, *before* any learned policy. (N3's floor is mere parity; T4 is
     the strengthened engineering target — the R5 goal. Raised from "parity"
@@ -1206,7 +1221,7 @@ Components:
   (expected 2–10×; that's acceptable for its use case).
 - **Expressiveness demos** (no kernel modifications allowed; 1–3 use only
   phase-≤2 rules so they can be reviewed at the phase-2 API freeze, 4–6 land
-  by phase 4):
+  by phase 5):
   1. Pure-DPLL policy (no learning) — sanity of decomposition.
   2. "CDCL, no restarts, no inprocessing" ablation policy.
   3. A Python-scripted policy reproducing the default's schedule within noise.
@@ -1251,22 +1266,29 @@ Components:
 | 0 (setup) | Repo, CI; **baseline solvers built on the evaluation machine** (Kissat 4.0.4, CaDiCaL; MiniSat + Glucose by phase 1 for T1/T2); **fuzzing harness (§8.2) with generators, model checker, drat-trim/lrat-check integration, shrinker** — validated by fuzzing Kissat/CaDiCaL as stand-in solvers; benchmark tiers A/B built and frozen (Tier B via Kissat ≤ 30 s timing runs); Kissat study notes | Fuzz pipeline runs end-to-end against Kissat; Tier A/B lists frozen and reproducible |
 | 1 | Kernel + Propagate/Decide/Analyze/Backjump + Restart/Reduce (S1–S2, moved from phase 2 in rev 12) + SwitchMode w/ stable mode: EVSIDS heap, reluctant restarts, target phases (S4, moved rev 19) + binary DRAT; competition I/O | All fuzz oracles green (incl. proof checking on every UNSAT); T1 (all of Tier A, ≥ MiniSat on Tier B) |
 | 2 | Rephasing, lucky probes (S3, S5); native LRAT; rule API v1 frozen | T2 on Tier B; API review with example policies 1–3 |
-| 3 | Phase-3 inprocessing families per catalog §5.2 (C1–C3, V1–V6, E1–E2): subsumption, strengthening, vivification, probing, backbone, substitution, transitive reduction, congruence, BVE, and bounded variable addition; **the S6 `Walk` policy op (moved here rev 71 — the measured T3-gate lever, §5.2)**; **the full reference rule inventory (rev 72, user): V5 `Sweep` + kitten (§11 O11), S7 `Reorder`, and the CaDiCaL families X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE` (doubles as the §5.3 extensibility acceptance test), X4 `Instantiate`, X5 `Condition`**; the reconstruction stack; Tier C built and frozen. **Current focus: the effort-budgeted inprocessing scheduler** — kissat's arrangement, i.e. all inprocessing rules active under per-technique effort budgets, no BVE at preprocessing, and elimination moved into the search loop. Two kernel prerequisites were established by measurement and both have landed: a per-variable BVE retry filter whose **N1 constraint** is that it may prune only `instances()` while `apply_instance` stays total, and a probing propagation path that restores search's bookkeeping. **Landing discipline (a scoped exception to §8.3 per-increment gating):** each half of the target arrangement measures worse alone, so it is built behind the slot's `enabled` flags and gated as ONE unit on Tier B+C. Status, sequencing and per-item evidence: PROGRESS.md (phase-3 checklist); design `docs/design/effort-scheduler-design.md`. | T3 on Tier C — **incl. CaDiCaL/Kissat parity on the rule-neutral subset (search-quality isolation, rev 51)**; nightly random-policy fuzzing green |
-| 3.5 (pin) | **PIN (user, 2026-07-24; deliberately unelaborated — §11 O15):** once kissat performance is matched, a dedicated pass asking for **engineering ingenuity on top of kissat** — novel ideas beyond the reference lineage, not just gap-closing. Scope, deliverables, and exit criterion to be written when phase 3 closes (revise-plan concretize mode). | TBD (O15) |
-| 4 | Policy tuning (MAB scheduler, classification presets); Python bindings; **the engineering push to *exceed* Kissat (search-quality + inprocessing ingenuity, not just the remaining rules)** | **T4 on Tier D — exceed Kissat by engineering** (before any learned policy); §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin — lands in phase 3 per rev 72, so the test is evaluated there)** |
-| 5 | Competition packaging (Docker, description doc); tuning campaign | T5 or best-effort; submission-ready |
-| 6 | **Learned scheduling — the RL module (§5.6, always-on):** offline replay/reward-proxy harness (dev instrumentation); RL1 windowed-UCB bandit over the macro scheduler's slot choice points with segment attribution (default schedule = permanent arm); LearnedPolicy in the fuzz rotation; RL2 contextual (tabular); RL3 batch-sequencing experiment under its kill criterion, neighbor-move arm proposals; offline per-family preset layer | §8.5 gates: L-safe on Tier C, then L-win on Tier D + anytime check; stretch — improves the T5 configuration. **Note: learning is upside *on top of* an engineering base that already exceeds Kissat (T4) — not the first thing to surpass it (R5).** |
+| 3 | **THE REFERENCE RULE INVENTORY (restructured rev 83, user).** Every proof rule Kissat 4.0.4 or CaDiCaL 3.0.0 implements, per catalog §5.2: the inprocessing families C1–C3, V1–V6, E1–E2 (subsumption, strengthening, vivification, probing, backbone, substitution, transitive reduction, congruence, BVE, BVA/Factor); the `H`-only ops S6 `Walk` (rev 71) and S7 `Reorder`; and the CaDiCaL families X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE` (doubles as the §5.3 extensibility acceptance test, evaluated at the phase-5 gate), X4 `Instantiate`, X5 `Condition`, X6 `HyperBinaryRes` (rev 83); plus V5 `Sweep` + kitten and kitten-based BVE definition extraction (§11 O11). The reconstruction stack; Tier C built and frozen. **This phase is about CAPABILITY, not tuning** — how the rules are dosed, ordered and budgeted is phase 4, and the two came apart in measurement (eleven of twelve parity rows closed while BVE eliminated zero variables on 7 of 9 instances where kissat eliminates anything). Status and per-item evidence: PROGRESS.md (Track R); design `docs/design/effort-scheduler-design.md`. | **Rule completeness**: every family above is either implemented (registered; guard / instances / apply; N1-exposed; N2-clean; fuzz-green under the §8.2 oracles incl. random-policy) **or** carries a reasoned no-implement row in `docs/implementation-notes.md` with its evidence and a named reopening path. Nightly random-policy fuzzing green. **No performance gate** — T3 moved to phase 4 with the dosing work. |
+| 4 | **DOSING, OPTIMIZATION AND SCHEDULING — closing the gap to Kissat/CaDiCaL (new phase, rev 83, user).** The inventory is complete; what is left between us and the references is *when and how much* each rule runs. Content: Track SCHED (the scheduling-parity ledger, `docs/implementation-notes.md` §13, is the work list), the effort/dose governors and their meters, candidate ordering, the Tier B tail (Track T), targeted Factor admission, and the engineering items the ledger classes as wires rather than rules (`SP-BVE-BWD-1`, `SP-COMPACT-1`, `SP-CHRONO-1`, `SP-VIVIFY-3`, `SP-SWEEP-2`). Constrained throughout by N1–N4 — a dose knob may narrow what DefaultPolicy *chooses*, never what the API can *reach* (§1.1 N1 scope note). | **All three:** (a) **T3 on Tier C** — within 10 % PAR-2 of CaDiCaL, plus CaDiCaL/Kissat parity on the rule-neutral subset (rev 51); (b) **N4 discharged** — no scheduling-parity row left reading `WE_LACK_IT` or `WE_ARE_CRUDER` without either a closure or an accepted §13.3 deviation carrying its measurement and reopening path; (c) **one full Tier D campaign run and reported** as scale evidence (the T4 *gate* on Tier D is phase 5's). |
+| 4.5 (pin) | **PIN (user, 2026-07-24; deliberately unelaborated — §11 O15; renumbered from 3.5, rev 83):** once kissat performance is matched, a dedicated pass asking for **engineering ingenuity on top of kissat** — novel ideas beyond the reference lineage, not just gap-closing. Scope, deliverables, and exit criterion to be written when phase 4 closes (revise-plan concretize mode). | TBD (O15) |
+| 5 | Policy tuning (MAB scheduler, classification presets); Python bindings; **the engineering push to *exceed* Kissat (search-quality + inprocessing ingenuity, not just the remaining rules)** | **T4 on Tier D — exceed Kissat by engineering** (before any learned policy); §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin — the rule lands in phase 3 per rev 72; the test is evaluated at THIS gate)** |
+| 6 | Competition packaging (Docker, description doc); tuning campaign | T5 or best-effort; submission-ready |
+| 7 | **Learned scheduling — the RL module (§5.6, always-on):** offline replay/reward-proxy harness (dev instrumentation); RL1 windowed-UCB bandit over the macro scheduler's slot choice points with segment attribution (default schedule = permanent arm); LearnedPolicy in the fuzz rotation; RL2 contextual (tabular); RL3 batch-sequencing experiment under its kill criterion, neighbor-move arm proposals; offline per-family preset layer | §8.5 gates: L-safe on Tier C, then L-win on Tier D + anytime check; stretch — improves the T5 configuration. **Note: learning is upside *on top of* an engineering base that already exceeds Kissat (T4) — not the first thing to surpass it (R5).** |
 
 Treat phases as gates, not a calendar; each phase ends with a benchmark report
 checked into the repo, which also records the §5.4 revamp evaluation and the
 §5.5 cleanliness/simplification evaluation for that gate.
+
+**Numbering note (rev 83).** Phases 4 and up shifted by one when the dosing phase
+was inserted: old 3.5 → 4.5, old 4 → 5, old 5 → 6, old 6 → 7. Historical
+parentheticals elsewhere in this document ("moved from phase 4, rev 47", the §13
+revision history) keep the numbering in force at the time they were written and
+are read against their rev, not against this table.
 
 ## 10. Risks and mitigations
 
 - **Abstraction tax discovered late** → measure the 5% budget from phase 1 (keep a hardcoded twin of
   the inner loop as a permanent benchmark referee).
 - **Proof bugs surface only at scale** → check proofs on *every* CI/fuzz run from day one, not as a
-  phase-5 activity; prefer LRAT internally (checkable without search, so failures localize).
+  phase-6 activity; prefer LRAT internally (checkable without search, so failures localize).
 - **Chasing Kissat's tail-latency tricks forever** → timebox parity work; the differentiating bet is
   the policy layer, not out-Kissating Kissat on the kernel.
 - **Memory blowups on 2025-style hosts** → 16 GB cap on test runs (RLIMIT_AS in the runner + SLURM
@@ -1291,19 +1313,19 @@ the PROGRESS Log, and the commit.
 | O2 | Build system and CI provider → *decided rev 8: CMake ≥ 3.25 (presets debug/release) + GitHub Actions (§5)* | ~~phase 0~~ decided |
 | O3 | Concrete C API types (rule/instance handles, iterator lifetimes, error reporting) → *decided rev 20, amended rev 34 (literal payloads zero-extended so none aliases `TACTIX_INSTANCE_CANONICAL` — N1); frozen text in §5.1* | ~~phase-2 API v1~~ decided |
 | O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
-| O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) → *decided rev 20: pull-based — external policies drive the C stepping surface themselves (per-propagation granularity = the client applying Propagate stepwise); no callback injection in v1 (additive later, revisit with the phase-4 Python bindings); overhead documented by the §8.4 demos* | ~~phase-2 API freeze~~ decided |
-| O6 | MAB scheduler specifics → *framework fixed rev 26 (§5.6/§8.5): arms = the macro scheduler's slot choice points with the default schedule a permanent arm; reward = progress-per-tick, glue-window proxy first (replay-validated); windowed/discounted UCB, drift-triggered.* **Still open: exact per-slot arm sets and window/threshold constants** | phase 6 implementation |
+| O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) → *decided rev 20: pull-based — external policies drive the C stepping surface themselves (per-propagation granularity = the client applying Propagate stepwise); no callback injection in v1 (additive later, revisit with the phase-5 Python bindings); overhead documented by the §8.4 demos* | ~~phase-2 API freeze~~ decided |
+| O6 | MAB scheduler specifics → *framework fixed rev 26 (§5.6/§8.5): arms = the macro scheduler's slot choice points with the default schedule a permanent arm; reward = progress-per-tick, glue-window proxy first (replay-validated); windowed/discounted UCB, drift-triggered.* **Still open: exact per-slot arm sets and window/threshold constants** | phase 7 implementation |
 | O7 | Incremental solving (IPASIR assumptions, clause removal) interaction with proof logging | post-v1; not competition-blocking |
-| O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 5 |
-| O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | before the T4 evaluation |
+| O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 6 |
+| O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | **before the phase-4 Tier D campaign** (rev 83 made running Tier D a phase-4 exit item), and again before the T4 evaluation |
 | O10 | Solver name → *decided rev 23 (user): Tactix* | ~~before any external artifact~~ decided |
-| O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | **now due — V5 moved to phase 3 (rev 72)**; decide at V5 implementation start |
-| O12 | Contextual-bandit feature set (which cheap state features; tabular bands) and warm-start/serialization policy for learned state across runs (competition rules permitting) | phase 6, RL2 implementation |
-| O13 | Distillation: do stable cross-instance learned schedules feed back into DefaultPolicy constants (benefiting N3), or stay LearnedPolicy-only? | phase-6 exit |
-| O14 | Cubing capability for strategy evaluation → *closed rev 28 (user): no cube re-solving, no sub-problems — learning stays inside the single run (§5.6 always-on); segment attribution replaces terminal cube costs; assumption machinery is O7 territory* | ~~phase 6~~ closed |
-| O15 | Phase 3.5 (pin, user 2026-07-24): the "engineering ingenuity on top of kissat" pass — scope, deliverables, exit criterion, and its relation to phase 4's T4 push | phase-3 exit (T3), before phase-4 work begins |
+| O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | *decided rev 72 for V5: vendor kitten, landed.* **The BVE half is now a phase-3 EXIT item (rev 83) — Track R · R10**; the sub-solver is already in-tree, so this is a consumer, not a port |
+| O12 | Contextual-bandit feature set (which cheap state features; tabular bands) and warm-start/serialization policy for learned state across runs (competition rules permitting) | phase 7, RL2 implementation |
+| O13 | Distillation: do stable cross-instance learned schedules feed back into DefaultPolicy constants (benefiting N3), or stay LearnedPolicy-only? | phase-7 exit |
+| O14 | Cubing capability for strategy evaluation → *closed rev 28 (user): no cube re-solving, no sub-problems — learning stays inside the single run (§5.6 always-on); segment attribution replaces terminal cube costs; assumption machinery is O7 territory* | ~~phase 6 (now 7)~~ closed |
+| O15 | Phase 4.5 (pin, user 2026-07-24; renumbered from 3.5 by rev 83): the "engineering ingenuity on top of kissat" pass — scope, deliverables, exit criterion, and its relation to phase 5's T4 push | **phase-4 exit (T3), before phase-5 work begins** — it follows the gap-closing phase, since "on top of kissat" presupposes having caught up |
 | O17 | Does N1 permit RETIRING a variable (one a rule has rewritten out of every clause — V3-substituted, E1-eliminated) from DefaultPolicy's decision order? → *decided rev 76: **yes, as advice**. N1 binds the API, so `Decide::instances()` must still enumerate the variable and any external/Random/learned policy must still be able to decide it; DefaultPolicy declining is compliant, exactly as `Kernel::bve_retry` already works. Narrowing the instance surface, or making `Decide` unable to return it, remains forbidden (§1.1 N1 scope note). Motivation: measured 84.03 % of `veer_axi`'s 1.61 G decisions land on already-substituted variables that occur in no clause. Design `docs/design/variable-retirement-design.md`* | ~~blocking the retirement design~~ decided |
-| O16 | **Auto-invention of proof rules** (user 2026-07-25). The architecture is pre-adapted: an invented rule must express its effect in the closed five-primitive proof vocabulary (§5.3) and emit checkable certificates on every path (N2), so the inventor need not be trusted — the fuzz harness (§8.2) + checkers are the referee, and the §5.3 contract (one directory + one registry line) is the insertion surface. Three forms, cheapest-first: (a) composed-rule discovery = phase-6 RL3, already planned; (b) **PR/SR clause learning** (Heule et al. SDCL; PReLearn) — an established, checkable rule family; **CAVEAT: PR is not directly DRAT-expressible** — adoption needs dpr-trim in the checker toolchain or the PR→DRAT extension-variable translation (an N2 decision); (c) **generative rule synthesis** — an LLM/search proposes guard/instances/apply in the primitive vocabulary, the rule-dev DoD runs automatically, benchmarks decide adoption. (b) is a phase-4 catalog CANDIDATE; (c) is research-track via the N1 external surface and never gates a competition milestone | decide at phase-4 entry: admit (b) to the catalog?; (c) revisit alongside phase 6 |
+| O16 | **Auto-invention of proof rules** (user 2026-07-25). The architecture is pre-adapted: an invented rule must express its effect in the closed five-primitive proof vocabulary (§5.3) and emit checkable certificates on every path (N2), so the inventor need not be trusted — the fuzz harness (§8.2) + checkers are the referee, and the §5.3 contract (one directory + one registry line) is the insertion surface. Three forms, cheapest-first: (a) composed-rule discovery = phase-7 RL3, already planned; (b) **PR/SR clause learning** (Heule et al. SDCL; PReLearn) — an established, checkable rule family; **CAVEAT: PR is not directly DRAT-expressible** — adoption needs dpr-trim in the checker toolchain or the PR→DRAT extension-variable translation (an N2 decision); (c) **generative rule synthesis** — an LLM/search proposes guard/instances/apply in the primitive vocabulary, the rule-dev DoD runs automatically, benchmarks decide adoption. (b) is a phase-5 catalog CANDIDATE; (c) is research-track via the N1 external surface and never gates a competition milestone | decide at phase-5 entry: admit (b) to the catalog?; (c) revisit alongside phase 7. **Not a phase-3 inventory item** (rev 83): PR/SR is a rule family neither reference implements, so it cannot block rule completeness |
 
 ## 12. Key references
 
@@ -1424,3 +1446,4 @@ conflate them.
 - **rev. 80** (2026-08-04, user): §1.1 gains a FOURTH non-negotiable — **N4, the strategy floor**: DefaultPolicy's *scheduling* of the proof rules (order, effort budgets, warm-ups, watermarks, acceptance bounds and their ramps, and the couplings between them) must be **at least as sophisticated as Kissat's default strategy, preferably more**. N3 measures the outcome; N4 constrains the mechanism, and it may not be deferred to the phase-6 learner (§5.6 exists to exceed a reference-strength strategy, never to excuse a weaker one). Made checkable by the **scheduling-parity ledger** — per Kissat scheduling mechanism, either an at-least-as-strong analogue or a deviation-ledger row with a named closer — reviewed at every phase gate. §5 gains obligation 5 (the scheduling analogue of rev 77) naming the two shapes that have actually shipped: *we own the mechanism but never wire it* (`Kernel::factor_bound` IS Kissat's `reduction > bound` but defaults to 0 and is never coupled to elimination progress) and *we substitute a gate for a bound* (the `binaries ≥ 6·vars` Factor admission gate, which has no counterpart in either reference and measured **worse than no gate at all** on Tier B — 86.42 vs 34.59 PAR-2, three solves). R4 now points at N4. Strengthening only: N1–N3 are unchanged.
 - **rev. 81** (2026-08-04, user): the §5.6 learned-policy staging namespace is renamed **`L1`–`L4` → `RL1`–`RL4`** (17 references across the plan and PROGRESS). Naming only — no scope, requirement or gate change, and N1–N4 untouched. Motive: `L<n>` meant BOTH a standing lesson and an RL stage, so `tools/docs/check-progress.py` could not validate lesson citations without reporting false errors on correct plan text (the RL stages appear as `L1 — non-stationary MAB`, `L4 removed`, `§8.5 L4 discipline`, which no regex separates). Third namespace collision found in one day, after `R<n>` (four meanings) and Track N4 vs non-negotiable N4. `L-safe`/`L-win` keep their names — no digit, no collision. Frozen artifacts still say `L1`–`L4` for the stages and are not edited.
 - **rev. 82** (2026-08-04, user): §8.3 — **a staged landing may run at a temporary REGRESSION**, because per-increment gating assumes each increment stands alone and some sequences have a genuinely worse intermediate state (S4's arrangement is the precedent; Track SCHED's honest meter is the live case). Permitted only with all five pre-registered BEFORE the regressing increment ships: a named sequence of recovering items, a MECHANISM argument for why they recover it, a recovery point plus a stated ceiling, revertibility, and a kill criterion. Never covers N1/N2; a lost solve is still not covered by rev 78 and must be called out; the debt is discharged or reverted BY THE PHASE GATE, with revert as the default if the sequence stalls. No change to N1–N4 or to any gate threshold.
+- **rev. 83** (2026-08-06, user): **phases restructured — capability and tuning are separate gates.** Phase 3 now exits on the REFERENCE RULE INVENTORY (every Kissat 4.0.4 / CaDiCaL 3.0.0 proof rule implemented — registered, N1-exposed, N2-clean, fuzz-green — or a reasoned no-implement with evidence and a reopening path; yield explicitly excluded), and a new **phase 4** owns dosing, optimization and scheduling, gated on **T3 + discharging N4 + one Tier D campaign**. Old 3.5→4.5, 4→5, 5→6, 6→7 (§9 numbering note). New catalog family **X6 `HyperBinaryRes`** (§5.2), because `SP-PROBE-2`'s own closer is a rule. §8.3's T3 subset clause survives as a strengthening rather than a carve-out. §11: O9 and O11 re-dated, O15 follows phase 4, O16 is not an inventory item. N1–N4 unchanged and unweakened — N4 is named as phase 4's defining obligation, scheduled rather than deferred.
