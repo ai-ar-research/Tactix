@@ -669,10 +669,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_occ_f,
            (unsigned long long)kernel.stats.sweep_vars_closed,
            (unsigned long long)kernel.stats.sweep_vars_total);
-    printf("c sweepemit   %llu binaries, %llu not-rup, %llu general pairs\n",
+    printf("c sweepemit   %llu binaries, %llu not-rup, %llu general pairs, "
+           "%llu strip units cited\n",
            (unsigned long long)kernel.stats.sweep_binaries,
            (unsigned long long)kernel.stats.sweep_not_rup,
-           (unsigned long long)kernel.stats.sweep_general);
+           (unsigned long long)kernel.stats.sweep_general,
+           (unsigned long long)kernel.stats.sweep_strip_cited);
     printf("c ternary     %llu rounds, %llu resolvents, %llu binaries, "
            "%llu ticks\n",
            (unsigned long long)kernel.stats.ternary_rounds,
