@@ -638,6 +638,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.reductions,
            (unsigned long long)kernel.stats.deleted,
            (unsigned long long)kernel.stats.promoted);
+    printf("c tiers       %u/%u live after %llu retiers "
+           "(retention band %llu clause-visits dynamic vs %llu static)\n",
+           kernel.tier1, kernel.tier2,
+           (unsigned long long)kernel.stats.retiered,
+           (unsigned long long)kernel.stats.tier2_band_dynamic,
+           (unsigned long long)kernel.stats.tier2_band_static);
     printf("c mode        %s after %llu switches (%llu ticks, "
            "%llu target phases saved)\n",
            !kernel.h ? "unguided" : kernel.h->stable ? "stable" : "focused",

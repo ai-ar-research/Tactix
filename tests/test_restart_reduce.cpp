@@ -120,6 +120,31 @@ static void test_reduce_used_retention() {
   assert(cands.size() == 2); // protection lapsed; both are candidates
 }
 
+// SP-TIER-2 / SCHED-C10: the retention-band instrument must actually track the
+// LIVE tier. A counter that reads the same either way would make every future
+// tier consumer look inert for the wrong reason ([[ab-arm-identical-artefacts]]),
+// so pin that moving `k.tier2` moves the dynamic count and leaves the static
+// one alone.
+static void test_tier2_band_tracks_the_live_tier() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 6);
+  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, c1, 3, true, 4); // inside the static 6
+  const Lit c2[3] = {internalize(4), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, c2, 3, true, 9); // outside it
+
+  k.tier2 = TIER2_STATIC;
+  reduce_apply_refs(k, nullptr, 0);
+  assert(k.stats.tier2_band_dynamic == 1); // glue 4 only
+  assert(k.stats.tier2_band_static == 1);
+
+  k.tier2 = 10; // the band a live glue distribution can open up to
+  reduce_apply_refs(k, nullptr, 0);
+  assert(k.stats.tier2_band_dynamic == 3); // +2: both clauses this round
+  assert(k.stats.tier2_band_static == 2);  // +1: the static 6 still admits one
+}
+
 static void test_solve_with_restarts_still_correct() {
   // PHP(3) pigeons=4 holes=3: UNSAT even with tiny restart intervals
   Kernel k;
@@ -210,6 +235,7 @@ int main() {
   test_collect_preserves_propagation();
   test_reduce_deletes_and_logs();
   test_reduce_used_retention();
+  test_tier2_band_tracks_the_live_tier();
   test_solve_with_restarts_still_correct();
   puts("test_restart_reduce OK");
   return 0;
