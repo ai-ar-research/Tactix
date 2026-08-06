@@ -32,6 +32,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // — hence a real touch EVENT each, not a resize fill (kissat
   // activate_variable calls kissat_mark_added_literal for the same reason).
   k.touched.resize(nvars, 0);
+  k.removed.resize(nvars, 0);
   for (uint32_t v = old; v < nvars; v++)
     kernel_touch_var(k, v);
   // Retirement status: a brand-new variable is Active (design R-a). Only grown
@@ -206,6 +207,8 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   // BVE retry filter (kissat clause.c kissat_delete_binary -> mark_removed)
   kernel_mark_bve_retry(k, var_of(a));
   kernel_mark_bve_retry(k, var_of(b));
+  kernel_removed_var(k, var_of(a)); // BCE's side of the touched-epoch substrate
+  kernel_removed_var(k, var_of(b));
   return true;
 }
 
@@ -273,6 +276,8 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
   k.stats.binaries_deleted += copies;
   kernel_mark_bve_retry(k, var_of(a)); // BVE retry filter (see above)
   kernel_mark_bve_retry(k, var_of(b));
+  kernel_removed_var(k, var_of(a));
+  kernel_removed_var(k, var_of(b));
   return true;
 }
 

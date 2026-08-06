@@ -681,6 +681,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthen_rearmed);
     printf("c subhold     %llu elimination rounds held open by C1/C2\n",
            (unsigned long long)kernel.stats.subsume_holds);
+    printf("c touch3      BCE %llu skipped / %llu rearmed, X2 %llu skipped / "
+           "%llu rearmed, X4 %llu skipped / %llu rearmed\n",
+           (unsigned long long)kernel.stats.bce_mark_skipped,
+           (unsigned long long)kernel.stats.bce_rearmed,
+           (unsigned long long)kernel.stats.ternary_mark_skipped,
+           (unsigned long long)kernel.stats.ternary_rearmed,
+           (unsigned long long)kernel.stats.instantiate_mark_skipped,
+           (unsigned long long)kernel.stats.instantiate_rearmed);
     // --- `c timing`: where the wall clock actually goes ---------------------
     // Rules are charged individually by the registry dispatch wrapper; the SLOT
     // line is the whole inprocessing phase, so (slot − Σ rules in it) is the

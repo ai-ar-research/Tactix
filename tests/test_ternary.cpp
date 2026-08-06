@@ -105,8 +105,28 @@ static void test_instances() {
   assert(k.stats.ternary_resolvents == 1);
 }
 
+// SCHED-F3 · N1 REGRESSION for the touched-epoch filter. With the watermark
+// advanced past everything the canonical ROUND declines, but the instance
+// surface must stay complete. Fails on a build that filters `ternary_pivots`
+// or `ternary_try`.
+static void test_touch_filter_is_policy_only() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  add3(k, 1, 2, 3);
+  add3(k, -1, 2, 4);
+  k.ternary_touch_mark = k.touch_epoch;
+  assert(ternary_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.ternary_mark_skipped == 1);
+  std::vector<Lit> pivots;
+  ternary_pivots(k, pivots); // NOT narrowed by the mark
+  assert(pivots.size() == 1 && pivots[0] == internalize(1));
+  assert(ternary_try(k, internalize(1)) == ApplyResult::Ok);
+  assert(k.stats.ternary_resolvents == 1);
+}
+
 int main() {
   test_ternary_resolvent();
+  test_touch_filter_is_policy_only();
   test_binary_resolvent();
   test_quaternary_rejected();
   test_tautological_rejected();

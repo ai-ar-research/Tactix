@@ -252,14 +252,57 @@ ApplyResult bce_apply(Kernel &k) {
   // remaining ledger in OUR currency (bce_ticks) and we stop mid-round rather
   // than being metered after the fact. Vivify's idiom, vivify.cpp:275.
   const uint64_t tick_start = k.stats.bce_ticks;
-  for (const Lit l : lits) {
-    if (k.work_budget && k.stats.bce_ticks - tick_start > k.work_budget)
+  // SCHED-F3 · repetition filter over the touched-epoch substrate. cadical
+  // keeps a per-literal `block` flag with precisely this lifecycle: set by
+  // `mark_added` on an irredundant add and by `mark_removed(-lit)` on a
+  // removal, cleared when the literal is scheduled, with the comment "we do
+  // not have to try blocked clause elimination on it again until irredundant
+  // clauses with its negation are removed" (block.cpp:730-733,
+  // internal.hpp:1125-1137).
+  //
+  // ▶ THIS IS THE ONE CONSUMER THAT NEEDS THE DELETION SIDE, and it is why
+  // `Kernel::removed` exists as a second array. A clause becomes blocked on l
+  // either because it appeared or because an opposite occurrence went away;
+  // filtering BCE on adds alone would silently drop the second case, which is
+  // the case BCE mostly lives on. Folding deletions into `touched` instead
+  // would have weakened C1/C2's filter, where the measured saving is.
+  //
+  // Coarser than cadical on polarity: our stamps are per VARIABLE, so l is
+  // reconsidered whenever either polarity changed. Conservative in the safe
+  // direction.
+  // N1: `bce_literals` (what `instances()` enumerates) and `bce_try` (the
+  // `apply_instance` path) are untouched and stay complete.
+  const bool filter = k.touch_filter;
+  const uint64_t snapshot = k.touch_epoch;
+  const uint64_t wm = k.bce_touch_mark;
+  size_t stopped_at = lits.size();
+  for (size_t li = 0; li < lits.size(); li++) {
+    const Lit l = lits[li];
+    if (k.work_budget && k.stats.bce_ticks - tick_start > k.work_budget) {
+      stopped_at = li;
       break;
+    }
+    if (filter && !kernel_changed_since(k, var_of(l), wm)) {
+      k.stats.bce_mark_skipped++;
+      continue;
+    }
     const ApplyResult r = bce_try_indexed(k, l, idx, marked);
     if (r == ApplyResult::Unsat)
       return r;
     any |= (r == ApplyResult::Ok);
   }
+  // RESUME (SCHED-F2's mechanism): re-arm the literals the budget never
+  // reached, then advance the watermark. This rule IS budget-cut in practice
+  // (it is `budget_aware` and its ledger share is 20 per mille), so unlike
+  // C1/C2's the path is reachable under DefaultPolicy.
+  for (size_t li = stopped_at; li < lits.size(); li++) {
+    if (filter && !kernel_changed_since(k, var_of(lits[li]), wm))
+      continue;
+    kernel_touch_var(k, var_of(lits[li]));
+    k.stats.bce_rearmed++;
+  }
+  if (filter)
+    k.bce_touch_mark = snapshot;
   if (any)
     k.stats.bce_rounds++;
   return any ? ApplyResult::Ok : ApplyResult::NoOp;

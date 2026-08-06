@@ -368,6 +368,13 @@ struct Stats {
   // be non-zero when a round was cut, so read it against `budgetstop`.
   uint64_t forward_rearmed = 0;
   uint64_t strengthen_rearmed = 0;
+  // SCHED-F3's consumers, same reading contract: `skipped` is what the
+  // suppressor bought, and it must be read against the rule's own attempt
+  // counter — both non-zero, or the filter is inert (all-checked) or wedged
+  // (all-skipped).
+  uint64_t bce_mark_skipped = 0, bce_rearmed = 0;
+  uint64_t ternary_mark_skipped = 0, ternary_rearmed = 0;
+  uint64_t instantiate_mark_skipped = 0, instantiate_rearmed = 0;
   // SCHED-F2's completeness wire: outer elimination rounds held open because
   // SubsumeForward/Strengthen had not finished. The pre-registered reading for
   // that arm, and it is PREDICTED ZERO under the shipped DefaultPolicy — see
@@ -704,6 +711,14 @@ struct Kernel {
   // that skips everything is skipping work that provably cannot succeed.
   uint64_t touch_epoch = 0;
   std::vector<uint64_t> touched; // by var
+  // The DELETION side, stamped from the same clock. Deletion is not a producer
+  // of `touched` because it cannot create a subsumer — but it is exactly what
+  // creates a BLOCKED clause, so BCE needs it and only BCE does. Kept as a
+  // second array rather than folded into `touched` so that adding BCE as a
+  // consumer does not weaken C1/C2's filter, which is where the measured saving
+  // is. cadical draws the same line: `mark_added` and `mark_removed` set
+  // different flags (internal.hpp:1125-1137).
+  std::vector<uint64_t> removed; // by var
   // trail index up to which root-fixed literals have been folded into
   // `touched`; see kernel_touch_sync_fixed.
   uint32_t touch_fixed_head = 0;
@@ -716,6 +731,11 @@ struct Kernel {
   // `apply_instance` path never read these (see subsume_forward.hpp).
   uint64_t subsume_touch_mark = 0;
   uint64_t strengthen_touch_mark = 0;
+  // SCHED-F3's consumers. `bce_touch_mark` is read against BOTH stamps
+  // (kernel_changed_since); the other two against `touched` alone.
+  uint64_t bce_touch_mark = 0;
+  uint64_t ternary_touch_mark = 0;
+  uint64_t instantiate_touch_mark = 0;
   // Did the rule's LAST canonical round reach a fixpoint — every candidate
   // examined, and (for Strengthen) nothing produced that would want another
   // look? kissat's `completed` (forward.c:664-670), which it computes as "was
@@ -1204,9 +1224,20 @@ inline void kernel_touch_var(Kernel &k, Var v) {
   k.touched[v] = ++k.touch_epoch;
   k.stats.touch_marks++; // EVENTS; a stamp has no flip to count
 }
+// The deletion side (see Kernel::removed). Shares the clock, so the two are
+// directly comparable against one watermark.
+inline void kernel_removed_var(Kernel &k, Var v) {
+  k.removed[v] = ++k.touch_epoch;
+  k.stats.touch_marks++;
+}
 // Has v changed since the watermark `since`?
 inline bool kernel_touched_since(const Kernel &k, Var v, uint64_t since) {
   return k.touched[v] > since;
+}
+// ... by an ADD or by a DELETION. BCE's predicate: a clause becomes blocked on
+// l either because it appeared or because an opposite occurrence went away.
+inline bool kernel_changed_since(const Kernel &k, Var v, uint64_t since) {
+  return k.touched[v] > since || k.removed[v] > since;
 }
 // Is clause `c` worth re-examining by a clause-rewriting rule whose watermark
 // is `since`? (kissat forward.c:143-160, the `subsume < 2` test over
@@ -1224,15 +1255,19 @@ inline bool kernel_touched_since(const Kernel &k, Var v, uint64_t since) {
 // This is a POLICY predicate about what to TRY. It must never appear in a
 // guard or narrow an `instances()` enumeration (N1) — see the N1 note in
 // subsume_forward.cpp.
+// `need` is how many touched variables count as new material: 2 for the
+// subsumption family (the argument above), 1 for a rule whose outcome on c can
+// turn on a single changed variable — Instantiate, whose probe is a
+// propagation and so depends on any clause over any of c's variables.
 inline bool kernel_clause_new_material(const Kernel &k, const Clause *c,
-                                       uint64_t since) {
+                                       uint64_t since, size_t need = 2) {
   size_t hits = 0;
   for (const Lit l : *c) {
     if (!kernel_touched_since(k, var_of(l), since))
       continue;
     if (k.value(l) < 0)
       return true; // (b)
-    if (++hits >= 2)
+    if (++hits >= need)
       return true; // (a)
   }
   return false;
@@ -1331,8 +1366,10 @@ inline void kernel_mark_garbage(Kernel &k, Clause *c) {
   // Redundant clauses are skipped: BVE never resolves them, and Reduce's
   // learned-clause traffic would otherwise mark every variable every round.
   if (!c->redundant())
-    for (const Lit l : *c)
+    for (const Lit l : *c) {
       kernel_mark_bve_retry(k, var_of(l));
+      kernel_removed_var(k, var_of(l)); // BCE's side of the substrate
+    }
 }
 
 inline uint64_t kernel_binary_key(Lit a, Lit b) {

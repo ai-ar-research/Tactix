@@ -250,17 +250,57 @@ ApplyResult instantiate_apply(Kernel &k) {
   // budget_aware batch round (deviation 4): the policy's ledger is in
   // propagation ticks, C3 Vivify's currency — these probes ARE propagation.
   const uint64_t tick_start = k.stats.ticks;
-  for (const Ref cref : candidates) {
-    if (k.work_budget && k.stats.ticks - tick_start > k.work_budget)
+  // SCHED-F3 · repetition filter over the touched-epoch substrate. cadical's
+  // own suppressor here is a per-clause `instantiated` bit set at the first
+  // attempt and never reset (`instantiateonce`, instantiate.cpp:32,211) — "try
+  // each clause at most once, ever". Ours is deliberately WEAKER: a clause is
+  // re-offered as soon as anything in it changes, which recovers the
+  // instantiations cadical's once-ever bit forfeits while still removing the
+  // whole-formula rescan.
+  //
+  // `need = 1`, unlike the subsumption family's 2: the probe is a PROPAGATION,
+  // so a single new clause over a single one of c's variables can change its
+  // outcome. The 2-of-them argument (a new subsumer needs two shared
+  // variables) does not transfer.
+  // N1: `instantiate_candidates` (what `instances()` enumerates) and
+  // `instantiate_try` (the `apply_instance` path) are untouched.
+  const bool filter = k.touch_filter;
+  const uint64_t snapshot = k.touch_epoch;
+  const uint64_t wm = k.instantiate_touch_mark;
+  size_t stopped_at = candidates.size();
+  for (size_t ci = 0; ci < candidates.size(); ci++) {
+    const Ref cref = candidates[ci];
+    if (k.work_budget && k.stats.ticks - tick_start > k.work_budget) {
+      stopped_at = ci;
       break;
+    }
+    if (filter &&
+        !kernel_clause_new_material(k, clause_at(k.arena, cref), wm, 1)) {
+      k.stats.instantiate_mark_skipped++;
+      continue;
+    }
     const ApplyResult r = instantiate_one(k, cref, occ, &ended);
     if (r == ApplyResult::Unsat)
       return ApplyResult::Unsat;
     if (r == ApplyResult::Ok)
       changed++;
-    if (ended)
+    if (ended) {
+      stopped_at = ci + 1;
       break;
+    }
   }
+  // RESUME (SCHED-F2's mechanism), reachable here: this entry is budget_aware
+  // at 20 per mille and its probes are propagations, so the budget binds.
+  for (size_t ci = stopped_at; ci < candidates.size(); ci++) {
+    const Clause *c = clause_at(k.arena, candidates[ci]);
+    if (c->garbage() || (filter && !kernel_clause_new_material(k, c, wm, 1)))
+      continue;
+    for (const Lit l : *c)
+      kernel_touch_var(k, var_of(l));
+    k.stats.instantiate_rearmed++;
+  }
+  if (filter)
+    k.instantiate_touch_mark = snapshot;
   if (!changed)
     return ApplyResult::NoOp;
   k.stats.instantiate_rounds++;

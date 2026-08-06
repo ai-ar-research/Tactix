@@ -132,8 +132,45 @@ static void test_regression_fuzz_2204() {
   }
 }
 
+// SCHED-F3 · N1 REGRESSION for BCE's touched-epoch filter, and the reason the
+// substrate needed a DELETION side. With the watermark advanced past
+// everything the canonical ROUND declines, but the instance surface must stay
+// complete: `instances()` still offers the literal and `apply_instance` still
+// eliminates on it. Fails on a build that filters `bce_literals` or `bce_try`.
+static void test_touch_filter_is_policy_only() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  k.bce_touch_mark = k.touch_epoch;
+  const int id = tactix_rule_id("BCE");
+  assert(id >= 0);
+  const RuleVTable &r = tactix_rules()[id];
+  assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::NoOp);
+  assert(k.stats.bce_mark_skipped == 4);
+  uint64_t insts[8];
+  assert(r.instances(k, insts, 8) == 4); // NOT narrowed by the mark
+  assert(r.guard(k));
+  assert(r.apply_instance(k, insts[0]) == ApplyResult::Ok);
+
+  // and the deletion side is what re-arms BCE: a removal must make the
+  // literal a candidate again even though nothing was ADDED.
+  Kernel k2;
+  kernel_reserve_vars(k2, 3);
+  kernel_add_binary_clause(k2, internalize(1), internalize(2));
+  kernel_add_binary_clause(k2, internalize(-1), internalize(3));
+  k2.bce_touch_mark = k2.touch_epoch;
+  assert(!kernel_changed_since(k2, var_of(internalize(1)),
+                               k2.bce_touch_mark));
+  kernel_delete_binary(k2, internalize(-1), internalize(3));
+  assert(kernel_changed_since(k2, var_of(internalize(1)),
+                              k2.bce_touch_mark) &&
+         "removing an opposite occurrence is exactly what blocks a clause");
+}
+
 int main() {
   test_regression_fuzz_2204();
+  test_touch_filter_is_policy_only();
   test_blocked_binary();
   test_not_blocked();
   test_pure_literal();

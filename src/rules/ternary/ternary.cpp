@@ -241,18 +241,59 @@ ApplyResult ternary_apply(Kernel &k) {
       k.ternary_max_add_percent
           ? total_clauses * k.ternary_max_add_percent / 100
           : 0;
-  for (const Lit p : pivots) {
-    if (k.work_budget && k.stats.ternary_ticks - tick_start > k.work_budget)
+  // SCHED-F3 · repetition filter over the touched-epoch substrate. cadical
+  // maintains exactly this as a per-variable `ternary` flag, set when a ternary
+  // clause containing the variable is ADDED and explicitly described as
+  // "focus on those variables for which we have not tried ternary resolution
+  // before and nothing changed for them since then" (ternary.cpp:258-266).
+  // A pivot with no new material resolves the same pairs to the same
+  // already-present resolvents — `ternary_exists`/`live_binary` reject every
+  // one of them, at full P·N cost.
+  //
+  // Ours is a coarsening of cadical's in one direction (any add touches, not
+  // only a ternary one) and NOT in the other: deletion is not consulted,
+  // because removing a ternary can only shrink the pair set. Non-wedge is the
+  // same theorem as C1/C2's — this rule's own resolvents are adds, so a
+  // productive round arms the next one, and a round with nothing new provably
+  // has nothing to derive.
+  // N1: `ternary_pivots` (what `instances()` enumerates) and `ternary_try`
+  // (the `apply_instance` path) are untouched and stay complete.
+  const bool filter = k.touch_filter;
+  const uint64_t snapshot = k.touch_epoch;
+  const uint64_t wm = k.ternary_touch_mark;
+  size_t stopped_at = pivots.size();
+  for (size_t pi = 0; pi < pivots.size(); pi++) {
+    const Lit p = pivots[pi];
+    if (k.work_budget && k.stats.ternary_ticks - tick_start > k.work_budget) {
+      stopped_at = pi;
       break;
+    }
     if (add_limit &&
         (k.stats.ternary_resolvents + k.stats.ternary_binaries) - add_start >=
-            add_limit)
+            add_limit) {
+      stopped_at = pi;
       break;
+    }
+    if (filter && !kernel_touched_since(k, var_of(p), wm)) {
+      k.stats.ternary_mark_skipped++;
+      continue;
+    }
     const ApplyResult r = ternary_try(k, p);
     if (r == ApplyResult::Unsat)
       return r;
     added |= (r == ApplyResult::Ok);
   }
+  // RESUME (SCHED-F2's mechanism): re-arm the pivots this round never reached,
+  // then advance the watermark. Both cut paths above leave a tail, and the
+  // add-limit one is REACHABLE under DefaultPolicy, unlike C1/C2's.
+  for (size_t pi = stopped_at; pi < pivots.size(); pi++) {
+    if (filter && !kernel_touched_since(k, var_of(pivots[pi]), wm))
+      continue;
+    kernel_touch_var(k, var_of(pivots[pi]));
+    k.stats.ternary_rearmed++;
+  }
+  if (filter)
+    k.ternary_touch_mark = snapshot;
   if (added)
     k.stats.ternary_rounds++;
   return added ? ApplyResult::Ok : ApplyResult::NoOp;
