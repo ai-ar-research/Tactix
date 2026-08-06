@@ -186,8 +186,21 @@ ApplyResult ternary_try(Kernel &k, Lit pivot) {
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<Lit> res;
   bool added = false;
-  for (const Tern &c : pos)
+  // §6 · polled per PAIR, not per outer clause: `ternary_exists` scans a whole
+  // occurrence list (the entire arena when no dense index is attached), so one
+  // pair is already the largest unit worth running to completion.
+  bool interrupted = false;
+  for (const Tern &c : pos) {
+    if (interrupted)
+      break;
     for (const Tern &d : neg) {
+      // §6 · nothing is half-added here: each resolvent's `add_rup` and its
+      // kernel add are one unit, and `res` is scratch. Aborting means the rule
+      // derived fewer consequences, which is always sound.
+      if (kernel_rule_interrupt(k, k.stats.ternary_interrupted)) {
+        interrupted = true;
+        break;
+      }
       k.stats.ternary_ticks++;
       if (!resolve(c, d, pivot, res))
         continue;
@@ -217,6 +230,7 @@ ApplyResult ternary_try(Kernel &k, Lit pivot) {
       }
       added = true;
     }
+  }
   return added ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
@@ -271,6 +285,13 @@ ApplyResult ternary_apply(Kernel &k) {
     if (add_limit &&
         (k.stats.ternary_resolvents + k.stats.ternary_binaries) - add_start >=
             add_limit) {
+      stopped_at = pi;
+      break;
+    }
+    // §6 (SCHED-H1) · TERMINATION, which neither governor above implies: both
+    // are effort/output ceilings a policy may set to 0. Cut at the same point
+    // so the untried tail goes through the same re-arm path.
+    if (kernel_rule_interrupt(k, k.stats.ternary_interrupted)) {
       stopped_at = pi;
       break;
     }

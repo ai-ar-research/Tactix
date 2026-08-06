@@ -728,6 +728,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.ternary_rearmed,
            (unsigned long long)kernel.stats.instantiate_mark_skipped,
            (unsigned long long)kernel.stats.instantiate_rearmed);
+    // SCHED-H1 · WHICH rule honoured the interrupt. `c interrupt` above is the
+    // sum over every polling rule, so it cannot show that a particular round
+    // is interruptible; a zero here on a run that was interrupted means the
+    // rule ran to completion regardless.
+    printf("c interrupt3  BCE %llu, X2 %llu, X4 %llu aborts\n",
+           (unsigned long long)kernel.stats.bce_interrupted,
+           (unsigned long long)kernel.stats.ternary_interrupted,
+           (unsigned long long)kernel.stats.instantiate_interrupted);
     printf("c touchred    %llu redundant creations in scope (dynamic) vs %llu "
            "(static tier2=6); stamping %s\n",
            (unsigned long long)kernel.stats.touch_redundant_dynamic,
