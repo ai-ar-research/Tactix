@@ -590,8 +590,10 @@ row carrying a measurement, AND the ledger has been regenerated from the REFEREN
 HIGH rows, **eleven are now closed** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B · `SP-VIVIFY-1` by C1 · `SP-FACTOR-2` by C5 ·
 `SP-BVE-GATE-1` by **C8** · `SP-JUMP-1` by **C9** — ported, ships OFF, default decided by a pre-registered A/B ·
 `SP-SLOT-4` by **D1** · `SP-SLOT-1` by **D2** · `SP-SLOT-5` by **D3** · `SP-EFFORT-CEIL-1` by **E3**, ported and
-**measured inert**, its A3 headline corrected — kissat has no upper clamp at all) and one is **accepted**
-(`SP-FACTOR-1`, §13.3). **TWO remain open:** `SP-REPEAT-*` (Stage F, in progress) · `SP-TIER-2` (assigned).
+measured INERT, its A3 headline corrected — kissat has no upper clamp at all), and **two are accepted deviations
+carrying a measurement and a removal path** (`SP-FACTOR-1`; `SP-TIER-2` by **C10** — cadical's "eight consumers"
+audit down to two live mechanisms, and both filter a clause class Stage F has yet to populate).
+**ONE remains open: `SP-REPEAT-*` (Stage F, in progress).** That is the whole remaining track exit.
 
 - [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
   slot (beside BVE's identical, N1-clean one), reaching the rule as `Kernel::factor_admit`, default TRUE. Both pre-registered gates passed:
@@ -637,12 +639,13 @@ instrument before spending a tier window on a mechanism.
   `SP-BVE-BWD-1` row orphans `elimbackward`; deleting `SP-ARENA-1` fires both the anchor check and two UNACCOUNTED options; a fake `sweepslack`
   option fails; a fake option hidden INSIDE the dismissed `block*` glob fails on the group count; an unknown option-macro spelling aborts rather
   than under-counting. It is a **coverage** check, not a semantic one — §13.5's 6 corrections are the base rate for what it cannot verify.
-  **The 4 HIGH gaps A3 surfaced, and where they went:** ~~`SP-BVE-GATE-1`~~ ITE/XOR gate extraction was absent, so BVE was charged the full
-  P·N where both references pay P+N−2 (a per-application ACCEPTANCE lever, the T4 antidote) — **CLOSED by C8** · `SP-TIER-2` the dynamic tiers
-  have ONE consumer here and EIGHT in cadical via `likely_to_be_kept_clause`, which **supersedes SCHED-C1's scope** — **assigned** ·
-  ~~`SP-EFFORT-CEIL-1`~~ — **CLOSED by E3**, and its claim that *every* reference budget has an upper clamp was WRONG: kissat has no
-  `maxeffort` option and our budget already transliterates kissat's own macro · ~~`SP-JUMP-1`~~ — **CLOSED by C9**, its
-  "default-ON in both references, per-conflict, free" billing wrong on all three counts (kissat-only; size-gated; not free under N2).
+  **The 4 HIGH gaps A3 surfaced, and where they went — all four are now closed, and THREE of the four had a wrong premise:**
+  ~~`SP-BVE-GATE-1`~~ ITE/XOR gate extraction was genuinely absent (BVE charged the full P·N where both references pay P+N−2, the T4
+  antidote) — **CLOSED by C8**, the one row that was right as written · ~~`SP-TIER-2`~~ — **CLOSED by C10** as audit + accepted deviation:
+  the "eight cadical consumers" are three inert at cadical's own defaults, four instances of the same `mark_added`, and one gating a
+  clause class we never schedule; kissat has TWO behavioural consumers and we have both · ~~`SP-EFFORT-CEIL-1`~~ — **CLOSED by E3**, its
+  claim that *every* reference budget has an upper clamp WRONG (kissat has no `maxeffort`; our budget is kissat's own macro) ·
+  ~~`SP-JUMP-1`~~ — **CLOSED by C9**, its "default-ON in both references, per-conflict, free" billing wrong on all three counts.
   **Standing method note, both traps live in this pass:** **read MACROS, not just grep** — cadical's `factorthresh` is token-pasted
   (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never appears literally and reading it as dead code
   produced two wrong published claims; and **polarity is not inferable from a name** (`factordelay`=0 is the MOST delayed setting)
@@ -673,7 +676,8 @@ instrument before spending a tier window on a mechanism.
 
 - [x] **SCHED-C1 · Vivify ← the dynamic tiers** `[wire]` — `VIVIFY_TIER2 = 6` while `k.tier2` was recomputed every reduce and read by NOTHING;
   kissat's `vivify_tier2_limit` reads the dynamic tier whenever `vivifyfocusedtiers` is set, **and that option defaults to 1**. Both scope sites
-  now read `k.tier2`; the test pins that moving the tier moves the candidate set. *(Scope superseded by `SP-TIER-2` — cadical has eight consumers.)*
+  now read `k.tier2`; the test pins that moving the tier moves the candidate set. *(Generalisation settled by `SCHED-C10`: cadical's eight consumers
+  audit down to two live mechanisms, and cadical's own vivify is on the static 2/6 — `vivifycalctier`=0 — so C1 is kissat's shipped behaviour, not both.)*
 - [x] **SCHED-C2 · Factor acceptance bound ← `bve_level_`** `[wire]` — **CLOSED AS AN ACCEPTED DEVIATION, NOT AS CODE** (2026-08-05): the wire is
   refuted three ways (port REVERSED, mp1 5.3 → 14.9 s · no static bound separates winners from losers, bound 8 costs `sted5` 19 → 274 s · with
   composition ON the arms are byte-identical because `bve_level_` is **0 where Factor runs**, so the coupling cannot even fire), and kissat with its
@@ -767,6 +771,31 @@ instrument before spending a tier window on a mechanism.
   falsifier here — is not regressed; a single-instance headline is not a verdict, so a decider gets paired draws ([[chaotic-instance-veto]]). If
   A1 loses, the row converts to an accepted deviation in §13.3 with THIS measurement, and the removal path is a per-formula gate (kissat's
   `bigbig`), which needs a classify call in DefaultPolicy — Stage D territory, not a Stage C wire.
+
+- [x] **SCHED-C10 · the dynamic-tier consumer audit (`SP-TIER-2`)** — closes the HIGH row as an **audit + accepted
+  deviation** (`implementation-notes.md` §13.3), not as a wire, and the audit is the result. **The "one consumer here,
+  eight in cadical" headline does not survive reading the eight at their use sites:** `walk.cpp:858` and
+  `walk_full_occs.cpp:673,758` are unreachable at cadical's shipped defaults (`walkredundant`=0, plus `walkfullocc`=0 for
+  the pair), `clause.cpp:140`/`:237`/`sweep.cpp:1165`/`decompose.cpp:630` are the SAME action (`mark_added`), and
+  `subsume.cpp:388` gates a clause class our C1/C2 never schedule. Of the direct reads the row also listed, `reduce.cpp:35`
+  is the flush pass (`flush`=0) and **both `promote` sites read the tier only for a LOG string and `stats.promoted1/2`** —
+  in kissat too (`promote.c:11`), so there is nothing there to wire. **Polarity finding in the other direction:** cadical's
+  vivify is on the STATIC 2/6 by default (`vivifycalctier`=0); it is kissat's `vivifyfocusedtiers`=1 that makes SCHED-C1
+  the reference's shipped behaviour, so C1 was right about one reference of two. Also recorded: kissat's live macros are
+  `TIER1 = tier1[0]` but `TIER2 = tier2[**1**]` (`internal.h:255-256`, the `focusedtiers` form `#if 0`'d out).
+  **Landed as code:** `Stats::tier2_band_dynamic/static` inside the aging walk `reduce_apply_refs` already does (free), a
+  `c tiers` stats line, and `TIER1_STATIC`/`TIER2_STATIC` named in `reduce.hpp`. Behaviour-neutral — counters only.
+  **The blast radius is real, which is why this is not a "the gap is small" excuse** (probe `1584747`,
+  `benchmarks/probes/scratch/tier2/`): `battleship` live tiers **26/34**, **1,025,943 redundant clause-visits admitted by
+  the dynamic tier vs 0 by the static 6**; `9vliw_bp_mc` 3/10, +35.5 %; `rbsat` 2/6, +3.3 %; `mod4block` 1/6, +0.2 %.
+  **Why closed anyway:** every remaining consumer filters a set we do not populate — SCHED-F1's `touched` stamps only
+  IRREDUNDANT creations and `subsume_forward.cpp:44`/`strengthen.cpp:24` reject every redundant clause — so wiring the
+  tier now filters the empty set ([[ab-arm-identical-artefacts]], predicted rather than discovered). Removal path = three
+  named triggers with pre-registered counters in §13.3: **T1** F1's producers gain the redundant path (then the admission
+  test is the full three-disjunct predicate, incl. the survivor envelope `lim.keptglue/keptsize` we lack) · **T2** C1/C2
+  gain a redundant scope · **T3** Vivify gains kissat's tier1/tier2/tier3 buckets — **we never vivify tier3** although
+  `default_policy.cpp:1481` sizes the redundant share as kissat's "3+3+1 = 7". T3 is the only non-statistics,
+  non-incremental `k.tier1` consumer either reference has outside reduce.
 
 #### Stage D — the authored schedule and the two clocks (T6 + the global slot rows)
 
