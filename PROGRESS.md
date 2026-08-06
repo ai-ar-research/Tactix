@@ -425,7 +425,13 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 - **Citation pairing:** when citing `benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`, cite
   `…/2026-08-04-broad-factor-admission-retest.md` with it — the latter supersedes its per-instance
   conclusion (the `j3037` veto was a measured lottery).
-- **Task #39** — `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/` (N1 robustness, not soundness).
+- **Task #39** — `--random-policy` NON-TERMINATION, and it is a population, not 5 tiny cases (N1
+  robustness, not soundness). **MEASURED 2026-08-06** (`RV-S31`, release binary, ≤60 vars, jobs
+  `1587119`/`1587294`): **114 of 1000 cases (11.4 %) at a 10 s budget, the SAME 114 on DRAT and on native
+  LRAT, against 0 of 1000 for DefaultPolicy.** Escalating the first 24 to **600 s** (60×) leaves **18 of
+  24 still unfinished** — same 6 terminate under both formats — so ~8.6 % of a random-policy leg does not
+  terminate at all and the rest is slow. `fuzz.py` now prints the population and keeps the cases
+  (`<outdir>/nonterminating/`, `nonterminating.json`); the DIAGNOSIS is still open.
 - demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; the deferred
   full-slot-mirror enhancement was dropped 2026-07-25, user decision).
 - Stress-pass ledger: V6 unit-channel DONE (`4f2b53e` + congstress nightly); Factor-mid-stable DONE
@@ -460,13 +466,14 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   transcribed 4× and the watch stride open-coded 23× · **RV-S15/16/17/18** rule-side leaks (six kernel
   watermarks, Sweep's in-rule `getenv` dosing, Sweep's unregistered instance surface, BVE's narrowed
   `instances()`) · **RV-S22** BCE and Substitute are witness-emitting with **no stress policy** ·
-  **RV-S23** the fuzz reachability readout serves one counter · **RV-S31** Task #39's
-  `--random-policy` LIVELOCK IS FAR BROADER THAN THE TASK RECORDS — **12 of 74 cases (16 %) fail to
-  terminate** against 0 of 74 for DefaultPolicy on both proof formats, and the population is not the
-  `known-hangs` set (it includes regression-corpus entries and fresh instances) — so every
-  `--random-policy` fuzz figure is over N minus an unmeasured timeout population — make `fuzz.py`
-  print per-leg timeouts the way it prints `oracles skipped`, THEN diagnose it · **RV-S24-S30**
-  hygiene + hand-offs.
+  **RV-S23 DISCHARGED 2026-08-06** — `fuzz.py` now prints a per-registry-entry `reached:` table (all 25
+  entries, read from the solver's own counters) and `--require-reached` fails a leg whose named rule never
+  fired; a spec that matches no printed line fails too, so the instrument cannot go vacuously green.
+  It immediately found that a 1000-case DefaultPolicy leg at ≤60 vars fires **19 of 25** entries — Probe,
+  Backbone, TransitiveReduce, Factor, BVE and Reorder are **0**, i.e. every "fuzz green" claim about those
+  six rules rests on the random-policy legs alone.
+  · **RV-S31 (a) DISCHARGED, (b) OPEN** — the population is measured and visible (see Task #39 above);
+  the livelock itself is undiagnosed · **RV-S24-S30** hygiene + hand-offs.
   Three auditor verdicts were **overturned in synthesis** and the report records why (gating F6's walk
   would destroy its own anti-vacuity evidence; `kernel_delete_clause` is not inlinable because
   `kernel.hpp` forward-declares `Proof`; R6's `EffortSpec::meter` premise is false as stated).
