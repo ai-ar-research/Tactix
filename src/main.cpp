@@ -561,12 +561,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.congruence_gates_xor,
            (unsigned long long)kernel.stats.congruence_gates_ite);
     printf("c congruence  %llu rounds, %llu gates, %llu merges, %llu units, "
-           "%llu unjustified\n",
+           "%llu unjustified, %llu ticks, %llu budget stops\n",
            (unsigned long long)kernel.stats.congruence_rounds,
            (unsigned long long)kernel.stats.congruence_gates,
            (unsigned long long)kernel.stats.congruence_merges,
            (unsigned long long)kernel.stats.congruence_units,
-           (unsigned long long)kernel.stats.congruence_unjustified);
+           (unsigned long long)kernel.stats.congruence_unjustified,
+           (unsigned long long)kernel.stats.congruence_ticks,
+           (unsigned long long)kernel.stats.congruence_budget_stops);
     {
       uint64_t n_sub = 0, n_elim = 0;
       for (Var v = 0; v < kernel.nvars; v++) {

@@ -320,6 +320,18 @@ struct Stats {
   mutable uint64_t congruence_gates_ite = 0;
   uint64_t congruence_gates = 0;   // gates EXTRACTED, over all applications
   uint64_t congruence_merges = 0;  // equivalences MERGED, over all applications
+  // Congruence's budget currency (SCHED-G1): scan steps over the clause /
+  // gate / worklist structures, in the same "one tick per memory-touching
+  // step" unit as transitive_ticks and sweep_ticks. Charged unconditionally,
+  // so `EFFORT_SPECS`'s Congruence row can price a round the way every other
+  // scheduled rule is priced.
+  // `mutable` for the same reason `rule_interrupted` is: the extraction half
+  // takes the kernel by const reference.
+  mutable uint64_t congruence_ticks = 0;
+  // Rounds cut short by `Kernel::work_budget`. REACHABILITY WITNESS, not
+  // decoration — a budget whose `break` never executes is an untested one, and
+  // a budget that fires on EVERY round has been mis-sized. Read both ways.
+  mutable uint64_t congruence_budget_stops = 0;
   uint64_t factorings = 0;         // Factor/BVA applications — grids replaced
   // Multi-literal remainders OFFERED by the widened grid scope. Zero here with
   // factor_size >= 3 means the widened branch never fired at all, which is a

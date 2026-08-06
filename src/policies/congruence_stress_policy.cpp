@@ -42,6 +42,15 @@ int congruence_stress_solve(Kernel &k, uint64_t seed,
   const bool trace = getenv("TACTIX_TRACE") != nullptr;
   const bool no_subst = getenv("TACTIX_CONG_STRESS_NOSUBST") != nullptr;
   const uint32_t max_rounds = cs_env_u32("TACTIX_CONG_STRESS_ROUNDS", 8);
+  // SCHED-G1: drive the MID-ROUND BUDGET, which no DefaultPolicy fuzz leg can
+  // reach — a generated case is solved before the inprocessing slot ever runs
+  // (measured: 0 congruence rounds over 120 generated cases). Each apply gets a
+  // fresh pseudo-random budget in [1, N] so the round is cut at a different
+  // point every time and EVERY resulting partial-round certificate is checked.
+  // Pair it with TACTIX_STOP_FUZZ=<huge>: the rule's stop checks are strided
+  // 1-in-256 unless `stop_fuzz` is set, and a tiny case never reaches 256
+  // items, so without it the budget could never fire here either.
+  const uint32_t stress_budget = cs_env_u32("TACTIX_CONG_STRESS_BUDGET", 0);
 
   const RuleVTable &cong =
       tactix_rules()[static_cast<size_t>(tactix_rule_id("Congruence"))];
@@ -87,7 +96,19 @@ int congruence_stress_solve(Kernel &k, uint64_t seed,
       for (uint32_t round = 0; round < max_rounds; round++) {
         if (!cong.guard(k))
           break;
+        if (stress_budget) {
+          // LOG-uniform in [1, N], not uniform: a uniform draw over a range
+          // wide enough to reach the closure spends almost every case in
+          // extraction, and the N2-critical stop is the one AFTER some merges
+          // have already been emitted. Measured — a flat draw over [1,64] cut
+          // 220 rounds and produced 0 gates on all 120 cases.
+          uint32_t hi = 1;
+          while (hi < stress_budget && (cs_random(rng) & 1))
+            hi <<= 1;
+          k.work_budget = 1 + cs_random(rng) % (hi > stress_budget ? stress_budget : hi);
+        }
         const ApplyResult r = apply_rule(cong, k);
+        k.work_budget = 0; // scoped to the apply, exactly as the policy does
         if (r == ApplyResult::Unsat)
           return 20; // V6 refuted — the path that did not exist before C3
         if (r != ApplyResult::Ok)

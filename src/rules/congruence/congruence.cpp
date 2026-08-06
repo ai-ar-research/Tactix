@@ -29,6 +29,47 @@ constexpr size_t CONG_GATE_LIMIT = 20000000;
 // XOR is a size-(a+1) clause group, so scan clauses of size 3..CONG_XOR_ARITY+1.
 constexpr uint32_t CONG_XOR_ARITY = 4;
 
+// --- the meter and the mid-round budget (SCHED-G1) ---------------------------
+// `stats.congruence_ticks` is charged at every scan site below, one tick per
+// memory-touching step, so the policy's `EFFORT_SPECS` row can price a round in
+// the rule's own currency. `budget_exceeded` is the STOP predicate: it is only
+// ever consulted at the points that already honour `kernel_terminating`, so the
+// budget adds a second trigger to an interrupt path whose soundness argument is
+// already written down (extraction is read-only; the closure aborts between
+// worklist items, each of which is all-or-nothing). Dropping inferences is
+// sound (D-CONG-SKIP); a partial round emits nothing it cannot justify.
+// `work_budget == 0` means unbounded, which is what every non-policy caller
+// (the public API, RandomPolicy, the unit tests) gets.
+// Round-scoped: Congruence is one canonical round with no reentrancy
+// (sequential solving, plan §5), so the extraction helpers read the round's
+// budget here rather than threading a parameter through four signatures that
+// the public API and the unit tests also call.
+struct Budget {
+  uint64_t start = 0;
+  uint64_t limit = 0; // 0 = unbounded
+  bool cut = false; // set at whichever stop actually fired; counted once/round
+  bool over(const Kernel &k) {
+    if (!limit || k.stats.congruence_ticks - start <= limit)
+      return false;
+    cut = true;
+    return true;
+  }
+};
+Budget cong_budget;
+// Scoped so every exit path — including the early NoOp/Unsat returns — leaves
+// the budget cleared for the next caller.
+struct BudgetScope {
+  const Kernel &k;
+  explicit BudgetScope(const Kernel &kk) : k(kk) {
+    cong_budget = {kk.stats.congruence_ticks, kk.work_budget};
+  }
+  ~BudgetScope() {
+    if (cong_budget.cut)
+      k.stats.congruence_budget_stops++; // once per CUT ROUND, not per site
+    cong_budget = {};
+  }
+};
+
 // mark the binary-watch partners of `lit` (each `p` with a binary (lit ∨ p)).
 template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
                                         std::vector<uint8_t> &mark) {
@@ -132,16 +173,23 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     const size_t base = out.size();
     const Lit nlits = 2 * k.nvars;
     for (Lit outp = 0; outp < nlits; outp++) {
+      // SCHED-G1: the budget stops extraction the same way `kernel_terminating`
+      // does — read-only work, so the gates already emitted stay valid and the
+      // closure simply sees fewer of them.
+      if (!(outp & 255) && cong_budget.over(k))
+        break;
       const std::vector<Ref> &occ = k.dense->large[outp];
       if (occ.empty())
         continue;
       const Lit nout = negate(outp);
       bool marked = false;
+      k.stats.congruence_ticks += occ.size();
       for (const Ref ref : occ) {
         const Clause *c = clause_at(k.arena, ref);
         if (c->garbage() || c->redundant() || c->size < 3 ||
             c->size > CONG_ARITY_LIMIT + 1)
           continue;
+        k.stats.congruence_ticks += c->size;
         // locate outp, verifying the unassigned prefix up to it
         uint32_t idx = UINT32_MAX;
         for (uint32_t j = 0; j < c->size; j++) {
@@ -198,8 +246,14 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
   // §6: extraction is READ-ONLY — abort is free here, the caller returns NoOp.
   uint32_t xtick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
-    if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
-      { k.stats.rule_interrupted++; return; }
+    if (k.stop_fuzz || !(++xtick & 255)) {
+      if (kernel_terminating(k)) {
+        k.stats.rule_interrupted++;
+        return;
+      }
+      if (cong_budget.over(k))
+        return; // SCHED-G1: budget stop — read-only work, fewer gates, sound
+    }
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
     ref += words;
@@ -208,6 +262,7 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
       continue;
     if (out.size() >= CONG_GATE_LIMIT)
       return;
+    k.stats.congruence_ticks += c->size;
     for (const Lit outp : *c) {
       if (k.value(outp) != 0)
         break; // clause has an assigned literal → not a clean gate base
@@ -387,12 +442,14 @@ using ClauseIndex = SmallKeySet;
 // Keys are materialised BY VALUE rather than as pointers into the table: the
 // sort and both consuming scans then run over contiguous memory instead of
 // chasing 24-byte keys scattered across the table.
-static std::vector<SmallKey> sorted_keys(const ClauseIndex &index) {
+static std::vector<SmallKey> sorted_keys(const Kernel &k,
+                                         const ClauseIndex &index) {
   std::vector<SmallKey> keys;
   keys.reserve(index.size());
   for (const SmallKey &sk : index.buckets())
     if (sk.size != 0)
       keys.push_back(sk);
+  k.stats.congruence_ticks += index.buckets().size() + keys.size();
   std::sort(keys.begin(), keys.end());
   return keys;
 }
@@ -406,13 +463,22 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
   // §6: extraction is READ-ONLY — abort is free here, the caller returns NoOp.
   uint32_t xtick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
-    if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
-      { k.stats.rule_interrupted++; return; }
+    if (k.stop_fuzz || !(++xtick & 255)) {
+      if (kernel_terminating(k)) {
+        k.stats.rule_interrupted++;
+        return;
+      }
+      if (cong_budget.over(k))
+        return; // SCHED-G1: a TRUNCATED index only ever loses gates — XOR/ITE
+                // both require every defining clause to be present, so a
+                // missing entry can suppress a gate but never fabricate one.
+    }
     const Clause *c = clause_at(k.arena, ref);
     ref += clause_words(c->size);
     if (c->garbage() || c->redundant() || c->size < 3 ||
         c->size > CONG_XOR_ARITY + 1)
       continue;
+    k.stats.congruence_ticks += c->size;
     bool ok = true;
     ls.clear();
     for (const Lit l : *c) {
@@ -437,9 +503,16 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
   Lit probe[CONG_XOR_ARITY + 1];
   uint32_t xtick = 0;
   for (const SmallKey &base : sorted) {
-    if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
-      { k.stats.rule_interrupted++; return; }
+    if (k.stop_fuzz || !(++xtick & 255)) {
+      if (kernel_terminating(k)) {
+        k.stats.rule_interrupted++;
+        return;
+      }
+      if (cong_budget.over(k))
+        return; // SCHED-G1 budget stop — read-only, fewer gates
+    }
     const uint32_t s = base.size;
+    k.stats.congruence_ticks += s;
     // positive-lit form of the variables, sorted; dedup a relation to once.
     pos.clear();
     int base_parity = 0;
@@ -463,6 +536,7 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
     // require all 2^{s-1} clauses of parity == base_parity to exist.
     bool all = true;
     const uint32_t combos = 1u << (s - 1);
+    k.stats.congruence_ticks += combos;
     for (uint32_t m = 0; m < combos && all; m++) {
       int par = 0;
       for (uint32_t i = 0; i + 1 < s; i++) {
@@ -528,6 +602,10 @@ void delete_transients(Kernel &k, std::vector<TransientLemma> &t) {
 // that sizes closing it. Env-gated, default-identical, like TACTIX_CONG_TRACE.
 static const bool cong_probe = std::getenv("TACTIX_CONG_PROBE") != nullptr;
 static uint64_t cong_n_and = 0, cong_n_ite = 0, cong_n_xor = 0, cong_n_clash = 0;
+// Accepted merges whose representative is already root-assigned — see val_merge.
+static uint64_t cong_val_merge = 0;
+// Root-assigned literals seen by the closure at apply entry / exit.
+static uint64_t cong_root_in = 0, cong_root_out = 0;
 
 // TACTIX_CONG_PROBE, part 2 — the CLOSURE/MATCHING discriminator.
 //
@@ -561,8 +639,39 @@ struct CongMatchStats {
   uint64_t canon_ok = 0, canon_skip = 0, canon_unit = 0, canon_merge = 0;
   uint64_t insert = 0, collide = 0, stale = 0, already_eq = 0;
   uint64_t clash = 0, chain_fail = 0, merged = 0;
+  // The VALUE channel we do not have (SCHED-G1 diagnosis). kissat's closure
+  // keeps `values[]` live: a gate with a valued input shrinks or is retired
+  // (`simplify_and_gate`), and a merge with a valued participant becomes a
+  // UNIT (`merge_literals` -> `learn_congruence_unit`). Ours reads no value at
+  // all, so these two columns SIZE the missing channel: `val_gate` = closure
+  // items whose canonical key or output is already root-assigned, `val_merge`
+  // = accepted merges with a root-assigned participant, i.e. exactly the
+  // occasions on which kissat would have learned a unit instead.
+  uint64_t val_gate = 0, val_merge = 0;
 };
 static CongMatchStats cong_match[3]; // indexed by GateKind
+
+// TACTIX_CONG_TIME: where one application's wall clock goes, split by stage.
+// The closure's stage split is what tells a governor designer WHICH currency to
+// charge — an extraction-dominated cost cannot be bounded by a closure-item
+// counter, and vice versa. Env-gated, default-identical.
+static const bool cong_time = std::getenv("TACTIX_CONG_TIME") != nullptr;
+struct CongTime {
+  uint64_t extract_and = 0, index = 0, sort = 0, xor_x = 0, ite_x = 0;
+  uint64_t canon = 0, table = 0, proof = 0, closure_all = 0, apply_all = 0;
+  uint64_t items = 0;
+};
+static CongTime cong_t;
+// RAII stage accumulator; when the probe is off it never reads the clock.
+struct Stage {
+  uint64_t *sink;
+  uint64_t t0;
+  explicit Stage(uint64_t *s) : sink(s), t0(cong_time ? now_nanos() : 0) {}
+  ~Stage() {
+    if (cong_time)
+      *sink += now_nanos() - t0;
+  }
+};
 
 // What canonicalizing a gate under the current representatives yielded.
 // A degenerate gate is NOT a dead end — each degeneracy is itself an inference
@@ -1005,8 +1114,15 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   uint32_t xtick = 0;
   for (const SmallKey &cl : sorted) {
     // sorted; first 3 lits scanned (as before)
-    if ((k.stop_fuzz || !(++xtick & 255)) && kernel_terminating(k))
-      { k.stats.rule_interrupted++; return; }
+    if (k.stop_fuzz || !(++xtick & 255)) {
+      if (kernel_terminating(k)) {
+        k.stats.rule_interrupted++;
+        return;
+      }
+      if (cong_budget.over(k))
+        return; // SCHED-G1 budget stop — read-only, fewer gates
+    }
+    k.stats.congruence_ticks += 6; // two index probes per rotation, three
     for (int li = 0; li < 3; li++) {
       const Lit L = cl.lits[li], A = cl.lits[(li + 1) % 3],
                 B = cl.lits[(li + 2) % 3];
@@ -1025,9 +1141,12 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
     ce_keys.push_back(kv.first);
   std::sort(ce_keys.begin(), ce_keys.end());
   for (const Lit L : ce_keys) {
+    if (cong_budget.over(k))
+      return; // SCHED-G1 budget stop — read-only, fewer gates
     auto &lst = ce[L];
     if (lst.size() > 256)
       continue; // bound the O(n²) pairing on pathological hubs
+    k.stats.congruence_ticks += lst.size() * lst.size() / 2 + 1;
     for (size_t i = 0; i < lst.size(); i++)
       for (size_t j = i + 1; j < lst.size(); j++) {
         const Lit c1 = lst[i].first, w1 = lst[i].second;
@@ -1277,29 +1396,53 @@ bool congruence_binary_exists(const Kernel &k, Lit a, Lit b) {
 void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
                               bool with_xor_ite) {
   const size_t base = out.size();
-  congruence_extract(k, out);
+  {
+    Stage s(&cong_t.extract_and);
+    congruence_extract(k, out);
+  }
   k.stats.congruence_gates_and += out.size() - base; // see Stats
   if (with_xor_ite) {
     ClauseIndex index; // built once, shared by XOR + ITE extraction
-    build_clause_index(k, index);
+    {
+      Stage s(&cong_t.index);
+      build_clause_index(k, index);
+    }
     // …and so is its canonical iteration order: the index is immutable for the
     // whole apply, so XOR and ITE sorting it separately would produce two
     // bit-identical vectors.
-    const std::vector<SmallKey> sorted = sorted_keys(index);
+    std::vector<SmallKey> sorted;
+    {
+      Stage s(&cong_t.sort);
+      sorted = sorted_keys(k, index);
+    }
     const size_t before_xor = out.size();
-    congruence_extract_xor(k, index, sorted, out);
+    {
+      Stage s(&cong_t.xor_x);
+      congruence_extract_xor(k, index, sorted, out);
+    }
     k.stats.congruence_gates_xor += out.size() - before_xor;
     const size_t before_ite = out.size();
-    congruence_extract_ite(k, index, sorted, out);
+    {
+      Stage s(&cong_t.ite_x);
+      congruence_extract_ite(k, index, sorted, out);
+    }
     k.stats.congruence_gates_ite += out.size() - before_ite;
   }
 }
 
 ApplyResult congruence_apply(Kernel &k) {
   assert(congruence_guard(k));
+  Stage apply_stage(&cong_t.apply_all);
+  // SCHED-G1: the round's work budget, in `congruence_ticks`, handed by the
+  // policy through `Kernel::work_budget` (0 = unbounded, which is what the
+  // public API, RandomPolicy and the unit tests get). Cleared on every exit.
+  BudgetScope budget_scope(k);
+  const uint64_t apply_t0 = cong_time ? now_nanos() : 0; // in-flight, for the print
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.congruence_rounds++;
+  if (cong_probe)
+    cong_root_in = kernel_root_fixed(k);
 
   // AND, XOR, and ITE gates all participate in ONE union-find closure (an AND
   // input can be an XOR/ITE output). AND matches emit native-LRAT bridged chains
@@ -1422,6 +1565,8 @@ ApplyResult congruence_apply(Kernel &k) {
     const Lit oa = find(x), ob = find(y);
     if (oa == ob)
       return;
+    if (cong_probe && (k.value(oa) != 0 || k.value(ob) != 0))
+      cong_val_merge++;
     const Lit sm = oa < ob ? oa : ob, big = oa < ob ? ob : oa;
     unite(sm, big);
     neq++;
@@ -1440,16 +1585,32 @@ ApplyResult congruence_apply(Kernel &k) {
   // units below are still asserted from whatever the closure did reach.
   // Checked every 256 items — the flag is volatile, the loop body is cheap.
   uint32_t stop_tick = 0;
+  const uint64_t closure_t0 = cong_time ? now_nanos() : 0;
   while (!work.empty() && !unsat) {
-    if ((k.stop_fuzz || !(++stop_tick & 255)) && kernel_terminating(k)) {
-      k.stats.rule_interrupted++;
-      break;
+    if (k.stop_fuzz || !(++stop_tick & 255)) {
+      if (kernel_terminating(k)) {
+        k.stats.rule_interrupted++;
+        break;
+      }
+      // SCHED-G1: the budget rides the SAME between-items stop the termination
+      // flag uses, so it inherits that stop's soundness argument verbatim —
+      // every item is all-or-nothing (a merge emits its binaries AND its chain,
+      // or emits nothing), the batched root units below are still asserted from
+      // whatever the closure reached, and F/R/τ/ρ are consistent at the break.
+      if (cong_budget.over(k))
+        break;
     }
+    cong_t.items++;
     const uint32_t i = work.front();
     work.pop_front();
     inq[i] = 0;
     Lit out_i;
-    const Canon ci = canonicalize(gates[i], find, key, out_i, cancelled, reps);
+    Canon ci;
+    {
+      Stage s(&cong_t.canon);
+      ci = canonicalize(gates[i], find, key, out_i, cancelled, reps);
+    }
+    k.stats.congruence_ticks += 1 + gates[i].inputs.size();
     CongMatchStats &cm = cong_match[static_cast<int>(gates[i].kind)];
     if (cong_probe)
       (ci == Canon::Ok     ? cm.canon_ok
@@ -1530,6 +1691,13 @@ ApplyResult congruence_apply(Kernel &k) {
       merge_lits(out_i, other);
       continue;
     }
+    if (cong_probe) {
+      bool valued = k.value(out_i) != 0;
+      for (const Lit l : key)
+        valued = valued || k.value(l) != 0;
+      cm.val_gate += valued;
+    }
+    Stage table_stage(&cong_t.table);
     for (const Lit l : key)
       occ[l].push_back(i); // register for rescheduling when an input merges
     auto &tab = table[static_cast<int>(gates[i].kind)];
@@ -1590,6 +1758,7 @@ ApplyResult congruence_apply(Kernel &k) {
     // SKIPPED rather than emitted unjustified — sound, and N2 holds (see
     // add_equivalence).
     if (gates[i].kind == GateKind::Xor || gates[i].kind == GateKind::Ite) {
+      Stage proof_stage(&cong_t.proof);
       std::vector<uint64_t> cf, cr;
       transient.clear();
       const bool ok =
@@ -1614,11 +1783,14 @@ ApplyResult congruence_apply(Kernel &k) {
         continue; // an unjustifiable binary — drop the inference, keep N2
       }
       delete_transients(k, transient);
-    } else if (!add_equivalence(k, gates[j], gates[i], find)) {
-      k.stats.congruence_unjustified++;
-      if (cong_probe)
-        cm.chain_fail++;
-      continue; // no checkable chain — drop the inference, keep the proof valid
+    } else {
+      Stage proof_stage(&cong_t.proof);
+      if (!add_equivalence(k, gates[j], gates[i], find)) {
+        k.stats.congruence_unjustified++;
+        if (cong_probe)
+          cm.chain_fail++;
+        continue; // no checkable chain — drop the inference, keep proof valid
+      }
     }
     if (clash) {
       if (refute_contradictory(out_j)) {
@@ -1634,6 +1806,20 @@ ApplyResult congruence_apply(Kernel &k) {
       unsat = true;
       break;
     }
+  }
+  if (cong_time) {
+    cong_t.closure_all += now_nanos() - closure_t0;
+    const double ms = 1e-6;
+    std::fprintf(stderr,
+                 "[cong-time] cumulative ms: apply %.0f | extract{and %.0f "
+                 "index %.0f sort %.0f xor %.0f ite %.0f} | closure %.0f "
+                 "{canon %.0f match %.0f (of which proof %.0f)} | items %llu\n",
+                 (cong_t.apply_all + (now_nanos() - apply_t0)) * ms,
+                 cong_t.extract_and * ms,
+                 cong_t.index * ms, cong_t.sort * ms, cong_t.xor_x * ms,
+                 cong_t.ite_x * ms, cong_t.closure_all * ms, cong_t.canon * ms,
+                 cong_t.table * ms, cong_t.proof * ms,
+                 (unsigned long long)cong_t.items);
   }
   if (cong_probe) {
     std::fprintf(stderr,
@@ -1652,22 +1838,32 @@ ApplyResult congruence_apply(Kernel &k) {
     static const char *kind_name[3] = {"and", "xor", "ite"};
     std::fprintf(stderr,
                  "[cong-probe] closure funnel (cumulative, per kind)\n"
-                 "[cong-probe] %-4s %12s %12s %12s %12s %12s %10s %10s %10s\n",
+                 "[cong-probe] %-4s %12s %12s %12s %12s %12s %10s %10s %10s "
+                 "%12s\n",
                  "kind", "canon_ok", "canon_skip", "insert", "collide", "stale",
-                 "already_eq", "chain_fail", "merged");
+                 "already_eq", "chain_fail", "merged", "val_gate");
     for (int kk = 0; kk < 3; ++kk) {
       const CongMatchStats &c = cong_match[kk];
       std::fprintf(stderr,
                    "[cong-probe] %-4s %12llu %12llu %12llu %12llu %12llu "
-                   "%10llu %10llu %10llu\n",
+                   "%10llu %10llu %10llu %12llu\n",
                    kind_name[kk], (unsigned long long)c.canon_ok,
                    (unsigned long long)c.canon_skip,
                    (unsigned long long)c.insert, (unsigned long long)c.collide,
                    (unsigned long long)c.stale,
                    (unsigned long long)c.already_eq,
                    (unsigned long long)c.chain_fail,
-                   (unsigned long long)c.merged);
+                   (unsigned long long)c.merged,
+                   (unsigned long long)c.val_gate);
     }
+    std::fprintf(stderr,
+                 "[cong-probe] value channel: root-assigned at entry %llu / at "
+                 "exit %llu | merges with a valued participant %llu | units "
+                 "%llu\n",
+                 (unsigned long long)cong_root_in,
+                 (unsigned long long)cong_root_out,
+                 (unsigned long long)cong_val_merge,
+                 (unsigned long long)k.stats.congruence_units);
   }
   if (std::getenv("TACTIX_CONG_TRACE"))
     std::fprintf(stderr, "[cong] %zu gates, %llu equivalences added\n",
@@ -1690,6 +1886,8 @@ ApplyResult congruence_apply(Kernel &k) {
   }
   if (!pending.units.empty() && inprocess_reach_root(k))
     return ApplyResult::Unsat;
+  if (cong_probe)
+    cong_root_out = kernel_root_fixed(k);
   if (k.inconsistent)
     return ApplyResult::Unsat;
   return (neq || !pending.units.empty()) ? ApplyResult::Ok : ApplyResult::NoOp;
