@@ -19,8 +19,14 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-06) — phase 3 · **next = re-run Tier B + Tier C on the LEDGER FIX (branch `debug-solve-losses`)**
 
-**IN FLIGHT: `bench-B-ledgerfix` (`1585689`) + `bench-C-ledgerfix` (`1585775`, agg `1585776`)** — another
-agent's arrays, submitted 2026-08-06; not this pass's and not described here.
+**NOTHING IN FLIGHT** (verified against `squeue -u hwu`: only the session's own `cpu-q` shell). The
+`bench-B/C-ledgerfix` arrays this line used to claim were live (`1585689` / `1585775`) have long since left
+the queue, and so have two later pairs another agent submitted. **`benchmarks/runs/` now holds FOUR tier
+pairs from 2026-08-06 and the tier tables below are still the `20260805` windows** — newest first:
+`20260806-150228-C-govon` + `…-150225-B-govon`, `…-124756-C-shipped` + `…-124753-B-shipped`,
+`…-102434-C-ledgerfix` + `…-102432-B-ledgerfix`, `…-084947-C-shipped` + `…-084944-B-shipped`. Reading them
+(SHA from each `manifest.json`, `#solved` before the aggregate) is still the first thing to do; none of the
+work below took a timing measurement.
 
 **▶ AND THE EARLIER TIER B + TIER C PAIR IS FINISHED WITH ITS RESULTS UNREAD.** The pair submitted at HEAD
 `c7beaa0` (Tier B array `1585269` on node017, Tier C array `1585354` on node018 — two pin dirs from ONE
@@ -126,9 +132,11 @@ wall clock. Read the telemetry before banking any arm.
 
 ## ▶ PREVIOUS ANCHOR (2026-08-05) — the Sweep-governor Tier C A/B (specced, unrun)
 
-**IN FLIGHT: the post-ledger-fix tier pair** — `bench-B-ledgerfix` (`1585689`, node017) and
-`bench-C-ledgerfix` (`1585775`, node018), two pin dirs from one commit, binaries byte-identical, both
-baselines carried. **These are the numbers that matter**: every Sweep/Congruence dosing figure taken
+**(FINISHED, not in flight — see the current anchor's run list.)** The post-ledger-fix tier pair was
+`bench-B-ledgerfix` (`1585689`, node017) and `bench-C-ledgerfix` (`1585775`, node018), two pin dirs from one
+commit, binaries byte-identical, both baselines carried; they landed as
+`20260806-102432-B-ledgerfix` / `…-102434-C-ledgerfix`. **These are the numbers that matter**: every
+Sweep/Congruence dosing figure taken
 since `58a46de` was measured against a budget that did not bind.** (Historical: the final Tier B + Tier C at HEAD `c7beaa0` — landed as windows
 `20260806-084944-B-shipped` / `20260806-084947-C-shipped`; those are the numbers the anchor above
 diagnoses.) Tier B array `1585269` on node017,
@@ -1599,7 +1607,9 @@ So **4,001 band `del`s and 23,139 band `add_rup`+`del` pairs verify**, and the n
 our explicit CHAINS rather than re-deriving by RUP. `veer_axi`'s two rows differ because LRAT emission
 changes the tick budget and so the trajectory — the known format asymmetry, not a discrepancy.
 
-**Gates.** ctest **48/48** (the 48th is the new `subsume_n1`) + all five conformance checkers
+**Gates.** ctest **53/53** on the rebased tree — 48/48 on this branch's own base, and the `rvs-api-n1`
+merge that took it 47 → 52 landed underneath during the rebase, so the 53rd is this branch's
+`subsume_n1` — plus all five conformance checkers
 (`config_wiring`, `effort_specs`, `option_coverage`, `comment_hygiene`, `check-progress`). Fuzz: four legs,
 `--quick` **10,000 cases each, 0 failures** — band ON × native DRAT (`1587397`, SAT 5,704 / UNSAT 3,959 /
 TIMEOUT 337), band ON × `--random-policy` × native DRAT (`1587398`, 5,704→5,021 / 3,223 / 1,756), band ON ×
