@@ -869,6 +869,12 @@ struct Kernel {
   // of deleting it, and Strengthen retires the id when it removes the same
   // clause. The trajectory is that of a C1-less solve, so the ledger measures
   // the counterfactual directly.
+  //
+  // N1: this narrows what the canonical ROUND does — the `touch_filter`
+  // category, not the guard. `subsume_forward_try`, the `apply_instance` path,
+  // never consults it, so the public API can still subsume any clause at any
+  // time with the hatch on; and it is a diagnostic that ships off, never a
+  // composition a policy may select.
   bool subsume_shadow = false;
   // The shadow ledger itself: clause ids C1 declined to delete and Strengthen
   // has not yet removed. Only ever populated under `subsume_shadow`, so a
