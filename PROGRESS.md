@@ -1065,8 +1065,31 @@ instrument before spending a tier window on a mechanism.
   candidate orders land with it and the off arm reverts both. Validity invariant: every DB mutation is
   preceded by `reset_to_root()`, so no trail crosses a change. Also took F5's `Clause::flags` bit and
   C10's tier3 hand-off. Reuse 24–27 %, exactly 0 with the hatch off. **UNPRICED** ·
-  [ ] **SCHED-G5 · binary-first watch layout** `[revamp]` — NOT STARTED. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
+  [x] **SCHED-G5 · binary-first watch layout** `[revamp]` — **DONE 2026-08-06, and it was NOT a revamp.**
+  The title conflated two things. The *inline encoding* — a binary is ONE tagged word in the watch list and
+  a binary propagation never dereferences the arena — **has shipped since the flat watch arena** and is
+  kissat's own scheme (`watch.hpp:22-30` ← `watch.h:13-40`); we are **stronger than cadical**, whose
+  16-byte `Watch` still holds a `Clause*` for binaries. What was missing is the *ordering* invariant
+  (kissat `large_clauses_watched_after_binary_clauses`) and its ONE consumer, the early break in
+  binary-only propagation. Landed as `Kernel::binaries_watched_first` + `stop_early` — no watch
+  representation changed, so none of the enumerated touch points moved. **Measured (counters only, jobs
+  `1585476`/`1585482`): covers 86.1/64.1/85.4 % of binary-only scans, skipping the 70.5/76.0/97.2 % of
+  each scan spent stepping over large entries.** Bit-exact by construction — the tick meter is
+  deliberately left at the full list length, so budgets and search do not move. Ledger
+  `SP-BACKBONE-2`. **Two follow-ons, both separated on purpose and both UNRUN:** `SCHED-G6` (harvest the
+  meter — kissat charges only `touched`; changes search shape) and `SCHED-G7` (per-LIST order bit — the
+  order in fact holds on **99.9 %** of scans, so the global flag drops 14–36 % of its own prize).
+  *(V5 Sweep is the largest block of reference scheduling we lack, but it is
   already tracked as **Track R · R5** — not repeated here as a second checkbox.)*
+- [ ] **SCHED-G6 · charge the binary-only scan what it actually touched** `[wire]` — NOT STARTED. kissat
+  charges `touched = p - begin` (`backbone.c:200-202`); we charge the whole list so `SCHED-G5` could be
+  bit-exact. Taking the saving frees Backbone budget and **changes the search**, so it needs a same-window
+  A/B, not a bit-exactness gate.
+- [ ] **SCHED-G7 · per-LIST binary-first order bit** `[revamp]` — NOT STARTED. Measured prize: the global
+  flag is true on 64–86 % of binary-only scans while the LIST is actually ordered on **99.9 %** of them,
+  because one binary add anywhere clears the flag everywhere. A bit in `WatchHead` closes the gap. The
+  trap is the probing snapshot/restore path (`kernel_probing_end`), which restores content and size and
+  would have to restore the bit too — an unexercised path of exactly the kind Track H's ASan pass caught.
 
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
@@ -1180,6 +1203,90 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — SCHED-G5: the layout was never missing; the ORDER was, and it is a byproduct we already had
+
+**The item's title named two different claims and pass 1 conflated them.** Splitting them is the whole
+result; the code that follows is eleven lines.
+
+**(a) Inline binaries — WE ALREADY HAD THIS, and TB5 is the measurement that covers it.** "A binary
+propagation never dereferences the arena" is true here and has been since the flat watch arena: a binary
+is ONE 4-byte tagged word (`watch.hpp:22-30`, transliterating kissat `watch.h:13-40`), binaries never
+materialise as clauses at all (`clause.hpp:3-5`), a binary reason is a literal rather than a `Ref`
+(`kernel.hpp:29`), and the binary branch of the propagation loop (`kernel.cpp:678-694`) touches `values`
+and nothing else — `k.arena` is dereferenced only in the large branch. **cadical is the weaker of the two
+references here**: its 16-byte `Watch` still carries a `Clause*` for binaries (`watch.hpp:34-43`).
+**TB5 does cover this half**, and the "did it measure instruction count or memory indirection?" question
+resolves to *memory*: its metric was **cycles per propagation** (s055 ≈1700 vs ≈1615 cyc/prop, per-symbol
+from perf) and **wall-basis props/s** (FmlaEquiv 9.37 vs 9.11 M), both memory-inclusive, on top of the
+earlier profile that measured the L1d/dTLB miss ratios directly (probe `1562599`).
+
+**(b) The ORDERING invariant — genuinely absent, and TB5 does NOT cover it.** kissat's
+`large_clauses_watched_after_binary_clauses` (`internal.h:99`) says every list holds its binaries before
+its larges; its ONE consumer is `stop_early` in **binary-only** propagation (`backbone.c:186-193`), which
+breaks at the first large entry instead of stepping over each. TB5 measured `kernel_propagate` — search
+propagation. Binary-only propagation is a different loop (`propagate_literal_binary`) with one caller
+(Backbone), and TB5 never separated it. So the two claims needed two answers.
+
+**WHERE THE ORDER COMES FROM — and ours is better placed than the reference's.** kissat re-establishes the
+invariant inside `kissat_substitute`, which is why the flag is a cross-rule wire (cleared on entry
+`substitute.c:611`, re-set after the re-watch `:594-596`) and why Backbone's yield there depends on
+Substitute having run. **We get it from GC instead**: `kernel_collect_garbage` already strips every large
+entry and re-appends it behind the surviving binaries — structurally identical to
+`flush_large_connected` + `watch_large_clauses`. Neither solver sorts anything; in both it is a byproduct.
+
+**MEASURED — counters only, no timing** (jobs `1585476` flag-free, `1585482` with the flag; `c binprop`):
+
+| instance | binary-only scans | kissat's GLOBAL flag true | list ordered ANYWAY | words scanned | of those, spent skipping larges |
+|---|---|---|---|---|---|
+| `9vliw_bp_mc` | 6,654,986 | 5,732,541 (**86.1 %**) | 99.99 % | 27,565,211 | 19,437,692 (**70.5 %**) |
+| `b22_1` | 20,315,883 | 13,028,785 (**64.1 %**) | 99.92 % | 92,568,391 | 70,335,912 (**76.0 %**) |
+| `sted5` | 561,010 | 479,199 (**85.4 %**) | 99.93 % | 20,384,281 | 19,822,294 (**97.2 %**) |
+
+So the reference's own one-bool mechanism is reachable on **64–86 %** of scans and the tail it skips is
+**70–97 %** of the words those scans walk. Post-break the counters confirm the harvest directly: on
+`sted5` the break skips **17,089,930** words while the scans that remain walk only 3,294,351.
+
+**BUT THE HONEST CEILING IS SMALL, AND IT IS NOT WHAT THE 70–97 % SUGGESTS.** The consumer is Backbone,
+and Backbone is **0.1–1.4 % of the solve** (`c timing`, same job: 109 ms/11,315 · 288/37,570 · 15/14,916 ·
+94/6,838 on `9vliw`/`b22_1`/`sted5`/`rbsat`). Removing most of its word traffic therefore buys **well under
+1 % of wall clock** — an order of magnitude more than `SCHED-H3` declined at (0.15 % of propagation
+traffic), which is why this one ships, but nobody should read the 70–97 % as a headline. It ships on
+**parity + bit-exactness + eleven lines**, not on a timing result. `hwmcc17miters` runs **0** binary-only
+scans, so the mechanism is entirely inert there. **THE WALL-CLOCK A/B IS OWED** — the numbers above are
+single sequential draws taken for the trajectory check, not a measurement, and no timing claim is made.
+
+**WHAT SHIPPED.** `Kernel::binaries_watched_first`, set in `kernel_collect_garbage`, cleared in
+`kernel_add_binary_clause` (the only op that can put a binary behind a large — appending a large cannot
+break the order, which is why `push_large`, `flush_delayed`, `kernel_unwatch_large`,
+`kernel_promote_watched_lit`, `truncate`, `grow` and `defrag` all need no maintenance); read as
+`stop_early` in `propagate_literal_binary`; asserted in `kernel_check_invariants` the way kissat asserts
+it (`backbone.c:304-315`), because that assertion is the only thing between the early break and silently
+dropped implications. **No watch representation changed**, so the enumerated blast radius — analysis, GC,
+the dense index, `kernel_delete_binary`, the ~35 hand-coded 1-word/2-word walk sites — is untouched.
+
+**BIT-EXACT BY CONSTRUCTION, not by luck.** The tick charge stays the **whole** list length even when the
+scan stops early. kissat does harvest it (`backbone.c:200-202` charges only `touched`), but that meter is
+what the policy schedules against, so taking the saving moves every effort budget and with it the search.
+Left as `SCHED-G6`. **Gate PASSED (job `1585597`): clean `main` vs this branch on SIX instances — same
+verdict, every non-timing `c` stat line identical, and byte-identical DRAT (same sha256 AND same byte
+count) on all six** (`9vliw`, `b22_1`, `sted5`, `battleship-14-26-sat`, `hwmcc17miters`, `rbsat`). The only
+differing lines are `c timing`. A second guard on the same assumption: `kernel_collect_garbage` now asserts
+`!k.probing.recording`, long an implicit requirement of the probing log (it relocates every `Ref`) and now
+also what stops a snapshot taken before the collection from restoring a binary behind a large one while the
+flag still says otherwise.
+
+**Gates.** ctest **46/46** release and **46/46 debug ASan/UBSan with the new invariant check live**; all
+four conformance checkers green. Fuzz **quick 10k × 4 legs, 0 failures** — jobs `1585607` ASan/UBSan×DRAT,
+`1585600` native LRAT, `1585602` `--random-policy`×DRAT, `1585605`
+`--probing-stress-policy`×ASan (the fourth leg added because the probing snapshot/restore
+scope is the one path that rewrites watch lists under the flag).
+
+**Residual, deliberately not taken.** Per-LIST the order holds on **99.9 %** of scans while the global
+flag is true on 64–86 % — one binary add anywhere clears it everywhere. A `WatchHead` bit closes that
+gap (`SCHED-G7`); its trap is `kernel_probing_end`, which restores list content and size and would have
+to restore the bit. Separately, ~25 rule-side sites walk watch lists wanting binaries only and pay the
+same word-by-word skip; they would read the same bit.
 
 ### 2026-08-06 — Track R · R6: X3 CCE lands ON, and the §5.3 extensibility test comes back MOSTLY YES
 
