@@ -595,9 +595,23 @@ leaves only a STATIC per-instance one — and the best such separator measured 4
     criterion in the report §9; it should precede the SCHED-D2 pricing run. `TACTIX_SWEEP_PROBE` must not be set in any tier run
 - [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles as the §5.3 **extensibility acceptance test** (pure plugin, no
   kernel edit)
-- [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
+- [x] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies. **CLOSED 2026-08-06 as a reasoned NON-implementation**, the
+  second Track R result that is not an inventory tick (the first is R4 Reorder). Full argument, reference evidence and reopening path:
+  `implementation-notes.md` **§16** (ledger id `SP-COND-1`); one-line pointer in `calculus.md` after X1. Headline: **kissat does not have the rule
+  at all** (verified at the source — the only `condition` hits under `kissat/src/` are congruence's ITE gate-condition sets), cadical ships it
+  **default OFF**, and the blocker is a `ρ` FORMAT limit — our reconstruction segment holds **one** witness literal and it must lie **inside** the
+  clause, while a conditional autarky's witness is a **cube** over variables outside it. Restricted to what `ρ` can hold, the rule collapses to X1
+  BCE, which R2 already ships ON. **kissat's extension stack has the same single-witness shape** (`weaken.c:36-44`), so this is not a we-are-behind
+  gap; cadical added a witness *section* for this one technique. Landing X5 therefore needs a `ρ` revamp (5 `kernel_push_witness` call sites +
+  `kernel_extend_model`) = **an architecture RFC, not a §5.3 rule landing**. **R6 CCE does NOT need it** (`cover.cpp:411` pushes a single witness
+  literal), so the revamp would buy exactly one default-off cadical-only rule. Measured too (probes `1585043`/`1585084`, cadical `--condition=true`
+  vs default, paired, Tier C): fires on **13 of 30** instances, 2–550 clauses, at ~1.4 M condition propagations per deletion, for **+11.3 % wall and
+  no solve flips either way**; and the witness cube measures **1.0–5.6 literals** — small, so `ρ` *growth* is not the objection, representability is
 - ~~**R8**~~ — MOVED to Track SCHED (`SCHED-C6`/`C7`) 2026-08-04: it was scheduling work filed under the rule inventory. Track R is now purely
   new rule FAMILIES (R5–R7), which is what makes it parallelisable against Track SCHED.
+
+**▶ TRACK R'S INVENTORY IS NOW CLOSED except R5's scheduling half (S-f) and R6 CCE (in flight).** R7 was the last unimplemented family and it is
+closed by decision, not by code — so no further reference rule family is owed. Read §16 before proposing X5 again.
 
 ### ▶ Track SCHED — the scheduling floor (plan rev 80 §1.1 N4, §5 obligation 5)
 
@@ -1065,6 +1079,64 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — Track R · R7 CLOSED WITHOUT CODE: X5 `Condition` needs a witness CUBE, and `ρ` holds one literal
+
+Branch `track-r7-condition`. The last unimplemented family in Track R's inventory, closed as a
+**reasoned non-implementation**. Criterion fixed BEFORE investigating, so the answer could not be
+back-fitted: land iff **C1** a reference has it as a proof rule (default-OFF explicitly *not*
+disqualifying — cadical's `block` is default 0 and kissat 4 dropped BCE, yet R2 landed BCE ON),
+**C2** it fits §5.3 (proof delta in the closed vocabulary **and** witness expressible on the existing
+`ρ`, no kernel edit), **C3** it can actually fire here. Value/PAR-2 was deliberately excluded as a
+criterion — the all-rules-ON directive plus the X1/X2/X4 repair-each-other result (21.79/53.26/13.08
+alone vs 9.22 together) means "worth only 14.32 PAR-2" cannot close a rule on its own.
+
+**C1 PASSES, but the inventory's billing was wrong.** Verified at the source rather than from the row:
+**kissat does not have this rule in any form** — no `condition.c`, no autarky module; the only
+`condition` hits under `kissat/src/` are congruence's ITE *gate condition sets* and "conditional
+equivalences", an unrelated notion. cadical-only, and **default OFF** (`options.hpp:58`). Same class of
+correction `SP-JUMP-1` made to a "both references" billing the day before.
+
+**C2 FAILS, and that is the decision.** `Kernel::reconstruction` stores `[rest…, witness, len]` and
+`kernel_extend_model` tests satisfaction over the **whole** segment before setting the **single**
+trailing witness true (`kernel.cpp:1270-1306`) — so the witness is one literal *and* it lives inside the
+clause. A conditional autarky's witness is a **cube** whose literals are in general outside `C`; that is
+precisely what "globally" blocked adds over "blocked". It cannot be split into several single-literal
+segments (each would put its own witness inside its own satisfaction test — the wrong-SAT shape BCE
+already hit once), and restricted to one in-clause literal the rule **collapses to X1 BCE**, which R2
+ships ON. **Not a we-are-behind-kissat gap:** kissat's stack is the same shape (`weaken.c:36-44`, one
+tagged witness literal); cadical had to add a witness *section* (`extend.cpp:85-105`) for this one
+technique and its own header says so. Landing X5 = change the `ρ` format + `kernel_extend_model` + all
+five `kernel_push_witness` call sites (BCE ×2, BVE, Substitute ×2) = **architecture RFC**, not a
+"one directory + one registry line" landing. **Checked so the two Track R items are not bundled on a
+false premise: R6 CCE does NOT need it** — `cover.cpp:411` pushes a single witness literal — so the
+revamp would buy exactly one default-off cadical-only rule.
+
+**C3 is reachable but buys nothing, and one obvious objection is REFUTED by the measurement.** Probes
+`1585043` (paired cadical `--condition=true` vs default, same node, all 30 Tier C, 400 s cap) and
+`1585084` (`--stats`, 6 instances). **Fires on 13 of 30**, 2–550 clauses (`constraints_18` 550,
+`minxor128` 385, `constraints_25` 211, `j3037` 96, `frb45` 87, tail down to 2); `circuit_32in32out` and
+`urq45` conditioned **0** after 2 and 41 conditionings — those zeros are "ran and found nothing", not
+"never ran". **No solve flips either way**: both arms return the same 26 verdicts and the same 4
+non-verdicts (3 timeouts + `128_125`, OOM-killed on *both* arms). **Total wall 5699.2 s off → 6343.1 s
+on, +643.9 s (+11.3 %)**. Per-instance is a lottery so the aggregate is directional, not a verdict
+([[chaotic-instance-veto]]): `j3037` +286.3, `ContextModel` +227.0, `Ptn` +161.1 against `EDP3` −134.1,
+`af-synthesis` −122.0, `mp1` −95.2. Cost ≈ **1.4 M condition propagations per deletion** on
+`ContextModel` (28.76 M over 26,992 candidates for 21). **The witness cube is SMALL** — `condautrem`
+1.0 (`em_11`) / 2.1 (`j3037`) / 5.2 (`minxor128`) / 5.6 (`ContextModel`) against *initial* autarky parts
+of 4 k–11 k — which **refutes** the natural reading of cadical's own TODO at `condition.cpp:784` that
+`ρ` would blow up. `ρ` growth is not the problem; representability is. And `em_11`'s cube averaging
+exactly **1.0** means those are plain blocked clauses our X1 already takes, so the genuinely-new yield
+is the `cube > 1` remainder, smaller still.
+
+**Recorded:** `implementation-notes.md` **§16** (full argument + reopening path, ledger id
+`SP-COND-1` — verified free), a pointer note in `calculus.md` after X1, and a correction to §13.6's
+dismissal roster, which had `condition*` filed as "recorded, not analysed" (arithmetic untouched; ctest
+`option_coverage` green). **No code, no registry line, no `EFFORT_SPECS` row, no A/B** — there is
+nothing to price. **What reopens it:** (1) a `ρ` revamp giving `kernel_push_witness` a witness section
+(the RFC; also the prerequisite for set-blocked / PR elimination), (2) yield evidence from an
+**X1+X3+X5 joint** arm — judging this family one rule at a time is the measurement it defeats — or
+(3) cadical flipping `condition` on by default.
 
 ### 2026-08-05 — ▶ SWEEP'S DEGRADATION DIAGNOSED AND FIXED: the effort ceiling was never enforced where the work is
 

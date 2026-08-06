@@ -901,6 +901,12 @@ corrections are the base rate for the claims it cannot verify.
 - *Whole technique OFF at the default* — **33** (cadical): `block*`(4), `condition*`(6), `cover*`(6), `flush*`(3), `elimdef*`(3), `shuffle*`+`reverse`(5), and `chronoalways` `deduplicateallinit` `walkfullocc` `walkredundant` `sweeprand` `stabilizeonly`(6). Recorded, not analysed — an off-by-default option is not evidence about anything (the `vivifyretry`/`vivifyonce` lesson).
 - *kissat structural BVA* — **2**: `factorstructural`=0 (off), `factorhops`=3 (only reachable through it).
 
+**One group member has since been analysed anyway, and stays dismissed:** cadical's `condition*` six
+were read at their use sites for **Track R · R7** (the rule inventory asks the separate question "should
+we implement the technique?", which off-by-default does not answer). Verdict, reference evidence and
+measurement: **§16**. The dismissal above is unchanged and the arithmetic is untouched — an off-default
+option is still not scheduling evidence; §16 is rule-inventory evidence.
+
 **What A3 did NOT reach — stated so the next pass starts here:**
 
 1. **Mechanisms with no option.** The enumeration is complete over the option sets; it is *blind by the same construction* to anything the references never made switchable — hardcoded orders (`probe.c:32-41`, `probe.cpp:934-952`), data-structure invariants (kissat's binary-first watch layout, `first_reducible`, `binary_ids` per-pair-not-per-copy), and per-technique internals with no knob. Pass 1's T1/T2/T6 rows are the only coverage there.
@@ -1050,3 +1056,96 @@ across a `kernel_collect_garbage`, and a redundant clause dying mid-descent rath
 are exactly what `--random-policy` produces by construction, since it interleaves Reduce and the
 inprocessing slot with search at random. The third, the reason guard, is *unreachable by schedule*
 (above), so no stress policy could reach it either; only the direct unit test can.
+
+## 16. Design decision: X5 `Condition` is NOT implemented — `ρ` cannot hold a witness CUBE
+
+**Track R · R7, closed 2026-08-06 as a reasoned non-implementation.** Ledger id **`SP-COND-1`**. The
+second Track R item that is not an inventory tick (the first is S7 `Reorder`, §10) and the one that
+closes Track R's inventory. No `src/rules/condition/`, no registry line, no `EFFORT_SPECS` row, no
+`calculus.md` rule entry (only the pointer note after X1).
+
+**What the rule is.** cadical's `condition.cpp` eliminates *globally blocked* clauses (Kiesl's 2019
+thesis; Kiesl–Heule–Biere ATVA'19). `C` is globally blocked w.r.t. a witness cube `ω` when `ω` is an
+autarky of `F` *conditioned* on `¬C` — `ω` satisfies every clause it touches once `¬C` is assumed. The
+deletion is satisfiability-preserving and a model of `F ∖ {C}` is repaired by flipping **every literal
+of `ω`**. X1 BCE is the special case `ω = {l}, l ∈ C`.
+
+**Reference situation — read at the source, not taken from the inventory billing.**
+- **kissat does not have it, in any form.** There is no `condition.c` and no autarky module; the only
+  `condition` hits under `kissat/src/` are congruence's ITE *gate condition sets* and its "conditional
+  equivalences" (`congruence.c`), an unrelated notion. Track R's X5 row is therefore **cadical-only** —
+  the same class of correction `SP-JUMP-1` applied to a "both references" billing on 2026-08-05.
+- **cadical ships it OFF**: `OPTION( condition, 0, 0,1,0,1,1, "globally blocked clause elim")`
+  (`options.hpp:58`), default 0. Off alone is not disqualifying — `block` is also default 0 there and
+  kissat 4 dropped BCE, yet R2 landed BCE ON — so this is context, not the reason.
+- It is the *only* consumer of cadical's multi-literal witness format; its own header says as much
+  ("the first technique implemented in CaDiCaL with this feature").
+
+**The decisive reason: a `ρ` FORMAT limit, not an effort one.** `Kernel::reconstruction` stores one flat
+segment per weakened clause, `[rest…, witness, len]`, and `kernel_extend_model` tests satisfaction over
+**the whole segment** — `[begin, i)` includes the trailing `witness` — then sets that **single** literal
+true (`kernel.cpp:1270-1306`). Two properties are hard-coded there and Condition breaks both: the
+witness is **one** literal, and it lies **inside** the clause. Consequences:
+- A cube cannot be split into several single-literal segments: each segment would place its own witness
+  inside its own satisfaction test, which is exactly the wrong-SAT shape BCE hit once already.
+- Restricting the cube to one in-clause literal makes globally-blocked ≡ blocked, i.e. **X1**, which
+  R2 already ships ON. The representable subset carries no new power.
+
+**This is not a we-are-behind-kissat gap.** kissat's extension stack has the *same* shape ours does:
+`kissat_weaken_clause` pushes exactly one tagged witness literal (`weaken.c:36-44`) and `extend.c`'s
+reader terminates a segment on that single `blocking` literal. cadical had to introduce a witness
+*section* — `0 <witness…> 0 <id> 0 <clause…>`, written at `extend.cpp:85-105` and flipped
+literal-by-literal at `extend.cpp:176-196` — to carry this one technique. Landing X5 means changing the
+`ρ` segment format, `kernel_extend_model`, and all five `kernel_push_witness` call sites (BCE ×2, BVE,
+Substitute ×2). Per §5.3 and the `rule-dev` contract that is an **architecture RFC**, not a "one
+directory + one registry line" landing.
+
+**R6 CCE does NOT need the same thing**, so the revamp buys exactly one rule: cadical's `cover.cpp`
+pushes a *single* witness literal per segment (`cover.cpp:411`), a sequence of ordinary
+witness-labelled clauses. Checked so the two Track R items are not bundled on a false premise.
+
+**Measured, so the closure is not purely structural.** Probes `1585043` (paired cadical
+`--condition=true` vs cadical default, same node, all 30 Tier C instances, 400 s cap) and `1585084`
+(`--stats`, six instances, 200 s cap):
+- **Yield is real but small, and buys nothing.** It fires on **13 of 30** instances, 2–550 clauses
+  (`constraints_18` 550, `minxor128` 385, `constraints_25` 211, `j3037` 96, `frb45` 87, then a tail down
+  to 2). `circuit_32in32out` and `urq45` conditioned **0** after 2 and 41 conditionings respectively —
+  so a zero there is "ran and found nothing", not "never ran".
+- **No solve flips, in either direction.** Both arms return the same 26 verdicts and the same 4
+  non-verdicts (3 timeouts plus `128_125`, OOM-killed on *both* arms — not a condition effect).
+  Total wall **5699.2 s off vs 6343.1 s on = +643.9 s (+11.3 %)**.
+- **Per-instance is a lottery, so the aggregate is directional, not a verdict** ([[chaotic-instance-veto]]):
+  `j3037` +286.3 s, `ContextModel` +227.0, `Ptn-7824-b18` +161.1, `jgiraldezlevy` +143.3 against
+  `EDP3-11000` −134.1, `af-synthesis` −122.0, `mp1` −95.2. What the run *does* settle is that no solve
+  is bought at that price.
+- **Cost per elimination is enormous.** `ContextModel`: 28.76 M condition propagations over 26,992
+  candidates for 21 deletions (≈1.4 M propagations each). `j3037`: 61.79 M over 17,476 candidates for
+  71.
+- **The witness cube is SMALL, which refutes the obvious cost objection** — worth recording because
+  cadical's own TODO at `condition.cpp:784` ("avoid pushing too many literals on the extension stack")
+  invites the opposite guess. `condautrem` (final autarky per conditioned clause) is **1.0** on `em_11`,
+  **2.1** on `j3037`, **5.2** on `minxor128`, **5.6** on `ContextModel`, against *initial* autarky parts
+  of 4 k–11 k: the refinement fixpoint collapses the assignment almost completely. So `ρ` growth is not
+  the problem; representability is.
+- **`em_11`'s cube averages exactly 1.0**, i.e. those instances are plain blocked clauses that our X1
+  would already take (cadical's `blocked:` reads 0 there only because `block` is off in that arm too).
+  The genuinely-new yield over what we ship is the `cube > 1` remainder, smaller still.
+
+**Architecture friction beyond `ρ`** (secondary, but it prices the rule honestly). `condition_round`
+fabricates a **total** assignment — every unassigned active non-frozen variable assigned from its saved
+phase at a synthetic decision level (`condition.cpp:196-208`) — then mutates `trail`, `level` and
+`Var::level` and restores them, under `protect_reasons`. Our Inprocess-tier rules run at a quiescent
+root (`run_slot_phase` backtracks to 0 before the pipeline), so the rule would have to build and tear
+down a total assignment through kernel trail primitives: kernel surface again, not rule surface.
+
+**What would reopen it.**
+1. **A `ρ` revamp giving `kernel_push_witness` a witness section** — e.g.
+   `[clause…, witness…, nwitness, len]`, today's five call sites passing `nwitness = 1`. That is the
+   RFC; with it in place X5 becomes an ordinary §5.3 landing, and it is also the prerequisite for
+   set-blocked and PR-clause elimination should either ever be wanted.
+2. **Yield evidence that survives a joint measurement.** Judging a rule alone is the one measurement
+   this family defeats (X1/X2/X4 alone 21.79/53.26/13.08 Tier B PAR-2 vs 9.22 together), so the probe
+   above is a *lower* bound on what X5 could be worth beside X1/X3. A re-open should be triggered by an
+   X1+X3+X5 arm, not by an X5-alone number.
+3. **A reference reversal** — cadical flipping `condition` on by default, or a competition entry
+   enabling it. Neither holds at the pinned clone.
