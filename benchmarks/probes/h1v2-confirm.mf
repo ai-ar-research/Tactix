@@ -1,0 +1,7 @@
+sigterm|DivS_862_11|tierB|pin-h1v2|25
+sigterm|DivS_862_11|tierB|pin-h1v2|60
+sigterm|constraints_18_0.3_2|tierC|pin-h1v2|40
+sigterm|j3037_9_rggt_b|tierC|pin-h1v2|40
+stopfuzz|DivS_862_11|tierB|pin-h1v2|300
+stopfuzz|9vliw_bp_mc|tierB|pin-h1v2|300
+stopfuzz|rbsat-v760c43649gyes10|tierB|pin-h1v2|300

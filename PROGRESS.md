@@ -1337,6 +1337,12 @@ ctest **44/44**, all four checkers green (`config_wiring` · `effort_specs` · `
 | `1585208` | **`TACTIX_STOP_FUZZ=97`** × `--random-policy` × native LRAT | 6,000 | **0** |
 | `1585209` | **`TACTIX_SUBSUME_SHADOW=1`** × `--random-policy` × native DRAT | 6,000 | **0** |
 
+**Re-fuzzed after the rework** (helper adopted, cadence removed, `*_try` sites added), same three
+legs that touch the new control flow, jobs `1585256` (`TACTIX_STOP_FUZZ=97` × `--random-policy` × native
+LRAT), `1585257` (`--random-policy` × native LRAT) and `1585258` (`TACTIX_SUBSUME_SHADOW=1` ×
+`--random-policy`): **6,000 cases each, 0 failures, corpus 14/14**. Verdict counts track the un-stressed
+leg (SAT 3036–3040, UNSAT 1883–1887), so the extra abort sites still change no answer.
+
 The last two are the legs that matter here and neither existed before. **`1585208` is the abort leg**: the
 stress cadence bypasses the 256-poll window, so every C1/C2 poll site is live on cases far smaller than one
 window — the exact vacuity that made task #10's abort paths pass 40,000 cases while inert. Its verdicts
@@ -1461,18 +1467,25 @@ and it is **gone**: the hazard is closed STRUCTURALLY, not tested around.
 predicate call and a branch, and `c interrupt2` reads `0, 0` on every normal solve (all 14 non-interrupt
 tasks of probe `1585160`). **So this needs no A/B.**
 
-**▶ NON-ZERO FIRE COUNTS, and the defect is visible in them.** Probe `1585160` (counters only):
-- **Real SIGTERM**, i.e. the actual §6 path, with `0 stress fires` proving the abort came from `*k.stop`:
-  `DivS_862_11` at 25 s → **1 C1 abort**, and the C1 round it interrupted had already done
-  **1,971,623,948 partner visits**; at 60 s → **1 C2 abort**, that round at **2,718,725,146 visits**.
-  Both exited cleanly with `s UNKNOWN` and a flushed proof. **Before this item the same SIGTERM waited out
-  a two-billion-visit round** — the SIGKILL-loses-the-proof scenario, reproduced.
-- **Stress cadence** on real instances, `rule_interrupted == stop_fuzz_fires` exactly in every case:
-  `DivS_862_11` **9 C1 + 9 C2**, `9vliw_bp_mc` **2 C1 + 7 C2**, `rbsat` **0 C1 + 3 C2** — verdicts
-  unchanged from the shipped arm (`9vliw` UNSAT, the other two SAT), so aborting changed no answer.
-- **At FUZZ scale, which is where the last vacuity hid** (probe `1585215`, 400 harness-generated cases,
-  `benchmarks/probes/h1-fuzzscale-reach.*`): **4,694 C1 aborts and 4,817 C2 aborts** over 49,800 source
-  fires. These were measured on the CADENCED first cut; removing the cadence can only raise them.
+**▶ NON-ZERO FIRE COUNTS ON REAL INSTANCES, all on the SHIPPED (cadence-free) binary.** Probe `1585247`,
+counters only — no timing is claimed and none is needed:
+- **Real SIGTERM**, i.e. the actual §6 path. `0 stress fires` on every one of these, which is what proves
+  the abort came from `*k.stop` and not from the diagnostic knob:
+  - `DivS_862_11` at 25 s → **C1 1, C2 0**. The C1 round it interrupted had done **2,335,884,737 partner
+    visits** and was still going.
+  - `DivS_862_11` at 60 s → **C1 0, C2 1**, that C2 round at **2,504,317,968 visits**.
+  - `constraints_18_0.3_2` at 40 s → **C1 0, C2 1**.
+  - `j3037_9_rggt_b` at 40 s → **0, 0**: the signal landed outside C1/C2. Recorded because a probe that
+    only reports its hits is not evidence about the rest.
+  - All exited cleanly with `s UNKNOWN` and a flushed proof. **Before this item the same SIGTERM waited
+    out a two-billion-visit round** — the SIGKILL-loses-the-proof scenario, reproduced and then closed.
+- **Stress cadence** on real instances: `DivS_862_11` **9 C1 + 9 C2** (of 30 source fires), `9vliw_bp_mc`
+  **0 C1 + 6 C2** (of 21), `rbsat` **0 C1 + 5 C2** (of 7). **Verdicts unchanged from the shipped arm** —
+  `9vliw` UNSAT, the other two SAT — so aborting mid-round changed no answer.
+- **At FUZZ scale, which is where the last vacuity hid** (probe `1585259`, 400 harness-generated cases,
+  `benchmarks/probes/h1-fuzzscale-reach.*`): **5,326 C1 aborts and 5,510 C2 aborts** over 62,987 source
+  fires. The same probe on the cadenced first cut read 4,694 / 4,817 over 49,800 — **removing the cadence
+  raised reachability by 13 %/14 %**, which is the mask's cost stated as a number instead of an argument.
 
 **▶ THE `battleship-14-26-sat` RESIDUAL IS NOT C1/C2 — ruled out by counters, not by a timing run.** The
 X1/X2/X4 third handed over a 7.3 s post-SIGTERM exit on that instance with `c interrupt 0` and BCE/X2/X4
