@@ -570,6 +570,14 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   const uint32_t gate_kind =
       bve_detect_gate(k, px, nx, pos, neg, pos_gate, neg_gate, resolve_gate);
   const bool gate = gate_kind != 0;
+  // The completeness argument above is load-bearing, not descriptive: every
+  // shape we match is a COMPLETE gate, so skipping the gate x gate pairs is
+  // sound only while `resolve_gate` stays false. Porting an inexact matcher
+  // (kissat's shortened-clause path) would have to set it, and that must be a
+  // deliberate edit rather than a silent one — so pin the invariant here.
+  assert(!resolve_gate &&
+         "a detected gate asked for its gate x gate resolvents back: detection "
+         "is no longer exact, so the completeness argument must be re-made");
   if (gate) {
     // Reachability + acceptance-lever readout (ledger SP-BVE-GATE-1): the gate
     // is what shrinks the resolvent set the growth bound is applied to, so the
