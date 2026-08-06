@@ -243,6 +243,99 @@ static void test_gate_equivalence_substitution() {
   }
 }
 
+// SP-BVE-GATE-1: an ITE gate x ↔ (c ? ¬e : ¬t), encoded by the four ternaries
+//   (x∨c∨t) (x∨¬c∨e) (¬x∨c∨¬t) (¬x∨¬c∨¬e),
+// plus 6 antecedent binaries per side. Full cross product 8·8 − 4 tautologies =
+// 60 > base+bound = 16+16, so E1b alone declines; the gate charges only the 24
+// gate×antecedent pairs and BVE fires. The mask arm proves the gate is what did
+// it, and the counters are the reachability readout.
+static void test_gate_ite_fires() {
+  auto build = [](Kernel &k) {
+    kernel_reserve_vars(k, 16); // x=1, c=2, t=3, e=4, ant p=5..10, q=11..16
+    const int gate[4][3] = {
+        {1, 2, 3}, {1, -2, 4}, {-1, 2, -3}, {-1, -2, -4}};
+    for (const auto &g : gate) {
+      Lit ls[3] = {internalize(g[0]), internalize(g[1]), internalize(g[2])};
+      kernel_add_large_clause(k, ls, 3, false, 0);
+    }
+    for (int p = 5; p <= 10; p++)
+      kernel_add_binary_clause(k, internalize(1), internalize(p));
+    for (int q = 11; q <= 16; q++)
+      kernel_add_binary_clause(k, internalize(-1), internalize(q));
+  };
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  const uint64_t x = lit_instance(internalize(1));
+  { // ITE off (every other type on) → full cross product exceeds the bound
+    Kernel k;
+    k.bve_gate_mask = ~BVE_GATE_ITE;
+    build(k);
+    assert(vt.apply_instance(k, x) == ApplyResult::NoOp);
+    assert(k.stats.bve_gates_ite == 0);
+  }
+  { // ITE on → the gate reduction fires
+    Kernel k;
+    k.bve_gate_mask = BVE_GATE_ITE;
+    build(k);
+    assert(vt.apply_instance(k, x) == ApplyResult::Ok);
+    assert(k.stats.bve_gates_ite == 1);
+    // occ⁺·occ⁻ = 64 charged pairs become 24 → 40 saved
+    assert(k.stats.bve_gate_pairs_saved == 40);
+    assert(!has_binary(k, internalize(5), internalize(11))); // ant×ant skipped
+  }
+}
+
+// SP-BVE-GATE-1: an arity-2 XOR gate x ↔ a⊕b (all four parity clauses) with 6
+// antecedent binaries per side — the same arithmetic as the ITE case. The
+// ITE detector must DECLINE this shape (its two branch literals share a
+// variable), so the "XOR off" arm is a real negative and not a silent AND/OR
+// hit. Also pins model reconstruction through an XOR gate.
+static void test_gate_xor_fires() {
+  auto build = [](Kernel &k) {
+    kernel_reserve_vars(k, 15); // x=1, a=2, b=3, ant p=4..9, q=10..15
+    const int gate[4][3] = {
+        {1, -2, 3}, {1, 2, -3}, {-1, 2, 3}, {-1, -2, -3}};
+    for (const auto &g : gate) {
+      Lit ls[3] = {internalize(g[0]), internalize(g[1]), internalize(g[2])};
+      kernel_add_large_clause(k, ls, 3, false, 0);
+    }
+    for (int p = 4; p <= 9; p++)
+      kernel_add_binary_clause(k, internalize(1), internalize(p));
+    for (int q = 10; q <= 15; q++)
+      kernel_add_binary_clause(k, internalize(-1), internalize(q));
+  };
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  const uint64_t x = lit_instance(internalize(1));
+  { // XOR off (ITE and the rest on) → declined
+    Kernel k;
+    k.bve_gate_mask = ~BVE_GATE_XOR;
+    build(k);
+    assert(vt.apply_instance(k, x) == ApplyResult::NoOp);
+    assert(k.stats.bve_gates_ite == 0 && "ITE must decline an XOR shape");
+  }
+  { // XOR on → the gate reduction fires, and the model still reconstructs
+    Kernel k;
+    k.bve_gate_mask = BVE_GATE_XOR;
+    build(k);
+    assert(vt.apply_instance(k, x) == ApplyResult::Ok);
+    assert(k.stats.bve_gates_xor == 1);
+    assert(k.stats.bve_gate_pairs_saved == 40);
+    auto set = [&](int dimacs, bool val) {
+      const Lit l = internalize(dimacs);
+      k.values[l] = val ? 1 : -1;
+      k.values[negate(l)] = val ? -1 : 1;
+    };
+    set(2, true);   // a = T
+    set(3, false);  // b = F  ⇒ the gate forces x = a⊕b = T
+    for (int p = 4; p <= 9; p++)
+      set(p, false); // every (x∨p) antecedent needs x
+    for (int q = 10; q <= 15; q++)
+      set(q, true);  // every (¬x∨q) antecedent already satisfied
+    set(1, false);   // deliberately wrong
+    kernel_extend_model(k);
+    assert(k.values[internalize(1)] > 0 && "x reconstructed to a⊕b = true");
+  }
+}
+
 // E1d: gate-type selection via Kernel::bve_gate_mask. The AND/OR-gate variable
 // of test_gate_and_or_fires eliminates only through the gate reduction (its full
 // cross product exceeds the bound). Disabling BVE_GATE_AND_OR must therefore turn
@@ -357,6 +450,8 @@ int main() {
   test_bound_skip();
   test_gate_and_or_fires();
   test_gate_equivalence_substitution();
+  test_gate_ite_fires();
+  test_gate_xor_fires();
   test_gate_mask();
   test_retry_filter();
   puts("test_bve OK");
