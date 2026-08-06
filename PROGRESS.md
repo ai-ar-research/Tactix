@@ -746,7 +746,13 @@ instrument before spending a tier window on a mechanism.
   which would have weakened C1/C2's filter where the measured saving is. **The delay ladder for metered
   entries is DEFERRED, not done** — it lives in DefaultPolicy's slot loop (`!e.meter`) and extending it to
   metered entries is per-entry productivity bookkeeping, i.e. Stage E's file and Stage E's shape.
-- [ ] **SCHED-F4 · Factor per-literal marks** `[arch]` · [ ] **SCHED-F5 · Vivify yield package** `[arch]`
+- [x] **SCHED-F4 · Factor per-literal marks** `[arch]` — landed 2026-08-05. kissat's `flags->factor`
+  (inline.h:60-66, consulted factor.c:922) on the substrate: the seed heap is built only from literals
+  with new material, instead of an O(live literals) pass every round whose `score_of` charges
+  `factor_ticks` proportional to each watch list — i.e. the round was spending its own budget rebuilding a
+  heap that mostly could not have changed. Coarser than kissat on polarity (our stamps are per variable).
+  All three of the round's early exits are reachable, so the F2 re-arm is live here.
+- [ ] **SCHED-F5 · Vivify yield package** `[arch]` — NOT STARTED (see the anchor).
 
 #### Stage G — the genuine revamps (each needs its own design pass)
 
