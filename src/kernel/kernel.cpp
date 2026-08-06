@@ -132,6 +132,9 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
+  // Either push lands behind whatever large entries a's / b's list already
+  // holds, so the binary-first observation cannot be assumed to survive it.
+  k.binaries_watched_first = false;
   // LAST id wins . The map must always name a clause the checker still
   // holds, and since kernel_delete_binary can retire this pair's id, a re-add
   // MUST install its fresh one — Analyze/Strengthen/Vivify can all re-derive a
@@ -795,15 +798,40 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
 static bool propagate_literal_binary(Kernel &k, Lit lit) {
   const Lit not_lit = negate(lit);
   const int8_t *const values = k.values.data();
-  const uint32_t *p = k.watches.begin(not_lit);
+  const uint32_t *const begin = k.watches.begin(not_lit);
+  const uint32_t *p = begin;
   const uint32_t *const end = k.watches.end(not_lit);
+  // The tick charge stays the WHOLE list even when the scan stops early. It is
+  // the effort meter the policy schedules against, so harvesting the saving
+  // here would move the budgets and with them the search; that is a separate
+  // change (kissat does take it, backbone.c:200-202, charging only `touched`).
   kernel_charge_ticks(k, 1 + (static_cast<uint64_t>(end - p) >> 4));
+  // kissat's `stop_early` (backbone.c:186-193): under the binary-first layout
+  // the first large entry ends the binary sub-list, so the whole tail is
+  // entries this scan would skip one at a time. Sound because it drops nothing
+  // a full scan would have read — `binaries_watched_first` says no binary
+  // follows a large — and trajectory-neutral because the meter above is not
+  // reduced by it.
+  const bool stop_early = k.binaries_watched_first;
+  // Residual pricing (Stats::binprop_*): on the scans the flag did NOT cover,
+  // `ordered` records whether the list was in fact binary-first anyway (what a
+  // per-LIST order bit would add over the reference's single global flag) and
+  // `large_words` the words those scans still spend stepping over large
+  // entries.
+  bool large_seen = false, ordered = true;
+  uint64_t large_words = 0;
+  bool conflict = false;
   while (p != end) {
     const Watch w{*p};
     if (!w.binary()) { // large watch occupies two slots; skipped here
+      if (stop_early)
+        break;
+      large_seen = true;
+      large_words += 2;
       p += 2;
       continue;
     }
+    ordered = ordered && !large_seen;
     p += 1;
     const Lit other = w.other();
     const int8_t other_value = values[other];
@@ -814,12 +842,25 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
       k.conflict_ref = INVALID_REF;
       k.conflict_bin[0] = not_lit;
       k.conflict_bin[1] = other;
-      return true;
+      conflict = true;
+      break;
     }
     kernel_assign_binary(k, other, not_lit);
     k.stats.propagations++;
   }
-  return false;
+  // Accounted over the prefix actually scanned. `ordered` and `large` describe
+  // only the scans the flag did not cover, so they stay the residual measure
+  // once the early break is doing its work.
+  k.stats.binprop_scans++;
+  k.stats.binprop_words += static_cast<uint64_t>(p - begin);
+  if (stop_early) {
+    k.stats.binprop_flagged++;
+    k.stats.binprop_skipped += static_cast<uint64_t>(end - p);
+  } else {
+    k.stats.binprop_ordered += ordered;
+    k.stats.binprop_large += large_words;
+  }
+  return conflict;
 }
 
 // --- probing propagation (kissat proprobe.c) --------------------------------
@@ -915,6 +956,14 @@ bool kernel_propagate_binary(Kernel &k) {
 // the large-watch entries. Watched pairs stay lits[0]/lits[1], so all
 // watch invariants survive collection unchanged.
 void kernel_collect_garbage(Kernel &k) {
+  // No probing scope may be open: this relocates every Ref, so an outstanding
+  // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
+  // over the compacted arena. Long an implicit assumption of the probing log;
+  // stated here because `binaries_watched_first` below now rests on it too —
+  // it is set true from the layout this function leaves behind, and a later
+  // restore of a snapshot taken before it could otherwise reintroduce a binary
+  // behind a large one while the flag still said otherwise.
+  assert(!k.probing.recording);
   // The eager-subsumption register holds raw arena Refs and this function
   // relocates every one of them, so it is reset here rather than forwarded —
   // kissat does exactly the same at each of its three collect sites
@@ -989,6 +1038,11 @@ void kernel_collect_garbage(Kernel &k) {
         k.dense->large[l].push_back(ref);
     ref += clause_words(c->size);
   }
+  // Every surviving binary was kept in place by the strip above and every large
+  // entry was appended after it, so the binary-first layout now holds — the
+  // same way kissat gets it out of `kissat_watch_large_clauses`
+  // (substitute.c:594-596), as a byproduct rather than as a sort.
+  k.binaries_watched_first = true;
 }
 
 void kernel_dense_connect(Kernel &k, OccIndex &occ) {
@@ -1176,6 +1230,27 @@ void kernel_check_invariants(const Kernel &k) {
       if (r != INVALID_REF)
         eager_live++;
     assert(eager_seen == eager_live && "stale eager-subsumption register ref");
+  }
+  // binary-first layout: while `binaries_watched_first` holds, no list may put
+  // a binary entry after a large one. This is the ONLY thing standing between
+  // the binary propagator's early break and silently dropped implications, so
+  // it is checked the way kissat checks its own
+  // (backbone.c:304-315, check_large_clauses_watched_after_binary_clauses).
+  if (k.binaries_watched_first) {
+    for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+      const WatchHead &h = k.watches.heads[lit];
+      const uint32_t *ws = k.watches.arena.data() + h.offset;
+      bool large = false;
+      for (uint32_t i = 0; i < h.size;) {
+        if (Watch{ws[i]}.binary()) {
+          assert(!large && "binary watch after a large one under binary-first");
+          i += 1;
+        } else {
+          large = true;
+          i += 2;
+        }
+      }
+    }
   }
   // binary watch symmetry: every binary entry (l -> other) must have its
   // mirror (other -> l); losing one side silently kills the clause
