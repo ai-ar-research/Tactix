@@ -494,6 +494,10 @@ public:
     // per-variable `bve_retry` bit the policy consults. Per-item marks for the
     // rest are Stage F (ledger SP-REPEAT-*). TACTIX_CURSOR_<RULENAME>=0|1.
     bool cursor_enabled = false;
+    // The candidate-order arm for this entry (TACTIX_ORDER_<RULENAME>), held
+    // here as well as in DefaultCandidateOrder::arms so the `c cand-order`
+    // report can name it per entry.
+    CandidateOrder order = CandidateOrder::Native;
     // --- telemetry ----------------------------------------------------------
     // Diagnostic only: nothing here is ever READ by a scheduling decision, so
     // the numbers cannot feed back into behaviour. They exist because otherwise

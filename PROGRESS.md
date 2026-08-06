@@ -739,7 +739,18 @@ instrument before spending a tier window on a mechanism.
   on every one of 45 phases and never saw the other 99.7 %. Backbone 3.6 %. That is B3's starvation finding at a far larger scale, and it is the
   reason the item exists. **UNPRICED** — conflicts move both ways on the 4 probes (`b22_1` −6.8 %, `FmlaEquivChain` −2.4 %, `sted5` identical,
   `9vliw` +4.9 %; proofs shrink on three of four); A/B spec in the Log entry.
-- [ ] **SCHED-E2 · the ordering arms, one per rule, each independently gated** `[wire]`
+- [x] **SCHED-E2 · the ordering arms, one per rule, each independently gated** `[wire]` — landed 2026-08-05. Six arms behind
+  `TACTIX_ORDER_<RULENAME>` (spelled from the registry name, so a newly dosed rule gets its own knob for free): `native` (**the shipped default
+  everywhere and it stays there — no arm ships without a measurement**) · `reverse` · `random` (seeded splitmix64, replayable) · `occ-asc` ·
+  `occ-desc` · `negocc-desc` · `heuristic`. Three are reference ports read at the use site: **kissat `transitive.c:270-294` sorts its transitive
+  probes by the untried mark then EVSIDS score (stable) / VMTF stamp (focused) ascending** — we enumerate by literal index — and **cadical
+  `probe.cpp:621-624,685,763` probes the literal with the MOST negated binary occurrences first** (rank + pop-from-the-back, which reads backwards
+  from the comment alone). A knob on an entry the policy never orders **aborts** rather than being ignored ([[ab-arm-identical-artefacts]]).
+  **REACHABILITY PROVEN AT THE SOURCE** (job `1584734`, probe `e2e3-arms.*`): on `9vliw` all four arms reorder — Probe `negocc-desc` 718,018 of
+  718,068 positions moved, Backbone `occ-desc` 717,132, TransitiveReduce `heuristic` 436,819, BVE `occ-asc` 148,409; BVE reads `lists 0` on
+  `b22_1`/`sted5` because it is never dosed there, and the counter says so instead of the arm passing vacuously. **UNPRICED** — the four-arm bundle
+  moves `9vliw` 348,630 → 234,825 conflicts and its proof 64.0 → 43.4 MB, but that is ONE instance and a BUNDLE; the A/B spec in the Log entry
+  prices one rule at a time.
 
 #### Stage F — repetition suppression (T2): the touched-epoch substrate
 
@@ -845,6 +856,74 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — SCHED-E2: the ordering arms, one knob per rule
+
+Six arms on `CandidateOrderPolicy`, selected per rule by `TACTIX_ORDER_<RULENAME>` (the knob name is
+derived from the registry name, so a newly dosed rule gets one without editing a list). `native` is the
+shipped default for every rule and stays there — **no arm ships without a measurement**.
+
+**Three arms are reference ports, and two of them read backwards from the option name alone.**
+- `heuristic` — kissat `transitive.c:270-294`: transitive probes are sorted by `flags[i].transitive` (the
+  untried mark) FIRST, then by EVSIDS heap score ascending in stable mode / VMTF `links[i].stamp` ascending
+  in focused mode. We enumerate by literal index, so this is a real unimplemented reference mechanism, not a
+  variation. **kissat's mark-then-score composition is also the honest statement about how order and
+  resumption interact**: it puts a per-item repetition MARK ahead of the score rather than rotating a scored
+  list, which is Stage F territory (`SP-REPEAT-*`) — E1's cursor rotates first and a score arm then
+  re-imposes its own head, so under a score arm the cursor survives only as a tie-break. Said in the code.
+- `negocc-desc` — cadical `probe.cpp:621-624` ranks probes by `noccs(-p)` and `:763` pops from the BACK, so
+  the literal occurring negated MOST often is probed first. The comment ("occur negated less frequently come
+  first") describes stack position, not probe order.
+- `occ-asc` — cadical's elimination schedule is a priority queue on occurrence count, cheapest first. Ours
+  is already occ⁺·occ⁻ ascending — a PRODUCT where the reference uses a SUM — so this is a variation.
+`reverse` and `random` are controls: the cheapest test that order matters at all, and the structureless
+floor a structured arm must beat. `random` is splitmix64 off a constant seed, because a random order that
+does not replay cannot be fuzzed or bisected.
+
+**A knob that cannot take effect ABORTS.** Setting `TACTIX_ORDER_X` on an entry that runs as a canonical
+batch round (the policy never sees its candidates) exits with a message rather than being ignored — that is
+the vacuous-A/B failure mode, and it is cheaper to make it loud than to discover it in a banked window.
+
+**▶ REACHABILITY, PRE-REGISTERED AND MET** (job `1584734`, probe `e2e3-arms.*`, `c cand-order` `moved`):
+
+| rule | arm | lists ranked | positions moved |
+|---|---|---|---|
+| Probe | `negocc-desc` | 34/34 | 718,018 / 718,068 |
+| Backbone | `occ-desc` | 34/34 | 717,132 |
+| TransitiveReduce | `heuristic` | 33/34 | 436,819 |
+| BVE | `occ-asc` | 15/15 | 148,409 |
+
+(9vliw; `b22_1` and `sted5` agree for the first three. **BVE reads `lists 0` on both of those** — it is
+never dosed there, so its arm is genuinely unexercised and the counter says so rather than the leg passing
+vacuously.) The probe build also carried SCHED-E3, whose shipped ceilings measure `clamped 0` on all three
+instances, so the ordering arms ran on an unchanged budget.
+
+**UNPRICED, and the tempting number is a bundle.** All four arms at once move `9vliw` 348,630 → 234,825
+conflicts and its proof 64.0 → 43.4 MB, and `b22_1` 494,805 → 450,530. That is one instance for the big
+number and four knobs at once ([[chaotic-instance-veto]]); it says the axis is live, not which arm is good.
+
+**▶ READY-TO-RUN A/B (`SCHED-E2`) — ONE RULE PER ARM, NEVER THE BUNDLE.** Start with Probe, which has both
+the largest reference disagreement and the tightest budget (E1 measured it advancing 0.3 % of its list).
+Two pin dirs from the same commit for a concurrent B+C pair; check the shas match.
+```
+tools/bench/buildlock.py --gc
+cmake -S . -B build/pin-e2-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e2-b -j8
+cmake -S . -B build/pin-e2-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e2-c -j8
+sha256sum build/pin-e2-{b,c}/tactix        # must match
+python3 tools/bench/run.py --tier B --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e2-b/tactix \
+  --solver 'env TACTIX_ORDER_PROBE=negocc-desc build/pin-e2-b/tactix'
+python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e2-c/tactix \
+  --solver 'env TACTIX_ORDER_PROBE=negocc-desc build/pin-e2-c/tactix'
+```
+Pre-registered counter: `c cand-order` `Probe ... moved > 0` on the ON arm, `moved 0` on the OFF arm.
+Ship criterion: **#solved not worse on either tier and PAR-2 better than the 6.72 noise floor on at least
+one, not worse than it on the other**, may-not-gate set excluded from deciding alone. Then, only if Probe
+lands, the same one-knob window for `TACTIX_ORDER_TRANSITIVEREDUCE=heuristic` (the kissat port) and
+`TACTIX_ORDER_BVE=occ-asc`. `reverse`/`random` are diagnostics for "does order matter on this family at
+all" and are worth a Tier A sweep, not a Tier C window.
+
 
 ### 2026-08-05 — SCHED-E1: candidate order becomes a policy object, and Probe was seeing 0.3 % of its list
 
