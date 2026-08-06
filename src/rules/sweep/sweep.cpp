@@ -223,7 +223,7 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
   // would have propagated, none would have conflicted. `sweep_apply` reaches
   // that root before detecting, but the detector is also callable from a policy
   // that has not (N1), so decline rather than assert — an environment that
-  // omits a clause is still a subset of F.
+  // omits a clause is still entailed by F.
   if (e.kept_scratch.size() < 2)
     return;
   if (!env_add(k, e, e.kept_scratch.data(),
