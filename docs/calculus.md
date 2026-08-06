@@ -332,13 +332,21 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   `Unsat`. One variable per apply (canonical = the best schedulable candidate within budget);
   over-budget or a duplicate-binary hazard → `NoOp` (no state mutated).
 - **Gate reduction:** the resolvent set above is the *full* cross product; when `x`'s clauses contain a
-  syntactic functional gate `x ↔ φ` (equivalence `x↔y`; AND/OR `x↔OR/AND(a₁…aₖ)` — a base clause plus
-  its input binaries; ITE/XOR deferred), only *gate×antecedent* resolvents are generated. The skipped
-  *antecedent×antecedent* resolvents are entailed by `φ` (Eén–Biere): `F′` unchanged up to entailment,
-  precondition/effect identical, fewer variables exceed the budget, reconstruction *unaffected* (witness
-  still every removed live clause; the recovered `x = φ` satisfies each antecedent because its
-  gate×antecedent resolvent is in `F′`). A *false* gate would drop needed resolvents (unsound), so
-  detection is exact (structural match only) and fuzz-gated. Recognized gate types are configurable
+  syntactic functional gate `x ↔ φ`, only *gate×antecedent* resolvents are generated. Four gate shapes
+  are recognized, all **complete** (their gate clauses alone entail `x ↔ φ`, and every *gate×gate*
+  resolvent is a tautology, so those are skipped too):
+  equivalence `x↔y` (two binaries) · AND/OR `x↔OR/AND(a₁…aₖ)` (a base clause plus its input binaries) ·
+  **ITE** `x↔(c ? t : e)` (four ternaries — the two pivot-side ones clash exactly on the condition) ·
+  **XOR** `x↔a₁⊕…⊕aₘ` (all `2ᵐ` parity clauses, `2ᵐ⁻¹` per side; two opposite-pivot parity clauses must
+  disagree on some input, hence the tautology).
+  The skipped *antecedent×antecedent* resolvents are entailed by `φ` (Eén–Biere): with `¬φ ≡ ⋀αᵢ` and
+  `φ ≡ ⋀βⱼ`, a model of `F′` falsifying both `C\{x}` and `D\{¬x}` for antecedents `C,D` would falsify
+  either some `αᵢ ∪ D\{¬x}` (if `φ` holds) or some `C\{x} ∪ βⱼ` (if it does not) — and both of those ARE
+  in `F′`, being gate×antecedent. `F′` unchanged up to entailment, precondition/effect identical, fewer
+  variables exceed the budget, reconstruction *unaffected* (witness still every removed live clause; the
+  same argument shows the two sides can never both demand the pivot). A *false* gate would drop needed
+  resolvents (unsound), so detection is exact — a structural match on the *live* clauses only, never on
+  a shortened/subsuming stand-in — and fuzz-gated. Recognized gate types are configurable
   (`Kernel::bve_gate_mask`): a pure performance knob — every setting is sound (a disabled type restores
   the full cross product), none touches the guard or the abstract effect.
 - **Proof δ:** **RUP-only — no `add_rat`.** Each resolvent `R = (C∨D)` is RUP from its two parents:

@@ -157,7 +157,8 @@ struct MClause {
   Lit ba = INVALID_LIT, bb = INVALID_LIT;
 };
 
-// ---- syntactic gate detection (E1c) ----
+// ---- syntactic gate detection (E1c: equivalence + AND/OR; SP-BVE-GATE-1: ITE
+// + XOR) ----
 // Detect a functional gate defining x from its clauses; on success mark the gate
 // clauses in pos_gate/neg_gate (1 = gate, 0 = antecedent) and return true. For a
 // genuine functional gate x↔φ, BVE may resolve only gate×antecedent pairs: the
@@ -166,14 +167,99 @@ struct MClause {
 // (all live clauses, with the pivot blocking) stay sound — the reconstruction
 // finds x=φ, which satisfies every antecedent because its gate×antecedent
 // resolvent is in F'. A *false* gate would be unsound, so detection is exact and
-// fuzz-gated. `resolve_gate` stays false: we detect only COMPLETE gates
-// (equivalence, AND/OR) whose gate×gate resolvents are tautological. ITE/XOR are
-// deferred (they need the gate×gate pair and a shortened-clause check).
-bool bve_detect_gate(const Kernel &k, Lit px, Lit nx,
-                     const std::vector<MClause> &pos,
-                     const std::vector<MClause> &neg,
-                     std::vector<uint8_t> &pos_gate,
-                     std::vector<uint8_t> &neg_gate, bool &resolve_gate) {
+// fuzz-gated. `resolve_gate` stays false for EVERY type here: all four are
+// COMPLETE gates whose gate×gate resolvents are tautological — equivalence and
+// AND/OR clash on the input literal; ITE on the condition or on a branch; and
+// two parity clauses with opposite pivot signs carry opposite input-sign
+// parities, so they must disagree on at least one input.
+// ITE and XOR are matched EXACTLY — kissat's shortened-clause path
+// (`ifthenelse.c match_ternary_ref`, which accepts a subsuming clause and then
+// sets `resolve_gate`) is deliberately not ported, so a detected gate never
+// needs the gate×gate pairs back.
+
+// Sorted signature of a clause's NON-PIVOT active literals, for the exact
+// clause lookups ITE and XOR need. Only clauses with 2..BVE_XOR_ARITY_LIMIT
+// non-pivot literals and no repeated VARIABLE are indexed — a repeat means a
+// duplicated literal (the clause is shorter than it looks) or a tautology, and
+// neither shape may stand in for a gate clause.
+constexpr uint32_t BVE_SIG_MAX = BVE_XOR_ARITY_LIMIT;
+struct GateSig {
+  uint32_t n = 0;
+  Lit l[BVE_SIG_MAX] = {0};
+  bool operator<(const GateSig &o) const {
+    if (n != o.n)
+      return n < o.n;
+    for (uint32_t i = 0; i < n; i++)
+      if (l[i] != o.l[i])
+        return l[i] < o.l[i];
+    return false;
+  }
+};
+using SigIndex = std::vector<std::pair<GateSig, uint32_t>>; // sorted by sig
+
+void bve_build_sig_index(const std::vector<MClause> &side, Lit pivot,
+                         SigIndex &out) {
+  out.clear();
+  for (size_t i = 0; i < side.size(); ++i) {
+    const std::vector<Lit> &a = side[i].active;
+    if (a.size() < 3 || a.size() > BVE_SIG_MAX + 1)
+      continue;
+    GateSig s;
+    bool ok = true;
+    for (const Lit l : a) {
+      if (l == pivot)
+        continue;
+      if (s.n == BVE_SIG_MAX || var_of(l) == var_of(pivot)) {
+        ok = false;
+        break;
+      }
+      s.l[s.n++] = l;
+    }
+    if (!ok || s.n + 1 != a.size())
+      continue;
+    std::sort(s.l, s.l + s.n);
+    for (uint32_t j = 1; j < s.n; j++)
+      if (var_of(s.l[j]) == var_of(s.l[j - 1]))
+        ok = false;
+    if (ok)
+      out.emplace_back(s, static_cast<uint32_t>(i));
+  }
+  std::sort(out.begin(), out.end(),
+            [](const std::pair<GateSig, uint32_t> &a,
+               const std::pair<GateSig, uint32_t> &b) {
+              return a.first < b.first;
+            });
+}
+
+// index of a clause whose non-pivot literals are exactly `s` (already sorted),
+// or -1. Duplicate signatures are two copies of one logical clause; either
+// serves as the gate clause.
+int bve_find_sig(const SigIndex &idx, const GateSig &s) {
+  const auto it = std::lower_bound(
+      idx.begin(), idx.end(), s,
+      [](const std::pair<GateSig, uint32_t> &e, const GateSig &q) {
+        return e.first < q;
+      });
+  if (it == idx.end() || s < it->first)
+    return -1;
+  return static_cast<int>(it->second);
+}
+
+inline GateSig bve_sig2(Lit a, Lit b) {
+  GateSig s;
+  s.n = 2;
+  s.l[0] = std::min(a, b);
+  s.l[1] = std::max(a, b);
+  return s;
+}
+
+// Returns the BVE_GATE_* bit of the type found, or 0 for "no gate" (the caller
+// owns the counters — `k` is const here by design: detection is READ-ONLY).
+uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
+                         const std::vector<MClause> &pos,
+                         const std::vector<MClause> &neg,
+                         std::vector<uint8_t> &pos_gate,
+                         std::vector<uint8_t> &neg_gate, bool &resolve_gate) {
   resolve_gate = false;
   // binary partner lookup: side_bin[lit] = index of a binary {pivot, lit}, or -1.
   std::vector<int> pos_bin(2 * k.nvars, -1), neg_bin(2 * k.nvars, -1);
@@ -197,7 +283,7 @@ bool bve_detect_gate(const Kernel &k, Lit px, Lit nx,
       if (j >= 0) {
         pos_gate[i] = 1;
         neg_gate[size_t(j)] = 1;
-        return true;
+        return BVE_GATE_EQUIV;
       }
     }
 
@@ -230,11 +316,140 @@ bool bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   };
   if (k.bve_gate_mask & BVE_GATE_AND_OR) {
     if (try_and_or(neg, nx, pos_bin, neg_gate, pos_gate))
-      return true;
+      return BVE_GATE_AND_OR;
     if (try_and_or(pos, px, neg_bin, pos_gate, neg_gate))
-      return true;
+      return BVE_GATE_AND_OR;
   }
-  return false;
+
+  if (!(k.bve_gate_mask & (BVE_GATE_ITE | BVE_GATE_XOR)))
+    return 0;
+  // exact-match index over both sides, built once and shared by ITE and XOR
+  // (kissat/cadical reach the same clauses through the shared occurrence
+  // lists; ours are the already-materialized pos/neg MClause vectors, so the
+  // index is O(P+N) and costs no O(nvars) scratch).
+  SigIndex psig, nsig;
+  bve_build_sig_index(pos, px, psig);
+  bve_build_sig_index(neg, nx, nsig);
+
+  // (3) ITE x ↔ (c ? ¬e : ¬t): the four ternaries
+  //       (x ∨ c ∨ t) (x ∨ ¬c ∨ e) (¬x ∨ c ∨ ¬t) (¬x ∨ ¬c ∨ ¬e),
+  // i.e. two pivot-side ternaries whose non-pivot pairs clash on exactly the
+  // CONDITION literal, plus the matching pair on the other side (kissat
+  // ifthenelse.c kissat_find_if_then_else_gate; cadical gates.cpp
+  // find_if_then_else). Both references also try the dual polarity; here the
+  // shape is symmetric in the pivot sign — swapping (px,nx) maps the quadruple
+  // onto itself with c negated — so one pass over the pos side finds it.
+  // WORK BOUND (kissat's own, ifthenelse.c:105-113): skip when the ternary
+  // count squared exceeds the occurrence limit, and cap the pair scan at the
+  // same limit. Sound at any value: an undetected gate is the full cross
+  // product.
+  auto try_ite = [&]() -> bool {
+    // the index sorts on `n` first, so the ternaries are a prefix of psig
+    size_t nter = 0;
+    while (nter < psig.size() && psig[nter].first.n == 2)
+      nter++;
+    if (uint64_t(nter) * nter > BVE_OCCLIM)
+      return false;
+    uint64_t steps = 0;
+    for (size_t i = 0; i + 1 < nter && steps < BVE_OCCLIM; ++i) {
+      const Lit u0 = psig[i].first.l[0], u1 = psig[i].first.l[1];
+      for (size_t j = i + 1; j < nter && steps < BVE_OCCLIM; ++j) {
+        steps++;
+        const Lit w0 = psig[j].first.l[0], w1 = psig[j].first.l[1];
+        // the two pairs must clash on exactly one literal (the condition) and
+        // the two branch literals must be on DIFFERENT variables (equal ones
+        // make this an XOR/equivalence, not an ITE — cadical's `abs(ci) ==
+        // abs(cj)` reject).
+        Lit c = INVALID_LIT, t = INVALID_LIT, e = INVALID_LIT;
+        if (u0 == negate(w0)) {
+          c = u0, t = u1, e = w1;
+        } else if (u0 == negate(w1)) {
+          c = u0, t = u1, e = w0;
+        } else if (u1 == negate(w0)) {
+          c = u1, t = u0, e = w1;
+        } else if (u1 == negate(w1)) {
+          c = u1, t = u0, e = w0;
+        } else {
+          continue;
+        }
+        if (var_of(t) == var_of(e))
+          continue;
+        steps += 2;
+        const int d1 = bve_find_sig(nsig, bve_sig2(c, negate(t)));
+        if (d1 < 0)
+          continue;
+        const int d2 = bve_find_sig(nsig, bve_sig2(negate(c), negate(e)));
+        if (d2 < 0)
+          continue;
+        pos_gate[psig[i].second] = 1;
+        pos_gate[psig[j].second] = 1;
+        neg_gate[size_t(d1)] = 1;
+        neg_gate[size_t(d2)] = 1;
+        return true;
+      }
+    }
+    return false;
+  };
+  if ((k.bve_gate_mask & BVE_GATE_ITE) && try_ite())
+    return BVE_GATE_ITE;
+
+  // (4) XOR x ↔ a₁⊕…⊕aₘ: ALL 2^m clauses of the parity relation over the pivot
+  //     and m ≤ BVE_XOR_ARITY_LIMIT other variables must be present, 2^(m−1) on
+  //     each side (cadical gates.cpp find_xor_gate, option elimxorlim). A base
+  //     clause fixes the variable set and the relation's parity R; the 2^m
+  //     falsified assignments then name the 2^m clauses exactly, so the search
+  //     is a fixed enumeration with an early exit on the first miss.
+  auto try_xor = [&]() -> bool {
+    uint32_t gate_pos[1u << BVE_XOR_ARITY_LIMIT];
+    uint32_t gate_neg[1u << BVE_XOR_ARITY_LIMIT];
+    for (const std::pair<GateSig, uint32_t> &base : psig) {
+      const uint32_t m = base.first.n; // arity
+      if (m < 2)                       // m == 1 is an equivalence (case 1)
+        continue;
+      // R: the relation is x ⊕ a₁ ⊕ … ⊕ aₘ = R. `base` (a pos-side clause, so
+      // x = 0 in its falsifying assignment) is falsified by the assignment
+      // "aⱼ true iff base.l[j] is negative", whose parity is p₀; a clause of
+      // the relation forbids exactly the parity-(1⊕R) assignments, so R = 1⊕p₀.
+      uint32_t p0 = 0;
+      for (uint32_t j = 0; j < m; j++)
+        p0 ^= static_cast<uint32_t>(negated(base.first.l[j]));
+      const uint32_t r = 1u ^ (p0 & 1u);
+      uint32_t np = 0, nn = 0;
+      bool all = true;
+      GateSig probe;
+      probe.n = m;
+      for (uint32_t a = 0; a < (1u << m) && all; a++) {
+        uint32_t par = 0;
+        for (uint32_t j = 0; j < m; j++) {
+          const uint32_t bit = (a >> j) & 1u;
+          par ^= bit;
+          // aⱼ true ⇒ the clause carries its NEGATIVE literal
+          probe.l[j] = make_lit(var_of(base.first.l[j]), bit != 0);
+        }
+        std::sort(probe.l, probe.l + m);
+        // x's value in this falsified assignment: total parity must be 1⊕R
+        const uint32_t xv = (1u ^ r) ^ par;
+        const int hit = xv ? bve_find_sig(nsig, probe) : bve_find_sig(psig, probe);
+        if (hit < 0)
+          all = false;
+        else if (xv)
+          gate_neg[nn++] = static_cast<uint32_t>(hit);
+        else
+          gate_pos[np++] = static_cast<uint32_t>(hit);
+      }
+      if (!all)
+        continue;
+      for (uint32_t i = 0; i < np; i++)
+        pos_gate[gate_pos[i]] = 1;
+      for (uint32_t i = 0; i < nn; i++)
+        neg_gate[gate_neg[i]] = 1;
+      return true;
+    }
+    return false;
+  };
+  if ((k.bve_gate_mask & BVE_GATE_XOR) && try_xor())
+    return BVE_GATE_XOR;
+  return 0;
 }
 
 // Eliminate variable x by resolution. When a syntactic gate defines x, only
@@ -385,8 +600,27 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
   std::vector<uint8_t> pos_gate(pos.size(), 0), neg_gate(neg.size(), 0);
   bool resolve_gate = false;
-  const bool gate =
+  const uint32_t gate_kind =
       bve_detect_gate(k, px, nx, pos, neg, pos_gate, neg_gate, resolve_gate);
+  const bool gate = gate_kind != 0;
+  if (gate) {
+    // Reachability + acceptance-lever readout (ledger SP-BVE-GATE-1): the gate
+    // is what shrinks the resolvent set the growth bound is applied to, so the
+    // pairs it removes are the quantity the bound's MEANING changes by. Counted
+    // per ATTEMPT — an over-budget attempt is exactly where the lever matters.
+    const size_t gp = size_t(std::count(pos_gate.begin(), pos_gate.end(), 1));
+    const size_t gn = size_t(std::count(neg_gate.begin(), neg_gate.end(), 1));
+    const size_t charged =
+        gp * (neg.size() - gn) + (pos.size() - gp) * gn +
+        (resolve_gate ? gp * gn : 0);
+    k.stats.bve_gate_pairs_saved += pos.size() * neg.size() - charged;
+    switch (gate_kind) {
+    case BVE_GATE_EQUIV: k.stats.bve_gates_equiv++; break;
+    case BVE_GATE_AND_OR: k.stats.bve_gates_and_or++; break;
+    case BVE_GATE_ITE: k.stats.bve_gates_ite++; break;
+    default: k.stats.bve_gates_xor++; break;
+    }
+  }
 
   // ---- generate resolvents (gate×antecedent, else full cross product) + bound ----
   struct Resolvent {

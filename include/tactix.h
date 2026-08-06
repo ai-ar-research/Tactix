@@ -111,6 +111,8 @@ int tactix_proof(tactix *, const char *path, int format);
  * (N1). Default (unset) = all gate types on. */
 #define TACTIX_BVE_GATE_EQUIV 1u  /* equivalence x<->~y */
 #define TACTIX_BVE_GATE_AND_OR 2u /* AND/OR x<->OR/AND(...) */
+#define TACTIX_BVE_GATE_ITE 4u    /* if-then-else x<->(c?t:e) */
+#define TACTIX_BVE_GATE_XOR 8u    /* parity x<->a1^...^am */
 void tactix_set_bve_gates(tactix *, unsigned mask);
 
 /* Kernel CONFIGURATION setters — the pose surface for external and
