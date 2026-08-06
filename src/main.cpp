@@ -606,6 +606,17 @@ int main(int argc, char **argv) {
     // not move was not tested.
     printf("c jumpreason  %llu binary reasons jumped\n",
            (unsigned long long)kernel.stats.jumped_reasons);
+    // What a binary-first watch order would be worth to binary-only
+    // propagation: `ordered` over `scans` is the reachability, `large` over
+    // `words` the ceiling on what an early break could skip.
+    printf("c binprop     %llu scans, %llu flagged, %llu words, %llu skipped, "
+           "%llu residual-ordered, %llu residual-large\n",
+           (unsigned long long)kernel.stats.binprop_scans,
+           (unsigned long long)kernel.stats.binprop_flagged,
+           (unsigned long long)kernel.stats.binprop_words,
+           (unsigned long long)kernel.stats.binprop_skipped,
+           (unsigned long long)kernel.stats.binprop_ordered,
+           (unsigned long long)kernel.stats.binprop_large);
     printf("c inprocess   %llu phases\n",
            (unsigned long long)kernel.stats.inprocess_phases);
     printf("c conggates   %llu and, %llu xor, %llu ite\n",

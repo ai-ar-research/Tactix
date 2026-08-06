@@ -348,6 +348,26 @@ struct Stats {
   // Reachability evidence: 0 here means the repair path never executed, so any
   // A/B on it measured nothing.
   uint64_t conflict_watch_repaired = 0;
+  // Binary-only propagation scans, and what a binary-first watch order would be
+  // worth to them (kissat `stop_early`, backbone.c:186-193). `binprop_scans`
+  // counts list scans, `binprop_ordered` those whose list actually held every
+  // binary entry before every large one, `binprop_words` the words walked, and
+  // `binprop_large` the subset spent stepping OVER large entries — the ceiling
+  // on what an early break can save. Reachability and prize in one pair: an
+  // order that never holds prices the invariant at zero however large the
+  // ceiling is.
+  // `binprop_flagged` counts the scans `binaries_watched_first` covered, i.e.
+  // the ones that stopped at the first large entry, and `binprop_skipped` the
+  // words that break saved. `binprop_ordered` and `binprop_large` describe the
+  // REMAINDER: how often an uncovered list was binary-first anyway (what a
+  // per-list order bit would add over the reference's one global flag) and how
+  // many words those scans still burn stepping over large entries.
+  uint64_t binprop_scans = 0;
+  uint64_t binprop_ordered = 0;
+  uint64_t binprop_flagged = 0;
+  uint64_t binprop_words = 0;
+  uint64_t binprop_skipped = 0;
+  uint64_t binprop_large = 0;
   // Chronological backtracking. `chronological` counts chrono targets taken;
   // `backjump_stale` counts pending clauses discarded because the asserting
   // literal was still assigned after the backtrack, and SHOULD BE 0 — a
@@ -632,6 +652,14 @@ struct Kernel {
 
   Arena arena;
   WatchLists watches;
+  // kissat's `large_clauses_watched_after_binary_clauses` (internal.h:99): does
+  // EVERY watch list hold all its binary entries before all its large ones? A
+  // full re-watch establishes it (there, `kissat_substitute`; here,
+  // `kernel_collect_garbage`, which strips large entries and re-appends them),
+  // any binary add breaks it, and appending a large entry cannot. Purely an
+  // observation about the layout — nothing reads it to decide anything, so it
+  // constrains no path; `Stats::binprop_flagged` is what it feeds.
+  bool binaries_watched_first = true;
   // shared large-clause occurrence index, non-null only during a simplification
   // phase (increment 2). Owned by the caller (the policy); the kernel maintains
   // it through add/GC. Null everywhere else — see OccIndex.
