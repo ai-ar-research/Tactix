@@ -431,6 +431,14 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   E1 — whose omission from `ρ` is a *model* bug, not a proof bug. Also why BCE is irredundant-only: a
   learned clause is already deletable by S2 Reduce with no witness at all.
 
+**Deliberately absent — X5 `Condition` (globally blocked clauses / conditional autarkies).** The
+generalization of X1 in which the witness is a *cube* whose literals need not lie in `C`. It has no
+entry here because it is not implemented, and the reason is a `ρ` limit rather than a proof one: our
+reconstruction segment carries **one** witness literal and that literal must be **inside** the clause,
+so the cube cannot be represented; restricted to a single in-clause literal the rule collapses to X1
+above. Decision, reference evidence and the reopening path: `implementation-notes.md` §16
+(Track R · R7).
+
 ## 6d. Clause strengthening by instantiation (X4)
 
 ### X4 · Instantiate — removing a literal a probe refutes
