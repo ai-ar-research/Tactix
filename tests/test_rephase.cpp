@@ -9,7 +9,6 @@
 
 #include <cassert>
 #include <cstdio>
-#include <cstring>
 
 using namespace tactix;
 

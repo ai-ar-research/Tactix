@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
       // V5 S-e stress mode: sweeps every root to a fixpoint with no effort
       // budget, interleaving Substitute, so EMISSION is maximized -- and with
       // TACTIX_SWEEP_FORCE_GENERAL=1 every proved equivalence is routed through
-      // the general core->chain path, the one the 2026-08-05 N2 breach lived in
+      // the general core->chain path, the one an N2 breach lived in
       // and that generic fuzz reaches ~8 times in 4380 (stress-policy skill)
       sweep_stress_policy = true;
       if (a[21] == '=')
@@ -579,8 +579,8 @@ int main(int argc, char **argv) {
     // rule ran; only these say a proof line was written, and by which path.
     // Without them a "Sweep is fine" fuzz leg cannot be told from one that
     // never emitted anything -- the vacuous-arm trap that hid the S-e polarity
-    // defect (2026-08-05). `not-RUP` is S-d's decline count, i.e. the pairs
-    // handed to S-e.
+    // defect (report `2026-08-05-sweep-se-polarity-fix.md`). `not-RUP` is S-d's
+    // decline count, i.e. the pairs handed to S-e.
     printf("c sweepemit   %llu binaries, %llu not-rup, %llu general pairs\n",
            (unsigned long long)kernel.stats.sweep_binaries,
            (unsigned long long)kernel.stats.sweep_not_rup,

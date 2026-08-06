@@ -17,7 +17,6 @@
 #include "kernel/clause.hpp"
 #include "policies/heuristics.hpp"
 
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

@@ -13,7 +13,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
 #include <utility>
 
 namespace tactix {

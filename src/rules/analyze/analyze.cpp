@@ -945,9 +945,11 @@ ApplyResult analyze_apply(Kernel &k) {
           jump2 = lv;
         }
       }
-      // DIAGNOSTIC ARM (k.conflict_reuse_no_repair): the CRIPPLED decline test,
-      // kept only so a tier window can attribute the arm's verdict between the
-      // crippling and the mechanism. Sound, and inert unless the knob is set.
+      // DIAGNOSTIC ARM (k.conflict_reuse_no_repair): the CRIPPLED decline test.
+      // It exists so conflict reuse can be measured with the watch-repair
+      // primitive disabled, separating the repair from the reuse mechanism --
+      // without it an arm confounds the two. Sound, and inert unless the knob
+      // is set.
       bool crippled_declines = false;
       if (k.conflict_reuse_no_repair && at_alevel == 1 &&
           k.conflict_ref != INVALID_REF) {

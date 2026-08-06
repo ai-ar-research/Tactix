@@ -207,6 +207,7 @@ int main() {
   test_no_redundancy();
   test_mutual_dependency();
   test_failed_literal_deferred();
+  test_no_contrapositive_self_justification();
   test_duplicate_pair_skipped();
   test_root_fixed_skipped();
   test_instance_surface();
