@@ -1,0 +1,12 @@
+tierB/hwmcc17miters-xits-iso-oski15a08b00s.sanitized.cnf.xz
+tierB/PRP_30_38.cnf.xz
+tierB/9vliw_bp_mc.shuffled.cnf.xz
+tierB/x9-08014.sat.sanitized.cnf.xz
+tierB/b22_1.cnf.xz
+tierB/or_randxor_k3_n540_m540.cnf.xz
+tierB/SCPC-500-5.cnf.xz
+tierB/oddball_13_5_ttf.normalised.cnf.xz
+tierB/veer_axi_yosyshq_appnote_123_veer_axi-p23_transition.cnf.xz
+tierB/DecompressReader_read_12.cnf.xz
+tierB/square.2.0.i.smt2-cvc4.cnf.xz
+tierB/FmlaEquivChain_4_6_6.sanitized.cnf.xz
