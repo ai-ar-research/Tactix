@@ -50,7 +50,9 @@ TABLE = {
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "factor_admit":            ("POLICY", "SCHED-N1FIX advice; default = no restriction"),
     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
-    "vivify_scope":            ("POLICY", "which clause tier Vivify may touch"),
+    "vivify_scope":            ("POLICY", "which clause tier Vivify may touch; SCHED-G3 "
+                                          "splits the redundant side into kissat's "
+                                          "tier1/tier2/tier3 (C10 hand-off H3)"),
     "bump_reason_limit":       ("POLICY", "reason-side bumping rate"),
     # --- a rule computes these -------------------------------------------
     "tier1":                   ("RULE", "reduce.cpp, from the live glue distribution"),
@@ -78,6 +80,13 @@ TABLE = {
     # extra stamps only weaken the round filters until a consumer for the
     # redundant tier band exists (SP-TIER-2's residue).
     "touch_redundant":         ("ENV", "TACTIX_TOUCH_REDUNDANT (SCHED-F6 on arm)"),
+    # SCHED-G3: same shape as touch_filter — ships ON via the kernel.hpp
+    # default, =0 is the A/B off arm. NOT POLICY: the probe/candidate ORDER and
+    # the trail retention are one mechanism inside the rule's round, and a
+    # writer in default_policy.* purely to satisfy this test would be the fake
+    # wiring the check exists to expose.
+    "vivify_reuse":            ("ENV", "TACTIX_VIVIFY_REUSE; ships ON (SCHED-G3), "
+                                       "=0 reverts to the per-candidate root return"),
     # SCHED-C5 (2026-08-05): was ENV-with-a-caveat — the knob existed, defaulted
     # OFF, and the row itself said that was the status quo rather than the
     # target. It now ships ON via the kernel.hpp default, which is what both
