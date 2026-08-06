@@ -209,11 +209,50 @@ static void test_vivify_scope_tracks_tier2(void) {
          wide);
 }
 
+// --- SCHED-D1: the authored slot order covers the registry -----------------
+//
+// The slot order is DATA (default_slot_order). A rule the table does not name
+// is still scheduled — appended, registry order — which is exactly the T6
+// defect coming back for that rule: its position becomes an accident again.
+// This test fails when an Inprocess-tier rule is registered without being given
+// an authored position, and when the table names a rule that is not registered
+// at the Inprocess tier (a stale row orders nothing).
+static void test_authored_slot_order_covers_registry(void) {
+  size_t norder = 0;
+  const SlotOrderRow *order = default_slot_order(&norder);
+  const std::vector<RuleVTable> &rules = tactix_rules();
+  for (const RuleVTable &r : rules) {
+    if (r.tier != RuleTier::Inprocess)
+      continue;
+    bool found = false;
+    for (size_t o = 0; o < norder; o++)
+      found = found || !std::strcmp(order[o].name, r.name);
+    if (!found)
+      std::printf("  UNAUTHORED Inprocess rule: %s\n", r.name);
+    assert(found &&
+           "an Inprocess-tier rule has no authored slot position -- give it one "
+           "in AUTHORED_SLOT_ORDER (SCHED-D1); the append fallback puts it last "
+           "by accident, which is the T6 defect");
+  }
+  for (size_t o = 0; o < norder; o++) {
+    bool found = false;
+    for (const RuleVTable &r : rules)
+      found = found ||
+              (r.tier == RuleTier::Inprocess && !std::strcmp(order[o].name, r.name));
+    if (!found)
+      std::printf("  STALE authored row: %s\n", order[o].name);
+    assert(found && "AUTHORED_SLOT_ORDER names a rule that is not registered at "
+                    "the Inprocess tier");
+  }
+  std::printf("  authored slot order: %zu rows, registry-complete\n", norder);
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
   test_transitive_instances_rotate();
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
+  test_authored_slot_order_covers_registry();
   std::printf("test_scheduling: all passed\n");
   return 0;
 }

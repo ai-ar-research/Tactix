@@ -379,7 +379,44 @@ const EffortSpec *effort_spec(const char *name) {
   return nullptr; // all-or-nothing rule: no titration, no meter
 }
 
+// --- the authored inprocessing phase order (see SlotOrderRow) ---------------
+// Merged from the references' argued pipelines, which agree wherever both own
+// the technique:
+//   kissat  probe.c:32-41    congruence, substitute, backbone, vivify, sweep,
+//                            substitute, transitive_reduction, backbone, factor
+//           eliminate.c:441  forward subsumption, then BVE, once per round
+//   cadical probe.cpp:934-952  decompose (ELS), ternary, probe, extract_gates,
+//                            backbone, sweep, vivify, transred, factor
+//           elim.cpp:1044/1073/1090  subsume, then BVE rounds (instantiate sits
+//                            inside the round at :947), then block (BCE)
+// The invariants both references fix, each of which name-sorting broke:
+//   1. ELS (Substitute) precedes every reader of the binary implication graph —
+//      Backbone, Probe, TransitiveReduce, Factor.
+//   2. Congruence feeds Substitute, so the two are adjacent and open the pass.
+//   3. Vivify precedes TransitiveReduce.
+//   4. Factor closes the probing pipeline.
+//   5. Subsumption precedes elimination.
+//   6. BCE closes the elimination pipeline (cadical block() runs after
+//      elim_round); name-sorting ran it first of all.
+// Where the references disagree — kissat vivifies then sweeps, cadical sweeps
+// then vivifies — we take kissat's, so Sweep's environments are built over an
+// already vivified database.
+constexpr SlotOrderRow AUTHORED_SLOT_ORDER[] = {
+    // probing pipeline (kissat probe.c:32-41, cadical probe.cpp:934-952)
+    {"Congruence"}, {"Substitute"}, {"HyperTernaryRes"}, {"Probe"},
+    {"Backbone"},   {"Vivify"},     {"Sweep"},           {"TransitiveReduce"},
+    {"Factor"},
+    // elimination pipeline (kissat eliminate.c:441, cadical elim.cpp:1044-1090)
+    {"SubsumeForward"}, {"Strengthen"}, {"BVE"}, {"Instantiate"}, {"BCE"},
+};
+
 } // namespace
+
+const SlotOrderRow *default_slot_order(size_t *count) {
+  if (count)
+    *count = sizeof(AUTHORED_SLOT_ORDER) / sizeof(AUTHORED_SLOT_ORDER[0]);
+  return AUTHORED_SLOT_ORDER;
+}
 
 bool DefaultPolicy::want_inprocess(const Kernel &k) const {
   if (!inprocess.initialized || k.stats.conflicts < inprocess.next_conflicts)
@@ -582,11 +619,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // Inprocess-tier rule is enabled, the probing family included, and BVE
       // is the only entry deferred out of the conflicts==0 preprocessing
       // phase (kissat fastel=0) so its doses land on a formula probing has
-      // already simplified. Slot order is registry (name-sorted) order with
-      // BVE and then Factor moved to the back — see move_to_back below.
-      // Rules are named here only by the ablation knobs; the composition
-      // itself is derived from the registry, so a newly registered rule joins
-      // without editing this function.
+      // already simplified. Slot ORDER is the authored list
+      // (AUTHORED_SLOT_ORDER); membership is still derived from the registry,
+      // so a newly registered rule joins without editing this function.
       const std::vector<RuleVTable> &rules = tactix_rules();
       // TACTIX_NO_BVE / TACTIX_NO_FACTOR: the two named ablation knobs, kept
       // because each rule has a standing open investigation (BVE's bimodal
@@ -609,8 +644,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             return true;
         return false;
       };
-      for (int i = 0; i < static_cast<int>(rules.size()); i++)
-        if (rules[i].tier == RuleTier::Inprocess) {
+      const auto add_entry = [&](int i) {
+        {
           const char *nm = rules[i].name;
           // BASELINE: every implemented proof rule ships scheduled. A rule-off
           // arm is a diagnostic for a SCHEDULING defect, never a shipped
@@ -665,25 +700,49 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           }
           inprocess_slot.push_back(e);
         }
-      // Phase order: name-sorted slot, then BVE moved last (kissat eliminates
-      // on a formula its pipeline has already simplified; running BVE FIRST on
-      // raw structure is measurably much worse), then Factor last of all
-      // (kissat probe.c:41 — each phase is probing-family → simplifiers → BVE
-      // → Factor, so the NEXT phase's BVE sees the factored formula; the
-      // eliminate/factor alternation in one-slot form,
-      // docs/design/s4-factor-dosing-design.md §3.c).
-      const auto move_to_back = [this](const char *name) {
-        const std::vector<RuleVTable> &rr = tactix_rules();
-        for (size_t j = 0; j < inprocess_slot.size(); j++)
-          if (!std::strcmp(rr[inprocess_slot[j].rule].name, name)) {
-            const SlotEntry e = inprocess_slot[j];
-            inprocess_slot.erase(inprocess_slot.begin() + j);
-            inprocess_slot.push_back(e);
-            break;
-          }
       };
-      move_to_back("BVE");
-      move_to_back("Factor");
+      // PHASE ORDER. Default: the authored list, walked in order; any
+      // Inprocess-tier rule it does not name is appended in registry order so a
+      // newly registered rule is scheduled rather than silently dropped (give
+      // it an authored position — the append is a safety net, not the design).
+      //
+      // TACTIX_SLOT_ORDER=legacy restores the pre-authored order — registry
+      // (strcmp on rule names) order with BVE and then Factor moved to the
+      // back. It is the A/B arm for the authored order and nothing else.
+      const char *order_env = std::getenv("TACTIX_SLOT_ORDER");
+      slot_order_legacy_ = order_env && !std::strcmp(order_env, "legacy");
+      if (slot_order_legacy_) {
+        for (int i = 0; i < static_cast<int>(rules.size()); i++)
+          if (rules[i].tier == RuleTier::Inprocess)
+            add_entry(i);
+        const auto move_to_back = [this](const char *name) {
+          const std::vector<RuleVTable> &rr = tactix_rules();
+          for (size_t j = 0; j < inprocess_slot.size(); j++)
+            if (!std::strcmp(rr[inprocess_slot[j].rule].name, name)) {
+              const SlotEntry e = inprocess_slot[j];
+              inprocess_slot.erase(inprocess_slot.begin() + j);
+              inprocess_slot.push_back(e);
+              break;
+            }
+        };
+        move_to_back("BVE");
+        move_to_back("Factor");
+      } else {
+        size_t norder = 0;
+        const SlotOrderRow *order = default_slot_order(&norder);
+        std::vector<bool> placed(rules.size(), false);
+        for (size_t o = 0; o < norder; o++)
+          for (int i = 0; i < static_cast<int>(rules.size()); i++)
+            if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
+                !std::strcmp(rules[i].name, order[o].name)) {
+              placed[i] = true;
+              add_entry(i);
+              break;
+            }
+        for (int i = 0; i < static_cast<int>(rules.size()); i++)
+          if (rules[i].tier == RuleTier::Inprocess && !placed[i])
+            add_entry(i);
+      }
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;
@@ -1605,6 +1664,12 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
               (unsigned long long)k.stats.instantiate_ticks,
               (unsigned long long)k.stats.ticks);
   const std::vector<RuleVTable> &rules = tactix_rules();
+  // REACHABILITY readout for the authored order (SCHED-D1): the live sequence,
+  // named, so an A/B arm cannot be banked without showing which order ran.
+  std::printf("c slot-order  %s", slot_order_legacy_ ? "legacy  " : "authored");
+  for (const SlotEntry &e : inprocess_slot)
+    std::printf(" %s", rules[e.rule].name);
+  std::printf("\n");
   for (const SlotEntry &e : inprocess_slot) {
     const SlotEntry::Telem &t = e.tm;
     if (!t.occasions)

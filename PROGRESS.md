@@ -658,8 +658,11 @@ instrument before spending a tier window on a mechanism.
 
 #### Stage D — the authored schedule and the two clocks (T6 + the global slot rows)
 
-- [ ] **SCHED-D1 · an explicit, authored phase order AS DATA** `[wire]` — replaces `strcmp` + `move_to_back`. Cheap, and it makes order a
-  first-class policy object rather than an accident of the alphabet.
+- [x] **SCHED-D1 · an explicit, authored phase order AS DATA** `[wire]` — landed 2026-08-05. `AUTHORED_SLOT_ORDER` (a table
+  `default_slot_order()` exposes) replaces `strcmp` + `move_to_back`; membership stays registry-derived and an unauthored rule is appended, with
+  `test_scheduling` failing the build if one exists. Fixes all four SP-SLOT-4 accidents at once: Substitute (ELS) now precedes Backbone/Probe/
+  TransitiveReduce/Factor, Congruence opens the pass and feeds Substitute, Vivify precedes TransitiveReduce, BCE closes instead of opening.
+  **UNPRICED**; arm `TACTIX_SLOT_ORDER=legacy`, source counter the `c slot-order` line (`authored`/`legacy` + the live sequence).
 - [ ] **SCHED-D2 · split the slot into a PROBE group and an ELIMINATE group** `[arch]` — the two clocks both references keep. **The largest single
   structural gap**: probing currently fires ~5× less often and the gap widens over the solve. (Refined by `SP-SLOT-6`; note cadical's own comment
   claims a sqrt schedule while the code is logarithmic — read the code.)
@@ -777,6 +780,30 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 **Reading this log.** Newest first. Entries older than the current session are compressed to **result +
 pointer** — the full account is in the cited report, design doc or commit, which are never edited.
+
+### 2026-08-05 — SCHED-D1: the slot order is DATA, and four SP-SLOT-4 accidents are gone
+
+`AUTHORED_SLOT_ORDER` in `default_policy.cpp`, reachable as `default_slot_order()`, replaces `strcmp` +
+`move_to_back("BVE"/"Factor")`. Membership stays registry-derived; a rule the table does not name is
+appended, and `test_scheduling::test_authored_slot_order_covers_registry` fails the build if one exists (so
+the append is a safety net, never the design). **Order stays POLICY** — nothing in a guard or `instances()`
+reads the table.
+
+**Order shipped** (probing pipeline, then elimination pipeline): Congruence, Substitute, HyperTernaryRes,
+Probe, Backbone, Vivify, Sweep, TransitiveReduce, Factor · SubsumeForward, Strengthen, BVE, Instantiate,
+BCE. **Was** (ASCII strcmp + two move-to-backs): BCE, Backbone, Congruence, HyperTernaryRes, Instantiate,
+Probe, Strengthen, Substitute, SubsumeForward, Sweep, TransitiveReduce, Vivify, BVE, Factor.
+Evidence per position is in the table's comment; where the references disagree (kissat vivifies then
+sweeps, cadical sweeps then vivifies) we take kissat's and say so.
+
+**All four SP-SLOT-4 accidents close together:** ELS now precedes every BIG reader; Congruence opens the
+pass adjacent to the Substitute that consumes it; Vivify precedes TransitiveReduce; BCE closes the pass
+instead of opening it. The old "Factor last so the NEXT phase's BVE sees the factored formula" rationale is
+retired — with the authored order, THIS pass's BVE does, which is what both references do.
+
+**UNPRICED.** Arm `TACTIX_SLOT_ORDER=legacy`; pre-registered source counter is the `c slot-order` line
+(`TACTIX_SLOT_STATS=1`), which names the mode and prints the live sequence, so a vacuous arm is visible.
+Fuzz on the D1 binary: DRAT 2000/0, native LRAT 2000/0, `--random-policy` × DRAT 2000/0.
 
 ### 2026-08-05 — the merged tree's 38 "LRAT" failures are drat-trim's CONVERTER, not our emitter
 
