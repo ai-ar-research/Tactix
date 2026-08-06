@@ -70,7 +70,12 @@ gates. **D2 is the one expected to move numbers** (probing at ~2×, not the ~5×
 see its Log entry). The three A/B specs are in the Log entries and are the next Stage-D work; D3's spec
 says to check its `blocked` counter first and abandon the window if it is zero.
 
-**▶ THEN.** Stage E — order and resumption become policy objects, generalizing D1's table.
+**▶ STAGE E IS LANDED AND UNPRICED** (branch `sched-stage-e`, four commits, ctest **44/44**, fuzz green — DRAT 10,000/0, native LRAT 4,000/0,
+`--random-policy`×DRAT 4,000/0, corpus 14/14). E1 candidate order + resumption as policy objects · E2 the per-rule ordering arms · **E3 the effort
+ceiling** (`SP-EFFORT-CEIL-1`, taken mid-stage; ported and **measured inert** — see its Log entry before spending a window on it). The one finding
+that changes the picture: **Probe was advancing 0.3 % of its candidate list per dose and replaying the same head on all 45 phases** — E1's cursor
+fixes that, and it is unpriced. Three A/B specs are in the Log entries; E1's and E2's are worth windows, E3's says explicitly not to run it.
+**▶ THEN.** Stage F — the touched-epoch substrate (`SP-REPEAT-*`), which is also what E2's `heuristic` arm wants in front of its score.
 
 **▶ OWED MEASUREMENTS (each a job; none blocks the next step).**
 - **ALL THREE STAGE-D ITEMS are specced and unrun** — arms, pre-flight counter and ship criterion in each
@@ -422,7 +427,9 @@ negative arms — git history has it).
 - [x] **H0–H7**: `H` (VMTF, score heaps, phases, ranking mode) is policy-owned OPTIONAL state — `k.h == nullptr` is sound, just unguided — bought
   at **zero PAR-2**, every increment gated on trajectory identity + byte-identical DRAT. Design + rejected alternatives
   `docs/design/h-relocation-design.md`. Live constraints: H4 pimpl (include cycle; kernel non-copyable); H5 null-`H` legal (Decide → index order;
-  Rephase/SwitchMode guards require `H`, a pure precondition of `H`-only ops); H6 sub-policy super-class DEFERRED until a 2nd arm exists (§5.5)
+  Rephase/SwitchMode guards require `H`, a pure precondition of `H`-only ops); H6's sub-policy super-class was deferred until a 2nd arm existed
+  and **was un-deferred by Track S · S1b** (`a36b4c2`) — `src/policies/subpolicy.hpp` has held the `SubPolicy` base since. Five categories now:
+  Branching, Reduction, BveBound, FactorMatch, CandidateOrder (SCHED-E1)
 - Method knowledge kept: bit-exactness gates the EXERCISED path and adversarial review the unexercised one (which caught a lost include and an
   unguarded deref no gate saw); null-path bugs surfaced only under FULL-suite ASan with the default flipped; and a structural check can replace a
   benchmark (zero `k.h->` in the propagation loop killed the indirection worry)
@@ -580,13 +587,11 @@ ramp-ceiling 8-vs-16 choice.
 **Track exit (checked at the phase-3 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT` without a closure or an accepted deviation
 row carrying a measurement, AND the ledger has been regenerated from the REFERENCE's option set (SCHED-A3).
 **▶ EXIT STATUS (2026-08-05).** Half two is **DONE and now machine-checked** (SCHED-A3, ctest `option_coverage`). Half one is **NOT** met: of §13.2's
-HIGH rows, **ten are now closed** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B · `SP-VIVIFY-1` by C1 · `SP-FACTOR-2` by C5 ·
-`SP-BVE-GATE-1` by **C8** · `SP-JUMP-1` by **C9** — ported, ships OFF, default decided by a pre-registered A/B, so not an open gap ·
-`SP-SLOT-4` by **D1** · `SP-SLOT-1` by **D2** · `SP-SLOT-5` by **D3**) and one is **accepted** (`SP-FACTOR-1`, §13.3).
-**THREE remain open, and that list IS the remaining track work:** `SP-REPEAT-*` (Stage F, in progress) ·
-`SP-TIER-2` (**unassigned** — supersedes C1's scope; one dynamic-tier consumer here against eight in cadical) ·
-`SP-EFFORT-CEIL-1` (**unassigned** — B1 gave the per-entry `thresh`, not the upper clamp every reference budget has).
-unassigned A3 rows have no stage.
+HIGH rows, **eleven are now closed** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B · `SP-VIVIFY-1` by C1 · `SP-FACTOR-2` by C5 ·
+`SP-BVE-GATE-1` by **C8** · `SP-JUMP-1` by **C9** — ported, ships OFF, default decided by a pre-registered A/B ·
+`SP-SLOT-4` by **D1** · `SP-SLOT-1` by **D2** · `SP-SLOT-5` by **D3** · `SP-EFFORT-CEIL-1` by **E3**, ported and
+**measured inert**, its A3 headline corrected — kissat has no upper clamp at all) and one is **accepted**
+(`SP-FACTOR-1`, §13.3). **TWO remain open:** `SP-REPEAT-*` (Stage F, in progress) · `SP-TIER-2` (assigned).
 
 - [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
   slot (beside BVE's identical, N1-clean one), reaching the rule as `Kernel::factor_admit`, default TRUE. Both pre-registered gates passed:
@@ -632,11 +637,12 @@ instrument before spending a tier window on a mechanism.
   `SP-BVE-BWD-1` row orphans `elimbackward`; deleting `SP-ARENA-1` fires both the anchor check and two UNACCOUNTED options; a fake `sweepslack`
   option fails; a fake option hidden INSIDE the dismissed `block*` glob fails on the group count; an unknown option-macro spelling aborts rather
   than under-counting. It is a **coverage** check, not a semantic one — §13.5's 6 corrections are the base rate for what it cannot verify.
-  **The 4 HIGH gaps, which are the actionable list:** ~~`SP-BVE-GATE-1`~~ ITE/XOR gate extraction was absent, so BVE was charged the full P·N where
-  both references pay P+N−2 (a per-application ACCEPTANCE lever, i.e. the T4 antidote) — **CLOSED by SCHED-C8** · `SP-TIER-2` the dynamic tiers have ONE consumer here and EIGHT
-  in cadical via `likely_to_be_kept_clause`, which **supersedes SCHED-C1's scope** · `SP-EFFORT-CEIL-1` every reference budget has an UPPER clamp
-  and ours has only a floor · `SP-JUMP-1` `jumpreasons` — **closed by SCHED-C8**, and its "default-ON in both references, per-conflict, free"
-  billing was wrong on all three counts (kissat-only; size-gated; not free under N2).
+  **The 4 HIGH gaps A3 surfaced, and where they went:** ~~`SP-BVE-GATE-1`~~ ITE/XOR gate extraction was absent, so BVE was charged the full
+  P·N where both references pay P+N−2 (a per-application ACCEPTANCE lever, the T4 antidote) — **CLOSED by C8** · `SP-TIER-2` the dynamic tiers
+  have ONE consumer here and EIGHT in cadical via `likely_to_be_kept_clause`, which **supersedes SCHED-C1's scope** — **assigned** ·
+  ~~`SP-EFFORT-CEIL-1`~~ — **CLOSED by E3**, and its claim that *every* reference budget has an upper clamp was WRONG: kissat has no
+  `maxeffort` option and our budget already transliterates kissat's own macro · ~~`SP-JUMP-1`~~ — **CLOSED by C9**, its
+  "default-ON in both references, per-conflict, free" billing wrong on all three counts (kissat-only; size-gated; not free under N2).
   **Standing method note, both traps live in this pass:** **read MACROS, not just grep** — cadical's `factorthresh` is token-pasted
   (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never appears literally and reading it as dead code
   produced two wrong published claims; and **polarity is not inferable from a name** (`factordelay`=0 is the MOST delayed setting)
@@ -787,8 +793,47 @@ instrument before spending a tier window on a mechanism.
 
 #### Stage E — order and resumption become POLICY OBJECTS (the architecture the RL agent needs)
 
-- [ ] **SCHED-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]`
-- [ ] **SCHED-E2 · the ordering arms, one per rule, each independently gated** `[wire]`
+- [x] **SCHED-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]` — landed 2026-08-05, two commits.
+  **(1) The 660-line `run_slot_phase` Stage D's report nominated for breakup is split** along the effort ledger's own DOSED/BATCH axis
+  (`slot_entry_admissible` · `slot_entry_thresh_declines` · `run_dosed_entry`+`bve_dose_declined` · `run_batch_entry`+`factor_entry_declines`/
+  `factor_dose_config`/`run_budgeted_batch`/`run_vivify_dose`), phase state made explicit in `SlotPhaseCtx`, control flow in `SlotStep`. Pure
+  restructuring, gated the way this project gates a pure move: **byte-identical DRAT + identical trajectory + identical per-entry `c slot`
+  telemetry on 4 Tier B instances** (job `1584689`, probe `e1-split-identity.*`), sted5 included so Factor's declining path is exercised.
+  **(2) `CandidateOrderPolicy` joins the SubPolicy surface** (the FIFTH category — the H6 super-class it would have needed already landed with
+  S1b, so the answer was reparent, not invent), and **SCHED-B3's `Kernel::transitive_cursor` becomes `SlotEntry::cursor`**, off the rule and
+  onto every dosed entry that opts in (Probe/Backbone/TransitiveReduce ON, BVE OFF — its schedule is occ⁺·occ⁻-ordered, not key-ordered, and it
+  already owns `bve_retry`). Arm `TACTIX_CURSOR_<RULENAME>=0|1`; counter the `c cand-order` line.
+  **▶ THE MIGRATION IS EXACT AND THE GENERALIZATION IS NOT INERT** (job `1584716`, probe `e1-cursor.*`): with the two NEW cursors off, all four
+  instances are **byte-identical** to the pre-E1 build, so moving B3's cursor rule→policy changed nothing; with them on, **Probe rotates on 44 of
+  45 doses and advances 2,719 of 878,094 enumerated candidates (0.3 %)** on `9vliw` — i.e. before this, Probe re-probed the same ~60-literal head
+  on every one of 45 phases and never saw the other 99.7 %. Backbone 3.6 %. That is B3's starvation finding at a far larger scale, and it is the
+  reason the item exists. **UNPRICED** — conflicts move both ways on the 4 probes (`b22_1` −6.8 %, `FmlaEquivChain` −2.4 %, `sted5` identical,
+  `9vliw` +4.9 %; proofs shrink on three of four); A/B spec in the Log entry.
+- [x] **SCHED-E2 · the ordering arms, one per rule, each independently gated** `[wire]` — landed 2026-08-05. Six arms behind
+  `TACTIX_ORDER_<RULENAME>` (spelled from the registry name, so a newly dosed rule gets its own knob for free): `native` (**the shipped default
+  everywhere and it stays there — no arm ships without a measurement**) · `reverse` · `random` (seeded splitmix64, replayable) · `occ-asc` ·
+  `occ-desc` · `negocc-desc` · `heuristic`. Three are reference ports read at the use site: **kissat `transitive.c:270-294` sorts its transitive
+  probes by the untried mark then EVSIDS score (stable) / VMTF stamp (focused) ascending** — we enumerate by literal index — and **cadical
+  `probe.cpp:621-624,685,763` probes the literal with the MOST negated binary occurrences first** (rank + pop-from-the-back, which reads backwards
+  from the comment alone). A knob on an entry the policy never orders **aborts** rather than being ignored ([[ab-arm-identical-artefacts]]).
+  **REACHABILITY PROVEN AT THE SOURCE** (job `1584734`, probe `e2e3-arms.*`): on `9vliw` all four arms reorder — Probe `negocc-desc` 718,018 of
+  718,068 positions moved, Backbone `occ-desc` 717,132, TransitiveReduce `heuristic` 436,819, BVE `occ-asc` 148,409; BVE reads `lists 0` on
+  `b22_1`/`sted5` because it is never dosed there, and the counter says so instead of the arm passing vacuously. **UNPRICED** — the four-arm bundle
+  moves `9vliw` 348,630 → 234,825 conflicts and its proof 64.0 → 43.4 MB, but that is ONE instance and a BUNDLE; the A/B spec in the Log entry
+  prices one rule at a time.
+- [x] **SCHED-E3 · the effort budget's UPPER clamp (ledger `SP-EFFORT-CEIL-1`)** `[wire]` — landed 2026-08-05, added to Stage E because an entry
+  whose window can grow without bound is never cut, and an entry that is never cut makes E1's ordering question moot for it. **The row's headline
+  was wrong and reading the use sites is what showed it:** there are THREE reference schemes — kissat `SET_EFFORT_LIMIT` (`kimits.h:135-170`,
+  **floor only; kissat ships no `maxeffort` option at all**, and ours is a transliteration of exactly this), cadical's ticks macro (neither), and
+  cadical's PROPAGATIONS scheme, the only clamped one. That scheme is an ORDERED composition — `max(mineff)` → `min(maxeff)` → `max(2·active())`
+  — whose LAST step is a floor that can lift the delta back above the ceiling (`elim.cpp:781-787`, `subsume.cpp:351-357`); reading it as a clamped
+  range gets it backwards, and `test_scheduling::test_effort_ceiling` pins the order. Ported in that order to the entries whose currency matches a
+  clamped cadical technique: BVE↔elim 2e9 resolutions, SubsumeForward/Strengthen↔subsume 1e8 partner visits. TransitiveReduce deliberately gets
+  none — cadical's 1e8 is PROPAGATIONS and our meter is a cache-line proxy. **MEASURED INERT and that is the result** (job `1584734`): the shipped
+  constants give `clamped 0 floored 0` on every entry of `9vliw`/`b22_1`/`sted5`; forced to 1e5 the clamp fires 18/21/13 times, **and `b22_1` and
+  `sted5` are still byte-identical**, so those rounds never spend to their limit either. It ships ON (one compare per occasion) on parity grounds
+  with the inertness recorded, not as a green headline. Arms `TACTIX_EFFORT_CEIL=0` / `TACTIX_MAXEFF_<RULENAME>=N`. **Not closed by this:
+  Congruence/Substitute still have no meter at all** — that is `SCHED-A2b`'s open finding and the 131,327 ms Congruence application belongs to it.
 
 #### Stage F — repetition suppression (T2): the touched-epoch substrate
 
@@ -894,6 +939,192 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — SCHED-E3: the effort ceiling exists now, and it is measured inert
+
+Closes ledger row **`SP-EFFORT-CEIL-1`** (`docs/implementation-notes.md` §13.2), the ceiling half of the
+effort budget — SCHED-B1 landed the floor/threshold half and the row was miscredited to it until A3 caught
+the split. Filed as `SCHED-E3` rather than a Stage-C id because two agents collided on `SCHED-C8` today.
+
+**READING THE USE SITES CORRECTED THE ROW'S OWN HEADLINE.** "Every reference effort budget has an UPPER
+clamp" is not true. There are THREE schemes:
+- **kissat `SET_EFFORT_LIMIT`** (`kimits.h:135-170`) — `REFERENCE = search_ticks − last`, floored at
+  `mineffort`·1e6, `DELTA = effort·REFERENCE`, `LIMIT = OLD + DELTA`. **Floor only. kissat has no
+  `maxeffort` option at all** (grep: `mineffort` is the only member of the family). **Our budget is a
+  transliteration of exactly this**, so against kissat we already matched and the row over-stated the gap.
+- **cadical's ticks macro `SET_EFFORT_LIMIT`** (`limit.hpp:136-164`) — neither floor nor ceiling.
+- **cadical's PROPAGATIONS scheme** — the only clamped one, and it is an ORDERED composition whose last
+  step is a FLOOR: `max(delta,mineff)` → `min(delta,maxeff)` → `max(delta, 2·active())`
+  (`elim.cpp:781-787`, `subsume.cpp:351-357`). On a large formula the active floor lifts the delta back
+  ABOVE the ceiling. Reading the three as a clamped range gets that backwards, so
+  `test_scheduling::test_effort_ceiling` pins the ORDER, not just the clamp.
+
+Ported in cadical's order, to the entries whose currency is the one cadical clamps: **BVE ↔ elim, 2e9
+resolutions** and **SubsumeForward/Strengthen ↔ subsume, 1e8 partner visits** (SCHED-B4 made ours the same
+unit as `subchecks`). **TransitiveReduce deliberately gets NO numeric ceiling** — cadical's 1e8 is in
+PROPAGATIONS and our meter is `transitive_ticks`, a cache-line proxy; the standing method note says transfer
+the ratio, never the unit.
+
+**▶ THE MEASUREMENT IS THE RESULT** (job `1584734`, `c slot … maxeff/clamped/floored`):
+
+| arm | BVE | SubsumeForward | Strengthen |
+|---|---|---|---|
+| shipped (2e9 / 1e8 / 1e8) | clamped **0** | **0** | **0** |
+| forced `TACTIX_MAXEFF_*=1e5` | 15 / 19 / 10 | 18 / 21 / 13 | 18 / 21 / 13 |
+
+(three columns of the forced row = `9vliw` / `b22_1` / `sted5`.) `floored` is 0 everywhere: our natural
+deltas already exceed 2·active() at these sizes. **And even the forced 20,000×-tighter ceiling leaves
+`b22_1` and `sted5` byte-identical** — those rounds never spend to their limit, so the ceiling is not the
+binding constraint on our budgets at all. The forced arm is there for one reason: it proves the clamp is
+wired rather than dead code, which a `clamped 0` reading alone could never distinguish from a missing call.
+
+**So it ships ON with the inertness recorded, not as a green headline.** One compare per occasion, on
+reference-parity grounds; the row closes as CLOSED-and-inert rather than as an accepted deviation, because
+we no longer LACK the mechanism. **What the row does NOT close: Congruence and Substitute still have no
+meter at all** — that is `SCHED-A2b`'s open finding, and the 131,327 ms Congruence application the A3 row
+cited belongs to it, not to the ceiling.
+
+**▶ READY-TO-RUN A/B (`SCHED-E3`) — and the honest recommendation is DO NOT SPEND A WINDOW ON IT YET.**
+The pre-flight already ran: `clamped 0` on three instances means the ON and OFF arms are the same binary
+behaviour, and a window would measure noise ([[ab-arm-identical-artefacts]] — this is exactly the arm that
+passes vacuously). Run it only if a Tier C instance ever shows `clamped > 0` at the shipped constants.
+The command, for when that happens:
+```
+python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e3-c/tactix \
+  --solver 'env TACTIX_EFFORT_CEIL=0 build/pin-e3-c/tactix'
+```
+Pre-registered counter: `c slot … clamped` > 0 on the ON arm for at least one entry, `clamped 0` on OFF.
+**Abandon the window if the ON arm's clamp counts are all zero** — that is the pre-flight, and it currently
+fails. The *interesting* experiment is the opposite one and it is a DOSE question, not a parity one: sweep
+`TACTIX_MAXEFF_BVE` downward until it binds and see whether a smaller ceiling helps; that belongs with the
+phase-6 dosing exhibit, not with this row.
+
+
+### 2026-08-05 — SCHED-E2: the ordering arms, one knob per rule
+
+Six arms on `CandidateOrderPolicy`, selected per rule by `TACTIX_ORDER_<RULENAME>` (the knob name is
+derived from the registry name, so a newly dosed rule gets one without editing a list). `native` is the
+shipped default for every rule and stays there — **no arm ships without a measurement**.
+
+**Three arms are reference ports, and two of them read backwards from the option name alone.**
+- `heuristic` — kissat `transitive.c:270-294`: transitive probes are sorted by `flags[i].transitive` (the
+  untried mark) FIRST, then by EVSIDS heap score ascending in stable mode / VMTF `links[i].stamp` ascending
+  in focused mode. We enumerate by literal index, so this is a real unimplemented reference mechanism, not a
+  variation. **kissat's mark-then-score composition is also the honest statement about how order and
+  resumption interact**: it puts a per-item repetition MARK ahead of the score rather than rotating a scored
+  list, which is Stage F territory (`SP-REPEAT-*`) — E1's cursor rotates first and a score arm then
+  re-imposes its own head, so under a score arm the cursor survives only as a tie-break. Said in the code.
+- `negocc-desc` — cadical `probe.cpp:621-624` ranks probes by `noccs(-p)` and `:763` pops from the BACK, so
+  the literal occurring negated MOST often is probed first. The comment ("occur negated less frequently come
+  first") describes stack position, not probe order.
+- `occ-asc` — cadical's elimination schedule is a priority queue on occurrence count, cheapest first. Ours
+  is already occ⁺·occ⁻ ascending — a PRODUCT where the reference uses a SUM — so this is a variation.
+`reverse` and `random` are controls: the cheapest test that order matters at all, and the structureless
+floor a structured arm must beat. `random` is splitmix64 off a constant seed, because a random order that
+does not replay cannot be fuzzed or bisected.
+
+**A knob that cannot take effect ABORTS.** Setting `TACTIX_ORDER_X` on an entry that runs as a canonical
+batch round (the policy never sees its candidates) exits with a message rather than being ignored — that is
+the vacuous-A/B failure mode, and it is cheaper to make it loud than to discover it in a banked window.
+
+**▶ REACHABILITY, PRE-REGISTERED AND MET** (job `1584734`, probe `e2e3-arms.*`, `c cand-order` `moved`):
+
+| rule | arm | lists ranked | positions moved |
+|---|---|---|---|
+| Probe | `negocc-desc` | 34/34 | 718,018 / 718,068 |
+| Backbone | `occ-desc` | 34/34 | 717,132 |
+| TransitiveReduce | `heuristic` | 33/34 | 436,819 |
+| BVE | `occ-asc` | 15/15 | 148,409 |
+
+(9vliw; `b22_1` and `sted5` agree for the first three. **BVE reads `lists 0` on both of those** — it is
+never dosed there, so its arm is genuinely unexercised and the counter says so rather than the leg passing
+vacuously.) The probe build also carried SCHED-E3, whose shipped ceilings measure `clamped 0` on all three
+instances, so the ordering arms ran on an unchanged budget.
+
+**UNPRICED, and the tempting number is a bundle.** All four arms at once move `9vliw` 348,630 → 234,825
+conflicts and its proof 64.0 → 43.4 MB, and `b22_1` 494,805 → 450,530. That is one instance for the big
+number and four knobs at once ([[chaotic-instance-veto]]); it says the axis is live, not which arm is good.
+
+**▶ READY-TO-RUN A/B (`SCHED-E2`) — ONE RULE PER ARM, NEVER THE BUNDLE.** Start with Probe, which has both
+the largest reference disagreement and the tightest budget (E1 measured it advancing 0.3 % of its list).
+Two pin dirs from the same commit for a concurrent B+C pair; check the shas match.
+```
+tools/bench/buildlock.py --gc
+cmake -S . -B build/pin-e2-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e2-b -j8
+cmake -S . -B build/pin-e2-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e2-c -j8
+sha256sum build/pin-e2-{b,c}/tactix        # must match
+python3 tools/bench/run.py --tier B --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e2-b/tactix \
+  --solver 'env TACTIX_ORDER_PROBE=negocc-desc build/pin-e2-b/tactix'
+python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e2-c/tactix \
+  --solver 'env TACTIX_ORDER_PROBE=negocc-desc build/pin-e2-c/tactix'
+```
+Pre-registered counter: `c cand-order` `Probe ... moved > 0` on the ON arm, `moved 0` on the OFF arm.
+Ship criterion: **#solved not worse on either tier and PAR-2 better than the 6.72 noise floor on at least
+one, not worse than it on the other**, may-not-gate set excluded from deciding alone. Then, only if Probe
+lands, the same one-knob window for `TACTIX_ORDER_TRANSITIVEREDUCE=heuristic` (the kissat port) and
+`TACTIX_ORDER_BVE=occ-asc`. `reverse`/`random` are diagnostics for "does order matter on this family at
+all" and are worth a Tier A sweep, not a Tier C window.
+
+
+### 2026-08-05 — SCHED-E1: candidate order becomes a policy object, and Probe was seeing 0.3 % of its list
+
+**Two commits.** (1) `run_slot_phase` split along the DOSED/BATCH axis — pure restructuring, byte-identical
+DRAT + identical trajectory + identical per-entry `c slot` telemetry on `9vliw_bp_mc`, `FmlaEquivChain_4_6_6`,
+`b22_1`, `sted5_0x24204-50` (job `1584689`). (2) `CandidateOrderPolicy` + `SlotEntry::cursor`.
+
+**The sub-policy super-class question (H6) is already answered:** `SubPolicy` has existed since S1b
+(`a36b4c2`, which un-deferred H6 when `BveBoundPolicy` became the second arm). `CandidateOrderPolicy` is the
+fifth category, not a second bespoke one — PROGRESS's Track-H line saying otherwise was stale and is fixed.
+
+**N1, stated precisely.** `rank()` is a PERMUTATION and the cursor is a ROTATION; neither can remove a
+candidate, and both live in the policy where no guard can see them. `apply_instance` is unchanged and still
+total over every payload from every source — `tests/test_scheduling.cpp::test_cursor_preserves_n1` pins three
+separable halves of that: `instances()` returns the same set wherever the cursor is (the rule cannot read it
+any more), `apply_instance` on a payload the cursor rotated PAST gives the same result and the same stat
+deltas as on a kernel whose policy never had a cursor, and all seven arms are multiset-preserving. The
+rule-side rotation and `Kernel::transitive_cursor` are GONE — that was order logic living in a rule.
+
+**▶ THE MEASURED FINDING (job `1584716`, probe `e1-cursor.*`, three arms one window).**
+- **The migration is exact.** `cursoff` (the two new cursors off, only B3's migrated one live) is
+  byte-identical to the pre-E1 build on all four instances — same proof sha256, same byte count, same
+  conflicts. Moving a cursor rule→policy is not supposed to change anything, and it did not.
+- **The generalization is emphatically NOT inert.** On `9vliw`, Probe rotates on **44 of 45** doses and
+  advances **2,719 of 878,094** enumerated candidates — **0.3 %**. Before E1, Probe re-probed the same
+  ~60-literal head on all 45 phases and never reached the other 99.7 % of its schedule. Backbone 3.6 %
+  (31,880 / 877,967), rotating 44/45. TransitiveReduce (which already had the cursor) 40-52 rotations.
+  This is SCHED-B3's starvation finding at a much larger scale, and it is why the item exists.
+- **BVE's cursor is deliberately OFF and its counter shows it** (`rotated 0`): its schedule is
+  occ⁺·occ⁻-ordered, not key-ordered, so a key cursor would resume at an arbitrary place, and it already has
+  the repetition device the others lack (`bve_retry`). Per-item marks for the rest are Stage F.
+
+**UNPRICED, and the direction is not one-signed:** conflicts `b22_1` 530,802 → 494,805 (−6.8 %),
+`FmlaEquivChain` 384,785 → 375,614 (−2.4 %), `sted5` identical (its Probe/Backbone produce nothing either
+way, so a reordered walk finds the same nothing), `9vliw` 332,391 → 348,630 (+4.9 %). Proofs shrink on three
+of four. One instance moving 6.8 % is not a verdict ([[chaotic-instance-veto]]).
+
+**▶ READY-TO-RUN A/B (`SCHED-E1`) — PRE-FLIGHT FIRST.** Read `c cand-order` on two Tier B instances before
+spending a window: if `rotated` is 0 for Probe and Backbone the arm is vacuous there and the window should be
+abandoned. The knobs go IN THE COMMAND. Tier B and Tier C are concurrent arrays, so **two pin dirs from the
+same commit** (CLAUDE.md build-dir rule) and check the shas match.
+```
+tools/bench/buildlock.py --gc
+cmake -S . -B build/pin-e1-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e1-b -j8
+cmake -S . -B build/pin-e1-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e1-c -j8
+sha256sum build/pin-e1-{b,c}/tactix        # must match
+python3 tools/bench/run.py --tier B --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e1-b/tactix \
+  --solver 'env TACTIX_CURSOR_PROBE=0 TACTIX_CURSOR_BACKBONE=0 build/pin-e1-b/tactix'
+python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e1-c/tactix \
+  --solver 'env TACTIX_CURSOR_PROBE=0 TACTIX_CURSOR_BACKBONE=0 build/pin-e1-c/tactix'
+```
+Pre-registered counter: `c cand-order` `rotated` > 0 for Probe AND Backbone on the ON arm and exactly 0 on the
+OFF arm. Ship criterion: **#solved not worse on either tier and PAR-2 no worse than the 6.72 noise floor on
+both**, with the may-not-gate set excluded from deciding alone. A per-rule follow-up (cursor on Probe only,
+Backbone only) is worth running ONLY if the pair moves — three arms per tier otherwise buys noise.
 
 ### 2026-08-05 — SCHED-C8: BVE learns ITE + XOR gates, closing `SP-BVE-GATE-1` (UNPRICED, A/B specced)
 
