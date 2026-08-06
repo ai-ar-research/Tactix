@@ -49,7 +49,16 @@ for emitter in "$@"; do
     if [ -x "$LRAT_CHECK" ]; then
       "$LRAT_CHECK" "$cnf" "$base.lrat" > "$T/check" 2>&1 \
         || { echo "FAIL: LRAT of $cnf rejected"; cat "$T/check"; exit 1; }
-      grep -qi 'verif' "$T/check" \
+      # Test the REJECTION first. lrat-check prints `c VERIFIED` on success and
+      # `c NOT VERIFIED` on rejection, so a substring test for `verif` matches
+      # BOTH and turns every rejection into a pass — the same predicate defect
+      # that made the fuzz harness's native-LRAT oracle vacuous for the
+      # project's whole history. Here it was masked by lrat-check's exit status
+      # above; masked is not fixed.
+      if grep -qi 'not verified' "$T/check"; then
+        echo "FAIL: lrat-check REJECTED the LRAT of $cnf"; cat "$T/check"; exit 1
+      fi
+      grep -qi 'verified' "$T/check" \
         || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
     fi
     cases=$((cases + 1))

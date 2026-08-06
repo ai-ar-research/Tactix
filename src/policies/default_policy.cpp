@@ -955,27 +955,10 @@ Lit DefaultBranching::pick(Kernel &k) {
 // decide — with Reduce/SwitchMode/Restart/Rephase/inprocessing scheduled
 // between conflicts (in kissat search.c's check order) by THIS policy's
 // state. Rules carry no scheduling of their own.
-int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
-  KernelStopPublisher stop_published(k, stop);
-  if (const char *cl = std::getenv("TACTIX_CHRONO_LEVELS")) {
-    const long n = std::strtol(cl, nullptr, 10);
-    if (n >= 0)
-      chrono_levels = static_cast<uint32_t>(n);
-  }
-  if (k.inconsistent)
-    return 20;
-  // DefaultPolicy is a GUIDED policy — it reads `H` directly. The kernel does
-  // not own `H`: if the caller (the session — API/main) attached one, use it
-  // (so incremental state + the stepping surface persist); otherwise bring our
-  // OWN for this solve, sized to the parsed formula, so that a bare
-  // `default_solve(k)` works. This is the "policy owns its guidance" model
-  // (plan §5). Sizing a fresh `H` to `k.nvars` here is bit-identical to having
-  // had `H` since parse (same index-order VMTF queue, zero scores, positive
-  // saved phases).
-  std::optional<ScopedHeuristics> owned_h;
-  if (!k.h)
-    owned_h.emplace(k);
-  solves++;
+// The env-arm ingestion half of solve(): every A/B knob DefaultPolicy owns,
+// read once per solve. Split out of solve() verbatim and in order — several
+// arms below depend on being read before reset_schedule re-bases the limits.
+void DefaultPolicy::configure_from_env() {
   // A/B knob: TACTIX_FORCE_MODE=focused|stable (0 = off; see the
   // SwitchMode decline below). Read once — the check sits on the CDCL
   // outer loop.
@@ -1028,260 +1011,296 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   reduce_sqrt_ = cad ? !std::strcmp(cad, "sqrt") : both;
   default_reduction_.ramp = rmp ? (rmp[0] == '1') : both;
   dynamic_tiers_ = std::getenv("TACTIX_NO_DYNAMIC_TIERS") == nullptr;
+}
+
+// The inprocessing-slot construction half of solve(): membership from the
+// registry, order from the authored table, per-entry dosing from EFFORT_SPECS,
+// and the knobs that pose any of the three. Split out of solve() verbatim; it
+// runs once per solve and must run AFTER configure_from_env + reset_schedule —
+// the first inprocessing limit needs the ingested formula's size (kissat inits
+// limits after parsing; INIT_CONFLICT_LIMIT(eliminate, true) is likewise
+// size-scaled).
+void DefaultPolicy::build_inprocess_slot(Kernel &k) {
+  // the slot: registry-driven (RuleTier::Inprocess), registry order;
+  // composition per default_policy.hpp. A preposed (nonempty) slot is
+  // left untouched — to run nothing, prepose disabled entries, not an
+  // empty vector
+  if (inprocess_slot.empty()) {
+    // The composition (kissat's, effort-scheduler design §4.4): EVERY
+    // Inprocess-tier rule is enabled, the probing family included, and BVE
+    // is the only entry deferred out of the conflicts==0 preprocessing
+    // phase (kissat fastel=0) so its doses land on a formula probing has
+    // already simplified. Slot ORDER is the authored list
+    // (AUTHORED_SLOT_ORDER); membership is still derived from the registry,
+    // so a newly registered rule joins without editing this function.
+    const std::vector<RuleVTable> &rules = tactix_rules();
+    // TACTIX_NO_BVE / TACTIX_NO_FACTOR: the two named ablation knobs, kept
+    // because each rule has a standing open investigation (BVE's bimodal
+    // per-instance behaviour; Factor's effect on proof-checking cost).
+    // Disabling a rule is always sound; unset, the slot is byte-identical
+    // to the default composition.
+    const bool bve_off = std::getenv("TACTIX_NO_BVE") != nullptr;
+    const bool factor_off = std::getenv("TACTIX_NO_FACTOR") != nullptr;
+    // TACTIX_SLOT_ENABLE / TACTIX_SLOT_DISABLE: comma-separated rule names
+    // added to / removed from the default composition. Disabling a rule is
+    // always sound; enabling one poses the same composition the phase-6
+    // arm surface will pose via the API. Unset ⇒ byte-identical default.
+    const auto env_list = [](const char *var, const char *nm) {
+      const char *s = std::getenv(var);
+      if (!s)
+        return false;
+      const size_t n = std::strlen(nm);
+      for (const char *p = s; (p = std::strstr(p, nm)); p += n)
+        if ((p == s || p[-1] == ',') && (p[n] == '\0' || p[n] == ','))
+          return true;
+      return false;
+    };
+    const auto add_entry = [&](int i) {
+      {
+        const char *nm = rules[i].name;
+        // BASELINE: every implemented proof rule ships scheduled. A rule-off
+        // arm is a diagnostic for a SCHEDULING defect, never a shipped
+        // default — so nothing here may default a rule to off. The two named
+        // ablation knobs + the slot-surgery lists are the whole A/B surface
+        // (the same overrides presets and the phase-6 learner use).
+        bool on = !(bve_off && !std::strcmp(nm, "BVE")) &&
+                  !(factor_off && !std::strcmp(nm, "Factor"));
+        if (env_list("TACTIX_SLOT_ENABLE", nm))
+          on = true;
+        if (env_list("TACTIX_SLOT_DISABLE", nm))
+          on = false;
+        SlotEntry e;
+        e.defer_preprocess = !std::strcmp(nm, "BVE");
+        e.rule = i;
+        e.enabled = on;
+        // Which clock offers this entry its occasions. Read from the authored
+        // table by NAME, so it is independent of the order arm below: the
+        // legacy-order arm still runs the two clocks, which is what makes D1
+        // and D2 separately priceable. An unauthored rule keeps SlotEntry's
+        // default (the probing clock); test_scheduling fails the build before
+        // that can happen silently.
+        {
+          size_t norder = 0;
+          const SlotOrderRow *order = default_slot_order(&norder);
+          for (size_t o = 0; o < norder; o++)
+            if (!std::strcmp(order[o].name, nm)) {
+              e.group = order[o].group;
+              break;
+            }
+        }
+        // A rule with NO ledger row is un-titratable by construction, so it
+        // is closure-gated by default; a rule WITH one says so explicitly.
+        // Reading the flag this way keeps Substitute (no row) on the
+        // watermark + delay path that used to be spelled `!e.meter`.
+        e.closure = true;
+        if (const EffortSpec *s = effort_spec(nm)) {
+          e.closure = s->closure;
+          e.permille = s->permille;
+          e.meter = s->meter;
+          e.tick_counter = s->tick_counter;
+          e.thresh = s->thresh;
+          e.dosed = s->dosed;
+          e.retry_advice = s->retry_advice;
+          e.budget_aware = s->budget_aware;
+          e.max_delta = s->max_delta;
+          e.active_floor = s->active_floor;
+          // TACTIX_SLOT_PERMILLE=Name:rate[,Name:rate...] (DIAGNOSTIC sweep
+          // knob, the shape TACTIX_WALK_PERMILLE has): override a slot
+          // entry's effort rate without a rebuild. "How hard to run rule X"
+          // is a plan §5.6 dosing question the phase-6 learner is meant to
+          // subsume; sweeping one needs the whole tier in ONE window, which
+          // is only affordable as an env arm.
+          if (const char *pm = std::getenv("TACTIX_SLOT_PERMILLE")) {
+            const size_t n = std::strlen(nm);
+            for (const char *p = pm; (p = std::strstr(p, nm)); p += n)
+              if ((p == pm || p[-1] == ',') && p[n] == ':') {
+                e.permille = static_cast<uint32_t>(strtoul(p + n + 1, nullptr, 10));
+                break;
+              }
+          }
+        }
+        // TACTIX_SLOT_MAX_APPLIES=Name:N (DIAGNOSTIC, same shape): cap how
+        // many phases may schedule this entry. Parsed for EVERY entry, not
+        // just those with an EffortSpec, because the cap is about rounds and
+        // an unmetered entry has rounds too.
+        if (const char *mx = std::getenv("TACTIX_SLOT_MAX_APPLIES")) {
+          const size_t n = std::strlen(nm);
+          for (const char *p = mx; (p = std::strstr(p, nm)); p += n)
+            if ((p == mx || p[-1] == ',') && p[n] == ':') {
+              e.max_applies =
+                  static_cast<uint32_t>(strtoul(p + n + 1, nullptr, 10));
+              break;
+            }
+        }
+        // --- candidate order + resumption cursor (SCHED-E1/E2) ------------
+        // Cursor default: ON for the DOSED entries whose enumeration is in
+        // KEY order, OFF for BVE (see SlotEntry::cursor for both halves of
+        // the argument). Order arm default: Native everywhere, and it stays
+        // there until an A/B moves it.
+        if (e.dosed)
+          e.cursor_enabled = std::strcmp(nm, "BVE") != 0;
+        // One knob PER RULE, spelled from the registry name so a newly dosed
+        // rule gets its own without editing a list here:
+        // TACTIX_CURSOR_<RULENAME> / TACTIX_ORDER_<RULENAME>, upper-cased.
+        // Priced separately is the point — an ordering bundle cannot be
+        // attributed to a rule.
+        char knob[96];
+        const auto knob_name = [&knob](const char *prefix,
+                                       const char *name) {
+          size_t p = 0;
+          for (const char *s = prefix; *s && p + 1 < sizeof knob; s++)
+            knob[p++] = *s;
+          for (const char *s = name; *s && p + 1 < sizeof knob; s++)
+            knob[p++] = static_cast<char>(
+                std::toupper(static_cast<unsigned char>(*s)));
+          knob[p] = '\0';
+        };
+        // A knob that CANNOT take effect aborts rather than being ignored:
+        // an arm silently set on an entry the policy never orders is exactly
+        // the vacuous-A/B failure mode.
+        const auto reject = [&knob](const char *why) {
+          std::fprintf(stderr, "c ERROR: %s: %s\n", knob, why);
+          std::abort();
+        };
+        knob_name("TACTIX_CURSOR_", nm);
+        if (const char *cv = std::getenv(knob)) {
+          if (!e.dosed)
+            reject("this entry runs as a canonical batch round, so the "
+                   "policy never walks its candidates and a cursor cannot "
+                   "take effect");
+          e.cursor_enabled = std::strtoul(cv, nullptr, 10) != 0;
+        }
+        // --- the effort CEILING (SCHED-E3 / ledger SP-EFFORT-CEIL-1) ------
+        // `TACTIX_EFFORT_CEIL=0` drops every ceiling (the A/B off arm);
+        // `TACTIX_MAXEFF_<RULENAME>=N` sets one entry's, including on an
+        // entry that has none by default. A deliberately SMALL value is how
+        // the mechanism is shown to be wired at all when the shipped
+        // constants turn out not to bind.
+        if (const char *ec = std::getenv("TACTIX_EFFORT_CEIL"))
+          if (std::strtoul(ec, nullptr, 10) == 0)
+            e.max_delta = 0;
+        knob_name("TACTIX_MAXEFF_", nm);
+        if (const char *mv = std::getenv(knob)) {
+          if (!e.meter)
+            reject("this entry has no meter, so it has no delta to clamp");
+          e.max_delta = std::strtoull(mv, nullptr, 10);
+        }
+        knob_name("TACTIX_ORDER_", nm);
+        if (const char *ov = std::getenv(knob)) {
+          if (!e.dosed)
+            reject("this entry runs as a canonical batch round, so the "
+                   "policy never sees its candidate list and an order arm "
+                   "cannot take effect");
+          if (!parse_candidate_order(ov, &e.order))
+            reject("unknown candidate-order arm (native, reverse, random, "
+                   "occ-asc, occ-desc, negocc-desc, heuristic)");
+        }
+        inprocess_slot.push_back(e);
+      }
+    };
+    // PHASE ORDER. Default: the authored list, walked in order; any
+    // Inprocess-tier rule it does not name is appended in registry order so a
+    // newly registered rule is scheduled rather than silently dropped (give
+    // it an authored position — the append is a safety net, not the design).
+    //
+    // TACTIX_SLOT_ORDER=legacy restores the pre-authored order — registry
+    // (strcmp on rule names) order with BVE and then Factor moved to the
+    // back. It is the A/B arm for the authored order and nothing else.
+    const char *order_env = std::getenv("TACTIX_SLOT_ORDER");
+    slot_order_legacy_ = order_env && !std::strcmp(order_env, "legacy");
+    // The two clock arms (see the SlotClock block). Read here so all three
+    // scheduling knobs are set in one place and none can be read twice with
+    // different answers.
+    if (const char *cl = std::getenv("TACTIX_SLOT_CLOCKS"))
+      slot_clocks_split_ = std::strtoul(cl, nullptr, 10) != 1;
+    if (const char *wm = std::getenv("TACTIX_SLOT_WATERMARK"))
+      slot_watermark_ = std::strtoul(wm, nullptr, 10) != 0;
+    if (slot_order_legacy_) {
+      for (int i = 0; i < static_cast<int>(rules.size()); i++)
+        if (rules[i].tier == RuleTier::Inprocess)
+          add_entry(i);
+      const auto move_to_back = [this](const char *name) {
+        const std::vector<RuleVTable> &rr = tactix_rules();
+        for (size_t j = 0; j < inprocess_slot.size(); j++)
+          if (!std::strcmp(rr[inprocess_slot[j].rule].name, name)) {
+            const SlotEntry e = inprocess_slot[j];
+            inprocess_slot.erase(inprocess_slot.begin() + j);
+            inprocess_slot.push_back(e);
+            break;
+          }
+      };
+      move_to_back("BVE");
+      move_to_back("Factor");
+    } else {
+      size_t norder = 0;
+      const SlotOrderRow *order = default_slot_order(&norder);
+      std::vector<bool> placed(rules.size(), false);
+      for (size_t o = 0; o < norder; o++)
+        for (int i = 0; i < static_cast<int>(rules.size()); i++)
+          if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
+              !std::strcmp(rules[i].name, order[o].name)) {
+            placed[i] = true;
+            add_entry(i);
+            break;
+          }
+      for (int i = 0; i < static_cast<int>(rules.size()); i++)
+        if (rules[i].tier == RuleTier::Inprocess && !placed[i])
+          add_entry(i);
+    }
+    // Hand the built-in ranker the per-rule arms the knobs selected. It is
+    // indexed by registry id so ONE object serves every entry — the shape
+    // the §5.6 learner needs, which holds one arm per rule.
+    default_candidate_order_.arms.assign(rules.size(),
+                                         CandidateOrder::Native);
+    for (const SlotEntry &se : inprocess_slot)
+      default_candidate_order_.arms[se.rule] = se.order;
+  }
+  if (!inprocess.initialized) {
+    inprocess.initialized = true;
+    // Preprocess: BOTH clocks fire at conflicts=0, before any search state
+    // exists, so simplification never perturbs an in-progress SAT search (the
+    // SAT-safety finding). The probing phase runs first and the elimination
+    // phase immediately after it, which is the reference arrangement —
+    // kissat probe_initially then eliminate, cadical inprobe then elim.
+    probe_clock.next_conflicts = k.stats.conflicts;
+    elim_clock.next_conflicts = k.stats.conflicts;
+  }
+}
+
+int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
+  KernelStopPublisher stop_published(k, stop);
+  if (const char *cl = std::getenv("TACTIX_CHRONO_LEVELS")) {
+    const long n = std::strtol(cl, nullptr, 10);
+    if (n >= 0)
+      chrono_levels = static_cast<uint32_t>(n);
+  }
+  // Random-decision sequences ship ON (kissat's `randec=1`); `=0` is the OFF
+  // arm. The field was initialised true and never assigned by anything, so the
+  // feature had no off arm and could not be priced at all — a knob nothing can
+  // toggle is not a shipped default, it is an unmeasured one.
+  if (const char *rd = std::getenv("TACTIX_RANDEC"))
+    default_branching_.randec_enabled = (*rd != '0');
+  if (k.inconsistent)
+    return 20;
+  // DefaultPolicy is a GUIDED policy — it reads `H` directly. The kernel does
+  // not own `H`: if the caller (the session — API/main) attached one, use it
+  // (so incremental state + the stepping surface persist); otherwise bring our
+  // OWN for this solve, sized to the parsed formula, so that a bare
+  // `default_solve(k)` works. This is the "policy owns its guidance" model
+  // (plan §5). Sizing a fresh `H` to `k.nvars` here is bit-identical to having
+  // had `H` since parse (same index-order VMTF queue, zero scores, positive
+  // saved phases).
+  std::optional<ScopedHeuristics> owned_h;
+  if (!k.h)
+    owned_h.emplace(k);
+  solves++;
+  configure_from_env();
   // Per-SOLVE scheduling state (SCHED-H2), AFTER the env arms above because
   // two of the re-based limits depend on them. A reused policy object must be
   // indistinguishable from a fresh one — see reset_schedule.
   if (reset_schedule_per_solve)
     reset_schedule(k);
-  // the first inprocessing limit needs the ingested formula's size
-  // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
-  // true) is likewise size-scaled)
-  {
-    // the slot: registry-driven (RuleTier::Inprocess), registry order;
-    // composition per default_policy.hpp. A preposed (nonempty) slot is
-    // left untouched — to run nothing, prepose disabled entries, not an
-    // empty vector
-    if (inprocess_slot.empty()) {
-      // The composition (kissat's, effort-scheduler design §4.4): EVERY
-      // Inprocess-tier rule is enabled, the probing family included, and BVE
-      // is the only entry deferred out of the conflicts==0 preprocessing
-      // phase (kissat fastel=0) so its doses land on a formula probing has
-      // already simplified. Slot ORDER is the authored list
-      // (AUTHORED_SLOT_ORDER); membership is still derived from the registry,
-      // so a newly registered rule joins without editing this function.
-      const std::vector<RuleVTable> &rules = tactix_rules();
-      // TACTIX_NO_BVE / TACTIX_NO_FACTOR: the two named ablation knobs, kept
-      // because each rule has a standing open investigation (BVE's bimodal
-      // per-instance behaviour; Factor's effect on proof-checking cost).
-      // Disabling a rule is always sound; unset, the slot is byte-identical
-      // to the default composition.
-      const bool bve_off = std::getenv("TACTIX_NO_BVE") != nullptr;
-      const bool factor_off = std::getenv("TACTIX_NO_FACTOR") != nullptr;
-      // TACTIX_SLOT_ENABLE / TACTIX_SLOT_DISABLE: comma-separated rule names
-      // added to / removed from the default composition. Disabling a rule is
-      // always sound; enabling one poses the same composition the phase-6
-      // arm surface will pose via the API. Unset ⇒ byte-identical default.
-      const auto env_list = [](const char *var, const char *nm) {
-        const char *s = std::getenv(var);
-        if (!s)
-          return false;
-        const size_t n = std::strlen(nm);
-        for (const char *p = s; (p = std::strstr(p, nm)); p += n)
-          if ((p == s || p[-1] == ',') && (p[n] == '\0' || p[n] == ','))
-            return true;
-        return false;
-      };
-      const auto add_entry = [&](int i) {
-        {
-          const char *nm = rules[i].name;
-          // BASELINE: every implemented proof rule ships scheduled. A rule-off
-          // arm is a diagnostic for a SCHEDULING defect, never a shipped
-          // default — so nothing here may default a rule to off. The two named
-          // ablation knobs + the slot-surgery lists are the whole A/B surface
-          // (the same overrides presets and the phase-6 learner use).
-          bool on = !(bve_off && !std::strcmp(nm, "BVE")) &&
-                    !(factor_off && !std::strcmp(nm, "Factor"));
-          if (env_list("TACTIX_SLOT_ENABLE", nm))
-            on = true;
-          if (env_list("TACTIX_SLOT_DISABLE", nm))
-            on = false;
-          SlotEntry e;
-          e.defer_preprocess = !std::strcmp(nm, "BVE");
-          e.rule = i;
-          e.enabled = on;
-          // Which clock offers this entry its occasions. Read from the authored
-          // table by NAME, so it is independent of the order arm below: the
-          // legacy-order arm still runs the two clocks, which is what makes D1
-          // and D2 separately priceable. An unauthored rule keeps SlotEntry's
-          // default (the probing clock); test_scheduling fails the build before
-          // that can happen silently.
-          {
-            size_t norder = 0;
-            const SlotOrderRow *order = default_slot_order(&norder);
-            for (size_t o = 0; o < norder; o++)
-              if (!std::strcmp(order[o].name, nm)) {
-                e.group = order[o].group;
-                break;
-              }
-          }
-          // A rule with NO ledger row is un-titratable by construction, so it
-          // is closure-gated by default; a rule WITH one says so explicitly.
-          // Reading the flag this way keeps Substitute (no row) on the
-          // watermark + delay path that used to be spelled `!e.meter`.
-          e.closure = true;
-          if (const EffortSpec *s = effort_spec(nm)) {
-            e.closure = s->closure;
-            e.permille = s->permille;
-            e.meter = s->meter;
-            e.tick_counter = s->tick_counter;
-            e.thresh = s->thresh;
-            e.dosed = s->dosed;
-            e.retry_advice = s->retry_advice;
-            e.budget_aware = s->budget_aware;
-            e.max_delta = s->max_delta;
-            e.active_floor = s->active_floor;
-            // TACTIX_SLOT_PERMILLE=Name:rate[,Name:rate...] (DIAGNOSTIC sweep
-            // knob, the shape TACTIX_WALK_PERMILLE has): override a slot
-            // entry's effort rate without a rebuild. "How hard to run rule X"
-            // is a plan §5.6 dosing question the phase-6 learner is meant to
-            // subsume; sweeping one needs the whole tier in ONE window, which
-            // is only affordable as an env arm.
-            if (const char *pm = std::getenv("TACTIX_SLOT_PERMILLE")) {
-              const size_t n = std::strlen(nm);
-              for (const char *p = pm; (p = std::strstr(p, nm)); p += n)
-                if ((p == pm || p[-1] == ',') && p[n] == ':') {
-                  e.permille = static_cast<uint32_t>(strtoul(p + n + 1, nullptr, 10));
-                  break;
-                }
-            }
-          }
-          // TACTIX_SLOT_MAX_APPLIES=Name:N (DIAGNOSTIC, same shape): cap how
-          // many phases may schedule this entry. Parsed for EVERY entry, not
-          // just those with an EffortSpec, because the cap is about rounds and
-          // an unmetered entry has rounds too.
-          if (const char *mx = std::getenv("TACTIX_SLOT_MAX_APPLIES")) {
-            const size_t n = std::strlen(nm);
-            for (const char *p = mx; (p = std::strstr(p, nm)); p += n)
-              if ((p == mx || p[-1] == ',') && p[n] == ':') {
-                e.max_applies =
-                    static_cast<uint32_t>(strtoul(p + n + 1, nullptr, 10));
-                break;
-              }
-          }
-          // --- candidate order + resumption cursor (SCHED-E1/E2) ------------
-          // Cursor default: ON for the DOSED entries whose enumeration is in
-          // KEY order, OFF for BVE (see SlotEntry::cursor for both halves of
-          // the argument). Order arm default: Native everywhere, and it stays
-          // there until an A/B moves it.
-          if (e.dosed)
-            e.cursor_enabled = std::strcmp(nm, "BVE") != 0;
-          // One knob PER RULE, spelled from the registry name so a newly dosed
-          // rule gets its own without editing a list here:
-          // TACTIX_CURSOR_<RULENAME> / TACTIX_ORDER_<RULENAME>, upper-cased.
-          // Priced separately is the point — an ordering bundle cannot be
-          // attributed to a rule.
-          char knob[96];
-          const auto knob_name = [&knob](const char *prefix,
-                                         const char *name) {
-            size_t p = 0;
-            for (const char *s = prefix; *s && p + 1 < sizeof knob; s++)
-              knob[p++] = *s;
-            for (const char *s = name; *s && p + 1 < sizeof knob; s++)
-              knob[p++] = static_cast<char>(
-                  std::toupper(static_cast<unsigned char>(*s)));
-            knob[p] = '\0';
-          };
-          // A knob that CANNOT take effect aborts rather than being ignored:
-          // an arm silently set on an entry the policy never orders is exactly
-          // the vacuous-A/B failure mode.
-          const auto reject = [&knob](const char *why) {
-            std::fprintf(stderr, "c ERROR: %s: %s\n", knob, why);
-            std::abort();
-          };
-          knob_name("TACTIX_CURSOR_", nm);
-          if (const char *cv = std::getenv(knob)) {
-            if (!e.dosed)
-              reject("this entry runs as a canonical batch round, so the "
-                     "policy never walks its candidates and a cursor cannot "
-                     "take effect");
-            e.cursor_enabled = std::strtoul(cv, nullptr, 10) != 0;
-          }
-          // --- the effort CEILING (SCHED-E3 / ledger SP-EFFORT-CEIL-1) ------
-          // `TACTIX_EFFORT_CEIL=0` drops every ceiling (the A/B off arm);
-          // `TACTIX_MAXEFF_<RULENAME>=N` sets one entry's, including on an
-          // entry that has none by default. A deliberately SMALL value is how
-          // the mechanism is shown to be wired at all when the shipped
-          // constants turn out not to bind.
-          if (const char *ec = std::getenv("TACTIX_EFFORT_CEIL"))
-            if (std::strtoul(ec, nullptr, 10) == 0)
-              e.max_delta = 0;
-          knob_name("TACTIX_MAXEFF_", nm);
-          if (const char *mv = std::getenv(knob)) {
-            if (!e.meter)
-              reject("this entry has no meter, so it has no delta to clamp");
-            e.max_delta = std::strtoull(mv, nullptr, 10);
-          }
-          knob_name("TACTIX_ORDER_", nm);
-          if (const char *ov = std::getenv(knob)) {
-            if (!e.dosed)
-              reject("this entry runs as a canonical batch round, so the "
-                     "policy never sees its candidate list and an order arm "
-                     "cannot take effect");
-            if (!parse_candidate_order(ov, &e.order))
-              reject("unknown candidate-order arm (native, reverse, random, "
-                     "occ-asc, occ-desc, negocc-desc, heuristic)");
-          }
-          inprocess_slot.push_back(e);
-        }
-      };
-      // PHASE ORDER. Default: the authored list, walked in order; any
-      // Inprocess-tier rule it does not name is appended in registry order so a
-      // newly registered rule is scheduled rather than silently dropped (give
-      // it an authored position — the append is a safety net, not the design).
-      //
-      // TACTIX_SLOT_ORDER=legacy restores the pre-authored order — registry
-      // (strcmp on rule names) order with BVE and then Factor moved to the
-      // back. It is the A/B arm for the authored order and nothing else.
-      const char *order_env = std::getenv("TACTIX_SLOT_ORDER");
-      slot_order_legacy_ = order_env && !std::strcmp(order_env, "legacy");
-      // The two clock arms (see the SlotClock block). Read here so all three
-      // scheduling knobs are set in one place and none can be read twice with
-      // different answers.
-      if (const char *cl = std::getenv("TACTIX_SLOT_CLOCKS"))
-        slot_clocks_split_ = std::strtoul(cl, nullptr, 10) != 1;
-      if (const char *wm = std::getenv("TACTIX_SLOT_WATERMARK"))
-        slot_watermark_ = std::strtoul(wm, nullptr, 10) != 0;
-      if (slot_order_legacy_) {
-        for (int i = 0; i < static_cast<int>(rules.size()); i++)
-          if (rules[i].tier == RuleTier::Inprocess)
-            add_entry(i);
-        const auto move_to_back = [this](const char *name) {
-          const std::vector<RuleVTable> &rr = tactix_rules();
-          for (size_t j = 0; j < inprocess_slot.size(); j++)
-            if (!std::strcmp(rr[inprocess_slot[j].rule].name, name)) {
-              const SlotEntry e = inprocess_slot[j];
-              inprocess_slot.erase(inprocess_slot.begin() + j);
-              inprocess_slot.push_back(e);
-              break;
-            }
-        };
-        move_to_back("BVE");
-        move_to_back("Factor");
-      } else {
-        size_t norder = 0;
-        const SlotOrderRow *order = default_slot_order(&norder);
-        std::vector<bool> placed(rules.size(), false);
-        for (size_t o = 0; o < norder; o++)
-          for (int i = 0; i < static_cast<int>(rules.size()); i++)
-            if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
-                !std::strcmp(rules[i].name, order[o].name)) {
-              placed[i] = true;
-              add_entry(i);
-              break;
-            }
-        for (int i = 0; i < static_cast<int>(rules.size()); i++)
-          if (rules[i].tier == RuleTier::Inprocess && !placed[i])
-            add_entry(i);
-      }
-      // Hand the built-in ranker the per-rule arms the knobs selected. It is
-      // indexed by registry id so ONE object serves every entry — the shape
-      // the §5.6 learner needs, which holds one arm per rule.
-      default_candidate_order_.arms.assign(rules.size(),
-                                           CandidateOrder::Native);
-      for (const SlotEntry &se : inprocess_slot)
-        default_candidate_order_.arms[se.rule] = se.order;
-    }
-    if (!inprocess.initialized) {
-      inprocess.initialized = true;
-      // Preprocess: BOTH clocks fire at conflicts=0, before any search state
-      // exists, so simplification never perturbs an in-progress SAT search (the
-      // SAT-safety finding). The probing phase runs first and the elimination
-      // phase immediately after it, which is the reference arrangement —
-      // kissat probe_initially then eliminate, cadical inprobe then elim.
-      probe_clock.next_conflicts = k.stats.conflicts;
-      elim_clock.next_conflicts = k.stats.conflicts;
-    }
-  }
+  build_inprocess_slot(k);
   bool lucky_tried = false;
   for (;;) {
     const ApplyResult r = propagate_apply(k);
@@ -2435,12 +2454,12 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
     const uint64_t declined =
         t.dec_disabled + t.dec_cap + t.dec_preprocess + t.dec_guard +
         t.dec_budget + t.dec_delay + t.dec_material + t.dec_warmup +
-        t.dec_density + t.dec_oneshot + t.dec_nonviable;
+        t.dec_density;
     const char *balance = (t.admitted + declined == t.occasions) ? "" : "  ***UNACCOUNTED***";
     std::printf(
         "c slot %-18s occ %6llu adm %5llu ok %5llu | dec dis %llu cap %llu "
         "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu dns %llu "
-        "one %llu nv %llu | handed %llu spent %llu completed %llu | "
+        "| handed %llu spent %llu completed %llu | "
         "maxeff %llu clamped %llu floored %llu wrapped %llu%s\n",
         rules[e.rule].name, (unsigned long long)t.occasions,
         (unsigned long long)t.admitted, (unsigned long long)t.ok,
@@ -2448,8 +2467,7 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
         (unsigned long long)t.dec_preprocess, (unsigned long long)t.dec_guard,
         (unsigned long long)t.dec_budget, (unsigned long long)t.dec_delay,
         (unsigned long long)t.dec_material, (unsigned long long)t.dec_warmup,
-        (unsigned long long)t.dec_density, (unsigned long long)t.dec_oneshot,
-        (unsigned long long)t.dec_nonviable, (unsigned long long)t.handed,
+        (unsigned long long)t.dec_density, (unsigned long long)t.handed,
         (unsigned long long)t.spent, (unsigned long long)t.completed,
         (unsigned long long)e.max_delta, (unsigned long long)t.clamped,
         (unsigned long long)t.floored, (unsigned long long)t.wrapped, balance);

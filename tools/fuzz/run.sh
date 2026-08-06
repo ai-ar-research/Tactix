@@ -32,7 +32,13 @@ if [ -z "$ORACLE" ]; then
 fi
 
 echo "== regression corpus =="
-python3 "$HERE/fuzz.py" corpus --solver "$SOLVER" --oracle "$ORACLE"
+# The corpus gets a REAL budget, not the 5 s case default: its entries are
+# shrunk-but-not-tiny (the largest is ~900 clauses) and a sanitized build is
+# slow, and since a replay that does not reach a verdict re-runs no oracle,
+# fuzz.py counts that as a failure rather than a pass. Raise this, or pass
+# --allow-nonterminating with a reason, before weakening either side.
+python3 "$HERE/fuzz.py" corpus --solver "$SOLVER" --oracle "$ORACLE" \
+    --timeout 60
 
 echo "== fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
 python3 "$HERE/fuzz.py" run --solver "$SOLVER" --oracle "$ORACLE" --n "$N" \

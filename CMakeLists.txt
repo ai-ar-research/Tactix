@@ -60,6 +60,9 @@ add_library(tactix_lib OBJECT
   src/policies/sweep_stress_policy.cpp
   src/policies/cce_stress_policy.cpp
   src/policies/walk_stress_policy.cpp
+  src/policies/bce_stress_policy.cpp
+  src/policies/substitute_stress_policy.cpp
+  src/policies/stress_registry.cpp
   src/frontend/parse.cpp
   src/api/api.cpp
 )
