@@ -288,6 +288,7 @@ uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks; }
+uint64_t meter_congruence(const Kernel &k) { return k.stats.congruence_ticks; }
 
 // name -> {effort per mille, currency, dosed}. Fractions are kissat's
 // options.h defaults (eliminateeffort/forwardeffort/vivifyeffort 100,
@@ -329,6 +330,14 @@ struct EffortSpec {
   // only the entries matching cadical's PROPAGATIONS scheme carry one.
   uint64_t max_delta = 0; // 0 = no ceiling
   bool active_floor = false;
+  // A whole-formula CLOSURE: one canonical pass, no instance surface, and its
+  // repetition is governed by the new-material watermark + the closure delay
+  // ladder in the slot loop. Orthogonal to metering — Congruence is BOTH
+  // (SCHED-G1): the ledger bounds how much ONE round does, the watermark and
+  // the ladder bound how often a round starts, and neither substitutes for the
+  // other. Substitute has no row at all and reaches the same two declines
+  // through `SlotEntry::closure`'s no-row default.
+  bool closure = false;
 };
 // INVARIANT: merely registering a rule at RuleTier::Inprocess puts it in the
 // slot, so a rule that can be metered needs an entry here — without one it runs
@@ -410,6 +419,24 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // budget_aware: a round builds one environment per seed, so dosing it per
     // instance would rebuild that environment every time.
     {"Sweep", 100, meter_sweep, false, false, true},
+    // Congruence (SCHED-G1). NO reference schedule backs the share: kissat
+    // runs `congruence` with no effort limit at all (congruence.c has no
+    // SET_EFFORT_LIMIT and options.h ships no `congruenceeffort`), so — like
+    // BCE's 20 — this is ours, and it exists because OUR round is not the
+    // reference's. Measured on `tierC/T105.2.0`: 17 rounds, 8.25 s each,
+    // 140 s = 47 % of a 300 s solve, 77.7 M gates for 3,756 merges and 12
+    // units, with rounds 2..17 contributing ~950 of those merges.
+    // 100 per mille = the heavyweight-simplifier tier (Vivify/BVE/Sweep), and
+    // the FIRST round per solve bypasses it entirely (see set_entry_limit):
+    // the profile says the opening round is where the value is — on
+    // `tierB/hwmcc17miters` ONE 2.97 s round yields 710,722 merges and
+    // refutes the instance — so the budget must bound REPETITION, never the
+    // opening pass. BATCH + budget_aware: the round builds one clause index
+    // and one union-find, so there is nothing to dose per instance; it polls
+    // Kernel::work_budget in `congruence_ticks` and stops. `closure` keeps it
+    // on the watermark + delay-ladder path as well.
+    {"Congruence", 100, meter_congruence, false, false, true, nullptr, 0, 0,
+     false, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -887,6 +914,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   factor_init_ticks_ = FACTOR_INIT_TICKS;
   if (const char *fi = std::getenv("TACTIX_FACTOR_INIT_TICKS"))
     factor_init_ticks_ = std::strtoull(fi, nullptr, 10);
+  congruence_init_ticks_ = CONGRUENCE_INIT_TICKS;
+  if (const char *ci = std::getenv("TACTIX_CONG_INIT_TICKS"))
+    congruence_init_ticks_ = std::strtoull(ci, nullptr, 10);
   bump_reasons_delay_ = {};
   // Reduce-cadence arm: kissat's √ interval + ramped fraction (reduceinit
   // 1000 is its first limit, against our 2000). The CADENCE and the RAMP are
@@ -978,7 +1008,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 break;
               }
           }
+          // A rule with NO ledger row is un-titratable by construction, so it
+          // is closure-gated by default; a rule WITH one says so explicitly.
+          // Reading the flag this way keeps Substitute (no row) on the
+          // watermark + delay path that used to be spelled `!e.meter`.
+          e.closure = true;
           if (const EffortSpec *s = effort_spec(nm)) {
+            e.closure = s->closure;
             e.permille = s->permille;
             e.meter = s->meter;
             e.tick_counter = s->tick_counter;
@@ -1858,11 +1894,14 @@ DefaultPolicy::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
   const bool factor_entry = e.budget_aware && !std::strcmp(r.name, "Factor");
   if (factor_entry && factor_entry_declines(k, e))
     return SlotStep::Next;
-  // In a during-search phase an UNMETERED closure (Congruence / Substitute)
+  // In a during-search phase a CLOSURE entry (Congruence / Substitute)
   // re-runs only on new material since ITS last run. Repeating the full
   // closures every phase is a dominant diffuse Tier C cost; dropping them
-  // entirely loses instances outright.
-  if (!e.meter && k.stats.conflicts > 0 &&
+  // entirely loses instances outright. Keyed on `e.closure`, not on
+  // `!e.meter`: since SCHED-G1 Congruence is metered AND closure-gated, and
+  // the two governors answer different questions (how much one round does vs
+  // how often a round starts).
+  if (e.closure && k.stats.conflicts > 0 &&
       k.binary_ids.size() <= e.binaries_mark &&
       kernel_root_fixed(k) <= e.root_fixed_mark) {
     e.tm.dec_material++;
@@ -1871,7 +1910,7 @@ DefaultPolicy::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
   // Closure delay ladder (see solve entry): consume one delayed occasion AFTER
   // material admission, so the ladder counts real scheduling occasions (kissat
   // kimits delay semantics — same mechanics as vivify's irr ladder).
-  if (closure_delay_ && !e.meter && k.stats.conflicts > 0 &&
+  if (closure_delay_ && e.closure && k.stats.conflicts > 0 &&
       e.delay_count > 0) {
     e.delay_count--;
     e.tm.dec_delay++;
@@ -1898,7 +1937,7 @@ DefaultPolicy::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     TickSinkScope sink(k, e.tick_counter);
     ar = apply_rule(r, k);
   }
-  if (!e.meter) {
+  if (e.closure) {
     e.binaries_mark = k.binary_ids.size();
     e.arena_mark = k.arena.size();
     e.root_fixed_mark = kernel_root_fixed(k);
@@ -2119,6 +2158,13 @@ void DefaultPolicy::set_entry_limit(SlotEntry &e, Kernel &k) {
         if (e.doses == 0 && e.budget_aware &&
             !std::strcmp(rules[e.rule].name, "Factor"))
           e.limit = e.meter(k) + factor_init_ticks_;
+        // Congruence's opening round takes the same shape (SCHED-G1) — the
+        // measured yield curve is even steeper than Factor's, and a ledger
+        // share computed from `search_ticks` is near-zero at conflicts==0,
+        // where the opening congruence round actually runs.
+        if (e.doses == 0 && e.budget_aware &&
+            !std::strcmp(rules[e.rule].name, "Congruence"))
+          e.limit = e.meter(k) + congruence_init_ticks_;
         // TACTIX_BVE_ONESHOT (DIAGNOSTIC): give the first during-search BVE
         // dose Factor's first-dose allowance — effectively unbounded, so the
         // dose runs its whole schedule to completion. The dosed branch in

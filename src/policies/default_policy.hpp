@@ -460,6 +460,13 @@ public:
     // currency and stops mid-round; the policy hands it the remaining ledger
     // budget around r.apply(k) (see EffortSpec in the .cpp).
     bool budget_aware = false;
+    // Whole-formula CLOSURE: no instance surface, so its REPETITION is
+    // governed by the new-material watermark + the closure delay ladder below
+    // rather than by how many candidates a dose may touch. Independent of
+    // metering — Congruence carries both since SCHED-G1, and Substitute (no
+    // EFFORT_SPECS row at all) reaches the same two declines through the
+    // no-row default in the slot build.
+    bool closure = false;
     uint64_t anchor = 0;  // search_ticks when this entry last ran (cadical last.NAME.ticks)
     uint64_t limit = 0;   // meter ceiling, recomputed per occasion (set_entry_limit)
     // Defer this entry out of the conflicts==0 preprocessing phase (kissat
@@ -620,6 +627,14 @@ public:
   // TACTIX_FACTOR_INIT_TICKS (raw ticks).
   static constexpr uint64_t FACTOR_INIT_TICKS = 700000000ull;
   uint64_t factor_init_ticks_ = FACTOR_INIT_TICKS;
+  // Congruence's OPENING round runs unbudgeted (SCHED-G1). Same shape as
+  // Factor's first-dose allowance, and for a measured reason rather than by
+  // analogy: the opening round is where essentially all of the rule's yield
+  // is (`tierB/hwmcc17miters` — one 2.97 s round, 710,722 merges, instance
+  // refuted; `tierC/T105.2.0` — 2,672 of 3,756 merges in round 1 of 17). The
+  // ledger's job here is to bound REPETITION. Arm: TACTIX_CONG_INIT_TICKS.
+  static constexpr uint64_t CONGRUENCE_INIT_TICKS = 1000000000000ull;
+  uint64_t congruence_init_ticks_ = CONGRUENCE_INIT_TICKS;
   // kissat's delay ladder (kimits.c bump/reduce_delay): every round that
   // hits the mark limit doubles the number of conflicts the pass is skipped
   // for, every round that fits halves it. This is what keeps the extra
