@@ -4,7 +4,8 @@
 // materialize — they exist only inside watch lists (their proof ids live
 // in Kernel::binary_ids). Header:
 //   word0  size
-//   word1  bit0 garbage | bit1 redundant | bits2.. glue
+//   word1  bit0 garbage | bit1 redundant | bit2 reason | bits3-7 used
+//          | bit8 vivify | bits9.. glue
 //   word2  searched (index of last replacement-scan position, >= 2)
 //   word3  id_lo   (proof clause id, low word — native LRAT hints;
 //   word4  id_hi    CaDiCaL stores int64 ids the same way)
@@ -42,12 +43,24 @@ struct Clause {
   static constexpr uint32_t USED_BITS = 5;
   static constexpr uint32_t MAX_USED = (1u << USED_BITS) - 1;
   static constexpr uint32_t USED_MASK = MAX_USED << USED_SHIFT;
-  static constexpr uint32_t GLUE_SHIFT = USED_SHIFT + USED_BITS;
+  // Vivify's leftover-priority bit (kissat clause.h `vivify`, cadical
+  // Clause::vivify): set on every clause Vivify schedules, cleared the moment
+  // one is TRIED, so what survives a budget cut is exactly the untried tail and
+  // that tail heads the next round. A PRIORITY mechanism, never a suppressor —
+  // when the leftover set empties, the whole scope is re-armed. Taken from
+  // `glue`'s span: set_glue saturates and glue is bounded by clause size, so 23
+  // bits (8.4M) is as unreachable as 24 was.
+  static constexpr uint32_t VIVIFY = 1u << 8;
+  static constexpr uint32_t GLUE_SHIFT = 9;
   static constexpr uint32_t MAX_GLUE = (1u << (32 - GLUE_SHIFT)) - 1;
 
   bool garbage() const { return flags & GARBAGE; }
   bool redundant() const { return flags & REDUNDANT; }
   bool reason() const { return flags & REASON; }
+  bool vivify() const { return flags & VIVIFY; }
+  void set_vivify(bool v) {
+    flags = v ? (flags | VIVIFY) : (flags & ~VIVIFY);
+  }
   uint32_t glue() const { return flags >> GLUE_SHIFT; }
   uint32_t used() const { return (flags & USED_MASK) >> USED_SHIFT; }
   void set_used(uint32_t u) {

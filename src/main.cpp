@@ -304,6 +304,12 @@ int main(int argc, char **argv) {
     kernel.touch_filter = (*tm != '0');
   if (const char *sh = getenv("TACTIX_SUBSUME_HOLD"))
     kernel.subsume_holds_elim = (*sh != '0');
+  // SCHED-G3: Vivify's cross-candidate trail reuse ships ON. =0 is the A/B off
+  // arm and restores BOTH the per-candidate root return and the pre-G3
+  // probe/candidate order — see Kernel::vivify_reuse for why the two cannot be
+  // separated. Set on the KERNEL so it applies under every policy.
+  if (const char *vr = getenv("TACTIX_VIVIFY_REUSE"))
+    kernel.vivify_reuse = (*vr != '0');
   // SCHED-F6: ships OFF (see Kernel::touch_redundant); =1 is the ON arm, and
   // it is a PRE-REQUISITE arm, not a candidate default -- there is no consumer
   // for the redundant band yet.
@@ -487,6 +493,21 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.vivified,
            (unsigned long long)kernel.stats.vivify_deleted,
            (unsigned long long)kernel.stats.vivify_checked);
+    // SCHED-G3's reachability set (design doc §4). The mechanism can be inert
+    // three independent ways and each has its own number: `reused` 0 = the
+    // trail is never shared, `tier3` 0 = the C10-H3 band is empty, and
+    // `prio`/`rearm` together distinguish "the leftover bit selects a tail"
+    // from "the bit is always all-ones". `polls`/`term` are the H1 pair.
+    printf("c vivify2     %llu reused, %llu probes, %llu full, %llu tier3, "
+           "%llu prio, %llu rearm, %llu polls, %llu term\n",
+           (unsigned long long)kernel.stats.vivify_reused,
+           (unsigned long long)kernel.stats.vivify_probes,
+           (unsigned long long)kernel.stats.vivify_reuse_full,
+           (unsigned long long)kernel.stats.vivify_tier3,
+           (unsigned long long)kernel.stats.vivify_prioritized,
+           (unsigned long long)kernel.stats.vivify_reprioritized,
+           (unsigned long long)kernel.stats.vivify_polls,
+           (unsigned long long)kernel.stats.vivify_terminated);
     printf("c probe       %llu rounds, %llu probed, %llu failed\n",
            (unsigned long long)kernel.stats.probe_rounds,
            (unsigned long long)kernel.stats.probed,
