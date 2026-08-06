@@ -119,6 +119,11 @@ decisive check on the board.
 - **`SCHED-C8` (BVE ITE/XOR gates) A/B is specced and unrun** — arms `--bve-gates=all` vs
   `--bve-gates=equiv,andor`, two pin dirs, pre-flight counter and ship criterion in its Log entry.
   Reachability already proven: `9vliw_bp_mc` reports `306 ite, 16 xor; 6,101,504 resolvent pairs saved`.
+- **`SCHED-G1` (Congruence budget) A/B is specced and unrun** — arms `budget` (shipped) vs `nobudget`
+  = `TACTIX_SLOT_PERMILLE=Congruence:1000000`, optional `share20`; pre-flight = `c congruence … budget
+  stops` non-zero on the shipped arm and exactly 0 on `nobudget`. Full spec in the design doc §7. **The
+  exhibit `T105.2.0` is a Tier C timeout in BOTH arms** — a win shows up elsewhere; do not let the
+  exhibit gate the verdict.
 - **`randec` (SCHED-C7) is UNPRICED and has NO KNOB.** `randec_enabled` (`default_policy.hpp`) is
   initialised true and never assigned. One line in `main.cpp` makes it A/B-able.
 - **C1/C3/C4 have nothing to price** — C1/C3 landed unconditionally, C1's only lever confounds by also
@@ -984,8 +989,37 @@ instrument before spending a tier window on a mechanism.
 
 #### Stage G — the genuine revamps (each needs its own design pass)
 
-- [ ] **SCHED-G1 · Congruence: budget + honest pricing, then the value-driven closure** `[revamp]` — the
-  largest single gap in the project (`congruent_units` 2,231 vs our 14).
+- [x] **SCHED-G1 · Congruence: budget + honest pricing** `[revamp]` — **the metering half is DONE; the
+  value-driven closure is SPLIT OUT to `SCHED-G4` with a diagnosis that changes what it should be.**
+  Design (frozen) `docs/design/2026-08-05-g1-congruence-governor-design.md`; ledger row `SP-CONG-BUDGET-1`.
+  **The A2b headline was stale**: one application is **8.25 s**, not 44 s — but 17 of them are
+  **140,303 ms = 47.1 %** of a 300 s `T105.2.0` solve, still the largest single cost in the codebase.
+  **Profile (`TACTIX_CONG_TIME`, stable to ±2 % across all 17 rounds):** extraction **57 %** — of which
+  **ITE extraction alone is 27 %**, yielding 2,280 gates and **zero merges** on this instance — closure
+  25 % (its table/`occ` half is 19.5 %, four times `canonicalize`), and **gate-vector teardown 16.6 %**
+  (~4.9 M `CongGate`, each owning heap vectors). The old attribution ("extraction plus the index sort")
+  is right about the majority and **misses the teardown and the table half**; **proof emission is
+  0.006 %** and is not a target. **Governor: METERED *and* closure-gated** — 100 ‰, `congruence_ticks`,
+  `budget_aware`, opening round exempt (`CONGRUENCE_INIT_TICKS`, Factor's shape) because the profile
+  says that is where the yield is (`hwmcc17miters`: ONE 2.97 s round, 710,722 merges, instance refuted).
+  `EffortSpec`/`SlotEntry` gain a `closure` flag and the two `!e.meter` declines are re-keyed to it, so
+  the watermark + ladder still bound how OFTEN a round starts while the ledger bounds how much one does;
+  Substitute keeps both through the no-row default. **`T105.2.0`: 47.1 % → 4.4 % of the solve with 72 %
+  of the merges retained.** Conformance table moved ALT → METERED with a third evidence regex, four
+  deliberate breaks re-verified. **Do not quote "44 s" again, and do not quote the 2,231-vs-14 unit gap
+  as a closure weakness — see G4.**
+- [ ] **SCHED-G4 · Congruence's UNIT channel — three mechanisms, not one** `[arch]` — what `SCHED-G1`'s
+  diagnosis found under the 2,231-vs-14 gap. The recorded mechanism ("value-driven closure") is not
+  the explanation on its own: **no merge we accept has a root-assigned participant on any instance
+  measured** (`val_merge` 0 everywhere; `val_gate` 2,071 of 19.06 M items on `T105`). Reading kissat's
+  `kissat_congruence` end to end splits the gap three ways — **(Y1)** `find_units`
+  (`congruence.c:4029-4080`), a binary-watch pre-pass we **do not have at all** (`(l∨o)` + `(l∨¬o)` ⇒
+  `l`; nothing to do with gates; V1 Probe finds these as failed literals but reached 13,686 of 6.19 M
+  literals on `T105`); **(Y2)** the value cascade, which is self-reinforcing and empty for us **because
+  Y1 is what seeds it**; **(Y3)** `find_equivalences`, kissat's binary half — **for us that is V3
+  Substitute**, so part of the 2,231 is an accounting overlap, not a gap. **Do Y3 first: it is free**
+  (re-derive the 2,231 at `--congruencebinaries=0`) and it may shrink the target by most of itself.
+  Y1 is small and one-step RUP; Y2 changes the closure's relationship to `τ` and is the large one.
 - [ ] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **the cheapest decisive check on the board.**
 - [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G5 · binary-first watch
   layout** `[revamp]`. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
@@ -2000,6 +2034,59 @@ the reference evidence (kissat has no option for it; cadical's `factorunbump` de
 kissat]") are in the checklist item. Demote is proof-checked on a real instance where it fires:
 `clique_n2_k10`, 99 fresh vars demoted, 792 RAT lemmas in core, VERIFIED by drat-trim and lrat-check.
 **The window's real news is not C5:** T3 regressed on BOTH halves with kissat flat — see the gate row.
+
+### 2026-08-06 — SCHED-G1: Congruence is priced, budgeted, and the unit gap is NOT what the note said
+
+Branch `sched-g1-congruence`. Design frozen at `docs/design/2026-08-05-g1-congruence-governor-design.md`;
+ledger row `SP-CONG-BUDGET-1` (§13.3, the first accepted deviation that runs *stricter* than the
+reference). Detail in the checklist item — three things worth keeping here:
+
+**(1) Two recorded numbers were wrong and both are corrected in place.** `SCHED-A2b`'s "~44 s per
+Congruence application on `T105.2.0`" is stale by ~5×: at HEAD it is **8.25 s**. The rule is still the
+largest single cost in the codebase — **140,303 ms, 47.1 % of a 300 s solve, two thirds of the whole
+inprocessing slot** — so the item stands, but on the right number. And the profile overturns half of
+the earlier cost attribution: extraction is indeed the majority (57 %), but the missing 33 % is the
+**gate-vector teardown (16.6 %)** and the closure's **table/`occ` half (19.5 %)**, while **proof
+emission is 0.006 %**. Method note: the profile came from stage timers *inside* the rule
+(`TACTIX_CONG_TIME`, kept, default-off), not from `perf` — the teardown is invisible to a
+symbol-attributed profile because it is `operator delete` charged to the allocator.
+
+**(2) kissat gives congruence NO effort budget at all** — no `SET_EFFORT_LIMIT` in `congruence.c`, no
+`congruenceeffort` in `options.h`. So this budget is OURS, like BCE's 20 ‰, and it is justified by a
+COST GAP rather than by parity: our round extracts ~20× the reference's gate volume. Recorded that way
+in the ledger, with the removal path being the cost, not the governor.
+
+**(3) The 2,231-vs-14 unit gap is three mechanisms, and the one on record is not the load-bearing one.**
+`val_merge` — accepted merges with a root-assigned participant, i.e. exactly where kissat's
+`merge_literals` learns a unit — is **0 on every instance measured**, so a value-driven closure has
+nothing to fire on today. What kissat has and we do not is **`find_units`, a binary-watch pre-pass**
+that is not gate reasoning at all, plus the cascade it seeds, plus an accounting overlap with V3
+Substitute. Split out as **`SCHED-G4`**, ordered so the free part (the overlap) is settled first.
+
+**Reachability, counted at the source** (`c congruence … budget stops`, once per cut round, in the
+`BudgetScope` destructor so an extraction-only cut still counts): `T105` 7 stops of 8 rounds —
+**47.1 % → 4.4 % of the solve, 72 % of merges retained** · `9vliw` 13/15 · `b22_1` 10/30 · `sted5` 5/9
+· **`hwmcc17miters` 0 of 1**, the exempt opening round, unchanged in time and in its 710,722 merges.
+Both readings the counter exists for are therefore available, and the honest cost is on the record:
+`9vliw` loses merges (75 → 30) on an instance where the whole rule was 188 ms. A/B specced, unrun.
+
+**N2 — six fuzz legs, 10,000 cases each, 0 failures** (`1585188` DRAT · `1585189` native LRAT ·
+`1585190` `--random-policy`×DRAT · `1585193` congruence-stress×native-LRAT · `1585191`/`1585192`
+congruence-stress×**budget**×LRAT/DRAT). **And the case fuzz cannot reach — a round CUT AFTER it had
+already emitted merges — is checked on real instances instead** (jobs `1585210`-`1585212`): `b22_1`
+10 stops / 1,276 merges and `9vliw` 13 stops / 30 merges both `s VERIFIED` under drat-trim **and**
+`s VERIFIED UNSAT` under cake_lpr, with the unbudgeted `hwmcc17miters` (711 units) as the control;
+`congruence_unjustified` **0** everywhere. `test_congruence::test_budget_stops_round` pins the
+mechanism, including that `work_budget == 0` stays unbounded and that a cut is not a terminate.
+
+**A coverage finding that is not ours but is now measured:** on 120 generated fuzz cases DefaultPolicy
+runs **zero** Congruence rounds — the cases are solved before the inprocessing slot is ever reached —
+so the DRAT/LRAT/`--random-policy` legs prove nothing about this rule, which is what the congruence
+stress policy is for. The budget is therefore driven from THERE: `TACTIX_CONG_STRESS_BUDGET=N` hands
+each apply a fresh **log-uniform** budget in `[1,N]` (a flat draw over `[1,64]` cut 220 rounds and
+produced **0 gates** — it never reached the closure, which is the N2-critical stop), paired with
+`TACTIX_STOP_FUZZ=<huge>` because the rule's stop checks are strided 1-in-256 unless `stop_fuzz` is set
+and a tiny case never reaches 256 items.
 
 ### 2026-08-05 — SCHED-A2b: it is now IMPOSSIBLE to schedule an inprocessing rule without a governor
 

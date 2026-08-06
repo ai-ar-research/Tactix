@@ -48,12 +48,19 @@ RULE_DIRS = [os.path.join(ROOT, "src")]
 METERED = "METERED"
 ALT = "ALTERNATE-GOVERNOR"
 
-# Both unmetered governors live on the `!e.meter` path in the slot loop, so a
-# rule reaches them precisely by having no EFFORT_SPECS row. These are the
-# `evidence` regexes an ALTERNATE-GOVERNOR row must still match: deleting the
-# governor must fail HERE, not silently promote the rule to unbounded.
-EV_MATERIAL = r"!e\.meter && k\.stats\.conflicts > 0 &&[^;]*e\.binaries_mark"
-EV_DELAY = r"closure_delay_ && !e\.meter"
+# The two unmetered governors live on the `e.closure` path in the slot loop.
+# That flag USED to be spelled `!e.meter`; SCHED-G1 split them because
+# Congruence is now metered AND closure-gated, and the two bound different
+# things (how much one round does vs how often a round starts). A rule with no
+# EFFORT_SPECS row still gets `closure = true` by default in the slot build, so
+# an ALTERNATE-GOVERNOR rule reaches both declines exactly as before. These are
+# the `evidence` regexes such a row must still match: deleting the governor
+# must fail HERE, not silently promote the rule to unbounded.
+EV_MATERIAL = r"e\.closure && k\.stats\.conflicts > 0 &&[^;]*e\.binaries_mark"
+EV_DELAY = r"closure_delay_ && e\.closure"
+# And the no-row default is what carries an ALTERNATE-GOVERNOR rule onto that
+# path at all, so its disappearance is a failure too.
+EV_CLOSURE_DEFAULT = r"e\.closure = true;"
 
 # Every rule the slot schedules, classified. The justification is the point of
 # the row — for ALTERNATE-GOVERNOR it must NAME the mechanism.
@@ -71,25 +78,29 @@ TABLE = {
     "BCE":              (METERED, "20 permille, bce_ticks currency"),
     "Instantiate":      (METERED, "20 permille, tick currency"),
     "Sweep":            (METERED, "kissat sweepeffort 100 permille, sweep_ticks currency"),
+    # Congruence was ALTERNATE-GOVERNOR until SCHED-G1, on the argument that a
+    # single closure pass is bounded by the formula. MEASUREMENT REFUTED IT:
+    # on `tierC/T105.2.0` one pass is 8.25 s and seventeen of them are 140 s,
+    # 47 % of a 300 s solve. It is now METERED as well as closure-gated — the
+    # ledger bounds one round, the watermark and the ladder bound how often a
+    # round starts, and the `closure` flag is what keeps it on both paths.
+    "Congruence":       (METERED, "100 permille, congruence_ticks currency, "
+                                  "budget_aware; ALSO closure-gated"),
     # --- deliberately unmetered: a different mechanism governs them --------
-    # Both are CLOSURES with no titratable instance surface: one canonical pass
-    # over the current formula, whose cost is bounded by the formula rather
+    # Substitute is a CLOSURE with no titratable instance surface: one canonical
+    # pass over the current formula, whose cost is bounded by the formula rather
     # than by how long we let it run — so "at most one pass per new-material
     # occasion, decayed by the delay ladder when unproductive" is a real bound
     # on the work. That argument does NOT transfer to a search-shaped rule
     # (Sweep), which is why Sweep is METERED and not parked here.
     # KNOWN WEAKNESS, recorded rather than papered over: this bounds how OFTEN
-    # a round starts, not how much one round does, and a single Congruence
-    # application has been priced in the tens of seconds (default_policy.cpp
-    # :1044). Metering it is an open task, not an accepted shape -- see
-    # PROGRESS, SCHED-A2b.
-    "Congruence":       (ALT, "new-material watermark + closure delay ladder "
-                              "(the two `!e.meter` declines in the slot loop, "
-                              "default_policy.cpp:1379/1390); no instance surface",
-                         [EV_MATERIAL, EV_DELAY]),
+    # a round starts, not how much one round does. It survived SCHED-G1's audit
+    # only because Substitute's measured price is 9,990 ms over 19 rounds on the
+    # instance where Congruence cost 140,303 ms over 17 — a 14x lower price per
+    # round on the same formula. Metering it is a task, not an accepted shape.
     "Substitute":       (ALT, "new-material watermark + closure delay ladder "
-                              "on the same `!e.meter` path; canonical instance only",
-                         [EV_MATERIAL, EV_DELAY]),
+                              "on the `e.closure` path; canonical instance only",
+                         [EV_MATERIAL, EV_DELAY, EV_CLOSURE_DEFAULT]),
 }
 
 # The slot's admission predicate. If this stops being how the slot is built,
@@ -209,9 +220,10 @@ def main():
         else:  # ALTERNATE-GOVERNOR
             if n in specs:
                 fails.append(f"`{n}` is tagged ALTERNATE-GOVERNOR ({why}) but DOES "
-                             f"have an EFFORT_SPECS row — it is metered, so the "
-                             f"unmetered `!e.meter` governors named here never see "
-                             f"it. Retag it METERED.")
+                             f"have an EFFORT_SPECS row — the row is a governor, so "
+                             f"the classification is wrong however the closure flag "
+                             f"is set. Retag it METERED (and say in the row's "
+                             f"justification if it is ALSO closure-gated).")
                 continue
             missing = [e for e in row[2] if not re.search(e, src)]
             if missing:
