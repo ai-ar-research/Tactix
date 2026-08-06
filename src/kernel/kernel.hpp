@@ -372,6 +372,16 @@ struct Stats {
   // Root units derived from degenerate gates (Congruence's unit channel): an
   // XOR whose representative inputs all cancel forces its output.
   uint64_t congruence_units = 0;
+  // The BINARY-RESOLUTION unit pre-pass (SCHED-G4 Y1), kept apart from
+  // `congruence_units` because it is a different inference: two binaries
+  // (l∨o),(l∨¬o) resolve to {l}, with no gate involved. `y1_found` counts the
+  // occasions the scan detected, `y1_units` the ones that were emitted and
+  // batched (the two differ by dropped chains and by duplicates already
+  // pending). Attribution matters here — the same units are reachable through
+  // V1 Probe / V2 Backbone, so a comparison that reads only one counter
+  // double-counts or under-counts depending on which it picks.
+  uint64_t congruence_y1_found = 0;
+  uint64_t congruence_y1_units = 0;
   // Extraction split by gate kind, mirroring kissat's congruent_gates_ands /
   // _ites / _xors so the two are directly comparable. Needed because we extract
   // orders of magnitude more gates than kissat and convert a tiny fraction of

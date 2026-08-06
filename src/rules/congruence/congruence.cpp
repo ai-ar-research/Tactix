@@ -1381,6 +1381,106 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
   return true;
 }
 
+// SCHED-G4 (Y1). One-step binary resolution: two binaries (l ∨ o) and (l ∨ ¬o)
+// resolve on `o` to (l ∨ l) = {l}. `l`'s watch list holds both partners, so one
+// linear sweep of the binary watches finds every such unit in the formula.
+//
+// PLACEMENT (the argument, since it is not obvious and kissat's answer is not
+// binding): this is NOT gate reasoning and NOT a congruence step — no gate is
+// extracted, no key is canonicalized, the union-find is untouched. It is a
+// strict special case of V2 Backbone's precondition: assuming ¬l binary-
+// propagates o from (l∨o) and ¬o from (l∨¬o), a depth-1 failed literal. So the
+// inference is one we already own; what is missing is COVERAGE — Backbone is
+// dosed one probe literal per apply, this sweep is linear in the binary watches
+// and complete. It lives here rather than in its own rule directory because a
+// new rule whose precondition is a strict subset of V2's would duplicate a
+// calculus entry rather than add one, and it lives at the HEAD of the round
+// because the units it finds are what seeds the value cascade the reference
+// gets its other half from.
+//
+// Records through the caller's batching recorder (PendingUnits), so a unit is
+// never asserted mid-scan and the round keeps its one all-or-nothing batch.
+// `record` returns true when the batch REFUTES, which ends the sweep.
+// A/B hatch for the sweep, in the `TACTIX_CONG_*` family (SCHED-G1's budget
+// arms have the same shape and the same caveat: the standing protocol wants the
+// knob in the COMMAND, so this needs a CLI spelling before a tier campaign
+// reads it). Default ON — every implemented inference ships on.
+const bool cong_y1 = [] {
+  const char *s = std::getenv("TACTIX_CONG_Y1");
+  return !s || *s != '0';
+}();
+
+template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
+  if (!cong_y1)
+    return false;
+  // Persistent scratch, restored in O(marked) — a per-call vector<uint8_t>
+  // (2·nvars) would make this sweep memset-bound on a 3 M-variable formula.
+  static thread_local std::vector<uint8_t> mark;
+  static thread_local std::vector<Lit> touched;
+  const size_t nlits = 2 * static_cast<size_t>(k.nvars);
+  if (mark.size() < nlits)
+    mark.resize(nlits, 0);
+  const bool lrat = k.proof && k.proof->lrat();
+  std::vector<uint64_t> chain;
+  for (Var v = 0; v < k.nvars; v++) {
+    if (kernel_var_retired(k, v))
+      continue;
+    if (cong_budget.over(k))
+      break; // dropping inferences is sound (D-CONG-SKIP)
+    for (int s = 0; s < 2; s++) {
+      const Lit l = make_lit(v, s != 0);
+      // A root-assigned `l` has nothing to learn: true already, and false is
+      // impossible at a quiescent root (both binaries would have propagated).
+      if (k.value(l) != 0)
+        continue;
+      const WatchHead &h = k.watches.heads[l];
+      const uint32_t *ws = k.watches.arena.data() + h.offset;
+      k.stats.congruence_ticks += h.size;
+      touched.clear();
+      bool found = false;
+      for (uint32_t i = 0; i < h.size;) {
+        const Watch w{ws[i]};
+        if (!w.binary()) {
+          i += 2; // large watch: blocking word + ref word
+          continue;
+        }
+        i += 1;
+        const Lit o = w.other();
+        if (k.value(o) != 0)
+          continue; // satisfied or already-propagated binary
+        if (mark[negate(o)]) {
+          found = true;
+          break;
+        }
+        if (!mark[o]) {
+          mark[o] = 1;
+          touched.push_back(o);
+        }
+      }
+      for (const Lit t : touched)
+        mark[t] = 0;
+      if (!found)
+        continue;
+      k.stats.congruence_y1_found++;
+      // The chain is REPLAYED, never hand-built (C4's lesson, D-CONG-LRAT): the
+      // two binary ids are in hand via kernel_binary_id, but a hand-built pair
+      // silently gets propagation ORDER wrong and the checker rejects it. The
+      // replay charges real propagation, so meter it into this rule's currency.
+      const uint64_t t0 = k.stats.ticks;
+      const bool ok = !lrat || congruence_rup_chain(k, &l, 1, chain);
+      k.stats.congruence_ticks += k.stats.ticks - t0;
+      if (!ok) {
+        k.stats.congruence_unjustified++;
+        continue; // sound: the inference is dropped, nothing is emitted
+      }
+      if (record(l, chain))
+        return true; // the batch refuted
+    }
+  }
+  return false;
+}
+
+
 } // namespace — public rule entry points (header-declared) below
 
 // External-linkage forwarders for the two primitives Sweep shares.
@@ -1451,6 +1551,70 @@ ApplyResult congruence_apply(Kernel &k) {
   // extraction is gated on DRAT (D-CONG-LRAT, docs/calculus.md); AND congruence
   // runs on every path.
   const bool lrat = k.proof && k.proof->lrat();
+
+  // Root units derived by this round. Asserted in ONE batch once every channel
+  // has run, exactly as V1 Probe and V3 Substitute do — the closure reasons
+  // purely over the union-find, so a unit changes nothing it has already
+  // computed, and M1 owns the propagation cascade. Deduped per variable; an
+  // opposite-sign pair within one round IS a refutation ({u} and {¬u} resolve
+  // to ∅ — V3's record_unit, corpus 007).
+  // Shared by both unit channels: the degenerate-gate one (D-CONG-UNIT) and the
+  // binary-resolution sweep (SCHED-G4 Y1), which is why the batch is set up
+  // before extraction rather than beside the closure.
+  // Behind a congruence-specific preamble: skip already-true units, and a unit
+  // that contradicts a unit ALREADY ON THE TRAIL refutes against the trail id
+  // (read before it could be overwritten), not the batch.
+  PendingUnits pending;
+  pending.init(k.nvars);
+  auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain,
+                         uint64_t *counter = nullptr) -> bool {
+    const Var v = var_of(u);
+    if (k.value(u) > 0)
+      return false; // already true at the root — the inference adds nothing
+    const uint64_t trail_id = k.unit_ids[v];
+    const bool contradicts_trail = k.value(u) < 0;
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, &u, 1, lrat ? uchain.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(uchain.size()) : 0);
+    if (contradicts_trail) {
+      kernel_emit_empty_from_pair(k, id, trail_id);
+      return true;
+    }
+    const PendingUnits::Outcome o = pending.record(k, u, id);
+    if (o == PendingUnits::Outcome::Recorded)
+      ++(counter ? *counter : k.stats.congruence_units);
+    return o == PendingUnits::Outcome::Refuted;
+  };
+  // Assert whatever the round batched and close the root. Every exit path below
+  // that can carry pending units goes through this, including the two that
+  // predate the Y1 sweep and used to be bare `NoOp` returns.
+  auto finish = [&](bool merged) -> ApplyResult {
+    for (const Lit u : pending.units) {
+      assert(k.value(u) >= 0 &&
+             "record_unit refutes rather than batching a false unit");
+      if (k.value(u) == 0)
+        kernel_assign_unit(k, u);
+    }
+    if (!pending.units.empty() && inprocess_reach_root(k))
+      return ApplyResult::Unsat;
+    if (cong_probe)
+      cong_root_out = kernel_root_fixed(k);
+    if (k.inconsistent)
+      return ApplyResult::Unsat;
+    return (merged || !pending.units.empty()) ? ApplyResult::Ok
+                                              : ApplyResult::NoOp;
+  };
+
+  // SCHED-G4 Y1: the binary-resolution unit sweep, at the head of the round
+  // because in the reference it is what seeds the value cascade. See
+  // `find_binary_units` for why this inference lives here and not in a rule of
+  // its own.
+  if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
+        return record_unit(u, ch, &k.stats.congruence_y1_units);
+      }))
+    return ApplyResult::Unsat;
+
   std::vector<CongGate> gates;
   // D-CONG-LRAT CLOSED: XOR and ITE now run on every proof path. Their lemma
   // chains are replayed rather than derived (congruence_rup_chain), so the sign
@@ -1458,12 +1622,12 @@ ApplyResult congruence_apply(Kernel &k) {
   // this was DRAT-only — never has to be unpicked by hand.
   congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
   if (gates.empty())
-    return ApplyResult::NoOp;
+    return finish(/*merged=*/false);
   // §6: extraction is READ-ONLY, so an interrupt raised during it costs
   // nothing to honour — nothing has been applied yet.
   if (kernel_terminating(k)) {
     k.stats.rule_interrupted++;
-    return ApplyResult::NoOp;
+    return finish(/*merged=*/false);
   }
 
   // Internal congruence closure (kissat), incremental worklist: a union-find over
@@ -1508,32 +1672,6 @@ ApplyResult congruence_apply(Kernel &k) {
   // it has already computed, and M1 owns the propagation cascade. Deduped per
   // variable; an opposite-sign pair within one round IS a refutation ({u} and
   // {¬u} resolve to ∅ — V3's record_unit, corpus 007).
-  // Batched root units via the shared kernel idiom (PendingUnits), behind a
-  // congruence-specific preamble: skip already-true units, and a unit that
-  // contradicts a unit ALREADY ON THE TRAIL refutes against the trail id
-  // (read before it could be overwritten), not the batch.
-  PendingUnits pending;
-  pending.init(k.nvars);
-  auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain) -> bool {
-    const Var v = var_of(u);
-    if (k.value(u) > 0)
-      return false; // already true at the root — the inference adds nothing
-    const uint64_t trail_id = k.unit_ids[v];
-    const bool contradicts_trail = k.value(u) < 0;
-    const uint64_t id = ++k.next_clause_id;
-    if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, &u, 1, lrat ? uchain.data() : nullptr,
-                       lrat ? static_cast<uint32_t>(uchain.size()) : 0);
-    if (contradicts_trail) {
-      kernel_emit_empty_from_pair(k, id, trail_id);
-      return true;
-    }
-    const PendingUnits::Outcome o = pending.record(k, u, id);
-    if (o == PendingUnits::Outcome::Recorded)
-      k.stats.congruence_units++;
-    return o == PendingUnits::Outcome::Refuted;
-  };
-
   // C3b (closes the contradictory-merge half of D-CONG-UNIT): the closure just
   // proved a ≡ b — the two equivalence binaries are in the DB — while the
   // union-find holds a ≡ ¬b. The formula is UNSAT, and each opposing unit is
@@ -1879,18 +2017,7 @@ ApplyResult congruence_apply(Kernel &k) {
   // every output XOR then cancels to the unit ¬outᵢ, and propagating those units
   // falsifies the miter's output constraint — a refutation inside congruence at
   // zero conflicts, which is how kissat solves that family.
-  for (const Lit u : pending.units) {
-    assert(k.value(u) >= 0 && "record_unit refutes rather than batching a false unit");
-    if (k.value(u) == 0)
-      kernel_assign_unit(k, u);
-  }
-  if (!pending.units.empty() && inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (cong_probe)
-    cong_root_out = kernel_root_fixed(k);
-  if (k.inconsistent)
-    return ApplyResult::Unsat;
-  return (neq || !pending.units.empty()) ? ApplyResult::Ok : ApplyResult::NoOp;
+  return finish(/*merged=*/neq != 0);
 }
 
 uint32_t congruence_instances(Kernel &, uint64_t *out, uint32_t cap) {
