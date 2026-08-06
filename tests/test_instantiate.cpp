@@ -9,6 +9,7 @@
 #include "rules/propagate/propagate.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -24,6 +25,18 @@ static void addn(Kernel &k, std::vector<int> ds) {
   else
     kernel_add_large_clause(k, l.data(), static_cast<uint32_t>(l.size()),
                             /*redundant=*/false, 0);
+}
+
+// the same lookup by Ref -- `instantiate_try` takes the arena position, which
+// is what the instance surface hands the policy.
+static Ref find_ref(const Kernel &k, uint32_t size) {
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && c->size == size)
+      return ref;
+    ref += clause_words(c->size);
+  }
+  return INVALID_REF;
 }
 
 static const Clause *find_clause(const Kernel &k, uint32_t size) {
@@ -209,7 +222,54 @@ static void test_touch_filter_is_policy_only() {
   assert(k.stats.instantiated == 1);
 }
 
+// SCHED-H1 · both interrupt sites, pinned deterministically. The literal-loop
+// site is the one that matters for state: it sits where a failed probe has
+// already unwound the trail and closed the probing scope, so the test also
+// asserts the kernel is left at a quiescent root and still SAT.
+static void test_interrupt() {
+  volatile sig_atomic_t stop = 1;
+  { // the ROUND loop over candidate clauses
+    Kernel k;
+    kernel_reserve_vars(k, 5);
+    addn(k, {1, 2, 3, 5});
+    addn(k, {-1, 4});
+    addn(k, {-1, -4});
+    KernelStopPublisher pub(k, &stop);
+    assert(instantiate_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.instantiated == 0);
+    assert(k.stats.instantiate_interrupted == 1);
+    assert(k.stats.rule_interrupted == 1);
+    assert(k.level == 0 && !k.inconsistent);
+  }
+  { // the per-candidate LITERAL loop, through the single-instance entry
+    Kernel k;
+    kernel_reserve_vars(k, 5);
+    addn(k, {1, 2, 3, 5});
+    addn(k, {-1, 4});
+    addn(k, {-1, -4});
+    const Ref cref = find_ref(k, 4);
+    KernelStopPublisher pub(k, &stop);
+    assert(instantiate_try(k, cref) == ApplyResult::NoOp);
+    assert(k.stats.instantiated == 0);
+    assert(k.stats.instantiate_interrupted == 1);
+    assert(k.level == 0 && !k.inconsistent);
+    assert(find_clause(k, 4) != nullptr); // the candidate is untouched
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 5);
+    addn(k, {1, 2, 3, 5});
+    addn(k, {-1, 4});
+    addn(k, {-1, -4});
+    const Ref cref = find_ref(k, 4);
+    assert(instantiate_try(k, cref) == ApplyResult::Ok);
+    assert(k.stats.instantiated == 1 && k.stats.instantiate_interrupted == 0);
+    assert(default_solve(k) == 10);
+  }
+}
+
 int main() {
+  test_interrupt();
   test_removes_rare_literal();
   test_touch_filter_is_policy_only();
   test_ternary_becomes_binary();

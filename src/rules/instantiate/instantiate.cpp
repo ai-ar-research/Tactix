@@ -164,6 +164,12 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
   std::vector<Lit> next;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
   for (const Lit lit : cand_lits) {
+    // §6 · safe point by construction: a failed `probe_pair` has already
+    // unwound the trail and closed the probing scope, a successful one returns
+    // outright, and `seen` is all-zero here. So the clause is either fully
+    // rewritten or untouched — never half-instantiated.
+    if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted))
+      break;
     if (!eligible(k, occ, lit))
       continue;
     if (lrat) {
@@ -271,6 +277,13 @@ ApplyResult instantiate_apply(Kernel &k) {
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     const Ref cref = candidates[ci];
     if (k.work_budget && k.stats.ticks - tick_start > k.work_budget) {
+      stopped_at = ci;
+      break;
+    }
+    // §6 (SCHED-H1) · TERMINATION, distinct from the tick budget above (which
+    // is 0 when the policy leaves the round unmetered). Cut at the same point
+    // so the untried tail is re-armed by the resume path below.
+    if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted)) {
       stopped_at = ci;
       break;
     }

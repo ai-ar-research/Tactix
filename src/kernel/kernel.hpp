@@ -395,6 +395,13 @@ struct Stats {
   uint64_t bce_mark_skipped = 0, bce_rearmed = 0;
   uint64_t ternary_mark_skipped = 0, ternary_rearmed = 0;
   uint64_t instantiate_mark_skipped = 0, instantiate_rearmed = 0;
+  // SCHED-H1 · per-rule interrupt attribution for the X1/X2/X4 share. Bumped
+  // only by `kernel_rule_interrupt`, i.e. inside the predicate, never at a
+  // call site — see that helper for why. `rule_interrupted` is their sum plus
+  // every other polling rule's; these three say which of ours aborted.
+  uint64_t bce_interrupted = 0;
+  uint64_t ternary_interrupted = 0;
+  uint64_t instantiate_interrupted = 0;
   // SCHED-F4: Factor SEEDS suppressed / re-armed. Read `skipped` against
   // `factor_ticks` — the seed pass charges ticks proportional to each
   // literal's watch list, so this is a saving out of the rule's own budget.
@@ -1638,6 +1645,19 @@ inline bool kernel_terminating(const Kernel &k) {
     }
   }
   return k.stop && *k.stop;
+}
+
+// §6 · poll-and-attribute in one call. The increments live INSIDE this helper,
+// never at the call sites, so a NEW abort site cannot forget to be counted and
+// a reading of 0 always means "did not happen" rather than "was not measured"
+// (docs/lessons.md L22). `site` is the rule's own counter: `rule_interrupted`
+// alone says some rule aborted, not WHICH.
+inline bool kernel_rule_interrupt(Kernel &k, uint64_t &site) {
+  if (!kernel_terminating(k))
+    return false;
+  k.stats.rule_interrupted++;
+  site++;
+  return true;
 }
 
 // RAII publisher for Kernel::stop — a policy's solve() publishes its interrupt
