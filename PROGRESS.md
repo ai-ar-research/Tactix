@@ -49,6 +49,19 @@ env-only and untested. **Five cross-agent conflicts are in the Log entry** — t
 re-created the rule-side rotation SCHED-E1 had deleted 100 minutes earlier, and reads a STATS COUNTER to do
 it. **None of this blocks the next step below.**
 
+**▶▶ THE COVERAGE + HYGIENE ITEMS OF THAT REVIEW ARE DONE AND UNMERGED — branch `rvs-coverage-hygiene`
+(10 commits on `4f4989d`, ctest 48/48).** `RV-S22/23/24/25/26/28/29`(half)`/31`(a)`/9`+`RV-R3`; see the Log
+entry. **One result changes how earlier evidence must be read: every `--random-policy × N, 0 failures`
+figure in this file is over N minus a non-terminating population the harness did not print — measured at
+11.4 % (release) and 11.3 % (ASan), with 0 % for DefaultPolicy.** The harness now prints it. Still open
+from that group: the livelock DIAGNOSIS (`RV-S31`b), `parse.cpp`/`cake_lpr` (`RV-S24` remainder),
+`RV-S27`, `RV-S30`, and the `main.cpp` split, which the N1/API agent owns.
+**Queue state as this branch was pushed: NOTHING IN FLIGHT from this pass** (its ten jobs — `1587119`,
+`1587294`, `1587335`, `1587380`, `1587384`, `1587390` cancelled, `1587410`, `1587411`, `1587412`, `1587414`
+— have all left the queue), and the two job ids the IN FLIGHT line above names are no longer in `squeue`
+either. Other agents' arrays come and go independently; check `squeue -u hwu` rather than trusting any
+line here.
+
 **▶▶ THE FIVE OVERNIGHT SOLVE LOSSES ARE ONE DEFECT, AND IT IS FIXED (branch `debug-solve-losses`,
 `7b9f9d2` + `8b27c63`). THE EFFORT LEDGER WAS WRAPPING.** `set_entry_limit` sizes a dose as the
 UNSIGNED delta `search_ticks(k) - e.anchor`; the anchor is written INSIDE a phase and `search_ticks`
