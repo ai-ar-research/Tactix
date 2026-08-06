@@ -198,10 +198,15 @@ blast-radius survey already flagged — 42 rounds, ZERO emissions, bit-identical
 `minxor128` **+207.5 s**; removing both flips the sign to **+7.62 favouring Sweep ON**, and Sweep wins
 real time elsewhere (`em_11_3_4_cmp` **−158.4 s**, `sat-bench-trig-bhaskara` **−112.0 s**).
 **So this is a DOSING/TARGETING defect, not a case against the rule** — spend without yield on a couple of
-instances, exactly what a productivity-aware governor is for. **Do NOT ship Sweep off**
-([[no-rule-off-configs]]: every implemented proof rule ships ON, and a rule-off default is the
-"diagnostic arm as shipped default" this project has already rejected). Next lever is the effort share
-(100‰ is kissat's own constant, untuned here) or a yield-based cutoff.
+instances, exactly what a productivity-aware governor is for. **SWEEP SHIPS — USER DIRECTIVE, 2026-08-05, NON-NEGOTIABLE.** The degradation is the defect to fix, not
+the rule. Neither disabling it nor shrinking its budget until it is inert counts as a fix; after any
+governor change Sweep must still fire and still find equivalences, proven by `c sweep`/`c sweepemit`.
+**Leading hypothesis under investigation (branch `sweep-governor-fix`): the METER.** Stage B audited
+every rule's currency and found C1/C2 under-charged **2712×**; Sweep's `EFFORT_SPECS` row landed in S-f
+**after** Stage B and never got that audit. A rule consuming ~50 % of wall on a nominal 100‰ share is
+prima facie evidence the currency is wrong — the sub-solver owns its own arena/watches/trail, so its
+propagation may not be charged. Second hypothesis: no productivity memory (42 rounds, 0 equivalences,
+nothing learns). Third: per-round environment rebuild.
 **Owed before this is a verdict rather than a direction:** the aggregate is FRAGILE at k=2 and a single
 solve flip is single-instance by construction — run paired draws on `minxor128`, the protocol that has
 now found a lottery 5 times out of 5.
