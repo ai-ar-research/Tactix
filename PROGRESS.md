@@ -84,7 +84,10 @@ a second stamp array for DELETIONS · F4 Factor's seed marks · F6 the redundant
 only weakens the filters until F7 gives it a consumer. **Measured at the source** (probes `1584708`/`1584753`,
 counters only): `rbsat` C1 partner visits 165,272 → 79,686 and C2 5.83 M → 2.57 M · `mod4block` BCE ticks
 14.9 M → 7.1 M with MORE deletions · `9vliw` BCE 175,810 literals skipped; `advances` == round count everywhere,
-so the filters fire and none has wedged. **F5 is NOT done and is routed to `revamp`** — it needs a per-CLAUSE
+so the filters fire and none has wedged. **On the MERGED tree the mix moves — F3/F4 carry it and C1/C2's
+share collapses** (`9vliw` C1 4,501 skipped vs 95,965 on the branch alone, because Stage E's cursor and
+C8's gates make the substrate 2.3× busier); `9vliw` Factor 65,176 seeds skipped, `rbsat` 88,932,
+`battleship` 36,036 with nothing else firing. Re-read the Log before attributing a delta to C1/C2. **F5 is NOT done and is routed to `revamp`** — it needs a per-CLAUSE
 bit and the per-variable substrate cannot express it (see its checklist entry). **F7 (C1/C2 scope ← the tier
 band) is the open follow-up and F6 is its prerequisite.** The A/B specs are in the Log; `TACTIX_SUBSUME_HOLD`'s
 arm says explicitly not to run it while `c subhold` reads 0.
@@ -1098,11 +1101,26 @@ with the fragility line read (`k=1` is not an answer). `mod4block` and the rest 
 not decide this alone — and `mod4block` already flipped SAT→UNKNOWN→SAT across the two probes, which is
 precisely why.
 
-**Measured at the source (probes `1584708` F1, `1584753` F3; counters only, no wall clock).**
-`rbsat` C1 partner visits **165,272 → 79,686**, C2 **5,827,200 → 2,571,322**; `mod4block` BCE ticks
-**14,943,039 → 7,138,926** with MORE deletions (4,133 → 6,257) and X2 ticks **32,128 → 18,373** for
-2,898 resolvents instead of 8,118; `9vliw` BCE 175,810 literals skipped. Telemetry self-check clean
-(0 `***UNACCOUNTED***`) on every arm.
+**Measured at the source (probes `1584708` F1, `1584753` F3, `1584772` on the MERGED tree; counters
+only, no wall clock).** On the pre-merge branch: `rbsat` C1 partner visits **165,272 → 79,686**, C2
+**5,827,200 → 2,571,322**; `mod4block` BCE ticks **14,943,039 → 7,138,926** with MORE deletions
+(4,133 → 6,257) and X2 ticks **32,128 → 18,373** for 2,898 resolvents instead of 8,118; `9vliw` BCE
+175,810 literals skipped. Telemetry self-check clean (0 `***UNACCOUNTED***`) on every arm.
+
+**▶ RE-READ AFTER THE MERGE, AND THE MIX MOVED — do not quote the pre-merge C1/C2 numbers for HEAD.**
+On the merged tree (Stage E's cursor + E3's ceiling + C8's ITE/XOR gates in front of it) the substrate is
+**2.3× busier** — `9vliw` 4,895,219 touch marks against 2,102,782 before — because more rules now reach
+more candidates and every rewrite is an add. More marks means fewer skips, and C1/C2's share collapses:
+`9vliw` C1 **4,501** skipped where the branch alone gave 95,965, `rbsat` **74** where it gave 6,855.
+**The stage still fires hard, but through F3 and F4 rather than F1**: `9vliw` BCE 177,060 literals
+skipped and Factor **65,176** seeds; `rbsat` Factor **88,932**; `battleship` Factor **36,036** and
+nothing else at all. Two consequences for the A/B: the arm is worth running on the strength of F3/F4,
+and **anyone attributing a delta to C1/C2 on HEAD is quoting a number that no longer holds.**
+
+**F6's ships-OFF decision is now MEASURED, not just argued.** `TACTIX_TOUCH_REDUNDANT=1` on the same
+instances: `9vliw` touch marks 4,895,219 → **9,715,099** (2.0×) and `battleship` 18,434 → **15,127,577**
+(820×), for **zero additional skips anywhere** — C1 4,261 vs 4,501, BCE 178,812 vs 177,060, i.e. noise in
+the wrong direction. Exactly the predicted shape: without `SCHED-F7` the redundant half is pure cost.
 
 ### 2026-08-05 — SCHED-F3: BCE is why the substrate has TWO stamps
 
