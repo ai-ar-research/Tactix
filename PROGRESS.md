@@ -104,8 +104,9 @@ bit and the per-variable substrate cannot express it (see its checklist entry). 
 band) is the open follow-up and F6 is its prerequisite.** The A/B specs are in the Log; `TACTIX_SUBSUME_HOLD`'s
 arm says explicitly not to run it while `c subhold` reads 0.
 
-**▶ THEN.** Stage G — the genuine revamps, starting with `SCHED-G2` (is C1 doing anything?), the cheapest
-decisive check on the board.
+**▶ THEN.** Stage G — the genuine revamps. `G1`-`G4` are landed (G4 2026-08-06: the "2,231 vs 14" unit
+headline is RETIRED as an invalid comparison — ledger `SP-CONG-UNITS-1`; Y1 shipped as calculus V6a);
+`G5` (binary-first watch layout) is the remaining one.
 
 **▶ OWED MEASUREMENTS (each a job; none blocks the next step).**
 - **ALL THREE STAGE-D ITEMS are specced and unrun** — arms, pre-flight counter and ship criterion in each
@@ -1026,19 +1027,33 @@ instrument before spending a tier window on a mechanism.
   Substitute keeps both through the no-row default. **`T105.2.0`: 47.1 % → 4.4 % of the solve with 72 %
   of the merges retained.** Conformance table moved ALT → METERED with a third evidence regex, four
   deliberate breaks re-verified. **Do not quote "44 s" again, and do not quote the 2,231-vs-14 unit gap
-  as a closure weakness — see G4.**
-- [ ] **SCHED-G4 · Congruence's UNIT channel — three mechanisms, not one** `[arch]` — what `SCHED-G1`'s
-  diagnosis found under the 2,231-vs-14 gap. The recorded mechanism ("value-driven closure") is not
-  the explanation on its own: **no merge we accept has a root-assigned participant on any instance
-  measured** (`val_merge` 0 everywhere; `val_gate` 2,071 of 19.06 M items on `T105`). Reading kissat's
-  `kissat_congruence` end to end splits the gap three ways — **(Y1)** `find_units`
-  (`congruence.c:4029-4080`), a binary-watch pre-pass we **do not have at all** (`(l∨o)` + `(l∨¬o)` ⇒
-  `l`; nothing to do with gates; V1 Probe finds these as failed literals but reached 13,686 of 6.19 M
-  literals on `T105`); **(Y2)** the value cascade, which is self-reinforcing and empty for us **because
-  Y1 is what seeds it**; **(Y3)** `find_equivalences`, kissat's binary half — **for us that is V3
-  Substitute**, so part of the 2,231 is an accounting overlap, not a gap. **Do Y3 first: it is free**
-  (re-derive the 2,231 at `--congruencebinaries=0`) and it may shrink the target by most of itself.
-  Y1 is small and one-step RUP; Y2 changes the closure's relationship to `τ` and is the large one.
+  AT ALL — G4 measured it and the COMPARISON ITSELF is invalid (`SP-CONG-UNITS-1`). G4 also found this
+  item's proposed Y3 isolation (`--congruencebinaries=0`) switches off the wrong pass.**
+- [x] **SCHED-G4 · Congruence's UNIT channel — three mechanisms, not one** `[arch]` — **DONE 2026-08-06.
+  Y3 settled, Y1 landed, Y2 left open with a reason. ▶ THE "2,231 vs 14" HEADLINE IS RETIRED — it was
+  never the right comparison** and it is cited in three frozen docs, so read the ledger row
+  **`SP-CONG-UNITS-1`** (`implementation-notes.md` §13.3) before quoting any of them. It compared ONE of
+  kissat's unit channels against ONE of ours: kissat derives **18,597 total root units** on `T105.2.0`
+  and attributes 2,231 (12 %) to congruence only because the binary sweep lives *inside*
+  `kissat_congruence`; we derive that class in V1/V2, counted as `probe_failed`/`backbone_failed` —
+  **32 + 6 = 38** on the same instance — and 0 in Congruence. Real gap, one mechanism wide, not 160×.
+  **▶ AND THE ISOLATION THIS ITEM SPECIFIED MEASURES THE WRONG THING:** `--congruencebinaries=0` gates
+  `extract_binaries` (`congruence.c:2226-2228`), a *gate-extraction* helper — `find_equivalences` runs
+  unconditionally at `congruence.c:4615`. Instrumented the reference instead (phase-tagged
+  `learn_congruence_unit`, the only INC site): all 2,231 split exactly, one run, no confound —
+  `extract_gates` **0** · **Y1 `find_units` 844 (37.8 %)** · **Y3 `find_equivalences` 0 (0 %)** ·
+  **Y2 cascade 1,387 (62.2 %)**. **Y3 contributes zero units**; its overlap with V3 Substitute is real
+  but sits in the MERGE channel (**3,513 of 14,589 merges, 24 %**), so it resizes the `congruent`
+  comparison and never the `congruent_units` one. **Y1 IMPLEMENTED** as V6a (`find_binary_units`, calculus
+  §6 V6a): `(l∨o)`+`(l∨¬o)` ⇒ `{l}`, one linear sweep of the binary watches at the head of the round,
+  batched into the existing `PendingUnits`, chain **replayed** not built from the two `kernel_binary_id`s.
+  `c congy1` **T105 1,876 · b22_1 113 · 9vliw 8 · miter 0 · sted5 0**, all emitted, `unjustified` 0.
+  **UNPRICED — A/B specced in the Log entry, unrun.** Two named residuals, both in the ledger row rather
+  than as new ids: **(a) Backbone's dosing may be the better fix** — Y1's inference is a strict SUBSET of
+  V2 Backbone's precondition, and Backbone probes 173,592 literals on `T105` for **6** failed ones, so the
+  sweep and the dose are two schedules of one inference and only one should ship; **(b) Y2** needs the
+  closure to mutate `τ` mid-round with every emitted chain still checkable across the mutation, which is
+  where this rule's four historical defects live.
 - [x] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **ANSWERED 2026-08-05, and the answer is NO.**
   Over 7 instances C2 absorbs **698,341 of C1's 698,351** subsumptions (**residual 10**, all on one
   instance), and dropping C1 would save **2.7–41.6 % of the C1+C2 pair's metered cost** at zero yield
@@ -2711,6 +2726,120 @@ the reference evidence (kissat has no option for it; cadical's `factorunbump` de
 kissat]") are in the checklist item. Demote is proof-checked on a real instance where it fires:
 `clique_n2_k10`, 99 fresh vars demoted, 792 RAT lemmas in core, VERIFIED by drat-trim and lrat-check.
 **The window's real news is not C5:** T3 regressed on BOTH halves with kissat flat — see the gate row.
+
+### 2026-08-06 — SCHED-G4: the unit gap, correctly scoped — and the isolation I was told to use is wrong
+
+Branch `sched-g4-congruence-units`. Calculus entry **V6a**; ledger row **`SP-CONG-UNITS-1`** (§13.3),
+which is now the one home for this comparison — three frozen docs cite the old headline and all three
+are wrong in the same way.
+
+**(1) THE INSTRUCTION WOULD HAVE PRODUCED A WRONG NUMBER, and that is the first thing worth recording.**
+`SCHED-G1` §6 (and the task brief built on it) said to size the Y3 overlap by re-deriving the 2,231 at
+`--congruencebinaries=0`. **That option gates `extract_binaries` (`congruence.c:2226-2228`), a
+GATE-EXTRACTION helper — not `find_equivalences`, which is called unconditionally at
+`congruence.c:4615`.** Running the arm changes the gate volume, and the difference would have been read
+as an equivalence-channel effect. Measured proof that it is the wrong knob: at
+`--congruencebinaries=0` on `T105` the *units* move 2,231 → 2,581 and `find_equivalences` still reports
+0 units, while `congruent_binaries` goes 252 → 0 on `b22_1` — i.e. it removes clauses, not a pass.
+**Generalised: `[[reference-counter-scope]]`'s discipline applies to the OPTION you plan to switch off,
+not only to the counter you plan to read.** The replacement instrument is an instrumented reference
+(`tools/solvers/variants/kissat-congunits-g4/`, phase tag around the only `INC (congruent_units)` site,
+`congruence.c:800`), which attributes every unit in ONE run with no trajectory confound.
+
+**(2) THE HEADLINE IS RETIRED, and the resize is the result.** `congruent_units` 2,231 reproduced
+exactly on `tierC/T105.2.0` at 300 s, and it decomposes:
+
+| phase | units | share | merges |
+|---|---:|---:|---:|
+| `extract_gates` | 0 | 0 % | 2,488 |
+| **`find_units` (Y1)** | **844** | **37.8 %** | 0 |
+| **`find_equivalences` (Y3)** | **0** | **0 %** | **3,513** |
+| **`propagate_units_and_equivalences` (Y2)** | **1,387** | **62.2 %** | 8,588 |
+
+**Y3 contributes ZERO of the 2,231.** The accounting overlap `SCHED-G1` posited is real but it is in the
+**merge** channel — 3,513 of 14,589 merges (24 %), which for us is V3 Substitute — so it resizes the
+`congruent` comparison and never the `congruent_units` one. **And the comparison itself was mis-scoped:**
+kissat derives **18,597 total root units** on that run, so congruence's 2,231 is **12 %** of its unit
+production, and the same class of unit is ours in V1/V2 as `probe_failed`/`backbone_failed` —
+**32 + 6 = 38** on the same instance. "The project's largest recorded gap, 2,231 vs 14" compared one of
+kissat's channels against one of ours. Per-instance (Y1/Y3/Y2): `b22_1` 6/0/0 · `9vliw` 0/0/0 ·
+`hwmcc17miters` 0/0/679 · `sted5` 0/0/0 — so on four of five instances the reference's own binary sweep
+finds almost nothing, and the exhibit is the exception.
+
+**(3) Y1 LANDED (V6a).** `find_binary_units`: for each active literal, one sweep of its binary watches
+with a marked-partner set; `o` and `¬o` both present ⇒ `{l}`. Feeds the existing `PendingUnits` batch —
+hoisted above extraction and now shared with the degeneracy channel through a new `finish()` exit, so
+the two former bare-`NoOp` returns assert what the round batched instead of dropping it. **The chain is
+REPLAYED** (`congruence_rup_chain` on the unit itself), never assembled from the two `kernel_binary_id`s:
+C4's lesson is that a hand-built pair gets propagation ORDER wrong and every LRAT checker rejects it.
+Charged on `congruence_ticks` (scan slots + the replay's real propagation delta), budget-polled per
+variable, persistent mark scratch restored in O(marked) ([[per-call-linear-scratch-hazard]]).
+
+**Reachability at the SOURCE, per mechanism** (`c congy1 <found> <units>`; found == units everywhere, so
+no chain was dropped, and `congruence_unjustified` is 0 throughout):
+
+| instance | before | after | note |
+|---|---:|---:|---|
+| `T105.2.0` | 0 | **1,876** | more than kissat's 844 — we re-sweep across 16 rounds |
+| `b22_1` | 0 | **113** | kissat's `find_units` gets 6 here |
+| `9vliw_bp_mc` | 0 | **8** | kissat's gets 0 |
+| `hwmcc17miters` | 0 | 0 | the miter has no such pair; its 711 units are the XOR channel, untouched |
+| `sted5_0x24204-50` | 0 | 0 | |
+
+A side effect worth keeping: on `T105` the downstream probing family gains too — `probe_failed` 32 → 176
+and `backbone_failed` 6 → 36 — i.e. Y1's units unlock failed literals in *later rules*. That is Y2's
+cascade happening across the slot instead of inside the round, which is an argument for taking Y2 later
+rather than never.
+
+**(4) PLACEMENT — argued, not defaulted, and the open half is the A/B's question.** Y1 is not gate
+reasoning; it is a **strict special case of V2 Backbone's** precondition (assume `¬l`, binary-propagate,
+depth-1 conflict), so its conclusions are a subset of V2's ⊂ V1's, and what it adds is completeness at
+linear cost rather than reach. It ships inside V6 because the reference couples the two at exactly this
+rate and because Y1's units are what seed the cascade V6's own channel needs. **What is NOT settled:
+inside V6 a cheap O(binaries) sweep spends from the same 100 ‰ allowance as expensive gate extraction.**
+That is the A/B's pre-registered question, not something to decide by argument, and if it binds the fix
+is its own `EFFORT_SPECS` row — i.e. its own rule. **The rival fix is named in the ledger:** Backbone is
+`dosed=true` at 20 ‰, one probe literal per apply, and on `T105` it probes 173,592 literals for **6**
+failed ones. The sweep and the dose are two schedules of one inference and only one should ship — test
+that before elaborating V6a.
+
+**(5) FUZZ — and a SECOND correction, this one to G1's coverage claim.** `SCHED-G1` recorded that
+DefaultPolicy runs **zero** Congruence rounds over 120 generated cases, and concluded the DRAT/LRAT/
+`--random-policy` legs are structurally vacuous for this rule. **That does not generalise:** at 300 cases
+on seed `20260806` DefaultPolicy runs **169** Congruence rounds and reaches Y1 on **2 cases / 3 units**.
+So those legs are **thin, not vacuous** — and the congruence-stress legs are the meaningful ones at
+**554 rounds, 14 cases, 15 units**, ~5× the coverage. Both readings counted at the source
+(`benchmarks/probes/scratch/g4/y1_reach.py`, job `1585606`). Legs, 10,000 cases each: **`1585595` DRAT
+0 failures · `1585596` native LRAT 0 · `1585599` `--random-policy`×DRAT 0 · `1585601`
+congruence-stress×LRAT 0** · `1585603` congruence-stress×DRAT and `1585604`
+congruence-stress×**budget**×LRAT in flight at the time of writing (the sweep's budget poll is a third
+stop site, which is what the budget leg exists for).
+`test_congruence` pins the channel three ways: it fires with **no gate extracted at all**, it stays
+silent on two non-clashing binaries, and an opposite-sign pair in one sweep **refutes** via the shared
+batch rather than asserting a false unit.
+
+**(6) A/B SPEC — pre-registered, UNRUN. No timing job was submitted for this item** (a concurrent
+timing-arm agent needs the partition quiet; every number above is a counter, and counters are
+contention-invariant).
+- **Arms:** `y1` = shipped · `noy1` = `TACTIX_CONG_Y1=0`. Env for now, with G1's caveat carried
+  forward — **the knob needs a CLI spelling before a tier window reads it** (standing protocol: the knob
+  goes in the command).
+- **Tiers:** same-window Tier B + Tier C, `--baseline kissat --baseline cadical`, node-pinned, **two pin
+  dirs from one commit with matching binary shas** (CLAUDE.md build-dir rule).
+- **PRE-FLIGHT, checked before any number is read** ([[ab-arm-identical-artefacts]]): the `y1` arm must
+  show `c congy1` non-zero on at least `b22_1` and `T105.2.0`, and the `noy1` arm must show `0 found`
+  **everywhere**. Identical `c congruence` lines across arms means the arm was not tested.
+- **▶ THE PRE-REGISTERED QUESTION IS BUDGET COMPETITION, not net PAR-2.** Read `congruence_ticks`,
+  `congruence_budget_stops` and `congruence_merges` per arm on the same instances. The sweep binds the
+  allowance iff, with Y1 on, ticks rise while **merges fall** and budget stops rise — on `T105` the
+  baseline is 435 M ticks / 7 stops / 2,692 merges against 596 M / 15 / 2,692, which is +37 % ticks and
+  **more rounds cut for the same merge count**, i.e. the shape that says it competes. Confirm or refute
+  that on Tier B+C; if confirmed, the sweep gets its own `EFFORT_SPECS` row rather than a bigger
+  Congruence share.
+- **Ship criterion:** `#solved` first, PAR-2 second, noise floor 6.72, `k=1` is not a verdict
+  ([[chaotic-instance-veto]]). Keep Y1 if Tier C `#solved` does not fall; a neutral average with a new
+  inference is a keep. If it loses a solve, the answer is the dosing split, **not** switching the
+  inference off ([[no-rule-off-configs]]).
 
 ### 2026-08-06 — SCHED-G1: Congruence is priced, budgeted, and the unit gap is NOT what the note said
 
