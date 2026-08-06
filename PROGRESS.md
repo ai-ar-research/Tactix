@@ -730,7 +730,14 @@ instrument before spending a tier window on a mechanism.
   (a per-variable EPOCH STAMP, not a bit) + `touch_epoch` + `kernel_touch_sync_fixed`; C1/C2's canonical rounds
   filter their candidate list with `kernel_clause_new_material` and advance their own watermark only on a round
   that completed. **UNPRICED**; off arm `TACTIX_TOUCH_MARKS=0`, source counter the `c touch` line.
-- [ ] **SCHED-F2 · C1/C2 completeness + resume, and the C1→BVE bound coupling it enables** `[arch]`
+- [x] **SCHED-F2 · C1/C2 completeness + resume** `[arch]` — landed 2026-08-05. A cut round RE-ARMS the
+  candidates it never reached (kissat forward.c:589-645) instead of blocking its watermark, so the next
+  round resumes at the tail; `Kernel::subsume_complete`/`strengthen_complete` expose the fixpoint.
+  **The C1→BVE BOUND coupling T5 asks for is REFUSED**, with the argument, at `implementation-notes.md`
+  §13.3 `SP-REPEAT-COUPLE`: neither reference does it, and the naive conjunct is self-wedging (BVE's
+  resolvents are C2 material, so a productive C2 would hold the bound at 0 forever — SP-SLOT-5's failure
+  exactly). The reference's REAL wire (an incomplete C1/C2 holds the elimination outer loop open) landed
+  instead, off arm `TACTIX_SUBSUME_HOLD=0`, and is **measured INERT** — sentinel `c subhold` = 0.
 - [ ] **SCHED-F3 · X1/X2/X4 repetition suppressors + the delay ladder for metered entries** `[arch]`
 - [ ] **SCHED-F4 · Factor per-literal marks** `[arch]` · [ ] **SCHED-F5 · Vivify yield package** `[arch]`
 
@@ -832,7 +839,48 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-05 — SCHED-F2: resume by RE-ARM, and the bound coupling T5 asks for is refused as self-wedging
+
+**Resume.** F1 blocked a cut round's watermark, which re-offers the HEAD as well as the tail — SCHED-B3's
+starvation with extra steps. F2 replaces that with kissat's own arrangement: re-arm the variables of the
+candidates the round never reached, then advance the watermark like any other round, so the next candidate
+set is {unreached tail} ∪ {new material}. Doing it in the SUBSTRATE rather than through a positional cursor
+is what makes it survive the round's own `kernel_collect_garbage`, which invalidates every Ref — a cursor
+would have needed a GC-stable key that does not exist. Sharper than kissat on one point: a tail candidate
+that fails the filter is not re-armed (its check provably cannot fire under the new, higher watermark).
+
+**▶ THE COUPLING IS REFUSED, AND THAT IS THE RESULT.** T5 lists "C1/C2 completeness → BVE's bound advance".
+Reading both references at the use site: **neither does it.** kissat's forward `complete`
+(`forward.c:664-670`) gates the elimination ROUND LOOP (`eliminate.c:519-520`) and nothing else; the bound
+advance is a different predicate, computed after the loop and reached with subsumption incomplete whenever
+the loop exits on rounds or budget. And the conjunct would be **self-wedging**: `strengthen_complete` is
+false on any productive round, BVE's resolvents are C2 material by construction, so BVE at bound b feeds
+C2, C2 stays productive, and the bound never advances — SP-SLOT-5's failure mode, reproduced by
+construction. Full row + removal path: `implementation-notes.md` §13.3 `SP-REPEAT-COUPLE`.
+
+**What landed instead** is the reference's real wire — an incomplete C1/C2 holds the elimination outer
+loop open — and it is **INERT under the shipped DefaultPolicy, measured, not assumed**: `Stats::
+subsume_holds` (`c subhold`) is 0 because `midround_budget` is off so no round leaves a tail, and every
+other way to leave one already sets `round_changed`. Labelled inert per the SP-SLOT-6 convention; must not
+be cited as a result. It goes live the moment a budget binds, which is SP-EFFORT-CEIL-1's job.
+
+**The resume path is likewise unreachable under DefaultPolicy** for the same reason, so it is pinned by
+`test_touch_resume_rearms_the_tail` rather than by a leg ([[ab-arm-identical-artefacts]] — the SCHED-C6
+precedent for a path no policy reaches).
+
 ### 2026-08-05 — SCHED-F1: the touched-epoch substrate is a STAMP, so it has no clearer to starve
+
+**Measured at the source (probe `1584708`, 4 Tier B instances × on/off, counters only).** The filter fires
+hard and does not wedge: `rbsat` C1 6,855 skipped / 5,187 checked and partner visits **165,272 → 79,686
+(−52 %)**, C2 **5,827,200 → 2,571,322 (−56 %)**; `9vliw` C1 −17 %, C2 −14 %; `mod4block` C1 **515.9 M →
+326.5 M**. `advances` equals the round count on every instance (17/17, 18/18, 54/54) and `checked` stays
+large throughout — both halves non-zero is the non-wedge evidence. `touch marks` is identical across arms
+(170,879 / 170,879 on `rbsat`), i.e. the producers are independent of the consumer, which is the property
+that makes the stamp unstarvable. `TACTIX_SLOT_STATS=1` self-check clean (0 `***UNACCOUNTED***`).
+**Caveat, and it is a lottery, not a verdict:** `mod4block` went SAT (1.46 M conflicts) → UNKNOWN at 300 s
+while doing 6.99 M conflicts — 4.8× more search in the same window. It is on the may-not-gate list and a
+SAT trajectory flip is exactly what that list exists for; paired draws before anyone reads it as a cost.
+
 
 `Kernel::touched[v]` holds the value of a monotone `touch_epoch` at v's last change; a consumer keeps a
 watermark and reads `touched[v] > w`, "clearing" by snapshotting the epoch. **That shape is the direct

@@ -185,12 +185,13 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // now meters this rule in (see Stats::forward_visits). Polling in candidates
   // let one candidate with a saturated occurrence list run unboundedly.
   const uint64_t check_start = k.stats.forward_visits;
-  bool complete = true; // ran to natural exhaustion => the watermark may move
-  for (const Ref ref : candidates) {
+  size_t stopped_at = candidates.size(); // index of the first UNREACHED one
+  for (size_t ci = 0; ci < candidates.size(); ci++) {
+    const Ref ref = candidates[ci];
     if (k.midround_budget && k.work_budget &&
         k.stats.forward_visits - check_start > k.work_budget) {
       k.stats.budget_stops_c1++;
-      complete = false;
+      stopped_at = ci;
       break;
     }
     Clause *c = clause_at(k.arena, ref);
@@ -253,16 +254,38 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     if (min_occs <= SUBSUME_OCCLIM)
       occs[min_lit].push_back(ref);
   }
-  // SCHED-F1 · the watermark moves ONLY for a round that reached the end of its
-  // candidate list. A budget-cut round leaves it where it was, so every
-  // survivor is re-offered next time — the completeness half of the mechanism,
-  // and the reason the filter can never skip a candidate no round has checked.
-  // (Advancing to the round-entry `snapshot`, not to the current epoch: what
-  // this round created is new material for the next one.)
-  if (filter && complete) {
+  // SCHED-F2 · RESUME. A cut round re-arms the variables of the candidates it
+  // never reached, then advances the watermark like any other round — kissat's
+  // own arrangement (forward.c:589-645, "reactivating subsume flag of %s in
+  // remaining or strengthened"). The next round's candidate set is therefore
+  // {the unreached tail} ∪ {new material}, so it RESUMES instead of replaying
+  // its head, which is SCHED-B3's starvation in C1's currency. Re-arming in the
+  // substrate rather than through a positional cursor is what makes it survive
+  // the `kernel_collect_garbage` below, which invalidates every Ref.
+  //
+  // Sharper than kissat on one point: a tail candidate that FAILS the filter is
+  // not re-armed. It had no new material at `wm`, and the new watermark is
+  // >= `wm`, so it can have none there either — re-arming it would schedule a
+  // check that provably cannot fire.
+  for (size_t ci = stopped_at; ci < candidates.size(); ci++) {
+    const Clause *c = clause_at(k.arena, candidates[ci]);
+    if (c->garbage() || (filter && !kernel_clause_new_material(k, c, wm)))
+      continue;
+    for (const Lit l : *c)
+      kernel_touch_var(k, var_of(l));
+    k.stats.forward_rearmed++;
+  }
+  // Advancing to the round-entry `snapshot`, not to the current epoch: what
+  // this round created — including the re-arms just above — is new material for
+  // the next one.
+  if (filter) {
     k.subsume_touch_mark = snapshot;
     k.stats.forward_mark_advances++;
   }
+  // Completeness, kissat's `completed` (forward.c:664-670): nothing was
+  // re-armed. This rule only DELETES, and a deletion creates no new subsumer,
+  // so "reached the end of the list" is the whole condition here.
+  k.subsume_complete = stopped_at == candidates.size();
   if (!deleted)
     return ApplyResult::NoOp;
   kernel_collect_garbage(k);

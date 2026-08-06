@@ -356,7 +356,6 @@ ApplyResult strengthen_apply(Kernel &k) {
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
   const uint64_t wm = k.strengthen_touch_mark;
-  bool complete = true; // ran to natural exhaustion => the watermark may move
   uint64_t changed = 0;
   bool ended = false;
   // flush pre-pass (see flush_root): the whole arena, before the
@@ -413,11 +412,14 @@ ApplyResult strengthen_apply(Kernel &k) {
     if (min_lit != INVALID_LIT && min_occs <= STRENGTHEN_OCCLIM)
       occs[min_lit].push_back(cr);
   };
-  for (Ref cref : candidates) {
+  size_t stopped_at = candidates.size(); // index of the first UNREACHED one
+  const uint64_t produced_before = k.stats.strengthened;
+  for (size_t ci = 0; ci < candidates.size(); ci++) {
+    Ref cref = candidates[ci];
     if (k.midround_budget && k.work_budget &&
         k.stats.strengthen_visits - check_start > k.work_budget) {
       k.stats.budget_stops_c2++;
-      complete = false;
+      stopped_at = ci;
       break;
     }
     if (filter && !kernel_clause_new_material(k, clause_at(k.arena, cref), wm)) {
@@ -444,19 +446,35 @@ ApplyResult strengthen_apply(Kernel &k) {
         ended = true;
       break; // 1 (died) or 3 (became binary) or 4
     }
-    if (ended)
+    if (ended) {
+      stopped_at = ci + 1; // this candidate was checked; the rest were not
       break;
+    }
   }
-  // SCHED-F1 · the watermark moves only for a round that reached the end of
-  // its candidate list. `ended` (a derived unit stopped the round) counts as
-  // incomplete for the same reason a budget cut does: the tail was never
-  // offered. See the twin comment in subsume_forward.cpp.
-  if (ended)
-    complete = false;
-  if (filter && complete) {
+  // SCHED-F2 · RESUME (see the twin comment in subsume_forward.cpp for the
+  // argument). `ended` — a derived unit stopped the round — leaves a tail too,
+  // and it is re-armed for exactly the same reason a budget cut's is.
+  for (size_t ci = stopped_at; ci < candidates.size(); ci++) {
+    const Clause *c = clause_at(k.arena, candidates[ci]);
+    if (c->garbage() || (filter && !kernel_clause_new_material(k, c, wm)))
+      continue;
+    for (const Lit l : *c)
+      kernel_touch_var(k, var_of(l));
+    k.stats.strengthen_rearmed++;
+  }
+  if (filter) {
     k.strengthen_touch_mark = snapshot;
     k.stats.strengthen_mark_advances++;
   }
+  // Completeness, kissat's `completed` (forward.c:664-670): nothing was
+  // re-armed. Unlike C1 this rule REWRITES clauses, and a strengthened clause
+  // is exactly what kissat re-arms by hand — here the rewrite is an add, so the
+  // substrate arms it — so a productive round is INCOMPLETE, whatever it
+  // reached.
+  // `!ended` also covers the FLUSH pre-pass deriving a unit, which leaves
+  // `candidates` empty and would otherwise read as a vacuous fixpoint.
+  k.strengthen_complete = !ended && stopped_at == candidates.size() &&
+                          k.stats.strengthened == produced_before;
   if (!changed)
     return ApplyResult::NoOp;
   kernel_collect_garbage(k);

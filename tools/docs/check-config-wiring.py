@@ -70,6 +70,7 @@ TABLE = {
     # rule-round policy, and a writer in default_policy.* purely to satisfy
     # this test would be the ceremony the C5 note below warns against.
     "touch_filter":            ("ENV", "TACTIX_TOUCH_MARKS (stage-F off arm)"),
+    "subsume_holds_elim":      ("ENV", "TACTIX_SUBSUME_HOLD (SCHED-F2 off arm)"),
     # SCHED-C5 (2026-08-05): was ENV-with-a-caveat — the knob existed, defaulted
     # OFF, and the row itself said that was the status quo rather than the
     # target. It now ships ON via the kernel.hpp default, which is what both
@@ -118,7 +119,9 @@ CONFIG_START = "bve_retry_fixed_head"
 # "configures".
 NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
               "touch_epoch", "touch_fixed_head",
-              "subsume_touch_mark", "strengthen_touch_mark"}
+              "subsume_touch_mark", "strengthen_touch_mark",
+              # rule OUTPUTS (SCHED-F2), read by the policy, never configured
+              "subsume_complete", "strengthen_complete"}
 
 
 def declared_fields():

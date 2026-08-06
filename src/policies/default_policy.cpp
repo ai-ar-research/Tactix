@@ -1124,6 +1124,12 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
        outer < INPROCESS_PHASE_ROUNDS && !phase_unsat && !(stop && *stop);
        outer++) {
     bool round_changed = false;
+    // SCHED-F2: read AFTER this round's entries have run, so a stale verdict
+    // from the previous round (or the previous phase) can never hold the loop
+    // open. An entry that is declined leaves its flag at whatever its last
+    // actual round set, which is why the rules initialise them TRUE.
+    k.subsume_complete = true;
+    k.strengthen_complete = true;
     for (SlotEntry &e : inprocess_slot) {
       if (e.group != group)
         continue; // the other clock's pipeline: not offered here at all
@@ -1679,7 +1685,31 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
         break;
       }
     }
-    if (!round_changed)
+    // SCHED-F2 · the C1/C2 completeness wire (kissat eliminate.c:519-520: its
+    // elimination round loop exits on the FORWARD round's `complete`, so a
+    // half-checked candidate list buys another round instead of letting the
+    // pipeline advance on material subsumption has not finished simplifying).
+    // A held-open round costs only what its entries' own budgets allow, and
+    // the loop is capped by INPROCESS_PHASE_ROUNDS, so this can ADD rounds and
+    // never remove one — it cannot wedge the pipeline the way a conjunct on
+    // the BVE bound advance could (SP-SLOT-5's lesson: an admission that can
+    // decline forever must not gate a clock). Off arm TACTIX_SUBSUME_HOLD=0.
+    //
+    // ▶ PREDICTED INERT under the shipped DefaultPolicy, and `Stats::
+    // subsume_holds` is here to say so as a measurement rather than an
+    // argument. Both flags can only go false when a round left a tail, and
+    // with `midround_budget` OFF (the shipped default, and measured inert on
+    // its own sentinel even when on) C1/C2 always reach the end of their
+    // lists; every other way to leave a tail also CHANGES something, so
+    // `round_changed` has already kept the loop open. The wire goes live the
+    // moment a budget genuinely binds — SP-EFFORT-CEIL-1's upper clamps are
+    // the change that would do it.
+    const bool subsume_pending =
+        group == SlotGroup::Eliminate && k.subsume_holds_elim &&
+        (!k.subsume_complete || !k.strengthen_complete);
+    if (!round_changed && subsume_pending)
+      k.stats.subsume_holds++;
+    if (!round_changed && !subsume_pending)
       break; // outer fixpoint: nothing changed this round
   }
   // TACTIX_SWEEP_PROBE (DIAGNOSTIC, off by default): one EXTRA, UNBUDGETED
