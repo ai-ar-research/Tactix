@@ -935,6 +935,9 @@ instrument before spending a tier window on a mechanism.
   `touch_redundant_static6`, so `dynamic > 0` proves the stamps fire and `dynamic != static6` proves the
   scope MOVES with `k.tier2`; a single count could show neither. Pinned by
   `test_subsume.cpp::test_touch_redundant_scope`, which covers all three disjuncts separately.
+  **The check PASSED** (probe `1584772`): `battleship-14-26-sat` **345,038 dynamic vs 0 static-6**,
+  `9vliw` 236,570 vs 49,229, `rbsat` 265,255 vs 147,855 — so F7's set is large and, on `battleship`,
+  did not exist at all before C10's dynamic tiers.
 - [ ] **SCHED-F7 · C1/C2 scope ← the tier band** `[wire]` — the CONSUMER half, and F6 is its prerequisite.
   `subsume_forward.cpp:44` / `strengthen.cpp:24` reject every redundant clause outright; cadical uses
   `likely_to_be_kept_clause` as the scope test instead (`subsume.cpp:388`), so redundant clauses inside the
@@ -1065,6 +1068,16 @@ and which matters because the blast radius C10 measured is real (`battleship-14-
 where a static-6 consumer admits **nothing**: 1,025,943 dynamic clause-visits against 0 static).
 `test_touch_redundant_scope` pins all three disjuncts separately, including that the envelope readmits a
 clause `tier2` alone excludes.
+
+**▶ THE PRE-REGISTERED CHECK PASSES, AND ON THE INSTANCE C10 NAMED IT PASSES BY AN INFINITE MARGIN**
+(probe `1584772`, `c touchred`, counters only). Redundant creations in scope, dynamic vs static-6:
+`battleship-14-26-sat` **345,038 vs 0** — live tiers 26/34, so a frozen-6 predicate admits *literally
+nothing* there and every one of those 345 k stamps exists only because the tier is dynamic ·
+`9vliw_bp_mc` **236,570 vs 49,229** (4.8×) · `rbsat` **265,255 vs 147,855** · `hwmcc17miters` 0 vs 0,
+which is consistent (it refutes at 1 conflict, so nothing is learned). Both halves hold: `dynamic > 0`
+says the stamps fire, and `dynamic != static6` says the scope MOVES with `k.tier2`. **`SCHED-F7` is
+therefore unblocked and provably non-vacuous** — the set its consumer would read is large, and on
+`battleship` it is a set that did not exist at all before C10's dynamic tiers.
 
 ### 2026-08-05 — STAGE F A/B SPECS (all four landed items, none priced) + the F5 stop
 
