@@ -19,8 +19,11 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = find out what Sweep's governor is costing T3**
 
-**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **44/44**, corpus 14/14, fuzz-GREEN at two seeds (six
-legs × 6000 cases, jobs `1584462`–`1584467`).
+**IN FLIGHT.** Fuzz on the post-Stage-D merged tree: `1584638` (random-policy × native DRAT) and
+`1584639` (× native LRAT), 6000 cases each against `build/pin-staged-fuzz` — **Stage D is a large
+scheduling change and this is the first fuzz of the merged combination; read these before trusting
+HEAD.** Also `1584635` (`swfix`), a probe from the Sweep-governor investigation. Otherwise tree clean,
+pushed, ctest **44/44**, corpus 14/14.
 
 **▶ THE SWEEP GOVERNOR QUESTION IS ANSWERED — see the T3 block.** Sweep ON costs Tier C a solve and
 49 PAR-2; with it off the CaDiCaL half of T3 would be MET. The cost is TWO instances and Sweep wins
