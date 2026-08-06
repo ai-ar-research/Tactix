@@ -1607,9 +1607,9 @@ So **4,001 band `del`s and 23,139 band `add_rup`+`del` pairs verify**, and the n
 our explicit CHAINS rather than re-deriving by RUP. `veer_axi`'s two rows differ because LRAT emission
 changes the tick budget and so the trajectory — the known format asymmetry, not a discrepancy.
 
-**Gates.** ctest **53/53** on the rebased tree — 48/48 on this branch's own base, and the `rvs-api-n1`
-merge that took it 47 → 52 landed underneath during the rebase, so the 53rd is this branch's
-`subsume_n1` — plus all five conformance checkers
+**Gates.** ctest **54/54** at HEAD — 48/48 on this branch's own base, and three `RV-S` merges landed
+underneath it during three rebases (`rvs-duplication`, `rvs-api-n1` 47 → 52, `rvs-coverage-hygiene` +1),
+so this branch contributes the last one, `subsume_n1` — plus all five conformance checkers
 (`config_wiring`, `effort_specs`, `option_coverage`, `comment_hygiene`, `check-progress`). Fuzz: four legs,
 `--quick` **10,000 cases each, 0 failures** — band ON × native DRAT (`1587397`, SAT 5,704 / UNSAT 3,959 /
 TIMEOUT 337), band ON × `--random-policy` × native DRAT (`1587398`, 5,704→5,021 / 3,223 / 1,756), band ON ×
@@ -1620,7 +1620,15 @@ three random-policy legs is **17.5 %**, consistent with the review's 12-of-74 li
 population minus an unmeasured timeout set — coverage, not a rate. (b) The three RP legs' verdict splits
 are within 4 cases of each other, so **nothing in the fuzz output proves the band-ON legs exercised the
 band**; that is what the `1587413` probe above is for, and why it prints the counter beside the checker
-verdict.
+verdict. **Re-run on the TWICE-REBASED tree** (this branch went under the `rvs-duplication` and
+`rvs-api-n1` merges, and the first of those replaced this rule family's open-coded watch stride with
+`k.watches.entries`): band ON × native DRAT `1587416` and band ON × `--random-policy` × native LRAT
+`1587415`, 10,000 cases each, **0 failures**, verdict splits 5,704 / 3,957 / 339 and 5,022 / 3,224 / 1,754
+against the pre-rebase 5,704 / 3,959 / 337 and 5,020 / 3,218 / 1,762 — so the merges are behaviour-preserving
+here and the evidence above is not stale. A THIRD merge (`rvs-coverage-hygiene`) landed under it
+afterwards and was **not** re-fuzzed for this branch: it touches `src/policies/` and `src/rules/bve/`,
+none of this branch's files, and it carries its own legs.
+
 ### 2026-08-06 — the RV-S coverage + hygiene items: a fuzz leg can no longer read stronger than it is
 
 Branch `rvs-coverage-hygiene`, base `4f4989d`. Eight commits, one per item. **ctest 48/48** (the 48th is
