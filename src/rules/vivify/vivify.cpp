@@ -111,15 +111,18 @@ static void order_sort(const VivifyOrder &ord, std::vector<Lit> &out) {
   std::sort(out.begin(), out.end(), [&ord](Lit a, Lit b) { return ord(a, b); });
 }
 
-// The non-root-fixed literals of `c`, in probe order. Pre-G3 (`!vivify_reuse`)
-// this is clause literal order, which is what the off arm must restore.
+// The non-root-fixed literals of `c`, in probe order. Clause literal order
+// unless `ordered` — which is off both for the pre-G3 arm (`!vivify_reuse`) and
+// for the standalone single-candidate path, where `counts` was never filled for
+// this call and there is no next candidate to share a prefix with anyway.
 static void probe_list(const Kernel &k, const Clause *c,
-                       const VivifyOrder &ord, std::vector<Lit> &out) {
+                       const VivifyOrder &ord, std::vector<Lit> &out,
+                       bool ordered) {
   out.clear();
   for (const Lit l : *c)
     if (root_value(k, l) == 0)
       out.push_back(l);
-  if (k.vivify_reuse)
+  if (ordered)
     order_sort(ord, out);
 }
 
@@ -164,7 +167,7 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     if (is_candidate(k, c) && in_scope(k, c)) {
-      probe_list(k, c, ord, probes);
+      probe_list(k, c, ord, probes, k.vivify_reuse);
       cands.push_back({ref, c->vivify() ? 1u : 0u, c->redundant() ? 1u : 0u,
                        c->size, static_cast<uint32_t>(keys.size()),
                        static_cast<uint32_t>(probes.size())});
@@ -348,7 +351,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
   std::vector<Lit> probes;
   std::vector<uint64_t> absorbed; // unit ids of root-falsified lits (LRAT)
   probes.reserve(c->size);
-  probe_list(k, c, vivify_order(), probes);
+  probe_list(k, c, vivify_order(), probes, reuse);
   if (lrat)
     for (const Lit l : *c)
       if (root_value(k, l) < 0)
@@ -546,6 +549,11 @@ ApplyResult vivify_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.vivify_rounds++;
+  // The round owns the probing scope from here, so it must not inherit one:
+  // if some earlier rule left a scope recording at the root, the `!recording`
+  // test below would skip opening ours and every probe would land in a log
+  // that closes somewhere else. Idempotent outside a scope.
+  kernel_probing_end(k);
   std::vector<Ref> candidates;
   VivifySchedule sched;
   vivify_schedule(k, candidates, &sched);
