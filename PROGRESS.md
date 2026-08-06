@@ -726,10 +726,13 @@ instrument before spending a tier window on a mechanism.
 
 #### Stage F — repetition suppression (T2): the touched-epoch substrate
 
-- [ ] **SCHED-F1 · the substrate + its first consumer (C1/C2)** `[arch]` · [ ] **SCHED-F2 · C1/C2 completeness +
-  resume, and the C1→BVE bound coupling it enables** `[arch]` · [ ] **SCHED-F3 · X1/X2/X4 repetition
-  suppressors + the delay ladder for metered entries** `[arch]` · [ ] **SCHED-F4 · Factor per-literal marks**
-  `[arch]` · [ ] **SCHED-F5 · Vivify yield package** `[arch]`
+- [x] **SCHED-F1 · the substrate + its first consumer (C1/C2)** `[arch]` — landed 2026-08-05. `Kernel::touched`
+  (a per-variable EPOCH STAMP, not a bit) + `touch_epoch` + `kernel_touch_sync_fixed`; C1/C2's canonical rounds
+  filter their candidate list with `kernel_clause_new_material` and advance their own watermark only on a round
+  that completed. **UNPRICED**; off arm `TACTIX_TOUCH_MARKS=0`, source counter the `c touch` line.
+- [ ] **SCHED-F2 · C1/C2 completeness + resume, and the C1→BVE bound coupling it enables** `[arch]`
+- [ ] **SCHED-F3 · X1/X2/X4 repetition suppressors + the delay ladder for metered entries** `[arch]`
+- [ ] **SCHED-F4 · Factor per-literal marks** `[arch]` · [ ] **SCHED-F5 · Vivify yield package** `[arch]`
 
 #### Stage G — the genuine revamps (each needs its own design pass)
 
@@ -828,6 +831,44 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — SCHED-F1: the touched-epoch substrate is a STAMP, so it has no clearer to starve
+
+`Kernel::touched[v]` holds the value of a monotone `touch_epoch` at v's last change; a consumer keeps a
+watermark and reads `touched[v] > w`, "clearing" by snapshotting the epoch. **That shape is the direct
+answer to D3's finding.** A per-consumer BIT would need a clear pass, and a clear pass that a scheduling
+decline can starve is exactly what wedged the elimination clock shut (`SP-SLOT-5`). A stamp has no clear
+step at all, and its producers sit on the kernel's clause-CREATION path (`kernel_add_large_clause`
+irredundant, `kernel_add_binary_clause`, `kernel_reserve_vars`, `kernel_touch_sync_fixed`), which no
+policy can decline. **Non-wedge is then a theorem, not a hope:** with no add and no root fix the
+irredundant clause set only shrinks, and subsumption/strengthening are monotone in it, so "nothing
+touched" really does mean "nothing to find". Deletion is deliberately NOT a producer — it can only remove
+subsumers — which is where this mark set differs from `bve_retry`'s.
+
+**Two things the naive port would have got wrong.** (1) kissat's `connect_subsuming` (forward.c:488-492)
+demands `flags->subsume` on EVERY literal, so an unscheduled clause is dropped from the round's subsumer
+index and old-subsumes-new is lost. Our index is round-local and cheap, so a skipped candidate is still
+CONNECTED, only not CHECKED — the filter then costs no subsumption the unfiltered round would find.
+(2) A root fix makes a clause effectively shorter without any rewrite. Rather than kissat's occurrence
+walk we stamp only the fixed variable and let the membership test read the case off it
+(`value(l) < 0 && touched_since(var_of(l))`), so `kernel_touch_sync_fixed` is O(new units), not
+O(their occurrences).
+
+**N1.** The filter is consulted by the canonical ROUND only. `subsume_forward_candidates` /
+`strengthen_candidates` (what `instances()` enumerates) and the single-candidate `*_try` paths stay
+complete, so no API caller loses a legal application — the distinction the `Factor` breach
+(`SCHED-N1FIX`) turned on. Pinned by `test_subsume.cpp::test_touch_filter_is_policy_only`, which advances
+the watermark past everything, asserts the round declines, and then asserts `instances()` still offers the
+clause and `apply_instance` still subsumes it.
+
+**Completeness.** A watermark advances only for a round that reached the end of its candidate list; a
+budget-cut round (or one ended by a derived unit) leaves it, so its survivors are re-offered.
+`test_touch_filter_cut_round_does_not_advance` pins that.
+
+ctest **44/44**. **UNPRICED.** Off arm `TACTIX_TOUCH_MARKS=0` (kernel-side, so it applies under
+`--random-policy` too); pre-flight counter the `c touch` line — `marks` must keep growing, and per rule
+BOTH `skipped` and `checked` must be non-zero (all-skipped = wedged, all-checked = inert) with
+`advances` > 0.
 
 ### 2026-08-05 — Sweep governor A/B: ON costs a Tier C solve, and the cost is two instances
 

@@ -27,6 +27,13 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // starts retry-worthy (kissat activate_variable marks it removed+added).
   // A DERIVED INDEX, not `H` (implementation-notes §6) — stays kernel-side.
   k.bve_retry.resize(nvars, 1);
+  // Touched-epoch substrate: a brand-new variable has never been looked at by
+  // any consumer, so it must read as touched against every existing watermark
+  // — hence a real touch EVENT each, not a resize fill (kissat
+  // activate_variable calls kissat_mark_added_literal for the same reason).
+  k.touched.resize(nvars, 0);
+  for (uint32_t v = old; v < nvars; v++)
+    kernel_touch_var(k, v);
   // Retirement status: a brand-new variable is Active (design R-a). Only grown
   // once something has retired a variable, so the common case stays empty.
   if (!k.var_status.empty())
@@ -92,9 +99,13 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   //    them, and learned-clause traffic would mark everything.
   //    DEVIATION: kissat marks on REMOVAL only (inline.h). That variant was
   //    measured here and is NEGATIVE; do not re-derive it.
+  //  - touched-epoch substrate: same population as the BVE retry filter here,
+  //    and for the same reason (kissat marks `subsume`/`factor` on exactly the
+  //    irredundant large adds, clause.c:98).
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
       kernel_mark_bve_retry(k, var_of(lits[i]));
+      kernel_touch_var(k, var_of(lits[i]));
       if (k.dense)
         k.dense->large[lits[i]].push_back(ref);
     }
@@ -117,6 +128,12 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   // (removal-only marking measured and rejected — see kernel_add_large_clause).
   kernel_mark_bve_retry(k, var_of(a));
   kernel_mark_bve_retry(k, var_of(b));
+  // Touched-epoch substrate: a binary is the strongest subsumer/partner there
+  // is, so both variables are new material for every consumer (kissat
+  // new_binary_clause marks both unconditionally, clause.c:71-72 — including
+  // learned binaries, which is where this over-touches on purpose).
+  kernel_touch_var(k, var_of(a));
+  kernel_touch_var(k, var_of(b));
 }
 
 bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
@@ -369,6 +386,22 @@ void kernel_bve_retry_sync_fixed(Kernel &k) {
           kernel_mark_bve_retry(k, var_of(m));
     }
     ref += words;
+  }
+}
+
+// See kernel.hpp for the contract, and for why this stops at the fixed
+// variable instead of walking its occurrences.
+void kernel_touch_sync_fixed(Kernel &k) {
+  const uint32_t fixed = kernel_root_fixed(k);
+  if (k.touch_fixed_head >= fixed)
+    return;
+  const uint32_t from = k.touch_fixed_head;
+  k.touch_fixed_head = fixed;
+  for (uint32_t i = from; i < fixed; i++) {
+    const Var v = var_of(k.trail[i]);
+    if (k.assigned[v].level != 0)
+      continue; // an out-of-order literal above the root frame is not fixed yet
+    kernel_touch_var(k, v);
   }
 }
 

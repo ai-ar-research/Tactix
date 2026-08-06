@@ -346,6 +346,17 @@ ApplyResult strengthen_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.strengthen_rounds++;
+  // SCHED-F1 · repetition filter, C1's arrangement exactly (see the N1 note in
+  // subsume_forward.cpp; the predicate is kernel_clause_new_material). The
+  // snapshot is taken before the FLUSH pre-pass on purpose: the flush rewrites
+  // every clause a root fix shortened, and each rewrite is an add, so those
+  // clauses land above the snapshot and this round's own candidate filter
+  // already sees them as new.
+  kernel_touch_sync_fixed(k);
+  const bool filter = k.touch_filter;
+  const uint64_t snapshot = k.touch_epoch;
+  const uint64_t wm = k.strengthen_touch_mark;
+  bool complete = true; // ran to natural exhaustion => the watermark may move
   uint64_t changed = 0;
   bool ended = false;
   // flush pre-pass (see flush_root): the whole arena, before the
@@ -380,11 +391,39 @@ ApplyResult strengthen_apply(Kernel &k) {
   // survivors stay candidates and the next round re-derives them. 0 =
   // unbounded. Polled in PARTNER VISITS (Stats::strengthen_visits).
   const uint64_t check_start = k.stats.strengthen_visits;
+  // connect a survivor at its least-occurring free literal. Shared by the
+  // checked path and by the SCHED-F1 skip path: a skipped candidate is still
+  // indexed, so the round's partner index stays complete and the filter costs
+  // no strengthening the unfiltered round would have found.
+  const auto connect = [&](Ref cr) {
+    const Clause *c = clause_at(k.arena, cr);
+    Lit min_lit = INVALID_LIT;
+    size_t min_occs = 0;
+    for (const Lit l : *c) {
+      if (k.value(l) != 0)
+        continue;
+      const size_t n = occs[l].size();
+      if (min_lit == INVALID_LIT || n < min_occs) {
+        min_lit = l;
+        min_occs = n;
+      }
+    }
+    // under-derived roots (corpus 002) can leave a candidate without
+    // free literals; nothing to connect then
+    if (min_lit != INVALID_LIT && min_occs <= STRENGTHEN_OCCLIM)
+      occs[min_lit].push_back(cr);
+  };
   for (Ref cref : candidates) {
     if (k.midround_budget && k.work_budget &&
         k.stats.strengthen_visits - check_start > k.work_budget) {
       k.stats.budget_stops_c2++;
+      complete = false;
       break;
+    }
+    if (filter && !kernel_clause_new_material(k, clause_at(k.arena, cref), wm)) {
+      k.stats.strengthen_mark_skipped++;
+      connect(cref);
+      continue;
     }
     for (;;) { // strengthening cascades on the same candidate
       Clause *c = clause_at(k.arena, cref);
@@ -395,23 +434,8 @@ ApplyResult strengthen_apply(Kernel &k) {
       const int r = act(k, &cref, p, &changed);
       if (r == 5)
         return ApplyResult::Unsat;
-      if (r == 0) { // survivor: connect at least-occurring free literal
-        c = clause_at(k.arena, cref);
-        Lit min_lit = INVALID_LIT;
-        size_t min_occs = 0;
-        for (const Lit l : *c) {
-          if (k.value(l) != 0)
-            continue;
-          const size_t n = occs[l].size();
-          if (min_lit == INVALID_LIT || n < min_occs) {
-            min_lit = l;
-            min_occs = n;
-          }
-        }
-        // under-derived roots (corpus 002) can leave a candidate without
-        // free literals; nothing to connect then
-        if (min_lit != INVALID_LIT && min_occs <= STRENGTHEN_OCCLIM)
-          occs[min_lit].push_back(cref);
+      if (r == 0) { // survivor
+        connect(cref);
         break;
       }
       if (r == 2)
@@ -422,6 +446,16 @@ ApplyResult strengthen_apply(Kernel &k) {
     }
     if (ended)
       break;
+  }
+  // SCHED-F1 · the watermark moves only for a round that reached the end of
+  // its candidate list. `ended` (a derived unit stopped the round) counts as
+  // incomplete for the same reason a budget cut does: the tail was never
+  // offered. See the twin comment in subsume_forward.cpp.
+  if (ended)
+    complete = false;
+  if (filter && complete) {
+    k.strengthen_touch_mark = snapshot;
+    k.stats.strengthen_mark_advances++;
   }
   if (!changed)
     return ApplyResult::NoOp;

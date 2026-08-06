@@ -343,6 +343,24 @@ struct Stats {
   // implements the same predicate ("did anything an eliminator could act on
   // change since the last phase?") against the bit lifecycle we actually have.
   uint64_t bve_marks = 0;
+  // --- touched-epoch substrate (Kernel::touched) --------------------------
+  // EVENTS, for the same reason bve_marks counts events (see above): the
+  // per-variable stamp is monotone and is never cleared, so there is no flip
+  // to count. `touch_marks` growing over a long solve is the positive evidence
+  // that the substrate's producers are still firing.
+  uint64_t touch_marks = 0;
+  // C1/C2 round-candidate suppression by the touched-epoch filter: candidates
+  // the round SKIPPED because nothing in them changed since its watermark, vs
+  // the `forward_checked`/`strengthen_checked` it did examine. Both must stay
+  // non-zero on a long solve — all-skipped would mean the filter had wedged
+  // shut, all-checked that it never fires.
+  uint64_t forward_mark_skipped = 0;
+  uint64_t strengthen_mark_skipped = 0;
+  // Rounds that ran to natural exhaustion and therefore ADVANCED the
+  // watermark, vs rounds cut short (budget / derived unit) that left it where
+  // it was. Zero advances with non-zero rounds means the filter is inert.
+  uint64_t forward_mark_advances = 0;
+  uint64_t strengthen_mark_advances = 0;
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
@@ -633,6 +651,62 @@ struct Kernel {
   // trail index up to which root-fixed literals have been folded into
   // `bve_retry`; see kernel_bve_retry_sync_fixed.
   uint32_t bve_retry_fixed_head = 0;
+
+  // --- TOUCHED-EPOCH substrate (kissat flags->subsume, flags->factor) -------
+  // The generic answer to "what is new since I last acted?", which the
+  // repetition suppressors of Track SCHED stage F are all built on. A bit
+  // would need a global clear pass per consumer and would then have exactly
+  // the lifecycle hazard that wedged the elimination clock (Stats::bve_marks):
+  // a stamp has no clear step at all, so it cannot be wedged by a clearer that
+  // never runs.
+  //
+  //   `touch_epoch`  monotone event counter, incremented on every touch.
+  //   `touched[v]`   the epoch at which v was last touched (0 = never).
+  //
+  // A consumer keeps its own watermark `w` and reads `touched[v] > w`; it
+  // "clears" by assigning `w = touch_epoch` — a snapshot taken BEFORE it does
+  // its work, so material the consumer itself creates stays new for its next
+  // pass (kissat re-arms the same cases by hand, forward.c:589-645).
+  //
+  // PRODUCERS — one home per mutation kind, and they are exactly the mutations
+  // that can create a new inference for a clause-rewriting rule:
+  //   - every variable of an IRREDUNDANT large clause that is ADDED, and both
+  //     variables of any binary that is added (kernel_add_large_clause /
+  //     kernel_add_binary_clause; kissat marks the same two populations,
+  //     clause.c:71-72,98). Strengthening a clause goes through
+  //     kernel_replace_clause, i.e. an add, so it is covered here too.
+  //   - every newly ROOT-FIXED variable (kernel_touch_sync_fixed).
+  //   - every freshly reserved variable (kernel_reserve_vars).
+  // Deliberately NOT a producer: clause DELETION. Deleting a clause can only
+  // remove subsumers/partners, never create one, so a deletion-driven touch
+  // would weaken the filter for nothing. This is where the substrate's mark
+  // set differs from `bve_retry`, which must mark on deletion because BVE's
+  // resolvent count changes when a neighbour disappears.
+  //
+  // ▶ WHY IT CANNOT WEDGE SHUT. The producers are on the kernel's clause
+  // creation path, not on any rule's admitted path, so no scheduling decline
+  // can starve them. And "no touch since w" is not a heuristic claim but a
+  // theorem: with no add and no root fix, the irredundant clause set only
+  // shrinks, and subsumption/strengthening are monotone in it — a consumer
+  // that skips everything is skipping work that provably cannot succeed.
+  uint64_t touch_epoch = 0;
+  std::vector<uint64_t> touched; // by var
+  // trail index up to which root-fixed literals have been folded into
+  // `touched`; see kernel_touch_sync_fixed.
+  uint32_t touch_fixed_head = 0;
+  // Consumer watermarks. Solver STATE, not config — the same category as
+  // `transitive_cursor`. Kept kernel-side because they must survive the rule's
+  // stack frame, and public so a policy (or a test) can reset one to 0 to force
+  // a full pass. Each is advanced ONLY by a round of its own rule that ran to
+  // natural exhaustion; a budget-cut round leaves it, so the survivors are
+  // re-offered. N1 is untouched: `instances()` and the single-candidate
+  // `apply_instance` path never read these (see subsume_forward.hpp).
+  uint64_t subsume_touch_mark = 0;
+  uint64_t strengthen_touch_mark = 0;
+  // Master switch for the stage-F round filters (TACTIX_TOUCH_MARKS=0 is the
+  // A/B off arm). False = every round scans its full candidate set, i.e. the
+  // pre-stage-F behaviour, byte for byte.
+  bool touch_filter = true;
   // TransitiveReduce RESUMPTION CURSOR — solver STATE, not config.
   // `instances()` can only offer `cap` sources per call, and offering the FIRST
   // `cap` every round means a budget-truncated round re-derives the same list
@@ -1096,6 +1170,56 @@ inline void kernel_mark_bve_retry(Kernel &k, Var v) {
 // prefix below its boundary), so the watermark is monotone. Costs O(the new
 // fixed literals' occurrences) with `dense` attached, one arena scan without.
 void kernel_bve_retry_sync_fixed(Kernel &);
+
+// --- touched-epoch substrate (see Kernel::touched) --------------------------
+inline void kernel_touch_var(Kernel &k, Var v) {
+  k.touched[v] = ++k.touch_epoch;
+  k.stats.touch_marks++; // EVENTS; a stamp has no flip to count
+}
+// Has v changed since the watermark `since`?
+inline bool kernel_touched_since(const Kernel &k, Var v, uint64_t since) {
+  return k.touched[v] > since;
+}
+// Is clause `c` worth re-examining by a clause-rewriting rule whose watermark
+// is `since`? (kissat forward.c:143-160, the `subsume < 2` test over
+// flags->subsume.) Two independent reasons, both necessary in general:
+//   (a) TWO OR MORE of c's variables touched. That is exactly the condition for
+//       a new clause D with vars(D) ⊆ vars(c) and |D| >= 2 to exist — i.e. for
+//       a new subsumer or self-subsuming partner. A c whose variables are all
+//       older than the watermark was already checked against every clause that
+//       can be built out of them.
+//   (b) c holds a ROOT-FALSIFIED literal whose variable was fixed since the
+//       watermark. That literal is absorbed by its unit, so c is effectively
+//       shorter than when it was last checked and an OLD clause can cover it
+//       now. Reading the case off the fixed variable itself is what lets
+//       kernel_touch_sync_fixed skip the occurrence walk.
+// This is a POLICY predicate about what to TRY. It must never appear in a
+// guard or narrow an `instances()` enumeration (N1) — see the N1 note in
+// subsume_forward.cpp.
+inline bool kernel_clause_new_material(const Kernel &k, const Clause *c,
+                                       uint64_t since) {
+  size_t hits = 0;
+  for (const Lit l : *c) {
+    if (!kernel_touched_since(k, var_of(l), since))
+      continue;
+    if (k.value(l) < 0)
+      return true; // (b)
+    if (++hits >= 2)
+      return true; // (a)
+  }
+  return false;
+}
+// Fold every ROOT-FIXED variable not yet accounted for into `touched`. Only the
+// fixed variable itself is stamped — NOT the variables it shares clauses with,
+// which is where this deliberately stops short of kernel_bve_retry_sync_fixed
+// and of its occurrence walk. What the consumers need from a root fix is
+// "clause C holds a literal that is now absorbed", and C's own membership test
+// can read that off the fixed variable directly (`value(l) < 0 &&
+// kernel_touched_since(k, var_of(l), w)`), so the neighbours never have to be
+// enumerated. Cost is O(the new fixed literals), not O(their occurrences).
+// Incremental and idempotent; the head is monotone for the same reason
+// `bve_retry_fixed_head` is.
+void kernel_touch_sync_fixed(Kernel &);
 
 // --- clauses ---------------------------------------------------------------
 // size >= 3; watches lits[0] and lits[1]. `id` is the proof clause id
