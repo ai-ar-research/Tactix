@@ -19,11 +19,10 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = run the Sweep-governor Tier C A/B (specced, unrun)**
 
-**Post-Stage-D merged-tree fuzz: GREEN.** `1584638` (random-policy × native DRAT) and `1584639`
-(× native LRAT), **6000 cases each, 0 failures**, restatement path reached on 1669 cases — the first
-fuzz of the merged combination of this session's branches (logs in `tools/fuzz/`). **IN FLIGHT:** the
-Sweep-governor investigation's probe jobs (`swD`/`swemit`/`swE`). Tree clean, pushed, ctest **44/44**
-(`config_wiring`, `effort_specs`, `option_coverage` all green), corpus 14/14.
+**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **46/46**, corpus 14/14, and every conformance checker
+green (`config_wiring`, `effort_specs`, `option_coverage`, `option`-set + `check-progress`).
+**Every fuzz leg run tonight was 0 failures** across the merged tree — the largest were 3 × 10,000
+random-policy cases after Stage F and 26,000 across five legs for CCE.
 
 **▶▶ SWEEP'S DEGRADATION IS DIAGNOSED AND FIXED (branch `sweep-governor-fix`); THE TIER C A/B IS SPECCED
 AND UNRUN.** Not the meter — the **enforcement point**. The round ceiling was polled only *between* seeds
@@ -962,18 +961,20 @@ instrument before spending a tier window on a mechanism.
   `factor_ticks` proportional to each watch list — i.e. the round was spending its own budget rebuilding a
   heap that mostly could not have changed. Coarser than kissat on polarity (our stamps are per variable).
   All three of the round's early exits are reachable, so the F2 re-arm is live here.
-- [ ] **SCHED-F5 · Vivify leftover prioritization** `[arch]` — **NOT DONE, and the reason is a design finding,
-  not a shortfall of time.** The audit row (frozen audit line 138, HIGH) is kissat's `Clause::vivify` /
-  cadical's `c->vivify`: a PER-CLAUSE bit, cleared when a candidate is tried, kept on the ones the budget
-  never reached, so leftovers rank first next round — and re-marked on ALL scheduled clauses when the
-  leftover set empties, i.e. it is a PRIORITY mechanism, never a suppressor. **The stage-F substrate cannot
-  express it.** Its stamps are per VARIABLE, so re-arming a cut round's tail arms every clause over those
-  variables; the leftover set would be most of the database and the partition would go inert — an
-  [[ab-arm-identical-artefacts]] result waiting to happen. Doing it faithfully needs a per-clause bit, and
-  `Clause::flags` has none free (GARBAGE/REDUNDANT/REASON/used:5/glue:24). The honest options are (a) steal
-  one bit from `glue`'s 24 — safe on range, but a clause-header change, i.e. `revamp`, and it is in
-  `clause.hpp`, not the stage-F file set; or (b) a side table keyed on something GC-stable, which the arena
-  Ref is not. **Route through `revamp`; do not bolt it onto the epoch substrate.**
+- [x] **SCHED-F5 · Vivify leftover prioritization** `[arch]` — **DONE 2026-08-05 via `SCHED-G3`**, which is
+  where Stage F routed it. The finding that sent it here stands: kissat's `Clause::vivify` is a per-CLAUSE
+  PRIORITY bit, the stage-F substrate stamps VARIABLES, and re-arming a cut round's tail over variables
+  arms every clause over them, so the partition goes inert. **The `Clause::flags` bit WAS the right
+  answer** — `glue`'s 24 bits saturate in `set_glue` and glue is bounded by clause size, so bit 8 is free
+  and 23 bits (8.4 M) is as unreachable as 24 was; the side-table alternative was correctly rejected,
+  since the arena `Ref` is not GC-stable and the only GC-stable name a clause has is its proof id (a hash
+  lookup for one bit). Semantics are kissat's `vivify.c:265-302, 1311`: armed on every scheduled
+  candidate, cleared the moment one is TRIED, and **re-armed across the whole scope when the leftover set
+  empties**, so it can only prioritise, never suppress. It is also the first resumption Vivify has ever
+  had — a BATCH rule, so Stage E's `SlotEntry::cursor` never applied to it and every round restarted from
+  the same head, the defect E1 found in Probe. Reachability is a PAIR, not one count
+  ([[ab-arm-identical-artefacts]]): `c vivify2` prints `prio` and `rearm`, and on `Ptn-7824-b18` only
+  **100 of 423 rounds** re-armed, so on the other 323 the bit really did select a tail.
 - [x] **SCHED-F6 · the REDUNDANT half of the substrate** `[arch]` (SP-TIER-2's residue, requested after C10) —
   landed 2026-08-05, **SHIPPING OFF** behind `TACTIX_TOUCH_REDUNDANT=1`. `kernel_likely_kept` is cadical's
   `likely_to_be_kept_clause` with all THREE disjuncts, including the one we had no counterpart for — the
@@ -1031,20 +1032,27 @@ instrument before spending a tier window on a mechanism.
   (re-derive the 2,231 at `--congruencebinaries=0`) and it may shrink the target by most of itself.
   Y1 is small and one-step RUP; Y2 changes the closure's relationship to `τ` and is the large one.
 - [ ] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **the cheapest decisive check on the board.**
-- [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G5 · binary-first watch
-  layout** `[revamp]`. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
-  already tracked as **Track R · R5** — not repeated here as a second checkbox.)*
+- [x] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` — landed 2026-08-05 on branch
+  `sched-g3-vivify`, design frozen at `docs/design/2026-08-05-vivify-trail-reuse.md`. **UNPRICED**; the
+  pre-registered A/B is design §5 and its first instruction is to read `c vivify2`. Carries **SCHED-F5**
+  and **C10 hand-off H3** with it (both ticked below), and the **Vivify half of SCHED-H1**.
+  · [ ] **SCHED-G5 · binary-first watch layout** `[revamp]`. *(V5 Sweep is the largest block of
+  reference scheduling we lack, but it is already tracked as **Track R · R5** — not repeated here as a
+  second checkbox.)*
 
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
-- [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by file;
-  the X1/X2/X4 share is DONE** (see its Log entry), C1/C2 and Vivify are owned separately. Tick the item
-  only when all three land. · [x] **SCHED-H2** per-solve reset of
-  restart/reduce/rephase/mode/reorder/averages/walk_anchor (2026-08-05; `DefaultPolicy::reset_schedule`,
-  `tests/test_solve_reset.cpp`) · [x] **SCHED-H3** Reduce `first_reducible` scan
-  bound — **CLOSED, measured-marginal, NOT implemented** (2026-08-06; the bound binds on 40 % of the
-  words and the words are 0.15 % of the propagation cache-line traffic — see the Log entry before
-  re-opening it)
+- [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by
+  file; TWO of the three are DONE.** *X1/X2/X4* (six sites, `kernel_rule_interrupt` doing poll and both
+  increments so a site cannot be added uncounted) and *Vivify* (`SCHED-G3`; `c vivify2` carries the
+  anti-vacuity PAIR `polls`/`term`, and `EDP3-11000` under `TACTIX_STOP_FUZZ=20000` gives **96,804 polls
+  / 1 term** against 122,548 / 0 plain). **Both halves use NO `!(++tick & 255)` window at all** — that is
+  kissat's own shape and the one construction the task-#10 vacuity cannot recur in. **C1/C2 is the
+  remaining third; tick the item only when it lands.** · [x] **SCHED-H2** per-solve reset of
+  restart/reduce/rephase/mode/reorder/averages/walk_anchor (`DefaultPolicy::reset_schedule`,
+  `tests/test_solve_reset.cpp`) · [x] **SCHED-H3** Reduce `first_reducible` scan bound — **CLOSED,
+  measured-marginal, NOT implemented** (the bound binds on 40 % of the words and the words are 0.15 % of
+  the propagation cache-line traffic — read the Log entry before re-opening it)
 
 **▶ WHY THIS SERVES PHASE 6 (the user's explicit requirement).** Every `[arch]` item adds *observability or control* the learned policy needs and
 cannot get today: A1 gives per-entry occasions/declines/yield (the reward-shaping signal, and the labels the §5.6 admission exhibit lacks); B2's
@@ -1476,6 +1484,119 @@ sweep-stress + forced-general + ASCII DRAT). Reachability at the SOURCE on the s
 1,468 rounds, 7,092 environments, 3,441 equivalences, **3,558 binaries and 293 general-path pairs** over
 1,497 generated cases — both proof paths non-zero, so no green leg here is vacuous. Report
 `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
+
+### 2026-08-05 — SCHED-G3: Vivify trail reuse (+ F5's clause bit, tier3, H1's Vivify half)
+
+Branch `sched-g3-vivify`. Design frozen FIRST at `docs/design/2026-08-05-vivify-trail-reuse.md`; ctest
+**44/44**, all four config/doc checkers green.
+
+**The finding that shaped the item: the reuse loop is not the mechanism, the ORDER is.** Both references
+say so at the use site. cadical `vivify.cpp:35-42` is explicit — *"instead of building a trie we simply
+sort clauses and literals in such a way that we get the same effect … pick a global literal order …
+favor literals with more occurrences first … then sort clauses lexicographically"* — and kissat does the
+same in `vivify_sort_clause_by_counts` + `worse_candidate`. Our probe order was **clause literal order**
+and our candidate order was `(irredundant, size, ref)`, under which adjacent candidates share a leading
+literal only by accident. **A reuse loop bolted onto that scheduling would have measured a reuse rate
+near zero**, which is the [[ab-arm-identical-artefacts]] outcome predicted rather than discovered. So
+the orders landed WITH the reuse, and the off arm reverts both — an off arm that kept the new order
+would not be measuring the mechanism.
+
+One deliberate divergence: kissat permutes the literals IN THE ARENA and therefore brackets the round
+with `flush_large_watches`/`watch_large_clauses`. We keep the order in a round-scoped side vector and
+sort only the local probe list, so neither arena is touched and there is no watch rebuild.
+
+**The validity invariant for a reused prefix (design §3, VP1/VP2/VP3) rests on ONE rule:** every
+operation that can invalidate a retained trail — rewrite, deletion, root unit, GC — is preceded by
+`reset_to_root()`, so a trail is never carried ACROSS a database change, only across candidates that
+changed nothing. There is no generation counter to get wrong because no state outlives what it
+describes. That one rule also discharges `kernel_probing_end`'s "no clause added/deleted/relocated in a
+scope" contract, its restore precondition, and kissat's `reestablish_watch_invariant_for_candidate`
+(which exists only because kissat shrinks clauses in place at a non-zero level; we never mutate above
+the root). Three things it does NOT discharge, each handled explicitly:
+- **Root values vs current values.** `is_candidate` and the probe list read `k.value`, correct only
+  because the level used to be 0 on entry. The root-satisfied **deletion** path goes through the same
+  test, so with a retained trail a speculatively satisfied clause could have been deleted — the one way
+  this change could produce a WRONG answer rather than a slow one. Both now read `root_value`
+  (kissat's `kissat_fixed`).
+- **The candidate as a trail reason.** The prefix was propagated ignoring the PREVIOUS candidate, so the
+  current one may be a reason on it. Not only a quality issue: in the implied-negation case the
+  candidate's id is the CLOSING LRAT hint, and a reason walk that also reached it would emit the same id
+  twice in one chain — a hint already satisfied on replay is a rejection, not a warning. Both references
+  check exactly this and backtrack below it (kissat `vivify.c:995-1005`, cadical `vivify.cpp:940-965`),
+  and so do we, in O(|c|).
+- **Leftover levels.** A value is read only where `k.level == i - 1`, i.e. where only this candidate's
+  assumptions hold — kissat's `assert (!value || LEVEL (lit) <= level)`. The reuse branch reads nothing.
+  We additionally trim `k.level` to `|probes|` up front so the trail cannot even hold an assumption
+  outside the candidate.
+
+**The count order forced a second closure, and it was not optional.** Under clause order the implied
+literal was usually the next position and the lazy `v > 0` test caught it; under the count order it can
+be anywhere later, so without kissat's **eager implied-literal scan** (`vivify.c:1078-1090` — mark the
+probe literals, scan what each propagation newly assigned) the new order would strictly LOSE
+strengthenings the old one found. `test_lcm_scope_and_satisfied_delete` failed on exactly that and is
+what surfaced it. Still open: kissat's `better_implied` refinement (`vivify.c:1101-1117`).
+
+**REACHABILITY — the mechanism is live, and the off arm proves the counters move** (probe `1585201`,
+`benchmarks/probes/scratch/g3/`, three real Tier C instances):
+
+| instance | reused | probes | reuse rate | tier3 | rearm/rounds |
+|---|---|---|---|---|---|
+| `1-ET-256-K-70` (UNSAT) | 62,605 | 165,663 | **27.4 %** | 1,177 | 24/158 |
+| `EDP3-11000` (SAT) | 142,650 | 451,380 | **24.0 %** | 800 | 21/73 |
+| `Ptn-7824-b18` (SAT) | 830,950 | 2,198,892 | **27.4 %** | 5,468 | 100/423 |
+
+`TACTIX_VIVIFY_REUSE=0` on `EDP3-11000`: **0 reused**, and only **31,050 candidates checked** against
+the ON arm's **122,548** for the same tick budget — a 3.9× widening of what the budget reaches.
+`TACTIX_VIVIFY_TIER3=0`: **tier3 0**, confirming the fourth pass is what populates that band.
+cadical claims 30–50 % of decisions saved; 24–27 % is the same order.
+
+**▶ `vivified` COLLAPSES AND THAT IS NOT THE OBJECTIVE — read solve time.** The count drops hard:
+`EDP3-11000` 1,155 vs the off arm's 1,938, `Ptn-7824-b18` **9,211 vs 364,859**. My first reading of that
+was that the yield went the wrong way; it is the wrong number to read. Paired single-instance times, same
+node, same binary, 400 s cap:
+
+| instance | shipped (both ON) | `TACTIX_VIVIFY_REUSE=0` | `TACTIX_VIVIFY_TIER3=0` |
+|---|---|---|---|
+| `EDP3-11000` | **28.6 s** | 29.8 s | **62.8 s** (2.2×) |
+| `Ptn-7824-b18` | **273.9 s SOLVED** | **400 s TIMEOUT** | — |
+
+So on both instances the shipped arm vivifies far less and is FASTER — on `Ptn` the off arm burns
+15.97 M probe assumptions to strengthen 364,859 clauses and does not finish. Vivification count was never
+the objective, and D-VIVIFY-SCHED's "this is a YIELD fix" note has to be read as "yield per tick", not
+"clauses rewritten". **This is still TWO instances and is NOT a verdict** ([[chaotic-instance-veto]]);
+the §5 A/B is what decides it, and its abandon-the-window rule stands. Peak RSS 249 MB vs 113 MB — the
+round-scoped probing log is real but small, and 249 MB is far under the 8 GB/core allocation.
+
+**C10 hand-off H3 LANDED, not deferred** (`SP-TIER-2` removal-path T3, now closed in
+`implementation-notes.md`): `Kernel::vivify_scope` grows to name the band — 3/4/5 = kissat's
+tier1/tier2/tier3 — and `run_vivify_dose` spends the redundant budget as three passes at 3/3/7, 3/3/7,
+1/7. The "3+3+1 = 7" the policy comment was already claiming was **only ever accounting**: the redundant
+side was one pass bounded by `tier2`, so **tier3 was never vivified at all**. This is also the first
+live `k.tier1` consumer outside reduce in either direction. `Stats::vivify_tier3` is its own vacuity
+witness and is non-zero on all three instances above.
+
+**SCHED-F5 and SCHED-H1's Vivify half** are ticked in the checklist with their own evidence.
+
+**FUZZ: SIX LEGS, 10,000 CASES EACH, 0 FAILURES** (60,000 cases, corpus 14/14 on each) — jobs `1585243`
+native DRAT · `1585244` native LRAT · `1585245` `--random-policy` × DRAT · `1585246` `--random-policy` ×
+native LRAT · `1585254` **`TACTIX_STOP_FUZZ=97` × `--random-policy` × native LRAT** (the H1 abort path:
+the stress cadence bypasses every window, so the new poll is live on cases far smaller than one) ·
+`1585255` **`--probing-stress-policy` × native LRAT** (the new-schedule leg: it drives Vivify's CANONICAL
+round densely against Probe/Backbone/TransitiveReduce/Congruence in random order with
+`kernel_check_invariants` after every step, which is exactly the surface trail reuse lives on). Verdicts
+agree between the stressed and unstressed legs modulo timeouts (SAT 5026 vs 5027), so interrupting a
+round changed no answer and every UNSAT still produced a checkable chain. **An earlier submission of the
+same six was cancelled and redone**: `build/debug/tactix` was rebuilt underneath them mid-flight, which
+makes a leg mixed-binary and its green meaningless — the fuzz analogue of the build-dir rule.
+
+**A/B SPEC (not run — no tier campaign here, and the 4-core allocation is oversubscribed).** Same
+window, same binary, node-pinned, Tier C, `--baseline kissat --baseline cadical`; two pin dirs if a
+Tier B arm goes out concurrently. Arms via the shipped hatches `TACTIX_VIVIFY_REUSE=0` and
+`TACTIX_VIVIFY_TIER3=0` (both ship ON). **Read `c vivify2` BEFORE reading PAR-2**: `reused` 0 ⇒ the
+mechanism is inert and the window is abandoned; `tier3` 0 ⇒ the tier3 half is inert independently.
+Paired draws before any single-instance flip is treated as a verdict ([[chaotic-instance-veto]]).
+**Ids: no new SCHED id was minted** — G3, F5 and H1's Vivify half were all already on the board
+(G4 and H4+ remain free).
 
 ### 2026-08-05 — SCHED-F6: the redundant half of the substrate, shipped OFF on purpose
 

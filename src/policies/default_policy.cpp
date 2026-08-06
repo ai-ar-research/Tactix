@@ -1881,6 +1881,12 @@ void DefaultPolicy::factor_dose_config(Kernel &k, SlotEntry &e) {
 // their budget share; only the IRREDUNDANT pass is delay-gated (vivifyirr,
 // kimits.c). Delaying the WHOLE round instead is measurably worse. Shares are
 // kissat's option defaults: irr 3 / tiers 3+3+1 = 7.
+//
+// SCHED-G3 (C10 hand-off H3) SPENDS that 3+3+1 as three separate passes. It was
+// only ever an accounting comment before: the redundant side ran as ONE pass
+// scoped to `glue <= tier2`, so tier3 was never vivified at all even though the
+// share was sized as if it were. kissat splits the round three ways at
+// vivify.c:236-256 and gives each its own budget (vivifytier1/2/3 = 3/3/1).
 ApplyResult DefaultPolicy::run_vivify_dose(Kernel &k, SlotEntry &e,
                                            const RuleVTable &r,
                                            uint64_t limit) {
@@ -1889,14 +1895,27 @@ ApplyResult DefaultPolicy::run_vivify_dose(Kernel &k, SlotEntry &e,
   const bool irr_delayed = k.stats.conflicts > 0 && e.delay_count > 0;
   if (irr_delayed)
     e.delay_count--;
-  // redundant pass (always; full budget when irr is delayed)
-  ApplyResult ar;
-  k.vivify_scope = 1;
-  k.work_budget =
-      irr_delayed ? remaining : std::max<uint64_t>(1, remaining * 7 / 10);
-  {
+  // TACTIX_VIVIFY_TIER3=0 is the A/B off arm: back to one tier2-bounded
+  // redundant pass holding the whole 7/10, i.e. the pre-G3 candidate set.
+  const char *no_t3 = std::getenv("TACTIX_VIVIFY_TIER3");
+  const bool split = !(no_t3 && *no_t3 == '0');
+  // redundant passes (always; full budget when irr is delayed)
+  ApplyResult ar = ApplyResult::NoOp;
+  const uint64_t red = irr_delayed ? remaining : remaining * 7 / 10;
+  // Kernel::vivify_scope: 1 = the whole tier2-bounded redundant band (the
+  // un-split arm), 3/4/5 = kissat's tier1 / tier2 / tier3 bands.
+  const uint8_t scopes[3] = {3, 4, 5};
+  const uint64_t shares[3] = {red * 3 / 7, red * 3 / 7, red / 7};
+  const uint32_t passes = split ? 3u : 1u;
+  for (uint32_t p = 0; p < passes && ar != ApplyResult::Unsat && !k.inconsistent;
+       p++) {
+    k.vivify_scope = split ? scopes[p] : uint8_t{1};
+    k.work_budget = std::max<uint64_t>(1, split ? shares[p] : red);
     TickSinkScope sink(k, e.tick_counter);
-    ar = apply_rule(r, k);
+    const ApplyResult a = apply_rule(r, k);
+    if (a == ApplyResult::Unsat ||
+        (a == ApplyResult::Ok && ar != ApplyResult::Unsat))
+      ar = a;
   }
   // irredundant pass (delay-gated, ratio-tracked on ITS deltas)
   if (!irr_delayed && ar != ApplyResult::Unsat && !k.inconsistent) {

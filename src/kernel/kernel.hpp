@@ -203,6 +203,26 @@ struct Stats {
   uint64_t vivify_checked = 0; // Vivify candidates probed
   uint64_t vivified = 0;       // clauses distilled by Vivify (add+delete)
   uint64_t vivify_deleted = 0; // root-satisfied deletions by Vivify
+  // SCHED-G3 reachability set (docs/design/2026-08-05-vivify-trail-reuse.md
+  // §4). A reuse rate of zero is a reportable result, so every one of these is
+  // counted unconditionally — the mechanism can never go inert quietly.
+  uint64_t vivify_reused = 0;     // assumption levels taken from the retained
+                                  // trail (kissat `vivify_reused`)
+  uint64_t vivify_probes = 0;     // assumptions actually made (kissat
+                                  // `vivify_probes`); reuse rate = reused/(both)
+  uint64_t vivify_reuse_full = 0; // candidates wholly covered by the prefix
+  uint64_t vivify_tier3 = 0;      // tier3 (glue > tier2) candidates probed —
+                                  // 0 means the C10-H3 half is inert
+  // The F5 priority pair: `prioritized` alone cannot tell "the bit selects a
+  // tail" from "the bit is always all-ones", so the re-arm rounds are counted
+  // beside it ([[ab-arm-identical-artefacts]]).
+  uint64_t vivify_prioritized = 0;   // candidates carrying the leftover bit
+  uint64_t vivify_reprioritized = 0; // rounds whose leftover set was empty
+  // H1 (Vivify half). Two numbers, because "the site is reached" and "the site
+  // fires" cannot be inferred from each other — the defect that let task #10's
+  // abort paths pass 4 x 10,000 fuzz cases while vacuous.
+  uint64_t vivify_polls = 0;      // kernel_terminating evaluations at the site
+  uint64_t vivify_terminated = 0; // rounds cut short by one
   uint64_t probe_rounds = 0;   // Probe rounds
   uint64_t probed = 0;         // probe assumptions made
   uint64_t probe_failed = 0;   // failed literals -> root units derived
@@ -1206,7 +1226,25 @@ struct Kernel {
   // tiers ALWAYS run within budget and only the irredundant pass is
   // delay-gated (vivifyirr); delaying the whole round instead is measurably
   // worse.
+  // SCHED-G3 extends the encoding to name the BAND, so the policy can spend
+  // kissat's four separate shares (vivifyirr 3 / tier1 3 / tier2 3 / tier3 1)
+  // instead of collapsing the redundant 7 onto one glue<=tier2 pass — which is
+  // how tier3 came to be never vivified at all (C10 hand-off H3):
+  //   3 = redundant glue <= tier1      (tier1)
+  //   4 = redundant tier1 < glue <= tier2 (tier2)
+  //   5 = redundant glue > tier2       (tier3)
+  // 1 keeps its legacy meaning (the whole redundant band up to tier2) so an
+  // external policy written against it still works.
   uint8_t vivify_scope = 0;
+  // SCHED-G3: carry the probing trail across candidates whose assumption
+  // prefixes share a head, instead of re-propagating from the root for each
+  // (kissat vivify.c:1033-1046, cadical vivify.cpp:966-988). Ships ON;
+  // TACTIX_VIVIFY_REUSE=0 is the A/B off arm and restores BOTH the per-
+  // candidate root return AND the pre-G3 probe/candidate order, because the
+  // order is what makes prefixes shared at all — an off arm that kept the new
+  // order would not be measuring the mechanism. Validity of a reused prefix:
+  // docs/design/2026-08-05-vivify-trail-reuse.md §3 (invariant VP).
+  bool vivify_reuse = true;
   // Reuse the conflict as its own driving clause when exactly one of its
   // literals sits at the conflict level (kissat one_literal_on_conflict_level)
   // instead of learning a fresh clause. CONFIGURATION like
