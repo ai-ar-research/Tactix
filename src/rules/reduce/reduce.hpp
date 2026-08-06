@@ -8,6 +8,12 @@
 
 namespace tactix {
 
+// The tier option defaults (kissat options.h `tier1`/`tier2`; cadical
+// `reducetier1glue`/`reducetier2glue`), i.e. the bands before any used-glue
+// data exists, and the constants a STATIC-tier consumer would hard-code.
+constexpr uint32_t TIER1_STATIC = 2;
+constexpr uint32_t TIER2_STATIC = 6;
+
 bool reduce_guard(const Kernel &);
 
 // ranked deletion candidates (canonical worst-first order: glue desc,
