@@ -17,15 +17,25 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Last updated:** 2026-08-05 late — compaction pass (2182 → this). Status lives in the anchor below; completed work is compressed to
   result + pointer, with the detail in the cited commit / report / design doc.
 
-## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = find out what Sweep's governor is costing T3**
+## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = run the Sweep-governor Tier C A/B (specced, unrun)**
 
 **NOTHING IN FLIGHT.** Tree clean, pushed, ctest **44/44**, corpus 14/14, fuzz-GREEN at two seeds (six
 legs × 6000 cases, jobs `1584462`–`1584467`).
 
-**▶ THE SWEEP GOVERNOR QUESTION IS ANSWERED — see the T3 block.** Sweep ON costs Tier C a solve and
-49 PAR-2; with it off the CaDiCaL half of T3 would be MET. The cost is TWO instances and Sweep wins
-elsewhere, so the lever is its effort share or a yield-based cutoff, **not** switching the rule off.
-**Next step: dose it** — and run paired draws on `minxor128` before treating the solve flip as a verdict.
+**▶▶ SWEEP'S DEGRADATION IS DIAGNOSED AND FIXED (branch `sweep-governor-fix`); THE TIER C A/B IS SPECCED
+AND UNRUN.** Not the meter — the **enforcement point**. The round ceiling was polled only *between* seeds
+and never inside `sweep_env_build`, so one seed outspent its dose **73×** (`constraints_18_0.3_2`: handed
+665 M ticks, spent 48,685 M; 304.8 s of a 597 s solve, bit-identical trajectory, 99.996 % in the BFS
+occurrence walk). Fix = poll the budget inside the expansion loop (cadical's discipline), 44 lines, all in
+`src/rules/sweep/`. Overshoot **≤1.005× on all four** probe instances; `constraints_18` **−475.6 s**,
+`bhaskara` **−65.7 s**, `em_11`/`minxor128` unchanged. **`minxor128` and — post-Stage-D — `em_11` are a
+DIFFERENT mechanism** (Sweep's own wall there is ~2 s / fractions of a second and its ledger is 1.01–1.04×;
+their cost is the emitted equivalences changing the search), so no governor fix touches them; still run
+paired draws on `minxor128` before treating its solve flip as a verdict. **Next step: run the Tier C A/B**
+— arms `govon` / `govoff` (`TACTIX_SWEEP_ENV_BUDGET=0`), pre-registered reachability + `spent/handed`
+counters and ship criterion in `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md` §9. **It should
+precede the SCHED-D2 pricing run**, since Stage D multiplies Sweep's occasions and would otherwise
+re-measure this defect and blame the clocks.
 
 **▶▶ THE MERGED-TREE FUZZ RUN'S 38 "LRAT" FAILURES ARE NOT OURS — HEAD IS NOT FUZZ-RED.** Job `1584461`
 was **not** a native-LRAT leg: its solver argv has no `--lrat`, so it ran native **DRAT** (which
@@ -533,10 +543,14 @@ leaves only a STATIC per-instance one — and the best such separator measured 4
   - [x] **S-e** emission via the general path — the sub-solver's core mapped back to main-formula ids and replayed as a resolution chain; anything
     unmappable **declines**. Worth 8 of 4380 claims on random formulas (larger on miters). It shipped with the inverted-parity N2 breach, since
     fixed — see the N2 row
-  - [ ] **S-f · scheduling.** Sweep IS scheduled (at kissat's own 100‰ `sweepeffort`) and budgeted. **The remaining question is what that budget
-    costs.** The one measurement so far (2026-08-05, below) says Sweep is a WASH ex-fragile-instances but **−1 Tier C solve** — and it predates
-    the N2 fix, so it scored a correct UNSAT as unsolved on a rejected proof and **cannot be reused**. Re-running it is the anchor's next
-    performance step. `TACTIX_SWEEP_PROBE` must not be set in any tier run (the probe is unbudgeted)
+  - [ ] **S-f · scheduling.** Sweep IS scheduled (kissat's own 100‰ `sweepeffort`) and budgeted, and since 2026-08-05 the budget is
+    **enforced where the work happens** — `sweep_env_build` polls the round ceiling inside the occurrence walk, not only between seeds
+    (`SweepBudget`; cadical's `kitten_ticks_limit_hit` discipline). Before that one seed could outspend the round dose **73×** and the
+    scan was uninterruptible. Overshoot is now ≤1.005× on all four probe instances; `constraints_18_0.3_2` **−475.6 s**,
+    `sat-bench-trig-bhaskara` **−65.7 s**, `em_11`/`minxor128` unchanged. Report
+    `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`; ledger rows **SP-SWEEP-1** (closed) / **SP-SWEEP-2**, **SP-SWEEP-3** (open).
+    **The Tier C A/B is SPECCED AND UNRUN** — arms `govon` / `govoff` (`TACTIX_SWEEP_ENV_BUDGET=0`), pre-registered counters and ship
+    criterion in the report §9; it should precede the SCHED-D2 pricing run. `TACTIX_SWEEP_PROBE` must not be set in any tier run
 - [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles as the §5.3 **extensibility acceptance test** (pure plugin, no
   kernel edit)
 - [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
@@ -825,6 +839,42 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — ▶ SWEEP'S DEGRADATION DIAGNOSED AND FIXED: the effort ceiling was never enforced where the work is
+
+Branch `sweep-governor-fix`, base `97e9476` (post-Stage-D). **The meter hypothesis is REFUTED as stated
+and the real defect is the ENFORCEMENT POINT.** `sweep_ticks` charges honestly — a Sweep build tick costs
+0.39–9.5 ns against a kernel search tick's ~33 ns amortized, the same kind of unit within ~3.5× — but
+`sweep_detect_round` polled the round budget only *between* seeds and `sweep_env_build` had no poll at
+all. `max_env_vars`/`max_env_clauses` bound what an environment HOLDS, not the scan that finds it, so
+after the variable cap is reached the BFS keeps walking every remaining occurrence and scanning every
+clause only to reject it. **`constraints_18_0.3_2`: handed 665,325,800 ticks, spent 48,684,784,694 —
+73.2× over its dose**, 304.8 s of the 597 s solve, 99.996 % of it in `sweep_env_build`, sub-solver 6 ms,
+per-round setup 0.000 s (so NOT `dense_connect`/setup). Trajectory bit-identical (conflicts and
+`stats.ticks` equal to the digit on both arms), so 100 % of it is overhead. Stage D amplifies it: 45 → 82
+occasions. **Fix (44 lines, all in `src/rules/sweep/`): `SweepBudget` polled inside the expansion loop —
+cadical's own discipline (`sweep.cpp:197-205,1577-1580`), and declining to expand is always sound since
+the environment only shrinks and stays ⊆ F.** Overshoot → **≤1.005× on all four** probe instances;
+`constraints_18` **720.5 → 244.9 s (−475.6)**, `bhaskara` **364.0 → 298.3 (−65.7)**, `em_11` +13.3 (node
+noise), `minxor128` unchanged. `TACTIX_SWEEP_ENV_BUDGET=0` reverts the inner poll for the A/B arm.
+**Two mechanisms the four-instance framing conflates, now separated:** `constraints_18` is 100 % Sweep
+OVERHEAD (bit-identical trajectory, fixed here); `minxor128` and — post-Stage-D — `em_11` are 100 %
+TRAJECTORY (Sweep's own wall is 1.95 s / fractions of a second, ledger 1.01–1.04×, and it emits 961 / 21
+equivalences that make the search worse). No governor change addresses those, and this does not claim to.
+**MEASURED NEGATIVE, do not re-try: a Sweep resumption cursor.** `Kernel::sweep_cursor` in
+`transitive_cursor`'s shape fixes a real defect on paper (45 rounds re-sweeping the same seed) but makes
+`em_11` **INERT** — 378 environments, 0 equivalences, straight back to its Sweep-off time. The repetition
+is re-examination under a formula that changed between rounds. kissat can move on because its schedule is
+a small occurrence-filtered, occurrence-ranked set that COMPLETES a pass (and `sweep_completed` then
+doubles the caps); ours is every active variable, so a pass never completes. Recorded as **SP-SWEEP-3**;
+the closer is kissat's schedule, not a cursor. **SP-SWEEP-2** (the productivity delay ladder — kissat
+`sweep.c:1718-1721`, gated here on `!e.meter` so a metered repeater can never back off) stays open and
+belongs to Track SCHED. Gates: ctest **44/44**, `sweep_proofs` 41 derivations through real drat-trim +
+lrat-check, `micro_proofs` OK, **nine fuzz legs 0 failures** (random-policy native DRAT + native LRAT +
+sweep-stress + forced-general + ASCII DRAT). Reachability at the SOURCE on the shipped default:
+1,468 rounds, 7,092 environments, 3,441 equivalences, **3,558 binaries and 293 general-path pairs** over
+1,497 generated cases — both proof paths non-zero, so no green leg here is vacuous. Report
+`benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
 
 ### 2026-08-05 — Sweep governor A/B: ON costs a Tier C solve, and the cost is two instances
 
