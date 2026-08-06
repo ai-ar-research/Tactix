@@ -410,9 +410,9 @@ def save_nonterminating(outdir, idx, seed, name, cnf_path, outcome, solver,
 
     Not a failure bundle: nothing is wrong with the verdict, the case simply
     never produced one, so no oracle ran on it. The CNF plus `repro.sh` is what
-    turns "16 % of the leg was lost" into a livelock to shrink (task #39 /
-    RV-S31), and it is also how a longer-timeout re-run can separate slow from
-    non-terminating."""
+    turns "a double-digit percentage of the leg was lost" into a livelock to
+    shrink (task #39 / RV-S31), and it is also how a longer-timeout re-run
+    separates merely slow from non-terminating."""
     d = os.path.join(outdir, "nonterminating", f"{idx:06d}-seed{seed}")
     os.makedirs(d, exist_ok=True)
     shutil.copy(cnf_path, os.path.join(d, "case.cnf"))
