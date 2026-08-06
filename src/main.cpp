@@ -473,6 +473,7 @@ int main(int argc, char **argv) {
   kernel.stats.solve_nanos = tactix::now_nanos() - solve_t0;
   trace.close();
   if (res == -1) { // a replay that could not be replayed: see trace.cpp
+    proof.flush(); // N2: whatever WAS derived is still on disk, as on any exit
     printf("s UNKNOWN\n");
     fflush(stdout);
     return 1;
