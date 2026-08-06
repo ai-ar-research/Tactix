@@ -44,4 +44,7 @@ inline uint32_t stress_env_u32(const char *name, uint32_t dflt) {
   return v < 0 ? dflt : static_cast<uint32_t>(v);
 }
 
+// Presence-only knob: a stress flag is set or it is not.
+inline bool stress_env_flag(const char *name) { return getenv(name) != nullptr; }
+
 } // namespace tactix

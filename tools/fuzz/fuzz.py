@@ -13,6 +13,17 @@ Subcommands:
   run        fuzz N cases; write failure bundles; auto-shrink via ddmin
   check-one  re-run the oracles on a single CNF (ddmin predicate / repro)
   corpus     replay corpus/regressions/ — every entry must pass
+
+A leg's strength is the number of cases an oracle actually ran on, which is
+NOT --n. Two readouts on the summary line keep the difference visible:
+  coverage:  cases that reached a verdict. A case that times out (or answers
+             UNKNOWN) exercises no model/proof/differential oracle at all, so
+             it contributes nothing; the non-terminating population is printed
+             on its own line, saved under <outdir>/nonterminating/, and can be
+             made fatal with --max-nonterminating-frac.
+  reached:   per-registry-entry fire counts, read from the solver's own
+             counters. A rule with 0 is a rule this leg says nothing about;
+             --require-reached makes that fatal.
 """
 
 import argparse
@@ -192,6 +203,67 @@ def input_restated(stdout):
     return int(m.group(1)) if m else 0
 
 
+# --- per-rule reachability, counted at the SOURCE -------------------------
+# One row per registry entry (rule or policy op): the label, and a regex whose
+# group(1) is the counter that is non-zero iff that entry's apply actually ran
+# on the case. A leg that never fires a rule proves nothing about it, and the
+# only way to know is to read the solver's own counters
+# ([[ab-arm-identical-artefacts]]).
+#
+# The regexes are matched against the solver's stats block, so a reworded print
+# line would silently zero a row. That failure mode is checked, not trusted:
+# `spec_miss` counts rows whose LINE never appeared in a case that printed
+# stats at all, and a leg with any spec miss FAILS — an instrument that cannot
+# fail is worth nothing.
+REACH_SPECS = [
+    ("Propagate", r"^c propagations\s+(\d+)"),
+    ("Decide", r"^c decisions\s+(\d+)"),
+    ("ConflictAnalysis", r"^c conflicts\s+(\d+)"),
+    ("Restart", r"^c restarts\s+(\d+)"),
+    ("Reduce", r"^c reductions\s+(\d+)"),
+    ("Lucky", r"^c lucky\s+(\d+) probes"),
+    ("Vivify", r"^c vivify\s+(\d+) rounds,"),
+    ("Probe", r"^c probe\s+(\d+) rounds,"),
+    ("Backbone", r"^c backbone\s+(\d+) rounds,"),
+    ("TransitiveReduce", r"^c transitive\s+(\d+) rounds,"),
+    ("Substitute", r"^c substitute\s+(\d+) rounds,"),
+    ("BCE", r"^c bce\s+(\d+) rounds,"),
+    ("CCE", r"^c cce\s+(\d+) rounds,"),
+    ("Instantiate", r"^c instantiate\s+(\d+) rounds,"),
+    ("Sweep", r"^c sweep\s+(\d+) rounds,"),
+    ("HyperTernaryRes", r"^c ternary\s+(\d+) rounds,"),
+    ("Congruence", r"^c congruence\s+(\d+) rounds,"),
+    ("Factor", r"^c factor\s+(\d+) factorings,"),
+    ("BVE", r"^c bve\s+(\d+) rounds,"),
+    ("SubsumeForward", r"^c subsume\s+(\d+) rounds \("),
+    ("Strengthen", r"^c strengthen\s+(\d+) rounds \("),
+    ("Walk", r"^c walk\s+(\d+) walks"),
+    ("Rephase", r"^c rephased\s+(\d+)"),
+    ("Reorder", r"^c reordered\s+(\d+) decision"),
+    ("SwitchMode", r"^c mode\s+\S+ after (\d+) switches"),
+]
+_REACH_RES = [(label, re.compile(pat, re.M)) for label, pat in REACH_SPECS]
+_STATS_BANNER_RE = re.compile(r"^c tactix ", re.M)
+
+
+def rule_reachability(stdout):
+    """(stats_present, {label: count}, {label: line_present}) for one case.
+
+    `count` is the entry's fired-counter value; `line_present` says the print
+    line existed at all, which separates "the rule did not fire" from "the
+    harness is looking for a line the solver no longer prints"."""
+    text = stdout or ""
+    present = bool(_STATS_BANNER_RE.search(text))
+    counts, seen = {}, {}
+    if not present:
+        return False, counts, seen
+    for label, rx in _REACH_RES:
+        m = rx.search(text)
+        seen[label] = m is not None
+        counts[label] = int(m.group(1)) if m else 0
+    return True, counts, seen
+
+
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     """Run the solver under test on cnf_path and apply all oracles.
 
@@ -332,9 +404,49 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
     return bundle
 
 
+def save_nonterminating(outdir, idx, seed, name, cnf_path, outcome, solver,
+                        timeout):
+    """Keep a non-terminating case so the loss is DIAGNOSABLE, not just counted.
+
+    Not a failure bundle: nothing is wrong with the verdict, the case simply
+    never produced one, so no oracle ran on it. The CNF plus `repro.sh` is what
+    turns "a double-digit percentage of the leg was lost" into a livelock to
+    shrink (task #39 / RV-S31), and it is also how a longer-timeout re-run
+    separates merely slow from non-terminating."""
+    d = os.path.join(outdir, "nonterminating", f"{idx:06d}-seed{seed}")
+    os.makedirs(d, exist_ok=True)
+    shutil.copy(cnf_path, os.path.join(d, "case.cnf"))
+    with open(os.path.join(d, "meta.json"), "w") as f:
+        json.dump({"seed": seed, "index": idx, "generator": name,
+                   "solver": solver, "verdict": outcome.verdict,
+                   "timeout": timeout}, f, indent=2)
+    cmd = [os.path.join(HERE, "fuzz.py"), "check-one",
+           "--solver", shlex.join(solver)]
+    with open(os.path.join(d, "repro.sh"), "w") as f:
+        # cd to the REPO ROOT, not to the bundle: a repo-relative --solver path
+        # (`build/…/tactix`, which every leg uses) does not resolve anywhere
+        # else, and the CNF is passed absolute so the cd cannot break it either.
+        f.write("#!/usr/bin/env bash\n# re-run this case; pass a timeout in "
+                "seconds as $1 to test whether it EVER terminates\n"
+                f'cd {shlex.quote(ROOT)}\n'
+                f"{shlex.join(cmd)}"
+                ' --timeout "${1:-' f"{timeout}" '}" '
+                f"{shlex.quote(os.path.abspath(os.path.join(d, 'case.cnf')))}\n")
+    os.chmod(os.path.join(d, "repro.sh"), 0o755)
+    return d
+
+
 def cmd_run(args):
     solver = shlex.split(args.solver)
     oracle = shlex.split(args.oracle) if args.oracle else None
+    # A misspelled --require-reached label would be a requirement that can
+    # never fire and can never fail: reject it here rather than report green.
+    known = {label for label, _ in REACH_SPECS}
+    bad = [x for x in (args.require_reached or []) if x not in known]
+    if bad:
+        print(f"fuzz: unknown --require-reached entries {bad}; "
+              f"known: {sorted(known)}")
+        return 2
     outdir = args.outdir
     os.makedirs(outdir, exist_ok=True)
     nfail = 0
@@ -347,6 +459,19 @@ def cmd_run(args):
     # report it next to the pass/fail counts. Add a line here for any other
     # path whose coverage a leg is supposed to demonstrate.
     reach = {"restated_cases": 0, "restated_unsat": 0}
+    # per-rule reachability (the same principle, generalised): cases in which
+    # each registry entry actually fired, plus the spec-miss guard.
+    reach_rules = {label: 0 for label, _ in REACH_SPECS}
+    reach_spec_seen = {label: 0 for label, _ in REACH_SPECS}
+    stats_cases = 0
+    # NON-TERMINATION = LOST COVERAGE, and it must be as visible as a failure.
+    # A case that does not reach a verdict exercises no semantic oracle
+    # (model/proof/differential all need SAT or UNSAT), so "N cases, 0
+    # failures" is really "N minus the non-terminating population". Weak-solver
+    # legs (--random-policy above all) lose a double-digit percentage this way;
+    # counted and printed here, and reproducible from the recorded seeds.
+    nonterm = []  # [{index, seed, generator, nvars, nclauses, verdict}]
+    saved_nonterm = [0]  # CNFs written to outdir/nonterminating/ (capped)
     skips_count = {}  # oracle -> cases where it was deliberately not applied
     done = 0
     lock = threading.Lock()  # guards the counters + stdout
@@ -357,7 +482,7 @@ def cmd_run(args):
         # worker runs it or in what order — results are the same at any
         # --jobs level, only wall-clock changes (the work is subprocess-
         # bound, so threads parallelize it fine)
-        nonlocal nfail, done
+        nonlocal nfail, done, stats_cases
         if stop.is_set():
             return
         seed = args.seed + i
@@ -387,13 +512,34 @@ def cmd_run(args):
                 bundle = save_bundle(outdir, i, seed, name, cnf, outcome,
                                      solver, oracle, args.timeout, args.lrat,
                                      not args.no_shrink)
+            if outcome.verdict in ("TIMEOUT", "UNKNOWN"):
+                with lock:
+                    take = saved_nonterm[0] < args.max_nonterminating_saved
+                    if take:
+                        saved_nonterm[0] += 1
+                if take:
+                    save_nonterminating(outdir, i, seed, name, cnf, outcome,
+                                        solver, args.timeout)
         restated = input_restated(outcome.solver_out)
+        stats_present, rcounts, rseen = rule_reachability(outcome.solver_out)
         with lock:
             verdicts[outcome.verdict] = verdicts.get(outcome.verdict, 0) + 1
+            if outcome.verdict in ("TIMEOUT", "UNKNOWN"):
+                nonterm.append({"index": i, "seed": seed, "generator": name,
+                                "nvars": nvars, "nclauses": len(clauses),
+                                "verdict": outcome.verdict,
+                                "timeout": args.timeout})
             if restated:
                 reach["restated_cases"] += 1
                 if outcome.verdict == "UNSAT":
                     reach["restated_unsat"] += 1
+            if stats_present:
+                stats_cases += 1
+                for label in reach_rules:
+                    if rcounts.get(label, 0) > 0:
+                        reach_rules[label] += 1
+                    if rseen.get(label):
+                        reach_spec_seen[label] += 1
             for o, _ in outcome.skips:
                 skips_count[o] = skips_count.get(o, 0) + 1
             if outcome.failures:
@@ -422,13 +568,59 @@ def cmd_run(args):
     # verdict distribution = oracle coverage: only SAT/UNSAT cases exercise
     # the differential/model/proof oracles — a TIMEOUT is sanitizer-only
     vsummary = " ".join(f"{k}={verdicts[k]}" for k in sorted(verdicts))
+    ran = done  # cases actually executed (a --max-failures stop cuts the leg)
+    nnon = len(nonterm)
+    effective = ran - nnon
     print(f"fuzz: {args.n} cases, {nfail} failures"
           + (f" {kinds_count}" if kinds_count else "")
           + f" | verdicts: {vsummary}"
+          + f" | coverage: {effective}/{ran} cases reached a verdict"
           + f" | reached: input-restated {reach['restated_cases']} cases"
             f" ({reach['restated_unsat']} UNSAT)"
           + (f" | oracles skipped: {skips_count}" if skips_count else ""))
-    return 1 if nfail else 0
+    if nnon:
+        pct = 100.0 * nnon / ran if ran else 0.0
+        # Spelled out, because the headline number was being quoted without it:
+        # these cases ran NO semantic oracle, so the leg's strength is
+        # `effective`, not `args.n`.
+        print(f"fuzz: NON-TERMINATING {nnon} of {ran} cases ({pct:.1f}%) at "
+              f"--timeout {args.timeout}s: no model/proof/differential oracle "
+              f"ran on them, so this leg is {effective} cases, not {ran}. "
+              f"{saved_nonterm[0]} kept under "
+              f"{os.path.join(outdir, 'nonterminating')} "
+              f"(seeds in nonterminating.json).")
+        with open(os.path.join(outdir, "nonterminating.json"), "w") as f:
+            json.dump({"solver": solver, "timeout": args.timeout,
+                       "cases_run": ran, "nonterminating": nnon,
+                       "detail": sorted(nonterm, key=lambda c: c["index"])},
+                      f, indent=2)
+    # per-rule reachability table (RV-S23): which registry entries this leg
+    # actually exercised. Zero means every claim the leg makes about that rule
+    # is vacuous.
+    if stats_cases:
+        cols = " ".join(
+            f"{label}={reach_rules[label]}"
+            + ("!" if reach_rules[label] == 0 else "")
+            + ("?" if reach_spec_seen[label] != stats_cases else "")
+            for label, _ in REACH_SPECS)
+        print(f"fuzz: reached (cases firing each rule, of {stats_cases} with "
+              f"stats; ! = never fired, ? = counter line missing): {cols}")
+    missing_spec = [label for label, _ in REACH_SPECS
+                    if stats_cases and reach_spec_seen[label] == 0]
+    if missing_spec:
+        print("fuzz: REACH-SPEC MISS (the harness looked for a counter line "
+              "the solver never printed; the readout for these rules is "
+              f"meaningless until the spec is fixed): {missing_spec}")
+    unreached = [label for label in (args.require_reached or [])
+                 if reach_rules.get(label, 0) == 0]
+    if unreached:
+        print(f"fuzz: REQUIRED RULES NEVER FIRED: {unreached}")
+    over_budget = (args.max_nonterminating_frac is not None and ran
+                   and nnon / ran > args.max_nonterminating_frac)
+    if over_budget:
+        print(f"fuzz: non-terminating fraction {nnon / ran:.3f} exceeds "
+              f"--max-nonterminating-frac {args.max_nonterminating_frac}")
+    return 1 if (nfail or missing_spec or unreached or over_budget) else 0
 
 
 def cmd_check_one(args):
@@ -454,6 +646,7 @@ def cmd_corpus(args):
         d for d in (os.listdir(corpus) if os.path.isdir(corpus) else [])
         if os.path.isdir(os.path.join(corpus, d)))
     nfail = 0
+    nonterm = 0
     with tempfile.TemporaryDirectory(prefix="fuzz-corpus-") as workdir:
         for entry in entries:
             for cnf_name in ("min.cnf", "case.cnf"):
@@ -490,7 +683,46 @@ def cmd_corpus(args):
             if outcome.failures:
                 nfail += 1
                 print(f"CORPUS FAIL {entry}: {outcome.failures}")
-    print(f"corpus: {len(entries)} entries, {nfail} failures")
+            # A replay that never reaches a verdict runs no SEMANTIC oracle
+            # (model / proof / differential all need SAT or UNSAT), so for an
+            # entry whose recorded failure was one of those, a timeout means the
+            # entry is present and testing nothing — the same class as the
+            # ignored `solver_args` above, and fatal for the same reason.
+            #
+            # It is NOT vacuous for a `crash`/`io` entry: those reproduce as an
+            # assert/sanitizer abort, and the fixed solver's expected behaviour
+            # is exactly "runs past the budget without aborting" (entry 006's own
+            # meta says so). The crash oracle ran; only the semantic ones did
+            # not. So report it and move on, and say which oracle stood.
+            if outcome.verdict in ("TIMEOUT", "UNKNOWN"):
+                # entries record their kind as `failure` (a string) or
+                # `failure_kind` (a list); crash-only means EVERY recorded kind
+                # is one the crash oracle covers
+                kinds = meta.get("failure_kind") or [meta.get("failure", "")]
+                kind = ",".join(k for k in kinds if k)
+                crash_only = bool(kind) and all(k in ("crash", "io")
+                                                for k in kinds)
+                if crash_only:
+                    print(f"CORPUS crash-oracle only {entry}: no verdict at "
+                          f"--timeout {args.timeout}s, and no abort — which is "
+                          f"the recorded pass condition for a `{kind}` entry")
+                else:
+                    nonterm += 1
+                    print(f"CORPUS NON-TERMINATING {entry}: verdict "
+                          f"{outcome.verdict} at --timeout {args.timeout}s — "
+                          f"the `{kind or 'semantic'}` oracle this entry exists "
+                          f"for did not run")
+    print(f"corpus: {len(entries)} entries, {nfail} failures"
+          + (f", {nonterm} non-terminating (no oracle ran)" if nonterm else ""))
+    # Non-termination is fatal by default: an entry that cannot finish is not
+    # replaying its regression. A weak policy (a stress policy driving whole
+    # rounds to a fixpoint, with per-step invariant checks) genuinely cannot
+    # finish the larger entries, so a leg may pre-register a CAP — a number in
+    # the leg's own script, never a silent default.
+    if nonterm > args.allow_nonterminating:
+        print(f"corpus: {nonterm} non-terminating exceeds "
+              f"--allow-nonterminating {args.allow_nonterminating}")
+        return 1
     return 1 if nfail else 0
 
 
@@ -518,6 +750,19 @@ def main() -> int:
     p.add_argument("--max-vars", type=int, default=None,
                    help="re-roll cases above this size (weak-solver legs "
                         "need verdicts for the semantic oracles to fire)")
+    p.add_argument("--require-reached", default=None,
+                   type=lambda s: [x for x in s.split(",") if x],
+                   help="comma-separated registry entries this leg must fire "
+                        "(else it exits nonzero): "
+                        + ",".join(label for label, _ in REACH_SPECS))
+    p.add_argument("--max-nonterminating-frac", type=float, default=None,
+                   help="fail the leg when more than this FRACTION of cases "
+                        "never reached a verdict (default: report only). Such "
+                        "cases run no semantic oracle, so they are lost "
+                        "coverage, not passes")
+    p.add_argument("--max-nonterminating-saved", type=int, default=25,
+                   help="keep at most this many non-terminating cases (CNF + "
+                        "repro) under <outdir>/nonterminating/")
     p.add_argument("--jobs", type=int,
                    default=int(os.environ.get("SLURM_CPUS_PER_TASK", 8)),
                    help="parallel fuzz workers (correctness testing, not "
@@ -535,6 +780,9 @@ def main() -> int:
 
     p = sub.add_parser("corpus")
     common(p)
+    p.add_argument("--allow-nonterminating", type=int, default=0,
+                   help="entries allowed to not reach a verdict (they replay "
+                        "no oracle); default 0 = any is fatal")
     p.set_defaults(func=cmd_corpus)
 
     args = ap.parse_args()

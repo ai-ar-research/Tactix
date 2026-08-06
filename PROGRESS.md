@@ -61,6 +61,19 @@ env-only and untested. **Five cross-agent conflicts are in the Log entry** — t
 re-created the rule-side rotation SCHED-E1 had deleted 100 minutes earlier, and reads a STATS COUNTER to do
 it. **None of this blocks the next step below.**
 
+**▶▶ THE COVERAGE + HYGIENE ITEMS OF THAT REVIEW ARE DONE AND UNMERGED — branch `rvs-coverage-hygiene`
+(10 commits on `4f4989d`, ctest 48/48).** `RV-S22/23/24/25/26/28/29`(half)`/31`(a)`/9`+`RV-R3`; see the Log
+entry. **One result changes how earlier evidence must be read: every `--random-policy × N, 0 failures`
+figure in this file is over N minus a non-terminating population the harness did not print — measured at
+11.4 % (release) and 11.3 % (ASan), with 0 % for DefaultPolicy.** The harness now prints it. Still open
+from that group: the livelock DIAGNOSIS (`RV-S31`b), `parse.cpp`/`cake_lpr` (`RV-S24` remainder),
+`RV-S27`, `RV-S30`, and the `main.cpp` split, which the N1/API agent owns.
+**Queue state as this branch was pushed: NOTHING IN FLIGHT from this pass** (its ten jobs — `1587119`,
+`1587294`, `1587335`, `1587380`, `1587384`, `1587390` cancelled, `1587410`, `1587411`, `1587412`, `1587414`
+— have all left the queue), and the two job ids the IN FLIGHT line above names are no longer in `squeue`
+either. Other agents' arrays come and go independently; check `squeue -u hwu` rather than trusting any
+line here.
+
 **▶▶ THE FIVE OVERNIGHT SOLVE LOSSES ARE ONE DEFECT, AND IT IS FIXED (branch `debug-solve-losses`,
 `7b9f9d2` + `8b27c63`). THE EFFORT LEDGER WAS WRAPPING.** `set_entry_limit` sizes a dose as the
 UNSIGNED delta `search_ticks(k) - e.anchor`; the anchor is written INSIDE a phase and `search_ticks`
@@ -437,16 +450,27 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 - **Citation pairing:** when citing `benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`, cite
   `…/2026-08-04-broad-factor-admission-retest.md` with it — the latter supersedes its per-instance
   conclusion (the `j3037` veto was a measured lottery).
-- **Task #39** — `--random-policy` livelock on 5 tiny cases in `tools/fuzz/known-hangs/` (N1 robustness, not soundness).
+- **Task #39** — `--random-policy` NON-TERMINATION, and it is a population, not 5 tiny cases (N1
+  robustness, not soundness). **MEASURED 2026-08-06** (`RV-S31`, release binary, ≤60 vars, jobs
+  `1587119`/`1587294`): **114 of 1000 cases (11.4 %) at a 10 s budget, the SAME 114 on DRAT and on native
+  LRAT, against 0 of 1000 for DefaultPolicy.** Escalating the first 24 to **600 s** (60×) leaves **18 of
+  24 still unfinished** — same 6 terminate under both formats — so ~8.6 % of a random-policy leg does not
+  terminate at all and the rest is slow. `fuzz.py` now prints the population and keeps the cases
+  (`<outdir>/nonterminating/`, `nonterminating.json`); the DIAGNOSIS is still open.
 - demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; the deferred
   full-slot-mirror enhancement was dropped 2026-07-25, user decision).
 - Stress-pass ledger: V6 unit-channel DONE (`4f2b53e` + congstress nightly); Factor-mid-stable DONE
   (2026-07-25, 9k/0); post-Track-H random-policy ASan 8000/0 both formats. **Read every pre-2026-08-05
   native-LRAT figure in this file through the oracle defect recorded in the anchor.**
 - Routed by the 2026-07-29 review (`benchmarks/reports/2026-07-29-review-post-track-r.md`; `RV-` namespace):
-  **RV-R2** Reorder has no stress policy; **RV-R3** `benchmarks/probes/` needs a retention rule (now
-  subsumed by **RV-S9**, decide one rule for both); **RV-R4/RV-R5** small duplication + allocation watch
-  items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats
+  **RV-R2** Reorder has no stress policy; **RV-R3 + RV-S9 DISCHARGED 2026-08-06** — ONE rule for both
+  trees, mechanised in `tools/fuzz/retention.py`: a per-job artifact stays in git only while a tracked
+  document cites its JOB ID, literally or inside a cited id RANGE (`1584462`-`1584467` is how a six-leg
+  experiment names its jobs, and four of those six ids appear nowhere else). 11 of 69 tracked
+  `tools/fuzz/slurm-*.log` were uncited and are deleted; all **174** `benchmarks/probes/*.out` are cited
+  and stay. **A BASENAME match calls 84 of 85 uncited** — that criterion would have deleted 58 files that
+  are evidence for frozen reports, which is why the rule is now a script and not a habit;
+  **RV-R4/RV-R5** small duplication + allocation watch items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats
   with the detector reached at the source.)
 - **▶ RV-S DUPLICATION AXIS — DISCHARGED (branch `rvs-duplication`).** `RV-S21` **DONE**: the watch-list
   stride is now ONE kernel primitive (`WatchLists::entries` + `WatchEntry`/`WatchIter`, plus
@@ -520,14 +544,42 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   occurrence indices · **RV-S6** the 13-site proof-delete pair · **RV-S20/21** a soundness predicate
   transcribed 4× and the watch stride open-coded 23× · **RV-S15/16/17/18** rule-side leaks (six kernel
   watermarks, Sweep's in-rule `getenv` dosing, Sweep's unregistered instance surface, BVE's narrowed
-  `instances()`) · **RV-S22** BCE and Substitute are witness-emitting with **no stress policy** ·
-  **RV-S23** the fuzz reachability readout serves one counter · **RV-S31** Task #39's
-  `--random-policy` LIVELOCK IS FAR BROADER THAN THE TASK RECORDS — **12 of 74 cases (16 %) fail to
-  terminate** against 0 of 74 for DefaultPolicy on both proof formats, and the population is not the
-  `known-hangs` set (it includes regression-corpus entries and fresh instances) — so every
-  `--random-policy` fuzz figure is over N minus an unmeasured timeout population — make `fuzz.py`
-  print per-leg timeouts the way it prints `oracles skipped`, THEN diagnose it · **RV-S24-S30**
-  hygiene + hand-offs.
+  `instances()`) · **RV-S22 DISCHARGED 2026-08-06** — the two dangerous-class rules now have stress
+  policies: `--bce-stress-policy` and `--substitute-stress-policy` (both witness-emitting on the same ρ
+  stack, where the failure mode is a WRONG SAT ANSWER that no proof checker sees). Four legs, 4000 cases
+  each, DRAT + native LRAT, **0 failures**, with source-counted reachability: BCE fired in **2787/3791**
+  cases, Substitute in **2897/3780** (job `1587335`), plus the regression corpus under both policies
+  (`1587384`). 10 of 25 rules still have none — Reorder is `RV-R2`. ·
+  **RV-S23 DISCHARGED 2026-08-06** — `fuzz.py` now prints a per-registry-entry `reached:` table (all 25
+  entries, read from the solver's own counters) and `--require-reached` fails a leg whose named rule never
+  fired; a spec that matches no printed line fails too, so the instrument cannot go vacuously green.
+  It immediately found that a 1000-case DefaultPolicy leg at ≤60 vars fires **19 of 25** entries — Probe,
+  Backbone, TransitiveReduce, Factor, BVE and Reorder are **0**, i.e. every "fuzz green" claim about those
+  six rules rests on the random-policy legs alone.
+  · **RV-S31 (a) DISCHARGED, (b) OPEN** — the population is measured and visible (see Task #39 above);
+  the livelock itself is undiagnosed.
+  **RV-S24 mostly DISCHARGED 2026-08-06**: `tests/test_proof.cpp` (ctest `proof`, the 48th test) pins the
+  proof backend's serializers BYTE FOR BYTE — binary-DRAT varint boundary and sign bit, the `d`-with/
+  without-space asymmetry, LRAT id/chain/signed-hint layout, `add_derived_unit` silent on DRAT and
+  explicit on LRAT, the tautology predicate, and the proof-off no-op contract. Anti-vacuity: four
+  independent mutations of `proof.cpp` each make it FAIL. `tests/sweep_proofs.sh`'s `grep -qi verif`
+  (which matched `c NOT VERIFIED`) now tests the rejection first. **Remaining:** no direct test for
+  `src/frontend/parse.cpp`, and `cake_lpr` is still not wired into the fuzz harness.
+  **RV-S25/RV-S26 DISCHARGED**: the two never-incremented decline reasons are gone from `Telem` and the
+  `c slot` line; `randec_enabled` has a knob (`TACTIX_RANDEC=0`), proven wired at the source — 49
+  sequences / 7626 random decisions at the default vs **0/0** off, same verdict (job `1587380`), which
+  unblocks pricing SCHED-C7. **RV-S9/RV-R3 DISCHARGED** (one rule, mechanised in
+  `tools/fuzz/retention.py`). **RV-S27/RV-S30 and RV-S24's remainder stay open.**
+  **RV-S29 HALF DONE**: `DefaultPolicy::solve` split **536 → 237 lines** (`configure_from_env` 54 +
+  `build_inprocess_slot` 246), a verbatim move with identity evidence (counters + proof byte-identical).
+  **`main` (788) was NOT touched — the N1/API agent owns its argument parsing.** What it wants, in the
+  order it should happen: (1) `parse_args` into `src/frontend/cli.cpp` — the flag chain is ~180 lines and
+  the new `src/policies/stress_registry.cpp` is that move already done for one flag class; (2)
+  `configure_kernel_from_env(Kernel &)` — ~120 lines of `TACTIX_*` reads, so `main` stops being where
+  kernel config lives; (3) `print_stats` into a frontend reporter — ~90 `printf("c …")` calls, the bulk of
+  the function. **And a defect to fix while in there, found via the new reachability specs: `c strengthen`
+  is printed TWICE**, both lines starting from `strengthen_rounds` under two different schemas, so one
+  counter is double-reported and any parser must guess which line it got.
   Three auditor verdicts were **overturned in synthesis** and the report records why (gating F6's walk
   would destroy its own anti-vacuity evidence; `kernel_delete_clause` is not inlinable because
   `kernel.hpp` forward-declares `Proof`; R6's `EffortSpec::meter` premise is false as stated).
@@ -1388,6 +1440,90 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-06 — the RV-S coverage + hygiene items: a fuzz leg can no longer read stronger than it is
+
+Branch `rvs-coverage-hygiene`, base `4f4989d`. Eight commits, one per item. **ctest 48/48** (the 48th is
+`proof`, new) and all five conformance checkers green.
+
+**▶ THE ONE THAT INVALIDATES BANKED EVIDENCE (`RV-S31`).** A case that never reaches a verdict runs
+**none** of the semantic oracles — model, proof and differential all need SAT or UNSAT — so it contributes
+nothing, and `fuzz.py` printed no number that made the loss visible. Measured on a release binary at ≤60
+vars (jobs `1587119`, `1587294`): **`--random-policy=7` loses 114 of 1000 cases (11.4 %) at a 10 s budget,
+the SAME 114 under DRAT and under native LRAT, against 0 of 1000 for DefaultPolicy.** Escalating the first
+24 to **600 s** — 60× the budget — leaves **18 of 24 still unfinished**, and the six that finish are the
+same six in both formats: so ~8.6 % of a random-policy leg does not terminate at all, ~2.8 % is merely
+slow, and Task #39's "5 tiny cases in `known-hangs/`" is a population. **Consequence for this file: every
+`--random-policy × N, 0 failures` line banked before today is over N minus an unmeasured population** —
+the legs were never wrong, their DENOMINATOR was unstated. `fuzz.py` now prints `coverage:` plus an
+explicit NON-TERMINATING line naming the effective N, keeps the cases with a repro under
+`<outdir>/nonterminating/`, writes `nonterminating.json`, and can fail a leg on
+`--max-nonterminating-frac`. A corpus entry that does not terminate is fatal too — a replay that cannot
+finish replays no oracle — with `--allow-nonterminating N` to pre-register a known-slow entry. **The
+diagnosis of the livelock itself is still open**; the deliverable here was making it impossible to miss.
+
+**▶ THE ANTI-VACUITY INSTRUMENT NOW COVERS 25 RULES, NOT ONE (`RV-S23`).** The per-leg `reached:` readout
+served a single counter (`input-restated`), so no leg could support a claim about any specific rule.
+`REACH_SPECS` now names every registry entry with the counter that is non-zero iff it fired; the summary
+prints the table, `--require-reached` makes a named rule's silence fatal, and **a spec whose print line
+never appears fails the leg** — the instrument is checked, not trusted. All three gates were shown to go
+RED (job `1587410`, `benchmarks/probes/rv-s31-harness-gates.sh`), including the misspelled-rule-name case,
+which would otherwise be a requirement that can neither fire nor fail. **First finding, and it is about
+our own legs: a 1000-case DefaultPolicy leg at ≤60 vars fires 19 of 25 entries — Probe, Backbone,
+TransitiveReduce, Factor, BVE and Reorder never fire**, so every "fuzz green" claim about those six rests
+on the random-policy legs alone, i.e. on the legs whose denominator was just corrected.
+
+**▶ THE TWO WITNESS-EMITTING RULES WITH NO DRIVER NOW HAVE ONE (`RV-S22`).** BCE and Substitute push
+reconstruction witnesses, where the failure mode is **a wrong SAT answer that no proof checker can see** —
+verbatim the justification `cce_stress_policy` gives for itself. `--bce-stress-policy` and
+`--substitute-stress-policy`: whole rounds to a fixpoint at every root with no effort budget, the instance
+surfaces drawn at random (Substitute's from its own `instances()`, so later payloads are deliberately
+STALE — that re-derive path is reachable no other way), the graph rewritten underneath by
+Congruence/Sweep/TransitiveReduce, ρ interleaved with BVE/CCE in a rotating order, entered off a
+propagation fixpoint, invariants checked PER STEP. Four legs × 4000 cases, DRAT + native LRAT, **0
+failures**, and the fire count was a GATE, not a footnote: BCE fired in **2787/3791** verdict-reaching
+cases, Substitute in **2897/3780** (job `1587335`; corpus replay `1587384`). The flag lives with the
+policies (`src/policies/stress_registry.cpp`) so `main` takes one parse branch and one dispatch arm for all
+future ones — `RV-S29`'s shape for that function, and the reason the next stress policy costs no `main`
+edit at all.
+
+**▶ N2's WRITER HAS A TEST (`RV-S24`).** `src/proof/proof.cpp` was only ever checked end-to-end through a
+checker, which cannot tell "the rule chose the wrong lemma" from "the writer mis-encoded a correct one".
+`tests/test_proof.cpp` compares whole byte streams: the binary-DRAT varint at both sides of the 128
+boundary, the sign bit inside that varint, `d` with and without its space, LRAT's id/chain/signed-hint
+layout, delete-by-id, `add_derived_unit` explicit in LRAT and SILENT in DRAT, the tautology predicate, and
+every primitive a no-op on an unopened `Proof`. **Shown to fail, not assumed to: four independent mutations
+of `proof.cpp` each abort it.** Also `tests/sweep_proofs.sh` tested `grep -qi 'verif'`, which matches
+`c NOT VERIFIED` — the same predicate that made the fuzz harness's native-LRAT oracle vacuous for the
+project's whole history; masked here by an exit status, and masked is not fixed.
+
+**▶ HYGIENE.** `RV-S25`: two decline reasons incremented nowhere were printed as a permanent `0 0`, which
+reads as "never declines for that reason" — the opposite of the field's purpose. `RV-S26`: `randec_enabled`
+now has `TACTIX_RANDEC`, **proven wired at the source** (49 sequences / 7626 random decisions on, `0/0`
+off, same verdict, job `1587380`) — SCHED-C7 is priceable. `RV-S28`: the last `-O3` warning is gone.
+`RV-S9`+`RV-R3`: one retention rule, mechanised in `tools/fuzz/retention.py`, and **the obvious criterion
+is wrong in a dangerous direction** — matching basenames calls **84 of 85** tracked fuzz logs uncited and
+would delete 58 files that frozen reports depend on, because citations are job IDs, sometimes only as a
+RANGE (`1584462`-`1584467`, four of whose six ids appear nowhere else). 11 uncited logs deleted; all 174
+probe outputs are cited and stay.
+
+**▶ CLOSING LEG ON THE FINAL TREE** (job `1587412`, ASan/UBSan, 3000 cases each): DefaultPolicy DRAT,
+DefaultPolicy native LRAT and `--random-policy=7` native LRAT, **0 failures on all three**, and the
+random-policy leg independently reproduces the loss on a different build and N — **338 of 3000 (11.3 %)**
+against 11.4 % on the release binary. The corpus replay also produced a finding: **two entries
+(`002`, `006`) never reach a verdict under DefaultPolicy**, so they exercise the CRASH oracle only — which
+is in fact their recorded pass condition (`006`'s meta says "runs clean past 60 s with the fix"), and the
+harness now says exactly that instead of scoring them as full replays. `run.sh` gives the corpus a 60 s
+budget rather than the 5 s case default; its entries are up to ~900 clauses and a sanitized build is slow.
+
+**▶ `RV-S29`, THE HALF THAT WAS SAFE.** `DefaultPolicy::solve` **536 → 237 lines**, by moving its two
+prologue units out verbatim (`configure_from_env` 54, `build_inprocess_slot` 246) so the CDCL loop can be
+read on its own. Identity evidence, since a move must be one: **119/119 generated cases byte-identical in
+both the counter block and the proof file** across pre-split and post-split binaries, 1 case skipped and
+counted because neither arm finished it (job `1587411`). **`main` (788 lines) was deliberately not touched
+— the N1/API agent owns its argument parsing**; the three separable units and the order to take them are in
+Open items, together with a defect found while writing the reachability specs: **`c strengthen` is printed
+TWICE**, from the same `strengthen_rounds` counter under two different schemas.
+
 ### 2026-08-06 — RV-S10–RV-S14: the §5.6/N1 API surface — one breach repaired, and the learner's three channels now have tests that can fail
 
 Branch `rvs-api-n1`, base `4f4989d`. The five highest-severity findings of the
@@ -1709,7 +1845,8 @@ phases, which nothing does.
 never promoted**, not rules reaching into rules — a fixable shape. *Verbosity:* genuinely clean (no
 TODO/FIXME/`#if 0` anywhere; 1 write-only field out of 186; every `RuleVTable` slot and `ApplyResult`
 variant live) — the finding is ENFORCEMENT, since three of four compiler warnings were dead code or a dead
-TEST, printing for weeks with no `-Werror`. One warning is left (`RV-S28`). *Data structures:* the correct
+TEST, printing for weeks with no `-Werror`. One warning was left (`RV-S28`, **now fixed** — the tree is
+warning-clean at `-O3`). *Data structures:* the correct
 persistent-scratch idiom is in six places, **two added in this very window**, while five call sites still
 lack it — understood, not applied at landing time. *Leakage:* the POLICY LAYER IS IN VERY GOOD SHAPE; every
 leak found is rule-side, and **six of the seven are in the four newest landings** (G3 Vivify, R6 CCE, V5
