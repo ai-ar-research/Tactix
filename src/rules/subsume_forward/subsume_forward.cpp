@@ -186,12 +186,31 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // let one candidate with a saturated occurrence list run unboundedly.
   const uint64_t check_start = k.stats.forward_visits;
   size_t stopped_at = candidates.size(); // index of the first UNREACHED one
+  // SCHED-H1 · §6 termination polling. The candidate loop is this rule's only
+  // unbounded one, and it is where the budget already cuts, so the interrupt
+  // reuses that cut: `stopped_at` is set, `subsume_complete` goes false, and
+  // the bookkeeping below runs — an interrupted round is bookkept as an
+  // INCOMPLETE round, not as a special case, so F/R/τ/ρ and the proof stream
+  // cannot drift apart here. Nothing is half-mutated at the top of the
+  // iteration: `marks` is all-zero and no clause is part-rewritten.
+  //
+  // NO CADENCE. One poll per candidate, and a candidate is up to
+  // CLSLIM x OCCLIM partner visits, so the poll is free at this granularity —
+  // whereas a `!(++tick & 255)` mask makes every round shorter than one window
+  // unreachable, which is how task #10's abort paths passed 4 x 10,000 fuzz
+  // cases while inert. The X1/X2/X4 share closed the same hazard the same way.
+  bool interrupted = false;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     const Ref ref = candidates[ci];
     if (k.midround_budget && k.work_budget &&
         k.stats.forward_visits - check_start > k.work_budget) {
       k.stats.budget_stops_c1++;
       stopped_at = ci;
+      break;
+    }
+    if (kernel_rule_interrupt(k, k.stats.subsume_interrupted)) {
+      stopped_at = ci;
+      interrupted = true;
       break;
     }
     Clause *c = clause_at(k.arena, ref);
@@ -232,6 +251,16 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     } else {
       k.stats.forward_mark_skipped++;
     }
+    // SCHED-G2 · SHADOW MODE (Kernel::subsume_shadow): record the victim and
+    // let it live, so the rest of the solve is a C1-less trajectory in which
+    // Strengthen's absorption of this exact clause is observable. Declining a
+    // deletion is sound in the same way a budget cut is — the rule has simply
+    // done less — and the shadowed clause falls through to `connect` below, so
+    // it stays a subsumer for the rest of the round exactly as a survivor does.
+    if (subsumed && k.subsume_shadow) {
+      kernel_shadow_observe(k, c->id());
+      subsumed = false;
+    }
     if (subsumed) {
       delete_subsumed(k, c);
       deleted++;
@@ -267,7 +296,19 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // not re-armed. It had no new material at `wm`, and the new watermark is
   // >= `wm`, so it can have none there either — re-arming it would schedule a
   // check that provably cannot fire.
-  for (size_t ci = filter ? stopped_at : candidates.size();
+  //
+  // SCHED-H1: an INTERRUPTED round is the one cut that does NEITHER — no
+  // re-arm, no advance. Re-arm-then-advance is a resume device, and it is only
+  // equivalent to "carry on next round" while the round owns its own
+  // bookkeeping; on the abort path the cheaper and strictly safer move is to
+  // leave the watermark where it was, which re-offers the identical candidate
+  // set. It also avoids touching variables (and so perturbing every OTHER
+  // rule's filter) on the way out of a solve that is being terminated. The
+  // condition is stated identically in strengthen.cpp, where it is load-bearing
+  // rather than merely tidy: C2 can abort in its flush pre-pass, before
+  // `candidates` even exists, so there would be no tail to re-arm.
+  for (size_t ci = interrupted ? candidates.size()
+                               : (filter ? stopped_at : candidates.size());
        ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
     if (c->garbage() || !kernel_clause_new_material(k, c, wm))
@@ -279,7 +320,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // Advancing to the round-entry `snapshot`, not to the current epoch: what
   // this round created — including the re-arms just above — is new material for
   // the next one.
-  if (filter) {
+  if (filter && !interrupted) {
     k.subsume_touch_mark = snapshot;
     k.stats.forward_mark_advances++;
   }
@@ -303,6 +344,13 @@ ApplyResult subsume_forward_apply(Kernel &k) {
 // a deletable one would be unsound once Reduce removes the subsumer).
 ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   assert(subsume_forward_guard(k));
+  // SCHED-H1 · the round's `work_budget` is not consulted on this path at all,
+  // so before H1 an N1 policy driving `apply_instance` per candidate could not
+  // be stopped by EITHER governor. One check per call, at entry, where nothing
+  // is marked: the scan below is bounded but at CLSLIM x OCCLIM it is the same
+  // order of work as one round candidate.
+  if (kernel_rule_interrupt(k, k.stats.subsume_interrupted))
+    return ApplyResult::NoOp;
   Clause *c = clause_at(k.arena, candidate);
   if (!is_candidate(k, c))
     return ApplyResult::NoOp;

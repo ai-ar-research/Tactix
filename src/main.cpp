@@ -315,6 +315,10 @@ int main(int argc, char **argv) {
   // for the redundant band yet.
   if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))
     kernel.touch_redundant = (*tr != '0');
+  // SCHED-G2: C1's shadow arm. DIAGNOSTIC — see Kernel::subsume_shadow; the
+  // `c c1shadow` line below is its whole output.
+  if (const char *ss = getenv("TACTIX_SUBSUME_SHADOW"))
+    kernel.subsume_shadow = (*ss != '0');
   if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
     kernel.midround_budget = (*mb != '0'); // default OFF, measured negative;
                                            // see Kernel::midround_budget
@@ -755,6 +759,18 @@ int main(int argc, char **argv) {
     printf("c budgetstop  %llu C1 rounds, %llu C2 rounds stopped mid-round\n",
            (unsigned long long)kernel.stats.budget_stops_c1,
            (unsigned long long)kernel.stats.budget_stops_c2);
+    // SCHED-G2 (diagnostic; zero unless TACTIX_SUBSUME_SHADOW=1). `observed`
+    // is what C1 declined to delete; `absorbed` is how much of that Strengthen
+    // disposed of by itself. Absorption by any other rule is NOT counted, so
+    // `residual` over-states C1's unique yield rather than flattering it.
+    printf("c c1shadow    %llu observed, %llu deleted + %llu rewritten by C2, "
+           "%llu residual\n",
+           (unsigned long long)kernel.stats.c1_shadow_observed,
+           (unsigned long long)kernel.stats.c1_shadow_deleted,
+           (unsigned long long)kernel.stats.c1_shadow_rewritten,
+           (unsigned long long)(kernel.stats.c1_shadow_observed -
+                                kernel.stats.c1_shadow_deleted -
+                                kernel.stats.c1_shadow_rewritten));
     // Reachability + NON-WEDGE witness for the touched-epoch filters
     // (Kernel::touched). `marks` must keep growing on a long solve — its
     // producers are on the kernel's clause-creation path, so a stalled counter
@@ -793,6 +809,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bce_interrupted,
            (unsigned long long)kernel.stats.ternary_interrupted,
            (unsigned long long)kernel.stats.instantiate_interrupted);
+    // Same line for the C1/C2 share. Kept separate only because the two shares
+    // landed separately; fold the three lines into one when Vivify's lands.
+    printf("c interrupt2  C1 %llu, C2 %llu aborts\n",
+           (unsigned long long)kernel.stats.subsume_interrupted,
+           (unsigned long long)kernel.stats.strengthen_interrupted);
     printf("c touchred    %llu redundant creations in scope (dynamic) vs %llu "
            "(static tier2=6); stamping %s\n",
            (unsigned long long)kernel.stats.touch_redundant_dynamic,

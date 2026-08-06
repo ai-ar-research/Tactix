@@ -6,9 +6,11 @@
 #include "proof/proof.hpp"
 #include "rules/registry.hpp"
 #include "rules/substitute/substitute.hpp"
+#include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -443,6 +445,102 @@ static void test_binary_subsumer_then_substitute() {
   assert(k.values[l1] > 0 || k.values[l4] > 0 || k.values[internalize(3)] > 0); // C
 }
 
+// SCHED-G2 · the shadow ledger, and with it the CAPABILITY-SUBSET claim it
+// rests on: C1's per-pair test is Strengthen's with the flip count pinned to
+// zero and the two share their limits, so anything C1 deletes, C2 deletes too.
+// The test states that as behaviour rather than as a source reading — a future
+// divergence in either rule's limits or discovery breaks it here.
+static void shadow_case(Kernel &k, bool binary_subsumer) {
+  kernel_reserve_vars(k, 4);
+  add(k, {1, 2, 3, 4});
+  if (binary_subsumer)
+    kernel_add_binary_clause(k, internalize(1), internalize(2),
+                             ++k.next_clause_id);
+  else
+    add(k, {1, 2, 3});
+}
+
+static void test_shadow_ledger() {
+  for (int bin = 0; bin < 2; bin++) {
+    // (1) shipped: C1 deletes.
+    Kernel on;
+    shadow_case(on, bin != 0);
+    assert(subsume_forward_apply(on) == ApplyResult::Ok);
+    assert(on.stats.forward_subsumed == 1);
+    assert(on.stats.c1_shadow_observed == 0); // the hatch is off by default
+
+    // (2) shadow: C1 reports the same victim and deletes nothing.
+    Kernel sh;
+    sh.subsume_shadow = true;
+    shadow_case(sh, bin != 0);
+    const size_t before = live_clauses(sh);
+    assert(subsume_forward_apply(sh) == ApplyResult::NoOp);
+    assert(sh.stats.forward_subsumed == 0);
+    assert(sh.stats.c1_shadow_observed == 1);
+    assert(live_clauses(sh) == before);
+    // observing the SAME clause again must not double-count it
+    assert(subsume_forward_apply(sh) == ApplyResult::NoOp);
+    assert(sh.stats.c1_shadow_observed == 1);
+
+    // (3) Strengthen alone disposes of it, and the ledger attributes that.
+    assert(strengthen_apply(sh) == ApplyResult::Ok);
+    assert(sh.stats.c1_shadow_deleted + sh.stats.c1_shadow_rewritten == 1);
+    assert(sh.shadow_victims.empty()); // no residual: C2 handled all of it
+    assert(live_clauses(sh) == before - 1);
+    kernel_check_invariants(sh);
+  }
+}
+
+// SCHED-H1 · both interrupt sites, pinned deterministically — the landed
+// X1/X2/X4 shape. There is NO cadence, so a raised flag fires at the FIRST
+// poll of whichever entry point is driven; that is the property that makes a
+// short round (i.e. every round the fuzz harness generates) reach the check.
+static void test_interrupt() {
+  volatile sig_atomic_t stop = 1;
+  { // (1) the ROUND's candidate loop: cut before the first candidate, so the
+    // subsumption this formula certainly contains is not performed.
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    add(k, {1, 2, 3, 4});
+    add(k, {1, 2, 3});
+    KernelStopPublisher pub(k, &stop);
+    assert(subsume_forward_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.forward_subsumed == 0 && k.stats.forward_checked == 0);
+    assert(k.stats.subsume_interrupted == 1);
+    assert(k.stats.rule_interrupted == 1);
+    assert(!k.subsume_complete); // an abort is an INCOMPLETE round
+    // ...and it retires nothing: advancing the watermark here would drop
+    // material the round never looked at (SCHED-B3's starvation).
+    assert(k.subsume_touch_mark == 0 && k.stats.forward_mark_advances == 0);
+    kernel_check_invariants(k);
+  }
+  { // (2) the single-instance entry the round loop never goes near, and which
+    // NEITHER governor reached before H1 — `work_budget` is a round device.
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    const Ref big = add(k, {1, 2, 3, 4});
+    add(k, {1, 2, 3});
+    KernelStopPublisher pub(k, &stop);
+    assert(subsume_forward_try(k, big) == ApplyResult::NoOp);
+    assert(k.stats.forward_subsumed == 0);
+    assert(k.stats.subsume_interrupted == 1);
+  }
+  { // the negative control for BOTH: same formulas, no interrupt, work happens
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    add(k, {1, 2, 3, 4});
+    add(k, {1, 2, 3});
+    assert(subsume_forward_apply(k) == ApplyResult::Ok);
+    assert(k.stats.forward_subsumed == 1 && k.stats.subsume_interrupted == 0);
+    Kernel t;
+    kernel_reserve_vars(t, 4);
+    const Ref big = add(t, {1, 2, 3, 4});
+    add(t, {1, 2, 3});
+    assert(subsume_forward_try(t, big) == ApplyResult::Ok);
+    assert(t.stats.forward_subsumed == 1 && t.stats.subsume_interrupted == 0);
+  }
+}
+
 int main() {
   test_guard();
   test_basic_subsume();
@@ -458,6 +556,8 @@ int main() {
   test_touch_redundant_scope();
   test_proof_deltas();
   test_binary_subsumer_then_substitute();
+  test_shadow_ledger();
+  test_interrupt();
   printf("test_subsume: all ok\n");
   return 0;
 }
