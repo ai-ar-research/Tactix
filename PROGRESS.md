@@ -265,6 +265,14 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 
 ## Open items (small, none blocking)
 
+- **`D-BVE-SCRATCH` — a FIFTH sighting of the per-call linear-scratch hazard, in a hot rule.**
+  `bve_detect_gate` allocates `std::vector<int> pos_bin(2*nvars,-1)` and `neg_bin(...)` **per candidate**,
+  and `bve_eliminate` two more `2*nvars` byte vectors — four O(nvars) fill-inits per elimination
+  ATTEMPT. Same shape that cost 174× on native LRAT before the persistent-scratch + touched-restore
+  fix (Track C · C4-perf). Found while adding ITE/XOR extraction, which deliberately added none of its
+  own (its per-pivot signature index is O(P+N)). Route: `revisit-codebase`. Not urgent, but BVE runs on
+  every elimination phase, so the constant is paid a lot.
+
 - **`D-STRENGTHEN-BUDGET`, now scoped to "DOSE C1/C2".** C1 SubsumeForward / C2 Strengthen are the only
   inprocessing slot entries that are neither dosed nor budget-aware, and one round cannot be interrupted —
   C2 owns **97.8 s of `DivS_862_11`'s 109.0 s in four applications**. Interruptibility itself is measured
