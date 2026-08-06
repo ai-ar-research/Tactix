@@ -702,6 +702,11 @@ int main(int argc, char **argv) {
     printf("c budgetstop  %llu C1 rounds, %llu C2 rounds stopped mid-round\n",
            (unsigned long long)kernel.stats.budget_stops_c1,
            (unsigned long long)kernel.stats.budget_stops_c2);
+    // SCHED-H1 reachability witness for the §6 interrupt inside C1/C2 rounds,
+    // per rule because `c interrupt` aggregates every rule that polls.
+    printf("c c1c2stop    %llu C1 rounds, %llu C2 rounds interrupted\n",
+           (unsigned long long)kernel.stats.interrupts_c1,
+           (unsigned long long)kernel.stats.interrupts_c2);
     // SCHED-G2 (diagnostic; zero unless TACTIX_SUBSUME_SHADOW=1). `observed`
     // is what C1 declined to delete; `absorbed` is how much of that Strengthen
     // disposed of by itself. Absorption by any other rule is NOT counted, so

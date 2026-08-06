@@ -368,11 +368,33 @@ ApplyResult strengthen_apply(Kernel &k) {
   const uint64_t wm = k.strengthen_touch_mark;
   uint64_t changed = 0;
   bool ended = false;
+  // SCHED-H1 · §6 termination polling. This rule has THREE unbounded loops —
+  // the flush pre-pass over the whole arena, the candidate loop, and the
+  // cascade that re-checks one shrinking candidate — and D-STRENGTHEN-BUDGET
+  // measured a single round owning 97.8 s of a 109.0 s solve, so a poll in only
+  // one of them still leaves a round that ignores the interrupt for minutes.
+  // Every site aborts BETWEEN candidates/clauses, never mid-rewrite: whatever
+  // the round did is already proof-logged and the bookkeeping below runs
+  // unchanged, so an interrupted round is exactly an incomplete round.
+  // `k.stop_fuzz ||` must lead the cadence — see the twin comment in
+  // subsume_forward.cpp for why a cadence-only poll fuzzes vacuously.
+  uint64_t stop_tick = 0;
+  bool interrupted = false;
+  const auto poll = [&]() {
+    if (!(k.stop_fuzz || !(++stop_tick & 255)) || !kernel_terminating(k))
+      return false;
+    k.stats.rule_interrupted++;
+    k.stats.interrupts_c2++;
+    interrupted = true;
+    return true;
+  };
   // flush pre-pass (see flush_root): the whole arena, before the
   // candidate round, so the round never sees clauses with root-assigned
   // literals. A flush-derived unit ends the pass (values changed); the
   // policy re-propagates. One collect at the end covers both phases.
   for (Ref ref = 0; ref < k.arena.size();) {
+    if (poll())
+      break;
     const uint32_t words = clause_words(clause_at(k.arena, ref)->size);
     Ref cur = ref;
     if (!clause_at(k.arena, ref)->garbage()) {
@@ -387,7 +409,7 @@ ApplyResult strengthen_apply(Kernel &k) {
     ref += words;
   }
   std::vector<Ref> candidates;
-  if (!ended)
+  if (!ended && !interrupted)
     strengthen_candidates(k, candidates);
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<std::vector<Ref>> occs(2 * k.nvars);
@@ -432,6 +454,10 @@ ApplyResult strengthen_apply(Kernel &k) {
       stopped_at = ci;
       break;
     }
+    if (poll()) {
+      stopped_at = ci;
+      break;
+    }
     if (filter && !kernel_clause_new_material(k, clause_at(k.arena, cref), wm)) {
       k.stats.strengthen_mark_skipped++;
       connect(cref);
@@ -450,13 +476,20 @@ ApplyResult strengthen_apply(Kernel &k) {
         connect(cref);
         break;
       }
-      if (r == 2)
+      if (r == 2) {
+        // The cascade is bounded by the clause's size, but at CLSLIM=1000 that
+        // is 1000 full partner scans on ONE candidate, so it polls too. The
+        // rewrite that produced `cref` is complete and logged; stopping here
+        // only skips further shrinking of a clause that is already sound.
+        if (poll())
+          break;
         continue; // rescan the shrunken clause
+      }
       if (r == 4)
         ended = true;
       break; // 1 (died) or 3 (became binary) or 4
     }
-    if (ended) {
+    if (ended || interrupted) {
       stopped_at = ci + 1; // this candidate was checked; the rest were not
       break;
     }
@@ -484,7 +517,11 @@ ApplyResult strengthen_apply(Kernel &k) {
   // reached.
   // `!ended` also covers the FLUSH pre-pass deriving a unit, which leaves
   // `candidates` empty and would otherwise read as a vacuous fixpoint.
-  k.strengthen_complete = !ended && stopped_at == candidates.size() &&
+  // `!interrupted` also covers an abort inside the FLUSH pre-pass, which leaves
+  // `candidates` empty and would otherwise read as a vacuous fixpoint — the
+  // same trap `!ended` closes for a flush-derived unit.
+  k.strengthen_complete = !ended && !interrupted &&
+                          stopped_at == candidates.size() &&
                           k.stats.strengthened == produced_before;
   if (!changed)
     return ApplyResult::NoOp;

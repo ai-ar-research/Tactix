@@ -8,6 +8,7 @@
 #include "rules/strengthen/strengthen.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <cstring>
 
@@ -210,6 +211,70 @@ static void test_root_flush() {
   assert(default_solve(k) == 10);
 }
 
+// SCHED-H1 · the §6 interrupt reaches C2's round, on BOTH paths that can reach
+// it: the stress bypass (`stop_fuzz`, which must fire on the first poll) and
+// the real cadenced `Kernel::stop`, which needs more than one 256-wide poll
+// window of candidates before it can fire at all. Testing only the first is
+// what made task #10's abort paths pass 40,000 fuzz cases while inert.
+// `n` disjoint 3-clauses: no partners, so the round only walks its lists, and
+// the poll count is exactly `n` in the flush pre-pass plus `n` in the candidate
+// loop. That makes WHICH site fires a matter of arithmetic rather than luck.
+static void fill_interrupt_case(Kernel &k, int n) {
+  kernel_reserve_vars(k, 3 * n + 4);
+  for (int i = 0; i < n; i++) {
+    const Lit c[3] = {internalize(3 * i + 1), internalize(3 * i + 2),
+                      internalize(3 * i + 3)};
+    kernel_add_large_clause(k, c, 3, false, 0);
+  }
+}
+
+static void test_interrupt_ends_round() {
+  { // stress bypass: fires on the FIRST poll, so a tiny round aborts too
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, c, 3, false, 0);
+    k.stop_fuzz = 1;
+    assert(strengthen_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.interrupts_c2 == 1);
+    assert(k.stats.stop_fuzz_fires >= 1); // counted at the SOURCE
+    assert(!k.strengthen_complete);       // an abort is an INCOMPLETE round
+    kernel_check_invariants(k);
+  }
+  { // Real interrupt through Kernel::stop, cadence and all — caught in the
+    // FLUSH pre-pass, since 900 arena clauses overrun the 256-poll window
+    // before the candidate loop is ever entered.
+    Kernel k;
+    fill_interrupt_case(k, 900);
+    volatile sig_atomic_t stop = 1;
+    k.stop = &stop;
+    assert(strengthen_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.interrupts_c2 == 1 && k.stats.strengthen_checked == 0);
+    assert(!k.strengthen_complete);
+    k.stop = nullptr;
+    // ...and an uninterrupted round over the same formula IS complete, which
+    // is what proves the assertion above is about the interrupt and not about
+    // the formula being unfinishable.
+    Kernel c;
+    fill_interrupt_case(c, 900);
+    assert(strengthen_apply(c) == ApplyResult::NoOp);
+    assert(c.stats.interrupts_c2 == 0 && c.strengthen_complete);
+  }
+  { // ...and the CANDIDATE-loop site, which the case above cannot reach. 200
+    // arena clauses leave the flush pre-pass 56 polls short of the window, so
+    // the first fire lands inside the candidate loop. `strengthen_checked > 0`
+    // is the witness that the flush completed first.
+    Kernel k;
+    fill_interrupt_case(k, 200);
+    volatile sig_atomic_t stop = 1;
+    k.stop = &stop;
+    assert(strengthen_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.interrupts_c2 == 1 && k.stats.strengthen_checked > 0);
+    assert(!k.strengthen_complete);
+    k.stop = nullptr;
+  }
+}
+
 int main() {
   test_binary_strengthens_large();
   test_fused_subsumption();
@@ -218,6 +283,7 @@ int main() {
   test_instance_surface();
   test_slot_schedule_as_data();
   test_root_flush();
+  test_interrupt_ends_round();
   puts("test_strengthen OK");
   return 0;
 }

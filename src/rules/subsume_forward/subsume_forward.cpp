@@ -186,11 +186,30 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // let one candidate with a saturated occurrence list run unboundedly.
   const uint64_t check_start = k.stats.forward_visits;
   size_t stopped_at = candidates.size(); // index of the first UNREACHED one
+  // SCHED-H1 · §6 termination polling. The candidate loop is this rule's only
+  // unbounded one, and it is the exact place the budget already cuts, so the
+  // interrupt reuses that cut: `stopped_at` is set, the SCHED-F2 tail re-arm
+  // below runs, the watermark advances and `subsume_complete` goes false — an
+  // interrupted round is bookkept as an incomplete round, not as a special
+  // case, so F/R/τ/ρ and the proof stream cannot drift apart on this path.
+  //
+  // The 256-candidate cadence is amortization only. `k.stop_fuzz ||` MUST come
+  // first: under the stress knob the site has to be reachable on the very first
+  // candidate, or every round shorter than one poll window (which is every
+  // round the fuzz harness generates) would leave the abort path untested while
+  // reporting green. Task #10's abort paths passed 4 x 10,000 cases that way.
+  uint64_t stop_tick = 0;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     const Ref ref = candidates[ci];
     if (k.midround_budget && k.work_budget &&
         k.stats.forward_visits - check_start > k.work_budget) {
       k.stats.budget_stops_c1++;
+      stopped_at = ci;
+      break;
+    }
+    if ((k.stop_fuzz || !(++stop_tick & 255)) && kernel_terminating(k)) {
+      k.stats.rule_interrupted++;
+      k.stats.interrupts_c1++;
       stopped_at = ci;
       break;
     }
