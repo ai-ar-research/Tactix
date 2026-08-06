@@ -108,10 +108,11 @@ def gen_fuzzsat(rng: random.Random):
     """FuzzSAT-style: a random Boolean circuit, Tseitin-encoded to CNF.
 
     Brummayer & Biere's FuzzSAT builds a random circuit over input variables
-    and Tseitin-encodes each gate, then asserts the root. This yields
-    structured, sharing-heavy formulas distinct from both uniform k-SAT and
-    the cnfuzz variable-reuse clusters — the aux gate vars create long
-    definitional chains that stress watchers, equivalence reasoning and BVE.
+    and Tseitin-encodes each gate (AND/OR/XOR/ITE), then asserts the root.
+    This yields structured, sharing-heavy formulas distinct from both uniform
+    k-SAT and the cnfuzz variable-reuse clusters — the aux gate vars create
+    long definitional chains that stress watchers, equivalence reasoning and
+    BVE's four gate extractors.
     """
     inputs = rng.randint(5, 30)
     # pool of available literals, seeded with a random polarity of each input
@@ -140,12 +141,22 @@ def gen_fuzzsat(rng: random.Random):
         if rng.random() < 0.5:
             b = -b
         g += 1  # allocate the gate variable
-        op = rng.choice(["AND", "OR", "XOR"])
+        op = rng.choice(["AND", "OR", "XOR", "ITE"])
+        if op == "ITE":
+            # g <-> (c ? a : b), the four defining ternaries. Needs a third
+            # input; the branches must be on DIFFERENT variables or the gate
+            # degenerates to an equivalence/XOR (and BVE's ITE extractor, like
+            # CaDiCaL's, rejects it). Fall back to XOR when it degenerates.
+            c = _rand_input_lit()
+            if abs(a) == abs(b) or abs(c) in (abs(a), abs(b)):
+                op = "XOR"
+            else:
+                clauses += [[-g, -c, a], [-g, c, b], [g, -c, -a], [g, c, -b]]
         if op == "AND":       # g <-> (a & b)
             clauses += [[-g, a], [-g, b], [g, -a, -b]]
         elif op == "OR":      # g <-> (a | b)
             clauses += [[g, -a], [g, -b], [-g, a, b]]
-        else:                 # XOR: g <-> (a ^ b)
+        elif op == "XOR":     # g <-> (a ^ b)
             clauses += [[-g, a, b], [-g, -a, -b], [g, -a, b], [g, a, -b]]
         # push the gate output back (random polarity) for reuse/sharing
         pool.append(g if rng.random() < 0.5 else -g)

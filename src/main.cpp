@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
       // drives the solve purely through the null-safe rule API).
       no_heuristics = true;
     } else if (!strncmp(a, "--bve-gates=", 12)) {
-      // BVE gate-type selection: comma list of {equiv,andor}, or
+      // BVE gate-type selection: comma list of {equiv,andor,ite,xor}, or
       // all / none. A performance knob — every setting is sound (a disabled
       // gate type only falls BVE back to the full cross product).
       const char *spec = a + 12;
@@ -199,6 +199,12 @@ int main(int argc, char **argv) {
           } else if (!strncmp(p, "andor", 5)) {
             bve_gate_mask |= BVE_GATE_AND_OR;
             p += 5;
+          } else if (!strncmp(p, "ite", 3)) {
+            bve_gate_mask |= BVE_GATE_ITE;
+            p += 3;
+          } else if (!strncmp(p, "xor", 3)) {
+            bve_gate_mask |= BVE_GATE_XOR;
+            p += 3;
           } else if (*p == ',') {
             p++;
           } else {
@@ -210,7 +216,8 @@ int main(int argc, char **argv) {
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--no-binary] [--lrat] "
-             "[--random-policy[=SEED]] [--bve-gates=all|none|equiv,andor] "
+             "[--random-policy[=SEED]] "
+             "[--bve-gates=all|none|equiv,andor,ite,xor] "
              "<cnf[.xz|.gz]> [proof]\n");
       return 0;
     } else if (a[0] == '-' && a[1]) {
@@ -605,6 +612,15 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
            (unsigned long long)kernel.stats.bve_resolutions);
+    // SP-BVE-GATE-1 pre-registered readout: an arm of --bve-gates whose ite/xor
+    // counts are 0 did not test the gate types ([[ab-arm-identical-artefacts]]).
+    printf("c bve-gates   %llu equiv, %llu andor, %llu ite, %llu xor; "
+           "%llu resolvent pairs saved\n",
+           (unsigned long long)kernel.stats.bve_gates_equiv,
+           (unsigned long long)kernel.stats.bve_gates_and_or,
+           (unsigned long long)kernel.stats.bve_gates_ite,
+           (unsigned long long)kernel.stats.bve_gates_xor,
+           (unsigned long long)kernel.stats.bve_gate_pairs_saved);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);

@@ -31,7 +31,16 @@ namespace tactix {
 enum BveGate : uint32_t {
   BVE_GATE_EQUIV = 1u << 0,  // equivalence   x ↔ ¬y   (two binaries)
   BVE_GATE_AND_OR = 1u << 1, // AND/OR         x ↔ OR/AND(a₁…aₖ)  (base + binaries)
+  BVE_GATE_ITE = 1u << 2,    // if-then-else   x ↔ (c ? t : e)   (four ternaries)
+  BVE_GATE_XOR = 1u << 3,    // parity         x ↔ a₁⊕…⊕aₘ  (all 2^m clauses)
 };
+
+// XOR arity ceiling (cadical option `elimxorlim`, whose own default is 5): a
+// detected parity relation over the pivot and m inputs needs all 2^m clauses,
+// so the detection cost is exponential in m and the reference caps it. Any
+// value is sound — a lower cap only misses gates and falls back to the full
+// cross product.
+constexpr uint32_t BVE_XOR_ARITY_LIMIT = 5;
 
 // Pure quiescent-root precondition (D-LEVEL purified — no fixpoint
 // conjunct; the elimination round will drain the root closure U at apply entry).

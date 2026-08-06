@@ -72,6 +72,9 @@ while the code is logarithmic — read the code) → `D3` slot-level watermark.
   `TACTIX_EAGER_SUBSUME=0`.
 - **BVE ramp slack-8 ceiling** — Tier C/D re-sweep owed since `489fab1`; knob `TACTIX_BVE_RAMP_MAX`,
   reachability probe already written at `benchmarks/probes/scratch/bveramp-reach.*`.
+- **`SCHED-C8` (BVE ITE/XOR gates) A/B is specced and unrun** — arms `--bve-gates=all` vs
+  `--bve-gates=equiv,andor`, two pin dirs, pre-flight counter and ship criterion in its Log entry.
+  Reachability already proven: `9vliw_bp_mc` reports `306 ite, 16 xor; 6,101,504 resolvent pairs saved`.
 - **`randec` (SCHED-C7) is UNPRICED and has NO KNOB.** `randec_enabled` (`default_policy.hpp`) is
   initialised true and never assigned. One line in `main.cpp` makes it A/B-able.
 - **C1/C3/C4 have nothing to price** — C1/C3 landed unconditionally, C1's only lever confounds by also
@@ -364,7 +367,8 @@ negative arms — git history has it).
   Probe · V2 Backbone · V4 TransitiveReduce** (`kernel_delete_binary` primitive) **· V3 Substitute** (first ρ consumer;
   `docs/design/v3-substitute-design.md`) — all 2026-07-15..17; corpus 002/003 found en route
 - [x] **E1 BVE — COMPLETE (E1a–E1d)**: drained-root elimination, RUP-only resolvents, syntactic gate extraction, `--bve-gates` knob; design
-  `docs/design/e1-bve-design.md`; `bve_stress_policy` reusable. Remaining: ITE/XOR gates + kitten (O11), phase 4
+  `docs/design/e1-bve-design.md`; `bve_stress_policy` reusable. ITE/XOR gates landed 2026-08-05 (SCHED-C8). Remaining: kitten
+  definition extraction (O11), phase 4
 - [x] **Tier C built and frozen** (30 instances; `benchmarks/reports/2026-07-15-tier-c-freeze.md`)
 - [x] **Independent-lineage campaign — 4 measured, 0 adopted**, each with a recorded mechanism; strongest phase-6 arms: CMS usage-count Reduce
   ranking, chronological backtracking (TB4), Glucose blocking restarts. Survey `docs/design/independent-lineage-survey.md`
@@ -554,10 +558,10 @@ ramp-ceiling 8-vs-16 choice.
 **Track exit (checked at the phase-3 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT` without a closure or an accepted deviation
 row carrying a measurement, AND the ledger has been regenerated from the REFERENCE's option set (SCHED-A3).
 **▶ EXIT STATUS (2026-08-05).** Half two is **DONE and now machine-checked** (SCHED-A3, ctest `option_coverage`). Half one is **NOT** met: of §13.2's
-HIGH rows, six are now closed (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B, `SP-VIVIFY-1` by C1, `SP-FACTOR-2` by C5) or accepted
-(`SP-FACTOR-1`, §13.3), and **eight remain open**: `SP-SLOT-1` (D2) · `SP-SLOT-4` (D1) · `SP-SLOT-5` (D3) · `SP-REPEAT-*` (F1–F5) · `SP-TIER-2`
-(supersedes C1's scope, **unassigned**) · `SP-EFFORT-CEIL-1` (**unassigned**; B1 gave the per-entry `thresh`, not the upper clamp) · `SP-BVE-GATE-1`
-(**unassigned**) · `SP-JUMP-1` (**unassigned**). **That list IS the remaining track work** — Stage D covers three of the eight, and the four
+HIGH rows, seven are now closed (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B, `SP-VIVIFY-1` by C1, `SP-FACTOR-2` by C5, **`SP-BVE-GATE-1` by
+C8**) or accepted (`SP-FACTOR-1`, §13.3), and **seven remain open**: `SP-SLOT-1` (D2) · `SP-SLOT-4` (D1) · `SP-SLOT-5` (D3) · `SP-REPEAT-*` (F1–F5)
+· `SP-TIER-2` (supersedes C1's scope, **unassigned**) · `SP-EFFORT-CEIL-1` (**unassigned**; B1 gave the per-entry `thresh`, not the upper clamp) ·
+`SP-JUMP-1` (**unassigned**). **That list IS the remaining track work** — Stage D covers three of the seven, and three
 unassigned A3 rows have no stage.
 
 - [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
@@ -604,8 +608,8 @@ instrument before spending a tier window on a mechanism.
   `SP-BVE-BWD-1` row orphans `elimbackward`; deleting `SP-ARENA-1` fires both the anchor check and two UNACCOUNTED options; a fake `sweepslack`
   option fails; a fake option hidden INSIDE the dismissed `block*` glob fails on the group count; an unknown option-macro spelling aborts rather
   than under-counting. It is a **coverage** check, not a semantic one — §13.5's 6 corrections are the base rate for what it cannot verify.
-  **The 4 HIGH gaps, which are the actionable list:** `SP-BVE-GATE-1` ITE/XOR gate extraction is absent, so BVE is charged the full P·N where both
-  references pay P+N−2 (a per-application ACCEPTANCE lever, i.e. the T4 antidote) · `SP-TIER-2` the dynamic tiers have ONE consumer here and EIGHT
+  **The 4 HIGH gaps, which are the actionable list:** ~~`SP-BVE-GATE-1`~~ ITE/XOR gate extraction was absent, so BVE was charged the full P·N where
+  both references pay P+N−2 (a per-application ACCEPTANCE lever, i.e. the T4 antidote) — **CLOSED by SCHED-C8** · `SP-TIER-2` the dynamic tiers have ONE consumer here and EIGHT
   in cadical via `likely_to_be_kept_clause`, which **supersedes SCHED-C1's scope** · `SP-EFFORT-CEIL-1` every reference budget has an UPPER clamp
   and ours has only a floor · `SP-JUMP-1` `jumpreasons`, default-ON, per-conflict, free.
   **Standing method note, both traps live in this pass:** **read MACROS, not just grep** — cadical's `factorthresh` is token-pasted
@@ -681,6 +685,28 @@ instrument before spending a tier window on a mechanism.
   has NO KNOB** — see the anchor.
   *(C6 and C7 moved here from Track R · R8. kissat's own single-technique ablation prices them at +5.9 and +7.9 PAR-2 — treat those as CEILINGS,
   since the survivors of a single ablation over-invest.)*
+- [x] **SCHED-C8 · BVE gate extraction ← ITE + XOR** `[wire]` — closes HIGH ledger row **`SP-BVE-GATE-1`** (§13.2). E1c had shipped gate
+  extraction with a `--bve-gates` knob but only **EQUIV + AND/OR**; ITE is default-ON in BOTH references and XOR default-ON in cadical, so an
+  ITE/XOR-defined variable was charged the full P·N and failed `resolvents ≤ pos+neg+bound` where both references eliminate it. Now
+  `--bve-gates=all|none|equiv,andor,ite,xor`, both new types default-ON, and the row is an ACCEPTANCE lever: gate clauses g⁺/g⁻ turn P·N into
+  g⁺·(N−g⁻) + (P−g⁺)·g⁻ (ITE: 2P+2N−8 · XOR arity m: 2^(m−1)(P+N−2^m)).
+  **This is the SYNTACTIC half only.** kitten-based *definition* extraction (kissat `definitions`=1) is phase 4 / Track R · R5 and is NOT in scope.
+  **Proof delta unchanged (RUP-only), and the obligation is discharged the same way as E1c's:** both new shapes are COMPLETE gates — their clauses
+  alone entail `x ↔ φ`, and every gate×gate resolvent is a tautology (ITE clashes on the condition or a branch; two opposite-pivot parity clauses
+  must disagree on some input), so `resolve_gate` stays false and nothing but entailed resolvents is skipped. The antecedent×antecedent argument
+  is written out in `calculus.md` §6b E1. Detection is EXACT: kissat's shortened-clause stand-in (`ifthenelse.c match_ternary_ref`, which then
+  re-enables gate×gate) is deliberately not ported. Work bounds are the references' own — kissat's `nter² > occlim` for ITE, cadical's
+  `elimxorlim`=5 as `BVE_XOR_ARITY_LIMIT`.
+  **Reachability (pre-registered, checked FIRST — [[ab-arm-identical-artefacts]]):** counters `c bve-gates … ite … xor; … resolvent pairs saved`.
+  Probe `benchmarks/probes/bvegate-reach.sh`, 120 fuzz-population cases under `--bve-stress-policy`: **ITE 47 · XOR 318 · 5215 resolvent
+  pairs saved** (equiv 63, andor 244). The fuzz circuit generator gained an **ITE op** (`generators.py` gen_fuzzsat, 4-clause MUX) so the ITE path
+  is not fuzzed vacuously — XOR was already reachable through its XOR op.
+  **Fuzz GREEN on four legs — both proof formats × two schedules** (600 cases each + the 14-entry corpus each,
+  ASan/UBSan debug build): `--bve-stress-policy` native DRAT **0/600** (SAT 324 / UNSAT 196) · `--bve-stress-policy
+  --lrat` **0/600** (SAT 326 / UNSAT 195) · `--random-policy` native DRAT **0/600** (SAT 302 / UNSAT 170) ·
+  `--random-policy --lrat` **0/600** (SAT 300 / UNSAT 169). Every UNSAT proof-checked, every SAT model-checked,
+  `tools/fuzz/failures/` empty. ctest **44/44** including `micro_proofs` and `sweep_proofs`.
+  **UNPRICED — the A/B is specced and unrun; see the Log entry.**
 
 #### Stage D — the authored schedule and the two clocks (T6 + the global slot rows)
 
@@ -800,6 +826,49 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — SCHED-C8: BVE learns ITE + XOR gates, closing `SP-BVE-GATE-1` (UNPRICED, A/B specced)
+
+**What was and was not there before.** E1c did ship gate extraction with a `--bve-gates` knob, so the
+row was never "no gates" — it was **exactly two of four types**: `BVE_GATE_EQUIV` (two binaries) and
+`BVE_GATE_AND_OR` (base clause + input binaries). **ITE and XOR did not exist**, and both references
+ship them on (kissat `ifthenelse`=1; cadical `elimites`=1, `elimxors`=1/`elimxorlim`=5). Now all four.
+kitten `definitions` remains **phase 4** (Track R · R5) and is not part of this closure.
+
+**V6 Congruence's extractor was NOT reused, and the reason is structural, not effort.** `congruence.cpp`
+does have `congruence_extract_xor` / `congruence_extract_ite`, but it builds a FORMULA-WIDE `ClauseIndex`
+by one arena scan per apply, keyed on whole sorted clauses, holding proof ids and no arena refs. BVE
+needs the opposite object: a **per-pivot** partition of the *already materialized* `pos`/`neg` `MClause`
+lists (root-false literals stripped, delete-handles attached) into gate vs antecedent, recomputed after
+every elimination mutates the neighbourhood. Reuse would mean rebuilding an O(arena) index per candidate
+and then mapping ids back to MClause slots. What was reused is the *idea*: the parity-probe enumeration
+and the ITE normalization argument. Recorded so a later pass does not "fix" the duplication.
+
+**A/B SPEC — pre-registered, unrun (no SLURM submitted this session).**
+- **Arms, knob IN THE COMMAND** (never the environment): `gates-all` = `--bve-gates=all` (shipped) vs
+  `gates-noitexor` = `--bve-gates=equiv,andor` (the pre-C8 behaviour). Both arms from **one** commit.
+- **Tiers:** same-window **Tier B + Tier C**, `--baseline kissat --baseline cadical`, node-pinned.
+  **TWO pin dirs** — `build/pin-n4-c8-b/` and `build/pin-n4-c8-c/`, built from the same commit with
+  matching binary shas (CLAUDE.md build-dir rule; the second `--acquire` refuses a live path).
+- **PRE-FLIGHT, checked before any score is read:** on `gates-all`, `c bve-gates` must show **ite > 0 and
+  xor > 0** on at least one scored instance; on `gates-noitexor` it must show **exactly `0 ite, 0 xor`**
+  and a strictly smaller `resolvent pairs saved`. Already demonstrated at HEAD: `9vliw_bp_mc` under the
+  shipped DefaultPolicy reports **154 equiv, 5853 andor, 306 ite, 16 xor; 6,101,504 resolvent pairs
+  saved**. An arm whose counters did not move was not tested.
+- **Ship criterion:** keep ON (the default) unless `gates-all` is worse on **#solved** on either tier, or
+  worse by more than the 6.72 noise floor on PAR-2 on BOTH tiers. Rationale for the asymmetry: this is a
+  reference-parity mechanism that both references default ON, and it is an *acceptance* lever, so its
+  effect is expected to be small and diffuse rather than headline. The may-not-gate set may not gate
+  alone; a single-instance flip owes paired draws ([[chaotic-instance-veto]]).
+- **Secondary readout to record either way:** `bve eliminated` per instance. The lever's claim is that
+  the SAME numeric `bve_bound` now admits more variables — if `eliminated` does not move, the row is
+  closed on parity grounds only and that must be said plainly.
+- **Consequence for `SP-FACTOR-1`:** its removal path **R3** ("SP-BVE-GATE-1 landing changes what
+  `bve_level_` means") is now live. R3 is a *reopen* trigger, not a result — reopening still needs R2's
+  falsifier first (show `bve_level_` non-zero at Factor's occasions).
+
+**Not touched here:** `default_policy.cpp` / the inprocessing slot, the conflict-analysis path, and
+`tools/docs/` (parallel agents own those).
 
 ### 2026-08-05 — Sweep governor A/B: ON costs a Tier C solve, and the cost is two instances
 

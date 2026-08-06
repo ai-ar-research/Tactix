@@ -323,6 +323,19 @@ struct Stats {
   // of WORK, and so the currency an effort budget meters it in — one variable
   // costs occ(x)·occ(¬x) attempts, which the elimination count cannot express
   uint64_t bve_resolutions = 0;
+  // syntactic gates found per type, one per elimination ATTEMPT that had one
+  // (kissat statistics.{equivalences,ands,if_then_else}_extracted / cadical
+  // stats.elim{equivs,ands,ites,xors}). The ITE/XOR pair are also the
+  // pre-registered reachability readout for ledger row SP-BVE-GATE-1.
+  uint64_t bve_gates_equiv = 0;
+  uint64_t bve_gates_and_or = 0;
+  uint64_t bve_gates_ite = 0;
+  uint64_t bve_gates_xor = 0;
+  // resolvent PAIRS the gate reduction removed from the growth bound's input:
+  // occ⁺·occ⁻ minus the gate×antecedent pairs actually charged. This is the
+  // acceptance lever itself — the bound `resolvents ≤ occ⁺+occ⁻+slack` is
+  // applied to a set this much smaller.
+  uint64_t bve_gate_pairs_saved = 0;
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
