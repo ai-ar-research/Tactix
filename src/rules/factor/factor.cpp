@@ -877,7 +877,7 @@ ApplyResult factor_apply(Kernel &k) {
   // this round deliberately skipped.
   {
     std::vector<Var> rearm;
-    for (Lit l = 0; l < live_lits; l++)
+    for (Lit l = 0; touch_filter && l < live_lits; l++)
       if (!tried[l] && k.value(l) == 0 && seed_is_new(l))
         rearm.push_back(var_of(l));
     for (const Var v : rearm)

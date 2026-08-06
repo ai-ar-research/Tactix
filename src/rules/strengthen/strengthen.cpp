@@ -454,9 +454,10 @@ ApplyResult strengthen_apply(Kernel &k) {
   // SCHED-F2 · RESUME (see the twin comment in subsume_forward.cpp for the
   // argument). `ended` — a derived unit stopped the round — leaves a tail too,
   // and it is re-armed for exactly the same reason a budget cut's is.
-  for (size_t ci = stopped_at; ci < candidates.size(); ci++) {
+  for (size_t ci = filter ? stopped_at : candidates.size();
+       ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
-    if (c->garbage() || (filter && !kernel_clause_new_material(k, c, wm)))
+    if (c->garbage() || !kernel_clause_new_material(k, c, wm))
       continue;
     for (const Lit l : *c)
       kernel_touch_var(k, var_of(l));

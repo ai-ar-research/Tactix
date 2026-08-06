@@ -267,9 +267,10 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // not re-armed. It had no new material at `wm`, and the new watermark is
   // >= `wm`, so it can have none there either — re-arming it would schedule a
   // check that provably cannot fire.
-  for (size_t ci = stopped_at; ci < candidates.size(); ci++) {
+  for (size_t ci = filter ? stopped_at : candidates.size();
+       ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
-    if (c->garbage() || (filter && !kernel_clause_new_material(k, c, wm)))
+    if (c->garbage() || !kernel_clause_new_material(k, c, wm))
       continue;
     for (const Lit l : *c)
       kernel_touch_var(k, var_of(l));
