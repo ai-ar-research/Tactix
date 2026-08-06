@@ -185,7 +185,7 @@ static int scripted_solve(tactix *s) {
   /* the first inprocessing limit is size-scaled at solve entry, like
    * DefaultPolicy's lazy init */
   /* preprocessing-only: the first (and only) phase fires at conflicts=0,
-     before search state exists (DefaultPolicy update_inprocess_limit) */
+     before search state exists (DefaultPolicy update_slot_limit) */
   p.inprocess_next = UINT64_MAX; /* no slot mirror — see the scope note above */
   const int propagate = rule_id("Propagate");
   const int conflictanalysis = rule_id("ConflictAnalysis");

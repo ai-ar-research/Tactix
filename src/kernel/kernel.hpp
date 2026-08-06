@@ -277,7 +277,9 @@ struct Stats {
   // per enabled technique). Counted in the kernel so it survives into the
   // stats block: repeated during-search BVE's cost is search-TRAJECTORY
   // damage rather than per-phase work, so whether that cost tracks the phase
-  // COUNT is unanswerable without this counter.
+  // COUNT is unanswerable without this counter. Policies that run more than one
+  // inprocessing clock sum them here; the per-clock split is theirs to report
+  // (DefaultPolicy's `c slot-clock` line).
   uint64_t inprocess_phases = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds — gate-closure passes
   // Merges dropped because no checkable LRAT chain could be built for them
@@ -323,6 +325,24 @@ struct Stats {
   // of WORK, and so the currency an effort budget meters it in — one variable
   // costs occ(x)·occ(¬x) attempts, which the elimination count cannot express
   uint64_t bve_resolutions = 0;
+  // NEW-ELIMINATION-MATERIAL counter: one per `kernel_mark_bve_retry` EVENT.
+  // It counts material rather than traffic because the mark itself does — it is
+  // raised only by irredundant clause add / delete / garbage-mark and by root
+  // fixings, never by learned-clause churn (redundant clauses are excluded at
+  // every call site).
+  //
+  // DEVIATION from the references, and the reason for it: kissat
+  // (`variables_eliminate`, inline.h:44-49) and cadical (`stats.mark.elim`,
+  // internal.hpp:1117) count the FLAG FLIP, not the event, because their
+  // elimination round clears every scheduled variable's flag and so re-arms the
+  // flip. Our `bve_retry` bit is cleared ONLY by a BVE attempt, and BVE's
+  // during-search admission can decline every dose on a formula — after which
+  // no bit is ever cleared, no flip ever happens, and a flip-counting watermark
+  // wedges the elimination clock shut for the rest of the solve. Measured, not
+  // theorised: it took `sted5` from 274 k to 1.15 M conflicts. Counting events
+  // implements the same predicate ("did anything an eliminator could act on
+  // change since the last phase?") against the bit lifecycle we actually have.
+  uint64_t bve_marks = 0;
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
@@ -1062,7 +1082,10 @@ ReplaceOutcome kernel_replace_clause(Kernel &, Clause *orig, uint64_t id,
                                      Ref *large_ref); // nullable
 
 // --- BVE retry filter (see Kernel::bve_retry) -------------------------------
-inline void kernel_mark_bve_retry(Kernel &k, Var v) { k.bve_retry[v] = 1; }
+inline void kernel_mark_bve_retry(Kernel &k, Var v) {
+  k.bve_retry[v] = 1;
+  k.stats.bve_marks++; // see Stats::bve_marks — EVENTS, not bit flips
+}
 // Fold every ROOT-FIXED literal not yet accounted for into `bve_retry`: fixing
 // y changes the effective content of every clause y occurs in (the ones y
 // satisfies become delete-only, the rest lose the falsified literal), so every
