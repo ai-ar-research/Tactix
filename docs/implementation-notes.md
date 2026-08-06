@@ -56,7 +56,7 @@ conjunct.
 | X1 BCE | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — blockedness is the abstract precondition (`calculus.md` §6c), tested per candidate. Irredundant-only and "units are not candidates" are within-rule scope choices (§4), not guards. **Judge it with X2/X4, never alone:** measured negative ALONE (Tier B 21.79 vs 8.05) but near-neutral beside them (9.22) — the families repair each other (`benchmarks/reports/2026-07-28-all-rules-on.md`). |
 | X3 CCE | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — the ALA/CLA chain and its blocked/ATA exit are the abstract precondition (`calculus.md` §6c), constructed per candidate. **Four within-rule SCOPE choices, not guards (§4)** — each only narrows which candidates the rule offers, never whether a deletion is justified: (a) candidates are irredundant, wholly unassigned, and LARGE (binaries have no arena identity here and X1 already covers blocked-on-a-binary); (b) a per-candidate tick cap, because the extension loop restarts the covered scan after every addition and is therefore quadratic in one clause's neighbourhood, where cadical bounds only the round; (c) no repetition filter and no per-clause "already tried" flag (cadical's `Clause::covered`) — a budget-cut round rotates its entry point by `cce_rounds % ncands` instead, so the SCHED-B3 starvation shape does not apply; (d) the CLA/blockedness side quantifies over redundant clauses too. **(a)-(c) are engineering; (d) and its opposite number are NOT symmetric and the asymmetry is load-bearing:** the CLA/blocked side may over-quantify freely (it only makes the test stricter), while **ALA is irredundant-only for an ABSTRACT reason** — the ALA-closure lemma needs the justifying clause to be satisfied when `ρ` replays, and S2 Reduce deletes redundant clauses with no witness at all. Filtering the CLA side is exactly X1's fuzz-2204 wrong-SAT shape. |
 | X4 Instantiate | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — "the probe `l ∧ ¬D` is refuted by propagation" is the abstract precondition (`calculus.md` §6d), tested per (clause, literal) pair. The candidate FILTERS (irredundant-only, size ≥ 3, occurrences ≤ 1, ≥ 3 unassigned) are within-rule *scope*, not guards (§4) — each only narrows which instances the rule offers, and the rule deliberately keeps NO "already tried" memo so the instance surface stays complete under N1 (cadical's `instantiateonce` is a scheduling memo we push to the policy). |
-| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Native LRAT emits real `add_rat` (D-FACTOR-LRAT closed 2026-07-20). A binary-**density short-circuit** (threshold + history in §5) is a selectivity `NoOp`, not a guard conjunct. **Grid-selection scalars are policy-owned since S2a** (2026-07-23): `Kernel::factor_match` (`FactorMatchPolicy` — seed score, next-factor tie-break, accept); null = the built-in watch-size path, byte-identical either way (§5; `docs/design/s2a-factor-matcher-design.md`). ON since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
+| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Native LRAT emits real `add_rat` (D-FACTOR-LRAT closed 2026-07-20). The binary-**density short-circuit** is a POLICY admission decision handed in as `Kernel::factor_admit` (defaults true) since SCHED-N1FIX, not a guard conjunct and no longer a rule-side `NoOp` — threshold + history in §5. **Grid-selection scalars are policy-owned since S2a** (2026-07-23): `Kernel::factor_match` (`FactorMatchPolicy` — seed score, next-factor tie-break, accept); null = the built-in watch-size path, byte-identical either way (§5; `docs/design/s2a-factor-matcher-design.md`). ON since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
 
 ## 2. The engineering-deviation ledger (the impurity punch-list)
 
@@ -231,8 +231,12 @@ mechanics*, not proof-rule guards:
   pairs verify) — plus `binary_partners` dedup so dimensions/gain aren't inflated. **Lesson: touch ONLY
   Factor's grid pairs** — a global binary dedup *wrecks* the base search (mp1 4.19M→23.9M+ conflicts;
   those duplicates are load-bearing for its CDCL trajectory).
-- **Density short-circuit (selectivity heuristic, not a guard).** `factor_apply` → `NoOp` when
-  `binary_ids.size() < density·num_output_vars`; **`density = 6`** (`factor.cpp`; 1→8 with the BVE-LAST
+- **Density short-circuit (a POLICY admission decision since SCHED-N1FIX, 2026-08-04).** The predicate
+  `binary_ids.size() < density·num_output_vars` is computed by **DefaultPolicy** and handed to the rule as
+  `Kernel::factor_admit`, which **defaults true**; `factor_apply` declines only when the policy has said
+  so (`TACTIX_FACTOR_FORCE` overrides). It formerly NoOped inside `factor_apply`, which was the N1 breach
+  the N4 audit found — an API caller could not apply a legal factoring on a binary-sparse formula while
+  the guard reported applicable. **`density = 6`** (`default_policy.cpp`; 1→8 with the BVE-LAST
   fix 2026-07-21, then **8→6 on 2026-07-24 — battleship's ratio is [6,7) and the 8-gate locked it out of
   its only robust path**: with Factor 78 factorings → SAT 175 s, without it 72 M+ conflicts under every
   trajectory arm; `benchmarks/reports/2026-07-24-battleship-divergence.md`). It also serves the ordering
@@ -249,8 +253,9 @@ mechanics*, not proof-rule guards:
   Null = the built-in watch-size path, reproduced bit-exactly by `DefaultFactorMatch` (round-trip
   argument in the design doc). DefaultPolicy scopes the pointer to the inprocess phase (set at entry,
   cleared at exit — never dangles). N1: every `delta≥1` factoring stays reachable via swappability + the
-  pure guard; the scores only reorder. `FACTOR_MIN_GAIN`/dim caps stay rule-side cost floors, and the
-  density short-circuit stays rule-side too — its home is the effort scheduler, not `FactorMatchPolicy`.
+  pure guard; the scores only reorder. `FACTOR_MIN_GAIN`/dim caps stay rule-side cost floors. The density
+  short-circuit is not part of this policy either — SCHED-N1FIX moved it to DefaultPolicy's slot as
+  `Kernel::factor_admit` (see the density bullet above), not into `FactorMatchPolicy`.
   Design: `docs/design/s2a-factor-matcher-design.md`.
 - **Per-round work budget is configuration, not a guard (S4, 2026-07-24; generalized from Vivify to any
   budget-aware rule the same day).** `Kernel::work_budget` (0 = unbounded, the default; **formerly

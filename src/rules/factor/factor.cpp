@@ -326,43 +326,6 @@ void remainders_of(Kernel &k, const FactorIndex &idx, RemPool &pool, Lit l,
       dedup[rid] = 0;
 }
 
-// The grid clause {f} ∪ r, if it is live. Returns its Ref, or INVALID_REF for a
-// binary (whose id comes from kernel_binary_id) — and sets `found` false when the
-// pair is not a grid member at all. Both the LRAT hint and the delete need it.
-Ref find_grid_clause(Kernel &k, const FactorIndex &idx, Lit f,
-                     const RemPool &pool, uint32_t rid, bool *found) {
-  *found = false;
-  const uint32_t n = pool.size_of(rid);
-  if (n == 1) {
-    *found = true;
-    return INVALID_REF; // binary (f ∨ r) — the caller uses kernel_binary_id
-  }
-  if (!idx.built || f >= idx.occ.size())
-    return INVALID_REF; // see the bounds note in remainders_of
-  const Lit *r = pool.lits_of(rid);
-  for (const Ref ref : idx.occ[f]) {
-    const Clause *c = clause_at(k.arena, ref);
-    charge_factor_ticks(k, c->size); // the budget must be able to stop this
-    if (c->garbage() || c->size != n + 1)
-      continue;
-    // {f} ∪ r as a set: every literal of c is f or in the sorted remainder
-    bool ok = true;
-    for (const Lit x : *c) {
-      if (x == f)
-        continue;
-      if (!std::binary_search(r, r + n, x)) {
-        ok = false;
-        break;
-      }
-    }
-    if (ok) {
-      *found = true;
-      return ref;
-    }
-  }
-  return INVALID_REF;
-}
-
 // Seed/tie-break score — kissat's `watches_score` (factor.c:310), the raw
 // watch-list size. Kissat reads it in DENSE mode, where large watches are
 // flushed and duplicate binaries physically deleted, so for it this is the
@@ -386,11 +349,11 @@ bool contains(const std::vector<Lit> &v, Lit l) {
 // quotients' RAT-on-¬x resolves against the dividers to the still-live originals.
 // The grid's clause ids/Refs, resolved ONCE per factoring.
 //
-// Cost fix (R5 increment 2c): the first cut called find_grid_clause per lookup,
-// i.e. O(occ(f)) × m × n × 2 — once per LRAT hint and once per delete — which is
-// why size 5 ran past its timeout on every target instance. Enumerating each
-// factor's remainders once is O(occ(f)) × m, an n-fold reduction, and it reuses
-// the enumeration the search already knows how to do.
+// INVARIANT: the grid is enumerated per FACTOR, never per (factor, remainder)
+// pair. Searching `occ(f)` for each pair costs O(occ(f))·m·n·2 — the LRAT hint
+// and the delete each need the clause — while enumerating each factor's
+// remainders once is O(occ(f))·m and reuses the enumeration the search already
+// performs. See `docs/design/e2-factor-design.md`.
 struct GridMap {
   // per factor index: remainder id -> Ref (INVALID_REF = binary)
   std::vector<std::unordered_map<uint32_t, Ref>> by_factor;
@@ -411,8 +374,7 @@ void build_grid_map(Kernel &k, const FactorIndex &idx, const std::vector<Lit> &F
   }
 }
 
-void apply_factoring(Kernel &k, const FactorIndex &idx,
-                     const std::vector<Lit> &F,
+void apply_factoring(Kernel &k, const std::vector<Lit> &F,
                      const std::vector<uint32_t> &R, const RemPool &pool,
                      const GridMap &gm) {
   const Var xv = kernel_new_extension_vars(k, 1);
@@ -832,7 +794,7 @@ ApplyResult factor_apply(Kernel &k) {
                      best_R.size(), best_delta);
       build_grid_map(k, fidx, best_F, pool, live_lits, partner_lits,
                      rem_scratch, seen, rem_dedup, gmap);
-      apply_factoring(k, fidx, best_F, best_R, pool, gmap);
+      apply_factoring(k, best_F, best_R, pool, gmap);
       applied++;
       k.stats.factorings++;
       // S2b: grow the pass universe over the fresh var (kissat
