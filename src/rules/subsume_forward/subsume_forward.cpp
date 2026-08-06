@@ -199,6 +199,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // round the fuzz harness generates) would leave the abort path untested while
   // reporting green. Task #10's abort paths passed 4 x 10,000 cases that way.
   uint64_t stop_tick = 0;
+  bool interrupted = false;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     const Ref ref = candidates[ci];
     if (k.midround_budget && k.work_budget &&
@@ -211,6 +212,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
       k.stats.rule_interrupted++;
       k.stats.interrupts_c1++;
       stopped_at = ci;
+      interrupted = true;
       break;
     }
     Clause *c = clause_at(k.arena, ref);
@@ -296,7 +298,19 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // not re-armed. It had no new material at `wm`, and the new watermark is
   // >= `wm`, so it can have none there either — re-arming it would schedule a
   // check that provably cannot fire.
-  for (size_t ci = filter ? stopped_at : candidates.size();
+  //
+  // SCHED-H1: an INTERRUPTED round is the one cut that does NEITHER — no
+  // re-arm, no advance. Re-arm-then-advance is a resume device, and it is only
+  // equivalent to "carry on next round" while the round owns its own
+  // bookkeeping; on the abort path the cheaper and strictly safer move is to
+  // leave the watermark where it was, which re-offers the identical candidate
+  // set. It also avoids touching variables (and so perturbing every OTHER
+  // rule's filter) on the way out of a solve that is being terminated. The
+  // condition is stated identically in strengthen.cpp, where it is load-bearing
+  // rather than merely tidy: C2 can abort in its flush pre-pass, before
+  // `candidates` even exists, so there would be no tail to re-arm.
+  for (size_t ci = interrupted ? candidates.size()
+                               : (filter ? stopped_at : candidates.size());
        ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
     if (c->garbage() || !kernel_clause_new_material(k, c, wm))
@@ -308,7 +322,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // Advancing to the round-entry `snapshot`, not to the current epoch: what
   // this round created — including the re-arms just above — is new material for
   // the next one.
-  if (filter) {
+  if (filter && !interrupted) {
     k.subsume_touch_mark = snapshot;
     k.stats.forward_mark_advances++;
   }

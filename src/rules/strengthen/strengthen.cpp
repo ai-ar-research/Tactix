@@ -497,7 +497,8 @@ ApplyResult strengthen_apply(Kernel &k) {
   // SCHED-F2 · RESUME (see the twin comment in subsume_forward.cpp for the
   // argument). `ended` — a derived unit stopped the round — leaves a tail too,
   // and it is re-armed for exactly the same reason a budget cut's is.
-  for (size_t ci = filter ? stopped_at : candidates.size();
+  for (size_t ci = interrupted ? candidates.size()
+                               : (filter ? stopped_at : candidates.size());
        ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
     if (c->garbage() || !kernel_clause_new_material(k, c, wm))
@@ -506,7 +507,15 @@ ApplyResult strengthen_apply(Kernel &k) {
       kernel_touch_var(k, var_of(l));
     k.stats.strengthen_rearmed++;
   }
-  if (filter) {
+  // SCHED-H1: an INTERRUPTED round does not advance the watermark at all. The
+  // re-arm loop above is what makes advancing safe after a budget cut, and it
+  // covers the tail of `candidates` — but an abort inside the FLUSH pre-pass
+  // leaves `candidates` EMPTY, so there is no tail to re-arm and advancing
+  // would retire material this round never looked at. That is SCHED-B3's
+  // starvation, reintroduced through the abort path. Not advancing simply
+  // re-offers the same set next round, which is the resume semantics wanted
+  // here and costs nothing: an interrupt is rare and usually ends the solve.
+  if (filter && !interrupted) {
     k.strengthen_touch_mark = snapshot;
     k.stats.strengthen_mark_advances++;
   }
