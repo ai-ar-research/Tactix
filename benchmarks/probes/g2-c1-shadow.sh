@@ -23,5 +23,5 @@ xz -dc "$f" >"$w/i.cnf"
 [ "$arm" = "stopfuzz" ] && export TACTIX_STOP_FUZZ=200000
 timeout "$cap" "$BIN" "$w/i.cnf" "$w/i.drat" > "$w/out" 2>&1
 echo "=== arm=$arm stem=$stem cap=$cap rc=$?"
-grep -E "^s |^c conflicts|^c subsume |^c strengthen |^c c1shadow|^c c1c2stop|^c interrupt|^c budgetstop" "$w/out"
+grep -E "^s |^c conflicts|^c subsume |^c strengthen |^c c1shadow|^c interrupt2|^c interrupt3|^c interrupt |^c budgetstop" "$w/out"
 rm -rf "$w"

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # SCHED-H1 · does the abort path fire at FUZZ scale, not only on tier instances?
 # Task #10's abort paths passed 4 x 10,000 fuzz cases while inert precisely
-# because the harness's CNFs are far smaller than one 256-poll window. This
-# generates the harness's own cases and counts `c c1c2stop` over them, so the
+# because the harness's CNFs were far smaller than one 256-poll window. The C1/C2
+# sites have no cadence at all now, so this measures what that bought. This
+# generates the harness's own cases and counts `c interrupt2` over them, so the
 # green fuzz legs can be shown non-vacuous rather than assumed to be.
 set -u
 R=$(cd "$(dirname "$0")/../.." && pwd)
 N=${1:-400}
-BIN=$R/build/pin-g2h1/tactix
+BIN=${H1BIN:-$R/build/pin-h1v2/tactix}
 w=${TMPDIR:-/tmp}/h1reach-$$; mkdir -p "$w"
 python3 - "$w" "$N" <<'PY'
 import sys, os
@@ -21,9 +22,9 @@ PY
 c1=0; c2=0; fires=0; cases=0
 for f in "$w"/*.cnf; do
   o=$(TACTIX_STOP_FUZZ=97 timeout 10 "$BIN" --random-policy "$f" 2>/dev/null | \
-      grep -E "^c c1c2stop|^c interrupt")
-  a=$(echo "$o" | sed -n 's/^c c1c2stop *\([0-9]*\) C1.*/\1/p')
-  b=$(echo "$o" | sed -n 's/.*rounds, \([0-9]*\) C2 rounds interrupted/\1/p')
+      grep -E "^c interrupt2|^c interrupt ")
+  a=$(echo "$o" | sed -n 's/^c interrupt2 *C1 \([0-9]*\),.*/\1/p')
+  b=$(echo "$o" | sed -n 's/.*C2 \([0-9]*\) aborts/\1/p')
   s=$(echo "$o" | sed -n 's/.*(\([0-9]*\) stress fires)/\1/p')
   c1=$((c1 + ${a:-0})); c2=$((c2 + ${b:-0})); fires=$((fires + ${s:-0})); cases=$((cases + 1))
 done
