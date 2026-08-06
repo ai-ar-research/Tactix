@@ -188,7 +188,12 @@ struct GateSig {
   bool operator<(const GateSig &o) const {
     if (n != o.n)
       return n < o.n;
-    for (uint32_t i = 0; i < n; i++)
+    // Fixed trip count over the WHOLE array, not over `n`: every GateSig is
+    // zero-initialized and only ever writes [0, n), so with n == o.n the tail
+    // [n, BVE_SIG_MAX) is 0 on both sides and cannot change the order. The
+    // fixed bound is what keeps std::sort's by-value pivot copy provably
+    // initialized to the optimizer (-Wmaybe-uninitialized at -O3 otherwise).
+    for (uint32_t i = 0; i < BVE_SIG_MAX; i++)
       if (l[i] != o.l[i])
         return l[i] < o.l[i];
     return false;
