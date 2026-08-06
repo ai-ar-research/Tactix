@@ -741,6 +741,16 @@ public:
     uint64_t blocked_episodes = 0;
   };
   SlotClock probe_clock, elim_clock;
+  // The two Stage-D scheduling mechanisms above are A/B arms like every other
+  // one, so each has an off switch; both default to the shipped behaviour and
+  // are read once, where the slot is composed.
+  //   TACTIX_SLOT_CLOCKS=1  — collapse the split back onto ONE cadence: both
+  //   groups keep their own phase, but both fire on the ELIMINATION formula and
+  //   on a shared growth key, which is the pre-split rate.
+  //   TACTIX_SLOT_WATERMARK=0 — drop the gates, so an elapsed interval is again
+  //   sufficient on both clocks.
+  bool slot_clocks_split_ = true;
+  bool slot_watermark_ = true;
   // Slot timing: the first limit of each clock is size-scaled at solve entry
   // (kissat inits limits after parsing); after that each clock fires on its own
   // growing interval.
