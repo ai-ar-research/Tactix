@@ -76,7 +76,21 @@ says to check its `blocked` counter first and abandon the window if it is zero.
 ceiling** (`SP-EFFORT-CEIL-1`, taken mid-stage; ported and **measured inert** — see its Log entry before spending a window on it). The one finding
 that changes the picture: **Probe was advancing 0.3 % of its candidate list per dose and replaying the same head on all 45 phases** — E1's cursor
 fixes that, and it is unpriced. Three A/B specs are in the Log entries; E1's and E2's are worth windows, E3's says explicitly not to run it.
-**▶ THEN.** Stage F — the touched-epoch substrate (`SP-REPEAT-*`), which is also what E2's `heuristic` arm wants in front of its score.
+**▶ STAGE F IS LANDED AND UNPRICED** (branch `sched-stage-f`, five commits + the merge, ctest **44/44**). F1 the
+touched-epoch substrate (a per-variable EPOCH STAMP, not a bit — so it has no clear pass a scheduling decline
+can starve, which is D3's `SP-SLOT-5` lesson applied) · F2 resume by RE-ARM, **and the C1→BVE bound coupling T5
+asks for REFUSED** as self-wedging (§13.3 `SP-REPEAT-COUPLE`) · F3 BCE/HyperTernaryRes/Instantiate, which forced
+a second stamp array for DELETIONS · F4 Factor's seed marks · F6 the redundant half, **shipped OFF** because it
+only weakens the filters until F7 gives it a consumer. **Measured at the source** (probes `1584708`/`1584753`,
+counters only): `rbsat` C1 partner visits 165,272 → 79,686 and C2 5.83 M → 2.57 M · `mod4block` BCE ticks
+14.9 M → 7.1 M with MORE deletions · `9vliw` BCE 175,810 literals skipped; `advances` == round count everywhere,
+so the filters fire and none has wedged. **F5 is NOT done and is routed to `revamp`** — it needs a per-CLAUSE
+bit and the per-variable substrate cannot express it (see its checklist entry). **F7 (C1/C2 scope ← the tier
+band) is the open follow-up and F6 is its prerequisite.** The A/B specs are in the Log; `TACTIX_SUBSUME_HOLD`'s
+arm says explicitly not to run it while `c subhold` reads 0.
+
+**▶ THEN.** Stage G — the genuine revamps, starting with `SCHED-G2` (is C1 doing anything?), the cheapest
+decisive check on the board.
 
 **▶ OWED MEASUREMENTS (each a job; none blocks the next step).**
 - **ALL THREE STAGE-D ITEMS are specced and unrun** — arms, pre-flight counter and ship criterion in each
@@ -594,7 +608,13 @@ HIGH rows, **eleven are now closed** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stag
 measured INERT, its A3 headline corrected — kissat has no upper clamp at all), and **two are accepted deviations
 carrying a measurement and a removal path** (`SP-FACTOR-1`; `SP-TIER-2` by **C10** — cadical's "eight consumers"
 audit down to two live mechanisms, and both filter a clause class Stage F has yet to populate).
-**ONE remains open: `SP-REPEAT-*` (Stage F, in progress).** That is the whole remaining track exit.
+**`SP-REPEAT-*` is now WE_ARE_CRUDER rather than WE_LACK_IT — Stage F landed the substrate and five of its
+six consumers** (F1 C1/C2 · F2 the resume half, with the bound coupling REFUSED on wedge grounds as a THIRD
+accepted deviation, `SP-REPEAT-COUPLE` · F3 BCE/HyperTernaryRes/Instantiate · F4 Factor · F6 the redundant
+half, shipped off). **What keeps the row open is two named items, both with a written closure path:**
+`SCHED-F5` (Vivify's per-CLAUSE leftover bit — routed to `revamp`, since `Clause::flags` has no spare bit and
+the per-variable substrate cannot express it) and `SCHED-F7` (C1/C2's scope ← the tier band, which F6 exists
+to unblock). Everything Stage F landed is UNPRICED.
 
 - [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
   slot (beside BVE's identical, N1-clean one), reaching the rule as `Kernel::factor_admit`, default TRUE. Both pre-registered gates passed:
