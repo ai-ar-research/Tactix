@@ -1432,6 +1432,15 @@ would delete 58 files that frozen reports depend on, because citations are job I
 RANGE (`1584462`-`1584467`, four of whose six ids appear nowhere else). 11 uncited logs deleted; all 174
 probe outputs are cited and stay.
 
+**▶ CLOSING LEG ON THE FINAL TREE** (job `1587412`, ASan/UBSan, 3000 cases each): DefaultPolicy DRAT,
+DefaultPolicy native LRAT and `--random-policy=7` native LRAT, **0 failures on all three**, and the
+random-policy leg independently reproduces the loss on a different build and N — **338 of 3000 (11.3 %)**
+against 11.4 % on the release binary. The corpus replay also produced a finding: **two entries
+(`002`, `006`) never reach a verdict under DefaultPolicy**, so they exercise the CRASH oracle only — which
+is in fact their recorded pass condition (`006`'s meta says "runs clean past 60 s with the fix"), and the
+harness now says exactly that instead of scoring them as full replays. `run.sh` gives the corpus a 60 s
+budget rather than the 5 s case default; its entries are up to ~900 clauses and a sanitized build is slow.
+
 **▶ `RV-S29`, THE HALF THAT WAS SAFE.** `DefaultPolicy::solve` **536 → 237 lines**, by moving its two
 prologue units out verbatim (`configure_from_env` 54, `build_inprocess_slot` 246) so the CDCL loop can be
 read on its own. Identity evidence, since a move must be one: **119/119 generated cases byte-identical in

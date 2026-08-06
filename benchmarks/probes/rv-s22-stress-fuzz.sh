@@ -41,11 +41,12 @@ leg() { # leg <name> <required-rule> <solver cmd...>
 corpus() { # corpus <name> <solver cmd...>
     local name="$1"; shift
     echo "== corpus $name: $* =="
-    # Cap of 1, pre-registered: entry `011-lrat-unit-id-missed-off-root-level`
-    # is 39 vars / 878 clauses, and these policies run whole rounds to a
-    # fixpoint at every root with a per-step invariant check, under
-    # ASan — it does not finish, and that is cost, not a livelock. Every other
-    # entry must terminate.
+    # Entries whose recorded failure is a crash/abort pass by NOT aborting, so a
+    # timeout on those is reported rather than fatal (fuzz.py decides that from
+    # each entry's meta). The cap of 1 covers the one SEMANTIC entry these
+    # policies cannot finish: `011-lrat-unit-id-missed-off-root-level`, 39 vars /
+    # 878 clauses, against whole rounds to a fixpoint at every root plus a
+    # per-step invariant check under ASan. That is cost, not a livelock.
     python3 tools/fuzz/fuzz.py corpus --solver "$*" --oracle "$ORACLE" \
         --timeout 120 --allow-nonterminating 1
     local e=$?; echo "corpus $name exit=$e"; [ $e -eq 0 ] || rc=1
