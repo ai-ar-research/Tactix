@@ -9,6 +9,7 @@
 #include "rules/ternary/ternary.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <vector>
 
@@ -124,7 +125,45 @@ static void test_touch_filter_is_policy_only() {
   assert(k.stats.ternary_resolvents == 1);
 }
 
+// SCHED-H1 · both interrupt sites, pinned deterministically. Neither is
+// reachable from a schedule that never sets the flag, so the flag is set
+// before the call and the two entry points are driven separately; the third
+// block is the control that shows the abort is what suppressed the resolvent.
+static void test_interrupt() {
+  volatile sig_atomic_t stop = 1;
+  { // the ROUND loop over pivots
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    add3(k, 1, 2, 3);
+    add3(k, -1, 2, 4);
+    KernelStopPublisher pub(k, &stop);
+    assert(ternary_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.ternary_resolvents == 0);
+    assert(k.stats.ternary_interrupted == 1);
+    assert(k.stats.rule_interrupted == 1);
+  }
+  { // the per-pivot PAIR loop, through the single-instance entry
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    add3(k, 1, 2, 3);
+    add3(k, -1, 2, 4);
+    KernelStopPublisher pub(k, &stop);
+    assert(ternary_try(k, internalize(1)) == ApplyResult::NoOp);
+    assert(k.stats.ternary_resolvents == 0);
+    assert(k.stats.ternary_interrupted == 1);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    add3(k, 1, 2, 3);
+    add3(k, -1, 2, 4);
+    assert(ternary_try(k, internalize(1)) == ApplyResult::Ok);
+    assert(k.stats.ternary_resolvents == 1 && k.stats.ternary_interrupted == 0);
+  }
+}
+
 int main() {
+  test_interrupt();
   test_ternary_resolvent();
   test_touch_filter_is_policy_only();
   test_binary_resolvent();

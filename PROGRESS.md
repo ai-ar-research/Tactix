@@ -965,7 +965,9 @@ instrument before spending a tier window on a mechanism.
 
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
-- [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds · [ ] **SCHED-H2** per-solve reset of
+- [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by file;
+  the X1/X2/X4 share is DONE** (see its Log entry), C1/C2 and Vivify are owned separately. Tick the item
+  only when all three land. · [ ] **SCHED-H2** per-solve reset of
   restart/reduce/rephase/mode/reorder/averages/walk_anchor · [ ] **SCHED-H3** Reduce `first_reducible` scan
   bound
 
@@ -1051,6 +1053,94 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — SCHED-H1 (the X1/X2/X4 third): `budget_aware` was never the same thing as interruptible
+
+`H1` is split three ways by file; **this entry covers BCE / HyperTernaryRes / Instantiate only.** C1/C2 and
+Vivify are owned separately and the checklist item stays open until all three land.
+
+**What the three checked BEFORE.** All three are `budget_aware` batch entries and all three polled
+`Kernel::work_budget` mid-round — **and nothing else. `kernel_terminating` appeared in exactly one rule in
+the whole tree** (V6 Congruence, five sites, task #10). So the answer is the same for all three: none of
+them was already correct, and a round that had begun ran to completion after an interrupt arrived. The two
+tests are not interchangeable — `work_budget` is 0 whenever the policy leaves a round unmetered, X2's
+second governor is an OUTPUT ceiling, and *neither* is consulted on the single-instance `*_try` path an N1
+policy may drive directly.
+
+**SIX poll sites, two per rule — the round loop plus the one inner loop whose cost is unbounded:**
+- **X1 BCE** — `bce_apply`'s literal loop, and `bce_try_indexed`'s candidate SCAN. The scan is the
+  unbounded part: `bce_occ_limit` ships 0, so one literal's blockedness test is |cands| × |opposite|. The
+  DELETION loop is deliberately **not** polled — it is the rule's output, already bounded by the scan that
+  produced it, and cutting it would only discard work already paid for.
+- **X2 HyperTernaryRes** — `ternary_apply`'s pivot loop, and `ternary_try`'s per-PAIR loop. Per pair, not
+  per outer clause: `ternary_exists` scans a whole occurrence list, and the whole ARENA when no dense index
+  is attached, so one pair is already the largest unit worth running to completion.
+- **X4 Instantiate** — `instantiate_apply`'s candidate loop, and `instantiate_one`'s eligible-literal loop.
+
+**Soundness — aborting means the rule did LESS, and every site sits between complete units.** BCE: a
+deletion is witness-onto-ρ + `del` + garbage-mark, and the scan is read-only with `marked` all-zero at the
+poll, so an abort costs only untested candidates; those already found blocked were tested against the FULL
+opposite side and deletion only shrinks it. X2: each resolvent is one `add_rup` plus one kernel add, and
+`res` is scratch. X4: the poll sits where a failed `probe_pair` has already unwound the trail and closed
+the probing scope and a successful one has returned — the clause is fully rewritten or untouched, never
+half-instantiated. In all three the round-loop cut reuses the BUDGET cut's exit, so SCHED-F2's re-arm runs
+and the untried tail is not silently marked done. **No guard, precondition or instance surface changed** —
+nothing for the deviation ledger.
+
+**Counted at the SOURCE.** `kernel_rule_interrupt(k, site)` polls AND does both increments
+(`rule_interrupted` + the rule's own); **no call site increments anything**, so a new abort site cannot be
+added uncounted. New line `c interrupt3  BCE n, X2 n, X4 n aborts` — `c interrupt` alone is a sum over
+every polling rule and cannot say whether a PARTICULAR round is interruptible.
+
+**All three of task #10's vacuity modes closed, explicitly** (its abort paths passed 4 × 10,000 cases while
+proving nothing):
+1. *Wrong binary* — both probe scripts print `strings <binary> | grep -c interrupt3` before any arm runs.
+2. *Unreachable cadence* — **there is no cadence.** Every site sits at the top of a heavyweight iteration
+   (one literal's scan / one resolution pair / one probe), so the FIRST candidate reaches the first check.
+   Nothing is gated on `!(++tick & 255)`, which is what made task #10's poll sites unreachable below one
+   poll window.
+3. *Blind counter* — the increment is inside the predicate, and every sweep carries a `STOP_FUZZ=0` control
+   that reads 0/0/0.
+
+**NON-ZERO ON A REAL INSTANCE (job `1585204`, `9vliw_bp_mc`, Tier B, the instance where all three rules run
+under DefaultPolicy):** rate → `c interrupt3` / verdict — `0` → **BCE 0, X2 0, X4 0**, UNSAT (control) ·
+`10000` → **BCE 61, X2 2, X4 1**, UNSAT · `1000` → **BCE 55, X2 6, X4 5**, UNSAT · `100` → **BCE 62, X2 4,
+X4 58**, UNSAT. Reproduced independently at `100000` on jobs `1585090` and `1585200` (BCE 15, X2 1, X4 0,
+identical across both — 100000 is too sparse for X4). Two more Tier B instances in the same job, at rate
+`100`: `hwmcc17miters` **BCE 31, X2 2, X4 13** and `square.2.0` **BCE 36, X2 6, X4 49**, both still correct.
+**The verdict is never wrong at any rate**, which is the point: the abort paths are new control flow over
+the proof stream.
+
+**And on the size class the FUZZ HARNESS generates** (job `1585095`, 299 CNFs from `generators.generate`
+with fuzz.py's own `(seed+i, i)` derivation, run on the exact `build/debug` binary the legs use) —
+`STOP_FUZZ` 0 / 1000 / 100 / 10 → source fires 0 / 322 / 3057 / 1394, BCE 0 / 102 / 1405 / 694, X2
+0 / 85 / 1320 / 433, X4 0 / 2 / 6 / 53. (Fires FALL from 100 to 10 because rules that abort sooner do less
+work and therefore poll less; X4 rises because its sites sit early in a round.) Repeated under
+**`--random-policy`**, which is the schedule the stress legs actually run (job `1585213`, 119 cases):
+0 → 0/0/0 · 100 → source 689, **BCE 235, X2 75, X4 17**. **This is the check task #10 skipped**, and it is
+what licenses the stress legs below.
+
+**Fuzz — 7 legs, 0 failures, corpus 14/14 on each.** Native DRAT `1585158` (10,000) · `--random-policy` ×
+native DRAT `1585186` (4,000) · `--random-policy` × native LRAT `1585159` (4,000) · and the four that
+exercise the new control flow, with the knob **passed in the command** (`/usr/bin/env TACTIX_STOP_FUZZ=n`,
+recorded verbatim in each log's `solver=` line, because an exported variable that never reaches the
+solver looks exactly like a clean run): `STOP_FUZZ=1000` × DRAT `1585183`, × LRAT `1585184`;
+`STOP_FUZZ=100` × DRAT `1585187`; `STOP_FUZZ=10` × LRAT `1585194`. The arms are **not** identical
+artefacts: TIMEOUT counts move 733 (no knob) → 730 (1000) → 718 (100) → 734 (10, and SAT 2014 → 2015),
+so the aborts are changing trajectories rather than the knob going nowhere.
+
+**Unit-pinned, all six sites** (`test_bce` / `test_ternary` / `test_instantiate`, one `test_interrupt` each,
+three blocks apiece): flag set → the round cuts at the first candidate; flag set → the single-instance
+entry cuts inside the inner loop; flag clear → the control that shows the abort is what suppressed the
+deletion/resolvent/rewrite. Each also asserts the per-rule counter is exactly 1, so a site that stopped
+being reached fails the test rather than passing quietly. **No site is unreachable-by-schedule** — none
+needed the SCHED-C6/C9 treatment.
+
+**Residual, not fixed here and not ours:** `battleship` takes **7.3 s** to exit after SIGTERM (job `1585090`)
+with `c interrupt 0` and BCE/X2/X4 at 0 rounds — so that latency is in search, the proof flush, or one of
+the rules the other two H1 shares cover. ctest **44/44 release and 44/44 ASan+UBSan**; `config_wiring`
+(36 fields, 0 failures — three Stats counters were added, no Kernel CONFIG field), `effort_specs`,
+`option_coverage`, `check-progress` all green.
 
 ### 2026-08-05 — SCHED-F6: the redundant half of the substrate, shipped OFF on purpose
 

@@ -11,6 +11,7 @@
 #include "rules/propagate/propagate.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <vector>
 
@@ -168,7 +169,50 @@ static void test_touch_filter_is_policy_only() {
          "removing an opposite occurrence is exactly what blocks a clause");
 }
 
+// SCHED-H1 · both interrupt sites, pinned deterministically. A poll that no
+// test reaches is a green result that means nothing, and neither site is
+// reachable from a schedule that never sets the flag — so the flag is set
+// before the call and each entry point is driven separately.
+static void test_interrupt() {
+  volatile sig_atomic_t stop = 1;
+  // (1) the ROUND loop: cut at the first literal, so the round deletes nothing
+  // even though the formula is full of blocked clauses.
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 2);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    KernelStopPublisher pub(k, &stop);
+    assert(bce_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.bce_deleted == 0);
+    assert(k.stats.bce_interrupted == 1); // the round poll, once
+    assert(k.stats.rule_interrupted == 1);
+  }
+  // (2) the per-literal SCAN, reached through the single-instance entry the
+  // round loop does not go near. Same formula, so the uninterrupted run below
+  // proves the abort is what suppressed the deletion.
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 2);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    KernelStopPublisher pub(k, &stop);
+    assert(bce_try(k, internalize(1)) == ApplyResult::NoOp);
+    assert(k.stats.bce_deleted == 0);
+    assert(k.stats.bce_interrupted == 1);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 2);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+    assert(bce_try(k, internalize(1)) == ApplyResult::Ok);
+    assert(k.stats.bce_deleted == 1 && k.stats.bce_interrupted == 0);
+  }
+}
+
 int main() {
+  test_interrupt();
   test_regression_fuzz_2204();
   test_touch_filter_is_policy_only();
   test_blocked_binary();
