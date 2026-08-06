@@ -245,6 +245,34 @@ What the budget must **not** do, and does not:
 `BudgetScope` clears the round budget on **every** exit path including the early `Unsat`/`NoOp`
 returns, so no budget ever leaks into a later caller.
 
+**The argument is also checked, on instances where the budget cuts rounds that had already emitted
+merges** (jobs 1585210-1585212; the generated fuzz corpus cannot produce this case — see §5.2):
+
+| instance | budget stops | merges | units | `unjustified` | DRAT (drat-trim) | native LRAT (cake_lpr) |
+|---|---:|---:|---:|---:|---|---|
+| `b22_1` | **10** of 30 rounds | 1,276 | 0 | 0 | `s VERIFIED` | `s VERIFIED UNSAT` |
+| `9vliw_bp_mc` | **13** of 15 | 30 | 0 | 0 | `s VERIFIED` (28,196 RAT lemmas in core) | `s VERIFIED UNSAT` |
+| `hwmcc17miters` *(control, 0 stops)* | 0 of 1 | 710,722 | 711 | 0 | `s VERIFIED` | `s VERIFIED UNSAT` |
+
+### 5.2 What fuzz can and cannot reach here — measured, not assumed
+
+**DefaultPolicy fuzz never enters Congruence at all.** Over 120 generated cases the rule ran **zero**
+rounds: a generated case is solved before the inprocessing slot is reached. So the DRAT / native-LRAT /
+`--random-policy` legs are, for this rule, structurally vacuous — which is exactly what the congruence
+stress policy exists for, and which is why the budget's N2 legs are driven from there
+(`TACTIX_CONG_STRESS_BUDGET=N`, a fresh **log-uniform** budget in `[1,N]` per apply, paired with
+`TACTIX_STOP_FUZZ=<huge>` because the rule's stop checks are strided 1-in-256 and a tiny case never
+reaches 256 items).
+
+Two calibration facts worth keeping, both found by measuring instead of assuming:
+
+- a **flat** draw over `[1,64]` cut 220 rounds across 120 cases and produced **0 gates** — every cut
+  landed in extraction, never in the closure, so the leg would have been green while testing the
+  wrong stop. Hence log-uniform.
+- even **unbudgeted**, the stress policy finds gates but **no congruent pairs** on generated cases
+  (0 merges). The "cut after merges were emitted" case therefore cannot be reached by fuzz at all,
+  and the table above — real instances, both checkers — is the evidence for it, not a fuzz leg.
+
 ---
 
 ## 5. Reachability — the budget binds, and not everywhere
