@@ -287,6 +287,7 @@ uint64_t meter_transitive(const Kernel &k) {
 uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
+uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
 uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks; }
 
 // name -> {effort per mille, currency, dosed}. Fractions are kissat's
@@ -400,6 +401,16 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // no blocked-clause elimination and cadical ships `block`=0, so 20 per
     // mille and the slot position are ours, not ported.
     {"BCE", 20, meter_bce, false, false, true},
+    // CCE: cadical's `covereffort` is 4 per mille (options.hpp:73) — the
+    // LOWEST rate in its whole option set, an order below `elim`/`subsume`, and
+    // it is the one rate here backed by a reference constant for this
+    // technique. Its `covermaxeff` 1e8 is NOT ported: that clamp is in
+    // PROPAGATIONS and `cce_ticks` counts clause literals scanned, so
+    // transferring the number would be a unit error (TransitiveReduce's row
+    // makes the same call). BATCH + budget_aware, not per-instance `dosed`:
+    // a round builds one occurrence index, so dosing one candidate at a time
+    // would rebuild it per application (HyperTernaryRes' arrangement).
+    {"CCE", 4, meter_cce, false, false, true},
     // Instantiate's probes ARE propagation, so the currency is ticks (Vivify's)
     // and the rate is the cheap-probing-family 20 (Probe/Backbone/
     // TransitiveReduce). BATCH + budget_aware because the round builds one
@@ -436,8 +447,10 @@ const EffortSpec *effort_spec(const char *name) {
 //   3. Vivify precedes TransitiveReduce.
 //   4. Factor closes the probing pipeline.
 //   5. Subsumption precedes elimination.
-//   6. BCE closes the elimination pipeline (cadical block() runs after
-//      elim_round); name-sorting ran it first of all.
+//   6. BCE then CCE close the elimination pipeline, in that order (cadical
+//      elim.cpp:1093-1098 runs subsume_round, then block(), then cover(), and
+//      says so: "Prioritize 'subsumption' over blocked and covered clause
+//      elimination"); name-sorting ran BCE first of all and CCE second.
 // Where the references disagree — kissat vivifies then sweeps, cadical sweeps
 // then vivifies — we take kissat's, so Sweep's environments are built over an
 // already vivified database.
@@ -447,10 +460,11 @@ const EffortSpec *effort_spec(const char *name) {
 // every ELIMINATE row from kissat's `eliminate()` / cadical's `elim()`. Where
 // only one reference owns a technique, that reference decides —
 // HyperTernaryRes and Probe are cadical inprobe members (kissat has neither as
-// a separate technique), Instantiate and BCE are cadical elim members
-// (elim.cpp:947 inside the round, block() after it). BCE is the one row no
-// reference schedules by default (kissat has no BCE, cadical ships block=0);
-// cadical's placement inside `elim` is still the only evidence there is.
+// a separate technique), Instantiate, BCE and CCE are cadical elim members
+// (elim.cpp:947 inside the round, block() then cover() after it). BCE and CCE
+// are the two rows no reference schedules by default (kissat has neither,
+// cadical ships block=0 and cover=0); cadical's placement inside `elim` is
+// still the only evidence there is.
 constexpr SlotOrderRow AUTHORED_SLOT_ORDER[] = {
     // probing pipeline (kissat probe.c:32-41, cadical probe.cpp:934-952)
     {"Congruence", SlotGroup::Probe},
@@ -468,6 +482,7 @@ constexpr SlotOrderRow AUTHORED_SLOT_ORDER[] = {
     {"BVE", SlotGroup::Eliminate},
     {"Instantiate", SlotGroup::Eliminate},
     {"BCE", SlotGroup::Eliminate},
+    {"CCE", SlotGroup::Eliminate},
 };
 
 } // namespace
