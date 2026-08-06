@@ -737,8 +737,49 @@ Track SCHED item.
 | **SP-BVE-GATE-1** *(A3)* | **Gate extraction shrinks the resolvent set BVE's bound is applied to** | Gate looked up per candidate *after* the bound is fixed (`resolve.c:311`), then only gate×antecedent pairs are generated (`:330-346`): **P·N → P+N−2** (equivalence) or **k(N−1)+(P−k)** (AND arity k). kissat `extract/ands/equivalences/ifthenelse`=1, `definitions`=1 (kitten, `definitionticks`=1e6/var, ×10 per extra core, `definitioncores`=2). cadical `elimsubst/elimands/elimequivs/elimites/elimxors`=1, `elimxorlim`=5 | `bve_gate_mask` covers **EQUIV + AND/OR only** (`bve.cpp:194,233`; `kernel.hpp:550`). **ITE is default-ON in BOTH references; XOR is default-ON in cadical; neither exists here.** An ITE/XOR-defined variable is charged the full P·N and fails `resolvents ≤ pos+neg+bound` on a formula where both references eliminate it | WE_LACK_IT | **NEW (A3)** — a per-application ACCEPTANCE lever, i.e. exactly the T4 antidote; unassigned |
 | **SP-TIER-2** *(A3)* | **The dynamic tiers have ONE consumer here and EIGHT there** — generalises SP-VIVIFY-1 | cadical funnels them through `likely_to_be_kept_clause` (`internal.hpp:1062`, reads `tier2[false]`) which gates **subsumption** (`subsume.cpp:388`), **sweep** (`sweep.cpp:1165`), **walk** (`walk.cpp:858`), **decompose** (`decompose.cpp:630`) and `mark_added` (`clause.cpp:140,237`); plus reduce (`reduce.cpp:97`), promotion (`clause.cpp:151,182`), vivify (`vivify.cpp:1723`). kissat: reduce (`reduce.c:62,129`), promote (`promote.c:11`), vivify (`vivify.c:129,133`) | `k.tier1`/`k.tier2` are read **only** at `reduce.cpp:100-101`. So SP-VIVIFY-1's closer is not "wire Vivify" — it is "add the shared predicate and give it five callers" | WE_ARE_CRUDER | **NEW (A3)** — supersedes the scope of **SCHED-C1** |
 | **SP-EFFORT-CEIL-1** *(A3)* | **Every reference effort budget has an UPPER clamp; ours has only a floor** | cadical runs **two disjoint schemes**: (a) the ticks macro `SET_EFFORT_LIMIT` (`limit.hpp:136-164`) — no floor, no ceiling, `preprocessinit`=2e6 as the REFERENCE fallback whenever `stats.conflicts==0`; (b) a propagations scheme with `NAMEmineff`/`NAMEmaxeff` clamps **and** a `max(delta, 2·active())` floor applied *after* the ceiling (elim `1e7`/`2e9`, subsume `0`/`1e8`, transred `0`/`1e8`, walk `0`/`1e3·1e7`) | `MIN_EFFORT_TICKS`=1e7 floor only (`default_policy.hpp:177`); no entry has a ceiling, and Congruence/Substitute have no meter at all. Unbounded upside is what priced one Congruence application at 131,327 ms | WE_LACK_IT | **NEW (A3)** — pairs with **SCHED-B1**; also a CORRECTION, see §13.5 |
-| **SP-JUMP-1** *(A3)* | **`jumpreasons` — a free one-step resolvent in the reason pointer** | kissat default **1**. When a binary `(lit∨other)` propagates and `other`'s own reason is binary, store *`other`'s reason* instead of `other` — a virtual resolvent, so analysis pulls `r`'s (≤) level into the learned clause: shallower jumps, smaller glue, zero cost. Two sites: `fastassign.h:12` (propagation, gated on `classification.bigbig`) and **`assign.c:38` with NO classification test**, reached from `learn.c:67` (learned binaries) and `analyze.c:121` (conflict reuse) | ABSENT (no `jumped_reasons` analogue anywhere). The diagnosis §3 excuse "we have no formula classification" **does not cover the `assign.c` site**, which needs none — and the classification itself is two integer compares (§13.5) | WE_LACK_IT | **NEW (A3)** — unassigned; the cheapest HIGH row in the ledger |
-  **▶ VERIFIED BY HAND 2026-08-04, and it fully retires the "we lack formula classification" excuse.** kissat's classification is ONE boolean with ONE consumer: `classification.bigbig` is read only at `fastassign.h:12`, the `jumpreasons` gate; `classification.small` is written and printed and **never read for a decision**. And the threshold is effectively **0.99 %**, not 99 % — `classify.c:15` computes `percent = bigbigfraction/1000.0 = 0.99` and compares it against `kissat_percent()`, which returns a **0–100** value (`utilities.h:40`). So `bigbig` is true for virtually every formula and `jumpreasons` is effectively UNCONDITIONAL. Porting it needs no classification infrastructure whatsoever — it is `[wire]`, not `[arch]`.
+| **SP-JUMP-1** *(A3)* | **`jumpreasons` — a one-step resolvent in the reason pointer** | **kissat only**, default **1**; `grep jumpreasons cadical/src` is EMPTY, so the "both references" reading of this row was wrong. When a binary `(lit∨other)` propagates and `other`'s own reason is binary, store *`other`'s reason* instead of `other` — a virtual resolvent, so analysis resolves straight past `other`. Two sites: `fastassign.h:12` (propagation, gated on `classification.bigbig`) and **`assign.c:38` with NO classification test**, reached from `learn.c:67` (learned binaries) and `analyze.c:121` (conflict reuse). kissat's own `--plain` sets it to 0 (`config.c:44`) | **PORTED, ships OFF** behind `Kernel::jump_reasons` (`TACTIX_JUMP_REASONS=1`); counter `stats.jumped_reasons`, printed as `c jumpreason` | **CLOSED as code — the DEFAULT is the open question** | **SCHED-C8** — see the closure record below |
+  **▶ CLOSURE RECORD (SCHED-C8).** Three of this row's own premises were wrong, and they are the substance:
+  **(a) "both references"** — only kissat has it. cadical's `search_assign` (`propagate.cpp:102-136`) stores the
+  reason clause verbatim, and it is the same function that builds `lrat_chain`; the option set has no
+  `jumpreasons`. So the reference that also emits LRAT does not do this, which is the shape of (c) below.
+  **(b) "effectively UNCONDITIONAL", "true for virtually every formula"** — overstated. The per-mille
+  correction (§13.5 C3) is right and the 99 % reading stays dead, but the binary fraction is the *second*
+  test: `classify.c:9` sets `bigbig = false` outright whenever `clauses <= smallclauses` (**1e5**,
+  `options.h:131`), which C3 says in passing and this row then dropped. So the propagation site's gate is a
+  **formula-SIZE** gate. Not ported here, because it is measurably inert on the instance that decided the
+  matter: `9vliw_bp_mc` is **179,492 clauses, 88.8 % binary**, so kissat's gate is TRUE there.
+  **(c) "zero cost"** — true for kissat, **false for us, because of N2.** A virtual resolvent is a reason
+  naming a clause the checker does not hold, and every LRAT consumer of a binary reason has to expand it back
+  into its two real antecedents: `chain_record` (`analyze.cpp`), `kernel_reason_walk` (`kernel.cpp`, so
+  Vivify/Substitute chains), and the **delete-binary live-reason guard** (`kernel_delete_binary` ×2 — the pair
+  `(lit ∨ jumped_over)` is cited by the chain but is no longer the recorded reason, so without the extension
+  TransitiveReduce/Substitute/Factor could delete a clause a live chain names; pinned by
+  `tests/test_binary_deletion.cpp::test_jumped_reason_protects_its_antecedent`, since the knob ships OFF and no
+  fuzz or tier leg reaches that branch). `emit_root_units` needs nothing — the jump is taken only above level
+  0, and there is an assert saying so.
+  **The expansion cannot be done at record time, and finding that out cost a fuzz-RED round.** The obvious
+  form — chain the resolved-away literal's reason recursively, right there in `chain_record` — is **wrong**:
+  whether that literal needs an antecedent at all depends on the FINAL clause, and if it ends up in the clause
+  the checker already has it assigned, so citing its reason is a **satisfied hint** and `lrat-check` stops
+  propagating. That is the same trap the shrink UIP is already guarded against (`analyze.cpp`, "its reason
+  would be a satisfied — illegal — hint"), and reason jumping reaches it from a second direction. The shipped
+  form defers to `chain_expand_jumped`, run from `chain_emit` against the final clause; it iterates, so
+  kissat's jump CHAINS still work. 12 of 1500 native-LRAT fuzz cases rejected before this, 0 after.
+  That is the honest price — a `[wire]` in kissat's architecture, N2-critical surgery in ours, and it is why
+  porting it default-ON on the strength of "free" would have been wrong.
+  **The prior measurement, and why it is not a verdict.** This mechanism is not new here: it was implemented,
+  measured and **REVERTED in phase 1** (`e26492b`, 2026-07-11, "binary-reason jumping (kissat jumpreasons)") —
+  `summle` 66 → 48 s (**−27 %**) but `9vliw` 11.3 → 22.6 s (**+2×**). Its recorded escape hatch, "needs the
+  bigbig-style classifier to gate it, as kissat does", is **refuted by (b)**: kissat's gate is ON for `9vliw`,
+  so the classifier would not have prevented that regression. What survives is a single-draw laptop-era
+  reading on a phase-1 kernel with no chrono, no OTFS, no reason-side bumping, no dynamic tiers and no
+  inprocessing — every one of which changes the trajectory this mechanism perturbs. It is a reason to ship OFF
+  and re-derive, not a reason to bank a deviation.
+  **Ship state and what decides it.** Default OFF; the knob is read in `main.cpp` so `--random-policy` and the
+  stress policies can toggle it. OFF is byte-identical to the pre-port binary; ON fires tens of millions of
+  times over the same fuzz CNFs and moves the conflict count on 7 of 52, and **6,618** times under
+  `--random-policy` — so neither the OFF arm nor the random-policy fuzz leg is vacuous. The A/B that decides
+  the default is pre-registered in PROGRESS.md, Track SCHED Stage C, with the exact counts.
 
 ### 13.3 Accepted deviations — measured, keep the simpler version
 
