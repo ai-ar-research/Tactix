@@ -28,11 +28,20 @@
 //     unit ids join the LRAT chain); the original becomes garbage after
 //     the add (OTFS allocate-new precedent, N1 intermediate-state
 //     cleanliness). Nothing is rewritten in place.
-// (3) Candidates and large strengtheners are irredundant-only (C1
-//     discipline; NOTE: strengthening is actually safe with redundant
-//     strengtheners — c' implies c regardless — but redundant-aware
-//     strengthening arrives with C3's tier-aware vivification, once, not
-//     twice). ALL binaries subsume/strengthen, with no redundancy check —
+// (3) Large PARTNERS are irredundant-only (C1 discipline, and unlike C1 this
+//     rule has two effects: for the SUBSUMED branch the partner justifies a
+//     deletion and must not be forgettable; for the STRENGTHEN branch it is
+//     safe either way, since the emitted add-RUP stands against the whole
+//     formula at emit time — the check is kept uniform because the branch is
+//     decided after the partner is found). VICTIMS are wider: any redundancy
+//     on the instance surface, and in the canonical round the irredundant
+//     clauses plus — when Kernel::touch_redundant is on — the redundant TIER
+//     BAND, cadical's `likely_to_be_kept_clause` scope (subsume.cpp:388).
+//     Redundant survivors are never CONNECTED as partners, so widening the
+//     victim set leaves the partner set alone. There is no PROMOTION path
+//     (cadical turns a redundant subsumer irredundant, subsume.cpp:133-149);
+//     that is the recorded deviation, not an oversight.
+//     ALL binaries subsume/strengthen, with no redundancy check —
 //     binaries ARE deletable (kernel_delete_binary), so the justification
 //     is not "structurally permanent" but the binary-subsumer argument
 //     recorded in subsume_forward.hpp: a binary can never be FORGOTTEN,
@@ -73,8 +82,11 @@ constexpr uint32_t STRENGTHEN_CLSLIM = 1000;
 constexpr uint32_t STRENGTHEN_OCCLIM = 1000;
 
 bool strengthen_guard(const Kernel &);
-// canonical candidate order (size ascending; C1's criteria)
-void strengthen_candidates(const Kernel &, std::vector<Ref> &out);
+// canonical candidate order (irredundant first, then size ascending).
+// `complete` selects the instance surface's set — every clause `strengthen_try`
+// accepts, any redundancy; the default is the canonical round's scope.
+void strengthen_candidates(const Kernel &, std::vector<Ref> &out,
+                           bool complete = false);
 // single-candidate instance surface: Ok = subsumed or strengthened
 ApplyResult strengthen_try(Kernel &, Ref candidate);
 ApplyResult strengthen_apply(Kernel &); // canonical: the full round

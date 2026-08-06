@@ -92,9 +92,13 @@
 //     HOW MUCH is policy territory. The one internal bound is a per-CANDIDATE
 //     tick cap, which exists so a single dense clause cannot own a whole dose —
 //     cadical bounds only the round.
-// (4) NO REPETITION FILTER AND NO RESUMPTION CURSOR (cadical's per-clause
-//     `covered` flag). Instead the round starts at `cce_rounds % ncands` and
-//     wraps, so a budget-cut round does not replay its head forever.
+// (4) REPETITION + RESUMPTION run on the TOUCHED-EPOCH SUBSTRATE (Kernel::
+//     cce_touch_mark, read two-sided as BCE's is), not on cadical's per-clause
+//     `covered` flag: the round skips candidates nothing moved in and re-arms
+//     the tail a budget cut never reached. Coarser than the reference on two
+//     axes, both yield-only — the filter reads vars(C) rather than C's whole
+//     ALA/CLA closure, and the substrate does not stamp the redundant clause
+//     traffic the CLA side quantifies over (see changed_clause in cce.cpp).
 //
 // Instance space (plan §5.1 v1): payload = a literal, as everywhere else
 // (Decide / V1 / V4 / X2 / X1). One instance = one literal = attempt CCE on

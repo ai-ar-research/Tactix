@@ -189,6 +189,10 @@ add_executable(test_factor_n1 test_factor_n1.cpp)
 target_link_libraries(test_factor_n1 PRIVATE tactix_lib)
 add_test(NAME factor_n1 COMMAND test_factor_n1)
 
+add_executable(test_subsume_n1 test_subsume_n1.cpp)
+target_link_libraries(test_subsume_n1 PRIVATE tactix_lib)
+add_test(NAME subsume_n1 COMMAND test_subsume_n1)
+
 # Not a unit test but a SOURCE conformance check -- every Kernel
 # scheduling-config field must have the writer its classification claims. Runs
 # in ctest so an unwired POLICY field, or a new unclassified field, breaks the

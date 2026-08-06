@@ -106,6 +106,18 @@ the fix's 4229 on those twelve, so up to ~670 PAR-2 may be D2 cost that survives
 nothing measured so far separates "D2's cost was entirely the wrap" from "D2 costs on top of it".
 (3) Re-price Sweep's and Congruence's per-mille shares now that the ledger binds.
 
+**▶▶ TRACK SCHED'S TWELVE HIGH PARITY ROWS ARE ALL CLOSED (2026-08-06, branch `sched-f7-close`).**
+`SP-REPEAT-*` was the last one open, and `SCHED-F7` closes it as an **accepted deviation with the
+measurement**: the N1 half ships ON (C1/C2's `instances()` are now COMPLETE over victims — a redundant
+clause is offered and applicable, which the old code refused on all three paths at once), the redundant
+tier band's ROUND scope ships OFF behind `TACTIX_TOUCH_REDUNDANT`, and C1's scope is deliberately never
+widened because `SCHED-G2` measured it absorbed. **The reusable finding is that F6's "820× stamps for zero
+skips" was ONE SHARED CLOCK where cadical has a flag per consumer**, not a missing consumer — the band now
+stamps a third array and turning it on is provably (and measurably) inert for the other five. `RV-S1` and
+`RV-S2` land with it: CCE's rotation on a Stats counter is gone and CCE is the substrate's sixth consumer.
+**The `bandon` A/B is specced and UNRUN** (see the Log entry for the arms, the pre-flight and the guard
+metric) — no timing was taken in this window.
+
 **▶ NOTE FOR EVERY FUTURE SLOT A/B.** `TACTIX_SLOT_CLOCKS` / `TACTIX_SLOT_WATERMARK` now exist, so the
 whole Stage-D/E/F/G set is ablatable from one binary. The first cut of the clock hatch advanced BOTH
 clocks after one phase and thereby starved the entire elimination family (`c bve 0 rounds`) while
@@ -537,8 +549,9 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   - [x] **RV-S14** all 25 registry entries driven through `tactix_apply_instance` (ctest
     `api_instances`), and a non-canonical payload on an entry with no instance surface now returns
     −1 instead of silently running the canonical round.
-  Then: **RV-S1** CCE's rule-side rotation reads `k.stats` (see the Log) · **RV-S2** = `SCHED-F7-CCE`
-  a `cce_touch_mark` over the stage-F substrate · **RV-S8** Congruence's gate arena (16.6 %, blocked on
+  Then: ~~**RV-S1** CCE's rule-side rotation reads `k.stats`~~ + ~~**RV-S2** = `SCHED-F7-CCE`~~ —
+  **BOTH CLOSED with `SCHED-F7` (branch `sched-f7-close`)**: the rotation is gone and CCE is the
+  substrate's sixth consumer · **RV-S8** Congruence's gate arena (16.6 %, blocked on
   the `SCHED-G4` owner) · **RV-S19** `D-BVE-SCRATCH` is FIVE fills per attempt, plus **sightings #6/#7**
   at `probe.cpp:100` / `backbone.cpp:96` on the native-LRAT path · **RV-S5** seven `vector<vector<Ref>>`
   occurrence indices · **RV-S6** the 13-site proof-delete pair · **RV-S20/21** a soundness predicate
@@ -893,22 +906,28 @@ ramp-ceiling 8-vs-16 choice.
 
 **Track exit (checked at the phase-3 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT` without a closure or an accepted deviation
 row carrying a measurement, AND the ledger has been regenerated from the REFERENCE's option set (SCHED-A3).
-**▶ EXIT STATUS (2026-08-05).** Half two is **DONE and now machine-checked** (SCHED-A3, ctest `option_coverage`). Half one is **NOT** met: of §13.2's
-HIGH rows, **eleven are now closed** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B · `SP-VIVIFY-1` by C1 · `SP-FACTOR-2` by C5 ·
+**▶ EXIT STATUS (2026-08-06). HALF ONE IS NOW MET: all twelve HIGH rows are closed** — the twelfth,
+`SP-REPEAT-*`, by **`SCHED-F7`**, as an accepted deviation carrying its measurement (`D-C1C2-VICTIM`).
+Half two was already **DONE and machine-checked** (SCHED-A3, ctest `option_coverage`). What remains before
+the track can be *ticked* at the phase-3 gate is the gate evaluation itself, not another row. Of §13.2's
+HIGH rows, **eleven closed with code** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B · `SP-VIVIFY-1` by C1 · `SP-FACTOR-2` by C5 ·
 `SP-BVE-GATE-1` by **C8** · `SP-JUMP-1` by **C9** — ported, ships OFF, default decided by a pre-registered A/B ·
 `SP-SLOT-4` by **D1** · `SP-SLOT-1` by **D2** · `SP-SLOT-5` by **D3** · `SP-EFFORT-CEIL-1` by **E3**, ported and
-measured INERT, its A3 headline corrected — kissat has no upper clamp at all), and **two are accepted deviations
-carrying a measurement and a removal path** (`SP-FACTOR-1`; `SP-TIER-2` by **C10** — cadical's "eight consumers"
-audit down to two live mechanisms; Stage F has since populated the redundant-stamp class as **F6**, and
-measured it counterproductive — the extra stamps only weaken a filter every consumer scopes to irredundant
-clauses, costing `battleship` **820×** the stamps for **zero** additional skips, so F6 ships OFF).
-**`SP-REPEAT-*` is now WE_ARE_CRUDER rather than WE_LACK_IT — Stage F landed the substrate and five of its
-six consumers** (F1 C1/C2 · F2 the resume half, with the bound coupling REFUSED on wedge grounds as a THIRD
-accepted deviation, `SP-REPEAT-COUPLE` · F3 BCE/HyperTernaryRes/Instantiate · F4 Factor · F6 the redundant
-half, shipped off). **What keeps the row open is two named items, both with a written closure path:**
-`SCHED-F5` (Vivify's per-CLAUSE leftover bit — routed to `revamp`, since `Clause::flags` has no spare bit and
-the per-variable substrate cannot express it) and `SCHED-F7` (C1/C2's scope ← the tier band, which F6 exists
-to unblock). Everything Stage F landed is UNPRICED.
+measured INERT, its A3 headline corrected — kissat has no upper clamp at all), and **three are accepted deviations
+carrying a measurement and a removal path** (`SP-FACTOR-1`; `SP-REPEAT-*` by **F7**, below; `SP-TIER-2` by **C10** — cadical's "eight consumers"
+audit down to two live mechanisms; Stage F has since populated the redundant-stamp class as **F6**, whose
+"counterproductive" reading **F7 re-diagnosed** — the 820× stamps for zero additional skips were one SHARED
+clock where cadical has per-consumer flags, not a missing consumer; with `touched_kept` split out the band is
+provably inert for the five band-blind consumers and F6+F7 still ship OFF, now on cost grounds alone).
+**`SP-REPEAT-*` IS CLOSED — the twelfth and last of the HIGH parity rows.** Stage F landed the substrate and
+**all six** consumers (F1 C1/C2 · F2 the resume half, with the bound coupling REFUSED on wedge grounds as a
+THIRD accepted deviation, `SP-REPEAT-COUPLE` · F3 BCE/HyperTernaryRes/Instantiate · F4 Factor · F5 Vivify's
+per-CLAUSE bit via **G3** · **F7** CCE, which also deleted its rule-side rotation on a Stats counter) plus
+F6+F7's redundant band. It closes **WE_ARE_CRUDER on one axis, as an accepted deviation**: the band's round
+scope ships OFF and C1's round is deliberately never widened — `D-C1C2-VICTIM` in `implementation-notes.md`
+§2, with the A/B as its removal path, and `D-CCE-FILTER` for the new consumer's own coarseness. The N1 half
+shipped ON and is a WIDENING: both `instances()` surfaces are now complete over victims. Everything Stage F
+landed is UNPRICED.
 
 - [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
   slot (beside BVE's identical, N1-clean one), reaching the rule as `Kernel::factor_admit`, default TRUE. Both pre-registered gates passed:
@@ -1234,14 +1253,37 @@ instrument before spending a tier window on a mechanism.
   **The check PASSED** (probe `1584772`): `battleship-14-26-sat` **345,038 dynamic vs 0 static-6**,
   `9vliw` 236,570 vs 49,229, `rbsat` 265,255 vs 147,855 — so F7's set is large and, on `battleship`,
   did not exist at all before C10's dynamic tiers.
-- [ ] **SCHED-F7 · C1/C2 scope ← the tier band** `[wire]` — the CONSUMER half, and F6 is its prerequisite.
-  `subsume_forward.cpp:44` / `strengthen.cpp:24` reject every redundant clause outright; cadical uses
-  `likely_to_be_kept_clause` as the scope test instead (`subsume.cpp:388`), so redundant clauses inside the
-  band are candidates. Soundness is not the obstacle — a redundant clause is an unconditionally safe VICTIM
-  (S2 `Forget` licenses its deletion with no side condition), and the redundancy check that must stay is on
-  the SUBSUMER (`subsume_forward.hpp`'s binary-subsumer argument). **Do not land it before F6's stamps are
-  shown non-zero on a real instance**, or it filters a set nobody populates and the arm comes back
-  byte-identical, which is the exact trap C10 declined to walk into.
+- [x] **SCHED-F7 · the tier band's consumer half — C2 ONLY, and it re-diagnosed F6** `[wire]` — landed
+  2026-08-06 (branch `sched-f7-close`), and it closes `SP-REPEAT-*`, the last of Track SCHED's twelve
+  HIGH parity rows, **as an accepted deviation** (`D-C1C2-VICTIM`) rather than as a default flip. Three
+  findings, in order of weight.
+  **(1) F6's "counterproductive" reading was a SYMPTOM, and the cause is the number of ARRAYS.** F6
+  stamped the band into `touched` and measured 820× the marks for zero additional skips anywhere, which
+  reads as "no consumer yet" but is not: cadical's `mark_added` gives a likely-kept REDUNDANT add the
+  `subsume` flag and *explicitly withholds* `block` and `factor` (`clause.cpp:59-67`). One shared clock
+  where the reference has several means learned-clause traffic saturates the filters of the five
+  consumers that cannot act on the band. The band now stamps a THIRD array, `Kernel::touched_kept`, read
+  by C2 alone — the same split `Kernel::removed` made for BCE, pointed the other way. **Isolation is a
+  theorem, not a measurement** (every watermark is a snapshot of the one monotone clock, so extra
+  increments cannot move any `touched[v] > w` answer) **and it is also measured**: on `battleship` the
+  band ON moves the epoch 23,270 → **10,744,990** (461×) and every consumer counter is IDENTICAL —
+  `touch_marks` 23,270, Factor 33,124 skipped, CCE 186 rearmed, C1/C2 visits 1,274 / 15,106 on both arms.
+  **(2) C1's half is dropped, not widened** (`SCHED-G2`: C2 absorbs 698,341 of C1's 698,351
+  subsumptions). Widening a rule the `c1c2` arm is about to remove would have been a fifth mechanism on
+  the absorbed half of a fused pass.
+  **(3) N1 was the part that had to ship ON, and it is a WIDENING.** The old code rejected redundant
+  clauses on all three paths at once, so *no* API caller could subsume or strengthen one — below the
+  abstract precondition, which constrains only the subsumer/partner. Now `instances()` is complete over
+  victims and `apply_instance` accepts any of them, band switch or not; the round keeps its own narrower
+  scope, the `touch_filter` category. Pinned through the registry by `tests/test_subsume_n1.cpp`.
+  **The band round scope SHIPS OFF** (`TACTIX_TOUCH_REDUNDANT=1`, now one switch for both halves) — it is
+  ~800× the irredundant population and no window has priced it; the A/B is pre-registered below.
+  Reachability is the F6 pair plus a consumer pair (`c f7band`): `9vliw` **180,739 band candidates
+  checked / 3,946 skipped → 2,244 subsumed / 25,220 strengthened**, `rbsat` **330,145 / 27 → 5,080 /
+  22,036**; `battleship` is **0/0** and that is honest — its single C2 round runs before the band exists.
+  No PROMOTION path (cadical turns a redundant SUBSUMER irredundant, `subsume.cpp:133-149`); we keep
+  subsumers irredundant, which is the stricter side, and redundant survivors are never CONNECTED as
+  partners.
 
 #### Stage G — the genuine revamps (each needs its own design pass)
 
@@ -1440,6 +1482,135 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-06 — SCHED-F7 closes SP-REPEAT-*: F6 was not "no consumer yet", it was ONE ARRAY
+
+**`SP-REPEAT-*` is CLOSED — the twelfth and last of Track SCHED's HIGH parity rows** — as an **accepted
+deviation with the measurement** (`D-C1C2-VICTIM`), the `SCHED-C2` / `SP-TIER-2` model. Branch
+`sched-f7-close`. `RV-S1` and `RV-S2` land with it, as the review's cadence note asked.
+
+**▶ THE FINDING: F6's measured counterproductivity was a symptom of the wrong number of stamp arrays.**
+F6 stamped the redundant tier band into `Kernel::touched` and measured `battleship` paying **820×** the
+marks for **zero** additional skips anywhere. That reads as "no consumer reads the band yet". It is not.
+cadical's `mark_added` gives a likely-kept REDUNDANT add the `subsume` flag and **explicitly withholds
+`block` and `factor`** (`clause.cpp:59-67`) — the reference has one flag per consumer where we had one
+clock for six, so folding the band in hands every learned clause to BCE/X2/X4/Factor as well, and
+learned-clause traffic outruns irredundant traffic by orders of magnitude. The fix is the split
+`Kernel::removed` already made for BCE, pointed the other way: a THIRD array `Kernel::touched_kept`,
+written only by band creations and read only by C2.
+
+**Isolation is a theorem AND it is measured.** Every watermark is a snapshot of the one monotone
+`touch_epoch` and every stamp writes that same clock, so `touched[v] > w` compares the temporal ORDER of
+two events; interleaving increments from a second array moves neither, so a consumer reading `touched`
+alone answers identically with the band on or off. Measured on `battleship` (probe `1587395`, counters
+only): band ON moves the epoch **18,620 → 10,740,340 (577×)** while **67 of the 86 stats lines are
+byte-identical between the two arms** — the excluded 19 are the 17 wall-clock `c timing` lines (not read
+here) plus exactly the two lines the band is DEFINED to change, `c touch`'s epoch and `c touchred`'s band
+marks. So `touch_marks` stays 18,620, Factor 33,822 skipped, C1/C2 1,274 / 15,106 visits, CCE 186 rearmed,
+and the solve is bit-identical. This is `[[ab-arm-identical-artefacts]]` used in reverse: identity is the
+wanted result, and it is only meaningful because the band-marks counter proves the arm really was
+different. Under F6's single array that same 577× is what erased Factor's skips.
+
+**▶ WHAT LANDED, in three parts.**
+1. **N1, ON, unconditional, and it is a WIDENING.** C1/C2 used to reject every redundant clause on all
+   three paths at once, so no API caller could subsume or strengthen one — *below* the abstract
+   precondition, which constrains only the subsumer/partner (`calculus.md` §C1/C2; deleting a member of
+   `R` is S2 `Forget`, no side condition). Now `is_victim` admits any redundancy, `instances()` is
+   COMPLETE over victims, and `apply_instance` accepts any of them whatever the band switch says. The
+   round keeps its own narrower scope — the `touch_filter` category. `tests/test_subsume_n1.cpp` drives
+   the registry surface and pins all of it, including that the round DECLINES the same clause the
+   instance surface accepts.
+2. **The band round scope, C2 ONLY, shipping OFF** behind `TACTIX_TOUCH_REDUNDANT=1`, now one switch for
+   both halves (stamps + scope + C2's widened filter read). **C1 is not widened** — `SCHED-G2` measured
+   C2 absorbing 698,341 of its 698,351 subsumptions, so widening a rule the `c1c2` arm is about to drop
+   would be a fifth mechanism on the absorbed half of a fused pass. Two things keep the widened round
+   honest: redundant survivors are **never CONNECTED** as partners (a partner justifies a deletion, so it
+   must not be forgettable — cadical has to PROMOTE a redundant subsumer instead, `subsume.cpp:133-149`,
+   and we have no promotion path), and the candidate order is **irredundant-first**, so the band is a
+   strict addition at the tail and cannot crowd the dose out of the irredundant work.
+3. **`RV-S1` + `RV-S2` together.** CCE's rotation on `k.stats.cce_rounds % ncands` is gone — order logic
+   inside a rule, 100 minutes after `SCHED-E1` deleted the last one, and a Stats counter made
+   behaviour-affecting so that `SCHED-H2`'s per-solve reset silently rotated it to index 0. CCE is now the
+   substrate's SIXTH consumer (`cce_touch_mark`, two-sided like BCE's) with F2's tail re-arm as the
+   resume, which is what the rotation was standing in for.
+
+**▶ A COST THE PROBE CAUGHT, and the invariant it produced.** CCE's first re-arm touched every literal of
+every unreached candidate, the way C1/C2's does — and CCE is cut so early that its tail is most of the
+arena. That made the re-arm a major producer on the shared clock. It only needs ONE mark: `changed_clause`
+has `need = 1`, so one changed variable re-offers the clause, where C1/C2 need two. One mark per candidate
+took `9vliw`'s whole substrate clock **8,125,397 → 5,566,054 marks (−31 %)** and handed the strength back
+to the other consumers — BCE **113,154 → 141,686** skipped (+25 %), C1 **0 → 136**, C2 **0 → 127**;
+`rbsat` −29 % marks. **Invariant: a re-arm writes exactly as many marks as its own filter needs.**
+
+**▶ REACHABILITY, both pairs, at the source** (probe `1587395`, counters only, no wall clock read).
+*Producer pair (F6's, unchanged):* `dynamic > 0` and `dynamic != static6` — `battleship` **243,976 vs 0**,
+`9vliw` 215,563 vs 46,749, `rbsat` 305,237 vs 178,139. *Consumer pair (`c f7band`):* `checked > 0` says
+the scope admits, `skipped > 0` says the filter still fires inside it — `9vliw` **207,625 checked / 4,397
+skipped → 1,150 subsumed / 26,550 strengthened**, `rbsat` **330,145 / 27 → 5,080 / 22,036**. **`battleship`
+is 0/0 and that is stated, not hidden**: its single C2 round runs before the band exists, so the consumer
+is unreached there even though the stamps are the largest of the three. *CCE (`c cce2`):* `rbsat` 40
+skipped / 15 advances / 10,656 rearmed against 412 tried — pair non-zero; `9vliw` 0 / 18 / 311,216 and
+`battleship` 0 / 1 / 186, i.e. **the RESUME half is live everywhere and the SKIP half only on `rbsat`**,
+because every CCE round is dose-cut and the re-arm then re-offers the tail. Recorded as `D-CCE-FILTER`.
+
+**▶ WEDGE ANALYSIS (Stage D's watermark lesson).** Three arguments, one per new mechanism. (a) The band's
+producers are on `kernel_add_large_clause`, the kernel's clause-creation path, not on any rule's admitted
+path, so no scheduling decline can starve them — and a STAMP has no clear pass to starve in the first
+place, which is the whole reason F1 chose a stamp over a bit. (b) `mark_advances == rounds` on every probe
+instance for both C2 (18/18, 15/15, 1/1) and CCE (18/18, 15/15, 1/1) with `checked`/`tried` non-zero, so
+no watermark is stuck and no filter is skipping everything. (c) The two known GAPS are yield-only and
+recorded: a clause that ENTERS the band after its creation was out of it carries no band stamp until
+something in it moves (pinned as a test, `D-C1C2-VICTIM`), and CCE cannot see a blockedness that Reduce
+created (`D-CCE-FILTER`, removal path = a fourth array for redundant removals). Neither can make a
+deletion unjustified: a filter decides what to TRY and every test is re-run against the live index.
+
+**▶ THE A/B SPEC — READY TO RUN, NOT RUN (a tier array was live in this window and no timing was taken).**
+Same-window Tier B + Tier C, **two pin dirs from one commit**, binary shas checked equal, node-pinned one
+tier per node, `--baseline kissat --baseline cadical`.
+
+| arm | command | what it isolates |
+|---|---|---|
+| `bandoff` | shipped default | the pre-F7 trajectory, byte for byte |
+| `bandon` | `TACTIX_TOUCH_REDUNDANT=1` | F6+F7 together: band stamps + C2's scope + C2's widened filter read. Nothing else moves — the isolation theorem, so this arm is a C2-only change |
+
+**PRE-FLIGHT, before any PAR-2 is read** (`[[ab-arm-identical-artefacts]]`): on `bandon`, `c f7band` must
+show **both** `checked > 0` and `skipped > 0` and `c touchred`'s `band marks > 0`; on `bandoff` all three
+must be 0. **AND the guard metric, which is the point of this A/B:** `c strengthen`'s IRREDUNDANT half must
+not collapse — read `strengthen_checked − strengthen_red_checked` and `c touch`'s C2 `skipped` on both
+arms, because the failure mode is the band eating C2's dose. The irredundant-first order exists to prevent
+exactly that, so if that number drops, the order is not doing its job and the arm should be abandoned
+rather than scored. **Ship criterion:** `#solved` first, then Tier C PAR-2 outside the 6.72 noise floor,
+with the aggregator fragility line read (`k=1` is not an answer, `[[chaotic-instance-veto]]`) —
+`mod4block` and the may-not-gate set do not decide it. **Predicted mechanism if it wins:** shorter learned
+clauses, so read `c strengthen`'s `strengthened` and the conflict count, not just the clock. **If it
+loses, the row stays closed as it is** — the deviation is already recorded with its measurement.
+
+**▶ THE PROOF DELTAS ARE CHECKED ON REAL INSTANCES WITH THE PATH PROVEN LIVE** (probe `1587413`) — this,
+not the fuzz legs, is F7's N2 evidence, because a fuzz leg cannot show that F7's code ran in it. Three
+UNSAT tier-B instances × both formats, band ON, certificate written and CHECKED, with `c f7band` printed
+next to the verdict so the run cannot be green-but-vacuous:
+
+| instance | native LRAT (lrat-check) | ASCII DRAT (drat-trim) | band checked / skipped | band subsumed / strengthened |
+|---|---|---|---|---|
+| `square.2.0.i.smt2-cvc4` | `c VERIFIED` (75.0 MB) | `s VERIFIED` (20.5 MB) | 21,269 / 163 | 162 / 3,498 |
+| `clique_n2_k10` | `c VERIFIED` (68.8 MB) | `s VERIFIED` (28.1 MB) | 235,984 / 961 | 3,718 / 17,072 |
+| `veer_axi…p23_transition` | `c VERIFIED` (160.4 MB) | `s VERIFIED` (94.1 MB) | 14,864 / 18 · 17,985 / 22 | 121 / 2,569 · 222 / 4,058 |
+
+So **4,001 band `del`s and 23,139 band `add_rup`+`del` pairs verify**, and the native-LRAT half validates
+our explicit CHAINS rather than re-deriving by RUP. `veer_axi`'s two rows differ because LRAT emission
+changes the tick budget and so the trajectory — the known format asymmetry, not a discrepancy.
+
+**Gates.** ctest **48/48** (the 48th is the new `subsume_n1`) + all five conformance checkers
+(`config_wiring`, `effort_specs`, `option_coverage`, `comment_hygiene`, `check-progress`). Fuzz: four legs,
+`--quick` **10,000 cases each, 0 failures** — band ON × native DRAT (`1587397`, SAT 5,704 / UNSAT 3,959 /
+TIMEOUT 337), band ON × `--random-policy` × native DRAT (`1587398`, 5,704→5,021 / 3,223 / 1,756), band ON ×
+`--random-policy` × native LRAT (`1587399`, 5,020 / 3,218 / 1,762), shipped default × `--random-policy`
+(`1587401`, 5,024 / 3,224 / 1,752). The band-ON legs exist because the shipped default does not execute
+F7's new path at all. **Two honest limits on them.** (a) **`RV-S31`**: the measured TIMEOUT share on the
+three random-policy legs is **17.5 %**, consistent with the review's 12-of-74 livelock, so each N is a
+population minus an unmeasured timeout set — coverage, not a rate. (b) The three RP legs' verdict splits
+are within 4 cases of each other, so **nothing in the fuzz output proves the band-ON legs exercised the
+band**; that is what the `1587413` probe above is for, and why it prints the counter beside the checker
+verdict.
 ### 2026-08-06 — the RV-S coverage + hygiene items: a fuzz leg can no longer read stronger than it is
 
 Branch `rvs-coverage-hygiene`, base `4f4989d`. Eight commits, one per item. **ctest 48/48** (the 48th is
