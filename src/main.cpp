@@ -689,6 +689,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.ternary_rearmed,
            (unsigned long long)kernel.stats.instantiate_mark_skipped,
            (unsigned long long)kernel.stats.instantiate_rearmed);
+    printf("c touch4      Factor %llu seeds skipped / %llu rearmed\n",
+           (unsigned long long)kernel.stats.factor_mark_skipped,
+           (unsigned long long)kernel.stats.factor_rearmed);
     // --- `c timing`: where the wall clock actually goes ---------------------
     // Rules are charged individually by the registry dispatch wrapper; the SLOT
     // line is the whole inprocessing phase, so (slot − Σ rules in it) is the

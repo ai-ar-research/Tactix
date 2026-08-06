@@ -645,9 +645,38 @@ ApplyResult factor_apply(Kernel &k) {
   };
   std::priority_queue<std::pair<uint32_t, Lit>> pq;
   std::vector<uint8_t> tried(live_lits, 0);
-  for (Lit l = 0; l < live_lits; l++)
-    if (k.value(l) == 0)
-      pq.push({score_of(l), l});
+  // SCHED-F4 · per-literal seed marks over the touched-epoch substrate. kissat
+  // keeps exactly this as `flags->factor`, a TWO-BIT per-variable field set per
+  // POLARITY by kissat_mark_added_literal (inline.h:60-66) and consulted when a
+  // seed is popped (factor.c:922). Without it the seed schedule is a full
+  // O(live literals) pass EVERY round, and it is not a cheap one: `score_of`
+  // charges factor_ticks proportional to the literal's watch list, so the
+  // round pays a fraction of its own budget just to rebuild a heap whose
+  // contents mostly cannot have changed. A seed with no new binary and no new
+  // small clause re-derives the same grid and the same delta.
+  //
+  // Coarser than kissat on polarity — our stamps are per VARIABLE, so both
+  // polarities are reconsidered when either changes. Conservative.
+  // N1: `factor_instances` offers only INSTANCE_CANONICAL, and the canonical
+  // apply still runs; this narrows which SEEDS the round tries, exactly as the
+  // budget already does. The rule never reports applicable and then refuses —
+  // the distinction SCHED-N1FIX turned on. Pinned by
+  // tests/test_factor.cpp::test_touch_filter_is_policy_only.
+  const bool touch_filter = k.touch_filter;
+  const uint64_t touch_snapshot = k.touch_epoch;
+  const uint64_t touch_wm = k.factor_touch_mark;
+  const auto seed_is_new = [&](Lit l) {
+    return !touch_filter || kernel_touched_since(k, var_of(l), touch_wm);
+  };
+  for (Lit l = 0; l < live_lits; l++) {
+    if (k.value(l) != 0)
+      continue;
+    if (!seed_is_new(l)) {
+      k.stats.factor_mark_skipped++;
+      continue;
+    }
+    pq.push({score_of(l), l});
+  }
 
   while (applied < FACTOR_MAX_PER_APPLY && !pq.empty()) {
     if (over_budget()) // quit point 1: before each popped seed
@@ -838,6 +867,25 @@ ApplyResult factor_apply(Kernel &k) {
       }
     }
   }
+
+  // SCHED-F4 · RESUME (SCHED-F2's mechanism). This round has three early exits
+  // that leave seeds unpopped — the tick budget, `FACTOR_MAX_PER_APPLY`, and
+  // the mid-grow budget poll — and all three are REACHABLE under DefaultPolicy,
+  // so re-arming the tail is what stops the next round from replaying the same
+  // head. Collected first and touched afterwards: touching inside the scan
+  // would move the very stamps the `touch_wm` test reads, and re-arm literals
+  // this round deliberately skipped.
+  {
+    std::vector<Var> rearm;
+    for (Lit l = 0; l < live_lits; l++)
+      if (!tried[l] && k.value(l) == 0 && seed_is_new(l))
+        rearm.push_back(var_of(l));
+    for (const Var v : rearm)
+      kernel_touch_var(k, v);
+    k.stats.factor_rearmed += rearm.size();
+  }
+  if (touch_filter)
+    k.factor_touch_mark = touch_snapshot;
 
   // Fresh extension vars must not out-rank the original variables in the
   // decision order (kissat `adjust_scores_and_phases_of_fresh_variables`,

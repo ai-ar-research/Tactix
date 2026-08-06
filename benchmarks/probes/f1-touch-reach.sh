@@ -14,7 +14,7 @@ xz -dc "$f" >"$w/i.cnf"
 export TACTIX_SLOT_STATS=1
 timeout "$cap" "$BIN" "$w/i.cnf" "$w/i.drat" > "$w/out" 2>&1
 echo "=== arm=$arm stem=$stem"
-grep -E "^s |^c conflicts|^c touch|^c subsume|^c strengthen|^c budgetstop" "$w/out"
-grep -E "^c slot " "$w/out" | grep -E "SubsumeForward|Strengthen"
+grep -E "^s |^c conflicts|^c touch|^c touch3|^c subhold|^c subsume|^c strengthen|^c bce|^c ternary|^c instantiate|^c budgetstop" "$w/out"
+grep -E "^c slot " "$w/out" | grep -E "SubsumeForward|Strengthen|BCE|HyperTernaryRes|Instantiate"
 grep -c "UNACCOUNTED" "$w/out" | sed 's/^/unaccounted-lines /'
 rm -rf "$w"

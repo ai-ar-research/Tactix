@@ -375,6 +375,10 @@ struct Stats {
   uint64_t bce_mark_skipped = 0, bce_rearmed = 0;
   uint64_t ternary_mark_skipped = 0, ternary_rearmed = 0;
   uint64_t instantiate_mark_skipped = 0, instantiate_rearmed = 0;
+  // SCHED-F4: Factor SEEDS suppressed / re-armed. Read `skipped` against
+  // `factor_ticks` — the seed pass charges ticks proportional to each
+  // literal's watch list, so this is a saving out of the rule's own budget.
+  uint64_t factor_mark_skipped = 0, factor_rearmed = 0;
   // SCHED-F2's completeness wire: outer elimination rounds held open because
   // SubsumeForward/Strengthen had not finished. The pre-registered reading for
   // that arm, and it is PREDICTED ZERO under the shipped DefaultPolicy — see
@@ -736,6 +740,7 @@ struct Kernel {
   uint64_t bce_touch_mark = 0;
   uint64_t ternary_touch_mark = 0;
   uint64_t instantiate_touch_mark = 0;
+  uint64_t factor_touch_mark = 0; // SCHED-F4 (kissat flags->factor)
   // Did the rule's LAST canonical round reach a fixpoint — every candidate
   // examined, and (for Strengthen) nothing produced that would want another
   // look? kissat's `completed` (forward.c:664-670), which it computes as "was

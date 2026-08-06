@@ -118,12 +118,47 @@ static void test_demote_fresh_order() {
            k.h->links[v].stamp > k.h->links[11].stamp);
 }
 
+// SCHED-F4 · the per-literal seed marks are POLICY, and they must not wedge.
+// (a) with the watermark advanced past everything the round seeds nothing and
+//     NoOps — the suppression is real;
+// (b) the very next binary add re-arms it and the SAME factoring is applied,
+//     through the registry surface. A build whose mark could not be re-armed
+//     would fail (b), which is the wedge D3 measured.
+static void test_touch_filter_is_policy_only() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false), q = make_lit(3, false),
+            r = make_lit(4, false);
+  for (const Lit f : {a, b})
+    for (const Lit rr : {p, q, r})
+      kernel_add_binary_clause(k, f, rr, ++k.next_clause_id);
+
+  k.factor_touch_mark = k.touch_epoch; // "already seeded everything"
+  assert(factor_guard(k));
+  assert(factor_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.factorings == 0);
+  assert(k.stats.factor_mark_skipped >= 10);
+  assert(k.stats.factor_rearmed == 0 && "nothing was seeded, nothing to resume");
+
+  // one more binary over a and p: both variables are touched, so both seeds
+  // come back and the grid is found again.
+  kernel_add_binary_clause(k, a, make_lit(2, true), ++k.next_clause_id);
+  const int id = tactix_rule_id("Factor");
+  assert(id >= 0);
+  const RuleVTable &v = tactix_rules()[id];
+  assert(v.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1 && "a re-armed seed must be reachable again");
+}
+
 int main() {
   // No TACTIX_FACTOR_FORCE needed: the density admission heuristic lives in
   // DefaultPolicy, not in the rule, so these tiny below-threshold grids factor
   // through the rule's own surface (see tests/test_factor_n1.cpp).
   test_extension_var_boundary();
   test_factoring_2x3();
+  test_touch_filter_is_policy_only();
   test_demote_fresh_order();
   std::printf("test_factor: all passed\n");
   return 0;
