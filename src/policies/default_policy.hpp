@@ -43,11 +43,22 @@ public:
   // new hook on the conflict path.
   static constexpr uint64_t RANDEC_INIT = 500;   // randecinit
   static constexpr uint64_t RANDEC_LENGTH = 10;  // randeclength
+  static constexpr uint64_t RANDEC_SEED = 0x9E3779B97F4A7C15ull;
   uint64_t randec_until = 0;      // conflict count at which the sequence ends
   uint64_t randec_next = RANDEC_INIT; // next conflict count that may start one
   uint64_t randec_sequences = 0;
-  uint64_t randec_rng = 0x9E3779B97F4A7C15ull; // deterministic, seeded fixed
+  uint64_t randec_rng = RANDEC_SEED; // deterministic, seeded fixed
   bool randec_enabled = true;
+  // Per-solve re-initialisation, re-based on the current conflict count
+  // (kissat search.c:70 re-seeds the RNG and kimits.c:107
+  // INIT_CONFLICT_LIMIT(randec, false) re-bases the sequence limit at every
+  // search start). `randec_enabled` is configuration and survives.
+  void reset(uint64_t conflicts) {
+    randec_until = 0;
+    randec_next = conflicts + RANDEC_INIT;
+    randec_sequences = 0;
+    randec_rng = RANDEC_SEED;
+  }
 };
 
 // canonical reduction volume: the rule's canonical fraction of the ranked
@@ -168,10 +179,17 @@ public:
   CandidateOrder arm_of(uint32_t rule) const {
     return rule < arms.size() ? arms[rule] : CandidateOrder::Native;
   }
+  // Per-solve: the Random arm's stream restarts from the seed, so solve n+1
+  // draws the same permutations solve 1 did (kissat search.c:70 re-seeds
+  // `solver->random` at every search start). `arms` is configuration and
+  // `scratch_` is the persistent buffer the ranking pass reuses; neither is
+  // per-solve state.
+  void reset() { rng_ = SEED; }
 
 private:
+  static constexpr uint64_t SEED = 0x9e3779b97f4a7c15ull;
   std::vector<std::pair<uint64_t, uint64_t>> scratch_; // (key, payload)
-  uint64_t rng_ = 0x9e3779b97f4a7c15ull;               // fixed seed: replayable
+  uint64_t rng_ = SEED;                                // replayable
 };
 
 // --- the two inprocessing CLOCKS (ledger SP-SLOT-1 / SP-SLOT-6) ------------
@@ -276,6 +294,33 @@ public:
   uint32_t chrono_levels = CHRONO_LEVELS;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
+
+  // --- per-solve reset (SCHED-H2) -------------------------------------------
+  // Re-initialise every piece of SCHEDULING state at solve entry, re-basing
+  // each limit and anchor on the kernel's CURRENT counters. Both references do
+  // this at search entry — kissat search.c:45-70 start_search
+  // (init_averages / init_reluctant / init_tiers / kissat_init_limits, plus a
+  // re-seeded RNG) with kimits.c:99-136, and cadical internal.cpp:499-608
+  // init_search_limits, whose restart / rephase / stabilize / reluctant /
+  // elimbound family is reset "in any case". Re-basing (rather than zeroing) is
+  // what makes ONE reset serve both a fresh formula and an incremental
+  // continuation on the same kernel.
+  //
+  // WHY IT IS NOT HYGIENE: the §5.6 learned policy runs many solves from one
+  // policy object, so state carried from solve n to n+1 makes a trajectory —
+  // and therefore any RL reward — a function of episode ORDER. CONFIGURATION
+  // (sub-policy pointers, the slot's composition/effort/order fields, the env
+  // arms) is deliberately NOT touched: only state a solve derives.
+  void reset_schedule(const Kernel &);
+  // Escape hatch for the posing surface: the scheduling state below is public
+  // precisely so a test or a preset can pose a schedule, and a reset at solve
+  // entry would erase it. Clearing this makes solve() honour what it was given.
+  // Nothing in the shipped path clears it.
+  bool reset_schedule_per_solve = true;
+  // Solves this object has run. Reachability readout for the reset (and the
+  // thing a multi-solve harness reports); diagnostic only, never read by a
+  // scheduling decision.
+  uint64_t solves = 0;
 
   // sub-policies (swappable without touching any rule; null = built-in)
   BranchingPolicy *branching = nullptr;

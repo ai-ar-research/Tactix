@@ -166,6 +166,10 @@ static void test_solve_with_restarts_still_correct() {
   // restart storm: permanently-degraded EMAs + zero floor, posed on the
   // policy instance (schedules are policy state)
   DefaultPolicy storm;
+  // solve() re-initialises its scheduling state at entry (SCHED-H2), which
+  // would erase the storm before it starts — and leave this test asserting
+  // only that PHP(4,3) is UNSAT. Opting out is what the hatch is for.
+  storm.reset_schedule_per_solve = false;
   // frozen degraded EMAs: alpha stays 0 (never init'ed), so updates
   // cannot wash the posed biased values out — permanent restart pressure
   storm.averages[0].initialized = true;
