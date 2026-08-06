@@ -465,7 +465,12 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   occurrence indices · **RV-S6** the 13-site proof-delete pair · **RV-S20/21** a soundness predicate
   transcribed 4× and the watch stride open-coded 23× · **RV-S15/16/17/18** rule-side leaks (six kernel
   watermarks, Sweep's in-rule `getenv` dosing, Sweep's unregistered instance surface, BVE's narrowed
-  `instances()`) · **RV-S22** BCE and Substitute are witness-emitting with **no stress policy** ·
+  `instances()`) · **RV-S22 DISCHARGED 2026-08-06** — the two dangerous-class rules now have stress
+  policies: `--bce-stress-policy` and `--substitute-stress-policy` (both witness-emitting on the same ρ
+  stack, where the failure mode is a WRONG SAT ANSWER that no proof checker sees). Four legs, 4000 cases
+  each, DRAT + native LRAT, **0 failures**, with source-counted reachability: BCE fired in **2787/3791**
+  cases, Substitute in **2897/3780** (job `1587335`), plus the regression corpus under both policies
+  (`1587384`). 10 of 25 rules still have none — Reorder is `RV-R2`. ·
   **RV-S23 DISCHARGED 2026-08-06** — `fuzz.py` now prints a per-registry-entry `reached:` table (all 25
   entries, read from the solver's own counters) and `--require-reached` fails a leg whose named rule never
   fired; a spec that matches no printed line fails too, so the instrument cannot go vacuously green.

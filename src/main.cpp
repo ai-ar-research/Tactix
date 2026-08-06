@@ -16,6 +16,7 @@
 #include "policies/walk_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
+#include "policies/stress_registry.hpp" // stress-policy flags added after rev 74
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp" // BveGate enum for --bve-gates
 #include "rules/registry.hpp" // now_nanos + the rule list for `c timing`
@@ -96,6 +97,10 @@ int main(int argc, char **argv) {
   bool reuse_stress_policy = false;
   bool sweep_stress_policy = false;
   bool cce_stress_policy = false;
+  // Stress policies registered in src/policies/stress_registry.cpp: one parse
+  // branch and one dispatch arm for all of them, instead of four additions to
+  // this function per policy.
+  StressSolveFn stress_policy = nullptr;
   bool no_heuristics = false; // run with H detached (unguided)
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
@@ -226,11 +231,15 @@ int main(int argc, char **argv) {
           }
         }
       }
+    } else if (StressSolveFn fn = stress_policy_flag(a, &random_seed)) {
+      stress_policy = fn;
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--no-binary] [--lrat] "
              "[--random-policy[=SEED]] "
              "[--bve-gates=all|none|equiv,andor,ite,xor] "
-             "<cnf[.xz|.gz]> [proof]\n");
+             "%s "
+             "<cnf[.xz|.gz]> [proof]\n",
+             stress_policy_flags());
       return 0;
     } else if (a[0] == '-' && a[1]) {
       fprintf(stderr, "tactix: unknown option '%s'\n", a);
@@ -263,7 +272,7 @@ int main(int argc, char **argv) {
   // dispatch below is a precedence chain where the stress policies sit ABOVE
   // random_policy, so `--no-heuristics --random-policy --adversarial-policy`
   // would otherwise slip a stress policy (or DefaultPolicy) through with no H.
-  if (no_heuristics && (!random_policy || adversarial_policy ||
+  if (no_heuristics && (!random_policy || adversarial_policy || stress_policy ||
                         bve_stress_policy || congruence_stress_policy ||
                         sweep_stress_policy || cce_stress_policy)) {
     fprintf(stderr, "tactix: --no-heuristics requires --random-policy alone "
@@ -408,7 +417,8 @@ int main(int argc, char **argv) {
 
   const uint64_t solve_t0 = tactix::now_nanos();
   const int res =
-      probing_stress_policy
+      stress_policy ? stress_policy(kernel, random_seed, &caught_signal)
+      : probing_stress_policy
           ? probing_stress_solve(kernel, random_seed, &caught_signal)
       : walk_stress_policy
           ? walk_stress_solve(kernel, random_seed, &caught_signal)
