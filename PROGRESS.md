@@ -663,9 +663,13 @@ instrument before spending a tier window on a mechanism.
   `test_scheduling` failing the build if one exists. Fixes all four SP-SLOT-4 accidents at once: Substitute (ELS) now precedes Backbone/Probe/
   TransitiveReduce/Factor, Congruence opens the pass and feeds Substitute, Vivify precedes TransitiveReduce, BCE closes instead of opening.
   **UNPRICED**; arm `TACTIX_SLOT_ORDER=legacy`, source counter the `c slot-order` line (`authored`/`legacy` + the live sequence).
-- [ ] **SCHED-D2 · split the slot into a PROBE group and an ELIMINATE group** `[arch]` — the two clocks both references keep. **The largest single
-  structural gap**: probing currently fires ~5× less often and the gap widens over the solve. (Refined by `SP-SLOT-6`; note cadical's own comment
-  claims a sqrt schedule while the code is logarithmic — read the code.)
+- [x] **SCHED-D2 · split the slot into a PROBE group and an ELIMINATE group** `[arch]` — landed 2026-08-05. `SlotGroup` + two `SlotClock`s;
+  the phase body is now `run_slot_phase(k, group, stop)` and the search loop checks probing first (kissat `search.c:214-217`, cadical
+  `internal.cpp:322-325`). Probe clock = `probeint`100·NLOGN, eliminate clock = `eliminateint`500·NLOG2N, both size-scaled — kissat's formulas, not
+  cadical's near-constant `probe.cpp:980` spacing, so only ONE thing changes. **The "5×" in `SP-SLOT-1` is the BASE-CONSTANT ratio, not the realized
+  one**: the cumulative NLOGN-vs-NLOG2N ratio is ~2.4× and grows only as √log, and **kissat itself runs 11 probings vs 5 eliminations on `sted5`**
+  where we now run 12 vs 6 (one clock gave the probing family 6). Group mapping is the references' own membership, argued row by row in the table.
+  **UNPRICED and expected to move numbers** — arms/spec in the Log entry; source counter `c slot-clock`.
 - [ ] **SCHED-D3 · slot-level new-material watermark + the reduce coupling** `[arch]`
 
 #### Stage E — order and resumption become POLICY OBJECTS (the architecture the RL agent needs)
@@ -780,6 +784,41 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 **Reading this log.** Newest first. Entries older than the current session are compressed to **result +
 pointer** — the full account is in the cited report, design doc or commit, which are never edited.
+
+### 2026-08-05 — SCHED-D2: two inprocessing clocks, and the "5×" headline corrected to ~2.4×
+
+`SlotGroup{Probe,Eliminate}` on every slot entry (read from the authored table BY NAME, so it is
+independent of D1's order arm); two `SlotClock`s; the phase body extracted to
+`run_slot_phase(k, group, stop)`; the search loop checks probing then elimination, the reference order
+(kissat `search.c:214-217`, cadical `internal.cpp:322-325`). Both clocks are seeded at conflicts=0, so
+preprocessing is a probing phase immediately followed by an elimination phase — kissat's
+`probe_initially` → `eliminate`, cadical's `inprobe` → `elim`.
+
+**Intervals are kissat's**: probe = `probeint`(100)·n·log10(n+9), eliminate = `eliminateint`(500)·
+n·log10(n+9)², both through `scale_inprocessing_delta`, each keyed on ITS OWN phase count. cadical's probe
+reschedule (`probe.cpp:980`, 25·`inprobeint`·log10(phases+9)) is essentially CONSTANT spacing — ~2385
+conflicts at phase 0, ~2500 at phase 1 — and adopting it would have changed the schedule SHAPE at the same
+time as the split. *(Its own comment at `probe.cpp:889-891` claims a sqrt schedule; the code is
+logarithmic. Read the code.)*
+
+**▶ CORRECTION TO `SP-SLOT-1`'s HEADLINE.** "Probing fires ~5× less often" is the ratio of the BASE
+CONSTANTS at equal phase counts. The realized ratio is the cumulative one, and because each clock keys on
+its own count it is ≈√(5·log) ≈ **2.4×**, widening only as √log — not 5× and not fast. The reference agrees:
+**kissat on `sted5` runs 11 `probings` vs 5 `eliminations`** (`--statistics`, both counters INC'd once per
+phase in `kissat_probe`/`kissat_eliminate`). We now run **12 vs 6** on the same instance; the single-clock
+build gave the probing family **6**. So the mechanism doubles probing frequency, it does not quintuple it.
+
+**Group mapping**, argued per row in `AUTHORED_SLOT_ORDER`'s comment rather than guessed: PROBE =
+Congruence, Substitute, HyperTernaryRes, Probe, Backbone, Vivify, Sweep, TransitiveReduce, Factor (every
+one a member of kissat's `probe()` or cadical's `inprobe()`); ELIMINATE = SubsumeForward, Strengthen, BVE,
+Instantiate, BCE (kissat's `eliminate()` forward-subsume + BVE; cadical's `elim()` subsume → elim_round
+→ instantiate at `elim.cpp:947` → `block()`). BCE is the one row no reference schedules by default —
+cadical's placement inside `elim` is the only evidence there is, and it is recorded as such.
+
+**UNPRICED, and the one item in this stage expected to move numbers.** Probing at 2× is a real shift in
+where effort goes and may cost before it pays. Source counter `c slot-clock` (`TACTIX_SLOT_STATS=1`) prints
+per-clock phase counts; equal counts mean the split did not take.
+`test_scheduling::test_two_slot_clocks_diverge` fails if the two intervals ever coincide.
 
 ### 2026-08-05 — SCHED-D1: the slot order is DATA, and four SP-SLOT-4 accidents are gone
 

@@ -162,12 +162,15 @@ static void test_slot_schedule_as_data() {
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
     p.inprocess.initialized = true;
-    p.inprocess.next_conflicts = 0;
-    p.inprocess_slot.push_back({strengthen_id, true});
-    p.inprocess_slot.push_back({subsume_id, false});
+    // Both slot clocks forced open; the posed entries sit on the elimination
+    // clock, which is where the authored order puts these two rules.
+    p.probe_clock.next_conflicts = 0;
+    p.elim_clock.next_conflicts = 0;
+    p.inprocess_slot.push_back({strengthen_id, true, SlotGroup::Eliminate});
+    p.inprocess_slot.push_back({subsume_id, false, SlotGroup::Eliminate});
     assert(p.solve(k) == 20); // odd-parity xor cycle: UNSAT
     assert(p.inprocess_slot.size() == 2); // posed slot left untouched
-    assert(p.inprocess.rounds >= 1);      // the forced pass ran
+    assert(p.elim_clock.rounds >= 1);     // the forced pass ran
     assert(k.stats.strengthen_rounds >= 1);
     assert(k.stats.forward_subsumptions == 0); // disabled entry never ran
   }
@@ -179,8 +182,9 @@ static void test_slot_schedule_as_data() {
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
     p.inprocess.initialized = true;
-    p.inprocess.next_conflicts = 0;
-    p.inprocess_slot.push_back({strengthen_id, false});
+    p.probe_clock.next_conflicts = 0;
+    p.elim_clock.next_conflicts = 0;
+    p.inprocess_slot.push_back({strengthen_id, false, SlotGroup::Eliminate});
     assert(p.solve(k) == 20);
     assert(k.stats.strengthen_rounds == 0);
   }
