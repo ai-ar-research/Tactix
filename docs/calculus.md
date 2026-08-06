@@ -317,6 +317,33 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   parity set; ITE: all four ternaries), so `out = f(in…)` genuinely holds and the merged equivalence is
   entailed. The union-find only ever equates literals proven equivalent; `x ≡ ¬x` is a refutation.
 
+#### V6a · the binary-resolution unit channel (a SECOND inference inside V6's apply)
+- **Precondition (abstract):** binaries `(l∨o)` and `(l∨¬o)` both in `F` resolve on `o` to `(l∨l)`, so
+  `F ⊨ l` and `l` may be added as a root unit. **No gate is involved** — nothing is extracted,
+  canonicalized or united. It is one resolution step, and it is a *strict special case of V2 Backbone's*
+  precondition (assume `¬l`; binary propagation forces `o` from `(l∨o)` and `¬o` from `(l∨¬o)`, a
+  depth-1 failed literal), so the conclusions are a subset of V2's, which are a subset of V1's. What it
+  adds over V2 is not reach but **completeness at linear cost**: one sweep of the binary watches finds
+  every such unit, where V2 pays a BIG propagation per probed literal.
+- **Effect:** collect-then-batch, into the SAME batch as the degeneracy units above — nothing is
+  asserted mid-sweep, so the closure that follows sees an unchanged trail and M1 owns the cascade.
+  Deriving both `l` and `¬l` in one round is a refutation (the two units resolve to ∅).
+- **Proof δ:** `add_rup({l}, chain)` per unit, the chain **replayed** rather than assembled from the two
+  binary ids — assuming `¬l` at a probing scope and reading the antecedents off the conflict gives the
+  chain in the checker's own propagation order by construction, which a hand-built pair silently gets
+  wrong (the D-CONG-LRAT lesson). A replay that finds no conflict emits nothing and drops the inference
+  (D-CONG-SKIP). No `ρ` witness — no variable is eliminated.
+- **Soundness:** resolution. Both parents are clauses of `F` carried with their own ids, so `{l}` is
+  entailed, and it is RUP, which is what the emitted chain certifies.
+- **Why it lives in V6 rather than in a rule of its own** (recorded because kissat's placement is not
+  binding): it is not a congruence step, so the natural homes are V2 Backbone — whose precondition
+  already covers it — or a new rule. It sits here because the reference couples the two at exactly this
+  rate (`find_units` is called once per closure, `congruence.c:4613`) and because the units it derives
+  are what *seed* the value cascade V6's own unit channel needs. **The open question is dosing, not
+  soundness:** inside V6 an O(binaries) sweep spends from the same effort share as gate extraction, and
+  whether that binds is pre-registered in the SCHED-G4 A/B. If it does, the sweep earns its own
+  `EFFORT_SPECS` row — i.e. its own rule. Ledger: `SP-CONG-UNITS-1`.
+
 ## 6b. Variable elimination & addition (E1–E2) — the resolution family and its inverse
 
 ### E1 · BVE — bounded variable elimination by resolution
