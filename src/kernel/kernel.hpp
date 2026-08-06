@@ -110,6 +110,15 @@ struct Stats {
   static constexpr uint32_t MAX_GLUE_USED = 127;
   uint64_t used_glue[2][MAX_GLUE_USED + 1] = {};
   uint64_t retiered = 0;           // dynamic tier recomputations
+  // Blast radius of the dynamic tier2 for a `likely_to_be_kept`-style
+  // consumer (cadical internal.hpp:1059, whose first disjunct is
+  // `glue <= tier2[false]`), summed over reductions: how many redundant
+  // clauses the LIVE tier admits versus the static option default 6. The two
+  // differing is the precondition for wiring any further consumer of the
+  // tiers to be worth anything (SP-TIER-2); counted inside the aging walk
+  // reduce_apply_refs already does, so it costs nothing.
+  uint64_t tier2_band_dynamic = 0;
+  uint64_t tier2_band_static = 0;
   uint64_t reason_bumped = 0;      // extra vars marked by reason-side bumping
   uint64_t reason_bump_rounds = 0; // conflicts the reason-side pass ran on
   uint64_t reason_bump_aborted = 0; // rounds rolled back at the mark limit

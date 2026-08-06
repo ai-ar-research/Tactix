@@ -54,7 +54,8 @@ TABLE = {
     "bump_reason_limit":       ("POLICY", "reason-side bumping rate"),
     # --- a rule computes these -------------------------------------------
     "tier1":                   ("RULE", "reduce.cpp, from the live glue distribution"),
-    "tier2":                   ("RULE", "reduce.cpp; SP-TIER-2: 1 consumer here, 8 in cadical"),
+    "tier2":                   ("RULE", "reduce.cpp; 2 consumers (reduce, vivify) — SP-TIER-2 "
+                                        "audited cadical's 8 down to 2 live mechanisms"),
     # --- A/B or diagnostic knobs; shipped value is the kernel.hpp default --
     "bve_gate_mask":           ("ENV", "--bve-gates"),
     "bce_occ_limit":           ("ENV", "TACTIX_BCE_OCC_LIMIT"),
