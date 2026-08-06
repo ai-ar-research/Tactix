@@ -48,7 +48,7 @@ public:
   uint64_t randec_next = RANDEC_INIT; // next conflict count that may start one
   uint64_t randec_sequences = 0;
   uint64_t randec_rng = RANDEC_SEED; // deterministic, seeded fixed
-  bool randec_enabled = true;
+  bool randec_enabled = true; // A/B arm TACTIX_RANDEC=0 (see solve())
   // Per-solve re-initialisation, re-based on the current conflict count
   // (kissat search.c:70 re-seeds the RNG and kimits.c:107
   // INIT_CONFLICT_LIMIT(randec, false) re-bases the sequence limit at every
@@ -578,7 +578,11 @@ public:
       uint64_t dec_disabled = 0, dec_cap = 0, dec_preprocess = 0;
       uint64_t dec_guard = 0, dec_budget = 0, dec_delay = 0;
       uint64_t dec_material = 0, dec_warmup = 0, dec_density = 0;
-      uint64_t dec_oneshot = 0, dec_nonviable = 0;
+      // A decline reason belongs here only while some `continue` increments it.
+      // Two more (`oneshot`, `nonviable`) were printed as a permanent `0 0`
+      // after the paths that fed them were removed, which reads as "this never
+      // declines for that reason" rather than "that reason no longer exists" —
+      // the opposite of what this block is for.
       uint64_t handed = 0;      // budget handed to budget-aware entries
       uint64_t spent = 0;       // meter delta actually consumed
       uint64_t ok = 0;          // applies returning Ok

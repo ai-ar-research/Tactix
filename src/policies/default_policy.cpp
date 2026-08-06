@@ -971,6 +971,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (n >= 0)
       chrono_levels = static_cast<uint32_t>(n);
   }
+  // Random-decision sequences ship ON (kissat's `randec=1`); `=0` is the OFF
+  // arm. The field was initialised true and never assigned by anything, so the
+  // feature had no off arm and could not be priced at all — a knob nothing can
+  // toggle is not a shipped default, it is an unmeasured one.
+  if (const char *rd = std::getenv("TACTIX_RANDEC"))
+    default_branching_.randec_enabled = (*rd != '0');
   if (k.inconsistent)
     return 20;
   // DefaultPolicy is a GUIDED policy — it reads `H` directly. The kernel does
@@ -2444,12 +2450,12 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
     const uint64_t declined =
         t.dec_disabled + t.dec_cap + t.dec_preprocess + t.dec_guard +
         t.dec_budget + t.dec_delay + t.dec_material + t.dec_warmup +
-        t.dec_density + t.dec_oneshot + t.dec_nonviable;
+        t.dec_density;
     const char *balance = (t.admitted + declined == t.occasions) ? "" : "  ***UNACCOUNTED***";
     std::printf(
         "c slot %-18s occ %6llu adm %5llu ok %5llu | dec dis %llu cap %llu "
         "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu dns %llu "
-        "one %llu nv %llu | handed %llu spent %llu completed %llu | "
+        "| handed %llu spent %llu completed %llu | "
         "maxeff %llu clamped %llu floored %llu wrapped %llu%s\n",
         rules[e.rule].name, (unsigned long long)t.occasions,
         (unsigned long long)t.admitted, (unsigned long long)t.ok,
@@ -2457,8 +2463,7 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
         (unsigned long long)t.dec_preprocess, (unsigned long long)t.dec_guard,
         (unsigned long long)t.dec_budget, (unsigned long long)t.dec_delay,
         (unsigned long long)t.dec_material, (unsigned long long)t.dec_warmup,
-        (unsigned long long)t.dec_density, (unsigned long long)t.dec_oneshot,
-        (unsigned long long)t.dec_nonviable, (unsigned long long)t.handed,
+        (unsigned long long)t.dec_density, (unsigned long long)t.handed,
         (unsigned long long)t.spent, (unsigned long long)t.completed,
         (unsigned long long)e.max_delta, (unsigned long long)t.clamped,
         (unsigned long long)t.floored, (unsigned long long)t.wrapped, balance);
