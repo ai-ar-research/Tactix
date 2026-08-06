@@ -1031,28 +1031,25 @@ instrument before spending a tier window on a mechanism.
   Substitute**, so part of the 2,231 is an accounting overlap, not a gap. **Do Y3 first: it is free**
   (re-derive the 2,231 at `--congruencebinaries=0`) and it may shrink the target by most of itself.
   Y1 is small and one-step RUP; Y2 changes the closure's relationship to `τ` and is the large one.
-- [ ] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **the cheapest decisive check on the board.**
-- [x] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` — landed 2026-08-05 on branch
-  `sched-g3-vivify`, design frozen at `docs/design/2026-08-05-vivify-trail-reuse.md`. **UNPRICED**; the
-  pre-registered A/B is design §5 and its first instruction is to read `c vivify2`. Carries **SCHED-F5**
-  and **C10 hand-off H3** with it (both ticked below), and the **Vivify half of SCHED-H1**.
-  · [ ] **SCHED-G5 · binary-first watch layout** `[revamp]`. *(V5 Sweep is the largest block of
-  reference scheduling we lack, but it is already tracked as **Track R · R5** — not repeated here as a
-  second checkbox.)*
+- [x] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **ANSWERED 2026-08-05, and the answer is NO.**
+  Over 7 instances C2 absorbs **698,341 of C1's 698,351** subsumptions (**residual 10**, all on one
+  instance), and dropping C1 would save **2.7–41.6 % of the C1+C2 pair's metered cost** at zero yield
+  (**19–42 % on the four instances where C1 has non-trivial yield**; the low end is an instance where C1
+  deletes 36 clauses in total). C1's own effort share is duplicated work. **The follow-up is a DOSE, not a
+  rule-off** ([[no-rule-off-configs]]) — A/B spec in the Log entry, unrun.
+- [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G5 · binary-first watch
+  layout** `[revamp]`. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
+  already tracked as **Track R · R5** — not repeated here as a second checkbox.)*
 
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
-- [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by
-  file; TWO of the three are DONE.** *X1/X2/X4* (six sites, `kernel_rule_interrupt` doing poll and both
-  increments so a site cannot be added uncounted) and *Vivify* (`SCHED-G3`; `c vivify2` carries the
-  anti-vacuity PAIR `polls`/`term`, and `EDP3-11000` under `TACTIX_STOP_FUZZ=20000` gives **96,804 polls
-  / 1 term** against 122,548 / 0 plain). **Both halves use NO `!(++tick & 255)` window at all** — that is
-  kissat's own shape and the one construction the task-#10 vacuity cannot recur in. **C1/C2 is the
-  remaining third; tick the item only when it lands.** · [x] **SCHED-H2** per-solve reset of
-  restart/reduce/rephase/mode/reorder/averages/walk_anchor (`DefaultPolicy::reset_schedule`,
-  `tests/test_solve_reset.cpp`) · [x] **SCHED-H3** Reduce `first_reducible` scan bound — **CLOSED,
-  measured-marginal, NOT implemented** (the bound binds on 40 % of the words and the words are 0.15 % of
-  the propagation cache-line traffic — read the Log entry before re-opening it)
+- [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by file;
+  the X1/X2/X4 share and the C1/C2 share are DONE** (see their Log entries; C1/C2 is six sites, no cadence,
+  `c interrupt2`), **Vivify is the one open share**. Tick the item when it lands. **`battleship-14-26-sat`'s
+  7.3 s post-SIGTERM exit is NOT C1/C2** — ruled out by counters, see the C1/C2 entry.
+  · [ ] **SCHED-H2** per-solve reset of
+  restart/reduce/rephase/mode/reorder/averages/walk_anchor · [ ] **SCHED-H3** Reduce `first_reducible` scan
+  bound
 
 **▶ WHY THIS SERVES PHASE 6 (the user's explicit requirement).** Every `[arch]` item adds *observability or control* the learned policy needs and
 cannot get today: A1 gives per-entry occasions/declines/yield (the reward-shaping signal, and the labels the §5.6 admission exhibit lacks); B2's
@@ -1484,6 +1481,215 @@ sweep-stress + forced-general + ASCII DRAT). Reachability at the SOURCE on the s
 1,468 rounds, 7,092 environments, 3,441 equivalences, **3,558 binaries and 293 general-path pairs** over
 1,497 generated cases — both proof paths non-zero, so no green leg here is vacuous. Report
 `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
+### 2026-08-05 — SCHED-G2 + SCHED-H1 (C1/C2): fuzz, five legs, 0 failures
+
+ctest **44/44**, all four checkers green (`config_wiring` · `effort_specs` · `option_coverage` ·
+`check-progress`), regression corpus **14/14 on every leg**. Debug build (`-O1 -g` + ASan/UBSan).
+
+| job | leg | cases | failures |
+|---|---|---|---|
+| `1585205` | DefaultPolicy × native DRAT | 10,000 | **0** |
+| `1585206` | `--random-policy` × **native LRAT** | 6,000 | **0** |
+| `1585207` | `--random-policy` × native DRAT | 6,000 | **0** |
+| `1585208` | **`TACTIX_STOP_FUZZ=97`** × `--random-policy` × native LRAT | 6,000 | **0** |
+| `1585209` | **`TACTIX_SUBSUME_SHADOW=1`** × `--random-policy` × native DRAT | 6,000 | **0** |
+
+**Re-fuzzed after the rework** (helper adopted, cadence removed, `*_try` sites added), same three
+legs that touch the new control flow, jobs `1585256` (`TACTIX_STOP_FUZZ=97` × `--random-policy` × native
+LRAT), `1585257` (`--random-policy` × native LRAT) and `1585258` (`TACTIX_SUBSUME_SHADOW=1` ×
+`--random-policy`): **6,000 cases each, 0 failures, corpus 14/14**. Verdict counts track the un-stressed
+leg (SAT 3036–3040, UNSAT 1883–1887), so the extra abort sites still change no answer.
+
+The last two are the legs that matter here and neither existed before. **`1585208` is the abort leg**: the
+stress cadence bypasses the 256-poll window, so every C1/C2 poll site is live on cases far smaller than one
+window — the exact vacuity that made task #10's abort paths pass 40,000 cases while inert. Its verdicts
+(SAT 3041 / UNSAT 1902) match the un-stressed `1585206` (SAT 3041 / UNSAT 1887, the difference being
+timeouts resolved, not answers changed), so interrupting a round mid-way changed no verdict and every UNSAT
+still produced a checkable LRAT chain. **`1585209`** fuzzes shadow mode itself, i.e. C1 declining an
+inference it found — the soundness direction the G2 instrument depends on.
+
+### 2026-08-05 — SCHED-G2 (2/2): C1 is INERT — C2 absorbs 698,341 of its 698,351 subsumptions
+
+Probe `1585160` (23 tasks, counters only, `benchmarks/probes/g2-c1-shadow.*`, binary `build/pin-g2h1` at
+`7e5abee`). Thresholds were declared in the entry below **before** the run: absorption ≥ 0.9 ⇒ inert.
+
+**Measured absorption: 0.99999.** `c1shadow` on the shadow arm, against the shipped arm's `forward_subsumed`:
+
+| instance | C1 yield (shipped) | shadow observed | C2 deleted | C2 rewrote | **residual** |
+|---|---|---|---|---|---|
+| `DivS_862_11` | 674,584 | 675,481 | 522,737 | 152,744 | **0** |
+| `mod4block` | 15,943 | 16,895 | 16,310 | 585 | **0** |
+| `9vliw_bp_mc` | 5,386 | 4,960 | 3,707 | 1,243 | **10** |
+| `j3037_9_rggt_b` | 699 | 683 | 676 | 7 | **0** |
+| `constraints_18_0.3_2` | 296 | 296 | 256 | 40 | **0** |
+| `rbsat-v760c43649gyes10` | 36 | 36 | 36 | 0 | **0** |
+| `battleship-14-26-sat` | 0 | 0 | — | — | C1 has no yield at all |
+
+Not vacuous: `observed` tracks the shipped arm's `forward_subsumed` to within 0.2 % on the two big
+instances, so the shadow arm really is finding the same set ([[ab-arm-identical-artefacts]]).
+
+**And C1 is not merely inert — it is net NEGATIVE on cost.** Partner visits (`c subsume`/`c strengthen`),
+with the shadow arm's C2 standing in for a C1-less C2 (it is the same formula evolution):
+
+| instance | conflicts on/shadow | C1 | C2 | pair | C2 without C1 | **pair saving** |
+|---|---|---|---|---|---|---|
+| `DivS_862_11` | 2002 / 2002 | 3.178 G | 7.657 G | 10.835 G | 8.615 G | **−2.220 G (−20.5 %)** |
+| `constraints_18_0.3_2` | 27,478 / 27,478 | 493.5 M | 690.9 M | 1184.4 M | 691.1 M | **−493.3 M (−41.6 %)** |
+| `mod4block` | 2.607 M / 2.557 M | 179.8 M | 281.3 M | 461.1 M | 290.1 M | **−171.0 M (−37.1 %)** |
+| `9vliw_bp_mc` | UNSAT both | 12.47 M | 43.01 M | 55.48 M | 45.01 M | **−10.47 M (−18.9 %)** |
+| `rbsat` | SAT both | 0.14 M | 5.018 M | 5.161 M | 5.024 M | −0.14 M (−2.7 %) |
+
+`DivS_862_11` and `constraints_18_0.3_2` are **conflict-identical across the arms**, so those two rows are
+like-for-like; the others are indicative. The saving is a LOWER bound: shadow-mode C1 still re-arms its
+unreached tail (SCHED-F2), which can only make MORE material look new to C2, so the shadow C2 column
+over-states what a C1-less C2 would cost. `constraints_18_0.3_2` is the sharpest exhibit — **493.5 M
+partner visits to delete 296 clauses, every one of which C2 takes anyway.**
+
+**Why this was predictable from the source, and why nobody could have banked it without the probe.**
+C1's `subsumes_marked` is C2's `check_marked` at zero flips, on the same candidate predicate and the same
+1000/1000 limits, so C1 has no unique CAPABILITY band. Both references agree: kissat's
+`forward_subsume_and_strengthen` (forward.c) and cadical's `subsume_round` (subsume.cpp) are ONE fused
+pass. **Splitting them into two rules is our five-primitive decomposition, and it is right for N1 — but
+giving each half its own 100 ‰ effort share is not a decomposition, it is a duplicated dose.** What the
+source could not settle is REACH, and reach is where a real gap would have shown up; the probe says the
+gap is 10 clauses on one instance.
+
+**▶ THE FOLLOW-UP IS A DOSE, NOT A RULE-OFF** ([[no-rule-off-configs]]: every implemented proof rule ships
+scheduled, and this is a diagnosed SCHEDULING defect, which is exactly what a rule-off arm is a diagnostic
+*for*). `SubsumeForward` keeps its guard, its `instances()` and its `apply_instance` — a phase-6 policy or
+an API caller may well want pure subsumption without strengthening, and N1 requires it stay available.
+
+**A/B SPEC (unrun).** Arms, same window, node-pinned, TWO pin dirs for a B+C pair:
+- **A** shipped. **B** `TACTIX_SLOT_PERMILLE=SubsumeForward:5`.
+- **Pre-flight, or the window is wasted:** in B, `c subsume` ROUNDS must drop and `c strengthen … subsumed`
+  must rise by roughly the `forward_subsumed` that disappeared. If `c subsume` rounds are unchanged the
+  knob did not bind — abandon the window rather than read the PAR-2.
+- **Ship criterion:** Tier B and Tier C PAR-2 both no worse at equal solve counts. The prior is a win on
+  the C1-heavy instances (`DivS_862_11`, `constraints_18_0.3_2`) and neutral elsewhere.
+- **Do NOT read `j3037_9_rggt_b`**: the shadow arm solved it in 34 s while the shipped arm timed out at
+  300 s, and that instance is already on the record as a measured lottery ([[chaotic-instance-veto]]).
+
+### 2026-08-06 — SCHED-H1 (the C1/C2 third): SIX poll sites, no cadence, and a residual ruled out
+
+`D-STRENGTHEN-BUDGET` recorded C2 owning **97.8 s of `DivS_862_11`'s 109.0 s in four applications**, with
+no way to stop a round once it began. `default_policy.cpp` polls `stop` at every slot boundary, which
+bounds SIGTERM latency to ONE application — and one application here is most of the solve. A harness then
+escalates to SIGKILL and **the proof file is lost**: an N2/§6 defect, not a latency nuisance.
+
+**`budget_aware` was not termination here either**, exactly as the X1/X2/X4 third found. Both rules poll
+`Kernel::work_budget` mid-round and polled nothing else; `work_budget` is 0 whenever the policy leaves a
+round unmetered, and — the part that matters for N1 — **neither governor is consulted at all on the
+single-instance `*_try` path**, which is the path a phase-6 policy driving `apply_instance` per candidate
+would live on. Two of the six sites are there.
+
+**Six sites, because C2 alone has four entries into unbounded work.** C1: the candidate loop, plus
+`subsume_forward_try`. C2: the **flush pre-pass** over the whole arena, the candidate loop, the **cascade**
+that re-checks one shrinking candidate (up to `CLSLIM` = 1000 full partner scans on a single clause), plus
+`strengthen_try`. A poll in the candidate loop alone leaves a round deaf for the whole flush pass.
+
+**Every site sits where nothing is half-mutated** — top of an iteration, `marks` all-zero, no clause
+part-rewritten — and everything already done is proof-logged. **Dropping an inference is sound; leaving
+`F`/`R`/`τ`/`ρ` inconsistent or emitting an unverifiable certificate is not** (Track C's `D-CONG-SKIP`).
+
+**An interrupted round is bookkept as an INCOMPLETE round — with one correction found in self-review.**
+The first cut of this reused SCHED-F2's budget-cut bookkeeping wholesale: re-arm the unreached tail, then
+advance the watermark. **That is a starvation bug on the abort path.** Re-arm-then-advance is only
+equivalent to "carry on next round" because the re-arm covers the tail of `candidates` — and **C2 can
+abort inside the flush pre-pass, before `candidates` exists at all**, so there is no tail and advancing
+would retire material the round never looked at (SCHED-B3's starvation, reintroduced through the new
+control flow). Both rules now treat an interrupt as the one cut that **advances no watermark and re-arms
+nothing**: the next round is offered the identical set, and the abort path stops touching variables and
+perturbing every other rule's filter on the way out of a solve that is being terminated. Pinned in both
+unit tests (`*_touch_mark == 0`, `*_mark_advances == 0` after an abort).
+
+**▶ THE VACUITY GUARD, which is the point of the item.** Task #10's abort paths passed **4 × 10,000 fuzz
+cases while inert**, because the sites were gated on `!(++tick & 255)` and nothing smaller than one poll
+window ever reached a first check — and every CNF the harness generates is smaller than that. The first
+cut of this entry reproduced that mistake (a 256-candidate mask with a `k.stop_fuzz ||` bypass in front)
+and it is **gone**: the hazard is closed STRUCTURALLY, not tested around.
+- **No cadence at all.** One poll per heavyweight iteration, so the FIRST candidate reaches the first
+  check. A candidate is up to `CLSLIM × OCCLIM` partner visits, so the poll is free at that granularity.
+- The predicate is `kernel_rule_interrupt(k, k.stats.subsume_interrupted)` — the X1/X2/X4 share's helper,
+  which polls **and** performs both increments, so **no call site increments anything** and a new abort
+  site cannot be added uncounted.
+- `subsume_interrupted` / `strengthen_interrupted` (`c interrupt2`, the `c interrupt3` line's counterpart)
+  attribute a fire to the rule; `rule_interrupted` alone cannot, since five rules now share it.
+- The unit tests drive each entry point separately with the flag already raised, the landed
+  `test_bce.cpp` shape, each with a negative control on the same formula. C2's candidate-loop and cascade
+  sites cannot be reached that way — the flush pre-pass always polls first — so they are reached through
+  the stress cadence, with `strengthen_checked > 0` at the abort as the witness that the flush completed
+  first, and a sweep that finds nothing fails loudly rather than leaving the sites unproven.
+
+**No behaviour change without an interrupt**: with `stop == nullptr` and `stop_fuzz == 0` each site is one
+predicate call and a branch, and `c interrupt2` reads `0, 0` on every normal solve (all 14 non-interrupt
+tasks of probe `1585160`). **So this needs no A/B.**
+
+**▶ NON-ZERO FIRE COUNTS ON REAL INSTANCES, all on the SHIPPED (cadence-free) binary.** Probe `1585247`,
+counters only — no timing is claimed and none is needed:
+- **Real SIGTERM**, i.e. the actual §6 path. `0 stress fires` on every one of these, which is what proves
+  the abort came from `*k.stop` and not from the diagnostic knob:
+  - `DivS_862_11` at 25 s → **C1 1, C2 0**. The C1 round it interrupted had done **2,335,884,737 partner
+    visits** and was still going.
+  - `DivS_862_11` at 60 s → **C1 0, C2 1**, that C2 round at **2,504,317,968 visits**.
+  - `constraints_18_0.3_2` at 40 s → **C1 0, C2 1**.
+  - `j3037_9_rggt_b` at 40 s → **0, 0**: the signal landed outside C1/C2. Recorded because a probe that
+    only reports its hits is not evidence about the rest.
+  - All exited cleanly with `s UNKNOWN` and a flushed proof. **Before this item the same SIGTERM waited
+    out a two-billion-visit round** — the SIGKILL-loses-the-proof scenario, reproduced and then closed.
+- **Stress cadence** on real instances: `DivS_862_11` **9 C1 + 9 C2** (of 30 source fires), `9vliw_bp_mc`
+  **0 C1 + 6 C2** (of 21), `rbsat` **0 C1 + 5 C2** (of 7). **Verdicts unchanged from the shipped arm** —
+  `9vliw` UNSAT, the other two SAT — so aborting mid-round changed no answer.
+- **At FUZZ scale, which is where the last vacuity hid** (probe `1585259`, 400 harness-generated cases,
+  `benchmarks/probes/h1-fuzzscale-reach.*`): **5,326 C1 aborts and 5,510 C2 aborts** over 62,987 source
+  fires. The same probe on the cadenced first cut read 4,694 / 4,817 over 49,800 — **removing the cadence
+  raised reachability by 13 %/14 %**, which is the mask's cost stated as a number instead of an argument.
+
+**▶ THE `battleship-14-26-sat` RESIDUAL IS NOT C1/C2 — ruled out by counters, not by a timing run.** The
+X1/X2/X4 third handed over a 7.3 s post-SIGTERM exit on that instance with `c interrupt 0` and BCE/X2/X4
+at zero rounds. Probe `1585160` ran it to a SAT verdict, so its counters are C1/C2's ENTIRE involvement
+in that solve: **C1 one round, 196 candidates, 1,274 partner visits; C2 one round, 196 candidates, 15,106
+partner visits — and both rounds COMPLETE.** Sixteen thousand partner visits cannot be seven seconds, and
+a round that completed was never in flight to be interrupted. **The 7.3 s is search, Vivify, or the proof
+flush; C1/C2 are excluded.** Routed back rather than chased — narrowing it further needs a timing
+measurement, which this window cannot honestly produce.
+
+### 2026-08-05 — SCHED-G2 (1/2): the instrument, and what will count as decisive
+
+**The question is not "does C1 fire".** C1 fires — `forward_subsumed` has always been non-zero. The
+question the track asks is whether C1 removes clauses **C2 would not have handled anyway**, and counting
+subsumptions cannot answer it: every clause C1 deletes is a clause C2's fused round could also delete.
+
+**Half of it is settled in the SOURCE, with no run at all.** C1's per-pair test `subsumes_marked` is
+exactly C2's `check_marked` with the flip count pinned to zero; both rules use the same candidate
+predicate (live · irredundant · not root-satisfied · `size <= CLSLIM`), the same **1000/1000**
+`CLSLIM`/`OCCLIM`, the same size-ascending order, and the same connect-at-least-occurring-literal index —
+and C2 additionally probes the NEGATED phase and cascades. **So C1's deletable set is a subset of C2's,
+and C1 can have no unique capability band.** `test_subsume.cpp::test_shadow_ledger` states that as
+behaviour rather than as a source reading, over both the large-subsumer and the binary-subsumer case, so a
+future divergence in either rule's limits or discovery breaks the build here.
+
+**What the subset argument cannot settle is REACH** — whether C2's next round actually gets to the same
+pair, given its own budget, its own `strengthen_touch_mark`, and the early exit a derived unit forces.
+That is the whole remaining question, and it is dynamic.
+
+**The instrument: shadow mode, not a plain ablation.** `TACTIX_SUBSUME_SHADOW=1` makes C1 run its full
+round and RECORD each victim's clause id (`Kernel::shadow_victims`) instead of deleting it; Strengthen
+retires the id on every path that removes the clause (fused subsumption · the flush pre-pass's
+root-satisfied delete · a strengthen rewrite, which retires the old id and gets its own counter). The
+output is `c c1shadow observed / deleted + rewritten by C2 / residual`.
+
+**Why this beats `TACTIX_SLOT_DISABLE=SubsumeForward`.** The trajectory under shadow mode IS the C1-less
+trajectory — C1 takes no action — so the ledger measures the counterfactual in the SAME run that produces
+it. A plain ablation only yields two aggregates from two diverged trajectories, and can never say that
+*this* clause was picked up. It is also biased the safe way: absorption by any rule other than C2 (BVE
+above all) is deliberately not counted, so `residual` OVER-states C1's unique yield.
+
+**Declared before the run.** With `observed` non-zero on real instances:
+`absorbed/observed >= 0.9` ⇒ **C1 is inert**, its 100 ‰ share is duplicated work and the elimination group
+should be re-dosed. `<= 0.5` ⇒ **C1 earns its share** and the reach gap is real. Between the two ⇒ report
+the split rather than a verdict, and name which instances carry the residual. `observed == 0` on every
+instance is not a "C1 is inert" result — it is a broken probe, and the arm must be rejected
+([[ab-arm-identical-artefacts]]).
 
 ### 2026-08-05 — SCHED-G3: Vivify trail reuse (+ F5's clause bit, tier3, H1's Vivify half)
 

@@ -8,6 +8,7 @@
 #include "rules/strengthen/strengthen.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <cstring>
 
@@ -210,6 +211,99 @@ static void test_root_flush() {
   assert(default_solve(k) == 10);
 }
 
+// SCHED-H1 · C2's interrupt sites. It has FOUR — the flush pre-pass over the
+// whole arena, the candidate loop, the cascade that re-checks one shrinking
+// candidate, and the single-instance entry — because a poll in only one of
+// them still leaves a round that ignores the interrupt for the duration of the
+// others. There is NO cadence, so a raised flag fires at the first poll.
+//
+// The flush pre-pass runs FIRST and polls per arena clause, so a flag raised
+// before the call can only ever be caught there; the candidate-loop and
+// cascade sites are reached instead through the deterministic stress cadence,
+// which is exactly what it exists for. `strengthen_checked > 0` at the abort
+// is the witness that the flush completed and the fire came from further in.
+static void fill_interrupt_case(Kernel &k, int n) {
+  kernel_reserve_vars(k, 3 * n + 4);
+  for (int i = 0; i < n; i++) {
+    const Lit c[3] = {internalize(3 * i + 1), internalize(3 * i + 2),
+                      internalize(3 * i + 3)};
+    kernel_add_large_clause(k, c, 3, false, 0);
+  }
+}
+
+static void test_interrupt() {
+  volatile sig_atomic_t stop = 1;
+  const Lit c3[3] = {internalize(1), internalize(2), internalize(3)};
+  { // (1) the FLUSH pre-pass, the round's first poll
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_add_large_clause(k, c3, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    KernelStopPublisher pub(k, &stop);
+    assert(strengthen_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.strengthen_subsumed == 0);
+    assert(k.stats.strengthen_checked == 0); // never reached the candidates
+    assert(k.stats.strengthen_interrupted == 1);
+    assert(k.stats.rule_interrupted == 1);
+    assert(!k.strengthen_complete);
+    // A flush-pass abort leaves `candidates` EMPTY, so there is no tail to
+    // re-arm — advancing the watermark would retire the whole formula unseen.
+    assert(k.strengthen_touch_mark == 0 &&
+           k.stats.strengthen_mark_advances == 0);
+    kernel_check_invariants(k);
+  }
+  { // (2) the single-instance entry, which NEITHER governor reached before H1
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    const Ref cref = kernel_add_large_clause(k, c3, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    KernelStopPublisher pub(k, &stop);
+    assert(strengthen_try(k, cref) == ApplyResult::NoOp);
+    assert(k.stats.strengthen_subsumed == 0);
+    assert(k.stats.strengthen_interrupted == 1);
+  }
+  { // negative control for both: same formula, no interrupt, the clause dies
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_add_large_clause(k, c3, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    assert(strengthen_apply(k) == ApplyResult::Ok);
+    assert(k.stats.strengthen_subsumed == 1 &&
+           k.stats.strengthen_interrupted == 0);
+    Kernel t;
+    kernel_reserve_vars(t, 3);
+    const Ref cref = kernel_add_large_clause(t, c3, 3, false, 0);
+    kernel_add_binary_clause(t, internalize(1), internalize(2));
+    assert(strengthen_try(t, cref) == ApplyResult::Ok);
+    assert(t.stats.strengthen_subsumed == 1 &&
+           t.stats.strengthen_interrupted == 0);
+  }
+  { // (3) PAST the flush: the candidate loop / cascade. The stress cadence
+    // fires on a deterministic 1-in-m draw, so sweeping m walks the first fire
+    // out of the 200-clause flush pass and into the candidate loop. A sweep
+    // that finds none fails loudly here rather than leaving the site unproven.
+    bool past_flush = false;
+    for (uint32_t m = 100; m <= 6000 && !past_flush; m += 100) {
+      Kernel k;
+      fill_interrupt_case(k, 200);
+      k.stop_fuzz = m;
+      strengthen_apply(k);
+      past_flush = k.stats.strengthen_interrupted >= 1 &&
+                   k.stats.strengthen_checked > 0;
+      if (past_flush) {
+        assert(!k.strengthen_complete);
+        assert(k.strengthen_touch_mark == 0);
+        kernel_check_invariants(k);
+      }
+    }
+    assert(past_flush);
+    Kernel c; // negative control: same formula, no knob, round COMPLETES
+    fill_interrupt_case(c, 200);
+    assert(strengthen_apply(c) == ApplyResult::NoOp);
+    assert(c.stats.strengthen_interrupted == 0 && c.strengthen_complete);
+  }
+}
+
 int main() {
   test_binary_strengthens_large();
   test_fused_subsumption();
@@ -218,6 +312,7 @@ int main() {
   test_instance_surface();
   test_slot_schedule_as_data();
   test_root_flush();
+  test_interrupt();
   puts("test_strengthen OK");
   return 0;
 }

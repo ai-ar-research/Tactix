@@ -235,6 +235,9 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     return 0;
   Clause *c = clause_at(k.arena, *ref);
   if (p.res.kind == CheckResult::SUBSUMED) {
+    // SCHED-G2: C1 shadowed this clause and C2 has now deleted it on its own.
+    if (kernel_shadow_retire(k, c->id()))
+      k.stats.c1_shadow_deleted++;
     if (k.proof)
       k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
     kernel_mark_garbage(k, c);
@@ -243,6 +246,11 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     return 1;
   }
   // STRENGTHEN: rebuild from free literals minus the resolved one
+  // SCHED-G2: a shadowed clause rewritten away is also "handled" — the exact
+  // clause C1 wanted gone is retired and a strictly shorter one replaces it —
+  // but it is a different disposal from a deletion, so it gets its own counter.
+  if (kernel_shadow_retire(k, c->id()))
+    k.stats.c1_shadow_rewritten++;
   const Lit gone = negate(p.res.flipped);
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<Lit> lits;
@@ -312,6 +320,8 @@ static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
   uint32_t falsified = 0;
   for (const Lit l : *c) {
     if (k.value(l) > 0 && k.var_level(var_of(l)) == 0) {
+      if (kernel_shadow_retire(k, c->id())) // SCHED-G2
+        k.stats.c1_shadow_deleted++;
       if (k.proof) // root-satisfied: delete
         k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
       kernel_mark_garbage(k, c);
@@ -358,11 +368,30 @@ ApplyResult strengthen_apply(Kernel &k) {
   const uint64_t wm = k.strengthen_touch_mark;
   uint64_t changed = 0;
   bool ended = false;
+  // SCHED-H1 · §6 termination polling. This rule has THREE unbounded loops —
+  // the flush pre-pass over the whole arena, the candidate loop, and the
+  // cascade that re-checks one shrinking candidate — and D-STRENGTHEN-BUDGET
+  // measured a single round owning 97.8 s of a 109.0 s solve, so a poll in only
+  // one of them still leaves a round that ignores the interrupt for minutes.
+  // Every site aborts BETWEEN candidates/clauses, never mid-rewrite: whatever
+  // the round did is already proof-logged and the bookkeeping below runs
+  // unchanged, so an interrupted round is exactly an incomplete round.
+  // NO CADENCE at any of them — see the twin comment in subsume_forward.cpp for
+  // why a tick mask is what made the last set of abort paths fuzz vacuously.
+  bool interrupted = false;
+  const auto poll = [&]() {
+    if (!kernel_rule_interrupt(k, k.stats.strengthen_interrupted))
+      return false;
+    interrupted = true;
+    return true;
+  };
   // flush pre-pass (see flush_root): the whole arena, before the
   // candidate round, so the round never sees clauses with root-assigned
   // literals. A flush-derived unit ends the pass (values changed); the
   // policy re-propagates. One collect at the end covers both phases.
   for (Ref ref = 0; ref < k.arena.size();) {
+    if (poll())
+      break;
     const uint32_t words = clause_words(clause_at(k.arena, ref)->size);
     Ref cur = ref;
     if (!clause_at(k.arena, ref)->garbage()) {
@@ -377,7 +406,7 @@ ApplyResult strengthen_apply(Kernel &k) {
     ref += words;
   }
   std::vector<Ref> candidates;
-  if (!ended)
+  if (!ended && !interrupted)
     strengthen_candidates(k, candidates);
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<std::vector<Ref>> occs(2 * k.nvars);
@@ -422,6 +451,10 @@ ApplyResult strengthen_apply(Kernel &k) {
       stopped_at = ci;
       break;
     }
+    if (poll()) {
+      stopped_at = ci;
+      break;
+    }
     if (filter && !kernel_clause_new_material(k, clause_at(k.arena, cref), wm)) {
       k.stats.strengthen_mark_skipped++;
       connect(cref);
@@ -440,13 +473,20 @@ ApplyResult strengthen_apply(Kernel &k) {
         connect(cref);
         break;
       }
-      if (r == 2)
+      if (r == 2) {
+        // The cascade is bounded by the clause's size, but at CLSLIM=1000 that
+        // is 1000 full partner scans on ONE candidate, so it polls too. The
+        // rewrite that produced `cref` is complete and logged; stopping here
+        // only skips further shrinking of a clause that is already sound.
+        if (poll())
+          break;
         continue; // rescan the shrunken clause
+      }
       if (r == 4)
         ended = true;
       break; // 1 (died) or 3 (became binary) or 4
     }
-    if (ended) {
+    if (ended || interrupted) {
       stopped_at = ci + 1; // this candidate was checked; the rest were not
       break;
     }
@@ -454,7 +494,8 @@ ApplyResult strengthen_apply(Kernel &k) {
   // SCHED-F2 · RESUME (see the twin comment in subsume_forward.cpp for the
   // argument). `ended` — a derived unit stopped the round — leaves a tail too,
   // and it is re-armed for exactly the same reason a budget cut's is.
-  for (size_t ci = filter ? stopped_at : candidates.size();
+  for (size_t ci = interrupted ? candidates.size()
+                               : (filter ? stopped_at : candidates.size());
        ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
     if (c->garbage() || !kernel_clause_new_material(k, c, wm))
@@ -463,7 +504,15 @@ ApplyResult strengthen_apply(Kernel &k) {
       kernel_touch_var(k, var_of(l));
     k.stats.strengthen_rearmed++;
   }
-  if (filter) {
+  // SCHED-H1: an INTERRUPTED round does not advance the watermark at all. The
+  // re-arm loop above is what makes advancing safe after a budget cut, and it
+  // covers the tail of `candidates` — but an abort inside the FLUSH pre-pass
+  // leaves `candidates` EMPTY, so there is no tail to re-arm and advancing
+  // would retire material this round never looked at. That is SCHED-B3's
+  // starvation, reintroduced through the abort path. Not advancing simply
+  // re-offers the same set next round, which is the resume semantics wanted
+  // here and costs nothing: an interrupt is rare and usually ends the solve.
+  if (filter && !interrupted) {
     k.strengthen_touch_mark = snapshot;
     k.stats.strengthen_mark_advances++;
   }
@@ -474,7 +523,11 @@ ApplyResult strengthen_apply(Kernel &k) {
   // reached.
   // `!ended` also covers the FLUSH pre-pass deriving a unit, which leaves
   // `candidates` empty and would otherwise read as a vacuous fixpoint.
-  k.strengthen_complete = !ended && stopped_at == candidates.size() &&
+  // `!interrupted` also covers an abort inside the FLUSH pre-pass, which leaves
+  // `candidates` empty and would otherwise read as a vacuous fixpoint — the
+  // same trap `!ended` closes for a flush-derived unit.
+  k.strengthen_complete = !ended && !interrupted &&
+                          stopped_at == candidates.size() &&
                           k.stats.strengthened == produced_before;
   if (!changed)
     return ApplyResult::NoOp;
@@ -486,6 +539,11 @@ ApplyResult strengthen_apply(Kernel &k) {
 // applies at most one subsume-or-strengthen step (no cascade)
 ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   assert(strengthen_guard(k));
+  // SCHED-H1 · neither governor reaches this path (see the twin note in
+  // subsume_forward.cpp): `work_budget` is a ROUND device. Checked at entry,
+  // before the per-clause flush, so nothing is part-rewritten.
+  if (kernel_rule_interrupt(k, k.stats.strengthen_interrupted))
+    return ApplyResult::NoOp;
   Clause *c = clause_at(k.arena, candidate);
   if (c->garbage())
     return ApplyResult::NoOp;

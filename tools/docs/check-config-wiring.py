@@ -87,6 +87,9 @@ TABLE = {
     # wiring the check exists to expose.
     "vivify_reuse":            ("ENV", "TACTIX_VIVIFY_REUSE; ships ON (SCHED-G3), "
                                        "=0 reverts to the per-candidate root return"),
+    # SCHED-G2: pure diagnostic. It makes C1 report instead of act, so it can
+    # never be a shipped default and nothing in the policy may write it.
+    "subsume_shadow":          ("ENV", "TACTIX_SUBSUME_SHADOW (SCHED-G2 shadow arm)"),
     # SCHED-C5 (2026-08-05): was ENV-with-a-caveat — the knob existed, defaulted
     # OFF, and the row itself said that was the status quo rather than the
     # target. It now ships ON via the kernel.hpp default, which is what both

@@ -10,6 +10,7 @@
 #include <csignal>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tactix {
@@ -197,6 +198,21 @@ struct Stats {
   // that claims to have exercised it.
   uint64_t budget_stops_c1 = 0; // SubsumeForward rounds stopped mid-round
   uint64_t budget_stops_c2 = 0; // Strengthen rounds stopped mid-round
+  // SCHED-H1 · per-rule interrupt attribution for the C1/C2 share, the
+  // `bce_interrupted` family's counterpart. Bumped only inside
+  // `kernel_rule_interrupt`, never at a call site. NOT the same axis as the
+  // budget pair above: `work_budget` is 0 whenever the policy leaves a round
+  // unmetered, so `budget_aware` never implied interruptible.
+  uint64_t subsume_interrupted = 0;
+  uint64_t strengthen_interrupted = 0;
+  // SCHED-G2 · the shadow ledger (diagnostic; see Kernel::subsume_shadow).
+  // `observed` = distinct clauses SubsumeForward would have deleted but did
+  // not; the two `absorbed` counters are how many of those Strengthen removed
+  // on its own afterwards. Absorption by any OTHER rule is deliberately not
+  // counted, so `observed - absorbed` is an UPPER bound on C1's unique yield.
+  uint64_t c1_shadow_observed = 0;
+  uint64_t c1_shadow_deleted = 0;   // C2 deleted the same clause outright
+  uint64_t c1_shadow_rewritten = 0; // C2 strengthened it away (old id retired)
   uint64_t flushed = 0; // root-satisfied deletions + root-falsified
                         // literal strips by Strengthen's flush pre-pass
   uint64_t vivify_rounds = 0;  // Vivify rounds
@@ -888,6 +904,30 @@ struct Kernel {
   // written; landing that half against an unpopulated set is exactly the
   // byte-identical-artefact trap that kept `SP-TIER-2` open.
   bool touch_redundant = false;
+  // SCHED-G2 · SHADOW MODE for SubsumeForward's canonical round
+  // (TACTIX_SUBSUME_SHADOW=1). DIAGNOSTIC ONLY, ships OFF.
+  //
+  // C1's per-pair test is Strengthen's with the flip count pinned to zero, and
+  // the two rules share their size/occurrence limits and candidate predicate,
+  // so C1 can never delete a clause C2 is UNABLE to delete. What that argument
+  // cannot settle is REACH: whether C2's next round actually gets to the same
+  // pair under its own budget, filter watermark and early exits. Shadow mode
+  // answers it in ONE run instead of across two diverging arms — C1 runs its
+  // full round and records each victim's clause id in `shadow_victims` instead
+  // of deleting it, and Strengthen retires the id when it removes the same
+  // clause. The trajectory is that of a C1-less solve, so the ledger measures
+  // the counterfactual directly.
+  //
+  // N1: this narrows what the canonical ROUND does — the `touch_filter`
+  // category, not the guard. `subsume_forward_try`, the `apply_instance` path,
+  // never consults it, so the public API can still subsume any clause at any
+  // time with the hatch on; and it is a diagnostic that ships off, never a
+  // composition a policy may select.
+  bool subsume_shadow = false;
+  // The shadow ledger itself: clause ids C1 declined to delete and Strengthen
+  // has not yet removed. Only ever populated under `subsume_shadow`, so a
+  // shipped solve neither allocates nor probes it.
+  std::unordered_set<uint64_t> shadow_victims;
   // The reduce SURVIVOR ENVELOPE, published by `reduce_apply_refs` (cadical
   // `lim.keptglue`/`lim.keptsize`, reduce.cpp:147-156): the widest (glue, size)
   // still present after the last reduction. It is the THIRD disjunct of
@@ -1734,6 +1774,19 @@ inline bool kernel_rule_interrupt(Kernel &k, uint64_t &site) {
   k.stats.rule_interrupted++;
   site++;
   return true;
+}
+
+// SCHED-G2 · shadow-ledger primitives (see Kernel::subsume_shadow). Both are
+// no-ops with the hatch off; `retire` is the only one on a shipped hot path and
+// it short-circuits on the flag before touching the set.
+inline void kernel_shadow_observe(Kernel &k, uint64_t id) {
+  if (k.shadow_victims.insert(id).second)
+    k.stats.c1_shadow_observed++;
+}
+// Did Strengthen just remove a clause C1 had shadowed? Retires the entry so a
+// re-observation of the SAME clause id cannot be counted twice.
+inline bool kernel_shadow_retire(Kernel &k, uint64_t id) {
+  return k.subsume_shadow && k.shadow_victims.erase(id) != 0;
 }
 
 // RAII publisher for Kernel::stop — a policy's solve() publishes its interrupt
