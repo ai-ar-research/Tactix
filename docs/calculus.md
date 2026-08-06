@@ -259,9 +259,13 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 ### V5 · Sweep — SAT-sweeping equivalences over a local environment
 - **Precondition (abstract):** for literals `a`, `b`, if `F ⊨ a ↔ b` then adding the two binaries
   `(¬a∨b)` and `(a∨¬b)` is equivalence-preserving. The rule *discovers* such a pair by refuting both
-  `a ∧ ¬b` and `¬a ∧ b` over an ENVIRONMENT `env ⊆ F` — a bounded neighbourhood of a seed variable —
-  which is sound because `env ⊆ F` literally: every environment clause is a clause the kernel holds,
-  carried with its own proof id, so `env ⊨ a ↔ b` implies `F ⊨ a ↔ b`.
+  `a ∧ ¬b` and `¬a ∧ b` over an ENVIRONMENT — a bounded neighbourhood of a seed variable — which is
+  sound because the environment is **entailed by `F`**: each environment clause is a clause the kernel
+  holds, carried with its own proof id, **with the root-FALSE literals removed**. `C \ {l}` for a
+  root-false `l` follows from `C` and the root unit `{¬l}`, both of which `F` holds, so `env ⊨ a ↔ b`
+  still implies `F ⊨ a ↔ b`. Removing them is not an optimization: a kept root-false literal is a free
+  variable in the sub-solver that satisfies its clause for nothing, so an environment that keeps them
+  is weaker than the local formula it is meant to be.
 - **Effect:** add both binaries. Proof δ: two `derive`s, no deletion — `F` grows, `R/τ/ρ` untouched, so
   reconstruction is unaffected. A pair the formula already states is skipped.
 - **Emission (why it is not just "entailed"):** entailment is not a proof line. The checker knows
@@ -272,6 +276,14 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   emitted. That is the honest limit of the fast path: a swept equivalence is entailed but generally NOT
   RUP, which is the whole reason a sub-solver is involved. **Strategy (b) (S-e)** maps the sub-solver's
   refutation core back to main-formula clause ids and emits the resolution chain, covering the rest.
+  Because an environment clause is a main clause with its root-false literals removed, a chain citing
+  it must ALSO cite the root units that justify the removal, ahead of it: a unit clause is unit under
+  every assignment, so it is valid at any position in an LRAT hint list, and putting a step's strip
+  units at the front is the only order that does not depend on which antecedent needs which unit.
+  Under a format with no hints (DRAT, or no proof) there is nothing to cite — the checker re-derives
+  every root unit by propagation, so the stripped clause propagates exactly as the original does. A
+  removal that cannot be justified (`unit_ids[v] == 0`, reachable only under LRAT) is not made: the
+  literal stays, and the environment is merely weaker.
 - **Soundness:** both directions must replay before either binary is added, so the rule never states an
   implication it has not justified; and a declined pair leaves `F` unchanged.
 

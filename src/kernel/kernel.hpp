@@ -305,6 +305,35 @@ struct Stats {
   uint64_t sweep_env_unsat = 0;    // environments refuted outright (F is UNSAT)
   uint64_t sweep_budget = 0;       // solves abandoned on the tick budget
   uint64_t sweep_ticks = 0;        // Sweep's effort currency (scan+sub-solver)
+  // Environment SHAPE and candidate-solve OUTCOMES. A zero yield has several
+  // possible mechanisms — an environment too weak to refute anything, a
+  // candidate set that never contains a true pair, or a sub-solver that runs
+  // out of budget — and they are indistinguishable from `equivalences 0`.
+  // These separate them: `env_lits`/`env_false`/`env_freefalse` say how much of
+  // the environment is a root-false literal that the sub-solver may satisfy for
+  // free, and `dir_sat`/`dir_unsat` say whether a candidate direction was
+  // REFUTED or MODELLED.
+  uint64_t sweep_env_lits = 0;      // literal occurrences encoded
+  uint64_t sweep_env_false = 0;     // of those, root-FALSE occurrences
+  uint64_t sweep_env_freefalse = 0; // of those, with no unit id => free var
+  uint64_t sweep_env_stripped = 0;  // root-false occurrences REMOVED
+  uint64_t sweep_env_units = 0;     // unit clauses added alongside (off arm)
+  // Where the effort GOES. `sweep_ticks` is one number and three very
+  // different activities feed it; a rule that sweeps few seeds per dose is
+  // either building expensive environments or solving expensive ones.
+  uint64_t sweep_ticks_dedup = 0;   // the environment's clause-key scan
+  uint64_t sweep_ticks_sub = 0;     // the sub-solver's own ticks
+  // Environment CLOSURE: how much of an environment variable's real
+  // neighbourhood the environment actually holds. Large clauses only, so the
+  // two sides are the same population.
+  uint64_t sweep_occ_f = 0;         // env vars' large-clause degree in F
+  uint64_t sweep_occ_env = 0;       // ... and inside the environment
+  uint64_t sweep_vars_closed = 0;   // env vars holding their WHOLE degree
+  uint64_t sweep_vars_total = 0;    // env vars
+  uint64_t sweep_cand_seeded = 0;   // candidates entering the loop
+  uint64_t sweep_cand_refined = 0;  // candidates dropped by model refinement
+  uint64_t sweep_dir_sat = 0;       // candidate directions that MODELLED
+  uint64_t sweep_dir_unsat = 0;     // candidate directions that REFUTED
 
   uint64_t ternary_rounds = 0;     // HyperTernaryRes rounds that added clauses
   uint64_t ternary_resolvents = 0; // ternary resolvents added (redundant)
