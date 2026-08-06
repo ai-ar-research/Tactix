@@ -1,5 +1,4 @@
 // E2 Factor (BVA). S0: extension-variable allocation + model projection.
-#include <cstdlib>
 // Extension variables (added mid-solve by Factor) are assigned by search but
 // projected out of the reported model — the v-line ranges over original vars only.
 #undef NDEBUG

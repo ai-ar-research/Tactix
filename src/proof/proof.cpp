@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cinttypes>
-#include <cstdlib>
 
 namespace tactix {
 

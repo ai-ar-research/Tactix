@@ -35,6 +35,13 @@ benchmarks/cache/
 # Fuzz failure bundles (promoted manually to tools/fuzz/corpus/regressions/)
 tools/fuzz/failures/
 
+# Per-job fuzz logs. CLAUDE.md puts throwaway job logs in $CLAUDE_JOB_DIR/tmp:
+# a leg's VERDICT belongs in PROGRESS.md and its report, and the log itself is
+# regenerable from the job. The 73 already tracked need a retention decision
+# (review item RV-S9) before they are removed, since frozen reports cite some.
+tools/fuzz/slurm-*.log
+tools/fuzz/nightly-rev*.log
+
 # Solver run outputs
 *.drat
 *.lrat

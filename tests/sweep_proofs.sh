@@ -12,7 +12,8 @@
 #  - test_sweep --emit writes a complete UNSAT refutation whose middle is
 #    literally S-e's output, i.e. those same derivations after the sub-solver ->
 #    KERNEL translation. That translation is a separate piece of code and it is
-#    where the 2026-08-05 N2 breach lived: the sub-solver's proofs verified here
+#    where the S-e polarity N2 breach lived: the sub-solver's proofs verified
+#    here
 #    while every lemma S-e wrote was the NEGATION of them, because the decode
 #    inverted the literal parity. Checking only the first emitter is checking
 #    the half that was right.

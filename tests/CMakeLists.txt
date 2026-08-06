@@ -132,7 +132,7 @@ set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 # for the lemmas, lrat-check for the chains). test_subsolver covers the
 # derivations in SUB-SOLVER space; test_sweep covers the same derivations after
 # the sub-solver -> kernel translation, which is separate code and is where the
-# 2026-08-05 N2 breach lived. Skips with 77 without a checker.
+# S-e polarity N2 breach lived. Skips with 77 without a checker.
 add_test(NAME sweep_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh ${CMAKE_SOURCE_DIR}
                  $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
@@ -186,6 +186,16 @@ add_test(NAME effort_specs
 add_test(NAME option_coverage
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-option-coverage.py)
+
+# Same shape, over source COMMENTS: they carry the invariant plus a reference
+# pointer, never the narrative of how we found out -- no dates, SLURM job ids,
+# window ids or score numbers (standing user directive, given twice). A one-off
+# sweep enforced it and the pattern was back within the hour, so it is enforced
+# here instead of remembered. The checker names its own rule; see it for what
+# counts as an allowed reference pointer.
+add_test(NAME comment_hygiene
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-comment-hygiene.py)
 
 # `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)

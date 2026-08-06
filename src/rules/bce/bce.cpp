@@ -4,7 +4,6 @@
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
-#include <cassert>
 #include <vector>
 
 namespace tactix {

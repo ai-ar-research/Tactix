@@ -27,7 +27,6 @@
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
 #include <algorithm>
-#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <random>
