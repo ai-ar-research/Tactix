@@ -76,7 +76,9 @@ says to check its `blocked` counter first and abandon the window if it is zero.
 ceiling** (`SP-EFFORT-CEIL-1`, taken mid-stage; ported and **measured inert** — see its Log entry before spending a window on it). The one finding
 that changes the picture: **Probe was advancing 0.3 % of its candidate list per dose and replaying the same head on all 45 phases** — E1's cursor
 fixes that, and it is unpriced. Three A/B specs are in the Log entries; E1's and E2's are worth windows, E3's says explicitly not to run it.
-**▶ STAGE F IS LANDED AND UNPRICED** (branch `sched-stage-f`, five commits + the merge, ctest **44/44**). F1 the
+**▶ STAGE F IS LANDED AND UNPRICED** (branch `sched-stage-f`, ctest **44/44**, fuzz green ON THE MERGED
+TREE — DRAT `1584769`, native LRAT `1584770`, `--random-policy`×DRAT `1584771`, **10,000 cases each, 0
+failures**, restatement path reached on 2,855). F1 the
 touched-epoch substrate (a per-variable EPOCH STAMP, not a bit — so it has no clear pass a scheduling decline
 can starve, which is D3's `SP-SLOT-5` lesson applied) · F2 resume by RE-ARM, **and the C1→BVE bound coupling T5
 asks for REFUSED** as self-wedging (§13.3 `SP-REPEAT-COUPLE`) · F3 BCE/HyperTernaryRes/Instantiate, which forced
