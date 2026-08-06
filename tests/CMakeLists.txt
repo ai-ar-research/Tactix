@@ -170,6 +170,19 @@ add_test(NAME effort_specs
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-effort-specs.py)
 
+# SCHED-A3: the same shape again, but taken over the REFERENCE's option sets
+# rather than over our own source. The parity ledger is only as good as the set
+# it was generated from, so every option in kissat/src/options.h and
+# cadical/src/options.hpp must be accounted for -- a ledger row, §13.6's
+# dismissal roster, or a named carried/exempt roster entry. A reference bump
+# that adds an option therefore fails here instead of silently turning the
+# ledger back into a lower bound. Requires the untracked reference clones
+# (CLAUDE.md); it FAILS rather than skips without them, since a conformance
+# check that can go vacuously green is worse than a red one.
+add_test(NAME option_coverage
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-option-coverage.py)
+
 # `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)
 target_link_libraries(test_no_heuristics PRIVATE tactix_lib)
