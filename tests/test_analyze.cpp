@@ -441,7 +441,7 @@ static void test_eager_subsume() {
     const Ref dead = kernel_add_large_clause(k, a, 3, true, 3, 101);
     const Ref live = kernel_add_large_clause(k, b, 3, true, 3, 102);
     k.eager_recent[0] = live;
-    kernel_mark_garbage(k, clause_at(k.arena, dead));
+    kernel_delete_clause(k, clause_at(k.arena, dead));
     kernel_collect_garbage(k); // `live` moves from offset 8 to offset 0
     assert(k.eager_recent[0] == INVALID_REF);
     kernel_check_invariants(k); // the stale-register assertion

@@ -441,9 +441,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     const uint64_t cid = c->id();
     const bool sat = rewrite_lits(c->lits, c->size, out, chain);
     if (sat) { // satisfied/tautology → delete only (deletions are proof-free)
-      if (k.proof)
-        k.proof->del(k.next_clause_id, cid, c->lits, c->size);
-      kernel_mark_garbage(k, c);
+      kernel_delete_clause(k, c); // cid == c->id()
       changed = true;
       continue;
     }

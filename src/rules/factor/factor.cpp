@@ -439,9 +439,7 @@ void apply_factoring(Kernel &k, const std::vector<Lit> &F,
       Clause *c = clause_at(k.arena, it->second);
       if (c->garbage())
         continue;
-      if (k.proof)
-        k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-      kernel_mark_garbage(k, c);
+      kernel_delete_clause(k, c);
     }
 }
 

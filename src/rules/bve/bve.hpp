@@ -82,7 +82,7 @@ void bve_build_occurrences(const Kernel &, BveOccurrences &);
 // and the static configuration (`bve_gate_mask`, the bound/limits). Every
 // mutation of that function's input sets the bit again:
 //   - an irredundant clause on x added or deleted (kernel_add_large_clause /
-//     kernel_add_binary_clause / kernel_mark_garbage / kernel_delete_binary*) —
+//     kernel_add_binary_clause / kernel_delete_clause / kernel_delete_binary*) —
 //     which also covers a literal being removed from a clause, since every rule
 //     that shortens a clause (Strengthen, Substitute, Vivify) does it as a
 //     delete + add of the rewritten clause, not in place;

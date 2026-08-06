@@ -454,6 +454,17 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   EOF**, so a local scalar with an initialiser inside any later inline kernel helper read as an
   unclassified config field. Bounded to the struct's closing brace; anti-vacuity re-tested (it
   still FAILS on a genuinely unclassified field placed inside the window).
+  `RV-S6` **DONE, and the pair is genuinely inseparable**: `kernel_mark_garbage` NO LONGER EXISTS —
+  `kernel_delete_clause` (kernel.hpp) emits the `del` and marks garbage, and it is the only function
+  in the tree that can do either to a large clause. 13 sites collapsed, including the two variants
+  (Substitute's saved `cid`, `kernel_replace_clause`'s hand-passed `id` — now an `assert(id ==
+  next_clause_id)`, which turns the review's "unstated, uncheckable invariant" into a checked one).
+  **The inlining answer: the review's constraint was real and is resolved by including
+  `proof/proof.hpp` in kernel.hpp** (a leaf header over `kernel/types.hpp`, no cycle, no new file)
+  rather than by an out-of-line call — so the proof-OFF path keeps exactly today's single `if
+  (k.proof)` and Analyze's conflict path pays nothing. `kernel_delete_binary`'s precedent (a kernel
+  primitive that emits its own `del`) is the shape; `docs/implementation-notes.md` §"where the bit is
+  set" updated, since it still said the proof `delete` was the rule's.
 - **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
   highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the

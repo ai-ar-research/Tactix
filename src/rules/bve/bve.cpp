@@ -746,9 +746,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     Clause *c = clause_at(k.arena, ref);
     if (c->garbage())
       return;
-    if (k.proof)
-      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-    kernel_mark_garbage(k, c);
+    kernel_delete_clause(k, c);
   };
   auto del_all = [&](const std::vector<MClause> &side) {
     for (const MClause &m : side) {

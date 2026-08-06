@@ -511,9 +511,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
 
   if (subsume) {
     Clause *d = clause_at(k.arena, subsumed_ref); // re-deref: arena moved
-    if (k.proof)
-      k.proof->del(k.next_clause_id, d->id(), d->lits, d->size);
-    kernel_mark_garbage(k, d);
+    kernel_delete_clause(k, d);
     k.stats.otfs_subsumed++;
   }
 }
@@ -795,9 +793,7 @@ static void eager_subsume_recent(Kernel &k, const Lit *lits, uint32_t size) {
       k.stats.eager_reason_skipped++;
       continue;
     }
-    if (k.proof)
-      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-    kernel_mark_garbage(k, c);
+    kernel_delete_clause(k, c);
     k.eager_recent[s] = INVALID_REF;
     k.stats.eager_subsumed++;
     subsumed_any = true;

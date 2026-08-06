@@ -224,9 +224,7 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
           rest.push_back(l);
       kernel_push_witness(k, blocking, rest.data(),
                           static_cast<uint32_t>(rest.size()));
-      if (k.proof)
-        k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-      kernel_mark_garbage(k, c);
+      kernel_delete_clause(k, c);
     }
     k.stats.bce_deleted++;
   }

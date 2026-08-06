@@ -228,9 +228,7 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     // SCHED-G2: C1 shadowed this clause and C2 has now deleted it on its own.
     if (kernel_shadow_retire(k, c->id()))
       k.stats.c1_shadow_deleted++;
-    if (k.proof)
-      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-    kernel_mark_garbage(k, c);
+    kernel_delete_clause(k, c);
     k.stats.strengthen_subsumed++;
     (*changed)++;
     return 1;
@@ -312,9 +310,7 @@ static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
     if (k.value(l) > 0 && k.var_level(var_of(l)) == 0) {
       if (kernel_shadow_retire(k, c->id())) // SCHED-G2
         k.stats.c1_shadow_deleted++;
-      if (k.proof) // root-satisfied: delete
-        k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-      kernel_mark_garbage(k, c);
+      kernel_delete_clause(k, c); // root-satisfied: delete
       k.stats.flushed++;
       (*changed)++;
       return 1;
