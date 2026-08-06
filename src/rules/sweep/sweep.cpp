@@ -36,18 +36,9 @@ bool root_fixed(const Kernel &k, Var v) {
 bool binary_live(const Kernel &k, Lit a, Lit b) {
   const Lit scan = k.watches.size(a) <= k.watches.size(b) ? a : b;
   const Lit want = scan == a ? b : a;
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[scan].offset;
-  const uint32_t sz = k.watches.heads[scan].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == want)
-        return true;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
+  for (const WatchEntry w : k.watches.entries(scan))
+    if (w.binary() && w.other() == want)
+      return true;
   return false;
 }
 
@@ -265,16 +256,10 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
     const Var v = e.vars[i];
     for (uint32_t pol = 0; pol < 2 && !r.budget.over(k, ticks); pol++) {
       const Lit l = make_lit(v, pol != 0);
-      const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-      const uint32_t sz = k.watches.heads[l].size;
-      ticks += sz;
-      for (uint32_t w_i = 0; w_i < sz;) {
-        const Watch w{ws[w_i]};
-        if (!w.binary()) {
-          w_i += 2; // large clauses come from the occurrence index below
-          continue;
-        }
-        w_i += 1;
+      ticks += k.watches.size(l);
+      for (const WatchEntry w : k.watches.entries(l)) {
+        if (!w.binary())
+          continue; // large clauses come from the occurrence index below
         const Lit o = w.other();
         if (k.values[l] > 0 || k.values[o] > 0)
           continue; // root-satisfied: it constrains nothing

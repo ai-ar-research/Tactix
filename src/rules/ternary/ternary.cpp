@@ -32,18 +32,9 @@ bool has_lit(const Clause *c, Lit t) {
 // uses; kept local rather than shared, since the two callers want different
 // staleness policies (see subsume_forward's V4 reconciliation).
 bool live_binary(const Kernel &k, Lit a, Lit b) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  const uint32_t sz = k.watches.heads[a].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == b)
-        return true;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
+  for (const WatchEntry w : k.watches.entries(a))
+    if (w.binary() && w.other() == b)
+      return true;
   return false;
 }
 

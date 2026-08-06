@@ -122,14 +122,9 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       // same-phase anchor; probe == ¬l anchors the flip on l itself.
       const WatchHead &h = k.watches.heads[probe];
       if (h.size <= STRENGTHEN_OCCLIM) {
-        const uint32_t *ws = k.watches.arena.data() + h.offset;
-        for (uint32_t i = 0; i < h.size;) {
-          const Watch w{ws[i]};
-          if (!w.binary()) {
-            i += 2;
+        for (const WatchEntry w : k.watches.entries(probe)) {
+          if (!w.binary())
             continue;
-          }
-          i += 1;
           k.stats.strengthen_visits++; // SCHED-B4: a binary partner compared
           const Lit o = w.other();
           if (phase == 0) {
@@ -194,15 +189,10 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       const WatchHead &h = k.watches.heads[probe];
       if (h.size > STRENGTHEN_OCCLIM)
         continue;
-      const uint32_t *ws = k.watches.arena.data() + h.offset;
-      for (uint32_t i = 0; i < h.size;) {
-        const Watch w{ws[i]};
-        if (w.binary()) {
-          i += 1;
+      for (const WatchEntry w : k.watches.entries(probe)) {
+        if (w.binary())
           continue;
-        }
-        const Ref dref = ws[i + 1];
-        i += 2;
+        const Ref dref = w.ref();
         if (dref == self)
           continue;
         k.stats.strengthen_visits++; // SCHED-B4

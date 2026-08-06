@@ -31,16 +31,12 @@ void backbone_candidates(const Kernel &k, std::vector<Lit> &out) {
     for (int neg = 0; neg <= 1; neg++) {
       const Lit p = make_lit(v, neg != 0);
       const Lit nl = negate(p);
-      const WatchHead &h = k.watches.heads[nl];
-      const uint32_t *ws = k.watches.arena.data() + h.offset;
       bool big_head = false;
-      for (uint32_t i = 0; i < h.size;) {
-        if (Watch{ws[i]}.binary()) {
+      for (const WatchEntry w : k.watches.entries(nl))
+        if (w.binary()) {
           big_head = true;
           break;
         }
-        i += 2; // large watch: blocking word + ref word
-      }
       if (big_head)
         out.push_back(p);
     }

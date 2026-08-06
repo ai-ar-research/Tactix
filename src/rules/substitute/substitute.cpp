@@ -40,22 +40,19 @@ SccResult substitute_find_sccs(const Kernel &k) {
   std::vector<Lit> tstack; // Tarjan's component stack
   uint32_t next = 1;
 
-  // explicit DFS work stack: (node, next watch-word offset still to scan)
+  // explicit DFS work stack: (node, resume point in the node's watch list)
   struct Frame {
     Lit v;
-    uint32_t wi;
+    WatchIter it;
   };
   std::vector<Frame> work;
 
   auto active = [&](Lit l) { return k.values[l] == 0; };
   // Out-edges of p (implications p → q) are the binary watches of negate(p):
   // a binary clause (negate(p) ∨ q) is exactly the implication p → q. The
-  // watch arena is never mutated here (read-only pass), so its pointers stay
-  // valid for the whole walk.
-  auto wbase = [&](Lit l) {
-    return k.watches.arena.data() + k.watches.heads[l].offset;
-  };
-  auto wsize = [&](Lit l) { return k.watches.heads[l].size; };
+  // watch arena is never mutated here (read-only pass), so a suspended
+  // iterator stays valid across the whole DFS.
+  auto out_edges = [&](Lit p) { return k.watches.entries(negate(p)); };
 
   for (Lit root = 0; root < nlits; root++) {
     if (dfs[root] != 0 || !active(root))
@@ -63,32 +60,28 @@ SccResult substitute_find_sccs(const Kernel &k) {
     dfs[root] = low[root] = next++;
     onstack[root] = 1;
     tstack.push_back(root);
-    work.push_back({root, 0});
+    work.push_back({root, out_edges(root).begin()});
 
     while (!work.empty()) {
       const Lit v = work.back().v;
-      const Lit nv = negate(v);
-      const uint32_t *ws = wbase(nv);
-      const uint32_t sz = wsize(nv);
-      uint32_t wi = work.back().wi;
+      const WatchIter e = out_edges(v).end();
+      WatchIter it = work.back().it;
       bool descended = false;
-      while (wi < sz) {
-        const Watch w{ws[wi]};
-        if (!w.binary()) {
-          wi += 2; // large watch: blocking word + ref word
+      for (; it != e; ++it) {
+        const WatchEntry w = *it;
+        if (!w.binary())
           continue;
-        }
         const Lit q = w.other();
-        wi += 1;
         if (!active(q))
           continue; // edge into a root-fixed literal: not a node
         if (dfs[q] == 0) {
-          // tree edge: save v's resume point, then descend into q
-          work.back().wi = wi;
+          // tree edge: save v's resume point (past this edge), descend into q
+          work.back().it = ++it;
           dfs[q] = low[q] = next++;
           onstack[q] = 1;
           tstack.push_back(q);
-          work.push_back({q, 0}); // may reallocate `work`; touch it no more
+          // may reallocate `work`; touch it no more
+          work.push_back({q, out_edges(q).begin()});
           descended = true;
           break;
         }
@@ -97,7 +90,7 @@ SccResult substitute_find_sccs(const Kernel &k) {
       }
       if (descended)
         continue;
-      work.back().wi = wi;
+      work.back().it = it;
 
       if (low[v] == dfs[v]) {
         // v roots an SCC: pop the component off tstack
@@ -180,16 +173,10 @@ bool big_path_chain(const Kernel &k, Lit from, Lit to,
   for (size_t qi = 0; qi < queue.size() && !found; qi++) {
     const Lit cur = queue[qi];
     const Lit nl = negate(cur); // edges cur -> q are the binary watches of ¬cur
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[nl].offset;
-    const uint32_t sz = k.watches.heads[nl].size;
-    for (uint32_t i = 0; i < sz;) {
-      const Watch w{ws[i]};
-      if (!w.binary()) {
-        i += 2; // large watch: blocking word + ref word
+    for (const WatchEntry w : k.watches.entries(nl)) {
+      if (!w.binary())
         continue;
-      }
       const Lit q = w.other();
-      i += 1;
       if (k.values[q] != 0 || seen[q])
         continue;
       seen[q] = 1;
@@ -257,18 +244,9 @@ void emit_unsat(Kernel &k, Lit x) {
 // live copies of the binary pair (a ∨ b) in a's watch list.
 uint32_t binary_copies(const Kernel &k, Lit a, Lit b) {
   uint32_t n = 0;
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  const uint32_t sz = k.watches.heads[a].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == b)
-        n++;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
+  for (const WatchEntry w : k.watches.entries(a))
+    if (w.binary() && w.other() == b)
+      n++;
   return n;
 }
 inline bool binary_live(const Kernel &k, Lit a, Lit b) {
@@ -321,14 +299,9 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   for (Lit l = 0; l < nlits; l++) {
     if (!substitutable(l))
       continue;
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-    const uint32_t sz = k.watches.heads[l].size;
-    for (uint32_t i = 0; i < sz;) {
-      const Watch w{ws[i]};
-      if (!w.binary()) {
-        i += 2;
+    for (const WatchEntry w : k.watches.entries(l)) {
+      if (!w.binary())
         continue;
-      }
       if (binary_copies(k, l, w.other()) >= 2) {
         if (k.subst_hazard_round) { // A/B: the old per-ROUND skip
           k.stats.substitute_hazard_skips++;
@@ -339,7 +312,6 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         if (o < nlits && r.repr[o] != INVALID_LIT)
           poison_class(r.repr[o]);
       }
-      i += 1;
     }
   }
   if (any_hazard) {
@@ -522,18 +494,12 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   for (Lit l = 0; l < nlits; l++) {
     if (!substitutable(l))
       continue;
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-    const uint32_t sz = k.watches.heads[l].size;
-    for (uint32_t i = 0; i < sz;) {
-      const Watch w{ws[i]};
-      if (!w.binary()) {
-        i += 2;
+    for (const WatchEntry w : k.watches.entries(l)) {
+      if (!w.binary())
         continue;
-      }
       const Lit z = w.other();
       if (seen_pair.insert(kernel_binary_key(l, z)).second)
         bins.emplace_back(l, z);
-      i += 1;
     }
   }
   for (const auto &pr : bins) {
