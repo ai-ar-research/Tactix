@@ -1,0 +1,106 @@
+### nevers-raw
+label          arm                  verdict            wall    conflicts   factor     elim
+rx-ship        shipped              UNKNOWN          300.00      6524498        0        0
+rx-facoff      facoff               UNKNOWN          300.00      6551268        0        0
+rx-facon       facon                UNSATISFIABLE     20.86       508150      759        0
+rx-broad       broad                UNSATISFIABLE     20.86       508150      759        0
+rx-facon2      facon-size2          UNKNOWN          300.00      6553116        1        0
+rx-bveon       bveon                UNKNOWN          300.00      6538269        0        8
+rx-noxorgate   noxorgate            UNKNOWN          300.00      6956053        0        0
+rx-k           kissat               UNSATISFIABLE     12.26       616974      446     1257
+rx-k-nofac     kissat-no-factor     TO               300.00     10109764        0      228
+rx-k-nocong    kissat-no-congruence UNSATISFIABLE     11.04       628216      446     1258
+rx-k-nosweep   kissat-no-sweep      UNSATISFIABLE     14.50       730530      446     1261
+rx-k-noelim    kissat-no-eliminate  UNSATISFIABLE     13.62       521954      446        0
+rx-k-fsize2    kissat-fsize2        TO               300.00     10150088        0      228
+rx-k-alloff    kissat-alloff        TO               300.00      9930825        0        0
+rx-c           cadical              UNSATISFIABLE     17.97       836834      523     1353
+rx-c-nofac     cadical-no-factor    TO               300.00      7506967        0      228
+rx-ship900     shipped              UNKNOWN          900.00     15425114        0        0
+rx-facon900    facon                UNSATISFIABLE     20.84       508150      759        0
+fq-ship        shipped              UNKNOWN          300.00     14722766        0        0
+fq-facoff      facoff               UNKNOWN          300.00     14702275        0        0
+fq-facon       facon                UNSATISFIABLE    204.38      4709826      206       20
+fq-broad       broad                UNSATISFIABLE    203.68      4709826      206       20
+fq-facon2      facon-size2          UNKNOWN          300.01     10340769       77       19
+fq-bveon       bveon                UNKNOWN          300.00     14422060        0       19
+fq-k           kissat               UNSATISFIABLE     16.07       918618      120      109
+fq-k-nofac     kissat-no-factor     UNSATISFIABLE    188.64     13726436        0       19
+fq-k-nocong    kissat-no-congruence UNSATISFIABLE     19.90      1034224      122      111
+fq-k-nosweep   kissat-no-sweep      UNSATISFIABLE     15.92       918618      120      109
+fq-k-noelim    kissat-no-eliminate  UNSATISFIABLE     21.01       807641      119        0
+fq-k-novivify  kissat-no-vivify     UNSATISFIABLE     20.66      1126743      121      110
+fq-k-fsize2    kissat-fsize2        UNSATISFIABLE    201.27     14296915       80       99
+fq-k-alloff    kissat-alloff        UNSATISFIABLE    188.45     14511351        0        0
+fq-c           cadical              TO               300.00     12440326      263      243
+fq-c-nofac     cadical-no-factor    UNSATISFIABLE    296.21     17884243        0       19
+fq-c-facmax    cadical-facmax       TO               300.00     13881580      228      206
+fq-ship900     shipped              UNSATISFIABLE    377.78     17647052        0        0
+fq-facon900    facon                UNSATISFIABLE    194.02      4709826      206       20
+ctx-ship       shipped              SATISFIABLE        6.72        98906        0        0
+ctx-facon      facon                SATISFIABLE       53.27       486243      592        0
+nb5-ship       shipped              SATISFIABLE       18.19       446717        0        0
+nb5-facon      facon                UNKNOWN         1200.00     15309341      540        0
+
+### nevers2-raw
+label          arm                  verdict            wall    conflicts   factor     elim
+rx-ship-tm     shipped-tm           UNKNOWN           60.00      2102433        0        0
+rx-facon-tm    facon-tm             UNSATISFIABLE     20.82       508150      759        0
+fq-ship-tm     shipped-tm           UNKNOWN           60.00      3946968        0        0
+fq-facon-tm    facon-tm             UNKNOWN           60.00      1678855      202       19
+ctx-ship-tm    shipped-tm           SATISFIABLE        6.92        98906        0        0
+nb5-ship-tm    shipped-tm           SATISFIABLE       18.39       446717        0        0
+
+### nevers3-raw
+label          arm                  verdict            wall    conflicts   factor     elim
+rx-b1          facon-bound1         UNSATISFIABLE     21.60       448465      596        0
+rx-b2          facon-bound2         UNSATISFIABLE     24.46       599327      481        0
+rx-b4          facon-bound4         UNSATISFIABLE     29.70       752456      331        0
+fq-b1          facon-bound1         UNSATISFIABLE    232.22      5023462      164       22
+fq-b2          facon-bound2         UNSATISFIABLE    242.40      5502732      148       26
+fq-b4          facon-bound4         UNSATISFIABLE    224.29      4676745      109       19
+ctx-b1         facon-bound1         SATISFIABLE      129.66       888775      370        0
+ctx-b2         facon-bound2         SATISFIABLE      208.48      1340576      366        0
+ctx-b4         facon-bound4         SATISFIABLE      411.80      2453550      202        0
+nb5-b1         facon-bound1         UNKNOWN         1200.00     14118437      450        0
+nb5-b2         facon-bound2         UNKNOWN         1200.12     13864020      375        0
+nb5-b4         facon-bound4         UNKNOWN         1200.00     13902917      375        0
+
+### nevers4-raw
+label          arm                  verdict            wall    conflicts   factor     elim
+rx-bothon      bothon               UNSATISFIABLE     25.91       738121      761      912
+fq-bothon      bothon               UNSATISFIABLE    202.65      4709826      206       20
+ctx-bothon     bothon               SATISFIABLE      352.39      2386644      718     9079
+nb5-bothon     bothon               SATISFIABLE       24.15       611351     1004     3378
+
+### Factor/BVE slot decline attribution (TACTIX_SLOT_STATS=1 arms)
+=== label=rx-ship-tm instance=or_randxor_k3_n540_m540 cap=60s arm=shipped-tm
+c slot Factor             occ     88 adm     0 ok     0 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 0 warm 0 dns 88 one 0 nv 0 | handed 61600000000 spent 0 completed 0 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ     22 adm     0 ok     0 | dec dis 0 cap 0 pre 3 grd 0 bud 0 dly 0 mat 0 warm 0 dns 19 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=rx-facon-tm instance=or_randxor_k3_n540_m540 cap=60s arm=facon-tm
+c slot Factor             occ     45 adm    17 ok     3 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 28 warm 0 dns 0 one 0 nv 0 | handed 742061150 spent 253168 completed 17 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ     19 adm     0 ok     0 | dec dis 0 cap 0 pre 3 grd 0 bud 0 dly 0 mat 0 warm 0 dns 16 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=fq-ship-tm instance=unsat-set-b-fclqcolor-10-07-09 cap=60s arm=shipped-tm
+c slot Factor             occ    115 adm     0 ok     0 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 0 warm 0 dns 115 one 0 nv 0 | handed 80500000000 spent 0 completed 0 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ      8 adm     0 ok     0 | dec dis 0 cap 0 pre 2 grd 0 bud 0 dly 0 mat 0 warm 0 dns 6 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=fq-facon-tm instance=unsat-set-b-fclqcolor-10-07-09 cap=60s arm=facon-tm
+c slot Factor             occ     78 adm    41 ok     3 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 37 warm 0 dns 0 one 0 nv 0 | handed 838779900 spent 473134 completed 21 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ     17 adm    15 ok     0 | dec dis 0 cap 0 pre 2 grd 0 bud 0 dly 0 mat 0 warm 0 dns 0 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=ctx-ship-tm instance=ContextModel_output_7_3_9 cap=60s arm=shipped-tm
+c slot Factor             occ     24 adm     0 ok     0 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 0 warm 0 dns 24 one 0 nv 0 | handed 16800000000 spent 0 completed 0 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ     10 adm     0 ok     0 | dec dis 0 cap 0 pre 3 grd 0 bud 0 dly 0 mat 0 warm 0 dns 7 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=nb5-ship-tm instance=mp1-Nb5T15 cap=60s arm=shipped-tm
+c slot Factor             occ     46 adm     0 ok     0 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 0 warm 0 dns 46 one 0 nv 0 | handed 32200000000 spent 0 completed 0 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ      7 adm     0 ok     0 | dec dis 0 cap 0 pre 1 grd 0 bud 0 dly 0 mat 0 warm 0 dns 6 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=rx-bothon instance=or_randxor_k3_n540_m540 cap=300s arm=bothon
+c slot Factor             occ     54 adm    38 ok     5 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 16 warm 0 dns 0 one 0 nv 0 | handed 767655500 spent 396381 completed 31 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ     24 adm    21 ok     0 | dec dis 0 cap 0 pre 3 grd 0 bud 0 dly 0 mat 0 warm 0 dns 0 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=fq-bothon instance=unsat-set-b-fclqcolor-10-07-09 cap=300s arm=bothon
+c slot Factor             occ    123 adm    56 ok     5 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 67 warm 0 dns 0 one 0 nv 0 | handed 1163379050 spent 754376 completed 36 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ     31 adm    29 ok     0 | dec dis 0 cap 0 pre 2 grd 0 bud 0 dly 0 mat 0 warm 0 dns 0 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=ctx-bothon instance=ContextModel_output_7_3_9 cap=1200s arm=bothon
+c slot Factor             occ    108 adm    42 ok    11 | dec dis 0 cap 0 pre 0 grd 0 bud 12 dly 0 mat 54 warm 0 dns 0 one 0 nv 0 | handed 1294624650 spent 27385636 completed 33 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ     45 adm    42 ok     0 | dec dis 0 cap 0 pre 3 grd 0 bud 0 dly 0 mat 0 warm 0 dns 0 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
+=== label=nb5-bothon instance=mp1-Nb5T15 cap=1200s arm=bothon
+c slot Factor             occ     57 adm    18 ok     7 | dec dis 0 cap 0 pre 0 grd 0 bud 0 dly 0 mat 39 warm 0 dns 0 one 0 nv 0 | handed 739051750 spent 1333326 completed 15 | maxeff 0 clamped 0 floored 0 wrapped 0
+c slot BVE                occ     13 adm    12 ok     0 | dec dis 0 cap 0 pre 1 grd 0 bud 0 dly 0 mat 0 warm 0 dns 0 one 0 nv 0 | handed 0 spent 0 completed 0 | maxeff 2000000000 clamped 0 floored 0 wrapped 0
