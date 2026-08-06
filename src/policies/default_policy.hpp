@@ -9,9 +9,9 @@
 // conflicts, stable phases last the preceding focused phase's ticks,
 // focused intervals grow as modeint·n·log⁴n), the stable-only rephase
 // schedule (kissat rephase.c: rephaseint·n·log³n interval, B,W,I,B,W,O
-// rotation), and the inprocessing slot (every registry Inprocess-tier
-// rule, on kissat's size-scaled eliminate.c intervals). Constants are the
-// published kissat/cadical/Glucose defaults unless a comment says
+// rotation), and the inprocessing slot (every registry Inprocess-tier rule,
+// split across kissat's two size-scaled clocks — see SlotGroup). Constants
+// are the published kissat/cadical/Glucose defaults unless a comment says
 // otherwise.
 #pragma once
 
@@ -118,6 +118,35 @@ public:
   }
 };
 
+// --- the two inprocessing CLOCKS (ledger SP-SLOT-1 / SP-SLOT-6) ------------
+// Both references keep the probing pipeline and the elimination pipeline on
+// INDEPENDENT conflict schedules, and the two diverge over the solve:
+//   kissat  probe.c:85     UPDATE_CONFLICT_LIMIT(probe, probings, NLOGN)
+//                          with probeint=100
+//           eliminate.c:600 UPDATE_CONFLICT_LIMIT(eliminate, eliminations,
+//                          NLOG2N) with eliminateint=500
+//   cadical probe.cpp:980  delta = 25·inprobeint·log10(inprobingphases+9)
+//           elim.cpp:1161  delta = scale(elimint·(elimphases+1))
+// Under one clock everything rides the elimination cadence and the probing
+// family fires ~5x less often than the references run it, with the gap
+// widening. GROUP MEMBERSHIP IS POLICY (N1), like the order: it decides which
+// clock offers a rule its occasions, never whether the rule may be applied.
+enum class SlotGroup : uint8_t { Probe, Eliminate };
+
+// --- the authored inprocessing phase order (ledger SP-SLOT-4, theme T6) -----
+// The order in which DefaultPolicy offers inprocessing occasions is DATA, not
+// an emergent property of rule names. ORDER IS A POLICY CHOICE (N1): no rule
+// guard and no `instances()` may read this table, and it narrows nothing the
+// public API can apply — it fixes only the sequence THIS policy walks.
+struct SlotOrderRow {
+  const char *name;
+  SlotGroup group;
+};
+// The authored list, in order. Inprocess-tier rules absent from it are still
+// scheduled (appended, registry order) so a newly registered rule is never
+// silently dropped — but an authored position is what it should get.
+const SlotOrderRow *default_slot_order(size_t *count);
+
 class DefaultPolicy final : public Policy {
 public:
   // scheduling constants (each exists exactly once; the struct
@@ -161,6 +190,11 @@ public:
   // The constants presuppose that scaling, exactly as the restart constants
   // presuppose the EMA warm-up.
   static constexpr uint64_t SUBSUME_INTERVAL = 500;      // eliminateint
+  // The PROBING clock's base interval — kissat `probeint` (options.h:98),
+  // scaled by NLOGN rather than the eliminate clock's NLOG2N (probe.c:85).
+  // 100 vs 500 with one fewer log factor is why the probing pipeline runs
+  // several times per elimination phase in both references.
+  static constexpr uint64_t PROBE_INTERVAL = 100;        // probeint
   // Effort budgets (docs/design/effort-scheduler-design.md). kissat kimits.h
   // SET_EFFORT_LIMIT: a technique's dose is a fixed per-mille fraction of the
   // SEARCH work done since that technique last ran, floored by an absolute
@@ -309,6 +343,10 @@ public:
   struct SlotEntry {
     int rule = -1;
     bool enabled = true;
+    // Which clock offers this entry its occasions (see SlotGroup). Set from
+    // the authored table when the slot is built; a POSED slot chooses its own,
+    // and the default puts an unclassified entry on the probing clock.
+    SlotGroup group = SlotGroup::Probe;
     // --- effort ledger ----------------------------------------------------
     // `permille` is this entry's share of the search work preceding its dose
     // (kissat options.h NAMEeffort); `meter` reads the rule's OWN work counter
@@ -422,6 +460,11 @@ public:
   // the first switch). Pure scheduling state — SwitchMode stays
   // guard-true and N1-appliable.
   uint32_t force_mode_ = 0;
+  // Slot-order arm (TACTIX_SLOT_ORDER=legacy, read once when the slot is
+  // built): false = the authored order, true = the pre-authored registry
+  // (name-sorted) order with BVE and Factor moved to the back. Reported on the
+  // `c slot-order` line so an A/B arm can be shown to have taken effect.
+  bool slot_order_legacy_ = false;
   // Closure delay ladder, default ON (TACTIX_NO_CLOSURE_DELAY reverts;
   // read once per solve): delay unproductive unmetered closures (see the
   // slot's unmetered branch).
@@ -467,13 +510,44 @@ public:
   // Factor's acceptance bound reads this level too (s4-factor-dosing §3.e).
   uint32_t bve_level_ = 0;
   OccIndex inprocess_occ; // shared occurrence index, reused per phase
-  // Slot timing (kissat eliminate-slot schedule): the first limit is
-  // size-scaled at solve entry (kissat inits limits after parsing); after that
-  // phases fire on the growing NLOG2N interval alone.
+  // One inprocessing clock. Two live — `probe_clock` and `elim_clock` — on the
+  // formulas in update_slot_limit; see SlotGroup for the reference evidence.
+  struct SlotClock {
+    uint64_t next_conflicts = 0;
+    uint64_t rounds = 0; // phases run; also the interval growth key
+    // --- the elapsed interval is NECESSARY BUT NOT SUFFICIENT (SCHED-D3) ----
+    // Both references gate a phase on more than its conflict interval, and the
+    // two clocks are gated differently:
+    //   PROBE — cadical `probe.cpp:23`: after the first phase, a REDUCE must
+    //   have happened since the last one (`last.inprobe.reductions ==
+    //   stats.reductions` declines). Probing re-reads a clause database the
+    //   reduce is what turns over.
+    //   ELIMINATE — a NEW-MATERIAL watermark: kissat `eliminate.c:33-38`
+    //   (`limits.eliminate.variables.{eliminate,subsume}` vs the live counters)
+    //   and cadical `elim.cpp:75-80` (`last.elim.fixed < stats.all.fixed ||
+    //   last.elim.marked < stats.mark.elim`). Without it a phase can fire
+    //   having learned nothing it could act on.
+    // Marks are snapshotted at phase ENTRY, so material produced INSIDE a phase
+    // re-admits the next one. That is deliberately weaker than kissat's
+    // completion-gated advance and equals cadical's restore-on-incomplete case
+    // (elim.cpp:774-775/909): it can re-run needlessly, it can never starve a
+    // budget-cut pipeline of its follow-up.
+    uint64_t reductions_mark = 0; // probe gate: k.stats.reductions at entry
+    uint64_t marks_mark = 0;      // elim gate: k.stats.bve_marks at entry
+    uint64_t fixed_mark = 0;      // elim gate: kernel_root_fixed at entry
+    // DIAGNOSTIC: episodes in which the gate turned an ELAPSED interval down.
+    // Counted per episode, not per search step, so it reads as "times the phase
+    // was declined". Zero across a tier means the gate is inert and any arm
+    // resting on it is vacuous.
+    bool blocked = false;
+    uint64_t blocked_episodes = 0;
+  };
+  SlotClock probe_clock, elim_clock;
+  // Slot timing: the first limit of each clock is size-scaled at solve entry
+  // (kissat inits limits after parsing); after that each clock fires on its own
+  // growing interval.
   struct {
     bool initialized = false;
-    uint64_t next_conflicts = 0;
-    uint64_t rounds = 0; // interval growth key (policy-local)
     // Ticks spent inside simplification phases. The kernel keeps ONE global
     // propagation meter covering search and probing alike; kissat keeps them
     // apart (search_ticks vs probing_ticks) because every effort budget — and
@@ -494,16 +568,23 @@ public:
   bool want_switch_mode(const Kernel &) const;
   bool want_rephase(const Kernel &) const;
   bool want_reorder(const Kernel &) const;
-  bool want_inprocess(const Kernel &) const;
+  // One predicate per clock (see SlotGroup). Both are checked in the search
+  // loop, probing first — kissat search.c:214-217, cadical internal.cpp:322-325.
+  // Non-const: a declined-past-interval episode is counted (SlotClock::blocked).
+  bool want_slot_phase(const Kernel &, SlotGroup);
   void tick_reluctant();                   // per-conflict in stable mode
   void update_mode_limits(const Kernel &); // after a switch
   void update_restart_limit(const Kernel &); // after a restart
   void update_reduce_limit(const Kernel &);  // after a reduction
   void update_rephase_limit(const Kernel &); // after a rephase
   void update_reorder_limit(const Kernel &); // after a reorder
-  void update_inprocess_limit(const Kernel &); // after a slot pass
+  void update_slot_limit(const Kernel &, SlotGroup); // after a slot phase
 
 private:
+  // One inprocessing phase on one clock: descend to a quiescent root, walk this
+  // group's slot entries for INPROCESS_PHASE_ROUNDS outer rounds, reclaim.
+  // Returns 20 when the phase refuted the formula, 0 otherwise.
+  int run_slot_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
   void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs
   void observe_decision_rate(const Kernel &);       // before each analysis
   uint32_t want_bump_reasons(const Kernel &);       // the kissat gate ladder

@@ -209,11 +209,149 @@ static void test_vivify_scope_tracks_tier2(void) {
          wide);
 }
 
+// --- SCHED-D1: the authored slot order covers the registry -----------------
+//
+// The slot order is DATA (default_slot_order). A rule the table does not name
+// is still scheduled — appended, registry order — which is exactly the T6
+// defect coming back for that rule: its position becomes an accident again.
+// This test fails when an Inprocess-tier rule is registered without being given
+// an authored position, and when the table names a rule that is not registered
+// at the Inprocess tier (a stale row orders nothing).
+static void test_authored_slot_order_covers_registry(void) {
+  size_t norder = 0;
+  const SlotOrderRow *order = default_slot_order(&norder);
+  const std::vector<RuleVTable> &rules = tactix_rules();
+  for (const RuleVTable &r : rules) {
+    if (r.tier != RuleTier::Inprocess)
+      continue;
+    bool found = false;
+    for (size_t o = 0; o < norder; o++)
+      found = found || !std::strcmp(order[o].name, r.name);
+    if (!found)
+      std::printf("  UNAUTHORED Inprocess rule: %s\n", r.name);
+    assert(found &&
+           "an Inprocess-tier rule has no authored slot position -- give it one "
+           "in AUTHORED_SLOT_ORDER (SCHED-D1); the append fallback puts it last "
+           "by accident, which is the T6 defect");
+  }
+  for (size_t o = 0; o < norder; o++) {
+    bool found = false;
+    for (const RuleVTable &r : rules)
+      found = found ||
+              (r.tier == RuleTier::Inprocess && !std::strcmp(order[o].name, r.name));
+    if (!found)
+      std::printf("  STALE authored row: %s\n", order[o].name);
+    assert(found && "AUTHORED_SLOT_ORDER names a rule that is not registered at "
+                    "the Inprocess tier");
+  }
+  std::printf("  authored slot order: %zu rows, registry-complete\n", norder);
+}
+
+// --- SCHED-D2: the two clocks are actually two ------------------------------
+//
+// kissat runs the probing pipeline on probeint=100 x NLOGN (probe.c:85) and the
+// elimination pipeline on eliminateint=500 x NLOG2N (eliminate.c:600). Under
+// one clock everything rides the elimination cadence. This test fails if the
+// probing clock is ever scheduled no sooner than the elimination clock at the
+// same phase count -- i.e. if the split silently collapses back to one clock,
+// which is exactly the shape that makes an A/B arm vacuous.
+static void test_two_slot_clocks_diverge(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  p.inprocess.initialized = true;
+  for (uint64_t n = 0; n < 8; n++) {
+    p.probe_clock.rounds = n;
+    p.elim_clock.rounds = n;
+    p.update_slot_limit(k, SlotGroup::Probe);
+    p.update_slot_limit(k, SlotGroup::Eliminate);
+    assert(p.probe_clock.next_conflicts < p.elim_clock.next_conflicts &&
+           "the probing clock is not firing sooner than the elimination clock "
+           "-- the two clocks have collapsed into one (SCHED-D2)");
+    // and the gap WIDENS: NLOG2N outgrows NLOGN (ledger SP-SLOT-1).
+    if (n) {
+      p.probe_clock.rounds = n - 1;
+      p.elim_clock.rounds = n - 1;
+      p.update_slot_limit(k, SlotGroup::Probe);
+      const uint64_t prev_probe = p.probe_clock.next_conflicts;
+      p.update_slot_limit(k, SlotGroup::Eliminate);
+      const uint64_t prev_elim = p.elim_clock.next_conflicts;
+      p.probe_clock.rounds = n;
+      p.elim_clock.rounds = n;
+      p.update_slot_limit(k, SlotGroup::Probe);
+      p.update_slot_limit(k, SlotGroup::Eliminate);
+      assert(p.elim_clock.next_conflicts - prev_elim >=
+                 p.probe_clock.next_conflicts - prev_probe &&
+             "the elimination interval is not growing at least as fast as the "
+             "probing one");
+    }
+  }
+  std::printf("  slot clocks: probe next=%llu < eliminate next=%llu at 8 phases\n",
+              (unsigned long long)p.probe_clock.next_conflicts,
+              (unsigned long long)p.elim_clock.next_conflicts);
+}
+
+// --- SCHED-D3: the elapsed interval is necessary, not sufficient -----------
+//
+// kissat eliminate.c:33-38 and cadical elim.cpp:75-81 both refuse an
+// elimination phase whose interval has elapsed but which has no new material to
+// act on; cadical probe.cpp:23 refuses an inprobe phase with no reduce since the
+// last one. Both gates are SAFETY VALVES: on most instances the pipeline keeps
+// producing material and they never bind, which is exactly why they need a unit
+// test -- a tier run cannot distinguish "gate correct and quiet" from "gate
+// wired to nothing".
+static void test_slot_gates_decline_without_new_material(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  p.inprocess.initialized = true;
+  k.stats.conflicts = 100;
+  // Past the first phase on both clocks, intervals elapsed, marks == live: the
+  // interval says GO and the gates must still say no.
+  p.probe_clock.rounds = p.elim_clock.rounds = 1;
+  p.probe_clock.next_conflicts = p.elim_clock.next_conflicts = 0;
+  p.probe_clock.reductions_mark = k.stats.reductions;
+  p.elim_clock.marks_mark = k.stats.bve_marks;
+  p.elim_clock.fixed_mark = kernel_root_fixed(k);
+  assert(!p.want_slot_phase(k, SlotGroup::Eliminate) &&
+         "an elimination phase fired with no new material (SCHED-D3)");
+  assert(!p.want_slot_phase(k, SlotGroup::Probe) &&
+         "a probing phase fired with no reduce since the last one (SCHED-D3)");
+  assert(p.elim_clock.blocked_episodes == 1 &&
+         p.probe_clock.blocked_episodes == 1);
+  // An episode is counted once, not once per search step.
+  (void)p.want_slot_phase(k, SlotGroup::Eliminate);
+  (void)p.want_slot_phase(k, SlotGroup::Probe);
+  assert(p.elim_clock.blocked_episodes == 1 &&
+         p.probe_clock.blocked_episodes == 1);
+  // New elimination material re-admits; so does a reduce for probing.
+  k.stats.bve_marks++;
+  assert(p.want_slot_phase(k, SlotGroup::Eliminate));
+  k.stats.reductions++;
+  assert(p.want_slot_phase(k, SlotGroup::Probe));
+  // The FIRST phase of each clock is exempt -- it is the preprocessing pass and
+  // has no previous phase to be new relative to (cadical's
+  // `stats.inprobingphases &&`).
+  DefaultPolicy q;
+  q.inprocess.initialized = true;
+  q.probe_clock.next_conflicts = q.elim_clock.next_conflicts = 0;
+  q.probe_clock.reductions_mark = k.stats.reductions;
+  q.elim_clock.marks_mark = k.stats.bve_marks;
+  q.elim_clock.fixed_mark = kernel_root_fixed(k);
+  assert(q.want_slot_phase(k, SlotGroup::Probe) &&
+         q.want_slot_phase(k, SlotGroup::Eliminate) &&
+         "the preprocessing phase must not be gated");
+  std::printf("  slot gates: decline without new material, re-admit with it\n");
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
   test_transitive_instances_rotate();
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
+  test_authored_slot_order_covers_registry();
+  test_two_slot_clocks_diverge();
+  test_slot_gates_decline_without_new_material();
   std::printf("test_scheduling: all passed\n");
   return 0;
 }

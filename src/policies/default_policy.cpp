@@ -379,34 +379,132 @@ const EffortSpec *effort_spec(const char *name) {
   return nullptr; // all-or-nothing rule: no titration, no meter
 }
 
+// --- the authored inprocessing phase order (see SlotOrderRow) ---------------
+// Merged from the references' argued pipelines, which agree wherever both own
+// the technique:
+//   kissat  probe.c:32-41    congruence, substitute, backbone, vivify, sweep,
+//                            substitute, transitive_reduction, backbone, factor
+//           eliminate.c:441  forward subsumption, then BVE, once per round
+//   cadical probe.cpp:934-952  decompose (ELS), ternary, probe, extract_gates,
+//                            backbone, sweep, vivify, transred, factor
+//           elim.cpp:1044/1073/1090  subsume, then BVE rounds (instantiate sits
+//                            inside the round at :947), then block (BCE)
+// The invariants both references fix, each of which name-sorting broke:
+//   1. ELS (Substitute) precedes every reader of the binary implication graph —
+//      Backbone, Probe, TransitiveReduce, Factor.
+//   2. Congruence feeds Substitute, so the two are adjacent and open the pass.
+//   3. Vivify precedes TransitiveReduce.
+//   4. Factor closes the probing pipeline.
+//   5. Subsumption precedes elimination.
+//   6. BCE closes the elimination pipeline (cadical block() runs after
+//      elim_round); name-sorting ran it first of all.
+// Where the references disagree — kissat vivifies then sweeps, cadical sweeps
+// then vivifies — we take kissat's, so Sweep's environments are built over an
+// already vivified database.
+//
+// The `group` column is the same partition, and it is the references' own:
+// every PROBE row is called from kissat's `probe()` / cadical's `inprobe()`,
+// every ELIMINATE row from kissat's `eliminate()` / cadical's `elim()`. Where
+// only one reference owns a technique, that reference decides —
+// HyperTernaryRes and Probe are cadical inprobe members (kissat has neither as
+// a separate technique), Instantiate and BCE are cadical elim members
+// (elim.cpp:947 inside the round, block() after it). BCE is the one row no
+// reference schedules by default (kissat has no BCE, cadical ships block=0);
+// cadical's placement inside `elim` is still the only evidence there is.
+constexpr SlotOrderRow AUTHORED_SLOT_ORDER[] = {
+    // probing pipeline (kissat probe.c:32-41, cadical probe.cpp:934-952)
+    {"Congruence", SlotGroup::Probe},
+    {"Substitute", SlotGroup::Probe},
+    {"HyperTernaryRes", SlotGroup::Probe},
+    {"Probe", SlotGroup::Probe},
+    {"Backbone", SlotGroup::Probe},
+    {"Vivify", SlotGroup::Probe},
+    {"Sweep", SlotGroup::Probe},
+    {"TransitiveReduce", SlotGroup::Probe},
+    {"Factor", SlotGroup::Probe},
+    // elimination pipeline (kissat eliminate.c:441, cadical elim.cpp:1044-1090)
+    {"SubsumeForward", SlotGroup::Eliminate},
+    {"Strengthen", SlotGroup::Eliminate},
+    {"BVE", SlotGroup::Eliminate},
+    {"Instantiate", SlotGroup::Eliminate},
+    {"BCE", SlotGroup::Eliminate},
+};
+
 } // namespace
 
-bool DefaultPolicy::want_inprocess(const Kernel &k) const {
-  if (!inprocess.initialized || k.stats.conflicts < inprocess.next_conflicts)
+const SlotOrderRow *default_slot_order(size_t *count) {
+  if (count)
+    *count = sizeof(AUTHORED_SLOT_ORDER) / sizeof(AUTHORED_SLOT_ORDER[0]);
+  return AUTHORED_SLOT_ORDER;
+}
+
+bool DefaultPolicy::want_slot_phase(const Kernel &k, SlotGroup g) {
+  if (!inprocess.initialized)
     return false;
-  // The during-search phases CARRY the elimination value (BVE is deferred
-  // out of preprocessing), so they fire on the interval alone — no
-  // slot-global new-material gate.
+  SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
+  if (k.stats.conflicts < c.next_conflicts)
+    return false;
+  // The interval is NECESSARY BUT NOT SUFFICIENT (see SlotClock's gate block).
+  // The FIRST phase of each clock is exempt from both gates — it is the
+  // preprocessing pass, there is no previous phase to be new relative to, and
+  // both references exempt it too (cadical's `stats.inprobingphases &&`;
+  // kissat's watermark starts at 0 while every variable starts marked).
+  const bool gated =
+      c.rounds != 0 &&
+      (g == SlotGroup::Probe
+           // cadical probe.cpp:23 — no inprobe phase unless a reduce has
+           // happened since the last one.
+           //
+           // MEASURED INERT HERE, and provably so: our probe interval is
+           // ~2500·n·log10(n+9) and our reduce interval 2000+300·r, so matching
+           // cumulative conflicts gives r ≈ 2.9·n·√log n and a probe interval
+           // ~2.9·√log n times the reduce interval — always > 1, so two probe
+           // phases never fall inside one reduce interval. Kept because it is
+           // the reference's gate and costs one compare: it becomes live the
+           // moment the probing clock is given cadical's near-constant spacing
+           // (probe.cpp:980), which is exactly where cadical needs it.
+           ? k.stats.reductions == c.reductions_mark
+           // kissat eliminate.c:33-38 / cadical elim.cpp:75-80 — wait for new
+           // root units or newly marked elimination candidates.
+           : (k.stats.bve_marks <= c.marks_mark &&
+              kernel_root_fixed(k) <= c.fixed_mark));
+  if (gated) {
+    if (!c.blocked) { // count episodes, not search steps
+      c.blocked = true;
+      c.blocked_episodes++;
+    }
+    return false;
+  }
   return true;
 }
 
-// kissat kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N,
-// true): interval grows as eliminateint · n·log10(n+9)², size-scaled
-void DefaultPolicy::update_inprocess_limit(const Kernel &k) {
-  // The during-search phases CARRY the elimination value (BVE is deferred
-  // out of conflicts==0), so the GROWING interval is load-bearing; a fixed
-  // interval is the wrong control.
-  {
-    uint64_t n = inprocess.rounds; // policy-local growth key
-    if (!n)
-      n = 1;
-    const double lg = std::log10(static_cast<double>(n) + 9);
-    const uint64_t delta = static_cast<uint64_t>(
-        SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg);
-    inprocess.next_conflicts =
-        k.stats.conflicts + scale_inprocessing_delta(k, delta);
-    return;
-  }
+// Each clock's interval, on its own reference formula (see SlotGroup).
+//   probe:     kissat kimits.h UPDATE_CONFLICT_LIMIT(probe, probings, NLOGN,
+//              true) = probeint · n·log10(n+9), size-scaled.
+//   eliminate: UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N, true)
+//              = eliminateint · n·log10(n+9)², size-scaled.
+// Both keys are the phase count of THAT clock, so the two schedules separate
+// on their own and the ratio widens as the solve goes on — the reference
+// behaviour SP-SLOT-1 records and one clock cannot express.
+//
+// The formulas are kissat's rather than cadical's on purpose: cadical's probe
+// reschedule is essentially CONSTANT spacing (probe.cpp:980,
+// 25·inprobeint·log10(phases+9) ≈ 2385 conflicts at phase 0 and ≈ 2500 at
+// phase 1), which its own comment at probe.cpp:889-891 misdescribes as a sqrt
+// schedule. Our whole slot is already denominated in kissat's size-scaled
+// growing intervals, and mixing a constant-spacing probing clock into that
+// would change two things at once.
+void DefaultPolicy::update_slot_limit(const Kernel &k, SlotGroup g) {
+  SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
+  uint64_t n = c.rounds; // policy-local growth key
+  if (!n)
+    n = 1;
+  const double lg = std::log10(static_cast<double>(n) + 9);
+  const double base = g == SlotGroup::Probe
+                          ? PROBE_INTERVAL * static_cast<double>(n) * lg
+                          : SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg;
+  c.next_conflicts = k.stats.conflicts +
+                     scale_inprocessing_delta(k, static_cast<uint64_t>(base));
 }
 
 // reduce cadence. Default: arithmetically growing interval.
@@ -582,11 +680,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // Inprocess-tier rule is enabled, the probing family included, and BVE
       // is the only entry deferred out of the conflicts==0 preprocessing
       // phase (kissat fastel=0) so its doses land on a formula probing has
-      // already simplified. Slot order is registry (name-sorted) order with
-      // BVE and then Factor moved to the back — see move_to_back below.
-      // Rules are named here only by the ablation knobs; the composition
-      // itself is derived from the registry, so a newly registered rule joins
-      // without editing this function.
+      // already simplified. Slot ORDER is the authored list
+      // (AUTHORED_SLOT_ORDER); membership is still derived from the registry,
+      // so a newly registered rule joins without editing this function.
       const std::vector<RuleVTable> &rules = tactix_rules();
       // TACTIX_NO_BVE / TACTIX_NO_FACTOR: the two named ablation knobs, kept
       // because each rule has a standing open investigation (BVE's bimodal
@@ -609,8 +705,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             return true;
         return false;
       };
-      for (int i = 0; i < static_cast<int>(rules.size()); i++)
-        if (rules[i].tier == RuleTier::Inprocess) {
+      const auto add_entry = [&](int i) {
+        {
           const char *nm = rules[i].name;
           // BASELINE: every implemented proof rule ships scheduled. A rule-off
           // arm is a diagnostic for a SCHEDULING defect, never a shipped
@@ -627,6 +723,21 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           e.defer_preprocess = !std::strcmp(nm, "BVE");
           e.rule = i;
           e.enabled = on;
+          // Which clock offers this entry its occasions. Read from the authored
+          // table by NAME, so it is independent of the order arm below: the
+          // legacy-order arm still runs the two clocks, which is what makes D1
+          // and D2 separately priceable. An unauthored rule keeps SlotEntry's
+          // default (the probing clock); test_scheduling fails the build before
+          // that can happen silently.
+          {
+            size_t norder = 0;
+            const SlotOrderRow *order = default_slot_order(&norder);
+            for (size_t o = 0; o < norder; o++)
+              if (!std::strcmp(order[o].name, nm)) {
+                e.group = order[o].group;
+                break;
+              }
+          }
           if (const EffortSpec *s = effort_spec(nm)) {
             e.permille = s->permille;
             e.meter = s->meter;
@@ -665,33 +776,59 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           }
           inprocess_slot.push_back(e);
         }
-      // Phase order: name-sorted slot, then BVE moved last (kissat eliminates
-      // on a formula its pipeline has already simplified; running BVE FIRST on
-      // raw structure is measurably much worse), then Factor last of all
-      // (kissat probe.c:41 — each phase is probing-family → simplifiers → BVE
-      // → Factor, so the NEXT phase's BVE sees the factored formula; the
-      // eliminate/factor alternation in one-slot form,
-      // docs/design/s4-factor-dosing-design.md §3.c).
-      const auto move_to_back = [this](const char *name) {
-        const std::vector<RuleVTable> &rr = tactix_rules();
-        for (size_t j = 0; j < inprocess_slot.size(); j++)
-          if (!std::strcmp(rr[inprocess_slot[j].rule].name, name)) {
-            const SlotEntry e = inprocess_slot[j];
-            inprocess_slot.erase(inprocess_slot.begin() + j);
-            inprocess_slot.push_back(e);
-            break;
-          }
       };
-      move_to_back("BVE");
-      move_to_back("Factor");
+      // PHASE ORDER. Default: the authored list, walked in order; any
+      // Inprocess-tier rule it does not name is appended in registry order so a
+      // newly registered rule is scheduled rather than silently dropped (give
+      // it an authored position — the append is a safety net, not the design).
+      //
+      // TACTIX_SLOT_ORDER=legacy restores the pre-authored order — registry
+      // (strcmp on rule names) order with BVE and then Factor moved to the
+      // back. It is the A/B arm for the authored order and nothing else.
+      const char *order_env = std::getenv("TACTIX_SLOT_ORDER");
+      slot_order_legacy_ = order_env && !std::strcmp(order_env, "legacy");
+      if (slot_order_legacy_) {
+        for (int i = 0; i < static_cast<int>(rules.size()); i++)
+          if (rules[i].tier == RuleTier::Inprocess)
+            add_entry(i);
+        const auto move_to_back = [this](const char *name) {
+          const std::vector<RuleVTable> &rr = tactix_rules();
+          for (size_t j = 0; j < inprocess_slot.size(); j++)
+            if (!std::strcmp(rr[inprocess_slot[j].rule].name, name)) {
+              const SlotEntry e = inprocess_slot[j];
+              inprocess_slot.erase(inprocess_slot.begin() + j);
+              inprocess_slot.push_back(e);
+              break;
+            }
+        };
+        move_to_back("BVE");
+        move_to_back("Factor");
+      } else {
+        size_t norder = 0;
+        const SlotOrderRow *order = default_slot_order(&norder);
+        std::vector<bool> placed(rules.size(), false);
+        for (size_t o = 0; o < norder; o++)
+          for (int i = 0; i < static_cast<int>(rules.size()); i++)
+            if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
+                !std::strcmp(rules[i].name, order[o].name)) {
+              placed[i] = true;
+              add_entry(i);
+              break;
+            }
+        for (int i = 0; i < static_cast<int>(rules.size()); i++)
+          if (rules[i].tier == RuleTier::Inprocess && !placed[i])
+            add_entry(i);
+      }
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;
-      // Preprocess: the first phase fires at conflicts=0, before any search
-      // state exists, so simplification never perturbs an in-progress SAT
-      // search (the SAT-safety finding). Subsequent phases are rare (the
-      // interval grows super-linearly in phase count, update_inprocess_limit).
-      inprocess.next_conflicts = k.stats.conflicts;
+      // Preprocess: BOTH clocks fire at conflicts=0, before any search state
+      // exists, so simplification never perturbs an in-progress SAT search (the
+      // SAT-safety finding). The probing phase runs first and the elimination
+      // phase immediately after it, which is the reference arrangement —
+      // kissat probe_initially then eliminate, cadical inprobe then elim.
+      probe_clock.next_conflicts = k.stats.conflicts;
+      elim_clock.next_conflicts = k.stats.conflicts;
     }
   }
   bool lucky_tried = false;
@@ -876,666 +1013,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     // dispatch — macro tier, off the hot path by construction); a rule
     // that breaks quiescence (e.g. a strengthened unit) makes later
     // guards fail and the loop re-propagates
-    if (want_inprocess(k)) {
-      // A simplification PHASE: descend to a quiescent root (a transient flush
-      // that keeps saved/target phases — kernel_backtrack(update_phases=true) —
-      // so search re-descends toward the same region afterward), then give each
-      // enabled technique ONE DOSE, sized as a per-mille fraction of the search
-      // work that preceded it (kissat SET_EFFORT_LIMIT; the ledger lives in
-      // SlotEntry). Bounding matters — an unbounded fixpoint drowns even
-      // trivial instances — but do NOT bound by APPLICATION COUNT: that is
-      // blind to formula size and caps an O(applications × formula) loop
-      // rather than capping simplification.
-      const uint64_t phase_ticks_at_entry = k.stats.ticks;
-      const uint64_t phase_props_at_entry = k.stats.propagations;
-      // Wall clock for the WHOLE slot, so the `c timing` report can separate
-      // the rules' own time (charged per id by apply_rule) from the phase
-      // scaffolding around them — index build, garbage collection, the
-      // scheduling itself. Diagnostic only; nothing reads it back. The phase
-      // has exactly one exit (below), so one accumulate covers every path.
-      const uint64_t phase_nanos_at_entry = now_nanos();
-      k.stats.inprocess_phases++;
-      if (k.level > 0 && restart_guard(k))
-        restart_apply_to(k, 0);
-      // Attach the shared occurrence index for the phase: the occurrence
-      // consumers (BVE) read it instead of rebuilding a ~O(arena) index per
-      // apply. Detached on EVERY exit below so k.dense never dangles.
-      kernel_dense_connect(k, inprocess_occ);
-      // Factor grid-selection policy for this phase: pure config, like
-      // k.bve_bound — Factor is a batch entry reached via r.apply(k) below and
-      // reads it only there, so once per phase suffices. Scoped set/clear
-      // (mirrors the dense index) so the kernel never holds a dangling
-      // pointer into this policy after solve returns.
-      default_factor_match_.bound = k.factor_bound; // see DefaultFactorMatch
-      k.factor_match = factor_match ? factor_match : &default_factor_match_;
-      // Phase structure (kissat eliminate-round shape): a few OUTER rounds,
-      // each giving every enabled technique one dose, so a technique can pick
-      // up what the others exposed. Dose granularity follows the rule's
-      // instance surface, not its name:
-      //   DOSED rules (BVE, and the probing rules as they are enabled) take
-      //   variable/literal payloads that survive formula mutation, so the
-      //   policy enumerates candidates ONCE and applies them one at a time
-      //   until the budget is spent. This also stops re-running BVE's
-      //   O(formula) schedule per elimination, which the old canonical-apply
-      //   loop did (bve_apply = schedule + eliminate one variable).
-      //   BATCH rules (Strengthen/SubsumeForward/Vivify) take arena Refs, which
-      //   the garbage collection inside their first successful application
-      //   invalidates; they run as one canonical round and are metered after
-      //   the fact (kissat meters `substitute` the same way). Running them once
-      //   per BVE *variable* instead costs hundreds of full subsumption sweeps
-      //   per phase for no additional yield.
-      //   UNMETERED rules (Congruence/Substitute) expose only the canonical
-      //   instance: one pass per outer round, nothing to titrate.
-      bool phase_unsat = false;
-      bool phase_dosed = false; // a dosed rule ran: the phase owes a reclaim
-      const std::vector<RuleVTable> &rules = tactix_rules();
-      // Budgets: the dose is `permille` of the search work done since this
-      // entry last ran (kissat kimits.h SET_EFFORT_LIMIT), floored so a
-      // technique with no search to amortize still gets a usable first dose.
-      // Computed per entry at the point of use (set_entry_limit), and the
-      // anchor advances only on the ADMITTED path, so a declined occasion does
-      // not discard its accrued entitlement.
-      //
-      // §6 STOP RESPONSIVENESS: the slot polls `stop` at every entry boundary
-      // and inside the dosed per-instance loop, not only in the outer search
-      // loop — otherwise a long inprocessing phase leaves the solver deaf to
-      // SIGTERM for its whole duration, and a competition harness escalates to
-      // SIGKILL and loses the proof file. The phase has a single exit, so
-      // breaking out here still runs its cleanup (dense disconnect, GC, ledger
-      // accounting) and the proof stays well-formed.
-      // KNOWN RESIDUAL: a single rule APPLICATION is still uninterruptible, so
-      // this bounds latency to one application rather than one phase. An
-      // unmetered closure (Congruence) can be minutes on its own. The real fix
-      // is a termination flag the RULES poll — a rule-layer change.
-      for (int outer = 0;
-           outer < INPROCESS_PHASE_ROUNDS && !phase_unsat && !(stop && *stop);
-           outer++) {
-        bool round_changed = false;
-        for (SlotEntry &e : inprocess_slot) {
-          if (stop && *stop)
-            break; // §6: leave the phase promptly; cleanup runs at its exit
-          // TACTIX_SLOT_TRACE: per-entry scheduling visibility (debug aid —
-          // "did rule X even get considered, and what gated it?")
-          if (std::getenv("TACTIX_SLOT_TRACE"))
-            std::fprintf(stderr,
-                         "[slot] phase=%llu outer=%d %s enabled=%d defer=%d "
-                         "guard=%d dosed=%d meter=%llu limit=%llu\n",
-                         (unsigned long long)k.stats.inprocess_phases, outer,
-                         rules[e.rule].name, (int)e.enabled,
-                         (int)e.defer_preprocess, (int)rules[e.rule].guard(k),
-                         (int)e.dosed,
-                         (unsigned long long)(e.meter ? e.meter(k) : 0),
-                         (unsigned long long)e.limit);
-          e.tm.occasions++;
-          if (!e.enabled || phase_unsat) {
-            e.tm.dec_disabled++;
-            continue;
-          }
-          if (e.max_applies && e.applies >= e.max_applies) {
-            e.tm.dec_cap++;
-            continue; // DIAGNOSTIC round cap (see SlotEntry::max_applies)
-          }
-          if (e.defer_preprocess && k.stats.conflicts == 0) {
-            e.tm.dec_preprocess++;
-            continue; // no elimination at preprocessing (kissat fastel=0)
-          }
-          e.applies++;
-          const RuleVTable &r = rules[e.rule];
-          // Ceiling computed HERE, against the state the rule will actually
-          // see, rather than frozen at phase entry for all entries.
-          if (e.enabled && e.meter)
-            set_entry_limit(e, k);
-          // ACCUMULATE UNTIL WORTHWHILE (cadical limit.hpp:150). Decline while
-          // this occasion's delta is too small to repay the pass's setup, and
-          // crucially do NOT advance the anchor, so the entitlement accrues and
-          // a later occasion can afford a real pass. This is the only
-          // budget-based decline a batch entry has — the ceiling is re-baselined
-          // just above, which makes a `meter > limit` pre-check unfireable.
-          if (e.enabled && e.meter && e.thresh && e.doses > 0) {
-            const uint64_t delta = e.limit - e.meter(k);
-            if (delta < e.thresh * kernel_irredundant_clauses(k)) {
-              e.tm.dec_budget++;
-              continue; // anchor deliberately NOT advanced
-            }
-          }
-          const uint64_t limit = e.limit;
-          if (e.dosed && r.instances && r.apply_instance) {
-            if (!r.guard(k)) {
-              e.tm.dec_guard++;
-              continue;
-            }
-            // BVE ADMISSION. A during-search BVE dose fires only on
-            // binary-DENSE formulas — the same axis and threshold as Factor's
-            // density gate. Sparse formulas are where dosing measurably costs,
-            // and the cost is TRAJECTORY damage, not overhead. This is a
-            // hand-designed per-instance separator, a family that has measured
-            // badly more than once; its proper home is the phase-6 learned
-            // policy (plan §5.6 elimination-dosing exhibit). It survives only
-            // because removing admission entirely is much worse.
-            //
-            // TACTIX_BVE_ADMIT selects the mode (default `density` = shipped):
-            //   density — the binaries-per-variable proxy above.
-            //             TACTIX_BVE_DOSE_DENSITY overrides the threshold
-            //             (0 = dose everywhere).
-            //   cost    — decline once MEASURED cost-per-yield (resolutions per
-            //             eliminated variable) exceeds `Kernel::bve_cost_limit`.
-            //             The FIRST dose always runs: the ratio cannot be known
-            //             before eliminating anything, so this is
-            //             learn-then-decide rather than a static separator.
-            //   none    — no admission at all. Measured clearly negative; kept
-            //             as the A/B floor, not shippable.
-            if (e.retry_advice && k.stats.conflicts > 0) {
-              static const char *const admit_env = std::getenv("TACTIX_BVE_ADMIT");
-              const bool admit_cost = admit_env && !std::strcmp(admit_env, "cost");
-              const bool admit_none = admit_env && !std::strcmp(admit_env, "none");
-              if (admit_cost) {
-                const uint64_t elim = k.stats.bve_eliminated;
-                const uint64_t lim = k.bve_cost_limit;
-                if (lim && elim &&
-                    k.stats.bve_resolutions / elim > lim) {
-                  e.tm.dec_density++;
-                  continue; // this formula is paying too much per elimination
-                }
-              } else if (!admit_none) {
-                uint64_t dose_density = 6;
-                if (const char *dd = std::getenv("TACTIX_BVE_DOSE_DENSITY"))
-                  dose_density = std::strtoull(dd, nullptr, 10);
-                if (dose_density &&
-                    k.binary_ids.size() <
-                        dose_density * kernel_num_output_vars(k)) {
-                  e.tm.dec_density++;
-                  continue;
-                }
-              }
-            }
-            // TACTIX_BVE_ONESHOT (DIAGNOSTIC): the BVE entry fires exactly ONE
-            // dose per solve — full ramp, unbounded budget (see
-            // set_entry_limit) — then is declined for the rest of the solve.
-            // Isolates "recurrence hurts" from "the dose content hurts".
-            const bool bve_oneshot =
-                e.retry_advice && std::getenv("TACTIX_BVE_ONESHOT");
-            if (bve_oneshot && e.doses > 0)
-              continue; // the one shot is consumed
-            // TACTIX_BVE_CADENCE (DIAGNOSTIC): ONE completed call per phase —
-            // outer rounds 1-2 are declined so the phase cannot re-drip what
-            // the completed call finished.
-            if (e.retry_advice && outer > 0 &&
-                std::getenv("TACTIX_BVE_CADENCE"))
-              continue;
-            // BVE growth-slack RAMP (BveBoundPolicy): drive k.bve_bound
-            // cheap-first over the sub-policy's passes (kissat eliminate.c
-            // set_next_elimination_bound), so the non-growing eliminations
-            // happen first and later ones are measured against an
-            // already-simplified formula — the adaptive version of a single
-            // fixed bound. A null ramp (or a non-BVE dosed entry) = one pass at
-            // the current bound. The dose is SHARED across passes.
-            BveBoundPolicy *ramp = nullptr;
-            if (e.retry_advice && !std::getenv("TACTIX_NO_BVE_RAMP"))
-              ramp = bve_bound ? bve_bound : &default_bve_ramp_;
-            // In a during-search dose, kissat's persistent completion-gated
-            // bound LEVEL (see bve_level_ in the header) replaces the
-            // all-levels-per-dose ramp — one pass per dose at the current
-            // level; the level doubles below only when the dose completes.
-            const bool level_mode = e.retry_advice && ramp && !bve_oneshot;
-            const uint32_t passes = level_mode ? 1
-                                    : ramp     ? ramp->num_passes()
-                                               : 1;
-            bool dose_cut = false;
-            // kissat advances the bound only at a genuine FIXPOINT --
-            // `complete = !remain && !last_round_eliminated` (eliminate.c:544).
-            // "Finished within budget" is the weaker `!remain` half alone; the
-            // second half matters because a pass that still eliminated something
-            // has not exhausted the CURRENT bound, and advancing there moves to a
-            // more aggressive bound while cheap work remains.
-            uint64_t elim_at_last_pass = k.stats.bve_eliminated;
-            // During a ramp the policy consults BOTH the retry bit AND the
-            // per-variable needed-bound cache the rule fills
-            // (Kernel::bve_min_bound, enabled by bve_track_min_bound below): a
-            // variable rejected for growth at a low slack is skipped at every
-            // slack BELOW the one it actually needs, and re-attempted only when
-            // its neighbourhood changes (retry bit set). This is what stops the
-            // ramp re-resolving every rejected variable at all six levels. A
-            // bare retry bit CANNOT do this: it is cleared on any attempt
-            // (including a growth-abort), so it would skip a low-slack reject at
-            // every HIGHER slack too and collapse the ramp to level 0. Without a
-            // ramp the retry bit alone is consulted (cross-round dedup).
-            const bool use_retry = e.retry_advice && !ramp;
-            k.bve_track_min_bound = ramp != nullptr;
-            for (uint32_t pass = 0; pass < passes && !phase_unsat; pass++) {
-              // Skip remaining ramp levels once the dose is spent — but ONLY
-              // when ramping. Without a ramp (passes==1) this must NOT
-              // short-circuit: kernel_bve_retry_sync_fixed (persistent state)
-              // and r.instances must still run before the inner-loop meter
-              // check, and a top-of-pass break would skip that sync whenever
-              // the dose is already spent — a divergence visible only across
-              // multiple phases.
-              if (ramp && e.meter(k) > limit) {
-                dose_cut = true;
-                break;
-              }
-              if (ramp)
-                k.bve_bound = level_mode ? bve_level_ : ramp->bound(pass);
-              elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
-              // Fold newly root-fixed literals into the rule's retry advice before
-              // reading it: fixing y changes what BVE computes for y's neighbours
-              // with no clause add/delete to mark them. Needed by BOTH the retry
-              // and the ramp needed-bound paths (a fixing invalidates a neighbour's
-              // cached bound), so sync whenever the rule maintains the advice.
-              if (e.retry_advice)
-                kernel_bve_retry_sync_fixed(k);
-              inprocess_payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
-              const uint32_t n = r.instances(
-                  k, inprocess_payloads_.data(),
-                  static_cast<uint32_t>(inprocess_payloads_.size()));
-              if (std::getenv("TACTIX_SLOT_TRACE"))
-                std::fprintf(stderr,
-                             "[slot]   %s pass=%u n=%u bve_bound=%u meter=%llu "
-                             "limit=%llu\n",
-                             r.name, pass, n, k.bve_bound,
-                             (unsigned long long)e.meter(k),
-                             (unsigned long long)limit);
-              for (uint32_t i = 0; i < n; i++) {
-                if (e.meter(k) > limit) {
-                  dose_cut = true;
-                  break; // dose spent
-                }
-                if (!r.guard(k)) {
-                  dose_cut = true; // conservative: not a completed schedule
-                  break;
-                }
-                // SCHEDULING (policy-side, kissat flags->eliminate): decline a
-                // variable whose outcome this pass is already known. Unchanged
-                // neighbourhood (retry bit clear) ⇒ the same attempt recomputes the
-                // same NoOp; DURING a ramp, additionally, a clean variable known to
-                // need MORE slack than this pass offers (bve_min_bound) cannot be
-                // eliminated here either. The rule still OFFERS and ACCEPTS it — the
-                // policy declines, not the rule (N1).
-                if (use_retry || ramp) {
-                  Lit rl;
-                  if (lit_of_instance(inprocess_payloads_[i], &rl) &&
-                      var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)] &&
-                      (!ramp || k.bve_min_bound[var_of(rl)] > k.bve_bound))
-                    continue;
-                }
-                if (stop && *stop)
-                  break; // §6: a dose can enumerate thousands of candidates
-                const ApplyResult ar =
-                    [&] {
-                      TickSinkScope sink(k, e.tick_counter);
-                      return apply_rule_instance(r, k,
-                                                 inprocess_payloads_[i]);
-                    }();
-                if (ar == ApplyResult::Unsat || k.inconsistent) {
-                  phase_unsat = true;
-                  break;
-                }
-                if (ar != ApplyResult::Ok)
-                  continue; // this candidate was not viable; try the next
-                round_changed = true;
-                phase_dosed = true;
-                // drain any root units the application asserted
-                if (propagate_apply(k) == ApplyResult::Unsat) {
-                  phase_unsat = true;
-                  break;
-                }
-              }
-            }
-            k.bve_track_min_bound = false; // scope the caching to this ramp
-            // Level advance (kissat set_next_elimination_bound): only a dose
-            // that ran its whole schedule within budget earns the doubling.
-            const bool last_pass_eliminated =
-                k.stats.bve_eliminated > elim_at_last_pass;
-            if (level_mode && !dose_cut && !phase_unsat &&
-                !last_pass_eliminated) {
-              const uint32_t ceiling = ramp->bound(ramp->num_passes() - 1);
-              bve_level_ = bve_level_ ? std::min(bve_level_ * 2, ceiling) : 1;
-            }
-            // factordelay input: one more BVE round has run. Counted once per
-            // PHASE, not per outer round — kissat INC(eliminations) fires once
-            // per kissat_eliminate CALL (eliminate.c), whose analog is the
-            // phase; per-outer counting advances the gate three decades too
-            // fast.
-            if (e.retry_advice && outer == 0)
-              bve_rounds_run_++;
-            if (bve_oneshot)
-              e.doses++; // consume the one shot (skipped hereafter)
-            // The anchor advances HERE, on the ADMITTED path ONLY. kissat writes
-            // `last.NAME.ticks` inside SET_EFFORT_LIMIT, i.e. only on a call
-            // that actually runs, so a skipped occasion leaves the reference
-            // window growing and the next one affordable. Advancing it for
-            // every enabled entry instead makes a DECLINED occasion discard its
-            // accrued entitlement.
-            e.anchor = search_ticks(k);
-            e.tm.admitted++; // the dosed branch ran; it exits here, not below
-            continue;
-          }
-          // batch / unmetered: one canonical round, metered post hoc
-          if (e.meter && e.meter(k) > limit) {
-            e.tm.dec_budget++;
-            continue;
-          }
-          const bool factor_entry =
-              e.budget_aware && !std::strcmp(r.name, "Factor");
-          // factordelay (kissat factor.c:1068-1085): a size-vs-progress warm-up
-          // gate, NOT the kimits.c occasions delay. kissat's form TRUNCATES:
-          // `size_t log_active = log10(active)` then
-          // `log_active <= eliminations + 4`, so it admits
-          // active < 10^(eliminations + 5) — up to 99,999 vars at the very
-          // first probe. Reading it as 10^(e+4) is one decade too strict.
-          // Active ≈ unassigned − BVE-eliminated (decade granularity makes
-          // the approximation safe).
-          if (factor_entry) {
-            const uint64_t elim = k.stats.bve_eliminated;
-            const uint64_t active =
-                k.unassigned > elim ? k.unassigned - elim : 0;
-            uint64_t threshold = 1;
-            const uint32_t decades =
-                bve_rounds_run_ > 14 ? 19u : bve_rounds_run_ + 5;
-            for (uint32_t d = 0; d < decades; d++)
-              threshold *= 10;
-            if (active >= threshold) {
-              e.tm.dec_warmup++;
-              continue;
-            }
-            // Completion-gated new-material watermark (kissat's
-            // literals_factor analog): re-fire only on new binaries /
-            // root-fixed vars since the last COMPLETED round — the marks
-            // advance below only when the dose ran to natural exhaustion
-            // (factor.c:1153), so an incomplete (budget-cut) round re-fires
-            // and resumes.
-            if (k.stats.conflicts > 0 &&
-                k.binary_ids.size() <= e.binaries_mark &&
-                k.arena.size() <= e.arena_mark &&
-                kernel_root_fixed(k) <= e.root_fixed_mark) {
-              e.tm.dec_material++;
-              continue;
-            }
-          }
-          // In a during-search phase an UNMETERED closure (Congruence /
-          // Substitute) re-runs only on new material since ITS last run.
-          // Repeating the full closures every phase is a dominant diffuse
-          // Tier C cost; dropping them entirely loses instances outright.
-          if (!e.meter && k.stats.conflicts > 0 &&
-              k.binary_ids.size() <= e.binaries_mark &&
-              kernel_root_fixed(k) <= e.root_fixed_mark) {
-            e.tm.dec_material++;
-            continue;
-          }
-          // Closure delay ladder (see solve entry): consume one delayed
-          // occasion AFTER material admission, so the ladder counts real
-          // scheduling occasions (kissat kimits delay semantics — same
-          // mechanics as vivify's irr ladder below).
-          if (closure_delay_ && !e.meter && k.stats.conflicts > 0 &&
-              e.delay_count > 0) {
-            e.delay_count--;
-            e.tm.dec_delay++;
-            continue;
-          }
-          if (!r.guard(k)) {
-            e.tm.dec_guard++;
-            continue;
-          }
-          // The anchor advances HERE, on the ADMITTED path ONLY — see the
-          // dosed branch above for why.
-          e.anchor = search_ticks(k);
-          e.tm.admitted++;
-          // Budget handoff (kernel.hpp work_budget): a budget-aware batch
-          // entry gets the phase's REMAINING ledger budget — in the rule's
-          // own currency — around its apply, so one canonical round cannot
-          // overrun the dose. Scoped to the apply; 0 leaves the rule
-          // unbounded for every other caller (API, RandomPolicy). Vivify
-          // keeps its kissat scope/delay tier split inside the branch; the
-          // other budget-aware rules take the plain handoff.
-          const bool budgeted = e.meter && !e.dosed && e.budget_aware;
-          const bool vivify_dose =
-              budgeted && !std::strcmp(r.name, "Vivify");
-          ApplyResult ar;
-          if (vivify_dose) {
-            // kissat vivify.c structure: the REDUNDANT (learned) tiers always
-            // run within their budget share; only the IRREDUNDANT pass is
-            // delay-gated (vivifyirr, kimits.c). Delaying the WHOLE round
-            // instead is measurably worse. Shares are kissat's option
-            // defaults: irr 3 / tiers 3+3+1 = 7.
-            const uint64_t remaining0 = limit - e.meter(k);
-            const uint64_t remaining = remaining0 ? remaining0 : 1;
-            const bool irr_delayed =
-                k.stats.conflicts > 0 && e.delay_count > 0;
-            if (irr_delayed)
-              e.delay_count--;
-            // redundant pass (always; full budget when irr is delayed)
-            k.vivify_scope = 1;
-            k.work_budget =
-                irr_delayed ? remaining : std::max<uint64_t>(1, remaining * 7 / 10);
-            {
-              TickSinkScope sink(k, e.tick_counter);
-              ar = apply_rule(r, k);
-            }
-            // irredundant pass (delay-gated, ratio-tracked on ITS deltas)
-            if (!irr_delayed && ar != ApplyResult::Unsat && !k.inconsistent) {
-              const uint64_t spent = e.meter(k);
-              const uint64_t irr_budget =
-                  spent < limit ? std::max<uint64_t>(1, limit - spent) : 1;
-              const uint64_t tried_before = k.stats.vivify_checked;
-              const uint64_t produced_before =
-                  k.stats.vivified + k.stats.vivify_deleted;
-              k.vivify_scope = 2;
-              k.work_budget = irr_budget;
-              const ApplyResult ar2 = apply_rule(r, k);
-              if (ar2 == ApplyResult::Unsat)
-                ar = ar2;
-              else if (ar2 == ApplyResult::Ok && ar != ApplyResult::Ok)
-                ar = ar2;
-              if (k.stats.conflicts > 0) {
-                // kissat vivify.c: vivified/tried < 1 % → bump, else halve;
-                // tried == 0 counts unproductive (kissat_average(0,0)=0)
-                const uint64_t tried = k.stats.vivify_checked - tried_before;
-                const uint64_t produced = k.stats.vivified +
-                                          k.stats.vivify_deleted -
-                                          produced_before;
-                if (tried == 0 || produced * 100 < tried) {
-                  e.delay_current += (e.delay_current < UINT32_MAX);
-                  e.delay_count = e.delay_current;
-                } else {
-                  e.delay_current /= 2;
-                  e.delay_count = e.delay_current;
-                }
-              }
-            }
-            k.vivify_scope = 0;
-            k.work_budget = 0;
-          } else if (budgeted) {
-            // plain handoff (Factor) — remaining budget, no tier split
-            const uint64_t remaining0 = limit - e.meter(k);
-            const uint64_t handed = remaining0 ? remaining0 : 1;
-            const uint64_t spent_before = e.meter(k);
-            // Factor doses run COMPOSITE: kissat's cross-round composition
-            // lives in exactly these small doses (resize_factoring). Set and
-            // cleared around the apply so no other caller sees the config.
-            if (factor_entry) {
-              // COMPOSITION IS UNCONDITIONAL, matching kissat: `resize_factoring`
-              // is called from `apply_factoring` (factor.c:838) with no gate, so
-              // the factoring universe always grows over the fresh extension
-              // variables and later chains in the SAME pass compose over them.
-              // Gating it on binary density instead makes applied factorings
-              // SATURATE on sparse formulas, which loses instances outright.
-              //
-              // WHAT BOUNDS COMPOSITION INSTEAD — kissat's governors, all of
-              // which we have: (a) the factor_ticks effort budget, checked in
-              // its main loop (`if (*ticks > limit) break`, factor.c:914) and
-              // here as the EffortSpec 50-per-mille handoff; (b) a
-              // score-ordered candidate heap, so the budget is spent
-              // best-first; (c) one attempt per literal per pass.
-              //
-              // kissat has a FOURTH governor we do not: its acceptance test is
-              // `reduction > factoring.bound` where
-              // `bound = solver->bounds.eliminate.additional_clauses`
-              // (factor.c:72/939) — acceptance COUPLED to BVE's growth
-              // allowance, so factoring gets pickier as elimination gets more
-              // permissive. Ours is `Kernel::factor_bound`, default 0 ("any
-              // positive gain"). If unconditional composition ever regresses
-              // the tier pair, port that fourth governor; do NOT reinstate a
-              // density gate. (A version of the coupling was measured negative,
-              // but only WITH composition gated off, so it does not transfer.)
-              //
-              // TACTIX_COMPOSITE_DENSITY is retained as an A/B hatch only:
-              // a non-zero value restores the old gate at that threshold.
-              k.factor_composite = true;
-              if (const char *cd = std::getenv("TACTIX_COMPOSITE_DENSITY")) {
-                const uint64_t d = std::strtoull(cd, nullptr, 10);
-                k.factor_composite =
-                    d ? k.binary_ids.size() >= d * kernel_num_output_vars(k)
-                      : false;
-              }
-            }
-            // Factor's binary-density admission. This is a SCHEDULING decision,
-            // so it lives HERE next to BVE's identical gate, and reaches the
-            // rule as advice that DEFAULTS TRUE. It must NOT move back inside
-            // `factor_apply`: as a rule-side NoOp it refused every caller on a
-            // binary-sparse formula, not just this policy, which breaks N1.
-            //
-            // Be honest about what this is: a hand-designed per-instance
-            // separator. The family has been measured against no gate at all
-            // several times and lost, no comparable axis exists in kissat or
-            // cadical, and on Tier B it is never the best of {gated,
-            // always-admit, per-instance oracle}
-            // (benchmarks/reports/2026-08-04-factor-oracle-ablation.md). It
-            // survives only because Tier C wants it and nothing better exists
-            // yet. Its replacement is a targeted admission mechanism, not a
-            // further threshold.
-            //
-            // The scope-percent UNION arm (`Kernel::factor_scope_percent`, A/B
-            // only, default 0) is strictly additive: it can only ADMIT where the
-            // density gate rejected, so today's beneficiaries cannot regress. Its
-            // arena scan deliberately charges no factor_ticks — a rejected call
-            // must not consume the once-per-solve first-dose allowance.
-            if (factor_entry) {
-              uint32_t density = 6;
-              if (const char *d = std::getenv("TACTIX_FACTOR_DENSITY"))
-                density = static_cast<uint32_t>(std::atoi(d));
-              // uint64 multiply: both operands are uint32, and a formula with
-              // tens of millions of variables makes any density >= 89 WRAP,
-              // silently admitting where it was meant to suppress.
-              bool admit = k.binary_ids.size() >=
-                           static_cast<uint64_t>(density) *
-                               kernel_num_output_vars(k);
-              if (!admit && k.factor_scope_percent) {
-                uint64_t total = k.binary_ids.size();
-                uint64_t in_scope = k.binary_ids.size();
-                for (Ref ref = 0; ref < k.arena.size();) {
-                  const Clause *c = clause_at(k.arena, ref);
-                  const uint32_t words = clause_words(c->size);
-                  if (!c->garbage() && !c->redundant()) {
-                    total++;
-                    if (c->size <= k.factor_size)
-                      in_scope++;
-                  }
-                  ref += words;
-                }
-                if (total &&
-                    in_scope * 100 >=
-                        static_cast<uint64_t>(k.factor_scope_percent) * total)
-                  admit = true;
-              }
-              k.factor_admit = admit;
-              if (!admit) {
-                e.tm.admitted--; // counted above; the policy is declining it
-                e.tm.dec_density++;
-              }
-            }
-            k.work_budget = handed;
-            {
-              TickSinkScope sink(k, e.tick_counter);
-              ar = apply_rule(r, k);
-            }
-            k.work_budget = 0;
-            k.factor_admit = true; // advice is per-occasion; default is NO restriction
-            k.factor_composite = false;
-            // A zero-spend NoOp (Factor's admission short-circuit returns
-            // before the seed scan) consumes NEITHER the first-dose allowance
-            // NOR the watermark — kissat's skipped call likewise leaves
-            // limits.factor.marked untouched (factor.c:1094-1101). The
-            // re-entry cost is one O(1) density check per phase.
-            const uint64_t spent = e.meter(k) - spent_before;
-            e.tm.handed += handed;
-            e.tm.spent += spent;
-            if (spent > 0)
-              e.doses++;
-            // Completion-gated watermark advance (kissat factor.c:1153):
-            // spend within the handed budget ⇒ the round ran to natural
-            // exhaustion — advance the new-material marks. A budget-cut
-            // round leaves them, so it re-fires next phase and resumes.
-            if (spent > 0 && spent <= handed) {
-              e.tm.completed++;
-              e.binaries_mark = k.binary_ids.size();
-              e.arena_mark = k.arena.size();
-              e.root_fixed_mark = kernel_root_fixed(k);
-            }
-          } else {
-            {
-              TickSinkScope sink(k, e.tick_counter);
-              ar = apply_rule(r, k);
-            }
-          }
-          if (!e.meter) {
-            e.binaries_mark = k.binary_ids.size();
-            e.arena_mark = k.arena.size();
-            e.root_fixed_mark = kernel_root_fixed(k);
-            // Ladder maintenance (the vivify idiom above): a NoOp closure
-            // bumps the delay, a productive one halves it.
-            if (closure_delay_ && k.stats.conflicts > 0) {
-              if (ar == ApplyResult::Ok)
-                e.delay_current /= 2;
-              else
-                e.delay_current += (e.delay_current < UINT32_MAX);
-              e.delay_count = e.delay_current;
-            }
-          }
-          if (ar == ApplyResult::Ok)
-            e.tm.ok++;
-          if (ar == ApplyResult::Unsat || k.inconsistent) {
-            phase_unsat = true;
-            break;
-          }
-          if (ar != ApplyResult::Ok)
-            continue;
-          round_changed = true;
-          if (propagate_apply(k) == ApplyResult::Unsat) {
-            phase_unsat = true;
-            break;
-          }
-        }
-        if (!round_changed)
-          break; // outer fixpoint: nothing changed this round
-      }
-      // TACTIX_SWEEP_PROBE (DIAGNOSTIC, off by default): one EXTRA, UNBUDGETED
-      // Sweep application per phase, on top of the ordinary scheduled Sweep
-      // slot entry. It runs at the quiescent root with `k.dense` still
-      // connected. Because it is unbudgeted it must never be set in a tier
-      // run; it exists to drive the sweep + proof path hard in fuzz legs.
-      if (!phase_unsat && std::getenv("TACTIX_SWEEP_PROBE")) {
-        if (sweep_apply(k) == ApplyResult::Unsat)
-          phase_unsat = true;
-      }
-      // Reclaim what the dosed applications garbaged. The canonical rounds
-      // reclaim themselves; the per-instance path deliberately does not, so
-      // that a dose costs its own work and not an O(arena) collection per
-      // eliminated variable. Not collecting is always sound (deletes are lazy
-      // and every reader skips garbage), so this is a cost choice, not a
-      // correctness one — see docs/design/effort-scheduler-design.md §3.4.
-      if (phase_dosed && !phase_unsat)
-        kernel_collect_garbage(k);
-      kernel_dense_disconnect(k);
-      k.factor_match = nullptr; // scope the config to the phase (see entry)
-      inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
-      k.stats.inprocess_propagations +=
-          k.stats.propagations - phase_props_at_entry;
-      k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
-      if (phase_unsat)
+    // TWO CLOCKS (SlotGroup): the probing pipeline and the elimination
+    // pipeline are scheduled independently, probing checked first — kissat
+    // search.c:214-217 (kissat_probing then kissat_eliminating), cadical
+    // internal.cpp:322-325 (inprobing then ineliminating).
+    if (want_slot_phase(k, SlotGroup::Probe)) {
+      if (run_slot_phase(k, SlotGroup::Probe, stop) == 20)
         return 20;
-      // The phase FIRED (whether or not it simplified anything): count it —
-      // the interval-growth key for the NLOG2N schedule.
-      inprocess.rounds++;
-      update_inprocess_limit(k);
+      continue;
+    }
+    if (want_slot_phase(k, SlotGroup::Eliminate)) {
+      if (run_slot_phase(k, SlotGroup::Eliminate, stop) == 20)
+        return 20;
       continue;
     }
     if (stop && *stop)
@@ -1544,6 +1033,689 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     BranchingPolicy &bp = branching ? *branching : default_branching_;
     decide_apply(k, bp.pick(k), false);
   }
+}
+
+
+// One inprocessing phase on ONE clock (see SlotGroup / want_slot_phase). Only
+// this group's entries are walked: an entry on the other clock is not offered
+// an occasion here at all, so its telemetry counters are not touched and the
+// per-entry self-check keeps balancing.
+int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
+                                  volatile sig_atomic_t *stop) {
+  SlotClock &clock = group == SlotGroup::Probe ? probe_clock : elim_clock;
+  // Snapshot this clock's gate marks BEFORE the pipeline runs (SlotClock's gate
+  // block): material the phase itself produces then re-admits the next one, so
+  // a budget-cut pipeline is never gated out of its own follow-up.
+  clock.reductions_mark = k.stats.reductions;
+  clock.marks_mark = k.stats.bve_marks;
+  clock.fixed_mark = kernel_root_fixed(k);
+  clock.blocked = false; // a new blocking episode may now be counted
+  // A simplification PHASE: descend to a quiescent root (a transient flush
+  // that keeps saved/target phases — kernel_backtrack(update_phases=true) —
+  // so search re-descends toward the same region afterward), then give each
+  // enabled technique IN THIS GROUP one dose, sized as a per-mille fraction of
+  // the search work that preceded it (kissat SET_EFFORT_LIMIT; the ledger is in
+  // SlotEntry). Bounding matters — an unbounded fixpoint drowns even
+  // trivial instances — but do NOT bound by APPLICATION COUNT: that is
+  // blind to formula size and caps an O(applications × formula) loop
+  // rather than capping simplification.
+  const uint64_t phase_ticks_at_entry = k.stats.ticks;
+  const uint64_t phase_props_at_entry = k.stats.propagations;
+  // Wall clock for the WHOLE slot, so the `c timing` report can separate
+  // the rules' own time (charged per id by apply_rule) from the phase
+  // scaffolding around them — index build, garbage collection, the
+  // scheduling itself. Diagnostic only; nothing reads it back. The phase
+  // has exactly one exit (below), so one accumulate covers every path.
+  const uint64_t phase_nanos_at_entry = now_nanos();
+  k.stats.inprocess_phases++;
+  if (k.level > 0 && restart_guard(k))
+    restart_apply_to(k, 0);
+  // Attach the shared occurrence index for the phase: the occurrence
+  // consumers (BVE) read it instead of rebuilding a ~O(arena) index per
+  // apply. Detached on EVERY exit below so k.dense never dangles.
+  kernel_dense_connect(k, inprocess_occ);
+  // Factor grid-selection policy for this phase: pure config, like
+  // k.bve_bound — Factor is a batch entry reached via r.apply(k) below and
+  // reads it only there, so once per phase suffices. Scoped set/clear
+  // (mirrors the dense index) so the kernel never holds a dangling
+  // pointer into this policy after solve returns.
+  default_factor_match_.bound = k.factor_bound; // see DefaultFactorMatch
+  k.factor_match = factor_match ? factor_match : &default_factor_match_;
+  // Phase structure (kissat eliminate-round shape): a few OUTER rounds,
+  // each giving every enabled technique one dose, so a technique can pick
+  // up what the others exposed. Dose granularity follows the rule's
+  // instance surface, not its name:
+  //   DOSED rules (BVE, and the probing rules as they are enabled) take
+  //   variable/literal payloads that survive formula mutation, so the
+  //   policy enumerates candidates ONCE and applies them one at a time
+  //   until the budget is spent. This also stops re-running BVE's
+  //   O(formula) schedule per elimination, which the old canonical-apply
+  //   loop did (bve_apply = schedule + eliminate one variable).
+  //   BATCH rules (Strengthen/SubsumeForward/Vivify) take arena Refs, which
+  //   the garbage collection inside their first successful application
+  //   invalidates; they run as one canonical round and are metered after
+  //   the fact (kissat meters `substitute` the same way). Running them once
+  //   per BVE *variable* instead costs hundreds of full subsumption sweeps
+  //   per phase for no additional yield.
+  //   UNMETERED rules (Congruence/Substitute) expose only the canonical
+  //   instance: one pass per outer round, nothing to titrate.
+  bool phase_unsat = false;
+  bool phase_dosed = false; // a dosed rule ran: the phase owes a reclaim
+  const std::vector<RuleVTable> &rules = tactix_rules();
+  // Budgets: the dose is `permille` of the search work done since this
+  // entry last ran (kissat kimits.h SET_EFFORT_LIMIT), floored so a
+  // technique with no search to amortize still gets a usable first dose.
+  // Computed per entry at the point of use (set_entry_limit), and the
+  // anchor advances only on the ADMITTED path, so a declined occasion does
+  // not discard its accrued entitlement.
+  //
+  // §6 STOP RESPONSIVENESS: the slot polls `stop` at every entry boundary
+  // and inside the dosed per-instance loop, not only in the outer search
+  // loop — otherwise a long inprocessing phase leaves the solver deaf to
+  // SIGTERM for its whole duration, and a competition harness escalates to
+  // SIGKILL and loses the proof file. The phase has a single exit, so
+  // breaking out here still runs its cleanup (dense disconnect, GC, ledger
+  // accounting) and the proof stays well-formed.
+  // KNOWN RESIDUAL: a single rule APPLICATION is still uninterruptible, so
+  // this bounds latency to one application rather than one phase. An
+  // unmetered closure (Congruence) can be minutes on its own. The real fix
+  // is a termination flag the RULES poll — a rule-layer change.
+  for (int outer = 0;
+       outer < INPROCESS_PHASE_ROUNDS && !phase_unsat && !(stop && *stop);
+       outer++) {
+    bool round_changed = false;
+    for (SlotEntry &e : inprocess_slot) {
+      if (e.group != group)
+        continue; // the other clock's pipeline: not offered here at all
+      if (stop && *stop)
+        break; // §6: leave the phase promptly; cleanup runs at its exit
+      // TACTIX_SLOT_TRACE: per-entry scheduling visibility (debug aid —
+      // "did rule X even get considered, and what gated it?")
+      if (std::getenv("TACTIX_SLOT_TRACE"))
+        std::fprintf(stderr,
+                     "[slot] phase=%llu outer=%d %s enabled=%d defer=%d "
+                     "guard=%d dosed=%d meter=%llu limit=%llu\n",
+                     (unsigned long long)k.stats.inprocess_phases, outer,
+                     rules[e.rule].name, (int)e.enabled,
+                     (int)e.defer_preprocess, (int)rules[e.rule].guard(k),
+                     (int)e.dosed,
+                     (unsigned long long)(e.meter ? e.meter(k) : 0),
+                     (unsigned long long)e.limit);
+      e.tm.occasions++;
+      if (!e.enabled || phase_unsat) {
+        e.tm.dec_disabled++;
+        continue;
+      }
+      if (e.max_applies && e.applies >= e.max_applies) {
+        e.tm.dec_cap++;
+        continue; // DIAGNOSTIC round cap (see SlotEntry::max_applies)
+      }
+      if (e.defer_preprocess && k.stats.conflicts == 0) {
+        e.tm.dec_preprocess++;
+        continue; // no elimination at preprocessing (kissat fastel=0)
+      }
+      e.applies++;
+      const RuleVTable &r = rules[e.rule];
+      // Ceiling computed HERE, against the state the rule will actually
+      // see, rather than frozen at phase entry for all entries.
+      if (e.enabled && e.meter)
+        set_entry_limit(e, k);
+      // ACCUMULATE UNTIL WORTHWHILE (cadical limit.hpp:150). Decline while
+      // this occasion's delta is too small to repay the pass's setup, and
+      // crucially do NOT advance the anchor, so the entitlement accrues and
+      // a later occasion can afford a real pass. This is the only
+      // budget-based decline a batch entry has — the ceiling is re-baselined
+      // just above, which makes a `meter > limit` pre-check unfireable.
+      if (e.enabled && e.meter && e.thresh && e.doses > 0) {
+        const uint64_t delta = e.limit - e.meter(k);
+        if (delta < e.thresh * kernel_irredundant_clauses(k)) {
+          e.tm.dec_budget++;
+          continue; // anchor deliberately NOT advanced
+        }
+      }
+      const uint64_t limit = e.limit;
+      if (e.dosed && r.instances && r.apply_instance) {
+        if (!r.guard(k)) {
+          e.tm.dec_guard++;
+          continue;
+        }
+        // BVE ADMISSION. A during-search BVE dose fires only on
+        // binary-DENSE formulas — the same axis and threshold as Factor's
+        // density gate. Sparse formulas are where dosing measurably costs,
+        // and the cost is TRAJECTORY damage, not overhead. This is a
+        // hand-designed per-instance separator, a family that has measured
+        // badly more than once; its proper home is the phase-6 learned
+        // policy (plan §5.6 elimination-dosing exhibit). It survives only
+        // because removing admission entirely is much worse.
+        //
+        // TACTIX_BVE_ADMIT selects the mode (default `density` = shipped):
+        //   density — the binaries-per-variable proxy above.
+        //             TACTIX_BVE_DOSE_DENSITY overrides the threshold
+        //             (0 = dose everywhere).
+        //   cost    — decline once MEASURED cost-per-yield (resolutions per
+        //             eliminated variable) exceeds `Kernel::bve_cost_limit`.
+        //             The FIRST dose always runs: the ratio cannot be known
+        //             before eliminating anything, so this is
+        //             learn-then-decide rather than a static separator.
+        //   none    — no admission at all. Measured clearly negative; kept
+        //             as the A/B floor, not shippable.
+        if (e.retry_advice && k.stats.conflicts > 0) {
+          static const char *const admit_env = std::getenv("TACTIX_BVE_ADMIT");
+          const bool admit_cost = admit_env && !std::strcmp(admit_env, "cost");
+          const bool admit_none = admit_env && !std::strcmp(admit_env, "none");
+          if (admit_cost) {
+            const uint64_t elim = k.stats.bve_eliminated;
+            const uint64_t lim = k.bve_cost_limit;
+            if (lim && elim &&
+                k.stats.bve_resolutions / elim > lim) {
+              e.tm.dec_density++;
+              continue; // this formula is paying too much per elimination
+            }
+          } else if (!admit_none) {
+            uint64_t dose_density = 6;
+            if (const char *dd = std::getenv("TACTIX_BVE_DOSE_DENSITY"))
+              dose_density = std::strtoull(dd, nullptr, 10);
+            if (dose_density &&
+                k.binary_ids.size() <
+                    dose_density * kernel_num_output_vars(k)) {
+              e.tm.dec_density++;
+              continue;
+            }
+          }
+        }
+        // TACTIX_BVE_ONESHOT (DIAGNOSTIC): the BVE entry fires exactly ONE
+        // dose per solve — full ramp, unbounded budget (see
+        // set_entry_limit) — then is declined for the rest of the solve.
+        // Isolates "recurrence hurts" from "the dose content hurts".
+        const bool bve_oneshot =
+            e.retry_advice && std::getenv("TACTIX_BVE_ONESHOT");
+        if (bve_oneshot && e.doses > 0)
+          continue; // the one shot is consumed
+        // TACTIX_BVE_CADENCE (DIAGNOSTIC): ONE completed call per phase —
+        // outer rounds 1-2 are declined so the phase cannot re-drip what
+        // the completed call finished.
+        if (e.retry_advice && outer > 0 &&
+            std::getenv("TACTIX_BVE_CADENCE"))
+          continue;
+        // BVE growth-slack RAMP (BveBoundPolicy): drive k.bve_bound
+        // cheap-first over the sub-policy's passes (kissat eliminate.c
+        // set_next_elimination_bound), so the non-growing eliminations
+        // happen first and later ones are measured against an
+        // already-simplified formula — the adaptive version of a single
+        // fixed bound. A null ramp (or a non-BVE dosed entry) = one pass at
+        // the current bound. The dose is SHARED across passes.
+        BveBoundPolicy *ramp = nullptr;
+        if (e.retry_advice && !std::getenv("TACTIX_NO_BVE_RAMP"))
+          ramp = bve_bound ? bve_bound : &default_bve_ramp_;
+        // In a during-search dose, kissat's persistent completion-gated
+        // bound LEVEL (see bve_level_ in the header) replaces the
+        // all-levels-per-dose ramp — one pass per dose at the current
+        // level; the level doubles below only when the dose completes.
+        const bool level_mode = e.retry_advice && ramp && !bve_oneshot;
+        const uint32_t passes = level_mode ? 1
+                                : ramp     ? ramp->num_passes()
+                                           : 1;
+        bool dose_cut = false;
+        // kissat advances the bound only at a genuine FIXPOINT --
+        // `complete = !remain && !last_round_eliminated` (eliminate.c:544).
+        // "Finished within budget" is the weaker `!remain` half alone; the
+        // second half matters because a pass that still eliminated something
+        // has not exhausted the CURRENT bound, and advancing there moves to a
+        // more aggressive bound while cheap work remains.
+        uint64_t elim_at_last_pass = k.stats.bve_eliminated;
+        // During a ramp the policy consults BOTH the retry bit AND the
+        // per-variable needed-bound cache the rule fills
+        // (Kernel::bve_min_bound, enabled by bve_track_min_bound below): a
+        // variable rejected for growth at a low slack is skipped at every
+        // slack BELOW the one it actually needs, and re-attempted only when
+        // its neighbourhood changes (retry bit set). This is what stops the
+        // ramp re-resolving every rejected variable at all six levels. A
+        // bare retry bit CANNOT do this: it is cleared on any attempt
+        // (including a growth-abort), so it would skip a low-slack reject at
+        // every HIGHER slack too and collapse the ramp to level 0. Without a
+        // ramp the retry bit alone is consulted (cross-round dedup).
+        const bool use_retry = e.retry_advice && !ramp;
+        k.bve_track_min_bound = ramp != nullptr;
+        for (uint32_t pass = 0; pass < passes && !phase_unsat; pass++) {
+          // Skip remaining ramp levels once the dose is spent — but ONLY
+          // when ramping. Without a ramp (passes==1) this must NOT
+          // short-circuit: kernel_bve_retry_sync_fixed (persistent state)
+          // and r.instances must still run before the inner-loop meter
+          // check, and a top-of-pass break would skip that sync whenever
+          // the dose is already spent — a divergence visible only across
+          // multiple phases.
+          if (ramp && e.meter(k) > limit) {
+            dose_cut = true;
+            break;
+          }
+          if (ramp)
+            k.bve_bound = level_mode ? bve_level_ : ramp->bound(pass);
+          elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
+          // Fold newly root-fixed literals into the rule's retry advice before
+          // reading it: fixing y changes what BVE computes for y's neighbours
+          // with no clause add/delete to mark them. Needed by BOTH the retry
+          // and the ramp needed-bound paths (a fixing invalidates a neighbour's
+          // cached bound), so sync whenever the rule maintains the advice.
+          if (e.retry_advice)
+            kernel_bve_retry_sync_fixed(k);
+          inprocess_payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
+          const uint32_t n = r.instances(
+              k, inprocess_payloads_.data(),
+              static_cast<uint32_t>(inprocess_payloads_.size()));
+          if (std::getenv("TACTIX_SLOT_TRACE"))
+            std::fprintf(stderr,
+                         "[slot]   %s pass=%u n=%u bve_bound=%u meter=%llu "
+                         "limit=%llu\n",
+                         r.name, pass, n, k.bve_bound,
+                         (unsigned long long)e.meter(k),
+                         (unsigned long long)limit);
+          for (uint32_t i = 0; i < n; i++) {
+            if (e.meter(k) > limit) {
+              dose_cut = true;
+              break; // dose spent
+            }
+            if (!r.guard(k)) {
+              dose_cut = true; // conservative: not a completed schedule
+              break;
+            }
+            // SCHEDULING (policy-side, kissat flags->eliminate): decline a
+            // variable whose outcome this pass is already known. Unchanged
+            // neighbourhood (retry bit clear) ⇒ the same attempt recomputes the
+            // same NoOp; DURING a ramp, additionally, a clean variable known to
+            // need MORE slack than this pass offers (bve_min_bound) cannot be
+            // eliminated here either. The rule still OFFERS and ACCEPTS it — the
+            // policy declines, not the rule (N1).
+            if (use_retry || ramp) {
+              Lit rl;
+              if (lit_of_instance(inprocess_payloads_[i], &rl) &&
+                  var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)] &&
+                  (!ramp || k.bve_min_bound[var_of(rl)] > k.bve_bound))
+                continue;
+            }
+            if (stop && *stop)
+              break; // §6: a dose can enumerate thousands of candidates
+            const ApplyResult ar =
+                [&] {
+                  TickSinkScope sink(k, e.tick_counter);
+                  return apply_rule_instance(r, k,
+                                             inprocess_payloads_[i]);
+                }();
+            if (ar == ApplyResult::Unsat || k.inconsistent) {
+              phase_unsat = true;
+              break;
+            }
+            if (ar != ApplyResult::Ok)
+              continue; // this candidate was not viable; try the next
+            round_changed = true;
+            phase_dosed = true;
+            // drain any root units the application asserted
+            if (propagate_apply(k) == ApplyResult::Unsat) {
+              phase_unsat = true;
+              break;
+            }
+          }
+        }
+        k.bve_track_min_bound = false; // scope the caching to this ramp
+        // Level advance (kissat set_next_elimination_bound): only a dose
+        // that ran its whole schedule within budget earns the doubling.
+        const bool last_pass_eliminated =
+            k.stats.bve_eliminated > elim_at_last_pass;
+        if (level_mode && !dose_cut && !phase_unsat &&
+            !last_pass_eliminated) {
+          const uint32_t ceiling = ramp->bound(ramp->num_passes() - 1);
+          bve_level_ = bve_level_ ? std::min(bve_level_ * 2, ceiling) : 1;
+        }
+        // factordelay input: one more BVE round has run. Counted once per
+        // PHASE, not per outer round — kissat INC(eliminations) fires once
+        // per kissat_eliminate CALL (eliminate.c), whose analog is the
+        // phase; per-outer counting advances the gate three decades too
+        // fast.
+        if (e.retry_advice && outer == 0)
+          bve_rounds_run_++;
+        if (bve_oneshot)
+          e.doses++; // consume the one shot (skipped hereafter)
+        // The anchor advances HERE, on the ADMITTED path ONLY. kissat writes
+        // `last.NAME.ticks` inside SET_EFFORT_LIMIT, i.e. only on a call
+        // that actually runs, so a skipped occasion leaves the reference
+        // window growing and the next one affordable. Advancing it for
+        // every enabled entry instead makes a DECLINED occasion discard its
+        // accrued entitlement.
+        e.anchor = search_ticks(k);
+        e.tm.admitted++; // the dosed branch ran; it exits here, not below
+        continue;
+      }
+      // batch / unmetered: one canonical round, metered post hoc
+      if (e.meter && e.meter(k) > limit) {
+        e.tm.dec_budget++;
+        continue;
+      }
+      const bool factor_entry =
+          e.budget_aware && !std::strcmp(r.name, "Factor");
+      // factordelay (kissat factor.c:1068-1085): a size-vs-progress warm-up
+      // gate, NOT the kimits.c occasions delay. kissat's form TRUNCATES:
+      // `size_t log_active = log10(active)` then
+      // `log_active <= eliminations + 4`, so it admits
+      // active < 10^(eliminations + 5) — up to 99,999 vars at the very
+      // first probe. Reading it as 10^(e+4) is one decade too strict.
+      // Active ≈ unassigned − BVE-eliminated (decade granularity makes
+      // the approximation safe).
+      if (factor_entry) {
+        const uint64_t elim = k.stats.bve_eliminated;
+        const uint64_t active =
+            k.unassigned > elim ? k.unassigned - elim : 0;
+        uint64_t threshold = 1;
+        const uint32_t decades =
+            bve_rounds_run_ > 14 ? 19u : bve_rounds_run_ + 5;
+        for (uint32_t d = 0; d < decades; d++)
+          threshold *= 10;
+        if (active >= threshold) {
+          e.tm.dec_warmup++;
+          continue;
+        }
+        // Completion-gated new-material watermark (kissat's
+        // literals_factor analog): re-fire only on new binaries /
+        // root-fixed vars since the last COMPLETED round — the marks
+        // advance below only when the dose ran to natural exhaustion
+        // (factor.c:1153), so an incomplete (budget-cut) round re-fires
+        // and resumes.
+        if (k.stats.conflicts > 0 &&
+            k.binary_ids.size() <= e.binaries_mark &&
+            k.arena.size() <= e.arena_mark &&
+            kernel_root_fixed(k) <= e.root_fixed_mark) {
+          e.tm.dec_material++;
+          continue;
+        }
+      }
+      // In a during-search phase an UNMETERED closure (Congruence /
+      // Substitute) re-runs only on new material since ITS last run.
+      // Repeating the full closures every phase is a dominant diffuse
+      // Tier C cost; dropping them entirely loses instances outright.
+      if (!e.meter && k.stats.conflicts > 0 &&
+          k.binary_ids.size() <= e.binaries_mark &&
+          kernel_root_fixed(k) <= e.root_fixed_mark) {
+        e.tm.dec_material++;
+        continue;
+      }
+      // Closure delay ladder (see solve entry): consume one delayed
+      // occasion AFTER material admission, so the ladder counts real
+      // scheduling occasions (kissat kimits delay semantics — same
+      // mechanics as vivify's irr ladder below).
+      if (closure_delay_ && !e.meter && k.stats.conflicts > 0 &&
+          e.delay_count > 0) {
+        e.delay_count--;
+        e.tm.dec_delay++;
+        continue;
+      }
+      if (!r.guard(k)) {
+        e.tm.dec_guard++;
+        continue;
+      }
+      // The anchor advances HERE, on the ADMITTED path ONLY — see the
+      // dosed branch above for why.
+      e.anchor = search_ticks(k);
+      e.tm.admitted++;
+      // Budget handoff (kernel.hpp work_budget): a budget-aware batch
+      // entry gets the phase's REMAINING ledger budget — in the rule's
+      // own currency — around its apply, so one canonical round cannot
+      // overrun the dose. Scoped to the apply; 0 leaves the rule
+      // unbounded for every other caller (API, RandomPolicy). Vivify
+      // keeps its kissat scope/delay tier split inside the branch; the
+      // other budget-aware rules take the plain handoff.
+      const bool budgeted = e.meter && !e.dosed && e.budget_aware;
+      const bool vivify_dose =
+          budgeted && !std::strcmp(r.name, "Vivify");
+      ApplyResult ar;
+      if (vivify_dose) {
+        // kissat vivify.c structure: the REDUNDANT (learned) tiers always
+        // run within their budget share; only the IRREDUNDANT pass is
+        // delay-gated (vivifyirr, kimits.c). Delaying the WHOLE round
+        // instead is measurably worse. Shares are kissat's option
+        // defaults: irr 3 / tiers 3+3+1 = 7.
+        const uint64_t remaining0 = limit - e.meter(k);
+        const uint64_t remaining = remaining0 ? remaining0 : 1;
+        const bool irr_delayed =
+            k.stats.conflicts > 0 && e.delay_count > 0;
+        if (irr_delayed)
+          e.delay_count--;
+        // redundant pass (always; full budget when irr is delayed)
+        k.vivify_scope = 1;
+        k.work_budget =
+            irr_delayed ? remaining : std::max<uint64_t>(1, remaining * 7 / 10);
+        {
+          TickSinkScope sink(k, e.tick_counter);
+          ar = apply_rule(r, k);
+        }
+        // irredundant pass (delay-gated, ratio-tracked on ITS deltas)
+        if (!irr_delayed && ar != ApplyResult::Unsat && !k.inconsistent) {
+          const uint64_t spent = e.meter(k);
+          const uint64_t irr_budget =
+              spent < limit ? std::max<uint64_t>(1, limit - spent) : 1;
+          const uint64_t tried_before = k.stats.vivify_checked;
+          const uint64_t produced_before =
+              k.stats.vivified + k.stats.vivify_deleted;
+          k.vivify_scope = 2;
+          k.work_budget = irr_budget;
+          const ApplyResult ar2 = apply_rule(r, k);
+          if (ar2 == ApplyResult::Unsat)
+            ar = ar2;
+          else if (ar2 == ApplyResult::Ok && ar != ApplyResult::Ok)
+            ar = ar2;
+          if (k.stats.conflicts > 0) {
+            // kissat vivify.c: vivified/tried < 1 % → bump, else halve;
+            // tried == 0 counts unproductive (kissat_average(0,0)=0)
+            const uint64_t tried = k.stats.vivify_checked - tried_before;
+            const uint64_t produced = k.stats.vivified +
+                                      k.stats.vivify_deleted -
+                                      produced_before;
+            if (tried == 0 || produced * 100 < tried) {
+              e.delay_current += (e.delay_current < UINT32_MAX);
+              e.delay_count = e.delay_current;
+            } else {
+              e.delay_current /= 2;
+              e.delay_count = e.delay_current;
+            }
+          }
+        }
+        k.vivify_scope = 0;
+        k.work_budget = 0;
+      } else if (budgeted) {
+        // plain handoff (Factor) — remaining budget, no tier split
+        const uint64_t remaining0 = limit - e.meter(k);
+        const uint64_t handed = remaining0 ? remaining0 : 1;
+        const uint64_t spent_before = e.meter(k);
+        // Factor doses run COMPOSITE: kissat's cross-round composition
+        // lives in exactly these small doses (resize_factoring). Set and
+        // cleared around the apply so no other caller sees the config.
+        if (factor_entry) {
+          // COMPOSITION IS UNCONDITIONAL, matching kissat: `resize_factoring`
+          // is called from `apply_factoring` (factor.c:838) with no gate, so
+          // the factoring universe always grows over the fresh extension
+          // variables and later chains in the SAME pass compose over them.
+          // Gating it on binary density instead makes applied factorings
+          // SATURATE on sparse formulas, which loses instances outright.
+          //
+          // WHAT BOUNDS COMPOSITION INSTEAD — kissat's governors, all of
+          // which we have: (a) the factor_ticks effort budget, checked in
+          // its main loop (`if (*ticks > limit) break`, factor.c:914) and
+          // here as the EffortSpec 50-per-mille handoff; (b) a
+          // score-ordered candidate heap, so the budget is spent
+          // best-first; (c) one attempt per literal per pass.
+          //
+          // kissat has a FOURTH governor we do not: its acceptance test is
+          // `reduction > factoring.bound` where
+          // `bound = solver->bounds.eliminate.additional_clauses`
+          // (factor.c:72/939) — acceptance COUPLED to BVE's growth
+          // allowance, so factoring gets pickier as elimination gets more
+          // permissive. Ours is `Kernel::factor_bound`, default 0 ("any
+          // positive gain"). If unconditional composition ever regresses
+          // the tier pair, port that fourth governor; do NOT reinstate a
+          // density gate. (A version of the coupling was measured negative,
+          // but only WITH composition gated off, so it does not transfer.)
+          //
+          // TACTIX_COMPOSITE_DENSITY is retained as an A/B hatch only:
+          // a non-zero value restores the old gate at that threshold.
+          k.factor_composite = true;
+          if (const char *cd = std::getenv("TACTIX_COMPOSITE_DENSITY")) {
+            const uint64_t d = std::strtoull(cd, nullptr, 10);
+            k.factor_composite =
+                d ? k.binary_ids.size() >= d * kernel_num_output_vars(k)
+                  : false;
+          }
+        }
+        // Factor's binary-density admission. This is a SCHEDULING decision,
+        // so it lives HERE next to BVE's identical gate, and reaches the
+        // rule as advice that DEFAULTS TRUE. It must NOT move back inside
+        // `factor_apply`: as a rule-side NoOp it refused every caller on a
+        // binary-sparse formula, not just this policy, which breaks N1.
+        //
+        // Be honest about what this is: a hand-designed per-instance
+        // separator. The family has been measured against no gate at all
+        // several times and lost, no comparable axis exists in kissat or
+        // cadical, and on Tier B it is never the best of {gated,
+        // always-admit, per-instance oracle}
+        // (benchmarks/reports/2026-08-04-factor-oracle-ablation.md). It
+        // survives only because Tier C wants it and nothing better exists
+        // yet. Its replacement is a targeted admission mechanism, not a
+        // further threshold.
+        //
+        // The scope-percent UNION arm (`Kernel::factor_scope_percent`, A/B
+        // only, default 0) is strictly additive: it can only ADMIT where the
+        // density gate rejected, so today's beneficiaries cannot regress. Its
+        // arena scan deliberately charges no factor_ticks — a rejected call
+        // must not consume the once-per-solve first-dose allowance.
+        if (factor_entry) {
+          uint32_t density = 6;
+          if (const char *d = std::getenv("TACTIX_FACTOR_DENSITY"))
+            density = static_cast<uint32_t>(std::atoi(d));
+          // uint64 multiply: both operands are uint32, and a formula with
+          // tens of millions of variables makes any density >= 89 WRAP,
+          // silently admitting where it was meant to suppress.
+          bool admit = k.binary_ids.size() >=
+                       static_cast<uint64_t>(density) *
+                           kernel_num_output_vars(k);
+          if (!admit && k.factor_scope_percent) {
+            uint64_t total = k.binary_ids.size();
+            uint64_t in_scope = k.binary_ids.size();
+            for (Ref ref = 0; ref < k.arena.size();) {
+              const Clause *c = clause_at(k.arena, ref);
+              const uint32_t words = clause_words(c->size);
+              if (!c->garbage() && !c->redundant()) {
+                total++;
+                if (c->size <= k.factor_size)
+                  in_scope++;
+              }
+              ref += words;
+            }
+            if (total &&
+                in_scope * 100 >=
+                    static_cast<uint64_t>(k.factor_scope_percent) * total)
+              admit = true;
+          }
+          k.factor_admit = admit;
+          if (!admit) {
+            e.tm.admitted--; // counted above; the policy is declining it
+            e.tm.dec_density++;
+          }
+        }
+        k.work_budget = handed;
+        {
+          TickSinkScope sink(k, e.tick_counter);
+          ar = apply_rule(r, k);
+        }
+        k.work_budget = 0;
+        k.factor_admit = true; // advice is per-occasion; default is NO restriction
+        k.factor_composite = false;
+        // A zero-spend NoOp (Factor's admission short-circuit returns
+        // before the seed scan) consumes NEITHER the first-dose allowance
+        // NOR the watermark — kissat's skipped call likewise leaves
+        // limits.factor.marked untouched (factor.c:1094-1101). The
+        // re-entry cost is one O(1) density check per phase.
+        const uint64_t spent = e.meter(k) - spent_before;
+        e.tm.handed += handed;
+        e.tm.spent += spent;
+        if (spent > 0)
+          e.doses++;
+        // Completion-gated watermark advance (kissat factor.c:1153):
+        // spend within the handed budget ⇒ the round ran to natural
+        // exhaustion — advance the new-material marks. A budget-cut
+        // round leaves them, so it re-fires next phase and resumes.
+        if (spent > 0 && spent <= handed) {
+          e.tm.completed++;
+          e.binaries_mark = k.binary_ids.size();
+          e.arena_mark = k.arena.size();
+          e.root_fixed_mark = kernel_root_fixed(k);
+        }
+      } else {
+        {
+          TickSinkScope sink(k, e.tick_counter);
+          ar = apply_rule(r, k);
+        }
+      }
+      if (!e.meter) {
+        e.binaries_mark = k.binary_ids.size();
+        e.arena_mark = k.arena.size();
+        e.root_fixed_mark = kernel_root_fixed(k);
+        // Ladder maintenance (the vivify idiom above): a NoOp closure
+        // bumps the delay, a productive one halves it.
+        if (closure_delay_ && k.stats.conflicts > 0) {
+          if (ar == ApplyResult::Ok)
+            e.delay_current /= 2;
+          else
+            e.delay_current += (e.delay_current < UINT32_MAX);
+          e.delay_count = e.delay_current;
+        }
+      }
+      if (ar == ApplyResult::Ok)
+        e.tm.ok++;
+      if (ar == ApplyResult::Unsat || k.inconsistent) {
+        phase_unsat = true;
+        break;
+      }
+      if (ar != ApplyResult::Ok)
+        continue;
+      round_changed = true;
+      if (propagate_apply(k) == ApplyResult::Unsat) {
+        phase_unsat = true;
+        break;
+      }
+    }
+    if (!round_changed)
+      break; // outer fixpoint: nothing changed this round
+  }
+  // TACTIX_SWEEP_PROBE (DIAGNOSTIC, off by default): one EXTRA, UNBUDGETED
+  // Sweep application per phase, on top of the ordinary scheduled Sweep
+  // slot entry. It runs at the quiescent root with `k.dense` still
+  // connected. Because it is unbudgeted it must never be set in a tier
+  // run; it exists to drive the sweep + proof path hard in fuzz legs.
+  // PROBING phases only — Sweep is a probing-clock entry, and firing the probe
+  // on the elimination clock too would silently double its rate.
+  if (group == SlotGroup::Probe && !phase_unsat &&
+      std::getenv("TACTIX_SWEEP_PROBE")) {
+    if (sweep_apply(k) == ApplyResult::Unsat)
+      phase_unsat = true;
+  }
+  // Reclaim what the dosed applications garbaged. The canonical rounds
+  // reclaim themselves; the per-instance path deliberately does not, so
+  // that a dose costs its own work and not an O(arena) collection per
+  // eliminated variable. Not collecting is always sound (deletes are lazy
+  // and every reader skips garbage), so this is a cost choice, not a
+  // correctness one — see docs/design/effort-scheduler-design.md §3.4.
+  if (phase_dosed && !phase_unsat)
+    kernel_collect_garbage(k);
+  kernel_dense_disconnect(k);
+  k.factor_match = nullptr; // scope the config to the phase (see entry)
+  inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
+  k.stats.inprocess_propagations +=
+      k.stats.propagations - phase_props_at_entry;
+  k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
+  if (phase_unsat)
+    return 20;
+  // The phase FIRED (whether or not it simplified anything): count it on THIS
+  // clock — it is that clock's interval-growth key, so the two schedules
+  // separate on their own.
+  clock.rounds++;
+  update_slot_limit(k, group);
+  return 0;
 }
 
 void DefaultPolicy::set_entry_limit(SlotEntry &e, Kernel &k) {
@@ -1605,6 +1777,27 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
               (unsigned long long)k.stats.instantiate_ticks,
               (unsigned long long)k.stats.ticks);
   const std::vector<RuleVTable> &rules = tactix_rules();
+  // REACHABILITY readout for the authored order (SCHED-D1): the live sequence,
+  // named, so an A/B arm cannot be banked without showing which order ran.
+  std::printf("c slot-order  %s", slot_order_legacy_ ? "legacy  " : "authored");
+  for (const SlotEntry &e : inprocess_slot)
+    std::printf(" %s", rules[e.rule].name);
+  std::printf("\n");
+  // REACHABILITY readout for the two clocks (SCHED-D2) and their gates
+  // (SCHED-D3). `probe phases` above `elim phases` is the split working; equal
+  // counts mean it did not take. `blocked` is the gate: episodes in which an
+  // ELAPSED interval was declined for want of a reduce (probe) or of new
+  // material (eliminate). Zero across a run means the gate never fired and an
+  // arm resting on it proved nothing.
+  std::printf("c slot-clock  probe phases %llu next %llu blocked %llu | "
+              "eliminate phases %llu next %llu blocked %llu | bve-marks %llu\n",
+              (unsigned long long)probe_clock.rounds,
+              (unsigned long long)probe_clock.next_conflicts,
+              (unsigned long long)probe_clock.blocked_episodes,
+              (unsigned long long)elim_clock.rounds,
+              (unsigned long long)elim_clock.next_conflicts,
+              (unsigned long long)elim_clock.blocked_episodes,
+              (unsigned long long)k.stats.bve_marks);
   for (const SlotEntry &e : inprocess_slot) {
     const SlotEntry::Telem &t = e.tm;
     if (!t.occasions)
