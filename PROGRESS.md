@@ -438,8 +438,10 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   with the detector reached at the source.)
 - **▶ RV-S DUPLICATION AXIS — DISCHARGED (branch `rvs-duplication`).** `RV-S21` **DONE**: the watch-list
   stride is now ONE kernel primitive (`WatchLists::entries` + `WatchEntry`/`WatchIter`, plus
-  `WatchLists::compact` for the removal sites), and 28 open-coded strides across 18 files went with it
-  (net −234 lines). Two sites are deliberately NOT converted and say so in the source: `propagate_literal`
+  `WatchLists::compact` for the removal sites), and **45** open-coded strides across 18 files went with it
+  (net −227 lines; the review's 23 was a `file:line` count that missed the five in
+  `kernel_check_invariants`, the three reading a large entry's ref, and the `heads[l]`-based readers).
+  Two sites are deliberately NOT converted and say so in the source: `propagate_literal`
   copies-and-rewrites entries rather than walking them, and `propagate_literal_binary` prices the WORD
   CURSOR where its scan stopped (`binprop_words`/`binprop_skipped`), which an entry iterator cannot
   reproduce because it stops *before* the entry it breaks on.
@@ -1361,6 +1363,45 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — the RV-S duplication axis: four items, 62 sites, four kernel primitives, and one checker that could not fail
+
+Branch `rvs-duplication`, base `4f4989d`, one commit per item so a bisect separates them.
+`RV-S21` + `RV-S20` + `RV-S6` + `RV-S27` from `benchmarks/reports/2026-08-06-review-post-track-sched.md`.
+Details per item in Open items above; what belongs in the log is the method and the three findings.
+
+**▶ THE GATE WAS IDENTITY, NOT TESTS PASSING, AND IT IS MET PER COMMIT.** A binary from pristine
+`4f4989d` versus **each of the four commits' binaries** over the 14-entry regression corpus + 60
+generated fuzz cases (seeded, reproducible) in three arms — native DRAT, native LRAT, `--random-policy=7`
+× DRAT — comparing exit code, `sha256(proof bytes)` and a `sha256` of every `c ` counter line except
+`c timing` (jitter; implementation-notes §11). **222/222 identical on every one of the four arms, 888
+comparisons, 0 mismatches** (job `1587396`). The `--random-policy` arm carries **15 of 74 timeout-in-both**
+at a 10 s cap, which is `RV-S31`'s livelock, not a result: that arm's real N is 59, and the DRAT/LRAT arms
+carry those cases. **The harness was anti-vacuity tested rather than trusted**
+(`[[ab-arm-identical-artefacts]]`): a fifth arm compared the baseline against a deliberately PERTURBED
+binary (a second `del` per large-clause deletion + a doubled `propagations` increment) and it **must and
+does MISMATCH: 148 of 222**, with both compared fields shown live — `corpus-002` differs in the PROOF
+sha, `corpus-003` in the COUNTER hash alone. A green identity harness that cannot go red is worth nothing.
+
+**▶ THREE THINGS THAT COULD NOT BE DEDUPLICATED BEHAVIOUR-PRESERVINGLY.** Each is a finding, not an
+omission, and each is now a note in the source:
+1. **`propagate_literal`** copies each watch entry forward and then rewinds or rewrites it — not a walk
+   and not a keep/drop filter, so neither new primitive fits.
+2. **`propagate_literal_binary`** prices `binprop_words`/`binprop_skipped` off the WORD CURSOR where its
+   scan stopped, and the conflict break leaves that cursor PAST the conflicting binary. An entry iterator
+   stops *before* the entry it breaks on, so converting it would move a counter. This is the one that
+   would have shipped as an unexplained trajectory shift three windows later.
+3. **`kernel_delete_clause` cannot suppress a second `del`** on an already-garbage clause, tempting as
+   that is: all 13 sites emitted the `del` before testing `garbage()`, so suppressing it is a
+   proof-stream change wearing a refactor's clothes. Kept, with the reason in source.
+
+**▶ AND A CONFORMANCE CHECKER THAT WAS ONE LOCAL VARIABLE AWAY FROM A FALSE FAILURE.**
+`check-config-wiring.py` scanned `kernel.hpp` from the config marker **to EOF**, so the first
+two-space-indented `uint32_t n = 0;` in a new inline kernel helper — `kernel_binary_copies` — was reported
+as an unclassified config field. Bounded to `struct Kernel`'s closing brace, then re-tested for
+anti-vacuity (it still FAILS on a genuinely unclassified field inserted inside the window). The lesson is
+the one this project keeps re-learning about its own instruments: a checker's SCOPE is part of its
+contract, and nothing was testing this one's.
 
 ### 2026-08-06 — revisit-codebase after twelve parallel merges: five cross-agent conflicts, and the comment rule is now MECHANICAL
 
