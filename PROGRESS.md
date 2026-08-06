@@ -17,9 +17,51 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Last updated:** 2026-08-05 late — compaction pass (2182 → this). Status lives in the anchor below; completed work is compressed to
   result + pointer, with the detail in the cited commit / report / design doc.
 
-## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = run the Sweep-governor Tier C A/B (specced, unrun)**
+## ▶ RESUME HERE (2026-08-06) — phase 3 · **next = re-run Tier B + Tier C on the LEDGER FIX (branch `debug-solve-losses`)**
 
-**IN FLIGHT: the final Tier B + Tier C at HEAD `c7beaa0`.** Tier B array `1585269` on node017,
+**▶▶ THE FIVE OVERNIGHT SOLVE LOSSES ARE ONE DEFECT, AND IT IS FIXED (branch `debug-solve-losses`,
+`7b9f9d2` + `8b27c63`). THE EFFORT LEDGER WAS WRAPPING.** `set_entry_limit` sizes a dose as the
+UNSIGNED delta `search_ticks(k) - e.anchor`; the anchor is written INSIDE a phase and `search_ticks`
+was `k.stats.ticks - inprocess.ticks` with `inprocess.ticks` credited only at phase EXIT — so the
+reading inflated during a phase and snapped back at its end, i.e. **it was not monotone**. An anchor
+from late in one phase could exceed the reading early in the next, and the subtraction wrapped. A wrap
+does not enlarge the dose, it **deletes** it: `delta ≈ 2^64/10 = 1.845e18`, and the two `budget_aware`
+closures that read `Kernel::work_budget` — **Sweep and Congruence** — ran to exhaustion. Measured on
+`PRP_30_38`: Sweep `handed` **5 534 023 222 146 936 200 = exactly 3 × 2^64/10**, spending 412 G ticks
+across 260 570 environments and 73 % of the solve; with the fix, `handed` 60 854 300, 54 environments,
+`wrapped 0`, and the instance solves. **SCHED-D2 was the TRIGGER, not the defect** — 2.4× the probing
+occasions halves the search window between phases, which is precisely the condition for `now < anchor`.
+D2 stays (it is N4, both references split the clock). Fix = monotone `search_ticks` + saturating
+subtraction at all four ledger sites + a `c slot … wrapped N` reachability counter.
+**Twelve-instance probe (job `1585610`, node018, both halves in ONE window): loss-set PAR-2
+8400 → 1944, win-set 2462 → 2285 (the control half is slightly BETTER), solved 7/12 → 11/12.** So the
+recovery is not paid for out of the wins. Two unrecovered/unexplained, stated as such: `mod4block` is
+TO on the `ea15617` binary too (the may-not-gate lottery, no conclusion), and `em_11`'s SOLVE returns
+but at 585.7 s vs a 38.1 s `before` draw — a trajectory residual the wrap does not own, exactly as the
+Sweep-governor report predicted for it. ctest **46/46**; fuzz DRAT / native-LRAT / `--random-policy`
+10 000 cases each, **0 failures** (`1585685`/`1585686`/`1585687`). Report:
+`benchmarks/reports/2026-08-06-solve-loss-diagnosis.md`.
+
+**▶ THE EXACT NEXT STEPS, in order.** (1) **Full Tier B + Tier C on the fix** — twelve extreme
+instances are not a tier, and every `Sweep`/`Congruence` dosing number taken since `58a46de` was
+measured against a budget that did not bind, so the T3 reading has to be retaken. Two pin dirs,
+node-pinned, `--baseline kissat --baseline cadical`. (2) **One `ledgerfix + TACTIX_SLOT_CLOCKS=1`
+arm**, pre-registered in the report §5.4: one cadence on the UNFIXED tree still scored 3558 against
+the fix's 4229 on those twelve, so up to ~670 PAR-2 may be D2 cost that survives a sound ledger —
+nothing measured so far separates "D2's cost was entirely the wrap" from "D2 costs on top of it".
+(3) Re-price Sweep's and Congruence's per-mille shares now that the ledger binds.
+
+**▶ NOTE FOR EVERY FUTURE SLOT A/B.** `TACTIX_SLOT_CLOCKS` / `TACTIX_SLOT_WATERMARK` now exist, so the
+whole Stage-D/E/F/G set is ablatable from one binary. The first cut of the clock hatch advanced BOTH
+clocks after one phase and thereby starved the entire elimination family (`c bve 0 rounds`) while
+"restoring" all five losses — caught only by reading `c slot-clock`'s `eliminate phases 0`, not the
+wall clock. Read the telemetry before banking any arm.
+
+## ▶ PREVIOUS ANCHOR (2026-08-05) — the Sweep-governor Tier C A/B (specced, unrun)
+
+**NOTHING IN FLIGHT.** (Historical: the final Tier B + Tier C at HEAD `c7beaa0` — landed as windows
+`20260806-084944-B-shipped` / `20260806-084947-C-shipped`; those are the numbers the anchor above
+diagnoses.) Tier B array `1585269` on node017,
 Tier C array `1585354` on node018 — two pin dirs from ONE commit with **byte-identical binaries**
 (`219b10d7…`), both baselines carried, one tier per node so no arm/node correlation inside a tier and
 the two tiers do not contend. Partition was verified idle before submitting. ctest **46/46**, corpus
