@@ -265,7 +265,8 @@ static void test_stats_and_config_surface(void) {
  * renumbers ids by the name sort — update this golden list deliberately then. */
 static void test_action_kind(void) {
   static const char *const golden[] = {
-      "BCE",        "BVE",        "Backbone",         "ConflictAnalysis",
+      "BCE",        "BVE",        "Backbone",         "CCE",
+      "ConflictAnalysis",
       "Congruence", "Decide",     "Factor",           "HyperTernaryRes",
       "Instantiate", "Lucky",     "Probe",            "Propagate",
       "Reduce",     "Reorder",    "Rephase",          "Restart",

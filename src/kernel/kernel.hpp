@@ -225,6 +225,20 @@ struct Stats {
   uint64_t instantiate_checked = 0; // (clause, literal) pairs probed
   uint64_t instantiated = 0;        // literals removed by Instantiate
 
+  // X3 CCE (src/rules/cce/cce.hpp). Also its fuzz REACHABILITY witness: a leg
+  // whose `cce_cla` is zero never added a covered literal, so it tested BCE's
+  // blockedness test and nothing this rule adds. Read `cce_deleted` against
+  // `cce_tried`, and the two exits (`cce_blocked` / `cce_ata`) against each
+  // other — an all-`cce_ata` run exercised no witness at all.
+  uint64_t cce_rounds = 0;   // rounds ATTEMPTED (the round's rotation reads it)
+  uint64_t cce_tried = 0;    // candidate clauses extended
+  uint64_t cce_deleted = 0;  // clauses eliminated
+  uint64_t cce_blocked = 0;  // ... of which by the blocked exit (witnessed)
+  uint64_t cce_ata = 0;      // ... of which by the asymmetric-tautology exit
+  uint64_t cce_ala = 0;      // asymmetric literals added
+  uint64_t cce_cla = 0;      // covered literals added (CCE's own mechanism)
+  uint64_t cce_ticks = 0;    // clause literals scanned — CCE's budget currency
+
   // Sweep (src/rules/sweep/sweep.hpp). Also the reachability witness for its
   // fuzz legs — a zero `sweep_environments` means the leg never entered the
   // detector, so a green result there proves nothing.

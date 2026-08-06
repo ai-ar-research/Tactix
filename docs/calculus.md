@@ -391,7 +391,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   `x`). Each add step is a RAT addition (satisfiability-preserving) and each delete removes a clause
   entailed by the survivors, so the DRAT stream is sound end-to-end.
 
-## 6c. Bounded clause addition (X2) — the reference families pulled in by rev 72
+## 6c. Bounded clause addition (X2) and witnessed clause elimination (X1, X3) — the reference families pulled in by rev 72
 
 ### X2 · HyperTernaryRes — hyper ternary resolution
 - **Precondition (abstract):** two ternary clauses `C = (p ∨ a ∨ b)` and `D = (¬p ∨ c ∨ d)` in `F` whose
@@ -430,6 +430,56 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Note:** this weakens `F` (a deletion no equivalence justifies), so it is one of the two rules — with
   E1 — whose omission from `ρ` is a *model* bug, not a proof bug. Also why BCE is irredundant-only: a
   learned clause is already deletable by S2 Reduce with no witness at all.
+
+### X3 · CCE — covered clause elimination
+The asymmetric variant (ACCE) the literature still calls CCE. It is X1 with the clause **grown first**:
+two literal-addition steps extend `C` until the extension is blocked, and then the ORIGINAL `C` is
+deleted. Only cadical has it (`cover.cpp`, `cover` ships **0**); kissat has neither CCE nor BCE — its
+`cover.h` is a coverage-assertion macro, not clause covering.
+- **Precondition (abstract):** a clause `C ∈ F` together with a finite chain `C = C_0 ⊆ C_1 ⊆ … ⊆ C_n`
+  in which each step is one of
+  - **ALA** `C_{i} = C_{i-1} ∪ {¬d}` for some `D ∈ F \ {C}` with `D \ {d} ⊆ C_{i-1}`; or
+  - **CLA** `C_{i} = C_{i-1} ∪ I` at a *pivot* `u ∈ C_{i-1}`, where `I ⊆ ⋂ { E \ {¬u} : E ∈ F, ¬u ∈ E,
+    E resolves non-tautologically with C_{i-1} }` and `I ≠ ∅`;
+
+  and an exit, either **blocked** (`C_n` is blocked on some `w ∈ C_n`, X1's condition) or **ATA** (`C_n`
+  is falsified by some `D ∈ F \ {C}`, i.e. `D ⊆ C_n`). Write `D_i` for the chain restricted to the CLA
+  additions — `D_0 = C`, and `D_i = D_{i-1} ∪ I_i` — so the ALA literals are not in any `D_i`. The CLA
+  pivots must be drawn from the `D_i`, never from an ALA literal.
+- **Effect:** delete `C` from `F` and push, in order, one witness per CLA step, `(u_i, D_{i-1})`, then —
+  for the blocked exit only — the final `(w, D_n)`. `τ` and `π` untouched. Like X1 this is not an
+  equivalence: only equisatisfiability modulo `ρ`. The ATA exit **with no CLA step in front of it**
+  pushes nothing: `C` is then RUP against `F \ {C}`, hence entailed, and a deletion of an entailed clause
+  needs no witness.
+- **Proof δ:** `del(C)` + `push-witness`·k (ATA-with-no-CLA: `del(C)` alone) — X1's delta, only with a
+  *sequence* of segments for one deletion. Nothing is added, so there is no chain and no format-specific
+  hazard.
+- **Soundness — the ALA-closure lemma.** Let `M ⊨ F \ {C}`. *If `M` falsifies every literal of `D_i`, it
+  falsifies every literal of `C_i`.* Induct on the order the ALA literals were added: `¬d` entered
+  because some `D ∈ F \ {C}` had `D \ {d}` inside the extension at that moment — CLA literals, all in
+  `D_i` and false by hypothesis, and earlier ALA literals, false by the induction hypothesis. `M ⊨ D`, so
+  `d` is true and `¬d` is false. ∎ This is what licenses recording the SMALLER clause `D_i` while
+  testing blockedness against the LARGER `C_i`, and it is the whole reason the witness is well-formed.
+- **Soundness — reconstruction.** `ρ` replays in reverse (Järvisalo–Heule–Biere), so the segments unwind
+  last-pushed first.
+  - *Blocked exit.* `M ⊭ D_n` ⇒ (lemma) `M` falsifies `C_n`; blockedness gives every `E ∋ ¬w` a literal
+    `t ≠ ¬w` with `¬t ∈ C_n`, so `t` is TRUE and `E` survives the flip. `w ∈ D_n`, so the flip satisfies
+    `D_n`. (X1's argument, with `C_n` in place of `C`.)
+  - *ATA exit after CLA steps.* No final segment: `D ⊆ C_n` and `M ⊨ D`, so `M` cannot falsify `C_n`,
+    so by the lemma it cannot falsify `D_n` either — the unwinding starts satisfied.
+  - *CLA step `i`, replayed after step `i+1`.* `D_i` holds and `D_{i-1}` does not, so some `o ∈ I_i` is
+    TRUE. Flipping `u_i` satisfies `D_{i-1}`; each `E ∋ ¬u_i` either resolved tautologically with
+    `C_{i-1}` (same argument as the blocked exit, via the lemma) or contributed to `I_i` and so contains
+    that true `o`.
+  - The induction bottoms out at `(u_1, D_0 = C)`, whose flip satisfies the deleted clause. Every flip
+    only sets a literal TRUE and every later `D_j` contains `u_i`, so no repaired segment is re-broken.
+- **Note — the two sides quantify differently, and it is not symmetry that decides it.** Blockedness and
+  the CLA intersection may quantify over ANY superset of the clauses a reconstructed model must satisfy:
+  over-quantifying only makes the test stricter. ALA may not: the lemma needs `M ⊨ D` for the justifying
+  clause, so `D` must be one the model is guaranteed to satisfy at replay time. That is the abstract
+  reason ALA is restricted to the clauses `ρ`'s invariant covers, not an engineering choice.
+- **Termination:** each step adds at least one literal and never removes one, and no step may add a
+  literal whose negation is already in the extension, so a chain over a fixed variable set is finite.
 
 **Deliberately absent — X5 `Condition` (globally blocked clauses / conditional autarkies).** The
 generalization of X1 in which the witness is a *cube* whose literals need not lie in `C`. It has no
