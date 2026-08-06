@@ -624,10 +624,9 @@ void DefaultPolicy::order_candidates(const Kernel &k, SlotEntry &e,
       e.ord.rotated++;
     }
   }
-  // The built-in ranker is a no-op until SCHED-E2 wires the arms, so skip the
-  // whole step — including its before-image copy — unless a policy has been
-  // swapped in that can actually reorder.
-  if (!candidate_order)
+  // The default ranker is a no-op at the Native arm, so skip the whole step
+  // (including its before-image copy) unless something can actually reorder.
+  if (!candidate_order && e.order == CandidateOrder::Native)
     return;
   CandidateOrderPolicy &cp =
       candidate_order ? *candidate_order : default_candidate_order_;
@@ -1016,6 +1015,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                      "take effect");
             e.cursor_enabled = std::strtoul(cv, nullptr, 10) != 0;
           }
+          knob_name("TACTIX_ORDER_", nm);
+          if (const char *ov = std::getenv(knob)) {
+            if (!e.dosed)
+              reject("this entry runs as a canonical batch round, so the "
+                     "policy never sees its candidate list and an order arm "
+                     "cannot take effect");
+            if (!parse_candidate_order(ov, &e.order))
+              reject("unknown candidate-order arm (native, reverse, random, "
+                     "occ-asc, occ-desc, negocc-desc, heuristic)");
+          }
           inprocess_slot.push_back(e);
         }
       };
@@ -1061,11 +1070,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (rules[i].tier == RuleTier::Inprocess && !placed[i])
             add_entry(i);
       }
-      // The built-in ranker holds one arm per registry rule — the shape the
-      // §5.6 learner needs. Every arm is Native until SCHED-E2 wires the
-      // per-rule knobs that select them.
+      // Hand the built-in ranker the per-rule arms the knobs selected. It is
+      // indexed by registry id so ONE object serves every entry — the shape
+      // the §5.6 learner needs, which holds one arm per rule.
       default_candidate_order_.arms.assign(rules.size(),
                                            CandidateOrder::Native);
+      for (const SlotEntry &se : inprocess_slot)
+        default_candidate_order_.arms[se.rule] = se.order;
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;
@@ -2092,20 +2103,20 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
               (unsigned long long)elim_clock.next_conflicts,
               (unsigned long long)elim_clock.blocked_episodes,
               (unsigned long long)k.stats.bve_marks);
-  // REACHABILITY readout for the resumption cursors and (from SCHED-E2) the
-  // candidate-ORDER arms. One line per DOSED entry — the only entries whose
+  // REACHABILITY readout for the candidate-ORDER arms and the resumption
+  // cursors (SCHED-E1/E2). One line per DOSED entry — the only entries whose
   // candidate list the policy sees at all. Read it BEFORE any A/B verdict:
   //   `rotated 0` ⇒ no dose of this entry was ever truncated on this instance,
   //     so the cursor is inert here and an on/off arm proves nothing.
-  //   `moved 0` under a non-native arm ⇒ the arm did not reorder anything, so
-  //     the arm was not tested.
+  //   `moved 0` with a non-native arm ⇒ the arm did not reorder anything, so
+  //     the arm was not tested ([[ab-arm-identical-artefacts]]).
   for (const SlotEntry &e : inprocess_slot) {
     if (!e.dosed)
       continue;
-    std::printf("c cand-order  %-18s cursor %s | lists %llu "
+    std::printf("c cand-order  %-18s arm %-12s cursor %s | lists %llu "
                 "candidates %llu rotated %llu advanced %llu ranked %llu "
                 "moved %llu\n",
-                rules[e.rule].name,
+                rules[e.rule].name, candidate_order_name(e.order),
                 e.cursor_enabled ? "on " : "off",
                 (unsigned long long)e.ord.lists,
                 (unsigned long long)e.ord.candidates,

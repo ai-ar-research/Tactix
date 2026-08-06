@@ -248,6 +248,7 @@ static void test_cursor_preserves_n1(void) {
     DefaultPolicy::SlotEntry qe;
     qe.rule = static_cast<int>(v4->id);
     qe.dosed = true;
+    qe.order = arm;
     std::vector<uint64_t> out = before;
     q.order_candidates(k, qe, out.data(), n);
     assert(same_multiset(out, before) && candidate_order_name(arm) &&
@@ -255,6 +256,76 @@ static void test_cursor_preserves_n1(void) {
   }
   std::printf("  cursor N1: instances() unchanged, apply_instance "
               "cursor-independent, all 7 arms permute\n");
+}
+
+// --- SCHED-E2: each ordering arm must actually REORDER ---------------------
+//
+// An arm whose counter never moves was not tested, so every arm is pinned to
+// move something on a fixture where its key is not constant. Native is the
+// control: it must move NOTHING.
+static void test_order_arms_reorder(void) {
+  const RuleVTable *v4 = find_rule("TransitiveReduce");
+  assert(v4 && v4->instances);
+  Kernel k;
+  kernel_reserve_vars(k, 512);
+  // Fans of DIFFERENT widths on BOTH polarities, and widths that are not each
+  // other's complement -- otherwise occ(x)+occ(-x) comes out constant and the
+  // occurrence arms are silently inert on the fixture (which is the failure
+  // mode this whole test exists to catch).
+  for (uint32_t s = 0; s < 10; s++) {
+    for (uint32_t t = 0; t < 2 + s; t++)
+      kernel_add_binary_clause(k, make_lit(s, true),
+                               make_lit(20 + s * 16 + t, true));
+    for (uint32_t t = 0; t < 2 + s % 3; t++)
+      kernel_add_binary_clause(k, make_lit(s, false),
+                               make_lit(300 + s * 16 + t, true));
+  }
+  // `H` is OPTIONAL policy state, and the Heuristic arm falls back to native
+  // without it -- so attach one and give the variables distinct, SCRAMBLED
+  // scores, or that arm's pin is vacuous.
+  ScopedHeuristics h(k);
+  k.h->stable = true;
+  for (uint32_t v = 0; v < k.nvars; v++)
+    k.h->scores.score[v] = static_cast<double>((v * 7919u) % 1013u);
+  if (!v4->guard(k)) {
+    std::printf("  order arms: SKIPPED (guard false)\n");
+    return;
+  }
+  std::vector<uint64_t> before(2048, 0);
+  const uint32_t n = v4->instances(k, before.data(), 2048);
+  before.resize(n);
+  assert(n >= 4);
+
+  const CandidateOrder movers[] = {
+      CandidateOrder::Reverse,    CandidateOrder::Random,
+      CandidateOrder::OccAsc,     CandidateOrder::OccDesc,
+      CandidateOrder::NegOccDesc, CandidateOrder::Heuristic};
+  for (CandidateOrder arm : movers) {
+    DefaultCandidateOrder co;
+    co.arms.assign(tactix_rules().size(), CandidateOrder::Native);
+    co.arms[v4->id] = arm;
+    DefaultPolicy q;
+    q.candidate_order = &co;
+    DefaultPolicy::SlotEntry qe;
+    qe.rule = static_cast<int>(v4->id);
+    qe.dosed = true;
+    qe.order = arm;
+    std::vector<uint64_t> out = before;
+    q.order_candidates(k, qe, out.data(), n);
+    assert(qe.ord.ranked == 1 && qe.ord.moved > 0 &&
+           "arm did not reorder anything -- it would be untestable");
+  }
+  {
+    DefaultPolicy q; // no attached policy, arm stays Native
+    DefaultPolicy::SlotEntry qe;
+    qe.rule = static_cast<int>(v4->id);
+    qe.dosed = true;
+    std::vector<uint64_t> out = before;
+    q.order_candidates(k, qe, out.data(), n);
+    assert(qe.ord.ranked == 0 && qe.ord.moved == 0 && out == before &&
+           "the native arm must be the identity");
+  }
+  std::printf("  order arms: 6 arms reorder, native is the identity\n");
 }
 
 // --- SCHED-B4: subsumption must meter PARTNER VISITS, not candidates ------
@@ -480,6 +551,7 @@ int main() {
   test_mode_growth_key_matches_kissat();
   test_slot_cursor_rotates();
   test_cursor_preserves_n1();
+  test_order_arms_reorder();
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
   test_authored_slot_order_covers_registry();
