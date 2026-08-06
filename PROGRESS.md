@@ -1033,8 +1033,10 @@ instrument before spending a tier window on a mechanism.
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
 - [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by file;
-  the X1/X2/X4 share and the C1/C2 share are DONE** (see their Log entries), **Vivify is the one open
-  share**. Tick the item when it lands. · [ ] **SCHED-H2** per-solve reset of
+  the X1/X2/X4 share and the C1/C2 share are DONE** (see their Log entries; C1/C2 is six sites, no cadence,
+  `c interrupt2`), **Vivify is the one open share**. Tick the item when it lands. **`battleship-14-26-sat`'s
+  7.3 s post-SIGTERM exit is NOT C1/C2** — ruled out by counters, see the C1/C2 entry.
+  · [ ] **SCHED-H2** per-solve reset of
   restart/reduce/rephase/mode/reorder/averages/walk_anchor · [ ] **SCHED-H3** Reduce `first_reducible` scan
   bound
 
@@ -1404,57 +1406,82 @@ an API caller may well want pure subsumption without strengthening, and N1 requi
 - **Do NOT read `j3037_9_rggt_b`**: the shadow arm solved it in 34 s while the shipped arm timed out at
   300 s, and that instance is already on the record as a measured lottery ([[chaotic-instance-veto]]).
 
-### 2026-08-05 — SCHED-H1 (C1/C2 half): four poll sites, and why one would not have been enough
+### 2026-08-06 — SCHED-H1 (the C1/C2 third): SIX poll sites, no cadence, and a residual ruled out
 
 `D-STRENGTHEN-BUDGET` recorded C2 owning **97.8 s of `DivS_862_11`'s 109.0 s in four applications**, with
 no way to stop a round once it began. `default_policy.cpp` polls `stop` at every slot boundary, which
 bounds SIGTERM latency to ONE application — and one application here is most of the solve. A harness then
-escalates to SIGKILL and **the proof file is lost**, which is an N2/§6 defect, not a latency nuisance.
+escalates to SIGKILL and **the proof file is lost**: an N2/§6 defect, not a latency nuisance.
 
-**Four sites, because C2 has three unbounded loops, not one.** C1: the candidate loop (its only one). C2:
-the **flush pre-pass** over the whole arena, the candidate loop, and the **cascade** that re-checks one
-shrinking candidate (bounded by `CLSLIM`, i.e. up to 1000 full partner scans on a single clause). A poll
-in the candidate loop alone would leave a round deaf for the whole flush pass.
+**`budget_aware` was not termination here either**, exactly as the X1/X2/X4 third found. Both rules poll
+`Kernel::work_budget` mid-round and polled nothing else; `work_budget` is 0 whenever the policy leaves a
+round unmetered, and — the part that matters for N1 — **neither governor is consulted at all on the
+single-instance `*_try` path**, which is the path a phase-6 policy driving `apply_instance` per candidate
+would live on. Two of the six sites are there.
 
-**An interrupted round is bookkept as an INCOMPLETE round, never as a special case.** Each site reuses the
-existing mid-round-budget cut: set `stopped_at`, fall through to SCHED-F2's tail re-arm, advance the
-watermark, and report `subsume_complete`/`strengthen_complete` false. `!interrupted` is a separate
-conjunct in C2's completeness because a flush-pass abort leaves `candidates` empty, which would otherwise
-read as a vacuous fixpoint — the same trap `!ended` already closes for a flush-derived unit. No site
-aborts mid-rewrite, so everything done is already proof-logged: **dropping an inference is sound, and no
-unverifiable certificate can be emitted on this path** (Track C's `D-CONG-SKIP` precedent).
+**Six sites, because C2 alone has four entries into unbounded work.** C1: the candidate loop, plus
+`subsume_forward_try`. C2: the **flush pre-pass** over the whole arena, the candidate loop, the **cascade**
+that re-checks one shrinking candidate (up to `CLSLIM` = 1000 full partner scans on a single clause), plus
+`strengthen_try`. A poll in the candidate loop alone leaves a round deaf for the whole flush pass.
+
+**Every site sits where nothing is half-mutated** — top of an iteration, `marks` all-zero, no clause
+part-rewritten — and everything already done is proof-logged. **Dropping an inference is sound; leaving
+`F`/`R`/`τ`/`ρ` inconsistent or emitting an unverifiable certificate is not** (Track C's `D-CONG-SKIP`).
+
+**An interrupted round is bookkept as an INCOMPLETE round — with one correction found in self-review.**
+The first cut of this reused SCHED-F2's budget-cut bookkeeping wholesale: re-arm the unreached tail, then
+advance the watermark. **That is a starvation bug on the abort path.** Re-arm-then-advance is only
+equivalent to "carry on next round" because the re-arm covers the tail of `candidates` — and **C2 can
+abort inside the flush pre-pass, before `candidates` exists at all**, so there is no tail and advancing
+would retire material the round never looked at (SCHED-B3's starvation, reintroduced through the new
+control flow). Both rules now treat an interrupt as the one cut that **advances no watermark and re-arms
+nothing**: the next round is offered the identical set, and the abort path stops touching variables and
+perturbing every other rule's filter on the way out of a solve that is being terminated. Pinned in both
+unit tests (`*_touch_mark == 0`, `*_mark_advances == 0` after an abort).
 
 **▶ THE VACUITY GUARD, which is the point of the item.** Task #10's abort paths passed **4 × 10,000 fuzz
 cases while inert**, because the sites were gated on `!(++tick & 255)` and nothing smaller than one poll
-window ever reached a first check — and every CNF the harness generates is smaller than that. So:
-- the predicate is `(k.stop_fuzz || !(++stop_tick & 255)) && kernel_terminating(k)` — `k.stop_fuzz` leads,
-  so the stress path **bypasses the cadence entirely** and fires on the first poll;
-- the source-level counter is `stop_fuzz_fires`, incremented **inside `kernel_terminating` itself**, so it
-  cannot go stale if a call site forgets to count;
-- `interrupts_c1`/`interrupts_c2` (`c c1c2stop`) attribute a fire to the rule — `rule_interrupted` alone
-  cannot, since Congruence shares it;
-- the unit tests exercise BOTH paths and, for C2, both the flush site and the candidate-loop site, by
-  ARITHMETIC rather than luck: 900 arena clauses overrun the 256-poll window inside the flush (asserted
-  with `strengthen_checked == 0`), while 200 leave the pre-pass 56 polls short so the first fire lands in
-  the candidate loop (asserted with `strengthen_checked > 0`). Each has a negative control on the same
-  formula with no interrupt, which must run to `complete`.
+window ever reached a first check — and every CNF the harness generates is smaller than that. The first
+cut of this entry reproduced that mistake (a 256-candidate mask with a `k.stop_fuzz ||` bypass in front)
+and it is **gone**: the hazard is closed STRUCTURALLY, not tested around.
+- **No cadence at all.** One poll per heavyweight iteration, so the FIRST candidate reaches the first
+  check. A candidate is up to `CLSLIM × OCCLIM` partner visits, so the poll is free at that granularity.
+- The predicate is `kernel_rule_interrupt(k, k.stats.subsume_interrupted)` — the X1/X2/X4 share's helper,
+  which polls **and** performs both increments, so **no call site increments anything** and a new abort
+  site cannot be added uncounted.
+- `subsume_interrupted` / `strengthen_interrupted` (`c interrupt2`, the `c interrupt3` line's counterpart)
+  attribute a fire to the rule; `rule_interrupted` alone cannot, since five rules now share it.
+- The unit tests drive each entry point separately with the flag already raised, the landed
+  `test_bce.cpp` shape, each with a negative control on the same formula. C2's candidate-loop and cascade
+  sites cannot be reached that way — the flush pre-pass always polls first — so they are reached through
+  the stress cadence, with `strengthen_checked > 0` at the abort as the witness that the flush completed
+  first, and a sweep that finds nothing fails loudly rather than leaving the sites unproven.
 
-**No behaviour change without an interrupt**: with `stop == nullptr` and `stop_fuzz == 0` the predicate is
-a counter increment and a branch, and `c c1c2stop` reads `0 C1 rounds, 0 C2 rounds` on every normal solve
-(confirmed on all 14 non-interrupt tasks of probe `1585160`). **So this needs no A/B.**
+**No behaviour change without an interrupt**: with `stop == nullptr` and `stop_fuzz == 0` each site is one
+predicate call and a branch, and `c interrupt2` reads `0, 0` on every normal solve (all 14 non-interrupt
+tasks of probe `1585160`). **So this needs no A/B.**
 
-**▶ NON-ZERO FIRE COUNTS ON REAL INSTANCES — probe `1585160`, and the defect is visible in them.**
-- **Real SIGTERM** (`timeout` default signal), i.e. the actual §6 path, with `0 stress fires` proving the
-  abort came from `*k.stop` and not from the knob:
-  - `DivS_862_11` at 25 s → `c c1c2stop 1 C1 rounds, 0 C2` — and the C1 round it interrupted had already
-    done **1,971,623,948 partner visits**. That single round IS the whole 25 s.
-  - `DivS_862_11` at 60 s → `0 C1, 1 C2`, the C2 round at **2,718,725,146 visits**.
-  - Both exited cleanly with `s UNKNOWN` and a flushed proof. **Before this item the same SIGTERM would
-    have waited out a two-billion-visit round**, which is the SIGKILL-loses-the-proof scenario.
-- **Stress cadence** `TACTIX_STOP_FUZZ=200000` on real instances, `rule_interrupted == stop_fuzz_fires`
-  exactly in every case: `DivS_862_11` **9 C1 + 9 C2** (19/19 fires), `9vliw_bp_mc` **2 C1 + 7 C2**
-  (11/11), `rbsat` **0 C1 + 3 C2** (4/4). **Verdicts unchanged from the shipped arm** — `9vliw` UNSAT,
-  `DivS`/`rbsat` SAT — so aborting mid-round changed no answer.
+**▶ NON-ZERO FIRE COUNTS, and the defect is visible in them.** Probe `1585160` (counters only):
+- **Real SIGTERM**, i.e. the actual §6 path, with `0 stress fires` proving the abort came from `*k.stop`:
+  `DivS_862_11` at 25 s → **1 C1 abort**, and the C1 round it interrupted had already done
+  **1,971,623,948 partner visits**; at 60 s → **1 C2 abort**, that round at **2,718,725,146 visits**.
+  Both exited cleanly with `s UNKNOWN` and a flushed proof. **Before this item the same SIGTERM waited out
+  a two-billion-visit round** — the SIGKILL-loses-the-proof scenario, reproduced.
+- **Stress cadence** on real instances, `rule_interrupted == stop_fuzz_fires` exactly in every case:
+  `DivS_862_11` **9 C1 + 9 C2**, `9vliw_bp_mc` **2 C1 + 7 C2**, `rbsat` **0 C1 + 3 C2** — verdicts
+  unchanged from the shipped arm (`9vliw` UNSAT, the other two SAT), so aborting changed no answer.
+- **At FUZZ scale, which is where the last vacuity hid** (probe `1585215`, 400 harness-generated cases,
+  `benchmarks/probes/h1-fuzzscale-reach.*`): **4,694 C1 aborts and 4,817 C2 aborts** over 49,800 source
+  fires. These were measured on the CADENCED first cut; removing the cadence can only raise them.
+
+**▶ THE `battleship-14-26-sat` RESIDUAL IS NOT C1/C2 — ruled out by counters, not by a timing run.** The
+X1/X2/X4 third handed over a 7.3 s post-SIGTERM exit on that instance with `c interrupt 0` and BCE/X2/X4
+at zero rounds. Probe `1585160` ran it to a SAT verdict, so its counters are C1/C2's ENTIRE involvement
+in that solve: **C1 one round, 196 candidates, 1,274 partner visits; C2 one round, 196 candidates, 15,106
+partner visits — and both rounds COMPLETE.** Sixteen thousand partner visits cannot be seven seconds, and
+a round that completed was never in flight to be interrupted. **The 7.3 s is search, Vivify, or the proof
+flush; C1/C2 are excluded.** Routed back rather than chased — narrowing it further needs a timing
+measurement, which this window cannot honestly produce.
 
 ### 2026-08-05 — SCHED-G2 (1/2): the instrument, and what will count as decisive
 

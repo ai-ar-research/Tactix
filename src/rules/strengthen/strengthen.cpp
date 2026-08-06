@@ -376,15 +376,12 @@ ApplyResult strengthen_apply(Kernel &k) {
   // Every site aborts BETWEEN candidates/clauses, never mid-rewrite: whatever
   // the round did is already proof-logged and the bookkeeping below runs
   // unchanged, so an interrupted round is exactly an incomplete round.
-  // `k.stop_fuzz ||` must lead the cadence — see the twin comment in
-  // subsume_forward.cpp for why a cadence-only poll fuzzes vacuously.
-  uint64_t stop_tick = 0;
+  // NO CADENCE at any of them — see the twin comment in subsume_forward.cpp for
+  // why a tick mask is what made the last set of abort paths fuzz vacuously.
   bool interrupted = false;
   const auto poll = [&]() {
-    if (!(k.stop_fuzz || !(++stop_tick & 255)) || !kernel_terminating(k))
+    if (!kernel_rule_interrupt(k, k.stats.strengthen_interrupted))
       return false;
-    k.stats.rule_interrupted++;
-    k.stats.interrupts_c2++;
     interrupted = true;
     return true;
   };
@@ -542,6 +539,11 @@ ApplyResult strengthen_apply(Kernel &k) {
 // applies at most one subsume-or-strengthen step (no cascade)
 ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   assert(strengthen_guard(k));
+  // SCHED-H1 · neither governor reaches this path (see the twin note in
+  // subsume_forward.cpp): `work_budget` is a ROUND device. Checked at entry,
+  // before the per-clause flush, so nothing is part-rewritten.
+  if (kernel_rule_interrupt(k, k.stats.strengthen_interrupted))
+    return ApplyResult::NoOp;
   Clause *c = clause_at(k.arena, candidate);
   if (c->garbage())
     return ApplyResult::NoOp;

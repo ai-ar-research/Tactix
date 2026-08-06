@@ -491,41 +491,53 @@ static void test_shadow_ledger() {
   }
 }
 
-// SCHED-H1 · the §6 interrupt reaches C1's candidate loop on both paths — the
-// stress bypass (first poll) and the real cadenced `Kernel::stop` (which needs
-// more than a 256-wide poll window before it can fire at all). The negative
-// control at the end is what keeps the cadenced leg from passing vacuously.
-static void test_interrupt_ends_round() {
-  {
+// SCHED-H1 · both interrupt sites, pinned deterministically — the landed
+// X1/X2/X4 shape. There is NO cadence, so a raised flag fires at the FIRST
+// poll of whichever entry point is driven; that is the property that makes a
+// short round (i.e. every round the fuzz harness generates) reach the check.
+static void test_interrupt() {
+  volatile sig_atomic_t stop = 1;
+  { // (1) the ROUND's candidate loop: cut before the first candidate, so the
+    // subsumption this formula certainly contains is not performed.
     Kernel k;
     kernel_reserve_vars(k, 4);
     add(k, {1, 2, 3, 4});
     add(k, {1, 2, 3});
-    k.stop_fuzz = 1;
-    assert(subsume_forward_apply(k) == ApplyResult::NoOp); // aborted before it
-    assert(k.stats.forward_subsumed == 0);                 // could delete
-    assert(k.stats.interrupts_c1 == 1);
-    assert(k.stats.stop_fuzz_fires >= 1); // counted at the SOURCE
-    assert(!k.subsume_complete);
+    KernelStopPublisher pub(k, &stop);
+    assert(subsume_forward_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.forward_subsumed == 0 && k.stats.forward_checked == 0);
+    assert(k.stats.subsume_interrupted == 1);
+    assert(k.stats.rule_interrupted == 1);
+    assert(!k.subsume_complete); // an abort is an INCOMPLETE round
+    // ...and it retires nothing: advancing the watermark here would drop
+    // material the round never looked at (SCHED-B3's starvation).
+    assert(k.subsume_touch_mark == 0 && k.stats.forward_mark_advances == 0);
     kernel_check_invariants(k);
   }
-  {
+  { // (2) the single-instance entry the round loop never goes near, and which
+    // NEITHER governor reached before H1 — `work_budget` is a round device.
     Kernel k;
-    kernel_reserve_vars(k, 3000);
-    for (int i = 0; i < 900; i++)
-      add(k, {3 * i + 1, 3 * i + 2, 3 * i + 3});
-    volatile sig_atomic_t stop = 1;
-    k.stop = &stop;
-    assert(subsume_forward_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.interrupts_c1 == 1);
-    assert(!k.subsume_complete);
-    k.stop = nullptr;
-    Kernel c; // negative control: the same round, uninterrupted, COMPLETES
-    kernel_reserve_vars(c, 3000);
-    for (int i = 0; i < 900; i++)
-      add(c, {3 * i + 1, 3 * i + 2, 3 * i + 3});
-    assert(subsume_forward_apply(c) == ApplyResult::NoOp);
-    assert(c.stats.interrupts_c1 == 0 && c.subsume_complete);
+    kernel_reserve_vars(k, 4);
+    const Ref big = add(k, {1, 2, 3, 4});
+    add(k, {1, 2, 3});
+    KernelStopPublisher pub(k, &stop);
+    assert(subsume_forward_try(k, big) == ApplyResult::NoOp);
+    assert(k.stats.forward_subsumed == 0);
+    assert(k.stats.subsume_interrupted == 1);
+  }
+  { // the negative control for BOTH: same formulas, no interrupt, work happens
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    add(k, {1, 2, 3, 4});
+    add(k, {1, 2, 3});
+    assert(subsume_forward_apply(k) == ApplyResult::Ok);
+    assert(k.stats.forward_subsumed == 1 && k.stats.subsume_interrupted == 0);
+    Kernel t;
+    kernel_reserve_vars(t, 4);
+    const Ref big = add(t, {1, 2, 3, 4});
+    add(t, {1, 2, 3});
+    assert(subsume_forward_try(t, big) == ApplyResult::Ok);
+    assert(t.stats.forward_subsumed == 1 && t.stats.subsume_interrupted == 0);
   }
 }
 
@@ -545,7 +557,7 @@ int main() {
   test_proof_deltas();
   test_binary_subsumer_then_substitute();
   test_shadow_ledger();
-  test_interrupt_ends_round();
+  test_interrupt();
   printf("test_subsume: all ok\n");
   return 0;
 }
