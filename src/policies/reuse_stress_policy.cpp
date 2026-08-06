@@ -1,4 +1,5 @@
 #include "policies/reuse_stress_policy.hpp"
+#include "policies/stress_common.hpp"
 
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
@@ -10,26 +11,6 @@
 #include <cstdlib>
 
 namespace tactix {
-
-namespace {
-
-inline uint64_t rs_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 0x2545F4914F6CDD1Dull;
-}
-
-Lit rs_random_unassigned_literal(Kernel &k, uint64_t &rng) {
-  assert(k.unassigned > 0);
-  for (;;) {
-    const Var v = static_cast<Var>(rs_random(rng) % k.nvars);
-    if (k.values[make_lit(v, false)] == 0)
-      return make_lit(v, rs_random(rng) & 1);
-  }
-}
-
-} // namespace
 
 int reuse_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
@@ -94,15 +75,15 @@ int reuse_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     // a unit once a LATER backtrack unassigns the literal it forced. Dropping
     // below the reuse's own level and then propagating to a fixpoint is exactly
     // that sequence, and the invariant check at the fixpoint is the oracle.
-    if (!(rs_random(rng) % 8) && restart_guard(k)) {
-      restart_apply_to(k, static_cast<uint32_t>(rs_random(rng) % k.level));
+    if (!(stress_random(rng) % 8) && restart_guard(k)) {
+      restart_apply_to(k, static_cast<uint32_t>(stress_random(rng) % k.level));
       if (settle("restart"))
         continue;
     }
 
     if (k.conflict_valid || k.propagate_head < k.trail.size())
       continue;
-    decide_apply(k, rs_random_unassigned_literal(k, rng), true);
+    decide_apply(k, stress_random_unassigned_literal(k, rng), true);
     settle("decide");
   }
 }

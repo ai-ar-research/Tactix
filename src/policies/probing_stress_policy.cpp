@@ -1,4 +1,5 @@
 #include "policies/probing_stress_policy.hpp"
+#include "policies/stress_common.hpp"
 
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
@@ -10,26 +11,6 @@
 #include <cstdlib>
 
 namespace tactix {
-
-namespace {
-
-inline uint64_t ps_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 0x2545F4914F6CDD1Dull;
-}
-
-Lit ps_random_unassigned_literal(Kernel &k, uint64_t &rng) {
-  assert(k.unassigned > 0);
-  for (;;) {
-    const Var v = static_cast<Var>(ps_random(rng) % k.nvars);
-    if (k.values[make_lit(v, false)] == 0)
-      return make_lit(v, ps_random(rng) & 1);
-  }
-}
-
-} // namespace
 
 int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
@@ -86,7 +67,7 @@ int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) 
     if (k.level == 0) {
       int order[NRULES] = {0, 1, 2, 3, 4};
       for (int i = NRULES - 1; i > 0; i--) {
-        const int j = static_cast<int>(ps_random(rng) % (i + 1));
+        const int j = static_cast<int>(stress_random(rng) % (i + 1));
         const int t = order[i];
         order[i] = order[j];
         order[j] = t;
@@ -110,7 +91,7 @@ int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) 
         continue; // re-enter off the just-changed state
     }
 
-    decide_apply(k, ps_random_unassigned_literal(k, rng), true);
+    decide_apply(k, stress_random_unassigned_literal(k, rng), true);
     step("decide");
   }
 }

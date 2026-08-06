@@ -465,6 +465,12 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   (k.proof)` and Analyze's conflict path pays nothing. `kernel_delete_binary`'s precedent (a kernel
   primitive that emits its own `del`) is the shape; `docs/implementation-notes.md` §"where the bit is
   set" updated, since it still said the proof `delete` was the rule's.
+  `RV-S27` **DONE**: `src/policies/stress_common.hpp` now holds the xorshift64* RNG (was 10
+  byte-identical copies, prefix-renamed only to dodge ODR), the uniform unassigned-literal draw (10
+  copies) and the env knob parser (4 copies) — all ten policies including RandomPolicy. The bodies
+  were verified byte-identical before merging, so the dedup is identity-preserving; the DRIFTED
+  parser (`adversarial_policy.cpp`, `strtoul` with no negative guard, so `TACTIX_ADV_BURST=-1`
+  became 4294967295) is a **separate commit**, because that one changes behaviour.
 - **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
   highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the

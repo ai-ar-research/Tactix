@@ -1,4 +1,5 @@
 #include "policies/random_policy.hpp"
+#include "policies/stress_common.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -8,24 +9,6 @@
 #include "rules/restart/restart.hpp"
 
 namespace tactix {
-
-// xorshift64* — tiny, deterministic, no libc rand state
-static inline uint64_t next_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 0x2545F4914F6CDD1Dull;
-}
-
-static Lit random_unassigned_literal(Kernel &k, uint64_t &rng) {
-  // uniform over ALL unassigned variables (theoretical instance space)
-  assert(k.unassigned > 0);
-  for (;;) {
-    const Var v = static_cast<Var>(next_random(rng) % k.nvars);
-    if (k.values[make_lit(v, false)] == 0)
-      return make_lit(v, next_random(rng) & 1);
-  }
-}
 
 int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
@@ -64,14 +47,14 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     assert(!applicable.empty()); // some rule is always applicable pre-verdict
 
     const int id =
-        applicable[next_random(rng) % applicable.size()];
+        applicable[stress_random(rng) % applicable.size()];
     ApplyResult r;
     if (id == decide_id) {
-      r = decide_apply(k, random_unassigned_literal(k, rng), true);
+      r = decide_apply(k, stress_random_unassigned_literal(k, rng), true);
     } else if (id == restart_id) {
       // random keep-level (plan §8.2: random INSTANCE choices, not just
       // random order) — every level in [0, current] is a legal instance
-      r = restart_apply_to(k, next_random(rng) % (k.level + 1));
+      r = restart_apply_to(k, stress_random(rng) % (k.level + 1));
     } else if (rules[id].instances && rules[id].apply_instance) {
       // generic random instance draw over the rule's own enumeration —
       // any rule registering an instance surface (Rephase, S/C/V families)
@@ -85,9 +68,9 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       // schedulable action — including the batches — is a fuzz target.
       uint64_t insts[16];
       const uint32_t m = rules[id].instances(k, insts, 16);
-      const uint64_t inst = (m == 0 || next_random(rng) % 3 == 0)
+      const uint64_t inst = (m == 0 || stress_random(rng) % 3 == 0)
                                 ? INSTANCE_CANONICAL
-                                : insts[next_random(rng) % m];
+                                : insts[stress_random(rng) % m];
       r = apply_rule_instance(rules[id], k, inst);
     } else {
       r = apply_rule(rules[id], k);
