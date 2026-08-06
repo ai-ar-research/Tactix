@@ -83,15 +83,9 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
   for (Lit l = 0; l < nlits; l++) {
     if (k.values[l] != 0) // deviation (3)
       continue;
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-    const uint32_t size = k.watches.heads[l].size;
-    for (uint32_t i = 0; i < size;) {
-      const Watch w{ws[i]};
-      if (!w.binary()) {
-        i += 2;
+    for (const WatchEntry w : k.watches.entries(l)) {
+      if (!w.binary())
         continue;
-      }
-      i += 1;
       const Lit other = w.other();
       if (other < l || k.values[other] != 0)
         continue; // each pair once, both literals open

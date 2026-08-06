@@ -28,25 +28,6 @@ bool has_lit(const Clause *c, Lit t) {
   return false;
 }
 
-// true iff a live binary (a ∨ b) exists — the watch-list scan congruence.cpp
-// uses; kept local rather than shared, since the two callers want different
-// staleness policies (see subsume_forward's V4 reconciliation).
-bool live_binary(const Kernel &k, Lit a, Lit b) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  const uint32_t sz = k.watches.heads[a].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == b)
-        return true;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
-  return false;
-}
-
 // Ternary, irredundant, all three literals still unassigned at the drained
 // root. A clause carrying a root-true literal is satisfied and carries no
 // resolvent worth adding; one carrying a root-false literal is really a
@@ -205,7 +186,7 @@ ApplyResult ternary_try(Kernel &k, Lit pivot) {
       if (!resolve(c, d, pivot, res))
         continue;
       if (res.size() == 2) {
-        if (live_binary(k, res[0], res[1]))
+        if (kernel_binary_live(k, res[0], res[1]))
           continue;
       } else if (ternary_exists(k, res[0], res[1], res[2])) {
         continue;
@@ -261,7 +242,7 @@ ApplyResult ternary_apply(Kernel &k) {
   // "focus on those variables for which we have not tried ternary resolution
   // before and nothing changed for them since then" (ternary.cpp:258-266).
   // A pivot with no new material resolves the same pairs to the same
-  // already-present resolvents — `ternary_exists`/`live_binary` reject every
+  // already-present resolvents — `ternary_exists`/`kernel_binary_live` reject every
   // one of them, at full P·N cost.
   //
   // Ours is a coarsening of cadical's in one direction (any add touches, not

@@ -25,15 +25,10 @@ namespace {
 
 // Out-edges of p (implications p → q) are the binary watches of negate(p): a
 // binary clause (negate(p) ∨ q) is exactly the implication p → q (the V3a
-// read-only walk idiom, substitute.cpp:42-49). Nothing pushes to the watch
-// arena during a walk, so these pointers stay valid for its whole duration —
-// kernel_delete_binary only ever runs between walks, and compacts in place.
-inline const uint32_t *wbase(const Kernel &k, Lit l) {
-  return k.watches.arena.data() + k.watches.heads[l].offset;
-}
-inline uint32_t wsize(const Kernel &k, Lit l) {
-  return k.watches.heads[l].size;
-}
+// read-only walk idiom, shared with Substitute's SCC pass). Nothing pushes to
+// the watch arena during a walk, so a WatchLists::entries range stays valid for
+// its whole duration — kernel_delete_binary only ever runs between walks, and
+// compacts in place.
 
 // per-round scratch (mirrors vivify's local buffers — nothing rule-scoped
 // leaks into the kernel). `dead` is indexed by the OTHER endpoint x and means
@@ -81,19 +76,13 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
   for (size_t qi = 0; qi < w.queue.size(); qi++) {
     const Lit l = w.queue[qi];
     const Lit nl = negate(l); // edges l → q are the binary watches of ¬l
-    const uint32_t *ws = wbase(k, nl);
-    const uint32_t sz = wsize(k, nl);
     // the walk's real memory traffic, in propagate's cache-line unit
-    // (kernel.cpp:536): this scan is the whole cost of visiting `l`
-    w.ticks += 1 + (static_cast<uint64_t>(sz) >> 4);
-    for (uint32_t i = 0; i < sz;) {
-      const Watch wt{ws[i]};
-      if (!wt.binary()) {
-        i += 2; // large watch: blocking word + ref word
+    // (kernel.cpp's propagation scan): this scan is the whole cost of visiting `l`
+    w.ticks += 1 + (static_cast<uint64_t>(k.watches.size(nl)) >> 4);
+    for (const WatchEntry wt : k.watches.entries(nl)) {
+      if (!wt.binary())
         continue;
-      }
       const Lit q = wt.other();
-      i += 1;
       // this edge's clause is (nl ∨ q): excluded iff it is a dead (src ∨ x)
       // pair. Catches the candidate edge ¬src → dst at the root AND its
       // contrapositive ¬dst → src wherever it turns up
@@ -133,17 +122,12 @@ uint32_t collect_candidates(const Kernel &k, Walk &w, Lit src) {
   uint32_t out_degree = 0;
   // watches[src] holds (src ∨ q) for every out-edge ¬src → q, so its binary
   // count IS ¬src's out-degree
-  const uint32_t *ws = wbase(k, src);
-  const uint32_t sz = wsize(k, src);
-  w.ticks += 1 + (static_cast<uint64_t>(sz) >> 4); // src-list scan traffic
-  for (uint32_t i = 0; i < sz;) {
-    const Watch wt{ws[i]};
-    if (!wt.binary()) {
-      i += 2;
+  w.ticks += // src-list scan traffic
+      1 + (static_cast<uint64_t>(k.watches.size(src)) >> 4);
+  for (const WatchEntry wt : k.watches.entries(src)) {
+    if (!wt.binary())
       continue;
-    }
     const Lit dst = wt.other();
-    i += 1;
     out_degree++;
     // dst > src tests each undirected clause from exactly one endpoint (the
     // BIG holds an implication and its contrapositive, so both endpoints'
@@ -233,18 +217,12 @@ void transitive_reduce_sources(const Kernel &k, std::vector<Lit> &out) {
   for (Lit src = 0; src < nlits; src++) {
     if (k.values[src] != 0)
       continue; // root-fixed: (src ∨ ·) is satisfied or already propagated
-    const uint32_t *ws = wbase(k, src);
-    const uint32_t sz = wsize(k, src);
     uint32_t out_degree = 0;
     bool canonical = false;
-    for (uint32_t i = 0; i < sz;) {
-      const Watch wt{ws[i]};
-      if (!wt.binary()) {
-        i += 2;
+    for (const WatchEntry wt : k.watches.entries(src)) {
+      if (!wt.binary())
         continue;
-      }
       const Lit dst = wt.other();
-      i += 1;
       out_degree++;
       if (dst > src && k.values[dst] == 0)
         canonical = true;

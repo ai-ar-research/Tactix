@@ -126,26 +126,19 @@ static bool subsumed_by_binary(Kernel &k,
     const WatchHead &h = k.watches.heads[l];
     if (h.size > SUBSUME_OCCLIM)
       continue;
-    const uint32_t *ws = k.watches.arena.data() + h.offset;
-    for (uint32_t i = 0; i < h.size;) {
-      const Watch w{ws[i]};
-      if (w.binary()) {
-        k.stats.forward_visits++; // SCHED-B4
-        if (marks[w.other()])
-          return true;
-        i += 1;
-      } else {
-        i += 2;
-      }
+    for (const WatchEntry w : k.watches.entries(l)) {
+      if (!w.binary())
+        continue;
+      k.stats.forward_visits++; // SCHED-B4
+      if (marks[w.other()])
+        return true;
     }
   }
   return false;
 }
 
 static void delete_subsumed(Kernel &k, Clause *c) {
-  if (k.proof)
-    k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-  kernel_mark_garbage(k, c);
+  kernel_delete_clause(k, c);
   k.stats.forward_subsumed++;
 }
 
@@ -368,17 +361,15 @@ ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
     const WatchHead &h = k.watches.heads[l];
     if (h.size > SUBSUME_OCCLIM)
       continue;
-    const uint32_t *ws = k.watches.arena.data() + h.offset;
-    for (uint32_t i = 0; i < h.size && !subsumed;) {
-      const Watch w{ws[i]};
+    for (const WatchEntry w : k.watches.entries(l)) {
+      if (subsumed)
+        break;
       k.stats.forward_visits++; // SCHED-B4
       if (w.binary()) {
         subsumed = marks[w.other()] != 0;
-        i += 1;
         continue;
       }
-      const Ref dref = ws[i + 1];
-      i += 2;
+      const Ref dref = w.ref();
       if (dref == candidate)
         continue;
       const Clause *d = clause_at(k.arena, dref);

@@ -73,34 +73,9 @@ struct BudgetScope {
 // mark the binary-watch partners of `lit` (each `p` with a binary (lit ∨ p)).
 template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
                                         std::vector<uint8_t> &mark) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[lit].offset;
-  const uint32_t sz = k.watches.heads[lit].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
+  for (const WatchEntry w : k.watches.entries(lit))
+    if (w.binary())
       mark[w.other()] = V;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
-}
-
-// true iff a live binary (a ∨ b) exists.
-bool binary_exists(const Kernel &k, Lit a, Lit b) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  const uint32_t sz = k.watches.heads[a].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == b)
-        return true;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
-  return false;
 }
 
 } // namespace
@@ -1312,8 +1287,8 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
   // kept) before anything is added, so a failure aborts the whole equivalence.
   std::vector<uint64_t> chain_fwd, chain_rev;
   if (lrat) {
-    const bool need_fwd = !binary_exists(k, negate(a), b);
-    const bool need_rev = !binary_exists(k, a, negate(b));
+    const bool need_fwd = !kernel_binary_live(k, negate(a), b);
+    const bool need_rev = !kernel_binary_live(k, a, negate(b));
     if (need_fwd) {
       if (!build(ga, gb))
         return false;
@@ -1326,7 +1301,7 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
     }
   }
   auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
-    if (binary_exists(k, x, y))
+    if (kernel_binary_live(k, x, y))
       return;
     // a degenerate pair (the two outputs equal, or complementary) would make
     // this binary duplicate-carrying or tautological — neither is emittable
@@ -1357,13 +1332,13 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
   // discipline): under LRAT a binary that is still missing needs a non-empty
   // chain, or the line is uncheckable (D-CONG-TAUT). Skipping is sound.
   if (lrat) {
-    if (!binary_exists(k, negate(a), b) && chain_fwd.empty())
+    if (!kernel_binary_live(k, negate(a), b) && chain_fwd.empty())
       return false;
-    if (!binary_exists(k, a, negate(b)) && chain_rev.empty())
+    if (!kernel_binary_live(k, a, negate(b)) && chain_rev.empty())
       return false;
   }
   auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
-    if (binary_exists(k, x, y))
+    if (kernel_binary_live(k, x, y))
       return;
     // a degenerate pair (the two outputs equal, or complementary) would make
     // this binary duplicate-carrying or tautological — neither is emittable
@@ -1433,18 +1408,12 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
       // impossible at a quiescent root (both binaries would have propagated).
       if (k.value(l) != 0)
         continue;
-      const WatchHead &h = k.watches.heads[l];
-      const uint32_t *ws = k.watches.arena.data() + h.offset;
-      k.stats.congruence_ticks += h.size;
+      k.stats.congruence_ticks += k.watches.size(l);
       touched.clear();
       bool found = false;
-      for (uint32_t i = 0; i < h.size;) {
-        const Watch w{ws[i]};
-        if (!w.binary()) {
-          i += 2; // large watch: blocking word + ref word
+      for (const WatchEntry w : k.watches.entries(l)) {
+        if (!w.binary())
           continue;
-        }
-        i += 1;
         const Lit o = w.other();
         if (k.value(o) != 0)
           continue; // satisfied or already-propagated binary
@@ -1483,14 +1452,11 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
 
 } // namespace — public rule entry points (header-declared) below
 
-// External-linkage forwarders for the two primitives Sweep shares.
-// The implementations stay internal; only these names cross the TU boundary.
+// External-linkage forwarder for the primitive Sweep shares.
+// The implementation stays internal; only this name crosses the TU boundary.
 bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
                            std::vector<uint64_t> &chain) {
   return congruence_rup_chain(k, lits, n, chain);
-}
-bool congruence_binary_exists(const Kernel &k, Lit a, Lit b) {
-  return binary_exists(k, a, b);
 }
 
 void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,

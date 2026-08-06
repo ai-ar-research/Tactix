@@ -332,9 +332,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
       if (satisfied && in_scope(k, c)) {
         reset_to_root(k); // a deletion is a database change: §2.4 step 5
         c = clause_at(k.arena, cref);
-        if (k.proof)
-          k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-        kernel_mark_garbage(k, c);
+        kernel_delete_clause(k, c);
         k.stats.vivify_deleted++;
         return ApplyResult::Ok;
       }

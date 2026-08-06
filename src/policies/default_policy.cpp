@@ -666,18 +666,9 @@ uint64_t instance_key(uint64_t inst) {
 // the arms key on how many clauses a candidate touches rather than on how many
 // words its watch list happens to occupy.
 uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-  const uint32_t sz = k.watches.heads[l].size;
   uint32_t n = 0;
-  for (uint32_t i = 0; i < sz;) {
-    if (Watch{ws[i]}.binary()) {
-      n++;
-      i += 1;
-    } else {
-      n += binary_only ? 0u : 1u;
-      i += 2;
-    }
-  }
+  for (const WatchEntry w : k.watches.entries(l))
+    n += w.binary() ? 1u : (binary_only ? 0u : 1u);
   return n;
 }
 
