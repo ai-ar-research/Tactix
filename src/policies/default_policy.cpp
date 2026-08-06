@@ -214,6 +214,95 @@ void DefaultPolicy::update_rephase_limit(const Kernel &k) {
       static_cast<uint64_t>(REPHASE_INTERVAL * n * lg * lg * lg);
 }
 
+// --- per-solve reset (SCHED-H2) --------------------------------------------
+// Every piece of state a solve DERIVES goes back to its start value, re-based
+// on the kernel's current counters; every piece of state a caller CONFIGURES
+// (sub-policy pointers, the slot's composition/effort/order/cursor fields, the
+// env arms, `randec_enabled`, `chrono_levels`) is left alone. See the header
+// for the reference citations and for why this is an N1 correctness property
+// rather than hygiene.
+//
+// Re-basing, not zeroing, is the whole trick: on a fresh kernel every counter
+// is 0 so this reproduces the constructor exactly, and on an incremental
+// re-solve it reproduces kissat's `CONFLICTS + delta` and cadical's
+// `stats.conflicts + opts.NAMEint`.
+void DefaultPolicy::reset_schedule(const Kernel &k) {
+  const uint64_t conflicts = k.stats.conflicts;
+  // The tick accumulator pairs with the kernel's ONE global meter, so it has to
+  // go back to zero before any tick anchor is re-based off search_ticks().
+  inprocess = {};
+  const uint64_t ticks = search_ticks(k);
+
+  // per-mode glue/decision EMAs (kissat search.c:56 kissat_init_averages —
+  // idempotent per mode, so a fresh SOLVER is what re-arms them; cadical
+  // internal.cpp:582 init_averages)
+  averages[0] = averages[1] = {};
+  // restart (cadical internal.cpp:568-570 "reset in any case"; kissat
+  // kimits.c:120 kissat_update_focused_restart_limit)
+  update_restart_limit(k);
+  // reduce (kissat kimits.c:110 INIT_CONFLICT_LIMIT(reduce, false); cadical
+  // internal.cpp:508 lim.reduce = stats.conflicts + opts.reduceinit)
+  reduce.next_conflicts =
+      conflicts +
+      (reduce_sqrt_ ? REDUCE_INTERVAL_KISSAT : REDUCE_INTERVAL_INIT);
+  // mode alternation (kissat mode.c:19-40 kissat_init_mode_limit: conflicts
+  // limit re-based, ticks limit and count zeroed, `solver->mode.ticks` set to
+  // the current search ticks; cadical internal.cpp:596-601 zeroes the
+  // stabilize increment and phase count "in any case")
+  mode = {};
+  mode.conflicts_limit = conflicts + MODE_INITIAL_CONFLICTS;
+  mode.ticks_at_focus_entry = ticks;
+  // reluctant doubling (kissat reluctant.c:4-14 kissat_init_reluctant; cadical
+  // internal.cpp:603-608 reluctant.enable, again "in any case")
+  reluctant = {};
+  // rephase (cadical internal.cpp:559-562 resets both the limit and the
+  // rotation counters "in any case"; kissat kimits.c:116)
+  rephase = {};
+  rephase.next_conflicts = conflicts + REPHASE_INTERVAL_INIT;
+  // reorder (kissat kimits.c:113 INIT_CONFLICT_LIMIT(reorder, false))
+  reorder = {};
+  reorder.next_conflicts = conflicts + REORDER_INTERVAL_INIT;
+  // walk effort anchor (cadical last.walk.ticks, limit.hpp Last / the
+  // SET_EFFORT_LIMIT `TICKS - LAST` window): the window starts now
+  walk_anchor = ticks;
+  // both inprocessing clocks, including their new-material watermarks (kissat
+  // kimits.c:126-135 INIT_CONFLICT_LIMIT(eliminate/probe, true)). `inprocess
+  // .initialized` is false again, so solve() re-primes them to fire at the
+  // current conflict count — the preprocessing pass.
+  probe_clock = elim_clock = {};
+  // BVE's growth-slack ramp and its decade counter (kissat kimits.c:128-130
+  // `bounds.eliminate.additional_clauses = 0` + `max_bound_completed = 0`;
+  // cadical internal.cpp:468 lim.elimbound = opts.elimboundmin)
+  bve_rounds_run_ = 0;
+  bve_level_ = 0;
+  bump_reasons_delay_ = {};
+  retier_ = {};
+  if (dynamic_tiers_)
+    retier_.next_conflicts = conflicts + retier_.interval;
+  default_branching_.reset(conflicts);
+  default_candidate_order_.reset();
+  // Per-entry RUNTIME state. The entry's configuration (rule, enabled, group,
+  // permille/meter/thresh/max_delta, dosed, cursor_enabled, order, ...) is what
+  // a posed slot carries and is deliberately untouched.
+  for (SlotEntry &e : inprocess_slot) {
+    e.anchor = ticks; // cadical `last.NAME.ticks = TICKS`
+    e.limit = 0;
+    e.applies = 0;
+    e.doses = 0;
+    e.cursor = 0;
+    e.tm = {};
+    e.ord = {};
+    // New-material watermarks go to ZERO rather than to the live counters, so
+    // the unmetered closures get one guaranteed run: re-running needlessly is
+    // the direction the mark design already chooses over starving a follow-up.
+    e.binaries_mark = 0;
+    e.root_fixed_mark = 0;
+    e.arena_mark = 0;
+    e.delay_count = 0;
+    e.delay_current = 0;
+  }
+}
+
 // kissat kimits.c kissat_scale_delta: inprocessing intervals scale with
 // the formula size (factor 4.5·(log10(C+1)−5)² + 25, C = irredundant
 // clause count) so the inprocessing share of runtime stays bounded on
@@ -872,13 +961,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   std::optional<ScopedHeuristics> owned_h;
   if (!k.h)
     owned_h.emplace(k);
-  // Per-SOLVE scheduling state: a reused policy object must not carry the
-  // previous solve's first-dose consumption or factordelay decades into a new
-  // formula.
-  bve_rounds_run_ = 0;
-  bve_level_ = 0;
-  for (SlotEntry &e : inprocess_slot)
-    e.doses = 0;
+  solves++;
   // A/B knob: TACTIX_FORCE_MODE=focused|stable (0 = off; see the
   // SwitchMode decline below). Read once — the check sits on the CDCL
   // outer loop.
@@ -917,7 +1000,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   congruence_init_ticks_ = CONGRUENCE_INIT_TICKS;
   if (const char *ci = std::getenv("TACTIX_CONG_INIT_TICKS"))
     congruence_init_ticks_ = std::strtoull(ci, nullptr, 10);
-  bump_reasons_delay_ = {};
   // Reduce-cadence arm: kissat's √ interval + ramped fraction (reduceinit
   // 1000 is its first limit, against our 2000). The CADENCE and the RAMP are
   // separately settable on purpose — with one knob for both, a win cannot be
@@ -931,12 +1013,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   const char *rmp = std::getenv("TACTIX_REDUCE_RAMP");    // "1" | "0"
   reduce_sqrt_ = cad ? !std::strcmp(cad, "sqrt") : both;
   default_reduction_.ramp = rmp ? (rmp[0] == '1') : both;
-  if (reduce_sqrt_)
-    reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_KISSAT;
   dynamic_tiers_ = std::getenv("TACTIX_NO_DYNAMIC_TIERS") == nullptr;
-  retier_ = {};
-  if (dynamic_tiers_)
-    retier_.next_conflicts = k.stats.conflicts + retier_.interval;
+  // Per-SOLVE scheduling state (SCHED-H2), AFTER the env arms above because
+  // two of the re-based limits depend on them. A reused policy object must be
+  // indistinguishable from a fresh one — see reset_schedule.
+  if (reset_schedule_per_solve)
+    reset_schedule(k);
   // the first inprocessing limit needs the ingested formula's size
   // (kissat inits limits after parsing; INIT_CONFLICT_LIMIT(eliminate,
   // true) is likewise size-scaled)

@@ -194,3 +194,9 @@ add_test(NAME no_heuristics COMMAND test_no_heuristics)
 # also compile-fail via the include cycle, but this gives a fast, clear signal.
 add_test(NAME kernel_h_boundary
          COMMAND bash -c "! grep -qE '^[[:space:]]*#[[:space:]]*include.*heuristics\\.hpp' '${CMAKE_SOURCE_DIR}/src/kernel/kernel.hpp'")
+
+# SCHED-H2: a reused policy object must be indistinguishable from a fresh one
+# — the property the phase-6 learner's many-solves-per-process loop rests on.
+add_executable(test_solve_reset test_solve_reset.cpp)
+target_link_libraries(test_solve_reset PRIVATE tactix_lib)
+add_test(NAME solve_reset COMMAND test_solve_reset)

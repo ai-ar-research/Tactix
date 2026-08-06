@@ -1029,8 +1029,9 @@ instrument before spending a tier window on a mechanism.
 
 - [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by file;
   the X1/X2/X4 share is DONE** (see its Log entry), C1/C2 and Vivify are owned separately. Tick the item
-  only when all three land. · [ ] **SCHED-H2** per-solve reset of
-  restart/reduce/rephase/mode/reorder/averages/walk_anchor · [ ] **SCHED-H3** Reduce `first_reducible` scan
+  only when all three land. · [x] **SCHED-H2** per-solve reset of
+  restart/reduce/rephase/mode/reorder/averages/walk_anchor (2026-08-05; `DefaultPolicy::reset_schedule`,
+  `tests/test_solve_reset.cpp`) · [ ] **SCHED-H3** Reduce `first_reducible` scan
   bound
 
 **▶ WHY THIS SERVES PHASE 6 (the user's explicit requirement).** Every `[arch]` item adds *observability or control* the learned policy needs and
@@ -1505,6 +1506,75 @@ ctest **44/44**. **UNPRICED.** Off arm `TACTIX_TOUCH_MARKS=0` (kernel-side, so i
 `--random-policy` too); pre-flight counter the `c touch` line — `marks` must keep growing, and per rule
 BOTH `skipped` and `checked` must be non-zero (all-skipped = wedged, all-checked = inert) with
 `advances` > 0.
+### 2026-08-05 — SCHED-H2: a reused policy object was carrying eleven state groups into the next solve
+
+**Not hygiene.** N1 lets any policy drive the solver and the §5.6 learner will run many solves from ONE
+policy object per process; state carried from solve *n* to *n+1* makes a trajectory — and any RL reward
+computed from it — a function of episode ORDER. It also sits on the incremental/competition path.
+
+**THE BLAST RADIUS, established before anything was changed.** Fifteen groups, classified, each against the
+reference's own use site (`kissat search.c:45-70 start_search` + `kimits.c:99-136 kissat_init_limits`;
+`cadical internal.cpp:499-608 init_search_limits`, whose restart/rephase/stabilize/reluctant/elimbound
+family is reset **"in any case"**, incremental or not).
+
+| state | verdict | reference |
+|---|---|---|
+| `averages[2]` (per-mode glue + decision-rate EMAs) | **LEAKED** | kissat `search.c:56 kissat_init_averages`; cadical `internal.cpp:582 init_averages` |
+| `restart.next_conflicts` | **LEAKED** | cadical `internal.cpp:568` "reset in any case"; kissat `kimits.c:120` |
+| `reduce.next_conflicts` | **LEAKED** (re-based only on the `sqrt` arm) | kissat `kimits.c:110`; cadical `internal.cpp:508` |
+| `mode.{count,conflicts_limit,ticks_limit,ticks_at_focus_entry}` | **LEAKED** | kissat `mode.c:19-40 kissat_init_mode_limit`; cadical `internal.cpp:596-601` |
+| `reluctant.{u,v,wait,trigger}` | **LEAKED** | kissat `reluctant.c:4-14`; cadical `internal.cpp:603-608` |
+| `rephase.{next_conflicts,count}` | **LEAKED** | cadical `internal.cpp:559-562` "in any case"; kissat `kimits.c:116` |
+| `reorder.{next_conflicts,count}` | **LEAKED** | kissat `kimits.c:113` (cadical has no reorder) |
+| `walk_anchor` | **LEAKED** | cadical `last.walk.ticks` / `SET_EFFORT_LIMIT`'s `TICKS − LAST` window |
+| `probe_clock` / `elim_clock` (+ their new-material watermarks) | **LEAKED** | kissat `kimits.c:126-135 INIT_CONFLICT_LIMIT(probe/eliminate, true)` |
+| `inprocess.{initialized,ticks}` | **LEAKED**, and the worse one — the accumulator pairs with the kernel's ONE global tick meter, so on a fresh kernel `search_ticks()` UNDERFLOWS | kissat keeps `search_ticks` as its own counter |
+| `SlotEntry` runtime (`anchor`, `limit`, `applies`, `cursor`, `tm`, `ord`, the three marks, the delay ladder) | **LEAKED** | cadical `Last` / `last.NAME.ticks = TICKS` |
+| `DefaultBranching` randec (`until`, `next`, `sequences`, `rng`) + `DefaultCandidateOrder::rng_` | **LEAKED** | kissat re-seeds `solver->random = seed` at `search.c:70`; `kimits.c:107` re-bases the randec limit |
+| `bve_rounds_run_`, `bve_level_`, `SlotEntry::doses` | already reset | kissat `kimits.c:128-130`; cadical `internal.cpp:468` |
+| `bump_reasons_delay_`, `retier_`, every env arm, `default_reduction_.ramp` | already re-read/reset per solve | — |
+| sub-policy pointers, slot COMPOSITION (rule/enabled/group/permille/meter/thresh/max_delta/dosed/`cursor_enabled`/`order`), `randec_enabled`, `chrono_levels` | **deliberately persistent** — configuration, and what a posed slot carries | — |
+
+**The fix is `DefaultPolicy::reset_schedule(k)`, called at solve entry after the env arms.** It re-BASES
+rather than zeroes (`conflicts + delta`, `anchor = search_ticks(k)`), which is why one reset serves both a
+fresh formula and an incremental continuation — exactly kissat's `CONFLICTS + SCALED` and cadical's
+`stats.conflicts + opts.NAMEint`. **The shipped single-solve path is bit-identical**: every counter is 0 at
+solve entry (nothing propagates during ingest), so each re-based value equals its constructor default —
+observed (the pre/post traces below agree to the byte) and now PINNED:
+`assert_reset_is_a_noop_on_a_fresh_kernel` asserts the zero-counter precondition and compares 23 re-based
+fields against a pristine policy, so a future re-based field whose zero-counter value differs from its
+default fails a test instead of quietly shifting every tier number.
+
+**PRE-FIX FAILURE, and it is not subtle** (`tests/test_solve_reset.cpp`, 160-var random 3-SAT at ratio 4.7,
+UNSAT). Solve #2 on a reused policy vs solve #1 on a fresh one:
+
+| | conflicts | decisions | props | ticks | restarts | proof |
+|---|---|---|---|---|---|---|
+| reused #2 (pre-fix) | 300 | 616 | 8547 | 35,226 | 49 | 7,033 B |
+| fresh #1 | 3583 | 4979 | 141,513 | 1,319,661 | 115 | 165,241 B |
+
+Two different answers to the same question from the same binary. The reused arm skipped the whole
+preprocessing phase (`inprocess.initialized` still true) and restarted on a stale limit. Post-fix the two
+rows are identical in all 16 compared fields including the proof bytes.
+
+**REACHABILITY AT THE SOURCE.** The test asserts the dirt as well as the identity:
+`state groups dirty after a solve: 12/12` — every group the reset touches is genuinely non-pristine after
+one real solve, so the identity assertion cannot go vacuously green
+([[ab-arm-identical-artefacts]]). `DefaultPolicy::solves` counts entries and is asserted 2 vs 1.
+
+**The posing surface survives.** `reset_schedule_per_solve` (default true) is the opt-out for a test or
+preset that poses a schedule and wants `solve()` to honour it; `test_restart_reduce`'s restart storm sets
+it, and would otherwise have quietly degraded into "PHP(4,3) is UNSAT". The test pins both directions.
+
+**Gates:** ctest **45/45** (44 + `solve_reset`), `config_wiring` / `effort_specs` / `option_coverage` green
+(no `Kernel` config field added — the two new fields are `DefaultPolicy`'s), corpus 14/14. Fuzz, both
+formats, `--random-policy`, **6000 cases each and 0 failures on all four legs**: on-branch `1584972`
+(native DRAT) / `1584978` (native LRAT), and **re-run on the merged tree** after the rebase onto the
+Sweep-governor + Stage-F merge — `1585219` / `1585222`, 1886/1887 UNSAT answers proof-checked with the
+restatement path reached on 1718 cases.
+
+**No A/B is owed.** The change is provably inert on the one-solve-per-process path the tiers measure; a
+tier window would only re-measure noise. What it buys is the multi-solve harness the §5.6 programme needs.
 
 ### 2026-08-05 — SCHED-E3: the effort ceiling exists now, and it is measured inert
 
