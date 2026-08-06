@@ -438,9 +438,14 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   (2026-07-25, 9k/0); post-Track-H random-policy ASan 8000/0 both formats. **Read every pre-2026-08-05
   native-LRAT figure in this file through the oracle defect recorded in the anchor.**
 - Routed by the 2026-07-29 review (`benchmarks/reports/2026-07-29-review-post-track-r.md`; `RV-` namespace):
-  **RV-R2** Reorder has no stress policy; **RV-R3** `benchmarks/probes/` needs a retention rule (now
-  subsumed by **RV-S9**, decide one rule for both); **RV-R4/RV-R5** small duplication + allocation watch
-  items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats
+  **RV-R2** Reorder has no stress policy; **RV-R3 + RV-S9 DISCHARGED 2026-08-06** — ONE rule for both
+  trees, mechanised in `tools/fuzz/retention.py`: a per-job artifact stays in git only while a tracked
+  document cites its JOB ID, literally or inside a cited id RANGE (`1584462`-`1584467` is how a six-leg
+  experiment names its jobs, and four of those six ids appear nowhere else). 11 of 69 tracked
+  `tools/fuzz/slurm-*.log` were uncited and are deleted; all **174** `benchmarks/probes/*.out` are cited
+  and stay. **A BASENAME match calls 84 of 85 uncited** — that criterion would have deleted 58 files that
+  are evidence for frozen reports, which is why the rule is now a script and not a habit;
+  **RV-R4/RV-R5** small duplication + allocation watch items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats
   with the detector reached at the source.)
 - **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
