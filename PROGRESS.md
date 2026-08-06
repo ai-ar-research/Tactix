@@ -1020,10 +1020,12 @@ instrument before spending a tier window on a mechanism.
   Substitute**, so part of the 2,231 is an accounting overlap, not a gap. **Do Y3 first: it is free**
   (re-derive the 2,231 at `--congruencebinaries=0`) and it may shrink the target by most of itself.
   Y1 is small and one-step RUP; Y2 changes the closure's relationship to `τ` and is the large one.
-- [ ] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **the cheapest decisive check on the board.**
-  The INSTRUMENT landed 2026-08-05 (`TACTIX_SUBSUME_SHADOW`, the `c c1shadow` ledger) together with the
-  capability-subset argument and the unit test that pins it; the probe on real instances is the open half.
-  Read the Log entry for what was declared decisive BEFORE the run.
+- [x] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **ANSWERED 2026-08-05, and the answer is NO.**
+  Over 7 instances C2 absorbs **698,341 of C1's 698,351** subsumptions (**residual 10**, all on one
+  instance), and dropping C1 would save **2.7–41.6 % of the C1+C2 pair's metered cost** at zero yield
+  (**19–42 % on the four instances where C1 has non-trivial yield**; the low end is an instance where C1
+  deletes 36 clauses in total). C1's own effort share is duplicated work. **The follow-up is a DOSE, not a
+  rule-off** ([[no-rule-off-configs]]) — A/B spec in the Log entry, unrun.
 - [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G5 · binary-first watch
   layout** `[revamp]`. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
   already tracked as **Track R · R5** — not repeated here as a second checkbox.)*
@@ -1320,6 +1322,67 @@ sweep-stress + forced-general + ASCII DRAT). Reachability at the SOURCE on the s
 1,468 rounds, 7,092 environments, 3,441 equivalences, **3,558 binaries and 293 general-path pairs** over
 1,497 generated cases — both proof paths non-zero, so no green leg here is vacuous. Report
 `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
+### 2026-08-05 — SCHED-G2 (2/2): C1 is INERT — C2 absorbs 698,341 of its 698,351 subsumptions
+
+Probe `1585160` (23 tasks, counters only, `benchmarks/probes/g2-c1-shadow.*`, binary `build/pin-g2h1` at
+`7e5abee`). Thresholds were declared in the entry below **before** the run: absorption ≥ 0.9 ⇒ inert.
+
+**Measured absorption: 0.99999.** `c1shadow` on the shadow arm, against the shipped arm's `forward_subsumed`:
+
+| instance | C1 yield (shipped) | shadow observed | C2 deleted | C2 rewrote | **residual** |
+|---|---|---|---|---|---|
+| `DivS_862_11` | 674,584 | 675,481 | 522,737 | 152,744 | **0** |
+| `mod4block` | 15,943 | 16,895 | 16,310 | 585 | **0** |
+| `9vliw_bp_mc` | 5,386 | 4,960 | 3,707 | 1,243 | **10** |
+| `j3037_9_rggt_b` | 699 | 683 | 676 | 7 | **0** |
+| `constraints_18_0.3_2` | 296 | 296 | 256 | 40 | **0** |
+| `rbsat-v760c43649gyes10` | 36 | 36 | 36 | 0 | **0** |
+| `battleship-14-26-sat` | 0 | 0 | — | — | C1 has no yield at all |
+
+Not vacuous: `observed` tracks the shipped arm's `forward_subsumed` to within 0.2 % on the two big
+instances, so the shadow arm really is finding the same set ([[ab-arm-identical-artefacts]]).
+
+**And C1 is not merely inert — it is net NEGATIVE on cost.** Partner visits (`c subsume`/`c strengthen`),
+with the shadow arm's C2 standing in for a C1-less C2 (it is the same formula evolution):
+
+| instance | conflicts on/shadow | C1 | C2 | pair | C2 without C1 | **pair saving** |
+|---|---|---|---|---|---|---|
+| `DivS_862_11` | 2002 / 2002 | 3.178 G | 7.657 G | 10.835 G | 8.615 G | **−2.220 G (−20.5 %)** |
+| `constraints_18_0.3_2` | 27,478 / 27,478 | 493.5 M | 690.9 M | 1184.4 M | 691.1 M | **−493.3 M (−41.6 %)** |
+| `mod4block` | 2.607 M / 2.557 M | 179.8 M | 281.3 M | 461.1 M | 290.1 M | **−171.0 M (−37.1 %)** |
+| `9vliw_bp_mc` | UNSAT both | 12.47 M | 43.01 M | 55.48 M | 45.01 M | **−10.47 M (−18.9 %)** |
+| `rbsat` | SAT both | 0.14 M | 5.018 M | 5.161 M | 5.024 M | −0.14 M (−2.7 %) |
+
+`DivS_862_11` and `constraints_18_0.3_2` are **conflict-identical across the arms**, so those two rows are
+like-for-like; the others are indicative. The saving is a LOWER bound: shadow-mode C1 still re-arms its
+unreached tail (SCHED-F2), which can only make MORE material look new to C2, so the shadow C2 column
+over-states what a C1-less C2 would cost. `constraints_18_0.3_2` is the sharpest exhibit — **493.5 M
+partner visits to delete 296 clauses, every one of which C2 takes anyway.**
+
+**Why this was predictable from the source, and why nobody could have banked it without the probe.**
+C1's `subsumes_marked` is C2's `check_marked` at zero flips, on the same candidate predicate and the same
+1000/1000 limits, so C1 has no unique CAPABILITY band. Both references agree: kissat's
+`forward_subsume_and_strengthen` (forward.c) and cadical's `subsume_round` (subsume.cpp) are ONE fused
+pass. **Splitting them into two rules is our five-primitive decomposition, and it is right for N1 — but
+giving each half its own 100 ‰ effort share is not a decomposition, it is a duplicated dose.** What the
+source could not settle is REACH, and reach is where a real gap would have shown up; the probe says the
+gap is 10 clauses on one instance.
+
+**▶ THE FOLLOW-UP IS A DOSE, NOT A RULE-OFF** ([[no-rule-off-configs]]: every implemented proof rule ships
+scheduled, and this is a diagnosed SCHEDULING defect, which is exactly what a rule-off arm is a diagnostic
+*for*). `SubsumeForward` keeps its guard, its `instances()` and its `apply_instance` — a phase-6 policy or
+an API caller may well want pure subsumption without strengthening, and N1 requires it stay available.
+
+**A/B SPEC (unrun).** Arms, same window, node-pinned, TWO pin dirs for a B+C pair:
+- **A** shipped. **B** `TACTIX_SLOT_PERMILLE=SubsumeForward:5`.
+- **Pre-flight, or the window is wasted:** in B, `c subsume` ROUNDS must drop and `c strengthen … subsumed`
+  must rise by roughly the `forward_subsumed` that disappeared. If `c subsume` rounds are unchanged the
+  knob did not bind — abandon the window rather than read the PAR-2.
+- **Ship criterion:** Tier B and Tier C PAR-2 both no worse at equal solve counts. The prior is a win on
+  the C1-heavy instances (`DivS_862_11`, `constraints_18_0.3_2`) and neutral elsewhere.
+- **Do NOT read `j3037_9_rggt_b`**: the shadow arm solved it in 34 s while the shipped arm timed out at
+  300 s, and that instance is already on the record as a measured lottery ([[chaotic-instance-veto]]).
+
 ### 2026-08-05 — SCHED-H1 (C1/C2 half): four poll sites, and why one would not have been enough
 
 `D-STRENGTHEN-BUDGET` recorded C2 owning **97.8 s of `DivS_862_11`'s 109.0 s in four applications**, with
@@ -1356,9 +1419,21 @@ window ever reached a first check — and every CNF the harness generates is sma
   formula with no interrupt, which must run to `complete`.
 
 **No behaviour change without an interrupt**: with `stop == nullptr` and `stop_fuzz == 0` the predicate is
-a counter increment and a branch, and `c c1c2stop` reads `0 C1 rounds, 0 C2 rounds` on every normal solve.
-So this needs no A/B — but it DOES need `c c1c2stop` non-zero on a real instance under a real SIGTERM
-before the leg counts as tested.
+a counter increment and a branch, and `c c1c2stop` reads `0 C1 rounds, 0 C2 rounds` on every normal solve
+(confirmed on all 14 non-interrupt tasks of probe `1585160`). **So this needs no A/B.**
+
+**▶ NON-ZERO FIRE COUNTS ON REAL INSTANCES — probe `1585160`, and the defect is visible in them.**
+- **Real SIGTERM** (`timeout` default signal), i.e. the actual §6 path, with `0 stress fires` proving the
+  abort came from `*k.stop` and not from the knob:
+  - `DivS_862_11` at 25 s → `c c1c2stop 1 C1 rounds, 0 C2` — and the C1 round it interrupted had already
+    done **1,971,623,948 partner visits**. That single round IS the whole 25 s.
+  - `DivS_862_11` at 60 s → `0 C1, 1 C2`, the C2 round at **2,718,725,146 visits**.
+  - Both exited cleanly with `s UNKNOWN` and a flushed proof. **Before this item the same SIGTERM would
+    have waited out a two-billion-visit round**, which is the SIGKILL-loses-the-proof scenario.
+- **Stress cadence** `TACTIX_STOP_FUZZ=200000` on real instances, `rule_interrupted == stop_fuzz_fires`
+  exactly in every case: `DivS_862_11` **9 C1 + 9 C2** (19/19 fires), `9vliw_bp_mc` **2 C1 + 7 C2**
+  (11/11), `rbsat` **0 C1 + 3 C2** (4/4). **Verdicts unchanged from the shipped arm** — `9vliw` UNSAT,
+  `DivS`/`rbsat` SAT — so aborting mid-round changed no answer.
 
 ### 2026-08-05 — SCHED-G2 (1/2): the instrument, and what will count as decisive
 
