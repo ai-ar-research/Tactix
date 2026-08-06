@@ -56,12 +56,18 @@ a bit-identical trajectory, and still costs 519.3 s vs 269.8 s (1.92×)** — a 
 correctness one. **If Sweep is the cause, the fix is its effort share, NOT switching the rule off**
 ([[no-rule-off-configs]]; every implemented proof rule ships ON).
 
-**▶ THEN.** Stage D — `D1` authored phase order as data (replaces `strcmp` + `move_to_back`) → `D2` split
-the slot into PROBE and ELIMINATE groups (**the largest single structural gap**: probing fires ~5× less
-often and the gap widens; refined by `SP-SLOT-6`, and note cadical's own comment claims a sqrt schedule
-while the code is logarithmic — read the code) → `D3` slot-level watermark.
+**▶ STAGE D IS LANDED AND ENTIRELY UNPRICED** (branch `sched-stage-d`, three commits, ctest 43/43, fuzz
+green on DRAT / native LRAT / `--random-policy`×DRAT). D1 authored order · D2 the two clocks · D3 the slot
+gates. **D2 is the one expected to move numbers** (probing at ~2×, not the ~5× the ledger headline implies —
+see its Log entry). The three A/B specs are in the Log entries and are the next Stage-D work; D3's spec
+says to check its `blocked` counter first and abandon the window if it is zero.
+
+**▶ THEN.** Stage E — order and resumption become policy objects, generalizing D1's table.
 
 **▶ OWED MEASUREMENTS (each a job; none blocks the next step).**
+- **ALL THREE STAGE-D ITEMS are specced and unrun** — arms, pre-flight counter and ship criterion in each
+  Log entry. Pre-flight counters: `c slot-order` (D1), `c slot-clock` phase counts (D2), `c slot-clock`
+  `blocked` (D3).
 - **`SCHED-C6` A/B is specced and unrun** — arms, pre-flight counter and ship criterion are in its Log
   entry. Pre-flight: `c eagersub` non-zero on ON, exactly `0 subsumed of 0 tried … register 0` on
   `TACTIX_EAGER_SUBSUME=0`.
@@ -670,7 +676,14 @@ instrument before spending a tier window on a mechanism.
   one**: the cumulative NLOGN-vs-NLOG2N ratio is ~2.4× and grows only as √log, and **kissat itself runs 11 probings vs 5 eliminations on `sted5`**
   where we now run 12 vs 6 (one clock gave the probing family 6). Group mapping is the references' own membership, argued row by row in the table.
   **UNPRICED and expected to move numbers** — arms/spec in the Log entry; source counter `c slot-clock`.
-- [ ] **SCHED-D3 · slot-level new-material watermark + the reduce coupling** `[arch]`
+- [x] **SCHED-D3 · slot-level new-material watermark + the reduce coupling** `[arch]` — landed 2026-08-05, one gate per clock: ELIMINATE waits for
+  new material (`Stats::bve_marks` or new root-fixed vars since phase entry — kissat `eliminate.c:33-38`, cadical `elim.cpp:75-80`), PROBE waits for
+  a reduce since its last phase (cadical `probe.cpp:23`). First phase of each clock exempt. **Both are SAFETY VALVES and measured near-inert**
+  (`blocked` counters below) — `test_scheduling::test_slot_gates_decline_without_new_material` is what proves the mechanism, because a tier run
+  cannot tell "correct and quiet" from "wired to nothing". **The one real finding is a measured trap:** counting kissat's/cadical's mark-bit FLIP
+  instead of the mark EVENT wedges the elimination clock shut for the rest of the solve here — our `bve_retry` bit is cleared only by a BVE attempt
+  and BVE's admission can decline every dose, so no flip ever happens. `sted5` went 274 k → 1.15 M conflicts, 6 elimination phases → 1. Recorded at
+  `Stats::bve_marks`.
 
 #### Stage E — order and resumption become POLICY OBJECTS (the architecture the RL agent needs)
 
@@ -785,6 +798,87 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 **Reading this log.** Newest first. Entries older than the current session are compressed to **result +
 pointer** — the full account is in the cited report, design doc or commit, which are never edited.
 
+### 2026-08-05 — SCHED-D3: the slot gates, and the flip-vs-event trap that wedged elimination shut
+
+One gate per clock, both "the interval is necessary but not sufficient":
+
+- **ELIMINATE — new-material watermark.** Admit only if `k.stats.bve_marks` or `kernel_root_fixed(k)` has
+  grown since the last phase's ENTRY (kissat `eliminate.c:33-38`
+  `limits.eliminate.variables.{eliminate,subsume}`; cadical `elim.cpp:75-80` `last.elim.fixed` /
+  `last.elim.marked`). Snapshot at ENTRY, not exit: material the phase itself produces re-admits the next
+  one, so a budget-cut pipeline is never gated out of its own follow-up. That is weaker than kissat's
+  completion-gated advance and equals cadical's restore-on-incomplete case (`elim.cpp:774-775`/`:909`).
+- **PROBE — reduce coupling.** After the first phase, require a reduce since the last probing phase
+  (cadical `probe.cpp:23`). *(kissat's mirror-image rule — skip when a reduce happened at THIS conflict
+  count, `probe.c:21`/`eliminate.c:28` — is not ported: it defers a phase by one conflict and would only
+  add a decline reason to account for.)*
+
+**▶ THE FINDING, and it is a measured trap, not a design note.** Both references count the mark-bit FLIP
+(kissat `variables_eliminate`, cadical `stats.mark.elim`) because their elimination round CLEARS every
+scheduled variable's flag and so re-arms the flip. Our `bve_retry` bit is cleared **only by a BVE attempt**,
+and BVE's during-search admission can decline every dose on a formula — after which no bit is ever cleared,
+no flip ever happens, and a flip-counting watermark shuts the elimination clock **for the rest of the
+solve**, taking SubsumeForward / Strengthen / Instantiate / BCE down with it (they share the clock and have
+nothing to do with BVE's density gate). Measured on `sted5`: 6 elimination phases → **1**, 274 k conflicts →
+**1.15 M**, `bve-marks 0` for the whole run. Counting mark EVENTS implements the same predicate against the
+bit lifecycle we actually have. The transliteration was faithful and wrong — the lifecycle around the
+counter is part of the mechanism.
+
+**Reachability, measured at the source — whole of Tier A (200 instances), `c slot-clock blocked`:**
+
+| gate | instances it fired on | episodes |
+|---|---|---|
+| ELIMINATE watermark | **10 / 200** | 11 |
+| PROBE reduce coupling | **0 / 200** | 0 |
+
+**`TACTIX_SLOT_STATS`'s self-check still balances: 0 `***UNACCOUNTED***` over 40 Tier A instances.** Neither
+D2 nor D3 could break it by construction and that is worth saying: D2's decline is "the other clock's
+entry is not offered here at all" (before `occasions++`) and D3's is clock-level (no entry is reached), so
+the per-entry `occasions == admitted + declines` identity is untouched — no new decline REASON was added.
+
+The elimination watermark is live but rare, which is the shape a safety valve should have. `sted5` and
+`qwh.50` block 0 times on either clock, and on `sted5` D3 is behaviourally identical to D2 (12/6 phases,
+same conflict count) — so **there may be nothing to price on Tier B/C**, and the A/B spec says to read the
+`blocked` counters first and abandon the window if they are zero.
+
+**The probe reduce coupling is PROVABLY inert under our reduce cadence, not merely unlucky.** Probe
+interval ≈ 2500·n·log10(n+9), reduce interval 2000+300·r; matching cumulative conflicts gives
+r ≈ 2.9·n·√log n, so the probe interval is ≈2.9·√log n times the reduce interval — always > 1, so two probe
+phases can never fall inside one reduce interval. It is kept (one compare, the reference's own gate, and it
+becomes live the moment the probing clock takes cadical's near-constant `probe.cpp:980` spacing, which is
+precisely where cadical needs it) but it is labelled inert in the code and must not be cited as a result.
+
+Fuzz on the D3 binary: DRAT 2000/0, native LRAT 2000/0; ctest 43/43; regression corpus 14/14. The
+`--random-policy` × DRAT leg was still running at commit time (D1's and D2's are 2000/0). *(That leg
+exercises the RULE layer, which Stage D does not touch: `random_policy.cpp` references neither
+`DefaultPolicy` nor the slot, and D3's only kernel change is a counter increment. It is the standing N1
+leg, not a test of these three items — the reachability counters are.)*
+
+**▶ READY-TO-RUN A/B (`SCHED-D3`) — RUN THE PRE-FLIGHT FIRST AND BE WILLING TO CANCEL.** Like D2 there is
+no env arm; the gate-free build is the parent commit.
+```
+tools/bench/buildlock.py --gc
+git worktree add build/src-d2 <D2 commit>      # two clocks, no gates
+cmake -S build/src-d2 -B build/pin-n4-d3-off-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d3-off-b -j8
+cmake -S build/src-d2 -B build/pin-n4-d3-off-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d3-off-c -j8
+cmake -S . -B build/pin-n4-d3-on-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d3-on-b -j8
+cmake -S . -B build/pin-n4-d3-on-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d3-on-c -j8
+sha256sum build/pin-n4-d3-{off,on}-{b,c}/tactix
+
+tools/bench/run.py --tier B --slurm --nodelist node017 --baseline kissat --baseline cadical \
+  --solver 'build/pin-n4-d3-on-b/tactix' --name gated \
+  --checked-arm 'ungated=build/pin-n4-d3-off-b/tactix'
+tools/bench/run.py --tier C --slurm --nodelist node017 --baseline kissat --baseline cadical \
+  --solver 'build/pin-n4-d3-on-c/tactix' --name gated \
+  --checked-arm 'ungated=build/pin-n4-d3-off-c/tactix'
+```
+**Pre-flight (a cheap LOCAL sweep, no cluster time): run the ON binary under `TACTIX_SLOT_STATS=1` over
+the tier's instances and sum `blocked`.** Tier A gives 11 episodes over 200 instances; if Tier B/C give
+**0**, the two arms are byte-identical by construction and the window buys nothing —
+**do not submit it** ([[ab-arm-identical-artefacts]]), record the zero and close the item as an
+unpriceable safety valve. **Ships if** (and only if) the gate fires and `#solved` does not drop; a PAR-2
+move on 10-in-200 firing frequency would be noise, not signal.
+
 ### 2026-08-05 — SCHED-D2: two inprocessing clocks, and the "5×" headline corrected to ~2.4×
 
 `SlotGroup{Probe,Eliminate}` on every slot entry (read from the authored table BY NAME, so it is
@@ -803,10 +897,17 @@ logarithmic. Read the code.)*
 
 **▶ CORRECTION TO `SP-SLOT-1`'s HEADLINE.** "Probing fires ~5× less often" is the ratio of the BASE
 CONSTANTS at equal phase counts. The realized ratio is the cumulative one, and because each clock keys on
-its own count it is ≈√(5·log) ≈ **2.4×**, widening only as √log — not 5× and not fast. The reference agrees:
-**kissat on `sted5` runs 11 `probings` vs 5 `eliminations`** (`--statistics`, both counters INC'd once per
-phase in `kissat_probe`/`kissat_eliminate`). We now run **12 vs 6** on the same instance; the single-clock
-build gave the probing family **6**. So the mechanism doubles probing frequency, it does not quintuple it.
+its own count it is ≈√(5·log) ≈ **2.4×**, widening only as √log — not 5× and not fast. The reference agrees
+on two instances (`--statistics`; both counters INC'd once per phase in `kissat_probe`/`kissat_eliminate`,
+declaration + INC sites read per [[reference-counter-scope]]):
+
+| instance | kissat probings / eliminations | ours after D2 | ours before D2 (one clock) |
+|---|---|---|---|
+| `sted5` | 11 / 5 (2.2×) | 12 / 6 (2.0×) | 6 phases, everything |
+| `qwh.50.1250` | 7 / 3 (2.3×) | 6 / 3 (2.0×) | — |
+
+So the mechanism roughly DOUBLES probing frequency; it does not quintuple it, and we now sit just under
+kissat's own ratio rather than a factor of two below it.
 
 **Group mapping**, argued per row in `AUTHORED_SLOT_ORDER`'s comment rather than guessed: PROBE =
 Congruence, Substitute, HyperTernaryRes, Probe, Backbone, Vivify, Sweep, TransitiveReduce, Factor (every
@@ -815,10 +916,53 @@ Instantiate, BCE (kissat's `eliminate()` forward-subsume + BVE; cadical's `elim(
 → instantiate at `elim.cpp:947` → `block()`). BCE is the one row no reference schedules by default —
 cadical's placement inside `elim` is the only evidence there is, and it is recorded as such.
 
+**WHERE THE COST ACTUALLY LANDS, and it is not where "probing fires twice as often" suggests.** Effort
+budgets are per-entry and anchored on `search_ticks` since THAT ENTRY last ran, so twice the occasions
+means half the reference window each — a probing rule's total share of search work is unchanged. What
+doubles is the number of PHASES, and therefore the per-phase scaffolding: the root backtrack, the
+`kernel_dense_connect` occurrence-index build (O(irredundant arena), and every probe-group dense consumer —
+HyperTernaryRes, Sweep, Congruence — needs it), the disconnect, and the garbage collection. So D2 is a
+GRANULARITY change plus a fixed per-phase overhead, not a dose increase; if it costs on Tier C, look at
+the phase scaffolding first and at the probing per-mille second.
+
 **UNPRICED, and the one item in this stage expected to move numbers.** Probing at 2× is a real shift in
-where effort goes and may cost before it pays. Source counter `c slot-clock` (`TACTIX_SLOT_STATS=1`) prints
+when effort is spent and may cost before it pays. Fuzz on the D2 binary: DRAT 2000/0, native LRAT 2000/0,
+`--random-policy` × DRAT 2000/0. Source counter `c slot-clock` (`TACTIX_SLOT_STATS=1`) prints
 per-clock phase counts; equal counts mean the split did not take.
 `test_scheduling::test_two_slot_clocks_diverge` fails if the two intervals ever coincide.
+
+**▶ READY-TO-RUN A/B (`SCHED-D2`) — THE PRIORITY OF THE THREE.** There is deliberately NO env arm: the
+one-clock build is the PARENT COMMIT, so the arms are two binaries, not one binary and a knob. Two pin dirs
+per tier pair, all four built from their own commit, shas checked ([[build-path-ownership]]).
+```
+tools/bench/buildlock.py --gc
+git worktree add build/src-d1 <D1 commit>      # one clock
+cmake -S build/src-d1 -B build/pin-n4-d2-off-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d2-off-b -j8
+cmake -S build/src-d1 -B build/pin-n4-d2-off-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d2-off-c -j8
+cmake -S . -B build/pin-n4-d2-on-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d2-on-b -j8
+cmake -S . -B build/pin-n4-d2-on-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d2-on-c -j8
+sha256sum build/pin-n4-d2-{off,on}-{b,c}/tactix   # off-b == off-c, on-b == on-c
+
+tools/bench/run.py --tier B --slurm --nodelist node017 \
+  --baseline kissat --baseline cadical \
+  --solver 'build/pin-n4-d2-on-b/tactix'  --name twoclocks \
+  --checked-arm 'oneclock=build/pin-n4-d2-off-b/tactix'
+tools/bench/run.py --tier C --slurm --nodelist node017 \
+  --baseline kissat --baseline cadical \
+  --solver 'build/pin-n4-d2-on-c/tactix'  --name twoclocks \
+  --checked-arm 'oneclock=build/pin-n4-d2-off-c/tactix'
+```
+**Pre-flight:** on the ON arm `c slot-clock` must show `probe phases` ≈ 2× `eliminate phases` (`sted5`:
+12 vs 6); on the OFF arm the line is absent entirely — that is the reachability proof, and it also means
+the ON arm's probe count must be compared against the OFF arm's `c inprocess N phases` line, not against a
+missing one. (`c inprocess` sums both clocks on the ON arm, by design.) Equal probe/eliminate counts on the
+ON arm ⇒ vacuous.
+**Ships if:** `#solved` does not drop on either tier AND Tier C PAR-2 improves by more than the 6.72 noise
+floor, OR `#solved` gains on either tier. **Sized honestly:** doubling probing frequency moves a lot of
+effort; a Tier C loss inside the floor is not a refutation of the mechanism but a dosing question — the
+next lever is then the probing rules' per-mille (`TACTIX_SLOT_PERMILLE`), not reverting the split, because
+one clock is a measured reference gap either way. **Read `#solved` before PAR-2 and read the fragility
+line**; the may-not-gate set may not decide it alone.
 
 ### 2026-08-05 — SCHED-D1: the slot order is DATA, and four SP-SLOT-4 accidents are gone
 
@@ -840,9 +984,31 @@ pass adjacent to the Substitute that consumes it; Vivify precedes TransitiveRedu
 instead of opening it. The old "Factor last so the NEXT phase's BVE sees the factored formula" rationale is
 retired — with the authored order, THIS pass's BVE does, which is what both references do.
 
-**UNPRICED.** Arm `TACTIX_SLOT_ORDER=legacy`; pre-registered source counter is the `c slot-order` line
-(`TACTIX_SLOT_STATS=1`), which names the mode and prints the live sequence, so a vacuous arm is visible.
-Fuzz on the D1 binary: DRAT 2000/0, native LRAT 2000/0, `--random-policy` × DRAT 2000/0.
+**UNPRICED.** Fuzz on the D1 binary: DRAT 2000/0, native LRAT 2000/0, `--random-policy` × DRAT 2000/0.
+
+**▶ READY-TO-RUN A/B (`SCHED-D1`).** Two pin dirs, same commit, matching binary shas
+([[build-path-ownership]] — a Tier B array and a Tier C array may not share one).
+```
+tools/bench/buildlock.py --gc
+cmake -S . -B build/pin-n4-d1-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d1-b -j8
+cmake -S . -B build/pin-n4-d1-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d1-c -j8
+sha256sum build/pin-n4-d1-{b,c}/tactix      # MUST match
+
+tools/bench/run.py --tier B --slurm --nodelist node017 \
+  --baseline kissat --baseline cadical \
+  --solver      'build/pin-n4-d1-b/tactix' --name authored \
+  --checked-arm 'legacy=env TACTIX_SLOT_ORDER=legacy build/pin-n4-d1-b/tactix'
+tools/bench/run.py --tier C --slurm --nodelist node017 \
+  --baseline kissat --baseline cadical \
+  --solver      'build/pin-n4-d1-c/tactix' --name authored \
+  --checked-arm 'legacy=env TACTIX_SLOT_ORDER=legacy build/pin-n4-d1-c/tactix'
+```
+**Pre-flight, before reading any PAR-2:** `TACTIX_SLOT_STATS=1 <arm> <instance>` must print
+`c slot-order  authored Congruence Substitute …` on one arm and `c slot-order  legacy   BCE Backbone …` on
+the other. Same string on both ⇒ the arm never took and the run is vacuous.
+**Ships if:** authored is ≥ legacy on `#solved` on both tiers and no worse than the 6.72 noise floor on
+Tier C PAR-2 — the bar is deliberately "does not cost", since the warrant is reference parity, not a
+number. **Reverts if** it loses a Tier C solve that survives paired draws.
 
 ### 2026-08-05 — the merged tree's 38 "LRAT" failures are drat-trim's CONVERTER, not our emitter
 

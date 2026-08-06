@@ -438,15 +438,43 @@ const SlotOrderRow *default_slot_order(size_t *count) {
   return AUTHORED_SLOT_ORDER;
 }
 
-bool DefaultPolicy::want_slot_phase(const Kernel &k, SlotGroup g) const {
+bool DefaultPolicy::want_slot_phase(const Kernel &k, SlotGroup g) {
   if (!inprocess.initialized)
     return false;
-  const SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
+  SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
   if (k.stats.conflicts < c.next_conflicts)
     return false;
-  // Interval alone. What each clock ADDITIONALLY requires — the probing clock's
-  // reduce coupling and the elimination clock's new-material watermark — is
-  // SCHED-D3 and lands in this predicate.
+  // The interval is NECESSARY BUT NOT SUFFICIENT (see SlotClock's gate block).
+  // The FIRST phase of each clock is exempt from both gates — it is the
+  // preprocessing pass, there is no previous phase to be new relative to, and
+  // both references exempt it too (cadical's `stats.inprobingphases &&`;
+  // kissat's watermark starts at 0 while every variable starts marked).
+  const bool gated =
+      c.rounds != 0 &&
+      (g == SlotGroup::Probe
+           // cadical probe.cpp:23 — no inprobe phase unless a reduce has
+           // happened since the last one.
+           //
+           // MEASURED INERT HERE, and provably so: our probe interval is
+           // ~2500·n·log10(n+9) and our reduce interval 2000+300·r, so matching
+           // cumulative conflicts gives r ≈ 2.9·n·√log n and a probe interval
+           // ~2.9·√log n times the reduce interval — always > 1, so two probe
+           // phases never fall inside one reduce interval. Kept because it is
+           // the reference's gate and costs one compare: it becomes live the
+           // moment the probing clock is given cadical's near-constant spacing
+           // (probe.cpp:980), which is exactly where cadical needs it.
+           ? k.stats.reductions == c.reductions_mark
+           // kissat eliminate.c:33-38 / cadical elim.cpp:75-80 — wait for new
+           // root units or newly marked elimination candidates.
+           : (k.stats.bve_marks <= c.marks_mark &&
+              kernel_root_fixed(k) <= c.fixed_mark));
+  if (gated) {
+    if (!c.blocked) { // count episodes, not search steps
+      c.blocked = true;
+      c.blocked_episodes++;
+    }
+    return false;
+  }
   return true;
 }
 
@@ -1015,11 +1043,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
                                   volatile sig_atomic_t *stop) {
   SlotClock &clock = group == SlotGroup::Probe ? probe_clock : elim_clock;
+  // Snapshot this clock's gate marks BEFORE the pipeline runs (SlotClock's gate
+  // block): material the phase itself produces then re-admits the next one, so
+  // a budget-cut pipeline is never gated out of its own follow-up.
+  clock.reductions_mark = k.stats.reductions;
+  clock.marks_mark = k.stats.bve_marks;
+  clock.fixed_mark = kernel_root_fixed(k);
+  clock.blocked = false; // a new blocking episode may now be counted
   // A simplification PHASE: descend to a quiescent root (a transient flush
   // that keeps saved/target phases — kernel_backtrack(update_phases=true) —
   // so search re-descends toward the same region afterward), then give each
-  // enabled technique ONE DOSE, sized as a per-mille fraction of the search
-  // work that preceded it (kissat SET_EFFORT_LIMIT; the ledger lives in
+  // enabled technique IN THIS GROUP one dose, sized as a per-mille fraction of
+  // the search work that preceded it (kissat SET_EFFORT_LIMIT; the ledger is in
   // SlotEntry). Bounding matters — an unbounded fixpoint drowns even
   // trivial instances — but do NOT bound by APPLICATION COUNT: that is
   // blind to formula size and caps an O(applications × formula) loop
@@ -1652,7 +1687,10 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   // slot entry. It runs at the quiescent root with `k.dense` still
   // connected. Because it is unbudgeted it must never be set in a tier
   // run; it exists to drive the sweep + proof path hard in fuzz legs.
-  if (!phase_unsat && std::getenv("TACTIX_SWEEP_PROBE")) {
+  // PROBING phases only — Sweep is a probing-clock entry, and firing the probe
+  // on the elimination clock too would silently double its rate.
+  if (group == SlotGroup::Probe && !phase_unsat &&
+      std::getenv("TACTIX_SWEEP_PROBE")) {
     if (sweep_apply(k) == ApplyResult::Unsat)
       phase_unsat = true;
   }
@@ -1745,15 +1783,21 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
   for (const SlotEntry &e : inprocess_slot)
     std::printf(" %s", rules[e.rule].name);
   std::printf("\n");
-  // REACHABILITY readout for the two clocks (SCHED-D2). `probe phases` far
-  // above `elim phases` is the mechanism working; equal counts mean the split
-  // did not take and any arm built on it is vacuous.
-  std::printf("c slot-clock  probe phases %llu next %llu | eliminate phases "
-              "%llu next %llu\n",
+  // REACHABILITY readout for the two clocks (SCHED-D2) and their gates
+  // (SCHED-D3). `probe phases` above `elim phases` is the split working; equal
+  // counts mean it did not take. `blocked` is the gate: episodes in which an
+  // ELAPSED interval was declined for want of a reduce (probe) or of new
+  // material (eliminate). Zero across a run means the gate never fired and an
+  // arm resting on it proved nothing.
+  std::printf("c slot-clock  probe phases %llu next %llu blocked %llu | "
+              "eliminate phases %llu next %llu blocked %llu | bve-marks %llu\n",
               (unsigned long long)probe_clock.rounds,
               (unsigned long long)probe_clock.next_conflicts,
+              (unsigned long long)probe_clock.blocked_episodes,
               (unsigned long long)elim_clock.rounds,
-              (unsigned long long)elim_clock.next_conflicts);
+              (unsigned long long)elim_clock.next_conflicts,
+              (unsigned long long)elim_clock.blocked_episodes,
+              (unsigned long long)k.stats.bve_marks);
   for (const SlotEntry &e : inprocess_slot) {
     const SlotEntry::Telem &t = e.tm;
     if (!t.occasions)

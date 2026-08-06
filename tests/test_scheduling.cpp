@@ -291,6 +291,59 @@ static void test_two_slot_clocks_diverge(void) {
               (unsigned long long)p.elim_clock.next_conflicts);
 }
 
+// --- SCHED-D3: the elapsed interval is necessary, not sufficient -----------
+//
+// kissat eliminate.c:33-38 and cadical elim.cpp:75-81 both refuse an
+// elimination phase whose interval has elapsed but which has no new material to
+// act on; cadical probe.cpp:23 refuses an inprobe phase with no reduce since the
+// last one. Both gates are SAFETY VALVES: on most instances the pipeline keeps
+// producing material and they never bind, which is exactly why they need a unit
+// test -- a tier run cannot distinguish "gate correct and quiet" from "gate
+// wired to nothing".
+static void test_slot_gates_decline_without_new_material(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  p.inprocess.initialized = true;
+  k.stats.conflicts = 100;
+  // Past the first phase on both clocks, intervals elapsed, marks == live: the
+  // interval says GO and the gates must still say no.
+  p.probe_clock.rounds = p.elim_clock.rounds = 1;
+  p.probe_clock.next_conflicts = p.elim_clock.next_conflicts = 0;
+  p.probe_clock.reductions_mark = k.stats.reductions;
+  p.elim_clock.marks_mark = k.stats.bve_marks;
+  p.elim_clock.fixed_mark = kernel_root_fixed(k);
+  assert(!p.want_slot_phase(k, SlotGroup::Eliminate) &&
+         "an elimination phase fired with no new material (SCHED-D3)");
+  assert(!p.want_slot_phase(k, SlotGroup::Probe) &&
+         "a probing phase fired with no reduce since the last one (SCHED-D3)");
+  assert(p.elim_clock.blocked_episodes == 1 &&
+         p.probe_clock.blocked_episodes == 1);
+  // An episode is counted once, not once per search step.
+  (void)p.want_slot_phase(k, SlotGroup::Eliminate);
+  (void)p.want_slot_phase(k, SlotGroup::Probe);
+  assert(p.elim_clock.blocked_episodes == 1 &&
+         p.probe_clock.blocked_episodes == 1);
+  // New elimination material re-admits; so does a reduce for probing.
+  k.stats.bve_marks++;
+  assert(p.want_slot_phase(k, SlotGroup::Eliminate));
+  k.stats.reductions++;
+  assert(p.want_slot_phase(k, SlotGroup::Probe));
+  // The FIRST phase of each clock is exempt -- it is the preprocessing pass and
+  // has no previous phase to be new relative to (cadical's
+  // `stats.inprobingphases &&`).
+  DefaultPolicy q;
+  q.inprocess.initialized = true;
+  q.probe_clock.next_conflicts = q.elim_clock.next_conflicts = 0;
+  q.probe_clock.reductions_mark = k.stats.reductions;
+  q.elim_clock.marks_mark = k.stats.bve_marks;
+  q.elim_clock.fixed_mark = kernel_root_fixed(k);
+  assert(q.want_slot_phase(k, SlotGroup::Probe) &&
+         q.want_slot_phase(k, SlotGroup::Eliminate) &&
+         "the preprocessing phase must not be gated");
+  std::printf("  slot gates: decline without new material, re-admit with it\n");
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
   test_transitive_instances_rotate();
@@ -298,6 +351,7 @@ int main() {
   test_vivify_scope_tracks_tier2();
   test_authored_slot_order_covers_registry();
   test_two_slot_clocks_diverge();
+  test_slot_gates_decline_without_new_material();
   std::printf("test_scheduling: all passed\n");
   return 0;
 }

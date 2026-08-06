@@ -9,9 +9,9 @@
 // conflicts, stable phases last the preceding focused phase's ticks,
 // focused intervals grow as modeint·n·log⁴n), the stable-only rephase
 // schedule (kissat rephase.c: rephaseint·n·log³n interval, B,W,I,B,W,O
-// rotation), and the inprocessing slot (every registry Inprocess-tier
-// rule, on kissat's size-scaled eliminate.c intervals). Constants are the
-// published kissat/cadical/Glucose defaults unless a comment says
+// rotation), and the inprocessing slot (every registry Inprocess-tier rule,
+// split across kissat's two size-scaled clocks — see SlotGroup). Constants
+// are the published kissat/cadical/Glucose defaults unless a comment says
 // otherwise.
 #pragma once
 
@@ -515,6 +515,32 @@ public:
   struct SlotClock {
     uint64_t next_conflicts = 0;
     uint64_t rounds = 0; // phases run; also the interval growth key
+    // --- the elapsed interval is NECESSARY BUT NOT SUFFICIENT (SCHED-D3) ----
+    // Both references gate a phase on more than its conflict interval, and the
+    // two clocks are gated differently:
+    //   PROBE — cadical `probe.cpp:23`: after the first phase, a REDUCE must
+    //   have happened since the last one (`last.inprobe.reductions ==
+    //   stats.reductions` declines). Probing re-reads a clause database the
+    //   reduce is what turns over.
+    //   ELIMINATE — a NEW-MATERIAL watermark: kissat `eliminate.c:33-38`
+    //   (`limits.eliminate.variables.{eliminate,subsume}` vs the live counters)
+    //   and cadical `elim.cpp:75-80` (`last.elim.fixed < stats.all.fixed ||
+    //   last.elim.marked < stats.mark.elim`). Without it a phase can fire
+    //   having learned nothing it could act on.
+    // Marks are snapshotted at phase ENTRY, so material produced INSIDE a phase
+    // re-admits the next one. That is deliberately weaker than kissat's
+    // completion-gated advance and equals cadical's restore-on-incomplete case
+    // (elim.cpp:774-775/909): it can re-run needlessly, it can never starve a
+    // budget-cut pipeline of its follow-up.
+    uint64_t reductions_mark = 0; // probe gate: k.stats.reductions at entry
+    uint64_t marks_mark = 0;      // elim gate: k.stats.bve_marks at entry
+    uint64_t fixed_mark = 0;      // elim gate: kernel_root_fixed at entry
+    // DIAGNOSTIC: episodes in which the gate turned an ELAPSED interval down.
+    // Counted per episode, not per search step, so it reads as "times the phase
+    // was declined". Zero across a tier means the gate is inert and any arm
+    // resting on it is vacuous.
+    bool blocked = false;
+    uint64_t blocked_episodes = 0;
   };
   SlotClock probe_clock, elim_clock;
   // Slot timing: the first limit of each clock is size-scaled at solve entry
@@ -544,7 +570,8 @@ public:
   bool want_reorder(const Kernel &) const;
   // One predicate per clock (see SlotGroup). Both are checked in the search
   // loop, probing first — kissat search.c:214-217, cadical internal.cpp:322-325.
-  bool want_slot_phase(const Kernel &, SlotGroup) const;
+  // Non-const: a declined-past-interval episode is counted (SlotClock::blocked).
+  bool want_slot_phase(const Kernel &, SlotGroup);
   void tick_reluctant();                   // per-conflict in stable mode
   void update_mode_limits(const Kernel &); // after a switch
   void update_restart_limit(const Kernel &); // after a restart
