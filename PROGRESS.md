@@ -1031,8 +1031,8 @@ instrument before spending a tier window on a mechanism.
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
 - [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by file;
-  the X1/X2/X4 share is DONE** (see its Log entry), C1/C2 and Vivify are owned separately. Tick the item
-  only when all three land. · [ ] **SCHED-H2** per-solve reset of
+  the X1/X2/X4 share and the C1/C2 share are DONE** (see their Log entries), **Vivify is the one open
+  share**. Tick the item when it lands. · [ ] **SCHED-H2** per-solve reset of
   restart/reduce/rephase/mode/reorder/averages/walk_anchor · [ ] **SCHED-H3** Reduce `first_reducible` scan
   bound
 
@@ -1320,6 +1320,46 @@ sweep-stress + forced-general + ASCII DRAT). Reachability at the SOURCE on the s
 1,468 rounds, 7,092 environments, 3,441 equivalences, **3,558 binaries and 293 general-path pairs** over
 1,497 generated cases — both proof paths non-zero, so no green leg here is vacuous. Report
 `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
+### 2026-08-05 — SCHED-H1 (C1/C2 half): four poll sites, and why one would not have been enough
+
+`D-STRENGTHEN-BUDGET` recorded C2 owning **97.8 s of `DivS_862_11`'s 109.0 s in four applications**, with
+no way to stop a round once it began. `default_policy.cpp` polls `stop` at every slot boundary, which
+bounds SIGTERM latency to ONE application — and one application here is most of the solve. A harness then
+escalates to SIGKILL and **the proof file is lost**, which is an N2/§6 defect, not a latency nuisance.
+
+**Four sites, because C2 has three unbounded loops, not one.** C1: the candidate loop (its only one). C2:
+the **flush pre-pass** over the whole arena, the candidate loop, and the **cascade** that re-checks one
+shrinking candidate (bounded by `CLSLIM`, i.e. up to 1000 full partner scans on a single clause). A poll
+in the candidate loop alone would leave a round deaf for the whole flush pass.
+
+**An interrupted round is bookkept as an INCOMPLETE round, never as a special case.** Each site reuses the
+existing mid-round-budget cut: set `stopped_at`, fall through to SCHED-F2's tail re-arm, advance the
+watermark, and report `subsume_complete`/`strengthen_complete` false. `!interrupted` is a separate
+conjunct in C2's completeness because a flush-pass abort leaves `candidates` empty, which would otherwise
+read as a vacuous fixpoint — the same trap `!ended` already closes for a flush-derived unit. No site
+aborts mid-rewrite, so everything done is already proof-logged: **dropping an inference is sound, and no
+unverifiable certificate can be emitted on this path** (Track C's `D-CONG-SKIP` precedent).
+
+**▶ THE VACUITY GUARD, which is the point of the item.** Task #10's abort paths passed **4 × 10,000 fuzz
+cases while inert**, because the sites were gated on `!(++tick & 255)` and nothing smaller than one poll
+window ever reached a first check — and every CNF the harness generates is smaller than that. So:
+- the predicate is `(k.stop_fuzz || !(++stop_tick & 255)) && kernel_terminating(k)` — `k.stop_fuzz` leads,
+  so the stress path **bypasses the cadence entirely** and fires on the first poll;
+- the source-level counter is `stop_fuzz_fires`, incremented **inside `kernel_terminating` itself**, so it
+  cannot go stale if a call site forgets to count;
+- `interrupts_c1`/`interrupts_c2` (`c c1c2stop`) attribute a fire to the rule — `rule_interrupted` alone
+  cannot, since Congruence shares it;
+- the unit tests exercise BOTH paths and, for C2, both the flush site and the candidate-loop site, by
+  ARITHMETIC rather than luck: 900 arena clauses overrun the 256-poll window inside the flush (asserted
+  with `strengthen_checked == 0`), while 200 leave the pre-pass 56 polls short so the first fire lands in
+  the candidate loop (asserted with `strengthen_checked > 0`). Each has a negative control on the same
+  formula with no interrupt, which must run to `complete`.
+
+**No behaviour change without an interrupt**: with `stop == nullptr` and `stop_fuzz == 0` the predicate is
+a counter increment and a branch, and `c c1c2stop` reads `0 C1 rounds, 0 C2 rounds` on every normal solve.
+So this needs no A/B — but it DOES need `c c1c2stop` non-zero on a real instance under a real SIGTERM
+before the leg counts as tested.
+
 ### 2026-08-05 — SCHED-G2 (1/2): the instrument, and what will count as decisive
 
 **The question is not "does C1 fire".** C1 fires — `forward_subsumed` has always been non-zero. The

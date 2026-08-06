@@ -10,6 +10,7 @@
 #include "rules/subsume_forward/subsume_forward.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -490,6 +491,44 @@ static void test_shadow_ledger() {
   }
 }
 
+// SCHED-H1 · the §6 interrupt reaches C1's candidate loop on both paths — the
+// stress bypass (first poll) and the real cadenced `Kernel::stop` (which needs
+// more than a 256-wide poll window before it can fire at all). The negative
+// control at the end is what keeps the cadenced leg from passing vacuously.
+static void test_interrupt_ends_round() {
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    add(k, {1, 2, 3, 4});
+    add(k, {1, 2, 3});
+    k.stop_fuzz = 1;
+    assert(subsume_forward_apply(k) == ApplyResult::NoOp); // aborted before it
+    assert(k.stats.forward_subsumed == 0);                 // could delete
+    assert(k.stats.interrupts_c1 == 1);
+    assert(k.stats.stop_fuzz_fires >= 1); // counted at the SOURCE
+    assert(!k.subsume_complete);
+    kernel_check_invariants(k);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3000);
+    for (int i = 0; i < 900; i++)
+      add(k, {3 * i + 1, 3 * i + 2, 3 * i + 3});
+    volatile sig_atomic_t stop = 1;
+    k.stop = &stop;
+    assert(subsume_forward_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.interrupts_c1 == 1);
+    assert(!k.subsume_complete);
+    k.stop = nullptr;
+    Kernel c; // negative control: the same round, uninterrupted, COMPLETES
+    kernel_reserve_vars(c, 3000);
+    for (int i = 0; i < 900; i++)
+      add(c, {3 * i + 1, 3 * i + 2, 3 * i + 3});
+    assert(subsume_forward_apply(c) == ApplyResult::NoOp);
+    assert(c.stats.interrupts_c1 == 0 && c.subsume_complete);
+  }
+}
+
 int main() {
   test_guard();
   test_basic_subsume();
@@ -506,6 +545,7 @@ int main() {
   test_proof_deltas();
   test_binary_subsumer_then_substitute();
   test_shadow_ledger();
+  test_interrupt_ends_round();
   printf("test_subsume: all ok\n");
   return 0;
 }
