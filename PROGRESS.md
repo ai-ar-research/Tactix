@@ -1130,13 +1130,22 @@ the ON arm's **122,548** for the same tick budget — a 3.9× widening of what t
 `TACTIX_VIVIFY_TIER3=0`: **tier3 0**, confirming the fourth pass is what populates that band.
 cadical claims 30–50 % of decisions saved; 24–27 % is the same order.
 
-**▶ THE YIELD SIGN IS NOT YET KNOWN AND THE FIRST NUMBER POINTS THE WRONG WAY.** On `EDP3-11000` the ON
-arm checked 3.9× more candidates but **vivified FEWER** (1,155 vs the off arm's 1,938). Reuse is not
-free of trajectory effects — the count order changes WHICH candidates are looked at, and the reused
-prefix is propagated under the previous candidate's `ignore`, so it both lacks and carries different
-propagations (design §3.5). D-VIVIFY-SCHED's standing scope note is the reason this matters more than it
-looks: Vivify is 0.7–1.9 % of clock everywhere probed, so the payoff has to come from YIELD, and the one
-yield datapoint so far is negative. **Do not bank this item before the §5 A/B runs.**
+**▶ `vivified` COLLAPSES AND THAT IS NOT THE OBJECTIVE — read solve time.** The count drops hard:
+`EDP3-11000` 1,155 vs the off arm's 1,938, `Ptn-7824-b18` **9,211 vs 364,859**. My first reading of that
+was that the yield went the wrong way; it is the wrong number to read. Paired single-instance times, same
+node, same binary, 400 s cap:
+
+| instance | shipped (both ON) | `TACTIX_VIVIFY_REUSE=0` | `TACTIX_VIVIFY_TIER3=0` |
+|---|---|---|---|
+| `EDP3-11000` | **28.6 s** | 29.8 s | **62.8 s** (2.2×) |
+| `Ptn-7824-b18` | **273.9 s SOLVED** | **400 s TIMEOUT** | — |
+
+So on both instances the shipped arm vivifies far less and is FASTER — on `Ptn` the off arm burns
+15.97 M probe assumptions to strengthen 364,859 clauses and does not finish. Vivification count was never
+the objective, and D-VIVIFY-SCHED's "this is a YIELD fix" note has to be read as "yield per tick", not
+"clauses rewritten". **This is still TWO instances and is NOT a verdict** ([[chaotic-instance-veto]]);
+the §5 A/B is what decides it, and its abandon-the-window rule stands. Peak RSS 249 MB vs 113 MB — the
+round-scoped probing log is real but small, and 249 MB is far under the 8 GB/core allocation.
 
 **C10 hand-off H3 LANDED, not deferred** (`SP-TIER-2` removal-path T3, now closed in
 `implementation-notes.md`): `Kernel::vivify_scope` grows to name the band — 3/4/5 = kissat's
@@ -1147,6 +1156,18 @@ live `k.tier1` consumer outside reduce in either direction. `Stats::vivify_tier3
 witness and is non-zero on all three instances above.
 
 **SCHED-F5 and SCHED-H1's Vivify half** are ticked in the checklist with their own evidence.
+
+**FUZZ: SIX LEGS, 10,000 CASES EACH, 0 FAILURES** (60,000 cases, corpus 14/14 on each) — jobs `1585243`
+native DRAT · `1585244` native LRAT · `1585245` `--random-policy` × DRAT · `1585246` `--random-policy` ×
+native LRAT · `1585254` **`TACTIX_STOP_FUZZ=97` × `--random-policy` × native LRAT** (the H1 abort path:
+the stress cadence bypasses every window, so the new poll is live on cases far smaller than one) ·
+`1585255` **`--probing-stress-policy` × native LRAT** (the new-schedule leg: it drives Vivify's CANONICAL
+round densely against Probe/Backbone/TransitiveReduce/Congruence in random order with
+`kernel_check_invariants` after every step, which is exactly the surface trail reuse lives on). Verdicts
+agree between the stressed and unstressed legs modulo timeouts (SAT 5026 vs 5027), so interrupting a
+round changed no answer and every UNSAT still produced a checkable chain. **An earlier submission of the
+same six was cancelled and redone**: `build/debug/tactix` was rebuilt underneath them mid-flight, which
+makes a leg mixed-binary and its green meaningless — the fuzz analogue of the build-dir rule.
 
 **A/B SPEC (not run — no tier campaign here, and the 4-core allocation is oversubscribed).** Same
 window, same binary, node-pinned, Tier C, `--baseline kissat --baseline cadical`; two pin dirs if a
