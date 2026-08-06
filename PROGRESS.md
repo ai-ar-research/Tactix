@@ -84,10 +84,10 @@ a second stamp array for DELETIONS · F4 Factor's seed marks · F6 the redundant
 only weakens the filters until F7 gives it a consumer. **Measured at the source** (probes `1584708`/`1584753`,
 counters only): `rbsat` C1 partner visits 165,272 → 79,686 and C2 5.83 M → 2.57 M · `mod4block` BCE ticks
 14.9 M → 7.1 M with MORE deletions · `9vliw` BCE 175,810 literals skipped; `advances` == round count everywhere,
-so the filters fire and none has wedged. **On the MERGED tree the mix moves — F3/F4 carry it and C1/C2's
-share collapses** (`9vliw` C1 4,501 skipped vs 95,965 on the branch alone, because Stage E's cursor and
-C8's gates make the substrate 2.3× busier); `9vliw` Factor 65,176 seeds skipped, `rbsat` 88,932,
-`battleship` 36,036 with nothing else firing. Re-read the Log before attributing a delta to C1/C2. **F5 is NOT done and is routed to `revamp`** — it needs a per-CLAUSE
+so the filters fire and none has wedged. **On the MERGED tree WHICH consumer carries it is per-instance**
+— `9vliw`/`rbsat`/`battleship` shift to Factor and BCE while `mod4block` is still C1/C2 at 782,717
+skipped — which is why the family prices as one arm. Re-read the Log before attributing a delta to any
+single item. **F5 is NOT done and is routed to `revamp`** — it needs a per-CLAUSE
 bit and the per-variable substrate cannot express it (see its checklist entry). **F7 (C1/C2 scope ← the tier
 band) is the open follow-up and F6 is its prerequisite.** The A/B specs are in the Log; `TACTIX_SUBSUME_HOLD`'s
 arm says explicitly not to run it while `c subhold` reads 0.
@@ -1107,15 +1107,17 @@ only, no wall clock).** On the pre-merge branch: `rbsat` C1 partner visits **165
 (4,133 → 6,257) and X2 ticks **32,128 → 18,373** for 2,898 resolvents instead of 8,118; `9vliw` BCE
 175,810 literals skipped. Telemetry self-check clean (0 `***UNACCOUNTED***`) on every arm.
 
-**▶ RE-READ AFTER THE MERGE, AND THE MIX MOVED — do not quote the pre-merge C1/C2 numbers for HEAD.**
-On the merged tree (Stage E's cursor + E3's ceiling + C8's ITE/XOR gates in front of it) the substrate is
-**2.3× busier** — `9vliw` 4,895,219 touch marks against 2,102,782 before — because more rules now reach
-more candidates and every rewrite is an add. More marks means fewer skips, and C1/C2's share collapses:
-`9vliw` C1 **4,501** skipped where the branch alone gave 95,965, `rbsat` **74** where it gave 6,855.
-**The stage still fires hard, but through F3 and F4 rather than F1**: `9vliw` BCE 177,060 literals
-skipped and Factor **65,176** seeds; `rbsat` Factor **88,932**; `battleship` Factor **36,036** and
-nothing else at all. Two consequences for the A/B: the arm is worth running on the strength of F3/F4,
-and **anyone attributing a delta to C1/C2 on HEAD is quoting a number that no longer holds.**
+**▶ RE-READ AFTER THE MERGE: WHICH CONSUMER CARRIES THE STAGE IS PER-INSTANCE, so do not quote one
+instance's split for the tier.** On the merged tree (Stage E's cursor + E3's ceiling + C8's ITE/XOR gates
+in front of it) the substrate is busier — `9vliw` 4,895,219 touch marks against 2,102,782 before, because
+more rules now reach more candidates and every rewrite is an add — and more marks means fewer skips.
+Where that lands differs completely by instance: `9vliw` C1 drops to **4,501** skipped (95,965 on the
+branch alone) and the work moves to BCE **177,060** and Factor **65,176**; `rbsat` C1 **74** with Factor
+**88,932**; `battleship` is Factor **36,036** and nothing else at all; while `mod4block` is still
+overwhelmingly C1/C2 — **782,717 / 781,290** skipped, plus X2 16,002. So the stage fires hard everywhere
+it fires, but through a different consumer each time, which is an argument for pricing the family
+together (one `TACTIX_TOUCH_MARKS` arm) rather than per item. **The one firm negative: quoting the
+pre-merge C1/C2 numbers as HEAD's is wrong on three of the four instances.**
 
 **F6's ships-OFF decision is now MEASURED, not just argued.** `TACTIX_TOUCH_REDUNDANT=1` on the same
 instances: `9vliw` touch marks 4,895,219 → **9,715,099** (2.0×) and `battleship` 18,434 → **15,127,577**
