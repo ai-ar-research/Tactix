@@ -247,12 +247,57 @@ static void test_authored_slot_order_covers_registry(void) {
   std::printf("  authored slot order: %zu rows, registry-complete\n", norder);
 }
 
+// --- SCHED-D2: the two clocks are actually two ------------------------------
+//
+// kissat runs the probing pipeline on probeint=100 x NLOGN (probe.c:85) and the
+// elimination pipeline on eliminateint=500 x NLOG2N (eliminate.c:600). Under
+// one clock everything rides the elimination cadence. This test fails if the
+// probing clock is ever scheduled no sooner than the elimination clock at the
+// same phase count -- i.e. if the split silently collapses back to one clock,
+// which is exactly the shape that makes an A/B arm vacuous.
+static void test_two_slot_clocks_diverge(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  p.inprocess.initialized = true;
+  for (uint64_t n = 0; n < 8; n++) {
+    p.probe_clock.rounds = n;
+    p.elim_clock.rounds = n;
+    p.update_slot_limit(k, SlotGroup::Probe);
+    p.update_slot_limit(k, SlotGroup::Eliminate);
+    assert(p.probe_clock.next_conflicts < p.elim_clock.next_conflicts &&
+           "the probing clock is not firing sooner than the elimination clock "
+           "-- the two clocks have collapsed into one (SCHED-D2)");
+    // and the gap WIDENS: NLOG2N outgrows NLOGN (ledger SP-SLOT-1).
+    if (n) {
+      p.probe_clock.rounds = n - 1;
+      p.elim_clock.rounds = n - 1;
+      p.update_slot_limit(k, SlotGroup::Probe);
+      const uint64_t prev_probe = p.probe_clock.next_conflicts;
+      p.update_slot_limit(k, SlotGroup::Eliminate);
+      const uint64_t prev_elim = p.elim_clock.next_conflicts;
+      p.probe_clock.rounds = n;
+      p.elim_clock.rounds = n;
+      p.update_slot_limit(k, SlotGroup::Probe);
+      p.update_slot_limit(k, SlotGroup::Eliminate);
+      assert(p.elim_clock.next_conflicts - prev_elim >=
+                 p.probe_clock.next_conflicts - prev_probe &&
+             "the elimination interval is not growing at least as fast as the "
+             "probing one");
+    }
+  }
+  std::printf("  slot clocks: probe next=%llu < eliminate next=%llu at 8 phases\n",
+              (unsigned long long)p.probe_clock.next_conflicts,
+              (unsigned long long)p.elim_clock.next_conflicts);
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
   test_transitive_instances_rotate();
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
   test_authored_slot_order_covers_registry();
+  test_two_slot_clocks_diverge();
   std::printf("test_scheduling: all passed\n");
   return 0;
 }

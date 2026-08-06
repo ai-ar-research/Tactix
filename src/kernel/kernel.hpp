@@ -277,7 +277,9 @@ struct Stats {
   // per enabled technique). Counted in the kernel so it survives into the
   // stats block: repeated during-search BVE's cost is search-TRAJECTORY
   // damage rather than per-phase work, so whether that cost tracks the phase
-  // COUNT is unanswerable without this counter.
+  // COUNT is unanswerable without this counter. Policies that run more than one
+  // inprocessing clock sum them here; the per-clock split is theirs to report
+  // (DefaultPolicy's `c slot-clock` line).
   uint64_t inprocess_phases = 0;
   uint64_t congruence_rounds = 0;  // Congruence rounds — gate-closure passes
   // Merges dropped because no checkable LRAT chain could be built for them
