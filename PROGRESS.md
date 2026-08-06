@@ -593,8 +593,29 @@ leaves only a STATIC per-instance one — and the best such separator measured 4
     `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`; ledger rows **SP-SWEEP-1** (closed) / **SP-SWEEP-2**, **SP-SWEEP-3** (open).
     **The Tier C A/B is SPECCED AND UNRUN** — arms `govon` / `govoff` (`TACTIX_SWEEP_ENV_BUDGET=0`), pre-registered counters and ship
     criterion in the report §9; it should precede the SCHED-D2 pricing run. `TACTIX_SWEEP_PROBE` must not be set in any tier run
-- [ ] **R6 · X3 `CCE`** (cadical `cover.cpp`) — delete + push-witness; doubles as the §5.3 **extensibility acceptance test** (pure plugin, no
-  kernel edit)
+- [x] **R6 · X3 `CCE`** (cadical `cover.cpp`, the ASYMMETRIC variant the literature still calls CCE) — delete + push-witness, one segment per CLA
+  step plus one for the blocked exit. **ON** (landing convention). Calculus §6c; guard row + ledger `D-CCE-SCOPE` in `implementation-notes.md`.
+  **cadical-only, and it ships `cover`=0**: kissat's `cover.h` is a coverage-ASSERTION macro, not clause covering — verified at the source, and
+  default-OFF in a reference is not disqualifying (`block`=0 and R2 BCE landed ON anyway).
+  - **The witness is the whole rule.** Record only `C` + the CLA additions (`D_i`), never the ALA literals, and push in application order — `ρ`
+    replays in reverse. What licenses the smaller recorded clause while blockedness is tested against the LARGER extension is the **ALA-closure
+    lemma**: a model of `F∖{C}` that falsifies `D_i` must falsify every ALA literal too, because each was justified by a clause of `F∖{C}` whose
+    other literals are already false. The **ATA exit with no CLA step in front of it pushes NOTHING** — `C` is RUP there.
+  - **The two sides quantify differently and it is NOT symmetry.** CLA/blockedness runs over redundant clauses too (over-quantifying only makes the
+    test stricter; filtering that side is X1's fuzz-2204 wrong-SAT shape). **ALA is irredundant-only for an ABSTRACT reason** — the lemma needs the
+    justifying clause satisfied when `ρ` replays, and S2 Reduce deletes redundant clauses with no witness.
+  - **§5.3 VERDICT: the rule body is a pure plugin; the REGISTRATION SURFACE is not one line but SEVEN central tables.** No kernel primitive, no
+    proof-backend change, no other rule touched, no `ρ` format change — `kernel_push_witness` took CCE's multi-segment sequences unchanged (R7's
+    blocker, a witness CUBE, does not arise: cadical `cover.cpp:411` pushes a single witness literal and so do we). What a new rule DOES have to
+    edit centrally: `CMakeLists.txt` · `Stats` in `kernel/kernel.hpp` · `EFFORT_SPECS` + a meter + `AUTHORED_SLOT_ORDER` in `default_policy.cpp` ·
+    `check-effort-specs.py`'s table · `main.cpp`'s stats line · `tests/`. Plus **the frozen C-ABI rule ids RENUMBER** (`test_api_c.c`'s golden list;
+    documented as deliberate). See the Log entry for the argument that only the `Stats` one is a real architecture pressure point.
+  - Reachability at the SOURCE, shipped DefaultPolicy, 59 structured/circuit fuzz-generator cases: **26 rounds, 4223 candidates extended, 2411 ALA +
+    154 CLA literals added, 34 deleted (6 blocked / 28 ATA)**, against an exactly-zero `TACTIX_SLOT_DISABLE=CCE` control. `tests/test_cce.cpp`
+    exhaustively cross-checks reconstruction over 400 random formulas: **3605 deletions, 18926 models that genuinely needed `ρ`, all repaired**.
+  - Fuzz **GREEN, five legs, 0 failures**: stress×DRAT `1585216` / stress×native-LRAT `1585217` (4000 each) · `--random-policy`×DRAT `1585220` /
+    ×native-LRAT `1585221` (4000 each) · DefaultPolicy quick `1585223` (10000); corpus 14/14 on every leg. ctest **45/45**.
+  - **A/B SPEC READY, DELIBERATELY UNRUN** (a Tier C A/B was live) — arms + pre-registered counters + ship criterion in the Log entry below.
 - [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
 - ~~**R8**~~ — MOVED to Track SCHED (`SCHED-C6`/`C7`) 2026-08-04: it was scheduling work filed under the rule inventory. Track R is now purely
   new rule FAMILIES (R5–R7), which is what makes it parallelisable against Track SCHED.
@@ -1065,6 +1086,89 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — Track R · R6: X3 CCE lands ON, and the §5.3 extensibility test comes back MOSTLY YES
+
+Branch `track-r6-cce`, base `accb362`. The rule is cadical's `cover.cpp` transliterated: grow the
+candidate by asymmetric literal addition (ALA — literally unit propagation of `¬C` over `F∖{C}`) and
+covered literal addition (CLA — a literal shared by every clause resolving on some pivot), then delete
+the ORIGINAL clause when the extension is blocked or falsified. **cadical is the only reference**:
+kissat's `cover.h` is `#define COVER(COND)`, a coverage assertion, and it has no `cover` option at all.
+cadical ships `cover`=**0**, which per the landing convention is not disqualifying (`block`=0 too, and
+R2 BCE shipped ON).
+
+**▶ THE §5.3 ACCEPTANCE TEST: the rule body is a pure plugin; the REGISTRATION SURFACE is seven tables.**
+Nothing in `src/kernel/`, `src/proof/`, or any other rule's directory changed to make CCE fit — no new
+primitive, no widened interface, no `ρ` format change. In particular `kernel_push_witness` absorbed
+CCE's *multi-segment* deletions unchanged, which is worth stating because R7 X5 Condition blocked on
+exactly that surface: a conditional autarky needs a witness CUBE over variables OUTSIDE the clause,
+where `ρ` stores one witness literal INSIDE it. CCE never needs that — cadical `cover.cpp:411` pushes a
+single witness literal per segment and so do we. What a new rule DOES have to edit centrally:
+`CMakeLists.txt` · `Stats` (`kernel/kernel.hpp`) · `EFFORT_SPECS` + its meter + `AUTHORED_SLOT_ORDER`
+(`default_policy.cpp`) · `check-effort-specs.py`'s classification table · `main.cpp`'s stats line ·
+`tests/CMakeLists.txt`. Plus the frozen C-ABI rule ids RENUMBER by the name sort (`test_api_c.c`'s golden
+list says to expect it). **Only ONE of those is a real architecture pressure point, and it is `Stats`:**
+the `EffortSpec` meter is `uint64_t(*)(const Kernel &)`, so a rule's budget currency must be a field on
+the shared `Kernel::Stats` — a rule cannot carry its own counter and still be titratable. Everything else
+is a *classification* table that fails loudly and on purpose when a rule is added (that is
+`check-effort-specs.py`'s stated design) or a build-system list. **Recommendation: leave it. Do not
+widen the meter to an opaque handle to buy a literally-one-line registration** — the counters have to be
+readable by `main.cpp`, the API, and every probe script anyway, and a per-rule counter blob would make
+the reachability discipline this project runs on harder, not easier. The honest amendment is to §5.3's
+wording, not to the code: "one directory + one registry line + a declared counter, budget row, slot
+position and test".
+
+**The proof obligation, which is what decided the design.** Proof δ = `delete` + `push-witness`·k; the
+ATA exit reached with no CLA step in front of it is `delete` alone (`C` is RUP against `F∖{C}` there, so
+no witness exists to owe). Segments are pushed in application order — `(u_1, D_0=C), (u_2, D_1), …` and
+for the blocked exit `(w, D_n)` — where `D_i` is the recorded clause: `C` plus the CLA additions, **and
+not the ALA literals**. The ALA literals are omitted deliberately, and what makes that correct is the
+**ALA-closure lemma**: if a model of `F∖{C}` falsifies every literal of `D_i`, it falsifies every ALA
+literal too, since each was added because some `D ∈ F∖{C}` had all its other literals already in the
+extension. So the smaller recorded clause is exactly the right trigger even though blockedness is tested
+against the larger one. Include the ALA literals instead and the FIRST segment stops implying `C`; omit
+the lemma and the flip can break a clause blocked only via an ALA literal. Full argument in
+`docs/calculus.md` §6c.
+
+**The asymmetry that is easy to get backwards.** CLA/blockedness quantifies over every live
+non-root-satisfied clause, redundant included — over-quantifying only makes the test stricter, and
+filtering that side is precisely X1 BCE's fuzz-2204 wrong-SAT. **ALA is irredundant-only, and for an
+ABSTRACT reason, not an engineering one:** the lemma needs the justifying clause to be satisfied when `ρ`
+replays, and S2 Reduce deletes redundant clauses with no witness at all.
+
+**Evidence.** `tests/test_cce.cpp` (45/45 ctest, all four checkers green) carries an exhaustive
+reconstruction cross-check: 400 random formulas, **3605 deletions (2251 blocked / 1354 ATA), 1486 covered
+literals added, 28926 models of the reduced formula enumerated of which 18926 genuinely needed `ρ` — all
+repaired**. Reachability at the SOURCE under the shipped DefaultPolicy, 59 structured/circuit
+fuzz-generator cases: **26 rounds, 4223 extended, 2411 ALA + 154 CLA, 34 deleted (6 blocked / 28 ATA)**,
+against an exactly-zero `TACTIX_SLOT_DISABLE=CCE` control ([[ab-arm-identical-artefacts]]). Under
+`--cce-stress-policy` on the same population: **170,840 extended, 32,348 covered literals, 4625 deleted
+in 49 of 55 cases** — so the stress legs below are not vacuous. Fuzz **26,000 cases, 0 failures, five
+legs, corpus 14/14 each**: stress×DRAT `1585216` · stress×native-LRAT `1585217` · `--random-policy`×DRAT
+`1585220` · `--random-policy`×native-LRAT `1585221` (4000 each) · DefaultPolicy quick×DRAT `1585223`
+(10000). The stress policy (`src/policies/cce_stress_policy.cpp`, KEPT) covers every root to a fixpoint
+with no budget, draws the per-literal instance surface, and interleaves BCE and BVE so `ρ` carries CCE's
+multi-segment sequences between other rules' — it exists because the shipped dose is 4 per mille and a
+wrong witness here is a wrong SAT ANSWER, not a rejected proof.
+
+**▶ A/B SPEC — WRITTEN, DELIBERATELY UNRUN** (a Tier C A/B was live; a second would have contaminated it).
+Same-window Tier B + Tier C pair, TWO pin dirs (`build/pin-r6-cce-b` / `-c`, same commit, matching binary
+shas), node-pinned, `--baseline kissat --baseline cadical`.
+- **Arms:** `cceon` = HEAD as shipped · `cceoff` = `TACTIX_SLOT_DISABLE=CCE`, **in the command, never the
+  environment**. The off arm is a SCHEDULING diagnostic, not a candidate default ([[no-rule-off-configs]]).
+- **Pre-registered source readout, checked FIRST:** on the `cceon` arm `cce_tried`, `cce_deleted`,
+  `cce_cla` and `cce_blocked` must all be non-zero tier-wide, and on `cceoff` all four must be exactly 0.
+  A run failing either half was not tested. Report the per-instance `c cce` line, not just the aggregate.
+- **Ship criterion:** #solved beats PAR-2; noise floor 6.72; the may-not-gate set may not gate alone.
+  **The rule ships ON regardless of the headline** — this prices the DOSE, not the rule ([[no-rule-off-configs]],
+  and X1/X2/X4 measured ALONE were 21.79/53.26/13.08 Tier B PAR-2 against 9.22 together).
+- **The second question, and the one more likely to pay:** CCE's 4 per mille is cadical's `covereffort`,
+  the lowest rate in its option set, ported to a *different currency* (`cce_ticks` counts clause literals
+  scanned, not propagations). If arm 1 is inside the noise floor, sweep `TACTIX_SLOT_PERMILLE=CCE:r` for
+  `r ∈ {4, 20, 100}` on Tier B before concluding anything about the technique.
+- **Also owed, and NOT measured here** (no timing claim is made in this entry — the local allocation is
+  oversubscribed): CCE's share of clock, and whether the per-candidate tick cap (`CCE_CANDIDATE_TICKS`,
+  ours, not cadical's) binds. Ledger row `D-CCE-SCOPE`.
 
 ### 2026-08-05 — ▶ SWEEP'S DEGRADATION DIAGNOSED AND FIXED: the effort ceiling was never enforced where the work is
 
