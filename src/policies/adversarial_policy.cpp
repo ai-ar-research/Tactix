@@ -11,18 +11,11 @@
 
 namespace tactix {
 
-static uint32_t env_u32(const char *name, uint32_t dflt) {
-  const char *v = getenv(name);
-  if (!v || !*v)
-    return dflt;
-  return static_cast<uint32_t>(strtoul(v, nullptr, 10));
-}
-
 int adversarial_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
-  const uint32_t burst = env_u32("TACTIX_ADV_BURST", 4);
-  const uint32_t prop_pct = env_u32("TACTIX_ADV_PROP", 15);
+  const uint32_t burst = stress_env_u32("TACTIX_ADV_BURST", 4);
+  const uint32_t prop_pct = stress_env_u32("TACTIX_ADV_PROP", 15);
   const bool trace = getenv("TACTIX_TRACE") != nullptr;
 
   uint32_t since_prop = 0; // decides taken since the last propagate
