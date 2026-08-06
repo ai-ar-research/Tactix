@@ -821,7 +821,7 @@ bool DefaultPolicy::want_slot_phase(const Kernel &k, SlotGroup g) {
   // both references exempt it too (cadical's `stats.inprobingphases &&`;
   // kissat's watermark starts at 0 while every variable starts marked).
   const bool gated =
-      c.rounds != 0 &&
+      slot_watermark_ && c.rounds != 0 &&
       (g == SlotGroup::Probe
            // cadical probe.cpp:23 — no inprobe phase unless a reduce has
            // happened since the last one.
@@ -867,15 +867,24 @@ bool DefaultPolicy::want_slot_phase(const Kernel &k, SlotGroup g) {
 // would change two things at once.
 void DefaultPolicy::update_slot_limit(const Kernel &k, SlotGroup g) {
   SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
-  uint64_t n = c.rounds; // policy-local growth key
+  // TACTIX_SLOT_CLOCKS=1: ONE cadence. Both clocks take the elimination formula
+  // on a shared growth key (the larger phase count, so a gate-declined group
+  // cannot freeze the interval) and both limits advance together, which is the
+  // single pre-split clock expressed through the two-phase walk.
+  const bool split = slot_clocks_split_;
+  uint64_t n = split ? c.rounds
+                     : std::max(probe_clock.rounds, elim_clock.rounds);
   if (!n)
     n = 1;
   const double lg = std::log10(static_cast<double>(n) + 9);
-  const double base = g == SlotGroup::Probe
+  const double base = split && g == SlotGroup::Probe
                           ? PROBE_INTERVAL * static_cast<double>(n) * lg
                           : SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg;
-  c.next_conflicts = k.stats.conflicts +
-                     scale_inprocessing_delta(k, static_cast<uint64_t>(base));
+  const uint64_t next =
+      k.stats.conflicts + scale_inprocessing_delta(k, static_cast<uint64_t>(base));
+  c.next_conflicts = next;
+  if (!split)
+    probe_clock.next_conflicts = elim_clock.next_conflicts = next;
 }
 
 // reduce cadence. Default: arithmetically growing interval.
@@ -1225,6 +1234,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // back. It is the A/B arm for the authored order and nothing else.
       const char *order_env = std::getenv("TACTIX_SLOT_ORDER");
       slot_order_legacy_ = order_env && !std::strcmp(order_env, "legacy");
+      // The two clock arms (see the SlotClock block). Read here so all three
+      // scheduling knobs are set in one place and none can be read twice with
+      // different answers.
+      if (const char *cl = std::getenv("TACTIX_SLOT_CLOCKS"))
+        slot_clocks_split_ = std::strtoul(cl, nullptr, 10) != 1;
+      if (const char *wm = std::getenv("TACTIX_SLOT_WATERMARK"))
+        slot_watermark_ = std::strtoul(wm, nullptr, 10) != 0;
       if (slot_order_legacy_) {
         for (int i = 0; i < static_cast<int>(rules.size()); i++)
           if (rules[i].tier == RuleTier::Inprocess)
