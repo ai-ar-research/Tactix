@@ -19,8 +19,13 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = find out what Sweep's governor is costing T3**
 
-**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **44/44** (`option_coverage` added by SCHED-A3), corpus 14/14, and the merged tree is
-fuzz-GREEN at two seeds (six legs, 6000 cases each, 0 failures — jobs `1584462`–`1584467`).
+**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **44/44**, corpus 14/14, fuzz-GREEN at two seeds (six
+legs × 6000 cases, jobs `1584462`–`1584467`).
+
+**▶ THE SWEEP GOVERNOR QUESTION IS ANSWERED — see the T3 block.** Sweep ON costs Tier C a solve and
+49 PAR-2; with it off the CaDiCaL half of T3 would be MET. The cost is TWO instances and Sweep wins
+elsewhere, so the lever is its effort share or a yield-based cutoff, **not** switching the rule off.
+**Next step: dose it** — and run paired draws on `minxor128` before treating the solve flip as a verdict.
 
 **▶▶ THE MERGED-TREE FUZZ RUN'S 38 "LRAT" FAILURES ARE NOT OURS — HEAD IS NOT FUZZ-RED.** Job `1584461`
 was **not** a native-LRAT leg: its solver argv has no `--lrat`, so it ran native **DRAT** (which
@@ -130,41 +135,41 @@ shipped the change** — the 2026-08-02 tables were labelled with the ship SHA a
 
 *(timeout 300s)*
 
-#### Tier C (30) — window `20260805-115039-C-c5` (git `0418770`), same submission, both baselines carried
+#### Tier C (30) — window `20260805-205741-C-sweepon` (git `ea15617`), node017. `sweepon` = SHIPPED DEFAULT; `sweepoff` = `TACTIX_SLOT_DISABLE=Sweep`
 
-| # | instance | st | c5 | demoff | kissat | cadical |
+| # | instance | st | sweepon | sweepoff | kissat | cadical |
 |---|---|---|---|---|---|---|
 | 1 | `128_125.sanitized.cnf.xz` | UNK | **TO** | **TO** | **TO** | **TO** |
-| 2 | `minxor128.cnf.xz` | UNK | **TO** | **TO** | 222.5 | 275.8 |
-| 3 | `j3037_9_rggt_b.cnf.xz` | SAT | 1066.4 | 1183.5 | 158.6 | 26.6 |
-| 4 | `T87.2.0.cnf.xz` | UNS | 909.3 | 911.3 | 259.1 | 416.4 |
-| 5 | `T105.2.0.cnf.xz` | UNS | 631.4 | 606.3 | 298.8 | 275.9 |
-| 6 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 543.8 | 553.5 | 197.2 | 253.4 |
-| 7 | `Grain_no_init_ver1_out200_known_last105_0_u.` | UNS | 542.6 | 544.5 | 226.7 | 261.2 |
-| 8 | `mp1-Nb5T15.cnf.xz` | SAT | 495.7 | 484.2 | 76.6 | 123.8 |
-| 9 | `goldcrest-and-9.cnf.xz` | UNS | 407.0 | 414.0 | 100.9 | 180.7 |
-| 10 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 297.1 | 277.1 | 366.3 | 408.0 |
-| 11 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 264.7 | 258.1 | 224.0 | 192.9 |
-| 12 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 261.3 | 575.6 | 92.5 | 156.3 |
-| 13 | `ContextModel_output_7_3_9.bul_.dimacs.cnf.xz` | SAT | 235.2 | 238.6 | 39.5 | 65.3 |
-| 14 | `circuit_32in32out_with_500gates_6in6out_dist` | SAT | 229.5 | 231.0 | 115.8 | 491.3 |
-| 15 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 219.9 | 237.1 | 150.2 | 172.2 |
-| 16 | `urq45.cnf.xz` | UNS | 201.7 | 216.2 | 115.6 | 1000.6 |
-| 17 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 183.4 | 162.9 | 181.6 | 246.1 |
-| 18 | `em_11_3_4_cmp.cnf.xz` | SAT | 161.4 | 172.3 | 112.3 | 106.9 |
-| 19 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf` | UNS | 151.5 | 137.5 | 97.9 | 256.7 |
-| 20 | `StConn_8_32.sanitized.cnf.xz` | UNS | 149.3 | 150.6 | 259.5 | 903.5 |
-| 21 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 145.1 | 149.2 | 122.4 | 269.2 |
-| 22 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2` | SAT | 122.3 | 123.1 | 40.3 | 185.6 |
-| 23 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 119.6 | 72.5 | 136.9 | 136.2 |
-| 24 | `constraints_25_4_5_12_12_0_0_0.sanitized.cnf` | UNS | 100.0 | 94.2 | 131.8 | 191.7 |
-| 25 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 92.9 | 90.9 | 113.4 | 16.4 |
-| 26 | `EDP3-11000.cnf.xz` | SAT | 80.4 | 79.6 | 71.4 | 216.0 |
-| 27 | `SCPC-1000-18.cnf.xz` | SAT | 73.8 | 20.6 | 163.9 | 25.4 |
-| 28 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 61.8 | 70.2 | 88.5 | 77.8 |
-| 29 | `Ptn-7824-b18.cnf.xz` | SAT | 25.6 | 25.6 | 227.6 | 9.8 |
-| 30 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 24.5 | 24.6 | 61.9 | 26.3 |
-|  | **PAR-2 / solved** |  | **419.91** (28/30) | **430.16** (28/30) | **228.45** (29/30) | **312.27** (29/30) |
+| 2 | `minxor128.cnf.xz` | UNK | **TO** | 992.5 | 231.7 | 285.6 |
+| 3 | `T87.2.0.cnf.xz` | UNS | 841.2 | 839.0 | 273.2 | 431.8 |
+| 4 | `T105.2.0.cnf.xz` | UNS | 645.1 | 645.5 | 298.9 | 285.8 |
+| 5 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 592.8 | 301.7 | 190.1 | 246.3 |
+| 6 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 501.1 | 613.2 | 355.3 | 389.0 |
+| 7 | `goldcrest-and-9.cnf.xz` | UNS | 420.7 | 372.3 | 100.7 | 166.5 |
+| 8 | `StConn_8_32.sanitized.cnf.xz` | UNS | 393.8 | 391.1 | 294.7 | 982.2 |
+| 9 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 312.5 | 313.2 | 92.4 | 159.9 |
+| 10 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 258.3 | 250.6 | 124.9 | 250.7 |
+| 11 | `j3037_9_rggt_b.cnf.xz` | SAT | 250.2 | 261.7 | 141.2 | 22.9 |
+| 12 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 247.2 | 271.7 | 224.4 | 193.5 |
+| 13 | `circuit_32in32out_with_500gates_6in6out_dist` | SAT | 236.9 | 237.8 | 111.6 | 481.2 |
+| 14 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 228.6 | 202.2 | 139.5 | 137.7 |
+| 15 | `mp1-Nb5T15.cnf.xz` | SAT | 220.5 | 218.7 | 77.5 | 125.1 |
+| 16 | `constraints_25_4_5_12_12_0_0_0.sanitized.cnf` | UNS | 203.2 | 203.0 | 134.7 | 184.2 |
+| 17 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 202.6 | 202.4 | 179.2 | 247.5 |
+| 18 | `Grain_no_init_ver1_out200_known_last105_0_u.` | UNS | 201.5 | 201.3 | 228.0 | 262.7 |
+| 19 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 198.5 | 198.7 | 153.8 | 174.7 |
+| 20 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf` | UNS | 169.1 | 170.0 | 104.2 | 254.3 |
+| 21 | `urq45.cnf.xz` | UNS | 125.1 | 135.8 | 117.0 | 984.5 |
+| 22 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2` | SAT | 109.5 | 109.5 | 40.7 | 183.9 |
+| 23 | `SCPC-1000-18.cnf.xz` | SAT | 74.7 | 74.1 | 168.1 | 25.7 |
+| 24 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 67.9 | 68.0 | 89.1 | 78.4 |
+| 25 | `em_11_3_4_cmp.cnf.xz` | SAT | 39.4 | 197.8 | 105.5 | 109.8 |
+| 26 | `Ptn-7824-b18.cnf.xz` | SAT | 38.1 | 37.3 | 237.9 | 9.9 |
+| 27 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 31.0 | 29.8 | 60.2 | 26.7 |
+| 28 | `ContextModel_output_7_3_9.bul_.dimacs.cnf.xz` | SAT | 22.2 | 22.2 | 38.8 | 63.2 |
+| 29 | `EDP3-11000.cnf.xz` | SAT | 22.0 | 22.1 | 63.5 | 196.5 |
+| 30 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 21.5 | 22.2 | 113.8 | 16.8 |
+|  | **PAR-2 / solved** |  | **382.51** (28/30) | **333.51** (29/30) | **229.69** (29/30) | **312.57** (29/30) |
 
 *(timeout 1200s)*
 
@@ -177,23 +182,29 @@ shipped the change** — the 2026-08-02 tables were labelled with the ship SHA a
   The knob is priced as **measurement-neutral**; it ships ON on reference-parity grounds, not on PAR-2.
 - **The free control set held**: nine instances Factor cannot admit at t=0 ran identical trajectories.
 
-**▶ T3, BOTH HALVES, from this window** (`tools/bench/subset_score.py`, subset = 24 of 30):
+**▶ T3, BOTH HALVES** (`tools/bench/subset_score.py`, subset = 24 of 30, window `20260805-205741-C-sweepon`):
 
-| half | requirement | measured | status |
+| arm | vs kissat (subset) | vs cadical (full) | solved |
 |---|---|---|---|
-| **CaDiCaL** | within 10 % on Tier C | **1.345×** full / **1.357×** subset | **NOT met** — was 0.990× full on 2026-08-04 |
-| **Kissat** | parity on the rule-neutral subset | **1.727×** | **NOT met** — was 1.346× on 2026-08-04 |
+| `sweepon` = shipped | **1.722×** | **1.224×** | 28/30 |
+| `sweepoff` | **1.459×** | **1.067×** — *inside the 10 % band* | 29/30 |
 
-**▶▶ BOTH HALVES REGRESSED HARD ACROSS 2026-08-04 → 08-05, and that is the top open question.**
-Tier C went **309.05 (29/30) → 419.91 (28/30)** at the shipped default. **kissat in the same windows is
-flat (230.74 → 228.45), so this is not partition drift.** Leading suspect is **V5 Sweep being scheduled
-at kissat's 100‰**, which is what changed in between: S-f's own same-window arms measured Sweep ON at
-406.25 vs OFF 339.77, and the survey found `constraints_18_0.3_2` runs **42 Sweep rounds, emits nothing,
-keeps a bit-identical trajectory, and still costs 519.3 s vs 269.8 s (1.92×)**. That is a governor
-question, not a correctness one — the N2 defect Sweep also had is fixed and re-verified.
-**This is a hypothesis with supporting evidence, not a measurement.** The decisive experiment is one
-same-window Tier C A/B of Sweep ON vs OFF at HEAD, now that the proof defect no longer scores instances
-unsolved; the last such comparison predates the fix.
+**▶▶ THE SWEEP GOVERNOR HYPOTHESIS IS CONFIRMED, AND THE COST IS CONCENTRATED.** Same-window A/B:
+Sweep ON is **+49.00 PAR-2 worse and loses a solve** (`minxor128`, TO at 1200 s vs solved at 992.5 s —
+a near-miss Sweep pushes over). **With Sweep off the CaDiCaL half of T3 would be MET (1.067×)** and the
+kissat half improves 1.722 → 1.459×.
+**But the cost is TWO instances, not a broad loss:** `constraints_18_0.3_2` **+291.1 s** (the instance the
+blast-radius survey already flagged — 42 rounds, ZERO emissions, bit-identical trajectory) and
+`minxor128` **+207.5 s**; removing both flips the sign to **+7.62 favouring Sweep ON**, and Sweep wins
+real time elsewhere (`em_11_3_4_cmp` **−158.4 s**, `sat-bench-trig-bhaskara` **−112.0 s**).
+**So this is a DOSING/TARGETING defect, not a case against the rule** — spend without yield on a couple of
+instances, exactly what a productivity-aware governor is for. **Do NOT ship Sweep off**
+([[no-rule-off-configs]]: every implemented proof rule ships ON, and a rule-off default is the
+"diagnostic arm as shipped default" this project has already rejected). Next lever is the effort share
+(100‰ is kissat's own constant, untuned here) or a yield-based cutoff.
+**Owed before this is a verdict rather than a direction:** the aggregate is FRAGILE at k=2 and a single
+solve flip is single-instance by construction — run paired draws on `minxor128`, the protocol that has
+now found a lottery 5 times out of 5.
 
 **▶ AND A THIRD BAR: ARMS MAY NOT SHARE A NODE (found 2026-08-04 while adding the oracle column).**
 Array task index is `arm × n_instances + instance`, so SLURM fills nodes in INDEX order and **arm 0 lands
@@ -789,6 +800,18 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — Sweep governor A/B: ON costs a Tier C solve, and the cost is two instances
+
+Window `20260805-205741-C-sweepon` (git `cf5eb36`), node017, `sweepon` (shipped) vs
+`TACTIX_SLOT_DISABLE=Sweep`, both baselines. **sweepon 382.51 (28/30) vs sweepoff 333.51 (29/30)** —
++49.00 PAR-2 and one solve (`minxor128`, TO vs 992.5 s). T3: kissat subset 1.722 → 1.459×, cadical full
+1.224 → **1.067×, inside the band**.
+
+**The cost is concentrated, which is the actionable part.** `constraints_18_0.3_2` +291.1 s (42 rounds,
+zero emissions — the survey predicted this one) and `minxor128` +207.5 s; ex-both the sign flips to
++7.62 favouring Sweep, and Sweep wins `em_11_3_4_cmp` −158.4 s and `sat-bench-trig-bhaskara` −112.0 s.
+So: dose or target the governor, do not disable the rule. Fragile at k=2; `minxor128` owes paired draws.
 
 **Reading this log.** Newest first. Entries older than the current session are compressed to **result +
 pointer** — the full account is in the cited report, design doc or commit, which are never edited.
