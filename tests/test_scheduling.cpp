@@ -21,8 +21,10 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -74,55 +76,185 @@ static void test_mode_growth_key_matches_kissat(void) {
   std::printf("  mode growth key: matches kissat's (switched+1)/2 ladder\n");
 }
 
-// --- SCHED-B3: instances() must ROTATE, not replay its head ---------------
+// --- SCHED-B3/E1: the RESUMPTION CURSOR, now a policy object ---------------
 //
-// The policy can only take `cap` instances per occasion. Emitting the first
-// `cap` sources every round means a budget-truncated round re-derives the same
-// list and starts from the front, so the tail is never reached. That is why a
-// tighter, honest effort budget for TransitiveReduce measured NEGATIVE without
-// this: it bought starvation, not economy. kissat keeps a per-variable pending
-// bit (`transitivekeep`, default 1) to the same end.
+// The policy can only walk so far into a rule's candidate list before the
+// effort budget cuts the dose. Starting at the head every occasion means a
+// truncated round re-derives the same list and re-applies the same prefix, so
+// the tail is never reached -- which is why a tighter, HONEST budget for
+// TransitiveReduce measured NEGATIVE without a cursor (SCHED-B3): it bought
+// starvation, not economy. kissat keeps a per-variable pending bit to the same
+// end (`transitivekeep`, default 1).
 //
-// N1 note: rotation is the N1-safe shape. It removes no capability, because
-// apply_instance still accepts ANY source literal; only the enumeration ORDER
-// moves. A cursor that HID instances would be an N1 breach.
-static void test_transitive_instances_rotate(void) {
-  Kernel k;
-  kernel_reserve_vars(k, 128);
+// SCHED-E1 moved the cursor out of the rule (it was Kernel::transitive_cursor,
+// read inside transitive_reduce_instances) into DefaultPolicy::SlotEntry, where
+// every DOSED entry can share it and where a scheduling decision belongs. So
+// the mechanism is tested where it now lives: the RULE enumerates its set in
+// its own order, the POLICY decides where the walk starts.
+static void build_transitive_fan_fixture(Kernel &k) {
   // A source needs out-degree >= 2 in the binary implication graph and at
   // least one destination above it, so build ten FANS rather than a chain
   // (a chain gives every literal out-degree 1 and yields no sources at all --
-  // which silently SKIPPED this test on the first attempt).
+  // which silently SKIPPED an earlier version of this test).
+  kernel_reserve_vars(k, 128);
   for (uint32_t s = 0; s < 10; s++)
     for (uint32_t t = 0; t < 4; t++)
       kernel_add_binary_clause(k, make_lit(s, true),
                                make_lit(20 + s * 4 + t, true));
+}
 
-  const RuleVTable *v4 = nullptr;
+static const RuleVTable *find_rule(const char *name) {
   for (const RuleVTable &r : tactix_rules())
-    if (!std::strcmp(r.name, "TransitiveReduce"))
-      v4 = &r;
+    if (!std::strcmp(r.name, name))
+      return &r;
+  return nullptr;
+}
+
+// A permutation check a set comparison cannot fake: same multiset, same size.
+// Every order arm and the cursor rotation must satisfy it, because a policy
+// that DROPPED a candidate would narrow what DefaultPolicy can reach and would
+// do it invisibly -- the rule would still accept the dropped payload.
+static bool same_multiset(std::vector<uint64_t> a, std::vector<uint64_t> b) {
+  std::sort(a.begin(), a.end());
+  std::sort(b.begin(), b.end());
+  return a == b;
+}
+
+static void test_slot_cursor_rotates(void) {
+  Kernel k;
+  build_transitive_fan_fixture(k);
+  const RuleVTable *v4 = find_rule("TransitiveReduce");
   assert(v4 && v4->instances && v4->apply_instance);
   if (!v4->guard(k)) {
-    std::printf("  transitive rotation: SKIPPED (guard false)\n");
+    std::printf("  slot cursor: SKIPPED (guard false)\n");
     return;
   }
-
-  uint64_t a[4] = {0, 0, 0, 0}, b[4] = {0, 0, 0, 0};
-  const uint32_t na = v4->instances(k, a, 4);
+  std::vector<uint64_t> buf(64, 0);
+  const uint32_t n = v4->instances(k, buf.data(), 64);
   // A skip here would make the test VACUOUS, which is worse than absent: it
   // reads green while proving nothing. Demand the fixture instead.
-  assert(na >= 4 && "fixture must offer more sources than the cap, or the "
-                    "rotation is not observable");
-  // Applying advances the cursor, so the NEXT enumeration must not begin at the
-  // same place. Without the cursor these two calls are identical.
-  v4->apply_instance(k, a[0]);
-  const uint32_t nb = v4->instances(k, b, 4);
-  assert(nb > 0);
-  assert(!(a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3]) &&
-         "instances() replayed its head: a truncated round would starve the "
-         "tail forever (SCHED-B3)");
-  std::printf("  transitive rotation: enumeration advances after apply\n");
+  assert(n >= 4 && "fixture must offer several sources or rotation is not "
+                   "observable");
+  buf.resize(n);
+  const std::vector<uint64_t> native = buf;
+
+  DefaultPolicy p;
+  DefaultPolicy::SlotEntry e;
+  e.rule = static_cast<int>(v4->id);
+  e.dosed = true;
+  e.cursor_enabled = true;
+
+  // Cursor at 0 (nothing consumed yet): the walk starts at the head.
+  p.order_candidates(k, e, buf.data(), n);
+  assert(e.ord.rotated == 0 && "a fresh cursor must not rotate");
+  assert(buf == native && "the native arm must leave the order alone");
+
+  // Consume the first two candidates, exactly as the dose loop does, then
+  // re-enumerate: the walk must NOT start at the head again.
+  Lit consumed;
+  assert(lit_of_instance(native[1], &consumed));
+  e.cursor = static_cast<uint64_t>(consumed) + 1;
+  buf = native;
+  p.order_candidates(k, e, buf.data(), n);
+  assert(e.ord.rotated == 1 && "the cursor must rotate a resumed walk");
+  assert(buf[0] != native[0] &&
+         "the walk replayed its head: a truncated dose would starve the tail "
+         "forever (SCHED-B3)");
+  assert(buf[0] == native[2] && "resume at the first key past the cursor");
+  assert(same_multiset(buf, native) && "rotation must be a PERMUTATION");
+
+  // A cursor past the whole set wraps to the head rather than emptying it.
+  e.cursor = UINT64_MAX;
+  buf = native;
+  p.order_candidates(k, e, buf.data(), n);
+  assert(buf == native && "an exhausted cursor restarts at the head");
+  std::printf("  slot cursor: resumes past the consumed prefix, wraps, "
+              "permutes\n");
+}
+
+// --- SCHED-E1: N1 -- the cursor moves the START, never the SET -------------
+//
+// The whole point of keeping resumption in the policy is that it cannot narrow
+// the rule. Three things are pinned, each able to regress on its own:
+//   1. `instances()` offers the same set wherever the policy's cursor is --
+//      the rule cannot see the cursor at all any more.
+//   2. `apply_instance` accepts a payload the cursor rotated PAST, and behaves
+//      exactly as with no cursor: same result, same effect.
+//   3. every order arm is a permutation, so nothing the policy walks can be
+//      dropped either.
+static void test_cursor_preserves_n1(void) {
+  const RuleVTable *v4 = find_rule("TransitiveReduce");
+  assert(v4 && v4->instances && v4->apply_instance);
+
+  Kernel k;
+  build_transitive_fan_fixture(k);
+  if (!v4->guard(k)) {
+    std::printf("  cursor N1: SKIPPED (guard false)\n");
+    return;
+  }
+  std::vector<uint64_t> before(64, 0);
+  const uint32_t n = v4->instances(k, before.data(), 64);
+  before.resize(n);
+  assert(n >= 4);
+
+  DefaultPolicy p;
+  DefaultPolicy::SlotEntry e;
+  e.rule = static_cast<int>(v4->id);
+  e.dosed = true;
+  e.cursor_enabled = true;
+  std::vector<uint64_t> walk = before;
+  Lit deep;
+  assert(lit_of_instance(before[n / 2], &deep));
+  e.cursor = static_cast<uint64_t>(deep); // resume mid-set
+  p.order_candidates(k, e, walk.data(), n);
+  assert(e.ord.rotated == 1);
+
+  // (1) the rule's surface is untouched by the policy's cursor.
+  std::vector<uint64_t> after(64, 0);
+  const uint32_t n2 = v4->instances(k, after.data(), 64);
+  after.resize(n2);
+  assert(n2 == n && after == before &&
+         "instances() must not depend on the policy's cursor");
+
+  // (2) a payload the walk was rotated past is still applicable, and applying
+  //     it is indistinguishable from applying it under a policy that never had
+  //     a cursor.
+  const uint64_t skipped = before[0];
+  assert(walk[0] != skipped && "fixture: the cursor must have rotated past it");
+  Kernel k1, k2;
+  build_transitive_fan_fixture(k1);
+  build_transitive_fan_fixture(k2);
+  const ApplyResult r1 = v4->apply_instance(k1, skipped);
+  const ApplyResult r2 = v4->apply_instance(k2, skipped);
+  assert(r1 == r2);
+  assert(k1.stats.transitive_checked == k2.stats.transitive_checked &&
+         k1.stats.transitive_deleted == k2.stats.transitive_deleted &&
+         "apply_instance must be cursor-independent");
+
+  // (3) every arm is a permutation of the candidate set. Attaching a
+  //     CandidateOrderPolicy from outside is also the swappability check --
+  //     this is how a preset or the phase-6 learner takes over the order.
+  const CandidateOrder arms[] = {
+      CandidateOrder::Native,  CandidateOrder::Reverse,
+      CandidateOrder::Random,  CandidateOrder::OccAsc,
+      CandidateOrder::OccDesc, CandidateOrder::NegOccDesc,
+      CandidateOrder::Heuristic};
+  for (CandidateOrder arm : arms) {
+    DefaultCandidateOrder co;
+    co.arms.assign(tactix_rules().size(), CandidateOrder::Native);
+    co.arms[v4->id] = arm;
+    DefaultPolicy q;
+    q.candidate_order = &co;
+    DefaultPolicy::SlotEntry qe;
+    qe.rule = static_cast<int>(v4->id);
+    qe.dosed = true;
+    std::vector<uint64_t> out = before;
+    q.order_candidates(k, qe, out.data(), n);
+    assert(same_multiset(out, before) && candidate_order_name(arm) &&
+           "an order arm must be a PERMUTATION, never a filter");
+  }
+  std::printf("  cursor N1: instances() unchanged, apply_instance "
+              "cursor-independent, all 7 arms permute\n");
 }
 
 // --- SCHED-B4: subsumption must meter PARTNER VISITS, not candidates ------
@@ -346,7 +478,8 @@ static void test_slot_gates_decline_without_new_material(void) {
 
 int main() {
   test_mode_growth_key_matches_kissat();
-  test_transitive_instances_rotate();
+  test_slot_cursor_rotates();
+  test_cursor_preserves_n1();
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
   test_authored_slot_order_covers_registry();

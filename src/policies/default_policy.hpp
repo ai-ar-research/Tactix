@@ -120,6 +120,60 @@ public:
   }
 };
 
+// --- candidate ORDER arms (SCHED-E1/E2) ------------------------------------
+// The arms DefaultPolicy's built-in CandidateOrderPolicy offers, one setting
+// per rule (TACTIX_ORDER_<RULENAME>). `Native` — the rule's own enumeration
+// order — is the shipped default for every rule and stays so until an A/B says
+// otherwise; the rest are priced individually, never as a bundle.
+//
+// Reference evidence, which is the reason these particular arms exist:
+//   kissat transitive.c:270-294 sorts its transitive probes by the untried
+//     mark FIRST, then (stable) EVSIDS score ascending / (focused) VMTF stamp
+//     ascending — the `Heuristic` arm. Our enumeration is literal-index order.
+//   cadical probe.cpp:621-624,685,763 ranks probes by noccs(-p) and pops from
+//     the BACK, i.e. probes the most-negated-occurring literal first — the
+//     `NegOccDesc` arm.
+//   cadical elim.cpp:88-121 keeps its elimination schedule in a priority queue
+//     keyed on occurrence count, cheapest first — the `OccAsc` arm. (Our BVE
+//     enumeration is already occ⁺·occ⁻ ascending, a product where the
+//     references use a sum, so the arm is a variation, not a port.)
+// `Reverse` and `Random` are controls: the cheapest test that order matters at
+// all, and the structureless floor any structured arm has to beat.
+enum class CandidateOrder : uint8_t {
+  Native,     // the rule's enumeration order, untouched
+  Reverse,    // its exact inverse
+  Random,     // seeded Fisher-Yates (splitmix64) — replayable, so testable
+  OccAsc,     // fewest watch occurrences of the payload's variable first
+  OccDesc,    // most first
+  NegOccDesc, // most BINARY occurrences of the negated payload literal first
+  Heuristic   // stable: EVSIDS score ascending; focused: VMTF stamp ascending
+};
+const char *candidate_order_name(CandidateOrder);
+// Parse an arm name (the env-knob spelling); returns false on an unknown name,
+// leaving the output untouched.
+bool parse_candidate_order(const char *, CandidateOrder *);
+
+// DefaultPolicy's built-in ranker: one arm per registry rule id, configured
+// from the per-rule knobs when the slot is built. Every arm is a permutation
+// (see CandidateOrderPolicy) — the scratch is persistent, because a ranking
+// pass runs inside the inprocessing dose loop
+// (docs: per-call linear scratch is a measured hazard).
+class DefaultCandidateOrder final : public CandidateOrderPolicy {
+public:
+  const char *name() const override { return "per-rule-arms"; }
+  void rank(const Kernel &, uint32_t rule, uint64_t *insts,
+            uint32_t n) override;
+  // `arms[rule]`; sized to the registry when the slot is built.
+  std::vector<CandidateOrder> arms;
+  CandidateOrder arm_of(uint32_t rule) const {
+    return rule < arms.size() ? arms[rule] : CandidateOrder::Native;
+  }
+
+private:
+  std::vector<std::pair<uint64_t, uint64_t>> scratch_; // (key, payload)
+  uint64_t rng_ = 0x9e3779b97f4a7c15ull;               // fixed seed: replayable
+};
+
 // --- the two inprocessing CLOCKS (ledger SP-SLOT-1 / SP-SLOT-6) ------------
 // Both references keep the probing pipeline and the elimination pipeline on
 // INDEPENDENT conflict schedules, and the two diverge over the solve:
@@ -228,6 +282,11 @@ public:
   ReductionPolicy *reduction = nullptr;
   BveBoundPolicy *bve_bound = nullptr;       // BVE growth-slack ramp
   FactorMatchPolicy *factor_match = nullptr; // Factor grid selection
+  // Candidate order for the DOSED slot entries (null = the built-in per-rule
+  // arms below). Swapping this is how a preset — or the §5.6 learner — takes
+  // over the order in which a rule's instances are tried, with no rule change
+  // and no effect on what `apply_instance` accepts (N1).
+  CandidateOrderPolicy *candidate_order = nullptr;
 
   // bias-corrected EMA (kissat smooth.c): value = biased / (1 - beta^n)
   // — the Adam-style warm-up makes early averages meaningful, which the
@@ -405,6 +464,36 @@ public:
     // is the POLICY declining to schedule, not the rule declining to apply (N1).
     uint32_t max_applies = 0;
     uint32_t applies = 0;
+    // --- resumption cursor (SCHED-E1, generalizing SCHED-B3) -----------------
+    // Where this entry's next walk over `instances()` STARTS. An effort budget
+    // that binds cuts the walk part-way, and without a cursor the next occasion
+    // re-enumerates the same set and replays the same head: the honest meter
+    // then buys STARVATION of the tail rather than a bounded pass over the
+    // whole set. That was measured on TransitiveReduce (SCHED-B3, where the
+    // meter alone banked negative twice), and the mechanism is not specific to
+    // it — every DOSED entry is truncated the same way.
+    //
+    // The value is the KEY (the payload's literal, or the raw payload when it
+    // is not a literal encoding) one past the last candidate this entry
+    // attempted; the walk resumes at the first candidate whose key is at least
+    // that, wrapping to the head when none is. A candidate that has since
+    // vanished therefore costs nothing — resumption never depends on the
+    // previous element still existing.
+    //
+    // N1: this moves the START of DefaultPolicy's walk. It is not a
+    // precondition, it is not visible to any guard, and `apply_instance` still
+    // accepts every payload from every source (tests/test_scheduling.cpp
+    // pins exactly that).
+    uint64_t cursor = 0;
+    // Cursor ON for the entries whose enumeration is in KEY order, where "the
+    // first key at or after the cursor" is a meaningful resume point:
+    // Probe/Backbone/TransitiveReduce all enumerate ascending by literal. BVE
+    // is OFF by default because its schedule is occ⁺·occ⁻-ordered, not
+    // key-ordered — a key cursor would rotate it to an arbitrary place — and
+    // because it already owns the repetition device the others lack, the
+    // per-variable `bve_retry` bit the policy consults. Per-item marks for the
+    // rest are Stage F (ledger SP-REPEAT-*). TACTIX_CURSOR_<RULENAME>=0|1.
+    bool cursor_enabled = false;
     // --- telemetry ----------------------------------------------------------
     // Diagnostic only: nothing here is ever READ by a scheduling decision, so
     // the numbers cannot feed back into behaviour. They exist because otherwise
@@ -422,6 +511,19 @@ public:
       uint64_t ok = 0;          // applies returning Ok
       uint64_t completed = 0;   // rounds that finished inside their budget
     } tm;
+    // Candidate-order reachability counters, the pre-registered readout for
+    // every E1/E2 arm ([[ab-arm-identical-artefacts]]: an arm whose counter did
+    // not move was not tested). Diagnostic only, like Telem.
+    struct OrderTelem {
+      uint64_t lists = 0;    // instance lists this entry ordered
+      uint64_t candidates = 0; // payloads in them
+      uint64_t rotated = 0;  // lists the cursor started away from the head —
+                             // ZERO means no dose was ever truncated, i.e. the
+                             // cursor is inert on this instance
+      uint64_t ranked = 0;   // lists the arm actually permuted
+      uint64_t moved = 0;    // positions whose payload the arm changed
+      uint64_t advanced = 0; // candidates the walk consumed (cursor writes)
+    } ord;
 
     // Per-entry new-material watermarks: an UNMETERED entry (Congruence /
     // Factor / Substitute — full canonical closure per run, nothing to
@@ -447,6 +549,13 @@ public:
     uint32_t delay_current = 0;
   };
   std::vector<SlotEntry> inprocess_slot; // built lazily at solve() entry
+  // Resume (SlotEntry::cursor) then rank (CandidateOrderPolicy) the instance
+  // list one occasion will walk. Both are permutations of the list the rule
+  // enumerated — see SlotEntry::cursor for the N1 argument. Public alongside
+  // the scheduling predicates, so a test (or a preset) can pose an order
+  // directly instead of inferring it from a solve.
+  void order_candidates(const Kernel &, SlotEntry &, uint64_t *insts,
+                        uint32_t n);
   // Compute this entry's meter ceiling at the point it is reached.
   void set_entry_limit(SlotEntry &, Kernel &);
   // One `c slot` line per entry. Diagnostic only — see the .cpp.
@@ -635,8 +744,10 @@ private:
   GlueTieredReduction default_reduction_;
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;
+  DefaultCandidateOrder default_candidate_order_;
   std::vector<Ref> reduce_scratch_;
   std::vector<uint64_t> inprocess_payloads_; // instance snapshot, reused
+  std::vector<uint64_t> order_before_;       // ranking before-image, reused
 };
 
 // convenience wrapper: solve under a fresh DefaultPolicy
