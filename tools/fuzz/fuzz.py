@@ -683,15 +683,35 @@ def cmd_corpus(args):
             if outcome.failures:
                 nfail += 1
                 print(f"CORPUS FAIL {entry}: {outcome.failures}")
-            # A replay that never reaches a verdict re-runs no oracle: the
-            # entry is present but is not testing anything. Same class as the
-            # ignored `solver_args` above — count it, and fail, because a
-            # regression test that cannot fail is worse than a missing one.
+            # A replay that never reaches a verdict runs no SEMANTIC oracle
+            # (model / proof / differential all need SAT or UNSAT), so for an
+            # entry whose recorded failure was one of those, a timeout means the
+            # entry is present and testing nothing — the same class as the
+            # ignored `solver_args` above, and fatal for the same reason.
+            #
+            # It is NOT vacuous for a `crash`/`io` entry: those reproduce as an
+            # assert/sanitizer abort, and the fixed solver's expected behaviour
+            # is exactly "runs past the budget without aborting" (entry 006's own
+            # meta says so). The crash oracle ran; only the semantic ones did
+            # not. So report it and move on, and say which oracle stood.
             if outcome.verdict in ("TIMEOUT", "UNKNOWN"):
-                nonterm += 1
-                print(f"CORPUS NON-TERMINATING {entry}: verdict "
-                      f"{outcome.verdict} at --timeout {args.timeout}s — no "
-                      f"oracle ran on it")
+                # entries record their kind as `failure` (a string) or
+                # `failure_kind` (a list); crash-only means EVERY recorded kind
+                # is one the crash oracle covers
+                kinds = meta.get("failure_kind") or [meta.get("failure", "")]
+                kind = ",".join(k for k in kinds if k)
+                crash_only = bool(kind) and all(k in ("crash", "io")
+                                                for k in kinds)
+                if crash_only:
+                    print(f"CORPUS crash-oracle only {entry}: no verdict at "
+                          f"--timeout {args.timeout}s, and no abort — which is "
+                          f"the recorded pass condition for a `{kind}` entry")
+                else:
+                    nonterm += 1
+                    print(f"CORPUS NON-TERMINATING {entry}: verdict "
+                          f"{outcome.verdict} at --timeout {args.timeout}s — "
+                          f"the `{kind or 'semantic'}` oracle this entry exists "
+                          f"for did not run")
     print(f"corpus: {len(entries)} entries, {nfail} failures"
           + (f", {nonterm} non-terminating (no oracle ran)" if nonterm else ""))
     # Non-termination is fatal by default: an entry that cannot finish is not
