@@ -241,18 +241,6 @@ void emit_unsat(Kernel &k, Lit x) {
   k.inconsistent = true;
 }
 
-// live copies of the binary pair (a ∨ b) in a's watch list.
-uint32_t binary_copies(const Kernel &k, Lit a, Lit b) {
-  uint32_t n = 0;
-  for (const WatchEntry w : k.watches.entries(a))
-    if (w.binary() && w.other() == b)
-      n++;
-  return n;
-}
-inline bool binary_live(const Kernel &k, Lit a, Lit b) {
-  return binary_copies(k, a, b) > 0;
-}
-
 // The equivalent-literal rewrite (V3b-3). `sub[l]` marks the non-representative
 // SCC-member literals to rewrite (l → r.repr[l]); the caller selects them (the
 // whole round, or one requested SCC + its mirror). Emits the transient
@@ -302,7 +290,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     for (const WatchEntry w : k.watches.entries(l)) {
       if (!w.binary())
         continue;
-      if (binary_copies(k, l, w.other()) >= 2) {
+      if (kernel_binary_copies(k, l, w.other(), 2) >= 2) {
         if (k.subst_hazard_round) { // A/B: the old per-ROUND skip
           k.stats.substitute_hazard_skips++;
           return ApplyResult::NoOp;
@@ -504,7 +492,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   }
   for (const auto &pr : bins) {
     const Lit l = pr.first, z = pr.second;
-    if (!binary_live(k, l, z))
+    if (!kernel_binary_live(k, l, z))
       continue; // defensive (never happens: added pairs are rep-only)
     const Lit lp = substitutable(l) ? r.repr[l] : l;
     const Lit zp = substitutable(z) ? r.repr[z] : z;
@@ -532,7 +520,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         out.push_back(x); // active, deduped
       }
     }
-    if (out.size() == 2 && binary_live(k, out[0], out[1])) {
+    if (out.size() == 2 && kernel_binary_live(k, out[0], out[1])) {
       // rewritten target already present → delete original only (no add needed)
       const bool ok = kernel_delete_binary(k, l, z);
       assert(ok);

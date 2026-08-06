@@ -78,14 +78,6 @@ template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
       mark[w.other()] = V;
 }
 
-// true iff a live binary (a ∨ b) exists.
-bool binary_exists(const Kernel &k, Lit a, Lit b) {
-  for (const WatchEntry w : k.watches.entries(a))
-    if (w.binary() && w.other() == b)
-      return true;
-  return false;
-}
-
 } // namespace
 
 bool congruence_guard(const Kernel &k) {
@@ -1295,8 +1287,8 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
   // kept) before anything is added, so a failure aborts the whole equivalence.
   std::vector<uint64_t> chain_fwd, chain_rev;
   if (lrat) {
-    const bool need_fwd = !binary_exists(k, negate(a), b);
-    const bool need_rev = !binary_exists(k, a, negate(b));
+    const bool need_fwd = !kernel_binary_live(k, negate(a), b);
+    const bool need_rev = !kernel_binary_live(k, a, negate(b));
     if (need_fwd) {
       if (!build(ga, gb))
         return false;
@@ -1309,7 +1301,7 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
     }
   }
   auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
-    if (binary_exists(k, x, y))
+    if (kernel_binary_live(k, x, y))
       return;
     // a degenerate pair (the two outputs equal, or complementary) would make
     // this binary duplicate-carrying or tautological — neither is emittable
@@ -1340,13 +1332,13 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
   // discipline): under LRAT a binary that is still missing needs a non-empty
   // chain, or the line is uncheckable (D-CONG-TAUT). Skipping is sound.
   if (lrat) {
-    if (!binary_exists(k, negate(a), b) && chain_fwd.empty())
+    if (!kernel_binary_live(k, negate(a), b) && chain_fwd.empty())
       return false;
-    if (!binary_exists(k, a, negate(b)) && chain_rev.empty())
+    if (!kernel_binary_live(k, a, negate(b)) && chain_rev.empty())
       return false;
   }
   auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
-    if (binary_exists(k, x, y))
+    if (kernel_binary_live(k, x, y))
       return;
     // a degenerate pair (the two outputs equal, or complementary) would make
     // this binary duplicate-carrying or tautological — neither is emittable
@@ -1460,14 +1452,11 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
 
 } // namespace — public rule entry points (header-declared) below
 
-// External-linkage forwarders for the two primitives Sweep shares.
-// The implementations stay internal; only these names cross the TU boundary.
+// External-linkage forwarder for the primitive Sweep shares.
+// The implementation stays internal; only this name crosses the TU boundary.
 bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
                            std::vector<uint64_t> &chain) {
   return congruence_rup_chain(k, lits, n, chain);
-}
-bool congruence_binary_exists(const Kernel &k, Lit a, Lit b) {
-  return binary_exists(k, a, b);
 }
 
 void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,

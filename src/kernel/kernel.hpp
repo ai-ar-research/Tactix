@@ -1576,6 +1576,27 @@ bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // DRAT-only: remove EVERY copy of pair (a,b) (E2 Factor grid removal; see impl).
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 
+// Live copies of the binary pair (a v b), counted in a's watch list, stopping at
+// `cap`. THE liveness/duplication predicate of the binary layer, and a soundness
+// one: the watch lists are the only liveness signal (a deleted pair's id lingers
+// in binary_ids), and a DUPLICATED pair is unnameable — one id is shared by both
+// copies, so deleting by name retires the id the survivor is still cited by.
+// Every caller that refuses on duplication tests this, so it lives here once
+// rather than being re-transcribed per rule (a divergent copy shipped a wrong
+// answer once already: bce.hpp "V4 deviation 8"). Callers that only ask "is it
+// duplicated" pass cap = 2; kernel_binary_live short-circuits at the first copy.
+inline uint32_t kernel_binary_copies(const Kernel &k, Lit a, Lit b,
+                                     uint32_t cap = UINT32_MAX) {
+  uint32_t n = 0;
+  for (const WatchEntry w : k.watches.entries(a))
+    if (w.binary() && w.other() == b && ++n == cap)
+      break;
+  return n;
+}
+inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
+  return kernel_binary_copies(k, a, b, 1) == 1;
+}
+
 // --- watch repair (TB4b) ---------------------------------------------------
 // The kernel could ADD a large-clause watch (WatchLists::push_large) but never
 // REMOVE one without deleting the clause; every rule that needed to re-point a
