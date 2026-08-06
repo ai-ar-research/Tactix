@@ -512,9 +512,12 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
         implied = k.trail[t];
         break;
       }
-    if (implied != INVALID_LIT) {
-      if (i + 2 >= c->size)
-        break; // no strict gain
+    if (implied != INVALID_LIT && i + 2 < c->size) {
+      // (i + 2 >= c->size is "no strict gain" and must CONTINUE, not break:
+      // the assumption is already made and a later position can still find a
+      // conflict, which is exactly what the pre-eager loop would have done. A
+      // break here would make the eager scan a net LOSS of coverage on the
+      // clauses it cannot improve.)
       next.assign(probes.begin(), probes.begin() + i + 1);
       next.push_back(implied);
       // the same chain shape as the lazy case below: `implied`'s own
