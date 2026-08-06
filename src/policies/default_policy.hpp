@@ -17,6 +17,8 @@
 
 #include "policies/policy.hpp"
 #include "policies/subpolicy.hpp"
+// for ApplyResult (the slot helpers' return type) and RuleVTable's declaration
+#include "rules/registry.hpp"
 
 #include <cstdlib>
 
@@ -581,10 +583,51 @@ public:
   void update_slot_limit(const Kernel &, SlotGroup); // after a slot phase
 
 private:
-  // One inprocessing phase on one clock: descend to a quiescent root, walk this
-  // group's slot entries for INPROCESS_PHASE_ROUNDS outer rounds, reclaim.
-  // Returns 20 when the phase refuted the formula, 0 otherwise.
+  // --- one inprocessing phase, decomposed ----------------------------------
+  // The phase is: enter (quiesce, attach the phase-scoped occurrence index),
+  // walk this group's entries for INPROCESS_PHASE_ROUNDS outer rounds, exit
+  // (reclaim, account). The per-entry work splits on the axis the effort
+  // ledger already draws — DOSED entries, whose instances the policy
+  // enumerates and applies one at a time, versus BATCH entries, which run one
+  // canonical round metered around the call.
+  //
+  // Phase-local mutable state, so a helper's effect on the rest of the phase
+  // is declared rather than captured. Nothing here is read by a rule.
+  struct SlotPhaseCtx {
+    SlotGroup group;
+    volatile sig_atomic_t *stop;
+    int outer = 0;              // current outer round
+    bool phase_unsat = false;   // the phase refuted the formula
+    bool phase_dosed = false;   // a dosed rule ran: the phase owes a reclaim
+    bool round_changed = false; // this outer round changed something
+  };
+  // What the walk over entries does after an occasion. `Stop` leaves the entry
+  // loop (the phase's single exit still runs); `Next` moves to the next entry.
+  enum class SlotStep : uint8_t { Next, Stop };
+
+  // One inprocessing phase on one clock. Returns 20 when the phase refuted the
+  // formula, 0 otherwise.
   int run_slot_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
+  // Pre-checks reached before this entry's budget is computed; false = declined.
+  bool slot_entry_admissible(SlotEntry &, const Kernel &, const SlotPhaseCtx &);
+  // cadical's accumulate-until-worthwhile decline (SlotEntry::thresh).
+  bool slot_entry_thresh_declines(SlotEntry &, const Kernel &);
+  SlotStep run_dosed_entry(Kernel &, SlotEntry &, const RuleVTable &,
+                           SlotPhaseCtx &);
+  SlotStep run_batch_entry(Kernel &, SlotEntry &, const RuleVTable &,
+                           SlotPhaseCtx &);
+  // BVE's during-search admission (TACTIX_BVE_ADMIT); true = declined.
+  bool bve_dose_declined(Kernel &, SlotEntry &);
+  // Factor's warm-up + new-material gates (kissat factordelay); true = declined.
+  bool factor_entry_declines(const Kernel &, SlotEntry &);
+  // Factor's per-occasion rule config (composition + the density advice).
+  void factor_dose_config(Kernel &, SlotEntry &);
+  // A budget-aware batch round: the remaining ledger budget handed to the rule.
+  ApplyResult run_budgeted_batch(Kernel &, SlotEntry &, const RuleVTable &,
+                                 uint64_t limit, bool factor_entry);
+  // Vivify's two-pass dose (redundant tiers always, irredundant delay-gated).
+  ApplyResult run_vivify_dose(Kernel &, SlotEntry &, const RuleVTable &,
+                              uint64_t limit);
   void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs
   void observe_decision_rate(const Kernel &);       // before each analysis
   uint32_t want_bump_reasons(const Kernel &);       // the kissat gate ladder

@@ -721,7 +721,9 @@ instrument before spending a tier window on a mechanism.
 
 #### Stage E — order and resumption become POLICY OBJECTS (the architecture the RL agent needs)
 
-- [ ] **SCHED-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]`
+- [ ] **SCHED-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]` — **IN PROGRESS.** Step 1 landed: Stage D's
+  660-line `run_slot_phase` is split into per-entry helpers along the ledger's own DOSED/BATCH axis, **byte-identical on 4 Tier B instances**
+  (proof SHA + size, conflicts/decisions/propagations, and every `c slot` per-entry counter — job `1584689`, probe `e1-split-identity.*`).
 - [ ] **SCHED-E2 · the ordering arms, one per rule, each independently gated** `[wire]`
 
 #### Stage F — repetition suppression (T2): the touched-epoch substrate
