@@ -842,8 +842,11 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
         continue; // a derived lemma carries no strip ledger
       for (uint32_t s = p.strip_off[c - 1]; s < p.strip_off[c]; s++) {
         const uint64_t uid = p.strip_ids[s];
-        if (std::find(chain.begin(), chain.end(), uid) == chain.end())
+        if (std::find(chain.begin(), chain.end(), uid) == chain.end()) {
           chain.push_back(uid);
+          if (!dry && lrat)
+            k.stats.sweep_strip_cited++;
+        }
       }
     }
     for (const uint32_t c : st.chain) {

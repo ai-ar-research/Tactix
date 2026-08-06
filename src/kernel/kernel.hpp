@@ -317,6 +317,10 @@ struct Stats {
   uint64_t sweep_env_false = 0;     // of those, root-FALSE occurrences
   uint64_t sweep_env_freefalse = 0; // of those, with no unit id => free var
   uint64_t sweep_env_stripped = 0;  // root-false occurrences REMOVED
+  // ... and the root units for them actually CITED in an emitted LRAT chain.
+  // The strip is the only part of Sweep's proof obligation that moved, so a
+  // green LRAT fuzz leg over runs where this is 0 proves nothing about it.
+  uint64_t sweep_strip_cited = 0;
   uint64_t sweep_env_units = 0;     // unit clauses added alongside (off arm)
   // Where the effort GOES. `sweep_ticks` is one number and three very
   // different activities feed it; a rule that sweeps few seeds per dose is
