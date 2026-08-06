@@ -19,11 +19,35 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = run the Sweep-governor Tier C A/B (specced, unrun)**
 
-**IN FLIGHT: the final Tier B + Tier C at HEAD `c7beaa0`.** Tier B array `1585269` on node017,
-Tier C array `1585354` on node018 — two pin dirs from ONE commit with **byte-identical binaries**
-(`219b10d7…`), both baselines carried, one tier per node so no arm/node correlation inside a tier and
-the two tiers do not contend. Partition was verified idle before submitting. ctest **46/46**, corpus
-14/14, all four conformance checkers green.
+**IN FLIGHT: `bench-B-ledgerfix` (`1585689`) + `bench-C-ledgerfix` (`1585775`, agg `1585776`)** — another
+agent's arrays, submitted 2026-08-06; not this pass's and not described here.
+
+**▶ AND THE EARLIER TIER B + TIER C PAIR IS FINISHED WITH ITS RESULTS UNREAD.** The pair submitted at HEAD
+`c7beaa0` (Tier B array `1585269` on node017, Tier C array `1585354` on node018 — two pin dirs from ONE
+commit with **byte-identical binaries** `219b10d7…`, both baselines carried, one tier per node so no
+arm/node correlation inside a tier and the two tiers do not contend; partition verified idle before
+submitting) has **LEFT THE QUEUE** (verified against `squeue -u hwu` while no other array was pending).
+**Their output is `benchmarks/runs/20260806-084944-B-shipped/` and `…-084947-C-shipped/`
+(`results.json` + `manifest.json` present) and NO ONE HAS READ IT** — the tier tables below are still the
+`20260805-1150` / `20260805-2057` windows, and this line was corrected by the 2026-08-06
+revisit-codebase pass — `tools/docs/check-progress.py` flagged the stale in-flight claim mechanically,
+which is exactly what that check is for. **Reading those two windows and
+replacing the tier tables is the first thing the next session should do** — take the SHA from each run's
+own `manifest.json`, and read `#solved` before the aggregate. That pass deliberately banked no number
+from them: it took no timing measurement at all.
+
+**▶▶ A REVISIT-CODEBASE PASS LANDED ON TOP OF THE TWELVE MERGES (2026-08-06, branch
+`revisit-codebase-pass`; report `benchmarks/reports/2026-08-06-review-post-track-sched.md`).** ctest is now
+**47/47** — the 47th is `comment_hygiene`, a new conformance checker, because the no-narrative-in-comments
+directive regressed **34 minutes** after the sweep that enforced it. Two `simplify:` commits, identity
+evidence **222/222** byte-identical proofs + counters across three arms vs a pristine `05a6f92` binary. **30 items
+routed under `RV-S*`** (see Open items) and the four highest-severity are **§5.6/N1 obligations, not
+scheduling**: `RV-S10` Vivify tier3 is unreachable through the public API (an N1 breach of the shape the
+last one had), `RV-S11` four rule families have no reward id and no test pins any id↔counter mapping,
+`RV-S12` `--trace` replay does not exist so §8.5's gate cannot be run, `RV-S13` the slot pose surface is
+env-only and untested. **Five cross-agent conflicts are in the Log entry** — the sharpest being that CCE
+re-created the rule-side rotation SCHED-E1 had deleted 100 minutes earlier, and reads a STATS COUNTER to do
+it. **None of this blocks the next step below.**
 
 **▶▶ SWEEP'S DEGRADATION IS DIAGNOSED AND FIXED (branch `sweep-governor-fix`); THE TIER C A/B IS SPECCED
 AND UNRUN.** Not the meter — the **enforcement point**. The round ceiling was polled only *between* seeds
@@ -310,8 +334,21 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   and `bve_eliminate` two more `2*nvars` byte vectors — four O(nvars) fill-inits per elimination
   ATTEMPT. Same shape that cost 174× on native LRAT before the persistent-scratch + touched-restore
   fix (Track C · C4-perf). Found while adding ITE/XOR extraction, which deliberately added none of its
-  own (its per-pivot signature index is O(P+N)). Route: `revisit-codebase`. Not urgent, but BVE runs on
-  every elimination phase, so the constant is paid a lot.
+  own (its per-pivot signature index is O(P+N)). Not urgent, but BVE runs on every elimination phase, so
+  the constant is paid a lot.
+  **▶ RE-SCOPED BY THE 2026-08-06 REVIEW (`RV-S19`) AND IT IS BIGGER THAN THIS ROW SAID.** It is **FIVE**
+  fills per elimination ATTEMPT, ~20·nvars bytes of memset plus 4 malloc/free pairs: `bve.cpp:265` two
+  `vector<int>(2*nvars,-1)`, `:559` `seen_bin`, `:644` `seen`, `:715` `PendingUnits::init`. Two facts the
+  fix should use: the two `int` vectors are allocated **before any `bve_gate_mask` test**, so masking gate
+  detection off still pays 16·nvars; and `seen_bin` **already has a touched-list restore**, wasted today
+  because the buffer dies at end of call. Marked sets are bounded by `occ(x)` (< 100 typical vs nvars
+  ~10⁶). **And the review found sightings #6 and #7** — `probe.cpp:100` and `backbone.cpp:96-97` call the
+  **3-arg** `kernel_conflict_reason_walk` with a fresh `vector<uint8_t>(nvars,0)` per failed literal, i.e.
+  exactly the 174× construction, on the native-LRAT path; the 4-arg `touched` overload already exists and
+  the fix is ~6 lines each, copied from `vivify.cpp:395-401`. **Route: `revamp` (or a `perf:` commit) —
+  NOT revisit-codebase**, because it is a performance change under §5.4, not §5.5 hygiene. Trajectory
+  gate: identical `bve_eliminated`/`bve_resolutions`/`probe_failed`/`backbone_failed` and identical proof
+  SHA.
 
 - **`D-STRENGTHEN-BUDGET`, now scoped to "DOSE C1/C2".** C1 SubsumeForward / C2 Strengthen are the only
   inprocessing slot entries that are neither dosed nor budget-aware, and one round cannot be interrupted —
@@ -343,9 +380,44 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   (2026-07-25, 9k/0); post-Track-H random-policy ASan 8000/0 both formats. **Read every pre-2026-08-05
   native-LRAT figure in this file through the oracle defect recorded in the anchor.**
 - Routed by the 2026-07-29 review (`benchmarks/reports/2026-07-29-review-post-track-r.md`; `RV-` namespace):
-  **RV-R2** Reorder has no stress policy; **RV-R3** `benchmarks/probes/` needs a retention rule;
-  **RV-R4/RV-R5** small duplication + allocation watch items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep
-  sub-solver now has fuzz legs on both proof formats with the detector reached at the source.)
+  **RV-R2** Reorder has no stress policy; **RV-R3** `benchmarks/probes/` needs a retention rule (now
+  subsumed by **RV-S9**, decide one rule for both); **RV-R4/RV-R5** small duplication + allocation watch
+  items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats
+  with the detector reached at the source.)
+- **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
+  `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
+  highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the
+  phase-4 extensibility gate's real content:
+  **RV-S10** (N1, high) Vivify **tier3 is unreachable through the public API** — `api.cpp` clamps
+  `vivify_scope` to `<=2` and scope 0 excludes tier3, so guard-true + DefaultPolicy-applies + no API
+  caller can. The closed breach's shape in a new rule; wants a `test_vivify_n1`.
+  **RV-S11** (high) **four rule families have no `tactix_stat` reward id** (Sweep, Congruence, CCE,
+  Substitute), seven more expose yield with no effort partner, and no test asserts any id↔counter
+  mapping — swapping two `case` arms passes all 47 tests. Wants `tools/docs/check-stat-ids.py`.
+  **RV-S12** (high) **`--trace` replay does not exist**, so §8.5's reward-proxy gate cannot be run and
+  RL1 cannot legitimately start; `--random-policy=SEED` reproducibility is never asserted either.
+  **RV-S13** (high) the **slot pose surface is env-only, untested (zero `TACTIX_SLOT*` hits in `tests/`),
+  and absent from the C API**; `TACTIX_SLOT_ORDER` accepts only `"legacy"`.
+  **RV-S14** 19/25 registry entries never driven through `tactix_apply_instance`; `api.cpp:199` silently
+  runs the canonical round for a non-canonical payload.
+  Then: **RV-S1** CCE's rule-side rotation reads `k.stats` (see the Log) · **RV-S2** = `SCHED-F7-CCE`
+  a `cce_touch_mark` over the stage-F substrate · **RV-S8** Congruence's gate arena (16.6 %, blocked on
+  the `SCHED-G4` owner) · **RV-S19** `D-BVE-SCRATCH` is FIVE fills per attempt, plus **sightings #6/#7**
+  at `probe.cpp:100` / `backbone.cpp:96` on the native-LRAT path · **RV-S5** seven `vector<vector<Ref>>`
+  occurrence indices · **RV-S6** the 13-site proof-delete pair · **RV-S20/21** a soundness predicate
+  transcribed 4× and the watch stride open-coded 23× · **RV-S15/16/17/18** rule-side leaks (six kernel
+  watermarks, Sweep's in-rule `getenv` dosing, Sweep's unregistered instance surface, BVE's narrowed
+  `instances()`) · **RV-S22** BCE and Substitute are witness-emitting with **no stress policy** ·
+  **RV-S23** the fuzz reachability readout serves one counter · **RV-S31** Task #39's
+  `--random-policy` LIVELOCK IS FAR BROADER THAN THE TASK RECORDS — **12 of 74 cases (16 %) fail to
+  terminate** against 0 of 74 for DefaultPolicy on both proof formats, and the population is not the
+  `known-hangs` set (it includes regression-corpus entries and fresh instances) — so every
+  `--random-policy` fuzz figure is over N minus an unmeasured timeout population — make `fuzz.py`
+  print per-leg timeouts the way it prints `oracles skipped`, THEN diagnose it · **RV-S24-S30**
+  hygiene + hand-offs.
+  Three auditor verdicts were **overturned in synthesis** and the report records why (gating F6's walk
+  would destroy its own anti-vacuity evidence; `kernel_delete_clause` is not inlinable because
+  `kernel.hpp` forward-declares `Proof`; R6's `EffortSpec::meter` premise is false as stated).
 
 ## Non-negotiables status (plan §1.1)
 
@@ -1165,6 +1237,129 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — revisit-codebase after twelve parallel merges: five cross-agent conflicts, and the comment rule is now MECHANICAL
+
+Branch `revisit-codebase-pass`, base `05a6f92`. Full report:
+`benchmarks/reports/2026-08-06-review-post-track-sched.md` (30 routed items, `RV-S` namespace, each with
+`file:line`, a bounded recommendation and an owner). Method: **five parallel auditors, one per axis**, then
+a synthesis pass. **Three auditor verdicts were overturned in synthesis** and that is the argument for the
+fan-out: independent axes disagree, and each of the three would otherwise have shipped a defect or spent a
+window.
+
+**▶ WHAT ONLY A JOINT READ COULD FIND (five items; none is visible inside one agent's diff).**
+1. **CCE re-created the exact mechanism SCHED-E1 had deleted 100 minutes earlier.** E1 (`9407cdc`, 22:52)
+   removed `Kernel::transitive_cursor` as *"order logic living in a rule"*; R6's CCE (`7fb5d3b`, 00:32)
+   rotates its round entry point on `k.stats.cce_rounds % ncands` (`cce.cpp:437-442`). CCE is now the ONLY
+   rule with a rule-side rotation, and the policy's cursor cannot reach it — `SlotEntry::cursor` runs only
+   on the `dosed` path and CCE's EffortSpec row is BATCH + `budget_aware`. Worse, it makes a STATS COUNTER
+   BEHAVIOUR-AFFECTING, which `default_policy.hpp:565` forbids of the policy's own telemetry (*"nothing
+   here is ever READ by a scheduling decision"*): any stats rebase — an incremental re-solve, the
+   per-solve reset that landed in the same window — silently rotates CCE back to index 0. → `RV-S1`.
+2. **Stage F built the generic repetition substrate; CCE, landing after it, used a fairness device
+   instead.** CCE *produces* `Kernel::removed` for free and consumes nothing — no `cce_touch_mark` — while
+   being BCE's generalisation, i.e. wanting exactly the two-sided `kernel_changed_since` BCE reads. A
+   rotation stops starvation; it does not stop re-examining unchanged clauses. → `RV-S2` = `SCHED-F7-CCE`.
+   **This also answers the two-stamp question: keep `touched` and `removed` separate.** Five of six
+   consumers read `touched` alone, so interleaving them doubles those five's stride to help the cheapest
+   entry in the ledger; and SCHED-G3 does not bear on it at all (it works through `Clause::VIVIFY`, a
+   per-CLAUSE bit). CCE makes `removed` a two-consumer array, which strengthens keeping it.
+3. **`Stats::rule_interrupted` is neither a total nor a partition — three agents, three conventions.**
+   SCHED-H1's `kernel_rule_interrupt` states *"the increments live INSIDE this helper, never at the call
+   sites"*; Congruence bumps it from six raw `kernel_terminating` sites (landed BEFORE the helper) with no
+   per-rule counter, and Vivify polls through its own `vivify_polls`/`vivify_terminated` pair without
+   bumping it at all. The comment claimed it was their sum. Comment fixed here; Congruence's six sites →
+   `RV-S3` for the `SCHED-G4` owner.
+4. **Three agents invested in C1 machinery in the same window a fourth measured C1 INERT.** SCHED-G2
+   measured absorption 0.99999 (C2 absorbs 698,341 of C1's 698,351) while H1 added four poll sites to
+   C1/C2, F2 added its re-arm/hold wires, and F3 gave it a watermark. Nothing is wrong — N1 keeps C1's
+   surface — but **run G2's already-specced dose arm before the next C1-side mechanism lands** (`RV-S4`).
+5. **BCE and CCE each independently rejected `Kernel::dense` and built a private occurrence index**, with
+   word-for-word identical bodies *including the prose*. Two copies is inside the rule of three; two rules
+   independently rejecting the kernel index is §5.4 trigger (b). There are now SEVEN `vector<vector<Ref>>`
+   indices, each `assign(2*nvars, {})` per build. → `RV-S5` (revamp), sequenced after `RV-S8`.
+
+**▶ APPLIED (two `simplify:` commits, behaviour-preserving).** Dead code: `find_grid_clause` (36 lines),
+`apply_factoring`'s `idx`, `meter_ticks` — all three had been printing a compiler warning, which was
+masking the rest. **A test that had never run:** `test_no_contrapositive_self_justification`, defined
+2026-07-17 and never called from `main()`, the only test of V4's contrapositive-pair exclusion — the
+`[[ab-arm-identical-artefacts]]` shape at the unit-test layer. Drift at three sites where one agent
+renegotiated a contract another still asserts, the worst being `implementation-notes.md`'s guard table
+saying Factor's density predicate is a rule-side `NoOp` when SCHED-N1FIX moved it to the policy *because
+the rule-side NoOp was the N1 breach* — §13.4 in the same file already had it right. 15 vestigial
+includes. `.gitignore` for the per-job fuzz logs (the merges committed 38 more; 73 tracked).
+
+**▶ THE COMMENT-HYGIENE DIRECTIVE IS NOW A ctest TEST, because a sweep provably does not hold.** The
+one-off sweep (`be04e2b`) was undone **34 minutes later** by the S-e N2 fix; 19 violations were live at
+HEAD (7 dates, 4 job ids, 2 narrative, 6 in `tools/`). All 17 editable ones now carry the invariant plus a
+report path. `tools/docs/check-comment-hygiene.py` + ctest `comment_hygiene` is the durable half — the
+same escalation `buildlock.py` made after the sixth build-path violation. Report/design paths are
+whitelisted, since citing one is exactly what the directive asks for. **The two remaining hits are in
+`src/rules/congruence/` and `src/rules/substitute/`, owned by another agent, and are ALLOWLISTED AS NAMED
+DEBT** — the allowlist must be emptied, never grown.
+
+**▶ IDENTITY EVIDENCE.** A binary from pristine `05a6f92` (`git archive` into a separate build tree) vs
+the post-change binary, over the 14-entry regression corpus + 60 generated fuzz cases in **three arms**
+(native DRAT · native LRAT · `--random-policy=7` × DRAT), comparing exit code, `sha256(proof bytes)` and
+`sha256` of every `c ` COUNTER line: **222/222 identical, 0 mismatches** (74 cases x 3 arms; DRAT and
+native LRAT each 74/74 with ZERO timeouts, `--random-policy` 74/74 with 12 timeout-in-both, which carry no
+signal). ctest **47/47** on Release
+AND on the Debug ASan/UBSan build; `config_wiring`/`effort_specs`/`option_coverage`/`check-progress` all
+green. **No timing was taken** — a debug investigation owned the cluster, and counters are
+contention-invariant.
+
+**▶ THE ONE FINDING THIS PASS REVERSED ON ITSELF.** `Stats::walk_minimum` is write-only and was removed as
+dead — then restored, because phase-6 item `W4e` names it as the Walk-dosing **reward proxy**, which the
+skill lists as an explicit keep-with-reason class. Two real defects in it are recorded at the site instead,
+since a consumer must choose between them: the write is an **assignment, not a `min`** (so it holds the
+LAST walk's minimum, not the best), and the old comment claimed the policy reads it to accept a walk's
+phases, which nothing does.
+
+**▶ THE AXIS VERDICTS, IN ONE LINE EACH.** *Redundancy:* the three offenders (`RV-S6` proof-delete pair ×13,
+`RV-S20` a soundness predicate transcribed ×4, `RV-S21` the watch stride ×23) are all **kernel primitives
+never promoted**, not rules reaching into rules — a fixable shape. *Verbosity:* genuinely clean (no
+TODO/FIXME/`#if 0` anywhere; 1 write-only field out of 186; every `RuleVTable` slot and `ApplyResult`
+variant live) — the finding is ENFORCEMENT, since three of four compiler warnings were dead code or a dead
+TEST, printing for weeks with no `-Werror`. One warning is left (`RV-S28`). *Data structures:* the correct
+persistent-scratch idiom is in six places, **two added in this very window**, while five call sites still
+lack it — understood, not applied at landing time. *Leakage:* the POLICY LAYER IS IN VERY GOOD SHAPE; every
+leak found is rule-side, and **six of the seven are in the four newest landings** (G3 Vivify, R6 CCE, V5
+Sweep, F3/F4 touch-marks) — same diagnosis. *§5.6 coverage:* the four highest-severity items of the whole
+pass, and they share a shape — **the learner's three channels (reward `RV-S11`, arm space `RV-S13`/`RV-S14`,
+replay `RV-S12`) are each incomplete or unverified while the rules underneath them are well tested.**
+Native-LRAT coverage, by contrast, is genuinely repaired (~3,167 chains checked under `--random-policy` in
+one 10,000-case leg), so the anchor's "trust nothing that rested on a native-LRAT leg" warning is
+discharged for that axis.
+
+**▶ THE STRUCTURAL RECOMMENDATION, and it is the pass's main conclusion.** Four of the five axes converge on
+one fix: **landing-time classification must be mechanical, not remembered.** The project already has three
+working instances (`check-config-wiring.py`, `check-effort-specs.py`, `check-option-coverage.py`), this pass
+adds a fourth (`check-comment-hygiene.py`), and the two surfaces still unguarded are exactly where the new
+rules leaked — **the instance surface** (does `instances()` offer everything `apply_instance` accepts?) and
+**the pose surface** (does every POLICY/API config field have a setter? note `check-config-wiring.py`'s
+scope is `kernel.hpp` only, which is how `randec_enabled` and two permanently-dead telemetry columns survived).
+`RV-S11`'s `check-stat-ids.py` is the next one to write.
+
+**▶ INDEPENDENT READ ON R6's `EffortSpec::meter` ROUTING (asked for explicitly): R6's premise is FALSE as
+stated, so the finding should be DELETED rather than enshrined in §5.3's wording.** A `uint64_t(*)(const
+Kernel&)` may ignore its argument and read a rule-private counter — the tree already does this three times
+(`congruence.cpp:58` `static Budget`, `:658` `cong_t`, `vivify.cpp:100` `static thread_local VivifyOrder`).
+The only type-level force is `SlotEntry::tick_counter`'s `uint64_t Stats::*`, which binds just the four
+propagation-tick rules and dissolves by widening it to `uint64_t*` — `Kernel::tick_sink` is already a plain
+`uint64_t*`. What ACTUALLY forces `Stats` membership is the REPORTING path: §5.3 promises counters "surface
+automatically" and they do not (`Stats` is hand-maintained, `main.cpp` prints each by hand, stat ids are
+hand-numbered). **So a wording change is the right outcome but not the wording R6 proposed:** the sentence
+that genuinely contradicts reality is §5.3's *"the registry is the ONLY central list"* — CCE's own diff
+touched seven. Softening that to bless seven tables would be rewriting the requirement to match the code,
+which §5 obligation 4 forbids. **Keep the requirement, record the deviation, and name the accepted
+realization the project has already chosen — a mechanical checker per central table** — listing which
+checker guards each and the two that are unguarded (`Stats` → `main.cpp` print, `Stats` → `TACTIX_STAT_*`
+id). Those two are what made CCE's diff wide, and one more checker closes them. **No revamp is warranted.**
+There is one genuine reason not to use a file static, and R6 missed it: it is not per-`Kernel`, and two
+`Kernel`s coexist routinely (unit tests, Sweep's own sub-solver), so a static cross-charges — but
+"per-Kernel" is not "a field on the flat shared `Stats`", and `Kernel::h`'s opaque forward-declared handle
+is the in-tree precedent for the clean form. → route to `revise-plan`, scoped to §5.3's registry sentence
+plus a ledger row, NOT to the meter clause.
 
 ### 2026-08-06 — Track R · R6: X3 CCE lands ON, and the §5.3 extensibility test comes back MOSTLY YES
 
