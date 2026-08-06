@@ -478,7 +478,7 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** The one the N4 audit found — `Factor`'s density predicate NoOping inside `factor_apply`, so **no API caller could apply a legal factoring on a binary-sparse formula** while the guard reported applicable — was CLOSED 2026-08-04 by MOVING the predicate into DefaultPolicy's slot as `Kernel::factor_admit` (SCHED-N1FIX; DefaultPolicy byte-identical, `tests/test_factor_n1.cpp` fails on the pre-fix build). **The shape to watch for: guard-true / apply-NoOp** — it is why V5 Sweep was deliberately left unregistered until it had a proof delta. Otherwise: v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld; two earlier leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ **No open breach at HEAD.** Two were CLOSED on 2026-08-05 and the merged tree is GREEN: six fuzz legs at TWO seeds, 6000 cases each, 0 failures (`1584462`–`1584467`). The 38 `lrat-check` rejections seen mid-session were **drat-trim's `-L` CONVERTER, not our emitter** — kissat's and cadical's own proofs are rejected identically on the same inputs while our native LRAT verifies under lrat-check and cake_lpr; the harness now stands that cross-check down on the two unsound input classes, visibly counted (`…-drat-trim-conversion-crosscheck.md`). **Two breaches were CLOSED the same day.** (1) **`Sweep` S-e emitted every general-path lemma with INVERTED literal parity** — both sub→kernel decode sites tested `(sl & 1u) == 0`, so each lemma was written negated (the verdict and `F` were always correct; only the proof lines were wrong); fixed by one shared `sweep_kernel_lit` (`8796b26`), `asconhashv12` now verifies on drat-trim AND cake_lpr, regression corpus `012`, `sweep_proofs` extended over the real emitted proof, `--sweep-stress-policy` added. (2) **the frontend deduped repeated input literals**, so an input clause's id named a different clause for the checker than for us and any LRAT chain citing it failed (`16b6e75`). **And the INSTRUMENT was broken: `fuzz.py`'s native-LRAT oracle accepted `NOT VERIFIED`**, so every LRAT rejection in project history was recorded as a pass. Reports `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`, `…-sweep-n2-blast-radius.md`, `…-sweep-se-polarity-fix.md`, `…-sweep-n2-postfix-survey.md`, `…-input-clause-normalization-n2.md`. Otherwise: ◐ DRAT since phase 1; native LRAT since 2026-07-14; the 2026-07-15 audit was upheld and did not cover Sweep, which did not exist then |
 | N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-05** (window `20260805-1150`, git `0418770`): Tier B(28) **70.71 (26/28)** · Tier C **419.91 (28/30)** vs kissat 228.45 (29/30) and cadical 312.27 (29/30). T3 halves **BOTH NOT MET and both REGRESSED** vs 08-04 — kissat subset **1.727×** (was 1.346×), cadical **1.345×** full (was 0.990×) — with kissat flat across the two windows, so this is a real regression rather than drift. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (793 instances) — never RUN, and running it is a phase-3-exit prerequisite (§11 O9); `--tier D` still has no per-track flag for T4's SC25-set PAR-2 |
-| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80, user 2026-08-04) | ✗ **KNOWN UNMET, MEASURED TWICE.** Pass 1 (rule families): 216 mechanisms, **132 gaps (27 high)**. Pass 2 (SCHED-A3, the REFERENCE's option set): all **418** options enumerated, **+15 gaps (4 HIGH) and 6 CORRECTIONS to pass 1**. Ledger LANDED and living at `docs/implementation-notes.md` §13 (§13.4–§13.6 = pass 2); full audit frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`; remediation staged as **Track SCHED** below, which also carries the four structural highs and the confirmed gaps. **N4 is a *mechanism* floor** — it may not be discharged by a tier number, and never deferred to §5.6 |
+| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80, user 2026-08-04) | ✗ **KNOWN UNMET, MEASURED THREE TIMES — and pass 3 is BEHAVIOURAL, not an inventory.** Pass 1 (rule families): 216 mechanisms, **132 gaps (27 high)**. Pass 2 (SCHED-A3, the REFERENCE's option set): all **418** options enumerated, **+15 gaps (4 HIGH) and 6 CORRECTIONS to pass 1**. **Pass 3 (2026-08-06, `benchmarks/reports/2026-08-06-n4-behavioural-shape-audit.md`): both solvers counter-instrumented on the SAME ten instances — occasions, realized interval, governor inputs, yield per occasion. 7 CRUDER / 1 MIXED / 4 EQUAL-or-ahead / 2 more-generous / 1 not comparable, and the sharp result is that our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates anything (104 → 2 736 829) and Factor adds ZERO on 6 of 9 — so the ledger reading "closed" does not mean the family runs.** Ledger LANDED and living at `docs/implementation-notes.md` §13 (§13.4–§13.6 = pass 2; pass 3 owes it six corrections, report §7); full audit frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`; remediation staged as **Track SCHED** below, which also carries the four structural highs and the confirmed gaps. **N4 is a *mechanism* floor** — it may not be discharged by a tier number, and never deferred to §5.6 |
 
 ## Milestone gates (plan §8.3)
 
@@ -1326,6 +1326,75 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — N4 pass 3: the ledger says we HAVE the mechanisms; the counters say two families never run
+
+Branch `audit-n4-shape`, base `4f4989d`, **no source change** — this pass measures.
+Report: `benchmarks/reports/2026-08-06-n4-behavioural-shape-audit.md`.
+Probes `benchmarks/probes/n4-shape.{sh,mf,sbatch}` + `n4-shape-forced.{sh,mf,sbatch}` +
+`n4-shape-table.py`; jobs `1587305` (30 tasks), `1587348` (8), `1587381` (3);
+raw output `benchmarks/probes/scratch/n4-shape/` and `…/n4-forced/`.
+
+**Both solvers counter-instrumented on the SAME ten instances** (four SAT / six UNSAT, ten
+families, miter · crypto · combinatorial · random-XOR · very-large-structured), ours under
+`TACTIX_SLOT_STATS=1`, kissat as a `-DMETRICS` variant so its METRIC/STATISTIC tiers become
+printable. **Counters only — no wall-clock figure was taken, so it ran alongside six other
+agents' arrays.** A third `kpin` arm proves the metrics build is the shipped solver: identical
+verdict AND conflict count on 9 of 10 (`T105.2.0` diverges, 605 325 vs 393 595, cause
+unidentified — that instance's kissat column is used qualitatively only).
+
+**The headline is not a cadence gap, it is two families that do not run.** BVE eliminates
+**0 variables on 7 of the 9** instances where kissat eliminates anything (kissat: 104 →
+2 736 829); Factor adds **0 extension variables on 6 of 9** (kissat: 98 → 32 157). Causes
+measured, not inferred:
+1. **BVE's invented `binaries < 6·vars` density gate declines EVERY during-search occasion**
+   on six instances (`dns` 21/21, 12/12, 24/24, 24/24, 26/26, 8/8). With
+   `TACTIX_BVE_DOSE_DENSITY=0` the rule reaches **91 % / 102 % / 147 % / 18 %** of kissat's
+   yield (b22_1 27 104 vs 29 726 · aes 96 357 vs 94 738 · crypto1 886 vs 601 · sted5 126 vs
+   692). So the zeros are the gate, entirely — the T4 shape, now measured as binding rather
+   than as a tuning knob.
+2. **A CASCADE into Factor.** Our `factordelay` port reads `bve_rounds_run_`, incremented only
+   on an ADMITTED BVE dose, where kissat's `INC (eliminations)` is the first statement of
+   `kissat_eliminate`. A density-declined BVE therefore pins Factor's warm-up threshold at
+   10^5 active vars forever — `warm 63/63` on aes (279 k vars), `warm 33/33` on T105. Shown by
+   forcing it: the declines move to `warm 9, dns 54`. **A wiring gap, one line.**
+3. **The elimination clock can close for the rest of the solve.** `battleship`:
+   `eliminate phases 1 … blocked 1`, so SubsumeForward/Strengthen/BVE/Instantiate/BCE/CCE got
+   **one occasion each in 309 229 conflicts** (kissat: 4 eliminations, 8 forward subsumptions).
+   Not the `SP-SLOT-5` flip bug — the PRODUCER SET: `bve_marks` is fed by irredundant/binary
+   ADDs + root fixes, kissat's watermark additionally by every clause REMOVAL **and every
+   clause strengthened by forward/vivify/strengthen**.
+
+**And one suspected scheduling gap is REFUTED, which is the other half of the value.** Sweep
+finds **0 equivalences on 9 of 9** where kissat finds up to 15 687 — and that survives kissat's
+maximum env caps, a 1 000× effort share, and lifting both of our invented per-environment
+bounds: **1 226 656 candidate pair checks on `b22_1` yield 1 equivalence against kissat's 545
+from 51 949 queries.** So it is a RULE finding, routed to rule-dev, and `SP-SWEEP-2`/`-3` must
+not be sold as its cure. Same shape on `or_randxor`: kissat extracts **4 980 XOR gates**, we
+extract **0 gates of any kind** on a conjunction of 3-XORs with `CONG_XOR_ARITY` already at
+kissat's default.
+
+**Verdict table (report §5), 15 rows: 7 CRUDER · 1 MIXED · 4 EQUAL-or-ahead · 2 deviations in
+the MORE-generous direction · 1 not comparable.** Where we are ahead, said so: the two-clock
+split is at kissat's shape and ahead of cadical's (**realized probe:eliminate ratio 2.13–2.40
+vs kissat's 2.17–2.50** — so `SP-SLOT-1`'s "~2.4× not 5×" is not a defect, kissat's realized
+ratio is also ~2.3); Vivify's four scopes + 3/3/1+irr shares + rate-form irr ladder + live
+tier bands are full kissat parity and ahead of cadical; we carry an upper effort clamp kissat
+has none of; Congruence is deliberately stricter. Two cruder rows are constants, not designs:
+Congruence's delay ladder bumps only on a completely inert round where kissat bumps below a
+0.001 merge RATE, and five probing entries share ONE rate where kissat has seven (it calls
+backbone and substitute twice per probe round).
+
+**Six ledger corrections owed (report §7)** — the sharpest being that **`SP-SLOT-3`'s closure
+rests on a false source claim**: there is no `last.NAME.ticks` in kissat, only
+`last.ticks.probe`/`.eliminate`, written at the END of each group's phase unconditionally
+(`probe.c:86`, `eliminate.c:601`) while `SET_EFFORT_LIMIT` merely reads them. kissat's effort
+window is per-GROUP and resets every phase; ours is per-ENTRY and accrues across declined
+occasions, i.e. **more generous**, and should be a labelled deviation rather than a parity
+closure. Also: `SP-SWEEP-2`'s "`!e.meter`" wording is stale (the gate is `e.closure` since
+`SCHED-G1`), and Sweep's `env_ticks`/`max_candidates` are unledgered T4-shaped bounds.
+
+`ctest` **47/47**; no source file touched, so nothing to revert.
 
 ### 2026-08-06 — revisit-codebase after twelve parallel merges: five cross-agent conflicts, and the comment rule is now MECHANICAL
 
