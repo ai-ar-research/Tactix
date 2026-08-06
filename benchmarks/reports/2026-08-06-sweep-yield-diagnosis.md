@@ -184,7 +184,7 @@ kissat 4.0.4 `-DMETRICS`, same instances, 900 s (job `1587823`).
 Three changes to `src/rules/sweep/`, no kernel change, no policy change, no proof-delta change
 beyond §4.1's citation.
 
-### 4.1 Root-false literals are stripped, and the strip is CITED (`SP-SWEEP-4`… no, this is the deviation-1 closure)
+### 4.1 Root-false literals are stripped, and the strip is CITED (`SP-SWEEP-8`)
 
 Kept for correctness parity with the references even though §1 measures it inert, because it
 also frees environment-variable slots. `C \ {l}` for a root-false `l` follows from `C` and the
