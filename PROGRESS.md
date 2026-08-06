@@ -70,7 +70,12 @@ gates. **D2 is the one expected to move numbers** (probing at ~2×, not the ~5×
 see its Log entry). The three A/B specs are in the Log entries and are the next Stage-D work; D3's spec
 says to check its `blocked` counter first and abandon the window if it is zero.
 
-**▶ THEN.** Stage E — order and resumption become policy objects, generalizing D1's table.
+**▶ STAGE E IS LANDED AND UNPRICED** (branch `sched-stage-e`, four commits, ctest **44/44**, fuzz green — DRAT 10,000/0, native LRAT 4,000/0,
+`--random-policy`×DRAT 4,000/0, corpus 14/14). E1 candidate order + resumption as policy objects · E2 the per-rule ordering arms · **E3 the effort
+ceiling** (`SP-EFFORT-CEIL-1`, taken mid-stage; ported and **measured inert** — see its Log entry before spending a window on it). The one finding
+that changes the picture: **Probe was advancing 0.3 % of its candidate list per dose and replaying the same head on all 45 phases** — E1's cursor
+fixes that, and it is unpriced. Three A/B specs are in the Log entries; E1's and E2's are worth windows, E3's says explicitly not to run it.
+**▶ THEN.** Stage F — the touched-epoch substrate (`SP-REPEAT-*`), which is also what E2's `heuristic` arm wants in front of its score.
 
 **▶ OWED MEASUREMENTS (each a job; none blocks the next step).**
 - **ALL THREE STAGE-D ITEMS are specced and unrun** — arms, pre-flight counter and ship criterion in each
