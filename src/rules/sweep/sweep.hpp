@@ -108,6 +108,11 @@ struct SweepLimits {
   // Ships on; `TACTIX_SWEEP_STRIP=0` reverts to keeping them, which is what the
   // rule did through S-a…S-f and why it confirmed almost nothing.
   bool strip_false = true;
+  // Measure environment CLOSURE (`Stats::sweep_occ_*`) — how much of an
+  // environment variable's real neighbourhood the environment holds. Off by
+  // default: it is an extra pass over the environment per seed, which is a
+  // diagnostic's cost, not the rule's. `TACTIX_SWEEP_CLOSURE=1`.
+  bool measure_closure = false;
 };
 
 // THE ROUND CEILING IS ENFORCED INSIDE ENVIRONMENT CONSTRUCTION, not only
