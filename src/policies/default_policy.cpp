@@ -821,7 +821,7 @@ bool DefaultPolicy::want_slot_phase(const Kernel &k, SlotGroup g) {
   // both references exempt it too (cadical's `stats.inprobingphases &&`;
   // kissat's watermark starts at 0 while every variable starts marked).
   const bool gated =
-      c.rounds != 0 &&
+      slot_watermark_ && c.rounds != 0 &&
       (g == SlotGroup::Probe
            // cadical probe.cpp:23 — no inprobe phase unless a reduce has
            // happened since the last one.
@@ -867,11 +867,20 @@ bool DefaultPolicy::want_slot_phase(const Kernel &k, SlotGroup g) {
 // would change two things at once.
 void DefaultPolicy::update_slot_limit(const Kernel &k, SlotGroup g) {
   SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
-  uint64_t n = c.rounds; // policy-local growth key
+  // TACTIX_SLOT_CLOCKS=1: ONE cadence. Both clocks take the elimination formula
+  // on a shared growth key (the larger phase count, so a gate-declined group
+  // cannot freeze the interval). Only the clock that just fired is advanced —
+  // the sibling keeps the limit it has already passed and so takes its phase in
+  // the next loop iteration, which is the single pre-split occasion for every
+  // entry. Advancing both here instead starves whichever group is checked
+  // second, i.e. the whole elimination family.
+  const bool split = slot_clocks_split_;
+  uint64_t n = split ? c.rounds
+                     : std::max(probe_clock.rounds, elim_clock.rounds);
   if (!n)
     n = 1;
   const double lg = std::log10(static_cast<double>(n) + 9);
-  const double base = g == SlotGroup::Probe
+  const double base = split && g == SlotGroup::Probe
                           ? PROBE_INTERVAL * static_cast<double>(n) * lg
                           : SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg;
   c.next_conflicts = k.stats.conflicts +
@@ -1225,6 +1234,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // back. It is the A/B arm for the authored order and nothing else.
       const char *order_env = std::getenv("TACTIX_SLOT_ORDER");
       slot_order_legacy_ = order_env && !std::strcmp(order_env, "legacy");
+      // The two clock arms (see the SlotClock block). Read here so all three
+      // scheduling knobs are set in one place and none can be read twice with
+      // different answers.
+      if (const char *cl = std::getenv("TACTIX_SLOT_CLOCKS"))
+        slot_clocks_split_ = std::strtoul(cl, nullptr, 10) != 1;
+      if (const char *wm = std::getenv("TACTIX_SLOT_WATERMARK"))
+        slot_watermark_ = std::strtoul(wm, nullptr, 10) != 0;
       if (slot_order_legacy_) {
         for (int i = 0; i < static_cast<int>(rules.size()); i++)
           if (rules[i].tier == RuleTier::Inprocess)
@@ -1526,10 +1542,24 @@ bool DefaultPolicy::slot_entry_admissible(SlotEntry &e, const Kernel &k,
 // afford a real pass. This is the only budget-based decline a batch entry has —
 // the ceiling is re-baselined in set_entry_limit, which makes a `meter > limit`
 // pre-check unfireable for one.
+// How much of this entry's ceiling is left, in its own currency. SATURATING:
+// the meter can stand above the ceiling (a batch rule overshoots the budget it
+// was handed, and the ceiling is re-baselined only on the next occasion), and
+// on unsigned types that difference wraps to ~2^64 — which is handed straight
+// to Kernel::work_budget as "unbounded". Counted, not just clamped.
+uint64_t DefaultPolicy::ledger_remaining(SlotEntry &e, const Kernel &k,
+                                        uint64_t limit) {
+  const uint64_t spent = e.meter(k);
+  if (limit >= spent)
+    return limit - spent;
+  e.tm.wrapped++;
+  return 0;
+}
+
 bool DefaultPolicy::slot_entry_thresh_declines(SlotEntry &e, const Kernel &k) {
   if (!(e.enabled && e.meter && e.thresh && e.doses > 0))
     return false;
-  const uint64_t delta = e.limit - e.meter(k);
+  const uint64_t delta = ledger_remaining(e, k, e.limit);
   if (delta >= e.thresh * kernel_irredundant_clauses(k))
     return false;
   e.tm.dec_budget++;
@@ -1890,7 +1920,7 @@ void DefaultPolicy::factor_dose_config(Kernel &k, SlotEntry &e) {
 ApplyResult DefaultPolicy::run_vivify_dose(Kernel &k, SlotEntry &e,
                                            const RuleVTable &r,
                                            uint64_t limit) {
-  const uint64_t remaining0 = limit - e.meter(k);
+  const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t remaining = remaining0 ? remaining0 : 1;
   const bool irr_delayed = k.stats.conflicts > 0 && e.delay_count > 0;
   if (irr_delayed)
@@ -1959,7 +1989,7 @@ ApplyResult DefaultPolicy::run_budgeted_batch(Kernel &k, SlotEntry &e,
                                               const RuleVTable &r,
                                               uint64_t limit,
                                               bool factor_entry) {
-  const uint64_t remaining0 = limit - e.meter(k);
+  const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t handed = remaining0 ? remaining0 : 1;
   const uint64_t spent_before = e.meter(k);
   // Factor doses run COMPOSITE: kissat's cross-round composition lives in
@@ -2107,6 +2137,11 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   // blind to formula size and caps an O(applications × formula) loop
   // rather than capping simplification.
   const uint64_t phase_ticks_at_entry = k.stats.ticks;
+  // Net this phase's own ticks out of `search_ticks` while it runs, so an
+  // anchor taken mid-phase is a SEARCH reading and stays below the next
+  // phase's (see the `inprocess` struct).
+  inprocess.in_phase = true;
+  inprocess.phase_entry_ticks = phase_ticks_at_entry;
   const uint64_t phase_props_at_entry = k.stats.propagations;
   // Wall clock for the WHOLE slot, so the `c timing` report can separate
   // the rules' own time (charged per id by apply_rule) from the phase
@@ -2248,6 +2283,7 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   kernel_dense_disconnect(k);
   k.factor_match = nullptr; // scope the config to the phase (see entry)
   inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
+  inprocess.in_phase = false;
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
   k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
@@ -2270,7 +2306,11 @@ void DefaultPolicy::set_entry_limit(SlotEntry &e, Kernel &k) {
   // count that no longer exist by the time it runs.
   const std::vector<RuleVTable> &rules = tactix_rules();
         const uint64_t now = search_ticks(k);
-        uint64_t reference = now - e.anchor;
+        uint64_t reference = 0;
+        if (now >= e.anchor)
+          reference = now - e.anchor;
+        else
+          e.tm.wrapped++; // see Telem::wrapped — this used to be ~2^64
         if (reference < MIN_EFFORT_TICKS)
           reference = MIN_EFFORT_TICKS;
         uint64_t delta = reference / 1000 * e.permille;
@@ -2411,7 +2451,7 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
         "c slot %-18s occ %6llu adm %5llu ok %5llu | dec dis %llu cap %llu "
         "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu dns %llu "
         "one %llu nv %llu | handed %llu spent %llu completed %llu | "
-        "maxeff %llu clamped %llu floored %llu%s\n",
+        "maxeff %llu clamped %llu floored %llu wrapped %llu%s\n",
         rules[e.rule].name, (unsigned long long)t.occasions,
         (unsigned long long)t.admitted, (unsigned long long)t.ok,
         (unsigned long long)t.dec_disabled, (unsigned long long)t.dec_cap,
@@ -2422,7 +2462,7 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
         (unsigned long long)t.dec_nonviable, (unsigned long long)t.handed,
         (unsigned long long)t.spent, (unsigned long long)t.completed,
         (unsigned long long)e.max_delta, (unsigned long long)t.clamped,
-        (unsigned long long)t.floored, balance);
+        (unsigned long long)t.floored, (unsigned long long)t.wrapped, balance);
   }
 }
 
