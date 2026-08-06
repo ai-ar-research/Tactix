@@ -119,6 +119,50 @@ static void test_kind_isolation() {
   assert(!equivalence_added(k, 4, 5));
 }
 
+// --- the BINARY-RESOLUTION unit channel (SCHED-G4 Y1) ------------------------
+// (l∨o) and (l∨¬o) resolve on o to {l}. NO gate is involved, so these run on
+// formulas the gate extractor finds nothing in — which is exactly the point:
+// the channel is separate from D-CONG-UNIT and is counted separately.
+static void test_binary_resolution_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  assert(congruence_guard(k));
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(k.value(internalize(1)) > 0 && "the unit is asserted at the root");
+  assert(k.stats.congruence_y1_found == 1);
+  assert(k.stats.congruence_y1_units == 1);
+  assert(k.stats.congruence_units == 0 && "not the degenerate-gate channel");
+  assert(k.stats.congruence_gates == 0 && "no gate was extracted");
+}
+
+// Two binaries that do NOT clash on their second literal imply nothing.
+static void test_binary_resolution_no_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  assert(congruence_guard(k));
+  assert(congruence_apply(k) == ApplyResult::NoOp);
+  assert(k.value(internalize(1)) == 0);
+  assert(k.stats.congruence_y1_found == 0);
+}
+
+// Both polarities of the same variable derived in ONE sweep is a refutation,
+// resolved by the shared PendingUnits batch rather than by asserting a false
+// unit on the trail (the corpus-007 shape, now reachable from Y1 too).
+static void test_binary_resolution_refutes() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_add_binary_clause(k, internalize(-1), internalize(-3));
+  assert(congruence_guard(k));
+  assert(congruence_apply(k) == ApplyResult::Unsat);
+}
+
 // --- the unit channel (D-CONG-UNIT) -----------------------------------------
 // A gate that degenerates under the current representatives is an INFERENCE, not
 // a dead end. Here the closure must first prove x1 ≡ x2 (two AND gates over the
@@ -347,6 +391,9 @@ int main() {
   test_ite_congruent();
   test_no_congruence();
   test_kind_isolation();
+  test_binary_resolution_unit();
+  test_binary_resolution_no_unit();
+  test_binary_resolution_refutes();
   test_xor_cancel_learns_unit();
   test_xor_cancel_refutes();
   test_and_clash_learns_unit();

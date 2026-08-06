@@ -621,6 +621,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.congruence_unjustified,
            (unsigned long long)kernel.stats.congruence_ticks,
            (unsigned long long)kernel.stats.congruence_budget_stops);
+    printf("c congy1      %llu found, %llu units\n",
+           (unsigned long long)kernel.stats.congruence_y1_found,
+           (unsigned long long)kernel.stats.congruence_y1_units);
     {
       uint64_t n_sub = 0, n_elim = 0;
       for (Var v = 0; v < kernel.nvars; v++) {
