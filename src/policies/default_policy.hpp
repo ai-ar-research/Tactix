@@ -437,6 +437,23 @@ public:
     // re-baselined at the point of use (set_entry_limit), so a `meter > limit`
     // pre-check can never fire for one.
     uint64_t thresh = 0;
+    // cadical's `NAMEmaxeff`: an UPPER clamp on this occasion's DELTA, in this
+    // entry's own currency (ledger SP-EFFORT-CEIL-1). `thresh` above is the
+    // floor half and SCHED-B1 landed it; this is the ceiling half, and the row
+    // was miscredited to B1 until SCHED-A3 separated them. 0 = uncapped.
+    //
+    // What it is FOR: our delta is a fixed per-mille of the search work since
+    // this entry last ran, and nothing bounds that from above — an entry the
+    // schedule reaches rarely accumulates an arbitrarily large window, and an
+    // entry that is never cut makes its candidate ORDER irrelevant (SCHED-E1's
+    // premise runs the other way too). `TACTIX_MAXEFF_<RULENAME>=N` overrides,
+    // `TACTIX_EFFORT_CEIL=0` disables every ceiling.
+    uint64_t max_delta = 0;
+    // cadical applies `delta = max(delta, 2*active())` AFTER the ceiling for
+    // elim/subsume (`elim.cpp:787`, `subsume.cpp:357`), so a large formula is
+    // guaranteed a proportional pass even when the clamp bit. Faithful port:
+    // the floor comes second and may lift the delta back above max_delta.
+    bool active_floor = false;
     bool dosed = false;   // apply per-instance to a budget vs one canonical round
     bool retry_advice = false; // rule maintains a per-variable retry bit to consult
     // BATCH rule whose canonical apply reads Kernel::work_budget in its own
@@ -514,6 +531,12 @@ public:
       uint64_t spent = 0;       // meter delta actually consumed
       uint64_t ok = 0;          // applies returning Ok
       uint64_t completed = 0;   // rounds that finished inside their budget
+      // SP-EFFORT-CEIL-1 reachability: occasions whose delta the UPPER clamp
+      // cut, and occasions the `2*active()` floor lifted afterwards. A ceiling
+      // that never clips is inert; one that clips EVERY occasion is a dose
+      // change wearing a parity costume. Both readings must be reported.
+      uint64_t clamped = 0;
+      uint64_t floored = 0;
     } tm;
     // Candidate-order reachability counters, the pre-registered readout for
     // every E1/E2 arm ([[ab-arm-identical-artefacts]]: an arm whose counter did

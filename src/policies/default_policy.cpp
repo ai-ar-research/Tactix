@@ -323,6 +323,12 @@ struct EffortSpec {
   // where the currency is not ticks at all (BVE, Strengthen, SubsumeForward).
   uint64_t Stats::*tick_counter = nullptr;
   uint64_t thresh = 0; // cadical's NAMEthresh; see SlotEntry::thresh
+  // cadical's `NAMEmaxeff` UPPER clamp on the per-occasion delta, in THIS
+  // entry's own currency, and the `2*active()` floor it applies AFTER the
+  // clamp. Ledger SP-EFFORT-CEIL-1; see set_entry_limit for both, and for why
+  // only the entries matching cadical's PROPAGATIONS scheme carry one.
+  uint64_t max_delta = 0; // 0 = no ceiling
+  bool active_floor = false;
 };
 // INVARIANT: merely registering a rule at RuleTier::Inprocess puts it in the
 // slot, so a rule that can be metered needs an entry here — without one it runs
@@ -330,8 +336,37 @@ struct EffortSpec {
 // absentees are the un-titratable closures (Congruence, Substitute: one
 // canonical instance, nothing to dose), which the new-material watermark in the
 // slot loop gates instead.
+// --- the UPPER clamp (ledger SP-EFFORT-CEIL-1) ------------------------------
+// READ AT THE USE SITE, and it corrects the row's own headline. There are
+// THREE reference schemes, not one:
+//   (a) kissat `SET_EFFORT_LIMIT` (kimits.h:135-170) — REFERENCE = search_ticks
+//       − last, floored at `mineffort`·1e6, DELTA = effort·REFERENCE,
+//       LIMIT = OLD + DELTA. Floor only: kissat has **no `maxeffort` option at
+//       all**. OUR budget is a transliteration of exactly this, so against
+//       kissat we already match.
+//   (b) cadical's ticks macro `SET_EFFORT_LIMIT` (limit.hpp:136-164) — neither
+//       floor nor ceiling.
+//   (c) cadical's PROPAGATIONS scheme, and this is the only one with a clamp:
+//       `delta = search_propagations · effort/1000; delta = max(delta, mineff);
+//        delta = min(delta, maxeff); delta = max(delta, 2·active())` — note the
+//       active floor is applied AFTER the ceiling and can lift the delta back
+//       above it. elim `elim.cpp:781-787` 1e7/2e9 · subsume `subsume.cpp:351-357`
+//       0/1e8 (both take the active floor) · transred `transred.cpp:30-36`
+//       0/1e8, cover 0/1e8, condition 0/1e7, walk 0/1e7 (these do not).
+// So the ceiling is ported ONLY to the entries whose currency is the same one
+// cadical clamps, i.e. its propagations-scheme techniques:
+//   BVE           ↔ elim     — currency = resolutions, exactly cadical's
+//   SubsumeForward/Strengthen ↔ subsume — currency = partner visits, cadical's
+//                   `subchecks` (SCHED-B4 made them the same unit)
+// TransitiveReduce deliberately gets NO numeric ceiling: cadical's 1e8 is in
+// PROPAGATIONS and our meter is `transitive_ticks`, a cache-line proxy. The
+// standing method note applies — transfer the ratio, never the unit.
+constexpr uint64_t CADICAL_ELIM_MAXEFF = 2000000000ull;  // elimmaxeff 2e9
+constexpr uint64_t CADICAL_SUBSUME_MAXEFF = 100000000ull; // subsumemaxeff 1e8
+
 constexpr EffortSpec EFFORT_SPECS[] = {
-    {"BVE", 100, meter_bve, true, true, false},
+    {"BVE", 100, meter_bve, true, true, false, nullptr, 0,
+     CADICAL_ELIM_MAXEFF, true},
     {"Probe", 20, meter_probe, true, false, false, &Stats::probe_ticks},
     {"Backbone", 20, meter_backbone, true, false, false, &Stats::backbone_ticks},
     {"TransitiveReduce", 20, meter_transitive, true, false, false},
@@ -340,8 +375,10 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // budget_aware=false the per-mille bounds only how OFTEN a round starts,
     // never how much one round does, and a single round can then own most of a
     // solve. Both poll Kernel::work_budget in their own currency and stop.
-    {"Strengthen", 100, meter_strengthen, false, false, true},
-    {"SubsumeForward", 100, meter_forward, false, false, true},
+    {"Strengthen", 100, meter_strengthen, false, false, true, nullptr, 0,
+     CADICAL_SUBSUME_MAXEFF, true},
+    {"SubsumeForward", 100, meter_forward, false, false, true, nullptr, 0,
+     CADICAL_SUBSUME_MAXEFF, true},
     // kissat factoreffort 50 per mille (options.h:57 — half of
     // vivify/eliminate's 100), currency = factor_ticks. The first dose per
     // solve bypasses the permille formula with kissat's factoriniticks
@@ -949,6 +986,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             e.dosed = s->dosed;
             e.retry_advice = s->retry_advice;
             e.budget_aware = s->budget_aware;
+            e.max_delta = s->max_delta;
+            e.active_floor = s->active_floor;
             // TACTIX_SLOT_PERMILLE=Name:rate[,Name:rate...] (DIAGNOSTIC sweep
             // knob, the shape TACTIX_WALK_PERMILLE has): override a slot
             // entry's effort rate without a rebuild. "How hard to run rule X"
@@ -1014,6 +1053,21 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                      "policy never walks its candidates and a cursor cannot "
                      "take effect");
             e.cursor_enabled = std::strtoul(cv, nullptr, 10) != 0;
+          }
+          // --- the effort CEILING (SCHED-E3 / ledger SP-EFFORT-CEIL-1) ------
+          // `TACTIX_EFFORT_CEIL=0` drops every ceiling (the A/B off arm);
+          // `TACTIX_MAXEFF_<RULENAME>=N` sets one entry's, including on an
+          // entry that has none by default. A deliberately SMALL value is how
+          // the mechanism is shown to be wired at all when the shipped
+          // constants turn out not to bind.
+          if (const char *ec = std::getenv("TACTIX_EFFORT_CEIL"))
+            if (std::strtoul(ec, nullptr, 10) == 0)
+              e.max_delta = 0;
+          knob_name("TACTIX_MAXEFF_", nm);
+          if (const char *mv = std::getenv(knob)) {
+            if (!e.meter)
+              reject("this entry has no meter, so it has no delta to clamp");
+            e.max_delta = std::strtoull(mv, nullptr, 10);
           }
           knob_name("TACTIX_ORDER_", nm);
           if (const char *ov = std::getenv(knob)) {
@@ -2035,7 +2089,30 @@ void DefaultPolicy::set_entry_limit(SlotEntry &e, Kernel &k) {
         uint64_t reference = now - e.anchor;
         if (reference < MIN_EFFORT_TICKS)
           reference = MIN_EFFORT_TICKS;
-        e.limit = e.meter(k) + reference / 1000 * e.permille;
+        uint64_t delta = reference / 1000 * e.permille;
+        // --- the UPPER clamp (ledger SP-EFFORT-CEIL-1) ---------------------
+        // Everything above is kissat's SET_EFFORT_LIMIT (kimits.h:135-170),
+        // which floors the REFERENCE and has no ceiling — kissat ships no
+        // `maxeffort` option at all. The ceiling is cadical's, and only in its
+        // PROPAGATIONS scheme: `delta = min(max(delta, mineff), maxeff)` then
+        // `delta = max(delta, 2*active())` (elim.cpp:781-787,
+        // subsume.cpp:351-357). Ported in that order, to the entries whose
+        // currency is the one cadical clamps (see EFFORT_SPECS).
+        if (e.max_delta && delta > e.max_delta) {
+          delta = e.max_delta;
+          e.tm.clamped++;
+        }
+        if (e.active_floor) {
+          // cadical `active()` = variables neither fixed nor eliminated. Our
+          // decade-accurate analog, the same one Factor's warm-up gate uses.
+          const uint64_t elim = k.stats.bve_eliminated;
+          const uint64_t active = k.unassigned > elim ? k.unassigned - elim : 0;
+          if (delta < 2 * active) {
+            delta = 2 * active;
+            e.tm.floored++;
+          }
+        }
+        e.limit = e.meter(k) + delta;
         // The FIRST Factor dose per solve bypasses the permille formula with
         // kissat's factoriniticks allowance — an effectively unbounded first
         // round (kissat factor.c:1106-1117). See FACTOR_INIT_TICKS.
@@ -2142,7 +2219,8 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
     std::printf(
         "c slot %-18s occ %6llu adm %5llu ok %5llu | dec dis %llu cap %llu "
         "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu dns %llu "
-        "one %llu nv %llu | handed %llu spent %llu completed %llu%s\n",
+        "one %llu nv %llu | handed %llu spent %llu completed %llu | "
+        "maxeff %llu clamped %llu floored %llu%s\n",
         rules[e.rule].name, (unsigned long long)t.occasions,
         (unsigned long long)t.admitted, (unsigned long long)t.ok,
         (unsigned long long)t.dec_disabled, (unsigned long long)t.dec_cap,
@@ -2151,7 +2229,9 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
         (unsigned long long)t.dec_material, (unsigned long long)t.dec_warmup,
         (unsigned long long)t.dec_density, (unsigned long long)t.dec_oneshot,
         (unsigned long long)t.dec_nonviable, (unsigned long long)t.handed,
-        (unsigned long long)t.spent, (unsigned long long)t.completed, balance);
+        (unsigned long long)t.spent, (unsigned long long)t.completed,
+        (unsigned long long)e.max_delta, (unsigned long long)t.clamped,
+        (unsigned long long)t.floored, balance);
   }
 }
 
