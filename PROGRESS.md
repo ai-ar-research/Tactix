@@ -19,11 +19,11 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = find out what Sweep's governor is costing T3**
 
-**Post-Stage-D merged-tree fuzz: GREEN.**  (random-policy × native DRAT) and 
+**Post-Stage-D merged-tree fuzz: GREEN.** `1584638` (random-policy × native DRAT) and `1584639`
 (× native LRAT), **6000 cases each, 0 failures**, restatement path reached on 1669 cases — the first
-fuzz of the merged combination of this session's branches (logs in ). **IN FLIGHT:** the
-Sweep-governor investigation's probe jobs (//). Tree clean, pushed, ctest **44/44**
-(, ,  all green), corpus 14/14.
+fuzz of the merged combination of this session's branches (logs in `tools/fuzz/`). **IN FLIGHT:** the
+Sweep-governor investigation's probe jobs (`swD`/`swemit`/`swE`). Tree clean, pushed, ctest **44/44**
+(`config_wiring`, `effort_specs`, `option_coverage` all green), corpus 14/14.
 
 **▶ THE SWEEP GOVERNOR QUESTION IS ANSWERED — see the T3 block.** Sweep ON costs Tier C a solve and
 49 PAR-2; with it off the CaDiCaL half of T3 would be MET. The cost is TWO instances and Sweep wins
