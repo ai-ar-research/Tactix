@@ -1322,6 +1322,27 @@ sweep-stress + forced-general + ASCII DRAT). Reachability at the SOURCE on the s
 1,468 rounds, 7,092 environments, 3,441 equivalences, **3,558 binaries and 293 general-path pairs** over
 1,497 generated cases — both proof paths non-zero, so no green leg here is vacuous. Report
 `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
+### 2026-08-05 — SCHED-G2 + SCHED-H1 (C1/C2): fuzz, five legs, 0 failures
+
+ctest **44/44**, all four checkers green (`config_wiring` · `effort_specs` · `option_coverage` ·
+`check-progress`), regression corpus **14/14 on every leg**. Debug build (`-O1 -g` + ASan/UBSan).
+
+| job | leg | cases | failures |
+|---|---|---|---|
+| `1585205` | DefaultPolicy × native DRAT | 10,000 | **0** |
+| `1585206` | `--random-policy` × **native LRAT** | 6,000 | **0** |
+| `1585207` | `--random-policy` × native DRAT | 6,000 | **0** |
+| `1585208` | **`TACTIX_STOP_FUZZ=97`** × `--random-policy` × native LRAT | 6,000 | **0** |
+| `1585209` | **`TACTIX_SUBSUME_SHADOW=1`** × `--random-policy` × native DRAT | 6,000 | **0** |
+
+The last two are the legs that matter here and neither existed before. **`1585208` is the abort leg**: the
+stress cadence bypasses the 256-poll window, so every C1/C2 poll site is live on cases far smaller than one
+window — the exact vacuity that made task #10's abort paths pass 40,000 cases while inert. Its verdicts
+(SAT 3041 / UNSAT 1902) match the un-stressed `1585206` (SAT 3041 / UNSAT 1887, the difference being
+timeouts resolved, not answers changed), so interrupting a round mid-way changed no verdict and every UNSAT
+still produced a checkable LRAT chain. **`1585209`** fuzzes shadow mode itself, i.e. C1 declining an
+inference it found — the soundness direction the G2 instrument depends on.
+
 ### 2026-08-05 — SCHED-G2 (2/2): C1 is INERT — C2 absorbs 698,341 of its 698,351 subsumptions
 
 Probe `1585160` (23 tasks, counters only, `benchmarks/probes/g2-c1-shadow.*`, binary `build/pin-g2h1` at
