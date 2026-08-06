@@ -65,7 +65,8 @@ correctness one. **If Sweep is the cause, the fix is its effort share, NOT switc
 ([[no-rule-off-configs]]; every implemented proof rule ships ON).
 
 **▶ STAGE D IS LANDED AND ENTIRELY UNPRICED** (branch `sched-stage-d`, three commits, ctest 43/43, fuzz
-green on DRAT / native LRAT / `--random-policy`×DRAT). D1 authored order · D2 the two clocks · D3 the slot
+green on DRAT / native LRAT / `--random-policy`×DRAT; **STAGE F re-fuzzed the same three legs on top,
+10,000 cases each, 0 failures — jobs `1584731`/`1584732`/`1584733`**). D1 authored order · D2 the two clocks · D3 the slot
 gates. **D2 is the one expected to move numbers** (probing at ~2×, not the ~5× the ledger headline implies —
 see its Log entry). The three A/B specs are in the Log entries and are the next Stage-D work; D3's spec
 says to check its `blocked` counter first and abandon the window if it is zero.
@@ -738,7 +739,13 @@ instrument before spending a tier window on a mechanism.
   resolvents are C2 material, so a productive C2 would hold the bound at 0 forever — SP-SLOT-5's failure
   exactly). The reference's REAL wire (an incomplete C1/C2 holds the elimination outer loop open) landed
   instead, off arm `TACTIX_SUBSUME_HOLD=0`, and is **measured INERT** — sentinel `c subhold` = 0.
-- [ ] **SCHED-F3 · X1/X2/X4 repetition suppressors + the delay ladder for metered entries** `[arch]`
+- [x] **SCHED-F3 · X1/X2/X4 repetition suppressors** `[arch]` — landed 2026-08-05. BCE, HyperTernaryRes and
+  Instantiate now filter and resume their canonical rounds on the substrate. BCE forced the substrate's
+  second half: it is the one consumer that needs DELETIONS (removing an opposite occurrence is what blocks
+  a clause), so `Kernel::removed` is a second stamp array rather than folding deletions into `touched`,
+  which would have weakened C1/C2's filter where the measured saving is. **The delay ladder for metered
+  entries is DEFERRED, not done** — it lives in DefaultPolicy's slot loop (`!e.meter`) and extending it to
+  metered entries is per-entry productivity bookkeeping, i.e. Stage E's file and Stage E's shape.
 - [ ] **SCHED-F4 · Factor per-literal marks** `[arch]` · [ ] **SCHED-F5 · Vivify yield package** `[arch]`
 
 #### Stage G — the genuine revamps (each needs its own design pass)
@@ -838,6 +845,39 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — SCHED-F3: BCE is why the substrate has TWO stamps
+
+X1 BCE, X2 HyperTernaryRes and X4 Instantiate all got the F1/F2 treatment — filter the canonical round,
+re-arm the tail, advance the watermark — but BCE does not fit the substrate as F1 built it. **A clause
+becomes blocked on `l` either because it appeared or because an opposite occurrence WENT AWAY**, and
+deletion is deliberately not a `touched` producer (it can never create a subsumer, and marking on it would
+weaken C1/C2's filter, which is where the measured saving is). Folding deletions in would have paid for
+BCE out of C1/C2. So `Kernel::removed` is a **second array on the same clock**, and BCE reads
+`kernel_changed_since` while everyone else reads `kernel_touched_since` — which is cadical's own line:
+`mark_added` and `mark_removed` set different flags (`internal.hpp:1125-1137`), and `block.cpp:730-733`
+says outright "we do not have to try BCE on it again until irredundant clauses with its negation are
+removed". Pinned by `test_bce.cpp::test_touch_filter_is_policy_only`, whose second half asserts that a
+DELETION with no add re-arms the literal.
+
+Two more per-rule readings of the reference rather than a copy of C1's: HyperTernaryRes uses `need`-free
+per-pivot marking because cadical's `ternary` flag is per variable and its comment states the same
+predicate (`ternary.cpp:258-266`); Instantiate uses `need = 1`, not 2, because its probe is a
+PROPAGATION and one new clause over one of the candidate's variables can change the outcome — the
+"a new subsumer needs two shared variables" argument does not transfer. Instantiate's filter is also
+deliberately WEAKER than cadical's, which sets a per-clause `instantiated` bit once and never resets it
+(`instantiate.cpp:32,211`): ours re-offers the clause as soon as anything in it changes, recovering the
+instantiations the once-ever bit forfeits.
+
+**Unlike C1/C2, these three rounds ARE budget-cut under DefaultPolicy** (all three are `budget_aware`,
+HyperTernaryRes additionally has the `ternarymaxadd` output governor), so their resume path is reachable
+and its `rearmed` counters are live rather than test-only.
+
+**▶ NOT DONE: the delay ladder for metered entries.** It is `!e.meter`-gated inside DefaultPolicy's slot
+loop, and giving metered entries a productivity ratio is per-entry policy bookkeeping in the file Stage E
+owns. Deferred deliberately rather than collided on.
+
+ctest **44/44**.
 
 ### 2026-08-05 — SCHED-F2: resume by RE-ARM, and the bound coupling T5 asks for is refused as self-wedging
 

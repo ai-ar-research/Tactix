@@ -185,8 +185,33 @@ static void test_guard() {
   assert(!instantiate_guard(k));
 }
 
+// SCHED-F3 · N1 REGRESSION for the touched-epoch filter. With the watermark
+// advanced past everything the canonical ROUND declines, but `instances()` and
+// the single-candidate `apply_instance` path must stay complete.
+static void test_touch_filter_is_policy_only() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  addn(k, {1, 2, 3});
+  addn(k, {-1, 4});
+  addn(k, {-1, -4});
+  k.instantiate_touch_mark = k.touch_epoch;
+  assert(instantiate_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.instantiate_mark_skipped == 1);
+  const std::vector<RuleVTable> &rules = tactix_rules();
+  const RuleVTable *v = nullptr;
+  for (const RuleVTable &r : rules)
+    if (!std::strcmp(r.name, "Instantiate"))
+      v = &r;
+  assert(v && v->guard(k));
+  uint64_t out[8];
+  assert(v->instances(k, out, 8) == 1); // NOT narrowed by the mark
+  assert(v->apply_instance(k, out[0]) == ApplyResult::Ok);
+  assert(k.stats.instantiated == 1);
+}
+
 int main() {
   test_removes_rare_literal();
+  test_touch_filter_is_policy_only();
   test_ternary_becomes_binary();
   test_occurrence_limit_rejects();
   test_unit_avoidance();

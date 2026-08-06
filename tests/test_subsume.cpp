@@ -299,15 +299,22 @@ static void test_touch_producers() {
   assert(k.touch_epoch == after_large + 2);
   const uint64_t after_bin = k.touch_epoch;
 
+  // Deletion goes to the OTHER stamp (Kernel::removed): it can never create a
+  // subsumer, so the subsumption family must not see it — but BCE must
+  // (SCHED-F3). Both share the clock, so `touch_epoch` still moves.
+  const Var v1 = var_of(internalize(1));
+  const uint64_t touched_v1 = k.touched[v1];
   kernel_delete_binary(k, internalize(1), internalize(2));
-  assert(k.touch_epoch == after_bin && "deletion creates no new inference");
+  assert(k.touched[v1] == touched_v1 && "deletion creates no new subsumer");
+  assert(k.removed[v1] > after_bin && "BCE must see the deletion");
+  const uint64_t after_del = k.touch_epoch;
 
   // a root fix touches exactly the fixed variable (kernel_touch_sync_fixed)
   kernel_assign_unit(k, internalize(4));
   kernel_touch_sync_fixed(k);
-  assert(k.touch_epoch == after_bin + 1);
+  assert(k.touch_epoch == after_del + 1);
   kernel_touch_sync_fixed(k); // idempotent
-  assert(k.touch_epoch == after_bin + 1);
+  assert(k.touch_epoch == after_del + 1);
 }
 
 static void test_proof_deltas() {
