@@ -2809,11 +2809,15 @@ DefaultPolicy runs **zero** Congruence rounds over 120 generated cases, and conc
 on seed `20260806` DefaultPolicy runs **169** Congruence rounds and reaches Y1 on **2 cases / 3 units**.
 So those legs are **thin, not vacuous** — and the congruence-stress legs are the meaningful ones at
 **554 rounds, 14 cases, 15 units**, ~5× the coverage. Both readings counted at the source
-(`benchmarks/probes/scratch/g4/y1_reach.py`, job `1585606`). Legs, 10,000 cases each: **`1585595` DRAT
-0 failures · `1585596` native LRAT 0 · `1585599` `--random-policy`×DRAT 0 · `1585601`
-congruence-stress×LRAT 0** · `1585603` congruence-stress×DRAT and `1585604`
-congruence-stress×**budget**×LRAT in flight at the time of writing (the sweep's budget poll is a third
-stop site, which is what the budget leg exists for).
+(`benchmarks/probes/scratch/g4/y1_reach.py`, job `1585606`). **Legs, 10,000 cases each, 0 failures:
+`1585595` DRAT · `1585596` native LRAT · `1585599` `--random-policy`×DRAT · `1585601`
+congruence-stress×LRAT · `1585603` congruence-stress×DRAT** · `1585608`
+congruence-stress×**budget**×LRAT in flight (the sweep's budget poll is a third stop site, which is what
+the budget leg exists for; `TACTIX_CONG_STRESS_BUDGET=4096` + `TACTIX_STOP_FUZZ`). *Method note for
+whoever runs the next worktree-isolated leg: `tools/solvers/bin` and `tools/checkers/bin` are gitignored
+and live only in the main checkout, so a worktree needs both symlinked before any fuzz leg will start —
+and deleting them while a leg is RUNNING kills it mid-run (that is how `1585604` died at ~7,200 cases,
+0 failures to that point).*
 `test_congruence` pins the channel three ways: it fires with **no gate extracted at all**, it stays
 silent on two non-clashing binaries, and an opposite-sign pair in one sweep **refutes** via the shared
 batch rather than asserting a false unit.
