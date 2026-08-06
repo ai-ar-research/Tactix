@@ -1,0 +1,12 @@
+rx-b1|or_randxor_k3_n540_m540|300|facon-bound1
+rx-b2|or_randxor_k3_n540_m540|300|facon-bound2
+rx-b4|or_randxor_k3_n540_m540|300|facon-bound4
+fq-b1|unsat-set-b-fclqcolor-10-07-09|300|facon-bound1
+fq-b2|unsat-set-b-fclqcolor-10-07-09|300|facon-bound2
+fq-b4|unsat-set-b-fclqcolor-10-07-09|300|facon-bound4
+ctx-b1|ContextModel_output_7_3_9|1200|facon-bound1
+ctx-b2|ContextModel_output_7_3_9|1200|facon-bound2
+ctx-b4|ContextModel_output_7_3_9|1200|facon-bound4
+nb5-b1|mp1-Nb5T15|1200|facon-bound1
+nb5-b2|mp1-Nb5T15|1200|facon-bound2
+nb5-b4|mp1-Nb5T15|1200|facon-bound4
