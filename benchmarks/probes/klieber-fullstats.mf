@@ -1,0 +1,13 @@
+f00-base|base|none|900
+f01-legacy|legacy|none|900
+f02-bvedens0|bvedens0|none|900
+f03-troff|troff|none|900
+f04-bvedens0troff|bvedens0troff|none|900
+f05-troff|troff|bumplim9|900
+f06-troff|troff|bumplim11|900
+f07-troff|troff|bumplim8|900
+f08-troff|troff|bumplim13|900
+f09-bvedens0troff|bvedens0troff|bumplim9|900
+f10-bvedens0troff|bvedens0troff|bumplim11|900
+f11-bvedens0troff|bvedens0troff|bumplim8|900
+f12-bvedens0troff|bvedens0troff|bumplim13|900
