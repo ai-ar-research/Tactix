@@ -473,6 +473,10 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   were verified byte-identical before merging, so the dedup is identity-preserving; the DRIFTED
   parser (`adversarial_policy.cpp`, `strtoul` with no negative guard, so `TACTIX_ADV_BURST=-1`
   became 4294967295) is a **separate commit**, because that one changes behaviour.
+  **Evidence for all four: identity 222/222 per commit (888 comparisons, job `1587396`, harness
+  anti-vacuity tested), ctest 47/47 Release + Debug ASan, five conformance checkers green, and three
+  fuzz legs of 10 000 cases + corpus with 0 failures (`1587403`/`1587404`/`1587405`).** `RV-S31` also
+  gets a sharper number out of it — see the Log entry.
 - **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
   highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the
@@ -1382,6 +1386,13 @@ carry those cases. **The harness was anti-vacuity tested rather than trusted**
 binary (a second `del` per large-clause deletion + a doubled `propagations` increment) and it **must and
 does MISMATCH: 148 of 222**, with both compared fields shown live — `corpus-002` differs in the PROOF
 sha, `corpus-003` in the COUNTER hash alone. A green identity harness that cannot go red is worth nothing.
+
+**▶ FUZZ: three legs on the Debug ASan/UBSan build at HEAD, 10 000 cases each + the 14-entry corpus, 0
+failures** — DRAT (`1587403`), native LRAT (`1587404`), `--random-policy` × DRAT (`1587405`). **The rp leg
+independently corroborates `RV-S31` at fuzz scale and its number is worse than the report's floor: 1730 of
+10 000 cases (17.3 %) TIMED OUT**, against 297/10 000 (3.0 %) for DefaultPolicy on the same generator and
+the same binary. So that leg's real N is ≈8 270, and the 16 % the review measured over 74 cases was not a
+small-sample artefact. Read every historical "`--random-policy` × 10 000, 0 failures" claim accordingly.
 
 **▶ THREE THINGS THAT COULD NOT BE DEDUPLICATED BEHAVIOUR-PRESERVINGLY.** Each is a finding, not an
 omission, and each is now a note in the source:
