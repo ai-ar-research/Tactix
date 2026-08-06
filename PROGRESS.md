@@ -1080,6 +1080,26 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-06 — VOID WINDOW: the Sweep-governor Tier C A/B is not usable, and why
+
+`20260805-234459-C-govon` (array `1584791`) **must not be cited.** Both our arms read **25/30** where they
+have read 28–29/30 all evening, and the cause is the measurement environment, not the solver:
+
+- **4 array tasks were OUT_OF_MEMORY-killed** at 8 G/cpu (`128_125` died at t=24 s rather than timing out).
+- **336 job records touched node017 during the window's 21 minutes**, and the window was node017-pinned.
+- A 30-instance Tier C probe from the R7 investigation (`1585043`) overlapped it for ~10 of those 21
+  minutes, partly on the same node.
+
+**Root cause is coordination, not any one agent.** Eight parallel agents were each told "small sbatch
+probes are fine" with no cross-agent budget, so collectively they saturated the partition. Each probe was
+individually reasonable. **The standing rule this yields: correctness probes may run concurrently
+(counters are contention-invariant), but any window whose OUTPUT is a time must own a quiet partition** —
+check `squeue` is clear of other agents' work before submitting, not merely clear of tier arrays.
+
+The Sweep governor fix itself is unaffected: its evidence is counters and per-phase splits
+(`spent/handed` 73.2× → 1.0005×, build 304.835 s vs sub-solver 6 ms), which contention cannot move.
+**Owed: re-run this A/B on a quiet partition before D2 is priced.**
+
 ### 2026-08-06 — Track R · R7 CLOSED WITHOUT CODE: X5 `Condition` needs a witness CUBE, and `ρ` holds one literal
 
 Branch `track-r7-condition`. The last unimplemented family in Track R's inventory, closed as a
