@@ -119,6 +119,18 @@ struct Stats {
   // reduce_apply_refs already does, so it costs nothing.
   uint64_t tier2_band_dynamic = 0;
   uint64_t tier2_band_static = 0;
+  // Reduce's whole-arena enumeration walk, and the leading run of it a kissat
+  // `first_reducible` watermark (reduce.c:161) would skip. The pair sizes a
+  // bound we do NOT implement: kissat's skip is large because its collector
+  // partitions the arena (collect.c:213 move_redundant_clauses_to_the_end)
+  // while ours preserves order, so the watermark is only worth what these
+  // measure. Counted in `reduce_candidates`; `reduce_apply_refs` walks the same
+  // arena TWICE more (the aging tick and the SCHED-F6 survivor envelope) and
+  // the watermark would bound all three, so Reduce's true arena traffic is 3x
+  // `reduce_scan_words`.
+  uint64_t reduce_scans = 0;
+  uint64_t reduce_scan_words = 0;
+  uint64_t reduce_skippable_words = 0;
   uint64_t reason_bumped = 0;      // extra vars marked by reason-side bumping
   uint64_t reason_bump_rounds = 0; // conflicts the reason-side pass ran on
   uint64_t reason_bump_aborted = 0; // rounds rolled back at the mark limit

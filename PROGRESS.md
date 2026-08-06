@@ -1031,8 +1031,10 @@ instrument before spending a tier window on a mechanism.
   the X1/X2/X4 share is DONE** (see its Log entry), C1/C2 and Vivify are owned separately. Tick the item
   only when all three land. · [x] **SCHED-H2** per-solve reset of
   restart/reduce/rephase/mode/reorder/averages/walk_anchor (2026-08-05; `DefaultPolicy::reset_schedule`,
-  `tests/test_solve_reset.cpp`) · [ ] **SCHED-H3** Reduce `first_reducible` scan
-  bound
+  `tests/test_solve_reset.cpp`) · [x] **SCHED-H3** Reduce `first_reducible` scan
+  bound — **CLOSED, measured-marginal, NOT implemented** (2026-08-06; the bound binds on 40 % of the
+  words and the words are 0.15 % of the propagation cache-line traffic — see the Log entry before
+  re-opening it)
 
 **▶ WHY THIS SERVES PHASE 6 (the user's explicit requirement).** Every `[arch]` item adds *observability or control* the learned policy needs and
 cannot get today: A1 gives per-entry occasions/declines/yield (the reward-shaping signal, and the labels the §5.6 admission exhibit lacks); B2's
@@ -1117,6 +1119,69 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
+### 2026-08-06 — SCHED-H3: the bound binds on 40 % of the words, and the words are 0.15 % of the traffic
+
+**CLOSED, measured-marginal, and deliberately NOT implemented.** The row is real — we are cruder than
+kissat here — but the thing it makes cheaper is not worth a new kernel invariant, and the reason our
+version of the bound would under-deliver is structural, not a tuning question.
+
+**WHAT THE REFERENCE BOUNDS.** kissat keeps `solver->first_reducible`, the arena offset of the earliest
+redundant clause, and starts BOTH the candidate collection and the `used`-aging tick there — `reduce.c:161`
+`reference start = compact ? 0 : solver->first_reducible;` feeding `collect_reducibles`, which ages in the
+same pass. The watermark is maintained at three sites (`collect.c:153-196`: `update_first_reducible`,
+`kissat_update_first_reducible`, and the sweep's recomputation). **cadical has no equivalent.** We walk the
+whole arena **three** times per reduce — `reduce_candidates` to enumerate, then `reduce_apply_refs` to age
+and (since SCHED-F6, same day) to publish the survivor envelope — where the audit
+(`docs/design/2026-08-04-n4-scheduling-parity-audit.md` §8, `WE_ARE_CRUDER`, severity **low**) recorded
+two. The watermark would bound all three: every one of them only reads redundant clauses.
+
+**THE MEASUREMENT** (jobs `1584979` + `1585096`, Tier B + Tier C = 58 instances, 400 s cap, counters only —
+`Stats::reduce_scans/_scan_words/_skippable_words` on the `c redscan` line, so the numbers are
+contention-invariant and no wall clock is claimed; script `benchmarks/probes/h3-redscan.sh`, summary
+`…-summarize.py`). Measured on this branch over base `009a4e2`, i.e. **before** the Sweep-governor and
+Stage-F merge; the verdict is an order-of-magnitude one and neither merge changes Reduce's arena walk in
+kind — SCHED-F6 adds a third walk, which is folded in below rather than re-measured. 46 answered, 3813 reductions, and the skippable figure is deliberately the OPTIMISTIC
+reading (a garbage redundant clause does not pin the watermark), i.e. an **upper bound** on the win:
+
+| | value |
+|---|---|
+| enumeration walk, all instances | 14,765 M arena words = **59.1 GB** read |
+| skippable by the watermark | 5,942 M words = **23.8 GB**, **40.2 %** |
+| walk as a share of propagation cache-line traffic | **0.15 % aggregate** (the headline), **median 0.23 %**, max **3.25 %** (`T105.2.0`) |
+| per-instance skip % | min **0.0**, median **17.7**, max **98.8**; **11 of 57 under 1 %** |
+
+**Multiply the first two rows and the share by 3** for the aging and survivor-envelope walks. So the honest
+sizing: Reduce's arena traffic is ~0.7 % of the propagation proxy at the median and ~9.8 % at the extreme
+(`T105.2.0`, a 400 s timeout with 31 reductions), and the bound removes 40 % of that — **~0.3 % median,
+~3.9 % at the one worst instance**, against a proxy that itself **overstates** the time, because the arena
+walk is a sequential prefetchable stream while propagation's ticks are random-access watch-list lines.
+
+**WHY OUR SKIP IS BOTH SMALLER AND ERRATIC — the part that decides the row.** kissat's watermark is a stable
+`[irredundant | redundant]` boundary because its collector RE-PARTITIONS the arena at the end of every
+reduce (`collect.c:213 move_redundant_clauses_to_the_end`, called from `kissat_sparse_collect`,
+`collect.c:626`). Our `kernel_collect_garbage` copies live clauses **in order** and never partitions, so the
+watermark is pinned by whichever surviving redundant clause happens to sit earliest — hence 11 instances
+under 1 % and a 0.0 % floor. During-search rules that add IRREDUNDANT clauses (BVE resolvents, Factor
+definitions, Vivify) append them after the learned ones, so the two classes stay permanently interleaved.
+**Porting the watermark alone buys the smaller half of kissat's win; the partitioning collector that buys
+the other half is not a low-severity row.**
+
+**Gates for the counters themselves:** ctest **45/45**, all four checkers green, corpus 14/14, and the same
+merged-tree fuzz legs as H2 (`1585219` / `1585222`, 6000 cases each, 0 failures). The C10 counters in
+`reduce_apply_refs` are untouched — `test_restart_reduce::test_tier2_band_tracks_the_live_tier` passes.
+
+**What ships:** nothing but the three counters and the `c redscan` line, kept so the claim stays auditable
+and so the answer can be re-checked in one array if the collector ever partitions — which is the change
+that would make the bound worth having. No knob, no Kernel watermark, no new invariant
+(the honest form of SCHED-E3's outcome: price it, publish the number, decline).
+
+**Two adjacent rows this measurement prices, NOT taken here.** (a) The audit's neighbour — kissat's
+`if (!clauses_redundant) return false` early-out, which we lack and pay the full walk plus a sort of an
+empty vector for. (b) **FUSING the three walks**, which is now the better-value change of the two and needs
+no new invariant at all: kissat does the aging inside `collect_reducibles`. Not taken because
+`reduce_candidates` is deliberately side-effect-free so an introspecting policy can enumerate without aging
+the database, and the F6 envelope has its own contract — fusing means renegotiating both, which is a
+rule-contract question, not a scan bound.
 ### 2026-08-06 — SCHED-H1 (the X1/X2/X4 third): `budget_aware` was never the same thing as interruptible
 
 `H1` is split three ways by file; **this entry covers BCE / HyperTernaryRes / Instantiate only.** C1/C2 and
