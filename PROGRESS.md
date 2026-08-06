@@ -19,7 +19,7 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = find out what Sweep's governor is costing T3**
 
-**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **43/43**, corpus 14/14, and the merged tree is
+**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **44/44** (`option_coverage` added by SCHED-A3), corpus 14/14, and the merged tree is
 fuzz-GREEN at two seeds (six legs, 6000 cases each, 0 failures — jobs `1584462`–`1584467`).
 
 **▶▶ THE MERGED-TREE FUZZ RUN'S 38 "LRAT" FAILURES ARE NOT OURS — HEAD IS NOT FUZZ-RED.** Job `1584461`
@@ -542,6 +542,12 @@ ramp-ceiling 8-vs-16 choice.
 
 **Track exit (checked at the phase-3 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT` without a closure or an accepted deviation
 row carrying a measurement, AND the ledger has been regenerated from the REFERENCE's option set (SCHED-A3).
+**▶ EXIT STATUS (2026-08-05).** Half two is **DONE and now machine-checked** (SCHED-A3, ctest `option_coverage`). Half one is **NOT** met: of §13.2's
+HIGH rows, six are now closed (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B, `SP-VIVIFY-1` by C1, `SP-FACTOR-2` by C5) or accepted
+(`SP-FACTOR-1`, §13.3), and **eight remain open**: `SP-SLOT-1` (D2) · `SP-SLOT-4` (D1) · `SP-SLOT-5` (D3) · `SP-REPEAT-*` (F1–F5) · `SP-TIER-2`
+(supersedes C1's scope, **unassigned**) · `SP-EFFORT-CEIL-1` (**unassigned**; B1 gave the per-entry `thresh`, not the upper clamp) · `SP-BVE-GATE-1`
+(**unassigned**) · `SP-JUMP-1` (**unassigned**). **That list IS the remaining track work** — Stage D covers three of the eight, and the four
+unassigned A3 rows have no stage.
 
 - [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
   slot (beside BVE's identical, N1-clean one), reaching the rule as `Kernel::factor_admit`, default TRUE. Both pre-registered gates passed:
@@ -576,15 +582,21 @@ instrument before spending a tier window on a mechanism.
   tests (they call `sweep_apply` directly) and fuzz (it is a *performance* regression) all missed it.
   **Open, found while classifying:** `Congruence`'s alternate governor bounds occasions, not work — one application is priced at ~44 s on
   `T105.2.0` (`default_policy.cpp:1044`). Metering it is a task, not an accepted shape
-- [ ] **SCHED-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — **the ENUMERATION PASS LANDED 2026-08-04; the CONFORMANCE
-  TEST is what remains.** Landed: `docs/implementation-notes.md` §13.4–§13.6 — all **418** options (kissat 161 + cadical 257), **148 newly read at
+- [x] **SCHED-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — **BOTH HALVES DONE.** Enumeration (2026-08-04):
+  `docs/implementation-notes.md` §13.4–§13.6 — all **418** options (kissat 161 + cadical 257), **148 newly read at
   their use site**, 83 dismissed, 187 matched to a pass-1 row, **15 new gaps and 6 corrections**.
+  **Conformance test (2026-08-05): `tools/docs/check-option-coverage.py`, ctest `option_coverage` (44/44).** It re-enumerates both option sets from
+  the reference headers and fails on any option the ledger does not account for: 83 DISMISSED (roster parsed FROM §13.6, globs expanded against the
+  live set and every published count re-checked), 124 CARRIED (22 script-side entries for family rows that do not spell members out, each naming an
+  anchor that must still exist), 209 CITED (name appears in §13 + the frozen audit + the diagnosis + this track), 2 EXEMPT (`radixsortlim`,
+  `terminateint` — sort cutoff and callback cadence, named and reasoned rather than globbed away). **Five deliberate breaks verified**: deleting the
+  `SP-BVE-BWD-1` row orphans `elimbackward`; deleting `SP-ARENA-1` fires both the anchor check and two UNACCOUNTED options; a fake `sweepslack`
+  option fails; a fake option hidden INSIDE the dismissed `block*` glob fails on the group count; an unknown option-macro spelling aborts rather
+  than under-counting. It is a **coverage** check, not a semantic one — §13.5's 6 corrections are the base rate for what it cannot verify.
   **The 4 HIGH gaps, which are the actionable list:** `SP-BVE-GATE-1` ITE/XOR gate extraction is absent, so BVE is charged the full P·N where both
   references pay P+N−2 (a per-application ACCEPTANCE lever, i.e. the T4 antidote) · `SP-TIER-2` the dynamic tiers have ONE consumer here and EIGHT
   in cadical via `likely_to_be_kept_clause`, which **supersedes SCHED-C1's scope** · `SP-EFFORT-CEIL-1` every reference budget has an UPPER clamp
   and ours has only a floor · `SP-JUMP-1` `jumpreasons`, default-ON, per-conflict, free.
-  **Remaining:** the machine-checkable half — a test that FAILS when an option has no row. Pair it with SCHED-A2 (same shape: a table plus a
-  conformance check).
   **Standing method note, both traps live in this pass:** **read MACROS, not just grep** — cadical's `factorthresh` is token-pasted
   (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never appears literally and reading it as dead code
   produced two wrong published claims; and **polarity is not inferable from a name** (`factordelay`=0 is the MOST delayed setting)
@@ -616,8 +628,11 @@ instrument before spending a tier window on a mechanism.
 - [x] **SCHED-C1 · Vivify ← the dynamic tiers** `[wire]` — `VIVIFY_TIER2 = 6` while `k.tier2` was recomputed every reduce and read by NOTHING;
   kissat's `vivify_tier2_limit` reads the dynamic tier whenever `vivifyfocusedtiers` is set, **and that option defaults to 1**. Both scope sites
   now read `k.tier2`; the test pins that moving the tier moves the candidate set. *(Scope superseded by `SP-TIER-2` — cadical has eight consumers.)*
-- [ ] **SCHED-C2 · Factor acceptance bound ← `bve_level_`** `[wire]` — **do NOT re-try the naive port**: it is measured negative 3× and kissat at
-  `--eliminatebound=0` is fine, so this needs a NEW mechanism or an accepted-deviation row, not a re-run.
+- [x] **SCHED-C2 · Factor acceptance bound ← `bve_level_`** `[wire]` — **CLOSED AS AN ACCEPTED DEVIATION, NOT AS CODE** (2026-08-05): the wire is
+  refuted three ways (port REVERSED, mp1 5.3 → 14.9 s · no static bound separates winners from losers, bound 8 costs `sted5` 19 → 274 s · with
+  composition ON the arms are byte-identical because `bve_level_` is **0 where Factor runs**, so the coupling cannot even fire), and kissat with its
+  OWN bound pinned to 0 is fine-or-better (`mod4block` 18.35 → 6.54 s). Row + measurements + removal path (R1 §5.6 admission exhibit · R2 show
+  `bve_level_` moved at Factor's occasions BEFORE re-running · R3 SP-BVE-GATE-1 changes what the bound means): `implementation-notes.md` §13.3.
 - [x] **SCHED-C3 · BVE bound-ramp advance guarded to phase completion** `[wire]` — the budget half was already there (`!dose_cut`); the FIXPOINT
   half was not. kissat advances only when `complete = !remain && !last_round_eliminated` (`eliminate.c:544`), and the second conjunct matters: a
   pass that still eliminated something has not exhausted the CURRENT bound.
