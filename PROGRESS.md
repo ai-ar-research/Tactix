@@ -821,7 +821,10 @@ leaves only a STATIC per-instance one — and the best such separator measured 4
   `implementation-notes.md` §10. `4482bb5`. **Ships OFF** (`TACTIX_REORDER`, kissat's 1/2 values) — the one Track R result that is not an
   inventory tick: **parity on Tier B's UNSAT half (10.16 → 10.11) and 3.4× worse on its SAT half (5.28 → 16.99)**, a SAT-vs-UNSAT context axis no
   other §5.6 family carries. **Scope: policy op, NOT a proof rule — the all-rules-ON directive does not cover it; ask before flipping**
-- [ ] **R5 · V5 `Sweep` + the embedded sub-solver** (kissat `sweep.c`+`kitten.c`; §11 O11) — the largest single item in kissat's own ablation
+- [x] **R5 · V5 `Sweep` + the embedded sub-solver — COMPLETE 2026-08-06** (S-a…S-f all closed; the
+  rule's own YIELD remains a separate open problem — `SP-SWEEP-2`/`SP-SWEEP-3`, and the N4 audit
+  measured 1,226,656 candidate checks for **1** equivalence on `b22_1` against kissat's 545)
+- ~~R5 (old text)~~ **V5 `Sweep` + the embedded sub-solver** (kissat `sweep.c`+`kitten.c`; §11 O11) — the largest single item in kissat's own ablation
   (+14 alone) and the biggest build; also unlocks kitten-based **definition extraction** for E1 (the last E1 gap, +6.1 to kissat). Design
   `docs/design/v5-sweep-design.md`: O11 says WRITE a minimal sub-solver rather than vendor kitten (verbatim copying is barred, and we need
   LRAT-grade antecedents kitten's core does not give); the real risk is the proof obligation — a swept equivalence is entailed but NOT RUP.
@@ -848,7 +851,7 @@ leaves only a STATIC per-instance one — and the best such separator measured 4
   - [x] **S-e** emission via the general path — the sub-solver's core mapped back to main-formula ids and replayed as a resolution chain; anything
     unmappable **declines**. Worth 8 of 4380 claims on random formulas (larger on miters). It shipped with the inverted-parity N2 breach, since
     fixed — see the N2 row
-  - [ ] **S-f · scheduling.** Sweep IS scheduled (kissat's own 100‰ `sweepeffort`) and budgeted, and since 2026-08-05 the budget is
+  - [x] **S-f · scheduling — CLOSED 2026-08-06, governor ON.** Sweep IS scheduled (kissat's own 100‰ `sweepeffort`) and budgeted, and since 2026-08-05 the budget is
     **enforced where the work happens** — `sweep_env_build` polls the round ceiling inside the occurrence walk, not only between seeds
     (`SweepBudget`; cadical's `kitten_ticks_limit_hit` discipline). Before that one seed could outspend the round dose **73×** and the
     scan was uninterruptible. Overshoot is now ≤1.005× on all four probe instances; `constraints_18_0.3_2` **−475.6 s**,
@@ -1489,6 +1492,37 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — S-f CLOSED: the governor stays ON, and the replicate arm settled the noise question
+
+Window `20260806-150225-B-govon` / `20260806-150228-C-govon`, git `9fd5fcd`, one tier per node, three
+arms: `govon` (shipped) · `govoff` (`TACTIX_SWEEP_ENV_BUDGET=0`) · **`govon2`, bit-identical to `govon`**.
+
+**Verdict: govon ships.** The pre-registered criterion was "stays unless it LOSES a solve outside the
+may-not-gate set". **No arm loses a solve on either tier** — Tier C is 29/30 across all three, matching
+kissat and cadical; Tier B is 24/28 across all three. Tier C `govon` **355.76** vs `govoff` 370.61
+(−14.85 for the governor); Tier B is 109.19 vs 107.91, i.e. **inside replicate noise** and therefore a
+wash rather than a loss.
+
+**The `constraints_18` reading is a treatment effect, not fragility**, and the replicate arm is what
+proves it: `govon` **310.7 s** · `govoff` **1008.8 s** · `govon2` **310.0 s**. The two bit-identical arms
+agree to **0.7 s** while the hatch costs **698 s**. The aggregator flags this A/B UNDECIDED because that
+one instance is 157 % of the delta — correct as a generic guard, but here the "fragile" instance IS the
+mechanism's exhibit, and excluding it removes the treatment rather than testing robustness.
+
+**▶▶ THE MEASUREMENT RESULT, which outlives S-f.** Two bit-identical arms in one window:
+
+| | aggregate PAR-2 gap | max per-instance gap | solve flips |
+|---|---|---|---|
+| Tier B | **1.39** | **31.7 s** | 0 |
+| Tier C | **1.74** | **40.9 s** | 0 |
+
+So **same-window aggregates are precise to ~1.5 PAR-2** — four times tighter than the recorded 6.72
+floor — while **individual instances swing up to 41 s** between byte-identical runs. Against that,
+Tier C's shipped arm reading 334 → 477 → 356 across three windows today is **~140 PAR-2 of
+cross-window movement**, roughly 80× the within-window figure. Conclusion, and it should govern every
+future verdict: **a same-window arm delta is trustworthy and a cross-window absolute is not**, and a
+verdict resting on one instance must clear ~41 s before it means anything.
 
 ### 2026-08-06 — SCHED-F7 closes SP-REPEAT-*: F6 was not "no consumer yet", it was ONE ARRAY
 
