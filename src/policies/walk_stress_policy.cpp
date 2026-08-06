@@ -1,4 +1,5 @@
 #include "policies/walk_stress_policy.hpp"
+#include "policies/stress_common.hpp"
 
 #include "policies/heuristics.hpp"
 #include "policies/ops/walk/walk.hpp"
@@ -12,26 +13,6 @@
 #include <cstdlib>
 
 namespace tactix {
-
-namespace {
-
-inline uint64_t ws_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 0x2545F4914F6CDD1Dull;
-}
-
-Lit ws_random_unassigned_literal(Kernel &k, uint64_t &rng) {
-  assert(k.unassigned > 0);
-  for (;;) {
-    const Var v = static_cast<Var>(ws_random(rng) % k.nvars);
-    if (k.values[make_lit(v, false)] == 0)
-      return make_lit(v, ws_random(rng) & 1);
-  }
-}
-
-} // namespace
 
 int walk_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
@@ -52,15 +33,15 @@ int walk_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   // including mid-trail and (deliberately) off a propagation fixpoint, which
   // DefaultPolicy never does.
   auto maybe_walk = [&]() {
-    if (ws_random(rng) % 4 || !walk_guard(k))
+    if (stress_random(rng) % 4 || !walk_guard(k))
       return;
     // budgets from 1 step (immediate cutoff, exercises the "no improvement"
     // and pending-trail-invalidation paths) up to a few million
     static const uint64_t BUDGETS[6] = {1, 7, 100, 5000, 250000, 4000000};
-    walk_apply_steps(k, BUDGETS[ws_random(rng) % 6]);
+    walk_apply_steps(k, BUDGETS[stress_random(rng) % 6]);
     step("walk");
     // mode flips change the seed source (target when stable, saved otherwise)
-    if (k.h && !(ws_random(rng) % 3))
+    if (k.h && !(stress_random(rng) % 3))
       k.h->stable = !k.h->stable;
   };
 
@@ -95,7 +76,7 @@ int walk_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     maybe_walk();
     if (k.conflict_valid || k.propagate_head < k.trail.size())
       continue; // a walk never causes either, but re-check rather than assume
-    decide_apply(k, ws_random_unassigned_literal(k, rng), true);
+    decide_apply(k, stress_random_unassigned_literal(k, rng), true);
     step("decide");
   }
 }

@@ -1,4 +1,5 @@
 #include "policies/bve_stress_policy.hpp"
+#include "policies/stress_common.hpp"
 
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
@@ -10,22 +11,6 @@
 #include <cstdlib>
 
 namespace tactix {
-
-static inline uint64_t bs_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 0x2545F4914F6CDD1Dull;
-}
-
-static Lit bs_random_unassigned_literal(Kernel &k, uint64_t &rng) {
-  assert(k.unassigned > 0);
-  for (;;) {
-    const Var v = static_cast<Var>(bs_random(rng) % k.nvars);
-    if (k.values[make_lit(v, false)] == 0)
-      return make_lit(v, bs_random(rng) & 1);
-  }
-}
 
 int bve_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
@@ -87,7 +72,7 @@ int bve_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       // NoOp: nothing more to eliminate at the root this round.
     }
 
-    decide_apply(k, bs_random_unassigned_literal(k, rng), true);
+    decide_apply(k, stress_random_unassigned_literal(k, rng), true);
     step("decide");
   }
 }

@@ -1,4 +1,5 @@
 #include "policies/adversarial_policy.hpp"
+#include "policies/stress_common.hpp"
 
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
@@ -9,22 +10,6 @@
 #include <cstdlib>
 
 namespace tactix {
-
-static inline uint64_t adv_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 0x2545F4914F6CDD1Dull;
-}
-
-static Lit adv_random_unassigned_literal(Kernel &k, uint64_t &rng) {
-  assert(k.unassigned > 0);
-  for (;;) {
-    const Var v = static_cast<Var>(adv_random(rng) % k.nvars);
-    if (k.values[make_lit(v, false)] == 0)
-      return make_lit(v, adv_random(rng) & 1);
-  }
-}
 
 static uint32_t env_u32(const char *name, uint32_t dflt) {
   const char *v = getenv(name);
@@ -86,13 +71,13 @@ int adversarial_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     // unassigned > 0, no conflict: the adversarial choice point.
     const bool work_pending = k.propagate_head < k.trail.size();
     const bool force_prop = since_prop >= burst && work_pending;
-    const bool roll_prop = work_pending && (adv_random(rng) % 100) < prop_pct;
+    const bool roll_prop = work_pending && (stress_random(rng) % 100) < prop_pct;
     if (force_prop || roll_prop) {
       propagate_apply(k);
       since_prop = 0;
       step("propagate");
     } else {
-      decide_apply(k, adv_random_unassigned_literal(k, rng), true);
+      decide_apply(k, stress_random_unassigned_literal(k, rng), true);
       since_prop++;
       step("decide");
     }
