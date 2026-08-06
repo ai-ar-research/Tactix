@@ -172,6 +172,9 @@ conjunct.
   argument *at the deletion*: only a FORGETTABLE (redundant) subsumer could later vanish with neither
   entailment nor a `ρ` witness. Binary subsumers satisfy it structurally — binaries have no redundant
   lifecycle, so none can be forgotten (`implementation-notes.md` §14).
+  The precondition constrains only the SUBSUMER: `c` itself may be redundant, since dropping a member of
+  `R` is S2 `Forget` and needs no side condition at all. Restricting the VICTIM is therefore a scope
+  choice, never a soundness one — ledger `SP-REPEAT-*`/`D-C1C2-VICTIM`.
 
 ### C2 · Strengthen
 - **Precondition (abstract):** ∃ `c,d` resolving on exactly one variable so the resolvent `c′ ⊂ c`
@@ -182,7 +185,9 @@ conjunct.
   when the resolvent subsumes outright — that branch is **`del` with no add**.
 - **Soundness:** `c′` is RUP from `c` and `d`; add-before-delete keeps the core entailed at every step.
   The fused SUBSUMED branch is C1's inference and inherits its argument, binary partners included
-  (`implementation-notes.md` §14).
+  (`implementation-notes.md` §14). Like C1 the precondition constrains only the PARTNER `d`; a redundant
+  `c` stays in `R` when it is replaced (`c′ ⊂ c`, so `c′` is no more load-bearing than `c` was), which is
+  what lets the round's scope reach the redundant tier band — ledger `D-C1C2-VICTIM`.
 
 ### C3 · Vivify
 - **Precondition (abstract):** ∃ a clause `c` whose distillation by propagation proves a

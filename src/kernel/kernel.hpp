@@ -274,7 +274,10 @@ struct Stats {
   // blockedness test and nothing this rule adds. Read `cce_deleted` against
   // `cce_tried`, and the two exits (`cce_blocked` / `cce_ata`) against each
   // other — an all-`cce_ata` run exercised no witness at all.
-  uint64_t cce_rounds = 0;   // rounds ATTEMPTED (the round's rotation reads it)
+  uint64_t cce_rounds = 0;   // rounds ATTEMPTED. DIAGNOSTIC ONLY: nothing may
+                             // read it, and a round that did (a rotation on
+                             // `cce_rounds % ncands`) is the defect the
+                             // touched-epoch resume replaced.
   uint64_t cce_tried = 0;    // candidate clauses extended
   uint64_t cce_deleted = 0;  // clauses eliminated
   uint64_t cce_blocked = 0;  // ... of which by the blocked exit (witnessed)
@@ -481,6 +484,11 @@ struct Stats {
   // to count. `touch_marks` growing over a long solve is the positive evidence
   // that the substrate's producers are still firing.
   uint64_t touch_marks = 0;
+  // The REDUNDANT-BAND stamp array's own event counter (Kernel::touched_kept).
+  // Kept separate from `touch_marks` so that turning the band on leaves every
+  // reading of the irredundant substrate byte-identical — the isolation claim
+  // stated at Kernel::touched_kept is checkable on this pair alone.
+  uint64_t touch_kept_marks = 0;
   // C1/C2 round-candidate suppression by the touched-epoch filter: candidates
   // the round SKIPPED because nothing in them changed since its watermark, vs
   // the `forward_checked`/`strengthen_checked` it did examine. Both must stay
@@ -537,6 +545,21 @@ struct Stats {
   // single count cannot. Same idiom as `tier2_band_dynamic/static`.
   uint64_t touch_redundant_dynamic = 0;
   uint64_t touch_redundant_static6 = 0;
+  // SCHED-F7 · the CONSUMER half of the band, which is Strengthen alone (C1 is
+  // measured inert against C2, so widening its scope would maintain a fifth
+  // mechanism on the absorbed half of a fused pass). Reachability is a PAIR, in
+  // the F6 idiom: `red_checked > 0` proves the widened scope admits anything at
+  // all, and `red_skipped > 0` proves the band filter still fires inside it —
+  // all-checked is an inert filter, all-skipped a wedged one. `red_subsumed` /
+  // `red_strengthened` are the YIELD, and they are what the band has to pay for
+  // the extra candidates with.
+  uint64_t strengthen_red_checked = 0;
+  uint64_t strengthen_red_skipped = 0;
+  uint64_t strengthen_red_subsumed = 0;
+  uint64_t strengthen_red_strengthened = 0;
+  // X3 CCE's touched-epoch consumer (the sixth). Same reading contract as the
+  // X1/X2/X4 triple above: `skipped` against `cce_tried`, both non-zero.
+  uint64_t cce_mark_skipped = 0, cce_rearmed = 0, cce_mark_advances = 0;
   // syntactic gates found per type, one per elimination ATTEMPT that had one
   // (kissat statistics.{equivalences,ands,if_then_else}_extracted / cadical
   // stats.elim{equivs,ands,ites,xors}). The ITE/XOR pair are also the
@@ -905,6 +928,32 @@ struct Kernel {
   // is. cadical draws the same line: `mark_added` and `mark_removed` set
   // different flags (internal.hpp:1125-1137).
   std::vector<uint64_t> removed; // by var
+  // The REDUNDANT-BAND add side, stamped from the same clock (SCHED-F6/F7).
+  // Populated only when `touch_redundant` is set, and only for redundant
+  // creations `kernel_likely_kept` admits; read only by the ONE consumer whose
+  // scope covers the band, C2 Strengthen.
+  //
+  // ▶ WHY A THIRD ARRAY, AND WHY THIS IS THE WHOLE OF F6's MEASURED DEFECT.
+  // The reference does not have one mark set: `mark_added` gives a likely-kept
+  // REDUNDANT add the `subsume` flag only, and explicitly withholds `block` and
+  // `factor` (`if (!redundant) mark_block (lit)`, cadical clause.cpp:59-67).
+  // Folding the band into `touched` instead — which is what F6 shipped OFF —
+  // hands every learned clause to all six consumers, and learned-clause traffic
+  // outruns irredundant traffic by orders of magnitude, so the shared clock
+  // saturates and the filters of the five consumers that CANNOT act on the band
+  // go inert. That is not "no consumer reads it yet"; it is the wrong number of
+  // arrays. The same argument that made `removed` its own array (do not weaken
+  // C1/C2 to give BCE its deletions) makes this one its own array in the other
+  // direction: do not weaken BCE/X2/X4/Factor to give C2 the band.
+  //
+  // ▶ ISOLATION IS A THEOREM, NOT A MEASUREMENT. Every consumer's watermark is a
+  // snapshot of `touch_epoch`, and every stamp writes that same monotone clock,
+  // so `touched[v] > w` compares the TEMPORAL ORDER of "v's last irredundant
+  // touch" against "the round entry". Interleaving extra increments from a
+  // second array changes neither event's position in that order, so a consumer
+  // reading `touched` alone answers identically with the band on or off. What
+  // moves is `touch_epoch` itself and `touch_kept_marks` — never a decision.
+  std::vector<uint64_t> touched_kept; // by var
   // trail index up to which root-fixed literals have been folded into
   // `touched`; see kernel_touch_sync_fixed.
   uint32_t touch_fixed_head = 0;
@@ -923,6 +972,12 @@ struct Kernel {
   uint64_t ternary_touch_mark = 0;
   uint64_t instantiate_touch_mark = 0;
   uint64_t factor_touch_mark = 0; // SCHED-F4 (kissat flags->factor)
+  // X3 CCE's watermark. Read two-sided (`kernel_changed_since`, BCE's read):
+  // CCE's applicability moves under an add — a new irredundant clause can
+  // un-block a candidate or extend its ALA closure — and under a removal, which
+  // is what CREATES a blocked clause. It replaced a rule-side rotation on
+  // `Stats::cce_rounds`; see cce.cpp for why that had to go.
+  uint64_t cce_touch_mark = 0;
   // Did the rule's LAST canonical round reach a fixpoint — every candidate
   // examined, and (for Strengthen) nothing produced that would want another
   // look? kissat's `completed` (forward.c:664-670), which it computes as "was
@@ -942,17 +997,24 @@ struct Kernel {
   // material). Bounded by the policy's own round cap, so it can only ADD
   // rounds. TACTIX_SUBSUME_HOLD=0 is the A/B off arm.
   bool subsume_holds_elim = true;
-  // SCHED-F6 · stamp the REDUNDANT creation path too, for the clauses cadical's
-  // `likely_to_be_kept_clause` admits (see kernel_likely_kept). SHIPS OFF —
-  // TACTIX_TOUCH_REDUNDANT=1 turns it on — and that default is an argued
-  // decision, not an oversight. Extra stamps only ever WEAKEN the round filters
-  // (more marks ⇒ fewer skips), and C1/C2/BCE/X2/X4 all scope themselves to
-  // irredundant clauses today, so with no consumer for the redundant band this
-  // would be a measured cost buying nothing. It exists now so the stamps can be
-  // proven to fire (`Stats::touch_redundant_*`) BEFORE the consumer half —
-  // opening C1/C2's scope to the tier band, cadical `subsume.cpp:388` — is
-  // written; landing that half against an unpopulated set is exactly the
-  // byte-identical-artefact trap that kept `SP-TIER-2` open.
+  // SCHED-F6+F7 · THE REDUNDANT TIER BAND, both halves, one switch
+  // (TACTIX_TOUCH_REDUNDANT=1). The band is the clause set cadical's
+  // `likely_to_be_kept_clause` admits — see kernel_likely_kept — and this flag
+  // turns on, together and only together:
+  //   (F6) stamping a redundant creation inside the band, into `touched_kept`;
+  //   (F7) C2 Strengthen's round SCOPE, which then admits band clauses as
+  //        VICTIMS, and C2's filter, which then reads the band stamps too.
+  // The two are one decision: the stamps with no consumer are pure cost (that is
+  // what F6 measured), and the scope with no stamps would examine band clauses
+  // only when some IRREDUNDANT neighbour happened to move, i.e. a filter that
+  // does not cover its own scope. Nothing else changes — C1's scope stays
+  // irredundant (it is measured absorbed by C2, so widening it would maintain a
+  // fifth mechanism on the absorbed half), and BCE/X2/X4/Factor are provably
+  // untouched (the isolation theorem at `touched_kept`).
+  //
+  // SHIPS OFF pending its A/B. The band is ~800x the irredundant population on
+  // an instance that learns hard, so this is a large scope change with no timing
+  // evidence behind it, and the honest default for that is off.
   bool touch_redundant = false;
   // SCHED-G2 · SHADOW MODE for SubsumeForward's canonical round
   // (TACTIX_SUBSUME_SHADOW=1). DIAGNOSTIC ONLY, ships OFF.
@@ -1493,6 +1555,15 @@ inline void kernel_removed_var(Kernel &k, Var v) {
 inline bool kernel_touched_since(const Kernel &k, Var v, uint64_t since) {
   return k.touched[v] > since;
 }
+// The band add side (see Kernel::touched_kept). Shares the clock, so it is
+// directly comparable against the same watermark.
+inline void kernel_touch_kept_var(Kernel &k, Var v) {
+  k.touched_kept[v] = ++k.touch_epoch;
+  k.stats.touch_kept_marks++;
+}
+inline bool kernel_kept_since(const Kernel &k, Var v, uint64_t since) {
+  return k.touched_kept[v] > since;
+}
 // cadical's `likely_to_be_kept_clause` (internal.hpp:1059-1068), the scope
 // predicate its whole `mark_added` family branches on. THREE disjuncts, and the
 // third is the one we had no counterpart for until the reduce survivor envelope
@@ -1529,11 +1600,18 @@ inline bool kernel_changed_since(const Kernel &k, Var v, uint64_t since) {
 // subsumption family (the argument above), 1 for a rule whose outcome on c can
 // turn on a single changed variable — Instantiate, whose probe is a
 // propagation and so depends on any clause over any of c's variables.
+// `kept` widens the read to the redundant band's stamps (SCHED-F7). It is set
+// for exactly the clauses whose OWN existence is a band event, i.e. redundant
+// candidates: a redundant clause can never be a subsumer or a partner here (no
+// promotion path, see subsume_forward.hpp), so an IRREDUNDANT candidate's
+// applicability cannot turn on a band event and its filter must stay narrow.
 inline bool kernel_clause_new_material(const Kernel &k, const Clause *c,
-                                       uint64_t since, size_t need = 2) {
+                                       uint64_t since, size_t need = 2,
+                                       bool kept = false) {
   size_t hits = 0;
   for (const Lit l : *c) {
-    if (!kernel_touched_since(k, var_of(l), since))
+    if (!kernel_touched_since(k, var_of(l), since) &&
+        !(kept && kernel_kept_since(k, var_of(l), since)))
       continue;
     if (k.value(l) < 0)
       return true; // (b)

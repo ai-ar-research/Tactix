@@ -18,10 +18,14 @@
 // per-var subsume flags persisting across rounds — a kernel-wide mode our
 // watch-owning kernel does not have; CaDiCaL's self-contained round fits
 // the §5.3 contract (everything rule-local, kernel untouched). Deviations
-// recorded: (1) candidates and large subsumers are irredundant-only
-// (CaDiCaL also subsumes/promotes redundant clauses; revisit with C2's
-// redundant-aware strengthening). Binary subsumers need no redundancy
-// check — see the binary-subsumer argument below. (2) kissat's round-entry
+// recorded: (1) large SUBSUMERS are irredundant-only, and there is no
+// PROMOTION: cadical turns a redundant subsumer irredundant instead
+// (subsume.cpp:133-149), which is the only way a forgettable clause may
+// justify a deletion, and we have no such path. VICTIMS are complete on the
+// instance surface (any redundancy) and irredundant in the canonical ROUND —
+// the round-scope half of the tier band went to C2 Strengthen alone, which
+// absorbs all but ~1e-5 of this rule's subsumptions. Binary subsumers need no
+// redundancy check — see the binary-subsumer argument below. (2) kissat's round-entry
 // duplicate-binary / hyper-unary-resolution sweep is dropped: it deletes
 // binaries by MULTISET position (one copy of a duplicated pair), which
 // binary_ids — one id per literal PAIR — cannot name. V4 deletes only
@@ -94,9 +98,12 @@ constexpr uint32_t SUBSUME_CLSLIM = 1000;
 constexpr uint32_t SUBSUME_OCCLIM = 1000;
 
 bool subsume_forward_guard(const Kernel &);
-// candidate enumeration in canonical order (size ascending): irredundant,
-// live, 3 <= size <= SUBSUME_CLSLIM, not root-satisfied
-void subsume_forward_candidates(const Kernel &, std::vector<Ref> &out);
+// candidate enumeration in canonical order (size ascending): live,
+// 3 <= size <= SUBSUME_CLSLIM, not root-satisfied. `complete` selects the
+// instance surface's set (any redundancy — every clause `..._try` accepts);
+// the default is the canonical round's, which is irredundant-only.
+void subsume_forward_candidates(const Kernel &, std::vector<Ref> &out,
+                                bool complete = false);
 // single-candidate check (the instance surface): deletes + collects when
 // subsumed; Ok = deleted, NoOp = kept (or payload not a candidate)
 ApplyResult subsume_forward_try(Kernel &, Ref candidate);

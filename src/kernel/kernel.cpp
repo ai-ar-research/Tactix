@@ -36,6 +36,9 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // activate_variable calls kissat_mark_added_literal for the same reason).
   k.touched.resize(nvars, 0);
   k.removed.resize(nvars, 0);
+  // The band array needs no such event: a fresh variable is already touched
+  // below, and C2 reads the two arrays as a union.
+  k.touched_kept.resize(nvars, 0);
   for (uint32_t v = old; v < nvars; v++)
     kernel_touch_var(k, v);
   // Retirement status: a brand-new variable is Active (design R-a). Only grown
@@ -118,13 +121,17 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   // ships off). Counted BOTH ways even when the stamping is off, because a
   // single count cannot show that the predicate tracks the live tier — the
   // dynamic/static6 pair is the anti-vacuity reading SP-TIER-2 asks for.
+  //
+  // The stamp goes to `touched_kept`, NOT to `touched`: cadical withholds
+  // `block`/`factor` from a redundant add for the same reason (clause.cpp:59-67),
+  // and the array split is what keeps the other five consumers' filters intact.
   if (redundant) {
     const bool dyn = kernel_likely_kept(k, true, glue, size);
     k.stats.touch_redundant_dynamic += dyn;
     k.stats.touch_redundant_static6 += (glue <= 6); // reduce.hpp TIER2_STATIC
     if (dyn && k.touch_redundant)
       for (uint32_t i = 0; i < size; i++)
-        kernel_touch_var(k, var_of(lits[i]));
+        kernel_touch_kept_var(k, var_of(lits[i]));
   }
   return ref;
 }

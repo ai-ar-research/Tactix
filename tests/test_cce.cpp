@@ -123,6 +123,66 @@ static void test_instances() {
          ApplyResult::NoOp);
 }
 
+// RV-S1/RV-S2 · the round's repetition filter and its resume, which replaced a
+// rotation on `Stats::cce_rounds`. Three properties, and the first two are the
+// anti-vacuity pair (a filter that skips nothing is inert; one that skips
+// everything has wedged):
+//   (a) a SECOND round over an unchanged formula skips every candidate and tries
+//       none, and the watermark advanced to make that so;
+//   (b) touching the substrate re-offers them, so the filter is not a one-way
+//       door — and nothing a scheduling decision does can starve the producers,
+//       which live on the kernel's clause paths;
+//   (c) a BUDGET-CUT round re-arms the tail it never reached, which is the job
+//       the rotation used to do and the reason no `k.stats` read is needed.
+static void test_filter_and_resume() {
+  { // a first round works and ADVANCES the watermark
+    Kernel k;
+    load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
+    assert(k.touch_filter);
+    assert(cce_apply(k) == ApplyResult::Ok);
+    assert(k.stats.cce_tried > 0);
+    assert(k.cce_touch_mark > 0 && k.stats.cce_mark_advances == 1);
+  }
+  Kernel k;
+  load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
+  // (a) a watermark at the current epoch is what a completed round leaves
+  // behind: nothing has moved since, so the round tries nothing.
+  k.cce_touch_mark = k.touch_epoch;
+  assert(cce_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.cce_tried == 0 && "(a) nothing changed, nothing tried");
+  assert(k.stats.cce_mark_skipped > 0);
+
+  // (b) any producer re-offers the candidates. A stamp has no clear pass, so
+  // this direction can never be starved by a rule that stops being scheduled.
+  const uint64_t skipped = k.stats.cce_mark_skipped;
+  for (Var v = 0; v < k.nvars; v++)
+    kernel_touch_var(k, v);
+  assert(cce_apply(k) == ApplyResult::Ok);
+  assert(k.stats.cce_tried > 0 && "(b) the filter re-opens");
+  assert(k.stats.cce_mark_skipped == skipped);
+
+  // (c) resume. A round cut by the dose re-arms whatever it did not reach.
+  Kernel k2;
+  load(k2, 8, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}, {5, 6, 7}, {-5, 8},
+               {-8, -6}, {-7, 8}});
+  k2.work_budget = 1; // one candidate's worth of ticks, then stop
+  assert(cce_apply(k2) != ApplyResult::Unsat);
+  assert(k2.stats.cce_rearmed > 0 && "(c) the unreached tail must be re-armed");
+  assert(k2.cce_touch_mark > 0 && k2.stats.cce_mark_advances == 1);
+  size_t armed = 0;
+  for (Ref r = 0; r < k2.arena.size();) {
+    const Clause *c = clause_at(k2.arena, r);
+    if (!c->garbage())
+      for (const Lit l : *c)
+        if (kernel_changed_since(k2, var_of(l), k2.cce_touch_mark)) {
+          armed++;
+          break;
+        }
+    r += clause_words(c->size);
+  }
+  assert(armed > 0 && "the next round must still see the tail");
+}
+
 // ▶ THE OBLIGATION. Over random formulas: run a CCE round, then enumerate EVERY
 // assignment, and for each one that satisfies what SURVIVES, check that
 // `kernel_extend_model` repairs it into a model of the ORIGINAL formula. This
@@ -248,6 +308,7 @@ int main() {
   test_asymmetric_tautology();
   test_redundant_skipped();
   test_instances();
+  test_filter_and_resume();
   test_model_reconstruction_solved();
   test_reconstruction_exhaustive();
   std::printf("test_cce: all passed\n");

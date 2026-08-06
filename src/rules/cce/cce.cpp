@@ -358,21 +358,56 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv, Ref self) {
   return eliminated;
 }
 
+// Has anything `c`'s applicability can turn on moved since `since`? CCE's
+// two-sided read (`kernel_changed_since`, BCE's): a clause becomes blocked when
+// an opposite occurrence is REMOVED, and its ALA/CLA closure changes when one is
+// ADDED, so both stamps count. `need` is 1, not the subsumption family's 2 — one
+// changed variable is enough to flip a blockedness test.
+//
+// ▶ TWO UNDER-APPROXIMATIONS, both YIELD-ONLY, both recorded in the ledger.
+// (a) The extension C'' reaches literals outside vars(C), and a change confined
+//     to those is invisible here. (b) `relevant()` quantifies over REDUNDANT
+//     clauses (header deviation 2 — it must, and X1's wrong-SAT is why), but the
+//     substrate does not stamp redundant creations or Reduce's deletions, so a
+//     blockedness that a Reduce created is not seen until something irredundant
+//     moves. Neither can make a deletion unjustified: the filter only decides
+//     what to TRY, and cover_clause re-reads the live index for every test it
+//     passes. They cost deletions, never soundness.
+bool changed_clause(const Kernel &k, const Clause *c, uint64_t since) {
+  for (const Lit l : *c)
+    if (kernel_changed_since(k, var_of(l), since))
+      return true;
+  return false;
+}
+
 // The shared body of the round and the single-literal instance: walk `cands`
-// from `start`, wrapping, under the policy's remaining ledger.
+// under the policy's remaining ledger. `filter`/`wm` are the round's repetition
+// filter; the instance path passes filter=false, since narrowing THAT would
+// remove a capability (N1). `stopped_at` receives the index of the first
+// candidate the budget never reached, for the caller's re-arm.
 bool cover_range(Kernel &k, const CceIndex &idx, Coveror &cv,
-                 const std::vector<Ref> &cands, size_t start) {
+                 const std::vector<Ref> &cands, bool filter, uint64_t wm,
+                 size_t *stopped_at) {
   const uint64_t tick_start = k.stats.cce_ticks;
   bool any = false;
+  if (stopped_at)
+    *stopped_at = cands.size();
   for (size_t i = 0; i < cands.size(); i++) {
-    if (k.work_budget && k.stats.cce_ticks - tick_start > k.work_budget)
+    if (k.work_budget && k.stats.cce_ticks - tick_start > k.work_budget) {
+      if (stopped_at)
+        *stopped_at = i;
       break;
-    const Ref r = cands[(start + i) % cands.size()];
+    }
+    const Ref r = cands[i];
     Clause *c = clause_at(k.arena, r);
     // re-validate: an earlier elimination in this very round may have retired
     // it, and the index is built once
     if (!candidate_clause(k, c))
       continue;
+    if (filter && !changed_clause(k, c, wm)) {
+      k.stats.cce_mark_skipped++;
+      continue;
+    }
     any |= cover_clause(k, idx, cv, r);
   }
   return any;
@@ -404,8 +439,9 @@ ApplyResult cce_try(Kernel &k, Lit l) {
       cands.push_back(r);
   if (cands.empty())
     return ApplyResult::NoOp;
-  return cover_range(k, idx, cv, cands, 0) ? ApplyResult::Ok
-                                           : ApplyResult::NoOp;
+  return cover_range(k, idx, cv, cands, /*filter=*/false, 0, nullptr)
+             ? ApplyResult::Ok
+             : ApplyResult::NoOp;
 }
 
 ApplyResult cce_apply(Kernel &k) {
@@ -417,15 +453,53 @@ ApplyResult cce_apply(Kernel &k) {
   // remaining ledger in OUR currency and we stop mid-round rather than being
   // metered after the fact (Vivify's idiom, vivify.cpp:275).
   //
-  // Header deviation 4 — the resumption cursor. We carry no per-clause
-  // "already tried" flag (cadical's `Clause::covered`), so a budget-cut round
-  // would replay its head forever: the SCHED-B3 starvation shape. Starting the
-  // wrap-around walk at `cce_rounds % ncands` rotates the entry point instead,
-  // using state the rule already keeps.
-  const size_t n = idx.cands.size();
-  const size_t start = n ? static_cast<size_t>(k.stats.cce_rounds % n) : 0;
-  const bool any = cover_range(k, idx, cv, idx.cands, start);
-  k.stats.cce_rounds++; // ATTEMPTS, not productive rounds: the rotation reads it
+  // RESUMPTION + REPETITION, both on the touched-epoch substrate — the same
+  // arrangement C1/C2 and BCE use, and the reason this rule no longer keeps a
+  // rotation of its own. The first cut of it walked the candidate list from
+  // `cce_rounds % ncands`, which was wrong twice over: it put ORDER LOGIC back
+  // inside a rule (SCHED-E1 had just moved every such cursor to the policy),
+  // and it made a Stats counter BEHAVIOUR-AFFECTING, which the policy layer
+  // forbids of itself and which any stats rebase — an incremental re-solve, a
+  // per-solve reset — silently resets to index 0.
+  //
+  // What the rotation was for was starvation: with no per-clause "already tried"
+  // flag (cadical's `Clause::covered`) a budget-cut round replays its head. The
+  // substrate does that job properly. The tail the budget never reached is
+  // RE-ARMED, then the watermark advances, so the next round's candidate set is
+  // {the unreached tail} u {whatever changed} — it resumes rather than replaying,
+  // and unlike a rotation it also stops re-examining clauses nothing moved in.
+  // On the family's off arm (`!k.touch_filter`) there is no filter and therefore
+  // no re-arm and no advance, so this rule replays its head — which is what the
+  // other five consumers do on that arm too. That arm prices the whole
+  // suppressor family; it is not a shipped configuration.
+  kernel_touch_sync_fixed(k);
+  const bool filter = k.touch_filter;
+  const uint64_t snapshot = k.touch_epoch; // BEFORE any work, as C1/C2 do
+  const uint64_t wm = k.cce_touch_mark;
+  size_t stopped_at = idx.cands.size();
+  const bool any =
+      cover_range(k, idx, cv, idx.cands, filter, wm, &stopped_at);
+  for (size_t i = filter ? stopped_at : idx.cands.size(); i < idx.cands.size();
+       i++) {
+    const Clause *c = clause_at(k.arena, idx.cands[i]);
+    if (c->garbage() || !changed_clause(k, c, wm))
+      continue; // sharper than a bare re-arm: it had nothing new at `wm` either
+    // ONE mark, not one per literal. `changed_clause` needs a single changed
+    // variable, so one is exactly enough to re-offer the clause — and a re-arm
+    // is a PRODUCER on the shared substrate, so every mark past what the filter
+    // needs is a mark that weakens BCE/X2/X4/Factor's filters for nothing. C1/C2
+    // touch every literal because their predicate needs TWO (`need = 2`); this
+    // one does not. It matters at scale because this rule's dose cuts it early,
+    // so the unreached tail is most of the arena and the tail is what is
+    // re-armed — the `c cce2` rearm count against `cce_tried` is the reading.
+    kernel_touch_var(k, var_of(*c->begin()));
+    k.stats.cce_rearmed++;
+  }
+  if (filter) {
+    k.cce_touch_mark = snapshot;
+    k.stats.cce_mark_advances++;
+  }
+  k.stats.cce_rounds++; // ATTEMPTS, not productive rounds. DIAGNOSTIC ONLY.
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 

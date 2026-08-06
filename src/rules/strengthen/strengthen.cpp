@@ -18,10 +18,15 @@ bool strengthen_guard(const Kernel &k) {
   return !k.inconsistent && k.level == 0;
 }
 
-// candidate criteria shared with C1 (duplicated deliberately — modules
-// stay self-contained per §5.3; the ~20 lines are the coupling price)
-static bool is_candidate(const Kernel &k, const Clause *c) {
-  if (c->garbage() || c->redundant() || c->size > STRENGTHEN_CLSLIM)
+// VICTIM criteria, shared with C1 (duplicated deliberately — modules stay
+// self-contained per §5.3; the ~20 lines are the coupling price). Redundancy is
+// not one of them: a redundant clause is an unconditionally safe victim for
+// BOTH effects here. Deleting it is S2 Forget. Strengthening it emits an
+// add-RUP that stands against the whole formula at emit time and keeps the
+// clause redundant (act() preserves the bit and shrinks the glue), so the
+// result is no more load-bearing than the original was.
+static bool is_victim(const Kernel &k, const Clause *c) {
+  if (c->garbage() || c->size > STRENGTHEN_CLSLIM)
     return false;
   for (const Lit l : *c)
     if (k.value(l) > 0)
@@ -29,20 +34,47 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
   return true;
 }
 
-void strengthen_candidates(const Kernel &k, std::vector<Ref> &out) {
+// SCHED-F7 · does the canonical ROUND work on `c`? Irredundant always; a
+// redundant clause only inside the TIER BAND, and only with the band switched on
+// (Kernel::touch_redundant). This is cadical's scope test — `subsume.cpp:388`
+// filters its candidate loop on `likely_to_be_kept_clause` — evaluated LIVE, so
+// a clause that has since left the band is dropped even though its creation
+// stamped it, and one that has since entered is admitted even though it was
+// never stamped (the yield gap recorded with the ledger row).
+static bool in_round_scope(const Kernel &k, const Clause *c) {
+  if (!is_victim(k, c))
+    return false;
+  return !c->redundant() ||
+         (k.touch_redundant &&
+          kernel_likely_kept(k, true, c->glue(), c->size));
+}
+
+void strengthen_candidates(const Kernel &k, std::vector<Ref> &out,
+                           bool complete) {
   out.clear();
   struct Cand {
     Ref ref;
     uint32_t size;
+    bool redundant;
   };
   std::vector<Cand> cands;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    if (is_candidate(k, c))
-      cands.push_back({ref, c->size});
+    if (complete ? is_victim(k, c) : in_round_scope(k, c))
+      cands.push_back({ref, c->size, c->redundant()});
     ref += clause_words(c->size);
   }
+  // Irredundant FIRST, then size ascending. The band is the larger population
+  // by orders of magnitude and its clauses are small (that is what `kept_size`
+  // means), so a plain size-ascending order would let them crowd the round's
+  // budget and starve the irredundant work — B3's shape through a scope change
+  // rather than a cursor. Ordering the band behind makes the widened round a
+  // strict ADDITION at the tail, which is also what makes the A/B readable.
+  // Inert when the band is off: `redundant` is then uniformly false and this is
+  // the pre-F7 comparator exactly.
   std::sort(cands.begin(), cands.end(), [](const Cand &a, const Cand &b) {
+    if (a.redundant != b.redundant)
+      return !a.redundant;
     if (a.size != b.size)
       return a.size < b.size;
     return a.ref < b.ref; // total order for determinism
@@ -409,8 +441,18 @@ ApplyResult strengthen_apply(Kernel &k) {
   // checked path and by the SCHED-F1 skip path: a skipped candidate is still
   // indexed, so the round's partner index stays complete and the filter costs
   // no strengthening the unfiltered round would have found.
+  //
+  // SCHED-F7 · REDUNDANT SURVIVORS ARE NOT INDEXED. `occs` is the round's
+  // PARTNER index, and a partner justifies deleting or rewriting another clause,
+  // so it must not be forgettable — the header's Forget argument, and the reason
+  // cadical has to promote a redundant subsumer to irredundant instead
+  // (subsume.cpp:133-149). Widening the victim set therefore leaves the partner
+  // set exactly where it was, which is also what keeps the band's cost bounded:
+  // band clauses are checked, never chased.
   const auto connect = [&](Ref cr) {
     const Clause *c = clause_at(k.arena, cr);
+    if (c->redundant())
+      return;
     Lit min_lit = INVALID_LIT;
     size_t min_occs = 0;
     for (const Lit l : *c) {
@@ -441,11 +483,22 @@ ApplyResult strengthen_apply(Kernel &k) {
       stopped_at = ci;
       break;
     }
-    if (filter && !kernel_clause_new_material(k, clause_at(k.arena, cref), wm)) {
+    // SCHED-F7 · a BAND candidate reads the band stamps too, an irredundant one
+    // does not (kernel_clause_new_material's `kept`): a redundant clause can
+    // never be a partner here, so no band event can change an irredundant
+    // candidate's outcome, and widening its read would only weaken the filter
+    // where the measured saving is.
+    const bool red = clause_at(k.arena, cref)->redundant();
+    if (filter &&
+        !kernel_clause_new_material(k, clause_at(k.arena, cref), wm, 2, red)) {
       k.stats.strengthen_mark_skipped++;
+      k.stats.strengthen_red_skipped += red;
       connect(cref);
       continue;
     }
+    k.stats.strengthen_red_checked += red;
+    const uint64_t red_sub_before = k.stats.strengthen_subsumed;
+    const uint64_t red_str_before = k.stats.strengthened;
     for (;;) { // strengthening cascades on the same candidate
       Clause *c = clause_at(k.arena, cref);
       k.stats.strengthen_checked++;
@@ -472,6 +525,12 @@ ApplyResult strengthen_apply(Kernel &k) {
         ended = true;
       break; // 1 (died) or 3 (became binary) or 4
     }
+    if (red) { // the band's YIELD, read against `strengthen_red_checked`
+      k.stats.strengthen_red_subsumed +=
+          k.stats.strengthen_subsumed - red_sub_before;
+      k.stats.strengthen_red_strengthened +=
+          k.stats.strengthened - red_str_before;
+    }
     if (ended || interrupted) {
       stopped_at = ci + 1; // this candidate was checked; the rest were not
       break;
@@ -480,14 +539,21 @@ ApplyResult strengthen_apply(Kernel &k) {
   // SCHED-F2 · RESUME (see the twin comment in subsume_forward.cpp for the
   // argument). `ended` — a derived unit stopped the round — leaves a tail too,
   // and it is re-armed for exactly the same reason a budget cut's is.
+  // SCHED-F7 · a re-arm writes the array the candidate's OWN creation would have
+  // written: `touched` for an irredundant clause, `touched_kept` for a band one.
+  // Re-arming a band candidate through `touched` would leak the band into
+  // BCE/X2/X4/Factor's filters through the back door and break the isolation
+  // theorem at Kernel::touched_kept — which is a claim about the whole ON arm,
+  // not just about the producer.
   for (size_t ci = interrupted ? candidates.size()
                                : (filter ? stopped_at : candidates.size());
        ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
-    if (c->garbage() || !kernel_clause_new_material(k, c, wm))
+    const bool red = c->redundant();
+    if (c->garbage() || !kernel_clause_new_material(k, c, wm, 2, red))
       continue;
     for (const Lit l : *c)
-      kernel_touch_var(k, var_of(l));
+      red ? kernel_touch_kept_var(k, var_of(l)) : kernel_touch_var(k, var_of(l));
     k.stats.strengthen_rearmed++;
   }
   // SCHED-H1: an INTERRUPTED round does not advance the watermark at all. The
@@ -544,7 +610,10 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
       return ApplyResult::Ok;
     }
   }
-  if (!is_candidate(k, c))
+  // The VICTIM may be redundant on this path (N1: the instance surface is
+  // complete over everything the round could ever accept, and more); the PARTNER
+  // may not — find_partner's `d->redundant()` skip is the load-bearing check.
+  if (!is_victim(k, c))
     return ApplyResult::NoOp;
   k.stats.strengthen_checked++;
   std::vector<uint8_t> marks(2 * k.nvars, 0);
@@ -562,9 +631,11 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   return ApplyResult::Ok;
 }
 
+// COMPLETE over victims, band or no band, so `instances()` never advertises less
+// than `apply_instance` accepts (SCHED-N1FIX's shape).
 static uint32_t strengthen_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Ref> candidates;
-  strengthen_candidates(k, candidates);
+  strengthen_candidates(k, candidates, /*complete=*/true);
   const uint32_t n =
       std::min<uint32_t>(cap, static_cast<uint32_t>(candidates.size()));
   for (uint32_t i = 0; i < n; i++)

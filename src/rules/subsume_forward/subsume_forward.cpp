@@ -38,10 +38,13 @@ static bool subsumes_marked(const Kernel &k, const std::vector<uint8_t> &marks,
   return true;
 }
 
-// a clause qualifies as a candidate (and as a large subsumer): live,
-// irredundant, within the size limit, not root-satisfied
-static bool is_candidate(const Kernel &k, const Clause *c) {
-  if (c->garbage() || c->redundant() || c->size > SUBSUME_CLSLIM)
+// A clause qualifies as a VICTIM: live, within the size limit, not
+// root-satisfied. Redundancy is deliberately NOT part of it — deleting a
+// redundant clause is licensed unconditionally (S2 Forget), so refusing one is
+// a scope choice, never a soundness one. The redundancy check that IS load
+// bearing sits on the SUBSUMER (see the header's Forget argument), and it stays.
+static bool is_victim(const Kernel &k, const Clause *c) {
+  if (c->garbage() || c->size > SUBSUME_CLSLIM)
     return false;
   for (const Lit l : *c)
     if (k.value(l) > 0)
@@ -49,7 +52,17 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
   return true;
 }
 
-void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out) {
+// ...and the narrower set the canonical ROUND works on. SCHED-F7 opened the
+// redundant tier band to C2 Strengthen and NOT to this rule: C2 absorbs all but
+// ~1e-5 of C1's subsumptions, so a wider C1 round would be a fifth mechanism
+// maintained on the absorbed half of a fused pass. This is the `touch_filter`
+// category — a round-scope decision, not a precondition (see the N1 note below).
+static bool is_round_candidate(const Kernel &k, const Clause *c) {
+  return !c->redundant() && is_victim(k, c);
+}
+
+void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out,
+                                bool complete) {
   out.clear();
   // cache the sort key instead of re-dereferencing clause headers in the
   // comparator (reduce_candidates' Victim pattern)
@@ -60,7 +73,7 @@ void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out) {
   std::vector<Cand> cands;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    if (is_candidate(k, c))
+    if (complete ? is_victim(k, c) : is_round_candidate(k, c))
       cands.push_back({ref, c->size});
     ref += clause_words(c->size);
   }
@@ -77,10 +90,11 @@ void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out) {
 // SCHED-F1 · the ROUND's repetition filter is kernel_clause_new_material
 // (kernel.hpp), which carries the argument for the predicate itself.
 //
-// ▶ POLICY, NOT PRECONDITION (N1). Only the canonical ROUND consults it.
-// subsume_forward_candidates — what `instances()` enumerates — and
-// subsume_forward_try, the single-candidate `apply_instance` path, stay
-// complete, so no API caller, RandomPolicy or phase-6 learner loses the
+// ▶ POLICY, NOT PRECONDITION (N1). Only the canonical ROUND consults it — and
+// the same is true of the round's REDUNDANCY scope (is_round_candidate).
+// `instances()` enumerates every victim, redundant ones included, and
+// subsume_forward_try, the single-candidate `apply_instance` path, accepts any
+// of them, so no API caller, RandomPolicy or phase-6 learner loses the
 // ability to subsume any clause at any time; and a skipped candidate is
 // re-offered by the very next round the moment anything in it moves. This is
 // the same category as the round's `work_budget`, not the category of the
@@ -331,10 +345,12 @@ ApplyResult subsume_forward_apply(Kernel &k) {
 // through the WATCH lists of the candidate's free literals: a subsumer d
 // watches two of its own literals, and every non-false literal of d is a
 // free literal of the candidate, so d appears there (falsified literals
-// are never watched in a fully propagated consistent state). Unlike the
-// round this sees ALL live clauses, so redundant large clauses must be
-// skipped explicitly (deleting an irredundant clause on the strength of
-// a deletable one would be unsound once Reduce removes the subsumer).
+// are never watched in a fully propagated consistent state). The VICTIM may be
+// redundant here (is_victim) — this is the complete surface N1 requires — while
+// the SUBSUMER may not: deleting a clause on the strength of a deletable one
+// would be unsound once Reduce removes the subsumer, hence the `d->redundant()`
+// skip below. (cadical instead PROMOTES such a subsumer to irredundant,
+// subsume.cpp:133-149; we have no promotion path — header deviation 1.)
 ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   assert(subsume_forward_guard(k));
   // SCHED-H1 · the round's `work_budget` is not consulted on this path at all,
@@ -345,7 +361,7 @@ ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   if (kernel_rule_interrupt(k, k.stats.subsume_interrupted))
     return ApplyResult::NoOp;
   Clause *c = clause_at(k.arena, candidate);
-  if (!is_candidate(k, c))
+  if (!is_victim(k, c))
     return ApplyResult::NoOp;
   k.stats.forward_checked++;
   std::vector<uint8_t> marks(2 * k.nvars, 0);
@@ -389,11 +405,14 @@ ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
 }
 
 // generic instance surface (plan §5.1 v1): payload = candidate arena Ref,
-// canonical-first order = size ascending (the round's processing order)
+// canonical-first order = size ascending (the round's processing order).
+// COMPLETE over victims — every clause `apply_instance` would accept is offered,
+// redundant ones included, so the two halves of the surface agree (the shape
+// SCHED-N1FIX repaired, and RV-S10's Vivify tier3 gap).
 static uint32_t subsume_forward_instances(Kernel &k, uint64_t *out,
                                           uint32_t cap) {
   std::vector<Ref> candidates;
-  subsume_forward_candidates(k, candidates);
+  subsume_forward_candidates(k, candidates, /*complete=*/true);
   const uint32_t n =
       std::min<uint32_t>(cap, static_cast<uint32_t>(candidates.size()));
   for (uint32_t i = 0; i < n; i++)

@@ -614,6 +614,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.cce_ala,
            (unsigned long long)kernel.stats.cce_cla,
            (unsigned long long)kernel.stats.cce_ticks);
+    // ...and its touched-epoch consumer, the sixth (RV-S2). Same contract as
+    // `c touch3`: `skipped` against `cce_tried`, both non-zero, and `advances`
+    // non-zero or every round is being cut and the filter is inert. `rearmed`
+    // proves the resume path that replaced the `cce_rounds` rotation is live.
+    printf("c cce2        %llu skipped / %llu advances / %llu rearmed\n",
+           (unsigned long long)kernel.stats.cce_mark_skipped,
+           (unsigned long long)kernel.stats.cce_mark_advances,
+           (unsigned long long)kernel.stats.cce_rearmed);
     printf("c instantiate %llu rounds, %llu literals removed, %llu probed\n",
            (unsigned long long)kernel.stats.instantiate_rounds,
            (unsigned long long)kernel.stats.instantiated,
@@ -887,10 +895,22 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.subsume_interrupted,
            (unsigned long long)kernel.stats.strengthen_interrupted);
     printf("c touchred    %llu redundant creations in scope (dynamic) vs %llu "
-           "(static tier2=6); stamping %s\n",
+           "(static tier2=6), %llu band marks; band %s\n",
            (unsigned long long)kernel.stats.touch_redundant_dynamic,
            (unsigned long long)kernel.stats.touch_redundant_static6,
+           (unsigned long long)kernel.stats.touch_kept_marks,
            kernel.touch_redundant ? "ON" : "off");
+    // SCHED-F7's CONSUMER-side reachability, and it is a PAIR for the same
+    // reason F6's producer side is: `checked` alone cannot distinguish a scope
+    // that admits nothing from a filter that admits everything. `checked` > 0
+    // says the band scope is live, `skipped` > 0 says the filter still fires
+    // inside it, and the two yield counters are what the extra candidates bought.
+    printf("c f7band      C2 %llu band candidates checked / %llu skipped, "
+           "%llu subsumed / %llu strengthened\n",
+           (unsigned long long)kernel.stats.strengthen_red_checked,
+           (unsigned long long)kernel.stats.strengthen_red_skipped,
+           (unsigned long long)kernel.stats.strengthen_red_subsumed,
+           (unsigned long long)kernel.stats.strengthen_red_strengthened);
     printf("c touch4      Factor %llu seeds skipped / %llu rearmed\n",
            (unsigned long long)kernel.stats.factor_mark_skipped,
            (unsigned long long)kernel.stats.factor_rearmed);
