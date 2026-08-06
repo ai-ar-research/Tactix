@@ -27,7 +27,19 @@ static Lit random_unassigned_literal(Kernel &k, uint64_t &rng) {
   }
 }
 
-int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
+int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
+                 RuleTrace *trace) {
+  // A verdict must be recorded on EVERY exit, or a trace that stops early
+  // replays as "reached 0" against a recorded 20 and reports a divergence that
+  // is really a missing line. One scope-exit writer covers all four returns.
+  struct Finish {
+    RuleTrace *t;
+    int verdict = 0;
+    ~Finish() {
+      if (t)
+        t->finish(verdict);
+    }
+  } fin{trace};
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const auto &rules = tactix_rules();
@@ -45,7 +57,7 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     if ((steps & 255) == 0)
       kernel_check_invariants(k);
     if (k.inconsistent)
-      return 20;
+      return fin.verdict = 20;
     // SAT only when the assignment is total, fully propagated, and no
     // conflict is in flight: an unpropagated suffix or a recorded conflict can
     // both mean the current assignment still falsifies a clause. (No
@@ -53,9 +65,9 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     // clause never persists across this boundary.)
     if (k.unassigned == 0 && !k.conflict_valid &&
         k.propagate_head == k.trail.size())
-      return 10;
+      return fin.verdict = 10;
     if (stop && *stop && (steps & 1023) == 0)
-      return 0;
+      return fin.verdict = 0;
 
     applicable.clear();
     for (size_t i = 0; i < rules.size(); i++)
@@ -66,12 +78,20 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     const int id =
         applicable[next_random(rng) % applicable.size()];
     ApplyResult r;
+    // The payload this step applied, in the rule's own encoding — recorded so
+    // the step is replayable through apply_instance (trace.hpp). Decide and
+    // Restart reach the same effect through a direct call below, so their
+    // payload has to be spelled out rather than read back.
+    uint64_t applied = INSTANCE_CANONICAL;
     if (id == decide_id) {
-      r = decide_apply(k, random_unassigned_literal(k, rng), true);
+      const Lit l = random_unassigned_literal(k, rng);
+      applied = lit_instance(l);
+      r = decide_apply(k, l, true);
     } else if (id == restart_id) {
       // random keep-level (plan §8.2: random INSTANCE choices, not just
       // random order) — every level in [0, current] is a legal instance
-      r = restart_apply_to(k, next_random(rng) % (k.level + 1));
+      applied = next_random(rng) % (k.level + 1);
+      r = restart_apply_to(k, static_cast<uint32_t>(applied));
     } else if (rules[id].instances && rules[id].apply_instance) {
       // generic random instance draw over the rule's own enumeration —
       // any rule registering an instance surface (Rephase, S/C/V families)
@@ -88,10 +108,13 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       const uint64_t inst = (m == 0 || next_random(rng) % 3 == 0)
                                 ? INSTANCE_CANONICAL
                                 : insts[next_random(rng) % m];
+      applied = inst;
       r = apply_rule_instance(rules[id], k, inst);
     } else {
       r = apply_rule(rules[id], k);
     }
+    if (trace)
+      trace->record(id, applied);
     // per-step rule trace, env-gated (zero cost when off): the diagnostic that
     // pins an N1-schedule bug — it names the rule + result + state at every
     // step, where the every-256 invariant check only says that SOMETHING
@@ -106,9 +129,9 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
               (int)k.inconsistent);
     }
     if (r == ApplyResult::Unsat)
-      return 20;
+      return fin.verdict = 20;
     if (r == ApplyResult::Sat)
-      return 10;
+      return fin.verdict = 10;
   }
 }
 

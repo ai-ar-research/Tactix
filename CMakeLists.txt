@@ -50,6 +50,7 @@ add_library(tactix_lib OBJECT
   src/policies/heuristics.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp
+  src/policies/trace.cpp
   src/policies/adversarial_policy.cpp
   src/policies/bve_stress_policy.cpp
   src/policies/congruence_stress_policy.cpp
