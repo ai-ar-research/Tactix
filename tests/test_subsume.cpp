@@ -189,6 +189,111 @@ static void test_enumeration_purity() {
   assert(live_clauses(k) == 2); // enumeration deleted nothing
 }
 
+// SCHED-F1 · N1 REGRESSION for the touched-epoch round filter.
+//
+// The filter is a POLICY decision about what the canonical ROUND tries. It may
+// never narrow what the public API can apply — that is the exact shape of the
+// Factor breach SCHED-N1FIX repaired (tests/test_factor_n1.cpp). So with the
+// watermark deliberately advanced past everything, i.e. the state in which the
+// round declines to look at anything at all:
+//   (a) `instances()` must still enumerate the candidate, and
+//   (b) `apply_instance(that candidate)` must still subsume it.
+// This test FAILS on a build that consults `subsume_touch_mark` in
+// subsume_forward_candidates or in subsume_forward_try.
+static void test_touch_filter_is_policy_only() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Ref big = add(k, {1, 2, 3, 4});
+  add(k, {2, 3, 4}); // a genuine subsumer of `big`
+  const int id = tactix_rule_id("SubsumeForward");
+  const RuleVTable &r = tactix_rules()[id];
+
+  // "Everything has already been seen": no clause holds new material.
+  k.subsume_touch_mark = k.touch_epoch;
+  assert(!kernel_clause_new_material(k, clause_at(k.arena, big),
+                                     k.subsume_touch_mark) &&
+         "test is vacuous unless the filter actually suppresses this clause");
+
+  // The ROUND declines — that is the point of the mechanism ...
+  assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::NoOp);
+  assert(k.stats.forward_mark_skipped >= 2);
+  assert(live_clauses(k) == 2);
+  // ... and a completed round advanced the watermark rather than leaving it.
+  assert(k.stats.forward_mark_advances == 1);
+
+  // (a) the instance surface stays COMPLETE.
+  uint64_t insts[8];
+  const uint32_t n = r.instances(k, insts, 8);
+  assert(n == 2);
+  bool offered = false;
+  for (uint32_t i = 0; i < n; i++)
+    offered |= insts[i] == big;
+  assert(offered && "instances() must not be narrowed by a policy mark (N1)");
+
+  // (b) and the advertised instance is still APPLICABLE.
+  assert(r.guard(k));
+  assert(r.apply_instance(k, big) == ApplyResult::Ok);
+  assert(k.stats.forward_subsumed == 1);
+  assert(live_clauses(k) == 1);
+  kernel_check_invariants(k);
+}
+
+// SCHED-F1 · the filter must not WEDGE: a round that is cut short leaves the
+// watermark alone, so its survivors are re-offered rather than skipped forever
+// (the completeness half; kissat re-arms the same candidates by hand,
+// forward.c:589-645).
+static void test_touch_filter_cut_round_does_not_advance() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  for (int t : {3, 4, 5, 6}) // four short clauses over shared literals ...
+    add(k, {1, 2, t});
+  for (int t : {3, 4, 5, 6}) // ... each subsuming a longer one
+    add(k, {1, 2, t, 7});
+  const uint64_t epoch = k.touch_epoch;
+  k.midround_budget = true;
+  k.work_budget = 1; // one partner visit, then stop
+  assert(subsume_forward_apply(k) != ApplyResult::Unsat);
+  assert(k.stats.budget_stops_c1 == 1);
+  assert(k.subsume_touch_mark == 0 && "a cut round must not advance");
+  assert(k.stats.forward_mark_advances == 0);
+  k.midround_budget = false;
+  k.work_budget = 0;
+  // the full round now sees everything the cut one did not, and advances
+  subsume_forward_apply(k);
+  assert(k.subsume_touch_mark >= epoch);
+  assert(k.stats.forward_mark_advances == 1);
+}
+
+// SCHED-F1 · the substrate's producers. Every mutation that can create a new
+// subsumer must raise the epoch; a deletion must not (it can only remove one).
+static void test_touch_producers() {
+  Kernel k;
+  kernel_reserve_vars(k, 4); // fresh variables are touched
+  assert(k.touch_epoch == 4 && k.stats.touch_marks == 4);
+  const uint64_t after_vars = k.touch_epoch;
+
+  add(k, {1, 2, 3});            // irredundant large: every variable
+  assert(k.touch_epoch == after_vars + 3);
+  const uint64_t after_large = k.touch_epoch;
+
+  add(k, {1, 2, 4}, /*redundant=*/true); // learned: not this rule's material
+  assert(k.touch_epoch == after_large);
+
+  kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
+  assert(k.touch_epoch == after_large + 2);
+  const uint64_t after_bin = k.touch_epoch;
+
+  kernel_delete_binary(k, internalize(1), internalize(2));
+  assert(k.touch_epoch == after_bin && "deletion creates no new inference");
+
+  // a root fix touches exactly the fixed variable (kernel_touch_sync_fixed)
+  kernel_assign_unit(k, internalize(4));
+  kernel_touch_sync_fixed(k);
+  assert(k.touch_epoch == after_bin + 1);
+  kernel_touch_sync_fixed(k); // idempotent
+  assert(k.touch_epoch == after_bin + 1);
+}
+
 static void test_proof_deltas() {
   char path[] = "/tmp/tactix_test_subsume_XXXXXX";
   const int fd = mkstemp(path);
@@ -275,6 +380,9 @@ int main() {
   test_reason_never_victim();
   test_registry_instance_surface();
   test_enumeration_purity();
+  test_touch_filter_is_policy_only();
+  test_touch_filter_cut_round_does_not_advance();
+  test_touch_producers();
   test_proof_deltas();
   test_binary_subsumer_then_substitute();
   printf("test_subsume: all ok\n");

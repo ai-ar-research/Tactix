@@ -277,6 +277,12 @@ int main(int argc, char **argv) {
     kernel.bve_cost_limit = (uint32_t)strtoul(cl, nullptr, 10);
   if (getenv("TACTIX_V4_EARLY_EXIT"))
     kernel.transitive_early_exit = true;
+  // Track SCHED stage F: the touched-epoch round filters. Default ON;
+  // TACTIX_TOUCH_MARKS=0 is the A/B off arm and restores the pre-stage-F
+  // candidate sets exactly. Set on the KERNEL so it applies under every policy,
+  // --random-policy and the stress policies included.
+  if (const char *tm = getenv("TACTIX_TOUCH_MARKS"))
+    kernel.touch_filter = (*tm != '0');
   if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
     kernel.midround_budget = (*mb != '0'); // default OFF, measured negative;
                                            // see Kernel::midround_budget
@@ -651,6 +657,23 @@ int main(int argc, char **argv) {
     printf("c budgetstop  %llu C1 rounds, %llu C2 rounds stopped mid-round\n",
            (unsigned long long)kernel.stats.budget_stops_c1,
            (unsigned long long)kernel.stats.budget_stops_c2);
+    // Reachability + NON-WEDGE witness for the touched-epoch filters
+    // (Kernel::touched). `marks` must keep growing on a long solve — its
+    // producers are on the kernel's clause-creation path, so a stalled counter
+    // means the substrate is dead, not quiet. Per rule, `skipped` is what the
+    // suppressor bought and `checked` (the `c subsume`/`c strengthen` lines
+    // above) is what still got through: BOTH non-zero is the evidence that the
+    // filter fires and has not wedged shut. `advances` counts the rounds that
+    // completed and therefore moved the watermark; zero advances with non-zero
+    // rounds means the filter is inert because every round is being cut.
+    printf("c touch       %llu marks, %llu epoch; C1 %llu skipped / %llu "
+           "advances, C2 %llu skipped / %llu advances\n",
+           (unsigned long long)kernel.stats.touch_marks,
+           (unsigned long long)kernel.touch_epoch,
+           (unsigned long long)kernel.stats.forward_mark_skipped,
+           (unsigned long long)kernel.stats.forward_mark_advances,
+           (unsigned long long)kernel.stats.strengthen_mark_skipped,
+           (unsigned long long)kernel.stats.strengthen_mark_advances);
     // --- `c timing`: where the wall clock actually goes ---------------------
     // Rules are charged individually by the registry dispatch wrapper; the SLOT
     // line is the whole inprocessing phase, so (slot − Σ rules in it) is the

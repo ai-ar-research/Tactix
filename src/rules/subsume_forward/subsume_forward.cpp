@@ -74,6 +74,21 @@ void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out) {
     out.push_back(c.ref);
 }
 
+// SCHED-F1 · the ROUND's repetition filter is kernel_clause_new_material
+// (kernel.hpp), which carries the argument for the predicate itself.
+//
+// ▶ POLICY, NOT PRECONDITION (N1). Only the canonical ROUND consults it.
+// subsume_forward_candidates — what `instances()` enumerates — and
+// subsume_forward_try, the single-candidate `apply_instance` path, stay
+// complete, so no API caller, RandomPolicy or phase-6 learner loses the
+// ability to subsume any clause at any time; and a skipped candidate is
+// re-offered by the very next round the moment anything in it moves. This is
+// the same category as the round's `work_budget`, not the category of the
+// Factor breach SCHED-N1FIX repaired (a guard that reported applicable while
+// apply NoOped). tests/test_subsume.cpp::test_touch_filter_is_policy_only
+// pins it through the registry surface and fails on a build that filters
+// either of the two complete paths.
+
 // mark the candidate's free literals. NOTE (corpus regression
 // 002-underived-root-consequence): a live non-satisfied clause can have
 // FEWER than 2 free literals here — engine quiescence (propagate_head ==
@@ -148,6 +163,13 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.forward_subsumptions++; // rounds (kissat forward.c stat name)
+  // SCHED-F1: snapshot the epoch BEFORE any work, so material this round
+  // creates itself (strengthened clauses, new binaries) is still new to the
+  // next one — kissat re-arms those same two cases by hand (forward.c:589-645).
+  kernel_touch_sync_fixed(k);
+  const bool filter = k.touch_filter;
+  const uint64_t snapshot = k.touch_epoch;
+  const uint64_t wm = k.subsume_touch_mark;
   std::vector<Ref> candidates;
   subsume_forward_candidates(k, candidates);
   std::vector<uint8_t> marks(2 * k.nvars, 0);
@@ -163,37 +185,52 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // now meters this rule in (see Stats::forward_visits). Polling in candidates
   // let one candidate with a saturated occurrence list run unboundedly.
   const uint64_t check_start = k.stats.forward_visits;
+  bool complete = true; // ran to natural exhaustion => the watermark may move
   for (const Ref ref : candidates) {
     if (k.midround_budget && k.work_budget &&
         k.stats.forward_visits - check_start > k.work_budget) {
       k.stats.budget_stops_c1++;
+      complete = false;
       break;
     }
     Clause *c = clause_at(k.arena, ref);
-    k.stats.forward_checked++;
-    mark_candidate(k, marks, c, 1);
-    bool subsumed = subsumed_by_binary(k, marks, c);
-    if (!subsumed) {
-      for (const Lit l : *c) {
-        if (k.value(l) != 0)
-          continue;
-        const std::vector<Ref> &os = occs[l];
-        if (os.size() > SUBSUME_OCCLIM)
-          continue;
-        for (const Ref dref : os) {
-          k.stats.forward_visits++; // SCHED-B4
-          const Clause *d = clause_at(k.arena, dref);
-          assert(d->size <= c->size); // connected earlier => not larger
-          if (subsumes_marked(k, marks, d)) {
-            subsumed = true;
-            break;
+    // SCHED-F1: a candidate with nothing new in it is not CHECKED, but it is
+    // still CONNECTED below, so the round's subsumer index stays complete and
+    // the filter costs no subsumption that the unfiltered round would find.
+    // (kissat drops unscheduled clauses from its index too — connect_subsuming
+    // demands flags->subsume on EVERY literal, forward.c:488-492 — and thereby
+    // loses old-subsumes-new; the index is round-local and cheap here, so
+    // there is no reason to inherit that.)
+    const bool check = !filter || kernel_clause_new_material(k, c, wm);
+    bool subsumed = false;
+    if (check) {
+      k.stats.forward_checked++;
+      mark_candidate(k, marks, c, 1);
+      subsumed = subsumed_by_binary(k, marks, c);
+      if (!subsumed) {
+        for (const Lit l : *c) {
+          if (k.value(l) != 0)
+            continue;
+          const std::vector<Ref> &os = occs[l];
+          if (os.size() > SUBSUME_OCCLIM)
+            continue;
+          for (const Ref dref : os) {
+            k.stats.forward_visits++; // SCHED-B4
+            const Clause *d = clause_at(k.arena, dref);
+            assert(d->size <= c->size); // connected earlier => not larger
+            if (subsumes_marked(k, marks, d)) {
+              subsumed = true;
+              break;
+            }
           }
+          if (subsumed)
+            break;
         }
-        if (subsumed)
-          break;
       }
+      mark_candidate(k, marks, c, 0);
+    } else {
+      k.stats.forward_mark_skipped++;
     }
-    mark_candidate(k, marks, c, 0);
     if (subsumed) {
       delete_subsumed(k, c);
       deleted++;
@@ -215,6 +252,16 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     assert(min_lit != INVALID_LIT);
     if (min_occs <= SUBSUME_OCCLIM)
       occs[min_lit].push_back(ref);
+  }
+  // SCHED-F1 · the watermark moves ONLY for a round that reached the end of its
+  // candidate list. A budget-cut round leaves it where it was, so every
+  // survivor is re-offered next time — the completeness half of the mechanism,
+  // and the reason the filter can never skip a candidate no round has checked.
+  // (Advancing to the round-entry `snapshot`, not to the current epoch: what
+  // this round created is new material for the next one.)
+  if (filter && complete) {
+    k.subsume_touch_mark = snapshot;
+    k.stats.forward_mark_advances++;
   }
   if (!deleted)
     return ApplyResult::NoOp;

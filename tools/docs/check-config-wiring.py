@@ -65,6 +65,11 @@ TABLE = {
     "bve_cost_limit":          ("ENV", "TACTIX_BVE_COST_LIMIT"),
     "ternary_occ_limit":       ("ENV", "TACTIX_TERNARY_OCC_LIMIT"),
     "ternary_max_add_percent": ("ENV", "TACTIX_TERNARY_MAXADD"),
+    # Track SCHED stage F: default-ON with an `=0` revert hatch, the
+    # `factor_demote_fresh` shape. NOT POLICY — the touched-epoch filters are
+    # rule-round policy, and a writer in default_policy.* purely to satisfy
+    # this test would be the ceremony the C5 note below warns against.
+    "touch_filter":            ("ENV", "TACTIX_TOUCH_MARKS (stage-F off arm)"),
     # SCHED-C5 (2026-08-05): was ENV-with-a-caveat — the knob existed, defaulted
     # OFF, and the row itself said that was the status quo rather than the
     # target. It now ships ON via the kernel.hpp default, which is what both
@@ -107,7 +112,13 @@ TABLE = {
 # that looks like a scalar with a default is config and must be classified.
 CONFIG_START = "bve_retry_fixed_head"
 # Fields below the marker that are solver STATE, not config.
-NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor"}
+# `touch_epoch`/`touch_fixed_head` are the touched-epoch substrate's own
+# bookkeeping and `*_touch_mark` are per-rule resumption watermarks — the
+# `transitive_cursor` category, solver state a policy may reset but never
+# "configures".
+NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
+              "touch_epoch", "touch_fixed_head",
+              "subsume_touch_mark", "strengthen_touch_mark"}
 
 
 def declared_fields():
