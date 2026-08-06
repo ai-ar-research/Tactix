@@ -30,7 +30,7 @@ verdicts stay reachable under weak/random schedules:
 - **15% random k-SAT** sweeping density: m/n ∈ {3.0, 4.0, 4.26, 4.6, 5.5} for k=3, n ∈ [20, 100]; also k ∈ {2,4,5}.
 - **30% cnfuzz-style structured** CNFs (variable-reuse clusters, mixed clause lengths) — uniform random alone misses whole bug classes.
 - **25% mutation** of a base instance: flip/drop/duplicate literals and clauses.
-- **30% FuzzSAT-style** random Boolean circuits Tseitin-encoded to CNF (AND/OR/XOR gates, root asserted ~50% negated) — definitional chains that stress watchers, equivalence reasoning, and BVE (≤120 vars incl. Tseitin aux).
+- **30% FuzzSAT-style** random Boolean circuits Tseitin-encoded to CNF (AND/OR/XOR/ITE gates, root asserted ~50% negated; the ITE op was added 2026-08-05 with BVE's ITE gate extractor, so that path is not fuzzed vacuously) — definitional chains that stress watchers, equivalence reasoning, and BVE (≤120 vars incl. Tseitin aux).
 - **The 10 fixed adversarial degeneracies run every batch** (indices 0..9, exempt from the `--max-vars` re-roll): empty formula, empty clause, units only, contradictory units, tautology, duplicate literals, max var index (500000), single huge clause, huge negative clause, unit-empty mix.
 - **Rule-order fuzzing (tests the flexibility guarantee):** drive the solver with a random legal macro-policy (random rule order/instances/budgets via the policy API). Soundness and proof validity must survive arbitrary legal schedules. Record the rule trace; replay must reproduce exactly.
 
