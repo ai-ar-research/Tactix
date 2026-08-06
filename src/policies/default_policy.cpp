@@ -341,15 +341,13 @@ struct TickSinkScope {
 // through `Kernel::tick_sink` while the policy has it scoped around that
 // rule's apply. Reading the global `k.stats.ticks` instead lets an earlier
 // slot entry spend the budget a later one was handed, and makes a starved
-// entry indistinguishable from an idle one.
+// entry indistinguishable from an idle one — so no EffortSpec meter may read
+// it. The global counter remains the right reference for SEARCH-relative
+// windows (`search_ticks`, the mode limits), which is a different axis.
 uint64_t meter_probe(const Kernel &k) { return k.stats.probe_ticks; }
 uint64_t meter_backbone(const Kernel &k) { return k.stats.backbone_ticks; }
 uint64_t meter_vivify(const Kernel &k) { return k.stats.vivify_ticks; }
 uint64_t meter_instantiate(const Kernel &k) { return k.stats.instantiate_ticks; }
-// The GLOBAL counter still exists and is still the right reference for
-// SEARCH-relative windows (`search_ticks`, the mode limits) — it is only wrong
-// as a per-rule SPEND meter.
-uint64_t meter_ticks(const Kernel &k) { return k.stats.ticks; }
 uint64_t meter_bve(const Kernel &k) { return k.stats.bve_resolutions; }
 // Strengthen/SubsumeForward meter PARTNER VISITS, not candidates. cadical
 // budgets subsumption in `stats.subchecks` (subsume.cpp:86,362,459) — one per
@@ -363,9 +361,10 @@ uint64_t meter_forward(const Kernel &k) { return k.stats.forward_visits; }
 // is a unit mismatch, not merely a generous one: one "checked" is a whole BFS
 // walk, so the per-mille ledger cannot bind at all — a twentyfold rate cut on
 // the candidate meter comes out bit-identical. Switching the meter alone is not
-// enough either: without `Kernel::transitive_cursor` a truncated round replays
-// its head next time and the tail is never reduced, so the honest budget buys
-// starvation. TACTIX_V4_METER=checked restores the old currency for an A/B.
+// enough either: without a resumption cursor a truncated round replays its head
+// next time and the tail is never reduced, so the honest budget buys
+// starvation — hence `SlotEntry::cursor`, which is ON for this entry.
+// TACTIX_V4_METER=checked restores the old currency for an A/B.
 uint64_t meter_transitive(const Kernel &k) {
   static const bool checked = [] {
     const char *e = std::getenv("TACTIX_V4_METER");

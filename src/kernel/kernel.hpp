@@ -471,8 +471,12 @@ struct Stats {
   uint64_t instantiate_mark_skipped = 0, instantiate_rearmed = 0;
   // SCHED-H1 · per-rule interrupt attribution for the X1/X2/X4 share. Bumped
   // only by `kernel_rule_interrupt`, i.e. inside the predicate, never at a
-  // call site — see that helper for why. `rule_interrupted` is their sum plus
-  // every other polling rule's; these three say which of ours aborted.
+  // call site — see that helper for why; these three say which of ours aborted.
+  // `rule_interrupted` is NOT a total over every polling rule: Congruence bumps
+  // it from raw `kernel_terminating` sites with no per-rule counter, and Vivify
+  // polls through its own `vivify_polls`/`vivify_terminated` pair without
+  // bumping it at all. Read it as "some rule that routes through the helper or
+  // through Congruence aborted", never as a sum.
   uint64_t bce_interrupted = 0;
   uint64_t ternary_interrupted = 0;
   uint64_t instantiate_interrupted = 0;
