@@ -589,6 +589,13 @@ public:
       // change wearing a parity costume. Both readings must be reported.
       uint64_t clamped = 0;
       uint64_t floored = 0;
+      // Occasions on which an effort subtraction would have gone NEGATIVE and
+      // was saturated to zero instead. Every one of these was an unsigned
+      // wraparound before, i.e. a budget of ~2^64 handed to a rule that reads
+      // it — the ledger silently switching itself off. It must be REPORTED,
+      // not merely guarded: a nonzero count means some anchor or ceiling is
+      // still being read out of order and the dose it computes is fiction.
+      uint64_t wrapped = 0;
     } tm;
     // Candidate-order reachability counters, the pre-registered readout for
     // every E1/E2 arm ([[ab-arm-identical-artefacts]]: an arm whose counter did
@@ -763,10 +770,24 @@ public:
     // accumulator recovers the split policy-side, with no kernel change and no
     // scheduling identity leaking into the rules.
     uint64_t ticks = 0;
+    // The accumulator above is credited at phase EXIT, so a reading taken
+    // DURING a phase counted that phase's own work as search. It has to be
+    // netted out live: an entry's anchor is read mid-phase, and a reading that
+    // inflates during the phase and snaps back at its exit is not monotone —
+    // the next phase's reading can fall below the anchor, and every effort
+    // budget is an UNSIGNED delta from it.
+    bool in_phase = false;
+    uint64_t phase_entry_ticks = 0;
   } inprocess;
-  // search work only (kissat statistics.search_ticks)
+  // search work only (kissat statistics.search_ticks). MONOTONE by
+  // construction: no search happens inside a phase, so the reading is frozen
+  // for its duration.
   uint64_t search_ticks(const Kernel &k) const {
-    return k.stats.ticks - inprocess.ticks;
+    const uint64_t net = k.stats.ticks - inprocess.ticks;
+    if (!inprocess.in_phase)
+      return net;
+    const uint64_t in_flight = k.stats.ticks - inprocess.phase_entry_ticks;
+    return net > in_flight ? net - in_flight : 0;
   }
 
   // the scheduling predicates and their transitions, exposed so tests
@@ -817,6 +838,7 @@ private:
   // Pre-checks reached before this entry's budget is computed; false = declined.
   bool slot_entry_admissible(SlotEntry &, const Kernel &, const SlotPhaseCtx &);
   // cadical's accumulate-until-worthwhile decline (SlotEntry::thresh).
+  static uint64_t ledger_remaining(SlotEntry &, const Kernel &, uint64_t limit);
   bool slot_entry_thresh_declines(SlotEntry &, const Kernel &);
   SlotStep run_dosed_entry(Kernel &, SlotEntry &, const RuleVTable &,
                            SlotPhaseCtx &);
