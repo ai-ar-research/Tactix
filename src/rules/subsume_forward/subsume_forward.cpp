@@ -232,6 +232,16 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     } else {
       k.stats.forward_mark_skipped++;
     }
+    // SCHED-G2 · SHADOW MODE (Kernel::subsume_shadow): record the victim and
+    // let it live, so the rest of the solve is a C1-less trajectory in which
+    // Strengthen's absorption of this exact clause is observable. Declining a
+    // deletion is sound in the same way a budget cut is — the rule has simply
+    // done less — and the shadowed clause falls through to `connect` below, so
+    // it stays a subsumer for the rest of the round exactly as a survivor does.
+    if (subsumed && k.subsume_shadow) {
+      kernel_shadow_observe(k, c->id());
+      subsumed = false;
+    }
     if (subsumed) {
       delete_subsumed(k, c);
       deleted++;

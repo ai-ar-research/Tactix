@@ -235,6 +235,9 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     return 0;
   Clause *c = clause_at(k.arena, *ref);
   if (p.res.kind == CheckResult::SUBSUMED) {
+    // SCHED-G2: C1 shadowed this clause and C2 has now deleted it on its own.
+    if (kernel_shadow_retire(k, c->id()))
+      k.stats.c1_shadow_deleted++;
     if (k.proof)
       k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
     kernel_mark_garbage(k, c);
@@ -243,6 +246,11 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     return 1;
   }
   // STRENGTHEN: rebuild from free literals minus the resolved one
+  // SCHED-G2: a shadowed clause rewritten away is also "handled" — the exact
+  // clause C1 wanted gone is retired and a strictly shorter one replaces it —
+  // but it is a different disposal from a deletion, so it gets its own counter.
+  if (kernel_shadow_retire(k, c->id()))
+    k.stats.c1_shadow_rewritten++;
   const Lit gone = negate(p.res.flipped);
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<Lit> lits;
@@ -312,6 +320,8 @@ static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
   uint32_t falsified = 0;
   for (const Lit l : *c) {
     if (k.value(l) > 0 && k.var_level(var_of(l)) == 0) {
+      if (kernel_shadow_retire(k, c->id())) // SCHED-G2
+        k.stats.c1_shadow_deleted++;
       if (k.proof) // root-satisfied: delete
         k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
       kernel_mark_garbage(k, c);

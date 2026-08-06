@@ -1021,6 +1021,9 @@ instrument before spending a tier window on a mechanism.
   (re-derive the 2,231 at `--congruencebinaries=0`) and it may shrink the target by most of itself.
   Y1 is small and one-step RUP; Y2 changes the closure's relationship to `τ` and is the large one.
 - [ ] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **the cheapest decisive check on the board.**
+  The INSTRUMENT landed 2026-08-05 (`TACTIX_SUBSUME_SHADOW`, the `c c1shadow` ledger) together with the
+  capability-subset argument and the unit test that pins it; the probe on real instances is the open half.
+  Read the Log entry for what was declared decisive BEFORE the run.
 - [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G5 · binary-first watch
   layout** `[revamp]`. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
   already tracked as **Track R · R5** — not repeated here as a second checkbox.)*
@@ -1317,6 +1320,43 @@ sweep-stress + forced-general + ASCII DRAT). Reachability at the SOURCE on the s
 1,468 rounds, 7,092 environments, 3,441 equivalences, **3,558 binaries and 293 general-path pairs** over
 1,497 generated cases — both proof paths non-zero, so no green leg here is vacuous. Report
 `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
+### 2026-08-05 — SCHED-G2 (1/2): the instrument, and what will count as decisive
+
+**The question is not "does C1 fire".** C1 fires — `forward_subsumed` has always been non-zero. The
+question the track asks is whether C1 removes clauses **C2 would not have handled anyway**, and counting
+subsumptions cannot answer it: every clause C1 deletes is a clause C2's fused round could also delete.
+
+**Half of it is settled in the SOURCE, with no run at all.** C1's per-pair test `subsumes_marked` is
+exactly C2's `check_marked` with the flip count pinned to zero; both rules use the same candidate
+predicate (live · irredundant · not root-satisfied · `size <= CLSLIM`), the same **1000/1000**
+`CLSLIM`/`OCCLIM`, the same size-ascending order, and the same connect-at-least-occurring-literal index —
+and C2 additionally probes the NEGATED phase and cascades. **So C1's deletable set is a subset of C2's,
+and C1 can have no unique capability band.** `test_subsume.cpp::test_shadow_ledger` states that as
+behaviour rather than as a source reading, over both the large-subsumer and the binary-subsumer case, so a
+future divergence in either rule's limits or discovery breaks the build here.
+
+**What the subset argument cannot settle is REACH** — whether C2's next round actually gets to the same
+pair, given its own budget, its own `strengthen_touch_mark`, and the early exit a derived unit forces.
+That is the whole remaining question, and it is dynamic.
+
+**The instrument: shadow mode, not a plain ablation.** `TACTIX_SUBSUME_SHADOW=1` makes C1 run its full
+round and RECORD each victim's clause id (`Kernel::shadow_victims`) instead of deleting it; Strengthen
+retires the id on every path that removes the clause (fused subsumption · the flush pre-pass's
+root-satisfied delete · a strengthen rewrite, which retires the old id and gets its own counter). The
+output is `c c1shadow observed / deleted + rewritten by C2 / residual`.
+
+**Why this beats `TACTIX_SLOT_DISABLE=SubsumeForward`.** The trajectory under shadow mode IS the C1-less
+trajectory — C1 takes no action — so the ledger measures the counterfactual in the SAME run that produces
+it. A plain ablation only yields two aggregates from two diverged trajectories, and can never say that
+*this* clause was picked up. It is also biased the safe way: absorption by any rule other than C2 (BVE
+above all) is deliberately not counted, so `residual` OVER-states C1's unique yield.
+
+**Declared before the run.** With `observed` non-zero on real instances:
+`absorbed/observed >= 0.9` ⇒ **C1 is inert**, its 100 ‰ share is duplicated work and the elimination group
+should be re-dosed. `<= 0.5` ⇒ **C1 earns its share** and the reach gap is real. Between the two ⇒ report
+the split rather than a verdict, and name which instances carry the residual. `observed == 0` on every
+instance is not a "C1 is inert" result — it is a broken probe, and the arm must be rejected
+([[ab-arm-identical-artefacts]]).
 
 ### 2026-08-05 — SCHED-F6: the redundant half of the substrate, shipped OFF on purpose
 
