@@ -94,12 +94,41 @@ static void test_reason_binary_retired_to_unit() {
   assert(k.values[b] > 0);                      // b stays assigned
 }
 
+// SP-JUMP-1: under reason jumping the recorded reason is a VIRTUAL resolvent,
+// so the clause the LRAT chain actually cites is (lit v jumped_over) — a pair
+// the reason field no longer names. The live-reason guard has to protect that
+// pair too, or TransitiveReduce/Substitute/Factor can delete a clause a live
+// chain cites. DefaultPolicy ships the knob OFF, so no fuzz or tier leg covers
+// this branch ([[ab-arm-identical-artefacts]]) — it is pinned here instead.
+static void test_jumped_reason_protects_its_antecedent() {
+  Kernel k;
+  k.jump_reasons = true;
+  kernel_reserve_vars(k, 3);
+  const Lit p = internalize(1), q = internalize(2), r = internalize(3);
+  kernel_add_binary_clause(k, p, q, 1);          // (p v q)
+  kernel_add_binary_clause(k, negate(q), r, 2);  // (~q v r)
+  kernel_assign_decision(k, negate(p));          // level 1: p = false
+  assert(propagate_apply(k) == ApplyResult::Ok); // q, then r
+  const Var vr = var_of(r);
+  assert(k.values[r] > 0);
+  assert(k.stats.jumped_reasons == 1);
+  assert(k.assigned[vr].binary && k.assigned[vr].jumped);
+  assert(k.assigned[vr].reason == p);            // the RESOLVENT (r v p)
+  assert(k.assigned[vr].reason != negate(q));    // ... so the old test misses it
+  assert(k.jumped_over[vr] == negate(q));
+  // both real antecedents are refused while r is a live non-root assignment
+  assert(!kernel_delete_binary(k, negate(q), r)); // needs the jumped_over test
+  assert(!kernel_delete_binary(k, p, q));         // q's own record still names p
+  assert(k.stats.binaries_deleted == 0);
+}
+
 int main() {
   test_delete_shrinks_both_lists();
   test_readd_after_delete_installs_fresh_id();
   test_duplicate_pair_refused();
   test_delete_idempotent();
   test_reason_binary_retired_to_unit();
+  test_jumped_reason_protects_its_antecedent();
   puts("test_binary_deletion OK");
   return 0;
 }

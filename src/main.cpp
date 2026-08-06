@@ -327,6 +327,12 @@ int main(int argc, char **argv) {
   // usable A/B arm.
   if (getenv("TACTIX_CONFLICT_REUSE"))
     kernel.conflict_reuse = true;
+  // SCHED / SP-JUMP-1: kissat's `jumpreasons`, default OFF here pending the
+  // pre-registered tier A/B. Read HERE for the same reason as the two above —
+  // a knob DefaultPolicy owns is one the corpus replays and the stress
+  // policies cannot toggle, so it is not a usable arm.
+  if (getenv("TACTIX_JUMP_REASONS"))
+    kernel.jump_reasons = true;
   if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
     kernel.conflict_reuse_no_repair = true;
   Proof proof;
@@ -524,6 +530,10 @@ int main(int argc, char **argv) {
     printf("c reuse       %llu conflicts reused, %llu needed watch repair\n",
            (unsigned long long)kernel.stats.conflict_reused,
            (unsigned long long)kernel.stats.conflict_watch_repaired);
+    // Reachability for the TACTIX_JUMP_REASONS arm: an arm whose counter did
+    // not move was not tested.
+    printf("c jumpreason  %llu binary reasons jumped\n",
+           (unsigned long long)kernel.stats.jumped_reasons);
     printf("c inprocess   %llu phases\n",
            (unsigned long long)kernel.stats.inprocess_phases);
     printf("c conggates   %llu and, %llu xor, %llu ite\n",

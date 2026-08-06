@@ -8,6 +8,7 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 namespace tactix {
 
@@ -36,6 +37,9 @@ static void emit_root_units(Kernel &k, size_t from) {
     k.lrat_entries.clear();
     uint64_t reason_id;
     if (a.binary) {
+      // Reason jumping cannot reach the root — it needs the resolved-away
+      // literal above level 0 — so the reason still names a real clause here.
+      assert(!a.jumped);
       reason_id = kernel_binary_id(k, lit, a.reason);
       const Var ov = var_of(a.reason);
       k.lrat_entries.emplace_back(k.assigned[ov].trail, k.unit_ids[ov]);
