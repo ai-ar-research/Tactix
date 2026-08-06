@@ -1461,8 +1461,15 @@ binaries, where the difference is the wall-clock cut point and not the trajector
 identical between binaries while every counter scales up ~6 % with the interrupt
 count. `vivify2 … 0 tier3` in both, i.e. the restored band never fired there.
 Fuzz (behaviour CAN change on the API/RandomPolicy path, so both formats):
-`--random-policy` × DRAT `1587408`, × native LRAT `1587409`, 10 000 cases each.
-No timing was submitted.
+`--random-policy` × DRAT (`1587408`) and × **native** LRAT (`1587409`),
+**14/14 regression corpus + 10 000/10 000 cases, 0 failures each**
+(SAT 5137 / UNSAT 3214 / TIMEOUT 1649 per leg). The two legs report the same
+verdict tally *because the trajectory is proof-format-independent* — what differs
+is the checker (`proof.lrat` + `lrat-check` vs `proof.drat` + `drat-trim`,
+`fuzz.py:198-240`), so this is not the identical-artefact trap; the LRAT
+checker path is separately live in ctest, where `micro_proofs` and `sweep_proofs`
+RAN (not skipped) on the Debug build. The TIMEOUT population is `RV-S31`'s and is
+unchanged. No timing was submitted.
 
 ### 2026-08-06 — revisit-codebase after twelve parallel merges: five cross-agent conflicts, and the comment rule is now MECHANICAL
 
