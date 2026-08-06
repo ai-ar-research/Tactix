@@ -19,6 +19,20 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-06) — phase 3 · **next = re-run Tier B + Tier C on the LEDGER FIX (branch `debug-solve-losses`)**
 
+
+**▶▶ SWEEP'S YIELD DEFECT IS FOUND AND FIXED — branch `sweep-yield`, UNMERGED.** It was not
+dosing, not the environment semantics, not the sub-solver: **97.1 % of Sweep's effort on
+`b22_1` went to a linear array scan** (`env_add`'s clause dedup, O(considered × encoded)),
+leaving 1.5 % for the sub-solver, so the dose bought **174 environments where kissat builds
+11,416**. Open-addressed key set + kissat's ascending-occurrence seed rank + nearest-first
+candidate order: **`b22_1` 0 → 239 equivalences and 0 → 478 emitted binaries at 1.4 % FEWER
+ticks** (kissat 545); `mp1-klieber` 2 → 45. ctest 54/54 with both proof tests; seven fuzz legs
+green on the final binary including `--sweep-stress-policy` × `TACTIX_SWEEP_FORCE_GENERAL` on
+both formats. The brief's leading hypothesis (kept root-false literals) is REFUTED by counters
+and fixed anyway. **A tier A/B is OWED and specified but NOT RUN** (report §8) — this pass took
+no timing measurement at all. Remainder ledgered as `SP-SWEEP-7`. Report
+`benchmarks/reports/2026-08-06-sweep-yield-diagnosis.md`.
+
 **NOTHING IN FLIGHT** (verified against `squeue -u hwu`: only the session's own `cpu-q` shell). The
 `bench-B/C-ledgerfix` arrays this line used to claim were live (`1585689` / `1585775`) have long since left
 the queue, and so have two later pairs another agent submitted. **`benchmarks/runs/` now holds FOUR tier
@@ -821,9 +835,24 @@ leaves only a STATIC per-instance one — and the best such separator measured 4
   `implementation-notes.md` §10. `4482bb5`. **Ships OFF** (`TACTIX_REORDER`, kissat's 1/2 values) — the one Track R result that is not an
   inventory tick: **parity on Tier B's UNSAT half (10.16 → 10.11) and 3.4× worse on its SAT half (5.28 → 16.99)**, a SAT-vs-UNSAT context axis no
   other §5.6 family carries. **Scope: policy op, NOT a proof rule — the all-rules-ON directive does not cover it; ask before flipping**
-- [x] **R5 · V5 `Sweep` + the embedded sub-solver — COMPLETE 2026-08-06** (S-a…S-f all closed; the
-  rule's own YIELD remains a separate open problem — `SP-SWEEP-2`/`SP-SWEEP-3`, and the N4 audit
-  measured 1,226,656 candidate checks for **1** equivalence on `b22_1` against kissat's 545)
+- [x] **R5 · V5 `Sweep` + the embedded sub-solver — COMPLETE 2026-08-06** (S-a…S-f all closed)
+  - [x] **S-g · the YIELD defect, found and fixed 2026-08-06** (branch `sweep-yield`, report
+    `benchmarks/reports/2026-08-06-sweep-yield-diagnosis.md`). **97.1 % of Sweep's entire effort
+    on `b22_1` went to a LINEAR SCAN answering "have I already added this clause?"** — `env_add`
+    walked every key already encoded, for every clause considered — leaving 1.5 % for the
+    sub-solver. So the dose bought **174 environments where kissat builds 11,416**, and coverage
+    is where kissat's yield comes from. Fix = open-addressed key set (`SP-SWEEP-4`) +
+    kissat's ascending-occurrence seed RANK (`SP-SWEEP-5`, ranked not filtered, N1) + nearest-
+    first candidate order (`SP-SWEEP-6`). **`b22_1` at the same dose: environments 174 → 25,162,
+    equivalences 0 → 239, emitted binaries 0 → 478, for 1.4 % FEWER ticks** (kissat 545).
+    `mp1-klieber` 2 → 45 (kissat 741); `mod4block` 0 → 1, where **kissat gets 2** — that exhibit
+    is not a gap instance and should leave the set. The brief's leading hypothesis (root-false
+    literals kept, making them free variables) is **REFUTED by measurement**: 0 root-false
+    literals in the whole shipped `b22_1` environment population. It is fixed anyway (deviation 1
+    closed, the strip is CITED — see calculus V5) but it is inert, and `Budget` was 0 in 1.7 M
+    sub-solver calls, so that candidate is closed too. **Remainder is `SP-SWEEP-7`** (seed-anchored
+    candidates + no flip pre-filter): yield per environment is still ~5× kissat's. **A/B spec
+    ready, NOT run** — report §8; no timing measurement was taken by this pass.
 - ~~R5 (old text)~~ **V5 `Sweep` + the embedded sub-solver** (kissat `sweep.c`+`kitten.c`; §11 O11) — the largest single item in kissat's own ablation
   (+14 alone) and the biggest build; also unlocks kitten-based **definition extraction** for E1 (the last E1 gap, +6.1 to kissat). Design
   `docs/design/v5-sweep-design.md`: O11 says WRITE a minimal sub-solver rather than vendor kitten (verbatim copying is barred, and we need
