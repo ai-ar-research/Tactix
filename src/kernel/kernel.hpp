@@ -666,17 +666,13 @@ struct Kernel {
   // trail index up to which root-fixed literals have been folded into
   // `bve_retry`; see kernel_bve_retry_sync_fixed.
   uint32_t bve_retry_fixed_head = 0;
-  // TransitiveReduce RESUMPTION CURSOR — solver STATE, not config.
-  // `instances()` can only offer `cap` sources per call, and offering the FIRST
-  // `cap` every round means a budget-truncated round re-derives the same list
-  // and starts from the front again, so the tail is never reached. kissat has
-  // no index either — it keeps a per-variable `flags[idx].transitive` pending bit
-  // and clears it as each source is processed, so whatever the budget did not
-  // reach stays scheduled for the next round (`transitivekeep`, DEFAULT 1,
-  // options.h:157). This is the same idea in one word. N1 is untouched:
-  // `apply_instance` still accepts ANY source literal directly, so rotating the
-  // enumeration order removes no capability — `instances()` is a convenience.
-  uint32_t transitive_cursor = 0;
+  // (SCHED-B3's `transitive_cursor` lived here. It is POLICY state — where a
+  // caller resumes an enumeration is a scheduling decision, not kernel state —
+  // and SCHED-E1 moved it to DefaultPolicy::SlotEntry::cursor, generalized to
+  // every dosed slot entry. kissat's own device is the per-variable
+  // `flags[idx].transitive` pending bit, cleared as each source is processed,
+  // so whatever the budget did not reach stays scheduled for the next round
+  // (`transitivekeep`, DEFAULT 1, options.h:157).)
   // by var: the MINIMUM growth slack at which x is currently eliminable (its
   // #resolvents − occ⁺ − occ⁻), as last computed by bve_eliminate; UINT16_MAX =
   // never (an oversized resolvent, or growth beyond the tracking ceiling). Only
