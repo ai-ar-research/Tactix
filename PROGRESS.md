@@ -891,11 +891,11 @@ phases can never fall inside one reduce interval. It is kept (one compare, the r
 becomes live the moment the probing clock takes cadical's near-constant `probe.cpp:980` spacing, which is
 precisely where cadical needs it) but it is labelled inert in the code and must not be cited as a result.
 
-Fuzz on the D3 binary: DRAT 2000/0, native LRAT 2000/0; ctest 43/43; regression corpus 14/14. The
-`--random-policy` × DRAT leg was still running at commit time (D1's and D2's are 2000/0). *(That leg
-exercises the RULE layer, which Stage D does not touch: `random_policy.cpp` references neither
-`DefaultPolicy` nor the slot, and D3's only kernel change is a counter increment. It is the standing N1
-leg, not a test of these three items — the reachability counters are.)*
+Fuzz on the D3 binary: DRAT 2000/0, native LRAT 2000/0, `--random-policy` × DRAT 2000/0; ctest 43/43;
+regression corpus 14/14. *(The `--random-policy` leg exercises the RULE layer, which Stage D does not
+touch: `random_policy.cpp` references neither `DefaultPolicy` nor the slot, and D3's only kernel change is
+a counter increment. It is the standing N1 leg, not a test of these three items — the reachability
+counters are.)*
 
 **▶ READY-TO-RUN A/B (`SCHED-D3`) — RUN THE PRE-FLIGHT FIRST AND BE WILLING TO CANCEL.** Like D2 there is
 no env arm; the gate-free build is the parent commit.
