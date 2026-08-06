@@ -572,9 +572,9 @@ row carrying a measurement, AND the ledger has been regenerated from the REFEREN
 **▶ EXIT STATUS (2026-08-05).** Half two is **DONE and now machine-checked** (SCHED-A3, ctest `option_coverage`). Half one is **NOT** met: of §13.2's
 HIGH rows, six are now closed (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B, `SP-VIVIFY-1` by C1, `SP-FACTOR-2` by C5) or accepted
 (`SP-FACTOR-1`, §13.3), and **eight remain open**: `SP-SLOT-1` (D2) · `SP-SLOT-4` (D1) · `SP-SLOT-5` (D3) · `SP-REPEAT-*` (F1–F5) · `SP-TIER-2`
-(supersedes C1's scope, **unassigned**) · `SP-EFFORT-CEIL-1` (**unassigned**; B1 gave the per-entry `thresh`, not the upper clamp) · `SP-BVE-GATE-1`
-(**unassigned**) · `SP-JUMP-1` (**unassigned**). **That list IS the remaining track work** — Stage D covers three of the eight, and the four
-unassigned A3 rows have no stage.
+(supersedes C1's scope, **unassigned**) · ~~`SP-EFFORT-CEIL-1`~~ **CLOSED by SCHED-E3** (ceiling ported, measured inert; its A3 headline was also
+over-general — kissat has no upper clamp at all) · `SP-BVE-GATE-1` (**unassigned**) · `SP-JUMP-1` (**unassigned**). **That list IS the remaining
+track work** — Stage D covers three of the eight, Stage E closes a fourth, and **two** unassigned A3 rows still have no stage.
 
 - [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
   slot (beside BVE's identical, N1-clean one), reaching the rule as `Kernel::factor_admit`, default TRUE. Both pre-registered gates passed:
@@ -622,8 +622,9 @@ instrument before spending a tier window on a mechanism.
   than under-counting. It is a **coverage** check, not a semantic one — §13.5's 6 corrections are the base rate for what it cannot verify.
   **The 4 HIGH gaps, which are the actionable list:** `SP-BVE-GATE-1` ITE/XOR gate extraction is absent, so BVE is charged the full P·N where both
   references pay P+N−2 (a per-application ACCEPTANCE lever, i.e. the T4 antidote) · `SP-TIER-2` the dynamic tiers have ONE consumer here and EIGHT
-  in cadical via `likely_to_be_kept_clause`, which **supersedes SCHED-C1's scope** · `SP-EFFORT-CEIL-1` every reference budget has an UPPER clamp
-  and ours has only a floor · `SP-JUMP-1` `jumpreasons`, default-ON, per-conflict, free.
+  in cadical via `likely_to_be_kept_clause`, which **supersedes SCHED-C1's scope** · ~~`SP-EFFORT-CEIL-1`~~ *(closed by SCHED-E3, and its claim
+  "every reference budget has an UPPER clamp" was WRONG — kissat has no `maxeffort` option and our budget is kissat's macro)* ·
+  `SP-JUMP-1` `jumpreasons`, default-ON, per-conflict, free.
   **Standing method note, both traps live in this pass:** **read MACROS, not just grep** — cadical's `factorthresh` is token-pasted
   (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never appears literally and reading it as dead code
   produced two wrong published claims; and **polarity is not inferable from a name** (`factordelay`=0 is the MOST delayed setting)
@@ -751,6 +752,19 @@ instrument before spending a tier window on a mechanism.
   `b22_1`/`sted5` because it is never dosed there, and the counter says so instead of the arm passing vacuously. **UNPRICED** — the four-arm bundle
   moves `9vliw` 348,630 → 234,825 conflicts and its proof 64.0 → 43.4 MB, but that is ONE instance and a BUNDLE; the A/B spec in the Log entry
   prices one rule at a time.
+- [x] **SCHED-E3 · the effort budget's UPPER clamp (ledger `SP-EFFORT-CEIL-1`)** `[wire]` — landed 2026-08-05, added to Stage E because an entry
+  whose window can grow without bound is never cut, and an entry that is never cut makes E1's ordering question moot for it. **The row's headline
+  was wrong and reading the use sites is what showed it:** there are THREE reference schemes — kissat `SET_EFFORT_LIMIT` (`kimits.h:135-170`,
+  **floor only; kissat ships no `maxeffort` option at all**, and ours is a transliteration of exactly this), cadical's ticks macro (neither), and
+  cadical's PROPAGATIONS scheme, the only clamped one. That scheme is an ORDERED composition — `max(mineff)` → `min(maxeff)` → `max(2·active())`
+  — whose LAST step is a floor that can lift the delta back above the ceiling (`elim.cpp:781-787`, `subsume.cpp:351-357`); reading it as a clamped
+  range gets it backwards, and `test_scheduling::test_effort_ceiling` pins the order. Ported in that order to the entries whose currency matches a
+  clamped cadical technique: BVE↔elim 2e9 resolutions, SubsumeForward/Strengthen↔subsume 1e8 partner visits. TransitiveReduce deliberately gets
+  none — cadical's 1e8 is PROPAGATIONS and our meter is a cache-line proxy. **MEASURED INERT and that is the result** (job `1584734`): the shipped
+  constants give `clamped 0 floored 0` on every entry of `9vliw`/`b22_1`/`sted5`; forced to 1e5 the clamp fires 18/21/13 times, **and `b22_1` and
+  `sted5` are still byte-identical**, so those rounds never spend to their limit either. It ships ON (one compare per occasion) on parity grounds
+  with the inertness recorded, not as a green headline. Arms `TACTIX_EFFORT_CEIL=0` / `TACTIX_MAXEFF_<RULENAME>=N`. **Not closed by this:
+  Congruence/Substitute still have no meter at all** — that is `SCHED-A2b`'s open finding and the 131,327 ms Congruence application belongs to it.
 
 #### Stage F — repetition suppression (T2): the touched-epoch substrate
 
@@ -856,6 +870,67 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — SCHED-E3: the effort ceiling exists now, and it is measured inert
+
+Closes ledger row **`SP-EFFORT-CEIL-1`** (`docs/implementation-notes.md` §13.2), the ceiling half of the
+effort budget — SCHED-B1 landed the floor/threshold half and the row was miscredited to it until A3 caught
+the split. Filed as `SCHED-E3` rather than a Stage-C id because two agents collided on `SCHED-C8` today.
+
+**READING THE USE SITES CORRECTED THE ROW'S OWN HEADLINE.** "Every reference effort budget has an UPPER
+clamp" is not true. There are THREE schemes:
+- **kissat `SET_EFFORT_LIMIT`** (`kimits.h:135-170`) — `REFERENCE = search_ticks − last`, floored at
+  `mineffort`·1e6, `DELTA = effort·REFERENCE`, `LIMIT = OLD + DELTA`. **Floor only. kissat has no
+  `maxeffort` option at all** (grep: `mineffort` is the only member of the family). **Our budget is a
+  transliteration of exactly this**, so against kissat we already matched and the row over-stated the gap.
+- **cadical's ticks macro `SET_EFFORT_LIMIT`** (`limit.hpp:136-164`) — neither floor nor ceiling.
+- **cadical's PROPAGATIONS scheme** — the only clamped one, and it is an ORDERED composition whose last
+  step is a FLOOR: `max(delta,mineff)` → `min(delta,maxeff)` → `max(delta, 2·active())`
+  (`elim.cpp:781-787`, `subsume.cpp:351-357`). On a large formula the active floor lifts the delta back
+  ABOVE the ceiling. Reading the three as a clamped range gets that backwards, so
+  `test_scheduling::test_effort_ceiling` pins the ORDER, not just the clamp.
+
+Ported in cadical's order, to the entries whose currency is the one cadical clamps: **BVE ↔ elim, 2e9
+resolutions** and **SubsumeForward/Strengthen ↔ subsume, 1e8 partner visits** (SCHED-B4 made ours the same
+unit as `subchecks`). **TransitiveReduce deliberately gets NO numeric ceiling** — cadical's 1e8 is in
+PROPAGATIONS and our meter is `transitive_ticks`, a cache-line proxy; the standing method note says transfer
+the ratio, never the unit.
+
+**▶ THE MEASUREMENT IS THE RESULT** (job `1584734`, `c slot … maxeff/clamped/floored`):
+
+| arm | BVE | SubsumeForward | Strengthen |
+|---|---|---|---|
+| shipped (2e9 / 1e8 / 1e8) | clamped **0** | **0** | **0** |
+| forced `TACTIX_MAXEFF_*=1e5` | 15 / 19 / 10 | 18 / 21 / 13 | 18 / 21 / 13 |
+
+(three columns of the forced row = `9vliw` / `b22_1` / `sted5`.) `floored` is 0 everywhere: our natural
+deltas already exceed 2·active() at these sizes. **And even the forced 20,000×-tighter ceiling leaves
+`b22_1` and `sted5` byte-identical** — those rounds never spend to their limit, so the ceiling is not the
+binding constraint on our budgets at all. The forced arm is there for one reason: it proves the clamp is
+wired rather than dead code, which a `clamped 0` reading alone could never distinguish from a missing call.
+
+**So it ships ON with the inertness recorded, not as a green headline.** One compare per occasion, on
+reference-parity grounds; the row closes as CLOSED-and-inert rather than as an accepted deviation, because
+we no longer LACK the mechanism. **What the row does NOT close: Congruence and Substitute still have no
+meter at all** — that is `SCHED-A2b`'s open finding, and the 131,327 ms Congruence application the A3 row
+cited belongs to it, not to the ceiling.
+
+**▶ READY-TO-RUN A/B (`SCHED-E3`) — and the honest recommendation is DO NOT SPEND A WINDOW ON IT YET.**
+The pre-flight already ran: `clamped 0` on three instances means the ON and OFF arms are the same binary
+behaviour, and a window would measure noise ([[ab-arm-identical-artefacts]] — this is exactly the arm that
+passes vacuously). Run it only if a Tier C instance ever shows `clamped > 0` at the shipped constants.
+The command, for when that happens:
+```
+python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e3-c/tactix \
+  --solver 'env TACTIX_EFFORT_CEIL=0 build/pin-e3-c/tactix'
+```
+Pre-registered counter: `c slot … clamped` > 0 on the ON arm for at least one entry, `clamped 0` on OFF.
+**Abandon the window if the ON arm's clamp counts are all zero** — that is the pre-flight, and it currently
+fails. The *interesting* experiment is the opposite one and it is a DOSE question, not a parity one: sweep
+`TACTIX_MAXEFF_BVE` downward until it binds and see whether a smaller ceiling helps; that belongs with the
+phase-6 dosing exhibit, not with this row.
+
 
 ### 2026-08-05 — SCHED-E2: the ordering arms, one knob per rule
 

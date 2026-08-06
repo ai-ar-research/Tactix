@@ -547,8 +547,62 @@ static void test_slot_gates_decline_without_new_material(void) {
   std::printf("  slot gates: decline without new material, re-admit with it\n");
 }
 
+// --- SCHED-E3 / SP-EFFORT-CEIL-1: the effort budget's UPPER clamp ----------
+//
+// Our per-occasion delta is a fixed per-mille of the search work since the
+// entry last ran and nothing bounded it from above. kissat's own
+// SET_EFFORT_LIMIT (kimits.h:135-170) has no ceiling either -- there is no
+// `maxeffort` option in kissat -- so the clamp comes from cadical's
+// PROPAGATIONS scheme, which is a THREE-step composition and the order of the
+// steps is the substance:
+//     delta = max(delta, mineff); delta = min(delta, maxeff);
+//     delta = max(delta, 2*active())
+// The active floor comes LAST (elim.cpp:787, subsume.cpp:357), so on a large
+// formula it can lift the delta back ABOVE the ceiling. Reading the three as a
+// simple clamped range gets that backwards.
+static void test_effort_ceiling(void) {
+  const RuleVTable *bve = find_rule("BVE");
+  assert(bve);
+  Kernel k;
+  kernel_reserve_vars(k, 64);
+  DefaultPolicy p;
+  DefaultPolicy::SlotEntry e;
+  e.rule = static_cast<int>(bve->id);
+  e.permille = 100;
+  e.meter = [](const Kernel &) -> uint64_t { return 0; };
+
+  // No search yet, so the reference is floored at MIN_EFFORT_TICKS and the
+  // delta is 1e7/1000*100 == 1e6. Uncapped entry: no clamp, no count.
+  p.set_entry_limit(e, k);
+  assert(e.limit == 1000000 && e.tm.clamped == 0 && e.tm.floored == 0);
+
+  // A ceiling below that must BIND and must be COUNTED -- an uncounted clamp
+  // is a dose change nothing can attribute.
+  e.max_delta = 250000;
+  p.set_entry_limit(e, k);
+  assert(e.limit == 250000 && e.tm.clamped == 1);
+
+  // ... and the active floor, applied after it, lifts it back above.
+  e.active_floor = true;
+  k.unassigned = 400000; // 2*active == 800000 > the 250000 ceiling
+  p.set_entry_limit(e, k);
+  assert(e.limit == 800000 && e.tm.clamped == 2 && e.tm.floored == 1 &&
+         "cadical floors AFTER clamping, so the floor wins on a big formula");
+
+  // A ceiling ABOVE the natural delta is inert -- which is the shipped case,
+  // and the reason the row closes on a measurement rather than on a number.
+  e.active_floor = false;
+  e.max_delta = 1000000000ull;
+  const uint64_t clamped_before = e.tm.clamped;
+  p.set_entry_limit(e, k);
+  assert(e.limit == 1000000 && e.tm.clamped == clamped_before);
+  std::printf("  effort ceiling: clamps, counts, and the active floor "
+              "overrides it\n");
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
+  test_effort_ceiling();
   test_slot_cursor_rotates();
   test_cursor_preserves_n1();
   test_order_arms_reorder();
