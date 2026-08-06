@@ -114,14 +114,9 @@ bool build_table(Walker &w, const Kernel &k) {
   };
 
   for (Lit l = 0; l < nlits; l++) {
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-    const uint32_t n = k.watches.heads[l].size;
-    for (uint32_t i = 0; i < n; i++) {
-      const Watch wt = {ws[i]};
-      if (!wt.binary()) {
-        i++; // large watch: [blocking, ref]
+    for (const WatchEntry wt : k.watches.entries(l)) {
+      if (!wt.binary())
         continue;
-      }
       const Lit other = wt.other();
       if (other < l)
         continue; // dedup: each binary is seen from both watch lists

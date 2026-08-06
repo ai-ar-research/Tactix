@@ -151,15 +151,9 @@ bool ala_propagate(Kernel &k, const CceIndex &idx, Coveror &cv, Lit l,
   }
   // Binaries live in the watch lists, not the arena; all of them are
   // irredundant in this kernel (transitive_reduce.hpp deviation 6).
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-  const uint32_t sz = k.watches.heads[l].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (!w.binary()) {
-      i += 2;
+  for (const WatchEntry w : k.watches.entries(l)) {
+    if (!w.binary())
       continue;
-    }
-    i += 1;
     const Lit o = w.other();
     k.stats.cce_ticks += 2;
     if (is_true(k, cv, o))
@@ -242,15 +236,9 @@ ClaResult cla_step(Kernel &k, const CceIndex &idx, Coveror &cv, Lit u) {
     }
   }
   if (!empty) {
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[nu].offset;
-    const uint32_t sz = k.watches.heads[nu].size;
-    for (uint32_t i = 0; i < sz;) {
-      const Watch w{ws[i]};
-      if (!w.binary()) {
-        i += 2;
+    for (const WatchEntry w : k.watches.entries(nu)) {
+      if (!w.binary())
         continue;
-      }
-      i += 1;
       const Lit o = w.other();
       k.stats.cce_ticks += 2;
       if (is_true(k, cv, o))

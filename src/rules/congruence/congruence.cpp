@@ -73,33 +73,16 @@ struct BudgetScope {
 // mark the binary-watch partners of `lit` (each `p` with a binary (lit ∨ p)).
 template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
                                         std::vector<uint8_t> &mark) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[lit].offset;
-  const uint32_t sz = k.watches.heads[lit].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
+  for (const WatchEntry w : k.watches.entries(lit))
+    if (w.binary())
       mark[w.other()] = V;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
 }
 
 // true iff a live binary (a ∨ b) exists.
 bool binary_exists(const Kernel &k, Lit a, Lit b) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  const uint32_t sz = k.watches.heads[a].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == b)
-        return true;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
+  for (const WatchEntry w : k.watches.entries(a))
+    if (w.binary() && w.other() == b)
+      return true;
   return false;
 }
 
@@ -1433,18 +1416,12 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
       // impossible at a quiescent root (both binaries would have propagated).
       if (k.value(l) != 0)
         continue;
-      const WatchHead &h = k.watches.heads[l];
-      const uint32_t *ws = k.watches.arena.data() + h.offset;
-      k.stats.congruence_ticks += h.size;
+      k.stats.congruence_ticks += k.watches.size(l);
       touched.clear();
       bool found = false;
-      for (uint32_t i = 0; i < h.size;) {
-        const Watch w{ws[i]};
-        if (!w.binary()) {
-          i += 2; // large watch: blocking word + ref word
+      for (const WatchEntry w : k.watches.entries(l)) {
+        if (!w.binary())
           continue;
-        }
-        i += 1;
         const Lit o = w.other();
         if (k.value(o) != 0)
           continue; // satisfied or already-propagated binary

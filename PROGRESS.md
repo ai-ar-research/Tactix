@@ -436,6 +436,13 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   subsumed by **RV-S9**, decide one rule for both); **RV-R4/RV-R5** small duplication + allocation watch
   items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats
   with the detector reached at the source.)
+- **▶ RV-S DUPLICATION AXIS — DISCHARGED (branch `rvs-duplication`).** `RV-S21` **DONE**: the watch-list
+  stride is now ONE kernel primitive (`WatchLists::entries` + `WatchEntry`/`WatchIter`, plus
+  `WatchLists::compact` for the removal sites), and 28 open-coded strides across 18 files went with it
+  (net −234 lines). Two sites are deliberately NOT converted and say so in the source: `propagate_literal`
+  copies-and-rewrites entries rather than walking them, and `propagate_literal_binary` prices the WORD
+  CURSOR where its scan stopped (`binprop_words`/`binprop_skipped`), which an entry iterator cannot
+  reproduce because it stops *before* the entry it breaks on.
 - **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
   highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the

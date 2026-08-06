@@ -46,20 +46,14 @@ inline void charge_factor_ticks(Kernel &k, uint32_t words) {
 void binary_partners(Kernel &k, Lit l, Lit limit, std::vector<Lit> &out,
                      std::vector<uint8_t> &seen) {
   out.clear();
-  charge_factor_ticks(k, k.watches.heads[l].size);
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-  const uint32_t sz = k.watches.heads[l].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      const Lit p = w.other();
-      if (p < limit && k.value(p) == 0 && !seen[p]) {
-        seen[p] = 1;
-        out.push_back(p);
-      }
-      i += 1;
-    } else {
-      i += 2;
+  charge_factor_ticks(k, k.watches.size(l));
+  for (const WatchEntry w : k.watches.entries(l)) {
+    if (!w.binary())
+      continue;
+    const Lit p = w.other();
+    if (p < limit && k.value(p) == 0 && !seen[p]) {
+      seen[p] = 1;
+      out.push_back(p);
     }
   }
   for (const Lit p : out) // clear the marker for reuse
@@ -154,17 +148,10 @@ struct FactorIndex {
 static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
   bincount.assign(2 * k.nvars, 0);
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++) {
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-    const uint32_t sz = k.watches.heads[l].size;
     uint32_t n = 0;
-    for (uint32_t i = 0; i < sz;) {
-      if (Watch{ws[i]}.binary()) {
+    for (const WatchEntry w : k.watches.entries(l))
+      if (w.binary())
         n++;
-        i += 1;
-      } else {
-        i += 2;
-      }
-    }
     bincount[l] = n;
   }
 }
@@ -471,13 +458,9 @@ void dump_factored_and_exit(const Kernel &k, const char *path) {
     else if (val < 0) cls.push_back({-(static_cast<int>(v) + 1)});
   }
   for (Lit l = 0; l < 2 * k.nvars; l++) {
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-    const uint32_t sz = k.watches.heads[l].size;
-    for (uint32_t i = 0; i < sz;) {
-      const Watch w{ws[i]};
-      if (w.binary()) { if (l < w.other()) cls.push_back({dl(l), dl(w.other())}); i += 1; }
-      else i += 2;
-    }
+    for (const WatchEntry w : k.watches.entries(l))
+      if (w.binary() && l < w.other())
+        cls.push_back({dl(l), dl(w.other())});
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);

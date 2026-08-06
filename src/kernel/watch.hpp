@@ -33,6 +33,48 @@ struct WatchHead {
   uint32_t offset = 0, size = 0, capacity = 0;
 };
 
+// One ENTRY of a watch list, as seen by a reader. A binary entry is one word, a
+// large entry two (blocking word, then the arena ref), so a reader must step per
+// entry and never per word: a word-wise walk reinterprets a large clause's ref
+// as a watch. `ref()` is valid only on a large entry.
+struct WatchEntry {
+  const uint32_t *word;
+  bool binary() const { return Watch{*word}.binary(); }
+  Lit other() const { return Watch{*word}.other(); }
+  Lit blocking() const { return Watch{*word}.blocking(); }
+  Ref ref() const { return word[1]; }
+};
+
+// Forward iterator whose ++ carries the per-entry stride, so no reader open-codes
+// it (that stride was transcribed at every reader before this existed, and a
+// wrong one is silently wrong rather than a crash). Range-for shaped rather than
+// callback shaped on purpose: `break`/`continue`/`return` in a reader's body keep
+// their exact meaning, which is what makes converting a reader to it provably
+// behaviour-preserving.
+class WatchIter {
+public:
+  explicit WatchIter(const uint32_t *p) : p_(p) {}
+  WatchEntry operator*() const { return WatchEntry{p_}; }
+  WatchIter &operator++() {
+    p_ += Watch{*p_}.binary() ? 1u : 2u;
+    return *this;
+  }
+  bool operator!=(const WatchIter &o) const { return p_ != o.p_; }
+
+private:
+  const uint32_t *p_;
+};
+
+// The slice is snapshotted at construction: a reader must not push to any watch
+// list while iterating (a push can relocate the list or the whole arena — see the
+// file header). Every open-coded reader already had that precondition.
+struct WatchRange {
+  const uint32_t *first, *last;
+  WatchIter begin() const { return WatchIter{first}; }
+  WatchIter end() const { return WatchIter{last}; }
+  bool empty() const { return first == last; }
+};
+
 struct WatchLists {
   std::vector<uint32_t> arena;
   std::vector<WatchHead> heads; // by lit
@@ -43,6 +85,35 @@ struct WatchLists {
   uint32_t *begin(Lit l) { return arena.data() + heads[l].offset; }
   uint32_t *end(Lit l) { return begin(l) + heads[l].size; }
   uint32_t size(Lit l) const { return heads[l].size; }
+
+  // Entry-aware read-only walk of l's list — the one iteration primitive every
+  // reader outside the propagation engines goes through (§5.3 puts watch
+  // maintenance in the kernel).
+  WatchRange entries(Lit l) const {
+    const uint32_t *b = arena.data() + heads[l].offset;
+    return {b, b + heads[l].size};
+  }
+
+  // In-place, entry-aware compaction: `keep(WatchEntry)` decides per ENTRY, and a
+  // dropped large entry loses BOTH its words. Same write-cursor the removal sites
+  // open-coded, in one place — no growth, so no other list moves.
+  template <class Keep> void compact(Lit l, Keep keep) {
+    uint32_t *const b = begin(l);
+    uint32_t *q = b;
+    const uint32_t *p = b;
+    const uint32_t *const e = end(l);
+    while (p != e) {
+      const bool bin = Watch{*p}.binary();
+      if (keep(WatchEntry{p})) {
+        *q++ = *p++;
+        if (!bin)
+          *q++ = *p++;
+      } else {
+        p += bin ? 1 : 2;
+      }
+    }
+    truncate(l, static_cast<uint32_t>(q - b));
+  }
 
   // shrink after in-place compaction (capacity is retained and reused)
   void truncate(Lit l, uint32_t n) {
