@@ -35,6 +35,13 @@ add_executable(test_scheduling test_scheduling.cpp)
 target_link_libraries(test_scheduling PRIVATE tactix_lib)
 add_test(NAME scheduling COMMAND test_scheduling)
 
+# RV-S13: the §5.6 POSE surface — a preposed slot, a disabled entry proved inert
+# at its rule's own counter, and the TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs shown
+# to reach the entry the policy walks. None of it had any coverage.
+add_executable(test_slot_pose test_slot_pose.cpp)
+target_link_libraries(test_slot_pose PRIVATE tactix_lib)
+add_test(NAME slot_pose COMMAND test_slot_pose)
+
 add_executable(test_reorder test_reorder.cpp)
 target_link_libraries(test_reorder PRIVATE tactix_lib)
 add_test(NAME reorder COMMAND test_reorder)
@@ -58,6 +65,12 @@ add_test(NAME instantiate COMMAND test_instantiate)
 add_executable(test_vivify test_vivify.cpp)
 target_link_libraries(test_vivify PRIVATE tactix_lib)
 add_test(NAME vivify COMMAND test_vivify)
+
+# N1: every Vivify band reachable through the API, and the unscoped path
+# excluding none. The Factor breach (test_factor_n1) in a second rule.
+add_executable(test_vivify_n1 test_vivify_n1.cpp)
+target_link_libraries(test_vivify_n1 PRIVATE tactix_lib)
+add_test(NAME vivify_n1 COMMAND test_vivify_n1)
 
 add_executable(test_probe test_probe.cpp)
 target_link_libraries(test_probe PRIVATE tactix_lib)
@@ -116,10 +129,24 @@ target_link_libraries(test_api_c PRIVATE tactix_lib)
 target_include_directories(test_api_c PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME api_n1 COMMAND test_api_c)
 
+# RV-S14: tactix_apply_instance on EVERY registry entry (the §5.6 action space)
+# + the no-payload-aliasing contract. Also a C client, so it shares test_api_c's
+# header/ABI sync property.
+add_executable(test_api_instances test_api_instances.c)
+target_link_libraries(test_api_instances PRIVATE tactix_lib)
+target_include_directories(test_api_instances PRIVATE ${CMAKE_SOURCE_DIR}/include)
+add_test(NAME api_instances COMMAND test_api_instances)
+
 add_executable(test_random_policy test_random_policy.c)
 target_link_libraries(test_random_policy PRIVATE tactix_lib)
 target_include_directories(test_random_policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME random_policy COMMAND test_random_policy)
+
+# RV-S12: --trace/--replay, the §8.5 offline replay harness, plus the
+# cross-process reproducibility of --random-policy=SEED that the whole fuzz
+# harness rests on. Runs the real binary; no checker needed, so it never skips.
+add_test(NAME trace_replay
+         COMMAND ${CMAKE_SOURCE_DIR}/tests/trace_replay.sh $<TARGET_FILE:tactix>)
 
 # micro-formula proof test: tiny UNSATs through the real binary, proofs
 # verified by drat-trim (skips with 77 when the checker isn't built)
@@ -186,6 +213,15 @@ add_test(NAME effort_specs
 add_test(NAME option_coverage
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-option-coverage.py)
+
+# RV-S11, the same shape over the §5.6 REWARD channel: every dosed rule exposes
+# a (yield, effort) pair, header numbering matches api.cpp's case order, and
+# every case returns the counter its macro names. The suite's only previous
+# evidence here was `tactix_stat(s, id) != UINT64_MAX`, a presence check that a
+# swapped pair passes while the learner's cost axis inverts.
+add_test(NAME stat_ids
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-stat-ids.py)
 
 # Same shape, over source COMMENTS: they carry the invariant plus a reference
 # pointer, never the narrative of how we found out -- no dates, SLURM job ids,

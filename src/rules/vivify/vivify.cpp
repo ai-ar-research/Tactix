@@ -32,7 +32,8 @@ static inline int8_t root_value(const Kernel &k, Lit l) {
 // Does `c` fall in the band `k.vivify_scope` selects? SCHED-G3 splits the
 // redundant side into kissat's three tiers (vivify.c:236-256) so the policy can
 // spend its three separate shares; scope 1 keeps the whole tier2-bounded
-// redundant band for external policies. Design §2.5.
+// redundant band for external policies, and scope 0 — the unscoped N1 path —
+// means every band. Design §2.5.
 static bool in_scope(const Kernel &k, const Clause *c) {
   const bool red = c->redundant();
   const uint32_t glue = c->glue();
@@ -48,9 +49,12 @@ static bool in_scope(const Kernel &k, const Clause *c) {
   case 5:
     return red && glue > k.tier2;       // tier3 (C10 hand-off H3)
   default:
-    // scope 0 (the unscoped N1 path) keeps the pre-tier3 candidate set: a
-    // redundant clause is in scope only within the live tier2.
-    return !red || glue <= k.tier2;
+    // scope 0 is the unscoped N1 path and therefore means ALL bands, tier3
+    // included. Bounding it by the live tier2 made every tier3 clause
+    // unreachable through the public API — the guard reports applicable and
+    // apply quietly declines — which is a capability removed, not a default
+    // declining (N1; tests/test_vivify_n1.cpp).
+    return true;
   }
 }
 
@@ -64,7 +68,11 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
   // limit is the reference's shipped behaviour, not an opt-in. `k.tier2` is
   // recomputed from the live glue distribution on every reduce and, until now,
   // was read by nothing: we owned the mechanism and never connected it.
-  if (c->redundant() && c->glue() > k.tier2 && k.vivify_scope != 5)
+  // ... and it binds only for the scopes that BOUND the redundant side by
+  // tier2 (1/3/4). Scopes 0 and 5 name bands that include tier3, so applying
+  // the tier2 cut there would contradict `in_scope` and re-close the band.
+  if (c->redundant() && c->glue() > k.tier2 && k.vivify_scope != 0 &&
+      k.vivify_scope != 5)
     return false;
   for (const Lit l : *c)
     if (root_value(k, l) > 0)

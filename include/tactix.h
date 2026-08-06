@@ -18,9 +18,12 @@
  * sign, extension: a plain "cast to int64" maps -1 onto
  * TACTIX_INSTANCE_CANONICAL, so asking to branch on -1 silently gets the
  * canonical pick, which is an N1 hole;
- * Restart: the keep-level; Backjump: the target level; Reduce: the number
- * of ranked victims to delete. Rules without per-application choice
- * (Propagate, Analyze, SwitchMode) expose only the canonical instance.
+ * Restart: the keep-level; Reduce: the number of ranked victims to delete;
+ * ConflictAnalysis: the backjump level it may return to, 0..level-1.
+ * The entries without per-application choice are exactly Propagate,
+ * SwitchMode and Sweep: they expose only the canonical instance, and a
+ * NON-canonical payload to tactix_apply_instance on one of those is an
+ * invalid argument (-1), never a silent canonical application.
  * TACTIX_INSTANCE_CANONICAL always denotes the canonical pick. Enumeration
  * fills a caller buffer, ranked with the canonical instance first; values
  * are snapshots, valid until the next state-mutating call. Errors are -1
@@ -92,6 +95,35 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_TERNARY_TICKS 29    /* HyperTernaryRes work */
 #define TACTIX_STAT_INSTANTIATED 30     /* literals removed (X4) */
 #define TACTIX_STAT_REORDERED 31        /* decision re-rankings (S7 policy op) */
+/* The PAIRS completed. Every rule family the inprocessing schedule doses has a
+ * yield id and an effort id, and the effort id is the counter that family's
+ * effort ledger is actually denominated in (its `EFFORT_SPECS` meter), so
+ * yield/effort is a real cost-per-unit-output and not two unrelated numbers.
+ * tools/docs/check-stat-ids.py enforces both halves mechanically: a new dosed
+ * rule fails ctest until its pair is exposed here. */
+#define TACTIX_STAT_VIVIFY_TICKS 32     /* Vivify work: propagation ticks */
+#define TACTIX_STAT_PROBE_TICKS 33      /* Probe work: propagation ticks */
+#define TACTIX_STAT_BACKBONE_TICKS 34   /* Backbone work: propagation ticks */
+#define TACTIX_STAT_TRANSITIVE_TICKS 35 /* TransitiveReduce work: cache lines */
+/* C1 SubsumeForward: TACTIX_STAT_SUBSUMPTIONS above counts ROUNDS, which is
+ * neither a yield nor an effort. The pair is clauses deleted / partner visits
+ * (cadical `subchecks`, the unit its budget is denominated in). */
+#define TACTIX_STAT_FORWARD_SUBSUMED 36 /* clauses deleted by SubsumeForward */
+#define TACTIX_STAT_FORWARD_VISITS 37   /* SubsumeForward work: partner visits */
+#define TACTIX_STAT_STRENGTHEN_VISITS 38 /* Strengthen work: partner visits */
+#define TACTIX_STAT_INSTANTIATE_TICKS 39 /* Instantiate work: probe ticks */
+#define TACTIX_STAT_SWEEP_EQUIVALENCES 40 /* pairs proved equivalent (V5) */
+#define TACTIX_STAT_SWEEP_TICKS 41      /* Sweep work: scan + sub-solver ticks */
+#define TACTIX_STAT_CONGRUENCE_MERGES 42 /* equivalences merged (gate closure) */
+#define TACTIX_STAT_CONGRUENCE_TICKS 43 /* Congruence work, its own currency */
+#define TACTIX_STAT_CCE_DELETED 44      /* clauses eliminated by CCE (X3) */
+#define TACTIX_STAT_CCE_TICKS 45        /* CCE work: clause literals scanned */
+/* Substitute is the one family with no effort ledger row at all (an
+ * un-titratable closure — the slot gates its REPETITION, not its size), so its
+ * effort id is a scan-volume proxy rather than a meter the policy doses on. */
+#define TACTIX_STAT_SUBSTITUTE_VARS 46  /* variables substituted away */
+#define TACTIX_STAT_SUBSTITUTE_SCC_LITS 47 /* Substitute work: literals in the
+                                              non-trivial SCCs it walked */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);
@@ -124,12 +156,30 @@ void tactix_set_bve_gates(tactix *, unsigned mask);
  *  - factor_composite: nonzero = Factor composes over extension vars
  *  - work_budget: per-round budget for budget-aware rules, own currency
  *                 (Vivify: propagation ticks; Factor: factor ticks); 0 = off
- *  - vivify_scope: 0 all / 1 redundant only / 2 irredundant only */
+ *  - vivify_scope: which clause band Vivify may touch. 0 = ALL bands,
+ *      1 = redundant within the live tier2, 2 = irredundant, 3/4/5 =
+ *      the redundant tier1 / tier2 / tier3 bands separately. A value
+ *      above 5 leaves the current setting unchanged (it is never
+ *      substituted by a different band: that would remove the capability
+ *      instead of declining it, N1). */
 void tactix_set_bve_bound(tactix *, unsigned bound);
 void tactix_set_factor_bound(tactix *, unsigned bound);
 void tactix_set_factor_composite(tactix *, int on);
 void tactix_set_work_budget(tactix *, uint64_t budget);
 void tactix_set_vivify_scope(tactix *, unsigned scope);
+
+/* CONFIG READBACK (additive) — the pose surface's anti-vacuity half. A policy
+ * that poses a value must be able to prove the solver HOLDS it: a setting that
+ * was silently dropped, or substituted by a different one, produces an arm
+ * that measures nothing while reading as configured. One id per setter above,
+ * same order. Returns the stored value, or UINT64_MAX for an unknown id. */
+#define TACTIX_CFG_BVE_GATES 0
+#define TACTIX_CFG_BVE_BOUND 1
+#define TACTIX_CFG_FACTOR_BOUND 2
+#define TACTIX_CFG_FACTOR_COMPOSITE 3
+#define TACTIX_CFG_WORK_BUDGET 4
+#define TACTIX_CFG_VIVIFY_SCOPE 5
+uint64_t tactix_config(tactix *, int cfg_id);
 
 /* run the default policy to completion: 10 SAT / 20 UNSAT */
 int tactix_solve(tactix *);
@@ -171,8 +221,9 @@ int tactix_rule_instances(tactix *, int rule_id, uint64_t *out, int cap);
 int tactix_apply(tactix *, int rule_id);
 
 /* apply a chosen instance (TACTIX_INSTANCE_CANONICAL = canonical); same
- * returns as tactix_apply. Out-of-range payloads are clamped or no-ops per
- * the rule's documented encoding — never unsound. */
+ * returns as tactix_apply, plus -1 for a non-canonical payload on a rule with
+ * no instance surface. Out-of-range payloads within a rule that HAS one are
+ * clamped or no-ops per that rule's documented encoding — never unsound. */
 int tactix_apply_instance(tactix *, int rule_id, uint64_t instance);
 
 /* branching surface (N1): candidates ranked by the active heuristic

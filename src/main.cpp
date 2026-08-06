@@ -16,6 +16,7 @@
 #include "policies/walk_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
+#include "policies/trace.hpp"
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp" // BveGate enum for --bve-gates
 #include "rules/registry.hpp" // now_nanos + the rule list for `c timing`
@@ -97,6 +98,8 @@ int main(int argc, char **argv) {
   bool sweep_stress_policy = false;
   bool cce_stress_policy = false;
   bool no_heuristics = false; // run with H detached (unguided)
+  const char *trace_path = nullptr;  // --trace=FILE: record the rule sequence
+  const char *replay_path = nullptr; // --replay=FILE: apply exactly that one
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
 
@@ -188,6 +191,13 @@ int main(int argc, char **argv) {
       congruence_stress_policy = true;
       if (a[26] == '=')
         random_seed = strtoull(a + 27, nullptr, 10);
+    } else if (!strncmp(a, "--trace=", 8)) {
+      // Record the (rule, instance) sequence for --replay (plan §5
+      // reproducibility, §8.5's offline replay harness). See trace.hpp for why
+      // only the registry-driven policies are traceable.
+      trace_path = a + 8;
+    } else if (!strncmp(a, "--replay=", 9)) {
+      replay_path = a + 9;
     } else if (!strcmp(a, "--no-heuristics")) {
       // Detach `H` (an unguided solver — `k.h == nullptr`). Sound
       // but slow; DefaultPolicy needs `H`, so pair with --random-policy (which
@@ -230,6 +240,7 @@ int main(int argc, char **argv) {
       printf("usage: tactix [-q] [--no-binary] [--lrat] "
              "[--random-policy[=SEED]] "
              "[--bve-gates=all|none|equiv,andor,ite,xor] "
+             "[--trace=FILE] [--replay=FILE] "
              "<cnf[.xz|.gz]> [proof]\n");
       return 0;
     } else if (a[0] == '-' && a[1]) {
@@ -263,6 +274,27 @@ int main(int argc, char **argv) {
   // dispatch below is a precedence chain where the stress policies sit ABOVE
   // random_policy, so `--no-heuristics --random-policy --adversarial-policy`
   // would otherwise slip a stress policy (or DefaultPolicy) through with no H.
+  // A knob that cannot take effect must FAIL, never be ignored: an arm
+  // silently doing nothing is the vacuous-experiment failure mode, and a
+  // --trace that recorded nothing would be read as "the run had no actions".
+  // Only the registry-driven policies are expressible as a (rule, instance)
+  // sequence — trace.hpp gives the argument for DefaultPolicy's exclusion.
+  if (trace_path && !random_policy) {
+    fprintf(stderr, "tactix: --trace requires --random-policy; DefaultPolicy's "
+                    "schedule is not a (rule, instance) sequence (trace.hpp)\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
+  if (replay_path && (trace_path || random_policy || adversarial_policy ||
+                      bve_stress_policy || congruence_stress_policy ||
+                      factor_stress_policy || probing_stress_policy ||
+                      walk_stress_policy || reuse_stress_policy ||
+                      sweep_stress_policy || cce_stress_policy)) {
+    fprintf(stderr, "tactix: --replay selects the recorded schedule, so it "
+                    "cannot be combined with another policy or with --trace\n");
+    printf("s UNKNOWN\n");
+    return 1;
+  }
   if (no_heuristics && (!random_policy || adversarial_policy ||
                         bve_stress_policy || congruence_stress_policy ||
                         sweep_stress_policy || cce_stress_policy)) {
@@ -406,9 +438,17 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  tactix::RuleTrace trace;
+  if (trace_path && !trace.open(trace_path, "random", random_seed)) {
+    fprintf(stderr, "tactix: cannot write trace '%s'\n", trace_path);
+    printf("s UNKNOWN\n");
+    return 1;
+  }
   const uint64_t solve_t0 = tactix::now_nanos();
   const int res =
-      probing_stress_policy
+      replay_path
+          ? replay_solve(kernel, replay_path, &caught_signal)
+      : probing_stress_policy
           ? probing_stress_solve(kernel, random_seed, &caught_signal)
       : walk_stress_policy
           ? walk_stress_solve(kernel, random_seed, &caught_signal)
@@ -426,9 +466,18 @@ int main(int argc, char **argv) {
           ? bve_stress_solve(kernel, random_seed, &caught_signal)
       : adversarial_policy
           ? adversarial_solve(kernel, random_seed, &caught_signal)
-      : random_policy ? random_solve(kernel, random_seed, &caught_signal)
-                      : default_solve(kernel, &caught_signal);
+      : random_policy
+          ? random_solve(kernel, random_seed, &caught_signal,
+                         trace_path ? &trace : nullptr)
+          : default_solve(kernel, &caught_signal);
   kernel.stats.solve_nanos = tactix::now_nanos() - solve_t0;
+  trace.close();
+  if (res == -1) { // a replay that could not be replayed: see trace.cpp
+    proof.flush(); // N2: whatever WAS derived is still on disk, as on any exit
+    printf("s UNKNOWN\n");
+    fflush(stdout);
+    return 1;
+  }
 
   proof.flush();
   if (!quiet) {

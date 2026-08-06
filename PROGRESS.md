@@ -36,9 +36,21 @@ replacing the tier tables is the first thing the next session should do** — ta
 own `manifest.json`, and read `#solved` before the aggregate. That pass deliberately banked no number
 from them: it took no timing measurement at all.
 
+**▶▶ THE REVIEW'S FIVE HIGHEST-SEVERITY ITEMS ARE DONE (2026-08-06, branch `rvs-api-n1`).**
+`RV-S10`–`RV-S14`, i.e. the whole §5.6/N1 API-surface block the review put outside Track SCHED.
+ctest **47 → 52** (`vivify_n1`, `api_instances`, `slot_pose`, `stat_ids`, `trace_replay`), green on
+Release and Debug ASan/UBSan, six conformance checkers green. The N1 breach is repaired and it
+**restores a capability rather than changing one** (Vivify's tier3 band was unreachable from outside
+while DefaultPolicy used it), `--trace`/`--replay` exist and are tested so §8.5's harness is no longer
+missing, and the slot pose surface has coverage that can fail. DefaultPolicy is byte-identical:
+108/108 identical proofs + counters over 54 cases × DRAT and native LRAT vs the pre-change binary.
+Two things were deliberately scoped out and are stated in the Log entry: DefaultPolicy traces
+(its schedule is not a (rule, instance) sequence) and a C-API mirror of the slot setters (the C API
+has no policy object; the learner is a C++ policy). **Nothing here blocks the next step below.**
+
 **▶▶ A REVISIT-CODEBASE PASS LANDED ON TOP OF THE TWELVE MERGES (2026-08-06, branch
-`revisit-codebase-pass`; report `benchmarks/reports/2026-08-06-review-post-track-sched.md`).** ctest is now
-**47/47** — the 47th is `comment_hygiene`, a new conformance checker, because the no-narrative-in-comments
+`revisit-codebase-pass`; report `benchmarks/reports/2026-08-06-review-post-track-sched.md`).** ctest was
+**47/47** at that point — the 47th is `comment_hygiene`, a new conformance checker, because the no-narrative-in-comments
 directive regressed **34 minutes** after the sweep that enforced it. Two `simplify:` commits, identity
 evidence **222/222** byte-identical proofs + counters across three arms vs a pristine `05a6f92` binary. **30 items
 routed under `RV-S*`** (see Open items) and the four highest-severity are **§5.6/N1 obligations, not
@@ -481,18 +493,26 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
   highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the
   phase-4 extensibility gate's real content:
-  **RV-S10** (N1, high) Vivify **tier3 is unreachable through the public API** — `api.cpp` clamps
-  `vivify_scope` to `<=2` and scope 0 excludes tier3, so guard-true + DefaultPolicy-applies + no API
-  caller can. The closed breach's shape in a new rule; wants a `test_vivify_n1`.
-  **RV-S11** (high) **four rule families have no `tactix_stat` reward id** (Sweep, Congruence, CCE,
-  Substitute), seven more expose yield with no effort partner, and no test asserts any id↔counter
-  mapping — swapping two `case` arms passes all 47 tests. Wants `tools/docs/check-stat-ids.py`.
-  **RV-S12** (high) **`--trace` replay does not exist**, so §8.5's reward-proxy gate cannot be run and
-  RL1 cannot legitimately start; `--random-policy=SEED` reproducibility is never asserted either.
-  **RV-S13** (high) the **slot pose surface is env-only, untested (zero `TACTIX_SLOT*` hits in `tests/`),
-  and absent from the C API**; `TACTIX_SLOT_ORDER` accepts only `"legacy"`.
-  **RV-S14** 19/25 registry entries never driven through `tactix_apply_instance`; `api.cpp:199` silently
-  runs the canonical round for a non-canonical payload.
+  **`RV-S10`–`RV-S14` are DONE (2026-08-06, branch `rvs-api-n1`)** — the whole
+  §5.6/N1 API-surface block; see the Log entry for what each one landed, what was
+  deliberately scoped out of `RV-S12`/`RV-S13`, and the behaviour-preservation evidence.
+  - [x] **RV-S10** (N1) Vivify tier3 reachable through the API again: the setter takes 0–5
+    instead of clamping >2 onto a *different* band, and scope 0 (the unscoped N1 path) means
+    ALL bands. A capability RESTORED, not changed — DefaultPolicy only ever uses scopes 1–5.
+    `tests/test_vivify_n1.cpp` fails on the pre-fix build in both halves.
+  - [x] **RV-S11** the (yield, effort) pairs completed — 16 new `tactix_stat` ids, so Sweep,
+    Congruence, CCE and Substitute have a reward channel and the seven yield-only families
+    have their effort partner — plus `tools/docs/check-stat-ids.py` (ctest `stat_ids`), which
+    ties each effort id to the counter that rule's `EFFORT_SPECS` meter actually doses on.
+  - [x] **RV-S12** `--trace=FILE` / `--replay=FILE` exist and are tested (ctest `trace_replay`):
+    a recorded run replays to the same verdict, byte-identical proof and identical counters, and
+    `--random-policy=SEED` is now asserted reproducible ACROSS PROCESSES.
+  - [x] **RV-S13** the pose surface is tested (ctest `slot_pose`): a preposed slot used verbatim, a
+    disabled entry proved inert at its rule's own counter, and every `TACTIX_SLOT_*`/`CURSOR_*`/
+    `ORDER_*` knob shown to reach the entry the policy walks.
+  - [x] **RV-S14** all 25 registry entries driven through `tactix_apply_instance` (ctest
+    `api_instances`), and a non-canonical payload on an entry with no instance surface now returns
+    −1 instead of silently running the canonical round.
   Then: **RV-S1** CCE's rule-side rotation reads `k.stats` (see the Log) · **RV-S2** = `SCHED-F7-CCE`
   a `cce_touch_mark` over the stage-F substrate · **RV-S8** Congruence's gate arena (16.6 %, blocked on
   the `SCHED-G4` owner) · **RV-S19** `D-BVE-SCRATCH` is FIVE fills per attempt, plus **sightings #6/#7**
@@ -1367,6 +1387,130 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — RV-S10–RV-S14: the §5.6/N1 API surface — one breach repaired, and the learner's three channels now have tests that can fail
+
+Branch `rvs-api-n1`, base `4f4989d`. The five highest-severity findings of the
+2026-08-06 review, which that report's own conclusion places outside Track SCHED:
+the learner's reward channel, arm space and replay path. **ctest 47 → 52**
+(`vivify_n1`, `api_instances`, `slot_pose`, `stat_ids`, `trace_replay`), green on
+Release and on the Debug ASan/UBSan build, all six conformance checkers green.
+
+**RV-S10 — the N1 breach, and it RESTORES a capability rather than changing one.**
+Two independent gates had made Vivify's tier3 band unreachable from outside:
+`tactix_set_vivify_scope` clamped `scope <= 2 ? scope : 0`, so asking for 3/4/5
+silently got a *different* band; and scope 0 — the path the header calls "all" and
+`vivify.cpp` calls "the unscoped N1 path" — was itself bounded by the live `tier2`,
+so `vivify_instances` never enumerated a tier3 `Ref` and `apply_instance` on one
+NoOped. Guard reports applicable, DefaultPolicy applies it, no API caller can:
+exactly the shape `SCHED-N1FIX` repaired in Factor. Fix: the setter accepts 0–5 and
+IGNORES out-of-range rather than substituting a band (substituting is worse than
+refusing — the caller cannot see it happen), and scope 0 admits every band.
+`tests/test_vivify_n1.cpp` drives the registry surface (guard → `instances()` →
+`apply_instance`) on a tier3 clause and the C setter through a new readback; it
+**aborts on the pre-fix build in both halves**, at `instances() does not offer the
+tier3 candidate` and at `set_vivify_scope silently substituted a band`. Three
+existing assertions had PINNED the breach and were retargeted at scope 1, the band
+that is actually tier2-bounded (`test_vivify.cpp` ×2, `test_scheduling.cpp`'s
+SCHED-C1 dynamic-tier test — its invariant is unchanged, only the scope it reads it
+on). `docs/calculus.md` C3 now says the tier is NOT part of the precondition;
+`implementation-notes.md`'s `vivify_scope` bullet carries the repair.
+
+**RV-S11 — the pairs completed, and a checker that catches a swap.** 16 new
+`tactix_stat` ids (32–47): the four families with no reward id at all (Sweep,
+Congruence, CCE, Substitute) and the seven with yield but no effort partner
+(Probe, Backbone, TransitiveReduce, Vivify, Strengthen, SubsumeForward,
+Instantiate). C1's pair is `forward_subsumed`/`forward_visits`, not the existing
+`SUBSUMPTIONS` id, which counts ROUNDS and is neither a yield nor an effort.
+`tools/docs/check-stat-ids.py` (ctest `stat_ids`) enforces three things a unit test
+cannot: dense header numbering ≡ api.cpp case order with the macro named at each
+case; every case's returned expression mentions every token of its macro's name
+(6 ALIAS rows, each with a reason); and every rule with an `EFFORT_SPECS` row has
+both ids with the **effort id equal to the counter that rule's own `meter_*`
+reads** — so a dosed rule cannot land without its pair, and Substitute is declared
+a PROXY pair because it has no meter. Anti-vacuity tested on five introduced
+defects: the report's own `case 26`/`27` swap, a dropped CCE pair, a plausible
+wrong counter, a moved dosing currency, and a missing table row. `test_api_c.c`
+now sweeps ids 0–47 (0 was never swept) and asserts every setter reads back.
+
+**RV-S12 — `--trace`/`--replay`, and the minimum honest version is narrow ON PURPOSE.**
+`src/policies/trace.{hpp,cpp}` + `--trace=FILE` / `--replay=FILE`. A trace is
+exactly the N1 stepping surface: one (rule, instance) pair per action, the rule
+NAMED not numbered (ids move under the name sort whenever a rule lands — that
+golden list is the thing that renumbers). `replay_solve` applies the sequence
+through the same dispatch `tactix_apply_instance` uses and FAILS — not skips — on a
+guard that no longer holds, an unknown rule, or a verdict differing from the
+recorded one. **Scoped OUT, deliberately: DefaultPolicy traces.** Its micro loop
+calls `propagate_apply`/`decide`/`analyze` directly rather than through the
+registry, and its dosed entries re-apply one rule many times under a
+policy-computed budget, so its behaviour is not a function of a (rule, instance)
+sequence; making it one is the scheduling-as-data work, not a trace format.
+`--trace` therefore REFUSES DefaultPolicy instead of writing an empty file. Also
+out: the §8.5 reward-proxy *correlation study* (that is the harness's use, and it
+needs a tier window). ctest `trace_replay` records and replays UNSAT and SAT ×
+DRAT and native LRAT, comparing verdict + proof bytes + counters + model, asserts
+`--random-policy=SEED` reproducible **across processes** (which nothing did), and
+carries three negative controls — a truncated trace, an unknown rule name, and
+`--trace` on a non-traceable policy must all fail. A replay path that cannot fail
+would have been worse than none.
+
+**RV-S13 — the pose surface is tested; the C-API mirror is deliberately NOT built.**
+`tests/test_slot_pose.cpp`: a preposed `inprocess_slot` is used verbatim (size AND
+order), a disabled entry is REACHED (`occasions > 0`), declines for the stated
+reason (`dec_disabled == occasions`), never applies, and `congruence_merges` is 0
+against 1 in the enabled arm — the counter at the source, both directions. Then the
+env surface, which had zero coverage (`grep TACTIX_SLOT tests/` returned nothing):
+`SLOT_DISABLE`, `SLOT_ENABLE` overriding `TACTIX_NO_BVE`, `SLOT_ORDER=legacy`
+really moving BVE/Factor to the back (with the authored order asserted DIFFERENT,
+or the arm is vacuous), and `SLOT_PERMILLE`/`SLOT_MAX_APPLIES`/`CURSOR_*`/`ORDER_*`
+each shown to land on the entry the policy walks. The test drives
+`run_slot_phase` directly — moved to public with the same justification the
+predicates above it carry — because reaching the slot via a whole solve makes the
+arm depend on a tiny formula happening to take a macro trigger, and an entry never
+reached reads exactly like an entry correctly declined. **Scoped OUT: `tactix_slot_*`
+C setters.** The C API has no policy object; mirroring the slot would either add
+one to a frozen v1 ABI or freeze `SlotEntry`'s layout into it, and the phase-6
+learner is a C++ policy that already has `inprocess_slot`. What was missing and is
+now fixed is the TESTS. Also out: the `reject()` abort paths (they call
+`std::abort`, so observing them needs a subprocess).
+
+**RV-S14 — all 25 entries, and the aliasing hole closed.** `api.cpp` returned the
+result of the whole canonical round when given a non-canonical payload for a rule
+with no instance surface; it now returns −1 (the rev-34 payload-aliasing class).
+`tests/test_api_instances.c` gives every entry its own prepared solver and asserts
+25/25 reachable through `tactix_apply_instance` (18 through a chosen payload, 12
+making progress), plus both sides of the payload contract: −1 for the three
+entries with no instance surface (Propagate, Sweep, SwitchMode), never −1 for the
+rest. It aborts pre-fix on the aliasing assertion. Two facts fell out and are
+pinned rather than fixed: the canonical-only set is `{Congruence, Factor,
+Propagate, Sweep, SwitchMode, Walk}`, and **Walk enumerates only the sentinel while
+`walk_apply_instance` accepts any step count** — RV-S18's
+instances()-narrower-than-apply_instance shape in a second place. The header's
+instance documentation was stale in three ways (a `Backjump` entry that does not
+exist, Analyze described as having no per-application choice when it enumerates
+levels, Sweep missing from the no-choice list) and is corrected.
+
+**Behaviour preservation.** Pre-change binary (`4f4989d`, separate build tree) vs
+post-change, over the 14-entry regression corpus + 40 generated cases, comparing
+exit code, `sha256` of the proof bytes and `sha256` of every `c`/`s`/`v` line
+except the wall-clock ones (implementation-notes §11 — including `c timing` in a
+run-identity hash reports jitter as a behaviour change): **DefaultPolicy 54/54
+identical on DRAT and 54/54 on native LRAT, 108/108.** The `--random-policy=7`
+DRAT arm is 52/54; both exceptions are RV-S31 livelock cases that TIME OUT in both
+binaries, where the difference is the wall-clock cut point and not the trajectory —
+`reg01`'s proof differs run-to-run on the SAME binary, and `reg10`'s proof sha is
+identical between binaries while every counter scales up ~6 % with the interrupt
+count. `vivify2 … 0 tier3` in both, i.e. the restored band never fired there.
+Fuzz (behaviour CAN change on the API/RandomPolicy path, so both formats):
+`--random-policy` × DRAT (`1587408`) and × **native** LRAT (`1587409`),
+**14/14 regression corpus + 10 000/10 000 cases, 0 failures each**
+(SAT 5137 / UNSAT 3214 / TIMEOUT 1649 per leg). The two legs report the same
+verdict tally *because the trajectory is proof-format-independent* — what differs
+is the checker (`proof.lrat` + `lrat-check` vs `proof.drat` + `drat-trim`,
+`fuzz.py:198-240`), so this is not the identical-artefact trap; the LRAT
+checker path is separately live in ctest, where `micro_proofs` and `sweep_proofs`
+RAN (not skipped) on the Debug build. The TIMEOUT population is `RV-S31`'s and is
+unchanged. No timing was submitted.
 
 ### 2026-08-06 — the RV-S duplication axis: four items, 62 sites, four kernel primitives, and one checker that could not fail
 

@@ -270,11 +270,22 @@ mechanics*, not proof-rule guards:
   Tier C cost (attribution probes 2026-07-24: urq45 156→TO from Vivify alone); Factor's dosing is the
   mp1 gap. DefaultPolicy sets it to the entry's remaining effort-ledger budget for the scoped apply
   (`budget_aware` in `EFFORT_SPECS`), clearing it after; other callers see 0.
-  - `Kernel::vivify_scope` (0 = all/default, 1 = redundant only, 2 = irredundant only — same subset
+  - `Kernel::vivify_scope` (0 = **all bands**/default, 1 = the tier2-bounded redundant band,
+    2 = irredundant, 3/4/5 = the redundant tier1/tier2/tier3 bands separately — same subset
     argument): mirrors kissat, where the redundant tiers always run within their budget shares (7/10,
     options.h tier1+2+3) and only the irredundant pass (3/10) is delay-gated. **Lesson: delaying the
     WHOLE round is a Tier B loss** (mod4block TO, arr4 2026-07-24). DefaultPolicy scopes both configs to
-    its two per-phase applies and clears them after.
+    its per-phase applies and clears them after.
+    **N1 REPAIR (RV-S10): a capability RESTORED, not changed.** Two things had made the tier3 band
+    unreachable through the public API while DefaultPolicy used it: `tactix_set_vivify_scope` clamped
+    `scope <= 2 ? scope : 0`, so 3/4/5 silently became a *different* band; and scope 0 — the unscoped N1
+    path — was itself bounded by the live `tier2`, so `vivify_instances` never enumerated a tier3 `Ref`
+    and `apply_instance` on one NoOped. That is the same shape as the Factor density short-circuit
+    SCHED-N1FIX repaired below: guard reports applicable, apply quietly declines, capability removed.
+    The setter now accepts 0–5 and ignores out-of-range rather than substituting a band, and scope 0
+    admits every band. DefaultPolicy is untouched — it only ever applies Vivify at scopes 1–5 and resets
+    to 0 afterwards, so its trajectory is byte-identical (`tests/test_vivify_n1.cpp` fails on the
+    pre-fix build in both halves).
   - `Kernel::factor_bound` (uint32, default 0): accept iff `delta > factor_bound`; default ≡ the legacy
     `FACTOR_MIN_GAIN = 1` floor. Class of `bve_bound` — larger values only narrow WHICH positive-gain
     grids reach the byte-identical `apply_factoring`; an attached `FactorMatchPolicy` keeps precedence.

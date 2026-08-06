@@ -92,8 +92,15 @@ void tactix_set_factor_composite(tactix_solver *s, int on) {
 void tactix_set_work_budget(tactix_solver *s, uint64_t budget) {
   s->kernel.work_budget = budget;
 }
+// Every band Vivify implements is settable. A CLAMP here is an N1 breach, not
+// input validation: `scope <= 2 ? scope : 0` silently substituted a DIFFERENT
+// band, so the tier3 scopes 3/4/5 became unreachable through the API while
+// DefaultPolicy kept using them — guard says applicable, apply quietly
+// declines. Out-of-range leaves the pose untouched instead of substituting one
+// (tests/test_vivify_n1.cpp).
 void tactix_set_vivify_scope(tactix_solver *s, unsigned scope) {
-  s->kernel.vivify_scope = static_cast<uint8_t>(scope <= 2 ? scope : 0);
+  if (scope <= 5)
+    s->kernel.vivify_scope = static_cast<uint8_t>(scope);
 }
 
 int tactix_solve(tactix_solver *s) {
@@ -195,6 +202,13 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
   const RuleVTable &r = rules[rule_id];
   if (!r.guard(s->kernel))
     return -1;
+  // A rule with no instance surface has exactly one application, so a
+  // NON-canonical payload is an invalid argument. Running the canonical round
+  // for it instead is the payload-aliasing class: the caller asked for a
+  // specific instance and silently got a whole batch, with no way to notice
+  // (tests/test_api_instances.c).
+  if (!r.apply_instance && instance != INSTANCE_CANONICAL)
+    return -1;
   ApplyResult res;
   if (instance == INSTANCE_CANONICAL || !r.apply_instance)
     res = apply_rule(r, s->kernel); // canonical (the only instance if no slot)
@@ -273,6 +287,61 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.instantiated;
   case 31: // TACTIX_STAT_REORDERED
     return k.stats.reordered;
+  // The completed yield/effort pairs (tactix.h). Each effort id is the counter
+  // that family's EFFORT_SPECS meter reads, so the learner's cost-per-unit
+  // axis is denominated in the same currency the schedule doses in.
+  case 32: // TACTIX_STAT_VIVIFY_TICKS
+    return k.stats.vivify_ticks;
+  case 33: // TACTIX_STAT_PROBE_TICKS
+    return k.stats.probe_ticks;
+  case 34: // TACTIX_STAT_BACKBONE_TICKS
+    return k.stats.backbone_ticks;
+  case 35: // TACTIX_STAT_TRANSITIVE_TICKS
+    return k.stats.transitive_ticks;
+  case 36: // TACTIX_STAT_FORWARD_SUBSUMED
+    return k.stats.forward_subsumed;
+  case 37: // TACTIX_STAT_FORWARD_VISITS
+    return k.stats.forward_visits;
+  case 38: // TACTIX_STAT_STRENGTHEN_VISITS
+    return k.stats.strengthen_visits;
+  case 39: // TACTIX_STAT_INSTANTIATE_TICKS
+    return k.stats.instantiate_ticks;
+  case 40: // TACTIX_STAT_SWEEP_EQUIVALENCES
+    return k.stats.sweep_equivalences;
+  case 41: // TACTIX_STAT_SWEEP_TICKS
+    return k.stats.sweep_ticks;
+  case 42: // TACTIX_STAT_CONGRUENCE_MERGES
+    return k.stats.congruence_merges;
+  case 43: // TACTIX_STAT_CONGRUENCE_TICKS
+    return k.stats.congruence_ticks;
+  case 44: // TACTIX_STAT_CCE_DELETED
+    return k.stats.cce_deleted;
+  case 45: // TACTIX_STAT_CCE_TICKS
+    return k.stats.cce_ticks;
+  case 46: // TACTIX_STAT_SUBSTITUTE_VARS
+    return k.stats.substitute_vars;
+  case 47: // TACTIX_STAT_SUBSTITUTE_SCC_LITS
+    return k.stats.substitute_scc_lits;
+  default:
+    return UINT64_MAX;
+  }
+}
+
+uint64_t tactix_config(tactix_solver *s, int cfg_id) {
+  const Kernel &k = s->kernel;
+  switch (cfg_id) {
+  case 0: // TACTIX_CFG_BVE_GATES
+    return k.bve_gate_mask;
+  case 1: // TACTIX_CFG_BVE_BOUND
+    return k.bve_bound;
+  case 2: // TACTIX_CFG_FACTOR_BOUND
+    return k.factor_bound;
+  case 3: // TACTIX_CFG_FACTOR_COMPOSITE
+    return k.factor_composite ? 1 : 0;
+  case 4: // TACTIX_CFG_WORK_BUDGET
+    return k.work_budget;
+  case 5: // TACTIX_CFG_VIVIFY_SCOPE
+    return k.vivify_scope;
   default:
     return UINT64_MAX;
   }

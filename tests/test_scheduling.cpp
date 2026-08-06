@@ -393,6 +393,11 @@ static void test_vivify_scope_tracks_tier2(void) {
     Kernel k;
     kernel_reserve_vars(k, 32);
     k.tier2 = tier2;
+    // Scope 1 is the band DEFINED by tier2, so it is the band this invariant is
+    // about. The unscoped scope 0 spans every band including tier3 and is
+    // therefore tier2-independent by construction (N1: bounding it made tier3
+    // unreachable through the API — tests/test_vivify_n1.cpp).
+    k.vivify_scope = 1;
     // redundant clauses spanning a range of glues, all otherwise vivifiable
     for (uint32_t g = 2; g <= 10; g++) {
       const Lit c3[3] = {make_lit(g, true), make_lit(g + 10, true),

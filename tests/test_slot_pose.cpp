@@ -1,0 +1,243 @@
+// THE POSE SURFACE: the inprocessing slot is schedule-as-data (§5.6), and until
+// this file NOTHING tested that. `grep -rn "TACTIX_SLOT\|setenv" tests/`
+// returned nothing, so every knob every A/B on the board is driven by —
+// TACTIX_SLOT_DISABLE/ENABLE/ORDER/PERMILLE/MAX_APPLIES, TACTIX_CURSOR_*,
+// TACTIX_ORDER_* — was unverified. A silently inert knob is the vacuous-arm
+// trap in its purest form: the arm runs, the numbers come back, and they are
+// the baseline's ([[ab-arm-identical-artefacts]]).
+//
+// What is pinned here, in the order the pose surface is used:
+//   POSE      a preposed `inprocess_slot` is used VERBATIM — the policy neither
+//             rebuilds it nor reorders it — and its entries collect telemetry.
+//   DISABLE   a disabled entry is REACHED (occasions > 0), declines for the
+//             stated reason (dec_disabled == occasions), never applies
+//             (admitted == 0), and its rule's own counter stays 0 while the
+//             enabled arm's moves. Counter-at-the-source, both directions.
+//   RE-ENABLE the same entry, enabled, fires — so the zero above was the pose
+//             and not the formula.
+//   ORDER     TACTIX_SLOT_ORDER=legacy really moves BVE and Factor to the back
+//             of the built slot.
+//   KNOBS     TACTIX_SLOT_PERMILLE / MAX_APPLIES / TACTIX_CURSOR_* /
+//             TACTIX_ORDER_* land on the entry the policy actually walks.
+//
+// DELIBERATELY NOT HERE: the `reject()` abort paths (a knob set on an entry the
+// policy never orders calls std::abort, which needs a subprocess to observe),
+// and a C-API mirror of these setters — see the item note in PROGRESS.
+#undef NDEBUG
+#include "kernel/kernel.hpp"
+#include "policies/default_policy.hpp"
+#include "policies/heuristics.hpp"
+#include "rules/registry.hpp"
+
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
+
+using namespace tactix;
+
+// Two syntactically identical AND gates over the same inputs, so Congruence has
+// a real merge to make at the conflicts==0 preprocessing phase — the earliest
+// point the slot runs, which keeps every arm below a millisecond. Satisfiable.
+static void fixture(Kernel &k) {
+  kernel_reserve_vars(k, 8);
+  const auto cl3 = [&](int a, int b, int c) {
+    const Lit l[3] = {internalize(a), internalize(b), internalize(c)};
+    kernel_add_large_clause(k, l, 3, false, 0);
+  };
+  // 5 <-> (1 & 2)
+  kernel_add_binary_clause(k, internalize(-5), internalize(1));
+  kernel_add_binary_clause(k, internalize(-5), internalize(2));
+  cl3(5, -1, -2);
+  // 6 <-> (1 & 2), the same gate: 5 and 6 are congruent
+  kernel_add_binary_clause(k, internalize(-6), internalize(1));
+  kernel_add_binary_clause(k, internalize(-6), internalize(2));
+  cl3(6, -1, -2);
+  // a little search material so the solve is not decided by propagation alone
+  cl3(7, 8, -5);
+  cl3(-7, 8, 6);
+  cl3(7, -8, 1);
+}
+
+static uint32_t slot_index(const DefaultPolicy &p, const char *name) {
+  const std::vector<RuleVTable> &rules = tactix_rules();
+  for (size_t i = 0; i < p.inprocess_slot.size(); i++)
+    if (!std::strcmp(rules[p.inprocess_slot[i].rule].name, name))
+      return static_cast<uint32_t>(i);
+  return UINT32_MAX;
+}
+
+// --- POSE / DISABLE / RE-ENABLE --------------------------------------------
+// A two-entry slot posed directly, Congruence enabled or disabled. The whole
+// point of `enabled` is that it is the POLICY declining to schedule, not the
+// rule declining to apply (N1) — so the rule's counter is the observable.
+// One phase driven through the PUBLIC slot loop (`run_slot_phase`) rather than
+// through a whole solve: the slot loop is the mechanism under test, and reaching
+// it via solve() would make the test depend on this tiny fixture happening to
+// take a macro trigger — a dependency that silently turns the arm vacuous
+// (occasions == 0 reads exactly like a working disable).
+static uint64_t pose_congruence(bool enabled, DefaultPolicy &p, Kernel &k) {
+  const int cong = tactix_rule_id("Congruence");
+  const int subst = tactix_rule_id("Substitute");
+  assert(cong >= 0 && subst >= 0);
+  DefaultPolicy::SlotEntry a;
+  a.rule = cong;
+  a.enabled = enabled;
+  a.group = SlotGroup::Eliminate;
+  a.closure = true;
+  DefaultPolicy::SlotEntry b; // a second entry, so the slot is a real schedule
+  b.rule = subst;
+  b.enabled = true;
+  b.group = SlotGroup::Eliminate;
+  b.closure = true;
+  p.inprocess_slot.push_back(a);
+  p.inprocess_slot.push_back(b);
+  assert(p.run_slot_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  return k.stats.congruence_merges;
+}
+
+static void test_pose_and_disable() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  fixture(k);
+  DefaultPolicy on;
+  const uint64_t merges_on = pose_congruence(true, on, k);
+  assert(on.inprocess_slot.size() == 2 &&
+         "a preposed slot must be used verbatim, not rebuilt from the registry");
+  assert(slot_index(on, "Congruence") == 0 && slot_index(on, "Substitute") == 1 &&
+         "a preposed slot's ORDER must survive too");
+  assert(merges_on > 0 &&
+         "the fixture must give Congruence something to merge, or the disabled "
+         "arm below proves nothing");
+  const DefaultPolicy::SlotEntry &e_on = on.inprocess_slot[0];
+  assert(e_on.tm.occasions > 0 && e_on.tm.admitted > 0);
+  assert(e_on.tm.dec_disabled == 0);
+
+  Kernel k2;
+  Heuristics h2;
+  k2.h = &h2;
+  fixture(k2);
+  DefaultPolicy off;
+  const uint64_t merges_off = pose_congruence(false, off, k2);
+  const DefaultPolicy::SlotEntry &e_off = off.inprocess_slot[0];
+  assert(e_off.tm.occasions > 0 &&
+         "the disabled entry was never even REACHED, so this arm shows that the "
+         "slot loop skipped it, not that `enabled` works");
+  assert(e_off.tm.dec_disabled == e_off.tm.occasions &&
+         "a disabled entry must decline for the DISABLED reason at every "
+         "occasion — a decline counted elsewhere means something else stopped it");
+  assert(e_off.tm.admitted == 0 && e_off.tm.ok == 0);
+  assert(merges_off == 0 &&
+         "the rule ran despite being disabled (counter at the source)");
+  std::printf("  pose/disable: %llu merges enabled, %llu disabled; %llu "
+              "occasions all declined as DISABLED\n",
+              (unsigned long long)merges_on, (unsigned long long)merges_off,
+              (unsigned long long)e_off.tm.occasions);
+}
+
+// --- the ENV surface -------------------------------------------------------
+// Same mechanism, reached the way every A/B on the board reaches it. Each arm
+// gets a fresh policy so the slot is rebuilt with the environment in force.
+static void with_env(const char *const *kv, size_t n,
+                     void (*check)(DefaultPolicy &, Kernel &)) {
+  for (size_t i = 0; i < n; i += 2)
+    setenv(kv[i], kv[i + 1], 1);
+  {
+    // one solve to BUILD the slot from the environment (the knobs are read
+    // where the slot is composed), then one phase on a fresh formula through
+    // the built slot, so each arm is checked both at the entry the policy walks
+    // and at the rule counter that entry governs
+    Kernel kb;
+    Heuristics hb;
+    kb.h = &hb;
+    fixture(kb);
+    DefaultPolicy p;
+    assert(p.solve(kb) == 10);
+    assert(!p.inprocess_slot.empty());
+    Kernel k;
+    Heuristics h;
+    k.h = &h;
+    fixture(k);
+    assert(p.run_slot_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+    assert(p.run_slot_phase(k, SlotGroup::Probe, nullptr) != 20);
+    check(p, k);
+  }
+  for (size_t i = 0; i < n; i += 2)
+    unsetenv(kv[i]);
+}
+
+static void check_disable(DefaultPolicy &p, Kernel &k) {
+  const uint32_t i = slot_index(p, "Congruence");
+  assert(i != UINT32_MAX);
+  assert(!p.inprocess_slot[i].enabled &&
+         "TACTIX_SLOT_DISABLE did not reach the entry the policy walks");
+  assert(p.inprocess_slot[i].tm.occasions > 0 &&
+         p.inprocess_slot[i].tm.dec_disabled == p.inprocess_slot[i].tm.occasions);
+  assert(k.stats.congruence_merges == 0);
+}
+
+static void check_enable_over_ablation(DefaultPolicy &p, Kernel &) {
+  const uint32_t i = slot_index(p, "BVE");
+  assert(i != UINT32_MAX);
+  assert(p.inprocess_slot[i].enabled &&
+         "TACTIX_SLOT_ENABLE must override the TACTIX_NO_BVE ablation knob");
+}
+
+static void check_legacy_order(DefaultPolicy &p, Kernel &) {
+  const size_t n = p.inprocess_slot.size();
+  assert(n >= 2);
+  const uint32_t bve = slot_index(p, "BVE"), factor = slot_index(p, "Factor");
+  assert(factor == n - 1 && bve == n - 2 &&
+         "TACTIX_SLOT_ORDER=legacy must move BVE then Factor to the back");
+}
+
+static void check_authored_order(DefaultPolicy &p, Kernel &) {
+  const size_t n = p.inprocess_slot.size();
+  const uint32_t factor = slot_index(p, "Factor");
+  assert(factor != n - 1 &&
+         "the authored order is what `legacy` is an arm AGAINST; if they agree "
+         "the order A/B is vacuous");
+}
+
+static void check_knobs(DefaultPolicy &p, Kernel &) {
+  const uint32_t c = slot_index(p, "Congruence");
+  assert(p.inprocess_slot[c].permille == 7 &&
+         "TACTIX_SLOT_PERMILLE did not reach the entry");
+  assert(p.inprocess_slot[c].max_applies == 1 &&
+         "TACTIX_SLOT_MAX_APPLIES did not reach the entry");
+  const uint32_t pr = slot_index(p, "Probe");
+  assert(!p.inprocess_slot[pr].cursor_enabled &&
+         "TACTIX_CURSOR_PROBE=0 did not reach the entry (it defaults ON)");
+  assert(p.inprocess_slot[pr].order == CandidateOrder::Reverse &&
+         "TACTIX_ORDER_PROBE=reverse did not reach the entry");
+}
+
+int main() {
+  test_pose_and_disable();
+
+  const char *disable[] = {"TACTIX_SLOT_DISABLE", "Congruence"};
+  with_env(disable, 2, check_disable);
+  std::printf("  TACTIX_SLOT_DISABLE=Congruence: entry off, 0 merges\n");
+
+  const char *enable[] = {"TACTIX_NO_BVE", "1", "TACTIX_SLOT_ENABLE", "BVE"};
+  with_env(enable, 4, check_enable_over_ablation);
+  std::printf("  TACTIX_SLOT_ENABLE overrides TACTIX_NO_BVE\n");
+
+  with_env(nullptr, 0, check_authored_order);
+  const char *legacy[] = {"TACTIX_SLOT_ORDER", "legacy"};
+  with_env(legacy, 2, check_legacy_order);
+  std::printf("  TACTIX_SLOT_ORDER=legacy moves BVE/Factor to the back\n");
+
+  const char *knobs[] = {"TACTIX_SLOT_PERMILLE",   "Congruence:7",
+                         "TACTIX_SLOT_MAX_APPLIES", "Congruence:1",
+                         "TACTIX_CURSOR_PROBE",     "0",
+                         "TACTIX_ORDER_PROBE",      "reverse"};
+  with_env(knobs, 8, check_knobs);
+  std::printf("  PERMILLE / MAX_APPLIES / CURSOR_* / ORDER_* all land on the "
+              "posed entry\n");
+
+  std::printf("test_slot_pose: all passed\n");
+  return 0;
+}
