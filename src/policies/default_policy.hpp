@@ -860,6 +860,11 @@ private:
   // Vivify's two-pass dose (redundant tiers always, irredundant delay-gated).
   ApplyResult run_vivify_dose(Kernel &, SlotEntry &, const RuleVTable &,
                               uint64_t limit);
+  // solve()'s two prologue units, in the order solve() calls them: the env arms
+  // it owns, then the inprocessing slot they configure. Separated so the CDCL
+  // loop can be read on its own; neither is callable in the other order.
+  void configure_from_env();
+  void build_inprocess_slot(Kernel &);
   void observe_glue(const Kernel &, uint32_t glue); // per-conflict EMAs
   void observe_decision_rate(const Kernel &);       // before each analysis
   uint32_t want_bump_reasons(const Kernel &);       // the kissat gate ladder
