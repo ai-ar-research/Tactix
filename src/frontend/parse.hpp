@@ -4,9 +4,10 @@
 // handling) used by both the file parser and the IPASIR-style C API.
 // NOTE on the missing-final-ZERO tolerance: lrat-check DROPS such a trailing
 // clause and cake_lpr refuses the file, so a proof citing its id cannot verify
-// (2026-08-05 report §2.1). The input is malformed and no checker accepts it,
-// so this is an input-validation question, not an emission one — recorded, not
-// silently relied on. A missing final NEWLINE is valid DIMACS and is fine.
+// (`benchmarks/reports/2026-08-05-input-clause-normalization-n2.md` §2.1). The
+// input is malformed and no checker accepts it, so this is an input-validation
+// question, not an emission one — recorded, not silently relied on. A missing
+// final NEWLINE is valid DIMACS and is fine.
 #pragma once
 
 #include "kernel/kernel.hpp"

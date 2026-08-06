@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstdio>
 #include <cstdlib>
 
 namespace tactix {
@@ -710,11 +709,10 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
 }
 
 ApplyResult sweep_apply(Kernel &k) {
-  // TEMPORARY attribution switch (fuzz 1583562): lets a leg run with V5 inert
-  // so a crash can be blamed on Sweep or exonerated.
-  // TACTIX_NO_SWEEP: diagnostic kill switch. It is what attributed fuzz
-  // 1583562's 43 crashes to this rule (3/3 with, 0/3 without) rather than to the
-  // shared RUP-replay primitive, so it stays.
+  // TACTIX_NO_SWEEP: diagnostic kill switch, so a fuzz leg can run with V5
+  // inert and a crash be blamed on Sweep or exonerated. It stays because
+  // Sweep shares the RUP-replay primitive with Congruence, and a crash inside
+  // that primitive is otherwise unattributable between the two callers.
   if (std::getenv("TACTIX_NO_SWEEP"))
     return ApplyResult::NoOp;
   if (!sweep_guard(k))
@@ -756,7 +754,8 @@ ApplyResult sweep_apply(Kernel &k) {
   // the formula is identical either way and only the proof lines differ. It
   // exists because S-e fires for the pairs RUP declines, which is ~8 in 4380 on
   // fuzz-scale formulas: without it a green general-path leg is vacuous, which
-  // is how the 2026-08-05 N2 breach shipped past 14000 green fuzz cases.
+  // is how the S-e polarity N2 breach shipped past a green fuzz leg
+  // (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`).
   const bool force_general = std::getenv("TACTIX_SWEEP_FORCE_GENERAL") != nullptr;
   std::vector<uint64_t> chain_fwd, chain_rev;
   bool any = false;
@@ -770,7 +769,7 @@ ApplyResult sweep_apply(Kernel &k) {
       k.stats.sweep_known++;
       continue;
     }
-    // ROOT-ASSIGNED LITERALS ARE NOT OURS (found by fuzz 1583559, 49 crashes).
+    // ROOT-ASSIGNED LITERALS ARE NOT OURS.
     // Detection runs over the seed set, which excludes fixed variables -- but
     // emission happens after the whole round, and by then an earlier pair can
     // have fixed one of these literals through the binaries it added, or the

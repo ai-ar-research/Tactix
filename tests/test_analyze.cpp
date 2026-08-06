@@ -10,7 +10,6 @@
 
 #include <cassert>
 #include <cstdio>
-#include <vector>
 
 using namespace tactix;
 

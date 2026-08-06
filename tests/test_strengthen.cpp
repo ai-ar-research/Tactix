@@ -10,7 +10,6 @@
 #include <cassert>
 #include <csignal>
 #include <cstdio>
-#include <cstring>
 
 using namespace tactix;
 
@@ -137,6 +136,17 @@ static void test_instance_surface() {
   assert(rules[id].apply_instance(k, 999999) == ApplyResult::NoOp);
 }
 
+// Pose one elimination-clock slot entry, leaving every other field at its
+// in-class default. Naming only the three fields a test cares about keeps a new
+// SlotEntry field from silently defaulting to a value the test never chose.
+static DefaultPolicy::SlotEntry pose(int rule, bool enabled) {
+  DefaultPolicy::SlotEntry e;
+  e.rule = rule;
+  e.enabled = enabled;
+  e.group = SlotGroup::Eliminate;
+  return e;
+}
+
 static void test_slot_schedule_as_data() {
   // the registry-driven slot : the tier tag is readable, posed
   // slots are honored in order with enabled flags, and a disabled entry
@@ -167,8 +177,8 @@ static void test_slot_schedule_as_data() {
     // clock, which is where the authored order puts these two rules.
     p.probe_clock.next_conflicts = 0;
     p.elim_clock.next_conflicts = 0;
-    p.inprocess_slot.push_back({strengthen_id, true, SlotGroup::Eliminate});
-    p.inprocess_slot.push_back({subsume_id, false, SlotGroup::Eliminate});
+    p.inprocess_slot.push_back(pose(strengthen_id, true));
+    p.inprocess_slot.push_back(pose(subsume_id, false));
     assert(p.solve(k) == 20); // odd-parity xor cycle: UNSAT
     assert(p.inprocess_slot.size() == 2); // posed slot left untouched
     assert(p.elim_clock.rounds >= 1);     // the forced pass ran
@@ -185,7 +195,7 @@ static void test_slot_schedule_as_data() {
     p.inprocess.initialized = true;
     p.probe_clock.next_conflicts = 0;
     p.elim_clock.next_conflicts = 0;
-    p.inprocess_slot.push_back({strengthen_id, false, SlotGroup::Eliminate});
+    p.inprocess_slot.push_back(pose(strengthen_id, false));
     assert(p.solve(k) == 20);
     assert(k.stats.strengthen_rounds == 0);
   }
