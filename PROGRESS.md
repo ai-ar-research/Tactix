@@ -478,7 +478,19 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   Backbone, TransitiveReduce, Factor, BVE and Reorder are **0**, i.e. every "fuzz green" claim about those
   six rules rests on the random-policy legs alone.
   · **RV-S31 (a) DISCHARGED, (b) OPEN** — the population is measured and visible (see Task #39 above);
-  the livelock itself is undiagnosed · **RV-S24-S30** hygiene + hand-offs.
+  the livelock itself is undiagnosed.
+  **RV-S24 mostly DISCHARGED 2026-08-06**: `tests/test_proof.cpp` (ctest `proof`, the 48th test) pins the
+  proof backend's serializers BYTE FOR BYTE — binary-DRAT varint boundary and sign bit, the `d`-with/
+  without-space asymmetry, LRAT id/chain/signed-hint layout, `add_derived_unit` silent on DRAT and
+  explicit on LRAT, the tautology predicate, and the proof-off no-op contract. Anti-vacuity: four
+  independent mutations of `proof.cpp` each make it FAIL. `tests/sweep_proofs.sh`'s `grep -qi verif`
+  (which matched `c NOT VERIFIED`) now tests the rejection first. **Remaining:** no direct test for
+  `src/frontend/parse.cpp`, and `cake_lpr` is still not wired into the fuzz harness.
+  **RV-S25/RV-S26 DISCHARGED**: the two never-incremented decline reasons are gone from `Telem` and the
+  `c slot` line; `randec_enabled` has a knob (`TACTIX_RANDEC=0`), proven wired at the source — 49
+  sequences / 7626 random decisions at the default vs **0/0** off, same verdict (job `1587380`), which
+  unblocks pricing SCHED-C7. **RV-S9/RV-R3 DISCHARGED** (one rule, mechanised in
+  `tools/fuzz/retention.py`). **RV-S27/RV-S30 and RV-S24's remainder stay open.**
   Three auditor verdicts were **overturned in synthesis** and the report records why (gating F6's walk
   would destroy its own anti-vacuity evidence; `kernel_delete_clause` is not inlinable because
   `kernel.hpp` forward-declares `Proof`; R6's `EffortSpec::meter` premise is false as stated).
