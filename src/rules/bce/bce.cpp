@@ -295,8 +295,8 @@ ApplyResult bce_apply(Kernel &k) {
   // reached, then advance the watermark. This rule IS budget-cut in practice
   // (it is `budget_aware` and its ledger share is 20 per mille), so unlike
   // C1/C2's the path is reachable under DefaultPolicy.
-  for (size_t li = stopped_at; li < lits.size(); li++) {
-    if (filter && !kernel_changed_since(k, var_of(lits[li]), wm))
+  for (size_t li = filter ? stopped_at : lits.size(); li < lits.size(); li++) {
+    if (!kernel_changed_since(k, var_of(lits[li]), wm))
       continue;
     kernel_touch_var(k, var_of(lits[li]));
     k.stats.bce_rearmed++;

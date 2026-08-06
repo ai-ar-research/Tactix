@@ -291,9 +291,10 @@ ApplyResult instantiate_apply(Kernel &k) {
   }
   // RESUME (SCHED-F2's mechanism), reachable here: this entry is budget_aware
   // at 20 per mille and its probes are propagations, so the budget binds.
-  for (size_t ci = stopped_at; ci < candidates.size(); ci++) {
+  for (size_t ci = filter ? stopped_at : candidates.size();
+       ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
-    if (c->garbage() || (filter && !kernel_clause_new_material(k, c, wm, 1)))
+    if (c->garbage() || !kernel_clause_new_material(k, c, wm, 1))
       continue;
     for (const Lit l : *c)
       kernel_touch_var(k, var_of(l));

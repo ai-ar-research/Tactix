@@ -286,8 +286,9 @@ ApplyResult ternary_apply(Kernel &k) {
   // RESUME (SCHED-F2's mechanism): re-arm the pivots this round never reached,
   // then advance the watermark. Both cut paths above leave a tail, and the
   // add-limit one is REACHABLE under DefaultPolicy, unlike C1/C2's.
-  for (size_t pi = stopped_at; pi < pivots.size(); pi++) {
-    if (filter && !kernel_touched_since(k, var_of(pivots[pi]), wm))
+  for (size_t pi = filter ? stopped_at : pivots.size(); pi < pivots.size();
+       pi++) {
+    if (!kernel_touched_since(k, var_of(pivots[pi]), wm))
       continue;
     kernel_touch_var(k, var_of(pivots[pi]));
     k.stats.ternary_rearmed++;

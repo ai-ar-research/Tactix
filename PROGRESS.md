@@ -752,7 +752,18 @@ instrument before spending a tier window on a mechanism.
   `factor_ticks` proportional to each watch list — i.e. the round was spending its own budget rebuilding a
   heap that mostly could not have changed. Coarser than kissat on polarity (our stamps are per variable).
   All three of the round's early exits are reachable, so the F2 re-arm is live here.
-- [ ] **SCHED-F5 · Vivify yield package** `[arch]` — NOT STARTED (see the anchor).
+- [ ] **SCHED-F5 · Vivify leftover prioritization** `[arch]` — **NOT DONE, and the reason is a design finding,
+  not a shortfall of time.** The audit row (frozen audit line 138, HIGH) is kissat's `Clause::vivify` /
+  cadical's `c->vivify`: a PER-CLAUSE bit, cleared when a candidate is tried, kept on the ones the budget
+  never reached, so leftovers rank first next round — and re-marked on ALL scheduled clauses when the
+  leftover set empties, i.e. it is a PRIORITY mechanism, never a suppressor. **The stage-F substrate cannot
+  express it.** Its stamps are per VARIABLE, so re-arming a cut round's tail arms every clause over those
+  variables; the leftover set would be most of the database and the partition would go inert — an
+  [[ab-arm-identical-artefacts]] result waiting to happen. Doing it faithfully needs a per-clause bit, and
+  `Clause::flags` has none free (GARBAGE/REDUNDANT/REASON/used:5/glue:24). The honest options are (a) steal
+  one bit from `glue`'s 24 — safe on range, but a clause-header change, i.e. `revamp`, and it is in
+  `clause.hpp`, not the stage-F file set; or (b) a side table keyed on something GC-stable, which the arena
+  Ref is not. **Route through `revamp`; do not bolt it onto the epoch substrate.**
 
 #### Stage G — the genuine revamps (each needs its own design pass)
 
@@ -851,6 +862,31 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — STAGE F A/B SPECS (all four landed items, none priced) + the F5 stop
+
+**Arms, same-window Tier B + Tier C, two pin dirs from the same commit (CLAUDE.md build-dir rule), node
+pinned, `--baseline kissat --baseline cadical`.** Knobs go in the command, not the environment.
+
+| arm | command | what it isolates |
+|---|---|---|
+| `touchon` | shipped default | F1+F3+F4 together (one kernel switch governs all the round filters) |
+| `touchoff` | `TACTIX_TOUCH_MARKS=0` | the whole suppressor family off; restores the pre-stage-F candidate sets exactly, and the re-arm loops are skipped too so the arm is genuinely inert |
+| `holdoff` | `TACTIX_SUBSUME_HOLD=0` | F2's elimination-loop wire alone. **Run this one ONLY if `c subhold` is non-zero somewhere** — it read 0 on all four probe instances, so today this arm is predicted byte-identical and would be a wasted window |
+
+**PRE-FLIGHT, checked before any PAR-2 is read** ([[ab-arm-identical-artefacts]]): on the ON arm
+`c touch` / `c touch3` / `c touch4` must all show non-zero `skipped`, AND the rule's own `checked`/`ticks`
+counter must stay non-zero — all-skipped is a wedge, all-checked is an inert filter. On the OFF arm every
+`skipped` must be 0. **Ship criterion:** `#solved` first, then Tier C PAR-2 outside the 6.72 noise floor,
+with the fragility line read (`k=1` is not an answer). `mod4block` and the rest of the may-not-gate set do
+not decide this alone — and `mod4block` already flipped SAT→UNKNOWN→SAT across the two probes, which is
+precisely why.
+
+**Measured at the source (probes `1584708` F1, `1584753` F3; counters only, no wall clock).**
+`rbsat` C1 partner visits **165,272 → 79,686**, C2 **5,827,200 → 2,571,322**; `mod4block` BCE ticks
+**14,943,039 → 7,138,926** with MORE deletions (4,133 → 6,257) and X2 ticks **32,128 → 18,373** for
+2,898 resolvents instead of 8,118; `9vliw` BCE 175,810 literals skipped. Telemetry self-check clean
+(0 `***UNACCOUNTED***`) on every arm.
 
 ### 2026-08-05 — SCHED-F3: BCE is why the substrate has TWO stamps
 
