@@ -138,9 +138,7 @@ static bool subsumed_by_binary(Kernel &k,
 }
 
 static void delete_subsumed(Kernel &k, Clause *c) {
-  if (k.proof)
-    k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-  kernel_mark_garbage(k, c);
+  kernel_delete_clause(k, c);
   k.stats.forward_subsumed++;
 }
 

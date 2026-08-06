@@ -520,9 +520,12 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
                                      const Lit *lits, uint32_t size,
                                      bool redundant, uint32_t glue,
                                      Ref *large_ref) {
-  if (k.proof)
-    k.proof->del(id, c->id(), c->lits, c->size);
-  kernel_mark_garbage(k, c); // before any arena-mutating add below
+  // `id` is the REPLACEMENT's id, and every caller allocates it immediately
+  // before calling in — so it equals `next_clause_id`, which is what the shared
+  // primitive prefixes its LRAT deletion line with. That was an unstated,
+  // uncheckable invariant while this site passed `id` by hand; assert it.
+  assert(id == k.next_clause_id);
+  kernel_delete_clause(k, c); // before any arena-mutating add below
   if (size == 0) { // under-derived root only (corpus 002): the ADD just
     k.inconsistent = true; // emitted IS the refutation
     return ReplaceOutcome::Refuted;

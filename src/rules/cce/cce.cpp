@@ -344,9 +344,7 @@ bool cover_clause(Kernel &k, const CceIndex &idx, Coveror &cv, Ref self) {
       kernel_push_witness(k, w, cv.rest.data(),
                           static_cast<uint32_t>(cv.rest.size()));
     }
-    if (k.proof)
-      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-    kernel_mark_garbage(k, c);
+    kernel_delete_clause(k, c);
     k.stats.cce_deleted++;
     if (blocked)
       k.stats.cce_blocked++;

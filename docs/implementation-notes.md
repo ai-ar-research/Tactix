@@ -373,15 +373,19 @@ interval tuning fixes it: the work is spent *before* the budget can observe that
 | --- | --- |
 | irredundant large clause added | `kernel_add_large_clause` (`!redundant` branch) |
 | binary added (binaries are irredundant here) | `kernel_add_binary_clause` |
-| irredundant large clause deleted | `kernel_mark_garbage` (`!c->redundant()`) |
+| irredundant large clause deleted | `kernel_delete_clause` (`!c->redundant()`) |
 | binary deleted | `kernel_delete_binary`, `kernel_delete_binary_all_copies` |
 | literal root-fixed | `kernel_bve_retry_sync_fixed`, called by the policy before it doses BVE |
 | variable created | `kernel_reserve_vars` initialises the bit to 1 |
 
-`kernel_mark_garbage` was introduced for this and is now **the single home for large-clause deletion**,
-replacing ~10 open-coded `c->flags |= Clause::GARBAGE` sites across Analyze / Reduce / Strengthen /
-SubsumeForward / Substitute / Vivify / BVE; deletion stays lazy and the proof `delete` stays the rule's
-(§5.3). **Redundant clauses are deliberately excluded** — BVE resolves the irredundant core only, so a
+`kernel_delete_clause` is **the single home for large-clause deletion**, replacing ~10 open-coded
+`c->flags |= Clause::GARBAGE` sites across Analyze / Reduce / Strengthen / SubsumeForward / Substitute /
+Vivify / BVE; deletion stays lazy. It also **emits the proof `delete`**, so the two halves are
+inseparable — no function marks garbage without emitting the `del`, and none emits the `del` for a large
+clause without marking it. That is `RV-S6`: the pair was open-coded at 13 sites (one already drifted in
+its LRAT line id), and a site doing either half alone is an N2 or GC defect. It is the same shape
+`kernel_delete_binary` has always had for the binary layer, so the rule still owns the DECISION to
+retire a clause and the proof delta it names (§5.3) — it no longer re-types the emission. **Redundant clauses are deliberately excluded** — BVE resolves the irredundant core only, so a
 learned clause on the pivot cannot change whether the elimination fits the bound; marking on redundant
 traffic would mark every variable on every conflict and Reduce round, i.e. no filter at all.
 
