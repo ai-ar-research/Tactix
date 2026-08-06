@@ -53,7 +53,7 @@
 //     second index. Cost: we rescan a pivot's occurrences to find the ternary
 //     ones instead of having them pre-bucketed.
 // (5) DUPLICATE DETECTION IS EXACT FOR BINARIES, BOUNDED FOR TERNARIES.
-//     `binary_exists` answers the size-2 case outright. For size 3 we scan the
+//     `kernel_binary_live` answers the size-2 case outright. For size 3 we scan the
 //     occurrence list of the resolvent's rarest literal — the same shape as
 //     cadical's `ternary_find_ternary_clause`, and the reason the rule stays
 //     quadratic-with-a-small-constant rather than needing a hash index.

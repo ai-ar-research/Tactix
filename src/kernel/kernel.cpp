@@ -170,18 +170,10 @@ static bool binary_antecedes(const Kernel &k, Lit x, Lit other) {
 }
 
 bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
-  // (1) liveness probe: the watch lists are the only liveness signal (a
-  // deleted pair's id lingers in binary_ids until the pair is re-added), so an
-  // absent binary is a no-op. COUNT the copies: binary_ids names a literal
-  // PAIR, not a copy, so a duplicated pair cannot be deleted by name — the
-  // `del` would retire the one id the surviving copy is still cited by, and
-  // every later LRAT chain through it would name a deleted clause. Refuse.
-  uint32_t copies = 0;
-  for (const WatchEntry w : k.watches.entries(a)) {
-    if (w.binary() && w.other() == b && ++copies == 2)
-      break;
-  }
-  if (copies != 1)
+  // (1) liveness probe (kernel_binary_copies, cap 2): an absent binary is a
+  // no-op, and a DUPLICATED pair cannot be deleted by name — see that
+  // predicate's contract in kernel.hpp for why either answer refuses.
+  if (kernel_binary_copies(k, a, b, 2) != 1)
     return false; // absent (idempotent) or duplicated (unnameable)
   // (2) retire a live ROOT reason BEFORE deleting the clause that names it, so
   // no trail reason ever cites a just-deleted binary (the corpus-003 analog for
@@ -239,10 +231,7 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
 // DRAT `del` per copy so the checker's clause set stays exact. Returns true iff
 // at least one copy was removed.
 bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
-  uint32_t copies = 0;
-  for (const WatchEntry w : k.watches.entries(a))
-    if (w.binary() && w.other() == b)
-      copies++;
+  const uint32_t copies = kernel_binary_copies(k, a, b);
   if (copies == 0)
     return false; // absent (idempotent)
   // retire a live ROOT reason before removing the clause(s) that name it (a no-op

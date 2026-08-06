@@ -114,18 +114,6 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
 
 namespace {
 
-// live copies of the binary pair (a ∨ b) in a's watch list (V3's helper).
-uint32_t bve_binary_copies(const Kernel &k, Lit a, Lit b) {
-  uint32_t n = 0;
-  for (const WatchEntry w : k.watches.entries(a))
-    if (w.binary() && w.other() == b)
-      n++;
-  return n;
-}
-inline bool bve_binary_live(const Kernel &k, Lit a, Lit b) {
-  return bve_binary_copies(k, a, b) > 0;
-}
-
 // A materialized clause on the pivot: its ACTIVE literals (root-false dropped;
 // their unit ids in `absorbed` for LRAT), its proof id, and a delete-handle
 // (arena ref for large, or the binary pair). `active` includes the pivot.
@@ -706,7 +694,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     }
     // a size-2 resolvent already present is subsumed — skip (avoid a duplicate
     // pair that would block a later elimination).
-    if (r.lits.size() == 2 && bve_binary_live(k, r.lits[0], r.lits[1]))
+    if (r.lits.size() == 2 && kernel_binary_live(k, r.lits[0], r.lits[1]))
       continue;
     const uint64_t id = ++k.next_clause_id;
     if (k.proof) {

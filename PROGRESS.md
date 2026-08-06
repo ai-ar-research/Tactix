@@ -443,6 +443,17 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   copies-and-rewrites entries rather than walking them, and `propagate_literal_binary` prices the WORD
   CURSOR where its scan stopped (`binprop_words`/`binprop_skipped`), which an entry iterator cannot
   reproduce because it stops *before* the entry it breaks on.
+  `RV-S20` **DONE**: the duplicated-pair soundness predicate is now
+  `kernel_binary_copies`/`kernel_binary_live` in `kernel.hpp`, and all FOUR rule-local
+  transcriptions are gone (BVE, Substitute, Congruence's boolean specialisation, plus two the
+  report did not count: Ternary and Sweep). It also removed a **rule-calling-rule** edge —
+  Sweep reached the predicate through `congruence_binary_exists`, an external-linkage forwarder
+  that now has no reason to exist. Two callers keep a local wrapper for a reason stated in
+  source: Sweep scans the SHORTER mirror list, Substitute needs the count capped at 2.
+  Found on the way: **`check-config-wiring.py` scanned kernel.hpp from the config marker to
+  EOF**, so a local scalar with an initialiser inside any later inline kernel helper read as an
+  unclassified config field. Bounded to the struct's closing brace; anti-vacuity re-tested (it
+  still FAILS on a genuinely unclassified field placed inside the window).
 - **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
   highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the

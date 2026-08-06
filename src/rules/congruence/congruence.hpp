@@ -69,8 +69,4 @@ ApplyResult congruence_apply(Kernel &);
 bool congruence_replay_rup(Kernel &, const Lit *lits, uint32_t n,
                            std::vector<uint64_t> &chain);
 
-// True when (a ∨ b) is already a binary of F. Shared with V5 Sweep, which must
-// not re-derive an equivalence the formula already states.
-bool congruence_binary_exists(const Kernel &, Lit a, Lit b);
-
 } // namespace tactix

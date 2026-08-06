@@ -33,13 +33,10 @@ bool root_fixed(const Kernel &k, Var v) {
 // Kernel::binary_ids), so the id map would report a binary TransitiveReduce
 // has already deleted, and a genuinely new equivalence would be scored
 // "already known".
+// The pair is mirrored in both lists, so scanning the SHORTER one answers it.
 bool binary_live(const Kernel &k, Lit a, Lit b) {
   const Lit scan = k.watches.size(a) <= k.watches.size(b) ? a : b;
-  const Lit want = scan == a ? b : a;
-  for (const WatchEntry w : k.watches.entries(scan))
-    if (w.binary() && w.other() == want)
-      return true;
-  return false;
+  return kernel_binary_live(k, scan, scan == a ? b : a);
 }
 
 // --- the round's representative map (kissat sweep.c `sweep_repr`) -----------
@@ -749,8 +746,8 @@ ApplyResult sweep_apply(Kernel &k) {
     idx++;
     if (k.level != 0 || k.conflict_valid)
       break; // replay needs a quiescent root; stop rather than assert
-    if (congruence_binary_exists(k, negate(e.a), e.b) &&
-        congruence_binary_exists(k, e.a, negate(e.b))) {
+    if (kernel_binary_live(k, negate(e.a), e.b) &&
+        kernel_binary_live(k, e.a, negate(e.b))) {
       k.stats.sweep_known++;
       continue;
     }
