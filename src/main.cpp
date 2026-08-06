@@ -11,6 +11,7 @@
 #include "policies/factor_stress_policy.hpp"
 #include "policies/probing_stress_policy.hpp"
 #include "policies/reuse_stress_policy.hpp"
+#include "policies/cce_stress_policy.hpp"
 #include "policies/sweep_stress_policy.hpp"
 #include "policies/walk_stress_policy.hpp"
 #include "policies/default_policy.hpp"
@@ -94,6 +95,7 @@ int main(int argc, char **argv) {
   bool walk_stress_policy = false;
   bool reuse_stress_policy = false;
   bool sweep_stress_policy = false;
+  bool cce_stress_policy = false;
   bool no_heuristics = false; // run with H detached (unguided)
   uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
   unsigned long long random_seed = 20260710;
@@ -169,6 +171,16 @@ int main(int argc, char **argv) {
       sweep_stress_policy = true;
       if (a[21] == '=')
         random_seed = strtoull(a + 22, nullptr, 10);
+    } else if (!strncmp(a, "--cce-stress-policy", 19)) {
+      // X3 CCE stress mode: covers every root to a fixpoint with no effort
+      // budget (the shipped dose is cadical's 4 per mille, the lowest rate in
+      // its option set), draws the per-literal instance surface, and
+      // interleaves the other two witness-pushing rules so `rho` carries CCE's
+      // multi-segment sequences between theirs. A wrong witness here is a wrong
+      // SAT answer, not a rejected proof (stress-policy skill)
+      cce_stress_policy = true;
+      if (a[19] == '=')
+        random_seed = strtoull(a + 20, nullptr, 10);
     } else if (!strncmp(a, "--congruence-stress-policy", 26)) {
       // Stress mode: maximizes Congruence's newly-legal schedules -- deriving
       // root units, refuting, and re-entering congruence off a fixpoint on the
@@ -253,7 +265,7 @@ int main(int argc, char **argv) {
   // would otherwise slip a stress policy (or DefaultPolicy) through with no H.
   if (no_heuristics && (!random_policy || adversarial_policy ||
                         bve_stress_policy || congruence_stress_policy ||
-                        sweep_stress_policy)) {
+                        sweep_stress_policy || cce_stress_policy)) {
     fprintf(stderr, "tactix: --no-heuristics requires --random-policy alone "
                     "(no DefaultPolicy / stress policy); those need H\n");
     printf("s UNKNOWN\n");
@@ -396,6 +408,8 @@ int main(int argc, char **argv) {
           ? factor_stress_solve(kernel, random_seed, &caught_signal)
       : sweep_stress_policy
           ? sweep_stress_solve(kernel, random_seed, &caught_signal)
+      : cce_stress_policy
+          ? cce_stress_solve(kernel, random_seed, &caught_signal)
       : congruence_stress_policy
           ? congruence_stress_solve(kernel, random_seed, &caught_signal)
       : bve_stress_policy
@@ -504,6 +518,19 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bce_rounds,
            (unsigned long long)kernel.stats.bce_deleted,
            (unsigned long long)kernel.stats.bce_ticks);
+    // CCE's REACHABILITY line, not decoration (Kernel::Stats' cce_ block): a
+    // run with `cla 0` never added a covered literal, so it exercised nothing
+    // X1 BCE does not already do, and `blocked 0` means no witness was pushed.
+    printf("c cce         %llu rounds, %llu tried, %llu deleted "
+           "(%llu blocked / %llu ata), %llu ala, %llu cla, %llu ticks\n",
+           (unsigned long long)kernel.stats.cce_rounds,
+           (unsigned long long)kernel.stats.cce_tried,
+           (unsigned long long)kernel.stats.cce_deleted,
+           (unsigned long long)kernel.stats.cce_blocked,
+           (unsigned long long)kernel.stats.cce_ata,
+           (unsigned long long)kernel.stats.cce_ala,
+           (unsigned long long)kernel.stats.cce_cla,
+           (unsigned long long)kernel.stats.cce_ticks);
     printf("c instantiate %llu rounds, %llu literals removed, %llu probed\n",
            (unsigned long long)kernel.stats.instantiate_rounds,
            (unsigned long long)kernel.stats.instantiated,

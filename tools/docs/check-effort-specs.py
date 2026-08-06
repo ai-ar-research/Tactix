@@ -76,6 +76,7 @@ TABLE = {
     "Factor":           (METERED, "factoreffort 50 permille + factorthresh 7"),
     "HyperTernaryRes":  (METERED, "cadical ternaryeffort 8 permille + ternarythresh 6"),
     "BCE":              (METERED, "20 permille, bce_ticks currency"),
+    "CCE":              (METERED, "cadical covereffort 4 permille, cce_ticks currency"),
     "Instantiate":      (METERED, "20 permille, tick currency"),
     "Sweep":            (METERED, "kissat sweepeffort 100 permille, sweep_ticks currency"),
     # Congruence was ALTERNATE-GOVERNOR until SCHED-G1, on the argument that a
