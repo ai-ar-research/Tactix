@@ -1094,8 +1094,8 @@ witness is **one** literal, and it lies **inside** the clause. Consequences:
 **This is not a we-are-behind-kissat gap.** kissat's extension stack has the *same* shape ours does:
 `kissat_weaken_clause` pushes exactly one tagged witness literal (`weaken.c:36-44`) and `extend.c`'s
 reader terminates a segment on that single `blocking` literal. cadical had to introduce a witness
-*section* — `0 <witness…> 0 <id> 0 <clause…>`, written at `extend.cpp:85-105` and flipped
-literal-by-literal at `extend.cpp:176-196` — to carry this one technique. Landing X5 means changing the
+*section* — `0 <witness…> 0 <id> 0 <clause…>`, written at `extend.cpp:86-107` and flipped
+literal-by-literal at `extend.cpp:179-196` — to carry this one technique. Landing X5 means changing the
 `ρ` segment format, `kernel_extend_model`, and all five `kernel_push_witness` call sites (BCE ×2, BVE,
 Substitute ×2). Per §5.3 and the `rule-dev` contract that is an **architecture RFC**, not a "one
 directory + one registry line" landing.

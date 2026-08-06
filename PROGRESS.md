@@ -1105,7 +1105,7 @@ precisely what "globally" blocked adds over "blocked". It cannot be split into s
 segments (each would put its own witness inside its own satisfaction test — the wrong-SAT shape BCE
 already hit once), and restricted to one in-clause literal the rule **collapses to X1 BCE**, which R2
 ships ON. **Not a we-are-behind-kissat gap:** kissat's stack is the same shape (`weaken.c:36-44`, one
-tagged witness literal); cadical had to add a witness *section* (`extend.cpp:85-105`) for this one
+tagged witness literal); cadical had to add a witness *section* (`extend.cpp:86-107`) for this one
 technique and its own header says so. Landing X5 = change the `ρ` format + `kernel_extend_model` + all
 five `kernel_push_witness` call sites (BCE ×2, BVE, Substitute ×2) = **architecture RFC**, not a
 "one directory + one registry line" landing. **Checked so the two Track R items are not bundled on a
