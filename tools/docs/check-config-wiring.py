@@ -54,7 +54,10 @@ TABLE = {
     "bump_reason_limit":       ("POLICY", "reason-side bumping rate"),
     # --- a rule computes these -------------------------------------------
     "tier1":                   ("RULE", "reduce.cpp, from the live glue distribution"),
-    "tier2":                   ("RULE", "reduce.cpp; SP-TIER-2: 1 consumer here, 8 in cadical"),
+    "tier2":                   ("RULE", "reduce.cpp; 2 consumers (reduce, vivify) — SP-TIER-2 "
+                                        "audited cadical's 8 down to 2 live mechanisms"),
+    "kept_glue":               ("RULE", "reduce.cpp survivor envelope (cadical lim.keptglue)"),
+    "kept_size":               ("RULE", "reduce.cpp survivor envelope (cadical lim.keptsize)"),
     # --- A/B or diagnostic knobs; shipped value is the kernel.hpp default --
     "bve_gate_mask":           ("ENV", "--bve-gates"),
     "bce_occ_limit":           ("ENV", "TACTIX_BCE_OCC_LIMIT"),
@@ -71,6 +74,10 @@ TABLE = {
     # this test would be the ceremony the C5 note below warns against.
     "touch_filter":            ("ENV", "TACTIX_TOUCH_MARKS (stage-F off arm)"),
     "subsume_holds_elim":      ("ENV", "TACTIX_SUBSUME_HOLD (SCHED-F2 off arm)"),
+    # SCHED-F6: ships OFF and is a PREREQUISITE arm, not a candidate default --
+    # extra stamps only weaken the round filters until a consumer for the
+    # redundant tier band exists (SP-TIER-2's residue).
+    "touch_redundant":         ("ENV", "TACTIX_TOUCH_REDUNDANT (SCHED-F6 on arm)"),
     # SCHED-C5 (2026-08-05): was ENV-with-a-caveat — the knob existed, defaulted
     # OFF, and the row itself said that was the status quo rather than the
     # target. It now ships ON via the kernel.hpp default, which is what both
@@ -99,6 +106,8 @@ TABLE = {
     "stop_fuzz":               ("ENV", "TACTIX_STOP_FUZZ, fuzz-only abort knob"),
     "conflict_reuse":          ("ENV", "TACTIX_CONFLICT_REUSE; ships OFF (TB4b(B))"),
     "conflict_reuse_no_repair": ("ENV", "TACTIX_CONFLICT_REUSE_NOREPAIR, diagnostic"),
+    "jump_reasons":            ("ENV", "TACTIX_JUMP_REASONS; kissat `jumpreasons`, "
+                                       "ships OFF pending the A/B (SP-JUMP-1)"),
     # --- external-policy surface (N1) ------------------------------------
     "factor_bound":            ("API", "kissat's `reduction > bound`. NOT policy-wired, and "
                                        "that is the N4 exhibit: the ramp exists as bve_level_ "

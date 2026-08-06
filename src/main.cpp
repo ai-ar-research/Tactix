@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
       // drives the solve purely through the null-safe rule API).
       no_heuristics = true;
     } else if (!strncmp(a, "--bve-gates=", 12)) {
-      // BVE gate-type selection: comma list of {equiv,andor}, or
+      // BVE gate-type selection: comma list of {equiv,andor,ite,xor}, or
       // all / none. A performance knob — every setting is sound (a disabled
       // gate type only falls BVE back to the full cross product).
       const char *spec = a + 12;
@@ -199,6 +199,12 @@ int main(int argc, char **argv) {
           } else if (!strncmp(p, "andor", 5)) {
             bve_gate_mask |= BVE_GATE_AND_OR;
             p += 5;
+          } else if (!strncmp(p, "ite", 3)) {
+            bve_gate_mask |= BVE_GATE_ITE;
+            p += 3;
+          } else if (!strncmp(p, "xor", 3)) {
+            bve_gate_mask |= BVE_GATE_XOR;
+            p += 3;
           } else if (*p == ',') {
             p++;
           } else {
@@ -210,7 +216,8 @@ int main(int argc, char **argv) {
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--no-binary] [--lrat] "
-             "[--random-policy[=SEED]] [--bve-gates=all|none|equiv,andor] "
+             "[--random-policy[=SEED]] "
+             "[--bve-gates=all|none|equiv,andor,ite,xor] "
              "<cnf[.xz|.gz]> [proof]\n");
       return 0;
     } else if (a[0] == '-' && a[1]) {
@@ -285,6 +292,11 @@ int main(int argc, char **argv) {
     kernel.touch_filter = (*tm != '0');
   if (const char *sh = getenv("TACTIX_SUBSUME_HOLD"))
     kernel.subsume_holds_elim = (*sh != '0');
+  // SCHED-F6: ships OFF (see Kernel::touch_redundant); =1 is the ON arm, and
+  // it is a PRE-REQUISITE arm, not a candidate default -- there is no consumer
+  // for the redundant band yet.
+  if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))
+    kernel.touch_redundant = (*tr != '0');
   if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
     kernel.midround_budget = (*mb != '0'); // default OFF, measured negative;
                                            // see Kernel::midround_budget
@@ -335,6 +347,12 @@ int main(int argc, char **argv) {
   // usable A/B arm.
   if (getenv("TACTIX_CONFLICT_REUSE"))
     kernel.conflict_reuse = true;
+  // SCHED / SP-JUMP-1: kissat's `jumpreasons`, default OFF here pending the
+  // pre-registered tier A/B. Read HERE for the same reason as the two above —
+  // a knob DefaultPolicy owns is one the corpus replays and the stress
+  // policies cannot toggle, so it is not a usable arm.
+  if (getenv("TACTIX_JUMP_REASONS"))
+    kernel.jump_reasons = true;
   if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
     kernel.conflict_reuse_no_repair = true;
   Proof proof;
@@ -532,6 +550,10 @@ int main(int argc, char **argv) {
     printf("c reuse       %llu conflicts reused, %llu needed watch repair\n",
            (unsigned long long)kernel.stats.conflict_reused,
            (unsigned long long)kernel.stats.conflict_watch_repaired);
+    // Reachability for the TACTIX_JUMP_REASONS arm: an arm whose counter did
+    // not move was not tested.
+    printf("c jumpreason  %llu binary reasons jumped\n",
+           (unsigned long long)kernel.stats.jumped_reasons);
     printf("c inprocess   %llu phases\n",
            (unsigned long long)kernel.stats.inprocess_phases);
     printf("c conggates   %llu and, %llu xor, %llu ite\n",
@@ -613,6 +635,15 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
            (unsigned long long)kernel.stats.bve_resolutions);
+    // SP-BVE-GATE-1 pre-registered readout: an arm of --bve-gates whose ite/xor
+    // counts are 0 did not test the gate types ([[ab-arm-identical-artefacts]]).
+    printf("c bve-gates   %llu equiv, %llu andor, %llu ite, %llu xor; "
+           "%llu resolvent pairs saved\n",
+           (unsigned long long)kernel.stats.bve_gates_equiv,
+           (unsigned long long)kernel.stats.bve_gates_and_or,
+           (unsigned long long)kernel.stats.bve_gates_ite,
+           (unsigned long long)kernel.stats.bve_gates_xor,
+           (unsigned long long)kernel.stats.bve_gate_pairs_saved);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
@@ -620,6 +651,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.reductions,
            (unsigned long long)kernel.stats.deleted,
            (unsigned long long)kernel.stats.promoted);
+    printf("c tiers       %u/%u live after %llu retiers "
+           "(retention band %llu clause-visits dynamic vs %llu static)\n",
+           kernel.tier1, kernel.tier2,
+           (unsigned long long)kernel.stats.retiered,
+           (unsigned long long)kernel.stats.tier2_band_dynamic,
+           (unsigned long long)kernel.stats.tier2_band_static);
     printf("c mode        %s after %llu switches (%llu ticks, "
            "%llu target phases saved)\n",
            !kernel.h ? "unguided" : kernel.h->stable ? "stable" : "focused",
@@ -689,6 +726,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.ternary_rearmed,
            (unsigned long long)kernel.stats.instantiate_mark_skipped,
            (unsigned long long)kernel.stats.instantiate_rearmed);
+    printf("c touchred    %llu redundant creations in scope (dynamic) vs %llu "
+           "(static tier2=6); stamping %s\n",
+           (unsigned long long)kernel.stats.touch_redundant_dynamic,
+           (unsigned long long)kernel.stats.touch_redundant_static6,
+           kernel.touch_redundant ? "ON" : "off");
     printf("c touch4      Factor %llu seeds skipped / %llu rearmed\n",
            (unsigned long long)kernel.stats.factor_mark_skipped,
            (unsigned long long)kernel.stats.factor_rearmed);
