@@ -32,7 +32,7 @@ them, at **exactly the same effort share** on `b22_1`:
 |---|---|---|---|
 | environments swept | **174** | **25 162** | 11 416 |
 | equivalences proved | **0** | **239** | 545 |
-| equivalence binaries emitted with a proof | **0** | **478** | 1 090 |
+| equivalence binaries emitted with a proof | **0** | **478** | (1 090 — two per equivalence, inferred, kissat has no counter for it) |
 | sweep ticks spent | 112 425 691 | 110 811 311 | (62.9 M kitten ticks) |
 | share of those ticks in the dedup scan | **97.1 %** | 12.4 % | — |
 | share in the sub-solver | 1.5 % | **44.3 %** | — |
@@ -349,7 +349,7 @@ Not run here — this pass took no timing measurement, and the brief forbids a f
 - **The one cost this pass could not price is the seed RANK.** `sweep_seeds` now sorts the whole
   active variable set once per round, and it is charged to nothing — as the un-ranked walk before
   it was not. On `T105.2.0` (~3.1 M variables × ~33 Sweep occasions) that is the worst case, and
-  a two-arm same-window counter probe on it is in §10. If the A/B shows a Tier C loss
+  a two-arm same-window counter probe on it is §10. If the A/B shows a Tier C loss
   concentrated on the largest formulas, this is the first suspect, and the fix is a radix rank
   (kissat's `RADIX_STACK`) plus charging the walk to `sweep_ticks`.
 - **Pre-registered per-instance guard:** two byte-identical arms in one window differ by up to
@@ -373,5 +373,13 @@ sbatch --array=1-2 --output=<scratch>/sweep-yield/emit_%A_%a.out \
        benchmarks/probes/sweep-emit-paths.sbatch
 ```
 
-`sweep-kmetrics.sh` needs `tools/solvers/variants/kissat-metrics/kissat`; all three resolve
+`sweep-kmetrics.sh` needs `tools/solvers/variants/kissat-metrics/kissat`; all four resolve
 the gitignored instance cache through `git worktree list`, so they work from a linked worktree.
+
+## 10. The seed-rank cost check on the largest formula
+
+`sweep_seeds` sorts the whole active variable set once per round, and `T105.2.0` has ~3.1 M
+variables. Both arms in ONE submission on ONE node (`node018`), 900 s, counters — job
+`1587875`, `benchmarks/probes/sweep-rankcost.sbatch`. RESULT BELOW; if the after arm's
+conflict count is not within noise of the before arm's, the radix rank in §8 is owed before
+the A/B is worth running.
