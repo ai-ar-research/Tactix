@@ -66,7 +66,7 @@ substantive findings over a long list of nits.
    cannot reach is a leak even if it "looks" rule-local.
 
 5. **Untested / unfuzzed components crucial for the learned policy (§5.6).** The
-   phase-6 learner poses slots, reorders/enables/disables inprocessing entries,
+   phase-7 learner poses slots, reorders/enables/disables inprocessing entries,
    reads stats as rewards, needs deterministic replay. Verify: every rule's
    instance surface fuzzed at **both** single-instance **and** canonical/batch
    granularity (proof-emitting batches are the classic gap); all `tactix_stat`

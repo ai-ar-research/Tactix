@@ -23,7 +23,7 @@ Each family is one module in `src/rules/` exposing exactly:
     efficiency.** Rank freely (cheapest-first, most-promising-first); that is
     advice. But do NOT omit an instance because the rule judges it unlikely to
     pay off, stale, or already-tried: `RandomPolicy` enumerates through
-    `instances()` (so omissions silently shrink fuzz coverage) and the phase-6
+    `instances()` (so omissions silently shrink fuzz coverage) and the phase-7
     learned policy reasons over exactly this surface (so an omission tells it a
     legal move does not exist). If a rule *knows* something useful about which
     instances are worth trying, expose it as **advice the policy reads** — state

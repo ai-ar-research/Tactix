@@ -24,7 +24,7 @@ Run `tools/compete/check.sh ./build/tactix` (build it to do the following if mis
 4. Garbage/empty/comment-only inputs → no crash, `s UNKNOWN` or correct trivial answer.
 5. Determinism: two runs, identical verdict and (for fixed seed) identical proof.
 
-## Submission packaging (phase 5)
+## Submission packaging (phase 6)
 
 - Dockerfile + StarExec-style `bin/starexec_run_default` script; build from clean checkout.
 - Solver description document (required; 1–2 pages, IEEE style — see prior years' description PDFs for format).

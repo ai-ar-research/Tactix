@@ -11,15 +11,31 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 82 (2026-08-04) — rev 80 made **N4, the strategy floor**, a non-negotiable; rev 81 renamed the §5.6 RL stages `L1`–`L4` → `RL1`–`RL4`
-- **Current phase:** 3 (inprocessing) — since 2026-07-14 (phase 2 closed at T2 the same day, report `benchmarks/reports/2026-07-14-t2-gate.md`)
-- **Next gate:** **T3** (§8.3) — NOT met on either half and both regressed on 2026-08-05; see the gate row and the tier tables.
+- **Plan revision tracked:** rev. 83 (2026-08-06, user) — **phases restructured**: phase 3 is now *rule completeness* (exit = the reference
+  inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
+  everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). Earlier: rev 80 made **N4, the strategy floor**, a
+  non-negotiable; rev 81 renamed the §5.6 RL stages `L1`–`L4` → `RL1`–`RL4`
+- **Current phase:** 3 (the reference rule inventory) — since 2026-07-14 (phase 2 closed at T2 the same day, report
+  `benchmarks/reports/2026-07-14-t2-gate.md`). **Two items are owed before it closes: Track R · R9 (X6 HyperBinaryRes) and R10 (kitten BVE
+  definitions).** Everything else open is phase-4 work.
+- **Next gate:** the **phase-3 exit** (rule inventory complete). **T3 is no longer phase 3's gate** — it is phase 4's, alongside discharging N4
+  and running Tier D. T3 stands NOT met on either half; see the gate row and the tier tables.
 - **Last updated:** 2026-08-05 late — compaction pass (2182 → this). Status lives in the anchor below; completed work is compressed to
   result + pointer, with the detail in the cited commit / report / design doc.
 
-## ▶ RESUME HERE (2026-08-06) — phase 3 · **next = re-run Tier B + Tier C on the LEDGER FIX (branch `debug-solve-losses`)**
+## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **next = Track R · R9 then R10; those two close the phase**
 
-**NOTHING IN FLIGHT** (verified against `squeue -u hwu`: only the session's own `cpu-q` shell). The
+**▶ PLAN REV 83 RESTRUCTURED THE PHASES (user, 2026-08-06).** Phase 3 now exits on the **rule inventory**, not on a
+tier number, and everything that is dosing, ordering or budgeting moved to the new **phase 4** — including **T3**,
+**discharging N4**, and the **Tier D run**. Four decisions fix what the boundary means: (1) "implemented" =
+registered + sound + N1/N2-clean + fuzz-green, *not* yield-comparable — so V5 Sweep counts as done today and its
+yield is phase-4 dosing; (2) X5 `Condition` stays a reasoned no-implement (`SP-COND-1`); (3) T3 and Tier D both move
+to phase 4; (4) N4 is named as phase 4's defining obligation and stays a non-negotiable — it is *scheduled*, not
+weakened. Everything below this block predates the restructure; the tracks under **## Phase 4** are the same work
+under a new gate.
+
+**IN FLIGHT: the Sweep-yield probes only** (`squeue -u hwu` 2026-08-06: array `1587834`/`1587828` `sweepyield`,
+plus a `fuzz-sy-sweepstress-drat` leg — the Sweep-yield agent's own jobs; no tier array). The
 `bench-B/C-ledgerfix` arrays this line used to claim were live (`1585689` / `1585775`) have long since left
 the queue, and so have two later pairs another agent submitted. **`benchmarks/runs/` now holds FOUR tier
 pairs from 2026-08-06 and the tier tables below are still the `20260805` windows** — newest first:
@@ -74,7 +90,7 @@ figure in this file is over N minus a non-terminating population the harness did
 11.4 % (release) and 11.3 % (ASan), with 0 % for DefaultPolicy.** The harness now prints it. Still open
 from that group: the livelock DIAGNOSIS (`RV-S31`b), `parse.cpp`/`cake_lpr` (`RV-S24` remainder),
 `RV-S27`, `RV-S30`, and the `main.cpp` split, which the N1/API agent owns.
-**Queue state as this branch was pushed: NOTHING IN FLIGHT from this pass** (its ten jobs — `1587119`,
+**Queue state as this branch was pushed: no jobs left in flight from this pass** (its ten jobs — `1587119`,
 `1587294`, `1587335`, `1587380`, `1587384`, `1587390` cancelled, `1587410`, `1587411`, `1587412`, `1587414`
 — have all left the queue), and the two job ids the IN FLIGHT line above names are no longer in `squeue`
 either. Other agents' arrays come and go independently; check `squeue -u hwu` rather than trusting any
@@ -249,7 +265,7 @@ headline is RETIRED as an invalid comparison — ledger `SP-CONG-UNITS-1`; Y1 sh
   initialised true and never assigned. One line in `main.cpp` makes it A/B-able.
 - **C1/C3/C4 have nothing to price** — C1/C3 landed unconditionally, C1's only lever confounds by also
   moving reduce's tiers, and C4 is a pure refactor. Closed, do not re-open.
-- **Tier D** (793, frozen) has never been RUN — a phase-3-exit prerequisite (§11 O9). `--tier D` still
+- **Tier D** (793, frozen) has never been RUN — a phase-4-exit prerequisite (§11 O9, plan rev 83). `--tier D` still
   lacks a per-track flag for T4's SC25-set PAR-2; wire that first.
 
 **▶ READ BEFORE TRUSTING ANY DELTA.** `--aggregate` prints a **fragility line** — the minimum number of
@@ -536,7 +552,7 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 - **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
   highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the
-  phase-4 extensibility gate's real content:
+  phase-5 extensibility gate's real content:
   **`RV-S10`–`RV-S14` are DONE (2026-08-06, branch `rvs-api-n1`)** — the whole
   §5.6/N1 API-surface block; see the Log entry for what each one landed, what was
   deliberately scoped out of `RV-S12`/`RV-S13`, and the behaviour-preservation evidence.
@@ -609,9 +625,9 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 
 | | Requirement | Status |
 |---|---|---|
-| N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** The one the N4 audit found — `Factor`'s density predicate NoOping inside `factor_apply`, so **no API caller could apply a legal factoring on a binary-sparse formula** while the guard reported applicable — was CLOSED 2026-08-04 by MOVING the predicate into DefaultPolicy's slot as `Kernel::factor_admit` (SCHED-N1FIX; DefaultPolicy byte-identical, `tests/test_factor_n1.cpp` fails on the pre-fix build). **The shape to watch for: guard-true / apply-NoOp** — it is why V5 Sweep was deliberately left unregistered until it had a proof delta. Otherwise: v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld; two earlier leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 4) |
+| N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** The one the N4 audit found — `Factor`'s density predicate NoOping inside `factor_apply`, so **no API caller could apply a legal factoring on a binary-sparse formula** while the guard reported applicable — was CLOSED 2026-08-04 by MOVING the predicate into DefaultPolicy's slot as `Kernel::factor_admit` (SCHED-N1FIX; DefaultPolicy byte-identical, `tests/test_factor_n1.cpp` fails on the pre-fix build). **The shape to watch for: guard-true / apply-NoOp** — it is why V5 Sweep was deliberately left unregistered until it had a proof delta. Otherwise: v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld; two earlier leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 5) |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ **No open breach at HEAD.** Two were CLOSED on 2026-08-05 and the merged tree is GREEN: six fuzz legs at TWO seeds, 6000 cases each, 0 failures (`1584462`–`1584467`). The 38 `lrat-check` rejections seen mid-session were **drat-trim's `-L` CONVERTER, not our emitter** — kissat's and cadical's own proofs are rejected identically on the same inputs while our native LRAT verifies under lrat-check and cake_lpr; the harness now stands that cross-check down on the two unsound input classes, visibly counted (`…-drat-trim-conversion-crosscheck.md`). **Two breaches were CLOSED the same day.** (1) **`Sweep` S-e emitted every general-path lemma with INVERTED literal parity** — both sub→kernel decode sites tested `(sl & 1u) == 0`, so each lemma was written negated (the verdict and `F` were always correct; only the proof lines were wrong); fixed by one shared `sweep_kernel_lit` (`8796b26`), `asconhashv12` now verifies on drat-trim AND cake_lpr, regression corpus `012`, `sweep_proofs` extended over the real emitted proof, `--sweep-stress-policy` added. (2) **the frontend deduped repeated input literals**, so an input clause's id named a different clause for the checker than for us and any LRAT chain citing it failed (`16b6e75`). **And the INSTRUMENT was broken: `fuzz.py`'s native-LRAT oracle accepted `NOT VERIFIED`**, so every LRAT rejection in project history was recorded as a pass. Reports `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`, `…-sweep-n2-blast-radius.md`, `…-sweep-se-polarity-fix.md`, `…-sweep-n2-postfix-survey.md`, `…-input-clause-normalization-n2.md`. Otherwise: ◐ DRAT since phase 1; native LRAT since 2026-07-14; the 2026-07-15 audit was upheld and did not cover Sweep, which did not exist then |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-05** (window `20260805-1150`, git `0418770`): Tier B(28) **70.71 (26/28)** · Tier C **419.91 (28/30)** vs kissat 228.45 (29/30) and cadical 312.27 (29/30). T3 halves **BOTH NOT MET and both REGRESSED** vs 08-04 — kissat subset **1.727×** (was 1.346×), cadical **1.345×** full (was 0.990×) — with kissat flat across the two windows, so this is a real regression rather than drift. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (793 instances) — never RUN, and running it is a phase-3-exit prerequisite (§11 O9); `--tier D` still has no per-track flag for T4's SC25-set PAR-2 |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-05** (window `20260805-1150`, git `0418770`): Tier B(28) **70.71 (26/28)** · Tier C **419.91 (28/30)** vs kissat 228.45 (29/30) and cadical 312.27 (29/30). T3 halves **BOTH NOT MET and both REGRESSED** vs 08-04 — kissat subset **1.727×** (was 1.346×), cadical **1.345×** full (was 0.990×) — with kissat flat across the two windows, so this is a real regression rather than drift. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (793 instances) — never RUN, and running it is a phase-4-exit prerequisite (§11 O9, rev 83); `--tier D` still has no per-track flag for T4's SC25-set PAR-2 |
 | **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80, user 2026-08-04) | ✗ **KNOWN UNMET, MEASURED THREE TIMES — and pass 3 is BEHAVIOURAL, not an inventory.** Pass 1 (rule families): 216 mechanisms, **132 gaps (27 high)**. Pass 2 (SCHED-A3, the REFERENCE's option set): all **418** options enumerated, **+15 gaps (4 HIGH) and 6 CORRECTIONS to pass 1**. **Pass 3 (2026-08-06, `benchmarks/reports/2026-08-06-n4-behavioural-shape-audit.md`): both solvers counter-instrumented on the SAME ten instances — occasions, realized interval, governor inputs, yield per occasion. 7 CRUDER / 1 MIXED / 4 EQUAL-or-ahead / 2 more-generous / 1 not comparable, and the sharp result is that our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates anything (104 → 2 736 829) and Factor adds ZERO on 6 of 9 — so the ledger reading "closed" does not mean the family runs.** Ledger LANDED and living at `docs/implementation-notes.md` §13 (§13.4–§13.6 = pass 2; pass 3 owes it six corrections, report §7); full audit frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`; remediation staged as **Track SCHED** below, which also carries the four structural highs and the confirmed gaps. **N4 is a *mechanism* floor** — it may not be discharged by a tier number, and never deferred to §5.6 |
 
 ## Milestone gates (plan §8.3)
@@ -621,6 +637,8 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 - [x] T2 — **passed 2026-07-14** (Tier B 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report
   `benchmarks/reports/2026-07-14-t2-gate.md`)
 - [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51).
+  **Gates PHASE 4, not phase 3 (rev 83)** — it is the outcome half of the dosing/scheduling phase, next to
+  discharging N4 and running Tier D.
 
   | half | requirement | status |
   |---|---|---|
@@ -676,21 +694,21 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   trajectory gap closed (residual = 1.42× propagation volume — the standing TB5 lever)
 - **Exit:** T2 — **PASSED 2026-07-14**
 
-## Phase 3 — inprocessing
+## Phase 3 — the reference rule inventory
 
 Every rule lands N1-exposed + random-policy-fuzzed regardless of whether DefaultPolicy schedules it; per-rule detail in its design doc + commit,
 semantics in `docs/calculus.md`, guards + deviations in `docs/implementation-notes.md`. **Since 2026-07-25 the composition is the S4 arrangement,
 unconditionally** (probing family + simplifiers + during-search dosed BVE/Factor; the legacy preprocessing-only composition was removed with the
 negative arms — git history has it).
 
-- [x] **C1 SubsumeForward · C2 Strengthen + the registry-driven slot** (slot = data; the phase-6 arm space) **· C3 Vivify** (LCM scope) **· V1
+- [x] **C1 SubsumeForward · C2 Strengthen + the registry-driven slot** (slot = data; the phase-7 arm space) **· C3 Vivify** (LCM scope) **· V1
   Probe · V2 Backbone · V4 TransitiveReduce** (`kernel_delete_binary` primitive) **· V3 Substitute** (first ρ consumer;
   `docs/design/v3-substitute-design.md`) — all 2026-07-15..17; corpus 002/003 found en route
 - [x] **E1 BVE — COMPLETE (E1a–E1d)**: drained-root elimination, RUP-only resolvents, syntactic gate extraction, `--bve-gates` knob; design
   `docs/design/e1-bve-design.md`; `bve_stress_policy` reusable. ITE/XOR gates landed 2026-08-05 (SCHED-C8). Remaining: kitten
-  definition extraction (O11), phase 4
+  definition extraction (O11) — **Track R · R10**, still phase-3 work
 - [x] **Tier C built and frozen** (30 instances; `benchmarks/reports/2026-07-15-tier-c-freeze.md`)
-- [x] **Independent-lineage campaign — 4 measured, 0 adopted**, each with a recorded mechanism; strongest phase-6 arms: CMS usage-count Reduce
+- [x] **Independent-lineage campaign — 4 measured, 0 adopted**, each with a recorded mechanism; strongest phase-7 arms: CMS usage-count Reduce
   ranking, chronological backtracking (TB4), Glucose blocking restarts. Survey `docs/design/independent-lineage-survey.md`
 - [x] **N1/N2/N3 audit + canonical-batch fuzz** (2026-07-15) — upheld; deferred backlog `benchmarks/reports/2026-07-15-codebase-review.md`
 - [x] **Nightlies GREEN at scale** (DRAT 20k/0; congruence-stress 10k/0). Method lesson: nightly scale catches what `--quick` misses (corpus
@@ -727,44 +745,8 @@ negative arms — git history has it).
   unguarded deref no gate saw); null-path bugs surfaced only under FULL-suite ASan with the default flipped; and a structural check can replace a
   benchmark (zero `k.h->` in the propagation loop killed the indirection worry)
 
-### ▶ Track T — the Tier B tail (TB1–TB6; the bare T1–T5 are the §8.3 gates)
-
-Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a different cause. **TB1/TB2/TB3/TB5/TB6 CLOSED** — detail in
-`docs/log/2026-W30.md`/`2026-W31.md` and the cited probes.
-
-- [x] **TB1** congruence is NOT the FmlaEquiv gap (kissat with ALL simplification off runs it in 8.68 s, faster than with any single simplifier
-  off); the structural-hashing gap is real but ≤ 0.7 s · **TB2** x9's outlier premise dissolved (1.17–1.19× vs kissat) · **TB3** Factor verifiably
-  non-inert on x9 · **TB5** per-prop cost is AT PARITY with kissat on all residuals — the residual is SEARCH SHAPE, and the watch-layout
-  engineering lane is measured-dead · **TB6** default mode alternation BEATS both pinned modes
-- [x] **TB4** chrono ON by default (`CHRONO_LEVELS=100`). The first measurement (+13 %) was a PORTING ERROR, not a verdict — analyzing from above
-  the conflict level silently DROPPED the conflict on 84 % of chrono backtracks; fixed → −2.4 %. **`stats.backjump_stale` MUST stay 0.** Found
-  only because a negative result was audited rather than accepted
-- [ ] **TB4b** the remaining chrono divergences. **(A) the one-literal-on-conflict-level shortcut** and
-  **(B) the watch-repair primitive** are DONE (`fc57eff`; the 2026-07-28 negative verdict was retired as
-  a BROKEN arm, not a crippled one — report `2026-08-01-tb4b-watch-repair.md`). **Ships OFF**: ON and
-  CRIPPLED are indistinguishable on Tier C and the proof-size axis FLIPS SIGN between tiers, so it is a
-  §5.6 exhibit, not a default. **Unit chrono routing SHIPPED** 2026-08-04 (`8118c68`, `veer_axi` 6×) —
-  and introduced the N2 defect fixed in `52a4e8f`. **`jumpreasons` is ported but ships OFF (SCHED-C8); still
-  unported: cadical's `chronoreusetrail`.** `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
-
-### ▶ Track S — the effort-budgeted target arrangement — S4 CLOSED
-
-- [x] **S1** the per-phase-overhead explanation for repeated during-search BVE is REFUTED — the cost is search TRAJECTORY, not the root descent
-  (`775eefc`) · **S1b** BVE growth-slack ramp, the first SubPolicy (`a36b4c2`) · **S1c** needed-bound cache + ceiling 8 (`489fab1`; the old dose
-  cap was an *accidental governor*, [[accidental-governor-trap]]). **The ceiling's stated warrant was RETRACTED evidence** — the "crypto1 BVE
-  U-shape" was drawn through single draws on a dose-chaotic instance; what survives is one same-window Tier B A/B (HEAD 16.66 / ceil-16 17.76 /
-  ceil-8 15.08 / flat fixed-8 15.85) that is single-instance-dominated on a tier with **no measured noise floor**. The Tier C/D re-sweep is owed
-  and is the only thing that would warrant the constant · **S2a** FactorMatchPolicy, steering DISCONFIRMED (the 27×27 cap is structural) ·
-  **S2b** composite grids land default-OFF (`docs/design/s2b-composite-grids-design.md`) · **S2** probing rules re-measured on-cluster: the
-  historical SAT-disruption is GONE · **S3** P2 follow-ups (probing stress 16.5k/0; `2ed8bcc`)
-- [x] **S4 · the TARGET ARRANGEMENT — GATE PASSED, DEFAULT ON (2026-07-25).** B+C as one unit: arr {B 17.45, C 552.91} vs legacy {B 43.86,
-  C 537.83}; mp1 5.34 s beats kissat 9.09 (proof VERIFIED); the density-gated-doses residual fix (`1dbd439`) then gave **B 10.62, C 520.76**.
-  Root causes + measured negatives: `benchmarks/reports/2026-07-25-s4-gate-mp1.md` (its §2 banks the dead knobs, [[s4-gate-negatives]]); dosing
-  design frozen at `docs/design/s4-factor-dosing-design.md` (§3.e bound coupling REVERSED by measurement)
-- [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`
-
 ### Track W — S6 `Walk` local search (plan rev 71) — SHIPPED ON, CLOSED for phase 3
-*(its phase-6 hand-off is `W4e`, in the Phase 6 section)*
+*(its hand-off is `W4e`, in the Phase 7 section)*
 
 **▶ WALK IS ENABLED BY DEFAULT AND THERE IS NO OFF SWITCH.** `ROTATION` fires it on 2 of every 6 rephase events
 (`default_policy.cpp:809-814`, `{BEST, WALK, INVERTED, BEST, WALK, ORIGINAL}`) at `WALK_PERMILLE = 560`
@@ -808,7 +790,7 @@ alone are 21.79 / 53.26 / 13.08 Tier B PAR-2 against 9.22 for all three together
 **MEASURED CONSTRAINT on any joint-admission lever — narrower than it looks.** `mod4block` is NON-MONOTONE in how consistently the trio runs:
 never 9.26, always 13.17, **once-then-stop 263.87**. The trio must therefore run all-solve or not at all, which kills every mid-solve decision and
 leaves only a STATIC per-instance one — and the best such separator measured 4/13 misclassifications, i.e. chance
-(`benchmarks/reports/2026-07-20-bve-skip-feasibility.md`). A phase-6 context feature, not an engineering lever, absent new evidence.
+(`benchmarks/reports/2026-07-20-bve-skip-feasibility.md`). A phase-7 context feature, not an engineering lever, absent new evidence.
 
 - [x] **R1 · X2 `HyperTernaryRes`** (cadical `ternary.cpp`) — add-RUP only, no witness. `d0bb6ec`; **ON since `3fb85bd`**
 - [x] **R2 · X1 `BCE`** (cadical `block.cpp`) — delete + push-witness, reusing E1's occurrence index and reconstruction stack (kissat 4 dropped
@@ -893,8 +875,83 @@ leaves only a STATIC per-instance one — and the best such separator measured 4
 - ~~**R8**~~ — MOVED to Track SCHED (`SCHED-C6`/`C7`) 2026-08-04: it was scheduling work filed under the rule inventory. Track R is now purely
   new rule FAMILIES (R5–R7), which is what makes it parallelisable against Track SCHED.
 
-**▶ TRACK R'S INVENTORY IS NOW CLOSED except R5's scheduling half (S-f) and R6 CCE (in flight).** R7 was the last unimplemented family and it is
-closed by decision, not by code — so no further reference rule family is owed. Read §16 before proposing X5 again.
+**▶ TRACK R IS CLOSED — R1–R7 all resolved** (R5's S-f half closed 2026-08-06, R6 CCE landed, R7 by reasoned
+no-implement). Read §16 before proposing X5 again. Track R covered the families the plan named in rev 72; the
+two inventory items it did NOT cover are R9/R10 below.
+
+### ▶ Track R (cont.) — the last two inventory items (plan rev 83)
+
+These are what stands between HEAD and the phase-3 exit. Both are *capabilities*, not schedules — every other
+open parity row is dosing/wiring/infrastructure and is phase-4 work.
+
+- [ ] **R9 · X6 `HyperBinaryRes`** — hyper binary resolution during probing (`SP-PROBE-2`; cadical `probehbr`=1,
+  `probe.cpp:218` called `:477`). When a long clause goes unit at level 1, fold its false literals through
+  `probe_dominator` and add the binary `(¬dom, lits[0])`; if `¬dom` was already in the reason, the new binary
+  subsumes it and the reason is garbaged. Proof delta add-RUP + delete. The ledger row itself says the closer is
+  a rule, not a schedule fix. Catalog row: plan §5.2 X6.
+- [ ] **R10 · kitten-based BVE definition extraction** (§11 O11, the E1 remainder) — the syntactic gate matcher
+  (ands/xors/ITE, landed SCHED-C8) is what E1 ships today; kissat's `definitions`=1 extracts definitions with the
+  embedded sub-solver. The sub-solver already exists in-tree for V5 Sweep, so this is a consumer, not a port.
+  **N1 note:** a definition-derived elimination must stay applicable through `apply_instance`; it may only widen
+  `instances()`, never prune it.
+
+- **Exit (rev 83):** the reference rule inventory is COMPLETE — every proof rule Kissat 4.0.4 or CaDiCaL 3.0.0
+  implements is either registered here (guard / instances / apply, N1-exposed, N2-clean, fuzz-green) or carries a
+  reasoned no-implement row in `docs/implementation-notes.md` with its evidence and a reopening path.
+  **Performance is not this phase's gate** — T3 moved to phase 4 with the dosing work (plan rev 83).
+
+## Phase 4 — dosing, optimization, scheduling (plan rev 83)
+
+The rule inventory being complete, what remains between Tactix and the references is **how the rules are dosed,
+ordered and budgeted** — not which rules exist. Today's evidence for the split: eleven of twelve parity rows read
+CLOSED (we own the mechanisms) while our BVE eliminated **zero** variables on 7 of the 9 instances where kissat
+eliminates anything, and Factor added zero on 6 of 9. Capability and effectiveness came apart completely; this
+phase closes the second one.
+
+**Exit = all three.**
+1. **T3** (§8.3) — within 10 % PAR-2 of CaDiCaL on Tier C, plus CaDiCaL/Kissat parity on the rule-neutral subset.
+2. **N4 discharged** — no row in the scheduling-parity ledger (`docs/implementation-notes.md` §13) left reading
+   `WE_LACK_IT` or `WE_ARE_CRUDER`: each is either CLOSED by code or an accepted deviation in §13.3 carrying its
+   measurement and a reopening path. N4 is a *mechanism* floor and may not be discharged by a tier number.
+3. **One full Tier D campaign run and reported** (793 instances, frozen 2026-08-03) as scale evidence. The **T4**
+   gate on Tier D is phase 5's, not this phase's — here Tier D only has to have been *run*.
+
+
+### ▶ Track T — the Tier B tail (TB1–TB6; the bare T1–T5 are the §8.3 gates)
+
+Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a different cause. **TB1/TB2/TB3/TB5/TB6 CLOSED** — detail in
+`docs/log/2026-W30.md`/`2026-W31.md` and the cited probes.
+
+- [x] **TB1** congruence is NOT the FmlaEquiv gap (kissat with ALL simplification off runs it in 8.68 s, faster than with any single simplifier
+  off); the structural-hashing gap is real but ≤ 0.7 s · **TB2** x9's outlier premise dissolved (1.17–1.19× vs kissat) · **TB3** Factor verifiably
+  non-inert on x9 · **TB5** per-prop cost is AT PARITY with kissat on all residuals — the residual is SEARCH SHAPE, and the watch-layout
+  engineering lane is measured-dead · **TB6** default mode alternation BEATS both pinned modes
+- [x] **TB4** chrono ON by default (`CHRONO_LEVELS=100`). The first measurement (+13 %) was a PORTING ERROR, not a verdict — analyzing from above
+  the conflict level silently DROPPED the conflict on 84 % of chrono backtracks; fixed → −2.4 %. **`stats.backjump_stale` MUST stay 0.** Found
+  only because a negative result was audited rather than accepted
+- [ ] **TB4b** the remaining chrono divergences. **(A) the one-literal-on-conflict-level shortcut** and
+  **(B) the watch-repair primitive** are DONE (`fc57eff`; the 2026-07-28 negative verdict was retired as
+  a BROKEN arm, not a crippled one — report `2026-08-01-tb4b-watch-repair.md`). **Ships OFF**: ON and
+  CRIPPLED are indistinguishable on Tier C and the proof-size axis FLIPS SIGN between tiers, so it is a
+  §5.6 exhibit, not a default. **Unit chrono routing SHIPPED** 2026-08-04 (`8118c68`, `veer_axi` 6×) —
+  and introduced the N2 defect fixed in `52a4e8f`. **`jumpreasons` is ported but ships OFF (SCHED-C8); still
+  unported: cadical's `chronoreusetrail`.** `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
+
+### ▶ Track S — the effort-budgeted target arrangement — S4 CLOSED
+
+- [x] **S1** the per-phase-overhead explanation for repeated during-search BVE is REFUTED — the cost is search TRAJECTORY, not the root descent
+  (`775eefc`) · **S1b** BVE growth-slack ramp, the first SubPolicy (`a36b4c2`) · **S1c** needed-bound cache + ceiling 8 (`489fab1`; the old dose
+  cap was an *accidental governor*, [[accidental-governor-trap]]). **The ceiling's stated warrant was RETRACTED evidence** — the "crypto1 BVE
+  U-shape" was drawn through single draws on a dose-chaotic instance; what survives is one same-window Tier B A/B (HEAD 16.66 / ceil-16 17.76 /
+  ceil-8 15.08 / flat fixed-8 15.85) that is single-instance-dominated on a tier with **no measured noise floor**. The Tier C/D re-sweep is owed
+  and is the only thing that would warrant the constant · **S2a** FactorMatchPolicy, steering DISCONFIRMED (the 27×27 cap is structural) ·
+  **S2b** composite grids land default-OFF (`docs/design/s2b-composite-grids-design.md`) · **S2** probing rules re-measured on-cluster: the
+  historical SAT-disruption is GONE · **S3** P2 follow-ups (probing stress 16.5k/0; `2ed8bcc`)
+- [x] **S4 · the TARGET ARRANGEMENT — GATE PASSED, DEFAULT ON (2026-07-25).** B+C as one unit: arr {B 17.45, C 552.91} vs legacy {B 43.86,
+  C 537.83}; mp1 5.34 s beats kissat 9.09 (proof VERIFIED); the density-gated-doses residual fix (`1dbd439`) then gave **B 10.62, C 520.76**.
+  Root causes + measured negatives: `benchmarks/reports/2026-07-25-s4-gate-mp1.md` (its §2 banks the dead knobs, [[s4-gate-negatives]]); dosing
+  design frozen at `docs/design/s4-factor-dosing-design.md` (§3.e bound coupling REVERSED by measurement)
+- [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`
 
 ### ▶ Track SCHED — the scheduling floor (plan rev 80 §1.1 N4, §5 obligation 5)
 
@@ -915,12 +972,12 @@ items carry DRAT + native-LRAT + random-policy legs; items opening NEW schedules
 ticks-meter arm, the V4 early-exit arm, the C1/C2 mid-round budget arm, every per-entry per-mille sweep on a ticks-metered rule, and the BVE
 ramp-ceiling 8-vs-16 choice.
 
-**Track exit (checked at the phase-3 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT` without a closure or an accepted deviation
+**Track exit (checked at the phase-4 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT` without a closure or an accepted deviation
 row carrying a measurement, AND the ledger has been regenerated from the REFERENCE's option set (SCHED-A3).
 **▶ EXIT STATUS (2026-08-06). HALF ONE IS NOW MET: all twelve HIGH rows are closed** — the twelfth,
 `SP-REPEAT-*`, by **`SCHED-F7`**, as an accepted deviation carrying its measurement (`D-C1C2-VICTIM`).
 Half two was already **DONE and machine-checked** (SCHED-A3, ctest `option_coverage`). What remains before
-the track can be *ticked* at the phase-3 gate is the gate evaluation itself, not another row. Of §13.2's
+the track can be *ticked* at the phase-4 gate is the gate evaluation itself, not another row. Of §13.2's
 HIGH rows, **eleven closed with code** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B · `SP-VIVIFY-1` by C1 · `SP-FACTOR-2` by C5 ·
 `SP-BVE-GATE-1` by **C8** · `SP-JUMP-1` by **C9** — ported, ships OFF, default decided by a pre-registered A/B ·
 `SP-SLOT-4` by **D1** · `SP-SLOT-1` by **D2** · `SP-SLOT-5` by **D3** · `SP-EFFORT-CEIL-1` by **E3**, ported and
@@ -1070,7 +1127,7 @@ instrument before spending a tier window on a mechanism.
   ITE/XOR-defined variable was charged the full P·N and failed `resolvents ≤ pos+neg+bound` where both references eliminate it. Now
   `--bve-gates=all|none|equiv,andor,ite,xor`, both new types default-ON, and the row is an ACCEPTANCE lever: gate clauses g⁺/g⁻ turn P·N into
   g⁺·(N−g⁻) + (P−g⁺)·g⁻ (ITE: 2P+2N−8 · XOR arity m: 2^(m−1)(P+N−2^m)).
-  **This is the SYNTACTIC half only.** kitten-based *definition* extraction (kissat `definitions`=1) is phase 4 / Track R · R5 and is NOT in scope.
+  **This is the SYNTACTIC half only.** kitten-based *definition* extraction (kissat `definitions`=1) is Track R · R10 (phase 3) and is NOT in scope.
   **Proof delta unchanged (RUP-only), and the obligation is discharged the same way as E1c's:** both new shapes are COMPLETE gates — their clauses
   alone entail `x ↔ φ`, and every gate×gate resolvent is a tautology (ITE clashes on the condition or a branch; two opposite-pivot parity clauses
   must disagree on some input), so `resolve_gate` stays false and nothing but entailed resolvents is skipped. The antecedent×antecedent argument
@@ -1412,7 +1469,7 @@ private meters make per-rule cost attributable, without which no credit assignme
 object — and under a cutting budget **ordering IS the scheduler**; F1's touched-epoch substrate lets an agent ask "what is new since I last
 acted?". **None of it narrows `instances()` or touches a guard**, and the one genuine N1 breach in the codebase is *repaired* by this track.
 
-### Other phase-3 items
+### Other dosing / admission items
 
 *(The `(a)`/`(b′)`/`(c′)` labels other entries refer to are defined here — they are the Factor-admission /
 T3 thread, not a separate track.)*
@@ -1433,31 +1490,31 @@ T3 thread, not a separate track.)*
   re-derive from the post-governor-fix tier numbers. Old text: **(c′) T3's kissat half moved** — a real number attached to an unclosed
   question, **now subsumed by the much larger 2026-08-05 Sweep regression; do not re-open it first.**
 - [x] Effort-budgeted scheduler increment 1 + prerequisites (revs 53–55; design `docs/design/effort-scheduler-design.md`)
-- **Exit:** T3
+- **Exit:** see the phase-4 exit block above (T3 + N4 discharged + Tier D run).
 
-## Phase 3.5 — engineering ingenuity on top of kissat (PIN, rev 67)
+## Phase 4.5 — engineering ingenuity on top of kissat (PIN, rev 67; renumbered from 3.5, rev 83)
 
 Deliberately unelaborated (§9 row 3.5 + §11 O15): once kissat performance is matched, a dedicated pass for novel engineering beyond the reference
 lineage. Concretize at the T3 gate via revise-plan.
 
-## Phase 4 — tuning, bindings, extensibility proof
+## Phase 5 — tuning, bindings, extensibility proof (was phase 4 before rev 83)
 
 - [ ] **Decide O16b at phase entry** (PR/SR clause learning as a catalog candidate — the checkable form of
   auto-invented rules; needs dpr-trim or PR→DRAT in the N2 story).
-- [ ] **§5.5 hygiene, conditional (moved from phase 3, 2026-08-04):** SubsumeForward occs/marks alloc and
+- [ ] **§5.5 hygiene, conditional (moved out of the rule phase 2026-08-04):** SubsumeForward occs/marks alloc and
   `binary_ids` `.emplace` on the CDCL hot path — **escalate via §5.4 ONLY with a profile**, which is why
-  this is not phase-3 work. (The third item, the `literal_redundant` depth cap 900 vs 1000, is CLOSED
+  this is not rule-inventory work. (The third item, the `literal_redundant` depth cap 900 vs 1000, is CLOSED
   measured-dead — `88cff2d`.)
 - [ ] Independent-lineage candidates: CMS best_inv rephase (with Walk), rotation presets (O6)
 - [ ] Python bindings; policy presets (MAB scheduler, classification) — §5.6 seed
 - [ ] Demo policies 4–6 incl. external branching (N1 end-to-end)
 - [ ] §8.4 overhead budget: default vs hardcoded twin ≤ 5% on Tier B
 - [ ] **Extensibility acceptance test: CCE (X3) as pure plugin (§5.3)** — **the GATE check only.** The
-  rule itself is phase-3 work (**Track R · R6**), so this row is where the phase-4 exit criterion is
+  rule itself is phase-3 work (**Track R · R6**), so this row is where the phase-5 exit criterion is
   *evaluated*, not a second implementation task.
 - **Exit:** T4 (⇒ N3 satisfied)
 
-## Phase 5 — competition readiness
+## Phase 6 — competition readiness (was phase 5 before rev 83)
 
 - [ ] Backlog rules as warranted — *X2/X4 landed in phase 3 Track R; X5 Condition is Track R · R7*
 - [ ] Docker + run scripts; solver description; license/attribution audit
@@ -1467,7 +1524,7 @@ lineage. Concretize at the T3 gate via revise-plan.
   `benchmarks/reports/2026-08-05-input-clause-normalization-n2.md` §2.1).
 - **Exit:** T5 or best effort; submission-ready
 
-## Phase 6 — learned scheduling: the RL module (§5.6, rev 26)
+## Phase 7 — learned scheduling: the RL module (§5.6, rev 26; was phase 6 before rev 83)
 
 The end-game (user directive 2026-07-15): learn on-the-fly which proof rule / batch to apply — order, frequency, budgets. Bandit-first, no deep
 learning on the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
@@ -1492,6 +1549,44 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — plan rev 83: capability and tuning become separate gates
+
+**The user's restructure, and why it is the right cut.** Phase 3 was a performance phase whose gate (T3)
+moved three times in one day — 1.34× → 2.16× → 1.34× — largely because of defects, not design. Meanwhile the
+scheduling-parity ledger closed eleven of twelve rows, saying we *own* the mechanisms, while the behavioural
+audit found our BVE eliminating **zero** variables on 7 of the 9 instances where kissat eliminates anything and
+Factor adding zero on 6 of 9. Inventory and effectiveness came apart completely. Rev 83 puts the phase boundary
+on that seam: **phase 3 exits on the rule inventory; the new phase 4 owns dosing, ordering and budgeting** and
+inherits **T3 + discharging N4 + one Tier D campaign**. Old 3.5→4.5, 4→5, 5→6, 6→7.
+
+**Four decisions fix what the boundary means** (all four the user's, asked before any edit):
+1. **"Implemented" = registered + guard/instances/apply + N1-exposed + N2-clean + fuzz-green — not
+   yield-comparable.** So V5 `Sweep` counts as done today at 1 equivalence against kissat's 545, and its yield is
+   a phase-4 dosing item. The alternative would have made the phase boundary depend on a number that moves.
+2. **X5 `Condition` stays a reasoned no-implement** (`SP-COND-1`). Its witness is a cube; `ρ` carries one
+   in-clause literal, so implementing it is a reconstruction-format revamp across five `push_witness` sites, not
+   a rule addition. The completeness bar therefore admits two forms, implemented *or* reasoned-no-implement with
+   evidence and a reopening path.
+3. **T3 and Tier D both move to phase 4.** T3 is the outcome half of the tuning phase; Tier D (793, frozen
+   08-03, never run) is its scale evidence. The **T4** gate on Tier D stays phase 5's.
+4. **N4 is named as phase 4's defining obligation.** It is a non-negotiable measured UNMET (7 cruder behavioural
+   rows), so closing phase 3 on inventory alone would have left it looking discharged by a closed track. It is
+   *scheduled*, not weakened — `implementation-notes.md` §13 now states that discharging the ledger is a gate.
+
+**What this makes owed for the phase-3 exit is exactly two items**, and both are capabilities the ledger already
+identified as needing a rule rather than a schedule fix — **Track R · R9** `X6 HyperBinaryRes` (`SP-PROBE-2`;
+cadical `probehbr`, new catalog row §5.2) and **R10** kitten-based BVE definition extraction (§11 O11; the
+sub-solver is already in-tree for Sweep, so it is a consumer, not a port). Every other open `WE_LACK_IT` row —
+`SP-SWEEP-2` ladder, `SP-BVE-BWD-1` wire, `SP-COMPACT-1` compaction, `SP-CHRONO-1`, `SP-VIVIFY-3` — is
+dosing/wiring/infrastructure and is phase-4 work.
+
+**Mechanics.** §8.3's T3 subset clause survives as a *strengthening* rather than a carve-out: its rev-51
+rationale was that gating phase 3 on the full set would penalise us for rules not yet shipped, and Factor and
+Sweep both ship now, so no instance's gap can be excused as a missing rule at the point T3 is evaluated. E2
+`Factor`'s stale phase-4 catalog tag corrected to 3. Tracks T, S, SCHED and the Factor-admission items moved
+under the new `## Phase 4` heading in this file — same work, new gate. `check-option-coverage.py` keys off the
+`Other dosing / admission items` heading and was updated with it. ctest **54/54**, `check-progress.py` clean.
 
 ### 2026-08-06 — S-f CLOSED: the governor stays ON, and the replicate arm settled the noise question
 
