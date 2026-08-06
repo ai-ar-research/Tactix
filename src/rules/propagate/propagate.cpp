@@ -7,7 +7,6 @@
 
 #include "proof/proof.hpp"
 
-#include <algorithm>
 #include <cassert>
 
 namespace tactix {

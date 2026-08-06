@@ -10,7 +10,6 @@
 #include <cassert>
 #include <csignal>
 #include <cstdio>
-#include <cstring>
 
 using namespace tactix;
 

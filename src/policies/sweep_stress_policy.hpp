@@ -10,7 +10,7 @@ namespace tactix {
 // Temporary N1 stress policy (V5 S-e, stress-policy skill): maximizes SWEEP
 // EMISSION, and in particular the general core->chain path.
 //
-// Why this exists. The 2026-08-05 N2 breach (an unverifiable refutation on
+// Why this exists. The S-e N2 breach (an unverifiable refutation on
 // `asconhashv12`) was live at HEAD while generic fuzz was green on 4000 native
 // LRAT and 10000 DRAT cases. The oracle was right and the schedule was never
 // reached: the defect is in S-e, the general path, and S-e only fires for an

@@ -80,9 +80,13 @@ struct Stats {
   uint64_t walk_flips = 0;
   uint64_t walk_steps = 0;
   uint64_t walk_improved = 0; // walks that lowered the unsatisfied count
-  // unsatisfied-clause count the last walk reached (UINT64_MAX = never walked).
-  // Read by the policy to decide whether to KEEP a walk's phases: the op owns
-  // the mechanism, the policy owns the accept/reject decision.
+  // Unsatisfied-clause count the LAST walk reached (UINT64_MAX = never walked).
+  // NO CONSUMER TODAY, and that is deliberate: it is phase 6's Walk-dosing
+  // reward proxy (PROGRESS W4e), so it is not dead code. Two things a consumer
+  // must know first — the write is an ASSIGNMENT, not a `min`, so this is the
+  // last walk's minimum and not the best one; and nothing reads it, so the
+  // accept/reject of a walk's phases is decided elsewhere. Whichever of those a
+  // reward proxy wants, it has to choose explicitly.
   uint64_t walk_minimum = UINT64_MAX;
   uint64_t promoted = 0;     // glue promotions on use (kissat deduce.c)
   uint64_t learned = 0;
@@ -1830,9 +1834,9 @@ void kernel_lrat_chain(Kernel &, uint64_t closing_id);
 // allocates and consecutive calls can share/dedup one buffer. When `touched`
 // is non-null every newly-marked var is recorded there, so a PERSISTENT
 // `seen` can be restored all-zero in O(marked) instead of a fresh
-// O(nvars) zero-fill per walk (C4-perf: that memset was 97 % of ALL cycles
-// on the hwmcc native-LRAT path — one per replayed ladder lemma; probe
-// 1563224).
+// O(nvars) zero-fill per walk. INVARIANT: that memset dominated the native-LRAT
+// path (one per replayed ladder lemma), so a caller on that path must pass
+// `touched` — see the per-call linear-scratch entry in `docs/lessons.md`.
 void kernel_reason_walk(Kernel &, Var start, std::vector<uint8_t> &seen,
                         std::vector<std::pair<uint32_t, uint64_t>> &entries,
                         std::vector<Var> *touched = nullptr);
