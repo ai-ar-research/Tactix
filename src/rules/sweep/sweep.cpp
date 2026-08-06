@@ -418,6 +418,8 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
   // can be proved, and every pair they take part in costs a solve to learn
   // that. Measured over large clauses on both sides, which is the population
   // the occurrence index covers.
+  if (!lim.measure_closure)
+    return e.nclauses() > 0;
   e.deg_scratch.assign(e.vars.size(), 0);
   for (uint32_t c = 0; c < e.nclauses(); c++) {
     if (e.clause_off[c + 1] - e.clause_off[c] <= 2)
@@ -722,6 +724,8 @@ SweepLimits sweep_limits_from_env() {
     lim.enforce_in_env = std::strtoul(s, nullptr, 10) != 0;
   if (const char *s = std::getenv("TACTIX_SWEEP_STRIP"))
     lim.strip_false = std::strtoul(s, nullptr, 10) != 0;
+  if (const char *s = std::getenv("TACTIX_SWEEP_CLOSURE"))
+    lim.measure_closure = std::strtoul(s, nullptr, 10) != 0;
   return lim;
 }
 

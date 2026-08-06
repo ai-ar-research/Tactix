@@ -39,6 +39,7 @@ trap 'rm -f "$CNF"' EXIT
 xz -dc "$XZ" > "$CNF"
 BIN="${SY_TACTIX:-$ROOT/build/pin-sweepdiag/tactix}"
 
+export TACTIX_SWEEP_CLOSURE=1 # the diagnostic pass is off in the shipped rule
 FREE="TACTIX_SWEEP_VARS=8192 TACTIX_SWEEP_CLAUSES=32768 TACTIX_SWEEP_DEPTH=3
       TACTIX_SLOT_PERMILLE=Sweep:100000 TACTIX_SWEEP_TICKS=200000000
       TACTIX_SWEEP_CANDIDATES=1000000"

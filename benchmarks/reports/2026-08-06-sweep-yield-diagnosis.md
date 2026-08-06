@@ -6,7 +6,10 @@ wall-clock claim anywhere in this report.**
 (before, effort split) · `1587834` (after) · `1587852` (per-path emission) ·
 `1587856`–`1587862` (fuzz).
 **Binaries** before `build/pin-sweepdiag` / `…-sweepdiag2`; after `build/pin-sweepstrip`
-sha `96b774836c3c9fca`; shipped `build/pin-sweepfinal`.
+sha `96b774836c3c9fca`; shipped `build/pin-sweepship`. The closure instrument of §2.3 is an
+extra pass over each environment, so it is **off by default** in the shipped rule
+(`TACTIX_SWEEP_CLOSURE=1`); every "after" number below was measured with it ON, which makes
+those numbers conservative.
 **Reference** kissat 4.0.4 `-DMETRICS` variant at `tools/solvers/variants/kissat-metrics/`.
 Probe scripts `benchmarks/probes/sweep-yield.{sh,mf,sbatch}`, `sweep-kmetrics.*`,
 `sweep-emit-paths.*`; raw output under `benchmarks/probes/scratch/sweep-yield/`
@@ -253,6 +256,13 @@ And the `sweepfree` arm on `b22_1`, which is where the emission paths get their 
 | dedup share of ticks | 83.5 % | **3.2 %** |
 | sub-solver share | 16.5 % | **85.5 %** |
 
+`sweepfree` is a **diagnostic arm and nothing else** — it gives Sweep a ×1000 effort share, so
+after the fix it eats the solve (`mod4block`'s sweepfree arm now returns UNKNOWN where it
+previously answered SAT, and reports the first `budget 348` events in this whole pass). It is
+in the table because it is where the emission paths get their volume and because it is the arm
+the N4 audit read "the zero survives 1000× the dose" off. Nothing here is a dosing
+recommendation.
+
 `b22_1` is the clean read, because it is UNSAT on both arms with the same verdict and the same
 51 rounds: **0 → 239 equivalences and 0 → 478 emitted binaries for 1.4 % FEWER ticks.** We now
 sweep 2.2× kissat's environment count and reach 44 % of its equivalence yield; the remaining
@@ -269,14 +279,30 @@ a regression, and do not read any of these rows as timing.
 - **`ctest` 54/54**, including `micro_proofs` and `sweep_proofs` — the latter runs S-e's real
   emitted proof through drat-trim **and** lrat-check, and is the test that catches a translation
   defect of the kind the 2026-08-05 polarity breach was.
-- **Fuzz, all on the final binary, 0 failures** (jobs `1587856`–`1587862`): random policy ×
-  native DRAT, random policy × native LRAT, random policy × ASCII DRAT, `--sweep-stress-policy`
-  × DRAT and × LRAT, and `--sweep-stress-policy` × `TACTIX_SWEEP_FORCE_GENERAL=1` × DRAT and ×
-  LRAT — the last pair being the only legs that route *every* proved equivalence through the
+- **Fuzz: seven legs on the final binary (`build/debug`, sanitizers + `TACTIX_CHECK`),
+  0 failures.** The last two are the only ones that route *every* proved equivalence through the
   general core→chain path, i.e. the path §4.1's citation change lives in.
-- **Reachability, so no leg is vacuous:** `Sweep` fires in 2 285 of 3 326 random-policy cases
-  and 1 872 of 2 658 stress cases.
-- **Per-path emission counts** on both formats with the proof checked: job `1587852`, §8.
+
+  | job | leg | cases | failures | `Sweep` reached |
+  |---|---|---|---|---|
+  | `1587856` | `--random-policy`, native DRAT | 4 000 | **0** | 2 284 / 3 325 |
+  | `1587857` | `--random-policy --lrat`, native LRAT | 4 000 | **0** | 2 286 / 3 327 |
+  | `1587858` | `--random-policy --no-binary`, ASCII DRAT | 3 000 | **0** | 1 718 / 2 506 |
+  | `1587859` | `--sweep-stress-policy --lrat` | 3 000 | **0** | 1 872 / 2 658 |
+  | `1587860` | `--sweep-stress-policy`, DRAT | 3 000 | **0** | 1 872 / 2 658 |
+  | `1587861` | `--sweep-stress-policy --lrat` × `SWEEP_FORCE_GENERAL` | 3 000 | **0** | 1 873 / 2 659 |
+  | `1587862` | `--sweep-stress-policy`, DRAT × `SWEEP_FORCE_GENERAL` | 3 000 | **0** | 1 876 / 2 662 |
+
+  The reachability column is what keeps these from being vacuous; `tools/fuzz/failures/` holds
+  nothing but the standing `nonterminating` population.
+- **Per-path emission counts, non-zero on BOTH paths and BOTH formats, with every UNSAT proof
+  checked** (job `1587852`, 60 Tier-A instances per format, `--sweep-stress-policy`, half of them
+  under `TACTIX_SWEEP_FORCE_GENERAL=1`):
+
+  | format | `sweepemit` binaries | not-RUP (declined by S-d, handed to S-e) | general pairs (S-e) | UNSAT proofs checked | **REJECTED** |
+  |---|---|---|---|---|---|
+  | native DRAT (drat-trim) | 1 218 | 5 376 | 97 | 52 | **0** |
+  | native LRAT (lrat-check) | 1 218 | 5 376 | 97 | 52 | **0** |
 - Note the standing caveat that a `--random-policy` leg's N is N minus its non-terminating
   population (16.9 % here, printed by the harness).
 
@@ -320,6 +346,12 @@ Not run here — this pass took no timing measurement, and the brief forbids a f
   --baseline <base-binary> --name sweepyield` and the Tier C twin, submitted together.
 - **Primary metric** PAR-2 with the fragility line read first; **secondary** `#solved`, read
   before the aggregate.
+- **The one cost this pass could not price is the seed RANK.** `sweep_seeds` now sorts the whole
+  active variable set once per round, and it is charged to nothing — as the un-ranked walk before
+  it was not. On `T105.2.0` (~3.1 M variables × ~33 Sweep occasions) that is the worst case, and
+  a two-arm same-window counter probe on it is in §10. If the A/B shows a Tier C loss
+  concentrated on the largest formulas, this is the first suspect, and the fix is a radix rank
+  (kissat's `RADIX_STACK`) plus charging the walk to `sweep_ticks`.
 - **Pre-registered per-instance guard:** two byte-identical arms in one window differ by up to
   **41 s on a single instance**, so no single-instance claim below that is admissible. `b22_1`
   is the instance where the mechanism is largest; it is a *reachability* exhibit here, not a
