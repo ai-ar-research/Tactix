@@ -19,10 +19,11 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 
 ## ▶ RESUME HERE (2026-08-05) — phase 3 · **next = run the Sweep-governor Tier C A/B (specced, unrun)**
 
-**NOTHING IN FLIGHT.** Tree clean, pushed, ctest **46/46**, corpus 14/14, and every conformance checker
-green (`config_wiring`, `effort_specs`, `option_coverage`, `option`-set + `check-progress`).
-**Every fuzz leg run tonight was 0 failures** across the merged tree — the largest were 3 × 10,000
-random-policy cases after Stage F and 26,000 across five legs for CCE.
+**IN FLIGHT: the final Tier B + Tier C at HEAD `c7beaa0`.** Tier B array `1585269` on node017,
+Tier C array `1585354` on node018 — two pin dirs from ONE commit with **byte-identical binaries**
+(`219b10d7…`), both baselines carried, one tier per node so no arm/node correlation inside a tier and
+the two tiers do not contend. Partition was verified idle before submitting. ctest **46/46**, corpus
+14/14, all four conformance checkers green.
 
 **▶▶ SWEEP'S DEGRADATION IS DIAGNOSED AND FIXED (branch `sweep-governor-fix`); THE TIER C A/B IS SPECCED
 AND UNRUN.** Not the meter — the **enforcement point**. The round ceiling was polled only *between* seeds
@@ -620,7 +621,14 @@ leaves only a STATIC per-instance one — and the best such separator measured 4
   - Fuzz **GREEN, five legs, 0 failures**: stress×DRAT `1585216` / stress×native-LRAT `1585217` (4000 each) · `--random-policy`×DRAT `1585220` /
     ×native-LRAT `1585221` (4000 each) · DefaultPolicy quick `1585223` (10000); corpus 14/14 on every leg. ctest **45/45**.
   - **A/B SPEC READY, DELIBERATELY UNRUN** (a Tier C A/B was live) — arms + pre-registered counters + ship criterion in the Log entry below.
-- [ ] **R7 · X5 `Condition`** (cadical `condition.cpp`) — conditional autarkies
+- [x] **R7 · X5 `Condition`** — **CLOSED 2026-08-05 as a reasoned NO-IMPLEMENT**, not deferred. Criterion
+  fixed before investigating; value deliberately excluded from it. It fails on REPRESENTABILITY:
+  `Kernel::reconstruction` carries one witness LITERAL that must lie INSIDE the clause, while a
+  conditional autarky's witness is a CUBE over outside variables — split into single-literal segments
+  each would sit inside its own satisfaction test (BCE's old wrong-SAT shape), and restricted to one
+  in-clause literal the rule collapses to X1 BCE, which ships ON. kissat has no such rule at all;
+  cadical ships `condition`=0. Measured anyway: fires on 13/30 Tier C, no solve flips, +11.3 % wall.
+  Ledger `SP-COND-1` (`implementation-notes.md` §16) carries the reopening path.
 - ~~**R8**~~ — MOVED to Track SCHED (`SCHED-C6`/`C7`) 2026-08-04: it was scheduling work filed under the rule inventory. Track R is now purely
   new rule FAMILIES (R5–R7), which is what makes it parallelisable against Track SCHED.
 
@@ -1037,19 +1045,39 @@ instrument before spending a tier window on a mechanism.
   (**19–42 % on the four instances where C1 has non-trivial yield**; the low end is an instance where C1
   deletes 36 clauses in total). C1's own effort share is duplicated work. **The follow-up is a DOSE, not a
   rule-off** ([[no-rule-off-configs]]) — A/B spec in the Log entry, unrun.
-- [ ] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` · [ ] **SCHED-G5 · binary-first watch
-  layout** `[revamp]`. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
+- [x] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` — **DONE 2026-08-06** (`d10200a`).
+  The reuse LOOP was never the mechanism; the ORDER is (cadical `vivify.cpp:35-42`), so the probe and
+  candidate orders land with it and the off arm reverts both. Validity invariant: every DB mutation is
+  preceded by `reset_to_root()`, so no trail crosses a change. Also took F5's `Clause::flags` bit and
+  C10's tier3 hand-off. Reuse 24–27 %, exactly 0 with the hatch off. **UNPRICED** ·
+  [ ] **SCHED-G5 · binary-first watch layout** `[revamp]` — NOT STARTED. *(V5 Sweep is the largest block of reference scheduling we lack, but it is
   already tracked as **Track R · R5** — not repeated here as a second checkbox.)*
 
 #### Stage H — recorded residuals (cheap, additive, no dependency)
 
-- [ ] **SCHED-H1** termination polling inside C1/C2/Vivify/BCE/X2/X4 rounds — **split three ways by file;
-  the X1/X2/X4 share and the C1/C2 share are DONE** (see their Log entries; C1/C2 is six sites, no cadence,
-  `c interrupt2`), **Vivify is the one open share**. Tick the item when it lands. **`battleship-14-26-sat`'s
+- [x] **SCHED-H1** termination polling — **COMPLETE 2026-08-06, all three shares.** X1/X2/X4 (`d234ffa`,
+  six sites), Vivify (`d10200a`, with G3), C1/C2 (`c7beaa0`, six sites incl. the `*_try` pair, because
+  `work_budget` is a round device and an N1 policy driving `apply_instance` could not be stopped by
+  either governor). **No `!(++tick & 255)` window anywhere** — kissat's own shape, and the one
+  construction the task-#10 vacuity cannot recur in; removing a cadence the C1/C2 cut had reintroduced
+  recovered 13–14 % of reachability. Counters `c interrupt2`/`c interrupt3` increment inside
+  `kernel_rule_interrupt`, so a site cannot be added uncounted. **`battleship-14-26-sat`'s
   7.3 s post-SIGTERM exit is NOT C1/C2** — ruled out by counters, see the C1/C2 entry.
-  · [ ] **SCHED-H2** per-solve reset of
-  restart/reduce/rephase/mode/reorder/averages/walk_anchor · [ ] **SCHED-H3** Reduce `first_reducible` scan
-  bound
+  · [x] **SCHED-H2** per-solve reset — **DONE 2026-08-06.** Fifteen state groups audited against the
+  references' use sites; most leaked. Worst: `inprocess.{initialized,ticks}` pairs with the kernel's
+  single tick meter, so on a fresh kernel `search_ticks()` UNDERFLOWED. `DefaultPolicy::reset_schedule`
+  RE-BASES rather than zeroes, so one reset serves a fresh formula and an incremental continuation.
+  Pre-fix failure was stark — solve #2 on a reused policy vs solve #1 on a fresh one: **300 vs 3,583
+  conflicts, 7,033 vs 165,241 proof bytes**, the reused arm skipping preprocessing entirely. ctest
+  `solve_reset`; a second guard proves the shipped SINGLE-solve path stays bit-identical, which is why
+  no A/B is owed. **This was an N1/§5.6 correctness bug**: a learned policy runs many solves per
+  process, so a leak makes its reward depend on episode order · [x] **SCHED-H3** Reduce
+  `first_reducible` scan bound — **CLOSED, measured-marginal, NOT implemented.** The bound binds on
+  40.2 % of 59 GB of arena words, but those words are **0.15 % of propagation traffic at the median,
+  3.25 % at the worst instance**. Deciding finding: kissat's watermark is stable only because its
+  collector re-partitions the arena every reduce; ours copies live clauses in order and never
+  partitions, so **11 of 57 instances measure under 1 % skippable**. Counters shipped so the claim
+  stays auditable; *fusing the three arena walks* is the better-value change and needs no invariant
 
 **▶ WHY THIS SERVES PHASE 6 (the user's explicit requirement).** Every `[arch]` item adds *observability or control* the learned policy needs and
 cannot get today: A1 gives per-entry occasions/declines/yield (the reward-shaping signal, and the labels the §5.6 admission exhibit lacks); B2's
@@ -1071,7 +1099,11 @@ T3 thread, not a separate track.)*
   on the table, Tier B wants Factor ON while Tier C wants it OFF, and the shipped gate is the best arm on
   neither. Note the gate's own defect (it loosens monotonically over the solve) and the 0-for-5 record of
   hand-designed formula-shape separators before proposing a sixth threshold.
-- [ ] **(c′) T3's kissat half moved 1.271× → 1.346× across TB4b** — a real number attached to an unclosed
+- [x] ~~**(c′) T3's kissat half moved 1.271× → 1.346× across TB4b**~~ — **SUPERSEDED 2026-08-06.** A far
+  larger effect landed on top of it: T3 went to 1.72× kissat / 1.22× cadical once V5 Sweep was
+  scheduled, and the same-window A/B plus the governor diagnosis attribute that to Sweep's
+  unenforced effort ceiling (overshoot 73.2×). Do not re-open the TB4b question in isolation;
+  re-derive from the post-governor-fix tier numbers. Old text: **(c′) T3's kissat half moved** — a real number attached to an unclosed
   question, **now subsumed by the much larger 2026-08-05 Sweep regression; do not re-open it first.**
 - [x] Effort-budgeted scheduler increment 1 + prerequisites (revs 53–55; design `docs/design/effort-scheduler-design.md`)
 - **Exit:** T3
