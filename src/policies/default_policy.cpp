@@ -15,11 +15,14 @@
 #include "rules/sweep/sweep.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <optional>
+#include <utility>
 
 namespace tactix {
 
@@ -438,6 +441,207 @@ const SlotOrderRow *default_slot_order(size_t *count) {
   return AUTHORED_SLOT_ORDER;
 }
 
+// --- candidate ORDER: the arms and the ranker (SCHED-E1/E2) -----------------
+
+const char *candidate_order_name(CandidateOrder o) {
+  switch (o) {
+  case CandidateOrder::Native:
+    return "native";
+  case CandidateOrder::Reverse:
+    return "reverse";
+  case CandidateOrder::Random:
+    return "random";
+  case CandidateOrder::OccAsc:
+    return "occ-asc";
+  case CandidateOrder::OccDesc:
+    return "occ-desc";
+  case CandidateOrder::NegOccDesc:
+    return "negocc-desc";
+  case CandidateOrder::Heuristic:
+    return "heuristic";
+  }
+  return "native";
+}
+
+bool parse_candidate_order(const char *s, CandidateOrder *out) {
+  static const struct {
+    const char *n;
+    CandidateOrder o;
+  } table[] = {
+      {"native", CandidateOrder::Native},
+      {"reverse", CandidateOrder::Reverse},
+      {"random", CandidateOrder::Random},
+      {"occ-asc", CandidateOrder::OccAsc},
+      {"occ-desc", CandidateOrder::OccDesc},
+      {"negocc-desc", CandidateOrder::NegOccDesc},
+      {"heuristic", CandidateOrder::Heuristic},
+  };
+  for (const auto &row : table)
+    if (!std::strcmp(s, row.n)) {
+      *out = row.o;
+      return true;
+    }
+  return false;
+}
+
+namespace {
+
+// The key a resumption cursor is expressed in: the payload's literal for the
+// shared lit_instance encoding, the raw payload otherwise. Every DOSED rule
+// uses the literal encoding today; the fallback keeps the cursor total rather
+// than making it a precondition on the payload shape.
+uint64_t instance_key(uint64_t inst) {
+  Lit l;
+  return lit_of_instance(inst, &l) ? static_cast<uint64_t>(l) : inst;
+}
+
+// OCCURRENCES of `l`, counted as watch ENTRIES (binary = 1 word, large = 2), so
+// the arms key on how many clauses a candidate touches rather than on how many
+// words its watch list happens to occupy.
+uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
+  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
+  const uint32_t sz = k.watches.heads[l].size;
+  uint32_t n = 0;
+  for (uint32_t i = 0; i < sz;) {
+    if (Watch{ws[i]}.binary()) {
+      n++;
+      i += 1;
+    } else {
+      n += binary_only ? 0u : 1u;
+      i += 2;
+    }
+  }
+  return n;
+}
+
+// Sort key for the comparison arms; ASCENDING throughout (a descending arm
+// returns the complement, so a stable sort still breaks ties by native
+// position).
+uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst) {
+  Lit l;
+  if (!lit_of_instance(inst, &l) || var_of(l) >= k.nvars)
+    return 0; // not a literal payload: leave it where the native order had it
+  const Var v = var_of(l);
+  switch (arm) {
+  case CandidateOrder::OccAsc:
+  case CandidateOrder::OccDesc: {
+    const uint64_t occ = lit_occurrences(k, make_lit(v, false), false) +
+                         lit_occurrences(k, make_lit(v, true), false);
+    return arm == CandidateOrder::OccAsc ? occ : ~occ;
+  }
+  case CandidateOrder::NegOccDesc:
+    // cadical probe.cpp:624/685/763: rank = noccs(-p) over BINARY clauses, and
+    // probes are popped from the BACK of the sorted stack, so the literal that
+    // occurs negated most often is probed FIRST.
+    return ~static_cast<uint64_t>(lit_occurrences(k, negate(l), true));
+  case CandidateOrder::Heuristic:
+    // kissat transitive.c:222-260: stable mode sorts on the EVSIDS heap score,
+    // focused mode on the VMTF stamp, both ASCENDING and both walked front to
+    // back.
+    if (k.h->stable) {
+      // An EVSIDS score is never negative, and non-negative IEEE-754 doubles
+      // compare as unsigned integers on their bit patterns.
+      const double s = k.h->scores.score[v];
+      uint64_t bits = 0;
+      std::memcpy(&bits, &s, sizeof bits);
+      return bits;
+    }
+    return k.h->links[v].stamp;
+  default:
+    return 0;
+  }
+}
+
+} // namespace
+
+void DefaultCandidateOrder::rank(const Kernel &k, uint32_t rule,
+                                 uint64_t *insts, uint32_t n) {
+  const CandidateOrder arm = arm_of(rule);
+  if (arm == CandidateOrder::Native || n < 2)
+    return;
+  if (arm == CandidateOrder::Reverse) {
+    std::reverse(insts, insts + n);
+    return;
+  }
+  if (arm == CandidateOrder::Random) {
+    // splitmix64 Fisher-Yates. The generator is policy state seeded by a
+    // constant, so the whole solve replays: a random order that is not
+    // reproducible cannot be fuzzed or bisected.
+    for (uint32_t i = n; i > 1; i--) {
+      rng_ += 0x9e3779b97f4a7c15ull;
+      uint64_t z = rng_;
+      z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
+      z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
+      z ^= z >> 31;
+      std::swap(insts[i - 1], insts[z % i]);
+    }
+    return;
+  }
+  // H is OPTIONAL policy state (Track H): with none attached there is nothing
+  // to rank by, and falling back to the native order is the only honest move.
+  if (arm == CandidateOrder::Heuristic && !k.h)
+    return;
+  // Persistent scratch: this runs inside the dose loop, and a per-call
+  // linear allocation there is a measured hazard.
+  scratch_.resize(n);
+  for (uint32_t i = 0; i < n; i++)
+    scratch_[i] = {order_key(k, arm, insts[i]), insts[i]};
+  std::stable_sort(
+      scratch_.begin(), scratch_.end(),
+      [](const std::pair<uint64_t, uint64_t> &a,
+         const std::pair<uint64_t, uint64_t> &b) { return a.first < b.first; });
+  for (uint32_t i = 0; i < n; i++)
+    insts[i] = scratch_[i].second;
+}
+
+// Resume, then rank, the instance list this occasion will walk.
+//
+// RESUME first, because the cursor is expressed in the RULE's own key space and
+// is therefore only meaningful against the list as the rule enumerated it. A
+// ranking arm then permutes whatever it is handed — so under a score arm the
+// rotation survives only as a tie-break and the arm re-imposes its own head
+// every occasion. That composition is deliberate and it is also the
+// references': kissat's transitive sort puts the untried MARK ahead of the
+// score (transitive.c:226-232) rather than rotating a scored list. Combining a
+// per-item mark with a score is Stage F (ledger SP-REPEAT-*), not this item.
+//
+// Both steps are permutations. Nothing here can remove a candidate, so nothing
+// here narrows what DefaultPolicy may apply (N1).
+void DefaultPolicy::order_candidates(const Kernel &k, SlotEntry &e,
+                                     uint64_t *insts, uint32_t n) {
+  if (n == 0)
+    return;
+  e.ord.lists++;
+  e.ord.candidates += n;
+  if (e.cursor_enabled) {
+    uint32_t start = 0;
+    while (start < n && instance_key(insts[start]) < e.cursor)
+      start++;
+    if (start >= n)
+      start = 0; // the cursor ran past the set: begin again at the head
+    if (start) {
+      std::rotate(insts, insts + start, insts + n);
+      e.ord.rotated++;
+    }
+  }
+  // The built-in ranker is a no-op until SCHED-E2 wires the arms, so skip the
+  // whole step — including its before-image copy — unless a policy has been
+  // swapped in that can actually reorder.
+  if (!candidate_order)
+    return;
+  CandidateOrderPolicy &cp =
+      candidate_order ? *candidate_order : default_candidate_order_;
+  order_before_.assign(insts, insts + n);
+  cp.rank(k, static_cast<uint32_t>(e.rule), insts, n);
+  uint64_t moved = 0;
+  for (uint32_t i = 0; i < n; i++)
+    moved += (order_before_[i] != insts[i]);
+  if (moved) {
+    e.ord.ranked++;
+    e.ord.moved += moved;
+  }
+}
+
 bool DefaultPolicy::want_slot_phase(const Kernel &k, SlotGroup g) {
   if (!inprocess.initialized)
     return false;
@@ -774,6 +978,44 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                 break;
               }
           }
+          // --- candidate order + resumption cursor (SCHED-E1/E2) ------------
+          // Cursor default: ON for the DOSED entries whose enumeration is in
+          // KEY order, OFF for BVE (see SlotEntry::cursor for both halves of
+          // the argument). Order arm default: Native everywhere, and it stays
+          // there until an A/B moves it.
+          if (e.dosed)
+            e.cursor_enabled = std::strcmp(nm, "BVE") != 0;
+          // One knob PER RULE, spelled from the registry name so a newly dosed
+          // rule gets its own without editing a list here:
+          // TACTIX_CURSOR_<RULENAME> / TACTIX_ORDER_<RULENAME>, upper-cased.
+          // Priced separately is the point — an ordering bundle cannot be
+          // attributed to a rule.
+          char knob[96];
+          const auto knob_name = [&knob](const char *prefix,
+                                         const char *name) {
+            size_t p = 0;
+            for (const char *s = prefix; *s && p + 1 < sizeof knob; s++)
+              knob[p++] = *s;
+            for (const char *s = name; *s && p + 1 < sizeof knob; s++)
+              knob[p++] = static_cast<char>(
+                  std::toupper(static_cast<unsigned char>(*s)));
+            knob[p] = '\0';
+          };
+          // A knob that CANNOT take effect aborts rather than being ignored:
+          // an arm silently set on an entry the policy never orders is exactly
+          // the vacuous-A/B failure mode.
+          const auto reject = [&knob](const char *why) {
+            std::fprintf(stderr, "c ERROR: %s: %s\n", knob, why);
+            std::abort();
+          };
+          knob_name("TACTIX_CURSOR_", nm);
+          if (const char *cv = std::getenv(knob)) {
+            if (!e.dosed)
+              reject("this entry runs as a canonical batch round, so the "
+                     "policy never walks its candidates and a cursor cannot "
+                     "take effect");
+            e.cursor_enabled = std::strtoul(cv, nullptr, 10) != 0;
+          }
           inprocess_slot.push_back(e);
         }
       };
@@ -819,6 +1061,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (rules[i].tier == RuleTier::Inprocess && !placed[i])
             add_entry(i);
       }
+      // The built-in ranker holds one arm per registry rule — the shape the
+      // §5.6 learner needs. Every arm is Native until SCHED-E2 wires the
+      // per-rule knobs that select them.
+      default_candidate_order_.arms.assign(rules.size(),
+                                           CandidateOrder::Native);
     }
     if (!inprocess.initialized) {
       inprocess.initialized = true;
@@ -1220,6 +1467,11 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     const uint32_t n =
         r.instances(k, inprocess_payloads_.data(),
                     static_cast<uint32_t>(inprocess_payloads_.size()));
+    // WHERE THIS WALK STARTS AND IN WHAT ORDER IT PROCEEDS (SCHED-E1). Under a
+    // cutting budget this is the scheduling decision: the dose below stops
+    // part-way, so the head is what gets applied. Both steps are permutations
+    // of what the rule enumerated — see order_candidates.
+    order_candidates(k, e, inprocess_payloads_.data(), n);
     if (std::getenv("TACTIX_SLOT_TRACE"))
       std::fprintf(stderr,
                    "[slot]   %s pass=%u n=%u bve_bound=%u meter=%llu "
@@ -1250,6 +1502,16 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
       }
       if (ctx.stop && *ctx.stop)
         break; // §6: a dose can enumerate thousands of candidates
+      // Advance the resumption cursor over the candidate about to be tried, so
+      // a budget cut two lines above leaves the NEXT occasion resuming here
+      // instead of replaying the head (SCHED-E1; SCHED-B3's rule-side
+      // TransitiveReduce cursor, now policy state and shared by every dosed
+      // entry that opts in). Written on the ATTEMPT, not on success: a
+      // candidate that turned out non-viable has still been looked at.
+      if (e.cursor_enabled) {
+        e.cursor = instance_key(inprocess_payloads_[i]) + 1;
+        e.ord.advanced++;
+      }
       const ApplyResult ar = [&] {
         TickSinkScope sink(k, e.tick_counter);
         return apply_rule_instance(r, k, inprocess_payloads_[i]);
@@ -1830,6 +2092,28 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
               (unsigned long long)elim_clock.next_conflicts,
               (unsigned long long)elim_clock.blocked_episodes,
               (unsigned long long)k.stats.bve_marks);
+  // REACHABILITY readout for the resumption cursors and (from SCHED-E2) the
+  // candidate-ORDER arms. One line per DOSED entry — the only entries whose
+  // candidate list the policy sees at all. Read it BEFORE any A/B verdict:
+  //   `rotated 0` ⇒ no dose of this entry was ever truncated on this instance,
+  //     so the cursor is inert here and an on/off arm proves nothing.
+  //   `moved 0` under a non-native arm ⇒ the arm did not reorder anything, so
+  //     the arm was not tested.
+  for (const SlotEntry &e : inprocess_slot) {
+    if (!e.dosed)
+      continue;
+    std::printf("c cand-order  %-18s cursor %s | lists %llu "
+                "candidates %llu rotated %llu advanced %llu ranked %llu "
+                "moved %llu\n",
+                rules[e.rule].name,
+                e.cursor_enabled ? "on " : "off",
+                (unsigned long long)e.ord.lists,
+                (unsigned long long)e.ord.candidates,
+                (unsigned long long)e.ord.rotated,
+                (unsigned long long)e.ord.advanced,
+                (unsigned long long)e.ord.ranked,
+                (unsigned long long)e.ord.moved);
+  }
   for (const SlotEntry &e : inprocess_slot) {
     const SlotEntry::Telem &t = e.tm;
     if (!t.occasions)

@@ -30,6 +30,29 @@ struct BranchingPolicy : SubPolicy {
   virtual Lit pick(Kernel &) = 0;
 };
 
+// Candidate ORDER: given the instances a rule enumerated for one occasion, in
+// what order should the policy try them? Under a CUTTING effort budget the
+// order IS the schedule — the budget stops the walk part-way, so whatever sits
+// at the head is what gets applied and the tail is deferred to a later
+// occasion or never reached at all. Leaving that order to whatever each rule's
+// enumeration loop happens to produce makes the most consequential scheduling
+// decision in the slot the one nothing can set; as a sub-policy the §5.6
+// learner can set it per rule, like any other arm.
+//
+// N1: `rank` is a PERMUTATION, never a filter. Dropping a candidate would
+// narrow what this policy can reach, which is a contract violation rather than
+// a heuristic — and it would be invisible, since the rule would still accept
+// the dropped payload. `apply_instance` remains total over every payload from
+// every source. The companion resumption cursor (DefaultPolicy::SlotEntry
+// ::cursor) is the same kind of object: it moves where the walk STARTS, never
+// which candidates exist.
+struct CandidateOrderPolicy : SubPolicy {
+  // Permute insts[0..n) in place. `rule` is the registry id, so one policy
+  // object can serve every entry and the learner can hold one arm per rule.
+  virtual void rank(const Kernel &k, uint32_t rule, uint64_t *insts,
+                    uint32_t n) = 0;
+};
+
 // Reduction: given the ranked worst-first deletion candidates (soundness-filtered by
 // the rule), return how long a prefix to delete.
 struct ReductionPolicy : SubPolicy {

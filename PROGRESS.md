@@ -410,7 +410,9 @@ negative arms — git history has it).
 - [x] **H0–H7**: `H` (VMTF, score heaps, phases, ranking mode) is policy-owned OPTIONAL state — `k.h == nullptr` is sound, just unguided — bought
   at **zero PAR-2**, every increment gated on trajectory identity + byte-identical DRAT. Design + rejected alternatives
   `docs/design/h-relocation-design.md`. Live constraints: H4 pimpl (include cycle; kernel non-copyable); H5 null-`H` legal (Decide → index order;
-  Rephase/SwitchMode guards require `H`, a pure precondition of `H`-only ops); H6 sub-policy super-class DEFERRED until a 2nd arm exists (§5.5)
+  Rephase/SwitchMode guards require `H`, a pure precondition of `H`-only ops); H6's sub-policy super-class was deferred until a 2nd arm existed
+  and **was un-deferred by Track S · S1b** (`a36b4c2`) — `src/policies/subpolicy.hpp` has held the `SubPolicy` base since. Five categories now:
+  Branching, Reduction, BveBound, FactorMatch, CandidateOrder (SCHED-E1)
 - Method knowledge kept: bit-exactness gates the EXERCISED path and adversarial review the unexercised one (which caught a lost include and an
   unguarded deref no gate saw); null-path bugs surfaced only under FULL-suite ASan with the default flipped; and a structural check can replace a
   benchmark (zero `k.h->` in the propagation loop killed the indirection worry)
@@ -721,9 +723,22 @@ instrument before spending a tier window on a mechanism.
 
 #### Stage E — order and resumption become POLICY OBJECTS (the architecture the RL agent needs)
 
-- [ ] **SCHED-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]` — **IN PROGRESS.** Step 1 landed: Stage D's
-  660-line `run_slot_phase` is split into per-entry helpers along the ledger's own DOSED/BATCH axis, **byte-identical on 4 Tier B instances**
-  (proof SHA + size, conflicts/decisions/propagations, and every `c slot` per-entry counter — job `1584689`, probe `e1-split-identity.*`).
+- [x] **SCHED-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]` — landed 2026-08-05, two commits.
+  **(1) The 660-line `run_slot_phase` Stage D's report nominated for breakup is split** along the effort ledger's own DOSED/BATCH axis
+  (`slot_entry_admissible` · `slot_entry_thresh_declines` · `run_dosed_entry`+`bve_dose_declined` · `run_batch_entry`+`factor_entry_declines`/
+  `factor_dose_config`/`run_budgeted_batch`/`run_vivify_dose`), phase state made explicit in `SlotPhaseCtx`, control flow in `SlotStep`. Pure
+  restructuring, gated the way this project gates a pure move: **byte-identical DRAT + identical trajectory + identical per-entry `c slot`
+  telemetry on 4 Tier B instances** (job `1584689`, probe `e1-split-identity.*`), sted5 included so Factor's declining path is exercised.
+  **(2) `CandidateOrderPolicy` joins the SubPolicy surface** (the FIFTH category — the H6 super-class it would have needed already landed with
+  S1b, so the answer was reparent, not invent), and **SCHED-B3's `Kernel::transitive_cursor` becomes `SlotEntry::cursor`**, off the rule and
+  onto every dosed entry that opts in (Probe/Backbone/TransitiveReduce ON, BVE OFF — its schedule is occ⁺·occ⁻-ordered, not key-ordered, and it
+  already owns `bve_retry`). Arm `TACTIX_CURSOR_<RULENAME>=0|1`; counter the `c cand-order` line.
+  **▶ THE MIGRATION IS EXACT AND THE GENERALIZATION IS NOT INERT** (job `1584716`, probe `e1-cursor.*`): with the two NEW cursors off, all four
+  instances are **byte-identical** to the pre-E1 build, so moving B3's cursor rule→policy changed nothing; with them on, **Probe rotates on 44 of
+  45 doses and advances 2,719 of 878,094 enumerated candidates (0.3 %)** on `9vliw` — i.e. before this, Probe re-probed the same ~60-literal head
+  on every one of 45 phases and never saw the other 99.7 %. Backbone 3.6 %. That is B3's starvation finding at a far larger scale, and it is the
+  reason the item exists. **UNPRICED** — conflicts move both ways on the 4 probes (`b22_1` −6.8 %, `FmlaEquivChain` −2.4 %, `sted5` identical,
+  `9vliw` +4.9 %; proofs shrink on three of four); A/B spec in the Log entry.
 - [ ] **SCHED-E2 · the ordering arms, one per rule, each independently gated** `[wire]`
 
 #### Stage F — repetition suppression (T2): the touched-epoch substrate
@@ -830,6 +845,64 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-05 — SCHED-E1: candidate order becomes a policy object, and Probe was seeing 0.3 % of its list
+
+**Two commits.** (1) `run_slot_phase` split along the DOSED/BATCH axis — pure restructuring, byte-identical
+DRAT + identical trajectory + identical per-entry `c slot` telemetry on `9vliw_bp_mc`, `FmlaEquivChain_4_6_6`,
+`b22_1`, `sted5_0x24204-50` (job `1584689`). (2) `CandidateOrderPolicy` + `SlotEntry::cursor`.
+
+**The sub-policy super-class question (H6) is already answered:** `SubPolicy` has existed since S1b
+(`a36b4c2`, which un-deferred H6 when `BveBoundPolicy` became the second arm). `CandidateOrderPolicy` is the
+fifth category, not a second bespoke one — PROGRESS's Track-H line saying otherwise was stale and is fixed.
+
+**N1, stated precisely.** `rank()` is a PERMUTATION and the cursor is a ROTATION; neither can remove a
+candidate, and both live in the policy where no guard can see them. `apply_instance` is unchanged and still
+total over every payload from every source — `tests/test_scheduling.cpp::test_cursor_preserves_n1` pins three
+separable halves of that: `instances()` returns the same set wherever the cursor is (the rule cannot read it
+any more), `apply_instance` on a payload the cursor rotated PAST gives the same result and the same stat
+deltas as on a kernel whose policy never had a cursor, and all seven arms are multiset-preserving. The
+rule-side rotation and `Kernel::transitive_cursor` are GONE — that was order logic living in a rule.
+
+**▶ THE MEASURED FINDING (job `1584716`, probe `e1-cursor.*`, three arms one window).**
+- **The migration is exact.** `cursoff` (the two new cursors off, only B3's migrated one live) is
+  byte-identical to the pre-E1 build on all four instances — same proof sha256, same byte count, same
+  conflicts. Moving a cursor rule→policy is not supposed to change anything, and it did not.
+- **The generalization is emphatically NOT inert.** On `9vliw`, Probe rotates on **44 of 45** doses and
+  advances **2,719 of 878,094** enumerated candidates — **0.3 %**. Before E1, Probe re-probed the same
+  ~60-literal head on all 45 phases and never reached the other 99.7 % of its schedule. Backbone 3.6 %
+  (31,880 / 877,967), rotating 44/45. TransitiveReduce (which already had the cursor) 40-52 rotations.
+  This is SCHED-B3's starvation finding at a much larger scale, and it is why the item exists.
+- **BVE's cursor is deliberately OFF and its counter shows it** (`rotated 0`): its schedule is
+  occ⁺·occ⁻-ordered, not key-ordered, so a key cursor would resume at an arbitrary place, and it already has
+  the repetition device the others lack (`bve_retry`). Per-item marks for the rest are Stage F.
+
+**UNPRICED, and the direction is not one-signed:** conflicts `b22_1` 530,802 → 494,805 (−6.8 %),
+`FmlaEquivChain` 384,785 → 375,614 (−2.4 %), `sted5` identical (its Probe/Backbone produce nothing either
+way, so a reordered walk finds the same nothing), `9vliw` 332,391 → 348,630 (+4.9 %). Proofs shrink on three
+of four. One instance moving 6.8 % is not a verdict ([[chaotic-instance-veto]]).
+
+**▶ READY-TO-RUN A/B (`SCHED-E1`) — PRE-FLIGHT FIRST.** Read `c cand-order` on two Tier B instances before
+spending a window: if `rotated` is 0 for Probe and Backbone the arm is vacuous there and the window should be
+abandoned. The knobs go IN THE COMMAND. Tier B and Tier C are concurrent arrays, so **two pin dirs from the
+same commit** (CLAUDE.md build-dir rule) and check the shas match.
+```
+tools/bench/buildlock.py --gc
+cmake -S . -B build/pin-e1-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e1-b -j8
+cmake -S . -B build/pin-e1-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e1-c -j8
+sha256sum build/pin-e1-{b,c}/tactix        # must match
+python3 tools/bench/run.py --tier B --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e1-b/tactix \
+  --solver 'env TACTIX_CURSOR_PROBE=0 TACTIX_CURSOR_BACKBONE=0 build/pin-e1-b/tactix'
+python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
+  --solver build/pin-e1-c/tactix \
+  --solver 'env TACTIX_CURSOR_PROBE=0 TACTIX_CURSOR_BACKBONE=0 build/pin-e1-c/tactix'
+```
+Pre-registered counter: `c cand-order` `rotated` > 0 for Probe AND Backbone on the ON arm and exactly 0 on the
+OFF arm. Ship criterion: **#solved not worse on either tier and PAR-2 no worse than the 6.72 noise floor on
+both**, with the may-not-gate set excluded from deciding alone. A per-rule follow-up (cursor on Probe only,
+Backbone only) is worth running ONLY if the pair moves — three arms per tier otherwise buys noise.
+
 
 ### 2026-08-05 — Sweep governor A/B: ON costs a Tier C solve, and the cost is two instances
 
