@@ -296,7 +296,52 @@ static void test_xor_output_sign_odd_arity() {
   assert_xor_gate_output(k, {2, 3, 4}, 1);
 }
 
+// SCHED-G1: the mid-round budget. `work_budget` is the policy's handoff in
+// `congruence_ticks`; 0 must leave the rule unbounded (the API / RandomPolicy /
+// every other test depend on that), and a small budget must CUT the round —
+// counted once in `congruence_budget_stops` — without the closure ever
+// emitting an inference it cannot justify.
+//
+// `stop_fuzz` is set because the rule's stop checks are strided 1-in-256 and a
+// four-gate kernel never reaches 256 items; the value is large enough that the
+// (deterministic) termination draw never fires, so this pins the BUDGET path
+// and not the terminate path.
+static void test_budget_stops_round() {
+  const auto build = [](Kernel &k) {
+    kernel_reserve_vars(k, 6);
+    and_gate(k, 3, 1, 2);
+    and_gate(k, 4, 1, 2);
+    and_gate(k, 5, 1, 2);
+    and_gate(k, 6, 1, 2);
+  };
+  Kernel full;
+  build(full);
+  assert(full.work_budget == 0 && "unbounded is the default for every caller");
+  assert(congruence_apply(full) == ApplyResult::Ok);
+  assert(full.stats.congruence_budget_stops == 0);
+  assert(full.stats.congruence_ticks > 0 && "the meter must be charged");
+  const uint64_t full_gates = full.stats.congruence_gates;
+
+  Kernel cut;
+  build(cut);
+  cut.stop_fuzz = 1000000000u; // check every step; never terminate
+  cut.work_budget = 1;
+  congruence_apply(cut);
+  assert(cut.stats.congruence_budget_stops == 1 && "the cut is counted once");
+  assert(cut.stats.rule_interrupted == 0 && "a budget cut is not a terminate");
+  assert(cut.stats.congruence_gates < full_gates && "the round did less work");
+  assert(cut.stats.congruence_unjustified == 0);
+  assert(cut.work_budget == 1 && "the rule must not clobber the handoff");
+
+  // And the budget is round-scoped: a later unbudgeted apply is unaffected.
+  Kernel again;
+  build(again);
+  assert(congruence_apply(again) == ApplyResult::Ok);
+  assert(again.stats.congruence_budget_stops == 0);
+}
+
 int main() {
+  test_budget_stops_round();
   test_and_congruent();
   test_xor_congruent();
   test_ite_congruent();

@@ -1657,6 +1657,15 @@ Substitute. Split out as **`SCHED-G4`**, ordered so the free part (the overlap) 
 Both readings the counter exists for are therefore available, and the honest cost is on the record:
 `9vliw` loses merges (75 → 30) on an instance where the whole rule was 188 ms. A/B specced, unrun.
 
+**N2 — six fuzz legs, 10,000 cases each, 0 failures** (`1585188` DRAT · `1585189` native LRAT ·
+`1585190` `--random-policy`×DRAT · `1585193` congruence-stress×native-LRAT · `1585191`/`1585192`
+congruence-stress×**budget**×LRAT/DRAT). **And the case fuzz cannot reach — a round CUT AFTER it had
+already emitted merges — is checked on real instances instead** (jobs `1585210`-`1585212`): `b22_1`
+10 stops / 1,276 merges and `9vliw` 13 stops / 30 merges both `s VERIFIED` under drat-trim **and**
+`s VERIFIED UNSAT` under cake_lpr, with the unbudgeted `hwmcc17miters` (711 units) as the control;
+`congruence_unjustified` **0** everywhere. `test_congruence::test_budget_stops_round` pins the
+mechanism, including that `work_budget == 0` stays unbounded and that a cut is not a terminate.
+
 **A coverage finding that is not ours but is now measured:** on 120 generated fuzz cases DefaultPolicy
 runs **zero** Congruence rounds — the cases are solved before the inprocessing slot is ever reached —
 so the DRAT/LRAT/`--random-policy` legs prove nothing about this rule, which is what the congruence
