@@ -152,6 +152,12 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   std::vector<Occ> blocked;
 
   for (const Occ &co : cands) {
+    // §6 · the SCAN is read-only and `marked` is all-zero here (each iteration
+    // restores it below), so leaving now costs only un-applied candidates. The
+    // deletions already collected stay valid: they were tested against the
+    // FULL opposite side, and deleting can only shrink it.
+    if (kernel_rule_interrupt(k, k.stats.bce_interrupted))
+      break;
     lits.clear();
     if (co.ref == INVALID_REF) {
       lits.push_back(blocking);
@@ -201,6 +207,10 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   // Delete AFTER the scan: deleting mutates the very occurrence structures the
   // scan reads (the BVE / V4 discipline). Deleting only shrinks the opposite
   // side, so every clause found blocked above is still blocked now.
+  // NOT polled: the deletion loop is the rule's OUTPUT, already bounded by the
+  // scan that produced it (one witness + one `del` + one garbage mark each),
+  // and it is the scan that is unbounded — `bce_occ_limit` ships 0. Aborting
+  // here would only discard work already paid for.
   for (const Occ &b : blocked) {
     rest.clear();
     if (b.ref == INVALID_REF) {
@@ -279,6 +289,14 @@ ApplyResult bce_apply(Kernel &k) {
   for (size_t li = 0; li < lits.size(); li++) {
     const Lit l = lits[li];
     if (k.work_budget && k.stats.bce_ticks - tick_start > k.work_budget) {
+      stopped_at = li;
+      break;
+    }
+    // §6 (SCHED-H1) · TERMINATION is not budget exhaustion: `work_budget` can
+    // be 0 (unmetered) and the ledger can be large, so without this poll a
+    // round runs to completion after an interrupt arrives. Taken at the same
+    // point as the budget cut so the tail is re-armed by the same resume path.
+    if (kernel_rule_interrupt(k, k.stats.bce_interrupted)) {
       stopped_at = li;
       break;
     }
