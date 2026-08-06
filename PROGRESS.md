@@ -1409,7 +1409,8 @@ phases, which nothing does.
 never promoted**, not rules reaching into rules — a fixable shape. *Verbosity:* genuinely clean (no
 TODO/FIXME/`#if 0` anywhere; 1 write-only field out of 186; every `RuleVTable` slot and `ApplyResult`
 variant live) — the finding is ENFORCEMENT, since three of four compiler warnings were dead code or a dead
-TEST, printing for weeks with no `-Werror`. One warning is left (`RV-S28`). *Data structures:* the correct
+TEST, printing for weeks with no `-Werror`. One warning was left (`RV-S28`, **now fixed** — the tree is
+warning-clean at `-O3`). *Data structures:* the correct
 persistent-scratch idiom is in six places, **two added in this very window**, while five call sites still
 lack it — understood, not applied at landing time. *Leakage:* the POLICY LAYER IS IN VERY GOOD SHAPE; every
 leak found is rule-side, and **six of the seven are in the four newest landings** (G3 Vivify, R6 CCE, V5
