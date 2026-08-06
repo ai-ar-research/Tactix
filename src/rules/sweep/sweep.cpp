@@ -181,6 +181,13 @@ void env_add_with_units(const Kernel &k, SweepEnv &e, const Lit *lits,
 
 } // namespace
 
+bool SweepBudget::over(const Kernel &k, uint64_t pending) const {
+  // `pending` is the scan charge accumulated but not yet folded into
+  // `Stats::sweep_ticks`, so the ceiling binds during a scan and not only after
+  // it.
+  return limit && k.stats.sweep_ticks + pending - start > limit;
+}
+
 bool sweep_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
 void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
@@ -252,12 +259,12 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
   // sweep_binary/sweep_reference). `vars` doubles as the BFS queue: entries are
   // appended in non-decreasing depth, and fixed variables carry UINT32_MAX so
   // the frontier never expands THROUGH one.
-  for (uint32_t i = 0; i < e.vars.size(); i++) {
+  for (uint32_t i = 0; i < e.vars.size() && !r.budget.over(k, ticks); i++) {
     const uint32_t d = e.depth[i];
     if (d > lim.max_depth)
       continue;
     const Var v = e.vars[i];
-    for (uint32_t pol = 0; pol < 2; pol++) {
+    for (uint32_t pol = 0; pol < 2 && !r.budget.over(k, ticks); pol++) {
       const Lit l = make_lit(v, pol != 0);
       const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
       const uint32_t sz = k.watches.heads[l].size;
@@ -277,6 +284,12 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
                            kernel_binary_id(k, l, o), d + 1, lim, &ticks);
       }
       for (const Ref ref : (*r.occ)[l]) {
+        // The occurrence walk is the unbounded term: `max_env_vars` stops the
+        // environment GROWING long before this list ends, and every clause
+        // after that is scanned only to be declined. Poll here, not merely
+        // between seeds.
+        if (r.budget.over(k, ticks))
+          break;
         ticks += 1;
         const Clause *c = clause_at(k.arena, ref);
         if (c->garbage() || c->redundant())
@@ -522,6 +535,11 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   sweep_round_begin(k, r);
   sweep_seeds(k, r.seeds);
   const uint64_t start = k.stats.sweep_ticks;
+  // The between-seeds check is unconditional; `budget` carries the SAME ceiling
+  // into `sweep_env_build` so one seed cannot outspend the round before the
+  // next check is ever reached. `enforce_in_env=0` reverts only the inner poll.
+  r.budget.start = start;
+  r.budget.limit = lim.enforce_in_env ? lim.round_ticks : 0;
   uint32_t found = 0, seeds = 0;
   for (const Var v : r.seeds) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
@@ -551,6 +569,8 @@ SweepLimits sweep_limits_from_env() {
   u32("TACTIX_SWEEP_SEEDS", lim.max_seeds);
   u64("TACTIX_SWEEP_TICKS", lim.env_ticks);
   u64("TACTIX_SWEEP_ROUND_TICKS", lim.round_ticks);
+  if (const char *s = std::getenv("TACTIX_SWEEP_ENV_BUDGET"))
+    lim.enforce_in_env = std::strtoul(s, nullptr, 10) != 0;
   return lim;
 }
 
