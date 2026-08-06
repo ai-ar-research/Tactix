@@ -98,9 +98,23 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
   std::vector<Victim> candidates;
   const uint32_t t1 = k.tier1;              // kissat reduce.c:62-63
   const uint32_t t2 = std::max(t1, k.tier2);
+  // How much of this whole-arena walk kissat's `first_reducible` watermark
+  // (reduce.c:161, maintained in collect.c:153-196) would skip — the counters
+  // that priced the bound and decided against implementing it.
+  // Deliberately the OPTIMISTIC reading — a garbage redundant
+  // clause does not pin the watermark here, though an incrementally maintained
+  // one could not know that — so `reduce_skippable_words` is an UPPER bound on
+  // what the bound would buy.
+  bool seen_redundant = false;
+  k.stats.reduce_scans++;
+  k.stats.reduce_scan_words += k.arena.size();
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (c->redundant() && !c->garbage()) {
+      if (!seen_redundant) {
+        seen_redundant = true;
+        k.stats.reduce_skippable_words += ref;
+      }
       // recency protection (kissat reduce.c; the aging tick lives in
       // reduce_apply_refs so enumeration stays side-effect-free for
       // introspecting policies)
@@ -114,6 +128,8 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
     }
     ref += clause_words(c->size);
   }
+  if (!seen_redundant) // no live redundant clause: the whole walk was skippable
+    k.stats.reduce_skippable_words += k.arena.size();
   lock_reasons(k, false);
   // canonical worst-first ranking: highest (glue, size) first
   std::sort(candidates.begin(), candidates.end(),

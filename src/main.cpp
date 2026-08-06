@@ -659,6 +659,15 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.retiered,
            (unsigned long long)kernel.stats.tier2_band_dynamic,
            (unsigned long long)kernel.stats.tier2_band_static);
+    printf("c redscan     %llu scans, %llu arena words walked, %llu "
+           "skippable by a first_reducible watermark (%.2f%%)\n",
+           (unsigned long long)kernel.stats.reduce_scans,
+           (unsigned long long)kernel.stats.reduce_scan_words,
+           (unsigned long long)kernel.stats.reduce_skippable_words,
+           kernel.stats.reduce_scan_words
+               ? 100.0 * (double)kernel.stats.reduce_skippable_words /
+                     (double)kernel.stats.reduce_scan_words
+               : 0.0);
     printf("c mode        %s after %llu switches (%llu ticks, "
            "%llu target phases saved)\n",
            !kernel.h ? "unguided" : kernel.h->stable ? "stable" : "focused",
