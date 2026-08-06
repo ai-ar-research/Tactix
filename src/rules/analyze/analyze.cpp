@@ -57,7 +57,23 @@ static void chain_record(Kernel &k, Var v) {
   uint64_t id;
   if (a.binary) {
     const Lit assigned_lit = make_lit(v, k.values[make_lit(v, true)] > 0);
-    id = kernel_binary_id(k, assigned_lit, a.reason);
+    // A jumped reason names a VIRTUAL resolvent: cite the real first
+    // antecedent (assigned_lit ∨ jumped_over) and DEFER the literal it
+    // resolved away to `chain_expand_jumped`. Deferred, not resolved here,
+    // because whether that literal needs an antecedent at all depends on the
+    // FINAL clause — if it ends up in it, the checker already has it assigned
+    // and citing its reason would be a satisfied (illegal) hint. Its trail
+    // position is strictly smaller, so the entry sorts ahead of this one
+    // whenever it is added.
+    if (a.jumped) {
+      // Never a root literal: the jump is taken only when the literal it
+      // resolves away sits above level 0 (kernel_assign_binary).
+      assert(k.var_level(var_of(k.jumped_over[v])) != 0);
+      k.jump_pending.push_back(var_of(k.jumped_over[v]));
+      id = kernel_binary_id(k, assigned_lit, k.jumped_over[v]);
+    } else {
+      id = kernel_binary_id(k, assigned_lit, a.reason);
+    }
   } else {
     id = clause_at(k.arena, a.reason)->id();
   }
@@ -77,9 +93,30 @@ static void chain_record_root(Kernel &k, Var v) {
   k.lrat_entries.emplace_back(k.assigned[v].trail, k.unit_ids[v]);
 }
 
+// Close out the literals reason jumping resolved past (`chain_record`).
+// Run against the FINAL clause: a deferred literal that is IN it is already
+// assigned for the checker, so its own reason would be a satisfied hint —
+// exactly what the shrink UIP guard below avoids for the same reason. One that
+// is not gets its reason chained, which may defer further (jump chains).
+static void chain_expand_jumped(Kernel &k, const Lit *lits, uint32_t size) {
+  while (!k.jump_pending.empty()) {
+    const Var v = k.jump_pending.back();
+    k.jump_pending.pop_back();
+    if (k.seen[v] & CHAINED)
+      continue;
+    bool in_clause = false;
+    for (uint32_t i = 0; i < size && !in_clause; i++)
+      in_clause = var_of(lits[i]) == v;
+    if (!in_clause)
+      chain_record(k, v);
+  }
+}
+
 // emit order: kernel_lrat_chain (ascending trail position, conflict last)
 static void chain_emit(Kernel &k, uint64_t id, const Lit *lits,
                        uint32_t size, uint64_t conflict_id) {
+  if (!k.jump_pending.empty())
+    chain_expand_jumped(k, lits, size);
   kernel_lrat_chain(k, conflict_id);
   k.proof->add_rup(id, lits, size, k.lrat_chain.data(),
                    static_cast<uint32_t>(k.lrat_chain.size()));
@@ -815,6 +852,7 @@ ApplyResult analyze_apply(Kernel &k) {
     const Lit *clits = conflict_lits(k, &csize);
     if (lrat) {
       k.lrat_entries.clear();
+      k.jump_pending.clear(); // paired with lrat_entries: same round scope
       conflict_chain_id =
           k.conflict_ref == INVALID_REF
               ? kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1])

@@ -444,8 +444,8 @@ Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a 
   a BROKEN arm, not a crippled one — report `2026-08-01-tb4b-watch-repair.md`). **Ships OFF**: ON and
   CRIPPLED are indistinguishable on Tier C and the proof-size axis FLIPS SIGN between tiers, so it is a
   §5.6 exhibit, not a default. **Unit chrono routing SHIPPED** 2026-08-04 (`8118c68`, `veer_axi` 6×) —
-  and introduced the N2 defect fixed in `52a4e8f`. **Still unported: `jumpreasons`, cadical's
-  `chronoreusetrail`.** `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
+  and introduced the N2 defect fixed in `52a4e8f`. **`jumpreasons` is ported but ships OFF (SCHED-C8); still
+  unported: cadical's `chronoreusetrail`.** `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
 
 ### ▶ Track S — the effort-budgeted target arrangement — S4 CLOSED
 
@@ -580,10 +580,12 @@ ramp-ceiling 8-vs-16 choice.
 **Track exit (checked at the phase-3 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT` without a closure or an accepted deviation
 row carrying a measurement, AND the ledger has been regenerated from the REFERENCE's option set (SCHED-A3).
 **▶ EXIT STATUS (2026-08-05).** Half two is **DONE and now machine-checked** (SCHED-A3, ctest `option_coverage`). Half one is **NOT** met: of §13.2's
-HIGH rows, seven are now closed (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B, `SP-VIVIFY-1` by C1, `SP-FACTOR-2` by C5, **`SP-BVE-GATE-1` by
-C8**) or accepted (`SP-FACTOR-1`, §13.3), and **seven remain open**: `SP-SLOT-1` (D2) · `SP-SLOT-4` (D1) · `SP-SLOT-5` (D3) · `SP-REPEAT-*` (F1–F5)
-· `SP-TIER-2` (supersedes C1's scope, **unassigned**) · `SP-EFFORT-CEIL-1` (**unassigned**; B1 gave the per-entry `thresh`, not the upper clamp) ·
-`SP-JUMP-1` (**unassigned**). **That list IS the remaining track work** — Stage D covers three of the seven, and three
+HIGH rows, **ten are now closed** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B · `SP-VIVIFY-1` by C1 · `SP-FACTOR-2` by C5 ·
+`SP-BVE-GATE-1` by **C8** · `SP-JUMP-1` by **C9** — ported, ships OFF, default decided by a pre-registered A/B, so not an open gap ·
+`SP-SLOT-4` by **D1** · `SP-SLOT-1` by **D2** · `SP-SLOT-5` by **D3**) and one is **accepted** (`SP-FACTOR-1`, §13.3).
+**THREE remain open, and that list IS the remaining track work:** `SP-REPEAT-*` (Stage F, in progress) ·
+`SP-TIER-2` (**unassigned** — supersedes C1's scope; one dynamic-tier consumer here against eight in cadical) ·
+`SP-EFFORT-CEIL-1` (**unassigned** — B1 gave the per-entry `thresh`, not the upper clamp every reference budget has).
 unassigned A3 rows have no stage.
 
 - [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
@@ -633,7 +635,8 @@ instrument before spending a tier window on a mechanism.
   **The 4 HIGH gaps, which are the actionable list:** ~~`SP-BVE-GATE-1`~~ ITE/XOR gate extraction was absent, so BVE was charged the full P·N where
   both references pay P+N−2 (a per-application ACCEPTANCE lever, i.e. the T4 antidote) — **CLOSED by SCHED-C8** · `SP-TIER-2` the dynamic tiers have ONE consumer here and EIGHT
   in cadical via `likely_to_be_kept_clause`, which **supersedes SCHED-C1's scope** · `SP-EFFORT-CEIL-1` every reference budget has an UPPER clamp
-  and ours has only a floor · `SP-JUMP-1` `jumpreasons`, default-ON, per-conflict, free.
+  and ours has only a floor · `SP-JUMP-1` `jumpreasons` — **closed by SCHED-C8**, and its "default-ON in both references, per-conflict, free"
+  billing was wrong on all three counts (kissat-only; size-gated; not free under N2).
   **Standing method note, both traps live in this pass:** **read MACROS, not just grep** — cadical's `factorthresh` is token-pasted
   (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never appears literally and reading it as dead code
   produced two wrong published claims; and **polarity is not inferable from a name** (`factordelay`=0 is the MOST delayed setting)
@@ -729,6 +732,35 @@ instrument before spending a tier window on a mechanism.
   `--random-policy --lrat` **0/600** (SAT 300 / UNSAT 169). Every UNSAT proof-checked, every SAT model-checked,
   `tools/fuzz/failures/` empty. ctest **44/44** including `micro_proofs` and `sweep_proofs`.
   **UNPRICED — the A/B is specced and unrun; see the Log entry.**
+- [x] **SCHED-C9 · `jumpreasons` (SP-JUMP-1)** — **PORTED, ships OFF** behind `TACTIX_JUMP_REASONS=1`; counter `c jumpreason`
+  (`stats.jumped_reasons`). Row + closure record: `implementation-notes.md` §13.2. **Three of the row's premises were wrong.** (a) It is
+  **kissat-only** — `grep jumpreasons cadical/src` is empty, and cadical is the reference that also emits LRAT. (b) The propagation-site gate is a
+  formula-SIZE gate, not the binary-fraction one: `classify.c:9` sets `bigbig=false` for `clauses <= smallclauses`=**1e5**. (c) **"Free" is false
+  here, and the reason is N2**: a jumped reason names a clause the checker does not hold, so `chain_record`, `kernel_reason_walk` and the
+  delete-binary live-reason guard (×2) all expand it back into its two real antecedents. **And the expansion cannot be done at record time** —
+  doing it recursively there was fuzz-RED (12/1500 native-LRAT rejections): whether the resolved-away literal needs an antecedent depends on the
+  FINAL clause, and if it lands in the clause its reason is a **satisfied hint**, the same trap the shrink UIP is already guarded against. The
+  shipped form defers to `chain_expand_jumped`, run from `chain_emit` against the final clause; it iterates, so jump CHAINS still work.
+  **This IS the phase-1 revert** (`e26492b`, "binary-reason jumping (kissat jumpreasons)"): `summle` −27 %, `9vliw` **+2×**. Its stated escape
+  hatch — "needs the bigbig classifier" — is **refuted by (b)**: `9vliw` is 179,492 clauses / 88.8 % binary, so kissat's gate is ON there and the
+  classifier would not have saved it. What is left is one laptop-era single draw on a kernel with no chrono/OTFS/reason-side bumping/dynamic
+  tiers/inprocessing, so it ships OFF and gets re-derived rather than banked as a deviation. **Counters, so no arm is vacuous:** OFF is
+  byte-identical to the pre-port binary (47 fuzz CNFs, 31 with proofs, 0 diffs, `c jumpreason` = **0**); ON reads **78,231,117** over 52 and moves
+  conflicts on 7; under `--random-policy` it reads **6,618** over 30. Fuzz ON, seed 20260805, 1500 cases each, 0 failures: native DRAT (614 UNSAT) ·
+  native LRAT (615 UNSAT) · `--random-policy` DRAT (488 UNSAT); corpus 14/14 both ways; ctest 44/44 release and ASan/UBSan debug. **A second seed
+  is owed** — the standing expectation for a proof-path change — and belongs with the A/B window, since HEAD's own proof path is unchanged.
+  **No `calculus.md` change, and that is a claim, not an omission:** M3's precondition, effect and proof delta are untouched — the jump
+  only changes WHICH existing clauses the RUP chain cites, never what is added or deleted. It is not `H`-only either (unlike C7 it moves the LRAT
+  chain), which is why the engineering price is written down in `implementation-notes.md` instead of being waved through.
+  **▶ THE A/B THAT DECIDES THE DEFAULT (pre-registered, not yet run).** Same-window **Tier B + Tier C**, two pin dirs from ONE commit with matching
+  binary shas (CLAUDE.md build-dir rule), node-pinned, `--baseline kissat --baseline cadical`. Arms, knob IN THE COMMAND:
+  `A0 = build/pin-jump-b/tactix` (shipped, OFF) · `A1 = env TACTIX_JUMP_REASONS=1 build/pin-jump-b/tactix`; Tier C the same out of
+  `build/pin-jump-c/`. **Pre-registered counter, checked FIRST: `c jumpreason` must be 0 on A0 and > 0 on A1 for every instance** — an arm whose
+  counter did not move was not tested ([[ab-arm-identical-artefacts]]). **Ship criterion:** A1 ships ON only if it is non-worse on BOTH tiers
+  (#solved first, then PAR-2 beyond the 6.72 floor) **and** `9vliw_bp_mc` — the instance that decided the phase-1 revert, and the specific
+  falsifier here — is not regressed; a single-instance headline is not a verdict, so a decider gets paired draws ([[chaotic-instance-veto]]). If
+  A1 loses, the row converts to an accepted deviation in §13.3 with THIS measurement, and the removal path is a per-formula gate (kissat's
+  `bigbig`), which needs a classify call in DefaultPolicy — Stage D territory, not a Stage C wire.
 
 #### Stage D — the authored schedule and the two clocks (T6 + the global slot rows)
 

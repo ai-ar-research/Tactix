@@ -93,6 +93,8 @@ TABLE = {
     "stop_fuzz":               ("ENV", "TACTIX_STOP_FUZZ, fuzz-only abort knob"),
     "conflict_reuse":          ("ENV", "TACTIX_CONFLICT_REUSE; ships OFF (TB4b(B))"),
     "conflict_reuse_no_repair": ("ENV", "TACTIX_CONFLICT_REUSE_NOREPAIR, diagnostic"),
+    "jump_reasons":            ("ENV", "TACTIX_JUMP_REASONS; kissat `jumpreasons`, "
+                                       "ships OFF pending the A/B (SP-JUMP-1)"),
     # --- external-policy surface (N1) ------------------------------------
     "factor_bound":            ("API", "kissat's `reduction > bound`. NOT policy-wired, and "
                                        "that is the N4 exhibit: the ramp exists as bve_level_ "

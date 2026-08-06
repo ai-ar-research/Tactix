@@ -27,6 +27,13 @@ struct Assigned {
   uint32_t trail; // position on the trail
   uint32_t reason; // Ref, or other literal if binary, or sentinels
   bool binary;
+  // Reason jumping (kissat `jumpreasons`, assign.c/fastassign.h): the binary
+  // reason above is a VIRTUAL resolvent — the clause (lit ∨ reason) is not in
+  // the database. `Kernel::jumped_over` names the literal resolved away, and
+  // the two real antecedents are (lit ∨ jumped_over) and the reason of
+  // ¬jumped_over. Never set while `Kernel::jump_reasons` is false, and never
+  // at level 0. Fits in the padding after `binary` — no layout cost.
+  bool jumped;
 };
 
 // VMTF queue links (kissat/src/queue.h)
@@ -262,6 +269,10 @@ struct Stats {
   // Conflicts resolved by REUSING the conflict as the driving clause (kissat
   // one_literal_on_conflict_level) — no clause learned, no proof line.
   uint64_t conflict_reused = 0;
+  // Binary reasons replaced by their one-step resolvent (kissat
+  // `jumped_reasons`). Reachability evidence for the `jump_reasons` arm: 0
+  // here means the arm changed nothing and measured nothing.
+  uint64_t jumped_reasons = 0;
   // Of those, the ones that needed the watch-repair primitive first.
   // Reachability evidence: 0 here means the repair path never executed, so any
   // A/B on it measured nothing.
@@ -437,6 +448,11 @@ struct Kernel {
 
   std::vector<int8_t> values;     // by lit: 1 true, -1 false, 0 unassigned
   std::vector<Assigned> assigned; // by var
+  // By var, MEANINGFUL ONLY while `assigned[v].jumped`: the literal the
+  // virtual binary reason resolved away. Written on the jump, never cleared —
+  // the `jumped` flag is what makes an entry live, and it is rewritten by
+  // every assignment of v.
+  std::vector<Lit> jumped_over;
 
   std::vector<Lit> trail;
   uint32_t propagate_head = 0;
@@ -588,6 +604,10 @@ struct Kernel {
   // clause negations, roots, or earlier-propagated literals)
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
   std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
+  // Reason jumping, LRAT mode only: vars a jumped reason resolved past, whose
+  // antecedent is settled against the FINAL clause rather than at record time
+  // (analyze.cpp chain_expand_jumped). Same round scope as `lrat_entries`.
+  std::vector<Var> jump_pending;
 
   // --- input normalization, deferred to end-of-input (N2) --------------
   // An input clause whose FILE form repeats a literal is stored deduped, so
@@ -997,6 +1017,20 @@ struct Kernel {
   // unanswerable: an ON-vs-OFF pair cannot tell them apart. Not a shipped
   // setting and not a policy surface; both values are sound.
   bool conflict_reuse_no_repair = false;
+  // Reason jumping (kissat `jumpreasons`, default 1 there; assign.c:38 +
+  // fastassign.h:12). When a binary clause (lit ∨ other) propagates `lit` and
+  // `other`'s own reason is binary, store *that* reason instead of `other`:
+  // the recorded antecedent becomes the one-step resolvent (lit ∨ r), a clause
+  // that is implied but NOT in the database. Analysis then resolves straight
+  // past `other`. CONFIGURATION like conflict_reuse — the frontend owns the
+  // on/off (TACTIX_JUMP_REASONS=1), the kernel owns the mechanism; both
+  // settings are sound and differ only in trajectory.
+  // DEFAULT OFF, awaiting a tier measurement — see
+  // docs/implementation-notes.md §13.2 (row SP-JUMP-1), which records why the
+  // mechanism is NOT free here: every LRAT consumer of a binary reason has to
+  // expand the virtual resolvent back into its two real antecedents, and the
+  // delete-binary primitive has to protect both of them.
+  bool jump_reasons = false;
   // Reason-side bumping (kissat option bumpreasonslimit, cadical
   // bumpreasonlimit — both 10): after the learned clause is final, also mark
   // for bumping the literals of the REASONS of the clause's own literals, up
@@ -1227,13 +1261,13 @@ inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
 }
 
 inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,
-                          uint32_t reason, bool binary) {
+                          uint32_t reason, bool binary, bool jumped = false) {
   assert(k.values[lit] == 0);
   const Var v = var_of(lit);
   k.values[lit] = 1;
   k.values[negate(lit)] = -1;
   k.assigned[v] = {level, static_cast<uint32_t>(k.trail.size()), reason,
-                   binary};
+                   binary, jumped};
   k.trail.push_back(lit);
   assert(k.unassigned > 0);
   k.unassigned--;
@@ -1259,8 +1293,22 @@ inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
 // true level always equals the current level), and load-bearing once chrono is
 // on, which it is by default.
 inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false) {
-  kernel_assign(k, lit, k.assigned[var_of(other_false)].level, other_false,
-                true);
+  const Assigned &a = k.assigned[var_of(other_false)];
+  const uint32_t level = a.level;
+  // Reason jumping (kissat assign.c:38 / fastassign.h:12): record the
+  // resolvent of (lit ∨ other_false) and ¬other_false's own binary reason.
+  // `level` stays the level of `other_false` — equal to its reason's, since a
+  // binary propagation inherits the level of the literal that forced it.
+  // Chains are allowed (a jumped reason may itself be jumped); every LRAT
+  // consumer unwinds them through `jumped_over` — `kernel_reason_walk` on its
+  // own stack, Analyze via `chain_expand_jumped`.
+  if (k.jump_reasons && level && a.binary) {
+    k.jumped_over[var_of(lit)] = other_false;
+    k.stats.jumped_reasons++;
+    kernel_assign(k, lit, level, a.reason, true, true);
+    return;
+  }
+  kernel_assign(k, lit, level, other_false, true);
 }
 inline void kernel_assign_ref(Kernel &k, Lit lit, Ref reason) {
   const Clause *c = clause_at(k.arena, reason);
