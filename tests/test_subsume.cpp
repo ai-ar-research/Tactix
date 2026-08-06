@@ -317,6 +317,55 @@ static void test_touch_producers() {
   assert(k.touch_epoch == after_del + 1);
 }
 
+// SCHED-F6 · the REDUNDANT half of the substrate (SP-TIER-2's residue). Two
+// things must hold before any consumer is wired to read it, because a consumer
+// that filters a set nobody populates produces byte-identical artefacts:
+//   (a) the stamps FIRE — a redundant creation inside the scope raises the
+//       epoch when TACTIX_TOUCH_REDUNDANT is on, and does not when it is off;
+//   (b) the scope MOVES with `k.tier2` — a single count could not show that,
+//       which is why the dynamic/static6 pair exists;
+//   (c) the third disjunct is live — a clause OUTSIDE tier2 but inside the
+//       reduce survivor envelope is still in scope, which is the disjunct we
+//       had no counterpart for.
+static void test_touch_redundant_scope() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  k.tier2 = 2;
+  const uint64_t e0 = k.touch_epoch;
+  add(k, {1, 2, 3}, /*redundant=*/true); // glue 2 <= tier2: IN scope
+  assert(k.stats.touch_redundant_dynamic == 1);
+  assert(k.touch_epoch == e0 && "stamping is off by default");
+
+  k.touch_redundant = true;
+  const uint64_t e1 = k.touch_epoch;
+  add(k, {1, 2, 4}, /*redundant=*/true);
+  assert(k.stats.touch_redundant_dynamic == 2);
+  assert(k.touch_epoch == e1 + 3 && "(a) the stamps fire when enabled");
+
+  // (b) narrow the live tier below the clause's glue and the same creation
+  // leaves the scope, while the static-6 counter keeps counting it.
+  k.tier2 = 1;
+  k.kept_glue = 0; // no reduction has published an envelope yet
+  const uint64_t dyn = k.stats.touch_redundant_dynamic;
+  const uint64_t st = k.stats.touch_redundant_static6;
+  const uint64_t e2 = k.touch_epoch;
+  add(k, {1, 2, 5}, /*redundant=*/true); // glue 2 > tier2 = 1
+  assert(k.stats.touch_redundant_dynamic == dyn && "(b) it tracks k.tier2");
+  assert(k.stats.touch_redundant_static6 == st + 1);
+  assert(k.touch_epoch == e2);
+
+  // (c) the survivor envelope readmits it without touching tier2.
+  k.kept_glue = 4;
+  k.kept_size = 8;
+  add(k, {1, 2, 6}, /*redundant=*/true);
+  assert(k.stats.touch_redundant_dynamic == dyn + 1 &&
+         "(c) the reduce survivor envelope is a live disjunct");
+  assert(kernel_likely_kept(k, true, 4, 8));
+  assert(!kernel_likely_kept(k, true, 5, 8)); // outside on glue
+  assert(!kernel_likely_kept(k, true, 4, 9)); // outside on size
+  assert(kernel_likely_kept(k, false, 99, 99)); // irredundant: always in
+}
+
 static void test_proof_deltas() {
   char path[] = "/tmp/tactix_test_subsume_XXXXXX";
   const int fd = mkstemp(path);
@@ -406,6 +455,7 @@ int main() {
   test_touch_filter_is_policy_only();
   test_touch_resume_rearms_the_tail();
   test_touch_producers();
+  test_touch_redundant_scope();
   test_proof_deltas();
   test_binary_subsumer_then_substitute();
   printf("test_subsume: all ok\n");

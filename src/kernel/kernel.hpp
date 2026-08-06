@@ -27,6 +27,13 @@ struct Assigned {
   uint32_t trail; // position on the trail
   uint32_t reason; // Ref, or other literal if binary, or sentinels
   bool binary;
+  // Reason jumping (kissat `jumpreasons`, assign.c/fastassign.h): the binary
+  // reason above is a VIRTUAL resolvent — the clause (lit ∨ reason) is not in
+  // the database. `Kernel::jumped_over` names the literal resolved away, and
+  // the two real antecedents are (lit ∨ jumped_over) and the reason of
+  // ¬jumped_over. Never set while `Kernel::jump_reasons` is false, and never
+  // at level 0. Fits in the padding after `binary` — no layout cost.
+  bool jumped;
 };
 
 // VMTF queue links (kissat/src/queue.h)
@@ -103,6 +110,15 @@ struct Stats {
   static constexpr uint32_t MAX_GLUE_USED = 127;
   uint64_t used_glue[2][MAX_GLUE_USED + 1] = {};
   uint64_t retiered = 0;           // dynamic tier recomputations
+  // Blast radius of the dynamic tier2 for a `likely_to_be_kept`-style
+  // consumer (cadical internal.hpp:1059, whose first disjunct is
+  // `glue <= tier2[false]`), summed over reductions: how many redundant
+  // clauses the LIVE tier admits versus the static option default 6. The two
+  // differing is the precondition for wiring any further consumer of the
+  // tiers to be worth anything (SP-TIER-2); counted inside the aging walk
+  // reduce_apply_refs already does, so it costs nothing.
+  uint64_t tier2_band_dynamic = 0;
+  uint64_t tier2_band_static = 0;
   uint64_t reason_bumped = 0;      // extra vars marked by reason-side bumping
   uint64_t reason_bump_rounds = 0; // conflicts the reason-side pass ran on
   uint64_t reason_bump_aborted = 0; // rounds rolled back at the mark limit
@@ -262,6 +278,10 @@ struct Stats {
   // Conflicts resolved by REUSING the conflict as the driving clause (kissat
   // one_literal_on_conflict_level) — no clause learned, no proof line.
   uint64_t conflict_reused = 0;
+  // Binary reasons replaced by their one-step resolvent (kissat
+  // `jumped_reasons`). Reachability evidence for the `jump_reasons` arm: 0
+  // here means the arm changed nothing and measured nothing.
+  uint64_t jumped_reasons = 0;
   // Of those, the ones that needed the watch-repair primitive first.
   // Reachability evidence: 0 here means the repair path never executed, so any
   // A/B on it measured nothing.
@@ -385,6 +405,28 @@ struct Stats {
   // the wire's comment in default_policy.cpp for why. A non-zero here means
   // some budget started binding and the wire went live.
   uint64_t subsume_holds = 0;
+  // SCHED-F6 · the REDUNDANT half of the touch substrate (SP-TIER-2's residue).
+  // `dynamic` counts redundant creations that stamped under the live
+  // `kernel_likely_kept` predicate; `static6` counts the ones that would have
+  // under a frozen tier2 of 6 and no survivor envelope. **The pair is the
+  // pre-registered anti-vacuity reading**: `dynamic > 0` proves the stamps fire
+  // at all, and `dynamic != static6` proves they MOVE with `k.tier2`, which a
+  // single count cannot. Same idiom as `tier2_band_dynamic/static`.
+  uint64_t touch_redundant_dynamic = 0;
+  uint64_t touch_redundant_static6 = 0;
+  // syntactic gates found per type, one per elimination ATTEMPT that had one
+  // (kissat statistics.{equivalences,ands,if_then_else}_extracted / cadical
+  // stats.elim{equivs,ands,ites,xors}). The ITE/XOR pair are also the
+  // pre-registered reachability readout for ledger row SP-BVE-GATE-1.
+  uint64_t bve_gates_equiv = 0;
+  uint64_t bve_gates_and_or = 0;
+  uint64_t bve_gates_ite = 0;
+  uint64_t bve_gates_xor = 0;
+  // resolvent PAIRS the gate reduction removed from the growth bound's input:
+  // occ⁺·occ⁻ minus the gate×antecedent pairs actually charged. This is the
+  // acceptance lever itself — the bound `resolvents ≤ occ⁺+occ⁻+slack` is
+  // applied to a set this much smaller.
+  uint64_t bve_gate_pairs_saved = 0;
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
@@ -466,6 +508,11 @@ struct Kernel {
 
   std::vector<int8_t> values;     // by lit: 1 true, -1 false, 0 unassigned
   std::vector<Assigned> assigned; // by var
+  // By var, MEANINGFUL ONLY while `assigned[v].jumped`: the literal the
+  // virtual binary reason resolved away. Written on the jump, never cleared —
+  // the `jumped` flag is what makes an entry live, and it is rewritten by
+  // every assignment of v.
+  std::vector<Lit> jumped_over;
 
   std::vector<Lit> trail;
   uint32_t propagate_head = 0;
@@ -617,6 +664,10 @@ struct Kernel {
   // clause negations, roots, or earlier-propagated literals)
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
   std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
+  // Reason jumping, LRAT mode only: vars a jumped reason resolved past, whose
+  // antecedent is settled against the FINAL clause rather than at record time
+  // (analyze.cpp chain_expand_jumped). Same round scope as `lrat_entries`.
+  std::vector<Var> jump_pending;
 
   // --- input normalization, deferred to end-of-input (N2) --------------
   // An input clause whose FILE form repeats a literal is stored deduped, so
@@ -726,13 +777,13 @@ struct Kernel {
   // trail index up to which root-fixed literals have been folded into
   // `touched`; see kernel_touch_sync_fixed.
   uint32_t touch_fixed_head = 0;
-  // Consumer watermarks. Solver STATE, not config — the same category as
-  // `transitive_cursor`. Kept kernel-side because they must survive the rule's
-  // stack frame, and public so a policy (or a test) can reset one to 0 to force
-  // a full pass. Each is advanced ONLY by a round of its own rule that ran to
-  // natural exhaustion; a budget-cut round leaves it, so the survivors are
-  // re-offered. N1 is untouched: `instances()` and the single-candidate
-  // `apply_instance` path never read these (see subsume_forward.hpp).
+  // Consumer watermarks. Solver STATE, not config — the resumption category
+  // SCHED-E1 moved `SlotEntry::cursor` into, except that these are read by the
+  // RULE itself and must survive its stack frame, so they stay kernel-side (a
+  // policy or a test can still reset one to 0 to force a full pass). Each is
+  // advanced by a round of its own rule, which re-arms whatever it did not
+  // reach first (SCHED-F2). N1 is untouched: `instances()` and the
+  // single-candidate `apply_instance` path never read these.
   uint64_t subsume_touch_mark = 0;
   uint64_t strengthen_touch_mark = 0;
   // SCHED-F3's consumers. `bce_touch_mark` is read against BOTH stamps
@@ -760,17 +811,33 @@ struct Kernel {
   // material). Bounded by the policy's own round cap, so it can only ADD
   // rounds. TACTIX_SUBSUME_HOLD=0 is the A/B off arm.
   bool subsume_holds_elim = true;
-  // TransitiveReduce RESUMPTION CURSOR — solver STATE, not config.
-  // `instances()` can only offer `cap` sources per call, and offering the FIRST
-  // `cap` every round means a budget-truncated round re-derives the same list
-  // and starts from the front again, so the tail is never reached. kissat has
-  // no index either — it keeps a per-variable `flags[idx].transitive` pending bit
-  // and clears it as each source is processed, so whatever the budget did not
-  // reach stays scheduled for the next round (`transitivekeep`, DEFAULT 1,
-  // options.h:157). This is the same idea in one word. N1 is untouched:
-  // `apply_instance` still accepts ANY source literal directly, so rotating the
-  // enumeration order removes no capability — `instances()` is a convenience.
-  uint32_t transitive_cursor = 0;
+  // SCHED-F6 · stamp the REDUNDANT creation path too, for the clauses cadical's
+  // `likely_to_be_kept_clause` admits (see kernel_likely_kept). SHIPS OFF —
+  // TACTIX_TOUCH_REDUNDANT=1 turns it on — and that default is an argued
+  // decision, not an oversight. Extra stamps only ever WEAKEN the round filters
+  // (more marks ⇒ fewer skips), and C1/C2/BCE/X2/X4 all scope themselves to
+  // irredundant clauses today, so with no consumer for the redundant band this
+  // would be a measured cost buying nothing. It exists now so the stamps can be
+  // proven to fire (`Stats::touch_redundant_*`) BEFORE the consumer half —
+  // opening C1/C2's scope to the tier band, cadical `subsume.cpp:388` — is
+  // written; landing that half against an unpopulated set is exactly the
+  // byte-identical-artefact trap that kept `SP-TIER-2` open.
+  bool touch_redundant = false;
+  // The reduce SURVIVOR ENVELOPE, published by `reduce_apply_refs` (cadical
+  // `lim.keptglue`/`lim.keptsize`, reduce.cpp:147-156): the widest (glue, size)
+  // still present after the last reduction. It is the THIRD disjunct of
+  // `likely_to_be_kept_clause` and the one we had no counterpart for — without
+  // it the predicate is just "irredundant or in tier2", which is not the
+  // reference's set. RULE-written, like `tier1`/`tier2`.
+  uint32_t kept_glue = 0;
+  uint32_t kept_size = 0;
+  // (SCHED-B3's `transitive_cursor` lived here. It is POLICY state — where a
+  // caller resumes an enumeration is a scheduling decision, not kernel state —
+  // and SCHED-E1 moved it to DefaultPolicy::SlotEntry::cursor, generalized to
+  // every dosed slot entry. kissat's own device is the per-variable
+  // `flags[idx].transitive` pending bit, cleared as each source is processed,
+  // so whatever the budget did not reach stays scheduled for the next round
+  // (`transitivekeep`, DEFAULT 1, options.h:157).)
   // by var: the MINIMUM growth slack at which x is currently eliminable (its
   // #resolvents − occ⁺ − occ⁻), as last computed by bve_eliminate; UINT16_MAX =
   // never (an oversized resolvent, or growth beyond the tracking ceiling). Only
@@ -1111,6 +1178,20 @@ struct Kernel {
   // unanswerable: an ON-vs-OFF pair cannot tell them apart. Not a shipped
   // setting and not a policy surface; both values are sound.
   bool conflict_reuse_no_repair = false;
+  // Reason jumping (kissat `jumpreasons`, default 1 there; assign.c:38 +
+  // fastassign.h:12). When a binary clause (lit ∨ other) propagates `lit` and
+  // `other`'s own reason is binary, store *that* reason instead of `other`:
+  // the recorded antecedent becomes the one-step resolvent (lit ∨ r), a clause
+  // that is implied but NOT in the database. Analysis then resolves straight
+  // past `other`. CONFIGURATION like conflict_reuse — the frontend owns the
+  // on/off (TACTIX_JUMP_REASONS=1), the kernel owns the mechanism; both
+  // settings are sound and differ only in trajectory.
+  // DEFAULT OFF, awaiting a tier measurement — see
+  // docs/implementation-notes.md §13.2 (row SP-JUMP-1), which records why the
+  // mechanism is NOT free here: every LRAT consumer of a binary reason has to
+  // expand the virtual resolvent back into its two real antecedents, and the
+  // delete-binary primitive has to protect both of them.
+  bool jump_reasons = false;
   // Reason-side bumping (kissat option bumpreasonslimit, cadical
   // bumpreasonlimit — both 10): after the learned clause is final, also mark
   // for bumping the literals of the REASONS of the clause's own literals, up
@@ -1238,6 +1319,17 @@ inline void kernel_removed_var(Kernel &k, Var v) {
 // Has v changed since the watermark `since`?
 inline bool kernel_touched_since(const Kernel &k, Var v, uint64_t since) {
   return k.touched[v] > since;
+}
+// cadical's `likely_to_be_kept_clause` (internal.hpp:1059-1068), the scope
+// predicate its whole `mark_added` family branches on. THREE disjuncts, and the
+// third is the one we had no counterpart for until the reduce survivor envelope
+// was published: irredundant · within the live tier2 · within the widest
+// (glue, size) that survived the last reduction. Stated on the raw fields so
+// `kernel_add_large_clause` can call it before the Clause exists.
+inline bool kernel_likely_kept(const Kernel &k, bool redundant, uint32_t glue,
+                               uint32_t size) {
+  return !redundant || glue <= k.tier2 ||
+         (k.kept_glue && glue <= k.kept_glue && size <= k.kept_size);
 }
 // ... by an ADD or by a DELETION. BCE's predicate: a clause becomes blocked on
 // l either because it appeared or because an opposite occurrence went away.
@@ -1408,13 +1500,13 @@ inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
 }
 
 inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,
-                          uint32_t reason, bool binary) {
+                          uint32_t reason, bool binary, bool jumped = false) {
   assert(k.values[lit] == 0);
   const Var v = var_of(lit);
   k.values[lit] = 1;
   k.values[negate(lit)] = -1;
   k.assigned[v] = {level, static_cast<uint32_t>(k.trail.size()), reason,
-                   binary};
+                   binary, jumped};
   k.trail.push_back(lit);
   assert(k.unassigned > 0);
   k.unassigned--;
@@ -1440,8 +1532,22 @@ inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
 // true level always equals the current level), and load-bearing once chrono is
 // on, which it is by default.
 inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false) {
-  kernel_assign(k, lit, k.assigned[var_of(other_false)].level, other_false,
-                true);
+  const Assigned &a = k.assigned[var_of(other_false)];
+  const uint32_t level = a.level;
+  // Reason jumping (kissat assign.c:38 / fastassign.h:12): record the
+  // resolvent of (lit ∨ other_false) and ¬other_false's own binary reason.
+  // `level` stays the level of `other_false` — equal to its reason's, since a
+  // binary propagation inherits the level of the literal that forced it.
+  // Chains are allowed (a jumped reason may itself be jumped); every LRAT
+  // consumer unwinds them through `jumped_over` — `kernel_reason_walk` on its
+  // own stack, Analyze via `chain_expand_jumped`.
+  if (k.jump_reasons && level && a.binary) {
+    k.jumped_over[var_of(lit)] = other_false;
+    k.stats.jumped_reasons++;
+    kernel_assign(k, lit, level, a.reason, true, true);
+    return;
+  }
+  kernel_assign(k, lit, level, other_false, true);
 }
 inline void kernel_assign_ref(Kernel &k, Lit lit, Ref reason) {
   const Clause *c = clause_at(k.arena, reason);

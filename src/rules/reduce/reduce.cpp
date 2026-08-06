@@ -34,8 +34,8 @@ void reduce_retier(Kernel &k) {
     total += used[g];
   k.stats.retiered++;
   if (!total) {
-    k.tier1 = 2;
-    k.tier2 = 6;
+    k.tier1 = TIER1_STATIC;
+    k.tier2 = TIER2_STATIC;
     return;
   }
   const uint64_t lim1 = total / 2;           // tier1relative 500 per mille
@@ -134,13 +134,19 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   k.stats.reductions++;
   // aging tick (kissat reduce.c decrements `used` once per reduction):
   // selection already happened on the pre-aging values, matching kissat's
-  // read-then-decrement order
+  // read-then-decrement order.
+  // The same walk samples the tier2 retention band both ways (Stats
+  // ::tier2_band_dynamic/static): the live tier against the static option
+  // default, which is what a `likely_to_be_kept` consumer would branch on.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (c->redundant() && !c->garbage()) {
       const uint32_t used = c->used();
       if (used)
         c->set_used(used - 1);
+      const uint32_t glue = c->glue();
+      k.stats.tier2_band_dynamic += (glue <= k.tier2);
+      k.stats.tier2_band_static += (glue <= TIER2_STATIC);
     }
     ref += clause_words(c->size);
   }
@@ -159,6 +165,31 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   }
   k.stats.deleted += deleted;
   lock_reasons(k, false);
+  // SCHED-F6 · publish the SURVIVOR ENVELOPE (cadical `lim.keptglue` /
+  // `lim.keptsize`, reduce.cpp:147-156) — the widest (glue, size) still present
+  // after this reduction. It is the third disjunct of
+  // `kernel_likely_kept`/`likely_to_be_kept_clause`, and the one we had no
+  // counterpart for: without it the predicate collapses to "irredundant or in
+  // tier2", which is not the reference's set. Deliberately taken over the
+  // SURVIVORS, not over the victims, and deliberately not reset when nothing
+  // was deleted — cadical's envelope likewise persists until the next
+  // reduction republishes it. Diagnostic-only until a consumer reads it
+  // (Kernel::touch_redundant, off by default).
+  {
+    uint32_t g = 0, sz = 0;
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (c->redundant() && !c->garbage()) {
+        if (c->glue() > g)
+          g = c->glue();
+        if (c->size > sz)
+          sz = c->size;
+      }
+      ref += clause_words(c->size);
+    }
+    k.kept_glue = g;
+    k.kept_size = sz;
+  }
   if (deleted)
     kernel_collect_garbage(k); // forwards trail reasons AND pending.ref
   return deleted ? ApplyResult::Ok : ApplyResult::NoOp;
