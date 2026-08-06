@@ -66,9 +66,18 @@
 //     environment proves equivalences to its seed only. Same soundness, less
 //     yield per environment; the general partition is a later dosing question.
 //
+// (6) THE ROUND CEILING TRUNCATES THE ENVIRONMENT SCAN (`SweepBudget`). kissat
+//     and cadical both bound the environment by ticks as well as by size;
+//     cadical charges the occurrence walk to the same budget as sub-solving and
+//     polls it inside the expansion loop. A truncated environment is smaller,
+//     never wrong — the same weakening the size caps already make.
+//
 // EFFORT. Every scan and every sub-solver tick is charged to
 // `Stats::sweep_ticks` — the currency `transitive_ticks`/`bce_ticks`/
-// `ternary_ticks` use. The rule CHARGES, the policy BUDGETS (plan §5.2).
+// `ternary_ticks` use. The rule CHARGES, the policy BUDGETS (plan §5.2). The
+// ceiling is enforced INSIDE `sweep_env_build`, not only between seeds: the
+// size caps bound what an environment holds, not the scan that finds it, so
+// without an in-scan poll one seed can outspend the whole round dose.
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -92,6 +101,26 @@ struct SweepLimits {
   uint64_t env_ticks = 200000;    // sub-solver budget per environment (cumulative)
   uint32_t max_seeds = 0;         // seeds per round; 0 = every schedulable var
   uint64_t round_ticks = 0;       // whole-round tick ceiling; 0 = unbounded
+  // Enforce `round_ticks` INSIDE environment construction, not only between
+  // seeds (see SweepBudget). Ships on; `TACTIX_SWEEP_ENV_BUDGET=0` reverts to
+  // the between-seeds-only check for an A/B arm.
+  bool enforce_in_env = true;
+};
+
+// THE ROUND CEILING IS ENFORCED INSIDE ENVIRONMENT CONSTRUCTION, not only
+// between seeds. `max_env_vars`/`max_env_clauses` bound what an environment
+// HOLDS, not what it costs to find: once the variable cap is reached the BFS
+// keeps walking every remaining occurrence of every environment literal, and
+// on a formula with long occurrence lists one seed can outspend the whole
+// round dose (measured 41x). Declining to expand is always sound — the
+// environment only ever shrinks, and it stays a subset of F — so the ceiling
+// is a plain early exit, the discipline cadical uses (`kitten_ticks_limit_hit`
+// polled inside the expansion loop, and occurrence walking charged to the same
+// budget as sub-solving).
+struct SweepBudget {
+  uint64_t start = 0; // `Stats::sweep_ticks` when the round began
+  uint64_t limit = 0; // round ceiling in that currency; 0 = unbounded
+  bool over(const Kernel &k, uint64_t pending) const;
 };
 
 constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
@@ -165,6 +194,10 @@ struct SweepRound {
   // candidate literals still agreeing with the seed in every model seen
   std::vector<Lit> candidates;
   std::vector<SubLit> sub_scratch, assumptions;
+  // The round's effort ceiling, so `sweep_env_build` can stop mid-scan. Left
+  // at its default (unbounded) by every caller that builds one environment by
+  // hand — tests, the API, the probe.
+  SweepBudget budget;
 };
 
 // Guard: quiescent root, consistent. A pure precondition — the environment
