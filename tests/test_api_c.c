@@ -243,18 +243,43 @@ static void test_stats_and_config_surface(void) {
   tactix_set_factor_composite(s, 1);
   tactix_set_work_budget(s, 1000000);
   tactix_set_vivify_scope(s, 1);
+  /* ... and every setter's value must be READABLE BACK. A pose that was
+     silently dropped or substituted produces an arm that measures nothing
+     while reading as configured, which is the failure this project keeps
+     paying for; the vivify_scope row is the one that was actually broken
+     (tests/test_vivify_n1.cpp). */
+  assert(tactix_config(s, TACTIX_CFG_BVE_BOUND) == 4);
+  assert(tactix_config(s, TACTIX_CFG_FACTOR_BOUND) == 1);
+  assert(tactix_config(s, TACTIX_CFG_FACTOR_COMPOSITE) == 1);
+  assert(tactix_config(s, TACTIX_CFG_WORK_BUDGET) == 1000000);
+  assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == 1);
+  tactix_set_bve_gates(s, TACTIX_BVE_GATE_ITE);
+  assert(tactix_config(s, TACTIX_CFG_BVE_GATES) == TACTIX_BVE_GATE_ITE);
+  assert(tactix_config(s, 6) == UINT64_MAX); /* first unknown cfg id */
+  assert(tactix_config(s, -1) == UINT64_MAX);
+  /* every band Vivify implements is settable, 3/4/5 included: they used to be
+     clamped onto 0, which removed the tier3 capability from every API caller
+     while DefaultPolicy kept using it (N1) */
+  for (id = 0; id <= 5; id++) {
+    tactix_set_vivify_scope(s, (unsigned)id);
+    assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == (uint64_t)id);
+  }
   /* restore neutral config for the solve */
+  tactix_set_bve_gates(s, ~0u);
   tactix_set_factor_composite(s, 0);
   tactix_set_work_budget(s, 0);
   tactix_set_vivify_scope(s, 0);
   assert(tactix_solve(s) == 20);
-  /* completeness: every documented id 1..31 answers. Ids 26-31 come in
-     yield/effort PAIRS because the plan §5.6 learner reads them as rewards and
-     cost-per-unit-output — not yield alone — is the axis that orders rule
-     outcomes. */
-  for (id = 1; id <= 31; id++)
+  /* completeness: every documented id 0..47 answers, id 0 included (it was
+     never swept). Ids come in yield/effort PAIRS because the plan §5.6 learner
+     reads them as rewards and cost-per-unit-output — not yield alone — is the
+     axis that orders rule outcomes. This is a PRESENCE check and cannot see a
+     pair wired to the wrong counters: tools/docs/check-stat-ids.py (ctest
+     `stat_ids`) is what pins the mapping. */
+  for (id = 0; id <= 47; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
-  assert(tactix_stat(s, 32) == UINT64_MAX); /* first unknown id */
+  assert(tactix_stat(s, 48) == UINT64_MAX); /* first unknown id */
+  assert(tactix_stat(s, -1) == UINT64_MAX);
   tactix_release(s);
 }
 

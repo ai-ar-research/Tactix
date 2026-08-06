@@ -808,6 +808,13 @@ public:
   void update_rephase_limit(const Kernel &); // after a rephase
   void update_reorder_limit(const Kernel &); // after a reorder
   void update_slot_limit(const Kernel &, SlotGroup); // after a slot phase
+  // One inprocessing phase on one clock. Returns 20 when the phase refuted the
+  // formula, 0 otherwise. PUBLIC for the same reason as the predicates above: a
+  // test poses the slot and runs ONE phase, instead of hoping a solve happens to
+  // take a macro trigger — that hope is what makes a pose arm vacuous, since an
+  // entry never reached reads exactly like an entry correctly declined
+  // (tests/test_slot_pose.cpp).
+  int run_slot_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
 
 private:
   // --- one inprocessing phase, decomposed ----------------------------------
@@ -832,9 +839,6 @@ private:
   // loop (the phase's single exit still runs); `Next` moves to the next entry.
   enum class SlotStep : uint8_t { Next, Stop };
 
-  // One inprocessing phase on one clock. Returns 20 when the phase refuted the
-  // formula, 0 otherwise.
-  int run_slot_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
   // Pre-checks reached before this entry's budget is computed; false = declined.
   bool slot_entry_admissible(SlotEntry &, const Kernel &, const SlotPhaseCtx &);
   // cadical's accumulate-until-worthwhile decline (SlotEntry::thresh).
