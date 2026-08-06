@@ -118,6 +118,19 @@ public:
   }
 };
 
+// --- the authored inprocessing phase order (ledger SP-SLOT-4, theme T6) -----
+// The order in which DefaultPolicy offers inprocessing occasions is DATA, not
+// an emergent property of rule names. ORDER IS A POLICY CHOICE (N1): no rule
+// guard and no `instances()` may read this table, and it narrows nothing the
+// public API can apply — it fixes only the sequence THIS policy walks.
+struct SlotOrderRow {
+  const char *name;
+};
+// The authored list, in order. Inprocess-tier rules absent from it are still
+// scheduled (appended, registry order) so a newly registered rule is never
+// silently dropped — but an authored position is what it should get.
+const SlotOrderRow *default_slot_order(size_t *count);
+
 class DefaultPolicy final : public Policy {
 public:
   // scheduling constants (each exists exactly once; the struct
@@ -422,6 +435,11 @@ public:
   // the first switch). Pure scheduling state — SwitchMode stays
   // guard-true and N1-appliable.
   uint32_t force_mode_ = 0;
+  // Slot-order arm (TACTIX_SLOT_ORDER=legacy, read once when the slot is
+  // built): false = the authored order, true = the pre-authored registry
+  // (name-sorted) order with BVE and Factor moved to the back. Reported on the
+  // `c slot-order` line so an A/B arm can be shown to have taken effect.
+  bool slot_order_legacy_ = false;
   // Closure delay ladder, default ON (TACTIX_NO_CLOSURE_DELAY reverts;
   // read once per solve): delay unproductive unmetered closures (see the
   // slot's unmetered branch).
