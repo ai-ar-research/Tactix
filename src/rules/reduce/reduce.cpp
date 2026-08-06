@@ -174,9 +174,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
     // policy may pass any subset — soundness stays the rule's
     if (!c->redundant() || c->garbage() || c->reason())
       continue;
-    if (k.proof)
-      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-    kernel_mark_garbage(k, c);
+    kernel_delete_clause(k, c);
     deleted++;
   }
   k.stats.deleted += deleted;

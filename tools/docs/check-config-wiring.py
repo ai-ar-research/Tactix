@@ -150,12 +150,17 @@ NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
 def declared_fields():
     s = open(KERNEL_H).read()
     i = s.index(CONFIG_START)
+    # ...and where it ENDS: the config surface is the tail of `struct Kernel`, so
+    # the scan stops at that struct's closing brace. Without the bound, a local
+    # scalar with an initializer inside any later inline kernel helper (they are
+    # indented by the same two spaces) reads as an unclassified config field.
+    j = s.index("\n};", i)
     out = []
     # Handles multi-declarator lines: `uint32_t tier1 = 2, tier2 = 6;` declares
     # TWO config fields, and missing the second is exactly the silent gap this
     # script exists to prevent.
     for m in re.finditer(r"^\s{2}(bool|uint8_t|uint32_t|uint64_t)\s+([^;]+);",
-                         s[i:], re.M):
+                         s[i:j], re.M):
         for decl in m.group(2).split(","):
             nm = re.match(r"\s*(\w+)\s*=", decl)
             if nm and nm.group(1) not in NOT_CONFIG:

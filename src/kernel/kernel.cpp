@@ -170,24 +170,10 @@ static bool binary_antecedes(const Kernel &k, Lit x, Lit other) {
 }
 
 bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
-  // (1) liveness probe: the watch lists are the only liveness signal (a
-  // deleted pair's id lingers in binary_ids until the pair is re-added), so an
-  // absent binary is a no-op. COUNT the copies: binary_ids names a literal
-  // PAIR, not a copy, so a duplicated pair cannot be deleted by name — the
-  // `del` would retire the one id the surviving copy is still cited by, and
-  // every later LRAT chain through it would name a deleted clause. Refuse.
-  uint32_t copies = 0;
-  for (const uint32_t *p = k.watches.begin(a), *e = k.watches.end(a); p != e;) {
-    const Watch w{*p};
-    if (!w.binary()) {
-      p += 2; // large watch: blocking word + ref word
-    } else {
-      if (w.other() == b && ++copies == 2)
-        break;
-      p += 1;
-    }
-  }
-  if (copies != 1)
+  // (1) liveness probe (kernel_binary_copies, cap 2): an absent binary is a
+  // no-op, and a DUPLICATED pair cannot be deleted by name — see that
+  // predicate's contract in kernel.hpp for why either answer refuses.
+  if (kernel_binary_copies(k, a, b, 2) != 1)
     return false; // absent (idempotent) or duplicated (unnameable)
   // (2) retire a live ROOT reason BEFORE deleting the clause that names it, so
   // no trail reason ever cites a just-deleted binary (the corpus-003 analog for
@@ -205,25 +191,14 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   // preserving large watches and the binary mirror-symmetry invariant.
   for (const Lit x : {a, b}) {
     const Lit other = (x == a) ? b : a;
-    uint32_t *const begin = k.watches.begin(x);
-    uint32_t *q = begin;
-    const uint32_t *p = begin;
-    const uint32_t *const end = k.watches.end(x);
     bool removed = false;
-    while (p != end) {
-      const Watch w{*p};
-      if (!w.binary()) {
-        *q++ = *p++; // large: blocking word...
-        *q++ = *p++; // ...+ ref word
-      } else if (!removed && w.other() == other) {
-        removed = true; // drop exactly this slot
-        p += 1;
-      } else {
-        *q++ = *p++;
-      }
-    }
+    k.watches.compact(x, [&](WatchEntry w) {
+      if (removed || !w.binary() || w.other() != other)
+        return true;
+      removed = true; // drop exactly this slot
+      return false;
+    });
     assert(removed);
-    k.watches.truncate(x, static_cast<uint32_t>(q - begin));
   }
   // (4) proof delete (chain-free; deletions do not consume an id).
   if (k.proof) {
@@ -256,17 +231,7 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
 // DRAT `del` per copy so the checker's clause set stays exact. Returns true iff
 // at least one copy was removed.
 bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
-  uint32_t copies = 0;
-  for (const uint32_t *p = k.watches.begin(a), *e = k.watches.end(a); p != e;) {
-    const Watch w{*p};
-    if (!w.binary())
-      p += 2;
-    else {
-      if (w.other() == b)
-        copies++;
-      p += 1;
-    }
-  }
+  const uint32_t copies = kernel_binary_copies(k, a, b);
   if (copies == 0)
     return false; // absent (idempotent)
   // retire a live ROOT reason before removing the clause(s) that name it (a no-op
@@ -283,22 +248,9 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
   // remove ALL matching mirror watch entries by in-place compaction
   for (const Lit x : {a, b}) {
     const Lit other = (x == a) ? b : a;
-    uint32_t *const begin = k.watches.begin(x);
-    uint32_t *q = begin;
-    const uint32_t *p = begin;
-    const uint32_t *const end = k.watches.end(x);
-    while (p != end) {
-      const Watch w{*p};
-      if (!w.binary()) {
-        *q++ = *p++;
-        *q++ = *p++;
-      } else if (w.other() == other) {
-        p += 1; // drop every matching copy
-      } else {
-        *q++ = *p++;
-      }
-    }
-    k.watches.truncate(x, static_cast<uint32_t>(q - begin));
+    k.watches.compact(x, [&](WatchEntry w) { // drop every matching copy
+      return !(w.binary() && w.other() == other);
+    });
   }
   if (k.proof) {
     const Lit lits2[2] = {a, b};
@@ -323,24 +275,14 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
 void kernel_unwatch_large(Kernel &k, Lit l, Ref ref) {
   assert(k.delayed.empty());     // no scan may hold pointers into this slice
   assert(!k.probing.recording);  // an unlogged edit would survive the rollback
-  uint32_t *const begin = k.watches.begin(l);
-  uint32_t *q = begin;
-  const uint32_t *p = begin;
-  const uint32_t *const end = k.watches.end(l);
   bool removed = false;
-  while (p != end) {
-    if (Watch{*p}.binary()) {
-      *q++ = *p++;
-    } else if (!removed && p[1] == ref) {
-      removed = true; // drop this entry's blocking word + ref word
-      p += 2;
-    } else {
-      *q++ = *p++; // large: blocking word...
-      *q++ = *p++; // ...+ ref word
-    }
-  }
+  k.watches.compact(l, [&](WatchEntry w) {
+    if (removed || w.binary() || w.ref() != ref)
+      return true;
+    removed = true; // drop this entry's blocking word + ref word
+    return false;
+  });
   assert(removed && "unwatch of a clause this literal does not watch");
-  k.watches.truncate(l, static_cast<uint32_t>(q - begin));
 }
 
 void kernel_promote_watched_lit(Kernel &k, Ref ref, uint32_t slot,
@@ -381,16 +323,9 @@ void kernel_bve_retry_sync_fixed(Kernel &k) {
     kernel_mark_bve_retry(k, v);
     for (const Lit l : {make_lit(v, false), make_lit(v, true)}) {
       // binaries: the partner's neighbourhood changed
-      for (const uint32_t *p = k.watches.begin(l), *e = k.watches.end(l);
-           p != e;) {
-        const Watch w{*p};
-        if (w.binary()) {
+      for (const WatchEntry w : k.watches.entries(l))
+        if (w.binary())
           kernel_mark_bve_retry(k, var_of(w.other()));
-          p += 1;
-        } else {
-          p += 2;
-        }
-      }
       if (k.dense)
         for (const Ref ref : k.dense->large[l]) {
           const Clause *c = clause_at(k.arena, ref);
@@ -585,9 +520,12 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
                                      const Lit *lits, uint32_t size,
                                      bool redundant, uint32_t glue,
                                      Ref *large_ref) {
-  if (k.proof)
-    k.proof->del(id, c->id(), c->lits, c->size);
-  kernel_mark_garbage(k, c); // before any arena-mutating add below
+  // `id` is the REPLACEMENT's id, and every caller allocates it immediately
+  // before calling in — so it equals `next_clause_id`, which is what the shared
+  // primitive prefixes its LRAT deletion line with. That was an unstated,
+  // uncheckable invariant while this site passed `id` by hand; assert it.
+  assert(id == k.next_clause_id);
+  kernel_delete_clause(k, c); // before any arena-mutating add below
   if (size == 0) { // under-derived root only (corpus 002): the ADD just
     k.inconsistent = true; // emitted IS the refutation
     return ReplaceOutcome::Refuted;
@@ -660,6 +598,10 @@ template <bool RECORD>
 static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   const Lit not_lit = negate(lit);
   assert(k.delayed.empty());
+  // Not WatchLists::entries/compact: this scan COPIES each entry forward and
+  // then rewinds or rewrites it (dropped garbage, a new blocking literal, a
+  // delayed relocation), which is neither a read-only walk nor a keep/drop
+  // filter. The stride lives here on purpose.
   // hoisted data pointers (kissat proplit.h idiom): the inlined assigns
   // store through k, so without locals the compiler must re-derive the
   // vector data pointers after every assignment; the underlying arrays
@@ -821,6 +763,10 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
   bool large_seen = false, ordered = true;
   uint64_t large_words = 0;
   bool conflict = false;
+  // Not WatchLists::entries: `binprop_words`/`binprop_skipped` below price the
+  // WORD CURSOR where the scan stopped, and the conflict break leaves it PAST the
+  // conflicting binary. An entry iterator stops before the entry it breaks on, so
+  // the stride is load-bearing here beyond iteration.
   while (p != end) {
     const Watch w{*p};
     if (!w.binary()) { // large watch occupies two slots; skipped here
@@ -1008,20 +954,8 @@ void kernel_collect_garbage(Kernel &k) {
   }
   if (k.pending.valid && k.pending.ref != INVALID_REF)
     k.pending.ref = clause_at(k.arena, k.pending.ref)->searched;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-    // strip large entries in place, keep binaries
-    uint32_t *const begin = k.watches.begin(lit);
-    uint32_t *q = begin;
-    const uint32_t *p = q;
-    const uint32_t *const end = k.watches.end(lit);
-    while (p != end) {
-      if (Watch{*p}.binary())
-        *q++ = *p++;
-      else
-        p += 2;
-    }
-    k.watches.truncate(lit, static_cast<uint32_t>(q - begin));
-  }
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++) // strip large entries, keep binaries
+    k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
   k.arena.swap(fresh);
   // GC relocated every Ref: the dense occurrence index (increment 2) must be
   // rebuilt from the compacted arena in lock-step with the watches below (it
@@ -1208,17 +1142,9 @@ void kernel_check_invariants(const Kernel &k) {
       for (int w = 0; w < 2; w++) {
         const Lit lit = c->lits[w];
         bool found = false;
-        const WatchHead &h = k.watches.heads[lit];
-        const uint32_t *ws = k.watches.arena.data() + h.offset;
-        for (uint32_t i = 0; i < h.size;) {
-          if (Watch{ws[i]}.binary()) {
-            i += 1;
-          } else {
-            if (ws[i + 1] == ref)
-              found = true;
-            i += 2;
-          }
-        }
+        for (const WatchEntry w : k.watches.entries(lit))
+          if (!w.binary() && w.ref() == ref)
+            found = true;
         assert(found && "clause not watched on a watched literal");
       }
     }
@@ -1238,48 +1164,30 @@ void kernel_check_invariants(const Kernel &k) {
   // (backbone.c:304-315, check_large_clauses_watched_after_binary_clauses).
   if (k.binaries_watched_first) {
     for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-      const WatchHead &h = k.watches.heads[lit];
-      const uint32_t *ws = k.watches.arena.data() + h.offset;
       bool large = false;
-      for (uint32_t i = 0; i < h.size;) {
-        if (Watch{ws[i]}.binary()) {
+      for (const WatchEntry w : k.watches.entries(lit)) {
+        if (w.binary())
           assert(!large && "binary watch after a large one under binary-first");
-          i += 1;
-        } else {
+        else
           large = true;
-          i += 2;
-        }
       }
     }
   }
   // binary watch symmetry: every binary entry (l -> other) must have its
   // mirror (other -> l); losing one side silently kills the clause
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-    const WatchHead &h = k.watches.heads[lit];
-    const uint32_t *ws = k.watches.arena.data() + h.offset;
-    for (uint32_t i = 0; i < h.size;) {
-      if (Watch{ws[i]}.binary()) {
-        const Lit o = Watch{ws[i]}.other();
-        const WatchHead &ho = k.watches.heads[o];
-        const uint32_t *wso = k.watches.arena.data() + ho.offset;
-        bool mirror = false;
-        for (uint32_t j = 0; j < ho.size;) {
-          if (Watch{wso[j]}.binary()) {
-            if (Watch{wso[j]}.other() == lit)
-              mirror = true;
-            j += 1;
-          } else {
-            j += 2;
-          }
-        }
-        if (!mirror) {
-          fprintf(stderr, "INVARIANT: binary watch (%d %d) lost its mirror\n",
-                  externalize(lit), externalize(o));
-          assert(false && "asymmetric binary watch");
-        }
-        i += 1;
-      } else {
-        i += 2;
+    for (const WatchEntry w : k.watches.entries(lit)) {
+      if (!w.binary())
+        continue;
+      const Lit o = w.other();
+      bool mirror = false;
+      for (const WatchEntry m : k.watches.entries(o))
+        if (m.binary() && m.other() == lit)
+          mirror = true;
+      if (!mirror) {
+        fprintf(stderr, "INVARIANT: binary watch (%d %d) lost its mirror\n",
+                externalize(lit), externalize(o));
+        assert(false && "asymmetric binary watch");
       }
     }
   }
@@ -1289,30 +1197,25 @@ void kernel_check_invariants(const Kernel &k) {
   if (k.propagate_head == k.trail.size() && !k.conflict_valid &&
       !k.pending.valid && !k.inconsistent) {
     for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-      const WatchHead &h = k.watches.heads[lit];
-      const uint32_t *ws = k.watches.arena.data() + h.offset;
-      for (uint32_t i = 0; i < h.size;) {
-        if (Watch{ws[i]}.binary()) {
-          // at a propagation fixpoint, a binary watched by a FALSE literal
-          // must have its other literal TRUE: other-false is a missed
-          // conflict, other-unassigned is a missed unit (both mean
-          // propagation escaped — e.g. a decision taken on an un-propagated
-          // trail, corpus 004)
-          const Lit o = Watch{ws[i]}.other();
-          if (k.values[lit] < 0 && k.values[o] <= 0) {
-            fprintf(stderr,
-                    "INVARIANT: %s binary (%d %d); "
-                    "levels %u %u trailpos %u %u head %u size %zu level %u\n",
-                    k.values[o] < 0 ? "falsified" : "unit",
-                    externalize(lit), externalize(o),
-                    k.assigned[var_of(lit)].level, k.assigned[var_of(o)].level,
-                    k.assigned[var_of(lit)].trail, k.assigned[var_of(o)].trail,
-                    k.propagate_head, k.trail.size(), k.level);
-            assert(false && "binary clause escaped propagation");
-          }
-          i += 1;
-        } else {
-          i += 2;
+      for (const WatchEntry w : k.watches.entries(lit)) {
+        if (!w.binary())
+          continue;
+        // at a propagation fixpoint, a binary watched by a FALSE literal
+        // must have its other literal TRUE: other-false is a missed
+        // conflict, other-unassigned is a missed unit (both mean
+        // propagation escaped — e.g. a decision taken on an un-propagated
+        // trail, corpus 004)
+        const Lit o = w.other();
+        if (k.values[lit] < 0 && k.values[o] <= 0) {
+          fprintf(stderr,
+                  "INVARIANT: %s binary (%d %d); "
+                  "levels %u %u trailpos %u %u head %u size %zu level %u\n",
+                  k.values[o] < 0 ? "falsified" : "unit", externalize(lit),
+                  externalize(o), k.assigned[var_of(lit)].level,
+                  k.assigned[var_of(o)].level, k.assigned[var_of(lit)].trail,
+                  k.assigned[var_of(o)].trail, k.propagate_head,
+                  k.trail.size(), k.level);
+          assert(false && "binary clause escaped propagation");
         }
       }
     }

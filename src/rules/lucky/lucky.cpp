@@ -62,17 +62,9 @@ static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
   // `want_negated`-polarity literal for a partner of the same polarity
   for (Var v = 0; v < k.nvars; v++) {
     const Lit lit = make_lit(v, want_negated);
-    const WatchHead &h = k.watches.heads[lit];
-    const uint32_t *ws = k.watches.arena.data() + h.offset;
-    for (uint32_t i = 0; i < h.size;) {
-      if (Watch{ws[i]}.binary()) {
-        if (negated(Watch{ws[i]}.other()) == want_negated)
-          return false;
-        i += 1;
-      } else {
-        i += 2;
-      }
-    }
+    for (const WatchEntry w : k.watches.entries(lit))
+      if (w.binary() && negated(w.other()) == want_negated)
+        return false;
   }
   return true;
 }

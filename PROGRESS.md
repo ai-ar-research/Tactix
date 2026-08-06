@@ -436,6 +436,47 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   subsumed by **RV-S9**, decide one rule for both); **RV-R4/RV-R5** small duplication + allocation watch
   items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats
   with the detector reached at the source.)
+- **▶ RV-S DUPLICATION AXIS — DISCHARGED (branch `rvs-duplication`).** `RV-S21` **DONE**: the watch-list
+  stride is now ONE kernel primitive (`WatchLists::entries` + `WatchEntry`/`WatchIter`, plus
+  `WatchLists::compact` for the removal sites), and **45** open-coded strides across 18 files went with it
+  (net −227 lines; the review's 23 was a `file:line` count that missed the five in
+  `kernel_check_invariants`, the three reading a large entry's ref, and the `heads[l]`-based readers).
+  Two sites are deliberately NOT converted and say so in the source: `propagate_literal`
+  copies-and-rewrites entries rather than walking them, and `propagate_literal_binary` prices the WORD
+  CURSOR where its scan stopped (`binprop_words`/`binprop_skipped`), which an entry iterator cannot
+  reproduce because it stops *before* the entry it breaks on.
+  `RV-S20` **DONE**: the duplicated-pair soundness predicate is now
+  `kernel_binary_copies`/`kernel_binary_live` in `kernel.hpp`, and all FOUR rule-local
+  transcriptions are gone (BVE, Substitute, Congruence's boolean specialisation, plus two the
+  report did not count: Ternary and Sweep). It also removed a **rule-calling-rule** edge —
+  Sweep reached the predicate through `congruence_binary_exists`, an external-linkage forwarder
+  that now has no reason to exist. Two callers keep a local wrapper for a reason stated in
+  source: Sweep scans the SHORTER mirror list, Substitute needs the count capped at 2.
+  Found on the way: **`check-config-wiring.py` scanned kernel.hpp from the config marker to
+  EOF**, so a local scalar with an initialiser inside any later inline kernel helper read as an
+  unclassified config field. Bounded to the struct's closing brace; anti-vacuity re-tested (it
+  still FAILS on a genuinely unclassified field placed inside the window).
+  `RV-S6` **DONE, and the pair is genuinely inseparable**: `kernel_mark_garbage` NO LONGER EXISTS —
+  `kernel_delete_clause` (kernel.hpp) emits the `del` and marks garbage, and it is the only function
+  in the tree that can do either to a large clause. 13 sites collapsed, including the two variants
+  (Substitute's saved `cid`, `kernel_replace_clause`'s hand-passed `id` — now an `assert(id ==
+  next_clause_id)`, which turns the review's "unstated, uncheckable invariant" into a checked one).
+  **The inlining answer: the review's constraint was real and is resolved by including
+  `proof/proof.hpp` in kernel.hpp** (a leaf header over `kernel/types.hpp`, no cycle, no new file)
+  rather than by an out-of-line call — so the proof-OFF path keeps exactly today's single `if
+  (k.proof)` and Analyze's conflict path pays nothing. `kernel_delete_binary`'s precedent (a kernel
+  primitive that emits its own `del`) is the shape; `docs/implementation-notes.md` §"where the bit is
+  set" updated, since it still said the proof `delete` was the rule's.
+  `RV-S27` **DONE**: `src/policies/stress_common.hpp` now holds the xorshift64* RNG (was 10
+  byte-identical copies, prefix-renamed only to dodge ODR), the uniform unassigned-literal draw (10
+  copies) and the env knob parser (4 copies) — all ten policies including RandomPolicy. The bodies
+  were verified byte-identical before merging, so the dedup is identity-preserving; the DRIFTED
+  parser (`adversarial_policy.cpp`, `strtoul` with no negative guard, so `TACTIX_ADV_BURST=-1`
+  became 4294967295) is a **separate commit**, because that one changes behaviour.
+  **Evidence for all four: identity 222/222 per commit (888 comparisons, job `1587396`, harness
+  anti-vacuity tested), ctest 47/47 Release + Debug ASan, five conformance checkers green, and three
+  fuzz legs of 10 000 cases + corpus with 0 failures (`1587403`/`1587404`/`1587405`).** `RV-S31` also
+  gets a sharper number out of it — see the Log entry.
 - **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
   `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
   highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the
@@ -1326,6 +1367,52 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-06 — the RV-S duplication axis: four items, 62 sites, four kernel primitives, and one checker that could not fail
+
+Branch `rvs-duplication`, base `4f4989d`, one commit per item so a bisect separates them.
+`RV-S21` + `RV-S20` + `RV-S6` + `RV-S27` from `benchmarks/reports/2026-08-06-review-post-track-sched.md`.
+Details per item in Open items above; what belongs in the log is the method and the three findings.
+
+**▶ THE GATE WAS IDENTITY, NOT TESTS PASSING, AND IT IS MET PER COMMIT.** A binary from pristine
+`4f4989d` versus **each of the four commits' binaries** over the 14-entry regression corpus + 60
+generated fuzz cases (seeded, reproducible) in three arms — native DRAT, native LRAT, `--random-policy=7`
+× DRAT — comparing exit code, `sha256(proof bytes)` and a `sha256` of every `c ` counter line except
+`c timing` (jitter; implementation-notes §11). **222/222 identical on every one of the four arms, 888
+comparisons, 0 mismatches** (job `1587396`). The `--random-policy` arm carries **15 of 74 timeout-in-both**
+at a 10 s cap, which is `RV-S31`'s livelock, not a result: that arm's real N is 59, and the DRAT/LRAT arms
+carry those cases. **The harness was anti-vacuity tested rather than trusted**
+(`[[ab-arm-identical-artefacts]]`): a fifth arm compared the baseline against a deliberately PERTURBED
+binary (a second `del` per large-clause deletion + a doubled `propagations` increment) and it **must and
+does MISMATCH: 148 of 222**, with both compared fields shown live — `corpus-002` differs in the PROOF
+sha, `corpus-003` in the COUNTER hash alone. A green identity harness that cannot go red is worth nothing.
+
+**▶ FUZZ: three legs on the Debug ASan/UBSan build at HEAD, 10 000 cases each + the 14-entry corpus, 0
+failures** — DRAT (`1587403`), native LRAT (`1587404`), `--random-policy` × DRAT (`1587405`). **The rp leg
+independently corroborates `RV-S31` at fuzz scale and its number is worse than the report's floor: 1730 of
+10 000 cases (17.3 %) TIMED OUT**, against 297/10 000 (3.0 %) for DefaultPolicy on the same generator and
+the same binary. So that leg's real N is ≈8 270, and the 16 % the review measured over 74 cases was not a
+small-sample artefact. Read every historical "`--random-policy` × 10 000, 0 failures" claim accordingly.
+
+**▶ THREE THINGS THAT COULD NOT BE DEDUPLICATED BEHAVIOUR-PRESERVINGLY.** Each is a finding, not an
+omission, and each is now a note in the source:
+1. **`propagate_literal`** copies each watch entry forward and then rewinds or rewrites it — not a walk
+   and not a keep/drop filter, so neither new primitive fits.
+2. **`propagate_literal_binary`** prices `binprop_words`/`binprop_skipped` off the WORD CURSOR where its
+   scan stopped, and the conflict break leaves that cursor PAST the conflicting binary. An entry iterator
+   stops *before* the entry it breaks on, so converting it would move a counter. This is the one that
+   would have shipped as an unexplained trajectory shift three windows later.
+3. **`kernel_delete_clause` cannot suppress a second `del`** on an already-garbage clause, tempting as
+   that is: all 13 sites emitted the `del` before testing `garbage()`, so suppressing it is a
+   proof-stream change wearing a refactor's clothes. Kept, with the reason in source.
+
+**▶ AND A CONFORMANCE CHECKER THAT WAS ONE LOCAL VARIABLE AWAY FROM A FALSE FAILURE.**
+`check-config-wiring.py` scanned `kernel.hpp` from the config marker **to EOF**, so the first
+two-space-indented `uint32_t n = 0;` in a new inline kernel helper — `kernel_binary_copies` — was reported
+as an unclassified config field. Bounded to `struct Kernel`'s closing brace, then re-tested for
+anti-vacuity (it still FAILS on a genuinely unclassified field inserted inside the window). The lesson is
+the one this project keeps re-learning about its own instruments: a checker's SCOPE is part of its
+contract, and nothing was testing this one's.
 
 ### 2026-08-06 — N4 pass 3: the ledger says we HAVE the mechanisms; the counters say two families never run
 

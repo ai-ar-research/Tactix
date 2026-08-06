@@ -1,4 +1,5 @@
 #include "policies/sweep_stress_policy.hpp"
+#include "policies/stress_common.hpp"
 
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
@@ -11,36 +12,12 @@
 
 namespace tactix {
 
-static inline uint64_t sw_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 0x2545F4914F6CDD1Dull;
-}
-
-static Lit sw_random_unassigned_literal(Kernel &k, uint64_t &rng) {
-  assert(k.unassigned > 0);
-  for (;;) {
-    const Var v = static_cast<Var>(sw_random(rng) % k.nvars);
-    if (k.values[make_lit(v, false)] == 0)
-      return make_lit(v, sw_random(rng) & 1);
-  }
-}
-
-static uint32_t sw_env_u32(const char *name, uint32_t dflt) {
-  const char *s = getenv(name);
-  if (!s || !*s)
-    return dflt;
-  const long v = strtol(s, nullptr, 10);
-  return v < 0 ? dflt : static_cast<uint32_t>(v);
-}
-
 int sweep_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const bool trace = getenv("TACTIX_TRACE") != nullptr;
   const bool no_subst = getenv("TACTIX_SWEEP_STRESS_NOSUBST") != nullptr;
-  const uint32_t max_rounds = sw_env_u32("TACTIX_SWEEP_STRESS_ROUNDS", 4);
+  const uint32_t max_rounds = stress_env_u32("TACTIX_SWEEP_STRESS_ROUNDS", 4);
 
   const RuleVTable &sweep =
       tactix_rules()[static_cast<size_t>(tactix_rule_id("Sweep"))];
@@ -123,7 +100,7 @@ int sweep_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     if (k.unassigned == 0)
       return 10; // total + fixpoint = SAT
 
-    decide_apply(k, sw_random_unassigned_literal(k, rng), true);
+    decide_apply(k, stress_random_unassigned_literal(k, rng), true);
     step("decide");
   }
 }

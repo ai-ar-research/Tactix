@@ -1,4 +1,5 @@
 #include "policies/factor_stress_policy.hpp"
+#include "policies/stress_common.hpp"
 
 #include "policies/subpolicy.hpp"
 #include "rules/analyze/analyze.hpp"
@@ -14,13 +15,6 @@ namespace tactix {
 
 namespace {
 
-inline uint64_t fs_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 0x2545F4914F6CDD1Dull;
-}
-
 inline uint64_t fs_hash(uint64_t x) {
   x ^= x >> 33;
   x *= 0xff51afd7ed558ccdull;
@@ -28,15 +22,6 @@ inline uint64_t fs_hash(uint64_t x) {
   x *= 0xc4ceb9fe1a85ec53ull;
   x ^= x >> 33;
   return x;
-}
-
-Lit fs_random_unassigned_literal(Kernel &k, uint64_t &rng) {
-  assert(k.unassigned > 0);
-  for (;;) {
-    const Var v = static_cast<Var>(fs_random(rng) % k.nvars);
-    if (k.values[make_lit(v, false)] == 0)
-      return make_lit(v, fs_random(rng) & 1);
-  }
 }
 
 // The adversarial arm. Scores are DETERMINISTIC per (salt, literal) — stable
@@ -148,7 +133,7 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     if (factor.guard(k)) {
       if (budget_mode)
         k.work_budget =
-            1 + fs_random(rng) % (budget_mode == 1 ? 4096u : 65536u);
+            1 + stress_random(rng) % (budget_mode == 1 ? 4096u : 65536u);
       const ApplyResult r = apply_rule(factor, k);
       k.work_budget = 0;
       if (r == ApplyResult::Unsat)
@@ -160,7 +145,7 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       // NoOp: no positive-gain grid left this round.
     }
 
-    decide_apply(k, fs_random_unassigned_literal(k, rng), true);
+    decide_apply(k, stress_random_unassigned_literal(k, rng), true);
     step("decide");
   }
 }

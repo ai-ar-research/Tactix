@@ -80,22 +80,16 @@ void build_index(const Kernel &k, BceIndex &idx) {
 // Binaries live in the watch lists, not the arena; all of them are irredundant
 // in this kernel (transitive_reduce.hpp deviation 6).
 void collect_binaries(const Kernel &k, Lit l, Side side, std::vector<Occ> &out) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-  const uint32_t sz = k.watches.heads[l].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      const Lit o = w.other();
-      // candidate: both literals must be unassigned. opposite: only a
-      // root-SATISFIED binary may be skipped.
-      const bool take = side == Side::Cand ? (root_open(k, l) && root_open(k, o))
-                                           : (k.values[o] <= 0);
-      if (take)
-        out.push_back({INVALID_REF, o});
-      i += 1;
-    } else {
-      i += 2;
-    }
+  for (const WatchEntry w : k.watches.entries(l)) {
+    if (!w.binary())
+      continue;
+    const Lit o = w.other();
+    // candidate: both literals must be unassigned. opposite: only a
+    // root-SATISFIED binary may be skipped.
+    const bool take = side == Side::Cand ? (root_open(k, l) && root_open(k, o))
+                                         : (k.values[o] <= 0);
+    if (take)
+      out.push_back({INVALID_REF, o});
   }
 }
 
@@ -230,9 +224,7 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
           rest.push_back(l);
       kernel_push_witness(k, blocking, rest.data(),
                           static_cast<uint32_t>(rest.size()));
-      if (k.proof)
-        k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-      kernel_mark_garbage(k, c);
+      kernel_delete_clause(k, c);
     }
     k.stats.bce_deleted++;
   }

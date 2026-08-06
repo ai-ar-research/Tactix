@@ -6,6 +6,11 @@
 #include "kernel/clause.hpp"
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
+// Not a forward declaration: `kernel_delete_clause` must INLINE the `del` it
+// emits, because it sits on the conflict-analysis path and the proof-OFF case is
+// then a single test the compiler can hoist. proof.hpp depends on nothing but
+// kernel/types.hpp, so this is a leaf include, not a layering edge.
+#include "proof/proof.hpp"
 
 #include <csignal>
 #include <cstdint>
@@ -15,7 +20,6 @@
 
 namespace tactix {
 
-class Proof;
 struct FactorMatchPolicy;
 // Search-guidance state `H` (VMTF queue, EVSIDS heap, phases). Held OPAQUELY by
 // Kernel (only a pointer below) so kernel.hpp never depends on its layout; the
@@ -837,7 +841,7 @@ struct Kernel {
   // Set (kernel-side, so there is one home per mutation kind):
   //   - every variable of an IRREDUNDANT clause that is ADDED
   //     (kernel_add_large_clause / kernel_add_binary_clause) or DELETED
-  //     (kernel_mark_garbage / kernel_delete_binary*). Redundant (learned)
+  //     (kernel_delete_clause / kernel_delete_binary*). Redundant (learned)
   //     clauses are deliberately excluded — BVE never resolves them (they are
   //     delete-only collateral), and marking on learned-clause traffic would
   //     mark every variable on every conflict and defeat the filter.
@@ -1576,6 +1580,27 @@ bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // DRAT-only: remove EVERY copy of pair (a,b) (E2 Factor grid removal; see impl).
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 
+// Live copies of the binary pair (a v b), counted in a's watch list, stopping at
+// `cap`. THE liveness/duplication predicate of the binary layer, and a soundness
+// one: the watch lists are the only liveness signal (a deleted pair's id lingers
+// in binary_ids), and a DUPLICATED pair is unnameable — one id is shared by both
+// copies, so deleting by name retires the id the survivor is still cited by.
+// Every caller that refuses on duplication tests this, so it lives here once
+// rather than being re-transcribed per rule (a divergent copy shipped a wrong
+// answer once already: bce.hpp "V4 deviation 8"). Callers that only ask "is it
+// duplicated" pass cap = 2; kernel_binary_live short-circuits at the first copy.
+inline uint32_t kernel_binary_copies(const Kernel &k, Lit a, Lit b,
+                                     uint32_t cap = UINT32_MAX) {
+  uint32_t n = 0;
+  for (const WatchEntry w : k.watches.entries(a))
+    if (w.binary() && w.other() == b && ++n == cap)
+      break;
+  return n;
+}
+inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
+  return kernel_binary_copies(k, a, b, 1) == 1;
+}
+
 // --- watch repair (TB4b) ---------------------------------------------------
 // The kernel could ADD a large-clause watch (WatchLists::push_large) but never
 // REMOVE one without deleting the clause; every rule that needed to re-point a
@@ -1613,18 +1638,31 @@ void kernel_unwatch_large(Kernel &, Lit l, Ref ref);
 void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
                                 uint32_t from);
 
-// Mark a large clause deleted. THE single home for large-clause deletion: every
-// rule that retires a clause goes through here, so the bookkeeping that must
-// accompany a deletion (today: the BVE retry filter) has exactly one place to
-// live instead of ~10 open-coded `flags |= GARBAGE` sites. Deletion stays LAZY
-// (every reader skips garbage; kernel_collect_garbage reclaims later), and the
-// PROOF `delete` remains the caller's — a rule owns its proof delta (§5.3), and
-// several callers must emit it before the clause's literals are overwritten.
-// Idempotent: a second mark of the same clause does nothing. Header-inline
-// because Reduce retires clauses by the hundred thousand.
-inline void kernel_mark_garbage(Kernel &k, Clause *c) {
+// Retire a large clause: emit the proof `delete` AND mark it garbage. THE single
+// home for large-clause deletion, and the two halves are INSEPARABLE by
+// construction — there is no function that does one without the other, which is
+// the point. A `del` without the mark leaves a deleted clause live in the
+// formula; a mark without the `del` is an N2 breach (the proof still contains a
+// clause the solver has stopped maintaining). The pair was open-coded at 13
+// sites, one of which had already drifted in its `line_id` argument.
+//
+// Ordering: the `del` reads `c->lits` BEFORE the mark's retry loop and before
+// any caller's arena-mutating add, which is the ordering every one of those 13
+// sites had (Vivify's `add_rup, del, GARBAGE` discipline).
+// Deletion stays LAZY (every reader skips garbage; kernel_collect_garbage
+// reclaims later). The MARK is idempotent; the `del` is not, and deliberately
+// keeps the shape all 13 sites had — every one of them tests `c->garbage()`
+// itself before deciding to retire the clause, so no caller reaches here twice,
+// and suppressing the second `del` here would be a proof-stream change dressed
+// up as a refactor. `line_id` is `next_clause_id`: the last id ISSUED, which is
+// what an LRAT deletion line must be prefixed with.
+// Header-inline because Reduce retires clauses by the hundred thousand and
+// Analyze does it on the conflict path.
+inline void kernel_delete_clause(Kernel &k, Clause *c) {
+  if (k.proof)
+    k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
   if (c->garbage())
-    return; // idempotent
+    return; // already retired: the mark and its bookkeeping are idempotent
   c->flags |= Clause::GARBAGE;
   // BVE retry filter: losing an irredundant clause shrinks the elimination
   // neighbourhood of every variable in it, so each becomes retry-worthy

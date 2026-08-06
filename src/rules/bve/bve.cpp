@@ -70,19 +70,9 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
   for (Lit l = 0; l < nlits; l++) {
     if (k.values[l] != 0)
       continue;
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-    const uint32_t sz = k.watches.heads[l].size;
-    for (uint32_t i = 0; i < sz;) {
-      const Watch w{ws[i]};
-      if (w.binary()) {
-        const Lit o = w.other();
-        if (k.values[o] == 0)
-          occ.counts[l]++;
-        i += 1;
-      } else {
-        i += 2; // large watch: blocking word + ref word
-      }
-    }
+    for (const WatchEntry w : k.watches.entries(l))
+      if (w.binary() && k.values[w.other()] == 0)
+        occ.counts[l]++;
   }
 }
 
@@ -123,27 +113,6 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
 }
 
 namespace {
-
-// live copies of the binary pair (a ∨ b) in a's watch list (V3's helper).
-uint32_t bve_binary_copies(const Kernel &k, Lit a, Lit b) {
-  uint32_t n = 0;
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
-  const uint32_t sz = k.watches.heads[a].size;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (w.binary()) {
-      if (w.other() == b)
-        n++;
-      i += 1;
-    } else {
-      i += 2;
-    }
-  }
-  return n;
-}
-inline bool bve_binary_live(const Kernel &k, Lit a, Lit b) {
-  return bve_binary_copies(k, a, b) > 0;
-}
 
 // A materialized clause on the pivot: its ACTIVE literals (root-false dropped;
 // their unit ids in `absorbed` for LRAT), its proof id, and a delete-handle
@@ -558,17 +527,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   std::vector<uint8_t> seen_bin(2 * k.nvars, 0);
   std::vector<Lit> touched_bin;
   auto gather_bin = [&](Lit lit, std::vector<MClause> &live) {
-    const uint32_t *ws = k.watches.arena.data() + k.watches.heads[lit].offset;
-    const uint32_t sz = k.watches.heads[lit].size;
     touched_bin.clear();
-    for (uint32_t i = 0; i < sz;) {
-      const Watch w{ws[i]};
-      if (!w.binary()) {
-        i += 2;
+    for (const WatchEntry w : k.watches.entries(lit)) {
+      if (!w.binary())
         continue;
-      }
       const Lit o = w.other();
-      i += 1;
       if (seen_bin[o]) // duplicate copy: same logical clause, same id
         continue;
       seen_bin[o] = 1;
@@ -731,7 +694,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     }
     // a size-2 resolvent already present is subsumed — skip (avoid a duplicate
     // pair that would block a later elimination).
-    if (r.lits.size() == 2 && bve_binary_live(k, r.lits[0], r.lits[1]))
+    if (r.lits.size() == 2 && kernel_binary_live(k, r.lits[0], r.lits[1]))
       continue;
     const uint64_t id = ++k.next_clause_id;
     if (k.proof) {
@@ -783,9 +746,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     Clause *c = clause_at(k.arena, ref);
     if (c->garbage())
       return;
-    if (k.proof)
-      k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-    kernel_mark_garbage(k, c);
+    kernel_delete_clause(k, c);
   };
   auto del_all = [&](const std::vector<MClause> &side) {
     for (const MClause &m : side) {
