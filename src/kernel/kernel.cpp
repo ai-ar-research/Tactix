@@ -21,6 +21,9 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // --- σ-state + derived-index growth (kernel-owned) ---
   k.values.resize(2 * nvars, 0);
   k.assigned.resize(nvars);
+  // Only meaningful under `assigned[v].jumped`, so the initial value is never
+  // read; grown unconditionally to keep the assign hot path branch-free.
+  k.jumped_over.resize(nvars, 0);
   k.watches.resize_lits(2 * nvars);
   k.unit_ids.resize(nvars, 0);
   // BVE retry filter: a brand-new variable has never been attempted, so it
@@ -119,6 +122,19 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   kernel_mark_bve_retry(k, var_of(b));
 }
 
+// Does the live binary pair (x, other) ANTECEDE x's current assignment? Under
+// reason jumping the recorded reason is a virtual resolvent, so the real first
+// antecedent is (x ∨ jumped_over[x]) rather than (x ∨ reason); the second
+// antecedent, ¬jumped_over[x]'s own reason, is a pair whose own endpoint
+// answers this same question, so an endpoint-local test still covers the whole
+// chain.
+static bool binary_antecedes(const Kernel &k, Lit x, Lit other) {
+  const Assigned &ax = k.assigned[var_of(x)];
+  if (!ax.binary)
+    return false;
+  return ax.jumped ? k.jumped_over[var_of(x)] == other : ax.reason == other;
+}
+
 bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   // (1) liveness probe: the watch lists are the only liveness signal (a
   // deleted pair's id lingers in binary_ids until the pair is re-added), so an
@@ -145,7 +161,7 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   for (const Lit x : {a, b}) {
     Assigned &ax = k.assigned[var_of(x)];
     const Lit other = (x == a) ? b : a;
-    if (k.values[x] > 0 && ax.binary && ax.reason == other) {
+    if (k.values[x] > 0 && binary_antecedes(k, x, other)) {
       if (ax.level != 0)
         return false;          // live non-root reason: refuse (never at a root)
       ax.reason = UNIT_REASON;  // root literal is a unit, already has its id
@@ -222,7 +238,7 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
   for (const Lit x : {a, b}) {
     Assigned &ax = k.assigned[var_of(x)];
     const Lit other = (x == a) ? b : a;
-    if (k.values[x] > 0 && ax.binary && ax.reason == other) {
+    if (k.values[x] > 0 && binary_antecedes(k, x, other)) {
       if (ax.level != 0)
         return false; // live non-root reason: refuse (never at a root)
       ax.reason = UNIT_REASON;
@@ -984,8 +1000,14 @@ void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
     }
     if (a.binary) {
       const Lit assigned_lit = make_lit(v, k.values[make_lit(v, true)] > 0);
-      out.emplace_back(a.trail, kernel_binary_id(k, assigned_lit, a.reason));
-      todo.push_back(var_of(a.reason));
+      // A jumped reason is a VIRTUAL resolvent: cite the real first antecedent
+      // (assigned_lit ∨ jumped_over) and continue through the literal it
+      // resolved away, whose own entry supplies the second. Walking to
+      // `a.reason` directly instead would skip that clause and leave the chain
+      // unpropagatable.
+      const Lit next = a.jumped ? k.jumped_over[v] : a.reason;
+      out.emplace_back(a.trail, kernel_binary_id(k, assigned_lit, next));
+      todo.push_back(var_of(next));
       continue;
     }
     const Clause *reason = clause_at(k.arena, a.reason);
