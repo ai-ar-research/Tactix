@@ -361,6 +361,19 @@ struct Stats {
   // it was. Zero advances with non-zero rounds means the filter is inert.
   uint64_t forward_mark_advances = 0;
   uint64_t strengthen_mark_advances = 0;
+  // SCHED-F2 resume: candidates a cut round never reached, whose variables it
+  // therefore re-armed so the next round starts at the tail instead of
+  // replaying the head (the SCHED-B3 starvation shape, in C1/C2's currency).
+  // Non-zero is the evidence that the resume path is live at all; it can only
+  // be non-zero when a round was cut, so read it against `budgetstop`.
+  uint64_t forward_rearmed = 0;
+  uint64_t strengthen_rearmed = 0;
+  // SCHED-F2's completeness wire: outer elimination rounds held open because
+  // SubsumeForward/Strengthen had not finished. The pre-registered reading for
+  // that arm, and it is PREDICTED ZERO under the shipped DefaultPolicy — see
+  // the wire's comment in default_policy.cpp for why. A non-zero here means
+  // some budget started binding and the wire went live.
+  uint64_t subsume_holds = 0;
 };
 
 // learned clause handed from Analyze to Backjump (τ changes are Backjump's)
@@ -703,10 +716,25 @@ struct Kernel {
   // `apply_instance` path never read these (see subsume_forward.hpp).
   uint64_t subsume_touch_mark = 0;
   uint64_t strengthen_touch_mark = 0;
+  // Did the rule's LAST canonical round reach a fixpoint — every candidate
+  // examined, and (for Strengthen) nothing produced that would want another
+  // look? kissat's `completed` (forward.c:664-670), which it computes as "was
+  // anything re-armed". OUTPUTS, written by the rule, read by a policy;
+  // `true` when the rule has not run, so a policy that never schedules it is
+  // never held up by a stale `false`. See SCHED-F2 for the one consumer.
+  bool subsume_complete = true;
+  bool strengthen_complete = true;
   // Master switch for the stage-F round filters (TACTIX_TOUCH_MARKS=0 is the
   // A/B off arm). False = every round scans its full candidate set, i.e. the
   // pre-stage-F behaviour, byte for byte.
   bool touch_filter = true;
+  // SCHED-F2: let an INCOMPLETE SubsumeForward/Strengthen round hold the
+  // elimination pipeline's outer loop open (kissat eliminate.c:519-520 — its
+  // round loop exits on the forward round's `complete`, so a half-checked
+  // candidate list buys another round rather than an advance on stale
+  // material). Bounded by the policy's own round cap, so it can only ADD
+  // rounds. TACTIX_SUBSUME_HOLD=0 is the A/B off arm.
+  bool subsume_holds_elim = true;
   // TransitiveReduce RESUMPTION CURSOR — solver STATE, not config.
   // `instances()` can only offer `cap` sources per call, and offering the FIRST
   // `cap` every round means a budget-truncated round re-derives the same list

@@ -283,6 +283,8 @@ int main(int argc, char **argv) {
   // --random-policy and the stress policies included.
   if (const char *tm = getenv("TACTIX_TOUCH_MARKS"))
     kernel.touch_filter = (*tm != '0');
+  if (const char *sh = getenv("TACTIX_SUBSUME_HOLD"))
+    kernel.subsume_holds_elim = (*sh != '0');
   if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
     kernel.midround_budget = (*mb != '0'); // default OFF, measured negative;
                                            // see Kernel::midround_budget
@@ -667,13 +669,18 @@ int main(int argc, char **argv) {
     // completed and therefore moved the watermark; zero advances with non-zero
     // rounds means the filter is inert because every round is being cut.
     printf("c touch       %llu marks, %llu epoch; C1 %llu skipped / %llu "
-           "advances, C2 %llu skipped / %llu advances\n",
+           "advances / %llu rearmed, C2 %llu skipped / %llu advances / %llu "
+           "rearmed\n",
            (unsigned long long)kernel.stats.touch_marks,
            (unsigned long long)kernel.touch_epoch,
            (unsigned long long)kernel.stats.forward_mark_skipped,
            (unsigned long long)kernel.stats.forward_mark_advances,
+           (unsigned long long)kernel.stats.forward_rearmed,
            (unsigned long long)kernel.stats.strengthen_mark_skipped,
-           (unsigned long long)kernel.stats.strengthen_mark_advances);
+           (unsigned long long)kernel.stats.strengthen_mark_advances,
+           (unsigned long long)kernel.stats.strengthen_rearmed);
+    printf("c subhold     %llu elimination rounds held open by C1/C2\n",
+           (unsigned long long)kernel.stats.subsume_holds);
     // --- `c timing`: where the wall clock actually goes ---------------------
     // Rules are charged individually by the registry dispatch wrapper; the SLOT
     // line is the whole inprocessing phase, so (slot − Σ rules in it) is the

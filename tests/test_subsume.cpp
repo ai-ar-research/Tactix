@@ -218,8 +218,8 @@ static void test_touch_filter_is_policy_only() {
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::NoOp);
   assert(k.stats.forward_mark_skipped >= 2);
   assert(live_clauses(k) == 2);
-  // ... and a completed round advanced the watermark rather than leaving it.
-  assert(k.stats.forward_mark_advances == 1);
+  // ... it reached a fixpoint, so nothing was re-armed ...
+  assert(k.subsume_complete && k.stats.forward_rearmed == 0);
 
   // (a) the instance surface stays COMPLETE.
   uint64_t insts[8];
@@ -238,30 +238,46 @@ static void test_touch_filter_is_policy_only() {
   kernel_check_invariants(k);
 }
 
-// SCHED-F1 · the filter must not WEDGE: a round that is cut short leaves the
-// watermark alone, so its survivors are re-offered rather than skipped forever
-// (the completeness half; kissat re-arms the same candidates by hand,
-// forward.c:589-645).
-static void test_touch_filter_cut_round_does_not_advance() {
+// SCHED-F2 · RESUME, and the reason the filter cannot WEDGE. A cut round
+// re-arms the candidates it never reached, so the next round starts at the
+// tail instead of replaying its head (SCHED-B3's starvation, in C1's
+// currency). This path is NOT reachable under DefaultPolicy — `midround_budget`
+// ships off and was measured inert on its own sentinel even when on
+// (implementation-notes 13.3) — so a test is the only thing that can cover it
+// ([[ab-arm-identical-artefacts]]).
+static void test_touch_resume_rearms_the_tail() {
   Kernel k;
   kernel_reserve_vars(k, 8);
   for (int t : {3, 4, 5, 6}) // four short clauses over shared literals ...
     add(k, {1, 2, t});
   for (int t : {3, 4, 5, 6}) // ... each subsuming a longer one
     add(k, {1, 2, t, 7});
-  const uint64_t epoch = k.touch_epoch;
   k.midround_budget = true;
   k.work_budget = 1; // one partner visit, then stop
   assert(subsume_forward_apply(k) != ApplyResult::Unsat);
   assert(k.stats.budget_stops_c1 == 1);
-  assert(k.subsume_touch_mark == 0 && "a cut round must not advance");
-  assert(k.stats.forward_mark_advances == 0);
+  assert(!k.subsume_complete && "a cut round is not a fixpoint");
+  assert(k.stats.forward_rearmed > 0 && "the unreached tail must be re-armed");
+  // The watermark advanced, and the tail is still visible THROUGH it — that is
+  // what the re-arm buys, and it is what a bare "do not advance" could not do
+  // without also replaying the head.
+  assert(k.subsume_touch_mark > 0);
+  assert(k.stats.forward_mark_advances == 1);
+  size_t armed = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() &&
+        kernel_clause_new_material(k, c, k.subsume_touch_mark))
+      armed++;
+    ref += clause_words(c->size);
+  }
+  assert(armed > 0 && "the next round must still see the tail");
+
+  // and the resumed round finishes the job
   k.midround_budget = false;
   k.work_budget = 0;
-  // the full round now sees everything the cut one did not, and advances
-  subsume_forward_apply(k);
-  assert(k.subsume_touch_mark >= epoch);
-  assert(k.stats.forward_mark_advances == 1);
+  assert(subsume_forward_apply(k) == ApplyResult::Ok);
+  assert(k.subsume_complete);
 }
 
 // SCHED-F1 · the substrate's producers. Every mutation that can create a new
@@ -381,7 +397,7 @@ int main() {
   test_registry_instance_surface();
   test_enumeration_purity();
   test_touch_filter_is_policy_only();
-  test_touch_filter_cut_round_does_not_advance();
+  test_touch_resume_rearms_the_tail();
   test_touch_producers();
   test_proof_deltas();
   test_binary_subsumer_then_substitute();
