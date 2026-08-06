@@ -186,11 +186,13 @@ struct Stats {
   // that claims to have exercised it.
   uint64_t budget_stops_c1 = 0; // SubsumeForward rounds stopped mid-round
   uint64_t budget_stops_c2 = 0; // Strengthen rounds stopped mid-round
-  // Rounds cut short by the §6 interrupt. Same REACHABILITY-WITNESS role as
-  // the budget pair above, and per-rule because `rule_interrupted` is shared
-  // with Congruence and so cannot attribute a fire to C1 or C2.
-  uint64_t interrupts_c1 = 0;
-  uint64_t interrupts_c2 = 0;
+  // SCHED-H1 · per-rule interrupt attribution for the C1/C2 share, the
+  // `bce_interrupted` family's counterpart. Bumped only inside
+  // `kernel_rule_interrupt`, never at a call site. NOT the same axis as the
+  // budget pair above: `work_budget` is 0 whenever the policy leaves a round
+  // unmetered, so `budget_aware` never implied interruptible.
+  uint64_t subsume_interrupted = 0;
+  uint64_t strengthen_interrupted = 0;
   // SCHED-G2 · the shadow ledger (diagnostic; see Kernel::subsume_shadow).
   // `observed` = distinct clauses SubsumeForward would have deleted but did
   // not; the two `absorbed` counters are how many of those Strengthen removed

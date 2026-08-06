@@ -187,18 +187,18 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   const uint64_t check_start = k.stats.forward_visits;
   size_t stopped_at = candidates.size(); // index of the first UNREACHED one
   // SCHED-H1 · §6 termination polling. The candidate loop is this rule's only
-  // unbounded one, and it is the exact place the budget already cuts, so the
-  // interrupt reuses that cut: `stopped_at` is set, the SCHED-F2 tail re-arm
-  // below runs, the watermark advances and `subsume_complete` goes false — an
-  // interrupted round is bookkept as an incomplete round, not as a special
-  // case, so F/R/τ/ρ and the proof stream cannot drift apart on this path.
+  // unbounded one, and it is where the budget already cuts, so the interrupt
+  // reuses that cut: `stopped_at` is set, `subsume_complete` goes false, and
+  // the bookkeeping below runs — an interrupted round is bookkept as an
+  // INCOMPLETE round, not as a special case, so F/R/τ/ρ and the proof stream
+  // cannot drift apart here. Nothing is half-mutated at the top of the
+  // iteration: `marks` is all-zero and no clause is part-rewritten.
   //
-  // The 256-candidate cadence is amortization only. `k.stop_fuzz ||` MUST come
-  // first: under the stress knob the site has to be reachable on the very first
-  // candidate, or every round shorter than one poll window (which is every
-  // round the fuzz harness generates) would leave the abort path untested while
-  // reporting green. Task #10's abort paths passed 4 x 10,000 cases that way.
-  uint64_t stop_tick = 0;
+  // NO CADENCE. One poll per candidate, and a candidate is up to
+  // CLSLIM x OCCLIM partner visits, so the poll is free at this granularity —
+  // whereas a `!(++tick & 255)` mask makes every round shorter than one window
+  // unreachable, which is how task #10's abort paths passed 4 x 10,000 fuzz
+  // cases while inert. The X1/X2/X4 share closed the same hazard the same way.
   bool interrupted = false;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     const Ref ref = candidates[ci];
@@ -208,9 +208,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
       stopped_at = ci;
       break;
     }
-    if ((k.stop_fuzz || !(++stop_tick & 255)) && kernel_terminating(k)) {
-      k.stats.rule_interrupted++;
-      k.stats.interrupts_c1++;
+    if (kernel_rule_interrupt(k, k.stats.subsume_interrupted)) {
       stopped_at = ci;
       interrupted = true;
       break;
@@ -346,6 +344,13 @@ ApplyResult subsume_forward_apply(Kernel &k) {
 // a deletable one would be unsound once Reduce removes the subsumer).
 ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   assert(subsume_forward_guard(k));
+  // SCHED-H1 · the round's `work_budget` is not consulted on this path at all,
+  // so before H1 an N1 policy driving `apply_instance` per candidate could not
+  // be stopped by EITHER governor. One check per call, at entry, where nothing
+  // is marked: the scan below is bounded but at CLSLIM x OCCLIM it is the same
+  // order of work as one round candidate.
+  if (kernel_rule_interrupt(k, k.stats.subsume_interrupted))
+    return ApplyResult::NoOp;
   Clause *c = clause_at(k.arena, candidate);
   if (!is_candidate(k, c))
     return ApplyResult::NoOp;
