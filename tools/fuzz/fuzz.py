@@ -215,6 +215,16 @@ def input_restated(stdout):
 # `spec_miss` counts rows whose LINE never appeared in a case that printed
 # stats at all, and a leg with any spec miss FAILS — an instrument that cannot
 # fail is worth nothing.
+#
+# ▶ NOT the `rounds` counter for a DOSED rule. `<rule>_rounds` is incremented by
+# the CANONICAL apply only, and DefaultPolicy drives every `EFFORT_SPECS` entry
+# with `dosed=true` (BVE, Probe, Backbone, TransitiveReduce, HyperBinaryRes)
+# one instance at a time — so their rounds counter stays 0 on a run where the
+# rule did all its work. Measured 2026-08-06: `9vliw_bp_mc` prints `c bve 0
+# rounds, 11008 eliminated`. Reading `rounds` there is an instrument that CANNOT
+# report reachability, which is worse than no row. Each of those five reads its
+# work counter (resolutions / probed / checked / probes) instead — non-zero iff
+# the apply body ran, which is the property this table is for.
 REACH_SPECS = [
     ("Propagate", r"^c propagations\s+(\d+)"),
     ("Decide", r"^c decisions\s+(\d+)"),
@@ -223,9 +233,13 @@ REACH_SPECS = [
     ("Reduce", r"^c reductions\s+(\d+)"),
     ("Lucky", r"^c lucky\s+(\d+) probes"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
-    ("Probe", r"^c probe\s+(\d+) rounds,"),
-    ("Backbone", r"^c backbone\s+(\d+) rounds,"),
-    ("TransitiveReduce", r"^c transitive\s+(\d+) rounds,"),
+    ("Probe", r"^c probe\s+\d+ rounds, (\d+) probed,"),
+    ("Backbone", r"^c backbone\s+\d+ rounds, (\d+) probed,"),
+    ("TransitiveReduce", r"^c transitive\s+\d+ rounds, (\d+) checked,"),
+    # X6, registered by Track R · R9 and missing a row until 2026-08-06 — the
+    # table is one row per REGISTRY ENTRY, so an absent row is a rule the leg
+    # can never say anything about and `--require-reached` can never demand.
+    ("HyperBinaryRes", r"^c hbr\s+\d+ rounds, (\d+) probes,"),
     ("Substitute", r"^c substitute\s+(\d+) rounds,"),
     ("BCE", r"^c bce\s+(\d+) rounds,"),
     ("CCE", r"^c cce\s+(\d+) rounds,"),
@@ -234,7 +248,7 @@ REACH_SPECS = [
     ("HyperTernaryRes", r"^c ternary\s+(\d+) rounds,"),
     ("Congruence", r"^c congruence\s+(\d+) rounds,"),
     ("Factor", r"^c factor\s+(\d+) factorings,"),
-    ("BVE", r"^c bve\s+(\d+) rounds,"),
+    ("BVE", r"^c bve\s+\d+ rounds, \d+ eliminated, (\d+) resolutions"),
     ("SubsumeForward", r"^c subsume\s+(\d+) rounds \("),
     ("Strengthen", r"^c strengthen\s+(\d+) rounds \("),
     ("Walk", r"^c walk\s+(\d+) walks"),

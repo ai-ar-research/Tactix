@@ -379,24 +379,36 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   units un-propagated (M1 owns the cascade). An empty resolvent or two contradictory collapsed units →
   `Unsat`. One variable per apply (canonical = the best schedulable candidate within budget);
   over-budget or a duplicate-binary hazard → `NoOp` (no state mutated).
-- **Gate reduction:** the resolvent set above is the *full* cross product; when `x`'s clauses contain a
-  syntactic functional gate `x ↔ φ`, only *gate×antecedent* resolvents are generated. Four gate shapes
-  are recognized, all **complete** (their gate clauses alone entail `x ↔ φ`, and every *gate×gate*
-  resolvent is a tautology, so those are skipped too):
+- **Gate reduction:** the resolvent set above is the *full* cross product; when a subset of `x`'s clauses
+  is a **gate** — writing them `(x∨Cᵢ)` for `i∈P`, `(¬x∨Dⱼ)` for `j∈N`, with marked subsets `G⁺⊆P`,
+  `G⁻⊆N` — the *antecedent×antecedent* resolvents are dropped. Marking is legal exactly when
+
+  > **(★)** `⋀_{i∈G⁺} Cᵢ ∧ ⋀_{j∈G⁻} Dⱼ` is **unsatisfiable**,
+
+  which is the same thing as `G⁺∪G⁻ ⊨ x ↔ φ` for `φ = ⋀_{j∈G⁻} Dⱼ`. *Proof:* take `M ⊨ F′` and suppose
+  neither value of `x` satisfies every pivot clause, i.e. `M ⊭ C_{i₀}` and `M ⊭ D_{j₀}` for some
+  `i₀∈P`, `j₀∈N`. By (★) `M` also falsifies some gate remainder — say `C_{i₁}`, `i₁∈G⁺` (the `G⁻` case is
+  symmetric) — and `C_{i₁}∨D_{j₀}` is a resolvent we *did* generate, both halves falsified: contradiction.
+  So some value of `x` satisfies all removed clauses, which is both the equisatisfiability of the
+  Davis–Putnam step and why reconstruction is *unaffected* (witness still every removed live clause).
+  The argument needs **every pair with at least one gate clause**, `gate×gate` included.
+  Five gate kinds are recognized:
   equivalence `x↔y` (two binaries) · AND/OR `x↔OR/AND(a₁…aₖ)` (a base clause plus its input binaries) ·
   **ITE** `x↔(c ? t : e)` (four ternaries — the two pivot-side ones clash exactly on the condition) ·
-  **XOR** `x↔a₁⊕…⊕aₘ` (all `2ᵐ` parity clauses, `2ᵐ⁻¹` per side; two opposite-pivot parity clauses must
-  disagree on some input, hence the tautology).
-  The skipped *antecedent×antecedent* resolvents are entailed by `φ` (Eén–Biere): with `¬φ ≡ ⋀αᵢ` and
-  `φ ≡ ⋀βⱼ`, a model of `F′` falsifying both `C\{x}` and `D\{¬x}` for antecedents `C,D` would falsify
-  either some `αᵢ ∪ D\{¬x}` (if `φ` holds) or some `C\{x} ∪ βⱼ` (if it does not) — and both of those ARE
-  in `F′`, being gate×antecedent. `F′` unchanged up to entailment, precondition/effect identical, fewer
-  variables exceed the budget, reconstruction *unaffected* (witness still every removed live clause; the
-  same argument shows the two sides can never both demand the pivot). A *false* gate would drop needed
-  resolvents (unsound), so detection is exact — a structural match on the *live* clauses only, never on
-  a shortened/subsuming stand-in — and fuzz-gated. Recognized gate types are configurable
-  (`Kernel::bve_gate_mask`): a pure performance knob — every setting is sound (a disabled type restores
-  the full cross product), none touches the guard or the abstract effect.
+  **XOR** `x↔a₁⊕…⊕aₘ` (all `2ᵐ` parity clauses, `2ᵐ⁻¹` per side) ·
+  **DEFINITION** — no shape at all: the reduced lists `{Cᵢ}∪{Dⱼ}` are handed to the embedded sub-solver
+  (`src/engine/subsolver.hpp`) and its **core** is the gate, so (★) holds by construction (kissat
+  `definition.c`, which asks kitten the same question). The four *syntactic* kinds are exact CNFs of
+  `x↔φ`, so eliminating `x` from them yields `⊤` and every `gate×gate` resolvent is a **tautology** —
+  dropped as such, not as an exception. A definition's core may be strictly stronger than `x↔φ`, so its
+  `gate×gate` resolvents are real and ARE generated (`resolve_gate`; kissat sets the same flag).
+  A *false* gate would drop needed resolvents (unsound), so detection establishes (★) exactly — a
+  structural match on the *live* clauses only, never on a shortened/subsuming stand-in — and is
+  fuzz-gated. `F′` is unchanged up to entailment, precondition/effect identical, fewer variables exceed
+  the budget. Recognized kinds are configurable (`Kernel::bve_gate_mask`): a pure performance knob —
+  every setting is sound (a disabled kind restores the full cross product), none touches the guard or
+  the abstract effect. **Nothing from the sub-solver enters the proof**: the core only selects which
+  resolvents are generated, and each of those is still a resolution of two clauses of `F`.
 - **Proof δ:** **RUP-only — no `add_rat`.** Each resolvent `R = (C∨D)` is RUP from its two parents:
   `add_rup(R, [C.id, D.id (+ stripped-root-false unit ids)])` (assume `¬R` → `C∨x` forces `x` → `D∨¬x`
   conflicts — a fixed 2-parent list, no reason-walk). Then `del` every `x`-clause; `kernel_push_witness`

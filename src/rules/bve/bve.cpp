@@ -7,6 +7,7 @@
 // the fuzzed template. See docs/e1-bve-design.md.
 #include "rules/bve/bve.hpp"
 
+#include "engine/subsolver.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -125,25 +126,59 @@ struct MClause {
   Lit ba = INVALID_LIT, bb = INVALID_LIT;
 };
 
-// ---- syntactic gate detection (E1c: equivalence + AND/OR; SP-BVE-GATE-1: ITE
-// + XOR) ----
+// Reusable state for R10's definition extraction, owned by the CALLER of
+// `bve_eliminate` (a round creates one and every candidate in that round reuses
+// it). Not a per-call local: `SubSolver::reset` recycles its allocations, and
+// the pivot→sub-variable map is built by sort+unique over the pivot's own
+// literals rather than an O(nvars) scratch array — a per-attempt linear
+// fill-init in a per-variable loop is the profile hazard this project has hit
+// four times. A null pointer means "definition extraction unavailable here".
+struct BveDefScratch {
+  SubSolver solver;
+  std::vector<Var> vars;    // sorted distinct non-pivot vars = the sub var space
+  std::vector<SubLit> lits; // one reduced clause, being encoded
+  SubDerivation deriv;
+  uint64_t ticks = 0;    // ticks the last attempt spent (0 if none was made)
+  bool checked = false;  // an attempt was made at all
+  bool exhausted = false; // ...and the tick ceiling cut it short
+};
+
+// ---- gate detection (E1c: equivalence + AND/OR; SP-BVE-GATE-1: ITE + XOR;
+// R10: general definitions) ----
 // Detect a functional gate defining x from its clauses; on success mark the gate
-// clauses in pos_gate/neg_gate (1 = gate, 0 = antecedent) and return true. For a
-// genuine functional gate x↔φ, BVE may resolve only gate×antecedent pairs: the
-// skipped antecedent×antecedent resolvents are entailed by the gate (Eén–Biere
-// "Effective preprocessing"), so both the elimination AND the E1b witness push
-// (all live clauses, with the pivot blocking) stay sound — the reconstruction
-// finds x=φ, which satisfies every antecedent because its gate×antecedent
-// resolvent is in F'. A *false* gate would be unsound, so detection is exact and
-// fuzz-gated. `resolve_gate` stays false for EVERY type here: all four are
-// COMPLETE gates whose gate×gate resolvents are tautological — equivalence and
-// AND/OR clash on the input literal; ITE on the condition or on a branch; and
-// two parity clauses with opposite pivot signs carry opposite input-sign
-// parities, so they must disagree on at least one input.
-// ITE and XOR are matched EXACTLY — kissat's shortened-clause path
-// (`ifthenelse.c match_ternary_ref`, which accepts a subsuming clause and then
-// sets `resolve_gate`) is deliberately not ported, so a detected gate never
-// needs the gate×gate pairs back.
+// clauses in pos_gate/neg_gate (1 = gate, 0 = antecedent) and return true.
+//
+// THE ONE SOUNDNESS OBLIGATION, stated once for all five types. Write the pivot
+// clauses as (x∨Cᵢ) for i ∈ P and (¬x∨Dⱼ) for j ∈ N, and let G⁺ ⊆ P, G⁻ ⊆ N be
+// the marked gate clauses. Marking is legal exactly when
+//
+//     ⋀_{i∈G⁺} Cᵢ  ∧  ⋀_{j∈G⁻} Dⱼ   is UNSATISFIABLE,                    (★)
+//
+// and it then licenses dropping the antecedent×antecedent resolvents. Proof:
+// take M ⊨ F′ and suppose neither value of x satisfies every pivot clause, i.e.
+// M ⊭ C_{i₀} for some i₀ ∈ P and M ⊭ D_{j₀} for some j₀ ∈ N. By (★) M also
+// falsifies some gate clause remainder — say C_{i₁}, i₁ ∈ G⁺ (the G⁻ case is
+// symmetric). Then C_{i₁} ∨ D_{j₀} is a resolvent we DID generate, and M
+// falsifies both halves: contradiction. So some value of x satisfies all of
+// them — which is both the equisatisfiability of the Davis–Putnam step and the
+// reason the E1b witness push (all live clauses, pivot blocking) reconstructs.
+// A *false* gate would drop needed resolvents (unsound), so every detector here
+// establishes (★) exactly, and the whole surface is fuzz-gated.
+//
+// Note which resolvents that argument needs: every pair with AT LEAST ONE gate
+// clause, including gate×gate (i₁ ∈ G⁺ and j₀ ∈ G⁻ is a live case). That is
+// what `resolve_gate` selects.
+//   - the four SYNTACTIC types leave `resolve_gate` FALSE, and may: their gate
+//     clauses are exactly a CNF of x↔φ, so every gate×gate resolvent is a
+//     tautology — equivalence and AND/OR clash on the input literal; ITE on the
+//     condition or on a branch; two parity clauses with opposite pivot signs
+//     carry opposite input-sign parities and so disagree on some input. They
+//     are dropped as tautologies, not as an exception to the argument.
+//     ITE and XOR are matched EXACTLY — kissat's shortened-clause path
+//     (`ifthenelse.c match_ternary_ref`, which accepts a subsuming clause and
+//     then sets `resolve_gate`) is deliberately not ported.
+//   - the DEFINITION type SETS `resolve_gate`, because (★) is all its core
+//     gives: C_{i} ∨ D_{j} for two core clauses need not be tautological.
 
 // Sorted signature of a clause's NON-PIVOT active literals, for the exact
 // clause lookups ITE and XOR need. Only clauses with 2..BVE_XOR_ARITY_LIMIT
@@ -226,13 +261,94 @@ inline GateSig bve_sig2(Lit a, Lit b) {
   return s;
 }
 
+// (5) GENERAL DEFINITION x ↔ φ — the one type that is not a shape match.
+// Hand the pivot's own occurrence lists, REDUCED (each clause minus the pivot
+// literal), to the sub-solver. A refutation of that clause set is precisely
+// condition (★) above for G⁺ = P, G⁻ = N; the sub-solver's CORE names the
+// sub-multiset of it that the refutation actually used, so (★) holds for the
+// core alone and the core is the gate. Transliterated from kissat
+// `definition.c` (`kissat_find_definition`), which asks kitten the same
+// question; the engine is ours (src/engine/subsolver.hpp).
+//
+// NOTHING FROM THE SUB-SOLVER ENTERS THE PROOF. The core only chooses which
+// resolvents to generate; every generated resolvent is still a resolution of
+// two clauses of F on the pivot, hence RUP from its two parents with the same
+// two-id chain E1b already emits. The delta stays RUP-only.
+//
+// Not ported from kissat: (a) `definitioncores` > 1, which re-solves a
+// shrunken-and-SHUFFLED formula to find a smaller core — our sub-solver has a
+// fixed decision order and no shuffle, so a second solve would reproduce the
+// first core exactly; (b) the one-sided-core FAILED LITERAL (an empty G⁺ or G⁻
+// means the other side alone is refuted, so the pivot is forced). That unit is
+// entailed but not RUP, so it needs the sub-solver's derivation mapped to
+// main-formula ids — V2 Backbone's proof delta, arrived at from another rule's
+// round. The gate itself is still extracted and used in both cases; only the
+// free unit is left on the table.
+uint32_t bve_find_definition(const Kernel &k, Lit px,
+                             const std::vector<MClause> &pos,
+                             const std::vector<MClause> &neg,
+                             std::vector<uint8_t> &pos_gate,
+                             std::vector<uint8_t> &neg_gate,
+                             BveDefScratch &s) {
+  // One-sided pivots have an empty cross product already; there is nothing for
+  // a gate to reduce, and (★) would be asking to refute one side alone.
+  if (pos.empty() || neg.empty())
+    return 0;
+  const Var pv = var_of(px);
+  s.vars.clear();
+  for (const std::vector<MClause> *side : {&pos, &neg})
+    for (const MClause &m : *side)
+      for (const Lit l : m.active)
+        if (var_of(l) != pv)
+          s.vars.push_back(var_of(l));
+  std::sort(s.vars.begin(), s.vars.end());
+  s.vars.erase(std::unique(s.vars.begin(), s.vars.end()), s.vars.end());
+  if (s.vars.empty())
+    return 0; // every clause reduces to the empty clause: not a real pivot
+  const auto sub_of = [&s](Lit l) {
+    const auto it = std::lower_bound(s.vars.begin(), s.vars.end(), var_of(l));
+    return sub_lit(static_cast<SubVar>(it - s.vars.begin()), negated(l));
+  };
+
+  s.checked = true;
+  s.solver.reset(static_cast<uint32_t>(s.vars.size()));
+  // ids are handed out from 1 in add order, so id ∈ [1, |pos|] names pos[id-1]
+  // and the rest name neg[id-|pos|-1]. `add_clause` consumes an id even for a
+  // clause it drops (a tautology), which is exactly why that mapping holds.
+  for (const std::vector<MClause> *side : {&pos, &neg}) {
+    for (const MClause &m : *side) {
+      s.lits.clear();
+      for (const Lit l : m.active)
+        if (var_of(l) != pv)
+          s.lits.push_back(sub_of(l));
+      s.solver.add_clause(s.lits);
+    }
+  }
+  const SubResult res = s.solver.solve({}, k.bve_definition_budget);
+  s.ticks = s.solver.ticks();
+  s.exhausted = res == SubResult::Budget;
+  if (res != SubResult::Unsat || !s.solver.derivation(s.deriv) ||
+      s.deriv.core.empty())
+    return 0;
+  const uint32_t np = static_cast<uint32_t>(pos.size());
+  for (const uint32_t id : s.deriv.core) {
+    if (id <= np)
+      pos_gate[id - 1] = 1;
+    else
+      neg_gate[id - np - 1] = 1;
+  }
+  return BVE_GATE_DEFINITION;
+}
+
 // Returns the BVE_GATE_* bit of the type found, or 0 for "no gate" (the caller
-// owns the counters — `k` is const here by design: detection is READ-ONLY).
+// owns the counters — `k` is const here by design: detection is READ-ONLY, and
+// the definition attempt reports its cost back through `def` instead).
 uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
                          const std::vector<MClause> &pos,
                          const std::vector<MClause> &neg,
                          std::vector<uint8_t> &pos_gate,
-                         std::vector<uint8_t> &neg_gate, bool &resolve_gate) {
+                         std::vector<uint8_t> &neg_gate, bool &resolve_gate,
+                         BveDefScratch *def) {
   resolve_gate = false;
   // binary partner lookup: side_bin[lit] = index of a binary {pivot, lit}, or -1.
   std::vector<int> pos_bin(2 * k.nvars, -1), neg_bin(2 * k.nvars, -1);
@@ -294,8 +410,20 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
       return BVE_GATE_AND_OR;
   }
 
+  // the general definition is the LAST resort (kissat gates.c's own order): it
+  // costs a sub-solve, where every shape above costs a scan.
+  const auto definition = [&]() -> uint32_t {
+    if (!def || !(k.bve_gate_mask & BVE_GATE_DEFINITION))
+      return 0;
+    const uint32_t kind =
+        bve_find_definition(k, px, pos, neg, pos_gate, neg_gate, *def);
+    // the ONLY place `resolve_gate` is set; see the argument above
+    resolve_gate = kind != 0;
+    return kind;
+  };
+
   if (!(k.bve_gate_mask & (BVE_GATE_ITE | BVE_GATE_XOR)))
-    return 0;
+    return definition();
   // exact-match index over both sides, built once and shared by ITE and XOR
   // (kissat/cadical reach the same clauses through the shared occurrence
   // lists; ours are the already-materialized pos/neg MClause vectors, so the
@@ -422,7 +550,7 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   };
   if ((k.bve_gate_mask & BVE_GATE_XOR) && try_xor())
     return BVE_GATE_XOR;
-  return 0;
+  return definition();
 }
 
 // Eliminate variable x by resolution. When a syntactic gate defines x, only
@@ -432,7 +560,7 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
 // return (bound exceeded / duplicate-binary hazard) leaves the kernel untouched
 // and the caller may try another candidate. Returns Unsat on an empty resolvent
 // or contradictory collapsed units.
-ApplyResult bve_eliminate(Kernel &k, Var x) {
+ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit px = make_lit(x, false), nx = make_lit(x, true);
   // ATTEMPTED: retire the retry bit before doing the work, so a variable whose
@@ -567,17 +695,25 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
   std::vector<uint8_t> pos_gate(pos.size(), 0), neg_gate(neg.size(), 0);
   bool resolve_gate = false;
-  const uint32_t gate_kind =
-      bve_detect_gate(k, px, nx, pos, neg, pos_gate, neg_gate, resolve_gate);
+  if (def)
+    def->checked = def->exhausted = false, def->ticks = 0;
+  const uint32_t gate_kind = bve_detect_gate(k, px, nx, pos, neg, pos_gate,
+                                             neg_gate, resolve_gate, def);
   const bool gate = gate_kind != 0;
-  // The completeness argument above is load-bearing, not descriptive: every
-  // shape we match is a COMPLETE gate, so skipping the gate x gate pairs is
-  // sound only while `resolve_gate` stays false. Porting an inexact matcher
-  // (kissat's shortened-clause path) would have to set it, and that must be a
-  // deliberate edit rather than a silent one — so pin the invariant here.
-  assert(!resolve_gate &&
-         "a detected gate asked for its gate x gate resolvents back: detection "
-         "is no longer exact, so the completeness argument must be re-made");
+  if (def && def->checked) {
+    k.stats.bve_definitions_checked++;
+    k.stats.bve_definition_ticks += def->ticks;
+    k.stats.bve_definition_budget += def->exhausted ? 1 : 0;
+  }
+  // The (★) argument above is load-bearing, not descriptive, and it needs EVERY
+  // pair with a gate clause in it. The four syntactic shapes are allowed to drop
+  // the gate x gate pairs only because those are tautologies; a type that
+  // cannot say that must ask for them back through `resolve_gate`. Pin which
+  // types may, so an inexact matcher (kissat's shortened-clause ITE path) has
+  // to be a deliberate edit rather than a silent one.
+  assert((!resolve_gate || gate_kind == BVE_GATE_DEFINITION) &&
+         "a syntactic gate asked for its gate x gate resolvents back: its "
+         "detection is no longer exact, so (star) must be re-argued");
   if (gate) {
     // Reachability + acceptance-lever readout (ledger SP-BVE-GATE-1): the gate
     // is what shrinks the resolvent set the growth bound is applied to, so the
@@ -593,7 +729,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x) {
     case BVE_GATE_EQUIV: k.stats.bve_gates_equiv++; break;
     case BVE_GATE_AND_OR: k.stats.bve_gates_and_or++; break;
     case BVE_GATE_ITE: k.stats.bve_gates_ite++; break;
-    default: k.stats.bve_gates_xor++; break;
+    case BVE_GATE_XOR: k.stats.bve_gates_xor++; break;
+    default: k.stats.bve_gates_definition++; break;
     }
   }
 
@@ -802,8 +939,9 @@ ApplyResult bve_apply(Kernel &k) {
     return ApplyResult::Unsat;
   std::vector<Var> cand;
   bve_schedule(k, cand);
+  BveDefScratch def; // one per ROUND: every candidate reuses its allocations
   for (const Var x : cand) {
-    const ApplyResult r = bve_eliminate(k, x);
+    const ApplyResult r = bve_eliminate(k, x, &def);
     if (r == ApplyResult::Unsat)
       return ApplyResult::Unsat;
     if (r == ApplyResult::Ok) {
@@ -845,7 +983,8 @@ static ApplyResult bve_apply_instance(Kernel &k, uint64_t inst) {
     return ApplyResult::Unsat;
   if (k.values[l] != 0) // the requested var got assigned by the drain
     return ApplyResult::NoOp;
-  return bve_eliminate(k, var_of(l));
+  BveDefScratch def;
+  return bve_eliminate(k, var_of(l), &def);
 }
 
 TACTIX_REGISTER_RULE(BVE, RuleTier::Inprocess, bve_guard, bve_apply,

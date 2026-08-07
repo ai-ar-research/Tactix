@@ -5,8 +5,10 @@
 #include "kernel/kernel.hpp"
 #include "rules/bve/bve.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <vector>
 
 using namespace tactix;
 
@@ -265,9 +267,12 @@ static void test_gate_ite_fires() {
   };
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   const uint64_t x = lit_instance(internalize(1));
-  { // ITE off (every other type on) → full cross product exceeds the bound
+  { // ITE off → full cross product exceeds the bound. R10's general definition
+    // extractor has to come off with it: the sub-solver refutes this shape's
+    // reduced occurrence lists too (that is the point of it), so leaving it on
+    // would make the arm a NoOp-that-never-was.
     Kernel k;
-    k.bve_gate_mask = ~BVE_GATE_ITE;
+    k.bve_gate_mask = ~(BVE_GATE_ITE | BVE_GATE_DEFINITION);
     build(k);
     assert(vt.apply_instance(k, x) == ApplyResult::NoOp);
     assert(k.stats.bve_gates_ite == 0);
@@ -305,9 +310,10 @@ static void test_gate_xor_fires() {
   };
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   const uint64_t x = lit_instance(internalize(1));
-  { // XOR off (ITE and the rest on) → declined
+  { // XOR off (ITE and the rest on, R10's definition extractor off for the same
+    // reason as the ITE arm) → declined
     Kernel k;
-    k.bve_gate_mask = ~BVE_GATE_XOR;
+    k.bve_gate_mask = ~(BVE_GATE_XOR | BVE_GATE_DEFINITION);
     build(k);
     assert(vt.apply_instance(k, x) == ApplyResult::NoOp);
     assert(k.stats.bve_gates_ite == 0 && "ITE must decline an XOR shape");
@@ -334,6 +340,229 @@ static void test_gate_xor_fires() {
     kernel_extend_model(k);
     assert(k.values[internalize(1)] > 0 && "x reconstructed to a⊕b = true");
   }
+}
+
+// a LIVE large clause whose literal set is exactly `want` (order-insensitive)
+static bool has_large(const Kernel &k, std::vector<int> want) {
+  std::sort(want.begin(), want.end());
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) {
+      std::vector<int> got;
+      for (const Lit l : *c)
+        got.push_back(externalize(l));
+      std::sort(got.begin(), got.end());
+      if (got == want)
+        return true;
+    }
+    ref += clause_words(c->size);
+  }
+  return false;
+}
+
+// R10 · a GENERAL definition, i.e. one no syntactic matcher sees. The pivot x:
+//   gate⁺ (x∨a) (x∨b)      gate⁻ (¬x∨¬a∨c) (¬x∨¬b∨¬c)
+// reduces to {a, b, ¬a∨c, ¬b∨¬c}, which is UNSAT — condition (★) — so those
+// four clauses are a definition of x. Every syntactic detector declines it:
+// EQUIV needs a binary on BOTH sides, AND/OR needs the base clause's inputs as
+// binaries on the other side (¬c has none), and ITE/XOR need ternaries on the
+// POSITIVE side, which has only binaries.
+//
+// It is also the shape whose gate×gate resolvents are NOT tautologies —
+// (x∨a)⊗(¬x∨¬b∨¬c) = (a∨¬b∨¬c) — which is exactly why the definition type sets
+// `resolve_gate`. That resolvent's presence is asserted below; without it the
+// elimination would be unsound, and no other gate type in this file can test
+// the code path that emits it.
+//
+// Four antecedent binaries per side put the full cross product (36 pairs, 34
+// non-tautological) past base+bound = 12+16 = 28, so E1 declines with the
+// definition type masked off; the gate charges 20 pairs (18 resolvents) and it
+// fires.
+static void test_gate_definition_fires() {
+  auto build = [](Kernel &k) {
+    kernel_reserve_vars(k, 12); // x=1, a=2, b=3, c=4, ant p=5..8, q=9..12
+    kernel_add_binary_clause(k, internalize(1), internalize(2)); // (x∨a)
+    kernel_add_binary_clause(k, internalize(1), internalize(3)); // (x∨b)
+    const int g1[3] = {-1, -2, 4}, g2[3] = {-1, -3, -4};
+    for (const int *g : {g1, g2}) {
+      Lit ls[3] = {internalize(g[0]), internalize(g[1]), internalize(g[2])};
+      kernel_add_large_clause(k, ls, 3, false, 0);
+    }
+    for (int p = 5; p <= 8; p++)
+      kernel_add_binary_clause(k, internalize(1), internalize(p));
+    for (int q = 9; q <= 12; q++)
+      kernel_add_binary_clause(k, internalize(-1), internalize(q));
+  };
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  const uint64_t x = lit_instance(internalize(1));
+  { // every SYNTACTIC type on, definitions off → nothing matches, bound refuses
+    Kernel k;
+    k.bve_gate_mask = ~BVE_GATE_DEFINITION;
+    build(k);
+    assert(vt.apply_instance(k, x) == ApplyResult::NoOp);
+    assert(k.stats.bve_gates_equiv == 0 && k.stats.bve_gates_and_or == 0 &&
+           k.stats.bve_gates_ite == 0 && k.stats.bve_gates_xor == 0 &&
+           "no syntactic matcher may claim this shape");
+    assert(k.stats.bve_definitions_checked == 0); // the mask really gates it
+  }
+  { // definitions on (and NOTHING else) → the sub-solver extracts the gate
+    Kernel k;
+    k.bve_gate_mask = BVE_GATE_DEFINITION;
+    build(k);
+    assert(vt.apply_instance(k, x) == ApplyResult::Ok);
+    assert(k.stats.bve_definitions_checked == 1);
+    assert(k.stats.bve_gates_definition == 1);
+    assert(k.stats.bve_definition_budget == 0); // the tick ceiling did not bind
+    // 36 pairs, 16 of them antecedent×antecedent and skipped
+    assert(k.stats.bve_gate_pairs_saved == 16);
+    assert(!has_binary(k, internalize(1), internalize(5))); // x eliminated
+    assert(has_binary(k, internalize(2), internalize(9)));  // gate×ant (a∨q₁)
+    assert(!has_binary(k, internalize(5), internalize(9))); // ant×ant skipped
+    // the resolve_gate witness: a gate×gate resolvent that is NOT a tautology
+    assert(has_large(k, {2, -3, -4}) && "gate x gate resolvent (a∨¬b∨¬c)");
+  }
+}
+
+// R10 · MODEL RECONSTRUCTION through a definition-derived elimination, the
+// obligation E1's witness push carries (rule-dev DoD #4). Same exhaustive shape
+// as test_cce's: random formulas seeded with definitional gadgets, BVE run with
+// ONLY the definition type enabled so every gate came from the sub-solver, then
+// EVERY model of the surviving formula extended through ρ and checked against
+// the ORIGINAL clauses. The interesting models are the ones that genuinely
+// needed repairing; `repaired` counts them, so a green run over zero of them
+// cannot pass for evidence.
+static void test_definition_reconstruction_exhaustive() {
+  const uint32_t nvars = 8;
+  uint64_t rng = 0x243f6a8885a308d3ull;
+  const auto next = [&rng]() {
+    rng ^= rng << 13;
+    rng ^= rng >> 7;
+    rng ^= rng << 17;
+    return rng;
+  };
+  uint64_t gates = 0, eliminated = 0, models = 0, repaired = 0, trials = 0;
+  for (int trial = 0; trial < 400; trial++) {
+    std::vector<std::vector<int>> f;
+    // a definitional gadget on a random pivot, in the shape above: the reduced
+    // lists {a, b, ¬a∨c, ¬b∨¬c} are UNSAT, so x has a definition whenever the
+    // four clauses survive. Random clauses around it supply the antecedents.
+    std::vector<int> v(nvars);
+    for (uint32_t i = 0; i < nvars; i++)
+      v[i] = (int)i + 1;
+    for (uint32_t i = nvars; i > 1; i--)
+      std::swap(v[i - 1], v[next() % i]);
+    const int x = v[0], a = v[1], b = v[2], c = v[3];
+    f.push_back({x, a});
+    f.push_back({x, b});
+    f.push_back({-x, -a, c});
+    f.push_back({-x, -b, -c});
+    const int nclauses = 4 + (int)(next() % 10);
+    for (int i = 0; i < nclauses; i++) {
+      std::vector<int> cl;
+      const size_t want = 2 + (size_t)(next() % 2);
+      while (cl.size() < want) {
+        const int w = 1 + (int)(next() % nvars);
+        bool dup = false;
+        for (const int e : cl)
+          dup |= (e == w || e == -w);
+        if (!dup)
+          cl.push_back((next() & 1) ? w : -w);
+      }
+      f.push_back(cl);
+    }
+    Kernel k;
+    k.bve_gate_mask = BVE_GATE_DEFINITION; // every gate comes from the sub-solver
+    kernel_reserve_vars(k, nvars);
+    for (const auto &cl : f) {
+      std::vector<Lit> ls;
+      for (const int e : cl)
+        ls.push_back(internalize(e));
+      if (ls.size() == 2)
+        kernel_add_binary_clause(k, ls[0], ls[1]);
+      else
+        kernel_add_large_clause(k, ls.data(), (uint32_t)ls.size(), false, 0);
+    }
+    if (k.inconsistent)
+      continue;
+    const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+    const uint64_t before = k.stats.bve_gates_definition;
+    for (uint32_t w = 0; w < nvars; w++)
+      if (vt.apply_instance(k, lit_instance(internalize((int)w + 1))) ==
+          ApplyResult::Unsat)
+        break;
+    if (k.inconsistent)
+      continue;
+    gates += k.stats.bve_gates_definition - before;
+    eliminated += k.stats.bve_eliminated;
+    if (!k.stats.bve_eliminated)
+      continue;
+    trials++;
+
+    // what survives: root units, live binaries, live large clauses
+    std::vector<std::vector<int>> surviving;
+    for (uint32_t i = 0; i < k.trail.size(); i++)
+      surviving.push_back({externalize(k.trail[i])});
+    for (Lit l = 0; l < 2 * k.nvars; l++)
+      for (const WatchEntry ws : k.watches.entries(l))
+        if (ws.binary() && ws.other() > l)
+          surviving.push_back({externalize(l), externalize(ws.other())});
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *cl = clause_at(k.arena, ref);
+      if (!cl->garbage()) {
+        std::vector<int> lits;
+        for (const Lit l : *cl)
+          lits.push_back(externalize(l));
+        surviving.push_back(lits);
+      }
+      ref += clause_words(cl->size);
+    }
+
+    const auto sat = [&k](const std::vector<int> &cl) {
+      for (const int e : cl)
+        if (k.values[internalize(e)] > 0)
+          return true;
+      return false;
+    };
+    const std::vector<int8_t> saved(k.values.begin(), k.values.end());
+    for (uint32_t bits = 0; bits < (1u << nvars); bits++) {
+      for (uint32_t w = 0; w < nvars; w++) {
+        const Lit p = internalize((int)w + 1);
+        const int8_t val = (bits >> w) & 1 ? 1 : -1;
+        k.values[p] = val;
+        k.values[negate(p)] = (int8_t)-val;
+      }
+      bool ok = true;
+      for (const auto &cl : surviving)
+        ok &= sat(cl);
+      if (!ok)
+        continue;
+      models++;
+      bool needed = false;
+      for (const auto &cl : f)
+        needed |= !sat(cl);
+      repaired += needed;
+      k.model_extended = false;
+      kernel_extend_model(k);
+      for (const auto &cl : f)
+        if (!sat(cl)) {
+          std::printf("trial %d: reconstruction left a clause unsatisfied:",
+                      trial);
+          for (const int e : cl)
+            std::printf(" %d", e);
+          std::printf("\n");
+          assert(false);
+        }
+    }
+    std::copy(saved.begin(), saved.end(), k.values.begin());
+  }
+  std::printf("  definition reconstruction: %llu trials, %llu gates, "
+              "%llu eliminated, %llu models (%llu needed repair)\n",
+              (unsigned long long)trials, (unsigned long long)gates,
+              (unsigned long long)eliminated, (unsigned long long)models,
+              (unsigned long long)repaired);
+  // the leg must have gone through the path it claims to cover
+  assert(gates > 0 && "no definition was ever extracted");
+  assert(repaired > 0 && "no model ever needed rho: the check was vacuous");
 }
 
 // E1d: gate-type selection via Kernel::bve_gate_mask. The AND/OR-gate variable
@@ -452,6 +681,8 @@ int main() {
   test_gate_equivalence_substitution();
   test_gate_ite_fires();
   test_gate_xor_fires();
+  test_gate_definition_fires();
+  test_definition_reconstruction_exhaustive();
   test_gate_mask();
   test_retry_filter();
   puts("test_bve OK");

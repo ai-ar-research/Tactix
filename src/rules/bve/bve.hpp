@@ -23,8 +23,8 @@
 
 namespace tactix {
 
-// Enabled-gate bitmask for `Kernel::bve_gate_mask` (E1d): which syntactic gate
-// types `bve_detect_gate` may recognize. Every combination is SOUND — a disabled
+// Enabled-gate bitmask for `Kernel::bve_gate_mask` (E1d): which gate types
+// `bve_detect_gate` may recognize. Every combination is SOUND — a disabled
 // type only falls BVE back to the full resolvent cross product, never changes a
 // verdict — so this is a pure performance/tuning knob (and a future RL
 // action-space axis), not an N1 applicability control. Default `~0u` = all on.
@@ -33,6 +33,12 @@ enum BveGate : uint32_t {
   BVE_GATE_AND_OR = 1u << 1, // AND/OR         x ↔ OR/AND(a₁…aₖ)  (base + binaries)
   BVE_GATE_ITE = 1u << 2,    // if-then-else   x ↔ (c ? t : e)   (four ternaries)
   BVE_GATE_XOR = 1u << 3,    // parity         x ↔ a₁⊕…⊕aₘ  (all 2^m clauses)
+  // R10 · a GENERAL definition x ↔ φ, found by refuting the pivot's own reduced
+  // occurrence lists in the sub-solver instead of matching a shape (kissat
+  // definition.c). The one type that is not syntactic, and the one whose
+  // gate×gate resolvents are NOT tautologies — it sets `resolve_gate`; see the
+  // completeness argument at `bve_find_definition`.
+  BVE_GATE_DEFINITION = 1u << 4,
 };
 
 // XOR arity ceiling (cadical option `elimxorlim`, whose own default is 5): a
