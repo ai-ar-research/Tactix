@@ -81,7 +81,7 @@
 
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
-#include "rules/sweep/subsolver.hpp"
+#include "engine/subsolver.hpp"
 
 #include <vector>
 
