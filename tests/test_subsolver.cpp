@@ -19,7 +19,7 @@
 // argv[1] overrides the iteration count (default 100000, ~1 s release /
 // ~20 s debug; the pre-commit soak runs 1000000).
 #undef NDEBUG
-#include "rules/sweep/subsolver.hpp"
+#include "engine/subsolver.hpp"
 
 #include <algorithm>
 #include <cassert>

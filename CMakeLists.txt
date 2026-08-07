@@ -43,7 +43,7 @@ add_library(tactix_lib OBJECT
   src/rules/cce/cce.cpp
   src/rules/instantiate/instantiate.cpp
   src/rules/bve/bve.cpp
-  src/rules/sweep/subsolver.cpp
+  src/engine/subsolver.cpp
   src/rules/sweep/sweep.cpp
   src/policies/ops/switchmode/switchmode.cpp
   src/policies/ops/walk/walk.cpp

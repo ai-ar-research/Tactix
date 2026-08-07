@@ -1,8 +1,13 @@
-// Sweep's embedded sub-solver and its refutation derivation.
+// The embedded sub-solver and its refutation derivation.
 //
-// A minimal, self-contained CDCL used to REFUTE candidate equivalences on a
-// small extracted environment (`docs/design/v5-sweep-design.md` §3, decision
-// O11: write ~600 focused lines rather than transliterate kitten's 2877).
+// A minimal, self-contained CDCL used to REFUTE a question posed on a small
+// extracted clause set (`docs/design/v5-sweep-design.md` §3, decision O11:
+// write ~600 focused lines rather than transliterate kitten's 2877). It is an
+// ENGINE, not a rule — no guard, no instances, no apply, and it never touches
+// `Kernel` — which is why it lives outside `src/rules/` and why two rules may
+// share it: V5 Sweep refutes candidate equivalences on an environment, E1 BVE
+// refutes the reduced occurrence lists of a pivot to extract a definition
+// (kissat's `definition.c` asks kitten the same question).
 // It is deliberately NOT the kernel:
 //
 //  - it owns its arena, watches, trail and values, and never reads or writes
