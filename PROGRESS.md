@@ -435,11 +435,21 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   which accrues in *the growing reference* because the delay path `return false`s at `:151-157` **before** the
   stamp at `:158`. **We ship cadical's pair** — per-entry anchor advanced on the admitted path only, and
   `slot_entry_thresh_declines` declining without advancing it. Taking kissat's anchor while keeping `thresh`
-  would leave `Vivify` (thresh 20), `Factor` (7) and `HyperTernaryRes` (6) **deferred with nothing
-  accumulating — starved rather than amortized**, the opposite of the mechanism's purpose. Recorded as the
-  accepted deviation `D-ANCHOR-SCOPE` (`docs/implementation-notes.md` §13.3) with the pair-port as its removal
-  path and a pre-registered falsifier. *(Noted in passing: `Vivify` carries BOTH backoffs — `thresh` on the
-  entry and the ladder on its irredundant pass, `default_policy.cpp:1450-1499`.)*
+  would leave `Factor` (thresh 7) and `HyperTernaryRes` (6) **deferred with nothing
+  accumulating — starved rather than amortized**, the opposite of the mechanism's purpose. **And a SECOND,
+  independent defect:** `search_ticks` is frozen inside a phase, so today an entry that ran in outer round 0
+  reads `reference = 0` in rounds 1–2 and collapses to the `MIN_EFFORT_TICKS` floor — a group anchor stamped
+  at phase exit does not advance mid-phase, so all three rounds would take a full-size delta and **the
+  per-phase grant of every metered entry would roughly TRIPLE**. Recorded as the accepted deviation
+  `D-ANCHOR-SCOPE` (`docs/implementation-notes.md` §13.3) with the pair-port as its removal path and a
+  pre-registered falsifier.
+- [ ] **`Vivify`'s `thresh` = 20 is INERT and must be fixed or documented** (`D-VIVIFY-THRESH-INERT`).
+  `slot_entry_thresh_declines` requires `e.doses > 0`, and `e.doses++` happens only at
+  `default_policy.cpp:1353` and `:1536`; Vivify is dispatched to `run_vivify_dose`, which never touches
+  `doses`, so the gate returns on its first conjunct forever. cadical's `vivifythresh` is claimed and never
+  applied — the inert-port shape ([[ab-arm-identical-artefacts]]). Turning a dead gate on is a dose change, so
+  it needs a window, not just a patch. *(Separately: `Vivify` carries BOTH backoffs — `thresh` on the entry and
+  the ladder on its irredundant pass, `default_policy.cpp:1450-1499`.)*
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
   `BCE`, `Instantiate`, `Congruence`. Where the reference bounds the technique by *interval* instead, port the
   interval; where it ships the technique OFF, that is the datum.
