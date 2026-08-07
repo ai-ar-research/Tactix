@@ -303,6 +303,12 @@ int main(int argc, char **argv) {
     kernel.jump_reasons = true;
   if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
     kernel.conflict_reuse_no_repair = true;
+  // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
+  // `=0` reverts to the pre-parity behaviour and is the priced arm.
+  if (const char *sg = getenv("TACTIX_SHRINK_GLUE"))
+    kernel.shrink_glue_promote = sg[0] != '0';
+  if (const char *tb = getenv("TACTIX_TUMBLE"))
+    kernel.tumble = tb[0] != '0';
   Proof proof;
   if (proof_path) {
     if (!proof.open(proof_path, proof_format)) {
@@ -405,6 +411,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.eager_tried,
            (unsigned long long)kernel.stats.eager_reason_skipped,
            (unsigned)kernel.eager_subsume);
+    // Both are the reachability readouts for their arms: a zero on either means
+    // TACTIX_SHRINK_GLUE / TACTIX_TUMBLE cannot have changed anything.
+    printf("c shrinkglue  %llu promoted (clamp %s)\n",
+           (unsigned long long)kernel.stats.shrink_promoted,
+           kernel.shrink_glue_promote ? "size-1" : "size");
+    printf("c tumble      %llu vars seeded (%s)\n",
+           (unsigned long long)kernel.stats.tumble_seeded,
+           kernel.tumble ? "activation order" : "off");
     printf("c strengthen  %llu rounds, %llu strengthened, %llu subsumed, "
            "%llu flushed\n",
            (unsigned long long)kernel.stats.strengthen_rounds,

@@ -40,6 +40,12 @@ Tier D campaign**.
 **Where we stand** (`edfba14`, two pin dirs, verified identical shas, quiet partition):
 Tier B **103.75, 24/28** · Tier C **348.00, 29/30** · T3 **1.115× cadical / 1.412× kissat** on the subset.
 Both halves NOT MET. **NOTHING IN FLIGHT** (`squeue -u hwu`: only the session's own `cpu-q` shell).
+The two N4 landings below are fuzz-clean on **four legs × 10,000 cases, 0 failures**: DRAT `1588520`,
+native LRAT `1588521`, **both knobs OFF** `1588522` (so the arm is sound at either setting), and
+`--random-policy` × LRAT `1588523` — the last reaching `Factor` 612 / `BVE` 4,482 / `Reorder` 5,924, the three
+entries a DefaultPolicy leg never fires. Non-termination sits at 3.0 % on the DefaultPolicy legs, **inside the
+299–328 band of the committed baseline logs**, and 17.5 % under `--random-policy`, which is `RV-S31`(b)'s known
+population at a 5 s rather than 10 s cap.
 
 **▶ NEW, AND IT IS THE SHARPEST LEAD ON `veer_axi` WE HAVE HAD.** Stack-sampled under SIGTERM
 (`benchmarks/probes/v4hang.sh`, job `1588247`): **240 s with `c conflicts 0`** — the solve never reaches
@@ -54,10 +60,15 @@ In order: (1) ~~one counters-only probe **at HEAD** to retire `D3` and `E3`~~ **
 both arms go BACK in the block-2 table** (the whole tier, 28/28 read; `blocked` fires on 4 instances and
 `clamped` on 2, all of them long runs the earlier 8-instance sample had excluded). `F2` stays blocked on its
 structural zero, unchanged; (2) ~~name the open §13 rows this file does not list~~ **DONE** — 17 carry an open verdict, 3 are
-already discharged by an accepted deviation, so exit clause (b) is **14 rows**, all now in block 3;
-(3) land the two one-line N4 rows (`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); (4) ~~Tier D's per-track score and
-O9~~ **DONE** — `D-sc25.list` is a scoring view and O9 froze the composition (rev 89); (5) **last**,
-re-register block 2's 16 stale rows against the binary those landings leave behind.
+already discharged by an accepted deviation, so exit clause (b) was **14 rows** — **12** since this
+session closed `SP-SHRINK-GLUE-1` and `SP-DECIDE-2` by code — all in block 3;
+(3) ~~land the two one-line N4 rows~~ **DONE** — `SP-SHRINK-GLUE-1` and `SP-DECIDE-2` both closed BY CODE,
+so exit clause (b) is now **12 actionable rows, not 14**; neither was a one-liner, and `SP-DECIDE-2` is
+ported as an ORDER because kissat's renumbering needs an external↔internal map we do not have;
+(4) ~~Tier D's per-track score and
+O9~~ **DONE** — `D-sc25.list` is a scoring view and O9 froze the composition (rev 89); (5) **last, AND THE
+ONLY BLOCK-1 ITEM STILL OPEN**, re-register block 2's stale rows against the binary those landings left
+behind — the table now carries **21 live rows** (`N1`/`N2` added by this session's landings).
 
 **▶ THEN submit pricing batch 1.** The script is written and dry-run validated:
 `$CLAUDE_JOB_DIR/tmp/price-tierb.sh` (re-create from the phase-4 UNPRICED table if the job dir is gone — the
@@ -68,7 +79,7 @@ without it. Tier B first at 300 s because #solved beats PAR-2; only survivors ea
 its own pin dir. **Read the per-arm `node` field before believing anything under ~2 noise floors** — array task
 index is `arm × n_instances + instance`, so arm 0 lands systematically on one node.
 
-**▶ WHY RE-REGISTRATION CLOSES BLOCK 1 RATHER THAN OPENING IT: 16 of block 2's 19 live rows are marked
+**▶ WHY RE-REGISTRATION CLOSES BLOCK 1 RATHER THAN OPENING IT: 16 of block 2's 21 live rows are marked
 RE-REGISTER.** A pre-registration is only an experiment while the binary it was written against is still the
 baseline, and both the ledger-wrap fix and `S-g` changed what a tick BUYS — so restating a ship criterion
 against a HEAD that block 1's own landings will then move just buys the work twice. This failure has already
@@ -394,7 +405,7 @@ in §13's rows and the Log; the traps worth re-reading before touching any of it
 
 **Two kinds of work sit in this phase and they interfere.** A **landing** changes the binary; a **pricing**
 measures a binary that must not move underneath it. Every landing voids the pending pre-registrations — that is
-not a hypothesis, it is why **16 of block 2's 19 live rows** already read RE-REGISTER, and why five arms were
+not a hypothesis, it is why **16 of block 2's 21 live rows** already read RE-REGISTER, and why five arms were
 declared VOID at once when the meter changed. Interleaving them schedules a second and third re-registration
 into the plan.
 
@@ -443,8 +454,9 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
   not shipped. So the sentinel reads 0 for a structural reason, and retiring the arm on it would bank a vacuous
   negative. Price `F2` with or after C1/C2's dose, never before.
 - [ ] **Re-register block 2's table — AFTER the landings below, against the binary block 2 will freeze.**
-  **16 of the 19 live rows** demand it; the other three (`S-g` `73af059`, `R9` `a4fa14b`, `R10` `203732b`) are
-  registered at ancestors of `edfba14` and need nothing. Doing this last in the block is the point: a
+  **16 of the 21 live rows** demand it; the other five need nothing — `S-g` (`73af059`), `R9` (`a4fa14b`) and
+  `R10` (`203732b`) are registered at ancestors of `edfba14`, and `N1`/`N2` are registered at the landing this
+  block just made. Doing this last in the block is the point: a
   re-registration against a binary that then changes is the failure this whole ordering exists to avoid.
 - [x] **Named 2026-08-07, and the count is smaller than the verdict column suggests.** `implementation-notes.md`
   §13 has **17** rows whose verdict reads `WE_LACK_IT`/`WE_ARE_CRUDER`, but **three carry an accepted
@@ -453,12 +465,38 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
   deviation: `SP-FACTOR-1` (`SCHED-C2`, refuted three ways, and kissat with its own bound pinned to 0 is
   fine-or-better), `SP-REPEAT-*` (`SCHED-F7`, cruder on one axis) and `SP-TIER-2` (`SCHED-C10`, an audit plus a
   deviation — three of cadical's eight `likely_to_be_kept` sites are dead at its shipped defaults).
-  **14 are actionable**; block 3 now lists all 14. *(Do not read the verdict column alone — it is what made
+  **14 were actionable** (12 after this session's two landings); block 3 lists them. *(Do not read the
+  verdict column alone — it is what made
   this look like 17.)*
-- [ ] **Land the two one-line N4 rows now, not after pricing** — `SP-SHRINK-GLUE-1` (the post-shrink glue clamp
-  is off by one at the tier boundary; the ledger calls it a one-token fix) and `SP-DECIDE-2` (kissat's `tumble`
-  initial variable order; the ledger calls it a one-line experiment). Both change behaviour, so landing them
-  after block 2 would re-register the table a third time.
+- [x] **The two N4 rows are LANDED — and neither was the one-liner the ledger priced it as.** Both close by
+  code, so exit clause (b) drops from **14 actionable rows to 12**. Both change behaviour, which is why they
+  went before the re-registration rather than after it.
+  - **`SP-SHRINK-GLUE-1`.** The reference rule is `glue := min(glue, new_size − 1)` — a CLAMP, at **five**
+    kissat sites, and cadical agrees (`clause.cpp:230`). Two things the ledger had wrong: it read the rule as
+    an assignment to `new_size − 1`, and it claimed `glue ≤ size−1` is a kissat-wide post-shrink invariant,
+    which it is not (`substitute.c`, the `collect.c` GC flush and `forward.c` all shrink without touching glue,
+    and nothing asserts it). We had **three** clamp sites with the off-by-one, not two, plus a fourth shrink
+    path — the on-the-fly one in `analyze.cpp`, which is the site kissat's cited line actually covers and which
+    recomputes the exact LBD instead of clamping. All four now go through one helper, `kernel_shrunken_glue`.
+  - **`SP-DECIDE-2` is not portable as written, and the ledger's "one-line experiment" was wrong about why.**
+    Kissat's `tumble` renumbers INTERNAL variable indices behind an external↔internal map. **We have no such
+    map** — `internalize`/`externalize` are arithmetic, the model printer inlines `v + 1`, and the extension
+    variables are the contiguous suffix above `first_extension_var` — so renumbering would have to be threaded
+    through proof emission, the model and the C API, and a half-done version emits a WRONG model rather than
+    failing to build. Ported as the ORDER instead, which carries the whole effect: `parse.cpp` records
+    first-**activation** order (per clause, so a tautology activates nothing — kissat activates in
+    `kissat_add`'s final `else`, not per imported literal) and `heuristics_seed_activation_order` seeds both
+    rankings from it. **It also fixed a disagreement between our own two rankings** that nobody had noticed:
+    the VMTF queue was appended ascending at `queue_last`, its MOST-preferred end, so focused mode tried the
+    HIGHEST variable index first, while the score heap was built ascending into all-zero scores, so stable mode
+    tried the LOWEST. They now agree, as they do in kissat.
+  - **Both arms proven live, and neither is vacuous** — four arms on one UNSAT instance give four distinct
+    conflict counts and four distinct proof SHAs, with `c shrinkglue` and `c tumble` moving as predicted, and
+    the shipped arm's DRAT proof `s VERIFIED`. Counters `TACTIX_SHRINK_GLUE=0` / `TACTIX_TUMBLE=0`;
+    `shrink_promoted` counts only the shrinks where the two rules disagree, so a zero proves that arm inert.
+    **Both are UNPRICED and join block 2's table as `N1`/`N2`** — the conflict deltas above are one toy
+    instance and are NOT a performance claim. Soundness: the four fuzz legs named in the anchor, including an
+    OFF-arm leg, so the knob is sound at either setting rather than only as shipped.
 - [x] **Tier D's per-track score — DONE 2026-08-07, and it needed no new instrument.** T4 is scored on the
   SC25 set, and `benchmarks/tiers/D.sources` already carried D.list's per-track blocks, its header saying they
   "are what a per-track (e.g. SC25-only, gate T4) score is reconstructed from". So the flag is a scoring VIEW,
@@ -506,6 +544,8 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 | `S-g` Sweep yield | vs the `73af059` binary — **cannot be an env arm**, it needs a build from that parent | environments, equivalences, emitted binaries | `73af059` | Dose unchanged in TICKS, but `env_add`'s O(n²) dedup scan became an open-addressed key set, so the same budget buys far more work and Sweep's wall share RISES. If it loses, the first lever is `sweepeffort`, not a revert |
 | `R9` X6 `HyperBinaryRes` | probing with the resolvents suppressed | `c hbr` — `hbr_binaries` **and** `hbr_subsumed` **and** `hbr_ticks`; `hbr_declined` says how much the RUP test refuses | `a4fa14b` | **Added 2026-08-07: R9 shipped UNPRICED and this table had no row for it.** Reach at the source is thin under the shipped policy (59 resolvents on 4 of 40 structured instances), so price it for COST as much as for yield |
 | `G4` Y1 unit sweep | `TACTIX_CONG_Y1` | `c congy1` | **PRE-`58a46de` — RE-REGISTER** | strict SUBSET of V2 Backbone — **only one should ship** |
+| `N1` `SP-SHRINK-GLUE-1` | `TACTIX_SHRINK_GLUE=0` | `c shrinkglue` — counts ONLY the shrinks where the two rules disagree, so a zero proves the arm inert | landed 2026-08-07 | Post-shrink glue clamps to `new_size − 1` (both references) instead of `new_size`, at all four shrink paths. Moves clauses across the tier1/tier2 boundary, so it changes RETENTION and hence the search — expect a broad, shallow effect rather than a named-instance one. Ships ON as the transliterated baseline; the OFF arm is what gets priced |
+| `N2` `SP-DECIDE-2` | `TACTIX_TUMBLE=0` | `c tumble` (vars seeded) | landed 2026-08-07 | Initial decision order = first-activation, kissat's `tumble`. Changes the entire pre-first-conflict sequence and every tie-break by construction, so **it is the arm most likely to move a chaotic instance for reasons unrelated to its merit** — judge it on a replicated distribution, and the may-not-gate set may not gate it alone |
 | `R10` BVE definitions | `--bve-gates=equiv,andor,ite,xor` (the OFF arm) | `c bve-gates … definition` + `c bve-def` (checked / ticks / ceiling hits) — **all three, or the arm is untested** | `203732b` | Two knobs, and they move in opposite directions: the gate WIDENS what the growth bound accepts (more eliminations) while the sub-solve SPENDS time the BVE meter cannot see. Second arm `TACTIX_BVE_DEF_TICKS` (ships 1e4 vs kissat's 1e6) — read `hit the tick ceiling` first: if it is ~0 the cap is not the lever and the yield is real; if it is large the cap is throttling the mechanism and the OFF-arm comparison is measuring a crippled version. **Measured once at the source (`9vliw_bp_mc`): 519 definitions from 79,191 attempts, 16.5 M resolvent pairs saved across all gate kinds, 22.3 M sub-solver ticks, and only 203 attempts (0.26 %) hit the ceiling — so on that instance the cap is NOT the lever.** The cost side is the rest of the tier: 8 of 26 instances reach the sub-solve and exactly ONE extracts anything (`qwh.50.1250` spends 707,669 ticks for 0 definitions), and BVE's meter cannot see any of it. Tier A is silent because BVE never runs there at all. kissat's own ablation prices `definitions` at +6.1 Tier C PAR-2 |
 
 **Re-measurement, folded in here because it is the same instrument.** The ledger-wrap re-baseline this block
@@ -520,8 +560,9 @@ experiment — it was listed twice.)*
 
 *This block is the whole of clause (b): of the **17** rows in `docs/implementation-notes.md` §13 whose verdict
 reads `WE_LACK_IT`/`WE_ARE_CRUDER`, three are already discharged by an accepted
-`implementation-notes.md` §13.3 deviation (block 1 names them), leaving **14 actionable** — all listed
-below, ordered by named target.*
+`implementation-notes.md` §13.3 deviation (block 1 names them), leaving 14 actionable — of which
+`SP-SHRINK-GLUE-1` and `SP-DECIDE-2` closed BY CODE on 2026-08-07, so **12 remain** — all listed below,
+ordered by named target.*
 
 - [ ] **`SP-BVE-BWD-1` first — it is the sharpest N4 finding we have.** Feed BVE's fresh resolvents straight
   into subsumption; it is what makes cadical's `elimrounds`=2 sufficient. The behavioural audit measured our BVE
@@ -544,10 +585,9 @@ below, ordered by named target.*
   probing snapshot/restore path would have to restore the bit too.
 - [ ] **`SP-CONG-BUDGET-1` residual** — Congruence's `budget_aware` closure and Substitute's unmetered entry.
 - [ ] **The seven rows this file had never named** (added 2026-08-07; with the six above and `SP-CONG-BUDGET-1`
-  that is the full actionable 14). `SP-SHRINK-GLUE-1` — the post-shrink glue clamp, kissat promotes to
-  `new_size − 1` where we clamp to `new_size`, so a shrunken ternary lands tier2 here and tier1 there; lands in
-  block 1 · `SP-DECIDE-2` — initial variable order (`tumble`), ours is header order so every tie-break and the
-  whole pre-first-conflict sequence differ · `SP-ARENA-1` — candidate enumeration is creation order here and
+  that was the full actionable 14). **Two are now CLOSED BY CODE and are struck here**: ~~`SP-SHRINK-GLUE-1`~~
+  and ~~`SP-DECIDE-2`~~, landed in block 1 — **five remain from this group, 12 in the clause overall**.
+  `SP-ARENA-1` — candidate enumeration is creation order here and
   search-coupled there, and under a cutting budget ordering IS the scheduler · `SP-PREPROC-2` — our
   preprocessing dose is 5–600× cadical's fallback, over the full rule list rather than a reduced pipeline ·
   `SP-SUBST-2` — Substitute's unmetered entry, where porting kissat's budget naively goes INERT against our
@@ -695,6 +735,28 @@ every entry × all 28 instances** (first tier-wide evidence the ledger-wrap fix 
 **terminating at its own 300 s cap and printing** where the previous run rode SIGTERM to the 15-minute SLURM
 wall, with `c conflicts 0`, all four named rule meters at 0 and 7.07e9 global ticks — the `R9` diagnosis
 corroborated from a second direction.
+
+**▶▶ THE TWO "ONE-LINE" N4 ROWS LANDED, AND NEITHER WAS ONE LINE — the ledger's cost column was wrong about
+both, for different reasons.** Exit clause (b) drops 14 → 12. An independent read of both references before
+touching code is what caught it, and it changed the work in three ways. **(a) `SP-SHRINK-GLUE-1`'s rule is a
+CLAMP to `new_size − 1`, not an assignment**, it exists at FIVE kissat sites (strengthen, vivify ×3, sweep) and
+cadical agrees at `clause.cpp:230` — and the row's stated justification, that `glue ≤ size−1` holds after any
+kissat shrink, is simply not true: `substitute.c`, the `collect.c` GC flush and `forward.c` all shrink without
+touching glue and nothing asserts it. **(b) We had three clamp sites with the off-by-one, not the two the row
+named, plus a fourth shrink path** — the on-the-fly one in `analyze.cpp`, which is the site kissat's cited line
+actually covers, and which recomputes the exact LBD rather than clamping. One helper, `kernel_shrunken_glue`,
+now owns the rule for all four. **(c) `SP-DECIDE-2` is not portable as written at all.** Kissat's `tumble`
+renumbers internal indices behind an external↔internal map; we have no map — `internalize`/`externalize` are
+arithmetic, the model printer inlines `v + 1`, extension variables are a contiguous suffix — so renumbering
+would have to be threaded through proof emission, the model and the C API, and **a half-done version emits a
+WRONG model rather than failing to build**. Ported as the ORDER, which carries the whole effect.
+*The find worth keeping:* seeding both rankings from one order **fixed a disagreement between our own two**
+that nobody had noticed — the VMTF queue was appended ascending at its MOST-preferred end (focused mode tried
+the HIGHEST index first) while the score heap was built ascending into all-zero scores (stable mode tried the
+LOWEST). Kissat's two agree; ours now do. Both landings ship ON as the transliterated baseline with the OFF arm
+priced (`TACTIX_SHRINK_GLUE`, `TACTIX_TUMBLE`), both proven live — four arms, four distinct conflict counts,
+four distinct proof SHAs — and both **UNPRICED**, in block 2 as rows `N1`/`N2`. Four fuzz legs × 10,000 cases
+at 0 failures, one of them with **both knobs OFF**, so each arm is sound at either setting.
 
 **Report `benchmarks/reports/2026-08-07-phase-3-gate.md`, commit `edfba14`.** The four exit clauses and their
 evidence are in the Phase 3 section above and are not restated here.

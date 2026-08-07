@@ -112,6 +112,14 @@ TABLE = {
     "conflict_reuse_no_repair": ("ENV", "TACTIX_CONFLICT_REUSE_NOREPAIR, diagnostic"),
     "jump_reasons":            ("ENV", "TACTIX_JUMP_REASONS; kissat `jumpreasons`, "
                                        "ships OFF pending the A/B (SP-JUMP-1)"),
+    # Both ship ON at the reference default, `=0` reverts — the transliterated
+    # behaviour is the baseline and the OFF arm is what gets priced.
+    "shrink_glue_promote":     ("ENV", "TACTIX_SHRINK_GLUE; kissat `promote`, "
+                                       "ships ON (SP-SHRINK-GLUE-1), =0 reverts "
+                                       "to min(glue, new_size)"),
+    "tumble":                  ("ENV", "TACTIX_TUMBLE; kissat `tumble`, ships ON "
+                                       "(SP-DECIDE-2), =0 reverts to ascending "
+                                       "variable order"),
     # --- external-policy surface (N1) ------------------------------------
     "factor_bound":            ("API", "kissat's `reduction > bound`. NOT policy-wired, and "
                                        "that is the N4 exhibit: the ramp exists as bve_level_ "

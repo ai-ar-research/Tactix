@@ -36,6 +36,30 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   heuristics_reset_queue_search(k);
   k.h->nvars = nvars; // heuristics_check asserts this tracks Kernel::nvars
 }
+
+// Kissat's `tumble` (default 1): both rankings are seeded in first-activation
+// order, so each prefers the LAST-activated variable — the VMTF queue enqueues
+// in that order and the k-th activated variable scores 1 − 1/k. Ported as an
+// ORDER, not as kissat's internal renumbering, which variable identity here
+// forbids; docs/implementation-notes.md §13 carries the argument and the
+// deviation.
+void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) {
+  if (!k.h || order.empty())
+    return;
+  // Last activated ends at the queue tail, the most-preferred end. A variable
+  // in no stored clause is never bumped and falls to the front; kissat never
+  // imports one at all, so its position is unconstrained.
+  for (const Var v : order)
+    heuristics_queue_bump(k, v);
+  // The first activated variable scores exactly 0.0, as does every unactivated
+  // one, so the heap ranks unactivated variables no higher than any other.
+  // The heap is not built until the first stable entry, matching kissat's
+  // `stable`-guarded parse-time push.
+  uint64_t rank = 0;
+  for (const Var v : order)
+    heuristics_score_set(k, v, 1.0 - 1.0 / static_cast<double>(++rank));
+  k.stats.tumble_seeded = order.size();
+}
 // --- VMTF -------------------------------------------------------------------
 
 static void queue_dequeue(Kernel &k, Var v) {

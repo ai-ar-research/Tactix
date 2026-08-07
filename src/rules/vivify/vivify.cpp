@@ -246,18 +246,18 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
 }
 
 // Replace `c` (at cref) by `lits`, proof add before delete; `entries`+`last`
-// form the LRAT chain. The replacement keeps the candidate's redundancy, glue
-// conservatively min(old glue, new size). No partner-redundancy question
-// arises: the strengthener is the propagation itself, so the rewrite is
-// implied by F ∪ R and subsumes the original.
+// form the LRAT chain. The replacement keeps the candidate's redundancy and
+// takes the shared post-shrink glue (kernel_shrunken_glue). No
+// partner-redundancy question arises: the strengthener is the propagation
+// itself, so the rewrite is implied by F ∪ R and subsumes the original.
 static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                            std::vector<std::pair<uint32_t, uint64_t>> &entries,
                            uint64_t last, bool *ended_round) {
   Clause *c = clause_at(k.arena, cref);
   const bool lrat = k.proof && k.proof->lrat();
   const bool redundant = c->redundant();
-  const uint32_t glue =
-      std::min<uint32_t>(c->glue(), static_cast<uint32_t>(lits.size()));
+  const uint32_t glue = kernel_shrunken_glue(
+      k, c->glue(), static_cast<uint32_t>(lits.size()));
   const uint64_t id = ++k.next_clause_id;
   if (k.proof) {
     if (lrat)

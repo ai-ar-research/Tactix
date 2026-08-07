@@ -1,5 +1,6 @@
 #include "frontend/parse.hpp"
 
+#include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -63,6 +64,22 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
 
   if (k.inconsistent)
     return; // already refuted; further clauses don't matter
+
+  // Activation, kissat's `tumble` order (heuristics_seed_activation_order).
+  // Placed after the tautology return and before the store so it matches
+  // kissat's per-clause activation in `kissat_add`: a tautology activates
+  // nothing, every clause that survives activates all of its variables.
+  if (k.tumble) {
+    if (k.input_activated.size() < k.nvars)
+      k.input_activated.resize(k.nvars, 0);
+    for (const Lit l : scratch) {
+      const Var v = var_of(l);
+      if (!k.input_activated[v]) {
+        k.input_activated[v] = 1;
+        k.input_activation_order.push_back(v);
+      }
+    }
+  }
 
   if (scratch.empty()) { // empty input clause: immediate refutation
     k.inconsistent = true;
@@ -140,6 +157,15 @@ void finish_input(Kernel &k) {
   }
   k.input_restatements.clear();
   k.input_restate_lits.clear();
+  // The decision order is `H` state, so this is a no-op for an unguided kernel
+  // and for a solver whose `H` is attached later — ScopedHeuristics re-seeds
+  // from ascending order in that case, which is the documented `tumble=0`
+  // behaviour rather than a silent half-application.
+  heuristics_seed_activation_order(k, k.input_activation_order);
+  k.input_activation_order.clear();
+  k.input_activation_order.shrink_to_fit();
+  k.input_activated.clear();
+  k.input_activated.shrink_to_fit();
   if (k.input_refuted) {
     k.input_refuted = false;
     if (k.proof) {
