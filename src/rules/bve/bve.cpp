@@ -695,8 +695,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
   std::vector<uint8_t> pos_gate(pos.size(), 0), neg_gate(neg.size(), 0);
   bool resolve_gate = false;
-  if (def)
-    def->checked = def->exhausted = false, def->ticks = 0;
+  if (def) {
+    def->checked = false;
+    def->exhausted = false;
+    def->ticks = 0;
+  }
   const uint32_t gate_kind = bve_detect_gate(k, px, nx, pos, neg, pos_gate,
                                              neg_gate, resolve_gate, def);
   const bool gate = gate_kind != 0;
