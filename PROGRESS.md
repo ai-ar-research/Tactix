@@ -33,8 +33,11 @@ that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T
 reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
 non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**IN FLIGHT: `1587880 fuzz-hbr`** (R9's five legs) and **`1587884`–`1587889`** (R10's six: DRAT + native-LRAT ×
-DefaultPolicy / `--random-policy` / `--bve-stress-policy`). Always check `squeue` rather than trusting a line here.
+**IN FLIGHT: `1587880 fuzz-hbr`** — R9's five legs, still unread. **R10's six legs are GREEN and read**
+(`1587884` DRAT · `1587885` native-LRAT · `1587886`/`1587887` the same pair under `--random-policy` ·
+`1587888`/`1587889` under `--bve-stress-policy`): 10,000 + 10,000 + 4×4,000 cases, **0 failures**, corpus 14/14 on
+every leg, all on the ASan/UBSan `build/debug` binary. The stress pair fires BVE on **2,553 of 3,595** cases with
+stats. Always check `squeue` rather than trusting a line here.
 
 **▶ THE NEXT STEPS, in order.**
 1. **Tick the phase-3 exit.** Both remaining rules landed; what the exit still needs is (a) R9's and R10's fuzz
@@ -364,7 +367,7 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 | `G3` Vivify trail reuse | `TACTIX_VIVIFY_REUSE=0` | reuse %, 0 with the hatch off | **PRE-`58a46de` — RE-REGISTER** | reverts probe *and* candidate order |
 | `S-g` Sweep yield | vs the `73af059` binary | environments, equivalences, emitted binaries | Dose unchanged in TICKS but a dedup probe went `|keys| `73af059` |` → 1, so the same budget buys far more work and Sweep's wall share RISES. If it loses, the first lever is `sweepeffort`, not a revert |
 | `G4` Y1 unit sweep | `TACTIX_CONG_Y1` | `c congy1` | **PRE-`58a46de` — RE-REGISTER** | strict SUBSET of V2 Backbone — **only one should ship** |
-| `R10` BVE definitions | `--bve-gates=equiv,andor,ite,xor` (the OFF arm) | `c bve-gates … definition` + `c bve-def` (checked / ticks / ceiling hits) — **all three, or the arm is untested** | `f9dfb42` | Two knobs, and they move in opposite directions: the gate WIDENS what the growth bound accepts (more eliminations) while the sub-solve SPENDS time the BVE meter cannot see. Second arm `TACTIX_BVE_DEF_TICKS` (ships 1e4 vs kissat's 1e6) — read `hit the tick ceiling` first: if it is ~0 the cap is not the lever and the yield is real; if it is large the cap is throttling the mechanism and the OFF-arm comparison is measuring a crippled version. kissat's own ablation prices `definitions` at +6.1 Tier C PAR-2 |
+| `R10` BVE definitions | `--bve-gates=equiv,andor,ite,xor` (the OFF arm) | `c bve-gates … definition` + `c bve-def` (checked / ticks / ceiling hits) — **all three, or the arm is untested** | `203732b` | Two knobs, and they move in opposite directions: the gate WIDENS what the growth bound accepts (more eliminations) while the sub-solve SPENDS time the BVE meter cannot see. Second arm `TACTIX_BVE_DEF_TICKS` (ships 1e4 vs kissat's 1e6) — read `hit the tick ceiling` first: if it is ~0 the cap is not the lever and the yield is real; if it is large the cap is throttling the mechanism and the OFF-arm comparison is measuring a crippled version. kissat's own ablation prices `definitions` at +6.1 Tier C PAR-2 |
 
 ### ▶ 2. Re-measure, then close T3
 
@@ -506,6 +509,11 @@ timing): `9vliw_bp_mc` **519 definitions from 79,191 attempts**, 16.5 M resolven
 kinds, 22.3 M sub-solver ticks, and only **203 attempts (0.26 %) hit the 1e4 tick ceiling** — so the cap is not
 what limits the yield. `clique_n2_k10` (720) and `DecompressReader_read_12` (374) reach the path and extract
 nothing, which is the honest negative. Tier A is silent because BVE never runs there at all.
+**And the FUZZ legs are not green over an unexercised path** (probe `1587895`): on 40 FuzzSAT-style Tseitin
+circuits — the fuzz mix's own 30 % generator — the ASan `--bve-stress-policy` binary extracts definitions on
+**21 of 40**, so the `resolve_gate` branch really runs under the sanitizers. The same 40 under the shipped
+DefaultPolicy extract **0**: they solve before an inprocessing phase, which is why the DefaultPolicy evidence has
+to come from Tier B and not from anything fuzz-sized.
 Not ported, both narrowing: `definitioncores`=2 (our sub-solver has a fixed decision order and no shuffle, so a
 second solve reproduces the first core) and the one-sided-core **failed literal** (entailed but not RUP — it
 needs the derivation mapped to main ids, i.e. V2 Backbone's delta reached from E1's round; the gate is still
