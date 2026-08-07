@@ -867,6 +867,32 @@ where the port is deliberately *not* a transliteration, and neither weakens the 
   than carrying one exception. **Removal path:** drop the `kernel_shrunken_glue` call at that one site;
   the arm `TACTIX_SHRINK_GLUE=0` does not isolate it, so isolating it needs its own knob.
 
+- **`D-HBR-STANDALONE` — we ship a technique NEITHER reference budgets, and bound it with the ledger**
+  (plan rev 91, user decision 2026-08-07). **What the references do:** kissat has no hyper-binary resolution
+  at all (`proprobe.c` contains none); cadical derives it INSIDE the probing propagation (`opts.probehbr`=1,
+  no `hbreffort`, so it rides probing's budget) and gets the LRAT chain for free — every `probehbr_lrat`
+  helper opens `if (!lrat || opts.probehbr) return;` (`probe.cpp:54-108`), i.e. the stored-chain machinery
+  exists only for the `probehbr=false` case. **What we do:** X6 is a standalone rule with its own slot entry
+  that re-derives each resolvent's justification by a full `congruence_replay_rup`. Because neither reference
+  has the technique, there was no reference share to port and **no structural per-candidate cap to copy** —
+  which is why one root could consume an entire solve. **The measurement:** on
+  `veer_axi…p23_transition` the shipped configuration spent `4 probes / 6.80e9 hbr ticks` out of `6.80e9`
+  global ticks — 99.96 % of a 300 s solve, at `c conflicts 0`, on an instance kissat finishes in 3 s.
+  With the entry budget-aware and the residual handed into the resolvent loop: `12,477 probes /
+  5.21e6 hbr ticks` (1,304× less), 34,768 conflicts, and the instance SOLVES.
+  **Why the residual handoff rather than a candidate cap:** both references poll the effort limit at the top
+  of a candidate loop and accept per-candidate overrun, bounding it structurally; the shape they use when a
+  single candidate is genuinely unbounded is to push the residual INTO it — kissat's sweep hands its
+  remainder to the embedded kitten, which enforces it per decision (`sweep.c:53-59`). That is the shape
+  ported here. **N1:** the cap is policy-side. `hyperbinary_instances()` remains complete over roots and
+  `apply_instance` stays total; only the AMOUNT of work one application does is bounded, which is dosing and
+  therefore the policy's. (Contrast `BVE_OCCLIM`, applied inside `bve_schedule` and therefore narrowing
+  `instances()` — carried as the N1-completeness defect `RV-S17`, and NOT the pattern copied here.)
+  **Removal path — two named triggers.** (R1) Port cadical's shape: derive the resolvent during the probing
+  propagation so the chain comes from the derivation, at which point the replay disappears, the cost
+  collapses and this row retires. (R2) Adopt kissat's position and drop X6, which requires amending the
+  standing "every implemented proof rule ships ON" baseline and is a user decision, not an engineering one.
+
 **A HIGH row may be closed here instead of by code, but only with the full contract: what the reference
 does, the measurement that justifies keeping our version, and a removal path.** An accepted deviation with
 no removal path is a permanent excuse, so a row without one does not count against the track's exit

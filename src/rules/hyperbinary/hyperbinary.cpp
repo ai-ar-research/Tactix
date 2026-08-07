@@ -206,12 +206,17 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p) {
     return ApplyResult::NoOp; // a failed literal is V1 Probe's inference
   std::vector<uint64_t> chain;
   bool any = false;
+  // `k.work_budget` in this rule's own currency (hbr_ticks), 0 = unbounded.
+  // One root's closure can carry thousands of resolvents and every one costs a
+  // RUP replay, so this is the only place the effort ledger can bind: the
+  // policy polls between INSTANCES, and one instance is this whole loop. The
+  // amount is the policy's (see run_dosed_entry); the rule only obeys it.
+  // Emitting fewer resolvents is always sound — the rule derives fewer
+  // consequences — and it never narrows `instances()`.
+  const uint64_t tick_start = k.stats.hbr_ticks;
   for (const Resolvent &r : found) {
-    // Every resolvent costs a RUP replay (a probing propagation plus its
-    // backtrack), and one root can carry many, so the round-level poll in
-    // `hyperbinary_apply` is not reachable from here: the policy drives this
-    // entry one INSTANCE at a time, so that loop is never entered. Emitting
-    // fewer resolvents is always sound — the rule derives fewer consequences.
+    if (k.work_budget && k.stats.hbr_ticks - tick_start > k.work_budget)
+      break;
     if (kernel_rule_interrupt(k, k.stats.hbr_interrupts))
       break;
     any |= emit(k, r, chain);
