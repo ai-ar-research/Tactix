@@ -30,10 +30,12 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   state #solved before PAR-2. Earlier: rev 80 made **N4, the strategy floor**, a non-negotiable
 - **Current phase:** **4 — dosing, optimization, scheduling** (opened 2026-08-07). Phase 3 CLOSED the same day
   on rule completeness; report `benchmarks/reports/2026-08-07-phase-3-gate.md`. **Block 1 CLOSED 2026-08-07**;
-  block 2's Tier B batches are run (`…-block-2-batch-1.md`).
+  the phase then RESTARTED as a port of the references' dosing scheme (rev 91), whose first increment `D3` has
+  landed.
 - **Next gate:** **T3** (§8.3), with discharging **N4** and running **Tier D** — the three phase-4 exit
   criteria. T3 currently 1.115× cadical / 1.412× kissat on the rule-neutral subset.
-- **Last updated:** 2026-08-07 — block 1 closed by the block-2 re-registration; two Tier B pricing windows run.
+- **Last updated:** 2026-08-07 — the per-knob pricing table is retired (plan rev 91) and phase 4 is now a PORT
+  of the references' dosing; `D3` landed and `veer_axi` falls.
   Status lives in the anchor below; completed work is compressed to result + pointer, with the detail in the
   cited commit / report / design doc / Log entry.
 
@@ -57,19 +59,24 @@ are backed by no reference** (`Probe` — cadical's is 8‰ and we ship 20 — p
 per-technique anchor with cadical's clamps, where **kissat anchors per PHASE**); and we tax search **~1.6×
 harder than kissat** (438 ‰ / 344 ‰ against ~300 ‰ / 200 ‰).
 
-**▶ NEXT STEP — `D3`, the `HyperBinaryRes` structural cap**, because it is the one item with a measured target.
-`veer_axi…p23_transition` burns **1.70e9 ticks per probe from 4 probes, 99.96 % of a solve that never reaches
-search**; disabling the entry solves it in **20.4 s with a VERIFIED proof** against a 300 s timeout (kissat: 3 s).
-**User decision 2026-08-07: keep our standalone HBR design and bound it**, rather than adopting kissat's
-position (no HBR at all) or cadical's (derive inside the probing propagation, LRAT chain free).
-**Two riders that decide the implementation:**
-- **N1, binding: the cap goes POLICY-side.** `hyperbinary_instances()` must stay COMPLETE over roots — a dose
-  may narrow what DefaultPolicy *chooses*, never what the API can *reach*. **BVE's in-rule `BVE_OCCLIM` is not
-  the pattern to copy**: it already narrows `instances()` and is carried as the N1-completeness defect
-  `RV-S17`. Copying it would replicate a known bug.
-- **Rev 90 puts the burden of argument on the deviation**, so keeping a technique neither reference has as a
-  budgeted rule needs an **accepted `implementation-notes.md` §13.3 deviation** with its measurement and a
-  reopening path — land it in the same commit as the cap.
+**▶ `D3` IS LANDED (2026-08-07) and it took the target.** `veer_axi…p23_transition` went from
+`4 probes / 6.80e9 hbr ticks` — 99.96 % of a 300 s solve at `c conflicts 0` — to
+**`12,477 probes / 5.21e6 ticks`, 34,768 conflicts, and `s UNSATISFIABLE`**, both certificates verified. The
+entry is now `budget_aware` and `run_dosed_entry` hands it the ledger residual, so the resolvent loop stops at
+the dose rather than at the closure (kissat's sweep→kitten shape). **The rule still emits 2,304 resolvents —
+bounded, not disabled.** Fuzz-clean on three legs (DRAT 10,000 · LRAT 10,000 · `--random-policy` 5,000, 0
+failures, HBR firing on 1,679 / 1,675 / 2,338 cases). Accepted deviation `D-HBR-STANDALONE`
+(`docs/implementation-notes.md` §13.3). **Still owed: a tier pair — this is one instance and the broad effect
+is unmeasured.**
+
+**▶ NEXT STEP — the THREE METER DEFECTS in §2, before any per-mille is ported.** A fraction ported onto a meter
+that counts a different thing transfers a number that means something else. In order: **(1) the tick unit** —
+ours is `1 + (n >> 4)` against kissat's `1 + ceil(n/32)` plus three event charges we never make, so every
+effort constant either reference ships is calibrated against a different tick; **this one lands ALONE with a
+full re-baseline** because it re-prices every budget and the mode-switch schedule at once. Then **(2)
+`search_ticks` as a core-maintained firewall** rather than the policy's leaky subtraction, and **(3) the
+missing `TickSinkScope` on Vivify's irredundant pass** (`default_policy.cpp:1483`), which keeps that pass's
+spend out of `vivify_ticks` entirely.
 
 **▶ AFTER THAT, in the design doc's order:** `D1` (anchor per phase — smallest change, widest effect), `D2`
 (delete the five unbacked fractions), drop the `dosed`/`retry_advice`/`budget_aware` taxonomy, then the two
@@ -392,117 +399,36 @@ in §13's rows and the Log; the traps worth re-reading before touching any of it
 
 ### ▶ 0. HOW THIS PHASE IS ORDERED — read before picking an item
 
-**Two kinds of work sit in this phase and they interfere.** A **landing** changes the binary; a **pricing**
-measures a binary that must not move underneath it. Every landing voids the pending pre-registrations — that is
-not a hypothesis, it is why **16 of block 2's 21 live rows** already read RE-REGISTER, and why five arms were
-declared VOID at once when the meter changed. Interleaving them schedules a second and third re-registration
-into the plan.
+**Restated 2026-08-07 (plan rev 91), because the phase changed shape.** It used to be a pricing campaign over
+our own knobs, ordered so that landings did not void pending pre-registrations. It is now a **PORT**: a
+sequence of landings that make our dosing what the references' is (§2), each measured on its own. The old
+"batch the arms, freeze the binary" ordering no longer applies, and the reason it was there — a landing voids
+every pending pre-registration — no longer bites, because there are no pending pre-registrations.
 
-So: **cheap landings and desk triage first (block 1) → price against a frozen HEAD (block 2) → the expensive
-mechanism work (block 3) → dosing (block 4) → the Tier D campaign (block 5) → the T3 evaluation (block 6),
-which is the gate and not a work item.** Within a block, rank by: **attacks a NAMED target > cheap > unblocks
-something else.** The named targets are in the anchor — four Tier B timeout instances carrying most of its
-PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no block here has to chase an aggregate.
+**The ordering that replaces it, and its rationale:**
+1. **Meters before doses.** A per-mille ported onto a meter that counts a different thing transfers a number
+   that means something else. The three meter defects in §2 come first, and the tick-unit one lands **alone**
+   with a full re-baseline because it re-prices every budget in the solver simultaneously.
+2. **Then the scheme** — anchor, unbacked fractions, taxonomy, delays.
+3. **Then the rest of the phase**: the remaining N4 rows (§3), the standing dosing/admission questions (§4),
+   the Tier D campaign (§5), and the T3 evaluation (§6), which is the gate and not a work item.
 
-### ▶ 1. Desk triage and cheap landings — no tier window; do these BEFORE spending one
+**Within a step, rank by: attacks a NAMED target > cheap > unblocks something else.** The named targets are
+the four Tier B timeouts — **one of which, `veer_axi`, `D3` has now taken** — and the eight Tier C instances
+carrying 93 % of the kissat gap.
 
-- [x] **The counters-only probe is RUN — and it retires NEITHER arm. Both `D3` and `E3` stay in block 2, and
-  `D3` is now a named-target row rather than a formality.** Counters are not stored per run (`results.json`
-  keeps only the per-instance `reached` table) and `report_slot` prints only under `TACTIX_SLOT_STATS`, so this
-  needed its own job: `benchmarks/probes/block1-counters-tierb.sh` over **all 28 Tier B instances**, read by
-  `benchmarks/probes/block1-summarize.py`, 28/28 present.
-  - **`D3` FAILS its pre-registered criterion.** It was "retire iff `blocked == 0` on both clocks on **every**
-    instance" — `blocked` is non-zero on **4 of 28**, always on the ELIMINATE clock and never on the probe
-    clock: `unsat-set-b-fclqcolor` **7** · `or_randxor_k3_n540_m540` **4** · `battleship-14-26-sat` 1 ·
-    `DecompressReader_read_12` 1. So `TACTIX_SLOT_WATERMARK=0` is **not** bit-identical, and the arm earns its
-    window. **Two of those four are Tier B timeout instances** — of the four carrying 85.7 of our 103.75 PAR-2 —
-    so the watermark is suppressing elimination phases on exactly the instances the tier's gap is made of. That
-    makes `D3` a named-target row: rank it accordingly in block 2.
-  - **`E3` is OVERTURNED TOO, and its earlier "MEASURED INERT at Tier B" reading was a SAMPLING artefact.**
-    `clamped` is non-zero on **2 of 28** — `unsat-set-b-fclqcolor` 8 and `mp1-klieber` 6, in both cases 4+4 / 3+3
-    split across `Strengthen` and `SubsumeForward` (the 1e8 ceiling). BVE's 2e9 never clamps, and every other
-    entry still prints `maxeff 0`, both confirmed at the source. The reason the earlier run read zero is
-    visible in the denominator: its 8 instances topped out at **1.04e9 global ticks** while the two that clamp
-    sit at **8.03e9 and 1.70e10** — it had excluded every instance that runs to the cap. So E3 goes back in the
-    block-2 table as a live arm at Tier B, not merely as a Tier D re-examination.
-  - **▶ THE LESSON IS THE SAMPLE, NOT EITHER ARM.** Both counters are driven by the cumulative clock, so both
-    read a clean zero on every instance that finishes quickly — a subsample that misses the long runs retires
-    the arm for a reason that has nothing to do with the arm. That is the `F2` shape one level up, and it is
-    now enforced in the probe: the tier-wide driver is the only sanctioned way to read these two counters, and
-    it says so in its header. Cost of getting it right: one 28-task array of ≤300 s tasks.
-  - **Two things worth keeping that the sweep produced for free.** The ledger-wrap reachability counter reads
-    **`wrapped 0` on every entry × every one of the 28 instances**, which is the first tier-wide confirmation
-    that the wrap fix holds at HEAD. And `veer_axi` **terminated at its own 300 s cap and printed** (the run
-    before it ignored SIGTERM to the 15-minute SLURM wall), confirming the interior-poll fix live on the
-    instance that motivated it — with `c conflicts 0`, all four named rule meters at 0, and **7.07e9 global
-    ticks**, i.e. the whole solve spent where the rule meters cannot see it. That corroborates the `R9`
-    diagnosis from a second direction.
-- [x] **`F2` is BLOCKED, not inert — and it is now MEASURED, not inferred.** `c subhold` reads **0 on 28 of 28**
-  Tier B instances at `d4db510` (job `1588542`). `subsume_holds` increments only when a round leaves
-  `subsume_complete`/`strengthen_complete` false, and at HEAD every path that could is self-excluding or dead
-  (`midround_budget` defaults false), so retiring the arm on that zero would bank a vacuous negative. **The
-  unblocking condition is now exact:** `midround_budget` ON in the shipped configuration **and** `c budgetstop`
-  non-zero. Price `F2` with or after C1/C2's dose, never before.
-- [x] **Re-registered at `d4db510`, and it retired four arms before a window was spent.** The frozen
-  pre-registration is `benchmarks/reports/2026-08-07-phase-4-block-2-preregistration.md`: arm string, knob site,
-  counter site, vacuity witness and ship criterion for all 21 rows, each verified at the source and then
-  re-read by an independent pass told to refute it. **The marker the table defended itself with was unsound**
-  (`58a46de` is a *sibling* of several of these commits, and six rows named a knob that did not exist when the
-  row was written) — register a row at its own landing commit instead. Five arms changed materially: `R9` needs
-  **no build** (`TACTIX_SLOT_DISABLE=HyperBinaryRes` already exists), `C8`'s string silently ablates a third
-  gate, `G2`'s is provably inert, `C7` named the wrong counter field, and `F1`'s saw 2 of its 7 consumers.
-- [x] **Named 2026-08-07, and the count is smaller than the verdict column suggests.** `implementation-notes.md`
-  §13 has **17** rows whose verdict reads `WE_LACK_IT`/`WE_ARE_CRUDER`, but **three carry an accepted
-  `implementation-notes.md` §13.3 deviation in the same cell**
-  and are therefore already discharged under exit clause (b), which asks for a closure *or* an accepted
-  deviation: `SP-FACTOR-1` (`SCHED-C2`, refuted three ways, and kissat with its own bound pinned to 0 is
-  fine-or-better), `SP-REPEAT-*` (`SCHED-F7`, cruder on one axis) and `SP-TIER-2` (`SCHED-C10`, an audit plus a
-  deviation — three of cadical's eight `likely_to_be_kept` sites are dead at its shipped defaults).
-  **14 were actionable** (12 after this session's two landings); block 3 lists them. *(Do not read the
-  verdict column alone — it is what made
-  this look like 17.)*
-- [x] **The two N4 rows are LANDED — and neither was the one-liner the ledger priced it as.** Both close by
-  code, so exit clause (b) drops from **14 actionable rows to 12**. Both change behaviour, which is why they
-  went before the re-registration rather than after it.
-  - **`SP-SHRINK-GLUE-1`.** The reference rule is `glue := min(glue, new_size − 1)` — a CLAMP, at **five**
-    kissat sites, and cadical agrees (`clause.cpp:230`). Two things the ledger had wrong: it read the rule as
-    an assignment to `new_size − 1`, and it claimed `glue ≤ size−1` is a kissat-wide post-shrink invariant,
-    which it is not (`substitute.c`, the `collect.c` GC flush and `forward.c` all shrink without touching glue,
-    and nothing asserts it). We had **three** clamp sites with the off-by-one, not two, plus a fourth shrink
-    path — the on-the-fly one in `analyze.cpp`, which is the site kissat's cited line actually covers and which
-    recomputes the exact LBD instead of clamping. All four now go through one helper, `kernel_shrunken_glue`.
-  - **`SP-DECIDE-2` is not portable as written, and the ledger's "one-line experiment" was wrong about why.**
-    Kissat's `tumble` renumbers INTERNAL variable indices behind an external↔internal map. **We have no such
-    map** — `internalize`/`externalize` are arithmetic, the model printer inlines `v + 1`, and the extension
-    variables are the contiguous suffix above `first_extension_var` — so renumbering would have to be threaded
-    through proof emission, the model and the C API, and a half-done version emits a WRONG model rather than
-    failing to build. Ported as the ORDER instead, which carries the whole effect: `parse.cpp` records
-    first-**activation** order (per clause, so a tautology activates nothing — kissat activates in
-    `kissat_add`'s final `else`, not per imported literal) and `heuristics_seed_activation_order` seeds both
-    rankings from it. **It also fixed a disagreement between our own two rankings** that nobody had noticed:
-    the VMTF queue was appended ascending at `queue_last`, its MOST-preferred end, so focused mode tried the
-    HIGHEST variable index first, while the score heap was built ascending into all-zero scores, so stable mode
-    tried the LOWEST. They now agree, as they do in kissat.
-  - **Both arms proven live, and neither is vacuous** — four arms on one UNSAT instance give four distinct
-    conflict counts and four distinct proof SHAs, with `c shrinkglue` and `c tumble` moving as predicted, and
-    the shipped arm's DRAT proof `s VERIFIED`. Counters `TACTIX_SHRINK_GLUE=0` / `TACTIX_TUMBLE=0`;
-    `shrink_promoted` counts only the shrinks where the two rules disagree, so a zero proves that arm inert.
-    **Both are UNPRICED and join block 2's table as `N1`/`N2`** — the conflict deltas above are one toy
-    instance and are NOT a performance claim. Soundness: the four fuzz legs named in the anchor, including an
-    OFF-arm leg, so the knob is sound at either setting rather than only as shipped.
-- [x] **Tier D's per-track score — DONE 2026-08-07, and it needed no new instrument.** T4 is scored on the
-  SC25 set, and `benchmarks/tiers/D.sources` already carried D.list's per-track blocks, its header saying they
-  "are what a per-track (e.g. SC25-only, gate T4) score is reconstructed from". So the flag is a scoring VIEW,
-  exactly like Tier C's rule-neutral subset: **`benchmarks/tiers/D-sc25.list`**, 400 instances
-  (main_2025 393 + the 7 shared with main_2024), lines copied verbatim from `D.list` so the two cannot drift,
-  verified a strict subset of D.list's 793 with a 393-instance SC2024 complement. Score it with
-  `tools/bench/subset_score.py <rundir> --subset D-sc25` — the scorer is tier-agnostic, so nothing in `run.py`
-  changed. **Run Tier D once and score it twice; never run the 400 alone.**
-- [x] **O9's composition decision — TAKEN 2026-08-07 (user, plan rev 89): SC2026 is NOT added.** Tier D stays
-  SC2024+SC2025 (793) through the phase-4 campaign, because that campaign is scale evidence rather than a gate
-  and re-cutting the set mid-phase would make it incomparable with everything already measured on the B/C
-  overlap. **Reopens before the T4 evaluation** (phase 5), which is the first point where the set gates a
-  result; §11 O9 keeps that half deliberately open.
+**And measure each increment against the right tier.** Tier B at 300 s cannot resolve a broad scheduling
+change (see the anchor): use Tier C, or replicated draws, or a named-instance claim like `D3`'s.
+
+### ▶ 1. Desk triage and cheap landings — **COMPLETE 2026-08-07**
+
+All items closed; the detail is in the Log and in
+`benchmarks/reports/2026-08-07-phase-4-block-2-preregistration.md`. What is worth carrying forward, because
+each is a fact about our code rather than about the retired table: **`F2` is structurally blocked** — `c
+subhold` reads 0 on 28 of 28 Tier B instances, and it unblocks only when `midround_budget` ships ON *and*
+`c budgetstop` reads non-zero. **`G2`'s per-mille arm is inert by construction** — it reaches only `e.limit`,
+whose sole decline is arithmetically dead. **`C8`'s `--bve-gates=equiv,andor` silently ablates a third gate**
+since `203732b`; the isolating spelling is `equiv,andor,def`.
 
 ### ▶ 2. PORT THE REFERENCES' DOSING SCHEME (replaces the retired pricing table, plan rev 91)
 
@@ -625,9 +551,14 @@ ordered by named target.*
 - [ ] **TB4b** — the remaining chrono divergences. (A) and (B) are done and ship OFF (ON and CRIPPLED are
   indistinguishable on Tier C, and the proof-size axis FLIPS SIGN between tiers). Unported: cadical's
   `chronoreusetrail` (= `SP-CHRONO-1`). `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
-- [ ] **`D-STRENGTHEN-BUDGET` — dose C1/C2.** They are the only slot entries neither dosed nor budget-aware;
-  C2 owns 97.8 s of `DivS_862_11`'s 109.0 s in four applications. Interruptibility itself is measured negative
-  (a stopped round merely DEFERS its candidates) and kept as a §5.6 arm; **the dose axis is live** (1‰ → 11.5 s).
+- [ ] **`D-STRENGTHEN-BUDGET` — dose C1/C2. FOLDED INTO §2's port, and its premise needs correcting first.**
+  The row says C1/C2 "are the only slot entries neither dosed nor budget-aware"; at HEAD both ship
+  `budget_aware = true` (`default_policy.cpp`, the `Strengthen` / `SubsumeForward` rows), so what is actually
+  missing is a *dose*, not the budget channel. The reference shape is `forwardeffort` = 100‰ on kissat's
+  `forward_steps` — which is a **different currency from ours**, so this item is blocked behind §2's meter
+  work rather than being an independent knob sweep. The live evidence stands: C2 owns 97.8 s of
+  `DivS_862_11`'s 109.0 s in four applications, and interruptibility is measured negative (a stopped round
+  merely DEFERS its candidates), kept as a §5.6 arm.
 
 ### ▶ 5. The Tier D campaign — exit clause (c)
 
@@ -647,18 +578,31 @@ ordered by named target.*
 
 ### ▶ Track SCHED — standing protocol (applies to every item above)
 
-Same-window A/B, fresh `build/pin-n4-<item>` ([[build-path-ownership]]). **Batching, stated once and only
-here:** a row whose arm is an env hatch rides an existing window as one extra arm, so the batch is **Tier B at
-300 s first** (#solved beats PAR-2) and **only survivors earn a Tier C window**, which needs its own pin dir —
-a same-window B+C pair is two arrays and therefore two pin dirs. A row that cannot be an env arm needs its own
-build: today `S-g` (a binary from `73af059`) and `E2` (one rule at a time, never bundled). **Every item names a
-SOURCE-LEVEL readout, pre-registered and checked FIRST — an arm whose source counter did not move was not
-tested** ([[ab-arm-identical-artefacts]]) — and the knob goes IN THE COMMAND, never through the environment.
-Noise floor 6.72; **#solved beats PAR-2**; the may-not-gate set may not gate alone. Rule-touching items carry
-DRAT + native-LRAT + random-policy legs; items opening new schedules add a stress-policy leg.
-**▶ Every prior dose negative measured through the broken meter is VOID** and must be re-derived: the V4
+**Measurement discipline, stated once and only here.** Same-window A/B on a fresh `build/pin-<item>`
+([[build-path-ownership]]); a same-window Tier B + Tier C pair is two arrays and therefore **two pin dirs**,
+built from one commit with matching binary SHAs. **Every item names a SOURCE-LEVEL readout, pre-registered and
+checked FIRST — an arm whose source counter did not move was not tested** ([[ab-arm-identical-artefacts]]) —
+and the knob goes IN THE COMMAND, never through the environment. **#solved beats PAR-2**; the may-not-gate set
+may not gate alone; Tier C's noise floor is 6.72 on an idle partition. Rule-touching items carry DRAT +
+native-LRAT + random-policy legs; items opening new schedules add a stress-policy leg.
+
+**▶ TIER B AT 300 s CANNOT PRICE A BROAD SCHEDULING CHANGE** (measured 2026-08-07, two windows). Four
+instances — `mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw` — flip under any perturbation and dominate
+every aggregate: in a 16-arm window whose bit-identical replicate pair differed by **0.01 PAR-2**, **9 of 14
+arms "gained a solve"**, including arms moving opposite mechanisms in opposite directions. So a Tier B
+`#solved` criterion resolves to about **±2 solves**. Price a broad change on **Tier C**, on **replicated
+draws**, or as a **named-instance claim** (`D3`'s shape: one instance, a mechanism story, and a counter that
+moves 1,304×). *(`mp1-klieber` and `sted5` now behave like the may-not-gate set; growing that set is a user
+decision and has not been taken.)*
+
+**▶ REGISTER A ROW AT ITS OWN LANDING COMMIT, never against a moving marker.** The retired table defended
+itself with `git merge-base --is-ancestor` against a marker that was a *sibling* of six of its own knobs'
+commits — so the check passed while pointing at the wrong binary.
+
+**▶ Every dose negative measured through the broken effort meter is VOID** and must be re-derived: the V4
 ticks-meter arm, the V4 early-exit arm, the C1/C2 mid-round budget arm, every per-entry per-mille sweep on a
-ticks-metered rule, and the BVE ramp-ceiling 8-vs-16 choice.
+ticks-metered rule, and the BVE ramp-ceiling 8-vs-16 choice. **And read §2's three meter defects before
+re-deriving any of them** — two of the three are still live, so a re-derivation today would inherit them.
 
 **Why this track also serves phase 7:** every `[arch]` item adds observability or control the learned policy
 needs — per-entry occasions/declines/yield, private per-rule meters, candidate order as a policy object, and
