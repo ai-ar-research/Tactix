@@ -439,7 +439,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   `x`). Each add step is a RAT addition (satisfiability-preserving) and each delete removes a clause
   entailed by the survivors, so the DRAT stream is sound end-to-end.
 
-## 6c. Bounded clause addition (X2) and witnessed clause elimination (X1, X3) — the reference families pulled in by rev 72
+## 6c. Bounded clause addition (X2, X6) and witnessed clause elimination (X1, X3) — the reference families pulled in by revs 72 and 83
 
 ### X2 · HyperTernaryRes — hyper ternary resolution
 - **Precondition (abstract):** two ternary clauses `C = (p ∨ a ∨ b)` and `D = (¬p ∨ c ∨ d)` in `F` whose
@@ -458,6 +458,33 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   therefore owes `ρ` a witness.)
 - **Termination:** each apply adds only clauses not already present and never deletes, and the
   ternary/binary clause space over a fixed variable set is finite, so repeated application reaches a
+  fixpoint.
+
+### X6 · HyperBinaryRes — hyper binary resolution over the binary implication graph
+- **Precondition (abstract):** a clause `C ∈ F` with `|C| > 2`, a literal `l₀ ∈ C`, and a literal `d`
+  such that for every `lᵢ ∈ C \ {l₀}` the binary implication graph of `F` contains a path
+  `d ⟹ ¬lᵢ` — i.e. `d` implies the falsity of every other literal of `C` by binary clauses alone.
+  Purely a property of `F`; no trail, no probing state, nothing about how `d` was found.
+- **Effect:** add the binary `R = (¬d ∨ l₀)`. Additionally, if `¬d ∈ C`, then `R ⊆ C`, and `C` may be
+  deleted — that half is an instance of the standard subsumption effect, not a new one. `τ`/`ρ`/`π`
+  untouched, no variable eliminated.
+- **Proof δ:** `add_rup(R, chain)`, plus `delete(C)` when `R` subsumes `C`. Assume `¬R`, i.e.
+  `d ∧ ¬l₀`. Unit propagation from `d` traverses each `d ⟹ ¬lᵢ` path and falsifies every
+  `lᵢ ∈ C \ {l₀}`, so `C` becomes unit on `l₀` and conflicts with `¬l₀`. `R` is therefore RUP against
+  `F`, and the chain is the binaries on those paths followed by `C`. **The implementation obtains that
+  chain by REPLAY rather than by construction** (assume `d ∧ ¬l₀`, propagate, read the conflict's
+  antecedents), which makes the replay the RUP *test* as well — a resolvent the replay cannot re-derive
+  is declined rather than emitted. Same discipline as V5's fast path.
+- **Soundness:** `R` is entailed by `F` (the argument above is a derivation, not just a checker fact),
+  so `F ≡ F ∪ {R}`; deleting a clause that `R` subsumes preserves the model set in both directions.
+  **No reconstruction entry is owed** — unlike X1/X3, nothing is removed that is not implied by what
+  remains.
+- **Why the tightest `d` is the point.** Any `d` on the path works, including the probe root itself,
+  but the *closest common dominator* of the `¬lᵢ` gives the strongest binary — it is implied by
+  strictly more assignments. The dominator is well defined because the binary implications closed from
+  a single root form a TREE.
+- **Termination:** each apply adds only binaries not already in `F` and deletes only subsumed clauses,
+  and the binary clause space over a fixed variable set is finite, so repeated application reaches a
   fixpoint.
 
 ### X1 · BCE — blocked clause elimination

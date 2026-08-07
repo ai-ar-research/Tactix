@@ -38,6 +38,7 @@ add_library(tactix_lib OBJECT
   src/rules/factor/factor.cpp
   src/rules/transitive_reduce/transitive_reduce.cpp
   src/rules/ternary/ternary.cpp
+  src/rules/hyperbinary/hyperbinary.cpp
   src/rules/bce/bce.cpp
   src/rules/cce/cce.cpp
   src/rules/instantiate/instantiate.cpp

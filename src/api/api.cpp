@@ -322,6 +322,10 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.substitute_vars;
   case 47: // TACTIX_STAT_SUBSTITUTE_SCC_LITS
     return k.stats.substitute_scc_lits;
+  case 48: // TACTIX_STAT_HBR_BINARIES
+    return k.stats.hbr_binaries;
+  case 49: // TACTIX_STAT_HBR_TICKS
+    return k.stats.hbr_ticks;
   default:
     return UINT64_MAX;
   }

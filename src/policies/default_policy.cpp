@@ -374,6 +374,7 @@ uint64_t meter_transitive(const Kernel &k) {
 }
 uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
+uint64_t meter_hbr(const Kernel &k) { return k.stats.hbr_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
 uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks; }
@@ -466,6 +467,13 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     {"BVE", 100, meter_bve, true, true, false, nullptr, 0,
      CADICAL_ELIM_MAXEFF, true},
     {"Probe", 20, meter_probe, true, false, false, &Stats::probe_ticks},
+    // HyperBinaryRes mirrors Probe exactly, and deliberately: its round is the
+    // same schedule of root literals closed by the same probing propagation, so
+    // the currency (ticks, privately sunk) and the cheap-probing-family rate of
+    // 20 per mille are Probe's, not a new choice. cadical has no `hbreffort` to
+    // port — its HBR rides inside probing's own budget, which is what this row
+    // reproduces once the technique is a separate rule.
+    {"HyperBinaryRes", 20, meter_hbr, true, false, false, &Stats::hbr_ticks},
     {"Backbone", 20, meter_backbone, true, false, false, &Stats::backbone_ticks},
     {"TransitiveReduce", 20, meter_transitive, true, false, false},
     {"Vivify", 100, meter_vivify, false, false, true, &Stats::vivify_ticks, 20},
@@ -585,6 +593,11 @@ constexpr SlotOrderRow AUTHORED_SLOT_ORDER[] = {
     {"Congruence", SlotGroup::Probe},
     {"Substitute", SlotGroup::Probe},
     {"HyperTernaryRes", SlotGroup::Probe},
+    // before Probe, not after: HBR's resolvents are new binaries, so running
+    // it first hands Probe a denser implication graph to close over. cadical
+    // gets both at once by resolving inside probing propagation; ordering is
+    // how a separate rule recovers the same coupling.
+    {"HyperBinaryRes", SlotGroup::Probe},
     {"Probe", SlotGroup::Probe},
     {"Backbone", SlotGroup::Probe},
     {"Vivify", SlotGroup::Probe},

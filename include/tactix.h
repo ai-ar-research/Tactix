@@ -125,6 +125,11 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_SUBSTITUTE_SCC_LITS 47 /* Substitute work: literals in the
                                               non-trivial SCCs it walked */
 
+/* X6 HyperBinaryRes (R9). Yield is the emitted resolvent count, effort is the
+ * private tick meter its EFFORT_SPECS row doses on. */
+#define TACTIX_STAT_HBR_BINARIES 48 /* hyper binary resolvents emitted */
+#define TACTIX_STAT_HBR_TICKS 49    /* HyperBinaryRes work */
+
 tactix *tactix_init(void);
 void tactix_release(tactix *);
 
