@@ -905,10 +905,20 @@ where the port is deliberately *not* a transliteration, and neither weakens the 
   the two cannot be mixed: a per-phase anchor advances whether or not a given technique ran, so a `thresh`
   delay under it would defer a technique while accumulating nothing — starving it rather than amortizing its
   set-up cost, which is the exact opposite of what the mechanism is for (cadical states the intent at
-  `probe.cpp:899-911`). **What we do:** cadical's pair. `SlotEntry::anchor` is per entry
+  `probe.cpp:899-911`). **What we do:** cadical's pair **on this axis** — `SlotEntry::anchor` is per entry
   (`default_policy.hpp:342`), advanced only on the admitted path (`default_policy.cpp:1356`, `:1582`), and
-  `slot_entry_thresh_declines` (`:1173-1181`) declines *without* advancing it — the accrual, exactly as
-  cadical has it. Three entries carry a non-zero `thresh`: Vivify 20, Factor 7, HyperTernaryRes 6.
+  `slot_entry_thresh_declines` (`:1173-1181`) declines *without* advancing it, exactly as cadical does.
+  Three entries carry a non-zero `thresh` — Vivify 20, Factor 7, HyperTernaryRes 6, all three matching
+  cadical's option values — but **only two are LIVE: Vivify's is INERT** (`D-VIVIFY-THRESH-INERT` below).
+  Note we simultaneously run kissat's delay LADDER on overlapping entries, so "cadical's pair" describes the
+  anchor+thresh axis and not the whole backoff design.
+  **A second defect the per-phase anchor would introduce, independent of the accrual:** `search_ticks` is
+  FROZEN inside a phase (`default_policy.hpp:501-507` nets in-flight ticks out; `inprocess.ticks` is credited
+  only at phase exit, `:1722`). Today an entry that ran in outer round 0 sees `reference = now − anchor = 0`
+  in rounds 1 and 2, floored to `MIN_EFFORT_TICKS` — **that floor collapse is the only thing preventing a
+  fresh full-size delta per outer round.** A group anchor stamped at phase exit does not advance mid-phase, so
+  all three outer rounds would read the same full reference and the per-phase grant of every metered entry
+  would roughly TRIPLE.
   **Why this is a deviation at all:** §5 obligation 6 makes kissat the tie-break when the references disagree,
   and on the anchor axis alone kissat says per-phase. We follow cadical because the axis is not independent —
   taking kissat's anchor means taking kissat's ladder and dropping `thresh`, which is a different and larger
@@ -917,8 +927,18 @@ where the port is deliberately *not* a transliteration, and neither weakens the 
   `thresh`. Pre-registered falsifier before that runs: on the entries carrying a `thresh` today, show that the
   ladder's skipped-occasion accrual reaches the same doses the reference accrual does; if it does not, the
   ladder is the weaker mechanism for a set-up-dominated technique and this row stands. **Recorded 2026-08-07**
-  after a planned "anchor per phase" change was found to break the accrual for those three entries — the
-  investigation is the value here, and it stopped a defect rather than fixing one.
+  after a planned "anchor per phase" change was found to carry both defects above — the investigation is the
+  value here, and it stopped two defects rather than fixing one.
+
+- **`D-VIVIFY-THRESH-INERT` — Vivify's `thresh` = 20 is a port that cannot fire.** `slot_entry_thresh_declines`
+  requires `e.doses > 0` (`default_policy.cpp:1174`), and `e.doses++` happens at exactly two sites —
+  `:1353` (under `TACTIX_BVE_ONESHOT`) and `:1536` (inside `run_budgeted_batch`). Vivify is dispatched to
+  `run_vivify_dose` instead (`:1586-1589`), which never touches `doses`, so `Vivify.doses` is permanently 0 and
+  the gate returns on its first conjunct forever. cadical's `vivifythresh` = 20 is therefore claimed but never
+  applied. **This is the inert-port shape** ([[ab-arm-identical-artefacts]]): the ledger reads as though the
+  mechanism is present. **Fix:** increment `doses` on Vivify's admitted path too, or state in the row that
+  Vivify is deliberately outside the thresh gate. Either way it is a code change, not a doc change, and it
+  must be measured — turning a dead gate on is a dose change. Found 2026-08-07 while checking `D-ANCHOR-SCOPE`.
 
 **A HIGH row may be closed here instead of by code, but only with the full contract: what the reference
 does, the measurement that justifies keeping our version, and a removal path.** An accepted deviation with
