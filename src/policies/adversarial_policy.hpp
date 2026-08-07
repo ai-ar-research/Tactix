@@ -1,15 +1,9 @@
-// AdversarialPolicy (D-LEVEL-1 stress harness): a Policy instantiation that
-// aggressively DECIDES without propagating to a fixpoint in between — the exact
-// N1 schedule DefaultPolicy never generates. Its purpose is to reproduce and
-// then guard against the "off-fixpoint decide" escaped-unit family (calculus
-// D-LEVEL-1). Like RandomPolicy it drives the solver only through sound rule
-// applications, so soundness + proof validity must survive its schedule.
-//
-// Knobs (env, so the fuzz driver can sweep without rebuilding):
-//   TACTIX_ADV_BURST=N   max consecutive decides before a propagate (default 4)
-//   TACTIX_ADV_PROP=P    percent chance to propagate when work remains (else
-//                        decide); 0 disables mid-burst propagation (default 15)
-//   TACTIX_TRACE=1       per-step rule trace + per-step invariant check to stderr
+// AdversarialPolicy: the off-fixpoint-decide stress harness, and the worked
+// example the other stress policies follow (contract in stress_registry.hpp).
+// It decides without propagating to a fixpoint in between, guarding the
+// escaped-unit family (calculus D-LEVEL-1). Knobs: TACTIX_ADV_BURST (max
+// consecutive decides before a propagate) and TACTIX_ADV_PROP (percent chance
+// to propagate when work remains; 0 disables mid-burst propagation).
 #pragma once
 
 #include "policies/policy.hpp"

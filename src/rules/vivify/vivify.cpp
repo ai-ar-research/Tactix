@@ -10,30 +10,23 @@
 namespace tactix {
 
 bool vivify_guard(const Kernel &k) {
-  // quiescent root (C1/C2's argument)
-  // D-SPLIT-3 (guard purification): the ¬conflict_valid conjunct is gone —
-  // this is a pure F-rewrite (sound regardless of a recorded conflict), and
-  // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
-  // boundary, so it never fired under the retained level==0). calculus §7.
+  // Quiescent root. No ¬conflict_valid conjunct (D-SPLIT-3): this is a pure
+  // F-rewrite, sound regardless of a recorded conflict.
   return !k.inconsistent && k.level == 0;
 }
 
 // A retained probing trail makes k.value() speculative, so every candidacy and
-// probe-list decision reads the ROOT value instead — kissat's `kissat_fixed`
-// (vivify.c:60, 940). Getting this wrong is the one way trail reuse produces a
-// WRONG answer rather than a slow one: the root-satisfied DELETION path is
-// reached through the same test, and a clause satisfied only under an
-// assumption must never be deleted. Design §3.1.
+// probe-list decision reads the root value (kissat `kissat_fixed`). The
+// root-satisfied deletion path uses the same test, and a clause satisfied only
+// under an assumption must never be deleted (design §3.1).
 static inline int8_t root_value(const Kernel &k, Lit l) {
   const int8_t v = k.value(l);
   return (v != 0 && k.var_level(var_of(l)) == 0) ? v : 0;
 }
 
-// Does `c` fall in the band `k.vivify_scope` selects? SCHED-G3 splits the
-// redundant side into kissat's three tiers (vivify.c:236-256) so the policy can
-// spend its three separate shares; scope 1 keeps the whole tier2-bounded
-// redundant band for external policies, and scope 0 — the unscoped N1 path —
-// means every band. Design §2.5.
+// Does `c` fall in the band `k.vivify_scope` selects? The redundant side is
+// split into kissat's three tiers (vivify.c:236-256) so a policy can spend
+// three separate shares. Design §2.5.
 static bool in_scope(const Kernel &k, const Clause *c) {
   const bool red = c->redundant();
   const uint32_t glue = c->glue();
@@ -49,11 +42,9 @@ static bool in_scope(const Kernel &k, const Clause *c) {
   case 5:
     return red && glue > k.tier2;       // tier3 (C10 hand-off H3)
   default:
-    // scope 0 is the unscoped N1 path and therefore means ALL bands, tier3
-    // included. Bounding it by the live tier2 made every tier3 clause
-    // unreachable through the public API — the guard reports applicable and
-    // apply quietly declines — which is a capability removed, not a default
-    // declining (N1; tests/test_vivify_n1.cpp).
+    // Scope 0 is the unscoped N1 path, so it means every band, tier3
+    // included: bounding it by tier2 would remove a capability rather than
+    // decline by default (tests/test_vivify_n1.cpp).
     return true;
   }
 }
@@ -62,15 +53,10 @@ static bool in_scope(const Kernel &k, const Clause *c) {
 static bool is_candidate(const Kernel &k, const Clause *c) {
   if (c->garbage() || c->size > VIVIFY_CLSLIM || c->size < 3)
     return false;
-  // SCHED-C1: the LIVE tier, not the static default. kissat's
-  // `vivify_tier2_limit` (vivify.c:132) reads `solver->tier2[0]` whenever
-  // `vivifyfocusedtiers` is set, and that option DEFAULTS TO 1 -- so the dynamic
-  // limit is the reference's shipped behaviour, not an opt-in. `k.tier2` is
-  // recomputed from the live glue distribution on every reduce and, until now,
-  // was read by nothing: we owned the mechanism and never connected it.
-  // ... and it binds only for the scopes that BOUND the redundant side by
-  // tier2 (1/3/4). Scopes 0 and 5 name bands that include tier3, so applying
-  // the tier2 cut there would contradict `in_scope` and re-close the band.
+  // The live tier, not the static default (kissat `vivify_tier2_limit`,
+  // vivify.c:132, whose `vivifyfocusedtiers` ships on). The cut binds only for
+  // the scopes that bound the redundant side by tier2 (1/3/4); on 0 and 5 it
+  // would contradict `in_scope` and re-close the tier3 band.
   if (c->redundant() && c->glue() > k.tier2 && k.vivify_scope != 0 &&
       k.vivify_scope != 5)
     return false;
@@ -80,19 +66,12 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
   return true;
 }
 
-// --- the round's global literal order (SCHED-G3) ----------------------------
-// Both references make cross-candidate reuse possible not with the reuse loop
-// but with the ORDER: pick one global literal order by occurrence count, sort
-// each clause's literals by it, then sort clauses lexicographically under it.
-// cadical vivify.cpp:35-42 states it outright ("instead of building a trie we
-// simply sort clauses and literals in such a way that we get the same effect");
-// kissat does the same in vivify_sort_clause_by_counts + worse_candidate.
-//
-// DEVIATION from kissat, deliberate: kissat permutes the literals IN THE ARENA
-// and therefore brackets the round with flush_large_watches/watch_large_clauses.
-// We keep the order in a round-scoped side vector and sort only our local probe
-// list, so the arena and the watch arena are never touched. Same effect, no
-// watch rebuild.
+// --- the round's global literal order ---------------------------------------
+// What makes cross-candidate reuse possible is the order, not the reuse loop
+// (cadical vivify.cpp:35-42; kissat vivify_sort_clause_by_counts). Deliberate
+// deviation: kissat permutes the literals in the arena and must bracket the
+// round with flush_large_watches/watch_large_clauses, whereas the order here
+// lives in a round-scoped side vector, so no arena is touched.
 struct VivifyOrder {
   std::vector<uint32_t> counts; // per-literal occurrences; persistent scratch
   std::vector<Lit> touched;     // ...restored in O(touched), never O(nvars)
@@ -114,15 +93,13 @@ static void order_clear(VivifyOrder &ord) {
   ord.touched.clear();
 }
 
-// Sort `out` (a candidate's probe literals) into the global order.
 static void order_sort(const VivifyOrder &ord, std::vector<Lit> &out) {
   std::sort(out.begin(), out.end(), [&ord](Lit a, Lit b) { return ord(a, b); });
 }
 
-// The non-root-fixed literals of `c`, in probe order. Clause literal order
-// unless `ordered` — which is off both for the pre-G3 arm (`!vivify_reuse`) and
-// for the standalone single-candidate path, where `counts` was never filled for
-// this call and there is no next candidate to share a prefix with anyway.
+// The non-root-fixed literals of `c`, in probe order — clause order unless
+// `ordered`, which is off for the no-reuse arm and for the standalone path,
+// where `counts` was never filled and no next candidate shares a prefix.
 static void probe_list(const Kernel &k, const Clause *c,
                        const VivifyOrder &ord, std::vector<Lit> &out,
                        bool ordered) {
@@ -140,10 +117,8 @@ struct VivifySchedule {
   bool rearmed = false;     // ...the set was empty, so the scope was re-armed
 };
 
-// `commit` writes the re-arm back into the clause headers. The const query
-// (vivify_candidates / the N1 instance enumeration) applies the same rule
-// virtually, so it reports the order the round would use without touching the
-// database.
+// `commit` writes the re-arm back into the clause headers; the const query
+// applies the same rule virtually, reporting the order a round would use.
 static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
                             VivifySchedule *commit) {
   out.clear();
@@ -184,10 +159,8 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
     }
     ref += clause_words(c->size);
   }
-  // SCHED-F5, kissat vivify.c:296-301: when the leftover set is empty the
-  // WHOLE scope is re-armed. The bit is a priority mechanism, never a
-  // suppressor — that property is exactly what the per-variable stage-F
-  // substrate could not express, and why F5 routed here.
+  // kissat vivify.c:296-301: an empty leftover set re-arms the whole scope.
+  // The bit is a priority mechanism and never a suppressor.
   const bool rearm = prioritized == 0 && !cands.empty();
   if (rearm)
     for (Cand &c : cands)
@@ -242,28 +215,19 @@ static void assume(Kernel &k, Lit lit) {
   kernel_assign(k, lit, k.level, DECISION_REASON, false);
 }
 
-// Discard the whole probing trail and close the scope. THE reset in the trail-
-// reuse design (§2.4/§3): every operation that can invalidate a retained trail
-// — a rewrite, a deletion, a root unit, a garbage collection — is preceded by
-// this, so a trail is never carried ACROSS a database change, only across
-// candidates that changed nothing. That single rule is what makes invariant
-// VP1 hold, and it is also why kernel_probing_end's "no clause added, deleted
-// or relocated inside a scope" contract cannot be violated here.
+// Discard the whole probing trail and close the scope. Every operation that
+// can invalidate a retained trail is preceded by this, so a trail is only ever
+// carried across candidates that changed nothing — invariant VP1 (design §3).
 static void reset_to_root(Kernel &k) {
   k.conflict_valid = false;
   k.conflict_ref = INVALID_REF;
   if (k.level > 0)
     kernel_backtrack(k, 0, /*update_phases=*/false);
-  // trail is back at the clean root: give search back the watch order and
-  // `searched` hints these propagations churned (kernel.hpp
-  // kernel_probing_begin). MUST run before rewrite() touches the arena — the
-  // log holds Refs — and every rewrite site below is reached through here.
+  // Hand search back the watch order and `searched` hints these propagations
+  // churned. Must run before rewrite() touches the arena, the rollback log
+  // holding Refs; every rewrite site below is reached through here.
   kernel_probing_end(k);
 }
-
-// The reason walk (kernel_reason_walk) and conflict seed (kernel_conflict_
-// reason_walk) are shared kernel helpers (kernel.cpp) — the proof-critical
-// DFS lives in exactly one place, used by Vivify, Probe and Backbone.
 
 // last == 0 means the sorted entries already end in the conflicting hint
 // (the implied literal's own reason); otherwise `last` closes the chain
@@ -281,9 +245,11 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                    chain.data(), static_cast<uint32_t>(chain.size()));
 }
 
-// replace `c` (at cref) by `lits` with proof add before delete. Returns
-// ApplyResult::Unsat for an empty rewrite, Ok otherwise. `entries`+`last`
-// form the LRAT chain; ignored when not in LRAT mode.
+// Replace `c` (at cref) by `lits`, proof add before delete; `entries`+`last`
+// form the LRAT chain. The replacement keeps the candidate's redundancy, glue
+// conservatively min(old glue, new size). No partner-redundancy question
+// arises: the strengthener is the propagation itself, so the rewrite is
+// implied by F ∪ R and subsumes the original.
 static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                            std::vector<std::pair<uint32_t, uint64_t>> &entries,
                            uint64_t last, bool *ended_round) {
@@ -301,38 +267,35 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                        nullptr, 0);
   }
   k.stats.vivified++;
-  // shared replacement tail (kernel_replace_clause); glue is a
-  // redundant-clause concept — 0 for irredundant (review-aligned)
+  // shared replacement tail; glue is a redundant-clause concept, 0 otherwise
   switch (kernel_replace_clause(k, c, id, lits.data(),
                                 static_cast<uint32_t>(lits.size()), redundant,
                                 redundant ? glue : 0, nullptr)) {
   case ReplaceOutcome::Refuted:
     return ApplyResult::Unsat;
   case ReplaceOutcome::Unit:
+    // a unit rewrite asserts at the root and ends the round: values changed,
+    // so every candidacy decision taken since the round began is stale
     k.unit_ids[var_of(lits[0])] = id;
     kernel_assign_unit(k, lits[0]);
-    *ended_round = true; // values changed: the round's reasoning is stale
+    *ended_round = true;
     return ApplyResult::Ok;
   default:
     return ApplyResult::Ok;
   }
 }
 
-// probe one candidate; on an actionable outcome, rewrite. Returns NoOp
-// (nothing found), Ok (rewritten/deleted), or Unsat.
-//
-// `reuse` = the round hands over a live probing trail from the previous
-// candidate and owns the scope; nullptr = the standalone path (vivify_try),
-// which opens and closes its own scope around a root-to-root probe. On any
-// actionable outcome this function calls reset_to_root() BEFORE mutating, in
-// both modes, which is the reuse design's whole safety argument (§3).
+// Probe one candidate; on an actionable outcome, rewrite. `reuse` means the
+// round hands over a live probing trail and owns the scope; otherwise this
+// path opens and closes its own scope around a root-to-root probe. In both
+// modes reset_to_root() runs before any mutation (design §3).
 static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
                               bool reuse) {
   Clause *c = clause_at(k.arena, cref);
   if (!is_candidate(k, c)) {
-    // re-check ROOT satisfaction for deletion (a satisfied candidate is
-    // dead weight; kissat/CaDiCaL delete it here). Root, not current: with a
-    // retained trail a speculatively satisfied clause is NOT deletable.
+    // re-check root satisfaction for deletion (kissat/CaDiCaL delete a
+    // satisfied candidate here). Root, not current: with a retained trail a
+    // speculatively satisfied clause is not deletable.
     if (!c->garbage() && c->size >= 3) {
       bool satisfied = false;
       for (const Lit l : *c)
@@ -349,11 +312,11 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
   }
   k.stats.vivify_checked++;
   if (c->redundant() && c->glue() > k.tier2)
-    k.stats.vivify_tier3++; // C10 hand-off H3: 0 here means tier3 is inert
+    k.stats.vivify_tier3++; // 0 here means the tier3 band is inert
   const bool lrat = k.proof && k.proof->lrat();
-  // probe literals: the non-root-fixed ones, in the round's global literal
-  // order (§2.2) — the order is what makes a prefix shared with the next
-  // candidate, so it is not separable from the reuse loop below.
+  // probe literals in the round's global literal order (design §2.2) — the
+  // order is what makes a prefix shared with the next candidate, so it is not
+  // separable from the reuse loop below
   std::vector<Lit> probes;
   std::vector<uint64_t> absorbed; // unit ids of root-falsified lits (LRAT)
   probes.reserve(c->size);
@@ -366,14 +329,11 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
     return ApplyResult::NoOp; // effectively binary: C2 territory
   const uint64_t cid = c->id();
   if (reuse && k.level > 0) {
-    // (a) The candidate may be the REASON of a retained trail literal: the
-    // prefix was propagated ignoring the PREVIOUS candidate, not this one.
-    // Both references check exactly this and backtrack below it (kissat
-    // vivify.c:995-1005, cadical vivify.cpp:940-965). It is not only a quality
-    // question — in the implied-negation case the candidate's id is the
-    // CLOSING hint, so a reason walk that also reached it would emit the same
-    // id twice in one LRAT chain, and a hint that is already satisfied on
-    // replay is a rejection (§3.2).
+    // (a) The candidate may be the reason of a retained trail literal, the
+    // prefix having been propagated ignoring the previous candidate (kissat
+    // vivify.c:995-1005). Not only a quality question: in the implied-negation
+    // case the candidate's id is the closing hint, so a reason walk reaching
+    // it too would emit that id twice in one chain (design §3.2).
     for (const Lit l : *c) {
       const Var v = var_of(l);
       if (k.value(l) > 0 && k.var_level(v) > 0) {
@@ -385,19 +345,16 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
       }
     }
     // (b) Trim assumptions the previous (longer) candidate made that are not
-    // literals of this one. VP3 already makes them inert, but leaving them is
-    // one careless edit away from reading a value justified by an assumption
-    // outside the candidate (§3.4).
+    // literals of this one: VP3 makes them inert, and trimming keeps a value
+    // from being read under an assumption outside the candidate (§3.4).
     if (k.level > probes.size())
       kernel_backtrack(k, static_cast<uint32_t>(probes.size()),
                        /*update_phases=*/false);
   }
   std::vector<std::pair<uint32_t, uint64_t>> entries;
-  // Persistent walk scratch (C4-perf twin of congruence_rup_chain's): the
-  // old per-candidate seen.assign(k.nvars, 0) was an O(nvars) zero-fill per
-  // vivified candidate under LRAT. Grown on demand; restored all-zero in
-  // O(marked) at the single exit below. lrat-gated (review #9): only the
-  // reason walk reads it, so a proofs-off round pays nothing.
+  // Persistent walk scratch: a per-candidate assign() would be an O(nvars)
+  // zero-fill per vivified candidate. Restored all-zero in O(marked) at the
+  // single exit below, and LRAT-gated, so a proofs-off round pays nothing.
   static thread_local std::vector<uint8_t> seen;
   static thread_local std::vector<Var> seen_touched;
   if (lrat) {
@@ -405,14 +362,10 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
       seen.resize(k.nvars, 0);
     seen_touched.clear();
   }
-  // kissat's marks on the probe literals (vivify_mark_sorted_literals,
-  // vivify.c:867-874), so a propagation can be scanned for an implied clause
-  // literal the moment it produces one. Not optional once the probe order is
-  // count-based: under clause order the implied literal was usually the next
-  // position and the lazy `v > 0` test below caught it, but the count order
-  // can place it anywhere later, and without the eager scan the new order
-  // would strictly LOSE strengthenings the old one found. Persistent scratch,
-  // restored in O(probes).
+  // Marks on the probe literals (kissat vivify_mark_sorted_literals), so a
+  // propagation can be scanned for an implied clause literal at once.
+  // Mandatory under a count-based probe order, which can put the implied
+  // literal anywhere the lazy `v > 0` test below would miss it.
   static thread_local std::vector<uint8_t> marked;
   if (marked.size() < 2 * k.nvars)
     marked.resize(2 * k.nvars, 0);
@@ -421,11 +374,9 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
 
   std::vector<Lit> next;
   ApplyResult res = ApplyResult::NoOp;
-  // Everything the assumption propagations below churn in the watch lists /
-  // clause headers is speculative and is handed back to search when the scope
-  // closes (kernel.hpp kernel_probing_begin). In reuse mode the ROUND owns the
-  // scope — one per run of non-mutating candidates — so it is not reopened per
-  // candidate; reset_to_root() closes it at the first mutation.
+  // Watch-list and clause-header churn from the assumption propagations below
+  // is speculative and is handed back to search when the scope closes. In
+  // reuse mode the round owns the scope, so it is not reopened per candidate.
   if (!reuse)
     kernel_probing_begin(k);
   uint32_t reused = 0, made = 0;
@@ -433,11 +384,9 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
     const Lit li = probes[i];
     const uint32_t lvl = i + 1; // the decision level this probe occupies
     if (lvl <= k.level) {
-      // Reuse test on the FRAME DECISION, not on the value: a literal that is
-      // false for some other reason is not a reused assumption. Nothing is
-      // read here — see VP3, and kissat's `assert (!value || LEVEL (lit) <=
-      // level)` on the fall-through path, which pins that a value may only be
-      // interpreted once exactly this candidate's assumptions are in force.
+      // Reuse test on the frame decision, not on the value: a literal false
+      // for some other reason is not a reused assumption, and a value may
+      // only be read once exactly this candidate's assumptions hold (VP3).
       if (k.trail[k.frames[lvl]] == negate(li)) {
         reused++;
         continue;
@@ -447,18 +396,16 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
     assert(k.level == lvl - 1); // VP3: only this candidate's assumptions hold
     const int8_t v = k.value(li);
     if (v > 0) {
-      // implied: (probes[0..i-1], li) subsumes the candidate — a strict
-      // strengthening since i + 1 < probes.size() (v > 0 needs at least
-      // one assumption, and the LAST probe reaching here means every
-      // earlier one was assumed, i.e. i+1 == size only if li was
-      // assigned by assumption — excluded by v > 0 with li unassumed)
+      // implied: (probes[0..i-1], li) subsumes the candidate, and strictly,
+      // since i + 1 == probes.size() would need li to have been assigned by
+      // assumption, which v > 0 with li unassumed excludes
       if (i + 1 >= probes.size())
         break; // no strict gain; defensive
       next.assign(probes.begin(), probes.begin() + i);
       next.push_back(li);
-      // chain: li's derivation alone — its own reason (the max-trail
-      // entry) is the conflicting hint under the ¬li assumption; the
-      // candidate is NOT cited (a hint after the conflict is illegal)
+      // chain: li's derivation alone — its own reason (the max-trail entry) is
+      // the conflicting hint under the ¬li assumption, and the candidate is
+      // not cited, a hint after the conflict being illegal
       if (lrat)
         kernel_reason_walk(k, var_of(li), seen, entries, &seen_touched);
       reset_to_root(k);
@@ -487,10 +434,9 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
       const bool gain = i + 1 < probes.size() || probes.size() < c->size;
       if (!gain) {
         // A conflict invalidates only the level that produced it, so drop that
-        // one and keep the prefix below it for the next candidate — kissat's
-        // "forcing backtracking at least one level after conflict"
-        // (vivify.c:1223-1226). The conflict handoff fields must be cleared
-        // with it: a recorded conflict may never outlive its candidate.
+        // level and keep the prefix below it for the next candidate (kissat
+        // vivify.c:1223-1226). The conflict handoff fields are cleared with
+        // it: a recorded conflict may never outlive its candidate.
         k.conflict_valid = false;
         k.conflict_ref = INVALID_REF;
         kernel_backtrack(k, lvl - 1, /*update_phases=*/false);
@@ -504,31 +450,28 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
       res = rewrite(k, cref, next, entries, last, ended_round);
       break;
     }
-    // EAGER implied literal (kissat vivify.c:1078-1090): scan what this
-    // assumption just propagated for another literal OF THE CANDIDATE. Then
-    // (probes[0..i], lm) is implied and subsumes the candidate. Strictly
-    // stronger than waiting for position j > i, which would need j - i more
-    // assumptions to reach the same conclusion.
+    // Eager implied literal (kissat vivify.c:1078-1090): scan what this
+    // assumption propagated for another literal of the candidate, giving
+    // (probes[0..i], implied) — stronger than waiting for position j > i.
+    // kissat's `better_implied` refinement (vivify.c:1101-1117) is not
+    // ported; the first in trail order is taken.
     Lit implied = INVALID_LIT;
-    // from before + 1: trail[before] is the assumption itself, which is a
-    // marked literal's NEGATION and never an implied one (kissat gets the same
-    // exclusion from the sign of its two-sided marks)
+    // From before + 1: trail[before] is the assumption itself, a marked
+    // literal's negation and never an implied one.
     for (uint32_t t = before + 1; t < k.trail.size(); t++)
       if (marked[k.trail[t]]) {
         implied = k.trail[t];
         break;
       }
     if (implied != INVALID_LIT && i + 2 < c->size) {
-      // (i + 2 >= c->size is "no strict gain" and must CONTINUE, not break:
-      // the assumption is already made and a later position can still find a
-      // conflict, which is exactly what the pre-eager loop would have done. A
-      // break here would make the eager scan a net LOSS of coverage on the
-      // clauses it cannot improve.)
+      // i + 2 >= c->size is "no strict gain" and must continue, not break: the
+      // assumption is already made and a later position can still find a
+      // conflict, so breaking would lose coverage the lazy scan had.
       next.assign(probes.begin(), probes.begin() + i + 1);
       next.push_back(implied);
-      // the same chain shape as the lazy case below: `implied`'s own
-      // derivation, whose max-trail entry is the conflicting hint under the
-      // negation of the emitted clause. The candidate is NOT cited.
+      // same chain shape as the lazy case above: `implied`'s own derivation,
+      // whose max-trail entry is the conflicting hint under the negation of
+      // the emitted clause; the candidate is not cited
       if (lrat)
         kernel_reason_walk(k, var_of(implied), seen, entries, &seen_touched);
       reset_to_root(k);
@@ -553,15 +496,14 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
 // canonical instance: one full round over the tier-aware schedule
 ApplyResult vivify_apply(Kernel &k) {
   assert(vivify_guard(k));
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL guard purification: complete the root closure U (no-op at a
+  // fixpoint); a root conflict during the drain refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.vivify_rounds++;
-  // The round owns the probing scope from here, so it must not inherit one:
-  // if some earlier rule left a scope recording at the root, the `!recording`
-  // test below would skip opening ours and every probe would land in a log
-  // that closes somewhere else. Idempotent outside a scope.
+  // The round owns the probing scope from here and must not inherit one: a
+  // scope left recording by an earlier rule would make the `!recording` test
+  // below skip opening this round's. Idempotent outside a scope.
   kernel_probing_end(k);
   std::vector<Ref> candidates;
   VivifySchedule sched;
@@ -571,38 +513,29 @@ ApplyResult vivify_apply(Kernel &k) {
   uint64_t changed = 0;
   bool ended = false;
   const bool reuse = k.vivify_reuse;
-  // k.work_budget (kernel.hpp), in Vivify's currency (propagation ticks):
-  // stop visiting candidates once the round has spent the configured ticks;
-  // 0 = unbounded (legacy path).
+  // k.work_budget in Vivify's currency (propagation ticks); 0 = unbounded
   const uint64_t tick_start = k.stats.ticks;
   for (const Ref cref : candidates) {
     if (k.work_budget && k.stats.ticks - tick_start > k.work_budget)
       break;
-    // SCHED-H1 (Vivify half). Polled on EVERY candidate, exactly as kissat
-    // does (vivify.c:1291) — deliberately with no `!(++tick & 255)` window,
-    // because a poll window an instance never reaches is what let task #10's
-    // abort paths pass 4 x 10,000 fuzz cases while vacuous, and a poll with no
-    // window cannot have one. The two counters are separate on purpose: the
-    // site being REACHED and the site FIRING are different claims.
+    // Termination poll on every candidate (kissat vivify.c:1291), with no
+    // `!(++tick & 255)` window: a window an instance never reaches makes the
+    // abort path vacuous. The two counters are separate on purpose.
     k.stats.vivify_polls++;
     if (kernel_terminating(k)) {
       k.stats.vivify_terminated++;
       break;
     }
-    // In reuse mode the trail from the previous candidate is still standing
-    // and the probing scope is still open; the scope is (re)opened here only
-    // when the previous candidate closed it by mutating the database. Testing
-    // `recording` rather than `level == 0` matters: a candidate can decline at
-    // the root (too few probes, a conflict on the first assumption) without
-    // ever having closed the scope, and re-opening one that is already
-    // recording would roll the round's watch state back mid-round.
+    // Reopen the scope only when the previous candidate closed it by mutating
+    // the database. Test `recording`, not `level == 0`: a candidate can
+    // decline at the root without closing the scope, and reopening a
+    // recording scope rolls the round's watch state back.
     if (reuse && !k.probing.recording)
       kernel_probing_begin(k);
     const ApplyResult r = vivify_one(k, cref, &ended, reuse);
-    // The bit is cleared once a candidate has been TRIED, so a budget cut or a
-    // termination leaves exactly the untried tail armed for the next round
-    // (SCHED-F5, kissat vivify.c:1311). The clause may now be garbage — the
-    // header is still there until the collect below.
+    // Cleared once a candidate has been tried, so a budget cut or termination
+    // leaves exactly the untried tail armed for the next round (kissat
+    // vivify.c:1311). A garbage clause still has its header until the collect.
     clause_at(k.arena, cref)->set_vivify(false);
     if (r == ApplyResult::Unsat)
       return ApplyResult::Unsat;
@@ -622,8 +555,8 @@ ApplyResult vivify_apply(Kernel &k) {
 ApplyResult vivify_try(Kernel &k, Ref candidate) {
   assert(vivify_guard(k));
   bool ended = false;
-  // Standalone: its own root-to-root probing scope, no retained trail. The N1
-  // surface must not depend on a round having run before it.
+  // Standalone: its own root-to-root probing scope, no retained trail — the N1
+  // surface must not depend on a round having run first.
   const ApplyResult r = vivify_one(k, candidate, &ended, /*reuse=*/false);
   if (r == ApplyResult::Ok)
     kernel_collect_garbage(k);
@@ -641,8 +574,8 @@ static uint32_t vivify_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult vivify_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL guard purification: complete the root closure U (no-op at a
+  // fixpoint); a root conflict during the drain refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)

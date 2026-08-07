@@ -27,7 +27,7 @@ int adversarial_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
               "conflict=%d incons=%d\n",
               what, k.level, k.trail.size(), k.propagate_head, k.unassigned,
               (int)k.conflict_valid, (int)k.inconsistent);
-    kernel_check_invariants(k); // PER-STEP (not every-256): pin the culprit
+    kernel_check_invariants(k); // per step, not every-256: pin the culprit
   };
 
   for (uint64_t steps = 0;; steps++) {
@@ -41,8 +41,7 @@ int adversarial_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
       const ApplyResult r = analyze_apply(k);
       if (r == ApplyResult::Unsat)
         return 20;
-      // TB4b(A): see bve_stress_policy — a reused conflict leaves nothing
-      // pending, so Backjump's guard is false.
+      // A reused conflict leaves nothing pending, so Backjump's guard is false.
       if (backjump_guard(k))
         backjump_apply(k); // asserts the UIP at jump_level; clears pending
       since_prop = 0;

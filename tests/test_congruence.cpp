@@ -1,7 +1,5 @@
-// V6 Congruence — gate congruence closure. Two gates of the same kind over the
-// same inputs have equivalent outputs; congruence_apply adds the equivalence
-// binaries (¬a∨b),(a∨¬b). These tests build one gate pair per kind (AND/XOR/ITE)
-// and assert the closure fires; plus a no-op when inputs differ.
+// V6 Congruence: two gates of the same kind over the same inputs have
+// equivalent outputs; congruence_apply adds (¬a∨b),(a∨¬b). docs/calculus.md.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/congruence/congruence.hpp"
@@ -12,7 +10,6 @@
 
 using namespace tactix;
 
-// definitive live-binary test (watch scan)
 static bool has_binary(const Kernel &k, Lit a, Lit b) {
   const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
   for (uint32_t i = 0; i < k.watches.heads[a].size;) {
@@ -62,7 +59,6 @@ static void ite_gate(Kernel &k, int out, int c, int t, int e) {
   add3(k, -c, t, -out);
 }
 
-// Two AND gates over the same inputs → outputs merged.
 static void test_and_congruent() {
   Kernel k;
   kernel_reserve_vars(k, 4); // x1=1 x2=2 a=3 b=4
@@ -73,7 +69,7 @@ static void test_and_congruent() {
   assert(equivalence_added(k, 3, 4)); // a ≡ b
 }
 
-// Two XOR gates over the same inputs → outputs merged (exercises the ladder).
+// XOR merging exercises the parity ladder.
 static void test_xor_congruent() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -84,7 +80,6 @@ static void test_xor_congruent() {
   assert(equivalence_added(k, 3, 4));
 }
 
-// Two ITE gates over the same (cond,then,else) → outputs merged.
 static void test_ite_congruent() {
   Kernel k;
   kernel_reserve_vars(k, 5); // c=1 t=2 e=3 a=4 b=5
@@ -95,7 +90,6 @@ static void test_ite_congruent() {
   assert(equivalence_added(k, 4, 5));
 }
 
-// Different inputs → not congruent → NoOp, no equivalence added.
 static void test_no_congruence() {
   Kernel k;
   kernel_reserve_vars(k, 6); // a=AND(1,2)=5, b=AND(3,4)=6
@@ -106,8 +100,7 @@ static void test_no_congruence() {
   assert(!equivalence_added(k, 5, 6));
 }
 
-// Mixed kinds over the same inputs must NOT collide: AND(1,2)=4 and XOR(1,2)=5
-// compute different functions, so their outputs must stay independent.
+// Mixed kinds compute different functions, so their outputs stay independent.
 static void test_kind_isolation() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -119,10 +112,8 @@ static void test_kind_isolation() {
   assert(!equivalence_added(k, 4, 5));
 }
 
-// --- the BINARY-RESOLUTION unit channel (SCHED-G4 Y1) ------------------------
-// (l∨o) and (l∨¬o) resolve on o to {l}. NO gate is involved, so these run on
-// formulas the gate extractor finds nothing in — which is exactly the point:
-// the channel is separate from D-CONG-UNIT and is counted separately.
+// --- the binary-resolution unit channel (V6a) --------------------------------
+// (l∨o) and (l∨¬o) resolve on o to {l}, no gate involved. docs/calculus.md.
 static void test_binary_resolution_unit() {
   Kernel k;
   kernel_reserve_vars(k, 2);
@@ -137,7 +128,6 @@ static void test_binary_resolution_unit() {
   assert(k.stats.congruence_gates == 0 && "no gate was extracted");
 }
 
-// Two binaries that do NOT clash on their second literal imply nothing.
 static void test_binary_resolution_no_unit() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -149,9 +139,7 @@ static void test_binary_resolution_no_unit() {
   assert(k.stats.congruence_y1_found == 0);
 }
 
-// Both polarities of the same variable derived in ONE sweep is a refutation,
-// resolved by the shared PendingUnits batch rather than by asserting a false
-// unit on the trail (the corpus-007 shape, now reachable from Y1 too).
+// Both polarities in one sweep refute via PendingUnits, not a false unit.
 static void test_binary_resolution_refutes() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -164,11 +152,8 @@ static void test_binary_resolution_refutes() {
 }
 
 // --- the unit channel (D-CONG-UNIT) -----------------------------------------
-// A gate that degenerates under the current representatives is an INFERENCE, not
-// a dead end. Here the closure must first prove x1 ≡ x2 (two AND gates over the
-// same inputs), which makes the XOR gate out = x1 ⊕ x2 cancel completely, so its
-// output is the constant 0 and ¬out is a root unit. This is the miter shape in
-// miniature: it is why congruence alone refutes an equivalence-checking miter.
+// A gate degenerating under the current representatives is an inference: with
+// x1 ≡ x2, out = x1 ⊕ x2 cancels to 0 and ¬out is a root unit.
 static void test_xor_cancel_learns_unit() {
   Kernel k;
   kernel_reserve_vars(k, 5); // a=1 b=2 x1=3 x2=4 out=5
@@ -182,13 +167,7 @@ static void test_xor_cancel_learns_unit() {
   assert(k.stats.congruence_units >= 1);
 }
 
-// Two XOR relations with OPPOSITE parity constants collapse onto the same
-// output variable: {3,4,5} with R=0 cancels to ¬5 while {6,7,5} with R=1
-// cancels to 5. The two derived units are an opposite-sign pair in one round,
-// which PendingUnits resolves to the empty clause — the round must REFUTE
-// rather than assign. (An earlier form asserted `out` on the trail instead,
-// but a root-assigned output suppresses gate extraction entirely, so that
-// construction can no longer reach the unit channel.)
+// Opposite-sign units derived in one round must refute, not assign.
 static void test_xor_cancel_refutes() {
   Kernel k;
   kernel_reserve_vars(k, 7); // p=1 q=2 a=3 b=4 out=5 c=6 d=7
@@ -197,8 +176,7 @@ static void test_xor_cancel_refutes() {
   and_gate(k, 6, 1, 2);
   and_gate(k, 7, 1, 2); // 6 ≡ 7 (and ≡ 3, transitively)
   xor_gate(k, 5, 3, 4); // 3⊕4⊕5 = 0: cancels to the unit ¬5
-  // 6⊕7⊕5 = 1 (the even-negation clause set): the gate on {6,7} outputs ¬5,
-  // and once 6 ≡ 7 it cancels to the unit 5 — the opposing pair refutes.
+  // 6⊕7⊕5 = 1: the gate on {6,7} outputs ¬5 and cancels to the unit 5.
   add3(k, 6, 7, 5);
   add3(k, -6, -7, 5);
   add3(k, -6, 7, -5);
@@ -208,7 +186,7 @@ static void test_xor_cancel_refutes() {
   assert(k.inconsistent);
 }
 
-// --- the AND degeneracies + contradictory merge (C3b) -----------------------
+// --- the AND degeneracies and the contradictory merge -----------------------
 
 static void add4(Kernel &k, int a, int b, int c, int d) {
   Lit lits[4] = {internalize(a), internalize(b), internalize(c),
@@ -235,8 +213,8 @@ static void test_and_clash_learns_unit() {
   assert(k.stats.congruence_units >= 1);
 }
 
-// c = AND(a,b) where a ≡ b: the key deduplicates to the unary gate AND(x),
-// so c merges with the representative — no second gate needed.
+// c = AND(a,b) with a ≡ b: the key deduplicates to AND(x), so c merges with
+// the representative with no second gate.
 static void test_and_idempotent_unary_merge() {
   Kernel k;
   kernel_reserve_vars(k, 5); // p=1 q=2 a=3 b=4 c=5
@@ -249,8 +227,8 @@ static void test_and_idempotent_unary_merge() {
   assert(equivalence_added(k, 5, 3)); // the unary merge c ≡ a
 }
 
-// a = AND(p,q) and ¬b = AND(p,q) while a ≡ b: the closure derives b ≡ ¬b's
-// class — a contradictory merge, and the formula is UNSAT (C3b refutation).
+// a = AND(p,q) and ¬b = AND(p,q) with a ≡ b: b joins ¬b's class, and that
+// contradictory merge means UNSAT.
 static void test_contradictory_merge_refutes() {
   Kernel k;
   kernel_reserve_vars(k, 4); // p=1 q=2 a=3 b=4
@@ -265,18 +243,12 @@ static void test_contradictory_merge_refutes() {
   assert(k.inconsistent);
 }
 
-// --- the XOR output-literal sign convention (PROGRESS C0) -------------------
-// A gate's `output` literal must EVALUATE to f(inputs). For XOR that sign is
-// invisible to the closure (it only compares two gates' outputs, and a shared
-// mis-signing cancels), so it needs its own test — a unit/merge channel built on
-// the degenerate cases reads the polarity directly and a flip is then unsound.
-//
-// For a relation ⊕vⱼ = R over s variables, the gate whose inputs are the other
-// s−1 variables has ⊕_{j≠i} vⱼ = R ⊕ vᵢ, so its output literal is vᵢ when R = 0
-// and ¬vᵢ when R = 1 — independent of s.
+// --- the XOR output-literal sign convention ---------------------------------
+// A gate's `output` must evaluate to f(inputs): invisible to the closure, but
+// the degenerate-case unit/merge channel reads the polarity directly. For
+// ⊕vⱼ = R the gate on the other s−1 variables outputs vᵢ iff R = 0.
 
-// assert the extracted XOR gate over `inputs` (external DIMACS, any order) has
-// exactly `expected_out` (external DIMACS, signed) as its output literal.
+// The XOR gate over `inputs` has `expected_out` as its output (both DIMACS).
 static void assert_xor_gate_output(const Kernel &k, std::vector<int> inputs,
                                    int expected_out) {
   std::vector<CongGate> gates;
@@ -296,8 +268,7 @@ static void assert_xor_gate_output(const Kernel &k, std::vector<int> inputs,
   assert(found && "expected XOR gate was not extracted");
 }
 
-// R = 0, s = 3 (odd s — the branch the stale `^ s` term corrupted).
-// x1⊕x2⊕x3 = 0, so the gate on {x1,x2} outputs +x3.
+// R = 0, s = 3: x1⊕x2⊕x3 = 0, so the gate on {x1,x2} outputs +x3.
 static void test_xor_output_sign_even_arity() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -306,8 +277,7 @@ static void test_xor_output_sign_even_arity() {
   assert_xor_gate_output(k, {2, 3}, 1);
 }
 
-// R = 1, s = 3: x1⊕x2⊕x3 = 1 (the even-negation clause set), so the gate on
-// {x1,x2} outputs ¬x3.
+// R = 1, s = 3: x1⊕x2⊕x3 = 1, so the gate on {x1,x2} outputs ¬x3.
 static void test_xor_output_sign_odd_relation() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -319,8 +289,7 @@ static void test_xor_output_sign_odd_relation() {
   assert_xor_gate_output(k, {2, 3}, -1);
 }
 
-// R = 0, s = 4 (even s — the branch that was accidentally correct; pin it so a
-// "fix" cannot flip this one instead).  v1⊕v2⊕v3⊕v4 = 0 ⇒ gate on {1,2,3} → +4.
+// R = 0, s = 4: v1⊕v2⊕v3⊕v4 = 0 ⇒ the gate on {1,2,3} outputs +4.
 static void test_xor_output_sign_odd_arity() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -340,16 +309,10 @@ static void test_xor_output_sign_odd_arity() {
   assert_xor_gate_output(k, {2, 3, 4}, 1);
 }
 
-// SCHED-G1: the mid-round budget. `work_budget` is the policy's handoff in
-// `congruence_ticks`; 0 must leave the rule unbounded (the API / RandomPolicy /
-// every other test depend on that), and a small budget must CUT the round —
-// counted once in `congruence_budget_stops` — without the closure ever
-// emitting an inference it cannot justify.
-//
-// `stop_fuzz` is set because the rule's stop checks are strided 1-in-256 and a
-// four-gate kernel never reaches 256 items; the value is large enough that the
-// (deterministic) termination draw never fires, so this pins the BUDGET path
-// and not the terminate path.
+// The mid-round budget: `work_budget` 0 leaves the rule unbounded, and a small
+// budget cuts the round — counted once in `congruence_budget_stops` — with no
+// unjustified inference. `stop_fuzz` keeps the strided termination draw from
+// firing, so only the budget path is pinned.
 static void test_budget_stops_round() {
   const auto build = [](Kernel &k) {
     kernel_reserve_vars(k, 6);

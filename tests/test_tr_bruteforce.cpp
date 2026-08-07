@@ -1,25 +1,13 @@
-// V4 TransitiveReduce: EXHAUSTIVE MODEL-EQUIVALENCE oracle.
+// TransitiveReduce model-equivalence oracle: every deletion must preserve the
+// model set. No proof checker catches a violation, since a `delete` line is
+// accepted unconditionally, so each iteration enumerates all 2^5 assignments
+// of a random 5-var formula and compares the model set before and after.
+// See docs/design/v4-transitive-reduce-design.md.
 //
-// V4's whole soundness claim is that every deletion is equivalence-preserving:
-// F minus {e} is logically equivalent to F, so no model is ever gained.
-// Nothing else in the suite tests that claim directly — the proof checkers
-// cannot (a `delete` line is unconditionally accepted, so an unsound deletion
-// still yields a VALID certificate alongside a wrong answer), and the fuzz legs
-// only catch it if a gained model happens to surface as a reported SAT. So:
-// enumerate ALL 2^5 assignments of a random 5-var formula, run V4, and assert
-// the surviving formula's model set is IDENTICAL. Any mutual-dependency slip
-// (deleting both (a v b) and (a v c) when b and c are equivalent) gains a model
-// and is caught within a handful of iterations.
-//
-// Modes (argv[1]):
-//   0  binaries only
-//   1  + a root unit, propagated (root-fixed endpoints, reason binaries)
-//   2  + N1: per-source instances applied in RANDOM order rather than the
-//      canonical round — the order-independence the contract demands
-//   3  + random ternary clauses, so large watches interleave with binary ones
-//      (exercises the i+=2 stepping and the primitive's compaction)
-// argv[2] overrides the iteration count (default 50k, ~1 s per mode; the
-// pre-commit soak runs 200000).
+// argv[1] mode: 0 binaries only; 1 adds a propagated root unit; 2 applies
+// per-source instances in shuffled order (the order-independence N1 demands);
+// 3 adds random ternaries so large and binary watches interleave. argv[2]
+// overrides the iteration count.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "kernel/watch.hpp"
@@ -56,7 +44,7 @@ static std::vector<std::pair<Lit, Lit>> live_binaries(const Kernel &k) {
   return out;
 }
 
-// enumerate satisfying assignments (bitmask over vars; bit v set = var v true)
+// satisfying assignments as a bitmask: bit v set means var v is true
 static std::set<uint32_t> models(uint32_t nvars,
                                  const std::vector<std::pair<Lit, Lit>> &bins,
                                  const std::vector<Lit> &units,
@@ -146,7 +134,7 @@ int main(int argc, char **argv) {
     }
     if (!transitive_reduce_guard(k))
       continue;
-    // model set of the ORIGINAL formula
+    // model set of the original formula
     const std::set<uint32_t> before = models(NV, orig, units, larges);
     if (mode == 2 || mode == 3) { // N1: per-source instances, random order
       std::vector<Lit> srcs;

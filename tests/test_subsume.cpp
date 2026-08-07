@@ -1,6 +1,5 @@
-// C1 SubsumeForward unit tests: guard, root-modulo semantics, redundant
-// exclusion, reason safety, the registry instance surface, enumeration
-// purity, and the emitted proof deltas.
+// SubsumeForward: guard, root-modulo semantics, redundant exclusion, reason
+// safety, the instance surface, enumeration purity, and the proof deltas.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
@@ -50,15 +49,13 @@ static void test_guard() {
   kernel_backtrack(k, 0);
   assert(subsume_forward_guard(k));
   kernel_assign_unit(k, internalize(2));
-  // D-LEVEL guard purification: the guard is a pure precondition — it HOLDS off
-  // a propagation fixpoint (the rule drains the root closure U at apply entry,
-  // so an un-propagated suffix is no longer an applicability barrier).
+  // The guard is a pure precondition, so it holds off a propagation fixpoint:
+  // apply drains the root closure itself (N1).
   assert(subsume_forward_guard(k)); // pure: pending propagation is fine
   assert(subsume_forward_apply(k) != ApplyResult::Unsat); // apply drains first
   assert(k.propagate_head == k.trail.size()); // ...to the root fixpoint
   assert(subsume_forward_guard(k));
-  // empty kernel: guard holds, apply is a no-op (corpus regression 001
-  // lesson — rules must tolerate the variable-free state)
+  // every rule must tolerate the variable-free state
   Kernel e;
   assert(subsume_forward_guard(e));
   assert(subsume_forward_apply(e) == ApplyResult::NoOp);
@@ -90,7 +87,7 @@ static void test_duplicates_and_binary() {
   kernel_add_binary_clause(k, internalize(1), internalize(3),
                            ++k.next_clause_id);
   assert(subsume_forward_apply(k) == ApplyResult::Ok);
-  // the binary subsumes BOTH copies; order-independent here
+  // the binary subsumes both copies; order-independent here
   assert(k.stats.forward_subsumed == 2);
   assert(live_clauses(k) == 0);
   kernel_check_invariants(k);
@@ -99,12 +96,12 @@ static void test_duplicates_and_binary() {
 static void test_redundant_excluded() {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  add(k, {1, 2, 3}, /*redundant=*/true); // would subsume, but may be
-                                         // deleted by Reduce later
+  add(k, {1, 2, 3}, /*redundant=*/true); // would subsume, but Reduce may
+                                         // delete it later
   add(k, {1, 2, 3, 4});                  // irredundant
   assert(subsume_forward_apply(k) == ApplyResult::NoOp);
   assert(live_clauses(k) == 2);
-  // and a redundant clause is not a candidate either (Reduce's turf)
+  // nor is a redundant clause a candidate (Reduce's turf)
   Kernel k2;
   kernel_reserve_vars(k2, 4);
   add(k2, {1, 2, 3});
@@ -144,8 +141,7 @@ static void test_reason_never_victim() {
   assert(!kernel_propagate(k)); // 3 propagates with r as reason
   assert(!k.assigned[var_of(internalize(3))].binary);
   assert(k.assigned[var_of(internalize(3))].reason == r);
-  // r now contains the root-true literal 3 => not a candidate; the
-  // duplicate is satisfied too — nothing is deleted, reasons are safe
+  // r holds the root-true literal 3 and the duplicate is satisfied: no delete
   assert(subsume_forward_apply(k) == ApplyResult::NoOp);
   assert(live_clauses(k) == 2);
   kernel_check_invariants(k);
@@ -164,7 +160,7 @@ static void test_registry_instance_surface() {
   uint64_t insts[8];
   assert(r.instances(k, insts, 8) == 3);
   assert(insts[0] == small); // canonical processing order: size ascending
-  // single-instance apply: exactly the chosen candidate is examined
+  // single-instance apply examines exactly the chosen candidate
   assert(r.apply_instance(k, big) == ApplyResult::Ok);
   assert(k.stats.forward_subsumed == 1);
   assert(live_clauses(k) == 2);
@@ -191,17 +187,10 @@ static void test_enumeration_purity() {
   assert(live_clauses(k) == 2); // enumeration deleted nothing
 }
 
-// SCHED-F1 · N1 REGRESSION for the touched-epoch round filter.
-//
-// The filter is a POLICY decision about what the canonical ROUND tries. It may
-// never narrow what the public API can apply — that is the exact shape of the
-// Factor breach SCHED-N1FIX repaired (tests/test_factor_n1.cpp). So with the
-// watermark deliberately advanced past everything, i.e. the state in which the
-// round declines to look at anything at all:
-//   (a) `instances()` must still enumerate the candidate, and
-//   (b) `apply_instance(that candidate)` must still subsume it.
-// This test FAILS on a build that consults `subsume_touch_mark` in
-// subsume_forward_candidates or in subsume_forward_try.
+// N1 for the touched-epoch round filter: it decides what the canonical round
+// tries and may never narrow what the public API can apply (compare
+// tests/test_factor_n1.cpp). With the watermark past everything the round
+// declines, yet `instances()` offers the candidate and applying it subsumes.
 static void test_touch_filter_is_policy_only() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -210,20 +199,19 @@ static void test_touch_filter_is_policy_only() {
   const int id = tactix_rule_id("SubsumeForward");
   const RuleVTable &r = tactix_rules()[id];
 
-  // "Everything has already been seen": no clause holds new material.
+  // everything already seen: no clause holds new material
   k.subsume_touch_mark = k.touch_epoch;
   assert(!kernel_clause_new_material(k, clause_at(k.arena, big),
                                      k.subsume_touch_mark) &&
          "test is vacuous unless the filter actually suppresses this clause");
 
-  // The ROUND declines — that is the point of the mechanism ...
+  // the round declines, reaching a fixpoint with nothing re-armed
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::NoOp);
   assert(k.stats.forward_mark_skipped >= 2);
   assert(live_clauses(k) == 2);
-  // ... it reached a fixpoint, so nothing was re-armed ...
   assert(k.subsume_complete && k.stats.forward_rearmed == 0);
 
-  // (a) the instance surface stays COMPLETE.
+  // (a) the instance surface stays complete
   uint64_t insts[8];
   const uint32_t n = r.instances(k, insts, 8);
   assert(n == 2);
@@ -232,7 +220,7 @@ static void test_touch_filter_is_policy_only() {
     offered |= insts[i] == big;
   assert(offered && "instances() must not be narrowed by a policy mark (N1)");
 
-  // (b) and the advertised instance is still APPLICABLE.
+  // (b) and the advertised instance is still applicable
   assert(r.guard(k));
   assert(r.apply_instance(k, big) == ApplyResult::Ok);
   assert(k.stats.forward_subsumed == 1);
@@ -240,13 +228,9 @@ static void test_touch_filter_is_policy_only() {
   kernel_check_invariants(k);
 }
 
-// SCHED-F2 · RESUME, and the reason the filter cannot WEDGE. A cut round
-// re-arms the candidates it never reached, so the next round starts at the
-// tail instead of replaying its head (SCHED-B3's starvation, in C1's
-// currency). This path is NOT reachable under DefaultPolicy — `midround_budget`
-// ships off and was measured inert on its own sentinel even when on
-// (implementation-notes 13.3) — so a test is the only thing that can cover it
-// ([[ab-arm-identical-artefacts]]).
+// Why the filter cannot wedge: a cut round re-arms the candidates it never
+// reached, so the next round starts at the tail. DefaultPolicy never drives it
+// (`midround_budget` ships off, docs/implementation-notes.md §13.3).
 static void test_touch_resume_rearms_the_tail() {
   Kernel k;
   kernel_reserve_vars(k, 8);
@@ -260,9 +244,7 @@ static void test_touch_resume_rearms_the_tail() {
   assert(k.stats.budget_stops_c1 == 1);
   assert(!k.subsume_complete && "a cut round is not a fixpoint");
   assert(k.stats.forward_rearmed > 0 && "the unreached tail must be re-armed");
-  // The watermark advanced, and the tail is still visible THROUGH it — that is
-  // what the re-arm buys, and it is what a bare "do not advance" could not do
-  // without also replaying the head.
+  // the watermark advanced and the tail is still visible through it
   assert(k.subsume_touch_mark > 0);
   assert(k.stats.forward_mark_advances == 1);
   size_t armed = 0;
@@ -282,8 +264,8 @@ static void test_touch_resume_rearms_the_tail() {
   assert(k.subsume_complete);
 }
 
-// SCHED-F1 · the substrate's producers. Every mutation that can create a new
-// subsumer must raise the epoch; a deletion must not (it can only remove one).
+// The substrate's producers: every mutation that can create a new subsumer
+// raises the epoch, and a deletion does not (it can only remove one).
 static void test_touch_producers() {
   Kernel k;
   kernel_reserve_vars(k, 4); // fresh variables are touched
@@ -301,9 +283,8 @@ static void test_touch_producers() {
   assert(k.touch_epoch == after_large + 2);
   const uint64_t after_bin = k.touch_epoch;
 
-  // Deletion goes to the OTHER stamp (Kernel::removed): it can never create a
-  // subsumer, so the subsumption family must not see it — but BCE must
-  // (SCHED-F3). Both share the clock, so `touch_epoch` still moves.
+  // Deletion goes to the other stamp (Kernel::removed), which BCE needs and
+  // the subsumption family must not see; both share the clock.
   const Var v1 = var_of(internalize(1));
   const uint64_t touched_v1 = k.touched[v1];
   kernel_delete_binary(k, internalize(1), internalize(2));
@@ -319,22 +300,15 @@ static void test_touch_producers() {
   assert(k.touch_epoch == after_del + 1);
 }
 
-// SCHED-F6 · the REDUNDANT half of the substrate (SP-TIER-2's residue). Two
-// things must hold before any consumer is wired to read it, because a consumer
-// that filters a set nobody populates produces byte-identical artefacts:
-//   (a) the stamps FIRE — a redundant creation inside the scope raises the
-//       epoch when TACTIX_TOUCH_REDUNDANT is on, and does not when it is off;
-//   (b) the scope MOVES with `k.tier2` — a single count could not show that,
-//       which is why the dynamic/static6 pair exists;
-//   (c) the third disjunct is live — a clause OUTSIDE tier2 but inside the
-//       reduce survivor envelope is still in scope, which is the disjunct we
-//       had no counterpart for.
+// The redundant half of the substrate, before a consumer is wired to it: the
+// stamps fire only when TACTIX_TOUCH_REDUNDANT is on, the scope moves with
+// `k.tier2`, and the third disjunct (the reduce survivor envelope) is live.
 static void test_touch_redundant_scope() {
   Kernel k;
   kernel_reserve_vars(k, 6);
   k.tier2 = 2;
   const uint64_t e0 = k.touch_epoch;
-  add(k, {1, 2, 3}, /*redundant=*/true); // glue 2 <= tier2: IN scope
+  add(k, {1, 2, 3}, /*redundant=*/true); // glue 2 <= tier2: in scope
   assert(k.stats.touch_redundant_dynamic == 1);
   assert(k.touch_epoch == e0 && "stamping is off by default");
 
@@ -344,8 +318,7 @@ static void test_touch_redundant_scope() {
   assert(k.stats.touch_redundant_dynamic == 2);
   assert(k.touch_epoch == e1 + 3 && "(a) the stamps fire when enabled");
 
-  // (b) narrow the live tier below the clause's glue and the same creation
-  // leaves the scope, while the static-6 counter keeps counting it.
+  // narrowing the live tier drops the creation out of scope; static-6 counts on
   k.tier2 = 1;
   k.kept_glue = 0; // no reduction has published an envelope yet
   const uint64_t dyn = k.stats.touch_redundant_dynamic;
@@ -356,7 +329,7 @@ static void test_touch_redundant_scope() {
   assert(k.stats.touch_redundant_static6 == st + 1);
   assert(k.touch_epoch == e2);
 
-  // (c) the survivor envelope readmits it without touching tier2.
+  // the survivor envelope readmits it without touching tier2
   k.kept_glue = 4;
   k.kept_size = 8;
   add(k, {1, 2, 6}, /*redundant=*/true);
@@ -409,13 +382,9 @@ static bool has_binary(const Kernel &k, Lit a, Lit b) {
   return false;
 }
 
-// C1 -> V3 composition. C1 deletes an irredundant clause on a BINARY's
-// strength with no redundancy check; V3 Substitute then deletes that very
-// binary, replacing it with its rewrite onto an SCC representative and
-// pushing a reconstruction witness for the substituted variable. The
-// subsumed clause carries no witness of its own, so rho is the only thing
-// that can restore it. Pinned here for the WORST search assignment to the
-// substituted variable (the one falsifying both original clauses).
+// SubsumeForward -> Substitute. A clause deleted on a binary's strength carries
+// no witness, and Substitute then deletes that binary too, so rho is the only
+// thing that can restore it under an adversarial model.
 static void test_binary_subsumer_then_substitute() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -426,14 +395,12 @@ static void test_binary_subsumer_then_substitute() {
   kernel_add_binary_clause(k, negate(l2), l4, ++k.next_clause_id);      // 2 -> 4
   assert(subsume_forward_apply(k) == ApplyResult::Ok);
   assert(k.stats.forward_subsumed == 1 && live_clauses(k) == 0);
-  // repr of the SCC {lit(2), lit(4)} is the smaller literal, lit(2), so
-  // variable 4 is the one eliminated and D is the binary that dies.
+  // the SCC representative is lit(2), so variable 4 goes and D dies with it
   assert(substitute_apply(k) == ApplyResult::Ok);
   assert(k.stats.substitute_vars == 1);
-  assert(!has_binary(k, l1, l4)); // the subsumer is GONE
+  assert(!has_binary(k, l1, l4)); // the subsumer is gone
   assert(has_binary(k, l1, l2));  // only its rewrite survives
-  // adversarial model of the FINAL formula: (1 v 2) satisfied through 2, and
-  // the eliminated variable assigned so that the ORIGINAL C and D are false.
+  // the eliminated variable is set so the original C and D are false
   const int8_t model[4] = {-1, 1, -1, -1}; // vars 1..4
   for (int v = 0; v < 4; v++) {
     k.values[make_lit(v, false)] = model[v];
@@ -445,11 +412,9 @@ static void test_binary_subsumer_then_substitute() {
   assert(k.values[l1] > 0 || k.values[l4] > 0 || k.values[internalize(3)] > 0); // C
 }
 
-// SCHED-G2 · the shadow ledger, and with it the CAPABILITY-SUBSET claim it
-// rests on: C1's per-pair test is Strengthen's with the flip count pinned to
-// zero and the two share their limits, so anything C1 deletes, C2 deletes too.
-// The test states that as behaviour rather than as a source reading — a future
-// divergence in either rule's limits or discovery breaks it here.
+// The shadow ledger, and the capability-subset claim under it: SubsumeForward's
+// per-pair test is Strengthen's with the flip count pinned to zero and the two
+// share their limits, so anything the first deletes the second deletes too.
 static void shadow_case(Kernel &k, bool binary_subsumer) {
   kernel_reserve_vars(k, 4);
   add(k, {1, 2, 3, 4});
@@ -462,14 +427,14 @@ static void shadow_case(Kernel &k, bool binary_subsumer) {
 
 static void test_shadow_ledger() {
   for (int bin = 0; bin < 2; bin++) {
-    // (1) shipped: C1 deletes.
+    // (1) shipped: SubsumeForward deletes
     Kernel on;
     shadow_case(on, bin != 0);
     assert(subsume_forward_apply(on) == ApplyResult::Ok);
     assert(on.stats.forward_subsumed == 1);
     assert(on.stats.c1_shadow_observed == 0); // the hatch is off by default
 
-    // (2) shadow: C1 reports the same victim and deletes nothing.
+    // (2) shadow: the same victim is reported, nothing is deleted
     Kernel sh;
     sh.subsume_shadow = true;
     shadow_case(sh, bin != 0);
@@ -478,27 +443,24 @@ static void test_shadow_ledger() {
     assert(sh.stats.forward_subsumed == 0);
     assert(sh.stats.c1_shadow_observed == 1);
     assert(live_clauses(sh) == before);
-    // observing the SAME clause again must not double-count it
+    // observing the same clause again must not double-count it
     assert(subsume_forward_apply(sh) == ApplyResult::NoOp);
     assert(sh.stats.c1_shadow_observed == 1);
 
-    // (3) Strengthen alone disposes of it, and the ledger attributes that.
+    // (3) Strengthen alone disposes of it, and the ledger attributes that
     assert(strengthen_apply(sh) == ApplyResult::Ok);
     assert(sh.stats.c1_shadow_deleted + sh.stats.c1_shadow_rewritten == 1);
-    assert(sh.shadow_victims.empty()); // no residual: C2 handled all of it
+    assert(sh.shadow_victims.empty()); // no residual: Strengthen handled it all
     assert(live_clauses(sh) == before - 1);
     kernel_check_invariants(sh);
   }
 }
 
-// SCHED-H1 · both interrupt sites, pinned deterministically — the landed
-// X1/X2/X4 shape. There is NO cadence, so a raised flag fires at the FIRST
-// poll of whichever entry point is driven; that is the property that makes a
-// short round (i.e. every round the fuzz harness generates) reach the check.
+// Both interrupt sites. There is no polling cadence, so a raised flag fires at
+// the first poll of whichever entry point is driven, even in a short round.
 static void test_interrupt() {
   volatile sig_atomic_t stop = 1;
-  { // (1) the ROUND's candidate loop: cut before the first candidate, so the
-    // subsumption this formula certainly contains is not performed.
+  { // (1) the round's candidate loop, cut before the first candidate
     Kernel k;
     kernel_reserve_vars(k, 4);
     add(k, {1, 2, 3, 4});
@@ -508,14 +470,13 @@ static void test_interrupt() {
     assert(k.stats.forward_subsumed == 0 && k.stats.forward_checked == 0);
     assert(k.stats.subsume_interrupted == 1);
     assert(k.stats.rule_interrupted == 1);
-    assert(!k.subsume_complete); // an abort is an INCOMPLETE round
-    // ...and it retires nothing: advancing the watermark here would drop
-    // material the round never looked at (SCHED-B3's starvation).
+    assert(!k.subsume_complete); // an abort is an incomplete round
+    // ...and retires nothing: advancing the watermark would starve the tail
     assert(k.subsume_touch_mark == 0 && k.stats.forward_mark_advances == 0);
     kernel_check_invariants(k);
   }
-  { // (2) the single-instance entry the round loop never goes near, and which
-    // NEITHER governor reached before H1 — `work_budget` is a round device.
+  { // (2) the single-instance entry: `work_budget` is a round device, so no
+    // budget governor reaches this one
     Kernel k;
     kernel_reserve_vars(k, 4);
     const Ref big = add(k, {1, 2, 3, 4});
@@ -525,7 +486,7 @@ static void test_interrupt() {
     assert(k.stats.forward_subsumed == 0);
     assert(k.stats.subsume_interrupted == 1);
   }
-  { // the negative control for BOTH: same formulas, no interrupt, work happens
+  { // the negative control for both: same formulas, no interrupt, work happens
     Kernel k;
     kernel_reserve_vars(k, 4);
     add(k, {1, 2, 3, 4});

@@ -14,9 +14,8 @@ struct StressRow {
   StressSolveFn solve;
 };
 
-// One row per stress policy. Every one of these is a WITNESS-EMITTING rule's
-// driver or a schedule the uniform random policy under-samples; see each
-// policy's header for the pattern it maximizes.
+// One row per stress policy; see each policy's header for the pattern it
+// maximizes.
 const StressRow ROWS[] = {
     {"--bce-stress-policy", bce_stress_solve},
     {"--substitute-stress-policy", substitute_stress_solve},
@@ -36,9 +35,8 @@ StressSolveFn stress_policy_flag(const char *arg, unsigned long long *seed) {
         *seed = strtoull(arg + n + 1, nullptr, 10);
       return row.solve;
     }
-    // a longer flag that merely shares this prefix is NOT a match: returning
-    // the policy here would silently swallow an unknown option (and prefix
-    // matching is how `--random-policy-typo` became a valid flag).
+    // A longer flag sharing this prefix is not a match: accepting it would
+    // silently swallow an unknown option (`--random-policy-typo`).
   }
   return nullptr;
 }

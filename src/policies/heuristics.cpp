@@ -1,10 +1,6 @@
-// Search-guidance (`H`) implementation — VMTF decision queue, EVSIDS score heap,
-// target/best phase snapshots, and their per-variable growth. `H` is policy-owned,
-// OPTIONAL search guidance (the plan), living under src/policies/, not in the
-// kernel. The fields live in `struct Heuristics`
-// (heuristics.hpp) and Kernel holds only an opaque pointer, so these functions
-// reach `H` through `k.h->…` — the plan's `Kernel::h` idiom (no `Heuristics&`
-// threading). File-local statics keep their names.
+// Search-guidance (`H`) implementation: VMTF decision queue, EVSIDS score heap,
+// target/best phase snapshots, and their per-variable growth. See
+// heuristics.hpp for the ownership rule.
 #include "policies/heuristics.hpp"
 
 #include <algorithm> // std::max (rescale_scores)
@@ -30,13 +26,10 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
     else
       k.h->queue_first = v;
     k.h->queue_last = v;
-    // Stable mode's invariant is "every var reachable via the heap"
-    // (heuristics_update_scores) — but that repair runs only at stable
-    // ENTRY, so a variable created DURING stable (Factor's extension vars in a
-    // during-search phase, or any N1 policy applying Factor mid-stable) must
-    // join the heap HERE, or the heap can drain while unassigned vars remain
-    // and heuristics_heap_next_unassigned crashes. Focused mode and the
-    // initial reserve are unaffected (stable entry repairs those).
+    // Stable mode requires every var reachable via the heap, but
+    // heuristics_update_scores only repairs that at stable entry, so a variable
+    // created during stable must join here or the heap can drain while
+    // unassigned vars remain.
     if (k.h->stable)
       heuristics_heap_push(k, v);
   }
@@ -68,45 +61,25 @@ static void queue_restamp(Kernel &k) {
 
 // Transliterated from kissat/src/factor.c
 // `adjust_scores_and_phases_of_fresh_variables` (MIT), cross-checked against
-// cadical `factor.cpp:769` (same name, `queue.bury` per fresh literal): the
-// extension variables a variable-ADDING rule creates (E2 Factor is our only
-// one) must be the LEAST attractive decision candidates, not the most.
-//
-// The defect this repairs: heuristics_reserve_vars appends every new var at
-// `queue_last` ("most recent = preferred") — correct for the initial load and
-// for bumping, but in VMTF `queue_last` is exactly where the decision search
-// STARTS, so every variable Factor adds jumps to the head of the decision
-// order. Measured in conflicts, that is a several-fold regression: it is
-// SEARCH damage, not Factor's own cost.
-//
-// FOCUSED MODE ONLY. Stable mode is already correct by construction: its heap
-// push uses score 0.0, which sits at the BOTTOM of a max-heap, matching
-// kissat's "unbumping fresh" half. So only the queue needs repair, and the
-// EVSIDS scores are already 0 (never bumped between creation and here).
-//
-// Cost is O(#queue) per CALL, so it must be called once per rule application
-// (after all of that application's factorings), never once per fresh variable
-// — the per-call linear-scratch hazard.
+// cadical `factor.cpp:769`: the extension variables a variable-adding rule
+// creates must be the least attractive decision candidates, not the most.
+// heuristics_reserve_vars appends each new var at `queue_last`, where the VMTF
+// decision search starts, so without this every variable Factor adds jumps to
+// the head of the decision order. Focused mode only — stable mode's heap push
+// uses score 0.0, already the bottom of a max-heap. O(#queue) per call, so call
+// it once per rule application, never once per fresh variable.
 void heuristics_demote_fresh_vars(Kernel &k, Var first) {
   if (!k.h || first >= k.h->nvars)
     return;
   for (Var v = first; v < k.h->nvars; v++)
     queue_dequeue(k, v);
-  // Re-insert at the FRONT (least preferred) in CREATION order, so the var
-  // created LAST ends up closest to `queue_first` and is therefore the least
-  // preferred of the whole block. Both references do exactly this and neither
-  // preserves relative order: kissat walks `factoring->fresh` begin->end
-  // prepending each (factor.c:867-882, stack pushed in creation order at
-  // :826), and cadical calls `queue.bury` per fresh literal in the same
-  // direction (factor.cpp:799-802; `bury` = prepend, queue.hpp:61).
-  // This loop previously ran DESCENDING ("preserving relative order"), putting
-  // the OLDEST fresh var at the front — the mirror image of both references
-  // within the demoted block. The direction binds only once every ORIGINAL
-  // variable is assigned, which is not rare: Factor can add several times more
-  // extension vars than the formula has originals, and the fresh block is then
-  // most of the decision order. The reversal made the knob nearly inert, so
-  // any TACTIX_FACTOR_DEMOTE number banked before this fix measured a
-  // different mechanism. See PROGRESS, SCHED-C5.
+  // Re-insert at the front (least preferred) in creation order, so the var
+  // created last is least preferred of the block. Ascending is load-bearing:
+  // both references prepend in creation order and neither preserves relative
+  // order (kissat factor.c:867-882 over the stack pushed at :826; cadical
+  // factor.cpp:799-802, `bury` = prepend, queue.hpp:61). Descending mirrors
+  // them and leaves the demotion nearly inert once every original variable is
+  // assigned, which is common.
   for (Var v = first; v < k.h->nvars; v++) {
     Link &l = k.h->links[v];
     l.prev = UINT32_MAX;
@@ -142,7 +115,7 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
   if (!k.h || mark.empty())
     return;
   const Var n = std::min<Var>(k.h->nvars, static_cast<Var>(mark.size()));
-  // Dequeue first, then re-insert at the FRONT (least preferred) in reverse so
+  // Dequeue first, then re-insert at the front (least preferred) in reverse so
   // relative order is preserved — the heuristics_demote_fresh_vars idiom.
   bool any = false;
   for (Var v = 0; v < n; v++)
@@ -173,7 +146,7 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
 
 void heuristics_queue_bump(Kernel &k, Var v) {
   if (k.retire_enabled && kernel_var_retired(k, v))
-    k.stats.reactivations++; // R-d: this would UNDO the deactivation
+    k.stats.reactivations++; // counted: this would undo the deactivation
 
   if (k.h->queue_last == v)
     return;
@@ -308,7 +281,7 @@ void heuristics_heap_push(Kernel &k, Var v) {
   heap_bubble_up(k, v);
 }
 
-// Remove an ARBITRARY element (kissat inlineheap.h kissat_pop_heap): swap the
+// Remove an arbitrary element (kissat inlineheap.h kissat_pop_heap): swap the
 // last element into its slot, shrink, then restore the invariant in whichever
 // direction the moved element needs. `heap_pop_max` is the pos==0 special case.
 static void heap_remove(Kernel &k, Var v) {
@@ -319,7 +292,7 @@ static void heap_remove(Kernel &k, Var v) {
   k.h->scores.stack.pop_back();
   k.h->scores.pos[v] = UINT32_MAX;
   if (last == v)
-    return; // v WAS the last element; nothing moved
+    return; // v was the last element; nothing moved
   k.h->scores.stack[vpos] = last;
   k.h->scores.pos[last] = vpos;
   // `last` may belong either above or below vpos — try both, each is a no-op
@@ -354,7 +327,7 @@ static void rescale_scores(Kernel &k) {
 
 void heuristics_score_bump(Kernel &k, Var v) {
   if (k.retire_enabled && kernel_var_retired(k, v))
-    k.stats.reactivations++; // R-d: this would UNDO the deactivation
+    k.stats.reactivations++; // counted: this would undo the deactivation
 
   const double new_score = k.h->scores.score[v] + k.h->scinc;
   k.h->scores.score[v] = new_score;
@@ -427,12 +400,12 @@ void heuristics_update_target_phases(Kernel &k) {
 
 #ifndef NDEBUG
 void heuristics_check(const Kernel &k) {
-  // A null `H` is legal (an unguided solver, H5) — nothing to check.
+  // A null `H` is legal (an unguided solver): nothing to check.
   if (!k.h)
     return;
-  // Otherwise every per-var vector tracks Kernel::nvars. A var-adding rule
-  // (E2 Factor) that grew the kernel but not `H` would trip here before the next
-  // phase/score read walks off the end.
+  // Otherwise every per-var vector tracks Kernel::nvars: a var-adding rule that
+  // grew the kernel but not `H` trips here, before the next phase or score read
+  // walks off the end.
   assert(k.h->nvars == k.nvars);
   assert(k.h->saved.size() == k.nvars);
   assert(k.h->links.size() == k.nvars);

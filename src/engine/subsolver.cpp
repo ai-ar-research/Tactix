@@ -1,35 +1,6 @@
-// Sweep's sub-solver engine and its refutation derivation.
-// See subsolver.hpp for the contract; docs/design/v5-sweep-design.md §3/§4 for
-// why this exists at all.
-//
-// Ordinary CDCL, written small on purpose. The pieces that differ from the
-// kernel's, and why:
-//
-//  - Watch lists are a `vector<vector<SubWatch>>`, not a flat arena. The
-//    kernel's flat layout exists to keep the search's hot loop cache-dense and
-//    pays for it with the delayed-relocation discipline (watch.hpp); an
-//    environment here is a few dozen clauses, so the flat layout would buy
-//    nothing and the relocation hazard would be pure risk.
-//  - Binaries are NOT inlined into the watch lists. The kernel inlines them for
-//    density; here every clause must carry an id so it can appear in a proof
-//    chain, and one uniform clause representation is worth more than the binary
-//    fast path at this scale.
-//  - Decisions are in fixed variable order with saved phases — no activity
-//    heuristic. The design's §3 requirement is determinism and a bounded
-//    budget, not search quality: an environment that needs a good heuristic to
-//    refute is an environment we should have given up on.
-//  - Assumptions are MiniSat-shaped: each becomes its own decision level (an
-//    already-true one gets an empty level so `level` keeps indexing the
-//    assumption list), and a falsified assumption ends the solve as `Unsat`,
-//    i.e. UNSAT *under the assumptions*.
-//
-// THE PROOF CONSTRUCTION is the kernel's, transplanted: antecedents are
-// collected as (trail position, clause id) pairs and emitted sorted ascending
-// with the conflicting clause last, which is exactly the order a checker's own
-// propagation visits them (`kernel_lrat_chain`). Every lemma this file records
-// is a consequence of the ENVIRONMENT ALONE — assumptions enter as decisions
-// and leave as literals of the learned clause, never as premises — so the
-// lemmas stay valid across assumption sets and across restarts.
+// Sweep's sub-solver engine and its refutation derivation. See subsolver.hpp
+// for the contract and docs/design/v5-sweep-design.md §3/§4 for why it exists.
+// Ordinary CDCL, written small on purpose.
 #include "engine/subsolver.hpp"
 
 #include <algorithm>
@@ -37,11 +8,23 @@
 
 namespace tactix {
 
+// Where this deviates from the kernel, and why:
+//  - Watch lists are a `vector<vector<SubWatch>>`, not a flat arena: the flat
+//    layout buys cache density in the hot loop at the price of the
+//    delayed-relocation discipline (watch.hpp), which an environment of a few
+//    dozen clauses gains nothing from.
+//  - Binaries are not inlined into them: every clause needs an id to appear in
+//    a proof chain, and uniformity beats the binary fast path at this scale.
+//  - Decisions run in fixed variable order with saved phases, no activity
+//    heuristic; determinism and a bounded budget are the requirement (§3).
+//  - Assumptions are MiniSat-shaped: each becomes its own decision level, an
+//    already-true one gets an empty level so `level` keeps indexing the
+//    assumption list, and a falsified assumption ends the solve as `Unsat`.
+
 namespace {
 constexpr SubLit NO_LIT = UINT32_MAX;
 // Restart cadence. Environments are tiny, so this only has to stop the solver
-// from burning its whole budget down one bad subtree; arithmetic growth keeps
-// it deterministic and needs no state beyond a counter.
+// burning its whole budget down one bad subtree.
 constexpr uint64_t RESTART_INTERVAL = 100;
 } // namespace
 
@@ -102,9 +85,9 @@ uint32_t SubSolver::add_clause(const std::vector<SubLit> &lits) {
   const uint32_t id = next_id_++;
   if (inconsistent_)
     return id;
-  // dedup and drop tautologies. Nothing is shrunk against the root assignment:
-  // the clause DB must hold the clauses the caller named, because the core it
-  // gets back indexes them.
+  // Dedup and drop tautologies. Nothing is shrunk against the root assignment:
+  // the clause DB must hold the clauses the caller named, since the returned
+  // core indexes them.
   std::vector<SubLit> c;
   c.reserve(lits.size());
   for (const SubLit l : lits) {
@@ -221,7 +204,7 @@ void SubSolver::backtrack(uint32_t level) {
     const SubLit l = trail_.back();
     trail_.pop_back();
     const SubVar v = sub_var_of(l);
-    phase_[v] = (l & 1u) ? -1 : 1; // save the phase we just gave up
+    phase_[v] = (l & 1u) ? -1 : 1; // save the phase being given up
     values_[l] = 0;
     values_[sub_negate(l)] = 0;
     reason_[v] = NO_REF;
@@ -232,6 +215,12 @@ void SubSolver::backtrack(uint32_t level) {
 }
 
 // --- proof plumbing ---------------------------------------------------------
+// The kernel's construction, transplanted: antecedents are collected as (trail
+// position, clause id) pairs and emitted ascending with the conflicting clause
+// last, the order a checker's own propagation visits them
+// (`kernel_lrat_chain`). Every lemma follows from the environment alone —
+// assumptions enter as decisions and leave as literals of the learned clause,
+// never as premises — so lemmas stay valid across assumption sets and restarts.
 
 void SubSolver::chain_clear() {
   chain_entries_.clear();
@@ -305,9 +294,9 @@ bool SubSolver::analyze() {
     if (seen_[v])
       return;
     if (level_[v] == 0) {
-      // dropped from the clause, so the checker has to re-derive it: its whole
-      // reason cone joins the chain (the kernel emits a unit lemma per root
-      // literal instead; here the cone is cheaper than a second lemma stream)
+      // Dropped from the clause, so the checker must re-derive it and its whole
+      // reason cone joins the chain. The kernel emits a unit lemma per root
+      // literal instead; at this scale the cone is cheaper.
       record_cone(v, nullptr);
       return;
     }
@@ -325,10 +314,10 @@ bool SubSolver::analyze() {
       see(c[i]);
   }
   // Unreachable with correct two-watch propagation: a conflict whose literals
-  // are all below the current level would have fired at that lower level. If it
-  // ever happens, the caller must draw NO conclusion rather than report Unsat —
-  // reporting a refutation from an unanalyzed conflict is the one way this
-  // engine could lie to Sweep.
+  // all sit below the current level would have fired at that lower level. If it
+  // ever happens the caller must draw no conclusion rather than report Unsat —
+  // a refutation from an unanalyzed conflict is the one way this engine could
+  // lie to its caller.
   assert(count > 0);
   if (count == 0)
     return false;
@@ -346,8 +335,8 @@ bool SubSolver::analyze() {
       uip = trail_[idx];
       break;
     }
-    // resolve on v: every other literal of its reason joins the clause, and
-    // the reason itself joins the chain at v's trail position
+    // Resolve on v: every other literal of its reason joins the clause, and the
+    // reason itself joins the chain at v's trail position.
     const SubLit resolved = trail_[idx];
     assert(reason_[v] != NO_REF); // a decision is never resolved on
     chain_entries_.emplace_back(trail_pos_[v], clause_id(reason_[v]));
@@ -389,8 +378,8 @@ SubLit SubSolver::next_decision() {
 SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
                            uint64_t ticks_budget) {
   if (!solved_) {
-    // the original-id watershed is fixed here, not per add_clause: every id
-    // handed out from now on names a lemma
+    // The original-id watershed is fixed here, not per add_clause: every id
+    // handed out from now on names a lemma.
     solved_ = true;
     original_clauses_ = next_id_ - 1;
   }
@@ -409,7 +398,7 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
       const uint32_t current = static_cast<uint32_t>(frames_.size()) - 1;
       conflicts_++;
       if (current == 0) {
-        // level 0 carries no assumptions, so this is a GLOBAL refutation
+        // Level 0 carries no assumptions, so this is a global refutation.
         refute_empty(conflict_ref_);
         return SubResult::Unsat;
       }
@@ -429,13 +418,12 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
       // next assumption as its own decision level (MiniSat's shape)
       const SubLit a = assumptions[current];
       if (values_[a] < 0) {
-        // Refuted under the assumptions. The target clause negates exactly the
-        // assumptions the refutation used: `a` itself plus every assumption
-        // decision in the reason cone of `¬a`.
+        // Refuted under the assumptions: the target clause negates exactly `a`
+        // plus every assumption decision in the reason cone of `¬a`.
         have_derivation_ = false;
         const SubVar v = sub_var_of(a);
         if (reason_[v] == NO_REF)
-          return SubResult::Unsat; // an earlier assumption WAS `¬a`: the two
+          return SubResult::Unsat; // an earlier assumption was `¬a`: the two
                                    // contradict each other, not the formula
         chain_clear();
         std::vector<SubLit> decisions;
@@ -446,8 +434,8 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
           if (std::find(lits.begin(), lits.end(), n) == lits.end())
             lits.push_back(n);
         }
-        // the reason of `¬a` sits at the highest trail position in its own
-        // cone, so sorting ascending already leaves it closing the chain
+        // The reason of `¬a` sits at the highest trail position in its own
+        // cone, so sorting ascending already leaves it closing the chain.
         target_ = {next_id_++, lits, chain_build(NO_REF)};
         have_derivation_ = true;
         return SubResult::Unsat;
@@ -475,7 +463,7 @@ bool SubSolver::derivation(SubDerivation &out) const {
   out.core.clear();
   if (!have_derivation_)
     return false;
-  // walk back from the target, marking the lemmas and originals it needs
+  // Walk back from the target, marking the lemmas and originals it needs.
   std::vector<uint8_t> needed(next_id_ + 1, 0);
   std::vector<uint32_t> todo{target_.id};
   needed[target_.id] = 1;

@@ -1,14 +1,8 @@
-// Selection scheme after kissat/src/reduce.c (MIT): candidates are aged
-// (used counter decremented) and protected by recency — tier 1
-// (glue <= 2) survives while used at all, tier 2 (glue <= 6) survives
-// while used within the last two reductions; survivors are ranked
-// worst-first by (glue, size). Fixed tier thresholds are kissat's option
-// defaults (tier1=2, tier2=6); a policy that wants kissat's DYNAMIC
-// glue-distribution tiers calls reduce_retier, which overwrites them. The
-// rule owns the RANKING and every soundness filter (reason locks, pending
-// learned clause, tiers); how MUCH of the ranked list dies is the policy's
-// choice (ReductionPolicy sub-policy — the canonical instance deletes
-// kissat's default 75%). WHEN is likewise the policy's.
+// Selection scheme after kissat/src/reduce.c (MIT): candidates are aged and
+// protected by recency — tier 1 survives while used at all, tier 2 while used
+// within the last two reductions — and survivors are ranked worst-first by
+// (glue, size). The rule owns the ranking and every soundness filter; how much
+// of the ranked list dies, and when, is the policy's.
 #include "rules/reduce/reduce.hpp"
 
 #include "proof/proof.hpp"
@@ -17,16 +11,14 @@
 
 namespace tactix {
 
-// kissat 4.0's DYNAMIC tier limits (tiers.c compute_tier_limits): quantiles
-// of the glue distribution of the clauses that were actually USED in conflict
-// analysis — tier1 at 50 %, tier2 at 90 % (options tier1relative/
-// tier2relative). With no data yet, the option defaults 2/6 stand, which is
-// exactly the pair we have been using as a constant. The histogram read is
-// the FOCUSED one in both modes (kissat internal.h TIEDX with
-// focusedtiers = 1): the stable-mode limits are computed and never read.
-// Integer thresholds, not `total * 0.5`, so the result cannot depend on the
-// libm/rounding of the host (the battleship cross-toolchain determinism
-// lesson). The rule owns the computation; WHEN to recompute is the policy's.
+// kissat 4.0's dynamic tier limits (tiers.c compute_tier_limits): quantiles of
+// the glue distribution of the clauses actually used in conflict analysis,
+// tier1 at 50 % and tier2 at 90 %; with no data the option defaults stand. The
+// histogram read is the focused one in both modes (kissat `focusedtiers`
+// defaults on). Integer thresholds, not `total * 0.5`, so the result cannot
+// depend on host libm rounding
+// (benchmarks/reports/2026-07-24-battleship-divergence.md). When to recompute
+// is the policy's.
 void reduce_retier(Kernel &k) {
   const uint64_t *used = k.stats.used_glue[0];
   uint64_t total = 0;
@@ -62,9 +54,9 @@ void reduce_retier(Kernel &k) {
   k.tier2 = t2;
 }
 
-// soundness: deleting redundant clauses is always sound as long as
-// reason-locked clauses and the pending learned clause survive; only a
-// recorded-but-unanalyzed conflict pins the arena (stale conflict ref)
+// Deleting redundant clauses is sound as long as reason-locked clauses and the
+// pending learned clause survive; only a recorded-but-unanalyzed conflict pins
+// the arena, through its stale conflict ref.
 bool reduce_guard(const Kernel &k) {
   return !k.conflict_valid && !k.inconsistent;
 }
@@ -99,20 +91,13 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
   const uint32_t t1 = k.tier1;              // kissat reduce.c:62-63
   const uint32_t t2 = std::max(t1, k.tier2);
   // How much of this whole-arena walk kissat's `first_reducible` watermark
-  // (reduce.c:161, maintained in collect.c:153-196) would skip — the counters
-  // that priced the bound and decided against implementing it.
-  // Deliberately the OPTIMISTIC reading — a garbage redundant
-  // clause does not pin the watermark here, though an incrementally maintained
-  // one could not know that — so `reduce_skippable_words` is an UPPER bound on
-  // what the bound would buy.
+  // (reduce.c:161) would skip — an upper bound, since a garbage redundant
+  // clause does not pin the watermark here though a maintained one could not
+  // know that.
   bool seen_redundant = false;
-  // MEASUREMENT ONLY on the APPLY path. `instances()` runs the same scan to
-  // rank the payloads, and counting it there would make an ENUMERATION change
-  // a counter — which breaks replay identity (§8.5's harness compares
-  // counters, and a recorded run enumerates where its replay does not) and
-  // inflates a figure whose whole purpose is to price a watermark on the
-  // reduction pass. Found by `ctest trace_replay` once a new registry entry
-  // shifted the random-policy draw onto Reduce.
+  // Measured on the apply path only: `instances()` runs the same scan to rank
+  // its payloads, and an enumeration that moves a counter breaks replay
+  // identity (plan §8.5).
   if (measure) {
     k.stats.reduce_scans++;
     k.stats.reduce_scan_words += k.arena.size();
@@ -125,9 +110,8 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
         if (measure)
           k.stats.reduce_skippable_words += ref;
       }
-      // recency protection (kissat reduce.c; the aging tick lives in
-      // reduce_apply_refs so enumeration stays side-effect-free for
-      // introspecting policies)
+      // recency protection (kissat reduce.c); the aging tick lives in
+      // reduce_apply_refs, so enumeration stays side-effect-free
       const uint32_t used = c->used();
       const uint32_t glue = c->glue();
       const bool keep =
@@ -160,10 +144,9 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   k.stats.reductions++;
   // aging tick (kissat reduce.c decrements `used` once per reduction):
   // selection already happened on the pre-aging values, matching kissat's
-  // read-then-decrement order.
-  // The same walk samples the tier2 retention band both ways (Stats
-  // ::tier2_band_dynamic/static): the live tier against the static option
-  // default, which is what a `likely_to_be_kept` consumer would branch on.
+  // read-then-decrement order. The same walk samples the tier2 retention band
+  // both ways (Stats::tier2_band_dynamic/static), live tier against static
+  // default — what a `likely_to_be_kept` consumer would branch on.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (c->redundant() && !c->garbage()) {
@@ -189,16 +172,11 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   }
   k.stats.deleted += deleted;
   lock_reasons(k, false);
-  // SCHED-F6 · publish the SURVIVOR ENVELOPE (cadical `lim.keptglue` /
-  // `lim.keptsize`, reduce.cpp:147-156) — the widest (glue, size) still present
-  // after this reduction. It is the third disjunct of
-  // `kernel_likely_kept`/`likely_to_be_kept_clause`, and the one we had no
-  // counterpart for: without it the predicate collapses to "irredundant or in
-  // tier2", which is not the reference's set. Deliberately taken over the
-  // SURVIVORS, not over the victims, and deliberately not reset when nothing
-  // was deleted — cadical's envelope likewise persists until the next
-  // reduction republishes it. Diagnostic-only until a consumer reads it
-  // (Kernel::touch_redundant, off by default).
+  // Publish the survivor envelope (cadical `lim.keptglue`/`lim.keptsize`): the
+  // widest (glue, size) still present, and the third disjunct of
+  // `kernel_likely_kept`. Taken over survivors, not victims, and not reset
+  // when nothing was deleted — cadical's envelope likewise persists until the
+  // next reduction. Diagnostic until a consumer reads it.
   {
     uint32_t g = 0, sz = 0;
     for (Ref ref = 0; ref < k.arena.size();) {
@@ -228,9 +206,8 @@ ApplyResult reduce_apply(Kernel &k) {
                            reduce_canonical_victims(candidates.size()));
 }
 
-// generic instance surface (plan §5.1 v1): payload = how many of the
-// ranked candidates to delete. Ranked: canonical volume first, then the
-// remaining counts descending (more deletion first), ending at 0
+// instance surface: payload = how many of the ranked candidates to delete,
+// enumerated canonical volume first, then descending, ending at 0
 static uint32_t reduce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   if (cap == 0)
     return 0;

@@ -1,23 +1,9 @@
-// V5 Sweep · the embedded sub-solver (S-a) and its refutation derivation (S-b).
-//
-// S-a is checked against BRUTE FORCE: every random formula is solved by
-// enumerating all 2^n assignments and compared verdict for verdict, under
-// randomly chosen assumption sets as well as without — the assumption path is
-// where a CDCL engine most often goes wrong (a falsified assumption must end
-// the solve, not be learned around), and it is the ONLY path Sweep uses.
-//
-// S-b is checked three ways, because a derivation can be wrong in three
-// independent ways: the chain can fail to replay (an LRAT replay in
-// `lrat_replay`, run on every step of every refutation), the target clause can
-// fail to be entailed (enumeration in `check_target_is_entailed` — a chain that
-// checks out for a clause the formula does not imply would mean the CHECKER is
-// wrong, so the two halves are deliberately independent), and the core can
-// under-report what the chains actually cite. `--emit <dir>` writes the same
-// derivations out for `sweep_proofs.sh` to put through the real drat-trim and
-// lrat-check.
-//
-// argv[1] overrides the iteration count (default 100000, ~1 s release /
-// ~20 s debug; the pre-commit soak runs 1000000).
+// Sweep's embedded sub-solver and its refutation derivation. The solver is
+// checked against brute force over all 2^n assignments, with and without the
+// assumptions Sweep always uses. A derivation is checked three independent
+// ways: `lrat_replay` replays every chain, `check_target_is_entailed` checks
+// entailment by enumeration, and the core may not under-report what the chains
+// cite. `--emit <dir>` writes the cases out for `sweep_proofs.sh`.
 #undef NDEBUG
 #include "engine/subsolver.hpp"
 
@@ -72,10 +58,8 @@ bool brute_force(const Formula &f, const std::vector<SubLit> &assumptions) {
   return false;
 }
 
-// Clauses come out CLEAN — no duplicate and no complementary literals — because
-// that is what the kernel guarantees about the clauses S-c will extract, and
-// because the derivation checks below compare the solver's stored clause with
-// this one literal for literal.
+// Clauses come out clean — no duplicate and no complementary literals — as the
+// kernel guarantees for extracted environment clauses.
 Formula random_formula(std::mt19937 &rng, uint32_t nvars, uint32_t nclauses,
                        uint32_t maxsize, uint32_t minsize = 1) {
   Formula f;
@@ -104,10 +88,9 @@ void load(SubSolver &s, const Formula &f) {
     s.add_clause(c);
 }
 
-// THE ORACLE. Random formulas at a density that straddles the phase
-// transition, half of them with assumptions, every verdict checked against
-// exhaustive enumeration and every reported model re-checked against the
-// clauses (a wrong SAT with a bogus model is the failure fuzzing would miss).
+// The oracle: random formulas straddling the phase transition, half with
+// assumptions, every verdict checked against enumeration and every reported
+// model re-checked against the clauses.
 void test_against_brute_force(uint32_t iterations) {
   std::mt19937 rng(12345);
   SubSolver s;
@@ -131,7 +114,7 @@ void test_against_brute_force(uint32_t iterations) {
     if (r == SubResult::Sat) {
       sat++;
       assert(expected && "reported SAT on an unsatisfiable environment");
-      // the model must actually satisfy the formula AND the assumptions
+      // the model must satisfy the formula and the assumptions
       uint32_t bits = 0;
       for (SubVar v = 0; v < f.nvars; v++)
         if (s.model()[v] > 0)
@@ -150,9 +133,9 @@ void test_against_brute_force(uint32_t iterations) {
          iterations, sat, unsat, with_assumptions);
 }
 
-// Contradictory assumptions are refuted without touching the formula, and an
-// assumption falsified by propagation ends the solve as Unsat rather than being
-// learned around.
+// Contradictory assumptions are refuted without touching the formula, and one
+// falsified by propagation ends the solve as Unsat rather than being learned
+// around.
 void test_assumption_paths() {
   SubSolver s;
   s.reset(3);
@@ -173,7 +156,7 @@ void test_assumption_paths() {
   assert(s.solve({sub_lit(0, true)}, 0) == SubResult::Unsat);
 }
 
-// Degenerate inputs the environment extraction (S-c) can hand it.
+// Degenerate inputs the environment extraction can hand it.
 void test_degenerate() {
   SubSolver s;
   s.reset(0);
@@ -192,8 +175,8 @@ void test_degenerate() {
   assert(s.solve({}, 0) == SubResult::Unsat);
 }
 
-// The budget is the contract with the effort scheduler: exceeding it yields
-// Budget — never a guessed verdict — and the tick count is deterministic.
+// The contract with the effort scheduler: exceeding the budget yields Budget,
+// never a guessed verdict, and the tick count is deterministic.
 void test_budget_and_determinism() {
   // pigeonhole PHP(6,5): small to state, expensive to refute
   const uint32_t holes = 5, pigeons = 6;
@@ -224,11 +207,10 @@ void test_budget_and_determinism() {
   assert(starved == SubResult::Budget && "a starved solve must not conclude");
 }
 
-// --- S-b: the refutation derivation --------------------------------------
+// --- the refutation derivation ---------------------------------------------
 
-// A complete LRAT replay, in ~40 lines, so every derivation this suite produces
-// is checked the way cake_lpr would check it — chain entry by chain entry.
-// `clauses` maps id -> literals and grows as the steps are accepted.
+// A complete LRAT replay, so every derivation is checked the way cake_lpr would
+// check it. `clauses` maps id -> literals and grows as steps are accepted.
 bool lrat_replay(std::map<uint32_t, std::vector<SubLit>> &clauses,
                  const SubStep &step) {
   std::map<SubLit, int8_t> value;
@@ -265,10 +247,8 @@ bool lrat_replay(std::map<uint32_t, std::vector<SubLit>> &clauses,
   return false; // ran out of chain without reaching a conflict
 }
 
-// Every literal of `target` must be the negation of an assumption, and every
-// model of the environment must satisfy `target` — the semantic half of the
-// claim, checked by enumeration so a bug in the chain construction cannot hide
-// behind a bug in the checker (and vice versa).
+// Every literal of `target` must negate an assumption and every model of the
+// environment must satisfy `target`: the semantic half, independent of replay.
 void check_target_is_entailed(const Formula &f, const std::vector<SubLit> &assumptions,
                               const std::vector<SubLit> &target) {
   for (const SubLit t : target) {
@@ -291,30 +271,20 @@ void check_target_is_entailed(const Formula &f, const std::vector<SubLit> &assum
   }
 }
 
-// THE S-b ORACLE. Random refutations, each one (1) replayed as LRAT against the
-// environment, (2) checked for entailment by enumeration, and (3) checked for
-// core discipline — every chain entry is either a core original or an EARLIER
-// lemma, which is what makes the derivation replayable in the order given.
+// The derivation oracle: random refutations, each replayed as LRAT, checked for
+// entailment by enumeration, and checked for core discipline — every chain
+// entry is a core original or an earlier lemma, so the order replays.
 void test_derivations(uint32_t iterations) {
   std::mt19937 rng(999);
   SubSolver s;
   uint32_t refutations = 0, assumption_targets = 0, empty_targets = 0;
   uint32_t steps_total = 0, core_total = 0, multi_step = 0, max_steps = 0;
   for (uint32_t it = 0; it < iterations; it++) {
-    // Two generators, because they exercise different halves of S-b. The mixed
-    // one produces units and binaries, so most refutations land at level 0 and
-    // the target is the empty clause with a pure reason-cone chain. The 3-SAT
-    // one at the phase transition has NO units or binaries, so refuting it takes
-    // real search and the chain runs through learned lemmas — without it every
-    // derivation here was one step long and the lemma machinery went untested.
-    // Three regimes. MIXED has units and binaries, so most refutations land at
-    // level 0 and the target is the empty clause with a pure reason-cone chain.
-    // The two 3-SAT regimes at the phase transition have no units or binaries,
-    // so refuting takes real search and the chain runs through learned lemmas —
-    // without them every derivation here was ONE step long and S-b's own
-    // machinery went untested. The BIG regime exists only to grow those chains;
-    // its entailment check is skipped because 2^22 enumeration is not affordable
-    // per iteration, and entailment is already covered by the other two.
+    // Three regimes. The mixed one has units and binaries, so refutations land
+    // at level 0 with a pure reason-cone chain; the two 3-SAT regimes have
+    // neither, so refuting takes search and the chains run through learned
+    // lemmas. The big regime only grows those chains, and skips entailment
+    // because enumerating 2^22 assignments per iteration is unaffordable.
     const uint32_t regime = it % 3;
     const uint32_t nvars = regime == 0   ? 2 + rng() % 6
                            : regime == 1 ? 6 + rng() % 7
@@ -346,7 +316,7 @@ void test_derivations(uint32_t iterations) {
     for (uint32_t i = 0; i < f.clauses.size(); i++)
       clauses[i + 1] = f.clauses[i];
     for (const SubStep &step : d.steps) {
-      // (3) core discipline, checked BEFORE the step is admitted
+      // (3) core discipline, checked before the step is admitted
       for (const uint32_t a : step.chain) {
         const bool known = clauses.count(a) != 0;
         assert(known && "a chain cites a clause that does not exist yet");
@@ -378,17 +348,13 @@ void test_derivations(uint32_t iterations) {
   assert(refutations > 100 && "the generator stopped producing refutations");
   assert(assumption_targets > 100 && empty_targets > 100 &&
          "both refutation paths must be exercised");
-  // The guard that would have caught this suite going trivial: if no chain runs
-  // through a learned lemma, S-b's whole point is untested.
-  // The guard that would have caught this suite going trivial: when the
-  // generator was easier, EVERY derivation was one step long and the lemma
-  // chains — S-b's whole point — were never replayed.
+  // Without a chain through a learned lemma the derivation machinery is
+  // untested.
   assert(multi_step > refutations / 10 && max_steps > 20 &&
          "the derivations are not exercising lemma chains");
 }
 
-// The paths that produce a refutation without any search, and the one case
-// where there is deliberately nothing to hand back.
+// Refutations reached without search, and the one case with nothing to give.
 void test_derivation_edge_cases() {
   SubSolver s;
   SubDerivation d;
@@ -412,18 +378,17 @@ void test_derivation_edge_cases() {
   assert(s.derivation(d));
   assert(d.steps.back().lits == std::vector<SubLit>({sub_lit(0, false)}));
   assert(d.core == std::vector<uint32_t>({u}));
-  // DIRECTLY contradictory assumptions: the formula proves nothing, so there is
-  // no derivation to give (the target would be the tautology x v ~x)
+  // directly contradictory assumptions: the formula proves nothing, so the
+  // target would be the tautology x v ~x
   s.reset(2);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
   assert(s.solve({sub_lit(0, false), sub_lit(0, true)}, 0) == SubResult::Unsat);
   assert(!s.derivation(d) && "contradictory assumptions derive nothing");
 }
 
-// Write the micro cases the external-checker script feeds to drat-trim and
-// lrat-check: a DIMACS file (originals, then a unit per used assumption) and
-// the matching LRAT and DRAT proofs. Lemma ids are shifted past the assumption
-// units, and the file closes with the empty clause.
+// Write the cases the external-checker script feeds to drat-trim and
+// lrat-check: a DIMACS file (originals, then a unit per used assumption) plus
+// matching LRAT and DRAT proofs, lemma ids shifted past the assumption units.
 void emit_cases(const char *dir) {
   std::mt19937 rng(4242);
   SubSolver s;
@@ -431,10 +396,8 @@ void emit_cases(const char *dir) {
   uint32_t multi_step = 0, max_steps = 0;
   for (uint32_t it = 0; written < 40; it++) {
     assert(it < 100000);
-    // Same three regimes as test_derivations, and for the same reason: emitting
-    // only easy cases had the external checkers verifying 1-line proofs, which
-    // says nothing about the chain construction. No brute force is needed here,
-    // so the big regime is free.
+    // Same three regimes as test_derivations: easy cases alone leave the
+    // external checkers verifying one-line proofs.
     const uint32_t regime = it % 3;
     const uint32_t nvars = regime == 0   ? 3 + rng() % 5
                            : regime == 1 ? 6 + rng() % 7
@@ -519,6 +482,7 @@ int main(int argc, char **argv) {
     emit_cases(argv[2]);
     return 0;
   }
+  // argv[1] overrides the iteration count.
   const uint32_t iterations =
       argc > 1 ? static_cast<uint32_t>(std::atoi(argv[1])) : 100000;
   test_degenerate();

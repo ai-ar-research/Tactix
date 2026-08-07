@@ -1,6 +1,5 @@
-// E2 Factor (BVA). S0: extension-variable allocation + model projection.
-// Extension variables (added mid-solve by Factor) are assigned by search but
-// projected out of the reported model — the v-line ranges over original vars only.
+// Factor (BVA) unit tests. Extension variables are assigned by search but
+// projected out of the model: the v-line ranges over original variables only.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -26,10 +25,10 @@ static bool has_binary(const Kernel &k, Lit a, Lit b) {
 }
 
 // kernel_new_extension_vars grows all per-var state additively, records the
-// extension boundary, and keeps the model-output count at the original variables.
+// extension boundary, and leaves the model-output count at the originals.
 static void test_extension_var_boundary() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5); // 5 original vars: 0..4
   assert(k.nvars == 5);
   assert(k.first_extension_var == UINT32_MAX);
@@ -50,11 +49,10 @@ static void test_extension_var_boundary() {
   assert(kernel_num_output_vars(k) == 5);
 }
 
-// A 2×3 binary grid F={a,b} × R={p,q,r} (6 clauses) factors to 2 dividers + 3
-// quotients (5 clauses) over a fresh x; originals are deleted.
+// A 2×3 grid factors to 2 dividers + 3 quotients over a fresh x.
 static void test_factoring_2x3() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5); // a=0 b=1 p=2 q=3 r=4
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false), q = make_lit(3, false), r = make_lit(4, false);
@@ -69,24 +67,18 @@ static void test_factoring_2x3() {
   assert(k.nvars == 6 && k.first_extension_var == 5); // one fresh var x = 5
   const Lit x = make_lit(5, false), nx = make_lit(5, true);
 
-  // dividers (x∨a),(x∨b) present
-  assert(has_binary(k, x, a) && has_binary(k, x, b));
-  // quotients (¬x∨p),(¬x∨q),(¬x∨r) present
+  assert(has_binary(k, x, a) && has_binary(k, x, b)); // dividers
   for (const Lit rr : R)
-    assert(has_binary(k, nx, rr));
-  // every original (f∨r) deleted
-  for (const Lit f : {a, b})
+    assert(has_binary(k, nx, rr)); // quotients
+  for (const Lit f : {a, b})       // every original deleted
     for (const Lit rr : R)
       assert(!has_binary(k, f, rr));
 }
 
-// SCHED-C5: fresh extension vars are demoted to the BOTTOM of the VMTF queue,
-// and the ORDER inside the demoted block matters. Both references prepend in
-// CREATION order (kissat factor.c:867-882 walks `fresh` begin->end; cadical
-// factor.cpp:799-802 `queue.bury`s in the same direction), so the var created
-// LAST ends up at `queue_first` = least preferred. Ours ran the loop backwards
-// for weeks, which is undetectable from any aggregate and cost `rbsat` 4.7x the
-// conflicts. Two disjoint grids in ONE apply are what makes the order testable.
+// Fresh extension vars are demoted to the bottom of the VMTF queue in
+// creation order, so the newest is least preferred — matching kissat
+// factor.c:867-882 and cadical factor.cpp:799-802. Two disjoint grids in one
+// apply are what makes that order observable.
 static void test_demote_fresh_order() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -97,18 +89,16 @@ static void test_demote_fresh_order() {
         kernel_add_binary_clause(k, make_lit(fv, false), make_lit(rv, false),
                                  ++k.next_clause_id);
 
-  assert(k.factor_demote_fresh); // the shipped default since SCHED-C5
+  assert(k.factor_demote_fresh); // the shipped default
   assert(factor_apply(k) == ApplyResult::Ok);
   assert(k.stats.factorings == 2);
   assert(k.nvars == 12 && k.first_extension_var == 10); // fresh = 10, 11
 
-  // Fired exactly once for the whole application (never once per factoring —
-  // the O(#queue) per-call cost), and counted both fresh vars.
+  // one demotion per application, not per factoring: the walk is O(#queue)
   assert(k.stats.factor_demotions == 1);
   assert(k.stats.factor_demoted_vars == 2);
 
-  // NEWEST fresh var is least preferred, i.e. at the queue front, with the
-  // older one immediately behind it and every original behind both.
+  // newest fresh var at the queue front, older behind it, originals behind
   assert(k.h->queue_first == 11);
   assert(k.h->links[11].next == 10);
   assert(k.h->links[10].next < 10); // an original follows the demoted block
@@ -117,12 +107,8 @@ static void test_demote_fresh_order() {
            k.h->links[v].stamp > k.h->links[11].stamp);
 }
 
-// SCHED-F4 · the per-literal seed marks are POLICY, and they must not wedge.
-// (a) with the watermark advanced past everything the round seeds nothing and
-//     NoOps — the suppression is real;
-// (b) the very next binary add re-arms it and the SAME factoring is applied,
-//     through the registry surface. A build whose mark could not be re-armed
-//     would fail (b), which is the wedge D3 measured.
+// The per-literal seed marks are policy and must not wedge: a watermark past
+// everything suppresses the round, and the next binary add re-arms it.
 static void test_touch_filter_is_policy_only() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -141,8 +127,7 @@ static void test_touch_filter_is_policy_only() {
   assert(k.stats.factor_mark_skipped >= 10);
   assert(k.stats.factor_rearmed == 0 && "nothing was seeded, nothing to resume");
 
-  // one more binary over a and p: both variables are touched, so both seeds
-  // come back and the grid is found again.
+  // one more binary touches a and p, so both seeds come back
   kernel_add_binary_clause(k, a, make_lit(2, true), ++k.next_clause_id);
   const int id = tactix_rule_id("Factor");
   assert(id >= 0);
@@ -152,9 +137,8 @@ static void test_touch_filter_is_policy_only() {
 }
 
 int main() {
-  // No TACTIX_FACTOR_FORCE needed: the density admission heuristic lives in
-  // DefaultPolicy, not in the rule, so these tiny below-threshold grids factor
-  // through the rule's own surface (see tests/test_factor_n1.cpp).
+  // Density admission is DefaultPolicy's, not the rule's, so these
+  // below-threshold grids factor through the rule's own surface.
   test_extension_var_boundary();
   test_factoring_2x3();
   test_touch_filter_is_policy_only();

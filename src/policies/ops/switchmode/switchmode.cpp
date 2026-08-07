@@ -1,17 +1,16 @@
-// S4 SwitchMode: flip the active instance-ranking mode between focused
-// (VMTF queue) and stable (EVSIDS score heap). Transliterated from
-// kissat/src/mode.c switch_to_stable_mode / switch_to_focused_mode (MIT).
-// Pure H-state (proof delta: none) — flipping is sound in any state, so
-// the guard only excludes a refuted kernel. WHEN to switch (kissat's
-// conflicts-in / ticks-out alternation) is policy state (plan §5),
-// as are the per-mode restart regimes (EMA vs reluctant doubling).
+// S4 SwitchMode: flip the active instance-ranking mode between focused (VMTF
+// queue) and stable (EVSIDS score heap). Transliterated from kissat/src/mode.c
+// switch_to_stable_mode / switch_to_focused_mode (MIT). Pure `H`, no proof
+// delta — flipping is sound in any state, so the guard only excludes a refuted
+// kernel. When to switch is policy state (plan §5), as are the per-mode restart
+// regimes.
 #include "policies/ops/switchmode/switchmode.hpp"
 #include "policies/heuristics.hpp"
 
 namespace tactix {
 
-// requires `H`: SwitchMode flips the ranking mode, which is `H` state — a pure
-// precondition of a policy operation that genuinely needs `H` (plan §5, H5).
+// Requires `H`: SwitchMode flips the ranking mode, which is `H` state — a pure
+// precondition of a policy operation that genuinely needs `H` (plan §5).
 bool switchmode_guard(const Kernel &k) {
   return !k.inconsistent && k.h != nullptr;
 }
@@ -32,9 +31,7 @@ ApplyResult switchmode_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-// Policy operation (plan §4): H-only (flips the decision-ranking
-// heuristic — the VMTF-vs-EVSIDS MAB arm), no proof delta. Registered in-place
-// with the same name/tier/fns, so its id is unchanged.
+// Policy operation (plan §4): H-only, no proof delta.
 TACTIX_REGISTER_POLICY_OP(SwitchMode, RuleTier::Macro, switchmode_guard,
                           switchmode_apply);
 

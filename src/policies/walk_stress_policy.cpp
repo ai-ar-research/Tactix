@@ -29,9 +29,8 @@ int walk_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     kernel_check_invariants(k);
   };
 
-  // Walk at a random ~1-in-4 of the steps, at whatever state the loop is in —
-  // including mid-trail and (deliberately) off a propagation fixpoint, which
-  // DefaultPolicy never does.
+  // Walk at roughly 1 step in 4, at whatever state the loop is in, including
+  // mid-trail and off a propagation fixpoint.
   auto maybe_walk = [&]() {
     if (stress_random(rng) % 4 || !walk_guard(k))
       return;
@@ -54,8 +53,7 @@ int walk_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     if (k.conflict_valid) {
       if (analyze_apply(k) == ApplyResult::Unsat)
         return 20;
-      // TB4b(A): see bve_stress_policy — a reused conflict leaves nothing
-      // pending, so Backjump's guard is false.
+      // A reused conflict leaves nothing pending, so Backjump's guard is false.
       if (backjump_guard(k))
         backjump_apply(k);
       step("analyze+backjump");
@@ -64,7 +62,7 @@ int walk_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     }
 
     if (k.propagate_head < k.trail.size()) {
-      maybe_walk(); // walk with an UNPROPAGATED trail on purpose
+      maybe_walk(); // walk with an unpropagated trail on purpose
       propagate_apply(k);
       step("propagate");
       continue;

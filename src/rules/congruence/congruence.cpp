@@ -19,31 +19,23 @@ namespace tactix {
 
 namespace {
 
-// arity cap — an AND gate over more than this many inputs is skipped (kissat caps
-// too; keeps extraction and the equivalence proof chain bounded).
+// Arity cap: an AND gate over more inputs is skipped (kissat caps too), which
+// bounds extraction and the equivalence proof chain.
 constexpr uint32_t CONG_ARITY_LIMIT = 64;
 // safety cap on gates extracted per round.
 constexpr size_t CONG_GATE_LIMIT = 20000000;
-// max #inputs of an extracted XOR gate (kissat --congruencexorarity default cap
-// is small; the match proof chain is O(2^arity), so keep it bounded). An arity-a
-// XOR is a size-(a+1) clause group, so scan clauses of size 3..CONG_XOR_ARITY+1.
+// Max inputs of an extracted XOR gate; the match proof chain is O(2^arity), so
+// it stays small (kissat --congruencexorarity). An arity-a XOR is a size-(a+1)
+// clause group, hence the 3..CONG_XOR_ARITY+1 scan range.
 constexpr uint32_t CONG_XOR_ARITY = 4;
 
-// --- the meter and the mid-round budget (SCHED-G1) ---------------------------
-// `stats.congruence_ticks` is charged at every scan site below, one tick per
-// memory-touching step, so the policy's `EFFORT_SPECS` row can price a round in
-// the rule's own currency. `budget_exceeded` is the STOP predicate: it is only
-// ever consulted at the points that already honour `kernel_terminating`, so the
-// budget adds a second trigger to an interrupt path whose soundness argument is
-// already written down (extraction is read-only; the closure aborts between
-// worklist items, each of which is all-or-nothing). Dropping inferences is
-// sound (D-CONG-SKIP); a partial round emits nothing it cannot justify.
-// `work_budget == 0` means unbounded, which is what every non-policy caller
-// (the public API, RandomPolicy, the unit tests) gets.
-// Round-scoped: Congruence is one canonical round with no reentrancy
-// (sequential solving, plan §5), so the extraction helpers read the round's
-// budget here rather than threading a parameter through four signatures that
-// the public API and the unit tests also call.
+// --- the meter and the mid-round budget --------------------------------------
+// `stats.congruence_ticks` is charged at every scan site, so the policy can
+// price a round in the rule's own currency. The stop predicate is consulted
+// only where `kernel_terminating` already is, inheriting that soundness
+// argument; `work_budget == 0` is unbounded. Round-scoped state, Congruence
+// being one canonical round with no reentrancy. Design
+// `docs/design/2026-08-05-g1-congruence-governor-design.md` §4.
 struct Budget {
   uint64_t start = 0;
   uint64_t limit = 0; // 0 = unbounded
@@ -56,8 +48,7 @@ struct Budget {
   }
 };
 Budget cong_budget;
-// Scoped so every exit path — including the early NoOp/Unsat returns — leaves
-// the budget cleared for the next caller.
+// Scoped so every exit path leaves the budget cleared for the next caller.
 struct BudgetScope {
   const Kernel &k;
   explicit BudgetScope(const Kernel &kk) : k(kk) {
@@ -65,12 +56,12 @@ struct BudgetScope {
   }
   ~BudgetScope() {
     if (cong_budget.cut)
-      k.stats.congruence_budget_stops++; // once per CUT ROUND, not per site
+      k.stats.congruence_budget_stops++; // once per cut round, not per site
     cong_budget = {};
   }
 };
 
-// mark the binary-watch partners of `lit` (each `p` with a binary (lit ∨ p)).
+// Mark the binary-watch partners of `lit`.
 template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
                                         std::vector<uint8_t> &mark) {
   for (const WatchEntry w : k.watches.entries(lit))
@@ -87,15 +78,10 @@ bool congruence_guard(const Kernel &k) {
 void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<uint8_t> mark(2 * k.nvars, 0); // binary partners of ¬output
-  // AND gate `out = AND(inputs)`: a long base clause where `out` appears and every
-  // OTHER literal l has the binary (¬out ∨ ¬l) — then input = ¬l. (OR gates are the
-  // dual: for OR, `¬out` is the base literal and the same scan on the negated
-  // clause finds them, so trying every literal of every clause as the output
-  // covers both.)
-  // Reused across emits: a fresh vector here was one malloc+free PER GATE, and
-  // T105 materialises 53.4 M gates (perf 1580096 charged ~13.6 % of the solve
-  // to the allocator). Same for the exact `reserve`s below — push_back's
-  // geometric growth cost 2-3 mallocs per gate where one exact one does.
+  // AND gate `out = AND(inputs)`: a long base clause holding `out` where every
+  // other literal l has the binary (¬out ∨ ¬l), so input = ¬l; OR is the dual,
+  // found by trying every literal as the output. `pairs` is reused and the
+  // `reserve`s exact — one malloc per gate is a measurable share of the solve.
   std::vector<std::pair<Lit, uint64_t>> pairs;
   const auto emit = [&](const Clause *c, Lit outp) {
     const Lit nout = negate(outp);
@@ -129,16 +115,13 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     out.push_back(std::move(g));
   };
   // "candidate (c, i) is tried" ≡ lits[0..i] all unassigned: the clause-major
-  // path below BREAKS its candidate scan at the first assigned literal, and
-  // the literal-major path must reproduce that exactly.
+  // path breaks at the first assigned literal, and the literal-major path must
+  // reproduce that exactly.
   if (k.dense) {
-    // Literal-major over the phase occ index: mark ¬out's binary partners
-    // ONCE per output literal instead of once per clause-occurrence. The
-    // clause-major scan is roughly half of total cycles on gate-rich
-    // instances. The tag sort below restores the EXACT clause-major emission
-    // sequence, so the closure's merge order — and hence the search
-    // trajectory — cannot fork between the two paths. ANYTHING feeding merge
-    // order feeds the trajectory; treat that as a hard constraint here.
+    // Literal-major over the phase occ index: mark ¬out's binary partners once
+    // per output literal, not once per clause-occurrence. The tag sort below
+    // restores the exact clause-major emission sequence — a hard constraint,
+    // since merge order feeds the search trajectory.
     struct Tag {
       Ref ref;
       uint32_t idx;  // outp's index within the clause
@@ -148,9 +131,8 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     const size_t base = out.size();
     const Lit nlits = 2 * k.nvars;
     for (Lit outp = 0; outp < nlits; outp++) {
-      // SCHED-G1: the budget stops extraction the same way `kernel_terminating`
-      // does — read-only work, so the gates already emitted stay valid and the
-      // closure simply sees fewer of them.
+      // Read-only work: the gates already emitted stay valid, and the closure
+      // simply sees fewer of them.
       if (!(outp & 255) && cong_budget.over(k))
         break;
       const std::vector<Ref> &occ = k.dense->large[outp];
@@ -204,8 +186,7 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     });
     std::vector<CongGate> ordered;
     ordered.reserve(tags.size());
-    // replicate the clause-major CONG_GATE_LIMIT semantics: the cap is
-    // checked before each new CLAUSE, never mid-clause
+    // clause-major CONG_GATE_LIMIT semantics: checked before each new clause
     for (size_t i = 0; i < tags.size();) {
       if (base + ordered.size() >= CONG_GATE_LIMIT)
         break;
@@ -218,7 +199,7 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
       out.push_back(std::move(g));
     return;
   }
-  // §6: extraction is READ-ONLY — abort is free here, the caller returns NoOp.
+  // Extraction is read-only, so aborting is free: the caller returns NoOp.
   uint32_t xtick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     if (k.stop_fuzz || !(++xtick & 255)) {
@@ -227,7 +208,7 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
         return;
       }
       if (cong_budget.over(k))
-        return; // SCHED-G1: budget stop — read-only work, fewer gates, sound
+        return; // budget stop — read-only work, fewer gates, sound
     }
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
@@ -273,21 +254,9 @@ struct InputsHash {
   }
 };
 
-// XOR extraction: a size-s clause group (s ∈ 3..CONG_XOR_ARITY+1) over variables
-// {v0..v_{s-1}} is an XOR relation v0⊕…⊕v_{s-1}=c iff ALL 2^{s-1} clauses of one
-// fixed sign-parity over those variables are present (kissat requires the full
-// set — anything less is not the relation, so emitting a gate would be UNSOUND).
-// From the relation we emit s XOR gates, one per choice of output vᵢ: inputs =
-// the other variables (all positive), output literal = pos(vᵢ)^c so its value is
-// c⊕vᵢ = ⊕_{j≠i} vⱼ. Two gates with the same input set have equivalent outputs.
-// Fixed-capacity key for the small-clause index and the XOR/ITE dedup sets
-// (all hold ≤ CONG_XOR_ARITY+1 literals): no per-key heap node, no vector
-// hashing — a vector-keyed map plus its allocator churn costs roughly a third
-// of this rule's remaining cycles on gate-rich instances. Semantics are
-// EXACTLY a std::vector key's: ingest strips duplicate literals,
-// so a sorted key is strictly increasing and literal 0 can only sit in slot
-// 0 — the zero padding therefore compares like vector's shorter-prefix-first
-// operator< and can never alias a genuine literal in equality.
+// Fixed-capacity key for the small-clause index and the XOR/ITE dedup sets: no
+// per-key heap node, no vector hashing. Semantics match a std::vector key's — a
+// sorted key strictly increases, so the zero padding never aliases a literal.
 struct SmallKey {
   Lit lits[CONG_XOR_ARITY + 1] = {0, 0, 0, 0, 0};
   uint32_t size = 0;
@@ -318,8 +287,7 @@ struct SmallKeyHash {
     return h;
   }
 };
-// sorted key from ≤ CONG_XOR_ARITY+1 literals (replaces the std::sort each
-// probe used to pay on its vector)
+// sorted key from ≤ CONG_XOR_ARITY+1 literals
 inline SmallKey small_key(const Lit *ls, uint32_t n) {
   SmallKey sk;
   sk.size = n;
@@ -333,19 +301,10 @@ inline SmallKey small_key(const Lit *ls, uint32_t n) {
   return sk;
 }
 
-// Flat open-addressed SmallKey set — the clause index and both extraction
-// dedup sets. It replaces `unordered_map<SmallKey,uint64_t>` /
-// `unordered_set<SmallKey>`; three measured reasons, none of them touching
-// order:
-//   * the mapped clause id was never READ — XOR and ITE only ever ask "does
-//     this clause exist" — so the index is a set, not a map;
-//   * the lookup path is the hot one (XOR probes 2^(s-1) times and ITE 6 times
-//     per indexed clause, per apply), and keys live IN the bucket array here,
-//     so a probe touches one cache line instead of a bucket read plus a node
-//     chase — worth several percent of a whole solve on gate-rich instances;
-//   * one contiguous allocation instead of one malloc per indexed clause.
-// `size == 0` is the empty marker: every key ever stored holds ≥ 3 literals.
-// Iteration order is bucket order, i.e. hash-dependent — see `sorted_keys`.
+// Flat open-addressed SmallKey set — the clause index and both extraction dedup
+// sets. A set, not a map: XOR and ITE only ask "does this clause exist", and
+// keys live in the bucket array so a lookup touches one cache line. `size == 0`
+// is the empty marker; iteration order is hash-dependent, see `sorted_keys`.
 class SmallKeySet {
 public:
   SmallKeySet() : buckets_(64), mask_(63) {}
@@ -354,8 +313,7 @@ public:
   bool contains(const SmallKey &sk) const {
     return buckets_[slot(sk)].size != 0;
   }
-  // true iff `sk` was NOT already present (std::unordered_set::insert().second,
-  // and the first-insertion-wins semantics of std::unordered_map::emplace).
+  // true iff `sk` was not already present (std::unordered_set::insert().second)
   bool insert(const SmallKey &sk) {
     if ((size_ + 1) * 10 > (static_cast<size_t>(mask_) + 1) * 7)
       grow();
@@ -369,8 +327,7 @@ public:
 
 private:
   // FNV's low bits mix poorly across key positions, which linear probing
-  // punishes; finalize with the murmur3 avalanche. Bucket placement only —
-  // nothing downstream reads it.
+  // punishes; finalize with the murmur3 avalanche. Bucket placement only.
   static uint32_t bucket_hash(const SmallKey &sk) {
     uint64_t h = SmallKeyHash{}(sk);
     h ^= h >> 33;
@@ -378,8 +335,8 @@ private:
     h ^= h >> 29;
     return static_cast<uint32_t>(h);
   }
-  // the bucket holding `sk`, or the empty bucket it would take (load factor is
-  // held below 70 %, so the probe always terminates)
+  // the bucket holding `sk`, or the empty one it would take (load < 70 %, so
+  // the probe always terminates)
   uint32_t slot(const SmallKey &sk) const {
     uint32_t b = bucket_hash(sk) & mask_;
     while (buckets_[b].size != 0 && !(buckets_[b] == sk))
@@ -402,21 +359,10 @@ private:
 
 using ClauseIndex = SmallKeySet;
 
-// Iterating a hash table is implementation-ordered (libstdc++ and libc++
-// disagree, and an open-addressed table orders by hash), and anything feeding
-// gate/emission ORDER feeds the closure's merge order and hence the search
-// trajectory — which must not fork across toolchains or standard libraries.
-// Extraction loops iterate via these sorted keys instead.
-// `operator<` is a TOTAL order on the stored keys — two distinct keys differ in
-// some `lits[]` slot or in `size`, exactly what it compares — so the result is
-// independent of the table's own order.
-//
-// Built ONCE per apply and shared by XOR and ITE extraction: the index is
-// immutable for the whole apply, so sorting twice recomputes a bit-identical
-// answer — worth several percent of a whole solve on gate-rich instances.
-// Keys are materialised BY VALUE rather than as pointers into the table: the
-// sort and both consuming scans then run over contiguous memory instead of
-// chasing 24-byte keys scattered across the table.
+// Iterating a hash table is implementation-ordered, and gate emission order
+// feeds the closure's merge order and hence the search trajectory, which must
+// not fork across toolchains. `operator<` totally orders stored keys, so this
+// is independent of the table's. Built once per apply, by value.
 static std::vector<SmallKey> sorted_keys(const Kernel &k,
                                          const ClauseIndex &index) {
   std::vector<SmallKey> keys;
@@ -430,12 +376,11 @@ static std::vector<SmallKey> sorted_keys(const Kernel &k,
 }
 
 // Index every irredundant, fully-unassigned clause of size 3..CONG_XOR_ARITY+1
-// by its sorted literal vector. Shared by XOR and ITE extraction (built once per
-// apply); the gate CLAUSES are never rewritten within an apply, so one snapshot
-// is valid for the whole closure.
+// by its sorted literals. Gate clauses are never rewritten within an apply, so
+// one snapshot is valid for the whole closure.
 void build_clause_index(const Kernel &k, ClauseIndex &index) {
   std::vector<Lit> ls;
-  // §6: extraction is READ-ONLY — abort is free here, the caller returns NoOp.
+  // Extraction is read-only, so aborting is free: the caller returns NoOp.
   uint32_t xtick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     if (k.stop_fuzz || !(++xtick & 255)) {
@@ -444,9 +389,9 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
         return;
       }
       if (cong_budget.over(k))
-        return; // SCHED-G1: a TRUNCATED index only ever loses gates — XOR/ITE
-                // both require every defining clause to be present, so a
-                // missing entry can suppress a gate but never fabricate one.
+        return; // a truncated index only ever loses gates: XOR and ITE both
+                // require every defining clause to be present, so a missing
+                // entry can suppress a gate but never fabricate one.
     }
     const Clause *c = clause_at(k.arena, ref);
     ref += clause_words(c->size);
@@ -469,6 +414,10 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
   }
 }
 
+// A size-s clause group over {v0..v_{s-1}} is the XOR relation v0⊕…⊕v_{s-1} = c
+// only when all 2^{s-1} clauses of one fixed sign parity are present; less is
+// not the relation, and the gate would be unsound (`docs/calculus.md` V6). It
+// yields s gates, one per output vᵢ, with the other variables as inputs.
 void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
                             const std::vector<SmallKey> &sorted,
                             std::vector<CongGate> &out) {
@@ -484,7 +433,7 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
         return;
       }
       if (cong_budget.over(k))
-        return; // SCHED-G1 budget stop — read-only, fewer gates
+        return; // budget stop — read-only, fewer gates
     }
     const uint32_t s = base.size;
     k.stats.congruence_ticks += s;
@@ -526,23 +475,16 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
     if (!all)
       continue;
     seen.insert(pos_key);
-    // The relation's parity R. A clause whose negated-literal set is N is
-    // falsified by exactly the assignment "vⱼ true iff j ∈ N", whose true-count
-    // parity is |N| ≡ base_parity; requiring ALL clauses of that negation parity
-    // therefore forbids exactly the assignments of true-parity base_parity, so
-    //     ⊕ⱼ vⱼ = base_parity ⊕ 1 =: R.
-    // For output vᵢ, ⊕_{j≠i} vⱼ = R ⊕ vᵢ, so the output literal is pos[i]
-    // flipped by R. Do NOT also XOR in `s`: that negates the output of every
-    // even-arity gate. It is INVISIBLE to XOR↔XOR key matching (cancellation
-    // removes variables in even multiples, so two gates sharing a key share
-    // their arity parity and the offset cancels in the equivalence), and NOT
-    // invisible to any unit/merge channel that reads the output's polarity.
+    // The relation's parity R = base_parity ⊕ 1, so for output vᵢ the output
+    // literal is pos[i] flipped by R. Never also XOR in `s`: that negates every
+    // even-arity gate's output, invisibly to XOR↔XOR key matching but not to any
+    // unit/merge channel reading the output's polarity.
     const Lit r = static_cast<Lit>(base_parity ^ 1);
     for (uint32_t i = 0; i < s; i++) {
       CongGate g;
       g.kind = GateKind::Xor;
       g.output = pos[i] ^ r; // value = R ⊕ vᵢ = ⊕_{j≠i} vⱼ
-      g.inputs.reserve(s - 1); // exact — push_back's growth was 2-3 mallocs/gate
+      g.inputs.reserve(s - 1); // exact: push_back's growth costs 2-3 mallocs
       for (uint32_t j = 0; j < s; j++)
         if (j != i)
           g.inputs.push_back(pos[j]); // all positive, already sorted
@@ -553,17 +495,15 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
 
 bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 
-// A ladder lemma: RUP-checkable, cited by the level below it, and dead once the
-// conclusion is in. Kept so the round can `del` them (D-CONG-DELETE) — kissat
-// deletes its two extended shrinking lemmas the same way, immediately after
-// emitting the conclusion. LRAT deletes by id; DRAT needs the literals.
+// A ladder lemma: RUP-checkable, cited by the level below it, dead once the
+// conclusion is in, and kept so the round can `del` it. LRAT deletes by id;
+// DRAT needs the literals.
 struct TransientLemma {
   uint64_t id;
   std::vector<Lit> lits;
 };
 
-// Drop the transient ladder lemmas, newest first (a checker's DB is a set, but
-// reverse order keeps the stream readable as an unwinding of the ladder).
+// Drop the transient ladder lemmas, newest first.
 void delete_transients(Kernel &k, std::vector<TransientLemma> &t) {
   if (k.proof)
     for (size_t i = t.size(); i-- > 0;)
@@ -572,9 +512,8 @@ void delete_transients(Kernel &k, std::vector<TransientLemma> &t) {
   t.clear();
 }
 
-// TACTIX_CONG_PROBE: count the degenerate-gate discards by cause. These are the
-// inferences this rule does NOT draw (deviation D-CONG-UNIT) — the diagnostic
-// that sizes closing it. Env-gated, default-identical, like TACTIX_CONG_TRACE.
+// TACTIX_CONG_PROBE: count the degenerate-gate discards by cause — the
+// inferences this rule does not draw. Env-gated, default-identical.
 static const bool cong_probe = std::getenv("TACTIX_CONG_PROBE") != nullptr;
 static uint64_t cong_n_and = 0, cong_n_ite = 0, cong_n_xor = 0, cong_n_clash = 0;
 // Accepted merges whose representative is already root-assigned — see val_merge.
@@ -582,54 +521,24 @@ static uint64_t cong_val_merge = 0;
 // Root-assigned literals seen by the closure at apply entry / exit.
 static uint64_t cong_root_in = 0, cong_root_out = 0;
 
-// TACTIX_CONG_PROBE, part 2 — the CLOSURE/MATCHING discriminator.
-//
-// The measured gap on gate-rich instances is that we spend several times
-// kissat's congruence time and produce several times FEWER congruences, at
-// comparable extraction volume — so the loss is somewhere between "a gate
-// enters the table" and "a merge is accepted". (When comparing against
-// kissat's counters, note that `congruent_matched` is a gate-CONSTRUCTION
-// lookup statistic, not an outcome; `congruent` is the comparable one.)
-//
-// This splits that interval, per gate kind. Read it as a funnel:
-//
-//   canon_ok -> insert (no key collision yet)
-//            -> collide -> stale        (stored gate's key moved on; evicted)
-//                       -> already_eq   (outputs already in one class)
-//                       -> clash        (x = !x; refuted, not merged)
-//                       -> chain_fail   (no checkable proof chain -> dropped)
-//                       -> merged       (the inference we wanted)
-//
-// The discriminator the resume block asks for: if XOR shows `collide` ~ 0 against
-// a large `insert`, structurally identical gates are NOT colliding and the fault
-// is CANONICALIZATION (C0 sign absorption, the base_parity/r computation). If
-// `collide` is large but `merged` is small, the fault is downstream and the
-// column that eats it says which -- `chain_fail` points at add_equivalence / the
-// proof chain, `stale` at the eviction policy, `already_eq` at nothing (that
-// work was genuinely redundant).
-//
-// Env-gated, default-identical, zero cost when off -- same contract as the
-// degeneracy counters above.
+// TACTIX_CONG_PROBE, part 2 — the closure/matching discriminator, per gate
+// kind: a funnel from canon_ok through insert / collide to merged, with stale,
+// already_eq, clash and chain_fail the ways a collision fails to merge.
+// `collide` ≈ 0 against a large `insert` puts the fault in canonicalization; a
+// large `collide` with a small `merged` puts it downstream.
 struct CongMatchStats {
   uint64_t canon_ok = 0, canon_skip = 0, canon_unit = 0, canon_merge = 0;
   uint64_t insert = 0, collide = 0, stale = 0, already_eq = 0;
   uint64_t clash = 0, chain_fail = 0, merged = 0;
-  // The VALUE channel we do not have (SCHED-G1 diagnosis). kissat's closure
-  // keeps `values[]` live: a gate with a valued input shrinks or is retired
-  // (`simplify_and_gate`), and a merge with a valued participant becomes a
-  // UNIT (`merge_literals` -> `learn_congruence_unit`). Ours reads no value at
-  // all, so these two columns SIZE the missing channel: `val_gate` = closure
-  // items whose canonical key or output is already root-assigned, `val_merge`
-  // = accepted merges with a root-assigned participant, i.e. exactly the
-  // occasions on which kissat would have learned a unit instead.
+  // The missing value channel: kissat's closure keeps `values[]` live, shrinking
+  // a valued gate and turning a merge with a valued participant into a unit.
+  // This closure reads no value, so these columns size the gap.
   uint64_t val_gate = 0, val_merge = 0;
 };
 static CongMatchStats cong_match[3]; // indexed by GateKind
 
-// TACTIX_CONG_TIME: where one application's wall clock goes, split by stage.
-// The closure's stage split is what tells a governor designer WHICH currency to
-// charge — an extraction-dominated cost cannot be bounded by a closure-item
-// counter, and vice versa. Env-gated, default-identical.
+// TACTIX_CONG_TIME: where one application's wall clock goes, by stage — the
+// split that says which currency a governor should charge.
 static const bool cong_time = std::getenv("TACTIX_CONG_TIME") != nullptr;
 struct CongTime {
   uint64_t extract_and = 0, index = 0, sort = 0, xor_x = 0, ite_x = 0;
@@ -648,9 +557,9 @@ struct Stage {
   }
 };
 
-// What canonicalizing a gate under the current representatives yielded.
-// A degenerate gate is NOT a dead end — each degeneracy is itself an inference
-// over F (calculus §6), which is what deviation D-CONG-UNIT was about.
+// What canonicalizing a gate under the current representatives yielded. A
+// degenerate gate is not a dead end: each degeneracy is itself an inference
+// over F (`docs/calculus.md` V6).
 enum class Canon {
   Ok,    // `key` + `out_lit` valid — file the gate in the table
   Unit,  // the gate forces `out_lit` to a constant: the root unit is ¬out_lit
@@ -658,17 +567,12 @@ enum class Canon {
   Skip,  // degenerate in a way this rule does not exploit (ITE)
 };
 
-// Canonicalize gate g under the current union-find into (key, out_lit): key is the
-// structural hash (positive, sorted per kind); out_lit is the literal whose class
-// is merged on a key collision, and whose VALUE is f(key). `cancelled` receives
-// the distinct positive representative variables that dropped out of an XOR key
-// (each occurred an even number of times) — the ladder in
-// `add_xor_degeneracy_chain` quantifies over exactly those.
-// `reps` is caller-owned scratch, not an output: a local vector here is one
-// malloc+free per XOR canonicalization, i.e. per worklist pop of the roughly
-// half of gate volume that is XOR. `Find` is a template parameter for the same
-// reason the scratch is hoisted — a `std::function` makes every representative
-// lookup an opaque indirect call in this rule's hottest loop.
+// Canonicalize gate g under the current union-find into (key, out_lit): key the
+// structural hash, out_lit the literal whose class is merged on a key collision
+// and whose value is f(key). `cancelled` receives the positive representatives
+// that dropped out of an XOR key, which `add_xor_degeneracy_chain`'s ladder
+// quantifies over. `reps` is caller-owned scratch and `Find` a template
+// parameter for the same reason: this is the rule's hottest loop.
 template <class Find>
 Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
                    Lit &out_lit, std::vector<Lit> &cancelled,
@@ -680,17 +584,10 @@ Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
       l = find(l);
     std::sort(key.begin(), key.end());
     out_lit = g.output;
-    // AND degeneracies (C3b, closes the AND half of D-CONG-UNIT):
-    // AND(…,x,¬x,…) = 0 ⇒ the root unit ¬out, and AND(…,x,x,…) = AND(…,x,…)
-    // ⇒ deduplicate, possibly down to the unary gate out ≡ x. Unlike the XOR
-    // parity cases these conclusions are DIRECTLY RUP over the live DB (the
-    // gate's input binaries + the closure's bridge binaries propagate straight
-    // to the contradiction), so `cancelled` stays empty and the degeneracy
-    // ladder collapses to its top==0 form — replayed chains under LRAT, bare
-    // adds under DRAT. Raw inputs are distinct literals by extraction (clause
-    // literals are distinct), so key duplicates are same-REP inputs; the
-    // repeated-hint hazard that kept this deferred lives in add_equivalence's
-    // bridge assembly and is closed there by order-preserving id dedup.
+    // AND degeneracies: AND(…,x,¬x,…) = 0 gives the root unit ¬out, and
+    // AND(…,x,x,…) deduplicates, possibly down to the unary gate out ≡ x. These
+    // are directly RUP over the live DB, unlike the XOR parity cases, so
+    // `cancelled` stays empty and the ladder collapses to its top==0 form.
     {
       size_t n = 0;
       for (size_t j = 0; j < key.size(); j++) {
@@ -712,9 +609,9 @@ Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
   }
   if (g.kind == GateKind::Ite) {
     Lit cond = find(g.inputs[0]), th = find(g.inputs[1]), el = find(g.inputs[2]);
-    // defer any ITE whose (representative) operands share a variable — then==else,
-    // then==¬else (an XOR), or cond touching a branch collapse it to a simpler
-    // gate that a later increment/propagation handles; skipping stays sound.
+    // Defer any ITE whose representative operands share a variable: then==else,
+    // then==¬else (an XOR), or cond touching a branch all collapse it to a
+    // simpler gate a later round or propagation handles. Skipping stays sound.
     if (var_of(cond) == var_of(th) || var_of(cond) == var_of(el) ||
         var_of(th) == var_of(el)) {
       if (cong_probe) cong_n_ite++;
@@ -761,26 +658,14 @@ Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
   return Canon::Ok;
 }
 
-// --- native-LRAT chains by RUP replay (D-CONG-LRAT) -------------------------
-// V6's three lemma families (the degeneracy ladder, the XOR matching ladder, the
-// ITE case-split) are each RUP over the current DB, but their antecedent chains
-// are painful to derive by hand: canonicalization folds a SIGN layer on top of
-// the union-find bridging, so a canonical lemma's literals do not correspond
-// by-position-and-sign to either gate's raw clauses. That intricacy is why
-// D-CONG-LRAT stayed open.
-//
-// So do not derive them — REPLAY them. Assume the negation of the lemma at a
-// probing scope, propagate, and read the antecedents off the conflict's reason
-// walk. This is the same primitive V1 Probe and C3 Vivify already use, and it is
-// strictly more trustworthy than hand-derivation: the chain comes out in the
-// checker's own propagation order by construction, which is the one property a
-// hand-built chain silently gets wrong (`substitute.cpp` big_path_chain's
-// "chain order is load-bearing" note).
-//
-// Returns false when the lemma is NOT RUP over the DB (no conflict) — the caller
-// must then emit nothing and skip the inference (D-CONG-SKIP). A lemma that is
-// genuinely RUP but whose replay fails would be a bug in the ladder, and this
-// fails safe rather than emitting an unverifiable line.
+// --- native-LRAT chains by RUP replay ---------------------------------------
+// V6's lemma families are each RUP over the current DB, but their antecedent
+// chains resist hand-derivation: canonicalization folds a sign layer on top of
+// the union-find bridging. Replay instead (the primitive V1 Probe and C3 Vivify
+// use) and the chain comes out in the checker's own propagation order by
+// construction — the one property a hand-built chain silently gets wrong.
+// Returns false when the lemma is not RUP; the caller then drops the inference
+// rather than write an unverifiable line.
 bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
                           std::vector<uint64_t> &chain) {
   assert(k.level == 0 && !k.conflict_valid);
@@ -792,11 +677,10 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     const Lit neg = negate(lits[i]);
     const int8_t v = k.value(neg);
     if (v < 0) {
-      // `lits[i]` is already TRUE under the assumptions made so far, so
-      // assuming its negation conflicts immediately — the reason that forced it
-      // IS the refutation. (Missing this case is not a missed optimisation: on a
-      // miter the ladder's own prefix propagates the conclusion, so treating it
-      // as "not RUP" loses exactly the inferences the ladder exists for.)
+      // `lits[i]` is already true, so assuming its negation conflicts at once
+      // and the reason that forced it is the refutation. Not an optimisation:
+      // on a miter the ladder's own prefix propagates the conclusion, so
+      // treating this as "not RUP" loses what the ladder exists for.
       implied = var_of(lits[i]);
       conflict = true;
       break;
@@ -812,20 +696,17 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   uint64_t last = 0;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
   if (conflict) {
-    // Persistent walk scratch. A fresh `seen(k.nvars, 0)` here is one
-    // O(nvars) zero-fill PER REPLAYED LEMMA, which on miter-shaped instances
-    // dominates the whole native-LRAT path — do not reintroduce it. Same
-    // clean-between-calls invariant as TransitiveReduce's walk scratch: grown
-    // on demand, restored all-zero in O(marked) via `touched`, so it is clean
-    // on entry for ANY kernel this thread touches.
+    // Persistent walk scratch: a fresh `seen(k.nvars, 0)` per replayed lemma
+    // dominates the native-LRAT path — never reintroduce it. Restored all-zero
+    // in O(marked), so it is clean on entry for any kernel this thread uses.
     static thread_local std::vector<uint8_t> seen;
     static thread_local std::vector<Var> touched;
     if (seen.size() < k.nvars)
       seen.resize(k.nvars, 0);
     touched.clear();
     if (implied != UINT32_MAX)
-      // the walk includes the implied literal's OWN reason, and sorting by trail
-      // position puts it last — so it closes the chain, no separate conflict id
+      // the walk includes the implied literal's own reason, which sorting by
+      // trail position puts last, so it closes the chain
       kernel_reason_walk(k, implied, seen, entries, &touched);
     else
       last = kernel_conflict_reason_walk(k, seen, entries, &touched);
@@ -837,9 +718,8 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   if (k.level > 0)
     kernel_backtrack(k, 0, /*update_phases=*/false);
   kernel_probing_end(k);
-  // A lemma that fails to replay is a dropped inference (D-CONG-SKIP), which the
-  // `congruence_unjustified` stat counts. Under TACTIX_CONG_PROBE, say WHICH —
-  // a nonzero count with no obvious cause is how a ladder bug hides.
+  // A failed replay is a dropped inference, counted in
+  // `congruence_unjustified`; a nonzero count is how a ladder bug hides.
   if (cong_probe && !conflict) {
     std::fprintf(stderr, "[rup-replay] not RUP:");
     for (uint32_t i = 0; i < n; i++)
@@ -856,43 +736,22 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
     chain.push_back(e.second);
   if (last)
     chain.push_back(last);
-  // An EMPTY chain is not a proof (calculus D-CONG-TAUT). It arises when the
-  // lemma is trivially true — for `{x,¬x,z}` the replay assumes ¬x, immediately
-  // finds x false, and reports a conflict whose only "reason" is the assumption
-  // itself, so the reason walk yields no antecedents. The line would then be
-  // `<id> <lits> 0 0`, which every LRAT checker rejects while DRAT accepts the
-  // same clause for free.
-  // Refusing here covers ALL THREE ladders (ITE match, XOR match, degeneracy)
-  // at their one shared choke point: the caller then skips the merge, which is
-  // sound — dropping an inference costs completeness, emitting an uncheckable
-  // line costs N2.
+  // An empty chain is not a proof: a trivially true lemma conflicts against its
+  // own assumption, so the walk yields no antecedents and every LRAT checker
+  // rejects the line. Refusing here covers all three ladders at one choke
+  // point, at the cost of completeness where the line would cost N2.
   if (chain.empty())
     return false;
   return true;
 }
 
-// Degeneracy proof chain for a SINGLE XOR gate (kissat's
-// add_xor_shrinking_proof_chain is the same construction). A gate whose canonical
-// key collapsed forces its output, and that conclusion is NOT RUP on its own —
-// measured: drat-trim rejects a bare add of the unit, because the gate's parity
-// clauses are (k+1)-ary and propagate nothing until all but one literal is
-// assigned. The ladder supplies the missing resolution steps.
-//
-// `concl` are the conclusion clauses: {¬out_lit} for the constant case, or the
-// two equivalence binaries for the unary case. `cancelled` are the distinct
-// POSITIVE representative variables that dropped out of the key.
-//
-// For size = |cancelled| … 1, emit every sign pattern over cancelled[0..size-1]
-// appended to each conclusion. The TOP level's negation assigns every cancelled
-// representative, which the bridging equivalence binaries propagate to all of the
-// gate's raw inputs, falsifying one parity clause; each lower level closes on the
-// two lemmas directly above it (they differ only in the sign of the dropped
-// variable, so one goes unit and the other falsifies); the size-0 lemmas ARE the
-// conclusions, added persistently by the caller with the chains returned here.
-//
-// Validated against drat-trim in all four shapes — |cancelled| = 1 and 2, both
-// relation parities, and the unary-survivor form — with the bare conclusion
-// rejected in every one. The ladder is not optional.
+// Degeneracy proof chain for one XOR gate (kissat's
+// add_xor_shrinking_proof_chain; `docs/calculus.md` V6). A collapsed canonical
+// key forces the gate's output, and that conclusion is not RUP on its own — the
+// parity clauses propagate nothing until all but one literal is assigned — so
+// the ladder is not optional. For size = |cancelled| … 1 it emits every sign
+// pattern over cancelled[0..size-1] appended to each conclusion; the top level
+// falsifies one parity clause, each lower level closes on the two above it.
 bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
                               const std::vector<std::vector<Lit>> &concl,
                               std::vector<std::vector<uint64_t>> &concl_chains,
@@ -902,8 +761,8 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
   concl_chains.assign(nc, {});
   if (!k.proof)
     return true;
-  // XOR arity is capped at CONG_XOR_ARITY and cancellation removes variables in
-  // pairs, so this is ≤ 2 in practice; the ladder is 2^(n+1)−2 lemmas.
+  // cancellation removes variables in pairs, so this is ≤ 2 in practice and the
+  // ladder is 2^(n+1)−2 lemmas
   assert(cancelled.size() <= CONG_XOR_ARITY / 2 + 1 && "ladder would blow up");
   const int top = static_cast<int>(cancelled.size());
   std::vector<Lit> lemma;
@@ -928,9 +787,8 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
           lemma.push_back(cancelled[static_cast<size_t>(i)] ^
                           static_cast<Lit>((m >> i) & 1));
         lemma.insert(lemma.end(), concl[c].begin(), concl[c].end());
-        // A cancelled literal can reappear in the conclusion with either
-        // polarity, making this rung tautological — uncheckable under LRAT
-        // (see Proof::tautological). Skip the merge in both formats.
+        // A cancelled literal reappearing in the conclusion makes this rung
+        // tautological, hence uncheckable; skip the merge in both formats.
         if (Proof::tautological(lemma.data(),
                                 static_cast<uint32_t>(lemma.size())))
           return false;
@@ -942,7 +800,7 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
         if (size == top) {
           if (!congruence_rup_chain(k, lemma.data(),
                                     static_cast<uint32_t>(lemma.size()), chain))
-            return false; // not RUP — emit nothing, caller skips (D-CONG-SKIP)
+            return false; // not RUP — emit nothing, the caller skips the merge
         } else {
           const size_t hi = static_cast<size_t>(m | (1u << size));
           chain.assign({prev[static_cast<size_t>(m) * nc + c],
@@ -952,7 +810,7 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
         k.proof->add_rup(id, lemma.data(), static_cast<uint32_t>(lemma.size()),
                          chain.data(), static_cast<uint32_t>(chain.size()));
         cur[static_cast<size_t>(m) * nc + c] = id;
-        transient.push_back({id, lemma}); // D-CONG-DELETE: dropped after the merge
+        transient.push_back({id, lemma}); // dropped after the merge
       }
     prev.swap(cur);
   }
@@ -963,16 +821,10 @@ bool add_xor_degeneracy_chain(Kernel &k, const std::vector<Lit> &cancelled,
 }
 
 // XOR-match proof chain (kissat add_xor_matching_proof_chain): make the two
-// equivalence binaries (¬a∨b),(a∨¬b) checkable. `rhs` = the shared canonical
-// (representative) inputs, all positive; a,b = the two sign-adjusted outputs.
-// A parity-elimination ladder: eliminate one rhs variable per level, at each
-// level enumerating all sign patterns of the still-present prefix and emitting
-// {prefix,¬a,b} and {prefix,a,¬b}. Under DRAT each is a bare add. Under LRAT the
-// TOP level is replayed (congruence_rup_chain) and every lower level closes on
-// its two parents, exactly as the degeneracy ladder does — so the sign layer that
-// canonicalization folds on top of the union-find bridging never has to be
-// unpicked by hand. Returns false if the top level does not replay.
-// `rhs.back()` is absorbed by the gates' clauses, so the ladder starts one short.
+// equivalence binaries checkable by a parity-elimination ladder, one rhs
+// variable per level, closing as the degeneracy ladder does. Returns false if
+// the top level does not replay. `rhs.back()` is absorbed by the gates'
+// clauses, so the ladder starts one short.
 bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
                                   Lit b, std::vector<uint64_t> &chain_fwd,
                                   std::vector<uint64_t> &chain_rev,
@@ -984,11 +836,9 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
   const bool lrat = k.proof->lrat();
   const int top = static_cast<int>(rhs.size()) - 1;
   if (top < 1) {
-    // Nothing to eliminate; the binaries stand on the gates alone. Under DRAT
-    // the checker searches for that itself, but under LRAT "stands alone" would
-    // mean emitting both binaries with EMPTY hint chains — the same uncheckable
-    // line D-CONG-TAUT is about. Replay each binary for its own chain instead;
-    // a failed replay skips the merge (sound).
+    // Nothing to eliminate; the binaries stand on the gates alone, which under
+    // LRAT would mean empty hint chains. Replay each binary for its own chain
+    // instead; a failed replay skips the merge, which is sound.
     if (!lrat)
       return true;
     const Lit fwd[2] = {negate(a), b};
@@ -1014,13 +864,10 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
           lemma.push_back(a);
           lemma.push_back(negate(b));
         }
-        // A merged output can coincide with an rhs literal (or with the other
-        // output), making this rung tautological or DUPLICATE-carrying. Both
-        // are fatal downstream and in different ways: a tautology's replay
-        // yields an empty chain, and a repeated literal makes cake_lpr's
-        // LPR-compatible parser read the second copy as a PR WITNESS and
-        // reject the line ("not satisfied by witness", T105.2.0) even though
-        // lrat-check accepts it. Skip the merge in both formats.
+        // A merged output coinciding with an rhs literal or the other output
+        // makes this rung tautological or duplicate-carrying: a tautology
+        // replays to an empty chain, and cake_lpr reads a repeated literal as a
+        // PR witness and rejects the line. Skip the merge.
         if (Proof::tautological(lemma.data(),
                                 static_cast<uint32_t>(lemma.size())))
           return false;
@@ -1054,7 +901,7 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs, Lit a,
 }
 
 // Normalize an ITE triple [cond,then,else] in place to the canonical key form
-// (cond positive; then positive) and return whether the OUTPUT must be negated.
+// (cond and then positive); returns whether the output must be negated.
 bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
   if (negated(cond)) { // cond ? t : e  ==  ¬cond ? e : t
     cond = negate(cond);
@@ -1068,14 +915,11 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
   return false;
 }
 
-// ITE extraction. lhs = cond ? then : else is defined by four ternary clauses:
-//   (cond∨¬else∨lhs),(cond∨else∨¬lhs)   — under ¬cond, lhs≡else
-//   (¬cond∨¬then∨lhs),(¬cond∨then∨¬lhs) — under  cond, lhs≡then
-// We find per-lhs "conditional equivalences" lhs≡w under a condition literal from
-// clause pairs (A∨B∨lhs)+(A∨¬B∨¬lhs) ⇒ lhs≡¬B when ¬A, then pair one under c with
-// one under ¬c into an ITE candidate. EVERY candidate is verified against all four
-// defining clauses before emission, so a mis-detected condeq can never yield an
-// unsound gate. Output = lhs, inputs = [cond,then,else] (canonicalized later).
+// ITE extraction. Per-lhs conditional equivalences lhs≡w come from clause pairs
+// (A∨B∨lhs)+(A∨¬B∨¬lhs) ⇒ lhs≡¬B when ¬A; one under c pairs with one under ¬c
+// into a candidate. Every candidate is verified against all four defining
+// ternaries before emission, so a mis-detected pair cannot yield an unsound
+// gate.
 void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
                             const std::vector<SmallKey> &sorted,
                             std::vector<CongGate> &out) {
@@ -1088,14 +932,14 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   std::unordered_map<Lit, std::vector<std::pair<Lit, Lit>>> ce;
   uint32_t xtick = 0;
   for (const SmallKey &cl : sorted) {
-    // sorted; first 3 lits scanned (as before)
+    // sorted; only the first 3 literals are scanned
     if (k.stop_fuzz || !(++xtick & 255)) {
       if (kernel_terminating(k)) {
         k.stats.rule_interrupted++;
         return;
       }
       if (cong_budget.over(k))
-        return; // SCHED-G1 budget stop — read-only, fewer gates
+        return; // budget stop — read-only, fewer gates
     }
     k.stats.congruence_ticks += 6; // two index probes per rotation, three
     for (int li = 0; li < 3; li++) {
@@ -1117,7 +961,7 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   std::sort(ce_keys.begin(), ce_keys.end());
   for (const Lit L : ce_keys) {
     if (cong_budget.over(k))
-      return; // SCHED-G1 budget stop — read-only, fewer gates
+      return; // budget stop — read-only, fewer gates
     auto &lst = ce[L];
     if (lst.size() > 256)
       continue; // bound the O(n²) pairing on pathological hubs
@@ -1138,19 +982,11 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
           then_l = w2;
           else_l = w1;
         }
-        // A candidate with else ≡ ¬then is a ternary XOR wearing an ITE costume:
-        // its four defining clauses become (cond∨then∨L),(cond∨¬then∨¬L),
-        // (¬cond∨¬then∨L),(¬cond∨then∨¬L) — negation counts 0,2,2,2, i.e. exactly
-        // the complete even-parity clause set over {cond,then,L}. So
-        // congruence_extract_xor finds the SAME relation from the SAME clauses and
-        // emits 3 XOR gates for it, and the ITE copies can only ever be discarded:
-        // `unite` maintains repr[¬big]=¬repr[big], so find(else)==¬find(then)
-        // holds forever and the gate is degenerate on every canonicalization.
-        // Dropping them here is free — measured on hwmcc17miters: 463 596 of the
-        // 493 584 ITE degenerate discards, and the XOR twin already draws every
-        // one of their inferences in the same round (0 new merges, 0 new units).
-        // kissat drops the same candidates at construction ("skipping ternary XOR
-        // gate", congruence.c new_ite_gate).
+        // A candidate with else ≡ ¬then is a ternary XOR in an ITE costume, and
+        // XOR extraction already finds that relation from the same clauses. The
+        // ITE copies could only ever be discarded, since `unite` keeps
+        // repr[¬big]=¬repr[big]. kissat drops them at construction too
+        // (congruence.c new_ite_gate).
         if (else_l == negate(then_l))
           continue;
         // soundness: require all four ITE-defining clauses to exist
@@ -1158,8 +994,7 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
               has(negate(cond), negate(then_l), L) &&
               has(negate(cond), then_l, negate(L))))
           continue;
-        // identity key in FIXED sequence [L,cond,then,else] — deliberately
-        // unsorted, exactly like the vector key it replaces
+        // identity key in the fixed sequence [L,cond,then,else], not sorted
         SmallKey keyd;
         keyd.size = 4;
         keyd.lits[0] = L;
@@ -1178,12 +1013,10 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
 }
 
 // ITE-match proof chain (kissat add_ite_matching_proof_chain): case-split on the
-// shared condition. Emits the four ternary lemmas that make the two equivalence
-// binaries (¬a∨b),(a∨¬b) RUP; each is a resolvent of one cond-side clause of each
-// gate. Under DRAT they are bare adds the checker replays in order; under LRAT
-// each is REPLAYED for its chain (congruence_rup_chain) and the two binaries then
-// close on their two cond-sides. Returns false if any lemma fails to replay — the
-// caller emits nothing further and skips the merge (D-CONG-SKIP).
+// shared condition, emitting the four ternary lemmas that make the two
+// equivalence binaries RUP, each a resolvent of one cond-side clause of each
+// gate. Under LRAT each is replayed for its chain and the two binaries close on
+// their cond-sides. Returns false if any lemma fails to replay.
 bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
                                   std::vector<uint64_t> &chain_fwd,
                                   std::vector<uint64_t> &chain_rev,
@@ -1197,12 +1030,9 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
   // (¬a∨b) closes on its two cond-sides; (a∨¬b) on the other two.
   auto emit = [&](Lit x, Lit y, Lit z, std::vector<uint64_t> &into) -> bool {
     const Lit l[3] = {x, y, z};
-    // The case-split literal can coincide with (the negation of) a merged
-    // output — `cond == a`, or two gates whose outputs are already the same
-    // literal — making the lemma tautological. Skip the whole merge rather
-    // than emit it: DRAT accepts such a clause and LRAT checkers reject the
-    // chain. Both formats bail so the two proof modes keep the same search
-    // trajectory.
+    // The case-split literal can coincide with a merged output, making the
+    // lemma tautological. Both formats bail, so the two proof modes keep the
+    // same search trajectory.
     if (Proof::tautological(l, 3))
       return false;
     if (!lrat) {
@@ -1223,33 +1053,20 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
          emit(a, negate(b), negate(cond), chain_rev);
 }
 
-// Add the equivalence a==b from two congruent AND gates as (¬a∨b),(a∨¬b).
-// Under the fixpoint the two gates' inputs are equal only UNDER THE CURRENT
-// REPRESENTATIVES (bridged by earlier added equivalences), so the LRAT chain must
-// thread those bridging binaries — the naive `input_bin_ids + base_id` is only
-// valid for a direct (unbridged) match. For (¬a∨b): assume a,¬b; a's input
-// binaries force ga's inputs, `big_path_chain` bridges each ga input to the gb
-// input in its representative class, and gb's base then conflicts. (a∨¬b) mirrors.
-// DRAT emits bare adds (the checker searches).
-//
-// RETURNS FALSE iff the equivalence could NOT be justified — under LRAT the
-// bridging chain can fail (a `big_path_chain` whose only route runs through a
-// root-assigned literal is not traversable), and there is then no checkable line
-// to emit. The caller must SKIP the merge: losing an inference is sound,
-// emitting an unverifiable proof line is not (N2). All-or-nothing — both
-// binaries are justified before either is added, so the formula never carries
-// one half of an equivalence the union-find believes in whole. Emitting
-// `add_rup(id, lits, 2, nullptr, 0)` on a failed chain instead produces an LRAT
-// line with an EMPTY hint list, which every checker rejects; the unit channel
-// makes that reachable.
+// Add the equivalence a==b from two congruent AND gates as (¬a∨b),(a∨¬b). The
+// gates' inputs are equal only under the current representatives, so the LRAT
+// chain must thread the bridging binaries: a's input binaries force ga's
+// inputs, `big_path_chain` bridges each to the gb input in its class, and gb's
+// base conflicts. Returns false iff that chain fails — its only route can run
+// through a root-assigned literal — and the caller must then skip the merge
+// (N2). All-or-nothing: both binaries are justified before either is added.
 template <class Find>
 bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
                      Find &find) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit a = ga.output, b = gb.output;
   std::vector<uint64_t> chain, br;
-  // chain forcing conflict for (¬g_from.out ∨ g_to.out): g_from.out=1 forces
-  // g_from's inputs, each bridges to the same-class g_to input, g_to.base falsifies.
+  // chain forcing conflict for (¬g_from.out ∨ g_to.out)
   auto build = [&](const CongGate &g_from, const CongGate &g_to) -> bool {
     chain.assign(g_from.input_bin_ids.begin(), g_from.input_bin_ids.end());
     std::unordered_map<Lit, Lit> rep2from;
@@ -1267,12 +1084,9 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
       chain.insert(chain.end(), br.begin(), br.end());
     }
     chain.push_back(g_to.base_id);
-    // C3b: two same-class inputs (their key duplicate deduplicated by
-    // canonicalize) can thread bridge paths that SHARE binary ids, and a
-    // repeated hint is illegal LRAT — it propagates nothing at its second
-    // position. Precisely because it propagates nothing, dropping every
-    // later duplicate leaves the chain's propagation sequence intact:
-    // order-preserving first-occurrence dedup.
+    // Two same-class inputs can thread bridge paths sharing binary ids, and a
+    // repeated hint is illegal LRAT. It propagates nothing at its second
+    // position, so dropping it leaves the propagation sequence intact.
     {
       std::unordered_set<uint64_t> seen_ids;
       size_t w = 0;
@@ -1283,8 +1097,8 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
     }
     return true;
   };
-  // Justify FIRST, mutate second. Under LRAT each direction's chain is built (and
-  // kept) before anything is added, so a failure aborts the whole equivalence.
+  // Justify first, mutate second: under LRAT each direction's chain is built
+  // and kept before anything is added, so a failure aborts the equivalence.
   std::vector<uint64_t> chain_fwd, chain_rev;
   if (lrat) {
     const bool need_fwd = !kernel_binary_live(k, negate(a), b);
@@ -1303,9 +1117,8 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
   auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
     if (kernel_binary_live(k, x, y))
       return;
-    // a degenerate pair (the two outputs equal, or complementary) would make
-    // this binary duplicate-carrying or tautological — neither is emittable
-    // (see Proof::tautological); the callers' guards should have caught it
+    // a degenerate pair (outputs equal or complementary) would make this
+    // binary duplicate-carrying or tautological, neither emittable
     assert(x != y && x != negate(y));
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {x, y};
@@ -1319,18 +1132,16 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
   return true;
 }
 
-// Add the equivalence a==b as (¬a∨b),(a∨¬b). Under DRAT these are bare adds: the
-// preceding proof-chain lemmas have already made them RUP and the checker
-// searches for the antecedents itself. Under LRAT each binary carries the chain
-// its ladder returned (its two size-1 parents), so no hint-less line is ever
-// emitted (the invariant C1 established).
+// Add the equivalence a==b as (¬a∨b),(a∨¬b): bare adds under DRAT, where the
+// preceding ladder lemmas already made them RUP, and under LRAT each binary
+// carries the chain its ladder returned, so no hint-less line is emitted.
 bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
                              const std::vector<uint64_t> &chain_fwd,
                              const std::vector<uint64_t> &chain_rev) {
   const bool lrat = k.proof && k.proof->lrat();
-  // All-or-nothing, checked BEFORE either binary is added (add_equivalence's
-  // discipline): under LRAT a binary that is still missing needs a non-empty
-  // chain, or the line is uncheckable (D-CONG-TAUT). Skipping is sound.
+  // All-or-nothing, checked before either binary is added: under LRAT a binary
+  // that is still missing needs a non-empty chain or the line is uncheckable.
+  // Skipping is sound.
   if (lrat) {
     if (!kernel_binary_live(k, negate(a), b) && chain_fwd.empty())
       return false;
@@ -1340,9 +1151,8 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
   auto add_bin = [&](Lit x, Lit y, const std::vector<uint64_t> &ch) {
     if (kernel_binary_live(k, x, y))
       return;
-    // a degenerate pair (the two outputs equal, or complementary) would make
-    // this binary duplicate-carrying or tautological — neither is emittable
-    // (see Proof::tautological); the callers' guards should have caught it
+    // a degenerate pair (outputs equal or complementary) would make this
+    // binary duplicate-carrying or tautological, neither emittable
     assert(x != y && x != negate(y));
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {x, y};
@@ -1356,30 +1166,12 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
   return true;
 }
 
-// SCHED-G4 (Y1). One-step binary resolution: two binaries (l ∨ o) and (l ∨ ¬o)
-// resolve on `o` to (l ∨ l) = {l}. `l`'s watch list holds both partners, so one
-// linear sweep of the binary watches finds every such unit in the formula.
-//
-// PLACEMENT (the argument, since it is not obvious and kissat's answer is not
-// binding): this is NOT gate reasoning and NOT a congruence step — no gate is
-// extracted, no key is canonicalized, the union-find is untouched. It is a
-// strict special case of V2 Backbone's precondition: assuming ¬l binary-
-// propagates o from (l∨o) and ¬o from (l∨¬o), a depth-1 failed literal. So the
-// inference is one we already own; what is missing is COVERAGE — Backbone is
-// dosed one probe literal per apply, this sweep is linear in the binary watches
-// and complete. It lives here rather than in its own rule directory because a
-// new rule whose precondition is a strict subset of V2's would duplicate a
-// calculus entry rather than add one, and it lives at the HEAD of the round
-// because the units it finds are what seeds the value cascade the reference
-// gets its other half from.
-//
-// Records through the caller's batching recorder (PendingUnits), so a unit is
-// never asserted mid-scan and the round keeps its one all-or-nothing batch.
-// `record` returns true when the batch REFUTES, which ends the sweep.
-// A/B hatch for the sweep, in the `TACTIX_CONG_*` family (SCHED-G1's budget
-// arms have the same shape and the same caveat: the standing protocol wants the
-// knob in the COMMAND, so this needs a CLI spelling before a tier campaign
-// reads it). Default ON — every implemented inference ships on.
+// The binary-resolution unit channel (`docs/calculus.md` V6a). Two binaries
+// (l ∨ o) and (l ∨ ¬o) resolve on `o` to {l}, and `l`'s watch list holds both
+// partners, so one linear sweep finds every such unit. A strict special case of
+// V2 Backbone's precondition, kept here for coverage at linear cost; placement
+// argument and removal path in V6a and `docs/implementation-notes.md` §13.3.
+// `record` batches, so no unit is asserted mid-scan.
 const bool cong_y1 = [] {
   const char *s = std::getenv("TACTIX_CONG_Y1");
   return !s || *s != '0';
@@ -1388,8 +1180,8 @@ const bool cong_y1 = [] {
 template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
   if (!cong_y1)
     return false;
-  // Persistent scratch, restored in O(marked) — a per-call vector<uint8_t>
-  // (2·nvars) would make this sweep memset-bound on a 3 M-variable formula.
+  // Persistent scratch, restored in O(marked): a per-call 2·nvars vector would
+  // make this sweep memset-bound on a large formula.
   static thread_local std::vector<uint8_t> mark;
   static thread_local std::vector<Lit> touched;
   const size_t nlits = 2 * static_cast<size_t>(k.nvars);
@@ -1401,11 +1193,11 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
     if (kernel_var_retired(k, v))
       continue;
     if (cong_budget.over(k))
-      break; // dropping inferences is sound (D-CONG-SKIP)
+      break; // dropping inferences is sound
     for (int s = 0; s < 2; s++) {
       const Lit l = make_lit(v, s != 0);
-      // A root-assigned `l` has nothing to learn: true already, and false is
-      // impossible at a quiescent root (both binaries would have propagated).
+      // A root-assigned `l` has nothing to learn: already true, and false is
+      // impossible at a quiescent root.
       if (k.value(l) != 0)
         continue;
       k.stats.congruence_ticks += k.watches.size(l);
@@ -1431,10 +1223,8 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
       if (!found)
         continue;
       k.stats.congruence_y1_found++;
-      // The chain is REPLAYED, never hand-built (C4's lesson, D-CONG-LRAT): the
-      // two binary ids are in hand via kernel_binary_id, but a hand-built pair
-      // silently gets propagation ORDER wrong and the checker rejects it. The
-      // replay charges real propagation, so meter it into this rule's currency.
+      // Replayed, never hand-built: a hand-built pair silently gets propagation
+      // order wrong. The replay charges real propagation, so meter it here.
       const uint64_t t0 = k.stats.ticks;
       const bool ok = !lrat || congruence_rup_chain(k, &l, 1, chain);
       k.stats.congruence_ticks += k.stats.ticks - t0;
@@ -1453,7 +1243,6 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
 } // namespace — public rule entry points (header-declared) below
 
 // External-linkage forwarder for the primitive Sweep shares.
-// The implementation stays internal; only this name crosses the TU boundary.
 bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
                            std::vector<uint64_t> &chain) {
   return congruence_rup_chain(k, lits, n, chain);
@@ -1474,8 +1263,7 @@ void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
       build_clause_index(k, index);
     }
     // …and so is its canonical iteration order: the index is immutable for the
-    // whole apply, so XOR and ITE sorting it separately would produce two
-    // bit-identical vectors.
+    // whole apply, so sorting it per consumer would recompute the same vector.
     std::vector<SmallKey> sorted;
     {
       Stage s(&cong_t.sort);
@@ -1499,9 +1287,8 @@ void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
 ApplyResult congruence_apply(Kernel &k) {
   assert(congruence_guard(k));
   Stage apply_stage(&cong_t.apply_all);
-  // SCHED-G1: the round's work budget, in `congruence_ticks`, handed by the
-  // policy through `Kernel::work_budget` (0 = unbounded, which is what the
-  // public API, RandomPolicy and the unit tests get). Cleared on every exit.
+  // The round's work budget, in `congruence_ticks`, handed by the policy
+  // through `Kernel::work_budget` (0 = unbounded). Cleared on every exit.
   BudgetScope budget_scope(k);
   const uint64_t apply_t0 = cong_time ? now_nanos() : 0; // in-flight, for the print
   if (inprocess_reach_root(k))
@@ -1510,26 +1297,15 @@ ApplyResult congruence_apply(Kernel &k) {
   if (cong_probe)
     cong_root_in = kernel_root_fixed(k);
 
-  // AND, XOR, and ITE gates all participate in ONE union-find closure (an AND
-  // input can be an XOR/ITE output). AND matches emit native-LRAT bridged chains
-  // (add_equivalence). XOR/ITE match binaries use a bare DRAT-RUP add preceded by
-  // their proof-chain lemmas, whose LRAT chains are not yet produced — so XOR/ITE
-  // extraction is gated on DRAT (D-CONG-LRAT, docs/calculus.md); AND congruence
-  // runs on every path.
+  // AND, XOR and ITE gates all participate in one union-find closure: an AND
+  // input can be an XOR/ITE output.
   const bool lrat = k.proof && k.proof->lrat();
 
-  // Root units derived by this round. Asserted in ONE batch once every channel
-  // has run, exactly as V1 Probe and V3 Substitute do — the closure reasons
-  // purely over the union-find, so a unit changes nothing it has already
-  // computed, and M1 owns the propagation cascade. Deduped per variable; an
-  // opposite-sign pair within one round IS a refutation ({u} and {¬u} resolve
-  // to ∅ — V3's record_unit, corpus 007).
-  // Shared by both unit channels: the degenerate-gate one (D-CONG-UNIT) and the
-  // binary-resolution sweep (SCHED-G4 Y1), which is why the batch is set up
-  // before extraction rather than beside the closure.
-  // Behind a congruence-specific preamble: skip already-true units, and a unit
-  // that contradicts a unit ALREADY ON THE TRAIL refutes against the trail id
-  // (read before it could be overwritten), not the batch.
+  // Root units derived by this round, batched and asserted once every channel
+  // has run, as V1 Probe and V3 Substitute do: the closure reasons purely over
+  // the union-find, so a unit changes nothing already computed and M1 owns the
+  // cascade. Deduped per variable, an opposite-sign pair being a refutation; a
+  // unit contradicting one on the trail refutes against the trail id.
   PendingUnits pending;
   pending.init(k.nvars);
   auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain,
@@ -1552,9 +1328,8 @@ ApplyResult congruence_apply(Kernel &k) {
       ++(counter ? *counter : k.stats.congruence_units);
     return o == PendingUnits::Outcome::Refuted;
   };
-  // Assert whatever the round batched and close the root. Every exit path below
-  // that can carry pending units goes through this, including the two that
-  // predate the Y1 sweep and used to be bare `NoOp` returns.
+  // Assert whatever the round batched and close the root. Every exit path that
+  // can carry pending units must go through this.
   auto finish = [&](bool merged) -> ApplyResult {
     for (const Lit u : pending.units) {
       assert(k.value(u) >= 0 &&
@@ -1572,37 +1347,32 @@ ApplyResult congruence_apply(Kernel &k) {
                                               : ApplyResult::NoOp;
   };
 
-  // SCHED-G4 Y1: the binary-resolution unit sweep, at the head of the round
-  // because in the reference it is what seeds the value cascade. See
-  // `find_binary_units` for why this inference lives here and not in a rule of
-  // its own.
+  // The binary-resolution unit sweep, at the head of the round because its
+  // units seed the value cascade (see `find_binary_units`).
   if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
         return record_unit(u, ch, &k.stats.congruence_y1_units);
       }))
     return ApplyResult::Unsat;
 
   std::vector<CongGate> gates;
-  // D-CONG-LRAT CLOSED: XOR and ITE now run on every proof path. Their lemma
-  // chains are replayed rather than derived (congruence_rup_chain), so the sign
-  // layer canonicalization folds on top of the union-find bridging — the reason
-  // this was DRAT-only — never has to be unpicked by hand.
+  // XOR and ITE run on every proof path: their lemma chains are replayed rather
+  // than derived, so the sign layer canonicalization folds on top of the
+  // union-find bridging never has to be unpicked by hand.
   congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
   if (gates.empty())
     return finish(/*merged=*/false);
-  // §6: extraction is READ-ONLY, so an interrupt raised during it costs
-  // nothing to honour — nothing has been applied yet.
+  // Extraction is read-only, so an interrupt raised during it costs nothing to
+  // honour — nothing has been applied yet.
   if (kernel_terminating(k)) {
     k.stats.rule_interrupted++;
     return finish(/*merged=*/false);
   }
 
-  // Internal congruence closure (kissat), incremental worklist: a union-find over
-  // literals; two gates that canonicalize (under the current representatives) to
-  // the same (kind, key) have equivalent outputs → merge those outputs (add the
-  // equivalence binaries + proof chain) and re-process only the gates whose inputs
-  // contain the merged literal, so the collapse propagates through the circuit
-  // layers in ONE apply. Gate CLAUSES are never rewritten — only the union-find +
-  // the added binaries; V3 Substitute does the whole-formula collapse afterward.
+  // The congruence closure (kissat's), an incremental worklist over a union-find
+  // on literals: merge the outputs of two gates that canonicalize to the same
+  // (kind, key), then re-process only the gates whose inputs contain the merged
+  // literal, so the collapse propagates through the circuit layers in one apply
+  // (`docs/calculus.md` V6).
   const uint32_t nlits = 2 * k.nvars;
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
@@ -1632,20 +1402,10 @@ ApplyResult congruence_apply(Kernel &k) {
   std::vector<Lit> reps; // canonicalize's XOR scratch (not reentrant — one buffer)
   std::vector<TransientLemma> transient; // ladder lemmas, del'd after each use
 
-  // Root units derived from degenerate gates (D-CONG-UNIT). Asserted in a batch
-  // once the closure is done, exactly as V1 Probe and V3 Substitute do — the
-  // closure itself reasons purely over the union-find, so a unit changes nothing
-  // it has already computed, and M1 owns the propagation cascade. Deduped per
-  // variable; an opposite-sign pair within one round IS a refutation ({u} and
-  // {¬u} resolve to ∅ — V3's record_unit, corpus 007).
-  // C3b (closes the contradictory-merge half of D-CONG-UNIT): the closure just
-  // proved a ≡ b — the two equivalence binaries are in the DB — while the
-  // union-find holds a ≡ ¬b. The formula is UNSAT, and each opposing unit is
-  // now directly RUP: {¬a} because a propagates b over the new binary and ¬a
-  // over the in-class bridge path; {a} mirrors. record_unit pairs them into
-  // the empty clause (PendingUnits Refuted / trail contradiction). Returns
-  // true iff refuted; a failed replay drops the inference instead (sound,
-  // D-CONG-SKIP, counted unjustified).
+  // The contradictory merge: the closure proved a ≡ b while the union-find holds
+  // a ≡ ¬b, so the formula is UNSAT and each opposing unit is directly RUP
+  // (a propagates b over the new binary and ¬a over the in-class bridge path).
+  // `record_unit` pairs them into the empty clause; returns true iff refuted.
   auto refute_contradictory = [&](Lit a) -> bool {
     const Lit u1 = negate(a), u2 = a;
     std::vector<uint64_t> ch1, ch2;
@@ -1663,8 +1423,8 @@ ApplyResult congruence_apply(Kernel &k) {
   };
 
   // Merge two provably-equivalent literals: unite their classes and reschedule
-  // the gates whose canonical inputs just changed. The proof for the equivalence
-  // is the CALLER's job (it differs per kind and per degeneracy).
+  // the gates whose canonical inputs just changed. Proving the equivalence is
+  // the caller's job — it differs per kind and per degeneracy.
   auto merge_lits = [&](Lit x, Lit y) {
     const Lit oa = find(x), ob = find(y);
     if (oa == ob)
@@ -1682,12 +1442,9 @@ ApplyResult congruence_apply(Kernel &k) {
         }
   };
 
-  // §6 (task #10): the closure is the long block — 131,327 ms over 3
-  // applications on T105/T87. Abort BETWEEN worklist items: each item either
-  // merges (equivalence binaries + proof chain both emitted) or does not, so
-  // every merge already made is complete and logged, and the batched root
-  // units below are still asserted from whatever the closure did reach.
-  // Checked every 256 items — the flag is volatile, the loop body is cheap.
+  // The closure is the long block, so it must be interruptible: abort between
+  // worklist items, each all-or-nothing (binaries and proof chain both emitted,
+  // or nothing). The batched root units are still asserted from what it did.
   uint32_t stop_tick = 0;
   const uint64_t closure_t0 = cong_time ? now_nanos() : 0;
   while (!work.empty() && !unsat) {
@@ -1696,11 +1453,8 @@ ApplyResult congruence_apply(Kernel &k) {
         k.stats.rule_interrupted++;
         break;
       }
-      // SCHED-G1: the budget rides the SAME between-items stop the termination
-      // flag uses, so it inherits that stop's soundness argument verbatim —
-      // every item is all-or-nothing (a merge emits its binaries AND its chain,
-      // or emits nothing), the batched root units below are still asserted from
-      // whatever the closure reached, and F/R/τ/ρ are consistent at the break.
+      // The budget rides the same between-items stop as the termination flag,
+      // inheriting its soundness argument verbatim.
       if (cong_budget.over(k))
         break;
     }
@@ -1723,11 +1477,10 @@ ApplyResult congruence_apply(Kernel &k) {
                            : cm.canon_merge)++;
     if (ci == Canon::Skip)
       continue; // degenerate in a way this rule does not exploit — sound
-    // --- D-CONG-UNIT: a degenerate gate is an inference, not a dead end ------
+    // --- a degenerate gate is an inference, not a dead end ------------------
     if (ci == Canon::Unit) {
-      // value(out_lit) = 0, so ¬out_lit is a root unit. XOR reaches here with
-      // its cancelled set (the ladder supplies the missing resolution steps);
-      // an AND clash (C3b) reaches here with `cancelled` EMPTY — its unit is
+      // value(out_lit) = 0, so ¬out_lit is a root unit. XOR arrives with its
+      // cancelled set; an AND clash arrives with `cancelled` empty, its unit
       // directly RUP, so the ladder's top==0 form just replays the chain.
       const std::vector<std::vector<Lit>> concl = {{negate(out_i)}};
       std::vector<std::vector<uint64_t>> cch;
@@ -1746,22 +1499,20 @@ ApplyResult congruence_apply(Kernel &k) {
       continue; // the gate is consumed by its own inference
     }
     if (ci == Canon::Merge) {
-      // value(out_lit) = ⊕key = key[0], so out_lit ≡ key[0]: a merge with no
-      // second gate needed (calculus §6's unary gate).
+      // value(out_lit) = ⊕key = key[0], so out_lit ≡ key[0]: the unary-gate
+      // merge, with no second gate needed (`docs/calculus.md` V6).
       const Lit other = key[0];
       if (find(out_i) == find(other))
         continue; // already known
       // x ≡ ¬x: justify the equivalence exactly as the normal merge would,
-      // then refute (C3b) instead of uniting the classes
+      // then refute instead of uniting the classes
       const bool clash = find(out_i) == negate(find(other));
       if (clash && cong_probe)
         cong_n_clash++;
       if (clash && out_i == negate(other)) {
-        // literal-form contradiction: the "equivalence binaries" degenerate
-        // to the two opposing units. AND's units are directly RUP (input
-        // binaries + bridges); the XOR form would need a ladder over
-        // degenerate conclusions — that corner stays dropped (sound,
-        // D-CONG-SKIP), like every clash was before C3b.
+        // literal-form contradiction: the equivalence binaries degenerate to
+        // two opposing units, directly RUP for AND. The XOR form would need a
+        // ladder over degenerate conclusions and stays dropped, which is sound.
         if (gates[i].kind == GateKind::And) {
           if (refute_contradictory(out_i)) {
             unsat = true;
@@ -1790,7 +1541,7 @@ ApplyResult congruence_apply(Kernel &k) {
           unsat = true;
           break;
         }
-        continue; // replay failed — inference dropped (D-CONG-SKIP)
+        continue; // replay failed — the inference is dropped
       }
       merge_lits(out_i, other);
       continue;
@@ -1814,12 +1565,10 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     if (cong_probe)
       cm.collide++;
-    // Recompute the stored gate's current canonical form: the union-find may have
-    // moved on since it was inserted (stale key). Only merge when both gates share
-    // the SAME current key — then their outputs are provably equal. A stored gate
-    // that has since become degenerate is evicted, not exploited here: it is still
-    // in the worklist (its inputs merged, which is what rescheduled it), so its
-    // own pop draws the inference.
+    // Recompute the stored gate's canonical form: the union-find may have moved
+    // on, and only a shared current key proves the outputs equal. A degenerate
+    // stored gate is evicted rather than exploited here — it is still in the
+    // worklist, so its own pop draws the inference.
     const uint32_t j = it->second;
     Lit out_j;
     if (canonicalize(gates[j], find, key_j, out_j, cancelled_j, reps) !=
@@ -1837,16 +1586,14 @@ ApplyResult congruence_apply(Kernel &k) {
         cm.already_eq++;
       continue; // already equal
     }
-    // x ≡ ¬x: justify the congruence like any other match, then refute (C3b)
+    // x ≡ ¬x: justify the congruence like any other match, then refute
     const bool clash = (oa == negate(ob));
     if (clash && cong_probe) {
       cong_n_clash++;
       cm.clash++;
     }
     if (clash && out_i == negate(out_j)) {
-      // literal-form contradiction (same variable, opposite signs): the
-      // equivalence binaries degenerate to units. AND refutes directly;
-      // the XOR/ITE form stays dropped (sound, D-CONG-SKIP) — see the
+      // literal-form contradiction (same variable, opposite signs) — see the
       // Merge-branch twin of this guard.
       if (gates[i].kind == GateKind::And) {
         if (refute_contradictory(out_j)) {
@@ -1857,10 +1604,8 @@ ApplyResult congruence_apply(Kernel &k) {
         k.stats.congruence_unjustified++;
       continue;
     }
-    // congruent outputs → add oa==ob (DRAT-RUP over the full DB; XOR/ITE LRAT
-    // chains are C3). An AND equivalence whose bridging chain cannot be built is
-    // SKIPPED rather than emitted unjustified — sound, and N2 holds (see
-    // add_equivalence).
+    // Congruent outputs, so add oa == ob. An equivalence whose chain cannot be
+    // built is skipped rather than emitted unjustified: sound, and N2 holds.
     if (gates[i].kind == GateKind::Xor || gates[i].kind == GateKind::Ite) {
       Stage proof_stage(&cong_t.proof);
       std::vector<uint64_t> cf, cr;
@@ -1901,7 +1646,7 @@ ApplyResult congruence_apply(Kernel &k) {
         unsat = true;
         break;
       }
-      continue; // replay failed — inference dropped (D-CONG-SKIP)
+      continue; // replay failed — the inference is dropped
     }
     if (cong_probe)
       cm.merged++;
@@ -1934,10 +1679,7 @@ ApplyResult congruence_apply(Kernel &k) {
                  (unsigned long long)cong_n_and, (unsigned long long)cong_n_ite,
                  (unsigned long long)cong_n_xor,
                  (unsigned long long)cong_n_clash);
-    // The closure funnel, per kind. `collide` vs `insert` separates a
-    // canonicalization defect (keys never meet) from a downstream one (they
-    // meet and the merge is refused); the four columns after `collide` say
-    // which downstream stage eats them. Cumulative across every application in
+    // The closure funnel, per kind; cumulative across every application in
     // the process, like the degeneracy counters above.
     static const char *kind_name[3] = {"and", "xor", "ite"};
     std::fprintf(stderr,
@@ -1977,12 +1719,10 @@ ApplyResult congruence_apply(Kernel &k) {
   if (unsat)
     return ApplyResult::Unsat;
 
-  // Assert the batch of derived root units, then close the root. This is the
-  // step that makes the unit channel worth having: on an equivalence-checking
-  // miter, congruence proves aᵢ ≡ bᵢ for the two circuits' matching signals,
-  // every output XOR then cancels to the unit ¬outᵢ, and propagating those units
-  // falsifies the miter's output constraint — a refutation inside congruence at
-  // zero conflicts, which is how kissat solves that family.
+  // Assert the batch of derived root units, then close the root. On a miter this
+  // is what refutes at zero conflicts: congruence proves aᵢ ≡ bᵢ for the
+  // matching signals, every output XOR cancels to the unit ¬outᵢ, and
+  // propagating those falsifies the output constraint.
   return finish(/*merged=*/neq != 0);
 }
 

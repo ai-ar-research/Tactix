@@ -5,8 +5,7 @@ add_executable(test_kernel test_kernel.cpp)
 target_link_libraries(test_kernel PRIVATE tactix_lib)
 add_test(NAME kernel COMMAND test_kernel)
 
-# The proof backend's serializers, byte for byte (N2's writer, previously only
-# ever checked end-to-end through a checker).
+# The proof backend's serializers, byte for byte (N2's writer).
 add_executable(test_proof test_proof.cpp)
 target_link_libraries(test_proof PRIVATE tactix_lib)
 add_test(NAME proof COMMAND test_proof)
@@ -31,8 +30,8 @@ add_executable(test_subsolver test_subsolver.cpp)
 target_link_libraries(test_subsolver PRIVATE tactix_lib)
 add_test(NAME subsolver COMMAND test_subsolver)
 
-# Sweep: candidate selection + environment construction. Pass an
-# iteration count to raise the brute-force oracle's soak size.
+# Sweep: candidate selection + environment construction. An arg raises the
+# brute-force oracle's soak size.
 add_executable(test_sweep test_sweep.cpp)
 target_link_libraries(test_sweep PRIVATE tactix_lib)
 add_test(NAME sweep COMMAND test_sweep)
@@ -41,9 +40,8 @@ add_executable(test_scheduling test_scheduling.cpp)
 target_link_libraries(test_scheduling PRIVATE tactix_lib)
 add_test(NAME scheduling COMMAND test_scheduling)
 
-# RV-S13: the §5.6 POSE surface — a preposed slot, a disabled entry proved inert
-# at its rule's own counter, and the TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs shown
-# to reach the entry the policy walks. None of it had any coverage.
+# The §5.6 pose surface: a preposed slot, a disabled entry inert at its own
+# rule's counter, and the TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs.
 add_executable(test_slot_pose test_slot_pose.cpp)
 target_link_libraries(test_slot_pose PRIVATE tactix_lib)
 add_test(NAME slot_pose COMMAND test_slot_pose)
@@ -72,8 +70,8 @@ add_executable(test_vivify test_vivify.cpp)
 target_link_libraries(test_vivify PRIVATE tactix_lib)
 add_test(NAME vivify COMMAND test_vivify)
 
-# N1: every Vivify band reachable through the API, and the unscoped path
-# excluding none. The Factor breach (test_factor_n1) in a second rule.
+# N1: every Vivify band reachable through the API, the unscoped path excluding
+# none.
 add_executable(test_vivify_n1 test_vivify_n1.cpp)
 target_link_libraries(test_vivify_n1 PRIVATE tactix_lib)
 add_test(NAME vivify_n1 COMMAND test_vivify_n1)
@@ -139,9 +137,8 @@ target_link_libraries(test_api_c PRIVATE tactix_lib)
 target_include_directories(test_api_c PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME api_n1 COMMAND test_api_c)
 
-# RV-S14: tactix_apply_instance on EVERY registry entry (the §5.6 action space)
-# + the no-payload-aliasing contract. Also a C client, so it shares test_api_c's
-# header/ABI sync property.
+# tactix_apply_instance on every registry entry (the §5.6 action space) plus the
+# no-payload-aliasing contract. A C client, so it also checks header/ABI sync.
 add_executable(test_api_instances test_api_instances.c)
 target_link_libraries(test_api_instances PRIVATE tactix_lib)
 target_include_directories(test_api_instances PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -152,33 +149,28 @@ target_link_libraries(test_random_policy PRIVATE tactix_lib)
 target_include_directories(test_random_policy PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME random_policy COMMAND test_random_policy)
 
-# RV-S12: --trace/--replay, the §8.5 offline replay harness, plus the
-# cross-process reproducibility of --random-policy=SEED that the whole fuzz
-# harness rests on. Runs the real binary; no checker needed, so it never skips.
+# --trace/--replay (the §8.5 offline replay harness) plus the cross-process
+# reproducibility of --random-policy=SEED. Runs the real binary; never skips.
 add_test(NAME trace_replay
          COMMAND ${CMAKE_SOURCE_DIR}/tests/trace_replay.sh $<TARGET_FILE:tactix>)
 
-# micro-formula proof test: tiny UNSATs through the real binary, proofs
-# verified by drat-trim (skips with 77 when the checker isn't built)
+# Tiny UNSATs through the real binary, proofs verified by drat-trim (skips 77).
 add_test(NAME micro_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/micro_proofs.sh
                  $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
 set_tests_properties(micro_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
 # Sweep: every proof it produces, replayed through the real checkers (drat-trim
-# for the lemmas, lrat-check for the chains). test_subsolver covers the
-# derivations in SUB-SOLVER space; test_sweep covers the same derivations after
-# the sub-solver -> kernel translation, which is separate code and is where the
-# S-e polarity N2 breach lived. Skips with 77 without a checker.
+# for the lemmas, lrat-check for the chains), in sub-solver space and again
+# after the sub-solver -> kernel translation. Skips 77 without a checker.
 add_test(NAME sweep_proofs
          COMMAND ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh ${CMAKE_SOURCE_DIR}
                  $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
 set_tests_properties(sweep_proofs PROPERTIES SKIP_RETURN_CODE 77)
 
 # V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,
-# model sets compared by enumeration (the ONLY direct test that V4's deletions
-# are equivalence-preserving — a proof checker accepts any delete line). Pass a
-# second arg to raise the iteration count for a soak.
+# model sets compared by enumeration -- the only direct check that V4's deletions
+# preserve equivalence, since a proof checker accepts any delete line.
 add_executable(test_tr_bruteforce test_tr_bruteforce.cpp)
 target_link_libraries(test_tr_bruteforce PRIVATE tactix_lib)
 foreach(mode 0 1 2 3)
@@ -197,79 +189,55 @@ add_executable(test_subsume_n1 test_subsume_n1.cpp)
 target_link_libraries(test_subsume_n1 PRIVATE tactix_lib)
 add_test(NAME subsume_n1 COMMAND test_subsume_n1)
 
-# Not a unit test but a SOURCE conformance check -- every Kernel
-# scheduling-config field must have the writer its classification claims. Runs
-# in ctest so an unwired POLICY field, or a new unclassified field, breaks the
-# build rather than waiting to be noticed.
+# A source conformance check, not a unit test: every Kernel scheduling-config
+# field must have the writer its classification claims.
 add_test(NAME config_wiring
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-config-wiring.py)
 
-# SCHED-A2b: the same shape, one level up -- every rule the inprocessing SLOT
-# schedules (i.e. every RuleTier::Inprocess registry line, since registering IS
-# scheduling) must have a governor: an EFFORT_SPECS row, or a named alternate
-# one whose mechanism is still in the source. Nothing else covers this: fuzz is
-# green on a performance regression, and the unit tests call a rule's apply
-# directly without traversing the slot.
+# Every rule the inprocessing slot schedules (every RuleTier::Inprocess registry
+# line, since registering is scheduling) must have a governor: an EFFORT_SPECS
+# row, or a named alternate whose mechanism is still in the source.
 add_test(NAME effort_specs
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-effort-specs.py)
 
-# SCHED-A3: the same shape again, but taken over the REFERENCE's option sets
-# rather than over our own source. The parity ledger is only as good as the set
-# it was generated from, so every option in kissat/src/options.h and
-# cadical/src/options.hpp must be accounted for -- a ledger row, §13.6's
-# dismissal roster, or a named carried/exempt roster entry. A reference bump
-# that adds an option therefore fails here instead of silently turning the
-# ledger back into a lower bound. Requires the untracked reference clones
-# (CLAUDE.md); it FAILS rather than skips without them, since a conformance
-# check that can go vacuously green is worse than a red one.
+# Every option in kissat/src/options.h and cadical/src/options.hpp must be
+# accounted for by a parity-ledger row, §13.6's dismissal roster, or a named
+# carried/exempt entry, so a reference bump cannot turn the ledger into a silent
+# lower bound. Fails rather than skips without the reference clones (CLAUDE.md).
 add_test(NAME option_coverage
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-option-coverage.py)
 
-# RV-S11, the same shape over the §5.6 REWARD channel: every dosed rule exposes
-# a (yield, effort) pair, header numbering matches api.cpp's case order, and
-# every case returns the counter its macro names. The suite's only previous
-# evidence here was `tactix_stat(s, id) != UINT64_MAX`, a presence check that a
-# swapped pair passes while the learner's cost axis inverts.
+# The §5.6 reward channel: every dosed rule exposes a (yield, effort) pair,
+# header numbering matches api.cpp's case order, and every case returns the
+# counter its macro names -- a swapped pair inverts the learner's cost axis.
 add_test(NAME stat_ids
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-stat-ids.py)
 
-# A source citation in a living doc rots SILENTLY: the file still exists, the
-# defect it names is often still real, and the sentence still reads correct, so
-# a reader opens the wrong line and concludes the item is done. One open
-# PROGRESS item carried seven citations that were all stale while all seven
-# defects were still present. Narrow on purpose -- it judges only citations it
-# can attribute with certainty and prints what it skipped, so its green is not
-# mistaken for full coverage.
+# Source citations in the living docs must resolve; a stale one still reads
+# correct. Narrow on purpose: it prints what it skipped, so green is not
+# full coverage.
 add_test(NAME citations
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-citations.py)
 
-# A `§X.Y` that resolves to the WRONG section reads exactly like one that
-# resolves. The phase-4 exit criterion cited "an accepted §13.3 deviation" while
-# the plan's own §13 is the Revision history -- a gate criterion pointing at its
-# own changelog, which took an audit to notice.
+# A `§X.Y` pointing at the wrong section reads exactly like one that resolves,
+# so every section reference in the living docs must resolve to a real section.
 add_test(NAME section_refs
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-section-refs.py)
 
-# The phase-3 exit is "implemented, OR a reasoned no-implement with evidence".
-# That was unfalsifiable until the disposition table existed: the one
-# no-implement was prose calling itself a ledger id while having no row. A gate
-# you cannot enumerate is a gate you cannot fail.
+# The phase-3 exit is "implemented, or a reasoned no-implement with evidence",
+# falsifiable only if every disposition has a ledger row.
 add_test(NAME inventory
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-inventory.py)
 
-# Same shape, over source COMMENTS: they carry the invariant plus a reference
-# pointer, never the narrative of how we found out -- no dates, SLURM job ids,
-# window ids or score numbers (standing user directive, given twice). A one-off
-# sweep enforced it and the pattern was back within the hour, so it is enforced
-# here instead of remembered. The checker names its own rule; see it for what
-# counts as an allowed reference pointer.
+# The same shape over source comments, enforced rather than remembered. The
+# checker states the rule it applies; see it for what a comment may carry.
 add_test(NAME comment_hygiene
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-comment-hygiene.py)
@@ -279,15 +247,13 @@ add_executable(test_no_heuristics test_no_heuristics.cpp)
 target_link_libraries(test_no_heuristics PRIVATE tactix_lib)
 add_test(NAME no_heuristics COMMAND test_no_heuristics)
 
-# Kernel/H boundary guard (plan Sec 5): the kernel interface must not
-# depend on H's layout -- kernel.hpp holds struct Heuristics only as an opaque
-# pointer and must NEVER #include policies/heuristics.hpp. A real include would
-# also compile-fail via the include cycle, but this gives a fast, clear signal.
+# Kernel/H boundary guard (plan §5): kernel.hpp holds struct Heuristics as an
+# opaque pointer only and must never #include policies/heuristics.hpp.
 add_test(NAME kernel_h_boundary
          COMMAND bash -c "! grep -qE '^[[:space:]]*#[[:space:]]*include.*heuristics\\.hpp' '${CMAKE_SOURCE_DIR}/src/kernel/kernel.hpp'")
 
-# SCHED-H2: a reused policy object must be indistinguishable from a fresh one
-# — the property the phase-6 learner's many-solves-per-process loop rests on.
+# A reused policy object must be indistinguishable from a fresh one; the phase-6
+# learner solves many instances per process.
 add_executable(test_solve_reset test_solve_reset.cpp)
 target_link_libraries(test_solve_reset PRIVATE tactix_lib)
 add_test(NAME solve_reset COMMAND test_solve_reset)

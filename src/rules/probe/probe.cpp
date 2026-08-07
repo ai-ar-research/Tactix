@@ -1,4 +1,4 @@
-// See probe.hpp for the reference/deviation record.
+// See probe.hpp for the rule's contract.
 #include "rules/probe/probe.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -16,7 +16,7 @@ bool probe_guard(const Kernel &k) {
 }
 
 // BIG-head candidates: assuming p propagates iff negate(p) carries a binary
-// watch (probe.hpp deviation 3). Var-index ascending, positive phase first.
+// watch (see probe.hpp). Var-index ascending, positive phase first.
 void probe_candidates(const Kernel &k, std::vector<Lit> &out) {
   out.clear();
   for (Var v = 0; v < k.nvars; v++) {
@@ -55,9 +55,9 @@ static void unwind(Kernel &k) {
   kernel_probing_end(k);
 }
 
-// The reason walk (kernel_reason_walk) + conflict seed (kernel_conflict_
-// reason_walk) are shared kernel helpers (kernel.cpp), used by Vivify, Probe
-// and Backbone — the proof-critical DFS lives in exactly one place.
+// The reason walk (`kernel_reason_walk`) and conflict seed
+// (`kernel_conflict_reason_walk`) are shared kernel helpers used by Vivify,
+// Probe and Backbone: the proof-critical DFS lives in exactly one place.
 
 // emit the add-RUP unit {lit} with the sorted reason chain closed by `last`
 // (the conflicting clause id). LRAT mode only; the caller handles DRAT.
@@ -74,11 +74,10 @@ static void emit_unit_chain(Kernel &k, uint64_t id, Lit lit,
                    static_cast<uint32_t>(chain.size()));
 }
 
-// probe one literal against the current clean root. If p fails, emit the
-// {¬p} add-RUP unit, record its id, and return true with *unit_out set — the
-// unit is NOT asserted (the caller asserts it, so the root stays clean for
-// the remaining probes; probe.hpp deviation 8). If p survives, restore the
-// root and return false.
+// probe one literal against the current clean root. If p fails, emit the {¬p}
+// add-RUP unit, record its id, and return true with *unit_out set — the unit is
+// NOT asserted, so the root stays clean for the remaining probes (see
+// probe.hpp). If p survives, restore the root and return false.
 static bool probe_one(Kernel &k, Lit p, Lit *unit_out) {
   const bool lrat = k.proof && k.proof->lrat();
   k.stats.probed++;
@@ -112,8 +111,7 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out) {
 // canonical instance: one full round over the BIG-head schedule
 ApplyResult probe_apply(Kernel &k) {
   assert(probe_guard(k));
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.probe_rounds++;
@@ -133,8 +131,7 @@ ApplyResult probe_apply(Kernel &k) {
   if (units.empty())
     return ApplyResult::NoOp;
   // assert the batch at root, un-propagated; M1 Propagate runs each unit's
-  // cascade (root-unit id emission + refutation on a both-fail conflict),
-  // exactly as Strengthen/Vivify leave a derived unit for the policy
+  // cascade — root-unit id emission, and refutation on a both-fail conflict
   for (const Lit u : units)
     kernel_assign_unit(k, u);
   return ApplyResult::Ok;
@@ -163,8 +160,7 @@ static uint32_t probe_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult probe_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)

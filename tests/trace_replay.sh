@@ -1,20 +1,15 @@
 #!/usr/bin/env bash
 # --trace / --replay: the offline replay harness §8.5 requires before any reward
 # proxy may be trusted (plan §5 "Reproducibility"), plus the cross-process
-# determinism of --random-policy=SEED, which the whole fuzz harness rests on and
-# which nothing asserted.
+# determinism of --random-policy=SEED that the fuzz harness rests on.
 #
-# Three things are checked, and the third is what makes the first two mean
-# something:
-#   REPLAY   a recorded run, replayed, reaches the same verdict AND emits a
-#            byte-identical proof AND prints identical counters and model. Not
-#            "the lines parsed" — the artefacts.
-#   DETERMINISM  the same seed in a SECOND PROCESS produces the same trace and
-#            the same proof. Same-process reproducibility would not show this.
-#   NEGATIVE a trace that has been damaged must FAIL. A replay path that cannot
-#            fail is worth nothing ([[ab-arm-identical-artefacts]]), so a
-#            truncated trace and an unknown rule name are both required to
-#            exit nonzero.
+#   replay        a recorded run, replayed, reaches the same verdict and emits a
+#                 byte-identical proof, counters and model -- the artefacts, not
+#                 just parseable lines.
+#   determinism   the same seed in a second process produces the same trace and
+#                 proof; same-process reproducibility would not show this.
+#   negative      a damaged trace must fail, so a truncated trace and an unknown
+#                 rule name must both exit nonzero.
 set -uo pipefail
 TACTIX="$1"
 
@@ -29,9 +24,9 @@ printf 'p cnf 2 4\n1 2 0\n1 -2 0\n-1 2 0\n-1 -2 0\n' > "$T/unsat.cnf"
 printf 'p cnf 6 8\n1 2 3 0\n-1 -2 0\n-1 -3 0\n-2 -3 0\n4 5 6 0\n-4 -5 0\n1 4 0\n-6 2 0\n' \
   > "$T/sat.cnf"
 
-# stdout minus the wall-clock lines: implementation-notes §11 makes phase timers
-# diagnostic-only and they move run to run on the SAME binary, so a run-identity
-# comparison that includes them reports jitter as a behaviour change.
+# stdout minus the wall-clock lines: phase timers are diagnostic-only
+# (docs/implementation-notes.md §11) and move run to run on one binary, so a
+# run-identity comparison including them reports jitter as a behaviour change.
 counters() { grep '^[cvs] ' "$1" | grep -v 'timing\|ms\b'; }
 
 run_case() {
@@ -48,7 +43,7 @@ run_case() {
   counters "$a.out" > "$a.cnt"; counters "$b.out" > "$b.cnt"
   cmp -s "$a.cnt" "$b.cnt" || fail "$label: replay counters/model differ"
 
-  # DETERMINISM: the same seed, a second process, must produce the same trace
+  # the same seed in a second process must produce the same trace
   "$TACTIX" $fmt --random-policy="$seed" --trace="$T/t2" "$cnf" "$T/c.proof" \
     > /dev/null 2>&1
   cmp -s "$T/t1" "$T/t2" ||
@@ -64,7 +59,7 @@ run_case "$T/unsat.cnf" 23 ""        "unsat/drat seed 23"
 run_case "$T/sat.cnf"   11 ""        "sat/drat"
 run_case "$T/sat.cnf"   11 "--lrat"  "sat/lrat"
 
-# --- NEGATIVE CONTROLS -----------------------------------------------------
+# --- negative controls -----------------------------------------------------
 "$TACTIX" -q --random-policy=7 --trace="$T/neg" "$T/unsat.cnf" "$T/n.proof" \
   > /dev/null 2>&1
 # (a) a truncated trace: the recorded verdict is never reached

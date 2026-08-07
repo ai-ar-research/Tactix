@@ -1,14 +1,6 @@
-// The proof backend itself (src/proof/proof.cpp): the two DRAT serializers and
-// the native-LRAT writer, checked BYTE FOR BYTE.
-//
-// N2 rests on this file and it had no direct test: every other test and every
-// fuzz leg reaches it end-to-end through a checker, which means a wrong byte is
-// only ever caught when a checker happens to reject — and a checker cannot see
-// the difference between "the rule chose the wrong lemma" and "the writer
-// mis-encoded a correct one". These assertions pin the ENCODING (varint
-// boundaries, the sign bit, the id/chain/hint layout, and which primitives are
-// deliberately silent in which format), so a serializer regression fails here in
-// milliseconds instead of somewhere inside a gigabyte-scale tier proof.
+// The proof backend (src/proof/proof.cpp): the two DRAT serializers and the
+// native-LRAT writer, checked byte for byte. N2 rests on the encoding, which an
+// end-to-end checker cannot tell apart from a wrong lemma.
 #undef NDEBUG
 #include "proof/proof.hpp"
 
@@ -46,9 +38,7 @@ std::string read_all(const std::string &path) {
   return out;
 }
 
-// Every case runs the emitter, closes the file (Proof's destructor flushes) and
-// compares the whole byte stream, so a stray extra byte fails as loudly as a
-// wrong one.
+// Each case emits, closes the file, and compares the whole byte stream.
 template <class Emit>
 std::string emitted(const char *tag, ProofFormat fmt, Emit emit) {
   const std::string path = tmp_path(tag);
@@ -83,9 +73,8 @@ void expect(const std::string &got, const std::string &want,
 }
 
 // --- binary DRAT ------------------------------------------------------------
-// Encoding under test (drat-trim's): 'a'/'d' tag, then per literal the unsigned
-// u = (|e| << 1) | (e < 0) as 7-bit varint chunks, low chunk first, high bit set
-// on every chunk but the last, then a 0 terminator byte.
+// Encoding (drat-trim's): 'a'/'d' tag, then per literal u = (|e|<<1)|(e<0) as
+// low-first 7-bit chunks, high bit on all but the last, then a 0 terminator.
 void test_drat_binary_add() {
   const Lit lits[3] = {make_lit(0, false), make_lit(1, true),
                        make_lit(2, false)};
@@ -97,10 +86,7 @@ void test_drat_binary_add() {
 }
 
 void test_drat_binary_varint_boundary() {
-  // |e| = 64 is the first literal that does not fit in one 7-bit chunk:
-  // u = 128 = 0x80 -> chunks 0x80, 0x01. |e| = 63 (u = 126) still fits, and
-  // together they pin the boundary from both sides — an off-by-one in the
-  // `u >= 128` test corrupts every proof with more than 63 variables.
+  // pin both sides of the `u >= 128` boundary: 63 fits one chunk, 64 needs two
   const Lit small[1] = {make_lit(62, false)}; // +63
   const Lit big[1] = {make_lit(63, false)};   // +64
   expect(emitted("bin-small", ProofFormat::DratBinary,
@@ -109,7 +95,7 @@ void test_drat_binary_varint_boundary() {
   expect(emitted("bin-big", ProofFormat::DratBinary,
                  [&](Proof &p) { p.add_rup(1, big, 1, nullptr, 0); }),
          std::string("a\x80\x01\x00", 4), "drat-binary varint 2 bytes");
-  // and the sign bit rides in bit 0 of the SAME varint, so -64 differs from +64
+  // the sign bit rides in bit 0 of the same varint, so -64 differs from +64
   const Lit negbig[1] = {make_lit(63, true)}; // -64 -> u = 129
   expect(emitted("bin-negbig", ProofFormat::DratBinary,
                  [&](Proof &p) { p.add_rup(1, negbig, 1, nullptr, 0); }),
@@ -118,14 +104,12 @@ void test_drat_binary_varint_boundary() {
 
 void test_drat_binary_delete() {
   const Lit lits[2] = {make_lit(0, true), make_lit(4, false)};
-  // no space after 'd' in binary; the literals and terminator are as for add
   expect(emitted("bin-del", ProofFormat::DratBinary,
                  [&](Proof &p) { p.del(9, 3, lits, 2); }),
          std::string("d\x03\x0a\x00", 4), "drat-binary del");
 }
 
 void test_drat_binary_empty_clause() {
-  // the refutation itself: tag + terminator, no literals
   expect(emitted("bin-empty", ProofFormat::DratBinary,
                  [&](Proof &p) { p.add_empty(11, nullptr, 0); }),
          std::string("a\x00", 2), "drat-binary add_empty");
@@ -137,8 +121,8 @@ void test_drat_ascii() {
   expect(emitted("asc-add", ProofFormat::DratAscii,
                  [&](Proof &p) { p.add_rup(5, lits, 2, nullptr, 0); }),
          "1 -3 0\n", "drat-ascii add_rup");
-  // 'd' is followed by a SPACE in ascii (drat-trim needs the separator) and by
-  // nothing in binary — the one place the two DRAT paths diverge.
+  // 'd' takes a separating space in ascii and none in binary: the one place the
+  // two DRAT paths diverge
   expect(emitted("asc-del", ProofFormat::DratAscii,
                  [&](Proof &p) { p.del(6, 5, lits, 2); }),
          "d 1 -3 0\n", "drat-ascii del");
@@ -151,8 +135,7 @@ void test_drat_ascii() {
 void test_lrat_add_rup() {
   const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
   const uint64_t chain[3] = {4, 2, 9};
-  // `<id> <lits> 0 <antecedents> 0`, ids first, chain in checker-propagation
-  // order — a reordered chain is a rejected proof, so the order is the test.
+  // `<id> <lits> 0 <chain> 0`; a reordered chain is a rejected proof
   expect(emitted("lrat-add", ProofFormat::Lrat,
                  [&](Proof &p) { p.add_rup(12, lits, 2, chain, 3); }),
          "12 1 -2 0 4 2 9 0\n", "lrat add_rup");
@@ -160,9 +143,8 @@ void test_lrat_add_rup() {
 
 void test_lrat_add_rat() {
   const Lit lits[2] = {make_lit(2, false), make_lit(0, true)};
-  // pivot-first literals; hints are the flat SIGNED stream (negative = a
-  // resolution partner, positive = a RUP antecedent), and the sign must survive
-  // verbatim
+  // pivot first; hints are one flat signed stream (negative = resolution
+  // partner) and the sign is verbatim
   const int64_t hints[4] = {7, -5, 3, -8};
   expect(emitted("lrat-rat", ProofFormat::Lrat,
                  [&](Proof &p) { p.add_rat(21, lits, 2, hints, 4); }),
@@ -175,14 +157,13 @@ void test_lrat_empty_and_unit() {
   expect(emitted("lrat-empty", ProofFormat::Lrat,
                  [&](Proof &p) { p.add_empty(30, chain, 2); }),
          "30 0 1 2 0\n", "lrat add_empty");
-  // a root-level derived unit is EXPLICIT in LRAT (later chains cite its id)
+  // a root-level derived unit is explicit in LRAT (later chains cite its id)
   expect(emitted("lrat-unit", ProofFormat::Lrat,
                  [&](Proof &p) {
                    p.add_derived_unit(31, make_lit(3, true), chain, 2);
                  }),
          "31 -4 0 1 2 0\n", "lrat add_derived_unit");
-  // ... and IMPLIED in DRAT: writing it would be a wrong lemma line, so both
-  // DRAT paths must emit nothing at all for it.
+  // ... and implied in DRAT: emitting it would be a wrong lemma line
   expect(emitted("bin-unit", ProofFormat::DratBinary,
                  [&](Proof &p) {
                    p.add_derived_unit(31, make_lit(3, true), chain, 2);
@@ -197,9 +178,7 @@ void test_lrat_empty_and_unit() {
 
 void test_lrat_delete() {
   const Lit lits[2] = {make_lit(0, false), make_lit(1, false)};
-  // LRAT deletes BY ID and needs its own line id; the literals are ignored,
-  // which is exactly the asymmetry with DRAT that a shared call site must get
-  // right — pass literals and require they do not appear.
+  // LRAT deletes by id and needs its own line id; the literals are ignored
   expect(emitted("lrat-del", ProofFormat::Lrat,
                  [&](Proof &p) { p.del(40, 17, lits, 2); }),
          "40 d 17 0\n", "lrat del");
@@ -210,8 +189,6 @@ void test_lrat_multi_line_stream() {
   const Lit b[2] = {make_lit(1, false), make_lit(0, true)};
   const uint64_t c1[1] = {1};
   const uint64_t c2[2] = {2, 3};
-  // a whole small stream: lines are newline-terminated and appended in call
-  // order, with no separators of their own
   expect(emitted("lrat-stream", ProofFormat::Lrat,
                  [&](Proof &p) {
                    p.add_rup(50, a, 1, c1, 1);

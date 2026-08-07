@@ -1,8 +1,8 @@
 #include "rules/backjump/backjump.hpp"
 
-#include "policies/heuristics.hpp" // TB4b snapshot timing (target/best phases)
+#include "policies/heuristics.hpp" // target/best phase snapshot
 #include "proof/proof.hpp"
-#include "rules/analyze/analyze.hpp" // analyze_eager_subsume (SP-EAGERSUB-1)
+#include "rules/analyze/analyze.hpp" // analyze_eager_subsume
 
 namespace tactix {
 
@@ -15,38 +15,24 @@ bool backjump_guard(const Kernel &k) {
 ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   assert(backjump_guard(k));
   PendingLearned &p = k.pending;
-  // CHRONOLOGICAL target (rev 38, D-LEVEL-2): any level in [jump_level, level-1]
-  // is now a sound backjump target. True-level assignment stamps the asserting
-  // literal at its true level (jump_level) regardless of how far we backtrack,
-  // so a higher (chronological) target keeps the intervening decisions without
-  // stranding the assertion — the corpus-004/005 hazard is gone. Clamp into the
-  // sound range (below jump_level would strand the assertion; >= level makes no
-  // progress); the clamp keeps every legal instance total (N1).
+  // Chronological target (D-LEVEL-2): true-level assignment stamps the
+  // asserting literal at jump_level however far the trail is cut, so any level
+  // in [jump_level, level-1] is sound. The clamp keeps every legal instance
+  // total (N1).
   if (target < p.jump_level)
     target = p.jump_level;
   if (target + 1 > k.level) // target >= level (guard against underflow)
     target = k.level - 1;
-  // UNIT CHRONO ROUTING. A learned unit must NOT be forced to `target = 0`,
-  // which discards the whole descent: kissat routes it through the SAME chrono
-  // determination as any other learned clause — `learn_unit` calls
-  // `kissat_determine_new_level (solver, 0)` (learn.c:46), so with jump == 0
-  // and a deep trail `back - 0 > chronolevels` fires and it steps back ONE
-  // level, keeping the prefix. Sound here because `kernel_assign_unit` stamps
-  // the literal at level 0 explicitly (true-level assignment, D-LEVEL-2)
-  // regardless of the current decision level — the unit is a root fact whatever
-  // level the solver sits at. On unit-heavy instances the override also makes
-  // the `c chronological` counter report backtracks that never happened.
+  // A learned unit goes through the same chrono determination as any other
+  // learned clause (kissat learn.c:46), not forced to target 0: a unit is a
+  // root fact whatever level the solver stands at, `kernel_assign_unit`
+  // stamping it at level 0 explicitly (D-LEVEL-2).
   //
-  // SNAPSHOT TIMING — kissat `kissat_backtrack_after_conflict`
-  // (backtrack.c:156) in its exact order:
-  //     if (level) backtrack_without_updating_phases(level - 1);
-  //     update_target_and_best_phases();
-  //     backtrack_without_updating_phases(new_level);
-  // The one-level step FIRST is the point: the snapshot must NOT see the
-  // conflict level's own literals. Taking it at the full trail inflates the
-  // `target_assigned`/`best_assigned` high-water mark by the conflicting
-  // assignments, so later genuinely-longer trails fail to beat it and the
-  // target phases stop tracking the best trail found.
+  // Phase-snapshot order, kissat `kissat_backtrack_after_conflict`
+  // (backtrack.c:156): step back one level, snapshot, then backtrack to the
+  // target. The one-level step must come first, or the snapshot counts the
+  // conflict level's own literals into the target/best high-water mark and
+  // later longer trails fail to beat it.
   if (k.level) {
     if (k.level - 1 < k.level)
       kernel_backtrack(k, k.level - 1);
@@ -56,37 +42,28 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   if (target < k.level)
     kernel_backtrack(k, target);
 
-  // SP-EAGERSUB-1 — kissat's own position for it (`kissat_learn_clause`:
-  // learn, backtrack, assign, eager-subsume). We run it one step earlier,
-  // before the assert, which is equivalent: asserting the UIP can only make
-  // the PENDING clause a reason, and the pending clause is not a candidate.
-  // It must be here rather than at the end of `analyze_apply` — before the
-  // backtrack every subsumable candidate is still a trail reason (measured:
-  // all 28 000 of them over 60 Tier A instances). Runs on the stale/NoOp and
-  // learned-unit-refutation exits below too: the pending clause is already
-  // stored and in the proof by then, so the deletion is equally justified.
-  // The mechanism lives in analyze.cpp — it is ConflictAnalysis's proof delta.
+  // Eager subsumption belongs after the backtrack: before it, every subsumable
+  // candidate is still a trail reason and gets skipped. Running it before the
+  // assert is equivalent to kissat's position, since asserting the UIP can
+  // only make the pending clause a reason and that clause is not a candidate.
+  // Mechanism in analyze.cpp; rationale in docs/implementation-notes.md §15.
   analyze_eager_subsume(k);
 
   const Lit asserting = p.lits[0];
 
-  // The pending clause's assertion metadata is only valid in the trail
-  // episode Analyze computed it in. Under DefaultPolicy that is always
-  // the case; under other legal schedules (e.g. Restart or Decide between
-  // Analyze and Backjump) it may be stale. Asserting with the clause as
-  // reason is sound ONLY if every other literal is currently false and
-  // the asserting literal is unassigned — otherwise discard the pending
-  // assertion: the clause itself is already stored, watched, and in the
-  // proof, so normal propagation takes over. (Rule contract: apply() is
-  // total and sound whenever the guard holds, for any history.)
+  // The pending clause's assertion metadata is only valid in the trail episode
+  // Analyze computed it in; a Restart or Decide in between can stale it.
+  // Asserting with the clause as reason is sound only if every other literal
+  // is false and the asserting literal unassigned — otherwise discard the
+  // assertion and let propagation take over, the clause being stored, watched
+  // and in the proof already. apply() stays total for any history.
   bool stale = k.values[asserting] != 0;
   for (size_t i = 1; !stale && i < p.lits.size(); i++)
     if (k.values[p.lits[i]] >= 0)
       stale = true;
-  // Refutation test is now LEVEL-AWARE, not "we are at the root": under unit
-  // chrono routing we may sit above level 0, and what makes a learned unit a
-  // refutation is that its literal is false AT LEVEL 0, not where we happen to
-  // be standing.
+  // Level-aware, not "at the root": unit chrono routing can leave the solver
+  // above level 0, and what makes a learned unit a refutation is that its
+  // literal is false at level 0.
   if (p.lits.size() == 1 && k.values[asserting] < 0 &&
       k.assigned[var_of(asserting)].level == 0) {
     // learned unit contradicts a root assignment: refutation complete
@@ -104,9 +81,8 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   }
 
   if (p.lits.size() == 1) {
-    // Asserted AS a root fact (level 0) even when the solver stands higher —
-    // see the unit-chrono-routing note above. No `k.level == 0` assert: that
-    // was an artefact of the forced target, not an invariant of the assignment.
+    // Asserted as a root fact even when the solver stands higher (see the
+    // unit chrono note above), so `k.level == 0` is not an invariant here.
     kernel_assign_unit(k, asserting);
     k.stats.learned_units++;
   } else if (p.lits.size() == 2) {
@@ -123,12 +99,9 @@ ApplyResult backjump_apply(Kernel &k) {
   return backjump_apply_to(k, k.pending.jump_level);
 }
 
-// NOT a registered rule since rev 37: Analyze + Backjump are fused into the
-// single atomic ConflictAnalysis rule (calculus §8; D-SPLIT). backjump_apply /
-// backjump_apply_to / backjump_guard remain as internal step functions —
-// called by conflictanalysis_apply (analyze.cpp) and, white-box, by
-// DefaultPolicy's micro-loop and the analyze unit tests — but there is no
-// `pending` control state observable at a rule boundary, so the guards that
-// used to carry `¬pending.valid` no longer need it.
+// Not a registered rule: Analyze + Backjump are fused into the atomic
+// ConflictAnalysis rule (docs/implementation-notes.md §4). These stay as
+// internal step functions, driven by conflictanalysis_apply and, white-box, by
+// DefaultPolicy's micro-loop and the analyze unit tests.
 
 } // namespace tactix

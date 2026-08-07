@@ -1,12 +1,10 @@
-// V6 Congruence — gate congruence closure (design `docs/design/v6-congruence-design.md`).
-// Extracts AND/OR gate definitions, structurally hashes them by (sorted inputs),
-// and when two gates share inputs — so their outputs are equivalent — ADDS the two
-// equivalence binaries (¬a∨b),(a∨¬b) to the formula (proof-delta add-RUP; the
-// AND/OR equivalence binaries are single-step RUP from the gate clauses). It does
-// NOT substitute: V3 Substitute, run next in the phase, collapses the equivalences
-// (its SCC now sees a↔b in the binary graph). Transliterated from kissat
-// congruence.c (MIT). XOR/ITE gates + their bounded RUP lemma chains are a later
-// increment.
+// V6 Congruence — gate congruence closure over AND/XOR/ITE gates: two gates
+// with the same canonical inputs have equivalent outputs, so add the two
+// equivalence binaries. It does not substitute; V3 Substitute, run next in the
+// phase, collapses the equivalences. Precondition, effect, proof delta and
+// soundness: `docs/calculus.md` V6 (and V6a for the binary-resolution unit
+// channel); design `docs/design/v6-congruence-design.md`; transliterated from
+// kissat congruence.c (MIT).
 #pragma once
 
 #include "rules/registry.hpp"
@@ -18,18 +16,14 @@ namespace tactix {
 
 enum class GateKind : uint8_t { And, Xor, Ite };
 
-// Extracted gate, output = f(inputs), where f is the kind:
-//   And: output = AND(inputs), long base clause (output ∨ ¬in₁ ∨ … ∨ ¬inₖ) plus a
-//        binary (¬output ∨ inputᵢ) per input. OR is the dual (found by scanning
-//        every polarity). `inputs` sorted; `input_bin_ids` the (¬output∨inputᵢ) ids.
-//   Xor: output = in₁ ⊕ … ⊕ inₖ, encoded by all 2^k parity clauses (each size k+1).
-//        `inputs` stored sorted & ALL-POSITIVE — the clause parity is absorbed into
-//        `output`'s sign. The structural key is (kind, sorted
-//        representative inputs); XOR re-canonicalization folds input-sign into the
-//        output parity under the union-find. base_id is the all-positive base.
-//   Ite: output = cond ? then : else, `inputs` = [cond, then, else] in that fixed
-//        order (NOT sorted — the key is the normalized triple; normalize_ite puts
-//        cond & then positive, absorbing any flip into the output sign).
+// Extracted gate, output = f(inputs) per kind (`docs/calculus.md` V6 gives each
+// kind's defining clauses). Storage conventions the closure relies on:
+//   And: `inputs` sorted, `input_bin_ids` the (¬output ∨ inputᵢ) ids, parallel.
+//   Xor: `inputs` sorted and all-positive — the clause parity is absorbed into
+//        `output`'s sign; `base_id` is the all-positive base.
+//   Ite: `inputs` = [cond, then, else] in that fixed order, not sorted;
+//        `normalize_ite` puts cond and then positive, absorbing any flip into
+//        the output sign.
 struct CongGate {
   GateKind kind = GateKind::And;
   Lit output = 0;
@@ -42,13 +36,11 @@ struct CongGate {
 // local; uses the arena scan (dense index is per-literal, not all-clauses).
 void congruence_extract(const Kernel &, std::vector<CongGate> &out);
 
-// The extraction half of `congruence_apply`: AND gates always, XOR + ITE when
-// `with_xor_ite` (the rule passes `!lrat` — D-CONG-LRAT). Exposed so a test can
-// inspect the gates directly: a gate's `output` SIGN convention (output must
-// evaluate to f(inputs)) has no other observable consequence today, because the
-// closure only ever compares two gates' outputs to each other and a shared
-// mis-signing cancels. A unit/merge channel reading that polarity does not have
-// that luxury, so the convention is pinned by test_congruence.
+// The extraction half of `congruence_apply`: AND gates always, XOR and ITE when
+// `with_xor_ite`. Exposed so a test can pin the `output` sign convention
+// (output must evaluate to f(inputs)): the closure only compares two gates'
+// outputs to each other, where a shared mis-signing cancels, but a unit/merge
+// channel reading that polarity has no such luxury.
 void congruence_extract_gates(const Kernel &, std::vector<CongGate> &out,
                               bool with_xor_ite);
 
@@ -58,14 +50,11 @@ bool congruence_guard(const Kernel &); // pure quiescent-root precondition
 // congruence closure, adding equivalence binaries (+ proof). Exposed for tests.
 ApplyResult congruence_apply(Kernel &);
 
-// Replay-based RUP chain builder (D-CONG-LRAT). Assumes the negation of `lits`
-// at a probing scope, propagates, and reads the antecedents off the conflict's
-// reason walk, so the chain comes out in the CHECKER's own propagation order by
-// construction. Returns false when the lemma is not RUP over the current DB, in
-// which case the caller must emit nothing. Shared with Sweep's RUP fast path,
-// which is the same question asked of a swept equivalence.
-// (The implementations live in an anonymous namespace, so these are thin
-// external-linkage forwarders defined at the end of congruence.cpp.)
+// Replay-based RUP chain builder: assume the negation of `lits` at a probing
+// scope, propagate, and read the antecedents off the conflict's reason walk, so
+// the chain comes out in the checker's own propagation order by construction.
+// Returns false when the lemma is not RUP over the current DB, in which case
+// the caller must emit nothing. Shared with Sweep's RUP fast path.
 bool congruence_replay_rup(Kernel &, const Lit *lits, uint32_t n,
                            std::vector<uint64_t> &chain);
 

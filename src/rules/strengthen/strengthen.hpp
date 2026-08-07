@@ -1,74 +1,12 @@
-// C2 Strengthen (plan §5.2: "SubsumeBackward + strengthening"): self-
-// subsuming resolution — when a smaller clause d matches a candidate c on
-// every literal except exactly ONE in opposite phase (f), resolving on f
-// yields c ∖ {f}, which replaces c. Proof delta: add-RUP (the shortened
-// clause, LRAT chain [absorbed units..., d, c]) + delete (the original).
-//
-// References (plan §5; independent lineages per): the fused
-// subsume-or-strengthen check is CaDiCaL subsume.cpp subsume_check (MIT,
-// transliterated) — all candidate literals marked BY LITERAL (phase-
-// aware); a clause with every literal marked subsumes, with exactly one
-// flipped strengthens. The technique family is MiniSat SimpSolver's
-// backward subsumption+strengthening, shipped by Glucose (simp/) and by
-// CryptoMiniSat as the `occ-backw-sub-str` schedule step — all lineages
-// carry it. kissat runs it inside eliminate's dense mode (backward.c),
-// which presupposes the kernel-wide watch replacement we deliberately do
-// not have (C1's recorded argument).
-//
-// Deviations recorded:
-// (1) FUSED ROUND: the round acts on subsumption too when the check finds
-//     it (not acting would waste the discovery) — the catalog's C2
-//     "backward" half is delivered structurally by the size-ascending
-//     round (every small/large pair meets, like C1). The default slot
-//     therefore schedules Strengthen INSTEAD of SubsumeForward (no double
-//     scan); C1 stays registered and N1-exposed. Stats attribute the two
-//     effects separately.
-// (2) Strengthened clauses are rebuilt FRESH from the candidate's free
-//     literals minus f (root-falsified literals stripped as well — their
-//     unit ids join the LRAT chain); the original becomes garbage after
-//     the add (OTFS allocate-new precedent, N1 intermediate-state
-//     cleanliness). Nothing is rewritten in place.
-// (3) Large PARTNERS are irredundant-only (C1 discipline, and unlike C1 this
-//     rule has two effects: for the SUBSUMED branch the partner justifies a
-//     deletion and must not be forgettable; for the STRENGTHEN branch it is
-//     safe either way, since the emitted add-RUP stands against the whole
-//     formula at emit time — the check is kept uniform because the branch is
-//     decided after the partner is found). VICTIMS are wider: any redundancy
-//     on the instance surface, and in the canonical round the irredundant
-//     clauses plus — when Kernel::touch_redundant is on — the redundant TIER
-//     BAND, cadical's `likely_to_be_kept_clause` scope (subsume.cpp:388).
-//     Redundant survivors are never CONNECTED as partners, so widening the
-//     victim set leaves the partner set alone. There is no PROMOTION path
-//     (cadical turns a redundant subsumer irredundant, subsume.cpp:133-149);
-//     that is the recorded deviation, not an oversight.
-//     ALL binaries subsume/strengthen, with no redundancy check —
-//     binaries ARE deletable (kernel_delete_binary), so the justification
-//     is not "structurally permanent" but the binary-subsumer argument
-//     recorded in subsume_forward.hpp: a binary can never be FORGOTTEN,
-//     which is the only fate that would strand this branch's deletion. It
-//     covers this SUBSUMED branch verbatim (it, too, deletes an
-//     irredundant candidate on a binary's strength). The STRENGTHEN
-//     branches are unaffected either way: they emit an add-RUP clause
-//     checked against the whole formula at emit time, so it stands on its
-//     own no matter what happens to the binary it resolved against.
-// (4) A strengthen that yields a UNIT asserts it at the root (unit id
-//     recorded) and ENDS the round: values changed, the round's marks and
-//     "root-falsified" reasoning are stale; the policy re-propagates.
-//     An EMPTY result is handled as the refutation it is (add-RUP of the
-//     empty clause, Unsat): under N1 histories a root can be engine-
-//     quiescent yet semantically under-derived (corpus regression 002),
-//     so "live candidates have >= 2 free literals" may not hold.
-// (5) A strengthened result of size >= 3 is RE-SCANNED as the current
-//     candidate before connecting (strengthening cascades — CaDiCaL
-//     re-tries the shrunken clause the same way).
-//
-// Instance space (plan §5.1 v1): payload = candidate arena Ref, like C1;
-// apply_instance subsumes-or-strengthens exactly that clause, discovering
-// partners through the WATCH lists of the candidate's free literals and
-// their negations. INSTANCE_CANONICAL = the full round.
-//
-// Guard: quiescent root (C1's argument verbatim: value semantics + no
-// in-flight reasons; reaching the root is the policy's job).
+// C2 Strengthen (plan §5.2, "SubsumeBackward + strengthening"): self-subsuming
+// resolution — when a smaller clause d matches a candidate c on every literal
+// except exactly one in opposite phase (f), resolving on f yields c ∖ {f},
+// which replaces c. Proof delta: add-RUP of the shortened clause, LRAT chain
+// [absorbed units..., d, c], plus delete of the original.
+// Precondition, effect, soundness: `docs/calculus.md` §C2. The fused
+// subsume-or-strengthen check is cadical `subsume.cpp subsume_check`
+// transliterated: candidate literals are marked phase-aware, a partner with
+// every literal marked subsumes and one with exactly one flipped strengthens.
 #pragma once
 
 #include "rules/registry.hpp"
@@ -81,14 +19,36 @@ namespace tactix {
 constexpr uint32_t STRENGTHEN_CLSLIM = 1000;
 constexpr uint32_t STRENGTHEN_OCCLIM = 1000;
 
+// Guard: quiescent root, C1's argument — value semantics plus no in-flight
+// reasons; reaching the root is the policy's job.
 bool strengthen_guard(const Kernel &);
-// canonical candidate order (irredundant first, then size ascending).
-// `complete` selects the instance surface's set — every clause `strengthen_try`
-// accepts, any redundancy; the default is the canonical round's scope.
+
+// Instance space (plan §5.1): payload = candidate arena Ref, as in C1, in
+// canonical order (irredundant first, then size ascending). `complete` selects
+// the instance surface's set — every clause `strengthen_try` accepts, any
+// redundancy; the default is the canonical round's scope.
 void strengthen_candidates(const Kernel &, std::vector<Ref> &out,
                            bool complete = false);
-// single-candidate instance surface: Ok = subsumed or strengthened
+
+// Single-candidate instance surface. Partners are discovered through the watch
+// lists of the candidate's free literals and their negations. A large partner
+// must be irredundant — the subsumed branch needs it, since the partner
+// justifies a deletion, and the check stays uniform because the branch is
+// decided after the partner is found. A binary partner carries no redundancy
+// check (subsume_forward.hpp; `docs/implementation-notes.md` §14). Victims are
+// wider, any redundancy, and redundant survivors are never indexed as partners,
+// so widening the victim set leaves the partner set alone.
 ApplyResult strengthen_try(Kernel &, Ref candidate);
-ApplyResult strengthen_apply(Kernel &); // canonical: the full round
+
+// Canonical: the full round, FUSED — it takes C1's inference whenever the check
+// finds one, so the default slot schedules this rule instead of SubsumeForward
+// while C1 stays registered and N1-exposed. Strengthened clauses are rebuilt
+// fresh from the candidate's free literals minus the resolved one, with
+// root-falsified literals stripped and their unit ids joining the chain, and a
+// result of size >= 3 is re-scanned since strengthening cascades. A unit result
+// is asserted at the root and ends the round; an empty result refutes, which is
+// reachable because an N1 history can leave a root engine-quiescent yet
+// semantically under-derived (corpus 002).
+ApplyResult strengthen_apply(Kernel &);
 
 } // namespace tactix

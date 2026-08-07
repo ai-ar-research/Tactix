@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Micro-formula proof tests (rule-dev skill, definition of done #2): tiny
-# UNSAT formulas through the real binary; DRAT accepted by drat-trim in
-# both binary and ascii encodings, native LRAT accepted by lrat-check.
-# Exit 77 (ctest SKIP) without a checker.
+# Micro-formula proof tests (N2): tiny UNSAT formulas through the real binary;
+# DRAT accepted by drat-trim in both binary and ascii encodings, native LRAT
+# accepted by lrat-check. Exit 77 (ctest SKIP) without a checker.
 set -euo pipefail
 TACTIX="$1"
 ROOT="$2"
@@ -35,11 +34,10 @@ with open(sys.argv[1], "w") as f:
 EOF
   # empty clause in input
   printf 'p cnf 2 2\n1 2 0\n0\n' > "$T/empty.cnf"
-  # --- input clause normalization (N2, corpus 013/014) --------------------
-  # A repeated literal makes the clause WE store differ from the clause the
-  # CHECKER reads at that file position, so every chain citing its id needs a
-  # restatement lemma first (frontend/parse.cpp finish_input). All three
-  # stored widths, since each has its own re-pointing target:
+  # Input normalization: a repeated literal makes the stored clause differ from
+  # the one the checker reads at that file position, so every chain citing its
+  # id needs a restatement lemma first (frontend/parse.cpp finish_input). One
+  # case per stored width; each has its own re-pointing target.
   printf 'p cnf 3 4\n-1 -1 0\n-1 2 3 0\n-2 0\n1 1 0\n' > "$T/dupunit.cnf"
   printf 'p cnf 5 6\n5 1 0\n-5 4 0\n5 -1 0\n-4 3 3 0\n-2 0\n-4 -3 0\n' \
     > "$T/dupbinary.cnf"
@@ -48,8 +46,7 @@ EOF
   # a refutation found DURING input, with input clauses still to come: the
   # derived empty clause must not take an id the checker gave to clause 3 or 4
   printf 'p cnf 2 4\n1 0\n-1 0\n2 0\n-2 0\n' > "$T/midrefute.cnf"
-  # cyclic xor chain, odd total parity (UNSAT):
-  # 1^2=1, 2^3=1, 1^3=1 sums to 0=1
+  # cyclic xor chain, odd total parity: 1^2=1, 2^3=1, 1^3=1 sums to 0=1
   printf 'p cnf 3 6\n1 2 0\n-1 -2 0\n2 3 0\n-2 -3 0\n1 3 0\n-1 -3 0\n' \
     > "$T/xor3.cnf"
 }
@@ -67,7 +64,7 @@ for cnf in "$T"/*.cnf; do
     grep -q '^s UNSATISFIABLE$' "$T/out" \
       || { echo "FAIL: $cnf missing s line"; exit 1; }
     # judge by output, not exit code: drat-trim exits nonzero on
-    # "trivial UNSAT" even when it prints s VERIFIED
+    # "trivial UNSAT" even when it verifies
     "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
     grep -q 's VERIFIED' "$T/check" \
       || { echo "FAIL: proof of $cnf ($mode) rejected"; cat "$T/check"; exit 1; }
@@ -84,11 +81,10 @@ for cnf in "$T"/*.cnf; do
   fi
 done
 
-# ---- E1d: the same tiny UNSAT formulas refuted with BVE in the proof ----
-# `--bve-stress-policy` maximizes BVE at the root, so these check that BVE's
-# resolvent/deletion deltas compose into a valid DRAT + native-LRAT proof:
-# enum2 is refuted by BVE alone (the equivalence-gate path derives {b},{¬b}→∅);
-# xor3/php3 mix BVE resolvents with a search-proof tail.
+# ---- the same formulas with BVE in the proof. `--bve-stress-policy` maximizes
+# BVE at the root, so BVE's resolvent/deletion deltas must compose into a valid
+# DRAT + native-LRAT proof: enum2 is refuted by BVE alone (the equivalence-gate
+# path derives {b},{¬b}→∅), xor3/php3 mix resolvents with a search-proof tail.
 for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
   for mode in binary ascii; do
     proof="$cnf.bve.$mode.drat"
@@ -116,14 +112,10 @@ for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
       || { echo "FAIL: lrat-check gave no verdict on BVE $cnf"; cat "$T/check"; exit 1; }
   fi
 done
-# ---- R10: BVE through a GENERAL DEFINITION (--bve-gates=def, everything
-# syntactic masked off, so any gate here came from the sub-solver). The pivot's
-# clauses (x∨a)(x∨b)(¬x∨¬a∨c)(¬x∨¬b∨¬c) match no syntactic shape but reduce to
-# an UNSAT set, so the sub-solver extracts x↔φ; the emitted resolvents include
-# gate×gate pairs that are NOT tautologies, which is the path `resolve_gate`
-# turns on and the one nothing else in this file reaches. The counter assertion
-# is the reachability half — without it this is a proof test of the ordinary
-# no-gate path ([[ab-arm-identical-artefacts]]).
+# ---- BVE through a general definition. `--bve-gates=def` masks off every
+# syntactic shape, so any gate here came from the sub-solver and the resolvents
+# include non-tautological gate×gate pairs -- the `resolve_gate` path nothing
+# else here reaches. The counter assertion below proves that reachability.
 printf 'p cnf 4 8\n1 2 0\n1 3 0\n-1 -2 4 0\n-1 -3 -4 0\n2 3 0\n-2 -3 0\n-2 -4 0\n-3 4 0\n' \
   > "$T/bvedef.cnf"
 cnf="$T/bvedef.cnf"
@@ -156,12 +148,12 @@ if [ -x "$LRAT_CHECK" ]; then
          exit 1; }
 fi
 
-# ---- E2: Factor (BVA) native-LRAT — dividers emit vacuous add-RAT (fresh pivot,
-# no ¬x clauses yet → empty hints) and quotients emit add-RAT with one resolution
-# group per divider (the resolvent (fᵢ∨rⱼ) discharged by the still-live original's
-# id). A 2×3 grid + a small UNSAT gadget; the second case duplicates a grid binary
-# to exercise delete-all-copies under LRAT. TACTIX_FACTOR_FORCE bypasses the
-# density gate; TACTIX_NO_BVE keeps BVE from eliminating the grid before Factor.
+# ---- Factor (BVA) native-LRAT: dividers emit vacuous add-RAT (fresh pivot, no
+# ¬x clauses yet → empty hints) and quotients emit add-RAT with one resolution
+# group per divider (the resolvent (fᵢ∨rⱼ) discharged by the still-live
+# original's id). The second case duplicates a grid binary, for delete-all-copies
+# under LRAT. TACTIX_FACTOR_FORCE bypasses the density gate; TACTIX_NO_BVE keeps
+# BVE off the grid until Factor has run.
 printf 'p cnf 7 13\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor.cnf"
 printf 'p cnf 7 14\n1 3 0\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor_dup.cnf"
 for cnf in "$T/factor.cnf" "$T/factor_dup.cnf"; do

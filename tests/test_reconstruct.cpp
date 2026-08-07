@@ -1,7 +1,6 @@
-// K1+K2: reconstruction stack (rho) + model extension — the generic
-// machinery. The substitution-specific witness semantics are exercised by
-// test_substitute (V3); here we pin only the primitive: replay in reverse,
-// force an unsatisfied segment's witness true, leave satisfied ones alone.
+// Reconstruction stack (rho) and model extension: replay in reverse, force an
+// unsatisfied segment's witness true, leave satisfied ones alone.
+// Substitution-specific witness semantics live in tests/test_substitute.cpp.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 
@@ -10,7 +9,7 @@
 
 using namespace tactix;
 
-// a witness whose clause is UNSATISFIED gets forced true at extend
+// a witness whose clause is unsatisfied gets forced true at extend
 static void test_unsatisfied_witness_forced() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -22,7 +21,7 @@ static void test_unsatisfied_witness_forced() {
   assert(k.values[negate(x1)] < 0);
 }
 
-// a witness whose clause is already SATISFIED is left untouched
+// a witness whose clause is already satisfied is left untouched
 static void test_satisfied_witness_untouched() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -33,10 +32,9 @@ static void test_satisfied_witness_untouched() {
   const Lit rest[1] = {x2};
   kernel_push_witness(k, x1, rest, 1); // witness x1, rest {x2}
   kernel_extend_model(k);
-  assert(k.values[x1] == 0); // witness NOT forced
+  assert(k.values[x1] == 0); // witness not forced
 }
 
-// reverse replay: a later-pushed segment can satisfy an earlier one's clause
 static void test_reverse_replay_order() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -46,13 +44,11 @@ static void test_reverse_replay_order() {
   kernel_push_witness(k, x1, rest, 1);    // seg1 {x1,x2} witness x1 (pushed 1st)
   kernel_push_witness(k, x2, nullptr, 0); // seg2 {x2}    witness x2 (pushed 2nd)
   kernel_extend_model(k);
-  // reverse order: seg2 first -> x2 true; then seg1's clause is satisfied,
-  // so x1 is NOT forced
+  // seg2 replays first, so seg1's clause is satisfied and x1 is not forced
   assert(k.values[x2] > 0);
   assert(k.values[x1] == 0);
 }
 
-// idempotency: extend runs at most once
 static void test_extend_idempotent() {
   Kernel k;
   kernel_reserve_vars(k, 2);

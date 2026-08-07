@@ -1,12 +1,8 @@
-// E1 BVE: bounded variable elimination by resolution — the occurrence index and
-// candidate schedule, the elimination round (resolution, the growth bound, RUP
-// resolvent emission, deletion, reconstruction witnesses), and the gate
-// reduction that shrinks the resolvent set the bound is applied to (five kinds;
-// see `bve_detect_gate` for the one soundness obligation they share).
-// Transliterated idioms from kissat/src/eliminate.c + resolve.c + definition.c;
-// the add-before-delete / root-false-strip / record_unit / witness mechanics
-// mirror our own V3 Substitute (do_substitution), the fuzzed template.
-// See docs/design/e1-bve-design.md.
+// BVE, rule E1: the occurrence index, the candidate schedule, the elimination
+// round and the gate reduction. Transliterated idioms from
+// kissat/src/eliminate.c + resolve.c + definition.c; the add-before-delete /
+// root-false-strip / record_unit / witness mechanics follow V3 Substitute.
+// See docs/design/e1-bve-design.md and bve.hpp.
 #include "rules/bve/bve.hpp"
 
 #include "engine/subsolver.hpp"
@@ -20,23 +16,16 @@
 
 namespace tactix {
 
-// occurrence limit (kissat eliminateocclim): skip a variable whose two
-// polarities together occur more than this — the O(occ⁺·occ⁻) resolution blows
-// up. Used both to filter the schedule and to guard the elimination.
+// occurrence limit (kissat eliminateocclim): skip a variable whose polarities
+// together occur more than this, where O(occ⁺·occ⁻) resolution blows up
 static constexpr uint32_t BVE_OCCLIM = 2000;
-// resolvent size limit (kissat eliminateclslim): a resolvent larger than this
-// aborts the variable.
+// resolvent size limit (kissat eliminateclslim): a larger resolvent aborts
 static constexpr uint32_t BVE_CLSLIM = 100;
-// Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ + bound.
-// The bound is POLICY-DRIVEN state (`k.bve_bound`, defaulting to BVE_MAX_BOUND);
-// DefaultPolicy ramps it cheap-first (0,1,2,4,8) so the eliminations that do not
-// grow the formula happen first — kissat eliminate.c set_next_elimination_bound.
-// When `k.bve_track_min_bound` is set the resolvent loop runs PAST this slack
-// (to the ramp ceiling) to learn the exact slack a rejected variable needs,
-// caching it in `k.bve_min_bound` so the policy can skip it at lower ramp levels
-// instead of re-resolving it at each. `Kernel::bve_bound` is the ONE channel:
-// no in-rule env pin may override a policy's write. TACTIX_BVE_RAMP_MAX sweeps
-// the ramp ceiling policy-side.
+// Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ +
+// bound. `Kernel::bve_bound` is the one channel for it — no in-rule env pin
+// may override a policy's write — and DefaultPolicy ramps it cheap-first, so
+// the eliminations that do not grow the formula happen first (kissat
+// eliminate.c set_next_elimination_bound).
 static uint32_t bve_bound(const Kernel &k) { return k.bve_bound; }
 
 bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
@@ -44,12 +33,10 @@ bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
   const uint32_t nlits = 2 * k.nvars;
   occ.counts.assign(nlits, 0);
-  // large IRREDUNDANT clauses. BVE eliminates over F (the irredundant core); the
-  // learned set R is redundant and not resolved.
+  // Large irredundant clauses only: BVE eliminates over F, not over R.
   if (k.dense) {
-    // dense fast-path (increment 2): the shared index already lists each active
-    // literal's irredundant large clauses — O(occ), no arena scan. Skip stale
-    // garbage entries (lazy-deleted, not yet compacted).
+    // dense fast-path: the shared index already lists each active literal's
+    // irredundant large clauses — O(occ), no arena scan
     for (Lit l = 0; l < nlits; l++) {
       if (k.values[l] != 0) // active-variable literals only
         continue;
@@ -67,9 +54,8 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
       ref += clause_words(c->size);
     }
   }
-  // binaries: one watch-list scan per active literal. A binary (l ∨ o) is one
-  // occurrence of l with partner o; binaries have an irredundant lifecycle in
-  // this kernel (never reduced), so all of them count.
+  // binaries: one watch-list scan per active literal. They have an
+  // irredundant lifecycle in this kernel, so all of them count.
   for (Lit l = 0; l < nlits; l++) {
     if (k.values[l] != 0)
       continue;
@@ -84,20 +70,14 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
   bve_build_occurrences(k, occ);
   std::vector<std::pair<uint64_t, Var>> ranked; // (score, var), ascending
   for (Var v = 0; v < k.nvars; v++) {
-    // Extension variables (E2 Factor / BVA) must never be eliminated: BVE on x
-    // resolves its dividers (x∨fᵢ) against its quotients (¬x∨rⱼ) back to the
-    // original m·n grid (fᵢ∨rⱼ) — exactly reversing Factor's compression, so
-    // BVE and Factor would thrash indefinitely. They exist to compress; skip.
+    // Extension variables (E2 Factor) must never be eliminated: resolving x's
+    // dividers against its quotients rebuilds the original m·n grid, exactly
+    // reversing Factor's compression, so the two rules would thrash.
     if (v >= kernel_num_output_vars(k))
       continue;
-    // NOTE: the retry bitmap (Kernel::bve_retry) is deliberately NOT consulted
-    // here. Whether re-attempting an unchanged variable is worth the work is a
-    // SCHEDULING decision, and scheduling belongs to the policy (plan §5 rev
-    // 17) — filtering here would also silently narrow the instance surface that
-    // RandomPolicy and any future learned policy enumerate as their action
-    // space. The rule MAINTAINS the advice (bve_eliminate clears the bit it
-    // attempts, the kernel sets it on every mutation that could change the
-    // answer) and the policy READS it; see DefaultPolicy's dosing loop.
+    // The retry bitmap (Kernel::bve_retry) is deliberately not consulted here:
+    // this rule maintains the advice, the policy reads it. See bve.hpp and
+    // docs/implementation-notes.md §6.
     const Lit pl = make_lit(v, false);
     if (k.values[pl] != 0) // assigned variable: not an elimination candidate
       continue;
@@ -117,9 +97,9 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
 
 namespace {
 
-// A materialized clause on the pivot: its ACTIVE literals (root-false dropped;
-// their unit ids in `absorbed` for LRAT), its proof id, and a delete-handle
-// (arena ref for large, or the binary pair). `active` includes the pivot.
+// A materialized clause on the pivot: its active literals (root-false dropped,
+// their unit ids kept in `absorbed` for LRAT), its proof id, and a delete
+// handle. `active` includes the pivot.
 struct MClause {
   std::vector<Lit> active;
   std::vector<uint64_t> absorbed;
@@ -128,13 +108,10 @@ struct MClause {
   Lit ba = INVALID_LIT, bb = INVALID_LIT;
 };
 
-// Reusable state for R10's definition extraction, owned by the CALLER of
-// `bve_eliminate` (a round creates one and every candidate in that round reuses
-// it). Not a per-call local: `SubSolver::reset` recycles its allocations, and
-// the pivot→sub-variable map is built by sort+unique over the pivot's own
-// literals rather than an O(nvars) scratch array — a per-attempt linear
-// fill-init in a per-variable loop is the profile hazard this project has hit
-// four times. A null pointer means "definition extraction unavailable here".
+// Reusable state for definition extraction, owned by `bve_eliminate`'s caller:
+// a round creates one and every candidate reuses it, so no per-attempt
+// O(nvars) fill-init happens inside a per-variable loop. A null pointer means
+// definition extraction is unavailable here.
 struct BveDefScratch {
   SubSolver solver;
   std::vector<Var> vars;    // sorted distinct non-pivot vars = the sub var space
@@ -145,48 +122,18 @@ struct BveDefScratch {
   bool exhausted = false; // ...and the tick ceiling cut it short
 };
 
-// ---- gate detection (E1c: equivalence + AND/OR; SP-BVE-GATE-1: ITE + XOR;
-// R10: general definitions) ----
-// Detect a functional gate defining x from its clauses; on success mark the gate
-// clauses in pos_gate/neg_gate (1 = gate, 0 = antecedent) and return true.
-//
-// THE ONE SOUNDNESS OBLIGATION, stated once for all five types. Write the pivot
-// clauses as (x∨Cᵢ) for i ∈ P and (¬x∨Dⱼ) for j ∈ N, and let G⁺ ⊆ P, G⁻ ⊆ N be
-// the marked gate clauses. Marking is legal exactly when
-//
-//     ⋀_{i∈G⁺} Cᵢ  ∧  ⋀_{j∈G⁻} Dⱼ   is UNSATISFIABLE,                    (★)
-//
-// and it then licenses dropping the antecedent×antecedent resolvents. Proof:
-// take M ⊨ F′ and suppose neither value of x satisfies every pivot clause, i.e.
-// M ⊭ C_{i₀} for some i₀ ∈ P and M ⊭ D_{j₀} for some j₀ ∈ N. By (★) M also
-// falsifies some gate clause remainder — say C_{i₁}, i₁ ∈ G⁺ (the G⁻ case is
-// symmetric). Then C_{i₁} ∨ D_{j₀} is a resolvent we DID generate, and M
-// falsifies both halves: contradiction. So some value of x satisfies all of
-// them — which is both the equisatisfiability of the Davis–Putnam step and the
-// reason the E1b witness push (all live clauses, pivot blocking) reconstructs.
-// A *false* gate would drop needed resolvents (unsound), so every detector here
-// establishes (★) exactly, and the whole surface is fuzz-gated.
-//
-// Note which resolvents that argument needs: every pair with AT LEAST ONE gate
-// clause, including gate×gate (i₁ ∈ G⁺ and j₀ ∈ G⁻ is a live case). That is
-// what `resolve_gate` selects.
-//   - the four SYNTACTIC types leave `resolve_gate` FALSE, and may: their gate
-//     clauses are exactly a CNF of x↔φ, so every gate×gate resolvent is a
-//     tautology — equivalence and AND/OR clash on the input literal; ITE on the
-//     condition or on a branch; two parity clauses with opposite pivot signs
-//     carry opposite input-sign parities and so disagree on some input. They
-//     are dropped as tautologies, not as an exception to the argument.
-//     ITE and XOR are matched EXACTLY — kissat's shortened-clause path
-//     (`ifthenelse.c match_ternary_ref`, which accepts a subsuming clause and
-//     then sets `resolve_gate`) is deliberately not ported.
-//   - the DEFINITION type SETS `resolve_gate`, because (★) is all its core
-//     gives: C_{i} ∨ D_{j} for two core clauses need not be tautological.
+// ---- gate detection (equivalence, AND/OR, ITE, XOR, general definition) ----
+// Mark the clauses of a functional gate defining x in pos_gate/neg_gate
+// (1 = gate, 0 = antecedent). Every detector must establish condition (★) of
+// docs/calculus.md §6b E1 exactly; a false gate drops needed resolvents. Only
+// the definition type sets `resolve_gate` (its gate×gate resolvents are real);
+// the four syntactic types are exact CNFs of x↔φ, so ITE and XOR are matched
+// exactly and kissat's shortened-clause `match_ternary_ref` path is not ported.
 
-// Sorted signature of a clause's NON-PIVOT active literals, for the exact
-// clause lookups ITE and XOR need. Only clauses with 2..BVE_XOR_ARITY_LIMIT
-// non-pivot literals and no repeated VARIABLE are indexed — a repeat means a
-// duplicated literal (the clause is shorter than it looks) or a tautology, and
-// neither shape may stand in for a gate clause.
+// Sorted signature of a clause's non-pivot active literals, for the exact
+// lookups ITE and XOR need. Only clauses with 2..BVE_XOR_ARITY_LIMIT non-pivot
+// literals and no repeated variable are indexed: a repeat means a duplicated
+// literal or a tautology, and neither may stand in for a gate clause.
 constexpr uint32_t BVE_SIG_MAX = BVE_XOR_ARITY_LIMIT;
 struct GateSig {
   uint32_t n = 0;
@@ -194,11 +141,10 @@ struct GateSig {
   bool operator<(const GateSig &o) const {
     if (n != o.n)
       return n < o.n;
-    // Fixed trip count over the WHOLE array, not over `n`: every GateSig is
-    // zero-initialized and only ever writes [0, n), so with n == o.n the tail
-    // [n, BVE_SIG_MAX) is 0 on both sides and cannot change the order. The
-    // fixed bound is what keeps std::sort's by-value pivot copy provably
-    // initialized to the optimizer (-Wmaybe-uninitialized at -O3 otherwise).
+    // Fixed trip count over the whole array, not over `n`: with n == o.n the
+    // tail is zero on both sides and cannot change the order, and the fixed
+    // bound keeps std::sort's by-value pivot copy provably initialized to the
+    // optimizer (-Wmaybe-uninitialized at -O3 otherwise).
     for (uint32_t i = 0; i < BVE_SIG_MAX; i++)
       if (l[i] != o.l[i])
         return l[i] < o.l[i];
@@ -242,8 +188,8 @@ void bve_build_sig_index(const std::vector<MClause> &side, Lit pivot,
 }
 
 // index of a clause whose non-pivot literals are exactly `s` (already sorted),
-// or -1. Duplicate signatures are two copies of one logical clause; either
-// serves as the gate clause.
+// or -1; duplicate signatures are copies of one logical clause, either of
+// which serves as the gate clause
 int bve_find_sig(const SigIndex &idx, const GateSig &s) {
   const auto it = std::lower_bound(
       idx.begin(), idx.end(), s,
@@ -263,37 +209,24 @@ inline GateSig bve_sig2(Lit a, Lit b) {
   return s;
 }
 
-// (5) GENERAL DEFINITION x ↔ φ — the one type that is not a shape match.
-// Hand the pivot's own occurrence lists, REDUCED (each clause minus the pivot
-// literal), to the sub-solver. A refutation of that clause set is precisely
-// condition (★) above for G⁺ = P, G⁻ = N; the sub-solver's CORE names the
-// sub-multiset of it that the refutation actually used, so (★) holds for the
-// core alone and the core is the gate. Transliterated from kissat
-// `definition.c` (`kissat_find_definition`), which asks kitten the same
-// question; the engine is ours (src/engine/subsolver.hpp).
-//
-// NOTHING FROM THE SUB-SOLVER ENTERS THE PROOF. The core only chooses which
-// resolvents to generate; every generated resolvent is still a resolution of
-// two clauses of F on the pivot, hence RUP from its two parents with the same
-// two-id chain E1b already emits. The delta stays RUP-only.
-//
-// Not ported from kissat: (a) `definitioncores` > 1, which re-solves a
-// shrunken-and-SHUFFLED formula to find a smaller core — our sub-solver has a
-// fixed decision order and no shuffle, so a second solve would reproduce the
-// first core exactly; (b) the one-sided-core FAILED LITERAL (an empty G⁺ or G⁻
-// means the other side alone is refuted, so the pivot is forced). That unit is
-// entailed but not RUP, so it needs the sub-solver's derivation mapped to
-// main-formula ids — V2 Backbone's proof delta, arrived at from another rule's
-// round. The gate itself is still extracted and used in both cases; only the
-// free unit is left on the table.
+// General definition x ↔ φ, the one type that is not a shape match. Hand the
+// pivot's occurrence lists, each clause minus the pivot literal, to the
+// sub-solver: refuting that set is exactly (★) for G⁺ = P, G⁻ = N, and the
+// core names the sub-multiset the refutation used, so (★) holds for the core
+// alone and the core is the gate (kissat `definition.c`). Nothing from the
+// sub-solver enters the proof: the core only picks which resolvents are
+// generated, each still a resolution of two clauses of F. Not ported:
+// `definitioncores` > 1 (a fixed decision order and no shuffle make a second
+// solve reproduce the first core), and the one-sided-core failed literal,
+// whose forced unit is entailed but not RUP.
 uint32_t bve_find_definition(const Kernel &k, Lit px,
                              const std::vector<MClause> &pos,
                              const std::vector<MClause> &neg,
                              std::vector<uint8_t> &pos_gate,
                              std::vector<uint8_t> &neg_gate,
                              BveDefScratch &s) {
-  // One-sided pivots have an empty cross product already; there is nothing for
-  // a gate to reduce, and (★) would be asking to refute one side alone.
+  // One-sided pivots already have an empty cross product: nothing for a gate
+  // to reduce, and (★) would be asking to refute one side alone.
   if (pos.empty() || neg.empty())
     return 0;
   const Var pv = var_of(px);
@@ -314,9 +247,9 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
 
   s.checked = true;
   s.solver.reset(static_cast<uint32_t>(s.vars.size()));
-  // ids are handed out from 1 in add order, so id ∈ [1, |pos|] names pos[id-1]
-  // and the rest name neg[id-|pos|-1]. `add_clause` consumes an id even for a
-  // clause it drops (a tautology), which is exactly why that mapping holds.
+  // Ids are handed out from 1 in add order, so id ∈ [1, |pos|] names
+  // pos[id-1] and the rest neg[id-|pos|-1]. That mapping holds because
+  // `add_clause` consumes an id even for a clause it drops as a tautology.
   for (const std::vector<MClause> *side : {&pos, &neg}) {
     for (const MClause &m : *side) {
       s.lits.clear();
@@ -342,9 +275,9 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
   return BVE_GATE_DEFINITION;
 }
 
-// Returns the BVE_GATE_* bit of the type found, or 0 for "no gate" (the caller
-// owns the counters — `k` is const here by design: detection is READ-ONLY, and
-// the definition attempt reports its cost back through `def` instead).
+// Returns the BVE_GATE_* bit of the type found, or 0 for "no gate". `k` is
+// const by design: detection is read-only and the caller owns the counters,
+// with the definition attempt reporting its cost back through `def`.
 uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
                          const std::vector<MClause> &pos,
                          const std::vector<MClause> &neg,
@@ -378,9 +311,8 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
       }
     }
 
-  // (2) AND/OR: a base clause (¬x∨a₁∨…∨aₖ) on one side (k≥2) whose every input aᵢ
-  // has the matching binary (x∨¬aᵢ) on the other side ⟹ x↔OR(a) (and the dual
-  // with pivots swapped ⟹ x↔AND). The base + those k binaries fully define x.
+  // (2) AND/OR: a base clause on one side whose every input has the matching
+  // binary on the other; the base plus those binaries fully define x.
   auto try_and_or = [&](const std::vector<MClause> &base_side, Lit base_pivot,
                         const std::vector<int> &opp_bin,
                         std::vector<uint8_t> &base_gate,
@@ -426,26 +358,18 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
 
   if (!(k.bve_gate_mask & (BVE_GATE_ITE | BVE_GATE_XOR)))
     return definition();
-  // exact-match index over both sides, built once and shared by ITE and XOR
-  // (kissat/cadical reach the same clauses through the shared occurrence
-  // lists; ours are the already-materialized pos/neg MClause vectors, so the
-  // index is O(P+N) and costs no O(nvars) scratch).
+  // exact-match index over both sides, built once and shared by ITE and XOR;
+  // the pos/neg MClause vectors are already materialized, so it is O(P+N) and
+  // needs no O(nvars) scratch
   SigIndex psig, nsig;
   bve_build_sig_index(pos, px, psig);
   bve_build_sig_index(neg, nx, nsig);
 
-  // (3) ITE x ↔ (c ? ¬e : ¬t): the four ternaries
-  //       (x ∨ c ∨ t) (x ∨ ¬c ∨ e) (¬x ∨ c ∨ ¬t) (¬x ∨ ¬c ∨ ¬e),
-  // i.e. two pivot-side ternaries whose non-pivot pairs clash on exactly the
-  // CONDITION literal, plus the matching pair on the other side (kissat
-  // ifthenelse.c kissat_find_if_then_else_gate; cadical gates.cpp
-  // find_if_then_else). Both references also try the dual polarity; here the
-  // shape is symmetric in the pivot sign — swapping (px,nx) maps the quadruple
-  // onto itself with c negated — so one pass over the pos side finds it.
-  // WORK BOUND (kissat's own, ifthenelse.c:105-113): skip when the ternary
-  // count squared exceeds the occurrence limit, and cap the pair scan at the
-  // same limit. Sound at any value: an undetected gate is the full cross
-  // product.
+  // (3) ITE: two pivot-side ternaries whose non-pivot pairs clash on exactly
+  // the condition literal, plus the matching pair on the other side (kissat
+  // ifthenelse.c kissat_find_if_then_else_gate). One pass over the pos side
+  // suffices, the shape being symmetric in the pivot sign. Work bound (kissat
+  // ifthenelse.c:105-113), sound at any value.
   auto try_ite = [&]() -> bool {
     // the index sorts on `n` first, so the ternaries are a prefix of psig
     size_t nter = 0;
@@ -459,10 +383,9 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
       for (size_t j = i + 1; j < nter && steps < BVE_OCCLIM; ++j) {
         steps++;
         const Lit w0 = psig[j].first.l[0], w1 = psig[j].first.l[1];
-        // the two pairs must clash on exactly one literal (the condition) and
-        // the two branch literals must be on DIFFERENT variables (equal ones
-        // make this an XOR/equivalence, not an ITE — cadical's `abs(ci) ==
-        // abs(cj)` reject).
+        // the pairs must clash on exactly one literal (the condition) and the
+        // branch literals must be on different variables — equal ones make
+        // this an XOR/equivalence, not an ITE (cadical's `abs` reject)
         Lit c = INVALID_LIT, t = INVALID_LIT, e = INVALID_LIT;
         if (u0 == negate(w0)) {
           c = u0, t = u1, e = w1;
@@ -496,12 +419,10 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   if ((k.bve_gate_mask & BVE_GATE_ITE) && try_ite())
     return BVE_GATE_ITE;
 
-  // (4) XOR x ↔ a₁⊕…⊕aₘ: ALL 2^m clauses of the parity relation over the pivot
-  //     and m ≤ BVE_XOR_ARITY_LIMIT other variables must be present, 2^(m−1) on
-  //     each side (cadical gates.cpp find_xor_gate, option elimxorlim). A base
-  //     clause fixes the variable set and the relation's parity R; the 2^m
-  //     falsified assignments then name the 2^m clauses exactly, so the search
-  //     is a fixed enumeration with an early exit on the first miss.
+  // (4) XOR: all 2^m parity clauses over the pivot and m other variables must
+  //     be present (cadical gates.cpp find_xor_gate). A base clause fixes the
+  //     variable set and the parity R, and the 2^m falsified assignments then
+  //     name the 2^m clauses exactly, so this is a fixed enumeration.
   auto try_xor = [&]() -> bool {
     uint32_t gate_pos[1u << BVE_XOR_ARITY_LIMIT];
     uint32_t gate_neg[1u << BVE_XOR_ARITY_LIMIT];
@@ -509,10 +430,10 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
       const uint32_t m = base.first.n; // arity
       if (m < 2)                       // m == 1 is an equivalence (case 1)
         continue;
-      // R: the relation is x ⊕ a₁ ⊕ … ⊕ aₘ = R. `base` (a pos-side clause, so
-      // x = 0 in its falsifying assignment) is falsified by the assignment
-      // "aⱼ true iff base.l[j] is negative", whose parity is p₀; a clause of
-      // the relation forbids exactly the parity-(1⊕R) assignments, so R = 1⊕p₀.
+      // The relation is x ⊕ a₁ ⊕ … ⊕ aₘ = R. `base` is a pos-side clause, so
+      // x = 0 in its falsifying assignment "aⱼ true iff base.l[j] is
+      // negative", of parity p₀; a relation clause forbids exactly the
+      // parity-(1⊕R) assignments, hence R = 1⊕p₀.
       uint32_t p0 = 0;
       for (uint32_t j = 0; j < m; j++)
         p0 ^= static_cast<uint32_t>(negated(base.first.l[j]));
@@ -555,31 +476,25 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   return definition();
 }
 
-// Eliminate variable x by resolution. When a syntactic gate defines x, only
-// gate×antecedent resolvents are generated (bve_detect_gate); otherwise the full
-// cross product. At
-// a drained root. State is not mutated until the bound is passed, so a NoOp
-// return (bound exceeded / duplicate-binary hazard) leaves the kernel untouched
-// and the caller may try another candidate. Returns Unsat on an empty resolvent
-// or contradictory collapsed units.
+// Eliminate variable x by resolution at a drained root. No state is mutated
+// until the bound is passed, so a NoOp return leaves the kernel untouched and
+// the caller may try another candidate. Unsat on an empty resolvent or
+// contradictory collapsed units.
 ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit px = make_lit(x, false), nx = make_lit(x, true);
-  // ATTEMPTED: retire the retry bit before doing the work, so a variable whose
-  // resolvents blow the bound is not re-tried until something about its clauses
-  // changes (kissat eliminate.c eliminate_variable, same position). A SUCCESSFUL
-  // elimination re-sets it via its own clause deletions, which is harmless — the
-  // variable then occurs nowhere and the schedule drops it anyway.
+  // Retire the retry bit before doing the work, so a variable whose resolvents
+  // blow the bound is not re-tried until its clauses change (kissat
+  // eliminate.c eliminate_variable, same position).
   k.bve_retry[x] = 0;
 
   std::vector<MClause> pos, neg;            // live irredundant: resolved + witnessed
   std::vector<Ref> del_large;               // redundant/satisfied/taut → delete-only
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
 
-  // ---- gather x's LARGE clauses ----
-  // per-clause classification: tautology/redundant → delete-only; root-satisfied
-  // → delete-only; else materialize active literals (root-false stripped, cited)
-  // into pos (has px) or neg (has nx).
+  // ---- gather x's large clauses ----
+  // tautology / redundant / root-satisfied → delete-only; otherwise
+  // materialize the active literals into pos (has px) or neg (has nx)
   auto classify = [&](Ref ref, const Clause *c, bool has_px, bool has_nx) {
     if ((has_px && has_nx) || c->redundant()) {
       del_large.push_back(ref);
@@ -608,12 +523,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       (has_px ? pos : neg).push_back(std::move(m));
   };
   if (k.dense) {
-    // dense fast-path (increment 2): x's large clauses are exactly the entries
-    // of dense->large[px] ∪ [nx] (irredundant only — sound because a dense
-    // phase runs at a quiescent root where every large clause is irredundant;
-    // learned clauses do not exist yet). O(occ(x)), not O(arena). A clause with
-    // both px and nx is in both lists — process it once via the px pass and
-    // skip it in the nx pass.
+    // dense fast-path: x's large clauses are exactly dense->large[px] ∪ [nx],
+    // irredundant only, sound because a dense phase runs at a quiescent root
+    // with no learned clauses yet. A clause holding both px and nx is in both
+    // lists and is handled in the px pass.
     auto has_lit = [](const Clause *c, Lit t) {
       for (const Lit l : *c)
         if (l == t)
@@ -648,17 +561,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     }
   }
 
-  // ---- gather x's BINARIES (watch scan, DEDUPLICATED) ----
-  // Duplicate copies of a pair collapse to ONE logical clause: both copies
-  // share one binary_ids id (kernel.hpp invariant), the reconstruction
-  // witness wants one entry, and deletion goes through
-  // kernel_delete_binary_all_copies (the Factor precedent — one proof `del`
-  // per copy, LRAT-fuzz-proven). Do NOT abort the whole candidate on the
-  // per-copy hazard ("the singular kernel_delete_binary cannot name a
-  // duplicated pair"): a formula whose input already contains many duplicated
-  // binary pairs then silently gets NO eliminations at all. Dedup also makes
-  // `base` count DISTINCT clauses, matching kissat's DENSE deduped
-  // occurrences.
+  // ---- gather x's binaries (watch scan, deduplicated) ----
+  // Duplicate copies of a pair are one logical clause: they share a single
+  // binary_ids id (kernel.hpp invariant), the witness wants one entry, and
+  // kernel_delete_binary_all_copies removes them all. Dedup also makes `base`
+  // count distinct clauses, matching kissat's deduped dense occurrences.
   std::vector<uint8_t> seen_bin(2 * k.nvars, 0);
   std::vector<Lit> touched_bin;
   auto gather_bin = [&](Lit lit, std::vector<MClause> &live) {
@@ -710,20 +617,16 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     k.stats.bve_definition_ticks += def->ticks;
     k.stats.bve_definition_budget += def->exhausted ? 1 : 0;
   }
-  // The (★) argument above is load-bearing, not descriptive, and it needs EVERY
-  // pair with a gate clause in it. The four syntactic shapes are allowed to drop
-  // the gate x gate pairs only because those are tautologies; a type that
-  // cannot say that must ask for them back through `resolve_gate`. Pin which
-  // types may, so an inexact matcher (kissat's shortened-clause ITE path) has
-  // to be a deliberate edit rather than a silent one.
+  // (★) needs every pair holding a gate clause. A syntactic shape may drop the
+  // gate×gate pairs only because they are tautologies; pinning which types may
+  // makes an inexact matcher a deliberate edit rather than a silent one.
   assert((!resolve_gate || gate_kind == BVE_GATE_DEFINITION) &&
          "a syntactic gate asked for its gate x gate resolvents back: its "
          "detection is no longer exact, so (star) must be re-argued");
   if (gate) {
-    // Reachability + acceptance-lever readout (ledger SP-BVE-GATE-1): the gate
-    // is what shrinks the resolvent set the growth bound is applied to, so the
-    // pairs it removes are the quantity the bound's MEANING changes by. Counted
-    // per ATTEMPT — an over-budget attempt is exactly where the lever matters.
+    // The gate shrinks the resolvent set the growth bound is applied to, so
+    // the pairs it removes are what the bound's meaning changes by. Counted
+    // per attempt: an over-budget attempt is where the lever matters.
     const size_t gp = size_t(std::count(pos_gate.begin(), pos_gate.end(), 1));
     const size_t gn = size_t(std::count(neg_gate.begin(), neg_gate.end(), 1));
     const size_t charged =
@@ -747,11 +650,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<Resolvent> resolvents;
   const size_t base = pos.size() + neg.size();
   const size_t commit_limit = base + bve_bound(k); // eliminate iff ≤ this
-  // Needed-bound tracking (DefaultPolicy ramp): keep resolving PAST the commit
-  // slack, up to the ramp ceiling, so a rejected variable's EXACT needed slack
-  // is learned and cached (Kernel::bve_min_bound) — the policy then skips it at
-  // every slack below what it needs instead of re-resolving it at each ramp
-  // level. Off (byte-identical to the pre-cache abort) unless the policy asked.
+  // Needed-bound tracking: resolve past the commit slack to the ramp ceiling,
+  // caching a rejected variable's exact needed slack in Kernel::bve_min_bound
+  // so the policy can skip it at every lower slack instead of re-resolving.
+  // Off unless the policy asked, and then identical to the plain abort.
   const size_t gen_limit =
       k.bve_track_min_bound
           ? base + std::max<uint32_t>(bve_bound(k), BVE_MAX_BOUND)
@@ -812,10 +714,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       if (l != px)
         seen[l] = 0;
   }
-  // Growth decision. Eliminate iff not oversized and within the COMMIT slack;
-  // otherwise keep x, and (when tracking) cache the exact slack it needs so the
-  // ramp can skip it precisely. An oversized resolvent or growth past the
-  // ceiling caps at UINT16_MAX = "never within any ramp level".
+  // Growth decision: eliminate iff not oversized and within the commit slack.
+  // An oversized resolvent or growth past the ceiling caches UINT16_MAX,
+  // meaning "never within any ramp level".
   if (oversized || resolvents.size() > commit_limit) {
     if (k.bve_track_min_bound)
       k.bve_min_bound[x] =
@@ -826,9 +727,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     return ApplyResult::NoOp; // no state mutated yet
   }
 
-  // ---- COMMIT: add resolvents (RUP, add-before-delete), witnesses, delete ----
-  // Batched root units + opposite-sign refutation: the shared kernel idiom
-  // (PendingUnits, kernel.hpp — corpus 007 is the mandating regression).
+  // ---- commit: add resolvents (RUP, add-before-delete), witnesses, delete ---
+  // Batched root units + opposite-sign refutation, the shared kernel idiom
+  // (PendingUnits, kernel.hpp).
   PendingUnits pending;
   pending.init(k.nvars);
   auto record_unit = [&](Lit u, uint64_t id) -> bool {
@@ -870,15 +771,15 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
                               static_cast<uint32_t>(r.lits.size()),
                               /*redundant=*/false,
                               static_cast<uint32_t>(r.lits.size()), id);
-      // NB: adding a large clause may reallocate the arena, but the Refs held in
-      // pos/neg/del_large are OFFSETS (valid across a resize) — only Clause*
-      // would dangle, and we re-fetch via clause_at below.
+      // Adding a large clause may reallocate the arena, but the Refs held in
+      // pos/neg/del_large are offsets and survive a resize; only a Clause*
+      // would dangle, and every use below re-fetches through clause_at.
     }
   }
 
-  // reconstruction witnesses: push each removed live clause with the pivot as
-  // its blocking literal (both sides; CaDiCaL-style, design §3.4). Satisfied /
-  // redundant / tautology clauses need no witness (entailed / already true).
+  // reconstruction witnesses: each removed live clause, pivot as its blocking
+  // literal, both sides (design §3.4). Satisfied, redundant and tautological
+  // clauses need none — they are entailed or already true.
   for (const std::vector<MClause> *side : {&pos, &neg}) {
     const Lit pivot = (side == &pos) ? px : nx;
     for (const MClause &m : *side) {
@@ -892,11 +793,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     }
   }
 
-  // delete every clause on x: live (pos/neg) + delete-only (redundant/satisfied/
-  // tautology). Large → proof del + GARBAGE; binary →
-  // kernel_delete_binary_all_copies (gathers are deduplicated, so each pair is
-  // deleted once — the primitive removes every copy and emits one proof `del`
-  // per copy; identical to the singular delete when copies == 1).
+  // delete every clause on x: live (pos/neg) plus delete-only (redundant,
+  // satisfied, tautology). Large → proof del + garbage; binary →
+  // kernel_delete_binary_all_copies, called once per pair since the gathers
+  // are deduplicated.
   auto del_large_ref = [&](Ref ref) {
     Clause *c = clause_at(k.arena, ref);
     if (c->garbage())
@@ -935,8 +835,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
 
 } // namespace
 
-// canonical instance = a round: eliminate the best schedulable candidate that is
-// within the bound (fewest-resolutions-first). Drains the root closure at entry.
+// canonical instance = a round: eliminate the best schedulable candidate
+// within the bound, draining the root closure at entry
 ApplyResult bve_apply(Kernel &k) {
   assert(bve_guard(k));
   k.stats.bve_rounds++;
@@ -950,12 +850,10 @@ ApplyResult bve_apply(Kernel &k) {
     if (r == ApplyResult::Unsat)
       return ApplyResult::Unsat;
     if (r == ApplyResult::Ok) {
-      // reclaim the clauses this elimination garbaged. Reclamation is NOT part
-      // of the rule's effect (deletes are lazy and every reader skips garbage,
-      // so never collecting is sound) — it is the caller's cost/memory choice.
-      // The canonical round stays self-contained; the apply_instance dosing
-      // path leaves it to the scheduler, which reclaims once per phase instead
-      // of once per eliminated variable (O(arena) each —).
+      // Reclamation is the caller's cost choice, not part of the rule's
+      // effect: deletes are lazy and every reader skips garbage. The canonical
+      // round stays self-contained; the dosing path leaves it to the
+      // scheduler, which reclaims once per phase.
       kernel_collect_garbage(k);
       return ApplyResult::Ok; // eliminated one variable
     }

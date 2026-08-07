@@ -1,11 +1,7 @@
-/* Modularity stress test (plan §8.2 rule-order fuzzing, C API level):
- * random legal rule schedules — "legal" = the rule's SOUNDNESS guard holds,
- * scheduling advice deliberately ignored — must never crash, never wedge,
- * and must reach the same verdict as the default policy. Branching picks
- * uniformly random unassigned literals (the theoretical instance space).
- *
- * The debug build runs this under ASan/UBSan, so any stale ref, dangling
- * watch, or state-machine hole under weird-but-legal orders aborts here. */
+/* Modularity stress test (plan §8.2 rule-order fuzzing, C API level). A
+ * schedule is legal whenever the rule's soundness guard holds, scheduling
+ * advice ignored; any such schedule must reach the same verdict as the
+ * default policy without crashing or wedging. */
 #undef NDEBUG
 #include "tactix.h"
 
@@ -49,8 +45,8 @@ static const struct formula battery[] = {
 static tactix *load(const struct formula *f) {
   tactix *s = tactix_init();
   const int *p = f->clauses;
-  /* every clause carries its own 0 in the array; the extra trailing 0 is
-   * only the list sentinel — adding it would add an EMPTY clause */
+  /* every clause carries its own 0; the extra trailing 0 is the list
+   * sentinel, and adding it would add an empty clause */
   while (!(p[0] == 0 && (p == f->clauses || p[-1] == 0))) {
     tactix_add(s, *p);
     p++;
@@ -76,8 +72,7 @@ static int rule_by_name(const char *name) {
   return -1;
 }
 
-/* uniformly random unassigned literal, probing through tactix_decide's own
- * validation (a rejected pick returns nonzero and costs nothing) */
+/* a uniformly random unassigned literal, validated by tactix_decide itself */
 static int random_branch(tactix *s, int maxvar) {
   for (int tries = 0; tries < 64 * maxvar; tries++) {
     const int v = (int)(rnd() % maxvar) + 1;
@@ -120,7 +115,7 @@ static void run_random(const struct formula *f, unsigned long long seed) {
 }
 
 int main(void) {
-  assert(tactix_rule_count() >= 6); /* M1-M4 + S1-S2 registered */
+  assert(tactix_rule_count() >= 6); /* the core rules are registered */
   for (size_t i = 0; i < sizeof(battery) / sizeof(battery[0]); i++) {
     tactix *s = load(&battery[i]);
     assert(tactix_solve(s) == battery[i].expected);

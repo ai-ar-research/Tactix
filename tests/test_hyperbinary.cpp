@@ -1,8 +1,6 @@
-// X6 HyperBinaryRes unit tests: the resolvent itself, the dominator that makes
-// it tighter than the trivial (¬root ∨ l), the two cases cadical declines
-// (root-fixed rest = its case (A); a dominator equal to the root), the
-// subsumption deletion, the instance surface, and that the emitted binary is
-// genuinely implied rather than merely plausible.
+// HyperBinaryRes unit tests: the resolvent and its dominator, the two cases
+// cadical declines, the subsumption deletion, the instance surface, and
+// entailment of the emitted binary.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -28,10 +26,7 @@ static bool has_bin(const Kernel &k, int a, int b) {
   return kernel_binary_live(k, internalize(a), internalize(b));
 }
 
-// The shape the rule exists for. 1→2, 2→3, 2→4 is a binary tree; the long
-// clause (¬3 ∨ ¬4 ∨ 5) becomes unit on 5 once 3 and 4 are true. The trivial
-// resolvent would be (¬1 ∨ 5), but 3 and 4 are both dominated by 2, so the
-// TIGHT resolvent (¬2 ∨ 5) is what we must emit.
+// 3 and 4 are dominated by 2, so the resolvent must be the tight (¬2 ∨ 5).
 static void test_dominator_resolvent() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -42,14 +37,12 @@ static void test_dominator_resolvent() {
   assert(hyperbinary_guard(k));
   assert(hyperbinary_apply(k) == ApplyResult::Ok);
   assert(k.stats.hbr_binaries == 1);
-  // the tight one, not the trivial one
-  assert(has_bin(k, -2, 5));
+  assert(has_bin(k, -2, 5)); // the tight one, not the trivial one
   assert(!has_bin(k, -1, 5));
   assert(default_solve(k) == 10);
 }
 
-// A dominator equal to the probe root gains nothing over the assumption
-// itself, so it is declined: 1→2, 1→3, (¬2 ∨ ¬3 ∨ 4) dominates only at 1.
+// A dominator equal to the probe root gains nothing, so it is declined.
 static void test_root_dominator_declined() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -58,11 +51,10 @@ static void test_root_dominator_declined() {
   add3(k, -2, -3, 4);
   assert(hyperbinary_apply(k) == ApplyResult::NoOp);
   assert(k.stats.hbr_binaries == 0);
-  assert(k.stats.hbr_probes > 0); // it RAN and declined; it did not skip
+  assert(k.stats.hbr_probes > 0); // it ran and declined; it did not skip
 }
 
-// cadical's case (A): every other literal of the long clause is root-FALSE, so
-// the clause is already binary in effect and no resolvent is worth adding.
+// cadical's case (A): a clause already binary in effect gains no resolvent.
 static void test_root_fixed_rest_declined() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -72,11 +64,8 @@ static void test_root_fixed_rest_declined() {
   add3(k, -3, 4, 5);
   assert(propagate_apply(k) != ApplyResult::Unsat);
   hyperbinary_apply(k);
-  // ¬3's dominator would be 2, but 4 is root-fixed and contributes none, so
-  // only ONE non-root literal remains and the resolvent is (¬2 ∨ 5): that is a
-  // real dominance gain, so it IS emitted. The case-(A) decline is when NO
-  // non-root literal remains at all — covered by the assert below on a clause
-  // whose whole tail is root-fixed.
+  // a non-root literal still remains here, so the resolvent is emitted; the
+  // decline applies only when none remains, as in k2 below
   Kernel k2;
   kernel_reserve_vars(k2, 4);
   bin(k2, -1, 2);
@@ -87,8 +76,8 @@ static void test_root_fixed_rest_declined() {
   assert(k2.stats.hbr_binaries == 0);
 }
 
-// The resolvent subsumes its own reason when ¬dom is IN the clause, and then
-// the reason is deleted (cadical `stats.hbrsubs`).
+// With ¬dom in the clause the resolvent subsumes its reason, which is then
+// deleted (cadical `stats.hbrsubs`).
 static void test_subsumption_deletes_reason() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -112,9 +101,8 @@ static void test_no_opportunity() {
   assert(k.stats.hbr_binaries == 0);
 }
 
-// The emitted binary must be IMPLIED, not merely plausible. Adding ¬(¬2 ∨ 5),
-// i.e. the units 2 and ¬5, to the original formula must be UNSAT — that is the
-// same statement the RUP replay makes, checked here independently of it.
+// The emitted binary must be entailed: adding its negation is UNSAT. Same
+// statement as the RUP replay, checked independently of it.
 static void test_resolvent_is_implied() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -127,9 +115,8 @@ static void test_resolvent_is_implied() {
   assert(default_solve(k) == 20); // UNSAT ⇒ (¬2 ∨ 5) is entailed
 }
 
-// N1: the rule is reachable through the REGISTRY with a per-instance payload,
-// and the canonical payload runs the round. An instance surface that only the
-// rule's own round can drive is not an instance surface.
+// N1: a per-instance payload from the registry must really do the work — a
+// surface only the rule's own round can drive is not an instance surface.
 static void test_instance_surface() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -153,9 +140,7 @@ static void test_instance_surface() {
   assert(default_solve(k) == 10);
 }
 
-// Applying to an arbitrary unfixed literal that is NOT on the schedule must be
-// total (NoOp, never a crash or an assert) — `apply_instance` stays total even
-// where `instances()` declines to advertise.
+// `apply_instance` is total: an off-schedule literal is a NoOp, not a trap.
 static void test_apply_off_schedule_is_total() {
   Kernel k;
   kernel_reserve_vars(k, 5);

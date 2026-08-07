@@ -1,13 +1,10 @@
-// Transliterated from kissat/src/rephase.c (MIT): each type rewrites the
-// saved phases, then the target phases restart from the fresh saved ones
-// (target = saved, watermark reset); consuming best resets its watermark
-// too. Deviations (recorded): (1) kissat couples a backtrack-to-root +
-// trail flush into kissat_rephase — under our contract that composition
-// belongs to the policy (Restart keep-level 0 + Propagate), keeping this
-// rule pure H so any legal schedule may apply it mid-trail; (2) kissat's W
-// slots REPLACE Best with a walk, while DefaultPolicy's rotation runs
-// B, B+W, I, B, B+W, O — the walk AUGMENTS Best rather than replacing it.
-// See the rotation comment in default_policy.cpp for why.
+// Transliterated from kissat/src/rephase.c (MIT): each type rewrites the saved
+// phases, the target phases then restart from them, and consuming best resets
+// its watermark. Deviations, ledgered in docs/implementation-notes.md: (1)
+// kissat couples a backtrack-to-root plus trail flush into kissat_rephase, but
+// that composition belongs to the policy, keeping this rule pure `H` so any
+// legal schedule may apply it mid-trail; (2) kissat's W slots replace Best with
+// a walk, while DefaultPolicy's rotation augments Best with one.
 #include "policies/ops/rephase/rephase.hpp"
 #include "policies/heuristics.hpp"
 
@@ -15,8 +12,8 @@
 
 namespace tactix {
 
-// requires `H`: Rephase rewrites the saved/target/best phase arrays, which are
-// `H` state — a pure precondition of a policy operation that needs `H` (§5, H5).
+// Requires `H`: Rephase rewrites the saved/target/best phase arrays, which are
+// `H` state — a pure precondition of a policy operation that needs `H` (§5).
 bool rephase_guard(const Kernel &k) {
   return !k.inconsistent && k.h != nullptr;
 }
@@ -65,9 +62,7 @@ static ApplyResult rephase_apply_instance(Kernel &k, uint64_t inst) {
   return rephase_apply_type(k, inst);
 }
 
-// Policy operation (plan §4): H-only (rewrites the saved/target/best
-// phase arrays), no proof delta. Registered in-place with the same name/tier/
-// fns as before, so its id is unchanged.
+// Policy operation (plan §4): H-only, no proof delta.
 TACTIX_REGISTER_POLICY_OP(Rephase, RuleTier::Macro, rephase_guard, rephase_apply,
                           rephase_instances, rephase_apply_instance);
 
