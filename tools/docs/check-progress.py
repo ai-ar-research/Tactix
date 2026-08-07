@@ -143,9 +143,21 @@ def check_tier_window(warns, notes):
         return
     stamp = newest[:15]
     notes.append(f"newest completed tier run: {newest}")
+    # Keyed on the BANKED row, not on "appears anywhere". Since plan rev 84
+    # PROGRESS carries a headline rather than tables, and it names the newest
+    # windows precisely to say they are UNREAD — so an anywhere-in-file match
+    # goes green in exactly the state that needs nagging. The banked row is the
+    # `| C (30) | <window> |` line of the measurement table.
+    banked = re.findall(r"^\|\s*[BC][^|]*\|\s*`?(\d{8}-\d{6}-[BC]-[\w-]+)`?\s*\|",
+                        txt, re.M)
     if stamp not in txt:
         warns.append(f"newest tier run {newest} is not cited anywhere in "
-                     f"PROGRESS — the tier tables may be a window behind")
+                     f"PROGRESS — a completed window nobody recorded")
+    elif banked and not any(b.startswith(stamp) for b in banked):
+        warns.append(
+            f"newest tier run {newest} is cited but NOT BANKED — the headline "
+            f"still reads {sorted(banked)[-1]}. Read it (SHA from the run's own "
+            f"manifest.json, #solved before the aggregate) or say why it is void.")
 
 
 def main():
