@@ -186,8 +186,8 @@ beyond §4.1's citation.
 
 ### 4.1 Root-false literals are stripped, and the strip is CITED (`SP-SWEEP-8`)
 
-Kept for correctness parity with the references even though §1 measures it inert, because it
-also frees environment-variable slots. `C \ {l}` for a root-false `l` follows from `C` and the
+Done anyway, even though §1 measures it inert as a yield mechanism: it is what both references
+do, and it also frees environment-variable slots that a fixed variable was occupying. `C \ {l}` for a root-false `l` follows from `C` and the
 root unit `{¬l}`. The soundness argument moves from "`env ⊆ F`" to "`env` is **entailed by**
 `F`", and the emission side pays for the difference:
 
@@ -203,7 +203,8 @@ root unit `{¬l}`. The soundness argument moves from "`env ⊆ F`" to "`env` is 
   as the original does and every lemma stays RUP.
 - **The one case that keeps a literal** is an LRAT run with `unit_ids[v] == 0`. That is
   possible only where `propagate_service::emit_root_units` has not run, and it is a weakening,
-  never an unsoundness. Measured: **0 of 4 193 root-false occurrences on `b22_1` after**.
+  never an unsoundness. Measured: of the 4 193 root-false occurrences the after arm saw on
+  `b22_1`, **4 193 were stripped and 0 kept**.
 - Off arm: `TACTIX_SWEEP_STRIP=0`.
 
 `docs/calculus.md` V5 and `docs/implementation-notes.md` are updated: the precondition wording
@@ -296,13 +297,23 @@ a regression, and do not read any of these rows as timing.
   The reachability column is what keeps these from being vacuous; `tools/fuzz/failures/` holds
   nothing but the standing `nonterminating` population.
 - **Per-path emission counts, non-zero on BOTH paths and BOTH formats, with every UNSAT proof
-  checked** (job `1587852`, 60 Tier-A instances per format, `--sweep-stress-policy`, half of them
+  checked** (job `1587878`, 60 Tier-A instances per format, `--sweep-stress-policy`, half of them
   under `TACTIX_SWEEP_FORCE_GENERAL=1`):
 
-  | format | `sweepemit` binaries | not-RUP (declined by S-d, handed to S-e) | general pairs (S-e) | UNSAT proofs checked | **REJECTED** |
-  |---|---|---|---|---|---|
-  | native DRAT (drat-trim) | 1 218 | 5 376 | 97 | 52 | **0** |
-  | native LRAT (lrat-check) | 1 218 | 5 376 | 97 | 52 | **0** |
+  | format | `sweepemit` binaries | not-RUP (declined by S-d, handed to S-e) | general pairs (S-e) | **strip units CITED** | UNSAT proofs checked | **REJECTED** |
+  |---|---|---|---|---|---|---|
+  | native DRAT (drat-trim) | 1 218 | 5 376 | 97 | 0 (by construction — DRAT cites nothing) | 52 | **0** |
+  | native LRAT (lrat-check) | 1 218 | 5 376 | 97 | **640** | 52 | **0** |
+
+  **The strip-cited column is the one that matters**, and it is why this table exists rather
+  than a bare "the fuzz was green": the strip citation of §4.1 is the only part of Sweep's proof
+  obligation that moved, so evidence that does not show a strip unit landing in a chain that a
+  checker then walked is evidence about something else. 640 of them did, in 52 proofs
+  `lrat-check` accepted, over runs that stripped 2 485 188 root-false literal occurrences. The
+  three emission counters agreeing exactly across formats is expected and not the
+  identical-artefact trap: the formula path is identical by design and only the proof lines
+  differ — which is precisely what the differing strip-cited column and the two different
+  checkers demonstrate.
 - Note the standing caveat that a `--random-policy` leg's N is N minus its non-terminating
   population (16.9 % here, printed by the harness).
 
