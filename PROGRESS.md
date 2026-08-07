@@ -11,20 +11,20 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 84 (2026-08-06, user). **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
+- **Plan revision tracked:** rev. 85 (2026-08-06). **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
   reference inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
   everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
   file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
   state #solved before PAR-2. Earlier: rev 80 made **N4, the strategy floor**, a non-negotiable
 - **Current phase:** 3 (the reference rule inventory) — since 2026-07-14 (phase 2 closed at T2 the same day, report
-  `benchmarks/reports/2026-07-14-t2-gate.md`). **Two items are owed before it closes: Track R · R9 (X6 HyperBinaryRes) and R10 (kitten BVE
-  definitions).** Everything else open is phase-4 work.
+  `benchmarks/reports/2026-07-14-t2-gate.md`). **R9 (X6 `HyperBinaryRes`) LANDED 2026-08-06; R10 (kitten BVE definitions) is the last item owed.**
+  Everything else open is phase-4 work.
 - **Next gate:** the **phase-3 exit** (rule inventory complete). **T3 is no longer phase 3's gate** — it is phase 4's, alongside discharging N4
   and running Tier D. T3 stands NOT met on either half; see the gate row and the tier tables.
 - **Last updated:** 2026-08-06 — compaction pass landed with plan rev 84 (4254 → this). Status lives in the anchor below; completed work is
   compressed to result + pointer, with the detail in the cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **next = Track R · R9, then R10; those two close the phase**
+## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **R9 LANDED; next = R10, the last item before the phase closes**
 
 **Plan rev 83 restructured the phases.** Phase 3 exits on the **rule inventory**, not a tier number; everything
 that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T3**, **discharging N4** and the
@@ -33,11 +33,14 @@ that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T
 reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
 non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**NOTHING IN FLIGHT** (`squeue -u hwu`: only this session's own `cpu-q` shell). Always check `squeue` rather
+**IN FLIGHT: `1587880 fuzz-hbr`** — R9's five fuzz legs (both proof formats × DefaultPolicy/random-policy, plus the corpus). Always check `squeue` rather
 than trusting a line here.
 
 **▶ THE NEXT STEPS, in order.**
-1. **R9 · X6 `HyperBinaryRes`**, then **R10 · kitten BVE definitions** — the phase-3 residue (Track R cont.).
+1. **R10 · kitten BVE definitions** — the last phase-3 item. (R9 landed `a4fa14b`; its fuzz legs are job
+   `1587880` and must be read before the phase is ticked.) **Plan rev 85 makes `--require-reached` part of the
+   exit**: every implemented family needs its own counter shown non-zero on the shipped DefaultPolicy, because a
+   fuzz-sized DefaultPolicy leg fires only 19 of 25 registry entries.
 2. **A full Tier B + Tier C window.** Four 2026-08-06 pairs sit unread in `benchmarks/runs/` (newest
    `20260806-150228-C-govon`) while the banked headline is still the `20260805` windows — none of the recent
    work took a timing measurement. Take the SHA from each run's own `manifest.json` and read `#solved` before
@@ -270,10 +273,18 @@ cost was an O(n²) dedup scan, not the reasoning — `b22_1` 0 → 239 equivalen
 `SP-SWEEP-7`). Tier C frozen; calculus formalized (rev 36); N1/N2/N3 audit upheld; independent-lineage
 campaign 4 measured / 0 adopted.
 
-- [ ] **R9 · X6 `HyperBinaryRes`** — HBR during probing. Ledger `SP-PROBE-2`, catalog §5.2 X6, reference cadical
-  `probehbr` (`probe.cpp:218`, called `:477`). A long clause going unit at level 1 folds its false literals
-  through `probe_dominator` and adds `(¬dom, lits[0])`; if `¬dom` was in the reason, the new binary subsumes it.
-  Proof delta add-RUP + delete. Needs a `c hbr` counter proven non-zero before any claim.
+- [x] **R9 · X6 `HyperBinaryRes` — LANDED ON 2026-08-06** (`a4fa14b`), closing `SP-PROBE-2`. Calculus §6c;
+  deviations in `hyperbinary.hpp`. We resolve POST-HOC off the finished probing trail rather than inside
+  propagation, reproducing cadical's implication TREE exactly (a long-forced literal takes its own dominator as
+  parent — the reason cadical installs by adding the resolvent mid-propagation), so dominators agree; what we
+  lose is that a resolvent is invisible to the rest of its own probe. Chains come from the shared RUP replay,
+  which is therefore also the RUP TEST — one it cannot re-derive is DECLINED, never emitted unchecked.
+  **Reachability at the source: 59 resolvents, 44 subsumptions, on 4 of 40 generated structured instances**
+  under the shipped DefaultPolicy; the regression corpus is all zeros, being too small to reach an inprocessing
+  phase, so no corpus-only evidence is claimed. ctest 55/55 Release + Debug ASan. **UNPRICED.**
+  *Found en route and fixed in the same commit:* `Reduce::instances()` moved three Stats counters, breaking
+  replay identity and making `reduce_skippable_words` exceed `reduce_scan_words` (a printed 200 %) — the figure
+  `SCHED-H3` priced its decision on.
 - [ ] **R10 · kitten-based BVE definition extraction** — §11 O11, the E1 remainder (E1 ships the syntactic
   matcher only). Worth +6.1 Tier C PAR-2 to kissat in its own ablation; the sub-solver is already in-tree for
   Sweep, so this is a consumer, not a port. **Two constraints:** it may only WIDEN `instances()`, never prune it
@@ -311,26 +322,32 @@ in §13's rows and the Log; the traps worth re-reading before touching any of it
 Each landed on parity or mechanism grounds with its A/B **pre-registered and unrun**. Generic protocol =
 Track SCHED's standing protocol below. This table is the per-item part.
 
-| Item | Arm | Counter (check FIRST) | Note |
-|---|---|---|---|
-| `gates`+`c1c2` flips | already measured | | Tier B 109.18 → 58.76, 24 → 27 solves; **Tier C fragile — re-measure with a replicate arm, then ship** |
-| `C6` eager subsume | `TACTIX_EAGER_SUBSUME=0` | `c eagersub` | |
-| `C7` randec | `TACTIX_RANDEC=0` | randec sequences | |
-| `C8` BVE ITE+XOR gates | `--bve-gates=equiv,andor` | `c bve-gates`, pairs saved | |
-| `C9` `jumpreasons` (OFF) | `TACTIX_JUMP_REASONS=1` | `c jumpreason`, per instance | **Decides the default.** ON only if non-worse on both tiers *and* `9vliw_bp_mc` unregressed, paired draws. If it loses → a §13.3 deviation |
-| `D1` slot order | `TACTIX_SLOT_ORDER=legacy` | `c slot-order` | |
-| `D2` two clocks | `TACTIX_SLOT_CLOCKS=1` | `c slot-clock` | **Read `eliminate phases`** — the first cut of this hatch starved the elimination family while looking like a win |
-| `D3` watermarks | `TACTIX_SLOT_WATERMARK` | the `blocked` counters | near-inert by design |
-| `E1` cursors | `TACTIX_CURSOR_<RULE>=0` | `c cand-order` | |
-| `E2` ordering arms | `TACTIX_ORDER_<RULE>=<arm>` | positions moved | **one rule at a time** |
-| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` | inert at shipped constants |
-| `F1` substrate | `TACTIX_TOUCH_MARKS=0` | `c touch` | |
-| `F2` subsume-hold | `TACTIX_SUBSUME_HOLD=0` | `c subhold` | sentinel currently 0 |
-| `F6`+`F7` redundant band (OFF) | `TACTIX_TOUCH_REDUNDANT=1` | `c touchred` (a PAIR) + `c f7band` | ~800× the irredundant population; must pay for it |
-| `G2` drop C1's dose | a dose arm, **not a rule-off** | C1/C2 yield split | C1 measured inert (C2 absorbs 698,341 of 698,351) |
-| `G3` Vivify trail reuse | `TACTIX_VIVIFY_REUSE=0` | reuse %, 0 with the hatch off | reverts probe *and* candidate order |
-| `S-g` Sweep yield | vs the `73af059` binary | environments, equivalences, emitted binaries | Dose unchanged in TICKS but a dedup probe went `|keys|` → 1, so the same budget buys far more work and Sweep's wall share RISES. If it loses, the first lever is `sweepeffort`, not a revert |
-| `G4` Y1 unit sweep | `TACTIX_CONG_Y1` | `c congy1` | strict SUBSET of V2 Backbone — **only one should ship** |
+**▶ `Registered at` is FM-2's defence.** A pre-registration is only an experiment while the binary it was
+written against is still the baseline. The ledger-wrap fix and `S-g` both changed what a tick BUYS, so every row
+marked RE-REGISTER must have its arm and ship criterion restated against current HEAD before it runs. This has
+already happened once at scale — "every prior dose negative measured through the broken meter is VOID", five
+arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>`.
+
+| Item | Arm | Counter (check FIRST) | Registered at | Note |
+|---|---|---|---|---|
+| `gates`+`c1c2` flips | already measured | | **PRE-`58a46de` — RE-REGISTER** | Tier B 109.18 → 58.76, 24 → 27 solves; **Tier C fragile — re-measure with a replicate arm, then ship** |
+| `C6` eager subsume | `TACTIX_EAGER_SUBSUME=0` | `c eagersub` | **PRE-`58a46de` — RE-REGISTER** | |
+| `C7` randec | `TACTIX_RANDEC=0` | randec sequences | **PRE-`58a46de` — RE-REGISTER** | |
+| `C8` BVE ITE+XOR gates | `--bve-gates=equiv,andor` | `c bve-gates`, pairs saved | **PRE-`58a46de` — RE-REGISTER** | |
+| `C9` `jumpreasons` (OFF) | `TACTIX_JUMP_REASONS=1` | `c jumpreason`, per instance | **PRE-`58a46de` — RE-REGISTER** | **Decides the default.** ON only if non-worse on both tiers *and* `9vliw_bp_mc` unregressed, paired draws. If it loses → a §13.3 deviation |
+| `D1` slot order | `TACTIX_SLOT_ORDER=legacy` | `c slot-order` | **PRE-`58a46de` — RE-REGISTER** | |
+| `D2` two clocks | `TACTIX_SLOT_CLOCKS=1` | `c slot-clock` | **PRE-`58a46de` — RE-REGISTER** | **Read `eliminate phases`** — the first cut of this hatch starved the elimination family while looking like a win |
+| `D3` watermarks | `TACTIX_SLOT_WATERMARK` | the `blocked` counters | **PRE-`58a46de` — RE-REGISTER** | near-inert by design |
+| `E1` cursors | `TACTIX_CURSOR_<RULE>=0` | `c cand-order` | **PRE-`58a46de` — RE-REGISTER** | |
+| `E2` ordering arms | `TACTIX_ORDER_<RULE>=<arm>` | positions moved | **PRE-`58a46de` — RE-REGISTER** | **one rule at a time** |
+| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` | **PRE-`58a46de` — RE-REGISTER** | inert at shipped constants |
+| `F1` substrate | `TACTIX_TOUCH_MARKS=0` | `c touch` | **PRE-`58a46de` — RE-REGISTER** | |
+| `F2` subsume-hold | `TACTIX_SUBSUME_HOLD=0` | `c subhold` | **PRE-`58a46de` — RE-REGISTER** | sentinel currently 0 |
+| `F6`+`F7` redundant band (OFF) | `TACTIX_TOUCH_REDUNDANT=1` | `c touchred` (a PAIR) + `c f7band` | **PRE-`58a46de` — RE-REGISTER** | ~800× the irredundant population; must pay for it |
+| `G2` drop C1's dose | a dose arm, **not a rule-off** | C1/C2 yield split | **PRE-`58a46de` — RE-REGISTER** | C1 measured inert (C2 absorbs 698,341 of 698,351) |
+| `G3` Vivify trail reuse | `TACTIX_VIVIFY_REUSE=0` | reuse %, 0 with the hatch off | **PRE-`58a46de` — RE-REGISTER** | reverts probe *and* candidate order |
+| `S-g` Sweep yield | vs the `73af059` binary | environments, equivalences, emitted binaries | Dose unchanged in TICKS but a dedup probe went `|keys| `73af059` |` → 1, so the same budget buys far more work and Sweep's wall share RISES. If it loses, the first lever is `sweepeffort`, not a revert |
+| `G4` Y1 unit sweep | `TACTIX_CONG_Y1` | `c congy1` | **PRE-`58a46de` — RE-REGISTER** | strict SUBSET of V2 Backbone — **only one should ship** |
 
 ### ▶ 2. Re-measure, then close T3
 
