@@ -450,6 +450,18 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   applied — the inert-port shape ([[ab-arm-identical-artefacts]]). Turning a dead gate on is a dose change, so
   it needs a window, not just a patch. *(Separately: `Vivify` carries BOTH backoffs — `thresh` on the entry and
   the ladder on its irredundant pass, `default_policy.cpp:1450-1499`.)*
+- [x] **KISSAT-FIDELITY REVAMP, increment 1 — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing
+  else** (landed 2026-08-07, design `docs/design/2026-08-07-kissat-fidelity-revamp.md`). Deleted, all
+  cadical-only: the upper clamp (`max_delta`, `CADICAL_ELIM_MAXEFF`/`CADICAL_SUBSUME_MAXEFF` — **kissat ships
+  no `maxeffort` at all**), the `2·active()` floor, `thresh` and `slot_entry_thresh_declines`, the
+  `TACTIX_EFFORT_CEIL`/`TACTIX_MAXEFF_*` knobs, and the `clamped`/`floored` telemetry that becomes
+  structurally zero. Changed: the anchor moved from the ENTRY to the PHASE, stamped at phase exit
+  unconditionally (kissat `probe.c:86`, `eliminate.c:601`), so every technique in a phase prices against one
+  reference. −163/+108 lines, 42 → 38 knobs. Tier B **88.79, 25/28** (replicate 87.59, noise bar 1.20),
+  `correctness.clean`; fuzz DRAT 10,000 · LRAT 10,000 · `--random-policy` 5,000, **0 failures**.
+  **The solve COUNT holds but the SET swapped — gained `mod4block`, lost `mp1-klieber`** — which are the two
+  instances measured as flipping under 9-of-14 and 7-of-14 unrelated arms, so this is the cliff, not a
+  mechanism. **Tier C IN FLIGHT** (`20260807-181116-C-kf1`) and is the tier that decides it.
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
   `BCE`, `Instantiate`, `Congruence`. Where the reference bounds the technique by *interval* instead, port the
   interval; where it ships the technique OFF, that is the datum.

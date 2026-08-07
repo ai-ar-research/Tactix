@@ -912,13 +912,16 @@ where the port is deliberately *not* a transliteration, and neither weakens the 
   cadical's option values — but **only two are LIVE: Vivify's is INERT** (`D-VIVIFY-THRESH-INERT` below).
   Note we simultaneously run kissat's delay LADDER on overlapping entries, so "cadical's pair" describes the
   anchor+thresh axis and not the whole backoff design.
-  **A second defect the per-phase anchor would introduce, independent of the accrual:** `search_ticks` is
-  FROZEN inside a phase (`default_policy.hpp:501-507` nets in-flight ticks out; `inprocess.ticks` is credited
-  only at phase exit, `:1722`). Today an entry that ran in outer round 0 sees `reference = now − anchor = 0`
-  in rounds 1 and 2, floored to `MIN_EFFORT_TICKS` — **that floor collapse is the only thing preventing a
-  fresh full-size delta per outer round.** A group anchor stamped at phase exit does not advance mid-phase, so
-  all three outer rounds would read the same full reference and the per-phase grant of every metered entry
-  would roughly TRIPLE.
+  **A second effect of the per-phase anchor, CORRECTED 2026-08-07 — it is kissat's behaviour, not a defect.**
+  `search_ticks` is frozen inside a phase (`default_policy.hpp:501-507`; `inprocess.ticks` is credited only at
+  phase exit, `:1722`), so under a group anchor every outer round reads the same full reference and each takes
+  a full delta. That is exactly what kissat does: `kissat_probe` runs `probe()` up to `proberounds` = 2 times
+  (`probe.c:76-83`), each round re-enters every technique, and each recomputes `SET_EFFORT_LIMIT` against the
+  frozen reference with a freshly read `START` — and `backbone`/`substitute` appear TWICE per round
+  (`probe.c:33-42`), so four deltas per phase each. **Our current floor collapse — an entry that ran in round 0
+  sees `reference = 0` in rounds 1-2 and falls to `MIN_EFFORT_TICKS` — is therefore the DEVIATION.** An earlier
+  version of this row filed the grant increase as a defect of the per-phase anchor; the arithmetic was right
+  and the evaluation was wrong.
   **Why this is a deviation at all:** §5 obligation 6 makes kissat the tie-break when the references disagree,
   and on the anchor axis alone kissat says per-phase. We follow cadical because the axis is not independent —
   taking kissat's anchor means taking kissat's ladder and dropping `thresh`, which is a different and larger

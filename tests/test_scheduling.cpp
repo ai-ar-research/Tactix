@@ -472,14 +472,14 @@ static void test_slot_gates_decline_without_new_material(void) {
   std::printf("  slot gates: decline without new material, re-admit with it\n");
 }
 
-// --- the effort budget's upper clamp ----------------------------------------
-// kissat's SET_EFFORT_LIMIT has no ceiling (kimits.h:135-170), so the clamp
-// follows cadical's propagation scheme, whose three steps compose in a
-// load-bearing order: max(delta, mineff), then min(delta, maxeff), then
-// max(delta, 2*active()). The active floor comes last (elim.cpp:787,
-// subsume.cpp:357), so on a large formula it lifts the delta back above the
-// ceiling — the three are not a simple clamped range.
-static void test_effort_ceiling(void) {
+// --- the effort budget is kissat's SET_EFFORT_LIMIT ------------------------
+// kimits.h:135-170, and nothing else: REFERENCE = search_ticks since THIS
+// PHASE's anchor, floored at mineffort*1e6; LIMIT = the technique's own counter
+// now + effort/1000 * REFERENCE. No upper clamp (kissat ships no `maxeffort`)
+// and no active floor (cadical's propagation scheme only). The anchor being the
+// PHASE's is the load-bearing part: two entries in one phase must price against
+// the same reference, so neither can earn allowance by abstaining.
+static void test_effort_limit_is_kissats(void) {
   const RuleVTable *bve = find_rule("BVE");
   assert(bve);
   Kernel k;
@@ -488,39 +488,34 @@ static void test_effort_ceiling(void) {
   DefaultPolicy::SlotEntry e;
   e.rule = static_cast<int>(bve->id);
   e.permille = 100;
+  e.group = SlotGroup::Eliminate;
   e.meter = [](const Kernel &) -> uint64_t { return 0; };
 
   // No search yet: the reference floors at MIN_EFFORT_TICKS, so the delta is
-  // 1e7/1000*100 == 1e6, and an uncapped entry neither clamps nor counts.
+  // 1e7/1000*100 == 1e6. A large formula must NOT lift it — the active floor
+  // that used to do so was cadical's and is gone.
+  k.unassigned = 400000;
   p.set_entry_limit(e, k);
-  assert(e.limit == 1000000 && e.tm.clamped == 0 && e.tm.floored == 0);
+  assert(e.limit == 1000000 &&
+         "no active floor: 2*active() must not raise a floored reference");
 
-  // A ceiling below that must bind and be counted: an uncounted clamp is a
-  // dose change nothing can attribute.
-  e.max_delta = 250000;
-  p.set_entry_limit(e, k);
-  assert(e.limit == 250000 && e.tm.clamped == 1);
+  // A second entry in the SAME phase, at a different rate, prices against the
+  // same reference — the property a per-entry anchor cannot give.
+  DefaultPolicy::SlotEntry e2 = e;
+  e2.permille = 20;
+  p.set_entry_limit(e2, k);
+  assert(e2.limit == 200000 && "same phase reference, rate is the only term");
 
-  // ... and the active floor, applied after it, lifts it back above.
-  e.active_floor = true;
-  k.unassigned = 400000; // 2*active == 800000 > the 250000 ceiling
+  // The meter is added, not replaced: the limit is a ceiling on that counter.
+  e.meter = [](const Kernel &) -> uint64_t { return 500000; };
   p.set_entry_limit(e, k);
-  assert(e.limit == 800000 && e.tm.clamped == 2 && e.tm.floored == 1 &&
-         "cadical floors AFTER clamping, so the floor wins on a big formula");
-
-  // A ceiling above the natural delta is inert, which is the shipped case.
-  e.active_floor = false;
-  e.max_delta = 1000000000ull;
-  const uint64_t clamped_before = e.tm.clamped;
-  p.set_entry_limit(e, k);
-  assert(e.limit == 1000000 && e.tm.clamped == clamped_before);
-  std::printf("  effort ceiling: clamps, counts, and the active floor "
-              "overrides it\n");
+  assert(e.limit == 1500000 && "LIMIT = counter_now + delta (kimits.h:162)");
+  std::printf("  effort limit: kissat's formula, phase anchor, no clamps\n");
 }
 
 int main() {
   test_mode_growth_key_matches_kissat();
-  test_effort_ceiling();
+  test_effort_limit_is_kissats();
   test_slot_cursor_rotates();
   test_cursor_preserves_n1();
   test_order_arms_reorder();
