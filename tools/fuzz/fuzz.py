@@ -232,6 +232,10 @@ REACH_SPECS = [
     ("Instantiate", r"^c instantiate\s+(\d+) rounds,"),
     ("Sweep", r"^c sweep\s+(\d+) rounds,"),
     ("HyperTernaryRes", r"^c ternary\s+(\d+) rounds,"),
+    # PROBES, not rounds: this is a `dosed` entry, so DefaultPolicy reaches it
+    # through apply_instance and the round counter never moves. Keying on rounds
+    # would report a rule that ran as unreached.
+    ("HyperBinaryRes", r"^c hbr\s+\d+ rounds, (\d+) probes,"),
     ("Congruence", r"^c congruence\s+(\d+) rounds,"),
     ("Factor", r"^c factor\s+(\d+) factorings,"),
     ("BVE", r"^c bve\s+(\d+) rounds,"),

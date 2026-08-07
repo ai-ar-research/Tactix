@@ -170,6 +170,23 @@ def main():
 
     scheduled = sorted(n for n, (tier, _) in rules.items() if tier == "Inprocess")
 
+    # Every registered rule must be VISIBLE TO THE FUZZ ORACLE. `fuzz.py`'s
+    # REACH_SPECS maps a rule to the stats counter that proves it fired, and
+    # `--require-reached` is part of the phase-3 exit (plan rev 85) — so a rule
+    # with no spec is a rule no leg can be required to reach, and its "fuzz
+    # green" says nothing. The list is hand-maintained, which is exactly why it
+    # needs a check: R9 landed with no entry and the harness refused the flag.
+    reach_src = open(os.path.join(ROOT, "tools/fuzz/fuzz.py")).read()
+    reach = set(re.findall(r'^\s*\("([A-Za-z]+)",\s*r"', reach_src, re.M))
+    for n in sorted(rules):
+        if n not in reach:
+            fails.append(
+                f"registered rule `{n}` ({rules[n][1]}) has no REACH_SPECS entry "
+                f"in tools/fuzz/fuzz.py, so no fuzz leg can be REQUIRED to reach "
+                f"it and a green leg says nothing about it. Add the counter that "
+                f"proves it fired — and key it on a counter the DOSED path moves, "
+                f"not a round counter apply_instance never touches.")
+
     for n in scheduled:
         if n not in TABLE:
             fails.append(f"UNCLASSIFIED scheduled rule `{n}` ({rules[n][1]}) — it is "
