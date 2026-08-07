@@ -10,7 +10,7 @@ Authoritative spec: DEVELOPMENT_PLAN.md §3–§5. The full rule catalog (every 
 ## Adding a new rule family — the only two touch points (plan §5.3)
 
 1. New directory `src/rules/<name>/` — module, unit tests, micro-formula proof tests, per-rule options/stats/budgets declared locally.
-2. One `TACTIX_REGISTER_RULE(<Name>, ...)` line carrying the rule's vtable (name, tier, guard, canonical apply, and — for rules with per-application choice — instance enumeration + instance apply; see registry.hpp). Scheduling metadata (phase tags, budgets) joins with its phase-3 consumer (plan §5.3, rev 20). The static registry is the only central list; no switch/enum/scheduler edits anywhere.
+2. One `TACTIX_REGISTER_RULE(<Name>, ...)` line carrying the rule's vtable (name, tier, guard, canonical apply, and — for rules with per-application choice — instance enumeration + instance apply; see registry.hpp). Scheduling metadata (phase tags, budgets) joins the line together with its consumer, the registry-driven scheduler — fields without a reader don't freeze early (plan §5.3, rev 20). The static registry is the only central list; no switch/enum/scheduler edits anywhere.
 
 Rules compose the **closed proof-delta vocabulary** (`add-RUP`, `add-RAT`, `delete`, `restore`, `push-witness`); needing a new primitive or kernel accessor is an architecture RFC, not something to hack into the rule. If implementing a rule seems to require touching the kernel, another rule, a policy, or the proof backend — stop and fix the architecture instead (that is the §5.3 contract; CCE is the acceptance test).
 
@@ -41,6 +41,16 @@ Architecture invariants (reject code that violates them):
 4. **Elimination-style rules push witnesses onto the reconstruction stack ρ** so SAT models can be rebuilt; test model reconstruction explicitly.
 5. Kernel (`src/kernel/`) owns representation and has zero policy knowledge; policies own only order and budgets.
 
+## Every implemented rule SHIPS ON (user baseline, reaffirmed 2026-07-28)
+
+There are **no rule-off shipping configurations**. A rule that is implemented is
+enabled in DefaultPolicy; if it costs performance, that is a **dosing/scheduling**
+defect to fix (phase 4), not a reason to disable it. Rule-off arms exist only as
+*diagnostics* for such a defect, never as a candidate ship config — and a rule
+family is judged **together**, never one member at a time. (Standing instance:
+Sweep ships by user directive; shrinking its budget until it is inert does not
+count as a fix.)
+
 ## Micro vs macro dispatch — decide before writing
 
 - **Micro** (Decide, Propagate, Analyze, Backjump): fires ≥ once per conflict. Must be composable statically (template/inline) in DefaultPolicy — no virtual calls on this path. Adding a new micro rule needs strong justification; the set is intended to be closed.
@@ -50,8 +60,8 @@ Architecture invariants (reject code that violates them):
 
 1. Unit tests: guard edge cases, instance enumeration, apply on hand-written micro-formulas.
 2. **Micro-formula proof test**: emitted deltas wrapped as a proof and accepted by drat-trim (see proof-check skill).
-3. Quick fuzz (`tools/fuzz/run.sh --quick`) green under sanitizers, including at least one **random-policy** round — the rule must be sound in weird-but-legal orders, not just where DefaultPolicy fires it.
-4. Tier A clean; Tier B run if the rule is on by default (see benchmarks skill) — check the ≤ 5% overhead budget vs the hardcoded-twin build when touching the micro path.
+3. Quick fuzz (`tools/fuzz/run.sh --quick`) green under sanitizers, including at least one **random-policy** round AND the family's **stress policy** (stress-policy skill) — the rule must be sound in weird-but-legal orders, not just where DefaultPolicy fires it. A green leg counts only once you have shown it could go red (fuzz skill).
+4. Tier A clean; Tier B **as a same-window A/B** (old behaviour behind an env hatch, both arms in one array — benchmarks skill) — check the ≤ 5% overhead budget vs the hardcoded-twin build when touching the micro path. **Confirm the rule actually fired**: its own stat counter must move on the instances you are quoting, or the arm was not tested.
 5. Determinism: same seed + same policy ⇒ identical rule trace (`--trace` diff).
 6. When consulting reference solvers (plan §5 "evidence, not templates"): Kissat (`../kissat/src/`, e.g. `vivify.c`, `eliminate.c`, `probe.c`) is the primary reference, but for any non-trivial technique also check how the recent competition winners handle it (CaDiCaL-SC2025, AE-Kissat-MAB lineage, SBVA-CaDiCaL — solver descriptions always, sources where obtainable; `../cadical/` is cloned) AND the independent-lineage solvers Glucose (`../glucose/`) and CryptoMiniSat (`../cryptominisat/`) — different author sets, the guard against Kissat-monoculture design (plan §2 takeaway, rev 25; this codebase must not be a simple Kissat re-implementation). Adopting a reference's approach requires an explicit argument that it fits our rule contract and N1–N3 — "Kissat does it this way" is not sufficient by itself; deviate deliberately and record why. Transliterate ideas, do not copy code verbatim; note the source file in a comment for attribution (Kissat is MIT).
 
