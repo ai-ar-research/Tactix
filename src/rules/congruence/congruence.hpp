@@ -1,4 +1,4 @@
-// V6 Congruence — gate congruence closure (design `docs/v6-congruence-design.md`).
+// V6 Congruence — gate congruence closure (design `docs/design/v6-congruence-design.md`).
 // Extracts AND/OR gate definitions, structurally hashes them by (sorted inputs),
 // and when two gates share inputs — so their outputs are equivalent — ADDS the two
 // equivalence binaries (¬a∨b),(a∨¬b) to the formula (proof-delta add-RUP; the
