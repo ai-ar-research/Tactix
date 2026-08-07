@@ -1,32 +1,31 @@
 #!/usr/bin/env python3
-"""SCHED-A2b: every SCHEDULED inprocessing rule must have a governor.
+"""Every scheduled inprocessing rule must have a governor.
 
-WHY THIS EXISTS. In the S4 arrangement, REGISTERING a rule IS scheduling it:
-`DefaultPolicy` builds the inprocessing slot by walking the registry and taking
-every `RuleTier::Inprocess` entry (default_policy.cpp, "The S4 arrangement
-enables every Inprocess-tier rule"). The effort ledger is a SEPARATE table —
-`EFFORT_SPECS` — keyed by rule NAME, and a slot entry whose name is absent from
-it gets `meter = nullptr, permille = 0`: it runs with no meter and no budget,
-one full canonical round on every inprocessing phase, forever.
+In the S4 arrangement, registering a rule is scheduling it: `DefaultPolicy`
+builds the inprocessing slot by walking the registry and taking every
+`RuleTier::Inprocess` entry. The effort ledger is a separate table,
+`EFFORT_SPECS`, keyed by rule name, and a slot entry whose name is absent from
+it gets `meter = nullptr, permille = 0` — one full canonical round on every
+inprocessing phase, with no meter and no budget.
 
-The gap is structural — two tables, one registry line, no link between them —
-and no other check covers it: `check-config-wiring.py` catches the MIRROR image
-(a config field we own and never write), the unit tests call a rule's `apply`
+The gap is structural (two tables, one registry line, no link between them) and
+no other check covers it: `check-config-wiring.py` catches the mirror image (an
+owned config field nothing writes), the unit tests call a rule's `apply`
 directly and never traverse the slot, and fuzz stays green because an unmetered
-rule is a PERFORMANCE regression, not a soundness one.
+rule is a performance regression, not a soundness one.
 
     METERED             has an `EFFORT_SPECS` row. The default expectation, and
                         what a new inprocessing rule should almost always be.
-    ALTERNATE-GOVERNOR  deliberately unmetered; something ELSE bounds it, named
+    ALTERNATE-GOVERNOR  deliberately unmetered; something else bounds it, named
                         here, and its mechanism must still be present in the
                         source (`evidence`). Legitimate only for a rule whose
                         single round is inherently bounded — the unmetered
-                        governors bound how OFTEN a round starts, never how much
+                        governors bound how often a round starts, never how much
                         one round does.
 
 As in check-config-wiring.py, the second half matters as much as the first: a
-scheduled rule that is NOT in the table fails, so classification happens when
-the rule is registered rather than after a tier run notices the damage.
+scheduled rule missing from the table fails, so classification happens when the
+rule is registered rather than after a tier run notices the damage.
 
     tools/docs/check-effort-specs.py           report; exit 1 on any failure
 """
@@ -39,23 +38,21 @@ ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                       capture_output=True, text=True, check=True).stdout.strip()
 POLICY_REL = "src/policies/default_policy.cpp"
 POLICY = os.path.join(ROOT, POLICY_REL)
-# ALL of src/, not just src/rules + src/policies/ops: the registry accepts a
+# All of src/, not just src/rules + src/policies/ops: the registry accepts a
 # registration line from anywhere, and a conformance check with a directory
-# blind spot is exactly the kind of "green because it did not look" this file
-# exists to prevent.
+# blind spot goes green because it did not look.
 RULE_DIRS = [os.path.join(ROOT, "src")]
 
 METERED = "METERED"
 ALT = "ALTERNATE-GOVERNOR"
 
 # The two unmetered governors live on the `e.closure` path in the slot loop.
-# That flag USED to be spelled `!e.meter`; SCHED-G1 split them because
-# Congruence is now metered AND closure-gated, and the two bound different
-# things (how much one round does vs how often a round starts). A rule with no
-# EFFORT_SPECS row still gets `closure = true` by default in the slot build, so
-# an ALTERNATE-GOVERNOR rule reaches both declines exactly as before. These are
-# the `evidence` regexes such a row must still match: deleting the governor
-# must fail HERE, not silently promote the rule to unbounded.
+# `closure` is separate from `!e.meter` because a rule can be both metered and
+# closure-gated, and the two bound different things (how much one round does vs
+# how often a round starts). A rule with no EFFORT_SPECS row still gets
+# `closure = true` by default in the slot build, so an ALTERNATE-GOVERNOR rule
+# reaches both declines. These are the `evidence` regexes such a row must match:
+# deleting a governor must fail here, not silently unbound the rule.
 EV_MATERIAL = r"e\.closure && k\.stats\.conflicts > 0 &&[^;]*e\.binaries_mark"
 EV_DELAY = r"closure_delay_ && e\.closure"
 # And the no-row default is what carries an ALTERNATE-GOVERNOR rule onto that
@@ -80,26 +77,22 @@ TABLE = {
     "CCE":              (METERED, "cadical covereffort 4 permille, cce_ticks currency"),
     "Instantiate":      (METERED, "20 permille, tick currency"),
     "Sweep":            (METERED, "kissat sweepeffort 100 permille, sweep_ticks currency"),
-    # Congruence was ALTERNATE-GOVERNOR until SCHED-G1, on the argument that a
-    # single closure pass is bounded by the formula. MEASUREMENT REFUTED IT:
-    # on `tierC/T105.2.0` one pass is 8.25 s and seventeen of them are 140 s,
-    # 47 % of a 300 s solve. It is now METERED as well as closure-gated — the
-    # ledger bounds one round, the watermark and the ladder bound how often a
-    # round starts, and the `closure` flag is what keeps it on both paths.
+    # Metered as well as closure-gated: "a single closure pass is bounded by
+    # the formula" is measurably false for Congruence, whose passes have
+    # reached half a tier-C solve. The ledger bounds one round; the watermark
+    # and the delay ladder bound how often a round starts.
     "Congruence":       (METERED, "100 permille, congruence_ticks currency, "
                                   "budget_aware; ALSO closure-gated"),
     # --- deliberately unmetered: a different mechanism governs them --------
-    # Substitute is a CLOSURE with no titratable instance surface: one canonical
-    # pass over the current formula, whose cost is bounded by the formula rather
-    # than by how long we let it run — so "at most one pass per new-material
-    # occasion, decayed by the delay ladder when unproductive" is a real bound
-    # on the work. That argument does NOT transfer to a search-shaped rule
-    # (Sweep), which is why Sweep is METERED and not parked here.
-    # KNOWN WEAKNESS, recorded rather than papered over: this bounds how OFTEN
-    # a round starts, not how much one round does. It survived SCHED-G1's audit
-    # only because Substitute's measured price is 9,990 ms over 19 rounds on the
-    # instance where Congruence cost 140,303 ms over 17 — a 14x lower price per
-    # round on the same formula. Metering it is a task, not an accepted shape.
+    # Substitute is a closure with no titratable instance surface: one canonical
+    # pass over the current formula, whose cost the formula bounds rather than
+    # the clock — so "at most one pass per new-material occasion, decayed by the
+    # delay ladder when unproductive" is a real bound on the work. The argument
+    # does not transfer to a search-shaped rule, which is why Sweep is metered.
+    # Known weakness: this bounds how often a round starts, not how much one
+    # round does. It stands only because Substitute's measured price per round
+    # is an order of magnitude below Congruence's on the same formula. Metering
+    # it is an owed task, not an accepted shape.
     "Substitute":       (ALT, "new-material watermark + closure delay ladder "
                               "on the `e.closure` path; canonical instance only",
                          [EV_MATERIAL, EV_DELAY, EV_CLOSURE_DEFAULT]),
@@ -170,12 +163,11 @@ def main():
 
     scheduled = sorted(n for n, (tier, _) in rules.items() if tier == "Inprocess")
 
-    # Every registered rule must be VISIBLE TO THE FUZZ ORACLE. `fuzz.py`'s
+    # Every registered rule must be visible to the fuzz oracle. `fuzz.py`'s
     # REACH_SPECS maps a rule to the stats counter that proves it fired, and
-    # `--require-reached` is part of the phase-3 exit (plan rev 85) — so a rule
-    # with no spec is a rule no leg can be required to reach, and its "fuzz
-    # green" says nothing. The list is hand-maintained, which is exactly why it
-    # needs a check: R9 landed with no entry and the harness refused the flag.
+    # `--require-reached` is part of the phase-3 exit (plan §9), so a rule with
+    # no spec is one no leg can be required to reach and whose green legs say
+    # nothing. The list is hand-maintained, hence the check.
     reach_src = open(os.path.join(ROOT, "tools/fuzz/fuzz.py")).read()
     reach = set(re.findall(r'^\s*\("([A-Za-z]+)",\s*r"', reach_src, re.M))
     for n in sorted(rules):

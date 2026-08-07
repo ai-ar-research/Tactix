@@ -369,9 +369,9 @@ def dismissal_roster(kissat, cadical):
         got.extend(pending)
         return got
 
-    # Each bullet is `<group> — **N**: <the list>. <rationale prose>`, and the
-    # rationale cites option names too (`vivifyretry`/`vivifyonce`), so the list
-    # is cut at the first sentence break that closes a backtick or a count.
+    # Each bullet is `<group> — <bold count>: <the list>. <rationale prose>`,
+    # and the rationale cites option names too (`vivifyretry`/`vivifyonce`), so
+    # the list is cut at the first sentence break closing a backtick or a count.
     bullets = [re.split(r"(?<=[`)])\.\s", b, maxsplit=1)[0] for b in bullets]
 
     # bullet 1: explicit names, kissat segment then cadical segment

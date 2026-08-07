@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Re-score an existing Tier C run over a SUBSET list — no solver runs.
+"""Re-score an existing Tier C run over a subset list — no solver runs.
 
 T3's parity half (plan §8.3) is judged on the *rule-neutral subset*: the
-instances where the phase-4 rules we still lack do not materially help the
-baselines. That subset is a SCORING VIEW over Tier C, not a separate tier —
+instances where the still-missing phase-4 rules do not materially help the
+baselines. That subset is a scoring view over Tier C, not a separate tier —
 running it separately would produce numbers not comparable to the full-tier
 window they came from. So: run Tier C once with every arm, then score it twice.
 
@@ -13,8 +13,8 @@ Prints PAR-2 + #solved per arm over the subset and over the full tier, plus the
 ratio to each baseline arm, so both halves of T3 are readable from one window.
 
 PAR-2 and the solved/unsolved rule are taken verbatim from run.py's convention:
-an instance counts solved only when the runner scored it solved (which, for our
-arms, includes the proof check — plan §8.1 rev 72).
+an instance counts solved only when the runner scored it solved, which for a
+scored arm includes the proof check (plan §8.1).
 """
 import argparse
 import json
@@ -24,35 +24,33 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TIERS = os.path.join(ROOT, "benchmarks", "tiers")
 
-# Reference-solver names, used ONLY as a last resort (see split_arms). Matching
-# an arm by its name is wrong in both directions: run.py's `--baseline
-# label=<command>` gives a baseline any label it likes (`k_nosweep`, `ref`),
-# which would then be scored as a candidate — corrupting the T3 ratio phase-3
-# exit reads — and a `--checked-arm cadical-tuned=...` of ours would be taken
-# for a denominator.
+# Reference-solver names, a last resort only (see split_arms). Matching an arm
+# by name is wrong in both directions: `--baseline label=<command>` gives a
+# baseline any label it likes (`k_nosweep`, `ref`), which would then be scored
+# as a candidate and corrupt the T3 ratio, while a `--checked-arm
+# cadical-tuned=...` candidate would be taken for a denominator.
 BASELINE_ARMS = ("kissat", "cadical", "minisat", "glucose")
 
 
 def split_arms(rundir, run, arms):
-    """Split arms into (baselines, candidates) — ours are the ones run.py SCORED.
+    """Split arms into (baselines, candidates): a candidate is an arm run.py
+    scored.
 
     Two recorded discriminators, either authoritative: manifest.json carries
-    `score_proofs` per solver (true for our arms, false for `--baseline` —
-    plan §8.1 rev 72), and results.json["oracle"]["arms"] lists the scored arms
+    `score_proofs` per solver (true for a candidate, false for `--baseline`,
+    plan §8.1), and results.json["oracle"]["arms"] lists the scored arms
     (present only when a run had 2+ of them).
 
-    Runs from before those fields existed fall back to the name list, and
-    deliberately so: every such run named its baselines `kissat`/`cadical`
-    literally, and re-scoring an old window under a new rule would be a worse
-    failure than the name matching it replaces — an archived number must keep
-    reading the way it read when it was banked.
+    A run predating those fields falls back to the name list, deliberately:
+    every such run named its baselines `kissat`/`cadical` literally, and an
+    archived number must keep reading the way it read when it was banked.
     """
     manifest = os.path.join(rundir, "manifest.json")
     if os.path.exists(manifest):
         solvers = json.load(open(manifest)).get("solvers") or []
         flag = {s["name"]: bool(s["score_proofs"]) for s in solvers
                 if isinstance(s, dict) and "score_proofs" in s}
-        # All-or-nothing: a manifest describing only some arms tells us nothing
+        # All-or-nothing: a manifest describing only some arms says nothing
         # about the rest, so fall through rather than mix two rules.
         if all(a in flag for a in arms):
             return ([a for a in arms if not flag[a]],

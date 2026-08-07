@@ -11,8 +11,8 @@ Usage:
   ceil(mem_gb/8), default 1 core / 8 GB), plus a dependent aggregate job that
   merges the per-task JSONs into the identical results.json a local run
   writes. The allocation shape (partition, cpus/mem per task, throttle) is
-  recorded in place of the local jobs count — COMPARE NUMBERS ONLY ACROSS
-  IDENTICAL SHAPES.
+  recorded in place of the local jobs count; numbers are comparable only
+  across identical shapes.
   --throttle caps concurrent tasks for lower-contention gate runs;
   --dry-run writes manifest + sbatch scripts without submitting.
 
@@ -23,27 +23,25 @@ Usage:
   (or missing) proof counts as UNSOLVED, competition-style. The arm's own
   command picks the format (fuzz-harness convention): `--lrat` in the command
   => native LRAT verified by cake_lpr, otherwise DRAT verified by drat-trim.
-  A DRAT check that OUTRUNS its budget is not final: the arm is re-solved with
+  A DRAT check that outruns its budget is not final: the arm is re-solved with
   `--lrat` and cake_lpr verifies that instead (§8.1, `lrat_rescue`). A checker
-  that REJECTS still scores the instance unsolved — that is an N2 failure.
-  Verdicts are also checked against the expected status
-  in the list — any mismatch is a correctness bug (stop and use the fuzz
-  skill).
-- EVERY arm writes proofs, baselines included (plan §8.1): timing a
+  that rejects still scores the instance unsolved — that is an N2 failure.
+  Verdicts are also checked against the expected status in the list — any
+  mismatch is a correctness bug (stop and use the fuzz skill).
+- Every arm writes proofs, baselines included (plan §8.1): timing a
   proof-writing solver against proof-free references compares two different
   workloads. A baseline's proof is still checked, but a failed check is
-  RECORDED, never scored against it (--no-baseline-proofs restores the old,
+  recorded, never scored against it (--no-baseline-proofs restores the old,
   non-comparable behaviour). Checker budget: max(3600 s, 4 x solve timeout).
 - Score: PAR-2 = mean(runtime if solved else 2*timeout), reported with
   #solved and SAT/UNSAT split, proof-check time, and proof size.
-- ORACLE (always on, 2+ scored arms): the per-instance best over OUR arms
-  (baselines are references, not candidate policies), plus each arm's gap to
-  it — also in results.json under "oracle". It is not a runnable policy; it
+- Oracle (always on, 2+ scored arms): the per-instance best over the scored
+  arms (baselines are references, not candidate policies), plus each arm's gap
+  to it — also in results.json under "oracle". It is not a runnable policy; it
   is the ceiling a per-instance admission mechanism could reach, so a gate is
-  worth shipping only if it beats the trivial always-on arm AND takes a fair
-  share of that gap (docs/design/2026-08-04-scheduling-sophistication-
-  diagnosis.md §4: at these tier sizes, with no held-out set, the instrument
-  otherwise selects a crude gate every time).
+  worth shipping only if it beats the trivial always-on arm and takes a fair
+  share of that gap. See docs/design/2026-08-04-scheduling-sophistication-
+  diagnosis.md §4.
 - Up to 8 parallel single-threaded solver jobs (plan §8.1); the concurrency
   level is recorded in the results and must accompany any reported number.
 
@@ -74,27 +72,23 @@ RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
 
-# The one message `check_proof` emits when the checker RAN OUT OF TIME rather
-# than REJECTED. Single-sourced because it is a control signal, not prose: it,
+# The one message `check_proof` emits when the checker outran its budget rather
+# than rejecting. Single-sourced because it is a control signal, not prose: it,
 # and only it, may trigger the §8.1 native-LRAT re-check (`lrat_rescue`).
 CHECKER_TIMEOUT_PREFIX = "checker exceeded its "
 
-# WHY THE `kind` FIELD EXISTS (2026-08-05). The archive used to record only the
-# checker's LAST output line, and drat-trim always prints "c verification time:
-# …" last — so `s NOT VERIFIED`, `s MEMORY ALLOCATION ERROR` and `s DERIVATION`
-# all landed in results.json as the SAME string. That is the difference between
-# "our proof is wrong" (an N2 breach) and "the checker ran out of room" (a
-# scoring artefact), and it cost a real misreading: the Sweep rejection on
-# `asconhashv12` was first read as a checker OOM because a 988 MB proof "failed"
-# in 20 s (report 2026-08-05-sweep-proof-rejection.md). `check_proof` now
-# classifies the outcome and archives the checker's own diagnostic lines.
-CHK_VERIFIED = "verified"        # s VERIFIED / s VERIFIED UNSAT
-CHK_REJECTED = "rejected"        # s NOT VERIFIED — an N2 failure, never rescued
-CHK_DERIVATION = "derivation"    # s DERIVATION — not a refutation
-CHK_TIMEOUT = "checker-timeout"  # budget outrun — the ONLY rescuable outcome
-CHK_RESOURCE = "checker-oom"     # s MEMORY ALLOCATION ERROR / killed
+# The `kind` field classifies the checker's verdict. A last-output-line archive
+# cannot: drat-trim always prints `c verification time: …` last, collapsing an
+# invalid certificate (an N2 breach) and a checker that ran out of room (a
+# scoring artefact) into one string. Only the classified kind may gate a rescue.
+# Exhibit: benchmarks/reports/2026-08-05-sweep-proof-rejection.md.
+CHK_VERIFIED = "verified"        # `s VERIFIED` / `s VERIFIED UNSAT`
+CHK_REJECTED = "rejected"        # `s NOT VERIFIED` — N2 failure, never rescued
+CHK_DERIVATION = "derivation"    # `s DERIVATION` — not a refutation
+CHK_TIMEOUT = "checker-timeout"  # budget outrun — the only rescuable outcome
+CHK_RESOURCE = "checker-oom"     # `s MEMORY ALLOCATION ERROR` / killed
 CHK_ERROR = "checker-error"      # no recognisable verdict at all
-# Outcomes that mean OUR certificate is bad, as opposed to the checker giving up.
+# Outcomes that mean the certificate is bad, not that the checker gave up.
 CHK_OUR_FAULT = (CHK_REJECTED, CHK_DERIVATION)
 
 # Lines worth keeping verbatim: they name the offending lemma and proof line,
@@ -119,9 +113,8 @@ def _load_reach_specs():
 try:
     _REACH_SPECS = _load_reach_specs()
 except Exception as _e:    # fuzz.py absent or unimportable
-    # LOUD, not silent. A quietly empty table means every tier run records "no
-    # rule fired", which reads as a finding rather than as a broken import --
-    # exactly the failure mode the reach table exists to prevent.
+    # Warn loudly: a silently empty table makes every tier run record "no rule
+    # fired", which reads as a finding rather than as a broken import.
     sys.stderr.write(f"run.py: WARNING reach counters DISABLED ({_e!r}); "
                      f"tier results will record no `reached` data\n")
     _REACH_SPECS = []
@@ -271,13 +264,10 @@ def solve_once(argv, timeout, mem_gb):
         return "UNKNOWN", timeout, {}
 
 
-# Which registry entries this run actually REACHED, read from the solver's own
-# `c ` counters. Recorded per task because plan rev 88 makes reach-evidence a
-# phase-3 exit condition, and it was otherwise obtainable only by re-running the
-# solver outside the array -- which is not the sanctioned way to run one, and
-# throws away the fact that the tier run already had the answer in its output.
-# Empty on a timeout: a killed run prints no stats, and a tally that cannot tell
-# "did not fire" from "was not measured" is the vacuity this exists to prevent.
+# Which registry entries the run reached, read from the solver's own `c `
+# counters and recorded per task: reach evidence is a phase-3 exit condition
+# (plan §9). Empty on a timeout, since a killed run prints no stats — a tally
+# that cannot tell "did not fire" from "was not measured" is vacuous.
 def reach_counters(stdout):
     out = {}
     for label, pat in _REACH_SPECS:
@@ -351,29 +341,28 @@ def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
 
 def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                  mem_gb=None, score_proofs=True, verify_proofs=True):
-    """`check_proofs` = hand the solver a proof path, i.e. make it WRITE one.
+    """`check_proofs` = hand the solver a proof path, i.e. make it write one.
     `verify_proofs` = actually run the checker over what it wrote.
     `score_proofs` = let a failed check count the instance unsolved.
 
     The three are separate because they answer separate questions.
 
-    WRITING is a TIMING requirement and applies to every arm (plan §8.1 rev 72):
+    Writing is a timing requirement and applies to every arm (plan §8.1):
     proof generation costs 4.4-6.9 % and the tax is solver-specific, so a
-    proof-free baseline number is not comparable to ours.
+    proof-free baseline number is not comparable.
 
-    VERIFYING a BASELINE's proof buys nothing and is expensive. `score_proofs`
-    is already False for baselines — their failed checks are recorded and never
-    held against them — so the check cannot change any verdict. Measured, it
-    is also the majority of all checking wall-clock in a tier run, for zero
-    verdict impact. Hence `verify_proofs` defaults to False for baselines
+    Verifying a baseline's proof cannot change any verdict — `score_proofs` is
+    already False for a baseline, so its failed checks are recorded and never
+    held against it — while costing the majority of a tier run's checking
+    wall-clock. Hence `verify_proofs` defaults to False for a baseline
     (--verify-baseline-proofs opts back in for a submission-grade claim).
     `proof_bytes` is still recorded from a stat, so proof size stays a tracked
     metric for every arm.
 
     `score_proofs` False without `verify_proofs` False = verify, record, never
-    score. Do NOT score a baseline's certificate against OUR checker budget:
-    measured, that alone costs the references several instances and reads as a
-    large win for us where we are in fact behind."""
+    score. A baseline's certificate must not be scored against this runner's
+    checker budget: measured, that alone costs the references several instances
+    and reads as a win that was not earned."""
     fmt = proof_format(cmd)
     res = {"instance": rel, "expected": expected, "verdict": "UNKNOWN",
            "time": timeout, "solved": False, "mismatch": False,
@@ -383,8 +372,8 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
            "proof_msg": None,
            # The classified checker outcome (CHK_*) and the checker's own
            # diagnostic lines. `proof_msg` is prose and may be truncated;
-           # `proof_check_kind` is the machine-readable fact, and it is what
-           # separates "our certificate is wrong" from "the checker gave up".
+           # `proof_check_kind` is the machine-readable fact separating an
+           # invalid certificate from a checker that gave up.
            "proof_check_kind": None, "proof_check_detail": None,
            # §8.1 native-LRAT re-check: "lrat" when it saved the instance, a
            # "failed: ..." reason when it was tried and did not, None when the
@@ -415,7 +404,7 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                 if score_proofs:
                     res["solved"] = False
             else:
-                # size is free from a stat and is a tracked metric for EVERY arm
+                # size is free from a stat and is tracked for every arm
                 res["proof_bytes"] = os.path.getsize(proof)
                 if not verify_proofs:
                     res["proof_msg"] = "written, not verified (§8.1: baseline)"
@@ -428,14 +417,13 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                     res["proof_msg"] = msg
                     res["proof_check_kind"] = kind
                     res["proof_check_detail"] = detail or None
-                    # §8.1 second chance, deliberately narrow. Only a checker
-                    # that RAN OUT OF TIME qualifies: a REJECTION is a real N2
-                    # failure and silencing it would be a correctness hole.
-                    # Only a SCORED arm (ours — a baseline's check cannot change
-                    # a verdict and its CLI need not take `--lrat`), and only a
-                    # DRAT arm (an `--lrat` arm has nothing left to re-check).
-                    # The gate is now the CLASSIFIED kind, not a prefix match on
-                    # a prose message — see classify_checker_output.
+                    # §8.1 second chance, deliberately narrow, and gated on the
+                    # classified kind rather than a prose prefix. Only a budget
+                    # outrun qualifies — a rejection is a real N2 failure, and
+                    # silencing it would be a correctness hole. Only a scored
+                    # arm (a baseline's check cannot change a verdict and its
+                    # CLI need not take `--lrat`), and only a DRAT arm (an
+                    # `--lrat` arm has nothing left to re-check).
                     if (not ok and score_proofs and fmt == "drat"
                             and kind == CHK_TIMEOUT):
                         ok = lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb)
@@ -586,13 +574,13 @@ def summarize(name, results, timeout, shape):
     if mism:
         lines.append(f"  !! VERDICT MISMATCHES ({len(mism)}): "
                      + ", ".join(r["instance"] for r in mism[:5]))
-    # scored arms (ours): a failed check is a correctness stop. Unscored arms
-    # (baselines): recorded with the checker's own message, never held against
-    # them — plan §8.1 rev 72.
+    # Scored arm: a failed check is a correctness stop. Unscored arm (a
+    # baseline): recorded with the checker's own message, never held against
+    # it — plan §8.1.
     scored_rej = [r for r in prej if r.get("proof_scored")]
     noted_rej = [r for r in prej if not r.get("proof_scored")]
     if scored_rej:
-        # Split by CLASSIFIED kind: an invalid certificate (N2) and a checker
+        # Split by classified kind: an invalid certificate (N2) and a checker
         # that gave up (resource/budget) are different incidents and must not
         # share a headline. Old results.json have no kind — they read as
         # "unclassified" rather than being silently counted as either.
@@ -664,7 +652,7 @@ def correctness_record(all_results, solver_meta):
     return {
         "clean": not (mism or bad or gave_up),
         "verdict_mismatches": mism,
-        "invalid_certificates": bad,      # N2: our proof was rejected
+        "invalid_certificates": bad,      # N2: the proof was rejected
         "checker_gave_up": gave_up,       # budget/resource, a scoring artefact
         "unverified_scored_arms": sorted(set(unverified)),
     }
@@ -874,9 +862,9 @@ def slurm_aggregate(outdir):
                   if s.get("score_proofs", True)], man["timeout"])
     if orc:
         print(summarize_oracle(orc, man["shape"]), flush=True)
-    # single-instance sensitivity for each scored arm against the FIRST scored
-    # arm (the baseline). See leave_one_out(): the headline alone has now hidden
-    # a one-instance verdict three times running.
+    # Single-instance sensitivity for each scored arm against the first scored
+    # arm (the baseline) — a headline alone can hide a one-instance verdict.
+    # See leave_one_out().
     scored = [s2["name"] for s2 in man["solvers"] if s2.get("score_proofs", True)]
     fragility = []
     for other in scored[1:]:
@@ -891,10 +879,9 @@ def slurm_aggregate(outdir):
             "solvers": {s["name"]: " ".join(s["cmd"])
                         for s in man["solvers"]},
             "oracle": orc,
-            # The fragility reading DECIDES whether a delta is a verdict or
-            # one coin flip, and it lived only on stdout -- so a later reader of
-            # a banked number had to re-run --aggregate to find out. Persisted
-            # next to the numbers it judges.
+            # Persisted, not stdout-only: the fragility reading decides whether
+            # a delta is a verdict or one coin flip, so it belongs next to the
+            # numbers it judges.
             "fragility": fragility,
             "correctness": correctness,
             "results": all_results}
@@ -911,8 +898,8 @@ def slurm_aggregate(outdir):
         return 2  # staged/ kept so the resubmission can run
     shutil.rmtree(os.path.join(outdir, "staged"), ignore_errors=True)
     if any_bug or banner:
-        # Repeated at the END as well as the start: an aggregate.log is read
-        # from both ends, and this one must not be walkable-past from either.
+        # Repeated at the end as well as the start: an aggregate.log is read
+        # from both ends, and this banner must be visible from either.
         print(banner or "CORRECTNESS BUG(S) FOUND — stop performance work; "
                         "follow the fuzz skill's failure procedure.")
         return 1  # per-task logs kept: they are the debugging record
@@ -999,15 +986,14 @@ def leave_one_out(a_name, a_res, b_name, b_res, timeout):
 
 def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
                  stamp, sha, name):
-    # INSTANCE-MAJOR, deliberately. Solver-major ordering gives arm 0 the task
-    # indices 0..N-1, so SLURM packs that whole arm onto whichever node it fills
-    # first and spills later arms elsewhere -- ARM IDENTITY ENDS UP CORRELATED
-    # WITH NODE IDENTITY, a confound the runner itself manufactures. Measured,
-    # the SIGN of the per-instance delta then tracks the NODE rather than the
-    # arm. Interleaving spreads each arm over all nodes evenly and puts one
-    # instance's arms adjacent in dispatch order, so they contend alike.
-    # Safe to reorder: the aggregator resolves the arm through
-    # `man["solvers"][t["solver"]]`, never from index arithmetic.
+    # Instance-major, deliberately. Solver-major ordering gives arm 0 the task
+    # indices 0..N-1, so SLURM packs that arm onto whichever node it fills first
+    # and spills later arms elsewhere, correlating arm identity with node
+    # identity — a confound the runner would manufacture itself, and one that
+    # measurably flips the sign of a per-instance delta. Interleaving spreads
+    # each arm over all nodes and puts one instance's arms adjacent in dispatch
+    # order, so they contend alike. Safe to reorder: the aggregator resolves the
+    # arm through `man["solvers"][t["solver"]]`, never from index arithmetic.
     tasks = []
     for rel, status, _ in entries:
         for si in range(len(solvers)):
@@ -1032,18 +1018,16 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
     me = os.path.abspath(__file__)
     array = f"0-{len(tasks) - 1}" + (f"%{args.throttle}"
                                      if args.throttle else "")
-    # Per-task wall limit: solve + the plan §8.1 checker budget, TWICE, + slack.
-    # The second copy pays for `lrat_rescue` — a re-solve plus a cake_lpr run.
-    # A limit that cannot fit the runner's own worst case is a trap: SLURM
-    # SIGKILLs the task mid-rescue and the instance comes back MISSING instead
-    # of solved.
+    # Per-task wall limit: twice (solve + the plan §8.1 checker budget), plus
+    # slack. The second copy pays for `lrat_rescue` — a re-solve plus a cake_lpr
+    # run. A limit that cannot fit the runner's own worst case is a trap: SLURM
+    # kills the task mid-rescue and the instance comes back missing.
     tlimit = fmt_time(2 * (timeout + checker_budget(timeout)) + 120)
-    # PIN EVERY ARM TO ONE NODE (--nodelist). For an A/B this is not a nicety:
-    # the arms must contend alike, and the partition's nodes do NOT -- their
-    # allocation can differ by a factor of several at any moment. An arm that
-    # spills onto the quiet node wins instances it did not earn. Pinning also
-    # makes a run comparable to the recorded PAR-2 noise floor, which was itself
-    # measured with all arms pinned to one node.
+    # Pin every arm to one node (--nodelist). An A/B requires the arms to
+    # contend alike, and the partition's nodes do not: their load can differ by
+    # a factor of several at any moment, so an arm that spills onto the quiet
+    # node wins instances it did not earn. Pinning also matches how the recorded
+    # noise floor was measured.
     nodeline = f"#SBATCH --nodelist={args.nodelist}" if args.nodelist else ""
     apath = os.path.join(outdir, "array.sbatch")
     with open(apath, "w") as f:
@@ -1077,9 +1061,9 @@ exec {sys.executable} {me} --aggregate {outdir}
         return 0
     buildlock_gc()            # reclaim anything a dead job left locked
     jobid = sbatch(apath)
-    # The array now OWNS every build directory its arms point at. Locking is
-    # done AFTER submission (we need the job id) and is best-effort: a failure
-    # here must never cost a submission that already happened.
+    # The array now owns every build directory its arms point at. Locking runs
+    # after submission (the job id is needed) and is best-effort: a failure here
+    # must never cost a submission that already happened.
     owned = build_dirs_of(solvers)
     buildlock_acquire(owned, jobid, f"bench {args.tier} {name} {stamp}")
     aggid = sbatch(gpath, f"--dependency=afterany:{jobid}")
@@ -1163,10 +1147,11 @@ def main() -> int:
 
     sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"],
                          capture_output=True, text=True).stdout.strip()
-    # (name, cmd, check_proofs, verify_proofs, score_proofs). Plan §8.1:
-    # EVERY arm WRITES proofs (a timing requirement — the tax is
-    # solver-specific). Only ours is VERIFIED and SCORED by default; a
-    # baseline's check cannot change a verdict, so it is not run at all unless
+    # (name, cmd, check_proofs, verify_proofs, score_proofs). Plan §8.1: every
+    # arm writes proofs, since the write tax is solver-specific and timing a
+    # proof-writing solver against a proof-free one compares two workloads.
+    # Only the solver under test is verified and scored by default; a baseline's
+    # check cannot change a verdict, so it is skipped unless
     # --verify-baseline-proofs asks for it. See run_instance's docstring.
     solvers = [(name, shlex.split(args.solver), not args.no_check,
                 not args.no_check, True)]
@@ -1236,10 +1221,7 @@ def main() -> int:
             "git": sha, "date": stamp, "mem_gb": mem_gb,
             "solvers": {n: " ".join(c) for n, c, *_ in solvers},
             "oracle": orc,
-            # The fragility reading DECIDES whether a delta is a verdict or
-            # one coin flip, and it lived only on stdout -- so a later reader of
-            # a banked number had to re-run --aggregate to find out. Persisted
-            # next to the numbers it judges.
+            # Persisted next to the numbers it judges; see the aggregate path.
             "fragility": fragility,
             "correctness": correctness,
             "results": all_results}
