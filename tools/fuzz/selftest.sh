@@ -65,17 +65,17 @@ echo "shrunk to $MINCLAUSES clauses"
 
 echo "== duplicate input literals: the CONVERSION cross-check must stand down, =="
 echo "== and the NATIVE-LRAT oracle must still fire                          =="
-# drat-trim DELETES duplicate literals as it parses the CNF; lrat-check does
-# not; `drat-trim -L` cites input clauses by id. So on this 5-clause formula
-# the converted LRAT is rejected for EVERY solver -- kissat's and cadical's own
-# proofs included -- benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md.
-# That is a checker disagreement,
-# not a solver defect, so the cross-check must SKIP (visibly, counted) rather
-# than blame the solver. The native-LRAT oracle reads ids our own emitter
-# wrote and must keep checking these cases: it is the oracle that covers the
-# frontend restatement, and silently losing it is how this class hides.
+# drat-trim deletes duplicate literals as it parses the CNF, lrat-check does
+# not, and `drat-trim -L` cites input clauses by id. So on this 5-clause
+# formula the converted LRAT is rejected for every solver, kissat's and
+# cadical's own proofs included — a checker disagreement, not a solver defect,
+# so the cross-check must skip visibly and counted rather than blame the
+# solver. Evidence:
+# benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md.
+# The native-LRAT oracle reads ids the emitter here wrote and must keep
+# checking these cases: it is the oracle covering the frontend restatement.
 printf 'p cnf 3 5\n1 1 0\n-1 2 0\n-1 3 0\n-2 -3 0\n2 3 0\n' > "$TMP/dup.cnf"
-# (a) the conversion cross-check stands down, and SAYS SO
+# (a) the conversion cross-check stands down, and says so
 $FUZZ check-one --solver "$KISSAT" --timeout 10 --lrat "$TMP/dup.cnf" \
     > "$TMP/dup-conv.log" 2>&1 || true
 grep -q "skipped=\[('lrat-convert'" "$TMP/dup-conv.log" \

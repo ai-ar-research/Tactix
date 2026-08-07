@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Re-derive the T3 rule-neutral subset from a REPLICATED sweep ablation.
+"""Re-derive the T3 rule-neutral subset from a replicated sweep ablation.
 
 The shipped `benchmarks/tiers/C-ruleneutral.list` came from a single-shot
 ablation: exclude an instance iff ablating Sweep moved either baseline by >25 %.
@@ -12,17 +12,17 @@ This applies the criterion that single-shot data could not support:
     exclude iff  |median(nosweep) - median(base)|  >  max(band(base), band(nosweep))
                  and the relative move exceeds REL_MIN
 
-where band(arm) = max - min over that arm's repeats on that instance. In words:
-THE SWEEP DELTA HAS TO STAND OUT AGAINST THE INSTANCE'S OWN VARIANCE, not
-against zero. An instance whose replicates already span more than the sweep
-effect is not evidence about sweep, and it stays IN the subset.
+where band(arm) = max - min over that arm's repeats on that instance. The sweep
+delta has to stand out against the instance's own variance, not against zero:
+an instance whose replicates already span more than the sweep effect is not
+evidence about sweep, and it stays in the subset.
 
     tools/bench/subset_rederive.py benchmarks/runs/<stamp>-C-<name> [--write]
 
-Criterion validated on synthetic data: a tight-band 3x sweep move is EXCLUDED,
-while a move that sits inside its own replicate band is KEPT even though the
-single-shot rule would have excluded it -- which is exactly the shape of the
-perturbation-fragile instances the shipped list drops.
+Criterion validated on synthetic data: a tight-band 3x sweep move is excluded,
+while a move inside its own replicate band is kept even though the single-shot
+rule would have excluded it — the shape of the perturbation-fragile instances
+the shipped list drops.
 
 Prints the per-instance table and the proposed list; --write updates
 benchmarks/tiers/C-ruleneutral.list in place (header regenerated).
@@ -51,21 +51,15 @@ def main():
     run = json.load(open(os.path.join(args.rundir, "results.json")))
     T = run["timeout"]
 
-    # group arms by family: k_* / knosw_* / c_* / cnosw_*
+    # Group arms by family: k_* / knosw_* / c_* / cnosw_*
     #
-    # TIMING IS VERDICT-BASED, NOT SCORE-BASED, and deliberately so. This is a
-    # BASELINE ablation: the question is "does removing Sweep change how long
-    # the solver takes", and proof checking happens AFTER the solve and never
-    # affects it. Plan §8.1 rev 72 says a baseline's failed check is recorded
-    # and never scored against it — the runner nevertheless scores arms passed
-    # via --checked-arm, which is a harness quirk (that flag forces
-    # score_proofs=True), not a measurement intent. Using the scored `solved`
-    # flag here would charge an arm 2*timeout for a checker-budget timeout on a
-    # correctly solved instance and destroy the replicate bands.
-    # Verified: an unchecked arm and a checked arm of the SAME configuration
-    # differ in solve time by less than two checked arms do -- i.e. checking
-    # does not shift solve time.
-    # A genuine wrong answer (`mismatch`) still counts as unsolved.
+    # Timing is verdict-based, not score-based, and deliberately so: this is a
+    # baseline ablation asking whether removing Sweep changes solve time, and
+    # checking happens after the solve. Plan §8.1 keeps a baseline's failed
+    # check unscored, but `--checked-arm` forces score_proofs=True, so the
+    # scored `solved` flag would charge 2*timeout for a checker-budget timeout
+    # on a correctly solved instance and destroy the replicate bands. A genuine
+    # wrong answer (`mismatch`) still counts as unsolved.
     fams = {}
     for arm, recs in run["results"].items():
         fam = arm.rsplit("_", 1)[0]
@@ -94,8 +88,8 @@ def main():
             delta = abs(nm - bm)
             band = max(bb, nb)
             rel = (nm / bm) if bm else 1.0
-            # BOTH tests must fire: bigger than the instance's own variance AND
-            # a materially large relative move.
+            # Both tests must fire: bigger than the instance's own variance,
+            # and a materially large relative move.
             if delta > band and (rel > REL_MIN or rel < 1 / REL_MIN):
                 excl = True
                 why.append(f"{tag} {rel:.2f}x d={delta:.0f}>band={band:.0f}")
