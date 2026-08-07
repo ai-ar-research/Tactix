@@ -45,8 +45,7 @@ kissat's strategy, aggressively remove what does not fit*). Read
 `benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before touching the
 policy.
 
-**▶ FIRST THING NEXT SESSION — read the three runs that were in flight**, then tick or revert:
-- `--random-policy` fuzz leg **1590257** (increment 3's third soundness leg).
+**▶ FIRST THING NEXT SESSION — read the two runs that were in flight**, then tick or revert:
 - **`benchmarks/runs/20260807-183429-B-kf3`** and **`…-183432-C-kf3`** — increment 3's tier pair. Aggregate
   with `tools/bench/run.py --aggregate <dir>` if the dependent job did not run.
 - Guard: **no lost solve** on either tier. A lost solve reverts increment 3; revert is a first-class outcome.
@@ -474,8 +473,9 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   bare property. That was this bug. Removed with it: `bve_dose_declined` entirely, the cost-per-yield admit
   arm, Factor's scope-percent union arm, and the `TACTIX_BVE_ADMIT` / `BVE_DOSE_DENSITY` / `FACTOR_DENSITY` /
   `COMPOSITE_DENSITY` knobs. −75/+10 lines, 38 → 34 knobs. ctest 58/58; fuzz DRAT 10,000 · LRAT 10,000,
-  **0 failures**. **`--random-policy` leg and the Tier B+C pair are IN FLIGHT** (`20260807-…-B-kf3` /
-  `…-C-kf3`) — read them before treating this as validated.
+  **0 failures**, and `--random-policy` × LRAT 5,000, **0 failures** (non-termination 16.2 %, the known
+  `RV-S31`(b) population). **All three soundness legs are green; the Tier B+C pair is IN FLIGHT**
+  (`20260807-183429-B-kf3` / `…-183432-C-kf3`) — read it before treating this as validated.
   **▶ This also re-opens a banked conclusion:** the *0-for-5 record of hand-designed formula-shape separators*
   was measured THROUGH this gate, so those five negatives are suspect, not evidence.
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
