@@ -23,99 +23,47 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 - **Last updated:** 2026-08-06 — compaction pass landed with plan rev 84 (4254 → this). Status lives in the anchor below; completed work is
   compressed to result + pointer, with the detail in the cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **R9 + R10 LANDED; the inventory is complete, the EXIT is not ticked**
+## ▶ RESUME HERE (2026-08-07) — **phase 4, block 1: price the UNPRICED table**
 
-**Plan rev 83 restructured the phases.** Phase 3 exits on the **rule inventory**, not a tier number; everything
-that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T3**, **discharging N4** and the
-**Tier D run**. Four decisions fix the boundary: "implemented" = registered + sound + N1/N2-clean + fuzz-green,
-*not* yield-comparable (so V5 Sweep counts as done and its yield is phase-4 dosing) · X5 `Condition` stays a
-reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
-non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
+**Phase 3 closed 2026-08-07** on rule completeness (`ec67df7`; report
+`benchmarks/reports/2026-08-07-phase-3-gate.md`). The rule inventory is done and machine-checked; nothing below
+is a missing capability. **Phase 4 is dosing, optimization and scheduling.** Exit = **T3 + N4 discharged + one
+Tier D campaign**.
 
-**NOTHING IN FLIGHT** (`squeue -u hwu`: only this session's own `cpu-q` shell) — always check `squeue` rather
-than trusting a line here.
+**Where we stand** (`edfba14`, two pin dirs, verified identical shas, quiet partition):
+Tier B **103.75, 24/28** · Tier C **348.00, 29/30** · T3 **1.115× cadical / 1.412× kissat** on the subset.
+Both halves NOT MET. **NOTHING IN FLIGHT** (`squeue -u hwu`: only the session's own `cpu-q` shell).
 
-**▶ THE PHASE-3 EXIT IS THE LIVE QUESTION.** The inventory half is DONE and machine-checked — all 28 catalog
-families have a disposition (`implementation-notes.md` §17, ctest `inventory`), R1–R10 resolved, X5 `Condition`
-a reasoned no-implement with its reopening path. What is owed is the EVIDENCE half, running as `1587896`.
+**▶ NEXT STEP — submit phase-4 pricing batch 1.** The script is written and dry-run validated:
+`$CLAUDE_JOB_DIR/tmp/price-tierb.sh` (re-create from the phase-4 UNPRICED table if the job dir is gone — the
+table has every arm, its knob and its counter). One Tier B window, 17 arms + both baselines, knob IN THE
+COMMAND. **`shipped2` is a bit-identical replicate and is not optional**: it is the in-window noise bar, and
+that pair has measured 1.39 PAR-2 in aggregate but **41 s per instance**, so small deltas are unreadable
+without it. Tier B first at 300 s because #solved beats PAR-2; only survivors earn a Tier C window, which needs
+its own pin dir. **Read the per-arm `node` field before believing anything under ~2 noise floors** — array task
+index is `arm × n_instances + instance`, so arm 0 lands systematically on one node.
 
-**Rev 88 exists because rev 85's own reached condition was UNSATISFIABLE.** It demanded a `--require-reached`
-fuzz leg per family on the shipped DefaultPolicy — which no leg can give for an OFF-by-default family
-(S7 `Reorder`), which fuzz-sized instances cannot give for BVE or Factor, and which is not how R9's or R10's
-evidence was actually produced: both used source-counted probes on tier instances. Either form now counts, the
-OFF-default exemption is explicit and narrow, and a family firing on neither is a finding.
+**▶ BEFORE RUNNING IT: 17 of the 18 rows are marked RE-REGISTER.** A pre-registration is only an experiment
+while the binary it was written against is still the baseline, and both the ledger-wrap fix and `S-g` changed
+what a tick BUYS. Restate each arm's ship criterion against current HEAD first. This failure has already
+happened at scale once ("every prior dose negative measured through the broken meter is VOID", five arms).
 
-**▶ THE REACH CONDITION IS MET, and it is the exit's last open evidence item.** From the Tier B array's own
-`reached` counters (`20260806-220910-B-shipped`, 24 of 28 tasks produced stats; the 4 timeouts correctly
-contribute nothing): **every registry entry fires on the shipped DefaultPolicy except `Reorder`**, which ships
-OFF by design and is plan §9's named exemption. Propagate / ConflictAnalysis / Lucky / Congruence 24/24, most
-others 22–23/24, and the sparse tail is BCE 17 · HyperTernaryRes 13 · Instantiate 12 · Factor 10 · BVE 9 — all
-non-zero, which is what the condition asks. **This retires the "19 of 25 entries fire" reading entirely**: that
-figure was the round-counter artefact, measured on fuzz-sized instances through a broken instrument.
-**10,000-case fuzz on the post-R9/R10 tree is GREEN** (`1587899`): DRAT **0/10,000** (coverage 9,664) · native LRAT **0/10,000** (9,662) · `--random-policy` **0/10,000** (8,149) · corpus **14/14 both formats**. **▶ CORRECTION: I first recorded this as "nightly-scale" and it is NOT** — `run.sh --nightly` is **200,000 cases plus `--lrat`**, so this is 20× short, and its random-policy arm is DRAT-only while the last random-policy × native-LRAT leg predates R10 and `S-g`, both proof-delta changes. Two exit clauses ride on this one job, so the real leg is owed and is running as `1587986`. The 18.5 % non-terminating figure is at `--timeout 5 s`; the 11.4 % quoted elsewhere in this file is at 10 s — **always state the timeout with the figure**, since the population is a function of it.
+**▶ THE TARGETS ARE NAMED, so phase 4 does not have to chase an aggregate.**
+- **Tier B's gap is four instances, not a slowdown.** We time out where kissat takes **3.8–16.4 s**
+  (`veer_axi…p23_transition` 3.8 s is the sharpest single target in the project), and those four carry **85.7
+  of our 103.75 PAR-2**. On the 24 we solve, the worst is 6.6× and we beat kissat on four.
+- **Tier C's kissat gap is broad and shallow** — median 1.51×, no timeouts among the worst eight, and 93 % of
+  it is eight named instances. Two are the `T`-series (Congruence was 47 % of a solve before metering) and
+  `minxor128` is Sweep's. That points at dosing, not a missing mechanism.
 
-*Still owed for the exit: the `--random-policy` half — a rule can fire under DefaultPolicy's schedule and never
-be driven through `apply_instance` with a non-canonical payload. Under audit.*
+**▶ TWO ROWS CANNOT BE ENV ARMS**, both checked feasible: `S-g` needs a binary from `73af059`'s parent (a
+worktree + a second pin dir), and the `E2` ordering arms are priced ONE RULE AT A TIME, never as a bundle.
 
-**▶ THE NEXT STEPS, in order.**
-1. **Finish the exit evidence.** The reach condition is MET on DefaultPolicy and every rule is reachable under
-   `--random-policy` (audit report `benchmarks/reports/2026-08-06-phase-3-exit-audit.md`). **Four clauses are
-   not yet satisfied as written, and none is a capability gap:**
-   **(a) V5 `Sweep` is registered with `nullptr, nullptr` — it has NO instance surface**, while `sweep.hpp:241`
-   and `sweep.cpp:304` both assert one exists and `SP-SWEEP-5`'s CLOSED disposition rests on that sentence.
-   `tactix_apply_instance(Sweep, seed)` returns −1 and all 36,243 random-policy Sweeps were canonical. Either
-   register it (`sweep_seeds`/`sweep_detect_seed` exist and are unit-tested) or write the deviation row AND
-   correct the three assertions — it is currently neither.
-   **(b) the real nightly leg** (`1587986`): 200k + native LRAT, plus the `--random-policy × native-LRAT` leg
-   that does not exist at HEAD even though R10 and `S-g` both changed proof deltas.
-   **(c) two REACH keys are wrong**: `ConflictAnalysis` keys on `c conflicts`, which `propagate.cpp:88`
-   increments — so `--require-reached ConflictAnalysis` is satisfied by Propagate alone; and `Rephase` keys on a
-   counter `walk.cpp:475` also increments. Seven further rows key on round counters their `_try` path never
-   moves — harmless only while those rules are un-dosed, **and phase 4's whole job is to dose them**.
-   **(d)** attach the TIMEOUT to the non-termination figure wherever it appears.
-
-2. **Evaluate the gate, write the report** to `benchmarks/reports/`, tick phase 3, open phase 4.
-3. **Phase 4's pricing campaign, batch 1 — SPECCED AND READY**, script at
-   `$CLAUDE_JOB_DIR/tmp/price-tierb.sh`, submit once `1587896` is off the partition (a window whose output is a
-   TIME must own a quiet partition). **One Tier B window, 17 arms + both baselines**, knob IN THE COMMAND: the
-   16 env-knob arms of the UNPRICED table plus the two `--bve-gates` arms, each verified present in the source
-   before being written down. **`shipped2` is a bit-identical replicate and is not optional** — it is the
-   in-window noise bar the whole campaign is read against (the S-f window put that pair at 1.39 PAR-2 aggregate
-   but **41 s per instance**, so every small delta is unreadable without it). Tier B first at 300 s because it
-   is cheap and #solved beats PAR-2; only survivors earn a Tier C window, and that needs its own pin dir.
-   **Read the `node` field per arm before believing anything under ~2 floors** — array task index is
-   `arm × n_instances + instance`, so arm 0 lands systematically on one node.
-   **Two rows cannot be env arms and are owed separately, both now checked feasible.**
-   **`S-g`** needs a second binary built from `73af059`'s parent, not a knob — `73af059` exists and is the S-f
-   close, so the arm is `git worktree` + a second pin dir in the same window. Its risk is stated in the table:
-   the dose is unchanged in TICKS but a dedup probe went `|keys|` → 1, so the same budget buys more work and
-   Sweep's wall share RISES; if it loses, the first lever is `sweepeffort`, not a revert.
-   **`E2`** has seven arms (`native` shipped, plus `reverse`, `random`, `occ-asc`, `occ-desc`, `negocc-desc`,
-   `heuristic`) across six knobbed rules. Priced ONE RULE AT A TIME — the four-arm bundle's `9vliw` win was one
-   instance and a bundle — so it is its own later window, not part of batch 1.
-
-**▶ ALSO JUST LANDED, UNPRICED: Sweep's yield defect is fixed** (`S-g`, merged from `sweep-yield`). It was
-neither dosing nor semantics — **97.1 % of Sweep's effort on `b22_1` went to a linear array scan** (`env_add`'s
-clause dedup), leaving 1.5 % for the sub-solver, so the dose bought **174 environments where kissat builds
-11,416**. Open-addressed key set + kissat's ascending-occurrence seed rank + nearest-first candidates:
-**`b22_1` 0 → 239 equivalences and 0 → 478 emitted binaries at 1.4 % FEWER ticks** (kissat 545). **Its tier A/B
-is specified and NOT run**, and its risk is not the obvious one — the dose is unchanged in *ticks*, but a dedup
-probe that cost `|keys|` now costs 1, so the same budget buys far more real work and Sweep's wall-clock share
-rises. If it loses, the first lever is `sweepeffort`, not a revert. Report
-`benchmarks/reports/2026-08-06-sweep-yield-diagnosis.md`.
-
-**▶ THREE TRAPS THAT APPLY TO THE NEXT ACTION.**
-- **The effort ledger was WRAPPING and that was the whole overnight regression** (fixed, `7b9f9d2`+`8b27c63`;
-  report `benchmarks/reports/2026-08-06-solve-loss-diagnosis.md`). `set_entry_limit` sized a dose as an UNSIGNED
-  `search_ticks - anchor` where `search_ticks` was **not monotone**, so the subtraction wrapped and **deleted**
-  the dose (`delta ≈ 2^64/10`), letting the two `budget_aware` closures run to exhaustion. Loss-set PAR-2
-  8400 → 1944, solved 7/12 → 11/12. SCHED-D2 was the TRIGGER, not the defect, and stays (it is N4).
-- **`TACTIX_SLOT_CLOCKS` / `TACTIX_SLOT_WATERMARK` make the whole Stage-D/E/F/G set ablatable from one binary** —
-  but the first cut of the clock hatch advanced BOTH clocks after one phase and starved the entire elimination
-  family (`c bve 0 rounds`) while appearing to restore all five losses. Caught only by reading `c slot-clock`'s
-  `eliminate phases 0`. **Read the telemetry before banking any arm.**
-- **Every `--random-policy × N, 0 failures` figure in this file is over N minus a non-terminating population** —
-  measured at 11.4 %, with 0 % for DefaultPolicy. The harness now prints it; the diagnosis is still open.
+**▶ CARRIED FORWARD from the gate audit** (none blocking, all in the report's closing section): `bve_schedule`
+and `walk_instances` under-enumerate their own instance space (`RV-S17`/`RV-S18` — N1 completeness, currently
+mis-filed under hygiene); no C-API mirror of the slot pose surface; the `--random-policy` livelock diagnosis;
+and ~25 facts that survived the comment sweep as one-liners and want a home in `implementation-notes.md`,
+including a BVE bound-ramp justification withdrawn in source while four docs still cite it.
 
 ## ▶ MEASUREMENT STATE AND PROTOCOL (plan §8.1 rev 84)
 
@@ -578,6 +526,38 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
+
+### 2026-08-07 — PHASE 3 CLOSED on rule completeness; phase 4 opens
+
+**Gate report `benchmarks/reports/2026-08-07-phase-3-gate.md`, commit `edfba14`.** All four exit clauses met:
+28/28 catalog families dispositioned (ctest `inventory`); 26 registry entries with guard/instances/apply;
+**200,000 cases + native LRAT at 0 failures** plus the `--random-policy` × native-LRAT leg that had never been
+run (50,000, 0 failures) and the corpus on both formats; and every registry entry reaching on Tier B except
+`Reorder`, the OFF-by-design exemption, with all 26 shown driven under `--random-policy` measured at the
+dispatch. Performance recorded, not gating: Tier B **103.75 (24/28)**, Tier C **348.00 (29/30)**, T3
+**1.115× cadical / 1.412× kissat** subset.
+
+**▶ WHAT TRYING TO PASS THE GATE FOUND, which is the part worth keeping.** Nothing was a capability gap; four
+things were claims that read green for a reason other than the one stated.
+- **V5 Sweep had NO instance surface** — registered `nullptr, nullptr` while three places asserted one existed
+  and `SP-SWEEP-5`'s CLOSED disposition rested on that sentence. All 36,243 random-policy Sweeps were canonical.
+- **`ConflictAnalysis`'s reach key was `c conflicts`, which the PROPAGATE rule increments**, so
+  `--require-reached ConflictAnalysis` was satisfiable without it running. Same shape as the five `dosed` rules
+  keyed on round counters `apply_instance` never moves. **A counter that cannot move makes a rule that ran look
+  untested** — the inverse of the vacuity these tables exist to catch.
+- **My own rev-85 exit clause was UNSATISFIABLE** (a fuzz leg per family on the shipped policy — impossible for
+  an OFF-by-default family), corrected by rev 88.
+- **I committed a 10,000-case run as "nightly-scale"**; `run.sh --nightly` is 200,000 + `--lrat`. 20× short,
+  and two exit clauses were riding on it.
+
+**Also landed:** the comment sweep — **11,483 → 6,462 comment lines (−44 %)** with a **byte-identical Release
+binary** and code lines unchanged at 24,689. The hygiene checker had been green through three complaints
+because it policed a finding's *provenance* and never its *register*; widened, it found **969 hits** in a
+"clean" tree and has since caught two of my own comments. Plus a real guard defect (`--no-heuristics` validated
+a narrower stress set than `--replay`, letting a stress policy run with `k.h == nullptr`), the four unread tier
+windows banked (which **overturned the `gates`+`c1c2` flips** — every arm loses a Tier C solve), and four
+mechanical defences: run summaries tracked, citation and section-ref checkers, and the reach table wired into
+every tier run so a gate condition is a byproduct rather than a separate sweep.
 
 ### 2026-08-06 — the day's results, compressed (detail in the cited report / commit / ledger row)
 
