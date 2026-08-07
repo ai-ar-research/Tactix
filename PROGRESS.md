@@ -11,42 +11,38 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 91 (2026-08-07, user) — **phase 4's per-knob pricing table is RETIRED and
-  replaced by a faithful PORT of the references' dosing scheme** (design pass
-  `docs/design/2026-08-07-reference-dosing.md`; five of our fifteen effort rows are backed by no reference, our
-  allowance formula is a kissat/cadical hybrid, and we tax search ~1.6× harder than kissat). Records the user's
-  decision to KEEP our standalone `HyperBinaryRes` bounded by a **policy-side** structural cap — N1 forbids
-  narrowing `instances()` — as an accepted `docs/implementation-notes.md` §13.3 deviation. Exit criteria unchanged. rev. 90 — **§5 obligation 6: transliteration is the DEFAULT FIRST
+- **Plan revision tracked:** rev. 91 — **phase 4's dosing work is a faithful PORT of the references' dosing
+  scheme** (design pass `docs/design/2026-08-07-reference-dosing.md`; five of our fifteen effort rows are backed
+  by no reference, our allowance formula is a kissat/cadical hybrid, and we tax search ~1.6× harder than
+  kissat). Our standalone `HyperBinaryRes` stays, bounded by a **policy-side** structural cap — N1 forbids
+  narrowing `instances()` — as an accepted `docs/implementation-notes.md` §13.3 deviation (user decision: do not
+  reverse it unilaterally). Exit criteria unchanged. rev. 90 — **§5 obligation 6: transliteration is the DEFAULT FIRST
   MOVE.** DefaultPolicy should essentially do what Kissat/CaDiCaL do in their default strategy with N1–N4
   satisfied; more sophisticated is allowed only on top of a transliterated baseline kept as a permanent arm, so
   the *deviation* owes the argument. Kissat is the tie-break source; port the mechanism and its EFFECT, never
   the code (an inert port reads as parity while doing nothing); it is a floor, not a target; and a constant no
-  reference backs is an invention to delete or re-derive, never to tune. rev 89 decided O9: **Tier D's
+  reference backs is an invention to delete or re-derive, never to tune. rev 89 decides O9: **Tier D's
   composition is frozen through the phase-4 campaign** (no SC2026), and T4's SC25 set is a scoring view.
-  **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
-  reference inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
-  everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
-  file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
-  state #solved before PAR-2. Earlier: rev 80 made **N4, the strategy floor**, a non-negotiable
-- **Current phase:** **4 — dosing, optimization, scheduling** (opened 2026-08-07). Phase 3 CLOSED the same day
-  on rule completeness; report `benchmarks/reports/2026-08-07-phase-3-gate.md`. **Block 1 CLOSED 2026-08-07**;
-  the phase then RESTARTED as a port of the references' dosing scheme (rev 91), whose first increment `D3` has
-  landed.
+  **rev 83 sets the phase structure**: phase 3 is *rule completeness* (exit = the
+  reference inventory, not a tier number), **phase 4** owns dosing/optimization/scheduling and carries **T3 + N4 + the Tier D run**, and
+  the phases from 4.5 on are the old 3.5/4/5/6. **rev 84**: per-instance tier tables do not live in this
+  file — `benchmarks/runs/<window>/results.json` is authoritative — which leaves the obligation on the CLAIM: name the instances that moved, and
+  state #solved before PAR-2. rev 80 makes **N4, the strategy floor**, a non-negotiable
+- **Current phase:** **4 — dosing, optimization, scheduling**, run as a port of the references' dosing scheme
+  (rev 91), whose first increment `D3` has landed. Block 1 is closed. Phase 3 is closed on rule completeness;
+  report `benchmarks/reports/2026-08-07-phase-3-gate.md`.
 - **Next gate:** **T3** (§8.3), with discharging **N4** and running **Tier D** — the three phase-4 exit
   criteria. T3 currently 1.115× cadical / 1.412× kissat on the rule-neutral subset.
-- **Last updated:** 2026-08-07 — the per-knob pricing table is retired (plan rev 91) and phase 4 is now a PORT
-  of the references' dosing; `D3` landed and `veer_axi` falls.
+- **Last updated:** 2026-08-07.
   Status lives in the anchor below; completed work is compressed to result + pointer, with the detail in the
   cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-07) — **phase 4 restarts as a PORT of the references' dosing scheme (plan rev 91)**
+## ▶ RESUME HERE (2026-08-07) — **phase 4 is a PORT of the references' dosing scheme (plan rev 91)**
 
-**Phase 3 closed 2026-08-07** on rule completeness; **phase 4 is dosing, optimization and scheduling**, exit =
-**T3 + N4 discharged + one Tier D campaign** (unchanged). **NOTHING IN FLIGHT.**
+**Phase 4 is dosing, optimization and scheduling**, exit = **T3 + N4 discharged + one Tier D campaign**.
+**NOTHING IN FLIGHT.**
 
-**▶▶ THE APPROACH CHANGED (user, 2026-08-07).** The per-knob pricing table is **retired**: it priced knobs
-that exist because we invented them, on a tier that cannot resolve them. Phase 4's work is now a **faithful
-port of the references' dosing**, per §5 obligation 6. **Read
+**▶▶ THE WORK IS A FAITHFUL PORT of the references' dosing**, per §5 obligation 6. **Read
 `docs/design/2026-08-07-reference-dosing.md` first** — everything below is its work list, and §2 of this phase
 carries the checklist.
 
@@ -59,7 +55,7 @@ are backed by no reference** (`Probe` — cadical's is 8‰ and we ship 20 — p
 per-technique anchor with cadical's clamps, where **kissat anchors per PHASE**); and we tax search **~1.6×
 harder than kissat** (438 ‰ / 344 ‰ against ~300 ‰ / 200 ‰).
 
-**▶ `D3` IS LANDED (2026-08-07) and it took the target.** `veer_axi…p23_transition` went from
+**▶ `D3` IS LANDED and it took the target.** `veer_axi…p23_transition` went from
 `4 probes / 6.80e9 hbr ticks` — 99.96 % of a 300 s solve at `c conflicts 0` — to
 **`12,477 probes / 5.21e6 ticks`, 34,768 conflicts, and `s UNSATISFIABLE`**, both certificates verified. The
 entry is now `budget_aware` and `run_dosed_entry` hands it the ledger residual, so the resolvent loop stops at
@@ -80,12 +76,12 @@ spend out of `vivify_ticks` entirely.
 
 **▶ AFTER THAT, in the design doc's order:** `D1` (anchor per phase — smallest change, widest effect), `D2`
 (delete the five unbacked fractions), drop the `dosed`/`retry_advice`/`budget_aware` taxonomy, then the two
-delay layers. `D4` (our per-resolvent RUP replay, which neither reference needs) is deferred by the same user
-decision and is the standing reason `D3` needs a cap at all.
+delay layers. `D4` (our per-resolvent RUP replay, which neither reference needs) is DEFERRED, and is the
+standing reason `D3` needs a cap at all.
 
-**▶ MEASUREMENT WARNING that outlives the retired table — do not re-learn this.** **Tier B at 300 s cannot
-price a broad scheduling change.** In a 16-arm window whose bit-identical replicate pair differed by
-**0.01 PAR-2**, **9 of 14 arms "gained a solve"** — including arms moving opposite mechanisms in opposite
+**▶ MEASUREMENT WARNING — do not re-learn this.** **Tier B at 300 s cannot price a broad scheduling change.**
+In a 16-arm window whose bit-identical replicate pair differed by **0.01 PAR-2**, **9 of 14 arms "gained a
+solve"** — including arms moving opposite mechanisms in opposite
 directions. Four instances (`mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw`) respond to any
 perturbation and dominate every aggregate; `sted5` moved −37 to −248 s under 13 of 14 arms, and the replicate
 pair alone differs by 18.4 s on it. **A Tier B `#solved` criterion resolves to about ±2 solves.** Price broad
@@ -104,16 +100,15 @@ comment sweep and want a home in `implementation-notes.md`.
 re-running anything, and reports in `benchmarks/reports/` carry tables when a gate needs one. **This section
 carries the headline, not the table (rev 84).** What a performance claim still owes, always: **#solved before
 PAR-2, and the instances that moved by name** — a headline decided by one instance is not a verdict.
-**Take the SHA from the run's own `manifest.json`, never from the commit that later shipped the change** — the
-2026-08-02 tables were labelled with the ship SHA and were not reproducible.
+**Take the SHA from the run's own `manifest.json`, never from the commit that later shipped the change** — a
+table labelled with the ship SHA is not reproducible.
 
-**▶ CURRENT STATE — BANKED 2026-08-06 from the four windows that had gone unread.** The headline they replace
-was badly stale, and in our favour: it read 1.345× cadical / 1.727× kissat.
+**▶ CURRENT STATE.**
 
 | tier | window | git | shipped arm | result |
 |---|---|---|---|---|
 | C (30) | `20260806-235835-C-shipped` | `edfba14` | `shipped` | **348.00, 29/30** vs kissat 228.29 (29/30), cadical 310.50 (29/30) |
-| C replicate | `20260806-150228-C-govon` | `4f4989d` | `govon2` | 354.01 vs its own window's `govon` 355.76, both 29/30 — a bit-identical pair, so **1.75 PAR-2 is the in-window noise of THAT window**. Corrected 2026-08-07: this file had credited the replicate to the window above, which has no such arm — a different window and a different commit, i.e. exactly the cross-window comparison this section forbids. It bounds our noise; it does not certify the 348.00 reading |
+| C replicate | `20260806-150228-C-govon` | `4f4989d` | `govon2` | 354.01 vs its own window's `govon` 355.76, both 29/30 — a bit-identical pair, so **1.75 PAR-2 is the in-window noise of THAT window**. It is a different window and a different commit from the row above, i.e. exactly the cross-window comparison this section forbids: it bounds our noise; it does not certify the 348.00 reading |
 | B (28) | `20260806-235833-B-shipped` | `edfba14` | `shipped` | **103.75, 24/28** vs kissat 9.99 (28/28), cadical 40.33 (27/28) |
 | **B (28), POST-LANDING** | `20260807-151657-B-shipped` · `20260807-152618-B-shipped` | **`d4db510`** | `shipped` | **134.67, 23/28** and **135.55, 23/28** in two same-day windows, vs kissat 10.21/10.08 (28/28), cadical 40.86/41.57 (27/28). The 24 → 23 is **`mod4block`**, the tier's lottery — not a landing cost. **Their replicate pairs are 0.55 and 0.01 PAR-2 apart, the tightest measured; read that beside the fact that 9 of batch 1b's 14 arms still "gain a solve"** (§ the anchor: four instances sit on the 300 s cliff and dominate the aggregate) |
 
@@ -124,18 +119,15 @@ was badly stale, and in our favour: it read 1.345× cadical / 1.727× kissat.
 | CaDiCaL | ≤ 1.10× | **1.115×** | **1.121×** | **NOT MET on the full tier, and only just** — the subset is inside the band |
 | Kissat | parity on the subset | **1.412×** | 1.524× | **NOT MET**, and still the further-away half |
 
-**Both halves improved a long way** from the stale reading (cadical 1.345 → 1.120, kissat 1.727 → 1.396), which
-is the effort-ledger wrap fix landing: the `…-102434-C-ledgerfix` window alone put us at **334.44 (29/30),
-1.080× cadical** — inside the band. **Do not read that as T3 met**: it is a different window and a different
-commit, and the kissat half was never close.
+The `…-102434-C-ledgerfix` window alone reads **334.44 (29/30), 1.080× cadical** — inside the band. **Do not
+read that as T3 met**: it is a different window and a different commit, and the kissat half was never close.
 
-**▶▶ AND ONE RECORDED "WIN" IS OVERTURNED.** The `gates` + `c1c2` flips, which this file recorded as Tier B
-109.18 → 58.76 PAR-2 with 24 → 27 solves, are **NEGATIVE ON TIER C AND EVERY ARM LOSES A SOLVE**
+**▶▶ THE `gates` + `c1c2` FLIPS DO NOT SHIP.** They are **NEGATIVE ON TIER C AND EVERY ARM LOSES A SOLVE**
 (`20260806-124756-C-shipped`, git `4f4989d`): shipped **27/30** at 476.98 · `gates` **26/30** at 516.93 ·
 `c1c2` **26/30** at 549.42 · `both` **25/30** at 585.03. Under §8.3 a change that LOSES a solve is not covered
-by the #solved-wins priority, whatever it does to PAR-2, so **these flips do not ship** — the Tier B result was
-a tier disagreement, not a verdict. The PAR-2 deltas are additionally UNDECIDED/FRAGILE at k=1–2, but the lost
-solves decide it without needing that.
+by the #solved-wins priority, whatever it does to PAR-2 — and their Tier B reading (109.18 → 58.76 PAR-2 with
+24 → 27 solves) was a tier disagreement, not a verdict. The PAR-2 deltas are additionally UNDECIDED/FRAGILE at
+k=1–2, but the lost solves decide it without needing that.
 *(Same-binary cross-window caution, measured here: `4f4989d`'s shipped arm reads 476.98 in one window and
 355.76 in another on the same day. That is ~121 PAR-2 — never compare an absolute across windows.)*
 
@@ -161,8 +153,7 @@ phase 4 should attack:
 
 **Reading for phase 4:** two of the eight are the `T`-series, where `SCHED-G1` measured Congruence at 47 % of a
 300 s solve before metering, and `minxor128` is the instance Sweep's governor A/B kept flipping. That points at
-DOSING on named instances rather than at a missing mechanism — which is exactly the phase-3/phase-4 split, now
-with per-instance targets instead of an aggregate.
+DOSING on named instances rather than at a missing mechanism.
 
 **▶ THE THREE NOISE BARS — they are different, and the biggest one is the easiest to forget.**
 - **Same-window, same-node: 6.72** (window `20260804-030938`, idle partition, three bit-identical arms
@@ -224,15 +215,15 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   adopted, because the T3 verdict is the same either way.
 - **Citation pairing:** cite `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md` alongside
   `…/2026-08-03-broad-factor-and-t3-halves.md` — the later one supersedes its per-instance conclusion.
-- **Coverage caveat, PARTLY RETRACTED 2026-08-06.** A DefaultPolicy fuzz leg does not reach every registry
-  entry, and `--require-reached` makes that visible. But the "19 of 25" figure was partly a MEASUREMENT
+- **Coverage caveat.** A DefaultPolicy fuzz leg does not reach every registry entry, and `--require-reached`
+  makes that visible. The "19 of 25" figure was partly a MEASUREMENT
   ARTEFACT: `REACH_SPECS` keyed Probe, Backbone and TransitiveReduce on ROUND counters, which a `dosed` entry
   reached through `apply_instance` never increments — on a structured instance Probe and Backbone each probed
   **22 literals while reporting "0 rounds"**, and by the corrected counter Probe fires on **16 of 40**. The
   specs now key on attempts (`98f9bfd`+); **the corrected coverage figure is owed from the next leg.** Factor,
   BVE and Reorder are not yet re-examined. **And read every pre-2026-08-05 native-LRAT figure in this file
   through the fuzz-oracle defect.**
-- demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; user decision 2026-07-25).
+- demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; user decision).
 
 **Open work.**
 - **`D-BVE-SCRATCH` (`RV-S19`) — the per-call linear-scratch hazard, sightings #5–#7, in hot rules.** BVE does
@@ -247,9 +238,9 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   (Track C · C4-perf) — and the 4-arg `touched` overload already exists, so each fix is ~6 lines copied from
   `vivify.cpp:395-401`. **Route: `revamp` or a `perf:` commit, NOT revisit-codebase** — it is §5.4, not §5.5.
   Gate: identical `bve_eliminated`/`bve_resolutions`/`probe_failed`/`backbone_failed` and identical proof SHA.
-- **`RV-S31`(b) — the `--random-policy` livelock DIAGNOSIS.** *(Accepted as non-blocking for the phase-3 exit,
-  user 2026-08-06 — still worth diagnosing, but it gates nothing.)* The population is measured and visible: **114 of
-  1000 cases (11.4 %) at 10 s, the same 114 on DRAT and native LRAT, 0 of 1000 for DefaultPolicy**; escalating the
+- **`RV-S31`(b) — the `--random-policy` livelock DIAGNOSIS.** *(Non-blocking by user decision — worth
+  diagnosing, but it gates nothing.)* The population is measured and visible: **114 of 1000 cases (11.4 %) at
+  10 s, the same 114 on DRAT and native LRAT, 0 of 1000 for DefaultPolicy**; escalating the
   first 24 to 600 s leaves **18 still unfinished**, so ~8.6 % does not terminate at all. Cases kept in
   `<outdir>/nonterminating/`. N1 robustness, not soundness.
 - **`RV-S29` remainder — the `main.cpp` split (987 lines).** In order: (1) `parse_args` → `src/frontend/cli.cpp`
@@ -263,8 +254,8 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   stack where the failure mode is a WRONG SAT ANSWER no proof checker sees.
 - **`RV-S24` remainder:** no direct test for `src/frontend/parse.cpp`, and `cake_lpr` is still not wired into the
   fuzz harness. (The proof backend itself is now pinned byte-for-byte by ctest `proof`, anti-vacuity verified.)
-- **From the 2026-08-07 `src/policies/` survey — NOTHING there is obsolete** (43 files, four surveys plus an
-  adversarial pass, zero removable; the registry migration that came out of it is `simplify:`-committed). Two
+- **NOTHING in `src/policies/` is obsolete** (43 files, four surveys plus an adversarial pass, zero removable;
+  the registry migration that came out of it is `simplify:`-committed). Two
   residual findings, neither blocking. **(a) 9 of the 11 stress policies are in NO ctest** — only
   `bve_stress_policy` is, via `tests/micro_proofs.sh`; the rest are exercised by fuzz legs alone, which is why
   `ctest -N` makes them look orphaned. Worth a cheap conformance test that each flag still dispatches, since
@@ -286,27 +277,26 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 
 | | Requirement | Status |
 |---|---|---|
-| N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** v1 API frozen (revs 20–21), §8.4 demos 1–3 prove it end-to-end, all 26 registry entries driven through `tactix_apply_instance` (ctest `api_instances`). Four breaches found and closed to date; the last was `Factor`'s density predicate NoOping *inside* `factor_apply` (SCHED-N1FIX, moved into the policy). **The shape to watch for is guard-true / apply-NoOp** — it is why V5 Sweep was left unregistered until it had a proof delta. Final acceptance = the CCE plugin test at the phase-5 gate |
-| N2 | Proof production on every path (DRAT/LRAT) | ◐ **No open breach at HEAD**; DRAT since phase 1, native LRAT since 2026-07-14, backend serializers pinned byte-for-byte by ctest `proof`. Two breaches closed 2026-08-05 (Sweep's S-e inverted literal parity; the frontend's input-literal dedup) — reports `2026-08-05-sweep-se-polarity-fix.md`, `…-input-clause-normalization-n2.md`. **▶ Standing caveat: the INSTRUMENT had been broken — `fuzz.py`'s native-LRAT oracle accepted `NOT VERIFIED`, so every LRAT rejection in project history was recorded as a pass.** Read every pre-2026-08-05 native-LRAT figure through that. Also: drat-trim's `-L` CONVERTER rejects kissat's and cadical's proofs identically on two unsound input classes, so those cross-checks are stood down and visibly counted |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ✗ **NOT MET, and the last recorded reading is STALE.** T1+T2 passed. The most recent *banked* window (`20260805-1150`, git `0418770`) read Tier B 70.71 (26/28) · Tier C 419.91 (28/30) vs kissat 228.45 and cadical 312.27 — but that predates the **effort-ledger wrap fix**, and four unread 2026-08-06 tier pairs sit in `benchmarks/runs/`. **Treat N3's current magnitude as unmeasured until a post-fix window is read.** Tier D is BUILT AND FROZEN (793 instances, 2026-08-03, composition held for the campaign by rev 89) and has **never been RUN** — a phase-4-exit item. T4's SC25-set score is now a view, `subset_score.py --subset D-sc25` |
-| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80) | ✗ **KNOWN UNMET, and discharging it is phase 4's defining obligation (rev 83).** Measured three times; the third pass is BEHAVIOURAL rather than an inventory and is the one that matters — both solvers counter-instrumented on the SAME ten instances, **our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates anything (104 vs 2,736,829) and Factor adds ZERO on 6 of 9**, so a ledger row reading "closed" does not mean the family runs. Counts, coverage and the per-mechanism verdicts live in the ledger (`docs/implementation-notes.md` §13, machine-checked by ctest `option_coverage`) and the frozen audits — this row does not restate them. **N4 is a *mechanism* floor**: never discharged by a tier number, never deferred to §5.6 |
+| N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** v1 API frozen (revs 20–21), §8.4 demos 1–3 prove it end-to-end, all 26 registry entries driven through `tactix_apply_instance` (ctest `api_instances`). **The shape to watch for is guard-true / apply-NoOp** — the exhibit is `Factor`'s density predicate NoOping *inside* `factor_apply` (SCHED-N1FIX, moved into the policy), and it is why V5 Sweep was left unregistered until it had a proof delta. Final acceptance = the CCE plugin test at the phase-5 gate |
+| N2 | Proof production on every path (DRAT/LRAT) | ◐ **No open breach at HEAD**; DRAT since phase 1, native LRAT since 2026-07-14, backend serializers pinned byte-for-byte by ctest `proof`. Two closed breaches keep their reports: Sweep's S-e inverted literal parity and the frontend's input-literal dedup (`2026-08-05-sweep-se-polarity-fix.md`, `…-input-clause-normalization-n2.md`). **▶ Standing caveat: the INSTRUMENT had been broken — `fuzz.py`'s native-LRAT oracle accepted `NOT VERIFIED`, so every LRAT rejection in project history was recorded as a pass.** Read every pre-2026-08-05 native-LRAT figure through that. Also: drat-trim's `-L` CONVERTER rejects kissat's and cadical's proofs identically on two unsound input classes, so those cross-checks are stood down and visibly counted |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ✗ **NOT MET.** T1+T2 passed. The pre-effort-ledger-fix window (`20260805-1150`, git `0418770`) read Tier B 70.71 (26/28) · Tier C 419.91 (28/30) vs kissat 228.45 and cadical 312.27; the post-fix headline is in § MEASUREMENT STATE above. Tier D is BUILT AND FROZEN (793 instances, 2026-08-03, composition held for the campaign by rev 89) and has **never been RUN** — a phase-4-exit item. T4's SC25-set score is a view, `subset_score.py --subset D-sc25` |
+| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80) | ✗ **KNOWN UNMET, and discharging it is phase 4's defining obligation (rev 83).** The BEHAVIOURAL measurement is the one that decides it, not an inventory — both solvers counter-instrumented on the SAME ten instances, **our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates anything (104 vs 2,736,829) and Factor adds ZERO on 6 of 9**, so a ledger row reading "closed" does not mean the family runs. Counts, coverage and the per-mechanism verdicts live in the ledger (`docs/implementation-notes.md` §13, machine-checked by ctest `option_coverage`) and the frozen audits — this row does not restate them. **N4 is a *mechanism* floor**: never discharged by a tier number, never deferred to §5.6 |
 
 ## Milestone gates (plan §8.3)
 
 - [x] **T1** — passed 2026-07-14 (`benchmarks/reports/2026-07-14-t1-gate.md`)
 - [x] **T2** — passed 2026-07-14 (`benchmarks/reports/2026-07-14-t2-gate.md`)
 - [ ] **T3 — within 10 % PAR-2 of CaDiCaL on Tier C, plus CaDiCaL/Kissat parity on the rule-neutral subset**
-  (rev 51). **Gates PHASE 4 since rev 83**, not phase 3 — the outcome half of the dosing phase, next to
+  (rev 51). **Gates PHASE 4** (rev 83), not phase 3 — the outcome half of the dosing phase, next to
   discharging N4 and running Tier D.
 
-  **▶ STATUS: NOT MET on either half, and the last banked reading is VOID as a *current* number.** Window
-  `20260805-115039-C-c5` (git `0418770`) gave **1.345× cadical** full / 1.357× subset and **1.727× kissat** on the
-  subset. That window predates the effort-ledger wrap fix, and **every `Sweep`/`Congruence` dosing number taken
-  since `58a46de` was measured against a budget that did not bind** — so T3 has to be retaken before any claim
-  about the gap is made. Four unread 2026-08-06 tier pairs are in `benchmarks/runs/`; reading them is step 2 of
-  the anchor.
+  **▶ STATUS: NOT MET on either half.** The current reading is in the anchor (1.115× cadical / 1.412× kissat on
+  the subset). The older window `20260805-115039-C-c5` (git `0418770`) gave **1.345× cadical** full / 1.357×
+  subset and **1.727× kissat** on the subset, and is VOID as a *current* number: it predates the effort-ledger
+  wrap fix, and **every `Sweep`/`Congruence` dosing number taken since `58a46de` was measured against a budget
+  that did not bind** — so T3 has to be retaken before any claim about the gap is made.
 
-  **What is known about the two halves, compressed — each line is knowledge, the detail is in the cited report.**
+  **What is known about the two halves; the detail is in the cited report.**
   - **The all-rules-ON directive changed the target, not the solver.** With rules OFF the CaDiCaL half was MET
     (1.00× same-window); with every proof rule ON it was not. Judge the rule family together
     (`2026-07-28-all-rules-on.md`).
@@ -315,13 +305,13 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
     (29/30)** vs cadical 317.04 and gained a solve. That is the shape to look for again.
   - **A uniform slot rate of 2‰ does NOT clear the CaDiCaL half reliably** — two same-day windows gave 1.065 %
     inside and 1.101× outside. `TACTIX_SLOT_PERMILLE` stays a §5.6 dosing arm. Its per-instance effects
-    reproduce in BOTH directions, which is what retired the "the regression is two instances" framing.
+    reproduce in BOTH directions, so no two-instance story explains it.
   - **R-d retirement traded the CaDiCaL half for +2 Tier B solves**, banked under plan rev 78.
   - Both instrument prerequisites are DONE (the two-baseline rule and the subset scorer — see Open items).
 - [ ] **T4 — EXCEED Kissat-public PAR-2 on Tier D** (SC25 set), via DefaultPolicy engineering and *before* any
-  learned policy. **Gates phase 5.** The scoring instrument is no longer a blocker (rev 89: the SC25 set is a
-  view, `subset_score.py --subset D-sc25`); what remains is that **Tier D has never been run**, which is phase
-  4's block 5. §11 O9 reopens the set's composition before this gate is evaluated.
+  learned policy. **Gates phase 5.** Scoring is a view over the full tier (rev 89: `subset_score.py --subset
+  D-sc25`); what remains is that **Tier D has never been run**, which is phase 4's block 5. §11 O9 reopens the
+  set's composition before this gate is evaluated.
 - [ ] **T5 — beat AE-Kissat-MAB's PAR-2 on Tier D** → submit to the next competition. **Gates phase 6.**
 
 ## Phases 0–2 — COMPLETE (setup · CDCL kernel · search management + API freeze)
@@ -359,7 +349,7 @@ is the S4 arrangement, unconditionally. Semantics → `docs/calculus.md`; guards
   trail rather than inside propagation, reproducing cadical's implication TREE exactly; the shared RUP replay is
   therefore also the RUP TEST, so a resolvent it cannot re-derive is DECLINED (`hbr_declined`), never emitted
   unchecked. Rationale and deviations: `docs/calculus.md` §6c and `hyperbinary.hpp`. **UNPRICED.**
-  *En route it fixed a pre-existing defect worth knowing about:* `Reduce::instances()` had moved three Stats
+  *It also fixed a defect that leaves a live warning:* `Reduce::instances()` had moved three Stats
   counters, breaking replay identity and printing `reduce_skippable_words` above `reduce_scan_words` — a 200 %,
   and **the figure `SCHED-H3` priced its decision on**. The ledger row records H3 closed and says nothing about
   the number being inflated, so the warning lives here and in `a4fa14b`.
@@ -399,13 +389,10 @@ in §13's rows and the Log; the traps worth re-reading before touching any of it
 
 ### ▶ 0. HOW THIS PHASE IS ORDERED — read before picking an item
 
-**Restated 2026-08-07 (plan rev 91), because the phase changed shape.** It used to be a pricing campaign over
-our own knobs, ordered so that landings did not void pending pre-registrations. It is now a **PORT**: a
-sequence of landings that make our dosing what the references' is (§2), each measured on its own. The old
-"batch the arms, freeze the binary" ordering no longer applies, and the reason it was there — a landing voids
-every pending pre-registration — no longer bites, because there are no pending pre-registrations.
+**The phase is a PORT** (plan rev 91): a sequence of landings that make our dosing what the references' is
+(§2), each measured on its own.
 
-**The ordering that replaces it, and its rationale:**
+**The ordering, and its rationale:**
 1. **Meters before doses.** A per-mille ported onto a meter that counts a different thing transfers a number
    that means something else. The three meter defects in §2 come first, and the tick-unit one lands **alone**
    with a full re-baseline because it re-prices every budget in the solver simultaneously.
@@ -423,18 +410,14 @@ change (see the anchor): use Tier C, or replicated draws, or a named-instance cl
 ### ▶ 1. Desk triage and cheap landings — **COMPLETE 2026-08-07**
 
 All items closed; the detail is in the Log and in
-`benchmarks/reports/2026-08-07-phase-4-block-2-preregistration.md`. What is worth carrying forward, because
-each is a fact about our code rather than about the retired table: **`F2` is structurally blocked** — `c
-subhold` reads 0 on 28 of 28 Tier B instances, and it unblocks only when `midround_budget` ships ON *and*
+`benchmarks/reports/2026-08-07-phase-4-block-2-preregistration.md`. The facts about our code that carry
+forward: **`F2` is structurally blocked** — `c subhold` reads 0 on 28 of 28 Tier B instances, and it
+unblocks only when `midround_budget` ships ON *and*
 `c budgetstop` reads non-zero. **`G2`'s per-mille arm is inert by construction** — it reaches only `e.limit`,
 whose sole decline is arithmetically dead. **`C8`'s `--bve-gates=equiv,andor` silently ablates a third gate**
 since `203732b`; the isolating spelling is `equiv,andor,def`.
 
-### ▶ 2. PORT THE REFERENCES' DOSING SCHEME (replaces the retired pricing table, plan rev 91)
-
-**The ~21-row per-knob pricing table is RETIRED** (user, 2026-08-07). It priced knobs that exist because we
-invented them, on a tier that cannot resolve them. Its two windows remain in `benchmarks/reports/` as the
-historical record of measurements taken; nothing here carries them as live status.
+### ▶ 2. PORT THE REFERENCES' DOSING SCHEME (plan rev 91)
 
 **The design pass is `docs/design/2026-08-07-reference-dosing.md`** — read it before touching any of this. It
 reads both references' dosing as **five separable layers**: a growing conflict INTERVAL per phase · an effort
@@ -450,7 +433,7 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
   `BCE`, `Instantiate`, `Congruence`. Where the reference bounds the technique by *interval* instead, port the
   interval; where it ships the technique OFF, that is the datum.
-- [x] **D3 — LANDED 2026-08-07: `HyperBinaryRes` is bounded by the ledger's residual, and `veer_axi` FALLS.**
+- [x] **D3 — `HyperBinaryRes` is bounded by the ledger's residual, and `veer_axi` FALLS.**
   The entry becomes `budget_aware` and `run_dosed_entry` hands the residual into the instance, so the
   resolvent loop stops at the dose instead of at the closure — kissat's sweep→kitten shape, since both
   references bound one candidate structurally and this rule had no structural cap to copy.
@@ -462,15 +445,15 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   non-termination 1.8 % on the DefaultPolicy legs, below the 3.0 % previously recorded. Accepted deviation
   `D-HBR-STANDALONE` (`docs/implementation-notes.md` §13.3) carries the reference reading and two removal
   paths. **Still owed: a tier pair** — this is one instance, and the broad effect is unmeasured.
-- [ ] ~~**D3 — `HyperBinaryRes` gets a STRUCTURAL cap**~~ (user decision 2026-08-07, keeping our design over
-  kissat's no-HBR position and cadical's derive-in-propagation one). **N1 rider, binding:** the cap goes
-  **policy-side**; `hyperbinary_instances()` stays complete over roots, because a dose may narrow what
+- [ ] ~~**D3 — `HyperBinaryRes` gets a STRUCTURAL cap**~~ — our design is kept over kissat's no-HBR position
+  and cadical's derive-in-propagation one. **N1 rider, binding:** the cap goes **policy-side**;
+  `hyperbinary_instances()` stays complete over roots, because a dose may narrow what
   DefaultPolicy *chooses*, never what the API can *reach*. BVE's in-rule `BVE_OCCLIM` is NOT the pattern to
-  copy — it is already carried as an N1-completeness defect (`RV-S17`). Needs an accepted `docs/implementation-notes.md` §13.3
-  deviation (rev 90 puts the burden of argument on the deviation) with a reopening path.
+  copy — it is already carried as an N1-completeness defect (`RV-S17`). Requires an accepted
+  `docs/implementation-notes.md` §13.3 deviation with a reopening path.
 - [ ] **D4 — the per-resolvent RUP replay.** Ours alone: cadical gets the chain from the propagation that
-  derived the resolvent (every `probehbr_lrat` helper opens `if (!lrat || opts.probehbr) return;`). Deferred
-  by the same decision; it is the standing reason D3 needs a cap at all.
+  derived the resolvent (every `probehbr_lrat` helper opens `if (!lrat || opts.probehbr) return;`). DEFERRED;
+  it is the standing reason D3 needs a cap at all.
 - [ ] **Drop the `dosed` / `retry_advice` / `budget_aware` taxonomy.** Neither reference has it; they have
   techniques that poll a limit at a candidate boundary.
 - [ ] **Port the two delay layers properly** — cadical's accumulate-until-worthwhile (`NAMEthresh ·
@@ -503,11 +486,10 @@ per-mille ported onto a broken meter transfers a number that means something els
 
 ### ▶ 3. Close the remaining N4 rows — exit clause (b)
 
-*This block is the whole of clause (b): of the **17** rows in `docs/implementation-notes.md` §13 whose verdict
-reads `WE_LACK_IT`/`WE_ARE_CRUDER`, three are already discharged by an accepted
-`implementation-notes.md` §13.3 deviation (block 1 names them), leaving 14 actionable — of which
-`SP-SHRINK-GLUE-1` and `SP-DECIDE-2` closed BY CODE on 2026-08-07, so **12 remain** — all listed below,
-ordered by named target.*
+*This block is the whole of clause (b): **12** of the 17 rows in `docs/implementation-notes.md` §13 whose
+verdict reads `WE_LACK_IT`/`WE_ARE_CRUDER` are actionable and listed below, ordered by named target. Of the
+other five, three are discharged by an accepted `implementation-notes.md` §13.3 deviation and two are closed by
+code.*
 
 - [ ] **`SP-BVE-BWD-1` first — it is the sharpest N4 finding we have.** Feed BVE's fresh resolvents straight
   into subsumption; it is what makes cadical's `elimrounds`=2 sufficient. The behavioural audit measured our BVE
@@ -529,10 +511,7 @@ ordered by named target.*
   while the LIST is ordered on **99.9 %**, because one binary add anywhere clears the flag everywhere. Trap: the
   probing snapshot/restore path would have to restore the bit too.
 - [ ] **`SP-CONG-BUDGET-1` residual** — Congruence's `budget_aware` closure and Substitute's unmetered entry.
-- [ ] **The seven rows this file had never named** (added 2026-08-07; with the six above and `SP-CONG-BUDGET-1`
-  that was the full actionable 14). **Two are now CLOSED BY CODE and are struck here**: ~~`SP-SHRINK-GLUE-1`~~
-  and ~~`SP-DECIDE-2`~~, landed in block 1 — **five remain from this group, 12 in the clause overall**.
-  `SP-ARENA-1` — candidate enumeration is creation order here and
+- [ ] **The remaining five rows.** `SP-ARENA-1` — candidate enumeration is creation order here and
   search-coupled there, and under a cutting budget ordering IS the scheduler · `SP-PREPROC-2` — our
   preprocessing dose is 5–600× cadical's fallback, over the full rule list rather than a reduced pipeline ·
   `SP-SUBST-2` — Substitute's unmetered entry, where porting kissat's budget naively goes INERT against our
@@ -574,7 +553,7 @@ ordered by named target.*
 
 - [ ] **Evaluate and report to `benchmarks/reports/`.** Last by construction: it scores whatever blocks 1–5
   leave standing. Current standing is in the anchor (1.115× cadical / 1.412× kissat on the subset, both halves
-  NOT MET); the two halves' history is under the T3 gate row above.
+  NOT MET); what is known about each half is under the T3 gate row above.
 
 ### ▶ Track SCHED — standing protocol (applies to every item above)
 
@@ -595,9 +574,9 @@ draws**, or as a **named-instance claim** (`D3`'s shape: one instance, a mechani
 moves 1,304×). *(`mp1-klieber` and `sted5` now behave like the may-not-gate set; growing that set is a user
 decision and has not been taken.)*
 
-**▶ REGISTER A ROW AT ITS OWN LANDING COMMIT, never against a moving marker.** The retired table defended
-itself with `git merge-base --is-ancestor` against a marker that was a *sibling* of six of its own knobs'
-commits — so the check passed while pointing at the wrong binary.
+**▶ REGISTER A ROW AT ITS OWN LANDING COMMIT, never against a moving marker.** A `git merge-base
+--is-ancestor` check against a marker that is a *sibling* of the commits it is meant to bound passes while
+pointing at the wrong binary.
 
 **▶ Every dose negative measured through the broken effort meter is VOID** and must be re-derived: the V4
 ticks-meter arm, the V4 early-exit arm, the C1/C2 mid-round budget arm, every per-entry per-mille sweep on a
@@ -610,16 +589,16 @@ needs — per-entry occasions/declines/yield, private per-rule meters, candidate
 
 <!-- track-sched:end -->
 
-## Phase 4.5 — engineering ingenuity on top of kissat (PIN, rev 67; renumbered from 3.5, rev 83)
+## Phase 4.5 — engineering ingenuity on top of kissat (PIN, rev 67)
 
 Deliberately unelaborated (§9 row 4.5 + §11 O15): once kissat performance is matched, a dedicated pass for novel engineering beyond the reference
 lineage. Concretize at the T3 gate via revise-plan.
 
-## Phase 5 — tuning, bindings, extensibility proof (was phase 4 before rev 83)
+## Phase 5 — tuning, bindings, extensibility proof
 
 - [ ] **Decide O16b at phase entry** (PR/SR clause learning as a catalog candidate — the checkable form of
   auto-invented rules; needs dpr-trim or PR→DRAT in the N2 story).
-- [ ] **§5.5 hygiene, conditional (moved out of the rule phase 2026-08-04):** SubsumeForward occs/marks alloc and
+- [ ] **§5.5 hygiene, conditional:** SubsumeForward occs/marks alloc and
   `binary_ids` `.emplace` on the CDCL hot path — **escalate via §5.4 ONLY with a profile**, which is why
   this is not rule-inventory work. (The third item, the `literal_redundant` depth cap 900 vs 1000, is CLOSED
   measured-dead — `88cff2d`.)
@@ -632,7 +611,7 @@ lineage. Concretize at the T3 gate via revise-plan.
   *evaluated*, not a second implementation task.
 - **Exit:** T4 (⇒ N3 satisfied)
 
-## Phase 6 — competition readiness (was phase 5 before rev 83)
+## Phase 6 — competition readiness
 
 - [ ] Docker + run scripts; solver description; license/attribution audit
 - [ ] Full toolchain rehearsal on Tier B (solver → proof → verified checker, 16 GB cap)
@@ -641,9 +620,9 @@ lineage. Concretize at the T3 gate via revise-plan.
   `benchmarks/reports/2026-08-05-input-clause-normalization-n2.md` §2.1).
 - **Exit:** T5 or best effort; submission-ready
 
-## Phase 7 — learned scheduling: the RL module (§5.6, rev 26; was phase 6 before rev 83)
+## Phase 7 — learned scheduling: the RL module (§5.6, rev 26)
 
-The end-game (user directive 2026-07-15): learn on-the-fly which proof rule / batch to apply — order, frequency, budgets. Bandit-first, no deep
+The end-game (user directive): learn on-the-fly which proof rule / batch to apply — order, frequency, budgets. Bandit-first, no deep
 learning on the competition path; DefaultPolicy stays the N3 baseline and a permanent arm.
 
 - [ ] Offline replay/counterfactual harness: exact `--trace` replays + §8.4 config-file ablations; validate reward proxies BEFORE any online
@@ -655,7 +634,7 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
   productivity, elimination yield — per §5.6's elimination-dosing exhibit**)
 - [ ] **Elimination-dosing exhibit obligations (rev 68, §5.6):** per-entry dose on/off joins the scheduled choice points; DefaultPolicy's gate
   thresholds = permanent arm; success = gates matched where right, em_11 recovered where wrong, no hand threshold load-bearing
-- [ ] **W4e · Walk dosing hand-off** (moved from Track W 2026-08-04) — the five knob-gated Walk arms
+- [ ] **W4e · Walk dosing hand-off** — the five knob-gated Walk arms
   (`TACTIX_WALK_NO_TARGET`, `_MAX_STEPS`, `_WARMUP`, rotation, effort anchor) + `stats.walk_minimum` as a reward proxy become the **second dosing
   family** in the §5.6 exhibit, alongside elimination dosing. Each arm is a measured big-win-on-one-class / 3–20×-loss-on-the-other, which is
   exactly the labelled signal a learner needs. **Nothing to build before phase 7** — the arms already exist behind knobs.
