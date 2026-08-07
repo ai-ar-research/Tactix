@@ -261,8 +261,13 @@ int main(int argc, char **argv) {
     printf("s UNKNOWN\n");
     return 1;
   }
+  // Must list EVERY stress policy: each needs `H`, and one omitted here runs
+  // with `k.h == nullptr`. The set is the same one --replay rejects above, and
+  // it drifted apart from it once already.
   if (no_heuristics && (!random_policy || adversarial_policy || stress_policy ||
                         bve_stress_policy || congruence_stress_policy ||
+                        factor_stress_policy || probing_stress_policy ||
+                        walk_stress_policy || reuse_stress_policy ||
                         sweep_stress_policy || cce_stress_policy)) {
     fprintf(stderr, "tactix: --no-heuristics requires --random-policy alone "
                     "(no DefaultPolicy / stress policy); those need H\n");

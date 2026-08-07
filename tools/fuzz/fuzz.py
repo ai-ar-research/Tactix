@@ -222,7 +222,11 @@ def input_restated(stdout):
 REACH_SPECS = [
     ("Propagate", r"^c propagations\s+(\d+)"),
     ("Decide", r"^c decisions\s+(\d+)"),
-    ("ConflictAnalysis", r"^c conflicts\s+(\d+)"),
+    # `c conflicts` is incremented by the PROPAGATE rule (propagate.cpp), not
+    # by ConflictAnalysis, so keying on it made --require-reached
+    # ConflictAnalysis satisfiable by Propagate alone. `c learned` is the
+    # clause this rule actually produces.
+    ("ConflictAnalysis", r"^c learned\s+(\d+)"),
     ("Restart", r"^c restarts\s+(\d+)"),
     ("Reduce", r"^c reductions\s+(\d+)"),
     ("Lucky", r"^c lucky\s+(\d+) probes"),
@@ -246,6 +250,11 @@ REACH_SPECS = [
     ("SubsumeForward", r"^c subsume\s+(\d+) rounds \("),
     ("Strengthen", r"^c strengthen\s+(\d+) rounds \("),
     ("Walk", r"^c walk\s+(\d+) walks"),
+    # KNOWN CONFOUND: `c rephased` is also incremented by Walk, so this row
+    # alone cannot prove Rephase fired. It is kept because separating them
+    # needs a new counter, and the separation was measured by hand: rephased
+    # runs 3-5x walks on 23 of 24 Tier B instances, so Rephase does fire
+    # independently. Treat a lone `--require-reached Rephase` as weak.
     ("Rephase", r"^c rephased\s+(\d+)"),
     ("Reorder", r"^c reordered\s+(\d+) decision"),
     ("SwitchMode", r"^c mode\s+\S+ after (\d+) switches"),

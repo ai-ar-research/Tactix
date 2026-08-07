@@ -193,6 +193,15 @@ def comment_text(path):
 def walk(trees, exts):
     for tree in trees:
         for dirpath, _dirs, files in os.walk(os.path.join(ROOT, tree)):
+            # Reference clones and patched reference builds are out of scope:
+            # `tools/solvers/variants/` holds instrumented kissat and cadical
+            # trees (gitignored, CLAUDE.md) whose comments belong to upstream.
+            # Reporting them yields a hit nobody may fix, which is how a checker
+            # comes to be ignored.
+            if any(part in ('variants', 'kissat', 'cadical', 'glucose',
+                            'cryptominisat', 'winners')
+                   for part in dirpath.split(os.sep)):
+                continue
             if "__pycache__" in dirpath or "/corpus" in dirpath:
                 continue
             for fn in sorted(files):

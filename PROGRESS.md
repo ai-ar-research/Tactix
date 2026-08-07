@@ -264,7 +264,7 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 - **`D-BVE-SCRATCH` (`RV-S19`) — the per-call linear-scratch hazard, sightings #5–#7, in hot rules.** BVE does
   **five** O(nvars) fill-inits per elimination ATTEMPT (~20·nvars bytes of memset + 4 malloc/free pairs):
   `bve.cpp:238` `pos_bin`/`neg_bin` (two `vector<int>(2*nvars,-1)`), `:532` `seen_bin`, `:619` `seen`, `:691`
-  `pending.init` (`PendingUnits::init`, `kernel.hpp:1540`). Two
+  `pending.init` (`PendingUnits::init`, `kernel.hpp:983`). Two
   facts the fix should use — the two `int` vectors are allocated **before any `bve_gate_mask` test**, so masking
   gate detection off still pays 16·nvars; and `seen_bin` already has a touched-list restore, wasted because the
   buffer dies at end of call. Marked sets are bounded by `occ(x)` (< 100 typical vs nvars ~10⁶). **Sightings #6/#7:**

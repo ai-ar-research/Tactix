@@ -15,13 +15,13 @@
 
 /* Entries with no instance surface: one application, so a payload is an
  * invalid argument. */
-static const char *const NO_SURFACE[] = {"Propagate", "Sweep", "SwitchMode"};
+static const char *const NO_SURFACE[] = {"Propagate", "SwitchMode"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
  * is a deliberate act. */
 static const char *const CANONICAL_ONLY[] = {"Congruence", "Factor",
-                                             "Propagate", "Sweep",
+                                             "Propagate",
                                              "SwitchMode", "Walk"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {
