@@ -248,6 +248,22 @@ add_test(NAME citations
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-citations.py)
 
+# A `§X.Y` that resolves to the WRONG section reads exactly like one that
+# resolves. The phase-4 exit criterion cited "an accepted §13.3 deviation" while
+# the plan's own §13 is the Revision history -- a gate criterion pointing at its
+# own changelog, which took an audit to notice.
+add_test(NAME section_refs
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-section-refs.py)
+
+# The phase-3 exit is "implemented, OR a reasoned no-implement with evidence".
+# That was unfalsifiable until the disposition table existed: the one
+# no-implement was prose calling itself a ledger id while having no row. A gate
+# you cannot enumerate is a gate you cannot fail.
+add_test(NAME inventory
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-inventory.py)
+
 # Same shape, over source COMMENTS: they carry the invariant plus a reference
 # pointer, never the narrative of how we found out -- no dates, SLURM job ids,
 # window ids or score numbers (standing user directive, given twice). A one-off

@@ -697,6 +697,7 @@ own lesson: audit a negative verdict before accepting it. The re-measurement (wh
 conclude the mechanism is free — it costs ~2 % Tier B(28), and core14 vs new14 order the crippled and
 un-crippled arms oppositely) is `benchmarks/reports/2026-08-01-tb4b-watch-repair.md`.
 
+<!-- parity-ledger:begin -->
 ## 13. The scheduling-parity ledger (N4's operational test)
 
 **Plan rev 80 §1.1 N4** requires that DefaultPolicy's *scheduling* — order, effort budgets, warm-ups,
@@ -986,6 +987,8 @@ option is still not scheduling evidence; §16 is rule-inventory evidence.
 
 **Confirmed at parity by A3** (recorded so they are never re-audited): `chrono`/`chronolevels` (`default_policy.hpp:197`, `:725-732`) · `decay`=50‰ ⇒ `scinc *= 1/(1−0.05)` once per conflict, **stable mode only** — and cadical's `scorefactor`=950 ⇒ `×1000/950` is the *same* 0.95 decay (`heuristics.cpp:235,369`) · `promote` on glue improvement during analysis (`analyze.cpp:112-123`; kissat's `promote.c` only *counts* the tier crossing, the effect is `c->glue = new_glue`) · `otfs` (`analyze.cpp:385-478`) · target phases stable-only (`heuristics.cpp:393-402`) · restart trail reuse · `bumpreasonlimit` all-or-nothing rollback + delay ladder.
 
+<!-- parity-ledger:end -->
+
 ## 14. Design decision: binaries have an IRREDUNDANT lifecycle, so binary subsumers need no redundancy check
 
 **Question.** C1 `SubsumeForward` and C2 `Strengthen` delete an *irredundant* candidate `C` on the
@@ -1219,3 +1222,48 @@ down a total assignment through kernel trail primitives: kernel surface again, n
    X1+X3+X5 arm, not by an X5-alone number.
 3. **A reference reversal** — cadical flipping `condition` on by default, or a competition entry
    enabling it. Neither holds at the pinned clone.
+
+## 17. The rule-inventory disposition table (the phase-3 exit, made checkable)
+
+Plan §9's phase-3 exit says every proof rule Kissat 4.0.4 or CaDiCaL 3.0.0 implements is **either**
+implemented (registered; guard / instances / apply; N1-exposed; N2-clean; fuzz-green *and reached*)
+**or** carries a reasoned no-implement row with its evidence and a reopening path. Until rev 87 there
+was nowhere to *enumerate* that: the one no-implement, X5 `Condition`, is §16 prose that calls itself
+a ledger id while having no row anywhere, so the criterion could not be checked — only asserted.
+
+This table is that enumeration, and `tools/docs/check-inventory.py` (ctest `inventory`) fails when a
+family in plan §5.2 is missing from it. **A gate you cannot enumerate is a gate you cannot fail.**
+
+Micro/search families (M1–M4, S1–S5) predate the reference-inventory question and are listed for
+completeness; the phase-3 criterion is about the simplification families.
+
+| Family | Disposition | Evidence |
+|---|---|---|
+| M1 `Propagate` | implemented | calculus §3; phase 1 |
+| M2 `Decide` | implemented | calculus §3; instance surface = all unassigned literals (N1) |
+| M3 `ConflictAnalysis` | implemented | calculus §3; native LRAT hints |
+| M4 | folded into M3 (rev 37) | calculus §3 M4 |
+| S1 `Restart` · S2 `Reduce` · S5 `Lucky` | implemented | calculus §4 |
+| S3 `Rephase` · S4 `SwitchMode` | implemented, `H`-only policy ops | plan §5.2; no proof delta |
+| S6 `Walk` | implemented, ships ON | `docs/design/s6-walk-design.md` |
+| S7 `Reorder` | **implemented, ships OFF** — a reasoned default, not a gap | `implementation-notes` §10; parity on Tier B's UNSAT half, 3.4× worse on its SAT half. A policy op, not a proof rule |
+| C1 `SubsumeForward` · C2 `Strengthen` · C3 `Vivify` | implemented | calculus §5 |
+| V1 `Probe` · V2 `Backbone` · V3 `Substitute` · V4 `TransitiveReduce` | implemented | calculus §6 |
+| V5 `Sweep` | implemented (+ embedded sub-solver) | calculus §6; `docs/design/v5-sweep-design.md`. Yield is phase-4 dosing, not an inventory gap |
+| V6 `Congruence` | implemented | calculus §6; V6a unit sweep added by `SCHED-G4` |
+| E1 `BVE` | implemented | calculus §6b. Gate kinds: EQUIV, AND/OR, ITE, XOR |
+| E2 `Factor` (BVA) | implemented | calculus §6b; generalises SBVA |
+| X1 `BCE` · X3 `CCE` | implemented | calculus §6c; both cadical-only, both ship ON |
+| X2 `HyperTernaryRes` · X4 `Instantiate` | implemented | calculus §6c / §6d |
+| X5 `Condition` | **REASONED NO-IMPLEMENT** | §16 + `SP-COND-1` below. `ρ` carries one in-clause witness literal; a conditional autarky's witness is a CUBE over outside variables. kissat has no such rule, cadical ships `condition`=0. Measured anyway: fires on 13/30 Tier C, no solve flips, +11.3 % wall |
+| X6 `HyperBinaryRes` | implemented | calculus §6c; closes `SP-PROBE-2`; `hyperbinary.hpp` carries its four deviations |
+
+**`SP-COND-1` — the reopening path.** The row X5 was always described as having, written out here so the
+disposition is a register entry rather than a claim. It reopens on **any** of: (a) `Kernel::reconstruction`
+gains a cube-shaped witness segment — a `ρ`-format revamp touching all five `push_witness` sites, which is
+the actual blocker and would be its own design pass; (b) a reference turns `condition` on by default, which
+would make the measured +11.3 % wall a like-for-like cost rather than a solo one; (c) a variant is found
+whose witness is a single in-clause literal *without* collapsing to X1 `BCE` — the collapse is why the
+restricted form is not worth implementing. **What does NOT reopen it:** a new measurement of its yield. Yield
+was deliberately excluded from the criterion before investigating, so a better number does not change the
+representability argument.
