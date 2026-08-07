@@ -298,6 +298,8 @@ int main(int argc, char **argv) {
     kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
   if (getenv("TACTIX_V4_EARLY_EXIT"))
     kernel.transitive_early_exit = true;
+  if (const char *lm = getenv("TACTIX_TRANSITIVE_LIVE_METER"))
+    kernel.transitive_live_meter = (*lm != '0');
   // Touched-epoch round filters ship ON; =0 restores unfiltered candidates.
   if (const char *tm = getenv("TACTIX_TOUCH_MARKS"))
     kernel.touch_filter = (*tm != '0');
@@ -514,12 +516,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.backbone_probed,
            (unsigned long long)kernel.stats.backbone_failed);
     printf("c transitive  %llu rounds, %llu checked, %llu deleted, "
-           "%llu failed, %llu ticks\n",
+           "%llu failed, %llu ticks, %llu polls, %llu terminated\n",
            (unsigned long long)kernel.stats.transitive_rounds,
            (unsigned long long)kernel.stats.transitive_checked,
            (unsigned long long)kernel.stats.transitive_deleted,
            (unsigned long long)kernel.stats.transitive_failed,
-           (unsigned long long)kernel.stats.transitive_ticks);
+           (unsigned long long)kernel.stats.transitive_ticks,
+           (unsigned long long)kernel.stats.transitive_polls,
+           (unsigned long long)kernel.stats.transitive_terminated);
     printf("c substitute  %llu rounds, %llu non-trivial SCCs (%llu lits), "
            "%llu vars substituted, %llu rounds skipped / %llu partial "
            "(%llu lits poisoned) on the hazard check\n",
