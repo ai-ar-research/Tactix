@@ -16,11 +16,10 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
   file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
   state #solved before PAR-2. Earlier: rev 80 made **N4, the strategy floor**, a non-negotiable
-- **Current phase:** 3 (the reference rule inventory) — since 2026-07-14 (phase 2 closed at T2 the same day, report
-  `benchmarks/reports/2026-07-14-t2-gate.md`). **R9 (X6 `HyperBinaryRes`) and R10 (BVE definition extraction) both LANDED 2026-08-06 — the
-  inventory is COMPLETE. What is left before the phase can be ticked is the exit EVIDENCE, not more rules.** Everything else open is phase-4 work.
-- **Next gate:** the **phase-3 exit** (rule inventory complete). **T3 is no longer phase 3's gate** — it is phase 4's, alongside discharging N4
-  and running Tier D. T3 stands NOT met on either half; see the gate row and the tier tables.
+- **Current phase:** **4 — dosing, optimization, scheduling** (opened 2026-08-07). Phase 3 CLOSED the same day
+  on rule completeness; report `benchmarks/reports/2026-08-07-phase-3-gate.md`.
+- **Next gate:** **T3** (§8.3), with discharging **N4** and running **Tier D** — the three phase-4 exit
+  criteria. T3 currently 1.115× cadical / 1.412× kissat on the rule-neutral subset.
 - **Last updated:** 2026-08-06 — compaction pass landed with plan rev 84 (4254 → this). Status lives in the anchor below; completed work is
   compressed to result + pointer, with the detail in the cited commit / report / design doc / Log entry.
 
@@ -33,14 +32,8 @@ that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T
 reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
 non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**IN FLIGHT** — the phase-3 gate evidence, now in the SANCTIONED shapes: **`1587900`** a Tier B job
-ARRAY (84 tasks, one core each) with **`1587901`** chained to aggregate, and **`1587899`** the fuzz legs as a
-multi-core job. *(`1587896`/`1587898` were the same evidence as a hand-rolled sweep inside one 16-core
-allocation — first serial, then a thread pool. Both were wrong: slurm-jobs says tier evaluation is an ARRAY,
-one task per solver×instance, and fuzz is the multi-core case. Cancelled by id.)* **The array now produces the
-reach evidence as a BYPRODUCT**: `run.py` records each task's `reached` counters, so a tier run answers the
-phase-3 exit's reach condition instead of needing a second sweep outside the array — and it banks the owed
-Tier B headline at the same time.
+**NOTHING IN FLIGHT** (`squeue -u hwu`: only this session's own `cpu-q` shell) — always check `squeue` rather
+than trusting a line here.
 
 **▶ THE PHASE-3 EXIT IS THE LIVE QUESTION.** The inventory half is DONE and machine-checked — all 28 catalog
 families have a disposition (`implementation-notes.md` §17, ctest `inventory`), R1–R10 resolved, X5 `Condition`
@@ -139,16 +132,16 @@ was badly stale, and in our favour: it read 1.345× cadical / 1.727× kissat.
 
 | tier | window | git | shipped arm | result |
 |---|---|---|---|---|
-| C (30) | `20260806-150228-C-govon` | `4f4989d` | `govon` | **355.76, 29/30** vs kissat 233.18 (29/30), cadical 317.52 (29/30) |
+| C (30) | `20260806-235835-C-shipped` | `edfba14` | `shipped` | **348.00, 29/30** vs kissat 228.29 (29/30), cadical 310.50 (29/30) |
 | C replicate | same window | same | `govon2` | 354.01, 29/30 — **in-window noise 1.75 PAR-2**, so the ratios below are solid |
-| B (28) | `20260806-220910-B-shipped` | `93cc150` | `shipped` | **104.04, 24/28** vs kissat 10.05 (28/28), cadical 40.65 (27/28) |
+| B (28) | `20260806-235833-B-shipped` | `edfba14` | `shipped` | **103.75, 24/28** vs kissat 9.99 (28/28), cadical 40.33 (27/28) |
 
 **▶ T3, both halves, on that window** (`subset_score.py`, subset = 24 of 30):
 
 | half | requirement | subset | full | verdict |
 |---|---|---|---|---|
-| CaDiCaL | ≤ 1.10× | **1.098×** | **1.120×** | **NOT MET on the full tier, and only just** — the subset is inside the band |
-| Kissat | parity on the subset | **1.396×** | 1.526× | **NOT MET**, and still the further-away half |
+| CaDiCaL | ≤ 1.10× | **1.115×** | **1.121×** | **NOT MET on the full tier, and only just** — the subset is inside the band |
+| Kissat | parity on the subset | **1.412×** | 1.524× | **NOT MET**, and still the further-away half |
 
 **Both halves improved a long way** from the stale reading (cadical 1.345 → 1.120, kissat 1.727 → 1.396), which
 is the effort-ledger wrap fix landing: the `…-102434-C-ledgerfix` window alone put us at **334.44 (29/30),
@@ -355,7 +348,7 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   trajectory gap closed to a residual of 1.42× propagation volume — the standing TB5 lever.
   **Exit: T2 PASSED 2026-07-14**
 
-## Phase 3 — the reference rule inventory
+## Phase 3 — the reference rule inventory · **COMPLETE 2026-08-07**
 
 Every rule lands N1-exposed and random-policy-fuzzed whether or not DefaultPolicy schedules it. Semantics →
 `docs/calculus.md`; guards and deviations → `docs/implementation-notes.md`; per-rule narrative → its design doc,
@@ -404,12 +397,15 @@ campaign 4 measured / 0 adopted.
   `definitionticks` ships at 1e4 rather than kissat's 1e6 because BVE's meter is `bve_resolutions` and cannot
   see sub-solver ticks (`TACTIX_BVE_DEF_TICKS`). **UNPRICED** — see the phase-4 table.
 
-- **Exit:** every Kissat 4.0.4 / CaDiCaL 3.0.0 proof rule is either registered here (guard / instances / apply,
-  N1-exposed, N2-clean, fuzz-green) or carries a reasoned no-implement row in `docs/implementation-notes.md`
-  with its evidence and a reopening path. Nightly random-policy fuzzing green — **the ~11.4 % (at 10 s) non-terminating
-  random-policy population does NOT block this** (user, 2026-08-06): it is N1 robustness, not soundness, it is
-  0 % for DefaultPolicy, and the harness now prints it instead of hiding it. **No performance gate** — T3 is
-  phase 4's. **N4 stays open when this phase closes**, by design (rev 83) — discharging it is phase 4's.
+- [x] **Exit MET 2026-08-07** — gate report `benchmarks/reports/2026-08-07-phase-3-gate.md`, commit `edfba14`.
+  **Inventory**: 28/28 catalog families have a disposition (ctest `inventory`), one reasoned no-implement
+  (X5 `Condition`, with its reopening path). **Surface**: 26 registry entries, guard/instances/apply — the last
+  hole closed when V5 Sweep gained the instance surface three docs already claimed it had. **Soundness**:
+  200,000 cases + native LRAT at 0 failures, plus the `--random-policy` × native-LRAT leg that had never been
+  run (50,000, 0 failures) and the corpus on both formats (`1588219`). **Reach**: every registry entry fires on
+  Tier B except `Reorder`, the OFF-by-design exemption; an audit separately showed all 26 are driven under
+  `--random-policy`, measured at the dispatch. **Performance is recorded, not gating** — Tier B 103.75 (24/28),
+  Tier C 348.00 (29/30), T3 1.115× cadical / 1.412× kissat on the subset, both NOT MET and both phase 4's.
 
 <!-- track-sched:begin -->
 ## Phase 4 — dosing, optimization, scheduling (plan rev 83)
