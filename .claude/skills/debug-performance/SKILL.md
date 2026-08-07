@@ -24,8 +24,10 @@ gap for a search-heuristic one — see "The cardinal lesson" below.
 
 ## The diagnostic ladder
 
-**Step 0 — quantify.** Run tactix and the baseline on the instance(s), same
-limits, and get the wall-time ratio. Use the **pinned** baselines
+**Step 0 — quantify.** Run tactix and the baseline on the instance(s) in the
+**same window, same allocation shape**, and get the wall-time ratio. Every run
+goes through `sbatch` (slurm-jobs skill) — a probe now versus a number from an
+earlier window is not a measurement. Use the **pinned** baselines
 (`tools/solvers/bin/kissat`, `.../cadical`) — *not* whatever `kissat` is on PATH
 (it may be missing or a different build).
 
@@ -82,18 +84,32 @@ kissat's factor-less search. Always run Step 3 before Step 4. Simplification pas
 (BVA, sweep, congruence) can cut conflicts 10×+ on structured instances — a
 magnitude that is easy to misread as "bad heuristics."
 
+## Comparing a counter to a reference counter — read it first
+
+A same-instance number is **necessary but not sufficient**: the counter must have
+the same SCOPE and SEMANTICS as ours. Before quoting one, read its declaration in
+`kissat/src/statistics.h` *and every `INC`/`ADD` site*, confirm our analogue
+covers the same thing, and cite both. Four mechanism reads were overturned in 24 h
+for want of this — `congruent_matched` counts hash-table find-hits during gate
+*construction*, not outcomes ("182× behind" was really 3.9×); `congruent`
+*bundles* a channel we implement in a different rule (V3 Substitute), which turned
+3.9× behind into parity. A reference aggregate 20–40 % larger than ours is often a
+BUNDLE, not a gap. Note that some counters need a non-default reference build
+(kissat's METRIC tier is compiled out of `-s`) — build variants under
+`tools/solvers/variants/<name>/`, never inside the pinned clone.
+
+**Never carry a fragility measurement across solvers:** a baseline can be
+perfectly stable where we are chaotic (kissat's replicate band on `j3037` is 39 s
+against a 203 s sweep delta measured on *our* arms).
+
 ## Tooling notes
 
 - **Pinned baselines only** (`tools/solvers/bin/{kissat,cadical}`); bare `kissat`
   may be absent from PATH (silent empty output).
-- macOS `/bin/bash` is **3.2** — **no associative arrays** (`declare -A` is a
-  silent no-op that scrambles indices). Use plain variables / a function, or
-  `python3`.
-- Respect the **one-evaluation-at-a-time** rule (§8.1): ablation runs are
-  evaluations; don't run them concurrently with a Tier run or each other if timing
-  matters.
-- A hard instance may need a generous `ulimit -t`; a baseline that *times out*
-  when a rule is disabled is itself the finding (that rule is load-bearing).
+- Ablation runs are evaluations: give them **identical allocation shapes**, and
+  prefer putting all arms in ONE array (`--checked-arm`) over separate probes.
+- A baseline that *times out* when a rule is disabled is itself the finding (that
+  rule is load-bearing).
 
 ## Output
 
