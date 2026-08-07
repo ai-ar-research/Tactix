@@ -160,10 +160,27 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
   }
 
   for (const Lit dst : w.cands) {
+    // Poll per dst walk, as kissat does (transitive.c:181-183): a source's
+    // candidate set is unbounded, so a poll only between sources leaves both
+    // the dose and an interrupt unobservable for the length of one source.
+    // Breaking here is sound — nothing is deleted until the loop below, and
+    // each tombstone was established against the graph minus the earlier ones,
+    // so a prefix of `dead_list` is exactly the result of a shorter round.
+    k.stats.transitive_polls++;
+    if (kernel_terminating(k)) {
+      k.stats.transitive_terminated++;
+      break;
+    }
     k.stats.transitive_checked++;
     w.dead[dst] = 1; // the candidate is excluded from its own path
     bool failed = false;
     const bool redundant = walk_reaches(k, w, src, dst, &failed);
+    // Credit in flight so the policy's between-instance meter check sees this
+    // source's spend as it happens rather than after it is over.
+    if (k.transitive_live_meter) {
+      k.stats.transitive_ticks += w.ticks;
+      w.ticks = 0;
+    }
     if (failed) {
       // ¬src is a failed literal: V1 Probe owns the unit and its chain, and
       // once src is fixed C2's flush removes these binaries anyway. Abort the

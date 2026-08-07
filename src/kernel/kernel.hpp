@@ -268,6 +268,8 @@ struct Stats {
                                    // transitive_ticks, same unit as ticks)
   uint64_t transitive_deleted = 0; // transitively redundant binaries deleted
   uint64_t transitive_failed = 0;  // sources abandoned to Probe as failed (V4)
+  uint64_t transitive_polls = 0;   // kernel_terminating evaluations at the site
+  uint64_t transitive_terminated = 0; // dst walks cut by an interrupt
   uint64_t substitute_rounds = 0;  // Substitute rounds — detection passes
   uint64_t substitute_vars = 0;    // variables substituted away
   // Non-trivial SCCs from substitute_find_sccs and the literals in them, which
@@ -792,6 +794,13 @@ struct Kernel {
   // walk to exhaustion so failed-literal detection sees the whole reachable
   // set, so this changes inference, not just cost. Sound either way.
   bool transitive_early_exit = false;
+  // TransitiveReduce: credit `transitive_ticks` after every dst walk rather
+  // than only when the source finishes (kissat transitive.c:159-161). Ships
+  // TRUE: with it false the meter cannot see a source's spend until the source
+  // is over, so the dose binds only between sources.
+  // `TACTIX_TRANSITIVE_LIVE_METER=0` is the permanent baseline arm
+  // (plan §5 obligation 6). Measurement: PROGRESS.md's phase-4 table.
+  bool transitive_live_meter = true;
   // BVE dose admission by measured cost per yield (resolutions per eliminated
   // variable); 0 = no limit. Density is a proxy for "elimination is safe here"
   // that fails on nearly every sparse instance.

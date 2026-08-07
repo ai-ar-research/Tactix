@@ -39,8 +39,14 @@ Tier D campaign**.
 
 **Where we stand** (`edfba14`, two pin dirs, verified identical shas, quiet partition):
 Tier B **103.75, 24/28** · Tier C **348.00, 29/30** · T3 **1.115× cadical / 1.412× kissat** on the subset.
-Both halves NOT MET. **IN FLIGHT: job `1588230`** — the block-1 counters probe (8 Tier B instances, counters
-only, no timing claim), which owns `build/pin-block1-counters`. Nothing else.
+Both halves NOT MET. **NOTHING IN FLIGHT** (`squeue -u hwu`: only the session's own `cpu-q` shell).
+
+**▶ NEW, AND IT IS THE SHARPEST LEAD ON `veer_axi` WE HAVE HAD.** Stack-sampled under SIGTERM
+(`benchmarks/probes/v4hang.sh`, job `1588247`): **240 s with `c conflicts 0`** — the solve never reaches
+search — and every sample sits in `hyperbinary_try → congruence_rup_chain → kernel_propagate_probing`, driven
+from `apply_rule_instance`. Sweep, Factor and BVE all read 0 rounds. **R9 `HyperBinaryRes` consumes the whole
+solve on the instance kissat finishes in 3.5 s**, and it shipped UNPRICED on 2026-08-06. Its OFF arm is row
+`R9` in the phase-4 table; that arm is now the highest-value experiment in block 2, not a formality.
 
 **▶ NEXT STEP — phase 4 block 1, which is all desk work and costs no tier window.** Reordered 2026-08-07: a
 landing voids every pending pre-registration, so the cheap landings go BEFORE the pricing batch, not after.
@@ -671,6 +677,20 @@ claims read green for a reason other than the stated one.
   OFF-by-default family can never give); corrected by rev 88.
 - **A 10,000-case run was committed as "nightly-scale"** when `run.sh --nightly` is 200,000 + `--lrat` — 20×
   short, with two exit clauses riding on it.
+
+**▶ TWO MISSING INTERIOR POLLS, one of which is why `veer_axi` ignored a SIGTERM for ten minutes.** A probe
+task ran 12:49 against a `timeout 300` and only SLURM's wall ended it. **`hyperbinary_try` — the INSTANCE path
+— had no termination poll at all**: the only one lives in `hyperbinary_apply`, the canonical-round path, and
+DefaultPolicy drives this `dosed` entry one instance at a time, so that loop is never entered. Same shape as
+the phase-3 reach keys, but for a poll instead of a counter. Every resolvent costs a RUP replay and one root
+carries many, so a single call ran unbounded. Located by STACK SAMPLING under SIGTERM, not by reasoning — the
+first fix was aimed at the wrong rule. Fixed; both re-runs now exit within the grace period.
+**`TransitiveReduce` had the same gap independently** (kissat credits ticks and polls the budget and
+TERMINATED after every dst walk, `transitive.c:159-161,181-183`; we did neither until the source finished, so
+one source could outspend its dose 35.7×). Fixed, poll proven live (`polls` == `checked`), live metering
+behind `TACTIX_TRANSITIVE_LIVE_METER=0` as the baseline arm — **but it is NOT the `veer_axi` cause**, which
+that instance settles: `c transitive 0 rounds` there. **Both abort sites are sound**: 2 × 10,000
+`TACTIX_STOP_FUZZ` cases, 0 failures, with HyperBinaryRes firing in 1,676 and TransitiveReduce in 940.
 
 **Also landed:** the comment sweep, **11,483 → 6,462 comment lines (−44 %) with a byte-identical Release
 binary** and code lines unchanged — the hygiene checker had passed three complaints because it policed a

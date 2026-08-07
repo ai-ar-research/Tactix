@@ -1,0 +1,2 @@
+veer_axi_yosyshq_appnote_123_veer_axi-p23_transition|tierB|pin-v4poll2|120|45|3
+veer_axi_yosyshq_appnote_123_veer_axi-p23_transition|tierB|pin-v4poll2|240|60|3

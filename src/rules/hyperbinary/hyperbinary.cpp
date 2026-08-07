@@ -206,8 +206,16 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p) {
     return ApplyResult::NoOp; // a failed literal is V1 Probe's inference
   std::vector<uint64_t> chain;
   bool any = false;
-  for (const Resolvent &r : found)
+  for (const Resolvent &r : found) {
+    // Every resolvent costs a RUP replay (a probing propagation plus its
+    // backtrack), and one root can carry many, so the round-level poll in
+    // `hyperbinary_apply` is not reachable from here: the policy drives this
+    // entry one INSTANCE at a time, so that loop is never entered. Emitting
+    // fewer resolvents is always sound — the rule derives fewer consequences.
+    if (kernel_rule_interrupt(k, k.stats.hbr_interrupts))
+      break;
     any |= emit(k, r, chain);
+  }
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
