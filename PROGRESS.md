@@ -48,6 +48,16 @@ than trusting a line here.
 4. One `ledgerfix + TACTIX_SLOT_CLOCKS=1` arm: up to ~670 PAR-2 may be D2 cost that survives a sound ledger, and
    nothing measured so far separates "D2's cost was entirely the wrap" from "D2 costs on top of it".
 
+**▶ ALSO JUST LANDED, UNPRICED: Sweep's yield defect is fixed** (`S-g`, merged from `sweep-yield`). It was
+neither dosing nor semantics — **97.1 % of Sweep's effort on `b22_1` went to a linear array scan** (`env_add`'s
+clause dedup), leaving 1.5 % for the sub-solver, so the dose bought **174 environments where kissat builds
+11,416**. Open-addressed key set + kissat's ascending-occurrence seed rank + nearest-first candidates:
+**`b22_1` 0 → 239 equivalences and 0 → 478 emitted binaries at 1.4 % FEWER ticks** (kissat 545). **Its tier A/B
+is specified and NOT run**, and its risk is not the obvious one — the dose is unchanged in *ticks*, but a dedup
+probe that cost `|keys|` now costs 1, so the same budget buys far more real work and Sweep's wall-clock share
+rises. If it loses, the first lever is `sweepeffort`, not a revert. Report
+`benchmarks/reports/2026-08-06-sweep-yield-diagnosis.md`.
+
 **▶ THREE TRAPS THAT APPLY TO THE NEXT ACTION.**
 - **The effort ledger was WRAPPING and that was the whole overnight regression** (fixed, `7b9f9d2`+`8b27c63`;
   report `benchmarks/reports/2026-08-06-solve-loss-diagnosis.md`). `set_entry_limit` sized a dose as an UNSIGNED
@@ -253,8 +263,10 @@ commit and Log entry. Composition is the S4 arrangement, unconditionally.
 **DONE — the whole inventory except R9/R10.** C1 C2 C3 · V1 V2 V3 V4 V5 V6 · E1 E2 · S6 S7 · X1 X2 X3 X4, all ON
 except **S7 `Reorder`** (OFF: parity on Tier B's UNSAT half, 3.4× worse on its SAT half — a policy op, not a
 proof rule, so ask before flipping) and **X5 `Condition`** (a reasoned no-implement: its witness is a cube and
-`ρ` holds one in-clause literal — `SP-COND-1` §16, read it before proposing X5 again). Tier C frozen; calculus
-formalized (rev 36); N1/N2/N3 audit upheld; independent-lineage campaign 4 measured / 0 adopted.
+`ρ` holds one in-clause literal — `SP-COND-1` §16, read it before proposing X5 again). Sweep's yield defect is fixed too (`S-g`: the
+cost was an O(n²) dedup scan, not the reasoning — `b22_1` 0 → 239 equivalences at fewer ticks; remainder
+`SP-SWEEP-7`). Tier C frozen; calculus formalized (rev 36); N1/N2/N3 audit upheld; independent-lineage
+campaign 4 measured / 0 adopted.
 
 - [ ] **R9 · X6 `HyperBinaryRes`** — HBR during probing. Ledger `SP-PROBE-2`, catalog §5.2 X6, reference cadical
   `probehbr` (`probe.cpp:218`, called `:477`). A long clause going unit at level 1 folds its false literals
@@ -313,6 +325,7 @@ Track SCHED's standing protocol below. This table is the per-item part.
 | `F6`+`F7` redundant band (OFF) | `TACTIX_TOUCH_REDUNDANT=1` | `c touchred` (a PAIR) + `c f7band` | ~800× the irredundant population; must pay for it |
 | `G2` drop C1's dose | a dose arm, **not a rule-off** | C1/C2 yield split | C1 measured inert (C2 absorbs 698,341 of 698,351) |
 | `G3` Vivify trail reuse | `TACTIX_VIVIFY_REUSE=0` | reuse %, 0 with the hatch off | reverts probe *and* candidate order |
+| `S-g` Sweep yield | vs the `73af059` binary | environments, equivalences, emitted binaries | Dose unchanged in TICKS but a dedup probe went `|keys|` → 1, so the same budget buys far more work and Sweep's wall share RISES. If it loses, the first lever is `sweepeffort`, not a revert |
 | `G4` Y1 unit sweep | `TACTIX_CONG_Y1` | `c congy1` | strict SUBSET of V2 Backbone — **only one should ship** |
 
 ### ▶ 2. Re-measure, then close T3
@@ -332,8 +345,10 @@ Track SCHED's standing protocol below. This table is the per-item part.
   fresh resolvents straight into subsumption; it is what makes cadical's `elimrounds`=2 sufficient) ·
   `SP-COMPACT-1` (variable compaction / renumbering) · `SP-CHRONO-1` (analyze-side trail reuse) ·
   `SP-VIVIFY-3` (schedule-level dedup before spending a propagation).
-- [ ] **`SP-SWEEP-3` + Sweep's yield** — 1,226,656 candidate checks for **1** equivalence on `b22_1` against
-  kissat's 545. Port kissat's SCHEDULE, not a bare cursor: a wrapping cursor never completes a pass, so
+- [ ] **`SP-SWEEP-3`** (resumable sweep schedule) and **`SP-SWEEP-7`** — the yield remainder after `S-g`:
+  per-environment yield is still ~5× kissat's, from seed-anchored candidates (an environment can only prove
+  pairs *to its seed*) and no `kitten_flip_literal` pre-filter. Rule work, not scheduling. For `SP-SWEEP-3`,
+  port kissat's SCHEDULE rather than a bare cursor — a wrapping cursor never completes a pass, so
   `sweep_completed` can never grow the caps.
 - [ ] **`SCHED-G6`** — charge the binary-only scan what it touched (kissat charges `touched = p - begin`); we
   charge the whole list so G5 could be bit-exact. Frees Backbone budget and **changes the search**, so it needs
@@ -461,6 +476,17 @@ it** (`delta ≈ 2^64/10`), and the two `budget_aware` closures — Sweep and Co
 `now < anchor`); D2 stays, it is N4. Fix = monotone `search_ticks` + saturating subtraction at all four ledger
 sites + a `wrapped N` reachability counter. Twelve-instance probe: loss-set PAR-2 8400 → 1944, win-set
 2462 → 2285 (the control half slightly BETTER), solved 7/12 → 11/12.
+
+**▶ Sweep's YIELD defect found and fixed (`S-g`).** 97.1 % of its effort on `b22_1` was `env_add`'s O(n²)
+clause-dedup scan — charged to Sweep's own currency — leaving 1.5 % for the sub-solver, so the dose bought 174
+environments against kissat's 11,416; coverage is where kissat's yield comes from. Open-addressed key set +
+ascending-occurrence seed rank + nearest-first candidates: `b22_1` 0 → 239 equivalences, 0 → 478 binaries, at
+1.4 % FEWER ticks. **Both briefed hypotheses were REFUTED by counters** — 0 root-false literals in the entire
+shipped environment population (fixed anyway, and the strip is now CITED, so the soundness argument moves from
+`env ⊆ F` to `env is entailed by F` — `SP-SWEEP-8`), and 0 `Budget` returns in 1.7 M sub-solver calls. **Two
+corrections to the brief: `mod4block` is NOT a gap instance** (kissat gets 2 equivalences there) and the
+`sweepfree` arm is a configuration kissat never runs. N2: 640 strip units cited in LRAT chains that then
+verified, 0 rejections on either format. UNPRICED. `2026-08-06-sweep-yield-diagnosis.md`.
 
 **▶ Track SCHED's twelve HIGH parity rows are ALL CLOSED.** `SCHED-F7` closed the last one, `SP-REPEAT-*`, as an
 accepted deviation with its measurement (`D-C1C2-VICTIM`) — see Phase 4's standing findings for F7's
