@@ -215,6 +215,16 @@ def input_restated(stdout):
 # `spec_miss` counts rows whose LINE never appeared in a case that printed
 # stats at all, and a leg with any spec miss FAILS — an instrument that cannot
 # fail is worth nothing.
+#
+# ▶ NOT the `rounds` counter for a DOSED rule. `<rule>_rounds` is incremented by
+# the CANONICAL apply only, and DefaultPolicy drives every `EFFORT_SPECS` entry
+# with `dosed=true` (BVE, Probe, Backbone, TransitiveReduce, HyperBinaryRes)
+# one instance at a time — so their rounds counter stays 0 on a run where the
+# rule did all its work. Measured 2026-08-06: `9vliw_bp_mc` prints `c bve 0
+# rounds, 11008 eliminated`. Reading `rounds` there is an instrument that CANNOT
+# report reachability, which is worse than no row. Each of those five reads its
+# work counter (resolutions / probed / checked / probes) instead — non-zero iff
+# the apply body ran, which is the property this table is for.
 REACH_SPECS = [
     ("Propagate", r"^c propagations\s+(\d+)"),
     ("Decide", r"^c decisions\s+(\d+)"),
@@ -226,26 +236,23 @@ REACH_SPECS = [
     # The next three key on ATTEMPTS, not rounds. All are `dosed` entries, so
     # DefaultPolicy reaches them through apply_instance and the round counter
     # never moves: on a structured probe instance Probe and Backbone each
-    # probed 22 literals while reporting "0 rounds". A counter that CANNOT
-    # move makes a rule that ran look untested, which is the inverse of the
-    # vacuity this table exists to catch — and it is what produced the
-    # "19 of 25 entries fire" reading.
+    # probed 22 literals while reporting "0 rounds", and `9vliw_bp_mc` prints
+    # "c bve 0 rounds, 11008 eliminated". A counter that CANNOT move makes a
+    # rule that ran look untested -- the inverse of the vacuity this table
+    # exists to catch, and what produced the "19 of 25 entries fire" reading.
     ("Probe", r"^c probe\s+\d+ rounds, (\d+) probed,"),
     ("Backbone", r"^c backbone\s+\d+ rounds, (\d+) probed,"),
     ("TransitiveReduce", r"^c transitive\s+\d+ rounds, (\d+) checked,"),
+    ("HyperBinaryRes", r"^c hbr\s+\d+ rounds, (\d+) probes,"),
     ("Substitute", r"^c substitute\s+(\d+) rounds,"),
     ("BCE", r"^c bce\s+(\d+) rounds,"),
     ("CCE", r"^c cce\s+(\d+) rounds,"),
     ("Instantiate", r"^c instantiate\s+(\d+) rounds,"),
     ("Sweep", r"^c sweep\s+(\d+) rounds,"),
     ("HyperTernaryRes", r"^c ternary\s+(\d+) rounds,"),
-    # PROBES, not rounds: this is a `dosed` entry, so DefaultPolicy reaches it
-    # through apply_instance and the round counter never moves. Keying on rounds
-    # would report a rule that ran as unreached.
-    ("HyperBinaryRes", r"^c hbr\s+\d+ rounds, (\d+) probes,"),
     ("Congruence", r"^c congruence\s+(\d+) rounds,"),
     ("Factor", r"^c factor\s+(\d+) factorings,"),
-    ("BVE", r"^c bve\s+(\d+) rounds,"),
+    ("BVE", r"^c bve\s+\d+ rounds, \d+ eliminated, (\d+) resolutions"),
     ("SubsumeForward", r"^c subsume\s+(\d+) rounds \("),
     ("Strengthen", r"^c strengthen\s+(\d+) rounds \("),
     ("Walk", r"^c walk\s+(\d+) walks"),

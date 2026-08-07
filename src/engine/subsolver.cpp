@@ -30,7 +30,7 @@
 // is a consequence of the ENVIRONMENT ALONE — assumptions enter as decisions
 // and leave as literals of the learned clause, never as premises — so the
 // lemmas stay valid across assumption sets and across restarts.
-#include "rules/sweep/subsolver.hpp"
+#include "engine/subsolver.hpp"
 
 #include <algorithm>
 #include <cassert>

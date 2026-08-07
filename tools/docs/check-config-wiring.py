@@ -68,6 +68,13 @@ TABLE = {
     "factor_scope_percent":    ("ENV", "TACTIX_FACTOR_SCOPE_PCT (broad-admission arm)"),
     "transitive_early_exit":   ("ENV", "TACTIX_V4_EARLY_EXIT"),
     "bve_cost_limit":          ("ENV", "TACTIX_BVE_COST_LIMIT"),
+    # R10: the per-attempt sub-solver ceiling for definition extraction. NOT
+    # POLICY — kissat treats `definitionticks` as a fixed option and moves
+    # nothing per phase, so a writer in default_policy.* would be the fake
+    # wiring this check exists to expose. Pricing it is phase-4 dosing.
+    "bve_definition_budget":   ("ENV", "TACTIX_BVE_DEF_TICKS; ships 1e4 (kissat "
+                                       "`definitionticks` is 1e6 in another "
+                                       "currency)"),
     "ternary_occ_limit":       ("ENV", "TACTIX_TERNARY_OCC_LIMIT"),
     "ternary_max_add_percent": ("ENV", "TACTIX_TERNARY_MAXADD"),
     # Track SCHED stage F: default-ON with an `=0` revert hatch, the

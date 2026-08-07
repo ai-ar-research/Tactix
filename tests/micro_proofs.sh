@@ -116,6 +116,46 @@ for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
       || { echo "FAIL: lrat-check gave no verdict on BVE $cnf"; cat "$T/check"; exit 1; }
   fi
 done
+# ---- R10: BVE through a GENERAL DEFINITION (--bve-gates=def, everything
+# syntactic masked off, so any gate here came from the sub-solver). The pivot's
+# clauses (x∨a)(x∨b)(¬x∨¬a∨c)(¬x∨¬b∨¬c) match no syntactic shape but reduce to
+# an UNSAT set, so the sub-solver extracts x↔φ; the emitted resolvents include
+# gate×gate pairs that are NOT tautologies, which is the path `resolve_gate`
+# turns on and the one nothing else in this file reaches. The counter assertion
+# is the reachability half — without it this is a proof test of the ordinary
+# no-gate path ([[ab-arm-identical-artefacts]]).
+printf 'p cnf 4 8\n1 2 0\n1 3 0\n-1 -2 4 0\n-1 -3 -4 0\n2 3 0\n-2 -3 0\n-2 -4 0\n-3 4 0\n' \
+  > "$T/bvedef.cnf"
+cnf="$T/bvedef.cnf"
+for mode in binary ascii; do
+  proof="$cnf.$mode.drat"
+  extra=""
+  [ "$mode" = ascii ] && extra="--no-binary"
+  # shellcheck disable=SC2086
+  "$TACTIX" --bve-stress-policy --bve-gates=def $extra "$cnf" "$proof" \
+    > "$T/out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] || { echo "FAIL: bvedef not UNSAT (rc=$rc)"; exit 1; }
+  grep -qE '^c bve-gates .*[1-9][0-9]* definition' "$T/out" \
+    || { echo "FAIL: no definition gate extracted — the case is vacuous"; \
+         grep '^c bve' "$T/out"; exit 1; }
+  "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
+  grep -q 's VERIFIED' "$T/check" \
+    || { echo "FAIL: definition-gate proof ($mode) rejected"; cat "$T/check"; \
+         exit 1; }
+done
+if [ -x "$LRAT_CHECK" ]; then
+  proof="$cnf.lrat"
+  "$TACTIX" -q --bve-stress-policy --bve-gates=def --lrat "$cnf" "$proof" \
+    > "$T/out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] || { echo "FAIL: bvedef not UNSAT under --lrat"; exit 1; }
+  "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+    || { echo "FAIL: native LRAT of the definition gate rejected"; \
+         cat "$T/check"; exit 1; }
+  grep -q 'c VERIFIED' "$T/check" \
+    || { echo "FAIL: lrat-check gave no verdict on bvedef"; cat "$T/check"; \
+         exit 1; }
+fi
+
 # ---- E2: Factor (BVA) native-LRAT — dividers emit vacuous add-RAT (fresh pivot,
 # no ¬x clauses yet → empty hints) and quotients emit add-RAT with one resolution
 # group per divider (the resolvent (fᵢ∨rⱼ) discharged by the still-live original's

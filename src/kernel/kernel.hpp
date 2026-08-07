@@ -612,6 +612,18 @@ struct Stats {
   uint64_t bve_gates_and_or = 0;
   uint64_t bve_gates_ite = 0;
   uint64_t bve_gates_xor = 0;
+  // R10's general definitions, extracted by the sub-solver rather than matched
+  // (kissat statistics.definitions_{checked,extracted}). `checked` counts the
+  // attempts, `bve_gates_definition` the successes, and the pair is the
+  // reachability readout: `checked > 0` proves the path runs at all,
+  // `bve_gates_definition > 0` that it finds something
+  // ([[ab-arm-identical-artefacts]]). `budget` counts attempts the per-attempt
+  // tick ceiling cut short — the only readout that says whether
+  // `Kernel::bve_definition_budget` binds.
+  uint64_t bve_definitions_checked = 0;
+  uint64_t bve_gates_definition = 0;
+  uint64_t bve_definition_ticks = 0;
+  uint64_t bve_definition_budget = 0;
   // resolvent PAIRS the gate reduction removed from the growth bound's input:
   // occ⁺·occ⁻ minus the gate×antecedent pairs actually charged. This is the
   // acceptance lever itself — the bound `resolvents ≤ occ⁺+occ⁻+slack` is
@@ -1135,6 +1147,19 @@ struct Kernel {
   // kissat's fine-grained dose ramps it 0,1,2,4,8,16, re-scheduling every
   // variable at each level (eliminate.c set_next_elimination_bound).
   uint32_t bve_bound = 16;
+  // BVE general-definition extraction: the per-ATTEMPT sub-solver tick ceiling
+  // (kissat option `definitionticks`, whose own default is 1e6). CONFIGURATION
+  // like bve_bound — any policy may set it at any time and any value is sound,
+  // because the sub-solve only decides WHICH resolvents are generated, never
+  // whether the elimination is justified; 0 = unlimited.
+  //
+  // Ships at 1e4, two orders below kissat's, and the reason is a metering gap
+  // rather than a measurement: BVE's `EFFORT_SPECS` meter is `bve_resolutions`
+  // and a definition attempt that finds nothing produces none, so this cap is
+  // the ONLY bound on the work (kissat is in the same position — its
+  // `kitten_ticks` sit outside the eliminate effort limit). Sweeping it is
+  // TACTIX_BVE_DEF_TICKS.
+  uint64_t bve_definition_budget = 10000;
   // BCE candidate-occurrence ceiling (cadical option `blockocclim`, whose own
   // default is 1e2): decline a blocking literal occurring more than this many
   // times. CONFIGURATION like bve_bound — any policy may set it at any time and

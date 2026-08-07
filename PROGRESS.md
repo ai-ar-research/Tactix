@@ -17,14 +17,14 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
   state #solved before PAR-2. Earlier: rev 80 made **N4, the strategy floor**, a non-negotiable
 - **Current phase:** 3 (the reference rule inventory) — since 2026-07-14 (phase 2 closed at T2 the same day, report
-  `benchmarks/reports/2026-07-14-t2-gate.md`). **R9 (X6 `HyperBinaryRes`) LANDED 2026-08-06; R10 (kitten BVE definitions) is the last item owed.**
-  Everything else open is phase-4 work.
+  `benchmarks/reports/2026-07-14-t2-gate.md`). **R9 (X6 `HyperBinaryRes`) and R10 (BVE definition extraction) both LANDED 2026-08-06 — the
+  inventory is COMPLETE. What is left before the phase can be ticked is the exit EVIDENCE, not more rules.** Everything else open is phase-4 work.
 - **Next gate:** the **phase-3 exit** (rule inventory complete). **T3 is no longer phase 3's gate** — it is phase 4's, alongside discharging N4
   and running Tier D. T3 stands NOT met on either half; see the gate row and the tier tables.
 - **Last updated:** 2026-08-06 — compaction pass landed with plan rev 84 (4254 → this). Status lives in the anchor below; completed work is
   compressed to result + pointer, with the detail in the cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **R9 LANDED; next = R10, the last item before the phase closes**
+## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **R9 + R10 LANDED; the inventory is complete, the EXIT is not ticked**
 
 **Plan rev 83 restructured the phases.** Phase 3 exits on the **rule inventory**, not a tier number; everything
 that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T3**, **discharging N4** and the
@@ -33,17 +33,26 @@ that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T
 reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
 non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**NOTHING IN FLIGHT** (`squeue -u hwu`: only this session's own `cpu-q` shell). R9's fuzz legs are done and
-green — see its Track R entry. One finding outlived them: the first job's two DefaultPolicy legs **did not run**,
-because the harness refused `--require-reached HyperBinaryRes` for a rule `REACH_SPECS` had no row for. Refusing
-was right; nothing warned before submission, so `check-effort-specs` now FAILS on any registered rule with no
-`REACH_SPECS` entry.
+**NOTHING IN FLIGHT** (`squeue -u hwu`: only this session's own `cpu-q` shell) — always check `squeue` rather
+than trusting a line here. **R9's five legs are GREEN and read** (`1587880`/`1587881`): DefaultPolicy × DRAT and
+× native LRAT at 4,000 cases each with `--require-reached HyperBinaryRes` satisfied — the rule fired in **610 of
+3,879** cases with stats — plus `--random-policy` × both formats and the corpus on both, 0 failures throughout.
+**R10's six legs are GREEN and read** (`1587884`–`1587889`): 10,000 + 10,000 + 4×4,000 cases, 0 failures, corpus
+14/14 on every leg, ASan/UBSan; the `--bve-stress-policy` pair fires BVE on **2,553 of 3,595** cases with stats.
+One finding outlived R9's legs: its first job's two DefaultPolicy legs **did not run**, because the harness
+refused `--require-reached HyperBinaryRes` for a rule `REACH_SPECS` had no row for. Refusing was right, but
+nothing warned before submission — `check-effort-specs` now FAILS on any registered rule with no entry, and
+R10's pass then found the same table reading ROUND counters for all five `dosed` rules, which cannot move on the
+path DefaultPolicy actually uses.
 
 **▶ THE NEXT STEPS, in order.**
-1. **R10 · kitten BVE definitions** — the last phase-3 item. (R9 landed `a4fa14b`; its fuzz legs are job
-   `1587880` and must be read before the phase is ticked.) **Plan rev 85 makes `--require-reached` part of the
-   exit**: every implemented family needs its own counter shown non-zero on the shipped DefaultPolicy, because a
-   fuzz-sized DefaultPolicy leg fires only 19 of 25 registry entries.
+1. **Tick the phase-3 exit.** Both remaining rules landed; what the exit still needs is (a) R9's and R10's fuzz
+   legs read, and (b) the `--require-reached` evidence plan rev 85 asks for. **R10 fixed the instrument that
+   evidence depends on:** `REACH_SPECS` read `<rule>_rounds` for five DOSED rules (BVE, Probe, Backbone,
+   TransitiveReduce, HyperBinaryRes), and DefaultPolicy drives those one INSTANCE at a time, so the counter stays
+   0 on a run where the rule did all its work — `9vliw_bp_mc` prints `c bve 0 rounds, 11008 eliminated`. Those
+   five now read their work counter, and **X6 HyperBinaryRes had no row at all**. Re-read the "19 of 25" figure
+   against the fixed instrument before concluding anything from it.
 2. **A full Tier B + Tier C window.** Four 2026-08-06 pairs sit unread in `benchmarks/runs/` (newest
    `20260806-150228-C-govon`) while the banked headline is still the `20260805` windows — none of the recent
    work took a timing measurement. Take the SHA from each run's own `manifest.json` and read `#solved` before
@@ -272,7 +281,7 @@ Every rule lands N1-exposed and random-policy-fuzzed whether or not DefaultPolic
 `docs/calculus.md`; guards and deviations → `docs/implementation-notes.md`; per-rule narrative → its design doc,
 commit and Log entry. Composition is the S4 arrangement, unconditionally.
 
-**DONE — the whole inventory except R9/R10.** C1 C2 C3 · V1 V2 V3 V4 V5 V6 · E1 E2 · S6 S7 · X1 X2 X3 X4, all ON
+**DONE — the whole inventory, R9 and R10 included (2026-08-06).** C1 C2 C3 · V1 V2 V3 V4 V5 V6 · E1 E2 · S6 S7 · X1 X2 X3 X4 X6, all ON
 except **S7 `Reorder`** (OFF: parity on Tier B's UNSAT half, 3.4× worse on its SAT half — a policy op, not a
 proof rule, so ask before flipping) and **X5 `Condition`** (a reasoned no-implement: its witness is a cube and
 `ρ` holds one in-clause literal — `SP-COND-1`, `implementation-notes.md` §16 — read it before proposing X5 again). Sweep's yield defect is fixed too (`S-g`: the
@@ -296,11 +305,24 @@ campaign 4 measured / 0 adopted.
   *Found en route and fixed in the same commit:* `Reduce::instances()` moved three Stats counters, breaking
   replay identity and making `reduce_skippable_words` exceed `reduce_scan_words` (a printed 200 %) — the figure
   `SCHED-H3` priced its decision on.
-- [ ] **R10 · kitten-based BVE definition extraction** — §11 O11, the E1 remainder (E1 ships the syntactic
-  matcher only). Worth +6.1 Tier C PAR-2 to kissat in its own ablation; the sub-solver is already in-tree for
-  Sweep, so this is a consumer, not a port. **Two constraints:** it may only WIDEN `instances()`, never prune it
-  (N1); and `bve.cpp`'s `!resolve_gate` assert must be re-argued rather than assumed — it holds because every
-  shape matched today is a COMPLETE gate.
+- [x] **R10 · BVE definition extraction — LANDED ON 2026-08-06**, closing §11 O11's BVE half. Shipped as a
+  **fifth E1 GATE KIND** (`BVE_GATE_DEFINITION`, `--bve-gates=…,def`), not a new rule family: the precondition,
+  the effect, the instance surface and the RUP-only delta are all E1's, and only *which resolvents get
+  generated* changes — a new registry line would have duplicated `bve_eliminate` and added no instance. So no
+  stat-id pair and no C-ABI renumbering. The sub-solver moved to `src/engine/` first (it is an engine, not
+  Sweep's rule module).
+  **The `!resolve_gate` assert is re-argued, not assumed** (`docs/calculus.md` §6b, condition ★): marking `G⁺`,
+  `G⁻` is legal exactly when their reduced clauses are jointly UNSAT, which licenses dropping
+  antecedent×antecedent but needs EVERY pair containing a gate clause. The four syntactic kinds may also drop
+  gate×gate because those are tautologies (they are exact CNFs of `x↔φ`); a definition core can be strictly
+  stronger, so its gate×gate resolvents are real and it **sets `resolve_gate`** — as kissat does
+  (`definition.c:221`). The assert now pins *which kind may*. **Nothing from the sub-solver enters the proof** —
+  the core only selects resolvents, each still a resolution of two clauses of `F`.
+  Not ported, both narrowing: `definitioncores`=2 (our sub-solver has a fixed decision order and no shuffle, so
+  a second solve reproduces the first core) and the one-sided-core **failed literal** (entailed but not RUP; it
+  needs the derivation mapped to main ids, which is V2 Backbone's delta — the gate is still extracted).
+  `definitionticks` ships at 1e4 rather than kissat's 1e6 because BVE's meter is `bve_resolutions` and cannot
+  see sub-solver ticks (`TACTIX_BVE_DEF_TICKS`). **UNPRICED** — see the phase-4 table.
 
 - **Exit:** every Kissat 4.0.4 / CaDiCaL 3.0.0 proof rule is either registered here (guard / instances / apply,
   N1-exposed, N2-clean, fuzz-green) or carries a reasoned no-implement row in `docs/implementation-notes.md`
@@ -360,6 +382,7 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 | `G3` Vivify trail reuse | `TACTIX_VIVIFY_REUSE=0` | reuse %, 0 with the hatch off | **PRE-`58a46de` — RE-REGISTER** | reverts probe *and* candidate order |
 | `S-g` Sweep yield | vs the `73af059` binary | environments, equivalences, emitted binaries | Dose unchanged in TICKS but a dedup probe went `|keys| `73af059` |` → 1, so the same budget buys far more work and Sweep's wall share RISES. If it loses, the first lever is `sweepeffort`, not a revert |
 | `G4` Y1 unit sweep | `TACTIX_CONG_Y1` | `c congy1` | **PRE-`58a46de` — RE-REGISTER** | strict SUBSET of V2 Backbone — **only one should ship** |
+| `R10` BVE definitions | `--bve-gates=equiv,andor,ite,xor` (the OFF arm) | `c bve-gates … definition` + `c bve-def` (checked / ticks / ceiling hits) — **all three, or the arm is untested** | `203732b` | Two knobs, and they move in opposite directions: the gate WIDENS what the growth bound accepts (more eliminations) while the sub-solve SPENDS time the BVE meter cannot see. Second arm `TACTIX_BVE_DEF_TICKS` (ships 1e4 vs kissat's 1e6) — read `hit the tick ceiling` first: if it is ~0 the cap is not the lever and the yield is real; if it is large the cap is throttling the mechanism and the OFF-arm comparison is measuring a crippled version. kissat's own ablation prices `definitions` at +6.1 Tier C PAR-2 |
 
 ### ▶ 2. Re-measure, then close T3
 
@@ -482,6 +505,47 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 ## Log
 
 ### 2026-08-06 — the day's results, compressed (detail in the cited report / commit / ledger row)
+
+**▶ `Track R · R10` — BVE DEFINITION EXTRACTION LANDS, and the phase-3 inventory is complete.** Shipped as a
+fifth E1 **gate kind**, not a new rule family: E1's precondition, effect, instance surface and RUP-only delta are
+all unchanged and only the *choice of resolvents* differs, so a registry line would have duplicated
+`bve_eliminate` and offered no new instance (no stat-id pair, no C-ABI renumbering). The sub-solver moved
+`src/rules/sweep/` → **`src/engine/`** first: it is an engine (no guard/instances/apply, never touches `Kernel`),
+and a rule including another RULE's header would read as a §5.3 violation it is not.
+**The `!resolve_gate` assert was RE-ARGUED, and the argument got simpler.** Condition ★ (`calculus.md` §6b):
+marking `G⁺`, `G⁻` is legal exactly when their reduced clauses are jointly UNSAT — which is what a sub-solver
+refutation of the pivot's occurrence lists gives by construction — and that licenses dropping
+antecedent×antecedent while requiring **every pair containing a gate clause**. The four syntactic kinds may drop
+gate×gate as well only because those are TAUTOLOGIES (they are exact CNFs of `x↔φ`, so eliminating `x` yields
+`⊤`); a definition core can be strictly stronger than `x↔φ`, so its gate×gate resolvents are real and it **sets
+`resolve_gate`** — kissat's does the same (`definition.c:221`). The assert now pins *which kind may*, so an
+inexact matcher still cannot slip in silently. **Nothing from the sub-solver enters the proof:** the core only
+selects resolvents, each still a resolution of two clauses of `F`, so the delta stays RUP-only.
+**Reachability at the source, shipped DefaultPolicy** (probe `1587892`, Tier B instances, counters only — no
+timing): `9vliw_bp_mc` **519 definitions from 79,191 attempts**, 16.5 M resolvent pairs saved across all gate
+kinds, 22.3 M sub-solver ticks, and only **203 attempts (0.26 %) hit the 1e4 tick ceiling** — so the cap is not
+what limits the yield. **The honest negative is the rest of the tier: 8 of 26 instances reach the sub-solve and
+exactly ONE extracts anything.** Read `qwh.50.1250` before pricing this — 16,822 attempts and 707,669 sub-solver
+ticks for 0 definitions, on an instance where BVE eliminates 4 variables out of 423,450 resolutions. That is the
+cost side, and BVE's meter cannot see it. Tier A is silent because BVE never runs there at all.
+**And the FUZZ legs are not green over an unexercised path** (probe `1587895`): on 40 FuzzSAT-style Tseitin
+circuits — the fuzz mix's own 30 % generator — the ASan `--bve-stress-policy` binary extracts definitions on
+**21 of 40**, and on the 40 mutation/k-SAT instances of probe `1587893` on **11 of 40** — so the `resolve_gate`
+branch really runs under the sanitizers. The same 40 circuits under the shipped DefaultPolicy extract **0**: they
+solve before an inprocessing phase, which is why the DefaultPolicy evidence has to come from Tier B and not from
+anything fuzz-sized.
+Not ported, both narrowing: `definitioncores`=2 (our sub-solver has a fixed decision order and no shuffle, so a
+second solve reproduces the first core) and the one-sided-core **failed literal** (entailed but not RUP — it
+needs the derivation mapped to main ids, i.e. V2 Backbone's delta reached from E1's round; the gate is still
+extracted and used). `definitionticks` ships **1e4 vs kissat's 1e6** because BVE's `EFFORT_SPECS` meter is
+`bve_resolutions` and cannot see sub-solver ticks, making the per-attempt cap the only bound — the same position
+kissat is in (`kitten_ticks` sits outside its eliminate limit). **UNPRICED**, arm in the phase-4 table.
+*Found en route and fixed in the same commit:* **the fuzz reachability instrument could not see five rules.**
+`REACH_SPECS` read `<rule>_rounds` for BVE / Probe / Backbone / TransitiveReduce / HyperBinaryRes, but
+DefaultPolicy drives every `dosed=true` entry one INSTANCE at a time and only the CANONICAL apply increments
+`rounds` — `9vliw_bp_mc` prints `c bve 0 rounds, 11008 eliminated`. All five now read their work counter, and
+**X6 HyperBinaryRes had no row at all** (R9 gap). Plan rev 85 makes `--require-reached` a phase-3 exit
+condition, so this was an exit criterion measuring nothing.
 
 **Plan revs 83 + 84 (user).** **rev 83 — phases restructured, capability and tuning are separate gates.** Phase 3
 now exits on the REFERENCE RULE INVENTORY; a new **phase 4** owns dosing/optimization/scheduling and inherits
