@@ -6,15 +6,6 @@
 // parents). Second variable-eliminating rule after V3 Substitute, which it
 // reuses wholesale (ρ, add/delete, GC, the record_unit contradictory-units
 // guard).
-//
-// Scope so far:
-//   E1a (this commit) — the rule skeleton (purified quiescent-root guard,
-//     registration) + the round-local occurrence index + candidate scheduling.
-//     NO elimination yet: apply/apply_instance are NoOp, exactly as V3a shipped
-//     detection-only. The index + schedule are the testable surface.
-//   E1b (next) — resolution + bound + RUP resolvent emission + delete + witness.
-//   E1c — syntactic gate extraction (gate×antecedent resolvent reduction).
-//   E1d — fuzz-harden + regression corpus + micro proof tests.
 #pragma once
 
 #include "rules/registry.hpp"
