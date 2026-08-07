@@ -402,9 +402,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   conflicts — a fixed 2-parent list, no reason-walk). Then `del` every `x`-clause; `kernel_push_witness`
   per removed live clause (internal ρ, no proof line). Empty → `add_empty`; contradictory units →
   `add_empty`. **Second variable-eliminating rule** (after V3) and second consumer of `ρ` — it reuses
-  V3's entire proof + ρ + add/delete machinery. `add_rat` is genuinely needed only by **E2 Factor/BVA**
-  (new-variable definitions are RAT — now realized in the backend, §E2) and **X1 BCE** (RAT-justified
-  deletion, phase 4).
+  V3's entire proof + ρ + add/delete machinery. `add_rat` is needed only by **E2 Factor/BVA**
+  (new-variable definitions are RAT — realized in the backend, §6b); X1 BCE, the other rule the
+  literature justifies by RAT, adds no clause at all here, so its delta is `del` + witness (§6c).
 - **Soundness:** the resolvents replace `x`'s clauses equisatisfiably (Davis–Putnam); soundness is
   equisatisfiability *modulo ρ* — `extend_ρ(model of F′) ⊨ F`, the pivot recovered from the both-sides
   witness segments by one reverse walk (`kernel_extend_model`), robust to any later N1 decision on `x`.

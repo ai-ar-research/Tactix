@@ -1,7 +1,8 @@
 # Reference papers (local copies)
 
 Kept in-repo when their license permits redistribution; provenance recorded
-here for the phase-5 license/attribution audit.
+here for the licence/attribution pass that competition packaging needs
+(plan §9, phase 6).
 
 - `DynamicSAT-CP2025.pdf` — Shi, Jiang, Zhang, Luo, Liang, Chu, Xu:
   *DynamicSAT: Dynamic Configuration Tuning for SAT Solving*, CP 2025,
