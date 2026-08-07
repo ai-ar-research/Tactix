@@ -461,7 +461,25 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   `correctness.clean`; fuzz DRAT 10,000 · LRAT 10,000 · `--random-policy` 5,000, **0 failures**.
   **The solve COUNT holds but the SET swapped — gained `mod4block`, lost `mp1-klieber`** — which are the two
   instances measured as flipping under 9-of-14 and 7-of-14 unrelated arms, so this is the cliff, not a
-  mechanism. **Tier C IN FLIGHT** (`20260807-181116-C-kf1`) and is the tier that decides it.
+  mechanism. **Tier C: 367.26, 29/30** (replicate 357.75, noise bar **9.51**), `correctness.clean`,
+  **no solve gained or lost** — so the pre-registered guard passes on both tiers and increment 1 STANDS.
+  Same signature as the tick unit: a large per-instance redistribution that nets out, each move far beyond
+  that instance's own replicate gap (`j3037` −519 s against a 0.4 s gap, `af-synthesis` −417 s against 0.5,
+  against `SCPC-1000-18` +720 s and `T105.2.0` +260 s). **This is a FIDELITY change, not a performance one**,
+  and it should not be sold as the latter.
+- [x] **REVAMP increment 3 — the two binary-density admission gates are GONE** (landed 2026-08-07). They
+  decided whether during-search BVE and Factor ran AT ALL, and **kissat has no density term in either
+  trigger** (`kissat_eliminating` has five conjuncts, `kissat_factoring` two, none a density). **And the gate
+  was reading the wrong number**: its numerator was `Kernel::binary_ids`, a PROOF-ID map our own header
+  documents as *"size-monotone — deletion keeps the key"*, so it counted binaries ever DERIVED rather than the
+  live population — which is why PROGRESS recorded that "the gate loosens monotonically over the solve" as a
+  bare property. That was this bug. Removed with it: `bve_dose_declined` entirely, the cost-per-yield admit
+  arm, Factor's scope-percent union arm, and the `TACTIX_BVE_ADMIT` / `BVE_DOSE_DENSITY` / `FACTOR_DENSITY` /
+  `COMPOSITE_DENSITY` knobs. −75/+10 lines, 38 → 34 knobs. ctest 58/58; fuzz DRAT 10,000 · LRAT 10,000,
+  **0 failures**. **`--random-policy` leg and the Tier B+C pair are IN FLIGHT** (`20260807-…-B-kf3` /
+  `…-C-kf3`) — read them before treating this as validated.
+  **▶ This also re-opens a banked conclusion:** the *0-for-5 record of hand-designed formula-shape separators*
+  was measured THROUGH this gate, so those five negatives are suspect, not evidence.
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
   `BCE`, `Instantiate`, `Congruence`. Where the reference bounds the technique by *interval* instead, port the
   interval; where it ships the technique OFF, that is the datum.
