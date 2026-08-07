@@ -198,9 +198,13 @@ mechanics*, not proof-rule guards:
   sits at the bottom of a max-heap. `heuristics_demote_fresh_vars(k, first)` implements the repair over the
   contiguous range `[first, nvars)`, called **once per rule application** (it is O(#queue); once per fresh
   *variable* would be the per-call linear-scratch hazard). Heuristic-only (`H`): no proof delta, no σ change,
-  so a rule may call it. Gated behind `Kernel::factor_demote_fresh`, **default false** — measured 2026-07-31
-  as non-separable (rescues j3037 207→88 s, edp3 74→39, rxor 49→36; costs sted5 16→150 s), so it awaits its
-  own tier pair.
+  so a rule may call it. `Kernel::factor_demote_fresh` **defaults TRUE since SCHED-C5 (2026-08-05)**, both
+  references demoting unconditionally; `TACTIX_FACTOR_DEMOTE=0` is the off arm and the tier A/B is still
+  owed. **Any reading of the knob taken before 2026-08-05 measured a different mechanism** — the re-insert
+  loop ran descending, so the OLDEST fresh var landed least-preferred, the mirror image of both references
+  (`rbsat`: off 483,929 conflicts · descending 415,947 · ascending 88,663). That includes the 2026-07-31
+  non-separability reading (rescues j3037 207→88 s, edp3 74→39, rxor 49→36; costs sted5 16→150 s), which is
+  why it no longer gates the default. Row `SP-FACTOR-2`, §13.2.
 - **Clause-size scope is a within-rule scope choice, not a guard.** `Kernel::factor_size` (kissat
   `factorsize`) bounds the size of grid clauses; remainders are sub-clauses rather than single literals once
   it exceeds 2. Any value is sound — the add-RAT argument for the quotients is indifferent to `|r|`
