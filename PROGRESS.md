@@ -50,8 +50,10 @@ solve on the instance kissat finishes in 3.5 s**, and it shipped UNPRICED on 202
 
 **▶ NEXT STEP — phase 4 block 1, which is all desk work and costs no tier window.** Reordered 2026-08-07: a
 landing voids every pending pre-registration, so the cheap landings go BEFORE the pricing batch, not after.
-In order: (1) one counters-only probe **at HEAD** to retire `D3` and `E3` (not `F2` — its zero is structural,
-see block 1); (2) ~~name the open §13 rows this file does not list~~ **DONE** — 17 carry an open verdict, 3 are
+In order: (1) ~~one counters-only probe **at HEAD** to retire `D3` and `E3`~~ **DONE, AND IT RETIRED NEITHER —
+both arms go BACK in the block-2 table** (the whole tier, 28/28 read; `blocked` fires on 4 instances and
+`clamped` on 2, all of them long runs the earlier 8-instance sample had excluded). `F2` stays blocked on its
+structural zero, unchanged; (2) ~~name the open §13 rows this file does not list~~ **DONE** — 17 carry an open verdict, 3 are
 already discharged by an accepted deviation, so exit clause (b) is **14 rows**, all now in block 3;
 (3) land the two one-line N4 rows (`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); (4) ~~Tier D's per-track score and
 O9~~ **DONE** — `D-sc25.list` is a scoring view and O9 froze the composition (rev 89); (5) **last**,
@@ -404,32 +406,37 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
 
 ### ▶ 1. Desk triage and cheap landings — no tier window; do these BEFORE spending one
 
-- [ ] **One counters-only probe to retire `D3` and `E3` — and the two arms need DIFFERENT evidence, because
-  only one of them is decidable on the counter this table names.** Counters are not stored per run
-  (`results.json` keeps only the per-instance `reached` table) and `report_slot` prints only under
-  `TACTIX_SLOT_STATS`, so this needs one short counters-only job. Criteria pre-registered:
-  - **`D3` decides on `blocked`, cleanly.** `slot_watermark_`'s only consumer is the `gated` term in
-    `want_slot_phase`, and `blocked_episodes` increments on exactly the branch that suppresses a phase, so
-    `blocked == 0` on both clocks proves the `TACTIX_SLOT_WATERMARK=0` arm is bit-identical. Retire on that.
-    **There is no prior reading to void — there is no prior reading at all**: the earlier probe grepped
-    `^c slot ` with a trailing space, which never matched `c slot-clock`, so "near-inert by design" has always
-    been an argument from the code rather than a measurement.
-  - **`E3`'s `clamped` cannot decide on its own** — which is the `F2` shape again — so the probe prints it
-    beside the `c meters … global ticks` denominator. Only three entries carry a ceiling (BVE at
-    `CADICAL_ELIM_MAXEFF` 2e9, Strengthen and SubsumeForward at `CADICAL_SUBSUME_MAXEFF` 1e8, all at 100‰),
-    confirmed at the source by the probe: every other entry prints `maxeff 0`. `delta = reference/1000 ·
-    permille` reaches a ceiling only above `reference` **1e9** (subsume) or **2e10** (BVE).
-  - **▶ THE PROBE OVERTURNED THE DESK ESTIMATE, which is why it was run.** The pre-registration argued a zero
-    would be *arithmetically forced* at Tier B, extrapolating from the single `global ticks` figure in the repo
-    (8.31e7 on `veer_axi…p23_transition`). That instance is an outlier by more than an order of magnitude:
-    measured across 8 Tier B instances the range is **2.7e8 – 1.04e9**, and `b22_1` at **1.04e9 passes the
-    subsume threshold outright**. So the zero is NOT forced — it is a real measurement, and a better one, because
-    `reference` is a per-dose delta rather than the cumulative clock and the ceiling stayed unreached even where
-    the cumulative clock crossed it.
-  - **▶ E3 therefore retires from the block-2 table as a SCALE statement, not as "inert".** Tier D runs at
-    5000 s against Tier B's 300 s, so its cumulative clock lands near 1.7e10 and the per-dose deltas grow with
-    the gaps between doses — the subsume ceiling can plausibly bind there. **Re-examine `E3` before the block-5
-    campaign.** (BVE's 2e10 stays out of reach on any tier.)
+- [x] **The counters-only probe is RUN — and it retires NEITHER arm. Both `D3` and `E3` stay in block 2, and
+  `D3` is now a named-target row rather than a formality.** Counters are not stored per run (`results.json`
+  keeps only the per-instance `reached` table) and `report_slot` prints only under `TACTIX_SLOT_STATS`, so this
+  needed its own job: `benchmarks/probes/block1-counters-tierb.sh` over **all 28 Tier B instances**, read by
+  `benchmarks/probes/block1-summarize.py`, 28/28 present.
+  - **`D3` FAILS its pre-registered criterion.** It was "retire iff `blocked == 0` on both clocks on **every**
+    instance" — `blocked` is non-zero on **4 of 28**, always on the ELIMINATE clock and never on the probe
+    clock: `unsat-set-b-fclqcolor` **7** · `or_randxor_k3_n540_m540` **4** · `battleship-14-26-sat` 1 ·
+    `DecompressReader_read_12` 1. So `TACTIX_SLOT_WATERMARK=0` is **not** bit-identical, and the arm earns its
+    window. **Two of those four are Tier B timeout instances** — of the four carrying 85.7 of our 103.75 PAR-2 —
+    so the watermark is suppressing elimination phases on exactly the instances the tier's gap is made of. That
+    makes `D3` a named-target row: rank it accordingly in block 2.
+  - **`E3` is OVERTURNED TOO, and its earlier "MEASURED INERT at Tier B" reading was a SAMPLING artefact.**
+    `clamped` is non-zero on **2 of 28** — `unsat-set-b-fclqcolor` 8 and `mp1-klieber` 6, in both cases 4+4 / 3+3
+    split across `Strengthen` and `SubsumeForward` (the 1e8 ceiling). BVE's 2e9 never clamps, and every other
+    entry still prints `maxeff 0`, both confirmed at the source. The reason the earlier run read zero is
+    visible in the denominator: its 8 instances topped out at **1.04e9 global ticks** while the two that clamp
+    sit at **8.03e9 and 1.70e10** — it had excluded every instance that runs to the cap. So E3 goes back in the
+    block-2 table as a live arm at Tier B, not merely as a Tier D re-examination.
+  - **▶ THE LESSON IS THE SAMPLE, NOT EITHER ARM.** Both counters are driven by the cumulative clock, so both
+    read a clean zero on every instance that finishes quickly — a subsample that misses the long runs retires
+    the arm for a reason that has nothing to do with the arm. That is the `F2` shape one level up, and it is
+    now enforced in the probe: the tier-wide driver is the only sanctioned way to read these two counters, and
+    it says so in its header. Cost of getting it right: one 28-task array of ≤300 s tasks.
+  - **Two things worth keeping that the sweep produced for free.** The ledger-wrap reachability counter reads
+    **`wrapped 0` on every entry × every one of the 28 instances**, which is the first tier-wide confirmation
+    that the wrap fix holds at HEAD. And `veer_axi` **terminated at its own 300 s cap and printed** (the run
+    before it ignored SIGTERM to the 15-minute SLURM wall), confirming the interior-poll fix live on the
+    instance that motivated it — with `c conflicts 0`, all four named rule meters at 0, and **7.07e9 global
+    ticks**, i.e. the whole solve spent where the rule meters cannot see it. That corroborates the `R9`
+    diagnosis from a second direction.
 - [ ] **`F2` is BLOCKED, not inert — do not retire it on its zero.** `subsume_holds` increments only when a
   round leaves `subsume_complete`/`strengthen_complete` false (`default_policy.cpp:1687-1690`), and the only
   thing that can leave that tail is a budget binding on C1/C2 — which is exactly what `D-STRENGTHEN-BUDGET` has
@@ -487,10 +494,10 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 | `C9` `jumpreasons` (OFF) | `TACTIX_JUMP_REASONS=1` | `c jumpreason`, per instance | **PRE-`58a46de` — RE-REGISTER** | **Decides the default.** ON only if non-worse on both tiers *and* `9vliw_bp_mc` unregressed, paired draws. If it loses → an `implementation-notes.md` §13.3 deviation |
 | `D1` slot order | `TACTIX_SLOT_ORDER=legacy` | `c slot-order` | **PRE-`58a46de` — RE-REGISTER** | |
 | `D2` two clocks | `TACTIX_SLOT_CLOCKS=1` | `c slot-clock` | **PRE-`58a46de` — RE-REGISTER** | **Read `eliminate phases`** — the first cut of this hatch starved the elimination family while looking like a win |
-| `D3` watermarks | `TACTIX_SLOT_WATERMARK` | the `blocked` counters | **PRE-`58a46de` — RE-REGISTER** | near-inert by design → **block-1 counter triage, not a window** |
+| `D3` watermarks | `TACTIX_SLOT_WATERMARK=0` | the `blocked` counters — **ELIMINATE clock; the probe clock is 0 tier-wide** | **PRE-`58a46de` — RE-REGISTER** | **TRIAGED AND KEPT.** Block-1's tier-wide probe refuted "near-inert by design": `blocked` fires on **4 of 28** (`unsat-set-b-fclqcolor` 7, `or_randxor_k3_n540_m540` 4, `battleship-14-26-sat` 1, `DecompressReader_read_12` 1), so the arm is not bit-identical. **Two of the four are Tier B timeouts**, so this suppresses elimination on the instances carrying the tier's PAR-2 — rank it as a named-target row |
 | `E1` cursors | `TACTIX_CURSOR_<RULE>=0` | `c cand-order` | **PRE-`58a46de` — RE-REGISTER** | |
 | `E2` ordering arms | `TACTIX_ORDER_<RULE>=<arm>` | positions moved | **PRE-`58a46de` — RE-REGISTER** | **one rule at a time** |
-| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` **with `c meters … global ticks` as the denominator — `clamped` alone cannot decide** | **PRE-`58a46de` — RE-REGISTER** | Only 3 entries carry a ceiling (BVE 2e9 · Strengthen, SubsumeForward 1e8; every other entry prints `maxeff 0`), reached only past `reference` 1e9 / 2e10. **MEASURED INERT at Tier B, job `1588230`**: `clamped 0` on all three across 8 instances at global ticks 2.7e8–1.04e9 — and `b22_1`'s 1.04e9 crosses the subsume threshold, so the zero is a measurement, not the arithmetic tautology the pre-registration expected. **Retires from this table; NOT inert at Tier D** (5000 s), so re-examine before the block-5 campaign |
+| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` **with `c meters … global ticks` as the denominator — `clamped` alone cannot decide** | **PRE-`58a46de` — RE-REGISTER** | Only 3 entries carry a ceiling (BVE 2e9 · Strengthen, SubsumeForward 1e8; every other entry prints `maxeff 0`), confirmed at the source. **TRIAGED AND KEPT — the earlier "measured inert at Tier B" reading was a SAMPLING artefact and is withdrawn.** Tier-wide, `clamped` fires on 2 of 28 (`unsat-set-b-fclqcolor` 8, `mp1-klieber` 6, split across Strengthen and SubsumeForward; BVE's 2e9 never binds). The earlier 8-instance sample topped out at 1.04e9 global ticks while the two that clamp sit at **8.03e9 / 1.70e10** — it had excluded every instance that runs to the cap. Live at Tier B; **still re-examine before Tier D**, where the clock is larger again |
 | `F1` substrate | `TACTIX_TOUCH_MARKS=0` | `c touch` | **PRE-`58a46de` — RE-REGISTER** | |
 | `F2` subsume-hold | `TACTIX_SUBSUME_HOLD=0` | `c subhold` | **PRE-`58a46de` — RE-REGISTER** | sentinel currently 0 for a STRUCTURAL reason — `subsume_holds` needs a round to leave a completeness tail (`default_policy.cpp:1687-1690`) and only a C1/C2 budget makes one. **Blocked on `D-STRENGTHEN-BUDGET`; do not retire it on the zero** |
 | `F6`+`F7` redundant band (OFF) | `TACTIX_TOUCH_REDUNDANT=1` | `c touchred` (a PAIR) + `c f7band` | **PRE-`58a46de` — RE-REGISTER** | ~800× the irredundant population; must pay for it |
@@ -670,6 +677,24 @@ scoring VIEW over one Tier D window, scored by `subset_score.py --subset D-sc25`
 is not added**; Tier D is frozen through the campaign and the question reopens before the T4 evaluation.
 *Self-inflicted defect worth remembering: adding the R9 pricing row moved the table's denominator and I left
 three sentences quoting the old one — a count in prose is a fact that rots the moment the table changes.*
+
+**▶▶ THE D3/E3 TRIAGE RAN TIER-WIDE AND RETIRED NEITHER ARM — the 8-instance reading of the day before was a
+SAMPLING artefact, and one of the two retirements it produced is hereby WITHDRAWN.** 28/28 Tier B instances,
+counters only (`benchmarks/probes/block1-counters-tierb.sh` + `block1-summarize.py`, both now tracked because
+this is owed again before Tier D). `blocked` fires on **4 of 28** — always the eliminate clock, never the probe
+clock — so **`D3` fails its own pre-registered criterion and stays**, and `clamped` fires on **2 of 28**, so
+**`E3`'s "MEASURED INERT at Tier B" is withdrawn** rather than merely qualified. **The mechanism of the error
+is worth more than either arm:** both counters are driven by the cumulative clock, so both read a clean zero on
+every instance that finishes quickly; the earlier sample topped out at 1.04e9 global ticks while the instances
+that move these counters sit at 8.03e9–1.70e10, i.e. **it had excluded every instance that runs to the cap**.
+That is the `F2` shape one level up — a zero with a structural cause — and the defence is now in the probe
+itself, which sweeps the whole tier and says why in its header. **And `D3` gets more valuable, not less:** two
+of its four instances are Tier B timeouts, so the watermark is suppressing elimination phases on the very
+instances carrying 85.7 of our 103.75 PAR-2. Two free confirmations from the same sweep — **`wrapped 0` on
+every entry × all 28 instances** (first tier-wide evidence the ledger-wrap fix holds at HEAD), and `veer_axi`
+**terminating at its own 300 s cap and printing** where the previous run rode SIGTERM to the 15-minute SLURM
+wall, with `c conflicts 0`, all four named rule meters at 0 and 7.07e9 global ticks — the `R9` diagnosis
+corroborated from a second direction.
 
 **Report `benchmarks/reports/2026-08-07-phase-3-gate.md`, commit `edfba14`.** The four exit clauses and their
 evidence are in the Phase 3 section above and are not restated here.
