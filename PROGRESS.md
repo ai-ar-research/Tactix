@@ -173,7 +173,8 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   (Track C · C4-perf) — and the 4-arg `touched` overload already exists, so each fix is ~6 lines copied from
   `vivify.cpp:395-401`. **Route: `revamp` or a `perf:` commit, NOT revisit-codebase** — it is §5.4, not §5.5.
   Gate: identical `bve_eliminated`/`bve_resolutions`/`probe_failed`/`backbone_failed` and identical proof SHA.
-- **`RV-S31`(b) — the `--random-policy` livelock DIAGNOSIS.** The population is measured and visible: **114 of
+- **`RV-S31`(b) — the `--random-policy` livelock DIAGNOSIS.** *(Accepted as non-blocking for the phase-3 exit,
+  user 2026-08-06 — still worth diagnosing, but it gates nothing.)* The population is measured and visible: **114 of
   1000 cases (11.4 %) at 10 s, the same 114 on DRAT and native LRAT, 0 of 1000 for DefaultPolicy**; escalating the
   first 24 to 600 s leaves **18 still unfinished**, so ~8.6 % does not terminate at all. Cases kept in
   `<outdir>/nonterminating/`. N1 robustness, not soundness.
@@ -280,8 +281,10 @@ campaign 4 measured / 0 adopted.
 
 - **Exit:** every Kissat 4.0.4 / CaDiCaL 3.0.0 proof rule is either registered here (guard / instances / apply,
   N1-exposed, N2-clean, fuzz-green) or carries a reasoned no-implement row in `docs/implementation-notes.md`
-  with its evidence and a reopening path. Nightly random-policy fuzzing green. **No performance gate** — T3 is
-  phase 4's.
+  with its evidence and a reopening path. Nightly random-policy fuzzing green — **the ~11.4 % non-terminating
+  random-policy population does NOT block this** (user, 2026-08-06): it is N1 robustness, not soundness, it is
+  0 % for DefaultPolicy, and the harness now prints it instead of hiding it. **No performance gate** — T3 is
+  phase 4's. **N4 stays open when this phase closes**, by design (rev 83) — discharging it is phase 4's.
 
 ## Phase 4 — dosing, optimization, scheduling (plan rev 83)
 
