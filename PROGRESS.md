@@ -131,6 +131,24 @@ solves decide it without needing that.
 *(Same-binary cross-window caution, measured here: `4f4989d`'s shipped arm reads 476.98 in one window and
 355.76 in another on the same day. That is ~121 PAR-2 — never compare an absolute across windows.)*
 
+**▶ WHERE THE KISSAT GAP ACTUALLY IS** (same window, rule-neutral subset, 24 instances — computed from
+`results.json`, no cluster time). The subset gap is **+2,503 s = +104 PAR-2**, and its shape decides what
+phase 4 should attack:
+
+- **It is BROAD AND SHALLOW, not a few catastrophes.** Median **1.51×** kissat, geomean 1.30×, worst 4.49×;
+  **no timeouts among the eight worst** — we solve them all, just slower. Only 5 of 24 exceed 2×.
+- **93 % of the gap is eight instances**, and none of them is a lottery: `minxor128` +555 s · `T87.2.0`
+  +417 · `goldcrest-and-9` +327 · `StConn_8_32` +296 · `T105.2.0` +254 · `af-synthesis_stb_50_120_4_sat`
+  +206 · `circuit_32in32out…` +168 · `ecarev-110-4099-22-30-7` +117.
+- **We are FASTER than kissat on 4 of 24**, by 384 s total — so this is not a uniform engineering deficit.
+- **Against cadical the same subset is median 1.07× / geomean 1.12×.** The CaDiCaL half being nearly met while
+  the Kissat half sits at 1.396× is a real difference in what the two references do, not a measurement artefact.
+
+**Reading for phase 4:** two of the eight are the `T`-series, where `SCHED-G1` measured Congruence at 47 % of a
+300 s solve before metering, and `minxor128` is the instance Sweep's governor A/B kept flipping. That points at
+DOSING on named instances rather than at a missing mechanism — which is exactly the phase-3/phase-4 split, now
+with per-instance targets instead of an aggregate.
+
 **▶ THE THREE NOISE BARS — they are different, and the biggest one is the easiest to forget.**
 - **Same-window, same-node: 6.72** (window `20260804-030938`, idle partition, three bit-identical arms
   364.50 / 362.17 / 357.78). The older **10.8** bar is the CONTENDED equivalent; use it only for runs that
