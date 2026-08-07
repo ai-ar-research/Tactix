@@ -499,7 +499,11 @@ continuously refreshed by propagation, ours only when the trail shrinks. Two con
 2. **Warmup buys us nothing.** Both references warm up (decide + propagate-beyond-conflicts) before
    every walk so the seed is propagation-consistent. Implemented and measured: two instances
    bit-identical, one clearly worse — our saved phases come from a real trail and are
-   propagation-consistent *by construction*. **Not adopted; not kept as dead code.**
+   propagation-consistent *by construction*. **Not adopted as the default.** *(Corrected 2026-08-07:
+   this row read "not kept as dead code", which the source contradicts — `warmup()` is live at
+   `src/policies/ops/walk/walk.cpp:184`, opt-in behind `TACTIX_WALK_WARMUP`. It is kept deliberately,
+   as one of the five knob-gated Walk arms PROGRESS hands to the §5.6 dosing exhibit at phase 7, so
+   the measured negative is a shipped-default decision rather than a deletion.)*
 
 **The general rule this instantiates.** A reference solver's *schedule* is tuned against its own
 state-maintenance choices: before porting one, check whether the state it reads is maintained the same

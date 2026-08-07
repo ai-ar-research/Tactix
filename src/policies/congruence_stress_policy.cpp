@@ -16,8 +16,8 @@ int congruence_stress_solve(Kernel &k, uint64_t seed,
                             volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
-  const bool trace = getenv("TACTIX_TRACE") != nullptr;
-  const bool no_subst = getenv("TACTIX_CONG_STRESS_NOSUBST") != nullptr;
+  const bool trace = stress_env_flag("TACTIX_TRACE");
+  const bool no_subst = stress_env_flag("TACTIX_CONG_STRESS_NOSUBST");
   const uint32_t max_rounds = stress_env_u32("TACTIX_CONG_STRESS_ROUNDS", 8);
   // Drives the mid-round budget, unreachable under DefaultPolicy because a
   // generated case is solved before the inprocessing slot runs. Each apply gets

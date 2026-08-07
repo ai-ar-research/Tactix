@@ -15,7 +15,7 @@ namespace tactix {
 int bve_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
-  const bool trace = getenv("TACTIX_TRACE") != nullptr;
+  const bool trace = stress_env_flag("TACTIX_TRACE");
   const int bve_id = tactix_rule_id("BVE");
   const RuleVTable &bve = tactix_rules()[static_cast<size_t>(bve_id)];
 

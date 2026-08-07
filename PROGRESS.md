@@ -254,6 +254,15 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   stack where the failure mode is a WRONG SAT ANSWER no proof checker sees.
 - **`RV-S24` remainder:** no direct test for `src/frontend/parse.cpp`, and `cake_lpr` is still not wired into the
   fuzz harness. (The proof backend itself is now pinned byte-for-byte by ctest `proof`, anti-vacuity verified.)
+- **From the 2026-08-07 `src/policies/` survey — NOTHING there is obsolete** (43 files, four surveys plus an
+  adversarial pass, zero removable; the registry migration that came out of it is `simplify:`-committed). Two
+  residual findings, neither blocking. **(a) 9 of the 11 stress policies are in NO ctest** — only
+  `bve_stress_policy` is, via `tests/micro_proofs.sh`; the rest are exercised by fuzz legs alone, which is why
+  `ctest -N` makes them look orphaned. Worth a cheap conformance test that each flag still dispatches, since
+  their whole value is being reachable. **(b) Nothing holds a `Policy*` or `Policy&`** — only the concrete
+  `DefaultPolicy&` — so `policy.hpp`'s virtual dispatch has no current consumer. It is the frozen §5.1 v1
+  surface and phase 5's bindings + demo policies 4–6 are its intended users, so it stays; recorded because a
+  future reader will otherwise re-derive it and be tempted to delete it.
 - **Smaller, unowned:** `RV-S8` Congruence's gate arena (16.6 % of its cost; blocked on the `SCHED-G4` owner) ·
   `RV-S5` seven `vector<vector<Ref>>` occurrence indices · `RV-S15`–`RV-S18` rule-side leaks (six kernel
   watermarks, Sweep's in-rule `getenv` dosing, Sweep's unregistered instance surface, BVE's narrowed
