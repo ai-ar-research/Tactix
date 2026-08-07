@@ -49,7 +49,8 @@
     run `--gc` first, since a locked tree is read-only and `rm -rf` will fail on it.
 - Project skills: benchmarks, fuzz, proof-check, rule-dev, compete,
   revise-plan, revamp, revisit-codebase, calculus, stress-policy, compact-docs,
-  wrap-up, debug-performance, slurm-jobs — use them for the matching workflows.
+  wrap-up, debug-performance, slurm-jobs, multi-agent — use them for the
+  matching workflows.
   (slurm-jobs governs ALL job submission: every solver execution goes through
   sbatch to cpu-dense-hwulab-q — arrays for tiers, multi-core jobs for fuzz;
   cancel only by explicit job id.)
@@ -57,6 +58,10 @@
   simplify-codebase. debug-performance diagnoses a big per-instance slowdown vs a
   baseline: decompose stats, ablate the baseline, rule out engineering/heuristics/
   missing-rules before fixing.)
+  (multi-agent governs running SEVERAL agents at once: disjoint file sets and
+  worktree isolation up front, then the merge discipline — checklist ticks are
+  the thing that gets silently lost, and `git add -A` in a shared tree is the
+  thing that has cost the most.)
 - **`docs/calculus.md`** is authoritative for the *abstract* proof rules (each
   rule's pure precondition, effect, proof delta, soundness). Its companion
   **`docs/implementation-notes.md`** holds the engineering layer — the
