@@ -250,7 +250,7 @@ REACH_SPECS = [
     ("SubsumeForward", r"^c subsume\s+(\d+) rounds \("),
     ("Strengthen", r"^c strengthen\s+(\d+) rounds \("),
     ("Walk", r"^c walk\s+(\d+) walks"),
-    # KNOWN CONFOUND: `c rephased` is also incremented by Walk, so this row
+    # Known confound: `c rephased` is also incremented by Walk, so this row
     # alone cannot prove Rephase fired. It is kept because separating them
     # needs a new counter, and the separation was measured by hand: rephased
     # runs 3-5x walks on 23 of 24 Tier B instances, so Rephase does fire
