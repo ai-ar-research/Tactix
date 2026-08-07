@@ -1,5 +1,5 @@
 // E1 BVE (plan §5.2): bounded variable elimination by resolution. Full design in
-// `docs/e1-bve-design.md`. Eliminates a variable x by replacing all clauses on x
+// `docs/design/e1-bve-design.md`. Eliminates a variable x by replacing all clauses on x
 // with the non-tautological resolvents Occ⁺⊗Occ⁻ (bounded), pushing the removed
 // clauses onto the reconstruction stack ρ. Proof delta: add-RUP (resolvents) +
 // delete + push-witness — RUP-only, no add_rat (a resolvent is RUP from its two
