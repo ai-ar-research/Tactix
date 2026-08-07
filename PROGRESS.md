@@ -50,13 +50,28 @@ and by **none of the other twelve arms**. The shipped profile says why: **`4 pro
 polled *between* units of work while the unit itself is unbounded — so copy that fix:
 `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
 
+**▶ THE DEFECT IS DECOMPOSED — read this before designing the fix; it is a POLICY obstacle, not a rule bug.**
+Tier-wide, `veer_axi`'s cost is **1.70e9 ticks PER PROBE from just 4 probes** — 2,470× the tier median and
+2.5× the next worst (`summle` 688k) — because one root yields ~8,031 resolvents and **every one costs a
+`congruence_replay_rup`** (a full probing propagation + backtrack) at ~212k ticks. The entry is dosed at 20 ‰,
+but **its smallest indivisible unit of work is ~25 % of a 300 s solve's entire tick budget**, so the dose
+cannot bind. Now the obstacle: HBR's `EffortSpec` is `dosed=true, budget_aware=false`
+(`default_policy.cpp:328`) and the policy hands `k.work_budget` only when `e.meter && !e.dosed &&
+e.budget_aware` (`:1564`) — **a dosed entry is never given a budget at all**, which is why all ten rules that
+poll `k.work_budget` inside their loops are non-dosed. `hyperbinary_try` already polls
+`kernel_rule_interrupt` (`hyperbinary.cpp:209-218`) but that is a TERMINATION poll, not an effort poll.
+
 **▶ NEXT STEP, and it is a LANDING so it opens a new landing block rather than joining block 2.**
-1. **Poll the effort ceiling INSIDE `hyperbinary_try`'s resolvent loop**, the way `sweep_env_build` now polls
-   inside its occurrence walk. Gate: `veer_axi` reaches search with HBR still ON, and no arm loses a solve.
-2. **Add the resolvent-only guard** (`hyperbinary.cpp:163`, one line + a field + a getenv) so `collect` and
-   `emit` can be told apart — the stack samples say `emit`, and `r9off` disables both, so nothing yet proves
-   which half costs the 6.8e9. Do this WITH (1), since both touch the same rule.
-3. Then re-price `R9` and `c9jump` on Tier C. **`c9jump` is not a free win**: it fixes `veer_axi` but LOSES
+1. **Let the ledger bind inside the probe.** Either un-dose HBR or let a dosed entry carry a budget, then poll
+   it inside `collect`'s walk and the resolvent loop — Sweep's `S-e` fix, one level up.
+   **Invent no constant**: the budget exists, only its check point is wrong.
+2. **Question the per-resolvent RUP replay, which is the deeper answer.** It is OUR design — kissat derives
+   hyper-binary resolvents *during* the probing propagation and needs no separate replay — so per §5
+   obligation 6 the transliteration is the reference's shape and the deviation owes the argument. "Bound the
+   work" and "stop replaying per resolvent" are different fixes and only the second is reference-backed.
+3. **Add the resolvent-only guard** (`hyperbinary.cpp:163`) so `collect` and `emit` can be told apart; the
+   stack samples say `emit` and `r9off` disables both, so nothing yet proves which half costs the 6.8e9.
+4. Then re-price `R9` and `c9jump` on Tier C. **`c9jump` is not a free win**: it fixes `veer_axi` but LOSES
    `DecompressReader_read_12` and triples proof size (1026.5 MB vs 336.3 MB, 607 s vs 238 s checking).
 
 **▶▶ AND THE INSTRUMENT FINDING THAT BINDS THE REST OF PHASE 4: TIER B AT 300 s CANNOT PRICE A BROAD
