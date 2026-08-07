@@ -154,9 +154,9 @@ CARRIED = {
     "chronolevels": (
         "§13.6 confirmed at parity — the chronological-backtracking level cap",
         {"cadical": ["chronolevelim"]}),
-    "SCHED-C7": (
-        "the randec port read the option defaults at source rather than "
-        "assuming them; the interval seed is part of that mechanism",
+    "SP-RANDEC-1": (
+        "the randec row states the reference defaults it was ported at; the "
+        "interval seed is part of that same mechanism",
         {"kissat": ["randecinit"], "cadical": ["randecinit"]}),
     "## 1. E1 BVE": (
         "audit family section — BVE's dose knobs are audited as rows there",
@@ -283,16 +283,18 @@ def section(text, start_marker, end_marker):
 
 
 def ledger_corpus():
-    """§13 + the frozen audit + the diagnosis + PROGRESS's Track SCHED.
+    """§13 + the frozen audit + the diagnosis + PROGRESS's phase-4 section.
 
-    Track SCHED is in the corpus because §13 names it as the remediation home:
-    a CLOSED track item is the analogue a row would otherwise have to describe.
+    The phase-4 section is in the corpus because §13 names it as the remediation
+    home: a CLOSED track item is the analogue a row would otherwise describe.
+    Anchored on the phase heading rather than a track sub-heading, which moved
+    once already (plan rev 83) and silently broke this check.
     """
     notes = open(NOTES).read()
     s13 = section(notes, "## 13. The scheduling-parity ledger",
                   "\n## 14. ")
     prog = open(PROGRESS).read()
-    track = section(prog, "### ▶ Track SCHED", "\n### Other dosing / admission items")
+    track = section(prog, "\n## Phase 4 — ", "\n## Phase 4.5 ")
     return s13 + open(AUDIT).read() + open(DIAGNOSIS).read() + track
 
 

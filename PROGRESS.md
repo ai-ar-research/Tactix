@@ -11,422 +11,113 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 83 (2026-08-06, user) — **phases restructured**: phase 3 is now *rule completeness* (exit = the reference
+- **Plan revision tracked:** rev. 84 (2026-08-06, user) — **phases restructured**: phase 3 is now *rule completeness* (exit = the reference
   inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
-  everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). Earlier: rev 80 made **N4, the strategy floor**, a
-  non-negotiable; rev 81 renamed the §5.6 RL stages `L1`–`L4` → `RL1`–`RL4`
+  everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
+  file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
+  state #solved before PAR-2. Earlier: rev 80 made **N4, the strategy floor**, a non-negotiable
 - **Current phase:** 3 (the reference rule inventory) — since 2026-07-14 (phase 2 closed at T2 the same day, report
   `benchmarks/reports/2026-07-14-t2-gate.md`). **Two items are owed before it closes: Track R · R9 (X6 HyperBinaryRes) and R10 (kitten BVE
   definitions).** Everything else open is phase-4 work.
 - **Next gate:** the **phase-3 exit** (rule inventory complete). **T3 is no longer phase 3's gate** — it is phase 4's, alongside discharging N4
   and running Tier D. T3 stands NOT met on either half; see the gate row and the tier tables.
-- **Last updated:** 2026-08-05 late — compaction pass (2182 → this). Status lives in the anchor below; completed work is compressed to
-  result + pointer, with the detail in the cited commit / report / design doc.
+- **Last updated:** 2026-08-06 — compaction pass under plan rev 83 (4254 → this). Status lives in the anchor below; completed work is
+  compressed to result + pointer, with the detail in the cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **next = Track R · R9 then R10; those two close the phase**
+## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **next = Track R · R9, then R10; those two close the phase**
 
-**▶ PLAN REV 83 RESTRUCTURED THE PHASES (user, 2026-08-06).** Phase 3 now exits on the **rule inventory**, not on a
-tier number, and everything that is dosing, ordering or budgeting moved to the new **phase 4** — including **T3**,
-**discharging N4**, and the **Tier D run**. Four decisions fix what the boundary means: (1) "implemented" =
-registered + sound + N1/N2-clean + fuzz-green, *not* yield-comparable — so V5 Sweep counts as done today and its
-yield is phase-4 dosing; (2) X5 `Condition` stays a reasoned no-implement (`SP-COND-1`); (3) T3 and Tier D both move
-to phase 4; (4) N4 is named as phase 4's defining obligation and stays a non-negotiable — it is *scheduled*, not
-weakened. Everything below this block predates the restructure; the tracks under **## Phase 4** are the same work
-under a new gate.
+**Plan rev 83 restructured the phases.** Phase 3 exits on the **rule inventory**, not a tier number; everything
+that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T3**, **discharging N4** and the
+**Tier D run**. Four decisions fix the boundary: "implemented" = registered + sound + N1/N2-clean + fuzz-green,
+*not* yield-comparable (so V5 Sweep counts as done and its yield is phase-4 dosing) · X5 `Condition` stays a
+reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
+non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**IN FLIGHT: the Sweep-yield probes only** (`squeue -u hwu` 2026-08-06: array `1587834`/`1587828` `sweepyield`,
-plus a `fuzz-sy-sweepstress-drat` leg — the Sweep-yield agent's own jobs; no tier array). The
-`bench-B/C-ledgerfix` arrays this line used to claim were live (`1585689` / `1585775`) have long since left
-the queue, and so have two later pairs another agent submitted. **`benchmarks/runs/` now holds FOUR tier
-pairs from 2026-08-06 and the tier tables below are still the `20260805` windows** — newest first:
-`20260806-150228-C-govon` + `…-150225-B-govon`, `…-124756-C-shipped` + `…-124753-B-shipped`,
-`…-102434-C-ledgerfix` + `…-102432-B-ledgerfix`, `…-084947-C-shipped` + `…-084944-B-shipped`. Reading them
-(SHA from each `manifest.json`, `#solved` before the aggregate) is still the first thing to do; none of the
-work below took a timing measurement.
+**NOTHING IN FLIGHT** (`squeue -u hwu`: only this session's own `cpu-q` shell). Always check `squeue` rather
+than trusting a line here.
 
-**▶ AND THE EARLIER TIER B + TIER C PAIR IS FINISHED WITH ITS RESULTS UNREAD.** The pair submitted at HEAD
-`c7beaa0` (Tier B array `1585269` on node017, Tier C array `1585354` on node018 — two pin dirs from ONE
-commit with **byte-identical binaries** `219b10d7…`, both baselines carried, one tier per node so no
-arm/node correlation inside a tier and the two tiers do not contend; partition verified idle before
-submitting) has **LEFT THE QUEUE** (verified against `squeue -u hwu` while no other array was pending).
-**Their output is `benchmarks/runs/20260806-084944-B-shipped/` and `…-084947-C-shipped/`
-(`results.json` + `manifest.json` present) and NO ONE HAS READ IT** — the tier tables below are still the
-`20260805-1150` / `20260805-2057` windows, and this line was corrected by the 2026-08-06
-revisit-codebase pass — `tools/docs/check-progress.py` flagged the stale in-flight claim mechanically,
-which is exactly what that check is for. **Reading those two windows and
-replacing the tier tables is the first thing the next session should do** — take the SHA from each run's
-own `manifest.json`, and read `#solved` before the aggregate. That pass deliberately banked no number
-from them: it took no timing measurement at all.
+**▶ THE NEXT STEPS, in order.**
+1. **R9 · X6 `HyperBinaryRes`**, then **R10 · kitten BVE definitions** — the phase-3 residue (Track R cont.).
+2. **A full Tier B + Tier C window.** Four 2026-08-06 pairs sit unread in `benchmarks/runs/` (newest
+   `20260806-150228-C-govon`) while the banked headline is still the `20260805` windows — none of the recent
+   work took a timing measurement. Take the SHA from each run's own `manifest.json` and read `#solved` before
+   the aggregate. Every `Sweep`/`Congruence` dosing number taken since `58a46de` was measured against a budget
+   that did not bind, so **T3 has to be retaken** regardless.
+3. **Price the UNPRICED list** (see Phase 4) — starting with the `gates` + `c1c2` flips, which measured Tier B
+   109.18 → 58.76 PAR-2 and 24 → 27 solves but are fragile on single Tier C instances.
+4. One `ledgerfix + TACTIX_SLOT_CLOCKS=1` arm: up to ~670 PAR-2 may be D2 cost that survives a sound ledger, and
+   nothing measured so far separates "D2's cost was entirely the wrap" from "D2 costs on top of it".
 
-**▶▶ THE REVIEW'S FIVE HIGHEST-SEVERITY ITEMS ARE DONE (2026-08-06, branch `rvs-api-n1`).**
-`RV-S10`–`RV-S14`, i.e. the whole §5.6/N1 API-surface block the review put outside Track SCHED.
-ctest **47 → 52** (`vivify_n1`, `api_instances`, `slot_pose`, `stat_ids`, `trace_replay`), green on
-Release and Debug ASan/UBSan, six conformance checkers green. The N1 breach is repaired and it
-**restores a capability rather than changing one** (Vivify's tier3 band was unreachable from outside
-while DefaultPolicy used it), `--trace`/`--replay` exist and are tested so §8.5's harness is no longer
-missing, and the slot pose surface has coverage that can fail. DefaultPolicy is byte-identical:
-108/108 identical proofs + counters over 54 cases × DRAT and native LRAT vs the pre-change binary.
-Two things were deliberately scoped out and are stated in the Log entry: DefaultPolicy traces
-(its schedule is not a (rule, instance) sequence) and a C-API mirror of the slot setters (the C API
-has no policy object; the learner is a C++ policy). **Nothing here blocks the next step below.**
+**▶ THREE TRAPS THAT APPLY TO THE NEXT ACTION.**
+- **The effort ledger was WRAPPING and that was the whole overnight regression** (fixed, `7b9f9d2`+`8b27c63`;
+  report `benchmarks/reports/2026-08-06-solve-loss-diagnosis.md`). `set_entry_limit` sized a dose as an UNSIGNED
+  `search_ticks - anchor` where `search_ticks` was **not monotone**, so the subtraction wrapped and **deleted**
+  the dose (`delta ≈ 2^64/10`), letting the two `budget_aware` closures run to exhaustion. Loss-set PAR-2
+  8400 → 1944, solved 7/12 → 11/12. SCHED-D2 was the TRIGGER, not the defect, and stays (it is N4).
+- **`TACTIX_SLOT_CLOCKS` / `TACTIX_SLOT_WATERMARK` make the whole Stage-D/E/F/G set ablatable from one binary** —
+  but the first cut of the clock hatch advanced BOTH clocks after one phase and starved the entire elimination
+  family (`c bve 0 rounds`) while appearing to restore all five losses. Caught only by reading `c slot-clock`'s
+  `eliminate phases 0`. **Read the telemetry before banking any arm.**
+- **Every `--random-policy × N, 0 failures` figure in this file is over N minus a non-terminating population** —
+  measured at 11.4 %, with 0 % for DefaultPolicy. The harness now prints it; the diagnosis is still open.
 
-**▶▶ A REVISIT-CODEBASE PASS LANDED ON TOP OF THE TWELVE MERGES (2026-08-06, branch
-`revisit-codebase-pass`; report `benchmarks/reports/2026-08-06-review-post-track-sched.md`).** ctest was
-**47/47** at that point — the 47th is `comment_hygiene`, a new conformance checker, because the no-narrative-in-comments
-directive regressed **34 minutes** after the sweep that enforced it. Two `simplify:` commits, identity
-evidence **222/222** byte-identical proofs + counters across three arms vs a pristine `05a6f92` binary. **30 items
-routed under `RV-S*`** (see Open items) and the four highest-severity are **§5.6/N1 obligations, not
-scheduling**: `RV-S10` Vivify tier3 is unreachable through the public API (an N1 breach of the shape the
-last one had), `RV-S11` four rule families have no reward id and no test pins any id↔counter mapping,
-`RV-S12` `--trace` replay does not exist so §8.5's gate cannot be run, `RV-S13` the slot pose surface is
-env-only and untested. **Five cross-agent conflicts are in the Log entry** — the sharpest being that CCE
-re-created the rule-side rotation SCHED-E1 had deleted 100 minutes earlier, and reads a STATS COUNTER to do
-it. **None of this blocks the next step below.**
+## ▶ MEASUREMENT STATE AND PROTOCOL (plan §8.1 rev 84)
 
-**▶▶ THE COVERAGE + HYGIENE ITEMS OF THAT REVIEW ARE DONE AND UNMERGED — branch `rvs-coverage-hygiene`
-(10 commits on `4f4989d`, ctest 48/48).** `RV-S22/23/24/25/26/28/29`(half)`/31`(a)`/9`+`RV-R3`; see the Log
-entry. **One result changes how earlier evidence must be read: every `--random-policy × N, 0 failures`
-figure in this file is over N minus a non-terminating population the harness did not print — measured at
-11.4 % (release) and 11.3 % (ASan), with 0 % for DefaultPolicy.** The harness now prints it. Still open
-from that group: the livelock DIAGNOSIS (`RV-S31`b), `parse.cpp`/`cake_lpr` (`RV-S24` remainder),
-`RV-S27`, `RV-S30`, and the `main.cpp` split, which the N1/API agent owns.
-**Queue state as this branch was pushed: no jobs left in flight from this pass** (its ten jobs — `1587119`,
-`1587294`, `1587335`, `1587380`, `1587384`, `1587390` cancelled, `1587410`, `1587411`, `1587412`, `1587414`
-— have all left the queue), and the two job ids the IN FLIGHT line above names are no longer in `squeue`
-either. Other agents' arrays come and go independently; check `squeue -u hwu` rather than trusting any
-line here.
+**Per-instance detail lives in `benchmarks/runs/<window>/results.json`, which is authoritative** —
+`tools/bench/run.py --aggregate <window>` regenerates any view (including the oracle column) without
+re-running anything, and reports in `benchmarks/reports/` carry tables when a gate needs one. **This section
+carries the headline, not the table (rev 84).** What a performance claim still owes, always: **#solved before
+PAR-2, and the instances that moved by name** — a headline decided by one instance is not a verdict.
+**Take the SHA from the run's own `manifest.json`, never from the commit that later shipped the change** — the
+2026-08-02 tables were labelled with the ship SHA and were not reproducible.
 
-**▶▶ THE FIVE OVERNIGHT SOLVE LOSSES ARE ONE DEFECT, AND IT IS FIXED (branch `debug-solve-losses`,
-`7b9f9d2` + `8b27c63`). THE EFFORT LEDGER WAS WRAPPING.** `set_entry_limit` sizes a dose as the
-UNSIGNED delta `search_ticks(k) - e.anchor`; the anchor is written INSIDE a phase and `search_ticks`
-was `k.stats.ticks - inprocess.ticks` with `inprocess.ticks` credited only at phase EXIT — so the
-reading inflated during a phase and snapped back at its end, i.e. **it was not monotone**. An anchor
-from late in one phase could exceed the reading early in the next, and the subtraction wrapped. A wrap
-does not enlarge the dose, it **deletes** it: `delta ≈ 2^64/10 = 1.845e18`, and the two `budget_aware`
-closures that read `Kernel::work_budget` — **Sweep and Congruence** — ran to exhaustion. Measured on
-`PRP_30_38`: Sweep `handed` **5 534 023 222 146 936 200 = exactly 3 × 2^64/10**, spending 412 G ticks
-across 260 570 environments and 73 % of the solve; with the fix, `handed` 60 854 300, 54 environments,
-`wrapped 0`, and the instance solves. **SCHED-D2 was the TRIGGER, not the defect** — 2.4× the probing
-occasions halves the search window between phases, which is precisely the condition for `now < anchor`.
-D2 stays (it is N4, both references split the clock). Fix = monotone `search_ticks` + saturating
-subtraction at all four ledger sites + a `c slot … wrapped N` reachability counter.
-**Twelve-instance probe (job `1585610`, node018, both halves in ONE window): loss-set PAR-2
-8400 → 1944, win-set 2462 → 2285 (the control half is slightly BETTER), solved 7/12 → 11/12.** So the
-recovery is not paid for out of the wins. Two unrecovered/unexplained, stated as such: `mod4block` is
-TO on the `ea15617` binary too (the may-not-gate lottery, no conclusion), and `em_11`'s SOLVE returns
-but at 585.7 s vs a 38.1 s `before` draw — a trajectory residual the wrap does not own, exactly as the
-Sweep-governor report predicted for it. ctest **46/46**; fuzz DRAT / native-LRAT / `--random-policy`
-10 000 cases each, **0 failures** (`1585685`/`1585686`/`1585687`). Report:
-`benchmarks/reports/2026-08-06-solve-loss-diagnosis.md`.
+**▶ CURRENT STATE: STALE. The last banked windows predate the effort-ledger wrap fix.**
 
-**▶ THE EXACT NEXT STEPS, in order.** (1) **Full Tier B + Tier C on the fix** — twelve extreme
-instances are not a tier, and every `Sweep`/`Congruence` dosing number taken since `58a46de` was
-measured against a budget that did not bind, so the T3 reading has to be retaken. Two pin dirs,
-node-pinned, `--baseline kissat --baseline cadical`. (2) **One `ledgerfix + TACTIX_SLOT_CLOCKS=1`
-arm**, pre-registered in the report §5.4: one cadence on the UNFIXED tree still scored 3558 against
-the fix's 4229 on those twelve, so up to ~670 PAR-2 may be D2 cost that survives a sound ledger —
-nothing measured so far separates "D2's cost was entirely the wrap" from "D2 costs on top of it".
-(3) Re-price Sweep's and Congruence's per-mille shares now that the ledger binds.
-
-**▶▶ TRACK SCHED'S TWELVE HIGH PARITY ROWS ARE ALL CLOSED (2026-08-06, branch `sched-f7-close`).**
-`SP-REPEAT-*` was the last one open, and `SCHED-F7` closes it as an **accepted deviation with the
-measurement**: the N1 half ships ON (C1/C2's `instances()` are now COMPLETE over victims — a redundant
-clause is offered and applicable, which the old code refused on all three paths at once), the redundant
-tier band's ROUND scope ships OFF behind `TACTIX_TOUCH_REDUNDANT`, and C1's scope is deliberately never
-widened because `SCHED-G2` measured it absorbed. **The reusable finding is that F6's "820× stamps for zero
-skips" was ONE SHARED CLOCK where cadical has a flag per consumer**, not a missing consumer — the band now
-stamps a third array and turning it on is provably (and measurably) inert for the other five. `RV-S1` and
-`RV-S2` land with it: CCE's rotation on a Stats counter is gone and CCE is the substrate's sixth consumer.
-**The `bandon` A/B is specced and UNRUN** (see the Log entry for the arms, the pre-flight and the guard
-metric) — no timing was taken in this window.
-
-**▶ NOTE FOR EVERY FUTURE SLOT A/B.** `TACTIX_SLOT_CLOCKS` / `TACTIX_SLOT_WATERMARK` now exist, so the
-whole Stage-D/E/F/G set is ablatable from one binary. The first cut of the clock hatch advanced BOTH
-clocks after one phase and thereby starved the entire elimination family (`c bve 0 rounds`) while
-"restoring" all five losses — caught only by reading `c slot-clock`'s `eliminate phases 0`, not the
-wall clock. Read the telemetry before banking any arm.
-
-## ▶ PREVIOUS ANCHOR (2026-08-05) — the Sweep-governor Tier C A/B (specced, unrun)
-
-**(FINISHED, not in flight — see the current anchor's run list.)** The post-ledger-fix tier pair was
-`bench-B-ledgerfix` (`1585689`, node017) and `bench-C-ledgerfix` (`1585775`, node018), two pin dirs from one
-commit, binaries byte-identical, both baselines carried; they landed as
-`20260806-102432-B-ledgerfix` / `…-102434-C-ledgerfix`. **These are the numbers that matter**: every
-Sweep/Congruence dosing figure taken
-since `58a46de` was measured against a budget that did not bind.** (Historical: the final Tier B + Tier C at HEAD `c7beaa0` — landed as windows
-`20260806-084944-B-shipped` / `20260806-084947-C-shipped`; those are the numbers the anchor above
-diagnoses.) Tier B array `1585269` on node017,
-Tier C array `1585354` on node018 — two pin dirs from ONE commit with **byte-identical binaries**
-(`219b10d7…`), both baselines carried, one tier per node so no arm/node correlation inside a tier and
-the two tiers do not contend. Partition was verified idle before submitting. ctest **46/46**, corpus
-14/14, all four conformance checkers green.
-
-**▶▶ SWEEP'S DEGRADATION IS DIAGNOSED AND FIXED (branch `sweep-governor-fix`); THE TIER C A/B IS SPECCED
-AND UNRUN.** Not the meter — the **enforcement point**. The round ceiling was polled only *between* seeds
-and never inside `sweep_env_build`, so one seed outspent its dose **73×** (`constraints_18_0.3_2`: handed
-665 M ticks, spent 48,685 M; 304.8 s of a 597 s solve, bit-identical trajectory, 99.996 % in the BFS
-occurrence walk). Fix = poll the budget inside the expansion loop (cadical's discipline), 44 lines, all in
-`src/rules/sweep/`. Overshoot **≤1.005× on all four** probe instances; `constraints_18` **−475.6 s**,
-`bhaskara` **−65.7 s**, `em_11`/`minxor128` unchanged. **`minxor128` and — post-Stage-D — `em_11` are a
-DIFFERENT mechanism** (Sweep's own wall there is ~2 s / fractions of a second and its ledger is 1.01–1.04×;
-their cost is the emitted equivalences changing the search), so no governor fix touches them; still run
-paired draws on `minxor128` before treating its solve flip as a verdict. **Next step: run the Tier C A/B**
-— arms `govon` / `govoff` (`TACTIX_SWEEP_ENV_BUDGET=0`), pre-registered reachability + `spent/handed`
-counters and ship criterion in `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md` §9. **It should
-precede the SCHED-D2 pricing run**, since Stage D multiplies Sweep's occasions and would otherwise
-re-measure this defect and blame the clocks.
-
-**▶▶ THE MERGED-TREE FUZZ RUN'S 38 "LRAT" FAILURES ARE NOT OURS — HEAD IS NOT FUZZ-RED.** Job `1584461`
-was **not** a native-LRAT leg: its solver argv has no `--lrat`, so it ran native **DRAT** (which
-drat-trim VERIFIED) plus the harness's `drat-trim -L` → `lrat-check` **conversion cross-check**, and that
-is what rejected. **kissat's and cadical's own DRAT proofs are rejected identically on the same CNFs,
-byte-identical message**, while our native LRAT verifies on every one under both `lrat-check` and
-`cake_lpr`. Cause: drat-trim's parser deletes duplicate literals as it reads the CNF and `-L` then cites
-input clauses by id, while lrat-check re-reads the undeduped file (and, second class, an input empty
-clause makes `-L` write a zero-byte proof). Both are checker-vs-checker disagreements. Fixed **in the
-harness**: `conversion_crosscheck_unsound()` stands the cross-check down on exactly those two classes and
-`fuzz.py` reports `oracles skipped: {...}` per leg so it can never vanish quietly; the native-LRAT oracle
-is deliberately NOT gated. `selftest.sh` pins all of it — and its own `expect_clean kissat` arm was red
-for the same reason until now (masked by the pre-`lrat_verified()` oracle). Report:
-`benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md`. **Re-verified at two seeds: six legs,
-6000 cases each, jobs `1584462`–`1584467`, ALL 0 failures** — including seed `20260709`, the exact
-population that produced the 38, with the restatement path reached by **1321 of 1916 UNSAT answers**.
-Two seeds is now the standing expectation for a proof-path change: one seed is not a population.
-The skip counter also sizes what was being lost — **~1475 of 6000 cases (25 %)** were dropping the
-conversion cross-check silently before this.
-
-**Where we stand.** Tier B **70.71 (26/28)** · Tier C **419.91 (28/30)** vs kissat 228.45 / cadical 312.27
-(window `20260805-115039-C-c5`, git `0418770`, node017-pinned). **T3 is NOT met on either half and BOTH
-regressed in a day** — see the tier-table block, which carries the numbers and the decisive experiment.
-
-**▶ THE EXACT NEXT STEP.** One same-window **Tier C A/B: Sweep ON (shipped) vs `TACTIX_SLOT_DISABLE=Sweep`**,
-at HEAD, node-pinned, `--baseline kissat --baseline cadical`. Two pin dirs if B and C go out as concurrent
-arrays (CLAUDE.md build-dir rule). **Why this and not Stage D:** Tier C went 309.05 (29/30) → 419.91 (28/30)
-across 08-04 → 08-05 while kissat stayed flat (230.74 → 228.45), and the one thing that changed is V5 Sweep
-going from unscheduled to scheduled at kissat's 100‰. The last Sweep ON/OFF comparison (S-f) predates the
-N2 fix, so it scored a *correct* UNSAT as unsolved on a rejected proof and cannot be reused. Supporting
-datapoint from the blast-radius survey: **`constraints_18_0.3_2` runs 42 Sweep rounds, emits nothing, keeps
-a bit-identical trajectory, and still costs 519.3 s vs 269.8 s (1.92×)** — a governor problem, not a
-correctness one. **If Sweep is the cause, the fix is its effort share, NOT switching the rule off**
-([[no-rule-off-configs]]; every implemented proof rule ships ON).
-
-**▶ STAGE D IS LANDED AND ENTIRELY UNPRICED** (branch `sched-stage-d`, three commits, ctest 43/43, fuzz
-green on DRAT / native LRAT / `--random-policy`×DRAT; **STAGE F re-fuzzed the same three legs on top,
-10,000 cases each, 0 failures — jobs `1584731`/`1584732`/`1584733`**). D1 authored order · D2 the two clocks · D3 the slot
-gates. **D2 is the one expected to move numbers** (probing at ~2×, not the ~5× the ledger headline implies —
-see its Log entry). The three A/B specs are in the Log entries and are the next Stage-D work; D3's spec
-says to check its `blocked` counter first and abandon the window if it is zero.
-
-**▶ STAGE E IS LANDED AND UNPRICED** (branch `sched-stage-e`, four commits, ctest **44/44**, fuzz green — DRAT 10,000/0, native LRAT 4,000/0,
-`--random-policy`×DRAT 4,000/0, corpus 14/14). E1 candidate order + resumption as policy objects · E2 the per-rule ordering arms · **E3 the effort
-ceiling** (`SP-EFFORT-CEIL-1`, taken mid-stage; ported and **measured inert** — see its Log entry before spending a window on it). The one finding
-that changes the picture: **Probe was advancing 0.3 % of its candidate list per dose and replaying the same head on all 45 phases** — E1's cursor
-fixes that, and it is unpriced. Three A/B specs are in the Log entries; E1's and E2's are worth windows, E3's says explicitly not to run it.
-**▶ STAGE F IS LANDED AND UNPRICED** (branch `sched-stage-f`, ctest **44/44**, fuzz green ON THE MERGED
-TREE — DRAT `1584769`, native LRAT `1584770`, `--random-policy`×DRAT `1584771`, **10,000 cases each, 0
-failures**, restatement path reached on 2,855). F1 the
-touched-epoch substrate (a per-variable EPOCH STAMP, not a bit — so it has no clear pass a scheduling decline
-can starve, which is D3's `SP-SLOT-5` lesson applied) · F2 resume by RE-ARM, **and the C1→BVE bound coupling T5
-asks for REFUSED** as self-wedging (§13.3 `SP-REPEAT-COUPLE`) · F3 BCE/HyperTernaryRes/Instantiate, which forced
-a second stamp array for DELETIONS · F4 Factor's seed marks · F6 the redundant half, **shipped OFF** because it
-only weakens the filters until F7 gives it a consumer. **Measured at the source** (probes `1584708`/`1584753`,
-counters only): `rbsat` C1 partner visits 165,272 → 79,686 and C2 5.83 M → 2.57 M · `mod4block` BCE ticks
-14.9 M → 7.1 M with MORE deletions · `9vliw` BCE 175,810 literals skipped; `advances` == round count everywhere,
-so the filters fire and none has wedged. **On the MERGED tree WHICH consumer carries it is per-instance**
-— `9vliw`/`rbsat`/`battleship` shift to Factor and BCE while `mod4block` is still C1/C2 at 782,717
-skipped — which is why the family prices as one arm. Re-read the Log before attributing a delta to any
-single item. **F5 is NOT done and is routed to `revamp`** — it needs a per-CLAUSE
-bit and the per-variable substrate cannot express it (see its checklist entry). **F7 (C1/C2 scope ← the tier
-band) is the open follow-up and F6 is its prerequisite.** The A/B specs are in the Log; `TACTIX_SUBSUME_HOLD`'s
-arm says explicitly not to run it while `c subhold` reads 0.
-
-**▶ THEN.** Stage G — the genuine revamps. `G1`-`G4` are landed (G4 2026-08-06: the "2,231 vs 14" unit
-headline is RETIRED as an invalid comparison — ledger `SP-CONG-UNITS-1`; Y1 shipped as calculus V6a);
-`G5` (binary-first watch layout) is the remaining one.
-
-**▶ OWED MEASUREMENTS (each a job; none blocks the next step).**
-- **ALL THREE STAGE-D ITEMS are specced and unrun** — arms, pre-flight counter and ship criterion in each
-  Log entry. Pre-flight counters: `c slot-order` (D1), `c slot-clock` phase counts (D2), `c slot-clock`
-  `blocked` (D3).
-- **`SCHED-C6` A/B is specced and unrun** — arms, pre-flight counter and ship criterion are in its Log
-  entry. Pre-flight: `c eagersub` non-zero on ON, exactly `0 subsumed of 0 tried … register 0` on
-  `TACTIX_EAGER_SUBSUME=0`.
-- **BVE ramp slack-8 ceiling** — Tier C/D re-sweep owed since `489fab1`; knob `TACTIX_BVE_RAMP_MAX`,
-  reachability probe already written at `benchmarks/probes/scratch/bveramp-reach.*`.
-- **`SCHED-C8` (BVE ITE/XOR gates) A/B is specced and unrun** — arms `--bve-gates=all` vs
-  `--bve-gates=equiv,andor`, two pin dirs, pre-flight counter and ship criterion in its Log entry.
-  Reachability already proven: `9vliw_bp_mc` reports `306 ite, 16 xor; 6,101,504 resolvent pairs saved`.
-- **`SCHED-G1` (Congruence budget) A/B is specced and unrun** — arms `budget` (shipped) vs `nobudget`
-  = `TACTIX_SLOT_PERMILLE=Congruence:1000000`, optional `share20`; pre-flight = `c congruence … budget
-  stops` non-zero on the shipped arm and exactly 0 on `nobudget`. Full spec in the design doc §7. **The
-  exhibit `T105.2.0` is a Tier C timeout in BOTH arms** — a win shows up elsewhere; do not let the
-  exhibit gate the verdict.
-- **`randec` (SCHED-C7) is UNPRICED and has NO KNOB.** `randec_enabled` (`default_policy.hpp`) is
-  initialised true and never assigned. One line in `main.cpp` makes it A/B-able.
-- **C1/C3/C4 have nothing to price** — C1/C3 landed unconditionally, C1's only lever confounds by also
-  moving reduce's tiers, and C4 is a pure refactor. Closed, do not re-open.
-- **Tier D** (793, frozen) has never been RUN — a phase-4-exit prerequisite (§11 O9, plan rev 83). `--tier D` still
-  lacks a per-track flag for T4's SC25-set PAR-2; wire that first.
-
-**▶ READ BEFORE TRUSTING ANY DELTA.** `--aggregate` prints a **fragility line** — the minimum number of
-instances whose removal flips the sign. **`k=1` means the run has NOT answered the question.** On Tier C a
-solve flip is worth 2400 PAR-2, so read **`#solved`**, not the aggregate. Same-window noise floor **6.72**
-(idle partition); never compare absolute Tier C PAR-2 across windows. A verdict resting on `mod4block`,
-`j3037`, `jgiraldezlevy`, `urq45`, `frb45` or `ContextModel` alone is not a verdict — run paired draws.
-**Do not grow that set** (user directive).
-
-**▶ TRUST NOTHING THAT RESTED ON A NATIVE-LRAT FUZZ LEG BEFORE 2026-08-05.** `fuzz.py`'s LRAT oracle tested
-`"VERIF" not in output.upper()`, which matches `c NOT VERIFIED` too, so **every LRAT rejection in the
-project's history was recorded as a pass**; only crashes ever failed an LRAT leg. Fixed. Any past
-"native-LRAT green" claim established nothing and must be re-earned, not re-read.
-
-## ▶ CURRENT TIER TABLES (plan §8.1 rev 75 — full per-instance, newest window first)
-
-**Maintenance contract:** every tier run that changes the shipped default, or that a Log entry cites as a
-result, replaces the table below. Keep the newest window at the top; drop superseded ones rather than
-stacking them. Record the window stamp AND the git SHA — a table without them cannot be reproduced or
-compared. **Take the SHA from the run's own `manifest.json`/`results.json`, never from the commit that later
-shipped the change** — the 2026-08-02 tables were labelled with the ship SHA and were not reproducible.
-
-#### Tier B (28) — window `20260805-115027-B-c5` (git `0418770`), SHIPPED DEFAULT = `c5` (demote ON); `demoff` = `TACTIX_FACTOR_DEMOTE=0`. No baseline carried in this window.
-
-| # | instance | st | c5 | demoff |
+| tier | last banked window | git | shipped arm | result |
 |---|---|---|---|---|
-| 1 | `or_randxor_k3_n540_m540.cnf.xz` | UNK | **TO** | **TO** |
-| 2 | `unsat-set-b-fclqcolor-10-07-09.sat05-1282.re` | UNK | **TO** | **TO** |
-| 3 | `mp1-klieber2017s-0500-023-t12.cnf.xz` | SAT | 239.7 | 232.6 |
-| 4 | `DivS_862_11.cnf.sanitized.cnf.xz` | SAT | 132.4 | 134.7 |
-| 5 | `PRP_30_38.cnf.xz` | SAT | 131.3 | 131.5 |
-| 6 | `b22_1.cnf.xz` | UNS | 35.4 | 34.3 |
-| 7 | `qwh.50.1250.shuffled-as.sat03-1655.cnf.xz` | SAT | 32.7 | 17.3 |
-| 8 | `veer_axi_yosyshq_appnote_123_veer_axi-p23_tr` | UNS | 29.5 | 29.6 |
-| 9 | `combined-crypto1-wff-seed-1-wffvars-450-cryp` | SAT | 23.5 | 23.2 |
-| 10 | `summle_X4044_steps7_I1-2-2-4-4-8-25-100.cnf.` | SAT | 16.0 | 15.7 |
-| 11 | `9vliw_bp_mc.shuffled.cnf.xz` | UNS | 15.4 | 12.3 |
-| 12 | `FmlaEquivChain_4_6_6.sanitized.cnf.xz` | UNS | 14.5 | 14.5 |
-| 13 | `circuit_48in64out_with_800gates_4in4out_dist` | SAT | 14.1 | 14.2 |
-| 14 | `mod4block_2vars_10gates_u2_autoenc-sc2009.cn` | SAT | 14.0 | 13.9 |
-| 15 | `x9-08014.sat.sanitized.cnf.xz` | UNS | 13.5 | 13.4 |
-| 16 | `SCPC-500-5.cnf.xz` | UNS | 12.7 | 8.4 |
-| 17 | `mp1-blockpuzzle_5x10_s7_free4.cnf.xz` | UNS | 12.0 | 10.2 |
-| 18 | `pyhala-braun-sat-35-4-04.shuffled.cnf.xz` | SAT | 8.4 | 8.4 |
-| 19 | `battleship-14-26-sat.cnf.xz` | SAT | 6.9 | 5.9 |
-| 20 | `hwmcc17miters-xits-iso-oski15a08b00s.sanitiz` | UNS | 5.9 | 6.0 |
-| 21 | `2013113162201nw.shuffled-as.sat03-1668.cnf.x` | SAT | 5.9 | 5.9 |
-| 22 | `square.2.0.i.smt2-cvc4.cnf.xz` | UNS | 5.9 | 5.9 |
-| 23 | `SC25_Timetable_C_392_E_45_Cl_25_D_7_T_50.nor` | SAT | 5.3 | 5.3 |
-| 24 | `rbsat-v760c43649gyes10.cnf.xz` | SAT | 2.5 | 16.5 |
-| 25 | `sted5_0x24204-50.cnf.xz` | SAT | 1.1 | 1.1 |
-| 26 | `oddball_13_5_ttf.normalised.cnf.xz` | UNS | 0.9 | 1.5 |
-| 27 | `DecompressReader_read_12.cnf.xz` | UNS | 0.5 | 0.5 |
-| 28 | `clique_n2_k10.sanitized.cnf.xz` | UNS | 0.0 | 0.0 |
-|  | **PAR-2 / solved** |  | **70.71** (26/28) | **70.10** (26/28) |
+| B (28) | `20260805-115027-B-c5` | `0418770` | `c5` (demote ON) | 70.71, **26/28**; no baseline carried |
+| C (30) | `20260805-205741-C-sweepon` | `ea15617` | `sweepon` | 419.91, **28/30** vs kissat 228.45 (29/30), cadical 312.27 (29/30) |
+| T3 | same C window, subset 24 of 30 | | | **1.345× cadical** full · **1.727× kissat** subset — both NOT MET |
 
-*(timeout 300s)*
+**Four unread 2026-08-06 pairs are in `benchmarks/runs/`** — `20260806-150228-C-govon`,
+`20260806-124756-C-shipped`, `20260806-102434-C-ledgerfix`, `20260806-084947-C-shipped`, each with its Tier B
+partner. Reading them and re-taking T3 is step 2 of the anchor.
 
-#### Tier C (30) — window `20260805-205741-C-sweepon` (git `ea15617`), node017. `sweepon` = SHIPPED DEFAULT; `sweepoff` = `TACTIX_SLOT_DISABLE=Sweep`
+**▶ THE THREE NOISE BARS — they are different, and the biggest one is the easiest to forget.**
+- **Same-window, same-node: 6.72** (window `20260804-030938`, idle partition, three bit-identical arms
+  364.50 / 362.17 / 357.78). The older **10.8** bar is the CONTENDED equivalent; use it only for runs that
+  shared the partition.
+- **ARMS MAY NOT SHARE A NODE.** Array task index is `arm × n_instances + instance`, so SLURM fills nodes in
+  INDEX order and **arm 0 lands systematically on one node** — in `20260804-165514-B`, `shipped` ran 28/28 on
+  node017 while `facon` split 17/11. **The 6.72 floor is itself a SAME-NODE bar** (its three arms ran 30/30 on
+  node017), so it may UNDERSTATE the noise for a comparison whose arms straddle nodes. Check the `node` field
+  per arm in `results.json` before believing a delta under ~2 floors. Proper fix (unfiled, needs the runner):
+  interleave task indices so every arm spreads across nodes identically.
+- **ACROSS windows the bar is BIGGER: 12.23 PAR-2**, measured on the same shipped solver — Tier C 309.05
+  (`20260804-154341`) vs 296.82 (`20260804-165516`), same day, idle partition, commits differing only in
+  documentation, i.e. **byte-identical behaviour**. That is 1.8 within-window floors. **Never compare an
+  absolute Tier C PAR-2 across windows**; "where we stand" from one window is precise to about ±12.
 
-| # | instance | st | sweepon | sweepoff | kissat | cadical |
-|---|---|---|---|---|---|---|
-| 1 | `128_125.sanitized.cnf.xz` | UNK | **TO** | **TO** | **TO** | **TO** |
-| 2 | `minxor128.cnf.xz` | UNK | **TO** | 992.5 | 231.7 | 285.6 |
-| 3 | `T87.2.0.cnf.xz` | UNS | 841.2 | 839.0 | 273.2 | 431.8 |
-| 4 | `T105.2.0.cnf.xz` | UNS | 645.1 | 645.5 | 298.9 | 285.8 |
-| 5 | `constraints_18_0.3_2.sanitized.cnf.xz` | UNS | 592.8 | 301.7 | 190.1 | 246.3 |
-| 6 | `sat-bench-trig-bhaskara.cnf.xz` | UNS | 501.1 | 613.2 | 355.3 | 389.0 |
-| 7 | `goldcrest-and-9.cnf.xz` | UNS | 420.7 | 372.3 | 100.7 | 166.5 |
-| 8 | `StConn_8_32.sanitized.cnf.xz` | UNS | 393.8 | 391.1 | 294.7 | 982.2 |
-| 9 | `frb45-21-2.used-as.sat04-884.cnf.xz` | SAT | 312.5 | 313.2 | 92.4 | 159.9 |
-| 10 | `DLTM_twitter690_74_16.cnf.xz` | SAT | 258.3 | 250.6 | 124.9 | 250.7 |
-| 11 | `j3037_9_rggt_b.cnf.xz` | SAT | 250.2 | 261.7 | 141.2 | 22.9 |
-| 12 | `ecarev-110-4099-22-30-7.cnf.xz` | SAT | 247.2 | 271.7 | 224.4 | 193.5 |
-| 13 | `circuit_32in32out_with_500gates_6in6out_dist` | SAT | 236.9 | 237.8 | 111.6 | 481.2 |
-| 14 | `af-synthesis_stb_50_120_4_sat.cnf.xz` | SAT | 228.6 | 202.2 | 139.5 | 137.7 |
-| 15 | `mp1-Nb5T15.cnf.xz` | SAT | 220.5 | 218.7 | 77.5 | 125.1 |
-| 16 | `constraints_25_4_5_12_12_0_0_0.sanitized.cnf` | UNS | 203.2 | 203.0 | 134.7 | 184.2 |
-| 17 | `php17-mixed-35percent-blocked.cnf.xz` | UNS | 202.6 | 202.4 | 179.2 | 247.5 |
-| 18 | `Grain_no_init_ver1_out200_known_last105_0_u.` | UNS | 201.5 | 201.3 | 228.0 | 262.7 |
-| 19 | `ER_400_20_4.apx_2_DC-ST.cnf.xz` | UNS | 198.5 | 198.7 | 153.8 | 174.7 |
-| 20 | `asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf` | UNS | 169.1 | 170.0 | 104.2 | 254.3 |
-| 21 | `urq45.cnf.xz` | UNS | 125.1 | 135.8 | 117.0 | 984.5 |
-| 22 | `mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2` | SAT | 109.5 | 109.5 | 40.7 | 183.9 |
-| 23 | `SCPC-1000-18.cnf.xz` | SAT | 74.7 | 74.1 | 168.1 | 25.7 |
-| 24 | `aes_decry_2_rounds.debugged.cnf.xz` | UNS | 67.9 | 68.0 | 89.1 | 78.4 |
-| 25 | `em_11_3_4_cmp.cnf.xz` | SAT | 39.4 | 197.8 | 105.5 | 109.8 |
-| 26 | `Ptn-7824-b18.cnf.xz` | SAT | 38.1 | 37.3 | 237.9 | 9.9 |
-| 27 | `1-ET-256-K-70.sanitized.cnf.xz` | UNS | 31.0 | 29.8 | 60.2 | 26.7 |
-| 28 | `ContextModel_output_7_3_9.bul_.dimacs.cnf.xz` | SAT | 22.2 | 22.2 | 38.8 | 63.2 |
-| 29 | `EDP3-11000.cnf.xz` | SAT | 22.0 | 22.1 | 63.5 | 196.5 |
-| 30 | `jgiraldezlevy.2200.9086.08.40.41.cnf.xz` | SAT | 21.5 | 22.2 | 113.8 | 16.8 |
-|  | **PAR-2 / solved** |  | **382.51** (28/30) | **333.51** (29/30) | **229.69** (29/30) | **312.57** (29/30) |
+**▶ TWO PROTOCOL BREAKS — never quote across them.**
+- **Never mix 14- and 28-instance Tier B PAR-2.** Pre-2026-07-29 Tier B numbers are the `core14` subset
+  (preserved as a marked subset, so the old archive stays recomputable by filtering any `results.json`).
+- **Never quote a pre-2026-07-28 Tier C aggregate against a current one.** Before the like-for-like proof
+  protocol settled, an instance whose DRAT check exceeded the checker budget was scored UNSOLVED even though we
+  solved it (`urq45`: a 354.5 s solve scored unsolved on a 2400.1 s check), overstating our Tier C PAR-2 by
+  up to ~+68.
 
-*(timeout 1200s)*
-
-**Reading this table.**
-- **SCHED-C5's verdict: NEUTRAL, and the default STAYS ON.** Same `#solved` on both tiers (26/28, 28/30),
-  so the pre-registered ship criterion — keep it unless demote *loses a solve* outside the may-not-gate
-  set — is met. Tier B −0.62 PAR-2 favouring OFF is **FRAGILE at k=2**; Tier C +10.25 favouring ON is
-  **UNDECIDED**, since `frb45-21-2` alone is 102 % of it and removing that one instance flips the sign to
-  −0.23. `frb45` is in the may-not-gate set, so this is exactly the shape that may not gate alone.
-  The knob is priced as **measurement-neutral**; it ships ON on reference-parity grounds, not on PAR-2.
-- **The free control set held**: nine instances Factor cannot admit at t=0 ran identical trajectories.
-
-**▶ T3, BOTH HALVES** (`tools/bench/subset_score.py`, subset = 24 of 30, window `20260805-205741-C-sweepon`):
-
-| arm | vs kissat (subset) | vs cadical (full) | solved |
-|---|---|---|---|
-| `sweepon` = shipped | **1.722×** | **1.224×** | 28/30 |
-| `sweepoff` | **1.459×** | **1.067×** — *inside the 10 % band* | 29/30 |
-
-**▶▶ THE SWEEP GOVERNOR HYPOTHESIS IS CONFIRMED, AND THE COST IS CONCENTRATED.** Same-window A/B:
-Sweep ON is **+49.00 PAR-2 worse and loses a solve** (`minxor128`, TO at 1200 s vs solved at 992.5 s —
-a near-miss Sweep pushes over). **With Sweep off the CaDiCaL half of T3 would be MET (1.067×)** and the
-kissat half improves 1.722 → 1.459×.
-**But the cost is TWO instances, not a broad loss:** `constraints_18_0.3_2` **+291.1 s** (the instance the
-blast-radius survey already flagged — 42 rounds, ZERO emissions, bit-identical trajectory) and
-`minxor128` **+207.5 s**; removing both flips the sign to **+7.62 favouring Sweep ON**, and Sweep wins
-real time elsewhere (`em_11_3_4_cmp` **−158.4 s**, `sat-bench-trig-bhaskara` **−112.0 s**).
-**So this is a DOSING/TARGETING defect, not a case against the rule** — spend without yield on a couple of
-instances, exactly what a productivity-aware governor is for. **SWEEP SHIPS — USER DIRECTIVE, 2026-08-05, NON-NEGOTIABLE.** The degradation is the defect to fix, not
-the rule. Neither disabling it nor shrinking its budget until it is inert counts as a fix; after any
-governor change Sweep must still fire and still find equivalences, proven by `c sweep`/`c sweepemit`.
-**Leading hypothesis under investigation (branch `sweep-governor-fix`): the METER.** Stage B audited
-every rule's currency and found C1/C2 under-charged **2712×**; Sweep's `EFFORT_SPECS` row landed in S-f
-**after** Stage B and never got that audit. A rule consuming ~50 % of wall on a nominal 100‰ share is
-prima facie evidence the currency is wrong — the sub-solver owns its own arena/watches/trail, so its
-propagation may not be charged. Second hypothesis: no productivity memory (42 rounds, 0 equivalences,
-nothing learns). Third: per-round environment rebuild.
-**Owed before this is a verdict rather than a direction:** the aggregate is FRAGILE at k=2 and a single
-solve flip is single-instance by construction — run paired draws on `minxor128`, the protocol that has
-now found a lottery 5 times out of 5.
-
-**▶ AND A THIRD BAR: ARMS MAY NOT SHARE A NODE (found 2026-08-04 while adding the oracle column).**
-Array task index is `arm × n_instances + instance`, so SLURM fills nodes in INDEX order and **arm 0 lands
-systematically on one node**. Measured in `20260804-165514-B`: `shipped` ran **28/28 on node017** while
-`facon` split 17/11 and `facoff` 19/9. So a small within-window arm delta can carry a node/contention
-artefact — and `shipped` was the strict per-instance best on 12/28 there, typically by 1–6 %.
-**The 6.72 floor is NOT contaminated** — its three bit-identical arms ran **30/30 on node017**, so it is a
-SAME-NODE bar. That is the uncomfortable part: **6.72 may UNDERSTATE the noise for a comparison whose arms
-straddle nodes.** Before believing a within-window delta under ~2 floors, check the `node` field per arm in
-`results.json`. Proper fix (unfiled, needs the runner): interleave task indices so every arm is spread
-across nodes identically.
-
-**▶ WITHIN-WINDOW vs ACROSS-WINDOW ARE DIFFERENT BARS, and the second is BIGGER (measured 2026-08-04).**
-The 6.72 floor is between bit-identical arms *inside one window*. **Across windows the same shipped solver
-moved 12.23 PAR-2**: Tier C **309.05** (`20260804-154341`) vs **296.82** (`20260804-165516`) — two runs the
-same day, on an idle partition, at commits that differ only in documentation, i.e. **byte-identical solver
-behaviour**. That is **1.8 within-window floors**. Tier B was stable across the same pair (86.51 vs 86.42).
-**Consequence: never compare an absolute Tier C PAR-2 across windows** — only same-window arms at equal
-concurrency, now with a number attached. Quoting "where we stand" from one window is precise to about ±12 on Tier C.
-
-**Noise floor — USE 6.72 for SAME-WINDOW arms (window `20260804-030938`, idle partition, three
-bit-identical arms: 364.50 / 362.17 / 357.78, per-instance median 4.8 s).** The older 10.8 below is the CONTENDED bar; keep it only for
-runs that shared the partition.
-**The older 10.8 bar** was three bit-identical arms in a CONTENDED window (`20260731-013523`, which overlapped a full Tier C array by ~1 h 12 m), so it is an upper bound on contended noise, not a measurement of quiet-partition noise. Use 6.72 for idle, 10.8 only for runs that shared the partition.
-
-**Older windows** — aggregates only, per-instance detail in each run's `results.json`, and **not cross-window comparable** (see the bar above). The shipped Tier C ratio moved 1.007–1.066× across the 07-29→07-31 windows at an UNCHANGED default, which is the whole argument for same-window A/B. **Never mix 14- and 28-instance Tier B PAR-2** — pre-2026-07-29 Tier B numbers are `core14`.
-
-**▶ PROTOCOL BREAK — never quote a pre-2026-07-28 Tier C aggregate against a current one.** Before the like-for-like proof protocol settled, an instance whose DRAT check exceeded the checker budget was scored UNSOLVED even though we solved it (verified: `urq45`, a 354.5 s solve scored unsolved on a 2400.1 s check), overstating our Tier C PAR-2 by up to ~+68.
+**▶ THE OPEN MEASUREMENT QUESTION: Sweep's cost is a DOSING defect, not a case against the rule.** Same-window,
+Sweep ON was +49.00 PAR-2 and lost a solve (`minxor128`), and with it off the CaDiCaL half of T3 would have
+been MET (1.067×). **But the cost was TWO instances** — `constraints_18_0.3_2` +291.1 s (42 rounds, ZERO
+emissions, bit-identical trajectory) and `minxor128` +207.5 s — and removing both flips the sign to +7.62
+*favouring* Sweep ON, which wins real time elsewhere (`em_11_3_4_cmp` −158.4 s). **SWEEP SHIPS — user
+directive, non-negotiable:** neither disabling it nor shrinking its budget until it is inert counts as a fix,
+and after any governor change Sweep must still fire and still find equivalences (`c sweep`/`c sweepemit`).
+Part of that cost is now explained — the effort ledger was wrapping — so **this must be re-measured before it
+is reasoned about further**. The remaining hypotheses are the METER (Sweep's `EFFORT_SPECS` row landed after
+Stage B and never got the currency audit that found C1/C2 under-charged 2712×; the sub-solver owns its own
+arena/watches/trail, so its propagation may not be charged), no productivity memory, and the per-round
+environment rebuild.
 
 ## Standing lessons
 
@@ -442,1055 +133,245 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 
 ## Open items (small, none blocking)
 
-- **`D-BVE-SCRATCH` — a FIFTH sighting of the per-call linear-scratch hazard, in a hot rule.**
-  `bve_detect_gate` allocates `std::vector<int> pos_bin(2*nvars,-1)` and `neg_bin(...)` **per candidate**,
-  and `bve_eliminate` two more `2*nvars` byte vectors — four O(nvars) fill-inits per elimination
-  ATTEMPT. Same shape that cost 174× on native LRAT before the persistent-scratch + touched-restore
-  fix (Track C · C4-perf). Found while adding ITE/XOR extraction, which deliberately added none of its
-  own (its per-pivot signature index is O(P+N)). Not urgent, but BVE runs on every elimination phase, so
-  the constant is paid a lot.
-  **▶ RE-SCOPED BY THE 2026-08-06 REVIEW (`RV-S19`) AND IT IS BIGGER THAN THIS ROW SAID.** It is **FIVE**
-  fills per elimination ATTEMPT, ~20·nvars bytes of memset plus 4 malloc/free pairs: `bve.cpp:265` two
-  `vector<int>(2*nvars,-1)`, `:559` `seen_bin`, `:644` `seen`, `:715` `PendingUnits::init`. Two facts the
-  fix should use: the two `int` vectors are allocated **before any `bve_gate_mask` test**, so masking gate
-  detection off still pays 16·nvars; and `seen_bin` **already has a touched-list restore**, wasted today
-  because the buffer dies at end of call. Marked sets are bounded by `occ(x)` (< 100 typical vs nvars
-  ~10⁶). **And the review found sightings #6 and #7** — `probe.cpp:100` and `backbone.cpp:96-97` call the
-  **3-arg** `kernel_conflict_reason_walk` with a fresh `vector<uint8_t>(nvars,0)` per failed literal, i.e.
-  exactly the 174× construction, on the native-LRAT path; the 4-arg `touched` overload already exists and
-  the fix is ~6 lines each, copied from `vivify.cpp:395-401`. **Route: `revamp` (or a `perf:` commit) —
-  NOT revisit-codebase**, because it is a performance change under §5.4, not §5.5 hygiene. Trajectory
-  gate: identical `bve_eliminated`/`bve_resolutions`/`probe_failed`/`backbone_failed` and identical proof
-  SHA.
+*Only what is actually OPEN. Discharged review items keep their record in the Log entry that closed them and in
+`benchmarks/reports/2026-07-29-review-post-track-r.md` / `…/2026-08-06-review-post-track-sched.md`.*
 
-- **`D-STRENGTHEN-BUDGET`, now scoped to "DOSE C1/C2".** C1 SubsumeForward / C2 Strengthen are the only
-  inprocessing slot entries that are neither dosed nor budget-aware, and one round cannot be interrupted —
-  C2 owns **97.8 s of `DivS_862_11`'s 109.0 s in four applications**. Interruptibility itself is measured
-  negative and reverted (kept as a §5.6 arm behind `TACTIX_MIDROUND_BUDGET=1`; report
-  `benchmarks/reports/2026-08-04-midround-budget-negative.md`), because at 100‰ the budget binds ~once per
-  solve and a stopped round merely DEFERS its candidates. The **dose** axis is live (1‰ → DivS 11.5 s).
-  Route via the calculus skill when it becomes a guard change.
-- **Proof-rescue residuals.** `D-LRAT-FALLBACK` **SHIPPED 2026-08-04** (`3c3de3b`): a DRAT check that
-  exhausts its budget triggers a re-**solve** with `--lrat` + cake_lpr (a conversion is impossible — it
-  needs the same backward search that just timed out); a genuine REJECTION still scores unsolved.
-  Left open: the rescue reuses `checker_budget` rather than its own knob; LRAT was 3.6× the DRAT size on
-  `urq45` and cake_lpr's RSS 4.02 GiB against an 8 GB cap; and the per-task SLURM wall doubled to
-  `2*(timeout + checker_budget) + 120` for a path that fires rarely. Revisit if Tier D ever rescues.
-- **Standing rule: every Tier C run carries `--baseline kissat --baseline cadical`**, or T3's kissat half
-  goes unmeasurable again. The instrument is otherwise CLOSED (2026-08-03) —
-  `benchmarks/tiers/C-ruleneutral.list` (24 of 30, frozen with its known defect + closer in the header) and
-  `tools/bench/subset_score.py`, which scores the subset AND the full tier from one `results.json`; the
-  subset is a scoring VIEW, never a separate run. **Caveat:** the list comes from a single-shot sweep
-  ablation and 4 of its 6 exclusions are perturbation-fragile instances. A replicated re-derivation exists
-  (15 of 30) and was deliberately NOT adopted — the T3 verdict is the same either way (Log 2026-08-04).
-- **Citation pairing:** when citing `benchmarks/reports/2026-08-03-broad-factor-and-t3-halves.md`, cite
-  `…/2026-08-04-broad-factor-admission-retest.md` with it — the latter supersedes its per-instance
-  conclusion (the `j3037` veto was a measured lottery).
-- **Task #39** — `--random-policy` NON-TERMINATION, and it is a population, not 5 tiny cases (N1
-  robustness, not soundness). **MEASURED 2026-08-06** (`RV-S31`, release binary, ≤60 vars, jobs
-  `1587119`/`1587294`): **114 of 1000 cases (11.4 %) at a 10 s budget, the SAME 114 on DRAT and on native
-  LRAT, against 0 of 1000 for DefaultPolicy.** Escalating the first 24 to **600 s** (60×) leaves **18 of
-  24 still unfinished** — same 6 terminate under both formats — so ~8.6 % of a random-policy leg does not
-  terminate at all and the rest is slow. `fuzz.py` now prints the population and keeps the cases
-  (`<outdir>/nonterminating/`, `nonterminating.json`); the DIAGNOSIS is still open.
-- demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; the deferred
-  full-slot-mirror enhancement was dropped 2026-07-25, user decision).
-- Stress-pass ledger: V6 unit-channel DONE (`4f2b53e` + congstress nightly); Factor-mid-stable DONE
-  (2026-07-25, 9k/0); post-Track-H random-policy ASan 8000/0 both formats. **Read every pre-2026-08-05
-  native-LRAT figure in this file through the oracle defect recorded in the anchor.**
-- Routed by the 2026-07-29 review (`benchmarks/reports/2026-07-29-review-post-track-r.md`; `RV-` namespace):
-  **RV-R2** Reorder has no stress policy; **RV-R3 + RV-S9 DISCHARGED 2026-08-06** — ONE rule for both
-  trees, mechanised in `tools/fuzz/retention.py`: a per-job artifact stays in git only while a tracked
-  document cites its JOB ID, literally or inside a cited id RANGE (`1584462`-`1584467` is how a six-leg
-  experiment names its jobs, and four of those six ids appear nowhere else). 11 of 69 tracked
-  `tools/fuzz/slurm-*.log` were uncited and are deleted; all **174** `benchmarks/probes/*.out` are cited
-  and stay. **A BASENAME match calls 84 of 85 uncited** — that criterion would have deleted 58 files that
-  are evidence for frozen reports, which is why the rule is now a script and not a habit;
-  **RV-R4/RV-R5** small duplication + allocation watch items. (**RV-R1 DISCHARGED 2026-08-05** — the Sweep sub-solver now has fuzz legs on both proof formats
-  with the detector reached at the source.)
-- **▶ RV-S DUPLICATION AXIS — DISCHARGED (branch `rvs-duplication`).** `RV-S21` **DONE**: the watch-list
-  stride is now ONE kernel primitive (`WatchLists::entries` + `WatchEntry`/`WatchIter`, plus
-  `WatchLists::compact` for the removal sites), and **45** open-coded strides across 18 files went with it
-  (net −227 lines; the review's 23 was a `file:line` count that missed the five in
-  `kernel_check_invariants`, the three reading a large entry's ref, and the `heads[l]`-based readers).
-  Two sites are deliberately NOT converted and say so in the source: `propagate_literal`
-  copies-and-rewrites entries rather than walking them, and `propagate_literal_binary` prices the WORD
-  CURSOR where its scan stopped (`binprop_words`/`binprop_skipped`), which an entry iterator cannot
-  reproduce because it stops *before* the entry it breaks on.
-  `RV-S20` **DONE**: the duplicated-pair soundness predicate is now
-  `kernel_binary_copies`/`kernel_binary_live` in `kernel.hpp`, and all FOUR rule-local
-  transcriptions are gone (BVE, Substitute, Congruence's boolean specialisation, plus two the
-  report did not count: Ternary and Sweep). It also removed a **rule-calling-rule** edge —
-  Sweep reached the predicate through `congruence_binary_exists`, an external-linkage forwarder
-  that now has no reason to exist. Two callers keep a local wrapper for a reason stated in
-  source: Sweep scans the SHORTER mirror list, Substitute needs the count capped at 2.
-  Found on the way: **`check-config-wiring.py` scanned kernel.hpp from the config marker to
-  EOF**, so a local scalar with an initialiser inside any later inline kernel helper read as an
-  unclassified config field. Bounded to the struct's closing brace; anti-vacuity re-tested (it
-  still FAILS on a genuinely unclassified field placed inside the window).
-  `RV-S6` **DONE, and the pair is genuinely inseparable**: `kernel_mark_garbage` NO LONGER EXISTS —
-  `kernel_delete_clause` (kernel.hpp) emits the `del` and marks garbage, and it is the only function
-  in the tree that can do either to a large clause. 13 sites collapsed, including the two variants
-  (Substitute's saved `cid`, `kernel_replace_clause`'s hand-passed `id` — now an `assert(id ==
-  next_clause_id)`, which turns the review's "unstated, uncheckable invariant" into a checked one).
-  **The inlining answer: the review's constraint was real and is resolved by including
-  `proof/proof.hpp` in kernel.hpp** (a leaf header over `kernel/types.hpp`, no cycle, no new file)
-  rather than by an out-of-line call — so the proof-OFF path keeps exactly today's single `if
-  (k.proof)` and Analyze's conflict path pays nothing. `kernel_delete_binary`'s precedent (a kernel
-  primitive that emits its own `del`) is the shape; `docs/implementation-notes.md` §"where the bit is
-  set" updated, since it still said the proof `delete` was the rule's.
-  `RV-S27` **DONE**: `src/policies/stress_common.hpp` now holds the xorshift64* RNG (was 10
-  byte-identical copies, prefix-renamed only to dodge ODR), the uniform unassigned-literal draw (10
-  copies) and the env knob parser (4 copies) — all ten policies including RandomPolicy. The bodies
-  were verified byte-identical before merging, so the dedup is identity-preserving; the DRIFTED
-  parser (`adversarial_policy.cpp`, `strtoul` with no negative guard, so `TACTIX_ADV_BURST=-1`
-  became 4294967295) is a **separate commit**, because that one changes behaviour.
-  **Evidence for all four: identity 222/222 per commit (888 comparisons, job `1587396`, harness
-  anti-vacuity tested), ctest 47/47 Release + Debug ASan, five conformance checkers green, and three
-  fuzz legs of 10 000 cases + corpus with 0 failures (`1587403`/`1587404`/`1587405`).** `RV-S31` also
-  gets a sharper number out of it — see the Log entry.
-- **▶ Routed by the 2026-08-06 post-Track-SCHED review** (`benchmarks/reports/2026-08-06-review-post-track-sched.md`;
-  `RV-S` namespace, 30 items, each with `file:line`, a bounded recommendation and an owner). **The four
-  highest-severity are §5.6/N1 obligations, not scheduling, and none is on Track SCHED** — they are the
-  phase-5 extensibility gate's real content:
-  **`RV-S10`–`RV-S14` are DONE (2026-08-06, branch `rvs-api-n1`)** — the whole
-  §5.6/N1 API-surface block; see the Log entry for what each one landed, what was
-  deliberately scoped out of `RV-S12`/`RV-S13`, and the behaviour-preservation evidence.
-  - [x] **RV-S10** (N1) Vivify tier3 reachable through the API again: the setter takes 0–5
-    instead of clamping >2 onto a *different* band, and scope 0 (the unscoped N1 path) means
-    ALL bands. A capability RESTORED, not changed — DefaultPolicy only ever uses scopes 1–5.
-    `tests/test_vivify_n1.cpp` fails on the pre-fix build in both halves.
-  - [x] **RV-S11** the (yield, effort) pairs completed — 16 new `tactix_stat` ids, so Sweep,
-    Congruence, CCE and Substitute have a reward channel and the seven yield-only families
-    have their effort partner — plus `tools/docs/check-stat-ids.py` (ctest `stat_ids`), which
-    ties each effort id to the counter that rule's `EFFORT_SPECS` meter actually doses on.
-  - [x] **RV-S12** `--trace=FILE` / `--replay=FILE` exist and are tested (ctest `trace_replay`):
-    a recorded run replays to the same verdict, byte-identical proof and identical counters, and
-    `--random-policy=SEED` is now asserted reproducible ACROSS PROCESSES.
-  - [x] **RV-S13** the pose surface is tested (ctest `slot_pose`): a preposed slot used verbatim, a
-    disabled entry proved inert at its rule's own counter, and every `TACTIX_SLOT_*`/`CURSOR_*`/
-    `ORDER_*` knob shown to reach the entry the policy walks.
-  - [x] **RV-S14** all 25 registry entries driven through `tactix_apply_instance` (ctest
-    `api_instances`), and a non-canonical payload on an entry with no instance surface now returns
-    −1 instead of silently running the canonical round.
-  Then: ~~**RV-S1** CCE's rule-side rotation reads `k.stats`~~ + ~~**RV-S2** = `SCHED-F7-CCE`~~ —
-  **BOTH CLOSED with `SCHED-F7` (branch `sched-f7-close`)**: the rotation is gone and CCE is the
-  substrate's sixth consumer · **RV-S8** Congruence's gate arena (16.6 %, blocked on
-  the `SCHED-G4` owner) · **RV-S19** `D-BVE-SCRATCH` is FIVE fills per attempt, plus **sightings #6/#7**
-  at `probe.cpp:100` / `backbone.cpp:96` on the native-LRAT path · **RV-S5** seven `vector<vector<Ref>>`
-  occurrence indices · **RV-S6** the 13-site proof-delete pair · **RV-S20/21** a soundness predicate
-  transcribed 4× and the watch stride open-coded 23× · **RV-S15/16/17/18** rule-side leaks (six kernel
+**Standing rules (not tasks).**
+- **Every Tier C run carries `--baseline kissat --baseline cadical`**, or T3's kissat half is unmeasurable. The
+  subset instrument is CLOSED: `benchmarks/tiers/C-ruleneutral.list` (24 of 30, frozen with its known defect and
+  closer in the header) + `tools/bench/subset_score.py` score both views from one `results.json` — the subset is
+  a scoring VIEW, never a separate run. **Caveat:** the list comes from a single-shot sweep ablation and 4 of its
+  6 exclusions are perturbation-fragile; a replicated re-derivation (15 of 30) exists and was deliberately not
+  adopted, because the T3 verdict is the same either way.
+- **Citation pairing:** cite `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md` alongside
+  `…/2026-08-03-broad-factor-and-t3-halves.md` — the later one supersedes its per-instance conclusion.
+- **Coverage caveat:** a 1000-case DefaultPolicy fuzz leg at ≤60 vars fires **19 of 25 registry entries** —
+  Probe, Backbone, TransitiveReduce, Factor, BVE and Reorder are **0**, so every "fuzz green" claim about those
+  six rests on the random-policy legs alone (`--require-reached` now makes this visible rather than assumed).
+  **And read every pre-2026-08-05 native-LRAT figure in this file through the fuzz-oracle defect.**
+- demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; user decision 2026-07-25).
+
+**Open work.**
+- **`D-BVE-SCRATCH` (`RV-S19`) — the per-call linear-scratch hazard, sightings #5–#7, in hot rules.** BVE does
+  **five** O(nvars) fill-inits per elimination ATTEMPT (~20·nvars bytes of memset + 4 malloc/free pairs):
+  `bve.cpp:265` two `vector<int>(2*nvars,-1)`, `:559` `seen_bin`, `:644` `seen`, `:715` `PendingUnits::init`. Two
+  facts the fix should use — the two `int` vectors are allocated **before any `bve_gate_mask` test**, so masking
+  gate detection off still pays 16·nvars; and `seen_bin` already has a touched-list restore, wasted because the
+  buffer dies at end of call. Marked sets are bounded by `occ(x)` (< 100 typical vs nvars ~10⁶). **Sightings #6/#7:**
+  `probe.cpp:100` and `backbone.cpp:96-97` call the 3-arg `kernel_conflict_reason_walk` with a fresh
+  `vector<uint8_t>(nvars,0)` per failed literal — exactly the construction that cost **174×** on native LRAT
+  (Track C · C4-perf) — and the 4-arg `touched` overload already exists, so each fix is ~6 lines copied from
+  `vivify.cpp:395-401`. **Route: `revamp` or a `perf:` commit, NOT revisit-codebase** — it is §5.4, not §5.5.
+  Gate: identical `bve_eliminated`/`bve_resolutions`/`probe_failed`/`backbone_failed` and identical proof SHA.
+- **`RV-S31`(b) — the `--random-policy` livelock DIAGNOSIS.** The population is measured and visible: **114 of
+  1000 cases (11.4 %) at 10 s, the same 114 on DRAT and native LRAT, 0 of 1000 for DefaultPolicy**; escalating the
+  first 24 to 600 s leaves **18 still unfinished**, so ~8.6 % does not terminate at all. Cases kept in
+  `<outdir>/nonterminating/`. N1 robustness, not soundness.
+- **`RV-S29` remainder — the `main.cpp` split (788 lines).** In order: (1) `parse_args` → `src/frontend/cli.cpp`
+  (~180 lines; `src/policies/stress_registry.cpp` is that move already done for one flag class); (2)
+  `configure_kernel_from_env(Kernel&)` (~120 lines of `TACTIX_*` reads, so `main` stops being where kernel config
+  lives); (3) `print_stats` → a frontend reporter (~90 `printf("c …")` calls). **Defect to fix while in there:
+  `c strengthen` is printed TWICE** (`main.cpp:541` and `:829`), both starting from `strengthen_rounds` under
+  different schemas, so one counter is double-reported and any parser must guess which line it got.
+- **Stress-policy coverage: 10 of 25 rules still have none**, incl. Reorder (`RV-R2`). The two dangerous-class
+  ones are done — `--bce-stress-policy` and `--substitute-stress-policy`, both witness-emitting on the same `ρ`
+  stack where the failure mode is a WRONG SAT ANSWER no proof checker sees.
+- **`RV-S24` remainder:** no direct test for `src/frontend/parse.cpp`, and `cake_lpr` is still not wired into the
+  fuzz harness. (The proof backend itself is now pinned byte-for-byte by ctest `proof`, anti-vacuity verified.)
+- **Smaller, unowned:** `RV-S8` Congruence's gate arena (16.6 % of its cost; blocked on the `SCHED-G4` owner) ·
+  `RV-S5` seven `vector<vector<Ref>>` occurrence indices · `RV-S15`–`RV-S18` rule-side leaks (six kernel
   watermarks, Sweep's in-rule `getenv` dosing, Sweep's unregistered instance surface, BVE's narrowed
-  `instances()`) · **RV-S22 DISCHARGED 2026-08-06** — the two dangerous-class rules now have stress
-  policies: `--bce-stress-policy` and `--substitute-stress-policy` (both witness-emitting on the same ρ
-  stack, where the failure mode is a WRONG SAT ANSWER that no proof checker sees). Four legs, 4000 cases
-  each, DRAT + native LRAT, **0 failures**, with source-counted reachability: BCE fired in **2787/3791**
-  cases, Substitute in **2897/3780** (job `1587335`), plus the regression corpus under both policies
-  (`1587384`). 10 of 25 rules still have none — Reorder is `RV-R2`. ·
-  **RV-S23 DISCHARGED 2026-08-06** — `fuzz.py` now prints a per-registry-entry `reached:` table (all 25
-  entries, read from the solver's own counters) and `--require-reached` fails a leg whose named rule never
-  fired; a spec that matches no printed line fails too, so the instrument cannot go vacuously green.
-  It immediately found that a 1000-case DefaultPolicy leg at ≤60 vars fires **19 of 25** entries — Probe,
-  Backbone, TransitiveReduce, Factor, BVE and Reorder are **0**, i.e. every "fuzz green" claim about those
-  six rules rests on the random-policy legs alone.
-  · **RV-S31 (a) DISCHARGED, (b) OPEN** — the population is measured and visible (see Task #39 above);
-  the livelock itself is undiagnosed.
-  **RV-S24 mostly DISCHARGED 2026-08-06**: `tests/test_proof.cpp` (ctest `proof`, the 48th test) pins the
-  proof backend's serializers BYTE FOR BYTE — binary-DRAT varint boundary and sign bit, the `d`-with/
-  without-space asymmetry, LRAT id/chain/signed-hint layout, `add_derived_unit` silent on DRAT and
-  explicit on LRAT, the tautology predicate, and the proof-off no-op contract. Anti-vacuity: four
-  independent mutations of `proof.cpp` each make it FAIL. `tests/sweep_proofs.sh`'s `grep -qi verif`
-  (which matched `c NOT VERIFIED`) now tests the rejection first. **Remaining:** no direct test for
-  `src/frontend/parse.cpp`, and `cake_lpr` is still not wired into the fuzz harness.
-  **RV-S25/RV-S26 DISCHARGED**: the two never-incremented decline reasons are gone from `Telem` and the
-  `c slot` line; `randec_enabled` has a knob (`TACTIX_RANDEC=0`), proven wired at the source — 49
-  sequences / 7626 random decisions at the default vs **0/0** off, same verdict (job `1587380`), which
-  unblocks pricing SCHED-C7. **RV-S9/RV-R3 DISCHARGED** (one rule, mechanised in
-  `tools/fuzz/retention.py`). **RV-S27/RV-S30 and RV-S24's remainder stay open.**
-  **RV-S29 HALF DONE**: `DefaultPolicy::solve` split **536 → 237 lines** (`configure_from_env` 54 +
-  `build_inprocess_slot` 246), a verbatim move with identity evidence (counters + proof byte-identical).
-  **`main` (788) was NOT touched — the N1/API agent owns its argument parsing.** What it wants, in the
-  order it should happen: (1) `parse_args` into `src/frontend/cli.cpp` — the flag chain is ~180 lines and
-  the new `src/policies/stress_registry.cpp` is that move already done for one flag class; (2)
-  `configure_kernel_from_env(Kernel &)` — ~120 lines of `TACTIX_*` reads, so `main` stops being where
-  kernel config lives; (3) `print_stats` into a frontend reporter — ~90 `printf("c …")` calls, the bulk of
-  the function. **And a defect to fix while in there, found via the new reachability specs: `c strengthen`
-  is printed TWICE**, both lines starting from `strengthen_rounds` under two different schemas, so one
-  counter is double-reported and any parser must guess which line it got.
-  Three auditor verdicts were **overturned in synthesis** and the report records why (gating F6's walk
-  would destroy its own anti-vacuity evidence; `kernel_delete_clause` is not inlinable because
-  `kernel.hpp` forward-declares `Proof`; R6's `EffortSpec::meter` premise is false as stated).
+  `instances()`) · `RV-S30` · `RV-R4`/`RV-R5` duplication + allocation watch items.
+- **Proof-rescue residuals.** `D-LRAT-FALLBACK` shipped (`3c3de3b`): a DRAT check that exhausts its budget
+  triggers a re-**solve** with `--lrat` + cake_lpr (conversion is impossible — it needs the same backward search
+  that just timed out); a genuine REJECTION still scores unsolved. Left open: the rescue reuses `checker_budget`
+  rather than its own knob; LRAT was 3.6× the DRAT size on `urq45` with cake_lpr RSS 4.02 GiB against an 8 GB cap;
+  and the per-task SLURM wall doubled for a path that fires rarely. Revisit if Tier D ever rescues.
 
 ## Non-negotiables status (plan §1.1)
 
 | | Requirement | Status |
 |---|---|---|
-| N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** The one the N4 audit found — `Factor`'s density predicate NoOping inside `factor_apply`, so **no API caller could apply a legal factoring on a binary-sparse formula** while the guard reported applicable — was CLOSED 2026-08-04 by MOVING the predicate into DefaultPolicy's slot as `Kernel::factor_admit` (SCHED-N1FIX; DefaultPolicy byte-identical, `tests/test_factor_n1.cpp` fails on the pre-fix build). **The shape to watch for: guard-true / apply-NoOp** — it is why V5 Sweep was deliberately left unregistered until it had a proof delta. Otherwise: v1 API frozen (revs 20–21); §8.4 demos 1–3 prove it end-to-end; audits upheld; two earlier leaks found+fixed (rev 34 payload aliasing; rev 40 off-fixpoint Decide via `trail_tainted`). Final acceptance = CCE plugin (phase 5) |
-| N2 | Proof production on every path (DRAT/LRAT) | ◐ **No open breach at HEAD.** Two were CLOSED on 2026-08-05 and the merged tree is GREEN: six fuzz legs at TWO seeds, 6000 cases each, 0 failures (`1584462`–`1584467`). The 38 `lrat-check` rejections seen mid-session were **drat-trim's `-L` CONVERTER, not our emitter** — kissat's and cadical's own proofs are rejected identically on the same inputs while our native LRAT verifies under lrat-check and cake_lpr; the harness now stands that cross-check down on the two unsound input classes, visibly counted (`…-drat-trim-conversion-crosscheck.md`). **Two breaches were CLOSED the same day.** (1) **`Sweep` S-e emitted every general-path lemma with INVERTED literal parity** — both sub→kernel decode sites tested `(sl & 1u) == 0`, so each lemma was written negated (the verdict and `F` were always correct; only the proof lines were wrong); fixed by one shared `sweep_kernel_lit` (`8796b26`), `asconhashv12` now verifies on drat-trim AND cake_lpr, regression corpus `012`, `sweep_proofs` extended over the real emitted proof, `--sweep-stress-policy` added. (2) **the frontend deduped repeated input literals**, so an input clause's id named a different clause for the checker than for us and any LRAT chain citing it failed (`16b6e75`). **And the INSTRUMENT was broken: `fuzz.py`'s native-LRAT oracle accepted `NOT VERIFIED`**, so every LRAT rejection in project history was recorded as a pass. Reports `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`, `…-sweep-n2-blast-radius.md`, `…-sweep-se-polarity-fix.md`, `…-sweep-n2-postfix-survey.md`, `…-input-clause-normalization-n2.md`. Otherwise: ◐ DRAT since phase 1; native LRAT since 2026-07-14; the 2026-07-15 audit was upheld and did not cover Sweep, which did not exist then |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ◐ T1+T2 passed. **2026-08-05** (window `20260805-1150`, git `0418770`): Tier B(28) **70.71 (26/28)** · Tier C **419.91 (28/30)** vs kissat 228.45 (29/30) and cadical 312.27 (29/30). T3 halves **BOTH NOT MET and both REGRESSED** vs 08-04 — kissat subset **1.727×** (was 1.346×), cadical **1.345×** full (was 0.990×) — with kissat flat across the two windows, so this is a real regression rather than drift. Tier A 0.98×. **Tier D BUILT AND FROZEN 2026-08-03** (793 instances) — never RUN, and running it is a phase-4-exit prerequisite (§11 O9, rev 83); `--tier D` still has no per-track flag for T4's SC25-set PAR-2 |
-| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80, user 2026-08-04) | ✗ **KNOWN UNMET, MEASURED THREE TIMES — and pass 3 is BEHAVIOURAL, not an inventory.** Pass 1 (rule families): 216 mechanisms, **132 gaps (27 high)**. Pass 2 (SCHED-A3, the REFERENCE's option set): all **418** options enumerated, **+15 gaps (4 HIGH) and 6 CORRECTIONS to pass 1**. **Pass 3 (2026-08-06, `benchmarks/reports/2026-08-06-n4-behavioural-shape-audit.md`): both solvers counter-instrumented on the SAME ten instances — occasions, realized interval, governor inputs, yield per occasion. 7 CRUDER / 1 MIXED / 4 EQUAL-or-ahead / 2 more-generous / 1 not comparable, and the sharp result is that our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates anything (104 → 2 736 829) and Factor adds ZERO on 6 of 9 — so the ledger reading "closed" does not mean the family runs.** Ledger LANDED and living at `docs/implementation-notes.md` §13 (§13.4–§13.6 = pass 2; pass 3 owes it six corrections, report §7); full audit frozen at `docs/design/2026-08-04-n4-scheduling-parity-audit.md`; remediation staged as **Track SCHED** below, which also carries the four structural highs and the confirmed gaps. **N4 is a *mechanism* floor** — it may not be discharged by a tier number, and never deferred to §5.6 |
+| N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** v1 API frozen (revs 20–21), §8.4 demos 1–3 prove it end-to-end, all 25 registry entries driven through `tactix_apply_instance` (ctest `api_instances`). Four breaches found and closed to date; the last was `Factor`'s density predicate NoOping *inside* `factor_apply` (SCHED-N1FIX, moved into the policy). **The shape to watch for is guard-true / apply-NoOp** — it is why V5 Sweep was left unregistered until it had a proof delta. Final acceptance = the CCE plugin test at the phase-5 gate |
+| N2 | Proof production on every path (DRAT/LRAT) | ◐ **No open breach at HEAD**; DRAT since phase 1, native LRAT since 2026-07-14, backend serializers pinned byte-for-byte by ctest `proof`. Two breaches closed 2026-08-05 (Sweep's S-e inverted literal parity; the frontend's input-literal dedup) — reports `2026-08-05-sweep-se-polarity-fix.md`, `…-input-clause-normalization-n2.md`. **▶ Standing caveat: the INSTRUMENT had been broken — `fuzz.py`'s native-LRAT oracle accepted `NOT VERIFIED`, so every LRAT rejection in project history was recorded as a pass.** Read every pre-2026-08-05 native-LRAT figure through that. Also: drat-trim's `-L` CONVERTER rejects kissat's and cadical's proofs identically on two unsound input classes, so those cross-checks are stood down and visibly counted |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ✗ **NOT MET, and the last recorded reading is STALE.** T1+T2 passed. The most recent *banked* window (`20260805-1150`, git `0418770`) read Tier B 70.71 (26/28) · Tier C 419.91 (28/30) vs kissat 228.45 and cadical 312.27 — but that predates the **effort-ledger wrap fix**, and four unread 2026-08-06 tier pairs sit in `benchmarks/runs/`. **Treat N3's current magnitude as unmeasured until a post-fix window is read.** Tier D is BUILT AND FROZEN (793 instances, 2026-08-03) and has **never been RUN** — a phase-4-exit item (§11 O9); `--tier D` still has no per-track flag for T4's SC25-set PAR-2 |
+| **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80) | ✗ **KNOWN UNMET, MEASURED THREE TIMES — and discharging it is phase 4's defining obligation (rev 83).** Pass 1 (rule families): 216 mechanisms, 132 gaps (27 high). Pass 2 (SCHED-A3, the reference's own option set): all 418 options enumerated, +15 gaps (4 HIGH) and **6 corrections to pass 1**. **Pass 3 is BEHAVIOURAL, not an inventory** (`benchmarks/reports/2026-08-06-n4-behavioural-shape-audit.md`): both solvers counter-instrumented on the SAME ten instances — 7 CRUDER / 1 MIXED / 4 EQUAL-or-ahead / 2 more-generous / 1 not comparable, and the sharp result is that **our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates anything (104 vs 2,736,829) and Factor adds ZERO on 6 of 9** — so a ledger row reading "closed" does not mean the family runs. Ledger living at `docs/implementation-notes.md` §13 (pass 3 owes it six corrections); remediation is Track SCHED. **N4 is a *mechanism* floor** — never discharged by a tier number, never deferred to §5.6 |
 
 ## Milestone gates (plan §8.3)
 
-- [x] T1 — **passed 2026-07-14** (Tier A 200/200 PAR-2 0.48; Tier B 9/14 @ 231.6 vs MiniSat 8/14 @ 281.4; report
-  `benchmarks/reports/2026-07-14-t1-gate.md`)
-- [x] T2 — **passed 2026-07-14** (Tier B 11/14 @ 164.8 vs Glucose 8/14 @ 268.3; props/s geomean 0.92× kissat; report
-  `benchmarks/reports/2026-07-14-t2-gate.md`)
-- [ ] T3 — within 10% PAR-2 of CaDiCaL on Tier C + CaDiCaL/Kissat parity on the rule-neutral subset (rev 51).
-  **Gates PHASE 4, not phase 3 (rev 83)** — it is the outcome half of the dosing/scheduling phase, next to
+- [x] **T1** — passed 2026-07-14 (`benchmarks/reports/2026-07-14-t1-gate.md`)
+- [x] **T2** — passed 2026-07-14 (`benchmarks/reports/2026-07-14-t2-gate.md`)
+- [ ] **T3 — within 10 % PAR-2 of CaDiCaL on Tier C, plus CaDiCaL/Kissat parity on the rule-neutral subset**
+  (rev 51). **Gates PHASE 4 since rev 83**, not phase 3 — the outcome half of the dosing phase, next to
   discharging N4 and running Tier D.
 
-  | half | requirement | status |
-  |---|---|---|
-  | CaDiCaL | ≤ 1.10× cadical, whole Tier C | **NOT MET: 1.345×** full / 1.357× subset (window `20260805-115039-C-c5`, git `0418770`). **Regressed from 0.990× full on 08-04** — it had been MET. |
-  | Kissat | parity on the rule-neutral subset | **NOT MET: 1.727×** (same window). Still the further-away half, and it too regressed, 1.346× → 1.727×. |
+  **▶ STATUS: NOT MET on either half, and the last banked reading is VOID as a *current* number.** Window
+  `20260805-115039-C-c5` (git `0418770`) gave **1.345× cadical** full / 1.357× subset and **1.727× kissat** on the
+  subset. That window predates the effort-ledger wrap fix, and **every `Sweep`/`Congruence` dosing number taken
+  since `58a46de` was measured against a budget that did not bind** — so T3 has to be retaken before any claim
+  about the gap is made. Four unread 2026-08-06 tier pairs are in `benchmarks/runs/`; reading them is step 2 of
+  the anchor.
 
-  **Both halves moved the wrong way in one day while kissat's own numbers stayed flat (230.74 → 228.45),
-  so the partition is not the explanation.** What changed in between is V5 Sweep going from unscheduled to
-  scheduled at 100‰. Recovering T3 now runs through Sweep's governor, not through new mechanisms — the
-  decisive experiment is in the tier-table block above. Do not re-open (c′), the pre-Sweep TB4b question:
-  it is subsumed by a much larger effect.
+  **What is known about the two halves, compressed — each line is knowledge, the detail is in the cited report.**
+  - **The all-rules-ON directive changed the target, not the solver.** With rules OFF the CaDiCaL half was MET
+    (1.00× same-window); with every proof rule ON it was not. Judge the rule family together
+    (`2026-07-28-all-rules-on.md`).
+  - **A missing governor, not a missing mechanism, was what moved it last time**: `HyperTernaryRes` ran at 20‰
+    against cadical's `ternaryeffort` **8‰** — fixing that took the same window 397.94 (28/30) → **319.19
+    (29/30)** vs cadical 317.04 and gained a solve. That is the shape to look for again.
+  - **A uniform slot rate of 2‰ does NOT clear the CaDiCaL half reliably** — two same-day windows gave 1.065 %
+    inside and 1.101× outside. `TACTIX_SLOT_PERMILLE` stays a §5.6 dosing arm. Its per-instance effects
+    reproduce in BOTH directions, which is what retired the "the regression is two instances" framing.
+  - **R-d retirement traded the CaDiCaL half for +2 Tier B solves**, banked under plan rev 78.
+  - Both instrument prerequisites are DONE (the two-baseline rule and the subset scorer — see Open items).
+- [ ] **T4 — EXCEED Kissat-public PAR-2 on Tier D** (SC25 set), via DefaultPolicy engineering and *before* any
+  learned policy. **Gates phase 5.** Blocked on two things that are not performance: Tier D has never been run,
+  and `--tier D` has no per-track flag for the SC25-set PAR-2 the gate is scored on (§11 O9).
+- [ ] **T5 — beat AE-Kissat-MAB's PAR-2 on Tier D** → submit to the next competition. **Gates phase 6.**
 
-  **History, compressed — each line is knowledge, the detail is in the cited report.**
-  - **The all-rules-ON directive (2026-07-29) changed the target, not the solver.** With rules OFF the
-    CaDiCaL half was MET (1.00× same-window); with every proof rule ON it was not. Judge the rule family
-    together — `2026-07-28-all-rules-on.md`.
-  - **X2's effort share was a missing governor, and fixing it MET the CaDiCaL half on 07-30** with every
-    rule on: `HyperTernaryRes` at 20‰ against cadical's `ternaryeffort` **8‰** — same-window
-    397.94 (28/30) → **319.19 (29/30)** vs cadical 317.04, and it gained a solve. Landed in `EFFORT_SPECS`.
-  - **A uniform slot rate of 2‰ does NOT clear this half reliably** — two same-day windows gave 1.065×
-    (inside) and 1.101× (outside); the saving shrank 26.1 → 8.8 PAR-2. Not shipped; `TACTIX_SLOT_PERMILLE`
-    stays a §5.6 dosing arm. Its per-instance effects are reproducible in BOTH directions (fixes
-    j3037/asconhash, breaks ContextModel/em_11/frb45/Ptn-7824), which is what retired the "the regression
-    is two instances" framing.
-  - **R-d retirement (2026-08-02) traded the CaDiCaL half for +2 Tier B solves**, banked under plan rev 78
-    (Tier C 329.63 → 358.12).
+## Phases 0–2 — COMPLETE (setup · CDCL kernel · search management + API freeze)
 
-  **Both instrument prerequisites are DONE** (2026-08-03) — see Open items for the standing rule and the
-  subset's caveat.
-
-## Phase 0 — setup (complete 2026-07-09)
-
-- [x] Repo + plan + skills + CI; reference solvers + checker toolchain pinned (`tools/solvers/`, `tools/checkers/`); fuzz harness validated
-  against stand-ins + deliberately broken wrappers; benchmark runner; Tier A (200 gen) + Tier B (14 SC,
-  `benchmarks/reports/2026-07-09-tier-b-freeze.md`) frozen; kissat study notes `docs/design/kissat-notes.md`
-- **Exit:** fuzz pipeline end-to-end ✓; Tier A/B frozen ✓
-
-## Phase 1 — core CDCL kernel (complete)
-
-- [x] Kernel (arena, watches, trail, VMTF, phases; later EVSIDS heap + target phases), rules M1–M4 + S1/S2 + S4 SwitchMode/stable, binary DRAT +
-  competition I/O, registry + guard/instances/apply contract from day one
-- [x] Reduce used-bit retention (the s055 trajectory fix); **policy-class refactor (rev 17 — ALL scheduling in the Policy)**, the load-bearing
-  architecture decision
-- [x] Null results recorded: assign-path inlining (memory-bound), LTO; radix bump sort −7 %; binary-reason jumping REVERTED (needs kissat's
-  bigbig classifier)
-- **Exit:** T1 — **PASSED 2026-07-14**
-
-## Phase 2 — search management + API freeze (complete 2026-07-14)
-
-- [x] S3 Rephase + S5 Lucky; `kernel_propagate` extraction (§5.3 primitive); **native LRAT** (CaDiCaL scheme; kissat has none); **Rule API v1
-  FROZEN** (revs 20–21) + demos 1–3 (demo3 stat-exact)
-- [x] Carried: bias-corrected per-mode EMAs, kissat restart constants, glue recompute+promote, B,B,I,B,B,O rephase; 9vliw → kissat parity; s055
-  trajectory gap closed (residual = 1.42× propagation volume — the standing TB5 lever)
-- **Exit:** T2 — **PASSED 2026-07-14**
+- [x] **Phase 0** (2026-07-09) — repo, plan, skills, CI; reference solvers + checker toolchain pinned; fuzz harness
+  validated against stand-ins *and* deliberately broken wrappers; benchmark runner; Tier A + Tier B frozen.
+  **Exit: fuzz pipeline end-to-end ✓, tiers frozen ✓**
+- [x] **Phase 1** — kernel (arena, watches, trail, VMTF, EVSIDS heap, target phases), M1–M4 + S1/S2 + S4, binary
+  DRAT, competition I/O, and the registry guard/instances/apply contract from day one. The load-bearing decision
+  was the **policy-class refactor (rev 17): ALL scheduling lives in the Policy**. Null results kept so they are not
+  retried: assign-path inlining (memory-bound), LTO, radix bump sort −7 %, binary-reason jumping reverted (now
+  re-ported and re-examined as `SCHED-C9`). **Exit: T1 PASSED 2026-07-14**
+- [x] **Phase 2** (2026-07-14) — S3 Rephase + S5 Lucky; `kernel_propagate` extracted as a §5.3 primitive; **native
+  LRAT** on CaDiCaL's scheme (kissat has none); **Rule API v1 FROZEN** (revs 20–21) with demos 1–3. The s055
+  trajectory gap closed to a residual of 1.42× propagation volume — the standing TB5 lever.
+  **Exit: T2 PASSED 2026-07-14**
 
 ## Phase 3 — the reference rule inventory
 
-Every rule lands N1-exposed + random-policy-fuzzed regardless of whether DefaultPolicy schedules it; per-rule detail in its design doc + commit,
-semantics in `docs/calculus.md`, guards + deviations in `docs/implementation-notes.md`. **Since 2026-07-25 the composition is the S4 arrangement,
-unconditionally** (probing family + simplifiers + during-search dosed BVE/Factor; the legacy preprocessing-only composition was removed with the
-negative arms — git history has it).
+Every rule lands N1-exposed and random-policy-fuzzed whether or not DefaultPolicy schedules it. Semantics →
+`docs/calculus.md`; guards and deviations → `docs/implementation-notes.md`; per-rule narrative → its design doc,
+commit and Log entry. Composition is the S4 arrangement, unconditionally.
 
-- [x] **C1 SubsumeForward · C2 Strengthen + the registry-driven slot** (slot = data; the phase-7 arm space) **· C3 Vivify** (LCM scope) **· V1
-  Probe · V2 Backbone · V4 TransitiveReduce** (`kernel_delete_binary` primitive) **· V3 Substitute** (first ρ consumer;
-  `docs/design/v3-substitute-design.md`) — all 2026-07-15..17; corpus 002/003 found en route
-- [x] **E1 BVE — COMPLETE (E1a–E1d)**: drained-root elimination, RUP-only resolvents, syntactic gate extraction, `--bve-gates` knob; design
-  `docs/design/e1-bve-design.md`; `bve_stress_policy` reusable. ITE/XOR gates landed 2026-08-05 (SCHED-C8). Remaining: kitten
-  definition extraction (O11) — **Track R · R10**, still phase-3 work
-- [x] **Tier C built and frozen** (30 instances; `benchmarks/reports/2026-07-15-tier-c-freeze.md`)
-- [x] **Independent-lineage campaign — 4 measured, 0 adopted**, each with a recorded mechanism; strongest phase-7 arms: CMS usage-count Reduce
-  ranking, chronological backtracking (TB4), Glucose blocking restarts. Survey `docs/design/independent-lineage-survey.md`
-- [x] **N1/N2/N3 audit + canonical-batch fuzz** (2026-07-15) — upheld; deferred backlog `benchmarks/reports/2026-07-15-codebase-review.md`
-- [x] **Nightlies GREEN at scale** (DRAT 20k/0; congruence-stress 10k/0). Method lesson: nightly scale catches what `--quick` misses (corpus
-  006, 007). *(The native-LRAT nightly figure is void — see the fuzz-oracle defect in the anchor.)*
-- [x] **Calculus formalized** (rev 36): `docs/calculus.md` + `docs/implementation-notes.md` + the calculus skill; **guard purification COMPLETE**
-  for every removable deviation (revs 37–43; only D-ROOT remains, by design). Corpus 004/005/006 regression bed
-- [x] **V6 Congruence — ships ON** (2026-07-19): AND+XOR+ITE union-find closure; Tier B −30 %, +1 solve; design + report in `docs/design/` /
-  `benchmarks/reports/2026-07-19-*`
-- [x] **E2 Factor (BVA) — ships ON** (2026-07-20): net-positive after the duplicate-binary deletion fix; S2a/S2b closed 2026-07-24 (steering
-  disconfirmed); the mp1 gap CLOSED 2026-07-25 (input dedup + dosing + composite; gate report) — nothing remains on E2
-- [x] **Inprocessing revamp — slot ACTIVATED** (2026-07-19): preprocessing at conflicts=0 + `Kernel::dense` shared index + kissat phase
-  structure. Superseded as default by the S4 arrangement (2026-07-25)
+**DONE — the whole inventory except R9/R10.** C1 C2 C3 · V1 V2 V3 V4 V5 V6 · E1 E2 · S6 S7 · X1 X2 X3 X4, all ON
+except **S7 `Reorder`** (OFF: parity on Tier B's UNSAT half, 3.4× worse on its SAT half — a policy op, not a
+proof rule, so ask before flipping) and **X5 `Condition`** (a reasoned no-implement: its witness is a cube and
+`ρ` holds one in-clause literal — `SP-COND-1` §16, read it before proposing X5 again). Tier C frozen; calculus
+formalized (rev 36); N1/N2/N3 audit upheld; independent-lineage campaign 4 measured / 0 adopted.
 
-### Track C — V6 Congruence completion (rev 56) — COMPLETE 2026-07-25
+- [ ] **R9 · X6 `HyperBinaryRes`** — HBR during probing. Ledger `SP-PROBE-2`, catalog §5.2 X6, reference cadical
+  `probehbr` (`probe.cpp:218`, called `:477`). A long clause going unit at level 1 folds its false literals
+  through `probe_dominator` and adds `(¬dom, lits[0])`; if `¬dom` was in the reason, the new binary subsumes it.
+  Proof delta add-RUP + delete. Needs a `c hbr` counter proven non-zero before any claim.
+- [ ] **R10 · kitten-based BVE definition extraction** — §11 O11, the E1 remainder (E1 ships the syntactic
+  matcher only). Worth +6.1 Tier C PAR-2 to kissat in its own ablation; the sub-solver is already in-tree for
+  Sweep, so this is a consumer, not a port. **Two constraints:** it may only WIDEN `instances()`, never prune it
+  (N1); and `bve.cpp`'s `!resolve_gate` assert must be re-argued rather than assumed — it holds because every
+  shape matched today is a COMPLETE gate.
 
-- [x] **C0** XOR output-sign fix (`1a365da`) · **C1** `add_equivalence` all-or-nothing (D-CONG-SKIP: dropping an inference is sound, an
-  unverifiable certificate is not) · **C2** degenerate-ITE filter (gates −23 %, equivalences identical) · **C3** the unit channel
-  (`hwmcc` 48.77 → 6.67 s; the degeneracy ladder was drat-trim-validated in all four shapes BEFORE implementation and turned out to be kissat's
-  own construction) · **C4** LRAT chains REPLAYED not derived (checker-order by construction)
-- [x] **C3b** (`2998029`) AND clash → unit, idempotent dup → unary merge, `x≡¬x` → refutation; residuals in the D-CONG-UNIT ledger row
-- [x] **C4-perf** (`d2f7695`) hwmcc native LRAT **1680 s → 9.64 s (174×)**, proof byte-identical; the cause was O(nvars) fill-initialized scratch
-  per proof-chain op, NOT replay propagation ([[per-call-linear-scratch-hazard]]) — fix = persistent scratch + O(marked) restore, so **no
-  `side_ids` machinery was needed** and the replay architecture stands
-
-### Track H — `H` out of the Kernel (rev 60) — COMPLETE 2026-07-23
-
-- [x] **H0–H7**: `H` (VMTF, score heaps, phases, ranking mode) is policy-owned OPTIONAL state — `k.h == nullptr` is sound, just unguided — bought
-  at **zero PAR-2**, every increment gated on trajectory identity + byte-identical DRAT. Design + rejected alternatives
-  `docs/design/h-relocation-design.md`. Live constraints: H4 pimpl (include cycle; kernel non-copyable); H5 null-`H` legal (Decide → index order;
-  Rephase/SwitchMode guards require `H`, a pure precondition of `H`-only ops); H6's sub-policy super-class was deferred until a 2nd arm existed
-  and **was un-deferred by Track S · S1b** (`a36b4c2`) — `src/policies/subpolicy.hpp` has held the `SubPolicy` base since. Five categories now:
-  Branching, Reduction, BveBound, FactorMatch, CandidateOrder (SCHED-E1)
-- Method knowledge kept: bit-exactness gates the EXERCISED path and adversarial review the unexercised one (which caught a lost include and an
-  unguarded deref no gate saw); null-path bugs surfaced only under FULL-suite ASan with the default flipped; and a structural check can replace a
-  benchmark (zero `k.h->` in the propagation loop killed the indirection worry)
-
-### Track W — S6 `Walk` local search (plan rev 71) — SHIPPED ON, CLOSED for phase 3
-*(its hand-off is `W4e`, in the Phase 7 section)*
-
-**▶ WALK IS ENABLED BY DEFAULT AND THERE IS NO OFF SWITCH.** `ROTATION` fires it on 2 of every 6 rephase events
-(`default_policy.cpp:809-814`, `{BEST, WALK, INVERTED, BEST, WALK, ORIGINAL}`) at `WALK_PERMILLE = 560`
-(`default_policy.hpp:310`); `walk_guard` is only `!inconsistent && h != nullptr && nvars > 0` (`walk.cpp:411`). No `TACTIX_NO_WALK` exists.
-Witness on a stock build: `c walk 12 walks (12 improved, 106,336,087 flips)`.
-
-Local search was the largest missing mechanism (`--walkeffort=0` costs kissat Tier B 8.62 → 29.22). `H`-only policy op, no proof delta:
-`src/policies/ops/walk/`, design `docs/design/s6-walk-design.md` (§6 = the full ledger of what was tried).
-
-- [x] **W1/W4a** walker core + `--walk-stress-policy` (`8da55c9`, `43510fc`) — ProbSAT/CB scoring, kernel untouched (legal at any level, N1)
-- [x] **W2** schedule — **Walk AUGMENTS Best, it does not replace it.** Kissat's `B,W,I,B,W,O` ported literally REGRESSED Tier B (13.63 vs 10.04);
-  the cause was the lost Best consumption, not the walk (kissat saves phases at ASSIGN, we at unassign — `implementation-notes.md` §8). Shipped
-  `B,B+W,I,B,B+W,O` · **W3** warmup measured and NOT adopted (our saved phases already come from a real trail)
-- [x] **W4** gate PASSED, shipped ON: Tier B **8.97 vs 9.88** (−9.2 %), Tier C FLAT. **Banked negatives, do not retry blind:** effort anchored on
-  the last inprocessing phase (9.69 vs 8.97); accept-only-if-better-than-all-previous (worse than both arms)
-- [x] **W4b/W4c/W4d** the `mp1-Nb5T15` poisoning is the **target** channel, not the dose, and **kissat has it too**; six reference-matching
-  attempts exhausted; W4d's "stop walking when it stops paying" is DEAD (it was under-dosing, and would have been a novel mechanism neither
-  reference has). Five arms sit behind knobs for §5.6
-- [x] **W4f** walk DOSE swept and SHIPPED at 560‰ (`0c52fdd` → `61138b8`): the root defect was a UNIT confusion — we scale a per-mille of search
-  ticks but SPEND in walk steps (~13× less scanning than cadical). Tier C 392.98 → 322.80, `mp1-Nb5T15` TO → 26.1 s. The earlier sharp preference
-  for 640 was an artefact of a then-wrong `bumpreasons` rate; re-swept, 400..800 shows no trend
-  (`benchmarks/reports/2026-07-27-tier-c-push.md` §1/§8.2)
-
-### Track R — the full reference rule inventory (plan rev 72, user 2026-07-27)
-
-**Numbering:** inside this section `R<n>` means **Track R · R<n>**. See the namespace key at the top of `## Log` before reading a bare `R<n>`
-anywhere else.
-
-**User directive:** implement/enable every proof rule Kissat and CaDiCaL have, and measure with proof generation on BOTH sides. Order is
-measured-value-per-cost, cheapest first; each lands under the §5.3 contract (one directory + one registry line) with its own stress-policy + fuzz
-legs on both proof formats and a same-window gate. **Counter-evidence kept so the sequencing stays honest** (a reason to run the search-quality
-tracks in parallel, not to skip the work): turning off EVERYTHING we lack costs kissat only **14.32 Tier C PAR-2** (sweep + reorder + randec +
-eagersubsume + definitions, whole-tier same-window ablation `20260727-002213-C-kabl`), **of which sweep alone is 14.00** — the other four are
-inside the noise floor and are not separately resolved.
-
-**LANDING CONVENTION (user, 2026-07-28): a rule lands ON.** The earlier "ships OFF until its own A/B says it pays" is DEAD — it contradicted
-[[no-rule-off-configs]] and judged rules ONE AT A TIME, the one measurement that cannot see this family's dominant effect: **X1/X2/X4 measured
-alone are 21.79 / 53.26 / 13.08 Tier B PAR-2 against 9.22 for all three together** — they repair each other
-(`benchmarks/reports/2026-07-28-all-rules-on.md`).
-
-**MEASURED CONSTRAINT on any joint-admission lever — narrower than it looks.** `mod4block` is NON-MONOTONE in how consistently the trio runs:
-never 9.26, always 13.17, **once-then-stop 263.87**. The trio must therefore run all-solve or not at all, which kills every mid-solve decision and
-leaves only a STATIC per-instance one — and the best such separator measured 4/13 misclassifications, i.e. chance
-(`benchmarks/reports/2026-07-20-bve-skip-feasibility.md`). A phase-7 context feature, not an engineering lever, absent new evidence.
-
-- [x] **R1 · X2 `HyperTernaryRes`** (cadical `ternary.cpp`) — add-RUP only, no witness. `d0bb6ec`; **ON since `3fb85bd`**
-- [x] **R2 · X1 `BCE`** (cadical `block.cpp`) — delete + push-witness, reusing E1's occurrence index and reconstruction stack (kissat 4 dropped
-  it). `d0bb6ec`/`1a9afb1`; two defects found by fuzz and fixed (a wrong-SAT from filtering the blockedness test's opposite side; a
-  duplicated-binary crash). **ON since `3fb85bd`**
-- [x] **R3 · X4 `Instantiate`** (cadical `instantiate.cpp`) — the strengthened clause is RUP against `F` alone because `¬(C∖{l})` leaves `C` unit
-  and propagates `l` itself. `2085429`. Fires but yields ~nothing alone (FmlaEquiv 57,357 probes → 5 literals); **ON since `3fb85bd`** — alone is
-  the wrong experiment for this family
-- [x] **R4 · S7 `Reorder`** (kissat `reorder.c`) — `H`-only **policy op**, no proof obligation, no calculus entry; deviations in
-  `implementation-notes.md` §10. `4482bb5`. **Ships OFF** (`TACTIX_REORDER`, kissat's 1/2 values) — the one Track R result that is not an
-  inventory tick: **parity on Tier B's UNSAT half (10.16 → 10.11) and 3.4× worse on its SAT half (5.28 → 16.99)**, a SAT-vs-UNSAT context axis no
-  other §5.6 family carries. **Scope: policy op, NOT a proof rule — the all-rules-ON directive does not cover it; ask before flipping**
-- [x] **R5 · V5 `Sweep` + the embedded sub-solver — COMPLETE 2026-08-06** (S-a…S-f all closed; the
-  rule's own YIELD remains a separate open problem — `SP-SWEEP-2`/`SP-SWEEP-3`, and the N4 audit
-  measured 1,226,656 candidate checks for **1** equivalence on `b22_1` against kissat's 545)
-- ~~R5 (old text)~~ **V5 `Sweep` + the embedded sub-solver** (kissat `sweep.c`+`kitten.c`; §11 O11) — the largest single item in kissat's own ablation
-  (+14 alone) and the biggest build; also unlocks kitten-based **definition extraction** for E1 (the last E1 gap, +6.1 to kissat). Design
-  `docs/design/v5-sweep-design.md`: O11 says WRITE a minimal sub-solver rather than vendor kitten (verbatim copying is barred, and we need
-  LRAT-grade antecedents kitten's core does not give); the real risk is the proof obligation — a swept equivalence is entailed but NOT RUP.
-  **S-a…S-e are DONE; only S-f (scheduling) is open.**
-  - [x] **S-a** the embedded sub-solver (`src/rules/sweep/subsolver.{hpp,cpp}`, `8ac2199`) — minimal CDCL, own arena/watches/trail, never touches
-    `Kernel`, deterministic; verified by exhaustion against brute force on **1 M random formulas**, half under assumptions. Safety property: an
-    unanalyzable conflict returns `Budget`, never `Unsat`
-  - [x] **S-b** antecedent recording + core extraction (`9db22df`) — `derivation()` returns ordered lemmas with LRAT chains over environment ids,
-    in the kernel's chain order. Verified three ways over **207 k refutations** plus 40 micro cases through the REAL drat-trim and lrat-check
-    (`tests/sweep_proofs.sh`). Knowledge: the first version of BOTH oracle and emitter produced only ONE-STEP derivations, so the lemma chains
-    went untested while green — both now assert a multi-step floor
-  - [x] **S-c** candidate selection + environment construction (`src/rules/sweep/sweep.{hpp,cpp}`), DETECTION ONLY. **The soundness argument is
-    `env ⊆ F` LITERALLY** — every environment clause is a clause the kernel holds, carried with its own proof id in `SweepEnv::clause_ids` — so
-    root-false literals are KEPT rather than stripped (kissat strips; a stripped clause has no id to cite) and a root unit joins only when
-    `unit_ids[v] != 0`. Deliberately left UNREGISTERED until it had a proof delta (an always-`NoOp` rule is the guard-true/apply-NoOp shape).
-    Two defects the tests caught first: the seed filter "has watch-list occurrences" is wrong (a large clause is watched on two literals only) and
-    uniting a class with its own negation built a two-cycle that HUNG `repr_find`. **RV-R1 discharged**: fuzz on both formats with the detector
-    reached at the SOURCE (102 of 411 runs ran a round — 8,174 environments, 807 equivalences), against a detector-OFF control
-    ([[ab-arm-identical-artefacts]])
-  - [x] **S-d** emission via the RUP fast path — assume `x ∧ ¬y` in the MAIN kernel at probing scope and replay (V6's `congruence_rup_chain`,
-    exported as `congruence_replay_rup`); **both directions must replay before either binary is added**. The replay runs in DRAT mode too, where
-    it is not chain construction but the RUP TEST. This is where the registry line, the `docs/calculus.md` V5 entry and the default-on decision
-    landed. It also shipped an N2 defect (see the Log) and, unnoticed, SCHEDULED Sweep
-  - [x] **S-e** emission via the general path — the sub-solver's core mapped back to main-formula ids and replayed as a resolution chain; anything
-    unmappable **declines**. Worth 8 of 4380 claims on random formulas (larger on miters). It shipped with the inverted-parity N2 breach, since
-    fixed — see the N2 row
-  - [x] **S-f · scheduling — CLOSED 2026-08-06, governor ON.** Sweep IS scheduled (kissat's own 100‰ `sweepeffort`) and budgeted, and since 2026-08-05 the budget is
-    **enforced where the work happens** — `sweep_env_build` polls the round ceiling inside the occurrence walk, not only between seeds
-    (`SweepBudget`; cadical's `kitten_ticks_limit_hit` discipline). Before that one seed could outspend the round dose **73×** and the
-    scan was uninterruptible. Overshoot is now ≤1.005× on all four probe instances; `constraints_18_0.3_2` **−475.6 s**,
-    `sat-bench-trig-bhaskara` **−65.7 s**, `em_11`/`minxor128` unchanged. Report
-    `benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`; ledger rows **SP-SWEEP-1** (closed) / **SP-SWEEP-2**, **SP-SWEEP-3** (open).
-    **The Tier C A/B is SPECCED AND UNRUN** — arms `govon` / `govoff` (`TACTIX_SWEEP_ENV_BUDGET=0`), pre-registered counters and ship
-    criterion in the report §9; it should precede the SCHED-D2 pricing run. `TACTIX_SWEEP_PROBE` must not be set in any tier run
-- [x] **R6 · X3 `CCE`** (cadical `cover.cpp`, the ASYMMETRIC variant the literature still calls CCE) — delete + push-witness, one segment per CLA
-  step plus one for the blocked exit. **ON** (landing convention). Calculus §6c; guard row + ledger `D-CCE-SCOPE` in `implementation-notes.md`.
-  **cadical-only, and it ships `cover`=0**: kissat's `cover.h` is a coverage-ASSERTION macro, not clause covering — verified at the source, and
-  default-OFF in a reference is not disqualifying (`block`=0 and R2 BCE landed ON anyway).
-  - **The witness is the whole rule.** Record only `C` + the CLA additions (`D_i`), never the ALA literals, and push in application order — `ρ`
-    replays in reverse. What licenses the smaller recorded clause while blockedness is tested against the LARGER extension is the **ALA-closure
-    lemma**: a model of `F∖{C}` that falsifies `D_i` must falsify every ALA literal too, because each was justified by a clause of `F∖{C}` whose
-    other literals are already false. The **ATA exit with no CLA step in front of it pushes NOTHING** — `C` is RUP there.
-  - **The two sides quantify differently and it is NOT symmetry.** CLA/blockedness runs over redundant clauses too (over-quantifying only makes the
-    test stricter; filtering that side is X1's fuzz-2204 wrong-SAT shape). **ALA is irredundant-only for an ABSTRACT reason** — the lemma needs the
-    justifying clause satisfied when `ρ` replays, and S2 Reduce deletes redundant clauses with no witness.
-  - **§5.3 VERDICT: the rule body is a pure plugin; the REGISTRATION SURFACE is not one line but SEVEN central tables.** No kernel primitive, no
-    proof-backend change, no other rule touched, no `ρ` format change — `kernel_push_witness` took CCE's multi-segment sequences unchanged (R7's
-    blocker, a witness CUBE, does not arise: cadical `cover.cpp:411` pushes a single witness literal and so do we). What a new rule DOES have to
-    edit centrally: `CMakeLists.txt` · `Stats` in `kernel/kernel.hpp` · `EFFORT_SPECS` + a meter + `AUTHORED_SLOT_ORDER` in `default_policy.cpp` ·
-    `check-effort-specs.py`'s table · `main.cpp`'s stats line · `tests/`. Plus **the frozen C-ABI rule ids RENUMBER** (`test_api_c.c`'s golden list;
-    documented as deliberate). See the Log entry for the argument that only the `Stats` one is a real architecture pressure point.
-  - Reachability at the SOURCE, shipped DefaultPolicy, 59 structured/circuit fuzz-generator cases: **26 rounds, 4223 candidates extended, 2411 ALA +
-    154 CLA literals added, 34 deleted (6 blocked / 28 ATA)**, against an exactly-zero `TACTIX_SLOT_DISABLE=CCE` control. `tests/test_cce.cpp`
-    exhaustively cross-checks reconstruction over 400 random formulas: **3605 deletions, 18926 models that genuinely needed `ρ`, all repaired**.
-  - Fuzz **GREEN, five legs, 0 failures**: stress×DRAT `1585216` / stress×native-LRAT `1585217` (4000 each) · `--random-policy`×DRAT `1585220` /
-    ×native-LRAT `1585221` (4000 each) · DefaultPolicy quick `1585223` (10000); corpus 14/14 on every leg. ctest **45/45**.
-  - **A/B SPEC READY, DELIBERATELY UNRUN** (a Tier C A/B was live) — arms + pre-registered counters + ship criterion in the Log entry below.
-- [x] **R7 · X5 `Condition`** — **CLOSED 2026-08-05 as a reasoned NO-IMPLEMENT**, not deferred. Criterion
-  fixed before investigating; value deliberately excluded from it. It fails on REPRESENTABILITY:
-  `Kernel::reconstruction` carries one witness LITERAL that must lie INSIDE the clause, while a
-  conditional autarky's witness is a CUBE over outside variables — split into single-literal segments
-  each would sit inside its own satisfaction test (BCE's old wrong-SAT shape), and restricted to one
-  in-clause literal the rule collapses to X1 BCE, which ships ON. kissat has no such rule at all;
-  cadical ships `condition`=0. Measured anyway: fires on 13/30 Tier C, no solve flips, +11.3 % wall.
-  Ledger `SP-COND-1` (`implementation-notes.md` §16) carries the reopening path.
-- ~~**R8**~~ — MOVED to Track SCHED (`SCHED-C6`/`C7`) 2026-08-04: it was scheduling work filed under the rule inventory. Track R is now purely
-  new rule FAMILIES (R5–R7), which is what makes it parallelisable against Track SCHED.
-
-**▶ TRACK R IS CLOSED — R1–R7 all resolved** (R5's S-f half closed 2026-08-06, R6 CCE landed, R7 by reasoned
-no-implement). Read §16 before proposing X5 again. Track R covered the families the plan named in rev 72; the
-two inventory items it did NOT cover are R9/R10 below.
-
-### ▶ Track R (cont.) — the last two inventory items (plan rev 83)
-
-These are what stands between HEAD and the phase-3 exit. Both are *capabilities*, not schedules — every other
-open parity row is dosing/wiring/infrastructure and is phase-4 work.
-
-- [ ] **R9 · X6 `HyperBinaryRes`** — hyper binary resolution during probing (`SP-PROBE-2`; cadical `probehbr`=1,
-  `probe.cpp:218` called `:477`). When a long clause goes unit at level 1, fold its false literals through
-  `probe_dominator` and add the binary `(¬dom, lits[0])`; if `¬dom` was already in the reason, the new binary
-  subsumes it and the reason is garbaged. Proof delta add-RUP + delete. The ledger row itself says the closer is
-  a rule, not a schedule fix. Catalog row: plan §5.2 X6.
-- [ ] **R10 · kitten-based BVE definition extraction** (§11 O11, the E1 remainder) — the syntactic gate matcher
-  (ands/xors/ITE, landed SCHED-C8) is what E1 ships today; kissat's `definitions`=1 extracts definitions with the
-  embedded sub-solver. The sub-solver already exists in-tree for V5 Sweep, so this is a consumer, not a port.
-  **N1 note:** a definition-derived elimination must stay applicable through `apply_instance`; it may only widen
-  `instances()`, never prune it.
-
-- **Exit (rev 83):** the reference rule inventory is COMPLETE — every proof rule Kissat 4.0.4 or CaDiCaL 3.0.0
-  implements is either registered here (guard / instances / apply, N1-exposed, N2-clean, fuzz-green) or carries a
-  reasoned no-implement row in `docs/implementation-notes.md` with its evidence and a reopening path.
-  **Performance is not this phase's gate** — T3 moved to phase 4 with the dosing work (plan rev 83).
+- **Exit:** every Kissat 4.0.4 / CaDiCaL 3.0.0 proof rule is either registered here (guard / instances / apply,
+  N1-exposed, N2-clean, fuzz-green) or carries a reasoned no-implement row in `docs/implementation-notes.md`
+  with its evidence and a reopening path. Nightly random-policy fuzzing green. **No performance gate** — T3 is
+  phase 4's.
 
 ## Phase 4 — dosing, optimization, scheduling (plan rev 83)
 
-The rule inventory being complete, what remains between Tactix and the references is **how the rules are dosed,
-ordered and budgeted** — not which rules exist. Today's evidence for the split: eleven of twelve parity rows read
-CLOSED (we own the mechanisms) while our BVE eliminated **zero** variables on 7 of the 9 instances where kissat
-eliminates anything, and Factor added zero on 6 of 9. Capability and effectiveness came apart completely; this
-phase closes the second one.
+The inventory is complete; what remains is **how the rules are dosed, ordered and budgeted**. The evidence for
+the split: eleven of twelve parity rows read CLOSED while our BVE eliminated **zero** variables on 7 of the 9
+instances where kissat eliminates anything, and Factor added zero on 6 of 9.
 
-**Exit = all three.**
-1. **T3** (§8.3) — within 10 % PAR-2 of CaDiCaL on Tier C, plus CaDiCaL/Kissat parity on the rule-neutral subset.
-2. **N4 discharged** — no row in the scheduling-parity ledger (`docs/implementation-notes.md` §13) left reading
-   `WE_LACK_IT` or `WE_ARE_CRUDER`: each is either CLOSED by code or an accepted deviation in §13.3 carrying its
-   measurement and a reopening path. N4 is a *mechanism* floor and may not be discharged by a tier number.
-3. **One full Tier D campaign run and reported** (793 instances, frozen 2026-08-03) as scale evidence. The **T4**
-   gate on Tier D is phase 5's, not this phase's — here Tier D only has to have been *run*.
+**Exit = all three.** (1) **T3** (§8.3). (2) **N4 discharged** — no row in `docs/implementation-notes.md` §13
+left `WE_LACK_IT`/`WE_ARE_CRUDER` without a closure or an accepted §13.3 deviation carrying its measurement and
+reopening path; N4 is a mechanism floor and may not be discharged by a tier number. (3) **One full Tier D
+campaign run and reported** (793 instances, frozen 2026-08-03, never run; §11 O9). The T4 gate on Tier D is
+phase 5's.
 
+**Landed already:** Track S (the S4 arrangement, gate passed), Track T's TB1/2/3/4/5/6, and **Track SCHED
+stages A–H** — the instrument (3 conformance tests + the oracle column), an honest meter, ten free wires, the
+authored slot order and two clocks, candidate order as a policy object, the touched-epoch substrate with all six
+consumers, four revamps, three residuals. **All twelve HIGH parity rows are closed** (nine by code, three as
+accepted deviations) and the ledger is machine-checked against all 418 reference options. Per-item narrative is
+in §13's rows and the Log; the traps worth re-reading before touching any of it are in the anchor.
 
-### ▶ Track T — the Tier B tail (TB1–TB6; the bare T1–T5 are the §8.3 gates)
+### ▶ 1. Price the UNPRICED work — the largest single debt
 
-Diagnosed 2026-07-21: four tail instances were 69 % of Tier B time, each with a different cause. **TB1/TB2/TB3/TB5/TB6 CLOSED** — detail in
-`docs/log/2026-W30.md`/`2026-W31.md` and the cited probes.
+Each landed on parity or mechanism grounds with its A/B **pre-registered and unrun**. Generic protocol =
+Track SCHED's standing protocol below. This table is the per-item part.
 
-- [x] **TB1** congruence is NOT the FmlaEquiv gap (kissat with ALL simplification off runs it in 8.68 s, faster than with any single simplifier
-  off); the structural-hashing gap is real but ≤ 0.7 s · **TB2** x9's outlier premise dissolved (1.17–1.19× vs kissat) · **TB3** Factor verifiably
-  non-inert on x9 · **TB5** per-prop cost is AT PARITY with kissat on all residuals — the residual is SEARCH SHAPE, and the watch-layout
-  engineering lane is measured-dead · **TB6** default mode alternation BEATS both pinned modes
-- [x] **TB4** chrono ON by default (`CHRONO_LEVELS=100`). The first measurement (+13 %) was a PORTING ERROR, not a verdict — analyzing from above
-  the conflict level silently DROPPED the conflict on 84 % of chrono backtracks; fixed → −2.4 %. **`stats.backjump_stale` MUST stay 0.** Found
-  only because a negative result was audited rather than accepted
-- [ ] **TB4b** the remaining chrono divergences. **(A) the one-literal-on-conflict-level shortcut** and
-  **(B) the watch-repair primitive** are DONE (`fc57eff`; the 2026-07-28 negative verdict was retired as
-  a BROKEN arm, not a crippled one — report `2026-08-01-tb4b-watch-repair.md`). **Ships OFF**: ON and
-  CRIPPLED are indistinguishable on Tier C and the proof-size axis FLIPS SIGN between tiers, so it is a
-  §5.6 exhibit, not a default. **Unit chrono routing SHIPPED** 2026-08-04 (`8118c68`, `veer_axi` 6×) —
-  and introduced the N2 defect fixed in `52a4e8f`. **`jumpreasons` is ported but ships OFF (SCHED-C8); still
-  unported: cadical's `chronoreusetrail`.** `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
+| Item | Arm | Counter (check FIRST) | Note |
+|---|---|---|---|
+| `gates`+`c1c2` flips | already measured | | Tier B 109.18 → 58.76, 24 → 27 solves; **Tier C fragile — re-measure with a replicate arm, then ship** |
+| `C6` eager subsume | `TACTIX_EAGER_SUBSUME=0` | `c eagersub` | |
+| `C7` randec | `TACTIX_RANDEC=0` | randec sequences | |
+| `C8` BVE ITE+XOR gates | `--bve-gates=equiv,andor` | `c bve-gates`, pairs saved | |
+| `C9` `jumpreasons` (OFF) | `TACTIX_JUMP_REASONS=1` | `c jumpreason`, per instance | **Decides the default.** ON only if non-worse on both tiers *and* `9vliw_bp_mc` unregressed, paired draws. If it loses → a §13.3 deviation |
+| `D1` slot order | `TACTIX_SLOT_ORDER=legacy` | `c slot-order` | |
+| `D2` two clocks | `TACTIX_SLOT_CLOCKS=1` | `c slot-clock` | **Read `eliminate phases`** — the first cut of this hatch starved the elimination family while looking like a win |
+| `D3` watermarks | `TACTIX_SLOT_WATERMARK` | the `blocked` counters | near-inert by design |
+| `E1` cursors | `TACTIX_CURSOR_<RULE>=0` | `c cand-order` | |
+| `E2` ordering arms | `TACTIX_ORDER_<RULE>=<arm>` | positions moved | **one rule at a time** |
+| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` | inert at shipped constants |
+| `F1` substrate | `TACTIX_TOUCH_MARKS=0` | `c touch` | |
+| `F2` subsume-hold | `TACTIX_SUBSUME_HOLD=0` | `c subhold` | sentinel currently 0 |
+| `F6`+`F7` redundant band (OFF) | `TACTIX_TOUCH_REDUNDANT=1` | `c touchred` (a PAIR) + `c f7band` | ~800× the irredundant population; must pay for it |
+| `G2` drop C1's dose | a dose arm, **not a rule-off** | C1/C2 yield split | C1 measured inert (C2 absorbs 698,341 of 698,351) |
+| `G3` Vivify trail reuse | `TACTIX_VIVIFY_REUSE=0` | reuse %, 0 with the hatch off | reverts probe *and* candidate order |
+| `G4` Y1 unit sweep | `TACTIX_CONG_Y1` | `c congy1` | strict SUBSET of V2 Backbone — **only one should ship** |
 
-### ▶ Track S — the effort-budgeted target arrangement — S4 CLOSED
+### ▶ 2. Re-measure, then close T3
 
-- [x] **S1** the per-phase-overhead explanation for repeated during-search BVE is REFUTED — the cost is search TRAJECTORY, not the root descent
-  (`775eefc`) · **S1b** BVE growth-slack ramp, the first SubPolicy (`a36b4c2`) · **S1c** needed-bound cache + ceiling 8 (`489fab1`; the old dose
-  cap was an *accidental governor*, [[accidental-governor-trap]]). **The ceiling's stated warrant was RETRACTED evidence** — the "crypto1 BVE
-  U-shape" was drawn through single draws on a dose-chaotic instance; what survives is one same-window Tier B A/B (HEAD 16.66 / ceil-16 17.76 /
-  ceil-8 15.08 / flat fixed-8 15.85) that is single-instance-dominated on a tier with **no measured noise floor**. The Tier C/D re-sweep is owed
-  and is the only thing that would warrant the constant · **S2a** FactorMatchPolicy, steering DISCONFIRMED (the 27×27 cap is structural) ·
-  **S2b** composite grids land default-OFF (`docs/design/s2b-composite-grids-design.md`) · **S2** probing rules re-measured on-cluster: the
-  historical SAT-disruption is GONE · **S3** P2 follow-ups (probing stress 16.5k/0; `2ed8bcc`)
-- [x] **S4 · the TARGET ARRANGEMENT — GATE PASSED, DEFAULT ON (2026-07-25).** B+C as one unit: arr {B 17.45, C 552.91} vs legacy {B 43.86,
-  C 537.83}; mp1 5.34 s beats kissat 9.09 (proof VERIFIED); the density-gated-doses residual fix (`1dbd439`) then gave **B 10.62, C 520.76**.
-  Root causes + measured negatives: `benchmarks/reports/2026-07-25-s4-gate-mp1.md` (its §2 banks the dead knobs, [[s4-gate-negatives]]); dosing
-  design frozen at `docs/design/s4-factor-dosing-design.md` (§3.e bound coupling REVERSED by measurement)
-- [ ] **T3 gate re-measurement** + report to `benchmarks/reports/`
+- [ ] **A full Tier B + Tier C window on the ledger-wrap fix**, two pin dirs, node-pinned,
+  `--baseline kissat --baseline cadical`. Every `Sweep`/`Congruence` dosing number since `58a46de` was measured
+  against a budget that did not bind.
+- [ ] **One `ledgerfix + TACTIX_SLOT_CLOCKS=1` arm** — up to ~670 PAR-2 may be D2 cost that survives a sound
+  ledger, and nothing so far separates that from "the wrap was all of it".
+- [ ] **Re-price Sweep's and Congruence's per-mille shares** now that the ledger binds.
+- [ ] **T3 gate evaluation** + report to `benchmarks/reports/`.
 
-### ▶ Track SCHED — the scheduling floor (plan rev 80 §1.1 N4, §5 obligation 5)
+### ▶ 3. Close the remaining N4 rows
 
-**Namespace:** `SCHED-<stage><n>` is its own id space — never read a bare `B1`/`C2` here as Track S or Track R. (Renamed from "Track N4" hours
-after it landed, because `N4` must always mean the non-negotiable; the two frozen 2026-08-04 design docs still say "Track N4".)
-**Work list:** the scheduling-parity ledger (`docs/implementation-notes.md` §13, living) + the frozen audit
-`docs/design/2026-08-04-n4-scheduling-parity-audit.md` + the diagnosis `docs/design/2026-08-04-scheduling-sophistication-diagnosis.md`.
-**216 mechanisms audited, 132 gaps (27 high).** Themes **T1** dropped wires · **T2** repetition-not-dose · **T3** right formula wrong meter ·
-**T4** invented instance gates · **T5** cross-keyed ramps · **T6** emergent order.
-**Tags:** `[wire]` = wiring a mechanism we already own · `[arch]` = new architectural support · `[revamp]` = routes out via the revamp skill.
+- [ ] **The MED/LOW `WE_LACK_IT` rows the rev-83 exit now covers:** `SP-SWEEP-2` (productivity delay ladder —
+  ours is gated on `!e.meter`, so a metered repeater like Sweep can never back off) · `SP-BVE-BWD-1` (feed BVE's
+  fresh resolvents straight into subsumption; it is what makes cadical's `elimrounds`=2 sufficient) ·
+  `SP-COMPACT-1` (variable compaction / renumbering) · `SP-CHRONO-1` (analyze-side trail reuse) ·
+  `SP-VIVIFY-3` (schedule-level dedup before spending a propagation).
+- [ ] **`SP-SWEEP-3` + Sweep's yield** — 1,226,656 candidate checks for **1** equivalence on `b22_1` against
+  kissat's 545. Port kissat's SCHEDULE, not a bare cursor: a wrapping cursor never completes a pass, so
+  `sweep_completed` can never grow the caps.
+- [ ] **`SCHED-G6`** — charge the binary-only scan what it touched (kissat charges `touched = p - begin`); we
+  charge the whole list so G5 could be bit-exact. Frees Backbone budget and **changes the search**, so it needs
+  an A/B, not a bit-exactness gate.
+- [ ] **`SCHED-G7`** — per-LIST binary-first order bit. The global flag is true on 64–86 % of binary-only scans
+  while the LIST is ordered on **99.9 %**, because one binary add anywhere clears the flag everywhere. Trap: the
+  probing snapshot/restore path would have to restore the bit too.
+- [ ] **`SP-CONG-BUDGET-1` residual** — Congruence's `budget_aware` closure and Substitute's unmetered entry.
 
-**Standing protocol (stated once, applies to every item).** Same-window Tier B+C A/B, fresh `build/pin-n4-<item>` ([[build-path-ownership]]).
-**Every item names a SOURCE-LEVEL readout, pre-registered and checked FIRST — an arm whose source counter did not move was not tested**
-([[ab-arm-identical-artefacts]]; task #10's abort paths passed 4 × 10,000 fuzz cases while VACUOUS three independent ways), and the knob goes IN
-THE COMMAND, never through the environment. Noise floor 6.72; **#solved beats PAR-2**; the may-not-gate set may not gate alone. Rule-touching
-items carry DRAT + native-LRAT + random-policy legs; items opening NEW schedules add a stress-policy leg.
-**▶ EVERY PRIOR DOSE NEGATIVE MEASURED THROUGH THE BROKEN METER IS VOID** and must be re-derived now that Stage B has landed — named: the V4
-ticks-meter arm, the V4 early-exit arm, the C1/C2 mid-round budget arm, every per-entry per-mille sweep on a ticks-metered rule, and the BVE
-ramp-ceiling 8-vs-16 choice.
+### ▶ 4. The remaining dosing / admission questions
 
-**Track exit (checked at the phase-4 gate):** no HIGH ledger row remains `WE_ARE_CRUDER`/`WE_LACK_IT` without a closure or an accepted deviation
-row carrying a measurement, AND the ledger has been regenerated from the REFERENCE's option set (SCHED-A3).
-**▶ EXIT STATUS (2026-08-06). HALF ONE IS NOW MET: all twelve HIGH rows are closed** — the twelfth,
-`SP-REPEAT-*`, by **`SCHED-F7`**, as an accepted deviation carrying its measurement (`D-C1C2-VICTIM`).
-Half two was already **DONE and machine-checked** (SCHED-A3, ctest `option_coverage`). What remains before
-the track can be *ticked* at the phase-4 gate is the gate evaluation itself, not another row. Of §13.2's
-HIGH rows, **eleven closed with code** (`SP-SLOT-2`/`SP-SLOT-3`/`SP-CAD-1` by Stage B · `SP-VIVIFY-1` by C1 · `SP-FACTOR-2` by C5 ·
-`SP-BVE-GATE-1` by **C8** · `SP-JUMP-1` by **C9** — ported, ships OFF, default decided by a pre-registered A/B ·
-`SP-SLOT-4` by **D1** · `SP-SLOT-1` by **D2** · `SP-SLOT-5` by **D3** · `SP-EFFORT-CEIL-1` by **E3**, ported and
-measured INERT, its A3 headline corrected — kissat has no upper clamp at all), and **three are accepted deviations
-carrying a measurement and a removal path** (`SP-FACTOR-1`; `SP-REPEAT-*` by **F7**, below; `SP-TIER-2` by **C10** — cadical's "eight consumers"
-audit down to two live mechanisms; Stage F has since populated the redundant-stamp class as **F6**, whose
-"counterproductive" reading **F7 re-diagnosed** — the 820× stamps for zero additional skips were one SHARED
-clock where cadical has per-consumer flags, not a missing consumer; with `touched_kept` split out the band is
-provably inert for the five band-blind consumers and F6+F7 still ship OFF, now on cost grounds alone).
-**`SP-REPEAT-*` IS CLOSED — the twelfth and last of the HIGH parity rows.** Stage F landed the substrate and
-**all six** consumers (F1 C1/C2 · F2 the resume half, with the bound coupling REFUSED on wedge grounds as a
-THIRD accepted deviation, `SP-REPEAT-COUPLE` · F3 BCE/HyperTernaryRes/Instantiate · F4 Factor · F5 Vivify's
-per-CLAUSE bit via **G3** · **F7** CCE, which also deleted its rule-side rotation on a Stats counter) plus
-F6+F7's redundant band. It closes **WE_ARE_CRUDER on one axis, as an accepted deviation**: the band's round
-scope ships OFF and C1's round is deliberately never widened — `D-C1C2-VICTIM` in `implementation-notes.md`
-§2, with the A/B as its removal path, and `D-CCE-FILTER` for the new consumer's own coarseness. The N1 half
-shipped ON and is a WIDENING: both `instances()` surfaces are now complete over victims. Everything Stage F
-landed is UNPRICED.
+- [ ] **(b′) TARGETED Factor admission.** The blanket knob is the wrong instrument, not the wrong idea: the
+  oracle ablation leaves **+54.17 PAR-2 and +3 solves on Tier B, +42.27 on Tier C** on the table, Tier B wants
+  Factor ON while Tier C wants it OFF, and the shipped gate is best on neither. The gate also loosens
+  monotonically over the solve. **0-for-5 record of hand-designed formula-shape separators** — do not propose a
+  sixth threshold without a new kind of evidence.
+- [ ] **TB4b** — the remaining chrono divergences. (A) and (B) are done and ship OFF (ON and CRIPPLED are
+  indistinguishable on Tier C, and the proof-size axis FLIPS SIGN between tiers). Unported: cadical's
+  `chronoreusetrail` (= `SP-CHRONO-1`). `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
+- [ ] **`D-STRENGTHEN-BUDGET` — dose C1/C2.** They are the only slot entries neither dosed nor budget-aware;
+  C2 owns 97.8 s of `DivS_862_11`'s 109.0 s in four applications. Interruptibility itself is measured negative
+  (a stopped round merely DEFERS its candidates) and kept as a §5.6 arm; **the dose axis is live** (1‰ → 11.5 s).
+- [ ] **Tier D**: run it, and give `--tier D` the per-track flag T4 will need (§11 O9).
 
-- [x] **SCHED-N1FIX · DONE 2026-08-04 — the N1 breach is closed** by MOVING `Factor`'s density predicate out of `factor_apply` into DefaultPolicy's
-  slot (beside BVE's identical, N1-clean one), reaching the rule as `Kernel::factor_admit`, default TRUE. Both pre-registered gates passed:
-  DefaultPolicy **byte-identical** (same conflicts, factorings and proof SHA on 4 instances including `sted5`, which is BELOW the threshold so the
-  gate actually fires there), and `tests/test_factor_n1.cpp` drives the REGISTRY surface and **fails on the pre-fix build**. `test_factor.cpp` no
-  longer needs `TACTIX_FACTOR_FORCE` — that workaround was itself the symptom. Whether to KEEP the predicate is now a separate measured question
-  (`benchmarks/reports/2026-08-04-factor-oracle-ablation.md`)
+### ▶ Track SCHED — standing protocol (applies to every item above)
 
-#### Stage A — the instrument and the guard rails (no behaviour change; nothing later ships without these)
+Same-window Tier B+C A/B, fresh `build/pin-n4-<item>` ([[build-path-ownership]]). **Every item names a
+SOURCE-LEVEL readout, pre-registered and checked FIRST — an arm whose source counter did not move was not
+tested** ([[ab-arm-identical-artefacts]]) — and the knob goes IN THE COMMAND, never through the environment.
+Noise floor 6.72; **#solved beats PAR-2**; the may-not-gate set may not gate alone. Rule-touching items carry
+DRAT + native-LRAT + random-policy legs; items opening new schedules add a stress-policy leg.
+**▶ Every prior dose negative measured through the broken meter is VOID** and must be re-derived: the V4
+ticks-meter arm, the V4 early-exit arm, the C1/C2 mid-round budget arm, every per-entry per-mille sweep on a
+ticks-metered rule, and the BVE ramp-ceiling 8-vs-16 choice.
 
-Causes (D) and (E) of the diagnosis are INSTRUMENT defects — the eval loop selects for gates, and the register has the wrong schema. Fix the
-instrument before spending a tier window on a mechanism.
-
-- [x] **SCHED-A1 · per-entry slot telemetry** `[arch]` (`TACTIX_SLOT_STATS=1`, one `c slot` line per entry; diagnostic only, off by default, proofs
-  byte-identical). **It carries a SELF-CHECK** — `occasions` must equal `admitted` + every decline reason, else the line prints
-  `***UNACCOUNTED***`, because telemetry that is silently incomplete reads as a finding. That check caught two holes in the first cut. First
-  readings on `sted5`: `Factor` declined 33/33 by the density advice and `BVE` 30/33 by its dose-density gate — i.e. both elimination-family rules
-  were switched off almost entirely, which `c stats` alone could never distinguish from "ran and found nothing"; `BCE` is budget-declined 6/33
-  while `Instantiate`/`Vivify` are 22/33, the shared-meter starvation Stage B exists to fix
-- [x] **SCHED-A2 · config-wiring conformance test** (`tools/docs/check-config-wiring.py`, ctest `config_wiring`) — classifies all 29 Kernel
-  scheduling-config fields POLICY / RULE / ENV / API; **a POLICY-tagged field with no writer in `default_policy.*` FAILS** (the `factor_bound`
-  shape, the most common high-severity ledger row) **and an unclassified NEW field fails too**. Both failure modes verified by breaking them.
-  The judgement call recorded because it is the substance: `factor_bound` is tagged **API, not POLICY** — wiring it is measured negative three
-  times and kissat at `--eliminatebound=0` is fine, so it is an accepted gap awaiting a new mechanism. **ENV rows are the status quo, not the
-  target** (e.g. `factor_demote_fresh` was ENV while both references demote unconditionally — since fixed by C5)
-- [x] **SCHED-A2b · effort-spec conformance test** (`tools/docs/check-effort-specs.py`, ctest `effort_specs`) — one level up from A2:
-  **registering an `Inprocess` rule IS scheduling it**, so each of the 14 scheduled rules must be METERED (an `EFFORT_SPECS` row — 12) or
-  ALTERNATE-GOVERNOR (`Congruence`/`Substitute`, whose watermark + delay ladder the checker re-greps, so deleting the mechanism FAILS). A METERED
-  row must also be USABLE: non-null meter, non-zero permille, and `dosed || budget_aware` — a share alone bounds how OFTEN a round starts, never
-  how much one round does. Four deliberate breaks verified, one re-run THROUGH ctest. **The defect it locks out actually shipped**: V5 Sweep
-  registered with no spec ran unmetered on every phase (`9vliw` ~14 s → unsolved at 300 s), and `check-config-wiring` (the mirror image), the unit
-  tests (they call `sweep_apply` directly) and fuzz (it is a *performance* regression) all missed it.
-  **Open, found while classifying:** `Congruence`'s alternate governor bounds occasions, not work — one application is priced at ~44 s on
-  `T105.2.0` (`default_policy.cpp:1044`). Metering it is a task, not an accepted shape
-- [x] **SCHED-A3 · regenerate the ledger from the REFERENCE's option set** `[arch]` — **BOTH HALVES DONE.** Enumeration (2026-08-04):
-  `docs/implementation-notes.md` §13.4–§13.6 — all **418** options (kissat 161 + cadical 257), **148 newly read at
-  their use site**, 83 dismissed, 187 matched to a pass-1 row, **15 new gaps and 6 corrections**.
-  **Conformance test (2026-08-05): `tools/docs/check-option-coverage.py`, ctest `option_coverage` (44/44).** It re-enumerates both option sets from
-  the reference headers and fails on any option the ledger does not account for: 83 DISMISSED (roster parsed FROM §13.6, globs expanded against the
-  live set and every published count re-checked), 124 CARRIED (22 script-side entries for family rows that do not spell members out, each naming an
-  anchor that must still exist), 209 CITED (name appears in §13 + the frozen audit + the diagnosis + this track), 2 EXEMPT (`radixsortlim`,
-  `terminateint` — sort cutoff and callback cadence, named and reasoned rather than globbed away). **Five deliberate breaks verified**: deleting the
-  `SP-BVE-BWD-1` row orphans `elimbackward`; deleting `SP-ARENA-1` fires both the anchor check and two UNACCOUNTED options; a fake `sweepslack`
-  option fails; a fake option hidden INSIDE the dismissed `block*` glob fails on the group count; an unknown option-macro spelling aborts rather
-  than under-counting. It is a **coverage** check, not a semantic one — §13.5's 6 corrections are the base rate for what it cannot verify.
-  **The 4 HIGH gaps A3 surfaced, and where they went — all four are now closed, and THREE of the four had a wrong premise:**
-  ~~`SP-BVE-GATE-1`~~ ITE/XOR gate extraction was genuinely absent (BVE charged the full P·N where both references pay P+N−2, the T4
-  antidote) — **CLOSED by C8**, the one row that was right as written · ~~`SP-TIER-2`~~ — **CLOSED by C10** as audit + accepted deviation:
-  the "eight cadical consumers" are three inert at cadical's own defaults, four instances of the same `mark_added`, and one gating a
-  clause class we never schedule; kissat has TWO behavioural consumers and we have both · ~~`SP-EFFORT-CEIL-1`~~ — **CLOSED by E3**, its
-  claim that *every* reference budget has an upper clamp WRONG (kissat has no `maxeffort`; our budget is kissat's own macro) ·
-  ~~`SP-JUMP-1`~~ — **CLOSED by C9**, its "default-ON in both references, per-conflict, free" billing wrong on all three counts.
-  **Standing method note, both traps live in this pass:** **read MACROS, not just grep** — cadical's `factorthresh` is token-pasted
-  (`limit.hpp:150` `opts.NAME##thresh`, instantiated `factor.cpp:962`), so the identifier never appears literally and reading it as dead code
-  produced two wrong published claims; and **polarity is not inferable from a name** (`factordelay`=0 is the MOST delayed setting)
-- [x] **SCHED-A4 · the ORACLE column ships, on by default** — `tools/bench/run.py` reports the per-instance best over the SCORED arms (baselines
-  are references, never candidates) plus each arm's gap to it, and persists it to `results.json`. No flag; `--aggregate` recomputes it for any past
-  run, and every existing per-arm number is byte-identical on re-aggregation. **Caveat recorded in the code:** an oracle is a min over K arms and
-  therefore also a min over K measurement NOISES — adding a third arm that was itself a blend of the other two moved Tier C by 4.00, inside the
-  6.72 floor. Judge a gate against the oracle over the policies it chooses BETWEEN, and require it to beat both always-on and a fair share of the
-  oracle gap. **This de-selects cause D at the instrument** — the only level at which a selection pressure can be removed
-
-#### Stage B — an honest meter (T3). *Landed; every dose number taken before it is unreliable.*
-
-- [x] **SCHED-B1** ceiling at RUN time · anchor on the ADMITTED path · per-entry `thresh` (`806ce20`+`8b5667c`) — parts 1-2 alone made the batch
-  pre-check *unfireable*; part 3 is the fix.
-- [x] **SCHED-B2** private per-rule tick meters `Kernel::tick_sink` (`80ec42d`)
-- [x] **SCHED-B3** V4 currency → ticks **+ a resumption cursor** (`33940b8`) — the meter alone banked negative twice; `instances()` replayed its
-  head every round, so an honest budget bought STARVATION. `Kernel::transitive_cursor` rotates (N1-safe: `apply_instance` still takes any source).
-- [x] **SCHED-B4** C1/C2 currency → per-partner-visit (`33940b8`, cadical `subsume.cpp:86,362,459`) — the old meter counted CANDIDATES where the
-  cost is the occurrence lists' length. Under-priced by **2712×** (`DivS` Strengthen), 622× (`DivS` Subsume), 238× (`9vliw` Strengthen), which is
-  the mechanism behind C2 owning 89.7 % of `DivS` inside four rounds without ever exceeding its budget.
-- [x] **SCHED-B5** SwitchMode growth-key off-by-one + `search_ticks` scope (`c33cba8`) — the key was `(c/2)+1` vs kissat's `c/2` (`mode.c:90`), one
-  switch AHEAD, so focused mode ran long forever after; and `search_ticks` missed minimize/shrink (`minimizeticks`=1 in the shipped reference).
-- [x] **STAGE B GATE (B1–B5), `24eba22`:** Tier B **−13.23** / Tier C **neutral** ex-lottery; both deciders (`sted5`, `j3037`) shown lotteries by
-  paired draws. Report `benchmarks/reports/2026-08-04-sched-stage-b-gate.md`. **B3/B4/B5 added no measurable Tier C value** and are kept because
-  each closes a demonstrated reference gap — worth saying plainly rather than folding into a green headline.
-
-#### Stage C — the free wires (T1/T5): mechanisms we own and never wired
-
-- [x] **SCHED-C1 · Vivify ← the dynamic tiers** `[wire]` — `VIVIFY_TIER2 = 6` while `k.tier2` was recomputed every reduce and read by NOTHING;
-  kissat's `vivify_tier2_limit` reads the dynamic tier whenever `vivifyfocusedtiers` is set, **and that option defaults to 1**. Both scope sites
-  now read `k.tier2`; the test pins that moving the tier moves the candidate set. *(Generalisation settled by `SCHED-C10`: cadical's eight consumers
-  audit down to two live mechanisms, and cadical's own vivify is on the static 2/6 — `vivifycalctier`=0 — so C1 is kissat's shipped behaviour, not both.)*
-- [x] **SCHED-C2 · Factor acceptance bound ← `bve_level_`** `[wire]` — **CLOSED AS AN ACCEPTED DEVIATION, NOT AS CODE** (2026-08-05): the wire is
-  refuted three ways (port REVERSED, mp1 5.3 → 14.9 s · no static bound separates winners from losers, bound 8 costs `sted5` 19 → 274 s · with
-  composition ON the arms are byte-identical because `bve_level_` is **0 where Factor runs**, so the coupling cannot even fire), and kissat with its
-  OWN bound pinned to 0 is fine-or-better (`mod4block` 18.35 → 6.54 s). Row + measurements + removal path (R1 §5.6 admission exhibit · R2 show
-  `bve_level_` moved at Factor's occasions BEFORE re-running · R3 SP-BVE-GATE-1 changes what the bound means): `implementation-notes.md` §13.3.
-- [x] **SCHED-C3 · BVE bound-ramp advance guarded to phase completion** `[wire]` — the budget half was already there (`!dose_cut`); the FIXPOINT
-  half was not. kissat advances only when `complete = !remain && !last_round_eliminated` (`eliminate.c:544`), and the second conjunct matters: a
-  pass that still eliminated something has not exhausted the CURRENT bound.
-- [x] **SCHED-C4 · split `TACTIX_REDUCE_SQRT` into cadence and ramp** `[wire]` — one env var moved both, so neither was ever priceable. Now
-  `TACTIX_REDUCE_CADENCE=sqrt|arith` and `TACTIX_REDUCE_RAMP=0|1`, with the old name kept as a compound alias so banked numbers reproduce.
-- [x] **SCHED-C5 · demote fresh extension vars** `[wire]` — landed 2026-08-05 default-ON (`TACTIX_FACTOR_DEMOTE=0` is the off arm) and **PRICED
-  NEUTRAL on both tiers**, shipping on reference-parity grounds. **The port had been the MIRROR IMAGE of both references** — our re-insert loop ran
-  DESCENDING, putting the OLDEST fresh var at the queue front, so the knob was nearly inert and every pre-08-05 reading of it measured a different
-  mechanism (`rbsat`: 415,947 conflicts / 16.4 s descending vs **88,663 / 2.84 s** ascending). The old title's second half, "retire the invented
-  gates (T4)", is **scoped out and NOT done** — of the five T4 rows two are refuted by the reference option set and one is misfiled (ledger
-  §13.5 C7/C8), and the three that survive are the binary-density family, whose retirement IS the broad-admission experiment (verdict HOLD), i.e.
-  item (b′), not a Stage C wire.
-- [x] **SCHED-C6 · eager subsumption of learned clauses** `[arch]`, ships ON at `eager_subsume`=4 (kissat's own default); `TACTIX_EAGER_SUBSUME=0`
-  is the A/B arm, source counter `c eagersub`, **UNPRICED**. **NOT a rule, and that is the substance:** it deletes only REDUNDANT clauses, whose
-  deletion S2 `Forget` already licenses unconditionally, so the subsumption test SELECTS victims rather than licensing the deletion — a registry
-  entry would put a heuristic in a guard. It lands as a sub-step of M3 `ConflictAnalysis` (the seat OTFS subsumption already occupies), so **no
-  `EFFORT_SPECS` row is owed**. kissat's 4-slot shift register, not cadical's backwards walk over `clauses` — a flat variable-record arena cannot
-  be walked backwards at all.
-  **▶ THE FINDING WORTH KEEPING — WHERE IT RUNS IS THE WHOLE RESULT, and no on/off A/B could see it.** The obvious call site (the tail of
-  `analyze_apply`, the one chokepoint every driver shares) is nearly worthless, and provably so: `kernel_assign_ref` stamps a forced literal at the
-  max level of its reason's other literals, and a candidate `C ⊋ D` contains `D`'s UIP, so `C`'s forced literal sits at or above the conflict level
-  and is ALWAYS still a reason there. Measured over 60 Tier A instances: pre-backjump **8,297 deletions / 28,000 reason-skips**, and a
-  freed-by-backjump probe of **28,000 — all of them**; moved into `backjump_apply_to` (kissat's own position) it is **30,613 deletions / 0
-  reason-skips**, firing on 48 of 60 instances. **A 3.7× swing from placement alone.**
-  **One deviation from kissat that cannot be dropped:** we skip a candidate that is still a trail reason. Kissat does not check; we must, because a
-  garbage reason breaks `kernel_collect_garbage` (corpus 003) and puts a DELETED id into the next LRAT chain — the N2 half. By the theorem above
-  DefaultPolicy reaches that branch **zero** times, so **no fuzz or tier leg can cover the guard that protects N2**; it is pinned by
-  `tests/test_analyze.cpp::test_eager_subsume` case (c) instead ([[ab-arm-identical-artefacts]]). Docs: `implementation-notes.md` §15 + M3's
-  calculus entry
-- [x] **SCHED-C7 · random decisions (`randec`)** `[arch]` — `H`-only, no proof delta, no calculus entry (the Rephase/Reorder category). Ported from
-  `decide.c:57-113` with the option defaults READ rather than assumed: `randec=1`, `randecfocused=1`, **`randecstable=0`**, so sequences run in
-  FOCUSED mode only — the half a "kissat does random decisions" summary gets wrong. Tracked as an END CONFLICT rather than a countdown
-  (equivalent, and needs no hook on the conflict path); splitmix64 with a fixed seed, because a random policy that is not replayable is not
-  testable. Reachability measured: `9vliw` 90 sequences / 648,250 random decisions, `rbsat` 226 / 305,053, both still solving. **UNPRICED, and it
-  has NO KNOB** — see the anchor.
-  *(C6 and C7 moved here from Track R · R8. kissat's own single-technique ablation prices them at +5.9 and +7.9 PAR-2 — treat those as CEILINGS,
-  since the survivors of a single ablation over-invest.)*
-- [x] **SCHED-C8 · BVE gate extraction ← ITE + XOR** `[wire]` — closes HIGH ledger row **`SP-BVE-GATE-1`** (§13.2). E1c had shipped gate
-  extraction with a `--bve-gates` knob but only **EQUIV + AND/OR**; ITE is default-ON in BOTH references and XOR default-ON in cadical, so an
-  ITE/XOR-defined variable was charged the full P·N and failed `resolvents ≤ pos+neg+bound` where both references eliminate it. Now
-  `--bve-gates=all|none|equiv,andor,ite,xor`, both new types default-ON, and the row is an ACCEPTANCE lever: gate clauses g⁺/g⁻ turn P·N into
-  g⁺·(N−g⁻) + (P−g⁺)·g⁻ (ITE: 2P+2N−8 · XOR arity m: 2^(m−1)(P+N−2^m)).
-  **This is the SYNTACTIC half only.** kitten-based *definition* extraction (kissat `definitions`=1) is Track R · R10 (phase 3) and is NOT in scope.
-  **Proof delta unchanged (RUP-only), and the obligation is discharged the same way as E1c's:** both new shapes are COMPLETE gates — their clauses
-  alone entail `x ↔ φ`, and every gate×gate resolvent is a tautology (ITE clashes on the condition or a branch; two opposite-pivot parity clauses
-  must disagree on some input), so `resolve_gate` stays false and nothing but entailed resolvents is skipped. The antecedent×antecedent argument
-  is written out in `calculus.md` §6b E1. Detection is EXACT: kissat's shortened-clause stand-in (`ifthenelse.c match_ternary_ref`, which then
-  re-enables gate×gate) is deliberately not ported. Work bounds are the references' own — kissat's `nter² > occlim` for ITE, cadical's
-  `elimxorlim`=5 as `BVE_XOR_ARITY_LIMIT`.
-  **Reachability (pre-registered, checked FIRST — [[ab-arm-identical-artefacts]]):** counters `c bve-gates … ite … xor; … resolvent pairs saved`.
-  Probe `benchmarks/probes/bvegate-reach.sh`, 120 fuzz-population cases under `--bve-stress-policy`: **ITE 47 · XOR 318 · 5215 resolvent
-  pairs saved** (equiv 63, andor 244). The fuzz circuit generator gained an **ITE op** (`generators.py` gen_fuzzsat, 4-clause MUX) so the ITE path
-  is not fuzzed vacuously — XOR was already reachable through its XOR op.
-  **Fuzz GREEN on four legs — both proof formats × two schedules** (600 cases each + the 14-entry corpus each,
-  ASan/UBSan debug build): `--bve-stress-policy` native DRAT **0/600** (SAT 324 / UNSAT 196) · `--bve-stress-policy
-  --lrat` **0/600** (SAT 326 / UNSAT 195) · `--random-policy` native DRAT **0/600** (SAT 302 / UNSAT 170) ·
-  `--random-policy --lrat` **0/600** (SAT 300 / UNSAT 169). Every UNSAT proof-checked, every SAT model-checked,
-  `tools/fuzz/failures/` empty. ctest **44/44** including `micro_proofs` and `sweep_proofs`.
-  **UNPRICED — the A/B is specced and unrun; see the Log entry.**
-- [x] **SCHED-C9 · `jumpreasons` (SP-JUMP-1)** — **PORTED, ships OFF** behind `TACTIX_JUMP_REASONS=1`; counter `c jumpreason`
-  (`stats.jumped_reasons`). Row + closure record: `implementation-notes.md` §13.2. **Three of the row's premises were wrong.** (a) It is
-  **kissat-only** — `grep jumpreasons cadical/src` is empty, and cadical is the reference that also emits LRAT. (b) The propagation-site gate is a
-  formula-SIZE gate, not the binary-fraction one: `classify.c:9` sets `bigbig=false` for `clauses <= smallclauses`=**1e5**. (c) **"Free" is false
-  here, and the reason is N2**: a jumped reason names a clause the checker does not hold, so `chain_record`, `kernel_reason_walk` and the
-  delete-binary live-reason guard (×2) all expand it back into its two real antecedents. **And the expansion cannot be done at record time** —
-  doing it recursively there was fuzz-RED (12/1500 native-LRAT rejections): whether the resolved-away literal needs an antecedent depends on the
-  FINAL clause, and if it lands in the clause its reason is a **satisfied hint**, the same trap the shrink UIP is already guarded against. The
-  shipped form defers to `chain_expand_jumped`, run from `chain_emit` against the final clause; it iterates, so jump CHAINS still work.
-  **This IS the phase-1 revert** (`e26492b`, "binary-reason jumping (kissat jumpreasons)"): `summle` −27 %, `9vliw` **+2×**. Its stated escape
-  hatch — "needs the bigbig classifier" — is **refuted by (b)**: `9vliw` is 179,492 clauses / 88.8 % binary, so kissat's gate is ON there and the
-  classifier would not have saved it. What is left is one laptop-era single draw on a kernel with no chrono/OTFS/reason-side bumping/dynamic
-  tiers/inprocessing, so it ships OFF and gets re-derived rather than banked as a deviation. **Counters, so no arm is vacuous:** OFF is
-  byte-identical to the pre-port binary (47 fuzz CNFs, 31 with proofs, 0 diffs, `c jumpreason` = **0**); ON reads **78,231,117** over 52 and moves
-  conflicts on 7; under `--random-policy` it reads **6,618** over 30. Fuzz ON, seed 20260805, 1500 cases each, 0 failures: native DRAT (614 UNSAT) ·
-  native LRAT (615 UNSAT) · `--random-policy` DRAT (488 UNSAT); corpus 14/14 both ways; ctest 44/44 release and ASan/UBSan debug. **A second seed
-  is owed** — the standing expectation for a proof-path change — and belongs with the A/B window, since HEAD's own proof path is unchanged.
-  **No `calculus.md` change, and that is a claim, not an omission:** M3's precondition, effect and proof delta are untouched — the jump
-  only changes WHICH existing clauses the RUP chain cites, never what is added or deleted. It is not `H`-only either (unlike C7 it moves the LRAT
-  chain), which is why the engineering price is written down in `implementation-notes.md` instead of being waved through.
-  **▶ THE A/B THAT DECIDES THE DEFAULT (pre-registered, not yet run).** Same-window **Tier B + Tier C**, two pin dirs from ONE commit with matching
-  binary shas (CLAUDE.md build-dir rule), node-pinned, `--baseline kissat --baseline cadical`. Arms, knob IN THE COMMAND:
-  `A0 = build/pin-jump-b/tactix` (shipped, OFF) · `A1 = env TACTIX_JUMP_REASONS=1 build/pin-jump-b/tactix`; Tier C the same out of
-  `build/pin-jump-c/`. **Pre-registered counter, checked FIRST: `c jumpreason` must be 0 on A0 and > 0 on A1 for every instance** — an arm whose
-  counter did not move was not tested ([[ab-arm-identical-artefacts]]). **Ship criterion:** A1 ships ON only if it is non-worse on BOTH tiers
-  (#solved first, then PAR-2 beyond the 6.72 floor) **and** `9vliw_bp_mc` — the instance that decided the phase-1 revert, and the specific
-  falsifier here — is not regressed; a single-instance headline is not a verdict, so a decider gets paired draws ([[chaotic-instance-veto]]). If
-  A1 loses, the row converts to an accepted deviation in §13.3 with THIS measurement, and the removal path is a per-formula gate (kissat's
-  `bigbig`), which needs a classify call in DefaultPolicy — Stage D territory, not a Stage C wire.
-
-- [x] **SCHED-C10 · the dynamic-tier consumer audit (`SP-TIER-2`)** — closes the HIGH row as an **audit + accepted
-  deviation** (`implementation-notes.md` §13.3), not as a wire, and the audit is the result. **The "one consumer here,
-  eight in cadical" headline does not survive reading the eight at their use sites:** `walk.cpp:858` and
-  `walk_full_occs.cpp:673,758` are unreachable at cadical's shipped defaults (`walkredundant`=0, plus `walkfullocc`=0 for
-  the pair), `clause.cpp:140`/`:237`/`sweep.cpp:1165`/`decompose.cpp:630` are the SAME action (`mark_added`), and
-  `subsume.cpp:388` gates a clause class our C1/C2 never schedule. Of the direct reads the row also listed, `reduce.cpp:35`
-  is the flush pass (`flush`=0) and **both `promote` sites read the tier only for a LOG string and `stats.promoted1/2`** —
-  in kissat too (`promote.c:11`), so there is nothing there to wire. **Polarity finding in the other direction:** cadical's
-  vivify is on the STATIC 2/6 by default (`vivifycalctier`=0); it is kissat's `vivifyfocusedtiers`=1 that makes SCHED-C1
-  the reference's shipped behaviour, so C1 was right about one reference of two. Also recorded: kissat's live macros are
-  `TIER1 = tier1[0]` but `TIER2 = tier2[**1**]` (`internal.h:255-256`, the `focusedtiers` form `#if 0`'d out).
-  **Landed as code:** `Stats::tier2_band_dynamic/static` inside the aging walk `reduce_apply_refs` already does (free), a
-  `c tiers` stats line, and `TIER1_STATIC`/`TIER2_STATIC` named in `reduce.hpp`. Behaviour-neutral — counters only.
-  **The blast radius is real, which is why this is not a "the gap is small" excuse** (probe `1584747`,
-  `benchmarks/probes/scratch/tier2/`): `battleship` live tiers **26/34**, **1,025,943 redundant clause-visits admitted by
-  the dynamic tier vs 0 by the static 6**; `9vliw_bp_mc` 3/10, +35.5 %; `rbsat` 2/6, +3.3 %; `mod4block` 1/6, +0.2 %.
-  **Why closed anyway:** every remaining consumer filters a set we do not populate — SCHED-F1's `touched` stamps only
-  IRREDUNDANT creations and `subsume_forward.cpp:44`/`strengthen.cpp:24` reject every redundant clause — so wiring the
-  tier now filters the empty set ([[ab-arm-identical-artefacts]], predicted rather than discovered). Removal path = three
-  named triggers with pre-registered counters in §13.3: **T1** F1's producers gain the redundant path (then the admission
-  test is the full three-disjunct predicate, incl. the survivor envelope `lim.keptglue/keptsize` we lack) · **T2** C1/C2
-  gain a redundant scope · **T3** Vivify gains kissat's tier1/tier2/tier3 buckets — **we never vivify tier3** although
-  `default_policy.cpp:1481` sizes the redundant share as kissat's "3+3+1 = 7". T3 is the only non-statistics,
-  non-incremental `k.tier1` consumer either reference has outside reduce.
-
-#### Stage D — the authored schedule and the two clocks (T6 + the global slot rows)
-
-- [x] **SCHED-D1 · an explicit, authored phase order AS DATA** `[wire]` — landed 2026-08-05. `AUTHORED_SLOT_ORDER` (a table
-  `default_slot_order()` exposes) replaces `strcmp` + `move_to_back`; membership stays registry-derived and an unauthored rule is appended, with
-  `test_scheduling` failing the build if one exists. Fixes all four SP-SLOT-4 accidents at once: Substitute (ELS) now precedes Backbone/Probe/
-  TransitiveReduce/Factor, Congruence opens the pass and feeds Substitute, Vivify precedes TransitiveReduce, BCE closes instead of opening.
-  **UNPRICED**; arm `TACTIX_SLOT_ORDER=legacy`, source counter the `c slot-order` line (`authored`/`legacy` + the live sequence).
-- [x] **SCHED-D2 · split the slot into a PROBE group and an ELIMINATE group** `[arch]` — landed 2026-08-05. `SlotGroup` + two `SlotClock`s;
-  the phase body is now `run_slot_phase(k, group, stop)` and the search loop checks probing first (kissat `search.c:214-217`, cadical
-  `internal.cpp:322-325`). Probe clock = `probeint`100·NLOGN, eliminate clock = `eliminateint`500·NLOG2N, both size-scaled — kissat's formulas, not
-  cadical's near-constant `probe.cpp:980` spacing, so only ONE thing changes. **The "5×" in `SP-SLOT-1` is the BASE-CONSTANT ratio, not the realized
-  one**: the cumulative NLOGN-vs-NLOG2N ratio is ~2.4× and grows only as √log, and **kissat itself runs 11 probings vs 5 eliminations on `sted5`**
-  where we now run 12 vs 6 (one clock gave the probing family 6). Group mapping is the references' own membership, argued row by row in the table.
-  **UNPRICED and expected to move numbers** — arms/spec in the Log entry; source counter `c slot-clock`.
-- [x] **SCHED-D3 · slot-level new-material watermark + the reduce coupling** `[arch]` — landed 2026-08-05, one gate per clock: ELIMINATE waits for
-  new material (`Stats::bve_marks` or new root-fixed vars since phase entry — kissat `eliminate.c:33-38`, cadical `elim.cpp:75-80`), PROBE waits for
-  a reduce since its last phase (cadical `probe.cpp:23`). First phase of each clock exempt. **Both are SAFETY VALVES and measured near-inert**
-  (`blocked` counters below) — `test_scheduling::test_slot_gates_decline_without_new_material` is what proves the mechanism, because a tier run
-  cannot tell "correct and quiet" from "wired to nothing". **The one real finding is a measured trap:** counting kissat's/cadical's mark-bit FLIP
-  instead of the mark EVENT wedges the elimination clock shut for the rest of the solve here — our `bve_retry` bit is cleared only by a BVE attempt
-  and BVE's admission can decline every dose, so no flip ever happens. `sted5` went 274 k → 1.15 M conflicts, 6 elimination phases → 1. Recorded at
-  `Stats::bve_marks`.
-
-#### Stage E — order and resumption become POLICY OBJECTS (the architecture the RL agent needs)
-
-- [x] **SCHED-E1 · `CandidateOrderPolicy` sub-policy + generalized `SlotEntry::cursor`** `[arch]` — landed 2026-08-05, two commits.
-  **(1) The 660-line `run_slot_phase` Stage D's report nominated for breakup is split** along the effort ledger's own DOSED/BATCH axis
-  (`slot_entry_admissible` · `slot_entry_thresh_declines` · `run_dosed_entry`+`bve_dose_declined` · `run_batch_entry`+`factor_entry_declines`/
-  `factor_dose_config`/`run_budgeted_batch`/`run_vivify_dose`), phase state made explicit in `SlotPhaseCtx`, control flow in `SlotStep`. Pure
-  restructuring, gated the way this project gates a pure move: **byte-identical DRAT + identical trajectory + identical per-entry `c slot`
-  telemetry on 4 Tier B instances** (job `1584689`, probe `e1-split-identity.*`), sted5 included so Factor's declining path is exercised.
-  **(2) `CandidateOrderPolicy` joins the SubPolicy surface** (the FIFTH category — the H6 super-class it would have needed already landed with
-  S1b, so the answer was reparent, not invent), and **SCHED-B3's `Kernel::transitive_cursor` becomes `SlotEntry::cursor`**, off the rule and
-  onto every dosed entry that opts in (Probe/Backbone/TransitiveReduce ON, BVE OFF — its schedule is occ⁺·occ⁻-ordered, not key-ordered, and it
-  already owns `bve_retry`). Arm `TACTIX_CURSOR_<RULENAME>=0|1`; counter the `c cand-order` line.
-  **▶ THE MIGRATION IS EXACT AND THE GENERALIZATION IS NOT INERT** (job `1584716`, probe `e1-cursor.*`): with the two NEW cursors off, all four
-  instances are **byte-identical** to the pre-E1 build, so moving B3's cursor rule→policy changed nothing; with them on, **Probe rotates on 44 of
-  45 doses and advances 2,719 of 878,094 enumerated candidates (0.3 %)** on `9vliw` — i.e. before this, Probe re-probed the same ~60-literal head
-  on every one of 45 phases and never saw the other 99.7 %. Backbone 3.6 %. That is B3's starvation finding at a far larger scale, and it is the
-  reason the item exists. **UNPRICED** — conflicts move both ways on the 4 probes (`b22_1` −6.8 %, `FmlaEquivChain` −2.4 %, `sted5` identical,
-  `9vliw` +4.9 %; proofs shrink on three of four); A/B spec in the Log entry.
-- [x] **SCHED-E2 · the ordering arms, one per rule, each independently gated** `[wire]` — landed 2026-08-05. Six arms behind
-  `TACTIX_ORDER_<RULENAME>` (spelled from the registry name, so a newly dosed rule gets its own knob for free): `native` (**the shipped default
-  everywhere and it stays there — no arm ships without a measurement**) · `reverse` · `random` (seeded splitmix64, replayable) · `occ-asc` ·
-  `occ-desc` · `negocc-desc` · `heuristic`. Three are reference ports read at the use site: **kissat `transitive.c:270-294` sorts its transitive
-  probes by the untried mark then EVSIDS score (stable) / VMTF stamp (focused) ascending** — we enumerate by literal index — and **cadical
-  `probe.cpp:621-624,685,763` probes the literal with the MOST negated binary occurrences first** (rank + pop-from-the-back, which reads backwards
-  from the comment alone). A knob on an entry the policy never orders **aborts** rather than being ignored ([[ab-arm-identical-artefacts]]).
-  **REACHABILITY PROVEN AT THE SOURCE** (job `1584734`, probe `e2e3-arms.*`): on `9vliw` all four arms reorder — Probe `negocc-desc` 718,018 of
-  718,068 positions moved, Backbone `occ-desc` 717,132, TransitiveReduce `heuristic` 436,819, BVE `occ-asc` 148,409; BVE reads `lists 0` on
-  `b22_1`/`sted5` because it is never dosed there, and the counter says so instead of the arm passing vacuously. **UNPRICED** — the four-arm bundle
-  moves `9vliw` 348,630 → 234,825 conflicts and its proof 64.0 → 43.4 MB, but that is ONE instance and a BUNDLE; the A/B spec in the Log entry
-  prices one rule at a time.
-- [x] **SCHED-E3 · the effort budget's UPPER clamp (ledger `SP-EFFORT-CEIL-1`)** `[wire]` — landed 2026-08-05, added to Stage E because an entry
-  whose window can grow without bound is never cut, and an entry that is never cut makes E1's ordering question moot for it. **The row's headline
-  was wrong and reading the use sites is what showed it:** there are THREE reference schemes — kissat `SET_EFFORT_LIMIT` (`kimits.h:135-170`,
-  **floor only; kissat ships no `maxeffort` option at all**, and ours is a transliteration of exactly this), cadical's ticks macro (neither), and
-  cadical's PROPAGATIONS scheme, the only clamped one. That scheme is an ORDERED composition — `max(mineff)` → `min(maxeff)` → `max(2·active())`
-  — whose LAST step is a floor that can lift the delta back above the ceiling (`elim.cpp:781-787`, `subsume.cpp:351-357`); reading it as a clamped
-  range gets it backwards, and `test_scheduling::test_effort_ceiling` pins the order. Ported in that order to the entries whose currency matches a
-  clamped cadical technique: BVE↔elim 2e9 resolutions, SubsumeForward/Strengthen↔subsume 1e8 partner visits. TransitiveReduce deliberately gets
-  none — cadical's 1e8 is PROPAGATIONS and our meter is a cache-line proxy. **MEASURED INERT and that is the result** (job `1584734`): the shipped
-  constants give `clamped 0 floored 0` on every entry of `9vliw`/`b22_1`/`sted5`; forced to 1e5 the clamp fires 18/21/13 times, **and `b22_1` and
-  `sted5` are still byte-identical**, so those rounds never spend to their limit either. It ships ON (one compare per occasion) on parity grounds
-  with the inertness recorded, not as a green headline. Arms `TACTIX_EFFORT_CEIL=0` / `TACTIX_MAXEFF_<RULENAME>=N`. **Not closed by this:
-  Congruence/Substitute still have no meter at all** — that is `SCHED-A2b`'s open finding and the 131,327 ms Congruence application belongs to it.
-
-#### Stage F — repetition suppression (T2): the touched-epoch substrate
-
-- [x] **SCHED-F1 · the substrate + its first consumer (C1/C2)** `[arch]` — landed 2026-08-05. `Kernel::touched`
-  (a per-variable EPOCH STAMP, not a bit) + `touch_epoch` + `kernel_touch_sync_fixed`; C1/C2's canonical rounds
-  filter their candidate list with `kernel_clause_new_material` and advance their own watermark only on a round
-  that completed. **UNPRICED**; off arm `TACTIX_TOUCH_MARKS=0`, source counter the `c touch` line.
-- [x] **SCHED-F2 · C1/C2 completeness + resume** `[arch]` — landed 2026-08-05. A cut round RE-ARMS the
-  candidates it never reached (kissat forward.c:589-645) instead of blocking its watermark, so the next
-  round resumes at the tail; `Kernel::subsume_complete`/`strengthen_complete` expose the fixpoint.
-  **The C1→BVE BOUND coupling T5 asks for is REFUSED**, with the argument, at `implementation-notes.md`
-  §13.3 `SP-REPEAT-COUPLE`: neither reference does it, and the naive conjunct is self-wedging (BVE's
-  resolvents are C2 material, so a productive C2 would hold the bound at 0 forever — SP-SLOT-5's failure
-  exactly). The reference's REAL wire (an incomplete C1/C2 holds the elimination outer loop open) landed
-  instead, off arm `TACTIX_SUBSUME_HOLD=0`, and is **measured INERT** — sentinel `c subhold` = 0.
-- [x] **SCHED-F3 · X1/X2/X4 repetition suppressors** `[arch]` — landed 2026-08-05. BCE, HyperTernaryRes and
-  Instantiate now filter and resume their canonical rounds on the substrate. BCE forced the substrate's
-  second half: it is the one consumer that needs DELETIONS (removing an opposite occurrence is what blocks
-  a clause), so `Kernel::removed` is a second stamp array rather than folding deletions into `touched`,
-  which would have weakened C1/C2's filter where the measured saving is. **The delay ladder for metered
-  entries is DEFERRED, not done** — it lives in DefaultPolicy's slot loop (`!e.meter`) and extending it to
-  metered entries is per-entry productivity bookkeeping, i.e. Stage E's file and Stage E's shape.
-- [x] **SCHED-F4 · Factor per-literal marks** `[arch]` — landed 2026-08-05. kissat's `flags->factor`
-  (inline.h:60-66, consulted factor.c:922) on the substrate: the seed heap is built only from literals
-  with new material, instead of an O(live literals) pass every round whose `score_of` charges
-  `factor_ticks` proportional to each watch list — i.e. the round was spending its own budget rebuilding a
-  heap that mostly could not have changed. Coarser than kissat on polarity (our stamps are per variable).
-  All three of the round's early exits are reachable, so the F2 re-arm is live here.
-- [x] **SCHED-F5 · Vivify leftover prioritization** `[arch]` — **DONE 2026-08-05 via `SCHED-G3`**, which is
-  where Stage F routed it. The finding that sent it here stands: kissat's `Clause::vivify` is a per-CLAUSE
-  PRIORITY bit, the stage-F substrate stamps VARIABLES, and re-arming a cut round's tail over variables
-  arms every clause over them, so the partition goes inert. **The `Clause::flags` bit WAS the right
-  answer** — `glue`'s 24 bits saturate in `set_glue` and glue is bounded by clause size, so bit 8 is free
-  and 23 bits (8.4 M) is as unreachable as 24 was; the side-table alternative was correctly rejected,
-  since the arena `Ref` is not GC-stable and the only GC-stable name a clause has is its proof id (a hash
-  lookup for one bit). Semantics are kissat's `vivify.c:265-302, 1311`: armed on every scheduled
-  candidate, cleared the moment one is TRIED, and **re-armed across the whole scope when the leftover set
-  empties**, so it can only prioritise, never suppress. It is also the first resumption Vivify has ever
-  had — a BATCH rule, so Stage E's `SlotEntry::cursor` never applied to it and every round restarted from
-  the same head, the defect E1 found in Probe. Reachability is a PAIR, not one count
-  ([[ab-arm-identical-artefacts]]): `c vivify2` prints `prio` and `rearm`, and on `Ptn-7824-b18` only
-  **100 of 423 rounds** re-armed, so on the other 323 the bit really did select a tail.
-- [x] **SCHED-F6 · the REDUNDANT half of the substrate** `[arch]` (SP-TIER-2's residue, requested after C10) —
-  landed 2026-08-05, **SHIPPING OFF** behind `TACTIX_TOUCH_REDUNDANT=1`. `kernel_likely_kept` is cadical's
-  `likely_to_be_kept_clause` with all THREE disjuncts, including the one we had no counterpart for — the
-  reduce **survivor envelope**, now published as `Kernel::kept_glue`/`kept_size` out of `reduce_apply_refs`
-  (cadical `reduce.cpp:147-156`). **OFF is the argued default, not an oversight:** extra stamps only ever
-  WEAKEN a round filter, and every stage-F consumer scopes itself to irredundant clauses, so with no
-  consumer for the redundant band this would be a measured cost buying nothing. **The pre-registered
-  anti-vacuity pair is counted unconditionally** — `c touchred` prints `touch_redundant_dynamic` vs
-  `touch_redundant_static6`, so `dynamic > 0` proves the stamps fire and `dynamic != static6` proves the
-  scope MOVES with `k.tier2`; a single count could show neither. Pinned by
-  `test_subsume.cpp::test_touch_redundant_scope`, which covers all three disjuncts separately.
-  **The check PASSED** (probe `1584772`): `battleship-14-26-sat` **345,038 dynamic vs 0 static-6**,
-  `9vliw` 236,570 vs 49,229, `rbsat` 265,255 vs 147,855 — so F7's set is large and, on `battleship`,
-  did not exist at all before C10's dynamic tiers.
-- [x] **SCHED-F7 · the tier band's consumer half — C2 ONLY, and it re-diagnosed F6** `[wire]` — landed
-  2026-08-06 (branch `sched-f7-close`), and it closes `SP-REPEAT-*`, the last of Track SCHED's twelve
-  HIGH parity rows, **as an accepted deviation** (`D-C1C2-VICTIM`) rather than as a default flip. Three
-  findings, in order of weight.
-  **(1) F6's "counterproductive" reading was a SYMPTOM, and the cause is the number of ARRAYS.** F6
-  stamped the band into `touched` and measured 820× the marks for zero additional skips anywhere, which
-  reads as "no consumer yet" but is not: cadical's `mark_added` gives a likely-kept REDUNDANT add the
-  `subsume` flag and *explicitly withholds* `block` and `factor` (`clause.cpp:59-67`). One shared clock
-  where the reference has several means learned-clause traffic saturates the filters of the five
-  consumers that cannot act on the band. The band now stamps a THIRD array, `Kernel::touched_kept`, read
-  by C2 alone — the same split `Kernel::removed` made for BCE, pointed the other way. **Isolation is a
-  theorem, not a measurement** (every watermark is a snapshot of the one monotone clock, so extra
-  increments cannot move any `touched[v] > w` answer) **and it is also measured**: on `battleship` the
-  band ON moves the epoch 23,270 → **10,744,990** (461×) and every consumer counter is IDENTICAL —
-  `touch_marks` 23,270, Factor 33,124 skipped, CCE 186 rearmed, C1/C2 visits 1,274 / 15,106 on both arms.
-  **(2) C1's half is dropped, not widened** (`SCHED-G2`: C2 absorbs 698,341 of C1's 698,351
-  subsumptions). Widening a rule the `c1c2` arm is about to remove would have been a fifth mechanism on
-  the absorbed half of a fused pass.
-  **(3) N1 was the part that had to ship ON, and it is a WIDENING.** The old code rejected redundant
-  clauses on all three paths at once, so *no* API caller could subsume or strengthen one — below the
-  abstract precondition, which constrains only the subsumer/partner. Now `instances()` is complete over
-  victims and `apply_instance` accepts any of them, band switch or not; the round keeps its own narrower
-  scope, the `touch_filter` category. Pinned through the registry by `tests/test_subsume_n1.cpp`.
-  **The band round scope SHIPS OFF** (`TACTIX_TOUCH_REDUNDANT=1`, now one switch for both halves) — it is
-  ~800× the irredundant population and no window has priced it; the A/B is pre-registered below.
-  Reachability is the F6 pair plus a consumer pair (`c f7band`): `9vliw` **180,739 band candidates
-  checked / 3,946 skipped → 2,244 subsumed / 25,220 strengthened**, `rbsat` **330,145 / 27 → 5,080 /
-  22,036**; `battleship` is **0/0** and that is honest — its single C2 round runs before the band exists.
-  No PROMOTION path (cadical turns a redundant SUBSUMER irredundant, `subsume.cpp:133-149`); we keep
-  subsumers irredundant, which is the stricter side, and redundant survivors are never CONNECTED as
-  partners.
-
-#### Stage G — the genuine revamps (each needs its own design pass)
-
-- [x] **SCHED-G1 · Congruence: budget + honest pricing** `[revamp]` — **the metering half is DONE; the
-  value-driven closure is SPLIT OUT to `SCHED-G4` with a diagnosis that changes what it should be.**
-  Design (frozen) `docs/design/2026-08-05-g1-congruence-governor-design.md`; ledger row `SP-CONG-BUDGET-1`.
-  **The A2b headline was stale**: one application is **8.25 s**, not 44 s — but 17 of them are
-  **140,303 ms = 47.1 %** of a 300 s `T105.2.0` solve, still the largest single cost in the codebase.
-  **Profile (`TACTIX_CONG_TIME`, stable to ±2 % across all 17 rounds):** extraction **57 %** — of which
-  **ITE extraction alone is 27 %**, yielding 2,280 gates and **zero merges** on this instance — closure
-  25 % (its table/`occ` half is 19.5 %, four times `canonicalize`), and **gate-vector teardown 16.6 %**
-  (~4.9 M `CongGate`, each owning heap vectors). The old attribution ("extraction plus the index sort")
-  is right about the majority and **misses the teardown and the table half**; **proof emission is
-  0.006 %** and is not a target. **Governor: METERED *and* closure-gated** — 100 ‰, `congruence_ticks`,
-  `budget_aware`, opening round exempt (`CONGRUENCE_INIT_TICKS`, Factor's shape) because the profile
-  says that is where the yield is (`hwmcc17miters`: ONE 2.97 s round, 710,722 merges, instance refuted).
-  `EffortSpec`/`SlotEntry` gain a `closure` flag and the two `!e.meter` declines are re-keyed to it, so
-  the watermark + ladder still bound how OFTEN a round starts while the ledger bounds how much one does;
-  Substitute keeps both through the no-row default. **`T105.2.0`: 47.1 % → 4.4 % of the solve with 72 %
-  of the merges retained.** Conformance table moved ALT → METERED with a third evidence regex, four
-  deliberate breaks re-verified. **Do not quote "44 s" again, and do not quote the 2,231-vs-14 unit gap
-  AT ALL — G4 measured it and the COMPARISON ITSELF is invalid (`SP-CONG-UNITS-1`). G4 also found this
-  item's proposed Y3 isolation (`--congruencebinaries=0`) switches off the wrong pass.**
-- [x] **SCHED-G4 · Congruence's UNIT channel — three mechanisms, not one** `[arch]` — **DONE 2026-08-06.
-  Y3 settled, Y1 landed, Y2 left open with a reason. ▶ THE "2,231 vs 14" HEADLINE IS RETIRED — it was
-  never the right comparison** and it is cited in three frozen docs, so read the ledger row
-  **`SP-CONG-UNITS-1`** (`implementation-notes.md` §13.3) before quoting any of them. It compared ONE of
-  kissat's unit channels against ONE of ours: kissat derives **18,597 total root units** on `T105.2.0`
-  and attributes 2,231 (12 %) to congruence only because the binary sweep lives *inside*
-  `kissat_congruence`; we derive that class in V1/V2, counted as `probe_failed`/`backbone_failed` —
-  **32 + 6 = 38** on the same instance — and 0 in Congruence. Real gap, one mechanism wide, not 160×.
-  **▶ AND THE ISOLATION THIS ITEM SPECIFIED MEASURES THE WRONG THING:** `--congruencebinaries=0` gates
-  `extract_binaries` (`congruence.c:2226-2228`), a *gate-extraction* helper — `find_equivalences` runs
-  unconditionally at `congruence.c:4615`. Instrumented the reference instead (phase-tagged
-  `learn_congruence_unit`, the only INC site): all 2,231 split exactly, one run, no confound —
-  `extract_gates` **0** · **Y1 `find_units` 844 (37.8 %)** · **Y3 `find_equivalences` 0 (0 %)** ·
-  **Y2 cascade 1,387 (62.2 %)**. **Y3 contributes zero units**; its overlap with V3 Substitute is real
-  but sits in the MERGE channel (**3,513 of 14,589 merges, 24 %**), so it resizes the `congruent`
-  comparison and never the `congruent_units` one. **Y1 IMPLEMENTED** as V6a (`find_binary_units`, calculus
-  §6 V6a): `(l∨o)`+`(l∨¬o)` ⇒ `{l}`, one linear sweep of the binary watches at the head of the round,
-  batched into the existing `PendingUnits`, chain **replayed** not built from the two `kernel_binary_id`s.
-  `c congy1` **T105 1,876 · b22_1 113 · 9vliw 8 · miter 0 · sted5 0**, all emitted, `unjustified` 0.
-  **UNPRICED — A/B specced in the Log entry, unrun.** Two named residuals, both in the ledger row rather
-  than as new ids: **(a) Backbone's dosing may be the better fix** — Y1's inference is a strict SUBSET of
-  V2 Backbone's precondition, and Backbone probes 173,592 literals on `T105` for **6** failed ones, so the
-  sweep and the dose are two schedules of one inference and only one should ship; **(b) Y2** needs the
-  closure to mutate `τ` mid-round with every emitted chain still checkable across the mutation, which is
-  where this rule's four historical defects live.
-- [x] **SCHED-G2 · C1 vs C2: is C1 doing anything?** `[wire]` — **ANSWERED 2026-08-05, and the answer is NO.**
-  Over 7 instances C2 absorbs **698,341 of C1's 698,351** subsumptions (**residual 10**, all on one
-  instance), and dropping C1 would save **2.7–41.6 % of the C1+C2 pair's metered cost** at zero yield
-  (**19–42 % on the four instances where C1 has non-trivial yield**; the low end is an instance where C1
-  deletes 36 clauses in total). C1's own effort share is duplicated work. **The follow-up is a DOSE, not a
-  rule-off** ([[no-rule-off-configs]]) — A/B spec in the Log entry, unrun.
-- [x] **SCHED-G3 · Vivify cross-candidate trail reuse** `[revamp]` — **DONE 2026-08-06** (`d10200a`).
-  The reuse LOOP was never the mechanism; the ORDER is (cadical `vivify.cpp:35-42`), so the probe and
-  candidate orders land with it and the off arm reverts both. Validity invariant: every DB mutation is
-  preceded by `reset_to_root()`, so no trail crosses a change. Also took F5's `Clause::flags` bit and
-  C10's tier3 hand-off. Reuse 24–27 %, exactly 0 with the hatch off. **UNPRICED** ·
-  [x] **SCHED-G5 · binary-first watch layout** `[revamp]` — **DONE 2026-08-06, and it was NOT a revamp.**
-  The title conflated two things. The *inline encoding* — a binary is ONE tagged word in the watch list and
-  a binary propagation never dereferences the arena — **has shipped since the flat watch arena** and is
-  kissat's own scheme (`watch.hpp:22-30` ← `watch.h:13-40`); we are **stronger than cadical**, whose
-  16-byte `Watch` still holds a `Clause*` for binaries. What was missing is the *ordering* invariant
-  (kissat `large_clauses_watched_after_binary_clauses`) and its ONE consumer, the early break in
-  binary-only propagation. Landed as `Kernel::binaries_watched_first` + `stop_early` — no watch
-  representation changed, so none of the enumerated touch points moved. **Measured (counters only, jobs
-  `1585476`/`1585482`): covers 86.1/64.1/85.4 % of binary-only scans, skipping the 70.5/76.0/97.2 % of
-  each scan spent stepping over large entries.** Bit-exact by construction — the tick meter is
-  deliberately left at the full list length, so budgets and search do not move. Ledger
-  `SP-BACKBONE-2`. **Two follow-ons, both separated on purpose and both UNRUN:** `SCHED-G6` (harvest the
-  meter — kissat charges only `touched`; changes search shape) and `SCHED-G7` (per-LIST order bit — the
-  order in fact holds on **99.9 %** of scans, so the global flag drops 14–36 % of its own prize).
-  *(V5 Sweep is the largest block of reference scheduling we lack, but it is
-  already tracked as **Track R · R5** — not repeated here as a second checkbox.)*
-- [ ] **SCHED-G6 · charge the binary-only scan what it actually touched** `[wire]` — NOT STARTED. kissat
-  charges `touched = p - begin` (`backbone.c:200-202`); we charge the whole list so `SCHED-G5` could be
-  bit-exact. Taking the saving frees Backbone budget and **changes the search**, so it needs a same-window
-  A/B, not a bit-exactness gate.
-- [ ] **SCHED-G7 · per-LIST binary-first order bit** `[revamp]` — NOT STARTED. Measured prize: the global
-  flag is true on 64–86 % of binary-only scans while the LIST is actually ordered on **99.9 %** of them,
-  because one binary add anywhere clears the flag everywhere. A bit in `WatchHead` closes the gap. The
-  trap is the probing snapshot/restore path (`kernel_probing_end`), which restores content and size and
-  would have to restore the bit too — an unexercised path of exactly the kind Track H's ASan pass caught.
-
-#### Stage H — recorded residuals (cheap, additive, no dependency)
-
-- [x] **SCHED-H1** termination polling — **COMPLETE 2026-08-06, all three shares.** X1/X2/X4 (`d234ffa`,
-  six sites), Vivify (`d10200a`, with G3), C1/C2 (`c7beaa0`, six sites incl. the `*_try` pair, because
-  `work_budget` is a round device and an N1 policy driving `apply_instance` could not be stopped by
-  either governor). **No `!(++tick & 255)` window anywhere** — kissat's own shape, and the one
-  construction the task-#10 vacuity cannot recur in; removing a cadence the C1/C2 cut had reintroduced
-  recovered 13–14 % of reachability. Counters `c interrupt2`/`c interrupt3` increment inside
-  `kernel_rule_interrupt`, so a site cannot be added uncounted. **`battleship-14-26-sat`'s
-  7.3 s post-SIGTERM exit is NOT C1/C2** — ruled out by counters, see the C1/C2 entry.
-  · [x] **SCHED-H2** per-solve reset — **DONE 2026-08-06.** Fifteen state groups audited against the
-  references' use sites; most leaked. Worst: `inprocess.{initialized,ticks}` pairs with the kernel's
-  single tick meter, so on a fresh kernel `search_ticks()` UNDERFLOWED. `DefaultPolicy::reset_schedule`
-  RE-BASES rather than zeroes, so one reset serves a fresh formula and an incremental continuation.
-  Pre-fix failure was stark — solve #2 on a reused policy vs solve #1 on a fresh one: **300 vs 3,583
-  conflicts, 7,033 vs 165,241 proof bytes**, the reused arm skipping preprocessing entirely. ctest
-  `solve_reset`; a second guard proves the shipped SINGLE-solve path stays bit-identical, which is why
-  no A/B is owed. **This was an N1/§5.6 correctness bug**: a learned policy runs many solves per
-  process, so a leak makes its reward depend on episode order · [x] **SCHED-H3** Reduce
-  `first_reducible` scan bound — **CLOSED, measured-marginal, NOT implemented.** The bound binds on
-  40.2 % of 59 GB of arena words, but those words are **0.15 % of propagation traffic at the median,
-  3.25 % at the worst instance**. Deciding finding: kissat's watermark is stable only because its
-  collector re-partitions the arena every reduce; ours copies live clauses in order and never
-  partitions, so **11 of 57 instances measure under 1 % skippable**. Counters shipped so the claim
-  stays auditable; *fusing the three arena walks* is the better-value change and needs no invariant
-
-**▶ WHY THIS SERVES PHASE 6 (the user's explicit requirement).** Every `[arch]` item adds *observability or control* the learned policy needs and
-cannot get today: A1 gives per-entry occasions/declines/yield (the reward-shaping signal, and the labels the §5.6 admission exhibit lacks); B2's
-private meters make per-rule cost attributable, without which no credit assignment over rules is possible; E1 makes candidate ORDER a policy
-object — and under a cutting budget **ordering IS the scheduler**; F1's touched-epoch substrate lets an agent ask "what is new since I last
-acted?". **None of it narrows `instances()` or touches a guard**, and the one genuine N1 breach in the codebase is *repaired* by this track.
-
-### Other dosing / admission items
-
-*(The `(a)`/`(b′)`/`(c′)` labels other entries refer to are defined here — they are the Factor-admission /
-T3 thread, not a separate track.)*
-
-- [x] **(a) broad Factor admission, re-tested at HEAD — HELD** (2026-08-04; report
-  `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md`). The `j3037` veto that held it on 08-03
-  is RETIRED as a measured lottery; the real loss is `ContextModel`, which replicates 3/3 windows, plus the
-  T3 cost on both halves.
-- [ ] **(b′) TARGETED Factor admission** — the live follow-up. The blanket knob is the wrong instrument, not
-  the wrong idea: the oracle ablation leaves **+54.17 PAR-2 and +3 solves on Tier B and +42.27 on Tier C**
-  on the table, Tier B wants Factor ON while Tier C wants it OFF, and the shipped gate is the best arm on
-  neither. Note the gate's own defect (it loosens monotonically over the solve) and the 0-for-5 record of
-  hand-designed formula-shape separators before proposing a sixth threshold.
-- [x] ~~**(c′) T3's kissat half moved 1.271× → 1.346× across TB4b**~~ — **SUPERSEDED 2026-08-06.** A far
-  larger effect landed on top of it: T3 went to 1.72× kissat / 1.22× cadical once V5 Sweep was
-  scheduled, and the same-window A/B plus the governor diagnosis attribute that to Sweep's
-  unenforced effort ceiling (overshoot 73.2×). Do not re-open the TB4b question in isolation;
-  re-derive from the post-governor-fix tier numbers. Old text: **(c′) T3's kissat half moved** — a real number attached to an unclosed
-  question, **now subsumed by the much larger 2026-08-05 Sweep regression; do not re-open it first.**
-- [x] Effort-budgeted scheduler increment 1 + prerequisites (revs 53–55; design `docs/design/effort-scheduler-design.md`)
-- **Exit:** see the phase-4 exit block above (T3 + N4 discharged + Tier D run).
+**Why this track also serves phase 7:** every `[arch]` item adds observability or control the learned policy
+needs — per-entry occasions/declines/yield, private per-rule meters, candidate order as a policy object, and
+"what is new since I last acted?". None of it narrows `instances()` or touches a guard.
 
 ## Phase 4.5 — engineering ingenuity on top of kissat (PIN, rev 67; renumbered from 3.5, rev 83)
 
@@ -1550,2528 +431,117 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 
 ## Log
 
-### 2026-08-06 — plan rev 83: capability and tuning become separate gates
-
-**The user's restructure, and why it is the right cut.** Phase 3 was a performance phase whose gate (T3)
-moved three times in one day — 1.34× → 2.16× → 1.34× — largely because of defects, not design. Meanwhile the
-scheduling-parity ledger closed eleven of twelve rows, saying we *own* the mechanisms, while the behavioural
-audit found our BVE eliminating **zero** variables on 7 of the 9 instances where kissat eliminates anything and
-Factor adding zero on 6 of 9. Inventory and effectiveness came apart completely. Rev 83 puts the phase boundary
-on that seam: **phase 3 exits on the rule inventory; the new phase 4 owns dosing, ordering and budgeting** and
-inherits **T3 + discharging N4 + one Tier D campaign**. Old 3.5→4.5, 4→5, 5→6, 6→7.
-
-**Four decisions fix what the boundary means** (all four the user's, asked before any edit):
-1. **"Implemented" = registered + guard/instances/apply + N1-exposed + N2-clean + fuzz-green — not
-   yield-comparable.** So V5 `Sweep` counts as done today at 1 equivalence against kissat's 545, and its yield is
-   a phase-4 dosing item. The alternative would have made the phase boundary depend on a number that moves.
-2. **X5 `Condition` stays a reasoned no-implement** (`SP-COND-1`). Its witness is a cube; `ρ` carries one
-   in-clause literal, so implementing it is a reconstruction-format revamp across five `push_witness` sites, not
-   a rule addition. The completeness bar therefore admits two forms, implemented *or* reasoned-no-implement with
-   evidence and a reopening path.
-3. **T3 and Tier D both move to phase 4.** T3 is the outcome half of the tuning phase; Tier D (793, frozen
-   08-03, never run) is its scale evidence. The **T4** gate on Tier D stays phase 5's.
-4. **N4 is named as phase 4's defining obligation.** It is a non-negotiable measured UNMET (7 cruder behavioural
-   rows), so closing phase 3 on inventory alone would have left it looking discharged by a closed track. It is
-   *scheduled*, not weakened — `implementation-notes.md` §13 now states that discharging the ledger is a gate.
-
-**What this makes owed for the phase-3 exit is exactly two items**, and both are capabilities the ledger already
-identified as needing a rule rather than a schedule fix — **Track R · R9** `X6 HyperBinaryRes` (`SP-PROBE-2`;
-cadical `probehbr`, new catalog row §5.2) and **R10** kitten-based BVE definition extraction (§11 O11; the
-sub-solver is already in-tree for Sweep, so it is a consumer, not a port). Every other open `WE_LACK_IT` row —
-`SP-SWEEP-2` ladder, `SP-BVE-BWD-1` wire, `SP-COMPACT-1` compaction, `SP-CHRONO-1`, `SP-VIVIFY-3` — is
-dosing/wiring/infrastructure and is phase-4 work.
-
-**Mechanics.** §8.3's T3 subset clause survives as a *strengthening* rather than a carve-out: its rev-51
-rationale was that gating phase 3 on the full set would penalise us for rules not yet shipped, and Factor and
-Sweep both ship now, so no instance's gap can be excused as a missing rule at the point T3 is evaluated. E2
-`Factor`'s stale phase-4 catalog tag corrected to 3. Tracks T, S, SCHED and the Factor-admission items moved
-under the new `## Phase 4` heading in this file — same work, new gate. `check-option-coverage.py` keys off the
-`Other dosing / admission items` heading and was updated with it. ctest **54/54**, `check-progress.py` clean.
-
-### 2026-08-06 — S-f CLOSED: the governor stays ON, and the replicate arm settled the noise question
-
-Window `20260806-150225-B-govon` / `20260806-150228-C-govon`, git `9fd5fcd`, one tier per node, three
-arms: `govon` (shipped) · `govoff` (`TACTIX_SWEEP_ENV_BUDGET=0`) · **`govon2`, bit-identical to `govon`**.
-
-**Verdict: govon ships.** The pre-registered criterion was "stays unless it LOSES a solve outside the
-may-not-gate set". **No arm loses a solve on either tier** — Tier C is 29/30 across all three, matching
-kissat and cadical; Tier B is 24/28 across all three. Tier C `govon` **355.76** vs `govoff` 370.61
-(−14.85 for the governor); Tier B is 109.19 vs 107.91, i.e. **inside replicate noise** and therefore a
-wash rather than a loss.
-
-**The `constraints_18` reading is a treatment effect, not fragility**, and the replicate arm is what
-proves it: `govon` **310.7 s** · `govoff` **1008.8 s** · `govon2` **310.0 s**. The two bit-identical arms
-agree to **0.7 s** while the hatch costs **698 s**. The aggregator flags this A/B UNDECIDED because that
-one instance is 157 % of the delta — correct as a generic guard, but here the "fragile" instance IS the
-mechanism's exhibit, and excluding it removes the treatment rather than testing robustness.
-
-**▶▶ THE MEASUREMENT RESULT, which outlives S-f.** Two bit-identical arms in one window:
-
-| | aggregate PAR-2 gap | max per-instance gap | solve flips |
-|---|---|---|---|
-| Tier B | **1.39** | **31.7 s** | 0 |
-| Tier C | **1.74** | **40.9 s** | 0 |
-
-So **same-window aggregates are precise to ~1.5 PAR-2** — four times tighter than the recorded 6.72
-floor — while **individual instances swing up to 41 s** between byte-identical runs. Against that,
-Tier C's shipped arm reading 334 → 477 → 356 across three windows today is **~140 PAR-2 of
-cross-window movement**, roughly 80× the within-window figure. Conclusion, and it should govern every
-future verdict: **a same-window arm delta is trustworthy and a cross-window absolute is not**, and a
-verdict resting on one instance must clear ~41 s before it means anything.
-
-### 2026-08-06 — SCHED-F7 closes SP-REPEAT-*: F6 was not "no consumer yet", it was ONE ARRAY
-
-**`SP-REPEAT-*` is CLOSED — the twelfth and last of Track SCHED's HIGH parity rows** — as an **accepted
-deviation with the measurement** (`D-C1C2-VICTIM`), the `SCHED-C2` / `SP-TIER-2` model. Branch
-`sched-f7-close`. `RV-S1` and `RV-S2` land with it, as the review's cadence note asked.
-
-**▶ THE FINDING: F6's measured counterproductivity was a symptom of the wrong number of stamp arrays.**
-F6 stamped the redundant tier band into `Kernel::touched` and measured `battleship` paying **820×** the
-marks for **zero** additional skips anywhere. That reads as "no consumer reads the band yet". It is not.
-cadical's `mark_added` gives a likely-kept REDUNDANT add the `subsume` flag and **explicitly withholds
-`block` and `factor`** (`clause.cpp:59-67`) — the reference has one flag per consumer where we had one
-clock for six, so folding the band in hands every learned clause to BCE/X2/X4/Factor as well, and
-learned-clause traffic outruns irredundant traffic by orders of magnitude. The fix is the split
-`Kernel::removed` already made for BCE, pointed the other way: a THIRD array `Kernel::touched_kept`,
-written only by band creations and read only by C2.
-
-**Isolation is a theorem AND it is measured.** Every watermark is a snapshot of the one monotone
-`touch_epoch` and every stamp writes that same clock, so `touched[v] > w` compares the temporal ORDER of
-two events; interleaving increments from a second array moves neither, so a consumer reading `touched`
-alone answers identically with the band on or off. Measured on `battleship` (probe `1587395`, counters
-only): band ON moves the epoch **18,620 → 10,740,340 (577×)** while **67 of the 86 stats lines are
-byte-identical between the two arms** — the excluded 19 are the 17 wall-clock `c timing` lines (not read
-here) plus exactly the two lines the band is DEFINED to change, `c touch`'s epoch and `c touchred`'s band
-marks. So `touch_marks` stays 18,620, Factor 33,822 skipped, C1/C2 1,274 / 15,106 visits, CCE 186 rearmed,
-and the solve is bit-identical. This is `[[ab-arm-identical-artefacts]]` used in reverse: identity is the
-wanted result, and it is only meaningful because the band-marks counter proves the arm really was
-different. Under F6's single array that same 577× is what erased Factor's skips.
-
-**▶ WHAT LANDED, in three parts.**
-1. **N1, ON, unconditional, and it is a WIDENING.** C1/C2 used to reject every redundant clause on all
-   three paths at once, so no API caller could subsume or strengthen one — *below* the abstract
-   precondition, which constrains only the subsumer/partner (`calculus.md` §C1/C2; deleting a member of
-   `R` is S2 `Forget`, no side condition). Now `is_victim` admits any redundancy, `instances()` is
-   COMPLETE over victims, and `apply_instance` accepts any of them whatever the band switch says. The
-   round keeps its own narrower scope — the `touch_filter` category. `tests/test_subsume_n1.cpp` drives
-   the registry surface and pins all of it, including that the round DECLINES the same clause the
-   instance surface accepts.
-2. **The band round scope, C2 ONLY, shipping OFF** behind `TACTIX_TOUCH_REDUNDANT=1`, now one switch for
-   both halves (stamps + scope + C2's widened filter read). **C1 is not widened** — `SCHED-G2` measured
-   C2 absorbing 698,341 of its 698,351 subsumptions, so widening a rule the `c1c2` arm is about to drop
-   would be a fifth mechanism on the absorbed half of a fused pass. Two things keep the widened round
-   honest: redundant survivors are **never CONNECTED** as partners (a partner justifies a deletion, so it
-   must not be forgettable — cadical has to PROMOTE a redundant subsumer instead, `subsume.cpp:133-149`,
-   and we have no promotion path), and the candidate order is **irredundant-first**, so the band is a
-   strict addition at the tail and cannot crowd the dose out of the irredundant work.
-3. **`RV-S1` + `RV-S2` together.** CCE's rotation on `k.stats.cce_rounds % ncands` is gone — order logic
-   inside a rule, 100 minutes after `SCHED-E1` deleted the last one, and a Stats counter made
-   behaviour-affecting so that `SCHED-H2`'s per-solve reset silently rotated it to index 0. CCE is now the
-   substrate's SIXTH consumer (`cce_touch_mark`, two-sided like BCE's) with F2's tail re-arm as the
-   resume, which is what the rotation was standing in for.
-
-**▶ A COST THE PROBE CAUGHT, and the invariant it produced.** CCE's first re-arm touched every literal of
-every unreached candidate, the way C1/C2's does — and CCE is cut so early that its tail is most of the
-arena. That made the re-arm a major producer on the shared clock. It only needs ONE mark: `changed_clause`
-has `need = 1`, so one changed variable re-offers the clause, where C1/C2 need two. One mark per candidate
-took `9vliw`'s whole substrate clock **8,125,397 → 5,566,054 marks (−31 %)** and handed the strength back
-to the other consumers — BCE **113,154 → 141,686** skipped (+25 %), C1 **0 → 136**, C2 **0 → 127**;
-`rbsat` −29 % marks. **Invariant: a re-arm writes exactly as many marks as its own filter needs.**
-
-**▶ REACHABILITY, both pairs, at the source** (probe `1587395`, counters only, no wall clock read).
-*Producer pair (F6's, unchanged):* `dynamic > 0` and `dynamic != static6` — `battleship` **243,976 vs 0**,
-`9vliw` 215,563 vs 46,749, `rbsat` 305,237 vs 178,139. *Consumer pair (`c f7band`):* `checked > 0` says
-the scope admits, `skipped > 0` says the filter still fires inside it — `9vliw` **207,625 checked / 4,397
-skipped → 1,150 subsumed / 26,550 strengthened**, `rbsat` **330,145 / 27 → 5,080 / 22,036**. **`battleship`
-is 0/0 and that is stated, not hidden**: its single C2 round runs before the band exists, so the consumer
-is unreached there even though the stamps are the largest of the three. *CCE (`c cce2`):* `rbsat` 40
-skipped / 15 advances / 10,656 rearmed against 412 tried — pair non-zero; `9vliw` 0 / 18 / 311,216 and
-`battleship` 0 / 1 / 186, i.e. **the RESUME half is live everywhere and the SKIP half only on `rbsat`**,
-because every CCE round is dose-cut and the re-arm then re-offers the tail. Recorded as `D-CCE-FILTER`.
-
-**▶ WEDGE ANALYSIS (Stage D's watermark lesson).** Three arguments, one per new mechanism. (a) The band's
-producers are on `kernel_add_large_clause`, the kernel's clause-creation path, not on any rule's admitted
-path, so no scheduling decline can starve them — and a STAMP has no clear pass to starve in the first
-place, which is the whole reason F1 chose a stamp over a bit. (b) `mark_advances == rounds` on every probe
-instance for both C2 (18/18, 15/15, 1/1) and CCE (18/18, 15/15, 1/1) with `checked`/`tried` non-zero, so
-no watermark is stuck and no filter is skipping everything. (c) The two known GAPS are yield-only and
-recorded: a clause that ENTERS the band after its creation was out of it carries no band stamp until
-something in it moves (pinned as a test, `D-C1C2-VICTIM`), and CCE cannot see a blockedness that Reduce
-created (`D-CCE-FILTER`, removal path = a fourth array for redundant removals). Neither can make a
-deletion unjustified: a filter decides what to TRY and every test is re-run against the live index.
-
-**▶ THE A/B SPEC — READY TO RUN, NOT RUN (a tier array was live in this window and no timing was taken).**
-Same-window Tier B + Tier C, **two pin dirs from one commit**, binary shas checked equal, node-pinned one
-tier per node, `--baseline kissat --baseline cadical`.
-
-| arm | command | what it isolates |
-|---|---|---|
-| `bandoff` | shipped default | the pre-F7 trajectory, byte for byte |
-| `bandon` | `TACTIX_TOUCH_REDUNDANT=1` | F6+F7 together: band stamps + C2's scope + C2's widened filter read. Nothing else moves — the isolation theorem, so this arm is a C2-only change |
-
-**PRE-FLIGHT, before any PAR-2 is read** (`[[ab-arm-identical-artefacts]]`): on `bandon`, `c f7band` must
-show **both** `checked > 0` and `skipped > 0` and `c touchred`'s `band marks > 0`; on `bandoff` all three
-must be 0. **AND the guard metric, which is the point of this A/B:** `c strengthen`'s IRREDUNDANT half must
-not collapse — read `strengthen_checked − strengthen_red_checked` and `c touch`'s C2 `skipped` on both
-arms, because the failure mode is the band eating C2's dose. The irredundant-first order exists to prevent
-exactly that, so if that number drops, the order is not doing its job and the arm should be abandoned
-rather than scored. **Ship criterion:** `#solved` first, then Tier C PAR-2 outside the 6.72 noise floor,
-with the aggregator fragility line read (`k=1` is not an answer, `[[chaotic-instance-veto]]`) —
-`mod4block` and the may-not-gate set do not decide it. **Predicted mechanism if it wins:** shorter learned
-clauses, so read `c strengthen`'s `strengthened` and the conflict count, not just the clock. **If it
-loses, the row stays closed as it is** — the deviation is already recorded with its measurement.
-
-**▶ THE PROOF DELTAS ARE CHECKED ON REAL INSTANCES WITH THE PATH PROVEN LIVE** (probe `1587413`) — this,
-not the fuzz legs, is F7's N2 evidence, because a fuzz leg cannot show that F7's code ran in it. Three
-UNSAT tier-B instances × both formats, band ON, certificate written and CHECKED, with `c f7band` printed
-next to the verdict so the run cannot be green-but-vacuous:
-
-| instance | native LRAT (lrat-check) | ASCII DRAT (drat-trim) | band checked / skipped | band subsumed / strengthened |
-|---|---|---|---|---|
-| `square.2.0.i.smt2-cvc4` | `c VERIFIED` (75.0 MB) | `s VERIFIED` (20.5 MB) | 21,269 / 163 | 162 / 3,498 |
-| `clique_n2_k10` | `c VERIFIED` (68.8 MB) | `s VERIFIED` (28.1 MB) | 235,984 / 961 | 3,718 / 17,072 |
-| `veer_axi…p23_transition` | `c VERIFIED` (160.4 MB) | `s VERIFIED` (94.1 MB) | 14,864 / 18 · 17,985 / 22 | 121 / 2,569 · 222 / 4,058 |
-
-So **4,001 band `del`s and 23,139 band `add_rup`+`del` pairs verify**, and the native-LRAT half validates
-our explicit CHAINS rather than re-deriving by RUP. `veer_axi`'s two rows differ because LRAT emission
-changes the tick budget and so the trajectory — the known format asymmetry, not a discrepancy.
-
-**Gates.** ctest **54/54** at HEAD — 48/48 on this branch's own base, and three `RV-S` merges landed
-underneath it during three rebases (`rvs-duplication`, `rvs-api-n1` 47 → 52, `rvs-coverage-hygiene` +1),
-so this branch contributes the last one, `subsume_n1` — plus all five conformance checkers
-(`config_wiring`, `effort_specs`, `option_coverage`, `comment_hygiene`, `check-progress`). Fuzz: four legs,
-`--quick` **10,000 cases each, 0 failures** — band ON × native DRAT (`1587397`, SAT 5,704 / UNSAT 3,959 /
-TIMEOUT 337), band ON × `--random-policy` × native DRAT (`1587398`, 5,704→5,021 / 3,223 / 1,756), band ON ×
-`--random-policy` × native LRAT (`1587399`, 5,020 / 3,218 / 1,762), shipped default × `--random-policy`
-(`1587401`, 5,024 / 3,224 / 1,752). The band-ON legs exist because the shipped default does not execute
-F7's new path at all. **Two honest limits on them.** (a) **`RV-S31`**: the measured TIMEOUT share on the
-three random-policy legs is **17.5 %**, consistent with the review's 12-of-74 livelock, so each N is a
-population minus an unmeasured timeout set — coverage, not a rate. (b) The three RP legs' verdict splits
-are within 4 cases of each other, so **nothing in the fuzz output proves the band-ON legs exercised the
-band**; that is what the `1587413` probe above is for, and why it prints the counter beside the checker
-verdict. **Re-run on the TWICE-REBASED tree** (this branch went under the `rvs-duplication` and
-`rvs-api-n1` merges, and the first of those replaced this rule family's open-coded watch stride with
-`k.watches.entries`): band ON × native DRAT `1587416` and band ON × `--random-policy` × native LRAT
-`1587415`, 10,000 cases each, **0 failures**, verdict splits 5,704 / 3,957 / 339 and 5,022 / 3,224 / 1,754
-against the pre-rebase 5,704 / 3,959 / 337 and 5,020 / 3,218 / 1,762 — so the merges are behaviour-preserving
-here and the evidence above is not stale. A THIRD merge (`rvs-coverage-hygiene`) landed under it
-afterwards and was **not** re-fuzzed for this branch: it touches `src/policies/` and `src/rules/bve/`,
-none of this branch's files, and it carries its own legs.
-
-### 2026-08-06 — the RV-S coverage + hygiene items: a fuzz leg can no longer read stronger than it is
-
-Branch `rvs-coverage-hygiene`, base `4f4989d`. Eight commits, one per item. **ctest 48/48** (the 48th is
-`proof`, new) and all five conformance checkers green.
-
-**▶ THE ONE THAT INVALIDATES BANKED EVIDENCE (`RV-S31`).** A case that never reaches a verdict runs
-**none** of the semantic oracles — model, proof and differential all need SAT or UNSAT — so it contributes
-nothing, and `fuzz.py` printed no number that made the loss visible. Measured on a release binary at ≤60
-vars (jobs `1587119`, `1587294`): **`--random-policy=7` loses 114 of 1000 cases (11.4 %) at a 10 s budget,
-the SAME 114 under DRAT and under native LRAT, against 0 of 1000 for DefaultPolicy.** Escalating the first
-24 to **600 s** — 60× the budget — leaves **18 of 24 still unfinished**, and the six that finish are the
-same six in both formats: so ~8.6 % of a random-policy leg does not terminate at all, ~2.8 % is merely
-slow, and Task #39's "5 tiny cases in `known-hangs/`" is a population. **Consequence for this file: every
-`--random-policy × N, 0 failures` line banked before today is over N minus an unmeasured population** —
-the legs were never wrong, their DENOMINATOR was unstated. `fuzz.py` now prints `coverage:` plus an
-explicit NON-TERMINATING line naming the effective N, keeps the cases with a repro under
-`<outdir>/nonterminating/`, writes `nonterminating.json`, and can fail a leg on
-`--max-nonterminating-frac`. A corpus entry that does not terminate is fatal too — a replay that cannot
-finish replays no oracle — with `--allow-nonterminating N` to pre-register a known-slow entry. **The
-diagnosis of the livelock itself is still open**; the deliverable here was making it impossible to miss.
-
-**▶ THE ANTI-VACUITY INSTRUMENT NOW COVERS 25 RULES, NOT ONE (`RV-S23`).** The per-leg `reached:` readout
-served a single counter (`input-restated`), so no leg could support a claim about any specific rule.
-`REACH_SPECS` now names every registry entry with the counter that is non-zero iff it fired; the summary
-prints the table, `--require-reached` makes a named rule's silence fatal, and **a spec whose print line
-never appears fails the leg** — the instrument is checked, not trusted. All three gates were shown to go
-RED (job `1587410`, `benchmarks/probes/rv-s31-harness-gates.sh`), including the misspelled-rule-name case,
-which would otherwise be a requirement that can neither fire nor fail. **First finding, and it is about
-our own legs: a 1000-case DefaultPolicy leg at ≤60 vars fires 19 of 25 entries — Probe, Backbone,
-TransitiveReduce, Factor, BVE and Reorder never fire**, so every "fuzz green" claim about those six rests
-on the random-policy legs alone, i.e. on the legs whose denominator was just corrected.
-
-**▶ THE TWO WITNESS-EMITTING RULES WITH NO DRIVER NOW HAVE ONE (`RV-S22`).** BCE and Substitute push
-reconstruction witnesses, where the failure mode is **a wrong SAT answer that no proof checker can see** —
-verbatim the justification `cce_stress_policy` gives for itself. `--bce-stress-policy` and
-`--substitute-stress-policy`: whole rounds to a fixpoint at every root with no effort budget, the instance
-surfaces drawn at random (Substitute's from its own `instances()`, so later payloads are deliberately
-STALE — that re-derive path is reachable no other way), the graph rewritten underneath by
-Congruence/Sweep/TransitiveReduce, ρ interleaved with BVE/CCE in a rotating order, entered off a
-propagation fixpoint, invariants checked PER STEP. Four legs × 4000 cases, DRAT + native LRAT, **0
-failures**, and the fire count was a GATE, not a footnote: BCE fired in **2787/3791** verdict-reaching
-cases, Substitute in **2897/3780** (job `1587335`; corpus replay `1587384`). The flag lives with the
-policies (`src/policies/stress_registry.cpp`) so `main` takes one parse branch and one dispatch arm for all
-future ones — `RV-S29`'s shape for that function, and the reason the next stress policy costs no `main`
-edit at all.
-
-**▶ N2's WRITER HAS A TEST (`RV-S24`).** `src/proof/proof.cpp` was only ever checked end-to-end through a
-checker, which cannot tell "the rule chose the wrong lemma" from "the writer mis-encoded a correct one".
-`tests/test_proof.cpp` compares whole byte streams: the binary-DRAT varint at both sides of the 128
-boundary, the sign bit inside that varint, `d` with and without its space, LRAT's id/chain/signed-hint
-layout, delete-by-id, `add_derived_unit` explicit in LRAT and SILENT in DRAT, the tautology predicate, and
-every primitive a no-op on an unopened `Proof`. **Shown to fail, not assumed to: four independent mutations
-of `proof.cpp` each abort it.** Also `tests/sweep_proofs.sh` tested `grep -qi 'verif'`, which matches
-`c NOT VERIFIED` — the same predicate that made the fuzz harness's native-LRAT oracle vacuous for the
-project's whole history; masked here by an exit status, and masked is not fixed.
-
-**▶ HYGIENE.** `RV-S25`: two decline reasons incremented nowhere were printed as a permanent `0 0`, which
-reads as "never declines for that reason" — the opposite of the field's purpose. `RV-S26`: `randec_enabled`
-now has `TACTIX_RANDEC`, **proven wired at the source** (49 sequences / 7626 random decisions on, `0/0`
-off, same verdict, job `1587380`) — SCHED-C7 is priceable. `RV-S28`: the last `-O3` warning is gone.
-`RV-S9`+`RV-R3`: one retention rule, mechanised in `tools/fuzz/retention.py`, and **the obvious criterion
-is wrong in a dangerous direction** — matching basenames calls **84 of 85** tracked fuzz logs uncited and
-would delete 58 files that frozen reports depend on, because citations are job IDs, sometimes only as a
-RANGE (`1584462`-`1584467`, four of whose six ids appear nowhere else). 11 uncited logs deleted; all 174
-probe outputs are cited and stay.
-
-**▶ CLOSING LEG ON THE FINAL TREE** (job `1587412`, ASan/UBSan, 3000 cases each): DefaultPolicy DRAT,
-DefaultPolicy native LRAT and `--random-policy=7` native LRAT, **0 failures on all three**, and the
-random-policy leg independently reproduces the loss on a different build and N — **338 of 3000 (11.3 %)**
-against 11.4 % on the release binary. The corpus replay also produced a finding: **two entries
-(`002`, `006`) never reach a verdict under DefaultPolicy**, so they exercise the CRASH oracle only — which
-is in fact their recorded pass condition (`006`'s meta says "runs clean past 60 s with the fix"), and the
-harness now says exactly that instead of scoring them as full replays. `run.sh` gives the corpus a 60 s
-budget rather than the 5 s case default; its entries are up to ~900 clauses and a sanitized build is slow.
-
-**▶ `RV-S29`, THE HALF THAT WAS SAFE.** `DefaultPolicy::solve` **536 → 237 lines**, by moving its two
-prologue units out verbatim (`configure_from_env` 54, `build_inprocess_slot` 246) so the CDCL loop can be
-read on its own. Identity evidence, since a move must be one: **119/119 generated cases byte-identical in
-both the counter block and the proof file** across pre-split and post-split binaries, 1 case skipped and
-counted because neither arm finished it (job `1587411`). **`main` (788 lines) was deliberately not touched
-— the N1/API agent owns its argument parsing**; the three separable units and the order to take them are in
-Open items, together with a defect found while writing the reachability specs: **`c strengthen` is printed
-TWICE**, from the same `strengthen_rounds` counter under two different schemas.
-
-### 2026-08-06 — RV-S10–RV-S14: the §5.6/N1 API surface — one breach repaired, and the learner's three channels now have tests that can fail
-
-Branch `rvs-api-n1`, base `4f4989d`. The five highest-severity findings of the
-2026-08-06 review, which that report's own conclusion places outside Track SCHED:
-the learner's reward channel, arm space and replay path. **ctest 47 → 52**
-(`vivify_n1`, `api_instances`, `slot_pose`, `stat_ids`, `trace_replay`), green on
-Release and on the Debug ASan/UBSan build, all six conformance checkers green.
-
-**RV-S10 — the N1 breach, and it RESTORES a capability rather than changing one.**
-Two independent gates had made Vivify's tier3 band unreachable from outside:
-`tactix_set_vivify_scope` clamped `scope <= 2 ? scope : 0`, so asking for 3/4/5
-silently got a *different* band; and scope 0 — the path the header calls "all" and
-`vivify.cpp` calls "the unscoped N1 path" — was itself bounded by the live `tier2`,
-so `vivify_instances` never enumerated a tier3 `Ref` and `apply_instance` on one
-NoOped. Guard reports applicable, DefaultPolicy applies it, no API caller can:
-exactly the shape `SCHED-N1FIX` repaired in Factor. Fix: the setter accepts 0–5 and
-IGNORES out-of-range rather than substituting a band (substituting is worse than
-refusing — the caller cannot see it happen), and scope 0 admits every band.
-`tests/test_vivify_n1.cpp` drives the registry surface (guard → `instances()` →
-`apply_instance`) on a tier3 clause and the C setter through a new readback; it
-**aborts on the pre-fix build in both halves**, at `instances() does not offer the
-tier3 candidate` and at `set_vivify_scope silently substituted a band`. Three
-existing assertions had PINNED the breach and were retargeted at scope 1, the band
-that is actually tier2-bounded (`test_vivify.cpp` ×2, `test_scheduling.cpp`'s
-SCHED-C1 dynamic-tier test — its invariant is unchanged, only the scope it reads it
-on). `docs/calculus.md` C3 now says the tier is NOT part of the precondition;
-`implementation-notes.md`'s `vivify_scope` bullet carries the repair.
-
-**RV-S11 — the pairs completed, and a checker that catches a swap.** 16 new
-`tactix_stat` ids (32–47): the four families with no reward id at all (Sweep,
-Congruence, CCE, Substitute) and the seven with yield but no effort partner
-(Probe, Backbone, TransitiveReduce, Vivify, Strengthen, SubsumeForward,
-Instantiate). C1's pair is `forward_subsumed`/`forward_visits`, not the existing
-`SUBSUMPTIONS` id, which counts ROUNDS and is neither a yield nor an effort.
-`tools/docs/check-stat-ids.py` (ctest `stat_ids`) enforces three things a unit test
-cannot: dense header numbering ≡ api.cpp case order with the macro named at each
-case; every case's returned expression mentions every token of its macro's name
-(6 ALIAS rows, each with a reason); and every rule with an `EFFORT_SPECS` row has
-both ids with the **effort id equal to the counter that rule's own `meter_*`
-reads** — so a dosed rule cannot land without its pair, and Substitute is declared
-a PROXY pair because it has no meter. Anti-vacuity tested on five introduced
-defects: the report's own `case 26`/`27` swap, a dropped CCE pair, a plausible
-wrong counter, a moved dosing currency, and a missing table row. `test_api_c.c`
-now sweeps ids 0–47 (0 was never swept) and asserts every setter reads back.
-
-**RV-S12 — `--trace`/`--replay`, and the minimum honest version is narrow ON PURPOSE.**
-`src/policies/trace.{hpp,cpp}` + `--trace=FILE` / `--replay=FILE`. A trace is
-exactly the N1 stepping surface: one (rule, instance) pair per action, the rule
-NAMED not numbered (ids move under the name sort whenever a rule lands — that
-golden list is the thing that renumbers). `replay_solve` applies the sequence
-through the same dispatch `tactix_apply_instance` uses and FAILS — not skips — on a
-guard that no longer holds, an unknown rule, or a verdict differing from the
-recorded one. **Scoped OUT, deliberately: DefaultPolicy traces.** Its micro loop
-calls `propagate_apply`/`decide`/`analyze` directly rather than through the
-registry, and its dosed entries re-apply one rule many times under a
-policy-computed budget, so its behaviour is not a function of a (rule, instance)
-sequence; making it one is the scheduling-as-data work, not a trace format.
-`--trace` therefore REFUSES DefaultPolicy instead of writing an empty file. Also
-out: the §8.5 reward-proxy *correlation study* (that is the harness's use, and it
-needs a tier window). ctest `trace_replay` records and replays UNSAT and SAT ×
-DRAT and native LRAT, comparing verdict + proof bytes + counters + model, asserts
-`--random-policy=SEED` reproducible **across processes** (which nothing did), and
-carries three negative controls — a truncated trace, an unknown rule name, and
-`--trace` on a non-traceable policy must all fail. A replay path that cannot fail
-would have been worse than none.
-
-**RV-S13 — the pose surface is tested; the C-API mirror is deliberately NOT built.**
-`tests/test_slot_pose.cpp`: a preposed `inprocess_slot` is used verbatim (size AND
-order), a disabled entry is REACHED (`occasions > 0`), declines for the stated
-reason (`dec_disabled == occasions`), never applies, and `congruence_merges` is 0
-against 1 in the enabled arm — the counter at the source, both directions. Then the
-env surface, which had zero coverage (`grep TACTIX_SLOT tests/` returned nothing):
-`SLOT_DISABLE`, `SLOT_ENABLE` overriding `TACTIX_NO_BVE`, `SLOT_ORDER=legacy`
-really moving BVE/Factor to the back (with the authored order asserted DIFFERENT,
-or the arm is vacuous), and `SLOT_PERMILLE`/`SLOT_MAX_APPLIES`/`CURSOR_*`/`ORDER_*`
-each shown to land on the entry the policy walks. The test drives
-`run_slot_phase` directly — moved to public with the same justification the
-predicates above it carry — because reaching the slot via a whole solve makes the
-arm depend on a tiny formula happening to take a macro trigger, and an entry never
-reached reads exactly like an entry correctly declined. **Scoped OUT: `tactix_slot_*`
-C setters.** The C API has no policy object; mirroring the slot would either add
-one to a frozen v1 ABI or freeze `SlotEntry`'s layout into it, and the phase-6
-learner is a C++ policy that already has `inprocess_slot`. What was missing and is
-now fixed is the TESTS. Also out: the `reject()` abort paths (they call
-`std::abort`, so observing them needs a subprocess).
-
-**RV-S14 — all 25 entries, and the aliasing hole closed.** `api.cpp` returned the
-result of the whole canonical round when given a non-canonical payload for a rule
-with no instance surface; it now returns −1 (the rev-34 payload-aliasing class).
-`tests/test_api_instances.c` gives every entry its own prepared solver and asserts
-25/25 reachable through `tactix_apply_instance` (18 through a chosen payload, 12
-making progress), plus both sides of the payload contract: −1 for the three
-entries with no instance surface (Propagate, Sweep, SwitchMode), never −1 for the
-rest. It aborts pre-fix on the aliasing assertion. Two facts fell out and are
-pinned rather than fixed: the canonical-only set is `{Congruence, Factor,
-Propagate, Sweep, SwitchMode, Walk}`, and **Walk enumerates only the sentinel while
-`walk_apply_instance` accepts any step count** — RV-S18's
-instances()-narrower-than-apply_instance shape in a second place. The header's
-instance documentation was stale in three ways (a `Backjump` entry that does not
-exist, Analyze described as having no per-application choice when it enumerates
-levels, Sweep missing from the no-choice list) and is corrected.
-
-**Behaviour preservation.** Pre-change binary (`4f4989d`, separate build tree) vs
-post-change, over the 14-entry regression corpus + 40 generated cases, comparing
-exit code, `sha256` of the proof bytes and `sha256` of every `c`/`s`/`v` line
-except the wall-clock ones (implementation-notes §11 — including `c timing` in a
-run-identity hash reports jitter as a behaviour change): **DefaultPolicy 54/54
-identical on DRAT and 54/54 on native LRAT, 108/108.** The `--random-policy=7`
-DRAT arm is 52/54; both exceptions are RV-S31 livelock cases that TIME OUT in both
-binaries, where the difference is the wall-clock cut point and not the trajectory —
-`reg01`'s proof differs run-to-run on the SAME binary, and `reg10`'s proof sha is
-identical between binaries while every counter scales up ~6 % with the interrupt
-count. `vivify2 … 0 tier3` in both, i.e. the restored band never fired there.
-Fuzz (behaviour CAN change on the API/RandomPolicy path, so both formats):
-`--random-policy` × DRAT (`1587408`) and × **native** LRAT (`1587409`),
-**14/14 regression corpus + 10 000/10 000 cases, 0 failures each**
-(SAT 5137 / UNSAT 3214 / TIMEOUT 1649 per leg). The two legs report the same
-verdict tally *because the trajectory is proof-format-independent* — what differs
-is the checker (`proof.lrat` + `lrat-check` vs `proof.drat` + `drat-trim`,
-`fuzz.py:198-240`), so this is not the identical-artefact trap; the LRAT
-checker path is separately live in ctest, where `micro_proofs` and `sweep_proofs`
-RAN (not skipped) on the Debug build. The TIMEOUT population is `RV-S31`'s and is
-unchanged. No timing was submitted.
-
-### 2026-08-06 — the RV-S duplication axis: four items, 62 sites, four kernel primitives, and one checker that could not fail
-
-Branch `rvs-duplication`, base `4f4989d`, one commit per item so a bisect separates them.
-`RV-S21` + `RV-S20` + `RV-S6` + `RV-S27` from `benchmarks/reports/2026-08-06-review-post-track-sched.md`.
-Details per item in Open items above; what belongs in the log is the method and the three findings.
-
-**▶ THE GATE WAS IDENTITY, NOT TESTS PASSING, AND IT IS MET PER COMMIT.** A binary from pristine
-`4f4989d` versus **each of the four commits' binaries** over the 14-entry regression corpus + 60
-generated fuzz cases (seeded, reproducible) in three arms — native DRAT, native LRAT, `--random-policy=7`
-× DRAT — comparing exit code, `sha256(proof bytes)` and a `sha256` of every `c ` counter line except
-`c timing` (jitter; implementation-notes §11). **222/222 identical on every one of the four arms, 888
-comparisons, 0 mismatches** (job `1587396`). The `--random-policy` arm carries **15 of 74 timeout-in-both**
-at a 10 s cap, which is `RV-S31`'s livelock, not a result: that arm's real N is 59, and the DRAT/LRAT arms
-carry those cases. **The harness was anti-vacuity tested rather than trusted**
-(`[[ab-arm-identical-artefacts]]`): a fifth arm compared the baseline against a deliberately PERTURBED
-binary (a second `del` per large-clause deletion + a doubled `propagations` increment) and it **must and
-does MISMATCH: 148 of 222**, with both compared fields shown live — `corpus-002` differs in the PROOF
-sha, `corpus-003` in the COUNTER hash alone. A green identity harness that cannot go red is worth nothing.
-
-**▶ FUZZ: three legs on the Debug ASan/UBSan build at HEAD, 10 000 cases each + the 14-entry corpus, 0
-failures** — DRAT (`1587403`), native LRAT (`1587404`), `--random-policy` × DRAT (`1587405`). **The rp leg
-independently corroborates `RV-S31` at fuzz scale and its number is worse than the report's floor: 1730 of
-10 000 cases (17.3 %) TIMED OUT**, against 297/10 000 (3.0 %) for DefaultPolicy on the same generator and
-the same binary. So that leg's real N is ≈8 270, and the 16 % the review measured over 74 cases was not a
-small-sample artefact. Read every historical "`--random-policy` × 10 000, 0 failures" claim accordingly.
-
-**▶ THREE THINGS THAT COULD NOT BE DEDUPLICATED BEHAVIOUR-PRESERVINGLY.** Each is a finding, not an
-omission, and each is now a note in the source:
-1. **`propagate_literal`** copies each watch entry forward and then rewinds or rewrites it — not a walk
-   and not a keep/drop filter, so neither new primitive fits.
-2. **`propagate_literal_binary`** prices `binprop_words`/`binprop_skipped` off the WORD CURSOR where its
-   scan stopped, and the conflict break leaves that cursor PAST the conflicting binary. An entry iterator
-   stops *before* the entry it breaks on, so converting it would move a counter. This is the one that
-   would have shipped as an unexplained trajectory shift three windows later.
-3. **`kernel_delete_clause` cannot suppress a second `del`** on an already-garbage clause, tempting as
-   that is: all 13 sites emitted the `del` before testing `garbage()`, so suppressing it is a
-   proof-stream change wearing a refactor's clothes. Kept, with the reason in source.
-
-**▶ AND A CONFORMANCE CHECKER THAT WAS ONE LOCAL VARIABLE AWAY FROM A FALSE FAILURE.**
-`check-config-wiring.py` scanned `kernel.hpp` from the config marker **to EOF**, so the first
-two-space-indented `uint32_t n = 0;` in a new inline kernel helper — `kernel_binary_copies` — was reported
-as an unclassified config field. Bounded to `struct Kernel`'s closing brace, then re-tested for
-anti-vacuity (it still FAILS on a genuinely unclassified field inserted inside the window). The lesson is
-the one this project keeps re-learning about its own instruments: a checker's SCOPE is part of its
-contract, and nothing was testing this one's.
-
-### 2026-08-06 — N4 pass 3: the ledger says we HAVE the mechanisms; the counters say two families never run
-
-Branch `audit-n4-shape`, base `4f4989d`, **no source change** — this pass measures.
-Report: `benchmarks/reports/2026-08-06-n4-behavioural-shape-audit.md`.
-Probes `benchmarks/probes/n4-shape.{sh,mf,sbatch}` + `n4-shape-forced.{sh,mf,sbatch}` +
-`n4-shape-table.py`; jobs `1587305` (30 tasks), `1587348` (8), `1587381` (3);
-raw output `benchmarks/probes/scratch/n4-shape/` and `…/n4-forced/`.
-
-**Both solvers counter-instrumented on the SAME ten instances** (four SAT / six UNSAT, ten
-families, miter · crypto · combinatorial · random-XOR · very-large-structured), ours under
-`TACTIX_SLOT_STATS=1`, kissat as a `-DMETRICS` variant so its METRIC/STATISTIC tiers become
-printable. **Counters only — no wall-clock figure was taken, so it ran alongside six other
-agents' arrays.** A third `kpin` arm proves the metrics build is the shipped solver: identical
-verdict AND conflict count on 9 of 10 (`T105.2.0` diverges, 605 325 vs 393 595, cause
-unidentified — that instance's kissat column is used qualitatively only).
-
-**The headline is not a cadence gap, it is two families that do not run.** BVE eliminates
-**0 variables on 7 of the 9** instances where kissat eliminates anything (kissat: 104 →
-2 736 829); Factor adds **0 extension variables on 6 of 9** (kissat: 98 → 32 157). Causes
-measured, not inferred:
-1. **BVE's invented `binaries < 6·vars` density gate declines EVERY during-search occasion**
-   on six instances (`dns` 21/21, 12/12, 24/24, 24/24, 26/26, 8/8). With
-   `TACTIX_BVE_DOSE_DENSITY=0` the rule reaches **91 % / 102 % / 147 % / 18 %** of kissat's
-   yield (b22_1 27 104 vs 29 726 · aes 96 357 vs 94 738 · crypto1 886 vs 601 · sted5 126 vs
-   692). So the zeros are the gate, entirely — the T4 shape, now measured as binding rather
-   than as a tuning knob.
-2. **A CASCADE into Factor.** Our `factordelay` port reads `bve_rounds_run_`, incremented only
-   on an ADMITTED BVE dose, where kissat's `INC (eliminations)` is the first statement of
-   `kissat_eliminate`. A density-declined BVE therefore pins Factor's warm-up threshold at
-   10^5 active vars forever — `warm 63/63` on aes (279 k vars), `warm 33/33` on T105. Shown by
-   forcing it: the declines move to `warm 9, dns 54`. **A wiring gap, one line.**
-3. **The elimination clock can close for the rest of the solve.** `battleship`:
-   `eliminate phases 1 … blocked 1`, so SubsumeForward/Strengthen/BVE/Instantiate/BCE/CCE got
-   **one occasion each in 309 229 conflicts** (kissat: 4 eliminations, 8 forward subsumptions).
-   Not the `SP-SLOT-5` flip bug — the PRODUCER SET: `bve_marks` is fed by irredundant/binary
-   ADDs + root fixes, kissat's watermark additionally by every clause REMOVAL **and every
-   clause strengthened by forward/vivify/strengthen**.
-
-**And one suspected scheduling gap is REFUTED, which is the other half of the value.** Sweep
-finds **0 equivalences on 9 of 9** where kissat finds up to 15 687 — and that survives kissat's
-maximum env caps, a 1 000× effort share, and lifting both of our invented per-environment
-bounds: **1 226 656 candidate pair checks on `b22_1` yield 1 equivalence against kissat's 545
-from 51 949 queries.** So it is a RULE finding, routed to rule-dev, and `SP-SWEEP-2`/`-3` must
-not be sold as its cure. Same shape on `or_randxor`: kissat extracts **4 980 XOR gates**, we
-extract **0 gates of any kind** on a conjunction of 3-XORs with `CONG_XOR_ARITY` already at
-kissat's default.
-
-**Verdict table (report §5), 15 rows: 7 CRUDER · 1 MIXED · 4 EQUAL-or-ahead · 2 deviations in
-the MORE-generous direction · 1 not comparable.** Where we are ahead, said so: the two-clock
-split is at kissat's shape and ahead of cadical's (**realized probe:eliminate ratio 2.13–2.40
-vs kissat's 2.17–2.50** — so `SP-SLOT-1`'s "~2.4× not 5×" is not a defect, kissat's realized
-ratio is also ~2.3); Vivify's four scopes + 3/3/1+irr shares + rate-form irr ladder + live
-tier bands are full kissat parity and ahead of cadical; we carry an upper effort clamp kissat
-has none of; Congruence is deliberately stricter. Two cruder rows are constants, not designs:
-Congruence's delay ladder bumps only on a completely inert round where kissat bumps below a
-0.001 merge RATE, and five probing entries share ONE rate where kissat has seven (it calls
-backbone and substitute twice per probe round).
-
-**Six ledger corrections owed (report §7)** — the sharpest being that **`SP-SLOT-3`'s closure
-rests on a false source claim**: there is no `last.NAME.ticks` in kissat, only
-`last.ticks.probe`/`.eliminate`, written at the END of each group's phase unconditionally
-(`probe.c:86`, `eliminate.c:601`) while `SET_EFFORT_LIMIT` merely reads them. kissat's effort
-window is per-GROUP and resets every phase; ours is per-ENTRY and accrues across declined
-occasions, i.e. **more generous**, and should be a labelled deviation rather than a parity
-closure. Also: `SP-SWEEP-2`'s "`!e.meter`" wording is stale (the gate is `e.closure` since
-`SCHED-G1`), and Sweep's `env_ticks`/`max_candidates` are unledgered T4-shaped bounds.
-
-`ctest` **47/47**; no source file touched, so nothing to revert.
-
-### 2026-08-06 — revisit-codebase after twelve parallel merges: five cross-agent conflicts, and the comment rule is now MECHANICAL
-
-Branch `revisit-codebase-pass`, base `05a6f92`. Full report:
-`benchmarks/reports/2026-08-06-review-post-track-sched.md` (30 routed items, `RV-S` namespace, each with
-`file:line`, a bounded recommendation and an owner). Method: **five parallel auditors, one per axis**, then
-a synthesis pass. **Three auditor verdicts were overturned in synthesis** and that is the argument for the
-fan-out: independent axes disagree, and each of the three would otherwise have shipped a defect or spent a
-window.
-
-**▶ WHAT ONLY A JOINT READ COULD FIND (five items; none is visible inside one agent's diff).**
-1. **CCE re-created the exact mechanism SCHED-E1 had deleted 100 minutes earlier.** E1 (`9407cdc`, 22:52)
-   removed `Kernel::transitive_cursor` as *"order logic living in a rule"*; R6's CCE (`7fb5d3b`, 00:32)
-   rotates its round entry point on `k.stats.cce_rounds % ncands` (`cce.cpp:437-442`). CCE is now the ONLY
-   rule with a rule-side rotation, and the policy's cursor cannot reach it — `SlotEntry::cursor` runs only
-   on the `dosed` path and CCE's EffortSpec row is BATCH + `budget_aware`. Worse, it makes a STATS COUNTER
-   BEHAVIOUR-AFFECTING, which `default_policy.hpp:565` forbids of the policy's own telemetry (*"nothing
-   here is ever READ by a scheduling decision"*): any stats rebase — an incremental re-solve, the
-   per-solve reset that landed in the same window — silently rotates CCE back to index 0. → `RV-S1`.
-2. **Stage F built the generic repetition substrate; CCE, landing after it, used a fairness device
-   instead.** CCE *produces* `Kernel::removed` for free and consumes nothing — no `cce_touch_mark` — while
-   being BCE's generalisation, i.e. wanting exactly the two-sided `kernel_changed_since` BCE reads. A
-   rotation stops starvation; it does not stop re-examining unchanged clauses. → `RV-S2` = `SCHED-F7-CCE`.
-   **This also answers the two-stamp question: keep `touched` and `removed` separate.** Five of six
-   consumers read `touched` alone, so interleaving them doubles those five's stride to help the cheapest
-   entry in the ledger; and SCHED-G3 does not bear on it at all (it works through `Clause::VIVIFY`, a
-   per-CLAUSE bit). CCE makes `removed` a two-consumer array, which strengthens keeping it.
-3. **`Stats::rule_interrupted` is neither a total nor a partition — three agents, three conventions.**
-   SCHED-H1's `kernel_rule_interrupt` states *"the increments live INSIDE this helper, never at the call
-   sites"*; Congruence bumps it from six raw `kernel_terminating` sites (landed BEFORE the helper) with no
-   per-rule counter, and Vivify polls through its own `vivify_polls`/`vivify_terminated` pair without
-   bumping it at all. The comment claimed it was their sum. Comment fixed here; Congruence's six sites →
-   `RV-S3` for the `SCHED-G4` owner.
-4. **Three agents invested in C1 machinery in the same window a fourth measured C1 INERT.** SCHED-G2
-   measured absorption 0.99999 (C2 absorbs 698,341 of C1's 698,351) while H1 added four poll sites to
-   C1/C2, F2 added its re-arm/hold wires, and F3 gave it a watermark. Nothing is wrong — N1 keeps C1's
-   surface — but **run G2's already-specced dose arm before the next C1-side mechanism lands** (`RV-S4`).
-5. **BCE and CCE each independently rejected `Kernel::dense` and built a private occurrence index**, with
-   word-for-word identical bodies *including the prose*. Two copies is inside the rule of three; two rules
-   independently rejecting the kernel index is §5.4 trigger (b). There are now SEVEN `vector<vector<Ref>>`
-   indices, each `assign(2*nvars, {})` per build. → `RV-S5` (revamp), sequenced after `RV-S8`.
-
-**▶ APPLIED (two `simplify:` commits, behaviour-preserving).** Dead code: `find_grid_clause` (36 lines),
-`apply_factoring`'s `idx`, `meter_ticks` — all three had been printing a compiler warning, which was
-masking the rest. **A test that had never run:** `test_no_contrapositive_self_justification`, defined
-2026-07-17 and never called from `main()`, the only test of V4's contrapositive-pair exclusion — the
-`[[ab-arm-identical-artefacts]]` shape at the unit-test layer. Drift at three sites where one agent
-renegotiated a contract another still asserts, the worst being `implementation-notes.md`'s guard table
-saying Factor's density predicate is a rule-side `NoOp` when SCHED-N1FIX moved it to the policy *because
-the rule-side NoOp was the N1 breach* — §13.4 in the same file already had it right. 15 vestigial
-includes. `.gitignore` for the per-job fuzz logs (the merges committed 38 more; 73 tracked).
-
-**▶ THE COMMENT-HYGIENE DIRECTIVE IS NOW A ctest TEST, because a sweep provably does not hold.** The
-one-off sweep (`be04e2b`) was undone **34 minutes later** by the S-e N2 fix; 19 violations were live at
-HEAD (7 dates, 4 job ids, 2 narrative, 6 in `tools/`). All 17 editable ones now carry the invariant plus a
-report path. `tools/docs/check-comment-hygiene.py` + ctest `comment_hygiene` is the durable half — the
-same escalation `buildlock.py` made after the sixth build-path violation. Report/design paths are
-whitelisted, since citing one is exactly what the directive asks for. **The two remaining hits are in
-`src/rules/congruence/` and `src/rules/substitute/`, owned by another agent, and are ALLOWLISTED AS NAMED
-DEBT** — the allowlist must be emptied, never grown.
-
-**▶ IDENTITY EVIDENCE.** A binary from pristine `05a6f92` (`git archive` into a separate build tree) vs
-the post-change binary, over the 14-entry regression corpus + 60 generated fuzz cases in **three arms**
-(native DRAT · native LRAT · `--random-policy=7` × DRAT), comparing exit code, `sha256(proof bytes)` and
-`sha256` of every `c ` COUNTER line: **222/222 identical, 0 mismatches** (74 cases x 3 arms; DRAT and
-native LRAT each 74/74 with ZERO timeouts, `--random-policy` 74/74 with 12 timeout-in-both, which carry no
-signal). ctest **47/47** on Release
-AND on the Debug ASan/UBSan build; `config_wiring`/`effort_specs`/`option_coverage`/`check-progress` all
-green. **No timing was taken** — a debug investigation owned the cluster, and counters are
-contention-invariant.
-
-**▶ THE ONE FINDING THIS PASS REVERSED ON ITSELF.** `Stats::walk_minimum` is write-only and was removed as
-dead — then restored, because phase-6 item `W4e` names it as the Walk-dosing **reward proxy**, which the
-skill lists as an explicit keep-with-reason class. Two real defects in it are recorded at the site instead,
-since a consumer must choose between them: the write is an **assignment, not a `min`** (so it holds the
-LAST walk's minimum, not the best), and the old comment claimed the policy reads it to accept a walk's
-phases, which nothing does.
-
-**▶ THE AXIS VERDICTS, IN ONE LINE EACH.** *Redundancy:* the three offenders (`RV-S6` proof-delete pair ×13,
-`RV-S20` a soundness predicate transcribed ×4, `RV-S21` the watch stride ×23) are all **kernel primitives
-never promoted**, not rules reaching into rules — a fixable shape. *Verbosity:* genuinely clean (no
-TODO/FIXME/`#if 0` anywhere; 1 write-only field out of 186; every `RuleVTable` slot and `ApplyResult`
-variant live) — the finding is ENFORCEMENT, since three of four compiler warnings were dead code or a dead
-TEST, printing for weeks with no `-Werror`. One warning was left (`RV-S28`, **now fixed** — the tree is
-warning-clean at `-O3`). *Data structures:* the correct
-persistent-scratch idiom is in six places, **two added in this very window**, while five call sites still
-lack it — understood, not applied at landing time. *Leakage:* the POLICY LAYER IS IN VERY GOOD SHAPE; every
-leak found is rule-side, and **six of the seven are in the four newest landings** (G3 Vivify, R6 CCE, V5
-Sweep, F3/F4 touch-marks) — same diagnosis. *§5.6 coverage:* the four highest-severity items of the whole
-pass, and they share a shape — **the learner's three channels (reward `RV-S11`, arm space `RV-S13`/`RV-S14`,
-replay `RV-S12`) are each incomplete or unverified while the rules underneath them are well tested.**
-Native-LRAT coverage, by contrast, is genuinely repaired (~3,167 chains checked under `--random-policy` in
-one 10,000-case leg), so the anchor's "trust nothing that rested on a native-LRAT leg" warning is
-discharged for that axis.
-
-**▶ THE STRUCTURAL RECOMMENDATION, and it is the pass's main conclusion.** Four of the five axes converge on
-one fix: **landing-time classification must be mechanical, not remembered.** The project already has three
-working instances (`check-config-wiring.py`, `check-effort-specs.py`, `check-option-coverage.py`), this pass
-adds a fourth (`check-comment-hygiene.py`), and the two surfaces still unguarded are exactly where the new
-rules leaked — **the instance surface** (does `instances()` offer everything `apply_instance` accepts?) and
-**the pose surface** (does every POLICY/API config field have a setter? note `check-config-wiring.py`'s
-scope is `kernel.hpp` only, which is how `randec_enabled` and two permanently-dead telemetry columns survived).
-`RV-S11`'s `check-stat-ids.py` is the next one to write.
-
-**▶ INDEPENDENT READ ON R6's `EffortSpec::meter` ROUTING (asked for explicitly): R6's premise is FALSE as
-stated, so the finding should be DELETED rather than enshrined in §5.3's wording.** A `uint64_t(*)(const
-Kernel&)` may ignore its argument and read a rule-private counter — the tree already does this three times
-(`congruence.cpp:58` `static Budget`, `:658` `cong_t`, `vivify.cpp:100` `static thread_local VivifyOrder`).
-The only type-level force is `SlotEntry::tick_counter`'s `uint64_t Stats::*`, which binds just the four
-propagation-tick rules and dissolves by widening it to `uint64_t*` — `Kernel::tick_sink` is already a plain
-`uint64_t*`. What ACTUALLY forces `Stats` membership is the REPORTING path: §5.3 promises counters "surface
-automatically" and they do not (`Stats` is hand-maintained, `main.cpp` prints each by hand, stat ids are
-hand-numbered). **So a wording change is the right outcome but not the wording R6 proposed:** the sentence
-that genuinely contradicts reality is §5.3's *"the registry is the ONLY central list"* — CCE's own diff
-touched seven. Softening that to bless seven tables would be rewriting the requirement to match the code,
-which §5 obligation 4 forbids. **Keep the requirement, record the deviation, and name the accepted
-realization the project has already chosen — a mechanical checker per central table** — listing which
-checker guards each and the two that are unguarded (`Stats` → `main.cpp` print, `Stats` → `TACTIX_STAT_*`
-id). Those two are what made CCE's diff wide, and one more checker closes them. **No revamp is warranted.**
-There is one genuine reason not to use a file static, and R6 missed it: it is not per-`Kernel`, and two
-`Kernel`s coexist routinely (unit tests, Sweep's own sub-solver), so a static cross-charges — but
-"per-Kernel" is not "a field on the flat shared `Stats`", and `Kernel::h`'s opaque forward-declared handle
-is the in-tree precedent for the clean form. → route to `revise-plan`, scoped to §5.3's registry sentence
-plus a ledger row, NOT to the meter clause.
-
-### 2026-08-06 — SCHED-G5: the layout was never missing; the ORDER was, and it is a byproduct we already had
-
-**The item's title named two different claims and pass 1 conflated them.** Splitting them is the whole
-result; the code that follows is eleven lines.
-
-**(a) Inline binaries — WE ALREADY HAD THIS, and TB5 is the measurement that covers it.** "A binary
-propagation never dereferences the arena" is true here and has been since the flat watch arena: a binary
-is ONE 4-byte tagged word (`watch.hpp:22-30`, transliterating kissat `watch.h:13-40`), binaries never
-materialise as clauses at all (`clause.hpp:3-5`), a binary reason is a literal rather than a `Ref`
-(`kernel.hpp:29`), and the binary branch of the propagation loop (`kernel.cpp:678-694`) touches `values`
-and nothing else — `k.arena` is dereferenced only in the large branch. **cadical is the weaker of the two
-references here**: its 16-byte `Watch` still carries a `Clause*` for binaries (`watch.hpp:34-43`).
-**TB5 does cover this half**, and the "did it measure instruction count or memory indirection?" question
-resolves to *memory*: its metric was **cycles per propagation** (s055 ≈1700 vs ≈1615 cyc/prop, per-symbol
-from perf) and **wall-basis props/s** (FmlaEquiv 9.37 vs 9.11 M), both memory-inclusive, on top of the
-earlier profile that measured the L1d/dTLB miss ratios directly (probe `1562599`).
-
-**(b) The ORDERING invariant — genuinely absent, and TB5 does NOT cover it.** kissat's
-`large_clauses_watched_after_binary_clauses` (`internal.h:99`) says every list holds its binaries before
-its larges; its ONE consumer is `stop_early` in **binary-only** propagation (`backbone.c:186-193`), which
-breaks at the first large entry instead of stepping over each. TB5 measured `kernel_propagate` — search
-propagation. Binary-only propagation is a different loop (`propagate_literal_binary`) with one caller
-(Backbone), and TB5 never separated it. So the two claims needed two answers.
-
-**WHERE THE ORDER COMES FROM — and ours is better placed than the reference's.** kissat re-establishes the
-invariant inside `kissat_substitute`, which is why the flag is a cross-rule wire (cleared on entry
-`substitute.c:611`, re-set after the re-watch `:594-596`) and why Backbone's yield there depends on
-Substitute having run. **We get it from GC instead**: `kernel_collect_garbage` already strips every large
-entry and re-appends it behind the surviving binaries — structurally identical to
-`flush_large_connected` + `watch_large_clauses`. Neither solver sorts anything; in both it is a byproduct.
-
-**MEASURED — counters only, no timing** (jobs `1585476` flag-free, `1585482` with the flag; `c binprop`):
-
-| instance | binary-only scans | kissat's GLOBAL flag true | list ordered ANYWAY | words scanned | of those, spent skipping larges |
-|---|---|---|---|---|---|
-| `9vliw_bp_mc` | 6,654,986 | 5,732,541 (**86.1 %**) | 99.99 % | 27,565,211 | 19,437,692 (**70.5 %**) |
-| `b22_1` | 20,315,883 | 13,028,785 (**64.1 %**) | 99.92 % | 92,568,391 | 70,335,912 (**76.0 %**) |
-| `sted5` | 561,010 | 479,199 (**85.4 %**) | 99.93 % | 20,384,281 | 19,822,294 (**97.2 %**) |
-
-So the reference's own one-bool mechanism is reachable on **64–86 %** of scans and the tail it skips is
-**70–97 %** of the words those scans walk. Post-break the counters confirm the harvest directly: on
-`sted5` the break skips **17,089,930** words while the scans that remain walk only 3,294,351.
-
-**BUT THE HONEST CEILING IS SMALL, AND IT IS NOT WHAT THE 70–97 % SUGGESTS.** The consumer is Backbone,
-and Backbone is **0.1–1.4 % of the solve** (`c timing`, same job: 109 ms/11,315 · 288/37,570 · 15/14,916 ·
-94/6,838 on `9vliw`/`b22_1`/`sted5`/`rbsat`). Removing most of its word traffic therefore buys **well under
-1 % of wall clock** — an order of magnitude more than `SCHED-H3` declined at (0.15 % of propagation
-traffic), which is why this one ships, but nobody should read the 70–97 % as a headline. It ships on
-**parity + bit-exactness + eleven lines**, not on a timing result. `hwmcc17miters` runs **0** binary-only
-scans, so the mechanism is entirely inert there. **THE WALL-CLOCK A/B IS OWED** — the numbers above are
-single sequential draws taken for the trajectory check, not a measurement, and no timing claim is made.
-
-**WHAT SHIPPED.** `Kernel::binaries_watched_first`, set in `kernel_collect_garbage`, cleared in
-`kernel_add_binary_clause` (the only op that can put a binary behind a large — appending a large cannot
-break the order, which is why `push_large`, `flush_delayed`, `kernel_unwatch_large`,
-`kernel_promote_watched_lit`, `truncate`, `grow` and `defrag` all need no maintenance); read as
-`stop_early` in `propagate_literal_binary`; asserted in `kernel_check_invariants` the way kissat asserts
-it (`backbone.c:304-315`), because that assertion is the only thing between the early break and silently
-dropped implications. **No watch representation changed**, so the enumerated blast radius — analysis, GC,
-the dense index, `kernel_delete_binary`, the ~35 hand-coded 1-word/2-word walk sites — is untouched.
-
-**BIT-EXACT BY CONSTRUCTION, not by luck.** The tick charge stays the **whole** list length even when the
-scan stops early. kissat does harvest it (`backbone.c:200-202` charges only `touched`), but that meter is
-what the policy schedules against, so taking the saving moves every effort budget and with it the search.
-Left as `SCHED-G6`. **Gate PASSED (job `1585597`): clean `main` vs this branch on SIX instances — same
-verdict, every non-timing `c` stat line identical, and byte-identical DRAT (same sha256 AND same byte
-count) on all six** (`9vliw`, `b22_1`, `sted5`, `battleship-14-26-sat`, `hwmcc17miters`, `rbsat`). The only
-differing lines are `c timing`. A second guard on the same assumption: `kernel_collect_garbage` now asserts
-`!k.probing.recording`, long an implicit requirement of the probing log (it relocates every `Ref`) and now
-also what stops a snapshot taken before the collection from restoring a binary behind a large one while the
-flag still says otherwise.
-
-**Gates.** ctest **46/46** release and **46/46 debug ASan/UBSan with the new invariant check live**; all
-four conformance checkers green. Fuzz **quick 10k × 4 legs, 0 failures** — jobs `1585607` ASan/UBSan×DRAT,
-`1585600` native LRAT, `1585602` `--random-policy`×DRAT, `1585605`
-`--probing-stress-policy`×ASan (the fourth leg added because the probing snapshot/restore
-scope is the one path that rewrites watch lists under the flag).
-
-**Residual, deliberately not taken.** Per-LIST the order holds on **99.9 %** of scans while the global
-flag is true on 64–86 % — one binary add anywhere clears it everywhere. A `WatchHead` bit closes that
-gap (`SCHED-G7`); its trap is `kernel_probing_end`, which restores list content and size and would have
-to restore the bit. Separately, ~25 rule-side sites walk watch lists wanting binaries only and pay the
-same word-by-word skip; they would read the same bit.
-
-### 2026-08-06 — Track R · R6: X3 CCE lands ON, and the §5.3 extensibility test comes back MOSTLY YES
-
-Branch `track-r6-cce`, base `accb362`. The rule is cadical's `cover.cpp` transliterated: grow the
-candidate by asymmetric literal addition (ALA — literally unit propagation of `¬C` over `F∖{C}`) and
-covered literal addition (CLA — a literal shared by every clause resolving on some pivot), then delete
-the ORIGINAL clause when the extension is blocked or falsified. **cadical is the only reference**:
-kissat's `cover.h` is `#define COVER(COND)`, a coverage assertion, and it has no `cover` option at all.
-cadical ships `cover`=**0**, which per the landing convention is not disqualifying (`block`=0 too, and
-R2 BCE shipped ON).
-
-**▶ THE §5.3 ACCEPTANCE TEST: the rule body is a pure plugin; the REGISTRATION SURFACE is seven tables.**
-Nothing in `src/kernel/`, `src/proof/`, or any other rule's directory changed to make CCE fit — no new
-primitive, no widened interface, no `ρ` format change. In particular `kernel_push_witness` absorbed
-CCE's *multi-segment* deletions unchanged, which is worth stating because R7 X5 Condition blocked on
-exactly that surface: a conditional autarky needs a witness CUBE over variables OUTSIDE the clause,
-where `ρ` stores one witness literal INSIDE it. CCE never needs that — cadical `cover.cpp:411` pushes a
-single witness literal per segment and so do we. What a new rule DOES have to edit centrally:
-`CMakeLists.txt` · `Stats` (`kernel/kernel.hpp`) · `EFFORT_SPECS` + its meter + `AUTHORED_SLOT_ORDER`
-(`default_policy.cpp`) · `check-effort-specs.py`'s classification table · `main.cpp`'s stats line ·
-`tests/CMakeLists.txt`. Plus the frozen C-ABI rule ids RENUMBER by the name sort (`test_api_c.c`'s golden
-list says to expect it). **Only ONE of those is a real architecture pressure point, and it is `Stats`:**
-the `EffortSpec` meter is `uint64_t(*)(const Kernel &)`, so a rule's budget currency must be a field on
-the shared `Kernel::Stats` — a rule cannot carry its own counter and still be titratable. Everything else
-is a *classification* table that fails loudly and on purpose when a rule is added (that is
-`check-effort-specs.py`'s stated design) or a build-system list. **Recommendation: leave it. Do not
-widen the meter to an opaque handle to buy a literally-one-line registration** — the counters have to be
-readable by `main.cpp`, the API, and every probe script anyway, and a per-rule counter blob would make
-the reachability discipline this project runs on harder, not easier. The honest amendment is to §5.3's
-wording, not to the code: "one directory + one registry line + a declared counter, budget row, slot
-position and test".
-
-**The proof obligation, which is what decided the design.** Proof δ = `delete` + `push-witness`·k; the
-ATA exit reached with no CLA step in front of it is `delete` alone (`C` is RUP against `F∖{C}` there, so
-no witness exists to owe). Segments are pushed in application order — `(u_1, D_0=C), (u_2, D_1), …` and
-for the blocked exit `(w, D_n)` — where `D_i` is the recorded clause: `C` plus the CLA additions, **and
-not the ALA literals**. The ALA literals are omitted deliberately, and what makes that correct is the
-**ALA-closure lemma**: if a model of `F∖{C}` falsifies every literal of `D_i`, it falsifies every ALA
-literal too, since each was added because some `D ∈ F∖{C}` had all its other literals already in the
-extension. So the smaller recorded clause is exactly the right trigger even though blockedness is tested
-against the larger one. Include the ALA literals instead and the FIRST segment stops implying `C`; omit
-the lemma and the flip can break a clause blocked only via an ALA literal. Full argument in
-`docs/calculus.md` §6c.
-
-**The asymmetry that is easy to get backwards.** CLA/blockedness quantifies over every live
-non-root-satisfied clause, redundant included — over-quantifying only makes the test stricter, and
-filtering that side is precisely X1 BCE's fuzz-2204 wrong-SAT. **ALA is irredundant-only, and for an
-ABSTRACT reason, not an engineering one:** the lemma needs the justifying clause to be satisfied when `ρ`
-replays, and S2 Reduce deletes redundant clauses with no witness at all.
-
-**Evidence.** `tests/test_cce.cpp` (45/45 ctest, all four checkers green) carries an exhaustive
-reconstruction cross-check: 400 random formulas, **3605 deletions (2251 blocked / 1354 ATA), 1486 covered
-literals added, 28926 models of the reduced formula enumerated of which 18926 genuinely needed `ρ` — all
-repaired**. Reachability at the SOURCE under the shipped DefaultPolicy, 59 structured/circuit
-fuzz-generator cases: **26 rounds, 4223 extended, 2411 ALA + 154 CLA, 34 deleted (6 blocked / 28 ATA)**,
-against an exactly-zero `TACTIX_SLOT_DISABLE=CCE` control ([[ab-arm-identical-artefacts]]). Under
-`--cce-stress-policy` on the same population: **170,840 extended, 32,348 covered literals, 4625 deleted
-in 49 of 55 cases** — so the stress legs below are not vacuous. Fuzz **26,000 cases, 0 failures, five
-legs, corpus 14/14 each**: stress×DRAT `1585216` · stress×native-LRAT `1585217` · `--random-policy`×DRAT
-`1585220` · `--random-policy`×native-LRAT `1585221` (4000 each) · DefaultPolicy quick×DRAT `1585223`
-(10000). The stress policy (`src/policies/cce_stress_policy.cpp`, KEPT) covers every root to a fixpoint
-with no budget, draws the per-literal instance surface, and interleaves BCE and BVE so `ρ` carries CCE's
-multi-segment sequences between other rules' — it exists because the shipped dose is 4 per mille and a
-wrong witness here is a wrong SAT ANSWER, not a rejected proof.
-
-**▶ A/B SPEC — WRITTEN, DELIBERATELY UNRUN** (a Tier C A/B was live; a second would have contaminated it).
-Same-window Tier B + Tier C pair, TWO pin dirs (`build/pin-r6-cce-b` / `-c`, same commit, matching binary
-shas), node-pinned, `--baseline kissat --baseline cadical`.
-- **Arms:** `cceon` = HEAD as shipped · `cceoff` = `TACTIX_SLOT_DISABLE=CCE`, **in the command, never the
-  environment**. The off arm is a SCHEDULING diagnostic, not a candidate default ([[no-rule-off-configs]]).
-- **Pre-registered source readout, checked FIRST:** on the `cceon` arm `cce_tried`, `cce_deleted`,
-  `cce_cla` and `cce_blocked` must all be non-zero tier-wide, and on `cceoff` all four must be exactly 0.
-  A run failing either half was not tested. Report the per-instance `c cce` line, not just the aggregate.
-- **Ship criterion:** #solved beats PAR-2; noise floor 6.72; the may-not-gate set may not gate alone.
-  **The rule ships ON regardless of the headline** — this prices the DOSE, not the rule ([[no-rule-off-configs]],
-  and X1/X2/X4 measured ALONE were 21.79/53.26/13.08 Tier B PAR-2 against 9.22 together).
-- **The second question, and the one more likely to pay:** CCE's 4 per mille is cadical's `covereffort`,
-  the lowest rate in its option set, ported to a *different currency* (`cce_ticks` counts clause literals
-  scanned, not propagations). If arm 1 is inside the noise floor, sweep `TACTIX_SLOT_PERMILLE=CCE:r` for
-  `r ∈ {4, 20, 100}` on Tier B before concluding anything about the technique.
-- **Also owed, and NOT measured here** (no timing claim is made in this entry — the local allocation is
-  oversubscribed): CCE's share of clock, and whether the per-candidate tick cap (`CCE_CANDIDATE_TICKS`,
-  ours, not cadical's) binds. Ledger row `D-CCE-SCOPE`.
-
-### 2026-08-06 — SCHED-H3: the bound binds on 40 % of the words, and the words are 0.15 % of the traffic
-
-**CLOSED, measured-marginal, and deliberately NOT implemented.** The row is real — we are cruder than
-kissat here — but the thing it makes cheaper is not worth a new kernel invariant, and the reason our
-version of the bound would under-deliver is structural, not a tuning question.
-
-**WHAT THE REFERENCE BOUNDS.** kissat keeps `solver->first_reducible`, the arena offset of the earliest
-redundant clause, and starts BOTH the candidate collection and the `used`-aging tick there — `reduce.c:161`
-`reference start = compact ? 0 : solver->first_reducible;` feeding `collect_reducibles`, which ages in the
-same pass. The watermark is maintained at three sites (`collect.c:153-196`: `update_first_reducible`,
-`kissat_update_first_reducible`, and the sweep's recomputation). **cadical has no equivalent.** We walk the
-whole arena **three** times per reduce — `reduce_candidates` to enumerate, then `reduce_apply_refs` to age
-and (since SCHED-F6, same day) to publish the survivor envelope — where the audit
-(`docs/design/2026-08-04-n4-scheduling-parity-audit.md` §8, `WE_ARE_CRUDER`, severity **low**) recorded
-two. The watermark would bound all three: every one of them only reads redundant clauses.
-
-**THE MEASUREMENT** (jobs `1584979` + `1585096`, Tier B + Tier C = 58 instances, 400 s cap, counters only —
-`Stats::reduce_scans/_scan_words/_skippable_words` on the `c redscan` line, so the numbers are
-contention-invariant and no wall clock is claimed; script `benchmarks/probes/h3-redscan.sh`, summary
-`…-summarize.py`). Measured on this branch over base `009a4e2`, i.e. **before** the Sweep-governor and
-Stage-F merge; the verdict is an order-of-magnitude one and neither merge changes Reduce's arena walk in
-kind — SCHED-F6 adds a third walk, which is folded in below rather than re-measured. 46 answered, 3813 reductions, and the skippable figure is deliberately the OPTIMISTIC
-reading (a garbage redundant clause does not pin the watermark), i.e. an **upper bound** on the win:
-
-| | value |
-|---|---|
-| enumeration walk, all instances | 14,765 M arena words = **59.1 GB** read |
-| skippable by the watermark | 5,942 M words = **23.8 GB**, **40.2 %** |
-| walk as a share of propagation cache-line traffic | **0.15 % aggregate** (the headline), **median 0.23 %**, max **3.25 %** (`T105.2.0`) |
-| per-instance skip % | min **0.0**, median **17.7**, max **98.8**; **11 of 57 under 1 %** |
-
-**Multiply the first two rows and the share by 3** for the aging and survivor-envelope walks. So the honest
-sizing: Reduce's arena traffic is ~0.7 % of the propagation proxy at the median and ~9.8 % at the extreme
-(`T105.2.0`, a 400 s timeout with 31 reductions), and the bound removes 40 % of that — **~0.3 % median,
-~3.9 % at the one worst instance**, against a proxy that itself **overstates** the time, because the arena
-walk is a sequential prefetchable stream while propagation's ticks are random-access watch-list lines.
-
-**WHY OUR SKIP IS BOTH SMALLER AND ERRATIC — the part that decides the row.** kissat's watermark is a stable
-`[irredundant | redundant]` boundary because its collector RE-PARTITIONS the arena at the end of every
-reduce (`collect.c:213 move_redundant_clauses_to_the_end`, called from `kissat_sparse_collect`,
-`collect.c:626`). Our `kernel_collect_garbage` copies live clauses **in order** and never partitions, so the
-watermark is pinned by whichever surviving redundant clause happens to sit earliest — hence 11 instances
-under 1 % and a 0.0 % floor. During-search rules that add IRREDUNDANT clauses (BVE resolvents, Factor
-definitions, Vivify) append them after the learned ones, so the two classes stay permanently interleaved.
-**Porting the watermark alone buys the smaller half of kissat's win; the partitioning collector that buys
-the other half is not a low-severity row.**
-
-**Gates for the counters themselves:** ctest **45/45**, all four checkers green, corpus 14/14, and the same
-merged-tree fuzz legs as H2 (`1585219` / `1585222`, 6000 cases each, 0 failures). The C10 counters in
-`reduce_apply_refs` are untouched — `test_restart_reduce::test_tier2_band_tracks_the_live_tier` passes.
-
-**What ships:** nothing but the three counters and the `c redscan` line, kept so the claim stays auditable
-and so the answer can be re-checked in one array if the collector ever partitions — which is the change
-that would make the bound worth having. No knob, no Kernel watermark, no new invariant
-(the honest form of SCHED-E3's outcome: price it, publish the number, decline).
-
-**Two adjacent rows this measurement prices, NOT taken here.** (a) The audit's neighbour — kissat's
-`if (!clauses_redundant) return false` early-out, which we lack and pay the full walk plus a sort of an
-empty vector for. (b) **FUSING the three walks**, which is now the better-value change of the two and needs
-no new invariant at all: kissat does the aging inside `collect_reducibles`. Not taken because
-`reduce_candidates` is deliberately side-effect-free so an introspecting policy can enumerate without aging
-the database, and the F6 envelope has its own contract — fusing means renegotiating both, which is a
-rule-contract question, not a scan bound.
-### 2026-08-06 — SCHED-H1 (the X1/X2/X4 third): `budget_aware` was never the same thing as interruptible
-
-`H1` is split three ways by file; **this entry covers BCE / HyperTernaryRes / Instantiate only.** C1/C2 and
-Vivify are owned separately and the checklist item stays open until all three land.
-
-**What the three checked BEFORE.** All three are `budget_aware` batch entries and all three polled
-`Kernel::work_budget` mid-round — **and nothing else. `kernel_terminating` appeared in exactly one rule in
-the whole tree** (V6 Congruence, five sites, task #10). So the answer is the same for all three: none of
-them was already correct, and a round that had begun ran to completion after an interrupt arrived. The two
-tests are not interchangeable — `work_budget` is 0 whenever the policy leaves a round unmetered, X2's
-second governor is an OUTPUT ceiling, and *neither* is consulted on the single-instance `*_try` path an N1
-policy may drive directly.
-
-**SIX poll sites, two per rule — the round loop plus the one inner loop whose cost is unbounded:**
-- **X1 BCE** — `bce_apply`'s literal loop, and `bce_try_indexed`'s candidate SCAN. The scan is the
-  unbounded part: `bce_occ_limit` ships 0, so one literal's blockedness test is |cands| × |opposite|. The
-  DELETION loop is deliberately **not** polled — it is the rule's output, already bounded by the scan that
-  produced it, and cutting it would only discard work already paid for.
-- **X2 HyperTernaryRes** — `ternary_apply`'s pivot loop, and `ternary_try`'s per-PAIR loop. Per pair, not
-  per outer clause: `ternary_exists` scans a whole occurrence list, and the whole ARENA when no dense index
-  is attached, so one pair is already the largest unit worth running to completion.
-- **X4 Instantiate** — `instantiate_apply`'s candidate loop, and `instantiate_one`'s eligible-literal loop.
-
-**Soundness — aborting means the rule did LESS, and every site sits between complete units.** BCE: a
-deletion is witness-onto-ρ + `del` + garbage-mark, and the scan is read-only with `marked` all-zero at the
-poll, so an abort costs only untested candidates; those already found blocked were tested against the FULL
-opposite side and deletion only shrinks it. X2: each resolvent is one `add_rup` plus one kernel add, and
-`res` is scratch. X4: the poll sits where a failed `probe_pair` has already unwound the trail and closed
-the probing scope and a successful one has returned — the clause is fully rewritten or untouched, never
-half-instantiated. In all three the round-loop cut reuses the BUDGET cut's exit, so SCHED-F2's re-arm runs
-and the untried tail is not silently marked done. **No guard, precondition or instance surface changed** —
-nothing for the deviation ledger.
-
-**Counted at the SOURCE.** `kernel_rule_interrupt(k, site)` polls AND does both increments
-(`rule_interrupted` + the rule's own); **no call site increments anything**, so a new abort site cannot be
-added uncounted. New line `c interrupt3  BCE n, X2 n, X4 n aborts` — `c interrupt` alone is a sum over
-every polling rule and cannot say whether a PARTICULAR round is interruptible.
-
-**All three of task #10's vacuity modes closed, explicitly** (its abort paths passed 4 × 10,000 cases while
-proving nothing):
-1. *Wrong binary* — both probe scripts print `strings <binary> | grep -c interrupt3` before any arm runs.
-2. *Unreachable cadence* — **there is no cadence.** Every site sits at the top of a heavyweight iteration
-   (one literal's scan / one resolution pair / one probe), so the FIRST candidate reaches the first check.
-   Nothing is gated on `!(++tick & 255)`, which is what made task #10's poll sites unreachable below one
-   poll window.
-3. *Blind counter* — the increment is inside the predicate, and every sweep carries a `STOP_FUZZ=0` control
-   that reads 0/0/0.
-
-**NON-ZERO ON A REAL INSTANCE (job `1585204`, `9vliw_bp_mc`, Tier B, the instance where all three rules run
-under DefaultPolicy):** rate → `c interrupt3` / verdict — `0` → **BCE 0, X2 0, X4 0**, UNSAT (control) ·
-`10000` → **BCE 61, X2 2, X4 1**, UNSAT · `1000` → **BCE 55, X2 6, X4 5**, UNSAT · `100` → **BCE 62, X2 4,
-X4 58**, UNSAT. Reproduced independently at `100000` on jobs `1585090` and `1585200` (BCE 15, X2 1, X4 0,
-identical across both — 100000 is too sparse for X4). Two more Tier B instances in the same job, at rate
-`100`: `hwmcc17miters` **BCE 31, X2 2, X4 13** and `square.2.0` **BCE 36, X2 6, X4 49**, both still correct.
-**The verdict is never wrong at any rate**, which is the point: the abort paths are new control flow over
-the proof stream.
-
-**And on the size class the FUZZ HARNESS generates** (job `1585095`, 299 CNFs from `generators.generate`
-with fuzz.py's own `(seed+i, i)` derivation, run on the exact `build/debug` binary the legs use) —
-`STOP_FUZZ` 0 / 1000 / 100 / 10 → source fires 0 / 322 / 3057 / 1394, BCE 0 / 102 / 1405 / 694, X2
-0 / 85 / 1320 / 433, X4 0 / 2 / 6 / 53. (Fires FALL from 100 to 10 because rules that abort sooner do less
-work and therefore poll less; X4 rises because its sites sit early in a round.) Repeated under
-**`--random-policy`**, which is the schedule the stress legs actually run (job `1585213`, 119 cases):
-0 → 0/0/0 · 100 → source 689, **BCE 235, X2 75, X4 17**. **This is the check task #10 skipped**, and it is
-what licenses the stress legs below.
-
-**Fuzz — 7 legs, 0 failures, corpus 14/14 on each.** Native DRAT `1585158` (10,000) · `--random-policy` ×
-native DRAT `1585186` (4,000) · `--random-policy` × native LRAT `1585159` (4,000) · and the four that
-exercise the new control flow, with the knob **passed in the command** (`/usr/bin/env TACTIX_STOP_FUZZ=n`,
-recorded verbatim in each log's `solver=` line, because an exported variable that never reaches the
-solver looks exactly like a clean run): `STOP_FUZZ=1000` × DRAT `1585183`, × LRAT `1585184`;
-`STOP_FUZZ=100` × DRAT `1585187`; `STOP_FUZZ=10` × LRAT `1585194`. The arms are **not** identical
-artefacts: TIMEOUT counts move 733 (no knob) → 730 (1000) → 718 (100) → 734 (10, and SAT 2014 → 2015),
-so the aborts are changing trajectories rather than the knob going nowhere.
-
-**Unit-pinned, all six sites** (`test_bce` / `test_ternary` / `test_instantiate`, one `test_interrupt` each,
-three blocks apiece): flag set → the round cuts at the first candidate; flag set → the single-instance
-entry cuts inside the inner loop; flag clear → the control that shows the abort is what suppressed the
-deletion/resolvent/rewrite. Each also asserts the per-rule counter is exactly 1, so a site that stopped
-being reached fails the test rather than passing quietly. **No site is unreachable-by-schedule** — none
-needed the SCHED-C6/C9 treatment.
-
-**Residual, not fixed here and not ours:** `battleship` takes **7.3 s** to exit after SIGTERM (job `1585090`)
-with `c interrupt 0` and BCE/X2/X4 at 0 rounds — so that latency is in search, the proof flush, or one of
-the rules the other two H1 shares cover. ctest **44/44 release and 44/44 ASan+UBSan**; `config_wiring`
-(36 fields, 0 failures — three Stats counters were added, no Kernel CONFIG field), `effort_specs`,
-`option_coverage`, `check-progress` all green.
-
-### 2026-08-06 — VOID WINDOW: the Sweep-governor Tier C A/B is not usable, and why
-
-`20260805-234459-C-govon` (array `1584791`) **must not be cited.** Both our arms read **25/30** where they
-have read 28–29/30 all evening, and the cause is the measurement environment, not the solver:
-
-- **4 array tasks were OUT_OF_MEMORY-killed** at 8 G/cpu (`128_125` died at t=24 s rather than timing out).
-- **336 job records touched node017 during the window's 21 minutes**, and the window was node017-pinned.
-- A 30-instance Tier C probe from the R7 investigation (`1585043`) overlapped it for ~10 of those 21
-  minutes, partly on the same node.
-
-**Root cause is coordination, not any one agent.** Eight parallel agents were each told "small sbatch
-probes are fine" with no cross-agent budget, so collectively they saturated the partition. Each probe was
-individually reasonable. **The standing rule this yields: correctness probes may run concurrently
-(counters are contention-invariant), but any window whose OUTPUT is a time must own a quiet partition** —
-check `squeue` is clear of other agents' work before submitting, not merely clear of tier arrays.
-
-The Sweep governor fix itself is unaffected: its evidence is counters and per-phase splits
-(`spent/handed` 73.2× → 1.0005×, build 304.835 s vs sub-solver 6 ms), which contention cannot move.
-**Owed: re-run this A/B on a quiet partition before D2 is priced.**
-
-### 2026-08-06 — Track R · R7 CLOSED WITHOUT CODE: X5 `Condition` needs a witness CUBE, and `ρ` holds one literal
-
-Branch `track-r7-condition`. The last unimplemented family in Track R's inventory, closed as a
-**reasoned non-implementation**. Criterion fixed BEFORE investigating, so the answer could not be
-back-fitted: land iff **C1** a reference has it as a proof rule (default-OFF explicitly *not*
-disqualifying — cadical's `block` is default 0 and kissat 4 dropped BCE, yet R2 landed BCE ON),
-**C2** it fits §5.3 (proof delta in the closed vocabulary **and** witness expressible on the existing
-`ρ`, no kernel edit), **C3** it can actually fire here. Value/PAR-2 was deliberately excluded as a
-criterion — the all-rules-ON directive plus the X1/X2/X4 repair-each-other result (21.79/53.26/13.08
-alone vs 9.22 together) means "worth only 14.32 PAR-2" cannot close a rule on its own.
-
-**C1 PASSES, but the inventory's billing was wrong.** Verified at the source rather than from the row:
-**kissat does not have this rule in any form** — no `condition.c`, no autarky module; the only
-`condition` hits under `kissat/src/` are congruence's ITE *gate condition sets* and "conditional
-equivalences", an unrelated notion. cadical-only, and **default OFF** (`options.hpp:58`). Same class of
-correction `SP-JUMP-1` made to a "both references" billing the day before.
-
-**C2 FAILS, and that is the decision.** `Kernel::reconstruction` stores `[rest…, witness, len]` and
-`kernel_extend_model` tests satisfaction over the **whole** segment before setting the **single**
-trailing witness true (`kernel.cpp:1270-1306`) — so the witness is one literal *and* it lives inside the
-clause. A conditional autarky's witness is a **cube** whose literals are in general outside `C`; that is
-precisely what "globally" blocked adds over "blocked". It cannot be split into several single-literal
-segments (each would put its own witness inside its own satisfaction test — the wrong-SAT shape BCE
-already hit once), and restricted to one in-clause literal the rule **collapses to X1 BCE**, which R2
-ships ON. **Not a we-are-behind-kissat gap:** kissat's stack is the same shape (`weaken.c:36-44`, one
-tagged witness literal); cadical had to add a witness *section* (`extend.cpp:86-107`) for this one
-technique and its own header says so. Landing X5 = change the `ρ` format + `kernel_extend_model` + all
-five `kernel_push_witness` call sites (BCE ×2, BVE, Substitute ×2) = **architecture RFC**, not a
-"one directory + one registry line" landing. **Checked so the two Track R items are not bundled on a
-false premise: R6 CCE does NOT need it** — `cover.cpp:411` pushes a single witness literal — so the
-revamp would buy exactly one default-off cadical-only rule.
-
-**C3 is reachable but buys nothing, and one obvious objection is REFUTED by the measurement.** Probes
-`1585043` (paired cadical `--condition=true` vs default, same node, all 30 Tier C, 400 s cap) and
-`1585084` (`--stats`, 6 instances). **Fires on 13 of 30**, 2–550 clauses (`constraints_18` 550,
-`minxor128` 385, `constraints_25` 211, `j3037` 96, `frb45` 87, tail down to 2); `circuit_32in32out` and
-`urq45` conditioned **0** after 2 and 41 conditionings — those zeros are "ran and found nothing", not
-"never ran". **No solve flips either way**: both arms return the same 26 verdicts and the same 4
-non-verdicts (3 timeouts + `128_125`, OOM-killed on *both* arms). **Total wall 5699.2 s off → 6343.1 s
-on, +643.9 s (+11.3 %)**. Per-instance is a lottery so the aggregate is directional, not a verdict
-([[chaotic-instance-veto]]): `j3037` +286.3, `ContextModel` +227.0, `Ptn` +161.1 against `EDP3` −134.1,
-`af-synthesis` −122.0, `mp1` −95.2. Cost ≈ **1.4 M condition propagations per deletion** on
-`ContextModel` (28.76 M over 26,992 candidates for 21). **The witness cube is SMALL** — `condautrem`
-1.0 (`em_11`) / 2.1 (`j3037`) / 5.2 (`minxor128`) / 5.6 (`ContextModel`) against *initial* autarky parts
-of 4 k–11 k — which **refutes** the natural reading of cadical's own TODO at `condition.cpp:784` that
-`ρ` would blow up. `ρ` growth is not the problem; representability is. And `em_11`'s cube averaging
-exactly **1.0** means those are plain blocked clauses our X1 already takes, so the genuinely-new yield
-is the `cube > 1` remainder, smaller still.
-
-**Recorded:** `implementation-notes.md` **§16** (full argument + reopening path, ledger id
-`SP-COND-1` — verified free), a pointer note in `calculus.md` after X1, and a correction to §13.6's
-dismissal roster, which had `condition*` filed as "recorded, not analysed" (arithmetic untouched; ctest
-`option_coverage` green). **No code, no registry line, no `EFFORT_SPECS` row, no A/B** — there is
-nothing to price. **What reopens it:** (1) a `ρ` revamp giving `kernel_push_witness` a witness section
-(the RFC; also the prerequisite for set-blocked / PR elimination), (2) yield evidence from an
-**X1+X3+X5 joint** arm — judging this family one rule at a time is the measurement it defeats — or
-(3) cadical flipping `condition` on by default.
-
-### 2026-08-05 — ▶ SWEEP'S DEGRADATION DIAGNOSED AND FIXED: the effort ceiling was never enforced where the work is
-
-Branch `sweep-governor-fix`, base `97e9476` (post-Stage-D). **The meter hypothesis is REFUTED as stated
-and the real defect is the ENFORCEMENT POINT.** `sweep_ticks` charges honestly — a Sweep build tick costs
-0.39–9.5 ns against a kernel search tick's ~33 ns amortized, the same kind of unit within ~3.5× — but
-`sweep_detect_round` polled the round budget only *between* seeds and `sweep_env_build` had no poll at
-all. `max_env_vars`/`max_env_clauses` bound what an environment HOLDS, not the scan that finds it, so
-after the variable cap is reached the BFS keeps walking every remaining occurrence and scanning every
-clause only to reject it. **`constraints_18_0.3_2`: handed 665,325,800 ticks, spent 48,684,784,694 —
-73.2× over its dose**, 304.8 s of the 597 s solve, 99.996 % of it in `sweep_env_build`, sub-solver 6 ms,
-per-round setup 0.000 s (so NOT `dense_connect`/setup). Trajectory bit-identical (conflicts and
-`stats.ticks` equal to the digit on both arms), so 100 % of it is overhead. Stage D amplifies it: 45 → 82
-occasions. **Fix (44 lines, all in `src/rules/sweep/`): `SweepBudget` polled inside the expansion loop —
-cadical's own discipline (`sweep.cpp:197-205,1577-1580`), and declining to expand is always sound since
-the environment only shrinks and stays ⊆ F.** Overshoot → **≤1.005× on all four** probe instances;
-`constraints_18` **720.5 → 244.9 s (−475.6)**, `bhaskara` **364.0 → 298.3 (−65.7)**, `em_11` +13.3 (node
-noise), `minxor128` unchanged. `TACTIX_SWEEP_ENV_BUDGET=0` reverts the inner poll for the A/B arm.
-**Two mechanisms the four-instance framing conflates, now separated:** `constraints_18` is 100 % Sweep
-OVERHEAD (bit-identical trajectory, fixed here); `minxor128` and — post-Stage-D — `em_11` are 100 %
-TRAJECTORY (Sweep's own wall is 1.95 s / fractions of a second, ledger 1.01–1.04×, and it emits 961 / 21
-equivalences that make the search worse). No governor change addresses those, and this does not claim to.
-**MEASURED NEGATIVE, do not re-try: a Sweep resumption cursor.** `Kernel::sweep_cursor` in
-`transitive_cursor`'s shape fixes a real defect on paper (45 rounds re-sweeping the same seed) but makes
-`em_11` **INERT** — 378 environments, 0 equivalences, straight back to its Sweep-off time. The repetition
-is re-examination under a formula that changed between rounds. kissat can move on because its schedule is
-a small occurrence-filtered, occurrence-ranked set that COMPLETES a pass (and `sweep_completed` then
-doubles the caps); ours is every active variable, so a pass never completes. Recorded as **SP-SWEEP-3**;
-the closer is kissat's schedule, not a cursor. **SP-SWEEP-2** (the productivity delay ladder — kissat
-`sweep.c:1718-1721`, gated here on `!e.meter` so a metered repeater can never back off) stays open and
-belongs to Track SCHED. Gates: ctest **44/44**, `sweep_proofs` 41 derivations through real drat-trim +
-lrat-check, `micro_proofs` OK, **nine fuzz legs 0 failures** (random-policy native DRAT + native LRAT +
-sweep-stress + forced-general + ASCII DRAT). Reachability at the SOURCE on the shipped default:
-1,468 rounds, 7,092 environments, 3,441 equivalences, **3,558 binaries and 293 general-path pairs** over
-1,497 generated cases — both proof paths non-zero, so no green leg here is vacuous. Report
-`benchmarks/reports/2026-08-05-sweep-governor-diagnosis.md`.
-### 2026-08-05 — SCHED-G2 + SCHED-H1 (C1/C2): fuzz, five legs, 0 failures
-
-ctest **44/44**, all four checkers green (`config_wiring` · `effort_specs` · `option_coverage` ·
-`check-progress`), regression corpus **14/14 on every leg**. Debug build (`-O1 -g` + ASan/UBSan).
-
-| job | leg | cases | failures |
-|---|---|---|---|
-| `1585205` | DefaultPolicy × native DRAT | 10,000 | **0** |
-| `1585206` | `--random-policy` × **native LRAT** | 6,000 | **0** |
-| `1585207` | `--random-policy` × native DRAT | 6,000 | **0** |
-| `1585208` | **`TACTIX_STOP_FUZZ=97`** × `--random-policy` × native LRAT | 6,000 | **0** |
-| `1585209` | **`TACTIX_SUBSUME_SHADOW=1`** × `--random-policy` × native DRAT | 6,000 | **0** |
-
-**Re-fuzzed after the rework** (helper adopted, cadence removed, `*_try` sites added), same three
-legs that touch the new control flow, jobs `1585256` (`TACTIX_STOP_FUZZ=97` × `--random-policy` × native
-LRAT), `1585257` (`--random-policy` × native LRAT) and `1585258` (`TACTIX_SUBSUME_SHADOW=1` ×
-`--random-policy`): **6,000 cases each, 0 failures, corpus 14/14**. Verdict counts track the un-stressed
-leg (SAT 3036–3040, UNSAT 1883–1887), so the extra abort sites still change no answer.
-
-The last two are the legs that matter here and neither existed before. **`1585208` is the abort leg**: the
-stress cadence bypasses the 256-poll window, so every C1/C2 poll site is live on cases far smaller than one
-window — the exact vacuity that made task #10's abort paths pass 40,000 cases while inert. Its verdicts
-(SAT 3041 / UNSAT 1902) match the un-stressed `1585206` (SAT 3041 / UNSAT 1887, the difference being
-timeouts resolved, not answers changed), so interrupting a round mid-way changed no verdict and every UNSAT
-still produced a checkable LRAT chain. **`1585209`** fuzzes shadow mode itself, i.e. C1 declining an
-inference it found — the soundness direction the G2 instrument depends on.
-
-### 2026-08-05 — SCHED-G2 (2/2): C1 is INERT — C2 absorbs 698,341 of its 698,351 subsumptions
-
-Probe `1585160` (23 tasks, counters only, `benchmarks/probes/g2-c1-shadow.*`, binary `build/pin-g2h1` at
-`7e5abee`). Thresholds were declared in the entry below **before** the run: absorption ≥ 0.9 ⇒ inert.
-
-**Measured absorption: 0.99999.** `c1shadow` on the shadow arm, against the shipped arm's `forward_subsumed`:
-
-| instance | C1 yield (shipped) | shadow observed | C2 deleted | C2 rewrote | **residual** |
-|---|---|---|---|---|---|
-| `DivS_862_11` | 674,584 | 675,481 | 522,737 | 152,744 | **0** |
-| `mod4block` | 15,943 | 16,895 | 16,310 | 585 | **0** |
-| `9vliw_bp_mc` | 5,386 | 4,960 | 3,707 | 1,243 | **10** |
-| `j3037_9_rggt_b` | 699 | 683 | 676 | 7 | **0** |
-| `constraints_18_0.3_2` | 296 | 296 | 256 | 40 | **0** |
-| `rbsat-v760c43649gyes10` | 36 | 36 | 36 | 0 | **0** |
-| `battleship-14-26-sat` | 0 | 0 | — | — | C1 has no yield at all |
-
-Not vacuous: `observed` tracks the shipped arm's `forward_subsumed` to within 0.2 % on the two big
-instances, so the shadow arm really is finding the same set ([[ab-arm-identical-artefacts]]).
-
-**And C1 is not merely inert — it is net NEGATIVE on cost.** Partner visits (`c subsume`/`c strengthen`),
-with the shadow arm's C2 standing in for a C1-less C2 (it is the same formula evolution):
-
-| instance | conflicts on/shadow | C1 | C2 | pair | C2 without C1 | **pair saving** |
-|---|---|---|---|---|---|---|
-| `DivS_862_11` | 2002 / 2002 | 3.178 G | 7.657 G | 10.835 G | 8.615 G | **−2.220 G (−20.5 %)** |
-| `constraints_18_0.3_2` | 27,478 / 27,478 | 493.5 M | 690.9 M | 1184.4 M | 691.1 M | **−493.3 M (−41.6 %)** |
-| `mod4block` | 2.607 M / 2.557 M | 179.8 M | 281.3 M | 461.1 M | 290.1 M | **−171.0 M (−37.1 %)** |
-| `9vliw_bp_mc` | UNSAT both | 12.47 M | 43.01 M | 55.48 M | 45.01 M | **−10.47 M (−18.9 %)** |
-| `rbsat` | SAT both | 0.14 M | 5.018 M | 5.161 M | 5.024 M | −0.14 M (−2.7 %) |
-
-`DivS_862_11` and `constraints_18_0.3_2` are **conflict-identical across the arms**, so those two rows are
-like-for-like; the others are indicative. The saving is a LOWER bound: shadow-mode C1 still re-arms its
-unreached tail (SCHED-F2), which can only make MORE material look new to C2, so the shadow C2 column
-over-states what a C1-less C2 would cost. `constraints_18_0.3_2` is the sharpest exhibit — **493.5 M
-partner visits to delete 296 clauses, every one of which C2 takes anyway.**
-
-**Why this was predictable from the source, and why nobody could have banked it without the probe.**
-C1's `subsumes_marked` is C2's `check_marked` at zero flips, on the same candidate predicate and the same
-1000/1000 limits, so C1 has no unique CAPABILITY band. Both references agree: kissat's
-`forward_subsume_and_strengthen` (forward.c) and cadical's `subsume_round` (subsume.cpp) are ONE fused
-pass. **Splitting them into two rules is our five-primitive decomposition, and it is right for N1 — but
-giving each half its own 100 ‰ effort share is not a decomposition, it is a duplicated dose.** What the
-source could not settle is REACH, and reach is where a real gap would have shown up; the probe says the
-gap is 10 clauses on one instance.
-
-**▶ THE FOLLOW-UP IS A DOSE, NOT A RULE-OFF** ([[no-rule-off-configs]]: every implemented proof rule ships
-scheduled, and this is a diagnosed SCHEDULING defect, which is exactly what a rule-off arm is a diagnostic
-*for*). `SubsumeForward` keeps its guard, its `instances()` and its `apply_instance` — a phase-6 policy or
-an API caller may well want pure subsumption without strengthening, and N1 requires it stay available.
-
-**A/B SPEC (unrun).** Arms, same window, node-pinned, TWO pin dirs for a B+C pair:
-- **A** shipped. **B** `TACTIX_SLOT_PERMILLE=SubsumeForward:5`.
-- **Pre-flight, or the window is wasted:** in B, `c subsume` ROUNDS must drop and `c strengthen … subsumed`
-  must rise by roughly the `forward_subsumed` that disappeared. If `c subsume` rounds are unchanged the
-  knob did not bind — abandon the window rather than read the PAR-2.
-- **Ship criterion:** Tier B and Tier C PAR-2 both no worse at equal solve counts. The prior is a win on
-  the C1-heavy instances (`DivS_862_11`, `constraints_18_0.3_2`) and neutral elsewhere.
-- **Do NOT read `j3037_9_rggt_b`**: the shadow arm solved it in 34 s while the shipped arm timed out at
-  300 s, and that instance is already on the record as a measured lottery ([[chaotic-instance-veto]]).
-
-### 2026-08-06 — SCHED-H1 (the C1/C2 third): SIX poll sites, no cadence, and a residual ruled out
-
-`D-STRENGTHEN-BUDGET` recorded C2 owning **97.8 s of `DivS_862_11`'s 109.0 s in four applications**, with
-no way to stop a round once it began. `default_policy.cpp` polls `stop` at every slot boundary, which
-bounds SIGTERM latency to ONE application — and one application here is most of the solve. A harness then
-escalates to SIGKILL and **the proof file is lost**: an N2/§6 defect, not a latency nuisance.
-
-**`budget_aware` was not termination here either**, exactly as the X1/X2/X4 third found. Both rules poll
-`Kernel::work_budget` mid-round and polled nothing else; `work_budget` is 0 whenever the policy leaves a
-round unmetered, and — the part that matters for N1 — **neither governor is consulted at all on the
-single-instance `*_try` path**, which is the path a phase-6 policy driving `apply_instance` per candidate
-would live on. Two of the six sites are there.
-
-**Six sites, because C2 alone has four entries into unbounded work.** C1: the candidate loop, plus
-`subsume_forward_try`. C2: the **flush pre-pass** over the whole arena, the candidate loop, the **cascade**
-that re-checks one shrinking candidate (up to `CLSLIM` = 1000 full partner scans on a single clause), plus
-`strengthen_try`. A poll in the candidate loop alone leaves a round deaf for the whole flush pass.
-
-**Every site sits where nothing is half-mutated** — top of an iteration, `marks` all-zero, no clause
-part-rewritten — and everything already done is proof-logged. **Dropping an inference is sound; leaving
-`F`/`R`/`τ`/`ρ` inconsistent or emitting an unverifiable certificate is not** (Track C's `D-CONG-SKIP`).
-
-**An interrupted round is bookkept as an INCOMPLETE round — with one correction found in self-review.**
-The first cut of this reused SCHED-F2's budget-cut bookkeeping wholesale: re-arm the unreached tail, then
-advance the watermark. **That is a starvation bug on the abort path.** Re-arm-then-advance is only
-equivalent to "carry on next round" because the re-arm covers the tail of `candidates` — and **C2 can
-abort inside the flush pre-pass, before `candidates` exists at all**, so there is no tail and advancing
-would retire material the round never looked at (SCHED-B3's starvation, reintroduced through the new
-control flow). Both rules now treat an interrupt as the one cut that **advances no watermark and re-arms
-nothing**: the next round is offered the identical set, and the abort path stops touching variables and
-perturbing every other rule's filter on the way out of a solve that is being terminated. Pinned in both
-unit tests (`*_touch_mark == 0`, `*_mark_advances == 0` after an abort).
-
-**▶ THE VACUITY GUARD, which is the point of the item.** Task #10's abort paths passed **4 × 10,000 fuzz
-cases while inert**, because the sites were gated on `!(++tick & 255)` and nothing smaller than one poll
-window ever reached a first check — and every CNF the harness generates is smaller than that. The first
-cut of this entry reproduced that mistake (a 256-candidate mask with a `k.stop_fuzz ||` bypass in front)
-and it is **gone**: the hazard is closed STRUCTURALLY, not tested around.
-- **No cadence at all.** One poll per heavyweight iteration, so the FIRST candidate reaches the first
-  check. A candidate is up to `CLSLIM × OCCLIM` partner visits, so the poll is free at that granularity.
-- The predicate is `kernel_rule_interrupt(k, k.stats.subsume_interrupted)` — the X1/X2/X4 share's helper,
-  which polls **and** performs both increments, so **no call site increments anything** and a new abort
-  site cannot be added uncounted.
-- `subsume_interrupted` / `strengthen_interrupted` (`c interrupt2`, the `c interrupt3` line's counterpart)
-  attribute a fire to the rule; `rule_interrupted` alone cannot, since five rules now share it.
-- The unit tests drive each entry point separately with the flag already raised, the landed
-  `test_bce.cpp` shape, each with a negative control on the same formula. C2's candidate-loop and cascade
-  sites cannot be reached that way — the flush pre-pass always polls first — so they are reached through
-  the stress cadence, with `strengthen_checked > 0` at the abort as the witness that the flush completed
-  first, and a sweep that finds nothing fails loudly rather than leaving the sites unproven.
-
-**No behaviour change without an interrupt**: with `stop == nullptr` and `stop_fuzz == 0` each site is one
-predicate call and a branch, and `c interrupt2` reads `0, 0` on every normal solve (all 14 non-interrupt
-tasks of probe `1585160`). **So this needs no A/B.**
-
-**▶ NON-ZERO FIRE COUNTS ON REAL INSTANCES, all on the SHIPPED (cadence-free) binary.** Probe `1585247`,
-counters only — no timing is claimed and none is needed:
-- **Real SIGTERM**, i.e. the actual §6 path. `0 stress fires` on every one of these, which is what proves
-  the abort came from `*k.stop` and not from the diagnostic knob:
-  - `DivS_862_11` at 25 s → **C1 1, C2 0**. The C1 round it interrupted had done **2,335,884,737 partner
-    visits** and was still going.
-  - `DivS_862_11` at 60 s → **C1 0, C2 1**, that C2 round at **2,504,317,968 visits**.
-  - `constraints_18_0.3_2` at 40 s → **C1 0, C2 1**.
-  - `j3037_9_rggt_b` at 40 s → **0, 0**: the signal landed outside C1/C2. Recorded because a probe that
-    only reports its hits is not evidence about the rest.
-  - All exited cleanly with `s UNKNOWN` and a flushed proof. **Before this item the same SIGTERM waited
-    out a two-billion-visit round** — the SIGKILL-loses-the-proof scenario, reproduced and then closed.
-- **Stress cadence** on real instances: `DivS_862_11` **9 C1 + 9 C2** (of 30 source fires), `9vliw_bp_mc`
-  **0 C1 + 6 C2** (of 21), `rbsat` **0 C1 + 5 C2** (of 7). **Verdicts unchanged from the shipped arm** —
-  `9vliw` UNSAT, the other two SAT — so aborting mid-round changed no answer.
-- **At FUZZ scale, which is where the last vacuity hid** (probe `1585259`, 400 harness-generated cases,
-  `benchmarks/probes/h1-fuzzscale-reach.*`): **5,326 C1 aborts and 5,510 C2 aborts** over 62,987 source
-  fires. The same probe on the cadenced first cut read 4,694 / 4,817 over 49,800 — **removing the cadence
-  raised reachability by 13 %/14 %**, which is the mask's cost stated as a number instead of an argument.
-
-**▶ THE `battleship-14-26-sat` RESIDUAL IS NOT C1/C2 — ruled out by counters, not by a timing run.** The
-X1/X2/X4 third handed over a 7.3 s post-SIGTERM exit on that instance with `c interrupt 0` and BCE/X2/X4
-at zero rounds. Probe `1585160` ran it to a SAT verdict, so its counters are C1/C2's ENTIRE involvement
-in that solve: **C1 one round, 196 candidates, 1,274 partner visits; C2 one round, 196 candidates, 15,106
-partner visits — and both rounds COMPLETE.** Sixteen thousand partner visits cannot be seven seconds, and
-a round that completed was never in flight to be interrupted. **The 7.3 s is search, Vivify, or the proof
-flush; C1/C2 are excluded.** Routed back rather than chased — narrowing it further needs a timing
-measurement, which this window cannot honestly produce.
-
-### 2026-08-05 — SCHED-G2 (1/2): the instrument, and what will count as decisive
-
-**The question is not "does C1 fire".** C1 fires — `forward_subsumed` has always been non-zero. The
-question the track asks is whether C1 removes clauses **C2 would not have handled anyway**, and counting
-subsumptions cannot answer it: every clause C1 deletes is a clause C2's fused round could also delete.
-
-**Half of it is settled in the SOURCE, with no run at all.** C1's per-pair test `subsumes_marked` is
-exactly C2's `check_marked` with the flip count pinned to zero; both rules use the same candidate
-predicate (live · irredundant · not root-satisfied · `size <= CLSLIM`), the same **1000/1000**
-`CLSLIM`/`OCCLIM`, the same size-ascending order, and the same connect-at-least-occurring-literal index —
-and C2 additionally probes the NEGATED phase and cascades. **So C1's deletable set is a subset of C2's,
-and C1 can have no unique capability band.** `test_subsume.cpp::test_shadow_ledger` states that as
-behaviour rather than as a source reading, over both the large-subsumer and the binary-subsumer case, so a
-future divergence in either rule's limits or discovery breaks the build here.
-
-**What the subset argument cannot settle is REACH** — whether C2's next round actually gets to the same
-pair, given its own budget, its own `strengthen_touch_mark`, and the early exit a derived unit forces.
-That is the whole remaining question, and it is dynamic.
-
-**The instrument: shadow mode, not a plain ablation.** `TACTIX_SUBSUME_SHADOW=1` makes C1 run its full
-round and RECORD each victim's clause id (`Kernel::shadow_victims`) instead of deleting it; Strengthen
-retires the id on every path that removes the clause (fused subsumption · the flush pre-pass's
-root-satisfied delete · a strengthen rewrite, which retires the old id and gets its own counter). The
-output is `c c1shadow observed / deleted + rewritten by C2 / residual`.
-
-**Why this beats `TACTIX_SLOT_DISABLE=SubsumeForward`.** The trajectory under shadow mode IS the C1-less
-trajectory — C1 takes no action — so the ledger measures the counterfactual in the SAME run that produces
-it. A plain ablation only yields two aggregates from two diverged trajectories, and can never say that
-*this* clause was picked up. It is also biased the safe way: absorption by any rule other than C2 (BVE
-above all) is deliberately not counted, so `residual` OVER-states C1's unique yield.
-
-**Declared before the run.** With `observed` non-zero on real instances:
-`absorbed/observed >= 0.9` ⇒ **C1 is inert**, its 100 ‰ share is duplicated work and the elimination group
-should be re-dosed. `<= 0.5` ⇒ **C1 earns its share** and the reach gap is real. Between the two ⇒ report
-the split rather than a verdict, and name which instances carry the residual. `observed == 0` on every
-instance is not a "C1 is inert" result — it is a broken probe, and the arm must be rejected
-([[ab-arm-identical-artefacts]]).
-
-### 2026-08-05 — SCHED-G3: Vivify trail reuse (+ F5's clause bit, tier3, H1's Vivify half)
-
-Branch `sched-g3-vivify`. Design frozen FIRST at `docs/design/2026-08-05-vivify-trail-reuse.md`; ctest
-**44/44**, all four config/doc checkers green.
-
-**The finding that shaped the item: the reuse loop is not the mechanism, the ORDER is.** Both references
-say so at the use site. cadical `vivify.cpp:35-42` is explicit — *"instead of building a trie we simply
-sort clauses and literals in such a way that we get the same effect … pick a global literal order …
-favor literals with more occurrences first … then sort clauses lexicographically"* — and kissat does the
-same in `vivify_sort_clause_by_counts` + `worse_candidate`. Our probe order was **clause literal order**
-and our candidate order was `(irredundant, size, ref)`, under which adjacent candidates share a leading
-literal only by accident. **A reuse loop bolted onto that scheduling would have measured a reuse rate
-near zero**, which is the [[ab-arm-identical-artefacts]] outcome predicted rather than discovered. So
-the orders landed WITH the reuse, and the off arm reverts both — an off arm that kept the new order
-would not be measuring the mechanism.
-
-One deliberate divergence: kissat permutes the literals IN THE ARENA and therefore brackets the round
-with `flush_large_watches`/`watch_large_clauses`. We keep the order in a round-scoped side vector and
-sort only the local probe list, so neither arena is touched and there is no watch rebuild.
-
-**The validity invariant for a reused prefix (design §3, VP1/VP2/VP3) rests on ONE rule:** every
-operation that can invalidate a retained trail — rewrite, deletion, root unit, GC — is preceded by
-`reset_to_root()`, so a trail is never carried ACROSS a database change, only across candidates that
-changed nothing. There is no generation counter to get wrong because no state outlives what it
-describes. That one rule also discharges `kernel_probing_end`'s "no clause added/deleted/relocated in a
-scope" contract, its restore precondition, and kissat's `reestablish_watch_invariant_for_candidate`
-(which exists only because kissat shrinks clauses in place at a non-zero level; we never mutate above
-the root). Three things it does NOT discharge, each handled explicitly:
-- **Root values vs current values.** `is_candidate` and the probe list read `k.value`, correct only
-  because the level used to be 0 on entry. The root-satisfied **deletion** path goes through the same
-  test, so with a retained trail a speculatively satisfied clause could have been deleted — the one way
-  this change could produce a WRONG answer rather than a slow one. Both now read `root_value`
-  (kissat's `kissat_fixed`).
-- **The candidate as a trail reason.** The prefix was propagated ignoring the PREVIOUS candidate, so the
-  current one may be a reason on it. Not only a quality issue: in the implied-negation case the
-  candidate's id is the CLOSING LRAT hint, and a reason walk that also reached it would emit the same id
-  twice in one chain — a hint already satisfied on replay is a rejection, not a warning. Both references
-  check exactly this and backtrack below it (kissat `vivify.c:995-1005`, cadical `vivify.cpp:940-965`),
-  and so do we, in O(|c|).
-- **Leftover levels.** A value is read only where `k.level == i - 1`, i.e. where only this candidate's
-  assumptions hold — kissat's `assert (!value || LEVEL (lit) <= level)`. The reuse branch reads nothing.
-  We additionally trim `k.level` to `|probes|` up front so the trail cannot even hold an assumption
-  outside the candidate.
-
-**The count order forced a second closure, and it was not optional.** Under clause order the implied
-literal was usually the next position and the lazy `v > 0` test caught it; under the count order it can
-be anywhere later, so without kissat's **eager implied-literal scan** (`vivify.c:1078-1090` — mark the
-probe literals, scan what each propagation newly assigned) the new order would strictly LOSE
-strengthenings the old one found. `test_lcm_scope_and_satisfied_delete` failed on exactly that and is
-what surfaced it. Still open: kissat's `better_implied` refinement (`vivify.c:1101-1117`).
-
-**REACHABILITY — the mechanism is live, and the off arm proves the counters move** (probe `1585201`,
-`benchmarks/probes/scratch/g3/`, three real Tier C instances):
-
-| instance | reused | probes | reuse rate | tier3 | rearm/rounds |
-|---|---|---|---|---|---|
-| `1-ET-256-K-70` (UNSAT) | 62,605 | 165,663 | **27.4 %** | 1,177 | 24/158 |
-| `EDP3-11000` (SAT) | 142,650 | 451,380 | **24.0 %** | 800 | 21/73 |
-| `Ptn-7824-b18` (SAT) | 830,950 | 2,198,892 | **27.4 %** | 5,468 | 100/423 |
-
-`TACTIX_VIVIFY_REUSE=0` on `EDP3-11000`: **0 reused**, and only **31,050 candidates checked** against
-the ON arm's **122,548** for the same tick budget — a 3.9× widening of what the budget reaches.
-`TACTIX_VIVIFY_TIER3=0`: **tier3 0**, confirming the fourth pass is what populates that band.
-cadical claims 30–50 % of decisions saved; 24–27 % is the same order.
-
-**▶ `vivified` COLLAPSES AND THAT IS NOT THE OBJECTIVE — read solve time.** The count drops hard:
-`EDP3-11000` 1,155 vs the off arm's 1,938, `Ptn-7824-b18` **9,211 vs 364,859**. My first reading of that
-was that the yield went the wrong way; it is the wrong number to read. Paired single-instance times, same
-node, same binary, 400 s cap:
-
-| instance | shipped (both ON) | `TACTIX_VIVIFY_REUSE=0` | `TACTIX_VIVIFY_TIER3=0` |
-|---|---|---|---|
-| `EDP3-11000` | **28.6 s** | 29.8 s | **62.8 s** (2.2×) |
-| `Ptn-7824-b18` | **273.9 s SOLVED** | **400 s TIMEOUT** | — |
-
-So on both instances the shipped arm vivifies far less and is FASTER — on `Ptn` the off arm burns
-15.97 M probe assumptions to strengthen 364,859 clauses and does not finish. Vivification count was never
-the objective, and D-VIVIFY-SCHED's "this is a YIELD fix" note has to be read as "yield per tick", not
-"clauses rewritten". **This is still TWO instances and is NOT a verdict** ([[chaotic-instance-veto]]);
-the §5 A/B is what decides it, and its abandon-the-window rule stands. Peak RSS 249 MB vs 113 MB — the
-round-scoped probing log is real but small, and 249 MB is far under the 8 GB/core allocation.
-
-**C10 hand-off H3 LANDED, not deferred** (`SP-TIER-2` removal-path T3, now closed in
-`implementation-notes.md`): `Kernel::vivify_scope` grows to name the band — 3/4/5 = kissat's
-tier1/tier2/tier3 — and `run_vivify_dose` spends the redundant budget as three passes at 3/3/7, 3/3/7,
-1/7. The "3+3+1 = 7" the policy comment was already claiming was **only ever accounting**: the redundant
-side was one pass bounded by `tier2`, so **tier3 was never vivified at all**. This is also the first
-live `k.tier1` consumer outside reduce in either direction. `Stats::vivify_tier3` is its own vacuity
-witness and is non-zero on all three instances above.
-
-**SCHED-F5 and SCHED-H1's Vivify half** are ticked in the checklist with their own evidence.
-
-**FUZZ: SIX LEGS, 10,000 CASES EACH, 0 FAILURES** (60,000 cases, corpus 14/14 on each) — jobs `1585243`
-native DRAT · `1585244` native LRAT · `1585245` `--random-policy` × DRAT · `1585246` `--random-policy` ×
-native LRAT · `1585254` **`TACTIX_STOP_FUZZ=97` × `--random-policy` × native LRAT** (the H1 abort path:
-the stress cadence bypasses every window, so the new poll is live on cases far smaller than one) ·
-`1585255` **`--probing-stress-policy` × native LRAT** (the new-schedule leg: it drives Vivify's CANONICAL
-round densely against Probe/Backbone/TransitiveReduce/Congruence in random order with
-`kernel_check_invariants` after every step, which is exactly the surface trail reuse lives on). Verdicts
-agree between the stressed and unstressed legs modulo timeouts (SAT 5026 vs 5027), so interrupting a
-round changed no answer and every UNSAT still produced a checkable chain. **An earlier submission of the
-same six was cancelled and redone**: `build/debug/tactix` was rebuilt underneath them mid-flight, which
-makes a leg mixed-binary and its green meaningless — the fuzz analogue of the build-dir rule.
-
-**A/B SPEC (not run — no tier campaign here, and the 4-core allocation is oversubscribed).** Same
-window, same binary, node-pinned, Tier C, `--baseline kissat --baseline cadical`; two pin dirs if a
-Tier B arm goes out concurrently. Arms via the shipped hatches `TACTIX_VIVIFY_REUSE=0` and
-`TACTIX_VIVIFY_TIER3=0` (both ship ON). **Read `c vivify2` BEFORE reading PAR-2**: `reused` 0 ⇒ the
-mechanism is inert and the window is abandoned; `tier3` 0 ⇒ the tier3 half is inert independently.
-Paired draws before any single-instance flip is treated as a verdict ([[chaotic-instance-veto]]).
-**Ids: no new SCHED id was minted** — G3, F5 and H1's Vivify half were all already on the board
-(G4 and H4+ remain free).
-
-### 2026-08-05 — SCHED-F6: the redundant half of the substrate, shipped OFF on purpose
-
-Requested after `SCHED-C10`, whose SP-TIER-2 audit left exactly this residue: cadical's `mark_added`
-family branches on `likely_to_be_kept_clause`, and **we do not populate the redundant half of the mark
-substrate it scopes**. `kernel_likely_kept` now implements all THREE disjuncts — irredundant · within the
-live `tier2` · within the reduce **survivor envelope**, the one we had no counterpart for, now published
-as `Kernel::kept_glue`/`kept_size` out of `reduce_apply_refs` (cadical `reduce.cpp:147-156`).
-
-**It ships OFF, and that is the finding rather than a hedge.** Extra stamps can only WEAKEN a round filter
-— more marks, fewer skips — and every stage-F consumer (C1, C2, BCE, X2, X4, Factor) scopes itself to
-irredundant clauses. So *on its own* the redundant half is a measured cost buying nothing, and turning it
-on by default would spend the 52 % C1 saving F1 measured to populate a set no rule reads. What it buys is
-the PREREQUISITE for `SCHED-F7`, the consumer half (open C1/C2's scope to the band, cadical
-`subsume.cpp:388`) — and C10 declined to wire that first for precisely the right reason: a consumer that
-filters an unpopulated set produces byte-identical artefacts and a green-but-vacuous arm.
-
-**The anti-vacuity pair is counted unconditionally, so it costs nothing to check.** `c touchred` prints
-`touch_redundant_dynamic` against `touch_redundant_static6`: the first > 0 proves the stamps fire, and the
-two DIFFERING proves the scope tracks the live tier rather than a frozen 6 — which one count cannot show,
-and which matters because the blast radius C10 measured is real (`battleship-14-26-sat` live tiers 26/34,
-where a static-6 consumer admits **nothing**: 1,025,943 dynamic clause-visits against 0 static).
-`test_touch_redundant_scope` pins all three disjuncts separately, including that the envelope readmits a
-clause `tier2` alone excludes.
-
-**▶ THE PRE-REGISTERED CHECK PASSES, AND ON THE INSTANCE C10 NAMED IT PASSES BY AN INFINITE MARGIN**
-(probe `1584772`, `c touchred`, counters only). Redundant creations in scope, dynamic vs static-6:
-`battleship-14-26-sat` **345,038 vs 0** — live tiers 26/34, so a frozen-6 predicate admits *literally
-nothing* there and every one of those 345 k stamps exists only because the tier is dynamic ·
-`9vliw_bp_mc` **236,570 vs 49,229** (4.8×) · `rbsat` **265,255 vs 147,855** · `hwmcc17miters` 0 vs 0,
-which is consistent (it refutes at 1 conflict, so nothing is learned). Both halves hold: `dynamic > 0`
-says the stamps fire, and `dynamic != static6` says the scope MOVES with `k.tier2`. **`SCHED-F7` is
-therefore unblocked and provably non-vacuous** — the set its consumer would read is large, and on
-`battleship` it is a set that did not exist at all before C10's dynamic tiers.
-
-### 2026-08-05 — STAGE F A/B SPECS (all four landed items, none priced) + the F5 stop
-
-**Arms, same-window Tier B + Tier C, two pin dirs from the same commit (CLAUDE.md build-dir rule), node
-pinned, `--baseline kissat --baseline cadical`.** Knobs go in the command, not the environment.
-
-| arm | command | what it isolates |
-|---|---|---|
-| `touchon` | shipped default | F1+F3+F4 together (one kernel switch governs all the round filters) |
-| `touchoff` | `TACTIX_TOUCH_MARKS=0` | the whole suppressor family off; restores the pre-stage-F candidate sets exactly, and the re-arm loops are skipped too so the arm is genuinely inert |
-| `holdoff` | `TACTIX_SUBSUME_HOLD=0` | F2's elimination-loop wire alone. **Run this one ONLY if `c subhold` is non-zero somewhere** — it read 0 on all four probe instances, so today this arm is predicted byte-identical and would be a wasted window |
-
-**PRE-FLIGHT, checked before any PAR-2 is read** ([[ab-arm-identical-artefacts]]): on the ON arm
-`c touch` / `c touch3` / `c touch4` must all show non-zero `skipped`, AND the rule's own `checked`/`ticks`
-counter must stay non-zero — all-skipped is a wedge, all-checked is an inert filter. On the OFF arm every
-`skipped` must be 0. **Ship criterion:** `#solved` first, then Tier C PAR-2 outside the 6.72 noise floor,
-with the fragility line read (`k=1` is not an answer). `mod4block` and the rest of the may-not-gate set do
-not decide this alone — and `mod4block` already flipped SAT→UNKNOWN→SAT across the two probes, which is
-precisely why.
-
-**Measured at the source (probes `1584708` F1, `1584753` F3, `1584772` on the MERGED tree; counters
-only, no wall clock).** On the pre-merge branch: `rbsat` C1 partner visits **165,272 → 79,686**, C2
-**5,827,200 → 2,571,322**; `mod4block` BCE ticks **14,943,039 → 7,138,926** with MORE deletions
-(4,133 → 6,257) and X2 ticks **32,128 → 18,373** for 2,898 resolvents instead of 8,118; `9vliw` BCE
-175,810 literals skipped. Telemetry self-check clean (0 `***UNACCOUNTED***`) on every arm.
-
-**▶ RE-READ AFTER THE MERGE: WHICH CONSUMER CARRIES THE STAGE IS PER-INSTANCE, so do not quote one
-instance's split for the tier.** On the merged tree (Stage E's cursor + E3's ceiling + C8's ITE/XOR gates
-in front of it) the substrate is busier — `9vliw` 4,895,219 touch marks against 2,102,782 before, because
-more rules now reach more candidates and every rewrite is an add — and more marks means fewer skips.
-Where that lands differs completely by instance: `9vliw` C1 drops to **4,501** skipped (95,965 on the
-branch alone) and the work moves to BCE **177,060** and Factor **65,176**; `rbsat` C1 **74** with Factor
-**88,932**; `battleship` is Factor **36,036** and nothing else at all; while `mod4block` is still
-overwhelmingly C1/C2 — **782,717 / 781,290** skipped, plus X2 16,002. So the stage fires hard everywhere
-it fires, but through a different consumer each time, which is an argument for pricing the family
-together (one `TACTIX_TOUCH_MARKS` arm) rather than per item. **The one firm negative: quoting the
-pre-merge C1/C2 numbers as HEAD's is wrong on three of the four instances.**
-
-**F6's ships-OFF decision is now MEASURED, not just argued.** `TACTIX_TOUCH_REDUNDANT=1` on the same
-instances: `9vliw` touch marks 4,895,219 → **9,715,099** (2.0×) and `battleship` 18,434 → **15,127,577**
-(820×), for **zero additional skips anywhere** — C1 4,261 vs 4,501, BCE 178,812 vs 177,060, i.e. noise in
-the wrong direction. Exactly the predicted shape: without `SCHED-F7` the redundant half is pure cost.
-
-### 2026-08-05 — SCHED-F3: BCE is why the substrate has TWO stamps
-
-X1 BCE, X2 HyperTernaryRes and X4 Instantiate all got the F1/F2 treatment — filter the canonical round,
-re-arm the tail, advance the watermark — but BCE does not fit the substrate as F1 built it. **A clause
-becomes blocked on `l` either because it appeared or because an opposite occurrence WENT AWAY**, and
-deletion is deliberately not a `touched` producer (it can never create a subsumer, and marking on it would
-weaken C1/C2's filter, which is where the measured saving is). Folding deletions in would have paid for
-BCE out of C1/C2. So `Kernel::removed` is a **second array on the same clock**, and BCE reads
-`kernel_changed_since` while everyone else reads `kernel_touched_since` — which is cadical's own line:
-`mark_added` and `mark_removed` set different flags (`internal.hpp:1125-1137`), and `block.cpp:730-733`
-says outright "we do not have to try BCE on it again until irredundant clauses with its negation are
-removed". Pinned by `test_bce.cpp::test_touch_filter_is_policy_only`, whose second half asserts that a
-DELETION with no add re-arms the literal.
-
-Two more per-rule readings of the reference rather than a copy of C1's: HyperTernaryRes uses `need`-free
-per-pivot marking because cadical's `ternary` flag is per variable and its comment states the same
-predicate (`ternary.cpp:258-266`); Instantiate uses `need = 1`, not 2, because its probe is a
-PROPAGATION and one new clause over one of the candidate's variables can change the outcome — the
-"a new subsumer needs two shared variables" argument does not transfer. Instantiate's filter is also
-deliberately WEAKER than cadical's, which sets a per-clause `instantiated` bit once and never resets it
-(`instantiate.cpp:32,211`): ours re-offers the clause as soon as anything in it changes, recovering the
-instantiations the once-ever bit forfeits.
-
-**Unlike C1/C2, these three rounds ARE budget-cut under DefaultPolicy** (all three are `budget_aware`,
-HyperTernaryRes additionally has the `ternarymaxadd` output governor), so their resume path is reachable
-and its `rearmed` counters are live rather than test-only.
-
-**▶ NOT DONE: the delay ladder for metered entries.** It is `!e.meter`-gated inside DefaultPolicy's slot
-loop, and giving metered entries a productivity ratio is per-entry policy bookkeeping in the file Stage E
-owns. Deferred deliberately rather than collided on.
-
-ctest **44/44**.
-
-### 2026-08-05 — SCHED-F2: resume by RE-ARM, and the bound coupling T5 asks for is refused as self-wedging
-
-**Resume.** F1 blocked a cut round's watermark, which re-offers the HEAD as well as the tail — SCHED-B3's
-starvation with extra steps. F2 replaces that with kissat's own arrangement: re-arm the variables of the
-candidates the round never reached, then advance the watermark like any other round, so the next candidate
-set is {unreached tail} ∪ {new material}. Doing it in the SUBSTRATE rather than through a positional cursor
-is what makes it survive the round's own `kernel_collect_garbage`, which invalidates every Ref — a cursor
-would have needed a GC-stable key that does not exist. Sharper than kissat on one point: a tail candidate
-that fails the filter is not re-armed (its check provably cannot fire under the new, higher watermark).
-
-**▶ THE COUPLING IS REFUSED, AND THAT IS THE RESULT.** T5 lists "C1/C2 completeness → BVE's bound advance".
-Reading both references at the use site: **neither does it.** kissat's forward `complete`
-(`forward.c:664-670`) gates the elimination ROUND LOOP (`eliminate.c:519-520`) and nothing else; the bound
-advance is a different predicate, computed after the loop and reached with subsumption incomplete whenever
-the loop exits on rounds or budget. And the conjunct would be **self-wedging**: `strengthen_complete` is
-false on any productive round, BVE's resolvents are C2 material by construction, so BVE at bound b feeds
-C2, C2 stays productive, and the bound never advances — SP-SLOT-5's failure mode, reproduced by
-construction. Full row + removal path: `implementation-notes.md` §13.3 `SP-REPEAT-COUPLE`.
-
-**What landed instead** is the reference's real wire — an incomplete C1/C2 holds the elimination outer
-loop open — and it is **INERT under the shipped DefaultPolicy, measured, not assumed**: `Stats::
-subsume_holds` (`c subhold`) is 0 because `midround_budget` is off so no round leaves a tail, and every
-other way to leave one already sets `round_changed`. Labelled inert per the SP-SLOT-6 convention; must not
-be cited as a result. It goes live the moment a budget binds, which is SP-EFFORT-CEIL-1's job.
-
-**The resume path is likewise unreachable under DefaultPolicy** for the same reason, so it is pinned by
-`test_touch_resume_rearms_the_tail` rather than by a leg ([[ab-arm-identical-artefacts]] — the SCHED-C6
-precedent for a path no policy reaches).
-
-### 2026-08-05 — SCHED-F1: the touched-epoch substrate is a STAMP, so it has no clearer to starve
-
-**Measured at the source (probe `1584708`, 4 Tier B instances × on/off, counters only).** The filter fires
-hard and does not wedge: `rbsat` C1 6,855 skipped / 5,187 checked and partner visits **165,272 → 79,686
-(−52 %)**, C2 **5,827,200 → 2,571,322 (−56 %)**; `9vliw` C1 −17 %, C2 −14 %; `mod4block` C1 **515.9 M →
-326.5 M**. `advances` equals the round count on every instance (17/17, 18/18, 54/54) and `checked` stays
-large throughout — both halves non-zero is the non-wedge evidence. `touch marks` is identical across arms
-(170,879 / 170,879 on `rbsat`), i.e. the producers are independent of the consumer, which is the property
-that makes the stamp unstarvable. `TACTIX_SLOT_STATS=1` self-check clean (0 `***UNACCOUNTED***`).
-**Caveat, and it is a lottery, not a verdict:** `mod4block` went SAT (1.46 M conflicts) → UNKNOWN at 300 s
-while doing 6.99 M conflicts — 4.8× more search in the same window. It is on the may-not-gate list and a
-SAT trajectory flip is exactly what that list exists for; paired draws before anyone reads it as a cost.
-
-
-`Kernel::touched[v]` holds the value of a monotone `touch_epoch` at v's last change; a consumer keeps a
-watermark and reads `touched[v] > w`, "clearing" by snapshotting the epoch. **That shape is the direct
-answer to D3's finding.** A per-consumer BIT would need a clear pass, and a clear pass that a scheduling
-decline can starve is exactly what wedged the elimination clock shut (`SP-SLOT-5`). A stamp has no clear
-step at all, and its producers sit on the kernel's clause-CREATION path (`kernel_add_large_clause`
-irredundant, `kernel_add_binary_clause`, `kernel_reserve_vars`, `kernel_touch_sync_fixed`), which no
-policy can decline. **Non-wedge is then a theorem, not a hope:** with no add and no root fix the
-irredundant clause set only shrinks, and subsumption/strengthening are monotone in it, so "nothing
-touched" really does mean "nothing to find". Deletion is deliberately NOT a producer — it can only remove
-subsumers — which is where this mark set differs from `bve_retry`'s.
-
-**Two things the naive port would have got wrong.** (1) kissat's `connect_subsuming` (forward.c:488-492)
-demands `flags->subsume` on EVERY literal, so an unscheduled clause is dropped from the round's subsumer
-index and old-subsumes-new is lost. Our index is round-local and cheap, so a skipped candidate is still
-CONNECTED, only not CHECKED — the filter then costs no subsumption the unfiltered round would find.
-(2) A root fix makes a clause effectively shorter without any rewrite. Rather than kissat's occurrence
-walk we stamp only the fixed variable and let the membership test read the case off it
-(`value(l) < 0 && touched_since(var_of(l))`), so `kernel_touch_sync_fixed` is O(new units), not
-O(their occurrences).
-
-**N1.** The filter is consulted by the canonical ROUND only. `subsume_forward_candidates` /
-`strengthen_candidates` (what `instances()` enumerates) and the single-candidate `*_try` paths stay
-complete, so no API caller loses a legal application — the distinction the `Factor` breach
-(`SCHED-N1FIX`) turned on. Pinned by `test_subsume.cpp::test_touch_filter_is_policy_only`, which advances
-the watermark past everything, asserts the round declines, and then asserts `instances()` still offers the
-clause and `apply_instance` still subsumes it.
-
-**Completeness.** A watermark advances only for a round that reached the end of its candidate list; a
-budget-cut round (or one ended by a derived unit) leaves it, so its survivors are re-offered.
-`test_touch_filter_cut_round_does_not_advance` pins that.
-
-ctest **44/44**. **UNPRICED.** Off arm `TACTIX_TOUCH_MARKS=0` (kernel-side, so it applies under
-`--random-policy` too); pre-flight counter the `c touch` line — `marks` must keep growing, and per rule
-BOTH `skipped` and `checked` must be non-zero (all-skipped = wedged, all-checked = inert) with
-`advances` > 0.
-### 2026-08-05 — SCHED-H2: a reused policy object was carrying eleven state groups into the next solve
-
-**Not hygiene.** N1 lets any policy drive the solver and the §5.6 learner will run many solves from ONE
-policy object per process; state carried from solve *n* to *n+1* makes a trajectory — and any RL reward
-computed from it — a function of episode ORDER. It also sits on the incremental/competition path.
-
-**THE BLAST RADIUS, established before anything was changed.** Fifteen groups, classified, each against the
-reference's own use site (`kissat search.c:45-70 start_search` + `kimits.c:99-136 kissat_init_limits`;
-`cadical internal.cpp:499-608 init_search_limits`, whose restart/rephase/stabilize/reluctant/elimbound
-family is reset **"in any case"**, incremental or not).
-
-| state | verdict | reference |
-|---|---|---|
-| `averages[2]` (per-mode glue + decision-rate EMAs) | **LEAKED** | kissat `search.c:56 kissat_init_averages`; cadical `internal.cpp:582 init_averages` |
-| `restart.next_conflicts` | **LEAKED** | cadical `internal.cpp:568` "reset in any case"; kissat `kimits.c:120` |
-| `reduce.next_conflicts` | **LEAKED** (re-based only on the `sqrt` arm) | kissat `kimits.c:110`; cadical `internal.cpp:508` |
-| `mode.{count,conflicts_limit,ticks_limit,ticks_at_focus_entry}` | **LEAKED** | kissat `mode.c:19-40 kissat_init_mode_limit`; cadical `internal.cpp:596-601` |
-| `reluctant.{u,v,wait,trigger}` | **LEAKED** | kissat `reluctant.c:4-14`; cadical `internal.cpp:603-608` |
-| `rephase.{next_conflicts,count}` | **LEAKED** | cadical `internal.cpp:559-562` "in any case"; kissat `kimits.c:116` |
-| `reorder.{next_conflicts,count}` | **LEAKED** | kissat `kimits.c:113` (cadical has no reorder) |
-| `walk_anchor` | **LEAKED** | cadical `last.walk.ticks` / `SET_EFFORT_LIMIT`'s `TICKS − LAST` window |
-| `probe_clock` / `elim_clock` (+ their new-material watermarks) | **LEAKED** | kissat `kimits.c:126-135 INIT_CONFLICT_LIMIT(probe/eliminate, true)` |
-| `inprocess.{initialized,ticks}` | **LEAKED**, and the worse one — the accumulator pairs with the kernel's ONE global tick meter, so on a fresh kernel `search_ticks()` UNDERFLOWS | kissat keeps `search_ticks` as its own counter |
-| `SlotEntry` runtime (`anchor`, `limit`, `applies`, `cursor`, `tm`, `ord`, the three marks, the delay ladder) | **LEAKED** | cadical `Last` / `last.NAME.ticks = TICKS` |
-| `DefaultBranching` randec (`until`, `next`, `sequences`, `rng`) + `DefaultCandidateOrder::rng_` | **LEAKED** | kissat re-seeds `solver->random = seed` at `search.c:70`; `kimits.c:107` re-bases the randec limit |
-| `bve_rounds_run_`, `bve_level_`, `SlotEntry::doses` | already reset | kissat `kimits.c:128-130`; cadical `internal.cpp:468` |
-| `bump_reasons_delay_`, `retier_`, every env arm, `default_reduction_.ramp` | already re-read/reset per solve | — |
-| sub-policy pointers, slot COMPOSITION (rule/enabled/group/permille/meter/thresh/max_delta/dosed/`cursor_enabled`/`order`), `randec_enabled`, `chrono_levels` | **deliberately persistent** — configuration, and what a posed slot carries | — |
-
-**The fix is `DefaultPolicy::reset_schedule(k)`, called at solve entry after the env arms.** It re-BASES
-rather than zeroes (`conflicts + delta`, `anchor = search_ticks(k)`), which is why one reset serves both a
-fresh formula and an incremental continuation — exactly kissat's `CONFLICTS + SCALED` and cadical's
-`stats.conflicts + opts.NAMEint`. **The shipped single-solve path is bit-identical**: every counter is 0 at
-solve entry (nothing propagates during ingest), so each re-based value equals its constructor default —
-observed (the pre/post traces below agree to the byte) and now PINNED:
-`assert_reset_is_a_noop_on_a_fresh_kernel` asserts the zero-counter precondition and compares 23 re-based
-fields against a pristine policy, so a future re-based field whose zero-counter value differs from its
-default fails a test instead of quietly shifting every tier number.
-
-**PRE-FIX FAILURE, and it is not subtle** (`tests/test_solve_reset.cpp`, 160-var random 3-SAT at ratio 4.7,
-UNSAT). Solve #2 on a reused policy vs solve #1 on a fresh one:
-
-| | conflicts | decisions | props | ticks | restarts | proof |
-|---|---|---|---|---|---|---|
-| reused #2 (pre-fix) | 300 | 616 | 8547 | 35,226 | 49 | 7,033 B |
-| fresh #1 | 3583 | 4979 | 141,513 | 1,319,661 | 115 | 165,241 B |
-
-Two different answers to the same question from the same binary. The reused arm skipped the whole
-preprocessing phase (`inprocess.initialized` still true) and restarted on a stale limit. Post-fix the two
-rows are identical in all 16 compared fields including the proof bytes.
-
-**REACHABILITY AT THE SOURCE.** The test asserts the dirt as well as the identity:
-`state groups dirty after a solve: 12/12` — every group the reset touches is genuinely non-pristine after
-one real solve, so the identity assertion cannot go vacuously green
-([[ab-arm-identical-artefacts]]). `DefaultPolicy::solves` counts entries and is asserted 2 vs 1.
-
-**The posing surface survives.** `reset_schedule_per_solve` (default true) is the opt-out for a test or
-preset that poses a schedule and wants `solve()` to honour it; `test_restart_reduce`'s restart storm sets
-it, and would otherwise have quietly degraded into "PHP(4,3) is UNSAT". The test pins both directions.
-
-**Gates:** ctest **45/45** (44 + `solve_reset`), `config_wiring` / `effort_specs` / `option_coverage` green
-(no `Kernel` config field added — the two new fields are `DefaultPolicy`'s), corpus 14/14. Fuzz, both
-formats, `--random-policy`, **6000 cases each and 0 failures on all four legs**: on-branch `1584972`
-(native DRAT) / `1584978` (native LRAT), and **re-run on the merged tree** after the rebase onto the
-Sweep-governor + Stage-F merge — `1585219` / `1585222`, 1886/1887 UNSAT answers proof-checked with the
-restatement path reached on 1718 cases.
-
-**No A/B is owed.** The change is provably inert on the one-solve-per-process path the tiers measure; a
-tier window would only re-measure noise. What it buys is the multi-solve harness the §5.6 programme needs.
-
-### 2026-08-05 — SCHED-E3: the effort ceiling exists now, and it is measured inert
-
-Closes ledger row **`SP-EFFORT-CEIL-1`** (`docs/implementation-notes.md` §13.2), the ceiling half of the
-effort budget — SCHED-B1 landed the floor/threshold half and the row was miscredited to it until A3 caught
-the split. Filed as `SCHED-E3` rather than a Stage-C id because two agents collided on `SCHED-C8` today.
-
-**READING THE USE SITES CORRECTED THE ROW'S OWN HEADLINE.** "Every reference effort budget has an UPPER
-clamp" is not true. There are THREE schemes:
-- **kissat `SET_EFFORT_LIMIT`** (`kimits.h:135-170`) — `REFERENCE = search_ticks − last`, floored at
-  `mineffort`·1e6, `DELTA = effort·REFERENCE`, `LIMIT = OLD + DELTA`. **Floor only. kissat has no
-  `maxeffort` option at all** (grep: `mineffort` is the only member of the family). **Our budget is a
-  transliteration of exactly this**, so against kissat we already matched and the row over-stated the gap.
-- **cadical's ticks macro `SET_EFFORT_LIMIT`** (`limit.hpp:136-164`) — neither floor nor ceiling.
-- **cadical's PROPAGATIONS scheme** — the only clamped one, and it is an ORDERED composition whose last
-  step is a FLOOR: `max(delta,mineff)` → `min(delta,maxeff)` → `max(delta, 2·active())`
-  (`elim.cpp:781-787`, `subsume.cpp:351-357`). On a large formula the active floor lifts the delta back
-  ABOVE the ceiling. Reading the three as a clamped range gets that backwards, so
-  `test_scheduling::test_effort_ceiling` pins the ORDER, not just the clamp.
-
-Ported in cadical's order, to the entries whose currency is the one cadical clamps: **BVE ↔ elim, 2e9
-resolutions** and **SubsumeForward/Strengthen ↔ subsume, 1e8 partner visits** (SCHED-B4 made ours the same
-unit as `subchecks`). **TransitiveReduce deliberately gets NO numeric ceiling** — cadical's 1e8 is in
-PROPAGATIONS and our meter is `transitive_ticks`, a cache-line proxy; the standing method note says transfer
-the ratio, never the unit.
-
-**▶ THE MEASUREMENT IS THE RESULT** (job `1584734`, `c slot … maxeff/clamped/floored`):
-
-| arm | BVE | SubsumeForward | Strengthen |
-|---|---|---|---|
-| shipped (2e9 / 1e8 / 1e8) | clamped **0** | **0** | **0** |
-| forced `TACTIX_MAXEFF_*=1e5` | 15 / 19 / 10 | 18 / 21 / 13 | 18 / 21 / 13 |
-
-(three columns of the forced row = `9vliw` / `b22_1` / `sted5`.) `floored` is 0 everywhere: our natural
-deltas already exceed 2·active() at these sizes. **And even the forced 20,000×-tighter ceiling leaves
-`b22_1` and `sted5` byte-identical** — those rounds never spend to their limit, so the ceiling is not the
-binding constraint on our budgets at all. The forced arm is there for one reason: it proves the clamp is
-wired rather than dead code, which a `clamped 0` reading alone could never distinguish from a missing call.
-
-**So it ships ON with the inertness recorded, not as a green headline.** One compare per occasion, on
-reference-parity grounds; the row closes as CLOSED-and-inert rather than as an accepted deviation, because
-we no longer LACK the mechanism. **What the row does NOT close: Congruence and Substitute still have no
-meter at all** — that is `SCHED-A2b`'s open finding, and the 131,327 ms Congruence application the A3 row
-cited belongs to it, not to the ceiling.
-
-**▶ READY-TO-RUN A/B (`SCHED-E3`) — and the honest recommendation is DO NOT SPEND A WINDOW ON IT YET.**
-The pre-flight already ran: `clamped 0` on three instances means the ON and OFF arms are the same binary
-behaviour, and a window would measure noise ([[ab-arm-identical-artefacts]] — this is exactly the arm that
-passes vacuously). Run it only if a Tier C instance ever shows `clamped > 0` at the shipped constants.
-The command, for when that happens:
-```
-python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
-  --solver build/pin-e3-c/tactix \
-  --solver 'env TACTIX_EFFORT_CEIL=0 build/pin-e3-c/tactix'
-```
-Pre-registered counter: `c slot … clamped` > 0 on the ON arm for at least one entry, `clamped 0` on OFF.
-**Abandon the window if the ON arm's clamp counts are all zero** — that is the pre-flight, and it currently
-fails. The *interesting* experiment is the opposite one and it is a DOSE question, not a parity one: sweep
-`TACTIX_MAXEFF_BVE` downward until it binds and see whether a smaller ceiling helps; that belongs with the
-phase-6 dosing exhibit, not with this row.
-
-
-### 2026-08-05 — SCHED-E2: the ordering arms, one knob per rule
-
-Six arms on `CandidateOrderPolicy`, selected per rule by `TACTIX_ORDER_<RULENAME>` (the knob name is
-derived from the registry name, so a newly dosed rule gets one without editing a list). `native` is the
-shipped default for every rule and stays there — **no arm ships without a measurement**.
-
-**Three arms are reference ports, and two of them read backwards from the option name alone.**
-- `heuristic` — kissat `transitive.c:270-294`: transitive probes are sorted by `flags[i].transitive` (the
-  untried mark) FIRST, then by EVSIDS heap score ascending in stable mode / VMTF `links[i].stamp` ascending
-  in focused mode. We enumerate by literal index, so this is a real unimplemented reference mechanism, not a
-  variation. **kissat's mark-then-score composition is also the honest statement about how order and
-  resumption interact**: it puts a per-item repetition MARK ahead of the score rather than rotating a scored
-  list, which is Stage F territory (`SP-REPEAT-*`) — E1's cursor rotates first and a score arm then
-  re-imposes its own head, so under a score arm the cursor survives only as a tie-break. Said in the code.
-- `negocc-desc` — cadical `probe.cpp:621-624` ranks probes by `noccs(-p)` and `:763` pops from the BACK, so
-  the literal occurring negated MOST often is probed first. The comment ("occur negated less frequently come
-  first") describes stack position, not probe order.
-- `occ-asc` — cadical's elimination schedule is a priority queue on occurrence count, cheapest first. Ours
-  is already occ⁺·occ⁻ ascending — a PRODUCT where the reference uses a SUM — so this is a variation.
-`reverse` and `random` are controls: the cheapest test that order matters at all, and the structureless
-floor a structured arm must beat. `random` is splitmix64 off a constant seed, because a random order that
-does not replay cannot be fuzzed or bisected.
-
-**A knob that cannot take effect ABORTS.** Setting `TACTIX_ORDER_X` on an entry that runs as a canonical
-batch round (the policy never sees its candidates) exits with a message rather than being ignored — that is
-the vacuous-A/B failure mode, and it is cheaper to make it loud than to discover it in a banked window.
-
-**▶ REACHABILITY, PRE-REGISTERED AND MET** (job `1584734`, probe `e2e3-arms.*`, `c cand-order` `moved`):
-
-| rule | arm | lists ranked | positions moved |
-|---|---|---|---|
-| Probe | `negocc-desc` | 34/34 | 718,018 / 718,068 |
-| Backbone | `occ-desc` | 34/34 | 717,132 |
-| TransitiveReduce | `heuristic` | 33/34 | 436,819 |
-| BVE | `occ-asc` | 15/15 | 148,409 |
-
-(9vliw; `b22_1` and `sted5` agree for the first three. **BVE reads `lists 0` on both of those** — it is
-never dosed there, so its arm is genuinely unexercised and the counter says so rather than the leg passing
-vacuously.) The probe build also carried SCHED-E3, whose shipped ceilings measure `clamped 0` on all three
-instances, so the ordering arms ran on an unchanged budget.
-
-**UNPRICED, and the tempting number is a bundle.** All four arms at once move `9vliw` 348,630 → 234,825
-conflicts and its proof 64.0 → 43.4 MB, and `b22_1` 494,805 → 450,530. That is one instance for the big
-number and four knobs at once ([[chaotic-instance-veto]]); it says the axis is live, not which arm is good.
-
-**▶ READY-TO-RUN A/B (`SCHED-E2`) — ONE RULE PER ARM, NEVER THE BUNDLE.** Start with Probe, which has both
-the largest reference disagreement and the tightest budget (E1 measured it advancing 0.3 % of its list).
-Two pin dirs from the same commit for a concurrent B+C pair; check the shas match.
-```
-tools/bench/buildlock.py --gc
-cmake -S . -B build/pin-e2-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e2-b -j8
-cmake -S . -B build/pin-e2-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e2-c -j8
-sha256sum build/pin-e2-{b,c}/tactix        # must match
-python3 tools/bench/run.py --tier B --slurm --baseline kissat --baseline cadical \
-  --solver build/pin-e2-b/tactix \
-  --solver 'env TACTIX_ORDER_PROBE=negocc-desc build/pin-e2-b/tactix'
-python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
-  --solver build/pin-e2-c/tactix \
-  --solver 'env TACTIX_ORDER_PROBE=negocc-desc build/pin-e2-c/tactix'
-```
-Pre-registered counter: `c cand-order` `Probe ... moved > 0` on the ON arm, `moved 0` on the OFF arm.
-Ship criterion: **#solved not worse on either tier and PAR-2 better than the 6.72 noise floor on at least
-one, not worse than it on the other**, may-not-gate set excluded from deciding alone. Then, only if Probe
-lands, the same one-knob window for `TACTIX_ORDER_TRANSITIVEREDUCE=heuristic` (the kissat port) and
-`TACTIX_ORDER_BVE=occ-asc`. `reverse`/`random` are diagnostics for "does order matter on this family at
-all" and are worth a Tier A sweep, not a Tier C window.
-
-
-### 2026-08-05 — SCHED-E1: candidate order becomes a policy object, and Probe was seeing 0.3 % of its list
-
-**Two commits.** (1) `run_slot_phase` split along the DOSED/BATCH axis — pure restructuring, byte-identical
-DRAT + identical trajectory + identical per-entry `c slot` telemetry on `9vliw_bp_mc`, `FmlaEquivChain_4_6_6`,
-`b22_1`, `sted5_0x24204-50` (job `1584689`). (2) `CandidateOrderPolicy` + `SlotEntry::cursor`.
-
-**The sub-policy super-class question (H6) is already answered:** `SubPolicy` has existed since S1b
-(`a36b4c2`, which un-deferred H6 when `BveBoundPolicy` became the second arm). `CandidateOrderPolicy` is the
-fifth category, not a second bespoke one — PROGRESS's Track-H line saying otherwise was stale and is fixed.
-
-**N1, stated precisely.** `rank()` is a PERMUTATION and the cursor is a ROTATION; neither can remove a
-candidate, and both live in the policy where no guard can see them. `apply_instance` is unchanged and still
-total over every payload from every source — `tests/test_scheduling.cpp::test_cursor_preserves_n1` pins three
-separable halves of that: `instances()` returns the same set wherever the cursor is (the rule cannot read it
-any more), `apply_instance` on a payload the cursor rotated PAST gives the same result and the same stat
-deltas as on a kernel whose policy never had a cursor, and all seven arms are multiset-preserving. The
-rule-side rotation and `Kernel::transitive_cursor` are GONE — that was order logic living in a rule.
-
-**▶ THE MEASURED FINDING (job `1584716`, probe `e1-cursor.*`, three arms one window).**
-- **The migration is exact.** `cursoff` (the two new cursors off, only B3's migrated one live) is
-  byte-identical to the pre-E1 build on all four instances — same proof sha256, same byte count, same
-  conflicts. Moving a cursor rule→policy is not supposed to change anything, and it did not.
-- **The generalization is emphatically NOT inert.** On `9vliw`, Probe rotates on **44 of 45** doses and
-  advances **2,719 of 878,094** enumerated candidates — **0.3 %**. Before E1, Probe re-probed the same
-  ~60-literal head on all 45 phases and never reached the other 99.7 % of its schedule. Backbone 3.6 %
-  (31,880 / 877,967), rotating 44/45. TransitiveReduce (which already had the cursor) 40-52 rotations.
-  This is SCHED-B3's starvation finding at a much larger scale, and it is why the item exists.
-- **BVE's cursor is deliberately OFF and its counter shows it** (`rotated 0`): its schedule is
-  occ⁺·occ⁻-ordered, not key-ordered, so a key cursor would resume at an arbitrary place, and it already has
-  the repetition device the others lack (`bve_retry`). Per-item marks for the rest are Stage F.
-
-**UNPRICED, and the direction is not one-signed:** conflicts `b22_1` 530,802 → 494,805 (−6.8 %),
-`FmlaEquivChain` 384,785 → 375,614 (−2.4 %), `sted5` identical (its Probe/Backbone produce nothing either
-way, so a reordered walk finds the same nothing), `9vliw` 332,391 → 348,630 (+4.9 %). Proofs shrink on three
-of four. One instance moving 6.8 % is not a verdict ([[chaotic-instance-veto]]).
-
-**▶ READY-TO-RUN A/B (`SCHED-E1`) — PRE-FLIGHT FIRST.** Read `c cand-order` on two Tier B instances before
-spending a window: if `rotated` is 0 for Probe and Backbone the arm is vacuous there and the window should be
-abandoned. The knobs go IN THE COMMAND. Tier B and Tier C are concurrent arrays, so **two pin dirs from the
-same commit** (CLAUDE.md build-dir rule) and check the shas match.
-```
-tools/bench/buildlock.py --gc
-cmake -S . -B build/pin-e1-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e1-b -j8
-cmake -S . -B build/pin-e1-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-e1-c -j8
-sha256sum build/pin-e1-{b,c}/tactix        # must match
-python3 tools/bench/run.py --tier B --slurm --baseline kissat --baseline cadical \
-  --solver build/pin-e1-b/tactix \
-  --solver 'env TACTIX_CURSOR_PROBE=0 TACTIX_CURSOR_BACKBONE=0 build/pin-e1-b/tactix'
-python3 tools/bench/run.py --tier C --slurm --baseline kissat --baseline cadical \
-  --solver build/pin-e1-c/tactix \
-  --solver 'env TACTIX_CURSOR_PROBE=0 TACTIX_CURSOR_BACKBONE=0 build/pin-e1-c/tactix'
-```
-Pre-registered counter: `c cand-order` `rotated` > 0 for Probe AND Backbone on the ON arm and exactly 0 on the
-OFF arm. Ship criterion: **#solved not worse on either tier and PAR-2 no worse than the 6.72 noise floor on
-both**, with the may-not-gate set excluded from deciding alone. A per-rule follow-up (cursor on Probe only,
-Backbone only) is worth running ONLY if the pair moves — three arms per tier otherwise buys noise.
-
-### 2026-08-05 — SCHED-C8: BVE learns ITE + XOR gates, closing `SP-BVE-GATE-1` (UNPRICED, A/B specced)
-
-**What was and was not there before.** E1c did ship gate extraction with a `--bve-gates` knob, so the
-row was never "no gates" — it was **exactly two of four types**: `BVE_GATE_EQUIV` (two binaries) and
-`BVE_GATE_AND_OR` (base clause + input binaries). **ITE and XOR did not exist**, and both references
-ship them on (kissat `ifthenelse`=1; cadical `elimites`=1, `elimxors`=1/`elimxorlim`=5). Now all four.
-kitten `definitions` remains **phase 4** (Track R · R5) and is not part of this closure.
-
-**V6 Congruence's extractor was NOT reused, and the reason is structural, not effort.** `congruence.cpp`
-does have `congruence_extract_xor` / `congruence_extract_ite`, but it builds a FORMULA-WIDE `ClauseIndex`
-by one arena scan per apply, keyed on whole sorted clauses, holding proof ids and no arena refs. BVE
-needs the opposite object: a **per-pivot** partition of the *already materialized* `pos`/`neg` `MClause`
-lists (root-false literals stripped, delete-handles attached) into gate vs antecedent, recomputed after
-every elimination mutates the neighbourhood. Reuse would mean rebuilding an O(arena) index per candidate
-and then mapping ids back to MClause slots. What was reused is the *idea*: the parity-probe enumeration
-and the ITE normalization argument. Recorded so a later pass does not "fix" the duplication.
-
-**A/B SPEC — pre-registered, unrun (no SLURM submitted this session).**
-- **Arms, knob IN THE COMMAND** (never the environment): `gates-all` = `--bve-gates=all` (shipped) vs
-  `gates-noitexor` = `--bve-gates=equiv,andor` (the pre-C8 behaviour). Both arms from **one** commit.
-- **Tiers:** same-window **Tier B + Tier C**, `--baseline kissat --baseline cadical`, node-pinned.
-  **TWO pin dirs** — `build/pin-n4-c8-b/` and `build/pin-n4-c8-c/`, built from the same commit with
-  matching binary shas (CLAUDE.md build-dir rule; the second `--acquire` refuses a live path).
-- **PRE-FLIGHT, checked before any score is read:** on `gates-all`, `c bve-gates` must show **ite > 0 and
-  xor > 0** on at least one scored instance; on `gates-noitexor` it must show **exactly `0 ite, 0 xor`**
-  and a strictly smaller `resolvent pairs saved`. Already demonstrated at HEAD: `9vliw_bp_mc` under the
-  shipped DefaultPolicy reports **154 equiv, 5853 andor, 306 ite, 16 xor; 6,101,504 resolvent pairs
-  saved**. An arm whose counters did not move was not tested.
-- **Ship criterion:** keep ON (the default) unless `gates-all` is worse on **#solved** on either tier, or
-  worse by more than the 6.72 noise floor on PAR-2 on BOTH tiers. Rationale for the asymmetry: this is a
-  reference-parity mechanism that both references default ON, and it is an *acceptance* lever, so its
-  effect is expected to be small and diffuse rather than headline. The may-not-gate set may not gate
-  alone; a single-instance flip owes paired draws ([[chaotic-instance-veto]]).
-- **Secondary readout to record either way:** `bve eliminated` per instance. The lever's claim is that
-  the SAME numeric `bve_bound` now admits more variables — if `eliminated` does not move, the row is
-  closed on parity grounds only and that must be said plainly.
-- **Consequence for `SP-FACTOR-1`:** its removal path **R3** ("SP-BVE-GATE-1 landing changes what
-  `bve_level_` means") is now live. R3 is a *reopen* trigger, not a result — reopening still needs R2's
-  falsifier first (show `bve_level_` non-zero at Factor's occasions).
-
-**Not touched here:** `default_policy.cpp` / the inprocessing slot, the conflict-analysis path, and
-`tools/docs/` (parallel agents own those).
-
-### 2026-08-05 — Sweep governor A/B: ON costs a Tier C solve, and the cost is two instances
-
-Window `20260805-205741-C-sweepon` (git `cf5eb36`), node017, `sweepon` (shipped) vs
-`TACTIX_SLOT_DISABLE=Sweep`, both baselines. **sweepon 382.51 (28/30) vs sweepoff 333.51 (29/30)** —
-+49.00 PAR-2 and one solve (`minxor128`, TO vs 992.5 s). T3: kissat subset 1.722 → 1.459×, cadical full
-1.224 → **1.067×, inside the band**.
-
-**The cost is concentrated, which is the actionable part.** `constraints_18_0.3_2` +291.1 s (42 rounds,
-zero emissions — the survey predicted this one) and `minxor128` +207.5 s; ex-both the sign flips to
-+7.62 favouring Sweep, and Sweep wins `em_11_3_4_cmp` −158.4 s and `sat-bench-trig-bhaskara` −112.0 s.
-So: dose or target the governor, do not disable the rule. Fragile at k=2; `minxor128` owes paired draws.
-
-**Reading this log.** Newest first. Entries older than the current session are compressed to **result +
-pointer** — the full account is in the cited report, design doc or commit, which are never edited.
-
-### 2026-08-05 — SCHED-D3: the slot gates, and the flip-vs-event trap that wedged elimination shut
-
-One gate per clock, both "the interval is necessary but not sufficient":
-
-- **ELIMINATE — new-material watermark.** Admit only if `k.stats.bve_marks` or `kernel_root_fixed(k)` has
-  grown since the last phase's ENTRY (kissat `eliminate.c:33-38`
-  `limits.eliminate.variables.{eliminate,subsume}`; cadical `elim.cpp:75-80` `last.elim.fixed` /
-  `last.elim.marked`). Snapshot at ENTRY, not exit: material the phase itself produces re-admits the next
-  one, so a budget-cut pipeline is never gated out of its own follow-up. That is weaker than kissat's
-  completion-gated advance and equals cadical's restore-on-incomplete case (`elim.cpp:774-775`/`:909`).
-- **PROBE — reduce coupling.** After the first phase, require a reduce since the last probing phase
-  (cadical `probe.cpp:23`). *(kissat's mirror-image rule — skip when a reduce happened at THIS conflict
-  count, `probe.c:21`/`eliminate.c:28` — is not ported: it defers a phase by one conflict and would only
-  add a decline reason to account for.)*
-
-**▶ THE FINDING, and it is a measured trap, not a design note.** Both references count the mark-bit FLIP
-(kissat `variables_eliminate`, cadical `stats.mark.elim`) because their elimination round CLEARS every
-scheduled variable's flag and so re-arms the flip. Our `bve_retry` bit is cleared **only by a BVE attempt**,
-and BVE's during-search admission can decline every dose on a formula — after which no bit is ever cleared,
-no flip ever happens, and a flip-counting watermark shuts the elimination clock **for the rest of the
-solve**, taking SubsumeForward / Strengthen / Instantiate / BCE down with it (they share the clock and have
-nothing to do with BVE's density gate). Measured on `sted5`: 6 elimination phases → **1**, 274 k conflicts →
-**1.15 M**, `bve-marks 0` for the whole run. Counting mark EVENTS implements the same predicate against the
-bit lifecycle we actually have. The transliteration was faithful and wrong — the lifecycle around the
-counter is part of the mechanism.
-
-**Reachability, measured at the source — whole of Tier A (200 instances), `c slot-clock blocked`:**
-
-| gate | instances it fired on | episodes |
-|---|---|---|
-| ELIMINATE watermark | **10 / 200** | 11 |
-| PROBE reduce coupling | **0 / 200** | 0 |
-
-**`TACTIX_SLOT_STATS`'s self-check still balances: 0 `***UNACCOUNTED***` over 40 Tier A instances.** Neither
-D2 nor D3 could break it by construction and that is worth saying: D2's decline is "the other clock's
-entry is not offered here at all" (before `occasions++`) and D3's is clock-level (no entry is reached), so
-the per-entry `occasions == admitted + declines` identity is untouched — no new decline REASON was added.
-
-The elimination watermark is live but rare, which is the shape a safety valve should have. `sted5` and
-`qwh.50` block 0 times on either clock, and on `sted5` D3 is behaviourally identical to D2 (12/6 phases,
-same conflict count) — so **there may be nothing to price on Tier B/C**, and the A/B spec says to read the
-`blocked` counters first and abandon the window if they are zero.
-
-**The probe reduce coupling is PROVABLY inert under our reduce cadence, not merely unlucky.** Probe
-interval ≈ 2500·n·log10(n+9), reduce interval 2000+300·r; matching cumulative conflicts gives
-r ≈ 2.9·n·√log n, so the probe interval is ≈2.9·√log n times the reduce interval — always > 1, so two probe
-phases can never fall inside one reduce interval. It is kept (one compare, the reference's own gate, and it
-becomes live the moment the probing clock takes cadical's near-constant `probe.cpp:980` spacing, which is
-precisely where cadical needs it) but it is labelled inert in the code and must not be cited as a result.
-
-Fuzz on the D3 binary: DRAT 2000/0, native LRAT 2000/0, `--random-policy` × DRAT 2000/0; ctest 43/43;
-regression corpus 14/14. *(The `--random-policy` leg exercises the RULE layer, which Stage D does not
-touch: `random_policy.cpp` references neither `DefaultPolicy` nor the slot, and D3's only kernel change is
-a counter increment. It is the standing N1 leg, not a test of these three items — the reachability
-counters are.)*
-
-**▶ READY-TO-RUN A/B (`SCHED-D3`) — RUN THE PRE-FLIGHT FIRST AND BE WILLING TO CANCEL.** Like D2 there is
-no env arm; the gate-free build is the parent commit.
-```
-tools/bench/buildlock.py --gc
-git worktree add build/src-d2 <D2 commit>      # two clocks, no gates
-cmake -S build/src-d2 -B build/pin-n4-d3-off-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d3-off-b -j8
-cmake -S build/src-d2 -B build/pin-n4-d3-off-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d3-off-c -j8
-cmake -S . -B build/pin-n4-d3-on-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d3-on-b -j8
-cmake -S . -B build/pin-n4-d3-on-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d3-on-c -j8
-sha256sum build/pin-n4-d3-{off,on}-{b,c}/tactix
-
-tools/bench/run.py --tier B --slurm --nodelist node017 --baseline kissat --baseline cadical \
-  --solver 'build/pin-n4-d3-on-b/tactix' --name gated \
-  --checked-arm 'ungated=build/pin-n4-d3-off-b/tactix'
-tools/bench/run.py --tier C --slurm --nodelist node017 --baseline kissat --baseline cadical \
-  --solver 'build/pin-n4-d3-on-c/tactix' --name gated \
-  --checked-arm 'ungated=build/pin-n4-d3-off-c/tactix'
-```
-**Pre-flight (a cheap LOCAL sweep, no cluster time): run the ON binary under `TACTIX_SLOT_STATS=1` over
-the tier's instances and sum `blocked`.** Tier A gives 11 episodes over 200 instances; if Tier B/C give
-**0**, the two arms are byte-identical by construction and the window buys nothing —
-**do not submit it** ([[ab-arm-identical-artefacts]]), record the zero and close the item as an
-unpriceable safety valve. **Ships if** (and only if) the gate fires and `#solved` does not drop; a PAR-2
-move on 10-in-200 firing frequency would be noise, not signal.
-
-### 2026-08-05 — SCHED-D2: two inprocessing clocks, and the "5×" headline corrected to ~2.4×
-
-`SlotGroup{Probe,Eliminate}` on every slot entry (read from the authored table BY NAME, so it is
-independent of D1's order arm); two `SlotClock`s; the phase body extracted to
-`run_slot_phase(k, group, stop)`; the search loop checks probing then elimination, the reference order
-(kissat `search.c:214-217`, cadical `internal.cpp:322-325`). Both clocks are seeded at conflicts=0, so
-preprocessing is a probing phase immediately followed by an elimination phase — kissat's
-`probe_initially` → `eliminate`, cadical's `inprobe` → `elim`.
-
-**Intervals are kissat's**: probe = `probeint`(100)·n·log10(n+9), eliminate = `eliminateint`(500)·
-n·log10(n+9)², both through `scale_inprocessing_delta`, each keyed on ITS OWN phase count. cadical's probe
-reschedule (`probe.cpp:980`, 25·`inprobeint`·log10(phases+9)) is essentially CONSTANT spacing — ~2385
-conflicts at phase 0, ~2500 at phase 1 — and adopting it would have changed the schedule SHAPE at the same
-time as the split. *(Its own comment at `probe.cpp:889-891` claims a sqrt schedule; the code is
-logarithmic. Read the code.)*
-
-**▶ CORRECTION TO `SP-SLOT-1`'s HEADLINE.** "Probing fires ~5× less often" is the ratio of the BASE
-CONSTANTS at equal phase counts. The realized ratio is the cumulative one, and because each clock keys on
-its own count it is ≈√(5·log) ≈ **2.4×**, widening only as √log — not 5× and not fast. The reference agrees
-on two instances (`--statistics`; both counters INC'd once per phase in `kissat_probe`/`kissat_eliminate`,
-declaration + INC sites read per [[reference-counter-scope]]):
-
-| instance | kissat probings / eliminations | ours after D2 | ours before D2 (one clock) |
-|---|---|---|---|
-| `sted5` | 11 / 5 (2.2×) | 12 / 6 (2.0×) | 6 phases, everything |
-| `qwh.50.1250` | 7 / 3 (2.3×) | 6 / 3 (2.0×) | — |
-
-So the mechanism roughly DOUBLES probing frequency; it does not quintuple it, and we now sit just under
-kissat's own ratio rather than a factor of two below it.
-
-**Group mapping**, argued per row in `AUTHORED_SLOT_ORDER`'s comment rather than guessed: PROBE =
-Congruence, Substitute, HyperTernaryRes, Probe, Backbone, Vivify, Sweep, TransitiveReduce, Factor (every
-one a member of kissat's `probe()` or cadical's `inprobe()`); ELIMINATE = SubsumeForward, Strengthen, BVE,
-Instantiate, BCE (kissat's `eliminate()` forward-subsume + BVE; cadical's `elim()` subsume → elim_round
-→ instantiate at `elim.cpp:947` → `block()`). BCE is the one row no reference schedules by default —
-cadical's placement inside `elim` is the only evidence there is, and it is recorded as such.
-
-**WHERE THE COST ACTUALLY LANDS, and it is not where "probing fires twice as often" suggests.** Effort
-budgets are per-entry and anchored on `search_ticks` since THAT ENTRY last ran, so twice the occasions
-means half the reference window each — a probing rule's total share of search work is unchanged. What
-doubles is the number of PHASES, and therefore the per-phase scaffolding: the root backtrack, the
-`kernel_dense_connect` occurrence-index build (O(irredundant arena), and every probe-group dense consumer —
-HyperTernaryRes, Sweep, Congruence — needs it), the disconnect, and the garbage collection. So D2 is a
-GRANULARITY change plus a fixed per-phase overhead, not a dose increase; if it costs on Tier C, look at
-the phase scaffolding first and at the probing per-mille second.
-
-**UNPRICED, and the one item in this stage expected to move numbers.** Probing at 2× is a real shift in
-when effort is spent and may cost before it pays. Fuzz on the D2 binary: DRAT 2000/0, native LRAT 2000/0,
-`--random-policy` × DRAT 2000/0. Source counter `c slot-clock` (`TACTIX_SLOT_STATS=1`) prints
-per-clock phase counts; equal counts mean the split did not take.
-`test_scheduling::test_two_slot_clocks_diverge` fails if the two intervals ever coincide.
-
-**▶ READY-TO-RUN A/B (`SCHED-D2`) — THE PRIORITY OF THE THREE.** There is deliberately NO env arm: the
-one-clock build is the PARENT COMMIT, so the arms are two binaries, not one binary and a knob. Two pin dirs
-per tier pair, all four built from their own commit, shas checked ([[build-path-ownership]]).
-```
-tools/bench/buildlock.py --gc
-git worktree add build/src-d1 <D1 commit>      # one clock
-cmake -S build/src-d1 -B build/pin-n4-d2-off-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d2-off-b -j8
-cmake -S build/src-d1 -B build/pin-n4-d2-off-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d2-off-c -j8
-cmake -S . -B build/pin-n4-d2-on-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d2-on-b -j8
-cmake -S . -B build/pin-n4-d2-on-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d2-on-c -j8
-sha256sum build/pin-n4-d2-{off,on}-{b,c}/tactix   # off-b == off-c, on-b == on-c
-
-tools/bench/run.py --tier B --slurm --nodelist node017 \
-  --baseline kissat --baseline cadical \
-  --solver 'build/pin-n4-d2-on-b/tactix'  --name twoclocks \
-  --checked-arm 'oneclock=build/pin-n4-d2-off-b/tactix'
-tools/bench/run.py --tier C --slurm --nodelist node017 \
-  --baseline kissat --baseline cadical \
-  --solver 'build/pin-n4-d2-on-c/tactix'  --name twoclocks \
-  --checked-arm 'oneclock=build/pin-n4-d2-off-c/tactix'
-```
-**Pre-flight:** on the ON arm `c slot-clock` must show `probe phases` ≈ 2× `eliminate phases` (`sted5`:
-12 vs 6); on the OFF arm the line is absent entirely — that is the reachability proof, and it also means
-the ON arm's probe count must be compared against the OFF arm's `c inprocess N phases` line, not against a
-missing one. (`c inprocess` sums both clocks on the ON arm, by design.) Equal probe/eliminate counts on the
-ON arm ⇒ vacuous.
-**Ships if:** `#solved` does not drop on either tier AND Tier C PAR-2 improves by more than the 6.72 noise
-floor, OR `#solved` gains on either tier. **Sized honestly:** doubling probing frequency moves a lot of
-effort; a Tier C loss inside the floor is not a refutation of the mechanism but a dosing question — the
-next lever is then the probing rules' per-mille (`TACTIX_SLOT_PERMILLE`), not reverting the split, because
-one clock is a measured reference gap either way. **Read `#solved` before PAR-2 and read the fragility
-line**; the may-not-gate set may not decide it alone.
-
-### 2026-08-05 — SCHED-D1: the slot order is DATA, and four SP-SLOT-4 accidents are gone
-
-`AUTHORED_SLOT_ORDER` in `default_policy.cpp`, reachable as `default_slot_order()`, replaces `strcmp` +
-`move_to_back("BVE"/"Factor")`. Membership stays registry-derived; a rule the table does not name is
-appended, and `test_scheduling::test_authored_slot_order_covers_registry` fails the build if one exists (so
-the append is a safety net, never the design). **Order stays POLICY** — nothing in a guard or `instances()`
-reads the table.
-
-**Order shipped** (probing pipeline, then elimination pipeline): Congruence, Substitute, HyperTernaryRes,
-Probe, Backbone, Vivify, Sweep, TransitiveReduce, Factor · SubsumeForward, Strengthen, BVE, Instantiate,
-BCE. **Was** (ASCII strcmp + two move-to-backs): BCE, Backbone, Congruence, HyperTernaryRes, Instantiate,
-Probe, Strengthen, Substitute, SubsumeForward, Sweep, TransitiveReduce, Vivify, BVE, Factor.
-Evidence per position is in the table's comment; where the references disagree (kissat vivifies then
-sweeps, cadical sweeps then vivifies) we take kissat's and say so.
-
-**All four SP-SLOT-4 accidents close together:** ELS now precedes every BIG reader; Congruence opens the
-pass adjacent to the Substitute that consumes it; Vivify precedes TransitiveReduce; BCE closes the pass
-instead of opening it. The old "Factor last so the NEXT phase's BVE sees the factored formula" rationale is
-retired — with the authored order, THIS pass's BVE does, which is what both references do.
-
-**UNPRICED.** Fuzz on the D1 binary: DRAT 2000/0, native LRAT 2000/0, `--random-policy` × DRAT 2000/0.
-
-**▶ READY-TO-RUN A/B (`SCHED-D1`).** Two pin dirs, same commit, matching binary shas
-([[build-path-ownership]] — a Tier B array and a Tier C array may not share one).
-```
-tools/bench/buildlock.py --gc
-cmake -S . -B build/pin-n4-d1-b -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d1-b -j8
-cmake -S . -B build/pin-n4-d1-c -DCMAKE_BUILD_TYPE=Release && cmake --build build/pin-n4-d1-c -j8
-sha256sum build/pin-n4-d1-{b,c}/tactix      # MUST match
-
-tools/bench/run.py --tier B --slurm --nodelist node017 \
-  --baseline kissat --baseline cadical \
-  --solver      'build/pin-n4-d1-b/tactix' --name authored \
-  --checked-arm 'legacy=env TACTIX_SLOT_ORDER=legacy build/pin-n4-d1-b/tactix'
-tools/bench/run.py --tier C --slurm --nodelist node017 \
-  --baseline kissat --baseline cadical \
-  --solver      'build/pin-n4-d1-c/tactix' --name authored \
-  --checked-arm 'legacy=env TACTIX_SLOT_ORDER=legacy build/pin-n4-d1-c/tactix'
-```
-**Pre-flight, before reading any PAR-2:** `TACTIX_SLOT_STATS=1 <arm> <instance>` must print
-`c slot-order  authored Congruence Substitute …` on one arm and `c slot-order  legacy   BCE Backbone …` on
-the other. Same string on both ⇒ the arm never took and the run is vacuous.
-**Ships if:** authored is ≥ legacy on `#solved` on both tiers and no worse than the 6.72 noise floor on
-Tier C PAR-2 — the bar is deliberately "does not cost", since the warrant is reference parity, not a
-number. **Reverts if** it loses a Tier C solve that survives paired draws.
-
-### 2026-08-05 — the merged tree's 38 "LRAT" failures are drat-trim's CONVERTER, not our emitter
-
-Report `benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md`. Reopened against the frontend
-N2 fix; **the fix is complete for what it covers and HEAD is not fuzz-red on native LRAT.**
-
-**The leg was mislabeled.** Job `1584461`'s solver argv is `[tactix, --random-policy]` — no `--lrat` — so
-it ran native **DRAT** (drat-trim: VERIFIED) plus the harness's `drat-trim -L` → `lrat-check` cross-check.
-`fuzz.py` has two LRAT oracles with two messages, and the bundles carry the *conversion* one
-(`lrat-check rejected the LRAT proof`, not `... the native LRAT (exit N)`).
-
-**Decisive experiment.** On the failing CNF, **kissat's and cadical's own DRAT proofs are rejected by the
-same pipeline with the byte-identical message** (`multiple literals unassigned in hint 161: 80 80`; file
-clause 161 is `80 80 0`), while our native LRAT verifies under `lrat-check` AND `cake_lpr`. Three
-solvers, one rejection — the proof is not the variable. Five-clause auditable reproducer in the report.
-
-**Mechanism, in the checkers' source.** (1) drat-trim's parser sorts and DELETES duplicate literals as it
-reads the CNF (`drat-trim.c parse()`), so it holds `80 80` as a unit and passes; `-L` cites input clauses
-BY ID; lrat-check re-reads the undeduped file and cannot propagate that id. Same *shape* as the frontend
-breach, with drat-trim's converter in the producer role. (2) An input empty clause makes `-L` emit a
-**zero-byte** proof → `Verification incomplete`. Both solver-independent. Tautologies, duplicate clauses
-and plain UNSAT are fine — measured, so the predicate stays narrow.
-
-**Fixed in the harness, not the solver.** `conversion_crosscheck_unsound()` returns a reason for exactly
-those two classes and `run_case` skips the cross-check **visibly**: new counted `CaseOutcome.skips`,
-surfaced as `oracles skipped: {'lrat-convert': N}` per leg and in `check-one`. The **native-LRAT oracle is
-deliberately not gated** — it reads ids our own emitter wrote and is what covers the frontend restatement.
-`selftest.sh` pins the skip, the fact that the underlying disagreement is real (so the skip cannot outlive
-its reason), and that the native oracle still fires; its own `expect_clean kissat` arm had been red on
-this since `lrat_verified()` landed.
-
-**No corpus entry, deliberately.** The contract is a case that FAILS on the current binary; here the
-binary is correct and the rejected artifact is produced by `drat-trim -L`. The invariant worth protecting
-is the oracle's, so it lives in `selftest.sh`.
-
-**Gates.** Both bundles stop reproducing on `min.cnf` and `case.cnf` at the recorded seed, with the native
-oracle passing and the path live (`c input 10` / `c input 6` restated — not vacuous); `cake_lpr`
-`s VERIFIED UNSAT` on all four. `selftest.sh` green (its kissat/cadical arms included). ctest 43/43,
-corpus 14/14. Fuzz **at two seeds** (`20260709`, the one that produced the report, and `20260805`),
-6000 cases each, **six legs, all 0 failures** — jobs `1584462`–`1584467`; on the decisive leg the
-restatement path is reached by 1321 of 1916 UNSAT answers. **Two seeds is now the expectation for a
-proof-path change** — the frontend branch was validated at one, which is how a whole case population
-went unexamined.
-
-### 2026-08-05 — SCHED-C5 PRICED: neutral on both tiers, ships ON on parity; and T3 regressed hard
-
-**Namespace key (short prefixes have collided three times here; prefix a new id space distinctly at
-birth).** `R<n>` has four meanings: **Track R · R<n>** = the reference rule inventory · **RV-R<n>** = the
-2026-07-29 post-Track-R review · **R-a…R-d** = the variable-retirement design
-(`docs/design/variable-retirement-design-v2.md`) · **`R`** in `F/R/τ/ρ` = the calculus's redundant-clause
-set. Also: `SCHED-<stage><n>` = Track SCHED · `SP-…` = a scheduling-parity ledger row
-(`implementation-notes.md` §13) · `D-…` = an engineering-deviation ledger row · `TB<n>` = Track T ·
-`S-a…S-f` = Track R · R5's Sweep increments · `RL1`–`RL4` = the §5.6 RL stages · `L<n>` = a standing
-lesson and nothing else (never cite one by number).
-
-### 2026-08-05 late — the merge fuzz: DRAT green, **native LRAT RED (38/6000)**
-
-Jobs `1584460` (native DRAT) / `1584461` (native LRAT), 6000 `--random-policy` cases each against
-`build/pin-wrapfuzz`, the first fuzz of the merged combination of this session's five branches.
-**DRAT 6000/0. LRAT 38 failures, all `lrat-check rejected the LRAT proof`** — the full lead, including the
-`p cnf 1 1` / `0` minimal case, is in the resume anchor, which is where the next session should start.
-
-**A side result worth banking: the three `--random-policy` × native-DRAT rejections recorded earlier today
-(indices 888 / 2785 / 3296, seed base 20260709) appear CLOSED.** This DRAT leg runs the same harness from
-the same seed base and covers those indices with 0 failures. That matches the localization — the failing
-line on 888 was the second half of an equivalence pair and the stats pointed at **Sweep's equivalence
-emission**, which is exactly what the S-e parity fix (`8796b26`) repaired. Confirm before deleting the
-note; nothing was promoted to `tools/fuzz/corpus/regressions/`.
-
-### 2026-08-05 — ▶▶ N2 (1/2) CLOSED: Sweep's general path wrote every lemma NEGATED
-
-`8796b26`; reports `benchmarks/reports/2026-08-05-sweep-proof-rejection.md`, `…-sweep-n2-blast-radius.md`,
-`…-sweep-se-polarity-fix.md`, `…-sweep-n2-postfix-survey.md`. **S-e decoded sub-solver literals with the
-parity INVERTED — both sub→kernel decode sites tested `(sl & 1u) == 0`** — so each general-path lemma was
-emitted as the negation of what was derived. The verdict and `F` were always correct; only the proof lines
-were wrong, which is why nothing but a checker could see it. **Fixed by one shared `sweep_kernel_lit`**, so
-the two sites can no longer disagree. `asconhashv12` now verifies on drat-trim AND cake_lpr; regression
-corpus `012`; `sweep_proofs` extended to run over the REAL emitted proof rather than a reconstruction;
-`--sweep-stress-policy` added. Blast radius surveyed and post-fix re-surveyed: 1 instance of 4 affected,
-**no banked result invalidated**, emitting set unmoved by C5.
-
-### 2026-08-05 — ▶▶ N2 (2/2) CLOSED: the frontend's input normalization, enumerated end to end
-
-`16b6e75`; report `benchmarks/reports/2026-08-05-input-clause-normalization-n2.md`.
-**The rule:** the checker reads the ORIGINAL FILE and numbers clauses 1..N by position (cake_lpr refuses a
-file whose count disagrees with the header), so input clause `i` must carry proof id `i`, and checkers hold
-a clause as a literal LIST, not a set — `-1 -1` is not unit for them. `ingest_clause` deduped literals, so
-such a clause's id named a different clause for the checker than for us.
-**Verdicts over all 10 normalizations:** repeated literal → BREACH, fixed. Empty input clause /
-contradicting input units → BREACH (latent), fixed — emitting the refutation mid-input BURNED an id the
-checker had already given to a later input clause. Tautology, duplicate unit, duplicate binary,
-post-refutation clauses, literal order, a lying header → not breaches, **for one reason worth keeping: an
-id is citable only if it was RECORDED, and `ingest_clause` records in exactly three places** (`unit_ids`,
-`binary_ids`, a clause header) — everything it drops writes to none. A missing final `0` → a real
-divergence, NOT fixed (moved to Phase 5 as input validation).
-**Fix:** the deduped clause becomes its own one-antecedent RUP lemma and the stored id re-points to it.
-Lemma ids must exceed every input id and `N` is unknown until the input ends, so `finish_input`
-(`frontend/parse.hpp`) DEFERS both the restatements and the parse-time refutation to end-of-input. CaDiCaL
-takes the same lemma shape but reserves the input range from the declared count; we cannot, since our
-parser treats that count as advisory. **⚠ That deferral is the prime suspect for tonight's red LRAT leg.**
-**Why enumerating beat symptom-chasing, measured:** a duplicate is only VISIBLE to the checker when the
-duplicated literal is the one left unassigned — 440 UNSAT cases reached the path and only 25 of them
-rejected pre-fix (5.7 %), so patching the failing cases would have left the rest live. Corpus `013`+`014`
-both fail on a pre-fix build. `micro_proofs`'s own `grep -qi 'verif'` was tightened at the same time — the
-identical landmine to the fuzz oracle below, masked there by an exit-code check.
-
-### 2026-08-05 — ▶▶ THE FUZZ ORACLE ITSELF ACCEPTED `NOT VERIFIED`
-
-`fuzz.py`'s native-LRAT oracle tested `"VERIF" not in output.upper()`, which matches `c NOT VERIFIED` too,
-so **every LRAT rejection in the project's history was recorded as a pass** and only crashes ever failed an
-LRAT leg. Fixed. Consequence, stated once and carried in the anchor: **any pre-2026-08-05 "native-LRAT
-green" claim established nothing** and must be re-earned rather than re-read. Every such figure elsewhere
-in this file is left in place as a record of what was run, not as evidence.
-
-### 2026-08-05 — SCHED-C6: eager subsumption, and WHERE it runs is the whole result
-
-`f1bc2c6`, ledger row `SP-EAGERSUB-1` closed. Layering, mechanism, the 3.7× placement swing
-(8,297 deletions / 28,000 reason-skips at the tail of `analyze_apply` vs 30,613 / 0 in `backjump_apply_to`)
-and the reason-guard deviation that no fuzz or tier leg can cover are in the checklist item above; docs in
-`implementation-notes.md` §15 + M3's calculus entry. **UNPRICED**; the A/B spec (arms, pre-flight counter,
-ship criterion) is in the anchor's owed-measurements list.
-**Fuzz, rebased onto the frontend fix: five legs green** — and the PRE-rebase run is the attribution:
-against the old parent the two native-LRAT legs were red (18/501 and 11/485 UNSAT) and **all 29 were the
-frontend `ingest_clause` breach**, shown two ways (29/29 inputs carry a repeated literal; 29/29 reproduce
-on the pre-C6 binary). **Direct N2 evidence where the mechanism is heavily active, which fuzz cannot
-supply** (fuzz cases are ≤100 vars with few conflicts): `php-8` with **11,385 eager deletions** verifies on
-drat-trim, cake_lpr AND lrat-check. The OFF arm is a verified control: `TACTIX_EAGER_SUBSUME=0` at the new
-HEAD is **byte-identical to the pre-change binary** on four instances.
-
-### 2026-08-05 — C1/C2's deferred `binary_is_redundant` condition: the trigger FIRED, and there is NO defect
-
-`9e5a690`. `subsume_forward.hpp` carried a forward-looking condition naming "a V3b substitute-rewrite
-re-points edges at an SCC representative" as the event that would make a `binary_is_redundant` guard
-MANDATORY at three sites. **The named event has fired** — V3's rewrite ships and is scheduled, and X1/E1/E2
-have all deleted binaries non-equivalence-preservingly since the note was written.
-**▶ NO GUARD IS NEEDED, BECAUSE THE NOTE'S CRITERION WAS THE WRONG ONE** (do not let a future edit turn
-this back into "deferred"). It demanded that no rule later delete `D` in a way that enlarges the model set.
-What soundness actually needs is only that `D ∈ F` **at the moment `C` is deleted** — the argument closes
-there, and every later `F`-rewrite carries its own obligation, which composes. **The single fatal fate is
-`D` being FORGOTTEN** — dropped from `R` with neither entailment nor witness — **and no binary can be**:
-`kernel_add_binary_clause` has no `redundant` parameter, the watch word has no spare bit, and the Forget
-paths act on arena `Ref`s only. All five binary deleters are enumerated and classified in
-`implementation-notes.md` §14; `binary_is_redundant` would be a constant `false`.
-**Landed:** the corrected argument + the ONE remaining trigger (a redundant-binary lifecycle) in the four
-source files, `calculus.md` C1/C2 soundness lines, `implementation-notes.md` §14.
-`docs/design/v4-transitive-reduce-design.md` §5 is frozen and superseded on this point.
-**Test with a negative control:** `test_binary_subsumer_then_substitute` runs the composition end to end,
-and suppressing V3's `kernel_push_witness` pair makes it FAIL — so it is load-bearing. Reachability counted
-at the source: 3,826 binary-subsumer uses with 553 of those binaries later deleted, in 15.8 % of processes
-(DRAT leg); 269 later deleted, **65 of them by V3 Substitute**, in 8.4 % (LRAT leg). The uniform policy
-saturates this pattern, so no bespoke stress policy was written.
-
-### 2026-08-05 — SCHED-C5 landed and PRICED: neutral both tiers, ships ON on parity; and T3 regressed
-
-`8b44dc7` / `772c5cd`; windows `20260805-115027-B-c5` / `20260805-115039-C-c5` (git `0418770`), node017,
-arms = shipped default vs `TACTIX_FACTOR_DEMOTE=0` with the knob in the command. Pre-flight passed all
-three pre-registered conditions (`c factor-dem` non-zero vs exactly zero; arms not byte-identical; `rbsat`
-5.5× reproduces). **Verdict NEUTRAL** — same `#solved` on both tiers; Tier B −0.62 toward OFF is FRAGILE at
-k=2 and Tier C +10.25 toward ON is UNDECIDED (`frb45-21-2` is 102 % of it). The reversed-port finding and
-the reference evidence (kissat has no option for it; cadical's `factorunbump` defaults 1, "[1: as in
-kissat]") are in the checklist item. Demote is proof-checked on a real instance where it fires:
-`clique_n2_k10`, 99 fresh vars demoted, 792 RAT lemmas in core, VERIFIED by drat-trim and lrat-check.
-**The window's real news is not C5:** T3 regressed on BOTH halves with kissat flat — see the gate row.
-
-### 2026-08-06 — SCHED-G4: the unit gap, correctly scoped — and the isolation I was told to use is wrong
-
-Branch `sched-g4-congruence-units`. Calculus entry **V6a**; ledger row **`SP-CONG-UNITS-1`** (§13.3),
-which is now the one home for this comparison — three frozen docs cite the old headline and all three
-are wrong in the same way.
-
-**(1) THE INSTRUCTION WOULD HAVE PRODUCED A WRONG NUMBER, and that is the first thing worth recording.**
-`SCHED-G1` §6 (and the task brief built on it) said to size the Y3 overlap by re-deriving the 2,231 at
-`--congruencebinaries=0`. **That option gates `extract_binaries` (`congruence.c:2226-2228`), a
-GATE-EXTRACTION helper — not `find_equivalences`, which is called unconditionally at
-`congruence.c:4615`.** Running the arm changes the gate volume, and the difference would have been read
-as an equivalence-channel effect. Measured proof that it is the wrong knob: at
-`--congruencebinaries=0` on `T105` the *units* move 2,231 → 2,581 and `find_equivalences` still reports
-0 units, while `congruent_binaries` goes 252 → 0 on `b22_1` — i.e. it removes clauses, not a pass.
-**Generalised: `[[reference-counter-scope]]`'s discipline applies to the OPTION you plan to switch off,
-not only to the counter you plan to read.** The replacement instrument is an instrumented reference
-(`tools/solvers/variants/kissat-congunits-g4/`, phase tag around the only `INC (congruent_units)` site,
-`congruence.c:800`), which attributes every unit in ONE run with no trajectory confound.
-
-**(2) THE HEADLINE IS RETIRED, and the resize is the result.** `congruent_units` 2,231 reproduced
-exactly on `tierC/T105.2.0` at 300 s, and it decomposes:
-
-| phase | units | share | merges |
-|---|---:|---:|---:|
-| `extract_gates` | 0 | 0 % | 2,488 |
-| **`find_units` (Y1)** | **844** | **37.8 %** | 0 |
-| **`find_equivalences` (Y3)** | **0** | **0 %** | **3,513** |
-| **`propagate_units_and_equivalences` (Y2)** | **1,387** | **62.2 %** | 8,588 |
-
-**Y3 contributes ZERO of the 2,231.** The accounting overlap `SCHED-G1` posited is real but it is in the
-**merge** channel — 3,513 of 14,589 merges (24 %), which for us is V3 Substitute — so it resizes the
-`congruent` comparison and never the `congruent_units` one. **And the comparison itself was mis-scoped:**
-kissat derives **18,597 total root units** on that run, so congruence's 2,231 is **12 %** of its unit
-production, and the same class of unit is ours in V1/V2 as `probe_failed`/`backbone_failed` —
-**32 + 6 = 38** on the same instance. "The project's largest recorded gap, 2,231 vs 14" compared one of
-kissat's channels against one of ours. Per-instance (Y1/Y3/Y2): `b22_1` 6/0/0 · `9vliw` 0/0/0 ·
-`hwmcc17miters` 0/0/679 · `sted5` 0/0/0 — so on four of five instances the reference's own binary sweep
-finds almost nothing, and the exhibit is the exception.
-
-**(3) Y1 LANDED (V6a).** `find_binary_units`: for each active literal, one sweep of its binary watches
-with a marked-partner set; `o` and `¬o` both present ⇒ `{l}`. Feeds the existing `PendingUnits` batch —
-hoisted above extraction and now shared with the degeneracy channel through a new `finish()` exit, so
-the two former bare-`NoOp` returns assert what the round batched instead of dropping it. **The chain is
-REPLAYED** (`congruence_rup_chain` on the unit itself), never assembled from the two `kernel_binary_id`s:
-C4's lesson is that a hand-built pair gets propagation ORDER wrong and every LRAT checker rejects it.
-Charged on `congruence_ticks` (scan slots + the replay's real propagation delta), budget-polled per
-variable, persistent mark scratch restored in O(marked) ([[per-call-linear-scratch-hazard]]).
-
-**Reachability at the SOURCE, per mechanism** (`c congy1 <found> <units>`; found == units everywhere, so
-no chain was dropped, and `congruence_unjustified` is 0 throughout):
-
-| instance | before | after | note |
-|---|---:|---:|---|
-| `T105.2.0` | 0 | **1,876** | more than kissat's 844 — we re-sweep across 16 rounds |
-| `b22_1` | 0 | **113** | kissat's `find_units` gets 6 here |
-| `9vliw_bp_mc` | 0 | **8** | kissat's gets 0 |
-| `hwmcc17miters` | 0 | 0 | the miter has no such pair; its 711 units are the XOR channel, untouched |
-| `sted5_0x24204-50` | 0 | 0 | |
-
-A side effect worth keeping: on `T105` the downstream probing family gains too — `probe_failed` 32 → 176
-and `backbone_failed` 6 → 36 — i.e. Y1's units unlock failed literals in *later rules*. That is Y2's
-cascade happening across the slot instead of inside the round, which is an argument for taking Y2 later
-rather than never.
-
-**(4) PLACEMENT — argued, not defaulted, and the open half is the A/B's question.** Y1 is not gate
-reasoning; it is a **strict special case of V2 Backbone's** precondition (assume `¬l`, binary-propagate,
-depth-1 conflict), so its conclusions are a subset of V2's ⊂ V1's, and what it adds is completeness at
-linear cost rather than reach. It ships inside V6 because the reference couples the two at exactly this
-rate and because Y1's units are what seed the cascade V6's own channel needs. **What is NOT settled:
-inside V6 a cheap O(binaries) sweep spends from the same 100 ‰ allowance as expensive gate extraction.**
-That is the A/B's pre-registered question, not something to decide by argument, and if it binds the fix
-is its own `EFFORT_SPECS` row — i.e. its own rule. **The rival fix is named in the ledger:** Backbone is
-`dosed=true` at 20 ‰, one probe literal per apply, and on `T105` it probes 173,592 literals for **6**
-failed ones. The sweep and the dose are two schedules of one inference and only one should ship — test
-that before elaborating V6a.
-
-**(5) FUZZ — and a SECOND correction, this one to G1's coverage claim.** `SCHED-G1` recorded that
-DefaultPolicy runs **zero** Congruence rounds over 120 generated cases, and concluded the DRAT/LRAT/
-`--random-policy` legs are structurally vacuous for this rule. **That does not generalise:** at 300 cases
-on seed `20260806` DefaultPolicy runs **169** Congruence rounds and reaches Y1 on **2 cases / 3 units**.
-So those legs are **thin, not vacuous** — and the congruence-stress legs are the meaningful ones at
-**554 rounds, 14 cases, 15 units**, ~5× the coverage. Both readings counted at the source
-(`benchmarks/probes/scratch/g4/y1_reach.py`, job `1585606`). **Legs, 10,000 cases each, 0 failures:
-`1585595` DRAT · `1585596` native LRAT · `1585599` `--random-policy`×DRAT · `1585601`
-congruence-stress×LRAT · `1585603` congruence-stress×DRAT** · `1585608`
-congruence-stress×**budget**×LRAT in flight (the sweep's budget poll is a third stop site, which is what
-the budget leg exists for; `TACTIX_CONG_STRESS_BUDGET=4096` + `TACTIX_STOP_FUZZ`). *Method note for
-whoever runs the next worktree-isolated leg: `tools/solvers/bin` and `tools/checkers/bin` are gitignored
-and live only in the main checkout, so a worktree needs both symlinked before any fuzz leg will start —
-and deleting them while a leg is RUNNING kills it mid-run (that is how `1585604` died at ~7,200 cases,
-0 failures to that point).*
-`test_congruence` pins the channel three ways: it fires with **no gate extracted at all**, it stays
-silent on two non-clashing binaries, and an opposite-sign pair in one sweep **refutes** via the shared
-batch rather than asserting a false unit.
-
-**(6) A/B SPEC — pre-registered, UNRUN. No timing job was submitted for this item** (a concurrent
-timing-arm agent needs the partition quiet; every number above is a counter, and counters are
-contention-invariant).
-- **Arms:** `y1` = shipped · `noy1` = `TACTIX_CONG_Y1=0`. Env for now, with G1's caveat carried
-  forward — **the knob needs a CLI spelling before a tier window reads it** (standing protocol: the knob
-  goes in the command).
-- **Tiers:** same-window Tier B + Tier C, `--baseline kissat --baseline cadical`, node-pinned, **two pin
-  dirs from one commit with matching binary shas** (CLAUDE.md build-dir rule).
-- **PRE-FLIGHT, checked before any number is read** ([[ab-arm-identical-artefacts]]): the `y1` arm must
-  show `c congy1` non-zero on at least `b22_1` and `T105.2.0`, and the `noy1` arm must show `0 found`
-  **everywhere**. Identical `c congruence` lines across arms means the arm was not tested.
-- **▶ THE PRE-REGISTERED QUESTION IS BUDGET COMPETITION, not net PAR-2.** Read `congruence_ticks`,
-  `congruence_budget_stops` and `congruence_merges` per arm on the same instances. The sweep binds the
-  allowance iff, with Y1 on, ticks rise while **merges fall** and budget stops rise — on `T105` the
-  baseline is 435 M ticks / 7 stops / 2,692 merges against 596 M / 15 / 2,692, which is +37 % ticks and
-  **more rounds cut for the same merge count**, i.e. the shape that says it competes. Confirm or refute
-  that on Tier B+C; if confirmed, the sweep gets its own `EFFORT_SPECS` row rather than a bigger
-  Congruence share.
-- **Ship criterion:** `#solved` first, PAR-2 second, noise floor 6.72, `k=1` is not a verdict
-  ([[chaotic-instance-veto]]). Keep Y1 if Tier C `#solved` does not fall; a neutral average with a new
-  inference is a keep. If it loses a solve, the answer is the dosing split, **not** switching the
-  inference off ([[no-rule-off-configs]]).
-
-### 2026-08-06 — SCHED-G1: Congruence is priced, budgeted, and the unit gap is NOT what the note said
-
-Branch `sched-g1-congruence`. Design frozen at `docs/design/2026-08-05-g1-congruence-governor-design.md`;
-ledger row `SP-CONG-BUDGET-1` (§13.3, the first accepted deviation that runs *stricter* than the
-reference). Detail in the checklist item — three things worth keeping here:
-
-**(1) Two recorded numbers were wrong and both are corrected in place.** `SCHED-A2b`'s "~44 s per
-Congruence application on `T105.2.0`" is stale by ~5×: at HEAD it is **8.25 s**. The rule is still the
-largest single cost in the codebase — **140,303 ms, 47.1 % of a 300 s solve, two thirds of the whole
-inprocessing slot** — so the item stands, but on the right number. And the profile overturns half of
-the earlier cost attribution: extraction is indeed the majority (57 %), but the missing 33 % is the
-**gate-vector teardown (16.6 %)** and the closure's **table/`occ` half (19.5 %)**, while **proof
-emission is 0.006 %**. Method note: the profile came from stage timers *inside* the rule
-(`TACTIX_CONG_TIME`, kept, default-off), not from `perf` — the teardown is invisible to a
-symbol-attributed profile because it is `operator delete` charged to the allocator.
-
-**(2) kissat gives congruence NO effort budget at all** — no `SET_EFFORT_LIMIT` in `congruence.c`, no
-`congruenceeffort` in `options.h`. So this budget is OURS, like BCE's 20 ‰, and it is justified by a
-COST GAP rather than by parity: our round extracts ~20× the reference's gate volume. Recorded that way
-in the ledger, with the removal path being the cost, not the governor.
-
-**(3) The 2,231-vs-14 unit gap is three mechanisms, and the one on record is not the load-bearing one.**
-`val_merge` — accepted merges with a root-assigned participant, i.e. exactly where kissat's
-`merge_literals` learns a unit — is **0 on every instance measured**, so a value-driven closure has
-nothing to fire on today. What kissat has and we do not is **`find_units`, a binary-watch pre-pass**
-that is not gate reasoning at all, plus the cascade it seeds, plus an accounting overlap with V3
-Substitute. Split out as **`SCHED-G4`**, ordered so the free part (the overlap) is settled first.
-
-**Reachability, counted at the source** (`c congruence … budget stops`, once per cut round, in the
-`BudgetScope` destructor so an extraction-only cut still counts): `T105` 7 stops of 8 rounds —
-**47.1 % → 4.4 % of the solve, 72 % of merges retained** · `9vliw` 13/15 · `b22_1` 10/30 · `sted5` 5/9
-· **`hwmcc17miters` 0 of 1**, the exempt opening round, unchanged in time and in its 710,722 merges.
-Both readings the counter exists for are therefore available, and the honest cost is on the record:
-`9vliw` loses merges (75 → 30) on an instance where the whole rule was 188 ms. A/B specced, unrun.
-
-**N2 — six fuzz legs, 10,000 cases each, 0 failures** (`1585188` DRAT · `1585189` native LRAT ·
-`1585190` `--random-policy`×DRAT · `1585193` congruence-stress×native-LRAT · `1585191`/`1585192`
-congruence-stress×**budget**×LRAT/DRAT). **And the case fuzz cannot reach — a round CUT AFTER it had
-already emitted merges — is checked on real instances instead** (jobs `1585210`-`1585212`): `b22_1`
-10 stops / 1,276 merges and `9vliw` 13 stops / 30 merges both `s VERIFIED` under drat-trim **and**
-`s VERIFIED UNSAT` under cake_lpr, with the unbudgeted `hwmcc17miters` (711 units) as the control;
-`congruence_unjustified` **0** everywhere. `test_congruence::test_budget_stops_round` pins the
-mechanism, including that `work_budget == 0` stays unbounded and that a cut is not a terminate.
-
-**A coverage finding that is not ours but is now measured:** on 120 generated fuzz cases DefaultPolicy
-runs **zero** Congruence rounds — the cases are solved before the inprocessing slot is ever reached —
-so the DRAT/LRAT/`--random-policy` legs prove nothing about this rule, which is what the congruence
-stress policy is for. The budget is therefore driven from THERE: `TACTIX_CONG_STRESS_BUDGET=N` hands
-each apply a fresh **log-uniform** budget in `[1,N]` (a flat draw over `[1,64]` cut 220 rounds and
-produced **0 gates** — it never reached the closure, which is the N2-critical stop), paired with
-`TACTIX_STOP_FUZZ=<huge>` because the rule's stop checks are strided 1-in-256 unless `stop_fuzz` is set
-and a tiny case never reaches 256 items.
-
-### 2026-08-05 — SCHED-A2b: it is now IMPOSSIBLE to schedule an inprocessing rule without a governor
-
-`tools/docs/check-effort-specs.py`, ctest `effort_specs`. The gap it closes is STRUCTURAL, not a mistake
-someone made: the slot is built from the registry (`tier == RuleTier::Inprocess`) while the effort ledger is
-a separate table keyed by NAME, so a registry line alone schedules a rule and a missing `EFFORT_SPECS` row
-silently yields `meter=nullptr, permille=0` — one unbudgeted canonical round on every phase, forever. Detail
-in the checklist item.
-
-### 2026-08-05 — S-f MEASURED (and now VOID): Sweep is a WASH ex-fragile, and costs a Tier C solve
-
-Windows `20260805-002315-B-sf2` / `20260805-002318-C-sf2`, node017; default (Sweep ON at 100‰) vs
-`TACTIX_SLOT_DISABLE=Sweep`. Tier B **92.32 (25/28)** vs 103.19 (24/28) — −10.86 and +1 solve, but FRAGILE
-at k=2 on `mod4block`, an established lottery. Tier C 406.25 (**28**/30) vs **339.77 (29/30)** — +66.48 and
-**−1 solve**, fragile at k=2. **Honest read: once the fragile instances come out Sweep is a WASH on both
-tiers (−0.08 B, +3.90 C)**, neither the win the Tier B headline suggests nor the loss the Tier C headline
-suggests — except that a Tier C solve flip is worth 2400 PAR-2, so `#solved` is the number to read.
-**Decision (per the standing baseline that every implemented proof rule ships ON): keep Sweep scheduled at
-kissat's own 100‰** and treat the lost solve as the open question rather than a reason to disable a rule.
-**▶ THIS WINDOW IS NO LONGER USABLE** — it predates the N2 fix, so it scored a correct UNSAT as unsolved on
-a rejected proof. Re-running it is the anchor's next performance step.
-
-### 2026-08-05 — ▶▶ S-f: Sweep was ALREADY SCHEDULED by S-d, and unbudgeted
-
-**Recorded because it shipped.** The S-d entry claimed Sweep was "registered but NOT scheduled, so default
-runs are unchanged". False: **the S4 arrangement enables EVERY `Inprocess`-tier rule** — `on` starts true
-and only the named ablation knobs turn it off — so **registering the rule IS scheduling it**. With no
-`EffortSpec` row it then got no meter and no budget on every inprocessing phase: `9vliw` solves in ~14 s
-without Sweep and **did not finish in 300 s** at that HEAD. Nothing caught it because
-`check-config-wiring.py` tests the mirror image, the unit tests call `sweep_apply` directly, and fuzz was
-green (it is a performance regression). **Fixed with a budget, not an off-switch:**
-`EffortSpec{"Sweep", 100, meter_sweep, batch, budget_aware}` — 100‰ is kissat's own `sweepeffort` — and
-`sweep_apply` now reads `Kernel::work_budget` into `round_ticks`, which had defaulted to 0 = unbounded.
-After: `9vliw` **12.26 s budgeted vs 12.16 s sweep-off**. The lock-out is SCHED-A2b.
-
-### 2026-08-05 — FULL STAGE B (B1–B5) RE-PRICED: neutral-to-positive; both deciders are lotteries
-
-Windows `20260804-232942-B-stagebfull` / `…-C-stagebfull`, node017, pre-Stage-B vs all five. Headlines
-+3.99 B / +50.81 C, each **fragile at k=1** — flagged `▶ UNDECIDED` by the new fragility line *before*
-either was read as a verdict. `j3037` is an established lottery, so **−6.32 is the admissible Tier C read
-and that is inside the 6.72 floor**; `sted5` got draws (**K′=10, Stage B faster in 5 of 10, median wall
-ratio 0.96** over a range of 0.01–14.27, against the instance's own spread of 14.3×/101×) and is likewise a
-lottery. **Verdict: Stage B lands** — Tier B −13.23 ex-lottery, Tier C neutral.
-
-### 2026-08-05 — V5 Sweep S-e: the general path
-
-The sub-solver's own refutation is replayed into the main proof: every lemma in derivation order with
-antecedents translated from sub-solver ids to main-formula proof ids, the final lemma being the target
-binary. This rests on `env ⊆ F` holding LITERALLY (S-c). Anything unmappable **declines**, because a wrong
-line here is an unverifiable proof rather than a missed optimisation, and a pair is validated DRY in both
-directions before either half is written. Two things worth recording because guessing cost time on both:
-**the direction targets are READ OFF the derivation, not predicted from the assumptions** (`SweepEquiv`
-normalises its pair to `{min,max}`, so predicting silently swaps the two directions whenever the seed is
-the larger literal, and the general path then looks merely "unreachable" rather than mis-wired); and
-**reachability is asserted, not hoped for** — the oracle finds only 8 non-RUP claims in 4380, so
-`test_se_general_path_emits` uses the fixture that proves its own premise and asserts `sweep_general >= 1`.
-It shipped with the inverted-parity breach above.
-
-**▶ AND AN N2 DEFECT IN S-d, FOUND BY FUZZ.** `sweep_guard` is the pure precondition
-`!inconsistent && level == 0` and deliberately does NOT demand a root FIXPOINT (that would make the guard
-depend on scheduling state and cost N1) — but `sweep_apply` never completed the closure itself, which every
-other inprocessing rule does (`inprocess_reach_root`). So Sweep could run with propagation pending, the RUP
-replay ran off a non-fixpoint root, and literals it forced at level 0 never passed through
-`propagate_service` — the only place `unit_ids[v]` is written. **Attributed rather than assumed:** a
-`TACTIX_NO_SWEEP` kill switch gave 3/3 crash with Sweep, 0/3 without, refuting the tempting hypothesis that
-it was pre-existing in the shared RUP-replay primitive. **DRAT could not see it** (it re-derives its own
-units), so only the LRAT leg exposed it.
+### 2026-08-06 — the day's results, compressed (detail in the cited report / commit / ledger row)
+
+**Plan revs 83 + 84 (user).** **rev 83 — phases restructured, capability and tuning are separate gates.** Phase 3
+now exits on the REFERENCE RULE INVENTORY; a new **phase 4** owns dosing/optimization/scheduling and inherits
+**T3 + discharging N4 + one Tier D campaign**; old 3.5→4.5, 4→5, 5→6, 6→7. Four user decisions fix the boundary:
+"implemented" = registered + sound + N1/N2-clean + fuzz-green, **not** yield-comparable (so V5 Sweep counts as
+done and its yield is phase-4 dosing) · X5 `Condition` stays a reasoned no-implement · T3 and Tier D both move to
+phase 4 · **N4 is named as phase 4's defining obligation** rather than left looking discharged by a closed track.
+New catalog family **X6 `HyperBinaryRes`**, because `SP-PROBE-2`'s own closer column says the closer is a rule —
+with kitten BVE definitions (O11) it is the entire phase-3 residue, `Track R · R9`/`R10`. §8.3's T3 subset clause
+survives as a *strengthening* rather than a carve-out, since Factor and Sweep both ship now.
+**rev 84 — PROGRESS.md no longer carries the per-instance tier tables**; `benchmarks/runs/<window>/results.json`
+is authoritative and `--aggregate` regenerates any view. Rev 75's real obligation is re-sited onto the CLAIM:
+name the instances that moved, state #solved before PAR-2. **Documentation compacted the same day** under the
+rule *finished → concise, unfinished and big-picture → detail*: PROGRESS 4254 → ~2500 lines, with Track SCHED's
+landed body becoming a roster + a standing-findings list and the pre-registered A/B specs consolidated into the
+UNPRICED table. `check-option-coverage.py` caught the compaction dropping three option names from the ledger
+corpus — exactly what it is for.
+
+**▶▶ THE FIVE OVERNIGHT SOLVE LOSSES WERE ONE DEFECT: THE EFFORT LEDGER WAS WRAPPING** (`7b9f9d2`+`8b27c63`;
+report `2026-08-06-solve-loss-diagnosis.md`). `set_entry_limit` sized a dose as the UNSIGNED delta
+`search_ticks(k) - e.anchor`, the anchor is written INSIDE a phase, and `search_ticks` was
+`k.stats.ticks - inprocess.ticks` with `inprocess.ticks` credited only at phase EXIT — so the reading inflated
+during a phase and snapped back at its end, i.e. **not monotone**. **A wrap does not enlarge a dose, it DELETES
+it** (`delta ≈ 2^64/10`), and the two `budget_aware` closures — Sweep and Congruence — ran to exhaustion:
+`PRP_30_38` handed exactly 3 × 2^64/10, spending 73 % of the solve. **SCHED-D2 was the TRIGGER, not the defect**
+(2.4× the probing occasions halves the window between phases, which is precisely the condition for
+`now < anchor`); D2 stays, it is N4. Fix = monotone `search_ticks` + saturating subtraction at all four ledger
+sites + a `wrapped N` reachability counter. Twelve-instance probe: loss-set PAR-2 8400 → 1944, win-set
+2462 → 2285 (the control half slightly BETTER), solved 7/12 → 11/12.
+
+**▶ Track SCHED's twelve HIGH parity rows are ALL CLOSED.** `SCHED-F7` closed the last one, `SP-REPEAT-*`, as an
+accepted deviation with its measurement (`D-C1C2-VICTIM`) — see Phase 4's standing findings for F7's
+re-diagnosis of F6 (one shared clock where cadical has a flag per consumer) and for the N1 widening it shipped.
+`SCHED-G4` (Congruence's unit channel, Y1 landed as V6a) · `SCHED-G1` (Congruence metered: 47.1 % → 4.4 % of a
+`T105.2.0` solve with 72 % of merges retained) · `SCHED-G5` (binary-first order; **not** a revamp, and the
+inline encoding had already shipped) · `SCHED-H1`/`H2`/`H3` · `Track R · R6` X3 CCE lands ON, with the §5.3
+extensibility verdict "pure plugin body, seven-table registration surface" · `Track R · R7` X5 Condition closed
+WITHOUT code on representability grounds. **`S-f` CLOSED, governor ON**: no arm loses a solve on either tier
+(Tier C 29/30 across all three arms, matching both baselines), Tier C `govon` 355.76 vs `govoff` 370.61.
+
+**▶▶ THE MEASUREMENT RESULT THAT OUTLIVES ALL OF IT.** Two **bit-identical** arms in one window: aggregate gap
+**1.39 (Tier B) / 1.74 (Tier C)** — four times tighter than the recorded 6.72 floor — while **individual
+instances swing up to 41 s**. Against that, Tier C's shipped arm read 334 → 477 → 356 across three windows the
+same day, **~140 PAR-2 of cross-window movement**, roughly 80× the within-window figure. **A same-window arm
+delta is trustworthy; a cross-window absolute is not**, and a verdict resting on one instance must clear ~41 s
+before it means anything. The replicate arm also settled `constraints_18`: `govon` 310.7 s · `govoff` 1008.8 s ·
+`govon2` 310.0 s — the two identical arms agree to 0.7 s while the hatch costs 698 s, so that instance is the
+mechanism's exhibit, not fragility. **One Tier C window was declared VOID** the same day (336 job records hit
+the pinned node in 21 minutes plus 4 OOM kills, from concurrent probes with no shared budget): correctness
+probes may overlap, but **any window whose output is a TIME must own a quiet partition**.
+
+**▶ N4 pass 3 is BEHAVIOURAL, and it is why phase 4 exists** (`2026-08-06-n4-behavioural-shape-audit.md`). Both
+solvers counter-instrumented on the SAME ten instances: 7 CRUDER / 1 MIXED / 4 EQUAL-or-ahead / 2 more-generous /
+1 not comparable — and **our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates
+anything (104 vs 2,736,829), Factor adds ZERO on 6 of 9**. A ledger row reading "closed" does not mean the
+family runs. Companion audit: `2026-08-06-dosing-governor-audit.md`.
+
+**▶ Two review passes landed** (`2026-08-06-review-post-track-sched.md`, 30 `RV-S` items). The four
+highest-severity were **§5.6/N1 obligations, not scheduling** and are DONE (`RV-S10`–`RV-S14`): Vivify's tier3
+band was unreachable through the public API (an N1 breach), four rule families had no reward id,
+`--trace`/`--replay` did not exist so §8.5's gate could not run, and the slot pose surface was env-only and
+untested. ctest 47 → 54. The duplication axis is also DONE (`RV-S21` watch stride → one kernel primitive, 45
+open-coded strides gone; `RV-S20` the duplicated-pair soundness predicate, 4 rule-local transcriptions gone,
+which also removed a rule-calling-rule edge; `RV-S6` `kernel_mark_garbage` no longer exists; `RV-S27` ten
+byte-identical RNG copies → `stress_common.hpp`), each with 222/222 byte-identical identity evidence.
+**Two instrument findings outlive the items.** (1) **A fuzz leg can read stronger than it is**: `fuzz.py` now
+prints a per-registry-entry `reached:` table and `--require-reached` fails a leg whose named rule never fired —
+it immediately showed a 1000-case DefaultPolicy leg at ≤60 vars firing **19 of 25** entries, with Probe,
+Backbone, TransitiveReduce, Factor, BVE and Reorder at **0**. (2) **`--random-policy` has a non-terminating
+population**: 114 of 1000 cases (11.4 %) at 10 s, the same 114 on both formats, 0 for DefaultPolicy; escalating
+24 of them 60× leaves 18 unfinished. Every `--random-policy × N, 0 failures` figure in this file is over N minus
+that population. **And five cross-agent conflicts** — the sharpest being CCE re-creating a rule-side rotation
+`SCHED-E1` had deleted 100 minutes earlier, reading a STATS COUNTER to do it. The no-narrative-in-comments rule
+regressed 34 minutes after the sweep that enforced it and is now the `comment_hygiene` conformance check.
+
+### 2026-08-05 — the day's results, compressed (detail in the cited report / commit / ledger row)
+
+**▶▶ TWO N2 BREACHES CLOSED, AND THE INSTRUMENT THAT HID THEM.** (1) **`Sweep`'s S-e general path emitted every
+lemma with INVERTED literal parity** — both sub→kernel decode sites tested `(sl & 1u) == 0`, so each lemma was
+written negated; the verdict and `F` were always correct, only the proof lines were wrong. Fixed by one shared
+`sweep_kernel_lit` (`8796b26`). (2) **The frontend deduped repeated input literals**, so an input clause's id
+named a different clause for the checker than for us and any LRAT chain citing it failed (`16b6e75`) — plus two
+latent breaches from the parse-time refutation burning an id. **▶ And the ORACLE ITSELF WAS BROKEN:
+`fuzz.py`'s native-LRAT check tested `"VERIF" not in output.upper()`, which matches `c NOT VERIFIED` as well as
+`c VERIFIED`, so every LRAT rejection in project history was recorded as a pass** — only crashes ever failed an
+LRAT leg. **For any oracle, prove it can FAIL: feed it a known-bad artefact and require a red.** Related trap in
+the same family: the 38 `lrat-check` rejections seen mid-session were **drat-trim's `-L` CONVERTER, not our
+emitter** — kissat's and cadical's own proofs are rejected identically on the same two unsound input classes,
+so that cross-check is now stood down and visibly counted. Reports `2026-08-05-sweep-se-polarity-fix.md`,
+`…-sweep-n2-blast-radius.md`, `…-input-clause-normalization-n2.md`, `…-drat-trim-conversion-crosscheck.md`.
+
+**▶ SWEEP'S DEGRADATION DIAGNOSED AND FIXED: the effort ceiling was never enforced where the work is.**
+`sweep_env_build` now polls the round ceiling inside the occurrence walk, not only between seeds; before that
+one seed could outspend the round dose **73×** and the scan was uninterruptible. Overshoot ≤1.005× on all four
+probes; `constraints_18_0.3_2` −475.6 s. Report `2026-08-05-sweep-governor-diagnosis.md`. Its A/B was
+measured the next day (S-f, above). **V5 Sweep S-e** (the general path) landed the same day, and `S-d` had
+already SCHEDULED Sweep unnoticed and unbudgeted — the defect `SCHED-A2b` now makes structurally impossible.
+
+**▶ TRACK SCHED STAGES C–H LANDED** — per-item detail is in Phase 4's roster and standing findings; the
+findings that cost the most to learn were **C5's mirror-image re-insert loop** (descending, so every earlier
+reading of that knob measured a different mechanism), **C6's 3.7× placement swing** (where eager subsumption
+runs is the whole result, and no on/off A/B could see it), **C9's three wrong premises** and its record-time
+expansion being fuzz-RED, **C10's audit** (cadical's "eight consumers" down to two live mechanisms),
+**D3's flip-vs-event trap** (counting the mark-bit FLIP wedged the elimination clock shut for the rest of the
+solve — `sted5` 274 k → 1.15 M conflicts), **E1's starvation finding** (Probe advancing 0.3 % of its candidate
+list), **E3's inertness** (and that kissat ships no `maxeffort` at all), **F1–F7's separate stamp arrays**, and
+**H2's per-solve leak** (an N1/§5.6 correctness bug: solve #2 on a reused policy did 300 conflicts vs 3,583).
+**G2 answered "is C1 doing anything?" — no**: C2 absorbs 698,341 of C1's 698,351 subsumptions.
+**Full Stage B (B1–B5) was re-priced** neutral-to-positive, with both deciders shown to be lotteries by paired
+draws.
 
 ### 2026-08-04 — the day's results, compressed (full detail in the cited reports/commits)
 
