@@ -11,8 +11,13 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 89 (2026-08-07) — O9 decided: **Tier D's composition is frozen through the
-  phase-4 campaign** (no SC2026), and T4's SC25 set is a scoring view, not a separate run.
+- **Plan revision tracked:** rev. 90 (2026-08-07) — **§5 obligation 6: transliteration is the DEFAULT FIRST
+  MOVE.** DefaultPolicy should essentially do what Kissat/CaDiCaL do in their default strategy with N1–N4
+  satisfied; more sophisticated is allowed only on top of a transliterated baseline kept as a permanent arm, so
+  the *deviation* owes the argument. Kissat is the tie-break source; port the mechanism and its EFFECT, never
+  the code (an inert port reads as parity while doing nothing); it is a floor, not a target; and a constant no
+  reference backs is an invention to delete or re-derive, never to tune. rev 89 decided O9: **Tier D's
+  composition is frozen through the phase-4 campaign** (no SC2026), and T4's SC25 set is a scoring view.
   **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
   reference inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
   everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
@@ -394,18 +399,22 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
     **There is no prior reading to void — there is no prior reading at all**: the earlier probe grepped
     `^c slot ` with a trailing space, which never matched `c slot-clock`, so "near-inert by design" has always
     been an argument from the code rather than a measurement.
-  - **`E3`'s `clamped` CANNOT decide on its own — a zero there is arithmetically forced, not measured**, which
-    is the `F2` defect again. Only three entries carry a ceiling (BVE at `CADICAL_ELIM_MAXEFF` 2e9,
-    Strengthen and SubsumeForward at `CADICAL_SUBSUME_MAXEFF` 1e8, all at 100‰), and `delta = reference/1000 ·
-    permille` exceeds them only when `reference` passes **1e9** (subsume) or **2e10** (BVE). The one recorded
-    `c meters … global ticks` in the repo is **8.31e7 for a full 300 s Tier B solve** (`veer_axi…p23_transition`,
-    the dosing-governor audit) ≈ 2.8e5 ticks/s. So the probe must print **`clamped` WITH the global-ticks
-    denominator**, and what it can then prove is the stronger statement: the ceiling cannot bind at this scale.
-  - **▶ Which means E3 retires from the block-2 table but is NOT globally inert.** At 2.8e5 ticks/s the subsume
-    threshold needs ~3,600 s of solve: Tier B (300 s) and Tier C (1200 s, ≈3.3e8) cannot reach it, but **Tier D
-    runs at 5000 s ⇒ ≈1.4e9 > 1e9, so the Strengthen/SubsumeForward ceiling can bind there.** Re-examine `E3`
-    before the block-5 campaign; retiring it as "inert" full stop would be a scale error. (BVE's 2e10 needs
-    ~72,000 s and is unreachable on any tier.)
+  - **`E3`'s `clamped` cannot decide on its own** — which is the `F2` shape again — so the probe prints it
+    beside the `c meters … global ticks` denominator. Only three entries carry a ceiling (BVE at
+    `CADICAL_ELIM_MAXEFF` 2e9, Strengthen and SubsumeForward at `CADICAL_SUBSUME_MAXEFF` 1e8, all at 100‰),
+    confirmed at the source by the probe: every other entry prints `maxeff 0`. `delta = reference/1000 ·
+    permille` reaches a ceiling only above `reference` **1e9** (subsume) or **2e10** (BVE).
+  - **▶ THE PROBE OVERTURNED THE DESK ESTIMATE, which is why it was run.** The pre-registration argued a zero
+    would be *arithmetically forced* at Tier B, extrapolating from the single `global ticks` figure in the repo
+    (8.31e7 on `veer_axi…p23_transition`). That instance is an outlier by more than an order of magnitude:
+    measured across 8 Tier B instances the range is **2.7e8 – 1.04e9**, and `b22_1` at **1.04e9 passes the
+    subsume threshold outright**. So the zero is NOT forced — it is a real measurement, and a better one, because
+    `reference` is a per-dose delta rather than the cumulative clock and the ceiling stayed unreached even where
+    the cumulative clock crossed it.
+  - **▶ E3 therefore retires from the block-2 table as a SCALE statement, not as "inert".** Tier D runs at
+    5000 s against Tier B's 300 s, so its cumulative clock lands near 1.7e10 and the per-dose deltas grow with
+    the gaps between doses — the subsume ceiling can plausibly bind there. **Re-examine `E3` before the block-5
+    campaign.** (BVE's 2e10 stays out of reach on any tier.)
 - [ ] **`F2` is BLOCKED, not inert — do not retire it on its zero.** `subsume_holds` increments only when a
   round leaves `subsume_complete`/`strengthen_complete` false (`default_policy.cpp:1687-1690`), and the only
   thing that can leave that tail is a budget binding on C1/C2 — which is exactly what `D-STRENGTHEN-BUDGET` has
@@ -466,7 +475,7 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 | `D3` watermarks | `TACTIX_SLOT_WATERMARK` | the `blocked` counters | **PRE-`58a46de` — RE-REGISTER** | near-inert by design → **block-1 counter triage, not a window** |
 | `E1` cursors | `TACTIX_CURSOR_<RULE>=0` | `c cand-order` | **PRE-`58a46de` — RE-REGISTER** | |
 | `E2` ordering arms | `TACTIX_ORDER_<RULE>=<arm>` | positions moved | **PRE-`58a46de` — RE-REGISTER** | **one rule at a time** |
-| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` **with `c meters … global ticks` as the denominator — `clamped` alone cannot decide** | **PRE-`58a46de` — RE-REGISTER** | Only 3 entries carry a ceiling and `delta` reaches it only past `reference` 1e9 (subsume) / 2e10 (BVE), vs 8.3e7 for a full 300 s Tier B solve. **Inert at Tier B/C by arithmetic → block-1 triage, no window. But NOT inert at Tier D** (5000 s ⇒ ≈1.4e9 crosses the subsume ceiling): re-examine before the block-5 campaign |
+| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` **with `c meters … global ticks` as the denominator — `clamped` alone cannot decide** | **PRE-`58a46de` — RE-REGISTER** | Only 3 entries carry a ceiling (BVE 2e9 · Strengthen, SubsumeForward 1e8; every other entry prints `maxeff 0`), reached only past `reference` 1e9 / 2e10. **MEASURED INERT at Tier B, job `1588230`**: `clamped 0` on all three across 8 instances at global ticks 2.7e8–1.04e9 — and `b22_1`'s 1.04e9 crosses the subsume threshold, so the zero is a measurement, not the arithmetic tautology the pre-registration expected. **Retires from this table; NOT inert at Tier D** (5000 s), so re-examine before the block-5 campaign |
 | `F1` substrate | `TACTIX_TOUCH_MARKS=0` | `c touch` | **PRE-`58a46de` — RE-REGISTER** | |
 | `F2` subsume-hold | `TACTIX_SUBSUME_HOLD=0` | `c subhold` | **PRE-`58a46de` — RE-REGISTER** | sentinel currently 0 for a STRUCTURAL reason — `subsume_holds` needs a round to leave a completeness tail (`default_policy.cpp:1687-1690`) and only a C1/C2 budget makes one. **Blocked on `D-STRENGTHEN-BUDGET`; do not retire it on the zero** |
 | `F6`+`F7` redundant band (OFF) | `TACTIX_TOUCH_REDUNDANT=1` | `c touchred` (a PAIR) + `c f7band` | **PRE-`58a46de` — RE-REGISTER** | ~800× the irredundant population; must pay for it |
