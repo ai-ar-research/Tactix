@@ -3,8 +3,8 @@
 **Date** 2026-08-06 · **branch** `sweep-yield` · **base** `73af059` · **counters only, no
 wall-clock claim anywhere in this report.**
 **Jobs** `1587817` (before, shape) · `1587823` (kissat-metrics reference) · `1587828`
-(before, effort split) · `1587834` (after) · `1587852` (per-path emission) ·
-`1587856`–`1587862` (fuzz).
+(before, effort split) · `1587834` (after) · `1587852`/`1587878` (per-path emission) ·
+`1587856`–`1587862` (fuzz) · `1587875` (seed-rank cost, §10).
 **Binaries** before `build/pin-sweepdiag` / `…-sweepdiag2`; after `build/pin-sweepstrip`
 sha `96b774836c3c9fca`; shipped `build/pin-sweepship`. The closure instrument of §2.3 is an
 extra pass over each environment, so it is **off by default** in the shipped rule
@@ -356,6 +356,14 @@ Not run here — this pass took no timing measurement, and the brief forbids a f
   **41 s on a single instance**, so no single-instance claim below that is admissible. `b22_1`
   is the instance where the mechanism is largest; it is a *reachability* exhibit here, not a
   timing one.
+- **THE RISK, stated plainly, because it is not the obvious one.** The dose is unchanged *in
+  ticks*, but the ticks now mean something different: a dedup probe used to cost `|keys|` ticks
+  and now costs 1, so the same tick budget buys far more REAL work. Sweep's share of the
+  wall clock therefore goes UP even though its share of its own currency is flat — it is now
+  actually doing the sweeping it was always being charged for. If the A/B shows a loss, the
+  first lever is `sweepeffort` (the 100 ‰ share in `EFFORT_SPECS`), not a revert: the effort
+  ledger was mis-measuring, and a share calibrated against a mis-measuring meter is the thing
+  that is now wrong.
 - **Expected direction, stated in advance so the run can falsify it:** Sweep now spends 44 %
   of its (unchanged) dose in the sub-solver instead of 1.5 % in an array scan, and emits
   hundreds of binaries that V3 Substitute then consumes. The plausible loss is trajectory
@@ -380,6 +388,15 @@ the gitignored instance cache through `git worktree list`, so they work from a l
 
 `sweep_seeds` sorts the whole active variable set once per round, and `T105.2.0` has ~3.1 M
 variables. Both arms in ONE submission on ONE node (`node018`), 900 s, counters — job
-`1587875`, `benchmarks/probes/sweep-rankcost.sbatch`. RESULT BELOW; if the after arm's
-conflict count is not within noise of the before arm's, the radix rank in §8 is owed before
-the A/B is worth running.
+`1587875`, `benchmarks/probes/sweep-rankcost.sbatch`.
+
+| arm | verdict | conflicts | Sweep rounds | environments | equivalences | binaries |
+|---|---|---|---|---|---|---|
+| before (`pin-sweepdiag`, sha `084aecd5251b249c`) | UNSATISFIABLE | 303 941 | 33 | 208 | 0 | 0 |
+| after (`pin-sweepfinal`, sha `b693acf4eaf8cc20`) | UNSATISFIABLE | 383 141 | 36 | **29 936** | **305** | **610** |
+
+**No blowup: both arms solve inside the 900 s cap on a 3.1 M-variable formula**, and the after
+arm sweeps 144× the environments for 305 equivalences and 610 emitted binaries where the base
+found none. The 26 % higher conflict count is a changed trajectory on one instance, which is
+below what a single-instance reading can resolve — it is recorded, not interpreted. The radix
+rank stays a contingency in §8, not an obligation.
