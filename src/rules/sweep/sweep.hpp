@@ -171,6 +171,10 @@ uint32_t sweep_detect_seed(Kernel &, Var seed, const SweepLimits &,
 // found (also in `round.found`).
 uint32_t sweep_detect_round(Kernel &, const SweepLimits &, SweepRound &);
 
+// One seed end to end: detect around it and emit what is proved. The
+// per-instance half of the N1 surface; `INSTANCE_CANONICAL` runs the round.
+ApplyResult sweep_try(Kernel &, Var seed);
+
 // The canonical full apply: detect, then emit each justifiable equivalence as
 // two binaries, declining the rest.
 ApplyResult sweep_apply(Kernel &);

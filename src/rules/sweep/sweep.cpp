@@ -783,33 +783,10 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
   return true;
 }
 
-ApplyResult sweep_apply(Kernel &k) {
-  // TACTIX_NO_SWEEP: diagnostic kill switch, so a fuzz leg can run with V5
-  // inert. It stays because Sweep shares the RUP-replay primitive with
-  // Congruence, and a crash inside that primitive is otherwise unattributable
-  // between the two callers.
-  if (std::getenv("TACTIX_NO_SWEEP"))
-    return ApplyResult::NoOp;
-  if (!sweep_guard(k))
-    return ApplyResult::NoOp;
-  // The guard stays a pure precondition — demanding a root fixpoint would make
-  // it depend on scheduling state and cost N1 — so the apply completes the root
-  // closure itself. Required, not tidiness: a RUP replay off a non-fixpoint
-  // root forces level-0 literals that never pass through `propagate_service`,
-  // the only place `unit_ids[v]` is recorded, and the next LRAT chain citing
-  // one trips `kernel_lrat_chain`.
-  if (inprocess_reach_root(k))
-    return ApplyResult::Unsat;
-  if (k.level != 0 || k.conflict_valid)
-    return ApplyResult::NoOp;
-  SweepRound round;
-  SweepLimits lim = sweep_limits_from_env();
-  // Honour the effort ledger. `round_ticks` defaults to 0 = unbounded,
-  // which is right for the diagnostic probe and catastrophic for a scheduled
-  // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
-  if (k.work_budget)
-    lim.round_ticks = k.work_budget;
-  const uint32_t found = sweep_detect_round(k, lim, round);
+namespace {
+// Emission, shared by the canonical round and the per-seed instance so the two
+// cannot drift in what they are willing to write.
+ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
   if (!found)
     return ApplyResult::NoOp;
   // A refuted environment means F itself is UNSAT; detection records it and the
@@ -874,8 +851,79 @@ ApplyResult sweep_apply(Kernel &k) {
   }
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
+} // namespace
+
+ApplyResult sweep_apply(Kernel &k) {
+  // TACTIX_NO_SWEEP: diagnostic kill switch, so a fuzz leg can run with V5
+  // inert. It stays because Sweep shares the RUP-replay primitive with
+  // Congruence, and a crash inside that primitive is otherwise unattributable
+  // between the two callers.
+  if (std::getenv("TACTIX_NO_SWEEP"))
+    return ApplyResult::NoOp;
+  if (!sweep_guard(k))
+    return ApplyResult::NoOp;
+  // The guard stays a pure precondition — demanding a root fixpoint would make
+  // it depend on scheduling state and cost N1 — so the apply completes the root
+  // closure itself. Required, not tidiness: a RUP replay off a non-fixpoint
+  // root forces level-0 literals that never pass through `propagate_service`,
+  // the only place `unit_ids[v]` is recorded, and the next LRAT chain citing
+  // one trips `kernel_lrat_chain`.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (k.level != 0 || k.conflict_valid)
+    return ApplyResult::NoOp;
+  SweepRound round;
+  SweepLimits lim = sweep_limits_from_env();
+  // Honour the effort ledger. `round_ticks` defaults to 0 = unbounded,
+  // which is right for the diagnostic probe and catastrophic for a scheduled
+  // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
+  if (k.work_budget)
+    lim.round_ticks = k.work_budget;
+  const uint32_t found = sweep_detect_round(k, lim, round);
+  return sweep_emit_round(k, round, found);
+}
+
+
+
+// One seed, the per-instance surface. Same guard, same root closure, same
+// emission as the canonical round; only the detection scope differs.
+ApplyResult sweep_try(Kernel &k, Var seed) {
+  if (std::getenv("TACTIX_NO_SWEEP") || !sweep_guard(k))
+    return ApplyResult::NoOp;
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  if (k.level != 0 || k.conflict_valid || seed >= k.nvars)
+    return ApplyResult::NoOp;
+  SweepRound round;
+  SweepLimits lim = sweep_limits_from_env();
+  if (k.work_budget)
+    lim.round_ticks = k.work_budget;
+  sweep_round_begin(k, round);
+  const uint32_t found = sweep_detect_seed(k, seed, lim, round);
+  return sweep_emit_round(k, round, found);
+}
+
+// Ranks by the canonical seed order and never filters: a variable this rule
+// judges unpromising is still offered, because the surface is the policy's
+// action space and an omission tells a learner a legal move does not exist.
+static uint32_t sweep_instances(Kernel &k, uint64_t *out, uint32_t cap) {
+  std::vector<Var> seeds;
+  sweep_seeds(k, seeds);
+  const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(seeds.size()));
+  for (uint32_t i = 0; i < n; i++)
+    out[i] = static_cast<uint64_t>(seeds[i]);
+  return n;
+}
+
+static ApplyResult sweep_apply_instance(Kernel &k, uint64_t inst) {
+  if (inst == INSTANCE_CANONICAL)
+    return sweep_apply(k);
+  if (inst >= k.nvars)
+    return ApplyResult::NoOp;
+  return sweep_try(k, static_cast<Var>(inst));
+}
 
 TACTIX_REGISTER_RULE(Sweep, RuleTier::Inprocess, sweep_guard, sweep_apply,
-                     nullptr, nullptr);
+                     sweep_instances, sweep_apply_instance);
 
 } // namespace tactix

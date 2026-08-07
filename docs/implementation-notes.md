@@ -1165,7 +1165,7 @@ of `ω`**. X1 BCE is the special case `ω = {l}, l ∈ C`.
 **The decisive reason: a `ρ` FORMAT limit, not an effort one.** `Kernel::reconstruction` stores one flat
 segment per weakened clause, `[rest…, witness, len]`, and `kernel_extend_model` tests satisfaction over
 **the whole segment** — `[begin, i)` includes the trailing `witness` — then sets that **single** literal
-true (`kernel.cpp:1270-1306`). Two properties are hard-coded there and Condition breaks both: the
+true (`kernel_extend_model`, `kernel.cpp:1213`). Two properties are hard-coded there and Condition breaks both: the
 witness is **one** literal, and it lies **inside** the clause. Consequences:
 - A cube cannot be split into several single-literal segments: each segment would place its own witness
   inside its own satisfaction test, which is exactly the wrong-SAT shape BCE hit once already.
