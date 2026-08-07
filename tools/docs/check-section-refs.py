@@ -44,7 +44,7 @@ REF = re.compile(r"§(\d+(?:\.\d+)*)")
 # A document name governs the § ref that follows it across at most a short
 # connective ("… §13.3", "…\'s §2"), and then keeps governing further refs
 # joined to that one by range or list punctuation, so `§13.4–§13.6` attributes
-# wholly to it. A SENTENCE BOUNDARY ends the government: in
+# wholly to it. A sentence boundary ends the government: in
 # "…implementation-notes.md. The non-negotiables (§1.1)" the §1.1 is the plan\'s,
 # and a fixed character window gets that wrong.
 NAMED = re.compile(

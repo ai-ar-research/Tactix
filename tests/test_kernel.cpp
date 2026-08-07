@@ -21,10 +21,10 @@ static void test_lit_encoding() {
   assert(var_of(internalize(-5)) == 4);
 }
 
+// ScopedHeuristics attaches k.h: the session, not the kernel, owns it.
 static void test_unit_chain() {
-  // 1, (-1 2), (-2 3), (-3 4): propagates 1,2,3,4
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
   kernel_assign_unit(k, internalize(1));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -38,9 +38,8 @@ static void test_unit_chain() {
 }
 
 static void test_large_clause_propagation() {
-  // (1 2 3) with 1,2 false forces 3
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, lits, 3, false, 0);
@@ -51,9 +50,8 @@ static void test_large_clause_propagation() {
 }
 
 static void test_root_conflict_is_unsat() {
-  // 1, (-1 2), (-1 -2): root conflict
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   kernel_assign_unit(k, internalize(1));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -64,7 +62,7 @@ static void test_root_conflict_is_unsat() {
 
 static void test_backtrack_restores() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(-2));
@@ -76,13 +74,8 @@ static void test_backtrack_restores() {
   assert(k.h->saved[1] == -1); // phase of var 2 saved negative
 }
 
-// --- probing propagation (kernel_probing_begin/end) -------------------------
-// The property under test: a probing episode derives EXACTLY what
-// kernel_propagate derives, and leaves search's bookkeeping — watch-list
-// contents and per-clause literal order + `searched` — byte-identical.
-
-// everything a propagation is allowed to churn: each literal's watch slice,
-// plus every clause's `searched` and literal order
+// A probing episode derives exactly what kernel_propagate derives and hands
+// back watch lists, literal order and `searched` byte-identical.
 struct BookKeeping {
   std::vector<std::vector<uint32_t>> lists;
   std::vector<uint32_t> clauses;
@@ -110,8 +103,7 @@ static bool same(const BookKeeping &a, const BookKeeping &b) {
   return a.lists == b.lists && a.clauses == b.clauses;
 }
 
-// (1 2) plus large clauses whose watched literal 1 / -2 has a non-false
-// replacement further along — i.e. every scan below relocates watches
+// Every watched literal has a replacement further along, so scans relocate.
 static void build_probing_formula(Kernel &k) {
   kernel_reserve_vars(k, 12);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -127,10 +119,9 @@ static void build_probing_formula(Kernel &k) {
 }
 
 static void test_probing_propagation_restores() {
-  // control: the plain engine DOES churn the bookkeeping (without this the
-  // identity assertion below could pass vacuously)
+  // control: the plain engine churns it, so the identity below is not vacuous
   Kernel a;
-  ScopedHeuristics _hg_a(a); // attach H (the session owns it)
+  ScopedHeuristics _hg_a(a);
   build_probing_formula(a);
   const BookKeeping a0 = bookkeeping(a);
   kernel_assign_decision(a, internalize(-1)); // probe assumption
@@ -141,7 +132,7 @@ static void test_probing_propagation_restores() {
 
   // probing engine: same derivation, bookkeeping handed back untouched
   Kernel b;
-  ScopedHeuristics _hg_b(b); // attach H (the session owns it)
+  ScopedHeuristics _hg_b(b);
   build_probing_formula(b);
   const BookKeeping b0 = bookkeeping(b);
   assert(same(b0, a0));
@@ -153,8 +144,7 @@ static void test_probing_propagation_restores() {
   kernel_probing_end(b);
   assert(same(bookkeeping(b), b0));
 
-  // a second episode off the restored state repeats exactly (the restore is
-  // not a one-shot: the stamp epoch must roll over cleanly)
+  // not a one-shot: a second episode repeats, so the stamp epoch rolls over
   kernel_probing_begin(b);
   kernel_assign_decision(b, internalize(-1));
   assert(!kernel_propagate_probing(b));
@@ -163,10 +153,10 @@ static void test_probing_propagation_restores() {
   kernel_probing_end(b);
   assert(same(bookkeeping(b), b0));
 
-  // safety valve: a scope closed on a trail that was NOT unwound keeps the
-  // updates (they are load-bearing for the literals still assigned)
+  // a scope closed on a trail still assigned keeps the updates: they are
+  // load-bearing for those literals
   Kernel c;
-  ScopedHeuristics _hg_c(c); // attach H (the session owns it)
+  ScopedHeuristics _hg_c(c);
   build_probing_formula(c);
   kernel_probing_begin(c);
   kernel_assign_decision(c, internalize(-1));
@@ -177,9 +167,8 @@ static void test_probing_propagation_restores() {
 }
 
 static void test_default_solve_sat() {
-  // (1 2) (-1 2) (1 -2): SAT with 1,2 true
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -189,8 +178,7 @@ static void test_default_solve_sat() {
   assert(k.values[internalize(1)] > 0);
 }
 
-// TB4b: the watch-repair primitives. `kernel_unwatch_large` is the inverse the
-// kernel lacked (push_large had no counterpart), and
+// `kernel_unwatch_large` is the inverse of `push_large`, and
 // `kernel_promote_watched_lit` is the unwatch/swap/watch triple built on it.
 static bool watched_by(const Kernel &k, Lit l, Ref ref) {
   const WatchHead &h = k.watches.heads[l];
@@ -210,10 +198,9 @@ static bool watched_by(const Kernel &k, Lit l, Ref ref) {
 static void test_watch_repair_primitive() {
   Kernel k;
   kernel_reserve_vars(k, 6);
-  // three clauses share literal -1's watch list so the compaction has real
-  // neighbours to preserve on both sides of the removed entry; a binary too,
-  // since a large entry is TWO words and a binary one (the walk must be
-  // entry-aware, not word-aware)
+  // -1's list holds neighbours on both sides of the removed entry, and a
+  // binary too: a large entry is two words and a binary one, so the walk
+  // must step entry-wise, not word-wise
   const Lit c1[4] = {internalize(-1), internalize(-2), internalize(-3),
                      internalize(-4)};
   const Lit c2[3] = {internalize(-1), internalize(5), internalize(6)};
@@ -229,13 +216,11 @@ static void test_watch_repair_primitive() {
   assert(watched_by(k, internalize(-1), r1)); // neighbours survive, both sides
   assert(watched_by(k, internalize(-1), r3));
   assert(k.watches.size(internalize(-1)) == before - 2); // exactly one entry
-  // the binary mirror and the OTHER watch of r2 are untouched
-  assert(watched_by(k, internalize(5), r2));
+  assert(watched_by(k, internalize(5), r2)); // r2's other watch is untouched
   k.watches.push_large(internalize(-1), internalize(6), r2); // put it back
   assert(watched_by(k, internalize(-1), r2));
 
-  // promote position 3 of c1 into watched slot 0: the displaced literal takes
-  // position 3 and the watch follows the promoted one
+  // promoting position 3 into slot 0 swaps the two and moves the watch
   kernel_promote_watched_lit(k, r1, 0, 3);
   const Clause *c = clause_at(k.arena, r1);
   assert(c->lits[0] == internalize(-4));
@@ -246,8 +231,7 @@ static void test_watch_repair_primitive() {
   assert(watched_by(k, internalize(-2), r1));
   kernel_check_invariants(k); // every live clause watched on lits[0]/lits[1]
 
-  // and the repaired clause still propagates: falsify -4, -2, -3 and the
-  // remaining literal must be derived through the NEW watch pair
+  // the repaired clause still propagates through its new watch pair
   kernel_assign_decision(k, internalize(4));
   assert(propagate_apply(k) == ApplyResult::Ok);
   kernel_assign_decision(k, internalize(2));

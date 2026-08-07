@@ -8,19 +8,11 @@
 
 namespace tactix {
 
-// formal model (plan §4): Decide iff no conflict and unassigned vars exist and
-// F is not refuted — a PURE soundness precondition, no propagation-fixpoint
-// requirement (D-LEVEL-1, calculus §3). A policy may take multiple
-// decisions in a row without unit propagation between them (the N1 capability a
-// learned/LLM policy reasons over). Off-fixpoint decide used to break the
-// watched-literal invariant — a not-yet-run scan rests a watch on an "ahead"
-// assignment, which a later backtrack unassigns, stranding a clause unit with
-// no watch firing (an escaped unit). The cure is not a guard: it is the
-// `trail_tainted` kernel repair (decide_apply taints; kernel_backtrack then
-// re-propagates the whole trail on the next search backtrack — see kernel.hpp).
-// DefaultPolicy always decides at a fixpoint so it never taints (bit-exact); a
-// pending Analyze->Backjump handoff does NOT block deciding (Backjump tolerates
-// an already-assigned asserting literal).
+// Pure precondition (docs/calculus.md §3 M2): no conflict, not refuted,
+// some variable unassigned. No propagation-fixpoint conjunct (D-LEVEL-1), so a
+// policy may take several decisions in a row — the N1 capability a learned
+// policy reasons over. Off-fixpoint deciding is made safe by the
+// `trail_tainted` kernel repair, not by a guard (kernel.hpp).
 bool decide_guard(const Kernel &k) {
   return !k.conflict_valid && !k.inconsistent && k.unassigned > 0;
 }
@@ -29,11 +21,10 @@ ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
   if (var_of(lit) >= k.nvars || k.values[lit] != 0)
     return ApplyResult::NoOp;
   // D-LEVEL-1: a decision taken off a propagation fixpoint taints the trail —
-  // a not-yet-run watch scan can see this-or-a-later decision as an "ahead"
-  // assignment and rest a watch on it, so any subsequent backtrack must
-  // re-propagate the whole trail (kernel_backtrack reads this flag). See the
-  // trail_tainted comment in kernel.hpp. DefaultPolicy always decides at a
-  // fixpoint, so it never sets this and stays bit-exact.
+  // a not-yet-run watch scan can rest a watch on an "ahead" assignment, so the
+  // next backtrack must re-propagate the whole trail (kernel.hpp
+  // `trail_tainted`). DefaultPolicy decides only at a fixpoint, so it never
+  // sets this and stays bit-exact.
   if (k.propagate_head < k.trail.size())
     k.trail_tainted = true;
   k.stats.decisions++;
@@ -50,9 +41,8 @@ ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
 ApplyResult decide_apply_canonical(Kernel &k) {
   assert(k.unassigned > 0);
   if (!k.h) {
-    // Unguided (no `H`, H5): pick the lowest-index unassigned var, positive
-    // phase. Sound — every unassigned literal is a legal Decide (N1) — and
-    // deterministic; only the *order* degrades from the ranked one (plan §5).
+    // Unguided (no `H`, H5): lowest-index unassigned var, positive phase.
+    // Sound and deterministic; only the order degrades from the ranked one.
     for (Var v = 0; v < k.nvars; v++)
       if (k.values[make_lit(v, false)] == 0)
         return decide_apply(k, make_lit(v, false), false);
@@ -73,9 +63,8 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
     return n;
   }
   if (k.h->stable) {
-    // rank unassigned vars by score, descending (N1: candidates come
-    // ranked by the ACTIVE heuristic). Introspection path, not hot: a
-    // sort + allocation here is fine; the heap array is not fully ordered.
+    // rank unassigned vars by score, descending. Introspection path, not hot:
+    // a sort + allocation is fine; the heap array is not fully ordered.
     std::vector<Var> scratch;
     scratch.reserve(k.unassigned);
     for (Var v = 0; v < k.nvars; v++)
@@ -100,9 +89,8 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
   return n;
 }
 
-// generic instance surface (plan §5.1 v1): payload = the DIMACS literal, the
-// shared lit_instance encoding (registry.hpp — zero-extended, so no literal can
-// alias INSTANCE_CANONICAL); enumeration reuses the ranked candidate order
+// instance surface: payload = the DIMACS literal in the shared lit_instance
+// encoding (registry.hpp), enumerated in the ranked candidate order
 static uint32_t decide_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Lit> buf(cap);
   const uint32_t n = decide_candidates(k, buf.data(), cap);

@@ -1,29 +1,11 @@
-// PER-SOLVE RESET IDENTITY (SCHED-H2).
-//
-// WHY THIS FILE EXISTS. N1 lets any policy drive the solver, and the §5.6
-// learned policy will run MANY solves inside ONE process from ONE policy
-// object. Scheduling state that survives from solve n into solve n+1 makes a
-// run depend on episode order: the same formula answered twice gives two
-// different trajectories, and any RL reward computed from them is a function
-// of the schedule's history rather than of the formula. That is a correctness
-// property, not hygiene, so it is pinned here rather than measured.
-//
-// THE PROPERTY. For a formula F,
-//     DefaultPolicy p;  p.solve(A); p.solve(B)      (A, B fresh kernels of F)
-// must give solve #2 the SAME trajectory and BYTE-IDENTICAL proof as
-//     DefaultPolicy q;  q.solve(B)
-// i.e. a reused policy object is indistinguishable from a fresh one.
-//
-// Both references re-initialise at search entry and re-BASE every limit on the
-// solver's CURRENT counters, which is what lets one reset serve a fresh
-// formula and an incremental continuation alike: kissat search.c:45-70
-// start_search (init_averages, init_reluctant, init_tiers, kissat_init_limits,
-// re-seeded RNG) with kimits.c:99-136 kissat_init_limits (`limits->NAME
-// .conflicts = CONFLICTS + SCALED` for randec/reduce/reorder/rephase, the
-// focused restart limit, the mode limit and both inprocessing clocks, plus the
-// elimination bound back to zero); cadical internal.cpp:499-608
-// init_search_limits, whose rephase / restart / stabilize / reluctant /
-// elimbound family is reset "in any case", incremental or not.
+// Per-solve reset identity: a reused policy object must be indistinguishable
+// from a fresh one, or a run depends on episode order — and the §5.6 learned
+// policy solves many instances per process. For fresh kernels A, B of one
+// formula, `DefaultPolicy p; p.solve(A); p.solve(B)` must give solve #2 the
+// trajectory and the exact proof bytes of `DefaultPolicy q; q.solve(B)`. Both
+// references re-base every limit on the solver's current counters at search
+// entry: kissat search.c:45-70 with kimits.c:99-136, cadical
+// internal.cpp:499-608.
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
@@ -39,10 +21,8 @@
 
 using namespace tactix;
 
-// A deterministic formula big enough that the schedules this test cares about
-// all fire (restarts, reductions, a mode switch, both inprocessing clocks,
-// rephases, a retier) and small enough for ctest: random 3-SAT at the phase
-// transition.
+// A deterministic random 3-SAT at the phase transition, big enough that every
+// schedule fires and small enough for ctest.
 static void build(Kernel &k, uint32_t nvars, uint32_t nclauses) {
   kernel_reserve_vars(k, nvars);
   uint64_t rng = 0x1234567890abcdefull;
@@ -70,8 +50,8 @@ static void build(Kernel &k, uint32_t nvars, uint32_t nclauses) {
   finish_input(k);
 }
 
-// The trajectory signature: kernel counters the SCHEDULE drives, so two solves
-// that took different paths cannot agree on all of them, plus the proof bytes.
+// The trajectory signature: the counters the schedule drives, plus the proof
+// bytes. Two solves down different paths cannot agree on all of them.
 struct Trace {
   uint64_t conflicts = 0, decisions = 0, propagations = 0, ticks = 0;
   uint64_t restarts = 0, reductions = 0, deleted = 0, learned = 0;
@@ -110,8 +90,7 @@ static void print(const char *tag, const Trace &t) {
   std::fflush(stdout); // the interesting output is the one before an abort
 }
 
-// One solve of the formula on a FRESH kernel with the given policy. The proof
-// is opened and closed inside, so the bytes can be read back straight away.
+// One solve on a fresh kernel; the proof is closed before the bytes are read.
 static Trace run(DefaultPolicy &p, uint32_t nvars, uint32_t nclauses,
                  const char *path) {
   Trace t;
@@ -150,13 +129,10 @@ static Trace run(DefaultPolicy &p, uint32_t nvars, uint32_t nclauses,
   return t;
 }
 
-// THE SHIPPED PATH MUST NOT MOVE. Production runs ONE solve per process, so
-// the reset may only be a no-op there — and it is, because every limit is
-// re-BASED on a kernel counter that is still zero at solve entry (nothing
-// propagates during ingest), which lands each field back on its constructor
-// default. That argument is what this pins, so a future re-based field whose
-// zero-counter value differs from its default fails here instead of silently
-// shifting every tier number.
+// The shipped single-solve path must not move: there the reset is a no-op,
+// because every limit is re-based on a kernel counter still zero at solve
+// entry and so lands on its constructor default. A re-based field whose
+// zero-counter value differs from its default fails here.
 static void assert_reset_is_a_noop_on_a_fresh_kernel(uint32_t nvars,
                                                      uint32_t nclauses) {
   Kernel k;
@@ -197,11 +173,8 @@ static void assert_reset_is_a_noop_on_a_fresh_kernel(uint32_t nvars,
          "per-entry state for it to touch there");
 }
 
-// The enumeration this item was opened to establish: after one real solve,
-// which pieces of DefaultPolicy's scheduling state are dirty? Every entry here
-// is state a SECOND solve would otherwise inherit. Asserting the dirt is what
-// keeps the identity check from going vacuously green — a reset with nothing
-// to reset proves nothing ([[ab-arm-identical-artefacts]]).
+// Every entry here is state a second solve would inherit. Asserting the dirt
+// keeps the identity check above from going vacuously green.
 static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
   unsigned dirty = 0, total = 0;
   const auto note = [&](bool b, const char *what) {
@@ -242,10 +215,8 @@ static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
 }
 
 int main(int argc, char **argv) {
-  // 160 vars at ratio 4.7 refutes in ~3.6k conflicts — past the first mode
-  // switch, reduce, rephase, walk and retier, so every state group the
-  // enumeration below names is genuinely dirty afterwards. Both arguments are
-  // overridable for a soak.
+  // 160 vars at ratio 4.7 refutes past the first mode switch, reduce, rephase,
+  // walk and retier. Both arguments are overridable for a soak.
   const uint32_t nvars =
       argc > 1 ? static_cast<uint32_t>(std::strtoul(argv[1], nullptr, 10))
                : 160;
@@ -278,12 +249,10 @@ int main(int argc, char **argv) {
   assert(once == fresh);
   assert_every_group_is_dirty_after_a_solve(r);
 
-  // --- POSED state is re-initialised too ------------------------------------
-  // Reorder is off by default, so a plain solve leaves its schedule clean; pose
-  // it dirty and check the reset takes it back (kissat kimits.c:113
-  // INIT_CONFLICT_LIMIT(reorder, false)). This is also the guard on the posing
-  // surface: a preset that wants solve() to HONOUR a posed schedule clears
-  // `reset_schedule_per_solve`, and nothing else may.
+  // --- posed state is re-initialised too ------------------------------------
+  // Reorder is off by default, so pose it dirty and check the reset takes it
+  // back (kissat kimits.c:113). Only `reset_schedule_per_solve` may exempt a
+  // posed schedule.
   DefaultPolicy posed;
   posed.reorder.next_conflicts = 12345;
   posed.reorder.count = 7;

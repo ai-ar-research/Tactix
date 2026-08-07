@@ -1,9 +1,9 @@
-// See backbone.hpp for the reference/deviation record. V2 Backbone is V1
-// Probe with binary-only propagation; the structure mirrors probe.cpp and the
-// per-rule scaffold (candidates, assume/unwind, the batch round) is duplicated
-// per §5.3 self-containment — the ONLY semantic difference is the propagation
-// engine (kernel_propagate_binary vs kernel_propagate). The proof-critical
-// reason walk is the shared kernel helper, not duplicated.
+// See backbone.hpp for the rule's contract. V2 Backbone is V1 Probe with
+// binary-only propagation; the per-rule scaffold (candidates, assume/unwind,
+// the batch round) is duplicated from probe.cpp per §5.3 self-containment, and
+// the only semantic difference is the propagation engine
+// (`kernel_propagate_binary` vs `kernel_propagate`). The proof-critical reason
+// walk is the shared kernel helper, not duplicated.
 #include "rules/backbone/backbone.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -72,10 +72,10 @@ static void emit_unit_chain(Kernel &k, uint64_t id, Lit lit,
                    static_cast<uint32_t>(chain.size()));
 }
 
-// binary-probe one literal against the current clean root. If p fails, emit
-// the {¬p} add-RUP unit, record its id, and return true with *unit_out set —
-// NOT asserted (the caller asserts, keeping the root clean for the remaining
-// probes; backbone.hpp deviation 8). If p survives, restore the root, false.
+// binary-probe one literal against the current clean root. If p fails, emit the
+// {¬p} add-RUP unit, record its id, and return true with *unit_out set — NOT
+// asserted, so the root stays clean for the remaining probes (backbone.hpp).
+// If p survives, restore the root and return false.
 static bool backbone_one(Kernel &k, Lit p, Lit *unit_out) {
   const bool lrat = k.proof && k.proof->lrat();
   k.stats.backbone_probed++;
@@ -108,8 +108,7 @@ static bool backbone_one(Kernel &k, Lit p, Lit *unit_out) {
 // canonical instance: one full round over the BIG-head schedule
 ApplyResult backbone_apply(Kernel &k) {
   assert(backbone_guard(k));
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.backbone_rounds++;
@@ -159,8 +158,7 @@ static uint32_t backbone_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult backbone_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)

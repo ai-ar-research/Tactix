@@ -19,10 +19,10 @@ struct Occ {
 bool root_open(const Kernel &k, Lit l) { return k.values[l] == 0; }
 
 // Irredundant, live, and entirely unassigned at the drained root. Requiring
-// every literal unassigned does double duty: it skips satisfied clauses (whose
-// deletion would be pointless) and it guarantees the clause is NOT a reason for
-// any root assignment — a reason is unit, so all but one of its literals are
-// assigned. Deleting a live reason would dangle the kernel's bookkeeping.
+// every literal unassigned does double duty: it skips satisfied clauses, and it
+// guarantees the clause is no reason for a root assignment — a reason is unit,
+// so all but one of its literals are assigned, and deleting a live reason would
+// dangle the kernel's bookkeeping.
 bool candidate_clause(const Kernel &k, const Clause *c) {
   if (c->garbage() || c->redundant())
     return false;
@@ -32,10 +32,10 @@ bool candidate_clause(const Kernel &k, const Clause *c) {
   return true;
 }
 
-// Root-satisfied clauses are the ONLY ones the opposite side may skip: they
-// stay satisfied however the blocking literal is flipped, so they cannot
-// constrain blockedness. Everything else live must be tested — REDUNDANT
-// clauses included, and clauses carrying root-FALSE literals included.
+// Root-satisfied clauses are the only ones the opposite side may skip: they
+// stay satisfied however the blocking literal is flipped. Everything else live
+// must be tested — redundant clauses and clauses carrying root-false literals
+// included.
 bool opposite_relevant(const Kernel &k, const Clause *c) {
   if (c->garbage())
     return false;
@@ -45,22 +45,19 @@ bool opposite_relevant(const Kernel &k, const Clause *c) {
   return true;
 }
 
-// `side == Cand` collects deletion candidates (irredundant, wholly unassigned —
-// see candidate_clause); `side == Opposite` collects the clauses the
-// blockedness test must quantify over. The distinction is load-bearing and was
-// the fuzz-2204 wrong-SAT: filtering the OPPOSITE side by the candidate
-// predicate hid `(39 ∨ 9)` — live, unsatisfied, but carrying the root-false
-// `39` — which made `(-9 ∨ 33)` look blocked on `-9`. Its resolvent `(33 ∨ 39)`
-// is not tautological, so the reconstruction's flip of `9` then falsified
-// `(39 ∨ 9)`, a clause nobody had deleted.
+// `side == Cand` collects deletion candidates (irredundant, wholly unassigned);
+// `side == Opposite` collects the clauses the blockedness test must quantify
+// over. The distinction is load-bearing and was the fuzz-2204 wrong-SAT:
+// filtering the opposite side by the candidate predicate hides a live clause
+// carrying a root-false literal, which makes another look blocked, and the
+// reconstruction's flip then falsifies a clause nobody deleted.
 enum class Side { Cand, Opposite };
 
-// Round-local literal→large-clause index over the clauses BCE must see:
-// every live, non-root-satisfied clause, REDUNDANT ONES INCLUDED. `Kernel::dense`
-// cannot serve here — it carries irredundant clauses only, and blockedness must
-// quantify over redundant ones too — so one arena pass per ROUND builds this.
-// Do NOT go back to a per-literal arena scan: that makes a canonical round
-// O(nlits × arena), which measured as an order-of-magnitude tier regression.
+// Round-local literal→large-clause index over the clauses BCE must see: every
+// live, non-root-satisfied clause, redundant ones included. `Kernel::dense`
+// cannot serve — it carries irredundant clauses only. One arena pass per round,
+// not a per-literal scan: that makes a canonical round O(nlits × arena), an
+// order-of-magnitude tier regression.
 struct BceIndex {
   std::vector<std::vector<Ref>> occ; // by literal; may hold stale garbage Refs
 };
@@ -78,7 +75,7 @@ void build_index(const Kernel &k, BceIndex &idx) {
 }
 
 // Binaries live in the watch lists, not the arena; all of them are irredundant
-// in this kernel (transitive_reduce.hpp deviation 6).
+// in this kernel (`docs/implementation-notes.md` §14).
 void collect_binaries(const Kernel &k, Lit l, Side side, std::vector<Occ> &out) {
   for (const WatchEntry w : k.watches.entries(l)) {
     if (!w.binary())
@@ -117,17 +114,17 @@ void bce_literals(const Kernel &k, std::vector<Lit> &out) {
       out.push_back(l);
 }
 
-// One blocking literal, against an already-built index. `marked` is caller-owned
-// scratch, cleared on exit — a fresh vector per literal was an O(nvars) fill per
-// call, the per-call linear-scratch hazard the codebase has hit four times.
+// One blocking literal, against an already-built index. `marked` is
+// caller-owned scratch, cleared on exit: a fresh vector per literal would be an
+// O(nvars) fill per call, the per-call linear-scratch hazard.
 ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
                             std::vector<uint8_t> &marked) {
   if (!root_open(k, blocking))
     return ApplyResult::NoOp;
-  // Occurrence ceiling (Kernel::bce_occ_limit, cadical `blockocclim`): a literal
-  // in a dense neighbourhood is declined before any scan. Checked on the RAW
-  // index sizes so the decision costs O(1) and cannot itself be the cost, and on
-  // BOTH sides because blockedness quantifies over the opposite occurrences too.
+  // Occurrence ceiling (Kernel::bce_occ_limit, cadical `blockocclim`): a
+  // literal in a dense neighbourhood is declined before any scan. Checked on
+  // the raw index sizes so the decision is O(1), and on both sides because
+  // blockedness quantifies over the opposite occurrences too.
   if (k.bce_occ_limit &&
       (idx.occ[blocking].size() > k.bce_occ_limit ||
        idx.occ[negate(blocking)].size() > k.bce_occ_limit))
@@ -145,10 +142,10 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   std::vector<Occ> blocked;
 
   for (const Occ &co : cands) {
-    // §6 · the SCAN is read-only and `marked` is all-zero here (each iteration
-    // restores it below), so leaving now costs only un-applied candidates. The
-    // deletions already collected stay valid: they were tested against the
-    // FULL opposite side, and deleting can only shrink it.
+    // §6 safe point: the scan is read-only and `marked` is all-zero here, so
+    // leaving now costs only un-applied candidates. The deletions already
+    // collected stay valid — they were tested against the full opposite side,
+    // and deleting can only shrink it.
     if (kernel_rule_interrupt(k, k.stats.bce_interrupted))
       break;
     lits.clear();
@@ -197,20 +194,18 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   if (blocked.empty())
     return ApplyResult::NoOp;
 
-  // Delete AFTER the scan: deleting mutates the very occurrence structures the
-  // scan reads (the BVE / V4 discipline). Deleting only shrinks the opposite
-  // side, so every clause found blocked above is still blocked now.
-  // NOT polled: the deletion loop is the rule's OUTPUT, already bounded by the
-  // scan that produced it (one witness + one `del` + one garbage mark each),
-  // and it is the scan that is unbounded — `bce_occ_limit` ships 0. Aborting
-  // here would only discard work already paid for.
+  // Delete after the scan: deleting mutates the occurrence structures the scan
+  // reads. It only shrinks the opposite side, so every clause found blocked
+  // above is still blocked now. Not polled for termination — this loop is the
+  // rule's output, already bounded by the scan that produced it, and it is the
+  // scan that is unbounded.
   for (const Occ &b : blocked) {
     rest.clear();
     if (b.ref == INVALID_REF) {
-      // The primitive REFUSES a duplicated pair (two live copies sharing one
-      // binary_ids id — V4 deviation 8). Skip it, and push no witness: a
-      // witness for a clause still in the formula is not wrong, but it is a
-      // lie about what ρ contains.
+      // The primitive refuses a duplicated pair (two live copies sharing one
+      // binary_ids id; see transitive_reduce.hpp). Skip it, and push no
+      // witness: a witness for a clause still in the formula is not wrong, but
+      // it misstates what ρ contains.
       if (!kernel_delete_binary_all_copies(k, blocking, b.partner))
         continue;
       rest.push_back(b.partner);
@@ -249,30 +244,18 @@ ApplyResult bce_apply(Kernel &k) {
   build_index(k, idx); // ONE arena pass for the whole round
   std::vector<uint8_t> marked(2 * k.nvars, 0);
   bool any = false;
-  // Budget-aware batch rule (EffortSpec budget_aware): the policy hands us its
-  // remaining ledger in OUR currency (bce_ticks) and we stop mid-round rather
-  // than being metered after the fact. Vivify's idiom, vivify.cpp:275.
+  // Budget-aware batch rule (EffortSpec budget_aware): the policy hands the
+  // remaining ledger in this rule's currency (bce_ticks) and the round stops
+  // mid-way rather than being metered after the fact (Vivify's idiom).
   const uint64_t tick_start = k.stats.bce_ticks;
-  // SCHED-F3 · repetition filter over the touched-epoch substrate. cadical
-  // keeps a per-literal `block` flag with precisely this lifecycle: set by
-  // `mark_added` on an irredundant add and by `mark_removed(-lit)` on a
-  // removal, cleared when the literal is scheduled, with the comment "we do
-  // not have to try blocked clause elimination on it again until irredundant
-  // clauses with its negation are removed" (block.cpp:730-733,
-  // internal.hpp:1125-1137).
-  //
-  // ▶ THIS IS THE ONE CONSUMER THAT NEEDS THE DELETION SIDE, and it is why
-  // `Kernel::removed` exists as a second array. A clause becomes blocked on l
-  // either because it appeared or because an opposite occurrence went away;
-  // filtering BCE on adds alone would silently drop the second case, which is
-  // the case BCE mostly lives on. Folding deletions into `touched` instead
-  // would have weakened C1/C2's filter, where the measured saving is.
-  //
-  // Coarser than cadical on polarity: our stamps are per VARIABLE, so l is
-  // reconsidered whenever either polarity changed. Conservative in the safe
-  // direction.
-  // N1: `bce_literals` (what `instances()` enumerates) and `bce_try` (the
-  // `apply_instance` path) are untouched and stay complete.
+  // Repetition filter over the touched-epoch substrate; cadical keeps a
+  // per-literal `block` flag with the same lifecycle (block.cpp:730-733). This
+  // is the one consumer that needs the DELETION side, which is why
+  // `Kernel::removed` exists as a second array: a clause becomes blocked on l
+  // either because it appeared or because an opposite occurrence went away, and
+  // filtering on adds alone drops the second case — the one BCE mostly lives
+  // on. Stamps are per variable, coarser than cadical's polarity, which is
+  // conservative. N1: `bce_literals` and `bce_try` stay complete.
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
   const uint64_t wm = k.bce_touch_mark;
@@ -283,10 +266,10 @@ ApplyResult bce_apply(Kernel &k) {
       stopped_at = li;
       break;
     }
-    // §6 (SCHED-H1) · TERMINATION is not budget exhaustion: `work_budget` can
-    // be 0 (unmetered) and the ledger can be large, so without this poll a
-    // round runs to completion after an interrupt arrives. Taken at the same
-    // point as the budget cut so the tail is re-armed by the same resume path.
+    // §6 termination is not budget exhaustion: `work_budget` can be 0
+    // (unmetered), so without this poll a round runs to completion after an
+    // interrupt arrives. Taken at the budget cut's point so the tail is
+    // re-armed by the same resume path.
     if (kernel_rule_interrupt(k, k.stats.bce_interrupted)) {
       stopped_at = li;
       break;
@@ -300,10 +283,9 @@ ApplyResult bce_apply(Kernel &k) {
       return r;
     any |= (r == ApplyResult::Ok);
   }
-  // RESUME (SCHED-F2's mechanism): re-arm the literals the budget never
-  // reached, then advance the watermark. This rule IS budget-cut in practice
-  // (it is `budget_aware` and its ledger share is 20 per mille), so unlike
-  // C1/C2's the path is reachable under DefaultPolicy.
+  // Resume: re-arm the literals the budget never reached, then advance the
+  // watermark. This rule is budget-cut in practice (budget_aware, a 20 per
+  // mille ledger share), so the path is reachable under DefaultPolicy.
   for (size_t li = filter ? stopped_at : lits.size(); li < lits.size(); li++) {
     if (!kernel_changed_since(k, var_of(lits[li]), wm))
       continue;
@@ -327,8 +309,7 @@ static uint32_t bce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult bce_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: complete the root closure if applied off a fixpoint (no-op
-  // otherwise); a root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)

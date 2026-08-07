@@ -1,81 +1,15 @@
-// Instantiate (plan §5.2): variable
-// instantiation, the removal of a RARE literal from a clause. For a clause
-// C = D ∨ l, assume l TRUE and every literal of D FALSE and propagate: a
-// conflict proves F ⊨ ¬l ∨ D, which resolves against C = l ∨ D to give D.
-// So C may be replaced by the strictly shorter D.
-//
-// Proof delta: add-RUP (D) + delete (C) — C2 Strengthen's pair, no witness
-// and no new primitive. D is genuinely RUP against F ALONE, which is the
-// point worth stating because the probe assumed something D's negation does
-// not: assuming ¬D leaves C = D ∨ l unit, so C ITSELF propagates l, and the
-// probe's state is reached. The LRAT chain therefore has to cite C at the
-// position where l entered the trail (cadical does the same, guarded on
-// whether the conflict analysis reached l at all) — see deviation (5).
-//
-// Value: the literal removed is one whose variable occurs (in that polarity)
-// at most INST_OCCLIM times, so removing it tends to make the variable pure
-// or nearly pure — i.e. this rule feeds E1 BVE rather than paying by itself.
-//
-// References (plan §5 "evidence, not templates"; transliterated in essence,
-// no code copied):
-//  - cadical instantiate.cpp (`instantiate_candidate`): the assume-and-
-//    propagate test, the candidate filters (occurrence limit, minimum clause
-//    size, ≥ 3 unassigned to avoid learning units), and the LRAT chain
-//    construction. cadical triggers it at the END of an elimination round,
-//    over the elim occurrence lists.
-//  - kissat 4.0.4 has NO instantiation rule at all, so CaDiCaL is the only
-//    reference here (as with X2).
-//  - CONTEXT WORTH KEEPING (it calibrates what to expect): cadical ships
-//    `instantiate` DEFAULT OFF (options.hpp: 0). The idea survives in its
-//    default configuration only as `vivifyinst` — instantiating the LAST
-//    literal during vivification. So the reference itself does not schedule
-//    the standalone rule, and measured ALONE this rule is a clear loss for us
-//    too. That is the WRONG experiment: with BCE and HyperTernaryRes on
-//    beside it the trio costs far less than any member alone, because the
-//    families repair each other. Judge a rule WITH its family, never on its
-//    own arm. It is SCHEDULED, like every implemented proof rule;
-//    `TACTIX_SLOT_DISABLE=Instantiate` is the ablation arm.
-//
-// Deviations recorded:
-// (1) SCOPE = IRREDUNDANT CLAUSES, matching cadical (its occurrence lists are
-//     irredundant-only). Strengthening a redundant clause would be equally
-//     sound; distilling learned tiers is C3 Vivify's job in this architecture
-//     and duplicating it here would just double the probe traffic.
-// (2) ONE REWRITE PER CANDIDATE CLAUSE PER ROUND (C3 Vivify deviation 2
-//     verbatim): the literals of a clause are tried in clause order and the
-//     first success rewrites and returns. cadical keeps going within the
-//     clause; our rounds repeat through the slot schedule instead. This also
-//     keeps the arena stable for the duration of one probe.
-// (3) NO `instantiated` CLAUSE FLAG (cadical's `instantiateonce` marks a
-//     clause tried and never retries it). That is a scheduling memo, not a
-//     precondition — under N1 the same clause must stay applicable at any
-//     time, and a per-clause "already tried" bit hidden inside the rule would
-//     shrink RandomPolicy's and the phase-6 learner's action space (the
-//     §5.3 instance-surface rule; the same argument that moved BVE's retry
-//     filter out to the policy). Cost: repeated rounds re-probe failures.
-// (4) NO STEPS BUDGET IN THE RULE, the §5.2 split: WHEN and HOW MUCH is
-//     policy territory. The canonical round is budget_aware — it reads
-//     `Kernel::work_budget` in propagation ticks and stops mid-round, the
-//     arrangement these families need.
-// (5) THE LRAT CHAIN CITES THE CANDIDATE CLAUSE ITSELF at l's trail position,
-//     and only when the conflict's reason walk actually reached l. This is
-//     cadical's guard (`if (flags (lit).seen) lrat_chain.push_back (c->id)`)
-//     with our sorted-by-trail-position chain machinery doing the placement:
-//     hints replay in trail order, and l entered the trail before anything
-//     propagated from it.
-// (6) The root-falsified literals of C are KEPT in D (cadical's
-//     `strengthen_clause (c, lit)` removes only the candidate literal). C3
-//     Vivify drops them; doing it here would mix two strengthenings into one
-//     delta for no new reachable state — the next Vivify round removes them.
-//
-// Instance space (plan §5.1 v1): payload = candidate arena Ref (C3 Vivify's
-// convention). One instance = one clause = all of its eligible literals, the
-// X2 argument: every removal a per-(clause,literal) surface could reach is
-// reached by applying that clause. INSTANCE_CANONICAL = the full round.
-//
-// Guard: quiescent root (D-ROOT, the C1/C2/C3/V1/V2/V3/V4/X1/X2 argument) —
-// occurrence counts and the "unassigned" filters only mean anything once
-// every level-0 unit is propagated into the clause set.
+// Instantiate, calculus rule X4 (plan §5.2): removal of a rare literal from a
+// clause. For C = D ∨ l, assume l true and every literal of D false and
+// propagate; a conflict proves F ⊨ ¬l ∨ D, which resolves against C to give D,
+// so C may be replaced by the strictly shorter D.
+// Proof delta: add-RUP (D) + delete (C), C2 Strengthen's pair — no witness, no
+// new primitive. Precondition, effect and the reason D is RUP against F alone:
+// `docs/calculus.md` §X4.
+// Reference: cadical `instantiate.cpp` (kissat has no instantiation rule).
+// Value: the removed literal's variable occurs at most INST_OCCLIM times in
+// that polarity, so removing it tends to make the variable pure or nearly
+// pure — this rule feeds BVE (rule E1) rather than paying by itself, and must
+// be judged with its family (X1/X2/X4), never on a lone arm.
 #pragma once
 
 #include "rules/registry.hpp"
@@ -88,10 +22,30 @@ namespace tactix {
 constexpr uint32_t INST_CLSLIM = 3;  // minimum candidate clause size
 constexpr uint32_t INST_OCCLIM = 1;  // maximum occurrences of the literal
 
+// Guard: quiescent root (D-ROOT) — occurrence counts and the "unassigned"
+// filters only mean anything once every level-0 unit is propagated into the
+// clause set.
 bool instantiate_guard(const Kernel &);
-// canonical candidate order: arena order (a total order, allocation-free)
+
+// Instance space (plan §5.1): payload = candidate arena Ref, in arena order.
+// One instance = one clause = all of its eligible literals, since every removal
+// a per-(clause, literal) surface could reach is reached by applying the
+// clause. Candidates are irredundant, matching cadical's occurrence lists —
+// distilling learned tiers is C3 Vivify's job here. There is deliberately no
+// "already tried" flag (cadical's `instantiateonce`): that is a scheduling
+// memo, and under N1 the same clause must stay applicable at any time.
 void instantiate_candidates(const Kernel &, std::vector<Ref> &out);
-ApplyResult instantiate_try(Kernel &, Ref candidate); // one clause
-ApplyResult instantiate_apply(Kernel &);              // canonical: full round
+
+// One clause: try its eligible literals in clause order; the first success
+// rewrites and returns, where cadical keeps going within the clause. Rounds
+// repeat through the slot schedule instead, which also keeps the arena stable
+// for the duration of one probe. Root-falsified literals of C are kept in D;
+// dropping them would mix two strengthenings into one delta for no new
+// reachable state, and the next Vivify round removes them.
+ApplyResult instantiate_try(Kernel &, Ref candidate);
+
+// Canonical: the full round. No steps budget in the rule — the round is
+// budget_aware, reading `Kernel::work_budget` in propagation ticks.
+ApplyResult instantiate_apply(Kernel &);
 
 } // namespace tactix

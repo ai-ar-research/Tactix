@@ -1,6 +1,5 @@
-// V4 TransitiveReduce: transitive reduction of the binary implication graph.
-// A binary (src ∨ dst) is the BIG edge ¬src → dst; it is deletable when dst
-// stays reachable from ¬src along OTHER binaries.
+// V4 TransitiveReduce: a binary (src ∨ dst) is the BIG edge ¬src → dst,
+// deletable when dst stays reachable from ¬src along other binaries.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "kernel/watch.hpp"
@@ -12,8 +11,8 @@
 
 using namespace tactix;
 
-// is the binary (a ∨ b) live? (the watch lists are the only liveness signal —
-// binary_ids keeps the id of a deleted binary)
+// is (a ∨ b) live? the watch lists are the only liveness signal, since
+// `binary_ids` keeps the id of a deleted binary
 static uint32_t copies(const Kernel &k, Lit l, Lit other) {
   const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
   const uint32_t sz = k.watches.heads[l].size;
@@ -43,8 +42,7 @@ static void add_bin(Kernel &k, int ea, int eb) {
                            ++k.next_clause_id);
 }
 
-// (a ∨ b), (¬b ∨ c), (a ∨ c): the third is redundant — ¬a → b → c reaches c
-// without it. Vars: a=1, b=2, c=3
+// (a ∨ b), (¬b ∨ c), (a ∨ c): the third is redundant. Vars: a=1, b=2, c=3
 static void test_transitive_redundancy() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -60,8 +58,7 @@ static void test_transitive_redundancy() {
   assert(k.stats.binaries_deleted == 1);
   // the id ledger is monotone: the deleted pair keeps its id
   assert(kernel_binary_id(k, internalize(1), internalize(3)) != 0);
-  // idempotent: a second round finds nothing
-  assert(transitive_reduce_apply(k) == ApplyResult::NoOp);
+  assert(transitive_reduce_apply(k) == ApplyResult::NoOp); // idempotent
   assert(k.stats.transitive_deleted == 1);
 }
 
@@ -77,10 +74,8 @@ static void test_no_redundancy() {
   assert(k.stats.transitive_deleted == 0);
 }
 
-// MUTUAL DEPENDENCY — the tombstone's reason for existing. b ≡ c, so ¬a → b
-// reaches c and ¬a → c reaches b: each edge is redundant *via the other*, but
-// deleting BOTH would leave `a` unconstrained (a model gained = unsound).
-// Exactly one must survive. Vars: a=1, b=2, c=3
+// Mutual dependency (the tombstone's reason for existing): with b ≡ c each of
+// ¬a → b, ¬a → c is redundant via the other, but deleting both gains a model.
 static void test_mutual_dependency() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -93,15 +88,11 @@ static void test_mutual_dependency() {
   assert(ab != ac);                     // exactly one deleted, never both
   assert(k.stats.transitive_deleted == 1);
   assert(live(k, -2, 3) && live(k, -3, 2)); // the equivalence survives
-  // `a` is still constrained: ¬a still implies both b and c
   assert(transitive_reduce_apply(k) == ApplyResult::NoOp); // fixpoint
 }
 
-// FAILED LITERAL -> abandon the source to V1 Probe (hpp deviation 5). ¬a → b
-// and b implies both d and ¬d, so ¬a is a failed literal — and the walk for
-// candidate (a ∨ c) sees it, because the contradiction does not depend on the
-// excluded edge. Nothing is deleted; the delta stays delete-only.
-// Vars: a=1, b=2, c=3, d=4
+// A failed literal hands the source to V1 Probe (hpp deviation 5): b implies d
+// and ¬d, so ¬a is failed and nothing is deleted. Vars: a=1, b=2, c=3, d=4
 static void test_failed_literal_deferred() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -115,16 +106,9 @@ static void test_failed_literal_deferred() {
   assert(live(k, 1, 2) && live(k, 1, 3));
 }
 
-// SELF-JUSTIFICATION THROUGH THE CONTRAPOSITIVE (hpp deviation 2). ¬a → b,
-// b → ¬c, ¬a → c. Testing candidate (a ∨ c), a walk allowed to use that
-// candidate's OWN contrapositive edge ¬c → a would run ¬a → b → ¬c → a and
-// from `a` could reach anything — justifying the candidate by itself. Our
-// walk excludes the pair in BOTH directions, so it reaches neither `a` nor
-// `c` and deletes nothing. (kissat, excluding only the candidate's watch
-// slot, instead walks into `a`, trips its both-polarities check and reports
-// ¬a as a failed literal — which it genuinely is. We leave that unit to V1
-// Probe's full propagation, per deviation 5: fewer detections here, never a
-// wrong deletion, and never a unit V4 has to justify.) Vars: a=1, b=2, c=3
+// No self-justification through the contrapositive (hpp deviation 2): a walk
+// for (a ∨ c) allowed the candidate's own edge ¬c → a could reach anything, so
+// the pair is excluded both ways. kissat instead reports ¬a as failed.
 static void test_no_contrapositive_self_justification() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -136,10 +120,8 @@ static void test_no_contrapositive_self_justification() {
   assert(live(k, 1, 2) && live(k, -2, -3) && live(k, 1, 3));
 }
 
-// DUPLICATE PAIRS ARE NOT CANDIDATES (hpp deviation 8): binary_ids holds one
-// id per PAIR, so deleting one copy would retire the id the survivor is still
-// cited by. Note the duplicate slot IS itself an alternate path to b, so a
-// rule without the filter would find (a v b) "redundant" and delete it.
+// A duplicate pair is not a candidate (hpp deviation 8): `binary_ids` holds one
+// id per pair, and the duplicate slot is itself the alternate path.
 static void test_duplicate_pair_skipped() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -152,8 +134,7 @@ static void test_duplicate_pair_skipped() {
   assert(live(k, 1, 2));
 }
 
-// ROOT-FIXED endpoints are never touched: a root-satisfied binary is C2's
-// flush's job, and a reason binary must keep its reason. Vars: a=1, b=2, c=3
+// Root-fixed endpoints are never touched: that is C2's flush's job.
 static void test_root_fixed_skipped() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -167,8 +148,7 @@ static void test_root_fixed_skipped() {
   assert(live(k, 1, 3)); // untouched: root-fixed source is not a candidate
 }
 
-// the instance surface (N1): sources are enumerable and each is individually
-// applicable, with the same effect as the canonical round
+// Instance surface (N1): each source is individually applicable.
 static void test_instance_surface() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -188,8 +168,7 @@ static void test_instance_surface() {
   assert(transitive_reduce_try(k, internalize(99)) == ApplyResult::NoOp);
 }
 
-// guard: pure quiescent-root precondition (D-LEVEL purified — no fixpoint
-// requirement; the rule drains the root closure U at apply entry).
+// Guard: pure quiescent-root precondition, no fixpoint (ledger row D-LEVEL).
 static void test_guard() {
   Kernel k;
   kernel_reserve_vars(k, 2);

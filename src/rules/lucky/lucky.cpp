@@ -1,14 +1,10 @@
-// Transliterated from kissat/src/lucky.c (MIT). Deviations (recorded):
-// (1) kissat's failed-literal handling inside probes (analyze -> learned
-// unit) is dropped — a conflicting probe simply abandons and restores the
-// entry state, keeping this rule's proof delta exactly "none" per the
-// catalog row; failed-literal machinery arrives properly with Probe (V1,
-// phase 3). (2) kissat runs lucky under its probing mode with separate
-// statistics; our probes share the single propagations/ticks counters
-// (honest memory traffic — documented so the policy's tick budget is
-// understood to include them). Probes never update saved/target/best
-// phases (kernel_backtrack update_phases=false, kissat
-// backtrack_without_updating_phases).
+// Transliterated from kissat/src/lucky.c (MIT). Deviations: (1) kissat's
+// failed-literal handling inside probes is dropped — a conflicting probe
+// abandons and restores the entry state, keeping the proof delta exactly
+// "none" (failed literals are V1 Probe's); (2) probes share the single
+// propagations/ticks counters rather than kissat's separate probing-mode
+// statistics, so a policy's tick budget includes them. Probes never update
+// saved/target/best phases (kernel_backtrack update_phases=false).
 #include "rules/lucky/lucky.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -38,11 +34,9 @@ static void assume(Kernel &k, Lit lit) {
   kernel_assign(k, lit, k.level, DECISION_REASON, false);
 }
 
-// no clause forces a literal of the given polarity to be its last hope:
-// returns true when every irredundant clause has a non-false literal of
-// polarity `want_negated` == false ... i.e. the constant assignment with
-// polarity !want_negated satisfies everything (kissat
-// no_all_negative_clauses / no_all_positive_clauses)
+// True iff the constant assignment of polarity !want_negated satisfies every
+// irredundant clause, i.e. none of them needs a `want_negated` literal (kissat
+// no_all_negative_clauses / no_all_positive_clauses).
 static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -88,10 +82,9 @@ static ApplyResult constant_probe(Kernel &k, int8_t phase) {
   return ApplyResult::Sat;
 }
 
-// sweep the variables in `forward` order assuming phase `phase`; on a
-// conflict deeper than the first probe level, retry the flipped literal
-// once; any conflict that sticks abandons the whole probe (deviation:
-// kissat learns failed-literal units here — see the header comment)
+// sweep the variables in `forward` order assuming phase `phase`; on a conflict
+// deeper than the first probe level, retry the flipped literal once; any
+// conflict that sticks abandons the whole probe (deviation 1 above)
 static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
   for (uint32_t i = 0; i < k.nvars; i++) {
     const Var v = forward ? i : k.nvars - 1 - i;
@@ -140,8 +133,8 @@ ApplyResult lucky_apply_probe(Kernel &k, uint64_t probe) {
 
 // canonical instance: kissat's cascade, first success wins
 ApplyResult lucky_apply(Kernel &k) {
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL guard purification: complete the root closure U (no-op at a
+  // fixpoint); a root conflict during the drain refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   static constexpr uint64_t CASCADE[6] = {
@@ -163,8 +156,8 @@ static uint32_t lucky_instances(Kernel &, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL guard purification: complete the root closure U (no-op at a
+  // fixpoint); a root conflict during the drain refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)

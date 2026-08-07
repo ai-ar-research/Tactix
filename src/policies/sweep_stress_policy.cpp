@@ -37,7 +37,7 @@ int sweep_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
               (unsigned long long)k.stats.sweep_not_rup,
               (unsigned long long)k.stats.sweep_general,
               (int)k.conflict_valid, (int)k.inconsistent);
-    kernel_check_invariants(k); // PER-STEP (not every-256): pin the culprit
+    kernel_check_invariants(k); // per step, not every-256: pin the culprit
   };
 
   for (uint64_t steps = 0;; steps++) {
@@ -56,13 +56,12 @@ int sweep_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     }
 
     // --- the stressed window: sweep every root, to a fixpoint ---------------
-    // Deliberately BEFORE the propagate branch, so Sweep is entered off a
-    // propagation fixpoint (legal -- `sweep_guard` is `!inconsistent && level
-    // == 0` and the apply drains via `inprocess_reach_root`) and immediately
-    // again on the formula its own binaries just changed. `k.work_budget` is
-    // left at 0, so each apply runs the WHOLE round rather than S-f's dose:
-    // more environments per root is more candidate pairs is more chances that
-    // one of them is not RUP.
+    // Sits before the propagate branch on purpose, so Sweep is entered off a
+    // propagation fixpoint (legal: `sweep_guard` is `!inconsistent && level ==
+    // 0` and the apply drains via `inprocess_reach_root`) and again on the
+    // formula its own binaries just changed. `k.work_budget` stays 0 so each
+    // apply runs the whole round rather than S-f's dose — more environments per
+    // root is more candidate pairs, hence more chances one is not RUP.
     if (k.level == 0) {
       bool progressed = false;
       for (uint32_t round = 0; round < max_rounds; round++) {
@@ -76,9 +75,9 @@ int sweep_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
         step("sweep");
         progressed = true;
         // Consume the equivalences Sweep just stated (V3 owns the substitution
-        // and the binary deletion). This is the composition that bites: the
-        // deletions change which clauses the NEXT environment may cite, which
-        // is precisely the `env subset of F` invariant S-e's chains rest on.
+        // and the binary deletion). The deletions change which clauses the next
+        // environment may cite, which is the `env subset of F` invariant S-e's
+        // chains rest on.
         if (!no_subst && subst.guard(k)) {
           const ApplyResult s = apply_rule(subst, k);
           if (s == ApplyResult::Unsat)

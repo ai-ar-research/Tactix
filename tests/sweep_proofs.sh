@@ -1,27 +1,19 @@
 #!/usr/bin/env bash
-# V5 Sweep · S-b and S-e: every proof Sweep produces, replayed through the REAL
-# checkers (design §6: "tested by replaying the core as a resolution chain
-# through drat-trim on micro cases — before any integration, the way the V6
-# ladder was validated").
+# V5 Sweep, rules S-b and S-e: every proof Sweep produces, replayed through the
+# real checkers.
 #
-# TWO emitters, and the second one is not optional:
+# Both emitters are required, because they cover different code:
+#  - test_subsolver --emit writes, per case, a DIMACS file (the environment plus
+#    a unit per assumption the refutation used) and the matching LRAT and DRAT
+#    proofs. That covers S-b's derivations in sub-solver space.
+#  - test_sweep --emit writes a complete UNSAT refutation whose middle is S-e's
+#    output: the same derivations after the sub-solver -> kernel translation,
+#    which is separate code and can invert literal parity while sub-solver-space
+#    proofs still verify.
 #
-#  - test_subsolver --emit writes, per case, a DIMACS file (the environment,
-#    then a unit per assumption the refutation actually used) plus the matching
-#    LRAT and DRAT proofs. This checks S-b's derivations IN SUB-SOLVER SPACE.
-#  - test_sweep --emit writes a complete UNSAT refutation whose middle is
-#    literally S-e's output, i.e. those same derivations after the sub-solver ->
-#    KERNEL translation. That translation is a separate piece of code and it is
-#    where the S-e polarity N2 breach lived: the sub-solver's proofs verified
-#    here
-#    while every lemma S-e wrote was the NEGATION of them, because the decode
-#    inverted the literal parity. Checking only the first emitter is checking
-#    the half that was right.
-#
-# Both formats matter and for different reasons (L13): drat-trim re-derives
-# every lemma by RUP and so checks the LEMMAS, while an LRAT checker walks the
-# hint chains and so checks the CHAINS — the thing S-b exists to produce, and
-# the thing a permissive format silently accepts.
+# Both formats are required too: drat-trim re-derives every lemma by RUP and so
+# checks the lemmas, while an LRAT checker walks the hint chains and so checks
+# the chains, which is what S-b exists to produce.
 #
 # Exit 77 (ctest SKIP) without a checker.
 set -euo pipefail
@@ -49,12 +41,9 @@ for emitter in "$@"; do
     if [ -x "$LRAT_CHECK" ]; then
       "$LRAT_CHECK" "$cnf" "$base.lrat" > "$T/check" 2>&1 \
         || { echo "FAIL: LRAT of $cnf rejected"; cat "$T/check"; exit 1; }
-      # Test the REJECTION first. lrat-check prints `c VERIFIED` on success and
-      # `c NOT VERIFIED` on rejection, so a substring test for `verif` matches
-      # BOTH and turns every rejection into a pass — the same predicate defect
-      # that made the fuzz harness's native-LRAT oracle vacuous for the
-      # project's whole history. Here it was masked by lrat-check's exit status
-      # above; masked is not fixed.
+      # Test for rejection first: lrat-check's rejection verdict contains its
+      # acceptance verdict as a substring, so a bare `verif` match would accept
+      # both and turn every rejection into a pass.
       if grep -qi 'not verified' "$T/check"; then
         echo "FAIL: lrat-check REJECTED the LRAT of $cnf"; cat "$T/check"; exit 1
       fi

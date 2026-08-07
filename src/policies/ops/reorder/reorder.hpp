@@ -1,16 +1,10 @@
 // Reorder (plan §5.2, kissat reorder.c): re-rank the decision heuristic by a
-// STRUCTURAL weight read off the current formula, instead of by the search
-// history EVSIDS/VMTF accumulated. Pure H (proof delta: none), so it is a policy
-// operation, not a proof rule — no calculus entry (calculus.md "what belongs in
-// this document"). Sound in any non-refuted state.
-//
-// The instance space is WHICH ranking to re-rank; the canonical instance is the
-// one the active mode reads (heap while stable, queue while focused), so a
-// policy that just wants "reorder now" gets kissat's behaviour. WHEN to reorder
-// is policy state: DefaultPolicy carries kissat's linearly-growing conflict
-// interval, and it is OFF by default — ablating kissat's own reordering does
-// not resolve above our Tier C noise floor, so there is no measured warrant
-// for scheduling it (see want_reorder).
+// structural weight read off the current formula rather than by accumulated
+// search history. Pure `H`, no proof delta, so a policy operation and not a
+// proof rule; sound in any non-refuted state. The instance space is which
+// ranking to re-rank, the canonical instance being the one the active mode
+// reads. When to reorder is policy state, and it is off by default: ablating
+// kissat's own reordering does not resolve above the Tier C noise floor.
 #pragma once
 
 #include "rules/registry.hpp"

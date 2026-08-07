@@ -14,8 +14,8 @@ Subcommands:
   check-one  re-run the oracles on a single CNF (ddmin predicate / repro)
   corpus     replay corpus/regressions/ — every entry must pass
 
-A leg's strength is the number of cases an oracle actually ran on, which is
-NOT --n. Two readouts on the summary line keep the difference visible:
+A leg's strength is the number of cases an oracle actually ran on, which is not
+--n. Two readouts on the summary line keep the difference visible:
   coverage:  cases that reached a verdict. A case that times out (or answers
              UNKNOWN) exercises no model/proof/differential oracle at all, so
              it contributes nothing; the non-terminating population is printed
@@ -55,9 +55,9 @@ class CaseOutcome:
         self.verdict = "UNKNOWN"
         self.oracle_verdict = None
         self.failures = []  # list of (kind, detail)
-        # oracles deliberately NOT applied to this case, with the reason. Never
-        # let an oracle drop out silently: a skip that is not counted is
-        # indistinguishable from a pass ([[ab-arm-identical-artefacts]]).
+        # Oracles deliberately not applied to this case, with the reason. An
+        # uncounted skip is indistinguishable from a pass, so no oracle may
+        # drop out silently.
         self.skips = []  # list of (oracle, reason)
         self.solver_out = ""
         self.solver_err = ""
@@ -203,28 +203,22 @@ def input_restated(stdout):
     return int(m.group(1)) if m else 0
 
 
-# --- per-rule reachability, counted at the SOURCE -------------------------
+# --- per-rule reachability, counted at the source -------------------------
 # One row per registry entry (rule or policy op): the label, and a regex whose
-# group(1) is the counter that is non-zero iff that entry's apply actually ran
-# on the case. A leg that never fires a rule proves nothing about it, and the
-# only way to know is to read the solver's own counters
-# ([[ab-arm-identical-artefacts]]).
+# group(1) is a counter that is non-zero iff that entry's apply actually ran on
+# the case. A leg that never fires a rule proves nothing about it, and only the
+# solver's own counters can say.
 #
-# The regexes are matched against the solver's stats block, so a reworded print
-# line would silently zero a row. That failure mode is checked, not trusted:
-# `spec_miss` counts rows whose LINE never appeared in a case that printed
-# stats at all, and a leg with any spec miss FAILS — an instrument that cannot
-# fail is worth nothing.
+# The regexes match the solver's stats block, so a reworded print line would
+# silently zero a row. `spec_miss` counts rows whose line never appeared in any
+# case that printed stats, and a leg with a spec miss fails.
 #
-# ▶ NOT the `rounds` counter for a DOSED rule. `<rule>_rounds` is incremented by
-# the CANONICAL apply only, and DefaultPolicy drives every `EFFORT_SPECS` entry
-# with `dosed=true` (BVE, Probe, Backbone, TransitiveReduce, HyperBinaryRes)
-# one instance at a time — so their rounds counter stays 0 on a run where the
-# rule did all its work. Measured 2026-08-06: `9vliw_bp_mc` prints `c bve 0
-# rounds, 11008 eliminated`. Reading `rounds` there is an instrument that CANNOT
-# report reachability, which is worse than no row. Each of those five reads its
-# work counter (resolutions / probed / checked / probes) instead — non-zero iff
-# the apply body ran, which is the property this table is for.
+# Never key a `dosed` entry on its `rounds` counter. `<rule>_rounds` moves on
+# the canonical apply only, and DefaultPolicy drives every `EFFORT_SPECS` entry
+# with `dosed=true` one instance at a time, so the round counter stays 0 on a
+# run where the rule did all its work (`c bve 0 rounds, 11008 eliminated`).
+# Those entries key on a work counter (resolutions / probed / checked / probes)
+# instead — non-zero iff the apply body ran, which is what this table is for.
 REACH_SPECS = [
     ("Propagate", r"^c propagations\s+(\d+)"),
     ("Decide", r"^c decisions\s+(\d+)"),
@@ -233,13 +227,9 @@ REACH_SPECS = [
     ("Reduce", r"^c reductions\s+(\d+)"),
     ("Lucky", r"^c lucky\s+(\d+) probes"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
-    # The next three key on ATTEMPTS, not rounds. All are `dosed` entries, so
-    # DefaultPolicy reaches them through apply_instance and the round counter
-    # never moves: on a structured probe instance Probe and Backbone each
-    # probed 22 literals while reporting "0 rounds", and `9vliw_bp_mc` prints
-    # "c bve 0 rounds, 11008 eliminated". A counter that CANNOT move makes a
-    # rule that ran look untested -- the inverse of the vacuity this table
-    # exists to catch, and what produced the "19 of 25 entries fire" reading.
+    # These key on attempts, not rounds: they are `dosed` entries reached
+    # through apply_instance, whose round counter never moves. See the note
+    # above the table.
     ("Probe", r"^c probe\s+\d+ rounds, (\d+) probed,"),
     ("Backbone", r"^c backbone\s+\d+ rounds, (\d+) probed,"),
     ("TransitiveReduce", r"^c transitive\s+\d+ rounds, (\d+) checked,"),
@@ -332,8 +322,9 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
                 out.fail("proof", f"drat-trim did not verify (exit {c})")
             elif lrat:
                 # On some degenerate-but-legal CNFs drat-trim and lrat-check
-                # disagree about the FILE, so the conversion cross-check is not
-                # an oracle — for ANY solver. See conversion_crosscheck_unsound.
+                # disagree about the file itself, so the conversion cross-check
+                # is not an oracle for any solver. See
+                # conversion_crosscheck_unsound.
                 why = conversion_crosscheck_unsound(cnf_path)
                 if why:
                     out.skip("lrat-convert", why)
@@ -441,7 +432,7 @@ def save_nonterminating(outdir, idx, seed, name, cnf_path, outcome, solver,
     cmd = [os.path.join(HERE, "fuzz.py"), "check-one",
            "--solver", shlex.join(solver)]
     with open(os.path.join(d, "repro.sh"), "w") as f:
-        # cd to the REPO ROOT, not to the bundle: a repo-relative --solver path
+        # cd to the repo root, not to the bundle: a repo-relative --solver path
         # (`build/…/tactix`, which every leg uses) does not resolve anywhere
         # else, and the CNF is passed absolute so the cd cannot break it either.
         f.write("#!/usr/bin/env bash\n# re-run this case; pass a timeout in "
@@ -470,24 +461,22 @@ def cmd_run(args):
     nfail = 0
     kinds_count = {}
     verdicts = {}
-    # REACHABILITY, counted at the source. A green leg proves nothing about a
-    # path no case reached ([[ab-arm-identical-artefacts]]); the solver prints
-    # `c input <n> clauses restated` for the frontend's input-normalization
-    # path, so tally how many cases actually had a degenerate input clause and
-    # report it next to the pass/fail counts. Add a line here for any other
-    # path whose coverage a leg is supposed to demonstrate.
+    # Reachability, counted at the source: a green leg proves nothing about a
+    # path no case reached. The solver prints `c input <n> clauses restated`
+    # for the frontend's input-normalization path, so tally how many cases had
+    # a degenerate input clause and report it next to the pass/fail counts. Add
+    # a line here for any other path whose coverage a leg must demonstrate.
     reach = {"restated_cases": 0, "restated_unsat": 0}
     # per-rule reachability (the same principle, generalised): cases in which
     # each registry entry actually fired, plus the spec-miss guard.
     reach_rules = {label: 0 for label, _ in REACH_SPECS}
     reach_spec_seen = {label: 0 for label, _ in REACH_SPECS}
     stats_cases = 0
-    # NON-TERMINATION = LOST COVERAGE, and it must be as visible as a failure.
-    # A case that does not reach a verdict exercises no semantic oracle
-    # (model/proof/differential all need SAT or UNSAT), so "N cases, 0
-    # failures" is really "N minus the non-terminating population". Weak-solver
-    # legs (--random-policy above all) lose a double-digit percentage this way;
-    # counted and printed here, and reproducible from the recorded seeds.
+    # Non-termination is lost coverage and must be as visible as a failure: a
+    # case that reaches no verdict exercises no semantic oracle (model, proof
+    # and differential all need SAT or UNSAT), so "N cases, 0 failures" really
+    # means "N minus the non-terminating population". Weak-solver legs
+    # (--random-policy above all) lose a double-digit percentage this way.
     nonterm = []  # [{index, seed, generator, nvars, nclauses, verdict}]
     saved_nonterm = [0]  # CNFs written to outdir/nonterminating/ (capped)
     skips_count = {}  # oracle -> cases where it was deliberately not applied
@@ -598,9 +587,9 @@ def cmd_run(args):
           + (f" | oracles skipped: {skips_count}" if skips_count else ""))
     if nnon:
         pct = 100.0 * nnon / ran if ran else 0.0
-        # Spelled out, because the headline number was being quoted without it:
-        # these cases ran NO semantic oracle, so the leg's strength is
-        # `effective`, not `args.n`.
+        # Spelled out because the headline gets quoted without it: these cases
+        # ran no semantic oracle, so the leg's strength is `effective`, not
+        # `args.n`.
         print(f"fuzz: NON-TERMINATING {nnon} of {ran} cases ({pct:.1f}%) at "
               f"--timeout {args.timeout}s: no model/proof/differential oracle "
               f"ran on them, so this leg is {effective} cases, not {ran}. "
@@ -612,9 +601,8 @@ def cmd_run(args):
                        "cases_run": ran, "nonterminating": nnon,
                        "detail": sorted(nonterm, key=lambda c: c["index"])},
                       f, indent=2)
-    # per-rule reachability table (RV-S23): which registry entries this leg
-    # actually exercised. Zero means every claim the leg makes about that rule
-    # is vacuous.
+    # Per-rule reachability: which registry entries this leg exercised. Zero
+    # means every claim the leg makes about that rule is vacuous.
     if stats_cases:
         cols = " ".join(
             f"{label}={reach_rules[label]}"

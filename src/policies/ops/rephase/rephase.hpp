@@ -1,11 +1,9 @@
-// S3 Rephase (plan §5.2, kissat rephase.c): rewrite the saved phases —
-// the instance space is the phase TYPE (payloads below); the canonical
-// instance is Best. Pure H (proof delta: none); sound in any
-// non-refuted state. WHEN to rephase and WHICH type rotation to use are
-// policy state (DefaultPolicy runs kissat's stable-only trigger
-// and B,B,I,B,B,O rotation); the kissat-coupled root backtrack is likewise
-// the policy's, composed from the same rule vocabulary (Restart with
-// keep-level 0), not baked in here.
+// S3 Rephase (plan §5.2, kissat rephase.c): rewrite the saved phases. The
+// instance space is the phase type (payloads below) and the canonical instance
+// is Best. Pure `H`, no proof delta, sound in any non-refuted state. When to
+// rephase and which type rotation to use are policy state; the kissat-coupled
+// root backtrack is likewise the policy's, composed from the same rule
+// vocabulary (Restart with keep-level 0) rather than baked in here.
 #pragma once
 
 #include "rules/registry.hpp"

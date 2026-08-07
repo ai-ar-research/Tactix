@@ -1,4 +1,5 @@
-// S1 Restart / S2 Reduce / arena collection unit tests.
+// Restart / Reduce / arena-collection unit tests. Each test attaches a
+// ScopedHeuristics guard: the session, not the kernel, owns k.h.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -15,13 +16,12 @@ using namespace tactix;
 
 static void test_restart() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
-  // guard (soundness) holds at any level > 0; scheduling lives in the
-  // policy object (the plan), not the rule
+  // the guard holds at any level > 0; scheduling is policy, not rule
   assert(restart_guard(k));
   DefaultPolicy p;
   assert(!p.want_restart(k)); // conflicts 0 < the initial limit
@@ -39,7 +39,7 @@ static void test_restart() {
 
 static void test_collect_preserves_propagation() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
   const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit c2[3] = {internalize(1), internalize(2), internalize(4)};
@@ -47,8 +47,7 @@ static void test_collect_preserves_propagation() {
   kernel_add_large_clause(k, c2, 3, true, 5);
   clause_at(k.arena, r1)->flags |= Clause::GARBAGE;
   kernel_collect_garbage(k);
-  // c2 must still propagate: set 1,2 false -> forces 4 (and only 4)
-  kernel_assign_unit(k, internalize(-1));
+  kernel_assign_unit(k, internalize(-1)); // c2 must still force 4, and only 4
   kernel_assign_unit(k, internalize(-2));
   assert(propagate_apply(k) == ApplyResult::Ok);
   assert(k.values[internalize(4)] > 0);
@@ -57,14 +56,13 @@ static void test_collect_preserves_propagation() {
 
 static void test_reduce_deletes_and_logs() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   Proof proof;
   char path[] = "/tmp/tactix_reduce_test.drat";
   assert(proof.open(path, ProofFormat::DratAscii));
   k.proof = &proof;
   kernel_reserve_vars(k, 12);
-  // four high-glue redundant clauses on distinct vars, plus one glue-1 keeper
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) { // four high-glue candidates, plus one keeper
     const Lit c[3] = {internalize(3 * i + 1), internalize(3 * i + 2),
                       internalize(3 * i + 3)};
     kernel_add_large_clause(k, c, 3, true, 8 + i);
@@ -93,10 +91,9 @@ static void test_reduce_deletes_and_logs() {
 }
 
 static void test_reduce_used_retention() {
-  // kissat reduce.c recency scheme: tier2 (glue <= 6) survives while
-  // used within the last two reductions; aging happens per application
+  // kissat reduce.c recency: tier2 survives two reductions, aged per apply
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
   const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref tier2 = kernel_add_large_clause(k, c1, 3, true, 4);
@@ -119,11 +116,8 @@ static void test_reduce_used_retention() {
   assert(cands.size() == 2); // protection lapsed; both are candidates
 }
 
-// SP-TIER-2 / SCHED-C10: the retention-band instrument must actually track the
-// LIVE tier. A counter that reads the same either way would make every future
-// tier consumer look inert for the wrong reason ([[ab-arm-identical-artefacts]]),
-// so pin that moving `k.tier2` moves the dynamic count and leaves the static
-// one alone.
+// The retention-band instrument tracks the live tier: moving `k.tier2` moves
+// the dynamic count and leaves the static one alone.
 static void test_tier2_band_tracks_the_live_tier() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -145,9 +139,8 @@ static void test_tier2_band_tracks_the_live_tier() {
 }
 
 static void test_solve_with_restarts_still_correct() {
-  // PHP(3) pigeons=4 holes=3: UNSAT even with tiny restart intervals
-  Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  Kernel k; // PHP(4,3): UNSAT even under tiny restart intervals
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 12);
   auto var = [](int p, int h) { return p * 3 + h + 1; };
   std::vector<Lit> scratch;
@@ -162,15 +155,11 @@ static void test_solve_with_restarts_still_correct() {
       for (int p2 = p1 + 1; p2 < 4; p2++)
         kernel_add_binary_clause(k, internalize(-var(p1, h)),
                                  internalize(-var(p2, h)));
-  // restart storm: permanently-degraded EMAs + zero floor, posed on the
-  // policy instance (schedules are policy state)
+  // A restart storm posed on the policy instance, since schedules are policy
+  // state. Alpha stays 0, so updates cannot wash the biased values out.
   DefaultPolicy storm;
-  // solve() re-initialises its scheduling state at entry (SCHED-H2), which
-  // would erase the storm before it starts — and leave this test asserting
-  // only that PHP(4,3) is UNSAT. Opting out is what the hatch is for.
+  // solve() re-initialises its schedule at entry; this hatch opts out
   storm.reset_schedule_per_solve = false;
-  // frozen degraded EMAs: alpha stays 0 (never init'ed), so updates
-  // cannot wash the posed biased values out — permanent restart pressure
   storm.averages[0].initialized = true;
   storm.averages[0].fast_glue.biased = 100.0;
   storm.averages[0].fast_glue.value = 100.0;
@@ -182,12 +171,10 @@ static void test_solve_with_restarts_still_correct() {
 }
 
 static void test_restart_reuses_trail() {
-  // vars 0,1,2 get VMTF stamps 1,2,3; bumping var 0 restamps it to 4.
-  // Decide var 0 (stamp 4), then var 1 (stamp 2). Next decision candidate
-  // is var 2 (stamp 3), so a restart keeps level 1 (4 > 3) and abandons
-  // level 2 (2 <= 3).
+  // A restart keeps every level whose decision outranks the next candidate:
+  // here var 0 (stamp 4) beats var 2 (stamp 3) and var 1 (stamp 2) does not.
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   heuristics_queue_bump(k, 0);
   kernel_assign_decision(k, internalize(1)); // var 0
@@ -198,8 +185,7 @@ static void test_restart_reuses_trail() {
   assert(k.values[internalize(2)] == 0); // level 2 abandoned
   assert(k.stats.restarts_reused == 1);
 
-  // with var 1 also fresher than any candidate, the whole trail survives
-  heuristics_queue_bump(k, 1); // stamp 5 > var 2's 3
+  heuristics_queue_bump(k, 1); // now every level outranks the candidate
   kernel_assign_decision(k, internalize(2));
   assert(restart_apply(k) == ApplyResult::Ok);
   assert(k.level == 2); // full reuse: no backtrack at all
@@ -208,10 +194,9 @@ static void test_restart_reuses_trail() {
 }
 
 static void test_restart_apply_to() {
-  // N1 instance surface: the keep-level is the policy's choice; the
-  // canonical instance keeps restart_reuse_level(k)
+  // N1: the keep-level is the policy's choice, not the rule's
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   heuristics_queue_bump(k, 0); // var 0 freshest (stamp 4 > var 2's 3)
   kernel_assign_decision(k, internalize(1)); // var 0 at level 1

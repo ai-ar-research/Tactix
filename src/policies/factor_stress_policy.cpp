@@ -24,15 +24,13 @@ inline uint64_t fs_hash(uint64_t x) {
   return x;
 }
 
-// The adversarial arm. Scores are DETERMINISTIC per (salt, literal) — stable
-// within a sweep (the mechanism's stale-heap-key check re-reads them), fresh
-// across sweeps (begin_sweep advances the salt) — but UNCORRELATED with the
-// watch sizes the built-in path keys on. Three modes drawn from the seed:
-//   0 hash   — uniformly scrambled scores (effective random seed order);
-//   1 tied   — all scores equal (mass ties: the tie-break never separates,
-//              degenerate first-max selection everywhere);
-//   2 reverse— UINT32_MAX − watch_size (the exact inverse of the default).
-// accept is the N1 reachability floor (delta≥1, always) — the maximizer.
+// The adversarial arm. Scores are deterministic per (salt, literal) — stable
+// within a sweep, since the stale-heap-key check re-reads them, and fresh
+// across sweeps via begin_sweep — but uncorrelated with the watch sizes the
+// built-in path keys on. Three modes drawn from the seed: 0 scrambles scores
+// by hash; 1 ties them all, so the tie-break never separates and first-max
+// selection is degenerate everywhere; 2 reverses the default (0xffffff minus
+// watch_size). `accept` is the N1 reachability floor, delta >= 1 always.
 class AdversarialFactorMatch final : public FactorMatchPolicy {
 public:
   explicit AdversarialFactorMatch(uint64_t seed)
@@ -72,14 +70,12 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   AdversarialFactorMatch fm(seed);
   k.factor_match = &fm; // cleared on every return below (never dangles)
 
-  // S4 Inc-1 budget-boundary stress: a seed-drawn WORK-BUDGET mode drives
-  // Factor's two mid-round quit points (kernel.hpp work_budget; design §4.1).
-  // Mode 0 leaves the budget unbounded (the pre-budget schedule, byte-
-  // identical); modes 1/2 redraw a fresh tiny/medium budget before EVERY
-  // apply, so successive root fixpoints cut the round at ever-different
-  // boundary positions — before the first seed pop (a few hundred ticks
-  // seeds a ≤100-var fuzz CNF) and mid-grow. A budget-cut NoOp just falls
-  // through to Decide; the next fixpoint retries with a new budget.
+  // Budget-boundary stress: a seed-drawn mode drives Factor's two mid-round
+  // quit points (`Kernel::work_budget`). Mode 0 leaves the budget unbounded;
+  // modes 1 and 2 redraw a fresh tiny/medium budget before every apply, so
+  // successive root fixpoints cut the round at different boundary positions,
+  // before the first seed pop and mid-grow. A budget-cut NoOp falls through to
+  // Decide and the next fixpoint retries with a new budget.
   const uint64_t budget_mode = fs_hash(seed ^ 0xb0d6e7u) % 3;
 
   auto step = [&](const char *what) {
@@ -90,7 +86,7 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
               what, k.level, k.trail.size(), k.propagate_head, k.unassigned,
               (unsigned long long)k.stats.factorings, (int)k.conflict_valid,
               (int)k.inconsistent);
-    kernel_check_invariants(k); // PER-STEP (not every-256): pin the culprit
+    kernel_check_invariants(k); // per step, not every-256: pin the culprit
   };
   auto done = [&](int res) {
     k.factor_match = nullptr;
@@ -107,8 +103,7 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     if (k.conflict_valid) {
       if (analyze_apply(k) == ApplyResult::Unsat)
         return done(20);
-      // TB4b(A): see bve_stress_policy — a reused conflict leaves nothing
-      // pending, so Backjump's guard is false.
+      // A reused conflict leaves nothing pending, so Backjump's guard is false.
       if (backjump_guard(k))
         backjump_apply(k);
       step("analyze+backjump");
@@ -125,11 +120,10 @@ int factor_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     if (k.unassigned == 0)
       return done(10); // total + fixpoint = SAT
 
-    // Maximize Factor at the root under the adversarial arm (guard = root;
-    // TACTIX_FACTOR_FORCE in the fuzz driver bypasses the density NoOp so it
-    // fires on small fuzz CNFs). Each Ok apply re-enters off the formula the
-    // previous sweep just rewrote — grid-on-grid chains over adversarial
-    // seed/tie orders, the schedule DefaultFactorMatch never steers into.
+    // Maximize Factor at the root under the adversarial arm; the fuzz driver's
+    // TACTIX_FACTOR_FORCE bypasses the density NoOp so it fires on small CNFs.
+    // Each Ok apply re-enters off the formula the previous sweep rewrote:
+    // grid-on-grid chains DefaultFactorMatch never steers into.
     if (factor.guard(k)) {
       if (budget_mode)
         k.work_budget =

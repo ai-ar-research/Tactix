@@ -1,5 +1,4 @@
-// Analyze/Backjump unit test: forced 1-UIP scenario with a known learned
-// clause and backjump level.
+// Analyze/Backjump: forced scenarios with a known 1-UIP clause and jump level.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -14,8 +13,7 @@
 using namespace tactix;
 
 static void test_uip() {
-  // c1 = (-1 -2 3), c2 = (-1 -2 -3); decide 1, decide 2:
-  // c1 forces 3, c2 conflicts; 1-UIP learns (-2 -1) with UIP 2, jump to 1
+  // (-1 -2 3) and (-1 -2 -3): 1-UIP learns (-2 -1), UIP 2, jump level 1
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit c1[3] = {internalize(-1), internalize(-2), internalize(3)};
@@ -42,16 +40,13 @@ static void test_uip() {
   assert(k.values[internalize(-2)] > 0); // asserted
   assert(!k.pending.valid);
 
-  // and the search must now conclude SAT (model: 1, -2, any 3)
-  assert(default_solve(k) == 10);
+  assert(default_solve(k) == 10); // still satisfiable: 1, -2, any 3
 }
 
-// D-SPLIT : Analyze+Backjump are fused into the single atomic
-// ConflictAnalysis rule, so `pending` is consumed WITHIN one apply and never
-// persists at a rule boundary. That makes the corpus-006 state
-// (conflict_valid && pending.valid) unrepresentable — which is why
-// propagate_guard no longer carries !pending.valid. This replaces the rev-35
-// handoff-precondition test, whose state can no longer arise.
+// D-SPLIT: Analyze and Backjump are fused into the atomic ConflictAnalysis
+// rule, so `pending` is consumed within one apply and (conflict_valid &&
+// pending.valid) is unrepresentable — hence no !pending.valid in
+// propagate_guard.
 static void test_conflictanalysis_atomic() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -64,7 +59,6 @@ static void test_conflictanalysis_atomic() {
   kernel_assign_decision(k, internalize(2));
   assert(propagate_apply(k) == ApplyResult::Conflict);
 
-  // Analyze and Backjump are no longer separately registered
   assert(tactix_rule_id("Analyze") < 0);
   assert(tactix_rule_id("Backjump") < 0);
   const int id = tactix_rule_id("ConflictAnalysis");
@@ -97,12 +91,9 @@ static void test_learned_unit() {
 }
 
 static void test_shrink() {
-  // level 1: 1 forces 2 and 3; level 2: 4 forces 5 then 6. The conflict
-  // clause (-6 -5 -2 -3) leaves the two-literal level-1 block {-2, -3} in
-  // the 1-UIP clause; neither literal is removable by plain minimization
-  // (their chains hit the decision 1, which is not in the clause), but the
-  // block's walk converges to that decision, so shrinking replaces it by
-  // -1: learned (-4 -1) instead of (-4 -2 -3).
+  // Neither literal of the level-1 block {-2, -3} is removable by plain
+  // minimization, but the block's walk converges on the decision 1, so
+  // shrinking learns (-4 -1).
   Kernel k;
   kernel_reserve_vars(k, 6);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -132,12 +123,8 @@ static void test_shrink() {
 }
 
 static void test_otfs() {
-  // r = (-1 -2 3) propagates 3 at level 2 (after deciding 1, then 2);
-  // d = (-1 -2 -3) then conflicts. Resolving d with r on 3 yields (-1 -2),
-  // which is smaller than both: OTFS strengthens r to the binary (-1 -2)
-  // and, since this was the first resolution and the resolvent is smaller
-  // than d, subsumes (deletes) d. Analysis restarts on (-1 -2) and learns
-  // it as the driving clause with UIP 2.
+  // Resolving d = (-1 -2 -3) with its reason r = (-1 -2 3) yields (-1 -2),
+  // smaller than both: OTFS strengthens r to it, subsumes d, and relearns.
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit r[3] = {internalize(-1), internalize(-2), internalize(3)};
@@ -166,14 +153,9 @@ static void test_otfs() {
 }
 
 static void test_chrono_backjump_clamps_to_jump_level() {
-  // c1 = (-1 -3 4), c2 = (-1 -3 -4); decide 1 (level 1), decide 2 (level
-  // 2, unrelated), decide 3 (level 3): c1 forces 4, c2 conflicts. 1-UIP
-  // learns (-3 -1) with jump level 1. Since (D-LEVEL-2) a CHRONOLOGICAL
-  // target (2, above the assertion level) is HONORED: true-level assignment
-  // stamps the UIP at its true level (jump_level 1) regardless of the target,
-  // so backtracking only to level 2 keeps the unrelated level-2 decision and
-  // does not strand the learned clause. (The name is historical; the function
-  // formerly clamped to jump_level.)
+  // D-LEVEL-2: a chronological target above the assertion level is honored,
+  // and true-level assignment stamps the UIP at jump_level whatever the target,
+  // so stopping at level 2 keeps that decision without stranding the clause.
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c1[3] = {internalize(-1), internalize(-3), internalize(4)};
@@ -202,8 +184,8 @@ static void test_chrono_backjump_clamps_to_jump_level() {
 }
 
 static void test_backjump_target_clamps() {
-  // targets below the assertion level clamp up to it: below jump_level
-  // the learned clause would no longer be asserting
+  // a target below the assertion level clamps up: the clause must stay
+  // asserting
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit c1[3] = {internalize(-1), internalize(-2), internalize(3)};
@@ -222,7 +204,7 @@ static void test_backjump_target_clamps() {
   assert(default_solve(k) == 10);
 }
 
-// --- TB4b: the conflict-reuse shortcut and its watch repair ----------------
+// --- the conflict-reuse shortcut and its watch repair ----------------------
 
 static bool watched_by(const Kernel &k, Lit l, Ref ref) {
   const WatchHead &h = k.watches.heads[l];
@@ -239,14 +221,10 @@ static bool watched_by(const Kernel &k, Lit l, Ref ref) {
   return false;
 }
 
-// The shape the CRIPPLED version declined: exactly one conflict literal at the
-// conflict level, but the clause's two watched literals are NOT the two
-// highest-level ones. Reusing such a conflict as a reason without repairing the
-// watches is what aborted regression corpus 002/005 — the clause is later left
-// unit with no watch to fire on. Built white-box (decisions first, clause
-// second) because ordinary propagation always leaves a conflict watched on the
-// last two literals it falsified; the wrong pair arises from chronological
-// backtracking, whose trail is not level-sorted.
+// One conflict literal at the conflict level, with the clause's watches not on
+// the two highest-level literals: reusing that conflict as a reason without
+// repairing the watches leaves it unit with no watch to fire on. Built
+// white-box — only chronological backtracking produces the wrong pair.
 static void test_conflict_reuse_repairs_watches() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -255,8 +233,8 @@ static void test_conflict_reuse_repairs_watches() {
     kernel_assign_decision(k, internalize(v));
     assert(propagate_apply(k) == ApplyResult::Ok);
   }
-  // watches land on lits[0], lits[1] = -1 (level 1) and -2 (level 2); the two
-  // HIGHEST levels are -4 (4, the unique conflict-level literal) and -3 (3)
+  // watches land on -1 (level 1) and -2 (level 2); the two highest levels are
+  // -4 (the unique conflict-level literal) and -3
   const Lit cl[4] = {internalize(-1), internalize(-2), internalize(-3),
                      internalize(-4)};
   const Ref ref = kernel_add_large_clause(k, cl, 4, false, 0);
@@ -286,10 +264,8 @@ static void test_conflict_reuse_repairs_watches() {
   assert(propagate_apply(k) == ApplyResult::Ok);
   kernel_check_invariants(k);
 
-  // THE REGRESSION: drop below jump2 (unassigning the forced literal), then
-  // re-falsify the level-3 literal. With the repaired watch pair the clause is
-  // rescanned and propagates; with the ORIGINAL pair (-1, -2, both still false)
-  // nothing would fire and it would sit unit at a claimed fixpoint.
+  // Dropping below jump2 and re-falsifying the level-3 literal must propagate
+  // through the repaired pair; the original pair fires on nothing.
   kernel_backtrack(k, 2);
   assert(propagate_apply(k) == ApplyResult::Ok);
   kernel_check_invariants(k);
@@ -301,25 +277,13 @@ static void test_conflict_reuse_repairs_watches() {
   assert(k.stats.backjump_stale == 0);
 }
 
-// The shortcut resolves the conflict INSIDE Analyze and leaves no pending
-// record, so DefaultPolicy's white-box micro-loop must skip the whole
-// learn/backjump tail. It did not before TB4b's audit: it ran that tail on the
-// PREVIOUS conflict's pending record, backtracking away the reuse's own
-// assignment and counting a stale backjump. `backjump_stale` is TB4's standing
-// regression signal and must stay 0 with the arm ON.
+// The shortcut leaves no pending record, so a white-box micro-loop must skip
+// the learn/backjump tail; run on the previous conflict's record it backtracks
+// away the reuse's own assignment. `backjump_stale` stays 0 with the arm on.
 static void test_conflict_reuse_under_default_policy() {
-  // Random 3-SAT above the threshold, solved with chrono ALWAYS on.
-  //
-  // The chrono setting is load-bearing, not decoration: under COMPLETE
-  // propagation on a level-sorted trail "exactly one literal at the conflict
-  // level" is IMPOSSIBLE — if the other literals were all below level M the
-  // clause was already unit before level M and would have propagated. Only a
-  // chronological backtrack (which keeps out-of-order literals and re-propagates
-  // from the level boundary) produces the shape. At the shipped
-  // `chrono_levels = 100` a 90-variable instance can never reach a backjump gap
-  // of 100 levels, so a test written that way measures NOTHING and still
-  // passes; the reachability assertions at the bottom are what keep it
-  // honest.
+  // Chrono is load-bearing here: on a level-sorted trail "one literal at the
+  // conflict level" is impossible, and 90 variables never reach the shipped
+  // 100-level gap, so the reachability assertions below keep this honest.
   uint64_t total_reused = 0, total_repaired = 0;
   for (int seed = 1; seed <= 6; seed++) {
     Kernel k;
@@ -349,7 +313,7 @@ static void test_conflict_reuse_under_default_policy() {
     policy.chrono_levels = 0; // always chronological
     const int r = policy.solve(k);
     assert(r == 10 || r == 20);
-    assert(k.stats.backjump_stale == 0); // TB4's standing invariant
+    assert(k.stats.backjump_stale == 0); // the standing invariant
     total_reused += k.stats.conflict_reused;
     total_repaired += k.stats.conflict_watch_repaired;
   }
@@ -357,14 +321,9 @@ static void test_conflict_reuse_under_default_policy() {
   assert(total_repaired > 0); // ...including the un-crippled (repair) path
 }
 
-// SP-EAGERSUB-1 / SCHED-C6. Drives `analyze_eager_subsume` directly on a
-// hand-built register, because the discriminating cases are exactly the ones
-// DefaultPolicy cannot produce. In particular the REASON guard: it is the
-// LRAT-safety guard of the whole mechanism (a deleted id must never reappear
-// in a chain), and under any legal backjump target the candidate's forced
-// literal sits at or above the conflict level and is therefore always
-// unassigned by the time we run — so DefaultPolicy reaches the guard zero
-// times and a "green because it never fired" test would be vacuous.
+// Drives `analyze_eager_subsume` on a hand-built register: DefaultPolicy
+// cannot produce the discriminating cases. The reason guard is the mechanism's
+// LRAT-safety guard — a deleted id must never reappear in a chain.
 static void test_eager_subsume() {
   auto fresh = [](Kernel &k, uint32_t nvars) { kernel_reserve_vars(k, nvars); };
 
@@ -412,7 +371,7 @@ static void test_eager_subsume() {
     assert(!clause_at(k.arena, r_other)->garbage());
     assert(!clause_at(k.arena, r_irr)->garbage());
   }
-  { // (c) THE LRAT-SAFETY GUARD: a subsumed candidate that is still a trail
+  { // (c) the LRAT-safety guard: a subsumed candidate that is still a trail
     // reason is kept, and the deviation from kissat is counted
     Kernel k;
     fresh(k, 8);
@@ -461,7 +420,7 @@ static void test_eager_subsume() {
     assert(k.stats.eager_tried == 0 && k.stats.eager_subsumed == 0);
     assert(!clause_at(k.arena, victim)->garbage());
   }
-  { // (f) REACHABILITY under DefaultPolicy — the arm is not vacuous where it
+  { // (f) reachability under DefaultPolicy, so the arm is not vacuous where it
     // actually ships. Same random-3-SAT bed as the conflict-reuse test.
     uint64_t subsumed = 0, tried = 0;
     for (int seed = 1; seed <= 6; seed++) {

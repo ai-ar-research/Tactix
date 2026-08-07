@@ -16,7 +16,7 @@ int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) 
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const bool trace = getenv("TACTIX_TRACE") != nullptr;
-  // The kernel_probing scope consumers (P2's stress surface).
+  // The kernel_probing scope consumers.
   static const char *const NAMES[] = {"Probe", "Backbone", "Vivify",
                                       "TransitiveReduce", "Congruence"};
   constexpr int NRULES = 5;
@@ -31,7 +31,7 @@ int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) 
               "conflict=%d incons=%d\n",
               what, k.level, k.trail.size(), k.propagate_head, k.unassigned,
               (int)k.conflict_valid, (int)k.inconsistent);
-    kernel_check_invariants(k); // PER-STEP (not every-256): pin the culprit
+    kernel_check_invariants(k); // per step, not every-256: pin the culprit
   };
 
   for (uint64_t steps = 0;; steps++) {
@@ -43,8 +43,7 @@ int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) 
     if (k.conflict_valid) {
       if (analyze_apply(k) == ApplyResult::Unsat)
         return 20;
-      // TB4b(A): see bve_stress_policy — a reused conflict leaves nothing
-      // pending, so Backjump's guard is false.
+      // A reused conflict leaves nothing pending, so Backjump's guard is false.
       if (backjump_guard(k))
         backjump_apply(k);
       step("analyze+backjump");
@@ -60,10 +59,9 @@ int probing_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) 
     if (k.unassigned == 0)
       return 10; // total + fixpoint = SAT
 
-    // At every root fixpoint, run the probing family in a fresh random order
-    // — dense open/close cycles of the P2 scope, immediately followed by
-    // search that reuses the restored watch lists. Each rule only when its
-    // guard holds (the N1 contract).
+    // At every root fixpoint, run the probing family in a fresh random order:
+    // dense scope open/close cycles followed by search that reuses the restored
+    // watch lists. Each rule only when its guard holds (the N1 contract).
     if (k.level == 0) {
       int order[NRULES] = {0, 1, 2, 3, 4};
       for (int i = NRULES - 1; i > 0; i--) {

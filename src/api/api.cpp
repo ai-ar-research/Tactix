@@ -1,8 +1,7 @@
-// C API implementation — v1, frozen at the phase-2 review (plan §5.1,
-// rev 20/21; O3 + O5 decided; post-v1 changes additive only).
-// Deliberately does NOT include tactix.h: the alias `typedef struct
-// tactix_solver tactix` there collides with our internal namespace in C++
-// TUs. C linkage matches by symbol name; the C compile of
+// C API implementation — v1, frozen at the phase-2 review (plan §5.1);
+// post-v1 changes are additive only. Deliberately does not include tactix.h:
+// its `typedef struct tactix_solver tactix` alias collides with the internal
+// namespace in a C++ TU. C linkage matches by symbol name, and the C compile of
 // tests/test_api_c.c against tactix.h keeps the two in sync.
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -18,9 +17,9 @@ using namespace tactix;
 
 struct tactix_solver {
   Kernel kernel;
-  Heuristics heuristics; // the SESSION owns H; Kernel holds only a
-                         // non-owning pointer. Attached below; outlives every
-                         // solve(), so tactix_decide before any solve has an H.
+  Heuristics heuristics; // the session owns H, Kernel holds a non-owning
+                         // pointer. Outlives every solve(), so tactix_decide
+                         // before any solve still has an H.
   Proof proof;
   std::vector<Lit> scratch;
   tactix_solver() { kernel.h = &heuristics; }
@@ -41,14 +40,13 @@ void tactix_add(tactix_solver *s, int lit) {
   }
 }
 
-// The C API has no end-of-file, so "the input is complete" is the first call
+// The C API has no end of file, so "the input is complete" is the first call
 // that reasons about it. finish_input settles the proof id space (see
-// frontend/parse.hpp): every entry point below that can consume a derived id —
-// solve, any rule application, any guard/instance query that could — goes
-// through here first. Idempotent, and free once nothing is pending. Adding
-// clauses AFTER this point is outside the v1 contract with a proof attached:
-// their ids would land above already-derived ones, which no checker's file
-// numbering can match.
+// frontend/parse.hpp), so every entry point below that could consume a derived
+// id goes through here first. Idempotent, and free once nothing is pending.
+// With a proof attached, adding clauses after this point is outside the v1
+// contract: their ids would land above already-derived ones, which no checker's
+// file numbering can match.
 static void input_complete(tactix_solver *s) { finish_input(s->kernel); }
 
 int tactix_proof(tactix_solver *s, const char *path, int format) {
@@ -77,9 +75,9 @@ void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
   s->kernel.bve_gate_mask = mask;
 }
 
-// Kernel configuration setters  — the §5.6 pose surface. Plain
-// writes to CONFIG fields (kernel.hpp documents each field's soundness
-// class); no scheduling state, no guard interaction.
+// Kernel configuration setters — the §5.6 pose surface. Plain writes to config
+// fields (kernel.hpp documents each field's soundness class); no scheduling
+// state, no guard interaction.
 void tactix_set_bve_bound(tactix_solver *s, unsigned bound) {
   s->kernel.bve_bound = bound;
 }
@@ -92,12 +90,11 @@ void tactix_set_factor_composite(tactix_solver *s, int on) {
 void tactix_set_work_budget(tactix_solver *s, uint64_t budget) {
   s->kernel.work_budget = budget;
 }
-// Every band Vivify implements is settable. A CLAMP here is an N1 breach, not
-// input validation: `scope <= 2 ? scope : 0` silently substituted a DIFFERENT
-// band, so the tier3 scopes 3/4/5 became unreachable through the API while
-// DefaultPolicy kept using them — guard says applicable, apply quietly
-// declines. Out-of-range leaves the pose untouched instead of substituting one
-// (tests/test_vivify_n1.cpp).
+// Every band Vivify implements is settable, and a clamp here would be an N1
+// breach rather than input validation: substituting a different band makes
+// scopes the policy still uses unreachable through the API, so the guard says
+// applicable while apply quietly declines. Out-of-range leaves the pose
+// untouched (tests/test_vivify_n1.cpp).
 void tactix_set_vivify_scope(tactix_solver *s, unsigned scope) {
   if (scope <= 5)
     s->kernel.vivify_scope = static_cast<uint8_t>(scope);
@@ -203,9 +200,9 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
   if (!r.guard(s->kernel))
     return -1;
   // A rule with no instance surface has exactly one application, so a
-  // NON-canonical payload is an invalid argument. Running the canonical round
-  // for it instead is the payload-aliasing class: the caller asked for a
-  // specific instance and silently got a whole batch, with no way to notice
+  // non-canonical payload is an invalid argument. Running the canonical round
+  // instead would be payload aliasing: the caller asked for one instance and
+  // silently got a whole batch, with no way to notice
   // (tests/test_api_instances.c).
   if (!r.apply_instance && instance != INSTANCE_CANONICAL)
     return -1;
@@ -244,7 +241,7 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   case 10: // TACTIX_STAT_LAST_LEARNED_GLUE (pending.glue persists
            // after Backjump consumes the pending clause)
     return k.pending.glue;
-  case 11: // TACTIX_STAT_STABLE (0 for an unguided solver with no H, H5)
+  case 11: // TACTIX_STAT_STABLE (0 for an unguided solver with no H)
     return k.h && k.h->stable ? 1 : 0;
   case 12: // TACTIX_STAT_REPHASED
     return k.stats.rephased;
@@ -287,9 +284,8 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
     return k.stats.instantiated;
   case 31: // TACTIX_STAT_REORDERED
     return k.stats.reordered;
-  // The completed yield/effort pairs (tactix.h). Each effort id is the counter
-  // that family's EFFORT_SPECS meter reads, so the learner's cost-per-unit
-  // axis is denominated in the same currency the schedule doses in.
+  // Each effort id is the counter that family's EFFORT_SPECS meter reads, so
+  // the cost-per-unit axis uses the currency the schedule doses in.
   case 32: // TACTIX_STAT_VIVIFY_TICKS
     return k.stats.vivify_ticks;
   case 33: // TACTIX_STAT_PROBE_TICKS
@@ -375,15 +371,15 @@ int tactix_decide(tactix_solver *s, int elit) {
 }
 
 int tactix_status(tactix_solver *s) {
-  // also a verdict-reporting path: a caller that adds a contradictory input
-  // and then only asks the status must still get the refutation written.
+  // Also a verdict-reporting path: a caller that adds a contradictory input and
+  // then only asks the status must still get the refutation written.
   input_complete(s);
   if (s->kernel.inconsistent)
     return 20;
-  // SAT requires a total, fully propagated assignment with NO conflict
-  // in flight: a recorded conflict (conflict_valid) or an analyzed-but-
-  // not-yet-backjumped one (pending.valid) means the current assignment
-  // still falsifies a clause even though the propagation head moved on
+  // SAT requires a total, fully propagated assignment with no conflict in
+  // flight: a recorded conflict (conflict_valid) or an analyzed but not yet
+  // backjumped one (pending.valid) means the assignment still falsifies a
+  // clause even though the propagation head moved on.
   if (s->kernel.unassigned == 0 && !s->kernel.conflict_valid &&
       !s->kernel.pending.valid &&
       s->kernel.propagate_head == s->kernel.trail.size())

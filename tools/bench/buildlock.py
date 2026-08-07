@@ -1,51 +1,48 @@
 #!/usr/bin/env python3
 """Build-path ownership, enforced by the filesystem instead of by memory.
 
-THE RULE (CLAUDE.md): a submitted SLURM array OWNS its binary path until it
+The rule (CLAUDE.md): a submitted SLURM array owns its binary path until it
 finishes. Rebuilding into that path swaps the binary out from under running
-tasks, and the arm you measured is then not the arm you think you measured.
+tasks, and the arm measured is then not the arm it is taken to be. The rule was
+broken repeatedly by people who knew it, so the wrong action must fail rather
+than warn.
 
-THE PROBLEM: that rule was violated SIX times, each time by someone who knew it
-and each time followed by a resolution to remember harder. A rule that is
-re-broken by the people who wrote it is not a rule, it is a wish. So this makes
-the wrong action FAIL rather than warn.
-
-HOW: acquiring a lock writes a human-readable `BUILD-DIR-OWNED` marker naming
-the owning job, then strips write permission from the whole build tree
+Acquiring a lock writes a human-readable `BUILD-DIR-OWNED` marker naming the
+owning job, then strips write permission from the whole build tree
 (`chmod -R a-w`). Any subsequent write fails — `cmake --build`, a bare `make`,
-`ninja`, `cp`, `install`, anything. That is deliberate: a guard that only fires
-inside a wrapper script is bypassed by the most natural command, which is
-exactly the command that caused all six violations. Read and execute are
-untouched, so the running array keeps using the binary normally.
+`ninja`, `cp`, `install`, anything. A guard that fires only inside a wrapper
+script is bypassed by the most natural command, which is the command that caused
+every violation. Read and execute are untouched, so a running array keeps using
+the binary normally.
 
-WHY IT CANNOT WEDGE A DIRECTORY. The lock is never trusted; it is VALIDATED.
-Every operation re-asks SLURM whether the owning job is still live:
-  * job still in the queue      -> release refuses (this is the case we protect)
-  * job gone (finished/killed/  -> the lock is STALE and releases freely, and
+The lock is validated, never trusted, so it cannot wedge a directory. Every
+operation re-asks SLURM whether the owning job is still live:
+  * job still in the queue      -> release refuses (the case worth protecting)
+  * job gone (finished/killed/  -> the lock is stale and releases freely, and
     cancelled/never submitted)     `--gc` clears it without being asked
-  * squeue unavailable or the   -> release is ALLOWED with a warning. A stale
-    marker unreadable/malformed    lock that blocks all future work is a worse
-                                   failure than the one we are preventing, so
-                                   every ambiguous case resolves toward release.
-The permissions are ours to change in any case (`chmod` always works for the
-owner), so no state this creates is unrecoverable by hand either.
+  * squeue unavailable or the   -> release is allowed with a warning: a stale
+    marker unreadable/malformed    lock that blocks all future work is the worse
+                                   failure, so every ambiguous case resolves
+                                   toward release.
+Permissions are the owner's to change in any case (`chmod` always works), so no
+state this creates is unrecoverable by hand either.
 
-NORMAL USE IS AUTOMATIC. `run.py --slurm` calls `--gc` before submitting and
+Normal use is automatic: `run.py --slurm` calls `--gc` before submitting and
 `--acquire` right after, and the dependent aggregate job calls `--release` when
 the array finishes. Hand-rolled `sbatch` probes should call `--acquire`
 themselves; see the slurm-jobs skill.
 
-RECLAIMING A DIRECTORY BY HAND:
+Reclaiming a directory by hand:
     python3 tools/bench/buildlock.py --check   build/pin-foo   # why is it locked?
     python3 tools/bench/buildlock.py --release build/pin-foo   # give it back
     python3 tools/bench/buildlock.py --gc                      # clear all stale
     python3 tools/bench/buildlock.py --list                    # show every lock
-`--release` on a directory whose job is still running refuses and tells you the
-job id; `--force` overrides it, and is the right call only when you have decided
-the array's results are being discarded.
+`--release` on a directory whose job is still running refuses and names the job
+id; `--force` overrides it, and is right only once the array's results are
+being discarded.
 
-NOTE FOR SWEEPING STALE build/pin-* DIRS: a locked tree is read-only, so
-`rm -rf` fails on it. Run `--gc` first (or `--release`), then sweep.
+Sweeping stale `build/pin-*` dirs: a locked tree is read-only, so `rm -rf`
+fails on it. Run `--gc` (or `--release`) first, then sweep.
 """
 import argparse
 import getpass
@@ -69,9 +66,9 @@ LIVE, DEAD, UNKNOWN = "live", "dead", "unknown"
 def job_state(jobid):
     """Is `jobid` still in the queue? Returns LIVE / DEAD / UNKNOWN.
 
-    UNKNOWN means we could not ask (no squeue, or it errored in a way that is
-    not "no such job"). Callers must treat UNKNOWN as releasable — see the
-    module docstring: never wedge."""
+    UNKNOWN means the question could not be asked (no squeue, or it errored in
+    a way that is not "no such job"). Callers must treat UNKNOWN as releasable
+    — see the module docstring: never wedge."""
     if not jobid:
         return DEAD                      # no owner recorded: nothing to protect
     try:
@@ -97,8 +94,8 @@ def read_marker(d):
             txt = f.read()
         return json.loads(txt[txt.index("{"):])
     except Exception:
-        # A marker we cannot parse still means "someone locked this", but we
-        # cannot verify an owner, so it must be releasable. Report no job id.
+        # An unparsable marker still means "someone locked this", but with no
+        # verifiable owner it must stay releasable. Report no job id.
         return {"job": None, "unparsable": True}
 
 
@@ -107,7 +104,7 @@ def chmod_tree(d, writable):
 
     Bottom-up on acquire so a directory is not made read-only before its
     contents are processed; top-down on release so a directory is writable
-    before we touch what is inside it."""
+    before its contents are touched."""
     entries = []
     for dirpath, dirnames, filenames in os.walk(d):
         entries.append(dirpath)
@@ -128,20 +125,17 @@ def chmod_tree(d, writable):
             print(f"buildlock: warning: chmod {p}: {e}", file=sys.stderr)
 
 
-# The permission strip is the GUARANTEE — it stops every tool, including ones
-# nobody thought of. But a bare "Permission denied" does not say why, and a
-# guard you have to investigate is a guard that gets worked around. So the
+# The permission strip is the guarantee: it stops every tool, including ones
+# nobody thought of. A bare "Permission denied" does not say why, though, so the
 # generator's entry point is swapped for a stub that prints the marker and
-# fails. The stub is only the MESSENGER: if the generator is one we do not
-# recognise, or the swap fails, permissions still block the build.
+# fails. The stub only carries the message — an unrecognised generator or a
+# failed swap still leaves permissions blocking the build.
 GEN_ENTRY = ("Makefile", "build.ninja")
 SAVED = ".buildlock-orig"
 
-# Every target depends on FORCE. Without it `make tactix` matches the `%:`
+# Every target must depend on FORCE. Without it `make tactix` matches the `%:`
 # pattern, sees the existing binary, prints "'tactix' is up to date" and exits
-# 0 — a LOCKED directory reporting a successful build, which is worse than the
-# confusing error it was meant to replace. Caught by testing the guard rather
-# than assuming it (2026-08-05).
+# 0 — a locked directory reporting a successful build.
 _MAKE_STUB = """# Installed by tools/bench/buildlock.py — see BUILD-DIR-OWNED.
 # The real Makefile is saved next to this one as Makefile{saved}.
 .DEFAULT_GOAL := __buildlock__

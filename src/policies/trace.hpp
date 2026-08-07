@@ -1,37 +1,14 @@
-// RULE TRACE + REPLAY (plan §5 "Reproducibility", §8.5 offline replay harness).
+// Rule trace and replay (plan §5 "Reproducibility", §8.5 offline replay
+// harness, which must validate a reward proxy before RL1 may trust it).
 //
-// The plan has always said `--trace` logs the rule sequence so any run is
-// replayable through a scripted policy, and §8.5 forbids trusting a reward
-// proxy before an offline replay harness validates it — so RL1 cannot start
-// without this. Nothing implemented it: `TACTIX_TRACE` was a human-readable
-// stderr dump with no reader.
-//
-// WHAT A TRACE IS. Exactly the N1 stepping surface: one (rule, instance) pair
-// per applied action, in order. That is the whole action space a pull-based
-// policy has (§5.1: guard -> instances -> apply_instance), so a policy that
-// drives the solver through it is replayable by construction, and one that does
-// not is not expressible as a sequence at all.
-//
-// SCOPE, deliberately narrow. This records and replays the REGISTRY-DRIVEN
-// policies — RandomPolicy today, LearnedPolicy tomorrow. DefaultPolicy is NOT
-// traceable this way and pretending otherwise would be the worse outcome: its
-// micro loop calls propagate_apply/decide/analyze directly rather than through
-// the registry, and its dosed entries re-apply one rule many times under a
-// policy-computed budget, so its behaviour is not a function of a (rule,
-// instance) sequence. Making it one is the scheduling-as-data work (SP-* ledger
-// rows), not a trace format.
-//
-// FORMAT: ASCII, one action per line, `c ...` comments elsewhere.
-//     c tactix-trace 1
-//     c policy random seed=7
-//     Decide 4294967295
-//     Propagate -
-//     c verdict 20
-// The rule is named, never numbered: registry ids are assigned by a name sort,
-// so ADDING a rule renumbers them (tests/test_api_c.c pins that list as a
-// golden file precisely because it moves). A trace keyed on ids would silently
-// replay the wrong rules after the next rule lands. `-` is the canonical
-// instance; anything else is the rule's own uint64 payload encoding.
+// A trace is exactly the N1 stepping surface: one (rule, instance) pair per
+// applied action, in order — the whole action space of a pull-based policy
+// (§5.1: guard -> instances -> apply_instance). Scope is therefore the
+// registry-driven policies only. DefaultPolicy is not traceable this way: its
+// micro loop calls propagate/decide/analyze directly rather than through the
+// registry, and its dosed entries re-apply one rule many times under a
+// policy-computed budget, so its behaviour is not a function of such a
+// sequence, and making it one is scheduling-as-data work.
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -41,8 +18,18 @@
 
 namespace tactix {
 
-// Recorder. Handed to a policy, which calls `record` for every action it
-// applies. Zero cost when `out` is null, which is every non-tracing run.
+// Format: ASCII, one action per line; `c ...` is a comment line.
+//     c tactix-trace 1
+//     c policy random seed=7
+//     Decide 4294967295
+//     Propagate -
+//     c verdict 20
+// The rule is named, never numbered: registry ids come from a name sort, so
+// adding a rule renumbers them and an id-keyed trace would silently replay the
+// wrong rules (tests/test_api_c.c pins the list as a golden file). `-` is the
+// canonical instance, anything else the rule's own uint64 payload encoding.
+// The recorder is handed to a policy, which calls `record` for every action;
+// zero cost when `out` is null, which is every non-tracing run.
 struct RuleTrace {
   std::FILE *out = nullptr;
 

@@ -1,4 +1,4 @@
-// See strengthen.hpp for the reference/deviation record.
+// See strengthen.hpp for the rule's contract.
 #include "rules/strengthen/strengthen.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -10,21 +10,15 @@
 namespace tactix {
 
 bool strengthen_guard(const Kernel &k) {
-  // quiescent root (C1's argument, strengthen.hpp)
-  // D-SPLIT-3 (guard purification): the ¬conflict_valid conjunct is gone —
-  // this is a pure F-rewrite (sound regardless of a recorded conflict), and
-  // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
-  // boundary, so it never fired under the retained level==0). calculus §7.
+  // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
+  // regardless of a recorded conflict (D-SPLIT-3, `docs/calculus.md` §7).
   return !k.inconsistent && k.level == 0;
 }
 
-// VICTIM criteria, shared with C1 (duplicated deliberately — modules stay
-// self-contained per §5.3; the ~20 lines are the coupling price). Redundancy is
-// not one of them: a redundant clause is an unconditionally safe victim for
-// BOTH effects here. Deleting it is S2 Forget. Strengthening it emits an
-// add-RUP that stands against the whole formula at emit time and keeps the
-// clause redundant (act() preserves the bit and shrinks the glue), so the
-// result is no more load-bearing than the original was.
+// Victim criteria, shared with C1 (duplicated deliberately — modules stay
+// self-contained per §5.3). Redundancy is not one of them: deleting a redundant
+// clause is S2 Forget, and strengthening one emits an add-RUP that stands
+// against the whole formula at emit time.
 static bool is_victim(const Kernel &k, const Clause *c) {
   if (c->garbage() || c->size > STRENGTHEN_CLSLIM)
     return false;
@@ -34,13 +28,11 @@ static bool is_victim(const Kernel &k, const Clause *c) {
   return true;
 }
 
-// SCHED-F7 · does the canonical ROUND work on `c`? Irredundant always; a
-// redundant clause only inside the TIER BAND, and only with the band switched on
-// (Kernel::touch_redundant). This is cadical's scope test — `subsume.cpp:388`
-// filters its candidate loop on `likely_to_be_kept_clause` — evaluated LIVE, so
-// a clause that has since left the band is dropped even though its creation
-// stamped it, and one that has since entered is admitted even though it was
-// never stamped (the yield gap recorded with the ledger row).
+// Does the canonical round work on `c`? Irredundant always; a redundant clause
+// only inside the tier band, and only with the band on
+// (`Kernel::touch_redundant`). cadical's scope test (subsume.cpp:388 filters on
+// `likely_to_be_kept_clause`), evaluated LIVE, so band membership is read now
+// rather than at creation. Ledger row D-C1C2-VICTIM.
 static bool in_round_scope(const Kernel &k, const Clause *c) {
   if (!is_victim(k, c))
     return false;
@@ -64,14 +56,10 @@ void strengthen_candidates(const Kernel &k, std::vector<Ref> &out,
       cands.push_back({ref, c->size, c->redundant()});
     ref += clause_words(c->size);
   }
-  // Irredundant FIRST, then size ascending. The band is the larger population
-  // by orders of magnitude and its clauses are small (that is what `kept_size`
-  // means), so a plain size-ascending order would let them crowd the round's
-  // budget and starve the irredundant work — B3's shape through a scope change
-  // rather than a cursor. Ordering the band behind makes the widened round a
-  // strict ADDITION at the tail, which is also what makes the A/B readable.
-  // Inert when the band is off: `redundant` is then uniformly false and this is
-  // the pre-F7 comparator exactly.
+  // Irredundant first, then size ascending. The band is the larger population
+  // by orders of magnitude and its clauses are small, so a plain size-ascending
+  // order would let them crowd the round's budget and starve the irredundant
+  // work; ordering the band behind makes it a strict addition at the tail.
   std::sort(cands.begin(), cands.end(), [](const Cand &a, const Cand &b) {
     if (a.redundant != b.redundant)
       return !a.redundant;
@@ -91,9 +79,9 @@ struct CheckResult {
                              // candidate loses negate(flipped)
 };
 
-// CaDiCaL subsume.cpp subsume_check (MIT, transliterated): every partner
-// literal must be marked in the same phase, root-falsified (absorbed by
-// units), or — at most once — marked in the OPPOSITE phase (strengthen)
+// cadical subsume.cpp subsume_check, transliterated: every partner literal must
+// be marked in the same phase, root-falsified (absorbed by units), or — at most
+// once — marked in the opposite phase, which is the strengthen case.
 static CheckResult check_marked(const Kernel &k,
                                 const std::vector<uint8_t> &marks,
                                 const Clause *d) {
@@ -134,11 +122,10 @@ struct Partner {
   std::vector<uint64_t> absorbed; // unit ids of root-falsified partner lits
 };
 
-// scan the candidate's watch lists (both phases) for binary partners and
-// the round's occurrence lists (both phases) for large partners.
-// occs == nullptr selects the watch-list-only discovery used by the
-// single-candidate instance surface (which then also checks large watched
-// clauses). Free literals only; both scans are read-only.
+// scan the candidate's watch lists (both phases) for binary partners and the
+// round's occurrence lists (both phases) for large ones. occs == nullptr
+// selects the watch-list-only discovery the single-candidate instance surface
+// uses. Free literals only; both scans are read-only.
 static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
                             const Clause *c,
                             const std::vector<std::vector<Ref>> *occs,
@@ -157,11 +144,11 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         for (const WatchEntry w : k.watches.entries(probe)) {
           if (!w.binary())
             continue;
-          k.stats.strengthen_visits++; // SCHED-B4: a binary partner compared
+          k.stats.strengthen_visits++; // a binary partner compared
           const Lit o = w.other();
           if (phase == 0) {
             // no redundancy check on the binary partner: the binary-subsumer
-            // argument in subsume_forward.hpp (deviation 3 above) covers this
+            // argument in subsume_forward.hpp covers this
             if (marks[o]) { // (l ∨ o), both in candidate: subsumes
               p.res.kind = CheckResult::SUBSUMED;
               if (lrat)
@@ -190,7 +177,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       if (os.size() > STRENGTHEN_OCCLIM)
         continue;
       for (const Ref dref : os) {
-        k.stats.strengthen_visits++; // SCHED-B4
+        k.stats.strengthen_visits++;
         const Clause *d = clause_at(k.arena, dref);
         const CheckResult r = check_marked(k, marks, d);
         if (r.kind == CheckResult::NONE)
@@ -208,11 +195,9 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
   }
   if (occs)
     return p;
-  // instance surface: large partners live in the watch lists of the
-  // candidate's own free literals (any partner watches two of its
-  // literals; each is a candidate literal or its negation — for the
-  // flipped one the partner appears in watches[negate(cand lit)],
-  // covered by the phase loop above rerun for large entries)
+  // instance surface: large partners live in the watch lists of the candidate's
+  // own free literals — a partner watches two of its own literals, each a
+  // candidate literal or its negation — so rerun the phase loop for them
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
@@ -227,7 +212,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         const Ref dref = w.ref();
         if (dref == self)
           continue;
-        k.stats.strengthen_visits++; // SCHED-B4
+        k.stats.strengthen_visits++;
         const Clause *d = clause_at(k.arena, dref);
         if (d->garbage() || d->redundant() || d->size > c->size)
           continue;
@@ -257,7 +242,7 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     return 0;
   Clause *c = clause_at(k.arena, *ref);
   if (p.res.kind == CheckResult::SUBSUMED) {
-    // SCHED-G2: C1 shadowed this clause and C2 has now deleted it on its own.
+    // C1 shadowed this clause and C2 has now deleted it on its own.
     if (kernel_shadow_retire(k, c->id()))
       k.stats.c1_shadow_deleted++;
     kernel_delete_clause(k, c);
@@ -265,10 +250,9 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     (*changed)++;
     return 1;
   }
-  // STRENGTHEN: rebuild from free literals minus the resolved one
-  // SCHED-G2: a shadowed clause rewritten away is also "handled" — the exact
-  // clause C1 wanted gone is retired and a strictly shorter one replaces it —
-  // but it is a different disposal from a deletion, so it gets its own counter.
+  // Strengthen: rebuild from free literals minus the resolved one. A shadowed
+  // clause rewritten away is also handled, but that is a different disposal
+  // from a deletion, so it gets its own counter.
   if (kernel_shadow_retire(k, c->id()))
     k.stats.c1_shadow_rewritten++;
   const Lit gone = negate(p.res.flipped);
@@ -301,9 +285,8 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
   }
   k.stats.strengthened++;
   (*changed)++;
-  // rewrites preserve redundancy (the round's candidates are irredundant,
-  // but the flush pre-pass rewrites redundant clauses too); glue can only
-  // shrink with the clause — read BEFORE the replacement garbages `c`
+  // rewrites preserve redundancy (the flush pre-pass rewrites redundant clauses
+  // too) and glue can only shrink; read before the replacement garbages `c`
   const bool redundant = c->redundant();
   const uint32_t glue =
       std::min<uint32_t>(c->glue(), static_cast<uint32_t>(lits.size()));
@@ -323,24 +306,17 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
   }
 }
 
-// canonical instance: one full round (fused subsume-or-strengthen;
-// CaDiCaL subsume_round shape — see strengthen.hpp deviations)
-// root flushing (kissat collect.c's sparse-collection effect, recomposed
-// rule-side so proof deltas stay rule territory; the recorded V1/V2
-// prerequisite — probe/backbone root units get consumed here): a
-// root-SATISFIED clause is deleted; root-FALSIFIED literals are stripped
-// by a degenerate self-strengthen (act()'s STRENGTHEN path with the
-// absorbing unit as the partner: add-RUP of the free literals, chain
-// [units..., the clause], delete the original). Runs as a pre-pass over
-// ALL live large clauses — any redundancy, any size (act preserves
-// redundancy and shrinks glue). Returns like act(), plus 1 for a
-// satisfied deletion.
+// Root flushing (kissat collect.c's sparse-collection effect, recomposed
+// rule-side so proof deltas stay rule territory; where V1/V2's root units get
+// consumed): a root-satisfied clause is deleted, root-falsified literals are
+// stripped by a degenerate self-strengthen. A pre-pass over all live large
+// clauses. Returns like act(), plus 1 for a deletion.
 static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
   Clause *c = clause_at(k.arena, *ref);
   uint32_t falsified = 0;
   for (const Lit l : *c) {
     if (k.value(l) > 0 && k.var_level(var_of(l)) == 0) {
-      if (kernel_shadow_retire(k, c->id())) // SCHED-G2
+      if (kernel_shadow_retire(k, c->id())) // C1's shadow ledger
         k.stats.c1_shadow_deleted++;
       kernel_delete_clause(k, c); // root-satisfied: delete
       k.stats.flushed++;
@@ -369,33 +345,27 @@ static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
 
 ApplyResult strengthen_apply(Kernel &k) {
   assert(strengthen_guard(k));
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.strengthen_rounds++;
-  // SCHED-F1 · repetition filter, C1's arrangement exactly (see the N1 note in
-  // subsume_forward.cpp; the predicate is kernel_clause_new_material). The
-  // snapshot is taken before the FLUSH pre-pass on purpose: the flush rewrites
-  // every clause a root fix shortened, and each rewrite is an add, so those
-  // clauses land above the snapshot and this round's own candidate filter
-  // already sees them as new.
+  // Repetition filter, C1's arrangement exactly (see the N1 note in
+  // subsume_forward.cpp). The snapshot is taken before the flush pre-pass on
+  // purpose: the flush rewrites every clause a root fix shortened, each rewrite
+  // is an add, so those land above the snapshot and this round already sees
+  // them as new.
   kernel_touch_sync_fixed(k);
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
   const uint64_t wm = k.strengthen_touch_mark;
   uint64_t changed = 0;
   bool ended = false;
-  // SCHED-H1 · §6 termination polling. This rule has THREE unbounded loops —
-  // the flush pre-pass over the whole arena, the candidate loop, and the
-  // cascade that re-checks one shrinking candidate — and D-STRENGTHEN-BUDGET
-  // measured a single round owning 97.8 s of a 109.0 s solve, so a poll in only
-  // one of them still leaves a round that ignores the interrupt for minutes.
-  // Every site aborts BETWEEN candidates/clauses, never mid-rewrite: whatever
-  // the round did is already proof-logged and the bookkeeping below runs
-  // unchanged, so an interrupted round is exactly an incomplete round.
-  // NO CADENCE at any of them — see the twin comment in subsume_forward.cpp for
-  // why a tick mask is what made the last set of abort paths fuzz vacuously.
+  // §6 termination polling, at all THREE unbounded loops — the flush pre-pass,
+  // the candidate loop, and the cascade over one shrinking candidate — since
+  // one round can own most of a solve and a poll in only one still ignores the
+  // interrupt for minutes. Every site aborts between candidates or clauses,
+  // never mid-rewrite, so an interrupted round is exactly an incomplete round.
+  // No tick cadence at any of them (see subsume_forward.cpp).
   bool interrupted = false;
   const auto poll = [&]() {
     if (!kernel_rule_interrupt(k, k.stats.strengthen_interrupted))
@@ -403,10 +373,10 @@ ApplyResult strengthen_apply(Kernel &k) {
     interrupted = true;
     return true;
   };
-  // flush pre-pass (see flush_root): the whole arena, before the
-  // candidate round, so the round never sees clauses with root-assigned
-  // literals. A flush-derived unit ends the pass (values changed); the
-  // policy re-propagates. One collect at the end covers both phases.
+  // Flush pre-pass (see flush_root): the whole arena, before the candidate
+  // round, so the round never sees clauses with root-assigned literals. A
+  // flush-derived unit ends the pass (values changed) and the policy
+  // re-propagates. One collect at the end covers both phases.
   for (Ref ref = 0; ref < k.arena.size();) {
     if (poll())
       break;
@@ -428,27 +398,22 @@ ApplyResult strengthen_apply(Kernel &k) {
     strengthen_candidates(k, candidates);
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<std::vector<Ref>> occs(2 * k.nvars);
-  // `k.work_budget` in this rule's own currency, the Vivify/Factor idiom (see
-  // the D-STRENGTHEN-BUDGET ledger row). An ENTRY budget alone bounds how OFTEN
-  // a round runs and never how much one round does, which lets a single
-  // uninterruptible round own most of a solve; cadical bounds the same family
-  // PER round (`subsumeeffort` with `subsumemaxeff`/`subsumemineff`,
-  // options.hpp:218-221). Stopping early is sound and loses no work: the
-  // survivors stay candidates and the next round re-derives them. 0 =
-  // unbounded. Polled in PARTNER VISITS (Stats::strengthen_visits).
+  // `k.work_budget` in this rule's own currency (partner visits). An entry
+  // budget alone bounds how often a round runs, never how much one round does,
+  // which lets a single uninterruptible round own most of a solve; cadical
+  // bounds the same family per round (`subsumeeffort`, options.hpp:218-221).
+  // Stopping early loses no work — survivors stay candidates. 0 = unbounded.
+  // Ledger row D-STRENGTHEN-BUDGET.
   const uint64_t check_start = k.stats.strengthen_visits;
-  // connect a survivor at its least-occurring free literal. Shared by the
-  // checked path and by the SCHED-F1 skip path: a skipped candidate is still
-  // indexed, so the round's partner index stays complete and the filter costs
-  // no strengthening the unfiltered round would have found.
+  // Connect a survivor at its least-occurring free literal. Shared by the
+  // checked path and by the filter's skip path, so the round's partner index
+  // stays complete and the filter costs no strengthening.
   //
-  // SCHED-F7 · REDUNDANT SURVIVORS ARE NOT INDEXED. `occs` is the round's
-  // PARTNER index, and a partner justifies deleting or rewriting another clause,
-  // so it must not be forgettable — the header's Forget argument, and the reason
-  // cadical has to promote a redundant subsumer to irredundant instead
-  // (subsume.cpp:133-149). Widening the victim set therefore leaves the partner
-  // set exactly where it was, which is also what keeps the band's cost bounded:
-  // band clauses are checked, never chased.
+  // Redundant survivors are NOT indexed: `occs` is the partner index, a partner
+  // justifies deleting or rewriting another clause, so it must not be
+  // forgettable (the header's Forget argument). Widening the victim set
+  // therefore leaves the partner set where it was, which is also what keeps the
+  // band's cost bounded — band clauses are checked, never chased.
   const auto connect = [&](Ref cr) {
     const Clause *c = clause_at(k.arena, cr);
     if (c->redundant())
@@ -464,12 +429,12 @@ ApplyResult strengthen_apply(Kernel &k) {
         min_occs = n;
       }
     }
-    // under-derived roots (corpus 002) can leave a candidate without
-    // free literals; nothing to connect then
+    // under-derived roots (corpus 002) can leave a candidate with no free
+    // literals; nothing to connect then
     if (min_lit != INVALID_LIT && min_occs <= STRENGTHEN_OCCLIM)
       occs[min_lit].push_back(cr);
   };
-  size_t stopped_at = candidates.size(); // index of the first UNREACHED one
+  size_t stopped_at = candidates.size(); // index of the first unreached one
   const uint64_t produced_before = k.stats.strengthened;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     Ref cref = candidates[ci];
@@ -483,11 +448,10 @@ ApplyResult strengthen_apply(Kernel &k) {
       stopped_at = ci;
       break;
     }
-    // SCHED-F7 · a BAND candidate reads the band stamps too, an irredundant one
-    // does not (kernel_clause_new_material's `kept`): a redundant clause can
-    // never be a partner here, so no band event can change an irredundant
-    // candidate's outcome, and widening its read would only weaken the filter
-    // where the measured saving is.
+    // A band candidate reads the band stamps too, an irredundant one does not
+    // (kernel_clause_new_material's `kept`): a redundant clause can never be a
+    // partner here, so no band event can change an irredundant candidate's
+    // outcome.
     const bool red = clause_at(k.arena, cref)->redundant();
     if (filter &&
         !kernel_clause_new_material(k, clause_at(k.arena, cref), wm, 2, red)) {
@@ -513,8 +477,8 @@ ApplyResult strengthen_apply(Kernel &k) {
         break;
       }
       if (r == 2) {
-        // The cascade is bounded by the clause's size, but at CLSLIM=1000 that
-        // is 1000 full partner scans on ONE candidate, so it polls too. The
+        // The cascade is bounded by the clause's size, but at CLSLIM that is a
+        // thousand full partner scans on one candidate, so it polls too. The
         // rewrite that produced `cref` is complete and logged; stopping here
         // only skips further shrinking of a clause that is already sound.
         if (poll())
@@ -536,15 +500,12 @@ ApplyResult strengthen_apply(Kernel &k) {
       break;
     }
   }
-  // SCHED-F2 · RESUME (see the twin comment in subsume_forward.cpp for the
-  // argument). `ended` — a derived unit stopped the round — leaves a tail too,
-  // and it is re-armed for exactly the same reason a budget cut's is.
-  // SCHED-F7 · a re-arm writes the array the candidate's OWN creation would have
-  // written: `touched` for an irredundant clause, `touched_kept` for a band one.
-  // Re-arming a band candidate through `touched` would leak the band into
-  // BCE/X2/X4/Factor's filters through the back door and break the isolation
-  // theorem at Kernel::touched_kept — which is a claim about the whole ON arm,
-  // not just about the producer.
+  // Resume (see the twin comment in subsume_forward.cpp); `ended` leaves a tail
+  // too, re-armed for the same reason a budget cut's is. A re-arm writes the
+  // array the candidate's own creation would have written — `touched` for an
+  // irredundant clause, `touched_kept` for a band one — because re-arming a
+  // band candidate through `touched` would leak the band into
+  // BCE/X2/X4/Factor's filters and break `Kernel::touched_kept`'s isolation.
   for (size_t ci = interrupted ? candidates.size()
                                : (filter ? stopped_at : candidates.size());
        ci < candidates.size(); ci++) {
@@ -556,28 +517,19 @@ ApplyResult strengthen_apply(Kernel &k) {
       red ? kernel_touch_kept_var(k, var_of(l)) : kernel_touch_var(k, var_of(l));
     k.stats.strengthen_rearmed++;
   }
-  // SCHED-H1: an INTERRUPTED round does not advance the watermark at all. The
-  // re-arm loop above is what makes advancing safe after a budget cut, and it
-  // covers the tail of `candidates` — but an abort inside the FLUSH pre-pass
-  // leaves `candidates` EMPTY, so there is no tail to re-arm and advancing
-  // would retire material this round never looked at. That is SCHED-B3's
-  // starvation, reintroduced through the abort path. Not advancing simply
-  // re-offers the same set next round, which is the resume semantics wanted
-  // here and costs nothing: an interrupt is rare and usually ends the solve.
+  // An interrupted round does not advance the watermark at all: the re-arm loop
+  // above is what makes advancing safe, and an abort inside the flush pre-pass
+  // leaves `candidates` empty, so there is no tail to re-arm and advancing
+  // would retire material this round never looked at.
   if (filter && !interrupted) {
     k.strengthen_touch_mark = snapshot;
     k.stats.strengthen_mark_advances++;
   }
   // Completeness, kissat's `completed` (forward.c:664-670): nothing was
-  // re-armed. Unlike C1 this rule REWRITES clauses, and a strengthened clause
-  // is exactly what kissat re-arms by hand — here the rewrite is an add, so the
-  // substrate arms it — so a productive round is INCOMPLETE, whatever it
-  // reached.
-  // `!ended` also covers the FLUSH pre-pass deriving a unit, which leaves
-  // `candidates` empty and would otherwise read as a vacuous fixpoint.
-  // `!interrupted` also covers an abort inside the FLUSH pre-pass, which leaves
-  // `candidates` empty and would otherwise read as a vacuous fixpoint — the
-  // same trap `!ended` closes for a flush-derived unit.
+  // re-armed. Unlike C1 this rule rewrites clauses, and a rewrite is an add the
+  // substrate arms, so a productive round is incomplete whatever it reached.
+  // `!ended`/`!interrupted` cover a flush pre-pass that stopped early, leaving
+  // `candidates` empty — which would otherwise read as a vacuous fixpoint.
   k.strengthen_complete = !ended && !interrupted &&
                           stopped_at == candidates.size() &&
                           k.stats.strengthened == produced_before;
@@ -587,13 +539,13 @@ ApplyResult strengthen_apply(Kernel &k) {
   return ApplyResult::Ok;
 }
 
-// single-candidate instance surface (payload = arena Ref, like C1);
-// applies at most one subsume-or-strengthen step (no cascade)
+// Single-candidate instance surface (payload = arena Ref, like C1); applies at
+// most one subsume-or-strengthen step, no cascade.
 ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   assert(strengthen_guard(k));
-  // SCHED-H1 · neither governor reaches this path (see the twin note in
-  // subsume_forward.cpp): `work_budget` is a ROUND device. Checked at entry,
-  // before the per-clause flush, so nothing is part-rewritten.
+  // `work_budget` is a round device and does not reach this path, so
+  // termination is checked here at entry, before the per-clause flush, where
+  // nothing is part-rewritten.
   if (kernel_rule_interrupt(k, k.stats.strengthen_interrupted))
     return ApplyResult::NoOp;
   Clause *c = clause_at(k.arena, candidate);
@@ -610,9 +562,9 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
       return ApplyResult::Ok;
     }
   }
-  // The VICTIM may be redundant on this path (N1: the instance surface is
-  // complete over everything the round could ever accept, and more); the PARTNER
-  // may not — find_partner's `d->redundant()` skip is the load-bearing check.
+  // The victim may be redundant on this path (N1: the instance surface is
+  // complete over everything the round could accept, and more); the partner may
+  // not — find_partner's `d->redundant()` skip is the load-bearing check.
   if (!is_victim(k, c))
     return ApplyResult::NoOp;
   k.stats.strengthen_checked++;
@@ -631,8 +583,8 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   return ApplyResult::Ok;
 }
 
-// COMPLETE over victims, band or no band, so `instances()` never advertises less
-// than `apply_instance` accepts (SCHED-N1FIX's shape).
+// Complete over victims, band or no band, so `instances()` never advertises
+// less than `apply_instance` accepts.
 static uint32_t strengthen_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Ref> candidates;
   strengthen_candidates(k, candidates, /*complete=*/true);
@@ -644,8 +596,7 @@ static uint32_t strengthen_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)

@@ -1,16 +1,14 @@
 // Watch scheme (transliterated from kissat/src/watch.h + vectors.c, MIT):
-// watch lists are slices of ONE flat uint32_t arena, addressed by
-// per-literal {offset, size, capacity} heads — no per-list heap objects,
-// contiguous hot data. A binary clause occupies ONE slot (other literal,
-// low-bit tag); a large clause TWO consecutive slots (blocking literal,
-// then arena clause ref).
+// watch lists are slices of one flat uint32_t arena, addressed by per-literal
+// {offset, size, capacity} heads — no per-list heap objects, contiguous hot
+// data. A binary clause occupies ONE slot (other literal, low-bit tag); a large
+// clause TWO consecutive slots (blocking literal, then arena clause ref).
 //
-// Growth relocates a list to the arena end (amortized doubling) and leaves
-// a hole; when holes exceed half the arena it is defragmented. Because a
-// push can therefore move ANY list (or the whole arena on reallocation),
-// pushes must never happen while a list is being scanned — propagation
-// delays its watch relocations and flushes them after each scan (the
-// reason kissat has `delayed`; see rules/propagate).
+// Growth relocates a list to the arena end (amortized doubling) and leaves a
+// hole; when holes exceed half the arena it is defragmented. Because a push can
+// therefore move any list, or the whole arena on reallocation, pushes must
+// never happen while a list is being scanned — propagation delays its watch
+// relocations and flushes them after each scan (kissat's `delayed`).
 #pragma once
 
 #include "kernel/types.hpp"

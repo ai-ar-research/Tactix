@@ -1,6 +1,6 @@
-// S4 SwitchMode / stable-mode machinery unit tests: score heap, EVSIDS
-// bump/decay/rescale, mode flip, stable decisions + target phases,
-// stable trail reuse, policy-side schedule (reluctant, mode limits).
+// SwitchMode / stable-mode unit tests: score heap, EVSIDS bump/decay/rescale,
+// mode flip, target phases, trail reuse, and the policy-side schedule.
+// ScopedHeuristics attaches k.h: the session, not the kernel, owns it.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -17,13 +17,12 @@ using namespace tactix;
 
 static void test_heap_basic() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
   heuristics_update_scores(k); // push all five
   for (Var v = 0; v < 5; v++)
     assert(heuristics_heap_contains(k, v));
-  // bump 3 above everything, then 1 above 3
-  heuristics_score_bump(k, 3);
+  heuristics_score_bump(k, 3); // bump 3 above everything, then 1 above 3
   assert(heuristics_heap_next_unassigned(k) == 3);
   heuristics_scores_decay(k); // scinc grows
   heuristics_score_bump(k, 1); // later bump wins (EVSIDS recency)
@@ -32,15 +31,14 @@ static void test_heap_basic() {
   k.h->stable = true;
   kernel_assign_decision(k, make_lit(1, false));
   assert(heuristics_heap_next_unassigned(k) == 3);
-  // unassigning re-inserts (backtrack path)
-  kernel_backtrack(k, 0);
+  kernel_backtrack(k, 0); // unassigning re-inserts
   assert(heuristics_heap_contains(k, 1));
   assert(heuristics_heap_next_unassigned(k) == 1);
 }
 
 static void test_rescale() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   heuristics_update_scores(k);
   // force scinc past the rescale threshold: relative order must survive
@@ -56,7 +54,7 @@ static void test_rescale() {
 
 static void test_switchmode_rule() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
   assert(switchmode_guard(k));
   assert(!k.h->stable);
@@ -72,7 +70,7 @@ static void test_switchmode_rule() {
 
 static void test_stable_decide_and_target_phases() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   switchmode_apply(k); // enter stable
@@ -83,13 +81,8 @@ static void test_stable_decide_and_target_phases() {
   assert(heuristics_decide_lit(k, v) == internalize(1));
   decide_apply(k, internalize(1), false);
   assert(propagate_apply(k) == ApplyResult::Ok); // forces 2
-  // Consistent backtrack snapshots target phases (deepest trail = 2).
-  // The snapshot lives at the CALL SITES, not inside kernel_backtrack,
-  // matching kissat's split between
-  // `kissat_backtrack_without_updating_phases` and the wrappers that snapshot
-  // (`..._in_consistent_state` / `..._after_conflict`): the kernel primitive
-  // does not perform this `H`-policy action. Same shape as
-  // `restart_apply_to`.
+  // Target phases are snapshotted at the call sites, never inside
+  // kernel_backtrack: the kernel primitive performs no `H`-policy action.
   heuristics_update_target_phases(k);
   kernel_backtrack(k, 0);
   assert(k.h->target_assigned == 2);
@@ -104,7 +97,7 @@ static void test_stable_decide_and_target_phases() {
 
 static void test_stable_trail_reuse() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
   switchmode_apply(k);
   // scores: v0 > v1 > v2 > v3 (bump under growing scinc, reverse order)
@@ -115,8 +108,7 @@ static void test_stable_trail_reuse() {
   heuristics_score_bump(k, 1);
   heuristics_scores_decay(k);
   heuristics_score_bump(k, 0);
-  // decide v0 then v2; next candidate is v1, whose score beats v2's:
-  // only the v0 level survives the restart
+  // v1 outranks v2, so only the v0 level survives the restart
   decide_apply(k, make_lit(0, false), false);
   decide_apply(k, make_lit(2, false), false);
   assert(restart_apply(k) == ApplyResult::Ok);
@@ -128,11 +120,10 @@ static void test_stable_trail_reuse() {
 
 static void test_policy_schedule() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   DefaultPolicy p;
-  // focused until modeinit conflicts
-  assert(!p.want_switch_mode(k));
+  assert(!p.want_switch_mode(k)); // focused until modeinit conflicts
   k.stats.conflicts = 1000;
   assert(p.want_switch_mode(k));
   // simulate the switch the way solve() does
@@ -155,10 +146,8 @@ static void test_policy_schedule() {
 }
 
 static void test_default_policy_solves_across_modes() {
-  // an unsatisfiable chain small enough to be instant but forced through
-  // both modes: run with modeinit-sized conflict budget via direct solve
-  Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  Kernel k; // a tiny UNSAT chain, but forced through both modes
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(1), internalize(-2));

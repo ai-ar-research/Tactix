@@ -40,10 +40,10 @@ LIVING = ["PROGRESS.md", "DEVELOPMENT_PLAN.md", "CLAUDE.md",
           "docs/implementation-notes.md", "docs/calculus.md", "docs/README.md"]
 LESSONS = "docs/lessons.md"
 
-# `L<n>` means a STANDING LESSON and nothing else since plan rev 81, which renamed
-# the §5.6 RL staging levels L1-L4 -> RL1-RL4 for exactly this reason: with two
-# namespaces sharing the prefix, this checker reported false DANGLING errors on
-# correct plan text and no regex could separate them. All numbers are now strict.
+# `L<n>` means a standing lesson and nothing else: the §5.6 RL staging levels
+# are spelled RL1-RL4 so the two namespaces cannot share a prefix. With a shared
+# prefix no regex separates them and this checker reports dangling references on
+# correct text, so all numbers here are strict.
 
 def lesson_numbers():
     p = os.path.join(ROOT, LESSONS)

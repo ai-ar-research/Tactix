@@ -1,6 +1,5 @@
-// Sweep: candidate selection, environment construction and emission.
-// See sweep.hpp for the contract, the soundness argument (env ⊆ F) and the
-// deviation ledger; docs/design/v5-sweep-design.md for the design.
+// Sweep: candidate selection, environment construction and emission. Contract,
+// soundness argument and deviation ledger: sweep.hpp.
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/congruence/congruence.hpp"
@@ -15,36 +14,29 @@ namespace tactix {
 
 namespace {
 
-// Dedup keys for the environment's clause set. A binary is keyed by its literal
-// PAIR (kernel_binary_key), so the two scans that reach it — from either
-// endpoint — encode it once; a large clause by its arena ref; a unit by its
-// variable. The three spaces are kept disjoint by the tag bits, and
-// kernel_binary_key's payload is two 31-bit-ish literal codes, so it never
-// reaches them.
+// Dedup keys for the environment's clause set: a binary by its literal pair
+// (so both endpoint scans encode it once), a large clause by its arena ref, a
+// unit by its variable. The tag bits keep the three spaces disjoint.
 constexpr uint64_t KEY_LARGE = 1ull << 63;
 constexpr uint64_t KEY_UNIT = 1ull << 62;
 
-// At a quiescent root (the guard) an assigned variable is a FIXED one.
+// At a quiescent root (the guard) an assigned variable is a fixed one.
 bool root_fixed(const Kernel &k, Var v) {
   return k.values[make_lit(v, false)] != 0;
 }
 
-// Is (a ∨ b) live in the watch lists? Deliberately NOT `kernel_binary_id != 0`:
-// `binary_ids` is size-monotone (a deleted pair keeps its key, see
-// Kernel::binary_ids), so the id map would report a binary TransitiveReduce
-// has already deleted, and a genuinely new equivalence would be scored
-// "already known".
-// The pair is mirrored in both lists, so scanning the SHORTER one answers it.
+// Is (a ∨ b) live in the watch lists? Not `kernel_binary_id != 0`: `binary_ids`
+// is size-monotone, so the id map would report a binary TransitiveReduce has
+// already deleted. The pair is mirrored, so scan the shorter list.
 bool binary_live(const Kernel &k, Lit a, Lit b) {
   const Lit scan = k.watches.size(a) <= k.watches.size(b) ? a : b;
   return kernel_binary_live(k, scan, scan == a ? b : a);
 }
 
 // --- the round's representative map (kissat sweep.c `sweep_repr`) -----------
-// Union-find over LITERALS with the mirror invariant repr[¬l] = ¬repr[l], so a
-// class and its negation move together. Round-scoped: it exists to stop one
-// class being re-proved from every member, not to record anything durable (V3
-// Substitute owns the durable substitution).
+// Union-find over literals with the mirror invariant repr[¬l] = ¬repr[l], so a
+// class and its negation move together. Round-scoped and durable of nothing —
+// V3 Substitute owns the durable substitution.
 Lit repr_find(SweepRound &r, Lit l) {
   Lit root = l;
   while (r.repr[root] != root)
@@ -62,14 +54,10 @@ void repr_unite(SweepRound &r, Lit a, Lit b) {
   Lit ra = repr_find(r, a), rb = repr_find(r, b);
   if (ra == rb)
     return;
-  // `rb == ¬ra` means this round has proved BOTH x ≡ y and x ≡ ¬y, which is
-  // only possible when F is unsatisfiable (every equivalence is then vacuously
-  // entailed). Merging anyway would set repr[ra] = ¬ra AND repr[¬ra] = ra — a
-  // two-cycle that hangs `repr_find` forever, which is exactly what the random
-  // oracle in tests/test_sweep.cpp found. DETECTION draws no conclusion from
-  // it: the classes stay apart and the environments that produced the claims
-  // are still counted. EMISSION must treat this case as a REFUTATION, never
-  // as two binaries.
+  // `rb == ¬ra` means this round proved both x ≡ y and x ≡ ¬y, possible only
+  // when F is unsatisfiable. Merging would make repr a two-cycle that hangs
+  // `repr_find` forever, so detection draws no conclusion and the classes stay
+  // apart. Emission must treat the case as a refutation, not as two binaries.
   if (rb == negate(ra))
     return;
   if (rb < ra)
@@ -98,9 +86,8 @@ void env_reset(const Kernel &k, SweepEnv &e) {
   e.strip_off.assign(1, 0);
 }
 
-// Size the key index so it never passes half full: at most `max_env_clauses`
-// keys are ever inserted (`env_add` returns at that cap), so linear probing
-// stays short and the insert cannot loop.
+// Sized so the index never passes half full — at most `max_env_clauses` keys
+// are inserted — so linear probing stays short and the insert cannot loop.
 void keyset_reset(SweepEnv &e, uint32_t cap) {
   size_t n = 16;
   while (n < 2 * static_cast<size_t>(cap) + 2)
@@ -112,10 +99,10 @@ void keyset_reset(SweepEnv &e, uint32_t cap) {
   e.key_mask = n - 1;
 }
 
-// The slot `key` occupies or would occupy. Recording is a separate step
-// because a clause that passes the dedup test can still be declined by the
-// variable cap, and a declined clause must stay re-addable: `fresh` shrinks as
-// its other variables enter the environment, so the same clause may fit later.
+// The slot `key` occupies or would occupy. Recording is a separate step: a
+// clause that passes the dedup test can still be declined by the variable cap,
+// and must stay re-addable, since `fresh` shrinks as its other variables enter
+// the environment.
 size_t keyset_slot(const SweepEnv &e, uint64_t key) {
   size_t i = ((key * 0x9E3779B97F4A7C15ull) >> 32) & e.key_mask;
   while (e.key_slots[i] != UINT64_MAX && e.key_slots[i] != key)
@@ -136,11 +123,9 @@ uint32_t env_var(SweepEnv &e, Var v, uint32_t depth) {
 }
 
 // Add one clause of F to the environment. Returns false when a limit declines
-// it — declining is always sound (the environment only ever shrinks), which is
-// why every cap in this file is a plain early return.
-// `strip` (may be null) are the proof ids of the root units that justify the
-// literals already removed from `lits` by the caller; they travel with the
-// clause so emission can cite them.
+// it — always sound, since the environment only ever shrinks, which is why
+// every cap here is a plain early return. `strip` (may be null) are the proof
+// ids justifying the literals the caller already removed.
 bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
              uint64_t id, uint32_t depth, const SweepLimits &lim,
              uint64_t *ticks, const std::vector<uint64_t> *strip = nullptr) {
@@ -177,23 +162,10 @@ bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
   return true;
 }
 
-// Add one clause of F to the environment WITH ITS ROOT-FALSE LITERALS REMOVED
-// (see deviation 1, and `docs/calculus.md` V5). A kept root-false literal is a
-// FREE VARIABLE in the sub-solver — it satisfies its clause for nothing — so an
-// environment that keeps them is not the local formula at all; it is that
-// formula with a fresh escape hatch bolted onto every clause the search has
-// touched. Stripping is what makes the environment constrain anything.
-//
-// The removal is justified, not assumed: `C \ {l}` follows from `C` and the
-// root unit `{¬l}`, so the ids of those units travel with the clause in
-// `SweepEnv::strip_ids` and emission cites them ahead of `C` in the chain. Under
-// a proof format that needs no chain (DRAT, or no proof at all) there is nothing
-// to cite: a DRAT checker re-derives every root unit by propagation, so the
-// stripped clause propagates exactly as `C` does and the lemma stays RUP.
-//
-// A literal we cannot justify removing is KEPT, exactly as before — a weaker
-// environment, never a wrong one. Under LRAT that is `unit_ids[v] == 0`, which
-// `propagate_service`'s `emit_root_units` makes vanishingly rare.
+// Add one clause of F with its root-false literals removed — justified, not
+// assumed: `C \ {l}` follows from `C` and the root unit `{¬l}`, whose id travels
+// in `SweepEnv::strip_ids` for emission to cite ahead of `C`. An unjustifiable
+// removal is not made (`docs/calculus.md` V5).
 void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
                     uint64_t key, uint64_t id, uint32_t depth,
                     const SweepLimits &lim, uint64_t *ticks) {
@@ -219,11 +191,9 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
       e.strip_scratch.push_back(uid);
     k.stats.sweep_env_stripped++;
   }
-  // At a quiescent root a live clause has at least two non-false literals: one
-  // would have propagated, none would have conflicted. `sweep_apply` reaches
-  // that root before detecting, but the detector is also callable from a policy
-  // that has not (N1), so decline rather than assert — an environment that
-  // omits a clause is still entailed by F.
+  // At a quiescent root a live clause has at least two non-false literals, but
+  // the detector is callable from a policy that has not reached one (N1) — so
+  // decline rather than assert; a smaller environment is still entailed by F.
   if (e.kept_scratch.size() < 2)
     return;
   if (!env_add(k, e, e.kept_scratch.data(),
@@ -233,9 +203,8 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
   k.stats.sweep_env_lits += e.kept_scratch.size();
   if (lim.strip_false)
     return;
-  // THE OFF ARM (`TACTIX_SWEEP_STRIP=0`) reproduces the pre-strip environment
-  // exactly: the root-false literal stays, and its unit joins the environment
-  // as a clause of F whenever the proof holds one.
+  // Off arm (`TACTIX_SWEEP_STRIP=0`): the root-false literal stays, and its
+  // unit joins the environment as a clause of F whenever the proof holds one.
   for (uint32_t i = 0; i < n; i++) {
     const Lit l = lits[i];
     if (k.values[l] >= 0)
@@ -262,10 +231,9 @@ bool SweepBudget::over(const Kernel &k, uint64_t pending) const {
 
 bool sweep_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
-// The variable's large-clause + watch degree, both polarities. `dense` is the
-// occurrence index a simplification phase attaches; without one only the watch
-// lists are readable, which still ranks binaries and the two watched literals
-// of every large clause.
+// The variable's large-clause + watch degree, both polarities. Without the
+// phase occurrence index only the watch lists are readable, which still ranks
+// binaries and the two watched literals of every large clause.
 static uint64_t seed_degree(const Kernel &k, Var v, bool &both_polarities) {
   const Lit pos = make_lit(v, false), neg = make_lit(v, true);
   uint64_t dp = k.watches.size(pos), dn = k.watches.size(neg);
@@ -281,33 +249,18 @@ void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
   out.clear();
   for (Var v = 0; v < k.nvars; v++) {
     // Fixed variables belong to V1 Probe / V2 Backbone (their equivalences are
-    // units), retired ones are no longer in F. Everything else is a seed.
-    // NOTE — there is deliberately NO "does it occur anywhere?" filter here.
-    // The obvious cheap one, "its watch lists are empty", is WRONG: a large
-    // clause is watched on two literals only, so a variable occurring in
-    // thousands of large clauses can have empty watch lists (and propagation
-    // moves watches around, so which variables look occurrence-free changes
-    // with search history). That version of this function silently dropped the
-    // seed of the only equivalence in tests/test_sweep.cpp's non-RUP fixture,
-    // but only AFTER a propagation had moved the watches — i.e. it passed the
-    // unit test and would have failed in a solve. An unoccurring variable
-    // simply builds an empty environment and returns.
+    // units), retired ones are no longer in F. Everything else is a seed, with
+    // no occurrence filter: empty watch lists do not mean no occurrences, since
+    // a large clause is watched on two literals only.
     if (root_fixed(k, v) || kernel_var_retired(k, v))
       continue;
     out.push_back(v);
   }
-  // ORDER, not membership (kissat `scheduable_variable` + its radix sort over
-  // `sweep_candidate.rank`, sweep.c:1478-1528). Ascending occurrence degree,
-  // with the variables that occur in only ONE polarity last: a low-degree
-  // variable has a small, tight environment, so a dose buys many of them, and a
-  // single-polarity variable cannot be equivalent to anything its environment
-  // constrains. kissat DROPS both classes; we rank them to the back instead,
-  // because `instances()` must stay total (N1, rule-dev §instances) — a policy
-  // may still sweep any of them, it just is not what a budgeted round reaches
-  // first. The previous order was ascending variable INDEX, i.e. arbitrary.
-  // Rank computed ONCE per variable, not inside the comparator: the seed list
-  // is the whole active variable set and a recomputing comparator would walk
-  // four watch lists per comparison.
+  // Order, not membership (kissat `scheduable_variable` + its radix sort,
+  // sweep.c:1478-1528). Ascending occurrence degree, single-polarity variables
+  // last; kissat drops both classes, but ranking them to the back keeps
+  // `instances()` total (N1, rule-dev §instances). Rank computed once per
+  // variable, since a recomputing comparator walks four watch lists per call.
   std::vector<std::pair<uint64_t, Var>> ranked;
   ranked.reserve(out.size());
   for (const Var v : out) {
@@ -315,20 +268,18 @@ void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
     const uint64_t d = seed_degree(k, v, both);
     ranked.emplace_back(both ? d : UINT64_MAX, v);
   }
-  // `std::sort`, not `stable_sort`: the pair's second component already breaks
-  // every tie by variable, so the order is total and deterministic, and
-  // stable_sort would allocate an n/2 temporary once per round on top of it.
+  // `std::sort` suffices: the pair's second component breaks every tie.
   std::sort(ranked.begin(), ranked.end());
   for (size_t i = 0; i < ranked.size(); i++)
     out[i] = ranked[i].second;
 }
 
 void sweep_round_begin(Kernel &k, SweepRound &r) {
-  // occurrence index over irredundant large clauses. `Kernel::dense` holds
-  // exactly that during a simplification phase; outside one (the API, a
-  // stress policy) we build the same thing with a single arena pass — the
-  // OccIndex "optional acceleration" contract, so the detector stays usable
-  // at any state (N1).
+  // Occurrence index over irredundant large clauses. Irredundant only, because
+  // `Reduce` may delete a learned clause between detection and emission and a
+  // chain citing a deleted id is a rejected proof. Outside a simplification
+  // phase a single arena pass builds the same thing, so the detector stays
+  // usable at any state (N1).
   if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
     r.occ = &k.dense->large;
   } else {
@@ -348,13 +299,9 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   for (Lit l = 0; l < 2 * k.nvars; l++)
     r.repr[l] = l; // O(nlits) once per ROUND, never per environment
   r.found.clear();
-  // `proofs` is PARALLEL to `found` (sweep_apply indexes it by the same `idx`),
-  // so it has to be reset with it. Clearing one and not the other leaves every
-  // later pair reading the previous round's refutation -- latent today only
-  // because `sweep_apply` builds a fresh SweepRound per apply, and caught
-  // downstream only by the `is_pair` target check, which declines rather than
-  // reporting. Same family as the S-e polarity defect: two things that must
-  // agree, kept in step by hand.
+  // `proofs` is parallel to `found` (`sweep_apply` indexes both by the same
+  // `idx`), so it must be reset with it: clearing one and not the other leaves
+  // every later pair reading the previous round's refutation.
   r.proofs.clear();
 }
 
@@ -369,9 +316,9 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
   env_var(e, seed, 0);
   uint64_t ticks = 0;
   // Breadth-first over the clause neighbourhood (kissat sweep.c
-  // sweep_binary/sweep_reference). `vars` doubles as the BFS queue: entries are
-  // appended in non-decreasing depth, and fixed variables carry UINT32_MAX so
-  // the frontier never expands THROUGH one.
+  // sweep_binary/sweep_reference). `vars` doubles as the BFS queue, appended in
+  // non-decreasing depth; fixed variables carry UINT32_MAX, so the frontier
+  // never expands through one.
   for (uint32_t i = 0; i < e.vars.size() && !r.budget.over(k, ticks); i++) {
     const uint32_t d = e.depth[i];
     if (d > lim.max_depth)
@@ -392,9 +339,8 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
       }
       for (const Ref ref : (*r.occ)[l]) {
         // The occurrence walk is the unbounded term: `max_env_vars` stops the
-        // environment GROWING long before this list ends, and every clause
-        // after that is scanned only to be declined. Poll here, not merely
-        // between seeds.
+        // environment growing long before this list ends. Poll here, not
+        // merely between seeds.
         if (r.budget.over(k, ticks))
           break;
         ticks += 1;
@@ -413,11 +359,9 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
     }
   }
   k.stats.sweep_ticks += ticks;
-  // CLOSURE. An environment is a ball around the seed, so its outer variables
-  // arrive with only the one clause that introduced them: nothing about them
-  // can be proved, and every pair they take part in costs a solve to learn
-  // that. Measured over large clauses on both sides, which is the population
-  // the occurrence index covers.
+  // Closure diagnostic: an environment is a ball around the seed, so its outer
+  // variables arrive with only the clause that introduced them and every pair
+  // they join costs a solve to learn that nothing about them can be proved.
   if (!lim.measure_closure)
     return e.nclauses() > 0;
   e.deg_scratch.assign(e.vars.size(), 0);
@@ -441,17 +385,15 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
 
 namespace {
 
-// The value the sub-solver's model gives a KERNEL literal of the environment.
+// The value the sub-solver's model gives a kernel literal of the environment.
 int8_t model_value(const SweepEnv &e, const std::vector<int8_t> &model, Lit l) {
   const int8_t v = model[e.sub_of_var[var_of(l)]];
   return negated(l) ? static_cast<int8_t>(-v) : v;
 }
 
-// Drop every candidate the new model separates from the seed. This is kissat's
-// sweep_refine_partition in seed-anchored form (deviation 5): a model is free
-// evidence that two literals are NOT equivalent, and the candidate that
-// produced it is always among the dropped ones — which is what makes the
-// candidate loop below terminate.
+// Drop every candidate the new model separates from the seed: kissat's
+// sweep_refine_partition in seed-anchored form. The candidate that produced the
+// model is always among the dropped ones, which is what terminates the loop.
 uint32_t refine(const SweepEnv &e, const std::vector<int8_t> &model,
                 Lit seed_lit, std::vector<Lit> &candidates) {
   const int8_t sv = model_value(e, model, seed_lit);
@@ -466,31 +408,20 @@ uint32_t refine(const SweepEnv &e, const std::vector<int8_t> &model,
 
 } // namespace
 
-// SUB-SOLVER LITERAL -> KERNEL LITERAL. Both translation sites go through this
-// one function, because getting it wrong is silent: the two encodings share the
-// `2*v | negated` shape, so an inverted parity still type-checks, still names a
-// real variable and still produces a well-formed clause -- just the NEGATION of
-// the one the sub-solver derived. It is the exact inverse of the encode in
-// `sweep_detect_seed` (`sub_lit(sub_of_var[var_of(l)], negated(l))`), and of
-// `test_subsolver`'s `dimacs()` (an even sub literal is POSITIVE). Spelling it
-// out separately at each site is what let the two agree with each other and
-// disagree with the sub-solver, making every general-path lemma unverifiable
-// (N2 breach, `benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`).
+// Sub-solver literal -> kernel literal, the single decode site: every
+// translation goes through it rather than respelling it, because getting the
+// parity wrong is silent — the two encodings share the `2*v | negated` shape,
+// so an inverted decode yields the negation of the derived clause, and that is
+// unverifiable (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`).
 static inline Lit sweep_kernel_lit(const std::vector<Var> &vars, SubLit sl) {
   return make_lit(vars[sub_var_of(sl)], (sl & 1u) != 0);
 }
 
-// Copy one direction's refutation out of the sub-solver, together with the
-// translation tables it will need later. Both are necessary: `steps` names
-// sub-solver clause ids, and the environment that gives those ids meaning is
-// rebuilt for the next seed. Failure here is not an error — it just means this
-// pair has no general-path proof and must fall back to the RUP path or be
-// declined.
-// The target is READ OFF the derivation rather than predicted from the
-// assumptions. Predicting it means re-deriving which literal the seed
-// contributed and with which polarity, and getting that subtly wrong silently
-// swaps the two directions -- which is exactly what happened first: the check
-// then fails for every pair and the general path looks merely "unreachable".
+// Copy one direction's refutation out with the translation tables it will need:
+// `steps` names sub-solver clause ids, and the environment giving them meaning
+// is rebuilt for the next seed. Failure just means no general-path proof. The
+// target is read off the derivation, never predicted from the assumptions — a
+// wrong prediction silently swaps the two directions.
 static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
   out.ok = false;
   out.t0 = out.t1 = INVALID_LIT;
@@ -538,7 +469,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       buf.push_back(sub_lit(e.sub_of_var[var_of(l)], negated(l)));
     }
     const uint32_t id = e.solver.add_clause(buf);
-    // The environment's own numbering IS the sub-solver's, which is what makes
+    // The environment's own numbering is the sub-solver's, which is what makes
     // `clause_ids[id - 1]` the main-formula clause emission must cite.
     assert(id == c + 1);
     (void)id;
@@ -556,19 +487,20 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     return 0;
   }
   if (res == SubResult::Unsat) {
-    // The environment alone refutes F (it IS a subset of F). Real, and worth a
-    // count, but turning it into `add-empty` would be a separate proof
-    // obligation that nothing here discharges — so detection touches nothing.
+    // The environment alone refutes F. Turning that into `add-empty` is a
+    // separate proof obligation nothing here discharges, so detection touches
+    // nothing — the same reason there is no backbone half: those root units are
+    // V1 Probe / V2 Backbone's proof delta.
     k.stats.sweep_env_unsat++;
     k.stats.sweep_ticks += e.solver.ticks();
     k.stats.sweep_ticks_sub += e.solver.ticks();
     return 0;
   }
 
-  // Candidate selection: every environment literal that agrees with the seed in
-  // the first model. Two literals that differ in ANY model of the environment
-  // cannot be equivalent, so this is the cheapest sound over-approximation and
-  // every further model shrinks it (`refine`).
+  // Candidate selection: every environment literal agreeing with the seed in
+  // the first model. Literals differing in any model cannot be equivalent, so
+  // this is the cheapest sound over-approximation, shrunk by every further
+  // model (`refine`).
   r.candidates.clear();
   for (uint32_t u = 1; u < e.vars.size(); u++) {
     const Var w = e.vars[u];
@@ -581,12 +513,9 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       continue; // this round already knows the answer for y
     r.candidates.push_back(y);
   }
-  // The loop below pops from the BACK, and the seeding walk above is in BFS
-  // discovery order, so without this reversal every environment spends its
-  // queries on its OUTERMOST variables first — the ones that arrived with a
-  // single clause and about which the environment can prove nothing. Nearest
-  // first instead: those share the seed's neighbourhood, which is the only
-  // part of F the environment holds whole.
+  // The loop pops from the back and the seeding walk is in BFS discovery order,
+  // so without this reversal every environment spends its queries on its
+  // outermost variables, about which it can prove nothing.
   std::reverse(r.candidates.begin(), r.candidates.end());
   k.stats.sweep_cand_seeded += r.candidates.size();
 
@@ -595,7 +524,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     const Lit y = r.candidates.back();
     const Lit ry = repr_find(r, y);
     if (ry == seed_lit || ry == negate(seed_lit)) {
-      // an earlier pair in THIS environment already settled y's class
+      // an earlier pair in this environment already settled y's class
       r.candidates.pop_back();
       continue;
     }
@@ -607,9 +536,8 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       r.candidates.pop_back();
       continue;
     }
-    // Refutation capture (see sweep_capture_dir): the sub-solver keeps only the LAST
-    // solve's derivation, so direction 1's must be copied out before direction
-    // 2's solve overwrites it.
+    // The sub-solver keeps only the last solve's derivation, so direction 1's
+    // must be copied out before direction 2's solve overwrites it.
     SweepPairProof pair;
     // Direction 1: x ∧ ¬y unsatisfiable ⇔ F ⊨ (¬x ∨ y).
     assumptions.clear();
@@ -686,9 +614,9 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   sweep_round_begin(k, r);
   sweep_seeds(k, r.seeds);
   const uint64_t start = k.stats.sweep_ticks;
-  // The between-seeds check is unconditional; `budget` carries the SAME ceiling
-  // into `sweep_env_build` so one seed cannot outspend the round before the
-  // next check is ever reached. `enforce_in_env=0` reverts only the inner poll.
+  // The between-seeds check is unconditional; `budget` carries the same ceiling
+  // into `sweep_env_build`, so one seed cannot outspend the round before the
+  // next check. `enforce_in_env=0` reverts only the inner poll.
   r.budget.start = start;
   r.budget.limit = lim.enforce_in_env ? lim.round_ticks : 0;
   uint32_t found = 0, seeds = 0;
@@ -729,28 +657,13 @@ SweepLimits sweep_limits_from_env() {
   return lim;
 }
 
-// ---- emission: the RUP fast path -----------------------------------------
-//
-// Detection proves `a ≡ b` inside a small ENVIRONMENT, which is a subset of F.
-// That is a sound entailment, but an entailment is not a proof line: the
-// checker knows nothing of the environment. So we ask the main formula the same
-// question in the one form a checker accepts, RUP, using Congruence's replay
-// primitive rather than deriving a chain by hand (`congruence_rup_chain` — the
-// chain comes out in the checker's own propagation order by construction).
-//
-// This is DELIBERATELY the narrow path. An equivalence that is RUP over F is
-// exactly the easy case sweeping is not for (design §4); the interesting ones
-// need the sub-solver's core mapped back to main-formula ids. A non-RUP
-// equivalence is DECLINED (counted in `sweep_not_rup`), never emitted.
-//
-// BOTH directions must replay. `a ≡ b` is two binaries, and emitting one
-// without the other would state an implication the sub-solver did not prove on
-// its own. If either direction fails, the pair is skipped whole.
-//
-// The replay runs in DRAT mode too, even though DRAT needs no chain: here it is
-// not chain CONSTRUCTION but the RUP TEST itself, and a swept equivalence is not
-// RUP in general. Emitting an unchecked line would hand the checker something it
-// cannot verify — exactly the failure N2 exists to prevent.
+// ---- emission: the RUP fast path (`docs/calculus.md` V5, strategy (a)) -----
+// Entailment is not a proof line, so the main formula is asked the same
+// question in the one form a checker accepts, via Congruence's replay
+// primitive. A non-RUP equivalence is declined (`sweep_not_rup`) and the
+// general path below covers it; both directions must replay or the pair is
+// skipped whole. The replay runs under DRAT too, where no chain is needed: it
+// is the RUP test itself, and an unchecked line breaches N2.
 static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
                              std::vector<uint64_t> &chain_fwd,
                              std::vector<uint64_t> &chain_rev) {
@@ -776,34 +689,20 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
   return true;
 }
 
-// Emission, the GENERAL path.
-//
-// The RUP fast path above covers only equivalences that unit propagation can
-// refute over F. A swept equivalence is entailed but generally NOT RUP -- that
-// gap is the whole reason a sub-solver is involved. Here the sub-solver's own
-// refutation is replayed into the main proof: each lemma it derived is emitted
-// as its own line, in derivation order, with its antecedents translated from
-// sub-solver clause ids to main-formula proof ids. The final lemma IS the target
-// binary, and by then every antecedent it names is a line the checker has seen.
-//
-// The translation rests on `env ⊆ F` holding LITERALLY: every environment
-// clause is a clause the kernel holds, carried with its own proof id, so an
-// original antecedent maps to a real main-formula id rather than to something
-// reconstructed. Anything that cannot be mapped exactly -- an unmapped
-// antecedent, a tautological lemma, a target that is not the binary we asked
-// for -- DECLINES rather than emitting, because a wrong line here is an
-// unverifiable proof, not a missed optimisation.
-// `dry` translates and validates without emitting a line or consuming an id, so
-// a PAIR can be checked whole before either half is written. Emitting one
-// direction and then discovering the other is untranslatable would leave a
-// half-stated equivalence in F -- sound, but not what the rule claims.
+// Emission, the general path (`docs/calculus.md` V5, strategy (b)): replay the
+// sub-solver's refutation into the main proof, each lemma its own line in
+// derivation order, antecedents translated to main-formula proof ids. The final
+// lemma is the target binary, by which point the checker has seen every
+// antecedent it names. Anything not mappable exactly declines rather than
+// emits. `dry` validates without emitting or consuming an id, so a pair is
+// checked whole before either half is written.
 static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
                                const Lit t0, const Lit t1, bool dry) {
   if (!p.ok || p.steps.empty())
     return false;
-  // The strip ledger is indexed by ORIGINAL clause, one CSR slot each. A
+  // The strip ledger is indexed by original clause, one CSR slot each. A
   // capture that does not satisfy that cannot be translated, so decline rather
-  // than index past it (the `found`/`proofs` parallel-array family of defect).
+  // than index past it.
   if (p.strip_off.size() != p.orig_ids.size() + 1)
     return false;
   const bool lrat = k.proof && k.proof->lrat();
@@ -828,15 +727,11 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
     if (lits.empty())
       return false; // the empty clause means F is UNSAT; not this rule's job
     if (Proof::tautological(lits.data(), static_cast<uint32_t>(lits.size())))
-      return false; // uncheckable under LRAT; decline the whole pair // uncheckable under LRAT; decline the whole pair
+      return false; // uncheckable under LRAT; decline the whole pair
     chain.clear();
-    // THE STRIP UNITS COME FIRST. An environment clause is a main-formula
-    // clause with its root-false literals removed, so the checker can only
-    // propagate it the way the sub-solver did once those literals are false.
-    // A unit clause is unit under every assignment, so it is valid at any
-    // position in an LRAT hint list — putting all of a step's strip units at
-    // the front is therefore always correct, and it is the only order that does
-    // not depend on which antecedent needs which unit.
+    // Strip units first: a unit is unit under every assignment, hence valid at
+    // any position in an LRAT hint list, and front-loading them is the only
+    // order independent of which antecedent needs which unit.
     for (const uint32_t c : st.chain) {
       if (c == 0 || c > p.orig_ids.size())
         continue; // a derived lemma carries no strip ledger
@@ -851,14 +746,14 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
     }
     for (const uint32_t c : st.chain) {
       if (c >= id_of.size() || id_of[c] == 0)
-        return false; // an antecedent we cannot name in the main proof
+        return false; // an antecedent with no name in the main proof
       chain.push_back(id_of[c]);
     }
     const bool final_step = (si + 1 == p.steps.size());
     if (final_step) {
-      // The target must be exactly the binary we are justifying. A shorter
-      // target (a unit) would be a STRONGER fact but a different proof delta,
-      // and it would have been RUP anyway, so the fast path already had it.
+      // The target must be exactly the binary being justified. A shorter target
+      // (a unit) is a stronger fact but a different proof delta, and it would
+      // have been RUP anyway, so the fast path already had it.
       if (lits.size() != 2)
         return false;
       const bool same = (lits[0] == t0 && lits[1] == t1) ||
@@ -890,25 +785,19 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
 
 ApplyResult sweep_apply(Kernel &k) {
   // TACTIX_NO_SWEEP: diagnostic kill switch, so a fuzz leg can run with V5
-  // inert and a crash be blamed on Sweep or exonerated. It stays because
-  // Sweep shares the RUP-replay primitive with Congruence, and a crash inside
-  // that primitive is otherwise unattributable between the two callers.
+  // inert. It stays because Sweep shares the RUP-replay primitive with
+  // Congruence, and a crash inside that primitive is otherwise unattributable
+  // between the two callers.
   if (std::getenv("TACTIX_NO_SWEEP"))
     return ApplyResult::NoOp;
   if (!sweep_guard(k))
     return ApplyResult::NoOp;
-  // D-LEVEL guard purification, the idiom every other inprocessing rule already
-  // uses (`transitive_reduce_apply_instance`, `lucky`). `sweep_guard` is a PURE
-  // precondition -- `!inconsistent && level == 0` -- and deliberately does not
-  // demand a root FIXPOINT, because demanding one would make the guard depend on
-  // scheduling state and cost N1. So the apply completes the root closure
-  // itself. Without this, Sweep could run with propagation still pending: the
-  // RUP replay then ran off a non-fixpoint root, and literals it forced at level
-  // 0 never went through `propagate_service`, which is the only place
-  // `unit_ids[v]` is recorded. The next LRAT chain to cite one of them tripped
-  // `kernel_lrat_chain`'s "cites a literal with no unit id" -- 43 crashes in the
-  // random-policy LRAT leg, none in DRAT (which re-derives its own units and so
-  // cannot see the defect).
+  // The guard stays a pure precondition — demanding a root fixpoint would make
+  // it depend on scheduling state and cost N1 — so the apply completes the root
+  // closure itself. Required, not tidiness: a RUP replay off a non-fixpoint
+  // root forces level-0 literals that never pass through `propagate_service`,
+  // the only place `unit_ids[v]` is recorded, and the next LRAT chain citing
+  // one trips `kernel_lrat_chain`.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (k.level != 0 || k.conflict_valid)
@@ -928,13 +817,10 @@ ApplyResult sweep_apply(Kernel &k) {
   // apply stays a pure clause-addition (proof delta: two `derive`s per pair).
   if (k.inconsistent)
     return ApplyResult::Unsat;
-  // TACTIX_SWEEP_FORCE_GENERAL: route EVERY proved equivalence through S-e by
-  // making the S-d fast path decline. A COVERAGE knob for the sweep stress
-  // policy, not a dosing one -- both paths justify the same two binaries, so
-  // the formula is identical either way and only the proof lines differ. It
-  // exists because S-e fires for the pairs RUP declines, which is ~8 in 4380 on
-  // fuzz-scale formulas: without it a green general-path leg is vacuous, which
-  // is how the S-e polarity N2 breach shipped past a green fuzz leg
+  // TACTIX_SWEEP_FORCE_GENERAL: make the RUP fast path decline so every proved
+  // equivalence routes through the general path. A coverage knob, not a dosing
+  // one — both paths justify the same two binaries. The general path otherwise
+  // fires too rarely on fuzz-scale formulas for a green leg to mean anything
   // (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`).
   const bool force_general = std::getenv("TACTIX_SWEEP_FORCE_GENERAL") != nullptr;
   std::vector<uint64_t> chain_fwd, chain_rev;
@@ -949,15 +835,11 @@ ApplyResult sweep_apply(Kernel &k) {
       k.stats.sweep_known++;
       continue;
     }
-    // ROOT-ASSIGNED LITERALS ARE NOT OURS.
-    // Detection runs over the seed set, which excludes fixed variables -- but
-    // emission happens after the whole round, and by then an earlier pair can
-    // have fixed one of these literals through the binaries it added, or the
-    // caller can have propagated. Adding a binary over a root-assigned literal
-    // turns it into a root unit that nothing recorded an id for, and the next
-    // LRAT chain to cite that literal trips
-    // `kernel_lrat_chain`'s "cites a literal with no unit id". A fixed
-    // literal's equivalences belong to V1 Probe / V2 Backbone anyway.
+    // Never emit over a root-assigned literal. Detection excludes fixed
+    // variables, but emission runs after the whole round, by which time an
+    // earlier pair's binaries may have fixed one — and such a binary becomes a
+    // root unit with no recorded id, tripping the next LRAT chain that cites
+    // that literal.
     if (k.value(e.a) != 0 || k.value(e.b) != 0)
       continue;
     if (!force_general &&
@@ -966,15 +848,14 @@ ApplyResult sweep_apply(Kernel &k) {
       continue;
     }
     k.stats.sweep_not_rup++;
-    // Not RUP, so replay the sub-solver's own refutation. Validate BOTH
-    // directions DRY before writing either, so the pair lands whole or not at all.
+    // Not RUP, so replay the sub-solver's own refutation. Both directions are
+    // validated dry before either is written, so the pair lands whole or not.
     if (e.a == e.b || e.a == negate(e.b) || idx >= round.proofs.size())
       continue;
     const SweepPairProof &pp = round.proofs[idx];
-    // The two captured targets must BE the equivalence -- one (¬a∨b) and the
-    // other (a∨¬b), in either order. Verified rather than assumed, so a capture
-    // that drifted out of step with `found` declines instead of emitting a
-    // binary the sub-solver did not prove.
+    // The two captured targets must be the equivalence, in either order.
+    // Verified rather than assumed, so a capture that drifted out of step with
+    // `found` declines instead of emitting an unproved binary.
     auto is_pair = [&](const SweepDirProof &p, Lit u, Lit v) {
       return (p.t0 == u && p.t1 == v) || (p.t0 == v && p.t1 == u);
     };
