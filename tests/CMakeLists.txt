@@ -237,6 +237,17 @@ add_test(NAME stat_ids
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-stat-ids.py)
 
+# A source citation in a living doc rots SILENTLY: the file still exists, the
+# defect it names is often still real, and the sentence still reads correct, so
+# a reader opens the wrong line and concludes the item is done. One open
+# PROGRESS item carried seven citations that were all stale while all seven
+# defects were still present. Narrow on purpose -- it judges only citations it
+# can attribute with certainty and prints what it skipped, so its green is not
+# mistaken for full coverage.
+add_test(NAME citations
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-citations.py)
+
 # Same shape, over source COMMENTS: they carry the invariant plus a reference
 # pointer, never the narrative of how we found out -- no dates, SLURM job ids,
 # window ids or score numbers (standing user directive, given twice). A one-off
