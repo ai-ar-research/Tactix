@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-07 (rev. 89). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-07 (rev. 90). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -409,6 +409,51 @@ Design commitments:
      When either is found, the fix is the reference-strength mechanism, and the crude stand-in is
      **deleted rather than tuned**. Record every open instance in the **scheduling-parity ledger**
      (N4's operational test) so the gap is visible without re-deriving it.
+  6. *TRANSLITERATION IS THE DEFAULT FIRST MOVE, not the fallback (rev 90, user 2026-08-07).*
+     DefaultPolicy should essentially **do what Kissat/CaDiCaL do in their default strategy**, with
+     N1–N4 satisfied; being more sophisticated is allowed, but only **on top of a transliterated
+     baseline that is kept as a permanent arm**, so the improvement is always measured against the
+     thing it claims to beat. This inverts where the burden of argument sits: obligation 1 still
+     forbids "Kissat does it" as a *reason*, but the deviation is now what owes the argument.
+     Grounds: the largest single scheduling win to date was pure transliteration — `HyperTernaryRes`
+     ran at 20‰ against cadical's `ternaryeffort` **8‰**, and matching it took one window
+     397.94 (28/30) → **319.19 (29/30)**, gaining a solve — while our inventions have a poor record
+     (0-for-5 hand-designed Factor separators; the composition density gate removed as
+     measured-neutral). Four riders, each already paid for:
+     - **(a) The references disagree, so there is a tie-break: KISSAT IS THE DEFAULT SOURCE.** It is
+       the N3/N4 reference and the further-away half (our Tier C rule-neutral subset is median
+       1.07× cadical against 1.51× kissat). A CaDiCaL divergence is ported only with a measured
+       reason, and the unported side is recorded as an arm — as `SP-SLOT-6` already does, where we
+       deliberately took kissat's NLOGN/NLOG2N probe spacing over cadical's near-constant one.
+     - **(b) Transliterate the MECHANISM AND ITS EFFECT, never the code — a port that goes inert is
+       worse than none**, because it reads as parity while doing nothing, which is exactly shape (a)
+       of obligation 5. The same constant can mean something different here: porting kissat's
+       substitute budget naively goes **inert**, since our `MIN_EFFORT_TICKS` floor is precisely
+       what stopped kissat using its own macro there (`SP-SUBST-2`); the same structure gives us
+       5–600× cadical's preprocessing dose (`SP-PREPROC-2`); cadical's eager-subsumption shape was
+       correctly **rejected** because it walks a `clauses` vector our flat arena does not have
+       (`SCHED-C6`). Units bite too — `covermaxeff` is unported because it counts propagations
+       where our counter counts literals. So a port must state, and where possible measure, that
+       the mechanism *fires* here.
+     - **(c) It is a FLOOR, not a target — never regress to parity.** We are already ahead in
+       places: binaries are inline tagged watch words where cadical's 16-byte `Watch` still carries
+       a `Clause*`; reason-side bumping runs at a measured rate 20 that exceeds both; native LRAT
+       exists here and not in kissat. N4 says *at least as sophisticated*, and this obligation does
+       not weaken that to *identical*.
+     - **(d) Where NO reference backs a constant, it is an invention: delete or re-derive it, do
+       not tune it.** Absence must be *shown* (read the option set and the use site — a mechanism
+       may be spelled differently or be an unnamed constant), not assumed from a failed grep. The
+       standing example is BCE: kissat has no blocked-clause elimination and cadical ships
+       `block`=0, so our 20‰, its slot position and its 3 rounds have no reference schedule behind
+       them and must be presented as ours wherever they are cited.
+     **The cheap first step this obligation makes standard:** before writing our code for a missing
+     mechanism, **price it by ablating it IN the reference** — the pinned reference binary, one
+     flag, no build and no pin directory (e.g. `kissat --tumble=0` measures `SP-DECIDE-2`'s prize
+     exactly). Subject to the ablate-one caveat in §8.3: survivors re-allocate effort, so a single
+     ablation is an UPPER bound and the batch needs its all-off control.
+     **N1 is unaffected and its shape is known:** the reference's *decision* is ported into the
+     policy as advice, never into a guard and never as a narrowed `instances()` (the O17 ruling;
+     the `SCHED-N1FIX` episode, where Factor's density predicate was NoOping inside `factor_apply`).
 
 ### 5.1 The public API (v1, C level — frozen at the phase-2 review, rev 20)
 
@@ -1473,3 +1518,4 @@ conflate them.
 - **rev. 87** (2026-08-06): §9 records the user's decision that the ~11.4 % non-terminating `--random-policy` population does **not** block the phase-3 exit (N1 robustness, not soundness; 0 % for DefaultPolicy; the harness prints it) — it had been recorded only in PROGRESS, i.e. a living doc quietly softening a plan gate. Plus six coherence fixes an audit found: **SBVA** is no longer listed as a rule family in §5 and §7 (it is an E2 `Factor` instance-selection strategy and §5.2 never had it), §5.3 no longer calls X2/X4/X5 "backlog rules", §5/§5.6 no longer say the macro scheduler "lands with C2" (it landed as Track SCHED and its dosing is phase 4), §11 O7 gains a decide-by point, and §9's phase-3 row no longer points at the effort-scheduler design, which moved with the dosing work. No gate, scope or non-negotiable change.
 - **rev. 88** (2026-08-06): §9 — the phase-3 REACHED condition is restated, because as rev 85 wrote it the condition was **unsatisfiable**: it demanded a `--require-reached` fuzz leg per family on the shipped DefaultPolicy, which no leg can ever give for an OFF-by-default family (S7 `Reorder`), which fuzz-sized instances cannot give for BVE or Factor, and which is not how R9's or R10's evidence was actually produced — both used source-counted probes on tier instances. Either form now counts, the OFF-by-default exemption is explicit and narrow, and a family firing on neither is named a finding. Found while checking whether phase 3 could exit; a gate condition that cannot be met is one that gets ignored or falsely ticked.
 - **rev. 89** (2026-08-07, user): §11 **O9 decided for the phase-4 campaign — SC2026 is NOT added**; Tier D's composition stays SC2024+SC2025 (793) because phase 4's Tier D obligation is scale evidence rather than a gate, and re-cutting the set mid-phase would make the campaign incomparable with the B/C overlap already measured. Deliberately still open, and reopening before the T4 evaluation: whether SC2026 joins or replaces a set. Same §8.1 edit records that T4's SC25 set is now a scoring VIEW (`benchmarks/tiers/D-sc25.list`, 400, derived from `D.sources`' per-track blocks, scored by `subset_score.py --subset D-sc25`) rather than the "no per-track flag, recompute by hand" the section used to describe. No gate, scope or non-negotiable change.
+- **rev. 90** (2026-08-07, user): §5 gains a SIXTH reference obligation — **transliteration is the default first move, not the fallback**. DefaultPolicy should essentially do what Kissat/CaDiCaL do in their default strategy with N1–N4 satisfied; being more sophisticated is allowed only on top of a transliterated baseline kept as a permanent arm, so the deviation now owes the argument rather than the port. Four riders: (a) when the references disagree, **kissat is the default source** and a cadical divergence is ported only with a measured reason; (b) transliterate the mechanism and its EFFECT, never the code — a port that goes inert reads as parity while doing nothing; (c) it is a FLOOR, not a target, so the places we already exceed both references do not regress; (d) a constant **no reference backs is an invention — delete or re-derive it, never tune it** (BCE's 20‰, slot position and 3 rounds are the standing example). Makes reference ABLATION the standard first step for pricing a missing mechanism, under §8.3's ablate-one caveat. N1–N4 unchanged and unweakened; N4 still reads *at least as sophisticated*, not *identical*.

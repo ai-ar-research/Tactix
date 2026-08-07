@@ -13,10 +13,17 @@
   - N3: DefaultPolicy performance comparable to Kissat (T4 gate).
 - `kissat/` (and other reference solvers) are untracked reference clones —
   never commit them, never copy code verbatim (transliterate + attribute).
-  References are evidence, not templates (plan §5): adopt an approach only
-  with an explicit fits-our-architecture argument, and check recent
-  competition winners (CaDiCaL-SC2025, AE-Kissat-MAB, SBVA-CaDiCaL), not
-  just plain Kissat.
+  **DefaultPolicy should essentially DO WHAT KISSAT/CADICAL DO in their default
+  strategy, with N1–N4 satisfied (plan §5 obligation 6, rev 90).** Transliteration
+  is the default first move and the *deviation* owes the argument; being more
+  sophisticated is allowed only on top of a transliterated baseline kept as a
+  permanent arm. **Kissat is the tie-break** when the two references disagree.
+  Port the mechanism and its EFFECT, never the code — an inert port reads as
+  parity while doing nothing. It is a FLOOR, not a target (we already exceed both
+  in places). A constant **no reference backs is an invention: delete or re-derive
+  it, never tune it.** Price a missing mechanism by ablating it IN the reference
+  first (one flag, no build). Still check recent competition winners
+  (CaDiCaL-SC2025, AE-Kissat-MAB, SBVA-CaDiCaL), not just plain Kissat.
 - **Everything this project creates lives under `SAT-solving/`. `$HOME` holds the
   user's OTHER projects — never write there** (re-org 2026-08-03, which pulled
   back 589 MB of patched builds, a stray git worktree, and a 565 MB proof dump).
