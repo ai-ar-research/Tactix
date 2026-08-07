@@ -1,23 +1,6 @@
-// SCHEDULING REGRESSION TESTS.
-//
-// WHY THIS FILE EXISTS. The rest of the suite is strong where the solver can be
-// WRONG (soundness: brute-force oracles, model checks on SAT, proof checks on
-// UNSAT, ASan/UBSan) and silent where it can be BADLY SCHEDULED. That gap is
-// not hypothetical — every scheduling defect found so far was caught by reading
-// reference source or by staring at a telemetry probe, and none of them would
-// have failed a test. Their shapes, all pinned below:
-//
-//   * a batch entry's budget pre-check UNFIREABLE by construction
-//   * the mode growth key running one switch ahead of kissat's
-//   * an effort meter under-pricing the work by orders of magnitude
-//   * instances() re-emitting its head every round and starving the tail
-//
-// A defect found by measurement costs a cluster window and an argument; the
-// same defect found here costs milliseconds. Scheduling is deterministic and
-// the policy exposes its transitions so tests can pose schedules directly.
-//
-// Each test below pins the REFERENCE'S OWN identity, not our current behaviour,
-// so it fails when we drift from kissat/cadical rather than when we change.
+// Scheduling regression tests. Each one pins the reference's own identity (a
+// kissat/cadical formula) or an N1 obligation, so it fails on drift from the
+// reference rather than on any change here.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -33,19 +16,11 @@
 
 using namespace tactix;
 
-// --- SCHED-B5: the mode growth key ---------------------------------------
-//
-// kissat mode.c:90 `const uint64_t count = (statistics->switched + 1) / 2;`,
-// scaled by kissat_nlogpown(count, 4) = count * (log10(count+9))^4
-// (kimits.c:27). `switched` and `limits.mode.count` are incremented at the SAME
-// site (mode.c:204-205) and this branch runs only on EVEN mode.count, so the
-// key is exactly mode.count/2 -- and the FIRST focused re-entry has key 1,
-// where log10(1+9)^4 = 1 exactly. So kissat's first focused interval is
-// `modeint` ON THE NOSE, an integer identity that cannot be fudged.
-//
-// We shipped `(mode.count / 2) + 1`, i.e. key 2, i.e. 2*log10(11)^4 ~= 2.35x
-// the reference interval, growing in the same direction forever after. This
-// test fails on that exact bug.
+// --- the mode growth key ---------------------------------------------------
+// kissat scales modeint by kissat_nlogpown(count, 4) with
+// count = (switched+1)/2 (mode.c:90, kimits.c:27); the branch runs only on even
+// mode.count, so the key is mode.count/2 and the first focused interval is
+// `modeint` exactly. A key one switch ahead scales it by ~2.35 forever after.
 static void test_mode_growth_key_matches_kissat(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -76,26 +51,15 @@ static void test_mode_growth_key_matches_kissat(void) {
   std::printf("  mode growth key: matches kissat's (switched+1)/2 ladder\n");
 }
 
-// --- SCHED-B3/E1: the RESUMPTION CURSOR, now a policy object ---------------
-//
-// The policy can only walk so far into a rule's candidate list before the
-// effort budget cuts the dose. Starting at the head every occasion means a
-// truncated round re-derives the same list and re-applies the same prefix, so
-// the tail is never reached -- which is why a tighter, HONEST budget for
-// TransitiveReduce measured NEGATIVE without a cursor (SCHED-B3): it bought
-// starvation, not economy. kissat keeps a per-variable pending bit to the same
-// end (`transitivekeep`, default 1).
-//
-// SCHED-E1 moved the cursor out of the rule (it was Kernel::transitive_cursor,
-// read inside transitive_reduce_instances) into DefaultPolicy::SlotEntry, where
-// every DOSED entry can share it and where a scheduling decision belongs. So
-// the mechanism is tested where it now lives: the RULE enumerates its set in
-// its own order, the POLICY decides where the walk starts.
+// --- the resumption cursor, a policy object --------------------------------
+// A dose cut partway into a candidate list must resume past what it consumed,
+// or it re-applies the same prefix and starves the tail (kissat's
+// `transitivekeep` bit serves the same end). The cursor lives in
+// DefaultPolicy::SlotEntry: the rule enumerates its set, the policy decides
+// where the walk starts.
 static void build_transitive_fan_fixture(Kernel &k) {
-  // A source needs out-degree >= 2 in the binary implication graph and at
-  // least one destination above it, so build ten FANS rather than a chain
-  // (a chain gives every literal out-degree 1 and yields no sources at all --
-  // which silently SKIPPED an earlier version of this test).
+  // A source needs out-degree >= 2 and a destination above it, so ten fans
+  // rather than a chain, which would give every literal out-degree 1.
   kernel_reserve_vars(k, 128);
   for (uint32_t s = 0; s < 10; s++)
     for (uint32_t t = 0; t < 4; t++)
@@ -110,10 +74,8 @@ static const RuleVTable *find_rule(const char *name) {
   return nullptr;
 }
 
-// A permutation check a set comparison cannot fake: same multiset, same size.
-// Every order arm and the cursor rotation must satisfy it, because a policy
-// that DROPPED a candidate would narrow what DefaultPolicy can reach and would
-// do it invisibly -- the rule would still accept the dropped payload.
+// Same multiset, same size. Every order arm and the cursor rotation must
+// satisfy it: dropping a candidate narrows what DefaultPolicy can reach.
 static bool same_multiset(std::vector<uint64_t> a, std::vector<uint64_t> b) {
   std::sort(a.begin(), a.end());
   std::sort(b.begin(), b.end());
@@ -131,8 +93,7 @@ static void test_slot_cursor_rotates(void) {
   }
   std::vector<uint64_t> buf(64, 0);
   const uint32_t n = v4->instances(k, buf.data(), 64);
-  // A skip here would make the test VACUOUS, which is worse than absent: it
-  // reads green while proving nothing. Demand the fixture instead.
+  // A skip here would be vacuous: green while proving nothing.
   assert(n >= 4 && "fixture must offer several sources or rotation is not "
                    "observable");
   buf.resize(n);
@@ -144,13 +105,11 @@ static void test_slot_cursor_rotates(void) {
   e.dosed = true;
   e.cursor_enabled = true;
 
-  // Cursor at 0 (nothing consumed yet): the walk starts at the head.
   p.order_candidates(k, e, buf.data(), n);
   assert(e.ord.rotated == 0 && "a fresh cursor must not rotate");
   assert(buf == native && "the native arm must leave the order alone");
 
-  // Consume the first two candidates, exactly as the dose loop does, then
-  // re-enumerate: the walk must NOT start at the head again.
+  // Consume the first two candidates as the dose loop does, then re-enumerate.
   Lit consumed;
   assert(lit_of_instance(native[1], &consumed));
   e.cursor = static_cast<uint64_t>(consumed) + 1;
@@ -172,16 +131,11 @@ static void test_slot_cursor_rotates(void) {
               "permutes\n");
 }
 
-// --- SCHED-E1: N1 -- the cursor moves the START, never the SET -------------
-//
-// The whole point of keeping resumption in the policy is that it cannot narrow
-// the rule. Three things are pinned, each able to regress on its own:
-//   1. `instances()` offers the same set wherever the policy's cursor is --
-//      the rule cannot see the cursor at all any more.
-//   2. `apply_instance` accepts a payload the cursor rotated PAST, and behaves
-//      exactly as with no cursor: same result, same effect.
-//   3. every order arm is a permutation, so nothing the policy walks can be
-//      dropped either.
+// --- N1: the cursor moves the start, never the set -------------------------
+// Resumption lives in the policy and must not narrow the rule: `instances()`
+// offers the same set wherever the cursor is, `apply_instance` accepts a
+// payload rotated past with the same result and effect, and every order arm is
+// a permutation.
 static void test_cursor_preserves_n1(void) {
   const RuleVTable *v4 = find_rule("TransitiveReduce");
   assert(v4 && v4->instances && v4->apply_instance);
@@ -216,9 +170,7 @@ static void test_cursor_preserves_n1(void) {
   assert(n2 == n && after == before &&
          "instances() must not depend on the policy's cursor");
 
-  // (2) a payload the walk was rotated past is still applicable, and applying
-  //     it is indistinguishable from applying it under a policy that never had
-  //     a cursor.
+  // (2) a payload rotated past is still applicable, with the same effect
   const uint64_t skipped = before[0];
   assert(walk[0] != skipped && "fixture: the cursor must have rotated past it");
   Kernel k1, k2;
@@ -231,9 +183,8 @@ static void test_cursor_preserves_n1(void) {
          k1.stats.transitive_deleted == k2.stats.transitive_deleted &&
          "apply_instance must be cursor-independent");
 
-  // (3) every arm is a permutation of the candidate set. Attaching a
-  //     CandidateOrderPolicy from outside is also the swappability check --
-  //     this is how a preset or the phase-6 learner takes over the order.
+  // (3) every arm permutes; an outside CandidateOrderPolicy is the hook a
+  //     preset or the phase-6 learner takes the order over through
   const CandidateOrder arms[] = {
       CandidateOrder::Native,  CandidateOrder::Reverse,
       CandidateOrder::Random,  CandidateOrder::OccAsc,
@@ -258,20 +209,16 @@ static void test_cursor_preserves_n1(void) {
               "cursor-independent, all 7 arms permute\n");
 }
 
-// --- SCHED-E2: each ordering arm must actually REORDER ---------------------
-//
-// An arm whose counter never moves was not tested, so every arm is pinned to
-// move something on a fixture where its key is not constant. Native is the
-// control: it must move NOTHING.
+// --- each ordering arm must actually reorder --------------------------------
+// Every arm must move something on a fixture where its key is not constant.
+// Native is the control: it must move nothing.
 static void test_order_arms_reorder(void) {
   const RuleVTable *v4 = find_rule("TransitiveReduce");
   assert(v4 && v4->instances);
   Kernel k;
   kernel_reserve_vars(k, 512);
-  // Fans of DIFFERENT widths on BOTH polarities, and widths that are not each
-  // other's complement -- otherwise occ(x)+occ(-x) comes out constant and the
-  // occurrence arms are silently inert on the fixture (which is the failure
-  // mode this whole test exists to catch).
+  // Fans of differing widths on both polarities, not each other's complement,
+  // or occ(x)+occ(-x) is constant and the occurrence arms are inert here.
   for (uint32_t s = 0; s < 10; s++) {
     for (uint32_t t = 0; t < 2 + s; t++)
       kernel_add_binary_clause(k, make_lit(s, true),
@@ -280,9 +227,8 @@ static void test_order_arms_reorder(void) {
       kernel_add_binary_clause(k, make_lit(s, false),
                                make_lit(300 + s * 16 + t, true));
   }
-  // `H` is OPTIONAL policy state, and the Heuristic arm falls back to native
-  // without it -- so attach one and give the variables distinct, SCRAMBLED
-  // scores, or that arm's pin is vacuous.
+  // `H` is optional policy state and the Heuristic arm falls back to native
+  // without it, so attach one with distinct, scrambled scores.
   ScopedHeuristics h(k);
   k.h->stable = true;
   for (uint32_t v = 0; v < k.nvars; v++)
@@ -328,23 +274,16 @@ static void test_order_arms_reorder(void) {
   std::printf("  order arms: 6 arms reorder, native is the identity\n");
 }
 
-// --- SCHED-B4: subsumption must meter PARTNER VISITS, not candidates ------
-//
-// cadical budgets subsumption in `stats.subchecks` (subsume.cpp:86), bumped once
-// per candidate partner actually compared, because the cost of "checking a
-// clause" is the length of its occurrence lists and not 1. Metering candidates
-// under-prices exactly the expensive ones -- by three orders of magnitude on a
-// hot-literal formula, which is how a rule can own most of a solve inside a
-// handful of "rounds" without ever exceeding its budget.
-//
-// A hot literal shared by many clauses makes the gap structural: one candidate,
-// many partners. If visits ever collapse back to ~checked, the meter has
-// silently reverted to counting candidates.
+// --- subsumption meters partner visits, not candidates ----------------------
+// cadical bumps `stats.subchecks` once per partner compared (subsume.cpp:86):
+// the cost of checking a clause is its occurrence-list length, not 1. Visits
+// collapsing back to ~checked means the meter counts candidates again, which
+// under-prices exactly the expensive rounds.
 static void test_subsume_meters_partner_visits(void) {
   Kernel k;
   kernel_reserve_vars(k, 96);
-  // LARGE clauses (binaries are not forward-subsumption candidates), all
-  // sharing one hot literal so a single candidate faces many partners.
+  // Large clauses (binaries are not candidates) sharing one hot literal, so a
+  // single candidate faces many partners.
   const Lit hot = make_lit(0, true);
   for (uint32_t i = 2; i < 60; i++) {
     const Lit c4[4] = {hot, make_lit(1, true), make_lit(i, true),
@@ -375,14 +314,10 @@ static void test_subsume_meters_partner_visits(void) {
               (unsigned long long)k.stats.forward_checked);
 }
 
-// --- SCHED-C1: Vivify's redundant scope must track the LIVE tier ----------
-//
-// kissat's vivify_tier2_limit (vivify.c:132) reads solver->tier2[0] whenever
-// `vivifyfocusedtiers` is set, and that option DEFAULTS TO 1 -- the dynamic
-// limit is the shipped behaviour. `Kernel::tier2` is recomputed from the glue
-// distribution on every reduce, and it is easy for that to be read by nothing
-// at all -- the "we own the mechanism and never wire it" shape this file exists
-// to catch. Moving the tier must move what Vivify will touch.
+// --- Vivify's redundant scope must track the live tier ----------------------
+// kissat's vivify_tier2_limit reads solver->tier2[0] whenever
+// `vivifyfocusedtiers` is set, and it defaults to 1 (vivify.c:132), so moving
+// `Kernel::tier2` must move what Vivify will touch.
 static void test_vivify_scope_tracks_tier2(void) {
   const RuleVTable *viv = nullptr;
   for (const RuleVTable &r : tactix_rules())
@@ -393,10 +328,8 @@ static void test_vivify_scope_tracks_tier2(void) {
     Kernel k;
     kernel_reserve_vars(k, 32);
     k.tier2 = tier2;
-    // Scope 1 is the band DEFINED by tier2, so it is the band this invariant is
-    // about. The unscoped scope 0 spans every band including tier3 and is
-    // therefore tier2-independent by construction (N1: bounding it made tier3
-    // unreachable through the API — tests/test_vivify_n1.cpp).
+    // Scope 1 is the band defined by tier2; scope 0 spans every band and is
+    // tier2-independent by construction (N1, tests/test_vivify_n1.cpp).
     k.vivify_scope = 1;
     // redundant clauses spanning a range of glues, all otherwise vivifiable
     for (uint32_t g = 2; g <= 10; g++) {
@@ -417,14 +350,11 @@ static void test_vivify_scope_tracks_tier2(void) {
          wide);
 }
 
-// --- SCHED-D1: the authored slot order covers the registry -----------------
-//
-// The slot order is DATA (default_slot_order). A rule the table does not name
-// is still scheduled — appended, registry order — which is exactly the T6
-// defect coming back for that rule: its position becomes an accident again.
-// This test fails when an Inprocess-tier rule is registered without being given
-// an authored position, and when the table names a rule that is not registered
-// at the Inprocess tier (a stale row orders nothing).
+// --- the authored slot order covers the registry ----------------------------
+// The slot order is data (default_slot_order), and an unnamed rule is still
+// scheduled — appended in registry order — so its position becomes an accident.
+// Every Inprocess-tier rule needs an authored position, and every authored row
+// needs a rule registered at that tier.
 static void test_authored_slot_order_covers_registry(void) {
   size_t norder = 0;
   const SlotOrderRow *order = default_slot_order(&norder);
@@ -455,14 +385,10 @@ static void test_authored_slot_order_covers_registry(void) {
   std::printf("  authored slot order: %zu rows, registry-complete\n", norder);
 }
 
-// --- SCHED-D2: the two clocks are actually two ------------------------------
-//
-// kissat runs the probing pipeline on probeint=100 x NLOGN (probe.c:85) and the
-// elimination pipeline on eliminateint=500 x NLOG2N (eliminate.c:600). Under
-// one clock everything rides the elimination cadence. This test fails if the
-// probing clock is ever scheduled no sooner than the elimination clock at the
-// same phase count -- i.e. if the split silently collapses back to one clock,
-// which is exactly the shape that makes an A/B arm vacuous.
+// --- the two clocks are actually two ----------------------------------------
+// kissat runs probing on probeint=100 x NLOGN (probe.c:85) and elimination on
+// eliminateint=500 x NLOG2N (eliminate.c:600), so at the same phase count the
+// probing clock must fire strictly sooner or the split has collapsed into one.
 static void test_two_slot_clocks_diverge(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -476,7 +402,7 @@ static void test_two_slot_clocks_diverge(void) {
     assert(p.probe_clock.next_conflicts < p.elim_clock.next_conflicts &&
            "the probing clock is not firing sooner than the elimination clock "
            "-- the two clocks have collapsed into one (SCHED-D2)");
-    // and the gap WIDENS: NLOG2N outgrows NLOGN (ledger SP-SLOT-1).
+    // and the gap must widen: NLOG2N outgrows NLOGN.
     if (n) {
       p.probe_clock.rounds = n - 1;
       p.elim_clock.rounds = n - 1;
@@ -499,23 +425,18 @@ static void test_two_slot_clocks_diverge(void) {
               (unsigned long long)p.elim_clock.next_conflicts);
 }
 
-// --- SCHED-D3: the elapsed interval is necessary, not sufficient -----------
-//
-// kissat eliminate.c:33-38 and cadical elim.cpp:75-81 both refuse an
-// elimination phase whose interval has elapsed but which has no new material to
-// act on; cadical probe.cpp:23 refuses an inprobe phase with no reduce since the
-// last one. Both gates are SAFETY VALVES: on most instances the pipeline keeps
-// producing material and they never bind, which is exactly why they need a unit
-// test -- a tier run cannot distinguish "gate correct and quiet" from "gate
-// wired to nothing".
+// --- the elapsed interval is necessary, not sufficient ----------------------
+// kissat eliminate.c:33-38 and cadical elim.cpp:75-81 refuse an elimination
+// phase with no new material even once its interval elapsed; cadical
+// probe.cpp:23 refuses an inprobe phase with no reduce since the last one.
 static void test_slot_gates_decline_without_new_material(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
   p.inprocess.initialized = true;
   k.stats.conflicts = 100;
-  // Past the first phase on both clocks, intervals elapsed, marks == live: the
-  // interval says GO and the gates must still say no.
+  // Past the first phase, intervals elapsed, marks == live: the interval says
+  // go and the gates must still say no.
   p.probe_clock.rounds = p.elim_clock.rounds = 1;
   p.probe_clock.next_conflicts = p.elim_clock.next_conflicts = 0;
   p.probe_clock.reductions_mark = k.stats.reductions;
@@ -537,9 +458,8 @@ static void test_slot_gates_decline_without_new_material(void) {
   assert(p.want_slot_phase(k, SlotGroup::Eliminate));
   k.stats.reductions++;
   assert(p.want_slot_phase(k, SlotGroup::Probe));
-  // The FIRST phase of each clock is exempt -- it is the preprocessing pass and
-  // has no previous phase to be new relative to (cadical's
-  // `stats.inprobingphases &&`).
+  // The first phase is exempt: preprocessing has no previous phase to be new
+  // relative to (cadical `stats.inprobingphases &&`).
   DefaultPolicy q;
   q.inprocess.initialized = true;
   q.probe_clock.next_conflicts = q.elim_clock.next_conflicts = 0;
@@ -552,19 +472,13 @@ static void test_slot_gates_decline_without_new_material(void) {
   std::printf("  slot gates: decline without new material, re-admit with it\n");
 }
 
-// --- SCHED-E3 / SP-EFFORT-CEIL-1: the effort budget's UPPER clamp ----------
-//
-// Our per-occasion delta is a fixed per-mille of the search work since the
-// entry last ran and nothing bounded it from above. kissat's own
-// SET_EFFORT_LIMIT (kimits.h:135-170) has no ceiling either -- there is no
-// `maxeffort` option in kissat -- so the clamp comes from cadical's
-// PROPAGATIONS scheme, which is a THREE-step composition and the order of the
-// steps is the substance:
-//     delta = max(delta, mineff); delta = min(delta, maxeff);
-//     delta = max(delta, 2*active())
-// The active floor comes LAST (elim.cpp:787, subsume.cpp:357), so on a large
-// formula it can lift the delta back ABOVE the ceiling. Reading the three as a
-// simple clamped range gets that backwards.
+// --- the effort budget's upper clamp ----------------------------------------
+// kissat's SET_EFFORT_LIMIT has no ceiling (kimits.h:135-170), so the clamp
+// follows cadical's propagation scheme, whose three steps compose in a
+// load-bearing order: max(delta, mineff), then min(delta, maxeff), then
+// max(delta, 2*active()). The active floor comes last (elim.cpp:787,
+// subsume.cpp:357), so on a large formula it lifts the delta back above the
+// ceiling — the three are not a simple clamped range.
 static void test_effort_ceiling(void) {
   const RuleVTable *bve = find_rule("BVE");
   assert(bve);
@@ -576,13 +490,13 @@ static void test_effort_ceiling(void) {
   e.permille = 100;
   e.meter = [](const Kernel &) -> uint64_t { return 0; };
 
-  // No search yet, so the reference is floored at MIN_EFFORT_TICKS and the
-  // delta is 1e7/1000*100 == 1e6. Uncapped entry: no clamp, no count.
+  // No search yet: the reference floors at MIN_EFFORT_TICKS, so the delta is
+  // 1e7/1000*100 == 1e6, and an uncapped entry neither clamps nor counts.
   p.set_entry_limit(e, k);
   assert(e.limit == 1000000 && e.tm.clamped == 0 && e.tm.floored == 0);
 
-  // A ceiling below that must BIND and must be COUNTED -- an uncounted clamp
-  // is a dose change nothing can attribute.
+  // A ceiling below that must bind and be counted: an uncounted clamp is a
+  // dose change nothing can attribute.
   e.max_delta = 250000;
   p.set_entry_limit(e, k);
   assert(e.limit == 250000 && e.tm.clamped == 1);
@@ -594,8 +508,7 @@ static void test_effort_ceiling(void) {
   assert(e.limit == 800000 && e.tm.clamped == 2 && e.tm.floored == 1 &&
          "cadical floors AFTER clamping, so the floor wins on a big formula");
 
-  // A ceiling ABOVE the natural delta is inert -- which is the shipped case,
-  // and the reason the row closes on a measurement rather than on a number.
+  // A ceiling above the natural delta is inert, which is the shipped case.
   e.active_floor = false;
   e.max_delta = 1000000000ull;
   const uint64_t clamped_before = e.tm.clamped;

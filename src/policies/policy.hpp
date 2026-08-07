@@ -1,10 +1,9 @@
-// Policy interface (plan §5 — load-bearing): rule-application
-// ORDER is decided by a Policy object; DefaultPolicy is one instantiation
-// with no special architectural status. ALL scheduling heuristics and
-// their state (restart triggers, reduce intervals, mode switching,
-// classification, budgets) are implemented in and owned by the policy —
-// rules expose pure soundness guards, instances, apply, and statistics.
-// Policies observe kernel state/stats and rule results; rules never push
+// Policy interface (plan §5, load-bearing): rule-application order is decided
+// by a Policy object, and DefaultPolicy is one instantiation with no special
+// architectural status. Every scheduling heuristic and its state (restart
+// triggers, reduce intervals, mode switching, classification, budgets) is owned
+// by the policy; rules expose only pure soundness guards, instances, apply and
+// statistics. Policies observe kernel state and rule results; rules never push
 // scheduling state.
 #pragma once
 
@@ -21,7 +20,7 @@ public:
   virtual int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) = 0;
 };
 
-// Sub-policies (BranchingPolicy, ReductionPolicy, BveBoundPolicy, …) — the swappable
-// per-decision heuristics a Policy composes — live in policies/subpolicy.hpp.
+// The swappable per-decision heuristics a Policy composes (BranchingPolicy,
+// ReductionPolicy, BveBoundPolicy, ...) live in policies/subpolicy.hpp.
 
 } // namespace tactix

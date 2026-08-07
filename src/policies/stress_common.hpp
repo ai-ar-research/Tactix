@@ -1,8 +1,7 @@
-// Shared scaffolding for RandomPolicy and the stress policies — the §5.6
-// N1-schedule oracle. These three pieces were copied per policy (ten
-// byte-identical RNGs, prefix-renamed only to dodge ODR; ten literal draws; four
-// env parsers, one of which had DRIFTED), which is `RV-S27`: a divergent copy in
-// the component whose job is to be an oracle makes the oracle the unknown.
+// Shared scaffolding for RandomPolicy and the stress policies (plan §5.6, the
+// N1-schedule oracle). These pieces must not be re-copied per policy: a
+// divergent copy inside the component whose job is to be an oracle makes the
+// oracle the unknown.
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -21,9 +20,9 @@ inline uint64_t stress_random(uint64_t &s) {
   return s * 0x2545F4914F6CDD1Dull;
 }
 
-// Uniform over ALL unassigned variables (the theoretical instance space), then a
-// uniform phase. Deliberately NOT drawn from a heuristic's ranking: posing the
-// schedules DefaultPolicy would never pose is the whole purpose (N1).
+// Uniform over every unassigned variable (the theoretical instance space), then
+// a uniform phase. Deliberately not drawn from a heuristic's ranking: posing
+// the schedules DefaultPolicy never would is the whole purpose (N1).
 inline Lit stress_random_unassigned_literal(Kernel &k, uint64_t &rng) {
   assert(k.unassigned > 0);
   for (;;) {

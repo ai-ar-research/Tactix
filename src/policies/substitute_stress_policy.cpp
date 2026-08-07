@@ -48,7 +48,7 @@ int substitute_stress_solve(Kernel &k, uint64_t seed,
               (unsigned long long)k.stats.congruence_merges,
               (unsigned long long)k.stats.sweep_equivalences,
               (int)k.conflict_valid, (int)k.inconsistent);
-    kernel_check_invariants(k); // PER-STEP (not every-256): pin the culprit
+    kernel_check_invariants(k); // per step, not every-256: pin the culprit
   };
 
   for (uint64_t steps = 0;; steps++) {
@@ -66,9 +66,9 @@ int substitute_stress_solve(Kernel &k, uint64_t seed,
       continue;
     }
 
-    // The stressed window, deliberately BEFORE the propagate branch so
-    // Substitute is entered off a propagation fixpoint and immediately again on
-    // the graph its own rewrite just changed.
+    // The stressed window sits before the propagate branch on purpose, so
+    // Substitute is entered off a propagation fixpoint and again on the graph
+    // its own rewrite just changed.
     if (k.level == 0) {
       bool progressed = false;
 
@@ -112,8 +112,8 @@ int substitute_stress_solve(Kernel &k, uint64_t seed,
       }
 
       // (c) the partners, rotated, so the graph Substitute reads next round has
-      //     been both grown and shrunk, and ρ carries other rules' segments
-      //     between Substitute's witness pairs.
+      //     been both grown and shrunk, and ρ carries their segments between
+      //     Substitute's witness pairs.
       if (!solo) {
         const uint64_t start = stress_random(rng) % 5;
         for (uint32_t i = 0; i < 5; i++) {

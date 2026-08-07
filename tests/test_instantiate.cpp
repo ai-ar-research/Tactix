@@ -1,7 +1,6 @@
-// X4 Instantiate unit tests: the success shape (a rare literal removed after
-// the assume-and-propagate probe conflicts), each of cadical's three candidate
-// filters (occurrence limit, minimum size, "avoid learning units"), the
-// no-conflict failure, model preservation, and the instance surface.
+// X4 Instantiate: the success shape (a rare literal removed after the
+// assume-and-propagate probe conflicts), cadical's three candidate filters,
+// model preservation, and the instance surface.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -27,8 +26,6 @@ static void addn(Kernel &k, std::vector<int> ds) {
                             /*redundant=*/false, 0);
 }
 
-// the same lookup by Ref -- `instantiate_try` takes the arena position, which
-// is what the instance surface hands the policy.
 static Ref find_ref(const Kernel &k, uint32_t size) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -49,11 +46,9 @@ static const Clause *find_clause(const Kernel &k, uint32_t size) {
   return nullptr;
 }
 
-// THE SHAPE THE RULE EXISTS FOR. C = (1 ∨ 2 ∨ 3 ∨ 5) with literal 1 occurring
-// nowhere else; (¬1 ∨ 4) and (¬1 ∨ ¬4) make {1} propagate to a conflict, so
-// F ⊨ ¬1 ∨ (2 ∨ 3 ∨ 5), which resolves against C to give (2 ∨ 3 ∨ 5).
-// Note ¬1 is NOT root-derivable by propagation — only by resolution — so this
-// really is the instantiation test doing the work.
+// The shape the rule exists for: literal 1 is rare and {1} propagates to a
+// conflict, so F ⊨ ¬1 ∨ (2 ∨ 3 ∨ 5) resolves against C to drop 1 — and ¬1 is
+// not root-derivable by propagation, so instantiation is doing the work.
 static void test_removes_rare_literal() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -72,9 +67,8 @@ static void test_removes_rare_literal() {
   assert(default_solve(k) == 10); // still SAT: the rewrite is model-preserving
 }
 
-// The same success shape at the size boundary: a TERNARY candidate strengthens
-// to a binary, which this kernel stores outside the arena (kernel_replace_
-// clause's Binary outcome) — the path the quaternary case does not exercise.
+// At the size boundary a ternary becomes a binary, which lives outside the
+// arena (`kernel_replace_clause`'s Binary outcome).
 static void test_ternary_becomes_binary() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -88,9 +82,7 @@ static void test_ternary_becomes_binary() {
   assert(default_solve(k) == 10);
 }
 
-// OCCURRENCE LIMIT (cadical instantiateocclim = 1): literal 1 now occurs in a
-// second clause, so no literal of either clause is both rare and provable —
-// the probes run and none of them fires.
+// Occurrence limit (cadical `instantiateocclim` = 1): nothing is rare enough.
 static void test_occurrence_limit_rejects() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -100,12 +92,10 @@ static void test_occurrence_limit_rejects() {
   addn(k, {-1, -4});
   assert(instantiate_apply(k) == ApplyResult::NoOp);
   assert(k.stats.instantiated == 0);
-  assert(k.stats.instantiate_checked > 0); // the rare literals WERE probed
+  assert(k.stats.instantiate_checked > 0); // the rare literals were probed
 }
 
-// "AVOID LEARNING UNITS" (cadical's `unassigned < 3`): with 3 falsified at the
-// root the candidate has only two unassigned literals, so it is not a
-// candidate at all — even though literal 1 is still rare and still provable.
+// Avoid learning units (cadical's `unassigned < 3`): only two literals free.
 static void test_unit_avoidance() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -120,8 +110,7 @@ static void test_unit_avoidance() {
   assert(instantiate_apply(k) == ApplyResult::NoOp);
 }
 
-// MINIMUM CLAUSE SIZE: binaries are never candidates (INST_CLSLIM = 3), which
-// is also what keeps the rule out of C2 Strengthen's territory.
+// Minimum clause size: binaries are never candidates (INST_CLSLIM = 3).
 static void test_binary_not_a_candidate() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -134,8 +123,7 @@ static void test_binary_not_a_candidate() {
   assert(instantiate_apply(k) == ApplyResult::NoOp);
 }
 
-// NO CONFLICT ⇒ NO REWRITE: the probe simply fails and the formula is
-// untouched (the common case — this is a test, not a theorem prover).
+// No conflict, no rewrite: the probe fails and the formula is untouched.
 static void test_probe_failure_is_a_noop() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -147,8 +135,7 @@ static void test_probe_failure_is_a_noop() {
   assert(find_clause(k, 3) != nullptr); // the candidate survived intact
 }
 
-// REDUNDANT CLAUSES ARE OUT OF SCOPE (deviation 1): the same shape with the
-// candidate learned instead of original is left to C3 Vivify.
+// Redundant clauses are out of scope (deviation 1): C3 Vivify owns them.
 static void test_redundant_out_of_scope() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -162,8 +149,7 @@ static void test_redundant_out_of_scope() {
   assert(instantiate_apply(k) == ApplyResult::NoOp);
 }
 
-// INSTANCE SURFACE (§5.1 v1): the enumeration yields the candidate's Ref, and
-// applying that payload does exactly what the canonical round does.
+// Instance surface (plan §5.1): the payload is the candidate's Ref.
 static void test_instance_surface() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -185,7 +171,7 @@ static void test_instance_surface() {
   assert(default_solve(k) == 10);
 }
 
-// GUARD: off the root the rule is not applicable (D-ROOT).
+// Guard: off the root the rule is not applicable (D-ROOT).
 static void test_guard() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -198,9 +184,8 @@ static void test_guard() {
   assert(!instantiate_guard(k));
 }
 
-// SCHED-F3 · N1 REGRESSION for the touched-epoch filter. With the watermark
-// advanced past everything the canonical ROUND declines, but `instances()` and
-// the single-candidate `apply_instance` path must stay complete.
+// N1: the touched-epoch filter is policy-only. With the watermark advanced the
+// round declines, but `instances()` and `apply_instance` stay complete.
 static void test_touch_filter_is_policy_only() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -217,18 +202,16 @@ static void test_touch_filter_is_policy_only() {
       v = &r;
   assert(v && v->guard(k));
   uint64_t out[8];
-  assert(v->instances(k, out, 8) == 1); // NOT narrowed by the mark
+  assert(v->instances(k, out, 8) == 1); // not narrowed by the mark
   assert(v->apply_instance(k, out[0]) == ApplyResult::Ok);
   assert(k.stats.instantiated == 1);
 }
 
-// SCHED-H1 · both interrupt sites, pinned deterministically. The literal-loop
-// site is the one that matters for state: it sits where a failed probe has
-// already unwound the trail and closed the probing scope, so the test also
-// asserts the kernel is left at a quiescent root and still SAT.
+// Both interrupt sites. The literal-loop site sits past a failed probe's unwind
+// and scope close, so the kernel must be left at a quiescent root, still SAT.
 static void test_interrupt() {
   volatile sig_atomic_t stop = 1;
-  { // the ROUND loop over candidate clauses
+  { // the round loop over candidate clauses
     Kernel k;
     kernel_reserve_vars(k, 5);
     addn(k, {1, 2, 3, 5});
@@ -241,7 +224,7 @@ static void test_interrupt() {
     assert(k.stats.rule_interrupted == 1);
     assert(k.level == 0 && !k.inconsistent);
   }
-  { // the per-candidate LITERAL loop, through the single-instance entry
+  { // the per-candidate literal loop, through the single-instance entry
     Kernel k;
     kernel_reserve_vars(k, 5);
     addn(k, {1, 2, 3, 5});

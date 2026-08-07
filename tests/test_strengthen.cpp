@@ -1,6 +1,5 @@
-// C2 Strengthen unit tests: fused subsume-or-strengthen round, cascades,
-// unit-producing strengthen, instance surface, and the registry-driven
-// inprocessing slot (schedule-as-data).
+// C2 Strengthen: fused subsume-or-strengthen round, cascades, unit-producing
+// strengthen, instance surface, and the registry-driven inprocessing slot.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -41,8 +40,7 @@ static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
 }
 
 static void test_binary_strengthens_large() {
-  // c = (1 2 3), d = (-1 2): resolving on 1 drops 1 from c -> (2 3),
-  // stored as a fresh binary; the original dies
+  // resolving c = (1 2 3) on 1 against (-1 2) leaves the binary (2 3)
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
@@ -72,8 +70,7 @@ static void test_fused_subsumption() {
 }
 
 static void test_large_partner_and_cascade() {
-  // c = (1 2 3 4); d = (-1 2 3) strengthens it to (2 3 4); then the
-  // binary (-2 3) strengthens THAT to (3 4) in the same candidate cascade
+  // (1 2 3 4) -> (2 3 4) via (-1 2 3), then -> (3 4) via (-2 3): one cascade
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c[4] = {internalize(1), internalize(2), internalize(3),
@@ -83,20 +80,14 @@ static void test_large_partner_and_cascade() {
   kernel_add_large_clause(k, d, 3, false, 0);
   kernel_add_binary_clause(k, internalize(-2), internalize(3));
   assert(strengthen_apply(k) == ApplyResult::Ok);
-  // d itself first gets strengthened by (-2 3)? d = (-1 2 3): binary
-  // (-2 3) with marks over d's lits {-1,2,3}: probe phases of 2 find
-  // (-2,3): flip on 2 -> d -> (-1 3). So the round strengthens BOTH.
+  // d is itself strengthened by (-2 3) to (-1 3), so one round acts twice
   assert(k.stats.strengthened >= 2);
   assert(default_solve(k) == 10);
 }
 
 static void test_unit_producing_strengthen_ends_round() {
-  // root unit -1 (so 1 is falsified in c); c = (1 2 3); d = (-2 3):
-  // root units -1 and -2 leave c = (1 2 3) with one free literal; the
-  // flush pre-pass strips both falsified literals -> unit (3), asserted
-  // at the root; the pass ends (values changed). (Partner strengthens
-  // can no longer produce units: the flush owns the falsified-literal
-  // path, and post-flush candidates lose at most one literal per act.)
+  // The flush pre-pass strips both root-falsified literals to the unit (3) and
+  // ends the pass; only the flush can produce a unit.
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_assign_unit(k, internalize(-1));
@@ -114,8 +105,7 @@ static void test_unit_producing_strengthen_ends_round() {
 }
 
 static void test_instance_surface() {
-  // instances() lists candidates size-ascending; apply_instance on the
-  // large candidate performs exactly one step
+  // instances() lists candidates size-ascending; apply_instance does one step
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c[4] = {internalize(1), internalize(2), internalize(3),
@@ -132,13 +122,10 @@ static void test_instance_surface() {
   assert(k.stats.strengthened == 1);
   const Lit expect[3] = {internalize(2), internalize(3), internalize(4)};
   live_large(k, expect, 3); // asserts the strengthened clause exists
-  // junk payloads are rejected, not dereferenced
-  assert(rules[id].apply_instance(k, 999999) == ApplyResult::NoOp);
+  assert(rules[id].apply_instance(k, 999999) == ApplyResult::NoOp); // junk
 }
 
-// Pose one elimination-clock slot entry, leaving every other field at its
-// in-class default. Naming only the three fields a test cares about keeps a new
-// SlotEntry field from silently defaulting to a value the test never chose.
+// Pose one elimination-clock slot entry; other fields keep in-class defaults.
 static DefaultPolicy::SlotEntry pose(int rule, bool enabled) {
   DefaultPolicy::SlotEntry e;
   e.rule = rule;
@@ -148,11 +135,7 @@ static DefaultPolicy::SlotEntry pose(int rule, bool enabled) {
 }
 
 static void test_slot_schedule_as_data() {
-  // the registry-driven slot : the tier tag is readable, posed
-  // slots are honored in order with enabled flags, and a disabled entry
-  // never runs. (The default composition is the always-on S4 arrangement;
-  // tests POSE slots — the same override surface presets and the phase-6
-  // learner use.)
+  // A posed slot is honored in order, and a disabled entry never runs.
   const std::vector<RuleVTable> &rules = tactix_rules();
   const int strengthen_id = tactix_rule_id("Strengthen");
   const int subsume_id = tactix_rule_id("SubsumeForward");
@@ -165,16 +148,14 @@ static void test_slot_schedule_as_data() {
       {internalize(2), internalize(3)},   {internalize(-2), internalize(-3)},
       {internalize(1), internalize(3)},   {internalize(-1), internalize(-3)}};
   {
-    // posed slot: Strengthen on, SubsumeForward off; forced to fire from
-    // the first conflict check
+    // posed: Strengthen on, SubsumeForward off, forced from the first check
     Kernel k;
     kernel_reserve_vars(k, 3);
     for (const auto &b : xor3)
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
     p.inprocess.initialized = true;
-    // Both slot clocks forced open; the posed entries sit on the elimination
-    // clock, which is where the authored order puts these two rules.
+    // both clocks forced open; these two rules sit on the elimination clock
     p.probe_clock.next_conflicts = 0;
     p.elim_clock.next_conflicts = 0;
     p.inprocess_slot.push_back(pose(strengthen_id, true));
@@ -202,9 +183,8 @@ static void test_slot_schedule_as_data() {
 }
 
 static void test_root_flush() {
-  // the flush pre-pass (kissat sparse-collection effect, rule-side):
-  // a root-satisfied clause is deleted; root-falsified literals are
-  // stripped — including from REDUNDANT clauses, preserving redundancy
+  // Flush pre-pass (kissat's sparse collection, rule-side): root-satisfied
+  // clauses die and root-falsified literals are stripped, redundant ones too.
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_assign_unit(k, internalize(1));
@@ -221,17 +201,10 @@ static void test_root_flush() {
   assert(default_solve(k) == 10);
 }
 
-// SCHED-H1 · C2's interrupt sites. It has FOUR — the flush pre-pass over the
-// whole arena, the candidate loop, the cascade that re-checks one shrinking
-// candidate, and the single-instance entry — because a poll in only one of
-// them still leaves a round that ignores the interrupt for the duration of the
-// others. There is NO cadence, so a raised flag fires at the first poll.
-//
-// The flush pre-pass runs FIRST and polls per arena clause, so a flag raised
-// before the call can only ever be caught there; the candidate-loop and
-// cascade sites are reached instead through the deterministic stress cadence,
-// which is exactly what it exists for. `strengthen_checked > 0` at the abort
-// is the witness that the flush completed and the fire came from further in.
+// C2 polls for interrupt at four sites — flush pre-pass, candidate loop,
+// cascade, single-instance entry — with no cadence. The flush runs first and
+// catches any pre-set flag; the later sites need the stress cadence, with
+// `strengthen_checked > 0` at the abort as the witness they were reached.
 static void fill_interrupt_case(Kernel &k, int n) {
   kernel_reserve_vars(k, 3 * n + 4);
   for (int i = 0; i < n; i++) {
@@ -244,7 +217,7 @@ static void fill_interrupt_case(Kernel &k, int n) {
 static void test_interrupt() {
   volatile sig_atomic_t stop = 1;
   const Lit c3[3] = {internalize(1), internalize(2), internalize(3)};
-  { // (1) the FLUSH pre-pass, the round's first poll
+  { // (1) the flush pre-pass, the round's first poll
     Kernel k;
     kernel_reserve_vars(k, 3);
     kernel_add_large_clause(k, c3, 3, false, 0);
@@ -256,13 +229,13 @@ static void test_interrupt() {
     assert(k.stats.strengthen_interrupted == 1);
     assert(k.stats.rule_interrupted == 1);
     assert(!k.strengthen_complete);
-    // A flush-pass abort leaves `candidates` EMPTY, so there is no tail to
-    // re-arm — advancing the watermark would retire the whole formula unseen.
+    // A flush-pass abort leaves `candidates` empty, so there is no tail to
+    // re-arm: advancing the watermark would retire the whole formula unseen.
     assert(k.strengthen_touch_mark == 0 &&
            k.stats.strengthen_mark_advances == 0);
     kernel_check_invariants(k);
   }
-  { // (2) the single-instance entry, which NEITHER governor reached before H1
+  { // (2) the single-instance entry
     Kernel k;
     kernel_reserve_vars(k, 3);
     const Ref cref = kernel_add_large_clause(k, c3, 3, false, 0);
@@ -288,10 +261,9 @@ static void test_interrupt() {
     assert(t.stats.strengthen_subsumed == 1 &&
            t.stats.strengthen_interrupted == 0);
   }
-  { // (3) PAST the flush: the candidate loop / cascade. The stress cadence
+  { // (3) past the flush: the candidate loop / cascade. The stress cadence
     // fires on a deterministic 1-in-m draw, so sweeping m walks the first fire
-    // out of the 200-clause flush pass and into the candidate loop. A sweep
-    // that finds none fails loudly here rather than leaving the site unproven.
+    // past the flush pass; a sweep that finds none must fail loudly here.
     bool past_flush = false;
     for (uint32_t m = 100; m <= 6000 && !past_flush; m += 100) {
       Kernel k;
@@ -307,7 +279,7 @@ static void test_interrupt() {
       }
     }
     assert(past_flush);
-    Kernel c; // negative control: same formula, no knob, round COMPLETES
+    Kernel c; // negative control: same formula, no knob, round completes
     fill_interrupt_case(c, 200);
     assert(strengthen_apply(c) == ApplyResult::NoOp);
     assert(c.stats.strengthen_interrupted == 0 && c.strengthen_complete);

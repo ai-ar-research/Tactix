@@ -1,11 +1,9 @@
-// RandomPolicy (plan §8.2 rule-order fuzzing): a second Policy
-// instantiation that drives the solver purely through the rule registry,
-// choosing uniformly at random among the rules whose SOUNDNESS guard
-// holds — using no scheduling heuristics whatsoever — and, for
-// Decide, branching on a uniformly random unassigned literal with a random
-// phase (the full theoretical instance space, not the heuristic ranking).
-// Soundness and proof validity must survive any schedule this generates;
-// this is the property that distinguishes the architecture (N1).
+// RandomPolicy (plan §8.2 rule-order fuzzing): drives the solver purely through
+// the rule registry, choosing uniformly among the rules whose soundness guard
+// holds with no scheduling heuristics, and for Decide branching on a uniformly
+// random unassigned literal with a random phase — the full theoretical instance
+// space, not a heuristic ranking. Soundness and proof validity must survive
+// every schedule it generates; that is N1.
 #pragma once
 
 #include "policies/policy.hpp"

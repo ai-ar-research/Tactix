@@ -1,23 +1,10 @@
-// N1 REGRESSION for C1/C2's VICTIM scope, plus SCHED-F7's band scope and the
-// isolation the band rests on.
-//
-// A round-scope narrowing is legal (it is the `touch_filter` category: WHAT TO
-// TRY is policy). A narrowing of `instances()` or of `apply_instance` is not —
-// it removes an inference no API caller can get back, which is the shape
-// SCHED-N1FIX had to repair in Factor and RV-S10 found again in Vivify. C1/C2
-// used to reject every REDUNDANT clause as a victim on all three paths at once,
-// so nothing distinguished the two categories; F7 separates them and this test
-// is what keeps them separated:
-//   (a) `instances()` offers a redundant victim and `apply_instance` accepts it,
-//       with the band OFF — the API is complete regardless of the round's scope;
-//   (b) the canonical ROUND with the band off leaves that same clause alone,
-//       i.e. the narrowing really is round-only;
-//   (c) with the band ON the round acts on it, and stops acting the moment
-//       `k.tier2` moves it out of the band — the scope tracks the LIVE tier
-//       rather than a frozen constant, which one count could not show;
-//   (d) a band stamp writes `touched_kept` and never `touched`, which is what
-//       makes the ON arm inert for the five consumers that cannot act on the
-//       band (the isolation claim at Kernel::touched_kept).
+// N1 regression for C1/C2's victim scope. Narrowing the round is policy
+// (`touch_filter`); narrowing `instances()` or `apply_instance` removes an
+// inference no API caller can get back. Pinned: (a) the instance surface offers
+// and accepts a redundant victim; (b) the round declines it, so the narrowing
+// is round-only; (c) with the band on the round acts and tracks `k.tier2` live;
+// (d) a band stamp writes `touched_kept`, never `touched`, so band-blind
+// consumers are unaffected. See docs/implementation-notes.md.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
@@ -78,7 +65,7 @@ static void test_c1_redundant_victim_is_reachable() {
     assert(!garbage_at(k, victim) && "the ROUND may decline; that is policy");
   }
   { // (a) ...and the public surface does not. Same formula, driven through the
-    // registry exactly as tactix_apply_instance routes an external policy.
+    // registry, as `tactix_apply_instance` routes an external policy
     Kernel k;
     kernel_reserve_vars(k, 4);
     add(k, {1, 2, 3}, false, 3);
@@ -98,8 +85,7 @@ static void test_c1_redundant_victim_is_reachable() {
   }
 }
 
-// (a) for C2, on the STRENGTHEN branch: the redundant clause loses a literal to
-// an irredundant partner. The partner-side redundancy check is untouched.
+// (a) for C2: the redundant clause loses a literal to an irredundant partner.
 static void test_c2_redundant_victim_is_reachable() {
   const RuleVTable *c2 = rule("Strengthen");
   assert(c2);
@@ -111,8 +97,7 @@ static void test_c2_redundant_victim_is_reachable() {
   assert(offered(c2, k, victim));
   assert(c2->apply_instance(k, victim) == ApplyResult::Ok);
   assert(k.stats.strengthened == 1);
-  // ...and the result is still REDUNDANT: strengthening a forgettable clause
-  // must not smuggle it into the irredundant set.
+  // strengthening a forgettable clause must not make it irredundant
   bool saw_red3 = false;
   for (Ref r = 0; r < k.arena.size();) {
     const Clause *c = clause_at(k.arena, r);
@@ -123,12 +108,9 @@ static void test_c2_redundant_victim_is_reachable() {
   assert(saw_red3);
 }
 
-// A redundant clause must never be a PARTNER for an IRREDUNDANT victim: it is
-// forgettable, so the deletion could be stranded by Reduce. This is the check F7
-// does NOT relax, and after F7 it has TWO independent defences — the round never
-// CONNECTS a redundant survivor into `occs`, and the candidate order puts every
-// irredundant clause ahead of the whole band, so no band clause is even indexed
-// yet when an irredundant candidate is checked.
+// A redundant clause is never a partner for an irredundant victim: it is
+// forgettable, so Reduce could strand the deletion. Two defences — no redundant
+// survivor is connected into `occs`, and irredundant candidates come first.
 static void test_redundant_partner_is_still_refused() {
   const RuleVTable *c2 = rule("Strengthen");
   { // the instance surface, where discovery is through the watch lists
@@ -140,7 +122,7 @@ static void test_redundant_partner_is_still_refused() {
     assert(!garbage_at(k, victim));
     assert(strengthen_try(k, victim) == ApplyResult::NoOp);
   }
-  { // ...and the ROUND with the band ON, where the band clause IS a candidate
+  { // ...and the round with the band on, where the band clause is a candidate
     Kernel k;
     kernel_reserve_vars(k, 4);
     k.tier2 = 2;
@@ -155,7 +137,7 @@ static void test_redundant_partner_is_still_refused() {
   }
 }
 
-// (c) SCHED-F7's round scope: live with the band on, and it MOVES with k.tier2.
+// (c) the round scope with the band on is live: it moves with `k.tier2`.
 static void test_f7_band_scope_is_live_and_dynamic() {
   const RuleVTable *c2 = rule("Strengthen");
   auto build = [](Kernel &k, uint32_t glue) {
@@ -175,11 +157,8 @@ static void test_f7_band_scope_is_live_and_dynamic() {
            "the band scope must actually admit the clause");
     assert(k.stats.strengthen_red_strengthened == 1);
   }
-  { // OUT of band (glue 5 > tier2 2, no envelope): same formula, same switch,
-    // and the round declines — so the scope is the live predicate, not a
-    // constant, which is the half a single `checked` count cannot show.
-    // The repetition filter is off here so this isolates the SCOPE; the gap
-    // between the two is the next block.
+  { // out of band (glue 5 > tier2 2, no envelope): same formula, same switch,
+    // and the round declines; the repetition filter is off to isolate scope
     Kernel k;
     const Ref victim = build(k, 5);
     k.touch_redundant = true;
@@ -192,25 +171,22 @@ static void test_f7_band_scope_is_live_and_dynamic() {
     assert(c2->apply(k) == ApplyResult::Ok);
     assert(k.stats.strengthen_red_checked > 0);
   }
-  { // THE RECORDED YIELD GAP, pinned so it cannot drift into a soundness claim.
-    // The scope is evaluated live but the STAMPS are written at creation, so a
-    // clause that enters the band after its own creation was out of it carries
-    // no band stamp and the filter skips it until something in it moves. It is a
-    // lost strengthening, never an unjustified one — and it is exactly why the
-    // ledger row's removal path is "re-arm the band when the tier grows".
+  { // The yield gap, pinned so it cannot drift into a soundness claim: the
+    // scope is live but the stamps are written at creation, so a clause that
+    // enters the band later is skipped until something in it moves — a lost
+    // strengthening, never an unjustified one.
     Kernel k;
     const Ref victim = build(k, 5);
     k.touch_redundant = true;
-    assert(c2->apply(k) == ApplyResult::NoOp); // out of band, watermark advances
+    assert(c2->apply(k) == ApplyResult::NoOp); // out of band; mark advances
     k.tier2 = 5;                               // ...now in band, but unstamped
     assert(c2->apply(k) == ApplyResult::NoOp);
     assert(k.stats.strengthen_red_skipped > 0 && "skipped, not checked");
     assert(!garbage_at(k, victim));
-    // any movement in the clause re-offers it
-    k.strengthen_touch_mark = 0;
+    k.strengthen_touch_mark = 0; // any movement re-offers the clause
     assert(c2->apply(k) == ApplyResult::Ok);
   }
-  { // the band OFF is the shipped default and must decline both
+  { // the band off is the shipped default and must decline both
     Kernel k;
     const Ref victim = build(k, 2);
     assert(!k.touch_redundant);
@@ -220,9 +196,8 @@ static void test_f7_band_scope_is_live_and_dynamic() {
   }
 }
 
-// (d) ISOLATION. A band stamp writes `touched_kept` and leaves `touched` and
-// `touch_marks` alone, so every consumer that reads `touched` answers exactly as
-// it did with the band off. That is what makes turning F6 on a change to C2 only.
+// (d) Isolation: a band stamp writes `touched_kept` and leaves `touched` and
+// `touch_marks` alone, so turning the band on changes C2 and nothing else.
 static void test_band_stamps_do_not_touch_the_irredundant_substrate() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -240,8 +215,7 @@ static void test_band_stamps_do_not_touch_the_irredundant_substrate() {
   assert(k.stats.touch_marks == marks_before);
   assert(k.touched_kept[v] > kept_before && "...but it must write its own array");
   assert(k.stats.touch_kept_marks == 3);
-  // The reads the five band-blind consumers make are unchanged; C2's widened
-  // read is the only one that sees it.
+  // band-blind consumers read as before; only C2's widened read sees the stamp
   assert(!kernel_touched_since(k, v, wm));
   assert(!kernel_changed_since(k, v, wm)); // BCE's two-sided read
   assert(kernel_kept_since(k, v, wm));

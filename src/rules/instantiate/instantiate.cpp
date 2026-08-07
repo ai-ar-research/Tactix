@@ -1,4 +1,4 @@
-// See instantiate.hpp for the reference/deviation record.
+// See instantiate.hpp for the rule's contract.
 #include "rules/instantiate/instantiate.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -10,15 +10,14 @@
 namespace tactix {
 
 bool instantiate_guard(const Kernel &k) {
-  // quiescent root (D-ROOT, C3 Vivify's argument verbatim): this is a pure
-  // F-rewrite, so a recorded conflict does not bar it — level == 0 is what
-  // the occurrence counts and the unassigned filters need.
+  // Quiescent root (D-ROOT). A pure F-rewrite, so a recorded conflict does not
+  // bar it; level == 0 is what the occurrence and unassigned filters need.
   return !k.inconsistent && k.level == 0;
 }
 
-// candidate clause: live, irredundant (deviation 1), size >= INST_CLSLIM, not
-// root-satisfied, and >= 3 unassigned literals so the rewrite cannot produce a
-// unit (cadical's `unassigned < 3` filter — "avoid learning units")
+// candidate clause: live, irredundant, size >= INST_CLSLIM, not root-satisfied,
+// and >= 3 unassigned literals so the rewrite cannot produce a unit (cadical's
+// `unassigned < 3` filter — "avoid learning units")
 static bool is_candidate(const Kernel &k, const Clause *c) {
   if (c->garbage() || c->redundant() || c->size < INST_CLSLIM)
     return false;
@@ -33,9 +32,9 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
   return unassigned >= 3;
 }
 
-// irredundant occurrence counts per literal — one arena pass.
-// Per ROUND, not per candidate: an O(nlits) fill inside the probe loop is the
-// per-call linear-scratch hazard, and it dominates the profile when it happens.
+// irredundant occurrence counts per literal, one arena pass. Per round, not per
+// candidate: an O(nlits) fill inside the probe loop is the per-call
+// linear-scratch hazard, which dominates the profile when it happens.
 static void occurrence_counts(const Kernel &k, std::vector<uint32_t> &occ) {
   occ.assign(2 * k.nvars, 0);
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -113,7 +112,7 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
 
 // probe one (clause, literal) pair. Returns true when the assumption set
 // ¬D ∧ l propagated to a conflict, i.e. D is provable. On true the trail is
-// STILL LOADED (the caller needs it for the chain) and the probing scope is
+// still loaded (the caller needs it for the chain) and the probing scope is
 // still open; on false everything is already unwound.
 static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
   const Clause *c = clause_at(k.arena, cref);
@@ -130,8 +129,8 @@ static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
     if (v < 0)
       continue; // already false (root, or an earlier assumption)
     if (v > 0) {
-      // a literal of D is TRUE under our own assumptions: only reachable if
-      // the clause holds both m and ¬lit-style duplicates. Abandon.
+      // a literal of D is true under the assumption set itself: only reachable
+      // when the clause holds m and a ¬lit-style duplicate. Abandon.
       unwind(k);
       return false;
     }
@@ -147,8 +146,8 @@ static bool probe_pair(Kernel &k, Ref cref, Lit lit) {
   return false;
 }
 
-// try every eligible literal of one candidate; the first success rewrites
-// (deviation 2). `ended_round` reports a root-value change.
+// try every eligible literal of one candidate; the first success rewrites.
+// `ended_round` reports a root-value change.
 static ApplyResult instantiate_one(Kernel &k, Ref cref,
                                    const std::vector<uint32_t> &occ,
                                    bool *ended_round) {
@@ -156,18 +155,19 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
   if (!is_candidate(k, c))
     return ApplyResult::NoOp;
   const bool lrat = k.proof && k.proof->lrat();
-  // Persistent walk scratch (C4-perf's shape, shared with C3 Vivify's copy):
-  // grown on demand, restored all-zero in O(marked) at the exits below.
+  // Persistent walk scratch (the per-call linear-scratch fix, shared in shape
+  // with C3 Vivify's copy): grown on demand, restored all-zero in O(marked) at
+  // the exits below.
   static thread_local std::vector<uint8_t> seen;
   static thread_local std::vector<Var> seen_touched;
   std::vector<Lit> cand_lits(c->begin(), c->end());
   std::vector<Lit> next;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
   for (const Lit lit : cand_lits) {
-    // §6 · safe point by construction: a failed `probe_pair` has already
-    // unwound the trail and closed the probing scope, a successful one returns
-    // outright, and `seen` is all-zero here. So the clause is either fully
-    // rewritten or untouched — never half-instantiated.
+    // §6 safe point by construction: a failed `probe_pair` has already unwound
+    // the trail and closed the probing scope, a successful one returns
+    // outright, and `seen` is all-zero here — so the clause is either fully
+    // rewritten or untouched, never half-instantiated.
     if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted))
       break;
     if (!eligible(k, occ, lit))
@@ -185,11 +185,10 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
     const uint64_t cid = clause_at(k.arena, cref)->id();
     if (lrat) {
       last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
-      // deviation 5: the checker reaches our probe state from ¬D alone by
-      // propagating `lit` out of C itself, so C is an antecedent — at the
-      // trail position where `lit` entered. Cited only when the walk reached
-      // `lit` (cadical's `flags (lit).seen` guard); if it did not, the
-      // conflict follows from ¬D without ever using `lit`.
+      // The checker reaches the probe state from ¬D alone by propagating `lit`
+      // out of C itself, so C is an antecedent at the trail position where
+      // `lit` entered. Cited only when the walk reached `lit` (cadical's
+      // `flags (lit).seen` guard); otherwise the conflict never used `lit`.
       if (seen[var_of(lit)])
         entries.emplace_back(k.assigned[var_of(lit)].trail, cid);
     }
@@ -219,8 +218,8 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
       return ApplyResult::Unsat;
     case ReplaceOutcome::Unit:
       // unreachable through is_candidate's `unassigned >= 3`, but a unit is
-      // legal state under N1's exotic schedules: assert it and end the round
-      // (C3 Vivify deviation 6).
+      // legal state under N1's exotic schedules: assert it and end the round,
+      // as C3 Vivify does.
       k.unit_ids[var_of(next[0])] = id;
       kernel_assign_unit(k, next[0]);
       *ended_round = true;
@@ -237,8 +236,7 @@ static ApplyResult instantiate_one(Kernel &k, Ref cref,
 
 ApplyResult instantiate_apply(Kernel &k) {
   assert(instantiate_guard(k));
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   std::vector<uint32_t> occ;
@@ -253,23 +251,16 @@ ApplyResult instantiate_apply(Kernel &k) {
   }
   uint64_t changed = 0;
   bool ended = false;
-  // budget_aware batch round (deviation 4): the policy's ledger is in
-  // propagation ticks, C3 Vivify's currency — these probes ARE propagation.
+  // budget_aware batch round: the policy's ledger is in propagation ticks, C3
+  // Vivify's currency — these probes are propagation.
   const uint64_t tick_start = k.stats.ticks;
-  // SCHED-F3 · repetition filter over the touched-epoch substrate. cadical's
-  // own suppressor here is a per-clause `instantiated` bit set at the first
-  // attempt and never reset (`instantiateonce`, instantiate.cpp:32,211) — "try
-  // each clause at most once, ever". Ours is deliberately WEAKER: a clause is
-  // re-offered as soon as anything in it changes, which recovers the
-  // instantiations cadical's once-ever bit forfeits while still removing the
-  // whole-formula rescan.
-  //
-  // `need = 1`, unlike the subsumption family's 2: the probe is a PROPAGATION,
-  // so a single new clause over a single one of c's variables can change its
-  // outcome. The 2-of-them argument (a new subsumer needs two shared
-  // variables) does not transfer.
-  // N1: `instantiate_candidates` (what `instances()` enumerates) and
-  // `instantiate_try` (the `apply_instance` path) are untouched.
+  // Repetition filter over the touched-epoch substrate. cadical's suppressor is
+  // a per-clause bit set at the first attempt and never reset
+  // (`instantiateonce`, instantiate.cpp:32,211); this one is deliberately
+  // weaker, re-offering a clause as soon as anything in it changes, which
+  // recovers what the once-ever bit forfeits. `need = 1`, unlike the
+  // subsumption family's 2: the probe is a propagation, so one new clause over
+  // one of c's variables can change the outcome.
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
   const uint64_t wm = k.instantiate_touch_mark;
@@ -280,9 +271,9 @@ ApplyResult instantiate_apply(Kernel &k) {
       stopped_at = ci;
       break;
     }
-    // §6 (SCHED-H1) · TERMINATION, distinct from the tick budget above (which
-    // is 0 when the policy leaves the round unmetered). Cut at the same point
-    // so the untried tail is re-armed by the resume path below.
+    // §6 termination, distinct from the tick budget above (which is 0 when the
+    // policy leaves the round unmetered). Cut at the same point so the untried
+    // tail is re-armed by the resume path below.
     if (kernel_rule_interrupt(k, k.stats.instantiate_interrupted)) {
       stopped_at = ci;
       break;
@@ -302,8 +293,8 @@ ApplyResult instantiate_apply(Kernel &k) {
       break;
     }
   }
-  // RESUME (SCHED-F2's mechanism), reachable here: this entry is budget_aware
-  // at 20 per mille and its probes are propagations, so the budget binds.
+  // Resume, reachable here: this entry is budget_aware at 20 per mille and its
+  // probes are propagations, so the budget binds.
   for (size_t ci = filter ? stopped_at : candidates.size();
        ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
@@ -344,8 +335,7 @@ static uint32_t instantiate_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult instantiate_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL: complete the root closure if applied off a fixpoint (no-op
-  // otherwise); a root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)

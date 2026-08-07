@@ -1,9 +1,6 @@
-// X3 CCE unit tests. The two that matter are the ones X1 BCE's suite could not
-// have: a clause that is NOT blocked as written but IS after a covered literal
-// is added (so the CLA path is exercised at all), and an EXHAUSTIVE model-
-// reconstruction cross-check over random formulas — a CCE deletion pushes a
-// SEQUENCE of witness segments, and a wrong one is a wrong SAT answer rather
-// than a proof failure.
+// CCE unit tests. Two properties are unreachable from BCE's suite: a clause
+// blocked only once a covered literal is added, and model reconstruction over
+// a sequence of witness segments. docs/calculus.md §X3.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -45,11 +42,8 @@ bool satisfied(const Kernel &k, const std::vector<int> &cl) {
 
 } // namespace
 
-// THE CLA CASE. (1∨2∨3) is blocked on nothing: each of the three resolvents
-// (2∨3∨4), (1∨3∨¬4) and (1∨2∨4) is non-tautological. But covered literal
-// addition on pivot 1 finds 4 in every clause holding ¬1 (there is one), so the
-// extension (1∨2∨3∨4) IS blocked on 2 — the only clause holding ¬2 is (¬4∨¬2),
-// whose resolvent now carries both 4 and ¬4.
+// The covered-literal path: (1∨2∨3) is blocked on nothing, but adding the
+// covered literal 4 (found on pivot 1) makes (1∨2∨3∨4) blocked on 2.
 static void test_covered_then_blocked() {
   Kernel k;
   load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
@@ -62,25 +56,22 @@ static void test_covered_then_blocked() {
   assert(!k.reconstruction.empty());
 }
 
-// The negative case, which proves the intersection is doing work: every literal
-// of (1∨2∨3) has TWO opposite occurrences sharing no literal, so no covered
-// literal can be added and nothing is blocked.
+// The negative case: every literal of (1∨2∨3) has two opposite occurrences
+// sharing no literal, so nothing is covered and nothing is blocked.
 static void test_empty_intersection() {
   Kernel k;
   load(k, 7, {{1, 2, 3},
               {-1, 4, 6}, {-1, 5, 7},
               {-2, 4, 6}, {-2, 5, 7},
               {-3, 4, 6}, {-3, 5, 7}});
-  // the single-literal entry, so only (1∨2∨3) is a candidate here (4..7 occur
-  // in one polarity only, which would make their clauses blocked outright)
+  // the single-literal entry: only (1∨2∨3) is a candidate here
   assert(cce_try(k, internalize(1)) == ApplyResult::NoOp);
   assert(k.stats.cce_deleted == 0);
   assert(k.stats.cce_tried == 1 && "the candidate was actually extended");
 }
 
-// THE ATA EXIT. (1∨2∨3) with the binary (1∨2) present: assigning all three
-// false falsifies the binary, so the candidate is RUP against the rest and is
-// deleted with NO witness segment at all.
+// The asymmetric-tautology exit: the candidate is RUP against the rest, so it
+// is deleted with no witness segment at all.
 static void test_asymmetric_tautology() {
   Kernel k;
   load(k, 3, {{1, 2, 3}, {1, 2}});
@@ -101,9 +92,8 @@ static void test_redundant_skipped() {
   assert(k.stats.cce_deleted == 0);
 }
 
-// Instance surface (N1): the literal payloads are offered, the single-literal
-// entry reaches the same elimination the round does, and an unrelated payload
-// is a total NoOp.
+// Instance surface (N1): the single-literal entry reaches the round's own
+// elimination, and an unrelated payload is a NoOp.
 static void test_instances() {
   Kernel k;
   load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
@@ -123,17 +113,8 @@ static void test_instances() {
          ApplyResult::NoOp);
 }
 
-// RV-S1/RV-S2 · the round's repetition filter and its resume, which replaced a
-// rotation on `Stats::cce_rounds`. Three properties, and the first two are the
-// anti-vacuity pair (a filter that skips nothing is inert; one that skips
-// everything has wedged):
-//   (a) a SECOND round over an unchanged formula skips every candidate and tries
-//       none, and the watermark advanced to make that so;
-//   (b) touching the substrate re-offers them, so the filter is not a one-way
-//       door — and nothing a scheduling decision does can starve the producers,
-//       which live on the kernel's clause paths;
-//   (c) a BUDGET-CUT round re-arms the tail it never reached, which is the job
-//       the rotation used to do and the reason no `k.stats` read is needed.
+// The round's repetition filter and its resume: a filter that skips nothing is
+// inert, and one that skips everything has wedged.
 static void test_filter_and_resume() {
   { // a first round works and ADVANCES the watermark
     Kernel k;
@@ -145,15 +126,13 @@ static void test_filter_and_resume() {
   }
   Kernel k;
   load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
-  // (a) a watermark at the current epoch is what a completed round leaves
-  // behind: nothing has moved since, so the round tries nothing.
+  // (a) a completed round leaves the watermark at the current epoch
   k.cce_touch_mark = k.touch_epoch;
   assert(cce_apply(k) == ApplyResult::NoOp);
   assert(k.stats.cce_tried == 0 && "(a) nothing changed, nothing tried");
   assert(k.stats.cce_mark_skipped > 0);
 
-  // (b) any producer re-offers the candidates. A stamp has no clear pass, so
-  // this direction can never be starved by a rule that stops being scheduled.
+  // (b) any producer re-offers the candidates: a stamp has no clear pass.
   const uint64_t skipped = k.stats.cce_mark_skipped;
   for (Var v = 0; v < k.nvars; v++)
     kernel_touch_var(k, v);
@@ -183,11 +162,9 @@ static void test_filter_and_resume() {
   assert(armed > 0 && "the next round must still see the tail");
 }
 
-// ▶ THE OBLIGATION. Over random formulas: run a CCE round, then enumerate EVERY
-// assignment, and for each one that satisfies what SURVIVES, check that
-// `kernel_extend_model` repairs it into a model of the ORIGINAL formula. This
-// is the test that a wrong witness — or a witness pushed in the wrong order —
-// fails, and it fails on a SAT answer, not on a proof.
+// The reconstruction obligation: every assignment satisfying what survives a
+// CCE round must extend to a model of the original. A wrong witness, or a
+// right one in the wrong order, surfaces here as a wrong SAT answer.
 static void test_reconstruction_exhaustive() {
   const uint32_t nvars = 8;
   uint64_t rng = 0x9e3779b97f4a7c15ull;
@@ -198,8 +175,6 @@ static void test_reconstruction_exhaustive() {
     return rng;
   };
   uint64_t deletions = 0, cla = 0, blocked = 0, ata = 0;
-  // reachability of the CHECK itself: a trial whose surviving formula is UNSAT
-  // enumerates nothing, and a suite of those would be green over no work
   uint64_t models = 0, repaired = 0;
   for (int trial = 0; trial < 400; trial++) {
     Cnf f;
@@ -229,8 +204,7 @@ static void test_reconstruction_exhaustive() {
     if (!k.stats.cce_deleted)
       continue;
 
-    // What survives: every original binary (CCE never deletes one) plus the
-    // live arena clauses.
+    // what survives: every original binary, plus the live arena clauses
     Cnf surviving;
     for (const auto &cl : f)
       if (cl.size() < 3)

@@ -1,7 +1,5 @@
-// X2 HyperTernaryRes unit tests: the two collapsing shapes (ternary and binary
-// resolvent), the three rejections cadical's `hyper_ternary_resolve` makes
-// (quaternary, tautological, already present), the redundant/permanent split,
-// and the instance surface.
+// HyperTernaryRes unit tests: the two collapsing shapes, the three rejections
+// cadical's `hyper_ternary_resolve` makes, and the instance surface.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -20,8 +18,7 @@ static void add3(Kernel &k, int a, int b, int c) {
   kernel_add_large_clause(k, l, 3, /*redundant=*/false, 0);
 }
 
-// (1 ∨ 2 ∨ 3) and (¬1 ∨ 2 ∨ 4) share literal 2, so resolving on 1 collapses to
-// the TERNARY (2 ∨ 3 ∨ 4) — the rule's reason for existing.
+// One shared non-pivot literal collapses the resolvent to a ternary.
 static void test_ternary_resolvent() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -34,8 +31,7 @@ static void test_ternary_resolvent() {
   assert(default_solve(k) == 10);
 }
 
-// (1 ∨ 2 ∨ 3) and (¬1 ∨ 2 ∨ 3) share BOTH non-pivot literals, so the resolvent
-// is the BINARY (2 ∨ 3) — the valuable case (binaries are permanent here).
+// Two shared non-pivot literals collapse it to a binary, which is permanent.
 static void test_binary_resolvent() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -47,8 +43,7 @@ static void test_binary_resolvent() {
   assert(default_solve(k) == 10);
 }
 
-// Disjoint non-pivot literals ⇒ a QUATERNARY resolvent ⇒ rejected, nothing
-// added (cadical's `size > 3` rejection).
+// Disjoint non-pivot literals give a quaternary resolvent: rejected.
 static void test_quaternary_rejected() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -58,9 +53,8 @@ static void test_quaternary_rejected() {
   assert(k.stats.ternary_resolvents == 0 && k.stats.ternary_binaries == 0);
 }
 
-// A shared literal in OPPOSITE polarity ⇒ the resolvent is tautological ⇒
-// rejected. This is also the shape that must never reach the proof: a
-// tautological LRAT line is uncheckable (Proof::tautological asserts on it).
+// A shared literal in opposite polarity makes the resolvent tautological: it
+// is rejected, since a tautological LRAT line is uncheckable.
 static void test_tautological_rejected() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -70,8 +64,7 @@ static void test_tautological_rejected() {
   assert(k.stats.ternary_resolvents == 0 && k.stats.ternary_binaries == 0);
 }
 
-// The resolvent already exists ⇒ not added twice, and the second round is a
-// NoOp (idempotence — the rule reaches a fixpoint).
+// An existing resolvent is not added twice; the rule reaches a fixpoint.
 static void test_duplicate_rejected() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -91,8 +84,7 @@ static void test_idempotent() {
   assert(ternary_apply(k) == ApplyResult::NoOp); // fixpoint reached
 }
 
-// Instance surface (N1): pivots are offered as literal payloads, applying one
-// does that pivot's resolutions, and an out-of-range payload is a total NoOp.
+// N1: pivots are literal payloads, and an out-of-range one is a total NoOp.
 static void test_instances() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -106,10 +98,8 @@ static void test_instances() {
   assert(k.stats.ternary_resolvents == 1);
 }
 
-// SCHED-F3 · N1 REGRESSION for the touched-epoch filter. With the watermark
-// advanced past everything the canonical ROUND declines, but the instance
-// surface must stay complete. Fails on a build that filters `ternary_pivots`
-// or `ternary_try`.
+// N1: the touched-epoch filter is policy. The canonical round may decline on
+// it, but `ternary_pivots` and `ternary_try` must never filter on it.
 static void test_touch_filter_is_policy_only() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -119,19 +109,17 @@ static void test_touch_filter_is_policy_only() {
   assert(ternary_apply(k) == ApplyResult::NoOp);
   assert(k.stats.ternary_mark_skipped == 1);
   std::vector<Lit> pivots;
-  ternary_pivots(k, pivots); // NOT narrowed by the mark
+  ternary_pivots(k, pivots); // not narrowed by the mark
   assert(pivots.size() == 1 && pivots[0] == internalize(1));
   assert(ternary_try(k, internalize(1)) == ApplyResult::Ok);
   assert(k.stats.ternary_resolvents == 1);
 }
 
-// SCHED-H1 · both interrupt sites, pinned deterministically. Neither is
-// reachable from a schedule that never sets the flag, so the flag is set
-// before the call and the two entry points are driven separately; the third
-// block is the control that shows the abort is what suppressed the resolvent.
+// Both interrupt sites honour a raised stop flag; the third block is the
+// control showing the abort, not the formula, suppressed the resolvent.
 static void test_interrupt() {
   volatile sig_atomic_t stop = 1;
-  { // the ROUND loop over pivots
+  { // the round loop over pivots
     Kernel k;
     kernel_reserve_vars(k, 4);
     add3(k, 1, 2, 3);
@@ -142,7 +130,7 @@ static void test_interrupt() {
     assert(k.stats.ternary_interrupted == 1);
     assert(k.stats.rule_interrupted == 1);
   }
-  { // the per-pivot PAIR loop, through the single-instance entry
+  { // the per-pivot pair loop, through the single-instance entry
     Kernel k;
     kernel_reserve_vars(k, 4);
     add3(k, 1, 2, 3);

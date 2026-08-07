@@ -1,9 +1,8 @@
-// V3a: SCC detection over the binary implication graph (guard + iterative
-// Tarjan). Transliterated from kissat/src/decompose.c + substitute.c and
-// cadical/src/decompose.cpp (iterative Tarjan; MIT) — deliberately NOT
-// CryptoMiniSat's recursive sccfinder with its max_scc_depth early-return,
-// which silently drops deep SCCs (a completeness loss). An explicit work
-// stack survives arbitrarily deep implication chains.
+// See substitute.hpp for the rule's contract. The SCC pass is transliterated
+// from kissat decompose.c/substitute.c and cadical decompose.cpp (iterative
+// Tarjan), deliberately not CryptoMiniSat's recursive sccfinder: its
+// max_scc_depth early-return silently drops deep SCCs, a completeness loss,
+// whereas an explicit work stack survives arbitrarily deep chains.
 #include "rules/substitute/substitute.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -19,11 +18,8 @@
 namespace tactix {
 
 bool substitute_guard(const Kernel &k) {
-  // quiescent root (C1/C2/C3/V1/V2's argument)
-  // D-SPLIT-3 (guard purification): the ¬conflict_valid conjunct is gone —
-  // this is a pure F-rewrite (sound regardless of a recorded conflict), and
-  // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
-  // boundary, so it never fired under the retained level==0). calculus §7.
+  // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
+  // regardless of a recorded conflict (D-SPLIT-3, `docs/calculus.md` §7).
   return !k.inconsistent && k.level == 0;
 }
 
@@ -48,9 +44,8 @@ SccResult substitute_find_sccs(const Kernel &k) {
   std::vector<Frame> work;
 
   auto active = [&](Lit l) { return k.values[l] == 0; };
-  // Out-edges of p (implications p → q) are the binary watches of negate(p):
-  // a binary clause (negate(p) ∨ q) is exactly the implication p → q. The
-  // watch arena is never mutated here (read-only pass), so a suspended
+  // Out-edges of p are the binary watches of negate(p): (negate(p) ∨ q) is
+  // exactly p → q. The watch arena is never mutated here, so a suspended
   // iterator stays valid across the whole DFS.
   auto out_edges = [&](Lit p) { return k.watches.entries(negate(p)); };
 
@@ -134,29 +129,24 @@ SccResult substitute_find_sccs(const Kernel &k) {
   return res;
 }
 
-// One directed BIG path `from -> ... -> to` as its edge clause-ids in FORWARD
-// order (LRAT only; the caller guards on k.proof->lrat()). Out-edges of p are
-// the binary watches of negate(p): an edge p -> q is the clause (¬p ∨ q), id
-// kernel_binary_id(k, negate(p), q). Active literals only, matching the SCC
-// nodes. Returns false if no path (never happens for two members of one SCC —
-// it is strongly connected — but stays total for direct/off-SCC callers).
+// One directed graph path `from -> ... -> to` as its edge clause-ids in forward
+// order (LRAT only; the caller guards on k.proof->lrat()). An edge p -> q is
+// the clause (¬p ∨ q). Active literals only, matching the SCC nodes; returns
+// false if no path exists, which never happens for two members of one SCC but
+// keeps the function total for direct callers.
 //
 // Chain order is load-bearing: for the RUP unit {to} the checker assumes the
-// path's start literal true (the unit's negation for the from==negate(to)
-// case) and unit-propagates the edges in order — edge (¬p ∨ q) with p true
-// forces q, so the path forces `to` and closes the conflict. A shuffled chain
-// leaves a hint non-unit and the checker rejects.
+// path's start literal true and unit-propagates the edges in order, so edge
+// (¬p ∨ q) with p true forces q. A shuffled chain leaves a hint non-unit and
+// the checker rejects.
 bool big_path_chain(const Kernel &k, Lit from, Lit to,
                     std::vector<uint64_t> &chain) {
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
-  // Persistent scratch (C4-perf, probes 1563224/1563236): three fresh
-  // fill-initialized O(nlits) vectors here were ~97 % of ALL cycles on the
-  // hwmcc native-LRAT path — one ~13 MB memset set PER BRIDGE, the whole
-  // "LRAT ~250× slower on miters" symptom (third sighting of this defect
-  // shape after TR's Walk and the reason-walk `seen`). parent/parent_edge
-  // need no clearing: they are read only behind the `seen` guard and every
-  // marked literal writes both first. `seen` restores all-zero in
-  // O(marked) — every marked literal is on the queue except `to`.
+  // Persistent scratch: three fill-initialized O(nlits) vectors here meant one
+  // large memset per bridge, the per-call linear-scratch hazard.
+  // parent/parent_edge need no clearing — they are read only behind the `seen`
+  // guard and every marked literal writes both first — and `seen` restores
+  // all-zero in O(marked), since every marked literal is queued except `to`.
   static thread_local std::vector<Lit> parent;
   static thread_local std::vector<uint64_t> parent_edge;
   static thread_local std::vector<uint8_t> seen;
@@ -208,13 +198,11 @@ bool big_path_chain(const Kernel &k, Lit from, Lit to,
 
 namespace {
 
-// x ≡ ¬x: emit the refutation (design §3.3). {¬x} is RUP (assume x; the path
-// x -> ¬x propagates ¬x; conflict) and {x} likewise via ¬x -> x; the two
-// resolve to the empty clause. Uses add_rup — NOT add_derived_unit, which
-// emits nothing in DRAT — because these are failed-literal (RUP) units the
-// DRAT checker must see, exactly as Probe/Backbone emit theirs. Sets
-// k.inconsistent; the empty clause IS the refutation (Vivify/Strengthen's
-// Unsat contract). Self-contained: does not lean on M1.
+// x ≡ ¬x: emit the refutation (`docs/design/v3-substitute-design.md` §3.3).
+// {¬x} is RUP (assume x; the path x -> ¬x propagates ¬x) and {x} likewise via
+// ¬x -> x, and the two resolve to the empty clause. Uses add_rup rather than
+// add_derived_unit, which emits nothing in DRAT, because these are
+// failed-literal units the DRAT checker must see. Self-contained: not M1's.
 void emit_unsat(Kernel &k, Lit x) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit nx = negate(x);
@@ -241,40 +229,34 @@ void emit_unsat(Kernel &k, Lit x) {
   k.inconsistent = true;
 }
 
-// The equivalent-literal rewrite (V3b-3). `sub[l]` marks the non-representative
-// SCC-member literals to rewrite (l → r.repr[l]); the caller selects them (the
-// whole round, or one requested SCC + its mirror). Emits the transient
+// The equivalent-literal rewrite. `sub[l]` marks the non-representative
+// SCC-member literals to rewrite (l → r.repr[l]); the caller selects them, as
+// the whole round or as one requested SCC plus its mirror. Emits the transient
 // equivalence lemmas {¬l, r.repr[l]}, rewrites every large and binary
 // occurrence add-before-delete, deletes the lemmas, pushes the reconstruction
 // witnesses once per substituted variable, and asserts any collapsed root units
-// un-propagated (M1 owns the cascade — the Probe/Vivify batch discipline).
+// un-propagated (M1 owns the cascade, the Probe/Vivify batch discipline).
 // Returns Unsat on an empty rewrite, Ok if anything changed, NoOp otherwise.
 ApplyResult do_substitution(Kernel &k, const SccResult &r,
                             const std::vector<uint8_t> &sub) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
-  // The active substitution set. Starts as the caller's `sub`; step (A) may
-  // narrow it to `sub_filtered`. The lambda reads through the pointer, so
-  // repointing it below re-aims every later use in one place.
+  // The active substitution set: the caller's `sub`, which step (A) may narrow
+  // to `sub_filtered`. The lambda reads through the pointer, so repointing it
+  // below re-aims every later use in one place.
   std::vector<uint8_t> sub_filtered;
   const std::vector<uint8_t> *subp = &sub;
   auto substitutable = [&](Lit l) { return l < nlits && (*subp)[l]; };
 
-  // (A) hazard pre-check, PER-SCC. A pair with ≥2 live copies cannot be deleted
-  // by name (kernel_delete_binary refuses — one id can't name two clauses).
-  //
-  // DO NOT widen this back to a whole-ROUND skip on the reasoning that the
-  // case is "rare". "Rare" is a claim about a LITERAL while the skip would be
-  // per ROUND, so P(round survives) collapses as the marked set grows — and
-  // the instances with the most equivalences to exploit mark the most
-  // literals. Measured, that loses every round on exactly the instances this
-  // rule exists for.
-  //
-  // So poison only the offending EQUIVALENCE CLASS instead. Per-SCC keeps the
-  // all-or-nothing granularity the proof needs (a class is either rewritten
-  // whole or untouched), while denying one bad pair a veto over the round.
-  // BOTH endpoints' classes are poisoned: rewriting a surviving class could
-  // otherwise still rename a literal of the duplicated pair.
+  // (A) hazard pre-check, per SCC. A pair with >= 2 live copies cannot be
+  // deleted by name (kernel_delete_binary refuses — one id cannot name two
+  // clauses). The skip must stay per class, never widened back to a whole
+  // round: a per-round skip's survival probability collapses as the marked set
+  // grows, and the instances with the most equivalences to exploit mark the
+  // most literals. Poisoning only the offending class keeps the all-or-nothing
+  // granularity the proof needs while denying one bad pair a veto over the
+  // round. Both endpoints' classes are poisoned, since rewriting a surviving
+  // class could otherwise still rename a literal of that pair.
   std::vector<uint8_t> poisoned(nlits, 0);
   bool any_hazard = false;
   auto poison_class = [&](Lit rep) {
@@ -324,9 +306,9 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     k.stats.substitute_hazard_partial++;
   }
 
-  // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal.
-  // Derived BEFORE any binary mutation so big_path_chain reads the intact BIG.
-  // RUP: assume l, ¬repr[l]; the path l→…→repr[l] propagates repr[l]; conflict.
+  // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal,
+  // derived before any binary mutation so big_path_chain reads the intact
+  // graph. RUP: assume l, ¬repr[l]; the path l→…→repr[l] forces repr[l].
   std::vector<uint64_t> lemma(nlits, 0);
   for (Lit l = 0; l < nlits; l++) {
     if (!substitutable(l))
@@ -357,22 +339,20 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   pending.init(k.nvars);
   bool changed = false;
 
-  // Record a size-collapsed root unit `u` (clause {u}, proof id `id`), deduping
-  // per variable within the round. Returns true iff `u` CONTRADICTS a unit
-  // already derived this round (`¬u` batched) — the formula is then refuted:
-  // {u} and {¬u} resolve to ∅, so emit the empty clause and set `inconsistent`
-  // (the caller returns Unsat). Without this, a batch that derives both `x` and
-  // `¬x` (e.g. an SCC member forced true by one clause and false by another)
-  // would assert the first and silently drop the second, losing the conflict.
+  // Record a size-collapsed root unit `u`, deduping per variable within the
+  // round. Returns true iff `u` contradicts a unit already derived this round,
+  // in which case the two resolve to ∅ and the caller returns Unsat. Without
+  // this, a batch deriving both `x` and `¬x` would assert the first and
+  // silently drop the second, losing the conflict.
   auto record_unit = [&](Lit u, uint64_t id) -> bool {
     return pending.record(k, u, id) == PendingUnits::Outcome::Refuted;
   };
 
   // Rewrite one literal sequence: apply repr, strip root-false literals (their
   // unit ids join `chain`), detect root-true/tautology. Fills `out` with the
-  // kept ACTIVE literals and `chain` with the antecedent ids (lemmas + stripped
-  // units, WITHOUT the original clause id — the caller appends that). Returns
-  // true iff the rewrite is satisfied/tautological (caller then delete-only).
+  // kept active literals and `chain` with the antecedent ids, without the
+  // original clause id — the caller appends that. Returns true iff the rewrite
+  // is satisfied or tautological, in which case the caller only deletes.
   auto rewrite_lits = [&](const Lit *lits, uint32_t size, std::vector<Lit> &out,
                           std::vector<uint64_t> &chain) -> bool {
     out.clear();
@@ -414,9 +394,9 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     return false;
   };
 
-  // (C) rewrite LARGE clauses. Snapshot the original refs first (adds append to
-  // the arena). Follow Vivify's ordering — add_rup, del, GARBAGE all read the
-  // clause BEFORE the arena-mutating add — so the Clause* never dangles.
+  // (C) rewrite large clauses. Snapshot the original refs first (adds append to
+  // the arena). Vivify's ordering: add_rup, del and the garbage mark all read
+  // the clause before the arena-mutating add, so the Clause* never dangles.
   std::vector<Ref> refs;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -561,11 +541,10 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         k.proof->del(k.next_clause_id, lemma[l], lits2, 2);
       }
 
-  // (F) reconstruction witnesses, once per substituted variable (both
-  // polarities are non-representative, so the positive literal detects it):
-  // the order-independent symmetric pair for l ≡ s = repr[l] —
-  // {¬l, s} (witness ¬l) and {l, ¬s} (witness l) — so kernel_extend_model
-  // recovers l's value from s regardless of any search assignment to l.
+  // (F) reconstruction witnesses, once per substituted variable: the
+  // order-independent symmetric pair for l ≡ s = repr[l], {¬l, s} witnessed by
+  // ¬l and {l, ¬s} witnessed by l, so kernel_extend_model recovers l's value
+  // from s regardless of any search assignment to l.
   for (Var v = 0; v < k.nvars; v++) {
     const Lit l = make_lit(v, false);
     if (!substitutable(l))
@@ -573,21 +552,20 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     const Lit s = r.repr[l];
     const Lit rest_a[1] = {s};
     k.stats.substitute_vars++; // one per substituted variable (see Stats)
-    // R-b: retire v HERE, at the witness push — design §4 requires the status
-    // and the reconstruction witness to be created together, because a retired
-    // variable with no witness is never decided AND never reconstructed, i.e. a
-    // WRONG-SAT rather than a crash (design §5 invariant 2).
+    // Retire v here, at the witness push: the status and the reconstruction
+    // witness must be created together, because a retired variable with no
+    // witness is never decided and never reconstructed — a wrong SAT answer
+    // rather than a crash (`docs/design/variable-retirement-design.md` §4-§5).
     if (k.var_status.size() < k.nvars)
       k.var_status.resize(k.nvars, VarStatus::Active);
     if (k.var_status[v] == VarStatus::Active &&
         k.values[make_lit(v, false)] == 0) {
-      assert(k.unassigned_active > 0); // R-c2: leaves the active pool
+      assert(k.unassigned_active > 0); // it leaves the active pool
       k.unassigned_active--;
     }
     k.var_status[v] = VarStatus::Substituted;
-    // R-d: remove it from DefaultPolicy's ranking structures outright (kissat
-    // deactivate_variable). No decision-time cost, no scan, no fallback — the
-    // three shapes v1's R-c tried and all of which were measured dead.
+    // Remove it from DefaultPolicy's ranking structures outright (kissat
+    // deactivate_variable): no decision-time cost, no scan, no fallback.
     if (k.retire_enabled)
       heuristics_deactivate_var(k, v);
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
@@ -604,7 +582,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   if (changed)
     kernel_collect_garbage(k); // reclaim the garbaged large clauses
   // Rank substituted variables last: they occur in no clause, so deciding one
-  // propagates nothing and only deepens the trail. ADVICE, not a restriction —
+  // propagates nothing and only deepens the trail. Advice, not a restriction —
   // they stay decidable (N1); the policy simply reaches them last.
   if (changed && k.subst_demote) {
     std::vector<uint8_t> mark(k.nvars, 0);
@@ -617,13 +595,11 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
 
 } // namespace
 
-// canonical instance: one full round. Detect SCCs; on x ≡ ¬x refute; else
-// substitute every non-trivial SCC onto its representative (V3b-3). Runs only
-// at a quiescent root (guarded).
+// Canonical instance: one full round. Detect SCCs; on x ≡ ¬x refute, otherwise
+// substitute every non-trivial SCC onto its representative.
 ApplyResult substitute_apply(Kernel &k) {
   assert(substitute_guard(k));
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.substitute_rounds++;
@@ -647,12 +623,9 @@ ApplyResult substitute_apply(Kernel &k) {
   return do_substitution(k, r, sub);
 }
 
-// instance surface: payload = an SCC representative literal (lit_instance /
-// lit_of_instance); INSTANCE_CANONICAL = the full round. A single
-// instance substitutes exactly the requested equivalence class — the SCC with
-// representative `rep` AND its mirror SCC (representative ¬rep), so both
-// polarities of every member variable are eliminated together. Total for every
-// payload.
+// Instance surface: payload = an SCC representative literal. A single instance
+// substitutes the requested class — the SCC with representative `rep` and its
+// mirror ¬rep — so both polarities of every member variable go together.
 static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   SccResult r = substitute_find_sccs(k);
   const uint32_t n =
@@ -663,8 +636,7 @@ static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 }
 
 static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
@@ -674,7 +646,7 @@ static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
     return ApplyResult::NoOp;
   if (var_of(rep) >= k.nvars || k.values[rep] != 0)
     return ApplyResult::NoOp;
-  // re-derive from the CURRENT BIG (it may have changed since instances()).
+  // re-derive from the live graph, which may have changed since instances()
   k.stats.substitute_rounds++;
   SccResult r = substitute_find_sccs(k);
   if (r.contradiction) { // a global x ≡ ¬x refutes regardless of the request
@@ -682,8 +654,8 @@ static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
     emit_unsat(k, r.contradiction_lit);
     return ApplyResult::Unsat;
   }
-  // substitute only the requested class: members whose representative is rep or
-  // ¬rep (the mirror). If the requested SCC dissolved, nothing is marked → NoOp.
+  // substitute only members whose representative is rep or its mirror ¬rep; a
+  // dissolved SCC marks nothing and yields NoOp
   k.stats.substitute_sccs += r.nontrivial_reps.size();
   const Lit nrep = negate(rep);
   std::vector<uint8_t> sub(2 * k.nvars, 0);

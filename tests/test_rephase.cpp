@@ -1,5 +1,5 @@
-// S3 Rephase unit tests: type semantics, best/target machinery, the
-// registry instance surface, and the policy trigger.
+// Rephase unit tests: type semantics, best/target machinery, the registry
+// instance surface, and the policy trigger.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -13,16 +13,15 @@
 using namespace tactix;
 
 static void test_best_snapshot() {
-  // best/target snapshots happen on backtrack while stable, past their
-  // watermarks; best survives shallower episodes
+  // best/target snapshot on a stable backtrack past their watermarks, so
+  // best survives shallower episodes
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   k.h->stable = true;
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(-2));
-  // The snapshot lives at the call sites, not inside kernel_backtrack
-  // (kissat's `..._without_updating_phases` vs the snapshotting wrappers).
+  // the snapshot lives at the call sites, not inside kernel_backtrack
   heuristics_update_target_phases(k);
   kernel_backtrack(k, 0); // deepest so far: snapshot both
   assert(k.h->best[0] == 1 && k.h->best[1] == -1 && k.h->best[2] == 0);
@@ -37,12 +36,12 @@ static void test_best_snapshot() {
 
 static void test_types() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
   k.h->stable = true;
   kernel_assign_decision(k, internalize(-1));
   kernel_assign_decision(k, internalize(3));
-  heuristics_update_target_phases(k); // TB4b: snapshot is the caller's job now
+  heuristics_update_target_phases(k); // the snapshot is the caller's job
   kernel_backtrack(k, 0); // best = {-1, 0, +3, 0}, saved updated too
 
   // Inverted: every saved phase forced negative; target restarts
@@ -68,14 +67,13 @@ static void test_types() {
   assert(k.h->best_assigned == 0); // consumed
   assert(k.stats.rephased == 3);
 
-  // unknown payload: no-op, never unsound
-  assert(rephase_apply_type(k, 99) == ApplyResult::NoOp);
+  assert(rephase_apply_type(k, 99) == ApplyResult::NoOp); // unknown payload
   assert(k.stats.rephased == 3);
 }
 
 static void test_registry_surface() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   const int id = tactix_rule_id("Rephase");
   assert(id >= 0);
@@ -87,22 +85,21 @@ static void test_registry_surface() {
   assert(insts[1] == REPHASE_INVERTED && insts[2] == REPHASE_ORIGINAL);
   assert(r.apply_instance(k, REPHASE_INVERTED) == ApplyResult::Ok);
   assert(k.h->saved[0] == -1 && k.h->saved[1] == -1);
-  // canonical sentinel routes to Best
+  // the canonical sentinel routes to Best
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Ok);
   assert(k.stats.rephased == 2);
 }
 
 static void test_policy_trigger() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   DefaultPolicy p;
   k.stats.conflicts = p.rephase.next_conflicts + 1;
   assert(!p.want_rephase(k)); // focused: never
   k.h->stable = true;
   assert(p.want_rephase(k));
-  // the interval grows with rephase EVENTS (rephase.count), not with the op
-  // count stats.rephased — a B+W slot is one event and two ops
+  // the interval grows with rephase.count, not with the op count
   p.rephase.count = 1;
   k.stats.rephased = 2; // deliberately different: must not affect the limit
   p.update_rephase_limit(k);

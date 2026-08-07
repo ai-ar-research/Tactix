@@ -27,8 +27,8 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.watches.resize_lits(2 * nvars);
   k.unit_ids.resize(nvars, 0);
   // BVE retry filter: a brand-new variable has never been attempted, so it
-  // starts retry-worthy (kissat activate_variable marks it removed+added).
-  // A DERIVED INDEX, not `H` (implementation-notes §6) — stays kernel-side.
+  // starts retry-worthy (kissat activate_variable marks it removed+added). A
+  // derived index, not `H` (docs/implementation-notes.md §6) — kernel-side.
   k.bve_retry.resize(nvars, 1);
   // Touched-epoch substrate: a brand-new variable has never been looked at by
   // any consumer, so it must read as touched against every existing watermark
@@ -97,18 +97,12 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
     c->lits[i] = lits[i];
   k.watches.push_large(lits[0], lits[1], ref);
   k.watches.push_large(lits[1], lits[0], ref);
-  // IRREDUNDANT clauses only, for both consumers below:
-  //  - dense phase: a new irredundant large clause joins the shared
-  //    occurrence index. Refs are arena offsets — stable across the resize
-  //    above; only GC rewrites them.
-  //  - BVE retry filter: this clause is new material for every variable in
-  //    it. Redundant clauses are excluded on purpose — BVE does not resolve
-  //    them, and learned-clause traffic would mark everything.
-  //    DEVIATION: kissat marks on REMOVAL only (inline.h). That variant was
-  //    measured here and is NEGATIVE; do not re-derive it.
-  //  - touched-epoch substrate: same population as the BVE retry filter here,
-  //    and for the same reason (kissat marks `subsume`/`factor` on exactly the
-  //    irredundant large adds, clause.c:98).
+  // Irredundant clauses only, for all three consumers: the dense index (Refs
+  // are arena offsets, stable across the resize above), the BVE retry filter,
+  // and the touched-epoch substrate. Redundant clauses are excluded on purpose
+  // — BVE does not resolve them and learned-clause traffic would mark
+  // everything (kissat marks the same population, clause.c:98). Deviation:
+  // kissat marks on REMOVAL only, which is measured negative here.
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
       kernel_mark_bve_retry(k, var_of(lits[i]));
@@ -116,15 +110,10 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
       if (k.dense)
         k.dense->large[lits[i]].push_back(ref);
     }
-  // SCHED-F6: the REDUNDANT half of the touch substrate, cadical's
-  // `likely_to_be_kept_clause` scope (see Kernel::touch_redundant for why it
-  // ships off). Counted BOTH ways even when the stamping is off, because a
-  // single count cannot show that the predicate tracks the live tier — the
-  // dynamic/static6 pair is the anti-vacuity reading SP-TIER-2 asks for.
-  //
-  // The stamp goes to `touched_kept`, NOT to `touched`: cadical withholds
-  // `block`/`factor` from a redundant add for the same reason (clause.cpp:59-67),
-  // and the array split is what keeps the other five consumers' filters intact.
+  // The redundant half of the touch substrate (see Kernel::touch_redundant).
+  // Counted both ways even when stamping is off, because a single count cannot
+  // show the predicate tracks the live tier. The stamp goes to `touched_kept`,
+  // never to `touched` — the split keeps the other consumers' filters intact.
   if (redundant) {
     const bool dyn = kernel_likely_kept(k, true, glue, size);
     k.stats.touch_redundant_dynamic += dyn;
@@ -142,13 +131,10 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   // Either push lands behind whatever large entries a's / b's list already
   // holds, so the binary-first observation cannot be assumed to survive it.
   k.binaries_watched_first = false;
-  // LAST id wins . The map must always name a clause the checker still
-  // holds, and since kernel_delete_binary can retire this pair's id, a re-add
-  // MUST install its fresh one — Analyze/Strengthen/Vivify can all re-derive a
-  // binary V4 deleted, and keeping the retired id would make every later LRAT
-  // chain through it cite a deleted clause. Among live DUPLICATES either id is
-  // equally valid (both clauses are live), which is why first-vs-last was a
-  // free choice before deletion existed and is not one now.
+  // LAST id wins. The map must always name a clause the checker still holds,
+  // and kernel_delete_binary can retire this pair's id, so a re-add must
+  // install its fresh one — otherwise every later LRAT chain through the pair
+  // cites a deleted clause. Among live duplicates either id is equally valid.
   k.binary_ids.insert_or_assign(kernel_binary_key(a, b), id);
   // BVE retry filter: binaries have an irredundant lifecycle in this kernel,
   // so every added pair is new elimination material for both variables
@@ -226,17 +212,13 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
-// DRAT-only variant for E2 Factor: remove EVERY copy of the pair (a,b), not just
-// a single nameable one. A factoring replaces its whole grid with the aux-var
-// definition, so a duplicated grid binary must be fully removed — but the plain
-// kernel_delete_binary refuses copies!=1 because its retired id would break a
-// later LRAT chain through a SURVIVING copy. Here no copy survives, so that
-// hazard is gone; and Factor no-ops under native LRAT (D-FACTOR-LRAT), so the
-// one-id-per-pair LRAT ambiguity never reaches a checker. Non-grid duplicates
-// elsewhere are untouched (only Factor's exact grid pairs are removed), so the
-// duplicate-binary search bias the base solver relies on is preserved. Emits one
-// DRAT `del` per copy so the checker's clause set stays exact. Returns true iff
-// at least one copy was removed.
+// DRAT-only variant for E2 Factor: remove EVERY copy of the pair (a,b). A
+// factoring replaces its whole grid with the aux-var definition, so a
+// duplicated grid binary must go entirely, where plain kernel_delete_binary
+// refuses copies != 1 to protect a surviving copy's later LRAT chain. Here no
+// copy survives, and Factor no-ops under native LRAT (D-FACTOR-LRAT), so that
+// ambiguity never reaches a checker. Only Factor's exact grid pairs are
+// removed. Emits one DRAT `del` per copy, and returns true iff any was removed.
 bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
   const uint32_t copies = kernel_binary_copies(k, a, b);
   if (copies == 0)
@@ -272,13 +254,12 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
-// --- watch repair (TB4b) ---------------------------------------------------
-// Contract + preconditions in kernel.hpp. Transliterated from kissat watch.h
-// (kissat_unwatch_blocking / kissat_watch_blocking, MIT, Biere et al.) onto the
-// flat watch arena: kissat's per-literal vector removal becomes the same
-// write-cursor compaction kernel_delete_binary already uses, because a large
-// watch occupies TWO consecutive words and a binary one, so the walk must be
-// entry-aware rather than word-aware.
+// --- watch repair ----------------------------------------------------------
+// Contract and preconditions in kernel.hpp. Transliterated from kissat watch.h
+// (kissat_unwatch_blocking / kissat_watch_blocking, MIT) onto the flat watch
+// arena: the per-literal vector removal becomes the write-cursor compaction
+// kernel_delete_binary already uses, and the walk must be entry-aware rather
+// than word-aware because a large watch occupies two consecutive words.
 void kernel_unwatch_large(Kernel &k, Lit l, Ref ref) {
   assert(k.delayed.empty());     // no scan may hold pointers into this slice
   assert(!k.probing.recording);  // an unlogged edit would survive the rollback
@@ -386,38 +367,27 @@ void kernel_touch_sync_fixed(Kernel &k) {
 
 // kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)
 
-// The H-hook seam. `HasH` selects at COMPILE TIME whether this
-// backtrack maintains search guidance — the four `H` touches (target/best
-// snapshot, phase save, heap re-insert, VMTF search-cache) are each under
-// `if constexpr (HasH)`, so the null-`H` instantiation's inner loop is branch-
-// free w.r.t. `H` (no per-literal `if (k.h)`). Only <true> is instantiated
-// today (below), so codegen is byte-identical to the pre-H2 function; H4/H5 add
-// the <false> (empty-`H`) instantiation and the once-per-backtrack dispatch.
+// The `H`-hook seam. `HasH` selects at compile time whether this backtrack
+// maintains search guidance — the four `H` touches (target/best snapshot, phase
+// save, heap re-insert, VMTF search-cache) each sit under `if constexpr
+// (HasH)`, so the null-`H` instantiation's inner loop carries no per-literal
+// `if (k.h)`. Only <true> is instantiated today.
 template <bool HasH>
 static void kernel_backtrack_impl(Kernel &k, uint32_t target,
                                   bool update_phases) {
   assert(target < k.level);
-  // SNAPSHOT TIMING. This is the analogue of kissat's
-  // `kissat_backtrack_without_updating_phases` (backtrack.c:72): it SAVES
-  // phases (gated by `update_phases`, our probing exclusion — kissat's is
-  // `if (!probing)` at assign time, inlineassign.h:53) but deliberately does
-  // NOT snapshot target/best. That snapshot belongs at the CALL SITES, because
-  // on the conflict path kissat steps down ONE level FIRST, then snapshots,
-  // then goes to the real target (`kissat_backtrack_after_conflict`,
-  // backtrack.c:156). Snapshotting here makes the high-water
-  // `target_assigned`/`best_assigned` include the conflict level's own
-  // literals, systematically inflating the mark, so later genuinely-longer
-  // trails fail to update and the target phases go stale.
-  // COMPACTING backtrack (implementation-notes D-LEVEL-2): with true-level
-  // assignment the
-  // trail is no longer level-sorted, so we cannot truncate by position. Scan
-  // the suffix above the target frame and KEEP (compact down, re-propagate)
-  // every literal whose true level <= target; unassign only those above it.
-  // Transliterated from cadical backtrack.cpp / kissat backtrack.c. Under a
-  // level-sorted trail the suffix is exactly the level>target literals, so
-  // nothing is kept and this reduces to plain truncation — which is why it is
-  // inert while chrono is off. Chrono is on by default, so the keep-and-compact
-  // path is live in the default configuration.
+  // Snapshot timing, as in kissat's
+  // `kissat_backtrack_without_updating_phases` (backtrack.c:72): SAVE phases,
+  // gated by `update_phases`, but do NOT snapshot target/best — that belongs at
+  // the call sites, since the conflict path steps down one level before
+  // snapshotting (backtrack.c:156). Snapshotting here would let the high-water
+  // mark include the conflict level's own literals, so later genuinely-longer
+  // trails would fail to update it and the target phases would go stale.
+  // Compacting backtrack (docs/implementation-notes.md, D-LEVEL-2): true-level
+  // assignment leaves the trail unsorted by level, so it cannot be truncated by
+  // position. Scan the suffix above the target frame and KEEP every literal
+  // whose true level <= target, unassigning only those above it. Inert while
+  // chrono is off, where nothing is kept and this is plain truncation.
   const uint32_t boundary = k.frames[target + 1];
   const uint32_t end = static_cast<uint32_t>(k.trail.size());
   uint32_t j = boundary; // write cursor for kept (out-of-order) literals
@@ -440,17 +410,12 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
     if (!kernel_var_retired(k, v))
       k.unassigned_active++;
     if constexpr (HasH) {
-      // ranking-structure maintenance (loop-invariant k.h->stable; hoisted by the
-      // optimizer, so identical codegen to the pre-H2 `const bool stable`)
-      //
-      // R-d: a RETIRED variable must not re-enter either structure here. This
-      // was the defect that made deactivation degenerate into demotion — the
-      // heap re-push put it straight back, and in focused mode the hint update
-      // pointed `search_idx` at a DEQUEUED variable, whose `values` are 0, so
-      // `heuristics_queue_next_unassigned` returned it immediately. Measured:
-      // 195,977 deactivations, 0 re-bumps, and still 42.03 % of decisions on
-      // retired variables. kissat never hits this because its deactivated
-      // variables are never on the trail to be unassigned.
+      // Ranking-structure maintenance. Invariant: a RETIRED variable must not
+      // re-enter either structure here, or deactivation degenerates into
+      // demotion — the heap re-push puts it straight back, and in focused mode
+      // the hint update points `search_idx` at a dequeued variable whose
+      // `values` are 0, so the queue returns it immediately. kissat never hits
+      // this, because its deactivated variables are never on the trail.
       if (k.retire_enabled && kernel_var_retired(k, v)) {
         // leave both structures alone; it stays out for good
       } else if (k.h->stable) {
@@ -465,21 +430,15 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
   k.trail.resize(j);
   k.frames.resize(target + 1);
   k.level = target;
-  // re-propagate from the right point. Normally the boundary (cadical sets
-  // propagated = the boundary): the kept out-of-order literals get rescanned,
-  // and the level-≤target prefix below the boundary was propagated at a
-  // fixpoint so its scans are still valid. But if an off-fixpoint Decide has
-  // tainted the trail (D-LEVEL-1), a below-boundary scan may be STALE — it
+  // Re-propagate from the right point: normally the boundary, as cadical does,
+  // since the kept out-of-order literals get rescanned and the prefix below the
+  // boundary was propagated at a fixpoint. But if an off-fixpoint Decide
+  // tainted the trail (D-LEVEL-1) a below-boundary scan may be stale — it
   // treated a clause as satisfied by an ahead literal this backtrack just
-  // unassigned — so the whole SEARCH trail must be rescanned against the
-  // post-shrink assignment: reset to 0 (never forward). Only a real search
-  // backtrack (update_phases=true — restart/backjump) does this. A probing
-  // restore (update_phases=false — Lucky/Probe/Backbone/Vivify) unwinds only
-  // its own assumptions off a clean root fixpoint and MUST land back on
-  // head==root_fixed (the boundary), so it keeps the boundary reset regardless
-  // of taint; the root it returns to was already re-propagated clean by the
-  // search backtrack that reached level 0. DefaultPolicy never taints, so this
-  // is the boundary reset for it (bit-exact).
+  // unassigned — so the whole search trail must be rescanned: reset to 0, never
+  // forward. Only a real search backtrack does this. A probing restore unwinds
+  // its own assumptions off a clean root fixpoint and must land back on the
+  // boundary, so it keeps the boundary reset regardless of taint.
   const uint32_t reset = (k.trail_tainted && update_phases) ? 0 : boundary;
   if (k.propagate_head > reset)
     k.propagate_head = reset;
@@ -551,20 +510,16 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
 
 // --- propagation engine ------------------------------------------------
 // Transliterated from kissat/src/proplit.h (MIT, Biere et al.): blocking
-// literals, binary clauses inlined in watch lists, in-place watch-list
-// compaction, `searched` scan resumption, and DELAYED watch relocation —
-// with the flat watch arena, pushing to another literal's list during a
-// scan can move the arena, so relocations queue in kernel.delayed and
-// flush after each literal's scan. It lives in the kernel rather than in the
-// Propagate rule because the probing rules need propagation as a subroutine
-// and rules never call rules — a reviewed §5.3 kernel-primitive addition.
-
+// literals, binary clauses inlined in watch lists, in-place compaction,
+// `searched` scan resumption, and delayed watch relocation — with the flat
+// watch arena, a push during a scan can move the arena, so relocations queue in
+// kernel.delayed. It lives in the kernel rather than in the Propagate rule
+// because the probing rules need propagation as a subroutine (plan §5.3).
 // Probing bookkeeping log (see ProbingLog in kernel.hpp): snapshot `l`'s watch
-// list the FIRST time this scope touches it — either the scan of `l` is about
-// to make its first real write, or a delayed relocation is about to push onto
-// it. Up to that point the list still holds exactly what it held at
-// kernel_probing_begin: a scan copies `*q++ = *p++` with q == p until its first
-// drop, so every earlier write was an identity write.
+// list the FIRST time this scope touches it, i.e. just before the scan's first
+// real write or a delayed relocation's first push. Up to that point the list
+// still holds exactly what it held at kernel_probing_begin, since a scan copies
+// `*q++ = *p++` with q == p until its first drop.
 static void probing_snapshot_list(Kernel &k, Lit l) {
   ProbingLog &lg = k.probing;
   if (lg.stamp[l] == lg.epoch)
@@ -592,15 +547,12 @@ template <bool RECORD> static inline void flush_delayed(Kernel &k) {
   k.delayed.clear();
 }
 
-// returns true iff a conflict was found (recorded in the kernel)
-// `ignore` (CaDiCaL propagate.cpp's ignore pointer, reviewed kernel API
-// addition for C3 Vivify / V1 Probe): a clause ref that must not
-// propagate or conflict during this scan — a rule probing a candidate's
-// own negated literals must not derive anything THROUGH the candidate
-// RECORD (kissat's separate proprobe.c engine, here one template instantiation
-// away): log every watch-list / clause-header update into k.probing so a
-// probing scope can undo them. false for search — the generated code, and
-// therefore the search trajectory, is bit-identical to before the log existed.
+// Returns true iff a conflict was found (recorded in the kernel). `ignore`
+// (cadical's ignore pointer) is a clause ref that must not propagate or
+// conflict during this scan: a rule probing a candidate's own negated literals
+// must not derive anything through the candidate. `RECORD` logs every
+// watch-list / clause-header update into k.probing so a probing scope can undo
+// them; false for search, where codegen is as if the log did not exist.
 template <bool RECORD>
 static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   const Lit not_lit = negate(lit);
@@ -609,11 +561,10 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   // then rewinds or rewrites it (dropped garbage, a new blocking literal, a
   // delayed relocation), which is neither a read-only walk nor a keep/drop
   // filter. The stride lives here on purpose.
-  // hoisted data pointers (kissat proplit.h idiom): the inlined assigns
-  // store through k, so without locals the compiler must re-derive the
-  // vector data pointers after every assignment; the underlying arrays
-  // never move during a scan (no clause allocation, values sized at
-  // reserve time)
+  // hoisted data pointers (kissat proplit.h idiom): the inlined assigns store
+  // through k, so without locals the compiler must re-derive the vector data
+  // pointers after every assignment. The underlying arrays never move during a
+  // scan — no clause allocation, and `values` is sized at reserve time.
   const int8_t *const values = k.values.data();
   uint32_t *const arena = k.arena.data();
   uint32_t *const begin = k.watches.begin(not_lit);
@@ -771,9 +722,9 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
   uint64_t large_words = 0;
   bool conflict = false;
   // Not WatchLists::entries: `binprop_words`/`binprop_skipped` below price the
-  // WORD CURSOR where the scan stopped, and the conflict break leaves it PAST the
-  // conflicting binary. An entry iterator stops before the entry it breaks on, so
-  // the stride is load-bearing here beyond iteration.
+  // word cursor where the scan stopped, and the conflict break leaves it past
+  // the conflicting binary. An entry iterator stops before the entry it breaks
+  // on, so the stride is load-bearing here beyond iteration.
   while (p != end) {
     const Watch w{*p};
     if (!w.binary()) { // large watch occupies two slots; skipped here
@@ -817,16 +768,13 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
 }
 
 // --- probing propagation (kissat proprobe.c) --------------------------------
-// See kernel.hpp for the contract and the measurement that motivated it. Note
-// what kissat does and does NOT do here: kissat_probing_propagate is a second
-// instantiation of the SAME proplit.h scan (it differs only in the `ignore`
-// clause and in which statistics it charges), so kissat's probing does relocate
-// watches and does rewrite `searched` — its insulation from search comes from
-// elsewhere (probing runs inside its own mode, and the watch lists are rebuilt
-// around it). We keep one engine and undo the bookkeeping instead, which is the
-// smaller change and is exact: the propagation itself is bit-identical to
-// kernel_propagate, so the derived literals, their trail order, and the
-// recorded conflict are the same clause and the same literals.
+// See kernel.hpp for the contract. Deliberate divergence from the reference:
+// kissat_probing_propagate is a second instantiation of the same proplit.h
+// scan, so kissat's probing does relocate watches and rewrite `searched`, and
+// its insulation from search comes from elsewhere. One engine plus an undo log
+// is the smaller change and is exact — the propagation is bit-identical to
+// kernel_propagate, so the derived literals, their trail order and the recorded
+// conflict are the same.
 
 void kernel_probing_begin(Kernel &k) {
   ProbingLog &lg = k.probing;
@@ -1016,7 +964,7 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
     // no-empty-chain asserts: those two are what make a whole class of
     // certificate defects visible to the debug fuzz legs, since the permissive
     // format hides them — a congruence bug emitting `<id> <lits> 0 0` sat
-    // behind a VERIFIED DRAT proof on every tier run and every fuzz leg until
+    // behind a verified DRAT proof on every tier run and every fuzz leg until
     // an LRAT checker walked the chain and rejected the hint-less line.
     assert(e.second != 0 && "LRAT chain cites a literal with no unit id");
     k.lrat_chain.push_back(e.second);

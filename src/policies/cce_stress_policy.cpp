@@ -42,7 +42,7 @@ int cce_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
               (unsigned long long)k.stats.cce_cla,
               (unsigned long long)k.stats.bce_deleted, (int)k.conflict_valid,
               (int)k.inconsistent);
-    kernel_check_invariants(k); // PER-STEP (not every-256): pin the culprit
+    kernel_check_invariants(k); // per step, not every-256: pin the culprit
   };
 
   for (uint64_t steps = 0;; steps++) {
@@ -61,12 +61,10 @@ int cce_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
     }
 
     // --- the stressed window: cover every root, to a fixpoint ---------------
-    // Deliberately BEFORE the propagate branch, so CCE is entered off a
-    // propagation fixpoint (legal — `cce_guard` is `!inconsistent && level ==
-    // 0`) and immediately again on the formula its own deletions just changed.
-    // `k.work_budget` stays 0, so each apply runs the WHOLE round rather than
-    // the 4-per-mille dose: more candidates extended is more witness segments
-    // pushed, and a witness is what a wrong SAT answer comes from here.
+    // Sits before the propagate branch on purpose, so CCE is entered off a
+    // propagation fixpoint (legal: `cce_guard` is `!inconsistent && level ==
+    // 0`) and again on the formula its own deletions just changed.
+    // `k.work_budget` stays 0, so each apply runs the whole round.
     if (k.level == 0) {
       bool progressed = false;
       for (uint32_t round = 0; round < max_rounds; round++) {
@@ -80,9 +78,9 @@ int cce_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
         step("cce");
         progressed = true;
       }
-      // The N1 instance surface, which the round above never touches: the
-      // per-literal payload path enters through `inprocess_reach_root`, so it
-      // is a different entry as well as a different candidate set.
+      // The N1 instance surface the round above never touches: the per-literal
+      // payload path enters through `inprocess_reach_root`, a different entry
+      // as well as a different candidate set.
       for (uint32_t i = 0; i < max_instances && k.level == 0 && k.nvars; i++) {
         if (!cce.guard(k))
           break;
@@ -95,9 +93,8 @@ int cce_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
           progressed = true;
         }
       }
-      // The other two witness-pushing rules, so `ρ` interleaves segment
-      // sequences from three sources. CCE is the only one that pushes more
-      // than one segment per deletion.
+      // The other two witness pushers, so ρ interleaves segment sequences from
+      // three sources.
       if (!solo) {
         if (bce.guard(k)) {
           const ApplyResult r = apply_rule(bce, k);

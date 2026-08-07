@@ -1,6 +1,5 @@
-/* C-language API test: compiles tactix.h as C (header/ABI sync check for
- * api.cpp) and exercises N1 end-to-end — an external client choosing every
- * branching literal itself, driving rules stepwise via the registry. */
+/* C-language API test: compiles tactix.h as C (a header/ABI sync check) and
+ * exercises N1 — an external client choosing every branching literal. */
 #undef NDEBUG
 #include "tactix.h"
 
@@ -22,7 +21,6 @@ static void add_clause(tactix *s, const int *lits) {
   tactix_add(s, 0);
 }
 
-/* default-policy solve via the plain API */
 static void test_solve_sat(void) {
   tactix *s = tactix_init();
   add_clause(s, (const int[]){1, 2, 0});
@@ -33,12 +31,10 @@ static void test_solve_sat(void) {
   tactix_release(s);
 }
 
-/* N1: the client is the branching policy; the solver never picks a
- * decision itself. Micro-loop driven entirely through the registry. */
+/* N1: the client is the branching policy, driving the registry directly. */
 static void test_external_branching(void) {
   tactix *s = tactix_init();
-  /* (1 2 3)(−1 −2)(−1 −3)(−2 −3)(1 2)(1 3): forces exactly one true,
-   * combined with (1 2) and (1 3) the model must set 1 true. */
+  /* exactly one literal true, and with (1 2),(1 3) the model must set 1 */
   add_clause(s, (const int[]){1, 2, 3, 0});
   add_clause(s, (const int[]){-1, -2, 0});
   add_clause(s, (const int[]){-1, -3, 0});
@@ -51,8 +47,7 @@ static void test_external_branching(void) {
   const int decide = rule_id("Decide");
   assert(propagate >= 0 && conflictanalysis >= 0 && decide >= 0);
 
-  /* adversarial external branching: always branch NEGATIVE on the
-   * highest-numbered candidate — the opposite of what the formula wants */
+  /* adversarial branching: always negative, on the highest candidate */
   int steps = 0, status = 0;
   while (status == 0 && steps++ < 1000) {
     int applicable[16];
@@ -87,8 +82,7 @@ static void test_external_branching(void) {
   tactix_release(s);
 }
 
-/* v1 instance surface (plan §5.1): generic enumeration + chosen-
- * instance application across the payload encodings */
+/* Instance surface (plan §5.1): enumeration plus chosen-instance apply. */
 static void test_instance_surface(void) {
   tactix *s = tactix_init();
   add_clause(s, (const int[]){1, 2, 3, 0});
@@ -111,8 +105,7 @@ static void test_instance_surface(void) {
   assert(tactix_rule_instances(s, switchmode, insts, 64) == 1);
   assert(insts[0] == TACTIX_INSTANCE_CANONICAL);
 
-  /* Decide payloads are DIMACS literals (TACTIX_LIT_INSTANCE); apply one
-     explicitly */
+  /* Decide payloads are DIMACS literals; apply one explicitly */
   const int n = tactix_rule_instances(s, decide, insts, 64);
   assert(n > 0);
   const uint64_t before = tactix_stat(s, TACTIX_STAT_DECISIONS);
@@ -121,10 +114,8 @@ static void test_instance_surface(void) {
   assert(tactix_stat(s, TACTIX_STAT_LEVEL) == 1);
   assert(tactix_decide(s, -3) == -1); /* already assigned */
 
-  /* N1: EVERY literal must be expressible as an instance, -1 included. A
-     SIGN-extending encoding maps -1 onto TACTIX_INSTANCE_CANONICAL, which
-     silently branches on the solver's own pick instead of the one asked for;
-     the payload space is zero-extended and disjoint. */
+  /* N1: every literal is expressible as an instance, -1 included — the
+     payload space is zero-extended, so nothing aliases the sentinel */
   assert(TACTIX_LIT_INSTANCE(-1) != TACTIX_INSTANCE_CANONICAL);
   for (int i = 0; i < n; i++)
     assert(insts[i] != TACTIX_INSTANCE_CANONICAL); /* no literal aliases it */
@@ -133,15 +124,11 @@ static void test_instance_surface(void) {
     add_clause(t, (const int[]){1, 2, 0});
     add_clause(t, (const int[]){-1, 3, 0});
     assert(tactix_apply_instance(t, decide, TACTIX_LIT_INSTANCE(-1)) == 0);
-    /* the literal we ASKED for is the one assigned: value(1) is FALSE. Under
-       the old encoding this ran Decide's canonical instance, which picks the
-       saved phase (+1), leaving value(1) TRUE. */
+    /* the literal asked for is assigned, not Decide's own saved phase */
     assert(tactix_value(t, 1) == -1);
     tactix_release(t);
   }
 
-  /* canonical sentinel routes to the canonical instance (propagate is
-   * applicable now: the decision is unpropagated) */
   assert(tactix_apply_instance(s, propagate, TACTIX_INSTANCE_CANONICAL) !=
          -1);
 
@@ -153,7 +140,6 @@ static void test_instance_surface(void) {
   assert(tactix_stat(s, TACTIX_STAT_LEVEL) == 0);
   assert(tactix_stat(s, TACTIX_STAT_RESTARTS) == 1);
 
-  /* stats: unknown id */
   assert(tactix_stat(s, 9999) == UINT64_MAX);
   tactix_release(s);
 
@@ -170,10 +156,7 @@ static void test_instance_surface(void) {
   remove("/tmp/tactix_api_fmt.drat");
 }
 
-/* regression 001-empty-formula-frames: a solver that never saw a variable
- * must survive rule application — the fresh-kernel frame stack used to
- * violate the frames/level invariant, aborting kernel_check_invariants
- * inside tactix_apply on ANY H-rule (debug builds) */
+/* A solver that never saw a variable must survive rule application. */
 static void test_empty_solver_rule_application(void) {
   tactix *s = tactix_init();
   const int sw = rule_id("SwitchMode");
@@ -198,10 +181,8 @@ static void test_stepwise_unsat(void) {
   tactix_release(s);
 }
 
-/* E1d N1 surface: BVE gate-type selection through the public C API. Var 1 of
- * this AND/OR-gate instance eliminates ONLY via the gate reduction (its full
- * cross product exceeds the growth bound), so disabling AND/OR makes the same
- * apply a no-op and enabling it makes progress — the public setter is honored. */
+/* N1: BVE gate-type selection through the public API. Var 1 eliminates only
+ * via the gate reduction, so the setter flips one apply to a no-op. */
 static void test_bve_gate_selection(void) {
   const int bve = rule_id("BVE");
   assert(bve >= 0);
@@ -224,11 +205,8 @@ static void test_bve_gate_selection(void) {
   tactix_release(s);
 }
 
-/* rev 69: the §5.6 reward-counter + config-setter surface. Every documented
- * stat id must return a real counter (not the UINT64_MAX unknown-id
- * sentinel) after a solve, and every config setter must be callable at any
- * state with the solve still correct — config is sound by class, so the
- * only contract to pin is reachability + a sane verdict. */
+/* The §5.6 reward-counter and config-setter surface: every documented stat id
+ * returns a real counter, and every setter is callable at any state (N1). */
 static void test_stats_and_config_surface(void) {
   int id;
   tactix *s = tactix_init();
@@ -243,11 +221,8 @@ static void test_stats_and_config_surface(void) {
   tactix_set_factor_composite(s, 1);
   tactix_set_work_budget(s, 1000000);
   tactix_set_vivify_scope(s, 1);
-  /* ... and every setter's value must be READABLE BACK. A pose that was
-     silently dropped or substituted produces an arm that measures nothing
-     while reading as configured, which is the failure this project keeps
-     paying for; the vivify_scope row is the one that was actually broken
-     (tests/test_vivify_n1.cpp). */
+  /* ... and every setter's value must read back: a pose silently dropped
+     gives an arm that measures nothing while reading as configured */
   assert(tactix_config(s, TACTIX_CFG_BVE_BOUND) == 4);
   assert(tactix_config(s, TACTIX_CFG_FACTOR_BOUND) == 1);
   assert(tactix_config(s, TACTIX_CFG_FACTOR_COMPOSITE) == 1);
@@ -257,9 +232,8 @@ static void test_stats_and_config_surface(void) {
   assert(tactix_config(s, TACTIX_CFG_BVE_GATES) == TACTIX_BVE_GATE_ITE);
   assert(tactix_config(s, 6) == UINT64_MAX); /* first unknown cfg id */
   assert(tactix_config(s, -1) == UINT64_MAX);
-  /* every band Vivify implements is settable, 3/4/5 included: they used to be
-     clamped onto 0, which removed the tier3 capability from every API caller
-     while DefaultPolicy kept using it (N1) */
+  /* every band Vivify implements is settable: clamping 3/4/5 onto 0 would
+     deny API callers a tier DefaultPolicy uses (N1) */
   for (id = 0; id <= 5; id++) {
     tactix_set_vivify_scope(s, (unsigned)id);
     assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == (uint64_t)id);
@@ -270,12 +244,9 @@ static void test_stats_and_config_surface(void) {
   tactix_set_work_budget(s, 0);
   tactix_set_vivify_scope(s, 0);
   assert(tactix_solve(s) == 20);
-  /* completeness: every documented id 0..49 answers, id 0 included (it was
-     never swept). Ids come in yield/effort PAIRS because the plan §5.6 learner
-     reads them as rewards and cost-per-unit-output — not yield alone — is the
-     axis that orders rule outcomes. This is a PRESENCE check and cannot see a
-     pair wired to the wrong counters: tools/docs/check-stat-ids.py (ctest
-     `stat_ids`) is what pins the mapping. */
+  /* Completeness: every documented id 0..49 answers, in yield/effort pairs so
+     the §5.6 learner can order outcomes by cost per unit output. Presence
+     only — tools/docs/check-stat-ids.py pins the mapping. */
   for (id = 0; id <= 49; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
   assert(tactix_stat(s, 50) == UINT64_MAX); /* first unknown id */
@@ -283,11 +254,8 @@ static void test_stats_and_config_surface(void) {
   tactix_release(s);
 }
 
-/* Pin the frozen registry id/name assignment (a permanent
- * id-drift guard — reclassifying Rephase/SwitchMode in place must NOT move any
- * id) and each entry's ActionKind. Rephase and SwitchMode are POLICY OPERATIONS
- * (H-only, plan rev 59/60), as are Walk and Reorder; every other entry is a PROOF RULE. Adding a rule
- * renumbers ids by the name sort — update this golden list deliberately then. */
+/* Pin the frozen registry id/name assignment and each entry's ActionKind.
+ * A new rule renumbers ids by name sort, so update this list with it. */
 static void test_action_kind(void) {
   static const char *const golden[] = {
       "BCE",        "BVE",        "Backbone",         "CCE",
@@ -305,8 +273,6 @@ static void test_action_kind(void) {
   for (int i = 0; i < n; i++)
     assert(!strcmp(tactix_rule_name(i), golden[i]));
 
-  /* the policy operations (rev 59/60; Walk joined in — it sorts last,
-   * so no existing id moved) */
   assert(tactix_action_kind(rule_id("Rephase")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("SwitchMode")) == TACTIX_ACTION_POLICY_OP);
   assert(tactix_action_kind(rule_id("Walk")) == TACTIX_ACTION_POLICY_OP);

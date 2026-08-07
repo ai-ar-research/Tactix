@@ -1,7 +1,5 @@
-// S7 Reorder unit tests: the weight formula (clause-size decay, both-polarity
-// reward, satisfied/redundant exclusions), the two rankings it can rewrite
-// (VMTF queue order and EVSIDS heap order), the instance surface, the guard,
-// and that a solve stays correct with the op applied.
+// S7 Reorder: the weight formula and its exclusions, the two rankings it
+// rewrites (VMTF queue, EVSIDS heap), the instance surface, and the guard.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -29,33 +27,28 @@ static void addn(Kernel &k, std::vector<int> ds, bool redundant = false) {
 
 static bool near(double a, double b) { return std::fabs(a - b) < 1e-12; }
 
-// THE FORMULA. A binary contributes 1 to each of its literals, a ternary 1/2, a
+// Weight formula: a binary contributes 1 to each literal, a ternary 1/2, a
 // quaternary 1/4; the variable weight is max(w+,w-) + 2·min(w+,w-), so a
-// variable split evenly over both polarities outranks one with the same total
-// mass on a single polarity.
+// both-polarity split outranks the same total mass on one polarity.
 static void test_weight_formula() {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 6);
-  addn(k, {1, 2});        // binary: 1 to lit 1 and lit 2
-  addn(k, {-1, 3, 4});    // ternary: 1/2 to lits -1, 3, 4
-  addn(k, {5, 6, 3, 4});  // quaternary: 1/4 each
+  addn(k, {1, 2});
+  addn(k, {-1, 3, 4});
+  addn(k, {5, 6, 3, 4});
   std::vector<double> w;
   reorder_weights(k, w);
-  // var 1: w+ = 1, w- = 1/2 -> max + 2·min = 1 + 1 = 2
+  // (w+, w-) per var: 1 -> (1, 1/2); 2 -> (1, 0); 3 -> (3/4, 0); 5 -> (1/4, 0)
   assert(near(w[var_of(internalize(1))], 2.0));
-  // var 2: w+ = 1, w- = 0 -> 1
   assert(near(w[var_of(internalize(2))], 1.0));
-  // var 3: w+ = 1/2 + 1/4 = 3/4, w- = 0
   assert(near(w[var_of(internalize(3))], 0.75));
-  // var 5: w+ = 1/4, w- = 0
   assert(near(w[var_of(internalize(5))], 0.25));
   // the both-polarity reward: var 1 outranks var 2 though both carry 1.5 total
   assert(w[var_of(internalize(1))] > w[var_of(internalize(2))]);
 }
 
-// Redundant clauses are out of scope (they are search residue, not structure),
-// and a clause satisfied under the current assignment contributes nothing.
+// Redundant clauses and clauses satisfied under the assignment contribute 0.
 static void test_exclusions() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -76,8 +69,7 @@ static void test_exclusions() {
   assert(near(w[var_of(internalize(4))], 0.5)); // the second still counts
 }
 
-// FOCUSED: the heaviest variable must end up the next decision. Var 1 is the
-// heaviest by construction, and starts NOT at the queue front.
+// Focused: the heaviest variable must become the next decision.
 static void test_queue_ranking() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -98,16 +90,14 @@ static void test_queue_ranking() {
       heaviest = v;
   assert(heaviest == var_of(internalize(1)));
   assert(heuristics_queue_next_unassigned(k) == heaviest);
-  // and the whole queue is in ascending weight order from tail to front
-  double prev = -1;
+  double prev = -1; // the whole queue is ascending in weight, tail to front
   for (Var v = k.h->queue_first; v != UINT32_MAX; v = k.h->links[v].next) {
     assert(w[v] >= prev);
     prev = w[v];
   }
 }
 
-// STABLE: scores are rescaled and the weight added, so the structural ranking
-// dominates but a pre-existing score still breaks ties.
+// Stable: scores are rescaled and the weight added, so a prior score only ties.
 static void test_heap_ranking() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -127,12 +117,9 @@ static void test_heap_ranking() {
   assert(heuristics_heap_next_unassigned(k) == var_of(internalize(1)));
 }
 
-// The VMTF search cache survives a MID-TRAIL reorder — the invariant "every
-// variable after search_idx is assigned", which the backward walk in
-// queue_next_unassigned depends on. `queue_bump` maintains the cache only for
-// variables it MOVES and early-returns on one already at the tail, so this is
-// where a mid-trail application (N1) would break if the argument in reorder.cpp
-// were wrong. Exercised at every trail depth, in both bump directions.
+// The VMTF search cache survives a mid-trail reorder: every variable after
+// `search_idx` must stay assigned, the invariant `queue_next_unassigned`'s
+// backward walk needs and `queue_bump` maintains only for what it moves.
 static void test_search_cache_survives_mid_trail() {
   for (int assign = 0; assign <= 3; assign++) {
     Kernel k;
@@ -145,7 +132,6 @@ static void test_search_cache_survives_mid_trail() {
     for (int i = 1; i <= assign; i++)
       kernel_assign_decision(k, internalize(i));
     assert(reorder_apply(k) == ApplyResult::Ok);
-    // every variable strictly after the cache must be assigned
     bool past = false;
     for (Var v = k.h->queue_first; v != UINT32_MAX; v = k.h->links[v].next) {
       if (past)
@@ -160,8 +146,7 @@ static void test_search_cache_survives_mid_trail() {
   }
 }
 
-// The instance surface: canonical first (the ranking the active mode reads),
-// then the other one; both are always applicable.
+// Instance surface: the active mode's ranking first; both always applicable.
 static void test_instance_surface() {
   Kernel k;
   ScopedHeuristics _h(k);
@@ -179,16 +164,13 @@ static void test_instance_surface() {
   assert(vt.instances(k, inst, 4) == 2);
   assert(inst[0] == REORDER_HEAP && inst[1] == REORDER_QUEUE);
   assert(vt.instances(k, inst, 1) == 1);
-  // an unknown payload is a NoOp, never unsound
-  assert(vt.apply_instance(k, 99) == ApplyResult::NoOp);
+  assert(vt.apply_instance(k, 99) == ApplyResult::NoOp); // unknown payload
   assert(vt.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Ok);
   assert(vt.apply_instance(k, REORDER_QUEUE) == ApplyResult::Ok);
 }
 
-// GUARD: `H` is a genuine precondition (the op rewrites H state); a refuted
-// kernel is not reorderable. Nothing about the trail level is required — a
-// policy may reorder mid-trail (N1), the weight is then read off the current
-// assignment.
+// Guard: `H` is a genuine precondition (the op rewrites H state) and a refuted
+// kernel is not reorderable; the trail level is not constrained (N1).
 static void test_guard() {
   Kernel k;
   kernel_reserve_vars(k, 3);

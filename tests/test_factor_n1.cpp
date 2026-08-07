@@ -1,17 +1,7 @@
-// N1 REGRESSION: Factor's admission heuristic must not live inside the rule.
-//
-// As a NoOp inside `factor_apply` it is an N1 breach, not a tuning choice:
-// `factor_guard` reports APPLICABLE, `factor_instances` offers its canonical
-// instance, and applying that instance does NOTHING on any binary-sparse
-// formula. So no caller of the public rule API — an LLM policy, an RL policy,
-// RandomPolicy — can apply a legal factoring there at all. The N1 carve-out
-// permits the built-in POLICY to decline a choice; it does not permit a RULE
-// to refuse everyone, which is a capability removed.
-//
-// The predicate lives in DefaultPolicy and reaches the rule as
-// `Kernel::factor_admit`, which DEFAULTS TRUE. This test pins that default:
-// a formula BELOW the density threshold, carrying a genuine factorable grid,
-// must factor when driven through the rule's own surface.
+// N1 regression: Factor's admission heuristic lives in DefaultPolicy, not in
+// the rule. A rule that guards true, advertises an instance and then NoOps on
+// it removes a capability from every external policy. The predicate reaches
+// the rule as `Kernel::factor_admit`, which defaults true.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/factor/factor.hpp"
@@ -23,11 +13,9 @@
 
 using namespace tactix;
 
-// A 2x3 grid over factors {a, b} and remainders {x, y, z}: the six clauses
-// (a|x) (a|y) (a|z) (b|x) (b|y) (b|z). delta = m*n - (m+n) = 6 - 5 = 1 > 0, so
-// it is worth applying. Padding variables keep the BINARY DENSITY far below the
-// shipped threshold of 6 binaries per variable, which is the condition that used
-// to silence the rule.
+// A 2x3 grid with delta = m*n - (m+n) = 1 > 0, so the factoring is worth
+// applying, plus padding that holds the binary density far below the shipped
+// admission threshold of 6 binaries per variable.
 static void build_sparse_factorable(Kernel &k, uint32_t pad_vars) {
   kernel_reserve_vars(k, 5 + pad_vars);
   const Lit a = make_lit(0, true), b = make_lit(1, true);
@@ -38,19 +26,13 @@ static void build_sparse_factorable(Kernel &k, uint32_t pad_vars) {
 }
 
 int main() {
-  // The gate was `binary_ids.size() >= 6 * num_output_vars`. With 6 binaries and
-  // 205 variables the ratio is ~0.03 — two orders of magnitude below it, so the
-  // pre-fix build NoOps here with certainty rather than by luck.
-  Kernel k;
+  Kernel k; // orders of magnitude under the gate: not a lucky pass
   build_sparse_factorable(k, 200);
   assert(k.binary_ids.size() < 6ull * kernel_num_output_vars(k) &&
          "test is vacuous unless the formula is genuinely below the threshold");
 
-  // Drive the REGISTRY surface — guard, then instances(), then
-  // apply_instance() — because that is exactly what `tactix_rules_applicable`
-  // / `tactix_apply_instance` route an external policy through. Testing
-  // `factor_apply` directly would miss the point: the breach was that the
-  // advertised instance could not be applied.
+  // Drive the registry surface, the path an external policy takes; calling
+  // `factor_apply` directly would not exercise the advertised instance.
   const std::vector<RuleVTable> &rules = tactix_rules();
   const RuleVTable *factor = nullptr;
   for (const RuleVTable &rv : rules)
@@ -66,8 +48,7 @@ int main() {
   const uint64_t before = k.stats.factorings;
   const ApplyResult r = factor->apply_instance(k, inst[0]);
 
-  // The breach: this returned NoOp with zero factorings, while the guard said
-  // the rule was applicable and instances() had just offered this very payload.
+  // An advertised instance must apply: NoOp here is the N1 breach.
   assert(r == ApplyResult::Ok &&
          "N1 BREACH: a legal factoring is not applicable through the rule API "
          "on a binary-sparse formula");
