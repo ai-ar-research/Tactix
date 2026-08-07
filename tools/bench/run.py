@@ -57,6 +57,7 @@ import concurrent.futures
 import datetime
 import json
 import os
+import re
 import resource
 import shlex
 import shutil
@@ -101,6 +102,29 @@ CHK_OUR_FAULT = (CHK_REJECTED, CHK_DERIVATION)
 _CHK_DIAG = ("RAT check on proof pivot failed", "failed at proof line",
              "RAT check failed on all possible pivots", "Checking failed at",
              "c ERROR", "no empty clause")
+
+
+# One source of truth for the reach patterns: tools/fuzz/fuzz.py owns them and a
+# conformance test pins every registry entry to a row there. A second copy here
+# would drift, and a drifted reach table reads as "the rule did not fire".
+def _load_reach_specs():
+    import importlib.util
+    fp = os.path.join(HERE, "..", "fuzz", "fuzz.py")
+    spec = importlib.util.spec_from_file_location("_tactix_fuzz", fp)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return [(lbl, re.compile(p, re.M)) for lbl, p in mod.REACH_SPECS]
+
+
+try:
+    _REACH_SPECS = _load_reach_specs()
+except Exception as _e:    # fuzz.py absent or unimportable
+    # LOUD, not silent. A quietly empty table means every tier run records "no
+    # rule fired", which reads as a finding rather than as a broken import --
+    # exactly the failure mode the reach table exists to prevent.
+    sys.stderr.write(f"run.py: WARNING reach counters DISABLED ({_e!r}); "
+                     f"tier results will record no `reached` data\n")
+    _REACH_SPECS = []
 
 
 def classify_checker_output(stdout, stderr, returncode):
@@ -222,7 +246,7 @@ def check_proof(fmt, cnf, proof, budget):
 def solve_once(argv, timeout, mem_gb):
     """One solver invocation under the wall timeout + kernel backstops.
 
-    Returns (verdict, elapsed). Shared by the timed run and the §8.1 LRAT
+    Returns (verdict, elapsed, reached). Shared by the timed run and the §8.1 LRAT
     re-solve so the rescue runs under exactly the same limits as the
     measurement it is rescuing."""
     def limits():
@@ -241,9 +265,26 @@ def solve_once(argv, timeout, mem_gb):
         r = subprocess.run(argv, capture_output=True, text=True,
                            errors="replace", timeout=timeout,
                            preexec_fn=limits)
-        return parse_verdict(r.returncode, r.stdout), time.monotonic() - t0
+        return (parse_verdict(r.returncode, r.stdout), time.monotonic() - t0,
+                reach_counters(r.stdout))
     except subprocess.TimeoutExpired:
-        return "UNKNOWN", timeout
+        return "UNKNOWN", timeout, {}
+
+
+# Which registry entries this run actually REACHED, read from the solver's own
+# `c ` counters. Recorded per task because plan rev 88 makes reach-evidence a
+# phase-3 exit condition, and it was otherwise obtainable only by re-running the
+# solver outside the array -- which is not the sanctioned way to run one, and
+# throws away the fact that the tier run already had the answer in its output.
+# Empty on a timeout: a killed run prints no stats, and a tally that cannot tell
+# "did not fire" from "was not measured" is the vacuity this exists to prevent.
+def reach_counters(stdout):
+    out = {}
+    for label, pat in _REACH_SPECS:
+        m = pat.search(stdout)
+        if m:
+            out[label] = int(m.group(1))
+    return out
 
 
 def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
@@ -279,7 +320,7 @@ def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
     lproof = proof + ".rescue.lrat"
     t0 = time.monotonic()
     try:
-        verdict, solve_s = solve_once(cmd + ["--lrat", cnf, lproof],
+        verdict, solve_s, _ = solve_once(cmd + ["--lrat", cnf, lproof],
                                       timeout, mem_gb)
         if verdict != res["verdict"]:
             res["proof_rescue"] = (f"failed: --lrat re-solve answered "
@@ -357,7 +398,8 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
     proof = os.path.join(workdir, rel.replace("/", "_") + "." + fmt)
     argv = cmd + [cnf] + ([proof] if check_proofs else [])
 
-    verdict, elapsed = solve_once(argv, timeout, mem_gb)
+    verdict, elapsed, reached = solve_once(argv, timeout, mem_gb)
+    res["reached"] = reached
     res["time"] = round(elapsed, 3)
     res["verdict"] = verdict
 
