@@ -59,6 +59,8 @@ OFF by design and is plan §9's named exemption. Propagate / ConflictAnalysis / 
 others 22–23/24, and the sparse tail is BCE 17 · HyperTernaryRes 13 · Instantiate 12 · Factor 10 · BVE 9 — all
 non-zero, which is what the condition asks. **This retires the "19 of 25 entries fire" reading entirely**: that
 figure was the round-counter artefact, measured on fuzz-sized instances through a broken instrument.
+**Nightly-scale fuzz on the post-R9/R10 tree is GREEN** (`1587899`): DRAT **0/10,000** (coverage 9,664) · native LRAT **0/10,000** (9,662) · `--random-policy` **0/10,000** (8,149; the 18.5 % non-terminating population is the known one, accepted non-blocking by the user and printed rather than hidden) · corpus **14/14 on both formats**. Nothing had been fuzzed at this scale since R9, R10, the `Reduce` counter fix and the `SubSolver` move to `src/engine/`.
+
 *Still owed for the exit: the `--random-policy` half — a rule can fire under DefaultPolicy's schedule and never
 be driven through `apply_instance` with a non-canonical payload. Under audit.*
 
