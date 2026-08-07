@@ -96,6 +96,17 @@ contradict), 13 narrowed, 6 stand, 3 new (L26–L28).
   for all three: count inside `kernel_terminating()` ITSELF and bypass the production cadence when the
   knob is set. **Before trusting a stress leg, require a NON-ZERO fire count on the corpus.**
   (probes 1578209–13.)
+  ▶ **THE MEASUREMENT TWIN, and it has now cost two wrong retirements: a sentinel read only on instances
+  that CANNOT make it fire is (b) again, one domain over.** The block-1 triage retired the `D3` slot-watermark
+  and `E3` effort-ceiling arms on `blocked`/`clamped` zeros taken over an 8-instance Tier B subsample. Both
+  counters are driven by the CUMULATIVE effort clock, so both are structurally zero on every instance that
+  finishes quickly — and that subsample topped out at 1.04e9 global ticks while the instances that move them
+  sit at 8.03e9–1.70e10, i.e. it contained no instance that runs to the cap. Swept over all 28, `blocked` fires
+  on 4 and `clamped` on 2, and `D3` turns out to suppress elimination phases on two of the four timeout
+  instances carrying most of Tier B's PAR-2 — so the arm the zero would have retired was the one worth
+  running. **Print the counter's DENOMINATOR beside it and check the corpus spans the range that can make it
+  move**; where the denominator is the solve clock, that means the instances that reach the cap, not a fast
+  sample of them. `F2`'s standing note is the same shape reasoned about in advance rather than measured.
 
 - **L23 · AN ALL-OR-NOTHING SAFETY SKIP WHOSE PRECONDITION IS PER-ITEM BECOMES UNIVERSAL AT SCALE** — scope the skip to the granularity the PROOF needs, not to the whole round. V3's hazard check skipped the ENTIRE ROUND on a comment reading "Rare; the finer per-SCC skip is a future refinement". "Rare" was a claim about a LITERAL while the skip was per ROUND, so P(round survives) decays with the marked set — and the instances richest in equivalences mark the most literals. On `veer_axi`: **5 of 5 rounds lost, 0 variables substituted, all 179,110 equivalences wasted, because 284 of 406,256 literals (0.07 %) were hazardous**; the per-SCC form substitutes 202,986. Those COUNTERS are the evidence and they are trajectory-deterministic. ⚠ CUT 2026-08-04: the tier headline (Tier B 104.06 → 95.61, +1 solve) is ONE window and is entirely `veer_axi`'s cliff solve at 238.7 s against a 300 s cap — 12.9 PAR-2 of a −8.45 total, with the other 27 instances netting +4.4 AGAINST the fix; the same instance is measured at 32 % wall spread on bit-identical trajectories (so a single probe there cannot resolve under ~1.3×, and TO-vs-238.7 s is 1.26×), and the OFF baseline solved it at 286.7 s in the adjacent window. **Cite the substitution counters, not the PAR-2.** A deferred "rare case, coarse handling" note is a MEASURABLE claim — instrument the skip rate before believing it. (Mirror image: L25a.)
 
