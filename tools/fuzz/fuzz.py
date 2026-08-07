@@ -223,9 +223,16 @@ REACH_SPECS = [
     ("Reduce", r"^c reductions\s+(\d+)"),
     ("Lucky", r"^c lucky\s+(\d+) probes"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
-    ("Probe", r"^c probe\s+(\d+) rounds,"),
-    ("Backbone", r"^c backbone\s+(\d+) rounds,"),
-    ("TransitiveReduce", r"^c transitive\s+(\d+) rounds,"),
+    # The next three key on ATTEMPTS, not rounds. All are `dosed` entries, so
+    # DefaultPolicy reaches them through apply_instance and the round counter
+    # never moves: on a structured probe instance Probe and Backbone each
+    # probed 22 literals while reporting "0 rounds". A counter that CANNOT
+    # move makes a rule that ran look untested, which is the inverse of the
+    # vacuity this table exists to catch — and it is what produced the
+    # "19 of 25 entries fire" reading.
+    ("Probe", r"^c probe\s+\d+ rounds, (\d+) probed,"),
+    ("Backbone", r"^c backbone\s+\d+ rounds, (\d+) probed,"),
+    ("TransitiveReduce", r"^c transitive\s+\d+ rounds, (\d+) checked,"),
     ("Substitute", r"^c substitute\s+(\d+) rounds,"),
     ("BCE", r"^c bce\s+(\d+) rounds,"),
     ("CCE", r"^c cce\s+(\d+) rounds,"),
