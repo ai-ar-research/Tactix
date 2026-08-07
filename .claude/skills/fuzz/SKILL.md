@@ -23,6 +23,13 @@ failure ─▶ ddmin shrinker ─▶ minimal CNF + seed + rule trace ─▶ corp
 3. **Differential status:** verdict must match Kissat; on disagreement, bring in CaDiCaL as tiebreaker and assume our solver is wrong until the model/proof oracle proves otherwise.
 4. **Internal invariants:** run debug builds (`-DTACTIX_CHECK`) with ASan/UBSan; assertion failures are fuzz failures.
 
+## A green leg proves nothing until you prove it could have gone red
+
+Two independent ways a leg goes vacuous, both of which have shipped here:
+
+- **THE ORACLE ITSELF CAN BE BROKEN.** `fuzz.py`'s native-LRAT check once tested `"VERIF" not in output.upper()`, which matches `c NOT VERIFIED` as well as `c VERIFIED`, so **every LRAT rejection in the project's history was recorded as a pass** and two real N2 breaches sat under green legs. Same family: a `^`-anchored match on drat-trim output reports every proof unverified, because drat-trim prefixes its `s` lines with `\r`. **So for any oracle: feed it a known-bad artefact and require a red.** A checker whose rejection you have never observed is not yet a checker. `tools/fuzz/selftest.sh` is the standing mechanism — it runs the pipeline clean against Kissat/CaDiCaL and requires each `tools/fuzz/broken/*` wrapper (lie-UNSAT-as-SAT, negated model, truncated proof) to be flagged by the *right* oracle, plus a ddmin effectiveness check and the duplicate-literal checker-disagreement case. **Run it whenever an oracle, a checker invocation, or its accept-condition changes** — not only at phase 0.
+- **THE CODE PATH MAY NEVER HAVE EXECUTED.** A new leg's cheapest reachability check is the **verdict distribution**: a leg built to force a new path returned SAT 5715 / TO 270 / UNSAT 4015 against the control's 5715 / 271 / 4014 — near-identical counts meant the path never ran (the budget it depended on computed to 0 on tiny fuzz instances). Compare those three numbers before claiming a leg covers anything, and for a stress knob **count at the SOURCE** (inside the predicate itself), never at the call sites, then require a non-zero fire count on a few corpus regressions. `strings <binary> | grep TACTIX_...` proves the env var compiled in, NOT that the path is reachable.
+
 ## Generators (all seeded — record the seed in every artifact)
 
 Per-batch mix (`generators.py`, rev 31), random problems capped at 100 vars so
@@ -81,15 +88,21 @@ only the launch mechanism moved.
   applies. Without this leg the ASCII branch of proof.cpp is only exercised by
   the tiny fixed `micro_proofs.sh` cases, so a regression in it would ship
   invisibly (flagged by the N1/N2/N3 adversarial audit, 2026-07-15).
+- **Rule-targeted stress legs (stress-policy skill).** The uniform random policy
+  under-samples the schedule a specific rule makes legal, so each witness-emitting
+  or newly-landed family has its own driver
+  (`src/policies/*_stress_policy.*`: bce, bve, cce, congruence, factor, probing,
+  reuse, substitute, sweep, walk, plus the off-fixpoint `adversarial`). Run the
+  relevant one — DRAT **and** `--lrat` — when touching that family; the
+  stress-policy skill owns writing/wiring a new one.
 - Nightly: run BOTH formats under the random policy at scale — native DRAT
   (`run.sh --nightly --solver "build/debug/tactix --random-policy"`) and
   native LRAT (`run.sh --nightly --solver "build/debug/tactix --random-policy --lrat"`),
   ~200k cases each (rev-66 scale; one 50-thread `slurm.sh` job per leg) +
-  all generators + differential testing. Before 2026-07-15 the nightly ran
-  native DRAT only (its `--lrat` was the fuzz.py cross-check flag =
-  drat-trim→lrat-check on the DRAT, which validates the checker conversion,
-  not our LRAT emitter) — native LRAT under random schedules must be soaked
-  too. Durable outcome: failures auto-shrink into `tools/fuzz/failures/`
+  all generators + differential testing. **Native LRAT is not covered by
+  fuzz.py's `--lrat` cross-check flag** (that is drat-trim→lrat-check on the
+  DRAT, which validates the checker conversion, not our emitter). Durable
+  outcome: failures auto-shrink into `tools/fuzz/failures/`
   (empty of newer-than-launch entries + green log tail ⇒ green).
 
 ## Failure handling — never skip steps
@@ -99,4 +112,4 @@ only the launch mechanism moved.
 3. Save minimal CNF + seed + rule trace + one-line diagnosis to `tools/fuzz/corpus/regressions/NNN-<slug>/`. This directory is tracked in git and grows monotonically — regression cases are never deleted.
 4. Fix; confirm the regression case and a quick fuzz round pass; mention the corpus entry in the commit message.
 
-When the harness itself is being built (phase 0), validate it by fuzzing Kissat and CaDiCaL as stand-in solvers: the pipeline must run end-to-end and correctly flag deliberately-broken solvers (e.g., a wrapper that lies UNSAT→SAT, or corrupts one proof line).
+Harness validation is `tools/fuzz/selftest.sh` (see "A green leg proves nothing"): it is the phase-0 exit criterion *and* the standing regression test for the oracles themselves.

@@ -43,16 +43,27 @@ rule in the abstract calculus over `σ = ⟨F,R,τ,ρ,π⟩` (`H` is outside `σ
   consistent).
 - **No → engineering deviation.** It is imposed by an implementation choice, not
   by the abstract rule. Record it in `implementation-notes.md` with a **root
-  cause** and a **removal path**. The two standing root causes:
-  - **D-LEVEL** — the kernel stamps forced literals at the current decision
-    level (`kernel_assign_binary`/`_ref` pass `k.level`), so state-advancing
-    rules need a `propagate_head == trail.size` fixpoint conjunct and `Backjump`
-    clamps to `jump_level`. Removed by true-level assignment + chronological
-    backtracking (plan §5.4).
-  - **D-SPLIT** — Analyze and Backjump are two rules, so a `pending` control
-    state exists; guards carry `¬pending.valid` / `¬conflict_valid` to protect
-    it. Removed by modelling conflict analysis as one atomic rule
-    (`implementation-notes.md` §4).
+  cause** and a **removal path**. The ledger's §2 "Open" table is the live list;
+  read it before inventing a tag. As of rev 83 the only remaining *guard*
+  deviations are:
+  - **D-ROOT** — `level == 0` on every inprocessing rule, because the rules are
+    coded against the root formula `U`. An accepted *framework* choice (plan §4
+    defines inprocessing on `F|U`), not currently planned for removal.
+  - **D-NOOP** — S1/S2's `¬conflict_valid` / `level>0` no-op (GC forwards
+    `pending.ref` but not `conflict_ref`). Benign, low priority.
+  Everything else open is an **effect branch** (D-CONG-SKIP, D-CONG-TAUT) or a
+  **dosing/scope** row (D-STRENGTHEN-BUDGET, D-SUBST-UNBOUNDED, D-CCE-*,
+  D-C1C2-VICTIM), not a guard conjunct. **D-LEVEL and D-SPLIT are CLOSED** —
+  inprocessing rules now drain the root closure at apply entry
+  (`inprocess_reach_root`) instead of demanding a fixpoint in the guard; if you
+  find a skill or comment citing them as live, it is stale.
+
+**Within-rule SCOPE is not a guard conjunct, and the distinction is load-bearing
+(§4).** A filter that only narrows *which candidates the rule offers* — a tick
+cap, an irredundant-only candidate set, a size floor — is scope; it can never make
+an inference unjustified, and it does not go in the guard. But per N1 it must not
+silently shrink the **instance surface** either: if it encodes a WHEN/WHICH
+decision, it belongs to the policy (rule-dev skill).
 
 Two traps: (1) don't restate the coded guard as the "abstract precondition" —
 strip the engineering conjuncts first. (2) a control flag not in `σ`
@@ -71,13 +82,17 @@ that genuinely *consumes* that flag (`Analyze` consumes `conflict_valid`).
    Effect / Proof δ / Soundness only — no guard conjuncts or deviations in the
    rule body. Keep entries tight and in the existing house style.
 4. **Update `implementation-notes.md`** — the per-rule implemented-guard row
-   (conjuncts tagged `[abstract]` or `[eng:D-LEVEL|D-SPLIT|D-ROOT|other]`) and, if
+   (conjuncts tagged `[abstract]` or `[eng:<ledger-id>]`, e.g. `D-ROOT`) and, if
    any deviation was added/removed/moved, the ledger.
 5. **Cross-check** `DEVELOPMENT_PLAN.md` §4 (precondition paragraphs) and §5.2
    (catalog phase + proof-delta type) and `PROGRESS.md`. If the abstract rule
    itself changed (not just the implementation), that is a plan edit → go
    through `revise-plan` too.
-6. **One commit** with the code, the calculus entry, and the plan/PROGRESS sync.
+6. **Run `ctest`** before committing: parts of `implementation-notes.md` are
+   machine-checked as tests (`check-option-coverage`, `check-effort-specs`,
+   `check-config-wiring`, `check-stat-ids`), so a docs-only edit — especially one
+   that drops or renames a ledger/§13 row — can turn the suite red.
+7. **One commit** with the code, the calculus entry, and the plan/PROGRESS sync.
    Reference the affected rule id(s) and any ledger row touched.
 
 ## Invariants this skill protects

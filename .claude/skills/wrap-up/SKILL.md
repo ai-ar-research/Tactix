@@ -25,8 +25,16 @@ resume anchor, step 6).
    **Cluster leftovers (slurm-jobs skill):** `squeue -u hwu` shows only the
    user's own jobs — cancel session leftovers by explicit job id; delete
    uncited green `tools/fuzz/slurm-*.log` files (commit the ones PROGRESS
-   cites as evidence); bench run dirs self-prune on clean aggregation.
-2. **Green tests.** The unit suite (ctest) passes; if solver code changed, a quick
+   cites as evidence); bench run dirs self-prune on clean aggregation. Also
+   check for leaked local processes (`ps -u hwu -o pid,etime,cmd --sort=-etime`).
+   **Sweep stale `build/pin-*` dirs** (all reproducible from their commits) —
+   run `tools/bench/buildlock.py --gc` FIRST, since a locked tree is read-only
+   and `rm -rf` fails on it. If a job is still running, leave its dir alone and
+   say so in the anchor.
+2. **Green tests.** The unit suite (ctest) passes — note it also runs the doc
+   conformance checkers (`check-config-wiring`, `check-effort-specs`,
+   `check-option-coverage`, `check-stat-ids`, `check-comment-hygiene`), so a
+   docs-only edit can turn it red. If solver code changed, a quick
    fuzz (including a random-policy round, proofs checked) is green. If anything is
    red or broken, **stop** — either fix it, or record it explicitly in PROGRESS as
    the known-broken resume point. Never leave silent breakage.
@@ -51,9 +59,8 @@ resume anchor, step 6).
    lesson that no longer exists, or a "NOTHING IN FLIGHT" claim contradicted by
    the queue. It also prints ground truth the anchor is usually wrong about —
    which `build/pin-*` dirs are current and of what build type, and the newest
-   completed tier run — so the anchor is checked against reality rather than
-   against memory. *Asked twice in one session whether the anchor was current,
-   the answer was no both times.*
+   completed tier run — so the anchor is checked against reality, not memory
+   (asked twice in one session whether the anchor was current, it was not).
 
    `PROGRESS.md`'s Log holds the **current ISO week only**; completed weeks move
    verbatim to `docs/log/<ISO-week>.md`. If it archived anything: **update
@@ -100,7 +107,7 @@ resume anchor, step 6).
    status, and the next step.
 9. **Offer the transcript-save command** (a **user**-run action — agents must
    never touch `session-*.txt`; a hook enforces this, and the real handoff is
-   PROGRESS + commits, steps 3/6). Show the user this command to archive the
+   PROGRESS + commits, steps 3/7). Show the user this command to archive the
    session; do **not** run it yourself:
    ```bash
    dir="$HOME/.claude/projects/$(pwd | sed 's#[/.]#-#g')"
@@ -118,5 +125,5 @@ resume anchor, step 6).
 - Don't over-document the session's play-by-play — the resume anchor + a concise
   Log entry is enough (that is what compact-docs enforces).
 - **Never touch `session-*.txt`** — do not read, write, cat, grep, or glob them.
-  They are user-private (hook-enforced); only *surface* the save command (step 8)
+  They are user-private (hook-enforced); only *surface* the save command (step 9)
   for the user to run.

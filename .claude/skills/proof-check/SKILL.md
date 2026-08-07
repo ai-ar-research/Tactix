@@ -14,6 +14,14 @@ Keep checkers in `tools/checkers/` (build once, commit the setup script `tools/c
 - **lrat-check** (ships with drat-trim repo): `lrat-check formula.cnf proof.lrat` — fast because hints avoid search.
 - **cake_lpr** (verified, what the competition used in 2025): run periodically and before any milestone claim, not on every fuzz case (slower to a degree, but its verdict is the trusted one).
 
+## The accept-condition is part of the checker — get it wrong and every proof passes
+
+**Match the checker's success line exactly, and prove the match can FAIL.**
+- `"VERIF" not in output.upper()` matches `c NOT VERIFIED` as well as `c VERIFIED`. That exact bug made **every LRAT rejection in this project's history record as a pass**, hiding two real N2 breaches under green legs.
+- A `^`-anchored regex on drat-trim's output matches nothing: drat-trim prefixes its `s` lines with `\r`, so the inverse failure (everything reported unverified) is one character away.
+- **A checker whose rejection you have never observed is not yet a checker.** Feed it a known-bad artefact (`tools/fuzz/broken/truncate-proof.sh`, or a hand-corrupted line) and require a red before you trust a green. `tools/fuzz/selftest.sh` is the standing mechanism; run it whenever a checker, its invocation, or its accept-condition changes.
+- The checkers disagree on legal input: drat-trim **deletes duplicate literals** while parsing a CNF and `drat-trim -L` cites input clauses by id, so on a duplicate-literal formula the *converted* LRAT is rejected for every solver, ours and the references alike. That is a checker disagreement, not a solver defect — the conversion cross-check stands down (visibly, counted) while the native-LRAT oracle keeps checking.
+
 ## Conventions for our solver
 
 - Binary DRAT is the default output; `--lrat` emits native LRAT with antecedent hints captured during conflict analysis (not reconstructed post-hoc).

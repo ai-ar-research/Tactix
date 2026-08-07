@@ -14,24 +14,26 @@ with no M1 between rules" — is drawn so rarely by the uniform policy that it i
 effectively untested. When a feature makes such a pattern legal, **write a
 temporary policy that maximizes it**, and fuzz that.
 
-This has already paid off twice: the `AdversarialPolicy` (off-fixpoint-decide
-stress) reproduced D-LEVEL-1 deterministically when `--random-policy` gave 0/1000
-(the uniform policy almost never decides off a fixpoint); the same off-fixpoint
-inprocessing stress surfaced the D-LEVEL-inproc unsoundness. See
-[[n1-handoff-hazard-family]] — this whole bug family is "a free schedule breaks a
-precondition DefaultPolicy meets by accident," and a targeted policy is how you
-provoke it.
+The whole bug family is **"a free schedule breaks a precondition DefaultPolicy
+meets by accident."** A targeted policy is how you provoke it: `AdversarialPolicy`
+(off-fixpoint-decide stress) reproduced D-LEVEL-1 deterministically where
+`--random-policy` gave 0/1000, and the same off-fixpoint inprocessing stress
+surfaced the D-LEVEL-inproc unsoundness. Every witness-emitting rule family now
+has one, and they are kept, not thrown away.
 
 **Run this skill whenever a rule/feature lands, whenever you purify a guard**
 (removing a conjunct legalizes schedules that were previously impossible), or
 whenever you suspect a specific interaction. It complements the `fuzz` skill
 (which *runs* the harness); here you *build the driver* the harness feeds.
 
-## Worked reference
+## Worked references
 
-`src/policies/adversarial_policy.{hpp,cpp}` is the committed, worked example
-(off-fixpoint-decide stress). `src/policies/random_policy.cpp` is the generic
-baseline. Read both before writing a new one — copy their shape.
+`src/policies/adversarial_policy.{hpp,cpp}` is the original worked example
+(off-fixpoint-decide stress); `src/policies/random_policy.cpp` is the generic
+baseline; `src/policies/stress_common.hpp` holds the shared scaffolding. The
+per-family drivers (`bce`, `bve`, `cce`, `congruence`, `factor`, `probing`,
+`reuse`, `substitute`, `sweep`, `walk`) are the working set — read the one
+closest to your rule and copy its shape.
 
 ## Procedure
 
@@ -61,20 +63,22 @@ Requirements — it must:
   before the next check (it is why `--random-policy` under-reports). Gate an
   optional per-step trace (rule name + level/trail/head/flags) on an env var
   (`TACTIX_TRACE`) — that trace + a shrunk `min.cnf` is what pins the mechanism
-  in minutes (see [[n1-handoff-hazard-family]]).
+  in minutes.
 - Expose knobs via **env vars** (e.g. `TACTIX_ADV_BURST`) so the fuzz driver can
   sweep aggressiveness without a rebuild.
 
-### 3. Wire it in
-- Add `src/policies/<name>_policy.cpp` to `CMakeLists.txt` (the `tactix_lib`
-  OBJECT list).
-- Add a `--<name>-policy[=SEED]` flag in `src/main.cpp` (copy the
-  `--adversarial-policy` branch: set a bool, parse an optional `=SEED`, dispatch
-  to `<name>_solve` in the `res =` ternary).
+### 3. Wire it in — ONE row, not four edits to `main`
+- Add `src/policies/<name>_stress_policy.cpp` to `CMakeLists.txt` (the
+  `tactix_lib` OBJECT list).
+- Add **one row** to `ROWS[]` in `src/policies/stress_registry.cpp`
+  (`{"--<name>-stress-policy", <name>_stress_solve}`) and include its header
+  there. `main` already has a single parse branch + single dispatch for the
+  table. The nine policies that predate the table still carry their own
+  branches in `main`; do **not** copy that shape for a new one.
 
 ### 4. Fuzz it — the four oracles, both proof formats (see the `fuzz` skill)
-Build `debug` (ASan/UBSan, assertions on) in an **isolated worktree** (never
-rebuild a `build/debug` a nightly uses — see [[working-style]]). Then, with the
+Build `debug` (ASan/UBSan, assertions on) in an **isolated worktree** — never
+rebuild a `build/debug` that a running nightly uses. Then, with the
 oracle pointed at the real kissat/checker bins (symlink them into the worktree):
 ```
 tools/fuzz/run.sh --quick --solver "build/debug/tactix --<name>-policy" --oracle .../kissat --n 800 --max-vars 60
@@ -82,26 +86,39 @@ tools/fuzz/run.sh --quick --solver "build/debug/tactix --<name>-policy --lrat" -
 tools/fuzz/fuzz.py corpus --solver "build/debug/tactix --<name>-policy" --oracle .../kissat
 ```
 Both DRAT and native LRAT are mandatory (they catch different bugs — `fuzz`
-skill). 0 failures on every leg is the bar. Watch the `verdicts:` line: a wall of
-TIMEOUTs means the policy isn't reaching verdicts — tune it to finish more cases.
+skill). 0 failures on every leg is the bar.
+
+**0 failures is only evidence if the leg could have failed.** A stress policy
+that never fires the pattern looks exactly like a pattern nothing can break, and
+that reading has been written up as evidence here before. Two checks, both
+required before banking a green leg:
+- **Count at the SOURCE** — a fire counter inside the predicate the policy is
+  driving (not at the call sites, so reachability doesn't depend on each site
+  remembering to increment), and require a NON-ZERO count. Have the stress mode
+  bypass any production throughput cadence: a `!(++tick & 255)` poll gate means
+  anything smaller than one poll window never reaches a first check, and fuzz
+  CNFs are tiny.
+- **Compare the `verdicts:` line against the control leg** — near-identical
+  SAT/UNSAT/TIMEOUT counts mean the path never executed. A wall of TIMEOUTs
+  means the policy isn't reaching verdicts at all; tune it to finish more cases.
 
 ### 5. On a failure
 The bundle's `min.cnf` + the recorded seed reproduce it deterministically. Re-run
 that CNF with `TACTIX_TRACE=1` and read the last steps before the abort/mismatch
 — the per-step trace names the culprit rule and state. Then ask *which guard let
 an illegal order happen, or which rule's implementation assumed a precondition
-the schedule broke* (the fix is a tightened guard OR a kernel/rule repair — never
-a patched symptom; see [[n1-handoff-hazard-family]]). Add the shrunk case to
-`tools/fuzz/corpus/regressions/` if it is a distinct mechanism.
+the schedule broke*: the fix is a tightened guard OR a kernel/rule repair, never
+a patched symptom. Add the shrunk case to `tools/fuzz/corpus/regressions/` if it
+is a distinct mechanism.
 
 ### 6. Keep or remove
 - **Keep** the policy (commit it) if the pattern is a durable N1 stress axis
-  worth re-running — like `AdversarialPolicy`. Note it in the `fuzz` skill's leg
-  list if it should join routine testing.
-- **Remove** it (and its flag/CMake line) if it was a one-off to validate a
-  single feature and the pattern is now covered by a kept policy or the corpus.
-Either way, the *finding* (mechanism + fix) is recorded in the commit + the
-relevant memory, not just the throwaway code.
+  worth re-running — the default outcome; every family driver in the registry is
+  a kept one.
+- **Remove** it (and its registry row/CMake line) only if it was a one-off whose
+  pattern is now covered by a kept policy or the corpus.
+Either way, the *finding* (mechanism + fix) is recorded in the commit, not just
+in the throwaway code.
 
 ## When a feature lands — the standing rule (plan §5.3, §8.2)
 

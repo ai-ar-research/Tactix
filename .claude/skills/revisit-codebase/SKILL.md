@@ -80,10 +80,11 @@ substantive findings over a long list of nits.
 
 ## Method
 
-- For a full review, fan out one auditor per axis (the Workflow tool fits —
-  parallel readers returning structured findings, then a synthesis pass) so
-  coverage is exhaustive and the axes don't blur. For a quick check of one
-  subsystem, a single focused pass is fine.
+- For a full review, fan out one subagent per axis (parallel readers returning
+  structured findings, then a synthesis pass) so coverage is exhaustive and the
+  axes don't blur. For a quick check of one subsystem, a single focused pass is
+  fine. **Stage explicit paths when committing** — never `git add -A` while other
+  agents are working in the tree.
 - Ground every finding in the code (`file:line`) and the §5 principle or learner
   requirement it serves. Rank by severity × blast-radius: soundness/learner-
   blocking first, then architecture, then perf-adjacent, then hygiene.
@@ -101,6 +102,16 @@ For each finding, exactly one outcome, written down:
   must not regress — spot-check the Tier B reference instance if the change is
   near the hot path. **N1–N4 are never traded for simplicity; when in doubt
   whether an API or proof path is load-bearing, it is.**
+- **Make it mechanical, if it is a rule that keeps regressing.** A one-off sweep
+  provably does not hold — the no-narrative-in-comments directive regressed 34
+  minutes after the sweep that enforced it, and the build-dir rule was broken six
+  times by people who knew it. The durable form is a checker wired into `ctest`
+  (`tools/docs/check-*.py`) or an enforcing tool (`buildlock.py`). **Anti-vacuity
+  test any new checker before trusting it:** show it FAILS on a deliberately
+  introduced violation and passes on the clean tree — a green conformance check
+  that cannot fail is worth nothing. Prefer anchors that don't move (a phase
+  heading over a track sub-heading; `check-option-coverage.py` broke twice in one
+  day on a renamed PROGRESS heading).
 - **Keep, with reason.** It looks removable but isn't (N1 surface, a proof
   obligation, performance-load-bearing per a profile, a future phase item already
   in the plan). Record the reason where the next reader looks — usually a comment
