@@ -52,6 +52,16 @@ fuzz leg per family on the shipped DefaultPolicy — which no leg can give for a
 evidence was actually produced: both used source-counted probes on tier instances. Either form now counts, the
 OFF-default exemption is explicit and narrow, and a family firing on neither is a finding.
 
+**▶ THE REACH CONDITION IS MET, and it is the exit's last open evidence item.** From the Tier B array's own
+`reached` counters (`20260806-220910-B-shipped`, 24 of 28 tasks produced stats; the 4 timeouts correctly
+contribute nothing): **every registry entry fires on the shipped DefaultPolicy except `Reorder`**, which ships
+OFF by design and is plan §9's named exemption. Propagate / ConflictAnalysis / Lucky / Congruence 24/24, most
+others 22–23/24, and the sparse tail is BCE 17 · HyperTernaryRes 13 · Instantiate 12 · Factor 10 · BVE 9 — all
+non-zero, which is what the condition asks. **This retires the "19 of 25 entries fire" reading entirely**: that
+figure was the round-counter artefact, measured on fuzz-sized instances through a broken instrument.
+*Still owed for the exit: the `--random-policy` half — a rule can fire under DefaultPolicy's schedule and never
+be driven through `apply_instance` with a non-canonical payload. Under audit.*
+
 **▶ THE NEXT STEPS, in order.**
 1. **Read `1587896`** — a per-family reach probe over Tier B plus nightly-scale fuzz on the post-R9/R10 tree
    (nothing has been fuzzed at that scale since R9, R10, the `Reduce` counter fix and the `SubSolver` move to
@@ -118,7 +128,7 @@ was badly stale, and in our favour: it read 1.345× cadical / 1.727× kissat.
 |---|---|---|---|---|
 | C (30) | `20260806-150228-C-govon` | `4f4989d` | `govon` | **355.76, 29/30** vs kissat 233.18 (29/30), cadical 317.52 (29/30) |
 | C replicate | same window | same | `govon2` | 354.01, 29/30 — **in-window noise 1.75 PAR-2**, so the ratios below are solid |
-| B (28) | *owed* | | | the phase-4 pricing window (batch 1) is the next Tier B reading |
+| B (28) | `20260806-220910-B-shipped` | `93cc150` | `shipped` | **104.04, 24/28** vs kissat 10.05 (28/28), cadical 40.65 (27/28) |
 
 **▶ T3, both halves, on that window** (`subset_score.py`, subset = 24 of 30):
 
@@ -141,6 +151,13 @@ a tier disagreement, not a verdict. The PAR-2 deltas are additionally UNDECIDED/
 solves decide it without needing that.
 *(Same-binary cross-window caution, measured here: `4f4989d`'s shipped arm reads 476.98 in one window and
 355.76 in another on the same day. That is ~121 PAR-2 — never compare an absolute across windows.)*
+
+**▶ TIER B's GAP IS FOUR INSTANCES, NOT A SLOWDOWN.** On the 24 we solve, mean 21.4 s and max 136.5 s; the
+**four we do not** carry **85.7 of our 104.04 PAR-2**. Kissat solves all four, and quickly — `mp1-klieber` 13.1 s,
+`veer_axi…p23_transition` **3.5 s**, `or_randxor_k3_n540_m540` 12.4 s, `unsat-set-b-fclqcolor` 16.5 s. So the
+Tier B headline is not "we are 10× slower", it is "four instances fall off a cliff", and `veer_axi` at 3.5 s for
+kissat against a 300 s timeout for us is the sharpest single target in the project. `mp1-klieber` is in the
+may-not-gate set; the other three are not.
 
 **▶ WHERE THE KISSAT GAP ACTUALLY IS** (same window, rule-neutral subset, 24 instances — computed from
 `results.json`, no cluster time). The subset gap is **+2,503 s = +104 PAR-2**, and its shape decides what
