@@ -36,10 +36,11 @@ Both halves NOT MET. **NOTHING IN FLIGHT** (`squeue -u hwu`: only the session's 
 
 **▶ NEXT STEP — phase 4 block 1, which is all desk work and costs no tier window.** Reordered 2026-08-07: a
 landing voids every pending pre-registration, so the cheap landings go BEFORE the pricing batch, not after.
-In order: (1) re-register the 18 rows against HEAD; (2) one counters-only probe to retire `D3`/`E3`/`F2`, whose
-arms are recorded inert-or-sentinel-zero by design and do not deserve a window; (3) name the **nine** open §13
-rows this file does not list, so exit clause (b) is sized at its real 17; (4) land the two one-line N4 rows
-(`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); (5) give `--tier D` its per-track flag and take O9's composition decision.
+In order: (1) one counters-only probe **at HEAD** to retire `D3` and `E3` (not `F2` — its zero is structural,
+see block 1); (2) name the **nine** open §13 rows this file does not list, so exit clause (b) is sized at its
+real 17; (3) land the two one-line N4 rows (`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); (4) give `--tier D` its
+per-track flag and take O9's composition decision; (5) **last**, re-register block 2's 16 stale rows against
+the binary those landings leave behind.
 
 **▶ THEN submit pricing batch 1.** The script is written and dry-run validated:
 `$CLAUDE_JOB_DIR/tmp/price-tierb.sh` (re-create from the phase-4 UNPRICED table if the job dir is gone — the
@@ -50,9 +51,10 @@ without it. Tier B first at 300 s because #solved beats PAR-2; only survivors ea
 its own pin dir. **Read the per-arm `node` field before believing anything under ~2 noise floors** — array task
 index is `arm × n_instances + instance`, so arm 0 lands systematically on one node.
 
-**▶ WHY THE RE-REGISTRATION IS STEP 1: 17 of the 18 rows are marked RE-REGISTER.** A pre-registration is only an
-experiment while the binary it was written against is still the baseline, and both the ledger-wrap fix and `S-g`
-changed what a tick BUYS. Restate each arm's ship criterion against current HEAD first. This failure has already
+**▶ WHY RE-REGISTRATION CLOSES BLOCK 1 RATHER THAN OPENING IT: 16 of block 2's 19 live rows are marked
+RE-REGISTER.** A pre-registration is only an experiment while the binary it was written against is still the
+baseline, and both the ledger-wrap fix and `S-g` changed what a tick BUYS — so restating a ship criterion
+against a HEAD that block 1's own landings will then move just buys the work twice. This failure has already
 happened at scale once ("every prior dose negative measured through the broken meter is VOID", five arms).
 
 **▶ THE TARGETS ARE NAMED, so phase 4 does not have to chase an aggregate.**
@@ -321,8 +323,12 @@ is the S4 arrangement, unconditionally. Semantics → `docs/calculus.md`; guards
   campaign 4 measured / 0 adopted (`benchmarks/reports/2026-07-15-usage-ranking-experiment.md`).
 - [x] **R9 · X6 `HyperBinaryRes`** (`a4fa14b`, closing `SP-PROBE-2`) — resolved POST-HOC off the finished probing
   trail rather than inside propagation, reproducing cadical's implication TREE exactly; the shared RUP replay is
-  therefore also the RUP TEST, so a resolvent it cannot re-derive is DECLINED, never emitted unchecked.
-  Rationale and deviations: `docs/calculus.md` §6c and `hyperbinary.hpp`. **UNPRICED.**
+  therefore also the RUP TEST, so a resolvent it cannot re-derive is DECLINED (`hbr_declined`), never emitted
+  unchecked. Rationale and deviations: `docs/calculus.md` §6c and `hyperbinary.hpp`. **UNPRICED.**
+  *En route it fixed a pre-existing defect worth knowing about:* `Reduce::instances()` had moved three Stats
+  counters, breaking replay identity and printing `reduce_skippable_words` above `reduce_scan_words` — a 200 %,
+  and **the figure `SCHED-H3` priced its decision on**. The ledger row records H3 closed and says nothing about
+  the number being inflated, so the warning lives here and in `a4fa14b`.
 - [x] **R10 · BVE definition extraction** (`203732b`, closing §11 O11's BVE half) — a **fifth E1 gate kind**, not
   a new rule family: E1's precondition, effect, instance surface and RUP-only delta are all unchanged, so a
   registry line would have duplicated `bve_eliminate` and added no instance. It is the one kind that **sets
@@ -361,7 +367,7 @@ in §13's rows and the Log; the traps worth re-reading before touching any of it
 
 **Two kinds of work sit in this phase and they interfere.** A **landing** changes the binary; a **pricing**
 measures a binary that must not move underneath it. Every landing voids the pending pre-registrations — that is
-not a hypothesis, it is why 17 of the 18 rows in block 2 already read RE-REGISTER, and why five arms were
+not a hypothesis, it is why **16 of block 2's 19 live rows** already read RE-REGISTER, and why five arms were
 declared VOID at once when the meter changed. Interleaving them schedules a second and third re-registration
 into the plan.
 
@@ -373,14 +379,21 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
 
 ### ▶ 1. Desk triage and cheap landings — no tier window; do these BEFORE spending one
 
-- [ ] **Re-register block 2's table against HEAD.** 17 of 18 rows demand it (see the box there). Doing it once,
-  before any landing below, is what keeps it from being owed twice.
-- [ ] **One counters-only probe to retire the arms that cannot move.** `D3`, `E3` and `F2` are each recorded as
-  near-inert or sentinel-zero *by design*. An arm whose source counter cannot move does not deserve a Tier B+C
-  window — the standing protocol already says an arm whose counter did not move was not tested. Retire them on
-  the counter, with the counter as the evidence, and the window bill shrinks before it is paid. *(Counters are
-  not stored per run — `results.json` keeps only the per-instance `reached` table — so this needs one short
-  counters-only job, not zero cluster time.)*
+- [ ] **One counters-only probe to retire the arms that cannot move — `D3` and `E3` only.** Both are recorded
+  near-inert *by design*, and an arm whose source counter cannot move does not deserve a Tier B+C window. **The
+  probe has to be re-taken at HEAD**, not read off the old numbers: `E3`'s `clamped`/`floored` zeros were
+  measured before the ledger-wrap fix, and the standing protocol voids every dose reading taken through that
+  meter. *(Counters are not stored per run — `results.json` keeps only the per-instance `reached` table — so this
+  is one short job, not zero cluster time.)*
+- [ ] **`F2` is BLOCKED, not inert — do not retire it on its zero.** `subsume_holds` increments only when a
+  round leaves `subsume_complete`/`strengthen_complete` false (`default_policy.cpp:1687-1690`), and the only
+  thing that can leave that tail is a budget binding on C1/C2 — which is exactly what `D-STRENGTHEN-BUDGET` has
+  not shipped. So the sentinel reads 0 for a structural reason, and retiring the arm on it would bank a vacuous
+  negative. Price `F2` with or after C1/C2's dose, never before.
+- [ ] **Re-register block 2's table — AFTER the landings below, against the binary block 2 will freeze.**
+  **16 of the 19 live rows** demand it; the other three (`S-g` `73af059`, `R9` `a4fa14b`, `R10` `203732b`) are
+  registered at ancestors of `edfba14` and need nothing. Doing this last in the block is the point: a
+  re-registration against a binary that then changes is the failure this whole ordering exists to avoid.
 - [ ] **Name the nine open §13 rows this file does not.** Block 3 lists 8; `docs/implementation-notes.md` §13
   has **17** rows still reading `WE_LACK_IT`/`WE_ARE_CRUDER`. Missing here: `SP-FACTOR-1`, `SP-TIER-2`,
   `SP-ARENA-1`, `SP-PREPROC-2`, `SP-SUBST-2`, `SP-SHRINK-GLUE-1`, `SP-BUMP-2`, `SP-SUBSUME-3`, `SP-DECIDE-2`.
@@ -395,8 +408,9 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
 
 ### ▶ 2. Price the UNPRICED work — the largest single debt
 
-Each landed on parity or mechanism grounds with its A/B **pre-registered and unrun**. Generic protocol =
-Track SCHED's standing protocol below. This table is the per-item part.
+Each landed on parity or mechanism grounds with its A/B **pre-registered and unrun**. Generic protocol —
+including how these rows batch into windows — is Track SCHED's standing protocol below; this table is the
+per-item part.
 
 **▶ `Registered at` is FM-2's defence.** A pre-registration is only an experiment while the binary it was
 written against is still the baseline. The ledger-wrap fix and `S-g` both changed what a tick BUYS, so every row
@@ -418,14 +432,14 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 | `E2` ordering arms | `TACTIX_ORDER_<RULE>=<arm>` | positions moved | **PRE-`58a46de` — RE-REGISTER** | **one rule at a time** |
 | `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` | **PRE-`58a46de` — RE-REGISTER** | inert at shipped constants → **block-1 counter triage, not a window** |
 | `F1` substrate | `TACTIX_TOUCH_MARKS=0` | `c touch` | **PRE-`58a46de` — RE-REGISTER** | |
-| `F2` subsume-hold | `TACTIX_SUBSUME_HOLD=0` | `c subhold` | **PRE-`58a46de` — RE-REGISTER** | sentinel currently 0 → **block-1 counter triage, not a window** |
+| `F2` subsume-hold | `TACTIX_SUBSUME_HOLD=0` | `c subhold` | **PRE-`58a46de` — RE-REGISTER** | sentinel currently 0 for a STRUCTURAL reason — `subsume_holds` needs a round to leave a completeness tail (`default_policy.cpp:1687-1690`) and only a C1/C2 budget makes one. **Blocked on `D-STRENGTHEN-BUDGET`; do not retire it on the zero** |
 | `F6`+`F7` redundant band (OFF) | `TACTIX_TOUCH_REDUNDANT=1` | `c touchred` (a PAIR) + `c f7band` | **PRE-`58a46de` — RE-REGISTER** | ~800× the irredundant population; must pay for it |
 | `G2` drop C1's dose | a dose arm, **not a rule-off** | C1/C2 yield split | **PRE-`58a46de` — RE-REGISTER** | C1 measured inert (C2 absorbs 698,341 of 698,351) |
 | `G3` Vivify trail reuse | `TACTIX_VIVIFY_REUSE=0` | reuse %, 0 with the hatch off | **PRE-`58a46de` — RE-REGISTER** | reverts probe *and* candidate order |
 | `S-g` Sweep yield | vs the `73af059` binary — **cannot be an env arm**, it needs a build from that parent | environments, equivalences, emitted binaries | `73af059` | Dose unchanged in TICKS, but `env_add`'s O(n²) dedup scan became an open-addressed key set, so the same budget buys far more work and Sweep's wall share RISES. If it loses, the first lever is `sweepeffort`, not a revert |
 | `R9` X6 `HyperBinaryRes` | probing with the resolvents suppressed | `c hbr` — `hbr_binaries` **and** `hbr_subsumed` **and** `hbr_ticks`; `hbr_declined` says how much the RUP test refuses | `a4fa14b` | **Added 2026-08-07: R9 shipped UNPRICED and this table had no row for it.** Reach at the source is thin under the shipped policy (59 resolvents on 4 of 40 structured instances), so price it for COST as much as for yield |
 | `G4` Y1 unit sweep | `TACTIX_CONG_Y1` | `c congy1` | **PRE-`58a46de` — RE-REGISTER** | strict SUBSET of V2 Backbone — **only one should ship** |
-| `R10` BVE definitions | `--bve-gates=equiv,andor,ite,xor` (the OFF arm) | `c bve-gates … definition` + `c bve-def` (checked / ticks / ceiling hits) — **all three, or the arm is untested** | `203732b` | Two knobs, and they move in opposite directions: the gate WIDENS what the growth bound accepts (more eliminations) while the sub-solve SPENDS time the BVE meter cannot see. Second arm `TACTIX_BVE_DEF_TICKS` (ships 1e4 vs kissat's 1e6) — read `hit the tick ceiling` first: if it is ~0 the cap is not the lever and the yield is real; if it is large the cap is throttling the mechanism and the OFF-arm comparison is measuring a crippled version. **Measured once at the source (`9vliw_bp_mc`): 519 definitions from 79,191 attempts, 22.3 M sub-solver ticks, and only 203 attempts (0.26 %) hit the ceiling — so on that instance the cap is NOT the lever.** The cost side is the rest of the tier: 8 of 26 instances reach the sub-solve and exactly ONE extracts anything (`qwh.50.1250` spends 707,669 ticks for 0 definitions), and BVE's meter cannot see any of it. Tier A is silent because BVE never runs there at all. kissat's own ablation prices `definitions` at +6.1 Tier C PAR-2 |
+| `R10` BVE definitions | `--bve-gates=equiv,andor,ite,xor` (the OFF arm) | `c bve-gates … definition` + `c bve-def` (checked / ticks / ceiling hits) — **all three, or the arm is untested** | `203732b` | Two knobs, and they move in opposite directions: the gate WIDENS what the growth bound accepts (more eliminations) while the sub-solve SPENDS time the BVE meter cannot see. Second arm `TACTIX_BVE_DEF_TICKS` (ships 1e4 vs kissat's 1e6) — read `hit the tick ceiling` first: if it is ~0 the cap is not the lever and the yield is real; if it is large the cap is throttling the mechanism and the OFF-arm comparison is measuring a crippled version. **Measured once at the source (`9vliw_bp_mc`): 519 definitions from 79,191 attempts, 16.5 M resolvent pairs saved across all gate kinds, 22.3 M sub-solver ticks, and only 203 attempts (0.26 %) hit the ceiling — so on that instance the cap is NOT the lever.** The cost side is the rest of the tier: 8 of 26 instances reach the sub-solve and exactly ONE extracts anything (`qwh.50.1250` spends 707,669 ticks for 0 definitions), and BVE's meter cannot see any of it. Tier A is silent because BVE never runs there at all. kissat's own ablation prices `definitions` at +6.1 Tier C PAR-2 |
 
 **Re-measurement, folded in here because it is the same instrument.** The ledger-wrap re-baseline this block
 used to ask for is **DONE** — windows `20260806-235833-B-shipped` / `20260806-235835-C-shipped` at `edfba14`,
@@ -499,7 +513,11 @@ the row has a named target.*
 
 ### ▶ Track SCHED — standing protocol (applies to every item above)
 
-Same-window Tier B+C A/B, fresh `build/pin-n4-<item>` ([[build-path-ownership]]). **Every item names a
+Same-window A/B, fresh `build/pin-n4-<item>` ([[build-path-ownership]]). **Batching, stated once and only
+here:** a row whose arm is an env hatch rides an existing window as one extra arm, so the batch is **Tier B at
+300 s first** (#solved beats PAR-2) and **only survivors earn a Tier C window**, which needs its own pin dir —
+a same-window B+C pair is two arrays and therefore two pin dirs. A row that cannot be an env arm needs its own
+build: today `S-g` (a binary from `73af059`) and `E2` (one rule at a time, never bundled). **Every item names a
 SOURCE-LEVEL readout, pre-registered and checked FIRST — an arm whose source counter did not move was not
 tested** ([[ab-arm-identical-artefacts]]) — and the knob goes IN THE COMMAND, never through the environment.
 Noise floor 6.72; **#solved beats PAR-2**; the may-not-gate set may not gate alone. Rule-touching items carry
