@@ -141,8 +141,8 @@ void tactix_add(tactix *, int lit);
  * Returns 0, or -1 (unwritable path / unsupported format). */
 int tactix_proof(tactix *, const char *path, int format);
 
-/* BVE gate-type selection (E1d, additive): bitmask of the syntactic gate
- * types bounded variable elimination may recognize. A PERFORMANCE knob — every
+/* BVE gate-type selection (E1d, additive): bitmask of the gate types bounded
+ * variable elimination may recognize. A PERFORMANCE knob — every
  * mask is sound because a disabled type only makes BVE fall back to the full
  * resolvent cross product; it never changes a verdict. Settable at any state
  * (N1). Default (unset) = all gate types on. */
@@ -150,6 +150,7 @@ int tactix_proof(tactix *, const char *path, int format);
 #define TACTIX_BVE_GATE_AND_OR 2u /* AND/OR x<->OR/AND(...) */
 #define TACTIX_BVE_GATE_ITE 4u    /* if-then-else x<->(c?t:e) */
 #define TACTIX_BVE_GATE_XOR 8u    /* parity x<->a1^...^am */
+#define TACTIX_BVE_GATE_DEFINITION 16u /* general x<->phi, via the sub-solver */
 void tactix_set_bve_gates(tactix *, unsigned mask);
 
 /* Kernel CONFIGURATION setters — the pose surface for external and

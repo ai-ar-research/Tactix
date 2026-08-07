@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
       // drives the solve purely through the null-safe rule API).
       no_heuristics = true;
     } else if (!strncmp(a, "--bve-gates=", 12)) {
-      // BVE gate-type selection: comma list of {equiv,andor,ite,xor}, or
+      // BVE gate-type selection: comma list of {equiv,andor,ite,xor,def}, or
       // all / none. A performance knob — every setting is sound (a disabled
       // gate type only falls BVE back to the full cross product).
       const char *spec = a + 12;
@@ -232,6 +232,9 @@ int main(int argc, char **argv) {
           } else if (!strncmp(p, "xor", 3)) {
             bve_gate_mask |= BVE_GATE_XOR;
             p += 3;
+          } else if (!strncmp(p, "def", 3)) {
+            bve_gate_mask |= BVE_GATE_DEFINITION;
+            p += 3;
           } else if (*p == ',') {
             p++;
           } else {
@@ -246,7 +249,7 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
       printf("usage: tactix [-q] [--no-binary] [--lrat] "
              "[--random-policy[=SEED]] "
-             "[--bve-gates=all|none|equiv,andor,ite,xor] "
+             "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "[--trace=FILE] [--replay=FILE] %s "
              "<cnf[.xz|.gz]> [proof]\n",
              stress_policy_flags());
@@ -334,6 +337,10 @@ int main(int argc, char **argv) {
   // See Kernel::bve_cost_limit.
   if (const char *cl = getenv("TACTIX_BVE_COST_LIMIT"))
     kernel.bve_cost_limit = (uint32_t)strtoul(cl, nullptr, 10);
+  // R10 · per-attempt sub-solver ceiling for general definition extraction
+  // (0 = unlimited). See Kernel::bve_definition_budget.
+  if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
+    kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
   if (getenv("TACTIX_V4_EARLY_EXIT"))
     kernel.transitive_early_exit = true;
   // Track SCHED stage F: the touched-epoch round filters. Default ON;
@@ -806,13 +813,22 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_resolutions);
     // SP-BVE-GATE-1 pre-registered readout: an arm of --bve-gates whose ite/xor
     // counts are 0 did not test the gate types ([[ab-arm-identical-artefacts]]).
-    printf("c bve-gates   %llu equiv, %llu andor, %llu ite, %llu xor; "
-           "%llu resolvent pairs saved\n",
+    printf("c bve-gates   %llu equiv, %llu andor, %llu ite, %llu xor, "
+           "%llu definition; %llu resolvent pairs saved\n",
            (unsigned long long)kernel.stats.bve_gates_equiv,
            (unsigned long long)kernel.stats.bve_gates_and_or,
            (unsigned long long)kernel.stats.bve_gates_ite,
            (unsigned long long)kernel.stats.bve_gates_xor,
+           (unsigned long long)kernel.stats.bve_gates_definition,
            (unsigned long long)kernel.stats.bve_gate_pairs_saved);
+    // R10 reachability readout: `checked` proves the sub-solve path runs,
+    // `definition` above proves it finds something, and `budget` says whether
+    // TACTIX_BVE_DEF_TICKS binds ([[ab-arm-identical-artefacts]]).
+    printf("c bve-def     %llu checked, %llu ticks, %llu hit the tick "
+           "ceiling\n",
+           (unsigned long long)kernel.stats.bve_definitions_checked,
+           (unsigned long long)kernel.stats.bve_definition_ticks,
+           (unsigned long long)kernel.stats.bve_definition_budget);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);
