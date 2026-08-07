@@ -232,6 +232,52 @@
       }
     }
   },
+  "fragility": [
+    {
+      "a": "shipped",
+      "b": "gates",
+      "delta_par2": 39.9474,
+      "delta_seconds": 1198.422,
+      "instances": 30,
+      "largest_mover": "StConn_8_32.sanitized.cnf.xz",
+      "largest_mover_seconds": 1769.482,
+      "min_flip_k": 1,
+      "flip_set": [
+        "StConn_8_32.sanitized.cnf.xz"
+      ],
+      "verdict": "undecided"
+    },
+    {
+      "a": "shipped",
+      "b": "c1c2",
+      "delta_par2": 72.4442333333333,
+      "delta_seconds": 2173.326999999999,
+      "instances": 30,
+      "largest_mover": "circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf.xz",
+      "largest_mover_seconds": 2112.232,
+      "min_flip_k": 2,
+      "flip_set": [
+        "circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf.xz",
+        "ContextModel_output_7_3_9.bul_.dimacs.cnf.xz"
+      ],
+      "verdict": "fragile"
+    },
+    {
+      "a": "shipped",
+      "b": "both",
+      "delta_par2": 108.04739999999998,
+      "delta_seconds": 3241.4219999999996,
+      "instances": 30,
+      "largest_mover": "circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf.xz",
+      "largest_mover_seconds": 2112.232,
+      "min_flip_k": 2,
+      "flip_set": [
+        "circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf.xz",
+        "StConn_8_32.sanitized.cnf.xz"
+      ],
+      "verdict": "fragile"
+    }
+  ],
   "correctness": {
     "clean": true,
     "verdict_mismatches": [],
