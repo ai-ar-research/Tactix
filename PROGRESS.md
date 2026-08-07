@@ -33,9 +33,11 @@ that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T
 reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
 non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**IN FLIGHT: `1587896 p3gate`** — the phase-3 gate evidence: a per-family reach probe over Tier B
-(counters only, no timing) plus nightly-scale fuzz on the post-R9/R10 tree. Always check `squeue` rather than
-trusting a line here.
+**IN FLIGHT: `1587898 p3gate`** — the phase-3 gate evidence: a per-family reach probe over Tier B
+(counters only, no timing) plus nightly-scale fuzz on the post-R9/R10 tree. *(`1587896` was the same job run
+SERIALLY — cancelled and resubmitted parallel; it was using 1 of 16 cores for a probe that reads counters and
+so has no timing to protect. The parallel version reports its TIMEOUT COUNT, because an instance killed at the
+cap contributes zero counters and a tally over an unknown number of truncated runs is not evidence.)*
 
 **▶ THE PHASE-3 EXIT IS THE LIVE QUESTION.** The inventory half is DONE and machine-checked — all 28 catalog
 families have a disposition (`implementation-notes.md` §17, ctest `inventory`), R1–R10 resolved, X5 `Condition`
