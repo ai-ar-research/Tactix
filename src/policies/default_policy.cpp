@@ -323,9 +323,14 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     {"BVE", 100, meter_bve, true, true, false, nullptr, 0,
      CADICAL_ELIM_MAXEFF, true},
     {"Probe", 20, meter_probe, true, false, false, &Stats::probe_ticks},
-    // Mirrors Probe deliberately: the same schedule, closed by the same
-    // propagation. cadical has no `hbreffort` — it rides probing's budget.
-    {"HyperBinaryRes", 20, meter_hbr, true, false, false, &Stats::hbr_ticks},
+    // Neither reference budgets this as a technique: kissat has no hyper binary
+    // resolution, and cadical derives it inside the probing propagation
+    // (`probehbr`, no `hbreffort`), so there is no reference share to port and
+    // no structural per-candidate cap to copy. Accepted deviation
+    // `D-HBR-STANDALONE` (docs/implementation-notes.md §13.3, plan rev 91):
+    // budget_aware, so one root's resolvent loop is bounded by the residual
+    // ledger rather than by the closure — the sweep/kitten shape.
+    {"HyperBinaryRes", 20, meter_hbr, true, false, true, &Stats::hbr_ticks},
     {"Backbone", 20, meter_backbone, true, false, false, &Stats::backbone_ticks},
     {"TransitiveReduce", 20, meter_transitive, true, false, false},
     {"Vivify", 100, meter_vivify, false, false, true, &Stats::vivify_ticks, 20},
@@ -1298,10 +1303,26 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
         e.cursor = instance_key(inprocess_payloads_[i]) + 1;
         e.ord.advanced++;
       }
+      // Residual handoff for a dosed entry whose single instance is unbounded.
+      // The loop above polls the ledger between instances, the references' own
+      // granularity (kissat eliminate.c:478, cadical probe.cpp:832); they can
+      // stop there because a structural cap bounds one candidate
+      // (eliminateocclim, eliminateclslim). An entry with no such cap needs the
+      // budget pushed into the instance, as kissat's sweep bounds its kitten
+      // sub-solve: compute the ceiling once, hand kitten the remainder
+      // (sweep.c:53-59). The rule polls what it was handed; the amount stays
+      // the policy's decision, so `instances()` is untouched (N1).
+      const bool hand_residual = e.budget_aware && e.meter;
+      if (hand_residual) {
+        const uint64_t remaining = ledger_remaining(e, k, limit);
+        k.work_budget = remaining ? remaining : 1;
+      }
       const ApplyResult ar = [&] {
         TickSinkScope sink(k, e.tick_counter);
         return apply_rule_instance(r, k, inprocess_payloads_[i]);
       }();
+      if (hand_residual)
+        k.work_budget = 0;
       if (ar == ApplyResult::Unsat || k.inconsistent) {
         ctx.phase_unsat = true;
         break;

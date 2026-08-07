@@ -524,7 +524,19 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
   `BCE`, `Instantiate`, `Congruence`. Where the reference bounds the technique by *interval* instead, port the
   interval; where it ships the technique OFF, that is the datum.
-- [ ] **D3 — `HyperBinaryRes` gets a STRUCTURAL cap** (user decision 2026-08-07, keeping our design over
+- [x] **D3 — LANDED 2026-08-07: `HyperBinaryRes` is bounded by the ledger's residual, and `veer_axi` FALLS.**
+  The entry becomes `budget_aware` and `run_dosed_entry` hands the residual into the instance, so the
+  resolvent loop stops at the dose instead of at the closure — kissat's sweep→kitten shape, since both
+  references bound one candidate structurally and this rule had no structural cap to copy.
+  **`veer_axi…p23_transition`: `4 probes / 6.80e9 hbr ticks` → `12,477 probes / 5.21e6` (1,304× less),
+  `c conflicts` 0 → 34,768, UNKNOWN → UNSATISFIABLE**, both certificates verified (`drat-trim s VERIFIED`,
+  `cake_lpr s VERIFIED UNSAT`). The rule still emits 2,304 resolvents, so this is a bounded rule and not a
+  disabled one. Fuzz-clean on three legs — DRAT 10,000, native LRAT 10,000, `--random-policy` × LRAT 5,000,
+  **0 failures**, with `HyperBinaryRes` firing on 1,679 / 1,675 / 2,338 cases so no leg is vacuous about it;
+  non-termination 1.8 % on the DefaultPolicy legs, below the 3.0 % previously recorded. Accepted deviation
+  `D-HBR-STANDALONE` (`docs/implementation-notes.md` §13.3) carries the reference reading and two removal
+  paths. **Still owed: a tier pair** — this is one instance, and the broad effect is unmeasured.
+- [ ] ~~**D3 — `HyperBinaryRes` gets a STRUCTURAL cap**~~ (user decision 2026-08-07, keeping our design over
   kissat's no-HBR position and cadical's derive-in-propagation one). **N1 rider, binding:** the cap goes
   **policy-side**; `hyperbinary_instances()` stays complete over roots, because a dose may narrow what
   DefaultPolicy *chooses*, never what the API can *reach*. BVE's in-rule `BVE_OCCLIM` is NOT the pattern to
@@ -540,6 +552,28 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   success-driven yield-rate ladder (congruence and sweep back off below 0.001).
 - [ ] **Sanity check any port against the sums**: ~300‰ per probing round and ~200‰ per elimination round is
   the references' design intent. Ours are 438‰ and 344‰.
+
+**▶ THREE METER DEFECTS the study found, all verified at the source. They sit UNDER the dosing scheme, so a
+per-mille ported onto a broken meter transfers a number that means something else.**
+- [ ] **The tick unit is not commensurable with either reference.** `kernel.cpp:579` charges `1 + (n >> 4)`
+  (64-byte line, floored); kissat charges `1 + ceil(n/32)` (128-byte line, 4-byte watches,
+  `utilities.h:19-34`) and adds three event charges we do not (`proplit.h:92` binary assign, `:148` watch
+  relocation, `:174` large assign). **Every effort constant either reference ships is calibrated against ITS
+  tick**, so this re-prices the whole ledger AND the mode-switch schedule. Land it FIRST and alone, with a
+  full re-baseline, or not at all.
+- [ ] **`search_ticks` is policy-derived and leaky.** Ours reconstructs it as `k.stats.ticks −
+  inprocess.ticks` (`default_policy.hpp:499-507`); kissat maintains a real counter written only on the search
+  path (`propsearch.c:24`), which is the firewall that stops a technique inflating its own next budget. Our
+  subtraction holds only while every application is bracketed by `run_slot_phase`.
+- [ ] **Vivify's irredundant pass is not metered.** `default_policy.cpp:1483` calls `apply_rule` with **no
+  `TickSinkScope`**, unlike the tier pass at `:1468`, so that pass's ticks never reach `vivify_ticks` and the
+  ledger under-counts Vivify's spend. (The pass is still internally bounded — it receives `k.work_budget` —
+  so this is an accounting defect, not a runaway.)
+- [ ] **`RV-S17` has a faithful fix, not just a fix.** `BVE_OCCLIM` is applied in `bve_schedule`
+  (`bve.cpp:87`), which is what `bve_instances` enumerates — so an over-limit variable is never OFFERED,
+  narrowing the API surface. **Kissat puts the identical cap on the APPLY side** (`resolve.c:282-290`): the
+  candidate is still scheduled and still resolvable. Moving ours to the resolution attempt closes the N1
+  defect and is the more faithful port at the same time.
 
 ### ▶ 3. Close the remaining N4 rows — exit clause (b)
 
