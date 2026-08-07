@@ -427,9 +427,19 @@ watermarks. Headline findings: **five of our fifteen effort rows are backed by n
 formula is a **hybrid** (kissat's formula, cadical's per-technique anchor, cadical's clamps — kissat anchors
 per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ against ~300‰ / 200‰).
 
-- [ ] **D1 — anchor per PHASE, not per entry.** Replace `SlotEntry::anchor` with one anchor per `SlotGroup`,
-  stamped at phase exit as kissat stamps `last.ticks.probe`. Smallest change, widest effect: it makes every
-  in-phase allowance comparable again.
+- [x] **D1 — INVESTIGATED 2026-08-07 and NOT DONE: the item was mis-specified, and doing it would have broken
+  the thresh accrual.** The anchor scope is not an independent axis — **it IS the backoff's accrual channel**,
+  and the two references pair it coherently in opposite ways. kissat: per-PHASE anchor (`kimits.h:139-142`)
+  stamped unconditionally at phase exit (`probe.c:86`, `eliminate.c:601`), backoff = the delay ladder, which
+  accrues in *skipped occasions*. cadical: per-TECHNIQUE anchor (`limit.hpp:140`), backoff = `NAMEthresh`,
+  which accrues in *the growing reference* because the delay path `return false`s at `:151-157` **before** the
+  stamp at `:158`. **We ship cadical's pair** — per-entry anchor advanced on the admitted path only, and
+  `slot_entry_thresh_declines` declining without advancing it. Taking kissat's anchor while keeping `thresh`
+  would leave `Vivify` (thresh 20), `Factor` (7) and `HyperTernaryRes` (6) **deferred with nothing
+  accumulating — starved rather than amortized**, the opposite of the mechanism's purpose. Recorded as the
+  accepted deviation `D-ANCHOR-SCOPE` (`docs/implementation-notes.md` §13.3) with the pair-port as its removal
+  path and a pre-registered falsifier. *(Noted in passing: `Vivify` carries BOTH backoffs — `thresh` on the
+  entry and the ladder on its irredundant pass, `default_policy.cpp:1450-1499`.)*
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
   `BCE`, `Instantiate`, `Congruence`. Where the reference bounds the technique by *interval* instead, port the
   interval; where it ships the technique OFF, that is the datum.

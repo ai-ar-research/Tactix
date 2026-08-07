@@ -893,6 +893,33 @@ where the port is deliberately *not* a transliteration, and neither weakens the 
   collapses and this row retires. (R2) Adopt kissat's position and drop X6, which requires amending the
   standing "every implemented proof rule ships ON" baseline and is a user decision, not an engineering one.
 
+- **`D-ANCHOR-SCOPE` — the effort anchor is PER-TECHNIQUE (cadical's), and that is coupled to the backoff we
+  ship, not an accident.** **What the references do, and they DISAGREE coherently.** kissat's
+  `SET_EFFORT_LIMIT` reads `LAST = solver->probing ? last.ticks.probe : last.ticks.eliminate`
+  (`kimits.h:139-142`) — a PER-PHASE anchor, stamped unconditionally at phase exit (`probe.c:86`,
+  `eliminate.c:601`) — and its backoff is the DELAY LADDER (`kimits.c:155-194`), which accrues in *skipped
+  occasions*. cadical's reads `LAST = last.NAME.ticks` (`limit.hpp:140`) — PER-TECHNIQUE — and its backoff is
+  `NAMEthresh`, which accrues in *the growing reference*: the delay path `return false`s at
+  `limit.hpp:151-157` **before** the stamp at `:158`, so a delayed technique's reference keeps growing until
+  the delta is worth spending. **The anchor scope IS the accrual channel.** Neither pairing is arbitrary and
+  the two cannot be mixed: a per-phase anchor advances whether or not a given technique ran, so a `thresh`
+  delay under it would defer a technique while accumulating nothing — starving it rather than amortizing its
+  set-up cost, which is the exact opposite of what the mechanism is for (cadical states the intent at
+  `probe.cpp:899-911`). **What we do:** cadical's pair. `SlotEntry::anchor` is per entry
+  (`default_policy.hpp:342`), advanced only on the admitted path (`default_policy.cpp:1356`, `:1582`), and
+  `slot_entry_thresh_declines` (`:1173-1181`) declines *without* advancing it — the accrual, exactly as
+  cadical has it. Three entries carry a non-zero `thresh`: Vivify 20, Factor 7, HyperTernaryRes 6.
+  **Why this is a deviation at all:** §5 obligation 6 makes kissat the tie-break when the references disagree,
+  and on the anchor axis alone kissat says per-phase. We follow cadical because the axis is not independent —
+  taking kissat's anchor means taking kissat's ladder and dropping `thresh`, which is a different and larger
+  port, not a one-field change. **Removal path:** port kissat's PAIR together — per-phase anchors stamped at
+  phase exit, `thresh` deleted, and the delay ladder extended from its current users to the entries that lose
+  `thresh`. Pre-registered falsifier before that runs: on the entries carrying a `thresh` today, show that the
+  ladder's skipped-occasion accrual reaches the same doses the reference accrual does; if it does not, the
+  ladder is the weaker mechanism for a set-up-dominated technique and this row stands. **Recorded 2026-08-07**
+  after a planned "anchor per phase" change was found to break the accrual for those three entries — the
+  investigation is the value here, and it stopped a defect rather than fixing one.
+
 **A HIGH row may be closed here instead of by code, but only with the full contract: what the reference
 does, the measurement that justifies keeping our version, and a removal path.** An accepted deviation with
 no removal path is a permanent excuse, so a row without one does not count against the track's exit
