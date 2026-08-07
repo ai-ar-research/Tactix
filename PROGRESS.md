@@ -11,7 +11,7 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 86 (2026-08-06). **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
+- **Plan revision tracked:** rev. 88 (2026-08-06). **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
   reference inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
   everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
   file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
@@ -33,35 +33,29 @@ that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T
 reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
 non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**IN FLIGHT: `1587892 r10reachB`**, R10's read-only Tier B counter probe finishing its last instances — it
-takes no timing measurement. Always check `squeue` rather than trusting a line here. **R9's five legs are GREEN and read** (`1587880`/`1587881`): DefaultPolicy × DRAT and
-× native LRAT at 4,000 cases each with `--require-reached HyperBinaryRes` satisfied — the rule fired in **610 of
-3,879** cases with stats — plus `--random-policy` × both formats and the corpus on both, 0 failures throughout.
-**R10's six legs are GREEN and read** (`1587884`–`1587889`): 10,000 + 10,000 + 4×4,000 cases, 0 failures, corpus
-14/14 on every leg, ASan/UBSan; the `--bve-stress-policy` pair fires BVE on **2,553 of 3,595** cases with stats.
-One finding outlived R9's legs: its first job's two DefaultPolicy legs **did not run**, because the harness
-refused `--require-reached HyperBinaryRes` for a rule `REACH_SPECS` had no row for. Refusing was right, but
-nothing warned before submission — `check-effort-specs` now FAILS on any registered rule with no entry, and
-R10's pass then found the same table reading ROUND counters for all five `dosed` rules, which cannot move on the
-path DefaultPolicy actually uses.
+**IN FLIGHT: `1587896 p3gate`** — the phase-3 gate evidence: a per-family reach probe over Tier B
+(counters only, no timing) plus nightly-scale fuzz on the post-R9/R10 tree. Always check `squeue` rather than
+trusting a line here.
+
+**▶ THE PHASE-3 EXIT IS THE LIVE QUESTION.** The inventory half is DONE and machine-checked — all 28 catalog
+families have a disposition (`implementation-notes.md` §17, ctest `inventory`), R1–R10 resolved, X5 `Condition`
+a reasoned no-implement with its reopening path. What is owed is the EVIDENCE half, running as `1587896`.
+
+**Rev 88 exists because rev 85's own reached condition was UNSATISFIABLE.** It demanded a `--require-reached`
+fuzz leg per family on the shipped DefaultPolicy — which no leg can give for an OFF-by-default family
+(S7 `Reorder`), which fuzz-sized instances cannot give for BVE or Factor, and which is not how R9's or R10's
+evidence was actually produced: both used source-counted probes on tier instances. Either form now counts, the
+OFF-default exemption is explicit and narrow, and a family firing on neither is a finding.
 
 **▶ THE NEXT STEPS, in order.**
-1. **Tick the phase-3 exit.** Both remaining rules landed; what the exit still needs is (a) R9's and R10's fuzz
-   legs read, and (b) the `--require-reached` evidence plan rev 85 asks for. **R10 fixed the instrument that
-   evidence depends on:** `REACH_SPECS` read `<rule>_rounds` for five DOSED rules (BVE, Probe, Backbone,
-   TransitiveReduce, HyperBinaryRes), and DefaultPolicy drives those one INSTANCE at a time, so the counter stays
-   0 on a run where the rule did all its work — `9vliw_bp_mc` prints `c bve 0 rounds, 11008 eliminated`. Those
-   five now read their work counter, and **X6 HyperBinaryRes had no row at all**. Re-read the "19 of 25" figure
-   against the fixed instrument before concluding anything from it.
-2. **A full Tier B + Tier C window.** Four 2026-08-06 pairs sit unread in `benchmarks/runs/` (newest
-   `20260806-150228-C-govon`) while the banked headline is still the `20260805` windows — none of the recent
-   work took a timing measurement. Take the SHA from each run's own `manifest.json` and read `#solved` before
-   the aggregate. Every `Sweep`/`Congruence` dosing number taken since `58a46de` was measured against a budget
-   that did not bind, so **T3 has to be retaken** regardless.
-3. **Price the UNPRICED list** (see Phase 4) — starting with the `gates` + `c1c2` flips, which measured Tier B
-   109.18 → 58.76 PAR-2 and 24 → 27 solves but are fragile on single Tier C instances.
-4. One `ledgerfix + TACTIX_SLOT_CLOCKS=1` arm: up to ~670 PAR-2 may be D2 cost that survives a sound ledger, and
-   nothing measured so far separates "D2's cost was entirely the wrap" from "D2 costs on top of it".
+1. **Read `1587896`** — a per-family reach probe over Tier B plus nightly-scale fuzz on the post-R9/R10 tree
+   (nothing has been fuzzed at that scale since R9, R10, the `Reduce` counter fix and the `SubSolver` move to
+   `src/engine/`). Against corrected specs, **23 of 26 families fire** on structured instances; the three that
+   do not are `Reorder` (exempt), and **BVE + Factor**, which the Tier B half should show firing — R10 measured
+   `9vliw_bp_mc` at 11,008 eliminated. **If BVE or Factor comes back ZERO on Tier B too, that is a finding.**
+2. **Evaluate the gate, write the report** to `benchmarks/reports/`, tick phase 3, open phase 4.
+3. Phase 4 then starts on the **18-row UNPRICED table**, 17 of them marked RE-REGISTER because the ledger-wrap
+   fix and `S-g` changed what a tick buys.
 
 **▶ ALSO JUST LANDED, UNPRICED: Sweep's yield defect is fixed** (`S-g`, merged from `sweep-yield`). It was
 neither dosing nor semantics — **97.1 % of Sweep's effort on `b22_1` went to a linear array scan** (`env_add`'s
