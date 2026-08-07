@@ -16,7 +16,7 @@ int adversarial_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   uint64_t rng = seed ? seed : 1;
   const uint32_t burst = stress_env_u32("TACTIX_ADV_BURST", 4);
   const uint32_t prop_pct = stress_env_u32("TACTIX_ADV_PROP", 15);
-  const bool trace = getenv("TACTIX_TRACE") != nullptr;
+  const bool trace = stress_env_flag("TACTIX_TRACE");
 
   uint32_t since_prop = 0; // decides taken since the last propagate
 

@@ -15,8 +15,8 @@ namespace tactix {
 int sweep_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
-  const bool trace = getenv("TACTIX_TRACE") != nullptr;
-  const bool no_subst = getenv("TACTIX_SWEEP_STRESS_NOSUBST") != nullptr;
+  const bool trace = stress_env_flag("TACTIX_TRACE");
+  const bool no_subst = stress_env_flag("TACTIX_SWEEP_STRESS_NOSUBST");
   const uint32_t max_rounds = stress_env_u32("TACTIX_SWEEP_STRESS_ROUNDS", 4);
 
   const RuleVTable &sweep =

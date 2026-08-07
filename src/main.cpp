@@ -5,19 +5,12 @@
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
-#include "policies/adversarial_policy.hpp"
-#include "policies/bve_stress_policy.hpp"
-#include "policies/congruence_stress_policy.hpp"
-#include "policies/factor_stress_policy.hpp"
-#include "policies/probing_stress_policy.hpp"
-#include "policies/reuse_stress_policy.hpp"
-#include "policies/cce_stress_policy.hpp"
-#include "policies/sweep_stress_policy.hpp"
-#include "policies/walk_stress_policy.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
 #include "policies/trace.hpp"
-#include "policies/stress_registry.hpp" // stress-policy flags added after rev 74
+// The stress policies reach `main` only as a StressSolveFn from this table, so
+// none of their headers is included here.
+#include "policies/stress_registry.hpp"
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp" // BveGate enum for --bve-gates
 #include "rules/registry.hpp" // now_nanos + the rule list for `c timing`
@@ -89,18 +82,10 @@ int main(int argc, char **argv) {
   ProofFormat proof_format = ProofFormat::DratBinary;
   bool quiet = false;
   bool random_policy = false;
-  bool adversarial_policy = false;
-  bool bve_stress_policy = false;
-  bool congruence_stress_policy = false;
-  bool factor_stress_policy = false;
-  bool probing_stress_policy = false;
-  bool walk_stress_policy = false;
-  bool reuse_stress_policy = false;
-  bool sweep_stress_policy = false;
-  bool cce_stress_policy = false;
-  // Stress policies registered in stress_registry.cpp share one parse branch
-  // and one dispatch arm; the `--<name>-stress-policy` flags below predate that
-  // table. Each is documented by its own header.
+  // EVERY stress policy lives in stress_registry.cpp's table, so it reaches
+  // `main` as this one pointer: one parse branch, one dispatch arm, and one
+  // thing for the `--replay` / `--no-heuristics` guards to test. Each policy is
+  // documented by its own header.
   StressSolveFn stress_policy = nullptr;
   bool no_heuristics = false; // run with H detached (unguided)
   const char *trace_path = nullptr;  // --trace=FILE: record the rule sequence
@@ -123,42 +108,6 @@ int main(int argc, char **argv) {
       random_policy = true;
       if (a[15] == '=')
         random_seed = strtoull(a + 16, nullptr, 10);
-    } else if (!strncmp(a, "--adversarial-policy", 20)) {
-      adversarial_policy = true;
-      if (a[20] == '=')
-        random_seed = strtoull(a + 21, nullptr, 10);
-    } else if (!strncmp(a, "--bve-stress-policy", 19)) {
-      bve_stress_policy = true;
-      if (a[19] == '=')
-        random_seed = strtoull(a + 20, nullptr, 10);
-    } else if (!strncmp(a, "--probing-stress-policy", 23)) {
-      probing_stress_policy = true;
-      if (a[23] == '=')
-        random_seed = strtoull(a + 24, nullptr, 10);
-    } else if (!strncmp(a, "--reuse-stress-policy", 21)) {
-      reuse_stress_policy = true;
-      if (a[21] == '=')
-        random_seed = strtoull(a + 22, nullptr, 10);
-    } else if (!strncmp(a, "--walk-stress-policy", 20)) {
-      walk_stress_policy = true;
-      if (a[20] == '=')
-        random_seed = strtoull(a + 21, nullptr, 10);
-    } else if (!strncmp(a, "--factor-stress-policy", 22)) {
-      factor_stress_policy = true;
-      if (a[22] == '=')
-        random_seed = strtoull(a + 23, nullptr, 10);
-    } else if (!strncmp(a, "--sweep-stress-policy", 21)) {
-      sweep_stress_policy = true;
-      if (a[21] == '=')
-        random_seed = strtoull(a + 22, nullptr, 10);
-    } else if (!strncmp(a, "--cce-stress-policy", 19)) {
-      cce_stress_policy = true;
-      if (a[19] == '=')
-        random_seed = strtoull(a + 20, nullptr, 10);
-    } else if (!strncmp(a, "--congruence-stress-policy", 26)) {
-      congruence_stress_policy = true;
-      if (a[26] == '=')
-        random_seed = strtoull(a + 27, nullptr, 10);
     } else if (!strncmp(a, "--trace=", 8)) {
       // Record the (rule, instance) sequence for --replay; see trace.hpp.
       trace_path = a + 8;
@@ -251,24 +200,17 @@ int main(int argc, char **argv) {
     printf("s UNKNOWN\n");
     return 1;
   }
-  if (replay_path && (trace_path || random_policy || adversarial_policy ||
-                      bve_stress_policy || congruence_stress_policy ||
-                      factor_stress_policy || probing_stress_policy ||
-                      walk_stress_policy || reuse_stress_policy ||
-                      sweep_stress_policy || cce_stress_policy)) {
+  if (replay_path && (trace_path || random_policy || stress_policy)) {
     fprintf(stderr, "tactix: --replay selects the recorded schedule, so it "
                     "cannot be combined with another policy or with --trace\n");
     printf("s UNKNOWN\n");
     return 1;
   }
-  // Must list EVERY stress policy: each needs `H`, and one omitted here runs
-  // with `k.h == nullptr`. The set is the same one --replay rejects above, and
-  // it drifted apart from it once already.
-  if (no_heuristics && (!random_policy || adversarial_policy || stress_policy ||
-                        bve_stress_policy || congruence_stress_policy ||
-                        factor_stress_policy || probing_stress_policy ||
-                        walk_stress_policy || reuse_stress_policy ||
-                        sweep_stress_policy || cce_stress_policy)) {
+  // Every stress policy needs `H`, and one omitted from this test would run
+  // with `k.h == nullptr`. That is why the set is a table and not a list here:
+  // this guard and --replay's above once drifted apart, and the enumeration is
+  // now the same single pointer for both.
+  if (no_heuristics && (!random_policy || stress_policy)) {
     fprintf(stderr, "tactix: --no-heuristics requires --random-policy alone "
                     "(no DefaultPolicy / stress policy); those need H\n");
     printf("s UNKNOWN\n");
@@ -401,24 +343,6 @@ int main(int argc, char **argv) {
       replay_path
           ? replay_solve(kernel, replay_path, &caught_signal)
       : stress_policy ? stress_policy(kernel, random_seed, &caught_signal)
-      : probing_stress_policy
-          ? probing_stress_solve(kernel, random_seed, &caught_signal)
-      : walk_stress_policy
-          ? walk_stress_solve(kernel, random_seed, &caught_signal)
-      : reuse_stress_policy
-          ? reuse_stress_solve(kernel, random_seed, &caught_signal)
-      : factor_stress_policy
-          ? factor_stress_solve(kernel, random_seed, &caught_signal)
-      : sweep_stress_policy
-          ? sweep_stress_solve(kernel, random_seed, &caught_signal)
-      : cce_stress_policy
-          ? cce_stress_solve(kernel, random_seed, &caught_signal)
-      : congruence_stress_policy
-          ? congruence_stress_solve(kernel, random_seed, &caught_signal)
-      : bve_stress_policy
-          ? bve_stress_solve(kernel, random_seed, &caught_signal)
-      : adversarial_policy
-          ? adversarial_solve(kernel, random_seed, &caught_signal)
       : random_policy
           ? random_solve(kernel, random_seed, &caught_signal,
                          trace_path ? &trace : nullptr)

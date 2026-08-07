@@ -1691,13 +1691,6 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
     if (!ctx.round_changed && !subsume_pending)
       break; // outer fixpoint: nothing changed this round
   }
-  // TACTIX_SWEEP_PROBE (diagnostic): one extra, unbudgeted Sweep application
-  // per probing phase for fuzz legs. Never set it in a tier run.
-  if (group == SlotGroup::Probe && !ctx.phase_unsat &&
-      std::getenv("TACTIX_SWEEP_PROBE")) {
-    if (sweep_apply(k) == ApplyResult::Unsat)
-      ctx.phase_unsat = true;
-  }
   // Reclaim what the dosed applications garbaged; canonical rounds reclaim
   // themselves. Not collecting is always sound, so this is a cost choice — see
   // docs/design/effort-scheduler-design.md §3.4.

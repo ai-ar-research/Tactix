@@ -24,9 +24,9 @@ using StressSolveFn = int (*)(Kernel &, uint64_t, volatile sig_atomic_t *);
 
 // Match one argv entry against the table's `--<name>[=SEED]` flags. Returns the
 // policy's solve function (and overwrites *seed when `=SEED` is present), or
-// nullptr when `arg` is not one of these flags. Policies predating the table
-// still carry a hand-written branch in `main`; both paths must keep working,
-// so `main` consults the table first and a match short-circuits.
+// nullptr when `arg` is not one of these flags. Every stress policy is in the
+// table, so `main` holds ONE parse branch, ONE dispatch arm and one pointer to
+// test in the `--replay` and `--no-heuristics` guards.
 StressSolveFn stress_policy_flag(const char *arg, unsigned long long *seed);
 
 // Space-separated flag list, for the usage line.

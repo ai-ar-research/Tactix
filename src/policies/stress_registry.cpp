@@ -1,7 +1,16 @@
 #include "policies/stress_registry.hpp"
 
+#include "policies/adversarial_policy.hpp"
 #include "policies/bce_stress_policy.hpp"
+#include "policies/bve_stress_policy.hpp"
+#include "policies/cce_stress_policy.hpp"
+#include "policies/congruence_stress_policy.hpp"
+#include "policies/factor_stress_policy.hpp"
+#include "policies/probing_stress_policy.hpp"
+#include "policies/reuse_stress_policy.hpp"
 #include "policies/substitute_stress_policy.hpp"
+#include "policies/sweep_stress_policy.hpp"
+#include "policies/walk_stress_policy.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -15,10 +24,22 @@ struct StressRow {
 };
 
 // One row per stress policy; see each policy's header for the pattern it
-// maximizes.
+// maximizes. A new policy is one row and nothing else — adding it to `main`
+// instead costs four edits that must agree (a bool, a parse branch, two
+// validation lists, a dispatch arm), and a policy missing from the
+// `--no-heuristics` list runs with `k.h == nullptr`.
 const StressRow ROWS[] = {
+    {"--adversarial-policy", adversarial_solve},
     {"--bce-stress-policy", bce_stress_solve},
+    {"--bve-stress-policy", bve_stress_solve},
+    {"--cce-stress-policy", cce_stress_solve},
+    {"--congruence-stress-policy", congruence_stress_solve},
+    {"--factor-stress-policy", factor_stress_solve},
+    {"--probing-stress-policy", probing_stress_solve},
+    {"--reuse-stress-policy", reuse_stress_solve},
     {"--substitute-stress-policy", substitute_stress_solve},
+    {"--sweep-stress-policy", sweep_stress_solve},
+    {"--walk-stress-policy", walk_stress_solve},
 };
 
 } // namespace
@@ -42,7 +63,8 @@ StressSolveFn stress_policy_flag(const char *arg, unsigned long long *seed) {
 }
 
 const char *stress_policy_flags() {
-  return "[--bce-stress-policy[=SEED]] [--substitute-stress-policy[=SEED]]";
+  return "[--adversarial-policy[=SEED]] [--{bce,bve,cce,congruence,factor,"
+         "probing,reuse,substitute,sweep,walk}-stress-policy[=SEED]]";
 }
 
 } // namespace tactix

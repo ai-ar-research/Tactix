@@ -15,8 +15,8 @@ namespace tactix {
 int cce_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
-  const bool trace = getenv("TACTIX_TRACE") != nullptr;
-  const bool solo = getenv("TACTIX_CCE_STRESS_SOLO") != nullptr;
+  const bool trace = stress_env_flag("TACTIX_TRACE");
+  const bool solo = stress_env_flag("TACTIX_CCE_STRESS_SOLO");
   const uint32_t max_rounds = stress_env_u32("TACTIX_CCE_STRESS_ROUNDS", 4);
   const uint32_t max_instances = stress_env_u32("TACTIX_CCE_STRESS_INSTANCES", 3);
 
