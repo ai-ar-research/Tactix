@@ -47,10 +47,16 @@ confirm, record the decision and its consequences in the revision history.
 2. **Make the edit.** Keep the plan self-consistent: tier definitions (§8.1),
    rule catalog phases (§5.2), milestone table (§9), and gates T1–T5 (§8.3)
    reference each other — a change to one usually obligates another.
-3. **Fix cross-references.** Section numbers appear in the plan *and* in the
-   skills: `grep -rn '§' DEVELOPMENT_PLAN.md .claude/skills/ PROGRESS.md CLAUDE.md`
-   and verify every reference still points where intended (renumbering is the
-   classic failure).
+3. **Fix cross-references.** Section numbers *and phase numbers* appear in the
+   plan, in PROGRESS, in CLAUDE.md and in the skills:
+   `grep -rniE '§|phase[ -][0-9]' DEVELOPMENT_PLAN.md .claude/skills/ PROGRESS.md CLAUDE.md docs/`
+   and verify every reference still points where intended. **Renumbering is the
+   classic failure** — rev 83 shifted phases 4+ by one and left "phase 6 learner"
+   readings in three skills. When a phase moves, add a numbering note to §9 and
+   fix the *forward-looking* references; historical parentheticals ("moved from
+   phase 4, rev 47") keep their contemporary numbering and are read against their
+   rev. Machine-checked docs matter too: `tools/docs/check-option-coverage.py`
+   anchors on PROGRESS's phase heading, so a renamed heading fails `ctest`.
 4. **Bump the revision:** increment "rev. N" and date in the plan header, and
    append a ONE-LINE dated entry **at the BOTTOM of §13** (Revision history is
    **ascending — oldest at top, newest last**; do NOT prepend — that is the

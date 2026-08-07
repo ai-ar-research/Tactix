@@ -17,9 +17,13 @@ node, not in the session shell — the interactive session is itself a SLURM job
 on the default partition (`cpu-q`), so anything run "locally" executes inside
 that allocation, on the wrong partition. **Never use `srun` from the session**:
 it becomes a job *step* of the session's own job (wrong partition, hangs
-waiting for resources that never match). `sbatch` only. Builds, tests
-(`ctest`), and doc/tooling work may run in the session shell; solver
-executions may not — including "quick" spot checks.
+waiting for resources that never match). `sbatch` only.
+
+The line is **measurement**: anything whose output is a time, a PAR-2, a verdict
+on a real instance, or a fuzz leg goes through `sbatch` — including "quick" spot
+checks. Builds, doc/tooling work, and the sub-second fixed-input test harnesses
+(`ctest`, `tools/compete/check.sh`, the micro-proof tests) run in the session
+shell.
 
 ## Submission patterns — pick by workload
 
@@ -90,18 +94,24 @@ scale); pass `--time` for smaller legs.
 
 ## Build-path ownership is ENFORCED (`tools/bench/buildlock.py`)
 
-A submitted array owns its binary path until it finishes (plan §8.1, CLAUDE.md).
-That rule was broken **six times** by people who knew it, so it is now a
-mechanism rather than a resolution: the owned tree is made **read-only** and a
-`BUILD-DIR-OWNED` marker names the owning job, so *any* build into it fails —
-`cmake --build`, bare `make`, `ninja`, `cp`, anything — with a message telling
-you which job owns it and how to reclaim it.
+A submitted array owns its binary path until it finishes (plan §8.1, CLAUDE.md) —
+otherwise a rebuild swaps the binary out from under tasks still to be scheduled,
+and the window silently measures two different solvers. The rule was broken **six
+times** by people who knew it, so it is now a mechanism: the owned tree is made
+**read-only** and a `BUILD-DIR-OWNED` marker names the owning job, so *any* build
+into it fails — `cmake --build`, `make`, `ninja`, `cp` — with a message naming the
+owner and how to reclaim it.
 
 - **`run.py --slurm` does this for you**: it `--gc`s stale locks, `--acquire`s
   every arm's build dir after `sbatch`, and the dependent aggregate job
   `--release`s when the array finishes. Nothing to remember on the normal path.
 - **A hand-rolled `sbatch` probe must lock its own binary:**
   `python3 tools/bench/buildlock.py --acquire build/pin-x --job $JID`
+- **A same-window Tier B + Tier C pair needs TWO pin dirs**, one per array — the
+  second `--acquire` correctly refuses a path another live job owns. Build both
+  from the same commit and verify the binary shas match. Two concurrent arrays
+  sharing one binary path is exactly the hazard the rule exists to prevent; it
+  never was safe, so pointing both at one dir is not the shortcut.
 - **Reclaiming a directory:**
   | situation | command |
   |---|---|
@@ -132,12 +142,10 @@ you which job owns it and how to reclaim it.
 - **Also check for LEAKED LOCAL PROCESSES, not just SLURM jobs**
   (`ps -u hwu -o pid,etime,cmd --sort=-etime`). This shell aliases `cp` to
   `cp -i`, so a bare `cp` over an existing file in a scripted chain blocks
-  FOREVER on an "overwrite?" prompt that nothing will answer. One sat for 18 h
-  (2026-07-29/30); worse, killing it let the 18-hour-old parent shell resume and
-  submit a stale `sbatch` from a command whose question had long been answered.
+  FOREVER on an "overwrite?" prompt nothing will answer (one sat 18 h).
   **Never `cp` onto an existing path in a chain — use `cat src > dst` (or
-  `cp -f`)** — and if you find such a process, expect the rest of its command
-  line to run when you kill it: check `squeue` immediately afterwards.
+  `cp -f`)** — and when you kill such a process, expect the REST of its command
+  line to run: check `squeue` immediately afterwards for a stale `sbatch`.
 - Never cancel the session's own interactive job (named `bash`, on `cpu-q`) —
   that kills the running Claude session.
 
@@ -154,17 +162,15 @@ you which job owns it and how to reclaim it.
 - One-off probe logs: write them under the session job dir
   (`$CLAUDE_JOB_DIR/tmp`), never into the repo — they vanish with the session.
 
-**`$TMPDIR` IS `/tmp` AND IS SHARED PER NODE — not per job (verified 2026-07-30,
-job 1574810).** Two concurrent probes that decompress to the same `$TMPDIR`
-filename CLOBBER each other. Always make the scratch name job-unique:
-`cnf=$TMPDIR/<name>.$SLURM_JOB_ID.cnf`. This failure is silent and produces
-plausible numbers: a rate sweep over two instances that shared `$TMPDIR/x.cnf`
-returned 0.03 s / 1 conflict / **UNSATISFIABLE** for both — caught only because
-both instances are SAT. Same-instance collisions are usually benign (identical
-bytes), which is why the hazard hides until two DIFFERENT instances collide.
-**Sanity-check every probe against the expected verdict** — a wrong verdict, a
-1-conflict solve, or a sub-second time on a hard instance means the input, not
-the solver.
+**`$TMPDIR` IS `/tmp` AND IS SHARED PER NODE — not per job.** Two concurrent
+probes decompressing to the same `$TMPDIR` filename CLOBBER each other, silently
+and with plausible-looking numbers (a two-instance sweep sharing `$TMPDIR/x.cnf`
+returned 0.03 s / 1 conflict / UNSATISFIABLE for both SAT instances). Same-instance
+collisions are benign — identical bytes — which is why the hazard hides until two
+DIFFERENT instances collide. Always make scratch job-unique:
+`cnf=$TMPDIR/<name>.$SLURM_JOB_ID.cnf`, and **sanity-check every probe against the
+expected verdict**: a wrong verdict, a 1-conflict solve, or a sub-second time on a
+hard instance means the input, not the solver.
 
 ## Environment facts (verified 2026-07-23)
 
