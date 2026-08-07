@@ -45,10 +45,10 @@ kissat's strategy, aggressively remove what does not fit*). Read
 `benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before touching the
 policy.
 
-**▶ FIRST THING NEXT SESSION — read the two runs that were in flight**, then tick or revert:
-- **`benchmarks/runs/20260807-183429-B-kf3`** and **`…-183432-C-kf3`** — increment 3's tier pair. Aggregate
-  with `tools/bench/run.py --aggregate <dir>` if the dependent job did not run.
-- Guard: **no lost solve** on either tier. A lost solve reverts increment 3; revert is a first-class outcome.
+**▶▶ INCREMENT 3 CLEARED THE PHASE'S NAMED TARGET LIST ON TIER B — 27/28, all four timeout instances
+solved.** See §2. **FIRST THING NEXT SESSION: read `benchmarks/runs/20260807-183432-C-kf3`** (Tier C, still in
+flight; `tools/bench/run.py --aggregate <dir>` if the dependent job did not run). Guard: **no lost solve**.
+Tier B has already passed it.
 
 **▶ WHAT LANDED.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing else: the
 cadical upper clamp, active floor and `thresh` are gone (**kissat ships no `maxeffort` at all**) and the anchor
@@ -58,9 +58,11 @@ admission gates are gone; they had no counterpart in either kissat trigger **and
 the kernel documents as size-monotone**, so they opened as a solve progressed. Together: −238 lines, 42 → 34
 knobs.
 
-**▶ THE HONEST READING OF BOTH TIER RESULTS: these are FIDELITY changes, not performance ones.** Every
-increment so far shows the same signature — a large per-instance redistribution that nets out, with moves one
-to two orders of magnitude beyond each instance's own replicate gap. Do not sell them as speedups.
+**▶ READ THE TWO INCREMENTS DIFFERENTLY.** *Increment 1* is a FIDELITY change: a large per-instance
+redistribution that nets out, moves far beyond each instance's replicate gap, no solve change on either tier.
+*Increment 3* is a genuine WIN — Tier B 88.79 → 62.79 and 25 → 27 solves, clearing the named target list —
+because it removed a gate that was reading a monotone proof-id map and thereby blocking BVE and Factor
+outright on the instances the tier's gap was made of.
 
 **▶ INCREMENT 2 IS THE OPEN ONE** — the phase structure:
 - Round count `INPROCESS_PHASE_ROUNDS` 3 → **2** (`proberounds`/`eliminaterounds`) with kissat's fixpoint
@@ -474,8 +476,15 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   arm, Factor's scope-percent union arm, and the `TACTIX_BVE_ADMIT` / `BVE_DOSE_DENSITY` / `FACTOR_DENSITY` /
   `COMPOSITE_DENSITY` knobs. −75/+10 lines, 38 → 34 knobs. ctest 58/58; fuzz DRAT 10,000 · LRAT 10,000,
   **0 failures**, and `--random-policy` × LRAT 5,000, **0 failures** (non-termination 16.2 %, the known
-  `RV-S31`(b) population). **All three soundness legs are green; the Tier B+C pair is IN FLIGHT**
-  (`20260807-183429-B-kf3` / `…-183432-C-kf3`) — read it before treating this as validated.
+  `RV-S31`(b) population). **All three soundness legs are green.**
+  **▶▶ TIER B: 62.79 PAR-2, 27/28** (replicate 63.02, noise bar **0.23**), `correctness.clean`, against
+  increment 1's 88.79 / 25-28 — **and ALL FOUR NAMED TIER B TARGETS NOW SOLVE.** Gained `mp1-klieber` (90.1 s),
+  `or_randxor_k3_n540_m540` (17.7 s) and `unsat-set-b-fclqcolor` (216.5 s); `veer_axi` still solves (63.1 s).
+  **`or_randxor` and `fclqcolor` had been solved by NO arm in the entire 14-arm pricing batch.** Lost only
+  `mod4block`, the lottery — which is now the single unsolved Tier B instance. 27/28 matches cadical's count
+  (kissat 28/28). **The mechanism is clear**: the density gates were blocking BVE and Factor from running at
+  all on exactly those formulas, on a numerator that only grew. **Tier C is still IN FLIGHT**
+  (`20260807-183432-C-kf3`).
   **▶ This also re-opens a banked conclusion:** the *0-for-5 record of hand-designed formula-shape separators*
   was measured THROUGH this gate, so those five negatives are suspect, not evidence.
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
