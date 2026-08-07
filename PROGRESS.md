@@ -37,7 +37,9 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
 is a missing capability. **Phase 4 is dosing, optimization and scheduling.** Exit = **T3 + N4 discharged + one
 Tier D campaign**.
 
-**Where we stand** (`edfba14`, two pin dirs, verified identical shas, quiet partition):
+**Where we stand** (`edfba14`, two pin dirs, verified identical shas, quiet partition — **and HEAD has moved
+past it**: the two N4 landings below change the search, so these are PRE-LANDING numbers and the next window
+re-measures them):
 Tier B **103.75, 24/28** · Tier C **348.00, 29/30** · T3 **1.115× cadical / 1.412× kissat** on the subset.
 Both halves NOT MET. **NOTHING IN FLIGHT** (`squeue -u hwu`: only the session's own `cpu-q` shell).
 The two N4 landings below are fuzz-clean on **four legs × 10,000 cases, 0 failures**: DRAT `1588520`,
