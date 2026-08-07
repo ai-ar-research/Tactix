@@ -322,24 +322,12 @@ public:
     // currency is not ticks. `Kernel::tick_sink` is scoped to it around the
     // apply, so this rule's propagation lands nowhere else.
     uint64_t Stats::*tick_counter = nullptr;
-    // cadical's accumulate-until-worthwhile threshold (`opts.NAMEthresh`,
-    // limit.hpp:150 — token-pasted, hence unfindable by grep; 0 = none). Under
-    // it, decline without advancing the anchor so entitlement accrues.
-    uint64_t thresh = 0;
-    // cadical's `NAMEmaxeff`: an upper clamp on the delta (`thresh` is the
-    // floor half). Without it a rarely reached entry accumulates a huge window.
-    uint64_t max_delta = 0;
-    // cadical applies `delta = max(delta, 2*active())` after the ceiling for
-    // elim/subsume (elim.cpp:787, subsume.cpp:357), so the floor comes second
-    // and may lift the delta back above max_delta. That order is the port.
-    bool active_floor = false;
     bool dosed = false;   // apply per-instance to a budget vs one canonical round
     bool retry_advice = false; // rule maintains a per-variable retry bit to consult
     // Batch rule whose apply reads Kernel::work_budget and stops mid-round.
     bool budget_aware = false;
     // Whole-formula closure: repetition is governed by the watermark below.
     bool closure = false;
-    uint64_t anchor = 0;  // search_ticks when this entry last ran (cadical last.NAME.ticks)
     uint64_t limit = 0;   // meter ceiling, recomputed per occasion (set_entry_limit)
     // Defer out of the conflicts==0 preprocessing phase (kissat fastel=0).
     bool defer_preprocess = false;
@@ -378,8 +366,7 @@ public:
       uint64_t completed = 0;   // rounds that finished inside their budget
       // Ceiling reachability: never clipping is inert, always clipping is a
       // dose change in disguise.
-      uint64_t clamped = 0;
-      uint64_t floored = 0;
+
       // Effort subtractions saturated to zero rather than wrapping to ~2^64; a
       // nonzero count means an anchor is read out of order.
       uint64_t wrapped = 0;
@@ -479,6 +466,13 @@ public:
     // means the gate is inert.
     bool blocked = false;
     uint64_t blocked_episodes = 0;
+    // kissat's `last.ticks.probe` / `last.ticks.eliminate` (probe.c:86,
+    // eliminate.c:601): search_ticks at this phase's exit, stamped
+    // unconditionally and shared by every technique the phase runs, so one
+    // phase's techniques all price against the same reference. The scope is
+    // load-bearing, not incidental — it is what makes a technique unable to
+    // earn or lose allowance by abstaining.
+    uint64_t anchor = 0;
   };
   SlotClock probe_clock, elim_clock;
   // Off switches: TACTIX_SLOT_CLOCKS=1 collapses the split onto one cadence,
@@ -548,9 +542,7 @@ private:
   // Pre-checks reached before this entry's budget is computed (false =
   // declined).
   bool slot_entry_admissible(SlotEntry &, const Kernel &, const SlotPhaseCtx &);
-  // cadical's accumulate-until-worthwhile decline (SlotEntry::thresh).
   static uint64_t ledger_remaining(SlotEntry &, const Kernel &, uint64_t limit);
-  bool slot_entry_thresh_declines(SlotEntry &, const Kernel &);
   SlotStep run_dosed_entry(Kernel &, SlotEntry &, const RuleVTable &,
                            SlotPhaseCtx &);
   SlotStep run_batch_entry(Kernel &, SlotEntry &, const RuleVTable &,

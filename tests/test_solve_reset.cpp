@@ -203,9 +203,13 @@ static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
   note(p.inprocess.ticks != 0, "inprocessing tick accumulator");
   note(p.probe_clock.rounds != 0, "probe clock");
   note(p.elim_clock.rounds != 0, "elim clock");
+  // The phase effort anchors moved from the entries to the clocks; a reused
+  // policy that keeps them would price its first phase against the previous
+  // solve's whole tick count.
+  note(p.probe_clock.anchor != 0 || p.elim_clock.anchor != 0, "phase anchors");
   uint64_t entry_state = 0;
   for (const DefaultPolicy::SlotEntry &e : p.inprocess_slot)
-    entry_state += e.anchor + e.limit + e.applies + e.doses + e.cursor +
+    entry_state += e.limit + e.applies + e.doses + e.cursor +
                    e.tm.occasions + e.binaries_mark + e.delay_current;
   note(entry_state != 0, "slot-entry runtime state");
   std::printf("  state groups dirty after a solve: %u/%u\n", dirty, total);

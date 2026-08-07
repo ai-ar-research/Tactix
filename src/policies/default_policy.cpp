@@ -214,6 +214,10 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   walk_anchor = ticks;
   // Both clocks and their watermarks (kissat kimits.c:126-135).
   probe_clock = elim_clock = {};
+  // The phase effort anchors start the window HERE, not at zero: kissat gets a
+  // fresh solver per solve, this policy may be reused (§5.6), and a zero anchor
+  // on solve #2 would hand the first phase every tick the last solve spent.
+  probe_clock.anchor = elim_clock.anchor = ticks;
   // BVE's growth-slack ramp and decade counter (kissat kimits.c:128-130)
   bve_rounds_run_ = 0;
   bve_level_ = 0;
@@ -225,7 +229,6 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   default_candidate_order_.reset();
   // Runtime state only: configuration is what a posed slot carries.
   for (SlotEntry &e : inprocess_slot) {
-    e.anchor = ticks; // cadical `last.NAME.ticks = TICKS`
     e.limit = 0;
     e.applies = 0;
     e.doses = 0;
@@ -307,21 +310,17 @@ struct EffortSpec {
   bool budget_aware;
   // Null where the rule charges its own counter, or the currency is not ticks.
   uint64_t Stats::*tick_counter = nullptr;
-  uint64_t thresh = 0;    // cadical's NAMEthresh; see SlotEntry::thresh
-  uint64_t max_delta = 0; // cadical's NAMEmaxeff; 0 = no ceiling
-  bool active_floor = false;
   // Whole-formula closure, orthogonal to metering. See SlotEntry::closure.
   bool closure = false;
 };
 // Invariant: a rule registered at RuleTier::Inprocess is in the slot, so one
-// that can be metered needs a row here. The upper clamp is cadical's alone
-// (elim.cpp:781-787, subsume.cpp:351-357), ported where the currency matches.
-constexpr uint64_t CADICAL_ELIM_MAXEFF = 2000000000ull;  // elimmaxeff 2e9
-constexpr uint64_t CADICAL_SUBSUME_MAXEFF = 100000000ull; // subsumemaxeff 1e8
+// that can be metered needs a row here. There is no upper clamp: kissat ships
+// no `maxeffort` option at all, and the floor is on the REFERENCE
+// (MIN_EFFORT_TICKS = mineffort x 1e6), which is the only one it has.
 
 constexpr EffortSpec EFFORT_SPECS[] = {
-    {"BVE", 100, meter_bve, true, true, false, nullptr, 0,
-     CADICAL_ELIM_MAXEFF, true},
+    // kissat `eliminateeffort` 100 per mille (options.h:44).
+    {"BVE", 100, meter_bve, true, true, false, nullptr},
     {"Probe", 20, meter_probe, true, false, false, &Stats::probe_ticks},
     // Neither reference budgets this as a technique: kissat has no hyper binary
     // resolution, and cadical derives it inside the probing propagation
@@ -333,19 +332,20 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     {"HyperBinaryRes", 20, meter_hbr, true, false, true, &Stats::hbr_ticks},
     {"Backbone", 20, meter_backbone, true, false, false, &Stats::backbone_ticks},
     {"TransitiveReduce", 20, meter_transitive, true, false, false},
-    {"Vivify", 100, meter_vivify, false, false, true, &Stats::vivify_ticks, 20},
+    // kissat `vivifyeffort` 100 per mille (options.h:161).
+    {"Vivify", 100, meter_vivify, false, false, true, &Stats::vivify_ticks},
     // Strengthen/SubsumeForward must be budget_aware: unbudgeted, the per-mille
-    // bounds only how often a round starts.
-    {"Strengthen", 100, meter_strengthen, false, false, true, nullptr, 0,
-     CADICAL_SUBSUME_MAXEFF, true},
-    {"SubsumeForward", 100, meter_forward, false, false, true, nullptr, 0,
-     CADICAL_SUBSUME_MAXEFF, true},
+    // bounds only how often a round starts. kissat `forwardeffort` 100
+    // (options.h:72); its currency there is `forward_steps`, here partner
+    // visits.
+    {"Strengthen", 100, meter_strengthen, false, false, true, nullptr},
+    {"SubsumeForward", 100, meter_forward, false, false, true, nullptr},
     // kissat factoreffort 50 per mille (options.h:57); the first dose per solve
     // takes the factoriniticks allowance instead (see set_entry_limit).
-    {"Factor", 50, meter_factor, false, false, true, nullptr, 7},
-    // 8 per mille is cadical's `ternaryeffort` (options.hpp:240); this rule has
-    // no internal governor, so the ledger share is its only bound.
-    {"HyperTernaryRes", 8, meter_ternary, false, false, true, nullptr, 6},
+    {"Factor", 50, meter_factor, false, false, true, nullptr},
+    // 8 per mille is cadical's `ternaryeffort` (options.hpp:240); kissat has no
+    // ternary resolution, so this rate is cadical's and has no kissat analogue.
+    {"HyperTernaryRes", 8, meter_ternary, false, false, true, nullptr},
     // No reference schedule backs any BCE constant (kissat has none, cadical
     // ships `block`=0), so rate and position are local choices.
     {"BCE", 20, meter_bce, false, false, true},
@@ -359,8 +359,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // No reference schedule backs Congruence's share (kissat runs it
     // unlimited), and the first round per solve bypasses the budget
     // (set_entry_limit).
-    {"Congruence", 100, meter_congruence, false, false, true, nullptr, 0, 0,
-     false, true},
+    {"Congruence", 100, meter_congruence, false, false, true, nullptr, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -787,12 +786,9 @@ void DefaultPolicy::build_inprocess_slot(Kernel &k) {
           e.permille = s->permille;
           e.meter = s->meter;
           e.tick_counter = s->tick_counter;
-          e.thresh = s->thresh;
           e.dosed = s->dosed;
           e.retry_advice = s->retry_advice;
           e.budget_aware = s->budget_aware;
-          e.max_delta = s->max_delta;
-          e.active_floor = s->active_floor;
           // TACTIX_SLOT_PERMILLE=Name:rate[,...] (diagnostic): override an
           // entry's effort rate without a rebuild, so a sweep fits one window.
           if (const char *pm = std::getenv("TACTIX_SLOT_PERMILLE")) {
@@ -845,17 +841,6 @@ void DefaultPolicy::build_inprocess_slot(Kernel &k) {
                    "policy never walks its candidates and a cursor cannot "
                    "take effect");
           e.cursor_enabled = std::strtoul(cv, nullptr, 10) != 0;
-        }
-        // Effort ceiling: `TACTIX_EFFORT_CEIL=0` drops every one (the off arm),
-        // `TACTIX_MAXEFF_<RULENAME>=N` sets or adds one entry's.
-        if (const char *ec = std::getenv("TACTIX_EFFORT_CEIL"))
-          if (std::strtoul(ec, nullptr, 10) == 0)
-            e.max_delta = 0;
-        knob_name("TACTIX_MAXEFF_", nm);
-        if (const char *mv = std::getenv(knob)) {
-          if (!e.meter)
-            reject("this entry has no meter, so it has no delta to clamp");
-          e.max_delta = std::strtoull(mv, nullptr, 10);
         }
         knob_name("TACTIX_ORDER_", nm);
         if (const char *ov = std::getenv(knob)) {
@@ -1167,19 +1152,6 @@ uint64_t DefaultPolicy::ledger_remaining(SlotEntry &e, const Kernel &k,
   return 0;
 }
 
-// cadical's accumulate-until-worthwhile decline (limit.hpp:150): while the
-// delta is too small to repay the pass's setup, decline without advancing the
-// anchor.
-bool DefaultPolicy::slot_entry_thresh_declines(SlotEntry &e, const Kernel &k) {
-  if (!(e.enabled && e.meter && e.thresh && e.doses > 0))
-    return false;
-  const uint64_t delta = ledger_remaining(e, k, e.limit);
-  if (delta >= e.thresh * kernel_irredundant_clauses(k))
-    return false;
-  e.tm.dec_budget++;
-  return true; // anchor deliberately NOT advanced
-}
-
 // A during-search BVE dose fires only on binary-dense formulas, the same axis
 // and threshold as Factor's density gate: sparse formulas are where dosing
 // costs, and the cost is trajectory damage, not overhead. A hand-designed
@@ -1351,9 +1323,6 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     bve_rounds_run_++;
   if (bve_oneshot)
     e.doses++; // consume the one shot (skipped hereafter)
-  // The anchor advances here, on the admitted path only (kissat writes
-  // `last.NAME.ticks` only on a call that runs), so a skip keeps its accrual.
-  e.anchor = search_ticks(k);
   e.tm.admitted++; // the dosed branch ran; it exits here, not below
   // A refutation inside a dose does not leave the entry walk: the rest are
   // declined by slot_entry_admissible, keeping telemetry balanced.
@@ -1578,8 +1547,6 @@ DefaultPolicy::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     e.tm.dec_guard++;
     return SlotStep::Next;
   }
-  // The anchor advances here, on the admitted path only — see run_dosed_entry.
-  e.anchor = search_ticks(k);
   e.tm.admitted++;
   // Vivify keeps its scope/delay tier split; the rest take a plain handoff.
   const bool budgeted = e.meter && !e.dosed && e.budget_aware;
@@ -1690,8 +1657,6 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
       // rather than frozen at phase entry for all entries.
       if (e.enabled && e.meter)
         set_entry_limit(e, k);
-      if (slot_entry_thresh_declines(e, k))
-        continue;
       const SlotStep step = (e.dosed && r.instances && r.apply_instance)
                                 ? run_dosed_entry(k, e, r, ctx)
                                 : run_batch_entry(k, e, r, ctx);
@@ -1724,6 +1689,12 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
   k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
+  // kissat's `last.ticks.probe` / `last.ticks.eliminate` (probe.c:86,
+  // eliminate.c:601): stamp the phase's effort anchor on the way out, AFTER
+  // `in_phase` is cleared so `search_ticks` reads the netted value, and
+  // UNCONDITIONALLY — a phase in which every entry declined still consumed the
+  // search that preceded it, so the next phase must price against this point.
+  clock.anchor = search_ticks(k);
   if (ctx.phase_unsat)
     return 20;
   // The phase fired, simplifying or not: count it on this clock, whose
@@ -1734,55 +1705,36 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
 }
 
 void DefaultPolicy::set_entry_limit(SlotEntry &e, Kernel &k) {
-  // Computed when the entry is reached, not once for all entries at phase entry
-  // (kissat reads OLD_LIMIT when the technique begins, kimits.h:138).
+  // kissat `SET_EFFORT_LIMIT` (kimits.h:135-170), verbatim:
+  //   REFERENCE = max(search_ticks - <phase anchor>, mineffort * 1e6)
+  //   LIMIT     = <this technique's own counter, now> + effort/1000 * REFERENCE
+  // The anchor is the PHASE's, not the entry's, so every technique in one phase
+  // prices against the same reference and none can earn or lose allowance by
+  // abstaining. There is no upper clamp and no active floor: kissat has
+  // neither, and the clamps that used to sit here were cadical's.
   const std::vector<RuleVTable> &rules = tactix_rules();
-        const uint64_t now = search_ticks(k);
-        uint64_t reference = 0;
-        if (now >= e.anchor)
-          reference = now - e.anchor;
-        else
-          e.tm.wrapped++; // see Telem::wrapped — this used to be ~2^64
-        if (reference < MIN_EFFORT_TICKS)
-          reference = MIN_EFFORT_TICKS;
-        uint64_t delta = reference / 1000 * e.permille;
-        // Everything above is kissat's SET_EFFORT_LIMIT (kimits.h:135-170),
-        // which has no ceiling; the ceiling below is cadical's, then its
-        // `max(delta, 2*active())`, in that order.
-        if (e.max_delta && delta > e.max_delta) {
-          delta = e.max_delta;
-          e.tm.clamped++;
-        }
-        if (e.active_floor) {
-          // cadical `active()` = variables neither fixed nor eliminated; this
-          // is the decade-accurate analog Factor's warm-up gate also uses.
-          const uint64_t elim = k.stats.bve_eliminated;
-          const uint64_t active = k.unassigned > elim ? k.unassigned - elim : 0;
-          if (delta < 2 * active) {
-            delta = 2 * active;
-            e.tm.floored++;
-          }
-        }
-        e.limit = e.meter(k) + delta;
-        // The first Factor dose per solve takes kissat's factoriniticks
-        // allowance instead (factor.c:1106-1117). See FACTOR_INIT_TICKS.
-        if (e.doses == 0 && e.budget_aware &&
-            !std::strcmp(rules[e.rule].name, "Factor"))
-          e.limit = e.meter(k) + factor_init_ticks_;
-        // Congruence's opening round takes the same shape, a ledger share from
-        // `search_ticks` being near-zero at conflicts==0.
-        if (e.doses == 0 && e.budget_aware &&
-            !std::strcmp(rules[e.rule].name, "Congruence"))
-          e.limit = e.meter(k) + congruence_init_ticks_;
-        // TACTIX_BVE_ONESHOT (diagnostic): the first during-search BVE dose
-        // gets Factor's allowance and runs its whole schedule, then is retired.
-        if (e.doses == 0 && e.retry_advice &&
-            std::getenv("TACTIX_BVE_ONESHOT"))
-          e.limit = e.meter(k) + 700000000ull;
-        // TACTIX_BVE_CADENCE (diagnostic): every admitted BVE dose gets the
-        // completion allowance, giving one completed call per phase.
-        if (e.retry_advice && std::getenv("TACTIX_BVE_CADENCE"))
-          e.limit = e.meter(k) + 700000000ull;
+  const SlotClock &clock =
+      e.group == SlotGroup::Probe ? probe_clock : elim_clock;
+  const uint64_t now = search_ticks(k);
+  uint64_t reference = 0;
+  if (now >= clock.anchor)
+    reference = now - clock.anchor;
+  else
+    e.tm.wrapped++; // see Telem::wrapped
+  if (reference < MIN_EFFORT_TICKS)
+    reference = MIN_EFFORT_TICKS;
+  const uint64_t delta = reference / 1000 * e.permille;
+  e.limit = e.meter(k) + delta;
+  // kissat gives factor's FIRST call an absolute allowance instead, because at
+  // preprocessing time the reference is meaningless (factor.c:1106-1117).
+  if (e.doses == 0 && e.budget_aware &&
+      !std::strcmp(rules[e.rule].name, "Factor"))
+    e.limit = e.meter(k) + factor_init_ticks_;
+  // Congruence's opening round takes the same shape, `search_ticks` being
+  // near-zero at conflicts == 0.
+  if (e.doses == 0 && e.budget_aware &&
+      !std::strcmp(rules[e.rule].name, "Congruence"))
+    e.limit = e.meter(k) + congruence_init_ticks_;
 }
 
 void DefaultPolicy::report_slot(const Kernel &k) const {
@@ -1848,7 +1800,7 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
         "c slot %-18s occ %6llu adm %5llu ok %5llu | dec dis %llu cap %llu "
         "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu dns %llu "
         "| handed %llu spent %llu completed %llu | "
-        "maxeff %llu clamped %llu floored %llu wrapped %llu%s\n",
+        "wrapped %llu%s\n",
         rules[e.rule].name, (unsigned long long)t.occasions,
         (unsigned long long)t.admitted, (unsigned long long)t.ok,
         (unsigned long long)t.dec_disabled, (unsigned long long)t.dec_cap,
@@ -1857,8 +1809,7 @@ void DefaultPolicy::report_slot(const Kernel &k) const {
         (unsigned long long)t.dec_material, (unsigned long long)t.dec_warmup,
         (unsigned long long)t.dec_density, (unsigned long long)t.handed,
         (unsigned long long)t.spent, (unsigned long long)t.completed,
-        (unsigned long long)e.max_delta, (unsigned long long)t.clamped,
-        (unsigned long long)t.floored, (unsigned long long)t.wrapped, balance);
+        (unsigned long long)t.wrapped, balance);
   }
 }
 
