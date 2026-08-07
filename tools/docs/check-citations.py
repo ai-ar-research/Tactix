@@ -19,6 +19,15 @@ when it can be attributed with certainty:
 
 Everything else is reported as SKIPPED with a count, so the coverage this check
 does NOT have stays visible rather than reading as a clean bill of health.
+
+The second condition needs the reference clones on disk, and they are untracked
+and gitignored — so they exist in the primary checkout and in NO worktree, and
+in no fresh clone. Without them the check cannot tell a rotted citation of ours
+from a live citation of cadical's, and failing would mean every agent in a
+worktree sees the same 20 false failures. It therefore runs DEGRADED: those
+citations are skipped, the reduced coverage is printed, and the verdict is the
+same one the primary checkout gives. Run `tools/solvers/setup.sh` (or run the
+check from the primary checkout) for full strength.
 """
 import os
 import re
@@ -56,8 +65,9 @@ def nlines(path):
 
 def main():
     ours, refs = index(OURS), index(REFS)
+    have_refs = any(os.path.isdir(os.path.join(ROOT, d)) for d in REFS)
     errors, checked, skipped = [], 0, 0
-    reasons = {"ambiguous": 0, "not-ours": 0, "reference": 0}
+    reasons = {"ambiguous": 0, "not-ours": 0, "reference": 0, "no-clone": 0}
 
     for doc in DOCS:
         path = os.path.join(ROOT, doc)
@@ -80,12 +90,16 @@ def main():
                 if n is None or num <= n:
                     checked += 1
                     continue
-                # Out of range for us. If a reference clone has the same
-                # basename and the line IS in range there, the citation was
-                # almost certainly about the reference — not our business.
+                # Out of range here. If a reference clone has the same basename
+                # and the line is in range there, the citation was almost
+                # certainly about the reference, so it is not this check's.
                 if any((nlines(r) or 0) >= num for r in refs.get(base, [])):
                     skipped += 1
                     reasons["reference"] += 1
+                    continue
+                if not have_refs:
+                    skipped += 1
+                    reasons["no-clone"] += 1
                     continue
                 checked += 1
                 rel = os.path.relpath(target, ROOT)
@@ -99,7 +113,13 @@ def main():
     print(f"  note  {skipped} skipped "
           f"({reasons['ambiguous']} ambiguous basename, "
           f"{reasons['not-ours']} not in our tree, "
-          f"{reasons['reference']} resolve to a reference clone)")
+          f"{reasons['reference']} resolve to a reference clone, "
+          f"{reasons['no-clone']} unjudged: no reference clone on disk)")
+    if reasons["no-clone"]:
+        print(f"  note  DEGRADED: {reasons['no-clone']} out-of-range citation(s)"
+              " could not be attributed because the reference clones are"
+              " absent (normal in a worktree). Re-run from the primary"
+              " checkout for full strength.")
     for e in errors:
         print(f"  FAIL  {e}")
     print(f"check-citations: {len(errors)} error(s)")
