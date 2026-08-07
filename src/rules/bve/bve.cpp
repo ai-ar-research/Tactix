@@ -6,7 +6,7 @@
 // Transliterated idioms from kissat/src/eliminate.c + resolve.c + definition.c;
 // the add-before-delete / root-false-strip / record_unit / witness mechanics
 // mirror our own V3 Substitute (do_substitution), the fuzzed template.
-// See docs/e1-bve-design.md.
+// See docs/design/e1-bve-design.md.
 #include "rules/bve/bve.hpp"
 
 #include "engine/subsolver.hpp"

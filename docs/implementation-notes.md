@@ -754,10 +754,18 @@ Ranked by how much they explain. These, not the individual rows, are what a fix 
 ### 13.2 HIGH-severity rows — the open gaps and, kept beside them, their closures
 
 Full rows (with cadical's column and file:line on all three sides) in the frozen audit. Closer =
-Track SCHED item. **Most rows here now read CLOSED**; they stay in the table rather than collapsing to
-one-liners because each closure carries the measurement or the port trap that justifies it, and N4 is a
-live gate that is re-read row by row. What is still open: `SP-SWEEP-2`, `SP-SWEEP-7`, and the deviation
-half of the rows pointing at §13.3.
+Track SCHED item. **All twelve HIGH rows now read CLOSED** — nine by code, three as accepted deviations
+in §13.3 — and `SP-PROBE-2` closed with X6 (Track R · R9).
+
+**These rows are deliberately NOT compressed, and the reason is not inertia.** A 2026-08-06 review
+proposed collapsing the closed ones to one-liners, which is the right default for finished work
+everywhere else in this project. It is wrong here: N4 is a LIVE gate re-read row by row, and each
+closure carries the *measurement* or the *port trap* that justifies it — three of the four HIGH rows the
+A3 pass surfaced had a WRONG PREMISE, and what corrected them is exactly the use-site detail a one-liner
+would drop. The evidence has no other home; the audits are frozen and predate the corrections.
+
+Still open in the wider ledger: `SP-SWEEP-2`, `SP-SWEEP-3`, `SP-SWEEP-7`, and the MED/LOW rows that the
+rev-83 phase-4 exit now also covers.
 
 | id | mechanism | Kissat / CaDiCaL | Tactix | verdict | closer |
 |---|---|---|---|---|---|
