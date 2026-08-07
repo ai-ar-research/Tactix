@@ -54,6 +54,11 @@ struct Heuristics {
 // Called whenever the kernel grows nvars.
 void heuristics_reserve_vars(Kernel &, uint32_t old, uint32_t nvars);
 
+// Seed the initial decision order from `order` (variables in first-activation
+// order), kissat's `tumble`. No-op without `H`. See the definition for why this
+// is an ordering port and not the renumbering kissat performs.
+void heuristics_seed_activation_order(Kernel &, const std::vector<Var> &order);
+
 // The kernel does not own `H`: whoever outlives a solve() owns the storage and
 // attaches it. This RAII helper is that owner for tests and simple embeddings.
 // Sizing at attach is what makes a fresh `H` on an already-parsed kernel

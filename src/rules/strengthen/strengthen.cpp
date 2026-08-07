@@ -286,10 +286,12 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
   k.stats.strengthened++;
   (*changed)++;
   // rewrites preserve redundancy (the flush pre-pass rewrites redundant clauses
-  // too) and glue can only shrink; read before the replacement garbages `c`
+  // too) and glue can only shrink; read before the replacement garbages `c`.
+  // Reached from `act` and from `flush_root`, so root-unit stripping promotes
+  // on the same rule.
   const bool redundant = c->redundant();
-  const uint32_t glue =
-      std::min<uint32_t>(c->glue(), static_cast<uint32_t>(lits.size()));
+  const uint32_t glue = kernel_shrunken_glue(
+      k, c->glue(), static_cast<uint32_t>(lits.size()));
   switch (kernel_replace_clause(k, c, id, lits.data(),
                                 static_cast<uint32_t>(lits.size()), redundant,
                                 redundant ? glue : 0, ref)) {

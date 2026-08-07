@@ -439,9 +439,15 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     changed = true;
     // shared replacement tail; glue 0 for irredundant (review-aligned);
     // c dangles after (arena may reallocate) and is not touched again
+    // Clamped on cadical's rule (decompose.cpp:629 → shrink_clause); kissat's
+    // substitute.c does not clamp here at all. Deviation:
+    // docs/implementation-notes.md §13.3.
     switch (kernel_replace_clause(
         k, c, id, out.data(), static_cast<uint32_t>(out.size()), credundant,
-        credundant ? std::min<uint32_t>(cglue, out.size()) : 0, nullptr)) {
+        credundant ? kernel_shrunken_glue(
+                         k, cglue, static_cast<uint32_t>(out.size()))
+                   : 0,
+        nullptr)) {
     case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
       return ApplyResult::Unsat;  // quiescent root)
     case ReplaceOutcome::Unit:

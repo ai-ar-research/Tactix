@@ -456,8 +456,13 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
       }
       std::swap(lits[w], lits[best]);
     }
-    const uint32_t glue =
-        count_glue(k, lits.data(), static_cast<uint32_t>(lits.size()));
+    // The site kissat's strengthen.c:42-43 covers. The exact LBD is recomputed
+    // where kissat clamps the old glue — a stronger input to the same
+    // post-shrink promotion, so an all-distinct-level resolvent still lands a
+    // band lower.
+    const uint32_t glue = kernel_shrunken_glue(
+        k, count_glue(k, lits.data(), static_cast<uint32_t>(lits.size())),
+        static_cast<uint32_t>(lits.size()));
     // reason may dangle after this allocation; it is not used again
     k.conflict_ref = kernel_add_large_clause(
         k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue,

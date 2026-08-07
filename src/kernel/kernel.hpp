@@ -91,6 +91,13 @@ struct Stats {
   uint64_t eager_tried = 0;     // containment tests run (kissat eagertried)
   uint64_t eager_subsumed = 0;  // deletions (kissat eagerly_subsumed)
   uint64_t eager_reason_skipped = 0; // subsumed but kept — still a trail reason
+  // shrinks where the post-shrink clamp promotes a band (kissat promote.c);
+  // counted only when new_size-1 and new_size differ, so it is the arm's
+  // reachability proof — see kernel_shrunken_glue
+  uint64_t shrink_promoted = 0;
+  // variables the initial decision order was seeded from (kissat `tumble`); 0
+  // means the seeding never ran, so its arm is untested
+  uint64_t tumble_seeded = 0;
   // glue histogram of clauses used in conflict analysis, per search mode
   // (kissat statistics.h used[2].glue): Reduce's dynamic-tier input.
   static constexpr uint32_t MAX_GLUE_USED = 127;
@@ -631,6 +638,16 @@ struct Kernel {
   };
   std::vector<InputRestatement> input_restatements;
   std::vector<Lit> input_restate_lits;
+  // Variables in order of first ACTIVATION — the order in which they first
+  // appear in a clause the input actually stores. Kissat's decision order is
+  // seeded from this, not from the file's variable numbering, and not from
+  // import order: it activates per CLAUSE in the final `else` of `kissat_add`
+  // (kissat add.c), so a tautology or a satisfied clause activates nothing,
+  // while import happens per literal unconditionally. `finish_input` hands this
+  // to `H` and clears it; a variable that occurs in no stored clause never
+  // appears, exactly as kissat never imports it.
+  std::vector<Var> input_activation_order;
+  std::vector<uint8_t> input_activated; // per-var membership, parse-scoped
   // A refutation found during input is deferred for the same reason: emitting
   // it mid-input would burn an id the checker gave a later input clause.
   bool input_refuted = false;
@@ -948,6 +965,14 @@ struct Kernel {
   // only ever deletes redundant clauses. A policy wanting dynamic tiers calls
   // reduce_retier(), which overwrites these with Stats::used_glue quantiles.
   uint32_t tier1 = 2, tier2 = 6;
+  // Post-shrink glue clamp (kissat `promote`, default 1). false reverts to the
+  // pre-parity `min(glue, new_size)`; see kernel_shrunken_glue. Both settings
+  // sound — glue is a retention heuristic, never part of a justification.
+  bool shrink_glue_promote = true;
+  // Initial decision order (kissat `tumble`, default 1): seed `H` in
+  // first-activation order rather than ascending variable index. false reverts.
+  // Ranking only, so every setting is proof-neutral.
+  bool tumble = true;
 
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
@@ -1169,6 +1194,27 @@ inline void kernel_delete_clause(Kernel &k, Clause *c) {
       kernel_mark_bve_retry(k, var_of(l));
       kernel_removed_var(k, var_of(l)); // BCE's side of the substrate
     }
+}
+
+// The glue a redundant clause carries after shrinking to `new_size`: the one
+// home for a rule three rules and the on-the-fly path all need. Both references
+// clamp to `new_size - 1` (kissat `strengthen.c:42-43`, cadical
+// `clause.cpp:230`), so a shrunken clause is promoted a band, not merely kept.
+// Rationale and the tier effect: docs/implementation-notes.md §13.
+//
+// `new_size < 3` cannot hold for a stored large clause; the guard keeps the
+// expression total, since callers compute it before the replacement decides
+// between large, binary and unit. `Stats::shrink_promoted` counts only the
+// shrinks where the two rules disagree, so a zero proves the arm inert.
+inline uint32_t kernel_shrunken_glue(Kernel &k, uint32_t old_glue,
+                                     uint32_t new_size) {
+  if (new_size > 2 && old_glue >= new_size) {
+    if (!k.shrink_glue_promote)
+      return new_size;
+    k.stats.shrink_promoted++;
+    return new_size - 1;
+  }
+  return old_glue < new_size ? old_glue : new_size;
 }
 
 inline uint64_t kernel_binary_key(Lit a, Lit b) {
