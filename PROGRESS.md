@@ -59,17 +59,28 @@ OFF by design and is plan §9's named exemption. Propagate / ConflictAnalysis / 
 others 22–23/24, and the sparse tail is BCE 17 · HyperTernaryRes 13 · Instantiate 12 · Factor 10 · BVE 9 — all
 non-zero, which is what the condition asks. **This retires the "19 of 25 entries fire" reading entirely**: that
 figure was the round-counter artefact, measured on fuzz-sized instances through a broken instrument.
-**Nightly-scale fuzz on the post-R9/R10 tree is GREEN** (`1587899`): DRAT **0/10,000** (coverage 9,664) · native LRAT **0/10,000** (9,662) · `--random-policy` **0/10,000** (8,149; the 18.5 % non-terminating population is the known one, accepted non-blocking by the user and printed rather than hidden) · corpus **14/14 on both formats**. Nothing had been fuzzed at this scale since R9, R10, the `Reduce` counter fix and the `SubSolver` move to `src/engine/`.
+**10,000-case fuzz on the post-R9/R10 tree is GREEN** (`1587899`): DRAT **0/10,000** (coverage 9,664) · native LRAT **0/10,000** (9,662) · `--random-policy` **0/10,000** (8,149) · corpus **14/14 both formats**. **▶ CORRECTION: I first recorded this as "nightly-scale" and it is NOT** — `run.sh --nightly` is **200,000 cases plus `--lrat`**, so this is 20× short, and its random-policy arm is DRAT-only while the last random-policy × native-LRAT leg predates R10 and `S-g`, both proof-delta changes. Two exit clauses ride on this one job, so the real leg is owed and is running as `1587986`. The 18.5 % non-terminating figure is at `--timeout 5 s`; the 11.4 % quoted elsewhere in this file is at 10 s — **always state the timeout with the figure**, since the population is a function of it.
 
 *Still owed for the exit: the `--random-policy` half — a rule can fire under DefaultPolicy's schedule and never
 be driven through `apply_instance` with a non-canonical payload. Under audit.*
 
 **▶ THE NEXT STEPS, in order.**
-1. **Read `1587896`** — a per-family reach probe over Tier B plus nightly-scale fuzz on the post-R9/R10 tree
-   (nothing has been fuzzed at that scale since R9, R10, the `Reduce` counter fix and the `SubSolver` move to
-   `src/engine/`). Against corrected specs, **23 of 26 families fire** on structured instances; the three that
-   do not are `Reorder` (exempt), and **BVE + Factor**, which the Tier B half should show firing — R10 measured
-   `9vliw_bp_mc` at 11,008 eliminated. **If BVE or Factor comes back ZERO on Tier B too, that is a finding.**
+1. **Finish the exit evidence.** The reach condition is MET on DefaultPolicy and every rule is reachable under
+   `--random-policy` (audit report `benchmarks/reports/2026-08-06-phase-3-exit-audit.md`). **Four clauses are
+   not yet satisfied as written, and none is a capability gap:**
+   **(a) V5 `Sweep` is registered with `nullptr, nullptr` — it has NO instance surface**, while `sweep.hpp:241`
+   and `sweep.cpp:304` both assert one exists and `SP-SWEEP-5`'s CLOSED disposition rests on that sentence.
+   `tactix_apply_instance(Sweep, seed)` returns −1 and all 36,243 random-policy Sweeps were canonical. Either
+   register it (`sweep_seeds`/`sweep_detect_seed` exist and are unit-tested) or write the deviation row AND
+   correct the three assertions — it is currently neither.
+   **(b) the real nightly leg** (`1587986`): 200k + native LRAT, plus the `--random-policy × native-LRAT` leg
+   that does not exist at HEAD even though R10 and `S-g` both changed proof deltas.
+   **(c) two REACH keys are wrong**: `ConflictAnalysis` keys on `c conflicts`, which `propagate.cpp:88`
+   increments — so `--require-reached ConflictAnalysis` is satisfied by Propagate alone; and `Rephase` keys on a
+   counter `walk.cpp:475` also increments. Seven further rows key on round counters their `_try` path never
+   moves — harmless only while those rules are un-dosed, **and phase 4's whole job is to dose them**.
+   **(d)** attach the TIMEOUT to the non-termination figure wherever it appears.
+
 2. **Evaluate the gate, write the report** to `benchmarks/reports/`, tick phase 3, open phase 4.
 3. **Phase 4's pricing campaign, batch 1 — SPECCED AND READY**, script at
    `$CLAUDE_JOB_DIR/tmp/price-tierb.sh`, submit once `1587896` is off the partition (a window whose output is a
@@ -292,7 +303,7 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 
 | | Requirement | Status |
 |---|---|---|
-| N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** v1 API frozen (revs 20–21), §8.4 demos 1–3 prove it end-to-end, all 25 registry entries driven through `tactix_apply_instance` (ctest `api_instances`). Four breaches found and closed to date; the last was `Factor`'s density predicate NoOping *inside* `factor_apply` (SCHED-N1FIX, moved into the policy). **The shape to watch for is guard-true / apply-NoOp** — it is why V5 Sweep was left unregistered until it had a proof delta. Final acceptance = the CCE plugin test at the phase-5 gate |
+| N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** v1 API frozen (revs 20–21), §8.4 demos 1–3 prove it end-to-end, all 26 registry entries driven through `tactix_apply_instance` (ctest `api_instances`). Four breaches found and closed to date; the last was `Factor`'s density predicate NoOping *inside* `factor_apply` (SCHED-N1FIX, moved into the policy). **The shape to watch for is guard-true / apply-NoOp** — it is why V5 Sweep was left unregistered until it had a proof delta. Final acceptance = the CCE plugin test at the phase-5 gate |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ **No open breach at HEAD**; DRAT since phase 1, native LRAT since 2026-07-14, backend serializers pinned byte-for-byte by ctest `proof`. Two breaches closed 2026-08-05 (Sweep's S-e inverted literal parity; the frontend's input-literal dedup) — reports `2026-08-05-sweep-se-polarity-fix.md`, `…-input-clause-normalization-n2.md`. **▶ Standing caveat: the INSTRUMENT had been broken — `fuzz.py`'s native-LRAT oracle accepted `NOT VERIFIED`, so every LRAT rejection in project history was recorded as a pass.** Read every pre-2026-08-05 native-LRAT figure through that. Also: drat-trim's `-L` CONVERTER rejects kissat's and cadical's proofs identically on two unsound input classes, so those cross-checks are stood down and visibly counted |
 | N3 | DefaultPolicy comparable to Kissat (T4 gate) | ✗ **NOT MET, and the last recorded reading is STALE.** T1+T2 passed. The most recent *banked* window (`20260805-1150`, git `0418770`) read Tier B 70.71 (26/28) · Tier C 419.91 (28/30) vs kissat 228.45 and cadical 312.27 — but that predates the **effort-ledger wrap fix**, and four unread 2026-08-06 tier pairs sit in `benchmarks/runs/`. **Treat N3's current magnitude as unmeasured until a post-fix window is read.** Tier D is BUILT AND FROZEN (793 instances, 2026-08-03) and has **never been RUN** — a phase-4-exit item (§11 O9); `--tier D` still has no per-track flag for T4's SC25-set PAR-2 |
 | **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80) | ✗ **KNOWN UNMET, and discharging it is phase 4's defining obligation (rev 83).** Measured three times; the third pass is BEHAVIOURAL rather than an inventory and is the one that matters — both solvers counter-instrumented on the SAME ten instances, **our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates anything (104 vs 2,736,829) and Factor adds ZERO on 6 of 9**, so a ledger row reading "closed" does not mean the family runs. Counts, coverage and the per-mechanism verdicts live in the ledger (`docs/implementation-notes.md` §13, machine-checked by ctest `option_coverage`) and the frozen audits — this row does not restate them. **N4 is a *mechanism* floor**: never discharged by a tier number, never deferred to §5.6 |
@@ -395,7 +406,7 @@ campaign 4 measured / 0 adopted.
 
 - **Exit:** every Kissat 4.0.4 / CaDiCaL 3.0.0 proof rule is either registered here (guard / instances / apply,
   N1-exposed, N2-clean, fuzz-green) or carries a reasoned no-implement row in `docs/implementation-notes.md`
-  with its evidence and a reopening path. Nightly random-policy fuzzing green — **the ~11.4 % non-terminating
+  with its evidence and a reopening path. Nightly random-policy fuzzing green — **the ~11.4 % (at 10 s) non-terminating
   random-policy population does NOT block this** (user, 2026-08-06): it is N1 robustness, not soundness, it is
   0 % for DefaultPolicy, and the harness now prints it instead of hiding it. **No performance gate** — T3 is
   phase 4's. **N4 stays open when this phase closes**, by design (rev 83) — discharging it is phase 4's.
