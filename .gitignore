@@ -48,6 +48,14 @@ tools/fuzz/nightly-rev*.log
 *.proof
 *.model
 benchmarks/runs/
+# ...except each window's two SUMMARY files. `benchmarks/runs/` is 7.1 GB and
+# untracked, but plan §8.1 rev 84 makes it AUTHORITATIVE for per-instance
+# detail — so without this the only copy of every gate's evidence is one
+# `rm -rf` or one quota event from gone, and no report reconstructs it. The two
+# JSONs are 2.7 MB across 217 windows; the bulk is logs/ and results/, which
+# stay ignored.
+!benchmarks/runs/*/results.json
+!benchmarks/runs/*/manifest.json
 
 # Editor / OS
 .DS_Store

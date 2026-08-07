@@ -1,0 +1,207 @@
+{
+  "tier": "C",
+  "timeout": 1200.0,
+  "mem_gb": null,
+  "git": "ec91cef",
+  "date": "20260724-083024",
+  "shape": "slurm partition=cpu-dense-hwulab-q cpus/task=1 mem/cpu=8G",
+  "slurm": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 1,
+    "mem_per_cpu_gb": 8,
+    "throttle": null
+  },
+  "solvers": [
+    {
+      "name": "arr-tierC",
+      "cmd": [
+        "env",
+        "TACTIX_ARRANGEMENT=1",
+        "/home/hwu/SAT-solving/build/release/tactix"
+      ],
+      "check_proofs": true
+    }
+  ],
+  "tasks": [
+    {
+      "solver": 0,
+      "rel": "tierC/1-ET-256-K-70.sanitized.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/1-ET-256-K-70.sanitized.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/128_125.sanitized.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/128_125.sanitized.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/ContextModel_output_7_3_9.bul_.dimacs.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/ContextModel_output_7_3_9.bul_.dimacs.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/DLTM_twitter690_74_16.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/DLTM_twitter690_74_16.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/EDP3-11000.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/EDP3-11000.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/ER_400_20_4.apx_2_DC-ST.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/ER_400_20_4.apx_2_DC-ST.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/Grain_no_init_ver1_out200_known_last105_0_u.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/Grain_no_init_ver1_out200_known_last105_0_u.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/Ptn-7824-b18.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/Ptn-7824-b18.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/SCPC-1000-18.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/SCPC-1000-18.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/StConn_8_32.sanitized.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/StConn_8_32.sanitized.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/T105.2.0.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/T105.2.0.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/T87.2.0.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/T87.2.0.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/aes_decry_2_rounds.debugged.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/aes_decry_2_rounds.debugged.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/af-synthesis_stb_50_120_4_sat.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/af-synthesis_stb_50_120_4_sat.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/asconhashv12_opt64_H4_M2-LOD9_m0_2_U19.c.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/circuit_32in32out_with_500gates_6in6out_dist64_seed1.sanitized.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/constraints_18_0.3_2.sanitized.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/constraints_18_0.3_2.sanitized.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/constraints_25_4_5_12_12_0_0_0.sanitized.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/constraints_25_4_5_12_12_0_0_0.sanitized.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/ecarev-110-4099-22-30-7.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/ecarev-110-4099-22-30-7.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/em_11_3_4_cmp.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/em_11_3_4_cmp.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/frb45-21-2.used-as.sat04-884.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/frb45-21-2.used-as.sat04-884.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/goldcrest-and-9.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/goldcrest-and-9.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/j3037_9_rggt_b.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/j3037_9_rggt_b.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/jgiraldezlevy.2200.9086.08.40.41.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/jgiraldezlevy.2200.9086.08.40.41.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/minxor128.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/minxor128.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2534.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/mod2c-rand3bip-sat-250-2.shuffled-as.sat05-2534.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/mp1-Nb5T15.cnf.xz",
+      "expected": "SAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/mp1-Nb5T15.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/php17-mixed-35percent-blocked.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/php17-mixed-35percent-blocked.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/sat-bench-trig-bhaskara.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/sat-bench-trig-bhaskara.cnf"
+    },
+    {
+      "solver": 0,
+      "rel": "tierC/urq45.cnf.xz",
+      "expected": "UNSAT",
+      "staged": "/home/hwu/SAT-solving/benchmarks/runs/20260724-083024-C-arr-tierC/staged/urq45.cnf"
+    }
+  ]
+}
