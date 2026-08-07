@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
+#include <utility>
 
 namespace tactix {
 
@@ -91,9 +92,35 @@ void env_reset(const Kernel &k, SweepEnv &e) {
   e.vars.clear();
   e.depth.clear();
   e.clause_ids.clear();
-  e.keys.clear();
   e.clause_lits.clear();
   e.clause_off.assign(1, 0);
+  e.strip_ids.clear();
+  e.strip_off.assign(1, 0);
+}
+
+// Size the key index so it never passes half full: at most `max_env_clauses`
+// keys are ever inserted (`env_add` returns at that cap), so linear probing
+// stays short and the insert cannot loop.
+void keyset_reset(SweepEnv &e, uint32_t cap) {
+  size_t n = 16;
+  while (n < 2 * static_cast<size_t>(cap) + 2)
+    n <<= 1;
+  if (e.key_slots.size() != n)
+    e.key_slots.assign(n, UINT64_MAX);
+  else
+    std::fill(e.key_slots.begin(), e.key_slots.end(), UINT64_MAX);
+  e.key_mask = n - 1;
+}
+
+// The slot `key` occupies or would occupy. Recording is a separate step
+// because a clause that passes the dedup test can still be declined by the
+// variable cap, and a declined clause must stay re-addable: `fresh` shrinks as
+// its other variables enter the environment, so the same clause may fit later.
+size_t keyset_slot(const SweepEnv &e, uint64_t key) {
+  size_t i = ((key * 0x9E3779B97F4A7C15ull) >> 32) & e.key_mask;
+  while (e.key_slots[i] != UINT64_MAX && e.key_slots[i] != key)
+    i = (i + 1) & e.key_mask;
+  return i;
 }
 
 uint32_t env_var(SweepEnv &e, Var v, uint32_t depth) {
@@ -111,15 +138,19 @@ uint32_t env_var(SweepEnv &e, Var v, uint32_t depth) {
 // Add one clause of F to the environment. Returns false when a limit declines
 // it — declining is always sound (the environment only ever shrinks), which is
 // why every cap in this file is a plain early return.
-bool env_add(SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
+// `strip` (may be null) are the proof ids of the root units that justify the
+// literals already removed from `lits` by the caller; they travel with the
+// clause so emission can cite them.
+bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
              uint64_t id, uint32_t depth, const SweepLimits &lim,
-             uint64_t *ticks) {
+             uint64_t *ticks, const std::vector<uint64_t> *strip = nullptr) {
   if (e.nclauses() >= lim.max_env_clauses)
     return false;
-  *ticks += e.keys.size();
-  for (const uint64_t x : e.keys)
-    if (x == key)
-      return false; // already encoded (a binary reached from its other end)
+  *ticks += 1;
+  k.stats.sweep_ticks_dedup += 1;
+  const size_t slot = keyset_slot(e, key);
+  if (e.key_slots[slot] == key)
+    return false; // already encoded (a binary reached from its other end)
   uint32_t fresh = 0;
   for (uint32_t i = 0; i < n; i++) {
     const Var v = var_of(lits[i]);
@@ -138,21 +169,73 @@ bool env_add(SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
     env_var(e, var_of(lits[i]), depth);
   }
   e.clause_off.push_back(static_cast<uint32_t>(e.clause_lits.size()));
-  e.keys.push_back(key);
+  if (strip)
+    e.strip_ids.insert(e.strip_ids.end(), strip->begin(), strip->end());
+  e.strip_off.push_back(static_cast<uint32_t>(e.strip_ids.size()));
+  e.key_slots[slot] = key;
   e.clause_ids.push_back(id);
   return true;
 }
 
-// Add a clause, then the UNIT CLAUSES of any root-false literal it carries (see
-// deviation 1): those units are members of F only when the proof actually holds
-// them (`unit_ids[v] != 0` — a variable fixed by root propagation has none), so
-// the citation stays honest and the sub-solver still learns the literal is
-// false whenever we can say why.
-void env_add_with_units(const Kernel &k, SweepEnv &e, const Lit *lits,
-                        uint32_t n, uint64_t key, uint64_t id, uint32_t depth,
-                        const SweepLimits &lim, uint64_t *ticks) {
-  if (!env_add(e, lits, n, key, id, depth, lim, ticks))
+// Add one clause of F to the environment WITH ITS ROOT-FALSE LITERALS REMOVED
+// (see deviation 1, and `docs/calculus.md` V5). A kept root-false literal is a
+// FREE VARIABLE in the sub-solver — it satisfies its clause for nothing — so an
+// environment that keeps them is not the local formula at all; it is that
+// formula with a fresh escape hatch bolted onto every clause the search has
+// touched. Stripping is what makes the environment constrain anything.
+//
+// The removal is justified, not assumed: `C \ {l}` follows from `C` and the
+// root unit `{¬l}`, so the ids of those units travel with the clause in
+// `SweepEnv::strip_ids` and emission cites them ahead of `C` in the chain. Under
+// a proof format that needs no chain (DRAT, or no proof at all) there is nothing
+// to cite: a DRAT checker re-derives every root unit by propagation, so the
+// stripped clause propagates exactly as `C` does and the lemma stays RUP.
+//
+// A literal we cannot justify removing is KEPT, exactly as before — a weaker
+// environment, never a wrong one. Under LRAT that is `unit_ids[v] == 0`, which
+// `propagate_service`'s `emit_root_units` makes vanishingly rare.
+void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
+                    uint64_t key, uint64_t id, uint32_t depth,
+                    const SweepLimits &lim, uint64_t *ticks) {
+  // Chains are cited only under LRAT; DRAT and the no-proof mode need no id.
+  const bool cite = k.proof && k.proof->lrat();
+  e.kept_scratch.clear();
+  e.strip_scratch.clear();
+  for (uint32_t i = 0; i < n; i++) {
+    const Lit l = lits[i];
+    if (k.values[l] >= 0) {
+      e.kept_scratch.push_back(l);
+      continue;
+    }
+    k.stats.sweep_env_false++;
+    const uint64_t uid = k.unit_ids[var_of(l)];
+    if (!lim.strip_false || (cite && !uid)) {
+      if (!uid)
+        k.stats.sweep_env_freefalse++;
+      e.kept_scratch.push_back(l); // unjustifiable removal (or the off arm)
+      continue;
+    }
+    if (uid)
+      e.strip_scratch.push_back(uid);
+    k.stats.sweep_env_stripped++;
+  }
+  // At a quiescent root a live clause has at least two non-false literals: one
+  // would have propagated, none would have conflicted. `sweep_apply` reaches
+  // that root before detecting, but the detector is also callable from a policy
+  // that has not (N1), so decline rather than assert — an environment that
+  // omits a clause is still entailed by F.
+  if (e.kept_scratch.size() < 2)
     return;
+  if (!env_add(k, e, e.kept_scratch.data(),
+               static_cast<uint32_t>(e.kept_scratch.size()), key, id, depth,
+               lim, ticks, &e.strip_scratch))
+    return;
+  k.stats.sweep_env_lits += e.kept_scratch.size();
+  if (lim.strip_false)
+    return;
+  // THE OFF ARM (`TACTIX_SWEEP_STRIP=0`) reproduces the pre-strip environment
+  // exactly: the root-false literal stays, and its unit joins the environment
+  // as a clause of F whenever the proof holds one.
   for (uint32_t i = 0; i < n; i++) {
     const Lit l = lits[i];
     if (k.values[l] >= 0)
@@ -162,7 +245,9 @@ void env_add_with_units(const Kernel &k, SweepEnv &e, const Lit *lits,
     if (!k.unit_ids[v])
       continue;
     const Lit unit = negate(l);
-    env_add(e, &unit, 1, KEY_UNIT | v, k.unit_ids[v], UINT32_MAX, lim, ticks);
+    if (env_add(k, e, &unit, 1, KEY_UNIT | v, k.unit_ids[v], UINT32_MAX, lim,
+                ticks))
+      k.stats.sweep_env_units++;
   }
 }
 
@@ -176,6 +261,21 @@ bool SweepBudget::over(const Kernel &k, uint64_t pending) const {
 }
 
 bool sweep_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
+
+// The variable's large-clause + watch degree, both polarities. `dense` is the
+// occurrence index a simplification phase attaches; without one only the watch
+// lists are readable, which still ranks binaries and the two watched literals
+// of every large clause.
+static uint64_t seed_degree(const Kernel &k, Var v, bool &both_polarities) {
+  const Lit pos = make_lit(v, false), neg = make_lit(v, true);
+  uint64_t dp = k.watches.size(pos), dn = k.watches.size(neg);
+  if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
+    dp += k.dense->large[pos].size();
+    dn += k.dense->large[neg].size();
+  }
+  both_polarities = dp && dn;
+  return dp + dn;
+}
 
 void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
   out.clear();
@@ -196,6 +296,31 @@ void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
       continue;
     out.push_back(v);
   }
+  // ORDER, not membership (kissat `scheduable_variable` + its radix sort over
+  // `sweep_candidate.rank`, sweep.c:1478-1528). Ascending occurrence degree,
+  // with the variables that occur in only ONE polarity last: a low-degree
+  // variable has a small, tight environment, so a dose buys many of them, and a
+  // single-polarity variable cannot be equivalent to anything its environment
+  // constrains. kissat DROPS both classes; we rank them to the back instead,
+  // because `instances()` must stay total (N1, rule-dev §instances) — a policy
+  // may still sweep any of them, it just is not what a budgeted round reaches
+  // first. The previous order was ascending variable INDEX, i.e. arbitrary.
+  // Rank computed ONCE per variable, not inside the comparator: the seed list
+  // is the whole active variable set and a recomputing comparator would walk
+  // four watch lists per comparison.
+  std::vector<std::pair<uint64_t, Var>> ranked;
+  ranked.reserve(out.size());
+  for (const Var v : out) {
+    bool both = false;
+    const uint64_t d = seed_degree(k, v, both);
+    ranked.emplace_back(both ? d : UINT64_MAX, v);
+  }
+  // `std::sort`, not `stable_sort`: the pair's second component already breaks
+  // every tie by variable, so the order is total and deterministic, and
+  // stable_sort would allocate an n/2 temporary once per round on top of it.
+  std::sort(ranked.begin(), ranked.end());
+  for (size_t i = 0; i < ranked.size(); i++)
+    out[i] = ranked[i].second;
 }
 
 void sweep_round_begin(Kernel &k, SweepRound &r) {
@@ -238,6 +363,7 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
   assert(r.occ && "sweep_round_begin must run first");
   SweepEnv &e = r.env;
   env_reset(k, e);
+  keyset_reset(e, lim.max_env_clauses);
   if (root_fixed(k, seed) || kernel_var_retired(k, seed))
     return false;
   env_var(e, seed, 0);
@@ -261,8 +387,8 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
         if (k.values[l] > 0 || k.values[o] > 0)
           continue; // root-satisfied: it constrains nothing
         const Lit pair[2] = {l, o};
-        env_add_with_units(k, e, pair, 2, kernel_binary_key(l, o),
-                           kernel_binary_id(k, l, o), d + 1, lim, &ticks);
+        env_add_clause(k, e, pair, 2, kernel_binary_key(l, o),
+                       kernel_binary_id(k, l, o), d + 1, lim, &ticks);
       }
       for (const Ref ref : (*r.occ)[l]) {
         // The occurrence walk is the unbounded term: `max_env_vars` stops the
@@ -281,12 +407,35 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
         ticks += c->size;
         if (satisfied)
           continue;
-        env_add_with_units(k, e, c->begin(), c->size, KEY_LARGE | ref, c->id(),
-                           d + 1, lim, &ticks);
+        env_add_clause(k, e, c->begin(), c->size, KEY_LARGE | ref, c->id(),
+                       d + 1, lim, &ticks);
       }
     }
   }
   k.stats.sweep_ticks += ticks;
+  // CLOSURE. An environment is a ball around the seed, so its outer variables
+  // arrive with only the one clause that introduced them: nothing about them
+  // can be proved, and every pair they take part in costs a solve to learn
+  // that. Measured over large clauses on both sides, which is the population
+  // the occurrence index covers.
+  if (!lim.measure_closure)
+    return e.nclauses() > 0;
+  e.deg_scratch.assign(e.vars.size(), 0);
+  for (uint32_t c = 0; c < e.nclauses(); c++) {
+    if (e.clause_off[c + 1] - e.clause_off[c] <= 2)
+      continue; // binaries are not in the occurrence index either
+    for (uint32_t j = e.clause_off[c]; j < e.clause_off[c + 1]; j++)
+      e.deg_scratch[e.sub_of_var[var_of(e.clause_lits[j])]]++;
+  }
+  for (uint32_t i = 0; i < e.vars.size(); i++) {
+    const Var v = e.vars[i];
+    const size_t deg_f = (*r.occ)[make_lit(v, false)].size() +
+                         (*r.occ)[make_lit(v, true)].size();
+    k.stats.sweep_occ_f += deg_f;
+    k.stats.sweep_occ_env += e.deg_scratch[i];
+    k.stats.sweep_vars_closed += e.deg_scratch[i] >= deg_f;
+    k.stats.sweep_vars_total++;
+  }
   return e.nclauses() > 0;
 }
 
@@ -303,14 +452,16 @@ int8_t model_value(const SweepEnv &e, const std::vector<int8_t> &model, Lit l) {
 // evidence that two literals are NOT equivalent, and the candidate that
 // produced it is always among the dropped ones — which is what makes the
 // candidate loop below terminate.
-void refine(const SweepEnv &e, const std::vector<int8_t> &model, Lit seed_lit,
-            std::vector<Lit> &candidates) {
+uint32_t refine(const SweepEnv &e, const std::vector<int8_t> &model,
+                Lit seed_lit, std::vector<Lit> &candidates) {
   const int8_t sv = model_value(e, model, seed_lit);
   size_t j = 0;
   for (const Lit y : candidates)
     if (model_value(e, model, y) == sv)
       candidates[j++] = y;
+  const uint32_t dropped = static_cast<uint32_t>(candidates.size() - j);
   candidates.resize(j);
+  return dropped;
 }
 
 } // namespace
@@ -356,6 +507,8 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
   out.t1 = sweep_kernel_lit(e.vars, tl[1]);
   out.steps = std::move(d.steps);
   out.orig_ids = e.clause_ids;
+  out.strip_ids = e.strip_ids;
+  out.strip_off = e.strip_off;
   out.vars = e.vars;
   out.ok = true;
 }
@@ -399,6 +552,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   if (res == SubResult::Budget) {
     k.stats.sweep_budget++;
     k.stats.sweep_ticks += e.solver.ticks();
+    k.stats.sweep_ticks_sub += e.solver.ticks();
     return 0;
   }
   if (res == SubResult::Unsat) {
@@ -407,6 +561,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     // obligation that nothing here discharges — so detection touches nothing.
     k.stats.sweep_env_unsat++;
     k.stats.sweep_ticks += e.solver.ticks();
+    k.stats.sweep_ticks_sub += e.solver.ticks();
     return 0;
   }
 
@@ -426,6 +581,14 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       continue; // this round already knows the answer for y
     r.candidates.push_back(y);
   }
+  // The loop below pops from the BACK, and the seeding walk above is in BFS
+  // discovery order, so without this reversal every environment spends its
+  // queries on its OUTERMOST variables first — the ones that arrived with a
+  // single clause and about which the environment can prove nothing. Nearest
+  // first instead: those share the seed's neighbourhood, which is the only
+  // part of F the environment holds whole.
+  std::reverse(r.candidates.begin(), r.candidates.end());
+  k.stats.sweep_cand_seeded += r.candidates.size();
 
   uint32_t solved = 0;
   while (!r.candidates.empty() && solved < lim.max_candidates) {
@@ -462,9 +625,12 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       break;
     }
     if (res == SubResult::Sat) {
-      refine(e, e.solver.model(), seed_lit, r.candidates);
+      k.stats.sweep_dir_sat++;
+      k.stats.sweep_cand_refined +=
+          refine(e, e.solver.model(), seed_lit, r.candidates);
       continue;
     }
+    k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent() && "a satisfiable environment cannot then "
                                        "derive the empty clause");
 #ifndef NDEBUG
@@ -492,9 +658,12 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
       break;
     }
     if (res == SubResult::Sat) {
-      refine(e, e.solver.model(), seed_lit, r.candidates);
+      k.stats.sweep_dir_sat++;
+      k.stats.sweep_cand_refined +=
+          refine(e, e.solver.model(), seed_lit, r.candidates);
       continue;
     }
+    k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent());
     sweep_capture_dir(e, pair.rev);
     // Both directions refuted over env ⊆ F, so F ⊨ x ≡ y.
@@ -506,6 +675,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     r.candidates.pop_back();
   }
   k.stats.sweep_ticks += e.solver.ticks();
+  k.stats.sweep_ticks_sub += e.solver.ticks();
   return found;
 }
 
@@ -552,6 +722,10 @@ SweepLimits sweep_limits_from_env() {
   u64("TACTIX_SWEEP_ROUND_TICKS", lim.round_ticks);
   if (const char *s = std::getenv("TACTIX_SWEEP_ENV_BUDGET"))
     lim.enforce_in_env = std::strtoul(s, nullptr, 10) != 0;
+  if (const char *s = std::getenv("TACTIX_SWEEP_STRIP"))
+    lim.strip_false = std::strtoul(s, nullptr, 10) != 0;
+  if (const char *s = std::getenv("TACTIX_SWEEP_CLOSURE"))
+    lim.measure_closure = std::strtoul(s, nullptr, 10) != 0;
   return lim;
 }
 
@@ -627,6 +801,11 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
                                const Lit t0, const Lit t1, bool dry) {
   if (!p.ok || p.steps.empty())
     return false;
+  // The strip ledger is indexed by ORIGINAL clause, one CSR slot each. A
+  // capture that does not satisfy that cannot be translated, so decline rather
+  // than index past it (the `found`/`proofs` parallel-array family of defect).
+  if (p.strip_off.size() != p.orig_ids.size() + 1)
+    return false;
   const bool lrat = k.proof && k.proof->lrat();
   uint32_t max_id = static_cast<uint32_t>(p.orig_ids.size());
   for (const SubStep &st : p.steps)
@@ -651,9 +830,28 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
     if (Proof::tautological(lits.data(), static_cast<uint32_t>(lits.size())))
       return false; // uncheckable under LRAT; decline the whole pair // uncheckable under LRAT; decline the whole pair
     chain.clear();
+    // THE STRIP UNITS COME FIRST. An environment clause is a main-formula
+    // clause with its root-false literals removed, so the checker can only
+    // propagate it the way the sub-solver did once those literals are false.
+    // A unit clause is unit under every assignment, so it is valid at any
+    // position in an LRAT hint list — putting all of a step's strip units at
+    // the front is therefore always correct, and it is the only order that does
+    // not depend on which antecedent needs which unit.
+    for (const uint32_t c : st.chain) {
+      if (c == 0 || c > p.orig_ids.size())
+        continue; // a derived lemma carries no strip ledger
+      for (uint32_t s = p.strip_off[c - 1]; s < p.strip_off[c]; s++) {
+        const uint64_t uid = p.strip_ids[s];
+        if (std::find(chain.begin(), chain.end(), uid) == chain.end()) {
+          chain.push_back(uid);
+          if (!dry && lrat)
+            k.stats.sweep_strip_cited++;
+        }
+      }
+    }
     for (const uint32_t c : st.chain) {
       if (c >= id_of.size() || id_of[c] == 0)
-        return false; // an antecedent we cannot name in the main proof // an antecedent we cannot name in the main proof
+        return false; // an antecedent we cannot name in the main proof
       chain.push_back(id_of[c]);
     }
     const bool final_step = (si + 1 == p.steps.size());

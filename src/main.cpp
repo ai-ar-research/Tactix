@@ -647,10 +647,34 @@ int main(int argc, char **argv) {
     // never emitted anything -- the vacuous-arm trap that hid the S-e polarity
     // defect (report `2026-08-05-sweep-se-polarity-fix.md`). `not-RUP` is S-d's
     // decline count, i.e. the pairs handed to S-e.
-    printf("c sweepemit   %llu binaries, %llu not-rup, %llu general pairs\n",
+    // Environment SHAPE + candidate-solve OUTCOMES. `equivalences 0` above has
+    // several possible mechanisms; these separate them (kernel.hpp Stats).
+    printf("c sweepdiag   %llu env-lits, %llu root-false (%llu stripped, "
+           "%llu FREE), %llu units, %llu cand-seeded, %llu refined, "
+           "%llu dir-sat, %llu dir-unsat\n",
+           (unsigned long long)kernel.stats.sweep_env_lits,
+           (unsigned long long)kernel.stats.sweep_env_false,
+           (unsigned long long)kernel.stats.sweep_env_stripped,
+           (unsigned long long)kernel.stats.sweep_env_freefalse,
+           (unsigned long long)kernel.stats.sweep_env_units,
+           (unsigned long long)kernel.stats.sweep_cand_seeded,
+           (unsigned long long)kernel.stats.sweep_cand_refined,
+           (unsigned long long)kernel.stats.sweep_dir_sat,
+           (unsigned long long)kernel.stats.sweep_dir_unsat);
+    printf("c sweepcost   %llu dedup ticks, %llu sub-solver ticks; closure "
+           "%llu/%llu occurrences, %llu/%llu vars whole\n",
+           (unsigned long long)kernel.stats.sweep_ticks_dedup,
+           (unsigned long long)kernel.stats.sweep_ticks_sub,
+           (unsigned long long)kernel.stats.sweep_occ_env,
+           (unsigned long long)kernel.stats.sweep_occ_f,
+           (unsigned long long)kernel.stats.sweep_vars_closed,
+           (unsigned long long)kernel.stats.sweep_vars_total);
+    printf("c sweepemit   %llu binaries, %llu not-rup, %llu general pairs, "
+           "%llu strip units cited\n",
            (unsigned long long)kernel.stats.sweep_binaries,
            (unsigned long long)kernel.stats.sweep_not_rup,
-           (unsigned long long)kernel.stats.sweep_general);
+           (unsigned long long)kernel.stats.sweep_general,
+           (unsigned long long)kernel.stats.sweep_strip_cited);
     printf("c ternary     %llu rounds, %llu resolvents, %llu binaries, "
            "%llu ticks\n",
            (unsigned long long)kernel.stats.ternary_rounds,

@@ -10,18 +10,19 @@
 // `RandomPolicy` enumerates and the phase-6 learner reasons over — and be
 // scheduled by default for zero yield.
 //
-// THE SOUNDNESS ARGUMENT, in one line: the environment is a SUBSET OF F, so
+// THE SOUNDNESS ARGUMENT, in one line: the environment is ENTAILED BY F, so
 // `env ⊨ x ≡ y` implies `F ⊨ x ≡ y`. Everything in `sweep_env_build` exists to
-// keep that literally true — every environment clause is a clause the kernel
-// (and the checker) currently holds, cited by its own proof id:
+// keep that checkable — every environment clause is a clause the kernel (and
+// the checker) currently holds, cited by its own proof id:
 //   - large: irredundant, live, not root-satisfied; provenance = `Clause::id()`
 //   - binary: live in the watch lists; provenance = `kernel_binary_id`
-//   - unit:  a root-fixed variable whose `unit_ids[v] != 0`, i.e. the unit
-//            clause is really IN the proof (a variable fixed by root
-//            propagation has no unit clause of its own — citing one would build
-//            a chain naming a clause the checker never saw)
-// Nothing is strengthened, shrunk, or invented on the way in. Emission maps a
-// core entry back to a main-formula clause by indexing `SweepEnv::clause_ids`.
+// with its root-FALSE literals removed. That is the one place the environment
+// is not literally a subset of F, and it is justified rather than assumed:
+// `C` minus a root-false `l` follows from `C` and the root unit for `¬l`,
+// whose id travels with the clause in `SweepEnv::strip_ids` for emission to
+// cite. Nothing else is strengthened, shrunk, or invented on the way in.
+// Emission maps a core entry back to a main-formula clause by indexing
+// `SweepEnv::clause_ids`.
 //
 // References (plan §5 "evidence, not templates"; MIT, transliterated in
 // essence, no code copied):
@@ -37,15 +38,12 @@
 //
 // Deviations from kissat, and why (the ledger entries; each is a WEAKENING of
 // what we detect, never of what we may conclude):
-// (1) ROOT-FALSE LITERALS ARE KEPT, NOT STRIPPED (kissat sweep.c:295 drops
-//     them). Stripping produces a clause that is entailed but is not a member
-//     of F, so its core entry would have no id to cite; kissat can afford it
-//     because kitten's core is re-justified on the way out. We instead add the
-//     variable's UNIT clause when the proof holds one, which gives the
-//     sub-solver the same information with an id attached. When it does not
-//     (root propagation, `unit_ids[v] == 0`), the literal simply stays free:
-//     a weaker environment, never a wrong one. Closing it would need the
-//     unit's reason cone (`kernel_reason_walk`) threaded into the chain.
+// (1) ROOT-FALSE LITERALS ARE STRIPPED, as in both references (kissat
+//     sweep.c:295). The one case that keeps a literal is an LRAT run whose
+//     `unit_ids[v]` is 0, i.e. the proof holds no unit clause to cite;
+//     `propagate_service`'s `emit_root_units` makes that vanishingly rare. A
+//     format with no hints needs no id at all — the checker re-derives every
+//     root unit by propagation. `TACTIX_SWEEP_STRIP=0` is the off arm.
 // (2) IRREDUNDANT CLAUSES ONLY. Learned clauses are entailed, so using them
 //     would be sound today, but `Reduce` may delete one between detection and
 //     emission, and a chain citing a deleted id is a rejected proof. kissat
@@ -64,7 +62,8 @@
 //     "which literals still agree with the SEED in every model seen" rather
 //     than a general partition over all environment literals, so one
 //     environment proves equivalences to its seed only. Same soundness, less
-//     yield per environment; the general partition is a later dosing question.
+//     yield per environment — this and (3) are the measured remainder of the
+//     yield gap once the environment's cost is fixed (`SP-SWEEP-7`).
 //
 // (6) THE ROUND CEILING TRUNCATES THE ENVIRONMENT SCAN (`SweepBudget`). kissat
 //     and cadical both bound the environment by ticks as well as by size;
@@ -105,6 +104,15 @@ struct SweepLimits {
   // seeds (see SweepBudget). Ships on; `TACTIX_SWEEP_ENV_BUDGET=0` reverts to
   // the between-seeds-only check for an A/B arm.
   bool enforce_in_env = true;
+  // Remove root-FALSE literals from environment clauses (kissat sweep.c:295).
+  // Ships on; `TACTIX_SWEEP_STRIP=0` reverts to keeping them, which is what the
+  // rule did through S-a…S-f and why it confirmed almost nothing.
+  bool strip_false = true;
+  // Measure environment CLOSURE (`Stats::sweep_occ_*`) — how much of an
+  // environment variable's real neighbourhood the environment holds. Off by
+  // default: it is an extra pass over the environment per seed, which is a
+  // diagnostic's cost, not the rule's. `TACTIX_SWEEP_CLOSURE=1`.
+  bool measure_closure = false;
 };
 
 // THE ROUND CEILING IS ENFORCED INSIDE ENVIRONMENT CONSTRUCTION, not only
@@ -139,9 +147,28 @@ struct SweepEnv {
   // the clause but the proof has no id for it, which only happens in modes
   // that do not track ids; emission must decline such a core, never cite 0.
   std::vector<uint64_t> clause_ids;
-  std::vector<uint64_t> keys;       // dedup keys, parallel to clause_ids
+  // Open-addressed set of the clause keys already encoded: "have I encoded
+  // this clause?" in O(1). A LINEAR scan per clause CONSIDERED makes
+  // environment construction quadratic in the environment, and that scan — not
+  // the sub-solver — is what consumed the round's effort ceiling. UINT64_MAX is
+  // the empty slot: no key can be all-ones (KEY_LARGE and KEY_UNIT are never
+  // both set, and a binary key's top 32 bits hold a literal, not a tag).
+  std::vector<uint64_t> key_slots;
+  uint64_t key_mask = 0;
   std::vector<Lit> clause_lits;     // flat kernel literals
   std::vector<uint32_t> clause_off; // start of clause i in clause_lits (+end)
+  // THE STRIP LEDGER. Environment clause i is the main-formula clause
+  // `clause_ids[i]` with its root-FALSE literals removed; `strip_ids[strip_off[i]
+  // .. strip_off[i+1])` are the proof ids of the root units that justify each
+  // removal. An LRAT chain citing clause i must cite those units too, which is
+  // why they are carried here rather than re-derived at emission (by then the
+  // environment is gone). Empty for every clause that had nothing to strip.
+  std::vector<uint64_t> strip_ids;
+  std::vector<uint32_t> strip_off; // size nclauses()+1
+  // per-clause scratch, kept here so the BFS pays no allocation per clause
+  std::vector<Lit> kept_scratch;
+  std::vector<uint64_t> strip_scratch;
+  std::vector<uint32_t> deg_scratch; // by sub var: large-clause degree in env
 
   uint32_t nclauses() const {
     return static_cast<uint32_t>(clause_ids.size());
@@ -164,6 +191,11 @@ struct SweepDirProof {
   Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
   std::vector<SubStep> steps;
   std::vector<uint64_t> orig_ids;
+  // the strip ledger of the environment this refutation was found in, captured
+  // with `orig_ids` for the same reason: an antecedent's chain is incomplete
+  // without the units that justify its stripped literals
+  std::vector<uint64_t> strip_ids;
+  std::vector<uint32_t> strip_off;
   std::vector<Var> vars;
   bool ok = false;
 };
