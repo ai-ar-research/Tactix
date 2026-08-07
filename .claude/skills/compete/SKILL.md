@@ -17,7 +17,9 @@ Authoritative spec: DEVELOPMENT_PLAN.md §6; rules at satcompetition.github.io. 
 
 ## Compliance test procedure
 
-Run `tools/compete/check.sh ./build/tactix` (build it to do the following if missing):
+Run `tools/compete/check.sh ./build/release/tactix`. It is a sub-second test on fixed
+tiny CNFs, so it runs in the session shell like `ctest` — the sbatch-only rule
+(slurm-jobs) governs *measurement*, and nothing here is timed. It checks:
 1. SAT instance → exit 10, `s SATISFIABLE`, model passes checkmodel, `v` line format valid.
 2. UNSAT instance → exit 20, `s UNSATISFIABLE`, proof file exists and drat-trim verifies it end-to-end **in the same invocation style the competition uses**.
 3. SIGTERM mid-solve on a hard instance → `s UNKNOWN`, sane exit code, proof file flushed and still parseable by drat-trim (prefix-valid).
@@ -29,4 +31,4 @@ Run `tools/compete/check.sh ./build/tactix` (build it to do the following if mis
 - Dockerfile + StarExec-style `bin/starexec_run_default` script; build from clean checkout.
 - Solver description document (required; 1–2 pages, IEEE style — see prior years' description PDFs for format).
 - Sources must be open-sourced per competition rules; verify LICENSE and Kissat attribution notes are in order.
-- Rehearse the full competition toolchain locally on Tier B before submitting: solver → proof → the year's announced verified checker (cake_lpr/GRAT), within realistic memory caps (16 GB).
+- Rehearse the full competition toolchain on Tier B before submitting (via sbatch, like every solver run): solver → proof → the year's announced verified checker (cake_lpr/GRAT), within realistic memory caps (16 GB).
