@@ -475,9 +475,15 @@ per-mille ported onto a broken meter transfers a number that means something els
   which is a mechanism for the standing N4 finding that our BVE eliminates zero variables on 7 of 9 instances
   where kissat eliminates something. Tier B re-baseline **91.89, 25/28** (replicate 91.97, noise bar 0.07)
   against 134.67, 23/28 — **+2 solves, none lost**. Fuzz 2 × 10,000 cases, 0 failures.
-  Report `benchmarks/reports/2026-08-07-tick-unit.md`. **Tier C is IN FLIGHT**
-  (`benchmarks/runs/20260807-172158-C-tickunit`) and is the half that decides whether the re-pricing holds
-  where the gap is broad and shallow — read it before porting any per-mille.
+  Report `benchmarks/reports/2026-08-07-tick-unit.md`.
+  **Tier C is a WASH in aggregate and a large REDISTRIBUTION per instance**
+  (`20260807-172158-C-tickunit`): 345.78, 29/30 against 348.00, 29/30 — inside a 4.43 noise bar, nothing
+  gained or lost — while individual instances move far beyond their own replicate gap in both directions
+  (`sat-bench-trig-bhaskara` −222 s, `em_11_3_4_cmp` −209 s, `Ptn-7824-b18` −177 s against
+  `af-synthesis_stb_50_120_4_sat` +284 s, `T87.2.0` +217 s). T3 does not move on either half (subset 1.460×
+  kissat / 1.156× cadical, against this window's own arm-to-arm spread of 1.460 vs 1.470). **So the value of
+  this change is commensurability, not performance**: the extra budget helps some formulas as much as it costs
+  others, which is the dosing question the rest of §2 answers.
 - [ ] ~~**The tick unit is not commensurable with either reference.**~~ `kernel.cpp:579` charges `1 + (n >> 4)`
   (64-byte line, floored); kissat charges `1 + ceil(n/32)` (128-byte line, 4-byte watches,
   `utilities.h:19-34`) and adds three event charges we do not (`proplit.h:92` binary assign, `:148` watch
