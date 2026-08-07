@@ -1,8 +1,8 @@
 // Propagate: a thin wrapper over the kernel propagation engine
-// (kernel_propagate, a kissat proplit.h transliteration living in the kernel
-// as a reviewed §5.3 primitive so probing rules can share it). This rule owns
-// the search semantics: the conflict COUNT, the root-refutation proof delta,
-// and the ApplyResult mapping.
+// (kernel_propagate, a kissat proplit.h transliteration kept as a §5.3 kernel
+// primitive so probing rules can share it). This rule owns the search
+// semantics: the conflict count, the root-refutation proof delta, and the
+// ApplyResult mapping.
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
@@ -12,13 +12,10 @@
 namespace tactix {
 
 bool propagate_guard(const Kernel &k) {
-  // Pure abstract precondition (calculus M1): not refuted, no unresolved
-  // conflict, and propagation work remains. The `¬pending.valid`
-  // conjunct is GONE since rev 37: with Analyze+Backjump fused into the atomic
-  // ConflictAnalysis rule, `pending` never persists across a rule boundary, so
-  // the (conflict_valid && pending.valid) state corpus 006 exploited is
-  // unrepresentable — the guard no longer needs to exclude it (D-SPLIT-1
-  // closed, calculus §7).
+  // Pure abstract precondition (docs/calculus.md §3 M1): not refuted, no
+  // unresolved conflict, propagation work remains. No ¬pending.valid conjunct:
+  // with Analyze+Backjump fused, `pending` never crosses a rule boundary, so
+  // the state it would exclude is unrepresentable (D-SPLIT-1 closed).
   return !k.conflict_valid && !k.inconsistent &&
          k.propagate_head < k.trail.size();
 }
@@ -36,8 +33,8 @@ static void emit_root_units(Kernel &k, size_t from) {
     k.lrat_entries.clear();
     uint64_t reason_id;
     if (a.binary) {
-      // Reason jumping cannot reach the root — it needs the resolved-away
-      // literal above level 0 — so the reason still names a real clause here.
+      // Reason jumping needs the resolved-away literal above level 0, so it
+      // cannot reach the root and the reason still names a real clause.
       assert(!a.jumped);
       reason_id = kernel_binary_id(k, lit, a.reason);
       const Var ov = var_of(a.reason);
@@ -66,22 +63,13 @@ ApplyResult propagate_service(Kernel &k) {
   const bool lrat = k.proof && k.proof->lrat();
   const size_t assigned_before = k.trail.size();
   const bool conflict = kernel_propagate(k);
-  // NOT `&& k.level == 0`. A propagation-forced literal is stamped at its TRUE
-  // level (D-LEVEL-2, `kernel_assign_ref`/`kernel_assign_binary`) — the max
-  // level among its reason's other literals — so a clause whose other literals
-  // are all root-false forces a literal at level 0 *while the solver stands
-  // higher*. Gating the sweep on the SOLVER's level therefore skipped exactly
-  // those literals, leaving `unit_ids[v] == 0`; 0 is LRAT's chain terminator,
-  // so any later chain citing them (analyze/strengthen/substitute/bve) emitted
-  // a TRUNCATED antecedent list and the checker rejects the proof.
-  //
-  // This is latent without chrono: at a fixpoint the true level always equals
-  // the current level, and a learned unit that backjumps to 0 before
-  // propagating never exercises it. Unit chrono routing (backjump.cpp) asserts
-  // a learned unit at level 0 while standing higher, which is what makes it
-  // reachable. DRAT cannot see the defect at all — it re-derives units itself —
-  // so a DRAT-only fuzz leg is blind to it. `emit_root_units` already applies
-  // the correct PER-LITERAL test.
+  // Deliberately not gated on `k.level == 0`. A forced literal is stamped at
+  // its true level (D-LEVEL-2), so a clause whose other literals are all
+  // root-false forces a literal at level 0 while the solver stands higher;
+  // gating on the solver's level would skip those, leave `unit_ids[v] == 0` —
+  // LRAT's chain terminator — and truncate every later chain citing them.
+  // `emit_root_units` applies the correct per-literal test. Only reachable
+  // with chrono on, and invisible to DRAT, so an LRAT fuzz leg pins it.
   if (lrat)
     emit_root_units(k, assigned_before);
   if (conflict) {

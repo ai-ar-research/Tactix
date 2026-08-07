@@ -43,9 +43,9 @@ void RuleTrace::close() {
 }
 
 // The same SAT predicate the registry-driven policies use: total assignment,
-// fully propagated, no conflict in flight. Kept here rather than shared with
-// random_policy.cpp so replay cannot silently inherit a change to it — a
-// divergence must show up as a verdict mismatch, which is what replay checks.
+// fully propagated, no conflict in flight. Deliberately duplicated rather than
+// shared with random_policy.cpp, so replay cannot silently inherit a change to
+// it and a divergence must surface as the verdict mismatch replay checks.
 static bool concluded_sat(const Kernel &k) {
   return k.unassigned == 0 && !k.conflict_valid &&
          k.propagate_head == k.trail.size();
@@ -98,10 +98,9 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
       return -1;
     }
     const RuleVTable &r = rules[static_cast<size_t>(id)];
-    // A trace step whose guard no longer holds is a REPLAY FAILURE, not
-    // something to skip: it means the recorded run and this one have already
-    // diverged, and skipping would hide exactly the divergence a replay
-    // harness exists to detect.
+    // A step whose guard no longer holds is a replay failure, not something to
+    // skip: the recorded run and this one have already diverged, and skipping
+    // would hide the divergence a replay harness exists to detect.
     if (!r.guard(k)) {
       std::fprintf(stderr,
                    "c ERROR: replay diverged at step %llu: %s's guard does not "

@@ -44,11 +44,11 @@ int bce_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
               (unsigned long long)k.stats.substitute_vars,
               (int)k.conflict_valid,
               (int)k.inconsistent);
-    kernel_check_invariants(k); // PER-STEP (not every-256): pin the culprit
+    kernel_check_invariants(k); // per step, not every-256: pin the culprit
   };
 
-  // One rule, canonically, reporting whether it changed anything. Only ever
-  // called with the guard tested first — that is the N1 contract.
+  // One rule, canonically, reporting whether it changed anything. The guard is
+  // tested first — that is the N1 contract.
   auto fire = [&](const RuleVTable &vt, const char *what, bool &progressed,
                   bool &unsat) {
     if (!vt.guard(k))
@@ -92,10 +92,10 @@ int bce_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
         step("bce");
         progressed = true;
       }
-      // The instance surface: one blocking literal at a time. Drawn from the
-      // whole literal space (apply_instance is total over payloads, and a
-      // literal that blocks nothing is a legal NoOp), so the draw does not
-      // depend on the rule's own candidate ranking.
+      // The instance surface: one blocking literal at a time, drawn from the
+      // whole literal space rather than the rule's candidate ranking —
+      // apply_instance is total over payloads and a non-blocking literal is a
+      // legal NoOp.
       for (uint32_t i = 0; i < max_instances && k.level == 0 && k.nvars; i++) {
         if (!bce.guard(k))
           break;
@@ -109,9 +109,8 @@ int bce_stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
         }
       }
       if (!solo) {
-        // ρ interleaving: three more witness-pushing rules, in an order that
-        // varies with the RNG so BCE's segments land both above and below
-        // theirs.
+        // ρ interleaving: the other witness pushers in an RNG-varied order, so
+        // BCE's segments land both above and below theirs.
         const uint64_t order = stress_random(rng) % 3;
         const RuleVTable *others[3] = {&bve, &cce, &subst};
         const char *names[3] = {"bve", "cce", "substitute"};

@@ -1,8 +1,6 @@
-// V1 Probe unit tests: failed-literal → unit derivation, the both-polarity
-// refutation (caught by M1's cascade), the BIG-head candidate schedule, a
-// no-failed-literal NoOp, and the instance surface. State restoration after
-// each probe is checked implicitly (probe_apply leaves a clean root with the
-// derived units on the trail, un-propagated).
+// Probe unit tests: failed-literal unit derivation, the both-polarity
+// refutation, the BIG-head candidate schedule, and the instance surface.
+// probe_apply leaves a clean root with the derived units un-propagated.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -15,8 +13,7 @@
 
 using namespace tactix;
 
-// (¬1 ∨ 2) and (¬1 ∨ ¬2): assuming 1 propagates 2 and ¬2 → conflict, so 1 is
-// a failed literal and ¬1 is derived as a root unit.
+// Assuming 1 conflicts, so 1 is a failed literal and ¬1 becomes a root unit.
 static void test_failed_literal_derives_unit() {
   Kernel k;
   kernel_reserve_vars(k, 2);
@@ -26,16 +23,13 @@ static void test_failed_literal_derives_unit() {
   assert(probe_apply(k) == ApplyResult::Ok);
   assert(k.stats.probe_failed == 1);
   assert(k.stats.probe_rounds == 1);
-  // ¬1 is asserted at root (un-propagated); 1 is now false
-  assert(k.value(internalize(-1)) > 0);
+  assert(k.value(internalize(-1)) > 0); // asserted at root, un-propagated
   assert(k.level == 0 && !k.conflict_valid);
-  // M1 finishes it: SAT (¬1 satisfies both clauses, 2 free)
   assert(default_solve(k) == 10);
 }
 
-// (¬1 ∨ 2),(¬1 ∨ ¬2) make 1 fail; (1 ∨ 3),(1 ∨ ¬3) make ¬1 fail. Probing 1
-// forces ¬1; the variable is then skipped, and M1 refutes when it propagates
-// the asserted ¬1 (its cascade reproduces the ¬1 failure). UNSAT.
+// Both polarities of 1 fail. Probing 1 forces ¬1 and skips the variable;
+// propagating that unit reproduces the ¬1 failure and refutes the formula.
 static void test_both_polarities_fail_unsat() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -44,9 +38,7 @@ static void test_both_polarities_fail_unsat() {
   kernel_add_binary_clause(k, internalize(1), internalize(3));
   kernel_add_binary_clause(k, internalize(1), internalize(-3));
   assert(probe_apply(k) == ApplyResult::Ok);
-  // several literals fail here (1 fails directly; 2→¬1 and 3→¬1 both inherit
-  // the contradiction), each derived as a root unit into one inconsistent
-  // batch; the refutation surfaces through M1's cascade of that batch
+  // every failure lands in one inconsistent batch, refuted on propagation
   assert(k.stats.probe_failed >= 1);
   assert(propagate_apply(k) == ApplyResult::Unsat);
   assert(k.inconsistent);
@@ -64,9 +56,7 @@ static void test_no_failed_literal_noop() {
   assert(default_solve(k) == 10);
 }
 
-// large-clause cascade: assuming 1 forces 2 (binary), then (¬2 ∨ ¬3) forces
-// ¬3, and (¬1 ∨ 3) forces 3 → conflict, so ¬1 is derived. Exercises the
-// large-clause conflict / reason-walk path.
+// A cascade through large clauses: exercises the conflict / reason-walk path.
 static void test_failed_literal_through_large_clause() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -81,9 +71,8 @@ static void test_failed_literal_through_large_clause() {
   assert(default_solve(k) == 10);
 }
 
-// BIG-head candidate schedule: only literals whose negation carries a binary
-// watch are probed. A variable that appears only in large clauses is not a
-// candidate.
+// Only a literal whose negation carries a binary watch is a probe candidate,
+// so a variable appearing solely in large clauses is never probed.
 static void test_candidate_schedule() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -92,8 +81,6 @@ static void test_candidate_schedule() {
   kernel_add_large_clause(k, c, 3, false, 0); // vars 3,4 large-only
   std::vector<Lit> cands;
   probe_candidates(k, cands);
-  // probe p useful iff negate(p) has a binary watch. Binary {¬1,2} puts a
-  // binary watch on ¬1 (→ probe 1) and on 2 (→ probe ¬2). Vars 3,4: no binary.
   const bool has1 = std::find(cands.begin(), cands.end(), internalize(1)) != cands.end();
   const bool hasn2 = std::find(cands.begin(), cands.end(), internalize(-2)) != cands.end();
   assert(has1 && hasn2);

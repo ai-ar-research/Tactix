@@ -13,8 +13,8 @@
 #   kissat-sc2025   Biere et al.'s own SC 2025 entry (2nd overall)
 #   kissat-sc2024   SC 2024 main-track winner (swept all three golds); the
 #                   SC 2024 site never published solver archives ("tbd"),
-#                   so this comes from the kissat repo's sc2024 tag — our
-#                   rel-4.0.4 reference clone is this winner's lineage a few
+#                   so this comes from the kissat repo's sc2024 tag — the
+#                   pinned rel-4.0.4 clone is this winner's lineage a few
 #                   releases later, so diffs against it are small and telling
 #   SBVA            SC 2023 winner's preprocessor (SBVA-CaDiCaL), from the
 #                   authors' GitHub (paper artifact, pinned commit)

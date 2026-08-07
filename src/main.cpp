@@ -98,9 +98,9 @@ int main(int argc, char **argv) {
   bool reuse_stress_policy = false;
   bool sweep_stress_policy = false;
   bool cce_stress_policy = false;
-  // Stress policies registered in src/policies/stress_registry.cpp: one parse
-  // branch and one dispatch arm for all of them, instead of four additions to
-  // this function per policy.
+  // Stress policies registered in stress_registry.cpp share one parse branch
+  // and one dispatch arm; the `--<name>-stress-policy` flags below predate that
+  // table. Each is documented by its own header.
   StressSolveFn stress_policy = nullptr;
   bool no_heuristics = false; // run with H detached (unguided)
   const char *trace_path = nullptr;  // --trace=FILE: record the rule sequence
@@ -120,98 +120,57 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "--lrat")) {
       proof_format = ProofFormat::Lrat; // native LRAT (plan O4)
     } else if (!strncmp(a, "--random-policy", 15)) {
-      // soundness testing mode (plan §8.2 rule-order fuzzing): random
-      // legal rule schedule, random branching instances, proofs intact
       random_policy = true;
       if (a[15] == '=')
         random_seed = strtoull(a + 16, nullptr, 10);
     } else if (!strncmp(a, "--adversarial-policy", 20)) {
-      // D-LEVEL-1 stress mode: aggressively decides off a propagation
-      // fixpoint (the N1 schedule DefaultPolicy never generates)
       adversarial_policy = true;
       if (a[20] == '=')
         random_seed = strtoull(a + 21, nullptr, 10);
     } else if (!strncmp(a, "--bve-stress-policy", 19)) {
-      // Stress mode: maximizes BVE at the root (gate detection +
-      // resolution + reconstruction), the N1 schedule the uniform random
-      // policy under-samples (stress-policy skill)
       bve_stress_policy = true;
       if (a[19] == '=')
         random_seed = strtoull(a + 20, nullptr, 10);
     } else if (!strncmp(a, "--probing-stress-policy", 23)) {
-      // Stress mode: hammers the kernel_probing snapshot/restore scope —
-      // the probing family in random order at every root, densely interleaved
-      // with search that reuses the restored watch lists (stress-policy skill)
       probing_stress_policy = true;
       if (a[23] == '=')
         random_seed = strtoull(a + 24, nullptr, 10);
     } else if (!strncmp(a, "--reuse-stress-policy", 21)) {
-      // Stress mode: forces the conflict-reuse shortcut ON, backjumps
-      // ALWAYS chronologically (the only way to reach a conflict with one
-      // literal at the conflict level), and drops to random levels with a
-      // fixpoint invariant check after each — the watch-repair oracle
-      // (stress-policy skill)
       reuse_stress_policy = true;
       if (a[21] == '=')
         random_seed = strtoull(a + 22, nullptr, 10);
     } else if (!strncmp(a, "--walk-stress-policy", 20)) {
-      // Stress mode: Walk at random decision levels, off propagation
-      // fixpoints, with tiny/huge budgets and mode flips — the walker is legal
-      // anywhere, and DefaultPolicy only ever walks at a quiescent stable root
-      // (stress-policy skill)
       walk_stress_policy = true;
       if (a[20] == '=')
         random_seed = strtoull(a + 21, nullptr, 10);
     } else if (!strncmp(a, "--factor-stress-policy", 22)) {
-      // Stress mode: adversarial FactorMatchPolicy (hash /
-      // all-tied / reversed scores, maximizing accept) + Factor maximized at
-      // the root — the grid-selection schedules DefaultFactorMatch never
-      // steers into (stress-policy skill)
       factor_stress_policy = true;
       if (a[22] == '=')
         random_seed = strtoull(a + 23, nullptr, 10);
     } else if (!strncmp(a, "--sweep-stress-policy", 21)) {
-      // V5 S-e stress mode: sweeps every root to a fixpoint with no effort
-      // budget, interleaving Substitute, so EMISSION is maximized -- and with
-      // TACTIX_SWEEP_FORCE_GENERAL=1 every proved equivalence is routed through
-      // the general core->chain path, the one an N2 breach lived in
-      // and that generic fuzz reaches ~8 times in 4380 (stress-policy skill)
       sweep_stress_policy = true;
       if (a[21] == '=')
         random_seed = strtoull(a + 22, nullptr, 10);
     } else if (!strncmp(a, "--cce-stress-policy", 19)) {
-      // X3 CCE stress mode: covers every root to a fixpoint with no effort
-      // budget (the shipped dose is cadical's 4 per mille, the lowest rate in
-      // its option set), draws the per-literal instance surface, and
-      // interleaves the other two witness-pushing rules so `rho` carries CCE's
-      // multi-segment sequences between theirs. A wrong witness here is a wrong
-      // SAT answer, not a rejected proof (stress-policy skill)
       cce_stress_policy = true;
       if (a[19] == '=')
         random_seed = strtoull(a + 20, nullptr, 10);
     } else if (!strncmp(a, "--congruence-stress-policy", 26)) {
-      // Stress mode: maximizes Congruence's newly-legal schedules -- deriving
-      // root units, refuting, and re-entering congruence off a fixpoint on the
-      // formula its own previous round changed (stress-policy skill)
       congruence_stress_policy = true;
       if (a[26] == '=')
         random_seed = strtoull(a + 27, nullptr, 10);
     } else if (!strncmp(a, "--trace=", 8)) {
-      // Record the (rule, instance) sequence for --replay (plan §5
-      // reproducibility, §8.5's offline replay harness). See trace.hpp for why
-      // only the registry-driven policies are traceable.
+      // Record the (rule, instance) sequence for --replay; see trace.hpp.
       trace_path = a + 8;
     } else if (!strncmp(a, "--replay=", 9)) {
       replay_path = a + 9;
     } else if (!strcmp(a, "--no-heuristics")) {
-      // Detach `H` (an unguided solver — `k.h == nullptr`). Sound
-      // but slow; DefaultPolicy needs `H`, so pair with --random-policy (which
-      // drives the solve purely through the null-safe rule API).
+      // Detach `H` (an unguided solver): sound but slow, and DefaultPolicy
+      // needs `H`, so pair with --random-policy.
       no_heuristics = true;
     } else if (!strncmp(a, "--bve-gates=", 12)) {
-      // BVE gate-type selection: comma list of {equiv,andor,ite,xor,def}, or
-      // all / none. A performance knob — every setting is sound (a disabled
-      // gate type only falls BVE back to the full cross product).
+      // Comma list of {equiv,andor,ite,xor,def}, or all / none. A performance
+      // knob: a disabled gate type only falls BVE back to the cross product.
       const char *spec = a + 12;
       if (!strcmp(spec, "all")) {
         bve_gate_mask = ~0u;
@@ -280,16 +239,12 @@ int main(int argc, char **argv) {
   signal(SIGXCPU, handle_signal);
 #endif
 
-  // Only RandomPolicy drives the solve purely through the null-safe rule API and
-  // tolerates a null H. Gate on the SELECTED policy, not just the flag: the
-  // dispatch below is a precedence chain where the stress policies sit ABOVE
-  // random_policy, so `--no-heuristics --random-policy --adversarial-policy`
-  // would otherwise slip a stress policy (or DefaultPolicy) through with no H.
-  // A knob that cannot take effect must FAIL, never be ignored: an arm
-  // silently doing nothing is the vacuous-experiment failure mode, and a
-  // --trace that recorded nothing would be read as "the run had no actions".
-  // Only the registry-driven policies are expressible as a (rule, instance)
-  // sequence — trace.hpp gives the argument for DefaultPolicy's exclusion.
+  // Combination checks. A knob that cannot take effect must fail rather than be
+  // ignored, since an arm that silently does nothing is the vacuous-experiment
+  // failure mode. They gate on the selected policy, not the flag alone, because
+  // the dispatch below is a precedence chain with the stress policies above
+  // random_policy — the only policy that tolerates a null H and, with replay,
+  // the only one expressible as a (rule, instance) sequence (trace.hpp).
   if (trace_path && !random_policy) {
     fprintf(stderr, "tactix: --trace requires --random-policy; DefaultPolicy's "
                     "schedule is not a (rule, instance) sequence (trace.hpp)\n");
@@ -315,55 +270,43 @@ int main(int argc, char **argv) {
     return 1;
   }
   Kernel kernel;
-  Heuristics heuristics; // the session owns H; the kernel holds
-                         // only a non-owning pointer. --no-heuristics leaves it
-                         // unattached (null) so the whole run is H-free.
+  Heuristics heuristics; // the session owns H, the kernel holds a non-owning
+                         // pointer. --no-heuristics leaves it unattached, so
+                         // the whole run is H-free.
   if (!no_heuristics)
     kernel.h = &heuristics;
   kernel.bve_gate_mask = bve_gate_mask;
-  // TACTIX_BCE_OCC_LIMIT=<n> (DIAGNOSTIC arm): BCE's candidate-occurrence
-  // ceiling. A Kernel CONFIG field, so this only exposes it for an A/B; the
-  // shipped value is its default, which is 0 = UNCAPPED. See
-  // Kernel::bce_occ_limit for why cadical's 100 is not ported.
+  // Each env knob below poses one `Kernel` config field; that field documents
+  // its default and soundness class. They are read here rather than in
+  // DefaultPolicy so they apply under every policy — the regression bed replays
+  // under --random-policy, and a knob it cannot toggle is not a usable A/B arm.
   if (const char *ol = getenv("TACTIX_BCE_OCC_LIMIT"))
     kernel.bce_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
-  // HyperTernaryRes governors (DIAGNOSTIC arms; 0 = unlimited). See
-  // Kernel::ternary_occ_limit / ternary_max_add_percent.
   if (const char *ol = getenv("TACTIX_TERNARY_OCC_LIMIT"))
     kernel.ternary_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
   if (const char *ma = getenv("TACTIX_TERNARY_MAXADD"))
     kernel.ternary_max_add_percent = (uint32_t)strtoul(ma, nullptr, 10);
-  // BVE cost-per-yield ceiling; only consulted under TACTIX_BVE_ADMIT=cost.
-  // See Kernel::bve_cost_limit.
+  // Consulted only under TACTIX_BVE_ADMIT=cost.
   if (const char *cl = getenv("TACTIX_BVE_COST_LIMIT"))
     kernel.bve_cost_limit = (uint32_t)strtoul(cl, nullptr, 10);
-  // R10 · per-attempt sub-solver ceiling for general definition extraction
-  // (0 = unlimited). See Kernel::bve_definition_budget.
   if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
     kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
   if (getenv("TACTIX_V4_EARLY_EXIT"))
     kernel.transitive_early_exit = true;
-  // Track SCHED stage F: the touched-epoch round filters. Default ON;
-  // TACTIX_TOUCH_MARKS=0 is the A/B off arm and restores the pre-stage-F
-  // candidate sets exactly. Set on the KERNEL so it applies under every policy,
-  // --random-policy and the stress policies included.
+  // Touched-epoch round filters ship ON; =0 restores unfiltered candidates.
   if (const char *tm = getenv("TACTIX_TOUCH_MARKS"))
     kernel.touch_filter = (*tm != '0');
   if (const char *sh = getenv("TACTIX_SUBSUME_HOLD"))
     kernel.subsume_holds_elim = (*sh != '0');
-  // SCHED-G3: Vivify's cross-candidate trail reuse ships ON. =0 is the A/B off
-  // arm and restores BOTH the per-candidate root return and the pre-G3
-  // probe/candidate order — see Kernel::vivify_reuse for why the two cannot be
-  // separated. Set on the KERNEL so it applies under every policy.
+  // Vivify's cross-candidate trail reuse ships ON; =0 also restores the older
+  // probe/candidate order, which cannot be separated (Kernel::vivify_reuse).
   if (const char *vr = getenv("TACTIX_VIVIFY_REUSE"))
     kernel.vivify_reuse = (*vr != '0');
-  // SCHED-F6: ships OFF (see Kernel::touch_redundant); =1 is the ON arm, and
-  // it is a PRE-REQUISITE arm, not a candidate default -- there is no consumer
-  // for the redundant band yet.
+  // Ships OFF: a prerequisite arm, not a candidate default, since the redundant
+  // band has no consumer yet (Kernel::touch_redundant).
   if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))
     kernel.touch_redundant = (*tr != '0');
-  // SCHED-G2: C1's shadow arm. DIAGNOSTIC — see Kernel::subsume_shadow; the
-  // `c c1shadow` line below is its whole output.
+  // SubsumeForward's shadow arm; the `c c1shadow` line below is its output.
   if (const char *ss = getenv("TACTIX_SUBSUME_SHADOW"))
     kernel.subsume_shadow = (*ss != '0');
   if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
@@ -373,16 +316,13 @@ int main(int argc, char **argv) {
     kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
   if (const char *sp = getenv("TACTIX_FACTOR_SCOPE_PCT"))
     kernel.factor_scope_percent = (uint32_t)strtoul(sp, nullptr, 10);
-  // Kernel::factor_bound — kissat's `reduction > bound` acceptance threshold
-  // (factor.c:939). Default 0 = "any positive gain applies". This is the PAYOFF
-  // axis and it is formula-shape-blind, which is why it is the candidate for
-  // making broad admission safe where a scope gate cannot be: Factor's winners
-  // and losers sit at the same scope fraction.
+  // Kissat's `reduction > bound` acceptance threshold (factor.c:939), default 0
+  // accepting any positive gain. Formula-shape-blind, which is why it and not a
+  // scope gate is the candidate for making broad admission safe: Factor's
+  // winners and losers sit at the same scope fraction.
   if (const char *fb = getenv("TACTIX_FACTOR_BOUND"))
     kernel.factor_bound = (uint32_t)strtoul(fb, nullptr, 10);
-  // SCHED-C5: ships ON (reference parity, ledger SP-FACTOR-2). The hatch is
-  // now INVERTED — `=0` turns demotion off for the A/B arm, `=1` (every banked
-  // pre-08-05 arm) still means on. See Kernel::factor_demote_fresh.
+  // Fresh-variable demotion ships ON (reference parity); `=0` is the off arm.
   if (const char *fd = getenv("TACTIX_FACTOR_DEMOTE"))
     kernel.factor_demote_fresh = (*fd != '0');
   if (const char *cr = getenv("TACTIX_FACTOR_CAND_ROUNDS"))
@@ -397,11 +337,8 @@ int main(int argc, char **argv) {
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
   if (getenv("TACTIX_SUBST_HAZARD_ROUND"))
     kernel.subst_hazard_round = true; // A/B, see Kernel::subst_hazard_round
-  // SCHED-C6: eager subsumption of recently learned clauses ships ON at
-  // kissat's own default and maximum (`eagersubsume`=4, learn.c). `=0` is the
-  // A/B revert arm; 1..4 dose the register. Read HERE, not in DefaultPolicy,
-  // so the knob applies under --random-policy and the stress policies too — a
-  // knob the regression bed cannot toggle is not a usable arm.
+  // Eager subsumption of recent learned clauses ships ON at kissat's default
+  // and maximum (`eagersubsume`=4, learn.c); `=0` reverts, 1..4 dose it.
   if (const char *es = getenv("TACTIX_EAGER_SUBSUME")) {
     const unsigned long n = strtoul(es, nullptr, 10);
     kernel.eager_subsume = n > Kernel::EAGER_SUBSUME_SLOTS
@@ -410,16 +347,9 @@ int main(int argc, char **argv) {
   }
   if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
     kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
-  // A/B arm, read HERE rather than in DefaultPolicy so it applies under
-  // every policy — the corpus replays run --random-policy, which never enters
-  // DefaultPolicy::solve, and a knob the regression bed cannot toggle is not a
-  // usable A/B arm.
   if (getenv("TACTIX_CONFLICT_REUSE"))
     kernel.conflict_reuse = true;
-  // SCHED / SP-JUMP-1: kissat's `jumpreasons`, default OFF here pending the
-  // pre-registered tier A/B. Read HERE for the same reason as the two above —
-  // a knob DefaultPolicy owns is one the corpus replays and the stress
-  // policies cannot toggle, so it is not a usable arm.
+  // Kissat's `jumpreasons`, default OFF pending its pre-registered tier A/B.
   if (getenv("TACTIX_JUMP_REASONS"))
     kernel.jump_reasons = true;
   if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
@@ -497,6 +427,10 @@ int main(int argc, char **argv) {
 
   proof.flush();
   if (!quiet) {
+    // Every registered rule gets a stats line, and most pair a yield with a
+    // reachability witness: a zero on the witness means the mechanism never
+    // ran, so an A/B arm reading zero was skipped, not tested. Only counters
+    // whose reading is non-obvious carry a comment below.
     printf("c tactix 0.1.0\n");
     printf("c input       %llu clauses restated (repeated literals)\n",
            (unsigned long long)kernel.stats.input_restated);
@@ -512,9 +446,6 @@ int main(int argc, char **argv) {
     printf("c learned     %llu (%llu units)\n",
            (unsigned long long)kernel.stats.learned,
            (unsigned long long)kernel.stats.learned_units);
-    // clause QUALITY: mean size and glue of what we learn, and how much
-    // minimize+shrink actually removes — the decomposition a conflict-count
-    // gap vs kissat needs (kissat prints the same via -s).
     if (kernel.stats.learned) {
       printf("c learnedsize %.2f avg lits, %.2f avg glue\n",
              (double)kernel.stats.learned_lits / (double)kernel.stats.learned,
@@ -537,8 +468,6 @@ int main(int argc, char **argv) {
     printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
            (unsigned long long)kernel.stats.otfs_strengthened,
            (unsigned long long)kernel.stats.otfs_subsumed);
-    // SCHED-C6 pre-registered readout: an arm of TACTIX_EAGER_SUBSUME whose
-    // `tried` is 0 did not test the mechanism, it skipped it.
     printf("c eagersub    %llu subsumed of %llu tried (%llu kept as reason), "
            "register %u\n",
            (unsigned long long)kernel.stats.eager_subsumed,
@@ -551,22 +480,16 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed,
            (unsigned long long)kernel.stats.flushed);
-    // `checked` is printed because `vivified` alone is uninterpretable — it is
-    // a rate, not a count, and it is NOT comparable to kissat's counter of the
-    // same name: kissat's `vivified` is an AGGREGATE (statistics.h:247)
-    // incremented for subsumed, PROMOTED (a tier move, not a clause change),
-    // shrunken, implied, asym and instantiated, where ours counts only clauses
-    // we strengthened. Comparing them needs both denominators.
+    // `vivified` here counts strengthened clauses only, so it is not comparable
+    // to kissat's counter of the same name, an aggregate (statistics.h:247)
+    // over subsumed, promoted, shrunken, implied, asym and instantiated.
     printf("c vivify      %llu rounds, %llu vivified, %llu deleted, %llu checked\n",
            (unsigned long long)kernel.stats.vivify_rounds,
            (unsigned long long)kernel.stats.vivified,
            (unsigned long long)kernel.stats.vivify_deleted,
            (unsigned long long)kernel.stats.vivify_checked);
-    // SCHED-G3's reachability set (design doc §4). The mechanism can be inert
-    // three independent ways and each has its own number: `reused` 0 = the
-    // trail is never shared, `tier3` 0 = the C10-H3 band is empty, and
-    // `prio`/`rearm` together distinguish "the leftover bit selects a tail"
-    // from "the bit is always all-ones". `polls`/`term` are the H1 pair.
+    // Vivify trail reuse is inert three independent ways, one number each
+    // (docs/design/2026-08-05-vivify-trail-reuse.md §4).
     printf("c vivify2     %llu reused, %llu probes, %llu full, %llu tier3, "
            "%llu prio, %llu rearm, %llu polls, %llu term\n",
            (unsigned long long)kernel.stats.vivify_reused,
@@ -602,15 +525,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.substitute_hazard_skips,
            (unsigned long long)kernel.stats.substitute_hazard_partial,
            (unsigned long long)kernel.stats.substitute_hazard_lits);
-    // Every registered rule gets a stats line: without one, "did this rule
-    // even fire on this instance?" is unanswerable from a normal run.
     printf("c bce         %llu rounds, %llu deleted, %llu ticks\n",
            (unsigned long long)kernel.stats.bce_rounds,
            (unsigned long long)kernel.stats.bce_deleted,
            (unsigned long long)kernel.stats.bce_ticks);
-    // CCE's REACHABILITY line, not decoration (Kernel::Stats' cce_ block): a
-    // run with `cla 0` never added a covered literal, so it exercised nothing
-    // X1 BCE does not already do, and `blocked 0` means no witness was pushed.
+    // With `cla 0` no covered literal was added, so nothing BCE does not
+    // already do was exercised; `blocked 0` means no witness was pushed.
     printf("c cce         %llu rounds, %llu tried, %llu deleted "
            "(%llu blocked / %llu ata), %llu ala, %llu cla, %llu ticks\n",
            (unsigned long long)kernel.stats.cce_rounds,
@@ -621,10 +541,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.cce_ala,
            (unsigned long long)kernel.stats.cce_cla,
            (unsigned long long)kernel.stats.cce_ticks);
-    // ...and its touched-epoch consumer, the sixth (RV-S2). Same contract as
-    // `c touch3`: `skipped` against `cce_tried`, both non-zero, and `advances`
-    // non-zero or every round is being cut and the filter is inert. `rearmed`
-    // proves the resume path that replaced the `cce_rounds` rotation is live.
+    // Its touched-epoch consumer, same contract as `c touch` below.
     printf("c cce2        %llu skipped / %llu advances / %llu rearmed\n",
            (unsigned long long)kernel.stats.cce_mark_skipped,
            (unsigned long long)kernel.stats.cce_mark_advances,
@@ -633,8 +550,6 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.instantiate_rounds,
            (unsigned long long)kernel.stats.instantiated,
            (unsigned long long)kernel.stats.instantiate_checked);
-    // Also the reachability witness for Sweep's fuzz legs: `environments 0`
-    // means the detector never ran, so any green leg over it is vacuous.
     printf("c sweep       %llu rounds, %llu environments (%llu clauses), "
            "%llu solves, %llu candidates, %llu equivalences (%llu already "
            "binary), %llu env-unsat, %llu budget, %llu ticks\n",
@@ -648,14 +563,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_env_unsat,
            (unsigned long long)kernel.stats.sweep_budget,
            (unsigned long long)kernel.stats.sweep_ticks);
-    // The EMISSION half, reported per path. Detection counters above say the
-    // rule ran; only these say a proof line was written, and by which path.
-    // Without them a "Sweep is fine" fuzz leg cannot be told from one that
-    // never emitted anything -- the vacuous-arm trap that hid the S-e polarity
-    // defect (report `2026-08-05-sweep-se-polarity-fix.md`). `not-RUP` is S-d's
-    // decline count, i.e. the pairs handed to S-e.
-    // Environment SHAPE + candidate-solve OUTCOMES. `equivalences 0` above has
-    // several possible mechanisms; these separate them (kernel.hpp Stats).
+    // Environment shape and candidate-solve outcomes, separating the several
+    // mechanisms behind `equivalences 0`; then emission per path, since only
+    // those say a proof line was written. `not-rup` is S-d's decline count.
     printf("c sweepdiag   %llu env-lits, %llu root-false (%llu stripped, "
            "%llu FREE), %llu units, %llu cand-seeded, %llu refined, "
            "%llu dir-sat, %llu dir-unsat\n",
@@ -688,9 +598,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.ternary_resolvents,
            (unsigned long long)kernel.stats.ternary_binaries,
            (unsigned long long)kernel.stats.ternary_ticks);
-    // `declined` is the anti-vacuity half of this line: a resolvent is emitted
-    // only if the RUP replay re-derives it, so binaries==0 with declines>0 says
-    // the rule ran and refused, which is not the same as the rule not running.
+    // A resolvent is emitted only if the RUP replay re-derives it, so binaries
+    // 0 with declines > 0 means the rule ran and refused.
     printf("c hbr         %llu rounds, %llu probes, %llu binaries, "
            "%llu subsumed, %llu declined, %llu ticks\n",
            (unsigned long long)kernel.stats.hbr_rounds,
@@ -699,24 +608,20 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.hbr_subsumed,
            (unsigned long long)kernel.stats.hbr_declined,
            (unsigned long long)kernel.stats.hbr_ticks);
-    // `stale backjumps` should be 0: a nonzero value means conflicts are being
-    // dropped and re-derived, which is otherwise invisible in a tier run.
+    // `stale backjumps` should be 0: nonzero means conflicts are dropped and
+    // re-derived, which is otherwise invisible in a tier run.
     printf("c chrono      %llu chronological, %llu stale backjumps\n",
            (unsigned long long)kernel.stats.chronological,
            (unsigned long long)kernel.stats.backjump_stale);
-    // "did the conflict-reuse shortcut fire, and did it need the watch
-    // repair?" — the second number is what separates the full mechanism from
-    // the subset a version that DECLINES instead of repairing could take.
+    // The second number separates the full mechanism from the subset a version
+    // that declines instead of repairing would reach.
     printf("c reuse       %llu conflicts reused, %llu needed watch repair\n",
            (unsigned long long)kernel.stats.conflict_reused,
            (unsigned long long)kernel.stats.conflict_watch_repaired);
-    // Reachability for the TACTIX_JUMP_REASONS arm: an arm whose counter did
-    // not move was not tested.
     printf("c jumpreason  %llu binary reasons jumped\n",
            (unsigned long long)kernel.stats.jumped_reasons);
-    // What a binary-first watch order would be worth to binary-only
-    // propagation: `ordered` over `scans` is the reachability, `large` over
-    // `words` the ceiling on what an early break could skip.
+    // What a binary-first watch order would be worth: `ordered` over `scans` is
+    // the reachability, `large` over `words` the ceiling on an early break.
     printf("c binprop     %llu scans, %llu flagged, %llu words, %llu skipped, "
            "%llu residual-ordered, %llu residual-large\n",
            (unsigned long long)kernel.stats.binprop_scans,
@@ -794,16 +699,13 @@ int main(int argc, char **argv) {
                ? 100.0 * (double)kernel.stats.bumps_ext_reason_only /
                      (double)kernel.stats.bumps_extension
                : 0.0);
-    // factor_ticks is Factor's dosing currency (and what the first-dose
-    // allowance FACTOR_INIT_TICKS caps): printing it is what distinguishes
-    // "the allowance bound the opening burst" from "the arm was inert".
+    // factor_ticks is Factor's dosing currency and what FACTOR_INIT_TICKS caps,
+    // so it separates a bound opening burst from an inert arm.
     printf("c factor      %llu factorings, %llu large remainders offered, "
            "%llu ticks\n",
            (unsigned long long)kernel.stats.factorings,
            (unsigned long long)kernel.stats.factor_large_remainders,
            (unsigned long long)kernel.stats.factor_ticks);
-    // SCHED-C5 pre-registered readout: an arm of TACTIX_FACTOR_DEMOTE whose
-    // `demoted` count is 0 was not tested ([[ab-arm-identical-artefacts]]).
     printf("c factor-dem  %llu demotions, %llu fresh vars demoted\n",
            (unsigned long long)kernel.stats.factor_demotions,
            (unsigned long long)kernel.stats.factor_demoted_vars);
@@ -811,8 +713,6 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
            (unsigned long long)kernel.stats.bve_resolutions);
-    // SP-BVE-GATE-1 pre-registered readout: an arm of --bve-gates whose ite/xor
-    // counts are 0 did not test the gate types ([[ab-arm-identical-artefacts]]).
     printf("c bve-gates   %llu equiv, %llu andor, %llu ite, %llu xor, "
            "%llu definition; %llu resolvent pairs saved\n",
            (unsigned long long)kernel.stats.bve_gates_equiv,
@@ -821,9 +721,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_gates_xor,
            (unsigned long long)kernel.stats.bve_gates_definition,
            (unsigned long long)kernel.stats.bve_gate_pairs_saved);
-    // R10 reachability readout: `checked` proves the sub-solve path runs,
-    // `definition` above proves it finds something, and `budget` says whether
-    // TACTIX_BVE_DEF_TICKS binds ([[ab-arm-identical-artefacts]]).
+    // `checked` proves the sub-solve path runs, `definition` above that it
+    // finds something, and `budget` whether TACTIX_BVE_DEF_TICKS binds.
     printf("c bve-def     %llu checked, %llu ticks, %llu hit the tick "
            "ceiling\n",
            (unsigned long long)kernel.stats.bve_definitions_checked,
@@ -884,16 +783,13 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthen_visits,
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed);
-    // Reachability witness for Kernel::midround_budget: rounds cut short by
-    // the mid-round work budget. ZERO means the budget never bound, so any run
-    // claiming to have exercised it proves nothing.
     printf("c budgetstop  %llu C1 rounds, %llu C2 rounds stopped mid-round\n",
            (unsigned long long)kernel.stats.budget_stops_c1,
            (unsigned long long)kernel.stats.budget_stops_c2);
-    // SCHED-G2 (diagnostic; zero unless TACTIX_SUBSUME_SHADOW=1). `observed`
-    // is what C1 declined to delete; `absorbed` is how much of that Strengthen
-    // disposed of by itself. Absorption by any other rule is NOT counted, so
-    // `residual` over-states C1's unique yield rather than flattering it.
+    // Diagnostic, zero unless TACTIX_SUBSUME_SHADOW=1. `observed` is what
+    // SubsumeForward declined to delete; absorption by any rule other than
+    // Strengthen is not counted, so `residual` overstates its unique yield
+    // rather than flattering it.
     printf("c c1shadow    %llu observed, %llu deleted + %llu rewritten by C2, "
            "%llu residual\n",
            (unsigned long long)kernel.stats.c1_shadow_observed,
@@ -902,15 +798,10 @@ int main(int argc, char **argv) {
            (unsigned long long)(kernel.stats.c1_shadow_observed -
                                 kernel.stats.c1_shadow_deleted -
                                 kernel.stats.c1_shadow_rewritten));
-    // Reachability + NON-WEDGE witness for the touched-epoch filters
-    // (Kernel::touched). `marks` must keep growing on a long solve — its
-    // producers are on the kernel's clause-creation path, so a stalled counter
-    // means the substrate is dead, not quiet. Per rule, `skipped` is what the
-    // suppressor bought and `checked` (the `c subsume`/`c strengthen` lines
-    // above) is what still got through: BOTH non-zero is the evidence that the
-    // filter fires and has not wedged shut. `advances` counts the rounds that
-    // completed and therefore moved the watermark; zero advances with non-zero
-    // rounds means the filter is inert because every round is being cut.
+    // Non-wedge witness for the touched-epoch filters (Kernel::touched):
+    // `marks` must keep growing on a long solve, `skipped` and `checked` (the
+    // `c subsume` / `c strengthen` lines) must both be non-zero, and `advances`
+    // 0 with rounds > 0 says every round is being cut.
     printf("c touch       %llu marks, %llu epoch; C1 %llu skipped / %llu "
            "advances / %llu rearmed, C2 %llu skipped / %llu advances / %llu "
            "rearmed\n",
@@ -932,16 +823,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.ternary_rearmed,
            (unsigned long long)kernel.stats.instantiate_mark_skipped,
            (unsigned long long)kernel.stats.instantiate_rearmed);
-    // SCHED-H1 · WHICH rule honoured the interrupt. `c interrupt` above is the
-    // sum over every polling rule, so it cannot show that a particular round
-    // is interruptible; a zero here on a run that was interrupted means the
-    // rule ran to completion regardless.
+    // Which rule honoured the interrupt: `c interrupt` above sums over every
+    // polling rule, so it cannot show a particular round is interruptible.
     printf("c interrupt3  BCE %llu, X2 %llu, X4 %llu aborts\n",
            (unsigned long long)kernel.stats.bce_interrupted,
            (unsigned long long)kernel.stats.ternary_interrupted,
            (unsigned long long)kernel.stats.instantiate_interrupted);
-    // Same line for the C1/C2 share. Kept separate only because the two shares
-    // landed separately; fold the three lines into one when Vivify's lands.
+    // TODO: fold this and `c interrupt3` into one line once Vivify's share
+    // lands; they are separate only because the shares landed separately.
     printf("c interrupt2  C1 %llu, C2 %llu aborts\n",
            (unsigned long long)kernel.stats.subsume_interrupted,
            (unsigned long long)kernel.stats.strengthen_interrupted);
@@ -951,11 +840,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.touch_redundant_static6,
            (unsigned long long)kernel.stats.touch_kept_marks,
            kernel.touch_redundant ? "ON" : "off");
-    // SCHED-F7's CONSUMER-side reachability, and it is a PAIR for the same
-    // reason F6's producer side is: `checked` alone cannot distinguish a scope
-    // that admits nothing from a filter that admits everything. `checked` > 0
-    // says the band scope is live, `skipped` > 0 says the filter still fires
-    // inside it, and the two yield counters are what the extra candidates bought.
+    // A pair because `checked` alone cannot distinguish a scope that admits
+    // nothing from a filter that admits everything.
     printf("c f7band      C2 %llu band candidates checked / %llu skipped, "
            "%llu subsumed / %llu strengthened\n",
            (unsigned long long)kernel.stats.strengthen_red_checked,
@@ -966,14 +852,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.factor_mark_skipped,
            (unsigned long long)kernel.stats.factor_rearmed);
     // --- `c timing`: where the wall clock actually goes ---------------------
-    // Rules are charged individually by the registry dispatch wrapper; the SLOT
-    // line is the whole inprocessing phase, so (slot − Σ rules in it) is the
-    // scaffolding (occurrence index, garbage collection, scheduling). SEARCH is
-    // DERIVED as solve − slot, because the per-conflict path is deliberately
-    // untimed (a clock there is exactly the hot-path cost N3 cannot pay), and
-    // it is the residual that matters anyway. Rules dispatched OUTSIDE the slot
-    // (the C API, the fuzz/stress policies) are charged too, so under those
-    // policies "search" is the residual after them as well.
+    // Rules are charged individually by the registry dispatch wrapper, inside
+    // the slot and out. The slot line is the whole inprocessing phase, so slot
+    // minus the rules in it is scaffolding, and search is the residual solve
+    // minus slot: the per-conflict path is deliberately untimed, a clock there
+    // being exactly the hot-path cost N3 cannot pay.
     {
       const double total_ms = kernel.stats.solve_nanos / 1e6;
       const double slot_ms = kernel.stats.inprocess_nanos / 1e6;
@@ -982,7 +865,7 @@ int main(int argc, char **argv) {
       printf("c timing      %.0f ms (%.1f%%) inprocessing slot, %.0f ms (%.1f%%) "
              "search+scaffolding outside it\n",
              slot_ms, pct(slot_ms), total_ms - slot_ms, pct(total_ms - slot_ms));
-      // per-rule, biggest first; only rules that actually ran
+      // Per rule, biggest first; only rules that actually ran.
       const auto &rules = tactix::tactix_rules();
       std::vector<std::pair<uint64_t, size_t>> ranked;
       double charged_ms = 0;

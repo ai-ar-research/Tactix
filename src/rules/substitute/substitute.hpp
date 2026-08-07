@@ -1,19 +1,13 @@
-// Substitute (plan §5.2): equivalent-literal substitution over the binary
-// implication graph. Literals in one SCC of the BIG are logically equivalent;
+// V3 Substitute (plan §5.2): equivalent-literal substitution over the binary
+// implication graph. Literals in one SCC of the graph are logically equivalent;
 // each non-representative is rewritten to its SCC's representative, and an SCC
-// that contains a literal together with its own negation forces UNSAT
-// (l ≡ ¬l). Proof delta: add-RUP + delete + push-witness.
-//
-// Scope:
-//   SCC DETECTION — guard + iterative Tarjan, unit-tested in isolation.
-//   THE UNSAT PATH — x ≡ ¬x ⇒ refutation: two RUP units + the empty clause via
-//     the rule-local BIG-path walk.
-//   THE REWRITE — every non-representative SCC member is rewritten to its
-//     representative across all large + binary occurrences (add-before-delete),
-//     transient equivalence lemmas justify each rewrite in LRAT, size-collapsed
-//     root units are asserted un-propagated, and a reconstruction witness pair
-//     is pushed per eliminated variable. See do_substitution in
-//     substitute.cpp.
+// holding a literal together with its own negation refutes the formula.
+// Proof delta: add-RUP + delete + push-witness. Precondition, effect and
+// soundness: `docs/calculus.md` §V3; design record
+// `docs/design/v3-substitute-design.md`. Three parts: SCC detection (iterative
+// Tarjan, unit-tested in isolation), the refutation path for l ≡ ¬l (two RUP
+// units and the empty clause via the rule-local graph-path walk), and the
+// rewrite itself (`do_substitution` in substitute.cpp).
 #pragma once
 
 #include "rules/registry.hpp"
@@ -22,9 +16,9 @@
 
 namespace tactix {
 
-// Quiescent-root fixpoint precondition, shared by every inprocessing rule
-// (C1/C2/C3/V1/V2): the binary-implication graph must already reflect all
-// level-0 units before its SCCs are meaningful.
+// Guard: quiescent root, shared by every inprocessing rule — the binary
+// implication graph must already reflect all level-0 units before its SCCs are
+// meaningful.
 bool substitute_guard(const Kernel &k);
 
 // SCC decomposition of the binary implication graph (edges p → q for every
@@ -33,13 +27,11 @@ bool substitute_guard(const Kernel &k);
 //              repr[l]==l for a representative or a singleton; INVALID_LIT for
 //              an inactive (root-fixed) literal that is not a node.
 //   nontrivial_reps = representatives of SCCs with more than one literal, in
-//              ascending order — the substitution instances (each collapses a
-//              whole SCC onto its representative).
-//   contradiction   = some SCC contains a literal and its own negation, i.e.
-//              l ≡ ¬l, so the formula is UNSAT.
+//              ascending order — the substitution instances.
+//   contradiction   = some SCC contains a literal and its own negation.
 //   contradiction_lit = a witness x with x and ¬x in one SCC (INVALID_LIT if
-//              none); both directed paths x→¬x and ¬x→x then exist (the SCC is
-//              strongly connected), which the UNSAT proof walks.
+//              none); both directed paths x→¬x and ¬x→x then exist, which the
+//              refutation walks.
 struct SccResult {
   std::vector<Lit> repr;            // by lit
   std::vector<Lit> nontrivial_reps; // representatives of |SCC| > 1, ascending
@@ -48,12 +40,10 @@ struct SccResult {
 };
 SccResult substitute_find_sccs(const Kernel &k);
 
-// Rule surface (registered at RuleTier::Inprocess, so DefaultPolicy's slot
-// schedules it; N1-exposed + random-policy-fuzzed). Payload = an SCC
-// representative literal via lit_instance/lit_of_instance (registry.hpp).
-// INSTANCE_CANONICAL = the full round (every non-trivial SCC); a single
-// instance substitutes the requested representative's class + its mirror.
-// On x ≡ ¬x, apply refutes (Unsat).
+// Instance space (plan §5.1): payload = an SCC representative literal via
+// lit_instance/lit_of_instance. A single instance substitutes the requested
+// representative's class and its mirror; INSTANCE_CANONICAL = the full round
+// (every non-trivial SCC). On x ≡ ¬x, apply refutes.
 ApplyResult substitute_apply(Kernel &); // canonical: full round
 
 // One directed binary-implication-graph path `from → … → to` as its edge

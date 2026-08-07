@@ -1,4 +1,4 @@
-// See hyperbinary.hpp for the reference/deviation record.
+// See hyperbinary.hpp for the rule's contract.
 #include "rules/hyperbinary/hyperbinary.hpp"
 
 #include "rules/congruence/congruence.hpp" // congruence_replay_rup
@@ -88,10 +88,10 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
   k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
   const uint32_t base = static_cast<uint32_t>(k.trail.size());
   kernel_assign(k, p, k.level, DECISION_REASON, false);
-  // A CONFLICT here means `p` is a failed literal, which is V1 Probe's
-  // inference and its proof obligation — not ours. Note the polarity: unlike
-  // V1, this rule wants the probe to SURVIVE, because the resolvents are read
-  // off a consistent level-1 closure.
+  // A conflict here means `p` is a failed literal, which is V1 Probe's
+  // inference and its proof obligation. Note the polarity: unlike V1, this rule
+  // wants the probe to SURVIVE, because the resolvents are read off a
+  // consistent level-1 closure.
   if (kernel_propagate_probing(k)) {
     unwind(k);
     return false;
@@ -140,9 +140,9 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
       parent[var_of(l)] = INVALID_LIT;
       continue;
     }
-    // Install the dominator as the parent, which is precisely the reason
-    // cadical would have installed by adding the resolvent during propagation
-    // (hyperbinary.hpp deviation 1) — this is what keeps the tree a tree.
+    // Install the dominator as the parent, precisely the reason cadical would
+    // have installed by adding the resolvent during propagation (see
+    // hyperbinary.hpp) — this is what keeps the tree a tree.
     parent[var_of(l)] = dom;
     if (dom == p)
       continue; // (¬p ∨ l) is the trivial resolvent: no dominance was gained
@@ -158,9 +158,9 @@ bool collect(Kernel &k, Lit p, std::vector<Lit> &parent,
   return true;
 }
 
-// Emit one banked resolvent at the clean root. The replay is both the RUP TEST
-// and the chain source (hyperbinary.hpp deviation 2), so a resolvent unit
-// propagation cannot re-derive is DECLINED rather than emitted unchecked.
+// Emit one banked resolvent at the clean root. The replay is both the RUP test
+// and the chain source (see hyperbinary.hpp), so a resolvent that unit
+// propagation cannot re-derive is declined rather than emitted unchecked.
 bool emit(Kernel &k, const Resolvent &r, std::vector<uint64_t> &chain) {
   const Lit lits[2] = {negate(r.dom), r.forced};
   if (lits[0] == lits[1] || lits[0] == negate(lits[1]))
@@ -213,8 +213,7 @@ ApplyResult hyperbinary_try(Kernel &k, Lit p) {
 
 ApplyResult hyperbinary_apply(Kernel &k) {
   assert(hyperbinary_guard(k));
-  // D-LEVEL guard purification: complete the root closure if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.hbr_rounds++;

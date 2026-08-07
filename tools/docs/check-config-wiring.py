@@ -1,26 +1,24 @@
 #!/usr/bin/env python3
-"""SCHED-A2: every Kernel scheduling-config field must have its intended writer.
+"""Every Kernel scheduling-config field must have its intended writer.
 
-WHY THIS EXISTS. The N4 scheduling-parity audit found that the single most
-common high-severity shape is not a missing mechanism but an UNWIRED one: we
-own the field, it is named after the reference's mechanism, and nothing ever
-writes it. That is worse than a gap, because `grep` finds the mechanism and
-reports parity. `Kernel::factor_bound` is the canonical case — it IS kissat's
-`reduction > bound` acceptance test, documented as such, and it sat at a static
-0 for weeks because the ramp that should drive it (`bve_level_`) lives four
-lines away in the policy and was never connected.
+The commonest high-severity shape the N4 scheduling-parity audit found is not a
+missing mechanism but an unwired one: the field exists, it is named after the
+reference's mechanism, and nothing ever writes it — worse than a gap, because
+`grep` then finds the mechanism and reports parity. `Kernel::factor_bound` is
+the canonical case: it is kissat's `reduction > bound` acceptance test,
+documented as such, and it sat at a static 0 because the ramp that should drive
+it (`bve_level_`) lives four lines away in the policy, unconnected.
 
 A reader cannot see that. A test can:
 
-    POLICY   the scheduler MUST write it. No writer in default_policy.* = FAIL.
+    POLICY   the scheduler must write it. No writer in default_policy.* fails.
     RULE     a rule computes it; the policy may read it.
     ENV      A/B or diagnostic knob, main.cpp only. The shipped default is the
-             value in kernel.hpp, so "nothing writes it" is CORRECT here.
+             value in kernel.hpp, so "nothing writes it" is correct here.
     API      public setter for an external policy (N1), no internal writer.
 
-The second half matters as much as the first: a NEW config field that is not in
-the table fails too, so classification happens when the field is added rather
-than when someone notices years later.
+The second half matters as much as the first: a new config field missing from
+the table fails too, so classification happens when the field is added.
 
     tools/docs/check-config-wiring.py          report; exit 1 on any failure
 """
@@ -38,11 +36,12 @@ POLICY = ["src/policies/default_policy.cpp", "src/policies/default_policy.hpp",
 # The config surface, classified. Everything from `bve_track_min_bound` down in
 # kernel.hpp — the fields that steer scheduling rather than record state.
 #
-# A note on the ENV rows, because it is the easy thing to get wrong: these are
-# NOT unwired mechanisms. Their shipped value is the default in kernel.hpp and
-# the env var exists only to move it for an A/B. Tagging one POLICY would be
-# claiming the scheduler ought to drive it, which for most of these is exactly
-# the open question the SCHED track is measuring, not a settled requirement.
+# An ENV row is not an unwired mechanism: its shipped value is the kernel.hpp
+# default and the env var exists only to move it for an A/B. Tagging one POLICY
+# would claim the scheduler ought to drive it, and an assignment added to
+# default_policy.* purely to satisfy this test is the fake wiring the check
+# exists to expose. Whether a given knob should become policy-driven is what
+# the scheduling-parity track measures, not a settled requirement.
 TABLE = {
     # --- the policy is supposed to drive these ---------------------------
     "bve_bound":               ("POLICY", "growth-slack ramp (BveBoundPolicy)"),
@@ -77,35 +76,23 @@ TABLE = {
                                        "currency)"),
     "ternary_occ_limit":       ("ENV", "TACTIX_TERNARY_OCC_LIMIT"),
     "ternary_max_add_percent": ("ENV", "TACTIX_TERNARY_MAXADD"),
-    # Track SCHED stage F: default-ON with an `=0` revert hatch, the
-    # `factor_demote_fresh` shape. NOT POLICY — the touched-epoch filters are
-    # rule-round policy, and a writer in default_policy.* purely to satisfy
-    # this test would be the ceremony the C5 note below warns against.
+    # Default-on with an `=0` revert hatch: the touched-epoch filters are
+    # rule-round policy, not scheduler policy.
     "touch_filter":            ("ENV", "TACTIX_TOUCH_MARKS (stage-F off arm)"),
     "subsume_holds_elim":      ("ENV", "TACTIX_SUBSUME_HOLD (SCHED-F2 off arm)"),
-    # SCHED-F6: ships OFF and is a PREREQUISITE arm, not a candidate default --
-    # extra stamps only weaken the round filters until a consumer for the
-    # redundant tier band exists (SP-TIER-2's residue).
+    # Ships off: a prerequisite arm, not a candidate default. Extra stamps only
+    # weaken the round filters until a consumer for the redundant tier band
+    # exists.
     "touch_redundant":         ("ENV", "TACTIX_TOUCH_REDUNDANT (SCHED-F6 on arm)"),
-    # SCHED-G3: same shape as touch_filter — ships ON via the kernel.hpp
-    # default, =0 is the A/B off arm. NOT POLICY: the probe/candidate ORDER and
-    # the trail retention are one mechanism inside the rule's round, and a
-    # writer in default_policy.* purely to satisfy this test would be the fake
-    # wiring the check exists to expose.
+    # Same shape as touch_filter. The probe/candidate order and the trail
+    # retention are one mechanism inside the rule's round.
     "vivify_reuse":            ("ENV", "TACTIX_VIVIFY_REUSE; ships ON (SCHED-G3), "
                                        "=0 reverts to the per-candidate root return"),
-    # SCHED-G2: pure diagnostic. It makes C1 report instead of act, so it can
-    # never be a shipped default and nothing in the policy may write it.
+    # Pure diagnostic: it makes C1 report instead of act, so it can never be a
+    # shipped default and nothing in the policy may write it.
     "subsume_shadow":          ("ENV", "TACTIX_SUBSUME_SHADOW (SCHED-G2 shadow arm)"),
-    # SCHED-C5 (2026-08-05): was ENV-with-a-caveat — the knob existed, defaulted
-    # OFF, and the row itself said that was the status quo rather than the
-    # target. It now ships ON via the kernel.hpp default, which is what both
-    # references do (kissat unconditionally, cadical `factorunbump`=1), so the
-    # caveat is retired and the row is a plain ENV of the `retire_enabled`
-    # shape: default-ON behaviour with an `=0` revert hatch for the A/B.
-    # NOT tagged POLICY: nothing in default_policy.* needs to write it, and
-    # adding an assignment there purely to satisfy this test would be exactly
-    # the fake wiring the test exists to expose.
+    # Ships on via the kernel.hpp default, matching both references (kissat
+    # unconditionally, cadical `factorunbump`=1), with an `=0` revert hatch.
     "factor_demote_fresh":     ("ENV", "TACTIX_FACTOR_DEMOTE; ships ON via the kernel.hpp "
                                        "default (SP-FACTOR-2 parity), =0 reverts"),
     "factor_cand_rounds":      ("ENV", "TACTIX_FACTOR_CAND_ROUNDS; kissat ships 2, we ship 0"),
@@ -114,12 +101,9 @@ TABLE = {
     "subst_hazard_round":      ("ENV", "TACTIX_SUBST_HAZARD_ROUND"),
     "subst_demote":            ("ENV", "TACTIX_SUBST_DEMOTE"),
     "retire_enabled":          ("ENV", "TACTIX_RETIRE; ships ON via the kernel.hpp default"),
-    # SCHED-C6: same shape as retire_enabled / factor_demote_fresh — ships ON
-    # at kissat's own default (`eagersubsume`=4), TACTIX_EAGER_SUBSUME=0
-    # reverts for the A/B arm. NOT POLICY: nothing in default_policy.* needs to
-    # write it, and there is no reference schedule that moves it per-phase
-    # (both references treat it as a fixed option), so an assignment there
-    # would be the fake wiring this test exists to expose.
+    # Same shape as retire_enabled / factor_demote_fresh: ships on at kissat's
+    # own default (`eagersubsume`=4), `=0` reverts. Both references treat it as
+    # a fixed option, so no reference schedule moves it per phase.
     "eager_subsume":           ("ENV", "TACTIX_EAGER_SUBSUME; ships ON at kissat's "
                                        "default 4 (SP-EAGERSUB-1), =0 reverts"),
     "stop_fuzz":               ("ENV", "TACTIX_STOP_FUZZ, fuzz-only abort knob"),
@@ -140,33 +124,32 @@ TABLE = {
 # Where the config surface begins in kernel.hpp. Everything below this marker
 # that looks like a scalar with a default is config and must be classified.
 CONFIG_START = "bve_retry_fixed_head"
-# Fields below the marker that are solver STATE, not config.
-# `touch_epoch`/`touch_fixed_head` are the touched-epoch substrate's own
-# bookkeeping and `*_touch_mark` are per-rule resumption watermarks — the
-# `transitive_cursor` category, solver state a policy may reset but never
-# "configures".
+# Fields below the marker that are solver state, not config: the touched-epoch
+# substrate's own bookkeeping (`touch_epoch`, `touch_fixed_head`) and the
+# per-rule resumption watermarks (`*_touch_mark`) — the `transitive_cursor`
+# category, which a policy may reset but never "configures".
 NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
               "touch_epoch", "touch_fixed_head",
               "subsume_touch_mark", "strengthen_touch_mark",
               "bce_touch_mark", "ternary_touch_mark",
               "instantiate_touch_mark", "factor_touch_mark",
               "cce_touch_mark",
-              # rule OUTPUTS (SCHED-F2), read by the policy, never configured
+              # rule outputs, read by the policy, never configured
               "subsume_complete", "strengthen_complete"}
 
 
 def declared_fields():
     s = open(KERNEL_H).read()
     i = s.index(CONFIG_START)
-    # ...and where it ENDS: the config surface is the tail of `struct Kernel`, so
-    # the scan stops at that struct's closing brace. Without the bound, a local
-    # scalar with an initializer inside any later inline kernel helper (they are
-    # indented by the same two spaces) reads as an unclassified config field.
+    # The config surface is the tail of `struct Kernel`, so the scan stops at
+    # that struct's closing brace. Without the bound, a local scalar with an
+    # initializer inside a later inline kernel helper (indented by the same two
+    # spaces) reads as an unclassified config field.
     j = s.index("\n};", i)
     out = []
-    # Handles multi-declarator lines: `uint32_t tier1 = 2, tier2 = 6;` declares
-    # TWO config fields, and missing the second is exactly the silent gap this
-    # script exists to prevent.
+    # Multi-declarator lines declare several fields: `uint32_t tier1 = 2,
+    # tier2 = 6;` is two, and missing the second is the silent gap this script
+    # exists to prevent.
     for m in re.finditer(r"^\s{2}(bool|uint8_t|uint32_t|uint64_t)\s+([^;]+);",
                          s[i:j], re.M):
         for decl in m.group(2).split(","):

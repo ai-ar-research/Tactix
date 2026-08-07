@@ -1,19 +1,9 @@
-// N1 REGRESSION: every band Vivify implements must be reachable through the
-// public API, and the UNSCOPED path must not exclude one.
-//
-// This is the Factor breach (tests/test_factor_n1.cpp) in a second rule. The
-// tier3 band (redundant, glue > the live tier2) exists and DefaultPolicy
-// vivifies it, but `tactix_set_vivify_scope` clamped `scope <= 2 ? scope : 0`,
-// so an external policy asking for scope 3/4/5 silently got scope 0 — and
-// scope 0 was itself bounded by tier2. The result was that no API caller could
-// vivify a tier3 clause at all: the guard reported applicable, `instances()`
-// never enumerated the Ref, and `apply_instance` on it no-opped. That is a
-// capability REMOVED, which the N1 carve-out does not permit; the carve-out
-// lets the built-in POLICY decline a choice.
-//
-// Two halves, and both fail on the pre-fix build:
-//   1. the rule side — scope 0 (and scope 5) must admit a tier3 candidate;
-//   2. the API side  — the setter must STORE 3/4/5 rather than substitute 0.
+// N1: every band Vivify implements must be reachable through the public API.
+// `Kernel::vivify_scope` 0 means all bands, 3/4/5 the redundant tier1/tier2/
+// tier3 bands; the rule side must admit a tier3 candidate at 0 and 5, and the
+// setter must store 3/4/5 rather than substitute a band. A removed capability
+// is not the carve-out, which only lets the built-in policy decline a choice.
+// See docs/implementation-notes.md (`vivify_scope`).
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
@@ -24,10 +14,9 @@
 #include <cstring>
 #include <vector>
 
-// The C API declared by hand: including tactix.h here is impossible (its
-// `typedef struct tactix_solver tactix` collides with `namespace tactix`, the
-// reason api.cpp does not include it either), and the setter is exactly what
-// this test has to pin. tests/test_api_c.c remains the header/ABI sync check.
+// The C API is declared by hand because `typedef struct tactix_solver tactix`
+// collides with `namespace tactix`, which is also why api.cpp does not include
+// tactix.h. tests/test_api_c.c remains the header/ABI sync check.
 extern "C" {
 struct tactix_solver *tactix_init(void);
 void tactix_release(struct tactix_solver *);
@@ -38,11 +27,8 @@ uint64_t tactix_config(struct tactix_solver *, int);
 
 using namespace tactix;
 
-// A genuinely vivifiable clause parked in tier3: C = (1 2 3) redundant with
-// glue 9 > the default tier2, plus the binary (1 2). Probing ¬1 propagates 2,
-// so C distills to (1 2) — the outcome test_vivify's tier2 fixture asserts,
-// moved one band up. The clause is vivifiable independently of its glue, so a
-// NoOp here can only be the band being closed.
+// A vivifiable clause parked in tier3: probing ¬1 propagates 2, so (1 2 3)
+// distills to (1 2) whatever its glue — a NoOp can only be a closed band.
 static Ref build_tier3_vivifiable(Kernel &k) {
   kernel_reserve_vars(k, 3);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
@@ -52,10 +38,8 @@ static Ref build_tier3_vivifiable(Kernel &k) {
   return ref;
 }
 
-// Drive the REGISTRY surface — guard, instances(), apply_instance — because
-// that is what tactix_rules_applicable / tactix_apply_instance route an
-// external policy through. Calling vivify_apply directly would miss the point:
-// the breach was that the advertised band held no advertisable instance.
+// Drive the registry surface, which is what `tactix_rules_applicable` and
+// `tactix_apply_instance` route an external policy through.
 static void rule_side(uint8_t scope) {
   Kernel k;
   const Ref ref = build_tier3_vivifiable(k);
@@ -82,9 +66,8 @@ static void rule_side(uint8_t scope) {
   std::printf("  scope %u: tier3 candidate enumerated and applied\n", scope);
 }
 
-// Each named band still selects only its own clauses: making scope 0 mean ALL
-// bands must not collapse the 3/4/5 split SCHED-G3 needs to spend three
-// separate shares.
+// Each named band still selects only its own clauses: scope 0 meaning all
+// bands must not collapse the 3/4/5 split the policy budgets separately.
 static void bands_stay_disjoint() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -113,9 +96,8 @@ static void bands_stay_disjoint() {
   std::printf("  bands 1/3/4/5 unchanged, scope 0 spans all three tiers\n");
 }
 
-// The API half: the setter must store what it was asked for. A clamp that
-// substitutes a DIFFERENT band is worse than a rejection — the caller has no
-// way to see it happened, and the pose reads as configured.
+// The setter stores what it was asked for: a clamp that substitutes a different
+// band is worse than a rejection, since the caller cannot see it happened.
 static void api_side() {
   struct tactix_solver *s = tactix_init();
   for (unsigned scope = 0; scope <= 5; scope++) {
@@ -123,8 +105,7 @@ static void api_side() {
     assert(tactix_config(s, CFG_VIVIFY_SCOPE) == scope &&
            "N1 BREACH: tactix_set_vivify_scope silently substituted a band");
   }
-  // Out of range leaves the pose untouched rather than substituting one.
-  tactix_set_vivify_scope(s, 5);
+  tactix_set_vivify_scope(s, 5); // out of range leaves the pose untouched
   tactix_set_vivify_scope(s, 6);
   assert(tactix_config(s, CFG_VIVIFY_SCOPE) == 5);
   tactix_release(s);

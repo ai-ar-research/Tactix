@@ -1,28 +1,10 @@
-// THE POSE SURFACE: the inprocessing slot is schedule-as-data (§5.6), and until
-// this file NOTHING tested that. `grep -rn "TACTIX_SLOT\|setenv" tests/`
-// returned nothing, so every knob every A/B on the board is driven by —
-// TACTIX_SLOT_DISABLE/ENABLE/ORDER/PERMILLE/MAX_APPLIES, TACTIX_CURSOR_*,
-// TACTIX_ORDER_* — was unverified. A silently inert knob is the vacuous-arm
-// trap in its purest form: the arm runs, the numbers come back, and they are
-// the baseline's ([[ab-arm-identical-artefacts]]).
-//
-// What is pinned here, in the order the pose surface is used:
-//   POSE      a preposed `inprocess_slot` is used VERBATIM — the policy neither
-//             rebuilds it nor reorders it — and its entries collect telemetry.
-//   DISABLE   a disabled entry is REACHED (occasions > 0), declines for the
-//             stated reason (dec_disabled == occasions), never applies
-//             (admitted == 0), and its rule's own counter stays 0 while the
-//             enabled arm's moves. Counter-at-the-source, both directions.
-//   RE-ENABLE the same entry, enabled, fires — so the zero above was the pose
-//             and not the formula.
-//   ORDER     TACTIX_SLOT_ORDER=legacy really moves BVE and Factor to the back
-//             of the built slot.
-//   KNOBS     TACTIX_SLOT_PERMILLE / MAX_APPLIES / TACTIX_CURSOR_* /
-//             TACTIX_ORDER_* land on the entry the policy actually walks.
-//
-// DELIBERATELY NOT HERE: the `reject()` abort paths (a knob set on an entry the
-// policy never orders calls std::abort, which needs a subprocess to observe),
-// and a C-API mirror of these setters — see the item note in PROGRESS.
+// The pose surface for the inprocessing slot (schedule-as-data, plan §5.6): a
+// silently inert knob makes an A/B arm vacuous. Pinned: a preposed
+// `inprocess_slot` is used verbatim and collects telemetry; a disabled entry is
+// reached, declines as disabled at every occasion, and leaves its rule's own
+// counter at 0 while the enabled arm's moves; and the order and per-entry
+// setters land on the entry the policy walks. The `reject()` abort paths are
+// not covered — they need a subprocess to observe.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -37,9 +19,8 @@
 
 using namespace tactix;
 
-// Two syntactically identical AND gates over the same inputs, so Congruence has
-// a real merge to make at the conflicts==0 preprocessing phase — the earliest
-// point the slot runs, which keeps every arm below a millisecond. Satisfiable.
+// Two identical AND gates over the same inputs, so Congruence has a real merge
+// to make at the conflicts==0 preprocessing phase. Satisfiable.
 static void fixture(Kernel &k) {
   kernel_reserve_vars(k, 8);
   const auto cl3 = [&](int a, int b, int c) {
@@ -54,7 +35,7 @@ static void fixture(Kernel &k) {
   kernel_add_binary_clause(k, internalize(-6), internalize(1));
   kernel_add_binary_clause(k, internalize(-6), internalize(2));
   cl3(6, -1, -2);
-  // a little search material so the solve is not decided by propagation alone
+  // search material, so the solve is not decided by propagation alone
   cl3(7, 8, -5);
   cl3(-7, 8, 6);
   cl3(7, -8, 1);
@@ -68,15 +49,11 @@ static uint32_t slot_index(const DefaultPolicy &p, const char *name) {
   return UINT32_MAX;
 }
 
-// --- POSE / DISABLE / RE-ENABLE --------------------------------------------
-// A two-entry slot posed directly, Congruence enabled or disabled. The whole
-// point of `enabled` is that it is the POLICY declining to schedule, not the
-// rule declining to apply (N1) — so the rule's counter is the observable.
-// One phase driven through the PUBLIC slot loop (`run_slot_phase`) rather than
-// through a whole solve: the slot loop is the mechanism under test, and reaching
-// it via solve() would make the test depend on this tiny fixture happening to
-// take a macro trigger — a dependency that silently turns the arm vacuous
-// (occasions == 0 reads exactly like a working disable).
+// --- pose / disable / re-enable --------------------------------------------
+// `enabled` is the policy declining to schedule, not the rule declining to
+// apply (N1), so the rule's own counter is the observable. The phase runs
+// through `run_slot_phase`: via solve() an untaken macro trigger would leave
+// occasions == 0, which reads exactly like a working disable.
 static uint64_t pose_congruence(bool enabled, DefaultPolicy &p, Kernel &k) {
   const int cong = tactix_rule_id("Congruence");
   const int subst = tactix_rule_id("Substitute");
@@ -137,18 +114,15 @@ static void test_pose_and_disable() {
               (unsigned long long)e_off.tm.occasions);
 }
 
-// --- the ENV surface -------------------------------------------------------
-// Same mechanism, reached the way every A/B on the board reaches it. Each arm
-// gets a fresh policy so the slot is rebuilt with the environment in force.
+// --- the environment surface -----------------------------------------------
+// Each arm gets a fresh policy, so the slot is rebuilt with the environment on.
 static void with_env(const char *const *kv, size_t n,
                      void (*check)(DefaultPolicy &, Kernel &)) {
   for (size_t i = 0; i < n; i += 2)
     setenv(kv[i], kv[i + 1], 1);
   {
-    // one solve to BUILD the slot from the environment (the knobs are read
-    // where the slot is composed), then one phase on a fresh formula through
-    // the built slot, so each arm is checked both at the entry the policy walks
-    // and at the rule counter that entry governs
+    // one solve to build the slot from the environment, then one phase on a
+    // fresh formula through it: checked at the entry and at the rule counter
     Kernel kb;
     Heuristics hb;
     kb.h = &hb;

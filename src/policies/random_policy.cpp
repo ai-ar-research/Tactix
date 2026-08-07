@@ -12,7 +12,7 @@ namespace tactix {
 
 int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
                  RuleTrace *trace) {
-  // A verdict must be recorded on EVERY exit, or a trace that stops early
+  // A verdict must be recorded on every exit, or a trace that stops early
   // replays as "reached 0" against a recorded 20 and reports a divergence that
   // is really a missing line. One scope-exit writer covers all four returns.
   struct Finish {
@@ -32,20 +32,18 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
   applicable.reserve(rules.size());
 
   for (uint64_t steps = 0;; steps++) {
-    // periodic invariant oracle (plan §8.2 oracle 4): most random walks on
-    // nontrivial instances never reach a verdict, so without this a logic
-    // bug that corrupts state (but not memory) is invisible to the fuzz
-    // leg. Every 256 steps: per-step would dominate the walk (the check
-    // is O(vars + arena + watches)). No-op in NDEBUG builds.
+    // Periodic invariant oracle (plan §8.2 oracle 4): most random walks never
+    // reach a verdict, so without it a state-corrupting logic bug is invisible.
+    // Every 256 steps, not per step: the check is O(vars + arena + watches) and
+    // would dominate the walk. No-op in NDEBUG builds.
     if ((steps & 255) == 0)
       kernel_check_invariants(k);
     if (k.inconsistent)
       return fin.verdict = 20;
-    // SAT only when the assignment is total, fully propagated, and no
-    // conflict is in flight: an unpropagated suffix or a recorded conflict can
-    // both mean the current assignment still falsifies a clause. (No
-    // `pending` check since rev 37: ConflictAnalysis is atomic, so a learned
-    // clause never persists across this boundary.)
+    // SAT only when the assignment is total, fully propagated, and no conflict
+    // is in flight: an unpropagated suffix or a recorded conflict can each mean
+    // the assignment still falsifies a clause. No `pending` check is needed —
+    // ConflictAnalysis is atomic, so no learned clause crosses this boundary.
     if (k.unassigned == 0 && !k.conflict_valid &&
         k.propagate_head == k.trail.size())
       return fin.verdict = 10;
@@ -61,31 +59,28 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     const int id =
         applicable[stress_random(rng) % applicable.size()];
     ApplyResult r;
-    // The payload this step applied, in the rule's own encoding — recorded so
-    // the step is replayable through apply_instance (trace.hpp). Decide and
-    // Restart reach the same effect through a direct call below, so their
-    // payload has to be spelled out rather than read back.
+    // The payload this step applied, in the rule's own encoding, recorded so
+    // the step replays through apply_instance (trace.hpp). Decide and Restart
+    // reach the same effect via a direct call below, so their payload has to be
+    // spelled out rather than read back.
     uint64_t applied = INSTANCE_CANONICAL;
     if (id == decide_id) {
       const Lit l = stress_random_unassigned_literal(k, rng);
       applied = lit_instance(l);
       r = decide_apply(k, l, true);
     } else if (id == restart_id) {
-      // random keep-level (plan §8.2: random INSTANCE choices, not just
-      // random order) — every level in [0, current] is a legal instance
+      // Random keep-level: every level in [0, current] is a legal instance
+      // (plan §8.2 fuzzes instance choices, not only rule order).
       applied = stress_random(rng) % (k.level + 1);
       r = restart_apply_to(k, static_cast<uint32_t>(applied));
     } else if (rules[id].instances && rules[id].apply_instance) {
-      // generic random instance draw over the rule's own enumeration —
-      // any rule registering an instance surface (Rephase, S/C/V families)
-      // gets rule-order AND instance fuzzing for free. INSTANCE_CANONICAL
-      // is drawn ~1/3 of the time (always when the enumeration is empty) so
-      // the canonical BATCH/ROUND path is exercised end-to-end, not only one
-      // instance at a time: a canonical round emits proof deltas the single
-      // instances never emit together (Probe's multi-unit batch, Strengthen's
-      // flush pre-pass + cascade, Vivify's full round, Lucky's cascade). The
-      // proof strategy must be sound under EVERY legal schedule, so every
-      // schedulable action — including the batches — is a fuzz target.
+      // Generic instance draw over the rule's own enumeration, so any rule
+      // registering an instance surface gets instance fuzzing for free.
+      // INSTANCE_CANONICAL is drawn about a third of the time (always when the
+      // enumeration is empty) because a canonical round emits proof deltas the
+      // single instances never emit together — Probe's multi-unit batch,
+      // Strengthen's flush pre-pass plus cascade, Vivify's full round, Lucky's
+      // cascade — and the proof strategy must hold under every legal schedule.
       uint64_t insts[16];
       const uint32_t m = rules[id].instances(k, insts, 16);
       const uint64_t inst = (m == 0 || stress_random(rng) % 3 == 0)
@@ -98,10 +93,9 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     }
     if (trace)
       trace->record(id, applied);
-    // per-step rule trace, env-gated (zero cost when off): the diagnostic that
-    // pins an N1-schedule bug — it names the rule + result + state at every
-    // step, where the every-256 invariant check only says that SOMETHING
-    // corrupted state. See the `stress-policy` skill.
+    // Per-step rule trace, env-gated: it names rule, result and state at every
+    // step, where the every-256 invariant check only reports that state was
+    // corrupted. See the stress-policy skill.
     if (getenv("TACTIX_TRACE")) {
       static const char *rn[] = {"Ok", "NoOp", "Conflict", "Sat", "Unsat"};
       fprintf(stderr,

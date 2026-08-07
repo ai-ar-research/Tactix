@@ -1,6 +1,5 @@
-// C3 Vivify unit tests: the three probe outcomes (implied literal,
-// implied negation, probe conflict), root-satisfied deletion, LCM tier
-// scope, instance surface, and exact state restoration.
+// Vivify unit tests: the three probe outcomes, root-satisfied deletion, tier
+// scope, the instance surface, and exact state restoration.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -41,8 +40,7 @@ static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
 }
 
 static void test_implied_literal_strengthens() {
-  // C = (1 2 3) with binary (1 2): assuming ¬1 propagates 2 — C distills
-  // to (1 2), stored as a fresh binary; C dies
+  // assuming ¬1 propagates 2, so C distills to a fresh binary (1 2)
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
@@ -57,8 +55,7 @@ static void test_implied_literal_strengthens() {
 }
 
 static void test_implied_negation_removes() {
-  // C = (1 2 3) with binary (1 -2): assuming ¬1 propagates ¬2 — literal 2
-  // is redundant in C; C distills to (1 3)
+  // assuming ¬1 propagates ¬2, so literal 2 is redundant in C
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
@@ -71,8 +68,7 @@ static void test_implied_negation_removes() {
 }
 
 static void test_probe_conflict_strengthens() {
-  // C = (1 2 3) with binaries (1 4) and (2 -4): assuming ¬1 gives 4,
-  // assuming ¬2 gives ¬4 — conflict, so (1 2) is RUP and replaces C
+  // assuming ¬1 and ¬2 conflicts, so the RUP clause (1 2) replaces C
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
@@ -87,9 +83,7 @@ static void test_probe_conflict_strengthens() {
 }
 
 static void test_lcm_scope_and_satisfied_delete() {
-  // a redundant tier-2 clause IS vivified (LCM scope); under that scope a
-  // redundant clause beyond tier2 is not a candidate. A root-satisfied
-  // candidate is deleted through the instance surface.
+  // Scope 1 (the LCM band) admits tier-2 and nothing beyond.
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
@@ -98,9 +92,6 @@ static void test_lcm_scope_and_satisfied_delete() {
   kernel_add_large_clause(k, d, 3, true, /*glue=*/9); // beyond tier2
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   std::vector<Ref> cands;
-  // scope 1 IS the LCM band, so it is the scope this assertion is about. The
-  // unscoped scope 0 admits all bands including tier3 (tests/test_vivify_n1.cpp
-  // — bounding it there made tier3 unreachable through the API, an N1 breach).
   k.vivify_scope = 1;
   vivify_candidates(k, cands);
   assert(cands.size() == 1 && cands[0] == r1); // LCM scope: tier2 only
@@ -136,10 +127,7 @@ static void test_instance_surface() {
   assert(rules[id].apply_instance(k, 999999) == ApplyResult::NoOp);
 }
 
-// --- SCHED-G3 -------------------------------------------------------------
-
-// C10 hand-off H3: a redundant clause above tier2 was never a candidate under
-// ANY scope, although the policy sized the redundant share as kissat's 3+3+1.
+// Each scope selects exactly its glue band, tracking the live tier bounds.
 static void test_tier3_scope() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -157,22 +145,20 @@ static void test_tier3_scope() {
   };
   only(3, r1); // tier1: glue <= k.tier1 (2)
   only(4, r2); // tier2: tier1 < glue <= k.tier2 (6)
-  only(5, r3); // tier3: glue > tier2 — EMPTY before this item
-  k.vivify_scope = 1; // legacy redundant band stops at tier2, as it always did
+  only(5, r3);        // tier3: glue > tier2
+  k.vivify_scope = 1; // redundant band stops at tier2
   vivify_candidates(k, cands);
   assert(cands.size() == 2);
-  k.vivify_scope = 0; // ... while the unscoped N1 path spans every band, so
-  vivify_candidates(k, cands); // that no band is API-unreachable (N1;
-  assert(cands.size() == 3);   // tests/test_vivify_n1.cpp)
-  // and the band MOVES with the live tier (SCHED-C1), so tier3 is not a
-  // constant set either: raising tier2 past 9 empties it
-  k.tier2 = 10;
+  k.vivify_scope = 0;          // unscoped spans every band, so that no band
+  vivify_candidates(k, cands); // is API-unreachable (N1)
+  assert(cands.size() == 3);
+  k.tier2 = 10; // the bands move with the live tier bound, emptying tier3
   k.vivify_scope = 5;
   vivify_candidates(k, cands);
   assert(cands.empty());
 }
 
-// SCHED-F5: the leftover bit selects the untried tail, and re-arms when empty.
+// The leftover bit selects the untried tail, and re-arms when empty.
 static void test_leftover_priority() {
   Kernel k;
   kernel_reserve_vars(k, 9);
@@ -183,27 +169,23 @@ static void test_leftover_priority() {
     refs.push_back(kernel_add_large_clause(k, c, 3, false, 0));
   }
   std::vector<Ref> cands;
-  // nothing is armed yet, so the round arms everything (never a suppressor)
+  // nothing armed: the round arms everything, so the bit never suppresses
   vivify_apply(k);
   assert(k.stats.vivify_reprioritized == 1);
   assert(k.stats.vivify_prioritized == 3);
-  // ...and every candidate was tried, so the bits are all clear again
   for (const Ref r : refs)
     assert(!clause_at(k.arena, r)->vivify());
-  // arm exactly one and it must come first
-  clause_at(k.arena, refs[2])->set_vivify(true);
+  clause_at(k.arena, refs[2])->set_vivify(true); // armed candidates come first
   vivify_candidates(k, cands);
   assert(cands.size() == 3 && cands[0] == refs[2]);
 }
 
-// The mechanism itself: two candidates sharing a leading literal reuse the
-// assumption, and the off arm does not. A reuse rate of zero here would mean
-// the loop never fires.
+// Candidates sharing a leading literal reuse the probe assumption; with
+// reuse off every candidate returns to the root instead.
 static void test_trail_reuse() {
   Kernel k;
   kernel_reserve_vars(k, 8);
-  // three clauses over a shared, high-occurrence head (1 2 ...) so the global
-  // literal order puts 1 and 2 first in all of them
+  // a shared head, so the global literal order puts 1 and 2 first in all three
   const Lit a[4] = {internalize(1), internalize(2), internalize(3),
                     internalize(4)};
   const Lit b[4] = {internalize(1), internalize(2), internalize(5),
@@ -214,7 +196,7 @@ static void test_trail_reuse() {
   kernel_add_large_clause(k, b, 4, false, 0);
   kernel_add_large_clause(k, c, 4, false, 0);
   assert(vivify_apply(k) == ApplyResult::NoOp); // nothing to derive here
-  assert(k.stats.vivify_reused > 0);            // ...but the prefix was shared
+  assert(k.stats.vivify_reused > 0);            // but the prefix was shared
   const uint64_t on = k.stats.vivify_reused;
 
   Kernel k2;
@@ -226,14 +208,11 @@ static void test_trail_reuse() {
   assert(vivify_apply(k2) == ApplyResult::NoOp);
   assert(k2.stats.vivify_reused == 0); // the off arm returns to the root
   assert(on > 0 && k2.stats.vivify_probes > k.stats.vivify_probes);
-  // and the round leaves the root clean either way
-  assert(k.level == 0 && k2.level == 0 && !k.conflict_valid);
+  assert(k.level == 0 && k2.level == 0 && !k.conflict_valid); // root is clean
 }
 
-// SCHED-H1 (Vivify half). The poll has no cadence, so "the site was reached"
-// and "the site fired" are both non-zero on the first round that sees a
-// raised stop — the failure mode this replaces is a poll window an instance
-// never reaches.
+// The termination poll is cadence-free: a raised stop is both reached and
+// honoured on the first candidate, before any work.
 static void test_termination_poll() {
   Kernel k;
   kernel_reserve_vars(k, 9);

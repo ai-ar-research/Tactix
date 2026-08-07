@@ -1,26 +1,9 @@
-// Sweep: candidate selection + environment construction.
-//
-// Four things have to be true for detection to be worth anything, and each has its
-// own test here:
-//
-//  1. IT FINDS EQUIVALENCES RUP CANNOT (test_non_rup_equivalence). The whole
-//     reason V5 exists is that a swept equivalence is entailed but not RUP
-//     (design §4); the fixture proves its own premise by assuming the pair and
-//     propagating in the MAIN kernel — no conflict, so the RUP fast path could
-//     never get this one — and only then requires the detector to.
-//  2. EVERY CLAIM IS TRUE (test_brute_force_oracle). 20k random formulas, and
-//     every reported `a ≡ b` re-checked by enumerating all models of the
-//     ORIGINAL formula. This is the oracle that would catch an environment that
-//     is not a subset of F, a mis-mapped literal, or a vacuous "refutation".
-//  3. THE ENVIRONMENT IS LITERALLY MADE OF F's CLAUSES (test_env_provenance).
-//     Each environment clause is matched back to a kernel clause with the SAME
-//     literals and the SAME proof id — the core mapping is exactly this
-//     lookup, and a truncated or strengthened clause would break it silently.
-//  4. THE LIMITS BIND WITHOUT TRUNCATING (test_limits).
-//
-// Plus the two bookkeeping cases: an equivalence the formula already states is
-// not re-reported (test_known_equivalence), and the seed order skips what
-// cannot be swept (test_seeds).
+// Sweep: candidate selection and environment construction
+// (docs/design/v5-sweep-design.md). What makes detection worth anything, one
+// test each: it finds equivalences RUP cannot, every claim it makes holds in
+// every model of the original formula, the environment is made of F's own
+// clauses (same literals, same proof id), and the limits bind without
+// truncating a clause.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
@@ -38,8 +21,8 @@ using namespace tactix;
 
 namespace {
 
-// Build a kernel from DIMACS-style clauses, handing every clause a proof id in
-// input order (what the parser does).
+// Build a kernel from DIMACS-style clauses, ids in input order as the parser
+// hands them out.
 void build(Kernel &k, uint32_t nvars, const std::vector<std::vector<int>> &cls) {
   kernel_reserve_vars(k, nvars);
   for (const auto &c : cls) {
@@ -102,10 +85,9 @@ bool is_rup_binary(Kernel &k, Lit a, Lit b) {
 }
 
 // --- 1. the equivalence RUP cannot reach ------------------------------------
-// (¬x ∨ y ∨ ±z ∨ ±w) over all four sign patterns says x → y with NO unit
-// consequence: assuming x ∧ ¬y leaves (z ∨ w), (z ∨ ¬w), (¬z ∨ w), (¬z ∨ ¬w),
-// which needs a DECISION to refute. The mirrored block gives y → x the same
-// way, so F ⊨ x ≡ y and neither binary is RUP.
+// (¬x ∨ y ∨ ±z ∨ ±w) over all four sign patterns says x → y with no unit
+// consequence (refuting x ∧ ¬y needs a decision), and the mirrored block gives
+// y → x, so F ⊨ x ≡ y while neither binary is RUP.
 std::vector<std::vector<int>> non_rup_formula() {
   std::vector<std::vector<int>> cls;
   for (int zs = -1; zs <= 1; zs += 2)
@@ -146,9 +128,8 @@ void test_non_rup_equivalence() {
   assert(k.next_clause_id == cls.size());
 }
 
-// The same equivalence, reached through the per-seed entry point (what
-// `instances()` drives), and from the OTHER seed — the answer must not
-// depend on which end of the pair is swept.
+// The per-seed entry point `instances()` drives: the answer must not depend on
+// which end of the pair is swept.
 void test_seed_symmetry() {
   const std::vector<std::vector<int>> cls = non_rup_formula();
   for (uint32_t seed = 0; seed < 2; seed++) {
@@ -209,24 +190,21 @@ void test_brute_force_oracle(uint32_t rounds) {
     // the round leaves the formula alone
     assert(k.stats.sweep_equivalences == r.found.size());
   }
-  // Reachability, at the source: a green oracle over ZERO environments or ZERO
-  // claims is vacuous, so assert both are non-zero.
+  // Reachability at the source: an oracle over zero environments or zero
+  // claims is vacuous.
   printf("  oracle: %llu environments, %llu claims (%llu not RUP)\n",
          (unsigned long long)envs, (unsigned long long)claims,
          (unsigned long long)nontrivial);
   assert(envs > 0);
   assert(claims > 0);
-  // Non-RUP claims are RARE on formulas this small (~8 in 4,400 at the default
-  // size) — unit propagation over the negated binary is strong. The default run
-  // is large enough to require one; a shortened soak is not, and the property
-  // has its own deterministic fixture above.
+  // Non-RUP claims are rare on formulas this small, so only the default-length
+  // run is large enough to require one.
   assert(nontrivial > 0 || rounds < 20000);
 }
 
 // --- 3. the environment is made of F's clauses -------------------------------
-// Every environment clause must BE a kernel clause: same literals (as a set),
-// same proof id. That is the property `env ⊆ F` rests on, and the one S-e's
-// core→id mapping consumes.
+// Every environment clause must be a kernel clause: same literal set, same
+// proof id. That is what `env ⊆ F` and the core→id mapping rest on.
 void test_env_provenance() {
   std::mt19937 rng(4242);
   for (uint32_t it = 0; it < 200; it++) {
@@ -262,12 +240,11 @@ void test_env_provenance() {
           got.push_back(externalize(e.clause_lits[i]));
         std::sort(got.begin(), got.end());
         assert(e.clause_ids[c] != 0 && "every environment clause is cited");
-        // find the input clause with this id and compare literal sets
         assert(e.clause_ids[c] <= cls.size());
         std::vector<int> want = cls[e.clause_ids[c] - 1];
         std::sort(want.begin(), want.end());
         assert(got == want && "environment clause differs from F's clause");
-        // and every variable of it is mapped into the sub-solver's space
+        // every variable is mapped into the sub-solver's space
         for (uint32_t i = e.clause_off[c]; i < e.clause_off[c + 1]; i++)
           assert(e.sub_of_var[var_of(e.clause_lits[i])] < e.vars.size());
       }
@@ -275,7 +252,7 @@ void test_env_provenance() {
   }
 }
 
-// --- 4. the limits bind, and bind by DECLINING whole clauses ------------------
+// --- 4. the limits bind by declining whole clauses ---------------------------
 void test_limits() {
   // a 6-variable clique of binaries: every seed can reach every variable
   std::vector<std::vector<int>> cls;
@@ -314,8 +291,8 @@ void test_limits() {
 
 // --- 5. an equivalence the formula already states ----------------------------
 void test_known_equivalence() {
-  // (¬1 ∨ 2), (1 ∨ ¬2) IS 1 ≡ 2 — nothing for Sweep to add. It must be counted
-  // as known, not reported as a find (S-d would emit a duplicate binary).
+  // (¬1 ∨ 2), (1 ∨ ¬2) already states 1 ≡ 2: count it as known, do not report
+  // a find, since emission would duplicate a binary.
   Kernel k;
   build(k, 3, {{-1, 2}, {1, -2}, {1, 3}, {-3, 2}});
   SweepRound r;
@@ -352,9 +329,8 @@ void test_seeds() {
 
 // --- 7. an environment that refutes the formula outright ---------------------
 void test_env_unsat() {
-  // (1)(¬1) is caught before sweeping; use a refutation the environment finds:
-  // the four clauses over {1,2} are UNSAT, and any seed's environment holds all
-  // of them.
+  // (1)(¬1) is caught before sweeping, so use a refutation the environment
+  // finds: the four clauses over {1,2} are UNSAT and every seed sees them all.
   Kernel k;
   build(k, 3, {{1, 2}, {1, -2}, {-1, 2}, {-1, -2}});
   SweepRound r;
@@ -367,18 +343,11 @@ void test_env_unsat() {
 
 } // namespace
 
-// --- S-d: emission via the RUP fast path ----------------------------------
-//
+// --- emission via the RUP fast path -----------------------------------------
 // Detection proves `a == b` inside an environment; emission must justify it
-// over the MAIN formula in a form a checker accepts. This pins both halves of
-// that contract:
-//   (1) an equivalence that IS RUP over F is emitted as TWO binaries, and
-//   (2) `sweep_apply` reports Ok and moves `sweep_binaries` by exactly 2.
-//
-// The fixture is a 4-cycle of implications: a->c->b and b->d->a. Assuming
-// `a AND NOT b` propagates a->c->b and conflicts, so (NOT a OR b) is RUP; the
-// mirror gives (a OR NOT b). Both directions are therefore replayable, which is
-// precisely the case the fast path is for.
+// over the main formula in a form a checker accepts, as two binaries. The
+// fixture is a 4-cycle a->c->b, b->d->a, so both directions propagate to a
+// conflict and both binaries are replayable.
 static void test_sd_emits_rup_equivalence(void) {
   Kernel k;
   kernel_reserve_vars(k, 8);
@@ -392,9 +361,7 @@ static void test_sd_emits_rup_equivalence(void) {
   const uint64_t before = k.stats.sweep_binaries;
   const ApplyResult r = sweep_apply(k);
   if (r == ApplyResult::NoOp) {
-    // Detection is budgeted and environment-shaped; if it did not find the pair
-    // there is nothing to assert about emission. Say so loudly rather than
-    // passing quietly -- a silent skip is how a vacuous test reads green.
+    // Detection is budgeted; with no pair there is nothing to assert here.
     printf("  S-d: detection found nothing on the 4-cycle (emission untested)\n");
     return;
   }
@@ -407,9 +374,8 @@ static void test_sd_emits_rup_equivalence(void) {
          (unsigned long long)(k.stats.sweep_binaries - before));
 }
 
-// A pair that is NOT RUP over F must be DECLINED, leaving F byte-identical.
-// This is the fast path's honest limit and S-e's whole reason to exist; if it
-// ever emits here, it is emitting a line no checker can verify (an N2 breach).
+// A pair that is not RUP over F must be declined, leaving F unchanged;
+// emitting here would write a line no checker can verify (an N2 breach).
 static void test_sd_declines_non_rup(void) {
   Kernel k;
   kernel_reserve_vars(k, 8);
@@ -425,18 +391,11 @@ static void test_sd_declines_non_rup(void) {
   printf("  S-d: non-RUP pairs declined, F unchanged\n");
 }
 
-// --- S-e: the GENERAL path, and its reachability ---------------------------
-//
-// This is the test S-e exists for. `non_rup_formula()` carries an equivalence
-// that unit propagation CANNOT refute in either direction -- the fixture asserts
-// that premise itself above -- so the S-d fast path must decline it, and only
-// the replayed sub-solver refutation can justify it.
-//
-// The `sweep_general` assertion is the reachability proof, not a nicety: the
-// existing oracle finds only 8 non-RUP claims in 4380, so a green suite proves
-// nothing about this path unless something forces it. If this ever stops firing,
-// S-e has silently become dead code and every "sweep is fine" run is vacuous
-// with respect to it.
+// --- the general path, and its reachability ---------------------------------
+// `non_rup_formula()` carries an equivalence unit propagation cannot refute in
+// either direction, so only the replayed sub-solver refutation can justify it.
+// The `sweep_general` assertion is the reachability proof: non-RUP claims are
+// too rare for the random oracle to force this path.
 static void test_se_general_path_emits(void) {
   const std::vector<std::vector<int>> cls = non_rup_formula();
   Kernel k;
@@ -458,26 +417,14 @@ static void test_se_general_path_emits(void) {
          (unsigned long long)k.stats.sweep_binaries);
 }
 
-// --- S-e: the emitted proof, through a REAL CHECKER ------------------------
-//
-// The test above proves S-e EMITS. It cannot prove what it emits is CHECKABLE,
-// and that gap is what shipped an N2 breach: `sweep_capture_dir` and
-// `sweep_emit_general` each decoded a sub-solver literal to a kernel literal
-// with the parity INVERTED, so every general-path lemma was written as the
-// negation of the clause the sub-solver derived. Nothing above notices --
-// detection is unaffected, the two targets still form the pair (each is just
-// the other direction's binary, and `is_pair` accepts either order), F ends up
-// with both correct binaries, so the solver still answers UNSAT. Only a checker
-// sees it, and `sweep_proofs` checked the SUB-SOLVER's derivations in sub-solver
-// space, where the translation does not appear at all.
-//
-// So this writes a complete, self-contained refutation whose middle is
-// literally S-e's output and hands it to drat-trim and lrat-check
-// (tests/sweep_proofs.sh). The fixture is `non_rup_formula()` -- x == y, and
-// neither binary RUP -- closed into an UNSAT formula by (x v y) and (~x v ~y).
-// Sweep supplies the two equivalence binaries with their chains; the last two
-// lemmas below finish the refutation from them, so a rejected general-path lemma
-// is a rejected proof.
+// --- the emitted proof, through a real checker ------------------------------
+// Emitting is not the same as being checkable: a sub-solver literal decoded
+// with inverted parity still leaves both correct binaries in F, so detection,
+// the pair test and the verdict all look right and only an external checker
+// sees the bad lemma (N2). So this writes a self-contained refutation whose
+// middle is the general path's output, for drat-trim and lrat-check
+// (tests/sweep_proofs.sh): `non_rup_formula()` closed by (x v y) and
+// (~x v ~y), the last two lemmas finishing from Sweep's binaries.
 static void emit_se_case(const char *dir) {
   const std::vector<std::vector<int>> env = non_rup_formula(); // clauses 1..8
   const uint64_t ID_XY = 9, ID_NXNY = 10;
@@ -501,13 +448,9 @@ static void emit_se_case(const char *dir) {
     Proof proof;
     assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
     Kernel k;
-    // The KERNEL holds only clauses 1..8. Clauses 9/10 are in the file but not
-    // in F, on purpose: together they refute it, and an environment that is
-    // itself UNSAT makes S-c return before any candidate is solved (there is
-    // then nothing to be equivalent to). Sweep must sweep a SATISFIABLE
-    // environment; the contradiction is closed by hand below, exactly as a real
-    // solve closes it from somewhere outside the swept neighbourhood. The id
-    // cursor skips past 9/10 so no lemma ever reuses their ids.
+    // The kernel holds only clauses 1..8: detection needs a satisfiable
+    // environment, so 9/10 stay out of F and the contradiction is closed by
+    // hand below. The id cursor skips past them so no lemma reuses their ids.
     build(k, 4, env);
     k.next_clause_id = ID_NXNY;
     k.proof = &proof;

@@ -1,5 +1,5 @@
-// S5 Lucky unit tests: constant probes, sweep probes, abandonment
-// restoring the entry state (phases untouched), the registry surface.
+// Lucky unit tests: constant probes, sweep probes, abandonment restoring the
+// entry state with phases untouched, and the registry surface.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -19,7 +19,7 @@ static void add3(Kernel &k, int a, int b, int c) {
 
 static void test_all_true() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   add3(k, 1, 2, 3);
@@ -33,24 +33,21 @@ static void test_all_true() {
 
 static void test_all_false() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   add3(k, -1, -2, -3);
-  // all-true is defeated by the all-negative clauses...
   assert(lucky_apply_probe(k, LUCKY_ALL_TRUE) == ApplyResult::Ok);
-  assert(k.unassigned == 3); // ...and the state is untouched
-  // ...but all-false satisfies everything
+  assert(k.unassigned == 3); // a defeated probe leaves the state untouched
   assert(lucky_apply_probe(k, LUCKY_ALL_FALSE) == ApplyResult::Sat);
   for (Var v = 0; v < 3; v++)
     assert(k.values[make_lit(v, true)] > 0);
 }
 
 static void test_sweep() {
-  // mixed-polarity clauses defeat both constants; a forward-false sweep
-  // (assume each variable false, propagate) finds the model
+  // mixed polarity defeats both constants; the forward-false sweep succeeds
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));   // no all-F
   kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // no all-T
@@ -62,10 +59,10 @@ static void test_sweep() {
 }
 
 static void test_unsat_probes_abandon() {
-  // PHP(3 -> 2): UNSAT, so every probe must abandon and restore the
-  // entry state exactly — including the saved phases
+  // on UNSAT every probe abandons and restores the entry state exactly,
+  // saved phases included
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
   auto var = [](int p, int h) { return p * 2 + h + 1; };
   for (int p = 0; p < 3; p++)
@@ -88,13 +85,12 @@ static void test_unsat_probes_abandon() {
   }
   assert(k.stats.lucky_probes == 6);
   assert(k.stats.conflicts == 0); // probe conflicts are not search ones
-  // the formula still solves correctly afterwards
-  assert(default_solve(k) == 20);
+  assert(default_solve(k) == 20); // and the formula still solves correctly
 }
 
 static void test_registry_surface() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   const int id = tactix_rule_id("Lucky");
@@ -106,13 +102,13 @@ static void test_registry_surface() {
   assert(insts[0] == LUCKY_ALL_TRUE);
   assert(r.apply_instance(k, 99) == ApplyResult::NoOp); // unknown payload
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Sat);
-  assert(!r.guard(k)); // no longer quiescent-with-work: all assigned...
-  // (guard is about state shape; SAT is read via the status predicate)
+  // the guard reads state shape only; SAT comes from the status predicate
+  assert(!r.guard(k)); // no longer quiescent-with-work: all assigned
 }
 
 static void test_guard_needs_quiescent_root() {
   Kernel k;
-  ScopedHeuristics _hg_k(k); // attach H (the session owns it)
+  ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   assert(lucky_guard(k));

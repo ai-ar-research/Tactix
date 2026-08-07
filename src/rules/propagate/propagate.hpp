@@ -10,26 +10,19 @@ namespace tactix {
 bool propagate_guard(const Kernel &);
 ApplyResult propagate_apply(Kernel &);
 
-// The propagation SERVICE (a primitive, not a rule): propagate to a fixpoint or
-// first conflict; at level 0 emit each derived root unit's LRAT id and, on a
-// root conflict, refute (empty clause + `inconsistent`). Returns Ok (fixpoint),
-// Conflict (below-root conflict recorded), or Unsat (root refuted). The
-// Propagate rule's `apply` is exactly this. It is exposed so the inprocessing rules
-// can reach the root closure `U` at entry when applied off a fixpoint
-// (guard purification, D-LEVEL) — a shared propagation primitive like
-// `kernel_propagate`, so this is NOT a rule calling a rule. The root-unit
-// emission is load-bearing for those callers: a drained unit needs its
-// `unit_ids[v]` set before any later LRAT chain can cite it (probe.hpp dev. 8).
+// The propagation service (a primitive, not a rule): propagate to a fixpoint
+// or first conflict; emit each derived root unit's LRAT id and, on a root
+// conflict, refute. The Propagate rule's `apply` is exactly this. Exposed so
+// inprocessing rules can reach the root closure `U` at entry — a shared
+// primitive like `kernel_propagate`, not a rule calling a rule. The root-unit
+// emission is load-bearing for them: a drained unit needs `unit_ids[v]` set
+// before any LRAT chain can cite it.
 ApplyResult propagate_service(Kernel &);
 
-// Guard-purification helper (D-LEVEL): an inprocessing rule whose guard no
-// longer requires a propagation fixpoint calls this at each policy entry point
-// (apply / apply_instance) to complete the root closure `U` before it reads the
-// assignment. It is a NO-OP AT A FIXPOINT, so DefaultPolicy — which always
-// enters propagated — never calls `propagate_service` here and stays bit-exact;
-// only a free N1 schedule that interleaves inprocessing without an intervening
-// Propagate triggers it. Returns true iff the drain refuted the formula (a root
-// conflict), in which case the caller returns `Unsat`.
+// Guard-purification helper (D-LEVEL): an inprocessing rule whose guard does
+// not require a fixpoint calls this at each entry point to complete the root
+// closure `U` before reading the assignment. A no-op at a fixpoint, so
+// DefaultPolicy stays bit-exact. True iff the drain refuted the formula.
 inline bool inprocess_reach_root(Kernel &k) {
   return k.propagate_head < k.trail.size() &&
          propagate_service(k) == ApplyResult::Unsat;

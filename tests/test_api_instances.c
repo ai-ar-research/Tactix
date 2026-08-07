@@ -1,33 +1,8 @@
-/* §5.6 ARM-SPACE COVERAGE: tactix_apply_instance driven on EVERY registry
- * entry, plus the payload contract on both sides of it.
- *
- * WHY THIS EXISTS. The instance surface IS the learned policy's action space
- * (plan §5.6), and until this file 19 of the 25 registry entries had never had
- * `tactix_apply_instance` called on them by any committed test or example — the
- * other tests call a rule's `apply` directly, or drive only Decide / Restart /
- * Reduce / Rephase through the API. The pointed case is ConflictAnalysis, whose
- * `apply_instance` is the chronological-backjump target surface and whose own
- * comment records the near-miss it already had: "the canonical path was
- * patched, the INSTANCE path (which the random policy drives) was not."
- *
- * Three contracts, all pinned here:
- *   1. REACHABILITY. For every entry there is a state where its guard holds and
- *      `tactix_apply_instance` returns something other than -1. Each entry gets
- *      its own fresh solver, so one rule's effects can never hide the next
- *      rule's guard and make a green run vacuous.
- *   2. NO PAYLOAD ALIASING. An entry with NO instance surface has exactly one
- *      application, so a payload it cannot mean is an invalid argument (-1).
- *      Running the whole canonical round for it instead is the rev-34 aliasing
- *      class: the caller asked for one instance and silently got a batch.
- *   3. The mirror image: an entry that HAS an instance surface interprets,
- *      clamps or no-ops any payload per its documented encoding and never
- *      reports -1 — that return is reserved for a failed guard or an unknown
- *      rule, so overloading it would hide the difference between "not
- *      applicable" and "nothing to do".
- *
- * The per-rule readout at the end is the anti-vacuity half — an entry reported
- * as reached only through the canonical sentinel had its PAYLOAD path untested,
- * and that must be visible rather than averaged away. */
+/* Arm-space coverage: `tactix_apply_instance` reaches every registry entry,
+ * and each entry answers a payload per its own surface — an entry without one
+ * rejects it (-1), an entry with one interprets, clamps or no-ops it and never
+ * returns -1, that return being reserved for a failed guard or unknown rule.
+ * The instance surface is the learned policy's action space (plan §5.6). */
 #undef NDEBUG
 #include "tactix.h"
 
@@ -38,17 +13,13 @@
 #define MAX_RULES 64
 #define NINST 64
 
-/* Entries with NO instance surface at all: one application, so contract 2
- * applies and a payload is an invalid argument. */
+/* Entries with no instance surface: one application, so a payload is an
+ * invalid argument. */
 static const char *const NO_SURFACE[] = {"Propagate", "Sweep", "SwitchMode"};
 
-/* Entries whose enumeration is exactly the canonical sentinel: they HAVE an
- * `apply_instance` (so contract 3 applies) but offer nothing to choose between.
- * Pinned because a rule joining or leaving this set is a deliberate act —
- * RV-S17 is Sweep's missing instance surface, and `Walk` sits here because it
- * declines to enumerate its step-count space although `walk_apply_instance`
- * accepts any step count: the same instances()-narrower-than-apply_instance
- * shape RV-S18 records for BVE. */
+/* Entries whose enumeration is exactly the canonical sentinel: an
+ * `apply_instance` with nothing to choose between. Joining or leaving this set
+ * is a deliberate act. */
 static const char *const CANONICAL_ONLY[] = {"Congruence", "Factor",
                                              "Propagate", "Sweep",
                                              "SwitchMode", "Walk"};
@@ -80,16 +51,10 @@ static void add_clause(tactix *s, const int *lits) {
   tactix_add(s, 0);
 }
 
-/* A level-0 formula with material for every inprocessing family: AND gates
- * (Congruence / BVE gate detection / Substitute), an implication chain with a
- * transitive shortcut (TransitiveReduce / Probe / Backbone), a 2x3 factorable
- * grid (Factor), long clauses that subsume and strengthen each other
- * (SubsumeForward / Strengthen / Vivify / Instantiate), and a literal occurring
- * in one polarity only (BCE / CCE). Satisfiable, so no rule can refute it out
- * from under the walk. */
+/* A level-0 formula with material for every inprocessing family, satisfiable
+ * so no rule can refute it out from under the walk. */
 static void fixture(tactix *s) {
-  /* AND gates 10 <-> (1 & 2) and 11 <-> (1 & 2): the same gate twice, so a
-     congruence really has something to merge */
+  /* the same AND gate twice, so a congruence has something to merge */
   add_clause(s, (const int[]){-10, 1, 0});
   add_clause(s, (const int[]){-10, 2, 0});
   add_clause(s, (const int[]){10, -1, -2, 0});
@@ -107,8 +72,7 @@ static void fixture(tactix *s) {
   add_clause(s, (const int[]){13, 14, 0});
   add_clause(s, (const int[]){13, 15, 0});
   add_clause(s, (const int[]){13, 16, 0});
-  /* long clauses: (17 18 19 20) is subsumed by (17 18 19); (21 22 23) and
-     (21 22 -23) strengthen to (21 22) */
+  /* (17 18 19) subsumes; (21 22 23) and (21 22 -23) strengthen to (21 22) */
   add_clause(s, (const int[]){17, 18, 19, 20, 0});
   add_clause(s, (const int[]){17, 18, 19, 0});
   add_clause(s, (const int[]){21, 22, 23, 0});
@@ -118,9 +82,8 @@ static void fixture(tactix *s) {
   add_clause(s, (const int[]){24, -25, 0});
 }
 
-/* A fresh solver in a state where `id`'s guard holds. The four search-state
- * entries need more than a quiescent root, and the preparation IS the
- * documented reason each one is listed. */
+/* A fresh solver where `id`'s guard holds; search-state entries need more
+ * than a quiescent root. */
 static tactix *prepare(int id) {
   const char *name = tactix_rule_name(id);
   tactix *s = tactix_init();
@@ -148,8 +111,7 @@ static int hit_payload[MAX_RULES];
 static int enum_empty[MAX_RULES];
 static int progressed;
 
-/* Contract 1: apply the entry, preferring a payload its own enumeration
- * offered. */
+/* Apply the entry, preferring a payload its own enumeration offered. */
 static void drive(tactix *s, int id) {
   uint64_t insts[NINST];
   const char *name = tactix_rule_name(id);
@@ -162,8 +124,8 @@ static void drive(tactix *s, int id) {
   if (n == 0)
     enum_empty[id] = 1; /* an instance surface with nothing to offer here */
 
-  /* the first payload that is NOT the sentinel: enumeration is "ranked with the
-     canonical instance first", so element 0 may legitimately be the sentinel */
+  /* the first payload that is not the sentinel: enumeration is ranked with the
+     canonical instance first, so element 0 may legitimately be it */
   int pick = -1, i;
   for (i = 0; i < n && pick < 0; i++)
     if (insts[i] != TACTIX_INSTANCE_CANONICAL)
@@ -183,9 +145,9 @@ static void drive(tactix *s, int id) {
   }
 }
 
-/* Contracts 2 and 3, on their own solver: a payload no enumeration produced —
- * 7, which is a legal keep-level for Restart, a legal victim count for Reduce,
- * a legal variable for BVE and nonsense for a closure. */
+/* The payload contract, on its own solver: 7 is a legal keep-level for
+ * Restart, a victim count for Reduce, a variable for BVE, and nonsense to a
+ * closure. */
 static void alias_contract(tactix *s, int id) {
   const char *name = tactix_rule_name(id);
   const uint64_t before = tactix_stat(s, TACTIX_STAT_CONFLICTS) +
@@ -213,9 +175,8 @@ int main(void) {
   assert(n <= MAX_RULES);
 
   for (id = 0; id < n; id++) {
-    /* a fresh solver per contract per entry: a shared one would let an earlier
-       rule's effect silently make a later guard false — coverage that reads as
-       green having tested less */
+    /* a fresh solver per entry: a shared one lets an earlier rule's effect
+       make a later guard false, so the run reads green over less */
     tactix *s = prepare(id);
     drive(s, id);
     tactix_release(s);
@@ -226,9 +187,7 @@ int main(void) {
     payload += hit_payload[id];
   }
 
-  /* the readout, per entry: PAYLOAD means the chosen-instance path ran, CANON
-     means only the sentinel did (the entry is canonical-only, or its
-     enumeration was empty in this state) */
+  /* per entry: the chosen-instance path ran, or only the sentinel did */
   for (id = 0; id < n; id++)
     printf("  %-18s %s%s\n", tactix_rule_name(id),
            hit_payload[id] ? "PAYLOAD" : "CANON  ",

@@ -1,7 +1,6 @@
-// See transitive_reduce.hpp for the reference/deviation record. V4 deletes
-// transitively-redundant binaries; the walk is read-only (the V3a idiom) and
-// every mutation goes through kernel_delete_binary, which owns the proof
-// delete and the root-reason retirement.
+// See transitive_reduce.hpp for the rule's contract. The walk is read-only and
+// every mutation goes through kernel_delete_binary, which owns the proof delete
+// and the root-reason retirement.
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -13,27 +12,22 @@
 namespace tactix {
 
 bool transitive_reduce_guard(const Kernel &k) {
-  // quiescent root (C1/C2/C3/V1/V2/V3's argument)
-  // D-SPLIT-3 (guard purification): the ¬conflict_valid conjunct is gone —
-  // this is a pure F-rewrite (sound regardless of a recorded conflict), and
-  // the conjunct was redundant anyway (conflict_valid ⟹ level>0 at any rule
-  // boundary, so it never fired under the retained level==0). calculus §7.
+  // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
+  // regardless of a recorded conflict (D-SPLIT-3, `docs/calculus.md` §7).
   return !k.inconsistent && k.level == 0;
 }
 
 namespace {
 
-// Out-edges of p (implications p → q) are the binary watches of negate(p): a
-// binary clause (negate(p) ∨ q) is exactly the implication p → q (the V3a
-// read-only walk idiom, shared with Substitute's SCC pass). Nothing pushes to
-// the watch arena during a walk, so a WatchLists::entries range stays valid for
-// its whole duration — kernel_delete_binary only ever runs between walks, and
-// compacts in place.
+// Out-edges of p are the binary watches of negate(p): (negate(p) ∨ q) is
+// exactly p → q. Nothing pushes to the watch arena during a walk, so an entries
+// range stays valid throughout — kernel_delete_binary only ever runs between
+// walks, and compacts in place.
 
-// per-round scratch (mirrors vivify's local buffers — nothing rule-scoped
-// leaks into the kernel). `dead` is indexed by the OTHER endpoint x and means
-// "the pair (src ∨ x) is excluded from every walk": that single flag serves
-// both as the candidate's self-exclusion and as the round-local tombstone.
+// Per-round scratch; nothing rule-scoped leaks into the kernel. `dead` is
+// indexed by the other endpoint x and means "the pair (src ∨ x) is excluded
+// from every walk": one flag serving both as the candidate's self-exclusion and
+// as the round-local tombstone.
 struct Walk {
   std::vector<uint8_t> reached; // by lit
   std::vector<Lit> touched;     // the marked lits, for O(marked) clearing
@@ -54,13 +48,11 @@ struct Walk {
   }
 };
 
-// Reachability walk from ¬src over the binary implication graph, skipping
-// every edge whose CLAUSE is one of this source's excluded (src ∨ x) pairs —
-// in either direction, which is what keeps a candidate out of its own
-// justifying path (hpp deviation 2). Read-only: never touches trail/values/
-// levels. Returns true iff dst is reached; sets *failed when some literal is
-// reached together with its negation, i.e. ¬src ⊨ q ∧ ¬q, so ¬src is a failed
-// literal and src a forced unit (deferred to V1 Probe — hpp deviation 5).
+// Reachability walk from ¬src over the binary implication graph, skipping every
+// edge whose clause is one of this source's excluded (src ∨ x) pairs, in either
+// direction — that is what keeps a candidate out of its own justifying path.
+// Read-only. Returns true iff dst is reached; sets *failed when some literal is
+// reached with its negation, i.e. ¬src is a failed literal, deferred to V1.
 bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
   *failed = false;
   for (const Lit l : w.touched)
@@ -76,8 +68,8 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
   for (size_t qi = 0; qi < w.queue.size(); qi++) {
     const Lit l = w.queue[qi];
     const Lit nl = negate(l); // edges l → q are the binary watches of ¬l
-    // the walk's real memory traffic, in propagate's cache-line unit
-    // (kernel.cpp's propagation scan): this scan is the whole cost of visiting `l`
+    // the walk's real memory traffic, in propagate's cache-line unit: this
+    // scan is the whole cost of visiting `l`
     w.ticks += 1 + (static_cast<uint64_t>(k.watches.size(nl)) >> 4);
     for (const WatchEntry wt : k.watches.entries(nl)) {
       if (!wt.binary())
@@ -88,11 +80,10 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
       // contrapositive ¬dst → src wherever it turns up
       if ((nl == src && w.dead[q]) || (q == src && w.dead[nl]))
         continue;
-      // root-fixed literals are not nodes. At an engine fixpoint an active
-      // node has no edge to a root-FALSE literal (that edge would have forced
-      // the node false), and every successor of a root-TRUE literal is itself
-      // root-true — so no path to an active dst is lost. Skipping is in any
-      // case conservative: fewer paths found, never more
+      // root-fixed literals are not nodes. At an engine fixpoint an active node
+      // has no edge to a root-false literal, and every successor of a root-true
+      // literal is itself root-true, so no path to an active dst is lost;
+      // skipping is conservative anyway — fewer paths found, never more
       if (k.values[q] != 0)
         continue;
       if (w.reached[q])
@@ -104,8 +95,8 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
         return false;
       }
       if (q == dst) {
-        found = true; // deviation 3: normally NO early exit — the walk runs to
-                      // exhaustion so failed-literal detection sees everything
+        found = true; // normally no early exit: the walk runs to exhaustion so
+                      // failed-literal detection sees the whole reachable set
         if (k.transitive_early_exit)
           return true; // kissat transitive.c:130; forfeits this walk's units
       }
@@ -129,10 +120,9 @@ uint32_t collect_candidates(const Kernel &k, Walk &w, Lit src) {
       continue;
     const Lit dst = wt.other();
     out_degree++;
-    // dst > src tests each undirected clause from exactly one endpoint (the
-    // BIG holds an implication and its contrapositive, so both endpoints'
-    // tests are equivalent — kissat transitive.c:101 dedups the same way). A
-    // root-fixed dst means (src ∨ dst) is root-satisfied: C2's flush owns it
+    // dst > src tests each undirected clause from one endpoint only; both
+    // endpoints' tests are equivalent (kissat transitive.c:101 dedups the same
+    // way). A root-fixed dst means (src ∨ dst) is satisfied: C2's flush owns it
     if (dst <= src || k.values[dst] != 0)
       continue;
     if (w.copies[dst] == 0)
@@ -140,9 +130,9 @@ uint32_t collect_candidates(const Kernel &k, Walk &w, Lit src) {
     if (w.copies[dst] < 255)
       w.copies[dst]++;
   }
-  // drop duplicated pairs (hpp deviation 8: binary_ids names a PAIR, so one
-  // copy of a duplicate cannot be deleted without stranding the other on a
-  // retired id) and clear w.copies in the same pass
+  // drop duplicated pairs (binary_ids names a literal pair, so one copy of a
+  // duplicate cannot be deleted without stranding the other on a retired id)
+  // and clear w.copies in the same pass
   size_t n = 0;
   for (size_t i = 0; i < w.cands.size(); i++) {
     const Lit dst = w.cands[i];
@@ -152,9 +142,9 @@ uint32_t collect_candidates(const Kernel &k, Walk &w, Lit src) {
       w.cands[n++] = dst; // in-place: n <= i always
   }
   w.cands.resize(n);
-  // canonical order = ascending literal code, so the round is a function of
-  // the GRAPH, not of watch-list layout (the tombstone makes which edge of a
-  // mutually-redundant pair survives order-dependent)
+  // canonical order = ascending literal code, so the round is a function of the
+  // graph, not of watch-list layout — the tombstone makes which edge of a
+  // mutually-redundant pair survives order-dependent
   std::sort(w.cands.begin(), w.cands.end());
   return out_degree;
 }
@@ -234,20 +224,17 @@ void transitive_reduce_sources(const Kernel &k, std::vector<Lit> &out) {
 
 ApplyResult transitive_reduce_try(Kernel &k, Lit src) {
   assert(transitive_reduce_guard(k));
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (var_of(src) >= k.nvars || k.values[src] != 0)
     return ApplyResult::NoOp; // out of range / root-fixed
-  // Persistent per-instance scratch. A fresh Walk here costs three
-  // O(2·nvars) zero-fills + three allocations PER DOSED CANDIDATE, which is
-  // several percent of a whole solve. Reuse is behaviour-identical because
-  // every Walk array is invariant-clean between calls
-  // (`dead`/`copies` restored on exit, `reached` cleared at walk entry via
-  // `touched`); re-init only when nvars grew (Factor/BVE extension vars).
-  // thread_local keeps the scratch rule-scoped (nothing leaks into the
-  // kernel) and is safe under the plan's sequential-solving contract.
+  // Persistent per-instance scratch: a fresh Walk costs three O(2·nvars)
+  // zero-fills per dosed candidate, the per-call linear-scratch hazard. Reuse
+  // is behaviour-identical because every Walk array is invariant-clean between
+  // calls (`dead`/`copies` restored on exit, `reached` cleared at walk entry);
+  // re-init only when nvars grew. thread_local keeps the scratch rule-scoped
+  // and is safe under the plan's sequential-solving contract.
   static thread_local Walk w;
   if (w.reached.size() != 2 * static_cast<size_t>(k.nvars))
     w.init(k);
@@ -257,15 +244,10 @@ ApplyResult transitive_reduce_try(Kernel &k, Lit src) {
 // canonical instance: one full round over every source literal
 ApplyResult transitive_reduce_apply(Kernel &k) {
   assert(transitive_reduce_guard(k));
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (a no-op otherwise); a root conflict during the drain refutes.
-  // `transitive_reduce_try` and `_apply_instance` have always done this; the
-  // canonical `apply` was the ONE inprocessing entry point of eleven that did
-  // not, and it is reachable undrained through the public API (`tactix_apply`)
-  // and the slot. V4 is sound either way — the walk skips assigned literals, so
-  // an undrained root finds FEWER paths and deletes less, never more — but a
-  // policy author reasons from the blanket "every inprocessing rule drains at
-  // entry" claim, so the exception is closed rather than documented.
+  // D-LEVEL: drain the root closure U (no-op at a fixpoint); a conflict
+  // refutes. Every inprocessing entry point drains — the rule is sound either
+  // way, since an undrained root finds fewer paths, but a policy author reasons
+  // from the blanket claim.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.transitive_rounds++;
@@ -285,26 +267,23 @@ ApplyResult transitive_reduce_apply(Kernel &k) {
   return res;
 }
 
-// instance surface: payload = source literal, the shared lit_instance encoding
-// (like Decide / V1 Probe / V2 Backbone); INSTANCE_CANONICAL = the full round
+// instance surface: payload = source literal, the shared lit_instance encoding;
+// INSTANCE_CANONICAL = the full round
 static uint32_t transitive_reduce_instances(Kernel &k, uint64_t *out,
                                             uint32_t cap) {
   std::vector<Lit> srcs;
   transitive_reduce_sources(k, srcs);
   const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(srcs.size()));
-  // The set, in the rule's own order (ascending by source literal). WHERE a
-  // caller starts in it is that caller's business: SCHED-B3's resumption
-  // cursor lived here and moved to the POLICY in SCHED-E1
-  // (DefaultPolicy::SlotEntry::cursor / order_candidates), which is where a
-  // scheduling decision belongs and where every dosed entry can share it.
+  // The set, in the rule's own order. Where a caller starts in it is that
+  // caller's business: the resumption cursor lives in the policy
+  // (DefaultPolicy::SlotEntry::cursor), where a scheduling decision belongs.
   for (uint32_t i = 0; i < n; i++)
     out[i] = lit_instance(srcs[i]);
   return n;
 }
 
 static ApplyResult transitive_reduce_apply_instance(Kernel &k, uint64_t inst) {
-  // D-LEVEL guard purification: complete the root closure U if applied off a
-  // fixpoint (no-op otherwise). A root conflict during the drain refutes.
+  // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   if (inst == INSTANCE_CANONICAL)
