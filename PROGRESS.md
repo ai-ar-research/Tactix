@@ -11,7 +11,9 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 88 (2026-08-06). **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
+- **Plan revision tracked:** rev. 89 (2026-08-07) — O9 decided: **Tier D's composition is frozen through the
+  phase-4 campaign** (no SC2026), and T4's SC25 set is a scoring view, not a separate run.
+  **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
   reference inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
   everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
   file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
@@ -39,9 +41,9 @@ landing voids every pending pre-registration, so the cheap landings go BEFORE th
 In order: (1) one counters-only probe **at HEAD** to retire `D3` and `E3` (not `F2` — its zero is structural,
 see block 1); (2) ~~name the open §13 rows this file does not list~~ **DONE** — 17 carry an open verdict, 3 are
 already discharged by an accepted deviation, so exit clause (b) is **14 rows**, all now in block 3;
-(3) land the two one-line N4 rows (`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); (4) give `--tier D` its
-per-track flag and take O9's composition decision; (5) **last**, re-register block 2's 16 stale rows against
-the binary those landings leave behind.
+(3) land the two one-line N4 rows (`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); (4) ~~Tier D's per-track score and
+O9~~ **DONE** — `D-sc25.list` is a scoring view and O9 froze the composition (rev 89); (5) **last**,
+re-register block 2's 16 stale rows against the binary those landings leave behind.
 
 **▶ THEN submit pricing batch 1.** The script is written and dry-run validated:
 `$CLAUDE_JOB_DIR/tmp/price-tierb.sh` (re-create from the phase-4 UNPRICED table if the job dir is gone — the
@@ -256,7 +258,7 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 |---|---|---|
 | N1 | Any applicable rule appliable via API at any time, incl. branching choice | ◐ **No open breach.** v1 API frozen (revs 20–21), §8.4 demos 1–3 prove it end-to-end, all 26 registry entries driven through `tactix_apply_instance` (ctest `api_instances`). Four breaches found and closed to date; the last was `Factor`'s density predicate NoOping *inside* `factor_apply` (SCHED-N1FIX, moved into the policy). **The shape to watch for is guard-true / apply-NoOp** — it is why V5 Sweep was left unregistered until it had a proof delta. Final acceptance = the CCE plugin test at the phase-5 gate |
 | N2 | Proof production on every path (DRAT/LRAT) | ◐ **No open breach at HEAD**; DRAT since phase 1, native LRAT since 2026-07-14, backend serializers pinned byte-for-byte by ctest `proof`. Two breaches closed 2026-08-05 (Sweep's S-e inverted literal parity; the frontend's input-literal dedup) — reports `2026-08-05-sweep-se-polarity-fix.md`, `…-input-clause-normalization-n2.md`. **▶ Standing caveat: the INSTRUMENT had been broken — `fuzz.py`'s native-LRAT oracle accepted `NOT VERIFIED`, so every LRAT rejection in project history was recorded as a pass.** Read every pre-2026-08-05 native-LRAT figure through that. Also: drat-trim's `-L` CONVERTER rejects kissat's and cadical's proofs identically on two unsound input classes, so those cross-checks are stood down and visibly counted |
-| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ✗ **NOT MET, and the last recorded reading is STALE.** T1+T2 passed. The most recent *banked* window (`20260805-1150`, git `0418770`) read Tier B 70.71 (26/28) · Tier C 419.91 (28/30) vs kissat 228.45 and cadical 312.27 — but that predates the **effort-ledger wrap fix**, and four unread 2026-08-06 tier pairs sit in `benchmarks/runs/`. **Treat N3's current magnitude as unmeasured until a post-fix window is read.** Tier D is BUILT AND FROZEN (793 instances, 2026-08-03) and has **never been RUN** — a phase-4-exit item (§11 O9); `--tier D` still has no per-track flag for T4's SC25-set PAR-2 |
+| N3 | DefaultPolicy comparable to Kissat (T4 gate) | ✗ **NOT MET, and the last recorded reading is STALE.** T1+T2 passed. The most recent *banked* window (`20260805-1150`, git `0418770`) read Tier B 70.71 (26/28) · Tier C 419.91 (28/30) vs kissat 228.45 and cadical 312.27 — but that predates the **effort-ledger wrap fix**, and four unread 2026-08-06 tier pairs sit in `benchmarks/runs/`. **Treat N3's current magnitude as unmeasured until a post-fix window is read.** Tier D is BUILT AND FROZEN (793 instances, 2026-08-03, composition held for the campaign by rev 89) and has **never been RUN** — a phase-4-exit item. T4's SC25-set score is now a view, `subset_score.py --subset D-sc25` |
 | **N4** | **DefaultPolicy's SCHEDULING at least as sophisticated as Kissat's default strategy** (rev 80) | ✗ **KNOWN UNMET, and discharging it is phase 4's defining obligation (rev 83).** Measured three times; the third pass is BEHAVIOURAL rather than an inventory and is the one that matters — both solvers counter-instrumented on the SAME ten instances, **our BVE eliminates ZERO variables on 7 of the 9 instances where kissat eliminates anything (104 vs 2,736,829) and Factor adds ZERO on 6 of 9**, so a ledger row reading "closed" does not mean the family runs. Counts, coverage and the per-mechanism verdicts live in the ledger (`docs/implementation-notes.md` §13, machine-checked by ctest `option_coverage`) and the frozen audits — this row does not restate them. **N4 is a *mechanism* floor**: never discharged by a tier number, never deferred to §5.6 |
 
 ## Milestone gates (plan §8.3)
@@ -287,8 +289,9 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   - **R-d retirement traded the CaDiCaL half for +2 Tier B solves**, banked under plan rev 78.
   - Both instrument prerequisites are DONE (the two-baseline rule and the subset scorer — see Open items).
 - [ ] **T4 — EXCEED Kissat-public PAR-2 on Tier D** (SC25 set), via DefaultPolicy engineering and *before* any
-  learned policy. **Gates phase 5.** Blocked on two things that are not performance: Tier D has never been run,
-  and `--tier D` has no per-track flag for the SC25-set PAR-2 the gate is scored on (§11 O9).
+  learned policy. **Gates phase 5.** The scoring instrument is no longer a blocker (rev 89: the SC25 set is a
+  view, `subset_score.py --subset D-sc25`); what remains is that **Tier D has never been run**, which is phase
+  4's block 5. §11 O9 reopens the set's composition before this gate is evaluated.
 - [ ] **T5 — beat AE-Kissat-MAB's PAR-2 on Tier D** → submit to the next competition. **Gates phase 6.**
 
 ## Phases 0–2 — COMPLETE (setup · CDCL kernel · search management + API freeze)
@@ -416,11 +419,11 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
   verified a strict subset of D.list's 793 with a 393-instance SC2024 complement. Score it with
   `tools/bench/subset_score.py <rundir> --subset D-sc25` — the scorer is tier-agnostic, so nothing in `run.py`
   changed. **Run Tier D once and score it twice; never run the 400 alone.**
-- [ ] **O9's composition decision is still owed** — plan §11 O9 says revisit Tier D's composition once SC2026
-  results land (Aug 2026, i.e. now), *before* the campaign. It is a plan decision, so it goes through
-  revise-plan, and the default worth arguing for is **leave D frozen for the phase-4 campaign** (which is scale
-  evidence, not a gate) and revisit before the T4 evaluation, where the set actually gates something — changing
-  the set mid-phase would make the campaign incomparable with everything measured on the B/C overlap.
+- [x] **O9's composition decision — TAKEN 2026-08-07 (user, plan rev 89): SC2026 is NOT added.** Tier D stays
+  SC2024+SC2025 (793) through the phase-4 campaign, because that campaign is scale evidence rather than a gate
+  and re-cutting the set mid-phase would make it incomparable with everything already measured on the B/C
+  overlap. **Reopens before the T4 evaluation** (phase 5), which is the first point where the set gates a
+  result; §11 O9 keeps that half deliberately open.
 
 ### ▶ 2. Price the UNPRICED work — the largest single debt
 
@@ -612,7 +615,20 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
-### 2026-08-07 — PHASE 3 CLOSED on rule completeness; phase 4 opens
+### 2026-08-07 — PHASE 3 CLOSED on rule completeness; phase 4 opens, and block 1 starts
+
+**▶ Phase 4 re-ordered, then block 1 started** (`c720138`, `3fd6527`, `a7fde66`; plan rev 89). The ordering
+principle is that a LANDING changes the binary while a PRICING measures one that must not move, so every
+landing voids the pending pre-registrations — which is why 16 of 19 pricing rows already read RE-REGISTER.
+Blocks now run cheap-landings-and-triage → price against a frozen HEAD → mechanism work → dosing → Tier D →
+the T3 evaluation. **Two block-1 items are done.** Exit clause (b) is **14 rows, not 17**: three of the
+open-verdict rows carry an accepted deviation in the same cell (`SP-FACTOR-1`, `SP-REPEAT-*`, `SP-TIER-2`), and
+two of those were in the nine I had just added as owing a closure. And T4's per-track score needed no new
+instrument — `D.sources` already held the per-track blocks, so `benchmarks/tiers/D-sc25.list` (400) is a
+scoring VIEW over one Tier D window, scored by `subset_score.py --subset D-sc25`. **O9 decided (user): SC2026
+is not added**; Tier D is frozen through the campaign and the question reopens before the T4 evaluation.
+*Self-inflicted defect worth remembering: adding the R9 pricing row moved the table's denominator and I left
+three sentences quoting the old one — a count in prose is a fact that rots the moment the table changes.*
 
 **Report `benchmarks/reports/2026-08-07-phase-3-gate.md`, commit `edfba14`.** The four exit clauses and their
 evidence are in the Phase 3 section above and are not restated here.

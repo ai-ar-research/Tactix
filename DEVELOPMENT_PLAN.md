@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-06 (rev. 88). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-07 (rev. 89). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -1074,9 +1074,18 @@ certificates.
   check with `expected in {SAT,UNSAT}`, so UNKNOWN never trips a mismatch).
   **Tier D is NOT independent of Tiers B and C** — 18 of Tier B's 28 and 19 of
   Tier C's 30 are also in it, so a Tier D gate is not independent confirmation
-  of a B/C result. **T4 is gated on the SC25 set specifically; `--tier D` runs
-  all 793 and there is no per-track flag**, so that PAR-2 must be recomputed
-  from `results.json` using the block markers until one is added.
+  of a B/C result. **T4 is gated on the SC25 set specifically**, which is a
+  scoring VIEW over one Tier D window and never a separate run, exactly as
+  T3's rule-neutral subset is over Tier C: `benchmarks/tiers/D-sc25.list`
+  (400 = shared 7 + main_2025 393, derived rev 89 from `D.sources`' per-track
+  blocks) scored by `tools/bench/subset_score.py <rundir> --subset D-sc25`.
+  `--tier D` still runs all 793; run it once and score it twice.
+  **COMPOSITION IS FROZEN THROUGH THE PHASE-4 CAMPAIGN (O9, decided rev 89,
+  user).** SC2026 is not added now: phase 4's Tier D obligation is *scale
+  evidence*, not a gate, and re-cutting the set mid-phase would make the
+  campaign incomparable with everything already measured on the B/C overlap.
+  The composition question reopens **before the T4 evaluation** (phase 5),
+  where the set actually gates something.
 
 Selection bias warning, recorded here deliberately: Tiers A–B over-represent easy
 instances, and improvements there (especially on random 3-SAT, which rewards
@@ -1328,7 +1337,7 @@ the PROGRESS Log, and the commit.
 | O6 | MAB scheduler specifics → *framework fixed rev 26 (§5.6/§8.5): arms = the macro scheduler's slot choice points with the default schedule a permanent arm; reward = progress-per-tick, glue-window proxy first (replay-validated); windowed/discounted UCB, drift-triggered.* **Still open: exact per-slot arm sets and window/threshold constants** | phase 7 implementation |
 | O7 | Incremental solving (IPASIR assumptions, clause removal) interaction with proof logging | **phase-6 entry** (competition packaging is when an incremental interface would first have an external consumer); not competition-blocking, so it may close as "declined, with the reason" |
 | O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 6 |
-| O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | **before the phase-4 Tier D campaign** (rev 83 made running Tier D a phase-4 exit item), and again before the T4 evaluation |
+| O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets → *decided rev 89 (user), **for the phase-4 campaign only: do NOT add SC2026** — composition stays SC2024+SC2025 (793). Phase 4's Tier D obligation is scale evidence rather than a gate, so re-cutting the set mid-phase would buy nothing and would make the campaign incomparable with everything already measured on the B/C overlap. Written into §8.1.* **Still open, deliberately: whether SC2026 joins or replaces a set before the T4 evaluation**, which is the first point where the set gates a result | ~~before the phase-4 campaign~~ decided rev 89; **reopens before the T4 evaluation (phase 5)** |
 | O10 | Solver name → *decided rev 23 (user): Tactix* | ~~before any external artifact~~ decided |
 | O11 | Embedded sub-solver for Sweep (V5) and BVE definition extraction (part of E1): vendor Kissat's kitten (MIT) vs. write a minimal one. E1 can initially ship with syntactic gate detection only (ands/xors/ITE), deferring kitten-based definitions | *decided rev 72 for V5: vendor kitten, landed.* **The BVE half is now a phase-3 EXIT item (rev 83) — Track R · R10**; the sub-solver is already in-tree, so this is a consumer, not a port |
 | O12 | Contextual-bandit feature set (which cheap state features; tabular bands) and warm-start/serialization policy for learned state across runs (competition rules permitting) | phase 7, RL2 implementation |
@@ -1463,3 +1472,4 @@ conflate them.
 - **rev. 86** (2026-08-06): §9 — corrects rev 85's own supporting figure. The "19 of 25 registry entries fire" reading was partly a MEASUREMENT ARTEFACT: `fuzz.py`'s `REACH_SPECS` keyed Probe, Backbone and TransitiveReduce on their ROUND counters, which a `dosed` entry reached through `apply_instance` never increments — on a structured instance Probe and Backbone each probed 22 literals while reporting "0 rounds". The specs now key on attempts, and the corrected coverage figure is owed from the next leg. The rev-85 clause itself stands; only its number was wrong.
 - **rev. 87** (2026-08-06): §9 records the user's decision that the ~11.4 % non-terminating `--random-policy` population does **not** block the phase-3 exit (N1 robustness, not soundness; 0 % for DefaultPolicy; the harness prints it) — it had been recorded only in PROGRESS, i.e. a living doc quietly softening a plan gate. Plus six coherence fixes an audit found: **SBVA** is no longer listed as a rule family in §5 and §7 (it is an E2 `Factor` instance-selection strategy and §5.2 never had it), §5.3 no longer calls X2/X4/X5 "backlog rules", §5/§5.6 no longer say the macro scheduler "lands with C2" (it landed as Track SCHED and its dosing is phase 4), §11 O7 gains a decide-by point, and §9's phase-3 row no longer points at the effort-scheduler design, which moved with the dosing work. No gate, scope or non-negotiable change.
 - **rev. 88** (2026-08-06): §9 — the phase-3 REACHED condition is restated, because as rev 85 wrote it the condition was **unsatisfiable**: it demanded a `--require-reached` fuzz leg per family on the shipped DefaultPolicy, which no leg can ever give for an OFF-by-default family (S7 `Reorder`), which fuzz-sized instances cannot give for BVE or Factor, and which is not how R9's or R10's evidence was actually produced — both used source-counted probes on tier instances. Either form now counts, the OFF-by-default exemption is explicit and narrow, and a family firing on neither is named a finding. Found while checking whether phase 3 could exit; a gate condition that cannot be met is one that gets ignored or falsely ticked.
+- **rev. 89** (2026-08-07, user): §11 **O9 decided for the phase-4 campaign — SC2026 is NOT added**; Tier D's composition stays SC2024+SC2025 (793) because phase 4's Tier D obligation is scale evidence rather than a gate, and re-cutting the set mid-phase would make the campaign incomparable with the B/C overlap already measured. Deliberately still open, and reopening before the T4 evaluation: whether SC2026 joins or replaces a set. Same §8.1 edit records that T4's SC25 set is now a scoring VIEW (`benchmarks/tiers/D-sc25.list`, 400, derived from `D.sources`' per-track blocks, scored by `subset_score.py --subset D-sc25`) rather than the "no per-track flag, recompute by hand" the section used to describe. No gate, scope or non-negotiable change.
