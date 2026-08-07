@@ -54,8 +54,18 @@ OFF-default exemption is explicit and narrow, and a family firing on neither is 
    do not are `Reorder` (exempt), and **BVE + Factor**, which the Tier B half should show firing — R10 measured
    `9vliw_bp_mc` at 11,008 eliminated. **If BVE or Factor comes back ZERO on Tier B too, that is a finding.**
 2. **Evaluate the gate, write the report** to `benchmarks/reports/`, tick phase 3, open phase 4.
-3. Phase 4 then starts on the **18-row UNPRICED table**, 17 of them marked RE-REGISTER because the ledger-wrap
-   fix and `S-g` changed what a tick buys.
+3. **Phase 4's pricing campaign, batch 1 — SPECCED AND READY**, script at
+   `$CLAUDE_JOB_DIR/tmp/price-tierb.sh`, submit once `1587896` is off the partition (a window whose output is a
+   TIME must own a quiet partition). **One Tier B window, 17 arms + both baselines**, knob IN THE COMMAND: the
+   16 env-knob arms of the UNPRICED table plus the two `--bve-gates` arms, each verified present in the source
+   before being written down. **`shipped2` is a bit-identical replicate and is not optional** — it is the
+   in-window noise bar the whole campaign is read against (the S-f window put that pair at 1.39 PAR-2 aggregate
+   but **41 s per instance**, so every small delta is unreadable without it). Tier B first at 300 s because it
+   is cheap and #solved beats PAR-2; only survivors earn a Tier C window, and that needs its own pin dir.
+   **Read the `node` field per arm before believing anything under ~2 floors** — array task index is
+   `arm × n_instances + instance`, so arm 0 lands systematically on one node.
+   Two rows cannot be env arms and are owed separately: **`S-g`** (needs the pre-`73af059` binary) and the
+   **`E2` ordering arms** (priced one rule at a time, never as a bundle).
 
 **▶ ALSO JUST LANDED, UNPRICED: Sweep's yield defect is fixed** (`S-g`, merged from `sweep-yield`). It was
 neither dosing nor semantics — **97.1 % of Sweep's effort on `b22_1` went to a linear array scan** (`env_add`'s
