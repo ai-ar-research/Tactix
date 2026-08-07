@@ -836,17 +836,24 @@ def slurm_aggregate(outdir):
     # arm (the baseline). See leave_one_out(): the headline alone has now hidden
     # a one-instance verdict three times running.
     scored = [s2["name"] for s2 in man["solvers"] if s2.get("score_proofs", True)]
+    fragility = []
     for other in scored[1:]:
         loo = leave_one_out(scored[0], all_results[scored[0]],
                             other, all_results[other], man["timeout"])
         if loo:
-            print(loo, flush=True)
+            print(loo[0], flush=True)
+            fragility.append(loo[1])
     meta = {"tier": man["tier"], "timeout": man["timeout"], "jobs": None,
             "slurm": man["slurm"], "git": man["git"], "date": man["date"],
             "mem_gb": man["mem_gb"],
             "solvers": {s["name"]: " ".join(s["cmd"])
                         for s in man["solvers"]},
             "oracle": orc,
+            # The fragility reading DECIDES whether a delta is a verdict or
+            # one coin flip, and it lived only on stdout -- so a later reader of
+            # a banked number had to re-run --aggregate to find out. Persisted
+            # next to the numbers it judges.
+            "fragility": fragility,
             "correctness": correctness,
             "results": all_results}
     with open(os.path.join(outdir, "results.json"), "w") as f:
@@ -918,6 +925,16 @@ def leave_one_out(a_name, a_res, b_name, b_res, timeout):
         dropped.append(i)
     flipped = (run > 0) != (total > 0)
     top = order[0]
+    data = {"a": a_name, "b": b_name, "delta_par2": total / n,
+            "delta_seconds": total, "instances": n,
+            "largest_mover": os.path.basename(top),
+            "largest_mover_seconds": d[top],
+            "min_flip_k": k if flipped else None,
+            "flip_set": [os.path.basename(x) for x in dropped] if flipped else [],
+            "verdict": ("robust" if not flipped
+                        else "undecided" if k == 1
+                        else "fragile" if k <= max(2, n // 10)
+                        else "robust-ish")}
     out = [f"  A/B {a_name} -> {b_name}: {total / n:+.2f} PAR-2 "
            f"({total:+.1f} s over {n} instances)"]
     out.append(f"    largest single mover: {os.path.basename(top)} "
@@ -935,7 +952,7 @@ def leave_one_out(a_name, a_res, b_name, b_res, timeout):
                    f"-> {run / n:+.2f} PAR-2")
     else:
         out.append(f"    sign survives removing any {k - 1} instances")
-    return "\n".join(out)
+    return "\n".join(out), data
 
 
 def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
@@ -1165,10 +1182,23 @@ def main() -> int:
         {n: {"check_proofs": ch, "verify_proofs": ve, "score_proofs": sc}
          for n, _, ch, ve, sc in solvers})
     banner = correctness_banner(correctness)
+    fragility = []
+    scored_names = [n for n, _, _, _, sc in solvers if sc]
+    for other in scored_names[1:]:
+        loo = leave_one_out(scored_names[0], all_results[scored_names[0]],
+                            other, all_results[other], timeout)
+        if loo:
+            print(loo[0], flush=True)
+            fragility.append(loo[1])
     meta = {"tier": args.tier, "timeout": timeout, "jobs": args.jobs,
             "git": sha, "date": stamp, "mem_gb": mem_gb,
             "solvers": {n: " ".join(c) for n, c, *_ in solvers},
             "oracle": orc,
+            # The fragility reading DECIDES whether a delta is a verdict or
+            # one coin flip, and it lived only on stdout -- so a later reader of
+            # a banked number had to re-run --aggregate to find out. Persisted
+            # next to the numbers it judges.
+            "fragility": fragility,
             "correctness": correctness,
             "results": all_results}
     shutil.rmtree(stage, ignore_errors=True)

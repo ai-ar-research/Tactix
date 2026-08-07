@@ -226,6 +226,37 @@
       }
     }
   },
+  "fragility": [
+    {
+      "a": "govon",
+      "b": "govoff",
+      "delta_par2": 14.852600000000015,
+      "delta_seconds": 445.57800000000043,
+      "instances": 30,
+      "largest_mover": "constraints_18_0.3_2.sanitized.cnf.xz",
+      "largest_mover_seconds": 698.158,
+      "min_flip_k": 1,
+      "flip_set": [
+        "constraints_18_0.3_2.sanitized.cnf.xz"
+      ],
+      "verdict": "undecided"
+    },
+    {
+      "a": "govon",
+      "b": "govon2",
+      "delta_par2": -1.7433666666666696,
+      "delta_seconds": -52.30100000000009,
+      "instances": 30,
+      "largest_mover": "minxor128.cnf.xz",
+      "largest_mover_seconds": -40.93299999999999,
+      "min_flip_k": 2,
+      "flip_set": [
+        "minxor128.cnf.xz",
+        "T105.2.0.cnf.xz"
+      ],
+      "verdict": "fragile"
+    }
+  ],
   "correctness": {
     "clean": true,
     "verdict_mismatches": [],
