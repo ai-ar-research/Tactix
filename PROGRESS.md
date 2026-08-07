@@ -11,7 +11,7 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 85 (2026-08-06). **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
+- **Plan revision tracked:** rev. 86 (2026-08-06). **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
   reference inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
   everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
   file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
@@ -33,13 +33,11 @@ that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T
 reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
 non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**IN FLIGHT: `1587880 fuzz-hbr`** (random-policy legs + corpus) and **`1587881 fuzz-hbr2`** (the two
-DefaultPolicy legs, re-submitted). The first job's DefaultPolicy legs **did not run**: the harness refused
-`--require-reached HyperBinaryRes` because `REACH_SPECS` is hand-maintained and had no row for the new rule.
-Refusing was the right behaviour, but nothing warned before submission — `check-effort-specs` now fails on any
-registered rule with no `REACH_SPECS` entry (`98f9bfd`), and the row is keyed on **probes, not rounds**,
-because a `dosed` entry is reached through `apply_instance` and its round counter never moves. Always check `squeue` rather
-than trusting a line here.
+**NOTHING IN FLIGHT** (`squeue -u hwu`: only this session's own `cpu-q` shell). R9's fuzz legs are done and
+green — see its Track R entry. One finding outlived them: the first job's two DefaultPolicy legs **did not run**,
+because the harness refused `--require-reached HyperBinaryRes` for a rule `REACH_SPECS` had no row for. Refusing
+was right; nothing warned before submission, so `check-effort-specs` now FAILS on any registered rule with no
+`REACH_SPECS` entry.
 
 **▶ THE NEXT STEPS, in order.**
 1. **R10 · kitten BVE definitions** — the last phase-3 item. (R9 landed `a4fa14b`; its fuzz legs are job
@@ -163,10 +161,14 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   adopted, because the T3 verdict is the same either way.
 - **Citation pairing:** cite `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md` alongside
   `…/2026-08-03-broad-factor-and-t3-halves.md` — the later one supersedes its per-instance conclusion.
-- **Coverage caveat:** a 1000-case DefaultPolicy fuzz leg at ≤60 vars fires **19 of 25 registry entries** —
-  Probe, Backbone, TransitiveReduce, Factor, BVE and Reorder are **0**, so every "fuzz green" claim about those
-  six rests on the random-policy legs alone (`--require-reached` now makes this visible rather than assumed).
-  **And read every pre-2026-08-05 native-LRAT figure in this file through the fuzz-oracle defect.**
+- **Coverage caveat, PARTLY RETRACTED 2026-08-06.** A DefaultPolicy fuzz leg does not reach every registry
+  entry, and `--require-reached` makes that visible. But the "19 of 25" figure was partly a MEASUREMENT
+  ARTEFACT: `REACH_SPECS` keyed Probe, Backbone and TransitiveReduce on ROUND counters, which a `dosed` entry
+  reached through `apply_instance` never increments — on a structured instance Probe and Backbone each probed
+  **22 literals while reporting "0 rounds"**, and by the corrected counter Probe fires on **16 of 40**. The
+  specs now key on attempts (`98f9bfd`+); **the corrected coverage figure is owed from the next leg.** Factor,
+  BVE and Reorder are not yet re-examined. **And read every pre-2026-08-05 native-LRAT figure in this file
+  through the fuzz-oracle defect.**
 - demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; user decision 2026-07-25).
 
 **Open work.**
@@ -286,7 +288,11 @@ campaign 4 measured / 0 adopted.
   which is therefore also the RUP TEST — one it cannot re-derive is DECLINED, never emitted unchecked.
   **Reachability at the source: 59 resolvents, 44 subsumptions, on 4 of 40 generated structured instances**
   under the shipped DefaultPolicy; the regression corpus is all zeros, being too small to reach an inprocessing
-  phase, so no corpus-only evidence is claimed. ctest 55/55 Release + Debug ASan. **UNPRICED.**
+  phase, so no corpus-only evidence is claimed. ctest 56/56 Release + Debug ASan. **Fuzz GREEN, five legs, 0 failures**
+  (`1587880`/`1587881`): DefaultPolicy × DRAT and × native LRAT at 4000 cases each with
+  `--require-reached HyperBinaryRes` satisfied — **the rule fired in 610 of 3879 cases with stats**, so the
+  legs are not vacuous — plus `--random-policy` × both formats at 4000 each, and the 14-entry corpus on both
+  formats. **UNPRICED.**
   *Found en route and fixed in the same commit:* `Reduce::instances()` moved three Stats counters, breaking
   replay identity and making `reduce_skippable_words` exceed `reduce_scan_words` (a printed 200 %) — the figure
   `SCHED-H3` priced its decision on.
