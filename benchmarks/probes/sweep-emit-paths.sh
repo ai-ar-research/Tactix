@@ -38,7 +38,7 @@ for cnf in $(ls "$CACHE"/tierA/*.cnf | head -"$N"); do
   g=$(echo "$line" | awk '{print $7}'); c=$(echo "$line" | awk '{print $10}')
   bin_tot=$((bin_tot + b)); nrup_tot=$((nrup_tot + n)); gen_tot=$((gen_tot + g))
   cite_tot=$((cite_tot + c))
-  d=$(printf '%s\n' "$out" | grep '^c sweepdiag' | awk '{print $5}' | tr -d '(')
+  d=$(printf '%s\n' "$out" | grep '^c sweepdiag' | awk '{print $7}' | tr -d '(')
   strip_tot=$((strip_tot + ${d:-0}))
   if printf '%s\n' "$out" | grep -q '^s UNSATISFIABLE'; then
     unsat=$((unsat + 1))

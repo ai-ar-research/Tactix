@@ -28,7 +28,9 @@ leaving 1.5 % for the sub-solver, so the dose bought **174 environments where ki
 candidate order: **`b22_1` 0 → 239 equivalences and 0 → 478 emitted binaries at 1.4 % FEWER
 ticks** (kissat 545); `mp1-klieber` 2 → 45. ctest 54/54 with both proof tests; seven fuzz legs
 green on the final binary including `--sweep-stress-policy` × `TACTIX_SWEEP_FORCE_GENERAL` on
-both formats. The brief's leading hypothesis (kept root-false literals) is REFUTED by counters
+both formats, and **640 strip units cited in LRAT chains 52 proofs were then verified against,
+0 rejections on either format** — the strip citation is the only part of the proof obligation
+that moved, so that counter is what makes the legs non-vacuous. The brief's leading hypothesis (kept root-false literals) is REFUTED by counters
 and fixed anyway. **A tier A/B is OWED and specified but NOT RUN** (report §8) — this pass took
 no timing measurement at all. Remainder ledgered as `SP-SWEEP-7`. Report
 `benchmarks/reports/2026-08-06-sweep-yield-diagnosis.md`.
