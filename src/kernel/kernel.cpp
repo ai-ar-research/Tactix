@@ -532,7 +532,7 @@ static void probing_snapshot_list(Kernel &k, Lit l) {
   // S3: snapshot traffic is real memory work — charge it to the tick
   // currency (same cache-line unit as the scan at :602) so the effort
   // ledger can meter it against the probing techniques' budgets.
-  kernel_charge_ticks(k, 1 + (static_cast<uint64_t>(h.size) >> 4));
+  kernel_charge_ticks(k, 1 + kernel_cache_lines(h.size));
 }
 
 template <bool RECORD> static inline void flush_delayed(Kernel &k) {
@@ -572,11 +572,13 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   const uint32_t *p = q;
   const uint32_t *const end = k.watches.end(not_lit);
   bool conflict = false;
-  // search ticks (kissat proplit.h): 1 + cache lines of the watch list
-  // scanned, + 1 per large-clause dereference — a deterministic memory-
-  // traffic proxy used by the policy's mode-switch budget (watch entries
-  // are 4 bytes; 16 per 64-byte line)
-  uint64_t ticks = 1 + (static_cast<uint64_t>(end - p) >> 4);
+  // search ticks, kissat's proplit.h charge exactly: 1 + the cache lines of
+  // the watch list scanned, then +1 per binary assignment (:92), per
+  // large-clause dereference (:98), per watch relocation (:148) and per
+  // large-clause assignment (:174). A deterministic memory-traffic proxy, and
+  // the currency `search_ticks` is denominated in — which is the reference
+  // every effort budget takes its per-mille of.
+  uint64_t ticks = 1 + kernel_cache_lines(end - p);
 
   while (p != end) {
     const Watch head{*q++ = *p++};
@@ -594,6 +596,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         break;
       }
       kernel_assign_binary(k, blocking, not_lit);
+      ticks++;
       k.stats.propagations++;
     } else {
       const Ref ref = *q++ = *p++;
@@ -653,6 +656,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         k.delayed.push_back(replacement);
         k.delayed.push_back(other);
         k.delayed.push_back(ref);
+        ticks++;
       } else if (other_value < 0) { // conflict
         k.conflict_valid = true;
         k.conflict_ref = ref;
@@ -660,6 +664,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         break;
       } else { // unit: assign `other` with this clause as reason
         kernel_assign_ref(k, other, ref);
+        ticks++;
         k.stats.propagations++;
       }
     }
@@ -705,7 +710,7 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
   // the effort meter the policy schedules against, so harvesting the saving
   // here would move the budgets and with them the search; that is a separate
   // change (kissat does take it, backbone.c:200-202, charging only `touched`).
-  kernel_charge_ticks(k, 1 + (static_cast<uint64_t>(end - p) >> 4));
+  kernel_charge_ticks(k, 1 + kernel_cache_lines(end - p));
   // kissat's `stop_early` (backbone.c:186-193): under the binary-first layout
   // the first large entry ends the binary sub-list, so the whole tail is
   // entries this scan would skip one at a time. Sound because it drops nothing
@@ -819,7 +824,7 @@ void kernel_probing_end(Kernel &k) {
       std::copy(lg.words.begin() + s.off, lg.words.begin() + s.off + s.size,
                 k.watches.arena.begin() + k.watches.heads[s.lit].offset);
       k.watches.heads[s.lit].size = s.size;
-      kernel_charge_ticks(k, 1 + (static_cast<uint64_t>(s.size) >> 4));
+      kernel_charge_ticks(k, 1 + kernel_cache_lines(s.size));
     }
   }
   lg.lists.clear();

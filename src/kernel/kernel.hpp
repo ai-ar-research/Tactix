@@ -1235,6 +1235,15 @@ inline bool kernel_var_retired(const Kernel &k, Var v) {
   return v < k.var_status.size() && k.var_status[v] != VarStatus::Active;
 }
 
+// Cache lines touched by scanning `n` four-byte watch words, kissat's
+// `kissat_cache_lines(n, sizeof(watch))` (utilities.h:21-35): a 128-byte line
+// (ASSUMED_LD_CACHE_LINE_BYTES 7) holds 32 of them, and the count rounds up,
+// with an empty list touching none. The unit matters beyond this file: every
+// effort per-mille either reference ships is a fraction of a tick count charged
+// this way, so a different line size or a floor here silently re-prices the
+// whole ledger. One home, so the four scan sites cannot drift apart.
+inline uint64_t kernel_cache_lines(uint64_t n) { return (n + 31u) >> 5; }
+
 // The one place a tick is charged: to the global counter, and to the rule's
 // private counter when a sink is scoped around an apply. Routing every site
 // through here is what stops the two drifting.
