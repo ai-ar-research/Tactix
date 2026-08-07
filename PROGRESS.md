@@ -37,8 +37,9 @@ Both halves NOT MET. **NOTHING IN FLIGHT** (`squeue -u hwu`: only the session's 
 **▶ NEXT STEP — phase 4 block 1, which is all desk work and costs no tier window.** Reordered 2026-08-07: a
 landing voids every pending pre-registration, so the cheap landings go BEFORE the pricing batch, not after.
 In order: (1) one counters-only probe **at HEAD** to retire `D3` and `E3` (not `F2` — its zero is structural,
-see block 1); (2) name the **nine** open §13 rows this file does not list, so exit clause (b) is sized at its
-real 17; (3) land the two one-line N4 rows (`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); (4) give `--tier D` its
+see block 1); (2) ~~name the open §13 rows this file does not list~~ **DONE** — 17 carry an open verdict, 3 are
+already discharged by an accepted deviation, so exit clause (b) is **14 rows**, all now in block 3;
+(3) land the two one-line N4 rows (`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); (4) give `--tier D` its
 per-track flag and take O9's composition decision; (5) **last**, re-register block 2's 16 stale rows against
 the binary those landings leave behind.
 
@@ -394,17 +395,32 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
   **16 of the 19 live rows** demand it; the other three (`S-g` `73af059`, `R9` `a4fa14b`, `R10` `203732b`) are
   registered at ancestors of `edfba14` and need nothing. Doing this last in the block is the point: a
   re-registration against a binary that then changes is the failure this whole ordering exists to avoid.
-- [ ] **Name the nine open §13 rows this file does not.** Block 3 lists 8; `docs/implementation-notes.md` §13
-  has **17** rows still reading `WE_LACK_IT`/`WE_ARE_CRUDER`. Missing here: `SP-FACTOR-1`, `SP-TIER-2`,
-  `SP-ARENA-1`, `SP-PREPROC-2`, `SP-SUBST-2`, `SP-SHRINK-GLUE-1`, `SP-BUMP-2`, `SP-SUBSUME-3`, `SP-DECIDE-2`.
-  Exit clause (b) covers all 17, so the block that owns it is currently sized at half its content.
+- [x] **Named 2026-08-07, and the count is smaller than the verdict column suggests.** `implementation-notes.md`
+  §13 has **17** rows whose verdict reads `WE_LACK_IT`/`WE_ARE_CRUDER`, but **three carry an accepted
+  `implementation-notes.md` §13.3 deviation in the same cell**
+  and are therefore already discharged under exit clause (b), which asks for a closure *or* an accepted
+  deviation: `SP-FACTOR-1` (`SCHED-C2`, refuted three ways, and kissat with its own bound pinned to 0 is
+  fine-or-better), `SP-REPEAT-*` (`SCHED-F7`, cruder on one axis) and `SP-TIER-2` (`SCHED-C10`, an audit plus a
+  deviation — three of cadical's eight `likely_to_be_kept` sites are dead at its shipped defaults).
+  **14 are actionable**; block 3 now lists all 14. *(Do not read the verdict column alone — it is what made
+  this look like 17.)*
 - [ ] **Land the two one-line N4 rows now, not after pricing** — `SP-SHRINK-GLUE-1` (the post-shrink glue clamp
   is off by one at the tier boundary; the ledger calls it a one-token fix) and `SP-DECIDE-2` (kissat's `tumble`
   initial variable order; the ledger calls it a one-line experiment). Both change behaviour, so landing them
   after block 2 would re-register the table a third time.
-- [ ] **Tier D's tooling, which nothing else blocks** — give `--tier D` the per-track flag T4 will need
-  (§11 O9), and take O9's composition decision (it says to revisit the set once SC2026 results land, which is
-  now) *before* the campaign, not after.
+- [x] **Tier D's per-track score — DONE 2026-08-07, and it needed no new instrument.** T4 is scored on the
+  SC25 set, and `benchmarks/tiers/D.sources` already carried D.list's per-track blocks, its header saying they
+  "are what a per-track (e.g. SC25-only, gate T4) score is reconstructed from". So the flag is a scoring VIEW,
+  exactly like Tier C's rule-neutral subset: **`benchmarks/tiers/D-sc25.list`**, 400 instances
+  (main_2025 393 + the 7 shared with main_2024), lines copied verbatim from `D.list` so the two cannot drift,
+  verified a strict subset of D.list's 793 with a 393-instance SC2024 complement. Score it with
+  `tools/bench/subset_score.py <rundir> --subset D-sc25` — the scorer is tier-agnostic, so nothing in `run.py`
+  changed. **Run Tier D once and score it twice; never run the 400 alone.**
+- [ ] **O9's composition decision is still owed** — plan §11 O9 says revisit Tier D's composition once SC2026
+  results land (Aug 2026, i.e. now), *before* the campaign. It is a plan decision, so it goes through
+  revise-plan, and the default worth arguing for is **leave D frozen for the phase-4 campaign** (which is scale
+  evidence, not a gate) and revisit before the T4 evaluation, where the set actually gates something — changing
+  the set mid-phase would make the campaign incomparable with everything measured on the B/C overlap.
 
 ### ▶ 2. Price the UNPRICED work — the largest single debt
 
@@ -451,9 +467,10 @@ experiment — it was listed twice.)*
 
 ### ▶ 3. Close the remaining N4 rows — exit clause (b)
 
-*This block is the whole of clause (b): **17** rows in `docs/implementation-notes.md` §13 still read
-`WE_LACK_IT`/`WE_ARE_CRUDER`. Block 1 owes this list the nine it does not yet name. Ordered below by whether
-the row has a named target.*
+*This block is the whole of clause (b): of the **17** rows in `docs/implementation-notes.md` §13 whose verdict
+reads `WE_LACK_IT`/`WE_ARE_CRUDER`, three are already discharged by an accepted
+`implementation-notes.md` §13.3 deviation (block 1 names them), leaving **14 actionable** — all listed
+below, ordered by named target.*
 
 - [ ] **`SP-BVE-BWD-1` first — it is the sharpest N4 finding we have.** Feed BVE's fresh resolvents straight
   into subsumption; it is what makes cadical's `elimrounds`=2 sufficient. The behavioural audit measured our BVE
@@ -475,11 +492,18 @@ the row has a named target.*
   while the LIST is ordered on **99.9 %**, because one binary add anywhere clears the flag everywhere. Trap: the
   probing snapshot/restore path would have to restore the bit too.
 - [ ] **`SP-CONG-BUDGET-1` residual** — Congruence's `budget_aware` closure and Substitute's unmetered entry.
-- [ ] **The nine rows block 1 adds**, once named. Two are one-liners and land in block 1 itself
-  (`SP-SHRINK-GLUE-1`, `SP-DECIDE-2`); the rest — `SP-FACTOR-1`, `SP-TIER-2`, `SP-ARENA-1`, `SP-PREPROC-2`,
-  `SP-SUBST-2`, `SP-BUMP-2`, `SP-SUBSUME-3` — each need a closure, or an accepted deviation in
-  `implementation-notes.md` §13.3 carrying its measurement and reopening path. A deviation is a legitimate
-  close; silence is not.
+- [ ] **The seven rows this file had never named** (added 2026-08-07; with the six above and `SP-CONG-BUDGET-1`
+  that is the full actionable 14). `SP-SHRINK-GLUE-1` — the post-shrink glue clamp, kissat promotes to
+  `new_size − 1` where we clamp to `new_size`, so a shrunken ternary lands tier2 here and tier1 there; lands in
+  block 1 · `SP-DECIDE-2` — initial variable order (`tumble`), ours is header order so every tie-break and the
+  whole pre-first-conflict sequence differ · `SP-ARENA-1` — candidate enumeration is creation order here and
+  search-coupled there, and under a cutting budget ordering IS the scheduler · `SP-PREPROC-2` — our
+  preprocessing dose is 5–600× cadical's fallback, over the full rule list rather than a reduced pipeline ·
+  `SP-SUBST-2` — Substitute's unmetered entry, where porting kissat's budget naively goes INERT against our
+  1e7 floor · `SP-BUMP-2` — reason-side bump depth ramps with the mode in cadical, ours is depth 1 ·
+  `SP-SUBSUME-3` — one connection cap of 1000 where cadical splits by population (1e2 long / 1e4 binary).
+  Each needs a closure, or an accepted deviation in `implementation-notes.md` §13.3 carrying its measurement
+  and reopening path. A deviation is a legitimate close; silence is not.
 
 ### ▶ 4. The remaining dosing / admission questions
 
