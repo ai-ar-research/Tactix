@@ -11,8 +11,8 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 84 (2026-08-06, user) — **phases restructured**: phase 3 is now *rule completeness* (exit = the reference
-  inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
+- **Plan revision tracked:** rev. 84 (2026-08-06, user). **rev 83 restructured the phases**: phase 3 is now *rule completeness* (exit = the
+  reference inventory, not a tier number), the new **phase 4** owns dosing/optimization/scheduling and inherits **T3 + N4 + the Tier D run**, and
   everything from the old phase 3.5 onward shifted by one (3.5→4.5, 4→5, 5→6, 6→7). **rev 84** removed the per-instance tier tables from this
   file — `benchmarks/runs/<window>/results.json` is authoritative — leaving the obligation on the CLAIM: name the instances that moved, and
   state #solved before PAR-2. Earlier: rev 80 made **N4, the strategy floor**, a non-negotiable
@@ -21,7 +21,7 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   definitions).** Everything else open is phase-4 work.
 - **Next gate:** the **phase-3 exit** (rule inventory complete). **T3 is no longer phase 3's gate** — it is phase 4's, alongside discharging N4
   and running Tier D. T3 stands NOT met on either half; see the gate row and the tier tables.
-- **Last updated:** 2026-08-06 — compaction pass under plan rev 83 (4254 → this). Status lives in the anchor below; completed work is
+- **Last updated:** 2026-08-06 — compaction pass landed with plan rev 84 (4254 → this). Status lives in the anchor below; completed work is
   compressed to result + pointer, with the detail in the cited commit / report / design doc / Log entry.
 
 ## ▶ RESUME HERE (2026-08-06) — phase 3 (rule inventory) · **next = Track R · R9, then R10; those two close the phase**
@@ -164,11 +164,12 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
 **Open work.**
 - **`D-BVE-SCRATCH` (`RV-S19`) — the per-call linear-scratch hazard, sightings #5–#7, in hot rules.** BVE does
   **five** O(nvars) fill-inits per elimination ATTEMPT (~20·nvars bytes of memset + 4 malloc/free pairs):
-  `bve.cpp:265` two `vector<int>(2*nvars,-1)`, `:559` `seen_bin`, `:644` `seen`, `:715` `PendingUnits::init`. Two
+  `bve.cpp:238` `pos_bin`/`neg_bin` (two `vector<int>(2*nvars,-1)`), `:532` `seen_bin`, `:619` `seen`, `:691`
+  `pending.init` (`PendingUnits::init`, `kernel.hpp:1540`). Two
   facts the fix should use — the two `int` vectors are allocated **before any `bve_gate_mask` test**, so masking
   gate detection off still pays 16·nvars; and `seen_bin` already has a touched-list restore, wasted because the
   buffer dies at end of call. Marked sets are bounded by `occ(x)` (< 100 typical vs nvars ~10⁶). **Sightings #6/#7:**
-  `probe.cpp:100` and `backbone.cpp:96-97` call the 3-arg `kernel_conflict_reason_walk` with a fresh
+  `probe.cpp:97` and `backbone.cpp:93` call the 3-arg `kernel_conflict_reason_walk` with a fresh
   `vector<uint8_t>(nvars,0)` per failed literal — exactly the construction that cost **174×** on native LRAT
   (Track C · C4-perf) — and the 4-arg `touched` overload already exists, so each fix is ~6 lines copied from
   `vivify.cpp:395-401`. **Route: `revamp` or a `perf:` commit, NOT revisit-codebase** — it is §5.4, not §5.5.
@@ -178,11 +179,11 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   1000 cases (11.4 %) at 10 s, the same 114 on DRAT and native LRAT, 0 of 1000 for DefaultPolicy**; escalating the
   first 24 to 600 s leaves **18 still unfinished**, so ~8.6 % does not terminate at all. Cases kept in
   `<outdir>/nonterminating/`. N1 robustness, not soundness.
-- **`RV-S29` remainder — the `main.cpp` split (788 lines).** In order: (1) `parse_args` → `src/frontend/cli.cpp`
+- **`RV-S29` remainder — the `main.cpp` split (987 lines).** In order: (1) `parse_args` → `src/frontend/cli.cpp`
   (~180 lines; `src/policies/stress_registry.cpp` is that move already done for one flag class); (2)
   `configure_kernel_from_env(Kernel&)` (~120 lines of `TACTIX_*` reads, so `main` stops being where kernel config
   lives); (3) `print_stats` → a frontend reporter (~90 `printf("c …")` calls). **Defect to fix while in there:
-  `c strengthen` is printed TWICE** (`main.cpp:541` and `:829`), both starting from `strengthen_rounds` under
+  `c strengthen` is printed TWICE** (`main.cpp:541` and `:853`), both starting from `strengthen_rounds` under
   different schemas, so one counter is double-reported and any parser must guess which line it got.
 - **Stress-policy coverage: 10 of 25 rules still have none**, incl. Reorder (`RV-R2`). The two dangerous-class
   ones are done — `--bce-stress-policy` and `--substitute-stress-policy`, both witness-emitting on the same `ρ`
@@ -393,7 +394,7 @@ needs — per-entry occasions/declines/yield, private per-rule meters, candidate
 
 ## Phase 4.5 — engineering ingenuity on top of kissat (PIN, rev 67; renumbered from 3.5, rev 83)
 
-Deliberately unelaborated (§9 row 3.5 + §11 O15): once kissat performance is matched, a dedicated pass for novel engineering beyond the reference
+Deliberately unelaborated (§9 row 4.5 + §11 O15): once kissat performance is matched, a dedicated pass for novel engineering beyond the reference
 lineage. Concretize at the T3 gate via revise-plan.
 
 ## Phase 5 — tuning, bindings, extensibility proof (was phase 4 before rev 83)
@@ -440,7 +441,7 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - [ ] **W4e · Walk dosing hand-off** (moved from Track W 2026-08-04) — the five knob-gated Walk arms
   (`TACTIX_WALK_NO_TARGET`, `_MAX_STEPS`, `_WARMUP`, rotation, effort anchor) + `stats.walk_minimum` as a reward proxy become the **second dosing
   family** in the §5.6 exhibit, alongside elimination dosing. Each arm is a measured big-win-on-one-class / 3–20×-loss-on-the-other, which is
-  exactly the labelled signal a learner needs. **Nothing to build before phase 6** — the arms already exist behind knobs.
+  exactly the labelled signal a learner needs. **Nothing to build before phase 7** — the arms already exist behind knobs.
 - [ ] RL3 experiment: composed-batch sequencing (tabular RL) under its recorded kill criterion; neighbor-move arm proposals (TACO shape, in-run)
 - [ ] Anytime check (§8.5, rev 28): interrupt LearnedPolicy anywhere — no segment re-solves or sits in a non-solving state
 - [ ] Offline per-family preset layer (classify → presets as arms)
@@ -463,7 +464,7 @@ survives as a *strengthening* rather than a carve-out, since Factor and Sweep bo
 **rev 84 — PROGRESS.md no longer carries the per-instance tier tables**; `benchmarks/runs/<window>/results.json`
 is authoritative and `--aggregate` regenerates any view. Rev 75's real obligation is re-sited onto the CLAIM:
 name the instances that moved, state #solved before PAR-2. **Documentation compacted the same day** under the
-rule *finished → concise, unfinished and big-picture → detail*: PROGRESS 4254 → ~2500 lines, with Track SCHED's
+rule *finished → concise, unfinished and big-picture → detail*: PROGRESS 4254 → 724 lines, with Track SCHED's
 landed body becoming a roster + a standing-findings list and the pre-registered A/B specs consolidated into the
 UNPRICED table. `check-option-coverage.py` caught the compaction dropping three option names from the ledger
 corpus — exactly what it is for.
