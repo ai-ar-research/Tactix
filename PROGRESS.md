@@ -64,8 +64,14 @@ OFF-default exemption is explicit and narrow, and a family firing on neither is 
    is cheap and #solved beats PAR-2; only survivors earn a Tier C window, and that needs its own pin dir.
    **Read the `node` field per arm before believing anything under ~2 floors** — array task index is
    `arm × n_instances + instance`, so arm 0 lands systematically on one node.
-   Two rows cannot be env arms and are owed separately: **`S-g`** (needs the pre-`73af059` binary) and the
-   **`E2` ordering arms** (priced one rule at a time, never as a bundle).
+   **Two rows cannot be env arms and are owed separately, both now checked feasible.**
+   **`S-g`** needs a second binary built from `73af059`'s parent, not a knob — `73af059` exists and is the S-f
+   close, so the arm is `git worktree` + a second pin dir in the same window. Its risk is stated in the table:
+   the dose is unchanged in TICKS but a dedup probe went `|keys|` → 1, so the same budget buys more work and
+   Sweep's wall share RISES; if it loses, the first lever is `sweepeffort`, not a revert.
+   **`E2`** has seven arms (`native` shipped, plus `reverse`, `random`, `occ-asc`, `occ-desc`, `negocc-desc`,
+   `heuristic`) across six knobbed rules. Priced ONE RULE AT A TIME — the four-arm bundle's `9vliw` win was one
+   instance and a bundle — so it is its own later window, not part of batch 1.
 
 **▶ ALSO JUST LANDED, UNPRICED: Sweep's yield defect is fixed** (`S-g`, merged from `sweep-yield`). It was
 neither dosing nor semantics — **97.1 % of Sweep's effort on `b22_1` went to a linear array scan** (`env_add`'s
