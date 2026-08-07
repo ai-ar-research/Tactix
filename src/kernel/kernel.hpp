@@ -341,6 +341,17 @@ struct Stats {
 
   uint64_t ternary_rounds = 0;     // HyperTernaryRes rounds that added clauses
   uint64_t ternary_resolvents = 0; // ternary resolvents added (redundant)
+  // X6 HyperBinaryRes. `hbr_declined` is load-bearing rather than cosmetic:
+  // the resolvent is emitted only if the shared RUP replay re-derives it, so a
+  // decline is the rule refusing to write a line it cannot back, and a leg
+  // where `hbr_binaries` stayed 0 while declines rose tested nothing.
+  uint64_t hbr_rounds = 0;      // canonical rounds entered
+  uint64_t hbr_probes = 0;      // root literals closed under propagation
+  uint64_t hbr_binaries = 0;    // resolvents emitted
+  uint64_t hbr_subsumed = 0;    // reasons deleted because the resolvent subsumed them
+  uint64_t hbr_declined = 0;    // resolvents the RUP replay could not re-derive
+  uint64_t hbr_interrupts = 0;  // termination polls that fired mid-round
+  uint64_t hbr_ticks = 0;       // private meter (SCHED-B2 tick_sink)
   uint64_t ternary_binaries = 0;   // binary resolvents added (permanent)
   uint64_t ternary_ticks = 0;      // occurrence entries + pairs examined — its
                                    // budget currency for a policy

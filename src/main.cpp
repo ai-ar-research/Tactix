@@ -681,6 +681,17 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.ternary_resolvents,
            (unsigned long long)kernel.stats.ternary_binaries,
            (unsigned long long)kernel.stats.ternary_ticks);
+    // `declined` is the anti-vacuity half of this line: a resolvent is emitted
+    // only if the RUP replay re-derives it, so binaries==0 with declines>0 says
+    // the rule ran and refused, which is not the same as the rule not running.
+    printf("c hbr         %llu rounds, %llu probes, %llu binaries, "
+           "%llu subsumed, %llu declined, %llu ticks\n",
+           (unsigned long long)kernel.stats.hbr_rounds,
+           (unsigned long long)kernel.stats.hbr_probes,
+           (unsigned long long)kernel.stats.hbr_binaries,
+           (unsigned long long)kernel.stats.hbr_subsumed,
+           (unsigned long long)kernel.stats.hbr_declined,
+           (unsigned long long)kernel.stats.hbr_ticks);
     // `stale backjumps` should be 0: a nonzero value means conflicts are being
     // dropped and re-derived, which is otherwise invisible in a tier run.
     printf("c chrono      %llu chronological, %llu stale backjumps\n",

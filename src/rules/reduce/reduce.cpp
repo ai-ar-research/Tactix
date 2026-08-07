@@ -88,7 +88,7 @@ static void lock_reasons(Kernel &k, bool lock) {
   }
 }
 
-void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
+void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
   out.clear();
   lock_reasons(k, true);
   struct Victim {
@@ -106,14 +106,24 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
   // one could not know that — so `reduce_skippable_words` is an UPPER bound on
   // what the bound would buy.
   bool seen_redundant = false;
-  k.stats.reduce_scans++;
-  k.stats.reduce_scan_words += k.arena.size();
+  // MEASUREMENT ONLY on the APPLY path. `instances()` runs the same scan to
+  // rank the payloads, and counting it there would make an ENUMERATION change
+  // a counter — which breaks replay identity (§8.5's harness compares
+  // counters, and a recorded run enumerates where its replay does not) and
+  // inflates a figure whose whole purpose is to price a watermark on the
+  // reduction pass. Found by `ctest trace_replay` once a new registry entry
+  // shifted the random-policy draw onto Reduce.
+  if (measure) {
+    k.stats.reduce_scans++;
+    k.stats.reduce_scan_words += k.arena.size();
+  }
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (c->redundant() && !c->garbage()) {
       if (!seen_redundant) {
         seen_redundant = true;
-        k.stats.reduce_skippable_words += ref;
+        if (measure)
+          k.stats.reduce_skippable_words += ref;
       }
       // recency protection (kissat reduce.c; the aging tick lives in
       // reduce_apply_refs so enumeration stays side-effect-free for
@@ -128,7 +138,7 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out) {
     }
     ref += clause_words(c->size);
   }
-  if (!seen_redundant) // no live redundant clause: the whole walk was skippable
+  if (!seen_redundant && measure) // no live redundant clause: all skippable
     k.stats.reduce_skippable_words += k.arena.size();
   lock_reasons(k, false);
   // canonical worst-first ranking: highest (glue, size) first
@@ -213,7 +223,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
 ApplyResult reduce_apply(Kernel &k) {
   assert(reduce_guard(k));
   std::vector<Ref> candidates;
-  reduce_candidates(k, candidates);
+  reduce_candidates(k, candidates, /*measure=*/true);
   return reduce_apply_refs(k, candidates.data(),
                            reduce_canonical_victims(candidates.size()));
 }
@@ -245,7 +255,7 @@ static ApplyResult reduce_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return reduce_apply(k);
   std::vector<Ref> candidates;
-  reduce_candidates(k, candidates);
+  reduce_candidates(k, candidates, /*measure=*/true);
   const size_t n =
       inst < candidates.size() ? static_cast<size_t>(inst) : candidates.size();
   return reduce_apply_refs(k, candidates.data(), n);

@@ -270,15 +270,15 @@ static void test_stats_and_config_surface(void) {
   tactix_set_work_budget(s, 0);
   tactix_set_vivify_scope(s, 0);
   assert(tactix_solve(s) == 20);
-  /* completeness: every documented id 0..47 answers, id 0 included (it was
+  /* completeness: every documented id 0..49 answers, id 0 included (it was
      never swept). Ids come in yield/effort PAIRS because the plan §5.6 learner
      reads them as rewards and cost-per-unit-output — not yield alone — is the
      axis that orders rule outcomes. This is a PRESENCE check and cannot see a
      pair wired to the wrong counters: tools/docs/check-stat-ids.py (ctest
      `stat_ids`) is what pins the mapping. */
-  for (id = 0; id <= 47; id++)
+  for (id = 0; id <= 49; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
-  assert(tactix_stat(s, 48) == UINT64_MAX); /* first unknown id */
+  assert(tactix_stat(s, 50) == UINT64_MAX); /* first unknown id */
   assert(tactix_stat(s, -1) == UINT64_MAX);
   tactix_release(s);
 }
@@ -292,7 +292,8 @@ static void test_action_kind(void) {
   static const char *const golden[] = {
       "BCE",        "BVE",        "Backbone",         "CCE",
       "ConflictAnalysis",
-      "Congruence", "Decide",     "Factor",           "HyperTernaryRes",
+      "Congruence", "Decide",     "Factor",           "HyperBinaryRes",
+      "HyperTernaryRes",
       "Instantiate", "Lucky",     "Probe",            "Propagate",
       "Reduce",     "Reorder",    "Rephase",          "Restart",
       "Strengthen",

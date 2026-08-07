@@ -19,7 +19,10 @@ bool reduce_guard(const Kernel &);
 // ranked deletion candidates (canonical worst-first order: glue desc,
 // size desc; redundant, unlocked, above the keep tier only — soundness
 // filtering is the rule's). Pure query apart from transient reason locks.
-void reduce_candidates(Kernel &, std::vector<Ref> &out);
+// `measure` gates the SCHED-H3 scan counters: only a real reduction pass may
+// move them, never `instances()` (an enumeration that changes a counter breaks
+// replay identity).
+void reduce_candidates(Kernel &, std::vector<Ref> &out, bool measure = false);
 
 // recompute Kernel::tier1/tier2 as the 50 %/90 % quantiles of the used-glue
 // histogram (kissat 4.0 tiers.c). Pure configuration update: no proof delta,
