@@ -1,10 +1,12 @@
-// E1 BVE: bounded variable elimination by resolution. E1a landed the skeleton +
-// occurrence index + schedule; E1b (this commit) adds the elimination round —
-// resolution, the bound, RUP resolvent emission, deletion, and reconstruction
-// witnesses. Full cross product (no gates yet — E1c). Transliterated idioms from
-// kissat/src/eliminate.c + resolve.c; the add-before-delete / root-false-strip /
-// record_unit / witness mechanics mirror our own V3 Substitute (do_substitution),
-// the fuzzed template. See docs/e1-bve-design.md.
+// E1 BVE: bounded variable elimination by resolution — the occurrence index and
+// candidate schedule, the elimination round (resolution, the growth bound, RUP
+// resolvent emission, deletion, reconstruction witnesses), and the gate
+// reduction that shrinks the resolvent set the bound is applied to (five kinds;
+// see `bve_detect_gate` for the one soundness obligation they share).
+// Transliterated idioms from kissat/src/eliminate.c + resolve.c + definition.c;
+// the add-before-delete / root-false-strip / record_unit / witness mechanics
+// mirror our own V3 Substitute (do_substitution), the fuzzed template.
+// See docs/e1-bve-design.md.
 #include "rules/bve/bve.hpp"
 
 #include "engine/subsolver.hpp"
