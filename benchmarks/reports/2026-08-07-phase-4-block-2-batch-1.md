@@ -203,10 +203,40 @@ shippable on Tier B evidence.
 
 ## 8. What to do next, in order
 
-1. **Fix HBR's dose where the work is** — the `veer_axi` profile is `4 probes / 6.80e9 ticks`, i.e. the round
-   ceiling is polled between probes while the probe itself is unbounded. This is precisely Sweep's `S-e`
-   governor defect and the fix has a precedent to copy (`2026-08-05-sweep-governor-diagnosis.md`). That is a
-   landing, so it belongs at the head of the next landing block, not in a pricing window.
+1. **Fix HBR's dose where the work is.** The tier-wide decomposition (job `1588542`, `c hbr` against
+   `c meters … global ticks`) says the defect is not "HBR is expensive" but **"one HBR instance is
+   indivisible and can cost a whole solve"**:
+
+   | instance | probes | binaries | hbr ticks | **ticks / probe** | ticks / binary | % of solve |
+   |---|---|---|---|---|---|---|
+   | **`veer_axi…p23_transition`** | **4** | 32,125 | 6,798,135,271 | **1,699,533,817** | 211,615 | **100.0 %** |
+   | `summle_X4044…` | 117 | 13,518 | 80,516,544 | 688,175 | 5,956 | 14.1 % |
+   | `2013113162201nw` | 4,427 | 17,373 | 235,679,509 | 53,236 | 13,565 | 6.2 % |
+   | `PRP_30_38` | 3,324 | 11,624 | 209,540,467 | 63,038 | 18,026 | 40.5 % |
+   | `FmlaEquivChain_4_6_6` | 58,353 | 2,564 | 26,669,514 | 457 | 10,401 | 4.7 % |
+
+   **`veer_axi`'s per-probe cost is 2,470× the tier median and 2.5× the next worst.** One root yields ~8,031
+   resolvents, and every one of them costs a `congruence_replay_rup` — a full probing propagation plus its
+   backtrack — at ~212k ticks each. The entry is dosed at 20 ‰, but its smallest indivisible unit of work is
+   ~25 % of the tick budget of an entire 300 s solve, so the dose cannot bind. **That is Sweep's `S-e`
+   governor defect exactly** (`2026-08-05-sweep-governor-diagnosis.md`): the ceiling is polled at a boundary
+   the work never reaches.
+
+   **The obstacle is in the policy, not the rule, and it should be read before designing the fix.**
+   `HyperBinaryRes`'s `EffortSpec` row is `dosed=true, budget_aware=false`
+   (`default_policy.cpp:328`), and the policy hands `k.work_budget` only when
+   `e.meter && !e.dosed && e.budget_aware` (`:1564`) — **a dosed entry is never given a budget at all.** So
+   the ten rules that poll `k.work_budget` inside their loops (`ternary.cpp:247`, `bce.cpp:265`,
+   `cce.cpp:386`, `instantiate.cpp:270`, `vivify.cpp:519`, `factor.cpp:511`, `sweep.cpp:880`, …) are all
+   non-dosed, and HBR cannot join them without either un-dosing it or letting a dosed entry carry a budget.
+   `hyperbinary_try` already polls `kernel_rule_interrupt` in its resolvent loop (`hyperbinary.cpp:209-218`,
+   from `288c5f1`) — that is a **termination** poll, not an effort poll, and it is why the instance now
+   prints its stats at the cap instead of ignoring SIGTERM.
+
+   **No new constant is needed and none should be invented**: the budget already exists in the ledger, and the
+   bug is where it is checked. Note also that a per-resolvent RUP replay is *our* design, not the reference's —
+   kissat derives hyper-binary resolvents during the probing propagation itself — so "bound the work" and
+   "stop replaying per resolvent" are two different fixes and the second is the one the reference backs.
 2. **Add the resolvent-only guard** (`hyperbinary.cpp:163`) so `collect` and `emit` can be told apart; the
    stack samples say `emit`, `r9off` cannot confirm it, and one guard settles it.
 3. **Re-home the broad rows to Tier C.** Tier B at 300 s is the wrong instrument for them, which these two
