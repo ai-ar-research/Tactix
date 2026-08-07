@@ -54,6 +54,13 @@ Scan each living doc for:
   detail). What survives compression is the **knowledge** — as a single clause in
   the one-liner, *"…; X turned out to be Y (commit)"*, never a paragraph, and
   stated as the finding itself rather than as a pointer to a lesson number.
+- **Per-instance measurement tables (plan §8.1 rev 84).** They do not belong in a
+  living doc at all: `benchmarks/runs/<window>/results.json` is authoritative and
+  `run.py --aggregate <window>` regenerates any view. PROGRESS keeps the
+  **headline** — window stamp, SHA from that run's `manifest.json`, arms, #solved,
+  PAR-2, and any per-instance fact a live decision rests on. The obligation the
+  tables were protecting now sits on the CLAIM (#solved before PAR-2, name the
+  instances that moved), which is exactly why copying them was safe to stop.
 - **Superseded / irrelevant content.** Plans that were replaced, dead option
   branches, stale numbers, resolved TODOs. Remove — with a pointer if any residual
   value remains.
@@ -118,7 +125,13 @@ induced from a handful of local instances, and more evidence routinely changes t
 3. **Compress**, always leaving a pointer for anything with residual value.
 4. **Re-run the onboarding test** — verify the big picture + undone steps are
    still intact and prominent.
-5. **Execute through the owning protocol, never around it:** plan changes go
+5. **Run `ctest`.** Parts of `docs/implementation-notes.md` and PROGRESS are
+   machine-checked (`check-option-coverage`, `check-effort-specs`,
+   `check-config-wiring`, `check-stat-ids` run as tests), and a compaction pass
+   has dropped ledger rows before. A docs-only commit can turn the suite red.
+   Note `check-option-coverage.py` anchors on PROGRESS's **phase heading** and on
+   `implementation-notes.md` §13 — renaming either breaks it.
+6. **Execute through the owning protocol, never around it:** plan changes go
    through `revise-plan` (rev bump + a one-line §13 entry); `calculus.md` /
    `implementation-notes.md` through the `calculus` skill; `PROGRESS.md` synced in
    the same commit. A compaction commit is a normal doc commit under those rules.
