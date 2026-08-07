@@ -1,43 +1,26 @@
 # Standing lessons — measured, do not re-derive
 
-**Split out of `PROGRESS.md` on 2026-08-04** (it had grown past its size budget). This is a LIVING
-reference table, looked up by number — not a timeline. `PROGRESS.md` stays authoritative for status;
-this file is authoritative for the lessons themselves.
+A LIVING working aid, split out of `PROGRESS.md` on 2026-08-04. `PROGRESS.md` stays authoritative for
+status (including the may-not-gate set); this file owns nothing but the lessons.
 
-**▶ THESE ARE A WORKING AID, NOT AN AUTHORITY (user directive, 2026-08-04).**
+**▶ A WORKING AID, NOT AN AUTHORITY, AND NEVER CITED BY NUMBER (user directive, 2026-08-04.)** Not in
+reports, design docs, commit messages, code comments, or PROGRESS. A lesson's job is to make you *look in
+the right place*; "per L15" is not an argument. When one informs a decision, write **the finding and its
+primary evidence** into that document instead — not *"per L15, do not build a fifth gate"* but *"four
+hand-designed admission gates were each measured against no gate at all and all four lost (2026-07-28
+all-rules-ON report), so a fifth needs a new mechanism, not a new threshold."* The reader then needs no
+lookup, and the argument stands on the measurement.
 
-**Do not cite a lesson number in any document.** Not in reports, design docs, commit messages, code
-comments, or PROGRESS. A lesson's job is to make you *look in the right place* and ask the right
-question — it is not evidence, and "per L15" is not an argument. When a lesson informs a decision,
-**write the finding and its primary evidence into the document itself**: not *"per L15, do not build a
-fifth gate"* but *"four hand-designed admission gates were each measured against no gate at all and all
-four lost (2026-07-28 all-rules-ON report) — so a fifth needs a new mechanism, not a new threshold."*
-That is strictly more useful to the reader, who then needs no lookup, and it keeps the argument standing
-on the measurement rather than on a numbered claim.
+This is not style: citation is what made the old list immutable, so wrong lessons were carried rather
+than corrected (two were, both false). **A wrong lesson is worse than no lesson**, because it reads as
+settled. So entries here are **freely rewritten, merged, narrowed or DELETED** — no tombstone, no
+renumbering; numbers are handles for this file's ordering only. Frozen artifacts (`benchmarks/reports/`,
+`docs/design/`, `docs/log/`) hold ~197 `L<n>` references and are never edited; each states its own
+reasoning, so a number that no longer resolves here costs nothing.
 
-**Why this matters, and it is not style.** Citation is what made these immutable. Once `L15` appears in
-a frozen report the number can never change, so the lesson can never be corrected — and we then carry
-wrong lessons rather than break a reference. Two were carried that way and both were false: one asserted
-a reference option was dead code (it is read via token-paste) and survived three windows while routing a
-lever; another rests on a single draw of an instance later measured as a 73× lottery. **A wrong lesson is
-worse than no lesson**, because it reads as settled.
-
-**So these are freely revisable.** Rewrite, merge, narrow, or DELETE any entry the evidence no longer
-supports — no tombstone, no renumbering ceremony, no preservation for the sake of a citation. Numbers
-survive only as convenient handles for this file's own ordering. **Historical artifacts (frozen reports,
-`docs/design/`, `docs/log/`) contain ~197 `L<n>` references and are never edited** — read them as a
-record of what was believed when written; each states its own reasoning, so a number that no longer
-resolves here costs nothing.
-
-**▶ THE MAY-NOT-GATE SET.** A per-instance verdict on `mod4block`, `j3037`, `jgiraldezlevy`, `urq45`,
-`frb45` or `ContextModel` is inadmissible on its own — perturb the baseline with a mechanically-inert
-knob first, and judge on the remainder or a replicated distribution. This is the one piece of *status*
-in this file; PROGRESS carries the authoritative copy.
-
-**Re-validated 2026-08-04** (hostile pass, every entry challenged): **6 retracted and DELETED** — L1, L4,
-L5, L9, L17, L18, all of which rested on single draws from instances since measured chaotic, or on
-embargoes their own probe batches contradict. **13 narrowed**, **6 stand**, **3 new** (L26–L28) carry
-what survived. Numbers are handles for this file's ordering, nothing more.
+**Last hostile re-validation 2026-08-04**, every entry challenged: 6 retracted and deleted (L1, L4, L5,
+L9, L17, L18 — single draws from instances since measured chaotic, or embargoes their own probe batches
+contradict), 13 narrowed, 6 stand, 3 new (L26–L28).
 
 - **L2 · UNBUDGETED, undosed during-search BVE loses — ONE arm, not three.** Recurring BVE + growth-slack ramp: Tier B 20.8→32.9 with 13/14 instances worse, replicated 21.3→32.5 with P1 underneath. ⚠ The other two arms (slot-wide interval 20.7→22.5; per-technique 23.0→24.1) are deltas of 1.8 and 1.1 PAR-2, inside the same-day HEAD band, and measure NOTHING — never cite "three variants, all worse". Cause is trajectory damage (L7), NOT per-phase overhead (refuted: 33 % fewer resolvents at identical wall time). ⚠ NOT an argument against during-search elimination — that IS the shipped arrangement since 2026-07-25 (Tier B 43.86 → 17.45 → 10.62). Bounds the unbudgeted form only.
 
@@ -53,7 +36,7 @@ what survived. Numbers are handles for this file's ordering, nothing more.
 
 - **L11 · The reference's own techniques that we LACK are worth ~14 PAR-2 to it on Tier C, and dosing what we already have is worth several times that.** Price a missing mechanism by ablating it IN THE REFERENCE with an all-off control (L8), never by assuming it (window `20260727-002213-C-kabl`, whole tier, same-window): sweep+reorder+randec+eagersubsume+definitions all off costs kissat 14.32 PAR-2, **of which sweep alone is 14.00** — the other four are each at or inside the 6.72 noise floor and are NOT separately resolved (`--reorder=0` at −0.67 is a non-detection, not a measured zero). Replicated on a different set: `--no-sweep` costs kissat 0.0–2.7× on four Tier B timeouts. ⚠ Do NOT quote "≤ 9 % of the gap" — that ratio was against a 161-point gap now measured at 68–78 (`20260804-165516`, `20260804-154341`), making the same residual ~20 %. Routing still holds: V5 Sweep and S7 Reorder are inventory completeness, not the Tier C lever; the lever is quality and dosing of what we have (the Factor oracle puts admission headroom on ONE existing rule at +54 B / +42 C). Exception: `--bumpreasons=0` cost kissat 37.9 alone and shipped that night. ⚠ The N4 audit does NOT corroborate this — it measures no PAR-2 and its own theme T7 declares it structurally blind to missing inventory; it independently lists Sweep and Reorder as WE_LACK_IT.
 
-- **L12 · Decompose per instance BEFORE reading a trend off a tier aggregate.** (Method unchanged — 4×8 grid, probe 1567225, two tier-scale confirmations.) ⚠ Precision fix 2026-08-04: replace "took Tier B 14.57 → 7.57" with "**recovered ~7 Tier B PAR-2** (rate 10 gave 14.37 ex-`mod4block`; rates 15/20/25 all give 7.4–9.2 ex-`mod4block`, confirmed in two windows)" — the old pair mixed two populations. And crypto1's "11.8× spread, no trend" was measured under the then-BROKEN rate-10 config from single draws per cell: it evidences chaos AT THAT CONFIGURATION, not a standing instance property (at rate 20 crypto1 returned at 2.8 s). Separate repo defect to fix: `PROGRESS.md:624` lists crypto1 as may-not-gate while the authoritative block above it does not.
+- **L12 · Decompose per instance BEFORE reading a trend off a tier aggregate.** (Method unchanged — 4×8 grid, probe 1567225, two tier-scale confirmations.) ⚠ Precision fix 2026-08-04: replace "took Tier B 14.57 → 7.57" with "**recovered ~7 Tier B PAR-2** (rate 10 gave 14.37 ex-`mod4block`; rates 15/20/25 all give 7.4–9.2 ex-`mod4block`, confirmed in two windows)" — the old pair mixed two populations. And crypto1's "11.8× spread, no trend" was measured under the then-BROKEN rate-10 config from single draws per cell: it evidences chaos AT THAT CONFIGURATION, not a standing instance property (at rate 20 crypto1 returned at 2.8 s) — crypto1 is NOT a may-not-gate instance.
 
 - **L13 · The more PERMISSIVE proof format is not the safer one to check against.** DRAT accepts a
   trivially-true clause for free; every LRAT checker walks the hint chain and rejects a hint-less line.

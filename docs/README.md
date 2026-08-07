@@ -16,7 +16,8 @@ everything else is a frozen, dated artifact.
 | **Log archive** | `docs/log/` | **No — frozen weekly** | PROGRESS Log entries archived by ISO week; has its own README + maintenance contract |
 | **Resources** | `docs/papers/` | — | external papers |
 
-The four **living** docs, and what each owns (see protocol 1):
+The four **core living** docs, and what each owns (see protocol 1) — `docs/lessons.md` is living too,
+but it is a working aid rather than an authority and owns no fact of its own:
 
 - **`DEVELOPMENT_PLAN.md`** — scope, architecture, roadmap (requirements,
   non-negotiables N1–N4, rule catalog §5.2, tiers/gates §8, milestones §9, open
@@ -45,8 +46,13 @@ The four **living** docs, and what each owns (see protocol 1):
    its design doc carries a "Frozen snapshot — do not edit" header, lives in
    `docs/design/`, and is never touched again; its living truth is the plan +
    calculus. Reports are immutable by nature. So `docs/` top-level holds only the
-   living docs (calculus, implementation-notes), this map, and the frozen
-   `design/` + `papers/` folders.
+   living docs (`calculus.md`, `implementation-notes.md`, `lessons.md`), this
+   map, and the frozen `design/` + `log/` + `papers/` folders.
+   **Reading a frozen doc:** it is a record of what was believed when written.
+   In particular everything under `design/` and `log/` predates plan rev 83, so
+   its phase numbers are the old ones (old 3.5→4.5, 4→5, 5→6, 6→7, and "phase 3"
+   there means the pre-split phase that still owned dosing). Read a phase number
+   against the doc's date, never against the current plan §9 table.
 
 **Before creating a new doc:** prefer extending a living one. A new doc is
 justified only for (a) a design pass *before* a large feature (→ `docs/design/`)
