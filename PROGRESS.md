@@ -100,17 +100,36 @@ PAR-2, and the instances that moved by name** — a headline decided by one inst
 **Take the SHA from the run's own `manifest.json`, never from the commit that later shipped the change** — the
 2026-08-02 tables were labelled with the ship SHA and were not reproducible.
 
-**▶ CURRENT STATE: STALE. The last banked windows predate the effort-ledger wrap fix.**
+**▶ CURRENT STATE — BANKED 2026-08-06 from the four windows that had gone unread.** The headline they replace
+was badly stale, and in our favour: it read 1.345× cadical / 1.727× kissat.
 
-| tier | last banked window | git | shipped arm | result |
+| tier | window | git | shipped arm | result |
 |---|---|---|---|---|
-| B (28) | `20260805-115027-B-c5` | `0418770` | `c5` (demote ON) | 70.71, **26/28**; no baseline carried |
-| C (30) | `20260805-205741-C-sweepon` | `ea15617` | `sweepon` | 419.91, **28/30** vs kissat 228.45 (29/30), cadical 312.27 (29/30) |
-| T3 | same C window, subset 24 of 30 | | | **1.345× cadical** full · **1.727× kissat** subset — both NOT MET |
+| C (30) | `20260806-150228-C-govon` | `4f4989d` | `govon` | **355.76, 29/30** vs kissat 233.18 (29/30), cadical 317.52 (29/30) |
+| C replicate | same window | same | `govon2` | 354.01, 29/30 — **in-window noise 1.75 PAR-2**, so the ratios below are solid |
+| B (28) | *owed* | | | the phase-4 pricing window (batch 1) is the next Tier B reading |
 
-**Four unread 2026-08-06 pairs are in `benchmarks/runs/`** — `20260806-150228-C-govon`,
-`20260806-124756-C-shipped`, `20260806-102434-C-ledgerfix`, `20260806-084947-C-shipped`, each with its Tier B
-partner. Reading them and re-taking T3 is step 2 of the anchor.
+**▶ T3, both halves, on that window** (`subset_score.py`, subset = 24 of 30):
+
+| half | requirement | subset | full | verdict |
+|---|---|---|---|---|
+| CaDiCaL | ≤ 1.10× | **1.098×** | **1.120×** | **NOT MET on the full tier, and only just** — the subset is inside the band |
+| Kissat | parity on the subset | **1.396×** | 1.526× | **NOT MET**, and still the further-away half |
+
+**Both halves improved a long way** from the stale reading (cadical 1.345 → 1.120, kissat 1.727 → 1.396), which
+is the effort-ledger wrap fix landing: the `…-102434-C-ledgerfix` window alone put us at **334.44 (29/30),
+1.080× cadical** — inside the band. **Do not read that as T3 met**: it is a different window and a different
+commit, and the kissat half was never close.
+
+**▶▶ AND ONE RECORDED "WIN" IS OVERTURNED.** The `gates` + `c1c2` flips, which this file recorded as Tier B
+109.18 → 58.76 PAR-2 with 24 → 27 solves, are **NEGATIVE ON TIER C AND EVERY ARM LOSES A SOLVE**
+(`20260806-124756-C-shipped`, git `4f4989d`): shipped **27/30** at 476.98 · `gates` **26/30** at 516.93 ·
+`c1c2` **26/30** at 549.42 · `both` **25/30** at 585.03. Under §8.3 a change that LOSES a solve is not covered
+by the #solved-wins priority, whatever it does to PAR-2, so **these flips do not ship** — the Tier B result was
+a tier disagreement, not a verdict. The PAR-2 deltas are additionally UNDECIDED/FRAGILE at k=1–2, but the lost
+solves decide it without needing that.
+*(Same-binary cross-window caution, measured here: `4f4989d`'s shipped arm reads 476.98 in one window and
+355.76 in another on the same day. That is ~121 PAR-2 — never compare an absolute across windows.)*
 
 **▶ THE THREE NOISE BARS — they are different, and the biggest one is the easiest to forget.**
 - **Same-window, same-node: 6.72** (window `20260804-030938`, idle partition, three bit-identical arms
@@ -366,7 +385,7 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 
 | Item | Arm | Counter (check FIRST) | Registered at | Note |
 |---|---|---|---|---|
-| `gates`+`c1c2` flips | already measured | | **PRE-`58a46de` — RE-REGISTER** | Tier B 109.18 → 58.76, 24 → 27 solves; **Tier C fragile — re-measure with a replicate arm, then ship** |
+| ~~`gates`+`c1c2` flips~~ | **PRICED — DO NOT SHIP** | shipped 27/30 · gates 26/30 · c1c2 26/30 · both 25/30 | `4f4989d` | **Every arm LOSES a Tier C solve** (`…-124756-C-shipped`). §8.3's #solved-wins priority does not cover a change that loses a solve, whatever it does to PAR-2 — so the Tier B 24 → 27 reading was a tier disagreement, not a verdict |
 | `C6` eager subsume | `TACTIX_EAGER_SUBSUME=0` | `c eagersub` | **PRE-`58a46de` — RE-REGISTER** | |
 | `C7` randec | `TACTIX_RANDEC=0` | randec sequences | **PRE-`58a46de` — RE-REGISTER** | |
 | `C8` BVE ITE+XOR gates | `--bve-gates=equiv,andor` | `c bve-gates`, pairs saved | **PRE-`58a46de` — RE-REGISTER** | |
