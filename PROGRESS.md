@@ -464,7 +464,21 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
 
 **▶ THREE METER DEFECTS the study found, all verified at the source. They sit UNDER the dosing scheme, so a
 per-mille ported onto a broken meter transfers a number that means something else.**
-- [ ] **The tick unit is not commensurable with either reference.** `kernel.cpp:579` charges `1 + (n >> 4)`
+- [x] **The tick unit is commensurable — LANDED 2026-08-07.** `kernel_cache_lines` is now kissat's
+  `(n + 31) >> 5` (128-byte line, rounds up), the four watch-scan sites share it, and the three missing event
+  charges are in (binary assign, watch relocation, large-clause assignment). **Isolated effect: our ticks were
+  UNDER-charging by a median 1.76×** (8 instances whose search held still; `hwmcc17miters` at 1 conflict in
+  both runs reads 2.17×) — the coarser line over-charged the scan 2×, but three of four event charges were
+  missing and that dominated. **The re-pricing is ASYMMETRIC and that is the load-bearing part:** rules metered
+  in propagation ticks see budget and spend grow together, but **BVE (`bve_resolutions`), Strengthen and
+  SubsumeForward (`*_visits`) get a real ~1.76× budget increase**, because their spend counter did not move —
+  which is a mechanism for the standing N4 finding that our BVE eliminates zero variables on 7 of 9 instances
+  where kissat eliminates something. Tier B re-baseline **91.89, 25/28** (replicate 91.97, noise bar 0.07)
+  against 134.67, 23/28 — **+2 solves, none lost**. Fuzz 2 × 10,000 cases, 0 failures.
+  Report `benchmarks/reports/2026-08-07-tick-unit.md`. **Tier C is IN FLIGHT**
+  (`benchmarks/runs/20260807-172158-C-tickunit`) and is the half that decides whether the re-pricing holds
+  where the gap is broad and shallow — read it before porting any per-mille.
+- [ ] ~~**The tick unit is not commensurable with either reference.**~~ `kernel.cpp:579` charges `1 + (n >> 4)`
   (64-byte line, floored); kissat charges `1 + ceil(n/32)` (128-byte line, 4-byte watches,
   `utilities.h:19-34`) and adds three event charges we do not (`proplit.h:92` binary assign, `:148` watch
   relocation, `:174` large assign). **Every effort constant either reference ships is calibrated against ITS
