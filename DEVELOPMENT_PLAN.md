@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-06 (rev. 86). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-06 (rev. 87). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -160,7 +160,7 @@ unrecoverably. Resolution — **two-tier rule granularity, two dispatch modes**:
    (compile-time composition: a template/inlined state machine compiling to the same code as a
    hardcoded loop).
 2. **Macro-rules** (once per conflict, restart, or inprocessing phase): `Restart`, `Reduce/Forget`,
-   `Rephase`, `Subsume`, `Vivify`, `BVE`, `BCE`, `Congruence`, `SBVA`, `Probe`, `Backbone`, `Walk`,
+   `Rephase`, `Subsume`, `Vivify`, `BVE`, `BCE`, `Congruence`, `Factor`, `Probe`, `Backbone`, `Walk`,
    `SwitchMode` — dispatched **dynamically** (policy object, scriptable) at negligible cost. This is
    where scheduling flexibility pays off scientifically and where solvers differ from each other
    (Kissat vs CaDiCaL is largely macro-scheduling and kernel engineering, not the CDCL skeleton).
@@ -294,7 +294,7 @@ deriving the empty clause ⇒ UNSAT; all variables assigned without conflict ⇒
 │   micro: Decide Propagate Analyze Backjump                     │
 │   macro: Restart Reduce Rephase SwitchMode                     │
 │   inprocessing: Subsume Strengthen Vivify BVE BCE Congruence   │
-│                 SBVA Probe Backbone Walk ...                    │
+│                 Factor Probe Backbone Walk ...                  │
 ├───────────────────────────────────────────────────────────────┤
 │ Kernel (no policy knowledge)                                   │
 │   clause arena (32-bit refs) • watch lists w/ blocking lits    │
@@ -368,7 +368,7 @@ Design commitments:
      obtainable — `tools/solvers/fetch-winners.sh` stocks `winners/`) and the independent lineages
      Glucose (`./glucose`) and CryptoMiniSat (`./cryptominisat`), the check against
      Kissat-monoculture thinking (rev 25; notes `docs/design/independent-lineage-survey.md`). Their
-     deltas are where "exceed" (§7.5) can come from.
+     deltas are where "exceed" (§7 item 5) can come from.
   3. *Diagnose the PIPELINE before the algorithm (rev 52).* When a rule underperforms its reference
      counterpart, first compare **what formula the reference's analogous rule actually operates
      on** (rule ORDER + the upstream simplifications feeding it) and **instrument the reference to
@@ -469,7 +469,7 @@ settable at any state (N1). A stat-completeness + setter-reachability contract t
 
 **Branching is a first-class API surface (N1).** `Decide` is a rule family like any other:
 `instances(σ)` enumerates *all* unassigned variables with phases, ranked by the active heuristic
-(VMTF focused / EVSIDS-heap stable, §7.3); the canonical instance is its top pick, so DefaultPolicy
+(VMTF focused / EVSIDS-heap stable, §7 item 3); the canonical instance is its top pick, so DefaultPolicy
 pays nothing for the generality, while an external policy — script, RL agent, LLM — may branch on any
 variable with any phase at any decision point via the C API and the Python bindings. Heuristic state
 (bumping, decay, phase saving) keeps updating normally regardless of who chose the decision, so external policies can *mix*
@@ -624,7 +624,7 @@ The remaining deltas of recent winners over Kissat are, per their solver descrip
 **heuristic-layer, not new proof rules**: MAB selection between branching heuristics (Kissat-MAB
 lineage → AE-Kissat-MAB, 2025 winner), bump/rescale scoring variants (AE-Kissat-bump/-rescale),
 rephasing/reward variants (CoRephase-CoReward), variable-scoring tweaks (Kissat-VSA, Kissat-CURE).
-Here they are policy presets and H-state changes (§7.5) — **zero new rule families**, which is
+Here they are policy presets and H-state changes (§7 item 5) — **zero new rule families**, which is
 precisely the point of the design.
 
 ### 5.3 Adding a new proof rule must be clean — the extensibility contract
@@ -639,7 +639,7 @@ not a hope. Adding a rule family touches exactly two places:
    guard, canonical apply, and (for rules with per-application choice)
    instance enumeration + instance apply. Scheduling metadata (phase tags
    like `preprocess`/`inprocess-cheap`, tick budgets) joins the line
-   together with its consumer, the phase-3 registry-driven scheduler —
+   together with its consumer, the registry-driven scheduler —
    fields without a reader don't freeze early (rev 20). The registry is the
    *only* central list; there is no switch statement, enum, or scheduler
    edit anywhere else.
@@ -682,7 +682,8 @@ did not design for — end-to-end (guard, lazy instances, apply, witnesses,
 options, tests) with a diff confined to `src/rules/cce/` plus its registration
 line. If that diff needs to touch the kernel, another rule, a policy, or the
 proof backend, the contract is broken: fix the architecture, not the rule.
-The same standard then applies to every backlog rule (X2, X4, X5) and to future
+The same standard then applies to every family added after the first wave (X2 and X4 shipped under it; X5 is a
+closed no-implement, §11 O11's neighbour `SP-COND-1`) and to future
 research rules.
 
 Definition of done for any new rule remains the rule-dev skill checklist
@@ -854,7 +855,7 @@ judged on DefaultPolicy, the hand-tuned baseline.
 
 **Forward requirements on current work (the anticipation, active now):**
 
-- The phase-3 registry-driven macro scheduler (lands with C2) must represent its schedule **as
+- The registry-driven macro scheduler (landed as Track SCHED stages A–H; its dosing is phase 4) represents its schedule **as
   data**: slots and per-slot choice points (rule subset, order, budgets) enumerable and overridable
   through the Policy interface — those choice points are the future arm space. No hand-wired
   if-chains a learner cannot address.
@@ -892,7 +893,8 @@ analysis, then inprocessing. Plan of attack:
    random/inverted/walk phases).
 4. **Inprocessing:** ticks-budgeted passes (Kissat-style `*_ticks` budgets, so cost is bounded
    relative to search): subsumption, strengthening, vivification, probing, BVE with bounded growth,
-   BCE, gate/congruence reasoning, SBVA (the 2023 winner's trick) as a preprocessing option.
+   BCE, gate/congruence reasoning, and bounded variable ADDITION (E2 `Factor`, which generalises SBVA — the
+   2023 winner's trick — rather than being a separate technique).
 5. **Beyond parity — where "exceed" can come from:** the policy layer as research vehicle (MAB
    selection over macro-rule schedules — AE-Kissat-MAB's win shows this works; offline-tuned
    per-family budgets; instance-family classification (`classify.c` in Kissat) driving presets —
@@ -1275,7 +1277,7 @@ Components:
 | 0 (setup) | Repo, CI; baseline solvers + checker toolchain built on the evaluation machine; the **fuzzing harness (§8.2)** — generators, model checker, drat-trim/lrat-check, shrinker — validated by fuzzing Kissat/CaDiCaL as stand-ins; Tier A/B built and frozen; Kissat study notes | Fuzz pipeline end-to-end against Kissat; Tier A/B frozen and reproducible |
 | 1 | Kernel + M1–M4 + Restart/Reduce (S1–S2, moved rev 12) + SwitchMode with stable mode: EVSIDS heap, reluctant restarts, target phases (S4, moved rev 19); binary DRAT; competition I/O | All fuzz oracles green incl. proof checking on every UNSAT; **T1** |
 | 2 | Rephasing, lucky probes (S3, S5); native LRAT; rule API v1 frozen | **T2** on Tier B; API review with example policies 1–3 |
-| 3 | **THE REFERENCE RULE INVENTORY (restructured rev 83, user).** Every proof rule Kissat 4.0.4 or CaDiCaL 3.0.0 implements, per catalog §5.2: the inprocessing families C1–C3, V1–V6, E1–E2 (subsumption, strengthening, vivification, probing, backbone, substitution, transitive reduction, congruence, BVE, BVA/Factor); the `H`-only ops S6 `Walk` (rev 71) and S7 `Reorder`; and the CaDiCaL families X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE` (doubles as the §5.3 extensibility acceptance test, evaluated at the phase-5 gate), X4 `Instantiate`, X5 `Condition`, X6 `HyperBinaryRes` (rev 83); plus V5 `Sweep` + kitten and kitten-based BVE definition extraction (§11 O11). The reconstruction stack; Tier C built and frozen. **This phase is about CAPABILITY, not tuning** — how the rules are dosed, ordered and budgeted is phase 4, and the two came apart in measurement (eleven of twelve parity rows closed while BVE eliminated zero variables on 7 of 9 instances where kissat eliminates anything). Status and per-item evidence: PROGRESS.md (Track R); design `docs/design/effort-scheduler-design.md`. | **Rule completeness**: every family above is either implemented (registered; guard / instances / apply; N1-exposed; N2-clean; fuzz-green under the §8.2 oracles incl. random-policy) **or** carries a reasoned no-implement row in `docs/implementation-notes.md` with its evidence and a named reopening path. Nightly random-policy fuzzing green. **And "fuzz-green" means REACHED (rev 85):** each implemented family needs a leg run under `fuzz.py --require-reached <RuleName>` — its own counter shown non-zero on the shipped DefaultPolicy. A DefaultPolicy fuzz leg does NOT reach every registry entry, so without this clause the gate can be ticked on evidence that never entered the rule — the failure this project has already had twice (a knob nothing could reach, and an oracle that could not fail). **And the reach instrument must be read as carefully as the rule:** the first measured figure, 19 of 25, was partly an ARTEFACT — three of the six rules it called unreached were keyed on a round counter that a `dosed` entry's `apply_instance` path never increments, so a rule that ran looked untested (rev 86). **No performance gate** — T3 moved to phase 4 with the dosing work. |
+| 3 | **THE REFERENCE RULE INVENTORY (restructured rev 83, user).** Every proof rule Kissat 4.0.4 or CaDiCaL 3.0.0 implements, per catalog §5.2: the inprocessing families C1–C3, V1–V6, E1–E2 (subsumption, strengthening, vivification, probing, backbone, substitution, transitive reduction, congruence, BVE, BVA/Factor); the `H`-only ops S6 `Walk` (rev 71) and S7 `Reorder`; and the CaDiCaL families X1 `BCE`, X2 `HyperTernaryRes`, X3 `CCE` (doubles as the §5.3 extensibility acceptance test, evaluated at the phase-5 gate), X4 `Instantiate`, X5 `Condition`, X6 `HyperBinaryRes` (rev 83); plus V5 `Sweep` + kitten and kitten-based BVE definition extraction (§11 O11). The reconstruction stack; Tier C built and frozen. **This phase is about CAPABILITY, not tuning** — how the rules are dosed, ordered and budgeted is phase 4, and the two came apart in measurement (eleven of twelve parity rows closed while BVE eliminated zero variables on 7 of 9 instances where kissat eliminates anything). Status and per-item evidence: PROGRESS.md (Track R) and the per-rule design docs under `docs/design/`. *(The effort-scheduler design moved with the dosing work — it is phase 4's, not this row's.)* | **Rule completeness**: every family above is either implemented (registered; guard / instances / apply; N1-exposed; N2-clean; fuzz-green under the §8.2 oracles incl. random-policy) **or** carries a reasoned no-implement row in `docs/implementation-notes.md` with its evidence and a named reopening path. Nightly random-policy fuzzing green — **and the ~11.4 % non-terminating `--random-policy` population does NOT block that (user, 2026-08-06, rev 87)**: it is N1 robustness rather than soundness, it is 0 % for DefaultPolicy, and the harness prints the population instead of hiding it, so a leg's strength is the case count an oracle actually ran on. Diagnosing the livelock stays owed; it gates nothing. **And "fuzz-green" means REACHED (rev 85):** each implemented family needs a leg run under `fuzz.py --require-reached <RuleName>` — its own counter shown non-zero on the shipped DefaultPolicy. A DefaultPolicy fuzz leg does NOT reach every registry entry, so without this clause the gate can be ticked on evidence that never entered the rule — the failure this project has already had twice (a knob nothing could reach, and an oracle that could not fail). **And the reach instrument must be read as carefully as the rule:** the first measured figure, 19 of 25, was partly an ARTEFACT — three of the six rules it called unreached were keyed on a round counter that a `dosed` entry's `apply_instance` path never increments, so a rule that ran looked untested (rev 86). **No performance gate** — T3 moved to phase 4 with the dosing work. |
 | 4 | **DOSING, OPTIMIZATION AND SCHEDULING — closing the gap to Kissat/CaDiCaL (new phase, rev 83, user).** The inventory is complete; what is left between us and the references is *when and how much* each rule runs. Content: Track SCHED (the scheduling-parity ledger, `docs/implementation-notes.md` §13, is the work list), the effort/dose governors and their meters, candidate ordering, the Tier B tail (Track T), targeted Factor admission, and the engineering items the ledger classes as wires rather than rules (`SP-BVE-BWD-1`, `SP-COMPACT-1`, `SP-CHRONO-1`, `SP-VIVIFY-3`, `SP-SWEEP-2`). Constrained throughout by N1–N4 — a dose knob may narrow what DefaultPolicy *chooses*, never what the API can *reach* (§1.1 N1 scope note). | **All three:** (a) **T3 on Tier C** — within 10 % PAR-2 of CaDiCaL, plus CaDiCaL/Kissat parity on the rule-neutral subset (rev 51); (b) **N4 discharged** — no scheduling-parity row left reading `WE_LACK_IT` or `WE_ARE_CRUDER` without either a closure or an accepted deviation (`docs/implementation-notes.md` §13.3 — NOT this document's §13, which is the revision history) carrying its measurement and reopening path; (c) **one full Tier D campaign run and reported** as scale evidence (the T4 *gate* on Tier D is phase 5's). |
 | 4.5 (pin) | **PIN (user, 2026-07-24; deliberately unelaborated — §11 O15; renumbered from 3.5, rev 83):** once kissat performance is matched, a dedicated pass asking for **engineering ingenuity on top of kissat** — novel ideas beyond the reference lineage, not just gap-closing. Scope, deliverables, and exit criterion to be written when phase 4 closes (revise-plan concretize mode). | TBD (O15) |
 | 5 | Policy tuning (MAB scheduler, classification presets); Python bindings; **the engineering push to *exceed* Kissat (search-quality + inprocessing ingenuity, not just the remaining rules)** | **T4 on Tier D — exceed Kissat by engineering** (before any learned policy); §8.4 overhead budget met; **§5.3 extensibility acceptance test passed (CCE as a pure plugin — the rule lands in phase 3 per rev 72; the test is evaluated at THIS gate)** |
@@ -1324,7 +1326,7 @@ the PROGRESS Log, and the commit.
 | O4 | LRAT hint strategy for inprocessing rules (BVE resolvents, sweep equivalences): native hints vs DRAT-only + offline conversion — Analyze's native hints are already committed (§5) | per rule, at its implementation |
 | O5 | ScriptedPolicy callback granularity in instrumented micro mode (per-decision only vs also per-propagation) → *decided rev 20: pull-based — external policies drive the C stepping surface themselves (per-propagation granularity = the client applying Propagate stepwise); no callback injection in v1 (additive later, revisit with the phase-5 Python bindings); overhead documented by the §8.4 demos* | ~~phase-2 API freeze~~ decided |
 | O6 | MAB scheduler specifics → *framework fixed rev 26 (§5.6/§8.5): arms = the macro scheduler's slot choice points with the default schedule a permanent arm; reward = progress-per-tick, glue-window proxy first (replay-validated); windowed/discounted UCB, drift-triggered.* **Still open: exact per-slot arm sets and window/threshold constants** | phase 7 implementation |
-| O7 | Incremental solving (IPASIR assumptions, clause removal) interaction with proof logging | post-v1; not competition-blocking |
+| O7 | Incremental solving (IPASIR assumptions, clause removal) interaction with proof logging | **phase-6 entry** (competition packaging is when an incremental interface would first have an external consumer); not competition-blocking, so it may close as "declined, with the reason" |
 | O8 | FRAT output (listed "optional" in §5 diagram) | drop unless a concrete consumer appears; revisit phase 6 |
 | O9 | Tier D composition once SAT Competition 2026 results land (Aug 2026): add or replace sets | **before the phase-4 Tier D campaign** (rev 83 made running Tier D a phase-4 exit item), and again before the T4 evaluation |
 | O10 | Solver name → *decided rev 23 (user): Tactix* | ~~before any external artifact~~ decided |
@@ -1457,5 +1459,6 @@ conflate them.
 - **rev. 82** (2026-08-04, user): §8.3 — **a staged landing may run at a temporary REGRESSION**, permitted only with all five pre-registered conditions (named sequence, mechanism argument, recovery point + ceiling, revertibility, kill criterion). Never covers N1/N2 or a lost solve, and the debt is discharged or reverted by the phase gate.
 - **rev. 83** (2026-08-06, user): **phases restructured — capability and tuning are separate gates.** Phase 3 now exits on the REFERENCE RULE INVENTORY (implemented, or a reasoned no-implement with evidence; yield excluded); a new **phase 4** owns dosing/optimization/scheduling, gated on **T3 + discharging N4 + one Tier D campaign**. Old 3.5→4.5, 4→5, 5→6, 6→7. New family **X6 `HyperBinaryRes`** (§5.2). N1–N4 unchanged.
 - **rev. 84** (2026-08-06, user): §8.1 — **PROGRESS.md no longer carries the full per-instance tier tables** (supersedes rev 75); `benchmarks/runs/<window>/results.json` is authoritative and `--aggregate` regenerates any view, while PROGRESS keeps the window stamp, SHA, arms, #solved and PAR-2. Rev 75's real obligation is re-sited onto the CLAIM: name the instances that moved and state #solved before PAR-2. No gate, scope or non-negotiable change.
-- **rev. 85** (2026-08-06): §9 — **"fuzz-green" at the phase-3 exit now means REACHED**: every implemented family needs a `fuzz.py --require-reached <RuleName>` leg, because a DefaultPolicy leg at fuzz sizes fires only 19 of 25 registry entries and the gate could otherwise be ticked on evidence that never entered the rule. Plus four coherence fixes an audit found: §5.6's learner obligation is phase **7** (a rev-83 renumber miss), the phase-4 exit criterion now names `docs/implementation-notes.md` §13.3 rather than a bare §13.3 that resolves to this document's revision history, §5's `factor_bound` pointer no longer cites a moved line number, and §11's O16/O17 rows are back in order. No scope or non-negotiable change; §9 is strengthened only.
+- **rev. 85** (2026-08-06): §9 — **"fuzz-green" at the phase-3 exit now means REACHED**: every implemented family needs a `fuzz.py --require-reached <RuleName>` leg, because a DefaultPolicy leg at fuzz sizes fires only 19 of 25 registry entries and the gate could otherwise be ticked on evidence that never entered the rule. Plus four coherence fixes an audit found: §5.6's learner obligation is phase **7** (a rev-83 renumber miss), the phase-4 exit criterion now names `docs/implementation-notes.md` §13.3 rather than a bare section number that resolves to this document's revision history, §5's `factor_bound` pointer no longer cites a moved line number, and §11's O16/O17 rows are back in order. No scope or non-negotiable change; §9 is strengthened only.
 - **rev. 86** (2026-08-06): §9 — corrects rev 85's own supporting figure. The "19 of 25 registry entries fire" reading was partly a MEASUREMENT ARTEFACT: `fuzz.py`'s `REACH_SPECS` keyed Probe, Backbone and TransitiveReduce on their ROUND counters, which a `dosed` entry reached through `apply_instance` never increments — on a structured instance Probe and Backbone each probed 22 literals while reporting "0 rounds". The specs now key on attempts, and the corrected coverage figure is owed from the next leg. The rev-85 clause itself stands; only its number was wrong.
+- **rev. 87** (2026-08-06): §9 records the user's decision that the ~11.4 % non-terminating `--random-policy` population does **not** block the phase-3 exit (N1 robustness, not soundness; 0 % for DefaultPolicy; the harness prints it) — it had been recorded only in PROGRESS, i.e. a living doc quietly softening a plan gate. Plus six coherence fixes an audit found: **SBVA** is no longer listed as a rule family in §5 and §7 (it is an E2 `Factor` instance-selection strategy and §5.2 never had it), §5.3 no longer calls X2/X4/X5 "backlog rules", §5/§5.6 no longer say the macro scheduler "lands with C2" (it landed as Track SCHED and its dosing is phase 4), §11 O7 gains a decide-by point, and §9's phase-3 row no longer points at the effort-scheduler design, which moved with the dosing work. No gate, scope or non-negotiable change.

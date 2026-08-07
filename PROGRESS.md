@@ -275,7 +275,7 @@ commit and Log entry. Composition is the S4 arrangement, unconditionally.
 **DONE — the whole inventory except R9/R10.** C1 C2 C3 · V1 V2 V3 V4 V5 V6 · E1 E2 · S6 S7 · X1 X2 X3 X4, all ON
 except **S7 `Reorder`** (OFF: parity on Tier B's UNSAT half, 3.4× worse on its SAT half — a policy op, not a
 proof rule, so ask before flipping) and **X5 `Condition`** (a reasoned no-implement: its witness is a cube and
-`ρ` holds one in-clause literal — `SP-COND-1` §16, read it before proposing X5 again). Sweep's yield defect is fixed too (`S-g`: the
+`ρ` holds one in-clause literal — `SP-COND-1`, `implementation-notes.md` §16 — read it before proposing X5 again). Sweep's yield defect is fixed too (`S-g`: the
 cost was an O(n²) dedup scan, not the reasoning — `b22_1` 0 → 239 equivalences at fewer ticks; remainder
 `SP-SWEEP-7`). Tier C frozen; calculus formalized (rev 36); N1/N2/N3 audit upheld; independent-lineage
 campaign 4 measured / 0 adopted.
@@ -309,6 +309,7 @@ campaign 4 measured / 0 adopted.
   0 % for DefaultPolicy, and the harness now prints it instead of hiding it. **No performance gate** — T3 is
   phase 4's. **N4 stays open when this phase closes**, by design (rev 83) — discharging it is phase 4's.
 
+<!-- track-sched:begin -->
 ## Phase 4 — dosing, optimization, scheduling (plan rev 83)
 
 The inventory is complete; what remains is **how the rules are dosed, ordered and budgeted**. The evidence for
@@ -316,7 +317,7 @@ the split: eleven of twelve parity rows read CLOSED while our BVE eliminated **z
 instances where kissat eliminates anything, and Factor added zero on 6 of 9.
 
 **Exit = all three.** (1) **T3** (§8.3). (2) **N4 discharged** — no row in `docs/implementation-notes.md` §13
-left `WE_LACK_IT`/`WE_ARE_CRUDER` without a closure or an accepted §13.3 deviation carrying its measurement and
+left `WE_LACK_IT`/`WE_ARE_CRUDER` without a closure or an accepted `implementation-notes.md` §13.3 deviation carrying its measurement and
 reopening path; N4 is a mechanism floor and may not be discharged by a tier number. (3) **One full Tier D
 campaign run and reported** (793 instances, frozen 2026-08-03, never run; §11 O9). The T4 gate on Tier D is
 phase 5's.
@@ -345,7 +346,7 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 | `C6` eager subsume | `TACTIX_EAGER_SUBSUME=0` | `c eagersub` | **PRE-`58a46de` — RE-REGISTER** | |
 | `C7` randec | `TACTIX_RANDEC=0` | randec sequences | **PRE-`58a46de` — RE-REGISTER** | |
 | `C8` BVE ITE+XOR gates | `--bve-gates=equiv,andor` | `c bve-gates`, pairs saved | **PRE-`58a46de` — RE-REGISTER** | |
-| `C9` `jumpreasons` (OFF) | `TACTIX_JUMP_REASONS=1` | `c jumpreason`, per instance | **PRE-`58a46de` — RE-REGISTER** | **Decides the default.** ON only if non-worse on both tiers *and* `9vliw_bp_mc` unregressed, paired draws. If it loses → a §13.3 deviation |
+| `C9` `jumpreasons` (OFF) | `TACTIX_JUMP_REASONS=1` | `c jumpreason`, per instance | **PRE-`58a46de` — RE-REGISTER** | **Decides the default.** ON only if non-worse on both tiers *and* `9vliw_bp_mc` unregressed, paired draws. If it loses → an `implementation-notes.md` `implementation-notes.md` §13.3 deviation |
 | `D1` slot order | `TACTIX_SLOT_ORDER=legacy` | `c slot-order` | **PRE-`58a46de` — RE-REGISTER** | |
 | `D2` two clocks | `TACTIX_SLOT_CLOCKS=1` | `c slot-clock` | **PRE-`58a46de` — RE-REGISTER** | **Read `eliminate phases`** — the first cut of this hatch starved the elimination family while looking like a win |
 | `D3` watermarks | `TACTIX_SLOT_WATERMARK` | the `blocked` counters | **PRE-`58a46de` — RE-REGISTER** | near-inert by design |
@@ -419,6 +420,8 @@ ticks-metered rule, and the BVE ramp-ceiling 8-vs-16 choice.
 **Why this track also serves phase 7:** every `[arch]` item adds observability or control the learned policy
 needs — per-entry occasions/declines/yield, private per-rule meters, candidate order as a policy object, and
 "what is new since I last acted?". None of it narrows `instances()` or touches a guard.
+
+<!-- track-sched:end -->
 
 ## Phase 4.5 — engineering ingenuity on top of kissat (PIN, rev 67; renumbered from 3.5, rev 83)
 
