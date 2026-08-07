@@ -507,13 +507,16 @@ selects resolvents, each still a resolution of two clauses of `F`, so the delta 
 **Reachability at the source, shipped DefaultPolicy** (probe `1587892`, Tier B instances, counters only — no
 timing): `9vliw_bp_mc` **519 definitions from 79,191 attempts**, 16.5 M resolvent pairs saved across all gate
 kinds, 22.3 M sub-solver ticks, and only **203 attempts (0.26 %) hit the 1e4 tick ceiling** — so the cap is not
-what limits the yield. `clique_n2_k10` (720) and `DecompressReader_read_12` (374) reach the path and extract
-nothing, which is the honest negative. Tier A is silent because BVE never runs there at all.
+what limits the yield. **The honest negative is the rest of the tier: 8 of 26 instances reach the sub-solve and
+exactly ONE extracts anything.** Read `qwh.50.1250` before pricing this — 16,822 attempts and 707,669 sub-solver
+ticks for 0 definitions, on an instance where BVE eliminates 4 variables out of 423,450 resolutions. That is the
+cost side, and BVE's meter cannot see it. Tier A is silent because BVE never runs there at all.
 **And the FUZZ legs are not green over an unexercised path** (probe `1587895`): on 40 FuzzSAT-style Tseitin
 circuits — the fuzz mix's own 30 % generator — the ASan `--bve-stress-policy` binary extracts definitions on
-**21 of 40**, so the `resolve_gate` branch really runs under the sanitizers. The same 40 under the shipped
-DefaultPolicy extract **0**: they solve before an inprocessing phase, which is why the DefaultPolicy evidence has
-to come from Tier B and not from anything fuzz-sized.
+**21 of 40**, and on the 40 mutation/k-SAT instances of probe `1587893` on **11 of 40** — so the `resolve_gate`
+branch really runs under the sanitizers. The same 40 circuits under the shipped DefaultPolicy extract **0**: they
+solve before an inprocessing phase, which is why the DefaultPolicy evidence has to come from Tier B and not from
+anything fuzz-sized.
 Not ported, both narrowing: `definitioncores`=2 (our sub-solver has a fixed decision order and no shuffle, so a
 second solve reproduces the first core) and the one-sided-core **failed literal** (entailed but not RUP — it
 needs the derivation mapped to main ids, i.e. V2 Backbone's delta reached from E1's round; the gate is still
