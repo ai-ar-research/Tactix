@@ -37,61 +37,59 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   Status lives in the anchor below; completed work is compressed to result + pointer, with the detail in the
   cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-07) — **phase 4 is a PORT of the references' dosing scheme (plan rev 91)**
+## ▶ RESUME HERE (2026-08-07) — **the kissat-fidelity revamp: 1 and 3 landed, 2 open, validation in flight**
 
-**Phase 4 is dosing, optimization and scheduling**, exit = **T3 + N4 discharged + one Tier D campaign**.
-**NOTHING IN FLIGHT.**
+**Phase 4 is a PORT of kissat's strategy** (plan rev 91 + the 2026-08-07 user directive: *closely mimic
+kissat's strategy, aggressively remove what does not fit*). Read
+`docs/design/2026-08-07-kissat-fidelity-revamp.md` (the plan) and
+`benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before touching the
+policy.
 
-**▶▶ THE WORK IS A FAITHFUL PORT of the references' dosing**, per §5 obligation 6. **Read
-`docs/design/2026-08-07-reference-dosing.md` first** — everything below is its work list, and §2 of this phase
-carries the checklist.
+**▶ FIRST THING NEXT SESSION — read the three runs that were in flight**, then tick or revert:
+- `--random-policy` fuzz leg **1590257** (increment 3's third soundness leg).
+- **`benchmarks/runs/20260807-183429-B-kf3`** and **`…-183432-C-kf3`** — increment 3's tier pair. Aggregate
+  with `tools/bench/run.py --aggregate <dir>` if the dependent job did not run.
+- Guard: **no lost solve** on either tier. A lost solve reverts increment 3; revert is a first-class outcome.
 
-**▶ WHAT THE STUDY FOUND, in one paragraph.** Dosing in both references is **five separable layers**: a growing
-conflict INTERVAL per phase (kissat gives one to exactly two — probing and elimination); an effort FRACTION of
-recent *search* ticks, per technique, in that technique's own currency; **STRUCTURAL caps bounding one
-candidate**; a success-driven DELAY; and fixpoint watermarks. Against that: **five of our fifteen effort rows
-are backed by no reference** (`Probe` — cadical's is 8‰ and we ship 20 — plus `HyperBinaryRes`, `BCE`,
-`Instantiate`, `Congruence`); our allowance formula is a **hybrid** (kissat's `SET_EFFORT_LIMIT` on cadical's
-per-technique anchor with cadical's clamps, where **kissat anchors per PHASE**); and we tax search **~1.6×
-harder than kissat** (438 ‰ / 344 ‰ against ~300 ‰ / 200 ‰).
+**▶ WHAT LANDED.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing else: the
+cadical upper clamp, active floor and `thresh` are gone (**kissat ships no `maxeffort` at all**) and the anchor
+moved from the ENTRY to the PHASE, stamped at phase exit as `probe.c:86` does. Tier B 88.79 (25/28), Tier C
+367.26 (29/30), **no solve lost on either**, fuzz 25,000 cases clean. *Increment 3* — the two binary-density
+admission gates are gone; they had no counterpart in either kissat trigger **and were reading a proof-id map
+the kernel documents as size-monotone**, so they opened as a solve progressed. Together: −238 lines, 42 → 34
+knobs.
 
-**▶ `D3` IS LANDED and it took the target.** `veer_axi…p23_transition` went from
-`4 probes / 6.80e9 hbr ticks` — 99.96 % of a 300 s solve at `c conflicts 0` — to
-**`12,477 probes / 5.21e6 ticks`, 34,768 conflicts, and `s UNSATISFIABLE`**, both certificates verified. The
-entry is now `budget_aware` and `run_dosed_entry` hands it the ledger residual, so the resolvent loop stops at
-the dose rather than at the closure (kissat's sweep→kitten shape). **The rule still emits 2,304 resolvents —
-bounded, not disabled.** Fuzz-clean on three legs (DRAT 10,000 · LRAT 10,000 · `--random-policy` 5,000, 0
-failures, HBR firing on 1,679 / 1,675 / 2,338 cases). Accepted deviation `D-HBR-STANDALONE`
-(`docs/implementation-notes.md` §13.3). **Still owed: a tier pair — this is one instance and the broad effect
-is unmeasured.**
+**▶ THE HONEST READING OF BOTH TIER RESULTS: these are FIDELITY changes, not performance ones.** Every
+increment so far shows the same signature — a large per-instance redistribution that nets out, with moves one
+to two orders of magnitude beyond each instance's own replicate gap. Do not sell them as speedups.
 
-**▶ NEXT STEP — the THREE METER DEFECTS in §2, before any per-mille is ported.** A fraction ported onto a meter
-that counts a different thing transfers a number that means something else. In order: **(1) the tick unit** —
-ours is `1 + (n >> 4)` against kissat's `1 + ceil(n/32)` plus three event charges we never make, so every
-effort constant either reference ships is calibrated against a different tick; **this one lands ALONE with a
-full re-baseline** because it re-prices every budget and the mode-switch schedule at once. Then **(2)
-`search_ticks` as a core-maintained firewall** rather than the policy's leaky subtraction, and **(3) the
-missing `TickSinkScope` on Vivify's irredundant pass** (`default_policy.cpp:1483`), which keeps that pass's
-spend out of `vivify_ticks` entirely.
+**▶ INCREMENT 2 IS THE OPEN ONE** — the phase structure:
+- Round count `INPROCESS_PHASE_ROUNDS` 3 → **2** (`proberounds`/`eliminaterounds`) with kissat's fixpoint
+  break (stop when the round changed no active-variable count, `probe.c:80`).
+- Kissat's `probe()` sequence exactly, **including its repeats** — `substitute` and `backbone` run twice per
+  round, which our single-visit slot cannot express.
+- **Elimination budgets differently from probing**: kissat computes `resolution_limit` ONCE
+  (`eliminate.c:428`) spanning all rounds, while probing recomputes per technique per round. Increment 1 gave
+  the Eliminate group probing's rule; correct it here.
 
-**▶ AFTER THAT, in the design doc's order:** `D1` (anchor per phase — smallest change, widest effect), `D2`
-(delete the five unbacked fractions), drop the `dosed`/`retry_advice`/`budget_aware` taxonomy, then the two
-delay layers. `D4` (our per-resolvent RUP replay, which neither reference needs) is DEFERRED, and is the
-standing reason `D3` needs a cap at all.
+**▶ THREE THINGS THAT NEED A USER DECISION, not an engineering one:**
+1. **`Reorder` ships OFF while kissat's `reorder` default is 2** (both modes) — a faithful port that never
+   fires. PROGRESS carries a standing "ask before flipping Reorder".
+2. **`HyperBinaryRes`** is kept bounded (user decision 2026-08-07) though kissat has no HBR at all.
+3. **Rider (c)** — "the places we already exceed both references do not regress" — is being knowingly
+   subordinated to fidelity. Each such regression is measured and named.
 
-**▶ MEASUREMENT WARNING — do not re-learn this.** **Tier B at 300 s cannot price a broad scheduling change.**
-In a 16-arm window whose bit-identical replicate pair differed by **0.01 PAR-2**, **9 of 14 arms "gained a
-solve"** — including arms moving opposite mechanisms in opposite
-directions. Four instances (`mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw`) respond to any
-perturbation and dominate every aggregate; `sted5` moved −37 to −248 s under 13 of 14 arms, and the replicate
-pair alone differs by 18.4 s on it. **A Tier B `#solved` criterion resolves to about ±2 solves.** Price broad
-changes on Tier C or on replicated draws. *(`mp1-klieber` and `sted5` now behave like the may-not-gate set;
-growing that set is a user decision and has not been taken.)*
+**▶ THE INERT COUNT IS THIRTEEN** (inventory §3), of which this session removed four. `want_reorder`,
+`update_reorder_limit` and the `BveBoundPolicy` multi-pass ramp are the largest still standing.
 
-**▶ CARRIED FORWARD from the gate audit** (none blocking): `bve_schedule` and `walk_instances` under-enumerate
-their own instance space (`RV-S17`/`RV-S18` — N1 completeness, and now directly relevant to `D3`); no C-API
-mirror of the slot pose surface; the `--random-policy` livelock diagnosis; and ~25 facts that survived the
-comment sweep and want a home in `implementation-notes.md`.
+**▶ AND A BANKED CONCLUSION IS RE-OPENED:** the *0-for-5 record of hand-designed formula-shape separators* was
+measured THROUGH the density gate that increment 3 deleted. Those five negatives are suspect, not evidence.
+
+**▶ MEASUREMENT CONSTRAINT that outlives all of this.** **Tier B at 300 s cannot price a broad scheduling
+change**: four instances (`mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw`) flip under any perturbation,
+and in a 16-arm window whose bit-identical replicate differed by 0.01 PAR-2, **9 of 14 arms "gained a solve"**.
+A Tier B `#solved` criterion resolves to about ±2 solves. Price broad changes on Tier C, on replicated draws,
+or as a named-instance claim.
 
 ## ▶ MEASUREMENT STATE AND PROTOCOL (plan §8.1 rev 84)
 
