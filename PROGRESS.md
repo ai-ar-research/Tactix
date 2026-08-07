@@ -33,7 +33,12 @@ that is dosing, ordering or budgeting is the new **phase 4**, which inherits **T
 reasoned no-implement · T3 and Tier D both move to phase 4 · N4 is phase 4's defining obligation and stays a
 non-negotiable. Sections below written before 2026-08-06 use the old numbering for phases ≥ 4.
 
-**IN FLIGHT: `1587880 fuzz-hbr`** — R9's five fuzz legs (both proof formats × DefaultPolicy/random-policy, plus the corpus). Always check `squeue` rather
+**IN FLIGHT: `1587880 fuzz-hbr`** (random-policy legs + corpus) and **`1587881 fuzz-hbr2`** (the two
+DefaultPolicy legs, re-submitted). The first job's DefaultPolicy legs **did not run**: the harness refused
+`--require-reached HyperBinaryRes` because `REACH_SPECS` is hand-maintained and had no row for the new rule.
+Refusing was the right behaviour, but nothing warned before submission — `check-effort-specs` now fails on any
+registered rule with no `REACH_SPECS` entry (`98f9bfd`), and the row is keyed on **probes, not rounds**,
+because a `dosed` entry is reached through `apply_instance` and its round counter never moves. Always check `squeue` rather
 than trusting a line here.
 
 **▶ THE NEXT STEPS, in order.**
