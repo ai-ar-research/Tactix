@@ -34,7 +34,8 @@ Tier D campaign**.
 
 **Where we stand** (`edfba14`, two pin dirs, verified identical shas, quiet partition):
 Tier B **103.75, 24/28** · Tier C **348.00, 29/30** · T3 **1.115× cadical / 1.412× kissat** on the subset.
-Both halves NOT MET. **NOTHING IN FLIGHT** (`squeue -u hwu`: only the session's own `cpu-q` shell).
+Both halves NOT MET. **IN FLIGHT: job `1588230`** — the block-1 counters probe (8 Tier B instances, counters
+only, no timing claim), which owns `build/pin-block1-counters`. Nothing else.
 
 **▶ NEXT STEP — phase 4 block 1, which is all desk work and costs no tier window.** Reordered 2026-08-07: a
 landing voids every pending pre-registration, so the cheap landings go BEFORE the pricing batch, not after.
@@ -383,12 +384,28 @@ PAR-2, and eight Tier C instances carrying 93 % of the kissat gap — so no bloc
 
 ### ▶ 1. Desk triage and cheap landings — no tier window; do these BEFORE spending one
 
-- [ ] **One counters-only probe to retire the arms that cannot move — `D3` and `E3` only.** Both are recorded
-  near-inert *by design*, and an arm whose source counter cannot move does not deserve a Tier B+C window. **The
-  probe has to be re-taken at HEAD**, not read off the old numbers: `E3`'s `clamped`/`floored` zeros were
-  measured before the ledger-wrap fix, and the standing protocol voids every dose reading taken through that
-  meter. *(Counters are not stored per run — `results.json` keeps only the per-instance `reached` table — so this
-  is one short job, not zero cluster time.)*
+- [ ] **One counters-only probe to retire `D3` and `E3` — and the two arms need DIFFERENT evidence, because
+  only one of them is decidable on the counter this table names.** Counters are not stored per run
+  (`results.json` keeps only the per-instance `reached` table) and `report_slot` prints only under
+  `TACTIX_SLOT_STATS`, so this needs one short counters-only job. Criteria pre-registered:
+  - **`D3` decides on `blocked`, cleanly.** `slot_watermark_`'s only consumer is the `gated` term in
+    `want_slot_phase`, and `blocked_episodes` increments on exactly the branch that suppresses a phase, so
+    `blocked == 0` on both clocks proves the `TACTIX_SLOT_WATERMARK=0` arm is bit-identical. Retire on that.
+    **There is no prior reading to void — there is no prior reading at all**: the earlier probe grepped
+    `^c slot ` with a trailing space, which never matched `c slot-clock`, so "near-inert by design" has always
+    been an argument from the code rather than a measurement.
+  - **`E3`'s `clamped` CANNOT decide on its own — a zero there is arithmetically forced, not measured**, which
+    is the `F2` defect again. Only three entries carry a ceiling (BVE at `CADICAL_ELIM_MAXEFF` 2e9,
+    Strengthen and SubsumeForward at `CADICAL_SUBSUME_MAXEFF` 1e8, all at 100‰), and `delta = reference/1000 ·
+    permille` exceeds them only when `reference` passes **1e9** (subsume) or **2e10** (BVE). The one recorded
+    `c meters … global ticks` in the repo is **8.31e7 for a full 300 s Tier B solve** (`veer_axi…p23_transition`,
+    the dosing-governor audit) ≈ 2.8e5 ticks/s. So the probe must print **`clamped` WITH the global-ticks
+    denominator**, and what it can then prove is the stronger statement: the ceiling cannot bind at this scale.
+  - **▶ Which means E3 retires from the block-2 table but is NOT globally inert.** At 2.8e5 ticks/s the subsume
+    threshold needs ~3,600 s of solve: Tier B (300 s) and Tier C (1200 s, ≈3.3e8) cannot reach it, but **Tier D
+    runs at 5000 s ⇒ ≈1.4e9 > 1e9, so the Strengthen/SubsumeForward ceiling can bind there.** Re-examine `E3`
+    before the block-5 campaign; retiring it as "inert" full stop would be a scale error. (BVE's 2e10 needs
+    ~72,000 s and is unreachable on any tier.)
 - [ ] **`F2` is BLOCKED, not inert — do not retire it on its zero.** `subsume_holds` increments only when a
   round leaves `subsume_complete`/`strengthen_complete` false (`default_policy.cpp:1687-1690`), and the only
   thing that can leave that tail is a budget binding on C1/C2 — which is exactly what `D-STRENGTHEN-BUDGET` has
@@ -449,7 +466,7 @@ arms at once. Check with `git merge-base --is-ancestor <registered-at> <arm SHA>
 | `D3` watermarks | `TACTIX_SLOT_WATERMARK` | the `blocked` counters | **PRE-`58a46de` — RE-REGISTER** | near-inert by design → **block-1 counter triage, not a window** |
 | `E1` cursors | `TACTIX_CURSOR_<RULE>=0` | `c cand-order` | **PRE-`58a46de` — RE-REGISTER** | |
 | `E2` ordering arms | `TACTIX_ORDER_<RULE>=<arm>` | positions moved | **PRE-`58a46de` — RE-REGISTER** | **one rule at a time** |
-| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` | **PRE-`58a46de` — RE-REGISTER** | inert at shipped constants → **block-1 counter triage, not a window** |
+| `E3` effort ceiling | `TACTIX_EFFORT_CEIL=0` | `clamped`/`floored` **with `c meters … global ticks` as the denominator — `clamped` alone cannot decide** | **PRE-`58a46de` — RE-REGISTER** | Only 3 entries carry a ceiling and `delta` reaches it only past `reference` 1e9 (subsume) / 2e10 (BVE), vs 8.3e7 for a full 300 s Tier B solve. **Inert at Tier B/C by arithmetic → block-1 triage, no window. But NOT inert at Tier D** (5000 s ⇒ ≈1.4e9 crosses the subsume ceiling): re-examine before the block-5 campaign |
 | `F1` substrate | `TACTIX_TOUCH_MARKS=0` | `c touch` | **PRE-`58a46de` — RE-REGISTER** | |
 | `F2` subsume-hold | `TACTIX_SUBSUME_HOLD=0` | `c subhold` | **PRE-`58a46de` — RE-REGISTER** | sentinel currently 0 for a STRUCTURAL reason — `subsume_holds` needs a round to leave a completeness tail (`default_policy.cpp:1687-1690`) and only a C1/C2 budget makes one. **Blocked on `D-STRENGTHEN-BUDGET`; do not retire it on the zero** |
 | `F6`+`F7` redundant band (OFF) | `TACTIX_TOUCH_REDUNDANT=1` | `c touchred` (a PAIR) + `c f7band` | **PRE-`58a46de` — RE-REGISTER** | ~800× the irredundant population; must pay for it |
