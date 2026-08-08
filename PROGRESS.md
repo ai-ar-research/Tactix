@@ -37,7 +37,7 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   Status lives in the anchor below; completed work is compressed to result + pointer, with the detail in the
   cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-07) — **the kissat-fidelity revamp: 1 and 3 landed, 2 open, validation in flight**
+## ▶ RESUME HERE (2026-08-07) — **the kissat-fidelity revamp: increments 1–3 landed, Tier B SOLVED IN FULL**
 
 **Phase 4 is a PORT of kissat's strategy** (plan rev 91 + the 2026-08-07 user directive: *closely mimic
 kissat's strategy, aggressively remove what does not fit*). Read
@@ -45,13 +45,14 @@ kissat's strategy, aggressively remove what does not fit*). Read
 `benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before touching the
 policy.
 
-**▶▶ THE SHARPEST TIER DISAGREEMENT THIS PROJECT HAS MEASURED, and it is a SEQUENCING finding.** Increment 3
-(deleting the density gates) took **Tier B to 27/28 with ALL FOUR NAMED TARGETS SOLVING** — and **Tier C to
-27/30, losing `T105.2.0` and `T87.2.0`**. §8.3 stops a change that loses a solve whatever it does to PAR-2, so
-it is **REVERTED** (§2 carries the numbers and the diagnosis). **The gates are still defective and still have
-to go**; what the result says is that they were masking increment 1's over-generous elimination budget, so
-**increment 2 must land first**. Do not simply re-apply `63059ce` — fix the budget, then re-land and
-re-measure both tiers.
+**▶▶ TIER B IS 28/28 AT 44.77 PAR-2** (`20260807-210921-B-kf4`), against kissat's 9.94 on the same window —
+the first time every Tier B instance solves. Four gained over increment 2, none lost: `mod4block` 223.7 s,
+which no arm had ever solved, plus `or_randxor` 18.9 s and `unsat-set-b-fclqcolor` 177.7 s, solved by no arm
+in the 14-arm pricing batch, and `sted5` 75.4 s recovered. **That pair shipped WITHOUT the replicate arm and
+without cadical**, so the solve count stands (four is far outside the ±2 the cliff instances impose) but the
+PAR-2 has no noise bar and is not banked. **The open question is Tier C** (`1590910`): the same change lost
+`T105.2.0` and `T87.2.0` before increment 2 fixed the elimination budget, and that is what the run in flight
+is testing.
 
 **▶ WHAT LANDED.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing else: the
 cadical upper clamp, active floor and `thresh` are gone (**kissat ships no `maxeffort` at all**) and the anchor
@@ -486,25 +487,27 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   `bve_instances` enumerates, so a cost cap there withheld an applicable instance from the public API (N1) —
   and ONTO the apply, where kissat's is (`resolve.c:282-290`). The rule now offers the candidate and declines
   it. No second occurrence index was needed: `pos`/`neg` are already x's occurrence lists at that point.
-- [ ] **REVAMP increment 3 — the density gates: REVERTED on the guard, and it is the sharpest tier
-  disagreement this project has measured.** Removing the two binary-density admission gates gave
-  **Tier B 62.79, 27/28 — +3 solves, ALL FOUR NAMED TIER B TARGETS SOLVING** (`mp1-klieber` 90.1 s,
-  `or_randxor` 17.7 s, `unsat-set-b-fclqcolor` 216.5 s, `veer_axi` 63.1 s; `or_randxor` and `fclqcolor` had
-  been solved by NO arm in the 14-arm pricing batch), leaving `mod4block` the only unsolved Tier B instance —
-  **and Tier C 516.14, 27/30, LOSING `T105.2.0` and `T87.2.0`** (881 s and 884 s against the 1200 s cap under
-  increment 1; both arms agree on UNKNOWN, so it is not a draw). Under §8.3 a change that loses a solve is not
-  covered by the #solved-wins priority whatever it does to PAR-2 — the same rule that stopped the
-  `gates`+`c1c2` flips — so the code is reverted (`63059ce` reverted; the runs
-  `20260807-183429-B-kf3` / `…-183432-C-kf3` are kept).
-  **▶ THE DIAGNOSIS, and why this is a SEQUENCING failure rather than a wrong idea.** The gates are genuinely
-  defective — they read `Kernel::binary_ids`, a size-monotone PROOF-ID map, as a live binary count, and they
-  decide whether BVE and Factor run at all. But they were also masking an over-generous budget: increment 1
-  gave the Eliminate group **probing's per-round grant**, where kissat computes elimination's
-  `resolution_limit` ONCE across all rounds (`eliminate.c:428`). Remove the brake before fixing the budget and
-  the T-series — Congruence-heavy, and already at 73 % of the cap — goes over. **So increment 2 unblocks this:
-  fix the round/budget structure first, then re-land the gate removal and re-measure both tiers.**
-  **▶ AND THE RE-OPENED CONCLUSION STANDS:** the *0-for-5 record of hand-designed formula-shape separators*
-  was measured through this gate, and the gate's removal is worth +3 Tier B solves. Those five negatives are
+- [ ] **REVAMP increment 3 — the density gates are OUT, and Tier B is now SOLVED IN FULL.** Re-derived
+  rather than re-applied at `8d1f139`, with a wider scope than the reverted attempt: the two binary-density
+  admission gates, plus the two dormant separators the parity audit said should go with them
+  (`Kernel::factor_scope_percent`, never fired at its default 0, and `Kernel::bve_cost_limit`, named after a
+  reference mechanism and written only from `main.cpp`). Either reason removes the gates on its own —
+  **no reference has a density term** (`kissat_factoring` factor.c:1068-1085 gates on the `factordelay`
+  warm-up and the marked watermark, `kissat_eliminating` eliminate.c:21-39 on five conjuncts, cadical's
+  `elim.cpp` on none) and **the gate read the wrong number**, its numerator `Kernel::binary_ids` being a
+  size-monotone proof-id map counting binaries ever *derived*.
+  **Tier B 44.77, 28/28 — every Tier B instance solves, +4 over increment 2 and none lost**
+  (`mod4block` 223.7 s, which NO arm had ever solved; `or_randxor` 18.9 s and `unsat-set-b-fclqcolor`
+  177.7 s, solved by no arm in the 14-arm pricing batch; `sted5` 75.4 s recovered), against kissat's
+  9.94, 28/28 on the same window. **Tier C IS THE OPEN QUESTION** (`1590910`, `20260807-210928-C-kf4c`):
+  it lost `T105.2.0` and `T87.2.0` last time, which is what increment 2's once-per-phase elimination
+  budget was supposed to fix, and until it lands this item stays open.
+  **▶ MEASUREMENT CAVEAT, stated rather than papered over:** this pair was submitted WITHOUT the replicate
+  arm and without cadical, so there is no noise bar on the 44.77 and no cadical reference. A four-solve gain
+  is far outside the ±2 the four cliff instances impose, so the SOLVE claim stands on its own; the PAR-2
+  number does not, and is not banked.
+  **▶ THE RE-OPENED CONCLUSION STANDS:** the *0-for-5 record of hand-designed formula-shape separators* was
+  measured through this gate, and removing the gate is worth four Tier B solves. Those five negatives are
   evidence about a broken instrument, not about separators.
 - [x] **D2 — the five unbacked fractions are RESOLVED, two by re-derivation and three as recorded
   deviations.** **`Probe` 20 → 8 ‰** (cadical `probeeffort`, options.hpp:164 — the only reference rate for the
@@ -529,26 +532,51 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   `D-HBR-STANDALONE` (`docs/implementation-notes.md` §13.3) carries the reference reading and two removal
   paths. **Still owed: a tier pair** — this is one instance, and the broad effect is unmeasured.
 
-- [ ] **D4 — the per-resolvent RUP replay.** Ours alone: cadical gets the chain from the propagation that
-  derived the resolvent (every `probehbr_lrat` helper opens `if (!lrat || opts.probehbr) return;`). DEFERRED;
-  it is the standing reason D3 needs a cap at all.
-- [ ] **Drop the `dosed` / `retry_advice` / `budget_aware` taxonomy.** Neither reference has it; they have
-  techniques that poll a limit at a candidate boundary.
-- [ ] **Port kissat's delay ladder to the entries that need it.** *Restated 2026-08-07:* cadical's
-  accumulate-until-worthwhile half is GONE BY DESIGN — increment 1 deleted `thresh` because it pairs with
-  cadical's per-technique anchor, and we now run kissat's per-phase anchor (`D-ANCHOR-SCOPE`). What remains is
-  kissat's own backoff: the yield-rate ladder (`kimits.c:155-194`), which congruence and sweep drive off a
-  yield rate below 0.001. We have the ladder mechanism but not the yield-rate trigger, and Factor and
-  HyperTernaryRes now have no backoff at all since `thresh` went.
+- [x] **D4 — the per-resolvent RUP replay: DISPOSED, and the disposition is the user's.** cadical gets the
+  chain from the propagation that derived the resolvent (every `probehbr_lrat` helper opens
+  `if (!lrat || opts.probehbr) return;`); ours replays RUP per resolvent, which is why one root could cost a
+  whole solve. On 2026-08-07 the user chose to keep our standalone HBR, bounded by the ledger residual,
+  rather than adopt kissat's no-HBR position or cadical's derive-in-propagation one. It is therefore not an
+  open port but the recorded removal path of the accepted deviation `D-HBR-STANDALONE`, and reopening it is
+  a user call.
+- [x] **The `dosed` / `retry_advice` / `budget_aware` taxonomy: one third dropped, two thirds RETIRED AS
+  MIS-SPECIFIED.** The item's own premise — that the references simply poll a limit at a candidate boundary —
+  is the argument for keeping two of the three bits. `budget_aware` means exactly that the canonical round
+  polls `Kernel::work_budget` at a candidate boundary; `dosed` means the scheduler drives the rule candidate
+  by candidate instead. Neither is derivable from the vtable, because N1 makes every inprocessing rule expose
+  `apply_instance`, so the shape is a scheduler choice rather than a rule capability. They are what a
+  scheduler *generic over the rule interface* has to be told, where kissat hand-writes each technique's loop
+  and so never states it — the uniform-interface tax, not an invented dosing category.
+  **`retry_advice` was the real finding and is gone**: set for exactly one rule, it gated BVE's growth-bound
+  ramp, its per-variable retry bit and three diagnostic hatches under a name that read as a rule-shape
+  category. Now a named check in `run_dosed_entry`, matching how the same file already selects Vivify's tier
+  split and Factor's initial allowance.
+- [x] **kissat's delay ladder now has kissat's TRIGGER, and it reaches Sweep.** The mechanism was ours
+  already; the trigger was not. Ours bumped the delay when a round returned NoOp and halved it otherwise,
+  where kissat asks whether the round was productive *at the formula's scale*: congruence.c:4629 bumps below
+  merged/active < 0.001, sweep.c:1719 below eliminated/swept < 0.001. A round merging one variable in a
+  hundred thousand backs off there and reset the ladder here. Ported as a per-rule table carrying kissat's
+  numerator, its denominator and its threshold — they differ in kind, congruence dividing by the current
+  active count and sweep by the pairs that call swept. Vivify already had this shape (vivified/tried < 0.01,
+  vivify.c:1454) and is what the table generalises. **The ladder also reached the wrong set**: gated on
+  `e.closure`, it covered Congruence and Substitute but not Sweep, which is metered rather than a closure and
+  is one of only the two rules kissat drives this way — **which closes `SP-SWEEP-2`** as the same defect.
+  **Factor and HyperTernaryRes are NOT owed a ladder**, contrary to how this item was written: kissat's
+  factor backoff is the `factordelay` warm-up (`log10(active) <= eliminations + delay`, factor.c:1068-1085),
+  already ported as `factor_entry_declines`, and kissat has no ternary resolution at all, so
+  HyperTernaryRes has no reference backoff to port. Owes a tier pair, being a dose change.
 - [x] **The sums check is DONE, and it found one more unbacked doubling.** After D2 the probe group totals
   **434 ‰ per round** counting kissat's repeats (Backbone twice) against kissat's **330 ‰** on the same
   basis; the excess is Congruence's 100 (the recorded `SP-CONG-BUDGET-1` deviation) plus 24 for the three
   rules kissat lacks. That is now fully accounted for. The elimination group is **344 ‰ against kissat's
   200**, and the gap is NOT all technique-count:
-- [ ] **`Strengthen` + `SubsumeForward` are one kissat technique billed twice.** kissat has a single
-  `forwardeffort` = 100 ‰ for forward subsumption; we split it into C1 and C2 and give each 100 ‰, so the pair
-  draws **200 ‰ where the reference draws 100**. Either they share one budget or each takes 50. This is a
-  dose change and needs its own window, so it is not folded into D2.
+- [x] **`Strengthen` + `SubsumeForward` now SHARE one allowance.** kissat's forward subsumption is a single
+  technique: a candidate is subsumed or strengthened inside the same pass (`not_subsumed_but_strengthened`,
+  forward.c:554), every step charged to `forward_steps`, under one limit from `forwardeffort` = 100 ‰
+  (forward.c:539). Split into two rules and given 100 ‰ each, the pair drew 200. Both now meter the SUM of
+  the two counters and share one per-phase allowance, fixed by whichever is priced first — the shape
+  increment 2 gave the Eliminate group. 50/50 was the alternative and is less faithful: it would deny a
+  strengthen-only formula half of what the reference would spend on it. Owes a tier pair.
 - [x] **The tick unit is commensurable — LANDED 2026-08-07.** `kernel_cache_lines` is now kissat's
   `(n + 31) >> 5` (128-byte line, rounds up), the four watch-scan sites share it, and the three missing event
   charges are in (binary assign, watch relocation, large-clause assignment). **Isolated effect: our ticks were
@@ -570,35 +598,70 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   this change is commensurability, not performance**: the extra budget helps some formulas as much as it costs
   others, which is the dosing question the rest of §2 answers.
 
-- [ ] **`search_ticks` is policy-derived and leaky.** Ours reconstructs it as `k.stats.ticks −
-  inprocess.ticks` (`default_policy.hpp:499-507`); kissat maintains a real counter written only on the search
-  path (`propsearch.c:24`), which is the firewall that stops a technique inflating its own next budget. Our
-  subtraction holds only while every application is bracketed by `run_slot_phase`.
-- [ ] **Vivify's irredundant pass is not metered.** `default_policy.cpp:1483` calls `apply_rule` with **no
-  `TickSinkScope`**, unlike the tier pass at `:1468`, so that pass's ticks never reach `vivify_ticks` and the
-  ledger under-counts Vivify's spend. (The pass is still internally bounded — it receives `k.work_budget` —
-  so this is an accounting defect, not a runaway.)
-- [ ] **`RV-S17` has a faithful fix, not just a fix.** `BVE_OCCLIM` is applied in `bve_schedule`
-  (`bve.cpp:87`), which is what `bve_instances` enumerates — so an over-limit variable is never OFFERED,
-  narrowing the API surface. **Kissat puts the identical cap on the APPLY side** (`resolve.c:282-290`): the
-  candidate is still scheduled and still resolvable. Moving ours to the resolution attempt closes the N1
-  defect and is the more faithful port at the same time.
+- [x] **`search_ticks` is a real kernel counter now.** It was reconstructed by the policy as
+  `k.stats.ticks − inprocess.ticks`, an accumulator credited at phase exit with a live in-flight correction,
+  correct only while every application is bracketed by `run_slot_phase`. kissat does not reconstruct it:
+  `statistics.search_ticks` is written on the search propagation path alone (propsearch.c:24), and that is
+  the firewall stopping a technique from inflating the reference its own next budget is a fraction of.
+  `Stats::search_ticks` is now charged in `kernel_charge_ticks` — already the single charge site, verified by
+  grep — exactly when `Kernel::inprocessing` is false, bracketed by an RAII scope so an early return cannot
+  freeze it. kissat gets the split by calling a different propagator per technique; one shared propagator
+  makes it a bracket instead. **Behaviour-preserving** (same bracket points, same tick set), so no window.
 
-### ▶ 3. Close the remaining N4 rows — exit clause (b)
 
-*This block is the whole of clause (b): **12** of the 17 rows in `docs/implementation-notes.md` §13 whose
-verdict reads `WE_LACK_IT`/`WE_ARE_CRUDER` are actionable and listed below, ordered by named target. Of the
-other five, three are discharged by an accepted `implementation-notes.md` §13.3 deviation and two are closed by
-code.*
+### ▶ 4. The remaining dosing / admission questions
+
+- [x] **(b′) TARGETED Factor admission — MOOT: there is no blanket gate left to target.** This item existed
+  to replace the binary-density admission with something sharper. Increment 3 removed that admission outright
+  and Factor now runs unconditionally, bounded by the `factordelay` warm-up, the marked watermark and its
+  effort share, which is kissat's arrangement. The evidence it rested on is also withdrawn: the oracle
+  ablation's headline and the "gate loosens monotonically over the solve" observation were both measured
+  through a gate whose numerator counted binaries ever *derived*, so they describe a broken instrument.
+  Any future admission proposal starts from the unconditional baseline and owes new evidence — the
+  0-for-5 record of hand-designed formula-shape separators is itself now suspect for the same reason.
+- [ ] **TB4b** — the remaining chrono divergences. (A) and (B) are done and ship OFF (ON and CRIPPLED are
+  indistinguishable on Tier C, and the proof-size axis FLIPS SIGN between tiers). Unported: cadical's
+  `chronoreusetrail` (= `SP-CHRONO-1`). `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
+- [x] **`D-STRENGTHEN-BUDGET` — dosed, by the forward-pair port in §2.** The row's premise needed correcting
+  first and did: it said C1/C2 "are the only slot entries neither dosed nor budget-aware", but both ship
+  `budget_aware = true`, so what was missing was the dose, not the channel. Both now meter the SUM of
+  `strengthen_visits` and `forward_visits` against ONE shared per-phase allowance, because kissat's
+  `forwardeffort` = 100 ‰ governs a single pass that subsumes and strengthens together (forward.c:539/554).
+  The currency remains ours (partner visits, not `forward_steps`), which is the part of the deviation that
+  survives. The live evidence stands: C2 owns 97.8 s of `DivS_862_11`'s 109.0 s in four applications, and
+  interruptibility is measured negative (a stopped round merely DEFERS its candidates), kept as a §5.6 arm.
+
+### ▶ 5. The Tier D campaign — exit clause (c)
+
+- [ ] **Run it and report it** (793 instances, frozen 2026-08-03, never run). It goes here, near the end, so the
+  report describes the phase-exit binary rather than one that changed under it — the clause asks for scale
+  evidence, and the T4 *gate* on Tier D is phase 5's. Its tooling and the O9 composition decision are block-1
+  items precisely so they are not what delays it.
+- [ ] **De-risk it with a shakedown slice first.** Nothing at this scale has ever run: the proof-checking bill,
+  the memory ceiling and the per-task wall are all untested at 793 instances, and the DRAT→LRAT rescue path
+  doubles a task's wall when it fires.
+
+### ▶ 6. T3 gate evaluation — exit clause (a)
+
+- [ ] **Evaluate and report to `benchmarks/reports/`.** Last by construction: it scores whatever blocks 1–5
+  leave standing. Current standing is in the anchor (1.115× cadical / 1.412× kissat on the subset, both halves
+  NOT MET); what is known about each half is under the T3 gate row above.
+
+### ▶ Track SCHED — standing protocol (applies to every item above)
+
+**▶ THE N4 PARITY-LEDGER BACKLOG.** These are scheduling-parity rows, not dosing-port rows; they were filed
+under the port block and did not belong there. Each needs a closure, or an accepted deviation in
+`docs/implementation-notes.md` §13.3 carrying its measurement and reopening path. A deviation is a legitimate
+close; silence is not.
 
 - [ ] **`SP-BVE-BWD-1` first — it is the sharpest N4 finding we have.** Feed BVE's fresh resolvents straight
   into subsumption; it is what makes cadical's `elimrounds`=2 sufficient. The behavioural audit measured our BVE
   eliminating ZERO variables on 7 of the 9 instances where kissat eliminates anything, so this is the row with a
   mechanism-level target rather than a PAR-2 hope.
-- [ ] **The other MED/LOW `WE_LACK_IT` rows:** `SP-SWEEP-2` (productivity delay ladder — ours is gated on
-  `!e.meter`, so a metered repeater like Sweep can never back off) · `SP-COMPACT-1` (variable compaction /
-  renumbering) · `SP-CHRONO-1` (analyze-side trail reuse) · `SP-VIVIFY-3` (schedule-level dedup before spending
-  a propagation).
+- [ ] **The other MED/LOW `WE_LACK_IT` rows:** `SP-COMPACT-1` (variable compaction / renumbering) ·
+  `SP-CHRONO-1` (analyze-side trail reuse) · `SP-VIVIFY-3` (schedule-level dedup before spending a
+  propagation). *(`SP-SWEEP-2` left this list on 2026-08-07: the ladder's closure-only gate is gone and Sweep
+  backs off on kissat's yield rate — see the delay-ladder item in §2.)*
 - [ ] **`SP-SWEEP-3`** (resumable sweep schedule) and **`SP-SWEEP-7`** — the yield remainder after `S-g`:
   per-environment yield is still ~5× kissat's, from seed-anchored candidates (an environment can only prove
   pairs *to its seed*) and no `kitten_flip_literal` pre-filter. Rule work, not scheduling. For `SP-SWEEP-3`,
@@ -620,42 +683,6 @@ code.*
   Each needs a closure, or an accepted deviation in `implementation-notes.md` §13.3 carrying its measurement
   and reopening path. A deviation is a legitimate close; silence is not.
 
-### ▶ 4. The remaining dosing / admission questions
-
-- [ ] **(b′) TARGETED Factor admission.** The blanket knob is the wrong instrument, not the wrong idea: the
-  oracle ablation leaves **+54.17 PAR-2 and +3 solves on Tier B, +42.27 on Tier C** on the table, Tier B wants
-  Factor ON while Tier C wants it OFF, and the shipped gate is best on neither. The gate also loosens
-  monotonically over the solve. **0-for-5 record of hand-designed formula-shape separators** — do not propose a
-  sixth threshold without a new kind of evidence.
-- [ ] **TB4b** — the remaining chrono divergences. (A) and (B) are done and ship OFF (ON and CRIPPLED are
-  indistinguishable on Tier C, and the proof-size axis FLIPS SIGN between tiers). Unported: cadical's
-  `chronoreusetrail` (= `SP-CHRONO-1`). `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
-- [ ] **`D-STRENGTHEN-BUDGET` — dose C1/C2. FOLDED INTO §2's port, and its premise needs correcting first.**
-  The row says C1/C2 "are the only slot entries neither dosed nor budget-aware"; at HEAD both ship
-  `budget_aware = true` (`default_policy.cpp`, the `Strengthen` / `SubsumeForward` rows), so what is actually
-  missing is a *dose*, not the budget channel. The reference shape is `forwardeffort` = 100‰ on kissat's
-  `forward_steps` — which is a **different currency from ours**, so this item is blocked behind §2's meter
-  work rather than being an independent knob sweep. The live evidence stands: C2 owns 97.8 s of
-  `DivS_862_11`'s 109.0 s in four applications, and interruptibility is measured negative (a stopped round
-  merely DEFERS its candidates), kept as a §5.6 arm.
-
-### ▶ 5. The Tier D campaign — exit clause (c)
-
-- [ ] **Run it and report it** (793 instances, frozen 2026-08-03, never run). It goes here, near the end, so the
-  report describes the phase-exit binary rather than one that changed under it — the clause asks for scale
-  evidence, and the T4 *gate* on Tier D is phase 5's. Its tooling and the O9 composition decision are block-1
-  items precisely so they are not what delays it.
-- [ ] **De-risk it with a shakedown slice first.** Nothing at this scale has ever run: the proof-checking bill,
-  the memory ceiling and the per-task wall are all untested at 793 instances, and the DRAT→LRAT rescue path
-  doubles a task's wall when it fires.
-
-### ▶ 6. T3 gate evaluation — exit clause (a)
-
-- [ ] **Evaluate and report to `benchmarks/reports/`.** Last by construction: it scores whatever blocks 1–5
-  leave standing. Current standing is in the anchor (1.115× cadical / 1.412× kissat on the subset, both halves
-  NOT MET); what is known about each half is under the T3 gate row above.
-
-### ▶ Track SCHED — standing protocol (applies to every item above)
 
 **Measurement discipline, stated once and only here.** Same-window A/B on a fresh `build/pin-<item>`
 ([[build-path-ownership]]); a same-window Tier B + Tier C pair is two arrays and therefore **two pin dirs**,
