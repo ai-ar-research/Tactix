@@ -360,7 +360,7 @@ public:
       uint64_t admitted = 0;    // times it got as far as apply
       uint64_t dec_disabled = 0, dec_cap = 0, dec_preprocess = 0;
       uint64_t dec_guard = 0, dec_budget = 0, dec_delay = 0;
-      uint64_t dec_material = 0, dec_warmup = 0, dec_density = 0;
+      uint64_t dec_material = 0, dec_warmup = 0;
       // A decline reason belongs here only while a `continue` increments it.
       uint64_t handed = 0;      // budget handed to budget-aware entries
       uint64_t spent = 0;       // meter delta actually consumed
@@ -549,8 +549,6 @@ private:
                            SlotPhaseCtx &);
   SlotStep run_batch_entry(Kernel &, SlotEntry &, const RuleVTable &,
                            SlotPhaseCtx &);
-  // BVE's during-search admission (TACTIX_BVE_ADMIT); true = declined.
-  bool bve_dose_declined(Kernel &, SlotEntry &);
   // Factor's warm-up and new-material gates (kissat factordelay).
   bool factor_entry_declines(const Kernel &, SlotEntry &);
   // Factor's per-occasion rule config (composition + the density advice).
