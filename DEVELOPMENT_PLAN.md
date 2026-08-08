@@ -1,6 +1,6 @@
 # Development Plan: A Competitive, Proof-Rule-Driven SAT Solver
 
-Working name: **Tactix**. Date: 2026-08-08 (rev. 97). Reference: Kissat
+Working name: **Tactix**. Date: 2026-08-08 (rev. 98). Reference: Kissat
 4.0.4. Current status: [PROGRESS.md](PROGRESS.md). Revision index: §13.
 
 This document owns stable scope, architecture, roadmap, gates, and deliberately
@@ -49,7 +49,11 @@ For DefaultPolicy, transliterate the references' mechanism and effect, never
 their code. Read Kissat and CaDiCaL; choose the stronger mechanism and use
 Kissat as the tie-break when equivalent. Preserve a reference-faithful baseline
 when adding a stronger design. An unbacked constant is removed or derived, not
-tuned. Proof generation is part of every measured workload.
+tuned. Proof generation is part of every measured workload. Port gaps are
+repaired on the reference source's evidence alone: benchmarks measure a
+faithful port but never select what gets repaired, and a regression on a
+faithful port indicts the implementation or a missing coupled mechanism, never
+the reference mechanism.
 
 ## 3. Core design: flexibility without hot-loop overhead
 
