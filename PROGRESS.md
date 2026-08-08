@@ -423,23 +423,27 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
 - [x] **Increment 2 — the phase structure is kissat's.** Rounds 2 (`proberounds`/`eliminaterounds`); the fixpoint break is the active-variable count holding still (`probe.c:81`, an equality test because Factor adds variables); the Eliminate group computes its budget once per phase (`eliminate.c:428`) while Probe recomputes per entry per round; the slot order is kissat's `probe()` body including its repeats. Tier B 119.81 (24/28), Tier C 358.31 (29/30).
 - [x] **Vivify's irredundant pass is metered** — wrapped in a `TickSinkScope`, so its ticks reach `vivify_ticks`.
 - [x] **`BVE_OCCLIM` is applied on the apply path, not in `bve_schedule`** (kissat `resolve.c:282-290`), so the rule offers the candidate and declines it rather than withholding it from the API (`RV-S17`, N1).
-- [ ] **The density gates are OUT; Tier B is 28/28 and Tier C is two solves short.** The two
-  binary-density admission gates are deleted, together with the dormant `Kernel::factor_scope_percent`
-  and `Kernel::bve_cost_limit`. Two independent grounds, both source facts: **no reference has a density
-  term** (`kissat_factoring` factor.c:1068-1085 gates on the `factordelay` warm-up and the marked
-  watermark, `kissat_eliminating` eliminate.c:21-39 on five conjuncts, cadical's `elim.cpp` on none), and
-  **the gate read the wrong number** — its numerator `Kernel::binary_ids` is a size-monotone proof-id map,
-  so it counted binaries ever *derived*.
-  **Tier B 44.77, 28/28** (`20260807-210921-B-kf4`): +4 over increment 2, none lost — `mod4block` 223.7 s,
-  which no arm had solved; `or_randxor` 18.9 s and `unsat-set-b-fclqcolor` 177.7 s, solved by no arm in
-  the 14-arm pricing batch; `sted5` 75.4 s. kissat is 9.94, 28/28 on the same window.
-  **Tier C 457.85, 27/30** (`20260807-210928-C-kf4c`): `T105.2.0` and `T87.2.0` time out, from 700.9 s and
-  936.7 s under increment 2 against the 1200 s cap.
-  **▶ THE CAUSE IS OPEN.** Diagnostic `1590989` compares slot stats for both instances across the two
-  commits. Under plan §5 obligation 6 rider (e) this is a wrong implementation or a missing coupled
-  mechanism, **and the live suspect is `SP-BVE-BWD-1`**: cadical's `elimrounds`=2 is sufficient *because*
-  `elimbackward` feeds fresh resolvents to subsumption, and the round count was taken without it.
-  Restoring the gate is not a candidate.
+- [ ] **Tier B is 28/28; Tier C is short, and the three ports did not recover it.** The density gates are
+  deleted, together with the dormant `Kernel::factor_scope_percent` and `Kernel::bve_cost_limit`. Two
+  independent grounds, both source facts: **no reference has a density term** (`kissat_factoring`
+  factor.c:1068-1085, `kissat_eliminating` eliminate.c:21-39, cadical's `elim.cpp`), and **the gate read
+  the wrong number** — `Kernel::binary_ids` is a size-monotone proof-id map counting binaries ever
+  *derived*.
+  **Tier B 43.23, 28/28** with all three ports (`20260807-234714-B-p3`), against kissat 9.96 (28/28) and
+  cadical 40.69 (27/28) — every instance solves and the set is unchanged from the gate removal alone.
+  **Tier C 25/30** (`20260807-234727-C-p3c`), against 27/30 for the gate removal alone: `T105.2.0` and
+  `T87.2.0` are still lost, and `SCPC-1000-18` and `em_11_3_4_cmp` are NEW losses. (`128_125` is memory-
+  capped for kissat too and is not a solver result.)
+  **▶ THE PORTS ARE NOT INERT AND ARE NOT UNSOUND**, so neither explanation is available: `c bve-bwd` reads
+  149,796 subsumers / 2,596 subsumed / 544 strengthened on `T105.2.0` itself; fuzz is clean on all three
+  legs (DRAT 10,000, native LRAT 10,000, `--random-policy` 5,000, 0 failures); and ASan/UBSan is clean over
+  200 Tier A plus 3 Tier B instances, which is the check the fuzz instances are too small to give.
+  **▶ NEXT STEP IS ATTRIBUTION, NOT A REVERT** (plan §5 obligation 6 rider (e)). Three mechanisms landed in
+  one window, so the Tier C cost is unattributed. Ablation in flight (`1591189`,
+  `20260808-002349-C-all3`): the same binary with `TACTIX_BVE_BACKWARD=0`, `TACTIX_FACTOR_COUPLE=0` and
+  `TACTIX_CHRONO_REUSE=0` as three arms beside the default. `em_11_3_4_cmp` is the instance to watch — the
+  plan's own §5.6 exhibit calls it *sparse but elimination-loving*, and it has degraded at every
+  elimination change today (96.8 s → 215.8 s → timeout).
 
 - [x] **Every effort rate is either a reference rate or a labelled local choice.** `Probe` and `HyperBinaryRes` ride cadical's `probeeffort` 8 ‰ (options.hpp:164; cadical runs HBR inside the probing propagation, kissat has neither knob). `BCE`, `Instantiate` and `Congruence` have no reference rate and say so at the row.
 - [x] **`HyperBinaryRes` is bounded by the ledger residual**, so one root's resolvent loop stops at the dose rather than at the closure. `veer_axi…p23_transition`: 4 probes / 6.80e9 hbr ticks → 12,477 / 5.21e6, UNKNOWN → UNSAT, both certificates verified. Accepted deviation `D-HBR-STANDALONE`.
