@@ -270,6 +270,38 @@ static uint64_t scale_inprocessing_delta(const Kernel &k, uint64_t delta) {
 // Each rule is metered in its own currency: work is not comparable.
 namespace {
 
+// cadical `chronoreusetrail` (analyze.cpp:675-716), which kissat has no
+// counterpart for on the backjump side — its trail reuse is at RESTART only
+// (restart.c:86). Rather than dropping the whole suffix above `jump`, keep the
+// prefix up to the best-ranked variable in it: that part of the trail is what
+// the next decisions would most likely rebuild. Ranking follows the mode, as
+// cadical's does — EVSIDS score while stable, VMTF stamp while focused.
+// N1: the target is an ordinary ConflictAnalysis instance and stays inside
+// [jump_level, level-1], so this narrows nothing.
+uint32_t reuse_trail_level(const Kernel &k, uint32_t jump) {
+  const uint32_t begin = k.frames[jump + 1];
+  const uint32_t end = static_cast<uint32_t>(k.trail.size());
+  if (begin >= end || !k.h)
+    return jump;
+  uint32_t best_pos = begin;
+  Var best = var_of(k.trail[begin]);
+  for (uint32_t i = begin + 1; i < end; i++) {
+    const Var v = var_of(k.trail[i]);
+    const bool better = k.h->stable
+                            ? k.h->scores.score[v] > k.h->scores.score[best]
+                            : k.h->links[v].stamp > k.h->links[best].stamp;
+    if (better) {
+      best = v;
+      best_pos = i;
+    }
+  }
+  uint32_t res = jump;
+  while (res + 1 < k.level && k.frames[res + 1] <= best_pos)
+    res++;
+  return res;
+}
+
+
 // Scope the kernel's tick sink to one rule's apply; RAII because the apply
 // paths return early and a leaked sink misattributes the next rule's work.
 struct TickSinkScope {
@@ -958,6 +990,8 @@ void DefaultPolicy::build_inprocess_slot(Kernel &k) {
       slot_watermark_ = std::strtoul(wm, nullptr, 10) != 0;
     if (const char *fc = std::getenv("TACTIX_FACTOR_COUPLE"))
       couple_factor_bound_ = std::strtoul(fc, nullptr, 10) != 0;
+    if (const char *cr = std::getenv("TACTIX_CHRONO_REUSE"))
+      chrono_reuse_trail_ = std::strtoul(cr, nullptr, 10) != 0;
     if (slot_order_legacy_) {
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess)
@@ -1091,10 +1125,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         // back one level when the gap exceeds the limit
         const uint32_t jump = k.pending.jump_level;
         const uint32_t back = k.level - 1;
-        const bool chrono = back - jump > chrono_levels;
-        if (chrono)
+        uint32_t target = jump;
+        if (back - jump > chrono_levels) {
           k.stats.chronological++;
-        backjump_apply_to(k, chrono ? back : jump);
+          target = back;
+        } else if (chrono_reuse_trail_ && jump < back) {
+          target = reuse_trail_level(k, jump);
+          if (target != jump)
+            k.stats.chronological++;
+        }
+        backjump_apply_to(k, target);
       }
       continue;
     }
