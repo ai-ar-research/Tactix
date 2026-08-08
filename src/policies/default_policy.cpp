@@ -956,6 +956,8 @@ void DefaultPolicy::build_inprocess_slot(Kernel &k) {
       slot_clocks_split_ = std::strtoul(cl, nullptr, 10) != 1;
     if (const char *wm = std::getenv("TACTIX_SLOT_WATERMARK"))
       slot_watermark_ = std::strtoul(wm, nullptr, 10) != 0;
+    if (const char *fc = std::getenv("TACTIX_FACTOR_COUPLE"))
+      couple_factor_bound_ = std::strtoul(fc, nullptr, 10) != 0;
     if (slot_order_legacy_) {
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess)
@@ -1383,12 +1385,18 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     }
   }
   k.bve_track_min_bound = false; // scope the caching to this ramp
-  // Level advance (kissat set_next_elimination_bound): completed doses only.
-  const bool last_pass_eliminated = k.stats.bve_eliminated > elim_at_last_pass;
-  if (level_mode && !dose_cut && !ctx.phase_unsat && !last_pass_eliminated) {
-    const uint32_t ceiling = ramp->bound(ramp->num_passes() - 1);
-    bve_level_ = bve_level_ ? std::min(bve_level_ * 2, ceiling) : 1;
-  }
+  // The level advance is kissat's `set_next_elimination_bound`, which is called
+  // once per `kissat_eliminate` and steps UNCONDITIONALLY: its `complete`
+  // predicate reads two variables that a shadowing bug leaves at their
+  // initialisers, and a counter-instrumented kissat 4.0.4 takes the completed
+  // branch on 5 of 5 elimination phases. Advancing only on an exhausted dose
+  // instead — the shape this replaced — saturated the level at the ceiling
+  // exactly where BVE is useless, making Factor pickiest where the coupling
+  // intends it laxest. Stepped once per PHASE in `run_slot_phase`, since
+  // the reference granularity is the phase, not the entry.
+  if (level_mode && !ctx.phase_unsat)
+    bve_ran_this_phase_ = true;
+  (void)elim_at_last_pass;
   // factordelay input: one more BVE round has run. Counted per phase, not per
   // outer round, which would advance the gate three decades too fast.
   if (bve_entry && ctx.outer == 0)
@@ -1664,6 +1672,12 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   clock.fixed_mark = kernel_root_fixed(k);
   clock.blocked = false; // a new blocking episode may now be counted
   forward_pair_limit_ = 0; // the pair's shared allowance is per phase
+  bve_ran_this_phase_ = false;
+  // kissat reads the bound ONCE per factorization (`init_factoring`,
+  // factor.c:72) and judges every grid in that round — composite chain links
+  // included — against that one number. Snapshot it here so a dose cannot see
+  // the level move underneath it.
+  factor_bound_snapshot_ = couple_factor_bound_ ? bve_level_ : 0;
   // A simplification phase: descend to a quiescent root (a transient flush that
   // keeps saved/target phases), then dose each enabled technique in this group.
   // Route this phase's ticks away from `stats.search_ticks` for its duration:
@@ -1683,7 +1697,11 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   kernel_dense_connect(k, inprocess_occ);
   // Factor grid-selection policy for this phase: pure config, like k.bve_bound,
   // read only inside r.apply(k) and scoped so no pointer dangles after.
-  default_factor_match_.bound = k.factor_bound; // see DefaultFactorMatch
+  // kissat: Factor accepts a grid iff `reduction > bound`, where `bound` IS
+  // BVE's growth allowance (factor.c:72/939) — so BVA only introduces a
+  // variable BVE would not immediately eliminate again. Max keeps the
+  // TACTIX_FACTOR_BOUND / tactix_set_factor_bound surface authoritative.
+  default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
   k.factor_match = factor_match ? factor_match : &default_factor_match_;
   // Phase structure (kissat eliminate-round shape): a few outer rounds, each
   // giving every enabled technique one dose, so it can pick up what the others
@@ -1767,6 +1785,10 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
   k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
+  // kissat `set_next_elimination_bound` (eliminate.c:339-372): once per
+  // elimination phase, unconditionally when one ran.
+  if (group == SlotGroup::Eliminate && bve_ran_this_phase_ && !ctx.phase_unsat)
+    bve_level_ = bve_level_ ? std::min(bve_level_ * 2u, 8u) : 1u;
   // kissat's `last.ticks.probe` / `last.ticks.eliminate` (probe.c:86,
   // eliminate.c:601): stamp the phase's effort anchor on the way out, AFTER
   // `in_phase` is cleared so `search_ticks` reads the netted value, and

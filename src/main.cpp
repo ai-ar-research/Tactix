@@ -233,6 +233,8 @@ int main(int argc, char **argv) {
     kernel.ternary_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
   if (const char *ma = getenv("TACTIX_TERNARY_MAXADD"))
     kernel.ternary_max_add_percent = (uint32_t)strtoul(ma, nullptr, 10);
+  if (const char *bw = getenv("TACTIX_BVE_BACKWARD"))
+    kernel.bve_backward = (*bw != '0');
   if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
     kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
   if (getenv("TACTIX_V4_EARLY_EXIT"))
@@ -655,6 +657,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.bve_rounds,
            (unsigned long long)kernel.stats.bve_eliminated,
            (unsigned long long)kernel.stats.bve_resolutions);
+    printf("c bve-bwd     %llu subsumers, %llu subsumed, %llu strengthened, "
+           "%llu units\n",
+           (unsigned long long)kernel.stats.bve_bwd_queued,
+           (unsigned long long)kernel.stats.bve_bwd_subsumed,
+           (unsigned long long)kernel.stats.bve_bwd_strengthened,
+           (unsigned long long)kernel.stats.bve_bwd_units);
     printf("c bve-gates   %llu equiv, %llu andor, %llu ite, %llu xor, "
            "%llu definition; %llu resolvent pairs saved\n",
            (unsigned long long)kernel.stats.bve_gates_equiv,

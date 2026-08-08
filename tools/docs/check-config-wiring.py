@@ -64,6 +64,7 @@ TABLE = {
     "kept_size":               ("RULE", "reduce.cpp survivor envelope (cadical lim.keptsize)"),
     # --- A/B or diagnostic knobs; shipped value is the kernel.hpp default --
     "bve_gate_mask":           ("ENV", "--bve-gates"),
+    "bve_backward":            ("ENV", "TACTIX_BVE_BACKWARD (cadical elimbackward; ships ON)"),
     "bce_occ_limit":           ("ENV", "TACTIX_BCE_OCC_LIMIT"),
     "midround_budget":         ("ENV", "TACTIX_MIDROUND_BUDGET (measured negative)"),
     "factor_size":             ("ENV", "TACTIX_FACTOR_SIZE"),

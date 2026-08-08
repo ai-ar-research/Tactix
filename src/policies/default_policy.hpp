@@ -449,6 +449,14 @@ public:
   // During-search BVE bound level (kissat eliminate.c
   // set_next_elimination_bound): 0, doubling only when a dose completes.
   uint32_t bve_level_ = 0;
+  // kissat steps the elimination bound once per phase, so the flag records that
+  // a dose ran and the step happens at phase exit.
+  bool bve_ran_this_phase_ = false;
+  // Factor's acceptance bound for this phase, snapshotted at entry from
+  // `bve_level_` (kissat `init_factoring`, factor.c:72). `couple_factor_bound_`
+  // ships true; TACTIX_FACTOR_COUPLE=0 is the off arm.
+  uint32_t factor_bound_snapshot_ = 0;
+  bool couple_factor_bound_ = true;
   OccIndex inprocess_occ; // shared occurrence index, reused per phase
   // One inprocessing clock; two live, on update_slot_limit's formulas.
   struct SlotClock {
