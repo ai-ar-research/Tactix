@@ -1484,8 +1484,11 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
 bool DefaultPolicy::factor_entry_declines(const Kernel &k, SlotEntry &e) {
   // factordelay (kissat factor.c:1068-1085) is a size-vs-progress warm-up gate:
   // its truncating form admits active < 10^(eliminations + 5).
-  const uint64_t elim = k.stats.bve_eliminated;
-  const uint64_t active = k.unassigned > elim ? k.unassigned - elim : 0;
+  // kissat's numerator is solver->active — fixed, eliminated AND substituted
+  // all excluded (factor.c:1073); the previous unassigned-minus-eliminated
+  // over-counted by the substituted set, declining Factor for longer than
+  // the reference.
+  const uint64_t active = active_variables(k);
   uint64_t threshold = 1;
   const uint32_t decades = bve_rounds_run_ > 14 ? 19u : bve_rounds_run_ + 5;
   for (uint32_t d = 0; d < decades; d++)
@@ -1748,7 +1751,11 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   // factor.c:72) and judges every grid in that round — composite chain links
   // included — against that one number. Snapshot it here so a dose cannot see
   // the level move underneath it.
-  factor_bound_snapshot_ = couple_factor_bound_ ? bve_level_ : 0;
+  factor_bound_snapshot_ =
+      couple_factor_bound_
+          ? (std::getenv("TACTIX_NO_BVE_RAMP") ? k.bve_bound : bve_level_)
+          : 0; // ramp off => BVE runs at k.bve_bound, so couple to THAT value,
+               // not to a frozen level 0 that un-bounds BVA growth (GAP 4)
   // A simplification phase: descend to a quiescent root (a transient flush that
   // keeps saved/target phases), then dose each enabled technique in this group.
   // Route this phase's ticks away from `stats.search_ticks` for its duration:
@@ -1870,8 +1877,28 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;
   // kissat `set_next_elimination_bound` (eliminate.c:339-372): once per
   // elimination phase, unconditionally when one ran.
-  if (group == SlotGroup::Eliminate && bve_ran_this_phase_ && !ctx.phase_unsat)
-    bve_level_ = bve_level_ ? std::min(bve_level_ * 2u, 8u) : 1u;
+  if (group == SlotGroup::Eliminate && bve_ran_this_phase_ && !ctx.phase_unsat) {
+    // Ceiling comes from the ramp's own ladder (kissat eliminatebound = 16),
+    // not a literal: the hardcoded 8 made TACTIX_BVE_RAMP_MAX dead on this
+    // path and pinned Factor's coupled bound 2x stricter than kissat forever
+    // (audit GAP 2).
+    BveBoundPolicy &bramp = bve_bound ? *bve_bound : default_bve_ramp_;
+    const uint32_t blim = bramp.bound(bramp.num_passes() - 1);
+    if (bve_level_ >= blim) {
+      // kissat's terminal branch (eliminate.c:345-358): at the max bound stop
+      // scheduling elimination phases until new material appears (GAP 6).
+      clock.marks_mark = k.stats.bve_marks;
+      clock.fixed_mark = kernel_root_fixed(k);
+    } else {
+      bve_level_ = bve_level_ ? std::min(bve_level_ * 2u, blim) : 1u;
+      // kissat re-arms the whole eliminate schedule with the laxer bound
+      // (try_to_eliminate_all_variables_again, eliminate.c:329-337): without
+      // this the watermark can block the next phase and freeze the ramp,
+      // pinning Factor at its strictest bound (GAP 5).
+      clock.marks_mark = 0;
+      clock.fixed_mark = 0;
+    }
+  }
   // kissat's `last.ticks.probe` / `last.ticks.eliminate` (probe.c:86,
   // eliminate.c:601): stamp the phase's effort anchor on the way out, AFTER
   // `in_phase` is cleared so `search_ticks` reads the netted value, and
