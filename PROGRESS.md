@@ -29,13 +29,27 @@ stress driver never connected the dense index); odd seeds now walk
 dense-connected and trace replay mirrors the choice from the header. The
 `portsfin` windows remain void for performance claims.
 
+Post-fix battery: four legs, 40k cases, 0 failures, with backward BVE
+genuinely reached for the first time — `BveBackward` fired in 2 438 cases
+(dense random leg 1592025) and 5 233 cases (targeted leg 1592026,
+`--require-reached BVE,BveBackward` passed, 1.8M stress target
+applications), `BveBackwardUnit` in 796 (logs
+`tools/fuzz/slurm-n2fix-*-159202{3,4,5,6}.log`). DefaultPolicy quick legs
+still cannot reach the elimination tail at 5 s timeouts — open harness
+caveat, report §fuzz.
+
+**IN FLIGHT:** the closing Tier B/C retake from fixed commit `7fbcb11` —
+windows `20260808-141938-B-n2fix` (array 1592029, aggregate 1592030) and
+`20260808-141941-C-n2fix` (array 1592114, aggregate 1592115), pins
+`build/pin-n2b`/`pin-n2c`, byte-identical binaries (sha256 `ff9da623…`).
+
 **Next actions:**
 
-1. Submit the post-fix fuzz battery (model + proof legs; a backward-BVE leg
-   must pass `--require-reached BveBackward`) through `slurm-jobs`.
-2. Retake the closing Tier B/C pair from the fixed commit — two fresh
-   `build/pin-*` dirs, matching binary hashes.
-3. Continue the unresolved Phase 4 parity rows, then the Tier D shakedown,
+1. When the pair completes: require clean `CORRECTNESS-BUG`-free windows,
+   bank the closing measurement for the three port rows
+   (`SP-BVE-BWD-1`/`SP-FACTOR-1`/`SP-CHRONO-1`), and close or
+   accepted-deviate their ledger rows.
+2. Continue the unresolved Phase 4 parity rows, then the Tier D shakedown,
    Tier D campaign, and T3 gate in that order.
 
 ## Current measurement contract
