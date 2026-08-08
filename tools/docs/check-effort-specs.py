@@ -144,7 +144,7 @@ def effort_specs():
         f = [x.strip() for x in m.group(2).split(",")]
         f += [""] * (5 - len(f))
         out[m.group(1)] = {"permille": f[0], "meter": f[1], "dosed": f[2],
-                           "retry_advice": f[3], "budget_aware": f[4]}
+                           "budget_aware": f[3]}
     return out
 
 

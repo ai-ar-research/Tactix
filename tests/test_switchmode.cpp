@@ -127,7 +127,10 @@ static void test_policy_schedule() {
   k.stats.conflicts = 1000;
   assert(p.want_switch_mode(k));
   // simulate the switch the way solve() does
-  k.stats.ticks = 500; // focused phase consumed 500 ticks
+  // The focused phase consumed 500 ticks, all of them search: the kernel
+  // charges `search_ticks` whenever `inprocessing` is false, which is what a
+  // real focused phase does.
+  k.stats.ticks = k.stats.search_ticks = 500;
   switchmode_apply(k);
   p.mode.count++;
   p.reluctant = {};
@@ -135,7 +138,7 @@ static void test_policy_schedule() {
   assert(k.h->stable);
   assert(p.mode.ticks_limit == 1000); // 500 + (500 - 0)
   assert(!p.want_switch_mode(k));
-  k.stats.ticks = 1000;
+  k.stats.ticks = k.stats.search_ticks = 1000;
   assert(p.want_switch_mode(k));
   // stable restarts come from reluctant doubling, not glue EMAs
   assert(!p.want_restart(k));

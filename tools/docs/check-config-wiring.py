@@ -53,6 +53,9 @@ TABLE = {
                                           "splits the redundant side into kissat's "
                                           "tier1/tier2/tier3 (C10 hand-off H3)"),
     "bump_reason_limit":       ("POLICY", "reason-side bumping rate"),
+    "inprocessing":            ("POLICY", "phase bracket; routes a tick away from "
+                                          "stats.search_ticks (kissat gets the same "
+                                          "split from the call site)"),
     # --- a rule computes these -------------------------------------------
     "tier1":                   ("RULE", "reduce.cpp, from the live glue distribution"),
     "tier2":                   ("RULE", "reduce.cpp; 2 consumers (reduce, vivify) — SP-TIER-2 "
