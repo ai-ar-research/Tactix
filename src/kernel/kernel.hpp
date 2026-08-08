@@ -53,6 +53,13 @@ struct Stats {
   uint64_t conflicts = 0;
   uint64_t propagations = 0;
   uint64_t ticks = 0; // propagation memory-traffic proxy (see propagate.cpp)
+  // Of those, the ones charged OUTSIDE a simplification phase (kissat
+  // `statistics.search_ticks`, propsearch.c:24). Maintained here rather than
+  // reconstructed by a policy subtraction, because it is the firewall that
+  // stops a technique inflating its own next budget: every effort limit is a
+  // fraction of recent SEARCH work, so a technique whose spend re-entered the
+  // reference would compound. Monotone by construction.
+  uint64_t search_ticks = 0;
   uint64_t inprocess_propagations = 0; // of those, inside a simplification
                                        // phase; policy-written at phase exit
   // --- wall-clock accounting (diagnostic) -----------------------------------
@@ -903,6 +910,14 @@ struct Kernel {
   // earlier entry spends the budget a later one was handed, and nothing
   // separates "starved" from "ran and found nothing". Pure accounting.
   uint64_t *tick_sink = nullptr;
+  // True while a simplification phase is running, which is what routes a tick
+  // away from `stats.search_ticks`. kissat gets the same split from the call
+  // site — search propagation charges `search_ticks`, the probing and
+  // elimination propagators charge their own — so this flag is that choice
+  // expressed for one shared propagator. Pure accounting: no inference reads
+  // it, and an API caller applying a rule outside a phase simply charges
+  // search, exactly as a direct `kissat_propagate` would.
+  bool inprocessing = false;
   // Per-round work budget, read by any budget-aware canonical apply in its own
   // currency (kissat SET_EFFORT_LIMIT): Vivify meters propagation ticks, Factor
   // its cache-line factor_ticks; 0 = unbounded. Not a guard: stopping early
@@ -1241,6 +1256,8 @@ inline uint64_t kernel_cache_lines(uint64_t n) { return (n + 31u) >> 5; }
 // through here is what stops the two drifting.
 inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
   k.stats.ticks += n;
+  if (!k.inprocessing)
+    k.stats.search_ticks += n;
   if (k.tick_sink)
     *k.tick_sink += n;
 }

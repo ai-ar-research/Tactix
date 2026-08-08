@@ -160,7 +160,6 @@ static void assert_reset_is_a_noop_on_a_fresh_kernel(uint32_t nvars,
   SAME(reorder.count);
   SAME(walk_anchor);
   SAME(inprocess.initialized);
-  SAME(inprocess.ticks);
   SAME(probe_clock.next_conflicts);
   SAME(probe_clock.rounds);
   SAME(elim_clock.next_conflicts);
@@ -200,7 +199,6 @@ static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
        "rephase schedule");
   note(p.walk_anchor != 0, "walk anchor");
   note(p.inprocess.initialized, "inprocessing prime flag");
-  note(p.inprocess.ticks != 0, "inprocessing tick accumulator");
   note(p.probe_clock.rounds != 0, "probe clock");
   note(p.elim_clock.rounds != 0, "elim clock");
   // The phase effort anchors moved from the entries to the clocks; a reused

@@ -281,6 +281,18 @@ struct TickSinkScope {
   TickSinkScope &operator=(const TickSinkScope &) = delete;
 };
 
+// Bracket a simplification phase, so its ticks are charged to the phase rather
+// than to `stats.search_ticks`. RAII for the same reason: an early return that
+// left the flag set would freeze the search counter for the rest of the solve,
+// and every effort limit is a fraction of it.
+struct InprocessScope {
+  Kernel &k;
+  explicit InprocessScope(Kernel &kk) : k(kk) { k.inprocessing = true; }
+  ~InprocessScope() { k.inprocessing = false; }
+  InprocessScope(const InprocessScope &) = delete;
+  InprocessScope &operator=(const InprocessScope &) = delete;
+};
+
 // Private per-rule meters: no EffortSpec meter may read the global
 // `k.stats.ticks`, which lets one entry spend another's budget.
 uint64_t meter_probe(const Kernel &k) { return k.stats.probe_ticks; }
@@ -309,15 +321,21 @@ uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
 uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks; }
 uint64_t meter_congruence(const Kernel &k) { return k.stats.congruence_ticks; }
 
-// name -> {effort per mille, currency, dosed}. Fractions are kissat's options.h
-// defaults unless a row says otherwise; a Ref-payload rule, or one whose round
-// builds a shared index, cannot be `dosed`.
+// name -> {effort per mille, currency, dosed, budget_aware}. Fractions are
+// kissat's options.h defaults unless a row says otherwise; a Ref-payload rule,
+// or one whose round builds a shared index, cannot be `dosed`.
+//
+// The two shape bits are not a dosing taxonomy — they are what a scheduler
+// generic over the rule interface has to be told, where kissat hand-writes each
+// technique's loop and so never states it. `dosed` drives the rule candidate by
+// candidate against a budget; `budget_aware` calls its canonical round and lets
+// the round poll `Kernel::work_budget` at a candidate boundary, which is what
+// both references do inside their techniques.
 struct EffortSpec {
   const char *name;
   uint32_t permille;
   uint64_t (*meter)(const Kernel &);
   bool dosed;
-  bool retry_advice;
   bool budget_aware;
   // Null where the rule charges its own counter, or the currency is not ticks.
   uint64_t Stats::*tick_counter = nullptr;
@@ -331,62 +349,57 @@ struct EffortSpec {
 
 constexpr EffortSpec EFFORT_SPECS[] = {
     // kissat `eliminateeffort` 100 per mille (options.h:44).
-    {"BVE", 100, meter_bve, true, true, false, nullptr},
+    {"BVE", 100, meter_bve, true, false, nullptr},
     // cadical `probeeffort` 8 per mille (options.hpp:164) — the only reference
     // rate for this technique. kissat has no `probeeffort`: its probing phase is
     // bounded by the conflict INTERVAL alone. The previous 20 was neither
     // reference's number.
-    {"Probe", 8, meter_probe, true, false, false, &Stats::probe_ticks},
-    // Neither reference budgets this as a technique: kissat has no hyper binary
-    // resolution, and cadical derives it inside the probing propagation
-    // (`probehbr`, no `hbreffort`), so there is no reference share to port and
-    // no structural per-candidate cap to copy. Accepted deviation
-    // `D-HBR-STANDALONE` (docs/implementation-notes.md §13.3, plan rev 91):
-    // budget_aware, so one root's resolvent loop is bounded by the residual
-    // ledger rather than by the closure — the sweep/kitten shape.
+    {"Probe", 8, meter_probe, true, false, &Stats::probe_ticks},
     // Rides probing's rate: cadical runs HBR inside the probing propagation
-    // under `probehbr`, with no `hbreffort` of its own, and kissat has no HBR.
-    // Accepted deviation `D-HBR-STANDALONE` (implementation-notes §13.3).
-    {"HyperBinaryRes", 8, meter_hbr, true, false, true, &Stats::hbr_ticks},
-    {"Backbone", 20, meter_backbone, true, false, false, &Stats::backbone_ticks},
-    {"TransitiveReduce", 20, meter_transitive, true, false, false},
+    // under `probehbr` with no `hbreffort` of its own, and kissat has no hyper
+    // binary resolution at all, so there is no reference share to port and no
+    // structural per-candidate cap to copy. `budget_aware`, so one root's
+    // resolvent loop stops at the ledger residual rather than at the closure —
+    // the sweep/kitten shape. Accepted deviation `D-HBR-STANDALONE`
+    // (docs/implementation-notes.md §13.3, plan rev 91).
+    {"HyperBinaryRes", 8, meter_hbr, true, true, &Stats::hbr_ticks},
+    {"Backbone", 20, meter_backbone, true, false, &Stats::backbone_ticks},
+    {"TransitiveReduce", 20, meter_transitive, true, false},
     // kissat `vivifyeffort` 100 per mille (options.h:161).
-    {"Vivify", 100, meter_vivify, false, false, true, &Stats::vivify_ticks},
+    {"Vivify", 100, meter_vivify, false, true, &Stats::vivify_ticks},
     // Strengthen/SubsumeForward must be budget_aware: unbudgeted, the per-mille
     // bounds only how often a round starts. kissat `forwardeffort` 100
     // (options.h:72); its currency there is `forward_steps`, here partner
     // visits.
-    {"Strengthen", 100, meter_strengthen, false, false, true, nullptr},
-    {"SubsumeForward", 100, meter_forward, false, false, true, nullptr},
+    {"Strengthen", 100, meter_strengthen, false, true, nullptr},
+    {"SubsumeForward", 100, meter_forward, false, true, nullptr},
     // kissat factoreffort 50 per mille (options.h:57); the first dose per solve
     // takes the factoriniticks allowance instead (see set_entry_limit).
-    {"Factor", 50, meter_factor, false, false, true, nullptr},
+    {"Factor", 50, meter_factor, false, true, nullptr},
     // 8 per mille is cadical's `ternaryeffort` (options.hpp:240); kissat has no
     // ternary resolution, so this rate is cadical's and has no kissat analogue.
-    {"HyperTernaryRes", 8, meter_ternary, false, false, true, nullptr},
-    // No reference schedule backs any BCE constant (kissat has none, cadical
-    // ships `block`=0), so rate and position are local choices.
+    {"HyperTernaryRes", 8, meter_ternary, false, true, nullptr},
     // No reference rate exists: kissat has no BCE and cadical ships `block`=0,
     // bounding it structurally (`blockocclim` 1e2 -> `Kernel::bce_occ_limit`).
     // Shipping it ON is the standing baseline, so this rate is a local choice —
     // an accepted deviation, not a ported constant.
-    {"BCE", 20, meter_bce, false, false, true},
+    {"BCE", 20, meter_bce, false, true},
     // cadical's `covereffort` is 4 per mille (options.hpp:73); `covermaxeff` is
     // not ported, being in propagations where `cce_ticks` counts literals.
-    {"CCE", 4, meter_cce, false, false, true},
+    {"CCE", 4, meter_cce, false, true},
     // Instantiate's probes are propagation: ticks, at the cheap-probing rate.
     // Same shape as BCE: cadical ships `instantiate`=0 and bounds it
     // structurally (`instantiateclslim`); kissat has no counterpart. The rate
     // is a local choice.
-    {"Instantiate", 20, meter_instantiate, false, false, true, &Stats::instantiate_ticks},
+    {"Instantiate", 20, meter_instantiate, false, true, &Stats::instantiate_ticks},
     // kissat's `sweepeffort` is 100 per mille (options.h:143).
-    {"Sweep", 100, meter_sweep, false, false, true},
+    {"Sweep", 100, meter_sweep, false, true},
     // kissat gives congruence no effort budget at all — it is gated by the
     // delay ladder and `congruenceonce` instead. This budget is deliberately
     // stricter than the reference, an accepted deviation carrying its own
     // measurement in docs/implementation-notes.md §13.3. The first round per
     // solve bypasses it (set_entry_limit).
-    {"Congruence", 100, meter_congruence, false, false, true, nullptr, true},
+    {"Congruence", 100, meter_congruence, false, true, nullptr, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -828,7 +841,6 @@ void DefaultPolicy::build_inprocess_slot(Kernel &k) {
           e.meter = s->meter;
           e.tick_counter = s->tick_counter;
           e.dosed = s->dosed;
-          e.retry_advice = s->retry_advice;
           e.budget_aware = s->budget_aware;
           // TACTIX_SLOT_PERMILLE=Name:rate[,...] (diagnostic): override an
           // entry's effort rate without a rebuild, so a sweep fits one window.
@@ -1209,23 +1221,29 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     e.tm.dec_guard++;
     return SlotStep::Next;
   }
+  // The growth-bound ramp, the per-variable retry bit and the three diagnostic
+  // hatches below are BVE mechanisms, so they are selected by name here, as
+  // Vivify's tier split and Factor's initial allowance already are. A generic
+  // per-entry flag set for exactly one rule read as a rule-shape category and
+  // was not one.
+  const bool bve_entry = !std::strcmp(r.name, "BVE");
   // TACTIX_BVE_ONESHOT (diagnostic): one dose per solve, full ramp and
   // unbounded budget, separating recurrence cost from dose content.
-  const bool bve_oneshot = e.retry_advice && std::getenv("TACTIX_BVE_ONESHOT");
+  const bool bve_oneshot = bve_entry && std::getenv("TACTIX_BVE_ONESHOT");
   if (bve_oneshot && e.doses > 0)
     return SlotStep::Next; // the one shot is consumed
   // TACTIX_BVE_CADENCE (diagnostic): one completed call per phase.
-  if (e.retry_advice && ctx.outer > 0 && std::getenv("TACTIX_BVE_CADENCE"))
+  if (bve_entry && ctx.outer > 0 && std::getenv("TACTIX_BVE_CADENCE"))
     return SlotStep::Next;
   // BVE growth-slack ramp (BveBoundPolicy): drive k.bve_bound cheap-first over
   // the sub-policy's passes (kissat eliminate.c set_next_elimination_bound), so
   // later eliminations see a simplified formula. One dose, all passes.
   BveBoundPolicy *ramp = nullptr;
-  if (e.retry_advice && !std::getenv("TACTIX_NO_BVE_RAMP"))
+  if (bve_entry && !std::getenv("TACTIX_NO_BVE_RAMP"))
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
   // In a during-search dose, the completion-gated bound level (bve_level_)
   // replaces the all-levels-per-dose ramp: one pass per dose.
-  const bool level_mode = e.retry_advice && ramp && !bve_oneshot;
+  const bool level_mode = bve_entry && ramp && !bve_oneshot;
   const uint32_t passes = level_mode ? 1 : ramp ? ramp->num_passes() : 1;
   bool dose_cut = false;
   // kissat advances the bound only at a genuine fixpoint (eliminate.c:544): a
@@ -1234,7 +1252,7 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
   // During a ramp the retry bit and the per-variable needed-bound cache
   // (Kernel::bve_min_bound) are consulted together: a bare retry bit, cleared
   // on any attempt, would collapse the ramp to level 0.
-  const bool use_retry = e.retry_advice && !ramp;
+  const bool use_retry = bve_entry && !ramp;
   k.bve_track_min_bound = ramp != nullptr;
   for (uint32_t pass = 0; pass < passes && !ctx.phase_unsat; pass++) {
     // Skip remaining ramp levels once the dose is spent, but only when ramping:
@@ -1248,7 +1266,7 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
     // Fold newly root-fixed literals into the retry advice before reading it:
     // fixing y changes what BVE computes for y's unmarked neighbours.
-    if (e.retry_advice)
+    if (bve_entry)
       kernel_bve_retry_sync_fixed(k);
     inprocess_payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
     const uint32_t n =
@@ -1334,7 +1352,7 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
   }
   // factordelay input: one more BVE round has run. Counted per phase, not per
   // outer round, which would advance the gate three decades too fast.
-  if (e.retry_advice && ctx.outer == 0)
+  if (bve_entry && ctx.outer == 0)
     bve_rounds_run_++;
   if (bve_oneshot)
     e.doses++; // consume the one shot (skipped hereafter)
@@ -1590,11 +1608,11 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   clock.blocked = false; // a new blocking episode may now be counted
   // A simplification phase: descend to a quiescent root (a transient flush that
   // keeps saved/target phases), then dose each enabled technique in this group.
-  const uint64_t phase_ticks_at_entry = k.stats.ticks;
-  // Net this phase's own ticks out of `search_ticks` while it runs, so a
-  // mid-phase anchor stays below the next phase's (see the `inprocess` struct).
-  inprocess.in_phase = true;
-  inprocess.phase_entry_ticks = phase_ticks_at_entry;
+  // Route this phase's ticks away from `stats.search_ticks` for its duration:
+  // an effort limit is a fraction of recent SEARCH work, so the phase's own
+  // spend must not enter the reference (kissat gets the same split by calling a
+  // different propagator; see `Kernel::inprocessing`).
+  InprocessScope inprocess_scope(k);
   const uint64_t phase_props_at_entry = k.stats.propagations;
   // Wall clock for the whole slot, so `c timing` can separate rule time from
   // phase scaffolding. Diagnostic only.
@@ -1688,8 +1706,6 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
     kernel_collect_garbage(k);
   kernel_dense_disconnect(k);
   k.factor_match = nullptr; // scope the config to the phase (see entry)
-  inprocess.ticks += k.stats.ticks - phase_ticks_at_entry;
-  inprocess.in_phase = false;
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
   k.stats.inprocess_nanos += now_nanos() - phase_nanos_at_entry;

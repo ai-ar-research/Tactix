@@ -325,7 +325,6 @@ public:
     // apply, so this rule's propagation lands nowhere else.
     uint64_t Stats::*tick_counter = nullptr;
     bool dosed = false;   // apply per-instance to a budget vs one canonical round
-    bool retry_advice = false; // rule maintains a per-variable retry bit to consult
     // Batch rule whose apply reads Kernel::work_budget and stops mid-round.
     bool budget_aware = false;
     // Whole-formula closure: repetition is governed by the watermark below.
@@ -483,24 +482,12 @@ public:
   bool slot_watermark_ = true;
   struct {
     bool initialized = false;
-    // Ticks spent inside simplification phases. The kernel keeps one global
-    // propagation meter over search and probing alike, but every effort budget
-    // is denominated in search work, so subtracting this recovers the split.
-    uint64_t ticks = 0;
-    // The accumulator is credited at phase exit, so a mid-phase reading must be
-    // netted out live: every budget is an unsigned delta from an anchor.
-    bool in_phase = false;
-    uint64_t phase_entry_ticks = 0;
   } inprocess;
-  // search work only (kissat statistics.search_ticks), monotone by construction
-  // since no search happens inside a phase.
-  uint64_t search_ticks(const Kernel &k) const {
-    const uint64_t net = k.stats.ticks - inprocess.ticks;
-    if (!inprocess.in_phase)
-      return net;
-    const uint64_t in_flight = k.stats.ticks - inprocess.phase_entry_ticks;
-    return net > in_flight ? net - in_flight : 0;
-  }
+  // Search work only (kissat `statistics.search_ticks`). The kernel maintains
+  // it, charging a tick to it exactly when `Kernel::inprocessing` is false, so
+  // it is monotone by construction and a technique's own spend can never
+  // re-enter the reference its next budget is a fraction of.
+  uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
 
   // the scheduling predicates and their transitions, exposed for posing
   bool want_restart(const Kernel &) const;
