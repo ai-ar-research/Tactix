@@ -49,6 +49,71 @@ static uint32_t slot_index(const DefaultPolicy &p, const char *name) {
   return UINT32_MAX;
 }
 
+// --- posed BVE ladder drives Factor's phase snapshot -----------------------
+// An irregular injected ladder detects both ways this wire previously went
+// inert: advancing with a hardcoded doubling sequence and stopping at a
+// hardcoded ceiling.  FactorMatchPolicy::set_bound observes the snapshot taken
+// at phase entry, before that phase's BVE dose advances the level.
+class PosedBveLadder final : public BveBoundPolicy {
+public:
+  const char *name() const override { return "posed-0-3-5-13"; }
+  uint32_t num_passes() const override { return 4; }
+  uint32_t bound(uint32_t pass) const override {
+    static constexpr uint32_t levels[4] = {0, 3, 5, 13};
+    assert(pass < 4);
+    return levels[pass];
+  }
+};
+
+class BoundRecorder final : public FactorMatchPolicy {
+public:
+  const char *name() const override { return "bound-recorder"; }
+  void set_bound(uint32_t bound) override { seen.push_back(bound); }
+  double seed_score(const Kernel &, Lit) override { return 0; }
+  double next_factor_score(const Kernel &, Lit, uint32_t, Lit) override {
+    return 0;
+  }
+  bool accept(uint32_t, uint32_t, int) override { return false; }
+
+  std::vector<uint32_t> seen;
+};
+
+static uint64_t zero_meter(const Kernel &) { return 0; }
+
+static void test_factor_bound_walks_posed_bve_ladder() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+
+  PosedBveLadder ladder;
+  BoundRecorder recorder;
+  DefaultPolicy p;
+  p.bve_bound = &ladder;
+  p.factor_match = &recorder;
+
+  DefaultPolicy::SlotEntry bve;
+  bve.rule = tactix_rule_id("BVE");
+  assert(bve.rule >= 0);
+  bve.group = SlotGroup::Eliminate;
+  bve.dosed = true;
+  bve.meter = zero_meter;
+  p.inprocess_slot.push_back(bve);
+
+  static constexpr uint32_t expected[5] = {0, 3, 5, 13, 13};
+  for (const uint32_t bound : expected) {
+    assert(p.run_slot_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+    assert(k.bve_bound == bound &&
+           "BVE did not use the posed ladder's current level");
+  }
+  assert(recorder.seen.size() == 5);
+  for (size_t i = 0; i < recorder.seen.size(); i++)
+    assert(recorder.seen[i] == expected[i] &&
+           "Factor did not receive BVE's posed phase-entry bound");
+  assert(p.inprocess_slot[0].tm.admitted == 5 &&
+         "the posed BVE dose must engage in every tested phase");
+  std::printf("  SP-FACTOR-1: posed BVE ladder 0,3,5,13,13 reached Factor\n");
+}
+
 // --- pose / disable / re-enable --------------------------------------------
 // `enabled` is the policy declining to schedule, not the rule declining to
 // apply (N1), so the rule's own counter is the observable. The phase runs
@@ -189,6 +254,7 @@ static void check_knobs(DefaultPolicy &p, Kernel &) {
 }
 
 int main() {
+  test_factor_bound_walks_posed_bve_ladder();
   test_pose_and_disable();
 
   const char *disable[] = {"TACTIX_SLOT_DISABLE", "Congruence"};
