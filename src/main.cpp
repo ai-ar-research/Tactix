@@ -233,9 +233,6 @@ int main(int argc, char **argv) {
     kernel.ternary_occ_limit = (uint32_t)strtoul(ol, nullptr, 10);
   if (const char *ma = getenv("TACTIX_TERNARY_MAXADD"))
     kernel.ternary_max_add_percent = (uint32_t)strtoul(ma, nullptr, 10);
-  // Consulted only under TACTIX_BVE_ADMIT=cost.
-  if (const char *cl = getenv("TACTIX_BVE_COST_LIMIT"))
-    kernel.bve_cost_limit = (uint32_t)strtoul(cl, nullptr, 10);
   if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
     kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
   if (getenv("TACTIX_V4_EARLY_EXIT"))
@@ -263,8 +260,6 @@ int main(int argc, char **argv) {
                                            // see Kernel::midround_budget
   if (const char *fs = getenv("TACTIX_FACTOR_SIZE"))
     kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
-  if (const char *sp = getenv("TACTIX_FACTOR_SCOPE_PCT"))
-    kernel.factor_scope_percent = (uint32_t)strtoul(sp, nullptr, 10);
   // Kissat's `reduction > bound` acceptance threshold (factor.c:939), default 0
   // accepting any positive gain. Formula-shape-blind, which is why it and not a
   // scope gate is the candidate for making broad admission safe: Factor's

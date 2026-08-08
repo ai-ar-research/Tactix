@@ -799,13 +799,9 @@ struct Kernel {
   bool midround_budget = false;
   // Factor clause-size scope (kissat `factorsize`, default 5). 2 = binary-only;
   // >= 3 lets remainders be sub-clauses. The add-RAT argument is indifferent to
-  // |r| (docs/design/e2-factorsize-design.md §4). Scope only, so unlike
-  // `factor_scope_percent` it admits no new instances.
+  // |r| (docs/design/e2-factorsize-design.md §4). Scope only: it admits no new
+  // instances.
   uint32_t factor_size = 5;
-  // Factor scope-fraction admission: admit Factor when at least this percent of
-  // live irredundant clauses are within its size scope; 0 = use the
-  // binaries-per-var density gate instead. Scope-aware by construction.
-  uint32_t factor_scope_percent = 0;
   // TransitiveReduce: exit the reachability walk as soon as `dst` is reached
   // (kissat transitive.c:130). Ships false — transitive_reduce.hpp runs each
   // walk to exhaustion so failed-literal detection sees the whole reachable
@@ -818,10 +814,6 @@ struct Kernel {
   // `TACTIX_TRANSITIVE_LIVE_METER=0` is the permanent baseline arm
   // (plan §5 obligation 6). Measurement: PROGRESS.md's phase-4 table.
   bool transitive_live_meter = true;
-  // BVE dose admission by measured cost per yield (resolutions per eliminated
-  // variable); 0 = no limit. Density is a proxy for "elimination is safe here"
-  // that fails on nearly every sparse instance.
-  uint32_t bve_cost_limit = 0;
   // HyperTernaryRes governors (cadical `ternary.cpp`); 0 = unlimited. Without
   // them the rule has no bound of its own and BCE silently serves as one, since
   // deleting blocked clauses shrinks the ternary candidate pool.

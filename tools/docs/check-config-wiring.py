@@ -64,10 +64,8 @@ TABLE = {
     "bce_occ_limit":           ("ENV", "TACTIX_BCE_OCC_LIMIT"),
     "midround_budget":         ("ENV", "TACTIX_MIDROUND_BUDGET (measured negative)"),
     "factor_size":             ("ENV", "TACTIX_FACTOR_SIZE"),
-    "factor_scope_percent":    ("ENV", "TACTIX_FACTOR_SCOPE_PCT (broad-admission arm)"),
     "transitive_early_exit":   ("ENV", "TACTIX_V4_EARLY_EXIT"),
     "transitive_live_meter":   ("ENV", "TACTIX_TRANSITIVE_LIVE_METER"),
-    "bve_cost_limit":          ("ENV", "TACTIX_BVE_COST_LIMIT"),
     # R10: the per-attempt sub-solver ceiling for definition extraction. NOT
     # POLICY — kissat treats `definitionticks` as a fixed option and moves
     # nothing per phase, so a writer in default_policy.* would be the fake

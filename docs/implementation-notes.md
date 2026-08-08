@@ -237,21 +237,26 @@ mechanics*, not proof-rule guards:
   pairs verify) — plus `binary_partners` dedup so dimensions/gain aren't inflated. **Lesson: touch ONLY
   Factor's grid pairs** — a global binary dedup *wrecks* the base search (mp1 4.19M→23.9M+ conflicts;
   those duplicates are load-bearing for its CDCL trajectory).
-- **Density short-circuit (a POLICY admission decision since SCHED-N1FIX, 2026-08-04).** The predicate
-  `binary_ids.size() < density·num_output_vars` is computed by **DefaultPolicy** and handed to the rule as
-  `Kernel::factor_admit`, which **defaults true**; `factor_apply` declines only when the policy has said
-  so (`TACTIX_FACTOR_FORCE` overrides). It formerly NoOped inside `factor_apply`, which was the N1 breach
-  the N4 audit found — an API caller could not apply a legal factoring on a binary-sparse formula while
-  the guard reported applicable. **`density = 6`** (`default_policy.cpp`; 1→8 with the BVE-LAST
-  fix 2026-07-21, then **8→6 on 2026-07-24 — battleship's ratio is [6,7) and the 8-gate locked it out of
-  its only robust path**: with Factor 78 factorings → SAT 175 s, without it 72 M+ conflicts under every
-  trajectory arm; `benchmarks/reports/2026-07-24-battleship-divergence.md`). It also serves the ordering
-  fix: BVE runs LAST in the slot, eliminating on the Factor/Congruence/Substitute-simplified formula
-  (bimodal-BVE fix, `default_policy.cpp`), but Factor-then-BVE is HARMFUL on binary-SPARSE instances
-  (mod4block ratio 4.1), benign on dense ones (clique 17.5, mp1 103, x9 8.2, battleship 6.x). **6 is
-  still an overfit magic number** (N1-pure NoOp) — the effort-budgeted scheduler (plan rev 53)
-  supersedes it and the BVE-last stopgap. `TACTIX_FACTOR_DENSITY` overrides for A/B; the
-  `TACTIX_BVE_FIRST` arm went in the negative-arm cleanup (`a7de35d`).
+- **Factor admission is UNCONDITIONAL, and the density short-circuit is GONE (2026-08-07).**
+  `Kernel::factor_admit` survives as the policy-to-rule channel — it defaults true, `factor_apply`
+  declines only when the policy has said so, and `TACTIX_FACTOR_FORCE` overrides — but DefaultPolicy no
+  longer writes false into it. What was removed is the predicate
+  `binary_ids.size() < density·num_output_vars`, together with BVE's identical dose gate and the dormant
+  `factor_scope_percent` union arm. Two independent reasons, either sufficient. **(1) No reference has
+  the term:** `kissat_factoring` (factor.c:1068-1085) gates on the `factordelay` warm-up and the marked
+  watermark and nothing else, `kissat_eliminating` (eliminate.c:21-39) on five conjuncts none of which is
+  a density, and cadical's `elim.cpp` has no density predicate at all. **(2) It was reading the wrong
+  number:** the numerator `Kernel::binary_ids` is a proof-id map documented at `kernel.hpp` as
+  size-monotone because deletion keeps the key, so it counted binaries ever *derived*, not the live
+  binary population it was written as if it were — which is why the gate was observed to loosen
+  monotonically over a solve.
+  **Its history, kept because the threshold's tuning is the exhibit:** `density` went 1 → 8 with the
+  BVE-LAST fix, then 8 → 6 when battleship's ratio turned out to be [6,7) and the 8-gate locked it out of
+  its only robust path (`benchmarks/reports/2026-07-24-battleship-divergence.md`). A constant no
+  reference backs, moved twice to fit two instances — the shape plan §5 obligation 6 names as an
+  invention. **▶ CONSEQUENCE FOR A BANKED CONCLUSION:** the project's *0-for-5 record of hand-designed
+  formula-shape separators* was measured through this gate, so those five negatives are evidence about a
+  broken instrument rather than about separators.
 - **Grid selection is a policy, the grid mechanism is the rule (S2a, 2026-07-23).** `factor_apply` keeps
   the MECHANISM (seed heap, co-occurrence counting, greedy grow, best-prefix, the proof-bearing
   `apply_factoring`); the three SCALARS — seed priority, next-factor tie-break, accept threshold — come
