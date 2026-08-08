@@ -506,9 +506,16 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   **▶ AND THE RE-OPENED CONCLUSION STANDS:** the *0-for-5 record of hand-designed formula-shape separators*
   was measured through this gate, and the gate's removal is worth +3 Tier B solves. Those five negatives are
   evidence about a broken instrument, not about separators.
-- [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
-  `BCE`, `Instantiate`, `Congruence`. Where the reference bounds the technique by *interval* instead, port the
-  interval; where it ships the technique OFF, that is the datum.
+- [x] **D2 — the five unbacked fractions are RESOLVED, two by re-derivation and three as recorded
+  deviations.** **`Probe` 20 → 8 ‰** (cadical `probeeffort`, options.hpp:164 — the only reference rate for the
+  technique; kissat has no `probeeffort` at all and bounds probing by interval alone). **`HyperBinaryRes`
+  20 → 8 ‰** — it rides probing's rate, because that is exactly what cadical does with HBR (inside the probing
+  propagation under `probehbr`, no `hbreffort`). The other three cannot be re-derived and are now labelled
+  honestly at the source rather than left looking ported: **`BCE`** and **`Instantiate`** have NO reference
+  rate — kissat has neither technique and cadical ships both OFF, bounding them structurally
+  (`blockocclim`, `instantiateclslim`) — so shipping them ON makes their rate a local choice; **`Congruence`**
+  was already the accepted deviation `SP-CONG-BUDGET-1`, where we are deliberately *stricter* than kissat,
+  which gives congruence no budget at all.
 - [x] **D3 — `HyperBinaryRes` is bounded by the ledger's residual, and `veer_axi` FALLS.**
   The entry becomes `budget_aware` and `run_dosed_entry` hands the residual into the instance, so the
   resolvent loop stops at the dose instead of at the closure — kissat's sweep→kitten shape, since both
@@ -533,11 +540,15 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   kissat's own backoff: the yield-rate ladder (`kimits.c:155-194`), which congruence and sweep drive off a
   yield rate below 0.001. We have the ladder mechanism but not the yield-rate trigger, and Factor and
   HyperTernaryRes now have no backoff at all since `thresh` went.
-- [ ] **Sanity check any port against the sums**: ~300‰ per probing round and ~200‰ per elimination round is
-  the references' design intent. Ours are 438‰ and 344‰.
-
-**▶ THREE METER DEFECTS the study found, all verified at the source. They sit UNDER the dosing scheme, so a
-per-mille ported onto a broken meter transfers a number that means something else.**
+- [x] **The sums check is DONE, and it found one more unbacked doubling.** After D2 the probe group totals
+  **434 ‰ per round** counting kissat's repeats (Backbone twice) against kissat's **330 ‰** on the same
+  basis; the excess is Congruence's 100 (the recorded `SP-CONG-BUDGET-1` deviation) plus 24 for the three
+  rules kissat lacks. That is now fully accounted for. The elimination group is **344 ‰ against kissat's
+  200**, and the gap is NOT all technique-count:
+- [ ] **`Strengthen` + `SubsumeForward` are one kissat technique billed twice.** kissat has a single
+  `forwardeffort` = 100 ‰ for forward subsumption; we split it into C1 and C2 and give each 100 ‰, so the pair
+  draws **200 ‰ where the reference draws 100**. Either they share one budget or each takes 50. This is a
+  dose change and needs its own window, so it is not folded into D2.
 - [x] **The tick unit is commensurable — LANDED 2026-08-07.** `kernel_cache_lines` is now kissat's
   `(n + 31) >> 5` (128-byte line, rounds up), the four watch-scan sites share it, and the three missing event
   charges are in (binary assign, watch relocation, large-clause assignment). **Isolated effect: our ticks were

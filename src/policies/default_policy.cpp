@@ -332,7 +332,11 @@ struct EffortSpec {
 constexpr EffortSpec EFFORT_SPECS[] = {
     // kissat `eliminateeffort` 100 per mille (options.h:44).
     {"BVE", 100, meter_bve, true, true, false, nullptr},
-    {"Probe", 20, meter_probe, true, false, false, &Stats::probe_ticks},
+    // cadical `probeeffort` 8 per mille (options.hpp:164) — the only reference
+    // rate for this technique. kissat has no `probeeffort`: its probing phase is
+    // bounded by the conflict INTERVAL alone. The previous 20 was neither
+    // reference's number.
+    {"Probe", 8, meter_probe, true, false, false, &Stats::probe_ticks},
     // Neither reference budgets this as a technique: kissat has no hyper binary
     // resolution, and cadical derives it inside the probing propagation
     // (`probehbr`, no `hbreffort`), so there is no reference share to port and
@@ -340,7 +344,10 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // `D-HBR-STANDALONE` (docs/implementation-notes.md §13.3, plan rev 91):
     // budget_aware, so one root's resolvent loop is bounded by the residual
     // ledger rather than by the closure — the sweep/kitten shape.
-    {"HyperBinaryRes", 20, meter_hbr, true, false, true, &Stats::hbr_ticks},
+    // Rides probing's rate: cadical runs HBR inside the probing propagation
+    // under `probehbr`, with no `hbreffort` of its own, and kissat has no HBR.
+    // Accepted deviation `D-HBR-STANDALONE` (implementation-notes §13.3).
+    {"HyperBinaryRes", 8, meter_hbr, true, false, true, &Stats::hbr_ticks},
     {"Backbone", 20, meter_backbone, true, false, false, &Stats::backbone_ticks},
     {"TransitiveReduce", 20, meter_transitive, true, false, false},
     // kissat `vivifyeffort` 100 per mille (options.h:161).
@@ -359,17 +366,26 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     {"HyperTernaryRes", 8, meter_ternary, false, false, true, nullptr},
     // No reference schedule backs any BCE constant (kissat has none, cadical
     // ships `block`=0), so rate and position are local choices.
+    // No reference rate exists: kissat has no BCE and cadical ships `block`=0,
+    // bounding it structurally (`blockocclim` 1e2 -> `Kernel::bce_occ_limit`).
+    // Shipping it ON is the standing baseline, so this rate is a local choice —
+    // an accepted deviation, not a ported constant.
     {"BCE", 20, meter_bce, false, false, true},
     // cadical's `covereffort` is 4 per mille (options.hpp:73); `covermaxeff` is
     // not ported, being in propagations where `cce_ticks` counts literals.
     {"CCE", 4, meter_cce, false, false, true},
     // Instantiate's probes are propagation: ticks, at the cheap-probing rate.
+    // Same shape as BCE: cadical ships `instantiate`=0 and bounds it
+    // structurally (`instantiateclslim`); kissat has no counterpart. The rate
+    // is a local choice.
     {"Instantiate", 20, meter_instantiate, false, false, true, &Stats::instantiate_ticks},
     // kissat's `sweepeffort` is 100 per mille (options.h:143).
     {"Sweep", 100, meter_sweep, false, false, true},
-    // No reference schedule backs Congruence's share (kissat runs it
-    // unlimited), and the first round per solve bypasses the budget
-    // (set_entry_limit).
+    // kissat gives congruence no effort budget at all — it is gated by the
+    // delay ladder and `congruenceonce` instead. This budget is deliberately
+    // stricter than the reference, an accepted deviation carrying its own
+    // measurement in docs/implementation-notes.md §13.3. The first round per
+    // solve bypasses it (set_entry_limit).
     {"Congruence", 100, meter_congruence, false, false, true, nullptr, true},
 };
 
