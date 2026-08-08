@@ -11,7 +11,9 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 93 (Tier B/C memory cap 8 -> 16 GB; rev 92 compacted the plan and
+- **Plan revision tracked:** rev. 94 (§5 obligation 6 rider (e): a regression on a faithful port is
+  not evidence against the mechanism; `SP-FACTOR-1` + `SP-BVE-BWD-1` are owed ports. rev 93 Tier C
+  memory cap 8 -> 16 GB; rev 92 compacted the plan and
   moved the revision history to `docs/log/plan-revisions.md`). Substantively rev. 91 — **phase 4's dosing work is a faithful PORT of the references' dosing
   scheme** (design pass `docs/design/2026-08-07-reference-dosing.md`; five of our fifteen effort rows are backed
   by no reference, our allowance formula is a kissat/cadical hybrid, and we tax search ~1.6× harder than
@@ -659,10 +661,26 @@ under the port block and did not belong there. Each needs a closure, or an accep
 `docs/implementation-notes.md` §13.3 carrying its measurement and reopening path. A deviation is a legitimate
 close; silence is not.
 
-- [ ] **`SP-BVE-BWD-1` first — it is the sharpest N4 finding we have.** Feed BVE's fresh resolvents straight
-  into subsumption; it is what makes cadical's `elimrounds`=2 sufficient. The behavioural audit measured our BVE
-  eliminating ZERO variables on 7 of the 9 instances where kissat eliminates anything, so this is the row with a
-  mechanism-level target rather than a PAR-2 hope.
+- [ ] **`SP-BVE-BWD-1` + `SP-FACTOR-1` LAND TOGETHER — the two Factor/BVE mechanism gaps, merged by user
+  decision 2026-08-07 (plan rev 94).** `SP-BVE-BWD-1`: feed BVE's fresh resolvents straight into backward
+  subsumption, cadical `elimbackward`=1 — a queue of newly added resolvents (`backward.cpp:12-30`) drained
+  per elimination (`elim.cpp:731`). Ours wait for the next SubsumeForward/Strengthen entry, on a different
+  budget and candidate set, with no knowledge of what BVE just added. **`SP-FACTOR-1`: its accepted
+  deviation is WITHDRAWN** — couple Factor's acceptance bound to elimination progress
+  (`reduction > bound`, ramp 0→1→2→4→8→16; kissat `factor.c:72,939`, `eliminate.c:338-368`), where
+  `Kernel::factor_bound` exists, defaults 0 and is never written.
+  **▶ WHY THEY MERGE, and why this is the live suspect for increment 3's Tier C loss.** cadical's
+  `elimrounds`=2 is sufficient *because* `elimbackward` feeds subsumption; increment 2 set our round count
+  to 2 on the reference's number **without that mechanism**, which is precisely rider (b)'s failure — the
+  constant ported without the thing that makes it work. Under rider (e) the T-series regression is
+  therefore read as a missing coupled mechanism, not as evidence for the density gates.
+  **▶ WHAT EACH MUST SHOW BEFORE ANY TIER NUMBER:** a reachability witness at the source. For Factor, that
+  the bound is non-zero at the occasions Factor actually runs (the `bve_level_ == 0` trap) and that the
+  acceptance test changes its answer; for BVE, that the resolvent queue is non-empty and that clauses are
+  actually subsumed from it. An inert port reproduces the old number while looking like parity.
+  The behavioural target is the standing N4 finding: **our BVE eliminates ZERO variables on 7 of the 9
+  instances where kissat eliminates anything (104 vs 2,736,829), and Factor adds ZERO on 6 of 9.**
+
 - [ ] **The other MED/LOW `WE_LACK_IT` rows:** `SP-COMPACT-1` (variable compaction / renumbering) ·
   `SP-CHRONO-1` (analyze-side trail reuse) · `SP-VIVIFY-3` (schedule-level dedup before spending a
   propagation). *(`SP-SWEEP-2` left this list on 2026-08-07: the ladder's closure-only gate is gone and Sweep
