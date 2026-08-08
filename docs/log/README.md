@@ -4,9 +4,6 @@ Historical PROGRESS narratives live here as **verbatim, frozen** archives. Since
 plan rev 97, PROGRESS is a current-state dashboard with at most five one-line
 recent changes; it no longer carries or grows a weekly narrative Log.
 
-`tools/docs/archive-log.py` remains only for reading or migrating a checkout
-that predates rev 97. It is not part of the current wrap-up workflow.
-
 | week | dates | entries | what it covers |
 |---|---|---|---|
 | [2026-W32](2026-W32.md) | 08-03 → 08-09 | 9 | phase 3 close, reference dosing, backward-BVE N2 fix |
