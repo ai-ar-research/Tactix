@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Archive PROGRESS.md's Log by ISO week.
+"""Archive a legacy PROGRESS.md Log by ISO week.
 
-PROGRESS.md's Log keeps the CURRENT ISO week only; completed weeks move to
-`docs/log/<ISO-week>.md`, verbatim and frozen, indexed by `docs/log/README.md`.
+Since plan rev 97, PROGRESS has no narrative Log. This tool remains for migrating
+an older checkout and exits cleanly when no Log exists.
 
 This exists as a SCRIPT rather than a wrap-up instruction on purpose: this
 project's record is that PROSE TRIGGERS DO NOT FIRE. Several deferred items
@@ -52,7 +52,10 @@ def iso_week(header):
 
 def split_log(lines):
     """-> (head, preamble, [(week, header, body_lines)])"""
-    log_i = next(i for i, l in enumerate(lines) if l.startswith("## Log"))
+    try:
+        log_i = next(i for i, l in enumerate(lines) if l.startswith("## Log"))
+    except StopIteration:
+        return lines, [], []
     try:
         first = next(i for i, l in enumerate(lines)
                      if i > log_i and ENTRY_RE.match(l))

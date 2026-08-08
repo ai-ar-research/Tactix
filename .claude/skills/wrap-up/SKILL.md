@@ -1,129 +1,40 @@
 ---
 name: wrap-up
-description: End-of-session checklist, run right before quitting so the next fresh session can just say "continue" and resume building. Ensures work is committed + pushed, tests are green, the living docs are current (PROGRESS reflects what was done + the next undone step; plan/calculus synced if touched), compact-docs has run to condense this session's ticked items to one-liners (and fully re-compact if a doc grew unwieldy), tasks reflect reality, and PROGRESS's resume anchor is accurate and self-sufficient. Also surfaces the (user-run) command to archive the session transcript to session-YYYY-MM-DD.txt. Use at the end of every work session.
+description: Finish every development session with tests green, living docs compact and current, an Andrew-facing LaTeX/PDF report generated, work committed and pushed, and PROGRESS containing a self-sufficient next step. Use immediately before ending any session.
 ---
 
-# Wrapping up a session
+# Wrap up a session
 
-**North star:** a fresh session with *no memory of this one* reads `CLAUDE.md`
-(auto-loaded) + `PROGRESS.md`, and can continue building **without asking a
-question**. Everything below serves that one goal.
+A fresh session reading CLAUDE and PROGRESS must be able to continue without a
+question. Perform these steps in order.
 
-## The resumability test
+1. **Stabilize work.** Finish the increment or leave an intentional checkpoint.
+   Inspect the queue/processes through `slurm-jobs`; preserve user work and name
+   any still-running jobs in PROGRESS.
+2. **Validate.** Run `ctest` and the task-specific correctness checks. If code
+   changed, run the required model/proof fuzz legs. Fix failures or record an
+   explicit known-broken resume point.
+3. **Synchronize.** Update only current facts in PROGRESS. Use `revise-plan` for
+   plan changes and `calculus` for rule/guard changes. Ensure tasks and the next
+   1–3 steps reflect reality.
+4. **Compact.** Invoke `compact-docs`; run `tools/docs/check-progress.py` and
+   `tools/docs/check-doc-size.py`. PROGRESS keeps at most five one-line recent
+   changes, not a session narrative.
+5. **Report to Andrew.** Invoke `generate-report` after synchronization. Use the
+   user's suggested topic, otherwise the session's main task, otherwise
+   `Tactix development status`. Both TeX and PDF are mandatory; compilation
+   failure blocks wrap-up.
+6. **Revalidate and land.** Rerun affected checks, review the diff, commit all
+   coherent changes, push, and confirm the tracked tree is clean. Do not absorb
+   unrelated user files.
+7. **Handoff.** Summarize the change, test/fuzz/benchmark state, report path,
+   in-flight work, and exact next step.
 
-Before ending, confirm: reading only `CLAUDE.md` + `PROGRESS.md`, a fresh session
-can state the current phase, what was just done, and the **exact next step** — and
-start it. If it can't, that gap is the first thing to fix (usually the PROGRESS
-resume anchor, step 6).
+Optionally show—but never run—the user's private transcript archive command:
 
-## Checklist — in order
+```bash
+dir="$HOME/.claude/projects/$(pwd | sed 's#[/.]#-#g')"
+cp "$(ls -t "$dir"/*.jsonl | head -1)" "session-$(date +%F).txt"
+```
 
-1. **Land the work.** Every change committed with a clear message and **pushed**.
-   `git status` clean — no stray uncommitted edits. If work is intentionally
-   mid-flight, it is a *committed* checkpoint and PROGRESS says where it stands.
-   Never leave the tree dirty for the next session to discover.
-   **Cluster leftovers (slurm-jobs skill):** `squeue -u hwu` shows only the
-   user's own jobs — cancel session leftovers by explicit job id; delete
-   uncited green `tools/fuzz/slurm-*.log` files (commit the ones PROGRESS
-   cites as evidence); bench run dirs self-prune on clean aggregation. Also
-   check for leaked local processes (`ps -u hwu -o pid,etime,cmd --sort=-etime`).
-   **Sweep stale `build/pin-*` dirs** (all reproducible from their commits) —
-   run `tools/bench/buildlock.py --gc` FIRST, since a locked tree is read-only
-   and `rm -rf` fails on it. If a job is still running, leave its dir alone and
-   say so in the anchor.
-2. **Green tests.** The unit suite (ctest) passes — note it also runs the doc
-   conformance checkers (`check-config-wiring`, `check-effort-specs`,
-   `check-option-coverage`, `check-stat-ids`, `check-comment-hygiene`), so a
-   docs-only edit can turn it red. If solver code changed, a quick
-   fuzz (including a random-policy round, proofs checked) is green. If anything is
-   red or broken, **stop** — either fix it, or record it explicitly in PROGRESS as
-   the known-broken resume point. Never leave silent breakage.
-3. **Sync the living docs** (the mandatory sync rule). PROGRESS ticks the items
-   done + a concise newest-first Log entry, and its next-unchecked item is the
-   accurate resume anchor. Plan changed → `revise-plan` (rev bump + §13). Rules or
-   guards changed → `calculus` (`calculus.md` + `implementation-notes.md`).
-   One-fact-one-home: link, don't restate.
-4. **Compact** — **run `compact-docs` every wrap-up.** It condenses the items this
-   session ticked to one-liners and re-compacts any doc that grew unwieldy.
-   compact-docs owns the rules for what and how; wrap-up just guarantees it runs.
-   **First, run the archive check — it is a script, not a judgement call:**
-
-   ```
-   tools/docs/archive-log.py --check     # exit 1 = archiving is due
-   tools/docs/archive-log.py             # do it
-   tools/docs/check-progress.py          # exit 1 = the status surface is STALE
-   ```
-
-   **`check-progress.py` is the anchor's staleness check.** ERRORs are facts that
-   have become false and must be fixed before the session ends: a citation of a
-   lesson that no longer exists, or a "NOTHING IN FLIGHT" claim contradicted by
-   the queue. It also prints ground truth the anchor is usually wrong about —
-   which `build/pin-*` dirs are current and of what build type, and the newest
-   completed tier run — so the anchor is checked against reality, not memory
-   (asked twice in one session whether the anchor was current, it was not).
-
-   `PROGRESS.md`'s Log holds the **current ISO week only**; completed weeks move
-   verbatim to `docs/log/<ISO-week>.md`. If it archived anything: **update
-   `docs/log/README.md`'s index table**, and commit the archives together with
-   PROGRESS in ONE commit (the entries must never exist in both places, or in
-   neither). Entries move **verbatim** — the Log is the durable record, so
-   compression happens *before* an entry is written, never on the way out.
-   **If `--check` prints `⚠ OVER BUDGET`**, archiving cannot help (only one week
-   is present) — that is a signal to *compress* in step 4 proper: ticked
-   checklist items to one-liners, and any Log entry whose detail already lives in
-   a frozen report down to result + pointer.
-
-   *Why a script:* this project's own diagnosis (2026-08-04, cause E) is that
-   prose triggers do not fire — five rev-77 closers with natural-language
-   conditions went off silently, one recording in its own text that "the
-   condition was met and nothing was revisited". Make it mechanical, not
-   remembered.
-5. **Prune persistent memory.** Memory is a small set of *currently true*
-   durable facts, not an archive — it is loaded into every future session, so a
-   stale entry actively misleads and an accreting one crowds out what matters.
-   For each memory the session touched or contradicted:
-   - **Delete what is no longer true.** Do NOT append "superseded" notes — that
-     is how memory blows up, and it forces every future reader to parse a
-     contradiction. Rewrite the entry to what is true now, or remove it.
-   - **Delete what the repo now records.** Project state (which rules are on,
-     current benchmark numbers, landed features) belongs in PROGRESS / reports /
-     git, not memory. Memory keeps what those do *not* say: the user's
-     preferences, recurring hazard shapes, and *why* an approach was rejected.
-   - **Watch for the dangerous shape:** a confidently-worded CONCLUSION about a
-     cause ("X is inherently bad, don't retry it"). Those age worst, because a
-     later session may find the cause was an artifact — and the entry is then the
-     reason a good direction stays closed. Prefer recording the measurement over
-     the causal story, and re-check such entries whenever the session revisits
-     that area.
-   - Keep `MEMORY.md`'s one-line pointers in step with the files, and check
-     `[[links]]` still resolve after any deletion or rename.
-6. **Tasks reflect reality.** Open work is captured (as tasks and/or PROGRESS
-   items); nothing in-flight lives only in this session's memory.
-7. **Write the resume anchor.** Make PROGRESS's *next step* self-sufficient — a
-   fresh session with zero context can act on it: what to do next, where the code
-   is, and any in-flight nuance or gotcha. This is the single most important
-   artifact for "continue."
-8. **Summarize to the user:** what changed this session, current fuzz/benchmark
-   status, and the next step.
-9. **Offer the transcript-save command** (a **user**-run action — agents must
-   never touch `session-*.txt`; a hook enforces this, and the real handoff is
-   PROGRESS + commits, steps 3/7). Show the user this command to archive the
-   session; do **not** run it yourself:
-   ```bash
-   dir="$HOME/.claude/projects/$(pwd | sed 's#[/.]#-#g')"
-   cp "$(ls -t "$dir"/*.jsonl | head -1)" "session-$(date +%F).txt"
-   ```
-   (`~/.claude/projects/<cwd-with-/-and-.-as-dashes>/` holds the session JSONLs;
-   the newest is the active session — target a specific UUID if several run at
-   once. Swap the `cp` for a `jq` extract if a human-readable dump is wanted.) The
-   transcript is a convenience archive only; PROGRESS is the resume anchor.
-
-## Guardrails
-
-- Never end with a dirty tree, red tests, or an unpushed commit, silently.
-- The next step must live in `PROGRESS.md`, never only in chat/memory.
-- Don't over-document the session's play-by-play — the resume anchor + a concise
-  Log entry is enough (that is what compact-docs enforces).
-- **Never touch `session-*.txt`** — do not read, write, cat, grep, or glob them.
-  They are user-private (hook-enforced); only *surface* the save command (step 9)
-  for the user to run.
+Never read, write, glob, or otherwise touch `session-*.txt`.

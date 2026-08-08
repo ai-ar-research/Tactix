@@ -1,0 +1,73 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\title{Tactix Documentation Maintainability}
+\author{Tactix Development Project}
+\date{August 8, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive summary}
+The project's living documentation has been reorganized around one rule: each
+fact has one authoritative home. The plan now contains stable commitments,
+PROGRESS contains only present state and actionable work, and operational skills
+link to those owners instead of repeating their content. Machine-enforced size
+budgets prevent the former append-only growth pattern from returning. A new
+\texttt{generate-report} skill now creates reproducible LaTeX and PDF reports
+for Andrew at every wrap-up.
+
+\section{Findings and results}
+Before this change, the three primary files totaled 2,375 lines: 115 in
+\texttt{CLAUDE.md}, 1,262 in the development plan, and 998 in PROGRESS. They
+repeated requirements, benchmark protocol, current measurements, and historical
+diagnoses. Several repetitions had diverged: N4 was omitted from one
+non-negotiable list; the plan-revision workflow pointed to a history location
+that had already moved; \texttt{SP-CHRONO-1} was both complete and open; and
+stale T3 numbers appeared beside a statement that those numbers were void.
+
+The same files are now 53, 342, and 167 lines respectively. The reduction keeps
+the complete rule catalog, API, gates, open decisions, current phase, resume
+state, and actionable parity backlog. Historical PROGRESS narrative was frozen
+in \texttt{docs/log/2026-W32.md}. Remaining work identifiers include enough
+context to act immediately and point to the self-contained parity ledger for
+reference details and evidence.
+
+\section{Evidence}
+The new \texttt{tools/docs/check-doc-size.py} enforces budgets for living docs
+and skills, verifies N1--N4 coverage, checks plan/PROGRESS revision agreement,
+detects contradictory checklist states, and caps recent changes at five lines.
+All documentation checks pass: 121 section references resolve, all 28 catalog
+families have dispositions, and all 418 reference options remain accounted for.
+The debug suite passes 59 of 59 tests with LeakSanitizer disabled because the
+cluster session runs under ptrace; ASan and UBSan remain enabled.
+
+The report toolchain uses the cluster-provided \texttt{amh-tex/2023} module.
+Its build script compiles in a temporary directory, validates the PDF header,
+and copies only the final PDF beside its LaTeX source.
+
+\section{Risks and decisions}
+Over-compression can make an identifier technically traceable but operationally
+opaque. The chosen boundary is therefore: PROGRESS states the defect and next
+action in one or two lines, while \texttt{docs/implementation-notes.md} owns the
+reference mechanism, current implementation, evidence, and closer. Git history
+is not required for ordinary resumption.
+
+Andrew-facing reports add two frozen files per session by explicit decision.
+They are excluded from living-document budgets and must synthesize rather than
+copy logs. Missing LaTeX or a compilation failure blocks wrap-up instead of
+leaving a source-only deliverable.
+
+\section{Next actions}
+The development resume point is unchanged by this documentation work: recover
+the seven missing tasks from the fixed-binary Tier C ablation window, aggregate
+the completed window, and use its source counters to attribute the three recent
+ports. Thereafter, close the remaining N4 parity rows before the Tier D campaign
+and T3 evaluation.
+
+\end{document}
