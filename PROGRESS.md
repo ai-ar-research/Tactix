@@ -38,7 +38,7 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   Status lives in the anchor below; completed work is compressed to result + pointer, with the detail in the
   cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-07) — **the kissat-fidelity revamp: increments 1–3 landed, Tier B SOLVED IN FULL**
+## ▶ RESUME HERE (2026-08-07) — **increments 1–3 landed; Tier B 28/28, Tier C −2, and the explanation was refuted**
 
 **Phase 4 is a PORT of kissat's strategy** (plan rev 91 + the 2026-08-07 user directive: *closely mimic
 kissat's strategy, aggressively remove what does not fit*). Read
@@ -46,22 +46,17 @@ kissat's strategy, aggressively remove what does not fit*). Read
 `benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before touching the
 policy.
 
-**▶▶ TIER B IS 28/28 AT 44.77 PAR-2** (`20260807-210921-B-kf4`), against kissat's 9.94 on the same window —
-the first time every Tier B instance solves. Four gained over increment 2, none lost: `mod4block` 223.7 s,
-which no arm had ever solved, plus `or_randxor` 18.9 s and `unsat-set-b-fclqcolor` 177.7 s, solved by no arm
-in the 14-arm pricing batch, and `sted5` 75.4 s recovered. **That pair shipped WITHOUT the replicate arm and
-without cadical**, so the solve count stands (four is far outside the ±2 the cliff instances impose) but the
-PAR-2 has no noise bar and is not banked. **The open question is Tier C** (`1590910`): the same change lost
-`T105.2.0` and `T87.2.0` before increment 2 fixed the elimination budget, and that is what the run in flight
-is testing.
-
-**▶ WHAT LANDED.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing else: the
-cadical upper clamp, active floor and `thresh` are gone (**kissat ships no `maxeffort` at all**) and the anchor
-moved from the ENTRY to the PHASE, stamped at phase exit as `probe.c:86` does. Tier B 88.79 (25/28), Tier C
-367.26 (29/30), **no solve lost on either**, fuzz 25,000 cases clean. *Increment 3* — the two binary-density
-admission gates are gone; they had no counterpart in either kissat trigger **and were reading a proof-id map
-the kernel documents as size-monotone**, so they opened as a solve progressed. Together: −238 lines, 42 → 34
-knobs.
+**▶▶ THE TIERS DISAGREE SHARPLY ABOUT INCREMENT 3, AND THE EXPLANATION FOR IT WAS REFUTED TODAY.**
+Deleting the density gates gives **Tier B 44.77, 28/28** — every instance solves, the first time, +4 over
+increment 2 and none lost, including `mod4block`, which no arm had ever solved — against kissat's 9.94 on
+the same window. It also gives **Tier C 457.85, 27/30**, losing `T105.2.0` and `T87.2.0`, the same two as
+the first attempt. The standing diagnosis said increment 2's elimination budget would prevent that; it
+landed, and they fall anyway. **That diagnosis is withdrawn, and the mechanism is unknown** — diagnostic
+`1590989` in flight. Restoring the gate is not the answer: it reads a size-monotone proof-id map, which is
+a defect no tier number changes. **Net +2 solves across the two tiers, and §8.3's #solved-wins priority
+explicitly does not cover a change that loses one — so this is a user call, not a rule application.**
+*The Tier B pair shipped without its replicate arm and without cadical; the solve count stands, the PAR-2
+has no noise bar and is not banked.*
 
 **▶ WHAT THE THREE INCREMENTS EACH DID.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT`
 and nothing else, with the anchor moved from the entry to the PHASE. A FIDELITY change: a large per-instance
@@ -484,28 +479,33 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   `bve_instances` enumerates, so a cost cap there withheld an applicable instance from the public API (N1) —
   and ONTO the apply, where kissat's is (`resolve.c:282-290`). The rule now offers the candidate and declines
   it. No second occurrence index was needed: `pos`/`neg` are already x's occurrence lists at that point.
-- [ ] **REVAMP increment 3 — the density gates are OUT, and Tier B is now SOLVED IN FULL.** Re-derived
-  rather than re-applied at `8d1f139`, with a wider scope than the reverted attempt: the two binary-density
-  admission gates, plus the two dormant separators the parity audit said should go with them
-  (`Kernel::factor_scope_percent`, never fired at its default 0, and `Kernel::bve_cost_limit`, named after a
-  reference mechanism and written only from `main.cpp`). Either reason removes the gates on its own —
-  **no reference has a density term** (`kissat_factoring` factor.c:1068-1085 gates on the `factordelay`
-  warm-up and the marked watermark, `kissat_eliminating` eliminate.c:21-39 on five conjuncts, cadical's
-  `elim.cpp` on none) and **the gate read the wrong number**, its numerator `Kernel::binary_ids` being a
-  size-monotone proof-id map counting binaries ever *derived*.
-  **Tier B 44.77, 28/28 — every Tier B instance solves, +4 over increment 2 and none lost**
-  (`mod4block` 223.7 s, which NO arm had ever solved; `or_randxor` 18.9 s and `unsat-set-b-fclqcolor`
-  177.7 s, solved by no arm in the 14-arm pricing batch; `sted5` 75.4 s recovered), against kissat's
-  9.94, 28/28 on the same window. **Tier C IS THE OPEN QUESTION** (`1590910`, `20260807-210928-C-kf4c`):
-  it lost `T105.2.0` and `T87.2.0` last time, which is what increment 2's once-per-phase elimination
-  budget was supposed to fix, and until it lands this item stays open.
-  **▶ MEASUREMENT CAVEAT, stated rather than papered over:** this pair was submitted WITHOUT the replicate
-  arm and without cadical, so there is no noise bar on the 44.77 and no cadical reference. A four-solve gain
-  is far outside the ±2 the four cliff instances impose, so the SOLVE claim stands on its own; the PAR-2
-  number does not, and is not banked.
-  **▶ THE RE-OPENED CONCLUSION STANDS:** the *0-for-5 record of hand-designed formula-shape separators* was
-  measured through this gate, and removing the gate is worth four Tier B solves. Those five negatives are
-  evidence about a broken instrument, not about separators.
+- [ ] **REVAMP increment 3 — Tier B is SOLVED IN FULL and Tier C loses the same two instances as before.
+  THE SEQUENCING DIAGNOSIS IS REFUTED.** Re-derived at `8d1f139`, wider than the reverted attempt: the two
+  binary-density admission gates plus the two dormant separators the parity audit said should go with them.
+  Either reason removes the gates on its own — **no reference has a density term** (`kissat_factoring`
+  factor.c:1068-1085 gates on the `factordelay` warm-up and the marked watermark, `kissat_eliminating`
+  eliminate.c:21-39 on five conjuncts, cadical's `elim.cpp` on none) and **the gate read the wrong number**,
+  its numerator `Kernel::binary_ids` being a size-monotone proof-id map counting binaries ever *derived*.
+  Both reasons are source facts and survive any measurement.
+  **Tier B 44.77, 28/28** (`20260807-210921-B-kf4`) — every instance solves, +4 over increment 2 and none
+  lost: `mod4block` 223.7 s, which no arm had ever solved; `or_randxor` 18.9 s and `unsat-set-b-fclqcolor`
+  177.7 s, solved by no arm in the 14-arm pricing batch; `sted5` 75.4 s recovered. kissat is 9.94, 28/28 on
+  the same window. *Caveat: that pair shipped without the replicate arm and without cadical, so the solve
+  count stands — four is far outside the ±2 the cliff instances impose — but the PAR-2 has no noise bar and
+  is not banked.*
+  **Tier C 457.85, 27/30** (`20260807-210928-C-kf4c`) against increment 2's 358.31, 29/30 — **losing
+  `T105.2.0` and `T87.2.0` again, the same two, at 700.9 s and 936.7 s under increment 2 against the
+  1200 s cap.**
+  **▶ THE DIAGNOSIS THIS ITEM CARRIED WAS WRONG, and it is withdrawn.** It said the first attempt failed
+  because increment 1 had given the Eliminate group probing's per-round grant, so fixing the budget
+  (increment 2) would let the gate removal land. Increment 2 landed and the two instances fall anyway, by
+  the same margin. Whatever the T-series is paying for, it is not the round/budget structure.
+  **▶ SO THE OPEN QUESTION IS A MECHANISM ONE, and restoring the gate is not an answer** — it reads a
+  monotone counter, which is a defect independent of any tier number. Diagnostic in flight (`1590989`):
+  slot stats for both T instances under increment 2 vs increment 3, to see which rule the removal actually
+  lets loose on a binary-sparse formula. **The decision is a user call**: the change is +4 solves on Tier B
+  against −2 on Tier C, a net +2, and §8.3's #solved-wins priority explicitly does NOT cover a change that
+  loses a solve, so this needs a judgement rather than a rule.
 - [x] **D2 — the five unbacked fractions are RESOLVED, two by re-derivation and three as recorded
   deviations.** **`Probe` 20 → 8 ‰** (cadical `probeeffort`, options.hpp:164 — the only reference rate for the
   technique; kissat has no `probeeffort` at all and bounds probing by interval alone). **`HyperBinaryRes`
