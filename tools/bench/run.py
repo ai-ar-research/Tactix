@@ -71,6 +71,12 @@ TIERS = os.path.join(ROOT, "benchmarks", "tiers")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
+# Oracle 1 of the fuzz harness (§8.2), shared here since 2026-08-08: a SAT
+# verdict's v-lines are checked against the ORIGINAL formula. The wrong-SAT
+# exhibit was caught only by the expected-verdict column; an instance without
+# a recorded verdict would have scored a bogus model as a solve.
+CHECKMODEL = os.path.join(ROOT, "tools", "fuzz", "checkmodel")
+MODEL_CHECK_BUDGET = 600  # linear scan; Tier-scale instances finish in seconds
 
 # The one message `check_proof` emits when the checker outran its budget rather
 # than rejecting. Single-sourced because it is a control signal, not prose: it,
@@ -265,9 +271,9 @@ def solve_once(argv, timeout, mem_gb):
                            errors="replace", timeout=timeout,
                            preexec_fn=limits)
         return (parse_verdict(r.returncode, r.stdout), time.monotonic() - t0,
-                reach_counters(r.stdout))
+                reach_counters(r.stdout), r.stdout)
     except subprocess.TimeoutExpired:
-        return "UNKNOWN", timeout, {}
+        return "UNKNOWN", timeout, {}, ""
 
 
 # Which registry entries the run reached, read from the solver's own `c `
@@ -316,8 +322,8 @@ def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
     lproof = proof + ".rescue.lrat"
     t0 = time.monotonic()
     try:
-        verdict, solve_s, _ = solve_once(cmd + ["--lrat", cnf, lproof],
-                                      timeout, mem_gb)
+        verdict, solve_s, _, _ = solve_once(cmd + ["--lrat", cnf, lproof],
+                                            timeout, mem_gb)
         if verdict != res["verdict"]:
             res["proof_rescue"] = (f"failed: --lrat re-solve answered "
                                    f"{verdict}, not {res['verdict']}")
@@ -386,14 +392,17 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
            # DRAT check never ran out of time. Always present so the schema is
            # stable across runs and the count is aggregatable.
            "proof_rescue": None, "proof_rescue_time": None,
-           "proof_rescue_kind": None}
+           "proof_rescue_kind": None,
+           # §8.2 oracle 1 on the bench path (2026-08-08): SAT verdicts carry
+           # a checkmodel result. None = not run (baseline / timeout / UNSAT).
+           "model_ok": None, "model_msg": None}
     if cnf is None or not os.path.exists(cnf):
         res["verdict"] = "MISSING"
         return res
     proof = os.path.join(workdir, rel.replace("/", "_") + "." + fmt)
     argv = cmd + [cnf] + ([proof] if check_proofs else [])
 
-    verdict, elapsed, reached = solve_once(argv, timeout, mem_gb)
+    verdict, elapsed, reached, stdout = solve_once(argv, timeout, mem_gb)
     res["reached"] = reached
     res["time"] = round(elapsed, 3)
     res["verdict"] = verdict
@@ -403,6 +412,31 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
         if expected in ("SAT", "UNSAT") and verdict != expected:
             res["mismatch"] = True   # correctness bug — counts as unsolved
             res["solved"] = False
+        elif verdict == "SAT":
+            # Same gating as proofs: baselines record nothing (their models are
+            # not ours to debug and never change our numbers); a scored arm's
+            # failed model check counts the instance unsolved and marks the
+            # window not clean (the wrong-SAT class no proof checker sees).
+            if not verify_proofs:
+                res["model_msg"] = "not checked (§8.1: baseline)"
+            else:
+                mfile = os.path.join(workdir, rel.replace("/", "_") + ".model")
+                with open(mfile, "w") as f:
+                    f.write(stdout)
+                try:
+                    mr = subprocess.run([CHECKMODEL, cnf, mfile],
+                                        capture_output=True, text=True,
+                                        errors="replace",
+                                        timeout=MODEL_CHECK_BUDGET)
+                    res["model_ok"] = mr.returncode == 0
+                    res["model_msg"] = (mr.stdout or mr.stderr).strip()[:200] \
+                        or ("OK" if mr.returncode == 0 else "FAILED")
+                    if not res["model_ok"] and score_proofs:
+                        res["solved"] = False
+                except subprocess.TimeoutExpired:
+                    res["model_msg"] = "checkmodel outran its budget"
+                finally:
+                    os.unlink(mfile)
         elif verdict == "UNSAT" and check_proofs:
             if not os.path.exists(proof):
                 res["proof_ok"] = False
@@ -638,6 +672,7 @@ def correctness_record(all_results, solver_meta):
     instead of something a later audit has to reconstruct from manifests."""
     mism, bad, gave_up = [], [], []
     unverified = []
+    badmodel = []
     for name, results in all_results.items():
         meta = solver_meta.get(name, {})
         if meta.get("score_proofs", True) and not (
@@ -648,6 +683,9 @@ def correctness_record(all_results, solver_meta):
                 mism.append({"arm": name, "instance": r["instance"],
                              "expected": r.get("expected"),
                              "answered": r.get("verdict")})
+            if r.get("model_ok") is False:
+                badmodel.append({"arm": name, "instance": r["instance"],
+                                 "msg": r.get("model_msg")})
             if r.get("proof_ok") is False and r.get("proof_scored"):
                 row = {"arm": name, "instance": r["instance"],
                        "kind": r.get("proof_check_kind"),
@@ -656,8 +694,9 @@ def correctness_record(all_results, solver_meta):
                 (bad if r.get("proof_check_kind") in CHK_OUR_FAULT
                  or r.get("proof_check_kind") is None else gave_up).append(row)
     return {
-        "clean": not (mism or bad or gave_up),
+        "clean": not (mism or badmodel or bad or gave_up),
         "verdict_mismatches": mism,
+        "invalid_models": badmodel,       # SAT answer whose model checkmodel rejects
         "invalid_certificates": bad,      # N2: the proof was rejected
         "checker_gave_up": gave_up,       # budget/resource, a scoring artefact
         "unverified_scored_arms": sorted(set(unverified)),
@@ -674,9 +713,9 @@ def write_correctness_sentinel(outdir, rec):
     with open(path, "w") as f:
         f.write("This window is NOT clean. Do not quote its numbers as a "
                 "performance result until this is resolved.\n\n")
-        for k in ("verdict_mismatches", "invalid_certificates",
-                  "checker_gave_up"):
-            for row in rec[k]:
+        for k in ("verdict_mismatches", "invalid_models",
+                  "invalid_certificates", "checker_gave_up"):
+            for row in rec.get(k, ()):
                 f.write(f"{k}: {json.dumps(row)}\n")
 
 
@@ -685,11 +724,14 @@ def correctness_banner(rec):
     if rec["clean"]:
         return None
     n_m = len(rec["verdict_mismatches"])
+    n_v = len(rec.get("invalid_models", ()))
     n_b = len(rec["invalid_certificates"])
     n_g = len(rec["checker_gave_up"])
     parts = []
     if n_m:
         parts.append(f"{n_m} verdict mismatch(es)")
+    if n_v:
+        parts.append(f"{n_v} INVALID MODEL(S) — wrong SAT")
     if n_b:
         parts.append(f"{n_b} INVALID CERTIFICATE(S) — N2")
     if n_g:
@@ -849,7 +891,8 @@ def slurm_aggregate(outdir):
                  "proof_bytes": None, "proof_check_time": None,
                  "proof_format": None, "proof_scored": False,
                  "proof_msg": None, "proof_rescue": None,
-                 "proof_rescue_time": None}
+                 "proof_rescue_time": None,
+                 "model_ok": None, "model_msg": None}
         all_results[man["solvers"][t["solver"]]["name"]].append(r)
     correctness = correctness_record(
         all_results, {s["name"]: s for s in man["solvers"]})
