@@ -554,14 +554,26 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
       if (bail || (!dsat && found != size))
         continue;
       if (dsat || negated == INVALID_LIT) {
-        // satisfied, or every literal of c occurs in d with the same sign
+        // satisfied, or every literal of c occurs in d with the same sign.
+        // `d` is never a trail reason, which is what makes the deletion safe
+        // without a reason check: `d` comes from `occs(best)` so it contains
+        // `best`, and `best` is unassigned by construction — a reason has all
+        // its literals assigned. `kernel_delete_clause` does not retire a
+        // reason, and the dosed path does not collect until phase exit, so a
+        // garbage reason would survive to be cited by a later chain.
         kernel_delete_clause(k, d);
         if (!dsat)
           k.stats.bve_bwd_subsumed++;
         continue;
       }
       // self-subsuming resolution: d resolved with c on `negated` gives
-      // d \ {negated}, which strictly subsumes d.
+      // d \ {negated}, which strictly subsumes d. `negated != best`, since d
+      // holds `best` and a clause holding both polarities is a tautology — so
+      // the strengthened clause keeps an unassigned literal and the
+      // not-a-reason argument above survives the rewrite (cadical asserts the
+      // same thing at backward.cpp:201).
+      if (k.subsume_shadow)
+        kernel_shadow_retire(k, d->id());
       dlits.clear();
       std::vector<uint64_t> chain;
       for (const Lit l : *d) {
