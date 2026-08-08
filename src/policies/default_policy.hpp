@@ -476,6 +476,10 @@ public:
     uint64_t anchor = 0;
   };
   SlotClock probe_clock, elim_clock;
+  // One allowance for the forward-subsumption pair (Strengthen and
+  // SubsumeForward are two halves of kissat's single `forward` pass), fixed by
+  // whichever is priced first in a phase and cleared at phase entry. 0 = unset.
+  uint64_t forward_pair_limit_ = 0;
   // Off switches: TACTIX_SLOT_CLOCKS=1 collapses the split onto one cadence,
   // TACTIX_SLOT_WATERMARK=0 drops the gates.
   bool slot_clocks_split_ = true;

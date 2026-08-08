@@ -54,7 +54,7 @@ ALT = "ALTERNATE-GOVERNOR"
 # reaches both declines. These are the `evidence` regexes such a row must match:
 # deleting a governor must fail here, not silently unbound the rule.
 EV_MATERIAL = r"e\.closure && k\.stats\.conflicts > 0 &&[^;]*e\.binaries_mark"
-EV_DELAY = r"closure_delay_ && e\.closure"
+EV_DELAY = r"closure_delay_ && \(e\.closure \|\| delay_spec"
 # And the no-row default is what carries an ALTERNATE-GOVERNOR rule onto that
 # path at all, so its disappearance is a failure too.
 EV_CLOSURE_DEFAULT = r"e\.closure = true;"
