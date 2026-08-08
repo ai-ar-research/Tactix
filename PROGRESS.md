@@ -107,9 +107,13 @@ in `docs/implementation-notes.md` §13.2–§13.4 for the reference mechanism,
 current implementation, evidence, and closer; no Git-history excavation is
 required.
 
-- [x] `SP-BVE-BWD-1`, `SP-FACTOR-1`, `SP-CHRONO-1`, and `SP-SWEEP-2` are
-  implemented; the fixed-binary attribution is still required for the first
-  three.
+- [x] `SP-SWEEP-2` is implemented and closed.
+- [ ] `SP-BVE-BWD-1`, `SP-FACTOR-1`, `SP-CHRONO-1`: implemented, then the
+  reference audits found 33 fidelity gaps; repairs are landing (three commits
+  so far). Remaining before these rows close: the BVE binary backward arm,
+  Factor's legacy-step off-arm / ramp-driven ladder / matcher bound
+  pass-through / telemetry + ladder test, the accepted-deviation ledger rows,
+  and the post-repair tier pair as the closing measurement.
 - [ ] `SP-COMPACT-1`: port reference variable renumbering when inactive
   variables exceed 10%; current GC compacts watches but leaves retired variables
   paying kernel cost.
