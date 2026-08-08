@@ -45,10 +45,13 @@ kissat's strategy, aggressively remove what does not fit*). Read
 `benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before touching the
 policy.
 
-**▶▶ INCREMENT 3 CLEARED THE PHASE'S NAMED TARGET LIST ON TIER B — 27/28, all four timeout instances
-solved.** See §2. **FIRST THING NEXT SESSION: read `benchmarks/runs/20260807-183432-C-kf3`** (Tier C, still in
-flight; `tools/bench/run.py --aggregate <dir>` if the dependent job did not run). Guard: **no lost solve**.
-Tier B has already passed it.
+**▶▶ THE SHARPEST TIER DISAGREEMENT THIS PROJECT HAS MEASURED, and it is a SEQUENCING finding.** Increment 3
+(deleting the density gates) took **Tier B to 27/28 with ALL FOUR NAMED TARGETS SOLVING** — and **Tier C to
+27/30, losing `T105.2.0` and `T87.2.0`**. §8.3 stops a change that loses a solve whatever it does to PAR-2, so
+it is **REVERTED** (§2 carries the numbers and the diagnosis). **The gates are still defective and still have
+to go**; what the result says is that they were masking increment 1's over-generous elimination budget, so
+**increment 2 must land first**. Do not simply re-apply `63059ce` — fix the budget, then re-land and
+re-measure both tiers.
 
 **▶ WHAT LANDED.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing else: the
 cadical upper clamp, active floor and `thresh` are gone (**kissat ships no `maxeffort` at all**) and the anchor
@@ -60,9 +63,9 @@ knobs.
 
 **▶ READ THE TWO INCREMENTS DIFFERENTLY.** *Increment 1* is a FIDELITY change: a large per-instance
 redistribution that nets out, moves far beyond each instance's replicate gap, no solve change on either tier.
-*Increment 3* is a genuine WIN — Tier B 88.79 → 62.79 and 25 → 27 solves, clearing the named target list —
-because it removed a gate that was reading a monotone proof-id map and thereby blocking BVE and Factor
-outright on the instances the tier's gap was made of.
+*Increment 3* was reverted on the guard: a genuine Tier B win (88.79 → 62.79, 25 → 27 solves, named target
+list cleared) that cost two Tier C solves, because removing the brake before fixing increment 1's per-round
+elimination budget pushed the already-marginal T-series over the cap.
 
 **▶ INCREMENT 2 IS THE OPEN ONE** — the phase structure:
 - Round count `INPROCESS_PHASE_ROUNDS` 3 → **2** (`proberounds`/`eliminaterounds`) with kissat's fixpoint
@@ -466,27 +469,26 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   that instance's own replicate gap (`j3037` −519 s against a 0.4 s gap, `af-synthesis` −417 s against 0.5,
   against `SCPC-1000-18` +720 s and `T105.2.0` +260 s). **This is a FIDELITY change, not a performance one**,
   and it should not be sold as the latter.
-- [x] **REVAMP increment 3 — the two binary-density admission gates are GONE** (landed 2026-08-07). They
-  decided whether during-search BVE and Factor ran AT ALL, and **kissat has no density term in either
-  trigger** (`kissat_eliminating` has five conjuncts, `kissat_factoring` two, none a density). **And the gate
-  was reading the wrong number**: its numerator was `Kernel::binary_ids`, a PROOF-ID map our own header
-  documents as *"size-monotone — deletion keeps the key"*, so it counted binaries ever DERIVED rather than the
-  live population — which is why PROGRESS recorded that "the gate loosens monotonically over the solve" as a
-  bare property. That was this bug. Removed with it: `bve_dose_declined` entirely, the cost-per-yield admit
-  arm, Factor's scope-percent union arm, and the `TACTIX_BVE_ADMIT` / `BVE_DOSE_DENSITY` / `FACTOR_DENSITY` /
-  `COMPOSITE_DENSITY` knobs. −75/+10 lines, 38 → 34 knobs. ctest 58/58; fuzz DRAT 10,000 · LRAT 10,000,
-  **0 failures**, and `--random-policy` × LRAT 5,000, **0 failures** (non-termination 16.2 %, the known
-  `RV-S31`(b) population). **All three soundness legs are green.**
-  **▶▶ TIER B: 62.79 PAR-2, 27/28** (replicate 63.02, noise bar **0.23**), `correctness.clean`, against
-  increment 1's 88.79 / 25-28 — **and ALL FOUR NAMED TIER B TARGETS NOW SOLVE.** Gained `mp1-klieber` (90.1 s),
-  `or_randxor_k3_n540_m540` (17.7 s) and `unsat-set-b-fclqcolor` (216.5 s); `veer_axi` still solves (63.1 s).
-  **`or_randxor` and `fclqcolor` had been solved by NO arm in the entire 14-arm pricing batch.** Lost only
-  `mod4block`, the lottery — which is now the single unsolved Tier B instance. 27/28 matches cadical's count
-  (kissat 28/28). **The mechanism is clear**: the density gates were blocking BVE and Factor from running at
-  all on exactly those formulas, on a numerator that only grew. **Tier C is still IN FLIGHT**
-  (`20260807-183432-C-kf3`).
-  **▶ This also re-opens a banked conclusion:** the *0-for-5 record of hand-designed formula-shape separators*
-  was measured THROUGH this gate, so those five negatives are suspect, not evidence.
+- [ ] **REVAMP increment 3 — the density gates: REVERTED on the guard, and it is the sharpest tier
+  disagreement this project has measured.** Removing the two binary-density admission gates gave
+  **Tier B 62.79, 27/28 — +3 solves, ALL FOUR NAMED TIER B TARGETS SOLVING** (`mp1-klieber` 90.1 s,
+  `or_randxor` 17.7 s, `unsat-set-b-fclqcolor` 216.5 s, `veer_axi` 63.1 s; `or_randxor` and `fclqcolor` had
+  been solved by NO arm in the 14-arm pricing batch), leaving `mod4block` the only unsolved Tier B instance —
+  **and Tier C 516.14, 27/30, LOSING `T105.2.0` and `T87.2.0`** (881 s and 884 s against the 1200 s cap under
+  increment 1; both arms agree on UNKNOWN, so it is not a draw). Under §8.3 a change that loses a solve is not
+  covered by the #solved-wins priority whatever it does to PAR-2 — the same rule that stopped the
+  `gates`+`c1c2` flips — so the code is reverted (`63059ce` reverted; the runs
+  `20260807-183429-B-kf3` / `…-183432-C-kf3` are kept).
+  **▶ THE DIAGNOSIS, and why this is a SEQUENCING failure rather than a wrong idea.** The gates are genuinely
+  defective — they read `Kernel::binary_ids`, a size-monotone PROOF-ID map, as a live binary count, and they
+  decide whether BVE and Factor run at all. But they were also masking an over-generous budget: increment 1
+  gave the Eliminate group **probing's per-round grant**, where kissat computes elimination's
+  `resolution_limit` ONCE across all rounds (`eliminate.c:428`). Remove the brake before fixing the budget and
+  the T-series — Congruence-heavy, and already at 73 % of the cap — goes over. **So increment 2 unblocks this:
+  fix the round/budget structure first, then re-land the gate removal and re-measure both tiers.**
+  **▶ AND THE RE-OPENED CONCLUSION STANDS:** the *0-for-5 record of hand-designed formula-shape separators*
+  was measured through this gate, and the gate's removal is worth +3 Tier B solves. Those five negatives are
+  evidence about a broken instrument, not about separators.
 - [ ] **D2 — delete the five unbacked fractions.** `Probe` (cadical's is **8‰**, we ship 20), `HyperBinaryRes`,
   `BCE`, `Instantiate`, `Congruence`. Where the reference bounds the technique by *interval* instead, port the
   interval; where it ships the technique OFF, that is the datum.

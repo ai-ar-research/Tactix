@@ -1152,6 +1152,36 @@ uint64_t DefaultPolicy::ledger_remaining(SlotEntry &e, const Kernel &k,
   return 0;
 }
 
+// A during-search BVE dose fires only on binary-dense formulas, the same axis
+// and threshold as Factor's density gate: sparse formulas are where dosing
+// costs, and the cost is trajectory damage, not overhead. A hand-designed
+// separator whose proper home is the §5.6 learned policy, kept only because
+// removing admission entirely is much worse. TACTIX_BVE_ADMIT picks the arm.
+bool DefaultPolicy::bve_dose_declined(Kernel &k, SlotEntry &e) {
+  if (!(e.retry_advice && k.stats.conflicts > 0))
+    return false;
+  static const char *const admit_env = std::getenv("TACTIX_BVE_ADMIT");
+  const bool admit_cost = admit_env && !std::strcmp(admit_env, "cost");
+  const bool admit_none = admit_env && !std::strcmp(admit_env, "none");
+  if (admit_cost) {
+    const uint64_t elim = k.stats.bve_eliminated;
+    const uint64_t lim = k.bve_cost_limit;
+    if (lim && elim && k.stats.bve_resolutions / elim > lim) {
+      e.tm.dec_density++;
+      return true; // this formula is paying too much per elimination
+    }
+  } else if (!admit_none) {
+    uint64_t dose_density = 6;
+    if (const char *dd = std::getenv("TACTIX_BVE_DOSE_DENSITY"))
+      dose_density = std::strtoull(dd, nullptr, 10);
+    if (dose_density &&
+        k.binary_ids.size() < dose_density * kernel_num_output_vars(k)) {
+      e.tm.dec_density++;
+      return true;
+    }
+  }
+  return false;
+}
 
 // One occasion of a dosed entry: apply instances until the budget is spent.
 DefaultPolicy::SlotStep
@@ -1162,6 +1192,8 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     e.tm.dec_guard++;
     return SlotStep::Next;
   }
+  if (bve_dose_declined(k, e))
+    return SlotStep::Next;
   // TACTIX_BVE_ONESHOT (diagnostic): one dose per solve, full ramp and
   // unbounded budget, separating recurrence cost from dose content.
   const bool bve_oneshot = e.retry_advice && std::getenv("TACTIX_BVE_ONESHOT");
@@ -1325,7 +1357,7 @@ bool DefaultPolicy::factor_entry_declines(const Kernel &k, SlotEntry &e) {
 
 // Factor's per-occasion rule config: composition + the density advice, set
 // around the apply and cleared by the caller, so no other caller sees them.
-void DefaultPolicy::factor_dose_config(Kernel &k, SlotEntry &) {
+void DefaultPolicy::factor_dose_config(Kernel &k, SlotEntry &e) {
   // Composition is unconditional, matching kissat (`resize_factoring` is called
   // from `apply_factoring`, factor.c:838, with no gate): gating it on binary
   // density saturates applied factorings on sparse formulas and loses
@@ -1333,15 +1365,47 @@ void DefaultPolicy::factor_dose_config(Kernel &k, SlotEntry &) {
   // coupling to BVE's growth allowance (factor.c:72/939) — port that before any
   // density gate.
   k.factor_composite = true;
-  // kissat has NO density term in `kissat_factoring` (factor.c:1068-1085): its
-  // only two gates are the `factordelay` warm-up and the marked watermark, both
-  // of which are ported here. The binary-density admission that used to sit at
-  // this point read `Kernel::binary_ids` — a PROOF-ID map the kernel documents
-  // as "size-monotone: deletion keeps the key" — so its numerator counted
-  // binaries ever DERIVED rather than the live population, and it loosened
-  // monotonically over a solve for that reason rather than by design.
-  // Admission is unconditional; the governors bound Factor.
-  k.factor_admit = true;
+  if (const char *cd = std::getenv("TACTIX_COMPOSITE_DENSITY")) {
+    const uint64_t d = std::strtoull(cd, nullptr, 10);
+    k.factor_composite =
+        d ? k.binary_ids.size() >= d * kernel_num_output_vars(k) : false;
+  }
+  // Factor's binary-density admission is a scheduling decision, so it lives
+  // here next to BVE's identical gate and reaches the rule as advice defaulting
+  // to true. It must not move back inside `factor_apply`: as a rule-side NoOp
+  // it refused every caller on a binary-sparse formula, breaking N1. Never the
+  // best arm on Tier B
+  // (benchmarks/reports/2026-08-04-factor-oracle-ablation.md).
+  uint32_t density = 6;
+  if (const char *d = std::getenv("TACTIX_FACTOR_DENSITY"))
+    density = static_cast<uint32_t>(std::atoi(d));
+  // uint64 multiply: any density >= 89 would wrap on tens of millions of vars.
+  bool admit = k.binary_ids.size() >=
+               static_cast<uint64_t>(density) * kernel_num_output_vars(k);
+  // Scope-percent union arm: strictly additive, and its arena scan charges no
+  // factor_ticks, so a rejected call cannot consume the first-dose allowance.
+  if (!admit && k.factor_scope_percent) {
+    uint64_t total = k.binary_ids.size();
+    uint64_t in_scope = k.binary_ids.size();
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_words(c->size);
+      if (!c->garbage() && !c->redundant()) {
+        total++;
+        if (c->size <= k.factor_size)
+          in_scope++;
+      }
+      ref += words;
+    }
+    if (total && in_scope * 100 >= static_cast<uint64_t>(k.factor_scope_percent) *
+                                       total)
+      admit = true;
+  }
+  k.factor_admit = admit;
+  if (!admit) {
+    e.tm.admitted--; // counted by the caller; the policy is declining it
+    e.tm.dec_density++;
+  }
 }
 
 // kissat vivify.c structure: the redundant tiers always run within their budget
