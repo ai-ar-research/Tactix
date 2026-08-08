@@ -93,6 +93,27 @@ The density/admission gates layered on BVE and Factor, and any remaining knob wh
   exceed both references do not regress". Under this directive, fidelity wins where the two conflict; each such
   regression is measured and named rather than argued away.
 
+## 4b. The guard, RESTATED by the user after increment 3's revert (2026-08-07)
+
+Increment 3 was reverted because it lost two Tier C solves, under the criterion in §5 below and plan §8.3.
+The user's response: *"you should not consider yourself done or use partial result as reasons to not go
+forward with a change aimed at matching kissat/cadical. I would be perfectly happy if you just have a
+transliterated version of kissat/cadical's strategy, of course you need to satisfy the non-negotiables."*
+
+**So the guard is demoted from a STOP to a REPORT for any change whose purpose is fidelity.** A fidelity
+increment lands on being faithful, and its tier result is measured, named per instance, and recorded — not
+used to block it. What still stops an increment:
+
+- **N1/N2** — a narrowed `instances()`, a guard gaining a scheduling conjunct, an unregistered rule, or any
+  certificate failure. These are non-negotiable and no directive overrides them.
+- **A fuzz failure** of any kind.
+- **Evidence the port is WRONG** — i.e. we diverge from the reference — rather than merely costly.
+
+This is a deliberate, recorded trade: we accept measured regressions on the way to a transliterated strategy,
+because a half-ported scheme measured against a half-ported baseline has been producing exactly the kind of
+result that cannot be acted on (increment 3: +3 Tier B solves, −2 Tier C, from removing a brake before fixing
+the budget it was masking).
+
 ## 5. Success criterion (§5.4 step 2)
 
 Not a PAR-2 target — a fidelity target with a performance guard:
@@ -101,8 +122,9 @@ Not a PAR-2 target — a fidelity target with a performance guard:
    or function, or is listed as a recorded deviation. Zero unbacked constants.
 2. **Simplification:** the policy shrinks materially (target: −250 lines and −6 knobs across the three
    increments), and no mechanism remains that cannot fire.
-3. **Guard:** Tier B and Tier C, same-window pairs, must not **lose a solve**. PAR-2 may move either way and is
-   reported per instance; a lost solve stops the increment (plan §8.3).
+3. **Guard (as restated in §4b):** Tier B and Tier C, same-window pairs, are measured and reported per
+   instance. A lost solve is *reported*, not a stop, for a fidelity increment; N1/N2 and fuzz remain hard
+   stops.
 4. **Soundness:** ctest, plus DRAT + native-LRAT + `--random-policy` fuzz legs per increment, 0 failures.
 
 Revert is a first-class outcome per increment.

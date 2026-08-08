@@ -445,13 +445,9 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   per-phase grant of every metered entry would roughly TRIPLE**. Recorded as the accepted deviation
   `D-ANCHOR-SCOPE` (`docs/implementation-notes.md` §13.3) with the pair-port as its removal path and a
   pre-registered falsifier.
-- [ ] **`Vivify`'s `thresh` = 20 is INERT and must be fixed or documented** (`D-VIVIFY-THRESH-INERT`).
-  `slot_entry_thresh_declines` requires `e.doses > 0`, and `e.doses++` happens only at
-  `default_policy.cpp:1353` and `:1536`; Vivify is dispatched to `run_vivify_dose`, which never touches
-  `doses`, so the gate returns on its first conjunct forever. cadical's `vivifythresh` is claimed and never
-  applied — the inert-port shape ([[ab-arm-identical-artefacts]]). Turning a dead gate on is a dose change, so
-  it needs a window, not just a patch. *(Separately: `Vivify` carries BOTH backoffs — `thresh` on the entry and
-  the ladder on its irredundant pass, `default_policy.cpp:1450-1499`.)*
+- [x] **`Vivify`'s `thresh` was INERT — CLOSED as moot.** Increment 1 deleted `thresh` outright as a
+  cadical-only mechanism, so the dead gate went with it. Nothing to fix. *(The underlying cause survives and
+  is its own item below: `e.doses` is incremented on only one of the three apply paths.)*
 - [x] **KISSAT-FIDELITY REVAMP, increment 1 — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing
   else** (landed 2026-08-07, design `docs/design/2026-08-07-kissat-fidelity-revamp.md`). Deleted, all
   cadical-only: the upper clamp (`max_delta`, `CADICAL_ELIM_MAXEFF`/`CADICAL_SUBSUME_MAXEFF` — **kissat ships
@@ -469,6 +465,27 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   that instance's own replicate gap (`j3037` −519 s against a 0.4 s gap, `af-synthesis` −417 s against 0.5,
   against `SCPC-1000-18` +720 s and `T105.2.0` +260 s). **This is a FIDELITY change, not a performance one**,
   and it should not be sold as the latter.
+- [x] **REVAMP increment 2 — the phase structure is kissat's** (landed 2026-08-07). Four changes, each
+  verified at the source first: **(1)** round count 3 → **2** (`proberounds`/`eliminaterounds`, both 2);
+  **(2)** the fixpoint break is now kissat's — the ACTIVE-VARIABLE COUNT changing (`probe.c:81`), an equality
+  test rather than a shrinkage one because Factor *adds* variables — replacing our "no rule returned Ok";
+  **(3)** the **Eliminate group computes its budget ONCE per phase**, as `eliminate.c:428` does seven lines
+  before its round loop, while Probe keeps kissat's per-entry-per-round recompute — **this is the divergence
+  increment 1 introduced and increment 3 tripped over**; **(4)** the slot order is kissat's `probe()` body
+  verbatim **including its repeats** — `Substitute` and `Backbone` each twice, which the old `placed[]` guard
+  made inexpressible. The repeats are load-bearing: Congruence and Sweep do not retire variables themselves,
+  the `substitute` that follows each of them does (`substitute.c:259`), so without the pairings the new
+  fixpoint test reads zero progress from them. Verified live: `c slot-order` prints
+  `Congruence Substitute HyperBinaryRes Backbone Probe Vivify Sweep Substitute TransitiveReduce
+  HyperTernaryRes Backbone Factor …`. ctest 58/58; fuzz + tier pair IN FLIGHT
+  (`1590613`/`1590614`/`1590615`, `20260807-…-B-kf2` / `…-C-kf2`).
+- [x] **Vivify's irredundant pass is metered again.** `default_policy.cpp` wraps the second `apply_rule` in a
+  `TickSinkScope`, so that pass's ticks reach `vivify_ticks` and the ledger stops under-counting Vivify by a
+  whole pass.
+- [x] **`RV-S17` closed the faithful way.** `BVE_OCCLIM` moved OUT of `bve_schedule` — which is what
+  `bve_instances` enumerates, so a cost cap there withheld an applicable instance from the public API (N1) —
+  and ONTO the apply, where kissat's is (`resolve.c:282-290`). The rule now offers the candidate and declines
+  it. No second occurrence index was needed: `pos`/`neg` are already x's occurrence lists at that point.
 - [ ] **REVAMP increment 3 — the density gates: REVERTED on the guard, and it is the sharpest tier
   disagreement this project has measured.** Removing the two binary-density admission gates gave
   **Tier B 62.79, 27/28 — +3 solves, ALL FOUR NAMED TIER B TARGETS SOLVING** (`mp1-klieber` 90.1 s,
@@ -504,20 +521,18 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   non-termination 1.8 % on the DefaultPolicy legs, below the 3.0 % previously recorded. Accepted deviation
   `D-HBR-STANDALONE` (`docs/implementation-notes.md` §13.3) carries the reference reading and two removal
   paths. **Still owed: a tier pair** — this is one instance, and the broad effect is unmeasured.
-- [ ] ~~**D3 — `HyperBinaryRes` gets a STRUCTURAL cap**~~ — our design is kept over kissat's no-HBR position
-  and cadical's derive-in-propagation one. **N1 rider, binding:** the cap goes **policy-side**;
-  `hyperbinary_instances()` stays complete over roots, because a dose may narrow what
-  DefaultPolicy *chooses*, never what the API can *reach*. BVE's in-rule `BVE_OCCLIM` is NOT the pattern to
-  copy — it is already carried as an N1-completeness defect (`RV-S17`). Requires an accepted
-  `docs/implementation-notes.md` §13.3 deviation with a reopening path.
+
 - [ ] **D4 — the per-resolvent RUP replay.** Ours alone: cadical gets the chain from the propagation that
   derived the resolvent (every `probehbr_lrat` helper opens `if (!lrat || opts.probehbr) return;`). DEFERRED;
   it is the standing reason D3 needs a cap at all.
 - [ ] **Drop the `dosed` / `retry_advice` / `budget_aware` taxonomy.** Neither reference has it; they have
   techniques that poll a limit at a candidate boundary.
-- [ ] **Port the two delay layers properly** — cadical's accumulate-until-worthwhile (`NAMEthresh ·
-  clauses.size()`, returning *before* the anchor is stamped so the reference keeps growing) and kissat's
-  success-driven yield-rate ladder (congruence and sweep back off below 0.001).
+- [ ] **Port kissat's delay ladder to the entries that need it.** *Restated 2026-08-07:* cadical's
+  accumulate-until-worthwhile half is GONE BY DESIGN — increment 1 deleted `thresh` because it pairs with
+  cadical's per-technique anchor, and we now run kissat's per-phase anchor (`D-ANCHOR-SCOPE`). What remains is
+  kissat's own backoff: the yield-rate ladder (`kimits.c:155-194`), which congruence and sweep drive off a
+  yield rate below 0.001. We have the ladder mechanism but not the yield-rate trigger, and Factor and
+  HyperTernaryRes now have no backoff at all since `thresh` went.
 - [ ] **Sanity check any port against the sums**: ~300‰ per probing round and ~200‰ per elimination round is
   the references' design intent. Ours are 438‰ and 344‰.
 
@@ -543,12 +558,7 @@ per-mille ported onto a broken meter transfers a number that means something els
   kissat / 1.156× cadical, against this window's own arm-to-arm spread of 1.460 vs 1.470). **So the value of
   this change is commensurability, not performance**: the extra budget helps some formulas as much as it costs
   others, which is the dosing question the rest of §2 answers.
-- [ ] ~~**The tick unit is not commensurable with either reference.**~~ `kernel.cpp:579` charges `1 + (n >> 4)`
-  (64-byte line, floored); kissat charges `1 + ceil(n/32)` (128-byte line, 4-byte watches,
-  `utilities.h:19-34`) and adds three event charges we do not (`proplit.h:92` binary assign, `:148` watch
-  relocation, `:174` large assign). **Every effort constant either reference ships is calibrated against ITS
-  tick**, so this re-prices the whole ledger AND the mode-switch schedule. Land it FIRST and alone, with a
-  full re-baseline, or not at all.
+
 - [ ] **`search_ticks` is policy-derived and leaky.** Ours reconstructs it as `k.stats.ticks −
   inprocess.ticks` (`default_policy.hpp:499-507`); kissat maintains a real counter written only on the search
   path (`propsearch.c:24`), which is the firewall that stops a technique inflating its own next budget. Our

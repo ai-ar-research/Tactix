@@ -247,6 +247,17 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
 
 // kissat kimits.c kissat_scale_delta: inprocessing intervals scale with formula
 // size, which the slot constants assume.
+// kissat's `solver->active` (internal.h:105, flags.c): variables that are
+// neither root-fixed, BVE-eliminated nor substituted away — plus the extension
+// variables Factor introduces, which move it UP. The round loop tests it for
+// CHANGE, not for shrinkage, so an extending round counts as progress too.
+static uint64_t active_variables(const Kernel &k) {
+  const uint64_t retired = static_cast<uint64_t>(kernel_root_fixed(k)) +
+                           k.stats.bve_eliminated + k.stats.substitute_vars;
+  const uint64_t n = k.nvars;
+  return n > retired ? n - retired : 0;
+}
+
 static uint64_t scale_inprocessing_delta(const Kernel &k, uint64_t delta) {
   const double f =
       std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1) - 5;
@@ -375,20 +386,33 @@ const EffortSpec *effort_spec(const char *name) {
 // reader of the binary implication graph, Congruence feeds Substitute, Vivify
 // precedes TransitiveReduce, Factor closes probing, subsumption precedes BVE.
 constexpr SlotOrderRow AUTHORED_SLOT_ORDER[] = {
-    // The group column is the references' own partition: these rows are called
-    // from kissat `probe()` / cadical `inprobe()`, the rest from `elim()`.
+    // kissat's `probe()` body verbatim (probe.c:33-41), repeats included:
+    //   congruence, substitute, backbone, vivify, sweep, substitute,
+    //   transitive_reduction, backbone, factor
+    // The repeats are load-bearing rather than cosmetic. Congruence and Sweep
+    // do not retire variables themselves — they compute representatives, and
+    // the `substitute` that FOLLOWS each of them is what marks the variables
+    // eliminated (substitute.c:259). Drop either pairing and the round loop's
+    // fixpoint test, which reads the active-variable count, sees no progress
+    // from them at all.
     {"Congruence", SlotGroup::Probe},
     {"Substitute", SlotGroup::Probe},
-    {"HyperTernaryRes", SlotGroup::Probe},
-    // Before Probe: its resolvents densify the graph Probe closes over.
+    // The extra rules, placed without disturbing kissat's relative order. X6 sits before
+    // the failed-literal pair because its resolvents densify the binary graph
+    // they close over; V1 Probe is full-propagation failed literals, which is
+    // what kissat's binary-only `backbone` is the cheap half of.
     {"HyperBinaryRes", SlotGroup::Probe},
-    {"Probe", SlotGroup::Probe},
     {"Backbone", SlotGroup::Probe},
+    {"Probe", SlotGroup::Probe},
     {"Vivify", SlotGroup::Probe},
     {"Sweep", SlotGroup::Probe},
+    {"Substitute", SlotGroup::Probe}, // kissat probe.c:38 — retires Sweep's work
     {"TransitiveReduce", SlotGroup::Probe},
+    {"HyperTernaryRes", SlotGroup::Probe}, // cadical's ternary; kissat has none
+    {"Backbone", SlotGroup::Probe},        // kissat probe.c:40
     {"Factor", SlotGroup::Probe},
-    // elimination pipeline (kissat eliminate.c:441, cadical elim.cpp:1044-1090)
+    // kissat's `eliminate` round is forward subsumption then the elimination
+    // sweep (eliminate.c:439-441, :468); the rest are local or cadical's.
     {"SubsumeForward", SlotGroup::Eliminate},
     {"Strengthen", SlotGroup::Eliminate},
     {"BVE", SlotGroup::Eliminate},
@@ -396,6 +420,7 @@ constexpr SlotOrderRow AUTHORED_SLOT_ORDER[] = {
     {"BCE", SlotGroup::Eliminate},
     {"CCE", SlotGroup::Eliminate},
 };
+
 
 } // namespace
 
@@ -884,14 +909,21 @@ void DefaultPolicy::build_inprocess_slot(Kernel &k) {
       size_t norder = 0;
       const SlotOrderRow *order = default_slot_order(&norder);
       std::vector<bool> placed(rules.size(), false);
+      // One entry per occurrence, so a rule the order names twice is visited
+      // twice — kissat runs substitute and backbone twice per probing round.
+      // Each occurrence carries its own SlotEntry, hence its own limit and
+      // telemetry, which is what kissat does too: both calls share the
+      // technique's cumulative counter but each recomputes `counter + delta`.
       for (size_t o = 0; o < norder; o++)
         for (int i = 0; i < static_cast<int>(rules.size()); i++)
-          if (rules[i].tier == RuleTier::Inprocess && !placed[i] &&
+          if (rules[i].tier == RuleTier::Inprocess &&
               !std::strcmp(rules[i].name, order[o].name)) {
             placed[i] = true;
             add_entry(i);
             break;
           }
+      // An Inprocess rule the authored order does not name still gets one
+      // occasion, appended in registry order — a safety net, not a design.
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess && !placed[i])
           add_entry(i);
@@ -1449,7 +1481,14 @@ ApplyResult DefaultPolicy::run_vivify_dose(Kernel &k, SlotEntry &e,
     const uint64_t produced_before = k.stats.vivified + k.stats.vivify_deleted;
     k.vivify_scope = 2;
     k.work_budget = irr_budget;
-    const ApplyResult ar2 = apply_rule(r, k);
+    // The tick sink must scope THIS apply too: without it the irredundant
+    // pass's spend never reaches `vivify_ticks`, so the ledger under-counts
+    // Vivify by a whole pass and the next dose's limit is anchored below what
+    // it actually spent.
+    const ApplyResult ar2 = [&] {
+      TickSinkScope sink(k, e.tick_counter);
+      return apply_rule(r, k);
+    }();
     if (ar2 == ApplyResult::Unsat)
       ar = ar2;
     else if (ar2 == ApplyResult::Ok && ar != ApplyResult::Ok)
@@ -1634,6 +1673,7 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   // long phase leaves the solver deaf to SIGTERM and a harness escalates to
   // SIGKILL, losing the proof file. One rule application is still
   // uninterruptible.
+  uint64_t active_before = active_variables(k);
   for (ctx.outer = 0;
        ctx.outer < INPROCESS_PHASE_ROUNDS && !ctx.phase_unsat &&
        !(stop && *stop);
@@ -1653,9 +1693,16 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
       e.tm.occasions++;
       if (!slot_entry_admissible(e, k, ctx))
         continue;
-      // Ceiling computed here, against the state the rule will actually see,
-      // rather than frozen at phase entry for all entries.
-      if (e.enabled && e.meter)
+      // WHEN the ceiling is computed differs by phase, and kissat's two phases
+      // genuinely differ. Probing recomputes each technique's limit on every
+      // entry, so a technique called twice in one round takes two deltas
+      // (probe.c:33-42 calls substitute and backbone twice each, and each call
+      // runs SET_EFFORT_LIMIT). Elimination computes `resolution_limit` ONCE,
+      // seven lines before its round loop (eliminate.c:428), and that single
+      // budget spans every round — enforced as a round-loop break on
+      // `eliminate_resolutions > resolution_limit` (eliminate.c:523).
+      if (e.enabled && e.meter &&
+          (group == SlotGroup::Probe || ctx.outer == 0))
         set_entry_limit(e, k);
       const SlotStep step = (e.dosed && r.instances && r.apply_instance)
                                 ? run_dosed_entry(k, e, r, ctx)
@@ -1674,8 +1721,17 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
         (!k.subsume_complete || !k.strengthen_complete);
     if (!ctx.round_changed && subsume_pending)
       k.stats.subsume_holds++;
-    if (!ctx.round_changed && !subsume_pending)
-      break; // outer fixpoint: nothing changed this round
+    // kissat's round-loop fixpoint is `before == solver->active` (probe.c:81):
+    // the count of variables neither fixed, eliminated nor substituted. It is an
+    // EQUALITY test, not a shrinkage test, because Factor ADDS variables
+    // (factor.c:822) — so a round that only extends still counts as progress.
+    // Note congruence and sweep do not retire variables themselves; the
+    // `substitute` that follows each of them does, which is why the sequence
+    // pairs them (probe.c:33-38). Without those pairings this test reads zero.
+    const uint64_t active_now = active_variables(k);
+    if (active_now == active_before && !subsume_pending)
+      break; // outer fixpoint: the round retired and created nothing
+    active_before = active_now;
   }
   // Reclaim what the dosed applications garbaged; canonical rounds reclaim
   // themselves. Not collecting is always sound, so this is a cost choice — see
