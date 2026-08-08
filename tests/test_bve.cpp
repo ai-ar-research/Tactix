@@ -621,11 +621,12 @@ static void test_retry_filter() {
   assert(worth_retry(x));
 }
 
-// Regression (2026-08-08 wrong-SAT): a backward strengthening that collapses a
-// victim to ONE literal must assert that unit. kernel_replace_clause deletes
-// the victim and by contract leaves unit semantics to the caller, so dropping
-// it silently weakens the formula — an UNSAT Tier C instance answered SAT with
-// the unit present in its own proof stream but absent from the kernel.
+// Wrong-SAT regression: a backward strengthening that collapses a victim to
+// ONE literal must assert that unit. kernel_replace_clause deletes the victim
+// and by contract leaves unit semantics to the caller, so dropping it silently
+// weakens the formula — an UNSAT Tier C instance answered SAT with the unit
+// present in its own proof stream but absent from the kernel (PROGRESS Log,
+// the bve_backward unit-drop entry).
 static void test_backward_strengthen_to_unit_asserts() {
   Kernel k;
   kernel_reserve_vars(k, 6);
