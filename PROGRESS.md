@@ -22,10 +22,8 @@ Every elimination-era performance number from the unsound binary remains void.
 
 The fixed-binary Tier B retake `20260808-094512-B-p3fix` (manifest SHA
 `eece089`) is complete: **p3fix 28/28, PAR-2 49.94; Kissat 28/28, 10.07;
-CaDiCaL 27/28, 40.76**. Tier C ablation window `20260808-094434-C-ablfix` is
-still RUNNING its last seven tasks (array `1591547` indices
-126–129/168–169/171, the long tail; aggregate `1591640` pending on the
-dependency) — do NOT resubmit anything; it completes on its own.
+CaDiCaL 27/28, 40.76**. The Tier C ablation is complete too — its reading is
+next-action 3 below.
 
 **Next actions:**
 
@@ -36,8 +34,9 @@ dependency) — do NOT resubmit anything; it completes on its own.
    refutation contract, **eliminated-pivot deactivation + redundant-clause
    flush** via layered `Kernel::retired_events` (`7a457cf`); Factor ramp
    ceiling/re-arm/terminal latch/off-ramp coupling/delay numerator
-   (`15daf5c`). Fuzz batteries 1–2 green (48k cases, 0 failures); battery 3
-   (with the factor stress leg) validates `15daf5c` before push.
+   (`15daf5c`). All three fuzz batteries green — 70k cases, 0 failures,
+   including LRAT, BVE-, Substitute- and Factor-stress legs; everything is
+   pushed, and the ledger rows carry the audit outcomes (`e6f960d`).
 2. **Remaining repair queue (task list carries the site detail):** BVE binary
    arm for the backward pass (largest expected yield); Factor legacy-step
    off-arm, ramp-driven ladder, matcher pass-through, telemetry + ladder test;
@@ -190,6 +189,9 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Recent changes
 
+- 2026-08-08 — added the offline interactive proof-rule guide at
+  `docs/proof-rules.html`, covering every calculus entry with formal rules,
+  plain-language explanations, and worked examples.
 - 2026-08-08 — fixed backward-BVE unit loss, added regression/reach checks and
   tier SAT-model validation; fixed-binary retakes started (`6033378`).
 - 2026-08-07 — completed the phase-3 rule inventory and opened reference-faithful
