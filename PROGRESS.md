@@ -23,7 +23,7 @@ Every elimination-era performance number from the unsound binary remains void.
 The fixed-binary Tier B retake `20260808-094512-B-p3fix` (manifest SHA
 `eece089`) is complete: **p3fix 28/28, PAR-2 49.94; Kissat 28/28, 10.07;
 CaDiCaL 27/28, 40.76**. The Tier C ablation is complete too — its reading is
-next-action 3 below.
+next-action 3 below. Nothing is currently in flight.
 
 **Next actions:**
 

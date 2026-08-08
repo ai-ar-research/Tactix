@@ -1,0 +1,59 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\title{Interactive Proof-Rule Guide}
+\author{Tactix Development Project}
+\date{August 8, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive summary}
+Tactix now has a self-contained interactive guide to its proof-rule calculus.
+The guide makes the formal system easier to inspect without replacing the
+authoritative specification: every entry presents the calculus, a
+plain-language explanation, and two worked examples. It runs directly in a
+browser with no server or third-party dependency.
+
+\section{Findings and results}
+The guide covers all 22 public proof rules defined in
+\texttt{docs/calculus.md}, plus M4 (the backjump operation folded into M3) and
+V6a (the internal binary-resolution unit channel). The interface provides
+search, rule-family filters, collapsible cards, independent formal/informal/
+example tabs, deep links, print styling, and a persistent light/dark theme.
+
+The scope boundary is explicit. Rephase, SwitchMode, Walk, and Reorder are
+policy operations that change heuristic state rather than proof state, so they
+are not presented as proof rules. X5 Condition is also excluded because it is
+the catalog's documented no-implement decision; the guide links to that
+decision rather than inventing semantics for an unavailable rule.
+
+\section{Evidence}
+The deliverable is \texttt{docs/proof-rules.html}; the documentation map now
+links to it from \texttt{docs/README.md}. A structural audit counted 24 rule
+cards, 24 formal panels, 24 informal panels, 24 example panels, and 48 worked
+examples. HTML entity handling, repository whitespace, and the documentation
+size/progress checks were validated before landing. The formal content was
+checked against \texttt{docs/calculus.md}, with scope and
+implementation status cross-checked against
+\texttt{docs/implementation-notes.md}.
+
+\section{Risks and decisions}
+This is an educational derived view, not a second source of truth. The page
+states that \texttt{docs/calculus.md} wins if the two disagree. Future changes
+to rule semantics therefore need a corresponding guide update. Keeping the
+artifact as one dependency-free HTML file avoids a build system and makes it
+portable on the cluster, at the cost of a larger generated-looking source file.
+
+\section{Next actions}
+Open \texttt{docs/proof-rules.html} in a browser and use the family controls or
+search field to navigate. When a proof rule is added or its formal semantics
+change, update its card and examples in the same documentation change. Solver
+development otherwise resumes from the first action in \texttt{PROGRESS.md}.
+
+\end{document}

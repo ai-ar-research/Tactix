@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive guide to every Tactix proof rule">
+  <title>Tactix proof-rule explorer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #14231f;
+      --muted: #5c6c66;
+      --paper: #f7f4ed;
+      --surface: #fffdf8;
+      --surface-2: #eef4ef;
+      --line: #d7ddd7;
+      --accent: #076b58;
+      --accent-2: #ef8b4a;
+      --code: #17342c;
+      --code-ink: #eefaf5;
+      --shadow: 0 16px 40px rgba(29, 50, 42, .09);
+      --radius: 18px;
+    }
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --ink: #e9f2ed;
+      --muted: #a8b9b1;
+      --paper: #101814;
+      --surface: #17231e;
+      --surface-2: #1d2d26;
+      --line: #34473e;
+      --accent: #63d3b8;
+      --accent-2: #ffab72;
+      --code: #0a110e;
+      --code-ink: #e5fff5;
+      --shadow: 0 18px 44px rgba(0, 0, 0, .25);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 32rem),
+        radial-gradient(circle at 95% 15%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 27rem),
+        var(--paper);
+      font: 16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: var(--accent); }
+    .shell { width: min(1440px, calc(100% - 32px)); margin: 0 auto; }
+    .hero { padding: 54px 0 26px; }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+    h1 {
+      max-width: 900px;
+      margin: 0;
+      font: 700 clamp(2.2rem, 6vw, 5rem)/.98 Georgia, "Times New Roman", serif;
+      letter-spacing: -.045em;
+    }
+    .hero-copy { max-width: 780px; margin: 20px 0 0; color: var(--muted); font-size: 1.08rem; }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px;
+      border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+      color: var(--muted); font-size: .82rem; font-weight: 700;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    .toolbar {
+      position: sticky; top: 0; z-index: 20; padding: 12px 0;
+      border-block: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+      background: color-mix(in srgb, var(--paper) 88%, transparent);
+      backdrop-filter: blur(18px);
+    }
+    .toolbar-inner { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto; gap: 12px; align-items: center; }
+    .search-wrap { position: relative; }
+    .search-wrap span { position: absolute; left: 14px; top: 50%; translate: 0 -50%; color: var(--muted); }
+    #search {
+      width: 100%; padding: 11px 14px 11px 40px; border: 1px solid var(--line);
+      border-radius: 12px; color: var(--ink); background: var(--surface); outline: none;
+    }
+    #search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+    .action {
+      min-height: 44px; padding: 9px 13px; border: 1px solid var(--line);
+      border-radius: 12px; color: var(--ink); background: var(--surface); font-weight: 750;
+    }
+    .action:hover { border-color: var(--accent); color: var(--accent); }
+    .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 30px; padding: 30px 0 72px; }
+    .side { position: sticky; top: 86px; align-self: start; }
+    .side h2 { margin: 0 0 12px; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .filters { display: grid; gap: 7px; }
+    .filter {
+      display: flex; justify-content: space-between; width: 100%; padding: 9px 11px;
+      border: 1px solid transparent; border-radius: 10px; color: var(--muted);
+      background: transparent; text-align: left;
+    }
+    .filter:hover, .filter.active { color: var(--accent); border-color: var(--line); background: var(--surface); }
+    .filter b { color: inherit; }
+    .side-note { margin-top: 20px; padding: 14px; border-left: 3px solid var(--accent-2); color: var(--muted); font-size: .82rem; }
+    .state-card {
+      margin-bottom: 18px; border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--surface); box-shadow: var(--shadow); overflow: clip;
+    }
+    .state-card summary { padding: 15px 18px; font-weight: 800; cursor: pointer; }
+    .state-body { padding: 0 18px 18px; color: var(--muted); }
+    .state-grid { display: grid; grid-template-columns: repeat(5, minmax(90px, 1fr)); gap: 8px; margin-top: 12px; }
+    .state-grid div { padding: 10px; border-radius: 10px; background: var(--surface-2); }
+    .state-grid b { display: block; color: var(--accent); font-family: ui-monospace, monospace; }
+    .results-line { display: flex; justify-content: space-between; gap: 12px; margin: 4px 2px 14px; color: var(--muted); font-size: .9rem; }
+    .cards { display: grid; gap: 14px; }
+    .rule-card {
+      border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+      box-shadow: 0 8px 24px rgba(29, 50, 42, .055); overflow: clip;
+    }
+    .rule-card[open] { box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+    .rule-card > summary {
+      display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center;
+      padding: 17px 18px; list-style: none; cursor: pointer;
+    }
+    .rule-card > summary::-webkit-details-marker { display: none; }
+    .rule-id {
+      display: grid; place-items: center; width: 48px; height: 48px; border-radius: 13px;
+      color: white; background: var(--accent); font: 800 .9rem/1 ui-monospace, SFMono-Regular, monospace;
+    }
+    .rule-card[data-family="search"] .rule-id { background: #4969a8; }
+    .rule-card[data-family="clause"] .rule-id { background: #a45b32; }
+    .rule-card[data-family="graph"] .rule-id { background: #7b4f9f; }
+    .rule-card[data-family="elimination"] .rule-id { background: #a13f5a; }
+    .rule-card[data-family="addition"] .rule-id { background: #31728f; }
+    .rule-title h3 { margin: 0; font-size: 1.04rem; }
+    .rule-title p { margin: 3px 0 0; color: var(--muted); font-size: .84rem; }
+    .status { padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .7rem; font-weight: 800; text-transform: uppercase; }
+    .status.internal { color: #8b5a19; background: color-mix(in srgb, var(--accent-2) 12%, var(--surface)); }
+    .rule-content { border-top: 1px solid var(--line); }
+    .tabs { display: flex; gap: 4px; padding: 10px 14px 0; overflow-x: auto; }
+    .tab {
+      padding: 8px 11px; border: 0; border-bottom: 2px solid transparent;
+      color: var(--muted); background: transparent; font-weight: 750; white-space: nowrap;
+    }
+    .tab.active { color: var(--accent); border-color: var(--accent); }
+    .panel { padding: 17px 20px 22px; }
+    .js .panel[hidden] { display: none; }
+    .formal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .formal-block { padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+    .formal-block h4, .panel h4 { margin: 0 0 7px; color: var(--accent); font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
+    .formal-block p, .panel > p { margin: 0; }
+    .math, code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .91em;
+    }
+    .equation {
+      margin: 0 0 13px; padding: 13px 15px; overflow-x: auto; border-radius: 12px;
+      color: var(--code-ink); background: var(--code); white-space: pre-wrap;
+      font: 600 .9rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .plain { max-width: 820px; font-size: 1.02rem; }
+    .plain strong { color: var(--accent); }
+    .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .example { padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-2); }
+    .example h4 { color: var(--ink); letter-spacing: 0; text-transform: none; font-size: .95rem; }
+    .example p { margin: 7px 0 0; color: var(--muted); }
+    .example .step { color: var(--ink); }
+    .empty { display: none; padding: 36px; border: 1px dashed var(--line); border-radius: var(--radius); text-align: center; color: var(--muted); }
+    footer { padding: 22px 0 46px; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem; }
+    mark { color: inherit; background: color-mix(in srgb, var(--accent-2) 36%, transparent); border-radius: 3px; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .side { position: static; }
+      .filters { grid-template-columns: repeat(3, 1fr); }
+      .toolbar-inner { grid-template-columns: 1fr auto; }
+      #collapseAll { display: none; }
+      .state-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 20px, 1440px); }
+      .hero { padding-top: 34px; }
+      .toolbar-inner { grid-template-columns: 1fr auto; }
+      #expandAll { display: none; }
+      .filters { grid-template-columns: 1fr 1fr; }
+      .formal-grid, .examples { grid-template-columns: 1fr; }
+      .rule-card > summary { grid-template-columns: auto 1fr; }
+      .status { display: none; }
+    }
+    @media print {
+      .toolbar, .side, .tabs, .action { display: none !important; }
+      body { background: white; }
+      .layout { display: block; }
+      .rule-card { break-inside: avoid; box-shadow: none; }
+      .rule-card > .rule-content, .panel[hidden] { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero shell">
+    <p class="eyebrow">Tactix calculus · interactive field guide</p>
+    <h1>Every proof rule, from guard to certificate.</h1>
+    <p class="hero-copy">A learning interface for the state transitions in Tactix. Each entry pairs a compact formal rule with an intuitive reading and two worked micro-examples. The authoritative semantics remain in <a href="calculus.md">docs/calculus.md</a>.</p>
+    <div class="hero-meta">
+      <span class="chip"><span class="dot"></span><span id="ruleCount">24 entries</span></span>
+      <span class="chip">22 public entries</span>
+      <span class="chip">2 folded / internal channels</span>
+      <span class="chip">Offline · no dependencies</span>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="toolbar-inner shell">
+      <label class="search-wrap" aria-label="Search proof rules">
+        <span aria-hidden="true">⌕</span>
+        <input id="search" type="search" placeholder="Search IDs, names, effects, examples…" autocomplete="off">
+      </label>
+      <button class="action" id="expandAll" type="button">Expand all</button>
+      <button class="action" id="themeToggle" type="button" aria-label="Toggle color theme">◐ Theme</button>
+    </div>
+  </div>
+
+  <main class="layout shell">
+    <aside class="side" aria-label="Rule family filters">
+      <h2>Rule families</h2>
+      <div class="filters">
+        <button class="filter active" data-filter="all" type="button"><b>All rules</b><span>24</span></button>
+        <button class="filter" data-filter="core" type="button"><b>Core</b><span>4</span></button>
+        <button class="filter" data-filter="search" type="button"><b>Search</b><span>3</span></button>
+        <button class="filter" data-filter="clause" type="button"><b>Clause</b><span>3</span></button>
+        <button class="filter" data-filter="graph" type="button"><b>Graph &amp; gates</b><span>7</span></button>
+        <button class="filter" data-filter="elimination" type="button"><b>Elimination</b><span>4</span></button>
+        <button class="filter" data-filter="addition" type="button"><b>Add &amp; strengthen</b><span>3</span></button>
+      </div>
+      <p class="side-note"><strong>Reading tip.</strong> “Proof δ” is what the checker sees. Reconstruction <span class="math">ρ</span> is what repairs a SAT model after an equisatisfiable deletion.</p>
+    </aside>
+
+    <section>
+      <details class="state-card">
+        <summary>Notation and abstract solver state</summary>
+        <div class="state-body">
+          <div class="equation">σ = ⟨F, R, τ, ρ, π⟩        apply(σ, instance) → (σ′, δ)
+F₀ ≡SAT (F ∪ ρ)              F ⊨ R</div>
+          <div class="state-grid">
+            <div><b>F</b>irredundant clauses</div>
+            <div><b>R</b>learned clauses</div>
+            <div><b>τ</b>trail + reasons</div>
+            <div><b>ρ</b>model witnesses</div>
+            <div><b>π</b>proof cursor</div>
+          </div>
+          <p class="plain"><strong>Scope.</strong> This guide covers the 22 public proof rules in the calculus, folded M4, and internal channel V6a. S3 Rephase, S4 SwitchMode, S6 Walk, and S7 Reorder are H-only policy operations, not proof rules. X5 Condition is deliberately absent because the current reconstruction stack cannot represent its witness cube; see <a href="implementation-notes.md#16-no-implement-decision-x5-condition">the no-implement decision</a>.</p>
+          <p><span class="math">H</span> (scores, phases, limits) is policy state outside <span class="math">σ</span>. A rule is applicable when its pure soundness precondition holds.</p>
+        </div>
+      </details>
+
+      <div class="results-line"><span id="results">Showing 24 entries</span><span>Click a rule to open it</span></div>
+      <div class="empty" id="empty">No proof rules match that search.</div>
+      <div class="cards" id="cards">
+
+        <details class="rule-card" id="M1" data-family="core" data-search="m1 propagate unit bcp root conflict derived unit">
+          <summary><span class="rule-id">M1</span><span class="rule-title"><h3>Propagate</h3><p>Run Boolean constraint propagation to conflict or fixpoint</p></span><span class="status">public</span></summary>
+          <div class="rule-content">
+            <div class="tabs" role="tablist"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal">
+              <div class="equation">F not refuted ∧ no unresolved conflict ∧ τ not at BCP fixpoint
+────────────────────────────────────────────────────────────── M1
+⟨F,R,τ,ρ,π⟩ → ⟨F,R,τ·forced,ρ,π·δ⟩</div>
+              <div class="formal-grid">
+                <div class="formal-block"><h4>Effect</h4><p>Assign every forced literal at its true level. Stop at the first conflict or at fixpoint; a root conflict returns <span class="math">Unsat</span>.</p></div>
+                <div class="formal-block"><h4>Proof δ &amp; soundness</h4><p><span class="math">add_derived_unit</span> for root units under LRAT; <span class="math">add_empty</span> for a root conflict. BCP assigns only consequences of <span class="math">F ∧ M</span>.</p></div>
+              </div>
+            </section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Follow implications until nothing else is forced.</strong> If a clause has one possible literal left, that literal must be true. If every literal in a clause becomes false, propagation has found a conflict.</p></section>
+            <section class="panel" data-panel-content="examples">
+              <div class="examples">
+                <div class="example"><h4>A root implication</h4><div class="equation">F = {(a), (¬a ∨ b)}
+τ = []
+⇒ τ′ = [a@0, b@0]</div><p>The unit <span class="math">a</span> forces <span class="math">b</span>. LRAT records both derived root units.</p></div>
+                <div class="example"><h4>A root contradiction</h4><div class="equation">F = {(a), (¬a)}
+⇒ a@0 and ¬a@0
+⇒ ∅, Unsat</div><p>The empty clause is RUP from the contradictory units.</p></div>
+              </div>
+            </section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="M2" data-family="core" data-search="m2 decide branch literal phase case split decision">
+          <summary><span class="rule-id">M2</span><span class="rule-title"><h3>Decide</h3><p>Choose any unassigned literal and open a search branch</p></span><span class="status">public</span></summary>
+          <div class="rule-content">
+            <div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">x unassigned ∧ no unresolved conflict ∧ F not refuted
+────────────────────────────────────────────────────── M2(l)
+dl := dl+1 ; τ := τ · (l@dl, reason=DECISION)       δ = ε</div><div class="formal-grid"><div class="formal-block"><h4>Instance</h4><p>Any unassigned literal and phase. No propagation-fixpoint requirement exists in the abstract calculus.</p></div><div class="formal-block"><h4>Soundness</h4><p>A decision is a case split, not a logical inference; it changes only the explored branch.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Make a reversible guess.</strong> Decide does not claim the literal follows from the formula, so it emits no proof line. A later conflict can undo the branch.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples">
+              <div class="example"><h4>Positive phase</h4><div class="equation">F = {(a ∨ b)}, τ = []
+Decide(a)
+⇒ τ′ = [a@1(decision)]</div><p>The clause is satisfied on this branch; no proof delta is emitted.</p></div>
+              <div class="example"><h4>Choose the other phase</h4><div class="equation">F = {(a ∨ b)}, τ = []
+Decide(¬a)
+⇒ τ′ = [¬a@1]
+M1 then forces b@1</div><p>N1 exposes both <span class="math">a</span> and <span class="math">¬a</span> as legal instances.</p></div>
+            </div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="M3" data-family="core" data-search="m3 conflict analysis learn uip backjump otfs learned clause">
+          <summary><span class="rule-id">M3</span><span class="rule-title"><h3>ConflictAnalysis</h3><p>Learn a 1-UIP clause and backjump atomically</p></span><span class="status">public</span></summary>
+          <div class="rule-content">
+            <div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">Cconflict is all-false under M ∧ F not refuted
+──────────────────────────────────────────────── M3
+derive L₁UIP ; R := R ∪ {L}; backtrack(j); assert UIP
+δ = add_rup(L, antecedents) · optional del(...) </div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Analyze, minimize, optionally strengthen by OTFS, learn, backtrack, and assert in one public transition. Root conflict yields <span class="math">∅</span>.</p></div><div class="formal-block"><h4>Soundness</h4><p>The learned clause is RUP and entailed by the conflict reasons; assertion at the jump level is ordinary unit propagation.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Explain why the current branch failed, remember the explanation, and jump to the earliest useful point.</strong> The new clause prevents the solver from repeating the same conflicting combination.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples">
+              <div class="example"><h4>Learn the negated decision</h4><div class="equation">(¬a ∨ b), (¬a ∨ c), (¬b ∨ ¬c)
+Decide a@1 ⇒ b@1, c@1 ⇒ conflict
+Resolve reasons ⇒ L = (¬a)
+Backjump 0; assert ¬a@0</div><p>The three-clause implication pattern proves that choosing <span class="math">a</span> can never work.</p></div>
+              <div class="example"><h4>Root refutation</h4><div class="equation">(p), (¬p ∨ q), (¬p ∨ ¬q)
+p@0 ⇒ q@0 and ¬q@0
+Analyze ⇒ L = ∅
+⇒ Unsat</div><p>At root there is no lower level to revisit, so M3 emits the empty learned clause.</p></div>
+            </div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="M4" data-family="core" data-search="m4 backjump folded chronological target internal m3">
+          <summary><span class="rule-id">M4</span><span class="rule-title"><h3>Backjump</h3><p>The folded tail of M3, not a separately schedulable rule</p></span><span class="status internal">folded</span></summary>
+          <div class="rule-content">
+            <div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">M3 has learned asserting clause L with jump level j
+──────────────────────────────────────────────────── M4 (inside M3)
+truncate τ to target t ∈ [j, level−1]; assert UIP at true level j
+δ = ε</div><div class="formal-grid"><div class="formal-block"><h4>Status</h4><p>No public guard, instances, or apply surface. The target is an M3 instance parameter.</p></div><div class="formal-block"><h4>Soundness</h4><p>Removing trail assignments is safe; the learned clause forces its UIP at <span class="math">j</span> even if chronological backtracking retains higher decisions.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Undo only as much search as the learned clause requires.</strong> Tactix exposes this choice through ConflictAnalysis rather than allowing a half-finished learned clause to escape between two rules.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples">
+              <div class="example"><h4>Canonical non-chronological jump</h4><div class="equation">current level = 5
+learned L has second-highest level j = 2
+target t = 2
+⇒ remove levels 3..5; assert UIP</div><p>The clause becomes unit exactly at its standard jump level.</p></div>
+              <div class="example"><h4>Chronological target</h4><div class="equation">current level = 5, j = 2
+choose target t = 4
+⇒ retain levels 3..4
+assert UIP with true level 2</div><p>The extra decisions remain, but the assertion keeps the logical level determined by its reason.</p></div>
+            </div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="S1" data-family="search" data-search="s1 restart trail prefix reset assignments">
+          <summary><span class="rule-id">S1</span><span class="rule-title"><h3>Restart</h3><p>Discard a trail suffix while keeping learned knowledge</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">F consistent and not refuted
+────────────────────────────── S1(k)
+⟨F,R,τ,ρ,π⟩ → ⟨F,R,prefixₖ(τ),ρ,π⟩      δ = ε</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Drop to a chosen keep level; clauses and proof state stay unchanged.</p></div><div class="formal-block"><h4>Soundness</h4><p>Removing temporary assumptions cannot remove or create formula models.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Start searching from a shallower point without forgetting learned clauses.</strong> Restarts change the route through the search tree, not the formula.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Full restart</h4><div class="equation">τ = [u@0, a@1, b@2, c@3]
+Restart(0)
+⇒ τ′ = [u@0]</div><p>Only root facts survive.</p></div><div class="example"><h4>Prefix restart</h4><div class="equation">τ = [u@0, a@1, b@2, c@3]
+Restart(1)
+⇒ τ′ = [u@0, a@1]</div><p>A partial restart keeps the first decision branch.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="S2" data-family="search" data-search="s2 reduce forget redundant learned clause glue locked">
+          <summary><span class="rule-id">S2</span><span class="rule-title"><h3>Reduce</h3><p>Forget selected redundant learned clauses</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">F not refuted ∧ D ⊆ R ∧ no d ∈ D is reason-locked
+────────────────────────────────────────────────── S2(D)
+R := R \ D ; δ = ∏ d∈D del(d)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Delete selected learned clauses, compact storage, and forward surviving trail reasons.</p></div><div class="formal-block"><h4>Soundness</h4><p>Every deleted clause is redundant/entailed; proof checkers accept deletions without a chain.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Throw away learned hints that are no longer worth their memory cost.</strong> The original problem clauses stay; a clause currently explaining an assignment is protected.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Forget a weak learned clause</h4><div class="equation">R = {(a ∨ b), (c ∨ d ∨ e)}
+D = {(c ∨ d ∨ e)}
+⇒ R′ = {(a ∨ b)}
+δ = del(c ∨ d ∨ e)</div><p>The solver may need to rediscover it later, but satisfiability is unchanged.</p></div><div class="example"><h4>Protect a live reason</h4><div class="equation">reason(x) = (x ∨ ¬a)
+candidate D contains reason(x)
+⇒ skip that clause</div><p>Deleting it would leave the current trail with a dangling explanation.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="S5" data-family="search" data-search="s5 lucky sat model complete assignment restore">
+          <summary><span class="rule-id">S5</span><span class="rule-title"><h3>Lucky</h3><p>Try a complete assignment and report SAT only on success</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">F consistent and not refuted
+──────────────────────────────────────── S5
+complete assumption assignment A
+if A ⊨ F: Sat(A) ; otherwise restore σ exactly       δown = ε</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Success leaves a total model. Failure restores the entry state. Root closure performed at entry may still emit units or refute.</p></div><div class="formal-block"><h4>Soundness</h4><p>SAT is returned only after every clause is satisfied by a total assignment.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Try to get lucky with a full phase assignment.</strong> If it works, the solver has a model. If not, the speculative attempt is erased as though it never happened.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>A lucky model</h4><div class="equation">F = {(a ∨ b), (¬a ∨ b), (a ∨ ¬b)}
+try A = {a=true, b=true}
+A ⊨ F ⇒ Sat</div><p>All three clauses are satisfied.</p></div><div class="example"><h4>A failed attempt</h4><div class="equation">F = {(a ∨ b), (¬a ∨ b)}
+try A = {a=true, b=false}
+conflict ⇒ restore σ</div><p>The rule does not learn from its own failed guess; ordinary search continues from the original state.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="C1" data-family="clause" data-search="c1 subsume forward subset delete irredundant">
+          <summary><span class="rule-id">C1</span><span class="rule-title"><h3>SubsumeForward</h3><p>Delete a clause covered by a stronger live clause</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">d,c ∈ F live ∧ d ⊆ c
+──────────────────────── C1(d,c)
+F := F \ {c} ; δ = del(c)</div><div class="formal-grid"><div class="formal-block"><h4>Precondition</h4><p>The subsumer <span class="math">d</span> is irredundant/live. The victim need not be restricted for soundness.</p></div><div class="formal-block"><h4>Soundness</h4><p><span class="math">d ⊨ c</span>, so keeping both imposes exactly the same models as keeping only <span class="math">d</span>.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>A shorter clause makes a longer superset useless.</strong> Any assignment satisfying the shorter clause already satisfies the longer one.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Direct subset</h4><div class="equation">d = (a ∨ b)
+c = (a ∨ b ∨ c)
+d ⊆ c ⇒ delete c</div><p>The literal <span class="math">c</span> adds no constraint.</p></div><div class="example"><h4>Binary subsumer</h4><div class="equation">d = (¬x ∨ y)
+c = (¬x ∨ y ∨ z ∨ w)
+⇒ del(c)</div><p>Binary clauses have an irredundant lifecycle in this calculus.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="C2" data-family="clause" data-search="c2 strengthen self subsuming resolution rup replace clause">
+          <summary><span class="rule-id">C2</span><span class="rule-title"><h3>Strengthen</h3><p>Remove a literal by self-subsuming resolution</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">c = (x ∨ A), d = (¬x ∨ B), c′ = A ∪ B, c′ ⊂ c
+───────────────────────────────────────────────────── C2
+F := (F ∪ {c′}) \ {c}
+δ = add_rup(c′,[c,d]) · del(c)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add the smaller resolvent before deleting its parent. Unit and empty results assert or refute.</p></div><div class="formal-block"><h4>Soundness</h4><p>The resolvent is RUP from its two parents; add-before-delete preserves proof availability.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Use another clause to prove one literal in a clause is unnecessary.</strong> The replacement is strictly stronger and checker-verifiable.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Drop a pivot literal</h4><div class="equation">c = (x ∨ a ∨ b)
+d = (¬x ∨ a)
+resolve x ⇒ c′ = (a ∨ b)
+add c′; delete c</div><p>The resolvent is a strict subset of <span class="math">c</span>.</p></div><div class="example"><h4>Collapse to a unit</h4><div class="equation">c = (x ∨ a)
+d = (¬x)
+resolve x ⇒ c′ = (a)
+⇒ assert a@0</div><p>A strengthening can expose a new root fact.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="C3" data-family="clause" data-search="c3 vivify distill propagation clause shorten root satisfied">
+          <summary><span class="rule-id">C3</span><span class="rule-title"><h3>Vivify</h3><p>Distill a clause through speculative propagation</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">c ∈ F ∧ propagation under negated prefix proves c′ ⊂ c
+──────────────────────────────────────────────────── C3
+F := (F ∪ {c′}) \ {c}
+δ = add_rup(c′, reason-chain) · del(c)</div><div class="formal-grid"><div class="formal-block"><h4>Outcomes</h4><p>Strengthen, delete a root-satisfied clause, assert a surviving unit, or refute on empty distillation.</p></div><div class="formal-block"><h4>Soundness</h4><p>The speculative conflict supplies the RUP chain for the shorter clause.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Try falsifying a clause from left to right and watch what propagation proves.</strong> If conflict arrives early, the untouched suffix was unnecessary.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>RUP shortening</h4><div class="equation">C = (a ∨ b ∨ c)
+other: (a ∨ d), (b ∨ ¬d)
+assume ¬a, ¬b ⇒ d and ¬d
+⇒ add (a ∨ b); delete C</div><p>The conflict occurs without needing literal <span class="math">c</span>.</p></div><div class="example"><h4>Strip a root-false literal</h4><div class="equation">C = (a ∨ b ∨ c)
+root has ¬a
+⇒ C′ = (b ∨ c)
+add C′; delete C</div><p>The root unit permanently falsifies <span class="math">a</span>.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="V1" data-family="graph" data-search="v1 probe failed literal full propagation root unit rup">
+          <summary><span class="rule-id">V1</span><span class="rule-title"><h3>Probe</h3><p>Derive root units by refuting an assumed literal</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">p unassigned ∧ F ∧ M ∧ p ⊢₁ ∅
+─────────────────────────────── V1(p)
+F := F ∪ {(¬p)} ; δ = add_rup((¬p), conflict-chain)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Test candidates with full propagation, collect each failed literal’s negation, then assert the batch at root.</p></div><div class="formal-block"><h4>Soundness</h4><p>If assuming <span class="math">p</span> unit-propagates to conflict, <span class="math">F ∧ M ⊨ ¬p</span>.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Temporarily try a literal.</strong> If propagation immediately proves that choice impossible, its opposite is a permanent fact.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Two opposing implications</h4><div class="equation">(¬p ∨ q), (¬p ∨ ¬q)
+assume p ⇒ q and ¬q
+⇒ add (¬p)</div><p>The failed assumption becomes a root unit.</p></div><div class="example"><h4>Conflict through a long clause</h4><div class="equation">(¬p ∨ a ∨ b), (¬a), (¬b)
+assume p
+⇒ clause becomes empty
+⇒ add (¬p)</div><p>Full Probe sees non-binary clauses, unlike V2.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="V2" data-family="graph" data-search="v2 backbone binary failed literal big root unit">
+          <summary><span class="rule-id">V2</span><span class="rule-title"><h3>Backbone</h3><p>Run failed-literal probing using only the binary graph</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">p unassigned ∧ BIG(F) ∧ p ⊢₁ ∅
+──────────────────────────────── V2(p)
+F := F ∪ {(¬p)} ; δ = add_rup((¬p), binary-chain)</div><div class="formal-grid"><div class="formal-block"><h4>Scope</h4><p>Identical inference to V1, restricted to permanent binary implications.</p></div><div class="formal-block"><h4>Soundness</h4><p>A binary reason chain is a special case of full unit propagation, so V2’s conclusions are a subset of V1’s.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>A cheaper Probe.</strong> Follow only two-literal clauses. It finds fewer failed literals but traverses a much simpler graph.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Depth-one failure</h4><div class="equation">(¬p ∨ q), (¬p ∨ ¬q)
+p ⇒ q and ¬q
+⇒ add (¬p)</div><p>Both implications are binary edges.</p></div><div class="example"><h4>Failure along paths</h4><div class="equation">p→q, q→r, p→s, s→¬r
+assume p ⇒ r and ¬r
+⇒ add (¬p)</div><p>The proof chain is the four binary clauses on the two paths.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="V3" data-family="graph" data-search="v3 substitute scc equivalent literal big witness reconstruction">
+          <summary><span class="rule-id">V3</span><span class="rule-title"><h3>Substitute</h3><p>Collapse equivalent literals found as BIG strongly connected components</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">l,r in one non-trivial SCC of BIG(F) ⇒ F ⊨ l ↔ r
+──────────────────────────────────────────────── V3
+rewrite l↦r in F; eliminate var(l); push equivalence witnesses to ρ
+δ = add_rup(rewrites, path chains) · del(old clauses)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Rewrite all occurrences add-before-delete. If <span class="math">x</span> and <span class="math">¬x</span> share an SCC, emit a refutation.</p></div><div class="formal-block"><h4>Soundness</h4><p>Mutual BIG reachability proves equivalence. Witness pairs let reverse reconstruction recover eliminated variables.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>If two literals always imply each other, keep one name.</strong> Every clause is rewritten to the representative, and reconstruction remembers how to restore the removed variable.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Simple equivalence</h4><div class="equation">(¬x ∨ y), (x ∨ ¬y)    [x ↔ y]
+(x ∨ z)
+⇒ rewrite as (y ∨ z)
+⇒ eliminate x, push x↔y witness</div><p>The two binaries put <span class="math">x</span> and <span class="math">y</span> in one SCC.</p></div><div class="example"><h4>Contradictory SCC</h4><div class="equation">x→y→¬x
+¬x→z→x
+⇒ x and ¬x in one SCC
+⇒ add (x), add (¬x), add ∅</div><p>A literal equivalent to its negation makes the formula unsatisfiable.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="V4" data-family="graph" data-search="v4 transitive reduce binary implication redundant path delete">
+          <summary><span class="rule-id">V4</span><span class="rule-title"><h3>TransitiveReduce</h3><p>Delete a binary implication duplicated by another path</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">e = (¬p ∨ r) ∈ F ∧ path p ⟹ r exists in BIG(F)\{e}
+────────────────────────────────────────────────────── V4(e)
+F := F \ {e} ; δ = del(e)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Delete redundant edges using round-local tombstones so no deletion relies on another edge being deleted in the same round.</p></div><div class="formal-block"><h4>Soundness</h4><p>The surviving path resolves to the removed binary, so the remaining formula entails it.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Remove shortcut edges when a surviving route says the same thing.</strong> Reachability stays the same, but the binary graph becomes smaller.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Triangle shortcut</h4><div class="equation">(¬p ∨ q), (¬q ∨ r), (¬p ∨ r)
+p→q→r duplicates p→r
+⇒ delete (¬p ∨ r)</div><p>The first two binaries resolve to the third.</p></div><div class="example"><h4>Longer alternate path</h4><div class="equation">p→q, q→s, s→t, p→t
+⇒ delete direct p→t</div><p>The path remains live throughout the round.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="V5" data-family="graph" data-search="v5 sweep sat sweeping environment equivalence replay rup">
+          <summary><span class="rule-id">V5</span><span class="rule-title"><h3>Sweep</h3><p>Discover literal equivalences with a local SAT environment</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">Env is entailed by F
+Env ∧ a ∧ ¬b ⊢ ∅    and    Env ∧ ¬a ∧ b ⊢ ∅
+────────────────────────────────────────────── V5(a,b)
+F := F ∪ {(¬a ∨ b),(a ∨ ¬b)}
+δ = add_rup(each direction, replay/core chain)</div><div class="formal-grid"><div class="formal-block"><h4>Precondition</h4><p>The bounded environment contains proof-identified clauses with root-false literals stripped using their unit IDs.</p></div><div class="formal-block"><h4>Soundness</h4><p>Both implications must replay over the main formula before either binary is emitted.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Ask a small local SAT solver whether two literals can ever differ.</strong> If both disagreement cases are impossible—and the main checker can replay them—the equivalence is added.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Equivalence through an intermediary</h4><div class="equation">a↔c encoded by two binaries
+c↔b encoded by two binaries
+Env refutes a∧¬b and ¬a∧b
+⇒ add a↔b</div><p>Sweep materializes the transitive equivalence for later substitution.</p></div><div class="example"><h4>Strip a root-false literal</h4><div class="equation">root unit: (¬r)
+environment clause: (r ∨ ¬a ∨ b)
+strip r ⇒ (¬a ∨ b), citing (¬r)
+prove reverse direction too ⇒ add a↔b</div><p>Keeping <span class="math">r</span> would make the local clause spuriously easy to satisfy.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="V6" data-family="graph" data-search="v6 congruence gates and xor ite union find equivalence">
+          <summary><span class="rule-id">V6</span><span class="rule-title"><h3>Congruence</h3><p>Equate outputs of structurally identical AND, XOR, and ITE gates</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">F contains complete gates a=f(inputs), b=f(inputs)
+────────────────────────────────────────────── V6(a,b)
+F := F ∪ {(¬a ∨ b),(a ∨ ¬b)} ; unite(a,b)
+δ = add_rup(equivalence ladders)       ρ unchanged</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Close equivalence through union-find. Canonicalization may also derive a unit, unary merge, or smaller gate.</p></div><div class="formal-block"><h4>Soundness</h4><p>All defining clauses must be present: identical Boolean functions on equivalent inputs have equivalent outputs.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Recognize duplicate circuit computations.</strong> Once two gate outputs are known equal, gates above them may become duplicates too, so the equivalence cascades through circuit layers.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Duplicate AND gates</h4><div class="equation">o = a ∧ b
+p = b ∧ a
+same canonical inputs
+⇒ add (¬o ∨ p), (o ∨ ¬p)</div><p>Input sorting makes the two definitions identical.</p></div><div class="example"><h4>Degenerate gate</h4><div class="equation">o = a ∧ ¬a
+⇒ o = false
+⇒ add root unit (¬o)</div><p>A contradiction among AND inputs collapses the gate to a constant.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="V6a" data-family="graph" data-search="v6a binary resolution unit channel internal congruence">
+          <summary><span class="rule-id">V6a</span><span class="rule-title"><h3>Binary-resolution unit channel</h3><p>A second inference performed inside V6</p></span><span class="status internal">internal</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">(l ∨ o) ∈ F ∧ (l ∨ ¬o) ∈ F
+───────────────────────────────── V6a (inside V6)
+F := F ∪ {(l)}
+δ = add_rup((l), replayed binary chain)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Collect derived units with V6’s degeneracy units; contradictory units resolve to empty.</p></div><div class="formal-block"><h4>Status &amp; soundness</h4><p>Not a public rule. Ordinary resolution on <span class="math">o</span> yields <span class="math">(l∨l)=(l)</span>.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Whichever value the side literal takes, the other literal must be true.</strong> V6 scans binaries for this pattern at linear cost.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Resolve to a unit</h4><div class="equation">(l ∨ o)
+(l ∨ ¬o)
+resolve o ⇒ (l)
+⇒ assert l@0</div><p>The checker chain is obtained by replaying the failed assumption <span class="math">¬l</span>.</p></div><div class="example"><h4>Resolve to contradiction</h4><div class="equation">(l∨o),(l∨¬o) ⇒ (l)
+(¬l∨p),(¬l∨¬p) ⇒ (¬l)
+(l),(¬l) ⇒ ∅</div><p>Opposite units found in one batch refute the formula.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="E1" data-family="elimination" data-search="e1 bve bounded variable elimination davis putnam resolvent witness">
+          <summary><span class="rule-id">E1</span><span class="rule-title"><h3>BVE</h3><p>Eliminate a variable with bounded Davis–Putnam resolution</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">P=Occ(x), N=Occ(¬x)
+|non-taut(P ⊗ N)| ≤ |P|+|N|+bound
+──────────────────────────────────── E1(x)
+F := (F \ (P∪N)) ∪ resolvents(P,N)
+δ = add_rup(resolvents) · del(P∪N) ; push pivot witnesses to ρ</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add every necessary non-tautological resolvent, then delete all pivot clauses. Gate recognition may avoid only resolvents justified by its unsatisfiable remainder condition.</p></div><div class="formal-block"><h4>Soundness</h4><p>Davis–Putnam elimination is equisatisfiable. Reconstruction witnesses choose a value for <span class="math">x</span> when extending a model backward.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Remove a variable while preserving every consequence between the clauses on its two polarities.</strong> BVE is allowed only when the replacement does not grow too much.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>One resolvent</h4><div class="equation">(x ∨ a), (¬x ∨ b)
+resolve x ⇒ (a ∨ b)
+add (a∨b); delete both pivot clauses
+push witnesses for x</div><p>Any model of <span class="math">(a∨b)</span> can choose an <span class="math">x</span> satisfying the originals.</p></div><div class="example"><h4>Tautological cross product</h4><div class="equation">(x ∨ a), (¬x ∨ ¬a)
+resolvent = (a ∨ ¬a) = ⊤
+add nothing; delete both
+remember x↔¬a through witnesses</div><p>The eliminated formula is true, but reconstruction still owes a valid value for <span class="math">x</span>.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="E2" data-family="elimination" data-search="e2 factor bva bounded variable addition grid rat extension variable">
+          <summary><span class="rule-id">E2</span><span class="rule-title"><h3>Factor</h3><p>Compress a clause grid by introducing a fresh extension variable</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">G={fᵢ∨rⱼ | i∈[m],j∈[n]} ⊆ F
+m,n≥2 ∧ mn&gt;m+n ∧ x fresh
+──────────────────────────────────── E2(G,x)
+add {x∨fᵢ} and {¬x∨rⱼ}; delete G
+δ = add_rat(dividers then quotients) · del(G)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Replace <span class="math">mn</span> grid clauses by <span class="math">m+n</span> clauses. Delete the grid last.</p></div><div class="formal-block"><h4>Soundness &amp; model</h4><p>Fresh-variable additions are RAT; quotient resolvents are the still-live grid. No <span class="math">ρ</span> witness: project the extension variable out.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Name a repeated rectangular pattern with a fresh helper variable.</strong> This is the inverse of eliminating that helper with BVE.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>A 2×3 grid</h4><div class="equation">G = {f₁∨r₁,f₁∨r₂,f₁∨r₃,
+     f₂∨r₁,f₂∨r₂,f₂∨r₃}
+6 clauses → add:
+(x∨f₁),(x∨f₂),
+(¬x∨r₁),(¬x∨r₂),(¬x∨r₃)
+5 clauses</div><p>The strict reduction condition is <span class="math">6 &gt; 5</span>.</p></div><div class="example"><h4>A 3×3 grid</h4><div class="equation">9 grid clauses
+⇒ 3 dividers + 3 quotients
+⇒ 6 clauses, net −3</div><p>Each quotient’s three RAT resolvents are original grid clauses until deletion.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="X2" data-family="addition" data-search="x2 hyper ternary resolution resolvent add rup">
+          <summary><span class="rule-id">X2</span><span class="rule-title"><h3>HyperTernaryRes</h3><p>Add a short resolvent from two ternary clauses</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">C=(p∨a∨b), D=(¬p∨c∨d)
+R=(C\{p})∪(D\{¬p}), |R|≤3, R non-tautological, R∉F
+────────────────────────────────────────────────────── X2
+F := F ∪ {R}; δ = add_rup(R,[C,D])</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add one new binary or ternary resolvent; delete nothing.</p></div><div class="formal-block"><h4>Soundness</h4><p>Resolution entails <span class="math">R</span>. Negating <span class="math">R</span> makes one parent force <span class="math">p</span> and the other conflict.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Resolve two three-literal clauses when their overlap keeps the result short.</strong> The added clause can make later propagation stronger.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Ternary result</h4><div class="equation">(p ∨ a ∨ b)
+(¬p ∨ b ∨ c)
+resolve p ⇒ (a ∨ b ∨ c)</div><p>The shared <span class="math">b</span> keeps the union at size three.</p></div><div class="example"><h4>Binary result</h4><div class="equation">(p ∨ a ∨ b)
+(¬p ∨ a ∨ b)
+resolve p ⇒ (a ∨ b)</div><p>Both non-pivot sides coincide.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="X6" data-family="addition" data-search="x6 hyper binary resolution dominator big add binary subsume">
+          <summary><span class="rule-id">X6</span><span class="rule-title"><h3>HyperBinaryRes</h3><p>Derive a binary from BIG paths that falsify the rest of a clause</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">C=(l₀∨l₁∨…∨lₖ), k≥2
+∀i&gt;0: BIG(F) contains d ⟹ ¬lᵢ
+────────────────────────────────── X6(C,l₀,d)
+F := F ∪ {(¬d∨l₀)} ; optionally del(C) if (¬d∨l₀)⊆C
+δ = add_rup(binary,replay-chain) · optional del(C)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add the binary implication <span class="math">d→l₀</span>; delete the source clause only when the binary subsumes it.</p></div><div class="formal-block"><h4>Soundness</h4><p>Under <span class="math">d∧¬l₀</span>, BIG paths falsify every other literal, so <span class="math">C</span> conflicts.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>If one condition makes every alternative in a clause false, it must force the remaining literal.</strong> Record that fact as a new binary clause.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Derive a new implication</h4><div class="equation">C=(u∨a∨b)
+d→¬a and d→¬b
+⇒ add (¬d∨u)</div><p>When <span class="math">d</span> holds, only <span class="math">u</span> can satisfy <span class="math">C</span>.</p></div><div class="example"><h4>Derive and subsume</h4><div class="equation">C=(u∨¬d∨b)
+d→¬b
+⇒ R=(¬d∨u)
+R⊂C ⇒ add R; delete C</div><p>The new binary makes the longer source clause redundant.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="X1" data-family="elimination" data-search="x1 bce blocked clause elimination tautological resolvent witness">
+          <summary><span class="rule-id">X1</span><span class="rule-title"><h3>BCE</h3><p>Delete a clause blocked on one of its literals</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">C∈F, l∈C, and every resolvent of C with D∋¬l is tautological
+────────────────────────────────────────────────────────── X1(C,l)
+F := F \ {C}; ρ := ρ · (l,C); δ = del(C)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Delete the blocked irredundant clause and push its blocking-literal witness.</p></div><div class="formal-block"><h4>Soundness</h4><p>A model of <span class="math">F\{C}</span> that falsifies <span class="math">C</span> is repaired by setting <span class="math">l</span> true; tautological resolvents protect every <span class="math">¬l</span>-clause.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>A clause is removable when flipping one chosen literal can always repair it without breaking its opponents.</strong> The witness records that repair.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>One opposing clause</h4><div class="equation">C=(x∨a)
+D=(¬x∨¬a)
+resolve x ⇒ (a∨¬a)=⊤
+⇒ C blocked on x; delete C; push (x,C)</div><p>If a model later falsifies <span class="math">C</span>, set <span class="math">x</span> true.</p></div><div class="example"><h4>Two tautological resolvents</h4><div class="equation">C=(x∨a∨b)
+D₁=(¬x∨¬a)
+D₂=(¬x∨¬b)
+both x-resolvents tautological
+⇒ delete C</div><p>Each clause opposing <span class="math">x</span> contains a literal protected by the flip.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="X3" data-family="elimination" data-search="x3 cce covered clause elimination ala cla ata witness">
+          <summary><span class="rule-id">X3</span><span class="rule-title"><h3>CCE</h3><p>Grow a clause by ALA/CLA until it is blocked or asymmetric-tautological</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">C=C₀⊆C₁⊆…⊆Cₙ
+ALA: add ¬d when D\{d}⊆Cᵢ
+CLA: add intersection I at pivot u∈Dᵢ
+exit: Cₙ blocked, or ∃Q∈F\{C}: Q⊆Cₙ
+──────────────────────────────────────────── X3
+delete original C; push CLA witnesses in order; add final blocked witness
+δ = del(C) ; ρ updated (ATA without CLA needs no witness)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>The grown clause is a reasoning device; the original clause is what gets deleted.</p></div><div class="formal-block"><h4>Soundness</h4><p>ALA closure links the larger tested clause to smaller recorded witness segments; reverse replay repairs CLA steps and then the deleted clause.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Temporarily enrich a clause until BCE-style removal becomes visible.</strong> ALA adds forced complements; CLA adds literals common to all relevant pivot partners. Reconstruction unwinds the recorded covering steps backward.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>ALA then blocked</h4><div class="equation">C₀=(a∨b)
+D=(a∨d) gives ALA literal ¬d
+C₁=(a∨b∨¬d)
+E=(¬b∨d)
+resolve C₁,E on b ⇒ contains d∨¬d
+⇒ C₁ blocked on b; delete C₀</div><p>The original clause was not blocked on <span class="math">b</span>; its ALA extension is.</p></div><div class="example"><h4>CLA then ATA exit</h4><div class="equation">C₀=(u∨a)
+u-partners: (¬u∨b), (¬u∨b∨c)
+intersection I={b}
+D₁=(u∨a∨b)
+Q=(a∨b) ⊆ D₁  [ATA exit]
+⇒ delete C₀; push (u,C₀)</div><p>The common covered literal <span class="math">b</span> makes the extension asymmetric-tautological.</p></div></div></section>
+          </div>
+        </details>
+
+        <details class="rule-card" id="X4" data-family="addition" data-search="x4 instantiate probe remove literal strengthen rup">
+          <summary><span class="rule-id">X4</span><span class="rule-title"><h3>Instantiate</h3><p>Remove a clause literal whose supporting probe is impossible</p></span><span class="status">public</span></summary>
+          <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
+            <section class="panel" data-panel-content="formal"><div class="equation">C=(D∨l) ∈ F ∧ F ∧ l ∧ ¬D ⊢₁ ∅
+──────────────────────────────────── X4(C,l)
+F := (F ∪ {D}) \ {C}
+δ = add_rup(D, reason-chain including C) · del(C)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add the clause without <span class="math">l</span>, then delete its superset.</p></div><div class="formal-block"><h4>Soundness</h4><p>Under <span class="math">¬D</span>, the original clause forces <span class="math">l</span>, reproducing the failed probe; therefore <span class="math">D</span> is RUP from <span class="math">F</span> alone.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Ask whether a literal could be the only reason a clause is true.</strong> If that situation propagates to conflict, the literal is unnecessary and can be removed.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Shorten a ternary clause</h4><div class="equation">C=(l∨a∨b)
+other clause: (¬l∨a)
+assume l,¬a,¬b ⇒ (¬l∨a) false
+⇒ add (a∨b); delete C</div><p>Equivalently, resolving the two clauses on <span class="math">l</span> yields <span class="math">(a∨b)</span>.</p></div><div class="example"><h4>Collapse to a unit</h4><div class="equation">C=(l∨a)
+other clause: (¬l∨a)
+assume l,¬a ⇒ conflict
+⇒ add (a); delete C</div><p>The remaining literal becomes a root consequence.</p></div></div></section>
+          </div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="shell">Educational snapshot derived from <a href="calculus.md">docs/calculus.md</a>. If this interface and the calculus disagree, the calculus wins.</div></footer>
+
+  <script>
+    document.documentElement.classList.add("js");
+    const cards = Array.from(document.querySelectorAll(".rule-card"));
+    const search = document.getElementById("search");
+    const results = document.getElementById("results");
+    const empty = document.getElementById("empty");
+    let family = "all";
+
+    function applyFilters() {
+      const query = search.value.trim().toLowerCase();
+      let shown = 0;
+      cards.forEach(function(card) {
+        const familyMatch = family === "all" || card.dataset.family === family;
+        const haystack = (card.dataset.search + " " + card.textContent).toLowerCase();
+        const searchMatch = !query || haystack.includes(query);
+        card.hidden = !(familyMatch && searchMatch);
+        if (!card.hidden) shown += 1;
+      });
+      results.textContent = "Showing " + shown + " of " + cards.length + " entries";
+      empty.style.display = shown ? "none" : "block";
+    }
+
+    document.querySelectorAll(".filter").forEach(function(button) {
+      button.addEventListener("click", function() {
+        document.querySelectorAll(".filter").forEach(function(b) { b.classList.remove("active"); });
+        button.classList.add("active");
+        family = button.dataset.filter;
+        applyFilters();
+      });
+    });
+    search.addEventListener("input", applyFilters);
+
+    document.getElementById("expandAll").addEventListener("click", function() {
+      const visible = cards.filter(function(card) { return !card.hidden; });
+      const shouldOpen = visible.some(function(card) { return !card.open; });
+      visible.forEach(function(card) { card.open = shouldOpen; });
+      this.textContent = shouldOpen ? "Collapse all" : "Expand all";
+    });
+
+    document.querySelectorAll(".tabs").forEach(function(tabList) {
+      const card = tabList.closest(".rule-card");
+      const buttons = Array.from(tabList.querySelectorAll(".tab"));
+      tabList.setAttribute("role", "tablist");
+      buttons.forEach(function(button) {
+        button.setAttribute("role", "tab");
+        button.setAttribute("aria-selected", button.classList.contains("active") ? "true" : "false");
+        button.addEventListener("click", function() {
+          buttons.forEach(function(b) {
+            const selected = b === button;
+            b.classList.toggle("active", selected);
+            b.setAttribute("aria-selected", selected ? "true" : "false");
+          });
+          card.querySelectorAll("[data-panel-content]").forEach(function(panel) {
+            panel.hidden = panel.dataset.panelContent !== button.dataset.panel;
+          });
+        });
+      });
+      card.querySelectorAll("[data-panel-content]").forEach(function(panel) {
+        panel.hidden = panel.dataset.panelContent !== "formal";
+      });
+    });
+
+    const themeButton = document.getElementById("themeToggle");
+    const savedTheme = localStorage.getItem("proof-rule-theme");
+    if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+    themeButton.addEventListener("click", function() {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem("proof-rule-theme", next);
+    });
+
+    function openHash() {
+      const id = location.hash.slice(1);
+      const card = document.getElementById(id);
+      if (card) card.open = true;
+    }
+    window.addEventListener("hashchange", openHash);
+    openHash();
+    applyFilters();
+  </script>
+</body>
+</html>
