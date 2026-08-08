@@ -40,25 +40,24 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   Status lives in the anchor below; completed work is compressed to result + pointer, with the detail in the
   cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-07) — **increments 1–3 landed; Tier B 28/28, Tier C −2, and the explanation was refuted**
+## ▶ RESUME HERE (2026-08-07) — **Tier B 28/28; Tier C is two solves short and the cause is open**
 
-**Phase 4 is a PORT of kissat's strategy** (plan rev 91 + the 2026-08-07 user directive: *closely mimic
-kissat's strategy, aggressively remove what does not fit*). Read
-`docs/design/2026-08-07-kissat-fidelity-revamp.md` (the plan) and
-`benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before touching the
-policy.
+**Phase 4 is a PORT of kissat's strategy.** Read `docs/design/2026-08-07-kissat-fidelity-revamp.md` (the
+plan) and `benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before
+touching the policy.
 
-**▶▶ THE TIERS DISAGREE SHARPLY ABOUT INCREMENT 3, AND THE EXPLANATION FOR IT WAS REFUTED TODAY.**
-Deleting the density gates gives **Tier B 44.77, 28/28** — every instance solves, the first time, +4 over
-increment 2 and none lost, including `mod4block`, which no arm had ever solved — against kissat's 9.94 on
-the same window. It also gives **Tier C 457.85, 27/30**, losing `T105.2.0` and `T87.2.0`, the same two as
-the first attempt. The standing diagnosis said increment 2's elimination budget would prevent that; it
-landed, and they fall anyway. **That diagnosis is withdrawn, and the mechanism is unknown** — diagnostic
-`1590989` in flight. Restoring the gate is not the answer: it reads a size-monotone proof-id map, which is
-a defect no tier number changes. **Net +2 solves across the two tiers, and §8.3's #solved-wins priority
-explicitly does not cover a change that loses one — so this is a user call, not a rule application.**
-*The Tier B pair carried no cadical arm, so that reference is read across windows (kissat is in both at
-9.94 / 10.06, so the two windows are calibrated to ~1 %).*
+**▶▶ THE TIERS DISAGREE SHARPLY ABOUT THE DENSITY-GATE REMOVAL.** **Tier B 44.77, 28/28**
+(`20260807-210921-B-kf4`) — every instance solves, +4 over increment 2 and none lost, including
+`mod4block`, which no arm had solved — against kissat's 9.94 on the same window. **Tier C 457.85, 27/30**
+(`20260807-210928-C-kf4c`) — `T105.2.0` and `T87.2.0` time out, from 700.9 s and 936.7 s against the
+1200 s cap. (The third unsolved, `128_125`, exits at ~20 s for kissat too: it exceeds the memory cap for
+every arm, which is why Tier C moves to 16 GB.)
+**▶ THE CAUSE OF THE TIER C LOSS IS OPEN.** Diagnostic `1590989` compares slot stats for both instances
+across the two commits. Restoring the gate is not a candidate: it reads `Kernel::binary_ids`, a
+size-monotone proof-id map, so it counted binaries ever derived — a defect no tier number changes. Under
+plan §5 obligation 6 rider (e) the regression means a wrong implementation or a missing coupled
+mechanism; **the live suspect is `SP-BVE-BWD-1`** — cadical's `elimrounds`=2 is sufficient *because*
+`elimbackward` feeds fresh resolvents to subsumption, and increment 2 took the round count without it.
 
 **▶ WHAT THE THREE INCREMENTS EACH DID.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT`
 and nothing else, with the anchor moved from the entry to the PHASE. A FIDELITY change: a large per-instance
@@ -74,15 +73,17 @@ it probing's per-round grant. It cost a Tier B solve on its own (119.81, 24/28) 
 **▶ THREE THINGS THAT NEED A USER DECISION, not an engineering one:**
 1. **`Reorder` ships OFF while kissat's `reorder` default is 2** (both modes) — a faithful port that never
    fires. PROGRESS carries a standing "ask before flipping Reorder".
-2. **`HyperBinaryRes`** is kept bounded (user decision 2026-08-07) though kissat has no HBR at all.
-3. **Rider (c)** — "the places we already exceed both references do not regress" — is being knowingly
-   subordinated to fidelity. Each such regression is measured and named.
+2. **`HyperBinaryRes`** ships bounded though kissat has no HBR at all — accepted deviation
+   `D-HBR-STANDALONE`.
+3. **Rider (c)** — "the places we already exceed both references do not regress" — is subordinated to
+   fidelity. Each such regression is measured and named.
 
-**▶ THE INERT COUNT IS THIRTEEN** (inventory §3), of which this session removed four. `want_reorder`,
-`update_reorder_limit` and the `BveBoundPolicy` multi-pass ramp are the largest still standing.
+**▶ INERT MECHANISMS: NINE** (inventory §3). `want_reorder`, `update_reorder_limit` and the
+`BveBoundPolicy` multi-pass ramp are the largest.
 
-**▶ AND A BANKED CONCLUSION IS RE-OPENED:** the *0-for-5 record of hand-designed formula-shape separators* was
-measured THROUGH the density gate that increment 3 deleted. Those five negatives are suspect, not evidence.
+**▶ THE 0-FOR-5 RECORD OF HAND-DESIGNED FORMULA-SHAPE SEPARATORS IS NOT EVIDENCE.** It was measured through
+the binary-density gate, which read a size-monotone counter. A separator proposal starts from the
+unconditional baseline and owes new evidence.
 
 **▶ MEASUREMENT CONSTRAINT that outlives all of this.** **Tier B at 300 s cannot price a broad scheduling
 change**: four instances (`mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw`) flip under any perturbation,
@@ -424,208 +425,44 @@ watermarks. Headline findings: **five of our fifteen effort rows are backed by n
 formula is a **hybrid** (kissat's formula, cadical's per-technique anchor, cadical's clamps — kissat anchors
 per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ against ~300‰ / 200‰).
 
-- [x] **D1 — INVESTIGATED 2026-08-07 and NOT DONE: the item was mis-specified, and doing it would have broken
-  the thresh accrual.** The anchor scope is not an independent axis — **it IS the backoff's accrual channel**,
-  and the two references pair it coherently in opposite ways. kissat: per-PHASE anchor (`kimits.h:139-142`)
-  stamped unconditionally at phase exit (`probe.c:86`, `eliminate.c:601`), backoff = the delay ladder, which
-  accrues in *skipped occasions*. cadical: per-TECHNIQUE anchor (`limit.hpp:140`), backoff = `NAMEthresh`,
-  which accrues in *the growing reference* because the delay path `return false`s at `:151-157` **before** the
-  stamp at `:158`. **We ship cadical's pair** — per-entry anchor advanced on the admitted path only, and
-  `slot_entry_thresh_declines` declining without advancing it. Taking kissat's anchor while keeping `thresh`
-  would leave `Factor` (thresh 7) and `HyperTernaryRes` (6) **deferred with nothing
-  accumulating — starved rather than amortized**, the opposite of the mechanism's purpose. **And a SECOND,
-  independent defect:** `search_ticks` is frozen inside a phase, so today an entry that ran in outer round 0
-  reads `reference = 0` in rounds 1–2 and collapses to the `MIN_EFFORT_TICKS` floor — a group anchor stamped
-  at phase exit does not advance mid-phase, so all three rounds would take a full-size delta and **the
-  per-phase grant of every metered entry would roughly TRIPLE**. Recorded as the accepted deviation
-  `D-ANCHOR-SCOPE` (`docs/implementation-notes.md` §13.3) with the pair-port as its removal path and a
-  pre-registered falsifier.
-- [x] **`Vivify`'s `thresh` was INERT — CLOSED as moot.** Increment 1 deleted `thresh` outright as a
-  cadical-only mechanism, so the dead gate went with it. Nothing to fix. *(The underlying cause survives and
-  is its own item below: `e.doses` is incremented on only one of the three apply paths.)*
-- [x] **KISSAT-FIDELITY REVAMP, increment 1 — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing
-  else** (landed 2026-08-07, design `docs/design/2026-08-07-kissat-fidelity-revamp.md`). Deleted, all
-  cadical-only: the upper clamp (`max_delta`, `CADICAL_ELIM_MAXEFF`/`CADICAL_SUBSUME_MAXEFF` — **kissat ships
-  no `maxeffort` at all**), the `2·active()` floor, `thresh` and `slot_entry_thresh_declines`, the
-  `TACTIX_EFFORT_CEIL`/`TACTIX_MAXEFF_*` knobs, and the `clamped`/`floored` telemetry that becomes
-  structurally zero. Changed: the anchor moved from the ENTRY to the PHASE, stamped at phase exit
-  unconditionally (kissat `probe.c:86`, `eliminate.c:601`), so every technique in a phase prices against one
-  reference. −163/+108 lines, 42 → 38 knobs. Tier B **88.79, 25/28** (replicate 87.59, noise bar 1.20),
-  `correctness.clean`; fuzz DRAT 10,000 · LRAT 10,000 · `--random-policy` 5,000, **0 failures**.
-  **The solve COUNT holds but the SET swapped — gained `mod4block`, lost `mp1-klieber`** — which are the two
-  instances measured as flipping under 9-of-14 and 7-of-14 unrelated arms, so this is the cliff, not a
-  mechanism. **Tier C: 367.26, 29/30** (replicate 357.75, noise bar **9.51**), `correctness.clean`,
-  **no solve gained or lost** — so the pre-registered guard passes on both tiers and increment 1 STANDS.
-  Same signature as the tick unit: a large per-instance redistribution that nets out, each move far beyond
-  that instance's own replicate gap (`j3037` −519 s against a 0.4 s gap, `af-synthesis` −417 s against 0.5,
-  against `SCPC-1000-18` +720 s and `T105.2.0` +260 s). **This is a FIDELITY change, not a performance one**,
-  and it should not be sold as the latter.
-- [x] **REVAMP increment 2 — the phase structure is kissat's** (landed 2026-08-07). Four changes, each
-  verified at the source first: **(1)** round count 3 → **2** (`proberounds`/`eliminaterounds`, both 2);
-  **(2)** the fixpoint break is now kissat's — the ACTIVE-VARIABLE COUNT changing (`probe.c:81`), an equality
-  test rather than a shrinkage one because Factor *adds* variables — replacing our "no rule returned Ok";
-  **(3)** the **Eliminate group computes its budget ONCE per phase**, as `eliminate.c:428` does seven lines
-  before its round loop, while Probe keeps kissat's per-entry-per-round recompute — **this is the divergence
-  increment 1 introduced and increment 3 tripped over**; **(4)** the slot order is kissat's `probe()` body
-  verbatim **including its repeats** — `Substitute` and `Backbone` each twice, which the old `placed[]` guard
-  made inexpressible. The repeats are load-bearing: Congruence and Sweep do not retire variables themselves,
-  the `substitute` that follows each of them does (`substitute.c:259`), so without the pairings the new
-  fixpoint test reads zero progress from them. Verified live: `c slot-order` prints
-  `Congruence Substitute HyperBinaryRes Backbone Probe Vivify Sweep Substitute TransitiveReduce
-  HyperTernaryRes Backbone Factor …`. ctest 58/58; fuzz + tier pair IN FLIGHT
-  (`1590613`/`1590614`/`1590615`, `20260807-…-B-kf2` / `…-C-kf2`).
-- [x] **Vivify's irredundant pass is metered again.** `default_policy.cpp` wraps the second `apply_rule` in a
-  `TickSinkScope`, so that pass's ticks reach `vivify_ticks` and the ledger stops under-counting Vivify by a
-  whole pass.
-- [x] **`RV-S17` closed the faithful way.** `BVE_OCCLIM` moved OUT of `bve_schedule` — which is what
-  `bve_instances` enumerates, so a cost cap there withheld an applicable instance from the public API (N1) —
-  and ONTO the apply, where kissat's is (`resolve.c:282-290`). The rule now offers the candidate and declines
-  it. No second occurrence index was needed: `pos`/`neg` are already x's occurrence lists at that point.
-- [ ] **REVAMP increment 3 — Tier B is SOLVED IN FULL and Tier C loses the same two instances as before.
-  THE SEQUENCING DIAGNOSIS IS REFUTED.** Re-derived at `8d1f139`, wider than the reverted attempt: the two
-  binary-density admission gates plus the two dormant separators the parity audit said should go with them.
-  Either reason removes the gates on its own — **no reference has a density term** (`kissat_factoring`
-  factor.c:1068-1085 gates on the `factordelay` warm-up and the marked watermark, `kissat_eliminating`
-  eliminate.c:21-39 on five conjuncts, cadical's `elim.cpp` on none) and **the gate read the wrong number**,
-  its numerator `Kernel::binary_ids` being a size-monotone proof-id map counting binaries ever *derived*.
-  Both reasons are source facts and survive any measurement.
-  **Tier B 44.77, 28/28** (`20260807-210921-B-kf4`) — every instance solves, +4 over increment 2 and none
-  lost: `mod4block` 223.7 s, which no arm had ever solved; `or_randxor` 18.9 s and `unsat-set-b-fclqcolor`
-  177.7 s, solved by no arm in the 14-arm pricing batch; `sted5` 75.4 s recovered. kissat is 9.94, 28/28 on
-  the same window. *Caveat: that pair shipped without the replicate arm and without cadical, so the solve
-  count stands — four is far outside the ±2 the cliff instances impose — but the PAR-2 has no noise bar and
-  is not banked.*
-  **Tier C 457.85, 27/30** (`20260807-210928-C-kf4c`) against increment 2's 358.31, 29/30 — **losing
-  `T105.2.0` and `T87.2.0` again, the same two, at 700.9 s and 936.7 s under increment 2 against the
-  1200 s cap.**
-  **▶ THE DIAGNOSIS THIS ITEM CARRIED WAS WRONG, and it is withdrawn.** It said the first attempt failed
-  because increment 1 had given the Eliminate group probing's per-round grant, so fixing the budget
-  (increment 2) would let the gate removal land. Increment 2 landed and the two instances fall anyway, by
-  the same margin. Whatever the T-series is paying for, it is not the round/budget structure.
-  **▶ SO THE OPEN QUESTION IS A MECHANISM ONE, and restoring the gate is not an answer** — it reads a
-  monotone counter, which is a defect independent of any tier number. Diagnostic in flight (`1590989`):
-  slot stats for both T instances under increment 2 vs increment 3, to see which rule the removal actually
-  lets loose on a binary-sparse formula. **The decision is a user call**: the change is +4 solves on Tier B
-  against −2 on Tier C, a net +2, and §8.3's #solved-wins priority explicitly does NOT cover a change that
-  loses a solve, so this needs a judgement rather than a rule.
-- [x] **D2 — the five unbacked fractions are RESOLVED, two by re-derivation and three as recorded
-  deviations.** **`Probe` 20 → 8 ‰** (cadical `probeeffort`, options.hpp:164 — the only reference rate for the
-  technique; kissat has no `probeeffort` at all and bounds probing by interval alone). **`HyperBinaryRes`
-  20 → 8 ‰** — it rides probing's rate, because that is exactly what cadical does with HBR (inside the probing
-  propagation under `probehbr`, no `hbreffort`). The other three cannot be re-derived and are now labelled
-  honestly at the source rather than left looking ported: **`BCE`** and **`Instantiate`** have NO reference
-  rate — kissat has neither technique and cadical ships both OFF, bounding them structurally
-  (`blockocclim`, `instantiateclslim`) — so shipping them ON makes their rate a local choice; **`Congruence`**
-  was already the accepted deviation `SP-CONG-BUDGET-1`, where we are deliberately *stricter* than kissat,
-  which gives congruence no budget at all.
-- [x] **D3 — `HyperBinaryRes` is bounded by the ledger's residual, and `veer_axi` FALLS.**
-  The entry becomes `budget_aware` and `run_dosed_entry` hands the residual into the instance, so the
-  resolvent loop stops at the dose instead of at the closure — kissat's sweep→kitten shape, since both
-  references bound one candidate structurally and this rule had no structural cap to copy.
-  **`veer_axi…p23_transition`: `4 probes / 6.80e9 hbr ticks` → `12,477 probes / 5.21e6` (1,304× less),
-  `c conflicts` 0 → 34,768, UNKNOWN → UNSATISFIABLE**, both certificates verified (`drat-trim s VERIFIED`,
-  `cake_lpr s VERIFIED UNSAT`). The rule still emits 2,304 resolvents, so this is a bounded rule and not a
-  disabled one. Fuzz-clean on three legs — DRAT 10,000, native LRAT 10,000, `--random-policy` × LRAT 5,000,
-  **0 failures**, with `HyperBinaryRes` firing on 1,679 / 1,675 / 2,338 cases so no leg is vacuous about it;
-  non-termination 1.8 % on the DefaultPolicy legs, below the 3.0 % previously recorded. Accepted deviation
-  `D-HBR-STANDALONE` (`docs/implementation-notes.md` §13.3) carries the reference reading and two removal
-  paths. **Still owed: a tier pair** — this is one instance, and the broad effect is unmeasured.
+- [x] **The effort anchor is the PHASE's** (`SlotClock::anchor`), stamped unconditionally at phase exit as kissat does (`probe.c:86`, `eliminate.c:601`), and cadical's `thresh` backoff is not shipped. `docs/implementation-notes.md` carries the reference reading.
+- [x] **Increment 1 — the effort ledger is kissat's `SET_EFFORT_LIMIT` and nothing else.** No upper clamp and no active floor (kissat ships no `maxeffort`); the anchor is per phase. Tier B 88.79 (25/28), Tier C 367.26 (29/30), fuzz 25,000 cases clean. Design `docs/design/2026-08-07-kissat-fidelity-revamp.md`.
+- [x] **Increment 2 — the phase structure is kissat's.** Rounds 2 (`proberounds`/`eliminaterounds`); the fixpoint break is the active-variable count holding still (`probe.c:81`, an equality test because Factor adds variables); the Eliminate group computes its budget once per phase (`eliminate.c:428`) while Probe recomputes per entry per round; the slot order is kissat's `probe()` body including its repeats. Tier B 119.81 (24/28), Tier C 358.31 (29/30).
+- [x] **Vivify's irredundant pass is metered** — wrapped in a `TickSinkScope`, so its ticks reach `vivify_ticks`.
+- [x] **`BVE_OCCLIM` is applied on the apply path, not in `bve_schedule`** (kissat `resolve.c:282-290`), so the rule offers the candidate and declines it rather than withholding it from the API (`RV-S17`, N1).
+- [ ] **The density gates are OUT; Tier B is 28/28 and Tier C is two solves short.** The two
+  binary-density admission gates are deleted, together with the dormant `Kernel::factor_scope_percent`
+  and `Kernel::bve_cost_limit`. Two independent grounds, both source facts: **no reference has a density
+  term** (`kissat_factoring` factor.c:1068-1085 gates on the `factordelay` warm-up and the marked
+  watermark, `kissat_eliminating` eliminate.c:21-39 on five conjuncts, cadical's `elim.cpp` on none), and
+  **the gate read the wrong number** — its numerator `Kernel::binary_ids` is a size-monotone proof-id map,
+  so it counted binaries ever *derived*.
+  **Tier B 44.77, 28/28** (`20260807-210921-B-kf4`): +4 over increment 2, none lost — `mod4block` 223.7 s,
+  which no arm had solved; `or_randxor` 18.9 s and `unsat-set-b-fclqcolor` 177.7 s, solved by no arm in
+  the 14-arm pricing batch; `sted5` 75.4 s. kissat is 9.94, 28/28 on the same window.
+  **Tier C 457.85, 27/30** (`20260807-210928-C-kf4c`): `T105.2.0` and `T87.2.0` time out, from 700.9 s and
+  936.7 s under increment 2 against the 1200 s cap.
+  **▶ THE CAUSE IS OPEN.** Diagnostic `1590989` compares slot stats for both instances across the two
+  commits. Under plan §5 obligation 6 rider (e) this is a wrong implementation or a missing coupled
+  mechanism, **and the live suspect is `SP-BVE-BWD-1`**: cadical's `elimrounds`=2 is sufficient *because*
+  `elimbackward` feeds fresh resolvents to subsumption, and the round count was taken without it.
+  Restoring the gate is not a candidate.
 
-- [x] **D4 — the per-resolvent RUP replay: DISPOSED, and the disposition is the user's.** cadical gets the
-  chain from the propagation that derived the resolvent (every `probehbr_lrat` helper opens
-  `if (!lrat || opts.probehbr) return;`); ours replays RUP per resolvent, which is why one root could cost a
-  whole solve. On 2026-08-07 the user chose to keep our standalone HBR, bounded by the ledger residual,
-  rather than adopt kissat's no-HBR position or cadical's derive-in-propagation one. It is therefore not an
-  open port but the recorded removal path of the accepted deviation `D-HBR-STANDALONE`, and reopening it is
-  a user call.
-- [x] **The `dosed` / `retry_advice` / `budget_aware` taxonomy: one third dropped, two thirds RETIRED AS
-  MIS-SPECIFIED.** The item's own premise — that the references simply poll a limit at a candidate boundary —
-  is the argument for keeping two of the three bits. `budget_aware` means exactly that the canonical round
-  polls `Kernel::work_budget` at a candidate boundary; `dosed` means the scheduler drives the rule candidate
-  by candidate instead. Neither is derivable from the vtable, because N1 makes every inprocessing rule expose
-  `apply_instance`, so the shape is a scheduler choice rather than a rule capability. They are what a
-  scheduler *generic over the rule interface* has to be told, where kissat hand-writes each technique's loop
-  and so never states it — the uniform-interface tax, not an invented dosing category.
-  **`retry_advice` was the real finding and is gone**: set for exactly one rule, it gated BVE's growth-bound
-  ramp, its per-variable retry bit and three diagnostic hatches under a name that read as a rule-shape
-  category. Now a named check in `run_dosed_entry`, matching how the same file already selects Vivify's tier
-  split and Factor's initial allowance.
-- [x] **kissat's delay ladder now has kissat's TRIGGER, and it reaches Sweep.** The mechanism was ours
-  already; the trigger was not. Ours bumped the delay when a round returned NoOp and halved it otherwise,
-  where kissat asks whether the round was productive *at the formula's scale*: congruence.c:4629 bumps below
-  merged/active < 0.001, sweep.c:1719 below eliminated/swept < 0.001. A round merging one variable in a
-  hundred thousand backs off there and reset the ladder here. Ported as a per-rule table carrying kissat's
-  numerator, its denominator and its threshold — they differ in kind, congruence dividing by the current
-  active count and sweep by the pairs that call swept. Vivify already had this shape (vivified/tried < 0.01,
-  vivify.c:1454) and is what the table generalises. **The ladder also reached the wrong set**: gated on
-  `e.closure`, it covered Congruence and Substitute but not Sweep, which is metered rather than a closure and
-  is one of only the two rules kissat drives this way — **which closes `SP-SWEEP-2`** as the same defect.
-  **Factor and HyperTernaryRes are NOT owed a ladder**, contrary to how this item was written: kissat's
-  factor backoff is the `factordelay` warm-up (`log10(active) <= eliminations + delay`, factor.c:1068-1085),
-  already ported as `factor_entry_declines`, and kissat has no ternary resolution at all, so
-  HyperTernaryRes has no reference backoff to port. Owes a tier pair, being a dose change.
-  **Reachability witnessed at the source** (same probe): `Sweep` now shows `dly 19` on `9vliw_bp_mc`,
-  `dly 8` on `b22_1`, `dly 3` on `battleship`, where the closure-only gate had held it at `dly 0` always.
-  On `9vliw` it reads `occ 27 adm 8 ok 0` — eight admitted rounds, nothing produced, nineteen occasions
-  delayed, which is the yield-rate ladder doing exactly what a NoOp test could not.
-- [x] **The sums check is DONE, and it found one more unbacked doubling.** After D2 the probe group totals
-  **434 ‰ per round** counting kissat's repeats (Backbone twice) against kissat's **330 ‰** on the same
-  basis; the excess is Congruence's 100 (the recorded `SP-CONG-BUDGET-1` deviation) plus 24 for the three
-  rules kissat lacks. That is now fully accounted for. The elimination group is **344 ‰ against kissat's
-  200**, and the gap is NOT all technique-count:
-- [x] **`Strengthen` + `SubsumeForward` now SHARE one allowance.** kissat's forward subsumption is a single
-  technique: a candidate is subsumed or strengthened inside the same pass (`not_subsumed_but_strengthened`,
-  forward.c:554), every step charged to `forward_steps`, under one limit from `forwardeffort` = 100 ‰
-  (forward.c:539). Split into two rules and given 100 ‰ each, the pair drew 200. Both now meter the SUM of
-  the two counters and share one per-phase allowance, fixed by whichever is priced first — the shape
-  increment 2 gave the Eliminate group. 50/50 was the alternative and is less faithful: it would deny a
-  strengthen-only formula half of what the reference would spend on it. Owes a tier pair.
-  **Reachability witnessed at the source** (`benchmarks/probes/scratch/reach-1590977.log`, Tier B under
-  `TACTIX_SLOT_STATS`): on `b22_1` the pair reads `SubsumeForward handed 99,399,828 spent 5,947,355` then
-  `Strengthen handed 93,452,473` — the second entry is handed exactly the first's residual, which is the
-  shared pool and not two budgets. Same arithmetic on `battleship` (1,000,000 − 1,274 = 998,726).
-- [x] **The tick unit is commensurable — LANDED 2026-08-07.** `kernel_cache_lines` is now kissat's
-  `(n + 31) >> 5` (128-byte line, rounds up), the four watch-scan sites share it, and the three missing event
-  charges are in (binary assign, watch relocation, large-clause assignment). **Isolated effect: our ticks were
-  UNDER-charging by a median 1.76×** (8 instances whose search held still; `hwmcc17miters` at 1 conflict in
-  both runs reads 2.17×) — the coarser line over-charged the scan 2×, but three of four event charges were
-  missing and that dominated. **The re-pricing is ASYMMETRIC and that is the load-bearing part:** rules metered
-  in propagation ticks see budget and spend grow together, but **BVE (`bve_resolutions`), Strengthen and
-  SubsumeForward (`*_visits`) get a real ~1.76× budget increase**, because their spend counter did not move —
-  which is a mechanism for the standing N4 finding that our BVE eliminates zero variables on 7 of 9 instances
-  where kissat eliminates something. Tier B re-baseline **91.89, 25/28** (replicate 91.97, noise bar 0.07)
-  against 134.67, 23/28 — **+2 solves, none lost**. Fuzz 2 × 10,000 cases, 0 failures.
-  Report `benchmarks/reports/2026-08-07-tick-unit.md`.
-  **Tier C is a WASH in aggregate and a large REDISTRIBUTION per instance**
-  (`20260807-172158-C-tickunit`): 345.78, 29/30 against 348.00, 29/30 — inside a 4.43 noise bar, nothing
-  gained or lost — while individual instances move far beyond their own replicate gap in both directions
-  (`sat-bench-trig-bhaskara` −222 s, `em_11_3_4_cmp` −209 s, `Ptn-7824-b18` −177 s against
-  `af-synthesis_stb_50_120_4_sat` +284 s, `T87.2.0` +217 s). T3 does not move on either half (subset 1.460×
-  kissat / 1.156× cadical, against this window's own arm-to-arm spread of 1.460 vs 1.470). **So the value of
-  this change is commensurability, not performance**: the extra budget helps some formulas as much as it costs
-  others, which is the dosing question the rest of §2 answers.
-
-- [x] **`search_ticks` is a real kernel counter now.** It was reconstructed by the policy as
-  `k.stats.ticks − inprocess.ticks`, an accumulator credited at phase exit with a live in-flight correction,
-  correct only while every application is bracketed by `run_slot_phase`. kissat does not reconstruct it:
-  `statistics.search_ticks` is written on the search propagation path alone (propsearch.c:24), and that is
-  the firewall stopping a technique from inflating the reference its own next budget is a fraction of.
-  `Stats::search_ticks` is now charged in `kernel_charge_ticks` — already the single charge site, verified by
-  grep — exactly when `Kernel::inprocessing` is false, bracketed by an RAII scope so an early return cannot
-  freeze it. kissat gets the split by calling a different propagator per technique; one shared propagator
-  makes it a bracket instead. **Behaviour-preserving** (same bracket points, same tick set), so no window.
-
+- [x] **Every effort rate is either a reference rate or a labelled local choice.** `Probe` and `HyperBinaryRes` ride cadical's `probeeffort` 8 ‰ (options.hpp:164; cadical runs HBR inside the probing propagation, kissat has neither knob). `BCE`, `Instantiate` and `Congruence` have no reference rate and say so at the row.
+- [x] **`HyperBinaryRes` is bounded by the ledger residual**, so one root's resolvent loop stops at the dose rather than at the closure. `veer_axi…p23_transition`: 4 probes / 6.80e9 hbr ticks → 12,477 / 5.21e6, UNKNOWN → UNSAT, both certificates verified. Accepted deviation `D-HBR-STANDALONE`.
+- [x] **The per-resolvent RUP replay stays**, as the recorded removal path of `D-HBR-STANDALONE`: cadical gets the chain free from the probing propagation, we replay RUP per resolvent.
+- [x] **`dosed` and `budget_aware` are the rule-shape bits a generic scheduler needs** — `dosed` drives a rule candidate by candidate, `budget_aware` calls its canonical round and lets the round poll `Kernel::work_budget` at a candidate boundary. Neither is derivable from the vtable, since N1 makes every inprocess rule expose `apply_instance`. BVE's ramp and retry bit are selected by name in `run_dosed_entry`.
+- [x] **The delay ladder uses kissat's yield-rate trigger and reaches Sweep.** `DELAY_SPECS` carries kissat's numerator, denominator and threshold per rule — congruence merged/active < 0.001 (congruence.c:4629), sweep eliminated/swept < 0.001 (sweep.c:1719) — and the consult is no longer closure-only. Closes `SP-SWEEP-2`. Witness: Sweep reads `dly 19` on `9vliw_bp_mc` at `occ 27 adm 8 ok 0`.
+- [x] **The probe group totals 434 ‰ per round against kissat's 330 on the same basis**, the excess being Congruence's 100 (`SP-CONG-BUDGET-1`) plus 24 for three rules kissat lacks.
+- [x] **`Strengthen` + `SubsumeForward` share ONE allowance**, metering the sum of their counters, because kissat's single forward pass subsumes and strengthens together under one `forwardeffort` = 100 ‰ (forward.c:539/554). Closes `D-STRENGTHEN-BUDGET`'s dose half. Witness: the second entry is handed exactly the first's residual (`b22_1`: 99,399,828 − 5,947,355 = 93,452,473).
+- [x] **The tick unit is kissat's** — `kernel_cache_lines` is `(n + 31) >> 5` and the four watch-scan sites share it, with the three missing event charges in. Ours had been under-charging by a median 1.76×. The re-pricing is asymmetric: rules metered in propagation ticks see budget and spend grow together, while BVE, Strengthen and SubsumeForward get a real budget increase. Tier B 91.89 (25/28) from 134.67 (23/28). Report `benchmarks/reports/2026-08-07-tick-unit.md`.
+- [x] **`search_ticks` is a kernel counter** (`Stats::search_ticks`), charged in `kernel_charge_ticks` exactly when `Kernel::inprocessing` is false and bracketed by an RAII scope — kissat's firewall (propsearch.c:24) rather than a policy subtraction.
 
 ### ▶ 4. The remaining dosing / admission questions
 
-- [x] **(b′) TARGETED Factor admission — MOOT: there is no blanket gate left to target.** This item existed
-  to replace the binary-density admission with something sharper. Increment 3 removed that admission outright
-  and Factor now runs unconditionally, bounded by the `factordelay` warm-up, the marked watermark and its
-  effort share, which is kissat's arrangement. The evidence it rested on is also withdrawn: the oracle
-  ablation's headline and the "gate loosens monotonically over the solve" observation were both measured
-  through a gate whose numerator counted binaries ever *derived*, so they describe a broken instrument.
-  Any future admission proposal starts from the unconditional baseline and owes new evidence — the
-  0-for-5 record of hand-designed formula-shape separators is itself now suspect for the same reason.
+- [x] **Factor admission is unconditional**, bounded by the `factordelay` warm-up, the marked watermark
+  and its effort share — kissat's arrangement. Any future admission proposal starts from this baseline.
+
 - [ ] **TB4b** — the remaining chrono divergences. (A) and (B) are done and ship OFF (ON and CRIPPLED are
   indistinguishable on Tier C, and the proof-size axis FLIPS SIGN between tiers). Unported: cadical's
   `chronoreusetrail` (= `SP-CHRONO-1`). `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
@@ -665,8 +502,7 @@ close; silence is not.
   decision 2026-08-07 (plan rev 94).** `SP-BVE-BWD-1`: feed BVE's fresh resolvents straight into backward
   subsumption, cadical `elimbackward`=1 — a queue of newly added resolvents (`backward.cpp:12-30`) drained
   per elimination (`elim.cpp:731`). Ours wait for the next SubsumeForward/Strengthen entry, on a different
-  budget and candidate set, with no knowledge of what BVE just added. **`SP-FACTOR-1`: its accepted
-  deviation is WITHDRAWN** — couple Factor's acceptance bound to elimination progress
+  budget and candidate set, with no knowledge of what BVE just added. **`SP-FACTOR-1`** — couple Factor's acceptance bound to elimination progress
   (`reduction > bound`, ramp 0→1→2→4→8→16; kissat `factor.c:72,939`, `eliminate.c:338-368`), where
   `Kernel::factor_bound` exists, defaults 0 and is never written.
   **▶ WHY THEY MERGE, and why this is the live suspect for increment 3's Tier C loss.** cadical's

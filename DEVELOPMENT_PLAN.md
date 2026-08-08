@@ -302,8 +302,8 @@ Design commitments:
   restart triggers and their EMAs/floors, reduce intervals, mode switching, tick budgets, instance
   classification and presets — is implemented in, and its state owned by, the policy object; never
   in a rule module, never in the kernel. Rules expose exactly a pure soundness `guard`,
-  `instances`, `apply`, and statistics for policies to read. (This superseded the earlier
-  rule-module `advised` hint: the registry keeps guards only.) Consequence for observability: any
+  `instances`, `apply`, and statistics for policies to read; the registry keeps guards only.
+  Consequence for observability: any
   signal a scheduling heuristic needs (e.g. per-conflict glue) must be readable from kernel
   state/statistics or rule results — policies observe, rules never push scheduling state.
 - **Heuristic state `H` is owned by the policy, not the kernel (rev 60); the boundary is STRUCTURAL
@@ -402,14 +402,13 @@ Design commitments:
        tune it.** Absence must be *shown* — read the option set and the use site, since a mechanism
        may be spelled differently or be an unnamed constant — not assumed from a failed grep. Such a
        constant must be presented as ours wherever it is cited.
-     - **(e) A REGRESSION ON A FAITHFUL PORT IS NOT EVIDENCE AGAINST THE MECHANISM (rev 94, user
-       2026-08-07).** The references win competitions with these strategies, so a number saying
-       otherwise is far likelier to be measuring our port than the idea. A measured regression licenses
-       exactly two conclusions: **the implementation is incorrect or sub-optimal**, or **another gap is
-       still unmerged** — reference mechanisms are coupled, and one ported without its partner can cost
-       what the pair would have paid for (cadical's `elimrounds`=2 is sufficient only BECAUSE
-       `elimbackward` feeds fresh resolvents to subsumption). It does **not** license reverting to our
-       version, and it does **not** license an accepted deviation. Order of work on a regression:
+     - **(e) A REGRESSION ON A FAITHFUL PORT IS NOT EVIDENCE AGAINST THE MECHANISM.** The references
+       win competitions with these strategies, so a number saying otherwise is likelier to be measuring
+       our port than the idea. A regression licenses exactly two conclusions — **the implementation is
+       incorrect or sub-optimal**, or **another gap is still unmerged**, since reference mechanisms are
+       coupled and one ported without its partner can cost what the pair would have paid for (cadical's
+       `elimrounds`=2 is sufficient only BECAUSE `elimbackward` feeds fresh resolvents to subsumption).
+       It licenses neither a revert to our version nor an accepted deviation. Order of work:
        (1) prove the port FIRES, with a reachability witness at the source, since an inert port
        reproduces the old number while looking like parity; (2) re-read the reference at its use site
        and check the port matches its EFFECT; (3) look for the missing coupled mechanism. Only a
@@ -609,9 +608,9 @@ per N1.
 | X5 | `Condition` (conditional autarkies) | cadical `condition.cpp` | delete + push-witness | **3** (moved from backlog, rev 72) |
 | X6 | `HyperBinaryRes` (hyper binary resolution during probing) | cadical `probe.cpp` (`probehbr`, `probe_dominator`) | add-RUP (binary) + delete | **3** (added rev 83) |
 
-**Rev 83 (user decision 2026-08-06): the inventory IS the phase-3 exit.** X6 is added because the
-scheduling-parity ledger's own row (`SP-PROBE-2`) records that its closer is a rule, not a schedule
-fix — so leaving it out would let phase 3 close on an inventory that is not actually complete. A family
+**The inventory IS the phase-3 exit.** X6 belongs to it because the scheduling-parity ledger's row
+`SP-PROBE-2` records that its closer is a rule, not a schedule fix, so omitting it would let phase 3
+close on an inventory that is not complete. A family
 may exit phase 3 either implemented (registered, guard/instances/apply, N1-exposed, N2-clean,
 fuzz-green) or as a **reasoned no-implement** with its evidence and reopening path in
 `docs/implementation-notes.md`; X5 `Condition` is the standing instance of the second form
@@ -619,9 +618,9 @@ fuzz-green) or as a **reasoned no-implement** with its evidence and reopening pa
 part of this bar: a rule that is scheduled and sound but under-productive is a phase-4 dosing item, and
 V5 `Sweep` is the standing instance.
 
-**Rev 72 (user decision 2026-07-27): every proof rule the references implement is in scope NOW.**
-The X families plus V5 `Sweep`, S7 `Reorder` and kitten-based definition extraction (§11 O11, part
-of E1) move into phase 3 — the inventory should match the references' before the Kissat gap is
+**Every proof rule the references implement is in scope.** The X families, V5 `Sweep`, S7 `Reorder`
+and kitten-based definition extraction (§11 O11, part of E1) are phase-3 work: the inventory matches
+the references' before the Kissat gap is
 attributed elsewhere. Standing counter-evidence, so the sequencing stays honest rather than being
 re-derived: the 2026-07-27 baseline ablation (whole-tier, same window `20260727-002213-C-kabl`,
 `benchmarks/reports/2026-07-27-tier-c-push.md` §2) measured kissat losing only **14.32 PAR-2
