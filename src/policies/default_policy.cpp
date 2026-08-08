@@ -243,6 +243,7 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
     e.delay_count = 0;
     e.delay_current = 0;
   }
+  forward_pair_limit_ = 0;
 }
 
 // kissat kimits.c kissat_scale_delta: inprocessing intervals scale with formula
@@ -302,8 +303,15 @@ uint64_t meter_instantiate(const Kernel &k) { return k.stats.instantiate_ticks; 
 uint64_t meter_bve(const Kernel &k) { return k.stats.bve_resolutions; }
 // Strengthen/SubsumeForward meter partner visits (cadical `stats.subchecks`),
 // since checking a clause costs its occurrence lists' length.
-uint64_t meter_strengthen(const Kernel &k) { return k.stats.strengthen_visits; }
-uint64_t meter_forward(const Kernel &k) { return k.stats.forward_visits; }
+// kissat's forward subsumption is ONE technique with one counter: a candidate
+// is either subsumed or strengthened inside the same pass
+// (`not_subsumed_but_strengthened`, forward.c:554), and every step of it is
+// charged to `forward_steps` under one `forwardeffort` limit (forward.c:539).
+// The split into two rules is local, so both price against the sum and share a
+// single limit; billing each 100 per mille would draw twice the reference's.
+uint64_t meter_forward_pair(const Kernel &k) {
+  return k.stats.strengthen_visits + k.stats.forward_visits;
+}
 // TransitiveReduce's currency is ticks (kissat transitive.c:320): a "checked"
 // is a whole breadth-first walk, so a candidate meter cannot bind.
 uint64_t meter_transitive(const Kernel &k) {
@@ -347,6 +355,37 @@ struct EffortSpec {
 // no `maxeffort` option at all, and the floor is on the REFERENCE
 // (MIN_EFFORT_TICKS = mineffort x 1e6), which is the only one it has.
 
+// kissat's delay ladder is driven by a yield rate rather than by whether the
+// round did anything: congruence.c:4629 bumps when merged/active < 0.001,
+// sweep.c:1719 when eliminated/swept < 0.001, vivify.c:1454 when
+// vivified/tried < 0.01. A round that merges one variable out of a hundred
+// thousand is unproductive at that scale and must still back off, which a
+// no-op test cannot see.
+struct DelaySpec {
+  const char *name;
+  uint64_t (*yield)(const Kernel &);
+  uint64_t (*denom)(const Kernel &);
+  uint32_t permille; // bump the delay when yield * 1000 < permille * denom
+  // Whether the denominator is this application's delta or its running value:
+  // kissat's congruence divides by the CURRENT active count (congruence.c:4629)
+  // while sweep divides by the pairs THIS call swept (sweep.c:1719).
+  bool denom_delta;
+};
+constexpr DelaySpec DELAY_SPECS[] = {
+    // congruence.c:4629, denominator `solver->active`.
+    {"Congruence", [](const Kernel &k) { return k.stats.congruence_merges; },
+     active_variables, 1, false},
+    // sweep.c:1719, denominator the candidate pairs actually swept.
+    {"Sweep", [](const Kernel &k) { return k.stats.sweep_equivalences; },
+     [](const Kernel &k) { return k.stats.sweep_candidates; }, 1, true},
+};
+static const DelaySpec *delay_spec(const char *name) {
+  for (const DelaySpec &d : DELAY_SPECS)
+    if (!std::strcmp(d.name, name))
+      return &d;
+  return nullptr;
+}
+
 constexpr EffortSpec EFFORT_SPECS[] = {
     // kissat `eliminateeffort` 100 per mille (options.h:44).
     {"BVE", 100, meter_bve, true, false, nullptr},
@@ -371,8 +410,8 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // bounds only how often a round starts. kissat `forwardeffort` 100
     // (options.h:72); its currency there is `forward_steps`, here partner
     // visits.
-    {"Strengthen", 100, meter_strengthen, false, true, nullptr},
-    {"SubsumeForward", 100, meter_forward, false, true, nullptr},
+    {"Strengthen", 100, meter_forward_pair, false, true, nullptr},
+    {"SubsumeForward", 100, meter_forward_pair, false, true, nullptr},
     // kissat factoreffort 50 per mille (options.h:57); the first dose per solve
     // takes the factoriniticks allowance instead (see set_entry_limit).
     {"Factor", 50, meter_factor, false, true, nullptr},
@@ -1540,10 +1579,12 @@ DefaultPolicy::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     e.tm.dec_material++;
     return SlotStep::Next;
   }
-  // Closure delay ladder: consume one delayed occasion after material
-  // admission, so the ladder counts real scheduling occasions.
-  if (closure_delay_ && e.closure && k.stats.conflicts > 0 &&
-      e.delay_count > 0) {
+  // Delay ladder: consume one delayed occasion after material admission, so the
+  // ladder counts real scheduling occasions. Not restricted to closures — the
+  // rules kissat delays this way are congruence and sweep, and sweep is metered
+  // here, so a closure-only gate meant a metered repeater could never back off.
+  if (closure_delay_ && (e.closure || delay_spec(r.name)) &&
+      k.stats.conflicts > 0 && e.delay_count > 0) {
     e.delay_count--;
     e.tm.dec_delay++;
     return SlotStep::Next;
@@ -1553,6 +1594,11 @@ DefaultPolicy::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     return SlotStep::Next;
   }
   e.tm.admitted++;
+  // Ladder inputs, read before the apply: the kernel counters are cumulative,
+  // so the rate kissat computes over one call is a delta here.
+  const DelaySpec *const dspec = delay_spec(r.name);
+  const uint64_t yield_before = dspec ? dspec->yield(k) : 0;
+  const uint64_t denom_before = dspec ? dspec->denom(k) : 0;
   // Vivify keeps its scope/delay tier split; the rest take a plain handoff.
   const bool budgeted = e.meter && !e.dosed && e.budget_aware;
   const bool vivify_dose = budgeted && !std::strcmp(r.name, "Vivify");
@@ -1569,15 +1615,26 @@ DefaultPolicy::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
     e.binaries_mark = k.binary_ids.size();
     e.arena_mark = k.arena.size();
     e.root_fixed_mark = kernel_root_fixed(k);
-    // Ladder maintenance: a NoOp closure bumps the delay, a productive one
-    // halves it.
-    if (closure_delay_ && k.stats.conflicts > 0) {
-      if (ar == ApplyResult::Ok)
-        e.delay_current /= 2;
-      else
-        e.delay_current += (e.delay_current < UINT32_MAX);
-      e.delay_count = e.delay_current;
+  }
+  // Ladder maintenance. Where kissat drives the ladder off a yield rate, use
+  // its rate and its denominator; the deltas are taken across this application
+  // because the counters are cumulative. A rule kissat does not delay this way
+  // keeps the local NoOp test, which is why the two branches differ.
+  if (closure_delay_ && k.stats.conflicts > 0 && (e.closure || dspec)) {
+    bool unproductive;
+    if (dspec) {
+      const uint64_t yield = dspec->yield(k) - yield_before;
+      const uint64_t denom =
+          dspec->denom_delta ? dspec->denom(k) - denom_before : dspec->denom(k);
+      unproductive = denom == 0 || yield * 1000 < uint64_t(dspec->permille) * denom;
+    } else {
+      unproductive = ar != ApplyResult::Ok;
     }
+    if (unproductive)
+      e.delay_current += (e.delay_current < UINT32_MAX);
+    else
+      e.delay_current /= 2;
+    e.delay_count = e.delay_current;
   }
   if (ar == ApplyResult::Ok)
     e.tm.ok++;
@@ -1606,6 +1663,7 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   clock.marks_mark = k.stats.bve_marks;
   clock.fixed_mark = kernel_root_fixed(k);
   clock.blocked = false; // a new blocking episode may now be counted
+  forward_pair_limit_ = 0; // the pair's shared allowance is per phase
   // A simplification phase: descend to a quiescent root (a transient flush that
   // keeps saved/target phases), then dose each enabled technique in this group.
   // Route this phase's ticks away from `stats.search_ticks` for its duration:
@@ -1745,6 +1803,15 @@ void DefaultPolicy::set_entry_limit(SlotEntry &e, Kernel &k) {
     reference = MIN_EFFORT_TICKS;
   const uint64_t delta = reference / 1000 * e.permille;
   e.limit = e.meter(k) + delta;
+  // The forward-subsumption pair shares one allowance, because kissat's single
+  // pass does. The first of the two to be priced in a phase fixes it; the
+  // second adopts it rather than opening a second budget of the same size.
+  if (e.meter == meter_forward_pair) {
+    if (forward_pair_limit_)
+      e.limit = forward_pair_limit_;
+    else
+      forward_pair_limit_ = e.limit;
+  }
   // kissat gives factor's FIRST call an absolute allowance instead, because at
   // preprocessing time the reference is meaningless (factor.c:1106-1117).
   if (e.doses == 0 && e.budget_aware &&
