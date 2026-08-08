@@ -1,71 +1,45 @@
 # Tactix proof-rule calculus
 
-> **Authoritative for the *abstract rules*.** `DEVELOPMENT_PLAN.md` owns scope/architecture and
-> `PROGRESS.md` owns status; this document states **what each implemented proof rule *is*** — abstract
-> precondition, effect on the state, proof delta, soundness. Each entry is the clean formal rule only.
->
-> The **engineering layer** — the *implemented* guards (possibly stronger than the abstract
-> precondition), the deviation ledger (every divergence, with a removal path), and standalone design
-> decisions — lives in the companion **`docs/implementation-notes.md`**, not inside the rule entries.
->
-> **Sync contract (mirrors `revise-plan`):** whenever a rule is added, removed, or changes
-> semantics/guard/proof-delta, update this file (and `implementation-notes.md` for guard/deviation
-> changes) in the same commit as the code, consistent with `DEVELOPMENT_PLAN.md` §4 (formal model) /
-> §5.2 (rule catalog) and `PROGRESS.md`. The `calculus` skill enforces this.
+This document is authoritative for each implemented proof rule's abstract precondition, state effect,
+proof delta, and soundness. `DEVELOPMENT_PLAN.md` owns architecture; `PROGRESS.md` owns status;
+`docs/implementation-notes.md` owns implemented guards, engineering deviations, and design decisions.
+A semantic, guard, proof, addition, or removal change must update these documents with the code.
 
-## 1. Why this document exists (the N1 principle)
+## 1. Applicability and N1
 
-Non-negotiable **N1** (plan §1.1): *any applicable proof rule can be applied via the public API at any
-solver state, including the branching choice.* "Applicable" means **the rule's `guard` holds**, and the
-plan defines a guard as a **pure soundness precondition** — nothing else. A guard that also encodes an
-*engineering* constraint (**something imposed by how the kernel is built, not by the abstract rule** —
-the classification test the ledger runs on every conjunct) silently narrows the action space: it tells
-an external or learned policy (§5.6) that a legal move is illegal. That is an N1 leak.
-
-This document states the abstract precondition of every rule; every leak — every place the *implemented*
-guard is stronger — is consolidated in `implementation-notes.md` (guard table + deviation ledger), so
-leaks stay visible and removable rather than hidden inside a guard. Read the two together when reasoning
-about what a policy may legally do.
+N1 requires every applicable proof rule, including branching choices, to be callable through the public
+API at every solver state. Applicable means that the rule's pure soundness precondition holds. A stronger
+implemented guard narrows that action space and must appear in the implementation-notes guard/deviation
+ledger with its root cause and removal path.
 
 ## 2. Abstract state
 
-Following the inprocessing-rules framework (plan §4):
+Following the formal model in `DEVELOPMENT_PLAN.md` §4:
 
 ```
-σ = ⟨ F,   irredundant clauses          τ,   trail: assigned literals + reasons + decision levels
-      R,   redundant/learned clauses    ρ,   reconstruction stack (witness-labelled)
+σ = ⟨ F,   irredundant clauses          τ,   trail with reasons and decision levels
+      R,   redundant/learned clauses    ρ,   witness-labelled reconstruction stack
       π ⟩  proof-log cursor
 
-H          heuristic/policy state (scores, phases, limits, MAB) — NOT in σ
+H          heuristic/policy state (scores, phases, limits, MAB), outside σ
 ```
 
-`dl` is the current decision level (the number of decisions on `τ`). `M` denotes the partial assignment
-induced by `τ`; `U ⊆ M` the level-0 (root) literals. `F ∧ M ⊢₁ ⊥` means unit propagation from `F` under
-`M` reaches a conflict.
+`dl` is the decision count on `τ`; `M` is the induced partial assignment; `U ⊆ M` is its root
+part. `F ∧ M ⊢₁ ⊥` denotes a unit-propagation conflict.
 
-**Invariants.** `F₀ (input) ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transition emits a
-checker-accepted proof delta. **`H` is OUTSIDE `σ`** (plan rev 59): soundness quantifies over `σ`, `H`
-is search guidance, and a component the soundness argument must explicitly except was never part of the
-proof state. Rules read/write `H` freely, with no proof obligation.
+Invariants: `F₀ ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transition emits a
+checker-accepted proof delta. Rules may read/write `H` without a proof obligation. An operation belongs
+here only when it changes `σ`; H-only Rephase, SwitchMode, Walk, and Reorder are policy operations.
+Recorded-conflict and pending-learned-clause flags are engineering state, so guards mentioning them are
+ledgered deviations rather than abstract preconditions.
 
-**Consequence — what belongs here.** An operation is a *proof rule* iff its effect on `σ` is
-non-trivial; an **`H`-only effect makes it a policy operation** with NO entry here, no proof delta and
-no ledger row — a sub-policy (plan §5.1). By this test S3 `Rephase`, S4 `SwitchMode`, S6 `Walk` and S7
-`Reorder` have **no entry here** (rev 61; catalogued in `DEVELOPMENT_PLAN.md` §5.2, relocation tracked
-in `docs/design/h-relocation-design.md`). Control flags not part of `σ` —
-`conflict_valid`/`conflict_ref` (a recorded but unanalyzed conflict) and `pending` (a learned clause
-awaiting assertion) — are **engineering state**; guards mentioning them are deviations
-(`implementation-notes.md`), never abstract preconditions.
+The proof vocabulary in `proof.hpp` is `add_rup`, `add_derived_unit`, `add_empty`, `del`,
+`add_rat`, and internal `kernel_push_witness` (which changes `ρ` without a proof line). Factor is
+the only `add_rat` user.
 
-**Proof vocabulary** (closed; `proof.hpp`): `add_rup`, `add_derived_unit`, `add_empty`, `del`,
-`add_rat`, plus the internal `kernel_push_witness` (mutates `ρ`, emits no proof line). `add_rat` is
-realized in the backend and used only by **E2 Factor/BVA** (dividers/quotients, §6b) — the first
-RAT-emitting rule.
-
-**Reading a rule entry.** Each rule is `guard(σ) → bool`, a lazy `instances(σ)`, and `apply(σ,inst) →
-(σ′, δ)` total when the guard holds (plan §4). Each entry gives the rule's **abstract** Precondition /
-Effect / Proof-δ / Soundness only; the **implemented guard** is tabulated in `implementation-notes.md`
-§1.
+Each public rule has a pure `guard(σ)`, lazy `instances(σ)`, and total
+`apply(σ, instance) → (σ′, δ)` whenever the guard holds. Entries below state only the abstract
+precondition, effect, proof delta, and soundness; implemented guards are in implementation-notes §1.
 
 ## 3. Core search (M1–M4)
 
@@ -118,10 +92,10 @@ Effect / Proof-δ / Soundness only; the **implemented guard** is tabulated in `i
   `jump_level` regardless, so a higher chronological target keeps the intervening decisions without
   stranding the assertion.
 
-### M4 · (was Backjump) — folded into M3
-Backjump is not a separate rule: Learn-and-Backjump is one atomic inference (rationale in
-`implementation-notes.md` §4). The backjump target is a `ConflictAnalysis` instance parameter (canonical
-= `jump_level`; any chronological target in `[jump_level, level-1]` is sound).
+### M4 · Backjump — folded into M3
+
+Backjump is not separately schedulable. It is the atomic tail of M3; its canonical target is
+`jump_level`, while any chronological target in `[jump_level, level-1]` is sound.
 
 ## 4. Search management (S1, S2, S5)
 
@@ -141,8 +115,6 @@ Backjump is not a separate rule: Learn-and-Backjump is one atomic inference (rat
 - **Soundness:** deleting redundant/entailed clauses is equisatisfiability-preserving; the checker
   accepts any deletion.
 
-*(S3 `Rephase` and S4 `SwitchMode` were here; removed rev 61 — they are `H`-only **policy operations**,
-not proof rules, per §2 and `DEVELOPMENT_PLAN.md` §5.2.)*
 
 ### S5 · Lucky
 - **Precondition (abstract):** `F` not refuted and consistent. Attempts a complete assignment via
@@ -339,7 +311,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   this rate (`congruence.c:4613`), and the units it derives seed the value cascade V6's unit channel
   needs. The open question is dosing, not soundness — ledger `SP-CONG-UNITS-1`.
 
-## 6b. Variable elimination & addition (E1–E2) — the resolution family and its inverse
+## 6b. Variable elimination and addition (E1–E2)
 
 ### E1 · BVE — bounded variable elimination by resolution
 - **Precondition (abstract):** a variable `x` whose *bounded* resolution stays within budget: the
@@ -425,7 +397,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   `x`). Each add step is a RAT addition (satisfiability-preserving) and each delete removes a clause
   entailed by the survivors, so the DRAT stream is sound end-to-end.
 
-## 6c. Bounded clause addition (X2, X6) and witnessed clause elimination (X1, X3) — the reference families pulled in by revs 72 and 83
+## 6c. Bounded clause addition and witnessed elimination (X1–X3, X6)
 
 ### X2 · HyperTernaryRes — hyper ternary resolution
 - **Precondition (abstract):** two ternary clauses `C = (p ∨ a ∨ b)` and `D = (¬p ∨ c ∨ d)` in `F` whose
@@ -541,13 +513,9 @@ deleted. Reference inventory: `implementation-notes.md` §17.
 - **Termination:** each step adds at least one literal and never removes one, and no step may add a
   literal whose negation is already in the extension, so a chain over a fixed variable set is finite.
 
-**Deliberately absent — X5 `Condition` (globally blocked clauses / conditional autarkies).** The
-generalization of X1 in which the witness is a *cube* whose literals need not lie in `C`. It has no
-entry here because it is not implemented, and the reason is a `ρ` limit rather than a proof one: our
-reconstruction segment carries **one** witness literal and that literal must be **inside** the clause,
-so the cube cannot be represented; restricted to a single in-clause literal the rule collapses to X1
-above. Decision, reference evidence and the reopening path: `implementation-notes.md` §16
-(Track R · R7).
+**X5 Condition is deliberately absent.** Conditional autarky needs a witness cube, while `ρ`
+represents one in-clause witness literal. The rule is unimplemented; its reopening conditions are in
+`implementation-notes.md` §16.
 
 ## 6d. Clause strengthening by instantiation (X4)
 
@@ -569,13 +537,8 @@ above. Decision, reference evidence and the reopening path: `implementation-note
 
 ## 7. Maintenance
 
-- Invariants the `calculus` skill checks include: **every registered rule has an entry here**; a guard
-  conjunct may be *stronger* than the abstract precondition only if it appears in the
-  `implementation-notes.md` ledger with a root cause and a removal path; **the proof δ named in an entry
-  matches the actual `proof->…` calls** (incl. the LRAT-vs-DRAT asymmetries); and no entry weakens
-  N1–N4.
-- Keep the entries **clean**: a rule entry must not read as if it requires an engineering condition
-  (e.g. a propagation fixpoint) — that belongs in `implementation-notes.md`, tagged as the deviation it
-  is.
-- Sync per the header contract — same commit as the code **and the plan/PROGRESS sync**;
-  `DEVELOPMENT_PLAN.md` §4 remains the source of truth for `σ` and the three precondition paragraphs.
+Every registered proof rule must have an entry here. Every stronger implemented guard conjunct must have
+a root cause and removal path in `implementation-notes.md`; proof deltas must match actual proof calls,
+including LRAT/DRAT differences; and no entry may weaken N1–N4. Keep engineering conditions out of
+abstract preconditions and synchronize calculus, implementation notes, plan, progress, and code in one
+change.

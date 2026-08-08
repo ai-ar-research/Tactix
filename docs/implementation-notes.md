@@ -122,569 +122,171 @@ D-CONG-TAUT are effect branches — D-CONG-SKIP on the LRAT path only, D-CONG-TA
 - **D-FACTOR-LRAT** — E2 Factor no-oped under native LRAT. **CLOSED 2026-07-20:** `Proof::add_rat`
   landed and Factor emits it — dividers as vacuous RAT, quotients as one resolution each. First
   backend realization of add-RAT; emission order is load-bearing (`calculus.md` E2).
-## 3. Deviation-family histories (engineering, not calculus)
+## 3. Closed deviation families and standing invariants
 
-- **D-LEVEL — current-level assignment (CLOSED).** The kernel used to stamp every propagation-forced
-  literal at the *current* decision level, not its **true** level (deepest among its reason's other
-  literals); true-level assignment + a compacting `kernel_backtrack` (trail may be non-level-sorted; a
-  backtrack keeps still-implied lower-level literals) closed D-LEVEL-2. **D-LEVEL-1 needed more than
-  true levels:** a decision taken off a fixpoint lets a not-yet-run watch scan treat a clause as
-  satisfied by an "ahead" assignment, and a later backtrack unassigning that literal leaves the clause
-  unit with no watch firing (a stale-scan **escaped unit**). Fix = a watched-literal repair: an
-  off-fixpoint `Decide` sets `k.trail_tainted`, and a search backtrack (`kernel_backtrack` with
-  `update_phases=true`) resets `propagate_head` to 0 so the whole trail is re-propagated. Regressed by
-  `AdversarialPolicy` (`--adversarial-policy`), the `test_decide` escaped-unit test, corpus 004/005/006.
-- **D-SPLIT — Analyze and Backjump were two rules (CLOSED for `pending`).** The `pending` buffer between
-  them was a control-state artifact with no counterpart in `σ`; fusing the two into the atomic
-  `ConflictAnalysis` (§4) consumes it within one apply. Records: §2.
+The live deviation state is §2; linked reports and Git own chronology. Closed deviations leave these
+requirements:
 
-**Neither leak ever affected DefaultPolicy** — it propagates to a fixpoint before every decision and
-always backjumps before propagating again, so both were free for N3 and bit only free N1 schedules,
-exactly where the random-policy fuzzer found corpus 004/005/006.
+- Propagated literals carry their true level. Because the trail need not remain level-sorted,
+  `kernel_backtrack` compacts the literals whose true levels survive.
+- An off-fixpoint Decide taints the trail; a search backtrack resets `propagate_head` to zero so stale
+  watch scans cannot leave an escaped unit.
+- Analyze and Backjump are atomic at the public boundary (§4).
+- Ordering differences are semantic when they change candidate or proof-line order. Budget/cadence
+  differences are policy, never calculus guards.
+- Reference-only optimizations remain parity work until implemented, rejected with evidence, or accepted
+  explicitly in §13. A closed item reopens on its stated trigger.
 
-## 4. Design decision: Analyze + Backjump are one abstract rule
+## 4. Design decision: Analyze + Backjump is one atomic operation
 
-**Conflict analysis is a single atomic rule `ConflictAnalysis`** (M3+M4 fused): from a recorded
-conflict, derive the 1-UIP clause, add it to `R` with its proof, backjump to assert it — one transition.
-Rationale: the standard DPLL/CDCL formulation; it makes `pending` **internal and unobservable**, which
-*dissolves* D-SPLIT-1/2/3 (the corpus-006 overwrite state becomes unrepresentable, not merely
-guarded-against); and there is **no established useful policy action between the two halves** — the only
-"choice" is the backjump target, an *instance parameter* of the fused rule (`jump_level` canonically;
-chronological targets since D-LEVEL-2). N1 preserved: applicable whenever a conflict is recorded, and
-the branching freedom N1 names is `Decide`'s. **Trade-off recorded:** the two-rule split gave marginally
-finer N1 granularity (a policy *could* interpose Restart/Reduce/Rephase/SwitchMode between the halves) —
-no known use, one known hazard (**corpus 006 was produced by exactly that interposition**).
-**Implementation:** `ConflictAnalysis` is the single registered rule (`analyze.cpp`); `analyze_apply` +
-`backjump_apply` remain internal step functions DefaultPolicy's micro-loop and the analyze unit tests
-drive white-box — permitted, since the *abstract* rule is atomic and no guard exposes `pending`.
-Behavior-preserving: s055 bit-exact at 932,762 conflicts, demo3 (the stat-exact DefaultPolicy mirror)
-matches, proof byte-identical.
+M3 is one public operation. Private pending state must be consumed before control returns to policy code.
 
-## 5. Design decision: extension variables (E2 Factor) — cross-rule invariants
+- The learned clause is asserting at `target_level ∈ [0, conflict_level)`; the target agrees with the
+  maximum level among its non-asserting literals.
+- True-level reasoning may lower the asserting literal's stored level without changing its meaning.
+- Eager subsumption runs after the backtrack and before the next propagation.
+- No policy may observe a half-analyzed conflict or schedule Backjump separately.
 
-E2 Factor is the first rule that **adds variables mid-solve**. These invariants are *engineering
-mechanics*, not proof-rule guards:
+## 5. Cross-rule implementation invariants
 
-- **The dense occurrence index grows with `nvars`.** `Kernel::dense` (per-literal large-clause index,
-  non-null only inside a simplification phase) is built once per phase and shared by BVE / Subsume /
-  Strengthen; Factor grows `nvars` *while dense is connected*, so `kernel_reserve_vars` also `resize`s
-  `dense->large` to `2·nvars`. Without it `bve_build_occurrences` indexes out of bounds for an extension
-  literal — the mp1 `EXC_BAD_ACCESS`. General hazard for **any** var-adding rule, hence a kernel-level
-  fix.
-- **Fresh extension variables must be the LEAST-preferred decision candidates.** `heuristics_reserve_vars`
-  appends every new var at `queue_last` — correct for the initial load and for bumping, but in VMTF
-  `queue_last` is exactly where the decision search *starts*, so each variable Factor added jumped to the
-  head of the decision order. Kissat demotes them explicitly
-  (`factor.c adjust_scores_and_phases_of_fresh_varaibles`: score 0 **and** re-inserted at the bottom of the
-  queue). Ours is a **focused-mode-only** defect — the stable-mode heap push already uses score 0.0, which
-  sits at the bottom of a max-heap. `heuristics_demote_fresh_vars(k, first)` implements the repair over the
-  contiguous range `[first, nvars)`, called **once per rule application** (it is O(#queue); once per fresh
-  *variable* would be the per-call linear-scratch hazard). Heuristic-only (`H`): no proof delta, no σ change,
-  so a rule may call it. `Kernel::factor_demote_fresh` **defaults TRUE since SCHED-C5 (2026-08-05)**, both
-  references demoting unconditionally; `TACTIX_FACTOR_DEMOTE=0` is the off arm and the tier A/B is still
-  owed. **Any reading of the knob taken before 2026-08-05 measured a different mechanism** — the re-insert
-  loop ran descending, so the OLDEST fresh var landed least-preferred, the mirror image of both references
-  (`rbsat`: off 483,929 conflicts · descending 415,947 · ascending 88,663). That includes the 2026-07-31
-  non-separability reading (rescues j3037 207→88 s, edp3 74→39, rxor 49→36; costs sted5 16→150 s), which is
-  why it no longer gates the default. Row `SP-FACTOR-2`, §13.2.
-- **Clause-size scope is a within-rule scope choice, not a guard.** `Kernel::factor_size` (kissat
-  `factorsize`) bounds the size of grid clauses; remainders are sub-clauses rather than single literals once
-  it exceeds 2. Any value is sound — the add-RAT argument for the quotients is indifferent to `|r|`
-  (`docs/design/e2-factorsize-design.md` §4), so this narrows/widens *which* factorings the rule offers and
-  never *whether* one is legal. **Default 2 → 5 on 2026-07-31** (kissat's own default), on Tier C −9.51 PAR-2
-  / 1.066× → 1.036× cadical with Tier B unchanged; report
-  `benchmarks/reports/2026-07-31-factor-scope-and-admission.md`.
-  `Kernel::factor_cand_rounds` (kissat `factorcandrounds`) is the same kind of within-rule scope choice — it
-  prunes candidate clauses containing a literal that occurs < 2 times, iterated to fixpoint. **Default 0**
-  (the unfiltered set): measured byte-identical on all seven task-#11 probes, because that filter can only
-  reach 0.7–0.9 % of literals on formulas this dense and **0.00 %** on sted5. Kept because it matches the
-  reference and costs nothing; profiling report `2026-07-31-factor-broad-admission-profiling.md` §5.
-- **`Kernel::no_ext_decisions` is a DIAGNOSTIC, never a default.** It makes Decide skip extension variables,
-  which **narrows the policy's action space and therefore violates N1** — it exists only to attribute the
-  damage broad Factor admission does (ContextModel 450 → 123 s, sted5 17 s → killed; same report §4). Any
-  future *shipped* control over extension-variable priority must be a ranking/`H` change, not an exclusion.
-- **BVE never schedules an extension variable.** BVE on Factor's `x` resolves its dividers against its
-  quotients straight back to the grid — *exactly reversing* Factor; unguarded the two thrash every round
-  (thousands of factorings/round, a 741 MB churn proof). `bve_schedule` skips `v ≥
-  kernel_num_output_vars(k)`: a *scheduling* filter (like the `BVE_OCCLIM` blow-up skip), not a
-  soundness precondition — BVE's guard stays pure.
-- **A factoring must delete ALL copies of each grid binary** — the duplicate-binary bug that once made
-  Factor inert. `binary_ids` maps a literal *pair* to one id, so `kernel_delete_binary` refuses a pair
-  with `copies==2` (its retired id would break a later LRAT chain through the *surviving* copy); the
-  grid then stayed while dividers/quotients were added → **bloat, not factoring** (x9: 2612
-  delete-failures, 3597→4650 clauses, zero benefit; instances are ~50 % duplicate binaries — mp1 had 137
-  700 duplicated pairs). Fix: `kernel_delete_binary_all_copies` — sound under **both DRAT and native
-  LRAT** because *no copy survives* to be cited (quotient RAT hints reference each original's id
-  *before* the deletes; a redundant same-id `del` per duplicate is checker-tolerated, mp1's 137 700 dup
-  pairs verify) — plus `binary_partners` dedup so dimensions/gain aren't inflated. **Lesson: touch ONLY
-  Factor's grid pairs** — a global binary dedup *wrecks* the base search (mp1 4.19M→23.9M+ conflicts;
-  those duplicates are load-bearing for its CDCL trajectory).
-- **Factor admission is UNCONDITIONAL, and the density short-circuit is GONE (2026-08-07).**
-  `Kernel::factor_admit` survives as the policy-to-rule channel — it defaults true, `factor_apply`
-  declines only when the policy has said so, and `TACTIX_FACTOR_FORCE` overrides — but DefaultPolicy no
-  longer writes false into it. What was removed is the predicate
-  `binary_ids.size() < density·num_output_vars`, together with BVE's identical dose gate and the dormant
-  `factor_scope_percent` union arm. Two independent reasons, either sufficient. **(1) No reference has
-  the term:** `kissat_factoring` (factor.c:1068-1085) gates on the `factordelay` warm-up and the marked
-  watermark and nothing else, `kissat_eliminating` (eliminate.c:21-39) on five conjuncts none of which is
-  a density, and cadical's `elim.cpp` has no density predicate at all. **(2) It was reading the wrong
-  number:** the numerator `Kernel::binary_ids` is a proof-id map documented at `kernel.hpp` as
-  size-monotone because deletion keeps the key, so it counted binaries ever *derived*, not the live
-  binary population it was written as if it were — which is why the gate was observed to loosen
-  monotonically over a solve.
-  **The threshold's tuning is itself the exhibit:** `density` moved 1 → 8 → 6, each step to fit one
-  instance (`benchmarks/reports/2026-07-24-battleship-divergence.md`) — a constant no reference
-  backs, which plan §5 obligation 6 names an invention. **Consequence for a banked conclusion:** the
-  *0-for-5 record of hand-designed formula-shape separators* was measured through this gate, so those
-  five negatives are evidence about a broken instrument, not about separators.
-- **Grid selection is a policy, the grid mechanism is the rule (S2a, 2026-07-23).** `factor_apply` keeps
-  the MECHANISM (seed heap, co-occurrence counting, greedy grow, best-prefix, the proof-bearing
-  `apply_factoring`); the three SCALARS — seed priority, next-factor tie-break, accept threshold — come
-  from `Kernel::factor_match` (`FactorMatchPolicy`, 2nd SubPolicy, `bve_bound` precedent) when attached.
-  Null = the built-in watch-size path, reproduced bit-exactly by `DefaultFactorMatch` (round-trip
-  argument in the design doc). DefaultPolicy scopes the pointer to the inprocess phase (set at entry,
-  cleared at exit — never dangles). N1: every `delta≥1` factoring stays reachable via swappability + the
-  pure guard; the scores only reorder. `FACTOR_MIN_GAIN`/dim caps stay rule-side cost floors. The density
-  short-circuit is not part of this policy either — SCHED-N1FIX moved it to DefaultPolicy's slot as
-  `Kernel::factor_admit` (see the density bullet above), not into `FactorMatchPolicy`.
-  Design: `docs/design/s2a-factor-matcher-design.md`.
-- **Per-round work budget is configuration, not a guard (S4, 2026-07-24; generalized from Vivify to any
-  budget-aware rule the same day).** `Kernel::work_budget` (0 = unbounded, the default; **formerly
-  `vivify_tick_budget`**): a budget-aware canonical round stops visiting candidates once it has spent
-  that much work in its OWN currency — Vivify propagation ticks (`stats.ticks`), Factor cache-line
-  `stats.factor_ticks` (kissat `kissat_cache_lines`; formula + quit points in
-  `docs/design/s4-factor-dosing-design.md`, kissat factor.c:442,914). Same class as
-  `bve_bound`/`bve_gate_mask`: any value is sound because a bounded round's effect is a prefix/subset of
-  the unbounded round's and each rewrite is individually justified; abstract rule entries untouched,
-  per-candidate instance surfaces still reach every application (N1). Motivation: the S4 arrangement's
-  during-search phases must dose their techniques — the unbounded Vivify round was the dominant diffuse
-  Tier C cost (attribution probes 2026-07-24: urq45 156→TO from Vivify alone); Factor's dosing is the
-  mp1 gap. DefaultPolicy sets it to the entry's remaining effort-ledger budget for the scoped apply
-  (`budget_aware` in `EFFORT_SPECS`), clearing it after; other callers see 0.
-  - `Kernel::vivify_scope` (0 = **all bands**/default, 1 = the tier2-bounded redundant band,
-    2 = irredundant, 3/4/5 = the redundant tier1/tier2/tier3 bands separately — same subset
-    argument): mirrors kissat, where the redundant tiers always run within their budget shares (7/10,
-    options.h tier1+2+3) and only the irredundant pass (3/10) is delay-gated. **Lesson: delaying the
-    WHOLE round is a Tier B loss** (mod4block TO, arr4 2026-07-24). DefaultPolicy scopes both configs to
-    its per-phase applies and clears them after.
-    **N1 REPAIR (RV-S10): a capability RESTORED, not changed.** Two things had made the tier3 band
-    unreachable through the public API while DefaultPolicy used it: `tactix_set_vivify_scope` clamped
-    `scope <= 2 ? scope : 0`, so 3/4/5 silently became a *different* band; and scope 0 — the unscoped N1
-    path — was itself bounded by the live `tier2`, so `vivify_instances` never enumerated a tier3 `Ref`
-    and `apply_instance` on one NoOped. That is the same shape as the Factor density short-circuit
-    SCHED-N1FIX repaired below: guard reports applicable, apply quietly declines, capability removed.
-    The setter now accepts 0–5 and ignores out-of-range rather than substituting a band, and scope 0
-    admits every band. DefaultPolicy is untouched — it only ever applies Vivify at scopes 1–5 and resets
-    to 0 afterwards, so its trajectory is byte-identical (`tests/test_vivify_n1.cpp` fails on the
-    pre-fix build in both halves).
-  - `Kernel::factor_bound` (uint32, default 0): accept iff `delta > factor_bound`; default ≡ the legacy
-    `FACTOR_MIN_GAIN = 1` floor. Class of `bve_bound` — larger values only narrow WHICH positive-gain
-    grids reach the byte-identical `apply_factoring`; an attached `FactorMatchPolicy` keeps precedence.
-    Ports kissat `factoring->bound = bounds.eliminate.additional_clauses` (factor.c:72,939).
-  - `Kernel::factor_composite` (bool, default false), S2b: termination stays delta-monotone (S2b §4);
-    the single-blast regression keeping it default-OFF is banked in S2b §7
-    (`docs/design/s2b-composite-grids-design.md`).
-  - **Increment-3 verdicts (2026-07-25, probes 1561180/87/90/91): BOTH couplings measured HARMFUL in the
-    dosed regime and stay OFF** — composite doses break battleship (1.3→197 s); the bound coupling
-    breaks mp1 (5.3→14.9 s: the dosed regime's top-up grids are small-delta BY DESIGN, so kissat's
-    bound=eliminate-level rejects exactly the grids the arrangement exists to add; design §3.e "wire it"
-    is measured-dead here). the coupling arm
-    selects the bound arm; the composite-dose env arm went in the negative-arm cleanup (`a7de35d`).
-- **Input clause normalization and the proof id space (N2, 2026-08-05, branch `frontend-dedup-n2`).** The
-  checker reads the ORIGINAL FILE and numbers its clauses 1..N by position, so input clause `i` must
-  carry proof id `i` and a chain citing `i` gets the file's clause — repeated literals and all. Checkers
-  hold a clause as a literal LIST: `-1 -1` is not unit for them, so the deduped clause we stored under
-  that id was not the clause they had, and any chain using it as a *propagating* antecedent was rejected
-  (`multiple literals unassigned` / `clause not empty or singleton after reduction`) — 1.5–4 % of UNSAT
-  fuzz cases, invisible to DRAT, which re-derives instead of citing. **Fix:** the deduped clause is
-  restated as its own one-antecedent RUP lemma (valid: negating it falsifies every literal of the file
-  form) and the stored id re-points to the lemma. The lemma id must exceed *every* input id and N is
-  unknown until the input ends, so `finish_input` (`frontend/parse.hpp`) **defers** the restatements —
-  and the parse-time refutation with them, which used to burn an id the checker had already given to a
-  later input clause. Deferral is why the fix needs no header count: CaDiCaL takes the same lemma shape
-  but reserves the input range from the declared `nCls` (`reserve_ids`, `add_new_original_clause`), which
-  we cannot, since our parser treats that count as advisory. The other normalizations were enumerated
-  and are NOT divergences — tautologies, duplicate units/binaries and post-refutation clauses consume
-  their id but record it nowhere, and literal order is never communicated (full list in `parse.cpp`).
-  Corpus 013 (unit shape) / 014 (general shape); `c input` counts restatements so the path's reachability
-  is measurable; report `benchmarks/reports/2026-08-05-input-clause-normalization-n2.md`.
-- **Input binary deduplication at parse (2026-07-25).** `ingest_clause` skips a binary whose pair is
-  already stored (`binary_ids` lookup — nothing is deleted during parse, so presence ⟺ a live copy), the
-  duplicate-unit precedent: id consumed, checker keeps its never-referenced input copy, no proof lines;
-  kissat's dense mode dedups likewise. Duplicated pairs otherwise inflate Factor's watch-score seeds and
-  (before the all-copies fix) blocked BVE outright — mp1-blockpuzzle carries 137,700, and dedup + the S4
-  arrangement took it from 74 s to **5.3 s vs kissat's 9.1** (probes 1561180/81, drat-trim VERIFIED).
-- **BVE retry advice: ADD-marking is the adopted default; removal-only is the measured-negative arm
-  (2026-07-25).** The kissat-exact form (added literals feed subsume/factor candidacy, REMOVED literals
-  feed eliminate — `kissat/src/inline.h`) was implemented, measured, **NOT adopted**: it did not fix
-  mod4block's dose churn (identical conflicts) and cost the arrangement's mp1 win 5.3 → 15.5 s — our
-  factor→eliminate coupling runs through add-marking, a channel kissat replaces with dense-sweep rescans
-  (commit `ade3f54`; gate report §2). Every deletion/strengthening path marks in both arms. Advice only
-  (scheduling); the instance surface never narrows (N1). The `TACTIX_BVE_RETRY_REMOVAL_ONLY` arm went in
-  the negative-arm cleanup (`a7de35d`); the contract test in `tests/test_bve.cpp` documents the
-  semantics and the negative.
-- **Shared proof idioms are kernel primitives (2026-07-25 review items 7–8, commit `068fa96`).**
-  `kernel_emit_empty_from_pair` ({a}+{¬a} ⊢ ∅), `PendingUnits` (batched root units with the corpus-007
-  opposite-sign refutation) and `kernel_replace_clause` (proof-del + garbage + size-dispatched
-  materialization after the caller's ADD) replace four and three near-verbatim rule-side copies —
-  **proof-emitting copy drift is a soundness risk**, so these live once, on the `kernel_reason_walk`
-  precedent. Byte-identical extractions; unit semantics stay rule-side (Vivify asserts + ends its round;
-  Substitute/BVE batch). Glue divergence resolved: glue is a redundant-clause concept, so every
-  replacement site passes 0 for irredundant clauses (irredundant glue is unread — behavior-preserving).
-- **Cross-STL determinism is a standing invariant (2026-07-24).** Any order-affecting comparator must be
-  a strict TOTAL order (no ties), and no trajectory-affecting code may iterate an unordered container in
-  hash order — `std::sort` tie order and `unordered_map` iteration differ between libstdc++ and libc++,
-  and **one untied per-conflict sort forked the whole search trajectory across toolchains** (battleship
-  1.95 M → 27.1 M conflicts; determinized: the analyze block sort's trail tie-break, congruence's
-  sorted-keys extraction; `benchmarks/reports/2026-07-24-battleship-divergence.md`). The four
-  inprocessing candidate sorts already carry `ref` tie-breaks — keep writing them.
+### Factor and extension variables
 
-**Status of E2 in DefaultPolicy: ON** (2026-07-20). Net-positive once the duplicate-binary bug was
-fixed: x9 801k→453k conflicts (39 s→23 s), mp1 4.19M→3.66M; **Tier A neutral** (density short-circuit
-no-ops on random 3-SAT — factor-on == factor-off at 199/200, PAR-2 0.78). Proof-verified (x9 DRAT
-VERIFIED, 469 RAT lemmas), fuzz-clean (default + `--random-policy` + Factor-in-slot, 1000/0 each,
-drat-trim per case). The *full* kissat-level benefit (mp1 305k, 13×) is an OPEN `next_factor_score`
-chain-width investigation (S2a Increment 3; kissat's own default `factor=1` BVA is the target, **not**
-SBVA, large-clause remainders measured-dead — design §2b/§7); binary-only Factor with today's selection
-closes part of the gap.
+- Any variable-adding rule must resize the connected dense occurrence index to `2*nvars`.
+- Factor variables are contiguous at `[first_extension_var,nvars)` and projected from output models.
+  Focused VMTF demotes that range once per Factor apply; `factor_demote_fresh` defaults true. Stable
+  mode inserts them at score zero.
+- `factor_size=5` and `factor_cand_rounds=0` are within-rule scope, not guards.
+  `no_ext_decisions` is diagnostic only: excluding extension variables from Decide would violate N1.
+- BVE does not schedule extension variables because it would immediately reverse Factor. This is policy,
+  not a soundness precondition.
+- Factoring deletes every copy of each grid binary with
+  `kernel_delete_binary_all_copies` and deduplicates `binary_partners`; do not globally deduplicate
+  learned binaries because their multiplicity affects search.
+- Factor admission is unconditional in DefaultPolicy. `factor_admit` remains a policy channel,
+  defaults true, and can be forced for diagnostics. The deleted density gate must not return: it read
+  the size-monotone proof-id map rather than the live binary population and no reference has the term.
+- Grid selection is policy-owned through scoped `FactorMatchPolicy`; Factor owns the proof-bearing
+  grid rewrite and its positive-gain/dimension floors. Clear the policy pointer after the phase.
+- Proof order is E2's divider-then-quotient-then-grid-deletion order. BVE skips extension variables; no
+  reconstruction witness is pushed because output projection removes them.
 
-## 6. Design decision: the BVE retry filter (`Kernel::bve_retry`)
+### Budgets and scope
 
-**What it is.** A per-variable bit (kissat `flags->eliminate`, `eliminate.c schedule_variables`)
-recording "this variable's neighbourhood changed since BVE last attempted it". `bve_eliminate` clears
-the bit of the variable it *attempts*; every kernel mutation that can change what BVE would compute sets
-it again.
+- `work_budget=0` is unbounded. A scoped canonical round may stop at a prefix in its own deterministic
+  currency: Vivify uses propagation ticks and Factor uses factor cache-line ticks. Clear scoped budgets
+  after apply.
+- `vivify_scope=0` enumerates all bands; 1–5 select the documented tier bands. The setter accepts 0–5
+  and ignores invalid values rather than mapping them to another band.
+- `factor_bound=0` retains the positive-gain floor; larger values narrow candidate grids only.
+  An attached match policy takes precedence.
+- `factor_composite=false` remains the default. Budget, scope, and bound affect selection, not rule
+  soundness or N1's per-instance surface.
 
-**Where the bit is READ — the load-bearing part.** In **DefaultPolicy** (`default_policy.cpp`, the
-dosing loop), **not** in the rule: `bve_schedule` / `bve_instances` deliberately do NOT consult it
-(**`bve.cpp`, and the comment there says so**). The rule MAINTAINS the advice, `instances()` OFFERS
-every variable, the policy DECLINES — filtering inside the rule would silently narrow the instance
-surface `--random-policy` and the §5.6 learned policy enumerate, and "when to retry" is a scheduling
-decision (N1; rule-dev's standing rule: *the instance surface is the policy's action space — rank
-freely, never omit for efficiency*). An earlier revision put the filter in `bve_schedule`: the
-pre-`f1c271e` design, corrected the same day.
+### Input/proof identity and shared mechanics
 
-**Why.** Without it every BVE call re-ranks and re-attempts *every* candidate, generating and counting
-its resolvents only to reject it again at the same growth bound — the measured quadratic waste of
-repeated BVE (`qwh` 1.0 M resolutions for 4 eliminations under a during-search schedule). No budget or
-interval tuning fixes it: the work is spent *before* the budget can observe that nothing came of it.
+- Input clause position is its checker id. If parser normalization removes repeated literals, defer a
+  one-antecedent RUP restatement until `finish_input`, after every original id is known, and store the
+  restated id. Parse-time refutation using it is deferred for the same reason.
+- Tautologies, duplicate units/binaries, and post-refutation input clauses still consume their input id.
+  Parse-time binary dedup is safe because no binary has yet been deleted.
+- Use the shared proof primitives for contradictory-unit empty emission, pending-unit batching, clause
+  replacement, and clause deletion. Large-clause garbage marking and proof deletion stay inseparable in
+  `kernel_delete_clause`.
+- Every trajectory-affecting comparator is a strict total order, and trajectory code must not depend on
+  unordered-container iteration order.
 
-**Where the bit is set** (kernel-side, one home per mutation kind):
+## 6. Design decision: BVE retry advice
 
-| mutation | site |
-| --- | --- |
-| irredundant large clause added | `kernel_add_large_clause` (`!redundant` branch) |
-| binary added (binaries are irredundant here) | `kernel_add_binary_clause` |
-| irredundant large clause deleted | `kernel_delete_clause` (`!c->redundant()`) |
-| binary deleted | `kernel_delete_binary`, `kernel_delete_binary_all_copies` |
-| literal root-fixed | `kernel_bve_retry_sync_fixed`, called by the policy before it doses BVE |
-| variable created | `kernel_reserve_vars` initialises the bit to 1 |
+`Kernel::bve_retry[v]` means that the irredundant neighbourhood or relevant root values changed since
+BVE last attempted `v`. It is scheduling advice, not a calculus guard.
 
-`kernel_delete_clause` is **the single home for large-clause deletion**, replacing ~10 open-coded
-`c->flags |= Clause::GARBAGE` sites across Analyze / Reduce / Strengthen / SubsumeForward / Substitute /
-Vivify / BVE; deletion stays lazy. It also **emits the proof `delete`**, so the two halves are
-inseparable — no function marks garbage without emitting the `del`, and none emits the `del` for a large
-clause without marking it. That is `RV-S6`: the pair was open-coded at 13 sites (one already drifted in
-its LRAT line id), and a site doing either half alone is an N2 or GC defect. It is the same shape
-`kernel_delete_binary` has always had for the binary layer, so the rule still owns the DECISION to
-retire a clause and the proof delta it names (§5.3) — it no longer re-types the emission. **Redundant clauses are deliberately excluded** — BVE resolves the irredundant core only, so a
-learned clause on the pivot cannot change whether the elimination fits the bound; marking on redundant
-traffic would mark every variable on every conflict and Reduce round, i.e. no filter at all.
+- BVE clears the attempted variable. The kernel marks variables affected by irredundant large/binary
+  addition or deletion, root-fixed literals, and variable creation. Redundant clauses are excluded
+  because BVE resolves only the irredundant core.
+- Root fixing is synchronized incrementally by `kernel_bve_retry_sync_fixed` and its monotone
+  `bve_retry_fixed_head`.
+- Strengthening/rewrite paths are covered as delete plus add; garbage collection marks nothing because
+  it changes neither occurrences nor values.
+- `bve_instances` and `bve_apply_instance` remain complete. Only policy declines an unchanged
+  candidate; an external policy can still force the real computation.
+- Added-clause marking is the default. Removal-only retry was measured negative and is not a live arm.
 
-**Root fixing needs its own channel.** Fixing `y` makes the clauses `y` satisfies delete-only and strips
-`¬y` from the rest, changing *other* variables' resolvent sets with no clause added or deleted.
-`kernel_bve_retry_sync_fixed` folds newly fixed literals in incrementally, keyed on the monotone
-trail-index watermark `Kernel::bve_retry_fixed_head` (`kernel_backtrack` compacts kept level-0 literals
-down but never touches the prefix below its boundary), reading occurrences the way BVE does (watch lists
-/ shared dense index / one arena scan).
+## 7. Design decision: propagation rollback for probing scopes
 
-**Completeness (why no elimination is lost).** `bve_eliminate(x)`'s outcome depends on exactly (a) the
-irredundant clauses containing `x`/`¬x`, (b) their literals' root values, (c) static config
-(`bve_gate_mask`, bound/limits). The table covers every mutation of (a) and (b) — including a literal
-removed from a clause, since every shortening rule (Strengthen, Substitute, Vivify) does it as delete +
-add, never in place — so a cleared bit means "same attempt, same inputs, same `NoOp`".
-`kernel_collect_garbage` changes neither occurrence nor value, so it correctly marks nothing.
+Probe and Vivify use normal propagation, which relocates watches and mutates `searched` hints. One
+engine with an undo log restores those search-only effects for a non-committing probe.
 
-**N1.** `bve_guard` unchanged; `bve_apply_instance` still accepts *any* variable payload — an external
-policy can force BVE on a filtered-out variable and gets the real computation, not a cached answer;
-`bve_instances` offers every schedulable variable and DefaultPolicy is the only thing that skips, so
-even the *suggestion list* stays complete. The bit is a fact about the formula ("this neighbourhood
-changed"), never scheduling state ("time to run BVE").
+- Snapshot each watch list at first touch; replay clause-header relocations in reverse.
+- Restore only after trail size, `propagate_head`, and level exactly match scope entry. If a derived
+  root literal survives, discard the log and keep its load-bearing watch changes.
+- No clause addition/deletion, arena compaction, or external watch relocation may occur inside the
+  scope. Callers unwind and close it before rewrite or unit assertion.
+- Outside a scope, probing propagation is ordinary propagation. V1 Probe and C3 Vivify open a scope per
+  candidate; V2 uses the non-mutating binary engine; S5 uses ordinary propagation before search.
+- A public `NoOp` therefore restores assignments, reasons, queue heads, watches, and search hints.
 
-**Measured** (deterministic counters, DefaultPolicy, Tier B cache, 2026-07-21; per-instance table in
-`git show 77143f1:docs/implementation-notes.md`). Single preprocessing phase, so the filter only bites
-in later outer rounds: same eliminations at −36 % (`mod4block`) / −42 % (`combined-crypto1`) / −2.6 %
-(`clique_n2_k10`) resolutions with **bit-identical search**; no effect where BVE never fires
-(`mp1-blockpuzzle`, `x9-08014`). `qwh.50.1250` is the exception worth remembering: BVE is
-budget-saturated there (820 eliminated at 1 000 039 resolutions → **821** at 1 000 047), so the filter
-buys *more elimination per dose*, and the changed preprocessing output changes the search (5 458 → 2 134
-conflicts).
+## 8. Design decision: phase saving and rephasing
 
-## 7. Design decision: probing propagation restores search's bookkeeping
+Saved phases update on unassign, not assign. The shipped rotation is
+`B, B+W, I, B, B+W, O`: Walk augments Best rather than replacing it.
 
-**Problem (measured 2026-07-21).** A C3 Vivify round that vivified **zero** clauses — formula
-bit-identical — still cost `battleship-14-26` 1.95 M → **24.0 M conflicts** (17.9 s → 253 s). The
-channel is `kernel_propagate`'s incidental bookkeeping, not the formula: the delayed watch
-**relocations** and per-clause **`searched`** scan-resume hints, rewritten under probe assumptions
-search would never have made. Restoring them reproduced the Vivify-off run *bit-identically*. Ruled out:
-the VMTF cursor (`search_idx`/`search_stamp`) and arena GC.
+Warm-up remains live only behind `TACTIX_WALK_WARMUP`; it is not the default. Dry-walk is retained as
+a mechanism control. Rephase and Walk alter H only and emit no proof delta.
 
-**Lesson: "copy proprobe.c" is not the fix.** `kissat_probing_propagate` (`src/proprobe.c`) is a *second
-instantiation of the same `proplit.h` scan* as `propsearch.c`, differing only in the `ignore` parameter
-and which stats it charges — **kissat's probing relocates watches and rewrites `searched` exactly like
-its search propagation does**; its insulation comes from running probing in its own mode with the watch
-structures rebuilt around it. **Nor can we refrain from moving the watch:** propagation is *complete*
-under two-watched-literals only because a falsified watch is moved — for `(a b c d)` watched `a,b`, if
-`a` is falsified and the watch stays, later falsifying `c` and `d` leaves the clause unit on `b` with
-nothing to fire. (V2 Backbone's `kernel_propagate_binary` is non-mutating only because *binary* watches
-are permanent.)
+## 9. Design decision: reason-side bumping and dynamic tiers
 
-**Decision: one engine, an undo log.** `kernel_propagate_probing` (`kernel.cpp`) is
-`propagate_literal<RECORD=true>` — the same scan, so derived literals, their trail order and the
-recorded conflict are **identical** to `kernel_propagate`'s — logging every watch-list and clause-header
-update into `Kernel::probing`, rolled back by `kernel_probing_end` once the speculative trail is
-unwound. Search calls `propagate_literal<false>`, compiling to the pre-log code, so DefaultPolicy is
-**bit-exact** (`battleship-14-26`, `5col100_15_6`, `brent_63_0`). Mechanics:
+Reason-side bumping and dynamic learned-clause tiers are H-only heuristics; both default on and are
+individually revertible by `TACTIX_NO_BUMP_REASONS` and `TACTIX_NO_DYNAMIC_TIERS`. Their default
+decision is joint because either alone measured negative while the pair measured positive.
 
-- **Watch lists snapshot at FIRST TOUCH** in a scope (first real write of a scan or first delayed push);
-  **clause records replay in reverse** — the 3-cycle `(lits[0], lits[1], lits[r]) ← (other, replacement,
-  not_lit)` + `searched = r`, five words per relocation because undoing newest-first leaves `lits[1]`
-  holding that record's `replacement` (`kernel.cpp`, `kernel_probing_begin`/`_end`).
-- **The restore is conditional — a soundness requirement, not a nicety.** It fires only when trail size
-  / `propagate_head` / level are back at the scope's entry values: if a probing-derived literal turned
-  out root-implied and the backtrack KEPT it, the relocations made under it are load-bearing (undoing
-  them leaves a clause with no live watch able to fire when it later goes unit), so the log is discarded
-  and the updates stay.
-- **Scope contract:** no clause added, deleted, or relocated (GC) inside a scope — the log holds `Ref`s
-  and watch-list contents; both callers close the scope in their `unwind()`, before any `rewrite()`/unit
-  assertion. Outside a scope `kernel_propagate_probing` *is* `kernel_propagate`, safe for any N1 caller.
+- Reason bumping visits one reason level, is capped, and rolls back all-or-nothing on overflow.
+  `analyzed_seen` is the cap population; use `SEEN|REASON_BUMP`, and clear an explicit
+  `reason_bumped` list on every exit rather than assuming marked variables form a stack suffix.
+- Dynamic tiers are the 50%/90% integer quantiles of glue among used learned clauses, with explicit
+  empty/degenerate fallbacks.
+- The rule/kernel owns the bump set and tier computation; policy owns timing. Re-anchor the decision-rate
+  EMA on mode switches and retier at reductions and the capped doubling interval.
+- `TACTIX_REDUCE_SQRT` remains off; it is a separate dosing arm.
 
-**Wired into** V1 Probe (`probe_one`) and C3 Vivify (`vivify_one`), one scope per probe / candidate
-clause; V2 Backbone uses the binary engine; S5 Lucky still uses `kernel_propagate` (it runs before any
-search state exists). **Effect:** with Vivify enabled `battleship-14-26` goes 24.0 M conflicts / 214 s →
-**1.95 M / 14 s**, matching the Vivify-off run counter-for-counter (only `ticks` differs, by the 10,780
-ticks the round legitimately spent). N1 untouched: a kernel primitive, not a guard, and the conditional
-restore means no schedule can make it unsound.
+## 10. Design decision: Reorder
 
-## 8. Design decision: phases are saved at UNASSIGN, and kissat's rephase rotation does not port
+Reorder is an H-only policy operation and ships off. Its modes are 0=off, 1=stable only, 2=both.
 
-**The divergence.** Kissat writes `phases.saved[idx]` at **assign** time, on every assignment including
-propagated ones (`kissat/src/inlineassign.h`); we write `h->saved[v]` at **unassign** time, for the
-literals a backtrack pops (`kernel.cpp`). Both end up with "the phase this variable last had" —
-interchangeable for phase *saving*, **not for anything scheduled around them**: kissat's saved array is
-continuously refreshed by propagation, ours only when the trail shrinks. Two consequences, both measured
-2026-07-26 (Track W):
+For each open irredundant-clause occurrence, literal weight adds `2^-(size-2)` with size clamped to
+`[2,100]`. Variable weight is `max(w+,w-) + 2*min(w+,w-)`. Focused mode moves variables to the
+queue front in ascending weight; stable mode rescales then adds the weight. Binaries count through
+watches; redundant large clauses do not.
 
-1. **`Best` is load-bearing for us, not for kissat.** Kissat's rotation `B,W,I,B,W,O` spends two of six
-   slots on Walk instead of Best; porting it literally cost **4–7× on Tier B**, and a dry-walk control
-   (walk runs, assignment discarded) showed the damage was there *without* the walk's phases — the
-   missing Best consumption. Kissat can skip Best because its saved array already carries what Best
-   restores for us. Shipped `B, B+W, I, B, B+W, O` — Walk augments Best (`docs/design/s6-walk-design.md`
-   §6).
-2. **Warmup buys us nothing.** Both references warm up (decide + propagate-beyond-conflicts) before
-   every walk so the seed is propagation-consistent. Implemented and measured: two instances
-   bit-identical, one clearly worse — our saved phases come from a real trail and are
-   propagation-consistent *by construction*. **Not adopted as the default.** *(Corrected 2026-08-07:
-   this row read "not kept as dead code", which the source contradicts — `warmup()` is live at
-   `src/policies/ops/walk/walk.cpp:184`, opt-in behind `TACTIX_WALK_WARMUP`. It is kept deliberately,
-   as one of the five knob-gated Walk arms PROGRESS hands to the §5.6 dosing exhibit at phase 7, so
-   the measured negative is a shipped-default decision rather than a deletion.)*
+The root-level reference trigger belongs in policy, not the guard. Clamp clauses with fewer than two
+open literals and skip inactive variables. The VMTF invariant makes an extra search-cache reset
+unnecessary. Any parity claim must name the mode, formula, guard, and schedule.
 
-**The general rule this instantiates.** A reference solver's *schedule* is tuned against its own
-state-maintenance choices: before porting one, check whether the state it reads is maintained the same
-way here — and when a port regresses, ablate the schedule change separately from the mechanism it
-carries: ablating one feature never measures that feature, since the survivors re-allocate the effort —
-kissat's single-technique Tier C ablations sum to **+33.23** PAR-2 while all of them together cost
-**+14.32** (`20260727-002213-C-kabl`), a 2.3× inflation. The dry-run control (`TACTIX_WALK_DRY`) is kept
-for that.
+## 11. Design decision: wall-clock timers
 
-## 9. Design decision: reason-side bumping and dynamic tiers are ONE mechanism
+Timers are diagnostic only; no solver decision may read them.
 
-Both landed 2026-07-27 (commit `06325f2`), both default ON, both revertible (`TACTIX_NO_BUMP_REASONS`,
-`TACTIX_NO_DYNAMIC_TIERS`). Neither is a proof rule:
+- `Stats` owns per-rule nanos/calls, inprocess nanos, and solve nanos. Search time is derived as
+  `solve - inprocess`; the per-conflict M1/M2/M3 path is deliberately untimed.
+- Registry `apply_rule` and `apply_rule_instance` are the single timing seam for every policy/API.
+  An id beyond `MAX_TIMED_RULES` drops the sample rather than indexing out of bounds.
+- Internal rule-to-rule application would double-count and must be handled before such composition is
+  introduced.
 
-- **Reason-side bumping** (kissat `analyze.c analyze_reason_side_literals`, cadical
-  `bump_also_all_reason_literals`; MapleCOMSPS 2016) additionally marks the variables occurring in the
-  *reasons* of the learned clause's literals — one level deep, capped, rolled back all-or-nothing if the
-  cap is exceeded. It changes only which variables the VMTF queue / EVSIDS heap bump: **`H`-only, no
-  proof delta, no `calculus.md` entry.**
-- **Dynamic tiers** (kissat 4.0 `tiers.c`, cadical 3.0 `tier.cpp`) replaces the fixed bands `tier1 = 2 /
-  tier2 = 6` with the 50 %/90 % quantiles of the glue distribution of the clauses the search actually
-  *used*. Deleting redundant clauses is sound for any bands, so the bands are **configuration**
-  (`Kernel::tier1/tier2`, alongside `bve_bound`/`work_budget`), not a guard.
+## 12. Design decision: watch repair and conflict reuse
 
-**Why they ship together.** Same-window Tier C PAR-2 (`20260727-005552-C-pairs` /
-`20260727-003627-C-arms`, one array per window; full table in
-`benchmarks/reports/2026-07-27-tier-c-push.md`): shipped (dose 640 only) 322.84 → bumping alone 391.90 →
-dynamic tiers alone 424.26 → **both 273.21**, vs cadical 3.0.0's 308.10 in the same window (Tier B:
-13.46 / 52.20 with mod4block TIMEOUT / 11.40 / 14.58, cadical 19.53). Either alone is a clear loss and
-the pair a clear win — a real mechanism story: the bands are quantiles of *the glue distribution of the
-clauses the search uses*, which bumping changes, so bands calibrated for one search do not fit the
-other. Both references ship both, neither one.
+Conflict reuse may backtrack to the second-highest level and assign the sole conflict-level literal with
+the conflict clause as reason, without learning or emitting proof.
 
-**Two port traps, both load-bearing.** (1) *The bump-set size is not `k.analyzed.size()`.* kissat keeps
-`analyzed`/`removable`/`poisoned`/`shrinkable` on four stacks; we pack all marks into one `Kernel::seen`
-byte and use `k.analyzed` as a flag-cleanup list also carrying minimization scratch and, in LRAT mode,
-recorded antecedents. Its size as the cap denominator would inflate the cap by the minimization fan-out
-*and* make the trajectory differ between `--drat` and `--lrat` — hence the explicit
-`Kernel::analyzed_seen` counter, and hence the mark test `seen[v] & (SEEN|REASON_BUMP)`, not `seen[v]`
-(which would skip every minimization-chain variable and bump a much smaller set than the reference).
-Same failure shape as §8: a flag layout, not an algorithm. (2) *The rollback cannot be a stack pop.*
-kissat pops `analyzed` back to a saved size; our extras are not a suffix (a reason-side variable may
-already be in `k.analyzed` as minimization scratch), so rollback clears `REASON_BUMP` over an explicit
-`Kernel::reason_bumped` list.
-
-**Where the gate lives.** Per rev 17 the rule owns the bump SET and the tier COMPUTATION; the policy
-owns WHEN. `DefaultPolicy` holds the per-mode decision-rate EMA (with kissat's `mode.c` re-anchor at
-every mode switch — **omit it and the EMA stays pinned above the rate threshold and the mechanism
-silently never fires**), kissat's doubling delay ladder, and the two retier channels (at every
-reduction, and on a doubling conflict interval capped at 2^16). Tier quantiles use integer thresholds,
-never `total * 0.5`, so the bands cannot depend on host libm (the battleship cross-toolchain determinism
-lesson, §5).
-
-**Measured and NOT adopted:** kissat's reduce cadence `reduceint·√reductions` + its ramped 50 %→90 %
-deletion fraction (`TACTIX_REDUCE_SQRT`, default off). The arithmetic divergence is real — at 100
-reductions kissat's next interval is 10 k conflicts and ours 32 k — but it measured a loss on both tiers
-with the pair above (Tier C 294.78 with all three vs 273.21; Tier B 52.60 vs 14.58). Kept as a knob
-because the cadence is a §5.6 dosing arm, not because it is dead.
-
-## 10. Design decision: S7 `Reorder` — the guard is weaker than kissat's trigger
-
-Landed 2026-07-28 (Track R · R4, commit `4482bb5`) as a **policy operation**: it rewrites only the
-decision ranking, so it has no proof delta, no `calculus.md` entry and no ledger row (§1's carve-out).
-Ships **OFF** (`TACTIX_REORDER`, mirroring kissat's `reorder`: 0 = off, 1 = stable only, 2 = both modes)
-— permitted because it is a policy operation; the all-rules-ON directive (§1) covers proof rules.
-
-**What it computes.** Literal weight = Σ over the irredundant clauses it occurs in of `2^-(size-2)`,
-size counting only OPEN literals (binary 1, ternary ½, …, floored at `reordermaxsize = 100`); variable
-weight = `max(w⁺,w⁻) + 2·min(w⁺,w⁻)`, rewarding mass on BOTH polarities. Focused mode moves every
-variable to the queue front in ascending weight order; stable mode rescales first and ADDS the weight,
-so structure dominates and accumulated EVSIDS order survives only as a tiebreak. Binaries are read off
-the watch lists (never materialized in the arena) and, exactly as in kissat, redundant binaries count
-while redundant large clauses do not — an asymmetry of kissat's data layout we inherit because ours has
-the same shape.
-
-**Three recorded deviations, all in the direction of a WEAKER guard (N1).** (1) `kissat_reordering` also
-requires `!solver->level` — a property of its call site, not a precondition (the weight is read off the
-*current* assignment, which at a drained root coincides with the root formula), so the level test lives
-in `DefaultPolicy::want_reorder` (the schedule), not in `reorder_guard` — the same split as Rephase's
-coupled root backtrack. (2) kissat's size→weight table is `nalloc`'d and never initializes entries 0/1,
-safe only because at its call site an unsatisfied irredundant clause always has ≥ 2 open literals; off a
-fixpoint that fails, so our lookup clamps to 2. (3) kissat skips inactive (fixed/eliminated/substituted)
-variables via `flags.active`; we have no such flag, and the closest analogue — "assigned under the
-current assignment" — is what the value tests use.
-
-**Why the focused path needs no search-cache repair** (checked — the obvious place for a mid-trail
-application to break). `queue_bump` refreshes the VMTF cache only for variables it MOVES and
-early-returns on one already at the tail, so a defensive `reset_queue_search` looks warranted — it is
-not: with the invariant "every variable after `search_idx` is assigned", the only variable that can fail
-to move is the incoming tail X, and if X is unassigned the invariant forces `search_idx == X`;
-everything bumped afterwards goes behind it in ascending weight order, the last unassigned one
-refreshing the cache. The reset would be a no-op with a cost.
-
-**Prior on the measurement.** kissat's own whole-tier ablation (`20260727-002213-C-kabl`): `--reorder=0`
-costs kissat **−0.67** PAR-2 on Tier C — a non-detection inside the noise floor, not a measured zero, and
-certainly not a lever. Landed for inventory completeness under the "implement every reference rule" directive;
-the A/B is expected to confirm the reference's own verdict rather than promote it.
-
-## 11. Design decision: wall-clock phase timers are diagnostic-only, and search is DERIVED
-
-`Stats` carries `rule_nanos[]`/`rule_calls[]` (per registry rule id), `inprocess_nanos` (the whole
-slot) and `solve_nanos` (set by the frontend); `main.cpp` prints them as the `c timing` block. Three
-decisions are load-bearing.
-
-**(a) Nothing may read a clock back.** The fields follow `inprocess_propagations`' contract exactly:
-written by the dispatch wrapper and the policy, never read by the kernel, a guard, or any decision.
-A clock that reached a decision would make runs irreproducible and would silently break every
-bit-exactness gate the project relies on (Track H, TB4, the corpus). Enforced by inspection — the
-identifiers appear only in `kernel.hpp` (declaration), `registry.cpp` + `default_policy.cpp` (writes)
-and `main.cpp` (the report) — and empirically: 5 instances across both verdicts reproduce decisions
-AND conflicts to the digit against the pre-timer build, and a same-window Tier B A/B writes
-byte-identical proofs (251.5 MB both arms) at 9.04 vs 9.21 PAR-2, i.e. no measurable cost.
-
-**(b) The per-conflict path is deliberately NOT timed.** DefaultPolicy dispatches M1/M2/M3
-statically, so a timer there would fire per propagation/conflict — exactly the hot-path cost N3
-cannot pay. Instead the *interruptions* are measured (the inprocessing slot, and every rule reached
-through the registry) and **search is derived as `solve − slot`**. That is also the more useful
-quantity: the question the block exists to answer is "how much of the wall clock is inprocessing, and
-which rule", not "how many ns is one propagation".
-
-**(c) The seam is the registry, not DefaultPolicy.** `apply_rule` / `apply_rule_instance` wrap
-`vt.apply` / `vt.apply_instance`, and every dispatch outside `src/rules/` routes through them — the
-C API (`tactix_apply`, `tactix_apply_instance`), the random and stress policies, and DefaultPolicy's
-slot. Instrumenting DefaultPolicy alone would measure the default schedule only; N1's whole point is
-that any policy may drive the rules, and a profile that goes blind under an external policy is the
-wrong instrument for the §5.6 learner. `RuleVTable::id` (index after the name-sort) is what lets a
-vtable reference charge its own slot without callers threading ids around; an id at or beyond
-`Stats::MAX_TIMED_RULES` drops the measurement rather than scribbling on a neighbour.
-
-**Known gap:** a rule that applied another rule internally would double-count. No rule does today
-(§5.3 keeps them self-contained), and the slot's `(unattributed)` line — `inprocess_nanos` minus the
-rules charged inside it — is where such a discrepancy would show up as scaffolding cost.
-
-## 12. Design decision: the watch-repair primitive, and what the conflict-reuse shortcut needs from it
-
-TB4b(A) (`Kernel::conflict_reuse`, kissat `analyze.c one_literal_on_conflict_level`) resolves a
-conflict whose literals are all below the conflict level except one by **backtracking to the
-second-highest level and assigning that literal with the conflict clause itself as its reason** —
-learning nothing, emitting no proof line. Reusing a clause as a REASON is what makes it a watch
-problem.
-
-**The invariant.** The two-watched-literal scheme survives backtracking because of one property: a
-FALSE watched literal at level `d` is always paired with a watch that is TRUE at level `≤ d`, so
-unassigning can only ever take the false watch out first, never strand the clause. After the reuse
-the forced literal is the clause's only true literal and it sits at `jump2`; therefore the other
-watch must be a literal at **exactly `jump2`**, not merely at or below it. With a lower-level partner
-a backtrack under `jump2` unassigns the forced literal while the partner stays false, nothing
-rescans the clause, and it sits unit at a claimed fixpoint — the
-`unit large clause escaped propagation` assertion that aborted regression corpus **002 and 005** on
-the first version of the shortcut.
-
-**The primitive.** The kernel could ADD a large-clause watch (`WatchLists::push_large`) but never
-REMOVE one without deleting the clause, so every rule that needed to re-point a watch allocated a
-fresh clause instead (`otfs_strengthen` does exactly that). `kernel_unwatch_large` is the missing
-inverse — the same write-cursor compaction `kernel_delete_binary` uses, entry-aware because a large
-watch is two words and a binary one — and `kernel_promote_watched_lit` is the unwatch/swap/watch
-triple built on it (kissat `watch.h`). Both change only WHICH literals a live clause watches:
-membership, size, id, redundancy and arena position are untouched, so the proof stream, the dense
-occurrence index, every recorded `Ref` and every LRAT chain stay valid. Preconditions (asserted): the
-clause is live and watched by the named literal, no propagation scan is in flight (`delayed` empty —
-a scan holds raw pointers into the slice being compacted), and no probing scope is recording (its
-rollback log would not see the edit).
-
-**Layering.** The level ranking lives in the RULE (`repair_conflict_watches`, analyze.cpp); only the
-watch transfer is a kernel primitive, because the watch arena's relocation hazards are kernel
-knowledge. Nothing here is scheduling: the repair fires exactly when the shortcut fires, so every
-path the shortcut declines is byte-identical to before.
-
-**Deviations from kissat, both deliberate.** (a) kissat runs the repair for EVERY conflict of size
-> 2, before it knows whether the shortcut applies, so its ordinary analysis also starts from a
-re-sorted clause; we run it only when the shortcut is about to fire, which keeps the learning path
-unchanged. Widening it is a separate TB4b divergence with its own measurement. (b) The shortcut is
-still restricted to the FIRST analysis round (an OTFS-strengthened conflict is a clause this analysis
-just built; kissat takes the shortcut there too).
-
-**Why it is chrono-only, and why that governs how it must be tested.** Under complete propagation on
-a level-sorted trail "exactly one literal at the conflict level" is IMPOSSIBLE: if every other
-literal sat below level `M`, the clause was already unit before `M` and would have propagated. The
-shape exists only after a CHRONOLOGICAL backjump, which keeps out-of-order literals and re-propagates
-from the level boundary. Measured consequence: at the shipped `chrono_levels = 100` a 90-variable
-random 3-SAT produces **0 reuses over 2,105 conflicts**, so a small-instance test of this mechanism
-measures nothing ([[ab-arm-identical-artefacts]]). `--reuse-stress-policy` forces the ingredients
-(reuse ON, every backjump chronological at the top of the legal range, frequent drops to random
-levels each followed by propagation to a fixpoint and `kernel_check_invariants`).
-
-**Audit finding — the 2026-07-28 negative tier verdict was on a BROKEN arm, not a crippled one.**
-`analyze_apply` clears `pending.valid` on the reuse path, and `conflictanalysis_apply_instance`
-checked it from the start; **DefaultPolicy's white-box micro-loop did not**. With the arm ON every
-reuse therefore ran the whole learn/backjump tail on the PREVIOUS conflict's pending record: a stale
-glue sample into the restart EMA, then `backjump_apply_to` clamping to a stale `jump_level` (forced
-to 0 whenever that record was a learned UNIT), **backtracking away the reuse's own assignment**, and
-finally counting a `backjump_stale` — TB4's standing must-stay-0 signal. Only DefaultPolicy was
-affected, which is why `--random-policy` and the regression corpus stayed green. Same family as TB4's
-own lesson: audit a negative verdict before accepting it. The re-measurement (which does **not**
-conclude the mechanism is free — it costs ~2 % Tier B(28), and core14 vs new14 order the crippled and
-un-crippled arms oppositely) is `benchmarks/reports/2026-08-01-tb4b-watch-repair.md`.
+- A false watch at level `d` must be paired with a true watch at level at most `d`. After reuse, the
+  other watched literal must be at exactly the reuse jump level or a later backtrack can strand a unit.
+- `kernel_unwatch_large` and `kernel_promote_watched_lit` own watch-arena mutation. Preconditions:
+  the clause is live and watched by the named literal, delayed propagation is empty, and no probing
+  scope is recording.
+- The rule selects the level-ranked watched pair. Repair runs only when the shortcut will fire and only
+  in the first analysis round; widening either choice is a separate measured deviation.
+- The shortcut is reachable chiefly after chronological backtracking, so tests must force that shape.
+- Reused conflicts are consumed by the first analysis round only. If reuse clears pending state,
+  DefaultPolicy must stop the learn/backjump tail rather than analyze stale state.
 
 <!-- parity-ledger:begin -->
 ## 13. The scheduling-parity ledger (N4's operational test)
@@ -1037,175 +639,38 @@ option is still not scheduling evidence; §16 is rule-inventory evidence.
 
 <!-- parity-ledger:end -->
 
-## 14. Design decision: binaries have an IRREDUNDANT lifecycle, so binary subsumers need no redundancy check
+## 14. Design decision: binary-clause lifecycle
 
-**Question.** C1 `SubsumeForward` and C2 `Strengthen` delete an *irredundant* candidate `C` on the
-strength of a subsuming **binary** `D ⊆ C`, at three sites — `subsumed_by_binary` and
-`subsume_forward_try` (`subsume_forward.cpp`) and `find_partner`'s phase-0 SUBSUMED branch
-(`strengthen.cpp`) — with no check on `D`. Their large-clause counterparts *do* skip `d->redundant()`.
-Is the missing binary check a defect?
+Binary clauses are currently irredundant and carry no redundant/irredundant lifecycle bit. Consequently
+C1/C2 need no binary-redundancy guard.
 
-**The criterion (and the one the 2026-07-17 note got wrong).** The invariant a clause deletion must
-preserve is the inprocessing one: *every model of the IRREDUNDANT formula `F` reconstructs through `ρ`
-to a model of `F₀`*. Deleting `C` preserves it whenever `D ∈ F` at that moment — `m ⊨ F∖{C} ⟹ m ⊨ D ⟹
-m ⊨ C`. **That argument closes at the deletion**; it claims nothing about `D`'s future, because every
-later `F`-rewrite carries the same obligation for the state *it* produces (it either leaves `F ⊨ D`, or
-pushes the `ρ` witness that repairs `D`, and witness-covered rewrites compose with an earlier
-equivalence-preserving deletion). The only fate that breaks it is `D` being **FORGETTABLE** — a member
-of the redundant set `R`, which `Forget` may drop with neither entailment nor a witness. That, and only
-that, is what the large-subsumer `d->redundant()` skips exist for.
+Every binary deletion must be justified either by current formula entailment or by the owning
+reconstruction witness; reasons may not be deleted while live. If a redundant-binary lifecycle is added,
+reopen the representation, reduction, reason-locking, proof-deletion, and regression-test decisions
+together.
 
-The header condition written with V4 (`subsume_forward.hpp`, and
-`docs/design/v4-transitive-reduce-design.md` §5 — **frozen, superseded on this point**) instead required
-that *no rule later delete `D` in a way that enlarges the model set*. That is strictly stronger than
-necessary and names the wrong event: a witness-covered rewrite enlarges `F`'s model set by design.
+## 15. Design decision: eager subsumption after analysis
 
-**The enumeration (why no binary is ever forgettable).** `kernel_add_binary_clause` takes no `redundant`
-parameter and the binary watch word has no spare bit (`watch.hpp`), so every binary — including a
-learned one from `Analyze` — has an irredundant lifecycle (`kernel.cpp`). The `Forget` paths — S2
-`Reduce` (`reduce.cpp`) and E1 BVE's redundant clauses on the pivot (`bve.cpp` `del_large`) — act on
-arena `Ref`s only and cannot reach one; `kernel_collect_garbage` copies binary watch slots verbatim.
-Every binary deleter, complete as of 2026-08-05:
+Eager subsumption is an M3 sub-step, not a separately schedulable proof rule.
 
-| rule | site | why `C`'s constraint survives |
-|---|---|---|
-| V4 `TransitiveReduce` | `transitive_reduce.cpp` | surviving BIG path `P ⊨ D` (equivalence-preserving) |
-| E2 `Factor` | `factor.cpp` | the aux-var definition entails the replaced grid binary |
-| E1 `BVE` | `bve.cpp` `del_bin` | root-satisfied binaries only — entailed by the units |
-| V3 `Substitute` | `substitute.cpp` (satisfied / tautological / already-present rewrite) | entailed by the units or by the surviving rewrite |
-| V3 `Substitute` | `substitute.cpp` (the rewrite proper) | `ρ` witness pair `{r,¬l}` / `{¬r,l}` per substituted variable |
-| X1 `BCE` | `bce.cpp` | `ρ` witness on the blocking literal |
-| E1 `BVE` | `bve.cpp` pivot clauses | `ρ` witness on the pivot |
+- It runs after backtracking, selects only clauses subsumed by the learned clause, and routes deletion
+  through S2/proof deletion.
+- It uses Kissat's recent-learned shift register; `Kernel::eager_subsume` defaults to 4 and zero disables
+  it. It is not an inprocessing registry action and owes no effort-spec row.
+- Reason-locked clauses are skipped.
+- Clause removal must update watches, occurrence data, and all affected indices through the normal
+  deletion path.
+- Coverage must include a case where the candidate is locked and a case where deletion is proof-checked.
 
-**Verdict: no defect at any of the three sites** — not an unsound deletion, and not an unverifiable
-certificate either (`D ⊆ C` means `D` propagates at least as strongly as `C`, so removing `C` while `D`
-lives cannot cost a later RUP check; and `del` needs no chain). `binary_is_redundant(k,a,b)` would be a
-constant `false` — dead code.
+## 16. No-implement decision: X5 Condition
 
-**The one trigger that reopens it:** a rule that gives binaries a **redundant lifecycle** — a stored
-redundant bit, or any `Forget` that can reach a binary. Then the check becomes mandatory at all three
-sites at once. *A binary deletion that is merely non-equivalence-preserving is NOT a trigger*; V3, X1,
-E1 and E2 all do that today.
+X5 remains deliberately unimplemented. Its cube-conditioned reconstruction cannot be represented by the
+current one-clause witness map rho, and no accepted reference schedule requires it by default.
 
-**Evidence (2026-08-05).** `tests/test_subsume.cpp` `test_binary_subsumer_then_substitute` pins the V3
-case end to end: C1 deletes `C` on binary `D`'s strength, V3 deletes `D` and rewrites it onto the SCC
-representative, and `ρ` restores `C` under the *worst* search assignment to the substituted variable.
-It is load-bearing, not vacuous: with V3's `kernel_push_witness` pair suppressed (a throwaway
-negative control — exactly the "constraint evaporates with no repair" fate the guard was meant to
-prevent) it fails on `k.values[l4] > 0`.
-Reachability was counted at the source (temporary probe on the two C1 sites, the C2 site and both
-`kernel_delete_binary*`, reverted before commit). Random-policy DRAT, 1 500 cases: 3 826 binary-subsumer
-uses, **553 of those binaries later deleted**, in **15.8 %** of solver processes. Random-policy native
-LRAT, 1 500 cases: 2 983 uses, **269 later deleted — 65 of them by V3 `Substitute`** (the named trigger),
-in **8.4 %** of processes. So the green legs are not vacuous. The uniform policy saturates the pattern,
-which is why no bespoke stress policy was written for it.
-
-## 15. Design decision: eager subsumption is a `ConflictAnalysis` sub-step, not a rule
-
-**The question (SCHED-C6, ledger `SP-EAGERSUB-1`).** It deletes clauses, so N2 applies. Does it get a
-registry entry and a `calculus.md` rule of its own?
-
-**No.** The clauses it deletes are **redundant**, and deleting a redundant clause is licensed
-unconditionally by S2 `Forget`/`Reduce` — no subsumer, no entailment argument. So the subsumption test
-is not the deletion's justification, only how the victims are **chosen**, and §5 puts selection in the
-policy layer. A registry entry would carry `∃ d ∈ R : d ⊋ c` as its precondition — a heuristic in a
-precondition's clothes, the exact shape N1 forbids. Contrast **C1 `SubsumeForward`**, which *is* a
-rule: it deletes **irredundant** clauses and the subsumer is the whole argument (§14).
-Redundant-vs-irredundant is the line, not "does it subsume".
-
-Three architectural facts agree: it fires once per conflict, on the search path the registry
-deliberately never dispatches; `Inprocess` is the quiescent-root slot and this runs mid-descent, so
-registering there is simply wrong (and would owe an `EFFORT_SPECS` row for something O(1) by
-construction — none is owed, because no rule is registered); and its guard would be "the previous
-action was a learn", the control state D-SPLIT removed (§4). Precedent: M3's proof δ has said "*and a
-`del` of each clause it subsumes*" since OTFS landed. Mechanism in `analyze.cpp`, control in
-`Kernel::eager_subsume` (ENV, ships ON at kissat's default 4, `TACTIX_EAGER_SUBSUME=0` reverts).
-
-**Which reference.** kissat's **shift register** (`learn.c:70-208`, MIT), not cadical's backwards
-walk: cadical scans a `clauses` vector from the end, and our large clauses live in a flat
-variable-length arena that cannot be traversed backwards at all. Related open gap: `SP-ARENA-1`, since
-without kissat's arena ordering the backwards walk would not select the same population anyway.
-
-**The one deviation from kissat: we skip a candidate that is still a trail REASON.** Kissat does not
-check. We must, twice over — `kernel_collect_garbage`'s only garbage-reason case is a root-fixed
-literal (regression corpus 003), and an LRAT chain that later walks that reason would cite a deleted
-id, which `cake_lpr`/`lrat-check` reject and drat-trim does not. Both are consequences of our design.
-
-**Where the call sits.** In `backjump_apply_to`, after the backtrack — kissat's own position. The
-obvious alternative, the tail of `analyze_apply`, is **worthless** for a reason that is a theorem:
-`kernel_assign_ref` stamps a forced literal with the max level of its reason's other literals, and a
-candidate `C ⊋ D` contains `D`'s UIP, so `C`'s forced literal is at or above the conflict level and is
-always still assigned before the backjump. Measured: every pre-backjump reason-skip was freed by the
-backjump, and moving the call took deletions 8,297 → 30,613 with zero reason-skips. The reason check
-stays regardless, because `backjump_apply_to` honours chronological targets and N1 lets a policy pick
-any level in `[jump_level, level-1]`.
-
-**Reachability of the guard itself.** By that theorem DefaultPolicy reaches the reason check **zero**
-times, so no fuzz or tier leg can exercise the branch protecting N2 here. It is pinned by
-`tests/test_analyze.cpp` `test_eager_subsume` case (c), which builds the state directly — the
-alternative was a green leg that is vacuous exactly where it matters
-([[ab-arm-identical-artefacts]]).
-
-**No bespoke stress policy:** the obligation is for a change that opens new schedules, and this opens
-none. The two genuinely new interactions (a register Ref surviving a garbage collection, a redundant
-clause dying mid-descent) are what `--random-policy` produces by construction; the third, the reason
-guard, is unreachable by scheduling, so only the direct unit test can reach it.
-
-## 16. Design decision: X5 `Condition` is NOT implemented — `ρ` cannot hold a witness CUBE
-
-**Track R · R7, closed 2026-08-06 as a reasoned non-implementation.** Ledger id **`SP-COND-1`**. No
-`src/rules/condition/`, no registry line, no `EFFORT_SPECS` row, no `calculus.md` entry (only the
-pointer note after X1).
-
-**What the rule is.** cadical's `condition.cpp` eliminates *globally blocked* clauses: `C` is globally
-blocked w.r.t. a witness cube `ω` when `ω` is an autarky of `F` conditioned on `¬C`. Deletion is
-satisfiability-preserving and a model of `F ∖ {C}` is repaired by flipping **every literal of `ω`**.
-X1 BCE is the special case `ω = {l}, l ∈ C`.
-
-**Reference situation, read at the source.** **kissat does not have it in any form** — the `condition`
-hits under `kissat/src/` are congruence's ITE gate-condition sets, an unrelated notion — so Track R's
-X5 row is **cadical-only**. cadical ships it OFF (`options.hpp:58`), which is context rather than the
-reason, since `block` is also off there and we ship BCE ON. It is the only consumer of cadical's
-multi-literal witness format.
-
-**The decisive reason: a `ρ` FORMAT limit, not an effort one.** `Kernel::reconstruction` stores one
-segment per weakened clause, `[rest…, witness, len]`; `kernel_extend_model` tests satisfaction of the
-whole segment and sets that **single** witness true (`kernel.cpp:1218`). Two properties are hard-coded
-there that Condition breaks: the witness is **one** literal, and it lies **inside** the clause. A cube
-cannot be split across segments — each would place its own witness inside its own satisfaction test,
-the wrong-SAT shape BCE hit once already — and restricting the cube to one in-clause literal makes
-globally-blocked ≡ blocked, i.e. X1, which already ships ON.
-
-**Not a we-are-behind-kissat gap:** kissat's extension stack has the same shape ours does
-(`weaken.c:36-44`). cadical had to introduce a witness *section* to carry this one technique. Landing
-X5 means changing the `ρ` segment format, `kernel_extend_model`, and all five `kernel_push_witness`
-call sites — an architecture RFC per §5.3, not a one-directory landing. **R6 CCE does NOT need the
-same thing** (`cover.cpp:411` pushes a single witness literal per segment), so the revamp would buy
-exactly one rule; checked so the two Track R items are not bundled on a false premise.
-
-**Measured, so the closure is not purely structural** (probes `1585043`, `1585044`; paired cadical
-`--condition=true` vs default, all 30 Tier C). Yield is real but small — fires on 13 of 30 instances,
-2-550 clauses — and **no solve flips in either direction**, at **+11.3 % total wall**. Cost per
-elimination is enormous (~1.4 M propagations each on `ContextModel`). Per-instance is a lottery, so
-the aggregate is directional, not a verdict ([[chaotic-instance-veto]]). Two findings worth keeping:
-the witness cube is **small** (final autarky 1.0-5.6 against initial 4k-11k), so `ρ` growth is not the
-problem and representability is; and where the cube averages 1.0 those are plain blocked clauses X1
-already takes, making the genuinely-new yield smaller still.
-
-**Architecture friction beyond `ρ`.** `condition_` fabricates a **total** assignment at a synthetic
-decision level, then mutates `trail`/`level`/`Var::level` and restores them. Our Inprocess rules run
-at a quiescent root, so the rule would have to build and tear down a total assignment through kernel
-trail primitives — kernel surface again, not rule surface.
-
-**What would reopen it.**
-1. **A `ρ` revamp giving `kernel_push_witness` a witness section** — today's five call sites passing
-   `nwitness = 1`. That is the RFC; with it X5 becomes an ordinary §5.3 landing, and it is also the
-   prerequisite for set-blocked and PR-clause elimination.
-2. **Yield evidence that survives a JOINT measurement.** Judging a rule alone is the one measurement
-   this family defeats (X1/X2/X4 alone 21.79/53.26/13.08 Tier B PAR-2 vs 9.22 together), so the number
-   above is a *lower* bound. A re-open should be triggered by an X1+X3+X5 arm, never an X5-alone one.
-3. **A reference reversal** — cadical defaulting `condition` on, or a competition entry enabling it.
-   Neither holds at the pinned clone.
+There is therefore no registry entry or abstract calculus rule. Reopen only if (1) the witness
+representation gains ordered conditional reconstruction, (2) a required reference/default schedule uses
+Condition, or (3) measured evidence shows value sufficient to fund the proof/model complexity. A mere
+implementation sketch is not a reopening trigger.
 
 ## 17. The rule-inventory disposition table (the phase-3 exit, made checkable)
 

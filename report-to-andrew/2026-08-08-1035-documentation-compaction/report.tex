@@ -1,0 +1,68 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\title{Tactix Documentation Compaction}
+\author{Tactix Development Project}
+\date{August 8, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive summary}
+The three largest rule-development documents were compacted without changing the
+solver calculus or dropping an active requirement. Historical narration now lives
+in Git and frozen evidence, while the living documents retain the formal rules,
+implementation invariants, current deviations, and reusable experimental lessons.
+Automated size limits were tightened to prevent silent regrowth.
+
+\section{Findings and results}
+\begin{itemize}
+  \item \texttt{docs/calculus.md} now uses a short statement of authority and
+  abstract state while retaining every rule's precondition, effect, proof delta,
+  and soundness argument. It is 544 lines, down from 581.
+  \item \texttt{docs/implementation-notes.md} is 718 lines, down from 1,253.
+  Closed experiment chronology was replaced by current invariants, exact defaults,
+  ownership boundaries, and reopening triggers. The active scheduling-parity ledger
+  and rule-inventory table remain intact.
+  \item \texttt{docs/lessons.md} is 63 lines, down from 121 and from roughly
+  25 KiB to 6 KiB. Retractions and obsolete magnitudes were removed; the current
+  methodological conclusions remain self-contained.
+  \item \texttt{tools/docs/check-doc-size.py} now caps these files at 600, 800,
+  and 100 lines respectively, leaving modest editing headroom.
+\end{itemize}
+
+\section{Evidence}
+The document-size, reference-option coverage, and rule-inventory checks all pass.
+The option audit accounts for all 418 pinned reference options, and the inventory
+accounts for all 28 rule families. The release test suite passed 57 of 58 tests.
+The sole failure, \texttt{comment\_hygiene}, reports two first-person comments in
+pre-existing source edits outside this documentation change; those user changes
+were deliberately not modified.
+
+Primary sources are \texttt{docs/calculus.md},
+\texttt{docs/implementation-notes.md}, \texttt{docs/lessons.md}, and
+\texttt{tools/docs/check-doc-size.py}. Historical detail remains recoverable from
+the repository history and the frozen material under \texttt{benchmarks/reports/},
+\texttt{docs/design/}, and \texttt{docs/log/}.
+
+\section{Risks and decisions}
+The calculus was compacted conservatively because its detailed soundness arguments
+are implementation requirements, not disposable narrative. The implementation
+notes received a second semantic audit after the initial edit; exact configuration
+defaults, proof-ID rules, retry-mark sources, scope ranges, and watch invariants were
+restored wherever a shorter summary would have required a future agent to consult
+history. No benchmark or solver-behavior claim was changed.
+
+\section{Next actions}
+Future edits should keep one fact in one living-document home and point to frozen
+evidence rather than copying experiment narratives. Any addition that exceeds the
+new size budgets should first remove superseded material or justify a deliberate
+budget revision. The unrelated source-comment hygiene failure can be resolved by
+the owner of the current kernel/policy work before that source increment lands.
+
+\end{document}
