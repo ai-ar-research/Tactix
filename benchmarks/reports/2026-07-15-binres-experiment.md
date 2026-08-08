@@ -8,7 +8,7 @@
 - Campaign: phase-3 independent-lineage revisitation, item (1)
   (`docs/independent-lineage-survey.md`); protocol = adopt-or-revert on
   Tier B 3-run per-instance medians + Tier C, jobs=4 throughout.
-- Baseline: HEAD e7a19ff. Both Tier C runs at the pre-rev-29 timeout
+- Baseline: HEAD e7a19ff. Both Tier C runs at the pre-decision (5f151ed) timeout
   (3000 s) — internally comparable; not comparable to future 1200 s runs.
 
 ## What was tested

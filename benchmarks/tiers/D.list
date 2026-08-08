@@ -12,7 +12,7 @@
 # Runner settings come from tools/bench/run.py, not from this file:
 #   timeout 5000 s (TIER_TIMEOUT["D"]), memory cap 16 GB (TIER_MEM_GB["D"]
 #   => cpus-per-task = ceil(16/8) = 2 under the 8 GB/core rule, §8.1),
-#   proof-checker budget max(3600, 4 x 5000) = 20000 s (§8.1 rev 72).
+#   proof-checker budget max(3600, 4 x 5000) = 20000 s (§8.1 decision (d0bb6ec)).
 # Fetch instances: tools/bench/fetch.py --tier D   (hashes in D.sources)
 #
 # SOURCE QUERY (Global Benchmark Database, https://benchmark-database.de):

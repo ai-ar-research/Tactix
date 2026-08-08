@@ -12,7 +12,7 @@ designs died on that one instance. The goal of this expansion is therefore not
 
 **Environment / allocation shape.** SLURM, partition `cpu-dense-hwulab-q`,
 1 cpu + 8 GB per task, **throttle %48** for every reported number, proof logging
-ON for every arm (plan §8.1 rev 72). Reference solver: pinned kissat 4.0.4
+ON for every arm (plan §8.1 decision (d0bb6ec)). Reference solver: pinned kissat 4.0.4
 (`tools/solvers/bin/kissat`, `kissat/VERSION` = 4.0.4). Repo at `dcaa2f2`.
 Screening arrays ran at %48 (rounds 1–2) and %32 (confirmation repeats); the
 reproducibility probes at %5. Every solver execution went through `sbatch`
@@ -90,7 +90,7 @@ runtime). The probe harness imports `tools/bench/run.py` and calls its
 ## 3. Recalibration of the existing 14 — the dead-clock problem
 
 The old `ref_seconds` column was measured on the retired **Apple M3 Pro**
-(proof-free, 2026-07-09 freeze). Plan revs 64/65 declare all M3-era numbers
+(proof-free, 2026-07-09 freeze). Plan decisions `dff3938` and `fc07389` declare all M3-era numbers
 invalid, so that column could not be mixed with new cluster numbers.
 
 All 28 instances were therefore measured in **one window, one clock**

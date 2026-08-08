@@ -94,7 +94,7 @@ this window**, and the reason is in the data rather than in hindsight:
 so do `c6eagoff`, `f1touchoff` and `f67bandon`, three arms with no mechanism in common with them or with each
 other (one turns eager subsumption OFF, one turns the touched-epoch filter OFF, one turns the redundant band
 ON). **With the two cliff instances excluded, `n1glueoff` and `n2tumbleoff` gain nothing** (23/26, like every
-other arm except `r9off`). Neither is acted on: the transliterated default stands under rev 90, and the
+other arm except `r9off`). Neither is acted on: the transliterated default stands under decision (7215698), and the
 apparent +2 was the tier's cliff, not the clamp or the decision order.
 
 **One correction to the anchor while we are here.** The pre-landing headline was 103.75 PAR-2, 24/28 at

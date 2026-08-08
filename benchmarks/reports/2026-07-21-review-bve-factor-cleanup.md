@@ -26,12 +26,12 @@ Kept (documented A/B knobs for the effort-budget work + load-bearing):
 
 ### 1. Rule-vs-policy leakage — Factor density=8 (axis 4, highest priority) — MEDIUM
 `factor.cpp:189` — `density = 8` is a WHEN/WHICH scheduling threshold baked into
-the rule (which instances to factor). Per §5 rev 17 this belongs to the Policy;
+the rule (which instances to factor). Per §5 decision (7c4e85a) this belongs to the Policy;
 it lives in the rule as a `NoOp` selectivity heuristic (N1-pure — every factoring
-stays API-applicable). **Owner: the effort-budgeted scheduler (plan rev 53)**,
+stays API-applicable). **Owner: the effort-budgeted scheduler (plan decision (06d3a8b))**,
 which is where the selectivity moves to policy and where `density=8` (an overfit
 magic number, shipped as the BVE-last stopgap) is superseded. Already documented
-as a deviation in `implementation-notes.md`. No separate action — folds into rev 53.
+as a deviation in `implementation-notes.md`. No separate action — folds into decision (06d3a8b).
 
 ### 2. Redundancy — the binary-watch-scan idiom duplicated ×7 (axis 1) — LOW-MEDIUM
 The pattern `ws = watches.arena.data() + heads[l].offset; for i: Watch w{ws[i]};
@@ -57,5 +57,5 @@ see adversarial grids at small scale. Not blocking; folds into the next fuzz pas
 ## Verdict
 The hot rules are materially cleaner (bve.cpp −110 lines). No new soundness or
 N1–N3 concern. The one architectural debt that matters (density in the rule) has
-an owner and a removal path (rev 53). Items 2–3 are low-priority hygiene/coverage,
+an owner and a removal path (decision (06d3a8b)). Items 2–3 are low-priority hygiene/coverage,
 recorded for a later pass or their phase gate.

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-24 (overnight session). **Git:** det-fix landing (see PROGRESS
 Log). **Hardware:** cluster `cpu-dense-hwulab-q`, job-array protocol (plan §8.1
-rev 64), one core + 8 GB per run. **All runs this report cites are same-cluster,
+decision (dff3938)), one core + 8 GB per run. **All runs this report cites are same-cluster,
 same-binary-family (gcc-13/libstdc++) unless marked M3.**
 
 ## Symptom
@@ -55,7 +55,7 @@ of this reproducible across toolchains — that fix stands on its own).
   construction; fuzz 18 k cases 0 failures (quick 10 k, random-policy+LRAT 4 k,
   congruence-stress+LRAT 4 k).
 - **Factor density default 8 → 6** (same stopgap class as 1→8; the effort
-  scheduler still supersedes it, plan rev 53): battleship in, mod4block (4.1)
+  scheduler still supersedes it, plan decision (06d3a8b)): battleship in, mod4block (4.1)
   still out. Gate: Tier A + Tier B arrays (numbers added below on landing).
 
 ## Residual (honest)

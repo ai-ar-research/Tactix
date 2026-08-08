@@ -1,4 +1,4 @@
-# V5 Sweep — design pass (2026-07-27, plan rev 72)
+# V5 Sweep — design pass (2026-07-27, plan decision (d0bb6ec))
 
 **Status:** design only; nothing implemented. Frozen on landing per the doc
 discipline. Scope: what Sweep must do, what its sub-solver must produce, and
@@ -96,7 +96,7 @@ kernel's own trail.
   semantic refutation), so they should share the representative map.
 - **Effort:** a `sweep_ticks` counter charged by the sub-solver, offered to the
   policy exactly as `transitive_ticks` and the new `ternary_ticks`/`bce_ticks`
-  are (rule charges, policy budgets — §5.2 rev 17).
+  are (rule charges, policy budgets — §5.2 decision (7c4e85a)).
 
 ## 6. Suggested increments (each independently landable)
 

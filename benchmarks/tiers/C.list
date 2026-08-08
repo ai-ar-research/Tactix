@@ -1,4 +1,4 @@
-# Tier C — frozen 2026-07-15 (plan rev 23: ~30 instances); kissat 4.0.4, jobs=1, band [5,300]s, cap 360s
+# Tier C — frozen 2026-07-15 (plan decision (b508d26): ~30 instances); kissat 4.0.4, jobs=1, band [5,300]s, cap 360s
 # 30 instances: 15 SAT / 15 UNSAT, one per family; proof-checkability screened
 # (two correct-UNSAT candidates dropped for >0.5GB/5.4GB proofs beyond the 6000s checker cap)
 tierC/1-ET-256-K-70.sanitized.cnf.xz UNSAT 48.2

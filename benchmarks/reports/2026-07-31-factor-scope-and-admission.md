@@ -5,7 +5,7 @@ that carries this report · **Tier B(28)** window `20260731-021612` · **Tier C(
 window `20260731-021615` · noise window `20260731-013523`.
 **Allocation shape** (identical for every number here): partition
 `cpu-dense-hwulab-q`, 1 cpu/task, 8 GB/cpu, `--throttle 48`. Every arm — ours and
-both baselines — writes and checks DRAT (plan §8.1 rev 72).
+both baselines — writes and checks DRAT (plan §8.1 decision (d0bb6ec)).
 
 Frozen on landing (doc discipline). Supersedes nothing; extends the R5 line in
 `docs/design/e2-factorsize-design.md` and the 2026-07-30 reference study.

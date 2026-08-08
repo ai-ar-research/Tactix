@@ -5,7 +5,7 @@
 **Why this exists (user, 2026-08-07).** Our dosing work had become a table of ~21 one-knob A/B arms, priced
 messily and non-systematically, most of which measure knobs that exist only because we invented them. The
 call is to stop, understand how the references dose at a level high enough to re-implement, and port that.
-That is also what the plan already requires: §5 obligation 6 (rev 90) makes transliteration the default first
+That is also what the plan already requires: §5 obligation 6 (decision (7215698)) makes transliteration the default first
 move, puts the burden of argument on the *deviation*, and says a constant no reference backs is an invention
 to delete or re-derive — never to tune.
 

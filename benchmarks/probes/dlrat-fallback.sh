@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Submit the D-LRAT-FALLBACK probe legs (see dlrat-fallback.py for the design
-# and the pre-registered pass conditions). sbatch only — plan §8.1 rev 65.
+# and the pre-registered pass conditions). sbatch only — plan §8.1 decision (fc07389).
 #
 # Sizing:
 #   forced  ~620 s solve + BUDGET s of drat-trim + ~450 s `--lrat` re-solve

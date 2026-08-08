@@ -69,7 +69,7 @@ def check_citations(errors, warns, notes):
             # Strip inline-code spans first. A CITATION is prose -- "(L20's
             # knife-edge)", "-- L15: measure the family together". A name in
             # BACKTICKS is a literal mention of the identifier, not a claim
-            # leaning on it: plan rev 81's own text says `L1`-`L4` -> `RL1`-`RL4`
+            # leaning on it: plan decision (74eeb65)'s own text says `L1`-`L4` -> `RL1`-`RL4`
             # and must not be flagged as citing deleted lessons.
             for m in re.finditer(r"\bL(\d+)\b", re.sub(r"`[^`]*`", "", line)):
                 name = "L" + m.group(1)
@@ -143,7 +143,7 @@ def check_tier_window(warns, notes):
         return
     stamp = newest[:15]
     notes.append(f"newest completed tier run: {newest}")
-    # Keyed on the BANKED row, not on "appears anywhere". Since plan rev 84
+    # Keyed on the BANKED row, not on "appears anywhere". Since plan decision (896d156)
     # PROGRESS carries a headline rather than tables, and it names the newest
     # windows precisely to say they are UNREAD — so an anywhere-in-file match
     # goes green in exactly the state that needs nagging. The banked row is the

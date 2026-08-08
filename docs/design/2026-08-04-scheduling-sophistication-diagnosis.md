@@ -2,7 +2,7 @@
 
 **Status:** design pass, 2026-08-04. Freeze on landing.
 **Trigger:** user observation — *"I felt this has been a repeating theme. You do some heuristics much
-less sophisticated than Kissat? Why is that?"* — followed by plan **rev 80 (N4)**, which makes the
+less sophisticated than Kissat? Why is that?"* — followed by plan **decision (f22423c) (N4)**, which makes the
 scheduling layer a non-negotiable.
 **Scope:** this document answers *why the pattern exists*. The **scheduling-parity ledger** (N4's
 operational test) lives in `docs/implementation-notes.md`; the staged remediation is **Track N4** in
@@ -17,7 +17,7 @@ this; the rest come from the 2026-08-04 audit and carry their citation.
 **The crudeness is not spread evenly. It is concentrated almost entirely in the layer *between* rules,
 and that layer has never been anyone's unit of work.**
 
-Rule-*internal* fidelity is genuinely high — the rev-77 audit's own retractions are the proof (arity
+Rule-*internal* fidelity is genuinely high — the decision (ca9d9a3) audit's own retractions are the proof (arity
 caps at parity, minimize depth byte-identical at 900/1000/100000, minimize+shrink at parity, ternary
 size limits faithful). Scheduling, coupling, ordering, and per-application bounds are where every
 expensive gap lives.
@@ -99,7 +99,7 @@ most of it:
   lacks the concept, and the reference study records "E1 BVE shares the defect, unmeasured"**, with no
   ledger row.
 - **`binary_ids` is one id per literal PAIR, not per copy.** Single root cause behind three separate
-  rule crudities: V3's all-or-nothing hazard skip (cost a Tier B solve, −8.45 PAR-2 — the rev-77
+  rule crudities: V3's all-or-nothing hazard skip (cost a Tier B solve, −8.45 PAR-2 — the decision (ca9d9a3)
   exhibit, L23), V4's refusal to delete duplicated pairs, and dropping kissat's round-entry
   duplicate-binary/HUR sweep outright. No ledger row of its own.
 - **No formula classification**, hence no `jumpreasons`; one global tick meter where kissat splits
@@ -134,20 +134,20 @@ solves when removed, so one member of the family is currently load-bearing. But 
 justification was refuted (crypto1 *improved* without it) and its Tier B half is a one-instance
 defence of `mod4block`, which `2c77bce` showed is a 73× lottery for kissat too.
 
-## 5. Cause E — why it RECURS after being diagnosed (rev 77's five design defects)
+## 5. Cause E — why it RECURS after being diagnosed (decision (ca9d9a3)'s five design defects)
 
-1. **Its precondition exempts the dominant failure mode.** Rev 77 binds *"once a reference's mechanism
+1. **Its precondition exempts the dominant failure mode.** decision (ca9d9a3) binds *"once a reference's mechanism
    is **understood**"*. But most gaps are not understood-then-approximated — they are **never-read**.
    Nobody decided to make congruence value-blind, hardcode Vivify's tier, or drop BVE's relevancy
-   term. The audit rev 77 triggered inherited the same blind spot: its axes were all "compare what we
+   term. The audit decision (ca9d9a3) triggered inherited the same blind spot: its axes were all "compare what we
    built to kissat's counterpart", which cannot surface a mechanism you never knew to look for.
 2. **Authoring-time only, no retroactive arm.** The density gate predates it by twelve days and
-   describes itself in rev 77's own vocabulary ("still an overfit magic number… proper home is the
-   policy"). It survived rev 77 by two days and was killed by a *measurement*, not the directive.
+   describes itself in decision (ca9d9a3)'s own vocabulary ("still an overfit magic number… proper home is the
+   policy"). It survived decision (ca9d9a3) by two days and was killed by a *measurement*, not the directive.
 3. **It routes to a register whose schema cannot hold most violations.** §2's columns are
    `Rules | Root cause | Removal path` — a **guard-purity** schema. A gap is filed only if it happens
    to take the shape of a guard or effect branch. V6's value-blind closure is not a guard, so it lives
-   in a Log entry. You can be fully rev-77-compliant while the gap stays invisible.
+   in a Log entry. You can be fully decision (ca9d9a3)-compliant while the gap stays invisible.
 4. **Its compliance artifact is prose.** "A named action item" is satisfied by a sentence — no owner,
    no machine-evaluable trigger, no failure mode. **Five closers have fired silently**, including
    `D-VIVIFY-SCHED`, whose own row admits *"the condition was met and nothing was revisited"*.
@@ -164,7 +164,7 @@ from the ledger exactly zero times.**
 ## 6. The honest counterweight — what is NOT crudeness
 
 We have repeatedly ported kissat faithfully, **measured it worse**, and kept the simpler version on
-evidence. These are rev-77-compliant and must not be "fixed":
+evidence. These are decision (ca9d9a3)-compliant and must not be "fixed":
 
 | ported mechanism | measured |
 |---|---|
@@ -175,7 +175,7 @@ evidence. These are rev-77-compliant and must not be "fixed":
 | `factorcandrounds` | byte-identical on 7/7 probes |
 | minimize depth | byte-identical at 900 / 1000 / 100000 |
 
-Two cases are the **reverse** of rev 77: kissat's rephase rotation ported literally cost 4–7× on Tier
+Two cases are the **reverse** of decision (ca9d9a3): kissat's rephase rotation ported literally cost 4–7× on Tier
 B because kissat writes saved phases at *assign* and we write at *unassign*. The counter-rule
 (`implementation-notes.md` §8): **check whether the state a reference schedule reads is maintained the
 same way here, before porting the schedule.** *Caveat flagged by the audit:* §8's premise that
@@ -188,7 +188,7 @@ them.
 **Structural** (discipline cannot fix): A (unit of work), B (the seam), C (kernel state), D (the
 instrument's selection pressure). **Process** (mechanically fixable, cheap): E.
 
-Four of five are structural — so "be more rigorous about rev 77" would fix approximately none of the
+Four of five are structural — so "be more rigorous about decision (ca9d9a3)" would fix approximately none of the
 recurrence. The remediation is therefore mechanical, and is staged as **Track N4** in `PROGRESS.md`.
 The two items that change outcomes:
 

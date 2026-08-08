@@ -5,11 +5,10 @@
 deviations in `docs/implementation-notes.md`. This file contains current state
 only.
 
-- **Plan revision:** 98 (§2 fidelity-first port-repair discipline; no gate change).
 - **Current phase:** 4 — faithful reference dosing, optimization, and scheduling.
 - **Exit:** T3 + N4 parity ledger discharged + one full Tier D campaign.
-- **Non-negotiables:** N1 API universality ✓ · N2 proofs/models ✓ after the
-  backward-BVE unit fix · N3 Tier-D parity not yet measured · N4 scheduling
+- **Non-negotiables:** N1 API universality ✓ · N2 **OPEN: three invalid SAT
+  models in the completed closing tier pair** · N3 Tier-D parity not yet measured · N4 scheduling
   parity not yet discharged.
 - **Last updated:** 2026-08-08.
 
@@ -21,45 +20,19 @@ full diagnosis are in commit `6033378` and its preceding fix/instrument commits.
 Every elimination-era performance number from the unsound binary remains void.
 
 All three port repairs are CODE-COMPLETE and pushed (`25f1cd7` is the last:
-the BVE binary backward arm). Five fuzz batteries, 110k cases, 0 failures.
-**IN FLIGHT: the closing tier pair** `20260808-120257-C-portsfin` (array
-`1591845`) + `20260808-120325-B-portsfin` (`1591936`), twin pin dirs, one
-commit, matching SHAs, both baselines — the measurement that closes
-`SP-BVE-BWD-1`/`SP-FACTOR-1`/`SP-CHRONO-1`. Read #solved first; a regression
-routes back to the reference sources, never to knobs (plan §2 rev 98).
+the BVE binary backward arm). Five fuzz batteries ran 110k cases with 0
+failures. **NOTHING IN FLIGHT.** The closing tier pair
+`20260808-120257-C-portsfin` / `20260808-120325-B-portsfin` is terminal but
+**not bankable**: its `CORRECTNESS-BUG` markers report invalid Tactix models on
+Tier C `EDP3-11000` and Tier B `circuit_48in64out...` plus `PRP_30_38`.
 
 **Next actions:**
 
-1. **Fidelity-first repairs (plan §2, rev 98) are landing.** The three port
-   audits are COMPLETE (chrono 8 gaps, BVE 11, Factor 14; outcomes, accepted
-   deviations, and each row's remaining work live in the `SP-BVE-BWD-1` /
-   `SP-CHRONO-1` / `SP-FACTOR-1` rows of `docs/implementation-notes.md` §13).
-   Landed: chrono tie-break/master-switch/knob plumbing
-   (`7da23a2`); BVE LRAT-chain units, unit-break, satisfied-subsumer delete,
-   refutation contract, **eliminated-pivot deactivation + redundant-clause
-   flush** via layered `Kernel::retired_events` (`7a457cf`); Factor ramp
-   ceiling/re-arm/terminal latch/off-ramp coupling/delay numerator
-   (`15daf5c`). All three fuzz batteries green — 70k cases, 0 failures,
-   including LRAT, BVE-, Substitute- and Factor-stress legs; everything is
-   pushed, and the ledger rows carry the audit outcomes (`e6f960d`).
-2. **Remaining repair queue (site detail in the same §13 rows):** BVE binary
-   arm for the backward pass (largest expected yield); Factor legacy-step
-   off-arm, ramp-driven ladder, matcher bound pass-through, telemetry + ladder
-   test. The accepted deviations (chrono boundary seam, BVE occlim guard,
-   cadical's size-poison latent bug — never port it, OTF self-subsumption →
-   rule-dev) are recorded in those rows.
-3. **`20260808-094434-C-ablfix` is COMPLETE and clean** (manifest `eece089`,
-   pre-audit-repair binary): ablfix **25/30** 626.38 · no-bwd **26/30** 566.69
-   · no-couple **25/30** 629.47 · no-chrono **27/30** 465.61, vs kissat 29/30
-   281.74 and cadical 28/30 398.53. The aggregator marks every A/B
-   UNDECIDED/FRAGILE on 1–3 instances (`em_11_3_4_cmp` dominates two;
-   `frb45` is may-not-gate), but by #solved-first the pre-repair chrono-reuse
-   costs 2 solves and backward BVE 1 — and the audit independently found the
-   mechanism defects that plausibly explain both (the degenerate reuse
-   tie-break; elimination without deactivation). Do NOT act on this window
-   further: the post-repair tier pair measures the faithful solver and is the
-   decisive reading.
-4. Continue the unresolved Phase 4 parity rows, then the Tier D shakedown,
+1. Reproduce and diagnose the three invalid models from the completed closing
+   pair. Treat the pair's performance numbers as void until N2 is restored.
+2. Add a regression, rerun the affected model/proof fuzz legs, then retake the
+   closing Tier B/C pair from one fixed commit.
+3. Continue the unresolved Phase 4 parity rows, then the Tier D shakedown,
    Tier D campaign, and T3 gate in that order.
 
 ## Current measurement contract
@@ -151,6 +124,8 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Phase 4.5 — engineering ingenuity beyond reference parity
 
+- [ ] Add debug proof-event correlation: record the emitting rule/application
+  and proof line or byte range so checker failures localize without inference.
 - [ ] Concretize O15 through `revise-plan` when phase 4 exits.
 
 ## Phase 5 — tuning, bindings, extensibility
@@ -194,6 +169,9 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Recent changes
 
+- 2026-08-08 — rewrote all 17 Claude skills, retired manual plan revisions,
+  added generic JSON stress scenarios, CMake discovery, SLURM waiting, and the
+  2026 competition wrapper/compliance checks.
 - 2026-08-08 — added the offline interactive proof-rule guide at
   `docs/proof-rules.html`, covering every calculus entry with formal rules,
   plain-language explanations, and worked examples.

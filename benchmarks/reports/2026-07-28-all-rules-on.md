@@ -1,6 +1,6 @@
 # Every implemented proof rule ships ON — and every hand-designed admission gate for them is measured-dead
 
-**Date:** 2026-07-28/29 · **Tier B + Tier C**, like-for-like protocol (plan rev 72: every
+**Date:** 2026-07-28/29 · **Tier B + Tier C**, like-for-like protocol (plan decision (d0bb6ec): every
 arm writes DRAT and every UNSAT is checked), SLURM `cpu-dense-hwulab-q`,
 1 core / 8 GB, throttle 48. Seven same-window arrays; probes 1571606, 1571678.
 

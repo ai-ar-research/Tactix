@@ -165,7 +165,7 @@ Four independent knobs were swept tonight — the walk dose (twice), the
 has its Tier B optimum at a different setting from its Tier C optimum**, and
 the two optima are far apart (walk dose 400 vs 640; rate 30 vs 10). This is not
 a tuning failure to be fixed with better constants — it is the same shape as
-the elimination-dosing exhibit (rev 68) and the walk-channel exhibit, arriving
+the elimination-dosing exhibit (decision (33b5983)) and the walk-channel exhibit, arriving
 now for three more mechanisms at once. The corpus contains at least two
 populations, and a single global constant must be wrong for one of them.
 
@@ -195,7 +195,7 @@ labelled arms rather than a hand-picked midpoint.
    runner's drat-trim budget — not the solver — is what needs revisiting.
 3. **T3's second criterion is NOT met.** The gate is "within 10 % PAR-2 of
    CaDiCaL on Tier C **and** match both CaDiCaL and Kissat on the rule-neutral
-   subset" (plan §9, rev 51). Deriving the rule-neutral subset from §2's
+   subset" (plan §9, decision (e37dcad)). Deriving the rule-neutral subset from §2's
    ablation (instances where removing sweep costs neither baseline > 25 %):
    24 of 30 instances are rule-neutral, and on them tactix is **311.30** vs
    kissat 258.39 and cadical 319.83 — **0.97× cadical but 1.20× kissat**. So

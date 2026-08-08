@@ -12,7 +12,7 @@
 > **Implemented so far:** K1+K2 reconstruction stack (ρ) + model extension
 > (commit `94547e6`); V3a iterative-Tarjan SCC detection (commit `6fbddf4`).
 > **Blocked:** V3b (the variable-eliminating rewrite) needs binary-clause
-> deletion — introduced by V4 first (plan rev 32; see
+> deletion — introduced by V4 first (plan decision (8cbaaa6); see
 > `docs/design/v4-transitive-reduce-design.md`), then V3b reuses it.
 
 ---

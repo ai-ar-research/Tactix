@@ -1,7 +1,7 @@
 # Like-for-like standings: every solver timed WITH proof generation
 
 **Date:** 2026-07-27 (late) · **git:** `d0bb6ec` (measurements taken at
-`24afa87`/`61138b8`-era binaries; see each window) · **Plan:** rev 72 §8.1
+`24afa87`/`61138b8`-era binaries; see each window) · **Plan:** decision (d0bb6ec) §8.1
 proof-generation protocol · **Author's directive:** user, 2026-07-27 — "compare
 with Kissat/CaDiCaL with proof generation. And you should also do proof
 generation."
@@ -13,7 +13,7 @@ gate windows (L6: compare only across identical shapes).
 
 ## 1. What changed and why
 
-Until rev 72 our baselines were timed **without** proof logging while tactix
+Until decision (d0bb6ec) our baselines were timed **without** proof logging while tactix
 wrote a DRAT proof on every run. That compares two different workloads. It also
 turned out to matter in both directions, so neither the old numbers nor a naive
 correction is the honest answer — the tax has to be measured per solver.

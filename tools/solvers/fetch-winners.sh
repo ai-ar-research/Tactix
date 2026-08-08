@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fetch recent SAT Competition winners' SOURCES as reference material
-# (plan §5 "reference solvers are evidence, not templates", rev 14; §8.3
+# (plan §5 "reference solvers are evidence, not templates", decision (f01a6d5); §8.3
 # lists them as baselines "where obtainable"). Sources only — these are
 # StarExec/Linux-targeted packages; building them for benchmark baselines
 # is a separate, deliberate step (revisit at the T4/T5 gates).

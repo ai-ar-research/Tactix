@@ -50,12 +50,11 @@ def main():
         if not re.search(rf"\*\*{invariant}\b", claude):
             errors.append(f"CLAUDE.md: missing {invariant} from non-negotiables")
 
-    plan = (ROOT / "DEVELOPMENT_PLAN.md").read_text(encoding="utf-8")
     progress = (ROOT / "PROGRESS.md").read_text(encoding="utf-8")
-    plan_rev = re.search(r"\(rev\.\s*(\d+)\)", plan)
-    progress_rev = re.search(r"\*\*Plan revision:\*\*\s*(\d+)", progress)
-    if not plan_rev or not progress_rev or plan_rev.group(1) != progress_rev.group(1):
-        errors.append("plan and PROGRESS revision numbers do not match")
+    for rel in ("DEVELOPMENT_PLAN.md", "PROGRESS.md"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        if re.search(r"\bplan\s+rev(?:ision)?\b|\brev\.\s*\d+\b", text, re.I):
+            errors.append(f"{rel}: manual plan revision reference remains")
 
     states = {}
     for lineno, line in enumerate(progress.splitlines(), 1):

@@ -89,7 +89,7 @@ The density/admission gates layered on BVE and Factor, and any remaining knob wh
 - **N2 is untouched**: this revamp changes only when and how much a rule runs, never what it emits.
 - **The §5.6/phase-7 surface stays**: candidate order as a policy object, per-entry telemetry, and the pose API
   exist to serve the learned policy, not the default strategy. They are `REQUIRED`, not `OURS-remove`.
-- **Rider (c) is knowingly subordinated.** Plan rev 90 says the reference is a floor and "the places we already
+- **Rider (c) is knowingly subordinated.** plan decision (7215698) says the reference is a floor and "the places we already
   exceed both references do not regress". Under this directive, fidelity wins where the two conflict; each such
   regression is measured and named rather than argued away.
 

@@ -1,115 +1,44 @@
 ---
 name: fuzz
-description: Run or extend the soundness fuzzing harness, investigate a fuzz failure, shrink a failing CNF, or add regression cases. Use whenever testing solver soundness, after any kernel/rule change, when a solver verdict is suspected wrong, or when proof checking fails on a fuzzed instance.
+description: Run or extend Tactix soundness fuzzing, investigate and shrink failures, validate checker reachability, or preserve regression cases. Use after kernel/rule/proof changes and whenever a verdict, model, proof, invariant, harness, or oracle is suspect.
 ---
 
-# Fuzzing and soundness testing
+# Soundness fuzzing
 
-Authoritative spec: DEVELOPMENT_PLAN.md §8.2. Harness lives in `tools/fuzz/` (if a piece doesn't exist yet, build it to this spec).
+Harness commands, seed counts, timeouts, and tool paths live in
+`tools/fuzz/README.md` and the harness itself. This skill defines coverage and
+acceptance.
 
-## Pipeline
+## Choose legs by risk
 
-```
-generator ──cnf──▶ tactix ──┬─ SAT ──▶ model checker (independent tool)
-    │                       └─ UNSAT ─▶ proof checker (drat-trim / lrat-check)
-    └──────────▶ oracle solver (kissat) ─▶ verdicts must agree
-failure ─▶ ddmin shrinker ─▶ minimal CNF + seed + rule trace ─▶ corpus/regressions/
-```
+Cover each changed surface with a risk matrix:
 
-## The four oracles — all must pass on every case
+| Risk | Required evidence |
+|---|---|
+| SAT semantics or reconstruction | independent original-CNF model check |
+| UNSAT reasoning or proof emission | native proof checker and negative proof |
+| rule scheduling or guards | debug invariants, random policy, targeted scenario |
+| parser/frontend | malformed and adversarial DIMACS corpus |
+| harness/oracle/setup | `tools/fuzz/selftest.sh` with known-bad artifacts |
 
-1. **Model soundness (SAT):** `tools/fuzz/checkmodel` verifies the `v`-line assignment satisfies every clause of the *original* input. Never trust solver bookkeeping.
-2. **Proof soundness (UNSAT):** DRAT via `drat-trim formula.cnf proof.drat` (accept only `s VERIFIED`); LRAT via `lrat-check`. **A rejected proof is a release-blocking bug even when the UNSAT verdict is correct.**
-3. **Differential status:** verdict must match Kissat; on disagreement, bring in CaDiCaL as tiebreaker and assume our solver is wrong until the model/proof oracle proves otherwise.
-4. **Internal invariants:** run debug builds (`-DTACTIX_CHECK`) with ASan/UBSan; assertion failures are fuzz failures.
+Differential verdicts against pinned reference solvers supplement, but never
+replace, independent model and proof validation.
 
-## A green leg proves nothing until you prove it could have gone red
+## Procedure
 
-Two independent ways a leg goes vacuous, both of which have shipped here:
+1. Record SHA, build mode, seed range, generator distribution, policy/scenario,
+   timeout, and checker versions.
+2. Prove reachability with direct counters or traces for the changed rule/path.
+   Similar verdict distributions are not reachability evidence.
+3. Treat a crash, sanitizer finding, invariant failure, model rejection, proof
+   rejection, or unexplained verdict disagreement as a failure.
+4. Preserve the original artifact and metadata, then shrink while retaining the
+   same oracle failure. Add the minimal stable case to `corpus/regressions/`.
+5. Keep corpus cases by default. Deduplicate only deliberately when two cases
+   exercise the same root cause and the retained case preserves coverage.
+6. Run `selftest.sh` whenever an oracle, harness accept condition, checker
+   invocation, or setup changes; require known-bad inputs to fail for the
+   intended reason.
 
-- **THE ORACLE ITSELF CAN BE BROKEN.** `fuzz.py`'s native-LRAT check once tested `"VERIF" not in output.upper()`, which matches `c NOT VERIFIED` as well as `c VERIFIED`, so **every LRAT rejection in the project's history was recorded as a pass** and two real N2 breaches sat under green legs. Same family: a `^`-anchored match on drat-trim output reports every proof unverified, because drat-trim prefixes its `s` lines with `\r`. **So for any oracle: feed it a known-bad artefact and require a red.** A checker whose rejection you have never observed is not yet a checker. `tools/fuzz/selftest.sh` is the standing mechanism — it runs the pipeline clean against Kissat/CaDiCaL and requires each `tools/fuzz/broken/*` wrapper (lie-UNSAT-as-SAT, negated model, truncated proof) to be flagged by the *right* oracle, plus a ddmin effectiveness check and the duplicate-literal checker-disagreement case. **Run it whenever an oracle, a checker invocation, or its accept-condition changes** — not only at phase 0.
-- **THE CODE PATH MAY NEVER HAVE EXECUTED.** A new leg's cheapest reachability check is the **verdict distribution**: a leg built to force a new path returned SAT 5715 / TO 270 / UNSAT 4015 against the control's 5715 / 271 / 4014 — near-identical counts meant the path never ran (the budget it depended on computed to 0 on tiny fuzz instances). Compare those three numbers before claiming a leg covers anything, and for a stress knob **count at the SOURCE** (inside the predicate itself), never at the call sites, then require a non-zero fire count on a few corpus regressions. `strings <binary> | grep TACTIX_...` proves the env var compiled in, NOT that the path is reachable.
-
-## Generators (all seeded — record the seed in every artifact)
-
-Per-batch mix (`generators.py`, rev 31), random problems capped at 100 vars so
-verdicts stay reachable under weak/random schedules:
-- **15% random k-SAT** sweeping density: m/n ∈ {3.0, 4.0, 4.26, 4.6, 5.5} for k=3, n ∈ [20, 100]; also k ∈ {2,4,5}.
-- **30% cnfuzz-style structured** CNFs (variable-reuse clusters, mixed clause lengths) — uniform random alone misses whole bug classes.
-- **25% mutation** of a base instance: flip/drop/duplicate literals and clauses.
-- **30% FuzzSAT-style** random Boolean circuits Tseitin-encoded to CNF (AND/OR/XOR/ITE gates, root asserted ~50% negated; the ITE op was added 2026-08-05 with BVE's ITE gate extractor, so that path is not fuzzed vacuously) — definitional chains that stress watchers, equivalence reasoning, and BVE (≤120 vars incl. Tseitin aux).
-- **The 10 fixed adversarial degeneracies run every batch** (indices 0..9, exempt from the `--max-vars` re-roll): empty formula, empty clause, units only, contradictory units, tautology, duplicate literals, max var index (500000), single huge clause, huge negative clause, unit-empty mix.
-- **Rule-order fuzzing (tests the flexibility guarantee):** drive the solver with a random legal macro-policy (random rule order/instances/budgets via the policy API). Soundness and proof validity must survive arbitrary legal schedules. Record the rule trace; replay must reproduce exactly.
-
-## Cadence
-
-Cases run on a thread pool (`--jobs`, default 8, added 2026-07-14): fuzzing
-is correctness testing, not timing, so contention is harmless; case `i` is
-fully determined by `(seed, i)`, so results are identical at any job count.
-
-**On the cluster (plan §8.1 revs 64/65): every leg is submitted via
-`tools/fuzz/slurm.sh --cpus C [--time T] --name <leg> -- <run.sh args>`** —
-one multi-core job on cpu-dense-hwulab-q, 8 GB/core, harness `--jobs` pinned
-to the allocation; never run a leg in the session shell (see the slurm-jobs
-skill for sizing and hygiene). The leg definitions below are unchanged —
-only the launch mechanism moved.
-
-- Per commit / before declaring any change done: `tools/fuzz/run.sh --quick` (~10k cases — the rev-66 cluster scale, 10× the old sizes; sanitizer build, 5 s/case default) + full regression corpus + Tier A.
-- Random-policy leg (per commit for kernel/rule changes):
-  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy" --n 4000 --max-vars 100`.
-- Native-LRAT leg (per commit for proof/analyze changes):
-  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --lrat" --n 4000 --max-vars 150`
-  — when the solver command contains `--lrat`, the harness checks the
-  solver's own LRAT with lrat-check directly (no drat-trim conversion).
-  The size cap matters: a random schedule cannot finish large instances
-  within the timeout, and the semantic oracles (differential/model/proof)
-  only fire on a verdict — measured 2026-07-14, uncapped 150-case legs
-  reached verdicts on only ~46 cases (104 silent TIMEOUTs). Watch the
-  `verdicts:` line in the summary: TIMEOUT cases are sanitizer+invariant
-  coverage only.
-- **Random-policy + native-LRAT leg (per commit for ANY proof/rule change —
-  the strongest proof test; promoted to standard 2026-07-15):**
-  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy --lrat" --n 4000 --max-vars 100`.
-  This is the only leg that checks our native LRAT *chains* under arbitrary
-  legal schedules — including the canonical BATCH/round path of every
-  inprocessing rule (the random policy draws `INSTANCE_CANONICAL`, not only
-  single instances, since 2026-07-15). **Test both DRAT and LRAT, always:**
-  they exercise different emission code and catch different bugs — drat-trim
-  re-derives each clause by RUP and *ignores our chains* (so it validates the
-  clause/delete stream + binary serialization), while lrat-check validates
-  *our explicit antecedent chain* (a wrong chain that still yields a RUP-valid
-  clause passes drat-trim but fails lrat-check). Neither subsumes the other,
-  so the non-`--lrat` legs (native DRAT) and the `--lrat` legs (native LRAT)
-  are both mandatory.
-- **ASCII-DRAT leg (per commit for proof/serialization changes; added 2026-07-15):**
-  `tools/fuzz/run.sh --quick --solver "build/debug/tactix --random-policy --no-binary" --n 4000 --max-vars 100`.
-  `--no-binary` emits ASCII DRAT (`ProofFormat::DratAscii`) — a DISTINCT serializer
-  from binary DRAT; drat-trim auto-detects the format, so the existing check
-  applies. Without this leg the ASCII branch of proof.cpp is only exercised by
-  the tiny fixed `micro_proofs.sh` cases, so a regression in it would ship
-  invisibly (flagged by the N1/N2/N3 adversarial audit, 2026-07-15).
-- **Rule-targeted stress legs (stress-policy skill).** The uniform random policy
-  under-samples the schedule a specific rule makes legal, so each witness-emitting
-  or newly-landed family has its own driver
-  (`src/policies/*_stress_policy.*`: bce, bve, cce, congruence, factor, probing,
-  reuse, substitute, sweep, walk, plus the off-fixpoint `adversarial`). Run the
-  relevant one — DRAT **and** `--lrat` — when touching that family; the
-  stress-policy skill owns writing/wiring a new one.
-- Nightly: run BOTH formats under the random policy at scale — native DRAT
-  (`run.sh --nightly --solver "build/debug/tactix --random-policy"`) and
-  native LRAT (`run.sh --nightly --solver "build/debug/tactix --random-policy --lrat"`),
-  ~200k cases each (rev-66 scale; one 50-thread `slurm.sh` job per leg) +
-  all generators + differential testing. **Native LRAT is not covered by
-  fuzz.py's `--lrat` cross-check flag** (that is drat-trim→lrat-check on the
-  DRAT, which validates the checker conversion, not our emitter). Durable
-  outcome: failures auto-shrink into `tools/fuzz/failures/`
-  (empty of newer-than-launch entries + green log tail ⇒ green).
-
-## Failure handling — never skip steps
-
-1. Reproduce with the recorded seed.
-2. Shrink with `tools/fuzz/ddmin` (clause-level then literal-level) while preserving the failure predicate (which oracle failed).
-3. Save minimal CNF + seed + rule trace + one-line diagnosis to `tools/fuzz/corpus/regressions/NNN-<slug>/`. This directory is tracked in git and grows monotonically — regression cases are never deleted.
-4. Fix; confirm the regression case and a quick fuzz round pass; mention the corpus entry in the commit message.
-
-Harness validation is `tools/fuzz/selftest.sh` (see "A green leg proves nothing"): it is the phase-0 exit criterion *and* the standing regression test for the oracles themselves.
+Solver fuzz legs run through `slurm-jobs`; fixed harness self-tests may run in
+the session shell.

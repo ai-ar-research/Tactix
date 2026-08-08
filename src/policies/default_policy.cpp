@@ -454,7 +454,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     // structural per-candidate cap to copy. `budget_aware`, so one root's
     // resolvent loop stops at the ledger residual rather than at the closure —
     // the sweep/kitten shape. Accepted deviation `D-HBR-STANDALONE`
-    // (docs/implementation-notes.md §13.3, plan rev 91).
+    // (docs/implementation-notes.md §13.3, plan decision (2ecba2d)).
     {"HyperBinaryRes", 8, meter_hbr, true, true, &Stats::hbr_ticks},
     {"Backbone", 20, meter_backbone, true, false, &Stats::backbone_ticks},
     {"TransitiveReduce", 20, meter_transitive, true, false},

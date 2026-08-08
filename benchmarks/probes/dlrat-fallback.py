@@ -42,7 +42,7 @@ re-implemented), so a green leg is evidence about the shipped runner.
                     proofs and their CLI need not accept `--lrat`.
 
 Each leg asserts its pre-registered outcome and exits nonzero if it fails.
-Submit with dlrat-fallback.sh — sbatch only (plan §8.1 rev 65).
+Submit with dlrat-fallback.sh — sbatch only (plan §8.1 decision (fc07389)).
 """
 
 import importlib.util

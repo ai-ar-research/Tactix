@@ -3,7 +3,7 @@
 - **Hardware (reference machine, O1):** Apple M3 Pro (6 performance + 6
   efficiency cores), 36 GB RAM, macOS 15.7.7. All tier-freeze timings at
   **jobs = 1** (sequential, one instance at a time).
-- **Git:** bae2f78 (plan rev 10 Tier B definition: 10–15 instances, Kissat
+- **Git:** bae2f78 (plan decision (bae2f78) Tier B definition: 10–15 instances, Kissat
   5–30 s band, ≤ 2 per family).
 - **Reference solver:** Kissat 4.0.4 (pinned `rel-4.0.4`,
   `tools/solvers/setup.sh`).

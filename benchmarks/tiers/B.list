@@ -6,11 +6,11 @@
 # Reference column = kissat 4.0.4 MEDIAN OF 3 RUNS ON THE CLUSTER, one window:
 #   benchmarks/runs/20260729-215445-B-kissat-r1  (git dcaa2f2)
 #   shape: partition cpu-dense-hwulab-q, 1 cpu / 8 GB per task, throttle %48,
-#   proof logging ON (plan §8.1 rev 72), all 28 solved, all 14 UNSAT proofs
+#   proof logging ON (plan §8.1 decision (d0bb6ec)), all 28 solved, all 14 UNSAT proofs
 #   drat-trim-verified.  Realized band [3.33, 19.40] s; selection band was
 #   [3.5, 19.0] s = the cluster-measured span of the core 14.
 # The reference seconds are DOCUMENTATION ONLY — PAR-2 uses measured time.
-# The pre-2026-07-29 column held Apple-M3-Pro seconds (plan revs 64/65: invalid,
+# The pre-2026-07-29 column held Apple-M3-Pro seconds (plan decisions `dff3938` and `fc07389`: invalid,
 # never comparable to cluster numbers); every number here is cluster-measured.
 # Selection + recalibration report:
 #   benchmarks/reports/2026-07-29-tier-b-expansion.md

@@ -6,7 +6,7 @@
 
 > **Design/research artifact** from the 2026-07-16 session, produced by an
 > understand→design multi-agent workflow. The **authoritative spec is
-> `DEVELOPMENT_PLAN.md` (§5.2, rev 32); status is in `PROGRESS.md`** — this
+> `DEVELOPMENT_PLAN.md` (§5.2, decision (8cbaaa6)); status is in `PROGRESS.md`** — this
 > is a point-in-time design record for the implementer, not normative.
 >
 > **Why V4 before V3:** eliminating a variable (V3b) requires deleting
@@ -176,7 +176,7 @@ inprocess_slot.push_back({i,
 | 2 | SubsumeForward reconciliation (doc-only, argued no-op) | `subsume_forward.cpp`, `strengthen.cpp`, `kernel.hpp` comments | ~0 functional; comments only |
 | 3 | V4 TransitiveReduce rule + slot-disable + tests | `src/rules/transitive_reduce/{hpp,cpp}`, `default_policy.cpp:203`, rule test, proof test | ~200 LOC rule + ~150 test; **fuzz-gated** (random-policy + LRAT + model-check) before commit |
 
-Ordering rationale: the primitive must exist and be tested before any client (Commit 1); the reconciliation is a doc prerequisite that should sit adjacent so the soundness story lands with the capability (Commit 2); the rule consumes both (Commit 3) and is the first fuzz-gated behavior change. PROGRESS.md updated in the Commit-3 change per the CLAUDE.md sync rule; DEVELOPMENT_PLAN.md §5.2 rev-32 already scopes this, so no `revise-plan` needed unless the deferred-slot decision is recorded there.
+Ordering rationale: the primitive must exist and be tested before any client (Commit 1); the reconciliation is a doc prerequisite that should sit adjacent so the soundness story lands with the capability (Commit 2); the rule consumes both (Commit 3) and is the first fuzz-gated behavior change. PROGRESS.md updated in the Commit-3 change per the CLAUDE.md sync rule; DEVELOPMENT_PLAN.md §5.2 decision (8cbaaa6) already scopes this, so no `revise-plan` needed unless the deferred-slot decision is recorded there.
 
 **RFC dispositions:**
 - **RFC-1 (SubsumeForward)** — resolved as argued no-op via the equivalence-inheritance argument (Commit 2). This is the one cross-rule coupling; it stays doc-only, so the "diff confined to one rule dir" ideal is preserved except for comments.
@@ -204,7 +204,7 @@ I now have a complete picture. Here is the structured report.
 
 Repo: `/Users/haozewu/Projects/SAT-solving`. All line refs are current as of this read. This is a read-only analysis; no files were written.
 
-The plan already anticipates this primitive: **DEVELOPMENT_PLAN.md §5.2, "Binary-clause deletion — kernel primitive introduced with V4 (rev 32)"** (lines ~401–421) specifies "*drop the watch entries at both endpoints + emit the proof `delete`; `binary_ids` stays monotone for id lookup*," V4 `TransitiveReduce` as the first client, and the `SubsumeForward` reconciliation. This report grounds that intent in the actual code and surfaces the hazards.
+The plan already anticipates this primitive: **DEVELOPMENT_PLAN.md §5.2, "Binary-clause deletion — kernel primitive introduced with V4 (decision (8cbaaa6))"** (lines ~401–421) specifies "*drop the watch entries at both endpoints + emit the proof `delete`; `binary_ids` stays monotone for id lookup*," V4 `TransitiveReduce` as the first client, and the `SubsumeForward` reconciliation. This report grounds that intent in the actual code and surfaces the hazards.
 
 ---
 
@@ -266,7 +266,7 @@ Concretely, keeping the id after deletion is required because:
 - **LRAT chains still cite the deleted binary's id.** A literal it propagated (before deletion) remains on the trail with `reason = other`, and `kernel_reason_walk`/`emit_root_units` will look the id up again (`kernel.cpp:438`, `propagate.cpp:32`). Erasing the entry would make `kernel_binary_id` return `0` and corrupt the chain. (The delete *line* legitimately precedes such later citations only if the literal's reason is first retired — see §3.)
 - **Scheduling and stats read `binary_ids.size()` as a monotone progress key.** `default_policy.cpp:149` (`k.binary_ids.size() > inprocess.binaries_seen`) treats growth as "new binaries → re-run inprocessing"; `kernel_irredundant_clauses` (`kernel.cpp:471`) and `api.cpp:194` also read `.size()`. Erasing would let the count shrink, breaking the "added since last round" semantics and risking id reuse.
 
-So `binary_ids` is a permanent id ledger, decoupled from liveness (liveness lives only in the watch lists). The plan's rev-32 phrasing — "*`binary_ids` stays monotone for id lookup*" — matches this exactly.
+So `binary_ids` is a permanent id ledger, decoupled from liveness (liveness lives only in the watch lists). The plan's decision (8cbaaa6) phrasing — "*`binary_ids` stays monotone for id lookup*" — matches this exactly.
 
 ---
 
@@ -295,7 +295,7 @@ Note one respect in which the binary case is *milder* than corpus 003: a binary 
 1. **Precondition-only** (cheapest, matches existing rule discipline): require the caller to hold the quiescent-root guard, and inside the primitive, if `b` (or `a`) is currently assigned with `binary && reason == the-other && level == 0`, convert that reason to `UNIT_REASON` before emitting `del`. Assert `a.level == 0` in that branch, mirroring `kernel.cpp:379`.
 2. **`bool` can-delete guard**: return `false` (refuse) if either endpoint is a live non-root binary reason for *this* binary. This makes the primitive self-defending for free N1 schedules that might call it off-root.
 
-I recommend shape (1)'s reason-conversion combined with shape (2)'s refusal for the off-root case (see §5) — cheap, and it keeps the "every literal justified" invariant that the plan's rev-30/31 preconditions (DEVELOPMENT_PLAN.md §4, lines 152-184) turn on.
+I recommend shape (1)'s reason-conversion combined with shape (2)'s refusal for the off-root case (see §5) — cheap, and it keeps the "every literal justified" invariant that the plan's decision (ae47ebf)/31 preconditions (DEVELOPMENT_PLAN.md §4, lines 152-184) turn on.
 
 ---
 
@@ -335,13 +335,13 @@ Rationale for `bool` over `void`: the off-root live-reason case is a genuine "ca
 5. **(ledger)** Leave `binary_ids` untouched (monotone). Optionally bump a `stats.binaries_deleted` counter (new field, per-rule stats surface, §5.2 "per-rule everything").
 6. Return `true`.
 
-**Proof-delta emission:** exactly one `del(line_id = next_clause_id, del_id = kernel_binary_id(a,b), {a,b}, 2)`. No add. (V4 TransitiveReduce's "*entire delta is `delete`*", DEVELOPMENT_PLAN.md §5.2 rev 32.) The deleted binary must be RUP/transitively-redundant for the checker to accept — that is the *rule's* obligation, not the primitive's.
+**Proof-delta emission:** exactly one `del(line_id = next_clause_id, del_id = kernel_binary_id(a,b), {a,b}, 2)`. No add. (V4 TransitiveReduce's "*entire delta is `delete`*", DEVELOPMENT_PLAN.md §5.2 decision (8cbaaa6).) The deleted binary must be RUP/transitively-redundant for the checker to accept — that is the *rule's* obligation, not the primitive's.
 
 **Preconditions (caller-enforced, matching subsume_forward's guard):** `k.propagate_head == k.trail.size()`, `!k.conflict_valid`, `!k.pending.valid`, `!k.inconsistent`, `k.level == 0`, `k.delayed.empty()`. Quiescence is what makes step 3's in-place watch mutation safe (no propagation scan of `watches[a]`/`watches[b]` in flight — unlike large-clause deletion, which can defer via the GARBAGE-skip at `kernel.cpp:178-181`, binary deletion has no lazy-skip fallback and *must* mutate eagerly).
 
 **Genuine architecture-RFC concerns to flag:**
 
-- **RFC-1 — SubsumeForward reconciliation (already flagged by rev 32 and `subsume_forward.hpp`).** C1's binary subsumers "*need no redundancy check: this kernel never deletes binaries, so a subsuming binary can never disappear later*." Once *any* binary is deletable, that assumption is void: C1 could delete an irredundant large clause `D` justified by a subsuming binary `C` that V4 later deletes. Deleting a redundant clause is always proof-sound, but the *irredundant-clause bookkeeping* and reconstruction reasoning C1 relies on breaks. This must be reconciled **in the same change** that introduces the primitive (add the redundancy/liveness check C1 currently skips). This is the one cross-rule coupling that violates the §5.3 "diff confined to one rule dir" ideal, and the plan already accepts it as the price of the primitive.
+- **RFC-1 — SubsumeForward reconciliation (already flagged by decision (8cbaaa6) and `subsume_forward.hpp`).** C1's binary subsumers "*need no redundancy check: this kernel never deletes binaries, so a subsuming binary can never disappear later*." Once *any* binary is deletable, that assumption is void: C1 could delete an irredundant large clause `D` justified by a subsuming binary `C` that V4 later deletes. Deleting a redundant clause is always proof-sound, but the *irredundant-clause bookkeeping* and reconstruction reasoning C1 relies on breaks. This must be reconciled **in the same change** that introduces the primitive (add the redundancy/liveness check C1 currently skips). This is the one cross-rule coupling that violates the §5.3 "diff confined to one rule dir" ideal, and the plan already accepts it as the price of the primitive.
 
 - **RFC-2 — redundant vs. irredundant binaries.** `binary_ids` does **not** record redundancy; today all binaries are irredundant-lifecycle (never reduced/deleted), and derived binaries from Analyze (`analyze.cpp:314,687`), Vivify (`vivify.cpp:122`), Strengthen (`strengthen.cpp:281`) are all treated as irredundant. A deletion primitive that any rule can call blurs this. Decide explicitly: does the primitive assert the binary is redundant/derived, or is redundancy purely the rule's proof obligation? (Recommend: primitive is liveness-only and agnostic; redundancy is the rule's RUP burden — consistent with how `delete_subsumed` treats large clauses.)
 

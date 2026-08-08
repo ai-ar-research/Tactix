@@ -3,7 +3,7 @@
 **Date:** 2026-08-04 · **Frozen on landing.**
 **Windows:** Tier B `20260803-231532-B-midbudget`, Tier C `20260803-231548-C-midbudget`.
 **Binary:** `build/pin-sbgate/tactix`. **Shape:** `cpu-dense-hwulab-q`, 1 core / 8 GB, `--throttle 48`, our
-arms writing and checking DRAT; baselines writing but not verified (plan rev 79).
+arms writing and checking DRAT; baselines writing but not verified (plan decision (2a4d818)).
 **Arms:** `midbudget` = C1/C2 poll `Kernel::work_budget` and stop mid-round · `nomb` =
 `TACTIX_NO_MIDROUND_BUDGET=1`, the pre-change behaviour. **Both arms in ONE window via the hatch** — the
 whole point, see §3.

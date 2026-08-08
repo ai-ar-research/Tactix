@@ -2,7 +2,7 @@
 
 2026-08-01 · commits `fc57eff` (primitive + un-crippling + audit), `a489bb7` (the diagnostic arm)
 · hardware: SLURM `cpu-dense-hwulab-q`, 1 cpu / 8 GB per task, **throttle 24**, every arm writing +
-checking binary DRAT · tier lists B (28) rev 74, C (30) · frozen on landing.
+checking binary DRAT · tier lists B (28) decision (77fc578), C (30) · frozen on landing.
 
 ## 0. What this report answers
 
@@ -263,5 +263,5 @@ event, but the trajectories it opens are longer on this set.
    argument, not a measurement, and it is a separate divergence.
 3. Unit chrono routing, snapshot timing, `jumpreasons`, cadical's `chronoreusetrail` — untouched.
 4. `determine_new_level`: our reuse backjumps to the plain `jump2`; kissat routes the target through
-   its chrono decision. Ours bypasses M3's policy-owned target surface, which is a deliberate rev-38
+   its chrono decision. Ours bypasses M3's policy-owned target surface, which is a deliberate decision (89ee0fb)
    deviation, not an oversight.

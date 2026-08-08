@@ -1,4 +1,4 @@
-# CI (plan §5 build & CI, decided rev 8). Two parallel jobs sharing the
+# CI (plan §5 build & CI, decided decision (b6287bc)). Two parallel jobs sharing the
 # pinned-toolchain cache:
 #   harness — fuzz-harness selftest (validates the validators)
 #   solver  — tactix debug(ASan/UBSan)+release builds, unit + micro-proof

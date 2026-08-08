@@ -1,34 +1,41 @@
 ---
 name: compete
-description: Check or implement SAT Competition compliance — DIMACS parsing, output format (s/v lines), exit codes, proof file handling, signal handling, packaging for submission. Use when touching the competition frontend (main), preparing a submission, or when a harness/checker rejects our output.
+description: Implement or verify SAT Competition 2026 sequential-main-track compliance, including DIMACS parsing, output and exit contracts, proof checking, resource behavior, repository packaging, and system-description requirements.
 ---
 
-# Competition compliance (sequential main track)
+# SAT Competition 2026 compliance
 
-Authoritative spec: DEVELOPMENT_PLAN.md §6; rules at satcompetition.github.io. Compliance bugs disqualify solvers — treat this checklist as tests to automate (`tools/compete/check.sh`), not documentation.
+The official 2026 rules, output specification, and no-hardware-restrictions
+submission page are authoritative. Keep this prose synchronized with automated
+checks and maintain an explicit gap list for requirements that cannot yet be
+tested.
 
-## I/O contract
+## Solver contract
 
-- **Input:** DIMACS CNF as file argument. Parser must be streaming and huge-file safe (2025 runs died parsing at 20 GB on 30 GB hosts); tolerate comments anywhere, arbitrary whitespace, missing final newline. Malformed input ⇒ `s UNKNOWN`, exit ≠ 10/20.
-- **stdout only** (nothing required on stderr): `c` for comments, exactly one `s SATISFIABLE` / `s UNSATISFIABLE` / `s UNKNOWN` line. (2025 slides showed real solvers shipping the typo "SATISFIALBE" — test with exact string compare.)
-- **SAT:** `v` lines with the full assignment terminated by `0`; keep lines ≤ 4096 chars. The model must satisfy the *original* formula — reconstruct through ρ before printing (elimination rules!). Validate with `tools/fuzz/checkmodel` in every compliance test.
-- **Exit codes:** 10 = SAT, 20 = UNSAT, anything else = not solved. These must match the `s` line under all paths, including error paths.
-- **Proof:** written to the path given as the second file argument (binary DRAT default; `--lrat` variant). Stream + buffer — never hold the proof in memory. On SIGTERM/SIGXCPU/SIGINT: flush proof, print `s UNKNOWN`, exit cleanly. Flush stdout before exit, always.
+- Stream DIMACS robustly: comments between clauses, arbitrary whitespace,
+  duplicate literals, large files, and a missing final newline.
+- Emit exactly one `s` line. SAT uses exit 10 and a complete original-formula
+  model on `v` lines ending in `0`; UNSAT uses exit 20 and a valid proof;
+  unresolved or malformed input uses another exit status.
+- Keep diagnostic output on `c` lines. Flush output and proofs on termination.
+- Validate SAT models independently. For UNSAT, emit LRAT-compatible evidence
+  and validate the official pipeline chosen for this project: DPR/LPR with
+  `cake_lpr`.
 
-## Compliance test procedure
+`tools/compete/check.sh` is the executable specification. Add a regression to
+it for every compliance bug and keep a visible list of official requirements
+that remain manual.
 
-Run `tools/compete/check.sh ./build/release/tactix`. It is a sub-second test on fixed
-tiny CNFs, so it runs in the session shell like `ctest` — the sbatch-only rule
-(slurm-jobs) governs *measurement*, and nothing here is timed. It checks:
-1. SAT instance → exit 10, `s SATISFIABLE`, model passes checkmodel, `v` line format valid.
-2. UNSAT instance → exit 20, `s UNSATISFIABLE`, proof file exists and drat-trim verifies it end-to-end **in the same invocation style the competition uses**.
-3. SIGTERM mid-solve on a hard instance → `s UNKNOWN`, sane exit code, proof file flushed and still parseable by drat-trim (prefix-valid).
-4. Garbage/empty/comment-only inputs → no crash, `s UNKNOWN` or correct trivial answer.
-5. Determinism: two runs, identical verdict and (for fixed seed) identical proof.
+## 2026 package
 
-## Submission packaging (phase 6)
+Package from a clean checkout in a private GitHub repository with:
 
-- Dockerfile + StarExec-style `bin/starexec_run_default` script; build from clean checkout.
-- Solver description document (required; 1–2 pages, IEEE style — see prior years' description PDFs for format).
-- Sources must be open-sourced per competition rules; verify LICENSE and Kissat attribution notes are in order.
-- Rehearse the full competition toolchain on Tier B before submitting (via sbatch, like every solver run): solver → proof → the year's announced verified checker (cake_lpr/GRAT), within realistic memory caps (16 GB).
+- top-level `build.sh`;
+- top-level `run.sh <instance> <output-dir>`, producing
+  `<output-dir>/proof.out`;
+- source, licenses, and attribution needed by the rules; and
+- a 1–2 page IEEE-style system description including required AI disclosures.
+
+Make packaging year-parameterized even though this skill is pinned to 2026.
+Rehearse the wrapper, output checks, model checker, and `cake_lpr` under the
+official 32 GB constraint. Run solver measurements through `slurm-jobs`.

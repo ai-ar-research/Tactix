@@ -15,7 +15,7 @@ preserve evidence and history.
 | Design snapshots | `docs/design/` | frozen feature/reference designs |
 | Technical evidence | `benchmarks/reports/` and `benchmarks/runs/` | frozen reports and authoritative run data |
 | Historical logs | `docs/log/` | frozen revision and former PROGRESS history |
-| Andrew reports | `report-to-andrew/` | frozen LaTeX source and compiled PDF deliverables |
+| Andrew reports | `report-to-andrew/` | local LaTeX/PDF wrap-up deliverables; already-tracked reports remain frozen |
 | Papers | `docs/papers/` | external resources |
 
 ## Maintenance rules
@@ -24,7 +24,7 @@ preserve evidence and history.
 2. Put current status only in PROGRESS and retain at most five one-line recent
    changes. Detailed history belongs in commits, existing reports, or `docs/log/`.
 3. Modify the plan through `revise-plan`; modify calculus/guard docs through
-   `calculus`; compact living docs through `compact-docs` at every wrap-up.
+   `calculus`; invoke `compact-docs` only for an explicit compaction pass.
 4. Create technical reports only for dated experiment/gate evidence. Create
    Andrew-facing deliverables only through `generate-report`. Freeze both after
    delivery.

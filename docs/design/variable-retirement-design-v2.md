@@ -85,7 +85,7 @@ code is deleted rather than fixed.
 instance surface by scanning `k.nvars` and filtering on assignment; it does NOT
 read `H`'s queue or heap. So removing a variable from `H` does **not** remove it
 from `Decide::instances()`, and an external/Random/learned policy can still
-decide it. This is exactly the plan §1.1 rev-76 line: capability removed =
+decide it. This is exactly the plan §1.1 decision (21d60a7) line: capability removed =
 violation, default heuristic declining = compliant. `H`-side removal is the
 latter.
 
