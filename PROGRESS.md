@@ -44,9 +44,17 @@ dependency) — do NOT resubmit anything; it completes on its own.
    ledger rows for every documented deviation (chrono boundary lineage, BVE
    occlim guard, cadical's size-poison latent bug — never port it, and the
    OTF self-subsumption scope decision → rule-dev).
-3. When `20260808-094434-C-ablfix` completes (one task left), read it as
-   measurement of the pre-repair fixed state; the post-repair tier pair then
-   measures the faithful solver; report and update the N4 ledger.
+3. **`20260808-094434-C-ablfix` is COMPLETE and clean** (manifest `eece089`,
+   pre-audit-repair binary): ablfix **25/30** 626.38 · no-bwd **26/30** 566.69
+   · no-couple **25/30** 629.47 · no-chrono **27/30** 465.61, vs kissat 29/30
+   281.74 and cadical 28/30 398.53. The aggregator marks every A/B
+   UNDECIDED/FRAGILE on 1–3 instances (`em_11_3_4_cmp` dominates two;
+   `frb45` is may-not-gate), but by #solved-first the pre-repair chrono-reuse
+   costs 2 solves and backward BVE 1 — and the audit independently found the
+   mechanism defects that plausibly explain both (the degenerate reuse
+   tie-break; elimination without deactivation). Do NOT act on this window
+   further: the post-repair tier pair measures the faithful solver and is the
+   decisive reading.
 4. Continue the unresolved Phase 4 parity rows, then the Tier D shakedown,
    Tier D campaign, and T3 gate in that order.
 
