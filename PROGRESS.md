@@ -7,10 +7,10 @@ only.
 
 - **Current phase:** 4 — faithful reference dosing, optimization, and scheduling.
 - **Exit:** T3 + N4 parity ledger discharged + one full Tier D campaign.
-- **Non-negotiables:** N1 API universality ✓ · N2 **fix landed for the three
-  invalid closing-pair models; revalidation (fuzz battery + pair retake) in
-  flight** · N3 Tier-D parity not yet measured · N4 scheduling parity not yet
-  discharged.
+- **Non-negotiables:** N1 API universality ✓ · N2 **restored** (frozen-pivot
+  fix `7fbcb11`; 40k-case battery green with real backward-BVE reach; retake
+  pair N2-clean) · N3 Tier-D parity not yet measured · N4 scheduling parity
+  not yet discharged.
 - **Last updated:** 2026-08-08.
 
 ## Resume here
@@ -38,19 +38,23 @@ applications), `BveBackwardUnit` in 796 (logs
 still cannot reach the elimination tail at 5 s timeouts — open harness
 caveat, report §fuzz.
 
-**IN FLIGHT:** the closing Tier B/C retake from fixed commit `7fbcb11` —
-windows `20260808-141938-B-n2fix` (array 1592029, aggregate 1592030) and
-`20260808-141941-C-n2fix` (array 1592114, aggregate 1592115), pins
-`build/pin-n2b`/`pin-n2c`, byte-identical binaries (sha256 `ff9da623…`).
+The closing Tier B/C retake from `7fbcb11` is **complete and N2-clean** —
+no `CORRECTNESS-BUG`, zero model failures, zero verdict mismatches; the
+three previously-invalid instances now pass `checkmodel: OK` with rule
+counters IDENTICAL to the failing runs (same deterministic search path,
+fixed reconstruction). Windows `20260808-141938-B-n2fix` (B: n2fix PAR-2
+93.49, 25/28 · kissat 9.96, 28/28 · cadical 40.51, 27/28) and
+`20260808-141941-C-n2fix` (C: n2fix 803.20, 22/30 · kissat 247.23 ·
+cadical 338.76, 29/30 each). Banked as the closing measurement for
+`SP-BVE-BWD-1`/`SP-CHRONO-1` (closed) and `SP-FACTOR-1` (ladder ctest
+remains). **NOTHING IN FLIGHT.**
 
 **Next actions:**
 
-1. When the pair completes: require clean `CORRECTNESS-BUG`-free windows,
-   bank the closing measurement for the three port rows
-   (`SP-BVE-BWD-1`/`SP-FACTOR-1`/`SP-CHRONO-1`), and close or
-   accepted-deviate their ledger rows.
-2. Continue the unresolved Phase 4 parity rows, then the Tier D shakedown,
-   Tier D campaign, and T3 gate in that order.
+1. Write the `SP-FACTOR-1` posed-phase ladder ctest and close the row.
+2. Complete and report the fixed-binary Tier C four-arm attribution, then
+   the remaining Phase 4 parity rows, Tier D shakedown, Tier D campaign,
+   and T3 gate in that order.
 
 ## Current measurement contract
 
@@ -104,12 +108,12 @@ current implementation, evidence, and closer; no Git-history excavation is
 required.
 
 - [x] `SP-SWEEP-2` is implemented and closed.
-- [ ] `SP-BVE-BWD-1`, `SP-FACTOR-1`, `SP-CHRONO-1`: implemented, then the
-  reference audits found 33 fidelity gaps; repairs are landing (three commits
-  so far). Remaining before these rows close: the BVE binary backward arm,
-  Factor's legacy-step off-arm / ramp-driven ladder / matcher bound
-  pass-through / telemetry + ladder test, the accepted-deviation ledger rows,
-  and the post-repair tier pair as the closing measurement.
+- [x] `SP-BVE-BWD-1`, `SP-CHRONO-1`: closed — repairs landed, accepted
+  deviations recorded, closing pair banked N2-clean
+  (`20260808-141938-B-n2fix` / `20260808-141941-C-n2fix`, commit `7fbcb11`).
+- [ ] `SP-FACTOR-1`: everything landed and the closing pair is banked; the
+  one remaining item is the posed-phase ladder ctest (the level must walk
+  the ramp's own ladder under injected `BveBoundPolicy` schedules).
 - [ ] `SP-COMPACT-1`: port reference variable renumbering when inactive
   variables exceed 10%; current GC compacts watches but leaves retired variables
   paying kernel cost.

@@ -1,6 +1,6 @@
 # N2 incident: frozen-at-0 retired variables falsify reconstructed models
 
-**Status:** root cause confirmed and fixed; closing-pair retake pending.
+**Status:** CLOSED — fixed (`7fbcb11`), fuzz-revalidated, retake pair N2-clean.
 **Defect window:** commits `7a457cf..25f1cd7` (introduced by `7a457cf`).
 **Void windows:** `20260808-120257-C-portsfin`, `20260808-120325-B-portsfin`
 (both carry `CORRECTNESS-BUG`; their performance numbers stay unusable).
@@ -85,5 +85,16 @@ batteries must pass `--require-reached BveBackward`.
 ## Validation
 
 - Full debug ctest suite green with the fix (59/59).
-- Post-fix fuzz battery and the closing Tier B/C retake are recorded in
-  PROGRESS and the follow-up report when they land.
+- Post-fix battery: four legs, 40 000 cases, 0 failures
+  (`tools/fuzz/slurm-n2fix-*-159202{3,4,5,6}.log`). Backward BVE reached
+  for the first time: `BveBackward` fired in 2 438 cases (dense random
+  leg) and 5 233 cases (targeted leg, `--require-reached BVE,BveBackward`
+  passed, 1.8M stress applications); `BveBackwardUnit` in 796.
+- Closing retake from `7fbcb11` (`20260808-141938-B-n2fix`,
+  `20260808-141941-C-n2fix`, pins `pin-n2b`/`pin-n2c`, matching hashes):
+  no `CORRECTNESS-BUG`, zero model failures, zero verdict mismatches.
+  The three incident instances pass `checkmodel: OK` with rule counters
+  **identical** to their failing runs (circuit `BveBackward=7783`, PRP
+  `979464`/`BveBackwardUnit=1200`, EDP3 `24851`) — the same deterministic
+  search path, corrected only at reconstruction, which is as direct a
+  confirmation of the diagnosis as the artifacts allow.
