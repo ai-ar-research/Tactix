@@ -413,8 +413,8 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
             res["mismatch"] = True   # correctness bug — counts as unsolved
             res["solved"] = False
         elif verdict == "SAT":
-            # Same gating as proofs: baselines record nothing (their models are
-            # not ours to debug and never change our numbers); a scored arm's
+            # Same gating as proofs: a baseline records nothing (a reference
+            # solver's model never changes a scored number); a scored arm's
             # failed model check counts the instance unsolved and marks the
             # window not clean (the wrong-SAT class no proof checker sees).
             if not verify_proofs:
