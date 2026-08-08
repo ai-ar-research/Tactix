@@ -28,8 +28,10 @@ next-action 3 below. Nothing is currently in flight.
 **Next actions:**
 
 1. **Fidelity-first repairs (plan §2, rev 98) are landing.** The three port
-   audits are COMPLETE (chrono 8 gaps, BVE 11, Factor 14; full findings in the
-   session task list). Landed: chrono tie-break/master-switch/knob plumbing
+   audits are COMPLETE (chrono 8 gaps, BVE 11, Factor 14; outcomes, accepted
+   deviations, and each row's remaining work live in the `SP-BVE-BWD-1` /
+   `SP-CHRONO-1` / `SP-FACTOR-1` rows of `docs/implementation-notes.md` §13).
+   Landed: chrono tie-break/master-switch/knob plumbing
    (`7da23a2`); BVE LRAT-chain units, unit-break, satisfied-subsumer delete,
    refutation contract, **eliminated-pivot deactivation + redundant-clause
    flush** via layered `Kernel::retired_events` (`7a457cf`); Factor ramp
@@ -37,12 +39,12 @@ next-action 3 below. Nothing is currently in flight.
    (`15daf5c`). All three fuzz batteries green — 70k cases, 0 failures,
    including LRAT, BVE-, Substitute- and Factor-stress legs; everything is
    pushed, and the ledger rows carry the audit outcomes (`e6f960d`).
-2. **Remaining repair queue (task list carries the site detail):** BVE binary
+2. **Remaining repair queue (site detail in the same §13 rows):** BVE binary
    arm for the backward pass (largest expected yield); Factor legacy-step
-   off-arm, ramp-driven ladder, matcher pass-through, telemetry + ladder test;
-   ledger rows for every documented deviation (chrono boundary lineage, BVE
-   occlim guard, cadical's size-poison latent bug — never port it, and the
-   OTF self-subsumption scope decision → rule-dev).
+   off-arm, ramp-driven ladder, matcher bound pass-through, telemetry + ladder
+   test. The accepted deviations (chrono boundary seam, BVE occlim guard,
+   cadical's size-poison latent bug — never port it, OTF self-subsumption →
+   rule-dev) are recorded in those rows.
 3. **`20260808-094434-C-ablfix` is COMPLETE and clean** (manifest `eece089`,
    pre-audit-repair binary): ablfix **25/30** 626.38 · no-bwd **26/30** 566.69
    · no-couple **25/30** 629.47 · no-chrono **27/30** 465.61, vs kissat 29/30
