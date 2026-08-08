@@ -287,9 +287,16 @@ uint32_t reuse_trail_level(const Kernel &k, uint32_t jump) {
   Var best = var_of(k.trail[begin]);
   for (uint32_t i = begin + 1; i < end; i++) {
     const Var v = var_of(k.trail[i]);
-    const bool better = k.h->stable
-                            ? k.h->scores.score[v] > k.h->scores.score[best]
-                            : k.h->links[v].stamp > k.h->links[best].stamp;
+    // Score ties break toward the SMALLER variable index (cadical
+    // score_smaller, internal.hpp:1816) — with strict > the earliest trail
+    // position wins instead, and on an all-unbumped suffix (every score 0.0)
+    // the walk degenerates to jump+1 rather than cadical's pick. VMTF stamps
+    // are unique, so focused mode needs no tie-break.
+    const bool better =
+        k.h->stable
+            ? (k.h->scores.score[v] > k.h->scores.score[best] ||
+               (k.h->scores.score[v] == k.h->scores.score[best] && v < best))
+            : k.h->links[v].stamp > k.h->links[best].stamp;
     if (better) {
       best = v;
       best_pos = i;
@@ -990,8 +997,8 @@ void DefaultPolicy::build_inprocess_slot(Kernel &k) {
       slot_watermark_ = std::strtoul(wm, nullptr, 10) != 0;
     if (const char *fc = std::getenv("TACTIX_FACTOR_COUPLE"))
       couple_factor_bound_ = std::strtoul(fc, nullptr, 10) != 0;
-    if (const char *cr = std::getenv("TACTIX_CHRONO_REUSE"))
-      chrono_reuse_trail_ = std::strtoul(cr, nullptr, 10) != 0;
+    // TACTIX_CHRONO_REUSE is read in solve(): this block runs under the
+    // one-shot slot guard, which a preposed slot or a reused policy skips.
     if (slot_order_legacy_) {
       for (int i = 0; i < static_cast<int>(rules.size()); i++)
         if (rules[i].tier == RuleTier::Inprocess)
@@ -1057,6 +1064,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (n >= 0)
       chrono_levels = static_cast<uint32_t>(n);
   }
+  // Read beside its sibling knob: the old home in build_inprocess_slot ran
+  // under that function's one-shot guard, so a preposed inprocess slot or a
+  // second solve() on the same policy object silently ignored the arm.
+  if (const char *cr = std::getenv("TACTIX_CHRONO_REUSE"))
+    chrono_reuse_trail_ = std::strtoul(cr, nullptr, 10) != 0;
   // Random-decision sequences ship on (kissat `randec=1`); `=0` is the off arm.
   if (const char *rd = std::getenv("TACTIX_RANDEC"))
     default_branching_.randec_enabled = (*rd != '0');
@@ -1129,7 +1141,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (back - jump > chrono_levels) {
           k.stats.chronological++;
           target = back;
-        } else if (chrono_reuse_trail_ && jump < back) {
+        } else if (chrono_reuse_trail_ && chrono_levels != UINT32_MAX &&
+                   jump < back) {
+          // The UINT32_MAX conjunct is the chrono master switch: kissat spells
+          // "chrono off" as a huge level limit (learn.c backjump_limit), and
+          // cadical's opts.chrono=0 disables reuse outright (analyze.cpp:655)
+          // — without it the off arm still emits chronological targets here.
           target = reuse_trail_level(k, jump);
           if (target != jump)
             k.stats.chronological++;
