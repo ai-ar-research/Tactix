@@ -9,6 +9,7 @@ preserve evidence and history.
 | Plan | `DEVELOPMENT_PLAN.md` | stable scope, architecture, roadmap, gates, open decisions |
 | Status | `PROGRESS.md` | current phase, in-flight work, next actions, active checklist |
 | Rule model | `docs/calculus.md` | abstract preconditions, effects, proof deltas, soundness |
+| Rule guide | `docs/proof-rules.html` | interactive derived view of rule calculus, explanations, and examples |
 | Engineering | `docs/implementation-notes.md` | guards, deviations, durable design decisions |
 | Working lessons | `docs/lessons.md` | revisable evidence-backed findings; never cite by number |
 | Design snapshots | `docs/design/` | frozen feature/reference designs |
