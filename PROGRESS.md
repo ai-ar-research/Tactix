@@ -46,15 +46,14 @@ fixed reconstruction). Windows `20260808-141938-B-n2fix` (B: n2fix PAR-2
 93.49, 25/28 · kissat 9.96, 28/28 · cadical 40.51, 27/28) and
 `20260808-141941-C-n2fix` (C: n2fix 803.20, 22/30 · kissat 247.23 ·
 cadical 338.76, 29/30 each). Banked as the closing measurement for
-`SP-BVE-BWD-1`/`SP-CHRONO-1` (closed) and `SP-FACTOR-1` (ladder ctest
-remains). **NOTHING IN FLIGHT.**
+`SP-BVE-BWD-1`/`SP-CHRONO-1`/`SP-FACTOR-1` (all closed; Factor's injected
+posed-phase ladder ctest is green). **NOTHING IN FLIGHT.**
 
 **Next actions:**
 
-1. Write the `SP-FACTOR-1` posed-phase ladder ctest and close the row.
-2. Complete and report the fixed-binary Tier C four-arm attribution, then
-   the remaining Phase 4 parity rows, Tier D shakedown, Tier D campaign,
-   and T3 gate in that order.
+1. Complete and report the fixed-binary Tier C four-arm attribution.
+2. Continue with the remaining Phase 4 parity rows, Tier D shakedown, Tier D
+   campaign, and T3 gate in that order.
 
 ## Current measurement contract
 
@@ -111,9 +110,9 @@ required.
 - [x] `SP-BVE-BWD-1`, `SP-CHRONO-1`: closed — repairs landed, accepted
   deviations recorded, closing pair banked N2-clean
   (`20260808-141938-B-n2fix` / `20260808-141941-C-n2fix`, commit `7fbcb11`).
-- [ ] `SP-FACTOR-1`: everything landed and the closing pair is banked; the
-  one remaining item is the posed-phase ladder ctest (the level must walk
-  the ramp's own ladder under injected `BveBoundPolicy` schedules).
+- [x] `SP-FACTOR-1`: closed — the N2-clean closing pair is banked and
+  `test_slot_pose` proves the level and Factor snapshot walk an injected
+  irregular `BveBoundPolicy` ladder through its terminal phase.
 - [ ] `SP-COMPACT-1`: port reference variable renumbering when inactive
   variables exceed 10%; current GC compacts watches but leaves retired variables
   paying kernel cost.
@@ -192,6 +191,7 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Recent changes
 
+- 2026-08-08 — closed `SP-FACTOR-1` with the injected posed-phase ladder ctest.
 - 2026-08-08 — fixed the N2 frozen-at-0 reconstruction defect behind the three
   invalid closing-pair models; made backward BVE fuzz-reachable
   (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
@@ -203,7 +203,3 @@ Each row closes with an implementation or an accepted deviation in
   plain-language explanations, and worked examples.
 - 2026-08-08 — fixed backward-BVE unit loss, added regression/reach checks and
   tier SAT-model validation; fixed-binary retakes started (`6033378`).
-- 2026-08-07 — completed the phase-3 rule inventory and opened reference-faithful
-  Phase 4 (`benchmarks/reports/2026-08-07-phase-3-gate.md`).
-- 2026-08-07 — replaced local knob pricing with the five-layer reference dosing
-  port (`docs/design/2026-08-07-reference-dosing.md`).
