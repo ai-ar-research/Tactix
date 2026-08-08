@@ -662,6 +662,40 @@ static void test_backward_strengthen_to_unit_asserts() {
   kernel_dense_disconnect(k);
 }
 
+// The binary arm of the same drain: a size-2 resolvent re-enters as a
+// subsumer and strengthens a BINARY victim to a unit, which is asserted, and
+// the victim pair leaves the watch lists.
+static void test_backward_binary_victim_strengthen_to_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  auto L = [](int d) { return internalize(d); };
+  auto add3 = [&](int a, int b, int c) {
+    const Lit v[3] = {L(a), L(b), L(c)};
+    kernel_add_large_clause(k, v, 3, /*redundant=*/false, /*glue=*/0);
+  };
+  // Eliminating 1 resolves (1∨2∨3)×(¬1∨2) to the single size-2 resolvent
+  // c=(2∨3), which enters the drain as a binary subsumer.
+  add3(1, 2, 3);                            // P1
+  kernel_add_binary_clause(k, L(-1), L(2)); // N1
+  // victim (2∨¬3): c resolves with it on 3 → the unit (2).
+  kernel_add_binary_clause(k, L(2), L(-3));
+  // padding inflates occ(3) past occ(2) so the least-occurring pick is
+  // best=2 — the victim holds ¬3, so a best=3 walk would never visit it.
+  add3(3, 5, 6);
+  add3(3, 5, -6);
+  k.bve_gate_mask = 0; // plain resolution: exactly the resolvent above
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(L(1))) == ApplyResult::Ok);
+  assert(k.stats.bve_bwd_strengthened >= 1 &&
+         "the drain reached the binary victim");
+  assert(k.stats.bve_bwd_units >= 1 && "the strengthening collapsed to a unit");
+  assert(k.value(L(2)) > 0 && "the collapsed unit is asserted");
+  assert(!kernel_binary_live(k, L(2), L(-3)) && "the victim pair is deleted");
+  kernel_dense_disconnect(k);
+}
+
 int main() {
   test_guard();
   test_occurrences();
@@ -681,6 +715,7 @@ int main() {
   test_gate_mask();
   test_retry_filter();
   test_backward_strengthen_to_unit_asserts();
+  test_backward_binary_victim_strengthen_to_unit();
   puts("test_bve OK");
   return 0;
 }
