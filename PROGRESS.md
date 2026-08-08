@@ -55,14 +55,23 @@ deleted, unit emitted to the PROOF but never asserted in the kernel (`bve.cpp`, 
 opposite of `kernel_replace_clause`'s contract). The kernel then eliminated the unit's variable with
 unit-blind resolvents; the formula weakened; chrono-off was only the trajectory that hit it
 ([[regression-on-a-faithful-port]]: the port was wrong, not the mechanism). **Fixed** by asserting the
-unit (mirrors `strengthen.cpp`'s Unit case). Consequences: **(a)** the ablation's numbers are VOID and
-the `SP-BVE-BWD-1`/`SP-FACTOR-1`/`SP-CHRONO-1` attribution question is still open — re-run on the fixed
-binary; **(b)** every number taken on a binary carrying `3e3823d` (the `p3`/`p3c`/`all3` windows —
-Tier B 43.23 28/28 included) was measured on an unsound solver: UNSAT verdicts there are
-proof-verified and stand, but SAT solves were never model-checked by the tier runner, so the pair is
-re-taken on the fixed binary before any of it is quoted; **(c)** the tier runner's instrument gap —
-**it never model-checks a SAT answer** (this bug was visible only because the instance's expected verdict
-was recorded) — is now an open item below.
+unit (mirrors `strengthen.cpp`'s Unit case). **Verification complete:** the failing configuration now
+answers UNSAT with `drat-trim s VERIFIED` and the fixed run's `c bve-bwd … 7 units` proves the repaired
+branch fires; fuzz green on five legs (quick 10,000 + rp 4,000 + rp-lrat 4,000 + bve-stress 4,000 ×2
+formats, 0 failures); deterministic regression test `test_backward_strengthen_to_unit_asserts`
+(tests/test_bve.cpp), proven red on the pre-fix code; ctest 58/58. The instrument gaps are closed in the
+same push: **the tier runner now checkmodels every scored SAT answer** (self-tested red on a lying
+solver; failures mark the window `CORRECTNESS-BUG` as `invalid_models`) and REACH_SPECS gained
+`BveBackward`/`BveBackwardUnit` rows — which immediately showed **the backward pass never fires at fuzz
+scale** (0 of 20k bve-stress + 10k quick cases), i.e. the landing's green legs could never have caught
+this and a fuzz-shrunk corpus case does not exist; the kernel-level test is the regression vehicle.
+
+**▶▶ IN FLIGHT: the re-takes on the fixed binary** (both from one commit, binary SHAs identical).
+**Tier C four-arm ablation + both baselines**: array `1591547`, aggregate `1591640`, window
+`20260808-094434-C-ablfix` — this answers the still-open three-ports attribution AND re-takes Tier C.
+**Tier B shipped + baselines**: array `1591641`, aggregate `1591642`, window `20260808-094512-B-p3fix`.
+Until they land, no `p3`-era number is quotable (the windows measured an unsound solver: UNSAT verdicts
+proof-verified and stand, SAT solves were never model-checked).
 
 **▶▶ THE TIERS DISAGREE SHARPLY ABOUT THE DENSITY-GATE REMOVAL.** **Tier B 44.77, 28/28**
 (`20260807-210921-B-kf4`) — every instance solves, +4 over increment 2 and none lost, including
@@ -230,11 +239,6 @@ judge on the remainder. **Do not grow the set** (user directive).
 - demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; user decision).
 
 **Open work.**
-- **The tier runner never model-checks a SAT answer** (2026-08-08 wrong-SAT exhibit: caught only because
-  the instance's expected verdict was recorded). Add a checkmodel pass on SAT verdicts to
-  `tools/bench/run.py` — the fuzz harness already has the tool and the accept-condition discipline.
-- **No fuzz leg proves the backward pass's strengthen-to-unit path is reached** — `bve_bwd_units` needs a
-  source-count in a leg (REACH_SPECS shape), plus the corpus case the hunt leg owes.
 - **`VarStatus::Eliminated` is never set** (review side-finding, 2026-08-08): eliminated pivots stay in
   the decision pool and `unassigned_active`. Soundness-neutral (extend_model overrides), but it burns
   decisions — plausibly part of the failing run's 66:1 decision:conflict wander. Price it.
