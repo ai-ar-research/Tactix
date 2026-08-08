@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-07 (rev. 93). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-07 (rev. 94). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -402,6 +402,18 @@ Design commitments:
        tune it.** Absence must be *shown* — read the option set and the use site, since a mechanism
        may be spelled differently or be an unnamed constant — not assumed from a failed grep. Such a
        constant must be presented as ours wherever it is cited.
+     - **(e) A REGRESSION ON A FAITHFUL PORT IS NOT EVIDENCE AGAINST THE MECHANISM (rev 94, user
+       2026-08-07).** The references win competitions with these strategies, so a number saying
+       otherwise is far likelier to be measuring our port than the idea. A measured regression licenses
+       exactly two conclusions: **the implementation is incorrect or sub-optimal**, or **another gap is
+       still unmerged** — reference mechanisms are coupled, and one ported without its partner can cost
+       what the pair would have paid for (cadical's `elimrounds`=2 is sufficient only BECAUSE
+       `elimbackward` feeds fresh resolvents to subsumption). It does **not** license reverting to our
+       version, and it does **not** license an accepted deviation. Order of work on a regression:
+       (1) prove the port FIRES, with a reachability witness at the source, since an inert port
+       reproduces the old number while looking like parity; (2) re-read the reference at its use site
+       and check the port matches its EFFECT; (3) look for the missing coupled mechanism. Only a
+       measured, named defect justifies stopping.
      **The cheap first step this makes standard:** before writing our code for a missing mechanism,
      **price it by ablating it IN the reference** — the pinned binary, one flag, no build and no pin
      directory. Subject to §8.3's ablate-one caveat: survivors re-allocate effort, so a single
