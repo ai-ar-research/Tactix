@@ -62,20 +62,16 @@ admission gates are gone; they had no counterpart in either kissat trigger **and
 the kernel documents as size-monotone**, so they opened as a solve progressed. Together: −238 lines, 42 → 34
 knobs.
 
-**▶ READ THE TWO INCREMENTS DIFFERENTLY.** *Increment 1* is a FIDELITY change: a large per-instance
-redistribution that nets out, moves far beyond each instance's replicate gap, no solve change on either tier.
-*Increment 3* was reverted on the guard: a genuine Tier B win (88.79 → 62.79, 25 → 27 solves, named target
-list cleared) that cost two Tier C solves, because removing the brake before fixing increment 1's per-round
-elimination budget pushed the already-marginal T-series over the cap.
-
-**▶ INCREMENT 2 IS THE OPEN ONE** — the phase structure:
-- Round count `INPROCESS_PHASE_ROUNDS` 3 → **2** (`proberounds`/`eliminaterounds`) with kissat's fixpoint
-  break (stop when the round changed no active-variable count, `probe.c:80`).
-- Kissat's `probe()` sequence exactly, **including its repeats** — `substitute` and `backbone` run twice per
-  round, which our single-visit slot cannot express.
-- **Elimination budgets differently from probing**: kissat computes `resolution_limit` ONCE
-  (`eliminate.c:428`) spanning all rounds, while probing recomputes per technique per round. Increment 1 gave
-  the Eliminate group probing's rule; correct it here.
+**▶ WHAT THE THREE INCREMENTS EACH DID.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT`
+and nothing else, with the anchor moved from the entry to the PHASE. A FIDELITY change: a large per-instance
+redistribution that nets out and moves far beyond each instance's replicate gap, with no solve change on
+either tier. *Increment 2* — the phase structure is kissat's: round count 3 → **2**
+(`proberounds`/`eliminaterounds`), kissat's fixpoint break (the round changed no active-variable count,
+`probe.c:80`, an equality test because Factor *adds* variables), the `probe()` sequence exactly **including
+its repeats** (`substitute` and `backbone` twice, which the old single-visit slot could not express), and the
+**Eliminate group's budget computed ONCE per phase** as `eliminate.c:428` does — where increment 1 had given
+it probing's per-round grant. It cost a Tier B solve on its own (119.81, 24/28) and is kept as fidelity.
+*Increment 3* — the density gates are out, and it is what increment 2 unblocked: **Tier B 44.77, 28/28**.
 
 **▶ THREE THINGS THAT NEED A USER DECISION, not an engineering one:**
 1. **`Reorder` ships OFF while kissat's `reorder` default is 2** (both modes) — a faithful port that never
