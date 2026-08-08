@@ -673,10 +673,14 @@ ApplyResult factor_apply(Kernel &k) {
     // `k.factor_bound` (kissat factor.c:939). The delta ≥ FACTOR_MIN_GAIN floor
     // stays unconditional — termination is delta-monotone, and an empty best_F
     // must never reach `apply_factoring`.
-    if (best_delta >= FACTOR_MIN_GAIN &&
+    const bool bound_ok =
+        best_delta >= FACTOR_MIN_GAIN &&
         (fm ? fm->accept(static_cast<uint32_t>(best_F.size()),
                          static_cast<uint32_t>(best_R.size()), best_delta)
-            : best_delta > static_cast<int>(k.factor_bound))) {
+            : best_delta > static_cast<int>(k.factor_bound));
+    if (!bound_ok && best_delta >= FACTOR_MIN_GAIN)
+      k.stats.factor_rejected_by_bound++; // the grid existed; the bound said no
+    if (bound_ok) {
       if (std::getenv("TACTIX_GRID_TRACE")) // diagnostic: grid dimensions
         std::fprintf(stderr, "[grid] %zux%zu delta=%d\n", best_F.size(),
                      best_R.size(), best_delta);

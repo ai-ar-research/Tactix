@@ -63,6 +63,11 @@ struct BveBoundPolicy : SubPolicy {
 // maximizing policy sets accept to delta >= 1 and reaches every positive-gain
 // grid. Design: docs/design/s2a-factor-matcher-design.md.
 struct FactorMatchPolicy : SubPolicy {
+  // The coupled Factor bound (BVE's growth allowance) for this phase. An
+  // injected matcher customizes SCORING, not the growth invariant — kissat's
+  // bound test is unconditional (factor.c:939) — so the policy hands it the
+  // snapshot; ignoring it is an explicit choice, not an accident.
+  virtual void set_bound(uint32_t) {}
   // Optional per-sweep lifecycle for a stateful score (kissat distinct_paths
   // caches across a sweep). The no-op default keeps a stateless arm trivial.
   virtual void begin_sweep(const Kernel &) {}

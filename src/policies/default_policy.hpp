@@ -453,6 +453,7 @@ public:
   // During-search BVE bound level (kissat eliminate.c
   // set_next_elimination_bound): 0, doubling only when a dose completes.
   uint32_t bve_level_ = 0;
+  uint32_t bve_level_idx_ = 0; // position on the ramp's ladder (drives bve_level_)
   // kissat steps the elimination bound once per phase, so the flag records that
   // a dose ran and the step happens at phase exit.
   bool bve_ran_this_phase_ = false;
