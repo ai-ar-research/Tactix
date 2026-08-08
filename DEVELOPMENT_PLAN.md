@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-07 (rev. 91). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-07 (rev. 92). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -190,30 +190,21 @@ Invariant: `F₀ (input) ⊨SAT-equiv (F ∪ ρ)`, `F ⊨ R` is proof-justified,
 transition σ → σ′ emits a proof delta (sequence of DRAT/LRAT additions/deletions)
 that the checker accepts.
 
-**`H` is outside `σ` (rev 59, user).** Earlier revisions carried `H` as a sixth
-component with the caveat "proof-irrelevant by construction". That caveat was the
-tell: a component the soundness argument must explicitly except is not part of the
-proof state. `σ` is what soundness quantifies over; `H` is search guidance. Keeping
-them in one tuple conflated two different jobs — the proof-theoretic state, and the
-state a rule's `guard`/`apply` and the §5.6 learner read — and it forced every
-heuristic-only operation to masquerade as a proof rule with "proof δ: none".
+**`H` is outside `σ` (rev 59, user).** `σ` is what soundness quantifies over; `H` is search guidance.
+Earlier revisions carried `H` as a sixth component caveated "proof-irrelevant by construction" — and a
+component the soundness argument must explicitly except is not part of the proof state. The split
+gives a sharp test with an immediate consequence:
 
-The split gives a sharp test with an immediate consequence:
+- an operation is a **proof rule** iff its effect on `σ` is non-trivial. It carries a proof delta
+  (possibly empty, e.g. `Restart` only rewinds `τ`) and lives in the rule registry under §5.3;
+- an operation whose effect is **`H`-only is a policy operation**. No proof obligation, no calculus
+  entry, no place in the deviation ledger. **Reclassified by this test: S3 `Rephase`, S4
+  `SwitchMode`, S6 `Walk`, S7 `Reorder`** — all four change only what gets tried next.
 
-- an operation is a **proof rule** iff its effect on `σ` is non-trivial. It carries
-  a proof delta (possibly empty, e.g. `Restart` only rewinds `τ`) and lives in the
-  rule registry under the §5.3 contract;
-- an operation whose effect is **`H`-only is a policy operation**, not a proof rule.
-  It has no proof obligation, no calculus entry, and no place in the deviation
-  ledger. **Reclassified by this test: S3 `Rephase`, S4 `SwitchMode`, S6 `Walk`,
-  S7 `Reorder`** — all four change only which variable or phase gets tried next.
-
-**N1 still covers them.** They are exactly what the §5.6 learner must schedule, so
-they stay API-exposed — as *sub-policies* alongside the existing
-`BranchingPolicy`/`ReductionPolicy`, not as rules. N1's guarantee is now stated over
-two exposed classes: every applicable **proof rule** is applicable at any time, and
-every **policy operation** is invocable at any time. Only the first carries proof
-obligations. See §5.1 for the sub-policy surface and the H-ownership decision.
+**N1 still covers them.** They are exactly what the §5.6 learner must schedule, so they stay
+API-exposed — as *sub-policies*, not rules. N1's guarantee is stated over two exposed classes: every
+applicable **proof rule** is applicable at any time, and every **policy operation** is invocable at
+any time. Only the first carries proof obligations. See §5.1.
 
 Each **rule family** is a triple:
 
@@ -228,25 +219,19 @@ Each **rule family** is a triple:
 - `apply(σ, inst) -> (σ′, proof-delta)` — total when guard holds; returns a
   structured result (progress made, conflict found, SAT/UNSAT concluded).
 
-**Guards are pure preconditions (N1); anything stronger is a ledgered deviation
-(rev 36).** A guard states the rule's abstract precondition and nothing more. A
-conjunct that is stronger — imposed by an implementation choice rather than by
-logic — is an **engineering deviation**: it must be recorded with a removal path
-and treated as an active §5.4 revamp target, never as a permanent excuse, because
-a policy that cannot legally apply an abstractly-applicable rule is an N1 leak.
-`docs/calculus.md` is the authoritative per-rule expansion (abstract
-precondition, effect, proof delta, soundness) and its companion
-`docs/implementation-notes.md` holds the consolidated deviation ledger; both are
-kept in sync with this section and §5.2 via the **calculus skill**. The
-deviations this kernel actually incurred reduced to two root causes — **D-LEVEL**
-(assigning a propagation-forced literal at the *current* decision level instead
-of its true level) and **D-SPLIT** (an `Analyze`/`Backjump` split that made the
-learned-clause handoff a control state) — both since purified, so the guards no
-longer constrain a policy's schedule. Only **D-ROOT** (`level == 0` on
-inprocessing rules) remains, and it is the inprocessing-rules framework itself
-(rules rewrite `F|U`), not a leak; its removal is a much larger reformulation and
-is not scheduled. Where each step stands: PROGRESS.md; the per-revision index is
-§13 (revs 30–43).
+**Guards are pure preconditions (N1); anything stronger is a ledgered deviation (rev 36).** A guard
+states the rule's abstract precondition and nothing more. A conjunct that is stronger — imposed by an
+implementation choice rather than by logic — is an **engineering deviation**: it must be recorded
+with a removal path and treated as an active §5.4 revamp target, never a permanent excuse, because a
+policy that cannot legally apply an abstractly-applicable rule is an N1 leak. `docs/calculus.md` is
+the authoritative per-rule expansion (abstract precondition, effect, proof delta, soundness) and
+`docs/implementation-notes.md` holds the consolidated deviation ledger; both are kept in sync with
+this section and §5.2 via the **calculus skill**. The two root-cause deviations this kernel incurred
+(**D-LEVEL**, assigning a forced literal at the current rather than its true level, and **D-SPLIT**,
+an `Analyze`/`Backjump` split that made the learned-clause handoff a control state) are purified, so
+guards no longer constrain a policy's schedule. Only **D-ROOT** (`level == 0` on inprocessing rules)
+remains, and it is the inprocessing-rules framework itself — rules rewrite `F|U` — not a leak; its
+removal is a much larger reformulation and is not scheduled.
 
 **Three standing kernel invariants came out of that purification.** Each was
 learned from a fuzz-found unsoundness, and corpus 004/005/006 are the permanent
@@ -354,106 +339,75 @@ Design commitments:
   recording), not reconstructed afterwards.
 - **Reproducibility:** single-threaded determinism; `--trace` logs the rule sequence so any run is
   replayable through ScriptedPolicy — flexibility proof and debugging tool at once.
-- **Reference solvers are evidence, not templates (rev 14; ex "Kissat as reference, not as fork").**
-  We transliterate proven techniques but keep our own rule/policy skeleton; never copy code
-  verbatim; attribute (Kissat is MIT). Four obligations when adopting a technique or scheme:
+- **Reference solvers are evidence, not templates (rev 14).** We transliterate proven techniques but
+  keep our own rule/policy skeleton; never copy code verbatim; attribute (Kissat is MIT). Six
+  obligations when adopting a technique or scheme:
   1. *Adopt on argument, not by default.* "Kissat does it this way" is never sufficient: state
-     (commit message or code comment) why the approach fits *this* architecture — the §5.3
-     contract, N1–N4, our data structures — and where our design points elsewhere, deviate
-     deliberately and record why (precedent: Analyze runs at the conflict's max level, not the
-     current decision level, because N1 admits schedules Kissat never sees). Adopting unchanged is
-     often the conclusion — never the reflex.
+     (commit message or code comment) why the approach fits *this* architecture — the §5.3 contract,
+     N1-N4, our data structures — and where our design points elsewhere, deviate deliberately and
+     record why. Precedent: Analyze runs at the conflict's max level, not the current decision level,
+     because N1 admits schedules Kissat never sees. Adopting unchanged is often the conclusion, never
+     the reflex.
   2. *Survey beyond plain Kissat.* For any non-trivial technique also check the recent winners
-     (CaDiCaL-SC2025, the Kissat-MAB lineage, SBVA-CaDiCaL; descriptions always, sources where
-     obtainable — `tools/solvers/fetch-winners.sh` stocks `winners/`) and the independent lineages
-     Glucose (`./glucose`) and CryptoMiniSat (`./cryptominisat`), the check against
-     Kissat-monoculture thinking (rev 25; notes `docs/design/independent-lineage-survey.md`). Their
-     deltas are where "exceed" (§7 item 5) can come from.
+     (CaDiCaL-SC2025, the Kissat-MAB lineage, SBVA-CaDiCaL — `tools/solvers/fetch-winners.sh` stocks
+     `winners/`) and the independent lineages Glucose and CryptoMiniSat, the check against
+     Kissat-monoculture thinking (rev 25; `docs/design/independent-lineage-survey.md`). Their deltas
+     are where "exceed" (§7 item 5) can come from.
   3. *Diagnose the PIPELINE before the algorithm (rev 52).* When a rule underperforms its reference
-     counterpart, first compare **what formula the reference's analogous rule actually operates
-     on** (rule ORDER + the upstream simplifications feeding it) and **instrument the reference to
-     observe its inputs** rather than reading its code. Lesson (bimodal-BVE, 2026-07-20/21): days
-     of re-engineering BVE internals (subsumption, strengthening, growth bound, completeness — all
-     net-negative or ineffective) were spent because our BVE was assumed weaker than Kissat's;
-     instrumenting Kissat's `eliminate.c` showed its BVE eliminates variables of occurrence ≈5
-     where the raw clique variables have ≈36 — i.e. Kissat eliminates on a formula already
-     simplified by its probing/vivify/sweep/**factor** pipeline while ours ran BVE first on the raw
-     formula. Reordering BVE after Factor cut clique 192 s → 3.6 s; the bug was pipeline order, not
-     the rule (`benchmarks/reports/2026-07-20-bve-bimodal-profiling.md`). Hence rule ordering is a
-     first-class DefaultPolicy/§5.6-RL concern.
-  4. *No crude approximations of an understood mechanism (rev 77, user 2026-08-02).* Once a
-     reference's mechanism is understood, implement the thing that is **known to match or exceed
-     it** — not a cheaper lookalike. A weaker approximation may ship ONLY with (a) a stated reason
-     and (b) a **named action item** that closes the gap, both recorded in the engineering-deviation
-     ledger (`docs/implementation-notes.md`), which is the one home for "we are deliberately weaker
-     than the reference, and here is the removal path". An approximation with no named closer is a
-     silent permanent deficit. Exhibit (measured 2026-08-01): V3 Substitute's duplicated-binary
-     hazard check skipped the WHOLE ROUND on a comment reading *"Rare; the erratum's finer per-SCC
-     skip is a future refinement (deferred slot)"* — no action item. On `veer_axi` that discarded
-     **all 179,110 equivalences V6 had just found, five rounds out of five, because 284 literals in
-     406,256 (0.07 %) were hazardous**, and it cost a Tier B solve until the per-SCC form landed
-     (−8.45 PAR-2, `veer_axi` TO → 238.7 s). Corollary: "it is a defect, not an arm" — an
-     approximation of a known mechanism is not a §5.6 dosing question and must not be parked there.
-     This is the operative guideline for **phase 3**.
-  5. *The same rule binds the SCHEDULING layer, and that is where it keeps being broken
-     (rev 80, user 2026-08-04).* Obligation 4 is usually read as being about a rule's internals;
-     **N4 (§1.1) extends it to the strategy** — the budgets, warm-ups, watermarks, acceptance
-     bounds, their ramps, and above all the **couplings between mechanisms**. Two recurring shapes
-     to check for by name, because both have shipped: (a) **we own the mechanism but never wire
-     it** — `Kernel::factor_bound` is Kissat's `reduction > bound` acceptance test, present since
-     E2 and documented as such (the `factor_bound` comment in `src/main.cpp`), yet it defaults to 0 and *nothing in the codebase
-     ever couples it to elimination progress* the way `factor.c:72/939` does; (b) **we substitute a
-     gate for a bound** — an instance-level formula-shape switch standing in for a per-application
-     quality test (the `binaries ≥ 6·vars` Factor gate). Shape (a) is the more dangerous, because
-     the mechanism's *presence* in the code makes the gap invisible to a reader and to `grep`.
-     When either is found, the fix is the reference-strength mechanism, and the crude stand-in is
-     **deleted rather than tuned**. Record every open instance in the **scheduling-parity ledger**
-     (N4's operational test) so the gap is visible without re-deriving it.
-  6. *TRANSLITERATION IS THE DEFAULT FIRST MOVE, not the fallback (rev 90, user 2026-08-07).*
-     DefaultPolicy should essentially **do what Kissat/CaDiCaL do in their default strategy**, with
-     N1–N4 satisfied; being more sophisticated is allowed, but only **on top of a transliterated
-     baseline that is kept as a permanent arm**, so the improvement is always measured against the
-     thing it claims to beat. This inverts where the burden of argument sits: obligation 1 still
-     forbids "Kissat does it" as a *reason*, but the deviation is now what owes the argument.
-     Grounds: the largest single scheduling win to date was pure transliteration — `HyperTernaryRes`
-     ran at 20‰ against cadical's `ternaryeffort` **8‰**, and matching it took one window
-     397.94 (28/30) → **319.19 (29/30)**, gaining a solve — while our inventions have a poor record
-     (0-for-5 hand-designed Factor separators; the composition density gate removed as
-     measured-neutral). Four riders, each already paid for:
-     - **(a) The references disagree, so there is a tie-break: KISSAT IS THE DEFAULT SOURCE.** It is
-       the N3/N4 reference and the further-away half (our Tier C rule-neutral subset is median
-       1.07× cadical against 1.51× kissat). A CaDiCaL divergence is ported only with a measured
-       reason, and the unported side is recorded as an arm — as `SP-SLOT-6` already does, where we
-       deliberately took kissat's NLOGN/NLOG2N probe spacing over cadical's near-constant one.
-     - **(b) Transliterate the MECHANISM AND ITS EFFECT, never the code — a port that goes inert is
-       worse than none**, because it reads as parity while doing nothing, which is exactly shape (a)
-       of obligation 5. The same constant can mean something different here: porting kissat's
-       substitute budget naively goes **inert**, since our `MIN_EFFORT_TICKS` floor is precisely
-       what stopped kissat using its own macro there (`SP-SUBST-2`); the same structure gives us
-       5–600× cadical's preprocessing dose (`SP-PREPROC-2`); cadical's eager-subsumption shape was
-       correctly **rejected** because it walks a `clauses` vector our flat arena does not have
-       (`SCHED-C6`). Units bite too — `covermaxeff` is unported because it counts propagations
-       where our counter counts literals. So a port must state, and where possible measure, that
-       the mechanism *fires* here.
-     - **(c) It is a FLOOR, not a target — never regress to parity.** We are already ahead in
-       places: binaries are inline tagged watch words where cadical's 16-byte `Watch` still carries
-       a `Clause*`; reason-side bumping runs at a measured rate 20 that exceeds both; native LRAT
-       exists here and not in kissat. N4 says *at least as sophisticated*, and this obligation does
-       not weaken that to *identical*.
-     - **(d) Where NO reference backs a constant, it is an invention: delete or re-derive it, do
-       not tune it.** Absence must be *shown* (read the option set and the use site — a mechanism
-       may be spelled differently or be an unnamed constant), not assumed from a failed grep. The
-       standing example is BCE: kissat has no blocked-clause elimination and cadical ships
-       `block`=0, so our 20‰, its slot position and its 3 rounds have no reference schedule behind
-       them and must be presented as ours wherever they are cited.
-     **The cheap first step this obligation makes standard:** before writing our code for a missing
-     mechanism, **price it by ablating it IN the reference** — the pinned reference binary, one
-     flag, no build and no pin directory (e.g. `kissat --tumble=0` measures `SP-DECIDE-2`'s prize
-     exactly). Subject to the ablate-one caveat in §8.3: survivors re-allocate effort, so a single
+     counterpart, first compare **what formula the reference's analogous rule actually operates on**
+     (rule ORDER plus the upstream simplifications feeding it), and **instrument the reference to
+     observe its inputs** rather than reading its code. The bimodal-BVE episode cost days of
+     re-engineering BVE internals when the defect was that ours ran on the raw formula and Kissat's
+     ran on a probed/vivified/factored one; reordering fixed it
+     (`benchmarks/reports/2026-07-20-bve-bimodal-profiling.md`). Hence rule ordering is a first-class
+     DefaultPolicy and §5.6 concern.
+  4. *No crude approximations of an understood mechanism (rev 77, user).* Once a reference's
+     mechanism is understood, implement the thing **known to match or exceed it**, not a cheaper
+     lookalike. A weaker approximation may ship ONLY with (a) a stated reason and (b) a **named
+     action item** that closes the gap, both in the engineering-deviation ledger
+     (`docs/implementation-notes.md`) — the one home for "deliberately weaker than the reference, and
+     here is the removal path". An approximation with no named closer is a silent permanent deficit.
+     Corollary: **it is a defect, not an arm** — it must not be parked as a §5.6 dosing question.
+  5. *The same rule binds the SCHEDULING layer, and that is where it keeps being broken (rev 80,
+     user).* **N4 (§1.1) extends obligation 4 to the strategy** — budgets, warm-ups, watermarks,
+     acceptance bounds, their ramps, and above all the **couplings between mechanisms**. Two
+     recurring shapes to check for by name, because both have shipped: (a) **we own the mechanism but
+     never wire it** — a field named after the reference's that nothing writes; (b) **we substitute
+     an instance-level gate for a per-application quality bound**. Shape (a) is the more dangerous,
+     because the mechanism's presence makes the gap invisible to a reader and to `grep`. When either
+     is found the fix is the reference-strength mechanism, and the crude stand-in is **deleted rather
+     than tuned**. Record every open instance in the **scheduling-parity ledger**, N4's operational
+     test.
+  6. *TRANSLITERATION IS THE DEFAULT FIRST MOVE, not the fallback (rev 90, user).* DefaultPolicy
+     should essentially **do what Kissat/CaDiCaL do in their default strategy**, with N1-N4
+     satisfied. Being more sophisticated is allowed, but only **on top of a transliterated baseline
+     kept as a permanent arm**, so an improvement is always measured against the thing it claims to
+     beat. This inverts the burden of argument: obligation 1 still forbids "Kissat does it" as a
+     *reason*, but **the deviation is now what owes the argument**. Grounds: the largest single
+     scheduling win to date was pure transliteration (matching cadical's `ternaryeffort` gained a
+     Tier C solve), while our inventions have a poor record. Four riders:
+     - **(a) When the references disagree, KISSAT IS THE TIE-BREAK.** It is the N3/N4 reference and
+       the further-away half. A CaDiCaL divergence is ported only with a measured reason, and the
+       unported side is recorded as an arm.
+     - **(b) Transliterate the MECHANISM AND ITS EFFECT, never the code.** A port that goes inert is
+       worse than none — it reads as parity while doing nothing, which is exactly shape (a) of
+       obligation 5. The same constant can mean something different here (a naive port of kissat's
+       substitute budget goes inert against our floor; units differ where a counter counts literals
+       and the reference counts propagations). **A port must state, and where possible measure, that
+       the mechanism fires here.**
+     - **(c) It is a FLOOR, not a target — never regress to parity.** We are already ahead in places
+       (inline tagged binary watches, reason-side bump rate, native LRAT). N4 says *at least as
+       sophisticated*; this obligation does not weaken it to *identical*.
+     - **(d) Where NO reference backs a constant, it is an invention: delete or re-derive it, never
+       tune it.** Absence must be *shown* — read the option set and the use site, since a mechanism
+       may be spelled differently or be an unnamed constant — not assumed from a failed grep. Such a
+       constant must be presented as ours wherever it is cited.
+     **The cheap first step this makes standard:** before writing our code for a missing mechanism,
+     **price it by ablating it IN the reference** — the pinned binary, one flag, no build and no pin
+     directory. Subject to §8.3's ablate-one caveat: survivors re-allocate effort, so a single
      ablation is an UPPER bound and the batch needs its all-off control.
      **N1 is unaffected and its shape is known:** the reference's *decision* is ported into the
-     policy as advice, never into a guard and never as a narrowed `instances()` (the O17 ruling;
-     the `SCHED-N1FIX` episode, where Factor's density predicate was NoOping inside `factor_apply`).
+     policy as advice, never into a guard and never as a narrowed `instances()` (the O17 ruling).
 
 ### 5.1 The public API (v1, C level — frozen at the phase-2 review, rev 20)
 
@@ -774,139 +728,102 @@ its place* without changing behavior.
 
 ### 5.6 Learned proof-rule scheduling — the end-game (RL module, rev 26)
 
-**Thesis.** Given a new instance the solver *learns on-the-fly* which proof rule (or batch) to
-apply next — order, frequency, budgets — instead of one hand-tuned schedule: the proof-rule view
-of what config-tuning does with knobs. DynamicSAT (Shi et al., CP 2025) gained 13–19% PAR-2 on
-SC24 with a UCB bandit re-tuning Kissat options *during* solving (drift-triggered, LBD-window
-reward); the Kissat-MAB lineage (UCB over two branching heuristics) won SC25 outright. Both learn
-over knobs bolted onto a fixed program; here the schedule IS the program and rules are first-class
-schedulable objects (N1), so the action space is the schedule itself — the delta this architecture
-uniquely enables, and why N1 exists.
+**Thesis.** Given a new instance the solver *learns on-the-fly* which proof rule (or batch) to apply
+next — order, frequency, budgets — instead of one hand-tuned schedule. The competition-proven work
+(DynamicSAT, the Kissat-MAB lineage; §12) learns over knobs bolted onto a fixed program; here the
+schedule IS the program and rules are first-class schedulable objects, so **the action space is the
+schedule itself**. That is the delta this architecture uniquely enables, and why N1 exists.
 
-**The always-on principle (rev 28, user decision — governs everything below).** ONE solving run,
-learning inside it: no tuning phase, no sub-problems, no re-solving. No terminal states to learn
-from, and work is never discarded to buy training signal — learned clauses, eliminations and
-heuristic state all persist; the learner's only currency is *which legal application comes next*.
-Every choice point exploits and explores in one action (optimism-style selection — UCB's defining
-property — not explore- vs exploit-phases); the solver is anytime, never "tuning instead of
-solving". Attribution uses boundaries the run already has — restarts and inprocessing-slot entries
-chop the trajectory into bounded, comparable segments whose tick costs and progress observables book
-rewards for the choices active in them; segments are attribution windows, never episodes to re-run.
-This separates the module from TACO's tune-then-deploy shape (below) and any train/deploy split.
+**The always-on principle (rev 28, user — governs everything below).** ONE solving run, learning
+inside it: no tuning phase, no sub-problems, no re-solving. No terminal states, and work is never
+discarded to buy training signal — learned clauses, eliminations and heuristic state all persist; the
+learner's only currency is *which legal application comes next*. Every choice point exploits and
+explores in one action (optimism-style selection, not explore-then-exploit phases); the solver stays
+anytime. Attribution uses boundaries the run already has — restarts and inprocessing-slot entries cut
+the trajectory into bounded, comparable segments. **Segments are attribution windows, never episodes
+to re-run.**
 
 **Unifying view.** A run is a word over the rule alphabet constrained only by guards; any legal word
 is sound and proof-producing (§5, enforced daily by random-policy fuzzing). DefaultPolicy emits that
-word with hand-tuned constants, LearnedPolicy the same shape with learned state. Not every letter is
-worth learning; families carry a **choice status** (§5.2):
+word with hand-tuned constants, LearnedPolicy the same shape with learned state. Families carry a
+**choice status** (§5.2):
+- **Reflex (never learned online):** Propagate to fixpoint; Analyze+Backjump on a conflict. Every
+  competitive solver agrees, and per-step decisions there buy nothing (§3's granularity trap). Still
+  N1-exposed — an external policy may reorder them; the learned layer never budgets them.
+- **Scheduled (the learned core):** whether/when to fire each macro rule — Restart, Reduce, Rephase,
+  SwitchMode, inprocessing-slot entry. Choice points ~10^2-10^4 conflicts apart.
+- **Composed (batch actions):** at a quiescent root slot, the *sequence and budgets* of inprocessing
+  families as one action; 10^0-10^2 per solve. Batch size trades adaptivity against attribution cost.
+- **Instance arguments (out of v1 scope):** which literal to decide, keep-level, victims — the N1
+  instance surface. Learned argument choice stays external-policy research (§8.4 demo 6).
 
-- **Reflex (never learned online):** Propagate to fixpoint after any assignment; Analyze+Backjump on
-  a conflict — Abstract-DPLL and every competitive solver agree, and samples or per-step decision
-  cycles there buy nothing (§3's granularity trap). Still N1-exposed: an external policy may reorder
-  them; the learned layer never budgets them.
-- **Scheduled (the learned core):** whether/when to fire each macro rule — Restart timing, Reduce
-  interval/volume, Rephase type, SwitchMode, inprocessing-slot entry. Choice points at conflict
-  boundaries, ~10²–10⁴ apart.
-- **Composed (batch actions):** at a quiescent root slot, the *sequence and budgets* of
-  inprocessing families (C/V/E) as one action ("probe → subsume → vivify with budgets b⃗"); 10⁰–10²
-  per solve. Batch size trades adaptivity against decision/attribution cost.
-- **Instance arguments (orthogonal; out of the module's v1 scope):** which literal to decide,
-  keep-level, victims — the N1 instance surface. Learned *argument* choice (e.g. learned branching)
-  stays external-policy research (§8.4 demo 6); per-rule instance heuristics remain the rankers,
-  and where several exist they may be arms (VMTF vs scores — the Kissat-MAB trick, already our S4).
-
-**The elimination-dosing exhibit (rev 68, 2026-07-25) — the module's strongest measured motivation
-and a NAMED learning target.** Whether during-search elimination (and each inprocessing dose)
-should fire *on this instance in this state* is a real, unsolved decision: one static feature
-(binary density) with hand-picked thresholds was worth **−7 PAR-2 on Tier B and −32 on Tier C in
-one morning** (incl. Tier C's Ptn/urq45 class simultaneously), taking DefaultPolicy past CaDiCaL on
-Tier B, while kissat — which lacks the decision — is 4× slower than its own no-eliminate ablation
-on mod4block yet *gains* 2× from elimination on crypto1 where ours (mechanism gap) loses 4×
-(reports `benchmarks/reports/2026-07-25-s4-gate-mp1.md`, `2026-07-25-bve-dosing-arms.md`,
-`2026-07-25-crypto1-bve-mechanism.md`). Three sibling gates encode the placeholder policy (Factor
-density 6, composite 50, BVE-dose 6) with known errors both ways (em_11: sparse but
-elimination-loving; crypto1: needs the mechanism fix, not a gate). **Phase-7 obligation: the
-learner must subsume these gates** — DefaultPolicy's thresholds become the permanent arm, the gate
-features (binary density, dose productivity, elimination yield per resolution) become RL2 context
-dimensions (joining the O12 feature set; "binary-clause fraction" was already listed), and per-entry
-dose on/off becomes a scheduled choice point. Success: the learner matches the gates where right,
-recovers em_11 where wrong, and no hand threshold survives as load-bearing.
+**The elimination-dosing exhibit (rev 68) — the module's strongest measured motivation and a named
+learning target.** Whether a during-search dose should fire *on this instance in this state* is a
+real, unsolved decision: one static feature with hand-picked thresholds moved both tiers materially
+in a morning, in both directions on different families. **Phase-7 obligation: the learner must
+subsume any such gate** — DefaultPolicy's thresholds become a permanent arm, the gate features
+(dose productivity, elimination yield per resolution) become RL2 context dimensions, and per-entry
+dose on/off becomes a scheduled choice point. Success: the learner matches the hand rule where it is
+right, recovers the families where it is wrong, and no hand threshold survives as load-bearing.
+Measurements: `benchmarks/reports/2026-07-25-*`. **Caveat (2026-08-07): the binary-density gates that
+motivated this row were deleted — they read a size-monotone counter — so their specific numbers are
+evidence about a broken instrument. The decision they stood in for is still real.**
 
 **The three-cost trade-off** — granularity vs cost-to-learn vs cost-to-decide:
 
 | Level | Choice frequency | Decide-cost budget | Samples/solve | Consequence |
 |---|---|---|---|---|
-| reflex | 10⁶–10⁷/s | zero | — | fixed composition |
-| scheduled | 1–10³/s | UCB argmax over ≤ ~16 arms | 10³–10⁶ | bandits thrive |
-| composed | ≤ 1/s | anything cheap, even a linear model | 10⁰–10² | small arm sets, strong priors, offline warm-start |
+| reflex | 10^6-10^7/s | zero | — | fixed composition |
+| scheduled | 1-10^3/s | UCB argmax over <= ~16 arms | 10^3-10^6 | bandits thrive |
+| composed | <= 1/s | anything cheap, even a linear model | 10^0-10^2 | strong priors, offline warm-start |
 
-Placement rule: decision cost ≤ ε · work-between-decisions, AND arm count sized to the samples
-available at that frequency. High-frequency levels have cheap samples but demand near-zero
-decisions; low-frequency levels afford rich decisions but are sample-starved — why deep models are
-excluded at every level.
+Placement rule: decision cost <= eps * work-between-decisions, AND arm count sized to the samples
+available at that frequency. This is why deep models are excluded at every level.
 
 **Reward.** Time-to-solve is terminal and too delayed; the module optimizes *progress per unit cost*
-from observables rules already return (ApplyResult, per-rule stats, `tactix_stat`):
-learned-clause-quality windows (average glue over the last d conflicts — DynamicSAT's validated
-proxy; our glue EMAs already exist), Δformula per tick (subsumed / strengthened / eliminated / units
-derived), propagations-per-conflict. Cost in ticks, never wall time (determinism). Recorded pitfall —
-proxy hacking (restarts reset glue windows; Reduce deletions flatter the average): reward windows
-must span the action's effect horizon, and the offline replay harness (§8.5) validates any proxy
-against actual solve time before it is trusted online.
+from observables rules already return (ApplyResult, per-rule stats, `tactix_stat`): glue-quality
+windows, delta-formula per tick, propagations per conflict. **Cost in ticks, never wall time**
+(determinism). Recorded pitfall — proxy hacking, since restarts reset glue windows and Reduce
+deletions flatter the average: reward windows must span the action's effect horizon, and the offline
+replay harness (§8.5) validates any proxy against actual solve time before it is trusted online.
 
-**Nonstationarity.** The instance structurally drifts during solving (DynamicSAT Fig. 1:
-SATZilla-feature cosine similarity decays monotonically — clause learning/elimination make F_t
-unlike F_0), so stationary-bandit regret is the wrong frame. Adopt drift-triggered re-exploration
-(Δ‖F‖ = adds+removes over a threshold; DynamicSAT: θ = 30%, d = 100 decisions, sampling budget
-μ = 1000) and/or windowed/discounted UCB; constants are per-arm-set tuning, not architecture.
+**Nonstationarity.** The instance structurally drifts during solving, so stationary-bandit regret is
+the wrong frame. Adopt drift-triggered re-exploration and/or windowed/discounted UCB; the constants
+are per-arm-set tuning, not architecture.
 
-**Paradigm ladder (adoption order; deep learning excluded from the competition path):**
+**Paradigm ladder (adoption order; deep learning excluded from the competition path).** Stages are
+`RL1`-`RL4` (rev 81 — `L<n>` means a lesson and nothing else; the gate names `L-safe`/`L-win` carry
+no digit and are unaffected).
+1. **RL1 — non-stationary MAB** (windowed/discounted UCB1, EXP3 as adversarial fallback) over each
+   scheduled/composed choice point, DefaultPolicy's choice a permanent arm.
+2. **RL2 — contextual bandits**, tabular contexts first (mode, glue-EMA band, binary-clause fraction,
+   DB-size ratio); LinUCB only if tabular plateaus.
+3. **RL3 — tabular RL** for composed-batch sequencing only, where order effects are real, and only
+   with a stated kill criterion: if it cannot beat RL1 over batch-arms on Tier C medians within its
+   experiment budget, it dies and the result is recorded.
+4. **Offline layer:** per-family presets (classify -> preset; presets become online arms). Deep/GNN
+   policies stay research-track via the N1 external surface, never in the competition binary — as
+   does generative rule synthesis (O16c).
 
-**Naming (rev 81):** these stages are `RL1`–`RL4`. They were `L1`–`L4` until 2026-08-04, when the
-collision with the standing-lesson namespace `L<n>` (`docs/lessons.md`) made both unverifiable by
-any tool — a mechanical checker could not tell a citation of lesson `L4` from RL stage `L4`, and
-reported false errors on correct plan text. **`L<n>` now means a lesson and nothing else.**
-The gate names `L-safe`/`L-win` are unchanged (no digit, so no collision).
+**From TACO (rev 27/28; §12).** Kept: the instance is its own training data; deterministic cost
+accounting; the validation discipline, realized here structurally as the permanent default arm rather
+than a validation phase; structured neighbour-move proposals for *generating* composed-batch arms
+online. **Deliberately NOT adopted (user, rev 28): the episode mechanism** — partitioning into
+sub-problems and re-solving cubes. In-run solving reaches no terminal states and must not re-solve.
 
-1. **RL1 — non-stationary MAB** (windowed/discounted UCB1; EXP3 as the adversarial fallback) over each
-   scheduled/composed choice point, DefaultPolicy's choice a permanent arm. Competition-proven shape.
-2. **RL2 — contextual bandits**, tabular contexts first (mode, glue-EMA band, binary-clause
-   fraction, DB-size ratio); LinUCB only if tabular plateaus.
-3. **RL3 — tabular RL** (Q-learning/SARSA, tiny discretized state) *only* for composed-batch
-   sequencing where order effects are real (probe before vs after subsume), and only as a stated
-   hypothesis with a kill criterion: if it cannot beat the RL1 bandit over batch-arms on Tier C
-   medians within its experiment budget, it dies and the result is recorded.
-4. **Offline layer:** per-family presets (classify → preset; presets become online arms). Deep/GNN
-   policies stay research-track via the N1 external surface (Python), never in the competition
-   binary — as does generative proof-rule synthesis (O16c: propose rules in the five-primitive
-   vocabulary, let the §8.2 harness referee).
+**Safety, determinism, N-invariants.** Exploration cannot break correctness: any guard-legal schedule
+is sound and certificate-producing by construction (N1+N2), the random-policy fuzzer is the standing
+adversarial proof, and LearnedPolicy joins its rotation. Safe exploration reduces to bounded
+performance regret, handled by the permanent default arm (never-worse gate, §8.5). Seeded exploration
+plus tick-based rewards keep runs deterministic and replayable. N3 is unaffected: it is judged on
+DefaultPolicy.
 
-**What TACO (Cubing for Tuning — Wu/Barrett/Narodytska, AAAI 2025) contributes, and what it
-deliberately does not (rev 27 absorbed, rev 28 corrected).** Kept: the instance is its own training
-data (no similar-benchmark assumption — shared premise); deterministic cost accounting
-(conflicts/ticks, never wall time); the validation discipline (their held-out cubes + portfolio
-fallback showed unvalidated strategies regress — realized here structurally as the permanent default
-arm, not a validation phase); structured neighbor-move proposals (MCMC over ≤k-deviation strategies)
-for *generating* candidate composed-batch arms online instead of enumerating a combinatorial space.
-Deliberately NOT adopted (user, rev 28): the episode mechanism — partitioning into sub-problems and
-re-solving cubes; in-run solving reaches no terminal states, has no sub-problems, and must not
-re-solve anything. TACO's next stated challenge — deep integration into search — is this module.
-
-**Safety, determinism, N-invariants.** Exploration cannot break correctness: any guard-legal
-schedule is sound and certificate-producing by construction (N1+N2) — the random-policy fuzzer is
-the standing adversarial proof, and LearnedPolicy joins its rotation. Safe exploration reduces to
-bounded performance regret, handled by the permanent default arm (never-worse gate, §8.5). Seeded
-exploration + tick-based rewards keep runs deterministic and trace-replayable. N3 is unaffected:
-judged on DefaultPolicy, the hand-tuned baseline.
-
-**Forward requirements on current work (the anticipation, active now):**
-
-- The registry-driven macro scheduler (landed as Track SCHED stages A–H; its dosing is phase 4) represents its schedule **as
-  data**: slots and per-slot choice points (rule subset, order, budgets) enumerable and overridable
-  through the Policy interface — those choice points are the future arm space. No hand-wired
-  if-chains a learner cannot address.
-- Every macro rule keeps shipping progress counters + tick cost (§5.3 per-rule-everything) — the
-  reward substrate.
-- `--trace` replay (§5 reproducibility) doubles as the offline counterfactual harness; keep exact.
+**Forward requirements on current work (active now).**
+- The registry-driven macro scheduler represents its schedule **as data** — slots and per-slot choice
+  points (rule subset, order, budgets) enumerable and overridable through the Policy interface. Those
+  choice points are the future arm space; no hand-wired if-chains a learner cannot address.
+- Every macro rule keeps shipping progress counters + tick cost (§5.3) — the reward substrate.
+- `--trace` replay (§5) doubles as the offline counterfactual harness; keep it exact.
 
 ## 6. Competition compliance checklist (R2)
 
@@ -952,191 +869,94 @@ analysis, then inprocessing. Plan of attack:
 
 ### 8.1 Benchmark tiers (fast feedback first, full rigor at gates)
 
-Running 400 instances × 5000 s per iteration is useless for day-to-day
-development. We maintain four fixed, versioned benchmark tiers checked into the
-repo (as instance lists + download script; instances themselves cached locally):
+Four fixed, versioned tiers, checked in as instance lists + a download script (instances cached
+locally). Running 400 instances x 5000 s per iteration is useless for day-to-day development.
 
-**Evaluation environment (rev 64, user decision — SLURM cluster; supersedes
-the single-workstation protocol of revs ≤ 63).** All benchmarking runs on the
-lab's SLURM cluster, partition `cpu-dense-hwulab-q` (2 × 192-core nodes),
-submitted by `tools/bench/run.py --slurm` as a **job array with one
-single-threaded solver run per task** (the solver itself remains strictly
-sequential per the scope statement); each task gets 1 core + 8 GB per core
-(`cpus-per-task = ceil(mem_cap / 8 GB)`, so the Tier D 16 GB cap ⇒ 2 cores).
-Candidate and baselines go into the **same array** (same window, same
-partition). Concurrent tasks on a node still contend for memory bandwidth and
-shared caches, so: record the **allocation shape** (partition, cpus/mem per
-task, throttle) in every report and in `results.json`, compare numbers only
-across runs with identical shapes (the generalization of "never compare across
-job counts"), and use `--throttle` to cap concurrent tasks for gate runs on
-Tiers C/D where timing precision matters. **No solver ever executes outside a
-submitted job (rev 65, user decision):** every solver run — tier evaluations,
-one-off probes, spot checks, fuzz legs — goes to the partition via `sbatch`
-(`run.py --slurm`, `tools/fuzz/slurm.sh`, or `sbatch --wrap`), never on the
-login node or inside an interactive session shell (which is itself a SLURM
-job on the default partition, so `srun` from it silently becomes a step of
-that job — use `sbatch` only). The runner's local `--jobs ≤ 8` mode exists
-for harness debugging alone and produces no reportable numbers. Job hygiene:
-cancel jobs that are no longer needed, always by explicit job id
-(`scancel <jobid>`), never account-wide. Wall-clock at full array width: Tier B ≈ minutes,
-Tier C ≈ ≤ 1 h, one Tier D set ≈ an afternoon (bounded by the 5000 s solve +
-proof-check budget, not by set size). **A pinned reference PAR-2 can go stale
-or be inflated** by contention or a pathological proof-check (rev 46: the
-pinned Tier-C CaDiCaL was 336.96, a clean re-run measured 160.6 — 2×) — so
-**re-measure the reference solver CLEAN in the same window before judging any
-gate**, never against an old pin. **All PAR-2 / wall-clock seconds pinned
-before 2026-07-23 describe the retired workstation** — re-pin on the cluster
-before using one in a comparison; conflict/resolution counts carry over.
+**Evaluation environment (rev 64/65, user).** All benchmarking runs on the lab SLURM cluster,
+partition `cpu-dense-hwulab-q`, submitted by `tools/bench/run.py --slurm` as a **job array with one
+single-threaded solver run per task**; 8 GB per core, `cpus-per-task = ceil(mem_cap / 8 GB)`.
+Candidate and baselines go in the **same array**.
+- **No solver ever executes outside a submitted job** — tier runs, probes, spot checks and fuzz legs
+  all go through `sbatch`, never the login node and never `srun` from the session shell (itself a job,
+  so `srun` silently becomes a step of it). The local `--jobs <= 8` mode is for harness debugging and
+  produces no reportable numbers. Cancel only by explicit job id.
+- Concurrent tasks contend for memory bandwidth and cache, so **record the allocation shape**
+  (partition, cpus/mem per task, throttle) in every report and in `results.json`, and **compare only
+  across identical shapes**. `--throttle` caps concurrency for gate runs on Tiers C/D.
+- **Re-measure the reference solver CLEAN in the same window before judging any gate**, never against
+  an old pin — a pinned PAR-2 goes stale or inflates under contention (rev 46). Every PAR-2 or
+  wall-clock second pinned before 2026-07-23 describes the retired workstation; conflict and
+  resolution counts carry over, timings do not.
+- Operational detail is the `slurm-jobs` and `benchmarks` skills; this section is the specification.
 
-**Proof-generation protocol (rev 72, user decision 2026-07-27).** Every arm in
-every tier run — the solver under test and every baseline — is invoked with a
-proof path, so all arms pay the certificate tax and the comparison is
-like-for-like (§2). Two asymmetries are deliberate and must be stated in every
-report:
-- **Scoring.** A rejected or missing proof scores *our* instance UNSOLVED
-  (competition-style, N2 discipline). A baseline's failed check is **recorded,
-  never scored against it** — baselines are a performance reference, and
-  scoring their certificates against our checker budget would flatter us.
-- **Baselines WRITE proofs but are NOT VERIFIED by default (rev 79).** Writing
-  is the like-for-like *timing* requirement and applies to every arm; verifying
-  a baseline's certificate cannot change any verdict, precisely because the
-  scoring asymmetry above already discards its outcome. Measured on Tier C
-  window `20260803-211105`: baseline checking was **6.07 h of 9.08 h (67 %) of
-  all checking wall-clock**, and the single longest task in the run — 61.5 min —
-  was drat-trim on kissat's proof. `run.py --verify-baseline-proofs` opts back
-  in for a submission-grade claim. `proof_bytes` is still recorded for every
-  arm, so proof size stays a reported metric. **OUR arms' checker budget is
-  unchanged and must stay so** — it is what the `urq45` artefact below is
-  about, and shrinking it is how a solved instance gets scored unsolved.
-- **Checker budget = `max(3600 s, 4 × the tier's solve timeout)`** (Tier A/B
-  3600 s, C 4800 s, D 20000 s), replacing the runner's old `2 ×` timeout. An
-  instance scored unsolved because drat-trim's backward search outran a budget
-  the competition would not have applied is a measurement artefact, not a
-  solver result (`urq45`, 2026-07-27: 1447 s to verify under a 2400 s budget,
-  and > 2400 s at the configuration one commit earlier). The competition's own
-  allowance is 45000 s (§2); we stop short of it because the budget also sets
-  every array task's wall limit, and 4× covers the measured worst case by ~3×.
-  A proof that outruns even this is re-checked as native LRAT before the
-  instance is called unsolved (`--lrat` + cake_lpr verified `urq45` in 77 s
-  where drat-trim needed 1447 s). Proof-check time and proof size stay first-class
-  reported metrics (§8.3) and are never added to the solve time.
-The arm's own command selects the certificate format (a `--lrat` arm writes
-native LRAT verified by cake_lpr; otherwise binary DRAT verified by drat-trim).
-DRAT remains the scored default: it is what the competition pipeline consumes,
-and native LRAT costs 15–30 % solve time and 4–28× proof size (measured
-2026-07-27, Tiers B and C) for a checking speedup that reverses on the largest
-certificates.
+**Proof-generation protocol (rev 72/79, user).** Every arm in every tier run is invoked with a proof
+path, so all arms pay the certificate tax and the comparison is like-for-like (§2). Three rules:
+- **Scoring is asymmetric.** A rejected or missing proof scores *our* instance UNSOLVED
+  (competition-style, N2). A baseline's failed check is recorded, **never scored against it**.
+- **Baselines WRITE proofs but are NOT VERIFIED by default.** Writing is the like-for-like timing
+  requirement; verifying a baseline cannot change a verdict, since the asymmetry above already
+  discards the outcome — and it dominated checking wall-clock when it was on.
+  `--verify-baseline-proofs` opts back in for a submission-grade claim. `proof_bytes` is recorded for
+  every arm regardless, so proof size stays a reported metric.
+- **Checker budget = `max(3600 s, 4 x the tier's solve timeout)`** (A/B 3600 s, C 4800 s, D 20000 s).
+  An instance scored unsolved because a checker outran a budget the competition would not have applied
+  is a measurement artefact, not a solver result. A proof that outruns even this is re-checked as
+  native LRAT before the instance is called unsolved. **Our arms' budget must not shrink.**
+  Check time and proof size are first-class reported metrics (§8.3) and are never added to solve time.
 
-- **Tier A — "seconds" set (development inner loop; total runtime < 2 min).**
-  ~200 generated instances with known status, solvable by a basic CDCL
-  solver — with restarts and clause-DB reduction; measured rev 12: plain
-  1-UIP CDCL without them times out on transition instances at n ≥ 250 —
-  in milliseconds–seconds:
-  - Random 3-SAT at/near the phase transition (m/n ≈ 4.26), n = 50–300, seeded;
-    half SAT, half UNSAT (status established once with Kissat and recorded).
-  - Under-constrained (m/n ≈ 3, guaranteed easy SAT) and over-constrained
-    (m/n ≈ 5.5, easy UNSAT) random 3-SAT for cheap category coverage.
-  - Small crafted families with known status: pigeonhole PHP(5..8) (UNSAT,
-    exercises deep resolution), small pebbling formulas, parity/XOR chains,
-    small graph-coloring encodings.
-  - Run on every commit. A solver that times out here (>30 s each) is simply
-    broken; this is the set the phase-1 skeleton must clear first.
-  - **Sequencing rule (rev 18, user decision): Tier B is not evaluated
-    while any Tier A instance is unsolved within its 30 s budget.** Clear
-    Tier A completely, then compare on Tier B — timings there carry no
-    decision weight while the "is it broken" set still has failures.
-  - **Margin rule (rev 22, user decision): Tier A must pass easily and
-    consistently, not at the knife edge.** A change that leaves any
-    instance within ~15% of the 30 s budget solo (≳ 25 s — shared-node
-    contention eats the rest) is not done: the marginal instance gets a
-    dedicated follow-up (fidelity levers first, never Tier-A constant
-    tuning, which §8.1 still forbids) before the work is considered
-    complete. Consistency is part of the claim — verify with repeat
-    runs at the standard allocation shape, not one lucky pass.
-- **Tier B — competition subset (daily driver; total ≈ 4–16 CPU-min).**
-  **28 instances** from the SC 2023–2025 main tracks selected by *reference
-  runtime*: Kissat 4.0.4 in the band **[3.5, 19.0] s measured ON THE CLUSTER**
-  (rev 73 — the original "5–30 s" band was Apple-M3-Pro seconds, and the
-  M3→cluster ratio is 1.13–1.76 per instance, so it could not be rescaled; all
-  28 are now measured in one window). The lower bound keeps trivial instances
-  out so each timing carries signal. Stratified ~50 % SAT / 50 % UNSAT, and
-  since rev 73 **one instance per family — 28 instances, 28 distinct families**,
-  disjoint from Tier C. Timeout for our solver: 300 s. Primary dev metric:
-  PAR-2 on Tier B + ratio vs Kissat.
-  **Why it doubled (rev 73):** at n=14 one instance dominated verdicts — a
-  solved→timeout flip was 42.9 PAR-2 points, and `mod4block` alone accounted
-  for the ENTIRE Tier B value of the X1/X2/X4 trio (+586 s of a +581 s net),
-  flipping that A/B's verdict when excluded. At n=28 max single-instance share
-  of the reference mass is 7.1 % (was 16.2 %) and a flip is 21.4 points.
-  **Halved, not removed** — a flip can still outvote every other instance, so
-  the standing caveat holds: compare per-instance times and repeat runs before
-  believing a small delta, and Tier C is where claims become meaningful.
-  **The original 14 are preserved as a marked `core14` subset** so the whole
-  pre-rev-73 measurement archive (Tier B 7.94 / 9.27 / 9.46, kissat 8.51 …)
-  stays recomputable by filtering any `results.json`. **Never mix 14- and
-  28-instance PAR-2 in one comparison.** List construction + the candidate
-  reserve pool: `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
-- **PER-INSTANCE DETAIL LIVES IN `benchmarks/runs/<window>/results.json`, WHICH IS
-  AUTHORITATIVE — PROGRESS.md carries the HEADLINE, NOT THE TABLE (rev 84, user;
-  supersedes rev 75).** What PROGRESS must carry for the current measurement
-  state is the **window stamp, the git SHA taken from that run's own
-  `manifest.json`, the arms, #solved and PAR-2, and any per-instance fact a
-  decision actually rests on** — not the full instance list. Reports in
-  `benchmarks/reports/` carry tables when a gate or an experiment needs one;
-  `tools/bench/run.py --aggregate <window>` regenerates any view, including the
-  oracle column, without re-running anything.
-  **Why rev 75 asked for the table, and why the reason no longer requires it:**
-  the aggregate alone has repeatedly hidden the finding — Tier B's X1/X2/X4
-  verdict inverted when one instance was excluded (`mod4block` was the entire
-  effect), a BVE-gate A/B looked FLAT while swapping one solve for another, and
-  four order-of-magnitude failures were invisible in a PAR-2 number. **That
-  obligation survives as an obligation on the CLAIM, not on the document:** a
-  performance claim must state #solved before PAR-2 and must name the instances
-  that moved, and a headline decided by one instance is not a verdict (the
-  may-not-gate set). Copying 58 rows into a living document was never what
-  enforced that, and the tables went stale faster than they were read.
-- **Tier C — "≤ 300 s" subset (weekly; total ≈ a few CPU-hours).** Same
-  construction with Kissat-runtime ≤ 300 s, ~30 instances; timeout for our
-  solver: **1200 s (20 min; rev 29, user decision** — the original 10×
-  headroom rule cost a worker-hour per timeout; 4× the reference band
-  suffices now that only the worst tail exceeds it. Recorded caveat:
-  instances landing between 1200 s and the old 3000 s are censored until
-  they improve — at the change, exactly circuit_32in32out for tactix-base,
-  1334 s at jobs=4; PAR-2 is timeout-scaled, so numbers across the change
-  are not comparable — the first 1200 s run re-baselines**)**. Catches regressions
-  that only show at longer horizons (restart/inprocessing scheduling effects are
-  invisible on short runs — the main risk of over-fitting to Tier B).
-- **Tier D — full SC main-track sets (milestone gates only).** SC 2024 + SC 2025
-  full 400-instance sets, 5000 s, memory capped at 16 GB to mirror competition
-  conditions. Run only at phase exits (§9) and before any external claim.
-  **Built and frozen 2026-08-03: `benchmarks/tiers/D.list`, 793 instances, not
-  800 (rev 79)** — GBD is content-addressed and **7 instances appear in BOTH
-  tracks**, so listing them twice would fetch one file twice and double-count it
-  in PAR-2. Each track's 400 stays exactly reconstructible from the list's
-  `shared` / per-track blocks: `400 = shared(7) + track-only(393)`. Composition
-  345 SAT / 377 UNSAT / 71 UNKNOWN over 118 families; UNKNOWN is retained
-  because the full track is the point (`run_instance` guards its correctness
-  check with `expected in {SAT,UNSAT}`, so UNKNOWN never trips a mismatch).
-  **Tier D is NOT independent of Tiers B and C** — 18 of Tier B's 28 and 19 of
-  Tier C's 30 are also in it, so a Tier D gate is not independent confirmation
-  of a B/C result. **T4 is gated on the SC25 set specifically**, which is a
-  scoring VIEW over one Tier D window and never a separate run, exactly as
-  T3's rule-neutral subset is over Tier C: `benchmarks/tiers/D-sc25.list`
-  (400 = shared 7 + main_2025 393, derived rev 89 from `D.sources`' per-track
-  blocks) scored by `tools/bench/subset_score.py <rundir> --subset D-sc25`.
-  `--tier D` still runs all 793; run it once and score it twice.
-  **COMPOSITION IS FROZEN THROUGH THE PHASE-4 CAMPAIGN (O9, decided rev 89,
-  user).** SC2026 is not added now: phase 4's Tier D obligation is *scale
-  evidence*, not a gate, and re-cutting the set mid-phase would make the
-  campaign incomparable with everything already measured on the B/C overlap.
-  The composition question reopens **before the T4 evaluation** (phase 5),
-  where the set actually gates something.
+The arm's own command selects the format: a `--lrat` arm writes native LRAT verified by cake_lpr,
+otherwise binary DRAT verified by drat-trim. **DRAT is the scored default** — it is what the
+competition pipeline consumes, and native LRAT costs 15-30 % solve time and 4-28x proof size for a
+checking speedup that reverses on the largest certificates.
 
-Selection bias warning, recorded here deliberately: Tiers A–B over-represent easy
-instances, and improvements there (especially on random 3-SAT, which rewards
-different heuristics than industrial instances) do **not** predict competition
-PAR-2. Tiers A–B answer "is it correct and not embarrassingly slow"; only
-Tiers C–D answer "is it competitive". Never tune heuristic defaults on Tier A.
+- **Tier A — "seconds" set** (development inner loop, total < 2 min). ~200 generated instances with
+  known status: random 3-SAT at the phase transition (m/n ~ 4.26, n = 50-300, seeded, half SAT),
+  under- and over-constrained random 3-SAT, and small crafted families (PHP(5..8), pebbling,
+  parity/XOR chains, graph colouring). Run on every commit; 30 s each, and a solver that times out
+  here is simply broken.
+  - **Sequencing (rev 18, user): Tier B is not evaluated while any Tier A instance is unsolved.**
+    Timings carry no decision weight while the "is it broken" set still fails.
+  - **Margin (rev 22, user): Tier A must pass easily, not at the knife edge.** Any instance within
+    ~15 % of the 30 s budget solo (>~ 25 s) gets a dedicated follow-up — fidelity levers first, never
+    Tier-A constant tuning — before the work is complete. Verify with repeat runs.
+- **Tier B — competition subset** (daily driver, ~4-16 CPU-min). **28 instances** from SC 2023-2025
+  main tracks, selected by reference runtime: Kissat 4.0.4 in **[3.5, 19.0] s measured on the
+  cluster**, ~50/50 SAT/UNSAT, **one instance per family (28 families)**, disjoint from Tier C.
+  Timeout 300 s. Primary dev metric: PAR-2 + ratio vs Kissat.
+  **A single instance can still outvote every other** — compare per-instance times and repeat runs
+  before believing a small delta; Tier C is where claims become meaningful. The original 14 are kept
+  as a marked `core14` subset so the pre-rev-73 archive stays recomputable; **never mix 14- and
+  28-instance PAR-2 in one comparison.** Construction:
+  `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
+- **Tier C — "<= 300 s" subset** (weekly, a few CPU-hours). Same construction with Kissat runtime
+  <= 300 s, ~30 instances; timeout **1200 s** (rev 29, user). Instances landing between 1200 s and the
+  old 3000 s are censored until they improve, and PAR-2 is timeout-scaled, so numbers do not compare
+  across that change. Catches the restart and inprocessing scheduling effects that are invisible on
+  Tier B — the main over-fitting risk.
+- **Tier D — full SC main-track sets** (milestone gates only). SC 2024 + SC 2025, 5000 s, 16 GB to
+  mirror competition conditions, run only at phase exits (§9) and before an external claim. Frozen
+  2026-08-03 as `benchmarks/tiers/D.list`: **793 instances, not 800** — GBD is content-addressed and
+  7 instances appear in both tracks, so each track's 400 = shared(7) + track-only(393). Composition
+  345 SAT / 377 UNSAT / 71 UNKNOWN over 118 families; UNKNOWN is retained because the full track is
+  the point. **Tier D is NOT independent of Tiers B and C** (18 of B's 28 and 19 of C's 30 are in it),
+  so a Tier D gate is not independent confirmation of a B/C result. **T4 is gated on the SC25 set**,
+  a scoring VIEW over one Tier D window and never a separate run:
+  `benchmarks/tiers/D-sc25.list` scored by `tools/bench/subset_score.py <rundir> --subset D-sc25`.
+  `--tier D` runs all 793 — run once, score twice. **Composition is frozen through the phase-4
+  campaign** (O9, rev 89, user) and reopens before the T4 evaluation, where it actually gates.
+
+**Per-instance detail lives in `benchmarks/runs/<window>/results.json`, which is authoritative
+(rev 84, user).** PROGRESS.md carries the window stamp, the git SHA from that run's `manifest.json`,
+the arms, #solved, PAR-2, and any per-instance fact a decision rests on — **the headline, not the
+table**. Reports in `benchmarks/reports/` carry tables when a gate needs one;
+`run.py --aggregate <window>` regenerates any view without re-running anything. The obligation this
+replaced survives **on the claim, not on the document**: state #solved before PAR-2, name the
+instances that moved, and remember that a headline decided by one instance is not a verdict.
+
+**Selection bias, recorded deliberately.** Tiers A-B over-represent easy instances, and improvements
+there — especially on random 3-SAT, which rewards different heuristics than industrial instances — do
+**not** predict competition PAR-2. A-B answer "is it correct and not embarrassingly slow"; only C-D
+answer "is it competitive". **Never tune heuristic defaults on Tier A.**
 
 ### 8.2 Correctness: fuzzing + proof-checking harness (first-class component)
 
@@ -1216,10 +1036,7 @@ Components:
   makes its cost invisible; (b) a change that LOSES a solve is not covered by
   this priority no matter what it does to PAR-2; (c) the T4/N3 bar is unchanged —
   N3 is about being competitive overall, and this ordering is how we get there,
-  not a weakening of it. First application: **R-d variable retirement** shipped
-  at Tier B 109.60 → 75.41 with **+2 solves**, against Tier C 329.63 → 358.12
-  (1.039× → 1.129× cadical, outside T3's 10 % band) — the Tier C cost is three
-  instances and carries its own action item.
+  not a weakening of it.
 - **A STAGED LANDING may run at a temporary REGRESSION (rev 82, user 2026-08-04).**
   Per-increment gating assumes each increment stands alone. Some do not: a
   sequence can have a genuinely worse intermediate state and a better end state,
@@ -1419,104 +1236,8 @@ the PROGRESS Log, and the commit.
 - Wu, Barrett, Narodytska: *Cubing for Tuning* (TACO), AAAI 2025
   (arXiv:2504.19039; local copy `docs/papers/`) — inspiration for §5.6; its
   episode mechanism is deliberately not adopted in-run (rev 28).
-
 ## 13. Revision history
 
-One line per revision (rev 24 policy): the full rationale for each revision
-lives in the PROGRESS.md Log entry and the `plan rev N:` commit written in
-the same change — this index only keeps "rev N" references resolvable.
-**Ordering: ascending — APPEND each new revision at the BOTTOM** (oldest at top,
-newest last). This is the opposite of the PROGRESS.md Log (newest-first); do not
-conflate them.
-
-- **rev. 1** (2026-07-09): initial plan.
-- **rev. 2** (2026-07-09): sequential-only scope; tiers A–D; fuzz harness promoted to phase 0.
-- **rev. 3** (2026-07-09): exhaustive rule catalog (§5.2); extensibility contract + CCE test (§5.3).
-- **rev. 4** (2026-07-09): non-negotiables N1–N3 (§1.1); branching as API surface; PROGRESS.md.
-- **rev. 5** (2026-07-09): consistency review; §11 open-decisions register; concretize mode.
-- **rev. 6** (2026-07-09): O1 narrowed — local workstation, ≤ 8 parallel bench jobs.
-- **rev. 7** (2026-07-09): baseline builds into phase 0; O11 (kitten); Instruction.md.
-- **rev. 8** (2026-07-09): O2 decided — CMake ≥ 3.25 + GitHub Actions.
-- **rev. 9** (2026-07-09): CaDiCaL baseline wording 2.x → 3.0.0.
-- **rev. 10** (2026-07-09): Tier B = 10–15 instances in the Kissat 5–30 s band.
-- **rev. 11** (2026-07-09): O1 decided — Apple M3 Pro, 36 GB, macOS 15.7.7; jobs=1 freeze timings.
-- **rev. 12** (2026-07-10): S1 Restart + S2 Reduce moved to phase 1 (measured T1 evidence).
-- **rev. 13** (2026-07-10): §5.4 revamp discipline + revamp skill.
-- **rev. 14** (2026-07-10): references are evidence, not templates; survey recent winners (§5).
-- **rev. 15** (2026-07-10): §5.5 codebase hygiene + simplify-codebase skill.
-- **rev. 16** (2026-07-10): de-duplication sweep of the plan document itself.
-- **rev. 17** (2026-07-11): Policy class owns ALL scheduling (load-bearing §5 commitment).
-- **rev. 18** (2026-07-11): Tier A/B sequencing rule — clear Tier A before Tier B counts.
-- **rev. 19** (2026-07-13): S4 SwitchMode + stable-mode machinery moved to phase 1.
-- **rev. 20** (2026-07-14): Rule API v1 freeze — O3 (uint64 instance payloads) + O5 (pull-based policies) decided.
-- **rev. 21** (2026-07-14): tactix_stat observability added to the frozen surface.
-- **rev. 22** (2026-07-14): Tier A margin rule — pass easily and consistently (≳ 25 s solo = incomplete).
-- **rev. 23** (2026-07-15): Tier C ~30 instances; Tactix name settled (O10); §1.1 N1-efficiency wording.
-- **rev. 24** (2026-07-15): plan condensed — §13 becomes this one-line index (rationale lives in PROGRESS Log + commits), §2 landscape tables compressed to prose.
-- **rev. 25** (2026-07-15, user): not a Kissat re-implementation — learn from all winners plus the independent lineages Glucose and CryptoMiniSat (§2, §5, §12).
-- **rev. 26** (2026-07-15, user): the end-game formalized — §5.6 learned proof-rule scheduling (choice-status taxonomy, three-cost hierarchy, bandit-first ladder), §8.5 gates, phase 6, O6 framework fixed, O12–O13 opened, scheduler-as-data anticipation on phase 3.
-- **rev. 27** (2026-07-15, user): TACO (AAAI 2025) absorbed into §5.6 — RL4 cube-sampled strategy evaluation, §8.5 RL4 discipline, O14 opened; paper in docs/papers/. *(Corrected by rev 28.)*
-- **rev. 28** (2026-07-15, user): the always-on principle corrects rev 27 — no sub-problems, no re-solving, no tune-then-deploy; every choice point exploits and explores in one action; segment attribution replaces terminal episode costs; RL4 removed, O14 closed, §8.5 anytime check added.
-- **rev. 29** (2026-07-15, user): Tier C timeout 3000 s → 1200 s; 1200–3000 s tail censored (caveat in §8.1), PAR-2 re-baselines at the first 1200 s run.
-- **rev. 30** (2026-07-16): §4 propagation-fixpoint precondition for Decide + all inprocessing (corpus 004); true-level relaxation → §5.4 candidate.
-- **rev. 31** (2026-07-16): §4 `Backjump` asserts the UIP at `jump_level` (corpus 005); §8.2 fuzz mix — FuzzSAT circuits, k-SAT ≤ 100 vars, nightly 10k × 5 s.
-- **rev. 32** (2026-07-16): §5.2 sequencing — V4 `TransitiveReduce` before V3 `Substitute`; V4 introduces the binary-deletion primitive + `SubsumeForward` reconciliation V3b reuses.
-- **rev. 33** (2026-07-17): V3/V4 design notes saved to `docs/design/` (§5.2 refs them); no spec change.
-- **rev. 34** (2026-07-17): §5.1 literal payloads ZERO-extended (`TACTIX_LIT_INSTANCE`) — sign-extension had aliased −1 onto `TACTIX_INSTANCE_CANONICAL`, an N1 violation on the branching choice; regression-pinned.
-- **rev. 35** (2026-07-17): §4 `Propagate` requires `¬pending.valid` — the learned-clause handoff is consumed before propagation resumes (corpus 006).
-- **rev. 36** (2026-07-17): proof-rule calculus formalized — `docs/calculus.md` + the engineering-deviation ledger (D-LEVEL, D-SPLIT); guard purification elevated to an active §5.4 target; new `calculus` skill.
-- **rev. 37** (2026-07-17): D-SPLIT purification 1/3 — Analyze+Backjump fused into the atomic `ConflictAnalysis` (§5.2 M3, M4 folded in); rev-35 conjunct removed; behavior-preserving.
-- **rev. 38** (2026-07-17): D-LEVEL purification 2/3 — true-level assignment + a compacting `kernel_backtrack` make chronological backjump sound (D-LEVEL-2 closed, corpus 005 gone); Decide keeps its fixpoint guard.
-- **rev. 39** (2026-07-17): §4 framing — D-LEVEL-1 (decide off a propagation fixpoint) is MANDATORY per N1, the next task, not fix-vs-reject; sequencing D-LEVEL-1 → V3b-3.
-- **rev. 40** (2026-07-17): D-LEVEL purification 3/3 — D-LEVEL-1 CLOSED: `Decide`'s fixpoint conjunct removed, off-fixpoint decide made sound by the `trail_tainted` re-propagation repair; new `AdversarialPolicy` N1 stress harness; bit-exact for DefaultPolicy.
-- **rev. 41** (2026-07-17): V3 `Substitute` COMPLETE — SCC rewrite with transient equivalence lemmas + `big_path_chain` LRAT, symmetric reconstruction witnesses (first ρ consumer); no §5.2 change.
-- **rev. 42** (2026-07-17): guard purification — D-SPLIT-3 closed: `!conflict_valid` removed from the five pure `F`-rewrite guards; V1/V2 keep it (abstract — failed-literal reasoning needs a consistent `M`).
-- **rev. 43** (2026-07-17): guard purification — D-LEVEL inproc/S5 closed (the last removable leak): the 7 inprocessing rules + Lucky drain the root closure `U` at apply entry via `propagate_service` (naive removal had been measured unsound); only D-ROOT remains.
-- **rev. 44** (2026-07-17, user): `stress-policy` skill — a landed rule or a purified guard needs a TEMPORARY policy maximizing the newly-legal schedule + per-step invariant check (uniform `--random-policy` under-samples; it gave 0/1000 on D-LEVEL-1) (§8.2).
-- **rev. 45** (2026-07-18, user): no `add_rat` (§5.2).
-- **rev. 46** (2026-07-19, user): 160.6 (§8.1, §8.3).
-- **rev. 47** (2026-07-19): pulled forward phase 4 → phase 3 (§5.2, §9).
-- **rev. 48** (2026-07-19): §8.2 nightly fuzz default raised 10k → 20k cases (`run.sh --nightly`, ~12 h wall).
-- **rev. 49** (2026-07-20, user): raised ambition — the goal is to *exceed* Kissat, by engineering, before the learned policy (§9).
-- **rev. 50** (2026-07-20): §13 hygiene — revision index re-sorted ascending (revs 40–49 had drifted to newest-first from repeated prepend mistakes); append-at-bottom rule stated in the §13 header.
-- **rev. 51** (2026-07-20, user): refined the phase-3 goal + added the debug-performance skill (§9).
-- **rev. 52** (2026-07-21): third obligation — diagnose the PIPELINE before the algorithm (§5).
-- **rev. 53** (2026-07-21, user): elevated the EFFORT-BUDGETED INPROCESSING SCHEDULER to the immediate phase-3 priority (§9).
-- **rev. 54** (2026-07-21): re-scoped the rev-53 scheduler from measurement (§8.3, §9).
-- **rev. 55** (2026-07-21): both rev-54 prerequisites landed (§9).
-- **rev. 56** (2026-07-21, user): sequenced phase 3's two open tracks as explicit, checkable items (§9).
-- **rev. 57** (2026-07-21, user): re-split rev 56's C3 bundle — the DRAT unit channel banks now, `D-CONG-LRAT` becomes the immediate next item (§9).
-- **rev. 58** (2026-07-21, user): status moved out of the plan into PROGRESS.md — one fact, one home (§4, §5.2).
-- **rev. 59** (2026-07-22, user): took `H` out of `σ` (§4, §5.1).
-- **rev. 60** (2026-07-22, user): `H` is optional, policy-owned state — the kernel never names `Heuristics` nor depends on its existence; no mandatory DefaultPolicy; H-relocation top-priority phase-3 work (§5, §9). Design `docs/design/h-relocation-design.md`.
-- **rev. 61** (2026-07-22): applied the rev-59 test to the §5.2 catalog — S3/S4/S6/S7 catalogued as **policy operations** (`H`-only), leaving S1/S2/S5 as macro-tier proof rules; no scope change (Track H · H0, §5.2).
-- **rev. 62** (2026-07-22, user-prompted): made the kernel↔`H` separation STRUCTURAL and enforced — `kernel.hpp` holds `H` only as an opaque pointer, never includes `heuristics.hpp`; re-entangling is compile-/grep-caught and a §5.4 discussion (§5). Realized by Track H · H4.
-- **rev. 63** (2026-07-22): §5.3 extended to policy operations — one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP` (no proof obligation, no calculus entry); S3/S4 relocated there (Track H · H6).
-- **rev. 64** (2026-07-23, user): evaluation environment moved to the SLURM cluster (§8.1) — tier runs are job arrays (allocation-shape discipline replaces the jobs count), fuzzing is one multi-core job; all pre-migration PAR-2/second pins declared stale.
-- **rev. 65** (2026-07-23, user): no solver execution outside a submitted job — sbatch only (srun-from-session becomes a job step); local `--jobs` demoted to harness debugging; cancel by explicit job id only (§8.1).
-- **rev. 66** (2026-07-23, user): fuzz cadence scaled 10× for the cluster — quick 1k→10k, nightly 20k→200k, 50 harness threads per fuzz job (§8.2).
-- **rev. 67** (2026-07-24, user): phase 3.5 PINNED between phases 3 and 4 (§9, no renumbering) — "engineering ingenuity on top of kissat", deliberately unelaborated; concretize at phase-3 exit (§11 O15).
-- **rev. 68** (2026-07-25, user): §5.6 elimination-dosing exhibit — per-instance/state inprocessing dosing PROMOTED to a named phase-6 learning target with an explicit subsume-the-gates obligation; grounded in the 2026-07-25 density-gate measurements + kissat `--no-eliminate` ablation.
-- **rev. 69** (2026-07-25, user): §5.1 additive API — TACTIX_STAT ids 22–25 (dosing currencies) + kernel config setters (bve_bound/factor_bound/factor_composite/work_budget/vivify_scope) so the §5.6 learner can read its reward currencies and pose the config surface; contract test added.
-- **rev. 70** (2026-07-25, user): §11 O16 — auto-invention of proof rules recorded (PR/SR clause learning = phase-4 catalog candidate with the DRAT-expressibility caveat; generative synthesis = research-track, non-gating; composed-rule discovery = phase-6 RL3). Decide-by: phase-4 entry.
-- **rev. 71** (2026-07-26): S6 `Walk` moved phase 4 → **3** (§5.2, §9) — measured as the largest missing mechanism at the T3 gate (kissat Tier B 8.62 → 29.22 with walk neutralized; monotone `walkeffort` dose–response on the sole actionable Tier C timeout). Report `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`.
-- **rev. 72** (2026-07-27, user): every arm timed WITH proof generation (like-for-like, asymmetric scoring, checker budget raised — §2/§8.1/§8.3); the FULL reference rule inventory pulled into phase 3 — V5 Sweep+kitten, S7 Reorder, X1–X5 (§5.2, §9, §11 O11).
-- **rev. 73** (2026-07-29): compaction pass (compact-docs) — §5/§8 trimmed to result+pointer; no scope, gate or non-negotiable change.
-- **rev. 74** (2026-07-29, user): Tier B doubled 14 → **28 instances** (§8.1); the 14-instance PAR-2 series is not comparable across the boundary.
-- **rev. 75** (2026-07-30, user): §8.1 — PROGRESS.md must carry the FULL per-instance tier table, not an aggregate. *(SUPERSEDED by rev 84: the table moved to `results.json` + reports; the obligation survives on the CLAIM.)*
-- **rev. 76** (2026-08-01): §11 **O17 added and decided** — DefaultPolicy may RETIRE a rewritten-out variable as *advice*, while `Decide::instances()` must still enumerate it (N1 binds the API, not the heuristic). Design `docs/design/variable-retirement-design.md`.
-- **rev. 77** (2026-08-02, user): §5 gains a FOURTH reference obligation — **no crude approximations of an understood mechanism**; implement what matches or exceeds Kissat, or ship the approximation with a stated reason AND a named closer in the deviation ledger. No N1–N3 change.
-- **rev. 78** (2026-08-02, user): §8.3 — when #solved and PAR-2 conflict, **#SOLVED WINS**; the PAR-2 cost is still measured, reported and given a closer, and a change that LOSES a solve is never covered.
-- **rev. 79** (2026-08-03): §8.1 — baselines WRITE proofs on every timed run, and a baseline's failed check is recorded but not scored against it (asymmetric by design).
-- **rev. 80** (2026-08-04, user): §1.1 gains a FOURTH non-negotiable — **N4, the strategy floor**: DefaultPolicy's *scheduling* must be at least as sophisticated as Kissat's default strategy, checked via the **scheduling-parity ledger** and reviewed at every phase gate. N3 measures the outcome; N4 constrains the mechanism, and it may not be deferred to the phase-7 learner. §5 gains obligation 5 naming the two shapes that have shipped — *we own the mechanism but never wire it* and *we substitute an instance gate for a per-application bound*. Strengthening only: N1–N3 unchanged.
-- **rev. 81** (2026-08-04, user): the §5.6 learned-policy stages are renamed `L1`–`L4` → `RL1`–`RL4`.
-- **rev. 82** (2026-08-04, user): §8.3 — **a staged landing may run at a temporary REGRESSION**, permitted only with all five pre-registered conditions (named sequence, mechanism argument, recovery point + ceiling, revertibility, kill criterion). Never covers N1/N2 or a lost solve, and the debt is discharged or reverted by the phase gate.
-- **rev. 83** (2026-08-06, user): **phases restructured — capability and tuning are separate gates.** Phase 3 now exits on the REFERENCE RULE INVENTORY (implemented, or a reasoned no-implement with evidence; yield excluded); a new **phase 4** owns dosing/optimization/scheduling, gated on **T3 + discharging N4 + one Tier D campaign**. Old 3.5→4.5, 4→5, 5→6, 6→7. New family **X6 `HyperBinaryRes`** (§5.2). N1–N4 unchanged.
-- **rev. 84** (2026-08-06, user): §8.1 — **PROGRESS.md no longer carries the full per-instance tier tables** (supersedes rev 75); `benchmarks/runs/<window>/results.json` is authoritative and `--aggregate` regenerates any view, while PROGRESS keeps the window stamp, SHA, arms, #solved and PAR-2. Rev 75's real obligation is re-sited onto the CLAIM: name the instances that moved and state #solved before PAR-2. No gate, scope or non-negotiable change.
-- **rev. 85** (2026-08-06): §9 — **"fuzz-green" at the phase-3 exit now means REACHED**: every implemented family needs a `fuzz.py --require-reached <RuleName>` leg, because a DefaultPolicy leg at fuzz sizes fires only 19 of 25 registry entries and the gate could otherwise be ticked on evidence that never entered the rule. Plus four coherence fixes an audit found: §5.6's learner obligation is phase **7** (a rev-83 renumber miss), the phase-4 exit criterion now names `docs/implementation-notes.md` §13.3 rather than a bare section number that resolves to this document's revision history, §5's `factor_bound` pointer no longer cites a moved line number, and §11's O16/O17 rows are back in order. No scope or non-negotiable change; §9 is strengthened only.
-- **rev. 86** (2026-08-06): §9 — corrects rev 85's own supporting figure. The "19 of 25 registry entries fire" reading was partly a MEASUREMENT ARTEFACT: `fuzz.py`'s `REACH_SPECS` keyed Probe, Backbone and TransitiveReduce on their ROUND counters, which a `dosed` entry reached through `apply_instance` never increments — on a structured instance Probe and Backbone each probed 22 literals while reporting "0 rounds". The specs now key on attempts, and the corrected coverage figure is owed from the next leg. The rev-85 clause itself stands; only its number was wrong.
-- **rev. 87** (2026-08-06): §9 records the user's decision that the ~11.4 % non-terminating `--random-policy` population does **not** block the phase-3 exit (N1 robustness, not soundness; 0 % for DefaultPolicy; the harness prints it) — it had been recorded only in PROGRESS, i.e. a living doc quietly softening a plan gate. Plus six coherence fixes an audit found: **SBVA** is no longer listed as a rule family in §5 and §7 (it is an E2 `Factor` instance-selection strategy and §5.2 never had it), §5.3 no longer calls X2/X4/X5 "backlog rules", §5/§5.6 no longer say the macro scheduler "lands with C2" (it landed as Track SCHED and its dosing is phase 4), §11 O7 gains a decide-by point, and §9's phase-3 row no longer points at the effort-scheduler design, which moved with the dosing work. No gate, scope or non-negotiable change.
-- **rev. 88** (2026-08-06): §9 — the phase-3 REACHED condition is restated, because as rev 85 wrote it the condition was **unsatisfiable**: it demanded a `--require-reached` fuzz leg per family on the shipped DefaultPolicy, which no leg can ever give for an OFF-by-default family (S7 `Reorder`), which fuzz-sized instances cannot give for BVE or Factor, and which is not how R9's or R10's evidence was actually produced — both used source-counted probes on tier instances. Either form now counts, the OFF-by-default exemption is explicit and narrow, and a family firing on neither is named a finding. Found while checking whether phase 3 could exit; a gate condition that cannot be met is one that gets ignored or falsely ticked.
-- **rev. 89** (2026-08-07, user): §11 **O9 decided for the phase-4 campaign — SC2026 is NOT added**; Tier D's composition stays SC2024+SC2025 (793) because phase 4's Tier D obligation is scale evidence rather than a gate, and re-cutting the set mid-phase would make the campaign incomparable with the B/C overlap already measured. Deliberately still open, and reopening before the T4 evaluation: whether SC2026 joins or replaces a set. Same §8.1 edit records that T4's SC25 set is now a scoring VIEW (`benchmarks/tiers/D-sc25.list`, 400, derived from `D.sources`' per-track blocks, scored by `subset_score.py --subset D-sc25`) rather than the "no per-track flag, recompute by hand" the section used to describe. No gate, scope or non-negotiable change.
-- **rev. 90** (2026-08-07, user): §5 gains a SIXTH reference obligation — **transliteration is the default first move, not the fallback**. DefaultPolicy should essentially do what Kissat/CaDiCaL do in their default strategy with N1–N4 satisfied; being more sophisticated is allowed only on top of a transliterated baseline kept as a permanent arm, so the deviation now owes the argument rather than the port. Four riders: (a) when the references disagree, **kissat is the default source** and a cadical divergence is ported only with a measured reason; (b) transliterate the mechanism and its EFFECT, never the code — a port that goes inert reads as parity while doing nothing; (c) it is a FLOOR, not a target, so the places we already exceed both references do not regress; (d) a constant **no reference backs is an invention — delete or re-derive it, never tune it** (BCE's 20‰, slot position and 3 rounds are the standing example). Makes reference ABLATION the standard first step for pricing a missing mechanism, under §8.3's ablate-one caveat. N1–N4 unchanged and unweakened; N4 still reads *at least as sophisticated*, not *identical*.
-- **rev. 91** (2026-08-07, user): §9 phase 4 — **the per-knob pricing table is RETIRED and replaced by a faithful port of the references' dosing scheme**, per rev 90's obligation 6. It had grown to ~21 one-knob A/B rows; a systematic read of both references (`docs/design/2026-08-07-reference-dosing.md`) found that **five of our fifteen effort rows are backed by no reference**, that our allowance formula is a HYBRID (kissat's `SET_EFFORT_LIMIT` on cadical's per-technique anchor with cadical's clamps, where kissat anchors per PHASE), and that we tax search ~1.6× harder than kissat (438‰/344‰ against ~300‰/200‰). It also corrected the fix for our worst dosing defect: both references poll the effort limit at the TOP of a candidate loop and bound one candidate STRUCTURALLY, so `HyperBinaryRes`'s runaway wants an occurrence cap, not an inner poll. **User decision, same date: KEEP our standalone HyperBinaryRes design** (neither reference has it as a budgeted technique — kissat has no HBR, cadical derives it inside the probing propagation with the LRAT chain free) **bounded by a structural cap**, rather than adopting either reference position; recorded as an accepted deviation with a reopening path in `docs/implementation-notes.md` §13.3, since rev 90 puts the burden of argument on the deviation. **N1 rider, binding on that cap: it goes POLICY-side.** `hyperbinary_instances()` stays complete over roots — a dose may narrow what DefaultPolicy chooses, never what the API can reach (§1.1) — which is also why BVE's in-rule occlim is already carried as an N1-completeness defect (`RV-S17`/`RV-S18`) rather than as the pattern to copy. Exit criteria (T3, N4, Tier D) unchanged; N1–N4 unchanged and unweakened.
+Moved out of the plan (2026-08-07): **[`docs/log/plan-revisions.md`](docs/log/plan-revisions.md)**,
+where every `rev N` reference resolves. One line per revision; the rationale lives in the
+`plan rev N:` commit and the PROGRESS.md Log entry written in the same change.
