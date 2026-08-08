@@ -371,6 +371,7 @@ struct Stats {
   uint64_t bve_bwd_strengthened = 0; // victims shortened (cadical elimbwstr)
   uint64_t bve_bwd_units = 0;       // strengthenings that collapsed to a unit
   uint64_t flushed_retired_redundant = 0; // reference-parity flush at phase exit
+  uint64_t factor_rejected_by_bound = 0; // grids the coupled bound declined
                                    // and its effort currency, since one
                                    // variable costs occ(x)·occ(¬x) attempts
   // One per `kernel_mark_bve_retry` EVENT. Deviation from the references, which

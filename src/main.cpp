@@ -650,6 +650,8 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.factorings,
            (unsigned long long)kernel.stats.factor_large_remainders,
            (unsigned long long)kernel.stats.factor_ticks);
+    printf("c factor-bnd  %llu grids rejected by the coupled bound\n",
+           (unsigned long long)kernel.stats.factor_rejected_by_bound);
     printf("c factor-dem  %llu demotions, %llu fresh vars demoted\n",
            (unsigned long long)kernel.stats.factor_demotions,
            (unsigned long long)kernel.stats.factor_demoted_vars);

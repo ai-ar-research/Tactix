@@ -221,6 +221,7 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   // BVE's growth-slack ramp and decade counter (kissat kimits.c:128-130)
   bve_rounds_run_ = 0;
   bve_level_ = 0;
+  bve_level_idx_ = 0;
   bump_reasons_delay_ = {};
   retier_ = {};
   if (dynamic_tiers_)
@@ -1366,6 +1367,7 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
   // on any attempt, would collapse the ramp to level 0.
   const bool use_retry = bve_entry && !ramp;
   k.bve_track_min_bound = ramp != nullptr;
+  bool engaged = false; // a pass got past the budget break and ran instances
   for (uint32_t pass = 0; pass < passes && !ctx.phase_unsat; pass++) {
     // Skip remaining ramp levels once the dose is spent, but only when ramping:
     // without one, kernel_bve_retry_sync_fixed and r.instances must still run.
@@ -1373,6 +1375,7 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
       dose_cut = true;
       break;
     }
+    engaged = true;
     if (ramp)
       k.bve_bound = level_mode ? bve_level_ : ramp->bound(pass);
     elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
@@ -1465,7 +1468,9 @@ DefaultPolicy::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
   // exactly where BVE is useless, making Factor pickiest where the coupling
   // intends it laxest. Stepped once per PHASE in `run_slot_phase`, since
   // the reference granularity is the phase, not the entry.
-  if (level_mode && !ctx.phase_unsat)
+  // Only a dose that actually engaged advances the ramp: kissat's step runs
+  // after eliminate_variables did work, and a pass-0 budget break did none.
+  if (level_mode && engaged && !ctx.phase_unsat)
     bve_ran_this_phase_ = true;
   (void)elim_at_last_pass;
   // factordelay input: one more BVE round has run. Counted per phase, not per
@@ -1781,6 +1786,8 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   // TACTIX_FACTOR_BOUND / tactix_set_factor_bound surface authoritative.
   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
   k.factor_match = factor_match ? factor_match : &default_factor_match_;
+  if (factor_match)
+    factor_match->set_bound(factor_bound_snapshot_);
   // Phase structure (kissat eliminate-round shape): a few outer rounds, each
   // giving every enabled technique one dose, so it can pick up what the others
   // exposed. Dose granularity follows the instance surface.
@@ -1883,14 +1890,17 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
     // path and pinned Factor's coupled bound 2x stricter than kissat forever
     // (audit GAP 2).
     BveBoundPolicy &bramp = bve_bound ? *bve_bound : default_bve_ramp_;
-    const uint32_t blim = bramp.bound(bramp.num_passes() - 1);
-    if (bve_level_ >= blim) {
+    const uint32_t last = bramp.num_passes() - 1;
+    const uint32_t blim = bramp.bound(last);
+    if (bve_level_idx_ >= last) {
       // kissat's terminal branch (eliminate.c:345-358): at the max bound stop
       // scheduling elimination phases until new material appears (GAP 6).
       clock.marks_mark = k.stats.bve_marks;
       clock.fixed_mark = kernel_root_fixed(k);
     } else {
-      bve_level_ = bve_level_ ? std::min(bve_level_ * 2u, blim) : 1u;
+      // The level walks the ramp's OWN ladder (an injected BveBoundPolicy's
+      // schedule included), not a hardcoded doubling beside it.
+      bve_level_ = std::min(bramp.bound(++bve_level_idx_), blim);
       // kissat re-arms the whole eliminate schedule with the laxer bound
       // (try_to_eliminate_all_variables_again, eliminate.c:329-337): without
       // this the watermark can block the next phase and freeze the ramp,
