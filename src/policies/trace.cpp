@@ -63,6 +63,19 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
   int version = 0, recorded = -1, verdict = 0;
   uint64_t steps = 0;
   bool done = false;
+  bool policy_seen = false;
+  // Mirror the recorded run's dense-connection state (random_policy.cpp: odd
+  // seeds walk with the dense index attached). Replaying without it would
+  // silently skip every dense-gated tail the recording exercised.
+  OccIndex replay_occ;
+  struct DenseScope {
+    Kernel &k;
+    bool active = false;
+    ~DenseScope() {
+      if (active)
+        kernel_dense_disconnect(k);
+    }
+  } dense_scope{k};
 
   while (std::fgets(line, sizeof line, in)) {
     if (line[0] == 'c') {
@@ -73,6 +86,18 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
           std::fclose(in);
           return -1;
         }
+      }
+      unsigned long long hseed = 0;
+      if (!policy_seen &&
+          std::sscanf(line, "c policy %*s seed=%llu", &hseed) == 1) {
+        policy_seen = true;
+        if ((hseed & 1) != 0 && k.level == 0) {
+          kernel_dense_connect(k, replay_occ);
+          dense_scope.active = true;
+        }
+        // byte-for-byte with the recorded run's stdout (trace_replay.sh
+        // compares counter lines)
+        std::printf("c stress-dense %d\n", dense_scope.active ? 1 : 0);
       }
       (void)std::sscanf(line, "c verdict %d", &recorded);
       continue;

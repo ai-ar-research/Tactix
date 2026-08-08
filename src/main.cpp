@@ -65,7 +65,10 @@ static void print_model(const Kernel &k) {
     const Lit pos = make_lit(v, false);
     const int e = static_cast<int>(v) + 1;
     char buf[16];
-    snprintf(buf, sizeof buf, " %d", k.values[pos] >= 0 ? e : -e);
+    // Strict > 0, agreeing with tactix_value: after kernel_extend_model no
+    // variable is value-0, and if extension were ever skipped a 0 must print
+    // as false, not fabricate a positive phase the API would deny.
+    snprintf(buf, sizeof buf, " %d", k.values[pos] > 0 ? e : -e);
     if (line.size() + strlen(buf) > 4094)
       flush_line();
     line += buf;

@@ -1244,6 +1244,23 @@ void kernel_extend_model(Kernel &k) {
   if (k.model_extended)
     return;
   k.model_extended = true;
+  // Replay must read a TOTAL assignment: the segment test below reads a
+  // value-0 variable as false in BOTH polarities, which voids the
+  // tautological-resolvent exclusion behind both-sides witness pushes — a
+  // pos- and a neg-side window of one pivot can then both look unsatisfied
+  // and the reverse walk double-flips the pivot (docs/calculus.md, extend_ρ
+  // total-assignment premise). Retired variables can reach this point
+  // unassigned, and they occur in no live clause, so completing every
+  // value-0 variable to a definite default keeps the active formula
+  // satisfied and restores the premise. False matches tactix_value's
+  // reading of 0.
+  for (Var v = 0; v < k.nvars; v++) {
+    const Lit pos = make_lit(v, false);
+    if (k.values[pos] == 0) {
+      k.values[pos] = -1;
+      k.values[negate(pos)] = 1;
+    }
+  }
   // Replay rho in reverse (Jarvisalo-Heule-Biere): for each witness segment
   // whose clause is unsatisfied under the current assignment, force its
   // witness literal true. Because a variable-eliminating rule removed all of

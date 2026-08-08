@@ -164,6 +164,31 @@ static void test_eliminate_reconstruction() {
   }
 }
 
+// An eliminated pivot whose partner is ALSO never assigned (both retired, as
+// DefaultPolicy leaves them since variable retirement): extend must complete
+// the assignment before replay, or the both-sides windows double-flip the
+// pivot (the portsfin N2 incident; the toy is x ≡ ¬t via (x∨t),(¬x∨¬t),
+// whose resolvent is tautological, so nothing constrains x,t after apply).
+static void test_eliminate_frozen_pivot_reconstruction() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));   // (1∨2)
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // (¬1∨¬2)
+  const int orig[2][2] = {{1, 2}, {-1, -2}};
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
+  // no value is ever assigned to 1 or 2 — both reach extend at 0
+  kernel_extend_model(k);
+  assert(k.values[internalize(1)] != 0 && "pivot definite after extend");
+  assert(k.values[internalize(2)] != 0 && "partner definite after extend");
+  for (const auto &cl : orig) {
+    bool sat = false;
+    for (const int e : cl)
+      sat |= (k.values[internalize(e)] > 0);
+    assert(sat && "every original clause satisfied by the extended model");
+  }
+}
+
 // A variable whose resolvent count exceeds occ⁺+occ⁻+bound is not eliminated:
 // 6 (x∨aᵢ) × 6 (¬x∨bⱼ) → 36 resolvents > 6+6+16.
 static void test_bound_skip() {
@@ -705,6 +730,7 @@ int main() {
   test_instance_surface();
   test_eliminate_basic();
   test_eliminate_reconstruction();
+  test_eliminate_frozen_pivot_reconstruction();
   test_bound_skip();
   test_gate_and_or_fires();
   test_gate_equivalence_substitution();
