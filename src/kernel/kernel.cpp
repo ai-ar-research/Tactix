@@ -955,6 +955,31 @@ void kernel_dense_connect(Kernel &k, OccIndex &occ) {
 
 void kernel_dense_disconnect(Kernel &k) { k.dense = nullptr; }
 
+
+// Both references garbage every redundant clause that mentions an eliminated
+// variable (cadical mark_redundant_clauses_with_eliminated_variables_as_garbage,
+// elim.cpp:736-756; kissat deactivates the var and flushes its watches), so a
+// retired variable stops propagating. Tactix must do it explicitly: the dense
+// index is irredundant-only, so elimination never even sees these clauses —
+// the wrong-SAT exhibit's two leftover HTR ternaries kept an eliminated
+// variable live. Deletion of redundant clauses is unconditionally sound.
+void kernel_flush_retired_redundant(Kernel &k) {
+  if (k.var_status.empty())
+    return;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage() && c->redundant())
+      for (const Lit l : *c)
+        if (kernel_var_retired(k, var_of(l))) {
+          kernel_delete_clause(k, c);
+          k.stats.flushed_retired_redundant++;
+          break;
+        }
+    ref += words;
+  }
+}
+
 void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
   std::sort(k.lrat_entries.begin(), k.lrat_entries.end());
   k.lrat_chain.clear();

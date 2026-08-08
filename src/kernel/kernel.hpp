@@ -370,6 +370,7 @@ struct Stats {
   uint64_t bve_bwd_subsumed = 0;    // victims deleted (cadical elimbwsub)
   uint64_t bve_bwd_strengthened = 0; // victims shortened (cadical elimbwstr)
   uint64_t bve_bwd_units = 0;       // strengthenings that collapsed to a unit
+  uint64_t flushed_retired_redundant = 0; // reference-parity flush at phase exit
                                    // and its effort currency, since one
                                    // variable costs occ(x)·occ(¬x) attempts
   // One per `kernel_mark_bve_retry` EVENT. Deviation from the references, which
@@ -878,6 +879,13 @@ struct Kernel {
   // taste). The cause is kept rather than a bit, since the two causes have
   // different owners. Empty vector == every variable Active.
   std::vector<VarStatus> var_status;
+  // Variables rules retired this phase (BVE/Substitute push, a policy drains).
+  // Rules own the kernel-side fact (var_status, unassigned_active); whatever
+  // ranking structures a policy keeps are its own to update — rules never call
+  // into policy code (§5 layering). Until drained, a retired variable may
+  // still be decided once: it propagates nothing and reconstruction supplies
+  // its value, so the cost is a wasted decision, not a soundness issue.
+  std::vector<Var> retired_events;
   // Demote substituted variables to the bottom of the decision order after each
   // Substitute round. Ranking advice only.
   bool subst_demote = false;
@@ -1476,6 +1484,9 @@ void kernel_collect_garbage(Kernel &);
 // Refs. Precondition: level 0, like kissat's dense mode.
 void kernel_dense_connect(Kernel &, OccIndex &occ);
 void kernel_dense_disconnect(Kernel &);
+// Garbage redundant clauses mentioning a retired variable (reference parity;
+// called at elimination-phase exit).
+void kernel_flush_retired_redundant(Kernel &);
 
 // Irredundant clause count (kissat BINIRR_CLAUSES): live irredundant large
 // clauses plus all binaries ever added. Binaries have an irredundant lifecycle

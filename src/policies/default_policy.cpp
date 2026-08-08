@@ -284,9 +284,21 @@ uint32_t reuse_trail_level(const Kernel &k, uint32_t jump) {
   if (begin >= end || !k.h)
     return jump;
   uint32_t best_pos = begin;
-  Var best = var_of(k.trail[begin]);
-  for (uint32_t i = begin + 1; i < end; i++) {
+  Var best = 0;
+  bool have_best = false;
+  for (uint32_t i = begin; i < end; i++) {
     const Var v = var_of(k.trail[i]);
+    // A retired variable can sit on this kernel's trail (kernel.cpp backtrack
+    // note) but never on cadical's, and it is never decided again — ranking it would
+    // keep levels the next decisions cannot rebuild. Skip it.
+    if (kernel_var_retired(k, v))
+      continue;
+    if (!have_best) {
+      best = v;
+      best_pos = i;
+      have_best = true;
+      continue;
+    }
     // Score ties break toward the SMALLER variable index (cadical
     // score_smaller, internal.hpp:1816) — with strict > the earliest trail
     // position wins instead, and on an all-unbumped suffix (every score 0.0)
@@ -302,6 +314,8 @@ uint32_t reuse_trail_level(const Kernel &k, uint32_t jump) {
       best_pos = i;
     }
   }
+  if (!have_best) // the whole suffix is retired variables: nothing to keep
+    return jump;
   uint32_t res = jump;
   while (res + 1 < k.level && k.frames[res + 1] <= best_pos)
     res++;
@@ -1837,6 +1851,18 @@ int DefaultPolicy::run_slot_phase(Kernel &k, SlotGroup group,
   // docs/design/effort-scheduler-design.md §3.4.
   if (ctx.phase_dosed && !ctx.phase_unsat)
     kernel_collect_garbage(k);
+  // Reference parity: redundant clauses mentioning a variable this phase
+  // retired must die with it (cadical elim.cpp:736-756), or the variable keeps
+  // propagating through learned clauses the dense index never showed BVE.
+  if (!ctx.phase_unsat)
+    kernel_flush_retired_redundant(k);
+  // Rules record retirement as kernel facts and push an event; updating THIS
+  // policy's ranking structures is this policy's job (§5 layering — rules
+  // never call into policy code).
+  if (k.retire_enabled)
+    for (const Var v : k.retired_events)
+      heuristics_deactivate_var(k, v);
+  k.retired_events.clear();
   kernel_dense_disconnect(k);
   k.factor_match = nullptr; // scope the config to the phase (see entry)
   k.stats.inprocess_propagations +=

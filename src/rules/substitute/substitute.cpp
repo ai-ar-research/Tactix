@@ -570,10 +570,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       k.unassigned_active--;
     }
     k.var_status[v] = VarStatus::Substituted;
-    // Remove it from DefaultPolicy's ranking structures outright (kissat
-    // deactivate_variable): no decision-time cost, no scan, no fallback.
-    if (k.retire_enabled)
-      heuristics_deactivate_var(k, v);
+    k.retired_events.push_back(v); // the policy deactivates its own H from this
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
     const Lit rest_b[1] = {negate(s)};
     kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}
