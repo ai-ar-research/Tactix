@@ -565,6 +565,10 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   factor backoff is the `factordelay` warm-up (`log10(active) <= eliminations + delay`, factor.c:1068-1085),
   already ported as `factor_entry_declines`, and kissat has no ternary resolution at all, so
   HyperTernaryRes has no reference backoff to port. Owes a tier pair, being a dose change.
+  **Reachability witnessed at the source** (same probe): `Sweep` now shows `dly 19` on `9vliw_bp_mc`,
+  `dly 8` on `b22_1`, `dly 3` on `battleship`, where the closure-only gate had held it at `dly 0` always.
+  On `9vliw` it reads `occ 27 adm 8 ok 0` — eight admitted rounds, nothing produced, nineteen occasions
+  delayed, which is the yield-rate ladder doing exactly what a NoOp test could not.
 - [x] **The sums check is DONE, and it found one more unbacked doubling.** After D2 the probe group totals
   **434 ‰ per round** counting kissat's repeats (Backbone twice) against kissat's **330 ‰** on the same
   basis; the excess is Congruence's 100 (the recorded `SP-CONG-BUDGET-1` deviation) plus 24 for the three
@@ -577,6 +581,10 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   the two counters and share one per-phase allowance, fixed by whichever is priced first — the shape
   increment 2 gave the Eliminate group. 50/50 was the alternative and is less faithful: it would deny a
   strengthen-only formula half of what the reference would spend on it. Owes a tier pair.
+  **Reachability witnessed at the source** (`benchmarks/probes/scratch/reach-1590977.log`, Tier B under
+  `TACTIX_SLOT_STATS`): on `b22_1` the pair reads `SubsumeForward handed 99,399,828 spent 5,947,355` then
+  `Strengthen handed 93,452,473` — the second entry is handed exactly the first's residual, which is the
+  shared pool and not two budgets. Same arithmetic on `battleship` (1,000,000 − 1,274 = 998,726).
 - [x] **The tick unit is commensurable — LANDED 2026-08-07.** `kernel_cache_lines` is now kissat's
   `(n + 31) >> 5` (128-byte line, rounds up), the four watch-scan sites share it, and the three missing event
   charges are in (binary assign, watch relocation, large-clause assignment). **Isolated effect: our ticks were
