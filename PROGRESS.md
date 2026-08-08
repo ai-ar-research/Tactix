@@ -41,11 +41,28 @@ revision (via revise-plan). If this file and the plan disagree, the plan is auth
   Status lives in the anchor below; completed work is compressed to result + pointer, with the detail in the
   cited commit / report / design doc / Log entry.
 
-## ▶ RESUME HERE (2026-08-07) — **Tier B 28/28; Tier C is two solves short and the cause is open**
+## ▶ RESUME HERE (2026-08-08) — **N2-class wrong-SAT found in the ablation window, root-caused and fixed; every elimination-era number since `3e3823d` owes a retake**
 
 **Phase 4 is a PORT of kissat's strategy.** Read `docs/design/2026-08-07-kissat-fidelity-revamp.md` (the
 plan) and `benchmarks/reports/2026-08-07-kissat-fidelity-inventory.md` (what every mechanism is) before
 touching the policy.
+
+**▶▶ THE ABLATION WINDOW FOUND A SOUNDNESS BUG, NOT A DOSE.** `20260808-002349-C-all3` (job `1591189`)
+completed flagged `CORRECTNESS-BUG`: the `no-chrono` arm answered **SAT on `aes_decry_2_rounds` (UNSAT)**,
+reproduced deterministically, model violates original clause 910564. Root cause (2026-08-08 Log entry,
+full evidence chain): **`bve_backward`'s `ReplaceOutcome::Unit` case dropped the derived unit** — victim
+deleted, unit emitted to the PROOF but never asserted in the kernel (`bve.cpp`, comment claimed the
+opposite of `kernel_replace_clause`'s contract). The kernel then eliminated the unit's variable with
+unit-blind resolvents; the formula weakened; chrono-off was only the trajectory that hit it
+([[regression-on-a-faithful-port]]: the port was wrong, not the mechanism). **Fixed** by asserting the
+unit (mirrors `strengthen.cpp`'s Unit case). Consequences: **(a)** the ablation's numbers are VOID and
+the `SP-BVE-BWD-1`/`SP-FACTOR-1`/`SP-CHRONO-1` attribution question is still open — re-run on the fixed
+binary; **(b)** every number taken on a binary carrying `3e3823d` (the `p3`/`p3c`/`all3` windows —
+Tier B 43.23 28/28 included) was measured on an unsound solver: UNSAT verdicts there are
+proof-verified and stand, but SAT solves were never model-checked by the tier runner, so the pair is
+re-taken on the fixed binary before any of it is quoted; **(c)** the tier runner's instrument gap —
+**it never model-checks a SAT answer** (this bug was visible only because the instance's expected verdict
+was recorded) — is now an open item below.
 
 **▶▶ THE TIERS DISAGREE SHARPLY ABOUT THE DENSITY-GATE REMOVAL.** **Tier B 44.77, 28/28**
 (`20260807-210921-B-kf4`) — every instance solves, +4 over increment 2 and none lost, including
@@ -213,6 +230,14 @@ judge on the remainder. **Do not grow the set** (user directive).
 - demo3 is a SEARCH-only mirror by permanent design (stat contract = §8.4 within-noise; user decision).
 
 **Open work.**
+- **The tier runner never model-checks a SAT answer** (2026-08-08 wrong-SAT exhibit: caught only because
+  the instance's expected verdict was recorded). Add a checkmodel pass on SAT verdicts to
+  `tools/bench/run.py` — the fuzz harness already has the tool and the accept-condition discipline.
+- **No fuzz leg proves the backward pass's strengthen-to-unit path is reached** — `bve_bwd_units` needs a
+  source-count in a leg (REACH_SPECS shape), plus the corpus case the hunt leg owes.
+- **`VarStatus::Eliminated` is never set** (review side-finding, 2026-08-08): eliminated pivots stay in
+  the decision pool and `unassigned_active`. Soundness-neutral (extend_model overrides), but it burns
+  decisions — plausibly part of the failing run's 66:1 decision:conflict wander. Price it.
 - **`D-BVE-SCRATCH` (`RV-S19`) — the per-call linear-scratch hazard, sightings #5–#7, in hot rules.** BVE does
   **five** O(nvars) fill-inits per elimination ATTEMPT (~20·nvars bytes of memset + 4 malloc/free pairs):
   `bve.cpp:238` `pos_bin`/`neg_bin` (two `vector<int>(2*nvars,-1)`), `:532` `seen_bin`, `:619` `seen`, `:691`
@@ -430,16 +455,17 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
   **Tier C 25/30** (`20260807-234727-C-p3c`), against 27/30 for the gate removal alone: `T105.2.0` and
   `T87.2.0` are still lost, and `SCPC-1000-18` and `em_11_3_4_cmp` are NEW losses. (`128_125` is memory-
   capped for kissat too and is not a solver result.)
-  **▶ THE PORTS ARE NOT INERT AND ARE NOT UNSOUND**, so neither explanation is available: `c bve-bwd` reads
-  149,796 subsumers / 2,596 subsumed / 544 strengthened on `T105.2.0` itself; fuzz is clean on all three
-  legs (DRAT 10,000, native LRAT 10,000, `--random-policy` 5,000, 0 failures); and ASan/UBSan is clean over
-  200 Tier A plus 3 Tier B instances, which is the check the fuzz instances are too small to give.
-  **▶ NEXT STEP IS ATTRIBUTION, NOT A REVERT** (plan §5 obligation 6 rider (e)). Three mechanisms landed in
-  one window, so the Tier C cost is unattributed. Ablation in flight (`1591189`,
-  `20260808-002349-C-all3`): the same binary with `TACTIX_BVE_BACKWARD=0`, `TACTIX_FACTOR_COUPLE=0` and
-  `TACTIX_CHRONO_REUSE=0` as three arms beside the default. `em_11_3_4_cmp` is the instance to watch — the
-  plan's own §5.6 exhibit calls it *sparse but elimination-loving*, and it has degraded at every
-  elimination change today (96.8 s → 215.8 s → timeout).
+  **▶ "THE PORTS ARE NOT UNSOUND" WAS WRONG — the green legs were vacuous for the killing path.** The
+  ablation window (`1591189`) caught `SP-BVE-BWD-1` dropping strengthened-to-unit victims (anchor + the
+  2026-08-08 Log entry; fixed same day). The clean fuzz record above stands as measured but never
+  exercised strengthen-to-unit ([[ab-arm-identical-artefacts]]: nothing counted `bve_bwd_units` at the
+  source), and both tier windows above were run on the unsound binary — **re-take the `p3` pair on the
+  fixed binary before quoting either number**.
+  **▶ NEXT STEP IS STILL ATTRIBUTION** (plan §5 obligation 6 rider (e)): re-run the four-arm ablation
+  (`all3` / `no-bwd` / `no-couple` / `no-chrono`) on the FIXED binary — the void window's design was
+  right, its binary was not. `em_11_3_4_cmp` is the instance to watch — the plan's own §5.6 exhibit
+  calls it *sparse but elimination-loving*, and it degraded at every elimination change that day
+  (96.8 s → 215.8 s → timeout).
 
 - [x] **Every effort rate is either a reference rate or a labelled local choice.** `Probe` and `HyperBinaryRes` ride cadical's `probeeffort` 8 ‰ (options.hpp:164; cadical runs HBR inside the probing propagation, kissat has neither knob). `BCE`, `Instantiate` and `Congruence` have no reference rate and say so at the row.
 - [x] **`HyperBinaryRes` is bounded by the ledger residual**, so one root's resolvent loop stops at the dose rather than at the closure. `veer_axi…p23_transition`: 4 probes / 6.80e9 hbr ticks → 12,477 / 5.21e6, UNKNOWN → UNSAT, both certificates verified. Accepted deviation `D-HBR-STANDALONE`.
@@ -628,7 +654,38 @@ learning on the competition path; DefaultPolicy stays the N3 baseline and a perm
 - **Exit:** §8.5 gates (L-safe, then L-win); stretch — improves the T5 configuration
 
 ## Log
-### 2026-08-07 (latest) — the dosing approach is REPLACED: port the references, retire the knob table
+### 2026-08-08 (latest) — WRONG SAT: `bve_backward` dropped strengthened-to-unit victims; found by the ablation window, fixed same day
+
+**▶▶ THE BUG.** `20260808-002349-C-all3`'s `no-chrono` arm answered SAT on UNSAT `aes_decry_2_rounds`
+in 32 s (`bve_bwd_units = 5`). When backward self-subsuming resolution collapses a victim to ONE literal,
+`kernel_replace_clause` deletes the victim and returns `ReplaceOutcome::Unit` — "caller owns unit
+semantics" (its written contract) — and `bve_backward`'s Unit case did `stats++; break` under a comment
+claiming the opposite. The unit reached the PROOF (`add_rup`) but never the kernel: formula strictly
+weakened, invisible to every proof check of an UNSAT run, no assert to trip (debug+ASan run reproduces
+the SAT answer cleanly). **Fix: assert the unit** (`unit_ids` + `kernel_assign_unit`, the
+`strengthen.cpp` Unit-case idiom; root-false literals are already stripped, so no refutation case).
+
+**▶ THE EVIDENCE CHAIN, kept because the method is reusable.** (1) checkmodel: the model violates
+original ternary 910564 `(-144495 144494 144496)`. (2) DRAT-replay of the run's own proof stream:
+active-set snapshots fed to kissat bracket the UNSAT→SAT flip by bisection (6 rounds, ~120 cluster jobs)
+to ONE deletion — `d (-144108 144381 144490)` at offset 29164756. (3) The stream contains `a -144381`
+(offset 28217117), never deleted — **the final model FALSIFIES a unit in its own proof stream**, so the
+kernel provably did not hold it; the flip deletion is a clause on that same variable, eliminated
+unit-blind. (4) The `TACTIX_CHRONO_REUSE=0 TACTIX_BVE_BACKWARD=0` control answers UNSAT. (5) A 5-reviewer
+adversarial workflow independently converged on the same line. Chrono-off is a trajectory lottery, not a
+cause ([[regression-on-a-faithful-port]] cuts both ways: here the port implementation was wrong).
+
+**▶ WHAT IT VOIDS AND OPENS.** The ablation window is void (marker file stays); the three-ports
+attribution re-runs on the fixed binary, as does the `p3` tier pair. Open items filed: the tier runner
+never model-checks SAT answers (this bug was caught only by the expected-verdict column); no fuzz leg
+counts `bve_bwd_units` at the source, so the strengthen-to-unit path was green-but-unreached; and the
+review's side finding — `VarStatus::Eliminated` is never set, so eliminated pivots stay in the decision
+pool (soundness-neutral; plausibly feeds the 66:1 decision:conflict wander of the failing run).
+Verification in flight at commit time: fixed-binary aes probe + drat-trim, five fuzz legs (quick, rp,
+rp+lrat, bve-stress, bve-stress+lrat), and a 20k-case bve-stress hunt on the broken binary for a small
+corpus case.
+
+### 2026-08-07 — the dosing approach is REPLACED: port the references, retire the knob table
 
 **▶▶ USER CALL: the per-knob pricing work is retired and phase 4 restarts as a PORT** (plan rev 91). A
 systematic read of both references — `docs/design/2026-08-07-reference-dosing.md` — says why that was right:

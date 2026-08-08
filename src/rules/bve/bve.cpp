@@ -608,8 +608,19 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
         k.inconsistent = true;
         break;
       case ReplaceOutcome::Unit:
+        // kernel_replace_clause owns only the deletion — unit semantics stay
+        // with the caller (kernel.hpp), and the victim is already gone, so
+        // dropping the literal here silently weakens the formula (wrong-SAT
+        // class, invisible to every proof check of an UNSAT run). Root-false
+        // literals were stripped into `dlits` above, so the literal is
+        // unassigned or already root-true; assert it un-propagated — M1 owns
+        // the cascade, the same contract as bve_eliminate's pending drain.
         k.stats.bve_bwd_units++;
-        break; // M1 owns the cascade; the unit is asserted by kernel_replace_clause
+        if (k.value(dlits[0]) == 0) {
+          k.unit_ids[var_of(dlits[0])] = id;
+          kernel_assign_unit(k, dlits[0]);
+        }
+        break;
       case ReplaceOutcome::Binary:
         break; // leaves the dense index; no longer a victim or a subsumer here
       case ReplaceOutcome::Large:
