@@ -4,7 +4,7 @@
 # allocation. Results are identical at any job count — only wall-clock
 # changes.
 #
-#   slurm.sh [--cpus C] [--time T] [--name NAME] -- <run.sh args...>
+#   slurm.sh [--cpus C] [--time T] [--name NAME] [--wait] -- <run.sh args...>
 #
 # Examples (default --cpus 50):
 #   slurm.sh --name quick   -- --quick   --solver build/debug/tactix
@@ -23,12 +23,14 @@ CPUS=50 # cluster scale
 TIME=24:00:00
 NAME=fuzz
 PARTITION=cpu-dense-hwulab-q
+WAIT=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --cpus) CPUS="$2"; shift 2 ;;
         --time) TIME="$2"; shift 2 ;;
         --name) NAME="$2"; shift 2 ;;
         --partition) PARTITION="$2"; shift 2 ;;
+        --wait) WAIT=1; shift ;;
         --) shift; break ;;
         *) echo "usage: slurm.sh [--cpus C] [--time T] [--name NAME] -- <run.sh args>" >&2; exit 2 ;;
     esac
@@ -38,7 +40,7 @@ done
 # Re-quote the run.sh args so compound --solver strings survive the batch script.
 ARGS=$(printf '%q ' "$@")
 
-sbatch --partition="$PARTITION" --nodes=1 --ntasks=1 \
+JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
        --cpus-per-task="$CPUS" --mem-per-cpu=8G --time="$TIME" \
        --job-name="fuzz-$NAME" --output="$HERE/slurm-$NAME-%j.log" <<EOF
 #!/usr/bin/env bash
@@ -49,3 +51,10 @@ trap 'rm -rf "\$TMPDIR"' EXIT
 echo "== fuzz job \$SLURM_JOB_ID: node=\$SLURMD_NODENAME cpus=\$SLURM_CPUS_PER_TASK mem/cpu=8G =="
 "$ROOT/tools/fuzz/run.sh" $ARGS --jobs "\$SLURM_CPUS_PER_TASK"
 EOF
+)
+echo "submitted: $JID"
+echo "log: $HERE/slurm-$NAME-$JID.log"
+if [ "$WAIT" -eq 1 ]; then
+    exec python3 "$ROOT/tools/slurm/wait.py" --job "$JID" \
+         --log "$HERE/slurm-$NAME-$JID.log"
+fi

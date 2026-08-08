@@ -203,6 +203,15 @@ def input_restated(stdout):
     return int(m.group(1)) if m else 0
 
 
+_STRESS_FIRES_RE = re.compile(r"^c stress-target-fires\s+(\d+)", re.M)
+
+
+def stress_target_fires(stdout):
+    """Return the driver's direct count of preferred-rule applications."""
+    return sum(int(m.group(1)) for m in
+               _STRESS_FIRES_RE.finditer(stdout or ""))
+
+
 # --- per-rule reachability, counted at the source -------------------------
 # One row per registry entry (rule or policy op): the label, and a regex whose
 # group(1) is a counter that is non-zero iff that entry's apply actually ran on
@@ -489,6 +498,7 @@ def cmd_run(args):
     reach_rules = {label: 0 for label, _ in REACH_SPECS}
     reach_spec_seen = {label: 0 for label, _ in REACH_SPECS}
     stats_cases = 0
+    stress_fires = 0
     # Non-termination is lost coverage and must be as visible as a failure: a
     # case that reaches no verdict exercises no semantic oracle (model, proof
     # and differential all need SAT or UNSAT), so "N cases, 0 failures" really
@@ -506,7 +516,7 @@ def cmd_run(args):
         # worker runs it or in what order — results are the same at any
         # --jobs level, only wall-clock changes (the work is subprocess-
         # bound, so threads parallelize it fine)
-        nonlocal nfail, done, stats_cases
+        nonlocal nfail, done, stats_cases, stress_fires
         if stop.is_set():
             return
         seed = args.seed + i
@@ -545,6 +555,7 @@ def cmd_run(args):
                     save_nonterminating(outdir, i, seed, name, cnf, outcome,
                                         solver, args.timeout)
         restated = input_restated(outcome.solver_out)
+        target_fires = stress_target_fires(outcome.solver_out)
         stats_present, rcounts, rseen = rule_reachability(outcome.solver_out)
         with lock:
             verdicts[outcome.verdict] = verdicts.get(outcome.verdict, 0) + 1
@@ -557,6 +568,7 @@ def cmd_run(args):
                 reach["restated_cases"] += 1
                 if outcome.verdict == "UNSAT":
                     reach["restated_unsat"] += 1
+            stress_fires += target_fires
             if stats_present:
                 stats_cases += 1
                 for label in reach_rules:
@@ -638,12 +650,23 @@ def cmd_run(args):
                  if reach_rules.get(label, 0) == 0]
     if unreached:
         print(f"fuzz: REQUIRED RULES NEVER FIRED: {unreached}")
+    below_target_minimum = stress_fires < args.minimum_target_fires
+    print(f"fuzz: stress target applications={stress_fires}")
+    if below_target_minimum:
+        print(f"fuzz: stress target applications {stress_fires} is below "
+              f"required minimum {args.minimum_target_fires}")
     over_budget = (args.max_nonterminating_frac is not None and ran
                    and nnon / ran > args.max_nonterminating_frac)
     if over_budget:
         print(f"fuzz: non-terminating fraction {nnon / ran:.3f} exceeds "
               f"--max-nonterminating-frac {args.max_nonterminating_frac}")
-    return 1 if (nfail or missing_spec or unreached or over_budget) else 0
+    below_verdict_minimum = effective < args.minimum_verdicts
+    if below_verdict_minimum:
+        print(f"fuzz: verdict coverage {effective} is below required "
+              f"minimum {args.minimum_verdicts}")
+    return 1 if (nfail or missing_spec or unreached or below_target_minimum
+                 or over_budget
+                 or below_verdict_minimum) else 0
 
 
 def cmd_check_one(args):
@@ -786,6 +809,11 @@ def main() -> int:
     p.add_argument("--max-nonterminating-saved", type=int, default=25,
                    help="keep at most this many non-terminating cases (CNF + "
                         "repro) under <outdir>/nonterminating/")
+    p.add_argument("--minimum-verdicts", type=int, default=0,
+                   help="fail unless this many cases reach SAT or UNSAT")
+    p.add_argument("--minimum-target-fires", type=int, default=0,
+                   help="fail unless the stress driver reports this many "
+                        "preferred-rule applications")
     p.add_argument("--jobs", type=int,
                    default=int(os.environ.get("SLURM_CPUS_PER_TASK", 8)),
                    help="parallel fuzz workers (correctness testing, not "

@@ -3,6 +3,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <string>
 
 #include "rules/decide/decide.hpp"
 #include "rules/registry.hpp"
@@ -12,17 +14,25 @@ namespace tactix {
 
 int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
                  RuleTrace *trace) {
+  const char *stress_spec = getenv("TACTIX_STRESS_RULES");
+  const bool targeted = stress_spec && *stress_spec;
+  const uint32_t normal_every = stress_env_u32("TACTIX_STRESS_NORMAL_EVERY", 8);
   // A verdict must be recorded on every exit, or a trace that stops early
   // replays as "reached 0" against a recorded 20 and reports a divergence that
   // is really a missing line. One scope-exit writer covers all four returns.
   struct Finish {
     RuleTrace *t;
     int verdict = 0;
+    bool targeted = false;
+    uint64_t target_fires = 0;
     ~Finish() {
       if (t)
         t->finish(verdict);
+      if (targeted)
+        std::printf("c stress-target-fires %llu\n",
+                    (unsigned long long)target_fires);
     }
-  } fin{trace};
+  } fin{trace, 0, targeted, 0};
   KernelStopPublisher stop_published(k, stop);
   uint64_t rng = seed ? seed : 1;
   const auto &rules = tactix_rules();
@@ -30,6 +40,20 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
   const int restart_id = tactix_rule_id("Restart");
   std::vector<int> applicable;
   applicable.reserve(rules.size());
+  std::vector<int> preferred;
+  if (targeted) {
+    std::string spec(stress_spec);
+    for (size_t begin = 0; begin <= spec.size();) {
+      const size_t end = spec.find(',', begin);
+      const std::string name = spec.substr(begin, end - begin);
+      const int id = tactix_rule_id(name.c_str());
+      if (id >= 0)
+        preferred.push_back(id);
+      if (end == std::string::npos)
+        break;
+      begin = end + 1;
+    }
+  }
 
   for (uint64_t steps = 0;; steps++) {
     // Periodic invariant oracle (plan §8.2 oracle 4): most random walks never
@@ -56,8 +80,17 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
         applicable.push_back(static_cast<int>(i));
     assert(!applicable.empty()); // some rule is always applicable pre-verdict
 
-    const int id =
-        applicable[stress_random(rng) % applicable.size()];
+    int id = -1;
+    if (targeted && normal_every && (steps % normal_every) != 0) {
+      for (int candidate : preferred)
+        if (rules[candidate].guard(k)) {
+          id = candidate;
+          fin.target_fires++;
+          break;
+        }
+    }
+    if (id < 0)
+      id = applicable[stress_random(rng) % applicable.size()];
     ApplyResult r;
     // The payload this step applied, in the rule's own encoding, recorded so
     // the step replays through apply_instance (trace.hpp). Decide and Restart
@@ -93,6 +126,8 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     }
     if (trace)
       trace->record(id, applied);
+    if (targeted)
+      kernel_check_invariants(k);
     // Per-step rule trace, env-gated: it names rule, result and state at every
     // step, where the every-256 invariant check only reports that state was
     // corrupted. See the stress-policy skill.
@@ -110,6 +145,10 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     if (r == ApplyResult::Sat)
       return fin.verdict = 10;
   }
+}
+
+int stress_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop) {
+  return random_solve(k, seed, stop, nullptr);
 }
 
 } // namespace tactix

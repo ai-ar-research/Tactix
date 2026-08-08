@@ -16,53 +16,22 @@ add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
 # scheduler creates (rules reached ONLY through the registry). An object
 # library keeps every registered rule in every binary (§5.3: one directory
 # + one registration line must be sufficient).
+file(GLOB_RECURSE TACTIX_RULE_SOURCES CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/rules/*/*.cpp")
+file(GLOB_RECURSE TACTIX_POLICY_OP_SOURCES CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/policies/ops/*/*.cpp")
+
 add_library(tactix_lib OBJECT
   src/kernel/kernel.cpp
   src/proof/proof.cpp
   src/rules/registry.cpp
-  src/rules/propagate/propagate.cpp
-  src/rules/decide/decide.cpp
-  src/rules/analyze/analyze.cpp
-  src/rules/backjump/backjump.cpp
-  src/rules/restart/restart.cpp
-  src/rules/lucky/lucky.cpp
-  src/rules/reduce/reduce.cpp
-  src/policies/ops/rephase/rephase.cpp
-  src/rules/subsume_forward/subsume_forward.cpp
-  src/rules/strengthen/strengthen.cpp
-  src/rules/vivify/vivify.cpp
-  src/rules/probe/probe.cpp
-  src/rules/backbone/backbone.cpp
-  src/rules/substitute/substitute.cpp
-  src/rules/congruence/congruence.cpp
-  src/rules/factor/factor.cpp
-  src/rules/transitive_reduce/transitive_reduce.cpp
-  src/rules/ternary/ternary.cpp
-  src/rules/hyperbinary/hyperbinary.cpp
-  src/rules/bce/bce.cpp
-  src/rules/cce/cce.cpp
-  src/rules/instantiate/instantiate.cpp
-  src/rules/bve/bve.cpp
+  ${TACTIX_RULE_SOURCES}
+  ${TACTIX_POLICY_OP_SOURCES}
   src/engine/subsolver.cpp
-  src/rules/sweep/sweep.cpp
-  src/policies/ops/switchmode/switchmode.cpp
-  src/policies/ops/walk/walk.cpp
-  src/policies/ops/reorder/reorder.cpp
   src/policies/heuristics.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp
   src/policies/trace.cpp
-  src/policies/adversarial_policy.cpp
-  src/policies/bve_stress_policy.cpp
-  src/policies/congruence_stress_policy.cpp
-  src/policies/factor_stress_policy.cpp
-  src/policies/probing_stress_policy.cpp
-  src/policies/reuse_stress_policy.cpp
-  src/policies/sweep_stress_policy.cpp
-  src/policies/cce_stress_policy.cpp
-  src/policies/walk_stress_policy.cpp
-  src/policies/bce_stress_policy.cpp
-  src/policies/substitute_stress_policy.cpp
   src/policies/stress_registry.cpp
   src/frontend/parse.cpp
   src/api/api.cpp
