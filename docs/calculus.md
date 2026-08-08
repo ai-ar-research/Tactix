@@ -102,11 +102,8 @@ Effect / Proof-δ / Soundness only; the **implemented guard** is tabulated in `i
   top-level conflict) set `inconsistent` and return without asserting. `pending` is internal scratch
   handed from learn to backjump *within this one apply* — never a control state at a rule boundary.
   **Also (eager subsumption, `Kernel::eager_subsume`):** after backtracking, drop from `R` any of the
-  last few learned clauses that the new clause **strictly subsumes**. This is an `S2 Forget` step folded
-  into M3 for locality, not a new inference — the deleted clauses are *redundant*, so the deletion
-  needs no justification at all and the subsumption test is only how the victims are *chosen*
-  (`implementation-notes.md` §15). It preserves S2's standing invariant: a reason-locked clause is
-  never deleted.
+  last few learned clauses the new clause strictly subsumes — an `S2 Forget` step, not a new inference
+  (`implementation-notes.md` §15). A reason-locked clause is never deleted.
 - **Proof δ:** `add_rup` of the learned clause (LRAT with its antecedent chain / DRAT literals), **plus
   one `add_rup` per OTFS strengthening round and a `del` of each clause it subsumes, plus one `del` per
   eagerly subsumed recent clause** — so M3 is the one M-family rule that also deletes. Root refutation: **`add_rup(∅, chain)` in LRAT** (an RUP addition of
@@ -172,9 +169,8 @@ conjunct.
   argument *at the deletion*: only a FORGETTABLE (redundant) subsumer could later vanish with neither
   entailment nor a `ρ` witness. Binary subsumers satisfy it structurally — binaries have no redundant
   lifecycle, so none can be forgotten (`implementation-notes.md` §14).
-  The precondition constrains only the SUBSUMER: `c` itself may be redundant, since dropping a member of
-  `R` is S2 `Forget` and needs no side condition at all. Restricting the VICTIM is therefore a scope
-  choice, never a soundness one — ledger `SP-REPEAT-*`/`D-C1C2-VICTIM`.
+  The precondition constrains only the SUBSUMER; restricting the VICTIM is scope, never soundness —
+  ledger `D-C1C2-VICTIM`.
 
 ### C2 · Strengthen
 - **Precondition (abstract):** ∃ `c,d` resolving on exactly one variable so the resolvent `c′ ⊂ c`
@@ -184,10 +180,8 @@ conjunct.
   + root-falsified strips). The round is *fused* subsume-or-strengthen, so it also takes C1's inference
   when the resolvent subsumes outright — that branch is **`del` with no add**.
 - **Soundness:** `c′` is RUP from `c` and `d`; add-before-delete keeps the core entailed at every step.
-  The fused SUBSUMED branch is C1's inference and inherits its argument, binary partners included
-  (`implementation-notes.md` §14). Like C1 the precondition constrains only the PARTNER `d`; a redundant
-  `c` stays in `R` when it is replaced (`c′ ⊂ c`, so `c′` is no more load-bearing than `c` was), which is
-  what lets the round's scope reach the redundant tier band — ledger `D-C1C2-VICTIM`.
+  The fused SUBSUMED branch is C1's inference and inherits its argument (`implementation-notes.md` §14).
+  Like C1 the precondition constrains only the PARTNER `d` — ledger `D-C1C2-VICTIM`.
 
 ### C3 · Vivify
 - **Precondition (abstract):** ∃ a clause `c` whose distillation by propagation proves a
@@ -268,22 +262,12 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   is weaker than the local formula it is meant to be.
 - **Effect:** add both binaries. Proof δ: two `derive`s, no deletion — `F` grows, `R/τ/ρ` untouched, so
   reconstruction is unaffected. A pair the formula already states is skipped.
-- **Emission (why it is not just "entailed"):** entailment is not a proof line. The checker knows
-  nothing of the environment, so each binary must be justified over `F` in a form a checker accepts.
-  **Strategy (a), the RUP fast path (S-d):** replay the binary's negation at a probing scope in the
-  MAIN kernel and read the antecedents off the conflict — the chain then comes out in the checker's own
-  propagation order by construction. A binary that is *not* RUP over `F` is **declined outright**, never
-  emitted. That is the honest limit of the fast path: a swept equivalence is entailed but generally NOT
-  RUP, which is the whole reason a sub-solver is involved. **Strategy (b) (S-e)** maps the sub-solver's
-  refutation core back to main-formula clause ids and emits the resolution chain, covering the rest.
-  Because an environment clause is a main clause with its root-false literals removed, a chain citing
-  it must ALSO cite the root units that justify the removal, ahead of it: a unit clause is unit under
-  every assignment, so it is valid at any position in an LRAT hint list, and putting a step's strip
-  units at the front is the only order that does not depend on which antecedent needs which unit.
-  Under a format with no hints (DRAT, or no proof) there is nothing to cite — the checker re-derives
-  every root unit by propagation, so the stripped clause propagates exactly as the original does. A
-  removal that cannot be justified (`unit_ids[v] == 0`, reachable only under LRAT) is not made: the
-  literal stays, and the environment is merely weaker.
+- **Emission (why entailment is not enough):** the checker knows nothing of the environment, so
+  each binary must be justified over `F`. Two strategies: replay the binary's negation at a probing
+  scope and read the antecedents off the conflict (RUP fast path; a binary not RUP over `F` is
+  **declined outright**, never emitted), else map the sub-solver refutation core back to main-clause
+  ids and emit the resolution chain. Emission detail, including the strip-unit hint ordering, is
+  `implementation-notes.md` (V5 row, `SP-SWEEP-8`).
 - **Soundness:** both directions must replay before either binary is added, so the rule never states an
   implication it has not justified; and a declined pair leaves `F` unchanged.
 
@@ -312,14 +296,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
     else` ⇒ `out = cond ∧ then`; `cond ≡ ¬else` ⇒ `out = ¬cond ∨ then`).
 
   A round with no new merge is `NoOp`; a merge of `x` with `¬x` sets `inconsistent` → `Unsat`.
-  Implemented: the XOR unit + unary-merge cases (C3, 2026-07-21) and the AND degeneracies + the
-  contradictory merge (C3b, 2026-07-25) — AND conclusions are directly RUP over the live DB, so
-  `cancelled` stays empty and the degeneracy ladder's **`top==0` form** covers them. Still deferred,
-  sound: the ITE collapses (`Canon::Skip`), and the literal-form `x ≡ ¬x` for XOR/ITE, whose "binaries"
-  degenerate to units (AND refutes it directly). *(Closed ledger row **D-CONG-UNIT**,
-  `implementation-notes.md` §2. Banked lesson: the ITE `then ≡ ¬else` collapse is measurably redundant —
-  the same four clauses are already extracted as that very XOR, so those candidates are dropped at
-  extraction rather than collapsed.)*
+  Still deferred, sound: the ITE collapses (`Canon::Skip`), and the literal-form `x ≡ ¬x` for XOR/ITE,
+  whose "binaries" degenerate to units (AND refutes it directly). *(Closed ledger row **D-CONG-UNIT**,
+  `implementation-notes.md` §2.)*
 - **Proof δ:** add-RUP. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the
   equivalence binaries added earlier in the closure). XOR — a parity-elimination **ladder**: eliminate
   one rhs variable per level, at each level emit `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for
@@ -356,14 +335,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   (D-CONG-SKIP). No `ρ` witness — no variable is eliminated.
 - **Soundness:** resolution. Both parents are clauses of `F` carried with their own ids, so `{l}` is
   entailed, and it is RUP, which is what the emitted chain certifies.
-- **Why it lives in V6 rather than in a rule of its own** (recorded because kissat's placement is not
-  binding): it is not a congruence step, so the natural homes are V2 Backbone — whose precondition
-  already covers it — or a new rule. It sits here because the reference couples the two at exactly this
-  rate (`find_units` is called once per closure, `congruence.c:4613`) and because the units it derives
-  are what *seed* the value cascade V6's own unit channel needs. **The open question is dosing, not
-  soundness:** inside V6 an O(binaries) sweep spends from the same effort share as gate extraction, and
-  whether that binds is pre-registered in the SCHED-G4 A/B. If it does, the sweep earns its own
-  `EFFORT_SPECS` row — i.e. its own rule. Ledger: `SP-CONG-UNITS-1`.
+- **Why it lives in V6 rather than in a rule of its own:** the reference couples the two at exactly
+  this rate (`congruence.c:4613`), and the units it derives seed the value cascade V6's unit channel
+  needs. The open question is dosing, not soundness — ledger `SP-CONG-UNITS-1`.
 
 ## 6b. Variable elimination & addition (E1–E2) — the resolution family and its inverse
 
@@ -521,8 +495,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 ### X3 · CCE — covered clause elimination
 The asymmetric variant (ACCE) the literature still calls CCE. It is X1 with the clause **grown first**:
 two literal-addition steps extend `C` until the extension is blocked, and then the ORIGINAL `C` is
-deleted. Only cadical has it (`cover.cpp`, `cover` ships **0**); kissat has neither CCE nor BCE — its
-`cover.h` is a coverage-assertion macro, not clause covering.
+deleted. Reference inventory: `implementation-notes.md` §17.
 - **Precondition (abstract):** a clause `C ∈ F` together with a finite chain `C = C_0 ⊆ C_1 ⊆ … ⊆ C_n`
   in which each step is one of
   - **ALA** `C_{i} = C_{i-1} ∪ {¬d}` for some `D ∈ F \ {C}` with `D \ {d} ⊆ C_{i-1}`; or

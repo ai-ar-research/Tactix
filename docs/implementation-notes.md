@@ -103,44 +103,25 @@ D-CONG-TAUT are effect branches — D-CONG-SKIP on the LRAT path only, D-CONG-TA
 - **D-SPLIT-3** — `¬conflict_valid` on the pure `F`-rewrites (C1, C2, C3, V3, V4). Closed;
   behavior-preserving because `conflict_valid ⟹ level>0` at every rule boundary, so under the retained
   `level==0` it never fired. V1/V2 **keep** it — *abstract*, not a leak.
-- **D-CONG-LRAT** — XOR/ITE extraction was gated off under native LRAT. **CLOSED 2026-07-21 (C4)**; both
-  now run on every proof path incl. the C3 unit channel. Root cause: canonicalization folds a SIGN layer
-  on top of the union-find bridging (`normalize_ite` swaps then/else and flips signs; XOR folds input
-  signs into the output parity and cancels duplicate variables), so canonical lemma literals do not
-  correspond by-position-and-sign to either gate's raw clauses. **Done by not deriving the chains but
-  REPLAYING them** (`congruence_rup_chain`: assume the lemma's negation at a probing scope, propagate,
-  read antecedents off the conflict's reason walk — V1/C3's primitive), so the chain comes out in the
-  checker's own propagation order **by construction** — the one property a hand-built chain silently
-  gets wrong; only each ladder's TOP level is replayed, lower levels close on their two parents
-  structurally. **Lesson: a lemma the assumptions already force TRUE is a conflict too** — seed it from
-  the implied literal's own reason, or you lose exactly the miter inferences the ladder exists for.
+- **D-CONG-LRAT** — XOR/ITE extraction was gated off under native LRAT. **CLOSED 2026-07-21 (C1/C2)**;
+  both now run on every proof path. Root cause: canonicalization folds signs, so canonical lemma
+  literals do not correspond by position and sign to either gate's raw clauses. Done by **replaying**
+  the chains rather than deriving them (`congruence_rup_chain`), so the chain comes out in the
+  checker's own propagation order by construction. **Lesson: a lemma the assumptions already force
+  TRUE is a conflict too** — seed the walk from the implied literal's own reason, or you lose exactly
+  the miter inferences the ladder exists for.
 - **D-CONG-UNIT** — AND degeneracies + contradictory merge were skipped. **CLOSED 2026-07-25 (C3b,
-  commit `2998029`)** after C3 (2026-07-21) closed the XOR half (all-cancelling representative inputs
-  derive the root unit, a one-survivor key merges, units batch-assert at end of round; `hwmcc17miters`
-  48.77 → 6.67 s, refuted at 0 decisions, drat-trim VERIFIED; **V6 can return `Unsat`**). C3b: AND clash
-  ⇒ unit `¬out`; idempotent duplicate ⇒ unary gate ⇒ merge; a merge landing on `x ≡ ¬x` justifies the
-  equivalence binaries then resolves the opposing units to ∅ (`refute_contradictory`). AND conclusions
-  are directly RUP over the live DB, so no new ladder: `cancelled` stays empty and the degeneracy
-  ladder's **`top==0` form** replays chains under LRAT / bare-adds under DRAT. Root cause: the closure
-  is merge-first, and kissat routes every degeneracy through `learn_congruence_unit` / `merge_literals`
-  (`kissat/src/congruence.c`). **Lesson: the duplicated-hint hazard is real** — in `add_equivalence`'s
-  bridge assembly (two same-class inputs thread shared path segments), closed by order-preserving
-  first-occurrence id dedup, safe because a repeated hint propagates nothing. **Residuals (sound,
-  deliberate):** ITE *collapse* degeneracies stay `Canon::Skip`; literal-form `x ≡ ¬x` is refuted for
-  AND, dropped-and-counted for XOR/ITE (needs a ladder over degenerate conclusions). Coverage: 5 unit
-  tests + corpus 008/009/010, proof-checked every fuzz run; all degeneracies measured **0 firings on
-  tiers** — completeness/N1 work, as predicted. *Measured-dead:* the ITE `then ≡ ¬else` discards are an
-  extraction filter, not this channel (C2).
+  `2998029`)**, after C3 closed the XOR half. AND conclusions are directly RUP over the live DB, so no
+  new ladder was needed. **Lesson: the duplicated-hint hazard is real** in bridge assembly, closed by
+  order-preserving first-occurrence id dedup, safe because a repeated hint propagates nothing.
+  **Residuals, sound and deliberate:** ITE *collapse* degeneracies stay `Canon::Skip`; literal-form
+  `x ≡ ¬x` is refuted for AND, dropped-and-counted for XOR/ITE. All degeneracies measured **0 firings
+  on the tiers** — completeness and N1 work, as predicted.
 - **D-CONG-DELETE** — transient ladder / case-split lemmas were not `del`-eted (proof size only; they
-  were RUP, so soundness was never affected). **CLOSED 2026-07-21 (C4):** `delete_transients` drops them
-  right after the conclusion lands, as kissat does with its two extended shrinking lemmas.
-- **D-FACTOR-LRAT** — E2 Factor no-oped under native LRAT. **CLOSED 2026-07-20:** `Proof::add_rat` added
-  (`proof.{hpp,cpp}`) and Factor emits it — dividers as vacuous RAT, quotients as one resolution group
-  per divider; first backend realization of add-RAT, emission order load-bearing (`calculus.md` §6b).
-  Validated: `micro_proofs` Factor cases (clean + dup grid), fuzz default/random `--lrat` Factor-forced
-  800/0; mp1 (935 factorings) + aes_decry (11 165) native LRAT VERIFIED by lrat-check (22 s / 17 s,
-  where drat-trim timed out); DRAT byte-identical.
-
+  were RUP, so soundness was never affected). **CLOSED 2026-07-21 (C4).**
+- **D-FACTOR-LRAT** — E2 Factor no-oped under native LRAT. **CLOSED 2026-07-20:** `Proof::add_rat`
+  landed and Factor emits it — dividers as vacuous RAT, quotients as one resolution each. First
+  backend realization of add-RAT; emission order is load-bearing (`calculus.md` E2).
 ## 3. Deviation-family histories (engineering, not calculus)
 
 - **D-LEVEL — current-level assignment (CLOSED).** The kernel used to stamp every propagation-forced
@@ -251,13 +232,11 @@ mechanics*, not proof-rule guards:
   size-monotone because deletion keeps the key, so it counted binaries ever *derived*, not the live
   binary population it was written as if it were — which is why the gate was observed to loosen
   monotonically over a solve.
-  **Its history, kept because the threshold's tuning is the exhibit:** `density` went 1 → 8 with the
-  BVE-LAST fix, then 8 → 6 when battleship's ratio turned out to be [6,7) and the 8-gate locked it out of
-  its only robust path (`benchmarks/reports/2026-07-24-battleship-divergence.md`). A constant no
-  reference backs, moved twice to fit two instances — the shape plan §5 obligation 6 names as an
-  invention. **▶ CONSEQUENCE FOR A BANKED CONCLUSION:** the project's *0-for-5 record of hand-designed
-  formula-shape separators* was measured through this gate, so those five negatives are evidence about a
-  broken instrument rather than about separators.
+  **The threshold's tuning is itself the exhibit:** `density` moved 1 → 8 → 6, each step to fit one
+  instance (`benchmarks/reports/2026-07-24-battleship-divergence.md`) — a constant no reference
+  backs, which plan §5 obligation 6 names an invention. **Consequence for a banked conclusion:** the
+  *0-for-5 record of hand-designed formula-shape separators* was measured through this gate, so those
+  five negatives are evidence about a broken instrument, not about separators.
 - **Grid selection is a policy, the grid mechanism is the rule (S2a, 2026-07-23).** `factor_apply` keeps
   the MECHANISM (seed heap, co-occurrence counting, greedy grow, best-prefix, the proof-bearing
   `apply_factoring`); the three SCALARS — seed priority, next-factor tie-break, accept threshold — come
@@ -1123,174 +1102,110 @@ which is why no bespoke stress policy was written for it.
 
 ## 15. Design decision: eager subsumption is a `ConflictAnalysis` sub-step, not a rule
 
-**The question (SCHED-C6, ledger `SP-EAGERSUB-1`).** Eager subsumption deletes clauses, so it has a
-proof delta and N2 applies. Does it get a registry entry, a `guard`/`instances`/`apply` triple and a
-`calculus.md` rule of its own?
+**The question (SCHED-C6, ledger `SP-EAGERSUB-1`).** It deletes clauses, so N2 applies. Does it get a
+registry entry and a `calculus.md` rule of its own?
 
-**No, and the reason is not convenience.** The clauses it deletes are **redundant**. Deleting a
-redundant clause is licensed *unconditionally* by S2 `Forget`/`Reduce` — no subsumer required, no
-entailment argument, nothing. So the subsumption test is not the deletion's **justification**, it is
-only how the victims are **chosen**, and §5 puts selection in the policy layer, never in a guard. A
-registry entry would have to carry `∃ d ∈ R : d ⊋ c` as its precondition, which is a heuristic wearing
-a precondition's clothes: strictly stronger than soundness requires, and therefore exactly the
-"guard encodes a scheduling heuristic" shape N1 forbids.
+**No.** The clauses it deletes are **redundant**, and deleting a redundant clause is licensed
+unconditionally by S2 `Forget`/`Reduce` — no subsumer, no entailment argument. So the subsumption test
+is not the deletion's justification, only how the victims are **chosen**, and §5 puts selection in the
+policy layer. A registry entry would carry `∃ d ∈ R : d ⊋ c` as its precondition — a heuristic in a
+precondition's clothes, the exact shape N1 forbids. Contrast **C1 `SubsumeForward`**, which *is* a
+rule: it deletes **irredundant** clauses and the subsumer is the whole argument (§14).
+Redundant-vs-irredundant is the line, not "does it subsume".
 
-Contrast **C1 `SubsumeForward`**, which *is* a rule: it deletes **irredundant** clauses, and there the
-subsumer is the whole argument (`m ⊨ F∖{C} ⟹ m ⊨ D ⟹ m ⊨ C`, §14). Redundant-vs-irredundant is the
-line, not "does it subsume".
+Three architectural facts agree: it fires once per conflict, on the search path the registry
+deliberately never dispatches; `Inprocess` is the quiescent-root slot and this runs mid-descent, so
+registering there is simply wrong (and would owe an `EFFORT_SPECS` row for something O(1) by
+construction — none is owed, because no rule is registered); and its guard would be "the previous
+action was a learn", the control state D-SPLIT removed (§4). Precedent: M3's proof δ has said "*and a
+`del` of each clause it subsumes*" since OTFS landed. Mechanism in `analyze.cpp`, control in
+`Kernel::eager_subsume` (ENV, ships ON at kissat's default 4, `TACTIX_EAGER_SUBSUME=0` reverts).
 
-**Three architectural facts point the same way.**
-1. It fires **once per conflict**. `registry.hpp` states the registry is dispatched by the inprocessing
-   slot, the C API and the fuzz policies, and deliberately *never* on the per-conflict search path,
-   which DefaultPolicy composes statically. A `Macro` entry would put a vtable dispatch there.
-2. `Inprocess` is the quiescent-root slot; this must run mid-descent with a live register, so the tier
-   is simply wrong — and registering at that tier *is* scheduling it (SCHED-A2b), which would demand an
-   `EFFORT_SPECS` row for something that is O(1) by construction. **No `EFFORT_SPECS` row is owed
-   because no rule was registered**; `effort_specs` stays green untouched.
-3. Its guard would be "the previous action was a learn" — control state observable at a rule boundary,
-   which is precisely the `pending` handoff D-SPLIT removed (§4).
-
-**Precedent, already in the calculus.** M3's proof δ has said "*and a `del` of each clause it
-subsumes*" since OTFS landed: conflict analysis already deletes a clause it discovers it subsumes. And
-`Kernel::bump_reason_limit` is already an optional, policy-parameterised sub-step of the same rule.
-Eager subsumption is the same seat: mechanism in `analyze.cpp`, control in `Kernel::eager_subsume`
-(config-wiring class **ENV**, ships ON at kissat's default 4, `TACTIX_EAGER_SUBSUME=0` reverts).
-
-**Which reference, and why.** kissat's **shift register** (`learn.c:70-208`, MIT), not cadical's
-backwards walk (`analyze.cpp:728-765`). cadical scans its `clauses` **vector** from the end for up to
-`eagersubsumelim+1 = 21` candidates; we have no such vector — large clauses live in a flat
-`std::vector<uint32_t>` arena of variable-length records, which cannot be traversed backwards at all,
-so cadical's shape has no home here short of adding a clause-pointer vector. kissat's four-slot
-register is 16 bytes of kernel state and needs nothing. (kissat's `arenasort`/`arenatype` ordering,
-which is what makes cadical's tail-first walk pick *recent* clauses, is itself an open gap here —
-`SP-ARENA-1` — so the backwards walk would not even select the same population.)
+**Which reference.** kissat's **shift register** (`learn.c:70-208`, MIT), not cadical's backwards
+walk: cadical scans a `clauses` vector from the end, and our large clauses live in a flat
+variable-length arena that cannot be traversed backwards at all. Related open gap: `SP-ARENA-1`, since
+without kissat's arena ordering the backwards walk would not select the same population anyway.
 
 **The one deviation from kissat: we skip a candidate that is still a trail REASON.** Kissat does not
-check. We must, twice over: `kernel_collect_garbage`'s only garbage-reason case is a root-fixed
-literal (regression corpus 003), and — the N2 half — an LRAT chain that later walks that reason would
-cite a **deleted** id, which `cake_lpr`/`lrat-check` reject while drat-trim happily verifies. Both are
-consequences of our design, not of the technique.
+check. We must, twice over — `kernel_collect_garbage`'s only garbage-reason case is a root-fixed
+literal (regression corpus 003), and an LRAT chain that later walks that reason would cite a deleted
+id, which `cake_lpr`/`lrat-check` reject and drat-trim does not. Both are consequences of our design.
 
-**Where the call sits, and the measurement that put it there.** In `backjump_apply_to`, after the
-backtrack — kissat's own position (`kissat_learn_clause` = learn, backtrack, assign, eager-subsume),
-one step earlier than the assert (equivalent: asserting the UIP can only make the *pending* clause a
-reason, and it is not a candidate). The obvious alternative, the tail of `analyze_apply`, is a single
-chokepoint for every driver and looks strictly simpler — and it is **worthless**, for a reason that is
-a theorem rather than an accident: `kernel_assign_ref` stamps a forced literal with the max level of
-its reason's other literals, and a candidate `C ⊋ D` contains `D`'s UIP, so `C`'s forced literal sits
-at or above the conflict level and is always still assigned before the backjump. Measured over 60
-Tier A instances: pre-backjump **8 297 deletions and 28 000 reason-skips**, of which the
-freed-by-backjump probe counted **28 000 — all of them**; post-backjump **30 613 deletions and 0
-reason-skips** (192 818 → 187 466 conflicts, 48 of 60 instances firing). The reason check stays
-regardless, because `backjump_apply_to` honours chronological targets and N1 lets a policy pick any
-level in `[jump_level, level-1]`.
+**Where the call sits.** In `backjump_apply_to`, after the backtrack — kissat's own position. The
+obvious alternative, the tail of `analyze_apply`, is **worthless** for a reason that is a theorem:
+`kernel_assign_ref` stamps a forced literal with the max level of its reason's other literals, and a
+candidate `C ⊋ D` contains `D`'s UIP, so `C`'s forced literal is at or above the conflict level and is
+always still assigned before the backjump. Measured: every pre-backjump reason-skip was freed by the
+backjump, and moving the call took deletions 8,297 → 30,613 with zero reason-skips. The reason check
+stays regardless, because `backjump_apply_to` honours chronological targets and N1 lets a policy pick
+any level in `[jump_level, level-1]`.
 
-**Reachability of the guard itself.** Because of that theorem, DefaultPolicy reaches the reason skip
-**zero** times, so no fuzz or tier leg can exercise the branch that protects N2 here. It is pinned
-instead by `tests/test_analyze.cpp` `test_eager_subsume` case (c), which builds the state directly —
-the alternative was a green leg that is vacuous exactly where it matters
+**Reachability of the guard itself.** By that theorem DefaultPolicy reaches the reason check **zero**
+times, so no fuzz or tier leg can exercise the branch protecting N2 here. It is pinned by
+`tests/test_analyze.cpp` `test_eager_subsume` case (c), which builds the state directly — the
+alternative was a green leg that is vacuous exactly where it matters
 ([[ab-arm-identical-artefacts]]).
 
-**No bespoke stress policy, and why.** The `stress-policy` obligation is for a change that opens NEW
-schedules. This one opens none: no rule is registered, no `guard` or `instances()` moves, and every
-policy already drives `ConflictAnalysis`. The two genuinely new interactions — a register Ref surviving
-across a `kernel_collect_garbage`, and a redundant clause dying mid-descent rather than at a Reduce —
-are exactly what `--random-policy` produces by construction, since it interleaves Reduce and the
-inprocessing slot with search at random. The third, the reason guard, is *unreachable by schedule*
-(above), so no stress policy could reach it either; only the direct unit test can.
+**No bespoke stress policy:** the obligation is for a change that opens new schedules, and this opens
+none. The two genuinely new interactions (a register Ref surviving a garbage collection, a redundant
+clause dying mid-descent) are what `--random-policy` produces by construction; the third, the reason
+guard, is unreachable by scheduling, so only the direct unit test can reach it.
 
 ## 16. Design decision: X5 `Condition` is NOT implemented — `ρ` cannot hold a witness CUBE
 
-**Track R · R7, closed 2026-08-06 as a reasoned non-implementation.** Ledger id **`SP-COND-1`**. The
-second Track R item that is not an inventory tick (the first is S7 `Reorder`, §10) and the one that
-closes Track R's inventory. No `src/rules/condition/`, no registry line, no `EFFORT_SPECS` row, no
-`calculus.md` rule entry (only the pointer note after X1).
+**Track R · R7, closed 2026-08-06 as a reasoned non-implementation.** Ledger id **`SP-COND-1`**. No
+`src/rules/condition/`, no registry line, no `EFFORT_SPECS` row, no `calculus.md` entry (only the
+pointer note after X1).
 
-**What the rule is.** cadical's `condition.cpp` eliminates *globally blocked* clauses (Kiesl's 2019
-thesis; Kiesl–Heule–Biere ATVA'19). `C` is globally blocked w.r.t. a witness cube `ω` when `ω` is an
-autarky of `F` *conditioned* on `¬C` — `ω` satisfies every clause it touches once `¬C` is assumed. The
-deletion is satisfiability-preserving and a model of `F ∖ {C}` is repaired by flipping **every literal
-of `ω`**. X1 BCE is the special case `ω = {l}, l ∈ C`.
+**What the rule is.** cadical's `condition.cpp` eliminates *globally blocked* clauses: `C` is globally
+blocked w.r.t. a witness cube `ω` when `ω` is an autarky of `F` conditioned on `¬C`. Deletion is
+satisfiability-preserving and a model of `F ∖ {C}` is repaired by flipping **every literal of `ω`**.
+X1 BCE is the special case `ω = {l}, l ∈ C`.
 
-**Reference situation — read at the source, not taken from the inventory billing.**
-- **kissat does not have it, in any form.** There is no `condition.c` and no autarky module; the only
-  `condition` hits under `kissat/src/` are congruence's ITE *gate condition sets* and its "conditional
-  equivalences" (`congruence.c`), an unrelated notion. Track R's X5 row is therefore **cadical-only** —
-  the same class of correction `SP-JUMP-1` applied to a "both references" billing on 2026-08-05.
-- **cadical ships it OFF**: `OPTION( condition, 0, 0,1,0,1,1, "globally blocked clause elim")`
-  (`options.hpp:58`), default 0. Off alone is not disqualifying — `block` is also default 0 there and
-  kissat 4 dropped BCE, yet R2 landed BCE ON — so this is context, not the reason.
-- It is the *only* consumer of cadical's multi-literal witness format; its own header says as much
-  ("the first technique implemented in CaDiCaL with this feature").
+**Reference situation, read at the source.** **kissat does not have it in any form** — the `condition`
+hits under `kissat/src/` are congruence's ITE gate-condition sets, an unrelated notion — so Track R's
+X5 row is **cadical-only**. cadical ships it OFF (`options.hpp:58`), which is context rather than the
+reason, since `block` is also off there and we ship BCE ON. It is the only consumer of cadical's
+multi-literal witness format.
 
-**The decisive reason: a `ρ` FORMAT limit, not an effort one.** `Kernel::reconstruction` stores one flat
-segment per weakened clause, `[rest…, witness, len]`, and `kernel_extend_model` tests satisfaction over
-**the whole segment** — `[begin, i)` includes the trailing `witness` — then sets that **single** literal
-true (`kernel_extend_model`, `kernel.cpp:1218`). Two properties are hard-coded there and Condition breaks both: the
-witness is **one** literal, and it lies **inside** the clause. Consequences:
-- A cube cannot be split into several single-literal segments: each segment would place its own witness
-  inside its own satisfaction test, which is exactly the wrong-SAT shape BCE hit once already.
-- Restricting the cube to one in-clause literal makes globally-blocked ≡ blocked, i.e. **X1**, which
-  R2 already ships ON. The representable subset carries no new power.
+**The decisive reason: a `ρ` FORMAT limit, not an effort one.** `Kernel::reconstruction` stores one
+segment per weakened clause, `[rest…, witness, len]`; `kernel_extend_model` tests satisfaction of the
+whole segment and sets that **single** witness true (`kernel.cpp:1218`). Two properties are hard-coded
+there that Condition breaks: the witness is **one** literal, and it lies **inside** the clause. A cube
+cannot be split across segments — each would place its own witness inside its own satisfaction test,
+the wrong-SAT shape BCE hit once already — and restricting the cube to one in-clause literal makes
+globally-blocked ≡ blocked, i.e. X1, which already ships ON.
 
-**This is not a we-are-behind-kissat gap.** kissat's extension stack has the *same* shape ours does:
-`kissat_weaken_clause` pushes exactly one tagged witness literal (`weaken.c:36-44`) and `extend.c`'s
-reader terminates a segment on that single `blocking` literal. cadical had to introduce a witness
-*section* — `0 <witness…> 0 <id> 0 <clause…>`, written at `extend.cpp:86-107` and flipped
-literal-by-literal at `extend.cpp:179-196` — to carry this one technique. Landing X5 means changing the
-`ρ` segment format, `kernel_extend_model`, and all five `kernel_push_witness` call sites (BCE ×2, BVE,
-Substitute ×2). Per §5.3 and the `rule-dev` contract that is an **architecture RFC**, not a "one
-directory + one registry line" landing.
+**Not a we-are-behind-kissat gap:** kissat's extension stack has the same shape ours does
+(`weaken.c:36-44`). cadical had to introduce a witness *section* to carry this one technique. Landing
+X5 means changing the `ρ` segment format, `kernel_extend_model`, and all five `kernel_push_witness`
+call sites — an architecture RFC per §5.3, not a one-directory landing. **R6 CCE does NOT need the
+same thing** (`cover.cpp:411` pushes a single witness literal per segment), so the revamp would buy
+exactly one rule; checked so the two Track R items are not bundled on a false premise.
 
-**R6 CCE does NOT need the same thing**, so the revamp buys exactly one rule: cadical's `cover.cpp`
-pushes a *single* witness literal per segment (`cover.cpp:411`), a sequence of ordinary
-witness-labelled clauses. Checked so the two Track R items are not bundled on a false premise.
+**Measured, so the closure is not purely structural** (probes `1585043`, `1585044`; paired cadical
+`--condition=true` vs default, all 30 Tier C). Yield is real but small — fires on 13 of 30 instances,
+2-550 clauses — and **no solve flips in either direction**, at **+11.3 % total wall**. Cost per
+elimination is enormous (~1.4 M propagations each on `ContextModel`). Per-instance is a lottery, so
+the aggregate is directional, not a verdict ([[chaotic-instance-veto]]). Two findings worth keeping:
+the witness cube is **small** (final autarky 1.0-5.6 against initial 4k-11k), so `ρ` growth is not the
+problem and representability is; and where the cube averages 1.0 those are plain blocked clauses X1
+already takes, making the genuinely-new yield smaller still.
 
-**Measured, so the closure is not purely structural.** Probes `1585043` (paired cadical
-`--condition=true` vs cadical default, same node, all 30 Tier C instances, 400 s cap) and `1585084`
-(`--stats`, six instances, 200 s cap):
-- **Yield is real but small, and buys nothing.** It fires on **13 of 30** instances, 2–550 clauses
-  (`constraints_18` 550, `minxor128` 385, `constraints_25` 211, `j3037` 96, `frb45` 87, then a tail down
-  to 2). `circuit_32in32out` and `urq45` conditioned **0** after 2 and 41 conditionings respectively —
-  so a zero there is "ran and found nothing", not "never ran".
-- **No solve flips, in either direction.** Both arms return the same 26 verdicts and the same 4
-  non-verdicts (3 timeouts plus `128_125`, OOM-killed on *both* arms — not a condition effect).
-  Total wall **5699.2 s off vs 6343.1 s on = +643.9 s (+11.3 %)**.
-- **Per-instance is a lottery, so the aggregate is directional, not a verdict** ([[chaotic-instance-veto]]):
-  `j3037` +286.3 s, `ContextModel` +227.0, `Ptn-7824-b18` +161.1, `jgiraldezlevy` +143.3 against
-  `EDP3-11000` −134.1, `af-synthesis` −122.0, `mp1` −95.2. What the run *does* settle is that no solve
-  is bought at that price.
-- **Cost per elimination is enormous.** `ContextModel`: 28.76 M condition propagations over 26,992
-  candidates for 21 deletions (≈1.4 M propagations each). `j3037`: 61.79 M over 17,476 candidates for
-  71.
-- **The witness cube is SMALL, which refutes the obvious cost objection** — worth recording because
-  cadical's own TODO at `condition.cpp:784` ("avoid pushing too many literals on the extension stack")
-  invites the opposite guess. `condautrem` (final autarky per conditioned clause) is **1.0** on `em_11`,
-  **2.1** on `j3037`, **5.2** on `minxor128`, **5.6** on `ContextModel`, against *initial* autarky parts
-  of 4 k–11 k: the refinement fixpoint collapses the assignment almost completely. So `ρ` growth is not
-  the problem; representability is.
-- **`em_11`'s cube averages exactly 1.0**, i.e. those instances are plain blocked clauses that our X1
-  would already take (cadical's `blocked:` reads 0 there only because `block` is off in that arm too).
-  The genuinely-new yield over what we ship is the `cube > 1` remainder, smaller still.
-
-**Architecture friction beyond `ρ`** (secondary, but it prices the rule honestly). `condition_round`
-fabricates a **total** assignment — every unassigned active non-frozen variable assigned from its saved
-phase at a synthetic decision level (`condition.cpp:196-208`) — then mutates `trail`, `level` and
-`Var::level` and restores them, under `protect_reasons`. Our Inprocess-tier rules run at a quiescent
-root (`run_slot_phase` backtracks to 0 before the pipeline), so the rule would have to build and tear
-down a total assignment through kernel trail primitives: kernel surface again, not rule surface.
+**Architecture friction beyond `ρ`.** `condition_` fabricates a **total** assignment at a synthetic
+decision level, then mutates `trail`/`level`/`Var::level` and restores them. Our Inprocess rules run
+at a quiescent root, so the rule would have to build and tear down a total assignment through kernel
+trail primitives — kernel surface again, not rule surface.
 
 **What would reopen it.**
-1. **A `ρ` revamp giving `kernel_push_witness` a witness section** — e.g.
-   `[clause…, witness…, nwitness, len]`, today's five call sites passing `nwitness = 1`. That is the
-   RFC; with it in place X5 becomes an ordinary §5.3 landing, and it is also the prerequisite for
-   set-blocked and PR-clause elimination should either ever be wanted.
-2. **Yield evidence that survives a joint measurement.** Judging a rule alone is the one measurement
-   this family defeats (X1/X2/X4 alone 21.79/53.26/13.08 Tier B PAR-2 vs 9.22 together), so the probe
-   above is a *lower* bound on what X5 could be worth beside X1/X3. A re-open should be triggered by an
-   X1+X3+X5 arm, not by an X5-alone number.
-3. **A reference reversal** — cadical flipping `condition` on by default, or a competition entry
-   enabling it. Neither holds at the pinned clone.
+1. **A `ρ` revamp giving `kernel_push_witness` a witness section** — today's five call sites passing
+   `nwitness = 1`. That is the RFC; with it X5 becomes an ordinary §5.3 landing, and it is also the
+   prerequisite for set-blocked and PR-clause elimination.
+2. **Yield evidence that survives a JOINT measurement.** Judging a rule alone is the one measurement
+   this family defeats (X1/X2/X4 alone 21.79/53.26/13.08 Tier B PAR-2 vs 9.22 together), so the number
+   above is a *lower* bound. A re-open should be triggered by an X1+X3+X5 arm, never an X5-alone one.
+3. **A reference reversal** — cadical defaulting `condition` on, or a competition entry enabling it.
+   Neither holds at the pinned clone.
 
 ## 17. The rule-inventory disposition table (the phase-3 exit, made checkable)
 
