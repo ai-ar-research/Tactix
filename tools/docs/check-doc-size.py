@@ -11,9 +11,9 @@ LIMITS = {
     "DEVELOPMENT_PLAN.md": 750,
     "PROGRESS.md": 350,
     "docs/README.md": 100,
-    "docs/calculus.md": 700,
-    "docs/implementation-notes.md": 1400,
-    "docs/lessons.md": 180,
+    "docs/calculus.md": 600,
+    "docs/implementation-notes.md": 800,
+    "docs/lessons.md": 100,
 }
 SKILL_DEFAULT = 120
 # These workflows contain dense operational or diagnostic protocols whose
