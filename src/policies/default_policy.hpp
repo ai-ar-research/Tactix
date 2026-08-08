@@ -201,6 +201,10 @@ public:
   // the conflict level first.
   static constexpr uint32_t CHRONO_LEVELS = 100;
   uint32_t chrono_levels = CHRONO_LEVELS;
+  // cadical `chronoreusetrail` (default 1): back-jump only as far as the
+  // best-ranked variable above the jump level, keeping the rest of the trail.
+  // `TACTIX_CHRONO_REUSE=0` is the off arm.
+  bool chrono_reuse_trail_ = true;
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
 
