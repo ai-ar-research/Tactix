@@ -364,6 +364,12 @@ struct Stats {
                                    // doses per instance never bumps this)
   uint64_t bve_eliminated = 0;     // variables eliminated by BVE resolution
   uint64_t bve_resolutions = 0;    // resolvents attempted — BVE's unit of work
+  // Eager backward subsumption from fresh resolvents (cadical elimbackward).
+  // `queued` is the reachability witness: zero means the pass never ran.
+  uint64_t bve_bwd_queued = 0;      // fresh resolvents used as subsumers
+  uint64_t bve_bwd_subsumed = 0;    // victims deleted (cadical elimbwsub)
+  uint64_t bve_bwd_strengthened = 0; // victims shortened (cadical elimbwstr)
+  uint64_t bve_bwd_units = 0;       // strengthenings that collapsed to a unit
                                    // and its effort currency, since one
                                    // variable costs occ(x)·occ(¬x) attempts
   // One per `kernel_mark_bve_retry` EVENT. Deviation from the references, which
@@ -788,6 +794,9 @@ struct Kernel {
   // resolvents ≤ occ⁺+occ⁻+this. Default = BVE_MAX_BOUND in rules/bve/bve.hpp;
   // keep the two in step.
   uint32_t bve_bound = 16;
+  // Eager backward subsumption from fresh resolvents (cadical `elimbackward`,
+  // default 1). Ships ON; `TACTIX_BVE_BACKWARD=0` is the permanent off arm.
+  bool bve_backward = true;
   // BVE general-definition extraction: per-attempt sub-solver tick ceiling
   // (kissat `definitionticks`, 1e6 there); 0 = unlimited. Two orders below the
   // reference because of a metering gap — an attempt that finds nothing

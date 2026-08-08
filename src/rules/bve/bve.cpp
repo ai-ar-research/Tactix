@@ -19,6 +19,10 @@ namespace tactix {
 // occurrence limit (kissat eliminateocclim): skip a variable whose polarities
 // together occur more than this, where O(occ⁺·occ⁻) resolution blows up
 static constexpr uint32_t BVE_OCCLIM = 2000;
+// cadical `elimocclim` (options.hpp:100), the only effort bound inside the
+// backward pass: skip a subsumer whose least-occurring literal is commoner
+// than this (backward.cpp:70).
+static constexpr size_t BVE_BWD_OCCLIM = 100;
 // resolvent size limit (kissat eliminateclslim): a larger resolvent aborts
 static constexpr uint32_t BVE_CLSLIM = 100;
 // Growth slack: eliminate iff #non-tautological resolvents ≤ occ⁺ + occ⁻ +
@@ -474,6 +478,138 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   return definition();
 }
 
+// --- eager backward subsumption from fresh resolvents -----------------------
+// CaDiCaL `elimbackward` (backward.cpp), drained at the tail of
+// try_to_eliminate_variable (elim.cpp:731). Each fresh resolvent is the
+// SUBSUMER over the occurrence list of its least-occurring literal: a victim
+// `d ⊇ c` is deleted, one resolving with `c` on a single literal is shortened,
+// and shortened victims re-enter the queue so a pivot reaches a fixpoint.
+// kissat has no analogue; see `docs/implementation-notes.md`'s BVE section.
+
+// Direction is the easy thing to invert: C1/C2's `check_marked` answers "does
+// the partner subsume the candidate", the reverse of what is needed here.
+// Deleting on that predicate retires the STRONGER clause, and no checker
+// catches it — a `del` is unchecked, so the certificate verifies while the
+// solver answers SAT on an UNSAT formula.
+static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
+  if (!k.dense || k.inconsistent)
+    return; // N1: the index is an acceleration, and the rule runs without it
+  std::vector<uint8_t> marks(2 * static_cast<size_t>(k.nvars) + 2, 0);
+  std::vector<Lit> clits, dlits;
+  std::vector<Ref> victims;
+  const bool lrat = k.proof && k.proof->lrat();
+  for (size_t qi = 0; qi < queue.size(); ++qi) {
+    const Ref cref = queue[qi];
+    {
+      const Clause *c = clause_at(k.arena, cref);
+      if (c->garbage())
+        continue;
+      // Snapshot: adding a strengthened victim can reallocate the arena, so a
+      // Clause* held across the victim walk would dangle.
+      clits.assign(c->begin(), c->end());
+    }
+    const uint64_t cid = clause_at(k.arena, cref)->id();
+    uint32_t size = 0;
+    Lit best = INVALID_LIT;
+    size_t len = 0;
+    bool satisfied = false;
+    for (const Lit l : clits) {
+      const int8_t v = k.value(l);
+      if (v > 0) { satisfied = true; break; }
+      if (v < 0)
+        continue; // root-false: absorbed, and never marked
+      marks[l] = 1;
+      size++;
+      const size_t n = k.dense->large[l].size();
+      if (best == INVALID_LIT || n < len) { best = l; len = n; }
+    }
+    if (satisfied || best == INVALID_LIT || size == 0 || len > BVE_BWD_OCCLIM) {
+      for (const Lit l : clits) marks[l] = 0;
+      continue;
+    }
+    k.stats.bve_bwd_queued++;
+    victims.assign(k.dense->large[best].begin(), k.dense->large[best].end());
+    for (const Ref dref : victims) {
+      if (dref == cref || k.inconsistent)
+        continue;
+      Clause *d = clause_at(k.arena, dref);
+      if (d->garbage() || d->redundant() || d->size < size)
+        continue;
+      // c ⊆ d (subsume), or c ⊆ d with exactly one literal flipped (strengthen).
+      uint32_t found = 0;
+      Lit negated = INVALID_LIT;
+      bool dsat = false, bail = false;
+      for (const Lit l : *d) {
+        const int8_t v = k.value(l);
+        if (v > 0) { dsat = true; break; }
+        if (v < 0)
+          continue;
+        if (marks[l]) { found++; continue; }
+        if (marks[negate(l)]) {
+          if (negated != INVALID_LIT) { bail = true; break; }
+          negated = l;
+          found++;
+        }
+      }
+      if (bail || (!dsat && found != size))
+        continue;
+      if (dsat || negated == INVALID_LIT) {
+        // satisfied, or every literal of c occurs in d with the same sign
+        kernel_delete_clause(k, d);
+        if (!dsat)
+          k.stats.bve_bwd_subsumed++;
+        continue;
+      }
+      // self-subsuming resolution: d resolved with c on `negated` gives
+      // d \ {negated}, which strictly subsumes d.
+      dlits.clear();
+      std::vector<uint64_t> chain;
+      for (const Lit l : *d) {
+        if (l == negated)
+          continue;
+        if (k.value(l) < 0) {
+          if (lrat)
+            chain.push_back(k.unit_ids[var_of(l)]);
+          continue;
+        }
+        dlits.push_back(l);
+      }
+      const uint64_t id = ++k.next_clause_id;
+      if (k.proof) {
+        if (lrat) {
+          chain.push_back(cid);      // the subsumer propagates `negated` false
+          chain.push_back(d->id());  // then the victim conflicts
+          k.proof->add_rup(id, dlits.data(),
+                           static_cast<uint32_t>(dlits.size()), chain.data(),
+                           static_cast<uint32_t>(chain.size()));
+        } else {
+          k.proof->add_rup(0, dlits.data(),
+                           static_cast<uint32_t>(dlits.size()), nullptr, 0);
+        }
+      }
+      k.stats.bve_bwd_strengthened++;
+      Ref nref = INVALID_REF;
+      switch (kernel_replace_clause(k, d, id, dlits.data(),
+                                    static_cast<uint32_t>(dlits.size()),
+                                    /*redundant=*/false, 0, &nref)) {
+      case ReplaceOutcome::Refuted:
+        k.inconsistent = true;
+        break;
+      case ReplaceOutcome::Unit:
+        k.stats.bve_bwd_units++;
+        break; // M1 owns the cascade; the unit is asserted by kernel_replace_clause
+      case ReplaceOutcome::Binary:
+        break; // leaves the dense index; no longer a victim or a subsumer here
+      case ReplaceOutcome::Large:
+        if (nref != INVALID_REF)
+          queue.push_back(nref); // fixpoint, cadical backward.cpp:202
+        break;
+      }
+    }
+    for (const Lit l : clits) marks[l] = 0;
+  }
+}
+
 // Eliminate variable x by resolution at a drained root. No state is mutated
 // until the bound is passed, so a NoOp return leaves the kernel untouched and
 // the caller may try another candidate. Unsat on an empty resolvent or
@@ -741,6 +877,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // (PendingUnits, kernel.hpp).
   PendingUnits pending;
   pending.init(k.nvars);
+  std::vector<Ref> fresh; // large resolvents, the backward pass's subsumers
   auto record_unit = [&](Lit u, uint64_t id) -> bool {
     return pending.record(k, u, id) == PendingUnits::Outcome::Refuted;
   };
@@ -776,10 +913,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     } else if (r.lits.size() == 2) {
       kernel_add_binary_clause(k, r.lits[0], r.lits[1], id);
     } else {
-      kernel_add_large_clause(k, r.lits.data(),
-                              static_cast<uint32_t>(r.lits.size()),
-                              /*redundant=*/false,
-                              static_cast<uint32_t>(r.lits.size()), id);
+      fresh.push_back(kernel_add_large_clause(
+          k, r.lits.data(), static_cast<uint32_t>(r.lits.size()),
+          /*redundant=*/false, static_cast<uint32_t>(r.lits.size()), id));
       // Adding a large clause may reallocate the arena, but the Refs held in
       // pos/neg/del_large are offsets and survive a resize; only a Clause*
       // would dangle, and every use below re-fetches through clause_at.
@@ -837,6 +973,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   for (const Lit u : pending.units)
     if (k.value(u) == 0)
       kernel_assign_unit(k, u);
+
+  // cadical drains here: after the resolvents are connected and the pivot's
+  // own clauses are garbage, so the antecedents are skipped (elim.cpp:731).
+  if (k.bve_backward)
+    bve_backward(k, fresh);
 
   k.stats.bve_eliminated++;
   return ApplyResult::Ok;
