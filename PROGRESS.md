@@ -11,8 +11,8 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 95 (§5 obligation 6 rider (a): read BOTH references, implement the
-  BETTER mechanism — never the simpler one because it is the nearer port. rev 94 rider (e): a regression on a faithful port is
+- **Plan revision tracked:** rev. 96 (§5 obligation 6 rider (a): kissat is the tie-break, and that is
+  not a licence to take the less sophisticated mechanism. rev 94 rider (e): a regression on a faithful port is
   not evidence against the mechanism; `SP-FACTOR-1` + `SP-BVE-BWD-1` are owed ports. rev 93 Tier C
   memory cap 8 -> 16 GB; rev 92 compacted the plan and
   moved the revision history to `docs/log/plan-revisions.md`). Substantively rev. 91 — **phase 4's dosing work is a faithful PORT of the references' dosing

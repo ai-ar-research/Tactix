@@ -17,8 +17,9 @@
   strategy, with N1–N4 satisfied (plan §5 obligation 6, rev 90).** Transliteration
   is the default first move and the *deviation* owes the argument; being more
   sophisticated is allowed only on top of a transliterated baseline kept as a
-  permanent arm. **Read BOTH references and implement the BETTER mechanism** where they disagree — never the
-  simpler one because it is the nearer port; kissat breaks a genuine tie.
+  permanent arm. **Kissat is the tie-break** when the two references disagree — but that is not a
+  licence to take the LESS sophisticated mechanism because it is the nearer port:
+  read both, and implement the stronger one where one is stronger.
   Port the mechanism and its EFFECT, never the code — an inert port reads as
   parity while doing nothing. It is a FLOOR, not a target (we already exceed both
   in places). A constant **no reference backs is an invention: delete or re-derive

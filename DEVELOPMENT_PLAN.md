@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-07 (rev. 95). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-07 (rev. 96). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -386,12 +386,12 @@ Design commitments:
      *reason*, but **the deviation is now what owes the argument**. Grounds: the largest single
      scheduling win to date was pure transliteration (matching cadical's `ternaryeffort` gained a
      Tier C solve), while our inventions have a poor record. Four riders:
-     - **(a) READ BOTH REFERENCES AND IMPLEMENT THE BETTER MECHANISM.** Where they disagree, that is a
-       design question to decide on the merits, not a coin-flip — and never a licence to take the
-       *simpler* or *less sophisticated* of the two because it is easier to port. Kissat is the
-       tie-break only when the two are genuinely equivalent in strength, being the N3/N4 reference and
-       the further-away half. When CaDiCaL's mechanism is stronger, port CaDiCaL's. Record the side not
-       taken as an arm, with the reason it lost.
+     - **(a) When the references disagree, KISSAT IS THE TIE-BREAK** — it is the N3/N4 reference and the
+       further-away half. A CaDiCaL divergence is ported only with a measured reason, and the unported
+       side is recorded as an arm. **The tie-break is not a licence to take the LESS sophisticated
+       mechanism because it is the nearer port:** read both, and where one is genuinely stronger,
+       implement that one — CaDiCaL's `elimbackward`, which kissat lacks entirely, is the standing
+       example. Kissat breaks a tie; it does not win an argument it would lose on the merits.
      - **(b) Transliterate the MECHANISM AND ITS EFFECT, never the code.** A port that goes inert is
        worse than none — it reads as parity while doing nothing, which is exactly shape (a) of
        obligation 5. The same constant can mean something different here (a naive port of kissat's
