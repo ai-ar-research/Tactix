@@ -548,6 +548,7 @@ private:
   SlotStep run_batch_entry(Kernel &, SlotEntry &, const RuleVTable &,
                            SlotPhaseCtx &);
   // BVE's during-search admission (TACTIX_BVE_ADMIT); true = declined.
+  bool bve_dose_declined(Kernel &, SlotEntry &);
   // Factor's warm-up and new-material gates (kissat factordelay).
   bool factor_entry_declines(const Kernel &, SlotEntry &);
   // Factor's per-occasion rule config (composition + the density advice).
