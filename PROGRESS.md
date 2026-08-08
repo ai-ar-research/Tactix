@@ -29,20 +29,25 @@ dependency) — do NOT resubmit anything; it completes on its own.
 
 **Next actions:**
 
-1. **Fidelity first (user directive 2026-08-08): audit each of the three ports
-   against its reference source and repair every implementation gap or missing
-   coupled mechanism on its own evidence — tier results are measurement, never
-   the selector of what gets repaired.** Primary goal: match the reference
-   policy; secondary: performance. Three port audits (BVE-backward/elim vs
-   cadical, Factor coupling vs kissat, chrono reuse vs cadical) are in flight;
-   one gap is already CONFIRMED from the wrong-SAT investigation: both
-   references flush/garbage redundant clauses that hold an eliminated
-   variable (cadical `mark_redundant_clauses_with_eliminated_variables_as_
-   garbage`); ours has no analogue, so a retired variable stays propagatable.
-2. When `20260808-094434-C-ablfix` completes, read it as measurement of the
-   fixed state (`all` vs `no-bwd` vs `no-couple` vs `no-chrono` + baselines);
-   report and update the N4 ledger.
-3. Continue the unresolved Phase 4 parity rows, then run the Tier D shakedown,
+1. **Fidelity-first repairs (plan §2, rev 98) are landing.** The three port
+   audits are COMPLETE (chrono 8 gaps, BVE 11, Factor 14; full findings in the
+   session task list). Landed: chrono tie-break/master-switch/knob plumbing
+   (`7da23a2`); BVE LRAT-chain units, unit-break, satisfied-subsumer delete,
+   refutation contract, **eliminated-pivot deactivation + redundant-clause
+   flush** via layered `Kernel::retired_events` (`7a457cf`); Factor ramp
+   ceiling/re-arm/terminal latch/off-ramp coupling/delay numerator
+   (`15daf5c`). Fuzz batteries 1–2 green (48k cases, 0 failures); battery 3
+   (with the factor stress leg) validates `15daf5c` before push.
+2. **Remaining repair queue (task list carries the site detail):** BVE binary
+   arm for the backward pass (largest expected yield); Factor legacy-step
+   off-arm, ramp-driven ladder, matcher pass-through, telemetry + ladder test;
+   ledger rows for every documented deviation (chrono boundary lineage, BVE
+   occlim guard, cadical's size-poison latent bug — never port it, and the
+   OTF self-subsumption scope decision → rule-dev).
+3. When `20260808-094434-C-ablfix` completes (one task left), read it as
+   measurement of the pre-repair fixed state; the post-repair tier pair then
+   measures the faithful solver; report and update the N4 ledger.
+4. Continue the unresolved Phase 4 parity rows, then the Tier D shakedown,
    Tier D campaign, and T3 gate in that order.
 
 ## Current measurement contract
@@ -168,6 +173,8 @@ Each row closes with an implementation or an accepted deviation in
   `Reorder`.
 - No direct test for `src/frontend/parse.cpp`, and cake_lpr is not wired into
   the fuzz harness (`RV-S24` remainder).
+- `substitute.cpp` still calls `heuristics_demote_marked_vars` — the last
+  rule→policy layering leak after retirement moved to `Kernel::retired_events`.
 
 ## Recent changes
 
