@@ -7,31 +7,34 @@ only.
 
 - **Current phase:** 4 — faithful reference dosing, optimization, and scheduling.
 - **Exit:** T3 + N4 parity ledger discharged + one full Tier D campaign.
-- **Non-negotiables:** N1 API universality ✓ · N2 **OPEN: three invalid SAT
-  models in the completed closing tier pair** · N3 Tier-D parity not yet measured · N4 scheduling
-  parity not yet discharged.
+- **Non-negotiables:** N1 API universality ✓ · N2 **fix landed for the three
+  invalid closing-pair models; revalidation (fuzz battery + pair retake) in
+  flight** · N3 Tier-D parity not yet measured · N4 scheduling parity not yet
+  discharged.
 - **Last updated:** 2026-08-08.
 
 ## Resume here
 
-The wrong-SAT defect in `bve_backward` is fixed and covered by a kernel
-regression test; model checking is now part of tier scoring. Evidence and the
-full diagnosis are in commit `6033378` and its preceding fix/instrument commits.
-Every elimination-era performance number from the unsound binary remains void.
-
-All three port repairs are CODE-COMPLETE and pushed (`25f1cd7` is the last:
-the BVE binary backward arm). Five fuzz batteries ran 110k cases with 0
-failures. **NOTHING IN FLIGHT.** The closing tier pair
-`20260808-120257-C-portsfin` / `20260808-120325-B-portsfin` is terminal but
-**not bankable**: its `CORRECTNESS-BUG` markers report invalid Tactix models on
-Tier C `EDP3-11000` and Tier B `circuit_48in64out...` plus `PRP_30_38`.
+N2 root cause found, fixed, and regression-covered: since `7a457cf`
+retired-but-unassigned variables reached model extension at value 0, voiding
+`extend_ρ`'s total-assignment premise — the reverse walk could double-flip
+eliminated pivots (EDP3/circuit shape) and break Substitute equivalence pairs
+(PRP shape). `kernel_extend_model` now completes every value-0 variable to
+definite false before replay; `print_model` agrees with `tactix_value`
+(strict `> 0`). Three regression tests reproduce both confirmed traces plus
+the real-BVE path and fail on the pre-fix tree. Full diagnosis:
+`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`. The five green fuzz
+batteries were vacuous for backward BVE (`BveBackward=0` in every log — the
+stress driver never connected the dense index); odd seeds now walk
+dense-connected and trace replay mirrors the choice from the header. The
+`portsfin` windows remain void for performance claims.
 
 **Next actions:**
 
-1. Reproduce and diagnose the three invalid models from the completed closing
-   pair. Treat the pair's performance numbers as void until N2 is restored.
-2. Add a regression, rerun the affected model/proof fuzz legs, then retake the
-   closing Tier B/C pair from one fixed commit.
+1. Submit the post-fix fuzz battery (model + proof legs; a backward-BVE leg
+   must pass `--require-reached BveBackward`) through `slurm-jobs`.
+2. Retake the closing Tier B/C pair from the fixed commit — two fresh
+   `build/pin-*` dirs, matching binary hashes.
 3. Continue the unresolved Phase 4 parity rows, then the Tier D shakedown,
    Tier D campaign, and T3 gate in that order.
 
@@ -71,6 +74,8 @@ their effect with source counters before performance interpretation.
   coupling, backward BVE, and analyze-side trail reuse.
 - [x] Fix backward BVE strengthened-to-unit handling and add independent SAT
   model checks (`6033378`).
+- [x] Fix frozen-at-0 retired variables voiding model reconstruction
+  (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
 - [ ] Complete and report the fixed-binary Tier C four-arm attribution.
 - [ ] Close or accept the remaining N4 rows below.
 - [ ] Run a Tier D shakedown, then the 793-instance campaign.
@@ -169,6 +174,9 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Recent changes
 
+- 2026-08-08 — fixed the N2 frozen-at-0 reconstruction defect behind the three
+  invalid closing-pair models; made backward BVE fuzz-reachable
+  (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
 - 2026-08-08 — rewrote all 17 Claude skills, retired manual plan revisions,
   added generic JSON stress scenarios, CMake discovery, SLURM waiting, and the
   2026 competition wrapper/compliance checks.

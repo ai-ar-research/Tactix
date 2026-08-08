@@ -209,7 +209,13 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   `del` the transient lemmas + internal `kernel_push_witness` (no proof line). **No `add_rat`.** **First
   variable-eliminating rule**, hence first consumer of `ρ`: equisatisfiability *modulo ρ* —
   `extend_ρ(model of F′) ⊨ F` — composes because `kernel_extend_model` is one reverse walk over the flat
-  stack. The witness pair `{¬l, r}` (witness ¬l) and `{l, ¬r}` (witness l) encodes `l ≡ r`
+  stack **on a total assignment**: the walk first completes every value-0 variable to a definite default
+  (retired variables occur in no live clause, so completion preserves `⊨ F′`). Every witness-scheme
+  argument that consumes `ρ` — the symmetric pair here, E1's tautological-resolvent exclusion, X1's
+  blocking-literal repair — reads the *definite* value of a third literal; an indefinite variable is
+  false in both polarities to the walk's satisfaction test and voids those arguments, double-flipping
+  pivots (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`). The witness pair `{¬l, r}` (witness ¬l)
+  and `{l, ¬r}` (witness l) encodes `l ≡ r`
   order-independently, so extend recovers `l` from `r` regardless of `l`'s search value.
 
 ### V4 · TransitiveReduce — delete transitively-redundant binaries

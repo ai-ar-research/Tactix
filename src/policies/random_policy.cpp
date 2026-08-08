@@ -34,6 +34,26 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     }
   } fin{trace, 0, targeted, 0};
   KernelStopPublisher stop_published(k, stop);
+  // Half of all seeds walk with the dense occurrence index attached:
+  // dense-gated tails (bve_backward) are unreachable without it, and a leg
+  // that cannot reach a subsystem is vacuous evidence for it
+  // (benchmarks/reports/2026-08-08-n2-frozen-pivot.md). Seed-derived, never
+  // an env knob, so a recorded trace replays with the same connection state
+  // (replay_solve reads the seed back from the trace header).
+  OccIndex stress_occ;
+  struct DenseScope {
+    Kernel &k;
+    bool active = false;
+    ~DenseScope() {
+      if (active)
+        kernel_dense_disconnect(k);
+    }
+  } dense_scope{k};
+  if ((seed & 1) != 0 && k.level == 0) {
+    kernel_dense_connect(k, stress_occ);
+    dense_scope.active = true;
+  }
+  std::printf("c stress-dense %d\n", dense_scope.active ? 1 : 0);
   uint64_t rng = seed ? seed : 1;
   const auto &rules = tactix_rules();
   const int decide_id = tactix_rule_id("Decide");
