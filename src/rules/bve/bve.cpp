@@ -498,7 +498,7 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
   std::vector<Lit> clits, dlits;
   std::vector<Ref> victims;
   const bool lrat = k.proof && k.proof->lrat();
-  for (size_t qi = 0; qi < queue.size(); ++qi) {
+  for (size_t qi = 0; qi < queue.size() && !k.inconsistent; ++qi) {
     const Ref cref = queue[qi];
     {
       const Clause *c = clause_at(k.arena, cref);
@@ -524,10 +524,16 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
       if (best == INVALID_LIT || n < len) { best = l; len = n; }
     }
     if (satisfied || best == INVALID_LIT || size == 0 || len > BVE_BWD_OCCLIM) {
+      // A root-satisfied subsumer is garbage, not merely unusable — a fresh
+      // resolvent goes root-true the moment a sibling unit resolvent is
+      // asserted (cadical backward.cpp:66-69 marks it garbage here too).
+      if (satisfied)
+        kernel_delete_clause(k, clause_at(k.arena, cref));
       for (const Lit l : clits) marks[l] = 0;
       continue;
     }
     k.stats.bve_bwd_queued++;
+    bool unit_derived = false;
     victims.assign(k.dense->large[best].begin(), k.dense->large[best].end());
     for (const Ref dref : victims) {
       if (dref == cref || k.inconsistent)
@@ -586,6 +592,23 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
         }
         dlits.push_back(l);
       }
+      if (lrat) {
+        // The SUBSUMER's root-false literals need their unit ids too, or `c`
+        // is not unit under the RUP assumption and the line is unverifiable —
+        // a fresh resolvent can carry a literal falsified by a sibling unit
+        // resolvent asserted before this drain (cadical collects units over
+        // {c\d} ∪ {d\c}, backward.cpp:149-182). Dedup against d's, which are
+        // already in the chain.
+        for (const Lit l : clits)
+          if (k.value(l) < 0) {
+            const uint64_t uid = k.unit_ids[var_of(l)];
+            bool dup = false;
+            for (const uint64_t have : chain)
+              dup |= (have == uid);
+            if (!dup)
+              chain.push_back(uid);
+          }
+      }
       const uint64_t id = ++k.next_clause_id;
       if (k.proof) {
         if (lrat) {
@@ -620,6 +643,10 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
           k.unit_ids[var_of(dlits[0])] = id;
           kernel_assign_unit(k, dlits[0]);
         }
+        // A unit invalidates this subsumer's marks/size snapshot (its own
+        // literals may now be assigned): abandon the walk as cadical does
+        // (backward.cpp:195) and let the queue re-check at the next entry.
+        unit_derived = true;
         break;
       case ReplaceOutcome::Binary:
         break; // leaves the dense index; no longer a victim or a subsumer here
@@ -628,6 +655,8 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
           queue.push_back(nref); // fixpoint, cadical backward.cpp:202
         break;
       }
+      if (unit_derived)
+        break;
     }
     for (const Lit l : clits) marks[l] = 0;
   }
@@ -960,6 +989,20 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
                           static_cast<uint32_t>(rest.size()));
     }
   }
+  // Deactivate the pivot with its witness, the V3 Substitute idiom (status and
+  // ρ entry created together): both references retire it here — cadical
+  // elim.cpp:723 flags.cpp:34-46, kissat eliminate.c:405 flags.c:77-100 — so
+  // it leaves the decision structures and the active-variable count instead of
+  // burning propagation-free decisions, and the phase fixpoint test sees BVE
+  // progress. Reconstruction supplies its value either way.
+  if (k.var_status.size() < k.nvars)
+    k.var_status.resize(k.nvars, VarStatus::Active);
+  if (k.var_status[x] == VarStatus::Active && k.values[px] == 0) {
+    assert(k.unassigned_active > 0);
+    k.unassigned_active--;
+  }
+  k.var_status[x] = VarStatus::Eliminated;
+  k.retired_events.push_back(x); // the policy deactivates its own H from this
 
   // delete every clause on x: live (pos/neg) plus delete-only (redundant,
   // satisfied, tautology). Large → proof del + garbage; binary →
@@ -1003,7 +1046,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     bve_backward(k, fresh);
 
   k.stats.bve_eliminated++;
-  return ApplyResult::Ok;
+  // The drain can refute (a strengthened victim's unit contradicting a root
+  // value). An N1 API consumer trusts ApplyResult alone — returning Ok on an
+  // inconsistent kernel invites a wrong SAT downstream (cadical's drain loop
+  // guards on unsat for the same reason, backward.cpp:224).
+  return k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
 }
 
 } // namespace
