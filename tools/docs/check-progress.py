@@ -5,8 +5,8 @@ The resume anchor and tier tables drift every time work lands on top of them,
 and the drift is invisible because the prose still reads fluently. Asked twice
 in one session whether they were current, the answer was no both times: dangling
 citations to just-deleted lessons, a build-dir claim that had become false, gate
-rows two windows old. Those are all mechanically checkable, so they are checked
-here rather than remembered (same reasoning as `archive-log.py`).
+rows two windows old. Those mechanically checkable facts are enforced here
+rather than left as instructions an agent must remember.
 
     tools/docs/check-progress.py            report; exit 1 if any ERROR
     tools/docs/check-progress.py --warn     treat warnings as failures too

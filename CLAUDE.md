@@ -48,6 +48,6 @@ capability, not DefaultPolicy's choice to decline an offered action.
 5. Run `wrap-up` before stopping. It compacts docs, generates Andrew's report,
    validates, commits, pushes, and leaves a self-contained next step.
 
-Project skills: benchmarks, calculus, compact-docs, compete, debug-performance,
-fuzz, generate-report, multi-agent, proof-check, revamp, revise-plan,
-revisit-codebase, rule-dev, slurm-jobs, stress-policy, wrap-up.
+Project skills: benchmarks, calculus, codex-revisit-docs, compact-docs, compete,
+debug-performance, fuzz, generate-report, multi-agent, proof-check, revamp,
+revise-plan, revisit-codebase, rule-dev, slurm-jobs, stress-policy, wrap-up.

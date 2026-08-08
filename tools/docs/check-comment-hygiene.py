@@ -52,8 +52,8 @@ EXTS = (".cpp", ".hpp", ".h", ".c", ".sh", ".txt", ".cmake")
 
 # `tools/` is code too, but three of the provenance rules are its SUBJECT
 # MATTER: retention.py and buildlock.py reason about job ids, run.py computes
-# PAR-2, archive-log.py parses dates. Banning those there would be banning the
-# tool from naming what it does. The register rules still apply — an internal
+# PAR-2 and job tooling parses dates. Banning those there would prevent a tool
+# from naming what it does. The register rules still apply — an internal
 # ticket id is as unresolvable in a script as in a header.
 TOOL_TREES = ["tools"]
 TOOL_EXTS = (".py", ".sh")
