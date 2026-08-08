@@ -24,7 +24,7 @@ second half measurable at all.
 | cadical | — | 313.75 (29/30) |
 
 Broad admission is a large Tier B win — **−26.5 PAR-2 and the 27th solve**, taking `or_randxor` from TO to
-65.5 s and `sted5` from 240.7 s to 13.0 s — and it **loses a Tier C solve**. Plan rev 78 is explicit: *"a
+65.5 s and `sted5` from 240.7 s to 13.0 s — and it **loses a Tier C solve**. plan decision (a927131) is explicit: *"a
 change that LOSES a solve is not covered by this priority no matter what it does to PAR-2."* **It does not
 ship.**
 

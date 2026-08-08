@@ -95,6 +95,6 @@ classification is a LOWER BOUND on reachability, and the crossing happens mid-so
 The prize is real and large (+3 solves / −54 PAR-2 on B, −42 on C) and the obvious mechanisms are
 measured dead, which is precisely the §5.6 admission-exhibit shape. This experiment's per-instance
 labels over 58 instances, with both arms and the oracle, are the labelled dataset that exhibit needs.
-Held under **N4** (plan rev 80): the density gate is a crude stand-in of our own invention for a
+Held under **N4** (plan decision (f22423c)): the density gate is a crude stand-in of our own invention for a
 mechanism neither reference has, so it is a defect to be closed, not an arm to be tuned — but the
 closer must be a *new* mechanism, not the per-grid bound.

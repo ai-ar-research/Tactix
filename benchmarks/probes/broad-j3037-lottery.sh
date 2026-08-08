@@ -60,7 +60,7 @@
 #               once, OR the shipped arm's own solved/TO outcome is not constant
 #               across p.  => j3037 may not gate; re-price broad on the other 29.
 #   REAL LOSS   shipped solves in EVERY clean draw and broad times out in >= 80%
-#               of them, with broad never winning.  => the hold stands, rev 78.
+#               of them, with broad never winning.  => the hold stands, decision (a927131).
 #   THIN        fewer than 6 clean draws survive => do not decide; add a second
 #               perturbation batch instead.
 #

@@ -1,65 +1,39 @@
 ---
 name: benchmarks
-description: Run performance evaluation on the tiered benchmark sets (A–D), build or update tier lists, compute PAR-2 scores, or compare against baseline solvers (Kissat, CaDiCaL, MiniSat). Use whenever measuring solver performance, deciding which tier fits a change, or writing a benchmark report.
+description: Run or interpret Tactix performance evaluations, select the smallest benchmark gate that answers a question, compare pinned solvers, and write evidence reports. Use for performance claims, regressions, ablations, or milestone gates; benchmark tier definitions remain owned by DEVELOPMENT_PLAN.md.
 ---
 
-# Benchmark tiers and evaluation
+# Benchmark evaluation
 
-Authoritative spec: DEVELOPMENT_PLAN.md §8.1 and §8.3. This skill operationalizes it.
+Treat `DEVELOPMENT_PLAN.md` §8.1 as the tier and scoring authority. This skill
+only defines how to obtain trustworthy evidence.
 
-## Tier selection — pick the cheapest tier that answers the question
+## Select the gate
 
-| Tier | Contents | Per-instance timeout | When to run | Total cost |
-|---|---|---|---|---|
-| A | 200 generated instances, known status: seeded random 3-SAT (n=50–300; phase-transition m/n≈4.26, plus easy m/n≈3 SAT and m/n≈5.5 UNSAT), PHP(5..8), XOR chains, small colorings | 30 s | every commit; any correctness-adjacent change | < 2 min |
-| B | **28** SC 2023–2025 main-track instances, Kissat 4.0.4 in the **[3.5, 19] s band measured ON THE CLUSTER**, one instance per family (rev 73) | 300 s | on every meaningful change; performance claims during development (still small — see "Trusting a number") | 2–8 CPU-min |
-| C | **30** SC instances, Kissat ≤ 300 s (rev 23); `C-ruleneutral.list` (26) is the T3 subset | 1200 s (rev 29) | weekly; before merging heuristic/scheduling changes | few CPU-h |
-| D | SC 2024 + SC 2025 main tracks = **793** instances, not 800 — 7 appear in both tracks and GBD is content-addressed (rev 79) | 5000 s, 16 GB cap | milestone gates (plan §9) and external claims only | days |
+- **A:** correctness-adjacent smoke and gross regression detection.
+- **A + B:** every meaningful implementation change and development comparison.
+- **A + B + C:** scheduling, heuristic, or performance-sensitive changes.
+- **A + B + C + D:** milestone gates and external competitiveness claims.
 
-Hard rules:
-- **Never tune heuristic defaults on Tier A** (random 3-SAT rewards the wrong heuristics). Tiers A–B answer "correct and not embarrassingly slow"; only C–D answer "competitive".
-- **Tier A margin rule (rev 22, user):** Tier A must pass *easily* — any instance within ~15 % of the 30 s budget solo (≳ 25 s) gets a dedicated follow-up before the work is done.
-- **Never mix 14- and 28-instance Tier B PAR-2** (the pre-rev-73 archive is the marked `core14` subset — filter any `results.json` to recompute it). **T4 is gated on the SC25 set specifically**, which is a scoring VIEW and never a separate run: `--tier D` runs all 793 once, then score it twice with `tools/bench/subset_score.py <rundir> --subset D-sc25` (`benchmarks/tiers/D-sc25.list`, 400 = shared 7 + main_2025 393, derived rev 89 from `D.sources`' per-track blocks). Running the 400 alone gives numbers not comparable to the window they came from — the same rule as Tier C's rule-neutral subset.
-- Tier lists are frozen, versioned files in `benchmarks/tiers/*.list` (instance name + expected status + reference runtime). Changing a list requires a commit explaining why — never silently.
-- Instances live in `benchmarks/cache/` (untracked); `tools/bench/fetch.py` downloads by hash from the Global Benchmark Database, host **`benchmark-database.de`** (`/file/<hash>`; the old `gbd.iti.kit.edu` alias no longer resolves).
+Use the cheapest level that can decide the stated question. Never tune defaults
+on A, and never promote an A/B result to a competitiveness claim.
 
-## Building/refreshing Tier B or C lists
+## Protocol
 
-0. **Candidate pool:** `curl https://benchmark-database.de/getdatabase` → GBD's *meta* sqlite (`features` + hash→value tables `track`, `filename`; join, don't read `features.track` directly), `…/getdatabase/base` → structural features (`clauses`, `variables`, `bytes`). `track ∈ {main_2023, main_2024, main_2025}` is 400 instances each; drop `result = unknown`. Worked example (1186-instance pool → 721 screened): `benchmarks/reports/2026-07-29-tier-b-expansion.md`.
-1. Run Kissat 4.0.4 (the pinned `tools/solvers/bin/kissat`) over the candidates as a job array (one task per instance, **sbatch only**), proof logging on so the numbers match a real tier run.
-2. Select instances in the tier's reference band (Tier B: cluster-measured [3.5, 19] s — the lower bound keeps trivial instances out; Tier C: ≤ 300 s), stratify ~50% SAT / 50% UNSAT, cap instances per benchmark family (**Tier B: 1** since rev 73 — 28 instances, 28 distinct families; Tier C: 3), keep B and C disjoint, and confirm the verdict against the competition status.
-3. Record: instance, status, Kissat runtime as a **median of ≥ 3 repeats in one window**, per-instance spread (an instance whose spread survives `--throttle 5` is unusable — it will forge A/B verdicts), and the allocation shape.
+1. State the hypothesis, comparison, metric, and pass/fail criterion first.
+2. Use tier lists and pinned binaries already named by the plan or harness; do
+   not rebuild tier composition during an evaluation.
+3. Run solver measurements through `slurm-jobs`. Compare candidates and
+   baselines in the same allocation shape and time window. Pin immutable builds
+   and record commit SHA, binary hash, tier-list hash, timeout, memory, throttle,
+   seeds, and solver arguments.
+4. Validate every SAT model and UNSAT proof. Exclude only harness failures, and
+   report exclusions explicitly.
+5. Report solved counts, SAT/UNSAT splits, PAR-2, paired runtime ratios, timeout
+   transitions, and uncertainty or repeat spread where it could change the
+   decision. A subset is a scoring view of the parent run, not a separate run.
+6. Save durable decision-changing evidence under `benchmarks/reports/`; raw
+   results remain in the run directory.
 
-## Running an evaluation
-
-- Environment (plan §8.1, rev 64): the SLURM cluster, partition `cpu-dense-hwulab-q`. Tier runs are **job arrays — one single-threaded solver run per task**, 8 GB/core, candidate + baselines in the same array: `run.py ... --slurm [--throttle N]`. Record the **allocation shape** (partition, cpus/mem per task, throttle) in every report and only compare numbers taken at identical shapes; use `--throttle` for Tier C/D gate runs where timing precision matters. **No solver runs outside submitted jobs (rev 65):** every solver execution — including one-off probes and spot checks — goes through `sbatch` (`run.py --slurm`, or `sbatch --wrap` with `--partition=cpu-dense-hwulab-q --mem-per-cpu=8G`); never on the login node, never via `srun` from the session shell (it becomes a step of the session's own job). The local `--jobs` mode is for harness debugging only. Submission patterns, `--time` sizing, monitoring, and cleanup discipline: **slurm-jobs skill**.
-- **Sequencing rule (plan §8.1 rev 18): do not evaluate Tier B while any
-  Tier A instance is unsolved within its 30 s budget** — clear Tier A
-  completely first.
-- Runner: `tools/bench/run.py --tier B --solver ./build/release/tactix [--baseline kissat] --slurm` (submits the array + a dependent aggregate job; `--aggregate <rundir>` re-merges any time; `--dry-run` inspects without submitting; local smoke: `[--jobs 4]`). It must: record wall time + exit code + verdict, verify verdict against the expected status in the list, and **check the proof for every UNSAT answer** (drat-trim; a rejected proof counts as unsolved, competition-style).
-- **Build-dir ownership (enforced): a submitted array OWNS its binary path until it finishes.** Build into a fresh `build/pin-<experiment>/`; `run.py --slurm` locks it via `tools/bench/buildlock.py` and the aggregate job releases it. **A same-window Tier B + Tier C pair needs TWO pin dirs** (one per array) — build both from the same commit and check the binary shas match. Details + reclaim commands: slurm-jobs skill, CLAUDE.md.
-- **Proof-generation protocol (plan §8.1, rev 72): every arm WRITES proofs, ours and every baseline** — the certificate tax is solver-specific, so proof-free baseline numbers are not comparable and must never be reported as a ratio. Two deliberate asymmetries, restate them in the report: a failed/missing proof scores **our** instance unsolved, while a **baseline's** failed check is recorded and never scored against it; and the checker gets the competition-scale budget (`max(3600 s, 4 × timeout)`), not `2 ×` the solve timeout. **Never shrink OUR arms' checker budget to save time** — that is how a solved instance gets scored unsolved (`urq45`, twice). Since rev 79 baseline proofs are written but **not verified** by default (it was 67 % of Tier C checking wall-clock and cannot change a verdict); `--verify-baseline-proofs` opts back in for a submission-grade claim. An arm whose command carries `--lrat` writes native LRAT checked by cake_lpr; otherwise binary DRAT checked by drat-trim — DRAT stays the scored default (LRAT costs 15–30 % solve time and 4–28× proof size). Extra proof-checked arms beyond the solver under test: `--checked-arm label=<cmd>`.
-- Score: PAR-2 = mean over instances of (runtime if solved, else 2 × timeout). Report **#solved first, then PAR-2**, split SAT/UNSAT, plus proof-check time and proof size.
-- **ORACLE (on by default since 2026-08-04):** with 2+ of OUR arms in a window the runner prints the per-instance best over them and **each arm's gap to it**, stored in `results.json` under `"oracle"` (`--aggregate` recomputes it for any past run). Baselines are excluded — they are references, not candidate policies. **Report the oracle row and the gaps whenever a change is a per-instance ADMISSION decision** (a gate, a density threshold, an ON/OFF predicate): the gap is the entire headroom such a mechanism can recover, and a gate must beat the trivial always-on arm AND take a fair share of it, or it is worse than no gate (`docs/design/2026-08-04-scheduling-sophistication-diagnosis.md` §4 — 5-for-5 against no gate). Read it over the arms the gate chooses BETWEEN: it is a min over K arms, so it is optimistically biased by K draws of measurement noise.
-- Also track microbenchmarks when relevant: propagations/sec, conflicts/sec, peak RSS, proof bytes/conflict (measured on Tier B).
-
-## Trusting a number — the A/B protocol (this is where verdicts go wrong)
-
-Every item here was learned by banking a wrong verdict. Do all of them.
-
-- **SAME WINDOW OR IT IS NOT AN A/B.** Never judge a change by a fresh probe against numbers from an earlier window: a probe put one instance at 80.1 s vs "110–127 s across recent windows" and the same-window A/B measured 102.4 vs 103.2 — inert. Build an **env hatch that restores the OLD behaviour** (`Kernel::<flag>` + one `getenv` in `main.cpp`, defaulting to the new behaviour) and run the old arm as `--checked-arm "old=env FLAG=1 <binary>"`. Costs minutes. Applies to baselines too: **re-measure the reference solver clean in the same window** before judging a gate, never against an old pin (rev 46: a pinned CaDiCaL 336.96 re-measured at 160.6). A single-instance probe is fine for REACHABILITY and mechanism — never for effect size.
-- **PROVE THE ARM WAS ACTUALLY TESTED.** An arm whose counter did not move was not tested. Byte-identical proofs/stats across arms mean the knob was **skipped**, not neutral — a payoff-bound sweep once scored "within noise" with byte-identical 430.5 MB proofs in all three arms because the knob was unreachable under DefaultPolicy. Before recording any negative, check a by-product that MUST change if the knob bit (the rule's own stat counter, proof bytes, conflicts); if it really is inert, say *why* from the data so the negative is falsifiable.
-- **Read the FRAGILITY line before the PAR-2 headline.** `run.py --aggregate` prints the minimum number of instances whose removal flips the sign; `k=1` prints `UNDECIDED` and is not a verdict. Every headline decider examined so far was a lottery. On Tier C a solve flip is worth 2400 PAR-2, so any verdict that changes `#solved` is single-instance decided by construction — read `#solved`.
-- **#SOLVED WINS over PAR-2 (plan §8.3 rev 78, user).** A change that gains solves without losing any is banked even at a PAR-2 cost — but the cost is still measured, reported, and given a named closer, and a change that LOSES a solve is never covered by this.
-- **NEVER RUN THE SAME CONFIGURATION TWICE, AND DO NOT HEDGE A RESULT AS NOISE (user, 2026-08-07).** No bit-identical replicate arm: the cluster is robust and runtime is stable, so take a measured number as the number. Do not write "within noise", "no noise bar", or "not banked" — a result either says something or the experiment was not the right one. Two real effects remain, and neither is cluster noise: **four Tier B instances** (`mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw`) decide that tier's aggregate, a property of the instance set — price broad changes on Tier C or as a named-instance claim; and **array task index is `arm × n_instances + instance`**, so arm 0 lands systematically on one node, a runner bug whose fix is to interleave indices.
-- **Staged landings** (a sequence with a genuinely worse intermediate) are permitted only with all five pre-registered conditions of plan §8.3 rev 82 — named sequence, mechanism argument, recovery point + ceiling, revertibility, kill criterion — written down *before* the regressing increment ships.
-
-## Reporting
-
-**`benchmarks/runs/<window>/results.json` is authoritative for per-instance detail (plan §8.1 rev 84).** PROGRESS.md carries the **headline, not the table**: window stamp, the git SHA **taken from that run's own `manifest.json`** (never from the commit that later shipped the change), arms, #solved, PAR-2, and any per-instance fact a decision rests on. `run.py --aggregate <window>` regenerates any view — including the oracle and fragility lines — without re-running anything. **Do not copy per-instance tables into PROGRESS**; they went stale faster than they were read.
-
-The obligation rev 75 was protecting survives **on the CLAIM, not on the document**: a performance claim states **#solved before PAR-2** and **names the instances that moved**, and a headline decided by one instance is not a verdict.
-
-Write reports to `benchmarks/reports/YYYY-MM-DD-<topic>.md`: git SHA, tier + list version, **allocation shape** (partition, cpus/mem per task, throttle — the rev-64 replacement for the jobs count), table (solver × {#solved, PAR-2, SAT/UNSAT split}), the fragility line, regressions vs previous report, and an honest interpretation. Milestone gates T1–T5 (plan §8.3) are judged only from these reports. Reports are frozen once written. Numbers pinned before 2026-07-23 are from the retired workstation — never compare against them directly.
-
-Any verdict mismatch or proof rejection found during benchmarking is a **correctness bug**: stop the performance work, shrink it via the fuzz skill's procedure, and file it in the regression corpus first.
+Tier files are versioned inputs. Changing one is a separate, approved benchmark
+design change with provenance and validation, not part of an ordinary run.

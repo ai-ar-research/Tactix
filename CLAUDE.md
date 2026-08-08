@@ -45,8 +45,9 @@ capability, not DefaultPolicy's choice to decline an offered action.
    claims only from the benchmark protocol.
 4. Keep PROGRESS factual and concise; revise the plan instead of silently
    diverging from it.
-5. Run `wrap-up` before stopping. It compacts docs, generates Andrew's report,
-   validates, commits, pushes, and leaves a self-contained next step.
+5. Run `wrap-up` before stopping. It validates, generates Andrew's report,
+   commits and pushes coherent work, and leaves a self-contained next step.
+   Documentation compaction happens only when explicitly requested.
 
 Project skills: benchmarks, calculus, codex-revisit-docs, compact-docs, compete,
 debug-performance, fuzz, generate-report, multi-agent, proof-check, revamp,

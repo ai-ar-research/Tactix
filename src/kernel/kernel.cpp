@@ -1105,7 +1105,7 @@ void kernel_check_invariants(const Kernel &k) {
     assert(a.level <= k.level);
     // a literal sits at or after the start of its level's frame. (The old
     // upper bound `i < frames[a.level+1]` — trail level-sortedness — is gone
-    // since rev 38: true-level assignment + the compacting backtrack leave the
+    // since decision (89ee0fb): true-level assignment + the compacting backtrack leave the
     // trail non-level-sorted. The value-based escaped-unit/conflict
     // completeness checks below are what actually catch propagation bugs.)
     assert(a.level == 0 || i >= k.frames[a.level]);

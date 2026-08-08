@@ -56,7 +56,7 @@ benchmarks/runs/*/*
 !benchmarks/runs/*/results.json
 !benchmarks/runs/*/manifest.json
 # Rationale for tracking them at all: `benchmarks/runs/` is 7.1 GB and
-# untracked, but plan §8.1 rev 84 makes it AUTHORITATIVE for per-instance
+# untracked, but plan §8.1 makes it AUTHORITATIVE for per-instance
 # detail — so without this the only copy of every gate's evidence is one
 # `rm -rf` or one quota event from gone, and no report reconstructs it. The two
 # JSONs are 2.7 MB across 217 windows; the bulk is logs/ and results/, which
@@ -70,6 +70,10 @@ compile_commands.json
 __pycache__/
 *.pyc
 cryptominisat/
+
+# Wrap-up deliverables are local handoff artifacts. The four historical report
+# pairs already tracked by Git remain tracked despite this rule.
+report-to-andrew/*/
 
 # Editor artifacts
 *.~undo-tree~

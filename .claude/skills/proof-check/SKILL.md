@@ -1,42 +1,36 @@
 ---
 name: proof-check
-description: Verify DRAT/LRAT proof certificates, set up or run the checker toolchain (drat-trim, lrat-check, cake_lpr), debug a rejected proof, or measure proof size/check time. Use whenever a proof fails verification, when adding proof logging to a rule, or when validating certificates the way the SAT Competition does.
+description: Verify and debug Tactix proof certificates with the checker required by the target competition year, validate checker failure behavior, and measure proof size or check cost. Use for proof-emitting changes, rejected certificates, or competition validation.
 ---
 
-# Proof certificate checking
+# Proof checking
 
-Authoritative spec: DEVELOPMENT_PLAN.md §4 (proof obligations), §6 (competition rules). Competition reality: an UNSAT answer with an unverifiable proof counts as **unsolved**, and buggy proofs can disqualify — proofs are correctness, not an add-on.
+Select the checker pipeline from the target year's official rules. For the 2026
+submission, the project target is DPR/LPR checked by `cake_lpr`; retain native
+DRAT/LRAT tools where they provide faster development diagnostics.
 
-## Checker toolchain
+## Acceptance
 
-Keep checkers in `tools/checkers/` (build once, commit the setup script `tools/checkers/setup.sh`, not the binaries):
-- **drat-trim** (github.com/marijnheule/drat-trim): `drat-trim formula.cnf proof.drat` — accept only exit 0 with `s VERIFIED`. Handles ASCII and binary DRAT (auto-detected). Flags: `-b` force binary parse issues visible, `-L out.lrat` to convert DRAT→LRAT.
-- **lrat-check** (ships with drat-trim repo): `lrat-check formula.cnf proof.lrat` — fast because hints avoid search.
-- **cake_lpr** (verified, what the competition used in 2025): run periodically and before any milestone claim, not on every fuzz case (slower to a degree, but its verdict is the trusted one).
+- Match the checker's documented success status and exit code exactly.
+- Demonstrate rejection with a known-bad or truncated proof whenever checker
+  setup, invocation, parsing, or acceptance logic changes.
+- A valid UNSAT verdict with a rejected proof is a correctness failure.
+- Validate proofs against the exact original CNF and preserve the command,
+  checker version, stdout/stderr, and first failing proof location.
 
-## The accept-condition is part of the checker — get it wrong and every proof passes
+## Diagnose a rejection
 
-**Match the checker's success line exactly, and prove the match can FAIL.**
-- `"VERIF" not in output.upper()` matches `c NOT VERIFIED` as well as `c VERIFIED`. That exact bug made **every LRAT rejection in this project's history record as a pass**, hiding two real N2 breaches under green legs.
-- A `^`-anchored regex on drat-trim's output matches nothing: drat-trim prefixes its `s` lines with `\r`, so the inverse failure (everything reported unverified) is one character away.
-- **A checker whose rejection you have never observed is not yet a checker.** Feed it a known-bad artefact (`tools/fuzz/broken/truncate-proof.sh`, or a hand-corrupted line) and require a red before you trust a green. `tools/fuzz/selftest.sh` is the standing mechanism; run it whenever a checker, its invocation, or its accept-condition changes.
-- The checkers disagree on legal input: drat-trim **deletes duplicate literals** while parsing a CNF and `drat-trim -L` cites input clauses by id, so on a duplicate-literal formula the *converted* LRAT is rejected for every solver, ours and the references alike. That is a checker disagreement, not a solver defect — the conversion cross-check stands down (visibly, counted) while the native-LRAT oracle keeps checking.
+1. Reproduce the smallest exact command and determine whether the fault is the
+   solver, format adapter, checker invocation, or checker limitation.
+2. Shrink the CNF while preserving the same failure.
+3. Correlate the failing proof line or byte range with the emitting rule and
+   application. The current solver does **not** provide this mapping; implementing
+   proof-event correlation is a required phase 4.5 prerequisite recorded in the
+   plan/PROGRESS, not an optional debugging convenience.
+4. Inspect that rule's proof delta, antecedents, deletion timing, and state
+   transition. Add a negative regression that fails before the fix.
+5. Re-run the focused checker, fuzz self-test when applicable, and the broader
+   native plus target-year proof pipelines.
 
-## Conventions for our solver
-
-- Binary DRAT is the default output; `--lrat` emits native LRAT with antecedent hints captured during conflict analysis (not reconstructed post-hoc).
-- Every rule family emits its own proof delta; a rule that cannot state its DRAT/LRAT justification does not merge (see rule-dev skill).
-- Deletion lines matter: emit `d` lines when clauses are forgotten/strengthened — missing deletions make checking quadratically slower and can exhaust checker memory.
-- Track proof size (bytes, bytes/conflict) and check time as metrics alongside PAR-2; the plan bets on native LRAT for any combined solver+checker scoring.
-
-## Debugging a rejected proof — standard procedure
-
-1. Reproduce: exact CNF + proof file + checker command + full checker output (drat-trim reports the first failing line number).
-2. Shrink the *instance* with the fuzz skill's ddmin so the failing proof is small enough to read.
-3. Convert to LRAT if the failure is in DRAT (`drat-trim -L`): LRAT failures localize to a specific clause and hint list, DRAT failures don't.
-4. Map the failing proof line back to the emitting rule via the rule trace (traces and proof cursor positions are logged together in `--trace` mode).
-5. Classify: (a) rule derived a genuinely unsound clause — kernel bug, highest severity; (b) clause sound but justification wrong/missing hints — proof-logging bug in that rule; (c) deletion emitted for a clause still in use — bookkeeping bug. Fix in the rule module, add the shrunk case to the regression corpus.
-
-## Micro-formula rule tests
-
-Each rule family has unit tests that apply the rule to tiny hand-written formulas and pipe the emitted delta (wrapped as a complete proof) through drat-trim. Run these first when touching any rule's proof emission — they fail in milliseconds, long before fuzzing would find it.
+Record proof bytes, bytes/conflict, and check time only when they inform a gate
+or design decision.

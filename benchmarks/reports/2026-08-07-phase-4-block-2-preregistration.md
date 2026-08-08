@@ -128,7 +128,7 @@ per-instance move under 41 s is not evidence.
 3. **UNDECIDED** otherwise; always when the aggregator prints UNDECIDED at k=1; and always when the flip set
    is a subset of `mod4block`, `j3037`, `jgiraldezlevy`, `urq45`, `frb45`, `ContextModel`. (`mod4block` is the
    only one of the six in Tier B.)
-4. **A wash resolves to KEEP-SHIPPED when the shipped setting is the transliterated reference** — plan rev 90
+4. **A wash resolves to KEEP-SHIPPED when the shipped setting is the transliterated reference** — plan decision (7215698)
    puts the burden of argument on the deviation, not on the port.
 
 ---
@@ -259,7 +259,7 @@ asserted.
   4 of 16 slot entries ever get an occasion and the whole 300 s is **one** Probe-group phase walking
   `inprocess_slot` in order — which is exactly what `D1` permutes.
 - **`E2`'s tie-break was backwards.** `Native` is *not* the transliteration: Probe's native order is variable
-  index ascending, and cadical's is not. So an UNDECIDED does **not** resolve to KEEP-NATIVE by rev 90.
+  index ascending, and cadical's is not. So an UNDECIDED does **not** resolve to KEEP-NATIVE by decision (7215698).
 - **`F1`'s arm at HEAD is not the arm registered.** `88721cf` ("make the OFF arm genuinely inert") landed
   after `58a46de` and installed the `filter ? stopped_at : <size>` start indices that the row's own semantics
   now rest on.

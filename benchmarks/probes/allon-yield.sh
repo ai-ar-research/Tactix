@@ -4,7 +4,7 @@
 # win is dose-insensitive), and preprocess-only fixed rbsat/crypto1 but blew up
 # mod4block. Candidate separator from the firing probe: BCE's COST PER DELETION
 # (clique 13 ticks, rbsat 669, crypto1 1700) — the "dose productivity" axis plan
-# rev 68 names as a phase-6 context. This dumps it, plus binary density, for
+# decision (33b5983) names as a phase-6 context. This dumps it, plus binary density, for
 # every Tier B instance under all-on.
 set -u
 R=/home/hwu/SAT-solving

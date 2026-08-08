@@ -4,7 +4,7 @@
 > work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
 > the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
 
-2026-07-15, per plan rev 25 (§2 takeaway: not a Kissat re-implementation; §5
+2026-07-15, per plan decision (9cecad5) (§2 takeaway: not a Kissat re-implementation; §5
 survey obligation). Retroactive pass over every feature implemented so far
 (PROGRESS.md phases 1–3), grounded in the cloned sources: `glucose/` (4.2.1)
 and `cryptominisat/` (master). Verdicts: **keep** (our shape confirmed or
@@ -70,7 +70,7 @@ target phase), **preset** (policy-layer variant, no rule/kernel change).
   rotation. No trail reuse (ours/kissat's is strictly extra).
 - **Verdict: keep now; blocking-restart is a pure-policy CANDIDATE.** It
   reads only trail size + a queue the policy can own — zero rule/kernel
-  change (the rev-17 dividend). Worth a Tier B/C ablation in phase 4; a
+  change (the decision (169aecd) dividend). Worth a Tier B/C ablation in phase 4; a
   natural MAB arm alongside the mode switcher.
 
 ## Reduce (S2)

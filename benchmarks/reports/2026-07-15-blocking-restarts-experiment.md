@@ -2,7 +2,7 @@
 
 - Date: 2026-07-15. Hardware: Apple M3 Pro (6P+6E), 36 GB, macOS 15.7.7 (O1).
 - Campaign: phase-3 independent-lineage revisitation, item (2); pure-policy
-  change (rev-17 dividend — zero rule/kernel edits). Committed then reverted
+  change (decision (169aecd) dividend — zero rule/kernel edits). Committed then reverted
   as a pair; implementation preserved in history.
 - Baseline: HEAD (= e7a19ff source for src/tests).
 
@@ -22,7 +22,7 @@ re-diverge" semantics). Constants: R=1.4, window 5000, lower bound 10000
 demo3 stat-for-stat exact — blocking cannot fire under 10k conflicts on the
 pinned instance, and the mirror carries the same arithmetic).
 
-## Result: fails the Tier A precondition — no Tier B/C measurement (rev 18)
+## Result: fails the Tier A precondition — no Tier B/C measurement (decision (3ac12bd))
 
 | Check | baseline | blocking |
 |---|---|---|
@@ -43,7 +43,7 @@ Glucose's own SAT-side motivation.
 
 ## Interpretation
 
-- Rev-22/rev-18 discipline: an experiment that flips Tier A cannot be
+- decision (72c77aa)/decision (3ac12bd) discipline: an experiment that flips Tier A cannot be
   adopted regardless of its Tier B/C prospects; they were correctly never
   measured. Verdict: REVERT.
 - The result does NOT say blocking is worthless — it says it is

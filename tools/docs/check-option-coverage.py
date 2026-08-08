@@ -288,7 +288,7 @@ def ledger_corpus():
     The phase-4 section is in the corpus because §13 names it as the remediation
     home: a CLOSED track item is the analogue a row would otherwise describe.
     Anchored on invisible MARKER COMMENTS, not on heading text. Both anchors
-    have already moved once (a track sub-heading in rev 83, then the phase
+    have already moved once (a track sub-heading in decision (7cb3212), then the phase
     heading), and each time this check broke rather than the docs -- so the
     thing it keys on must be something a doc edit has no reason to touch.
     """

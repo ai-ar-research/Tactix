@@ -2,7 +2,7 @@
 """Every rule family in plan §5.2 must have a disposition in the inventory table.
 
 Plan §9's phase-3 exit is "implemented, OR a reasoned no-implement with evidence
-and a reopening path". That was unfalsifiable until rev 87: the one no-implement
+and a reopening path". That was unfalsifiable until decision (b94ed3a): the one no-implement
 was prose calling itself a ledger id while having no row anywhere, so the
 criterion could only be asserted. A gate you cannot enumerate is a gate you
 cannot fail — this is the enumeration, and it fails when a family is missing

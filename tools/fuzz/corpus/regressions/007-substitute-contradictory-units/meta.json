@@ -1,9 +1,9 @@
 {
   "slug": "007-substitute-contradictory-units",
-  "found": "2026-07-18 nightly (rev-43 binary), case 5914 seed 20266623, fuzzsat-i5-g10",
+  "found": "2026-07-18 nightly (decision (d7c4350) binary), case 5914 seed 20266623, fuzzsat-i5-g10",
   "failure_kind": ["differential", "model"],
   "verdict_before_fix": "SAT (wrong; oracle UNSAT)",
-  "diagnosis": "V3 Substitute (do_substitution) derived TWO contradictory root units in one round: the SCC 6==2 rewrites (7 v 6 v 2) with 7 root-false to the unit {2}, and (-6 v -2) to the unit {-2}. The batch-assert loop asserted -2 then SILENTLY SKIPPED +2 (value(2)<0), dropping the root conflict, so the solver later reported SAT with a model that fails the original formula. Latent since V3b-3 (rev 41); exposed by the D-LEVEL-inproc guard purification (rev 43), which legalized the random-policy schedule that reaches this Substitute state.",
-  "fix": "rev 44: do_substitution `record_unit` dedups batched units per variable and, on an opposite-sign pair, emits the empty clause (resolvent) + sets inconsistent -> Unsat.",
+  "diagnosis": "V3 Substitute (do_substitution) derived TWO contradictory root units in one round: the SCC 6==2 rewrites (7 v 6 v 2) with 7 root-false to the unit {2}, and (-6 v -2) to the unit {-2}. The batch-assert loop asserted -2 then SILENTLY SKIPPED +2 (value(2)<0), dropping the root conflict, so the solver later reported SAT with a model that fails the original formula. Latent since V3b-3 (decision (c02e0c6)); exposed by the D-LEVEL-inproc guard purification (decision (d7c4350)), which legalized the random-policy schedule that reaches this Substitute state.",
+  "fix": "decision (a6ff956): do_substitution `record_unit` dedups batched units per variable and, on an opposite-sign pair, emits the empty clause (resolvent) + sets inconsistent -> Unsat.",
   "note": "Original was UNSAT; a correct Substitute round refutes it. Both DRAT and native LRAT now verify."
 }

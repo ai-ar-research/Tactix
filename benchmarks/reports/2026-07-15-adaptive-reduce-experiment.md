@@ -15,7 +15,7 @@ transliterated): the next reduction is postponed by specialIncReduceDB
 shape: the Reduce rule's canonical ranking published the two signals as
 stats (TACTIX_STAT_REDUCE_BOUNDARY_GLUE/BEST_GLUE, additive ids 17/18 —
 the §5.6 observables pattern), the policy read them in update_reduce_limit,
-and the demo3 mirror consumed them through the API (rev-21 mechanism
+and the demo3 mirror consumed them through the API (decision (1e88739) mechanism
 working as designed; demo3 stayed stat-for-stat exact). Recorded
 deviations: our candidate list excludes reasons and used/tier-protected
 clauses (glucose ranks all learnts), and the boundary sits at our canonical
@@ -69,5 +69,5 @@ obligation paying out.
 The observables pattern (rule ranking → stats → policy/mirror) worked
 exactly as §5.6 needs — first live exercise of the reward-substrate
 mechanism. The two stat ids revert with the experiment (no reader without
-the bump; rev-20 principle) but the pattern and implementation are proven
+the bump; decision (0ce0674) principle) but the pattern and implementation are proven
 and in history for the phase-6 arm sets.

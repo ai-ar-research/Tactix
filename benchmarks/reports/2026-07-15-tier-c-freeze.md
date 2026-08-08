@@ -3,7 +3,7 @@
 - **Hardware (reference machine, O1):** Apple M3 Pro (6P+6E), 36 GB RAM,
   macOS 15.7.7. Freeze timings at **jobs = 1** (sequential), kissat 4.0.4
   (pinned `rel-4.0.4`), 360 s cap (band edge 300 s + margin).
-- **Definition (plan rev 23):** ~30 SC instances, Kissat runtime ≤ 300 s
+- **Definition (plan decision (b508d26)):** ~30 SC instances, Kissat runtime ≤ 300 s
   locally; our solver's timeout 3000 s (10× headroom). Weekly driver +
   the T3 gate set (within 10% PAR-2 of CaDiCaL).
 
@@ -18,7 +18,7 @@
 2. **Candidate fetch:** family-capped selection of 154 (74 SAT / 80
    UNSAT, 61 families) fetched from GBD by hash; a stratified 60-candidate
    subset (60 families, spread over the band) was timed locally — sized
-   2× the rev-23 target instead of sweeping all 154.
+   2× the decision (b508d26) target instead of sweeping all 154.
 3. **Local sweep:** 60 runs, sequential, 360 s cap. 55 reached verdicts —
    **all 55 agree with the competition verdicts** — 5 timed out
    (cluster/local variance, as in the Tier B freeze); 42 landed in the
@@ -49,7 +49,7 @@ LRAT to cut it (the plan §2 bet, measurable here).
 
 ## Honest notes
 
-- **30 instances ⇒ one instance moves PAR-2 by ~3%** (rev 23's deliberate
+- **30 instances ⇒ one instance moves PAR-2 by ~3%** (decision (b508d26)'s deliberate
   size/cost trade); per-instance medians over repeated runs remain the
   claim standard (§8.1), and Tier D stays the only statistically strong
   set.

@@ -23,7 +23,7 @@ source-identical to all of these.
 | ctest, Release | `build/release` | 57/58 pass; `citations` fails and `micro_proofs`/`sweep_proofs` skip — **both are worktree artefacts, see §6**. |
 | Doc checkers | `check-inventory`, `check-stat-ids`, `check-effort-specs`, `check-option-coverage`, `check-config-wiring` | all green. |
 
-No timing run was made and none is needed: rev 83 moved T3 to phase 4.
+No timing run was made and none is needed: decision (7cb3212) moved T3 to phase 4.
 
 ---
 
@@ -91,7 +91,7 @@ sometimes — no entry is inert.** No rule "genuinely cannot be triggered". Part
 
 ## 2. The reach INSTRUMENT — audited, and it is still not sound
 
-Rev 88 exists because the first reach reading was partly an artefact. The five rows fixed then were
+decision (9fb2f56) exists because the first reach reading was partly an artefact. The five rows fixed then were
 `Probe`, `Backbone`, `TransitiveReduce`, `HyperBinaryRes`, `BVE`. That set is **exactly** the
 `dosed = true` rows of `EFFORT_SPECS` (`default_policy.cpp:466-546`) — which is why the fix worked, and
 also why it is fragile. Four further defects remain.
@@ -127,7 +127,7 @@ per-candidate `_try` the instance path calls:
 
 **Today this is harmless**: all seven are `dosed = false` batch entries, so DefaultPolicy always takes the
 canonical path and the Tier B reading is honest. **Phase 4's entire job is to change which rules are
-dosed.** The first row that flips to `dosed = true` silently reproduces the exact defect rev 86/88 was
+dosed.** The first row that flips to `dosed = true` silently reproduces the exact defect that decisions `913a0da` and `9fb2f56` were
 written to close. This should be fixed structurally (key every row on a counter that the *shared* work path
 increments), not row-by-row after the next false reading.
 
@@ -178,7 +178,7 @@ register for an N1 item.
 **3.2 — `BVE`'s `instances()` omits legal instances** (`RV-S18`, same bullet). `bve_schedule`
 (`bve.cpp:82-116`) drops (a) every extension variable and (b) every variable with `occ⁺+occ⁻ > BVE_OCCLIM`.
 `bve_apply_instance` → `bve_eliminate` accepts both (verified: `bve_eliminate` at `bve.cpp:565` has no such
-filter at entry), so the capability exists but the enumeration hides it. Plan §1.1 rev 76: *"A rule's
+filter at entry), so the capability exists but the enumeration hides it. Plan §1.1 decision (21d60a7): *"A rule's
 `instances()` surface must keep offering every legal choice — narrowing it … breaks N1."* Ranking is fine;
 this is omission. Either widen `bve_instances` (rank the omitted ones last, as `sweep_seeds` does) or write
 the deviation row.
@@ -221,7 +221,7 @@ window they come from should be banked with its run dir before being quoted.
 
 ### N4 — open by design, and the architecture is ready to carry it
 
-Rev 83 (user) closes phase 3 with N4 open; PROGRESS's N4 row, the phase-3 exit paragraph and the phase-4
+decision (7cb3212) (user) closes phase 3 with N4 open; PROGRESS's N4 row, the phase-3 exit paragraph and the phase-4
 exit paragraph all say so consistently. `implementation-notes.md` §13 still holds 18 `WE_LACK_IT` /
 `WE_ARE_CRUDER` mentions and 13 accepted-deviation rows — a live ledger, not a stale one. **Not a phase-3
 blocker.** Assessed instead: is the codebase *set up for* a sophisticated policy?
@@ -246,16 +246,16 @@ recorded (§4).
 
 ## 4. The exit criterion, clause by clause
 
-| # | Clause (plan §9, revs 83/85/86/87/88) | Verdict | Evidence |
+| # | Clause (plan §9, decisions `7cb3212`, `8aca360`, `913a0da`, `b94ed3a`, `9fb2f56`) | Verdict | Evidence |
 |---|---|---|---|
 | 1 | Every catalog family implemented **or** a reasoned no-implement row with evidence + reopening path | **MET** | 28/28 families dispositioned in `implementation-notes.md` §17; `check-inventory.py` (ctest `inventory`) green. X5 `Condition` is a genuine no-implement with `SP-COND-1` naming three reopening triggers and one explicit non-trigger. |
 | 2 | …"implemented" = **registered; guard / instances / apply**; N1-exposed; N2-clean | **NOT MET** | V5 `Sweep` registers `instances = nullptr, apply_instance = nullptr` while its header, its source and `SP-SWEEP-5` all assert the surface exists (§3.1). `BVE` omits legal instances (§3.2). Both filed as unowned hygiene items, not N1 items. |
 | 3 | fuzz-green under the §8.2 oracles **incl. random-policy** | **PARTLY MET** | Job `1587899`: DRAT / native-LRAT / `--random-policy` × 10 000 each, 0 failures; corpus 14/14 on both formats. **But the random-policy leg is DRAT-only** — no `--random-policy --lrat` leg exists at HEAD, and the last one predates R10 and S-g (§N2). |
-| 4 | **Nightly** random-policy fuzzing green | **NOT MET — and now recorded as met** | `tools/fuzz/run.sh` defines `--quick) N=10000` and `--nightly) N=200000; EXTRA+=(--lrat)`; the slurm-jobs skill repeats it (rev 66). Job `1587899` ran **`fuzz.py run --n 10000`** per leg — quick scale, 20× short, and its random-policy leg carries no `--lrat`. Commit **`a1a1753`** titles this "nightly-scale fuzz … GREEN" and PROGRESS now states it as such. **No nightly-scale random-policy leg has ever run on this cluster**; the `tools/fuzz/nightly-*.log` files are 10 000-case laptop runs from 2026-07-23 (`/Users/haozewu/...`) whose native-LRAT halves ran under the broken `lrat_verified` oracle. *Mitigation worth stating: `1587899` ran the **debug** binary (ASan/UBSan), so each case is a stronger test than a Release case — but that is a different axis from scale.* |
-| 5 | The non-terminating `--random-policy` population does not block (user, rev 87) | **MET as a decision; the quoted figure has no timeout attached and PROGRESS now carries two** | Plan §9 and rev 87 say "~11.4 %" with no timeout. That figure was measured at **10 s** (PROGRESS:267, 114 of 1000). The legs the gate is actually being ticked on run at **5 s** and read **18.2 %**, **18.2 %**, **18.5 %** (`1587880` legs 3/4; `1587899` `rp` — 1 851 of 10 000, so **8 149** effective cases). My census: 6.25 % at 8 s (≤30 vars), 14.7 % at 10 s (≤80 vars). The two numbers are consistent once the timeout is stated — but the gate text does not state it, and PROGRESS now asserts both 11.4 % (lines 114, 267, 398, 697) and 18.5 % (line 59) without reconciling them. |
-| 6 | REACHED: every family DefaultPolicy schedules ON shows its own source counter non-zero, by a `--require-reached` leg **or** a source-counted tier probe | **MET in substance, on a partly unsound instrument** | Tier B array, git `93cc150` (source-identical to HEAD): **25 of 26 fire**; BVE 9/24 and Factor 10/24 — the two the anchor flagged as the risk — both fire. Rev 88's condition is satisfiable and satisfied. But three specs key on counters another rule moves (§2.1) and seven more would under-report a dosed schedule (§2.2). |
+| 4 | **Nightly** random-policy fuzzing green | **NOT MET — and now recorded as met** | `tools/fuzz/run.sh` defines `--quick) N=10000` and `--nightly) N=200000; EXTRA+=(--lrat)`; the slurm-jobs skill repeats it (decision (3cbea49)). Job `1587899` ran **`fuzz.py run --n 10000`** per leg — quick scale, 20× short, and its random-policy leg carries no `--lrat`. Commit **`a1a1753`** titles this "nightly-scale fuzz … GREEN" and PROGRESS now states it as such. **No nightly-scale random-policy leg has ever run on this cluster**; the `tools/fuzz/nightly-*.log` files are 10 000-case laptop runs from 2026-07-23 (`/Users/haozewu/...`) whose native-LRAT halves ran under the broken `lrat_verified` oracle. *Mitigation worth stating: `1587899` ran the **debug** binary (ASan/UBSan), so each case is a stronger test than a Release case — but that is a different axis from scale.* |
+| 5 | The non-terminating `--random-policy` population does not block (user, decision (b94ed3a)) | **MET as a decision; the quoted figure has no timeout attached and PROGRESS now carries two** | Plan §9 and decision (b94ed3a) say "~11.4 %" with no timeout. That figure was measured at **10 s** (PROGRESS:267, 114 of 1000). The legs the gate is actually being ticked on run at **5 s** and read **18.2 %**, **18.2 %**, **18.5 %** (`1587880` legs 3/4; `1587899` `rp` — 1 851 of 10 000, so **8 149** effective cases). My census: 6.25 % at 8 s (≤30 vars), 14.7 % at 10 s (≤80 vars). The two numbers are consistent once the timeout is stated — but the gate text does not state it, and PROGRESS now asserts both 11.4 % (lines 114, 267, 398, 697) and 18.5 % (line 59) without reconciling them. |
+| 6 | REACHED: every family DefaultPolicy schedules ON shows its own source counter non-zero, by a `--require-reached` leg **or** a source-counted tier probe | **MET in substance, on a partly unsound instrument** | Tier B array, git `93cc150` (source-identical to HEAD): **25 of 26 fire**; BVE 9/24 and Factor 10/24 — the two the anchor flagged as the risk — both fire. decision (9fb2f56)'s condition is satisfiable and satisfied. But three specs key on counters another rule moves (§2.1) and seven more would under-report a dosed schedule (§2.2). |
 | 7 | Exemption: only a family DefaultPolicy deliberately ships OFF — today only S7 `Reorder` | **MET, and precise** | `want_reorder` returns false unless `TACTIX_REORDER` is set (`default_policy.cpp:186-195`); `Reorder` reads exactly 0 on all 24 Tier B instances and is fully reached (146 119 applications, all `Ok`) under `--random-policy`, so the exemption is about the default schedule and not about an unreachable rule. |
-| 8 | No performance gate | **MET** | T3 and the Tier D campaign are phase 4's (rev 83); PROGRESS says so in three places consistently. |
+| 8 | No performance gate | **MET** | T3 and the Tier D campaign are phase 4's (decision (7cb3212)); PROGRESS says so in three places consistently. |
 | 9 | N4 stays open at the close, by design | **MET and consistently stated** | Plan §9 phase-3 and phase-4 rows, PROGRESS's N4 row and the phase-3 Exit paragraph all agree. Ledger spot-checks: `SP-SLOT-2`'s closure verified true (stronger than claimed); **`SP-SWEEP-5`'s closure argument does not hold** (§3.1). |
 
 ---
@@ -274,12 +274,12 @@ recorded (§4).
    must be corrected whichever way this is resolved. Two clauses ride on the job: clause 4 (scale) and
    clause 3 (random-policy × native LRAT, which has **no** evidence at HEAD). If quick scale is judged
    sufficient, amend clause 4 through revise-plan rather than relabelling the run.
-3. **Attach the timeout to the non-termination figure** in plan §9 / rev 87 and reconcile PROGRESS, which
+3. **Attach the timeout to the non-termination figure** in plan §9 / decision (b94ed3a) and reconcile PROGRESS, which
    now carries 11.4 % (at 10 s) in four places and 18.5 % (at 5 s) in a fifth. The gate clause quotes the
    number, so an unqualified number is part of the gate's own evidence. Clause 5.
 4. **Re-key the two contaminated reach specs** — `ConflictAnalysis` → `c learned`, `Rephase` → a counter
    `walk_apply_steps` does not move — and re-read. Add a one-line note that `Propagate`'s key is
-   whole-solver propagation, not rule dispatch. Clause 6, and the exact defect class rev 88 names.
+   whole-solver propagation, not rule dispatch. Clause 6, and the exact defect class decision (9fb2f56) names.
 
 **Should land in the same commit (cheap, and each is a latent repeat).**
 
@@ -287,7 +287,7 @@ recorded (§4).
    `RV-S17`/`RV-S18` out of the "smaller, unowned" hygiene bullet — they are N1 items.
 6. Re-key the seven §2.2 rows onto shared-path counters before phase 4 doses any of them.
 7. Fix the stale "25": `PROGRESS.md:257`, `PROGRESS.md:276`, `tests/test_api_instances.c:5`. It is 26.
-8. `implementation-notes.md` §17 has no *reached* column, so rev 88's condition is machine-checked nowhere.
+8. `implementation-notes.md` §17 has no *reached* column, so decision (9fb2f56)'s condition is machine-checked nowhere.
    One column + a line in `check-inventory.py` closes it.
 
 **Report-only (not blockers).**
@@ -307,9 +307,9 @@ recorded (§4).
 ## 6. Bottom line
 
 The **inventory** is complete and the **capability** is real: 26/26 registry entries are dispatched under
-`--random-policy` and every one of them does work. Rev 88's reach condition is satisfiable and is satisfied
+`--random-policy` and every one of them does work. decision (9fb2f56)'s reach condition is satisfiable and is satisfied
 on Tier B, including for BVE and Factor. N2 has no open breach and its oracle can now fail. N4 is open
-exactly as rev 83 intends, and the scheduling architecture is genuinely ready to carry a sophisticated
+exactly as decision (7cb3212) intends, and the scheduling architecture is genuinely ready to carry a sophisticated
 policy — data tables, private meters, paired reward ids, order and resumption as policy objects, and a pose
 surface that is tested against inertness.
 

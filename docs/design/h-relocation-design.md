@@ -1,4 +1,4 @@
-# Design: relocate `H` out of the Kernel (plan rev 60)
+# Design: relocate `H` out of the Kernel (plan decision (b6839d9))
 
 **Status: frozen on landing of Track H.** This file is the increment plan +
 file:line inventory for the H-relocation refactor; PROGRESS.md's Track H is the
@@ -7,7 +7,7 @@ inventory below was filled in at **H0** from the 2026-07-22 planning pass, befor
 any code moved. Line numbers are as of H0 — treat them as anchors, re-grep before
 editing.
 
-## The decision (plan §4 rev 59, §5 rev 60)
+## The decision (plan §4 decision (93d206d), §5 decision (b6839d9))
 
 `σ = ⟨F,R,τ,ρ,π⟩` is the proof state. `H` (VMTF queue, EVSIDS heap, saved/target/
 best phases, ranking mode) is **search guidance**: policy-owned, and **optional** —
@@ -175,7 +175,7 @@ those counters.
   structurally unaffected (the propagation path has zero `k.h->` — verified) at
   85.4 M/s; ctest 29/29 (release + debug/ASan); fuzz 1000/0 + Factor-forced 400/0
   + random-policy 500/0. See the "H4 design pass" section below.
-- **H5 — `H` is OPTIONAL. ✓ landed 2026-07-22** (the payoff of rev 60). A solver
+- **H5 — `H` is OPTIONAL. ✓ landed 2026-07-22** (the payoff of decision (b6839d9)). A solver
   with `k.h == nullptr` is sound, just unguided. `kernel_backtrack` dispatches
   `k.h ? impl<true> : impl<false>` (the `<false>` instantiation drops every hook
   via `if constexpr`); `kernel_reserve_vars` grows `H` only `if (k.h)`;
@@ -193,7 +193,7 @@ those counters.
   print (`main.cpp`) and `TACTIX_STAT_STABLE` (`api.cpp`) derefed `h` unguarded.
 - **H6 — relocate the policy ops. ✓ landed 2026-07-22** (the RELOCATION half).
   `src/rules/{rephase,switchmode}` → `src/policies/ops/{rephase,switchmode}/`
-  (`git mv`, bit-exact); includes + CMake updated. §5.3 extended (plan rev 63): a
+  (`git mv`, bit-exact); includes + CMake updated. §5.3 extended (plan decision (7fd9bff)): a
   policy op = one `src/policies/ops/<name>/` + one `TACTIX_REGISTER_POLICY_OP`.
   **The sub-policy super-class was DEFERRED here** ("no 2nd arm yet") but is now
   **partly landed**: the minimal `subpolicy.hpp` umbrella (a `SubPolicy` base +
@@ -241,7 +241,7 @@ those counters.
    `watches`/`unit_ids`/`seen`/…) and the non-`H` `bve_retry`. **Amortized** (once
    per var-growth: parse-time + E2 Factor mid-solve), not per-literal.
 
-For `H` to be optional (rev 60), the null-`H` solver must run both paths touching
+For `H` to be optional (decision (b6839d9)), the null-`H` solver must run both paths touching
 **no** `H` state, and — the sharp constraint — the hot loop must pay **zero
 per-literal cost** for that (N3: DefaultPolicy perf must not regress).
 

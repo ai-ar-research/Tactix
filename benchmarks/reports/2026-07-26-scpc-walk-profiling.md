@@ -5,7 +5,7 @@ Baselines pinned: kissat 4.0.4, cadical 3.0.0 (`tools/solvers/bin/`)
 Probes: 1563267–1563284 (single instance), 1563345 (Tier C walk sweep),
 1563405 (Tier B walk sweep). Allocation shape: `cpu-dense-hwulab-q`,
 1 cpu/task, 8 GB/cpu, one task per arm.
-Outcome: plan rev 71 (S6 `Walk` phase 4 → 3); implementation Track W.
+Outcome: plan decision (8da55c9) (S6 `Walk` phase 4 → 3); implementation Track W.
 
 ## 0. Quantify
 
@@ -117,7 +117,7 @@ instances are faster without it (jgiraldezlevy 0.08×, frb45 0.15×, EDP3 0.18×
 mod2c 0.40×, j3037 0.49×) — partly SAT-side trajectory luck, partly real
 overhead on instances where CDCL alone lands a model quickly. Net it is +22 %
 PAR-2 on C and +239 % on B, and **when to walk is a dosing decision** — another
-§5.6 exhibit, alongside elimination dosing (rev 68).
+§5.6 exhibit, alongside elimination dosing (decision (33b5983)).
 
 ## 6. The code-level gap
 
@@ -139,7 +139,7 @@ PAR-2 on C and +239 % on B, and **when to walk is a dosing decision** — anothe
 **Cause class 1 — missing proof rule** (here: a missing `H`-only policy
 operation), not search quality, not engineering. Routed to:
 
-- **revise-plan** → plan rev 71: S6 `Walk` moved from phase 4 into phase 3.
+- **revise-plan** → plan decision (8da55c9): S6 `Walk` moved from phase 4 into phase 3.
 - **rule-dev** → Track W (`src/policies/ops/walk/`), increments W1–W4; design
   `docs/design/s6-walk-design.md`.
 - Deliberately **not** routed: sweep (V5) and vivification stay phase 4 — this

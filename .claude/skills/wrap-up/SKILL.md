@@ -1,40 +1,26 @@
 ---
 name: wrap-up
-description: Finish every development session with tests green, living docs compact and current, an Andrew-facing LaTeX/PDF report generated, work committed and pushed, and PROGRESS containing a self-sufficient next step. Use immediately before ending any session.
+description: Finish every Tactix development session by validating the completed scope, synchronizing current status, generating Andrew's report, committing and pushing coherent work, and leaving an exact handoff. Do not compact docs automatically.
 ---
 
-# Wrap up a session
+# Wrap up
 
-A fresh session reading CLAUDE and PROGRESS must be able to continue without a
-question. Perform these steps in order.
+1. Finish a coherent increment or record an intentional checkpoint. Inspect
+   relevant jobs and preserve user work.
+2. Run the aggregate validation required by every owning skill used in the
+   session. Route documentation-check failures to the document's owner; do not
+   weaken checks to make the wrap-up green.
+3. Update PROGRESS only with changed current facts, unfinished material findings,
+   in-flight jobs, and an exact next step. Invoke `compact-docs` only when the
+   user explicitly requested compaction.
+4. Invoke `generate-report`; both TeX and PDF are mandatory.
+5. Review the diff and repository status. Require the session's owned paths to
+   be clean after landing, not a globally clean worktree. Stage explicit paths,
+   commit coherent completed work, and push.
+6. If push fails, hand off the commit SHA and exact error; do not rewrite history
+   or conceal the failure.
+7. Summarize outcome, validation, report path, commit/push state, remaining jobs,
+   and next action.
 
-1. **Stabilize work.** Finish the increment or leave an intentional checkpoint.
-   Inspect the queue/processes through `slurm-jobs`; preserve user work and name
-   any still-running jobs in PROGRESS.
-2. **Validate.** Run `ctest` and the task-specific correctness checks. If code
-   changed, run the required model/proof fuzz legs. Fix failures or record an
-   explicit known-broken resume point.
-3. **Synchronize.** Update only current facts in PROGRESS. Use `revise-plan` for
-   plan changes and `calculus` for rule/guard changes. Ensure tasks and the next
-   1–3 steps reflect reality.
-4. **Compact.** Invoke `compact-docs`; run `tools/docs/check-progress.py` and
-   `tools/docs/check-doc-size.py`. PROGRESS keeps at most five one-line recent
-   changes, not a session narrative.
-5. **Report to Andrew.** Invoke `generate-report` after synchronization. Use the
-   user's suggested topic, otherwise the session's main task, otherwise
-   `Tactix development status`. Both TeX and PDF are mandatory; compilation
-   failure blocks wrap-up.
-6. **Revalidate and land.** Rerun affected checks, review the diff, commit all
-   coherent changes, push, and confirm the tracked tree is clean. Do not absorb
-   unrelated user files.
-7. **Handoff.** Summarize the change, test/fuzz/benchmark state, report path,
-   in-flight work, and exact next step.
-
-Optionally show—but never run—the user's private transcript archive command:
-
-```bash
-dir="$HOME/.claude/projects/$(pwd | sed 's#[/.]#-#g')"
-cp "$(ls -t "$dir"/*.jsonl | head -1)" "session-$(date +%F).txt"
-```
-
-Never read, write, glob, or otherwise touch `session-*.txt`.
+The private transcript archive command may be shown on request but is never run
+by Claude.

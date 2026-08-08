@@ -54,7 +54,7 @@ All line numbers are `src/rules/factor/factor.cpp` (as of `e396bc6`).
 | 219–224 (seed push) + 232–234 (stale re-score) + 321–326 (post-apply re-push) | `score_of(l) = watch_score(k,l) = k.watches.heads[l].size` | `fm->seed_score(k, l)` |
 | 273 (tie-break inner loop) | `score_of(h)` as secondary key after co-occurrence count `cofactor[h]` | `fm->next_factor_score(k, h, cofactor[h])` — **co-occurrence count stays the primary key in the rule** |
 | 313 (accept) | `best_delta >= FACTOR_MIN_GAIN` | `best_delta >= FACTOR_MIN_GAIN && fm->accept(m, n, best_delta)` |
-| 189–194 (density gate) | NoOp unless `binary_ids ≥ 8·num_output_vars` | *Not* part of this increment — it is a scheduling short-circuit whose home is the effort scheduler (plan rev 53). Leave it; do not fold into `FactorMatchPolicy`. |
+| 189–194 (density gate) | NoOp unless `binary_ids ≥ 8·num_output_vars` | *Not* part of this increment — it is a scheduling short-circuit whose home is the effort scheduler (plan decision (06d3a8b)). Leave it; do not fold into `FactorMatchPolicy`. |
 
 The strategy reads exactly three kinds of read-only kernel state — binary watch
 lists (adjacency + size), the trail (`value`), and two scalar counts — and writes
@@ -198,7 +198,7 @@ mirroring `BveBoundPolicy → Kernel::bve_bound`. Reject (b), a grid-payload
 **Deferred to a later fuller N1 surface:** a seed-literal `instances()` surface
 (via `lit_instance`) is legitimate **iff** Factor ever becomes effort-dosed
 (titrate `factor_ticks`) or a learner wants seed order as an explicit arm —
-orthogonal to grid quality, an additive superset. Not now (rev-20 "no field
+orthogonal to grid quality, an additive superset. Not now (decision (0ce0674) "no field
 without a reader"; Factor is an unmetered slot entry). The §5.6 `observe(reward)`
 hook also stays off the base class until the learner lands.
 

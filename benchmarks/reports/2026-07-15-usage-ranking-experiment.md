@@ -66,7 +66,7 @@ of the four are filed as phase-6 arm candidates (2, 3-as-family-arm, 4).
 The campaign's actual product: our landed kissat-lineage shapes survived
 four independent-lineage challenges under measurement, and the learned-
 scheduling module now has concrete, measured arms with known per-family
-behavior instead of speculative ones. The survey obligation (rev 25) is
+behavior instead of speculative ones. The survey obligation (decision (9cecad5)) is
 discharged for the currently-landed feature set; remaining survey items
 (rotation presets, best_inv, MAB) stay phase 4/6 as planned.
 

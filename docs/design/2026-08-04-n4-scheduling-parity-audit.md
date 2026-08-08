@@ -1,7 +1,7 @@
 # N4 scheduling-parity audit — the full ledger
 
 **Status:** audit artifact, 2026-08-04. **FROZEN on landing — never edited.**
-**Why it exists:** plan rev 80 made N4 (the strategy floor) a non-negotiable and named the
+**Why it exists:** plan decision (f22423c) made N4 (the strategy floor) a non-negotiable and named the
 **scheduling-parity ledger** as its operational test. This is the first pass of that ledger, and the
 provenance for the LIVING register in `docs/implementation-notes.md` §13.
 **Companion:** the *why* is diagnosed in `docs/design/2026-08-04-scheduling-sophistication-diagnosis.md`;

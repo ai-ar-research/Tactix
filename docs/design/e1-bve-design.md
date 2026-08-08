@@ -144,18 +144,18 @@ score-heap `pos=UINT32_MAX`) if we want to avoid branching dead vars.
 ## 2. The rule
 
 ### 2.1 Guard (`bve_guard`) — the purified quiescent-root guard + drain
-Identical to the other inprocessing rules *after* the rev-43 guard purification:
+Identical to the other inprocessing rules *after* the decision (d7c4350) guard purification:
 ```cpp
 bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 ```
-No `propagate_head==|τ|` conjunct (D-LEVEL closed rev 43). `bve_apply` /
+No `propagate_head==|τ|` conjunct (D-LEVEL closed decision (d7c4350)). `bve_apply` /
 `bve_apply_instance` call `inprocess_reach_root(k)` at entry to drain the root
 closure `U` before reading the assignment (returns `Unsat` on a root conflict) —
 the standard purified-inprocessing entry.
 
 ### 2.2 Instance surface
 - **An instance is one candidate variable** to eliminate, keyed by its DIMACS
-  variable via the `lit_instance` payload convention (rev 34; the positive
+  variable via the `lit_instance` payload convention (decision (4db699b); the positive
   literal identifies the var). Stable and re-resolvable in any later state (N1) —
   unlike a schedule-heap position.
 - **`bve_instances`**: run the candidate scan, emit the top-`cap` variables by
@@ -300,7 +300,7 @@ see, per the Probe/Substitute convention) + batch un-propagated via `record_unit
 
 ### 4.1 Unit tests
 - **Guard/instances:** pure guard (holds off a fixpoint — drains at entry, D-LEVEL
-  rev 43); instance enumeration ranks candidates; `apply_instance` totality (a
+  decision (d7c4350)); instance enumeration ranks candidates; `apply_instance` totality (a
   dissolved/invalid var → `NoOp`).
 - **Resolution core:** a hand var with `occ(x)={(x∨a),(x∨b)}`,
   `occ(¬x)={(¬x∨c)}` → resolvents `{(a∨c),(b∨c)}`, originals gone, `x` eliminated.

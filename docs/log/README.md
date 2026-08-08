@@ -1,8 +1,9 @@
 # PROGRESS Log archives
 
-Historical PROGRESS narratives live here as **verbatim, frozen** archives. Since
-plan rev 97, PROGRESS is a current-state dashboard with at most five one-line
-recent changes; it no longer carries or grows a weekly narrative Log.
+Historical PROGRESS narratives live here as **verbatim archives**. PROGRESS is
+now a current-state dashboard with at most five one-line recent changes; it no
+longer carries or grows a weekly narrative log. Historical revision labels in
+these archives are superseded by the semantic text and repository Git history.
 
 | week | dates | entries | what it covers |
 |---|---|---|---|

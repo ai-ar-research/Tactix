@@ -1,6 +1,6 @@
 # S6 `Walk` — WalkSAT phase improvement (design, 2026-07-26)
 
-Status: design pass before implementation (Track W, plan rev 71). Frozen on
+Status: design pass before implementation (Track W, plan decision (8da55c9)). Frozen on
 landing; live status in PROGRESS.md (Track W), evidence in
 `benchmarks/reports/2026-07-26-scpc-walk-profiling.md`.
 
@@ -83,7 +83,7 @@ literal's occurrence lists.
 
 kissat: `SET_EFFORT_LIMIT(limit, walk, walk_steps)` — `walkeffort` (50‰) of
 search ticks since the last probe/eliminate, floored at `mineffort` (1e7 ticks).
-We already own that machinery (effort ledger, rev 53,
+We already own that machinery (effort ledger, decision (06d3a8b),
 `docs/design/effort-scheduler-design.md`, `MIN_EFFORT_TICKS = 1e7`): `Walk`
 joins as a slot entry with its own meter (`stats.walk_steps`), so its dose is
 scheduled the same way every other rule's is — and is therefore a §5.6 arm from
@@ -269,7 +269,7 @@ repeat at tier scale or across an order of magnitude.
 
 So "when to walk", "how hard", and "through which phase channel" join "when to
 eliminate" as measured, context-dependent levers with no hand-written setting
-that works — a second mechanism family for the §5.6 exhibit (rev 68), and one
+that works — a second mechanism family for the §5.6 exhibit (decision (33b5983)), and one
 that arrives with its reward signal (`stats.walk_minimum`) and five ready-made
 arms already implemented behind knobs (`TACTIX_WALK_NO_TARGET`,
 `TACTIX_WALK_MAX_STEPS`, `TACTIX_WALK_WARMUP`, `TACTIX_WALK_PREV`,
@@ -301,7 +301,7 @@ seed source (e.g. `phases.prev`) breaks that property.
 - **W4** remaining: Tier C gate + SCPC re-measure; a walk stress policy
   (schedule Walk aggressively off-fixpoint, per the stress-policy skill);
   then the dose (`WALK_PERMILLE`) as a §5.6 arm — rbsat and FmlaEquivChain say
-  "when to walk" is a dosing question, exactly like elimination (rev 68).
+  "when to walk" is a dosing question, exactly like elimination (decision (33b5983)).
 
 ## 8. Deliberately NOT in v1
 

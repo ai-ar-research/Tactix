@@ -1,7 +1,7 @@
 # Development Plan: A Competitive, Proof-Rule-Driven SAT Solver
 
-Working name: **Tactix**. Date: 2026-08-08 (rev. 98). Reference: Kissat
-4.0.4. Current status: [PROGRESS.md](PROGRESS.md). Revision index: §13.
+Working name: **Tactix**. Reference: Kissat 4.0.4. Current status:
+[PROGRESS.md](PROGRESS.md). Git history records changes to this specification.
 
 This document owns stable scope, architecture, roadmap, gates, and deliberately
 open decisions. Status belongs in PROGRESS; rule semantics in
@@ -292,7 +292,7 @@ branching without kernel edits. Ablations use configuration, not forks.
 | 2 | S3/S5, LRAT, API freeze | T2 + API review |
 | 3 | complete reference rule inventory and Tier C | catalog disposition/reach complete |
 | 4 | faithful dosing, optimization, N4 ledger | T3 + N4 + one Tier D campaign |
-| 4.5 | novel engineering beyond reference parity | concretize via O15 at phase-4 exit |
+| 4.5 | proof-event correlation and novel engineering beyond reference parity | proof ranges map to emitting rule/application; concretize remaining scope via O15 |
 | 5 | tuning, bindings, extensibility proof | T4 + ≤5% overhead + CCE test |
 | 6 | competition packaging | T5/best effort + submission ready |
 | 7 | learned scheduling | L-safe then L-win |
@@ -326,9 +326,8 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | O15 | phase-4.5 scope, deliverables, and exit | phase-4 exit |
 | O16 | admit PR/SR learning with an N2 checker/translation story | phase-5 entry |
 
-Closed O1–O3, O5, O10–O11, O14, and O17 are indexed in
-`docs/log/plan-revisions.md`; their current contracts already appear in the
-owning sections.
+Closed decisions have their current contracts in the owning sections; Git
+history preserves the decisions they replaced.
 
 ## 12. Key references
 
@@ -338,9 +337,3 @@ Nieuwenhuis–Oliveras–Tinelli on Abstract DPLL; DRAT/LRAT and cake_lpr work;
 DynamicSAT and Kissat-MAB scheduling; SBVA; and *Cubing for Tuning*. Local
 papers, clones, and winner tooling are indexed from `docs/README.md` and
 `tools/solvers/`.
-
-## 13. Revision history
-
-The ascending one-line revision index is
-[`docs/log/plan-revisions.md`](docs/log/plan-revisions.md). Detailed rationale
-belongs in the corresponding commit or frozen report, not this plan.

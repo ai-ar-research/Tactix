@@ -1,10 +1,10 @@
-# Effort-budgeted inprocessing scheduler — design (plan rev 53)
+# Effort-budgeted inprocessing scheduler — design (plan decision (06d3a8b))
 
 > **Frozen snapshot — do not edit.** A design/reference record from when this
 > work was done; it is *not* kept in sync. Living truth: `docs/calculus.md` (what
 > the rules are), `DEVELOPMENT_PLAN.md` (scope/roadmap), `PROGRESS.md` (status).
 
-**Trigger:** plan rev 53 — replace the run-each-rule-to-fixpoint one-shot
+**Trigger:** plan decision (06d3a8b) — replace the run-each-rule-to-fixpoint one-shot
 preprocessing (`default_policy.cpp` phase loop) with kissat's dosing discipline
 (per-technique effort budgets + growing intervals + mode gating, interleaved with
 search), and enable the built-but-disabled probing rules under it. Supersedes the
@@ -160,7 +160,7 @@ smaller than their setup is pure waste.
 
 ## 3. Architecture
 
-**All scheduling state lives in `DefaultPolicy`** (plan §5 rev 17: rules carry no
+**All scheduling state lives in `DefaultPolicy`** (plan §5 decision (7c4e85a): rules carry no
 scheduling). No kernel change and no guard change, so N1 is untouched: every rule
 stays applicable at any time through the registry, and a policy that wants no
 budget simply does not keep a ledger.
@@ -321,5 +321,5 @@ same commit. Revert anything that misses.
 N1/N2/N3: N1 — no guard or kernel change, all state policy-side, rules stay
 individually applicable (fuzzed via `--random-policy`). N2 — no rule's proof delta
 changes; enabling more rules *increases* DRAT/LRAT coverage on real instances,
-which is half the point of rev 53. N3 — this exists to move N3 forward; each
+which is half the point of decision (06d3a8b). N3 — this exists to move N3 forward; each
 increment is reverted if Tier B/C do not confirm.
