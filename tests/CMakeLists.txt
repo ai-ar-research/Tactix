@@ -242,6 +242,13 @@ add_test(NAME comment_hygiene
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-comment-hygiene.py)
 
+# Living documentation is an onboarding surface, not an append-only archive.
+# These budgets and cheap cross-file invariants prevent wrap-up from silently
+# growing or contradicting it again.
+add_test(NAME doc_size
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-doc-size.py)
+
 # `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)
 target_link_libraries(test_no_heuristics PRIVATE tactix_lib)
