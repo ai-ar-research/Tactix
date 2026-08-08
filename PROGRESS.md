@@ -456,9 +456,15 @@ per PHASE), and we tax search **~1.6× harder than kissat** (438‰ / 344‰ aga
 - [x] **Factor admission is unconditional**, bounded by the `factordelay` warm-up, the marked watermark
   and its effort share — kissat's arrangement. Any future admission proposal starts from this baseline.
 
-- [ ] **TB4b** — the remaining chrono divergences. (A) and (B) are done and ship OFF (ON and CRIPPLED are
-  indistinguishable on Tier C, and the proof-size axis FLIPS SIGN between tiers). Unported: cadical's
-  `chronoreusetrail` (= `SP-CHRONO-1`). `j3037`/`urq45` chrono sensitivity remains UNEXPLAINED.
+- [x] **TB4b closed — `SP-CHRONO-1` ported.** (A) and (B) were already done and ship OFF. The unported
+  half was cadical's `chronoreusetrail` (analyze.cpp:675-716): on a back-jump, find the best-ranked
+  variable assigned above the jump level and backtrack only far enough to keep it, since that prefix is
+  what the next decisions would rebuild. Ranking follows the mode as cadical's does — EVSIDS while stable,
+  VMTF stamp while focused. Taken from cadical because kissat's trail reuse is at RESTART only
+  (restart.c:86), a different decision point we already have. No new surface: the back-jump target is
+  already a ConflictAnalysis instance clamped to `[jump_level, level-1]`, so the policy simply chooses a
+  different legal one and N1 is untouched. Ships ON; `TACTIX_CHRONO_REUSE=0` is the off arm.
+  *(`j3037`/`urq45` chrono sensitivity remains unexplained and is not what this closes.)*
 - [x] **`D-STRENGTHEN-BUDGET` — dosed, by the forward-pair port in §2.** The row's premise needed correcting
   first and did: it said C1/C2 "are the only slot entries neither dosed nor budget-aware", but both ship
   `budget_aware = true`, so what was missing was the dose, not the channel. Both now meter the SUM of
@@ -491,24 +497,24 @@ under the port block and did not belong there. Each needs a closure, or an accep
 `docs/implementation-notes.md` §13.3 carrying its measurement and reopening path. A deviation is a legitimate
 close; silence is not.
 
-- [ ] **`SP-BVE-BWD-1` + `SP-FACTOR-1` LAND TOGETHER — the two Factor/BVE mechanism gaps, merged by user
-  decision 2026-08-07 (plan rev 94).** `SP-BVE-BWD-1`: feed BVE's fresh resolvents straight into backward
-  subsumption, cadical `elimbackward`=1 — a queue of newly added resolvents (`backward.cpp:12-30`) drained
-  per elimination (`elim.cpp:731`). Ours wait for the next SubsumeForward/Strengthen entry, on a different
-  budget and candidate set, with no knowledge of what BVE just added. **`SP-FACTOR-1`** — couple Factor's acceptance bound to elimination progress
-  (`reduction > bound`, ramp 0→1→2→4→8→16; kissat `factor.c:72,939`, `eliminate.c:338-368`), where
-  `Kernel::factor_bound` exists, defaults 0 and is never written.
-  **▶ WHY THEY MERGE, and why this is the live suspect for increment 3's Tier C loss.** cadical's
-  `elimrounds`=2 is sufficient *because* `elimbackward` feeds subsumption; increment 2 set our round count
-  to 2 on the reference's number **without that mechanism**, which is precisely rider (b)'s failure — the
-  constant ported without the thing that makes it work. Under rider (e) the T-series regression is
-  therefore read as a missing coupled mechanism, not as evidence for the density gates.
-  **▶ WHAT EACH MUST SHOW BEFORE ANY TIER NUMBER:** a reachability witness at the source. For Factor, that
-  the bound is non-zero at the occasions Factor actually runs (the `bve_level_ == 0` trap) and that the
-  acceptance test changes its answer; for BVE, that the resolvent queue is non-empty and that clauses are
-  actually subsumed from it. An inert port reproduces the old number while looking like parity.
-  The behavioural target is the standing N4 finding: **our BVE eliminates ZERO variables on 7 of the 9
-  instances where kissat eliminates anything (104 vs 2,736,829), and Factor adds ZERO on 6 of 9.**
+- [x] **`SP-BVE-BWD-1` + `SP-FACTOR-1` landed together.** **`SP-BVE-BWD-1`** — cadical `elimbackward`:
+  each fresh large resolvent is the SUBSUMER over the occurrence list of its least-occurring literal, a
+  victim containing it is deleted, one resolving with it on a single literal is shortened, and shortened
+  victims re-enter the queue (bounded by cadical's `elimocclim` = 100). Taken from cadical because kissat
+  has no analogue — its only BVE-side subsumption is a batched FORWARD pass a round later.
+  **The direction is the trap:** C1/C2's `check_marked` answers the reverse containment, and deleting on it
+  would retire the STRONGER clause with no checker able to see it. Scope: victims are the irredundant large
+  clauses of `k.dense`; binaries live in the watch lists, which cannot be mutated under a live iterator.
+  **`SP-FACTOR-1`** — Factor's acceptance bound is BVE's growth allowance, so BVA only introduces a
+  variable BVE would not immediately eliminate again (kissat factor.c:72/939). Three defects of the
+  earlier attempt fixed: the level now steps **unconditionally** (kissat's `complete` predicate reads two
+  shadowed variables left at their initialisers, and an instrumented kissat 4.0.4 takes that branch 5 of 5
+  times) rather than only on an exhausted dose, which had saturated it at the ceiling exactly where BVE is
+  useless; it steps **once per phase**, not per entry; and it is **snapshotted at phase entry**, since
+  kissat reads it once in `init_factoring` and judges every composite chain link against that number.
+  **Witness at the source** (`c bve-bwd`): `9vliw` 59,363 subsumers / 1,234 subsumed / 730 strengthened,
+  `b22_1` 119,834 / 1,696 / 738, and **`T105.2.0` 149,796 / 2,596 / 544** — it fires on the regressing
+  instance itself. Off arms `TACTIX_BVE_BACKWARD=0`, `TACTIX_FACTOR_COUPLE=0`.
 
 - [ ] **The other MED/LOW `WE_LACK_IT` rows:** `SP-COMPACT-1` (variable compaction / renumbering) ·
   `SP-CHRONO-1` (analyze-side trail reuse) · `SP-VIVIFY-3` (schedule-level dedup before spending a
