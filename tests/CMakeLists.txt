@@ -264,3 +264,20 @@ add_test(NAME kernel_h_boundary
 add_executable(test_solve_reset test_solve_reset.cpp)
 target_link_libraries(test_solve_reset PRIVATE tactix_lib)
 add_test(NAME solve_reset COMMAND test_solve_reset)
+
+# Conventional C++ tests are discovered automatically. Existing explicit
+# declarations above preserve special names/arguments; a newly added
+# test_<name>.cpp gets a matching executable and CTest entry without a central
+# edit. C and shell/integration tests remain explicit because their contracts
+# need extra include paths, arguments, or skip handling.
+file(GLOB TACTIX_CONVENTIONAL_TESTS CONFIGURE_DEPENDS
+     "${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp")
+foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
+  get_filename_component(test_target "${test_source}" NAME_WE)
+  if(NOT TARGET "${test_target}")
+    string(REGEX REPLACE "^test_" "" test_name "${test_target}")
+    add_executable("${test_target}" "${test_source}")
+    target_link_libraries("${test_target}" PRIVATE tactix_lib)
+    add_test(NAME "${test_name}" COMMAND "${test_target}")
+  endif()
+endforeach()

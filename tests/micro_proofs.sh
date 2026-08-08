@@ -81,7 +81,7 @@ for cnf in "$T"/*.cnf; do
   fi
 done
 
-# ---- the same formulas with BVE in the proof. `--bve-stress-policy` maximizes
+# ---- the same formulas with BVE in the proof. The generic stress scenario
 # BVE at the root, so BVE's resolvent/deletion deltas must compose into a valid
 # DRAT + native-LRAT proof: enum2 is refuted by BVE alone (the equivalence-gate
 # path derives {b},{¬b}→∅), xor3/php3 mix resolvents with a search-proof tail.
@@ -89,9 +89,9 @@ for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
   for mode in binary ascii; do
     proof="$cnf.bve.$mode.drat"
     if [ "$mode" = binary ]; then
-      "$TACTIX" -q --bve-stress-policy "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
+      TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy "$cnf" "$proof" > "$T/out" && rc=$? || rc=$?
     else
-      "$TACTIX" -q --bve-stress-policy --no-binary "$cnf" "$proof" > "$T/out" \
+      TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --no-binary "$cnf" "$proof" > "$T/out" \
         && rc=$? || rc=$?
     fi
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE (rc=$rc)"; exit 1; }
@@ -103,7 +103,7 @@ for cnf in "$T/enum2.cnf" "$T/xor3.cnf" "$T/php3.cnf"; do
   done
   if [ -x "$LRAT_CHECK" ]; then
     proof="$cnf.bve.lrat"
-    "$TACTIX" -q --bve-stress-policy --lrat "$cnf" "$proof" > "$T/out" \
+    TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --lrat "$cnf" "$proof" > "$T/out" \
       && rc=$? || rc=$?
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under BVE --lrat"; exit 1; }
     "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
@@ -124,7 +124,7 @@ for mode in binary ascii; do
   extra=""
   [ "$mode" = ascii ] && extra="--no-binary"
   # shellcheck disable=SC2086
-  "$TACTIX" --bve-stress-policy --bve-gates=def $extra "$cnf" "$proof" \
+  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def $extra "$cnf" "$proof" \
     > "$T/out" && rc=$? || rc=$?
   [ "$rc" -eq 20 ] || { echo "FAIL: bvedef not UNSAT (rc=$rc)"; exit 1; }
   grep -qE '^c bve-gates .*[1-9][0-9]* definition' "$T/out" \
@@ -137,7 +137,7 @@ for mode in binary ascii; do
 done
 if [ -x "$LRAT_CHECK" ]; then
   proof="$cnf.lrat"
-  "$TACTIX" -q --bve-stress-policy --bve-gates=def --lrat "$cnf" "$proof" \
+  TACTIX_STRESS_RULES=BVE "$TACTIX" -q --stress-policy --bve-gates=def --lrat "$cnf" "$proof" \
     > "$T/out" && rc=$? || rc=$?
   [ "$rc" -eq 20 ] || { echo "FAIL: bvedef not UNSAT under --lrat"; exit 1; }
   "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \

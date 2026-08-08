@@ -1124,6 +1124,11 @@ exec {sys.executable} {me} --aggregate {outdir}
     print(f"watch:     squeue -j {jobid}")
     print(f"summary:   {outdir}/logs/aggregate.log  (re-merge any time: "
           f"{me} --aggregate {outdir})")
+    if args.wait:
+        wait = os.path.join(ROOT, "tools", "slurm", "wait.py")
+        return subprocess.call([sys.executable, wait, "--job", aggid,
+                                "--log", os.path.join(outdir, "logs",
+                                                       "aggregate.log")])
     return 0
 
 
@@ -1145,6 +1150,10 @@ def main() -> int:
     ap.add_argument("--slurm", action="store_true",
                     help="submit as a SLURM job array (one task per "
                          "solver x instance) + a dependent aggregate job")
+    ap.add_argument("--wait", action="store_true",
+                    help="after submission, wait for the aggregate job and "
+                         "print its final state (launch this command in the "
+                         "background to keep working)")
     ap.add_argument("--partition", default="cpu-dense-hwulab-q")
     ap.add_argument("--nodelist", default=None,
                     help="pin every array task to this node (e.g. node017). "
