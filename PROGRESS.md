@@ -11,8 +11,8 @@ Their live status is the table below.
 Living status. **Sync contract:** update this file in the same commit as (a) completing/starting any checklist item, (b) any DEVELOPMENT_PLAN.md
 revision (via revise-plan). If this file and the plan disagree, the plan is authoritative — fix this file.
 
-- **Plan revision tracked:** rev. 92 (compaction; the revision history now lives in
-  `docs/log/plan-revisions.md`). Substantively rev. 91 — **phase 4's dosing work is a faithful PORT of the references' dosing
+- **Plan revision tracked:** rev. 93 (Tier B/C memory cap 8 -> 16 GB; rev 92 compacted the plan and
+  moved the revision history to `docs/log/plan-revisions.md`). Substantively rev. 91 — **phase 4's dosing work is a faithful PORT of the references' dosing
   scheme** (design pass `docs/design/2026-08-07-reference-dosing.md`; five of our fifteen effort rows are backed
   by no reference, our allowance formula is a kissat/cadical hybrid, and we tax search ~1.6× harder than
   kissat). Our standalone `HyperBinaryRes` stays, bounded by a **policy-side** structural cap — N1 forbids

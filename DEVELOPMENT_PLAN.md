@@ -2,7 +2,7 @@
 
 Working name: **Tactix**
 
-Date: 2026-08-07 (rev. 92). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
+Date: 2026-08-07 (rev. 93). Reference solver: Kissat 4.0.4 (cloned in `./kissat`).
 Living status: [PROGRESS.md](PROGRESS.md) (kept in sync with this plan — see the
 revise-plan skill). Deliberately open decisions: §11. Revision history: §13.
 
@@ -875,6 +875,11 @@ locally). Running 400 instances x 5000 s per iteration is useless for day-to-day
 **Evaluation environment (rev 64/65, user).** All benchmarking runs on the lab SLURM cluster,
 partition `cpu-dense-hwulab-q`, submitted by `tools/bench/run.py --slurm` as a **job array with one
 single-threaded solver run per task**; 8 GB per core, `cpus-per-task = ceil(mem_cap / 8 GB)`.
+**The memory cap is 16 GB on Tiers C and D (rev 93, user 2026-08-07)** — the competition's figure. It
+costs 2 cores per task, the second buying memory rather than parallelism. **Tiers A and B stay at the
+1-core default**, because nothing on either approaches the cap and the headroom would buy nothing while
+making every banked number on the daily-driver tier incomparable. Tier C numbers are **not comparable**
+across the change, per the allocation-shape rule below.
 Candidate and baselines go in the **same array**.
 - **No solver ever executes outside a submitted job** — tier runs, probes, spot checks and fuzz legs
   all go through `sbatch`, never the login node and never `srun` from the session shell (itself a job,

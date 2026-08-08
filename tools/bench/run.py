@@ -156,7 +156,13 @@ def classify_checker_output(stdout, stderr, returncode):
     return kind, msg, detail
 
 TIER_TIMEOUT = {"A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0}
-TIER_MEM_GB = {"D": 16}
+# 16 GB is the competition cap (§8.1). Under the cluster's 8 GB/core rule this
+# costs 2 cores per task for a single-threaded solver — the second core buys
+# memory, not parallelism. Tiers A and B keep the 1-core default: nothing on
+# either approaches the cap (Tier B solves 28/28), so the headroom would buy
+# nothing while making every banked number on the daily-driver tier
+# incomparable.
+TIER_MEM_GB = {"C": 16, "D": 16}
 BASELINES = {
     "kissat": os.path.join(ROOT, "tools", "solvers", "bin", "kissat"),
     "cadical": os.path.join(ROOT, "tools", "solvers", "bin", "cadical"),
