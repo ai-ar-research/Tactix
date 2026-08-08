@@ -55,8 +55,8 @@ landed, and they fall anyway. **That diagnosis is withdrawn, and the mechanism i
 `1590989` in flight. Restoring the gate is not the answer: it reads a size-monotone proof-id map, which is
 a defect no tier number changes. **Net +2 solves across the two tiers, and §8.3's #solved-wins priority
 explicitly does not cover a change that loses one — so this is a user call, not a rule application.**
-*The Tier B pair shipped without its replicate arm and without cadical; the solve count stands, the PAR-2
-has no noise bar and is not banked.*
+*The Tier B pair carried no cadical arm, so that reference is read across windows (kissat is in both at
+9.94 / 10.06, so the two windows are calibrated to ~1 %).*
 
 **▶ WHAT THE THREE INCREMENTS EACH DID.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT`
 and nothing else, with the anchor moved from the entry to the PHASE. A FIDELITY change: a large per-instance
@@ -85,7 +85,7 @@ measured THROUGH the density gate that increment 3 deleted. Those five negatives
 **▶ MEASUREMENT CONSTRAINT that outlives all of this.** **Tier B at 300 s cannot price a broad scheduling
 change**: four instances (`mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw`) flip under any perturbation,
 and in a 16-arm window whose bit-identical replicate differed by 0.01 PAR-2, **9 of 14 arms "gained a solve"**.
-A Tier B `#solved` criterion resolves to about ±2 solves. Price broad changes on Tier C, on replicated draws,
+A Tier B `#solved` criterion resolves to about ±2 solves. Price broad changes on Tier C,
 or as a named-instance claim.
 
 ## ▶ MEASUREMENT STATE AND PROTOCOL (plan §8.1 rev 84)
