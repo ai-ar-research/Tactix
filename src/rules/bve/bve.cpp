@@ -84,8 +84,6 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
     const uint32_t p = occ.count(pl), n = occ.count(make_lit(v, true));
     if (p == 0 && n == 0) // occurs in no elimination clause: nothing to do
       continue;
-    if (p > 0 && n > 0 && p + n > BVE_OCCLIM) // occurrence blow-up: skip
-      continue;
     ranked.emplace_back(static_cast<uint64_t>(p) * n, v);
   }
   std::stable_sort(ranked.begin(), ranked.end());
@@ -600,6 +598,17 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty()) {
     return ApplyResult::NoOp; // x occurs nowhere resolvable
   }
+
+  // Occurrence blow-up (kissat `eliminateocclim` = 2000, resolve.c:282-290):
+  // resolving a variable whose two polarities occur together this often costs
+  // more than the elimination can repay. The cap sits HERE, on the apply, where
+  // kissat's does — deliberately NOT in `bve_schedule`, because that is what
+  // `bve_instances` enumerates, and a COST cap there withholds an applicable
+  // instance from the public API (N1, `RV-S17`). The rule offers the candidate
+  // and declines it; it never fails to offer. `pos`/`neg` are x's occurrence
+  // lists, so this needs no second index.
+  if (!pos.empty() && !neg.empty() && pos.size() + neg.size() > BVE_OCCLIM)
+    return ApplyResult::NoOp;
 
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
   std::vector<uint8_t> pos_gate(pos.size(), 0), neg_gate(neg.size(), 0);

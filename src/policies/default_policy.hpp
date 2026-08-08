@@ -192,7 +192,9 @@ public:
   // technique last ran, floored. This tick unit is within 1.6× of kissat's.
   static constexpr uint64_t MIN_EFFORT_TICKS = 10000000; // mineffort · 1e6
   // Outer rounds per simplification phase (kissat eliminaterounds).
-  static constexpr int INPROCESS_PHASE_ROUNDS = 3;
+  // kissat `proberounds` / `eliminaterounds`, both 2 (options.h:99, :48). The
+  // loop is `round != max_rounds` from 0, so the body always runs at least once.
+  static constexpr int INPROCESS_PHASE_ROUNDS = 2;
   // chronological backtracking (kissat learn.c, chronolevels=100): backtrack
   // one level rather than jump over more than this many — a policy choice
   // through backjump_apply_to (N1), measurable only once analyze backtracks to
