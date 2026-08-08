@@ -20,10 +20,13 @@ regression test; model checking is now part of tier scoring. Evidence and the
 full diagnosis are in commit `6033378` and its preceding fix/instrument commits.
 Every elimination-era performance number from the unsound binary remains void.
 
-The fixed-binary Tier B retake `20260808-094512-B-p3fix` (manifest SHA
-`eece089`) is complete: **p3fix 28/28, PAR-2 49.94; Kissat 28/28, 10.07;
-CaDiCaL 27/28, 40.76**. The Tier C ablation is complete too — its reading is
-next-action 3 below. Nothing is currently in flight.
+All three port repairs are CODE-COMPLETE and pushed (`25f1cd7` is the last:
+the BVE binary backward arm). Five fuzz batteries, 110k cases, 0 failures.
+**IN FLIGHT: the closing tier pair** `20260808-120257-C-portsfin` (array
+`1591845`) + `20260808-120325-B-portsfin` (`1591936`), twin pin dirs, one
+commit, matching SHAs, both baselines — the measurement that closes
+`SP-BVE-BWD-1`/`SP-FACTOR-1`/`SP-CHRONO-1`. Read #solved first; a regression
+routes back to the reference sources, never to knobs (plan §2 rev 98).
 
 **Next actions:**
 
