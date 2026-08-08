@@ -103,15 +103,11 @@ PAR-2, and the instances that moved by name** — a headline decided by one inst
 **Take the SHA from the run's own `manifest.json`, never from the commit that later shipped the change** — a
 table labelled with the ship SHA is not reproducible.
 
-**▶ CURRENT STATE.**
+**▶ CURRENT STATE lives in the resume anchor above** — the tiers moved again with the three ports
+(2026-08-07/08) and a static table here went stale twice in two days; per-instance detail is in each
+window's `results.json`.
 
-| tier | window | git | shipped arm | result |
-|---|---|---|---|---|
-| C (30) | `20260806-235835-C-shipped` | `edfba14` | `shipped` | **348.00, 29/30** vs kissat 228.29 (29/30), cadical 310.50 (29/30) |
-| B (28) | `20260806-235833-B-shipped` | `edfba14` | `shipped` | **103.75, 24/28** vs kissat 9.99 (28/28), cadical 40.33 (27/28) |
-| **B (28), POST-LANDING** | `20260807-151657-B-shipped` | **`d4db510`** | `shipped` | **134.67, 23/28** vs kissat 10.21 (28/28), cadical 40.86 (27/28). The 24 → 23 is `mod4block`, one of the four instances that decide this tier's aggregate. |
-
-**▶ T3, both halves, on that window** (`subset_score.py`, subset = 24 of 30):
+**▶ T3, both halves, on `20260806-235835-C-shipped`** (git `edfba14`; `subset_score.py`, subset = 24 of 30):
 
 | half | requirement | subset | full | verdict |
 |---|---|---|---|---|
