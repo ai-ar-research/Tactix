@@ -621,6 +621,46 @@ static void test_retry_filter() {
   assert(worth_retry(x));
 }
 
+// Regression (2026-08-08 wrong-SAT): a backward strengthening that collapses a
+// victim to ONE literal must assert that unit. kernel_replace_clause deletes
+// the victim and by contract leaves unit semantics to the caller, so dropping
+// it silently weakens the formula — an UNSAT Tier C instance answered SAT with
+// the unit present in its own proof stream but absent from the kernel.
+static void test_backward_strengthen_to_unit_asserts() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  auto L = [](int d) { return internalize(d); };
+  auto add3 = [&](int a, int b, int c) {
+    const Lit v[3] = {L(a), L(b), L(c)};
+    kernel_add_large_clause(k, v, 3, /*redundant=*/false, /*glue=*/0);
+  };
+  // Eliminating 1 resolves to: the unit (¬4) from (1∨¬4)×(¬1∨¬4), the large
+  // resolvent c=(2∨3∨4) from (1∨2∨3)×(¬1∨4), and (2∨3∨¬4). The unit is
+  // asserted before the backward drain runs, so c enters the drain with 4
+  // absorbed root-false: marked literals {2,3}, size 2.
+  kernel_add_binary_clause(k, L(1), L(-4));  // P1
+  add3(1, 2, 3);                             // P2
+  kernel_add_binary_clause(k, L(-1), L(4));  // N1
+  kernel_add_binary_clause(k, L(-1), L(-4)); // N2
+  // victim d=(2∨¬3∨4): c ⊆ d with 3 flipped and 4 root-false → dlits={2}.
+  add3(2, -3, 4);
+  // padding inflates occ(3) so the drain's least-occurring pick is best=2 —
+  // d holds ¬3, so a best=3 walk would never visit it.
+  add3(3, 5, 6);
+  add3(3, 5, -6);
+  k.bve_gate_mask = 0; // plain resolution: exactly the resolvent set above
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(L(1))) == ApplyResult::Ok);
+  assert(k.value(L(-4)) > 0 && "the elimination's own unit landed");
+  assert(k.stats.bve_bwd_strengthened >= 1 && "the drain reached the victim");
+  assert(k.stats.bve_bwd_units >= 1 && "the strengthening collapsed to a unit");
+  assert(k.value(L(2)) > 0 &&
+         "the collapsed unit is ASSERTED, not dropped (wrong-SAT regression)");
+  kernel_dense_disconnect(k);
+}
+
 int main() {
   test_guard();
   test_occurrences();
@@ -639,6 +679,7 @@ int main() {
   test_definition_reconstruction_exhaustive();
   test_gate_mask();
   test_retry_filter();
+  test_backward_strengthen_to_unit_asserts();
   puts("test_bve OK");
   return 0;
 }
