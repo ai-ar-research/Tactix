@@ -5,7 +5,7 @@
 deviations in `docs/implementation-notes.md`. This file contains current state
 only.
 
-- **Plan revision:** 97 (documentation ownership and budgets; no gate change).
+- **Plan revision:** 98 (§2 fidelity-first port-repair discipline; no gate change).
 - **Current phase:** 4 — faithful reference dosing, optimization, and scheduling.
 - **Exit:** T3 + N4 parity ledger discharged + one full Tier D campaign.
 - **Non-negotiables:** N1 API universality ✓ · N2 proofs/models ✓ after the
@@ -156,6 +156,18 @@ Each row closes with an implementation or an accepted deviation in
   structural cap.
 - Diagnose random-policy nontermination; it is an N1 robustness issue but does
   not gate the already-closed phase 3.
+- **Sweep ships — user directive, non-negotiable:** neither disabling Sweep nor
+  shrinking its budget until inert counts as a fix; after any governor change it
+  must still fire and find equivalences.
+- Per-call O(nvars) scratch in hot rules (`RV-S19`): five fill-init sites in
+  BVE/probe/backbone; fix is persistent scratch + touched restore, gated on
+  identical rule counters and proof SHA.
+- `main.cpp` split (`RV-S29`); while there, fix `c strengthen` printed twice
+  under two different schemas.
+- Stress-policy coverage: 10 of 25 rules have no targeted stress leg, including
+  `Reorder`.
+- No direct test for `src/frontend/parse.cpp`, and cake_lpr is not wired into
+  the fuzz harness (`RV-S24` remainder).
 
 ## Recent changes
 
