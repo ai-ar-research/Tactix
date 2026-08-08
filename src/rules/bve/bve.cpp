@@ -491,24 +491,33 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
 // Deleting on that predicate retires the STRONGER clause, and no checker
 // catches it — a `del` is unchecked, so the certificate verifies while the
 // solver answers SAT on an UNSAT formula.
-static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
+static void bve_backward(Kernel &k, std::vector<Ref> &queue,
+                         std::vector<std::pair<Lit, Lit>> &fresh_bin) {
   if (!k.dense || k.inconsistent)
     return; // N1: the index is an acceleration, and the rule runs without it
   std::vector<uint8_t> marks(2 * static_cast<size_t>(k.nvars) + 2, 0);
   std::vector<Lit> clits, dlits;
   std::vector<Ref> victims;
+  std::vector<Lit> bin_victims;
   const bool lrat = k.proof && k.proof->lrat();
-  for (size_t qi = 0; qi < queue.size() && !k.inconsistent; ++qi) {
-    const Ref cref = queue[qi];
-    {
-      const Clause *c = clause_at(k.arena, cref);
-      if (c->garbage())
-        continue;
-      // Snapshot: adding a strengthened victim can reallocate the arena, so a
-      // Clause* held across the victim walk would dangle.
-      clits.assign(c->begin(), c->end());
-    }
-    const uint64_t cid = clause_at(k.arena, cref)->id();
+  // Least-occurring-literal count, cadical's occs parity: dense->large is
+  // large-only, so the binary share comes from the watch list. Counting stops
+  // one past BVE_BWD_OCCLIM — a count beyond the limit can only disqualify,
+  // so the cap changes neither the argmin (a capped literal never beats an
+  // under-limit one) nor the guard (all capped means the minimum is over).
+  auto occ_len = [&](Lit l) {
+    size_t n = k.dense->large[l].size();
+    if (n > BVE_BWD_OCCLIM)
+      return n;
+    for (const WatchEntry w : k.watches.entries(l))
+      if (w.binary() && ++n > BVE_BWD_OCCLIM)
+        break;
+    return n;
+  };
+  // One subsumer pass over `clits` (the snapshot; its proof id is `cid`).
+  // `cref` names the arena copy of a large subsumer and is INVALID_REF for a
+  // binary one, whose identity is the pair {clits[0], clits[1]}.
+  auto backward_one = [&](uint64_t cid, Ref cref) {
     uint32_t size = 0;
     Lit best = INVALID_LIT;
     size_t len = 0;
@@ -520,17 +529,23 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
         continue; // root-false: absorbed, and never marked
       marks[l] = 1;
       size++;
-      const size_t n = k.dense->large[l].size();
+      const size_t n = occ_len(l);
       if (best == INVALID_LIT || n < len) { best = l; len = n; }
     }
     if (satisfied || best == INVALID_LIT || size == 0 || len > BVE_BWD_OCCLIM) {
       // A root-satisfied subsumer is garbage, not merely unusable — a fresh
       // resolvent goes root-true the moment a sibling unit resolvent is
-      // asserted (cadical backward.cpp:66-69 marks it garbage here too).
-      if (satisfied)
-        kernel_delete_clause(k, clause_at(k.arena, cref));
+      // asserted (cadical backward.cpp:66-69 marks it garbage here too). A
+      // duplicated binary pair refuses deletion by name (kernel.hpp) and
+      // stays, the hazard-safe outcome.
+      if (satisfied) {
+        if (cref != INVALID_REF)
+          kernel_delete_clause(k, clause_at(k.arena, cref));
+        else
+          kernel_delete_binary(k, clits[0], clits[1]);
+      }
       for (const Lit l : clits) marks[l] = 0;
-      continue;
+      return;
     }
     k.stats.bve_bwd_queued++;
     bool unit_derived = false;
@@ -649,7 +664,11 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
         unit_derived = true;
         break;
       case ReplaceOutcome::Binary:
-        break; // leaves the dense index; no longer a victim or a subsumer here
+        // Leaves the dense index, but re-enters as a binary subsumer under
+        // the id kernel_replace_clause installed (cadical re-enqueues every
+        // strengthened clause, backward.cpp:202).
+        fresh_bin.emplace_back(dlits[0], dlits[1]);
+        break;
       case ReplaceOutcome::Large:
         if (nref != INVALID_REF)
           queue.push_back(nref); // fixpoint, cadical backward.cpp:202
@@ -658,7 +677,132 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue) {
       if (unit_derived)
         break;
     }
+    // --- binary victims (the watch lists are their only index) ------------
+    // A pair {best, o} is victim material only under an effective subsumer
+    // size <= 2, the binary mirror of the `d->size < size` skip above. A
+    // delete compacts the watch list of `best`, so the walk runs over a
+    // snapshot of its pairs, never the live range.
+    if (!unit_derived && !k.inconsistent && size <= 2) {
+      const Lit self_other =
+          cref != INVALID_REF ? INVALID_LIT
+                              : (clits[0] == best ? clits[1] : clits[0]);
+      bin_victims.clear();
+      for (const WatchEntry w : k.watches.entries(best))
+        if (w.binary())
+          bin_victims.push_back(w.other());
+      for (const Lit o : bin_victims) {
+        if (k.inconsistent)
+          break;
+        // A binary subsumer skips its own pair by identity — the mirror of
+        // `dref == cref` — including a root-false partner, which the
+        // absorbed case below would otherwise misread as a subsumed victim,
+        // deleting the subsumer through itself.
+        if (o == self_other)
+          continue;
+        const int8_t vo = k.value(o);
+        if (vo > 0)
+          continue; // satisfied: not a victim, and its cleanup belongs to
+                    // the root drain, not this walk
+        uint32_t found = 1; // `best` is a marked subsumer literal
+        Lit neg_lit = INVALID_LIT;
+        if (vo == 0) {
+          if (marks[o]) {
+            found++;
+          } else if (marks[negate(o)]) {
+            neg_lit = o;
+            found++;
+          }
+        } // vo < 0: root-false partner, absorbed exactly as in the walk above
+        if (found != size)
+          continue;
+        // One id cannot name two live copies (kernel_delete_binary's
+        // contract): a duplicated pair is neither deletable nor
+        // strengthenable by name, so it is left in place.
+        if (kernel_binary_copies(k, best, o, 2) != 1)
+          continue;
+        if (neg_lit == INVALID_LIT) {
+          // Every marked literal occurs in {best, o} with the same sign. A
+          // binary subsumer can match this way only through its own pair
+          // (exact duplicates are dropped at add), skipped above; a large
+          // subsumer whose extra literals are all absorbed root-false
+          // genuinely subsumes the pair.
+          const bool ok = kernel_delete_binary(k, best, o);
+          assert(ok);
+          (void)ok;
+          k.stats.bve_bwd_subsumed++;
+          continue;
+        }
+        // Self-subsuming resolution on `o`: {best, o} strengthens to the
+        // unit {best}. `neg_lit != best` as above — a stored pair never
+        // carries both polarities of one variable.
+        const uint64_t vid = kernel_binary_id(k, best, o);
+        if (k.subsume_shadow)
+          kernel_shadow_retire(k, vid);
+        std::vector<uint64_t> chain;
+        if (lrat) {
+          // Both victim literals are unassigned here (value-checked above),
+          // so only the subsumer contributes absorbed-literal unit ids; its
+          // variables are distinct, so the ids need no dedup.
+          for (const Lit l : clits)
+            if (k.value(l) < 0)
+              chain.push_back(k.unit_ids[var_of(l)]);
+        }
+        const uint64_t id = ++k.next_clause_id;
+        Lit unit = best;
+        if (k.proof) {
+          if (lrat) {
+            chain.push_back(cid); // the subsumer propagates `o` false
+            chain.push_back(vid); // then the victim pair conflicts
+            k.proof->add_rup(id, &unit, 1, chain.data(),
+                             static_cast<uint32_t>(chain.size()));
+          } else {
+            k.proof->add_rup(0, &unit, 1, nullptr, 0);
+          }
+        }
+        // Add-before-delete: the unit's add precedes the victim's del.
+        const bool ok = kernel_delete_binary(k, best, o);
+        assert(ok);
+        (void)ok;
+        k.stats.bve_bwd_strengthened++;
+        k.stats.bve_bwd_units++;
+        if (k.value(unit) == 0) {
+          k.unit_ids[var_of(unit)] = id;
+          kernel_assign_unit(k, unit);
+        }
+        // A unit invalidates this subsumer's marks/size snapshot: abandon
+        // the walk, the same contract as the Unit outcome above.
+        unit_derived = true;
+        break;
+      }
+    }
     for (const Lit l : clits) marks[l] = 0;
+  };
+  // Drain order: the large queue first, then the size-2 resolvents as binary
+  // subsumers. cadical enqueues resolvents of every size into one FIFO
+  // (elim.cpp:592-594); the split queues meet in this outer fixpoint, since a
+  // binary subsumer can strengthen a large victim back into `queue` just as a
+  // large one pushes pairs into `fresh_bin`.
+  size_t qi = 0, bi = 0;
+  while ((qi < queue.size() || bi < fresh_bin.size()) && !k.inconsistent) {
+    for (; qi < queue.size() && !k.inconsistent; ++qi) {
+      const Ref cref = queue[qi];
+      {
+        const Clause *c = clause_at(k.arena, cref);
+        if (c->garbage())
+          continue;
+        // Snapshot: adding a strengthened victim can reallocate the arena,
+        // so a Clause* held across the victim walk would dangle.
+        clits.assign(c->begin(), c->end());
+      }
+      backward_one(clause_at(k.arena, cref)->id(), cref);
+    }
+    for (; bi < fresh_bin.size() && !k.inconsistent; ++bi) {
+      const auto [a, b] = fresh_bin[bi]; // copy: the pass may grow the vector
+      if (!kernel_binary_live(k, a, b))
+        continue; // deleted since it was queued (subsumed or strengthened)
+      clits.assign({a, b});
+      backward_one(kernel_binary_id(k, a, b), INVALID_REF);
+    }
   }
 }
 
@@ -930,6 +1074,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   PendingUnits pending;
   pending.init(k.nvars);
   std::vector<Ref> fresh; // large resolvents, the backward pass's subsumers
+  std::vector<std::pair<Lit, Lit>> fresh_bin; // size-2 resolvents, ditto
   auto record_unit = [&](Lit u, uint64_t id) -> bool {
     return pending.record(k, u, id) == PendingUnits::Outcome::Refuted;
   };
@@ -964,6 +1109,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         return ApplyResult::Unsat;
     } else if (r.lits.size() == 2) {
       kernel_add_binary_clause(k, r.lits[0], r.lits[1], id);
+      fresh_bin.emplace_back(r.lits[0], r.lits[1]);
     } else {
       fresh.push_back(kernel_add_large_clause(
           k, r.lits.data(), static_cast<uint32_t>(r.lits.size()),
@@ -1043,7 +1189,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // cadical drains here: after the resolvents are connected and the pivot's
   // own clauses are garbage, so the antecedents are skipped (elim.cpp:731).
   if (k.bve_backward)
-    bve_backward(k, fresh);
+    bve_backward(k, fresh, fresh_bin);
 
   k.stats.bve_eliminated++;
   // The drain can refute (a strengthened victim's unit contradicting a root
