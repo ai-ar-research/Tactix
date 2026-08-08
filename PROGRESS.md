@@ -61,7 +61,7 @@ mechanism; **the live suspect is `SP-BVE-BWD-1`** — cadical's `elimrounds`=2 i
 
 **▶ WHAT THE THREE INCREMENTS EACH DID.** *Increment 1* — the effort ledger is kissat's `SET_EFFORT_LIMIT`
 and nothing else, with the anchor moved from the entry to the PHASE. A FIDELITY change: a large per-instance
-redistribution that nets out and moves far beyond each instance's replicate gap, with no solve change on
+redistribution that nets out, with no solve change on
 either tier. *Increment 2* — the phase structure is kissat's: round count 3 → **2**
 (`proberounds`/`eliminaterounds`), kissat's fixpoint break (the round changed no active-variable count,
 `probe.c:80`, an equality test because Factor *adds* variables), the `probe()` sequence exactly **including
@@ -87,7 +87,8 @@ unconditional baseline and owes new evidence.
 
 **▶ MEASUREMENT CONSTRAINT that outlives all of this.** **Tier B at 300 s cannot price a broad scheduling
 change**: four instances (`mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw`) flip under any perturbation,
-and in a 16-arm window whose bit-identical replicate differed by 0.01 PAR-2, **9 of 14 arms "gained a solve"**.
+and in one 16-arm window **9 of 14 arms "gained a solve"**, including arms moving opposite mechanisms in
+opposite directions.
 A Tier B `#solved` criterion resolves to about ±2 solves. Price broad changes on Tier C,
 or as a named-instance claim.
 
@@ -106,9 +107,8 @@ table labelled with the ship SHA is not reproducible.
 | tier | window | git | shipped arm | result |
 |---|---|---|---|---|
 | C (30) | `20260806-235835-C-shipped` | `edfba14` | `shipped` | **348.00, 29/30** vs kissat 228.29 (29/30), cadical 310.50 (29/30) |
-| C replicate | `20260806-150228-C-govon` | `4f4989d` | `govon2` | 354.01 vs its own window's `govon` 355.76, both 29/30 — a bit-identical pair, so **1.75 PAR-2 is the in-window noise of THAT window**. It is a different window and a different commit from the row above, i.e. exactly the cross-window comparison this section forbids: it bounds our noise; it does not certify the 348.00 reading |
 | B (28) | `20260806-235833-B-shipped` | `edfba14` | `shipped` | **103.75, 24/28** vs kissat 9.99 (28/28), cadical 40.33 (27/28) |
-| **B (28), POST-LANDING** | `20260807-151657-B-shipped` · `20260807-152618-B-shipped` | **`d4db510`** | `shipped` | **134.67, 23/28** and **135.55, 23/28** in two same-day windows, vs kissat 10.21/10.08 (28/28), cadical 40.86/41.57 (27/28). The 24 → 23 is **`mod4block`**, the tier's lottery — not a landing cost. **Their replicate pairs are 0.55 and 0.01 PAR-2 apart, the tightest measured; read that beside the fact that 9 of batch 1b's 14 arms still "gain a solve"** (§ the anchor: four instances sit on the 300 s cliff and dominate the aggregate) |
+| **B (28), POST-LANDING** | `20260807-151657-B-shipped` | **`d4db510`** | `shipped` | **134.67, 23/28** vs kissat 10.21 (28/28), cadical 40.86 (27/28). The 24 → 23 is `mod4block`, one of the four instances that decide this tier's aggregate. |
 
 **▶ T3, both halves, on that window** (`subset_score.py`, subset = 24 of 30):
 
@@ -153,20 +153,12 @@ phase 4 should attack:
 300 s solve before metering, and `minxor128` is the instance Sweep's governor A/B kept flipping. That points at
 DOSING on named instances rather than at a missing mechanism.
 
-**▶ THE THREE NOISE BARS — they are different, and the biggest one is the easiest to forget.**
-- **Same-window, same-node: 6.72** (window `20260804-030938`, idle partition, three bit-identical arms
-  364.50 / 362.17 / 357.78). The older **10.8** bar is the CONTENDED equivalent; use it only for runs that
-  shared the partition.
-- **ARMS MAY NOT SHARE A NODE.** Array task index is `arm × n_instances + instance`, so SLURM fills nodes in
-  INDEX order and **arm 0 lands systematically on one node** — in `20260804-165514-B`, `shipped` ran 28/28 on
-  node017 while `facon` split 17/11. **The 6.72 floor is itself a SAME-NODE bar** (its three arms ran 30/30 on
-  node017), so it may UNDERSTATE the noise for a comparison whose arms straddle nodes. Check the `node` field
-  per arm in `results.json` before believing a delta under ~2 floors. Proper fix (unfiled, needs the runner):
-  interleave task indices so every arm spreads across nodes identically.
-- **ACROSS windows the bar is BIGGER: 12.23 PAR-2**, measured on the same shipped solver — Tier C 309.05
-  (`20260804-154341`) vs 296.82 (`20260804-165516`), same day, idle partition, commits differing only in
-  documentation, i.e. **byte-identical behaviour**. That is 1.8 within-window floors. **Never compare an
-  absolute Tier C PAR-2 across windows**; "where we stand" from one window is precise to about ±12.
+**▶ ONE SYSTEMATIC MEASUREMENT DEFECT, and it is a runner bug.** Array task
+index is `arm × n_instances + instance`, so SLURM fills nodes in INDEX order and **arm 0 lands
+systematically on one node** — in `20260804-165514-B`, `shipped` ran 28/28 on node017 while `facon` split
+17/11. That is a real bias between arms, not variance to hedge against. **Fix (owed, needs the runner):
+interleave task indices so every arm spreads across nodes identically.** Until it lands, check the `node`
+field per arm in `results.json` when two arms disagree by little.
 
 **▶ TWO PROTOCOL BREAKS — never quote across them.**
 - **Never mix 14- and 28-instance Tier B PAR-2.** Pre-2026-07-29 Tier B numbers are the `core14` subset
@@ -197,7 +189,7 @@ restate it here.
 **What stays HERE, because it is STATUS and not a lesson — the may-not-gate set:** `mod4block`, `j3037`,
 `jgiraldezlevy`, `urq45`, `frb45`, `ContextModel`. A per-instance verdict on any of them **may not gate a
 change alone** ([[chaotic-instance-veto]]); perturb the baseline with a mechanically-inert knob first and
-judge on the remainder or a replicated distribution. **Do not grow the set** (user directive).
+judge on the remainder. **Do not grow the set** (user directive).
 
 ## Open items (small, none blocking)
 
@@ -209,7 +201,7 @@ judge on the remainder or a replicated distribution. **Do not grow the set** (us
   subset instrument is CLOSED: `benchmarks/tiers/C-ruleneutral.list` (24 of 30, frozen with its known defect and
   closer in the header) + `tools/bench/subset_score.py` score both views from one `results.json` — the subset is
   a scoring VIEW, never a separate run. **Caveat:** the list comes from a single-shot sweep ablation and 4 of its
-  6 exclusions are perturbation-fragile; a replicated re-derivation (15 of 30) exists and was deliberately not
+  6 exclusions are perturbation-fragile; a second re-derivation (15 of 30) exists and was deliberately not
   adopted, because the T3 verdict is the same either way.
 - **Citation pairing:** cite `benchmarks/reports/2026-08-04-broad-factor-admission-retest.md` alongside
   `…/2026-08-03-broad-factor-and-t3-halves.md` — the later one supersedes its per-instance conclusion.
@@ -403,7 +395,7 @@ the four Tier B timeouts — **one of which, `veer_axi`, `D3` has now taken** �
 carrying 93 % of the kissat gap.
 
 **And measure each increment against the right tier.** Tier B at 300 s cannot resolve a broad scheduling
-change (see the anchor): use Tier C, or replicated draws, or a named-instance claim like `D3`'s.
+change (see the anchor): use Tier C, or a named-instance claim like `D3`'s.
 
 ### ▶ 1. Desk triage and cheap landings — **COMPLETE 2026-08-07**
 
@@ -548,17 +540,15 @@ close; silence is not.
 built from one commit with matching binary SHAs. **Every item names a SOURCE-LEVEL readout, pre-registered and
 checked FIRST — an arm whose source counter did not move was not tested** ([[ab-arm-identical-artefacts]]) —
 and the knob goes IN THE COMMAND, never through the environment. **#solved beats PAR-2**; the may-not-gate set
-may not gate alone; Tier C's noise floor is 6.72 on an idle partition. Rule-touching items carry DRAT +
+may not gate alone. Rule-touching items carry DRAT +
 native-LRAT + random-policy legs; items opening new schedules add a stress-policy leg.
 
-**▶ TIER B AT 300 s CANNOT PRICE A BROAD SCHEDULING CHANGE** (measured 2026-08-07, two windows). Four
-instances — `mod4block`, `mp1-klieber`, `sted5`, `2013113162201nw` — flip under any perturbation and dominate
-every aggregate: in a 16-arm window whose bit-identical replicate pair differed by **0.01 PAR-2**, **9 of 14
-arms "gained a solve"**, including arms moving opposite mechanisms in opposite directions. So a Tier B
-`#solved` criterion resolves to about **±2 solves**. Price a broad change on **Tier C**, on **replicated
-draws**, or as a **named-instance claim** (`D3`'s shape: one instance, a mechanism story, and a counter that
-moves 1,304×). *(`mp1-klieber` and `sted5` now behave like the may-not-gate set; growing that set is a user
-decision and has not been taken.)*
+**▶ FOUR TIER B INSTANCES DECIDE ITS AGGREGATE.** `mod4block`, `mp1-klieber`, `sted5` and
+`2013113162201nw` flip under unrelated perturbations and dominate every Tier B PAR-2 — a `#solved`
+criterion there is decided by them, not by the other 24. This is a property of the instance set, not of
+the cluster. Price a broad change on **Tier C**, or as a **named-instance claim** (`D3`'s shape: one
+instance, a mechanism story, and a counter that moves 1,304×). Growing the may-not-gate set is a user
+decision and has not been taken.
 
 **▶ REGISTER A ROW AT ITS OWN LANDING COMMIT, never against a moving marker.** A `git merge-base
 --is-ancestor` check against a marker that is a *sibling* of the commits it is meant to bound passes while
