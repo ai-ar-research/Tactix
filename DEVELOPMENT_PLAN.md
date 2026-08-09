@@ -55,6 +55,14 @@ faithful port but never select what gets repaired, and a regression on a
 faithful port indicts the implementation or a missing coupled mechanism, never
 the reference mechanism.
 
+Configuration arms are deliberately scarce. Add an arm only for a concrete,
+time-bounded attribution or benchmark question, record that question and its
+removal condition, and prefer trace-only instrumentation when it can answer the
+same question. Remove an arm as soon as it is neutral, superseded, or its
+experiment closes. A permanent knob must support a distinct, continuing use
+that cannot be covered by the shipped default plus short-lived experimental
+instrumentation; historical behavior alone is not sufficient justification.
+
 ## 3. Core design: flexibility without hot-loop overhead
 
 Use two dispatch tiers backed by the same rule implementations:

@@ -1009,19 +1009,9 @@ ApplyResult analyze_apply(Kernel &k) {
         k.touched_levels.push_back(lv);
       }
     }
-    // Group into blocks by descending level.  Kissat's stable bucket order is
-    // the default.  The former total trail tie remains as an attribution arm;
-    // a bare std::sort level key is not deterministic enough for either arm.
-    if (k.learned_trail_tie)
-      std::sort(learned.begin() + 1, learned.end(), [&](Lit a, Lit b) {
-        const uint32_t la = k.var_level(var_of(a));
-        const uint32_t lb = k.var_level(var_of(b));
-        if (la != lb)
-          return la > lb;
-        return k.assigned[var_of(a)].trail > k.assigned[var_of(b)].trail;
-      });
-    else
-      radix_sort_learned_by_level(k, learned);
+    // Group into blocks by descending level while preserving deduction order
+    // within each level, matching Kissat's stable bucket sort.
+    radix_sort_learned_by_level(k, learned);
     size_t b = 1;
     while (b < learned.size()) {
       const uint32_t blevel = k.var_level(var_of(learned[b]));
