@@ -69,6 +69,8 @@ static void test_analysis_trail_reuse_defaults_to_kissat(void) {
   // The CaDiCaL strategy remains a first-class diagnostic/experimental arm.
   p.chrono_reuse_trail_ = true;
   assert(p.chrono_reuse_trail_);
+  assert(DefaultPolicy::BUMP_REASONS_RATE == 10.0 &&
+         "Kissat's bumpreasonsrate=10 is the conflicting-default tie-break");
   std::printf("  analysis trail reuse: Kissat default off, CaDiCaL arm retained\n");
 }
 

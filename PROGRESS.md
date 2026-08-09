@@ -38,6 +38,12 @@ elimination at the reference-scaled 500-conflict interval; a scheduling test
 pins the exact deadline. Kissat is now the shipped tie-break for analysis-side
 behavior: ranked trail reuse defaults off, while `TACTIX_CHRONO_REUSE=1`
 retains the CaDiCaL arm. Ordinary Kissat chronological backtracking remains on.
+Post-analysis ranking snapshots then localized the next mismatch to conflict 2:
+Tactix's unbacked reason-bump decision-rate threshold 20 admitted a pass that
+Kissat's `bumpreasonsrate=10` declined. The shipped threshold is now 10;
+`TACTIX_BUMP_REASONS_RATE` retains the comparison arm. Rate-10 tracing extends
+exact alignment to conflict 6 / 138 decisions and conflict 49 / 125 decisions
+on the two fixed fixtures.
 The full Release suite is 63/63.
 `TACTIX_REORDER=0`, `TACTIX_LUCKY_LATE=0`, and
 `TACTIX_PREPROCESS_FOLLOWUPS=0` retain the cumulative attribution arms.
@@ -57,10 +63,10 @@ the repaired implementation.
 
 **Next actions:**
 
-1. Re-run the two fixed traces with `ORDER-ELIM-INIT-1` retained at the shipped
-   Kissat-style default; use `TACTIX_CHRONO_REUSE=1` only to confirm the
-   CaDiCaL arm's expected earlier divergence, and explain the next default
-   divergence.
+1. Re-run the two fixed traces with the shipped reason-bump threshold 10 and
+   localize the next post-analysis ranking divergence (currently conflict 7
+   and 50 under the diagnostic arm). Then repeat the hard two-instance Tier-A
+   pair; `tr-n300-s055` still times out at 30 s, so Tier A is not closed.
    Then run the cumulative Tumble + elimination-clock Tier-A gate against the
    preceding immutable pin; do not proceed if either cheap fixture regresses.
 2. With repaired Reorder and Tumble retained, gate `ORDER-LUCKY-1` on Tier A.
@@ -183,6 +189,9 @@ required.
   localized the next divergence to Tactix running Eliminate after conflict 1.
   The scheduler now initializes the independent search-time elimination clock
   to the reference-scaled 500-conflict interval; re-trace and Tier A remain.
+- [ ] `ORDER-BUMP-RATE-1`: the default reason-side bump decision-rate threshold
+  now follows Kissat's 10 instead of the unbacked 20. Fixed traces prove the
+  conflict-2 ranking mismatch disappears; hard-pair pricing remains.
 - [ ] `ORDER-LUCKY-1`: implemented and correctness-green; early and late calls
   bracket preprocessing with separate reach/SAT counters and a late-off arm.
   Cumulative pricing and acceptance remain.
