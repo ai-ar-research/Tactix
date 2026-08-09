@@ -8,6 +8,7 @@ streams are deliberately not treated as lock-step comparable.
 """
 import argparse
 import csv
+import sys
 
 
 FIELDS = [
@@ -26,7 +27,9 @@ def load(path):
                 continue
             vals = next(csv.reader([raw], delimiter="\t"))
             if len(vals) != len(FIELDS):
-                raise SystemExit(f"{path}: expected {len(FIELDS)} fields, got {len(vals)}")
+                print(f"warning: {path}: skipped partial record with "
+                      f"{len(vals)}/{len(FIELDS)} fields", file=sys.stderr)
+                continue
             rows.append(dict(zip(FIELDS, vals)))
     return rows
 

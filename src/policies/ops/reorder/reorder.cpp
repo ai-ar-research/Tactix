@@ -21,8 +21,9 @@ namespace tactix {
 //      at its call site an unsatisfied irredundant clause always has >= 2 open
 //      literals; off a fixpoint it need not, and kissat would read an
 //      uninitialized entry.
-//  (3) Kissat skips inactive variables; the closest analogue here is "assigned
-//      under the current assignment", which is what the value tests use.
+//  (3) Kissat skips inactive variables. Tactix's permanent identity layer keeps
+//      retired variables addressable for N1/model reconstruction, but they are
+//      disconnected from H and must not be reinserted by this policy op.
 
 namespace {
 
@@ -111,9 +112,11 @@ ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {
     return ApplyResult::NoOp;
   std::vector<double> weight;
   reorder_weights(k, weight);
-  std::vector<Var> sorted(k.nvars);
+  std::vector<Var> sorted;
+  sorted.reserve(k.nvars);
   for (Var v = 0; v < k.nvars; v++)
-    sorted[v] = v;
+    if (!kernel_var_retired(k, v))
+      sorted.push_back(v);
   // Ascending weight throughout; the tiebreak is the ranking's own current
   // order, so a reorder never gratuitously permutes equal-weight variables.
   const Heuristics &h = *k.h;
