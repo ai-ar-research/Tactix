@@ -1,5 +1,7 @@
 #include "kernel/kernel.hpp"
 
+#include "policies/event_trace.hpp"
+
 #include "policies/heuristics.hpp" // the opaque `H`: Kernel's ctor/dtor + calls
 #include "proof/proof.hpp" // kernel_delete_binary emits the delta atomically
 
@@ -565,6 +567,8 @@ template <bool RECORD> static inline void flush_delayed(Kernel &k) {
 template <bool RECORD>
 static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   const Lit not_lit = negate(lit);
+  if constexpr (!RECORD)
+    event_trace_watch_scan(k, lit);
   assert(k.delayed.empty());
   // Not WatchLists::entries/compact: this scan COPIES each entry forward and
   // then rewinds or rewrites it (dropped garbage, a new blocking literal, a

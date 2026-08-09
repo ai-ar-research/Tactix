@@ -195,12 +195,63 @@ static int compare_external_literals (const void *a, const void *b) {
   return (x > y) - (x < y);
 }
 
+void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
+  open_trace ();
+  if (!trace_file || trace_emitted >= trace_limit)
+    return;
+  const unsigned watched = NOT (propagated);
+  watches entries = WATCHES (watched);
+  const watch *p = BEGIN_WATCHES (entries);
+  const watch *const end = END_WATCHES (entries);
+  while (p != end) {
+    if (trace_emitted >= trace_limit)
+      return;
+    const watch head = *p++;
+    const unsigned blocking = head.blocking.lit;
+    size_t size;
+    int *external;
+    if (head.type.binary) {
+      size = 2;
+      external = malloc (size * sizeof *external);
+      external[0] = external_literal (solver, watched);
+      external[1] = external_literal (solver, blocking);
+    } else {
+      const reference ref = p++->raw;
+      clause *c = kissat_dereference_clause (solver, ref);
+      size = c->size;
+      external = malloc (size * sizeof *external);
+      size_t i = 0;
+      for (all_literals_in_clause (lit, c))
+        external[i++] = external_literal (solver, lit);
+    }
+    qsort (external, size, sizeof *external, compare_external_literals);
+    char payload[4096];
+    int written = snprintf (payload, sizeof payload,
+                            "scan=%d|block=%d|clause=",
+                            external_literal (solver, propagated),
+                            external_literal (solver, blocking));
+    char *q = payload + written;
+    size_t left = sizeof payload - (size_t) written;
+    for (size_t i = 0; i != size; i++) {
+      written = snprintf (q, left, "%s%d", i ? "," : "", external[i]);
+      if (written < 0 || (size_t) written >= left)
+        break;
+      q += written;
+      left -= (size_t) written;
+    }
+    free (external);
+    kissat_event_trace (solver, "watch", payload, false);
+  }
+}
+
 void kissat_event_trace_implications (kissat *solver, size_t trail_begin) {
   open_trace ();
-  if (!trace_file)
+  if (!trace_file || trace_emitted >= trace_limit)
     return;
   const size_t trail_size = SIZE_ARRAY (solver->trail);
   for (size_t pos = trail_begin; pos != trail_size; pos++) {
+    if (trace_emitted >= trace_limit)
+      return;
     const unsigned assigned_lit = PEEK_ARRAY (solver->trail, pos);
     const assigned *assignment = solver->assigned + IDX (assigned_lit);
     if (assignment->reason == DECISION_REASON ||
