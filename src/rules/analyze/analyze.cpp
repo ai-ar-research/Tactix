@@ -166,8 +166,10 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
 }
 
 // A learned literal l is redundant if every antecedent in its reason chain
-// bottoms out in root assignments or literals already in the clause; a chain
-// can only do so while it stays on levels the clause touches (marked_levels).
+// bottoms out in root assignments or literals already in the clause.  Kissat
+// deliberately allows the walk to cross intermediate decision levels absent
+// from the learned clause; requiring clause-level membership here only keeps
+// literals whose redundancy the same reason graph proves.
 // Recursion cap, a deviation: kissat's minimizedepth defaults to 1000 and this
 // is 900 with `>`, a trajectory-affecting difference.
 static unsigned minimize_depth_limit() {
@@ -186,8 +188,7 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     return true;
   if (k.seen[v] & POISONED)
     return false;
-  if (a.reason == DECISION_REASON || depth > minimize_depth_limit() ||
-      !k.marked_levels[a.level]) {
+  if (a.reason == DECISION_REASON || depth > minimize_depth_limit()) {
     const uint8_t before = k.seen[v];
     k.seen[v] |= POISONED;
     if (!before) // no other flag: newly touched
@@ -1005,16 +1006,8 @@ ApplyResult analyze_apply(Kernel &k) {
 
   // shrink + minimize (kissat analyze.c at its default shrink=3): per decision
   // level, first try to collapse the whole block to its local UIP; if that
-  // fails, minimize its literals individually. Level marks gate
-  // literal_redundant's chains throughout.
+  // fails, minimize its literals individually.
   if (learned.size() > 2) {
-    for (uint32_t j = 1; j < learned.size(); j++) {
-      const uint32_t lv = k.var_level(var_of(learned[j]));
-      if (!k.marked_levels[lv]) {
-        k.marked_levels[lv] = 1;
-        k.touched_levels.push_back(lv);
-      }
-    }
     // Group into blocks by descending level while preserving deduction order
     // within each level, matching Kissat's stable bucket sort.
     radix_sort_learned_by_level(k, learned);
@@ -1051,9 +1044,6 @@ ApplyResult analyze_apply(Kernel &k) {
       if (learned[j] != INVALID_LIT)
         learned[kept++] = learned[j];
     learned.resize(kept);
-    for (const uint32_t lv : k.touched_levels)
-      k.marked_levels[lv] = 0;
-    k.touched_levels.clear();
   }
   if (learned.size() <= 2)
     event_trace_learned_stage(k, "learned_sorted", learned);
