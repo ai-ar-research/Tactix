@@ -266,11 +266,16 @@ decision is joint because either alone measured negative while the pair measured
 
 ## 10. Design decision: Reorder
 
-Reorder is an H-only policy operation and now ships in both modes, matching
-Kissat's `reorder=2`; `TACTIX_REORDER=0/1/2` retains off, stable-only, and both
-arms. Its operation and CDCL position were already implemented. The earlier
-Tier-B SAT regression makes cumulative repricing mandatory before
-`ORDER-DEFAULT-1` closes; `reorder_eligible` and `reordered` distinguish policy
+Reorder is an H-only policy operation and ships in both modes, matching Kissat's
+`reorder=2`; `TACTIX_REORDER=0/1/2` retains off, stable-only, and both arms.
+`ORDER-DEFAULT-1` is Tier-A closed by
+`benchmarks/reports/2026-08-09-order-default-1-reorder-corruption.md`.
+The first default-on run exposed a focused-mode port bug: permanent retired
+identities were sorted even after DefaultPolicy disconnected them from H, and
+their stale queue links corrupted VMTF. Reorder now sorts non-retired variables;
+queue removal clears links; stable refresh follows the policy-owned connected
+queue. This distinction preserves the policy-neutral N1 surface while matching
+Kissat's `ACTIVE` filter. `reorder_eligible` and `reordered` distinguish policy
 reach from applications.
 
 For each open irredundant-clause occurrence, literal weight adds `2^-(size-2)` with size clamped to
@@ -667,7 +672,8 @@ The dated evidence report
 reconstructed executable order rather than assuming the option-led ledger was
 exhaustive. It reopened three deduplicated roots:
 
-- `ORDER-DEFAULT-1`: both-mode default implemented; cumulative pricing remains.
+- `ORDER-DEFAULT-1`: Tier-A closed after repairing retired-variable VMTF
+  corruption; the dated Reorder report owns trace and paired-run evidence.
 - `ORDER-LUCKY-1`: named early/late calls now bracket initial preprocessing;
   separate call/SAT counters and `TACTIX_LUCKY_LATE=0` retain attribution.
 - `ORDER-FOLLOWUP-1`: scheduler-owned outcome edges now condition the two
