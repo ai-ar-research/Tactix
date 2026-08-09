@@ -12,6 +12,7 @@ using Lit = uint32_t; // 2*var + negated
 using Ref = uint32_t; // word offset of a clause in the arena
 
 constexpr Lit INVALID_LIT = UINT32_MAX;
+constexpr Var INVALID_VAR = UINT32_MAX;
 constexpr Ref INVALID_REF = UINT32_MAX;
 
 // reason sentinels (kissat/src/assign.h)
