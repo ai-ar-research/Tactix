@@ -27,8 +27,8 @@ uint64_t state_digest(const Kernel &k) {
     h = mix(h, static_cast<uint8_t>(k.values[make_lit(v, false)] + 1));
   }
   if (k.h)
-    for (Var v = k.h->queue_first; v != INVALID_VAR;
-         v = k.h->links[v].next)
+    for (Var v = k.h->queue_first, n = 0;
+         v != INVALID_VAR && n++ <= k.nvars; v = k.h->links[v].next)
       h = mix(h, k.internal_to_external[v] + 1ull);
   return h;
 }
@@ -45,6 +45,8 @@ RankingSummary summarize_ranking(const Kernel &k) {
     return res;
   for (Var v = k.h->queue_first; v != INVALID_VAR; v = k.h->links[v].next) {
     res.queue++;
+    if (res.queue > k.nvars) // encode a cycle as an impossible population
+      break;
     res.retired_queue += kernel_var_retired(k, v);
   }
   res.heap = k.h->scores.stack.size();
@@ -63,7 +65,8 @@ RankingSummary summarize_ranking(const Kernel &k) {
       return a < b;
     });
   } else {
-    for (Var v = k.h->queue_last; v != INVALID_VAR; v = k.h->links[v].prev)
+    for (Var v = k.h->queue_last, n = 0;
+         v != INVALID_VAR && n++ <= k.nvars; v = k.h->links[v].prev)
       if (!kernel_var_retired(k, v) && k.values[make_lit(v, false)] == 0)
         ranked.push_back(v);
   }

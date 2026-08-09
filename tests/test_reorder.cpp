@@ -117,6 +117,33 @@ static void test_heap_ranking() {
   assert(heuristics_heap_next_unassigned(k) == var_of(internalize(1)));
 }
 
+// Kissat reorders ACTIVE variables only. Retired variables are disconnected
+// from both rankings; feeding them back through queue_bump follows stale links
+// and used to corrupt the focused queue on the first 10k-conflict Reorder.
+static void test_retired_variables_stay_disconnected() {
+  for (const bool stable : {false, true}) {
+    Kernel k;
+    ScopedHeuristics _h(k);
+    kernel_reserve_vars(k, 6);
+    addn(k, {1, 2});
+    addn(k, {-1, 3});
+    k.var_status.assign(k.nvars, VarStatus::Active);
+    k.var_status[1] = VarStatus::Eliminated;
+    k.var_status[4] = VarStatus::Substituted;
+    heuristics_deactivate_var(k, 1);
+    heuristics_deactivate_var(k, 4);
+    k.h->stable = stable;
+    if (stable)
+      heuristics_update_scores(k);
+    assert(reorder_apply(k) == ApplyResult::Ok);
+    assert(k.stats.reactivations == 0);
+    for (Var v = k.h->queue_first; v != INVALID_VAR; v = k.h->links[v].next)
+      assert(v != 1 && v != 4);
+    for (const Var v : k.h->scores.stack)
+      assert(v != 1 && v != 4);
+  }
+}
+
 // The VMTF search cache survives a mid-trail reorder: every variable after
 // `search_idx` must stay assigned, the invariant `queue_next_unassigned`'s
 // backward walk needs and `queue_bump` maintains only for what it moves.
@@ -207,6 +234,7 @@ int main() {
   test_queue_ranking();
   test_search_cache_survives_mid_trail();
   test_heap_ranking();
+  test_retired_variables_stay_disconnected();
   test_instance_surface();
   test_guard();
   test_solve_unaffected();

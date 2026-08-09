@@ -167,6 +167,17 @@ static void queue_dequeue(Kernel &k, Var v) {
     k.h->links[l.next].prev = l.prev;
   else
     k.h->queue_last = l.prev;
+  // Make disconnection explicit. Reorder used to feed a retired variable back
+  // through this function and follow these stale links, corrupting the queue.
+  l.prev = l.next = UINT32_MAX;
+}
+
+static bool queue_contains(const Kernel &k, Var v) {
+  if (k.h->queue_first == v || k.h->queue_last == v)
+    return true;
+  const Link &l = k.h->links[v];
+  return l.prev != INVALID_VAR && l.prev < k.nvars &&
+         k.h->links[l.prev].next == v;
 }
 
 static void queue_restamp(Kernel &k) {
@@ -480,10 +491,12 @@ void heuristics_scores_decay(Kernel &k) {
 }
 
 void heuristics_update_scores(Kernel &k) {
-  // entering stable mode: every var must be reachable via the heap
+  // Entering stable mode: every variable owned by this policy's live decision
+  // queue must be reachable via the heap. DefaultPolicy disconnects retired
+  // variables; the policy-neutral API may retain them for N1 decisions.
   // (kissat bump.c kissat_update_scores)
   for (Var v = 0; v < k.nvars; v++)
-    if (!heuristics_heap_contains(k, v))
+    if (queue_contains(k, v) && !heuristics_heap_contains(k, v))
       heuristics_heap_push(k, v);
 }
 
@@ -532,6 +545,33 @@ void heuristics_check(const Kernel &k) {
   assert(k.h->scores.score.size() == k.nvars);
   assert(k.h->target.size() == k.nvars);
   assert(k.h->best.size() == k.nvars);
+
+  // Every connected queue variable occurs exactly once with reciprocal links.
+  // DefaultPolicy removes retired variables, while the policy-neutral C API
+  // deliberately may leave them connected; structural integrity is universal
+  // even though membership is policy-owned.
+  std::vector<uint8_t> queued(k.nvars, 0);
+  uint32_t queue_count = 0;
+  Var previous = INVALID_VAR;
+  for (Var v = k.h->queue_first; v != INVALID_VAR; v = k.h->links[v].next) {
+    assert(v < k.nvars);
+    assert(!queued[v]);
+    assert(k.h->links[v].prev == previous);
+    queued[v] = 1;
+    previous = v;
+    assert(++queue_count <= k.nvars);
+  }
+  assert(previous == k.h->queue_last);
+  // Heap membership is lazy and policy-owned, but every member is unique and
+  // agrees with the inverse position map.
+  std::vector<uint8_t> heaped(k.nvars, 0);
+  for (uint32_t pos = 0; pos < k.h->scores.stack.size(); pos++) {
+    const Var v = k.h->scores.stack[pos];
+    assert(v < k.nvars);
+    assert(!heaped[v]);
+    assert(k.h->scores.pos[v] == pos);
+    heaped[v] = 1;
+  }
 }
 #endif
 
