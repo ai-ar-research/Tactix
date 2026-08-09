@@ -999,6 +999,10 @@ ApplyResult analyze_apply(Kernel &k) {
     }
     if (!restart_analysis)
       break;
+    // Kissat counts the strengthened clause as a fresh conflict before
+    // re-running 1-UIP analysis.  This is not cosmetic: restart, reduction,
+    // mode, rephase, reorder, and inprocessing deadlines all read this clock.
+    k.stats.conflicts++;
     bump_and_reset_analyzed(k); // kissat bumps each aborted round too
   }
   learned[0] = negate(uip);

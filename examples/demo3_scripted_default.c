@@ -391,7 +391,7 @@ int main(int argc, char **argv) {
    * just clears them makes the coverage assertions fail on any ordinary
    * trajectory shift, i.e. on changes that are performance-neutral.
    * argv overrides for exploration: demo3 [N M SEED] */
-  int N = 152, M = 647; /* m/n = 4.26 */
+  int N = 160, M = 681; /* m/n = 4.26 */
   uint64_t SEED = 20260714;
   if (argc == 4) {
     N = atoi(argv[1]);
