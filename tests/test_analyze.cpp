@@ -122,6 +122,43 @@ static void test_shrink() {
   assert(default_solve(k) == 10); // still satisfiable (1 2 3, -4)
 }
 
+static Kernel singleton_minimization_fixture(bool enabled) {
+  // At level 2, c follows from a through (-a c).  The conflict learns
+  // (-d -c -a), where -c is the sole literal on its level and is redundant
+  // through -a.  Kissat shrink=3 skips that singleton block; Tactix's
+  // stronger arm minimizes it.
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  k.minimize_singletons = enabled;
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+  // White-box N1 schedule: assign c at level 2 from the binary (-a c), even
+  // though ordinary propagation would have assigned it at level 1.  Analyze
+  // must remain sound for this public-state schedule.
+  kernel_assign(k, internalize(3), 2, internalize(-1), true);
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_assign_decision(k, internalize(4));
+  const Lit conflict[3] = {internalize(-4), internalize(-3),
+                           internalize(-1)};
+  k.conflict_ref = kernel_add_large_clause(k, conflict, 3, false, 0);
+  k.conflict_valid = true;
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  return k;
+}
+
+static void test_singleton_minimization_arm() {
+  Kernel stronger = singleton_minimization_fixture(true);
+  assert(stronger.pending.lits.size() == 2);
+  assert(stronger.pending.lits[0] == internalize(-4));
+  assert(stronger.pending.lits[1] == internalize(-1));
+  assert(stronger.pending.jump_level == 1);
+
+  Kernel kissat = singleton_minimization_fixture(false);
+  assert(kissat.pending.lits.size() == 3);
+  assert(kissat.pending.lits[0] == internalize(-4));
+  assert(kissat.pending.jump_level == 2);
+}
+
 static void test_otfs() {
   // Resolving d = (-1 -2 -3) with its reason r = (-1 -2 3) yields (-1 -2),
   // smaller than both: OTFS strengthens r to it, subsumes d, and relearns.
@@ -462,6 +499,7 @@ int main() {
   test_conflictanalysis_atomic();
   test_learned_unit();
   test_shrink();
+  test_singleton_minimization_arm();
   test_otfs();
   test_chrono_backjump_clamps_to_jump_level();
   test_backjump_target_clamps();
