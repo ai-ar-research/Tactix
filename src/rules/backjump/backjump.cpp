@@ -42,6 +42,11 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   if (target < k.level)
     kernel_backtrack(k, target);
 
+  // OTFS's old clause had to remain a valid reason until the analysis-level
+  // literal was removed.  It is now redundant with the fresh stronger clause;
+  // retire it before any later rule or propagation can observe the duplicate.
+  analyze_retire_otfs_reasons(k);
+
   // Eager subsumption belongs after the backtrack: before it, every subsumable
   // candidate is still a trail reason and gets skipped. Running it before the
   // assert is equivalent to kissat's position, since asserting the UIP can

@@ -386,6 +386,10 @@ struct Kernel {
   std::vector<Var> reason_bumped; // REASON_BUMP marks, for rollback
   std::vector<Lit> learned_scratch; // the clause under construction
   std::vector<Lit> otfs_scratch;    // OTFS resolvent assembly
+  // OTFS materializes a replacement because variable-size arena records can
+  // not shrink in place.  The old reason stays valid until Backjump unassigns
+  // its propagated literal, then is retired before the fused rule returns.
+  std::vector<Ref> otfs_retired;
   std::vector<Var> radix_scratch;   // radix-sort double buffer
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
@@ -632,6 +636,14 @@ inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
 }
 
 void kernel_unwatch_large(Kernel &, Lit l, Ref ref);
+
+// Exchange two large-clause entries in one watch list without changing their
+// positions.  OTFS uses this to give a freshly allocated replacement the old
+// clause's surviving-watch position while both clauses remain fully watched.
+// The last two arguments are the blockers each Ref must have AFTER the swap.
+void kernel_swap_large_watch_refs(Kernel &, Lit l, Ref first, Ref second,
+                                  Lit blocking_for_first,
+                                  Lit blocking_for_second);
 
 void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
                                 uint32_t from);

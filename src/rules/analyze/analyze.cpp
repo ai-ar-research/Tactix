@@ -433,17 +433,13 @@ static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
 }
 
 // --- on-the-fly subsumption (kissat/src/deduce.c + strengthen.c) ----------
-// When resolving trail literal t's reason yields exactly reason ∖ {t}, the
-// resolvent subsumes the reason: materialize it as a stronger clause and
-// restart the analysis with it as the conflict. If that happened on the first
-// resolution and the resolvent is also smaller than the conflict, the conflict
-// is subsumed too and deleted. Deviation from kissat, which strengthens the
-// reason in place: that transiently leaves t's reason not containing t and
-// needs shrunken-clause padding in every arena walk, and N1 makes the state
-// visible to any legal schedule — so the strengthened clause is allocated
-// fresh and the original left as t's reason. The subsumed conflict can never
-// be a reason (a propagating clause has its forced literal true) and is
-// deleted right after the stronger resolvent is added.
+// A resolvent equal to reason ∖ {t} subsumes the reason and becomes the new
+// conflict. Tactix cannot shrink a variable-size arena record in place, so it
+// allocates the stronger clause while the old one remains t's valid reason.
+// The fused Backjump unassigns t and then deletes the old clause; no duplicate
+// crosses the public rule boundary. If the first resolvent also subsumes the
+// conflict, that conflict is deleted immediately because it cannot be a trail
+// reason. Evidence: benchmarks/reports/2026-08-09-tier-a-otfs-watch-repair.md.
 static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
                             Ref subsumed_ref /* INVALID_REF if none */,
                             uint64_t conflict_chain_id) {
@@ -451,9 +447,18 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   std::vector<Lit> &lits = k.otfs_scratch; // no per-event alloc
   lits.clear();
   lits.reserve(reason->size - 1);
-  for (const Lit l : *reason)
-    if (l != t && k.var_level(var_of(l)) > 0)
+  assert(reason->lits[0] == t || reason->lits[1] == t);
+  const Lit surviving_watch =
+      reason->lits[0] == t ? reason->lits[1] : reason->lits[0];
+  const bool keep_surviving_watch =
+      k.var_level(var_of(surviving_watch)) > 0;
+  if (keep_surviving_watch)
+    lits.push_back(surviving_watch);
+  for (uint32_t i = 2; i < reason->size; i++) {
+    const Lit l = reason->lits[i];
+    if (k.var_level(var_of(l)) > 0)
       lits.push_back(l);
+  }
   assert(lits.size() >= 2);
   const uint64_t id = ++k.next_clause_id;
 
@@ -484,20 +489,32 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];
   } else {
-    // Watch the two highest-level literals, ties by trail (D-LEVEL-2), or a
-    // compacting backtrack can strand the clause unit with no watch firing.
-    // This reduces to highest-trail selection on a level-sorted trail, an
-    // equivalence that holds only with chrono off. glue = distinct levels.
-    for (uint32_t w = 0; w < 2; w++) {
-      uint32_t best = w;
-      for (uint32_t j = w + 1; j < lits.size(); j++) {
-        const Assigned &aj = k.assigned[var_of(lits[j])];
-        const Assigned &ab = k.assigned[var_of(lits[best])];
-        if (aj.level > ab.level ||
-            (aj.level == ab.level && aj.trail > ab.trail))
-          best = j;
+    if (keep_surviving_watch) {
+      // Kissat keeps the reason's other old watch and selects only its new
+      // partner, taking the first literal on a level tie.  Re-selecting both
+      // watches was not strictly better and changed later scan order.
+      uint32_t highest = 1;
+      for (uint32_t j = 2; j < lits.size(); j++)
+        if (k.var_level(var_of(lits[j])) >
+            k.var_level(var_of(lits[highest])))
+          highest = j;
+      std::swap(lits[1], lits[highest]);
+    } else {
+      // Tactix removes a root-false surviving watch, producing a strict
+      // subclause.  With no reference watch left to preserve, choose the two
+      // latest assignments so a compacting chronological backtrack cannot
+      // strand the clause behind an older pair.
+      for (uint32_t w = 0; w < 2; w++) {
+        uint32_t best = w;
+        for (uint32_t j = w + 1; j < lits.size(); j++) {
+          const Assigned &aj = k.assigned[var_of(lits[j])];
+          const Assigned &ab = k.assigned[var_of(lits[best])];
+          if (aj.level > ab.level ||
+              (aj.level == ab.level && aj.trail > ab.trail))
+            best = j;
+        }
+        std::swap(lits[w], lits[best]);
       }
-      std::swap(lits[w], lits[best]);
     }
     // The site kissat's strengthen.c:42-43 covers. The exact LBD is recomputed
     // where kissat clamps the old glue — a stronger input to the same
@@ -510,13 +527,45 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     k.conflict_ref = kernel_add_large_clause(
         k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue,
         id);
+    if (keep_surviving_watch)
+      kernel_swap_large_watch_refs(k, surviving_watch, reason_ref,
+                                   k.conflict_ref, t, lits[1]);
   }
+
+  // The replacement assumes the old reason's eager-register identity.  A
+  // binary has no arena Ref and simply vacates the slot.
+  for (Ref &recent : k.eager_recent)
+    if (recent == reason_ref)
+      recent = k.conflict_ref;
+  k.otfs_retired.push_back(reason_ref);
 
   if (subsume) {
     Clause *d = clause_at(k.arena, subsumed_ref); // re-deref: arena moved
     kernel_delete_clause(k, d);
     k.stats.otfs_subsumed++;
   }
+}
+
+void analyze_retire_otfs_reasons(Kernel &k) {
+  for (const Ref ref : k.otfs_retired) {
+#ifndef NDEBUG
+    // A clause can antecede at most one current assignment: once it propagates
+    // that literal it is satisfied. Backjump has just removed that assignment.
+    for (const Lit assigned : k.trail) {
+      const Assigned &a = k.assigned[var_of(assigned)];
+      assert(a.binary || a.reason != ref);
+    }
+#endif
+    Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) {
+      const Lit first = c->lits[0], second = c->lits[1];
+      kernel_unwatch_large(k, first, ref);
+      kernel_unwatch_large(k, second, ref);
+      c = clause_at(k.arena, ref);
+      kernel_delete_clause(k, c);
+    }
+  }
+  k.otfs_retired.clear();
 }
 
 // --- all-UIP block shrinking (kissat/src/shrink.c; Fleury–Biere SAT'20) ---

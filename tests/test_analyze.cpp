@@ -304,7 +304,43 @@ static void test_otfs() {
   assert(k.pending.lits[1] == internalize(-1));
   assert(k.pending.jump_level == 1);
   assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(clause_at(k.arena, rref)->garbage()); // safe after t is unassigned
+  assert(k.otfs_retired.empty());
   assert(default_solve(k) == 10); // satisfiable: 1, -2
+}
+
+static void test_large_otfs_retires_replaced_reason() {
+  // The five-literal reason is strengthened to four literals.  It must stay a
+  // valid reason during Analyze's white-box half, but not survive the fused
+  // backjump alongside its strict replacement.
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit r[5] = {internalize(-1), internalize(-2), internalize(-3),
+                    internalize(-4), internalize(5)};
+  const Lit d[5] = {internalize(-1), internalize(-2), internalize(-3),
+                    internalize(-4), internalize(-5)};
+  const Ref rref = kernel_add_large_clause(k, r, 5, false, 0);
+  kernel_add_large_clause(k, d, 5, false, 0);
+
+  for (int v = 1; v <= 4; v++) {
+    kernel_assign_decision(k, internalize(v));
+    const ApplyResult p = propagate_apply(k);
+    if (v < 4)
+      assert(p == ApplyResult::Ok);
+    else
+      assert(p == ApplyResult::Conflict);
+  }
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.otfs_strengthened == 1);
+  assert(!clause_at(k.arena, rref)->garbage());
+  assert(k.otfs_retired.size() == 1 && k.otfs_retired[0] == rref);
+  kernel_check_invariants(k); // both old reason and replacement are valid
+
+  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(clause_at(k.arena, rref)->garbage());
+  assert(k.otfs_retired.empty());
+  kernel_check_invariants(k);
+  assert(default_solve(k) == 10);
 }
 
 static void test_chrono_backjump_clamps_to_jump_level() {
@@ -623,6 +659,7 @@ int main() {
   test_singleton_minimization_stronger();
   test_learned_level_stable_order();
   test_otfs();
+  test_large_otfs_retires_replaced_reason();
   test_chrono_backjump_clamps_to_jump_level();
   test_backjump_target_clamps();
   test_conflict_reuse_repairs_watches();

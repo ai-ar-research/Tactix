@@ -283,6 +283,36 @@ void kernel_unwatch_large(Kernel &k, Lit l, Ref ref) {
   assert(removed && "unwatch of a clause this literal does not watch");
 }
 
+void kernel_swap_large_watch_refs(Kernel &k, Lit l, Ref first, Ref second,
+                                  Lit blocking_for_first,
+                                  Lit blocking_for_second) {
+  assert(first != second);
+  uint32_t *p = k.watches.begin(l);
+  uint32_t *const end = k.watches.end(l);
+  bool found_first = false, found_second = false;
+  while (p != end) {
+    if (Watch{*p}.binary()) {
+      p++;
+      continue;
+    }
+    if (p[1] == first) {
+      assert(!found_first);
+      p[0] = blocking_watch(blocking_for_second).raw;
+      p[1] = second;
+      found_first = true;
+    } else if (p[1] == second) {
+      assert(!found_second);
+      p[0] = blocking_watch(blocking_for_first).raw;
+      p[1] = first;
+      found_second = true;
+    }
+    p += 2;
+  }
+  assert(found_first && found_second);
+  (void)found_first;
+  (void)found_second;
+}
+
 void kernel_promote_watched_lit(Kernel &k, Ref ref, uint32_t slot,
                                 uint32_t from) {
   assert(slot < 2 && from >= 2);
@@ -943,6 +973,8 @@ void kernel_collect_garbage(Kernel &k) {
   }
   if (k.pending.valid && k.pending.ref != INVALID_REF)
     k.pending.ref = clause_at(k.arena, k.pending.ref)->searched;
+  for (Ref &ref : k.otfs_retired)
+    ref = clause_at(k.arena, ref)->searched;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) // strip large entries, keep binaries
     k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
   k.arena.swap(fresh);
@@ -1193,6 +1225,7 @@ bool kernel_compact_variables(Kernel &k) {
   k.reason_bumped.clear();
   k.learned_scratch.clear();
   k.otfs_scratch.clear();
+  k.otfs_retired.clear();
   k.radix_scratch.clear();
   k.jump_pending.clear();
   k.lrat_entries.clear();
@@ -1418,6 +1451,15 @@ void kernel_check_invariants(const Kernel &k) {
         else
           large = true;
       }
+    }
+    for (const WatchEntry w : k.watches.entries(lit)) {
+      if (w.binary())
+        continue;
+      const Clause *c = clause_at(k.arena, w.ref());
+      bool blocker_is_member = false;
+      for (const Lit member : *c)
+        blocker_is_member |= member == w.blocking();
+      assert(blocker_is_member && "large-watch blocker outside its clause");
     }
   }
   // binary watch symmetry: every binary entry (l -> other) must have its
