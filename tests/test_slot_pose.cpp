@@ -53,6 +53,7 @@ static void test_substitute_hand_rolled_budget() {
   Kernel k;
   Heuristics h;
   k.h = &h;
+  k.stats.conflicts = 1;
   k.stats.search_ticks = 999;
   DefaultPolicy p;
   p.inprocess().build(k);
@@ -72,6 +73,7 @@ static void test_substitute_budget_stops_second_round() {
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  k.stats.conflicts = 1;
   k.stats.search_ticks = 1; // 10 per mille rounds down to zero, with no floor
 
   DefaultPolicy p;
@@ -123,6 +125,7 @@ static void test_factor_bound_walks_posed_bve_ladder() {
   Kernel k;
   Heuristics h;
   k.h = &h;
+  k.stats.conflicts = 1;
 
   PosedBveLadder ladder;
   BoundRecorder recorder;
@@ -159,6 +162,7 @@ static void test_factor_bound_walks_posed_bve_ladder() {
 // through `run_slot_phase`: via solve() an untaken macro trigger would leave
 // occasions == 0, which reads exactly like a working disable.
 static uint64_t pose_congruence(bool enabled, DefaultPolicy &p, Kernel &k) {
+  k.stats.conflicts = 1;
   const int cong = tactix_rule_id("Congruence");
   const int subst = tactix_rule_id("Substitute");
   assert(cong >= 0 && subst >= 0);
@@ -238,6 +242,7 @@ static void with_env(const char *const *kv, size_t n,
     Heuristics h;
     k.h = &h;
     fixture(k);
+    k.stats.conflicts = 1;
     assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
     assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) != 20);
     check(p, k);

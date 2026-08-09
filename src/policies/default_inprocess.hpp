@@ -93,6 +93,7 @@ public:
   static constexpr uint64_t SUBSUME_INTERVAL = 500;
   static constexpr uint64_t PROBE_INTERVAL = 100;
   static constexpr uint64_t MIN_EFFORT_TICKS = 10000000;
+  static constexpr uint64_t PREPROCESS_INIT_TICKS = 2000000;
   static constexpr int PHASE_ROUNDS = 2;
   static constexpr uint64_t FACTOR_INIT_TICKS = 700000000ull;
   static constexpr uint64_t CONGRUENCE_INIT_TICKS = 1000000000000ull;
@@ -109,6 +110,7 @@ public:
     bool closure = false;
     uint64_t limit = 0;
     bool defer_preprocess = false;
+    bool preprocess = false;
     uint64_t arena_mark = 0;
     uint32_t max_applies = 0;
     uint32_t applies = 0;

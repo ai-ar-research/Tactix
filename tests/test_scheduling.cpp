@@ -491,9 +491,10 @@ static void test_effort_limit_is_kissats(void) {
   e.group = SlotGroup::Eliminate;
   e.meter = [](const Kernel &) -> uint64_t { return 0; };
 
-  // No search yet: the reference floors at MIN_EFFORT_TICKS, so the delta is
+  // During search, the reference floors at MIN_EFFORT_TICKS, so the delta is
   // 1e7/1000*100 == 1e6. A large formula must NOT lift it — the active floor
   // that used to do so was cadical's and is gone.
+  k.stats.conflicts = 1;
   k.unassigned = 400000;
   p.inprocess().set_entry_limit(e, k);
   assert(e.limit == 1000000 &&
@@ -513,9 +514,40 @@ static void test_effort_limit_is_kissats(void) {
   std::printf("  effort limit: kissat's formula, phase anchor, no clamps\n");
 }
 
+static void test_preprocess_is_reduced_and_bounded(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 64);
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  std::vector<const char *> offered;
+  const auto &rules = tactix_rules();
+  for (const auto &e : p.inprocess().entries)
+    if (e.preprocess)
+      offered.push_back(rules[e.rule].name);
+  static const char *const expected[] = {
+      "Congruence", "Substitute", "Backbone",
+      "Sweep", "Substitute", "Factor"};
+  assert(offered.size() == std::size(expected));
+  for (size_t i = 0; i < offered.size(); i++)
+    assert(!std::strcmp(offered[i], expected[i]));
+  assert(p.inprocess().want_phase(k, SlotGroup::Probe));
+  assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate));
+
+  DefaultInprocessScheduler::SlotEntry e;
+  e.rule = static_cast<int>(find_rule("Backbone")->id);
+  e.group = SlotGroup::Probe;
+  e.permille = 20;
+  e.meter = [](const Kernel &) -> uint64_t { return 7; };
+  p.inprocess().set_entry_limit(e, k);
+  assert(e.limit == 40007 &&
+         "preprocessing must use 20 permille of preprocessinit=2e6");
+  std::printf("  preprocess: one reduced probe pipeline, 2e6 tick reference\n");
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
   test_effort_limit_is_kissats();
+  test_preprocess_is_reduced_and_bounded();
   test_slot_cursor_rotates();
   test_cursor_preserves_n1();
   test_order_arms_reorder();
