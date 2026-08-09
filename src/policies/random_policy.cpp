@@ -1,4 +1,5 @@
 #include "policies/random_policy.hpp"
+#include "policies/heuristics.hpp"
 #include "policies/stress_common.hpp"
 
 #include <cstdio>
@@ -144,6 +145,8 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     } else {
       r = apply_rule(rules[id], k);
     }
+    heuristics_consume_rule_advice(k);
+    heuristics_consume_retirements(k);
     if (trace)
       trace->record(id, applied);
     if (targeted)

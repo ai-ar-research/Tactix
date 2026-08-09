@@ -8,6 +8,39 @@
 
 namespace tactix {
 
+void heuristics_consume_rule_advice(Kernel &k) {
+  if (!k.h) {
+    k.fresh_var_events.clear();
+    k.substituted_events.clear();
+    return;
+  }
+  if (k.factor_demote_fresh)
+    for (const Kernel::FreshVars &event : k.fresh_var_events)
+      heuristics_demote_fresh_vars(k, event.first);
+  k.fresh_var_events.clear();
+
+  if (k.subst_demote && !k.substituted_events.empty()) {
+    std::vector<uint8_t> mark(k.nvars, 0);
+    for (Var v = 0; v < k.nvars; v++)
+      mark[v] = kernel_var_retired(k, v) ? 1 : 0;
+    heuristics_demote_marked_vars(k, mark);
+  }
+  k.substituted_events.clear();
+}
+
+void heuristics_consume_retirements(Kernel &k) {
+  if (k.retire_enabled && k.h)
+    for (const Var v : k.retired_events)
+      heuristics_deactivate_var(k, v);
+  k.retired_events.clear();
+}
+
+void heuristics_discard_rule_events(Kernel &k) {
+  k.fresh_var_events.clear();
+  k.substituted_events.clear();
+  k.retired_events.clear();
+}
+
 void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   k.h->saved.resize(nvars, 1); // initial phase: positive (kissat default)
   k.h->links.resize(nvars);

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "kernel/kernel.hpp"
+#include "rules/factor/factor.hpp"
 
 namespace tactix {
 
@@ -62,33 +63,33 @@ struct BveBoundPolicy : SubPolicy {
 // plus the pure guard, as with `k.bve_bound`, not on a per-grid enumeration — a
 // maximizing policy sets accept to delta >= 1 and reaches every positive-gain
 // grid. Design: docs/design/s2a-factor-matcher-design.md.
-struct FactorMatchPolicy : SubPolicy {
+struct FactorMatchPolicy : SubPolicy, FactorSelection {
   // The coupled Factor bound (BVE's growth allowance) for this phase. An
   // injected matcher customizes SCORING, not the growth invariant — kissat's
   // bound test is unconditional (factor.c:939) — so the policy hands it the
   // snapshot; ignoring it is an explicit choice, not an accident.
-  virtual void set_bound(uint32_t) {}
+  void set_bound(uint32_t) override {}
   // Optional per-sweep lifecycle for a stateful score (kissat distinct_paths
   // caches across a sweep). The no-op default keeps a stateless arm trivial.
-  virtual void begin_sweep(const Kernel &) {}
-  virtual void end_sweep() {}
+  void begin_sweep(const Kernel &) override {}
+  void end_sweep() override {}
 
   // Seed priority for the max-heap (kissat watches_score / update_candidate),
   // re-consulted on the stale re-score and the post-apply re-push.
-  virtual double seed_score(const Kernel &, Lit seed) = 0;
+  virtual double seed_score(const Kernel &, Lit seed) override = 0;
 
   // Secondary key among next-factor candidates tied on the max co-occurrence
   // count `cofactor` (kissat tied_next_factor_score), which stays the primary
   // key in the rule. `seed` is the chain's seed factor, ignored by the default
   // arm and keyed on by structural scores.
   virtual double next_factor_score(const Kernel &, Lit cand,
-                                   uint32_t cofactor, Lit seed) = 0;
+                                   uint32_t cofactor, Lit seed) override = 0;
 
   // Accept threshold for the best greedy grid (m by n, net gain
   // delta = m*n - (m+n)). At its most permissive setting it must accept every
   // delta >= 1 — the N1 reachability floor. The rule-side FACTOR_MIN_GAIN cost
   // floor is applied before this is consulted.
-  virtual bool accept(uint32_t m, uint32_t n, int delta) = 0;
+  virtual bool accept(uint32_t m, uint32_t n, int delta) override = 0;
 };
 
 } // namespace tactix

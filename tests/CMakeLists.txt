@@ -259,6 +259,10 @@ add_test(NAME no_heuristics COMMAND test_no_heuristics)
 add_test(NAME kernel_h_boundary
          COMMAND bash -c "! grep -qE '^[[:space:]]*#[[:space:]]*include.*heuristics\\.hpp' '${CMAKE_SOURCE_DIR}/src/kernel/kernel.hpp'")
 
+add_test(NAME rule_policy_boundary
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-rule-policy-boundary.py)
+
 # A reused policy object must be indistinguishable from a fresh one; the phase-6
 # learner solves many instances per process.
 add_executable(test_solve_reset test_solve_reset.cpp)

@@ -8,6 +8,13 @@
 
 namespace tactix {
 
+// Consume formula-rule advice without giving rules access to policy state.
+// Retirement is separate because DefaultPolicy removes variables at phase
+// exit, while stress policies react after each application.
+void heuristics_consume_rule_advice(Kernel &);
+void heuristics_consume_retirements(Kernel &);
+void heuristics_discard_rule_events(Kernel &);
+
 struct Heuristics {
   // `H` tracks its own variable count; heuristics_check asserts it equals
   // Kernel::nvars and every per-var vector is sized to it, so a missed growth

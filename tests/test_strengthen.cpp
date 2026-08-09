@@ -126,8 +126,8 @@ static void test_instance_surface() {
 }
 
 // Pose one elimination-clock slot entry; other fields keep in-class defaults.
-static DefaultPolicy::SlotEntry pose(int rule, bool enabled) {
-  DefaultPolicy::SlotEntry e;
+static DefaultInprocessScheduler::SlotEntry pose(int rule, bool enabled) {
+  DefaultInprocessScheduler::SlotEntry e;
   e.rule = rule;
   e.enabled = enabled;
   e.group = SlotGroup::Eliminate;
@@ -154,15 +154,15 @@ static void test_slot_schedule_as_data() {
     for (const auto &b : xor3)
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
-    p.inprocess.initialized = true;
+    p.inprocess().pose_initialized();
     // both clocks forced open; these two rules sit on the elimination clock
-    p.probe_clock.next_conflicts = 0;
-    p.elim_clock.next_conflicts = 0;
-    p.inprocess_slot.push_back(pose(strengthen_id, true));
-    p.inprocess_slot.push_back(pose(subsume_id, false));
+    p.inprocess().probe_clock.next_conflicts = 0;
+    p.inprocess().elim_clock.next_conflicts = 0;
+    p.inprocess().entries.push_back(pose(strengthen_id, true));
+    p.inprocess().entries.push_back(pose(subsume_id, false));
     assert(p.solve(k) == 20); // odd-parity xor cycle: UNSAT
-    assert(p.inprocess_slot.size() == 2); // posed slot left untouched
-    assert(p.elim_clock.rounds >= 1);     // the forced pass ran
+    assert(p.inprocess().entries.size() == 2); // posed slot left untouched
+    assert(p.inprocess().elim_clock.rounds >= 1);     // the forced pass ran
     assert(k.stats.strengthen_rounds >= 1);
     assert(k.stats.forward_subsumptions == 0); // disabled entry never ran
   }
@@ -173,10 +173,10 @@ static void test_slot_schedule_as_data() {
     for (const auto &b : xor3)
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
-    p.inprocess.initialized = true;
-    p.probe_clock.next_conflicts = 0;
-    p.elim_clock.next_conflicts = 0;
-    p.inprocess_slot.push_back(pose(strengthen_id, false));
+    p.inprocess().pose_initialized();
+    p.inprocess().probe_clock.next_conflicts = 0;
+    p.inprocess().elim_clock.next_conflicts = 0;
+    p.inprocess().entries.push_back(pose(strengthen_id, false));
     assert(p.solve(k) == 20);
     assert(k.stats.strengthen_rounds == 0);
   }
