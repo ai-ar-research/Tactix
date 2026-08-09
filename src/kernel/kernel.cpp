@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <type_traits>
+#include <utility>
 
 namespace tactix {
 
@@ -964,6 +966,214 @@ void kernel_dense_connect(Kernel &k, OccIndex &occ) {
 
 void kernel_dense_disconnect(Kernel &k) { k.dense = nullptr; }
 
+bool kernel_should_compact_variables(const Kernel &k, uint32_t percent) {
+  if (k.var_status.empty() || k.nvars == 0)
+    return false;
+  uint64_t inactive = 0;
+  for (const VarStatus status : k.var_status)
+    inactive += status != VarStatus::Active;
+  return 100 * inactive > static_cast<uint64_t>(percent) * k.nvars;
+}
+
+bool kernel_compact_variables(Kernel &k) {
+  if (k.var_status.empty() || k.conflict_valid || k.pending.valid || k.dense ||
+      k.probing.recording || !k.delayed.empty())
+    return false;
+
+  const uint32_t old_nvars = k.nvars;
+  std::vector<Var> old_to_new(old_nvars, INVALID_VAR);
+  uint32_t new_nvars = 0;
+  for (Var old = 0; old < old_nvars; old++)
+    if (k.var_status[old] == VarStatus::Active)
+      old_to_new[old] = new_nvars++;
+  if (new_nvars == old_nvars)
+    return false;
+
+  // Retirement owns the formula-changing work.  Compaction is only a change
+  // of representation, so it refuses a half-retired variable instead of
+  // silently deleting or shortening a clause without a proof delta.
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage())
+      for (const Lit l : *c)
+        if (old_to_new[var_of(l)] == INVALID_VAR)
+          return false;
+    ref += clause_words(c->size);
+  }
+  for (Lit l = 0; l < 2 * old_nvars; l++)
+    for (const WatchEntry w : k.watches.entries(l))
+      if (w.binary() && (old_to_new[var_of(l)] == INVALID_VAR ||
+                         old_to_new[var_of(w.other())] == INVALID_VAR))
+        return false;
+
+  // Remove garbage first so the rebuilt arena and watch lists contain exactly
+  // the live formula.  This preserves clause refs in assigned reasons through
+  // kernel_collect_garbage's forwarding pass.
+  kernel_collect_garbage(k);
+
+  struct Binary {
+    Lit a, b;
+    uint64_t id;
+  };
+  std::vector<Binary> binaries;
+  for (Lit a = 0; a < 2 * old_nvars; a++)
+    for (const WatchEntry w : k.watches.entries(a))
+      if (w.binary() && a < w.other())
+        binaries.push_back({a, w.other(), kernel_binary_id(k, a, w.other())});
+
+  const auto map_lit = [&](Lit old) {
+    const Var now = old_to_new[var_of(old)];
+    assert(now != INVALID_VAR);
+    return make_lit(now, negated(old));
+  };
+
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    for (Lit &l : *c)
+      l = map_lit(l);
+    ref += clause_words(c->size);
+  }
+
+  WatchLists watches;
+  watches.resize_lits(2 * new_nvars);
+  std::unordered_map<uint64_t, uint64_t> binary_ids;
+  for (const Binary &b : binaries) {
+    const Lit a = map_lit(b.a), other = map_lit(b.b);
+    watches.push_binary(a, other);
+    watches.push_binary(other, a);
+    binary_ids.insert_or_assign(kernel_binary_key(a, other), b.id);
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    watches.push_large(c->lits[0], c->lits[1], ref);
+    watches.push_large(c->lits[1], c->lits[0], ref);
+    ref += clause_words(c->size);
+  }
+
+  std::vector<int8_t> values(2 * new_nvars, 0);
+  std::vector<Assigned> assigned(new_nvars);
+  std::vector<Lit> jumped_over(new_nvars, INVALID_LIT);
+  std::vector<uint64_t> unit_ids(new_nvars, 0);
+  for (Var old = 0; old < old_nvars; old++) {
+    const Var now = old_to_new[old];
+    if (now == INVALID_VAR)
+      continue;
+    const Lit opos = make_lit(old, false), npos = make_lit(now, false);
+    values[npos] = k.values[opos];
+    values[negate(npos)] = k.values[negate(opos)];
+    assigned[now] = k.assigned[old];
+    if (assigned[now].binary && assigned[now].reason < 2 * old_nvars)
+      assigned[now].reason = map_lit(assigned[now].reason);
+    if (assigned[now].jumped)
+      jumped_over[now] = map_lit(k.jumped_over[old]);
+    unit_ids[now] = k.unit_ids[old];
+  }
+
+  std::vector<uint32_t> trail_prefix(k.trail.size() + 1, 0);
+  std::vector<Lit> trail;
+  trail.reserve(new_nvars);
+  for (size_t i = 0; i < k.trail.size(); i++) {
+    const Lit old = k.trail[i];
+    const Var now = old_to_new[var_of(old)];
+    if (now != INVALID_VAR) {
+      const Lit lit = make_lit(now, negated(old));
+      assigned[now].trail = static_cast<uint32_t>(trail.size());
+      trail.push_back(lit);
+    }
+    trail_prefix[i + 1] = static_cast<uint32_t>(trail.size());
+  }
+  std::vector<uint32_t> frames = k.frames;
+  for (uint32_t &frame : frames)
+    frame = trail_prefix[frame];
+  const uint32_t propagate_head = trail_prefix[k.propagate_head];
+
+  auto compact_by_var = [&](auto &values_by_var, const auto &fallback) {
+    using Vector = std::decay_t<decltype(values_by_var)>;
+    Vector fresh(new_nvars, fallback);
+    for (Var old = 0; old < old_nvars; old++) {
+      const Var now = old_to_new[old];
+      if (now != INVALID_VAR)
+        fresh[now] = values_by_var[old];
+    }
+    values_by_var.swap(fresh);
+  };
+  compact_by_var(k.bve_retry, uint8_t{0});
+  compact_by_var(k.bve_min_bound, uint16_t{0});
+  compact_by_var(k.touched, uint64_t{0});
+  compact_by_var(k.removed, uint64_t{0});
+  compact_by_var(k.touched_kept, uint64_t{0});
+
+  std::vector<Var> internal_to_external(new_nvars);
+  for (Var old = 0; old < old_nvars; old++) {
+    const Var now = old_to_new[old];
+    const Var external = k.internal_to_external[old];
+    k.external_to_internal[external] =
+        now == INVALID_VAR ? INVALID_VAR : now;
+    if (now != INVALID_VAR)
+      internal_to_external[now] = external;
+  }
+
+  const uint32_t old_bve_head = k.bve_retry_fixed_head;
+  const uint32_t old_touch_head = k.touch_fixed_head;
+  heuristics_compact_vars(k, old_to_new, new_nvars);
+
+  k.nvars = new_nvars;
+  k.internal_to_external.swap(internal_to_external);
+  k.values.swap(values);
+  k.assigned.swap(assigned);
+  k.jumped_over.swap(jumped_over);
+  k.unit_ids.swap(unit_ids);
+  k.trail.swap(trail);
+  k.frames.swap(frames);
+  k.propagate_head = propagate_head;
+  k.watches = std::move(watches);
+  k.binary_ids.swap(binary_ids);
+  k.binaries_watched_first = true;
+  k.unassigned = 0;
+  for (Var v = 0; v < new_nvars; v++)
+    k.unassigned += k.values[make_lit(v, false)] == 0;
+  k.unassigned_active = k.unassigned;
+  k.first_extension_var = UINT32_MAX;
+  if (k.original_external_vars != UINT32_MAX) {
+    k.first_extension_var = new_nvars;
+    for (Var v = 0; v < new_nvars; v++)
+      if (k.internal_to_external[v] >= k.original_external_vars) {
+        k.first_extension_var = v;
+        break;
+      }
+  }
+
+  k.bve_retry_fixed_head = trail_prefix[old_bve_head];
+  k.touch_fixed_head = trail_prefix[old_touch_head];
+  k.seen.assign(new_nvars, 0);
+  k.eager_marks.assign(2 * new_nvars, 0);
+  k.marked_levels.assign(new_nvars + 1, 0);
+  k.probing.stamp.assign(2 * new_nvars, 0);
+  k.var_status.clear();
+  k.retired_events.clear();
+  k.substituted_events.clear();
+  k.fresh_var_events.clear();
+  k.analyzed.clear();
+  k.shrinkable.clear();
+  k.reason_bumped.clear();
+  k.learned_scratch.clear();
+  k.otfs_scratch.clear();
+  k.radix_scratch.clear();
+  k.jump_pending.clear();
+  k.lrat_entries.clear();
+  k.lrat_chain.clear();
+  for (Ref &ref : k.eager_recent)
+    ref = INVALID_REF;
+  k.model_values.clear();
+  k.model_extended = false;
+  if (k.proof)
+    k.proof->bind_variable_map(&k.internal_to_external);
+  k.stats.variable_compactions++;
+  k.stats.compacted_variables += old_nvars - new_nvars;
+  kernel_check_invariants(k);
+  return true;
+}
+
 
 // Both references garbage every redundant clause that mentions an eliminated
 // variable (cadical mark_redundant_clauses_with_eliminated_variables_as_garbage,
@@ -1086,6 +1296,18 @@ uint64_t kernel_irredundant_clauses(const Kernel &k) {
 #ifndef NDEBUG
 void kernel_check_invariants(const Kernel &k) {
   heuristics_check(k); // `H` sized to nvars (catches a missed Factor growth)
+  assert(k.internal_to_external.size() == k.nvars);
+  for (Var internal = 0; internal < k.nvars; internal++) {
+    const Var external = k.internal_to_external[internal];
+    assert(external < k.external_to_internal.size());
+    assert(k.external_to_internal[external] == internal);
+  }
+  for (Var external = 0; external < k.external_to_internal.size(); external++) {
+    const Var internal = k.external_to_internal[external];
+    assert(internal == INVALID_VAR ||
+           (internal < k.nvars &&
+            k.internal_to_external[internal] == external));
+  }
   // values <-> trail <-> unassigned coherence
   uint32_t assigned_count = 0;
   for (Var v = 0; v < k.nvars; v++) {
@@ -1242,8 +1464,8 @@ void kernel_check_invariants(const Kernel &) {}
 void kernel_push_witness(Kernel &k, Lit witness, const Lit *rest,
                          uint32_t nrest) {
   for (uint32_t i = 0; i < nrest; i++)
-    k.reconstruction.push_back(rest[i]);
-  k.reconstruction.push_back(witness);
+    k.reconstruction.push_back(kernel_external_lit(k, rest[i]));
+  k.reconstruction.push_back(kernel_external_lit(k, witness));
   // segment length word (clause size = witness + rest); Lit is uint32_t so
   // it shares the flat stack — read back as the trailing length prefix.
   k.reconstruction.push_back(static_cast<Lit>(nrest + 1));
@@ -1253,8 +1475,8 @@ void kernel_extend_model(Kernel &k) {
   if (k.model_extended)
     return;
   k.model_extended = true;
-  // Replay must read a TOTAL assignment: the segment test below reads a
-  // value-0 variable as false in BOTH polarities, which voids the
+  // Replay must read a TOTAL external assignment: the segment test below
+  // reads a value-0 variable as false in BOTH polarities, which voids the
   // tautological-resolvent exclusion behind both-sides witness pushes — a
   // pos- and a neg-side window of one pivot can then both look unsatisfied
   // and the reverse walk double-flips the pivot (docs/calculus.md, extend_ρ
@@ -1263,11 +1485,18 @@ void kernel_extend_model(Kernel &k) {
   // value-0 variable to a definite default keeps the active formula
   // satisfied and restores the premise. False matches tactix_value's
   // reading of 0.
-  for (Var v = 0; v < k.nvars; v++) {
-    const Lit pos = make_lit(v, false);
-    if (k.values[pos] == 0) {
-      k.values[pos] = -1;
-      k.values[negate(pos)] = 1;
+  k.model_values.resize(2 * k.external_to_internal.size());
+  for (Var ev = 0; ev < k.external_to_internal.size(); ev++) {
+    const Lit pos = make_lit(ev, false);
+    k.model_values[pos] = -1;
+    k.model_values[negate(pos)] = 1;
+  }
+  for (Var iv = 0; iv < k.nvars; iv++) {
+    const Var ev = k.internal_to_external[iv];
+    const Lit ipos = make_lit(iv, false), epos = make_lit(ev, false);
+    if (k.values[ipos] != 0) {
+      k.model_values[epos] = k.values[ipos];
+      k.model_values[negate(epos)] = k.values[negate(ipos)];
     }
   }
   // Replay rho in reverse (Jarvisalo-Heule-Biere): for each witness segment
@@ -1282,15 +1511,24 @@ void kernel_extend_model(Kernel &k) {
     const Lit witness = k.reconstruction[i - 1]; // pushed last before len
     bool satisfied = false;
     for (size_t j = begin; j < i; j++)
-      if (k.values[k.reconstruction[j]] > 0) {
+      if (k.model_values[k.reconstruction[j]] > 0) {
         satisfied = true;
         break;
       }
     if (!satisfied) {
-      k.values[witness] = 1;
-      k.values[negate(witness)] = -1;
+      k.model_values[witness] = 1;
+      k.model_values[negate(witness)] = -1;
     }
     i = begin;
+  }
+  // Preserve the long-standing kernel test/debug view for variables that are
+  // still live internally.  Compacted-away variables remain available only
+  // through model_values, which is the public/output contract.
+  for (Var iv = 0; iv < k.nvars; iv++) {
+    const Var ev = k.internal_to_external[iv];
+    const Lit ipos = make_lit(iv, false), epos = make_lit(ev, false);
+    k.values[ipos] = k.model_values[epos];
+    k.values[negate(ipos)] = k.model_values[negate(epos)];
   }
 }
 

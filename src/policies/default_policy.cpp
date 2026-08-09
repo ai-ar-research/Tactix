@@ -409,9 +409,9 @@ bool parse_candidate_order(const char *s, CandidateOrder *out) {
 
 namespace {
 
-uint64_t instance_key(uint64_t inst) {
+uint64_t instance_key(const Kernel &k, uint64_t inst) {
   Lit l;
-  return lit_of_instance(inst, &l) ? static_cast<uint64_t>(l) : inst;
+  return lit_of_instance(k, inst, &l) ? static_cast<uint64_t>(l) : inst;
 }
 
 uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
@@ -423,7 +423,7 @@ uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
 
 uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst) {
   Lit l;
-  if (!lit_of_instance(inst, &l) || var_of(l) >= k.nvars)
+  if (!lit_of_instance(k, inst, &l) || var_of(l) >= k.nvars)
     return 0; // not a literal payload: leave it where the native order had it
   const Var v = var_of(l);
   switch (arm) {
@@ -491,7 +491,7 @@ void DefaultInprocessScheduler::order_candidates(const Kernel &k, SlotEntry &e,
   e.ord.candidates += n;
   if (e.cursor_enabled) {
     uint32_t start = 0;
-    while (start < n && instance_key(insts[start]) < e.cursor)
+    while (start < n && instance_key(k, insts[start]) < e.cursor)
       start++;
     if (start >= n)
       start = 0; // the cursor ran past the set: begin again at the head
@@ -626,6 +626,7 @@ void DefaultPolicy::configure_from_env() {
   reduce_sqrt_ = cad ? !std::strcmp(cad, "sqrt") : both;
   default_reduction_.ramp = rmp ? (rmp[0] == '1') : both;
   dynamic_tiers_ = std::getenv("TACTIX_NO_DYNAMIC_TIERS") == nullptr;
+  compact_ = !std::getenv("TACTIX_NO_COMPACT");
   inprocess_.configure_from_env();
 }
 
@@ -904,6 +905,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           k, reduce_scratch_.data(),
           std::min(rp.victims(k, reduce_scratch_.size()),
                    reduce_scratch_.size()));
+      if (compact_ && kernel_should_compact_variables(k, 10))
+        kernel_compact_variables(k);
       update_reduce_limit(k);
       continue;
     }
@@ -1075,7 +1078,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       }
       if (use_retry || ramp) {
         Lit rl;
-        if (lit_of_instance(payloads_[i], &rl) &&
+        if (lit_of_instance(k, payloads_[i], &rl) &&
             var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)] &&
             (!ramp || k.bve_min_bound[var_of(rl)] > k.bve_bound))
           continue;
@@ -1083,7 +1086,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       if (ctx.stop && *ctx.stop)
         break; // §6: a dose can enumerate thousands of candidates
       if (e.cursor_enabled) {
-        e.cursor = instance_key(payloads_[i]) + 1;
+        e.cursor = instance_key(k, payloads_[i]) + 1;
         e.ord.advanced++;
       }
       const bool hand_residual = e.budget_aware && e.meter;

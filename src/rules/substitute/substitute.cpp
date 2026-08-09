@@ -625,7 +625,7 @@ static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   const uint32_t n =
       std::min<uint32_t>(cap, static_cast<uint32_t>(r.nontrivial_reps.size()));
   for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(r.nontrivial_reps[i]);
+    out[i] = lit_instance(k, r.nontrivial_reps[i]);
   return n;
 }
 
@@ -636,7 +636,7 @@ static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return substitute_apply(k);
   Lit rep;
-  if (!lit_of_instance(inst, &rep))
+  if (!lit_of_instance(k, inst, &rep))
     return ApplyResult::NoOp;
   if (var_of(rep) >= k.nvars || k.values[rep] != 0)
     return ApplyResult::NoOp;

@@ -443,7 +443,8 @@ ApplyResult factor_apply(Kernel &k) {
   // the extension vars Factor adds. It must be `first_extension_var`, fixed
   // across applies — `2*k.nvars` would let a second apply factor over the
   // first's extension vars, unbounded self-factoring.
-  const Lit orig_lits = static_cast<Lit>(2 * kernel_num_output_vars(k));
+  const Lit orig_lits =
+      static_cast<Lit>(2 * kernel_num_original_internal_vars(k));
 
   // Fresh-variable boundary for the post-application demotion: every var this
   // application adds lands in [fresh_first, k.nvars), contiguously, so the

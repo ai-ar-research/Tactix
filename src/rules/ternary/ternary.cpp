@@ -293,7 +293,7 @@ static uint32_t ternary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   const uint32_t n =
       std::min<uint32_t>(cap, static_cast<uint32_t>(pivots.size()));
   for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(pivots[i]);
+    out[i] = lit_instance(k, pivots[i]);
   return n;
 }
 
@@ -304,7 +304,7 @@ static ApplyResult ternary_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return ternary_apply(k);
   Lit pivot;
-  if (!lit_of_instance(inst, &pivot))
+  if (!lit_of_instance(k, inst, &pivot))
     return ApplyResult::NoOp;
   return ternary_try(k, pivot);
 }

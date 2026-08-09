@@ -49,6 +49,10 @@ constexpr uint64_t INSTANCE_CANONICAL = UINT64_MAX;
 inline uint64_t lit_instance(Lit l) {
   return static_cast<uint64_t>(static_cast<uint32_t>(externalize(l)));
 }
+inline uint64_t lit_instance(const Kernel &k, Lit l) {
+  return static_cast<uint64_t>(
+      static_cast<uint32_t>(kernel_externalize(k, l)));
+}
 // Decode a literal payload; false = not one, so the rule returns NoOp
 // (apply_instance totality). Rejects INSTANCE_CANONICAL and anything else above
 // UINT32_MAX, 0 (not a DIMACS literal), and INT32_MIN (internalize's `-elit`
@@ -61,6 +65,19 @@ inline bool lit_of_instance(uint64_t inst, Lit *out) {
   if (elit == 0 || elit == INT32_MIN)
     return false;
   *out = internalize(elit);
+  return true;
+}
+inline bool lit_of_instance(const Kernel &k, uint64_t inst, Lit *out) {
+  Lit external;
+  if (!lit_of_instance(inst, &external))
+    return false;
+  const Var ev = var_of(external);
+  if (ev >= k.external_to_internal.size())
+    return false;
+  const Var iv = k.external_to_internal[ev];
+  if (iv == INVALID_VAR)
+    return false;
+  *out = make_lit(iv, negated(external));
   return true;
 }
 

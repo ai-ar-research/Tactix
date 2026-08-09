@@ -95,7 +95,7 @@ static uint32_t decide_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   std::vector<Lit> buf(cap);
   const uint32_t n = decide_candidates(k, buf.data(), cap);
   for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(buf[i]);
+    out[i] = lit_instance(k, buf[i]);
   return n;
 }
 
@@ -103,7 +103,7 @@ static ApplyResult decide_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return decide_apply_canonical(k);
   Lit l;
-  if (!lit_of_instance(inst, &l))
+  if (!lit_of_instance(k, inst, &l))
     return ApplyResult::NoOp;
   return decide_apply(k, l, true);
 }

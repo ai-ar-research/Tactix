@@ -77,7 +77,7 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
     // Extension variables (E2 Factor) must never be eliminated: resolving x's
     // dividers against its quotients rebuilds the original m·n grid, exactly
     // reversing Factor's compression, so the two rules would thrash.
-    if (v >= kernel_num_output_vars(k))
+    if (v >= kernel_num_original_internal_vars(k))
       continue;
     // The retry bitmap (Kernel::bve_retry) is deliberately not consulted here:
     // this rule maintains the advice, the policy reads it. See bve.hpp and
@@ -1235,7 +1235,7 @@ static uint32_t bve_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   bve_schedule(k, cand);
   const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(cand.size()));
   for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(make_lit(cand[i], false));
+    out[i] = lit_instance(k, make_lit(cand[i], false));
   return n;
 }
 
@@ -1243,7 +1243,7 @@ static ApplyResult bve_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return bve_apply(k);
   Lit l;
-  if (!lit_of_instance(inst, &l))
+  if (!lit_of_instance(k, inst, &l))
     return ApplyResult::NoOp;
   if (var_of(l) >= k.nvars || k.values[l] != 0)
     return ApplyResult::NoOp;

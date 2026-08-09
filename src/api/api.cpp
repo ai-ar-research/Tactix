@@ -68,6 +68,7 @@ int tactix_proof(tactix_solver *s, const char *path, int format) {
   if (!s->proof.open(path, f))
     return -1;
   s->kernel.proof = &s->proof;
+  s->proof.bind_variable_map(&s->kernel.internal_to_external);
   return 0;
 }
 
@@ -109,10 +110,15 @@ int tactix_solve(tactix_solver *s) {
 }
 
 int tactix_value(tactix_solver *s, int elit) {
-  const Lit l = internalize(elit);
-  if (var_of(l) >= s->kernel.nvars)
+  const Lit external = internalize(elit);
+  if (var_of(external) >= kernel_num_output_vars(s->kernel))
     return -elit; // unmentioned variable: any value works
-  const int8_t v = s->kernel.values[l];
+  const int8_t v = s->kernel.model_extended
+                       ? s->kernel.model_values[external]
+                       : (kernel_internalize(s->kernel, elit) == INVALID_LIT
+                              ? 0
+                              : s->kernel.values[kernel_internalize(s->kernel,
+                                                                    elit)]);
   return v > 0 ? elit : -elit;
 }
 
@@ -356,7 +362,7 @@ int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {
   const uint32_t n =
       decide_candidates(s->kernel, buf.data(), static_cast<uint32_t>(cap));
   for (uint32_t i = 0; i < n; i++)
-    lits[i] = externalize(buf[i]);
+    lits[i] = kernel_externalize(s->kernel, buf[i]);
   return static_cast<int>(n);
 }
 
@@ -364,8 +370,8 @@ int tactix_decide(tactix_solver *s, int elit) {
   input_complete(s);
   if (!decide_guard(s->kernel))
     return -1;
-  const Lit l = internalize(elit);
-  if (var_of(l) >= s->kernel.nvars)
+  const Lit l = kernel_internalize(s->kernel, elit);
+  if (l == INVALID_LIT)
     return -1;
   const int ok = decide_apply(s->kernel, l, true) == ApplyResult::Ok ? 0 : -1;
   kernel_check_invariants(s->kernel); // no-op in NDEBUG

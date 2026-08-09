@@ -5,6 +5,7 @@
 
 #include <algorithm> // std::max (rescale_scores)
 #include <cassert>
+#include <type_traits>
 
 namespace tactix {
 
@@ -68,6 +69,67 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   }
   heuristics_reset_queue_search(k);
   k.h->nvars = nvars; // heuristics_check asserts this tracks Kernel::nvars
+}
+
+void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
+                             uint32_t new_nvars) {
+  if (!k.h)
+    return;
+  Heuristics &h = *k.h;
+  const uint32_t old_nvars = h.nvars;
+  assert(old_to_new.size() == old_nvars);
+
+  auto compact_values = [&](auto &values, const auto &fallback) {
+    using Vector = std::decay_t<decltype(values)>;
+    Vector fresh(new_nvars, fallback);
+    for (Var old = 0; old < old_nvars; old++) {
+      const Var now = old_to_new[old];
+      if (now != INVALID_VAR)
+        fresh[now] = values[old];
+    }
+    values.swap(fresh);
+  };
+  compact_values(h.saved, int8_t{1});
+  compact_values(h.target, int8_t{0});
+  compact_values(h.best, int8_t{0});
+  compact_values(h.scores.score, 0.0);
+  if (!h.walk_prev.empty())
+    compact_values(h.walk_prev, int8_t{0});
+
+  std::vector<Var> queue;
+  queue.reserve(new_nvars);
+  for (Var old = h.queue_first; old != INVALID_VAR; old = h.links[old].next) {
+    const Var now = old_to_new[old];
+    if (now != INVALID_VAR)
+      queue.push_back(now);
+  }
+  h.links.assign(new_nvars, {});
+  h.queue_first = queue.empty() ? INVALID_VAR : queue.front();
+  h.queue_last = queue.empty() ? INVALID_VAR : queue.back();
+  h.queue_stamp = 0;
+  for (size_t i = 0; i < queue.size(); i++) {
+    Link &link = h.links[queue[i]];
+    link.prev = i ? queue[i - 1] : INVALID_VAR;
+    link.next = i + 1 < queue.size() ? queue[i + 1] : INVALID_VAR;
+    link.stamp = ++h.queue_stamp;
+  }
+
+  std::vector<Var> heap;
+  heap.reserve(h.scores.stack.size());
+  for (const Var old : h.scores.stack) {
+    const Var now = old_to_new[old];
+    if (now != INVALID_VAR)
+      heap.push_back(now);
+  }
+  h.scores.stack.swap(heap);
+  h.scores.pos.assign(new_nvars, INVALID_VAR);
+  for (uint32_t i = 0; i < h.scores.stack.size(); i++)
+    h.scores.pos[h.scores.stack[i]] = i;
+
+  h.nvars = new_nvars;
+  h.target_assigned = 0;
+  h.best_assigned = 0;
+  heuristics_reset_queue_search(k);
 }
 
 // Kissat's `tumble` (default 1): both rankings are seeded in first-activation

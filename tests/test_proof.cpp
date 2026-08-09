@@ -131,6 +131,16 @@ void test_drat_ascii() {
          "0\n", "drat-ascii add_empty");
 }
 
+void test_external_variable_map() {
+  const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
+  const std::vector<Var> map = {4, 1};
+  expect(emitted("mapped", ProofFormat::DratAscii, [&](Proof &p) {
+           p.bind_variable_map(&map);
+           p.add_rup(1, lits, 2, nullptr, 0);
+         }),
+         "5 -2 0\n", "stable external variable map");
+}
+
 // --- native LRAT ------------------------------------------------------------
 void test_lrat_add_rup() {
   const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
@@ -234,6 +244,7 @@ int main() {
   test_drat_binary_delete();
   test_drat_binary_empty_clause();
   test_drat_ascii();
+  test_external_variable_map();
   test_lrat_add_rup();
   test_lrat_add_rat();
   test_lrat_empty_and_unit();

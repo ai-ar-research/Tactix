@@ -295,7 +295,7 @@ static uint32_t transitive_reduce_instances(Kernel &k, uint64_t *out,
   // caller's business: the resumption cursor lives in the policy
   // (DefaultPolicy::SlotEntry::cursor), where a scheduling decision belongs.
   for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(srcs[i]);
+    out[i] = lit_instance(k, srcs[i]);
   return n;
 }
 
@@ -306,7 +306,7 @@ static ApplyResult transitive_reduce_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return transitive_reduce_apply(k);
   Lit src;
-  if (!lit_of_instance(inst, &src))
+  if (!lit_of_instance(k, inst, &src))
     return ApplyResult::NoOp;
   return transitive_reduce_try(k, src);
 }
