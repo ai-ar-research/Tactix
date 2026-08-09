@@ -12,6 +12,7 @@
 
 namespace tactix {
 
+#ifdef TACTIX_ENABLE_EVENT_TRACE
 class EventTrace {
 public:
   EventTrace() = default;
@@ -42,5 +43,21 @@ private:
   bool saw_reorder_ = false;
   bool truncated_ = false;
 };
+#else
+// This stub is the production implementation.  Keeping it inline lets an
+// optimized build erase every call site, including the per-decision and
+// per-conflict sites, instead of paying for a runtime "enabled" branch.
+class EventTrace {
+public:
+  bool open_from_env(const Kernel &) { return false; }
+  bool enabled() const { return false; }
+  void close() {}
+  void macro(const Kernel &, const char *, const char * = "-") {}
+  void detail(const Kernel &, const char *, int64_t = 0) {}
+  void checkpoint(const Kernel &) {}
+  void reorder_begin(const Kernel &) {}
+  void reorder_end(const Kernel &) {}
+};
+#endif
 
 } // namespace tactix

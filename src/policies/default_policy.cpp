@@ -929,9 +929,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
   if (lucky_guard(k)) {
+    event_trace.macro(k, "lucky_early_begin");
     k.stats.lucky_early_calls++;
-    if (lucky_apply(k) == ApplyResult::Sat)
+    if (lucky_apply(k) == ApplyResult::Sat) {
+      event_trace.macro(k, "lucky_early_end", "sat");
       return finish(10);
+    }
+    event_trace.macro(k, "lucky_early_end", "unknown");
   }
   event_trace.macro(k, "preprocess_begin");
   if (inprocess_.want_phase(k, SlotGroup::Probe) &&
@@ -942,11 +946,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (startup != ApplyResult::Ok)
     return finish(20);
   if (lucky_late_ && lucky_guard(k)) {
+    event_trace.macro(k, "lucky_late_begin");
     k.stats.lucky_late_calls++;
     if (lucky_apply(k) == ApplyResult::Sat) {
       k.stats.lucky_late_sat++;
+      event_trace.macro(k, "lucky_late_end", "sat");
       return finish(10);
     }
+    event_trace.macro(k, "lucky_late_end", "unknown");
   }
 
   for (;;) {
@@ -956,6 +963,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(20);
     if (r == ApplyResult::Conflict) {
       event_trace.detail(k, "conflict", k.level);
+      event_trace.detail(k, "analysis_begin", k.level);
       observe_decision_rate(k); // kissat: before the analysis, once per conflict
       k.bump_reason_limit = want_bump_reasons(k);
       k.bump_reason_depth = bump_reason_depth(k);
@@ -972,10 +980,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           bump_reasons_delay_.current /= 2;
         bump_reasons_delay_.count = bump_reasons_delay_.current;
       }
-      if (ar == ApplyResult::Unsat)
+      if (ar == ApplyResult::Unsat) {
+        event_trace.detail(k, "analysis_end", -1);
         return finish(20);
-      if (!k.pending.valid) // `stats.conflict_reused` already counted it
+      }
+      if (!k.pending.valid) { // `stats.conflict_reused` already counted it
+        event_trace.detail(k, "analysis_end", k.level);
         continue;
+      }
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (dynamic_tiers_ && k.stats.conflicts > retier_.next_conflicts) {
         reduce_retier(k);
@@ -1000,6 +1012,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         }
         backjump_apply_to(k, target);
       }
+      event_trace.detail(k, "analysis_end", k.level);
       continue;
     }
     if (k.retire_enabled ? k.unassigned_active == 0 : k.unassigned == 0)

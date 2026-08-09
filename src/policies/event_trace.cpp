@@ -1,5 +1,7 @@
 #include "policies/event_trace.hpp"
 
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+
 #include "policies/heuristics.hpp"
 
 #include <algorithm>
@@ -138,11 +140,13 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   }
   emitted_++;
   RankingSummary rank;
-  uint64_t irred = 0, red = 0, digest = 0;
+  uint64_t active = 0, irred = 0, red = 0, digest = 0;
   if (snapshot) {
     rank = summarize_ranking(k);
     live_clause_counts(k, irred, red);
     digest = state_digest(k);
+    for (Var v = 0; v < k.nvars; v++)
+      active += !kernel_var_retired(k, v);
   }
   int search_external = 0;
   if (k.h && k.h->search_idx != INVALID_VAR &&
@@ -157,7 +161,9 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                (unsigned long long)k.stats.decisions,
                (unsigned long long)k.stats.propagations, k.level,
                !k.h ? "none" : k.h->stable ? "stable" : "focused",
-               k.unassigned_active, k.unassigned, k.trail.size(),
+               static_cast<unsigned>(active),
+               snapshot ? k.unassigned_active : 0u,
+               snapshot ? k.trail.size() : 0u,
                (unsigned long long)rank.queue, (unsigned long long)rank.heap,
                (unsigned long long)rank.retired_queue,
                (unsigned long long)rank.retired_heap,
@@ -203,3 +209,4 @@ void EventTrace::reorder_begin(const Kernel &k) {
 void EventTrace::reorder_end(const Kernel &k) { macro(k, "reorder_end"); }
 
 } // namespace tactix
+#endif

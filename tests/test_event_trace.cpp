@@ -30,7 +30,11 @@ int main() {
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
+    trace.macro(k, "lucky_early_begin");
+    trace.macro(k, "lucky_early_end", "unknown");
     trace.detail(k, "decision", 3);
+    trace.detail(k, "analysis_begin", 2);
+    trace.detail(k, "analysis_end", 1);
     trace.reorder_begin(k);
     trace.reorder_end(k);
     trace.macro(k, "terminate", "10");
@@ -42,7 +46,11 @@ int main() {
   assert(text.find("# tactix-event-trace\t1") != std::string::npos);
   assert(text.find("\treorder_begin\t") != std::string::npos);
   assert(text.find("\treorder_end\t") != std::string::npos);
+  assert(text.find("\tlucky_early_begin\t") != std::string::npos);
+  assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
+  assert(text.find("\tanalysis_begin\t") != std::string::npos);
+  assert(text.find("\tanalysis_end\t") != std::string::npos);
   std::remove(path);
   std::puts("test_event_trace OK");
   return 0;
