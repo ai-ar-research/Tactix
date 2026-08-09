@@ -179,6 +179,8 @@ struct Stats {
   uint64_t sweep_vars_total = 0;    // env vars
   uint64_t sweep_cand_seeded = 0;   // candidates entering the loop
   uint64_t sweep_cand_refined = 0;  // candidates dropped by model refinement
+  uint64_t sweep_flip_attempts = 0; // partition literals tested by model flip
+  uint64_t sweep_flipped = 0;       // successful model flips
   uint64_t sweep_dir_sat = 0;       // candidate directions that MODELLED
   uint64_t sweep_dir_unsat = 0;     // candidate directions that REFUTED
   uint64_t sweep_scheduled = 0;     // eligible seeds placed in canonical tails

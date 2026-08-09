@@ -265,6 +265,11 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   still implies `F ⊨ a ↔ b`. Removing them is not an optimization: a kept root-false literal is a free
   variable in the sub-solver that satisfies its clause for nothing, so an environment that keeps them
   is weaker than the local formula it is meant to be.
+- **Discovery:** one environment may compare any two of its non-fixed literals. The first model orients
+  one literal per variable into a candidate class; every later model splits each class by truth value,
+  and singleton classes disappear. Before a SAT call, a literal may be removed when flipping only its
+  value preserves every environment clause. Such a flip is only a countermodel filter: failure proves
+  nothing, and a pair becomes an equivalence only after both opposing assumptions are refuted as above.
 - **Effect:** for `B→={¬a,b}` and `B←={a,¬b}`, add both binaries. Proof δ is an all-or-nothing pair:
   `add_rup(B→,h→) · add_rup(B←,h←)`, with no deletion; `F` grows and `R/τ/ρ` are untouched. A pair the
   formula already states is skipped.

@@ -207,6 +207,22 @@ void test_budget_and_determinism() {
   assert(starved == SubResult::Budget && "a starved solve must not conclude");
 }
 
+void test_model_flip() {
+  SubSolver s;
+  s.reset(2);
+  s.add_clause({sub_lit(0, false), sub_lit(1, false)});
+  assert(s.solve({}, 0) == SubResult::Sat);
+  assert(s.flip_model_literal(sub_lit(0, false)));
+  assert(s.model()[0] < 0 && s.model()[1] > 0);
+  assert(!s.flip_model_literal(sub_lit(1, false)));
+  assert(s.model()[1] > 0);
+
+  s.reset(2);
+  s.add_clause({sub_lit(0, false)});
+  assert(s.solve({}, 0) == SubResult::Sat);
+  assert(!s.flip_model_literal(sub_lit(0, false)));
+}
+
 // --- the refutation derivation ---------------------------------------------
 
 // A complete LRAT replay, so every derivation is checked the way cake_lpr would
@@ -488,6 +504,7 @@ int main(int argc, char **argv) {
   test_degenerate();
   test_assumption_paths();
   test_budget_and_determinism();
+  test_model_flip();
   test_against_brute_force(iterations);
   test_derivation_edge_cases();
   test_derivations(iterations / 4);

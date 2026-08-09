@@ -532,6 +532,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_cand_refined,
            (unsigned long long)kernel.stats.sweep_dir_sat,
            (unsigned long long)kernel.stats.sweep_dir_unsat);
+    printf("c sweepflip   %llu attempts, %llu successful\n",
+           (unsigned long long)kernel.stats.sweep_flip_attempts,
+           (unsigned long long)kernel.stats.sweep_flipped);
     printf("c sweepcost   %llu dedup ticks, %llu sub-solver ticks; closure "
            "%llu/%llu occurrences, %llu/%llu vars whole\n",
            (unsigned long long)kernel.stats.sweep_ticks_dedup,

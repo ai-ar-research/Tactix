@@ -143,6 +143,51 @@ void test_seed_symmetry() {
   }
 }
 
+void test_full_partition_finds_nonseed_pair() {
+  std::vector<std::vector<int>> cls;
+  for (int xs = -1; xs <= 1; xs += 2)
+    for (int us = -1; us <= 1; us += 2)
+      for (int vs = -1; vs <= 1; vs += 2) {
+        cls.push_back({-2, 3, xs, 4 * us, 5 * vs});
+        cls.push_back({2, -3, xs, 4 * us, 5 * vs});
+      }
+
+  Kernel legacy;
+  build(legacy, 5, cls);
+  SweepRound old_round;
+  SweepLimits old_lim;
+  sweep_round_begin(legacy, old_round);
+  sweep_detect_seed(legacy, 0, old_lim, old_round);
+  const Lit y = internalize(2), z = internalize(3);
+  assert(std::none_of(old_round.found.begin(), old_round.found.end(),
+                      [&](const SweepEquiv &e) {
+                        return e.a == y && e.b == z;
+                      }));
+
+  Kernel full;
+  build(full, 5, cls);
+  SweepRound new_round;
+  SweepLimits new_lim;
+  new_lim.full_partition = true;
+  sweep_round_begin(full, new_round);
+  assert(sweep_detect_seed(full, 0, new_lim, new_round) >= 1);
+  assert(std::any_of(new_round.found.begin(), new_round.found.end(),
+                     [&](const SweepEquiv &e) {
+                       return e.a == y && e.b == z;
+                     }));
+  assert(full.stats.sweep_flip_attempts > 0);
+  assert(full.stats.sweep_flipped > 0);
+
+  Kernel emitted;
+  build(emitted, 5, cls);
+  assert(setenv("TACTIX_SWEEP_PARTITION", "1", 1) == 0);
+  assert(sweep_try(emitted, 0) == ApplyResult::Ok);
+  assert(kernel_binary_id(emitted, negate(y), z));
+  assert(kernel_binary_id(emitted, y, negate(z)));
+  assert(emitted.stats.sweep_general >= 1);
+  assert(unsetenv("TACTIX_SWEEP_PARTITION") == 0);
+}
+
 // --- 2. every claim is true --------------------------------------------------
 void test_brute_force_oracle(uint32_t rounds) {
   std::mt19937 rng(20260805);
@@ -545,6 +590,7 @@ int main(int argc, char **argv) {
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
   test_non_rup_equivalence();
   test_seed_symmetry();
+  test_full_partition_finds_nonseed_pair();
   test_env_provenance();
   test_limits();
   test_known_equivalence();

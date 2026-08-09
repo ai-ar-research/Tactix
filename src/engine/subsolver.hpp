@@ -83,6 +83,10 @@ public:
 
   // Model, by variable: +1 true, -1 false (valid only after `Sat`).
   const std::vector<int8_t> &model() const { return model_; }
+  // Flip `lit` in the current SAT model while holding every other variable
+  // fixed. False means some clause would become false (or the variable is
+  // root-fixed). Used only as a cheap model filter; it proves no clause.
+  bool flip_model_literal(SubLit lit);
   // Effort currency, charged per watch-list entry inspected — the same unit
   // `transitive_ticks` / `ternary_ticks` / `bce_ticks` use.
   uint64_t ticks() const { return ticks_; }
@@ -142,6 +146,7 @@ private:
 
   std::vector<SubLit> arena_;
   std::vector<std::vector<SubWatch>> watches_; // by literal
+  std::vector<std::vector<SubRef>> occurrences_; // clauses containing literal
   std::vector<int8_t> values_;                 // by literal: 1/-1/0
   std::vector<int8_t> model_;                  // by variable: +1/-1
   std::vector<int8_t> phase_;                  // by variable: saved phase

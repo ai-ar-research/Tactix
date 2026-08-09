@@ -42,6 +42,9 @@ struct SweepLimits {
   // variable's real neighbourhood the environment holds. Off by default: an
   // extra pass per seed is a diagnostic's cost. `TACTIX_SWEEP_CLOSURE=1`.
   bool measure_closure = false;
+  // All-environment-literal partition and model-flip prefilter; opt-in.
+  bool full_partition = false;
+  uint32_t flip_rounds = 1;
 };
 
 // The round's effort ceiling, enforced inside environment construction: the
@@ -136,6 +139,7 @@ struct SweepRound {
   std::vector<Var> seeds;
   // candidate literals still agreeing with the seed in every model seen
   std::vector<Lit> candidates;
+  std::vector<std::vector<Lit>> partition;
   std::vector<SubLit> sub_scratch, assumptions;
   // The round's effort ceiling, so `sweep_env_build` can stop mid-scan; left
   // unbounded by every caller that builds one environment by hand.
