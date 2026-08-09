@@ -48,6 +48,7 @@ static void test_variable_compaction() {
   // x2 and x4 have completed retirement: neither occurs in the live formula.
   // A reconstruction witness keeps x2's permanent model identity meaningful.
   kernel_push_witness(k, internalize(2), nullptr, 0);
+  const uint64_t stable_instance = lit_instance(k, internalize(5));
   k.var_status.assign(k.nvars, VarStatus::Active);
   for (const Var v : {Var{1}, Var{3}}) {
     k.var_status[v] = VarStatus::Eliminated;
@@ -63,6 +64,7 @@ static void test_variable_compaction() {
          std::vector<Var>({0, INVALID_VAR, 1, INVALID_VAR, 2}));
   assert(kernel_internalize(k, 3) == make_lit(1, false));
   assert(kernel_externalize(k, make_lit(2, true)) == -5);
+  assert(lit_instance(k, make_lit(2, false)) == stable_instance);
   assert(kernel_binary_live(k, make_lit(0, false), make_lit(2, false)));
   const Clause *c = clause_at(k.arena, 0);
   assert(c->lits[0] == make_lit(0, false));

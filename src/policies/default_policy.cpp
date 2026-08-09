@@ -409,9 +409,9 @@ bool parse_candidate_order(const char *s, CandidateOrder *out) {
 
 namespace {
 
-uint64_t instance_key(const Kernel &k, uint64_t inst) {
+uint64_t instance_key(uint64_t inst) {
   Lit l;
-  return lit_of_instance(k, inst, &l) ? static_cast<uint64_t>(l) : inst;
+  return lit_of_instance(inst, &l) ? static_cast<uint64_t>(l) : inst;
 }
 
 uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
@@ -491,7 +491,7 @@ void DefaultInprocessScheduler::order_candidates(const Kernel &k, SlotEntry &e,
   e.ord.candidates += n;
   if (e.cursor_enabled) {
     uint32_t start = 0;
-    while (start < n && instance_key(k, insts[start]) < e.cursor)
+    while (start < n && instance_key(insts[start]) < e.cursor)
       start++;
     if (start >= n)
       start = 0; // the cursor ran past the set: begin again at the head
@@ -1086,7 +1086,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       if (ctx.stop && *ctx.stop)
         break; // §6: a dose can enumerate thousands of candidates
       if (e.cursor_enabled) {
-        e.cursor = instance_key(k, payloads_[i]) + 1;
+        e.cursor = instance_key(payloads_[i]) + 1;
         e.ord.advanced++;
       }
       const bool hand_residual = e.budget_aware && e.meter;
