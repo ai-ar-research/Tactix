@@ -194,6 +194,45 @@ static int compare_external_literals (const void *a, const void *b) {
   return (x > y) - (x < y);
 }
 
+void kissat_event_trace_conflict (kissat *solver, clause *conflict) {
+  open_trace ();
+  if (!trace_file)
+    return;
+  const size_t size = conflict->size;
+  int *external = malloc (size * sizeof *external);
+  char payload[4096];
+  int written = snprintf (payload, sizeof payload, "order=");
+  char *p = payload + written;
+  size_t left = sizeof payload - (size_t) written;
+  size_t i = 0;
+  for (all_literals_in_clause (lit, conflict))
+    external[i++] = external_literal (solver, lit);
+  for (i = 0; i != size; i++) {
+    written = snprintf (p, left, "%s%d", i ? "," : "", external[i]);
+    if (written < 0 || (size_t) written >= left)
+      break;
+    p += written;
+    left -= (size_t) written;
+  }
+  qsort (external, size, sizeof *external, compare_external_literals);
+  written = snprintf (p, left, "|set=");
+  if (written < 0 || (size_t) written >= left) {
+    free (external);
+    return;
+  }
+  p += written;
+  left -= (size_t) written;
+  for (i = 0; i != size; i++) {
+    written = snprintf (p, left, "%s%d", i ? "," : "", external[i]);
+    if (written < 0 || (size_t) written >= left)
+      break;
+    p += written;
+    left -= (size_t) written;
+  }
+  free (external);
+  kissat_event_trace (solver, "conflict", payload, false);
+}
+
 void kissat_event_trace_learned (kissat *solver) {
   open_trace ();
   if (!trace_file)

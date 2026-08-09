@@ -969,7 +969,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
-      event_trace.detail(k, "conflict", k.level);
+      event_trace.conflict(k);
       event_trace.detail(k, "analysis_begin", k.level);
       observe_decision_rate(k); // kissat: before the analysis, once per conflict
       k.bump_reason_limit = want_bump_reasons(k);

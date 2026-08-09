@@ -193,6 +193,39 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   emit(k, event, buf, !std::strcmp(event, "analysis_end"));
 }
 
+void EventTrace::conflict(const Kernel &k) {
+  if (!out_ || !k.conflict_valid)
+    return;
+  const Lit *lits;
+  uint32_t size;
+  if (k.conflict_ref == INVALID_REF) {
+    lits = k.conflict_bin;
+    size = 2;
+  } else {
+    const Clause *clause = clause_at(k.arena, k.conflict_ref);
+    lits = clause->lits;
+    size = clause->size;
+  }
+  std::string payload = "order=";
+  std::vector<int> external;
+  external.reserve(size);
+  for (uint32_t i = 0; i < size; i++) {
+    if (i)
+      payload += ',';
+    const int lit = kernel_externalize(k, lits[i]);
+    payload += std::to_string(lit);
+    external.push_back(lit);
+  }
+  payload += "|set=";
+  std::sort(external.begin(), external.end());
+  for (const int lit : external) {
+    if (payload.back() != '=')
+      payload += ',';
+    payload += std::to_string(lit);
+  }
+  emit(k, "conflict", payload.c_str(), false);
+}
+
 void EventTrace::learned(const Kernel &k, const std::vector<Lit> &clause) {
   if (!out_)
     return;
