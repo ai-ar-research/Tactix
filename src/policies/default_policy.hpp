@@ -122,6 +122,7 @@ public:
   void update_reduce_limit(const Kernel &);
   void update_rephase_limit(const Kernel &);
   void update_reorder_limit(const Kernel &);
+  uint32_t bump_reason_depth(const Kernel &) const;
 
 private:
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }

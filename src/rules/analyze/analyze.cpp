@@ -320,21 +320,21 @@ static void bump_and_reset_analyzed(Kernel &k) {
 
 // --- reason-side bumping (kissat analyze_reason_side_literals; cadical
 // bump_also_all_reason_literals; MapleCOMSPS 2016) --------------------------
-// Once the learned clause is final, also bump its literals' reasons — one
-// level deep, capped at `k.bump_reason_limit × |bump set|` new marks and
+// Once the learned clause is final, also bump its literals' reasons, capped at
+// `k.bump_reason_limit × |bump set|` new marks and
 // all-or-nothing, so the set is never a truncation artefact of clause order.
 // `H`-only: it changes nothing but which variables get bumped.
-static void mark_reason_side(Kernel &k, Lit m) {
+static bool mark_reason_side(Kernel &k, Lit m) {
   const Var v = var_of(m);
   if (k.var_level(v) == 0)
-    return; // root-fixed: kissat `a->level`
+    return false; // root-fixed: kissat `a->level`
   // Optional arm (Kernel::no_ext_reason_bump): withhold extension vars from
   // this channel only, so they rise on conflict-side evidence rather than on
   // being a BVA hub.
   if (k.no_ext_reason_bump && v >= k.first_extension_var)
-    return;
+    return false;
   if (k.seen[v] & BUMPED)
-    return; // already in the bump set (kissat `a->analyzed`)
+    return false; // already in the bump set (kissat `a->analyzed`)
   // Not `if (k.seen[v])`: a var may sit in k.analyzed carrying only
   // REMOVABLE/POISONED/CHAINED, which kissat keeps on separate stacks and its
   // `!a->analyzed` test admits. Testing the whole byte bumps a smaller set.
@@ -344,6 +344,33 @@ static void mark_reason_side(Kernel &k, Lit m) {
   k.reason_bumped.push_back(v);
   k.analyzed_seen++;
   k.stats.reason_bumped++;
+  return true;
+}
+
+static void mark_reason_tree(Kernel &k, Lit false_lit, uint32_t depth,
+                             uint64_t limit) {
+  if (!depth || k.analyzed_seen > limit)
+    return;
+  const Assigned &a = k.assigned[var_of(false_lit)];
+  if (a.reason == DECISION_REASON || a.reason == UNIT_REASON)
+    return;
+  if (a.binary) {
+    const Lit m = a.reason;
+    if (mark_reason_side(k, m) && depth > 1)
+      mark_reason_tree(k, m, depth - 1, limit);
+    return;
+  }
+  kernel_charge_ticks(k, 1);
+  const Clause *r = clause_at(k.arena, a.reason);
+  const Lit self = negate(false_lit);
+  for (const Lit m : *r) {
+    if (m == self)
+      continue;
+    if (mark_reason_side(k, m) && depth > 1)
+      mark_reason_tree(k, m, depth - 1, limit);
+    if (k.analyzed_seen > limit)
+      break;
+  }
 }
 
 static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
@@ -352,26 +379,10 @@ static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
       static_cast<uint64_t>(k.bump_reason_limit) * saved;
   k.reason_bumped.clear();
   k.stats.reason_bump_rounds++;
+  if (k.bump_reason_depth > 1)
+    k.stats.reason_bump_depth2++;
   for (const Lit l : learned) {
-    const Var v = var_of(l);
-    const Assigned &a = k.assigned[v];
-    if (a.reason == DECISION_REASON || a.reason == UNIT_REASON)
-      continue; // no reason side (kissat returns on DECISION_REASON)
-    if (a.binary) {
-      mark_reason_side(k, a.reason);
-    } else {
-      kernel_charge_ticks(k, 1); // kissat charges one search tick per reason deref
-      const Clause *r = clause_at(k.arena, a.reason);
-      const Lit self = negate(l); // `l` is false in the clause; the var's
-                                  // true literal is the one `r` propagated
-      for (const Lit m : *r) {
-        if (m == self)
-          continue;
-        mark_reason_side(k, m);
-        if (k.analyzed_seen > limit)
-          break;
-      }
-    }
+    mark_reason_tree(k, l, k.bump_reason_depth, limit);
     if (k.analyzed_seen > limit)
       break;
   }

@@ -51,6 +51,17 @@ static void test_mode_growth_key_matches_kissat(void) {
   std::printf("  mode growth key: matches kissat's (switched+1)/2 ladder\n");
 }
 
+static void test_reason_bump_depth_tracks_mode(void) {
+  Kernel k;
+  ScopedHeuristics h(k);
+  DefaultPolicy p;
+  k.h->stable = false;
+  assert(p.bump_reason_depth(k) == 1);
+  k.h->stable = true;
+  assert(p.bump_reason_depth(k) == 2);
+  std::printf("  reason bump: depth 1 focused, depth 2 stable\n");
+}
+
 // --- the resumption cursor, a policy object --------------------------------
 // A dose cut partway into a candidate list must resume past what it consumed,
 // or it re-applies the same prefix and starves the tail (kissat's
@@ -546,6 +557,7 @@ static void test_preprocess_is_reduced_and_bounded(void) {
 
 int main() {
   test_mode_growth_key_matches_kissat();
+  test_reason_bump_depth_tracks_mode();
   test_effort_limit_is_kissats();
   test_preprocess_is_reduced_and_bounded();
   test_slot_cursor_rotates();
