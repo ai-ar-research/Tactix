@@ -25,8 +25,7 @@ constexpr uint32_t VIVIFY_CLSLIM = 100; // probe-cost bound per candidate
 constexpr uint32_t VIVIFY_TIER2 = 6;    // redundant scope (LCM): glue <= 6
 
 bool vivify_guard(const Kernel &);
-// canonical candidate order: irredundant first, then redundant tiers,
-// size-ascending within each group
+// Complete per-clause instance surface in the canonical candidate order.
 void vivify_candidates(const Kernel &, std::vector<Ref> &out);
 ApplyResult vivify_try(Kernel &, Ref candidate); // one candidate
 ApplyResult vivify_apply(Kernel &);              // canonical: full round

@@ -169,7 +169,10 @@ conjunct.
   and the unscoped setting must therefore span *every* band, tier3 included, or a band becomes
   unreachable through the API (N1; the guard-says-applicable/apply-declines shape,
   `implementation-notes.md` §5).
-- **Effect:** three outcomes, not one — replace `c` by the distilled `c′` (add-before-delete), delete a
+- **Effect:** the canonical round first drops a scheduled `c` when an earlier
+  clause `d` in the same schedule band is a prefix of `c` under the
+  round's literal order (C1 subsumption, `del(c)`). It then has three
+  distillation outcomes — replace `c` by the distilled `c′` (add-before-delete), delete a
   root-satisfied `c`, or, when the distillation collapses, **assert the surviving literal as a root
   unit** / **refute on an empty distillation** (`Unsat`). Proof δ: `add_rup(c′)` + `del(c)` (reason-walk
   chain); the unit and the refutation carry their own chains.
@@ -183,8 +186,10 @@ conjunct.
   `c` all-false. In cases (2)/(4), the implied literal's own reason closes `h`, so citing `c` after it
   would be illegal. Root-false unit ids used by the replay join `h`. The replacement remains in `c`'s
   irredundancy partition.
-- **Soundness:** the distilled clause is RUP from `c` and the propagated reasons; free-standing after
-  emission regardless of any binary's later fate.
+- **Soundness:** prefix flushing is C1 within one schedule band: an irredundant
+  victim has an irredundant subsumer, while a redundant victim is forgettable.
+  The distilled clause is RUP from `c` and the propagated reasons; free-standing
+  after emission regardless of any binary's later fate.
 
 ## 6. Probing, BIG rewriting, congruence (V1–V4, V6)
 

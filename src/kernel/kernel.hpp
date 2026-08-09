@@ -113,6 +113,7 @@ struct Stats {
   uint64_t vivify_checked = 0; // Vivify candidates probed
   uint64_t vivified = 0;       // clauses distilled by Vivify (add+delete)
   uint64_t vivify_deleted = 0; // root-satisfied deletions by Vivify
+  uint64_t vivify_flushed = 0; // scheduled clauses removed by prefix subsumption
   uint64_t vivify_reused = 0;     // levels taken from the retained trail
   uint64_t vivify_probes = 0;     // assumptions made; reuse rate = reused/both
   uint64_t vivify_reuse_full = 0; // candidates wholly covered by the prefix
@@ -462,6 +463,7 @@ struct Kernel {
   uint64_t work_budget = 0;
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
+  bool vivify_flush = true;
   bool conflict_reuse = false;
   bool conflict_reuse_no_repair = false;
   bool jump_reasons = false;
