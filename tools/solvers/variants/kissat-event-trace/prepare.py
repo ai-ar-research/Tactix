@@ -77,7 +77,9 @@ def main():
         '        res = kissat_analyze (solver, conflict);\n',
         '    while (!res) {\n'
         '      kissat_event_trace_checkpoint (solver);\n'
+        '      const size_t trace_trail_begin = SIZE_ARRAY (solver->trail);\n'
         '      clause *conflict = kissat_search_propagate (solver);\n'
+        '      kissat_event_trace_implications (solver, trace_trail_begin);\n'
         '      if (conflict) {\n'
         '        kissat_event_trace_conflict (solver, conflict);\n'
         '        kissat_event_trace_detail (solver, "analysis_begin",\n'
