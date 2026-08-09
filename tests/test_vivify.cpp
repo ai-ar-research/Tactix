@@ -253,6 +253,7 @@ static void test_schedule_prefix_flush() {
   assert(saw_delete);
 
   Kernel off;
+  off.vivify_flush = false;
   kernel_reserve_vars(off, 4);
   kernel_add_large_clause(off, short_clause, 3, false, 0);
   kernel_add_large_clause(off, long_clause, 4, false, 0);

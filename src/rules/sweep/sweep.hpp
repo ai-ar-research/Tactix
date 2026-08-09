@@ -42,8 +42,8 @@ struct SweepLimits {
   // variable's real neighbourhood the environment holds. Off by default: an
   // extra pass per seed is a diagnostic's cost. `TACTIX_SWEEP_CLOSURE=1`.
   bool measure_closure = false;
-  // All-environment-literal partition and model-flip prefilter; opt-in.
-  bool full_partition = false;
+  // All-environment-literal partition and model-flip prefilter.
+  bool full_partition = true;
   uint32_t flip_rounds = 1;
 };
 
