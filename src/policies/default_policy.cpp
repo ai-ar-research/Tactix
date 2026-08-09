@@ -1600,6 +1600,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     kernel_flush_retired_redundant(k);
   heuristics_consume_retirements(k);
   kernel_dense_disconnect(k);
+  // Kissat leaves every probe/eliminate pipeline by rebuilding sparse large
+  // watches.  This is ordering state, not optional garbage collection: in
+  // particular it resets the mutations made by unsuccessful early Lucky
+  // trials before late Lucky and first search.
+  kernel_rebuild_large_watches(k);
   k.factor_selection = nullptr;
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;

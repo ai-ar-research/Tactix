@@ -798,6 +798,7 @@ uint64_t kernel_conflict_reason_walk(
 
 
 void kernel_collect_garbage(Kernel &);
+void kernel_rebuild_large_watches(Kernel &);
 
 void kernel_dense_connect(Kernel &, OccIndex &occ);
 void kernel_dense_disconnect(Kernel &);
