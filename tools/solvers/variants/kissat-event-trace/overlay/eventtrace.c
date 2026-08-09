@@ -204,10 +204,31 @@ void kissat_event_trace_learned (kissat *solver) {
   for (all_stack (unsigned, lit, solver->clause))
     external[i++] = external_literal (solver, lit);
   qsort (external, size, sizeof *external, compare_external_literals);
-  char payload[4096], *p = payload;
-  size_t left = sizeof payload;
+  char payload[4096];
+  int written = snprintf (payload, sizeof payload, "head=");
+  char *p = payload + written;
+  size_t left = sizeof payload - (size_t) written;
+  i = 0;
+  for (all_stack (unsigned, lit, solver->clause)) {
+    if (i == 2)
+      break;
+    written = snprintf (p, left, "%s%d", i ? "," : "",
+                        external_literal (solver, lit));
+    if (written < 0 || (size_t) written >= left)
+      break;
+    p += written;
+    left -= (size_t) written;
+    i++;
+  }
+  written = snprintf (p, left, "|set=");
+  if (written < 0 || (size_t) written >= left) {
+    free (external);
+    return;
+  }
+  p += written;
+  left -= (size_t) written;
   for (i = 0; i != size; i++) {
-    const int written = snprintf (p, left, "%s%d", i ? "," : "", external[i]);
+    written = snprintf (p, left, "%s%d", i ? "," : "", external[i]);
     if (written < 0 || (size_t) written >= left)
       break;
     p += written;

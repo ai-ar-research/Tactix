@@ -196,14 +196,20 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
 void EventTrace::learned(const Kernel &k, const std::vector<Lit> &clause) {
   if (!out_)
     return;
+  std::string payload = "head=";
+  for (size_t i = 0; i < clause.size() && i < 2; i++) {
+    if (i)
+      payload += ',';
+    payload += std::to_string(kernel_externalize(k, clause[i]));
+  }
+  payload += "|set=";
   std::vector<int> external;
   external.reserve(clause.size());
   for (const Lit lit : clause)
     external.push_back(kernel_externalize(k, lit));
   std::sort(external.begin(), external.end());
-  std::string payload;
   for (const int lit : external) {
-    if (!payload.empty())
+    if (payload.back() != '=')
       payload += ',';
     payload += std::to_string(lit);
   }
