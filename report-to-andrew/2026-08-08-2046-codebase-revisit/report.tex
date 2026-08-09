@@ -1,0 +1,124 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\title{Codebase Revisit: Default Strategy Modularity and Rule Boundaries}
+\author{Tactix Development Project}
+\date{8 August 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive summary}
+The revisit preserved the shipped solver trajectory while making the strategy
+boundary substantially clearer.  DefaultPolicy now contains the CDCL/search
+strategy and composes a dedicated DefaultInprocessScheduler for macro phase
+order, clocks, budgets, watermarks, delays, cursors, telemetry, and Factor/BVE
+coupling.  Factor owns a neutral selection interface, and Factor and Substitute
+now report facts through kernel events instead of importing or invoking policy
+code.  The high-volume source commentary was removed: comment-only lines in the
+three original hotspots plus the extracted scheduler fell from 1,542 to zero.
+
+The refactor is trajectory-identical on 399 independently checked comparisons,
+passes the complete Debug and Release suites, and has no detected structural
+performance regression.  The recommended next step is to resume the Kissat
+default-parity campaign one N4 row at a time through the new scheduler boundary,
+starting with SP-COMPACT-1 unless another row is explicitly selected.
+
+\section{Implementation and design decisions}
+\subsection{Composed inprocessing scheduler}
+The new \texttt{src/policies/default\_inprocess.hpp} owns the complete mutable
+macro-scheduling state and exposes a single test/preset surface through
+\texttt{DefaultPolicy::inprocess()}.  DefaultPolicy retains branching,
+restart/reduce, mode switching, rephase/reorder, glue/decision-rate observations,
+and the search loop.  The default-policy implementation shrank from 2,640 lines
+to 1,870 lines including the extracted header; its public header shrank from
+586 to 148 lines.
+
+\subsection{Proof-rule versus strategy boundary}
+\texttt{FactorSelection} is defined by the Factor rule module.
+\texttt{FactorMatchPolicy} adapts that rule-owned interface into the policy
+system.  The kernel holds only a scoped non-owning pointer to the neutral
+interface.  Factor emits fresh-variable events and Substitute emits substituted
+and retirement events.  Policies consume those events and apply heuristic
+reactions; the C API deliberately discards them as neutral advice.  A new CTest
+source guard rejects policy imports and heuristic calls from every macro formula
+rule while retaining the four search-micro exceptions.
+
+\subsection{Comment cleanup}
+The cleanup deleted comment-only prose from
+\texttt{default\_policy.cpp}, \texttt{default\_policy.hpp}, and
+\texttt{kernel.hpp}; the extracted scheduler also contains no comment-only
+blocks.  Executable tokens in the mechanical pass were unchanged.  Concise
+inline annotations and the calculus, implementation notes, design documents,
+tests, and parity ledger remain the owners of invariants and provenance.
+
+\section{Evidence}
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Gate & Result & Provenance \\
+\midrule
+Debug CTest & 60/60 passed & local Debug build \\
+Release CTest & 60/60 passed & local Release build \\
+Source boundary & clean & \texttt{rule\_policy\_boundary} CTest \\
+Identity & 399 equal, 3 symmetric timeouts & SLURM 1592226 \\
+Focused fuzz & five 300-case legs, 0 failures & SLURM 1592227 \\
+Regression corpus & 14/14, 0 failures & SLURM 1592227 \\
+Tier B & both 25/28, clean & run \texttt{20260808-203252-B-revisit-before} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The identity gate compared exit code, status/model lines, every non-timing
+counter line, and proof bytes across generated cases and the regression corpus
+under default DRAT, default LRAT, and an environment arm.  Each completed result
+was then checked independently as a SAT model or UNSAT proof.  Binary hashes
+were \texttt{ff9da623...} before and \texttt{6ae4120d...} after.
+
+The focused fuzz gate covered default DRAT (299 verdicts), default LRAT (299),
+random LRAT (254), targeted Factor LRAT (256 and 80,010 target applications),
+and targeted Substitute LRAT (253 and 56,668 target applications).  Timeouts
+were reported as lost coverage, not passes.
+
+The same-node Tier B window produced PAR-2 93.21 before and 93.14 after, with
+identical statuses and rule counters on all 28 instances and all 13 UNSAT proofs
+checked in each arm.  The runner correctly classified the headline as undecided
+because one instance reverses its sign.  Excluding that named unstable mover,
+the 24 paired solved instances have median after/before runtime ratio 1.0026
+(+0.26 percent), inside the pre-registered +5 percent ceiling.
+
+\section{Limitations and incidents}
+Three early identity submissions (1592221, 1592222, 1592224) were intentionally
+cancelled because the newly extended validator mishandled empty SAT models and
+drat-trim's intentional nonzero exit for trivial UNSAT.  Diagnostic job 1592225
+retained one case, showed \texttt{s VERIFIED}, and proved the two proof files
+byte-identical.  The corrected gate then passed.  These were harness defects,
+not solver failures.
+
+The Tier B array was submitted with an unnecessary throttle of eight.  An
+attempt to remove it raced with completion; all tasks had already been admitted,
+with only two running and none pending.  Future arrays should be unthrottled
+unless the runner or experimental design specifically requires a cap.
+
+The implementation creates a semantic scheduler component, but its method
+definitions remain in \texttt{default\_policy.cpp}.  A future purely mechanical
+translation-unit split is possible; it should be undertaken only if navigation
+remains a problem, under the same identity gate.  No scheduling default, rule
+identifier, C API, proof format, or output schema changed.
+
+\section{Next actions}
+\begin{enumerate}
+\item Resume Kissat-default parity through DefaultInprocessScheduler, taking one
+  remaining N4 row at a time; SP-COMPACT-1 is the recommended first row.
+\item Preserve the new rule-policy source guard and event tests with every macro
+  rule change.
+\item Run the planned Tier D shakedown, full Tier D campaign, and T3 gate after
+  the remaining parity rows close.
+\end{enumerate}
+
+\end{document}
