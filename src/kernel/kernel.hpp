@@ -181,6 +181,12 @@ struct Stats {
   uint64_t sweep_cand_refined = 0;  // candidates dropped by model refinement
   uint64_t sweep_dir_sat = 0;       // candidate directions that MODELLED
   uint64_t sweep_dir_unsat = 0;     // candidate directions that REFUTED
+  uint64_t sweep_scheduled = 0;     // eligible seeds placed in canonical tails
+  uint64_t sweep_resumed = 0;       // seeds consumed from a retained tail
+  uint64_t sweep_completed = 0;     // canonical tails exhausted
+  uint32_t sweep_limit_vars = 0;    // last canonical environment limits
+  uint32_t sweep_limit_clauses = 0;
+  uint32_t sweep_limit_depth = 0;
 
   uint64_t ternary_rounds = 0;     // HyperTernaryRes rounds that added clauses
   uint64_t ternary_resolvents = 0; // ternary resolvents added (redundant)
@@ -464,6 +470,10 @@ struct Kernel {
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
   bool vivify_flush = false;
+  bool sweep_resume = false;
+  std::vector<Var> sweep_tail; // stable external identities
+  uint32_t sweep_tail_next = 0;
+  uint32_t sweep_passes_completed = 0;
   bool conflict_reuse = false;
   bool conflict_reuse_no_repair = false;
   bool jump_reasons = false;

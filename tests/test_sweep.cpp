@@ -327,6 +327,63 @@ void test_seeds() {
   assert(sweep_detect_seed(k, 3, lim, r) == 0);
 }
 
+void test_resumable_schedule() {
+  const std::vector<std::vector<int>> cls = {
+      {1, 2}, {-1, 3}, {-2, 4}, {-3, -4}};
+  assert(setenv("TACTIX_SWEEP_SEEDS", "1", 1) == 0);
+
+  Kernel off;
+  build(off, 4, cls);
+  sweep_apply(off);
+  sweep_apply(off);
+  assert(off.sweep_tail.empty());
+  assert(off.stats.sweep_resumed == 0 && off.stats.sweep_completed == 0);
+
+  Kernel filtered;
+  build(filtered, 3, {{1, 2}, {-1, 2}});
+  filtered.sweep_resume = true;
+  sweep_apply(filtered);
+  assert(filtered.stats.sweep_scheduled == 1);
+  assert(filtered.stats.sweep_completed == 1);
+  std::vector<Var> complete_surface;
+  sweep_seeds(filtered, complete_surface);
+  assert(complete_surface.size() == 3); // instances still expose filtered vars
+
+  assert(setenv("TACTIX_SWEEP_CLAUSES", "1", 1) == 0);
+  Kernel growth;
+  build(growth, 3, {{1, 2}, {1, 3}, {-1, 2}, {-1, 3}});
+  growth.sweep_resume = true;
+  sweep_apply(growth);
+  assert(growth.stats.sweep_scheduled == 0 &&
+         growth.stats.sweep_completed == 1);
+  sweep_apply(growth);
+  assert(growth.stats.sweep_limit_clauses == 2);
+  assert(growth.stats.sweep_scheduled == 1);
+  assert(unsetenv("TACTIX_SWEEP_CLAUSES") == 0);
+
+  Kernel on;
+  build(on, 4, cls);
+  on.sweep_resume = true;
+  sweep_apply(on);
+  assert(on.sweep_tail.size() == 4 && on.sweep_tail_next == 1);
+  assert(on.stats.sweep_scheduled == 4 && on.stats.sweep_resumed == 0);
+  sweep_apply(on);
+  assert(on.sweep_tail_next == 2 && on.stats.sweep_resumed == 1);
+  sweep_apply(on);
+  sweep_apply(on);
+  assert(on.sweep_tail.empty() && on.sweep_tail_next == 0);
+  assert(on.sweep_passes_completed == 1 && on.stats.sweep_completed == 1);
+  assert(on.stats.sweep_limit_vars == 256 &&
+         on.stats.sweep_limit_clauses == 1024 &&
+         on.stats.sweep_limit_depth == 2);
+
+  sweep_apply(on);
+  assert(on.stats.sweep_limit_vars == 512 &&
+         on.stats.sweep_limit_clauses == 2048 &&
+         on.stats.sweep_limit_depth == 3);
+  assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
+}
+
 // --- 7. an environment that refutes the formula outright ---------------------
 void test_env_unsat() {
   // (1)(¬1) is caught before sweeping, so use a refutation the environment
@@ -492,6 +549,7 @@ int main(int argc, char **argv) {
   test_limits();
   test_known_equivalence();
   test_seeds();
+  test_resumable_schedule();
   test_env_unsat();
   test_sd_emits_rup_equivalence();
   test_sd_declines_non_rup();

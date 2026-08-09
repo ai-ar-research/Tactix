@@ -255,6 +255,8 @@ int main(int argc, char **argv) {
     kernel.vivify_reuse = (*vr != '0');
   if (const char *vf = getenv("TACTIX_VIVIFY_FLUSH"))
     kernel.vivify_flush = (*vf != '0');
+  if (const char *sr = getenv("TACTIX_SWEEP_RESUME"))
+    kernel.sweep_resume = (*sr != '0');
   // Ships OFF: a prerequisite arm, not a candidate default, since the redundant
   // band has no consumer yet (Kernel::touch_redundant).
   if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))
@@ -544,6 +546,15 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_not_rup,
            (unsigned long long)kernel.stats.sweep_general,
            (unsigned long long)kernel.stats.sweep_strip_cited);
+    printf("c sweepsched  %llu scheduled, %llu resumed, %llu completed, "
+           "%zu tail; limits %u vars, %u clauses, depth %u\n",
+           (unsigned long long)kernel.stats.sweep_scheduled,
+           (unsigned long long)kernel.stats.sweep_resumed,
+           (unsigned long long)kernel.stats.sweep_completed,
+           kernel.sweep_tail.size() - kernel.sweep_tail_next,
+           kernel.stats.sweep_limit_vars,
+           kernel.stats.sweep_limit_clauses,
+           kernel.stats.sweep_limit_depth);
     printf("c ternary     %llu rounds, %llu resolvents, %llu binaries, "
            "%llu ticks\n",
            (unsigned long long)kernel.stats.ternary_rounds,

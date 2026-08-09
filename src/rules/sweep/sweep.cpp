@@ -274,6 +274,43 @@ void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
     out[i] = ranked[i].second;
 }
 
+static bool sweep_schedulable(const Kernel &k, Var v,
+                              const SweepLimits &lim) {
+  if (v >= k.nvars || root_fixed(k, v) || kernel_var_retired(k, v))
+    return false;
+  const Lit pos = make_lit(v, false), neg = make_lit(v, true);
+  uint64_t dp = k.watches.size(pos), dn = k.watches.size(neg);
+  if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
+    dp += k.dense->large[pos].size();
+    dn += k.dense->large[neg].size();
+  }
+  return dp && dn && dp <= lim.max_env_clauses &&
+         dn <= lim.max_env_clauses;
+}
+
+static uint32_t grown_limit(uint32_t base, uint32_t reference_max,
+                            uint32_t completed) {
+  const uint64_t ceiling = std::max(base, reference_max);
+  const uint32_t shift = std::min(completed, 32u);
+  const uint64_t grown = shift == 32 ? UINT64_MAX
+                                     : static_cast<uint64_t>(base) << shift;
+  return static_cast<uint32_t>(std::min(grown, ceiling));
+}
+
+static void sweep_completed_limits(Kernel &k, SweepLimits &lim) {
+  lim.max_env_vars =
+      grown_limit(lim.max_env_vars, 8192, k.sweep_passes_completed);
+  lim.max_env_clauses =
+      grown_limit(lim.max_env_clauses, 32768, k.sweep_passes_completed);
+  const uint64_t depth =
+      static_cast<uint64_t>(lim.max_depth) + k.sweep_passes_completed;
+  lim.max_depth = static_cast<uint32_t>(
+      std::min(depth, static_cast<uint64_t>(std::max(lim.max_depth, 3u))));
+  k.stats.sweep_limit_vars = lim.max_env_vars;
+  k.stats.sweep_limit_clauses = lim.max_env_clauses;
+  k.stats.sweep_limit_depth = lim.max_depth;
+}
+
 void sweep_round_begin(Kernel &k, SweepRound &r) {
   // Occurrence index over irredundant large clauses. Irredundant only, because
   // `Reduce` may delete a learned clause between detection and emission and a
@@ -631,6 +668,54 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   return found;
 }
 
+static uint32_t sweep_detect_resumable(Kernel &k, SweepLimits lim,
+                                       SweepRound &r) {
+  if (!sweep_guard(k))
+    return 0;
+  k.stats.sweep_rounds++;
+  sweep_completed_limits(k, lim);
+  sweep_round_begin(k, r);
+
+  const bool retained = k.sweep_tail_next < k.sweep_tail.size();
+  if (!retained) {
+    k.sweep_tail.clear();
+    k.sweep_tail_next = 0;
+    sweep_seeds(k, r.seeds);
+    for (const Var v : r.seeds)
+      if (sweep_schedulable(k, v, lim))
+        k.sweep_tail.push_back(k.internal_to_external[v]);
+    k.stats.sweep_scheduled += k.sweep_tail.size();
+  }
+
+  const uint64_t start = k.stats.sweep_ticks;
+  r.budget.start = start;
+  r.budget.limit = lim.enforce_in_env ? lim.round_ticks : 0;
+  uint32_t found = 0, seeds = 0;
+  while (k.sweep_tail_next < k.sweep_tail.size()) {
+    if (lim.max_seeds && seeds >= lim.max_seeds)
+      break;
+    if (lim.round_ticks && k.stats.sweep_ticks - start > lim.round_ticks)
+      break;
+    const Var external = k.sweep_tail[k.sweep_tail_next++];
+    if (external >= k.external_to_internal.size())
+      continue;
+    const Var v = k.external_to_internal[external];
+    if (v == INVALID_VAR || !sweep_schedulable(k, v, lim))
+      continue;
+    if (retained)
+      k.stats.sweep_resumed++;
+    seeds++;
+    found += sweep_detect_seed(k, v, lim, r);
+  }
+  if (k.sweep_tail_next == k.sweep_tail.size()) {
+    k.sweep_tail.clear();
+    k.sweep_tail_next = 0;
+    k.sweep_passes_completed++;
+    k.stats.sweep_completed++;
+  }
+  return found;
+}
+
 SweepLimits sweep_limits_from_env() {
   SweepLimits lim;
   const auto u32 = [](const char *name, uint32_t &slot) {
@@ -879,7 +964,9 @@ ApplyResult sweep_apply(Kernel &k) {
   // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
   if (k.work_budget)
     lim.round_ticks = k.work_budget;
-  const uint32_t found = sweep_detect_round(k, lim, round);
+  const uint32_t found = k.sweep_resume
+                             ? sweep_detect_resumable(k, lim, round)
+                             : sweep_detect_round(k, lim, round);
   return sweep_emit_round(k, round, found);
 }
 
