@@ -52,7 +52,7 @@ int main() {
   assert(text.find("\tdecision\t") != std::string::npos);
   assert(text.find("\tanalysis_begin\t") != std::string::npos);
   assert(text.find("\tlearned\t") != std::string::npos);
-  assert(text.find("\t-1,2,3\n") != std::string::npos);
+  assert(text.find("\thead=3,-1|set=-1,2,3\n") != std::string::npos);
   const size_t analysis = text.find("\tanalysis_end\t");
   assert(analysis != std::string::npos);
   const size_t line_end = text.find('\n', analysis);
