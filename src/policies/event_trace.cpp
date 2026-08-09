@@ -196,8 +196,8 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
 void EventTrace::learned(const Kernel &k, const std::vector<Lit> &clause) {
   if (!out_)
     return;
-  std::string payload = "head=";
-  for (size_t i = 0; i < clause.size() && i < 2; i++) {
+  std::string payload = "order=";
+  for (size_t i = 0; i < clause.size(); i++) {
     if (i)
       payload += ',';
     payload += std::to_string(kernel_externalize(k, clause[i]));
