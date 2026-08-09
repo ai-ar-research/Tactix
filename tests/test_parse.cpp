@@ -1,5 +1,5 @@
-// DIMACS ingestion regressions: canonical clause storage must not erase the
-// file-literal order used by Kissat's default `tumble=1` decision seed.
+// DIMACS ingestion regressions: stable clause storage and the decision seed
+// both preserve the file-literal order used by Kissat's default `tumble=1`.
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -18,7 +18,7 @@ static void test_tumble_preserves_file_literal_order() {
   assert(file);
   // First surviving occurrences: 3,1,2,6,4,7.  The repeated 3 is inert,
   // the tautological second clause activates neither 5 nor 4, and the final
-  // occurrence of 2 is already active.  Storage is still sorted separately.
+  // occurrence of 2 is already active.  Storage stably removes the repeated 3.
   const char *dimacs =
       "p cnf 7 4\n"
       "3 1 3 2 0\n"
@@ -45,13 +45,13 @@ static void test_tumble_preserves_file_literal_order() {
   for (unsigned i = 0; i < 7; i++)
     assert(externalize(candidates[i]) == expected_candidates[i]);
 
-  // Tumble is an ordering side effect only.  The first stored large clause
-  // remains sorted/deduplicated for the kernel's set-based representation.
+  // The first stored large clause matches Kissat's stable first-occurrence
+  // order while retaining the kernel's set semantics.
   const Clause *clause = clause_at(k.arena, 0);
   assert(clause->size == 3);
-  assert(clause->lits[0] == internalize(1));
-  assert(clause->lits[1] == internalize(2));
-  assert(clause->lits[2] == internalize(3));
+  assert(clause->lits[0] == internalize(3));
+  assert(clause->lits[1] == internalize(1));
+  assert(clause->lits[2] == internalize(2));
   kernel_check_invariants(k);
 }
 

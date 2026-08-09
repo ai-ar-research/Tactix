@@ -52,10 +52,10 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
 
   // Kissat's default `tumble=1` imports variables by first occurrence and
   // activates the literals of each surviving clause in that same file order
-  // (internal.c `kissat_add` -> flags.c `kissat_activate_literals`).  Clause
-  // storage below is deliberately canonicalized by sorting, so retain the
-  // parse order separately.  Do not publish it yet: a tautology activates
-  // nothing and returns below.
+  // (internal.c `kissat_add` -> flags.c `kissat_activate_literals`).  Retain
+  // that order across the set-semantics check below.  Do not publish it yet: a
+  // tautology activates nothing and returns below.
+  const std::vector<Lit> file_order = scratch;
   std::vector<Var> activation_order;
   if (k.tumble) {
     activation_order.reserve(scratch.size());
@@ -63,13 +63,30 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
       activation_order.push_back(var_of(l));
   }
 
-  // Set semantics: dedupe; tautologies contribute nothing.
+  // Set semantics: dedupe; tautologies contribute nothing.  The sorted copy
+  // is only the membership check.  Original clauses are stored in stable
+  // first-occurrence file order, as Kissat does while all literals are
+  // unassigned; sorting storage here changes the initial watched pair and the
+  // order of every affected watch list.
   const size_t file_size = scratch.size();
   std::sort(scratch.begin(), scratch.end());
   scratch.erase(std::unique(scratch.begin(), scratch.end()), scratch.end());
   for (size_t i = 1; i < scratch.size(); i++)
     if (scratch[i] == negate(scratch[i - 1]))
       return; // tautology
+  const std::vector<Lit> canonical = scratch;
+  std::vector<uint8_t> emitted(canonical.size(), 0);
+  scratch.clear();
+  scratch.reserve(canonical.size());
+  for (const Lit lit : file_order) {
+    const auto it = std::lower_bound(canonical.begin(), canonical.end(), lit);
+    assert(it != canonical.end() && *it == lit);
+    const size_t pos = static_cast<size_t>(it - canonical.begin());
+    if (!emitted[pos]) {
+      emitted[pos] = 1;
+      scratch.push_back(lit);
+    }
+  }
   // N2: the checker holds the file clause under `id`, repeats and all, so a
   // shrunk clause may not keep it. Restate at finish_input, but only when this
   // clause is actually stored — a dropped clause's id is never cited.
