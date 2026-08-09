@@ -56,6 +56,7 @@ static void test_c1_redundant_victim_is_reachable() {
   { // (b) the canonical round declines it — the band is off and C1's round is
     // irredundant-only by design, since C2 absorbs its subsumptions.
     Kernel k;
+    k.touch_redundant = false;
     kernel_reserve_vars(k, 4);
     add(k, {1, 2, 3}, /*redundant=*/false, 3); // the subsumer
     const Ref victim = add(k, {1, 2, 3, 4}, /*redundant=*/true, 2);
@@ -90,6 +91,7 @@ static void test_c2_redundant_victim_is_reachable() {
   const RuleVTable *c2 = rule("Strengthen");
   assert(c2);
   Kernel k;
+  k.touch_redundant = false;
   kernel_reserve_vars(k, 4);
   add(k, {1, 2, 3}, /*redundant=*/false, 3);       // partner, has +3
   const Ref victim = add(k, {1, 2, -3, 4}, true, 2); // has -3: drop it
@@ -186,8 +188,9 @@ static void test_f7_band_scope_is_live_and_dynamic() {
     k.strengthen_touch_mark = 0; // any movement re-offers the clause
     assert(c2->apply(k) == ApplyResult::Ok);
   }
-  { // the band off is the shipped default and must decline both
+  { // the explicit off arm must decline both
     Kernel k;
+    k.touch_redundant = false;
     const Ref victim = build(k, 2);
     assert(!k.touch_redundant);
     assert(c2->apply(k) == ApplyResult::NoOp);

@@ -541,6 +541,13 @@ static void test_preprocess_is_reduced_and_bounded(void) {
   assert(offered.size() == std::size(expected));
   for (size_t i = 0; i < offered.size(); i++)
     assert(!std::strcmp(offered[i], expected[i]));
+  std::vector<FollowupKind> followups;
+  for (const auto &e : p.inprocess().entries)
+    if (e.preprocess && !std::strcmp(rules[e.rule].name, "Substitute"))
+      followups.push_back(e.followup);
+  assert(followups.size() == 2);
+  assert(followups[0] == FollowupKind::AfterCongruence);
+  assert(followups[1] == FollowupKind::AfterSweepOrFinal);
   assert(p.inprocess().want_phase(k, SlotGroup::Probe));
   assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate));
 
@@ -555,11 +562,89 @@ static void test_preprocess_is_reduced_and_bounded(void) {
   std::printf("  preprocess: one reduced probe pipeline, 2e6 tick reference\n");
 }
 
+static void test_preprocess_followup_truth_table(void) {
+  using M = FollowupMode;
+  using K = FollowupKind;
+  const auto mode = DefaultInprocessScheduler::preprocessing_followup_mode;
+  assert(mode(K::AfterCongruence, false, false) == M::None);
+  assert(mode(K::AfterSweepOrFinal, false, false) == M::Final);
+  assert(mode(K::AfterCongruence, true, false) == M::Eager);
+  assert(mode(K::AfterSweepOrFinal, true, false) == M::None);
+  assert(mode(K::AfterCongruence, false, true) == M::None);
+  assert(mode(K::AfterSweepOrFinal, false, true) == M::Eager);
+  assert(mode(K::AfterCongruence, true, true) == M::Eager);
+  assert(mode(K::AfterSweepOrFinal, true, true) == M::Eager);
+  std::printf("  preprocess followups: all four producer outcomes covered\n");
+}
+
+static void test_preprocess_final_followup_is_observed(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  const auto &rules = tactix_rules();
+  unsigned seen = 0;
+  for (const auto &e : p.inprocess().entries) {
+    if (!e.preprocess || std::strcmp(rules[e.rule].name, "Substitute"))
+      continue;
+    if (seen++ == 0) {
+      assert(e.tm.followup_offered == 1 && e.tm.followup_taken == 0);
+    } else {
+      assert(e.tm.followup_offered == 1 && e.tm.followup_taken == 1);
+      assert(e.tm.followup_eager == 0 && e.tm.followup_final == 1);
+    }
+  }
+  assert(seen == 2);
+  std::printf("  preprocess followups: neither-producer path takes final once\n");
+}
+
+static void test_preprocess_followup_legacy_arm(void) {
+  assert(setenv("TACTIX_PREPROCESS_FOLLOWUPS", "0", 1) == 0);
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  p.inprocess().configure_from_env();
+  p.inprocess().build(k);
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(unsetenv("TACTIX_PREPROCESS_FOLLOWUPS") == 0);
+  const auto &rules = tactix_rules();
+  unsigned seen = 0;
+  for (const auto &e : p.inprocess().entries)
+    if (e.preprocess && !std::strcmp(rules[e.rule].name, "Substitute")) {
+      seen++;
+      assert(e.applies == 1);
+      assert(e.tm.followup_offered == 0 && e.tm.followup_taken == 0);
+    }
+  assert(seen == 2);
+  std::printf("  preprocess followups: legacy arm calls both entries\n");
+}
+
+static void test_reorder_ships_in_both_modes(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  ScopedHeuristics h(k);
+  DefaultPolicy p;
+  k.stats.conflicts = DefaultPolicy::REORDER_INTERVAL_INIT;
+  assert(p.want_reorder(k) &&
+         "Kissat's shipped reorder=2 default must admit focused mode");
+  k.h->stable = true;
+  assert(p.want_reorder(k) &&
+         "Kissat's shipped reorder=2 default must admit stable mode");
+  k.level = 1;
+  assert(!p.want_reorder(k) && "the scheduled event remains root-only");
+  std::printf("  reorder default: both modes, policy trigger remains root-only\n");
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
   test_reason_bump_depth_tracks_mode();
   test_effort_limit_is_kissats();
   test_preprocess_is_reduced_and_bounded();
+  test_preprocess_followup_truth_table();
+  test_preprocess_final_followup_is_observed();
+  test_preprocess_followup_legacy_arm();
+  test_reorder_ships_in_both_modes();
   test_slot_cursor_rotates();
   test_cursor_preserves_n1();
   test_order_arms_reorder();

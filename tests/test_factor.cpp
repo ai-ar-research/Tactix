@@ -140,6 +140,11 @@ static void test_touch_filter_is_policy_only() {
 }
 
 int main() {
+  {
+    Kernel k;
+    assert(k.factor_cand_rounds == 2 &&
+           "Factor candidate pruning follows both reference defaults");
+  }
   // Density admission is DefaultPolicy's, not the rule's, so these
   // below-threshold grids factor through the rule's own surface.
   test_extension_var_boundary();

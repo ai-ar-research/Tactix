@@ -45,7 +45,11 @@ struct Stats {
   uint64_t target_saved = 0; // target-phase snapshots
   uint64_t best_saved = 0;   // best-phase snapshots
   uint64_t rephased = 0;     // Rephase applications (S3)
+  uint64_t reorder_eligible = 0; // scheduled occasions past the policy gate
   uint64_t reordered = 0;    // Reorder applications (S7, policy op)
+  uint64_t lucky_early_calls = 0; // DefaultPolicy startup opportunities
+  uint64_t lucky_late_calls = 0;  // ... after initial preprocessing
+  uint64_t lucky_late_sat = 0;    // late opportunities proving SAT
   uint64_t lucky_probes = 0; // Lucky probes run (S5)
   uint64_t walks = 0;         // S6 Walk applications (policy op)
   uint64_t walk_flips = 0;    // literal flips
@@ -434,7 +438,7 @@ struct Kernel {
   bool strengthen_complete = true;
   bool touch_filter = true;
   bool subsume_holds_elim = true;
-  bool touch_redundant = false;
+  bool touch_redundant = true;
   bool subsume_shadow = false;
   std::unordered_set<uint64_t> shadow_victims;
   uint32_t kept_glue = 0;
@@ -456,7 +460,7 @@ struct Kernel {
   FactorSelection *factor_selection = nullptr;
   uint32_t factor_bound = 0;
   bool factor_demote_fresh = true;
-  uint32_t factor_cand_rounds = 0;
+  uint32_t factor_cand_rounds = 2;
   bool no_ext_decisions = false;
   bool no_ext_reason_bump = false;
   bool subst_hazard_round = false;
@@ -487,7 +491,7 @@ struct Kernel {
   uint32_t sweep_passes_completed = 0;
   bool conflict_reuse = false;
   bool conflict_reuse_no_repair = false;
-  bool jump_reasons = false;
+  bool jump_reasons = true;
   uint32_t bump_reason_limit = 0;
   uint32_t bump_reason_depth = 1;
   uint32_t eager_subsume = EAGER_SUBSUME_SLOTS;

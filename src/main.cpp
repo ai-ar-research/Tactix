@@ -257,8 +257,8 @@ int main(int argc, char **argv) {
     kernel.vivify_flush = (*vf != '0');
   if (const char *sr = getenv("TACTIX_SWEEP_RESUME"))
     kernel.sweep_resume = (*sr != '0');
-  // Ships OFF: a prerequisite arm, not a candidate default, since the redundant
-  // band has no consumer yet (Kernel::touch_redundant).
+  // CaDiCaL's likely-kept redundant band ships ON; =0 restores the narrower
+  // irredundant-only round.
   if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))
     kernel.touch_redundant = (*tr != '0');
   // SubsumeForward's shadow arm; the `c c1shadow` line below is its output.
@@ -302,9 +302,9 @@ int main(int argc, char **argv) {
     kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
   if (getenv("TACTIX_CONFLICT_REUSE"))
     kernel.conflict_reuse = true;
-  // Kissat's `jumpreasons`, default OFF pending its pre-registered tier A/B.
-  if (getenv("TACTIX_JUMP_REASONS"))
-    kernel.jump_reasons = true;
+  // Kissat's `jumpreasons` ships ON; =0 restores direct antecedent reasons.
+  if (const char *jr = getenv("TACTIX_JUMP_REASONS"))
+    kernel.jump_reasons = (*jr != '0');
   if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
     kernel.conflict_reuse_no_repair = true;
   // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
@@ -738,9 +738,13 @@ int main(int argc, char **argv) {
     printf("c rephased    %llu (%llu best phases saved)\n",
            (unsigned long long)kernel.stats.rephased,
            (unsigned long long)kernel.stats.best_saved);
-    printf("c reordered   %llu decision re-rankings\n",
+    printf("c reordered   %llu eligible, %llu decision re-rankings\n",
+           (unsigned long long)kernel.stats.reorder_eligible,
            (unsigned long long)kernel.stats.reordered);
-    printf("c lucky       %llu probes\n",
+    printf("c lucky       %llu early, %llu late (%llu SAT), %llu probes\n",
+           (unsigned long long)kernel.stats.lucky_early_calls,
+           (unsigned long long)kernel.stats.lucky_late_calls,
+           (unsigned long long)kernel.stats.lucky_late_sat,
            (unsigned long long)kernel.stats.lucky_probes);
     printf("c walk        %llu walks (%llu improved, %llu flips, %llu steps)\n",
            (unsigned long long)kernel.stats.walks,
