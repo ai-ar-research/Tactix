@@ -1223,6 +1223,7 @@ bool kernel_compact_variables(Kernel &k) {
   k.analyzed.clear();
   k.shrinkable.clear();
   k.reason_bumped.clear();
+  k.minimize_scratch.clear();
   k.learned_scratch.clear();
   k.otfs_scratch.clear();
   k.otfs_retired.clear();

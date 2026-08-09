@@ -14,7 +14,6 @@
 #include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
 
 #include <algorithm>
-#include <cstdlib>
 
 namespace tactix {
 
@@ -170,15 +169,82 @@ static const Lit *conflict_lits(const Kernel &k, uint32_t *size) {
 // deliberately allows the walk to cross intermediate decision levels absent
 // from the learned clause; requiring clause-level membership here only keeps
 // literals whose redundancy the same reason graph proves.
-// Recursion cap, a deviation: kissat's minimizedepth defaults to 1000 and this
-// is 900 with `>`, a trajectory-affecting difference.
-static unsigned minimize_depth_limit() {
-  static const unsigned v = [] { // TACTIX_MINIMIZE_DEPTH: keeps it measurable
-    if (const char *e = std::getenv("TACTIX_MINIMIZE_DEPTH"))
-      return static_cast<unsigned>(std::strtoul(e, nullptr, 10));
-    return 900u;
-  }();
-  return v;
+// Kissat's shipped `minimizedepth=1000`; it rejects the node at depth 1000.
+// Binary reason runs are iterative there and do not consume this recursion
+// budget.  Keep the constant authored here: it is analysis mechanism, not a
+// policy arm, and the former 900/override arm was measured neutral and closed.
+static constexpr unsigned MINIMIZE_DEPTH_LIMIT = 1000;
+
+static bool literal_redundant(Kernel &, Lit, unsigned);
+
+// Kissat's `minimize_binary` walks a binary-reason run iteratively, then
+// assigns the whole run the result of its first non-binary/root/cached end.
+// Besides matching the reference depth accounting, this avoids consuming C++
+// call stack on arbitrarily long implication chains.
+static bool binary_chain_redundant(Kernel &k, Lit next, unsigned depth) {
+  const size_t saved = k.minimize_scratch.size();
+  bool ok = false;
+  for (;;) {
+    const Var v = var_of(next);
+    const Assigned &a = k.assigned[v];
+    if (a.level == 0) {
+      if (lrat_active(k))
+        chain_record_root(k, v);
+      ok = true;
+      break;
+    }
+    if (k.seen[v] & (SEEN | REMOVABLE)) {
+      ok = true;
+      break;
+    }
+    if ((k.seen[v] & POISONED) || a.reason == DECISION_REASON) {
+      ok = false;
+      break;
+    }
+    k.minimize_scratch.push_back(v);
+    if (a.binary) {
+      next = a.reason;
+      continue;
+    }
+
+    // The chain node itself is one level below the caller; literals in its
+    // large reason are two.  Binary nodes before it do not deepen the walk.
+    kernel_charge_ticks(k, 1);
+    const Clause *reason = clause_at(k.arena, a.reason);
+    const Lit assigned_lit = negate(next);
+    ok = true;
+    for (const Lit m : *reason) {
+      if (m == assigned_lit)
+        continue;
+      const Var mv = var_of(m);
+      if (k.var_level(mv) == 0) {
+        if (lrat_active(k))
+          chain_record_root(k, mv);
+        continue;
+      }
+      if (k.seen[mv] & SEEN)
+        continue;
+      if (!literal_redundant(k, m, depth + 2)) {
+        ok = false;
+        break;
+      }
+    }
+    break;
+  }
+
+  // Recursive Tactix used to mark these while unwinding, so retain the same
+  // deepest-first order for cleanup and native-LRAT antecedent capture.
+  for (size_t i = k.minimize_scratch.size(); i > saved; i--) {
+    const Var v = k.minimize_scratch[i - 1];
+    const uint8_t before = k.seen[v];
+    k.seen[v] |= ok ? REMOVABLE : POISONED;
+    if (!before)
+      k.analyzed.push_back(v);
+    if (ok && lrat_active(k))
+      chain_record(k, v);
+  }
+  k.minimize_scratch.resize(saved);
+  return ok;
 }
 
 static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
@@ -188,7 +254,9 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     return true;
   if (k.seen[v] & POISONED)
     return false;
-  if (a.reason == DECISION_REASON || depth > minimize_depth_limit()) {
+  if (a.reason == DECISION_REASON || depth >= MINIMIZE_DEPTH_LIMIT) {
+    if (depth >= MINIMIZE_DEPTH_LIMIT)
+      k.stats.minimize_depth_cutoffs++;
     const uint8_t before = k.seen[v];
     k.seen[v] |= POISONED;
     if (!before) // no other flag: newly touched
@@ -198,13 +266,7 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   const Lit assigned_lit = negate(l); // l is false; the var's true literal
   bool ok = true;
   if (a.binary) {
-    const Lit m = a.reason;
-    const Var mv = var_of(m);
-    if (k.var_level(mv) == 0) {
-      if (lrat_active(k))
-        chain_record_root(k, mv);
-    } else if (!(k.seen[mv] & SEEN) && !literal_redundant(k, m, depth + 1))
-      ok = false;
+    ok = binary_chain_redundant(k, a.reason, depth);
   } else {
     // One search tick per reason deref, as kissat minimize.c:52 charges for
     // the same walk. `search_ticks` denominates the stable-mode budget and
