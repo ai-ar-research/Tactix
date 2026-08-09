@@ -15,6 +15,26 @@ only.
 
 ## Resume here
 
+The 2026-08-08 codebase revisit is complete. `DefaultPolicy` now owns only the
+CDCL/search strategy and composes `DefaultInprocessScheduler` for macro phase
+order, clocks, budgets, delay, cursors, telemetry, and Factor/BVE coupling.
+Factor owns the neutral `FactorSelection` interface; Factor and Substitute emit
+kernel events instead of importing policy headers or calling heuristic code.
+`rule_policy_boundary` enforces that separation for every macro formula rule.
+The aggressive source-comment pass reduced comment-only lines across
+`default_policy.cpp`, `default_policy.hpp`, the extracted scheduler header, and
+`kernel.hpp` from 1,542 to 0; the default-policy module fell from 2,640 to 1,870
+lines while retaining inline invariant/reference notes.
+
+Trajectory and safety gates are green: Debug and Release 60/60; identity job
+1592226 compared and independently checked 399 generated/corpus/DRAT/LRAT/env
+cases with 0 differences (3 symmetric timeouts); focused fuzz job 1592227 had
+0 failures across five 300-case legs plus all 14 regressions, with targeted
+Factor/Substitute reach; Tier B window `20260808-203252-B-revisit-before` is
+clean and counter-identical at 25/28 for both pins. Excluding the runner's one
+unstable mover, the 24-pair stable-subset median after/before runtime ratio is
+1.0026 (+0.26%), inside the +5% structural ceiling.
+
 N2 root cause found, fixed, and regression-covered: since `7a457cf`
 retired-but-unassigned variables reached model extension at value 0, voiding
 `extend_ρ`'s total-assignment premise — the reverse walk could double-flip
@@ -51,9 +71,10 @@ posed-phase ladder ctest is green). **NOTHING IN FLIGHT.**
 
 **Next actions:**
 
-1. Complete and report the fixed-binary Tier C four-arm attribution.
-2. Continue with the remaining Phase 4 parity rows, Tier D shakedown, Tier D
-   campaign, and T3 gate in that order.
+1. Resume the Kissat-default parity campaign through the extracted scheduler;
+   take one remaining N4 row at a time, starting with `SP-COMPACT-1` unless a
+   different row is explicitly selected.
+2. Then run the Tier D shakedown, Tier D campaign, and T3 gate in that order.
 
 ## Current measurement contract
 
@@ -186,11 +207,12 @@ Each row closes with an implementation or an accepted deviation in
   `Reorder`.
 - No direct test for `src/frontend/parse.cpp`, and cake_lpr is not wired into
   the fuzz harness (`RV-S24` remainder).
-- `substitute.cpp` still calls `heuristics_demote_marked_vars` — the last
-  rule→policy layering leak after retirement moved to `Kernel::retired_events`.
 
 ## Recent changes
 
+- 2026-08-08 — extracted `DefaultInprocessScheduler`, removed the last macro
+  rule→policy leaks through rule-owned selection/events, and compacted verbose
+  source commentary (`fd5f0f5`; identity/fuzz/Tier B gates green).
 - 2026-08-08 — closed `SP-FACTOR-1` with the injected posed-phase ladder ctest.
 - 2026-08-08 — fixed the N2 frozen-at-0 reconstruction defect behind the three
   invalid closing-pair models; made backward BVE fuzz-reachable
@@ -201,5 +223,3 @@ Each row closes with an implementation or an accepted deviation in
 - 2026-08-08 — added the offline interactive proof-rule guide at
   `docs/proof-rules.html`, covering every calculus entry with formal rules,
   plain-language explanations, and worked examples.
-- 2026-08-08 — fixed backward-BVE unit loss, added regression/reach checks and
-  tier SAT-model validation; fixed-binary retakes started (`6033378`).
