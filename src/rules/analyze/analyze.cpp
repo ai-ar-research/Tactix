@@ -1000,12 +1000,17 @@ ApplyResult analyze_apply(Kernel &k) {
       while (e < learned.size() &&
              k.var_level(var_of(learned[e])) == blevel)
         e++;
+      bool minimize_block = true;
       if (e - b >= 2 && shrink_block(k, learned, b, e, blevel)) {
         k.stats.shrunken += (e - b) - 1;
-      } else {
+        minimize_block = false;
+      }
+      if (minimize_block && (e - b >= 2 || k.minimize_singletons)) {
         // Minimize literal by literal, singleton blocks included. kissat
-        // skips those, but under a free N1 schedule a literal's chain can
-        // bottom out without another literal on its own level.
+        // skips singleton blocks; Tactix keeps them on by default because,
+        // under a free N1 schedule, a literal's chain can bottom out without
+        // another literal on its own level.  The off arm localizes this
+        // deliberate stronger deviation in cross-solver traces.
         for (size_t j = b; j < e; j++)
           if (literal_redundant(k, learned[j], 0)) {
             learned[j] = INVALID_LIT;

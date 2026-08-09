@@ -6,6 +6,9 @@ ROOT=/home/hwu/SAT-solving
 OUT=${CROSS_TRACE_OUT:?set CROSS_TRACE_OUT}
 TACTIX=${CROSS_TRACE_TACTIX:-$ROOT/build/event-trace/tactix}
 KISSAT=${CROSS_TRACE_KISSAT:-$ROOT/tools/solvers/variants/kissat-event-trace/worktree/build/kissat}
+CROSS_TRACE_CASES=${CROSS_TRACE_CASES:-tr-n170-s053:20 tr-n220-s013:10}
+CROSS_TRACE_TIMEOUT=${CROSS_TRACE_TIMEOUT:-20}
+CROSS_TRACE_LIMIT=${CROSS_TRACE_LIMIT:-50000}
 DRAT=$ROOT/tools/checkers/bin/drat-trim
 CHECKMODEL=$ROOT/tools/fuzz/checkmodel
 mkdir -p "$OUT"
@@ -16,14 +19,16 @@ run_one() {
   log=$OUT/$name-$solver.log
   proof=$OUT/$name-$solver.drat
   if [ "$solver" = tactix ]; then
-    env TACTIX_EVENT_TRACE="$trace" TACTIX_EVENT_TRACE_LIMIT=50000 \
-      timeout --preserve-status --signal=TERM --kill-after=5 20 \
+    env TACTIX_EVENT_TRACE="$trace" \
+      TACTIX_EVENT_TRACE_LIMIT="$CROSS_TRACE_LIMIT" \
+      timeout --preserve-status --signal=TERM --kill-after=5 "$CROSS_TRACE_TIMEOUT" \
       "$binary" "$ROOT/benchmarks/cache/tierA/$name.cnf" "$proof" \
       >"$log" 2>&1
     rc=$?
   else
-    env KISSAT_EVENT_TRACE="$trace" KISSAT_EVENT_TRACE_LIMIT=50000 \
-      timeout --preserve-status --signal=TERM --kill-after=5 20 \
+    env KISSAT_EVENT_TRACE="$trace" \
+      KISSAT_EVENT_TRACE_LIMIT="$CROSS_TRACE_LIMIT" \
+      timeout --preserve-status --signal=TERM --kill-after=5 "$CROSS_TRACE_TIMEOUT" \
       "$binary" "$ROOT/benchmarks/cache/tierA/$name.cnf" "$proof" \
       >"$log" 2>&1
     rc=$?
@@ -41,12 +46,19 @@ run_one() {
 }
 
 : >"$OUT/status.tsv"
-run_one tr-n170-s053 20 tactix "$TACTIX"
-run_one tr-n170-s053 20 kissat "$KISSAT"
-run_one tr-n220-s013 10 tactix "$TACTIX"
-run_one tr-n220-s013 10 kissat "$KISSAT"
+for spec in $CROSS_TRACE_CASES; do
+  name=${spec%:*}
+  expected=${spec##*:}
+  case "$expected" in
+    10|20) ;;
+    *) echo "invalid expected exit code in CROSS_TRACE_CASES: $spec" >&2; exit 2 ;;
+  esac
+  run_one "$name" "$expected" tactix "$TACTIX"
+  run_one "$name" "$expected" kissat "$KISSAT"
+done
 
-for name in tr-n170-s053 tr-n220-s013; do
+for spec in $CROSS_TRACE_CASES; do
+  name=${spec%:*}
   python3 "$ROOT/tools/bench/compare_event_trace.py" \
     "$OUT/$name-tactix.tsv" "$OUT/$name-kissat.tsv" \
     --mode semantic --radius 2 --fixture "$name" \
