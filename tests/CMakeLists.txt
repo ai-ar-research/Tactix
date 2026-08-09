@@ -5,6 +5,10 @@ add_executable(test_kernel test_kernel.cpp)
 target_link_libraries(test_kernel PRIVATE tactix_lib)
 add_test(NAME kernel COMMAND test_kernel)
 
+add_executable(test_parse test_parse.cpp)
+target_link_libraries(test_parse PRIVATE tactix_lib)
+add_test(NAME parse COMMAND test_parse)
+
 # The proof backend's serializers, byte for byte (N2's writer).
 add_executable(test_proof test_proof.cpp)
 target_link_libraries(test_proof PRIVATE tactix_lib)

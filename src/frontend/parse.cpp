@@ -50,6 +50,19 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   if (!scratch.empty())
     kernel_reserve_vars(k, maxv + 1);
 
+  // Kissat's default `tumble=1` imports variables by first occurrence and
+  // activates the literals of each surviving clause in that same file order
+  // (internal.c `kissat_add` -> flags.c `kissat_activate_literals`).  Clause
+  // storage below is deliberately canonicalized by sorting, so retain the
+  // parse order separately.  Do not publish it yet: a tautology activates
+  // nothing and returns below.
+  std::vector<Var> activation_order;
+  if (k.tumble) {
+    activation_order.reserve(scratch.size());
+    for (const Lit l : scratch)
+      activation_order.push_back(var_of(l));
+  }
+
   // Set semantics: dedupe; tautologies contribute nothing.
   const size_t file_size = scratch.size();
   std::sort(scratch.begin(), scratch.end());
@@ -68,12 +81,13 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // Activation, kissat's `tumble` order (heuristics_seed_activation_order).
   // Placed after the tautology return and before the store so it matches
   // kissat's per-clause activation in `kissat_add`: a tautology activates
-  // nothing, every clause that survives activates all of its variables.
+  // nothing, and first activation follows file-literal order rather than the
+  // canonical sorted storage order.  input_activated removes repeated
+  // literals in one clause and variables activated by an earlier clause.
   if (k.tumble) {
     if (k.input_activated.size() < k.nvars)
       k.input_activated.resize(k.nvars, 0);
-    for (const Lit l : scratch) {
-      const Var v = var_of(l);
+    for (const Var v : activation_order) {
       if (!k.input_activated[v]) {
         k.input_activated[v] = 1;
         k.input_activation_order.push_back(v);
