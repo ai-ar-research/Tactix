@@ -31,11 +31,14 @@ retains DIMACS literal order while clause storage remains canonical, and a
 parser regression pins the full initial VMTF queue plus decision prefix across
 duplicates and a tautology. Pinned two-fixture tracing confirms exact initial
 top-32 and first-conflict decision-prefix identity. With
-`TACTIX_CHRONO_REUSE=0`, the accepted analysis-side divergence disappears and
-exposes `ORDER-ELIM-INIT-1`: the unconsumed zero-valued elimination clock ran a
-full phase after conflict 1. The scheduler now seeds the first search-time
+analysis-side trail reuse disabled, the accepted CaDiCaL divergence disappears
+and exposes `ORDER-ELIM-INIT-1`: the unconsumed zero-valued elimination clock
+ran a full phase after conflict 1. The scheduler now seeds the first search-time
 elimination at the reference-scaled 500-conflict interval; a scheduling test
-pins the exact deadline. The full Release suite is 63/63.
+pins the exact deadline. Kissat is now the shipped tie-break for analysis-side
+behavior: ranked trail reuse defaults off, while `TACTIX_CHRONO_REUSE=1`
+retains the CaDiCaL arm. Ordinary Kissat chronological backtracking remains on.
+The full Release suite is 63/63.
 `TACTIX_REORDER=0`, `TACTIX_LUCKY_LATE=0`, and
 `TACTIX_PREPROCESS_FOLLOWUPS=0` retain the cumulative attribution arms.
 Cross-solver diagnosis now has a strict contract: a diagnostic-only Kissat
@@ -52,8 +55,10 @@ the repaired implementation.
 
 **Next actions:**
 
-1. Re-run the two fixed traces with `ORDER-ELIM-INIT-1` retained, at the shipped
-   default and with `TACTIX_CHRONO_REUSE=0`, and explain the next divergence.
+1. Re-run the two fixed traces with `ORDER-ELIM-INIT-1` retained at the shipped
+   Kissat-style default; use `TACTIX_CHRONO_REUSE=1` only to confirm the
+   CaDiCaL arm's expected earlier divergence, and explain the next default
+   divergence.
    Then run the cumulative Tumble + elimination-clock Tier-A gate against the
    preceding immutable pin; do not proceed if either cheap fixture regresses.
 2. With repaired Reorder and Tumble retained, gate `ORDER-LUCKY-1` on Tier A.
@@ -122,8 +127,9 @@ current implementation, evidence, and closer; no Git-history excavation is
 required.
 
 - [x] `SP-SWEEP-2` is implemented and closed.
-- [x] `SP-BVE-BWD-1`, `SP-CHRONO-1`: closed — repairs landed, accepted
-  deviations recorded, closing pair banked N2-clean
+- [x] `SP-BVE-BWD-1`, `SP-CHRONO-1`: closed — repairs landed; analysis-side
+  ranked trail reuse now defaults off by the Kissat tie-break and remains
+  available as `TACTIX_CHRONO_REUSE=1`; closing pair banked N2-clean
   (`20260808-141938-B-n2fix` / `20260808-141941-C-n2fix`, commit `7fbcb11`).
 - [x] `SP-FACTOR-1`: closed — the N2-clean closing pair is banked and
   `test_slot_pose` proves the level and Factor snapshot walk an injected

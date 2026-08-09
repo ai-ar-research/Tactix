@@ -62,7 +62,9 @@ public:
   bool reset_schedule_per_solve = true;
   uint64_t solves = 0;
   uint32_t chrono_levels = CHRONO_LEVELS;
-  bool chrono_reuse_trail_ = true;
+  // Kissat tie-break: ordinary chronological backtracking remains enabled,
+  // while CaDiCaL's additional ranked trail-suffix reuse is an opt-in arm.
+  bool chrono_reuse_trail_ = false;
   BranchingPolicy *branching = nullptr;
   ReductionPolicy *reduction = nullptr;
 
