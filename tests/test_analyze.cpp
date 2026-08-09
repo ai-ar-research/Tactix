@@ -149,6 +149,38 @@ static void test_shrink_accepts_lower_learned_literal() {
   assert(k.pending.jump_level == 2);
 }
 
+static void test_shrink_crosses_unmarked_lower_level() {
+  // The level-3 block {-b,-c} converges to b.  Resolving c first reaches -y
+  // on level 2, which is not represented in the learned clause; y's binary
+  // reason then reaches the learned anchor -a on level 1.  Kissat follows the
+  // complete reason chain across that intermediate level.  Rejecting y just
+  // because level 2 is absent keeps a strictly weaker learned clause.
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  kernel_assign_decision(k, internalize(1)); // a @ 1
+  kernel_assign_decision(k, internalize(2)); // unused level-2 decision
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_assign(k, internalize(3), 2, internalize(-1), true); // y @ 2
+  kernel_assign_decision(k, internalize(4));                  // b @ 3
+  const Lit reason[3] = {internalize(-4), internalize(-3),
+                         internalize(5)};
+  const Ref reason_ref = kernel_add_large_clause(k, reason, 3, false, 0);
+  kernel_assign(k, internalize(5), 3, reason_ref, false); // c @ 3
+  kernel_assign_decision(k, internalize(6));              // d @ 4
+  const Lit conflict[4] = {internalize(-6), internalize(-4),
+                           internalize(-5), internalize(-1)};
+  k.conflict_ref = kernel_add_large_clause(k, conflict, 4, false, 0);
+  k.conflict_valid = true;
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.shrunken == 1);
+  assert(k.pending.lits.size() == 3);
+  assert(k.pending.lits[0] == internalize(-6));
+  assert(k.pending.lits[1] == internalize(-4));
+  assert(k.pending.lits[2] == internalize(-1));
+  assert(k.pending.jump_level == 3);
+}
+
 static Kernel singleton_minimization_fixture() {
   // At level 2, c follows from a through (-a c).  The conflict learns
   // (-d -c -a), where -c is the sole literal on its level and is redundant
@@ -548,6 +580,7 @@ int main() {
   test_learned_unit();
   test_shrink();
   test_shrink_accepts_lower_learned_literal();
+  test_shrink_crosses_unmarked_lower_level();
   test_singleton_minimization_stronger();
   test_learned_level_stable_order();
   test_otfs();
