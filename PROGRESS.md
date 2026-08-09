@@ -26,9 +26,16 @@ preprocessing Substitute calls follow productive Congruence/Sweep outcomes,
 with one final call only when neither fires. Jump reasons, Factor's two candidate
 pruning rounds, and CaDiCaL's likely-kept redundant subsumption band also now
 ship on at their reference defaults, each with an explicit rollback arm.
-The full Release suite is 61/61.
+The full Release suite is 62/62.
 `TACTIX_REORDER=0`, `TACTIX_LUCKY_LATE=0`, and
 `TACTIX_PREPROCESS_FOLLOWUPS=0` retain the cumulative attribution arms.
+Cross-solver diagnosis now has a strict contract: a diagnostic-only Kissat
+overlay and compile-time Tactix trace build emit the same semantic schema, and
+the comparator refuses to call a first divergence explained without a cause,
+disposition, and evidence handle. Production Tactix builds omit the trace
+implementation and retain no trace symbols or event strings. The two-fixture
+proof/model and first-divergence evidence is in
+`benchmarks/reports/2026-08-09-cross-solver-semantic-divergence.md`.
 The initial, now-superseded collapse is retained in
 `20260809-144515-A-parity-old`, `20260809-144538-B-parity-old`, and
 `20260809-144536-C-parity-old`; do not use its later cumulative arms to judge
@@ -36,10 +43,16 @@ the repaired implementation.
 
 **Next actions:**
 
-1. With repaired Reorder retained, gate `ORDER-LUCKY-1` on Tier A. Continue one
-   at a time with `ORDER-FOLLOWUP-1`, `SP-JUMP-1`, `SP-FACTOR-CAND-1`, and
-   `SCHED-F6`; stop and diagnose the first Tier-A regression.
-2. Do not rerun Tier B/C until the fully cumulative configuration passes Tier A.
+1. Close `ORDER-TUMBLE-1`, newly localized by cross-solver tracing: preserve
+   file-literal order when recording first activation, prove exact initial
+   top-32/decision-prefix identity on the two fixed fixtures, then run its
+   correctness and Tier-A gate.
+2. With repaired Reorder and Tumble retained, gate `ORDER-LUCKY-1` on Tier A.
+   Continue one at a time with `ORDER-FOLLOWUP-1`, `SP-JUMP-1`,
+   `SP-FACTOR-CAND-1`, and `SCHED-F6`; stop and diagnose the first Tier-A regression. Any diagnosis
+   must bank an explained first-divergence JSON record on two fixed cheap
+   fixtures before the item can be accepted or reverted.
+3. Do not rerun Tier B/C until the fully cumulative configuration passes Tier A.
    Only after N4 closes again, run the Tier D shakedown, Tier D campaign, and
    T3 gate in that order.
 
@@ -144,6 +157,9 @@ required.
 - [x] `ORDER-DEFAULT-1`: Tier-A closed. Semantic off/on tracing localized the
   first divergence to retired identities corrupting focused VMTF; active-only
   Reorder restores paired solve parity with clean proofs/models.
+- [ ] `ORDER-TUMBLE-1`: cross-solver tracing localized decision 25 on
+  `tr-n220-s013` to first activation being recorded after clause sorting rather
+  than in Kissat's file-literal order. Frontend/test repair and Tier A remain.
 - [ ] `ORDER-LUCKY-1`: implemented and correctness-green; early and late calls
   bracket preprocessing with separate reach/SAT counters and a late-off arm.
   Cumulative pricing and acceptance remain.
@@ -212,6 +228,8 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Recent changes
 
+- 2026-08-09 — added zero-overhead production trace builds, a semantic Kissat
+  overlay, and the localized/explained cross-solver divergence gate.
 - 2026-08-09 — traced and repaired focused Reorder's retired-variable VMTF
   corruption; focused fixtures and Tier-A paired gate restored.
 - 2026-08-09 — implemented both-mode Reorder, early/late Lucky, and conditional
@@ -221,4 +239,3 @@ Each row closes with an implementation or an accepted deviation in
 - 2026-08-08 — extracted `DefaultInprocessScheduler`, removed the last macro
   rule→policy leaks through rule-owned selection/events, and compacted verbose
   source commentary (`fd5f0f5`; identity/fuzz/Tier B gates green).
-- 2026-08-08 — closed `SP-FACTOR-1` with the injected posed-phase ladder ctest.

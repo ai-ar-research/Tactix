@@ -40,9 +40,21 @@ add_executable(test_scheduling test_scheduling.cpp)
 target_link_libraries(test_scheduling PRIVATE tactix_lib)
 add_test(NAME scheduling COMMAND test_scheduling)
 
-add_executable(test_event_trace test_event_trace.cpp)
+if(TACTIX_ENABLE_EVENT_TRACE)
+  add_executable(test_event_trace test_event_trace.cpp)
+else()
+  # Exercise the diagnostic implementation even though the production object
+  # library deliberately omits it in the default build.
+  add_executable(test_event_trace test_event_trace.cpp
+                 ${CMAKE_SOURCE_DIR}/src/policies/event_trace.cpp)
+  target_compile_definitions(test_event_trace PRIVATE
+                             TACTIX_ENABLE_EVENT_TRACE=1)
+endif()
 target_link_libraries(test_event_trace PRIVATE tactix_lib)
 add_test(NAME event_trace COMMAND test_event_trace)
+add_test(NAME event_trace_compare
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_compare_event_trace.py)
 
 # The §5.6 pose surface: a preposed slot, a disabled entry inert at its own
 # rule's counter, and the TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs.

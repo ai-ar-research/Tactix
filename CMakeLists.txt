@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Semantic execution tracing is a diagnostic build feature.  Production pins
+# use inline no-op methods and do not link the implementation, so decision and
+# conflict hot paths contain no runtime trace branch.
+option(TACTIX_ENABLE_EVENT_TRACE "Compile semantic event tracing" OFF)
+
 # Kernel discipline (plan §5): C-style core, no exceptions/RTTI anywhere in
 # the solver library or binary.
 add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
@@ -29,7 +34,6 @@ add_library(tactix_lib OBJECT
   ${TACTIX_POLICY_OP_SOURCES}
   src/engine/subsolver.cpp
   src/policies/heuristics.cpp
-  src/policies/event_trace.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp
   src/policies/trace.cpp
@@ -37,6 +41,10 @@ add_library(tactix_lib OBJECT
   src/frontend/parse.cpp
   src/api/api.cpp
 )
+if(TACTIX_ENABLE_EVENT_TRACE)
+  target_sources(tactix_lib PRIVATE src/policies/event_trace.cpp)
+  target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_EVENT_TRACE=1)
+endif()
 target_include_directories(tactix_lib PUBLIC src include)
 
 add_executable(tactix src/main.cpp)
