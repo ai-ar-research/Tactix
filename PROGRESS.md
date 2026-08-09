@@ -220,6 +220,6 @@ Each row closes with an implementation or an accepted deviation in
 - 2026-08-08 — rewrote all 17 Claude skills, retired manual plan revisions,
   added generic JSON stress scenarios, CMake discovery, SLURM waiting, and the
   2026 competition wrapper/compliance checks.
-- 2026-08-08 — added the offline interactive proof-rule guide at
-  `docs/proof-rules.html`, covering every calculus entry with formal rules,
-  plain-language explanations, and worked examples.
+- 2026-08-08 — added the offline proof-rule guide and made M3 concrete: its
+  reason-resolution sequence, UIP/jump definitions, state transition, ordered
+  certificate delta, and two-level example now match `docs/calculus.md`.

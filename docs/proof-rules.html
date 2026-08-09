@@ -149,6 +149,7 @@
     .js .panel[hidden] { display: none; }
     .formal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .formal-block { padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+    .formal-block.wide { grid-column: 1 / -1; }
     .formal-block h4, .panel h4 { margin: 0 0 7px; color: var(--accent); font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
     .formal-block p, .panel > p { margin: 0; }
     .math, code {
@@ -309,20 +310,39 @@ M1 then forces b@1</div><p>N1 exposes both <span class="math">a</span> and <span
           <summary><span class="rule-id">M3</span><span class="rule-title"><h3>ConflictAnalysis</h3><p>Learn a 1-UIP clause and backjump atomically</p></span><span class="status">public</span></summary>
           <div class="rule-content">
             <div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
-            <section class="panel" data-panel-content="formal"><div class="equation">Cconflict is all-false under M ∧ F not refuted
-──────────────────────────────────────────────── M3
-derive L₁UIP ; R := R ∪ {L}; backtrack(j); assert UIP
-δ = add_rup(L, antecedents) · optional del(...) </div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Analyze, minimize, optionally strengthen by OTFS, learn, backtrack, and assert in one public transition. Root conflict yields <span class="math">∅</span>.</p></div><div class="formal-block"><h4>Soundness</h4><p>The learned clause is RUP and entailed by the conflict reasons; assertion at the jump level is ordinary unit propagation.</p></div></div></section>
-            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Explain why the current branch failed, remember the explanation, and jump to the earliest useful point.</strong> The new clause prevents the solver from repeating the same conflicting combination.</p></section>
+            <section class="panel" data-panel-content="formal"><div class="equation">Γ = F ∪ R;  K₀ = Cκ;  d = max level in K₀
+
+Kᵢ₊₁ := Res(Kᵢ, reason(qᵢ), var(qᵢ))
+  where qᵢ is the latest trail assignment at level d
+  and Kᵢ contains more than one level-d literal
+
+stop with Kₘ = {¬u} ∪ B          (u is the first UIP)
+L := minimize/shrink(Kₘ) = {¬u} ∪ B′
+j := max({level(l) | l ∈ B′} ∪ {0})
+
+conflict Cκ recorded ∧ Γ not refuted ∧ d&gt;0 ∧ t ∈ [j,d−1]
+────────────────────────────────────────────────── M3(t)
+⟨F,R,τ,ρ,π⟩ → ⟨F,R∪{L},prefixₜ(τ)·[¬u@j←L],ρ,π·δ⟩</div><div class="formal-grid"><div class="formal-block wide"><h4>Certificate, in emission order</h4><p><span class="math">δ = ∏<sub>(C↦C′)∈OTFS</sub>[add_rup(C′,h<sub>C′</sub>) · del(C)] · add_rup(L,h<sub>L</sub>) · ∏<sub>D∈eager(L)</sub>del(D)</span>. Here <span class="math">h<sub>L</sub></span> lists the reason clauses used by analysis/minimization in increasing trail order, then the conflict clause. The backtrack and assertion emit nothing. For root refutation, LRAT emits <span class="math">add_rup(∅,h<sub>⊥</sub>)</span>; DRAT emits its empty-clause line.</p></div><div class="formal-block"><h4>Effect</h4><p>The canonical target is <span class="math">t=j</span>, and <span class="math">¬u@j←L</span> means “assign <span class="math">¬u</span> at true level <span class="math">j</span> with reason <span class="math">L</span>.” A chronological target may retain levels above <span class="math">j</span>. OTFS replacements stay in their parent clause’s irredundancy partition.</p></div><div class="formal-block"><h4>Soundness</h4><p>Every resolution step preserves entailment. Negating <span class="math">L</span> replays <span class="math">h<sub>L</sub></span> to the recorded conflict, so <span class="math">L</span> is RUP. After truncation, every literal in <span class="math">B′</span> is false and <span class="math">L</span> forces <span class="math">¬u</span>.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Walk backward from the conflict through the reasons for the latest assignments.</strong> Stop when only one literal from the conflict level remains: that assignment is the first UIP. Negating it, together with the lower-level literals encountered along the way, forms the learned clause. Its highest lower level is exactly where the clause becomes unit, so the solver backtracks there and propagates the negated UIP.</p></section>
             <section class="panel" data-panel-content="examples"><div class="examples">
-              <div class="example"><h4>Learn the negated decision</h4><div class="equation">(¬a ∨ b), (¬a ∨ c), (¬b ∨ ¬c)
-Decide a@1 ⇒ b@1, c@1 ⇒ conflict
-Resolve reasons ⇒ L = (¬a)
-Backjump 0; assert ¬a@0</div><p>The three-clause implication pattern proves that choosing <span class="math">a</span> can never work.</p></div>
-              <div class="example"><h4>Root refutation</h4><div class="equation">(p), (¬p ∨ q), (¬p ∨ ¬q)
-p@0 ⇒ q@0 and ¬q@0
-Analyze ⇒ L = ∅
-⇒ Unsat</div><p>At root there is no lower level to revisit, so M3 emits the empty learned clause.</p></div>
+              <div class="example"><h4>A genuine non-chronological jump</h4><div class="equation">C₁=(¬b∨c), C₂=(¬b∨d), C₃=(¬c∨¬d∨¬a)
+trail: a@1(decide), b@2(decide), c@2(C₁), d@2(C₂)
+C₃ is false
+
+Res(C₃,C₂,d) = (¬c∨¬a∨¬b)
+Res(·,C₁,c)  = L=(¬a∨¬b)
+
+d=2, u=b, j=level(¬a)=1
+backtrack(1); assert ¬b@1 with reason L
+hL=[C₁,C₂,C₃]</div><p>Under assumptions <span class="math">a∧b</span>, the LRAT hint order first propagates <span class="math">c</span>, then <span class="math">d</span>, then reaches <span class="math">C₃</span>. Thus <span class="math">L</span> is RUP and becomes unit at level 1.</p></div>
+              <div class="example"><h4>Root refutation</h4><div class="equation">C₁=(p), C₂=(¬p∨q), C₃=(¬p∨¬q)
+trail: p@0(C₁), q@0(C₂)
+C₃ is false at level 0
+
+d=0 ⇒ no backtrack target and no UIP assertion
+LRAT: add_rup(∅,[C₁,C₂,C₃])
+DRAT: add_empty(∅)
+result: Unsat</div><p>At root there is no decision to revise. The transition certifies the empty clause directly and marks the formula inconsistent.</p></div>
             </div></section>
           </div>
         </details>
