@@ -159,13 +159,12 @@ static void test_singleton_minimization_arm() {
   assert(kissat.pending.jump_level == 2);
 }
 
-static Kernel learned_tie_fixture(bool trail_tie) {
+static Kernel learned_stable_order_fixture() {
   // The learned level-2 block is inserted as {-b,-c}, while c has the later
   // trail position.  Its shrink walk fails through the lower-level decision
   // a, leaving the block intact and isolating the within-level ordering rule.
   Kernel k;
   kernel_reserve_vars(k, 4);
-  k.learned_trail_tie = trail_tie;
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   kernel_assign(k, internalize(3), 2, internalize(-1), true);
@@ -179,18 +178,12 @@ static Kernel learned_tie_fixture(bool trail_tie) {
   return k;
 }
 
-static void test_learned_level_tie_arm() {
-  Kernel kissat = learned_tie_fixture(false);
-  assert(kissat.pending.lits.size() == 3);
-  assert(kissat.pending.lits[0] == internalize(-4));
-  assert(kissat.pending.lits[1] == internalize(-2));
-  assert(kissat.pending.lits[2] == internalize(-3));
-
-  Kernel former = learned_tie_fixture(true);
-  assert(former.pending.lits.size() == 3);
-  assert(former.pending.lits[0] == internalize(-4));
-  assert(former.pending.lits[1] == internalize(-3));
-  assert(former.pending.lits[2] == internalize(-2));
+static void test_learned_level_stable_order() {
+  Kernel k = learned_stable_order_fixture();
+  assert(k.pending.lits.size() == 3);
+  assert(k.pending.lits[0] == internalize(-4));
+  assert(k.pending.lits[1] == internalize(-2));
+  assert(k.pending.lits[2] == internalize(-3));
 }
 
 static void test_otfs() {
@@ -534,7 +527,7 @@ int main() {
   test_learned_unit();
   test_shrink();
   test_singleton_minimization_arm();
-  test_learned_level_tie_arm();
+  test_learned_level_stable_order();
   test_otfs();
   test_chrono_backjump_clamps_to_jump_level();
   test_backjump_target_clamps();
