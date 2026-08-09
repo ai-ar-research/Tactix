@@ -482,7 +482,7 @@ static uint32_t cce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   cce_literals(k, lits);
   const uint32_t n = std::min<uint32_t>(cap, static_cast<uint32_t>(lits.size()));
   for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(lits[i]);
+    out[i] = lit_instance(k, lits[i]);
   return n;
 }
 
@@ -493,7 +493,7 @@ static ApplyResult cce_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return cce_apply(k);
   Lit l;
-  if (!lit_of_instance(inst, &l))
+  if (!lit_of_instance(k, inst, &l))
     return ApplyResult::NoOp;
   return cce_try(k, l);
 }

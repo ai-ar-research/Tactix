@@ -8,6 +8,7 @@
 #include "kernel/types.hpp"
 
 #include <cstdio>
+#include <vector>
 
 namespace tactix {
 
@@ -19,6 +20,7 @@ public:
 
   bool open(const char *path, ProofFormat format);
   bool lrat() const { return format_ == ProofFormat::Lrat; }
+  void bind_variable_map(const std::vector<Var> *map) { variable_map_ = map; }
 
   // --- proof-delta vocabulary (subset live in phase 2) ---
   // add-RUP: `id` and the antecedent `chain` (ids, checker-propagation
@@ -64,6 +66,7 @@ private:
   void end_line();
   FILE *file_ = nullptr;
   ProofFormat format_ = ProofFormat::DratBinary;
+  const std::vector<Var> *variable_map_ = nullptr;
 };
 
 } // namespace tactix

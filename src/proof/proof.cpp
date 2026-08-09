@@ -24,6 +24,10 @@ bool Proof::open(const char *path, ProofFormat format) {
 // to unsigned u = (|e| << 1) | (e < 0), then 7-bit varint chunks,
 // high bit = continuation.
 void Proof::put_lit(Lit l) {
+  if (variable_map_) {
+    assert(var_of(l) < variable_map_->size());
+    l = make_lit((*variable_map_)[var_of(l)], negated(l));
+  }
   const int e = externalize(l);
   if (format_ == ProofFormat::DratBinary) {
     uint32_t u = (static_cast<uint32_t>(e < 0 ? -e : e) << 1) | (e < 0);

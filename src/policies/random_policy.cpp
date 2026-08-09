@@ -120,7 +120,7 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     uint64_t applied = INSTANCE_CANONICAL;
     if (id == decide_id) {
       const Lit l = stress_random_unassigned_literal(k, rng);
-      applied = lit_instance(l);
+      applied = lit_instance(k, l);
       r = decide_apply(k, l, true);
     } else if (id == restart_id) {
       // Random keep-level: every level in [0, current] is a legal instance

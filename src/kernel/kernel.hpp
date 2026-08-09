@@ -89,6 +89,8 @@ struct Stats {
   uint64_t restarts_reused = 0; // restarts that kept a trail prefix
   uint64_t reductions = 0;
   uint64_t deleted = 0; // learned clauses deleted by Reduce
+  uint64_t variable_compactions = 0;
+  uint64_t compacted_variables = 0;
   uint64_t binaries_deleted = 0; // binary clauses deleted (kernel_delete_binary)
   uint64_t forward_subsumptions = 0; // SubsumeForward rounds
   uint64_t forward_checked = 0;  // SubsumeForward candidates checked
@@ -346,6 +348,7 @@ struct Kernel {
   Heuristics *h = nullptr;
 
   std::vector<Lit> reconstruction;
+  std::vector<int8_t> model_values; // by stable external literal, after extend
   bool model_extended = false; // kernel_extend_model idempotency guard
 
   bool conflict_valid = false;
@@ -482,6 +485,10 @@ inline uint32_t kernel_num_output_vars(const Kernel &k) {
              : k.original_external_vars;
 }
 
+inline uint32_t kernel_num_original_internal_vars(const Kernel &k) {
+  return k.first_extension_var == UINT32_MAX ? k.nvars : k.first_extension_var;
+}
+
 inline Lit kernel_external_lit(const Kernel &k, Lit l) {
   assert(var_of(l) < k.internal_to_external.size());
   return make_lit(k.internal_to_external[var_of(l)], negated(l));
@@ -502,6 +509,13 @@ inline Lit kernel_internalize(const Kernel &k, int elit) {
 
 void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest);
 void kernel_extend_model(Kernel &);
+
+// Policy-free support primitive: densely renumber variables whose formula
+// retirement is already complete.  External proof/API/model identities do not
+// change.  Returns false when there is nothing to remove or a retirement
+// invariant is not yet strong enough to compact safely.
+bool kernel_compact_variables(Kernel &);
+bool kernel_should_compact_variables(const Kernel &, uint32_t percent);
 
 void kernel_emit_empty_from_pair(Kernel &, uint64_t id_a, uint64_t id_b);
 

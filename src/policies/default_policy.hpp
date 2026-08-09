@@ -135,6 +135,7 @@ private:
   double bump_reasons_rate_ = BUMP_REASONS_RATE;
   struct { uint32_t count = 0, current = 0; } bump_reasons_delay_;
   bool reduce_sqrt_ = false;
+  bool compact_ = true;
   bool dynamic_tiers_ = true;
   struct { uint64_t next_conflicts = 2, interval = 2; } retier_;
   DefaultBranching default_branching_;

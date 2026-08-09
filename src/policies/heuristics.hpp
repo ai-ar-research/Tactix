@@ -60,6 +60,8 @@ struct Heuristics {
 // Grow the `H` per-variable state for vars [old, nvars) and set h->nvars.
 // Called whenever the kernel grows nvars.
 void heuristics_reserve_vars(Kernel &, uint32_t old, uint32_t nvars);
+void heuristics_compact_vars(Kernel &, const std::vector<Var> &old_to_new,
+                             uint32_t new_nvars);
 
 // Seed the initial decision order from `order` (variables in first-activation
 // order), kissat's `tumble`. No-op without `H`. See the definition for why this

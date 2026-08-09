@@ -61,14 +61,14 @@ static void print_model(const Kernel &k) {
     fputc('\n', stdout);
     line = "v";
   };
-  for (Var v = 0; v < kernel_num_output_vars(k); v++) { // extension vars projected out
+  for (Var v = 0; v < kernel_num_output_vars(k); v++) { // external originals
     const Lit pos = make_lit(v, false);
     const int e = static_cast<int>(v) + 1;
     char buf[16];
     // Strict > 0, agreeing with tactix_value: after kernel_extend_model no
     // variable is value-0, and if extension were ever skipped a 0 must print
     // as false, not fabricate a positive phase the API would deny.
-    snprintf(buf, sizeof buf, " %d", k.values[pos] > 0 ? e : -e);
+    snprintf(buf, sizeof buf, " %d", k.model_values[pos] > 0 ? e : -e);
     if (line.size() + strlen(buf) > 4094)
       flush_line();
     line += buf;
@@ -317,6 +317,7 @@ int main(int argc, char **argv) {
       return 1;
     }
     kernel.proof = &proof;
+    proof.bind_variable_map(&kernel.internal_to_external);
   }
 
   bool piped = false;
@@ -609,6 +610,9 @@ int main(int argc, char **argv) {
              (unsigned long long)(n_sub + n_elim), (unsigned long long)n_sub,
              (unsigned long long)n_elim, kernel.nvars);
     }
+    printf("c compact     %llu passes removed %llu internal variables\n",
+           (unsigned long long)kernel.stats.variable_compactions,
+           (unsigned long long)kernel.stats.compacted_variables);
     printf("c deactivate  %llu deactivations, %llu re-bumps of retired vars\n",
            (unsigned long long)kernel.stats.deactivations,
            (unsigned long long)kernel.stats.reactivations);

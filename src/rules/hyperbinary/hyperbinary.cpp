@@ -261,7 +261,7 @@ static uint32_t hyperbinary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   const uint32_t n =
       std::min<uint32_t>(cap, static_cast<uint32_t>(cands.size()));
   for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(cands[i]);
+    out[i] = lit_instance(k, cands[i]);
   return n;
 }
 
@@ -271,7 +271,7 @@ static ApplyResult hyperbinary_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return hyperbinary_apply(k);
   Lit p;
-  if (!lit_of_instance(inst, &p))
+  if (!lit_of_instance(k, inst, &p))
     return ApplyResult::NoOp;
   return hyperbinary_try(k, p);
 }

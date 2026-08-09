@@ -8,6 +8,8 @@
 
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <vector>
 
 using namespace tactix;
@@ -28,6 +30,65 @@ static void test_variable_identity_maps() {
   assert(kernel_num_output_vars(k) == 3);
   assert(kernel_externalize(k, make_lit(4, false)) == 5);
   assert(kernel_internalize(k, 5) == make_lit(4, false));
+}
+
+static void test_variable_compaction() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 5);
+  const Lit binary[2] = {internalize(1), internalize(5)};
+  kernel_add_binary_clause(k, binary[0], binary[1], 7);
+  const Lit large[3] = {internalize(1), internalize(3), internalize(5)};
+  kernel_add_large_clause(k, large, 3, false, 0, 8);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(3));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  // x2 and x4 have completed retirement: neither occurs in the live formula.
+  // A reconstruction witness keeps x2's permanent model identity meaningful.
+  kernel_push_witness(k, internalize(2), nullptr, 0);
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  for (const Var v : {Var{1}, Var{3}}) {
+    k.var_status[v] = VarStatus::Eliminated;
+    heuristics_deactivate_var(k, v);
+    k.unassigned_active--;
+  }
+  assert(kernel_should_compact_variables(k, 10));
+  assert(kernel_compact_variables(k));
+
+  assert(k.nvars == 3);
+  assert(k.internal_to_external == std::vector<Var>({0, 2, 4}));
+  assert(k.external_to_internal ==
+         std::vector<Var>({0, INVALID_VAR, 1, INVALID_VAR, 2}));
+  assert(kernel_internalize(k, 3) == make_lit(1, false));
+  assert(kernel_externalize(k, make_lit(2, true)) == -5);
+  assert(kernel_binary_live(k, make_lit(0, false), make_lit(2, false)));
+  const Clause *c = clause_at(k.arena, 0);
+  assert(c->lits[0] == make_lit(0, false));
+  assert(c->lits[1] == make_lit(1, false));
+  assert(c->lits[2] == make_lit(2, false));
+  assert(k.stats.variable_compactions == 1);
+  assert(k.stats.compacted_variables == 2);
+  assert(k.level == 1 && k.frames.size() == 2);
+  assert(k.trail.size() == 2 && k.propagate_head == 2);
+  assert(k.value(kernel_internalize(k, 1)) > 0);
+  assert(k.value(kernel_internalize(k, 3)) > 0);
+
+  const RuleVTable *decide = nullptr;
+  for (const RuleVTable &rule : tactix_rules())
+    if (!std::strcmp(rule.name, "Decide"))
+      decide = &rule;
+  assert(decide && decide->instances && decide->apply_instance);
+  uint64_t instances[4];
+  assert(decide->instances(k, instances, 4) == 1);
+  Lit external;
+  assert(lit_of_instance(instances[0], &external));
+  assert(std::abs(externalize(external)) == 5);
+  kernel_check_invariants(k);
+
+  kernel_extend_model(k);
+  assert(k.model_values[internalize(2)] > 0);
 }
 
 static void test_lit_encoding() {
@@ -262,6 +323,7 @@ static void test_watch_repair_primitive() {
 
 int main() {
   test_variable_identity_maps();
+  test_variable_compaction();
   test_lit_encoding();
   test_unit_chain();
   test_large_clause_propagation();
