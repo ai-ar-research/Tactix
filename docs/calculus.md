@@ -173,6 +173,16 @@ conjunct.
   root-satisfied `c`, or, when the distillation collapses, **assert the surviving literal as a root
   unit** / **refute on an empty distillation** (`Unsat`). Proof δ: `add_rup(c′)` + `del(c)` (reason-walk
   chain); the unit and the refutation carry their own chains.
+- **Distillation and proof δ:** let `P=(p₀,…,pₘ₋₁)` be `c` after removing root-false literals, in the
+  chosen probe order, and let `Aᵢ={¬p₀,…,¬pᵢ}`. Four propagation outcomes yield a strict `c′`:
+  (1) `F∧Aᵢ⊢₁⊥` gives `c′={p₀,…,pᵢ}`; (2) `F∧Aᵢ₋₁⊢₁pᵢ` gives
+  `c′={p₀,…,pᵢ}`; (3) `F∧Aᵢ₋₁⊢₁¬pᵢ` gives `c′=P\{pᵢ}`; and (4) propagation
+  under `Aᵢ` implies a later clause literal `q`, giving `c′={p₀,…,pᵢ,q}`. Emit
+  `add_rup(c′,h)·del(c)`, where `h` is the used reason clauses in increasing trail order and the
+  conflict last. In case (3), append `c.id` last: under `¬c′`, the reason walk forces `¬pᵢ`, making
+  `c` all-false. In cases (2)/(4), the implied literal's own reason closes `h`, so citing `c` after it
+  would be illegal. Root-false unit ids used by the replay join `h`. The replacement remains in `c`'s
+  irredundancy partition.
 - **Soundness:** the distilled clause is RUP from `c` and the propagated reasons; free-standing after
   emission regardless of any binary's later fate.
 
@@ -453,7 +463,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Effect:** add the binary `R = (¬d ∨ l₀)`. Additionally, if `¬d ∈ C`, then `R ⊆ C`, and `C` may be
   deleted — that half is an instance of the standard subsumption effect, not a new one. `τ`/`ρ`/`π`
   untouched, no variable eliminated.
-- **Proof δ:** `add_rup(R, chain)`, plus `delete(C)` when `R` subsumes `C`. Assume `¬R`, i.e.
+- **Proof δ:** let `h_R` be the main-kernel replay under `d∧¬l₀`: binary reasons in propagation order,
+  followed by `C` as the conflict. Emit `add_rup(R,h_R)`; if `¬d∈C`, then and only then emit `del(C)`
+  after the addition. Assume `¬R`, i.e.
   `d ∧ ¬l₀`. Unit propagation from `d` traverses each `d ⟹ ¬lᵢ` path and falsifies every
   `lᵢ ∈ C \ {l₀}`, so `C` becomes unit on `l₀` and conflicts with `¬l₀`. `R` is therefore RUP against
   `F`, and the chain is the binaries on those paths followed by `C`. **The implementation obtains that
@@ -551,7 +563,10 @@ represents one in-clause witness literal. The rule is unimplemented; its reopeni
   true and every literal of `D` false) is refuted by unit propagation over `F`.
 - **Effect:** replace `C` by `D` (add-before-delete). `τ`/`ρ`/`π` untouched; the clause set strictly
   strengthens.
-- **Proof δ:** `add_rup(D)` + `del(C)`, the C2 Strengthen pair. `D` is RUP against `F` **alone** — worth
+- **Proof δ:** `add_rup(D,h_D) · del(C)`, the C2 Strengthen pair. Construct `h_D` from the successful
+  probe's conflict reason walk in increasing trail order, replacing the probe decision `l` by `C.id`
+  at the trail position where `C` would force `l` under `¬D`, and append the conflict id last. If the
+  conflict did not depend on `l`, omit `C.id`. `D` is RUP against `F` **alone** — worth
   spelling out, since the probe assumed something `¬D` does not: under `¬D` the clause `C = D ∨ l` is
   unit, so `C` itself propagates `l`, reproducing the probe's state and hence its conflict. The LRAT
   chain therefore contains `C` at the trail position where `l` entered, ahead of the reasons walked from
