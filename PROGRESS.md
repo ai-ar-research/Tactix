@@ -49,7 +49,9 @@ proof; every scored Tactix SAT answer is model-checked. Broad scheduling changes
 are priced on Tier C because Tier B is dominated by four unstable instances.
 Feature acceptance is cumulative: an accepted change remains enabled while the
 next change is evaluated against the preceding accepted pin. Single-feature off
-arms are diagnostic; they do not replace the cumulative comparison.
+arms are diagnostic; they do not replace the cumulative comparison. Incremental
+campaigns run only those two Tactix pins. Kissat and CaDiCaL are rerun at gates,
+or when the manifest or allocation shape changes, rather than on every step.
 
 ## Gates
 
