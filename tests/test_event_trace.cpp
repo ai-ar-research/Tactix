@@ -34,6 +34,10 @@ int main() {
     trace.macro(k, "lucky_early_end", "unknown");
     trace.detail(k, "decision", 3);
     trace.detail(k, "analysis_begin", 2);
+    kernel_assign_decision(k, internalize(1));
+    const size_t trail_begin = k.trail.size();
+    kernel_assign_binary(k, internalize(2), internalize(-1));
+    trace.implications(k, trail_begin);
     const Lit conflict[3] = {internalize(-3), internalize(1), internalize(-2)};
     k.conflict_ref = kernel_add_large_clause(k, conflict, 3, false, 0);
     k.conflict_valid = true;
@@ -55,6 +59,8 @@ int main() {
   assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
   assert(text.find("\tanalysis_begin\t") != std::string::npos);
+  assert(text.find("\timply\t") != std::string::npos);
+  assert(text.find("\tlit=2|level=1|reason=-1,2\n") != std::string::npos);
   assert(text.find("\tconflict\t") != std::string::npos);
   assert(text.find("\torder=-3,1,-2|set=-3,-2,1\n") != std::string::npos);
   assert(text.find("\tlearned\t") != std::string::npos);
@@ -63,7 +69,7 @@ int main() {
   assert(analysis != std::string::npos);
   const size_t line_end = text.find('\n', analysis);
   const std::string analysis_line = text.substr(analysis, line_end - analysis);
-  assert(analysis_line.find("\tfocused\t3\t3\t0\t3\t0\t") !=
+  assert(analysis_line.find("\tfocused\t3\t1\t2\t3\t0\t") !=
          std::string::npos &&
          "analysis_end must carry the post-analysis ranking snapshot");
   std::remove(path);

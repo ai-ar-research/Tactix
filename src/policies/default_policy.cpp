@@ -965,7 +965,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
 
   for (;;) {
     event_trace.checkpoint(k);
+    const size_t trace_trail_begin = k.trail.size();
     const ApplyResult r = propagate_apply(k);
+    event_trace.implications(k, trace_trail_begin);
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {

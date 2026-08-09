@@ -1,6 +1,7 @@
 #include "eventtrace.h"
 
 #include "internal.h"
+#include "inline.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -192,6 +193,51 @@ void kissat_event_trace_literal (kissat *solver, const char *event,
 static int compare_external_literals (const void *a, const void *b) {
   const int x = *(const int *) a, y = *(const int *) b;
   return (x > y) - (x < y);
+}
+
+void kissat_event_trace_implications (kissat *solver, size_t trail_begin) {
+  open_trace ();
+  if (!trace_file)
+    return;
+  const size_t trail_size = SIZE_ARRAY (solver->trail);
+  for (size_t pos = trail_begin; pos != trail_size; pos++) {
+    const unsigned assigned_lit = PEEK_ARRAY (solver->trail, pos);
+    const assigned *assignment = solver->assigned + IDX (assigned_lit);
+    if (assignment->reason == DECISION_REASON ||
+        assignment->reason == UNIT_REASON)
+      continue;
+    size_t size;
+    int *external;
+    if (assignment->binary) {
+      size = 2;
+      external = malloc (size * sizeof *external);
+      external[0] = external_literal (solver, assigned_lit);
+      external[1] = external_literal (solver, assignment->reason);
+    } else {
+      clause *reason = kissat_dereference_clause (solver, assignment->reason);
+      size = reason->size;
+      external = malloc (size * sizeof *external);
+      size_t i = 0;
+      for (all_literals_in_clause (lit, reason))
+        external[i++] = external_literal (solver, lit);
+    }
+    qsort (external, size, sizeof *external, compare_external_literals);
+    char payload[4096];
+    int written = snprintf (payload, sizeof payload, "lit=%d|level=%u|reason=",
+                            external_literal (solver, assigned_lit),
+                            assignment->level);
+    char *p = payload + written;
+    size_t left = sizeof payload - (size_t) written;
+    for (size_t i = 0; i != size; i++) {
+      written = snprintf (p, left, "%s%d", i ? "," : "", external[i]);
+      if (written < 0 || (size_t) written >= left)
+        break;
+      p += written;
+      left -= (size_t) written;
+    }
+    free (external);
+    kissat_event_trace (solver, "imply", payload, false);
+  }
 }
 
 void kissat_event_trace_conflict (kissat *solver, clause *conflict) {

@@ -193,6 +193,38 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   emit(k, event, buf, !std::strcmp(event, "analysis_end"));
 }
 
+void EventTrace::implications(const Kernel &k, size_t trail_begin) {
+  if (!out_)
+    return;
+  for (size_t pos = trail_begin; pos < k.trail.size(); pos++) {
+    const Lit assigned_lit = k.trail[pos];
+    const Assigned &assignment = k.assigned[var_of(assigned_lit)];
+    if (assignment.reason == DECISION_REASON || assignment.reason == UNIT_REASON)
+      continue;
+    std::vector<int> reason;
+    if (assignment.binary) {
+      reason.push_back(kernel_externalize(k, assigned_lit));
+      reason.push_back(kernel_externalize(k, assignment.reason));
+    } else {
+      const Clause *clause = clause_at(k.arena, assignment.reason);
+      reason.reserve(clause->size);
+      for (const Lit lit : *clause)
+        reason.push_back(kernel_externalize(k, lit));
+    }
+    std::sort(reason.begin(), reason.end());
+    std::string payload = "lit=" +
+                          std::to_string(kernel_externalize(k, assigned_lit)) +
+                          "|level=" + std::to_string(assignment.level) +
+                          "|reason=";
+    for (const int lit : reason) {
+      if (payload.back() != '=')
+        payload += ',';
+      payload += std::to_string(lit);
+    }
+    emit(k, "imply", payload.c_str(), false);
+  }
+}
+
 void EventTrace::conflict(const Kernel &k) {
   if (!out_ || !k.conflict_valid)
     return;

@@ -27,6 +27,7 @@ public:
   // Detailed records cover the deterministic prefix and 1024 records after
   // the first Reorder.  Later search is represented by conflict checkpoints.
   void detail(const Kernel &, const char *event, int64_t payload = 0);
+  void implications(const Kernel &, size_t trail_begin);
   void conflict(const Kernel &);
   void learned(const Kernel &, const std::vector<Lit> &);
   void checkpoint(const Kernel &);
@@ -56,6 +57,7 @@ public:
   void close() {}
   void macro(const Kernel &, const char *, const char * = "-") {}
   void detail(const Kernel &, const char *, int64_t = 0) {}
+  void implications(const Kernel &, size_t) {}
   void conflict(const Kernel &) {}
   void learned(const Kernel &, const std::vector<Lit> &) {}
   void checkpoint(const Kernel &) {}
