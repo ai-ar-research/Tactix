@@ -410,8 +410,6 @@ struct Kernel {
   };
   std::vector<InputRestatement> input_restatements;
   std::vector<Lit> input_restate_lits;
-  std::vector<Var> input_import_rank; // external var -> tumble import index
-  Var input_imported = 0;
   std::vector<Var> input_activation_order;
   std::vector<uint8_t> input_activated; // per-var membership, parse-scoped
   bool input_refuted = false;
