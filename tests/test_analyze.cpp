@@ -122,14 +122,40 @@ static void test_shrink() {
   assert(default_solve(k) == 10); // still satisfiable (1 2 3, -4)
 }
 
-static Kernel singleton_minimization_fixture(bool enabled) {
+static void test_shrink_accepts_lower_learned_literal() {
+  // The level-2 block {-b,-c} converges to b.  Resolving c reaches -a on the
+  // lower level, but -a is itself already in the learned clause and therefore
+  // closes that branch.  Kissat marks all learned literals removable before
+  // shrink=3; Tactix represents the same fact with SEEN.
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_assign_decision(k, internalize(1)); // a @ 1
+  kernel_assign_decision(k, internalize(2)); // b @ 2
+  const Lit reason[3] = {internalize(-2), internalize(-1), internalize(3)};
+  const Ref reason_ref = kernel_add_large_clause(k, reason, 3, false, 0);
+  kernel_assign(k, internalize(3), 2, reason_ref, false); // c @ 2
+  kernel_assign_decision(k, internalize(4));              // d @ 3
+  const Lit conflict[4] = {internalize(-4), internalize(-2),
+                           internalize(-3), internalize(-1)};
+  k.conflict_ref = kernel_add_large_clause(k, conflict, 4, false, 0);
+  k.conflict_valid = true;
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.shrunken == 1);
+  assert(k.pending.lits.size() == 3);
+  assert(k.pending.lits[0] == internalize(-4));
+  assert(k.pending.lits[1] == internalize(-2));
+  assert(k.pending.lits[2] == internalize(-1));
+  assert(k.pending.jump_level == 2);
+}
+
+static Kernel singleton_minimization_fixture() {
   // At level 2, c follows from a through (-a c).  The conflict learns
   // (-d -c -a), where -c is the sole literal on its level and is redundant
   // through -a.  Kissat shrink=3 skips that singleton block; Tactix's
-  // stronger arm minimizes it.
+  // stronger rule minimizes it.
   Kernel k;
   kernel_reserve_vars(k, 4);
-  k.minimize_singletons = enabled;
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   // White-box N1 schedule: assign c at level 2 from the binary (-a c), even
@@ -146,17 +172,12 @@ static Kernel singleton_minimization_fixture(bool enabled) {
   return k;
 }
 
-static void test_singleton_minimization_arm() {
-  Kernel stronger = singleton_minimization_fixture(true);
+static void test_singleton_minimization_stronger() {
+  Kernel stronger = singleton_minimization_fixture();
   assert(stronger.pending.lits.size() == 2);
   assert(stronger.pending.lits[0] == internalize(-4));
   assert(stronger.pending.lits[1] == internalize(-1));
   assert(stronger.pending.jump_level == 1);
-
-  Kernel kissat = singleton_minimization_fixture(false);
-  assert(kissat.pending.lits.size() == 3);
-  assert(kissat.pending.lits[0] == internalize(-4));
-  assert(kissat.pending.jump_level == 2);
 }
 
 static Kernel learned_stable_order_fixture() {
@@ -526,7 +547,8 @@ int main() {
   test_conflictanalysis_atomic();
   test_learned_unit();
   test_shrink();
-  test_singleton_minimization_arm();
+  test_shrink_accepts_lower_learned_literal();
+  test_singleton_minimization_stronger();
   test_learned_level_stable_order();
   test_otfs();
   test_chrono_backjump_clamps_to_jump_level();

@@ -330,9 +330,9 @@ void kissat_event_trace_conflict (kissat *solver, clause *conflict) {
   kissat_event_trace (solver, "conflict", payload, false);
 }
 
-void kissat_event_trace_learned (kissat *solver) {
+void kissat_event_trace_clause (kissat *solver, const char *event) {
   open_trace ();
-  if (!trace_file)
+  if (!trace_file || trace_emitted >= trace_limit)
     return;
   const size_t size = SIZE_STACK (solver->clause);
   int *external = malloc (size * sizeof *external);
@@ -369,7 +369,11 @@ void kissat_event_trace_learned (kissat *solver) {
     left -= (size_t) written;
   }
   free (external);
-  kissat_event_trace (solver, "learned", payload, false);
+  kissat_event_trace (solver, event, payload, false);
+}
+
+void kissat_event_trace_learned (kissat *solver) {
+  kissat_event_trace_clause (solver, "learned");
 }
 
 void kissat_event_trace_checkpoint (kissat *solver) {

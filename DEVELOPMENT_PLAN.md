@@ -55,6 +55,12 @@ faithful port but never select what gets repaired, and a regression on a
 faithful port indicts the implementation or a missing coupled mechanism, never
 the reference mechanism.
 
+For every observed reference mismatch, first classify whether Tactix's current
+effect is strictly stronger under the same correctness contract.  Keep and
+specify a strict improvement; otherwise repair the mismatch.  If neither claim
+can be established from source, trace, proof/model evidence, and the rule
+semantics, stop and ask the project owner rather than silently choosing one.
+
 Configuration arms are deliberately scarce. Add an arm only for a concrete,
 time-bounded attribution or benchmark question, record that question and its
 removal condition, and prefer trace-only instrumentation when it can answer the

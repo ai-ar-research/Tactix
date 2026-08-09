@@ -7,6 +7,7 @@
 // soundness may not depend on the schedule; and singleton-level literals still
 // get minimized (see the block pass).
 #include "rules/analyze/analyze.hpp"
+#include "policies/event_trace.hpp"
 #include "policies/heuristics.hpp"
 
 #include "proof/proof.hpp"
@@ -536,7 +537,11 @@ static int shrink_literal(Kernel &k, Lit l, uint32_t blevel) {
   if (k.seen[v] & SHRINKABLE)
     return 0;
   if (a.level < blevel) {
-    if (k.seen[v] & REMOVABLE)
+    // `kissat_minimize_clause` marks every literal already in the learned
+    // clause removable before the default shrink=3 pass.  SEEN is Tactix's
+    // equivalent membership bit; omitting it can reject a valid block collapse
+    // when a reason reaches a learned literal on a lower level.
+    if (k.seen[v] & (SEEN | REMOVABLE))
       return 0;
     // kissat's default shrink level falls back to recursive minimization here
     return literal_redundant(k, l, 1) ? 0 : -1;
@@ -996,6 +1001,7 @@ ApplyResult analyze_apply(Kernel &k) {
     bump_and_reset_analyzed(k); // kissat bumps each aborted round too
   }
   learned[0] = negate(uip);
+  event_trace_learned_stage(k, "learned_raw", learned);
 
   // shrink + minimize (kissat analyze.c at its default shrink=3): per decision
   // level, first try to collapse the whole block to its local UIP; if that
@@ -1012,6 +1018,7 @@ ApplyResult analyze_apply(Kernel &k) {
     // Group into blocks by descending level while preserving deduction order
     // within each level, matching Kissat's stable bucket sort.
     radix_sort_learned_by_level(k, learned);
+    event_trace_learned_stage(k, "learned_sorted", learned);
     size_t b = 1;
     while (b < learned.size()) {
       const uint32_t blevel = k.var_level(var_of(learned[b]));
@@ -1024,12 +1031,13 @@ ApplyResult analyze_apply(Kernel &k) {
         k.stats.shrunken += (e - b) - 1;
         minimize_block = false;
       }
-      if (minimize_block && (e - b >= 2 || k.minimize_singletons)) {
+      if (minimize_block) {
         // Minimize literal by literal, singleton blocks included. kissat
-        // skips singleton blocks; Tactix keeps them on by default because,
+        // skips singleton blocks; Tactix always includes them because,
         // under a free N1 schedule, a literal's chain can bottom out without
-        // another literal on its own level.  The off arm localizes this
-        // deliberate stronger deviation in cross-solver traces.
+        // another literal on its own level.  Removing a proven-redundant
+        // singleton yields a strict subclause, so this is a specified stronger
+        // deviation rather than a reference-parity arm.
         for (size_t j = b; j < e; j++)
           if (literal_redundant(k, learned[j], 0)) {
             learned[j] = INVALID_LIT;
@@ -1047,6 +1055,9 @@ ApplyResult analyze_apply(Kernel &k) {
       k.marked_levels[lv] = 0;
     k.touched_levels.clear();
   }
+  if (learned.size() <= 2)
+    event_trace_learned_stage(k, "learned_sorted", learned);
+  event_trace_learned_stage(k, "learned_shrunk", learned);
 
   // reason-side bumping, on the final clause and before the bump (kissat
   // analyze.c:566). Off unless a policy set the limit, and never on the OTFS

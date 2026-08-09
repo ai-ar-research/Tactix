@@ -307,10 +307,6 @@ int main(int argc, char **argv) {
     kernel.jump_reasons = (*jr != '0');
   if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
     kernel.conflict_reuse_no_repair = true;
-  // Tactix's stronger singleton-level minimization ships ON; =0 isolates
-  // Kissat's default shrink=3 behavior, which skips singleton blocks.
-  if (const char *ms = getenv("TACTIX_MINIMIZE_SINGLETONS"))
-    kernel.minimize_singletons = (*ms != '0');
   // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
   // `=0` reverts to the pre-parity behaviour and is the priced arm.
   if (const char *sg = getenv("TACTIX_SHRINK_GLUE"))
