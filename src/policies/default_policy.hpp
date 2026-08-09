@@ -50,7 +50,7 @@ public:
   static constexpr uint64_t REORDER_INTERVAL_INIT = 10000;
   static constexpr uint64_t REORDER_INTERVAL = 10000;
   static constexpr uint32_t BUMP_REASONS_LIMIT = 10;
-  static constexpr double BUMP_REASONS_RATE = 20.0;
+  static constexpr double BUMP_REASONS_RATE = 10.0;
   static constexpr uint32_t CHRONO_LEVELS = 100;
   static constexpr uint64_t WALK_PERMILLE = 560;
 
