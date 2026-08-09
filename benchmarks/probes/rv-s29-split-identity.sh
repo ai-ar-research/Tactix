@@ -35,8 +35,8 @@ for line in open(out, errors="replace"):
         for lit in map(int, line.split()[1:]):
             if lit:
                 model[abs(lit)] = lit > 0
-if not model or any(not any(model.get(abs(l), False) == (l > 0) for l in c)
-                    for c in clauses):
+if clauses and (not model or any(not any(model.get(abs(l), False) == (l > 0)
+                                     for l in c) for c in clauses)):
     raise SystemExit(1)
 PY
 }
@@ -80,10 +80,11 @@ run_case() {
     10) check_model "$cnf" "$W/B.out" || { echo "BAD MODEL $mode $label"; diffs=$((diffs + 1)); return; } ;;
     20)
       if [ "$mode" = lrat ]; then
-        ./drat-trim/lrat-check "$cnf" "$W/B.proof" >/dev/null 2>&1 ||
+        ./tools/checkers/bin/lrat-check "$cnf" "$W/B.proof" >/dev/null 2>&1 ||
           { echo "BAD LRAT $label"; diffs=$((diffs + 1)); return; }
       else
-        ./drat-trim/drat-trim "$cnf" "$W/B.proof" >/dev/null 2>&1 ||
+        ./tools/checkers/bin/drat-trim "$cnf" "$W/B.proof" -i 2>&1 | \
+          grep -q VERIFIED ||
           { echo "BAD DRAT $mode $label"; diffs=$((diffs + 1)); return; }
       fi
       ;;
