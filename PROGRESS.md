@@ -26,7 +26,10 @@ preprocessing Substitute calls follow productive Congruence/Sweep outcomes,
 with one final call only when neither fires. Jump reasons, Factor's two candidate
 pruning rounds, and CaDiCaL's likely-kept redundant subsumption band also now
 ship on at their reference defaults, each with an explicit rollback arm.
-The full Release suite is 62/62.
+`ORDER-TUMBLE-1` is implemented at the frontend boundary: activation now
+retains DIMACS literal order while clause storage remains canonical, and a
+parser regression pins the full initial VMTF queue plus decision prefix across
+duplicates and a tautology. The full Release suite is 63/63.
 `TACTIX_REORDER=0`, `TACTIX_LUCKY_LATE=0`, and
 `TACTIX_PREPROCESS_FOLLOWUPS=0` retain the cumulative attribution arms.
 Cross-solver diagnosis now has a strict contract: a diagnostic-only Kissat
@@ -43,10 +46,11 @@ the repaired implementation.
 
 **Next actions:**
 
-1. Close `ORDER-TUMBLE-1`, newly localized by cross-solver tracing: preserve
-   file-literal order when recording first activation, prove exact initial
-   top-32/decision-prefix identity on the two fixed fixtures, then run its
-   correctness and Tier-A gate.
+1. Finish `ORDER-TUMBLE-1` validation: with the frontend repair retained, prove
+   exact initial top-32/decision-prefix identity on the two fixed fixtures.
+   Run Tactix both at the shipped default and with `TACTIX_CHRONO_REUSE=0`
+   against diagnostic Kissat so the first remaining divergence is localized
+   after excluding CaDiCaL-style analysis-side trail reuse; then run Tier A.
 2. With repaired Reorder and Tumble retained, gate `ORDER-LUCKY-1` on Tier A.
    Continue one at a time with `ORDER-FOLLOWUP-1`, `SP-JUMP-1`,
    `SP-FACTOR-CAND-1`, and `SCHED-F6`; stop and diagnose the first Tier-A regression. Any diagnosis
@@ -157,9 +161,10 @@ required.
 - [x] `ORDER-DEFAULT-1`: Tier-A closed. Semantic off/on tracing localized the
   first divergence to retired identities corrupting focused VMTF; active-only
   Reorder restores paired solve parity with clean proofs/models.
-- [ ] `ORDER-TUMBLE-1`: cross-solver tracing localized decision 25 on
-  `tr-n220-s013` to first activation being recorded after clause sorting rather
-  than in Kissat's file-literal order. Frontend/test repair and Tier A remain.
+- [ ] `ORDER-TUMBLE-1`: the frontend now records first activation in DIMACS
+  literal order without changing sorted clause storage. A parser regression
+  pins the complete initial VMTF queue and decision prefix across duplicates
+  and a tautology; two-fixture trace identity and Tier A remain.
 - [ ] `ORDER-LUCKY-1`: implemented and correctness-green; early and late calls
   bracket preprocessing with separate reach/SAT counters and a late-off arm.
   Cumulative pricing and acceptance remain.
