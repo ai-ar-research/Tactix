@@ -93,6 +93,9 @@ TABLE = {
                                        "=0 reverts to the per-candidate root return"),
     "vivify_flush":            ("ENV", "TACTIX_VIVIFY_FLUSH; CaDiCaL vivifyflush, "
                                        "ships OFF (SP-VIVIFY-3), =1 enables"),
+    "sweep_resume":            ("ENV", "TACTIX_SWEEP_RESUME; SP-SWEEP-3 on arm"),
+    "sweep_tail_next":         ("RULE", "Sweep canonical schedule state"),
+    "sweep_passes_completed":  ("RULE", "Sweep completed-pass limit growth"),
     # Pure diagnostic: it makes C1 report instead of act, so it can never be a
     # shipped default and nothing in the policy may write it.
     "subsume_shadow":          ("ENV", "TACTIX_SUBSUME_SHADOW (SCHED-G2 shadow arm)"),
