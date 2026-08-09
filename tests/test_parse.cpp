@@ -1,5 +1,5 @@
-// DIMACS ingestion regressions: stable clause storage and the decision seed
-// both preserve the file-literal order used by Kissat's default `tumble=1`.
+// DIMACS ingestion regressions: clause storage follows Kissat's sorted internal
+// import order while the decision seed follows surviving-clause activation.
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -11,7 +11,7 @@
 
 using namespace tactix;
 
-static void test_tumble_preserves_file_literal_order() {
+static void test_tumble_preserves_import_and_activation_order() {
   Kernel k;
   ScopedHeuristics hg(k);
   FILE *file = std::tmpfile();
@@ -24,7 +24,7 @@ static void test_tumble_preserves_file_literal_order() {
       "3 1 3 2 0\n"
       "5 -5 4 0\n"
       "6 4 0\n"
-      "2 7 0\n";
+      "7 1 6 0\n";
   assert(std::fputs(dimacs, file) >= 0);
   std::rewind(file);
   assert(parse_dimacs(file, k) == nullptr);
@@ -45,18 +45,28 @@ static void test_tumble_preserves_file_literal_order() {
   for (unsigned i = 0; i < 7; i++)
     assert(externalize(candidates[i]) == expected_candidates[i]);
 
-  // The first stored large clause matches Kissat's stable first-occurrence
-  // order while retaining the kernel's set semantics.
+  // The first stored large clause has exactly the first-import order because
+  // all three variables are new there, while retaining set semantics.
   const Clause *clause = clause_at(k.arena, 0);
   assert(clause->size == 3);
   assert(clause->lits[0] == internalize(3));
   assert(clause->lits[1] == internalize(1));
   assert(clause->lits[2] == internalize(2));
+
+  // The later large clause distinguishes global import order from file order:
+  // 1 and 6 were imported before 7, so Kissat's internal-literal sort stores
+  // [1,6,7] even though the file says [7,1,6].  Variables 5 and 4 consumed
+  // import ranks in the tautology but were not activated by it.
+  clause = clause_at(k.arena, clause_words(clause->size));
+  assert(clause->size == 3);
+  assert(clause->lits[0] == internalize(1));
+  assert(clause->lits[1] == internalize(6));
+  assert(clause->lits[2] == internalize(7));
   kernel_check_invariants(k);
 }
 
 int main() {
-  test_tumble_preserves_file_literal_order();
+  test_tumble_preserves_import_and_activation_order();
   puts("test_parse OK");
   return 0;
 }
