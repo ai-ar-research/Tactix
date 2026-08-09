@@ -94,6 +94,8 @@ static void test_apply_substitutes() {
 
   assert(substitute_apply(k) == ApplyResult::Ok);
   assert(!k.inconsistent);
+  assert(!k.substituted_events.empty());
+  assert(k.retired_events == k.substituted_events);
   assert(!lit_in_any_clause(k, internalize(2))); // x2 gone, both polarities
   assert(!lit_in_any_clause(k, internalize(-2)));
   // the large clause was rewritten x2 -> x1: (x1∨x3∨x4) is present

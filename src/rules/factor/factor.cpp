@@ -1,8 +1,6 @@
 #include "rules/factor/factor.hpp"
 
 #include "kernel/kernel.hpp"
-#include "policies/heuristics.hpp" // heuristics_demote_fresh_vars (fresh vars)
-#include "policies/subpolicy.hpp"  // FactorMatchPolicy (S2a grid selection)
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp" // inprocess_reach_root
 
@@ -494,10 +492,10 @@ ApplyResult factor_apply(Kernel &k) {
   // factor.c:800), each literal still seeded at most once per pass. A static
   // literal-index scan instead lets an early low-degree seed spend binaries a
   // high-degree seed needed. The scoring/accept scalars are the policy's when a
-  // `Kernel::factor_match` is attached; the mechanism stays here. Watch sizes
+  // `Kernel::factor_selection` is attached; the mechanism stays here. Watch sizes
   // ≤ 2^24 keep the double→uint32_t round-trip order-exact
   // (`docs/design/s2a-factor-matcher-design.md`).
-  FactorMatchPolicy *const fm = k.factor_match;
+  FactorSelection *const fm = k.factor_selection;
   if (fm)
     fm->begin_sweep(k);
   const auto score_of = [&](Lit l) -> uint32_t {
@@ -669,7 +667,7 @@ ApplyResult factor_apply(Kernel &k) {
     for (const uint32_t rid : R) // unmark whatever R ended as
       mark_R(rid, 0);
 
-    // Acceptance: an attached FactorMatchPolicy takes precedence, otherwise
+    // Acceptance: an attached FactorSelection takes precedence, otherwise
     // `k.factor_bound` (kissat factor.c:939). The delta ≥ FACTOR_MIN_GAIN floor
     // stays unconditional — termination is delta-monotone, and an empty best_F
     // must never reach `apply_factoring`.
@@ -736,14 +734,8 @@ ApplyResult factor_apply(Kernel &k) {
   if (touch_filter)
     k.factor_touch_mark = touch_snapshot;
 
-  // Fresh extension vars must not out-rank the originals in the decision order
-  // (kissat `adjust_scores_and_phases_of_fresh_variables`, factor.c:951; cadical
-  // factor.cpp:907). Heuristic-only — no proof delta, no σ change — so a rule
-  // may do it under the H contract. `factor_demote_fresh` defaults true;
-  // `TACTIX_FACTOR_DEMOTE=0` is the off arm. Both references run it on every
-  // application, so `applied` is the only condition either has.
-  if (k.factor_demote_fresh && applied)
-    heuristics_demote_fresh_vars(k, fresh_first);
+  if (applied)
+    k.fresh_var_events.push_back({fresh_first, k.nvars});
 
   if (fm)
     fm->end_sweep();

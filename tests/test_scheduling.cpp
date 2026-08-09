@@ -55,7 +55,7 @@ static void test_mode_growth_key_matches_kissat(void) {
 // A dose cut partway into a candidate list must resume past what it consumed,
 // or it re-applies the same prefix and starves the tail (kissat's
 // `transitivekeep` bit serves the same end). The cursor lives in
-// DefaultPolicy::SlotEntry: the rule enumerates its set, the policy decides
+// DefaultInprocessScheduler::SlotEntry: the rule enumerates its set, the policy decides
 // where the walk starts.
 static void build_transitive_fan_fixture(Kernel &k) {
   // A source needs out-degree >= 2 and a destination above it, so ten fans
@@ -100,12 +100,12 @@ static void test_slot_cursor_rotates(void) {
   const std::vector<uint64_t> native = buf;
 
   DefaultPolicy p;
-  DefaultPolicy::SlotEntry e;
+  DefaultInprocessScheduler::SlotEntry e;
   e.rule = static_cast<int>(v4->id);
   e.dosed = true;
   e.cursor_enabled = true;
 
-  p.order_candidates(k, e, buf.data(), n);
+  p.inprocess().order_candidates(k, e, buf.data(), n);
   assert(e.ord.rotated == 0 && "a fresh cursor must not rotate");
   assert(buf == native && "the native arm must leave the order alone");
 
@@ -114,7 +114,7 @@ static void test_slot_cursor_rotates(void) {
   assert(lit_of_instance(native[1], &consumed));
   e.cursor = static_cast<uint64_t>(consumed) + 1;
   buf = native;
-  p.order_candidates(k, e, buf.data(), n);
+  p.inprocess().order_candidates(k, e, buf.data(), n);
   assert(e.ord.rotated == 1 && "the cursor must rotate a resumed walk");
   assert(buf[0] != native[0] &&
          "the walk replayed its head: a truncated dose would starve the tail "
@@ -125,7 +125,7 @@ static void test_slot_cursor_rotates(void) {
   // A cursor past the whole set wraps to the head rather than emptying it.
   e.cursor = UINT64_MAX;
   buf = native;
-  p.order_candidates(k, e, buf.data(), n);
+  p.inprocess().order_candidates(k, e, buf.data(), n);
   assert(buf == native && "an exhausted cursor restarts at the head");
   std::printf("  slot cursor: resumes past the consumed prefix, wraps, "
               "permutes\n");
@@ -152,7 +152,7 @@ static void test_cursor_preserves_n1(void) {
   assert(n >= 4);
 
   DefaultPolicy p;
-  DefaultPolicy::SlotEntry e;
+  DefaultInprocessScheduler::SlotEntry e;
   e.rule = static_cast<int>(v4->id);
   e.dosed = true;
   e.cursor_enabled = true;
@@ -160,7 +160,7 @@ static void test_cursor_preserves_n1(void) {
   Lit deep;
   assert(lit_of_instance(before[n / 2], &deep));
   e.cursor = static_cast<uint64_t>(deep); // resume mid-set
-  p.order_candidates(k, e, walk.data(), n);
+  p.inprocess().order_candidates(k, e, walk.data(), n);
   assert(e.ord.rotated == 1);
 
   // (1) the rule's surface is untouched by the policy's cursor.
@@ -195,13 +195,13 @@ static void test_cursor_preserves_n1(void) {
     co.arms.assign(tactix_rules().size(), CandidateOrder::Native);
     co.arms[v4->id] = arm;
     DefaultPolicy q;
-    q.candidate_order = &co;
-    DefaultPolicy::SlotEntry qe;
+    q.inprocess().candidate_order = &co;
+    DefaultInprocessScheduler::SlotEntry qe;
     qe.rule = static_cast<int>(v4->id);
     qe.dosed = true;
     qe.order = arm;
     std::vector<uint64_t> out = before;
-    q.order_candidates(k, qe, out.data(), n);
+    q.inprocess().order_candidates(k, qe, out.data(), n);
     assert(same_multiset(out, before) && candidate_order_name(arm) &&
            "an order arm must be a PERMUTATION, never a filter");
   }
@@ -251,23 +251,23 @@ static void test_order_arms_reorder(void) {
     co.arms.assign(tactix_rules().size(), CandidateOrder::Native);
     co.arms[v4->id] = arm;
     DefaultPolicy q;
-    q.candidate_order = &co;
-    DefaultPolicy::SlotEntry qe;
+    q.inprocess().candidate_order = &co;
+    DefaultInprocessScheduler::SlotEntry qe;
     qe.rule = static_cast<int>(v4->id);
     qe.dosed = true;
     qe.order = arm;
     std::vector<uint64_t> out = before;
-    q.order_candidates(k, qe, out.data(), n);
+    q.inprocess().order_candidates(k, qe, out.data(), n);
     assert(qe.ord.ranked == 1 && qe.ord.moved > 0 &&
            "arm did not reorder anything -- it would be untestable");
   }
   {
     DefaultPolicy q; // no attached policy, arm stays Native
-    DefaultPolicy::SlotEntry qe;
+    DefaultInprocessScheduler::SlotEntry qe;
     qe.rule = static_cast<int>(v4->id);
     qe.dosed = true;
     std::vector<uint64_t> out = before;
-    q.order_candidates(k, qe, out.data(), n);
+    q.inprocess().order_candidates(k, qe, out.data(), n);
     assert(qe.ord.ranked == 0 && qe.ord.moved == 0 && out == before &&
            "the native arm must be the identity");
   }
@@ -393,36 +393,36 @@ static void test_two_slot_clocks_diverge(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
-  p.inprocess.initialized = true;
+  p.inprocess().pose_initialized();
   for (uint64_t n = 0; n < 8; n++) {
-    p.probe_clock.rounds = n;
-    p.elim_clock.rounds = n;
-    p.update_slot_limit(k, SlotGroup::Probe);
-    p.update_slot_limit(k, SlotGroup::Eliminate);
-    assert(p.probe_clock.next_conflicts < p.elim_clock.next_conflicts &&
+    p.inprocess().probe_clock.rounds = n;
+    p.inprocess().elim_clock.rounds = n;
+    p.inprocess().update_limit(k, SlotGroup::Probe);
+    p.inprocess().update_limit(k, SlotGroup::Eliminate);
+    assert(p.inprocess().probe_clock.next_conflicts < p.inprocess().elim_clock.next_conflicts &&
            "the probing clock is not firing sooner than the elimination clock "
            "-- the two clocks have collapsed into one (SCHED-D2)");
     // and the gap must widen: NLOG2N outgrows NLOGN.
     if (n) {
-      p.probe_clock.rounds = n - 1;
-      p.elim_clock.rounds = n - 1;
-      p.update_slot_limit(k, SlotGroup::Probe);
-      const uint64_t prev_probe = p.probe_clock.next_conflicts;
-      p.update_slot_limit(k, SlotGroup::Eliminate);
-      const uint64_t prev_elim = p.elim_clock.next_conflicts;
-      p.probe_clock.rounds = n;
-      p.elim_clock.rounds = n;
-      p.update_slot_limit(k, SlotGroup::Probe);
-      p.update_slot_limit(k, SlotGroup::Eliminate);
-      assert(p.elim_clock.next_conflicts - prev_elim >=
-                 p.probe_clock.next_conflicts - prev_probe &&
+      p.inprocess().probe_clock.rounds = n - 1;
+      p.inprocess().elim_clock.rounds = n - 1;
+      p.inprocess().update_limit(k, SlotGroup::Probe);
+      const uint64_t prev_probe = p.inprocess().probe_clock.next_conflicts;
+      p.inprocess().update_limit(k, SlotGroup::Eliminate);
+      const uint64_t prev_elim = p.inprocess().elim_clock.next_conflicts;
+      p.inprocess().probe_clock.rounds = n;
+      p.inprocess().elim_clock.rounds = n;
+      p.inprocess().update_limit(k, SlotGroup::Probe);
+      p.inprocess().update_limit(k, SlotGroup::Eliminate);
+      assert(p.inprocess().elim_clock.next_conflicts - prev_elim >=
+                 p.inprocess().probe_clock.next_conflicts - prev_probe &&
              "the elimination interval is not growing at least as fast as the "
              "probing one");
     }
   }
   std::printf("  slot clocks: probe next=%llu < eliminate next=%llu at 8 phases\n",
-              (unsigned long long)p.probe_clock.next_conflicts,
-              (unsigned long long)p.elim_clock.next_conflicts);
+              (unsigned long long)p.inprocess().probe_clock.next_conflicts,
+              (unsigned long long)p.inprocess().elim_clock.next_conflicts);
 }
 
 // --- the elapsed interval is necessary, not sufficient ----------------------
@@ -433,41 +433,41 @@ static void test_slot_gates_decline_without_new_material(void) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   DefaultPolicy p;
-  p.inprocess.initialized = true;
+  p.inprocess().pose_initialized();
   k.stats.conflicts = 100;
   // Past the first phase, intervals elapsed, marks == live: the interval says
   // go and the gates must still say no.
-  p.probe_clock.rounds = p.elim_clock.rounds = 1;
-  p.probe_clock.next_conflicts = p.elim_clock.next_conflicts = 0;
-  p.probe_clock.reductions_mark = k.stats.reductions;
-  p.elim_clock.marks_mark = k.stats.bve_marks;
-  p.elim_clock.fixed_mark = kernel_root_fixed(k);
-  assert(!p.want_slot_phase(k, SlotGroup::Eliminate) &&
+  p.inprocess().probe_clock.rounds = p.inprocess().elim_clock.rounds = 1;
+  p.inprocess().probe_clock.next_conflicts = p.inprocess().elim_clock.next_conflicts = 0;
+  p.inprocess().probe_clock.reductions_mark = k.stats.reductions;
+  p.inprocess().elim_clock.marks_mark = k.stats.bve_marks;
+  p.inprocess().elim_clock.fixed_mark = kernel_root_fixed(k);
+  assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate) &&
          "an elimination phase fired with no new material (SCHED-D3)");
-  assert(!p.want_slot_phase(k, SlotGroup::Probe) &&
+  assert(!p.inprocess().want_phase(k, SlotGroup::Probe) &&
          "a probing phase fired with no reduce since the last one (SCHED-D3)");
-  assert(p.elim_clock.blocked_episodes == 1 &&
-         p.probe_clock.blocked_episodes == 1);
+  assert(p.inprocess().elim_clock.blocked_episodes == 1 &&
+         p.inprocess().probe_clock.blocked_episodes == 1);
   // An episode is counted once, not once per search step.
-  (void)p.want_slot_phase(k, SlotGroup::Eliminate);
-  (void)p.want_slot_phase(k, SlotGroup::Probe);
-  assert(p.elim_clock.blocked_episodes == 1 &&
-         p.probe_clock.blocked_episodes == 1);
+  (void)p.inprocess().want_phase(k, SlotGroup::Eliminate);
+  (void)p.inprocess().want_phase(k, SlotGroup::Probe);
+  assert(p.inprocess().elim_clock.blocked_episodes == 1 &&
+         p.inprocess().probe_clock.blocked_episodes == 1);
   // New elimination material re-admits; so does a reduce for probing.
   k.stats.bve_marks++;
-  assert(p.want_slot_phase(k, SlotGroup::Eliminate));
+  assert(p.inprocess().want_phase(k, SlotGroup::Eliminate));
   k.stats.reductions++;
-  assert(p.want_slot_phase(k, SlotGroup::Probe));
+  assert(p.inprocess().want_phase(k, SlotGroup::Probe));
   // The first phase is exempt: preprocessing has no previous phase to be new
   // relative to (cadical `stats.inprobingphases &&`).
   DefaultPolicy q;
-  q.inprocess.initialized = true;
-  q.probe_clock.next_conflicts = q.elim_clock.next_conflicts = 0;
-  q.probe_clock.reductions_mark = k.stats.reductions;
-  q.elim_clock.marks_mark = k.stats.bve_marks;
-  q.elim_clock.fixed_mark = kernel_root_fixed(k);
-  assert(q.want_slot_phase(k, SlotGroup::Probe) &&
-         q.want_slot_phase(k, SlotGroup::Eliminate) &&
+  q.inprocess().pose_initialized();
+  q.inprocess().probe_clock.next_conflicts = q.inprocess().elim_clock.next_conflicts = 0;
+  q.inprocess().probe_clock.reductions_mark = k.stats.reductions;
+  q.inprocess().elim_clock.marks_mark = k.stats.bve_marks;
+  q.inprocess().elim_clock.fixed_mark = kernel_root_fixed(k);
+  assert(q.inprocess().want_phase(k, SlotGroup::Probe) &&
+         q.inprocess().want_phase(k, SlotGroup::Eliminate) &&
          "the preprocessing phase must not be gated");
   std::printf("  slot gates: decline without new material, re-admit with it\n");
 }
@@ -485,7 +485,7 @@ static void test_effort_limit_is_kissats(void) {
   Kernel k;
   kernel_reserve_vars(k, 64);
   DefaultPolicy p;
-  DefaultPolicy::SlotEntry e;
+  DefaultInprocessScheduler::SlotEntry e;
   e.rule = static_cast<int>(bve->id);
   e.permille = 100;
   e.group = SlotGroup::Eliminate;
@@ -495,20 +495,20 @@ static void test_effort_limit_is_kissats(void) {
   // 1e7/1000*100 == 1e6. A large formula must NOT lift it — the active floor
   // that used to do so was cadical's and is gone.
   k.unassigned = 400000;
-  p.set_entry_limit(e, k);
+  p.inprocess().set_entry_limit(e, k);
   assert(e.limit == 1000000 &&
          "no active floor: 2*active() must not raise a floored reference");
 
   // A second entry in the SAME phase, at a different rate, prices against the
   // same reference — the property a per-entry anchor cannot give.
-  DefaultPolicy::SlotEntry e2 = e;
+  DefaultInprocessScheduler::SlotEntry e2 = e;
   e2.permille = 20;
-  p.set_entry_limit(e2, k);
+  p.inprocess().set_entry_limit(e2, k);
   assert(e2.limit == 200000 && "same phase reference, rate is the only term");
 
   // The meter is added, not replaced: the limit is a ceiling on that counter.
   e.meter = [](const Kernel &) -> uint64_t { return 500000; };
-  p.set_entry_limit(e, k);
+  p.inprocess().set_entry_limit(e, k);
   assert(e.limit == 1500000 && "LIMIT = counter_now + delta (kimits.h:162)");
   std::printf("  effort limit: kissat's formula, phase anchor, no clamps\n");
 }

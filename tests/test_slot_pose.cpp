@@ -43,8 +43,8 @@ static void fixture(Kernel &k) {
 
 static uint32_t slot_index(const DefaultPolicy &p, const char *name) {
   const std::vector<RuleVTable> &rules = tactix_rules();
-  for (size_t i = 0; i < p.inprocess_slot.size(); i++)
-    if (!std::strcmp(rules[p.inprocess_slot[i].rule].name, name))
+  for (size_t i = 0; i < p.inprocess().entries.size(); i++)
+    if (!std::strcmp(rules[p.inprocess().entries[i].rule].name, name))
       return static_cast<uint32_t>(i);
   return UINT32_MAX;
 }
@@ -88,20 +88,20 @@ static void test_factor_bound_walks_posed_bve_ladder() {
   PosedBveLadder ladder;
   BoundRecorder recorder;
   DefaultPolicy p;
-  p.bve_bound = &ladder;
-  p.factor_match = &recorder;
+  p.inprocess().bve_bound = &ladder;
+  p.inprocess().factor_match = &recorder;
 
-  DefaultPolicy::SlotEntry bve;
+  DefaultInprocessScheduler::SlotEntry bve;
   bve.rule = tactix_rule_id("BVE");
   assert(bve.rule >= 0);
   bve.group = SlotGroup::Eliminate;
   bve.dosed = true;
   bve.meter = zero_meter;
-  p.inprocess_slot.push_back(bve);
+  p.inprocess().entries.push_back(bve);
 
   static constexpr uint32_t expected[5] = {0, 3, 5, 13, 13};
   for (const uint32_t bound : expected) {
-    assert(p.run_slot_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+    assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
     assert(k.bve_bound == bound &&
            "BVE did not use the posed ladder's current level");
   }
@@ -109,7 +109,7 @@ static void test_factor_bound_walks_posed_bve_ladder() {
   for (size_t i = 0; i < recorder.seen.size(); i++)
     assert(recorder.seen[i] == expected[i] &&
            "Factor did not receive BVE's posed phase-entry bound");
-  assert(p.inprocess_slot[0].tm.admitted == 5 &&
+  assert(p.inprocess().entries[0].tm.admitted == 5 &&
          "the posed BVE dose must engage in every tested phase");
   std::printf("  SP-FACTOR-1: posed BVE ladder 0,3,5,13,13 reached Factor\n");
 }
@@ -123,19 +123,19 @@ static uint64_t pose_congruence(bool enabled, DefaultPolicy &p, Kernel &k) {
   const int cong = tactix_rule_id("Congruence");
   const int subst = tactix_rule_id("Substitute");
   assert(cong >= 0 && subst >= 0);
-  DefaultPolicy::SlotEntry a;
+  DefaultInprocessScheduler::SlotEntry a;
   a.rule = cong;
   a.enabled = enabled;
   a.group = SlotGroup::Eliminate;
   a.closure = true;
-  DefaultPolicy::SlotEntry b; // a second entry, so the slot is a real schedule
+  DefaultInprocessScheduler::SlotEntry b; // a second entry, so the slot is a real schedule
   b.rule = subst;
   b.enabled = true;
   b.group = SlotGroup::Eliminate;
   b.closure = true;
-  p.inprocess_slot.push_back(a);
-  p.inprocess_slot.push_back(b);
-  assert(p.run_slot_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  p.inprocess().entries.push_back(a);
+  p.inprocess().entries.push_back(b);
+  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
   return k.stats.congruence_merges;
 }
 
@@ -146,14 +146,14 @@ static void test_pose_and_disable() {
   fixture(k);
   DefaultPolicy on;
   const uint64_t merges_on = pose_congruence(true, on, k);
-  assert(on.inprocess_slot.size() == 2 &&
+  assert(on.inprocess().entries.size() == 2 &&
          "a preposed slot must be used verbatim, not rebuilt from the registry");
   assert(slot_index(on, "Congruence") == 0 && slot_index(on, "Substitute") == 1 &&
          "a preposed slot's ORDER must survive too");
   assert(merges_on > 0 &&
          "the fixture must give Congruence something to merge, or the disabled "
          "arm below proves nothing");
-  const DefaultPolicy::SlotEntry &e_on = on.inprocess_slot[0];
+  const DefaultInprocessScheduler::SlotEntry &e_on = on.inprocess().entries[0];
   assert(e_on.tm.occasions > 0 && e_on.tm.admitted > 0);
   assert(e_on.tm.dec_disabled == 0);
 
@@ -163,7 +163,7 @@ static void test_pose_and_disable() {
   fixture(k2);
   DefaultPolicy off;
   const uint64_t merges_off = pose_congruence(false, off, k2);
-  const DefaultPolicy::SlotEntry &e_off = off.inprocess_slot[0];
+  const DefaultInprocessScheduler::SlotEntry &e_off = off.inprocess().entries[0];
   assert(e_off.tm.occasions > 0 &&
          "the disabled entry was never even REACHED, so this arm shows that the "
          "slot loop skipped it, not that `enabled` works");
@@ -194,13 +194,13 @@ static void with_env(const char *const *kv, size_t n,
     fixture(kb);
     DefaultPolicy p;
     assert(p.solve(kb) == 10);
-    assert(!p.inprocess_slot.empty());
+    assert(!p.inprocess().entries.empty());
     Kernel k;
     Heuristics h;
     k.h = &h;
     fixture(k);
-    assert(p.run_slot_phase(k, SlotGroup::Eliminate, nullptr) != 20);
-    assert(p.run_slot_phase(k, SlotGroup::Probe, nullptr) != 20);
+    assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+    assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) != 20);
     check(p, k);
   }
   for (size_t i = 0; i < n; i += 2)
@@ -210,22 +210,22 @@ static void with_env(const char *const *kv, size_t n,
 static void check_disable(DefaultPolicy &p, Kernel &k) {
   const uint32_t i = slot_index(p, "Congruence");
   assert(i != UINT32_MAX);
-  assert(!p.inprocess_slot[i].enabled &&
+  assert(!p.inprocess().entries[i].enabled &&
          "TACTIX_SLOT_DISABLE did not reach the entry the policy walks");
-  assert(p.inprocess_slot[i].tm.occasions > 0 &&
-         p.inprocess_slot[i].tm.dec_disabled == p.inprocess_slot[i].tm.occasions);
+  assert(p.inprocess().entries[i].tm.occasions > 0 &&
+         p.inprocess().entries[i].tm.dec_disabled == p.inprocess().entries[i].tm.occasions);
   assert(k.stats.congruence_merges == 0);
 }
 
 static void check_enable_over_ablation(DefaultPolicy &p, Kernel &) {
   const uint32_t i = slot_index(p, "BVE");
   assert(i != UINT32_MAX);
-  assert(p.inprocess_slot[i].enabled &&
+  assert(p.inprocess().entries[i].enabled &&
          "TACTIX_SLOT_ENABLE must override the TACTIX_NO_BVE ablation knob");
 }
 
 static void check_legacy_order(DefaultPolicy &p, Kernel &) {
-  const size_t n = p.inprocess_slot.size();
+  const size_t n = p.inprocess().entries.size();
   assert(n >= 2);
   const uint32_t bve = slot_index(p, "BVE"), factor = slot_index(p, "Factor");
   assert(factor == n - 1 && bve == n - 2 &&
@@ -233,7 +233,7 @@ static void check_legacy_order(DefaultPolicy &p, Kernel &) {
 }
 
 static void check_authored_order(DefaultPolicy &p, Kernel &) {
-  const size_t n = p.inprocess_slot.size();
+  const size_t n = p.inprocess().entries.size();
   const uint32_t factor = slot_index(p, "Factor");
   assert(factor != n - 1 &&
          "the authored order is what `legacy` is an arm AGAINST; if they agree "
@@ -242,14 +242,14 @@ static void check_authored_order(DefaultPolicy &p, Kernel &) {
 
 static void check_knobs(DefaultPolicy &p, Kernel &) {
   const uint32_t c = slot_index(p, "Congruence");
-  assert(p.inprocess_slot[c].permille == 7 &&
+  assert(p.inprocess().entries[c].permille == 7 &&
          "TACTIX_SLOT_PERMILLE did not reach the entry");
-  assert(p.inprocess_slot[c].max_applies == 1 &&
+  assert(p.inprocess().entries[c].max_applies == 1 &&
          "TACTIX_SLOT_MAX_APPLIES did not reach the entry");
   const uint32_t pr = slot_index(p, "Probe");
-  assert(!p.inprocess_slot[pr].cursor_enabled &&
+  assert(!p.inprocess().entries[pr].cursor_enabled &&
          "TACTIX_CURSOR_PROBE=0 did not reach the entry (it defaults ON)");
-  assert(p.inprocess_slot[pr].order == CandidateOrder::Reverse &&
+  assert(p.inprocess().entries[pr].order == CandidateOrder::Reverse &&
          "TACTIX_ORDER_PROBE=reverse did not reach the entry");
 }
 

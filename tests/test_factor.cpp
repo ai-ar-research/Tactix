@@ -93,6 +93,9 @@ static void test_demote_fresh_order() {
   assert(factor_apply(k) == ApplyResult::Ok);
   assert(k.stats.factorings == 2);
   assert(k.nvars == 12 && k.first_extension_var == 10); // fresh = 10, 11
+  assert(k.fresh_var_events.size() == 1);
+  assert(k.stats.factor_demotions == 0); // rules emit facts, not H mutations
+  heuristics_consume_rule_advice(k);
 
   // one demotion per application, not per factoring: the walk is O(#queue)
   assert(k.stats.factor_demotions == 1);

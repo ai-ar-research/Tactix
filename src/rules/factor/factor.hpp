@@ -11,6 +11,20 @@
 
 namespace tactix {
 
+// Strategy used to select a factoring grid.  Factor owns this neutral
+// interface; policies may implement it, but the rule never imports policy
+// types.
+struct FactorSelection {
+  virtual ~FactorSelection() = default;
+  virtual void set_bound(uint32_t) {}
+  virtual void begin_sweep(const Kernel &) {}
+  virtual void end_sweep() {}
+  virtual double seed_score(const Kernel &, Lit seed) = 0;
+  virtual double next_factor_score(const Kernel &, Lit candidate,
+                                   uint32_t cofactor, Lit seed) = 0;
+  virtual bool accept(uint32_t rows, uint32_t columns, int delta) = 0;
+};
+
 bool factor_guard(const Kernel &); // pure quiescent-root precondition
 ApplyResult factor_apply(Kernel &);
 

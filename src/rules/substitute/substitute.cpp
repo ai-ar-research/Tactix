@@ -8,7 +8,6 @@
 #include "rules/propagate/propagate.hpp"
 
 #include "kernel/watch.hpp"
-#include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 
 #include <algorithm>
@@ -570,7 +569,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       k.unassigned_active--;
     }
     k.var_status[v] = VarStatus::Substituted;
-    k.retired_events.push_back(v); // the policy deactivates its own H from this
+    k.retired_events.push_back(v);
+    k.substituted_events.push_back(v);
     kernel_push_witness(k, negate(l), rest_a, 1); // clause {s, ¬l}
     const Lit rest_b[1] = {negate(s)};
     kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}
@@ -584,15 +584,6 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
 
   if (changed)
     kernel_collect_garbage(k); // reclaim the garbaged large clauses
-  // Rank substituted variables last: they occur in no clause, so deciding one
-  // propagates nothing and only deepens the trail. Advice, not a restriction —
-  // they stay decidable (N1); the policy simply reaches them last.
-  if (changed && k.subst_demote) {
-    std::vector<uint8_t> mark(k.nvars, 0);
-    for (Var v = 0; v < k.nvars; v++)
-      mark[v] = kernel_var_retired(k, v) ? 1 : 0;
-    heuristics_demote_marked_vars(k, mark);
-  }
   return changed ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 

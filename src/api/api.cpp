@@ -169,6 +169,7 @@ int tactix_apply(tactix_solver *s, int rule_id) {
   if (!r.guard(s->kernel))
     return -1;
   const ApplyResult res = apply_rule(r, s->kernel);
+  heuristics_discard_rule_events(s->kernel);
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(res);
 }
@@ -211,6 +212,7 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
     res = apply_rule(r, s->kernel); // canonical (the only instance if no slot)
   else
     res = apply_rule_instance(r, s->kernel, instance);
+  heuristics_discard_rule_events(s->kernel);
   kernel_check_invariants(s->kernel); // no-op in NDEBUG
   return result_code(res);
 }
