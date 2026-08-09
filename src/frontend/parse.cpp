@@ -50,43 +50,47 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   if (!scratch.empty())
     kernel_reserve_vars(k, maxv + 1);
 
-  // Kissat's default `tumble=1` imports variables by first occurrence and
-  // activates the literals of each surviving clause in that same file order
-  // (internal.c `kissat_add` -> flags.c `kissat_activate_literals`).  Retain
-  // that order across the set-semantics check below.  Do not publish it yet: a
-  // tautology activates nothing and returns below.
+  // Kissat's default `tumble=1` imports variables by first occurrence, before
+  // it knows whether the clause is tautological, and activates the literals of
+  // each surviving clause in file order (internal.c `kissat_add` -> flags.c
+  // `kissat_activate_literals`).  Retain both orders across the set-semantics
+  // check below.  Do not publish the activation order yet: a tautology
+  // activates nothing and returns below.
   const std::vector<Lit> file_order = scratch;
   std::vector<Var> activation_order;
   if (k.tumble) {
+    if (k.input_import_rank.size() < k.nvars)
+      k.input_import_rank.resize(k.nvars, INVALID_VAR);
     activation_order.reserve(scratch.size());
-    for (const Lit l : scratch)
-      activation_order.push_back(var_of(l));
+    for (const Lit l : scratch) {
+      const Var v = var_of(l);
+      if (k.input_import_rank[v] == INVALID_VAR)
+        k.input_import_rank[v] = k.input_imported++;
+      activation_order.push_back(v);
+    }
   }
 
   // Set semantics: dedupe; tautologies contribute nothing.  The sorted copy
-  // is only the membership check.  Original clauses are stored in stable
-  // first-occurrence file order, as Kissat does while all literals are
-  // unassigned; sorting storage here changes the initial watched pair and the
-  // order of every affected watch list.
+  // is only the membership check.  Kissat then sorts the surviving external
+  // literals by their internal encoding (`clause.c`
+  // `kissat_new_original_clause`).  With tumble enabled that encoding is the
+  // global first-import rank plus the sign bit, not the external variable id
+  // and not necessarily this clause's file order.  Reproduce that ordering:
+  // it selects the initial watched pair and the order of every affected watch
+  // list.
   const size_t file_size = scratch.size();
   std::sort(scratch.begin(), scratch.end());
   scratch.erase(std::unique(scratch.begin(), scratch.end()), scratch.end());
   for (size_t i = 1; i < scratch.size(); i++)
     if (scratch[i] == negate(scratch[i - 1]))
       return; // tautology
-  const std::vector<Lit> canonical = scratch;
-  std::vector<uint8_t> emitted(canonical.size(), 0);
-  scratch.clear();
-  scratch.reserve(canonical.size());
-  for (const Lit lit : file_order) {
-    const auto it = std::lower_bound(canonical.begin(), canonical.end(), lit);
-    assert(it != canonical.end() && *it == lit);
-    const size_t pos = static_cast<size_t>(it - canonical.begin());
-    if (!emitted[pos]) {
-      emitted[pos] = 1;
-      scratch.push_back(lit);
-    }
-  }
+  if (k.tumble)
+    std::sort(scratch.begin(), scratch.end(), [&](const Lit a, const Lit b) {
+      const Var ar = k.input_import_rank[var_of(a)];
+      const Var br = k.input_import_rank[var_of(b)];
+      assert(ar != INVALID_VAR && br != INVALID_VAR);
+      return ar != br ? ar < br : negated(a) < negated(b);
+    });
   // N2: the checker holds the file clause under `id`, repeats and all, so a
   // shrunk clause may not keep it. Restate at finish_input, but only when this
   // clause is actually stored — a dropped clause's id is never cited.
@@ -197,6 +201,9 @@ void finish_input(Kernel &k) {
   k.input_activation_order.shrink_to_fit();
   k.input_activated.clear();
   k.input_activated.shrink_to_fit();
+  k.input_import_rank.clear();
+  k.input_import_rank.shrink_to_fit();
+  k.input_imported = 0;
   if (k.input_refuted) {
     k.input_refuted = false;
     if (k.proof) {
