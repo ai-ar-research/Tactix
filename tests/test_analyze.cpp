@@ -181,6 +181,42 @@ static void test_shrink_crosses_unmarked_lower_level() {
   assert(k.pending.jump_level == 3);
 }
 
+static void test_shrink_processes_lower_blocks_first() {
+  // The lower block {-q,-r} converges to y and makes that walk removable.
+  // Only then can the higher block {-b,-c}, whose c-reason reaches lower-level
+  // y, converge to b.  Highest-first processing keeps -c; Kissat's
+  // tail-to-head block order learns the strict subclause {-d,-b,-y}.
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  kernel_assign_decision(k, internalize(1)); // p @ 1
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_assign(k, internalize(2), 1, internalize(-1), true); // y @ 1
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  kernel_assign(k, internalize(3), 1, internalize(-2), true); // q @ 1
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  kernel_assign(k, internalize(4), 1, internalize(-2), true); // r @ 1
+
+  kernel_assign_decision(k, internalize(5)); // b @ 2
+  const Lit reason[3] = {internalize(-5), internalize(-2),
+                         internalize(6)};
+  const Ref reason_ref = kernel_add_large_clause(k, reason, 3, false, 0);
+  kernel_assign(k, internalize(6), 2, reason_ref, false); // c @ 2
+  kernel_assign_decision(k, internalize(7));              // d @ 3
+  const Lit conflict[5] = {internalize(-7), internalize(-5),
+                           internalize(-6), internalize(-3),
+                           internalize(-4)};
+  k.conflict_ref = kernel_add_large_clause(k, conflict, 5, false, 0);
+  k.conflict_valid = true;
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.shrunken == 2);
+  assert(k.pending.lits.size() == 3);
+  assert(k.pending.lits[0] == internalize(-7));
+  assert(k.pending.lits[1] == internalize(-5));
+  assert(k.pending.lits[2] == internalize(-2));
+  assert(k.pending.jump_level == 2);
+}
+
 static Kernel singleton_minimization_fixture() {
   // At level 2, c follows from a through (-a c).  The conflict learns
   // (-d -c -a), where -c is the sole literal on its level and is redundant
@@ -581,6 +617,7 @@ int main() {
   test_shrink();
   test_shrink_accepts_lower_learned_literal();
   test_shrink_crosses_unmarked_lower_level();
+  test_shrink_processes_lower_blocks_first();
   test_singleton_minimization_stronger();
   test_learned_level_stable_order();
   test_otfs();

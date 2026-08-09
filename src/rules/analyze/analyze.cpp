@@ -1012,13 +1012,16 @@ ApplyResult analyze_apply(Kernel &k) {
     // within each level, matching Kissat's stable bucket sort.
     radix_sort_learned_by_level(k, learned);
     event_trace_learned_stage(k, "learned_sorted", learned);
-    size_t b = 1;
-    while (b < learned.size()) {
-      const uint32_t blevel = k.var_level(var_of(learned[b]));
-      size_t e = b + 1;
-      while (e < learned.size() &&
-             k.var_level(var_of(learned[e])) == blevel)
-        e++;
+    // Kissat consumes the sorted clause from its tail: lower-level blocks run
+    // first, and every successful walk leaves removable intermediates for the
+    // later, higher-level blocks.  The clause itself stays in descending-level
+    // order; only application order is reversed.
+    size_t e = learned.size();
+    while (e > 1) {
+      const uint32_t blevel = k.var_level(var_of(learned[e - 1]));
+      size_t b = e - 1;
+      while (b > 1 && k.var_level(var_of(learned[b - 1])) == blevel)
+        b--;
       bool minimize_block = true;
       if (e - b >= 2 && shrink_block(k, learned, b, e, blevel)) {
         k.stats.shrunken += (e - b) - 1;
@@ -1037,7 +1040,7 @@ ApplyResult analyze_apply(Kernel &k) {
             k.stats.minimized++;
           }
       }
-      b = e;
+      e = b;
     }
     size_t kept = 1;
     for (size_t j = 1; j < learned.size(); j++)
