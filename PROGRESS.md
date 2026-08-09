@@ -11,7 +11,7 @@ only.
   fix `7fbcb11`; 40k-case battery green with real backward-BVE reach; retake
   pair N2-clean) · N3 Tier-D parity not yet measured · N4 scheduling parity
   not yet discharged.
-- **Last updated:** 2026-08-08.
+- **Last updated:** 2026-08-09.
 
 ## Resume here
 
@@ -134,8 +134,10 @@ required.
 - [x] `SP-SUBST-2`: Substitute uses its own binary-watch tick meter and
   Kissat's per-round 10‰ allowance without the generic 1e7 floor; an
   over-budget first round suppresses the phase's second and final round.
-- [ ] `SP-ARENA-1`: make budget-cut candidate order search-coupled instead of
-  clause-creation order.
+- [x] `SP-ARENA-1`: garbage collection takes a policy-supplied permutation of
+  live clauses; DefaultPolicy supplies CaDiCaL's VMTF × saved-phase order, so
+  budget-cut arena scans are search-coupled without exposing heuristics to
+  proof rules.
 - [ ] `SP-PREPROC-2`: replace three full-list preprocessing rounds and the 1e7
   floor with the references' reduced, bounded pipeline.
 - [ ] `SP-BUMP-2`: evaluate CaDiCaL's stable-mode reason-bump depth of two versus

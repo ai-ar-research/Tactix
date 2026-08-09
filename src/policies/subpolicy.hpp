@@ -40,6 +40,8 @@ struct CandidateOrderPolicy : SubPolicy {
                     uint32_t n) = 0;
 };
 
+struct ArenaOrderPolicy : SubPolicy, ArenaOrdering {};
+
 // Reduction: given the ranked worst-first deletion candidates, already
 // soundness-filtered by the rule, return how long a prefix to delete.
 struct ReductionPolicy : SubPolicy {

@@ -26,6 +26,46 @@
 
 namespace tactix {
 
+void DefaultArenaOrder::order(const Kernel &k, std::vector<Ref> &refs) {
+  if (!k.h || k.h->queue_last == INVALID_VAR || refs.empty())
+    return;
+  std::vector<uint8_t> live(k.arena.size());
+  for (const Ref ref : refs)
+    live[ref] = 1;
+  std::vector<Ref> ordered;
+  ordered.reserve(refs.size());
+  for (const bool opposite : {true, false})
+    for (Var v = k.h->queue_last; v != INVALID_VAR; v = k.h->links[v].prev) {
+      Lit lit = make_lit(v, k.h->saved[v] < 0);
+      if (opposite)
+        lit = negate(lit);
+      for (const WatchEntry w : k.watches.entries(lit)) {
+        if (w.binary())
+          continue;
+        const Ref ref = w.ref();
+        if (ref < live.size() && live[ref]) {
+          ordered.push_back(ref);
+          live[ref] = 0;
+        }
+      }
+    }
+  for (const Ref ref : refs)
+    if (live[ref])
+      ordered.push_back(ref);
+  refs.swap(ordered);
+}
+
+namespace {
+struct ScopedArenaOrdering {
+  Kernel &k;
+  ArenaOrdering *saved;
+  ScopedArenaOrdering(Kernel &kernel, ArenaOrdering *ordering)
+      : k(kernel), saved(kernel.arena_ordering) {
+    k.arena_ordering = ordering;
+  }
+  ~ScopedArenaOrdering() { k.arena_ordering = saved; }
+};
+} // namespace
 
 void DefaultPolicy::observe_glue(const Kernel &k, uint32_t glue) {
   ModeAverages &avg = averages[k.h->stable];
@@ -822,6 +862,7 @@ void DefaultInprocessScheduler::build(Kernel &k) {
 
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
+  ScopedArenaOrdering arena_ordered(k, inprocess_.arena_ordering());
   if (const char *cl = std::getenv("TACTIX_CHRONO_LEVELS")) {
     const long n = std::strtol(cl, nullptr, 10);
     if (n >= 0)

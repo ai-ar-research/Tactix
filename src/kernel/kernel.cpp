@@ -885,17 +885,37 @@ void kernel_collect_garbage(Kernel &k) {
     r = INVALID_REF;
   Arena fresh;
   fresh.reserve(k.arena.size());
+  std::vector<Ref> order;
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
-    if (!c->garbage()) {
-      const Ref nref = static_cast<Ref>(fresh.size());
-      fresh.insert(fresh.end(), k.arena.begin() + ref,
-                   k.arena.begin() + ref + words);
-      clause_at(fresh, nref)->searched = 2;
-      c->searched = nref; // forwarding pointer in the old copy
-    }
+    if (!c->garbage())
+      order.push_back(ref);
     ref += words;
+  }
+  if (k.arena_ordering)
+    k.arena_ordering->order(k, order);
+#ifndef NDEBUG
+  std::vector<uint8_t> seen(k.arena.size());
+  for (const Ref ref : order) {
+    assert(ref < k.arena.size() && !seen[ref]);
+    assert(!clause_at(k.arena, ref)->garbage());
+    seen[ref] = 1;
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    assert(c->garbage() || seen[ref]);
+    ref += clause_words(c->size);
+  }
+#endif
+  for (const Ref ref : order) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    const Ref nref = static_cast<Ref>(fresh.size());
+    fresh.insert(fresh.end(), k.arena.begin() + ref,
+                 k.arena.begin() + ref + words);
+    clause_at(fresh, nref)->searched = 2;
+    c->searched = nref;
   }
   for (const Lit lit : k.trail) {
     Assigned &a = k.assigned[var_of(lit)];
