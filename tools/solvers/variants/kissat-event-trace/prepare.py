@@ -134,6 +134,16 @@ def main():
         '  kissat_event_trace_literal (solver, "decision", lit);\n'
         '  STOP (decide);\n')
 
+    analyze = dest / "src" / "analyze.c"
+    replace_once(analyze, '#include "deduce.h"\n',
+                 '#include "deduce.h"\n#include "eventtrace.h"\n')
+    replace_once(analyze,
+        '      analyze_reason_side_literals (solver);\n'
+        '      kissat_learn_clause (solver);\n',
+        '      analyze_reason_side_literals (solver);\n'
+        '      kissat_event_trace_learned (solver);\n'
+        '      kissat_learn_clause (solver);\n')
+
 
 if __name__ == "__main__":
     main()

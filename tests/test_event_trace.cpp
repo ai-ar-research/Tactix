@@ -34,6 +34,7 @@ int main() {
     trace.macro(k, "lucky_early_end", "unknown");
     trace.detail(k, "decision", 3);
     trace.detail(k, "analysis_begin", 2);
+    trace.learned(k, {internalize(3), internalize(-1), internalize(2)});
     trace.detail(k, "analysis_end", 1);
     trace.reorder_begin(k);
     trace.reorder_end(k);
@@ -50,6 +51,8 @@ int main() {
   assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
   assert(text.find("\tanalysis_begin\t") != std::string::npos);
+  assert(text.find("\tlearned\t") != std::string::npos);
+  assert(text.find("\t-1,2,3\n") != std::string::npos);
   const size_t analysis = text.find("\tanalysis_end\t");
   assert(analysis != std::string::npos);
   const size_t line_end = text.find('\n', analysis);

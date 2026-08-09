@@ -995,6 +995,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         event_trace.detail(k, "analysis_end", k.level);
         continue;
       }
+      event_trace.learned(k, k.pending.lits);
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (dynamic_tiers_ && k.stats.conflicts > retier_.next_conflicts) {
         reduce_retier(k);
