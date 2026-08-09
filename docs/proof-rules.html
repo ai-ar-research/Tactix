@@ -452,18 +452,26 @@ resolve x ⇒ c′ = (a)
         <details class="rule-card" id="C3" data-family="clause" data-search="c3 vivify distill propagation clause shorten root satisfied">
           <summary><span class="rule-id">C3</span><span class="rule-title"><h3>Vivify</h3><p>Distill a clause through speculative propagation</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
-            <section class="panel" data-panel-content="formal"><div class="equation">c ∈ F ∧ propagation under negated prefix proves c′ ⊂ c
-──────────────────────────────────────────────────── C3
-F := (F ∪ {c′}) \ {c}
-δ = add_rup(c′, reason-chain) · del(c)</div><div class="formal-grid"><div class="formal-block"><h4>Outcomes</h4><p>Strengthen, delete a root-satisfied clause, assert a surviving unit, or refute on empty distillation.</p></div><div class="formal-block"><h4>Soundness</h4><p>The speculative conflict supplies the RUP chain for the shorter clause.</p></div></div></section>
-            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Try falsifying a clause from left to right and watch what propagation proves.</strong> If conflict arrives early, the untouched suffix was unnecessary.</p></section>
-            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>RUP shortening</h4><div class="equation">C = (a ∨ b ∨ c)
-other: (a ∨ d), (b ∨ ¬d)
-assume ¬a, ¬b ⇒ d and ¬d
-⇒ add (a ∨ b); delete C</div><p>The conflict occurs without needing literal <span class="math">c</span>.</p></div><div class="example"><h4>Strip a root-false literal</h4><div class="equation">C = (a ∨ b ∨ c)
-root has ¬a
-⇒ C′ = (b ∨ c)
-add C′; delete C</div><p>The root unit permanently falsifies <span class="math">a</span>.</p></div></div></section>
+            <section class="panel" data-panel-content="formal"><div class="equation">Γ=F∪R; C∈Γ; P=(p₀,…,pₘ₋₁)=C after root-false stripping
+Aᵢ={¬p₀,…,¬pᵢ}; propagation proves a strict C′⊂C
+──────────────────────────────────────────────────────────── C3(C)
+Γ′ := (Γ∪{C′})\{C}; C′ stays in C's irredundancy partition</div><div class="formal-grid"><div class="formal-block wide"><h4>Four concrete distillation outcomes</h4><p><span class="math">Γ∧Aᵢ⊢₁⊥ ⇒ C′={p₀,…,pᵢ}</span>. If the prefix before <span class="math">pᵢ</span> implies <span class="math">pᵢ</span>, use the same prefix plus <span class="math">pᵢ</span>. If it implies <span class="math">¬pᵢ</span>, use <span class="math">C′=P\{pᵢ}</span>. If propagation under <span class="math">Aᵢ</span> implies a later clause literal <span class="math">q</span>, use <span class="math">C′={p₀,…,pᵢ,q}</span>.</p></div><div class="formal-block"><h4>Certificate order</h4><p>Emit <span class="math">add_rup(C′,h)·del(C)</span>. The hint list contains used root-unit/reason ids in increasing trail order. A probe conflict appends its conflict id. An implied-negation rewrite appends <span class="math">C.id</span> after the reasons force <span class="math">¬pᵢ</span>. For implied literals, their own final reason closes the chain, so <span class="math">C</span> is not cited afterward.</p></div><div class="formal-block"><h4>Boundary outcomes</h4><p>A root-satisfied candidate contributes only <span class="math">del(C)</span>. A unit <span class="math">C′</span> is asserted at root; an empty <span class="math">C′</span> emits the refutation. Root-false stripping alone is not a rewrite—it only changes the probe list.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Falsify an ordered prefix of the clause and let propagation show how much of the clause is really needed.</strong> A conflict proves the prefix itself is a clause; an implied clause literal can close an even shorter clause. Every successful result is independently RUP before the original is deleted.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Conflict after a strict prefix</h4><div class="equation">C=(a∨b∨c)
+A=(a∨d), B=(b∨¬d)
+
+assume ¬a ⇒ A forces d
+assume ¬b ⇒ B conflicts
+C′=(a∨b), h=[A,B]
+
+add_rup(C′,[A,B]); del(C)</div><p>The conflict is reached before <span class="math">c</span> is assumed, so <span class="math">c</span> is absent from the replacement.</p></div><div class="example"><h4>Implied negation removes one literal</h4><div class="equation">C=(a∨b∨c), E=(a∨¬b)
+assume ¬a ⇒ E forces ¬b
+
+C′=(a∨c)
+under ¬C′: E forces ¬b; C is then false
+h=[E,C]
+
+add_rup(C′,[E,C]); del(C)</div><p>Here the candidate itself is the final conflicting hint. This is why its id belongs last rather than in every Vivify chain.</p></div></div></section>
           </div>
         </details>
 
@@ -688,17 +696,27 @@ resolve p ⇒ (a ∨ b)</div><p>Both non-pivot sides coincide.</p></div></div></
           <summary><span class="rule-id">X6</span><span class="rule-title"><h3>HyperBinaryRes</h3><p>Derive a binary from BIG paths that falsify the rest of a clause</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
             <section class="panel" data-panel-content="formal"><div class="equation">C=(l₀∨l₁∨…∨lₖ), k≥2
-∀i&gt;0: BIG(F) contains d ⟹ ¬lᵢ
-────────────────────────────────── X6(C,l₀,d)
-F := F ∪ {(¬d∨l₀)} ; optionally del(C) if (¬d∨l₀)⊆C
-δ = add_rup(binary,replay-chain) · optional del(C)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add the binary implication <span class="math">d→l₀</span>; delete the source clause only when the binary subsumes it.</p></div><div class="formal-block"><h4>Soundness</h4><p>Under <span class="math">d∧¬l₀</span>, BIG paths falsify every other literal, so <span class="math">C</span> conflicts.</p></div></div></section>
+for each i&gt;0: d=qᵢ₀→qᵢ₁→…→qᵢₙᵢ=¬lᵢ in BIG(F)
+B:=(¬d∨l₀)
+──────────────────────────────────────────────────── X6(C,l₀,d)
+if ¬d∉C: F′=F∪{B}
+if ¬d∈C: F′=(F∪{B})\{C}             [B⊂C]</div><div class="formal-grid"><div class="formal-block wide"><h4>Certificate, not a placeholder</h4><p>At the clean root assume <span class="math">d∧¬l₀</span> and replay ordinary propagation. Let <span class="math">h_B</span> be the binary reason ids actually used, in propagation order, followed by <span class="math">C.id</span> as the conflict. Emit <span class="math">add_rup(B,h_B)</span>; emit <span class="math">del(C)</span> exactly in the second state case above. If replay does not conflict, emit nothing.</p></div><div class="formal-block"><h4>Dominator</h4><p>The implementation discovers <span class="math">d</span> as the closest common dominator of the true literals <span class="math">¬lᵢ</span> in one binary implication tree. This gives a stronger binary than using the original probe root.</p></div><div class="formal-block"><h4>Soundness</h4><p>With <span class="math">d</span> true, the paths falsify every alternative <span class="math">lᵢ</span>; with <span class="math">l₀</span> also false, <span class="math">C</span> conflicts. Thus <span class="math">B</span> is entailed, and deleting a clause it subsumes preserves all models.</p></div></div></section>
             <section class="panel" data-panel-content="plain"><p class="plain"><strong>If one condition makes every alternative in a clause false, it must force the remaining literal.</strong> Record that fact as a new binary clause.</p></section>
-            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Derive a new implication</h4><div class="equation">C=(u∨a∨b)
-d→¬a and d→¬b
-⇒ add (¬d∨u)</div><p>When <span class="math">d</span> holds, only <span class="math">u</span> can satisfy <span class="math">C</span>.</p></div><div class="example"><h4>Derive and subsume</h4><div class="equation">C=(u∨¬d∨b)
-d→¬b
-⇒ R=(¬d∨u)
-R⊂C ⇒ add R; delete C</div><p>The new binary makes the longer source clause redundant.</p></div></div></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Derive, but keep the source</h4><div class="equation">C=(u∨a∨b)
+E₁=(¬d∨¬a), E₂=(¬d∨¬b)
+B=(¬d∨u)
+
+assume d,¬u
+E₁ forces ¬a; E₂ forces ¬b; C conflicts
+h_B=[E₁,E₂,C]
+
+add_rup(B,h_B); keep C</div><p>The new binary is stronger propagation knowledge, but it does not syntactically subsume <span class="math">C</span>.</p></div><div class="example"><h4>Derive and subsume</h4><div class="equation">C=(u∨¬d∨b), E=(¬d∨¬b)
+B=(¬d∨u)
+
+assume d,¬u ⇒ E forces ¬b ⇒ C conflicts
+h_B=[E,C]
+
+add_rup(B,h_B); del(C)       [B⊂C]</div><p>The binary is added first, so the proof and solver retain the subsumer before the longer source disappears.</p></div></div></section>
           </div>
         </details>
 
@@ -748,18 +766,25 @@ Q=(a∨b) ⊆ D₁  [ATA exit]
         <details class="rule-card" id="X4" data-family="addition" data-search="x4 instantiate probe remove literal strengthen rup">
           <summary><span class="rule-id">X4</span><span class="rule-title"><h3>Instantiate</h3><p>Remove a clause literal whose supporting probe is impossible</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
-            <section class="panel" data-panel-content="formal"><div class="equation">C=(D∨l) ∈ F ∧ F ∧ l ∧ ¬D ⊢₁ ∅
-──────────────────────────────────── X4(C,l)
-F := (F ∪ {D}) \ {C}
-δ = add_rup(D, reason-chain including C) · del(C)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add the clause without <span class="math">l</span>, then delete its superset.</p></div><div class="formal-block"><h4>Soundness</h4><p>Under <span class="math">¬D</span>, the original clause forces <span class="math">l</span>, reproducing the failed probe; therefore <span class="math">D</span> is RUP from <span class="math">F</span> alone.</p></div></div></section>
+            <section class="panel" data-panel-content="formal"><div class="equation">C=(D∨l)∈F;  A={l}∪{¬d | d∈D};  F∧A⊢₁∅
+────────────────────────────────────────────────── X4(C,l)
+F′ := (F∪{D})\{C};  τ,ρ unchanged</div><div class="formal-grid"><div class="formal-block wide"><h4>Exact LRAT chain</h4><p>Walk backward from the successful probe conflict. Sort used reason ids by the trail position of the literal they propagated and append the conflict id last. If that walk depends on the probe decision <span class="math">l</span>, insert <span class="math">C.id</span> at <span class="math">l</span>’s trail position: under <span class="math">¬D</span>, <span class="math">C</span> replaces the decision by forcing <span class="math">l</span>. Call the resulting list <span class="math">h_D</span>, then emit <span class="math">add_rup(D,h_D)·del(C)</span>.</p></div><div class="formal-block"><h4>Conflict independent of l</h4><p>If the reason walk never reaches <span class="math">l</span>, omit <span class="math">C.id</span>. The remaining reasons already refute <span class="math">¬D</span>, so citing <span class="math">C</span> would be unnecessary and could place a hint after the conflict.</p></div><div class="formal-block"><h4>Soundness</h4><p>The probe proves <span class="math">F⊨¬l∨D</span>; resolving that implication with <span class="math">C=l∨D</span> gives <span class="math">F⊨D</span>. Add-before-delete preserves the exact model set and needs no reconstruction witness.</p></div></div></section>
             <section class="panel" data-panel-content="plain"><p class="plain"><strong>Ask whether a literal could be the only reason a clause is true.</strong> If that situation propagates to conflict, the literal is unnecessary and can be removed.</p></section>
-            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Shorten a ternary clause</h4><div class="equation">C=(l∨a∨b)
-other clause: (¬l∨a)
-assume l,¬a,¬b ⇒ (¬l∨a) false
-⇒ add (a∨b); delete C</div><p>Equivalently, resolving the two clauses on <span class="math">l</span> yields <span class="math">(a∨b)</span>.</p></div><div class="example"><h4>Collapse to a unit</h4><div class="equation">C=(l∨a)
-other clause: (¬l∨a)
-assume l,¬a ⇒ conflict
-⇒ add (a); delete C</div><p>The remaining literal becomes a root consequence.</p></div></div></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>The candidate replaces the probe decision</h4><div class="equation">C=(l∨a∨b)
+E₁=(¬l∨q), E₂=(¬q∨a)
+
+probe l,¬a,¬b: E₁ forces q; E₂ conflicts
+D=(a∨b)
+
+under ¬D: C forces l, E₁ forces q, E₂ conflicts
+h_D=[C,E₁,E₂]
+add_rup(D,h_D); del(C)</div><p>The checker does not inherit the probe’s decision <span class="math">l</span>; <span class="math">C</span> must reproduce it as unit propagation.</p></div><div class="example"><h4>The conflict does not use l</h4><div class="equation">C=(l∨a∨b)
+E₁=(a∨q), E₂=(¬q∨b)
+
+probe l,¬a,¬b: E₁ forces q; E₂ conflicts
+D=(a∨b), h_D=[E₁,E₂]       [C omitted]
+
+add_rup(D,h_D); del(C)</div><p>The assumptions <span class="math">¬a∧¬b</span> already conflict independently of <span class="math">l</span>, so the original clause is not an antecedent of the RUP addition.</p></div></div></section>
           </div>
         </details>
       </div>
