@@ -1,0 +1,105 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\title{SP-COMPACT-1: Stable Identity and Dense Search State}
+\author{Tactix Development Project}
+\date{August 8, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive summary}
+\texttt{SP-COMPACT-1} is implemented and closed at commit \texttt{e1d35b8}.
+Tactix now keeps permanent external variable identities while compacting
+retired internal search indices.  The implementation preserves the central
+architecture constraint: compaction is a formula-neutral kernel service,
+whereas the kissat-default 10\% post-Reduce trigger belongs only to
+\texttt{DefaultPolicy}.  No proof rule or guard depends on that trigger.
+
+The final pin passes the full Release suite and focused sanitizer/assertion
+tests.  Three same-window, no-throttle A/B tiers are certificate-clean.  Tier A
+ties, Tier B improves by 23.25 PAR-2 and one solve, and Tier C is formally
+undecided: the aggregate loses 10.51 PAR-2 solely because one trajectory cliff
+flips the sign; without it, compaction improves by 68.99 PAR-2.
+
+\section{Implementation}
+The kernel owns bidirectional external--internal maps.  DIMACS, proof, model,
+reconstruction, public API, and stored rule-instance literals retain their
+external names.  Clauses, binaries, watches, arena references, trail and
+reasons, per-variable kernel state, and heuristic state use dense internal
+indices and move together.
+
+The primitive refuses unsafe states and variables that have not completed
+formula retirement.  Consequently it neither adds nor deletes a clause and
+has no proof delta.  \texttt{DefaultPolicy} tests the strict kissat threshold
+after every Reduce; \texttt{TACTIX\_NO\_COMPACT=1} disables only that strategy
+choice.  The final cursor fix stores raw external instance payloads, preventing
+renumbering from changing a macro-rule's resumption position.
+
+\section{Correctness evidence}
+Release CTest is green at 60/60.  Focused assertion/address/undefined-sanitizer
+tests for kernel, scheduling, and solve-reset are green at 3/3.  Leak detection
+was disabled because LeakSanitizer cannot start under the execution
+environment's ptrace wrapper; assertions and the address/undefined sanitizers
+remained active.
+
+Tests exercise non-root trail and reasons, binary and large clauses, arena
+references, heuristic state, public rule instances, extension reconstruction,
+proof mapping, and stable scheduler keys.  Three pre-final 10,000-case fuzz
+legs (DRAT, LRAT, and random-policy LRAT) found zero failures.  Exact-final
+LRAT job \texttt{1594313} added 10,000 cases with zero failures and 9,827
+verdicts.  Its small formulas did not reach the threshold; real-instance probe
+\texttt{1594316} observed three compactions removing 2,796 internal variables.
+The modified fuzz-harness self-test passed in job \texttt{1594314}.
+
+\section{Performance evidence}
+The immutable binary SHA-256 is:
+\begin{center}
+\small\texttt{781ae152bf56a8860 788c2d29d39c72b4}\par
+\texttt{bec84e4c5bf6de40 22c6dfd13e90cefef}
+\end{center}
+Every window used an unthrottled SLURM array on \texttt{cpu-dense-hwulab-q}
+with 8 GB/core.  Every returned Tactix proof and model verified.
+
+\begin{center}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Tier & Compaction & Disabled & Result \\
+\midrule
+A & 0.66, 199/200 & 0.66, 199/200 & tie \\
+B & 69.63, 26/28 & 92.88, 25/28 & +23.25 PAR-2 \\
+C & 829.17, 22/30 & 818.65, 22/30 & -10.51, one-mover fragile \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The windows are A \texttt{20260808-221957-A-compact2}, B
+\texttt{20260808-222138-B-compact2}, and C
+\texttt{20260808-222726-C-compact2}.  Tier B's sign survives removal of any five
+instances.  Tier C's \texttt{mp1-Nb5T15} alone changes the aggregate:
+disabled solves SAT in 14.964 seconds while enabled times out at 1,200 seconds.
+Removing it flips the comparison to +68.99 PAR-2 for compaction.  This is a
+trajectory cliff, not grounds for an instance-specific gate.
+
+\section{Decision and risks}
+Compaction ships enabled.  It is the faithful kissat default, maintains the
+proof-rule/strategy separation, is correctness-clean, ties Tier A, and has a
+robust Tier B benefit.  Tier C is explicitly recorded as undecided rather than
+recast as a win.  The disabled arm remains available for diagnosis.
+
+The first Tier C attempt, \texttt{20260808-221717-C-compact}, was cancelled
+after review found renumberable scheduler cursors; none of its numbers are used.
+Commit \texttt{e1d35b8} fixes that defect, and all cited windows use the corrected
+pin.  Pre-existing untracked benchmark artifacts were not staged.
+
+\section{Next action}
+Continue the one-row-at-a-time Kissat-default parity campaign with
+\texttt{SP-VIVIFY-3}.  Tier D shakedown, the full Tier D campaign, and the T3
+gate remain downstream.
+
+\end{document}

@@ -90,6 +90,12 @@ limits, and statistics; it has no policy knowledge. DefaultPolicy uses a static
 micro loop and reference-strength macro scheduler. Scripted, replay, random, and
 learned policies drive the same public surfaces.
 
+DIMACS, proof, model, reconstruction, and public-API literals have permanent
+external identities. Search state uses dense internal indices behind
+kernel-owned bidirectional maps. Formula-neutral variable compaction is a
+kernel support service; policy decides when to invoke it, and no proof rule or
+guard depends on that scheduling decision.
+
 Architecture obligations:
 
 1. Survey multiple reference lineages before designing a subsystem.

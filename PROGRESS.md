@@ -15,64 +15,28 @@ only.
 
 ## Resume here
 
-The 2026-08-08 codebase revisit is complete. `DefaultPolicy` now owns only the
-CDCL/search strategy and composes `DefaultInprocessScheduler` for macro phase
-order, clocks, budgets, delay, cursors, telemetry, and Factor/BVE coupling.
-Factor owns the neutral `FactorSelection` interface; Factor and Substitute emit
-kernel events instead of importing policy headers or calling heuristic code.
-`rule_policy_boundary` enforces that separation for every macro formula rule.
-The aggressive source-comment pass reduced comment-only lines across
-`default_policy.cpp`, `default_policy.hpp`, the extracted scheduler header, and
-`kernel.hpp` from 1,542 to 0; the default-policy module fell from 2,640 to 1,870
-lines while retaining inline invariant/reference notes.
+The codebase revisit and `SP-COMPACT-1` implementation are complete.
+`DefaultPolicy` owns CDCL/search strategy and composes
+`DefaultInprocessScheduler`; formula rules remain policy-independent and the
+`rule_policy_boundary` check enforces that separation. The N2 frozen-pivot fix
+and its clean retakes remain recorded in
+`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`.
 
-Trajectory and safety gates are green: Debug and Release 60/60; identity job
-1592226 compared and independently checked 399 generated/corpus/DRAT/LRAT/env
-cases with 0 differences (3 symmetric timeouts); focused fuzz job 1592227 had
-0 failures across five 300-case legs plus all 14 regressions, with targeted
-Factor/Substitute reach; Tier B window `20260808-203252-B-revisit-before` is
-clean and counter-identical at 25/28 for both pins. Excluding the runner's one
-unstable mover, the 24-pair stable-subset median after/before runtime ratio is
-1.0026 (+0.26%), inside the +5% structural ceiling.
-
-N2 root cause found, fixed, and regression-covered: since `7a457cf`
-retired-but-unassigned variables reached model extension at value 0, voiding
-`extend_ρ`'s total-assignment premise — the reverse walk could double-flip
-eliminated pivots (EDP3/circuit shape) and break Substitute equivalence pairs
-(PRP shape). `kernel_extend_model` now completes every value-0 variable to
-definite false before replay; `print_model` agrees with `tactix_value`
-(strict `> 0`). Three regression tests reproduce both confirmed traces plus
-the real-BVE path and fail on the pre-fix tree. Full diagnosis:
-`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`. The five green fuzz
-batteries were vacuous for backward BVE (`BveBackward=0` in every log — the
-stress driver never connected the dense index); odd seeds now walk
-dense-connected and trace replay mirrors the choice from the header. The
-`portsfin` windows remain void for performance claims.
-
-Post-fix battery: four legs, 40k cases, 0 failures, with backward BVE
-genuinely reached for the first time — `BveBackward` fired in 2 438 cases
-(dense random leg 1592025) and 5 233 cases (targeted leg 1592026,
-`--require-reached BVE,BveBackward` passed, 1.8M stress target
-applications), `BveBackwardUnit` in 796 (logs
-`tools/fuzz/slurm-n2fix-*-159202{3,4,5,6}.log`). DefaultPolicy quick legs
-still cannot reach the elimination tail at 5 s timeouts — open harness
-caveat, report §fuzz.
-
-The closing Tier B/C retake from `7fbcb11` is **complete and N2-clean** —
-no `CORRECTNESS-BUG`, zero model failures, zero verdict mismatches; the
-three previously-invalid instances now pass `checkmodel: OK` with rule
-counters IDENTICAL to the failing runs (same deterministic search path,
-fixed reconstruction). Windows `20260808-141938-B-n2fix` (B: n2fix PAR-2
-93.49, 25/28 · kissat 9.96, 28/28 · cadical 40.51, 27/28) and
-`20260808-141941-C-n2fix` (C: n2fix 803.20, 22/30 · kissat 247.23 ·
-cadical 338.76, 29/30 each). Banked as the closing measurement for
-`SP-BVE-BWD-1`/`SP-CHRONO-1`/`SP-FACTOR-1` (all closed; Factor's injected
-posed-phase ladder ctest is green). **NOTHING IN FLIGHT.**
+Variable identities are now permanent at every external boundary while search
+uses dense internal indices. The kernel provides a formula-neutral compaction
+primitive; `DefaultPolicy` invokes it after Reduce when retired variables exceed
+kissat's 10% threshold. Focused tests cover mapping, proof/model/reconstruction,
+live reasons, extension variables, `H`, and stable scheduler cursors. Final pin
+`e1d35b8` is green in the full Release suite and focused assertion/sanitizer
+suite. Closing benchmark windows are `20260808-221957-A-compact2`,
+`20260808-222138-B-compact2`, and `20260808-222726-C-compact2`.
+Final LRAT fuzz job 1594313 passed 10,000 cases with zero failures; source probe
+1594316 observed 3 compactions removing 2,796 internal variables.
 
 **Next actions:**
 
 1. Resume the Kissat-default parity campaign through the extracted scheduler;
-   take one remaining N4 row at a time, starting with `SP-COMPACT-1` unless a
+   take one remaining N4 row at a time, starting with `SP-VIVIFY-3` unless a
    different row is explicitly selected.
 2. Then run the Tier D shakedown, Tier D campaign, and T3 gate in that order.
 
@@ -134,9 +98,9 @@ required.
 - [x] `SP-FACTOR-1`: closed — the N2-clean closing pair is banked and
   `test_slot_pose` proves the level and Factor snapshot walk an injected
   irregular `BveBoundPolicy` ladder through its terminal phase.
-- [ ] `SP-COMPACT-1`: port reference variable renumbering when inactive
-  variables exceed 10%; current GC compacts watches but leaves retired variables
-  paying kernel cost.
+- [x] `SP-COMPACT-1`: closed at `e1d35b8` — permanent external identities,
+  dense internal renumbering after Reduce above kissat's 10% inactive threshold,
+  and formula-neutral kernel/policy separation.
 - [ ] `SP-VIVIFY-3`: port CaDiCaL's occurrence-sorted schedule and prefix dedup
   before spending propagations on duplicate/subsumed candidates.
 - [ ] `SP-SWEEP-3`: persist the ranked untried tail across calls and grow
