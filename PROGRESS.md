@@ -123,8 +123,9 @@ required.
   actually scanned prefix, matching Kissat's `touched` meter. The focused
   binary-first-tail test and full suite are green; cumulative A/B/C pricing is
   the next-pin comparison.
-- [ ] `SCHED-G7`: replace the global binary-first flag with per-list state while
-  preserving it through probing snapshot/restore.
+- [x] `SCHED-G7`: binary-first state is per watch list. Binary insertion
+  invalidates only affected lists; rebuilds reconstruct it, and probing
+  snapshot/restore includes the metadata.
 - [ ] `SP-CONG-BUDGET-1`: resolve Congruence's deliberately stricter local
   budget against its measured cost/yield gap.
 - [ ] `SP-SUBST-2`: add Kissat's two-round 10‰ hand-rolled budget without our

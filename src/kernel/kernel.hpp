@@ -307,6 +307,7 @@ struct ProbingLog {
   struct ListSnap {
     Lit lit;
     uint32_t off, size; // offset into `words`, and the list's original length
+    bool has_large, binaries_first;
   };
   std::vector<ListSnap> lists;
   std::vector<uint32_t> words; // flat backing store for the snapshots above
@@ -349,7 +350,6 @@ struct Kernel {
 
   Arena arena;
   WatchLists watches;
-  bool binaries_watched_first = true;
   OccIndex *dense = nullptr;
   std::vector<uint32_t> delayed;
   ProbingLog probing;
