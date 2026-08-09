@@ -283,6 +283,35 @@ static bool watched_by(const Kernel &k, Lit l, Ref ref) {
   return false;
 }
 
+static std::vector<Ref> watched_large_refs(const Kernel &k, Lit l) {
+  std::vector<Ref> refs;
+  for (const WatchEntry entry : k.watches.entries(l))
+    if (!entry.binary())
+      refs.push_back(entry.ref());
+  return refs;
+}
+
+static void test_rebuild_large_watches_restores_arena_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit a[3] = {internalize(-1), internalize(2), internalize(3)};
+  const Lit b[3] = {internalize(-1), internalize(4), internalize(5)};
+  const Ref ra = kernel_add_large_clause(k, a, 3, false, 0);
+  const Ref rb = kernel_add_large_clause(k, b, 3, false, 0);
+  kernel_unwatch_large(k, internalize(-1), ra);
+  k.watches.push_large(internalize(-1), internalize(2), ra);
+  assert(watched_large_refs(k, internalize(-1)) ==
+         std::vector<Ref>({rb, ra}));
+  clause_at(k.arena, ra)->searched = 3;
+
+  kernel_rebuild_large_watches(k);
+
+  assert(watched_large_refs(k, internalize(-1)) ==
+         std::vector<Ref>({ra, rb}));
+  assert(clause_at(k.arena, ra)->searched == 2);
+  kernel_check_invariants(k);
+}
+
 static void test_watch_repair_primitive() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -340,6 +369,7 @@ int main() {
   test_backtrack_restores();
   test_probing_propagation_restores();
   test_default_solve_sat();
+  test_rebuild_large_watches_restores_arena_order();
   test_watch_repair_primitive();
   puts("test_kernel OK");
   return 0;

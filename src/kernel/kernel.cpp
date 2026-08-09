@@ -967,6 +967,25 @@ void kernel_collect_garbage(Kernel &k) {
   // (substitute.c:594-596), as a byproduct rather than as a sort.
 }
 
+// Re-enter sparse search after an inprocessing phase in arena order.  Kissat's
+// dense-mode simplifiers flush large watches and `kissat_watch_large_clauses`
+// rebuilds them on resume; retaining the pre-phase lists instead leaks Lucky
+// and simplifier scan order into the following search trajectory.
+void kernel_rebuild_large_watches(Kernel &k) {
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      c->searched = 2;
+      k.watches.push_large(c->lits[0], c->lits[1], ref);
+      k.watches.push_large(c->lits[1], c->lits[0], ref);
+    }
+    ref += words;
+  }
+}
+
 void kernel_dense_connect(Kernel &k, OccIndex &occ) {
   assert(k.level == 0);
   occ.large.assign(2 * k.nvars, {});
