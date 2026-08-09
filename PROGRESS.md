@@ -138,8 +138,9 @@ required.
   live clauses; DefaultPolicy supplies CaDiCaL's VMTF × saved-phase order, so
   budget-cut arena scans are search-coupled without exposing heuristics to
   proof rules.
-- [ ] `SP-PREPROC-2`: replace three full-list preprocessing rounds and the 1e7
-  floor with the references' reduced, bounded pipeline.
+- [x] `SP-PREPROC-2`: preprocessing is one Kissat-ordered reduced probe pass
+  (Congruence→Substitute→Backbone→Sweep→Substitute→Factor), with CaDiCaL's
+  2e6 initial tick reference and no zero-conflict elimination phase.
 - [ ] `SP-BUMP-2`: evaluate CaDiCaL's stable-mode reason-bump depth of two versus
   our unconditional depth one.
 - [ ] `SP-SUBSUME-3`: split the connection cap for long (1e2) and binary (1e4)

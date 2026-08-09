@@ -560,6 +560,8 @@ void DefaultInprocessScheduler::order_candidates(const Kernel &k, SlotEntry &e,
 bool DefaultInprocessScheduler::want_phase(const Kernel &k, SlotGroup g) {
   if (!initialized_)
     return false;
+  if (k.stats.conflicts == 0 && g == SlotGroup::Eliminate)
+    return false;
   SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
   if (k.stats.conflicts < c.next_conflicts)
     return false;
@@ -848,6 +850,17 @@ void DefaultInprocessScheduler::build(Kernel &k) {
         if (rules[i].tier == RuleTier::Inprocess && !placed[i])
           add_entry(i);
     }
+    static constexpr const char *PREPROCESS_ORDER[] = {
+        "Congruence", "Substitute", "Backbone",
+        "Sweep", "Substitute", "Factor"};
+    size_t begin = 0;
+    for (const char *name : PREPROCESS_ORDER)
+      for (size_t i = begin; i < entries.size(); i++)
+        if (!std::strcmp(rules[entries[i].rule].name, name)) {
+          entries[i].preprocess = true;
+          begin = i + 1;
+          break;
+        }
     default_candidate_order_.arms.assign(rules.size(),
                                          CandidateOrder::Native);
     for (const SlotEntry &se : entries)
@@ -1041,6 +1054,10 @@ bool DefaultInprocessScheduler::slot_entry_admissible(SlotEntry &e, const Kernel
                                           const SlotPhaseCtx &ctx) {
   if (!e.enabled || ctx.phase_unsat) {
     e.tm.dec_disabled++;
+    return false;
+  }
+  if (k.stats.conflicts == 0 && !e.preprocess) {
+    e.tm.dec_preprocess++;
     return false;
   }
   if (e.max_applies && e.applies >= e.max_applies) {
@@ -1392,8 +1409,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   SlotPhaseCtx ctx{group, stop};
   const std::vector<RuleVTable> &rules = tactix_rules();
   uint64_t active_before = active_variables(k);
+  const int rounds = k.stats.conflicts == 0 ? 1 : PHASE_ROUNDS;
   for (ctx.outer = 0;
-       ctx.outer < PHASE_ROUNDS && !ctx.phase_unsat &&
+       ctx.outer < rounds && !ctx.phase_unsat &&
        !(stop && *stop);
        ctx.outer++) {
     ctx.round_changed = false;
@@ -1477,7 +1495,9 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
     e.tm.wrapped++; // see Telem::wrapped
   const bool substitute =
       !std::strcmp(rules[e.rule].name, "Substitute");
-  if (!substitute && reference < MIN_EFFORT_TICKS)
+  if (k.stats.conflicts == 0)
+    reference = PREPROCESS_INIT_TICKS;
+  else if (!substitute && reference < MIN_EFFORT_TICKS)
     reference = MIN_EFFORT_TICKS;
   const uint64_t delta = substitute
                              ? reference / 1000 * e.permille +
@@ -1490,10 +1510,10 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
     else
       forward_pair_limit_ = e.limit;
   }
-  if (e.doses == 0 && e.budget_aware &&
+  if (k.stats.conflicts > 0 && e.doses == 0 && e.budget_aware &&
       !std::strcmp(rules[e.rule].name, "Factor"))
     e.limit = e.meter(k) + factor_init_ticks_;
-  if (e.doses == 0 && e.budget_aware &&
+  if (k.stats.conflicts > 0 && e.doses == 0 && e.budget_aware &&
       !std::strcmp(rules[e.rule].name, "Congruence"))
     e.limit = e.meter(k) + congruence_init_ticks_;
 }
