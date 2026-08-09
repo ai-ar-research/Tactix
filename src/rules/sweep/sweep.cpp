@@ -481,6 +481,150 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
   out.ok = true;
 }
 
+static uint32_t partition_size(const SweepRound &r) {
+  uint32_t n = 0;
+  for (const auto &c : r.partition)
+    n += static_cast<uint32_t>(c.size());
+  return n;
+}
+
+static void partition_refine(SweepRound &r) {
+  SweepEnv &e = r.env;
+  std::vector<std::vector<Lit>> next;
+  for (const auto &c : r.partition) {
+    std::vector<Lit> positive, negative;
+    for (const Lit l : c) {
+      if (repr_find(r, l) != l)
+        continue;
+      (model_value(e, e.solver.model(), l) > 0 ? positive : negative)
+          .push_back(l);
+    }
+    if (positive.size() > 1)
+      next.push_back(std::move(positive));
+    if (negative.size() > 1)
+      next.push_back(std::move(negative));
+  }
+  r.partition = std::move(next);
+}
+
+static void partition_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
+  SweepEnv &e = r.env;
+  for (uint32_t round = 0; round < lim.flip_rounds; round++) {
+    uint32_t flipped = 0;
+    for (auto &c : r.partition) {
+      size_t keep = 0;
+      for (size_t i = 0; i < c.size(); i++) {
+        const Lit l = c[i];
+        k.stats.sweep_flip_attempts++;
+        const SubLit sl = sub_lit(e.sub_of_var[var_of(l)], negated(l));
+        if (e.solver.flip_model_literal(sl)) {
+          k.stats.sweep_flipped++;
+          flipped++;
+        } else {
+          c[keep++] = l;
+        }
+        if (lim.env_ticks && e.solver.ticks() > lim.env_ticks)
+          break;
+      }
+      c.resize(keep);
+      if (lim.env_ticks && e.solver.ticks() > lim.env_ticks)
+        break;
+    }
+    r.partition.erase(
+        std::remove_if(r.partition.begin(), r.partition.end(),
+                       [](const auto &c) { return c.size() < 2; }),
+        r.partition.end());
+    if (!flipped || (lim.env_ticks && e.solver.ticks() > lim.env_ticks))
+      break;
+  }
+}
+
+static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
+                                      SweepRound &r) {
+  SweepEnv &e = r.env;
+  r.partition.clear();
+  r.partition.emplace_back();
+  auto &initial = r.partition.back();
+  for (const Var v : e.vars) {
+    if (root_fixed(k, v) || kernel_var_retired(k, v))
+      continue;
+    const uint32_t u = e.sub_of_var[v];
+    const Lit l = make_lit(v, e.solver.model()[u] < 0);
+    if (repr_find(r, l) == l)
+      initial.push_back(l);
+  }
+  if (initial.size() < 2)
+    r.partition.clear();
+  k.stats.sweep_cand_seeded += partition_size(r);
+  partition_flip(k, lim, r);
+
+  uint32_t found = 0, solved = 0;
+  std::vector<SubLit> &assumptions = r.assumptions;
+  while (!r.partition.empty() && solved < lim.max_candidates) {
+    partition_refine(r);
+    if (r.partition.empty())
+      break;
+    std::vector<Lit> &c = r.partition.back();
+    const Lit a = c[c.size() - 2], b = c.back();
+    if (binary_live(k, negate(a), b) && binary_live(k, a, negate(b))) {
+      k.stats.sweep_known++;
+      repr_unite(r, a, b);
+      continue;
+    }
+
+    SweepPairProof pair;
+    assumptions = {sub_lit(e.sub_of_var[var_of(a)], negated(a)),
+                   sub_lit(e.sub_of_var[var_of(b)], !negated(b))};
+    solved++;
+    k.stats.sweep_candidates++;
+    k.stats.sweep_solves++;
+    SubResult res = e.solver.solve(assumptions, lim.env_ticks);
+    if (res == SubResult::Budget) {
+      k.stats.sweep_budget++;
+      break;
+    }
+    if (res == SubResult::Sat) {
+      k.stats.sweep_dir_sat++;
+      const uint32_t before = partition_size(r);
+      partition_refine(r);
+      k.stats.sweep_cand_refined += before - partition_size(r);
+      partition_flip(k, lim, r);
+      continue;
+    }
+    k.stats.sweep_dir_unsat++;
+    assert(!e.solver.inconsistent());
+    sweep_capture_dir(e, pair.fwd);
+
+    assumptions = {sub_lit(e.sub_of_var[var_of(a)], !negated(a)),
+                   sub_lit(e.sub_of_var[var_of(b)], negated(b))};
+    solved++;
+    k.stats.sweep_candidates++;
+    k.stats.sweep_solves++;
+    res = e.solver.solve(assumptions, lim.env_ticks);
+    if (res == SubResult::Budget) {
+      k.stats.sweep_budget++;
+      break;
+    }
+    if (res == SubResult::Sat) {
+      k.stats.sweep_dir_sat++;
+      const uint32_t before = partition_size(r);
+      partition_refine(r);
+      k.stats.sweep_cand_refined += before - partition_size(r);
+      partition_flip(k, lim, r);
+      continue;
+    }
+    k.stats.sweep_dir_unsat++;
+    assert(!e.solver.inconsistent());
+    sweep_capture_dir(e, pair.rev);
+    r.found.push_back({std::min(a, b), std::max(a, b)});
+    r.proofs.push_back(std::move(pair));
+    k.stats.sweep_equivalences++;
+    found++;
+    repr_unite(r, a, b);
+  }
+  return found;
+}
+
 uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
                            SweepRound &r) {
   assert(sweep_guard(k));
@@ -532,6 +676,13 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     k.stats.sweep_ticks += e.solver.ticks();
     k.stats.sweep_ticks_sub += e.solver.ticks();
     return 0;
+  }
+
+  if (lim.full_partition) {
+    const uint32_t found = detect_full_partition(k, lim, r);
+    k.stats.sweep_ticks += e.solver.ticks();
+    k.stats.sweep_ticks_sub += e.solver.ticks();
+    return found;
   }
 
   // Candidate selection: every environment literal agreeing with the seed in
@@ -730,6 +881,7 @@ SweepLimits sweep_limits_from_env() {
   u32("TACTIX_SWEEP_VARS", lim.max_env_vars);
   u32("TACTIX_SWEEP_CLAUSES", lim.max_env_clauses);
   u32("TACTIX_SWEEP_CANDIDATES", lim.max_candidates);
+  u32("TACTIX_SWEEP_FLIP_ROUNDS", lim.flip_rounds);
   u32("TACTIX_SWEEP_SEEDS", lim.max_seeds);
   u64("TACTIX_SWEEP_TICKS", lim.env_ticks);
   u64("TACTIX_SWEEP_ROUND_TICKS", lim.round_ticks);
@@ -739,6 +891,8 @@ SweepLimits sweep_limits_from_env() {
     lim.strip_false = std::strtoul(s, nullptr, 10) != 0;
   if (const char *s = std::getenv("TACTIX_SWEEP_CLOSURE"))
     lim.measure_closure = std::strtoul(s, nullptr, 10) != 0;
+  if (const char *s = std::getenv("TACTIX_SWEEP_PARTITION"))
+    lim.full_partition = std::strtoul(s, nullptr, 10) != 0;
   return lim;
 }
 

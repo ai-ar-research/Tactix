@@ -253,6 +253,7 @@ REACH_SPECS = [
     ("Instantiate", r"^c instantiate\s+(\d+) rounds,"),
     ("Sweep", r"^c sweep\s+(\d+) rounds,"),
     ("SweepResume", r"^c sweepsched\s+\d+ scheduled, (\d+) resumed,"),
+    ("SweepPartition", r"^c sweepflip\s+\d+ attempts, (\d+) successful"),
     ("HyperTernaryRes", r"^c ternary\s+(\d+) rounds,"),
     ("Congruence", r"^c congruence\s+(\d+) rounds,"),
     ("Factor", r"^c factor\s+(\d+) factorings,"),

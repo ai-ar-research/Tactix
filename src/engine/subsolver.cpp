@@ -34,6 +34,7 @@ void SubSolver::reset(uint32_t nvars) {
   solved_ = false;
   arena_.clear();
   watches_.assign(2 * static_cast<size_t>(nvars), {});
+  occurrences_.assign(2 * static_cast<size_t>(nvars), {});
   values_.assign(2 * static_cast<size_t>(nvars), 0);
   model_.assign(nvars, 1);
   phase_.assign(nvars, 1); // positive initial phase (the project convention)
@@ -108,6 +109,8 @@ uint32_t SubSolver::add_clause(const std::vector<SubLit> &lits) {
   arena_.push_back(static_cast<SubLit>(c.size()));
   const SubRef ref = static_cast<SubRef>(arena_.size());
   arena_.insert(arena_.end(), c.begin(), c.end());
+  for (const SubLit l : c)
+    occurrences_[l].push_back(ref);
   if (c.empty()) { // the empty clause, stated outright
     inconsistent_ = true;
     pending_refutation_ = ref; // the target is built at the first solve, once
@@ -138,6 +141,8 @@ SubSolver::SubRef SubSolver::add_derived(const std::vector<SubLit> &lits,
   arena_.push_back(static_cast<SubLit>(lits.size()));
   const SubRef ref = static_cast<SubRef>(arena_.size());
   arena_.insert(arena_.end(), lits.begin(), lits.end());
+  for (const SubLit l : lits)
+    occurrences_[l].push_back(ref);
   if (lits.size() >= 2)
     attach(ref);
   return ref;
@@ -456,6 +461,35 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
     frames_.push_back(static_cast<uint32_t>(trail_.size()));
     assign(d, NO_REF);
   }
+}
+
+bool SubSolver::flip_model_literal(SubLit lit) {
+  assert(solved_ && "a flip requires a SAT model");
+  const SubVar v = sub_var_of(lit);
+  if (v >= nvars_ || level_[v] == 0)
+    return false;
+  lit = sub_lit(v, model_[v] < 0);
+  assert(((lit & 1u) == 0) == (model_[v] > 0));
+  for (const SubRef ref : occurrences_[lit]) {
+    bool other_true = false;
+    const SubLit *c = clause_lits(ref);
+    const uint32_t size = clause_size(ref);
+    ticks_ += size;
+    for (uint32_t i = 0; i < size; i++) {
+      const SubLit o = c[i];
+      if (sub_var_of(o) == v)
+        continue;
+      const int8_t value = model_[sub_var_of(o)];
+      if ((value > 0) != ((o & 1u) != 0)) {
+        other_true = true;
+        break;
+      }
+    }
+    if (!other_true)
+      return false;
+  }
+  model_[v] = static_cast<int8_t>(-model_[v]);
+  return true;
 }
 
 bool SubSolver::derivation(SubDerivation &out) const {
