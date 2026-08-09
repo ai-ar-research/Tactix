@@ -27,4 +27,9 @@ ApplyResult analyze_apply(Kernel &);
 // Why it is a sub-step and not a rule: docs/implementation-notes.md §15.
 void analyze_eager_subsume(Kernel &);
 
+// Complete OTFS's delayed replacement after Backjump has unassigned every
+// analysis-level propagated literal.  Kept separate only because Backjump
+// owns the trail mutation; ConflictAnalysis still exposes one atomic step.
+void analyze_retire_otfs_reasons(Kernel &);
+
 } // namespace tactix
