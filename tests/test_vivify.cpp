@@ -221,6 +221,7 @@ static void test_schedule_prefix_flush() {
 
   Kernel k;
   kernel_reserve_vars(k, 4);
+  k.vivify_flush = true;
   kernel_add_large_clause(k, short_clause, 3, false, 0);
   kernel_add_large_clause(k, long_clause, 4, false, 0);
   char path[] = "/tmp/tactix_test_vivify_flush_XXXXXX";
@@ -253,7 +254,6 @@ static void test_schedule_prefix_flush() {
 
   Kernel off;
   kernel_reserve_vars(off, 4);
-  off.vivify_flush = false;
   kernel_add_large_clause(off, short_clause, 3, false, 0);
   kernel_add_large_clause(off, long_clause, 4, false, 0);
   off.stop = &stop;

@@ -169,9 +169,8 @@ conjunct.
   and the unscoped setting must therefore span *every* band, tier3 included, or a band becomes
   unreachable through the API (N1; the guard-says-applicable/apply-declines shape,
   `implementation-notes.md` §5).
-- **Effect:** the canonical round first drops a scheduled `c` when an earlier
-  clause `d` in the same schedule band is a prefix of `c` under the
-  round's literal order (C1 subsumption, `del(c)`). It then has three
+- **Effect:** with schedule flushing enabled, delete a scheduled `c` when an earlier same-band
+  clause `d` is its prefix under the round's literal order (C1, `del(c)`). The round then has three
   distillation outcomes — replace `c` by the distilled `c′` (add-before-delete), delete a
   root-satisfied `c`, or, when the distillation collapses, **assert the surviving literal as a root
   unit** / **refute on an empty distillation** (`Unsat`). Proof δ: `add_rup(c′)` + `del(c)` (reason-walk

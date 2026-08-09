@@ -1,0 +1,92 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\title{SP-VIVIFY-3: Implemented, Rejected as a Default}
+\author{Tactix Development Project}
+\date{9 August 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive summary}
+Tactix now has CaDiCaL's schedule-level Vivify prefix flush, with the
+proof-rule/strategy boundary preserved.  The implementation is proof-clean and
+well exercised, but a same-window Tier C comparison loses two solves and 164.46
+PAR-2; the sign survives removal of any four instances.  The mechanism is
+therefore retained behind \texttt{TACTIX\_VIVIFY\_FLUSH=1} and ships off.  This
+decision also avoids importing a CaDiCaL-specific default into the immediate
+Kissat-default campaign.
+
+\section{Implementation and boundary}
+Commit \texttt{a7d7a4b} orders Vivify candidates by occurrence-ranked literal
+sequences within four separate schedule bands.  If the preceding retained
+sequence is a prefix, the larger clause is removed before propagation.  The
+deletion is ordinary C1 subsumption and uses the shared proof deletion path.
+
+The public N1 surface did not change: candidate enumeration and per-clause
+instances remain complete and side-effect free.  Only the canonical round may
+flush, and only when the strategy channel enables it.  Focused tests cover the
+enabled and disabled behaviors, proof deletion, and separation of irredundancy
+and tier bands.
+
+\section{Correctness evidence}
+The Release suite passes 60/60 after switching the default off.  Earlier focused
+assertion and address/undefined-sanitizer tests passed 6/6.  Final enabled-pin
+LRAT fuzz job 1594317 ran 10,000 cases with zero failures and reached the new
+operation in 1,416 cases.  Targeted job 1594318 ran another 10,000 cases with
+zero failures, forced 2,784,200 Vivify applications, and reached the flush in
+1,942 checked cases.  Harness self-test 1594319 passed.
+
+Every scored Tactix SAT model and UNSAT proof in the benchmark windows was
+checked.  All three result files report clean correctness: no mismatch, invalid
+model, rejected certificate, checker give-up, or unverified scored result.
+
+\section{Performance evidence}
+The four-arm arrays compared enabled, disabled, Kissat, and CaDiCaL in the same
+window.  They used commit \texttt{a7d7a4b}, binary SHA-256
+\texttt{01647eba79bbb9cb...e6ec774998}, the standard partition, and no array
+throttle.  Tier A/B used one core and 8 GB per task; Tier C used two cores and
+16 GB.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Tier & Enabled & Disabled & Kissat & CaDiCaL \\
+\midrule
+A & 200/200, 0.52 & 199/200, 0.67 & 200/200, 0.45 & 199/200, 0.75 \\
+B & 28/28, 52.48 & 26/28, 69.52 & 28/28, 10.06 & 27/28, 40.54 \\
+C & 19/30, 1047.71 & 21/30, 883.25 & 29/30, 249.42 & 28/30, 379.15 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Each cell is solved count then PAR-2.  On commonly solved cases, enabled/disabled
+geometric-mean runtime ratios are 0.839 (A), 1.214 (B), and 1.186 (C).  Tier C's
+disabled arm additionally solves \texttt{StConn\_8\_32} and
+\texttt{j3037\_9\_rggt\_b}; enabled times out on both.  Five instances must be
+removed to reverse the Tier C sign.  Reach counters show that the feature is not
+inert: it removes 107,779, 1,115,949, and 2,061,500 candidates on A, B, and C.
+
+Primary evidence is
+\texttt{benchmarks/reports/2026-08-09-sp-vivify-3.md}; it records the three raw
+run directories, immutable hashes, and per-instance transitions.
+
+\section{Decision, risks, and next action}
+The pre-registered rule said that a broad Tier C loss blocks default adoption.
+That condition fired, so prefix flushing ships off.  The retained on arm is
+useful for future interaction studies, but the current data do not support a
+more elaborate admission policy.  The result is specific to Tactix's current
+Vivify implementation and schedule; it is not evidence that the C1 deletion is
+unsound or that CaDiCaL's option is generally poor.
+
+The next ledger item is \texttt{SP-SWEEP-3}: persist Sweep's ranked untried tail
+across calls and grow environment caps only after a completed pass.  It should
+again be kept out of the proof-rule surface and priced with the smallest gate
+that can decide its default.
+
+\end{document}

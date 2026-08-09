@@ -463,7 +463,7 @@ struct Kernel {
   uint64_t work_budget = 0;
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
-  bool vivify_flush = true;
+  bool vivify_flush = false;
   bool conflict_reuse = false;
   bool conflict_reuse_no_repair = false;
   bool jump_reasons = false;
