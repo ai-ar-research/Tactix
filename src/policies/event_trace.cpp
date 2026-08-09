@@ -234,6 +234,12 @@ void event_trace_watch_scan(const Kernel &k, Lit propagated) {
     active_trace->watch_scan(k, propagated);
 }
 
+void event_trace_learned_stage(const Kernel &k, const char *event,
+                               const std::vector<Lit> &clause) {
+  if (active_trace)
+    active_trace->learned_stage(k, event, clause);
+}
+
 void EventTrace::implications(const Kernel &k, size_t trail_begin) {
   if (!out_ || emitted_ >= limit_)
     return;
@@ -302,7 +308,12 @@ void EventTrace::conflict(const Kernel &k) {
 }
 
 void EventTrace::learned(const Kernel &k, const std::vector<Lit> &clause) {
-  if (!out_)
+  learned_stage(k, "learned", clause);
+}
+
+void EventTrace::learned_stage(const Kernel &k, const char *event,
+                               const std::vector<Lit> &clause) {
+  if (!out_ || emitted_ >= limit_)
     return;
   std::string payload = "order=";
   for (size_t i = 0; i < clause.size(); i++) {
@@ -321,7 +332,7 @@ void EventTrace::learned(const Kernel &k, const std::vector<Lit> &clause) {
       payload += ',';
     payload += std::to_string(lit);
   }
-  emit(k, "learned", payload.c_str(), false);
+  emit(k, event, payload.c_str(), false);
 }
 
 void EventTrace::checkpoint(const Kernel &k) {

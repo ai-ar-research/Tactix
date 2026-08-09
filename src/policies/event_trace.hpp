@@ -31,6 +31,7 @@ public:
   void implications(const Kernel &, size_t trail_begin);
   void conflict(const Kernel &);
   void learned(const Kernel &, const std::vector<Lit> &);
+  void learned_stage(const Kernel &, const char *, const std::vector<Lit> &);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -62,6 +63,7 @@ public:
   void implications(const Kernel &, size_t) {}
   void conflict(const Kernel &) {}
   void learned(const Kernel &, const std::vector<Lit> &) {}
+  void learned_stage(const Kernel &, const char *, const std::vector<Lit> &) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -70,8 +72,12 @@ public:
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void event_trace_watch_scan(const Kernel &, Lit propagated);
+void event_trace_learned_stage(const Kernel &, const char *,
+                               const std::vector<Lit> &);
 #else
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
+inline void event_trace_learned_stage(const Kernel &, const char *,
+                                      const std::vector<Lit> &) {}
 #endif
 
 } // namespace tactix
