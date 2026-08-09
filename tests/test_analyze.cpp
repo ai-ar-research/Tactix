@@ -290,8 +290,10 @@ static void test_otfs() {
   kernel_assign_decision(k, internalize(2));
   assert(propagate_apply(k) == ApplyResult::Conflict);
   assert(k.conflict_ref == dref);
+  assert(k.stats.conflicts == 1);
 
   assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.conflicts == 2); // OTFS reanalysis is a Kissat conflict
   assert(k.stats.otfs_strengthened == 1);
   assert(k.stats.otfs_subsumed == 1);
   assert(clause_at(k.arena, dref)->garbage()); // conflict subsumed
