@@ -139,9 +139,6 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
-  // Either push lands behind whatever large entries a's / b's list already
-  // holds, so the binary-first observation cannot be assumed to survive it.
-  k.binaries_watched_first = false;
   // LAST id wins. The map must always name a clause the checker still holds,
   // and kernel_delete_binary can retire this pair's id, so a re-add must
   // install its fresh one — otherwise every later LRAT chain through the pair
@@ -538,7 +535,8 @@ static void probing_snapshot_list(Kernel &k, Lit l) {
   lg.stamp[l] = lg.epoch;
   const WatchHead &h = k.watches.heads[l];
   const uint32_t *const b = k.watches.arena.data() + h.offset;
-  lg.lists.push_back({l, static_cast<uint32_t>(lg.words.size()), h.size});
+  lg.lists.push_back({l, static_cast<uint32_t>(lg.words.size()), h.size,
+                      h.has_large, h.binaries_first});
   lg.words.insert(lg.words.end(), b, b + h.size);
   // S3: snapshot traffic is real memory work — charge it to the tick
   // currency (same cache-line unit as the scan at :602) so the effort
@@ -720,10 +718,9 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
   // kissat's `stop_early` (backbone.c:186-193): under the binary-first layout
   // the first large entry ends the binary sub-list, so the whole tail is
   // entries this scan would skip one at a time. Sound because it drops nothing
-  // a full scan would have read — `binaries_watched_first` says no binary
-  // follows a large — and trajectory-neutral because the meter above is not
-  // reduced by it.
-  const bool stop_early = k.binaries_watched_first;
+  // a full scan would have read — this list's bit says no binary follows a
+  // large entry.
+  const bool stop_early = k.watches.heads[not_lit].binaries_first;
   // Residual pricing (Stats::binprop_*): on the scans the flag did NOT cover,
   // `ordered` records whether the list was in fact binary-first anyway (what a
   // per-LIST order bit would add over the reference's single global flag) and
@@ -830,7 +827,10 @@ void kernel_probing_end(Kernel &k) {
       k.watches.ensure_capacity(s.lit, s.size); // a defrag may have clamped it
       std::copy(lg.words.begin() + s.off, lg.words.begin() + s.off + s.size,
                 k.watches.arena.begin() + k.watches.heads[s.lit].offset);
-      k.watches.heads[s.lit].size = s.size;
+      WatchHead &h = k.watches.heads[s.lit];
+      h.size = s.size;
+      h.has_large = s.has_large;
+      h.binaries_first = s.binaries_first;
       kernel_charge_ticks(k, 1 + kernel_cache_lines(s.size));
     }
   }
@@ -872,10 +872,8 @@ void kernel_collect_garbage(Kernel &k) {
   // No probing scope may be open: this relocates every Ref, so an outstanding
   // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
   // over the compacted arena. Long an implicit assumption of the probing log;
-  // stated here because `binaries_watched_first` below now rests on it too —
-  // it is set true from the layout this function leaves behind, and a later
-  // restore of a snapshot taken before it could otherwise reintroduce a binary
-  // behind a large one while the flag still said otherwise.
+  // stated here because the per-list order bits rest on it too: restoring an
+  // older snapshot after collection could otherwise invalidate them.
   assert(!k.probing.recording);
   // The eager-subsumption register holds raw arena Refs and this function
   // relocates every one of them, so it is reset here rather than forwarded —
@@ -943,7 +941,6 @@ void kernel_collect_garbage(Kernel &k) {
   // entry was appended after it, so the binary-first layout now holds — the
   // same way kissat gets it out of `kissat_watch_large_clauses`
   // (substitute.c:594-596), as a byproduct rather than as a sort.
-  k.binaries_watched_first = true;
 }
 
 void kernel_dense_connect(Kernel &k, OccIndex &occ) {
@@ -1124,7 +1121,6 @@ bool kernel_compact_variables(Kernel &k) {
   k.propagate_head = propagate_head;
   k.watches = std::move(watches);
   k.binary_ids.swap(binary_ids);
-  k.binaries_watched_first = true;
   k.unassigned = 0;
   for (Var v = 0; v < new_nvars; v++)
     k.unassigned += k.values[make_lit(v, false)] == 0;
@@ -1369,13 +1365,9 @@ void kernel_check_invariants(const Kernel &k) {
         eager_live++;
     assert(eager_seen == eager_live && "stale eager-subsumption register ref");
   }
-  // binary-first layout: while `binaries_watched_first` holds, no list may put
-  // a binary entry after a large one. This is the ONLY thing standing between
-  // the binary propagator's early break and silently dropped implications, so
-  // it is checked the way kissat checks its own
-  // (backbone.c:304-315, check_large_clauses_watched_after_binary_clauses).
-  if (k.binaries_watched_first) {
-    for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+  // A set per-list order bit permits the binary propagator's early break.
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+    if (k.watches.heads[lit].binaries_first) {
       bool large = false;
       for (const WatchEntry w : k.watches.entries(lit)) {
         if (w.binary())

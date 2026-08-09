@@ -161,14 +161,18 @@ static void test_backtrack_restores() {
 // back watch lists, literal order and `searched` byte-identical.
 struct BookKeeping {
   std::vector<std::vector<uint32_t>> lists;
+  std::vector<uint8_t> list_order;
   std::vector<uint32_t> clauses;
 };
 
 static BookKeeping bookkeeping(const Kernel &k) {
   BookKeeping s;
   s.lists.resize(2 * k.nvars);
+  s.list_order.resize(2 * k.nvars);
   for (Lit l = 0; l < 2 * k.nvars; l++) {
     const WatchHead &h = k.watches.heads[l];
+    s.list_order[l] = static_cast<uint8_t>(h.has_large) |
+                      static_cast<uint8_t>(h.binaries_first) << 1;
     const uint32_t *const b = k.watches.arena.data() + h.offset;
     s.lists[l].assign(b, b + h.size);
   }
@@ -183,7 +187,8 @@ static BookKeeping bookkeeping(const Kernel &k) {
 }
 
 static bool same(const BookKeeping &a, const BookKeeping &b) {
-  return a.lists == b.lists && a.clauses == b.clauses;
+  return a.lists == b.lists && a.list_order == b.list_order &&
+         a.clauses == b.clauses;
 }
 
 // Every watched literal has a replacement further along, so scans relocate.

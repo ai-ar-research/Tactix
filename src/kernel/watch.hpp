@@ -29,6 +29,8 @@ inline Watch blocking_watch(Lit blocking) { return {blocking << 1}; }
 
 struct WatchHead {
   uint32_t offset = 0, size = 0, capacity = 0;
+  bool has_large = false;
+  bool binaries_first = true;
 };
 
 // One ENTRY of a watch list, as seen by a reader. A binary entry is one word, a
@@ -100,9 +102,14 @@ struct WatchLists {
     uint32_t *q = b;
     const uint32_t *p = b;
     const uint32_t *const e = end(l);
+    bool has_large = false, binaries_first = true;
     while (p != e) {
       const bool bin = Watch{*p}.binary();
       if (keep(WatchEntry{p})) {
+        if (bin)
+          binaries_first = binaries_first && !has_large;
+        else
+          has_large = true;
         *q++ = *p++;
         if (!bin)
           *q++ = *p++;
@@ -111,6 +118,8 @@ struct WatchLists {
       }
     }
     truncate(l, static_cast<uint32_t>(q - b));
+    heads[l].has_large = has_large;
+    heads[l].binaries_first = binaries_first;
   }
 
   // shrink after in-place compaction (capacity is retained and reused)
@@ -134,10 +143,16 @@ struct WatchLists {
       grow(l);
     arena[heads[l].offset + heads[l].size++] = word;
   }
-  void push_binary(Lit l, Lit other) { push(l, binary_watch(other).raw); }
+  void push_binary(Lit l, Lit other) {
+    WatchHead &h = heads[l];
+    if (h.has_large)
+      h.binaries_first = false;
+    push(l, binary_watch(other).raw);
+  }
   void push_large(Lit l, Lit blocking, Ref ref) {
     push(l, blocking_watch(blocking).raw);
     push(l, ref);
+    heads[l].has_large = true;
   }
 
 private:

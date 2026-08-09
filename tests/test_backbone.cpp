@@ -75,7 +75,7 @@ static void test_binary_meter_charges_scanned_prefix() {
   for (unsigned i = 0; i < 40; i++)
     kernel_add_large_clause(k, large, 3, false, 0);
   kernel_collect_garbage(k);
-  assert(k.binaries_watched_first);
+  assert(k.watches.heads[internalize(-1)].binaries_first);
 
   const uint64_t before = k.stats.ticks;
   kernel_assign_decision(k, internalize(1));
@@ -83,6 +83,23 @@ static void test_binary_meter_charges_scanned_prefix() {
   assert(k.value(internalize(2)) > 0);
   assert(k.stats.binprop_words == 1);
   assert(k.stats.ticks - before == 3); // one-word prefix, then an empty scan
+}
+
+static void test_binary_order_is_per_list() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit large[3] = {internalize(-1), internalize(3), internalize(4)};
+  kernel_add_large_clause(k, large, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+
+  const Lit affected = internalize(-1);
+  const Lit unaffected = internalize(-5);
+  assert(!k.watches.heads[affected].binaries_first);
+  assert(k.watches.heads[unaffected].binaries_first);
+
+  kernel_assign_decision(k, internalize(1));
+  assert(!kernel_propagate_binary(k));
+  assert(k.value(internalize(2)) > 0); // binary behind the large was scanned
 }
 
 // both polarities fail via binaries: UNSAT once the derived batch propagates
@@ -130,6 +147,7 @@ int main() {
   test_binary_only_misses_large_clause_failure();
   test_no_failed_literal_noop();
   test_binary_meter_charges_scanned_prefix();
+  test_binary_order_is_per_list();
   test_both_polarities_fail_unsat();
   test_instance_surface();
   puts("test_backbone OK");
