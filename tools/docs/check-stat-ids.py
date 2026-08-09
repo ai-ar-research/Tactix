@@ -81,16 +81,9 @@ PAIRS = {
     "Instantiate":      ("TACTIX_STAT_INSTANTIATED", "TACTIX_STAT_INSTANTIATE_TICKS"),
     "Sweep":            ("TACTIX_STAT_SWEEP_EQUIVALENCES", "TACTIX_STAT_SWEEP_TICKS"),
     "Congruence":       ("TACTIX_STAT_CONGRUENCE_MERGES", "TACTIX_STAT_CONGRUENCE_TICKS"),
+    "Substitute":       ("TACTIX_STAT_SUBSTITUTE_VARS", "TACTIX_STAT_SUBSTITUTE_TICKS"),
 }
-# Substitute has no EFFORT_SPECS row (an un-titratable closure — the slot gates
-# how OFTEN it runs, per check-effort-specs.py's ALTERNATE-GOVERNOR row), so it
-# has no meter to check the effort id against. It is still a rule family a
-# learner schedules, so it must carry a pair; the effort id is declared here as
-# a PROXY and is exempt from the meter-identity check only for that reason.
-PROXY_PAIRS = {
-    "Substitute": ("TACTIX_STAT_SUBSTITUTE_VARS",
-                   "TACTIX_STAT_SUBSTITUTE_SCC_LITS"),
-}
+PROXY_PAIRS = {}
 
 
 def read(rel):

@@ -469,10 +469,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.transitive_ticks,
            (unsigned long long)kernel.stats.transitive_polls,
            (unsigned long long)kernel.stats.transitive_terminated);
-    printf("c substitute  %llu rounds, %llu non-trivial SCCs (%llu lits), "
+    printf("c substitute  %llu rounds, %llu ticks, %llu non-trivial SCCs (%llu lits), "
            "%llu vars substituted, %llu rounds skipped / %llu partial "
            "(%llu lits poisoned) on the hazard check\n",
            (unsigned long long)kernel.stats.substitute_rounds,
+           (unsigned long long)kernel.stats.substitute_ticks,
            (unsigned long long)kernel.stats.substitute_sccs,
            (unsigned long long)kernel.stats.substitute_scc_lits,
            (unsigned long long)kernel.stats.substitute_vars,

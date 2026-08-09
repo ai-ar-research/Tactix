@@ -182,6 +182,9 @@ CARRIED = {
                     "congruenceonce", "congruencexors"],
          "cadical": ["congruenceand", "congruencebinaries", "congruenceite",
                      "congruencexor"]}),
+    "SP-SUBST-2": (
+        "the Substitute budget row covers both references' two-round caps",
+        {"cadical": ["decomposerounds"]}),
     "## 6. V1 Probe / V2 Backbone / V4 TransitiveReduce": (
         "audit family section — the probing-family round caps and interval seeds",
         {"kissat": ["backbonemaxrounds", "probeinit"],

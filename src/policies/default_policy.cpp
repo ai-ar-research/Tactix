@@ -279,6 +279,7 @@ uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
 uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks; }
 uint64_t meter_congruence(const Kernel &k) { return k.stats.congruence_ticks; }
+uint64_t meter_substitute(const Kernel &k) { return k.stats.substitute_ticks; }
 
 struct EffortSpec {
   const char *name;
@@ -326,6 +327,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     {"Instantiate", 20, meter_instantiate, false, true, &Stats::instantiate_ticks},
     {"Sweep", 100, meter_sweep, false, true},
     {"Congruence", 100, meter_congruence, false, true, nullptr, true},
+    {"Substitute", 10, meter_substitute, false, true, nullptr, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -1366,9 +1368,15 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       e.tm.occasions++;
       if (!slot_entry_admissible(e, k, ctx))
         continue;
-      if (e.enabled && e.meter &&
-          (group == SlotGroup::Probe || ctx.outer == 0))
-        set_entry_limit(e, k);
+      const bool substitute = !std::strcmp(r.name, "Substitute");
+      if (e.enabled && e.meter) {
+        if (substitute) {
+          if (ctx.outer == 0 || e.meter(k) <= e.limit)
+            set_entry_limit(e, k);
+        } else if (group == SlotGroup::Probe || ctx.outer == 0) {
+          set_entry_limit(e, k);
+        }
+      }
       const SlotStep step = (e.dosed && r.instances && r.apply_instance)
                                 ? run_dosed_entry(k, e, r, ctx)
                                 : run_batch_entry(k, e, r, ctx);
@@ -1426,9 +1434,14 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
     reference = now - clock.anchor;
   else
     e.tm.wrapped++; // see Telem::wrapped
-  if (reference < MIN_EFFORT_TICKS)
+  const bool substitute =
+      !std::strcmp(rules[e.rule].name, "Substitute");
+  if (!substitute && reference < MIN_EFFORT_TICKS)
     reference = MIN_EFFORT_TICKS;
-  const uint64_t delta = reference / 1000 * e.permille;
+  const uint64_t delta = substitute
+                             ? reference / 1000 * e.permille +
+                                   reference % 1000 * e.permille / 1000
+                             : reference / 1000 * e.permille;
   e.limit = e.meter(k) + delta;
   if (e.meter == meter_forward_pair) {
     if (forward_pair_limit_)

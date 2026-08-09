@@ -83,19 +83,9 @@ TABLE = {
     # and the delay ladder bound how often a round starts.
     "Congruence":       (METERED, "100 permille, congruence_ticks currency, "
                                   "budget_aware; ALSO closure-gated"),
-    # --- deliberately unmetered: a different mechanism governs them --------
-    # Substitute is a closure with no titratable instance surface: one canonical
-    # pass over the current formula, whose cost the formula bounds rather than
-    # the clock — so "at most one pass per new-material occasion, decayed by the
-    # delay ladder when unproductive" is a real bound on the work. The argument
-    # does not transfer to a search-shaped rule, which is why Sweep is metered.
-    # Known weakness: this bounds how often a round starts, not how much one
-    # round does. It stands only because Substitute's measured price per round
-    # is an order of magnitude below Congruence's on the same formula. Metering
-    # it is an owed task, not an accepted shape.
-    "Substitute":       (ALT, "new-material watermark + closure delay ladder "
-                              "on the `e.closure` path; canonical instance only",
-                         [EV_MATERIAL, EV_DELAY, EV_CLOSURE_DEFAULT]),
+    "Substitute":       (METERED, "hand-rolled 10 permille, substitute_ticks "
+                                   "currency, no minimum-effort floor; ALSO "
+                                   "closure-gated"),
 }
 
 # The slot's admission predicate. If this stops being how the slot is built,

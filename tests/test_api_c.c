@@ -244,12 +244,12 @@ static void test_stats_and_config_surface(void) {
   tactix_set_work_budget(s, 0);
   tactix_set_vivify_scope(s, 0);
   assert(tactix_solve(s) == 20);
-  /* Completeness: every documented id 0..49 answers, in yield/effort pairs so
+  /* Completeness: every documented id 0..50 answers, in yield/effort pairs so
      the §5.6 learner can order outcomes by cost per unit output. Presence
      only — tools/docs/check-stat-ids.py pins the mapping. */
-  for (id = 0; id <= 49; id++)
+  for (id = 0; id <= 50; id++)
     assert(tactix_stat(s, id) != UINT64_MAX);
-  assert(tactix_stat(s, 50) == UINT64_MAX); /* first unknown id */
+  assert(tactix_stat(s, 51) == UINT64_MAX); /* first unknown id */
   assert(tactix_stat(s, -1) == UINT64_MAX);
   tactix_release(s);
 }

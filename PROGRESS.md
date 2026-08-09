@@ -131,8 +131,9 @@ required.
 - [x] `SP-CONG-BUDGET-1`: accepted measured deviation. Congruence keeps its
   stricter local budget because its current round is about 20x the reference
   gate volume; the ledger records the cost/yield evidence and removal test.
-- [ ] `SP-SUBST-2`: add Kissat's two-round 10‰ hand-rolled budget without our
-  generic 1e7 floor, which would make the port inert.
+- [x] `SP-SUBST-2`: Substitute uses its own binary-watch tick meter and
+  Kissat's per-round 10‰ allowance without the generic 1e7 floor; an
+  over-budget first round suppresses the phase's second and final round.
 - [ ] `SP-ARENA-1`: make budget-cut candidate order search-coupled instead of
   clause-creation order.
 - [ ] `SP-PREPROC-2`: replace three full-list preprocessing rounds and the 1e7

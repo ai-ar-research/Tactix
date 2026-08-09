@@ -49,6 +49,45 @@ static uint32_t slot_index(const DefaultPolicy &p, const char *name) {
   return UINT32_MAX;
 }
 
+static void test_substitute_hand_rolled_budget() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  k.stats.search_ticks = 999;
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  const uint32_t i = slot_index(p, "Substitute");
+  assert(i != UINT32_MAX);
+  DefaultInprocessScheduler::SlotEntry &e = p.inprocess().entries[i];
+  assert(e.permille == 10 && e.meter);
+  p.inprocess().set_entry_limit(e, k);
+  assert(e.limit == 9 &&
+         "Substitute's 10-per-mille budget must not use the 1e7 floor");
+}
+
+static void test_substitute_budget_stops_second_round() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  k.stats.search_ticks = 1; // 10 per mille rounds down to zero, with no floor
+
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  const uint32_t i = slot_index(p, "Substitute");
+  assert(i != UINT32_MAX);
+  for (uint32_t j = 0; j < p.inprocess().entries.size(); j++)
+    p.inprocess().entries[j].enabled = j == i;
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) != 20);
+  const auto &e = p.inprocess().entries[i];
+  assert(k.stats.substitute_rounds == 1);
+  assert(k.stats.substitute_ticks > 0);
+  assert(e.tm.dec_budget == 1 &&
+         "an over-budget first round must suppress the second round");
+}
+
 // --- posed BVE ladder drives Factor's phase snapshot -----------------------
 // An irregular injected ladder detects both ways this wire previously went
 // inert: advancing with a hardcoded doubling sequence and stopping at a
@@ -254,6 +293,8 @@ static void check_knobs(DefaultPolicy &p, Kernel &) {
 }
 
 int main() {
+  test_substitute_hand_rolled_budget();
+  test_substitute_budget_stops_second_round();
   test_factor_bound_walks_posed_bve_ladder();
   test_pose_and_disable();
 
