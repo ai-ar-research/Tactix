@@ -45,7 +45,9 @@ Cross-solver diagnosis now has a strict contract: a diagnostic-only Kissat
 overlay and compile-time Tactix trace build emit the same semantic schema, and
 the comparator refuses to call a first divergence explained without a cause,
 disposition, and evidence handle. Production Tactix builds omit the trace
-implementation and retain no trace symbols or event strings. The two-fixture
+implementation and retain no trace symbols or event strings. Diagnostic
+`analysis_end` events now snapshot the post-analysis ranking in both solvers,
+so a latent bump-order mismatch localizes to its creating conflict. The two-fixture
 proof/model and first-divergence evidence is in
 `benchmarks/reports/2026-08-09-cross-solver-semantic-divergence.md`.
 The initial, now-superseded collapse is retained in

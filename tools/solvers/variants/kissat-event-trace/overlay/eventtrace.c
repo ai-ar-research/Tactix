@@ -177,7 +177,11 @@ void kissat_event_trace (kissat *solver, const char *event,
 void kissat_event_trace_detail (kissat *solver, const char *event, int payload) {
   char buffer[32];
   snprintf (buffer, sizeof buffer, "%d", payload);
-  kissat_event_trace (solver, event, buffer, false);
+  // Match Tactix's diagnostic post-analysis ranking snapshot.  This localizes
+  // a latent bump-order difference at the conflict that creates it rather
+  // than at the later decision that exposes it.
+  const bool snapshot = !strcmp (event, "analysis_end");
+  kissat_event_trace (solver, event, buffer, snapshot);
 }
 
 void kissat_event_trace_literal (kissat *solver, const char *event,

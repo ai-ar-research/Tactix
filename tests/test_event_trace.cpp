@@ -50,7 +50,13 @@ int main() {
   assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
   assert(text.find("\tanalysis_begin\t") != std::string::npos);
-  assert(text.find("\tanalysis_end\t") != std::string::npos);
+  const size_t analysis = text.find("\tanalysis_end\t");
+  assert(analysis != std::string::npos);
+  const size_t line_end = text.find('\n', analysis);
+  const std::string analysis_line = text.substr(analysis, line_end - analysis);
+  assert(analysis_line.find("\tfocused\t3\t3\t0\t3\t0\t") !=
+         std::string::npos &&
+         "analysis_end must carry the post-analysis ranking snapshot");
   std::remove(path);
   std::puts("test_event_trace OK");
   return 0;
