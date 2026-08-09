@@ -1,0 +1,75 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\title{Concrete Proof-Rule Cards: V3, V5, V6, and E1}
+\author{Tactix Development Project}
+\date{August 8, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive summary}
+The interactive proof-rule guide's Substitute, Sweep, Congruence, and BVE
+entries have been replaced with concrete indexed transitions, ordered proof
+deltas, reconstruction obligations, and checkable worked examples.  Their
+authoritative entries in \path{docs/calculus.md} were tightened where the
+existing prose did not name the emitted objects or their order.  This is a
+documentation-only change; no solver behavior or performance changed.
+
+\section{Findings and results}
+\textbf{V3 Substitute.}  The rule now defines the SCC representative map, one
+transient BIG-path bridge per rewritten polarity, the normalized image of each
+touched clause, add-before-delete ordering, and the symmetric witness pair used
+to recover each substituted variable.  The contradictory-SCC branch names both
+RUP units and the final empty-clause chain.
+
+\textbf{V5 Sweep.}  The environment now records how root-false literals are
+stripped, and the two equivalence directions are named separately.  The guide
+distinguishes main-kernel RUP replay from translation of a sub-solver derivation
+and states the all-or-nothing validation rule.  A worked binary example gives
+the exact hint order for both directions.
+
+\textbf{V6 Congruence.}  The single ``equivalence ladders'' placeholder has
+been split into the actual proof families: direct AND chains with BIG bridges,
+the four ITE condition cases, XOR sign-pattern ladders, and degeneracy ladders.
+The common order---transients, final conclusions, reverse transient
+deletions---is explicit.  The examples show exact duplicate-AND chains and a
+gate that becomes constant only after an earlier equivalence merge.
+
+\textbf{E1 BVE.}  Positive and negative parents, indexed resolvents, root-unit
+stripping, the fixed two-parent LRAT order, gate-reduced pair scope, and
+both-sided reconstruction witnesses are now explicit.  The examples cover one
+real resolvent and a tautological pair that emits no resolvent but still needs
+witnesses.
+
+\section{Evidence}
+The revisions were checked against the corresponding implementations in
+\path{src/rules/substitute}, \path{src/rules/sweep},
+\path{src/rules/congruence}, and \path{src/rules/bve}.  The offline page parses
+through Lynx and retains exactly 24 rule cards, 24 formal panels, 24 informal
+panels, and 24 example panels.  Citation, section-reference, document-size,
+comment-hygiene, rule-policy-boundary, and whitespace checks pass.  No solver
+binary was changed, so no solver or performance measurement is attributed to
+this increment.
+
+\section{Risks and decisions}
+The HTML remains a derived teaching view; \path{docs/calculus.md} remains
+authoritative.  The expanded cards are necessarily denser, but the existing
+tabs keep the formal detail separate from the plain-language explanation and
+examples.  Three untouched cards still contain compact placeholders:
+Vivify's ``reason-chain'', HyperBinaryRes's optional deletion, and Instantiate's
+``reason-chain including C''.  They were left outside this four-rule scope
+rather than revised without a dedicated semantic audit.
+
+\section{Next actions}
+Review the four cards in a graphical browser.  If the level of detail is right,
+the remaining three shorthand cards can receive the same focused treatment.
+The solver-development handoff remains unchanged: resume Kissat-default parity
+with the \texttt{SP-COMPACT-1} row.
+
+\end{document}

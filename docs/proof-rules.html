@@ -501,18 +501,31 @@ assume p ⇒ r and ¬r
         <details class="rule-card" id="V3" data-family="graph" data-search="v3 substitute scc equivalent literal big witness reconstruction">
           <summary><span class="rule-id">V3</span><span class="rule-title"><h3>Substitute</h3><p>Collapse equivalent literals found as BIG strongly connected components</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
-            <section class="panel" data-panel-content="formal"><div class="equation">l,r in one non-trivial SCC of BIG(F) ⇒ F ⊨ l ↔ r
-──────────────────────────────────────────────── V3
-rewrite l↦r in F; eliminate var(l); push equivalence witnesses to ρ
-δ = add_rup(rewrites, path chains) · del(old clauses)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Rewrite all occurrences add-before-delete. If <span class="math">x</span> and <span class="math">¬x</span> share an SCC, emit a refutation.</p></div><div class="formal-block"><h4>Soundness</h4><p>Mutual BIG reachability proves equivalence. Witness pairs let reverse reconstruction recover eliminated variables.</p></div></div></section>
-            <section class="panel" data-panel-content="plain"><p class="plain"><strong>If two literals always imply each other, keep one name.</strong> Every clause is rewritten to the representative, and reconstruction remembers how to restore the removed variable.</p></section>
-            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Simple equivalence</h4><div class="equation">(¬x ∨ y), (x ∨ ¬y)    [x ↔ y]
-(x ∨ z)
-⇒ rewrite as (y ∨ z)
-⇒ eliminate x, push x↔y witness</div><p>The two binaries put <span class="math">x</span> and <span class="math">y</span> in one SCC.</p></div><div class="example"><h4>Contradictory SCC</h4><div class="equation">x→y→¬x
-¬x→z→x
-⇒ x and ¬x in one SCC
-⇒ add (x), add (¬x), add ∅</div><p>A literal equivalent to its negation makes the formula unsatisfiable.</p></div></div></section>
+            <section class="panel" data-panel-content="formal"><div class="equation">Γ = F ∪ R;  S is a non-trivial SCC of BIG(Γ)
+μ(l) := representative of l in S
+λₗ := (¬l ∨ μ(l))                    [transient bridge]
+C^μ := unique({μ(l) | l∈C}), after root-false stripping
+
+S contains no pair x,¬x
+──────────────────────────────────────────────────────── V3(S)
+Γ′ := (Γ \ touched(S)) ∪ {C^μ | C touched, C^μ active/non-tautological}
+ρ′ := ρ · ∏ₓ [({¬x,μ(x)}, witness ¬x), ({x,¬μ(x)}, witness x)]</div><div class="formal-grid"><div class="formal-block wide"><h4>Certificate, in emission order</h4><p><span class="math">δ<sub>bridge</sub> = ∏<sub>l rewritten</sub> add_rup(λ<sub>l</sub>,path(l,μ(l)))</span>. For a touched clause <span class="math">C</span>, a satisfied or tautological <span class="math">C^μ</span> contributes only <span class="math">del(C)</span>; otherwise it contributes <span class="math">add_rup(C^μ,[deduplicated bridge/root-unit ids in proof-id order,C.id]) · del(C)</span>. After every rewrite, delete all <span class="math">λ<sub>l</sub></span>. Each replacement is add-before-delete; witness pushes emit no proof line.</p></div><div class="formal-block"><h4>Contradictory SCC</h4><p>If <span class="math">x</span> and <span class="math">¬x</span> share an SCC, emit <span class="math">add_rup({¬x},path(x,¬x)) · add_rup({x},path(¬x,x)) · add_empty([id<sub>¬x</sub>,id<sub>x</sub>])</span>. No rewrite or witness follows.</p></div><div class="formal-block"><h4>Soundness and model</h4><p>A forward BIG path proves every bridge. The symmetric witness pair recovers <span class="math">x=μ(x)</span> during the reverse walk regardless of the retired variable’s temporary search value.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Prove a replacement name in both directions, rewrite every occurrence, then remember how to undo the renaming.</strong> The temporary bridge clauses make each rewritten clause independently checker-verifiable. The two reconstruction entries ensure the eliminated variable is restored to the representative’s value.</p></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>One concrete clause rewrite</h4><div class="equation">C₁=(¬x∨y), C₂=(x∨¬y)          [x↔y]
+C₃=(x∨z), μ(x)=y
+
+λₓ=(¬x∨y), hλ=[C₁]
+C₃^μ=(y∨z), h₃=[id(λₓ),C₃]
+add_rup(C₃^μ,h₃); del(C₃)
+
+ρ += ({¬x,y}, witness ¬x)
+   · ({x,¬y}, witness x)</div><p>The equivalence clauses themselves rewrite to tautologies and are deleted. The displayed bridge certifies the nontrivial rewrite of <span class="math">C₃</span>.</p></div><div class="example"><h4>Contradictory SCC</h4><div class="equation">x→y→¬x          path ids [C₁,C₂]
+¬x→z→x          path ids [C₃,C₄]
+
+add_rup((¬x),[C₁,C₂])       id U¬
+add_rup((x), [C₃,C₄])       id U+
+add_empty([U¬,U+])
+result: Unsat</div><p>A literal equivalent to its own negation yields two opposing RUP units and then the empty clause.</p></div></div></section>
           </div>
         </details>
 
@@ -533,36 +546,58 @@ p→q→r duplicates p→r
         <details class="rule-card" id="V5" data-family="graph" data-search="v5 sweep sat sweeping environment equivalence replay rup">
           <summary><span class="rule-id">V5</span><span class="rule-title"><h3>Sweep</h3><p>Discover literal equivalences with a local SAT environment</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
-            <section class="panel" data-panel-content="formal"><div class="equation">Env is entailed by F
+            <section class="panel" data-panel-content="formal"><div class="equation">Eₖ := Cₖ \ Zₖ, where every z∈Zₖ is root-false with unit id U_z
+Env := {Eₖ};  F ⊨ Eₖ via [U_z…, Cₖ.id]
+B→ := (¬a∨b);  B← := (a∨¬b)
+
 Env ∧ a ∧ ¬b ⊢ ∅    and    Env ∧ ¬a ∧ b ⊢ ∅
-────────────────────────────────────────────── V5(a,b)
-F := F ∪ {(¬a ∨ b),(a ∨ ¬b)}
-δ = add_rup(each direction, replay/core chain)</div><div class="formal-grid"><div class="formal-block"><h4>Precondition</h4><p>The bounded environment contains proof-identified clauses with root-false literals stripped using their unit IDs.</p></div><div class="formal-block"><h4>Soundness</h4><p>Both implications must replay over the main formula before either binary is emitted.</p></div></div></section>
+both directions validated over the main proof before either is written
+────────────────────────────────────────────────────────────── V5(a,b)
+F′ := F ∪ {B→,B←};  R,τ,ρ unchanged</div><div class="formal-grid"><div class="formal-block"><h4>RUP replay path</h4><p>Negate <span class="math">B→</span> in the main kernel, propagate to conflict, and record its reasons in propagation order followed by the conflict as <span class="math">h→</span>; repeat for <span class="math">B←</span>. Then emit <span class="math">add_rup(B→,h→) · add_rup(B←,h←)</span>.</p></div><div class="formal-block"><h4>General derivation path</h4><p>For a captured sub-solver derivation <span class="math">D₁,…,Dₘ=B</span>, emit each <span class="math">add_rup(Dᵢ,[strip-unit ids first, translated antecedent ids])</span> in order. Validate both complete direction sequences without mutation first; if either cannot be translated exactly, emit neither.</p></div><div class="formal-block wide"><h4>Why the environment alone is insufficient</h4><p>The checker sees the main proof database, not <span class="math">Env</span>. Environment entailment makes discovery sound, but replay or translated derivations make the two additions checkable. No clause is deleted and no reconstruction witness is needed.</p></div></div></section>
             <section class="panel" data-panel-content="plain"><p class="plain"><strong>Ask a small local SAT solver whether two literals can ever differ.</strong> If both disagreement cases are impossible—and the main checker can replay them—the equivalence is added.</p></section>
-            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Equivalence through an intermediary</h4><div class="equation">a↔c encoded by two binaries
-c↔b encoded by two binaries
-Env refutes a∧¬b and ¬a∧b
-⇒ add a↔b</div><p>Sweep materializes the transitive equivalence for later substitution.</p></div><div class="example"><h4>Strip a root-false literal</h4><div class="equation">root unit: (¬r)
-environment clause: (r ∨ ¬a ∨ b)
-strip r ⇒ (¬a ∨ b), citing (¬r)
-prove reverse direction too ⇒ add a↔b</div><p>Keeping <span class="math">r</span> would make the local clause spuriously easy to satisfy.</p></div></div></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Two exact RUP directions</h4><div class="equation">C₁=(¬a∨c), C₂=(a∨¬c)
+C₃=(¬c∨b), C₄=(c∨¬b)
+
+B→=(¬a∨b): assume a,¬b
+  C₁ forces c; C₃ conflicts       h→=[C₁,C₃]
+B←=(a∨¬b): assume ¬a,b
+  C₄ forces c; C₂ conflicts       h←=[C₄,C₂]
+
+δ=add_rup(B→,h→)·add_rup(B←,h←)</div><p>The local solver discovers <span class="math">a↔b</span>; the two main-kernel replays independently certify it.</p></div><div class="example"><h4>Root-false stripping has provenance</h4><div class="equation">U=(¬r)                       [root unit]
+C=(r∨¬a∨b)
+E=C\{r}=(¬a∨b)
+
+environment provenance for E: [U,C]
+sub-solver antecedent C maps to [U,C]
+before its translated RUP step is emitted</div><p>Without stripping <span class="math">r</span>, the sub-solver could satisfy <span class="math">C</span> using a literal that the main root assignment already makes false.</p></div></div></section>
           </div>
         </details>
 
         <details class="rule-card" id="V6" data-family="graph" data-search="v6 congruence gates and xor ite union find equivalence">
           <summary><span class="rule-id">V6</span><span class="rule-title"><h3>Congruence</h3><p>Equate outputs of structurally identical AND, XOR, and ITE gates</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
-            <section class="panel" data-panel-content="formal"><div class="equation">F contains complete gates a=f(inputs), b=f(inputs)
-────────────────────────────────────────────── V6(a,b)
-F := F ∪ {(¬a ∨ b),(a ∨ ¬b)} ; unite(a,b)
-δ = add_rup(equivalence ladders)       ρ unchanged</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Close equivalence through union-find. Canonicalization may also derive a unit, unary merge, or smaller gate.</p></div><div class="formal-block"><h4>Soundness</h4><p>All defining clauses must be present: identical Boolean functions on equivalent inputs have equivalent outputs.</p></div></div></section>
+            <section class="panel" data-panel-content="formal"><div class="equation">Gₐ and G_b are complete gates of the same kind
+canon(Gₐ) = canon(G_b) = (kind,key); outputs a,b
+B→ := (¬a∨b);  B← := (a∨¬b)
+────────────────────────────────────────────────── V6(Gₐ,G_b)
+F′ := F ∪ {B→,B←}; unite(a,b);  ρ unchanged
+requeue every gate whose canonical input class changed</div><div class="formal-grid"><div class="formal-block wide"><h4>Common certificate order</h4><p>Emit a gate-kind-specific transient family <span class="math">T</span>; emit <span class="math">add_rup(B→,h→) · add_rup(B←,h←)</span>; then delete <span class="math">T</span> newest first. Both final directions are justified before either is added. A failed or tautological replay declines the merge instead of emitting an unchecked line.</p></div><div class="formal-block"><h4>AND</h4><p>No ladder is needed. For <span class="math">B→</span>, cite <span class="math">Gₐ</span>’s input binaries, any BIG bridge paths between corresponding representative inputs, then <span class="math">G_b</span>’s base clause. Reverse the gates for <span class="math">B←</span>.</p></div><div class="formal-block"><h4>ITE</h4><p>With shared condition <span class="math">c</span>, emit four replay-RUP ternaries: <span class="math">B→∨c</span>, <span class="math">B→∨¬c</span>, <span class="math">B←∨c</span>, <span class="math">B←∨¬c</span>. Each final binary cites its two condition cases; then the four ternaries are deleted.</p></div><div class="formal-block wide"><h4>XOR and degeneracy ladders</h4><p>For normalized shared inputs <span class="math">r₁…r_k</span>, let <span class="math">rᵢ⁰=rᵢ</span> and <span class="math">rᵢ¹=¬rᵢ</span>. For each direction <span class="math">B</span>, emit <span class="math">Λ<sub>s,ε</sub>={r₁<sup>ε₁</sup>,…,r_s<sup>ε_s</sup>}∪B</span> for <span class="math">s=k−1,…,1</span> and every <span class="math">ε∈{0,1}<sup>s</sup></span>. Top rungs replay over the gates; each lower rung cites its two opposite-sign parents; <span class="math">B</span> cites the two <span class="math">s=1</span> parents. For <span class="math">k≤1</span>, replay <span class="math">B</span> directly. A unit or unary-merge degeneracy uses the same ladder over representatives cancelled during canonicalization.</p></div></div></section>
             <section class="panel" data-panel-content="plain"><p class="plain"><strong>Recognize duplicate circuit computations.</strong> Once two gate outputs are known equal, gates above them may become duplicates too, so the equivalence cascades through circuit layers.</p></section>
-            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Duplicate AND gates</h4><div class="equation">o = a ∧ b
-p = b ∧ a
-same canonical inputs
-⇒ add (¬o ∨ p), (o ∨ ¬p)</div><p>Input sorting makes the two definitions identical.</p></div><div class="example"><h4>Degenerate gate</h4><div class="equation">o = a ∧ ¬a
-⇒ o = false
-⇒ add root unit (¬o)</div><p>A contradiction among AND inputs collapses the gate to a constant.</p></div></div></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Duplicate AND gates, exact chains</h4><div class="equation">Gₒ: A₀=(o∨¬a∨¬b), A₁=(¬o∨a), A₂=(¬o∨b)
+Gₚ: P₀=(p∨¬a∨¬b), P₁=(¬p∨a), P₂=(¬p∨b)
+
+B→=(¬o∨p), h→=[A₁,A₂,P₀]
+  assume o,¬p ⇒ A₁:A₂ force a,b ⇒ P₀ conflicts
+B←=(o∨¬p), h←=[P₁,P₂,A₀]
+
+add_rup(B→,h→); add_rup(B←,h←); unite(o,p)</div><p>Input sorting identifies the gates; each output implication has a three-clause RUP certificate.</p></div><div class="example"><h4>Degeneracy after an earlier merge</h4><div class="equation">Gₒ encodes o=a∧b
+closure already proved b↔¬a
+canon(Gₒ)=o=a∧¬a=0
+
+assume o
+(¬o∨a) forces a
+(¬o∨b) forces b; bridge b→¬a forces ¬a
+conflict ⇒ add_rup((¬o), replay chain)</div><p>The original gate is complete and nondegenerate; it becomes constant only after congruence closure identifies an input with the complement of another.</p></div></div></section>
           </div>
         </details>
 
@@ -586,19 +621,30 @@ resolve o ⇒ (l)
         <details class="rule-card" id="E1" data-family="elimination" data-search="e1 bve bounded variable elimination davis putnam resolvent witness">
           <summary><span class="rule-id">E1</span><span class="rule-title"><h3>BVE</h3><p>Eliminate a variable with bounded Davis–Putnam resolution</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
-            <section class="panel" data-panel-content="formal"><div class="equation">P=Occ(x), N=Occ(¬x)
-|non-taut(P ⊗ N)| ≤ |P|+|N|+bound
-──────────────────────────────────── E1(x)
-F := (F \ (P∪N)) ∪ resolvents(P,N)
-δ = add_rup(resolvents) · del(P∪N) ; push pivot witnesses to ρ</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Add every necessary non-tautological resolvent, then delete all pivot clauses. Gate recognition may avoid only resolvents justified by its unsatisfiable remainder condition.</p></div><div class="formal-block"><h4>Soundness</h4><p>Davis–Putnam elimination is equisatisfiable. Reconstruction witnesses choose a value for <span class="math">x</span> when extending a model backward.</p></div></div></section>
+            <section class="panel" data-panel-content="formal"><div class="equation">P={Cᵢ={x}∪Aᵢ};  N={Dⱼ={¬x}∪Bⱼ}
+Qᵢⱼ := unique(Aᵢ∪Bⱼ), after root-false stripping
+Q := {Qᵢⱼ | Qᵢⱼ non-tautological and required}
+|Q| ≤ |P|+|N|+bound
+──────────────────────────────────────────────────── E1(x)
+F′ := (F \ (P∪N)) ∪ Q
+ρ′ := ρ · ∏ᵢ(Cᵢ,witness x) · ∏ⱼ(Dⱼ,witness ¬x)</div><div class="formal-grid"><div class="formal-block wide"><h4>Certificate, in emission order</h4><p>For every <span class="math">Qᵢⱼ</span>, emit <span class="math">add_rup(Qᵢⱼ,[root-unit ids stripped from Cᵢ, root-unit ids stripped from Dⱼ, Cᵢ.id, Dⱼ.id])</span>. Under <span class="math">¬Qᵢⱼ</span>, <span class="math">Cᵢ</span> forces <span class="math">x</span> and <span class="math">Dⱼ</span> conflicts. Add all resolvents before deleting every pivot clause. Witness pushes emit no line.</p></div><div class="formal-block"><h4>Gate reduction</h4><p>The full cross product is the baseline. A detected gate may omit only antecedent×antecedent pairs justified by the gate-remainder unsatisfiability condition; every resolvent that remains still uses the same two-parent RUP certificate.</p></div><div class="formal-block"><h4>Soundness and model</h4><p>Davis–Putnam elimination is equisatisfiable. During reverse reconstruction, a falsified remainder <span class="math">Aᵢ</span> selects <span class="math">x</span>; a falsified <span class="math">Bⱼ</span> selects <span class="math">¬x</span>. The resolvents guarantee those demands never conflict.</p></div></div></section>
             <section class="panel" data-panel-content="plain"><p class="plain"><strong>Remove a variable while preserving every consequence between the clauses on its two polarities.</strong> BVE is allowed only when the replacement does not grow too much.</p></section>
-            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>One resolvent</h4><div class="equation">(x ∨ a), (¬x ∨ b)
-resolve x ⇒ (a ∨ b)
-add (a∨b); delete both pivot clauses
-push witnesses for x</div><p>Any model of <span class="math">(a∨b)</span> can choose an <span class="math">x</span> satisfying the originals.</p></div><div class="example"><h4>Tautological cross product</h4><div class="equation">(x ∨ a), (¬x ∨ ¬a)
-resolvent = (a ∨ ¬a) = ⊤
-add nothing; delete both
-remember x↔¬a through witnesses</div><p>The eliminated formula is true, but reconstruction still owes a valid value for <span class="math">x</span>.</p></div></div></section>
+            <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>One resolvent and its witnesses</h4><div class="equation">C=(x∨a), D=(¬x∨b)
+Q=(a∨b)
+
+add_rup(Q,[C,D])
+ρ += (C,witness x) · (D,witness ¬x)
+del(C); del(D)
+
+model a=0,b=1: C forces x=1
+model a=1,b=0: D forces x=0</div><p>The resolvent prevents both remainders from being false, so reverse reconstruction can always satisfy both removed clauses.</p></div><div class="example"><h4>Tautological pair still needs witnesses</h4><div class="equation">C=(x∨a), D=(¬x∨¬a)
+Q=(a∨¬a)=⊤             [emit no resolvent]
+
+ρ += (C,witness x) · (D,witness ¬x)
+del(C); del(D)
+
+a=0 ⇒ reconstruct x=1
+a=1 ⇒ reconstruct x=0</div><p>The reduced formula has no clause, but the witness pair recovers <span class="math">x=¬a</span> for the original formula.</p></div></div></section>
           </div>
         </details>
 

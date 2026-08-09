@@ -209,11 +209,17 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   size-collapsed root units un-propagated (M1 owns the cascade). If the rewrite derives **two
   contradictory root units** in one round, resolve `{l}` and `{¬l}` to ∅ → `Unsat`. A round with no
   non-trivial SCC is a `NoOp`.
-- **Proof δ:** UNSAT — `add_rup({¬x}, path x→¬x)` + `add_rup({x}, path ¬x→x)` + `add_empty` (the
-  `big_path_chain` BFS gives each unit's antecedent chain in forward path order). Rewrite — per member,
-  a transient equivalence lemma `add_rup({¬l, r}, big_path_chain(l,r))`; each rewritten clause is
-  `add_rup(C′, [lemma ids + stripped-unit ids + C.id()])` then `del(C)` (add-before-delete); finally
-  `del` the transient lemmas + internal `kernel_push_witness` (no proof line). **No `add_rat`.** **First
+- **Proof δ:** write `μ(l)=repr[l]` for a substituted literal and
+  `λ_l={¬l,μ(l)}`. First emit `add_rup(λ_l, big_path_chain(l,μ(l)))` for every substituted polarity.
+  For each touched clause `C`, form `C^μ` by applying `μ`, removing duplicates and root-false literals,
+  and detecting a complementary pair or root-true literal. A satisfied/tautological `C^μ` needs only
+  `del(C)`; otherwise emit `add_rup(C^μ,[deduplicated λ_l/root-unit ids in increasing proof-id order,
+  C.id]) · del(C)` (add-before-delete).
+  Finally delete every transient `λ_l`. For each eliminated positive literal `l` with `s=μ(l)`, append
+  the symmetric witness pair `({¬l,s}, witness ¬l)` and `({l,¬s}, witness l)` to `ρ` (no proof line).
+  UNSAT from `x,¬x` in one SCC is
+  `add_rup({¬x},path(x,¬x)) · add_rup({x},path(¬x,x)) · add_empty`, with each path's binary ids in
+  forward order. **No `add_rat`.** **First
   variable-eliminating rule**, hence first consumer of `ρ`: equisatisfiability *modulo ρ* —
   `extend_ρ(model of F′) ⊨ F` — composes because `kernel_extend_model` is one reverse walk over the flat
   stack **on a total assignment**: the walk first completes every value-0 variable to a definite default
@@ -245,14 +251,17 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   still implies `F ⊨ a ↔ b`. Removing them is not an optimization: a kept root-false literal is a free
   variable in the sub-solver that satisfies its clause for nothing, so an environment that keeps them
   is weaker than the local formula it is meant to be.
-- **Effect:** add both binaries. Proof δ: two `derive`s, no deletion — `F` grows, `R/τ/ρ` untouched, so
-  reconstruction is unaffected. A pair the formula already states is skipped.
+- **Effect:** for `B→={¬a,b}` and `B←={a,¬b}`, add both binaries. Proof δ is an all-or-nothing pair:
+  `add_rup(B→,h→) · add_rup(B←,h←)`, with no deletion; `F` grows and `R/τ/ρ` are untouched. A pair the
+  formula already states is skipped.
 - **Emission (why entailment is not enough):** the checker knows nothing of the environment, so
-  each binary must be justified over `F`. Two strategies: replay the binary's negation at a probing
-  scope and read the antecedents off the conflict (RUP fast path; a binary not RUP over `F` is
-  **declined outright**, never emitted), else map the sub-solver refutation core back to main-clause
-  ids and emit the resolution chain. Emission detail, including the strip-unit hint ordering, is
-  `implementation-notes.md` (V5 row, `SP-SWEEP-8`).
+  each binary must be justified over `F`. Two strategies. **Fast path:** negate `B`, propagate the main
+  formula, and let `h` be its reason clauses in propagation order followed by the conflict. **General
+  path:** translate the sub-solver derivation `D₁,…,Dₘ=B`; emit each
+  `add_rup(Dᵢ,[stripped-root-unit ids first, translated antecedent ids])` in derivation order. Both
+  directions are validated without mutation before either sequence is emitted. If either direction is
+  neither replay-RUP nor exactly translatable, decline the pair and leave `F` unchanged. Further
+  emission detail is in `implementation-notes.md` (V5 row, `SP-SWEEP-8`).
 - **Soundness:** both directions must replay before either binary is added, so the rule never states an
   implication it has not justified; and a declined pair leaves `F` unchanged.
 
@@ -284,7 +293,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   Still deferred, sound: the ITE collapses (`Canon::Skip`), and the literal-form `x ≡ ¬x` for XOR/ITE,
   whose "binaries" degenerate to units (AND refutes it directly). *(Closed ledger row **D-CONG-UNIT**,
   `implementation-notes.md` §2.)*
-- **Proof δ:** add-RUP. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the
+- **Proof δ:** for outputs `a,b`, write `B→={¬a,b}` and `B←={a,¬b}`. Every path emits the supporting
+  transient lemmas first, then `add_rup(B→,h→) · add_rup(B←,h←)`, then deletes the transients newest
+  first. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the
   equivalence binaries added earlier in the closure). XOR — a parity-elimination **ladder**: eliminate
   one rhs variable per level, at each level emit `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for
   all sign patterns; every lemma is RUP over the current DB, the two size-0 lemmas are the binaries. ITE
@@ -368,10 +379,13 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   every setting is sound (a disabled kind restores the full cross product), none touches the guard or
   the abstract effect. **Nothing from the sub-solver enters the proof**: the core only selects which
   resolvents are generated, and each of those is still a resolution of two clauses of `F`.
-- **Proof δ:** **RUP-only — no `add_rat`.** Each resolvent `R = (C∨D)` is RUP from its two parents:
-  `add_rup(R, [C.id, D.id (+ stripped-root-false unit ids)])` (assume `¬R` → `C∨x` forces `x` → `D∨¬x`
-  conflicts — a fixed 2-parent list, no reason-walk). Then `del` every `x`-clause; `kernel_push_witness`
-  per removed live clause (internal ρ, no proof line). Empty → `add_empty`; contradictory units →
+- **Proof δ:** **RUP-only — no `add_rat`.** Write each live positive parent as `Cᵢ={x}∪Aᵢ`, each live
+  negative parent as `Dⱼ={¬x}∪Bⱼ`, and each emitted non-tautological resolvent as
+  `Qᵢⱼ=unique(Aᵢ∪Bⱼ)` after stripping root-false literals. Emit
+  `add_rup(Qᵢⱼ,[stripped-root-unit ids from Cᵢ and Dⱼ, Cᵢ.id, Dⱼ.id])`: under `¬Qᵢⱼ`, `Cᵢ` forces
+  `x`, then `Dⱼ` conflicts. After all resolvents are live, `del` every clause on `x`. For every removed
+  live `Cᵢ`, append `({x}∪Aᵢ,witness x)` to `ρ`; for every removed live `Dⱼ`, append
+  `({¬x}∪Bⱼ,witness ¬x)` (internal, no proof line). Empty → `add_empty`; contradictory units →
   `add_empty`. **Second variable-eliminating rule** (after V3) and second consumer of `ρ` — it reuses
   V3's entire proof + ρ + add/delete machinery. `add_rat` is needed only by **E2 Factor/BVA**
   (new-variable definitions are RAT — realized in the backend, §6b); X1 BCE, the other rule the
