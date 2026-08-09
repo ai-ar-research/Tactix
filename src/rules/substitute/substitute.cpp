@@ -54,6 +54,8 @@ SccResult substitute_find_sccs(const Kernel &k) {
     dfs[root] = low[root] = next++;
     onstack[root] = 1;
     tstack.push_back(root);
+    k.stats.substitute_ticks +=
+        1 + kernel_cache_lines(k.watches.size(negate(root)));
     work.push_back({root, out_edges(root).begin()});
 
     while (!work.empty()) {
@@ -74,6 +76,8 @@ SccResult substitute_find_sccs(const Kernel &k) {
           dfs[q] = low[q] = next++;
           onstack[q] = 1;
           tstack.push_back(q);
+          k.stats.substitute_ticks +=
+              1 + kernel_cache_lines(k.watches.size(negate(q)));
           // may reallocate `work`; touch it no more
           work.push_back({q, out_edges(q).begin()});
           descended = true;

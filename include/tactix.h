@@ -111,9 +111,6 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_CONGRUENCE_TICKS 43 /* Congruence work, its own currency */
 #define TACTIX_STAT_CCE_DELETED 44      /* clauses eliminated by CCE (X3) */
 #define TACTIX_STAT_CCE_TICKS 45        /* CCE work: clause literals scanned */
-/* Substitute is the one family with no effort ledger row — its closure is not
- * titratable, so the slot gates repetition, not size — and this effort id is a
- * scan-volume proxy rather than a meter the policy doses on. */
 #define TACTIX_STAT_SUBSTITUTE_VARS 46  /* variables substituted away */
 #define TACTIX_STAT_SUBSTITUTE_SCC_LITS 47 /* Substitute work: literals in the
                                               non-trivial SCCs it walked */
@@ -122,6 +119,7 @@ typedef struct tactix_solver tactix;
  * tick meter its EFFORT_SPECS row doses on. */
 #define TACTIX_STAT_HBR_BINARIES 48 /* hyper binary resolvents emitted */
 #define TACTIX_STAT_HBR_TICKS 49    /* HyperBinaryRes work */
+#define TACTIX_STAT_SUBSTITUTE_TICKS 50 /* Substitute binary-watch scan work */
 
 tactix *tactix_init(void);
 void tactix_release(tactix *);

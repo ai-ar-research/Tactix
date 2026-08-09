@@ -207,6 +207,7 @@ struct Stats {
   uint64_t transitive_polls = 0;   // kernel_terminating evaluations at the site
   uint64_t transitive_terminated = 0; // dst walks cut by an interrupt
   uint64_t substitute_rounds = 0;  // Substitute rounds — detection passes
+  mutable uint64_t substitute_ticks = 0; // binary-watch scan cache lines
   uint64_t substitute_vars = 0;    // variables substituted away
   uint64_t substitute_sccs = 0;
   uint64_t substitute_scc_lits = 0;
