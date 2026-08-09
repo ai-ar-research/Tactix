@@ -106,6 +106,15 @@ static uint32_t mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
   return free_lits;
 }
 
+static bool watch_population_within(const Kernel &k, Lit lit, bool binary,
+                                    uint32_t limit) {
+  uint32_t count = 0;
+  for (const WatchEntry w : k.watches.entries(lit))
+    if (w.binary() == binary && ++count > limit)
+      return false;
+  return true;
+}
+
 // Binary subsumers of the marked candidate live in the watch lists of its free
 // literals: binary (l, o) with both marked subsumes. Skips oversized lists
 // (kissat forward_literal's occurrence limit). No redundancy check on the
@@ -116,8 +125,7 @@ static bool subsumed_by_binary(Kernel &k,
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
-    const WatchHead &h = k.watches.heads[l];
-    if (h.size > SUBSUME_OCCLIM)
+    if (!watch_population_within(k, l, true, SUBSUME_BINLIM))
       continue;
     for (const WatchEntry w : k.watches.entries(l)) {
       if (!w.binary())
@@ -314,17 +322,21 @@ ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
-    const WatchHead &h = k.watches.heads[l];
-    if (h.size > SUBSUME_OCCLIM)
-      continue;
+    const bool binaries =
+        watch_population_within(k, l, true, SUBSUME_BINLIM);
+    const bool large =
+        watch_population_within(k, l, false, SUBSUME_OCCLIM);
     for (const WatchEntry w : k.watches.entries(l)) {
       if (subsumed)
         break;
       k.stats.forward_visits++;
       if (w.binary()) {
-        subsumed = marks[w.other()] != 0;
+        if (binaries)
+          subsumed = marks[w.other()] != 0;
         continue;
       }
+      if (!large)
+        continue;
       const Ref dref = w.ref();
       if (dref == candidate)
         continue;

@@ -114,6 +114,15 @@ static void mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
       marks[l] = on;
 }
 
+static bool watch_population_within(const Kernel &k, Lit lit, bool binary,
+                                    uint32_t limit) {
+  uint32_t count = 0;
+  for (const WatchEntry w : k.watches.entries(lit))
+    if (w.binary() == binary && ++count > limit)
+      return false;
+  return true;
+}
+
 // partner found by a scan: NONE / SUBSUMED / STRENGTHEN with the flipped
 // literal plus what the LRAT chain needs (partner id + its absorbed units)
 struct Partner {
@@ -139,8 +148,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       const Lit probe = phase ? negate(l) : l;
       // binaries through the watch lists: (probe, o). probe == l is a
       // same-phase anchor; probe == ¬l anchors the flip on l itself.
-      const WatchHead &h = k.watches.heads[probe];
-      if (h.size <= STRENGTHEN_OCCLIM) {
+      if (watch_population_within(k, probe, true, STRENGTHEN_BINLIM)) {
         for (const WatchEntry w : k.watches.entries(probe)) {
           if (!w.binary())
             continue;
@@ -203,8 +211,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       continue;
     for (int phase = 0; phase < 2; phase++) {
       const Lit probe = phase ? negate(l) : l;
-      const WatchHead &h = k.watches.heads[probe];
-      if (h.size > STRENGTHEN_OCCLIM)
+      if (!watch_population_within(k, probe, false, STRENGTHEN_OCCLIM))
         continue;
       for (const WatchEntry w : k.watches.entries(probe)) {
         if (w.binary())

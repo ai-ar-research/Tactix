@@ -18,6 +18,8 @@
 
 using namespace tactix;
 
+static_assert(SUBSUME_OCCLIM == 100 && SUBSUME_BINLIM == 10000);
+
 static Ref add(Kernel &k, std::initializer_list<int> elits,
                bool redundant = false) {
   std::vector<Lit> lits;
