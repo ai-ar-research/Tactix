@@ -122,6 +122,8 @@ TABLE = {
                                        "ships ON, =0 reverts (SP-JUMP-1)"),
     "minimize_singletons":     ("ENV", "TACTIX_MINIMIZE_SINGLETONS; diagnostic "
                                        "Kissat shrink=3 comparison arm"),
+    "learned_trail_tie":       ("ENV", "TACTIX_LEARNED_TRAIL_TIE; former "
+                                       "Tactix learned-watch tie-break arm"),
     # Both ship ON at the reference default, `=0` reverts — the transliterated
     # behaviour is the baseline and the OFF arm is what gets priced.
     "shrink_glue_promote":     ("ENV", "TACTIX_SHRINK_GLUE; kissat `promote`, "

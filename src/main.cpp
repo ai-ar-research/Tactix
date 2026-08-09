@@ -311,6 +311,10 @@ int main(int argc, char **argv) {
   // Kissat's default shrink=3 behavior, which skips singleton blocks.
   if (const char *ms = getenv("TACTIX_MINIMIZE_SINGLETONS"))
     kernel.minimize_singletons = (*ms != '0');
+  // Kissat preserves deduction order within a decision-level bucket.  =1
+  // restores Tactix's former total (level, trail) ordering for attribution.
+  if (const char *lt = getenv("TACTIX_LEARNED_TRAIL_TIE"))
+    kernel.learned_trail_tie = (*lt != '0');
   // Both ship ON at their references' defaults (kissat `promote`, `tumble`);
   // `=0` reverts to the pre-parity behaviour and is the priced arm.
   if (const char *sg = getenv("TACTIX_SHRINK_GLUE"))

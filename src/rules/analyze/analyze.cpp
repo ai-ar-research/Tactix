@@ -270,6 +270,36 @@ static void radix_sort_analyzed_by_stamp(Kernel &k) {
     a.swap(b);
 }
 
+// Kissat's sort_deduced_clause orders decision-level buckets descending and
+// preserves deduction order within each bucket.  Stable LSD radix sorting on
+// the complemented level reproduces that order without per-conflict
+// allocation; OTFS scratch is dead once the final learned clause is reached.
+static void radix_sort_learned_by_level(Kernel &k, std::vector<Lit> &learned) {
+  const size_t n = learned.size() - 1;
+  if (n < 2)
+    return;
+  std::vector<Lit> &scratch = k.otfs_scratch;
+  scratch.resize(n);
+  Lit *const original = learned.data() + 1;
+  Lit *src = original, *dst = scratch.data();
+  for (uint32_t shift = 0; shift < 32; shift += 8) {
+    uint32_t count[257] = {0};
+    for (size_t i = 0; i < n; i++) {
+      const uint32_t rank = ~k.var_level(var_of(src[i]));
+      count[((rank >> shift) & 0xff) + 1]++;
+    }
+    for (uint32_t i = 1; i < 257; i++)
+      count[i] += count[i - 1];
+    for (size_t i = 0; i < n; i++) {
+      const uint32_t rank = ~k.var_level(var_of(src[i]));
+      dst[count[(rank >> shift) & 0xff]++] = src[i];
+    }
+    std::swap(src, dst);
+  }
+  if (src != original)
+    std::copy(src, src + n, original);
+}
+
 // Bump analysis-side vars and clear all flags, minimization scratch included.
 // Focused: VMTF move-to-front, stamp-sorted to preserve relative recency
 // (kissat bump.c). Stable: EVSIDS bump + one decay, order-independent.
@@ -979,20 +1009,19 @@ ApplyResult analyze_apply(Kernel &k) {
         k.touched_levels.push_back(lv);
       }
     }
-    // Group into blocks: sort by level, descending. The trail tie-break is
-    // load-bearing — under the bare level key, equal-level literals take
-    // std::sort's implementation-defined order, and since this order decides
-    // every learned clause's watched literals the search trajectory forks
-    // across toolchains. (level desc, trail desc) is total; the alternatives
-    // measured equivalent-in-noise
-    // (benchmarks/reports/2026-07-24-battleship-divergence.md).
-    std::sort(learned.begin() + 1, learned.end(), [&](Lit a, Lit b) {
-      const uint32_t la = k.var_level(var_of(a));
-      const uint32_t lb = k.var_level(var_of(b));
-      if (la != lb)
-        return la > lb;
-      return k.assigned[var_of(a)].trail > k.assigned[var_of(b)].trail;
-    });
+    // Group into blocks by descending level.  Kissat's stable bucket order is
+    // the default.  The former total trail tie remains as an attribution arm;
+    // a bare std::sort level key is not deterministic enough for either arm.
+    if (k.learned_trail_tie)
+      std::sort(learned.begin() + 1, learned.end(), [&](Lit a, Lit b) {
+        const uint32_t la = k.var_level(var_of(a));
+        const uint32_t lb = k.var_level(var_of(b));
+        if (la != lb)
+          return la > lb;
+        return k.assigned[var_of(a)].trail > k.assigned[var_of(b)].trail;
+      });
+    else
+      radix_sort_learned_by_level(k, learned);
     size_t b = 1;
     while (b < learned.size()) {
       const uint32_t blevel = k.var_level(var_of(learned[b]));
