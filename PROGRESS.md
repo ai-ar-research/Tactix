@@ -36,7 +36,7 @@ Final LRAT fuzz job 1594313 passed 10,000 cases with zero failures; source probe
 **Next actions:**
 
 1. Resume the Kissat-default parity campaign through the extracted scheduler;
-   take one remaining N4 row at a time, starting with `SP-SWEEP-3` unless a
+   take one remaining N4 row at a time, starting with `SP-SWEEP-7` unless a
    different row is explicitly selected.
 2. Then run the Tier D shakedown, Tier D campaign, and T3 gate in that order.
 
@@ -106,9 +106,11 @@ required.
   (`20260808-234549-A-vivflush`, `20260808-234549-B-vivflush`,
   `20260808-234836-C-vivflush`;
   `benchmarks/reports/2026-08-09-sp-vivify-3.md`).
-- [ ] `SP-SWEEP-3`: persist the ranked untried tail across calls and grow
-  environment caps only after a completed pass; a bare wrapping cursor measured
-  worse.
+- [x] `SP-SWEEP-3`: Kissat's eligible ranked tail and completed-pass cap growth
+  are implemented, but ship off after losing solves on both Tier B and Tier C
+  (`20260809-010103-A-sweepresume-on`, `20260809-010105-B-sweepresume-on`,
+  `20260809-010110-C-sweepresume-on`;
+  `benchmarks/reports/2026-08-09-sp-sweep-3.md`).
 - [ ] `SP-SWEEP-7`: replace seed-only comparisons with a partition over all
   environment literals plus the model-flip prefilter; this is rule work.
 - [ ] `SCHED-G6`: charge the binary-only scan for entries actually touched;
