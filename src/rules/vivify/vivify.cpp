@@ -114,6 +114,7 @@ static void probe_list(const Kernel &k, const Clause *c,
 // The scheduling side-effects a ROUND needs and a const query must not have.
 struct VivifySchedule {
   uint64_t prioritized = 0; // candidates carrying the leftover bit
+  uint64_t flushed = 0;     // prefix-subsumed before any propagation
   bool rearmed = false;     // ...the set was empty, so the scope was re-armed
 };
 
@@ -141,7 +142,7 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
 
   struct Cand {
     Ref ref;
-    uint32_t prioritized, redundant, size;
+    uint32_t prioritized, redundant, band, size;
     uint32_t key_off, key_len; // probe list, in the global order
   };
   std::vector<Cand> cands;
@@ -151,8 +152,18 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
     const Clause *c = clause_at(k.arena, ref);
     if (is_candidate(k, c) && in_scope(k, c)) {
       probe_list(k, c, ord, probes, k.vivify_reuse);
-      cands.push_back({ref, c->vivify() ? 1u : 0u, c->redundant() ? 1u : 0u,
-                       c->size, static_cast<uint32_t>(keys.size()),
+      uint32_t band = 0;
+      if (c->redundant()) {
+        if (c->glue() <= k.tier1)
+          band = 1;
+        else if (c->glue() <= k.tier2)
+          band = 2;
+        else
+          band = 3;
+      }
+      cands.push_back({ref, c->vivify() ? 1u : 0u,
+                       c->redundant() ? 1u : 0u, band, c->size,
+                       static_cast<uint32_t>(keys.size()),
                        static_cast<uint32_t>(probes.size())});
       prioritized += c->vivify();
       keys.insert(keys.end(), probes.begin(), probes.end());
@@ -176,6 +187,45 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
   }
 
   const Lit *kb = keys.data();
+  const auto key_less = [&](const Cand &a, const Cand &b) {
+    if (a.band != b.band)
+      return a.band < b.band;
+    const uint32_t n = std::min(a.key_len, b.key_len);
+    for (uint32_t i = 0; i < n; i++) {
+      const Lit x = kb[a.key_off + i], y = kb[b.key_off + i];
+      if (x != y)
+        return ord(x, y);
+    }
+    return a.key_len < b.key_len;
+  };
+  const auto key_prefix = [&](const Cand &a, const Cand &b) {
+    if (a.band != b.band || a.key_len > b.key_len)
+      return false;
+    for (uint32_t i = 0; i < a.key_len; i++)
+      if (kb[a.key_off + i] != kb[b.key_off + i])
+        return false;
+    return true;
+  };
+
+  if (commit && k.vivify_flush && cands.size() > 1) {
+    std::stable_sort(cands.begin(), cands.end(), key_less);
+    Arena &arena = const_cast<Arena &>(k.arena);
+    Kernel &mut = const_cast<Kernel &>(k);
+    uint32_t write = 0;
+    const Cand *prev[4] = {nullptr, nullptr, nullptr, nullptr};
+    for (const Cand &cand : cands) {
+      const uint32_t part = cand.band;
+      if (prev[part] && key_prefix(*prev[part], cand)) {
+        kernel_delete_clause(mut, clause_at(arena, cand.ref));
+        commit->flushed++;
+      } else {
+        cands[write++] = cand;
+        prev[part] = &cands[write - 1];
+      }
+    }
+    cands.resize(write);
+  }
+
   std::sort(cands.begin(), cands.end(),
             [&](const Cand &a, const Cand &b) {
               if (a.prioritized != b.prioritized)
@@ -510,7 +560,8 @@ ApplyResult vivify_apply(Kernel &k) {
   vivify_schedule(k, candidates, &sched);
   k.stats.vivify_prioritized += sched.prioritized;
   k.stats.vivify_reprioritized += sched.rearmed;
-  uint64_t changed = 0;
+  k.stats.vivify_flushed += sched.flushed;
+  uint64_t changed = sched.flushed;
   bool ended = false;
   const bool reuse = k.vivify_reuse;
   // k.work_budget in Vivify's currency (propagation ticks); 0 = unbounded

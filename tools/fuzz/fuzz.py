@@ -276,6 +276,8 @@ REACH_SPECS = [
     ("BveBackwardUnit",
      r"^c bve-bwd\s+\d+ subsumers, \d+ subsumed, \d+ strengthened, (\d+) units"),
     ("VariableCompaction", r"^c compact\s+(\d+) passes"),
+    ("VivifyFlush",
+     r"^c vivify\s+\d+ rounds, \d+ vivified, \d+ deleted, (\d+) flushed"),
 ]
 _REACH_RES = [(label, re.compile(pat, re.M)) for label, pat in REACH_SPECS]
 _STATS_BANNER_RE = re.compile(r"^c tactix ", re.M)

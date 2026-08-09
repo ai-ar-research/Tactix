@@ -3,12 +3,15 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/vivify/vivify.hpp"
 
 #include <cassert>
 #include <csignal>
 #include <cstdio>
+#include <cstring>
+#include <unistd.h>
 #include <vector>
 
 using namespace tactix;
@@ -211,6 +214,73 @@ static void test_trail_reuse() {
   assert(k.level == 0 && k2.level == 0 && !k.conflict_valid); // root is clean
 }
 
+static void test_schedule_prefix_flush() {
+  const Lit short_clause[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit long_clause[4] = {internalize(1), internalize(2), internalize(3),
+                              internalize(4)};
+
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_add_large_clause(k, short_clause, 3, false, 0);
+  kernel_add_large_clause(k, long_clause, 4, false, 0);
+  char path[] = "/tmp/tactix_test_vivify_flush_XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
+  Proof proof;
+  assert(proof.open(path, ProofFormat::DratAscii));
+  k.proof = &proof;
+  std::vector<Ref> cands;
+  vivify_candidates(k, cands);
+  assert(cands.size() == 2); // N1: scheduling never hides either instance
+  volatile sig_atomic_t stop = 1;
+  k.stop = &stop; // isolate the pre-propagation schedule flush
+  assert(vivify_apply(k) == ApplyResult::Ok);
+  assert(k.stats.vivify_flushed == 1);
+  assert(k.stats.vivify_checked == 0);
+  assert(live_large(k, short_clause, 3) == 1);
+  proof.flush();
+  k.proof = nullptr;
+  FILE *f = fopen(path, "r");
+  assert(f);
+  char line[128];
+  bool saw_delete = false;
+  while (fgets(line, sizeof line, f))
+    saw_delete |= line[0] == 'd' && std::strstr(line, "4") != nullptr;
+  fclose(f);
+  remove(path);
+  assert(saw_delete);
+
+  Kernel off;
+  kernel_reserve_vars(off, 4);
+  off.vivify_flush = false;
+  kernel_add_large_clause(off, short_clause, 3, false, 0);
+  kernel_add_large_clause(off, long_clause, 4, false, 0);
+  off.stop = &stop;
+  assert(vivify_apply(off) == ApplyResult::NoOp);
+  assert(off.stats.vivify_flushed == 0 && live_large(off) == 2);
+}
+
+static void test_schedule_flush_partition() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit redundant_prefix[3] = {internalize(1), internalize(2),
+                                   internalize(3)};
+  const Lit irredundant_clause[4] = {internalize(1), internalize(2),
+                                     internalize(3), internalize(4)};
+  const Lit tier2_clause[4] = {internalize(1), internalize(2), internalize(3),
+                               internalize(5)};
+  kernel_add_large_clause(k, redundant_prefix, 3, true, 2);
+  kernel_add_large_clause(k, irredundant_clause, 4, false, 0);
+  kernel_add_large_clause(k, tier2_clause, 4, true, 5);
+  k.vivify_scope = 0;
+  volatile sig_atomic_t stop = 1;
+  k.stop = &stop;
+  assert(vivify_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.vivify_flushed == 0);
+  assert(live_large(k) == 3); // neither partitions nor tier bands are crossed
+}
+
 // The termination poll is cadence-free: a raised stop is both reached and
 // honoured on the first candidate, before any work.
 static void test_termination_poll() {
@@ -241,6 +311,8 @@ int main() {
   test_tier3_scope();
   test_leftover_priority();
   test_trail_reuse();
+  test_schedule_prefix_flush();
+  test_schedule_flush_partition();
   test_termination_poll();
   puts("test_vivify OK");
   return 0;

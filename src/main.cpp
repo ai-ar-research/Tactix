@@ -253,6 +253,8 @@ int main(int argc, char **argv) {
   // probe/candidate order, which cannot be separated (Kernel::vivify_reuse).
   if (const char *vr = getenv("TACTIX_VIVIFY_REUSE"))
     kernel.vivify_reuse = (*vr != '0');
+  if (const char *vf = getenv("TACTIX_VIVIFY_FLUSH"))
+    kernel.vivify_flush = (*vf != '0');
   // Ships OFF: a prerequisite arm, not a candidate default, since the redundant
   // band has no consumer yet (Kernel::touch_redundant).
   if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))
@@ -429,10 +431,12 @@ int main(int argc, char **argv) {
     // `vivified` here counts strengthened clauses only, so it is not comparable
     // to kissat's counter of the same name, an aggregate (statistics.h:247)
     // over subsumed, promoted, shrunken, implied, asym and instantiated.
-    printf("c vivify      %llu rounds, %llu vivified, %llu deleted, %llu checked\n",
+    printf("c vivify      %llu rounds, %llu vivified, %llu deleted, "
+           "%llu flushed, %llu checked\n",
            (unsigned long long)kernel.stats.vivify_rounds,
            (unsigned long long)kernel.stats.vivified,
            (unsigned long long)kernel.stats.vivify_deleted,
+           (unsigned long long)kernel.stats.vivify_flushed,
            (unsigned long long)kernel.stats.vivify_checked);
     // Vivify trail reuse is inert three independent ways, one number each
     // (docs/design/2026-08-05-vivify-trail-reuse.md §4).

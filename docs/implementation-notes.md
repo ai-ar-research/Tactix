@@ -181,6 +181,9 @@ M3 is one public operation. Private pending state must be consumed before contro
   after apply.
 - `vivify_scope=0` enumerates all bands; 1–5 select the documented tier bands. The setter accepts 0–5
   and ignores invalid values rather than mapping them to another band.
+- `vivify_flush` affects only the canonical schedule. Per-clause `instances()`
+  remains complete and side-effect free; flush compares prefixes only within
+  one of CaDiCaL's four schedule bands.
 - `factor_bound=0` retains the positive-gain floor; larger values narrow candidate grids only.
   An attached match policy takes precedence.
 - `factor_composite=false` remains the default. Budget, scope, and bound affect selection, not rule
