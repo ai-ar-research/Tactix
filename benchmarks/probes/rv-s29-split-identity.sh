@@ -83,8 +83,8 @@ run_case() {
         ./tools/checkers/bin/lrat-check "$cnf" "$W/B.proof" >/dev/null 2>&1 ||
           { echo "BAD LRAT $label"; diffs=$((diffs + 1)); return; }
       else
-        ./tools/checkers/bin/drat-trim "$cnf" "$W/B.proof" -i 2>&1 | \
-          grep -q VERIFIED ||
+        ./tools/checkers/bin/drat-trim "$cnf" "$W/B.proof" 2>&1 | \
+          grep -q 's VERIFIED' ||
           { echo "BAD DRAT $mode $label"; diffs=$((diffs + 1)); return; }
       fi
       ;;
