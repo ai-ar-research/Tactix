@@ -884,8 +884,15 @@ void DefaultInprocessScheduler::build(Kernel &k) {
   }
   if (!initialized_) {
     initialized_ = true;
+    // The probe clock is due immediately because it owns initial
+    // preprocessing.  Elimination is not part of that pipeline: Kissat seeds
+    // its first search-time occurrence at scale(eliminateinit=500)
+    // (kimits.c kissat_init_limits), then applies NLOG2N only after a phase.
+    // update_limit with rounds==0 uses n=1 and therefore gives that exact
+    // initial interval.  Seeding both clocks at zero used to run the entire
+    // elimination pipeline immediately after the first conflict.
     probe_clock.next_conflicts = k.stats.conflicts;
-    elim_clock.next_conflicts = k.stats.conflicts;
+    update_limit(k, SlotGroup::Eliminate);
   }
 }
 

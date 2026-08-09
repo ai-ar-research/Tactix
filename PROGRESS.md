@@ -29,7 +29,13 @@ ship on at their reference defaults, each with an explicit rollback arm.
 `ORDER-TUMBLE-1` is implemented at the frontend boundary: activation now
 retains DIMACS literal order while clause storage remains canonical, and a
 parser regression pins the full initial VMTF queue plus decision prefix across
-duplicates and a tautology. The full Release suite is 63/63.
+duplicates and a tautology. Pinned two-fixture tracing confirms exact initial
+top-32 and first-conflict decision-prefix identity. With
+`TACTIX_CHRONO_REUSE=0`, the accepted analysis-side divergence disappears and
+exposes `ORDER-ELIM-INIT-1`: the unconsumed zero-valued elimination clock ran a
+full phase after conflict 1. The scheduler now seeds the first search-time
+elimination at the reference-scaled 500-conflict interval; a scheduling test
+pins the exact deadline. The full Release suite is 63/63.
 `TACTIX_REORDER=0`, `TACTIX_LUCKY_LATE=0`, and
 `TACTIX_PREPROCESS_FOLLOWUPS=0` retain the cumulative attribution arms.
 Cross-solver diagnosis now has a strict contract: a diagnostic-only Kissat
@@ -46,11 +52,10 @@ the repaired implementation.
 
 **Next actions:**
 
-1. Finish `ORDER-TUMBLE-1` validation: with the frontend repair retained, prove
-   exact initial top-32/decision-prefix identity on the two fixed fixtures.
-   Run Tactix both at the shipped default and with `TACTIX_CHRONO_REUSE=0`
-   against diagnostic Kissat so the first remaining divergence is localized
-   after excluding CaDiCaL-style analysis-side trail reuse; then run Tier A.
+1. Re-run the two fixed traces with `ORDER-ELIM-INIT-1` retained, at the shipped
+   default and with `TACTIX_CHRONO_REUSE=0`, and explain the next divergence.
+   Then run the cumulative Tumble + elimination-clock Tier-A gate against the
+   preceding immutable pin; do not proceed if either cheap fixture regresses.
 2. With repaired Reorder and Tumble retained, gate `ORDER-LUCKY-1` on Tier A.
    Continue one at a time with `ORDER-FOLLOWUP-1`, `SP-JUMP-1`,
    `SP-FACTOR-CAND-1`, and `SCHED-F6`; stop and diagnose the first Tier-A regression. Any diagnosis
@@ -164,7 +169,12 @@ required.
 - [ ] `ORDER-TUMBLE-1`: the frontend now records first activation in DIMACS
   literal order without changing sorted clause storage. A parser regression
   pins the complete initial VMTF queue and decision prefix across duplicates
-  and a tautology; two-fixture trace identity and Tier A remain.
+  and a tautology; two-fixture trace identity is exact through conflict 1 and
+  Tier A remains.
+- [ ] `ORDER-ELIM-INIT-1`: cross-solver tracing with analysis-side reuse off
+  localized the next divergence to Tactix running Eliminate after conflict 1.
+  The scheduler now initializes the independent search-time elimination clock
+  to the reference-scaled 500-conflict interval; re-trace and Tier A remain.
 - [ ] `ORDER-LUCKY-1`: implemented and correctness-green; early and late calls
   bracket preprocessing with separate reach/SAT counters and a late-off arm.
   Cumulative pricing and acceptance remain.

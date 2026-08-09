@@ -204,7 +204,9 @@ static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
   note(p.walk_anchor != 0, "walk anchor");
   note(p.inprocess().initialized(), "inprocessing prime flag");
   note(p.inprocess().probe_clock.rounds != 0, "probe clock");
-  note(p.inprocess().elim_clock.rounds != 0, "elim clock");
+  note(p.inprocess().elim_clock.rounds != 0 ||
+           p.inprocess().elim_clock.next_conflicts != 0,
+       "elim clock");
   // The phase effort anchors moved from the entries to the clocks; a reused
   // policy that keeps them would price its first phase against the previous
   // solve's whole tick count.
