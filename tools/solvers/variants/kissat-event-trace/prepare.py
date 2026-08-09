@@ -143,7 +143,19 @@ def main():
         '      kissat_learn_clause (solver);\n',
         '      analyze_reason_side_literals (solver);\n'
         '      kissat_event_trace_learned (solver);\n'
-        '      kissat_learn_clause (solver);\n')
+      '      kissat_learn_clause (solver);\n')
+
+    proplit = dest / "src" / "proplit.h"
+    replace_once(proplit,
+                 'static inline void kissat_watch_large_delayed',
+                 '#include "eventtrace.h"\n\n'
+                 'static inline void kissat_watch_large_delayed')
+    replace_once(proplit,
+        '  const unsigned not_lit = NOT (lit);\n\n'
+        '  assert (not_lit < LITS);\n',
+        '  const unsigned not_lit = NOT (lit);\n\n'
+        '  kissat_event_trace_watch_scan (solver, lit);\n'
+        '  assert (not_lit < LITS);\n')
 
 
 if __name__ == "__main__":

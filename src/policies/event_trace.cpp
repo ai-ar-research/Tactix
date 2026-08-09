@@ -12,6 +12,8 @@
 namespace tactix {
 namespace {
 
+EventTrace *active_trace;
+
 uint64_t mix(uint64_t h, uint64_t x) {
   h ^= x;
   return h * 1099511628211ull;
@@ -109,6 +111,7 @@ bool EventTrace::open_from_env(const Kernel &k) {
   out_ = std::fopen(path, "w");
   if (!out_)
     return false;
+  active_trace = this;
   std::fprintf(out_, "# tactix-event-trace\t1\n");
   std::fprintf(out_, "# solver\tseq\tevent\tconflicts\tdecisions\t"
                      "propagations\tlevel\tmode\tactive\tunassigned\ttrail\t"
@@ -124,6 +127,8 @@ void EventTrace::close() {
   std::fflush(out_);
   std::fclose(out_);
   out_ = nullptr;
+  if (active_trace == this)
+    active_trace = nullptr;
 }
 
 void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
@@ -193,10 +198,48 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   emit(k, event, buf, !std::strcmp(event, "analysis_end"));
 }
 
+void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
+  if (!out_ || emitted_ >= limit_)
+    return;
+  const Lit watched = negate(propagated);
+  for (const WatchEntry entry : k.watches.entries(watched)) {
+    if (emitted_ >= limit_)
+      return;
+    std::vector<int> clause;
+    if (entry.binary()) {
+      clause.push_back(kernel_externalize(k, watched));
+      clause.push_back(kernel_externalize(k, entry.other()));
+    } else {
+      const Clause *c = clause_at(k.arena, entry.ref());
+      clause.reserve(c->size);
+      for (const Lit lit : *c)
+        clause.push_back(kernel_externalize(k, lit));
+    }
+    std::sort(clause.begin(), clause.end());
+    std::string payload =
+        "scan=" + std::to_string(kernel_externalize(k, propagated)) +
+        "|block=" + std::to_string(kernel_externalize(k, entry.other())) +
+        "|clause=";
+    for (const int lit : clause) {
+      if (payload.back() != '=')
+        payload += ',';
+      payload += std::to_string(lit);
+    }
+    emit(k, "watch", payload.c_str(), false);
+  }
+}
+
+void event_trace_watch_scan(const Kernel &k, Lit propagated) {
+  if (active_trace)
+    active_trace->watch_scan(k, propagated);
+}
+
 void EventTrace::implications(const Kernel &k, size_t trail_begin) {
-  if (!out_)
+  if (!out_ || emitted_ >= limit_)
     return;
   for (size_t pos = trail_begin; pos < k.trail.size(); pos++) {
+    if (emitted_ >= limit_)
+      return;
     const Lit assigned_lit = k.trail[pos];
     const Assigned &assignment = k.assigned[var_of(assigned_lit)];
     if (assignment.reason == DECISION_REASON || assignment.reason == UNIT_REASON)
