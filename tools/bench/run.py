@@ -1072,12 +1072,6 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
     # run. A limit that cannot fit the runner's own worst case is a trap: SLURM
     # kills the task mid-rescue and the instance comes back missing.
     tlimit = fmt_time(2 * (timeout + checker_budget(timeout)) + 120)
-    # Pin every arm to one node (--nodelist). An A/B requires the arms to
-    # contend alike, and the partition's nodes do not: their load can differ by
-    # a factor of several at any moment, so an arm that spills onto the quiet
-    # node wins instances it did not earn. Pinning also matches how the recorded
-    # noise floor was measured.
-    nodeline = f"#SBATCH --nodelist={args.nodelist}" if args.nodelist else ""
     apath = os.path.join(outdir, "array.sbatch")
     with open(apath, "w") as f:
         f.write(f"""#!/usr/bin/env bash
@@ -1088,7 +1082,6 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
 #SBATCH --time={tlimit}
 #SBATCH --array={array}
 #SBATCH --output={outdir}/logs/task-%a.log
-{nodeline}
 exec {sys.executable} {me} --run-one {outdir} \
 --task-index $SLURM_ARRAY_TASK_ID
 """)
@@ -1155,11 +1148,6 @@ def main() -> int:
                          "print its final state (launch this command in the "
                          "background to keep working)")
     ap.add_argument("--partition", default="cpu-dense-hwulab-q")
-    ap.add_argument("--nodelist", default=None,
-                    help="pin every array task to this node (e.g. node017). "
-                         "Use for any A/B: arms on different nodes contend "
-                         "differently and the runner will otherwise correlate "
-                         "arm with node.")
     ap.add_argument("--throttle", type=int, default=None,
                     help="cap concurrent array tasks (sbatch %%N) for "
                          "lower-contention gate runs")

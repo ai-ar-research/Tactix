@@ -26,7 +26,8 @@ on A, and never promote an A/B result to a competitiveness claim.
 3. Run solver measurements through `slurm-jobs`. Compare candidates and
    baselines in the same allocation shape and time window. Pin immutable builds
    and record commit SHA, binary hash, tier-list hash, timeout, memory, throttle,
-   seeds, and solver arguments.
+   seeds, and solver arguments. Submit to the partition without selecting a
+   node; task order is instance-major so paired arms are not node-correlated.
 4. Validate every SAT model and UNSAT proof. Exclude only harness failures, and
    report exclusions explicitly.
 5. Report solved counts, SAT/UNSAT splits, PAR-2, paired runtime ratios, timeout
