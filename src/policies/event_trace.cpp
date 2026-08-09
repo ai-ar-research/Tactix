@@ -186,7 +186,11 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   }
   char buf[32];
   std::snprintf(buf, sizeof buf, "%lld", (long long)payload);
-  emit(k, event, buf, false);
+  // Analysis is the only detailed event that mutates the ranking.  Snapshot
+  // its post-state so a later decision mismatch can be attributed to the
+  // exact conflict that first changed VMTF/EVSIDS, not merely to the decision
+  // where that latent difference became visible.  Diagnostic builds only.
+  emit(k, event, buf, !std::strcmp(event, "analysis_end"));
 }
 
 void EventTrace::checkpoint(const Kernel &k) {
