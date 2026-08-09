@@ -248,6 +248,66 @@ static void test_singleton_minimization_stronger() {
   assert(stronger.pending.jump_level == 1);
 }
 
+static Kernel minimization_depth_fixture(uint32_t chain, bool binary) {
+  // a is the learned anchor, z is a root-false side literal in every large
+  // reason, b only opens level 2, and x[0..chain) imply one another from a.
+  // The conflict's singleton -x.back() is redundant exactly when the reason
+  // walk reaches the already-learned -a before the depth cap.
+  assert(chain > 0);
+  const uint32_t a = 1, z = 2, b = 3, first_x = 4;
+  const uint32_t d = first_x + chain;
+  Kernel k;
+  kernel_reserve_vars(k, d);
+  kernel_assign_unit(k, internalize(z));
+  kernel_assign_decision(k, internalize(a));
+  kernel_assign_decision(k, internalize(b));
+  uint32_t previous = a;
+  for (uint32_t i = 0; i < chain; i++) {
+    const uint32_t current = first_x + i;
+    if (binary) {
+      kernel_add_binary_clause(k, internalize(-static_cast<int>(previous)),
+                               internalize(static_cast<int>(current)));
+      kernel_assign(k, internalize(static_cast<int>(current)), 2,
+                    internalize(-static_cast<int>(previous)), true);
+    } else {
+      const Lit reason[3] = {internalize(-static_cast<int>(previous)),
+                             internalize(-static_cast<int>(z)),
+                             internalize(static_cast<int>(current))};
+      const Ref ref = kernel_add_large_clause(k, reason, 3, false, 0);
+      kernel_assign(k, internalize(static_cast<int>(current)), 2, ref, false);
+    }
+    previous = current;
+  }
+  kernel_assign_decision(k, internalize(static_cast<int>(d)));
+  const Lit conflict[3] = {internalize(-static_cast<int>(d)),
+                           internalize(-static_cast<int>(previous)),
+                           internalize(-static_cast<int>(a))};
+  k.conflict_ref = kernel_add_large_clause(k, conflict, 3, false, 0);
+  k.conflict_valid = true;
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  return k;
+}
+
+static void test_minimization_depth_matches_kissat() {
+  // Binary runs do not spend recursive depth in Kissat.  This exceeds the
+  // recursive cap yet must still reach -a and remove the singleton.
+  Kernel binary = minimization_depth_fixture(1100, true);
+  assert(binary.pending.lits.size() == 2);
+  assert(binary.stats.minimized == 1);
+  assert(binary.stats.minimize_depth_cutoffs == 0);
+
+  // For large reasons the deepest x is entered at depth chain-1.  Kissat
+  // admits depth 999 and rejects depth 1000 with minimizedepth=1000.
+  Kernel admitted = minimization_depth_fixture(1000, false);
+  assert(admitted.pending.lits.size() == 2);
+  assert(admitted.stats.minimized == 1);
+  assert(admitted.stats.minimize_depth_cutoffs == 0);
+  Kernel rejected = minimization_depth_fixture(1001, false);
+  assert(rejected.pending.lits.size() == 3);
+  assert(rejected.stats.minimized == 0);
+  assert(rejected.stats.minimize_depth_cutoffs == 1);
+}
+
 static Kernel learned_stable_order_fixture() {
   // The learned level-2 block is inserted as {-b,-c}, while c has the later
   // trail position.  Its shrink walk fails through the lower-level decision
@@ -657,6 +717,7 @@ int main() {
   test_shrink_crosses_unmarked_lower_level();
   test_shrink_processes_lower_blocks_first();
   test_singleton_minimization_stronger();
+  test_minimization_depth_matches_kissat();
   test_learned_level_stable_order();
   test_otfs();
   test_large_otfs_retires_replaced_reason();

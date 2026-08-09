@@ -62,6 +62,7 @@ struct Stats {
   uint64_t learned_lits = 0;      // sum of FINAL learned clause sizes
   uint64_t learned_glue_sum = 0;  // sum of learned glues
   uint64_t minimized = 0; // literals removed by clause minimization
+  uint64_t minimize_depth_cutoffs = 0; // recursive walks stopped at Kissat cap
   uint64_t shrunken = 0;  // literals removed by all-UIP block shrinking
   uint64_t otfs_strengthened = 0; // reasons strengthened on the fly
   uint64_t otfs_subsumed = 0;     // conflicts subsumed by the resolvent
@@ -384,6 +385,7 @@ struct Kernel {
   std::vector<Var> shrinkable; // vars marked during a block-shrink walk
   uint32_t analyzed_seen = 0;
   std::vector<Var> reason_bumped; // REASON_BUMP marks, for rollback
+  std::vector<Var> minimize_scratch; // iterative binary-reason chain
   std::vector<Lit> learned_scratch; // the clause under construction
   std::vector<Lit> otfs_scratch;    // OTFS resolvent assembly
   // OTFS materializes a replacement because variable-size arena records can

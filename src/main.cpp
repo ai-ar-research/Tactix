@@ -401,6 +401,8 @@ int main(int argc, char **argv) {
     }
     printf("c minimized   %llu lits\n",
            (unsigned long long)kernel.stats.minimized);
+    printf("c min-depth   %llu cutoffs\n",
+           (unsigned long long)kernel.stats.minimize_depth_cutoffs);
     printf("c shrunken    %llu lits\n",
            (unsigned long long)kernel.stats.shrunken);
     printf("c reasonbump  %llu vars in %llu rounds (%llu depth2, %llu aborted)\n",
