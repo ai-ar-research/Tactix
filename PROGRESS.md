@@ -47,6 +47,9 @@ the manifest SHA and allocation shape, states #solved before PAR-2, names moved
 instances, and compares only same-window compatible arms. Every arm writes a
 proof; every scored Tactix SAT answer is model-checked. Broad scheduling changes
 are priced on Tier C because Tier B is dominated by four unstable instances.
+Feature acceptance is cumulative: an accepted change remains enabled while the
+next change is evaluated against the preceding accepted pin. Single-feature off
+arms are diagnostic; they do not replace the cumulative comparison.
 
 ## Gates
 
@@ -102,17 +105,20 @@ required.
   dense internal renumbering after Reduce above kissat's 10% inactive threshold,
   and formula-neutral kernel/policy separation.
 - [x] `SP-VIVIFY-3`: CaDiCaL's band-local prefix flush is implemented with a
-  pure per-clause surface, but ships off after a robust Tier C regression
+  pure per-clause surface and defaults on by project policy despite its recorded
+  robust Tier C regression
   (`20260808-234549-A-vivflush`, `20260808-234549-B-vivflush`,
   `20260808-234836-C-vivflush`;
   `benchmarks/reports/2026-08-09-sp-vivify-3.md`).
 - [x] `SP-SWEEP-3`: Kissat's eligible ranked tail and completed-pass cap growth
-  are implemented, but ship off after losing solves on both Tier B and Tier C
+  are implemented and default on by project policy despite losing solves on
+  both Tier B and Tier C
   (`20260809-010103-A-sweepresume-on`, `20260809-010105-B-sweepresume-on`,
   `20260809-010110-C-sweepresume-on`;
   `benchmarks/reports/2026-08-09-sp-sweep-3.md`).
-- [ ] `SP-SWEEP-7`: replace seed-only comparisons with a partition over all
-  environment literals plus the model-flip prefilter; this is rule work.
+- [x] `SP-SWEEP-7`: the default Sweep detector partitions all environment
+  literals and applies the model-flip prefilter; `TACTIX_SWEEP_PARTITION=0`
+  retains the seed-only attribution arm.
 - [ ] `SCHED-G6`: charge the binary-only scan for entries actually touched;
   evaluate by A/B because changing the meter changes search.
 - [ ] `SCHED-G7`: replace the global binary-first flag with per-list state while

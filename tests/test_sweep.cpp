@@ -156,6 +156,7 @@ void test_full_partition_finds_nonseed_pair() {
   build(legacy, 5, cls);
   SweepRound old_round;
   SweepLimits old_lim;
+  old_lim.full_partition = false;
   sweep_round_begin(legacy, old_round);
   sweep_detect_seed(legacy, 0, old_lim, old_round);
   const Lit y = internalize(2), z = internalize(3);
@@ -379,6 +380,7 @@ void test_resumable_schedule() {
 
   Kernel off;
   build(off, 4, cls);
+  off.sweep_resume = false;
   sweep_apply(off);
   sweep_apply(off);
   assert(off.sweep_tail.empty());

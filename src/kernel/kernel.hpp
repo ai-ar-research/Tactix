@@ -471,8 +471,8 @@ struct Kernel {
   uint64_t work_budget = 0;
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
-  bool vivify_flush = false;
-  bool sweep_resume = false;
+  bool vivify_flush = true;
+  bool sweep_resume = true;
   std::vector<Var> sweep_tail; // stable external identities
   uint32_t sweep_tail_next = 0;
   uint32_t sweep_passes_completed = 0;
