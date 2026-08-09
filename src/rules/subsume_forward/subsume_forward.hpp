@@ -13,11 +13,9 @@
 
 namespace tactix {
 
-// kissat options.h defaults (subsumeclslim/subsumeocclim = 1e3); these bound
-// the cost of one check, not the schedule — instance-selection limits like
-// Reduce's tier thresholds, so they live rule-side.
 constexpr uint32_t SUBSUME_CLSLIM = 1000;
-constexpr uint32_t SUBSUME_OCCLIM = 1000;
+constexpr uint32_t SUBSUME_OCCLIM = 100;
+constexpr uint32_t SUBSUME_BINLIM = 10000;
 
 // Guard: quiescent root — fully propagated, consistent, level 0. That is what
 // makes the semantic check sound as stated ("false" means root-falsified) and

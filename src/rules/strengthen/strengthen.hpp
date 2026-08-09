@@ -15,9 +15,9 @@
 
 namespace tactix {
 
-// same cost bounds as C1 (kissat subsumeclslim/subsumeocclim defaults)
 constexpr uint32_t STRENGTHEN_CLSLIM = 1000;
-constexpr uint32_t STRENGTHEN_OCCLIM = 1000;
+constexpr uint32_t STRENGTHEN_OCCLIM = 100;
+constexpr uint32_t STRENGTHEN_BINLIM = 10000;
 
 // Guard: quiescent root, C1's argument — value semantics plus no in-flight
 // reasons; reaching the root is the policy's job.

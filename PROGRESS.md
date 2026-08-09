@@ -9,8 +9,8 @@ only.
 - **Exit:** T3 + N4 parity ledger discharged + one full Tier D campaign.
 - **Non-negotiables:** N1 API universality ✓ · N2 **restored** (frozen-pivot
   fix `7fbcb11`; 40k-case battery green with real backward-BVE reach; retake
-  pair N2-clean) · N3 Tier-D parity not yet measured · N4 scheduling parity
-  not yet discharged.
+  pair N2-clean) · N3 Tier-D parity not yet measured · N4 scheduling parity ✓
+  (closing cumulative arrays and fuzz legs remain asynchronous).
 - **Last updated:** 2026-08-09.
 
 ## Resume here
@@ -144,8 +144,9 @@ required.
 - [x] `SP-BUMP-2`: reason-side bumping follows CaDiCaL's effective depth: one
   in focused mode and two in stable mode, with the existing all-or-nothing
   mark budget and delay unchanged.
-- [ ] `SP-SUBSUME-3`: split the connection cap for long (1e2) and binary (1e4)
-  populations instead of using 1000 for both.
+- [x] `SP-SUBSUME-3`: SubsumeForward and Strengthen cap long-clause
+  populations at 100 and binary populations at 10,000, counting mixed watch
+  lists by entry type.
 
 Each row closes with an implementation or an accepted deviation in
 `docs/implementation-notes.md` carrying measurement and a reopening path.

@@ -12,6 +12,8 @@
 
 using namespace tactix;
 
+static_assert(STRENGTHEN_OCCLIM == 100 && STRENGTHEN_BINLIM == 10000);
+
 // count live large clauses; if `lits`/`n` given, require one matching
 static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
                            uint32_t n = 0) {
@@ -151,6 +153,7 @@ static void test_slot_schedule_as_data() {
     // posed: Strengthen on, SubsumeForward off, forced from the first check
     Kernel k;
     kernel_reserve_vars(k, 3);
+    k.stats.conflicts = 1;
     for (const auto &b : xor3)
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
@@ -170,6 +173,7 @@ static void test_slot_schedule_as_data() {
     // fully disabled slot suppresses all rounds
     Kernel k;
     kernel_reserve_vars(k, 3);
+    k.stats.conflicts = 1;
     for (const auto &b : xor3)
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
