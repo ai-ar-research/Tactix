@@ -9,6 +9,10 @@ All real solver execution uses `sbatch`; fixed micro-tests and builds may run in
 the session shell. The runner owns partition, memory, time, array shape, log
 paths, and other cluster parameters—do not duplicate cluster facts here.
 
+Submit to the `cpu-dense-hwulab-q` partition without a node constraint. Let
+SLURM place array tasks across eligible nodes; do not pass `--nodelist` or add a
+`#SBATCH --nodelist` directive.
+
 ## Workflow
 
 1. Pin an immutable build and record its commit and binary hash. Never rebuild a
