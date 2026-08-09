@@ -403,9 +403,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.minimized);
     printf("c shrunken    %llu lits\n",
            (unsigned long long)kernel.stats.shrunken);
-    printf("c reasonbump  %llu vars in %llu rounds (%llu aborted)\n",
+    printf("c reasonbump  %llu vars in %llu rounds (%llu depth2, %llu aborted)\n",
            (unsigned long long)kernel.stats.reason_bumped,
            (unsigned long long)kernel.stats.reason_bump_rounds,
+           (unsigned long long)kernel.stats.reason_bump_depth2,
            (unsigned long long)kernel.stats.reason_bump_aborted);
     printf("c otfs        %llu strengthened (%llu conflicts subsumed)\n",
            (unsigned long long)kernel.stats.otfs_strengthened,

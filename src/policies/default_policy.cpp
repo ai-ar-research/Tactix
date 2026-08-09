@@ -105,6 +105,10 @@ uint32_t DefaultPolicy::want_bump_reasons(const Kernel &k) {
   return bump_reasons_limit_;
 }
 
+uint32_t DefaultPolicy::bump_reason_depth(const Kernel &k) const {
+  return k.h && k.h->stable ? 2u : 1u;
+}
+
 void DefaultPolicy::tick_reluctant() {
   if (reluctant.trigger)
     return;
@@ -908,10 +912,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (r == ApplyResult::Conflict) {
       observe_decision_rate(k); // kissat: before the analysis, once per conflict
       k.bump_reason_limit = want_bump_reasons(k);
+      k.bump_reason_depth = bump_reason_depth(k);
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
       const ApplyResult ar = analyze_apply(k);
       k.bump_reason_limit = 0;
+      k.bump_reason_depth = 1;
       if (k.stats.reason_bump_rounds != br_rounds) { // the pass actually ran
         if (k.stats.reason_bump_aborted != br_aborted) // over the mark limit
           bump_reasons_delay_.current +=

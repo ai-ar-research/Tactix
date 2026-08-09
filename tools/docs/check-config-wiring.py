@@ -53,6 +53,7 @@ TABLE = {
                                           "splits the redundant side into kissat's "
                                           "tier1/tier2/tier3 (C10 hand-off H3)"),
     "bump_reason_limit":       ("POLICY", "reason-side bumping rate"),
+    "bump_reason_depth":       ("POLICY", "stable/focused reason traversal depth"),
     "inprocessing":            ("POLICY", "phase bracket; routes a tick away from "
                                           "stats.search_ticks (kissat gets the same "
                                           "split from the call site)"),

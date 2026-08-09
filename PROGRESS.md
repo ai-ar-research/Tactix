@@ -141,8 +141,9 @@ required.
 - [x] `SP-PREPROC-2`: preprocessing is one Kissat-ordered reduced probe pass
   (Congruence→Substitute→Backbone→Sweep→Substitute→Factor), with CaDiCaL's
   2e6 initial tick reference and no zero-conflict elimination phase.
-- [ ] `SP-BUMP-2`: evaluate CaDiCaL's stable-mode reason-bump depth of two versus
-  our unconditional depth one.
+- [x] `SP-BUMP-2`: reason-side bumping follows CaDiCaL's effective depth: one
+  in focused mode and two in stable mode, with the existing all-or-nothing
+  mark budget and delay unchanged.
 - [ ] `SP-SUBSUME-3`: split the connection cap for long (1e2) and binary (1e4)
   populations instead of using 1000 for both.
 

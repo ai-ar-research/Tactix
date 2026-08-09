@@ -76,6 +76,7 @@ struct Stats {
   uint64_t reduce_skippable_words = 0;
   uint64_t reason_bumped = 0;      // extra vars marked by reason-side bumping
   uint64_t reason_bump_rounds = 0; // conflicts the reason-side pass ran on
+  uint64_t reason_bump_depth2 = 0; // rounds allowed to recurse in stable mode
   uint64_t reason_bump_aborted = 0; // rounds rolled back at the mark limit
   uint64_t api_decisions = 0; // externally chosen branches (N1)
   uint64_t input_restated = 0; // input clauses restated under a fresh id
@@ -488,6 +489,7 @@ struct Kernel {
   bool conflict_reuse_no_repair = false;
   bool jump_reasons = false;
   uint32_t bump_reason_limit = 0;
+  uint32_t bump_reason_depth = 1;
   uint32_t eager_subsume = EAGER_SUBSUME_SLOTS;
   uint32_t tier1 = 2, tier2 = 6;
   bool shrink_glue_promote = true;
