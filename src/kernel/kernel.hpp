@@ -497,6 +497,7 @@ struct Kernel {
   uint32_t eager_subsume = EAGER_SUBSUME_SLOTS;
   uint32_t tier1 = 2, tier2 = 6;
   bool minimize_singletons = true;
+  bool learned_trail_tie = false;
   bool shrink_glue_promote = true;
   bool tumble = true;
 
