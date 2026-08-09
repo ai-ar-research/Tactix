@@ -159,6 +159,10 @@ Each row closes with an implementation or an accepted deviation in
 
 - [ ] Add debug proof-event correlation: record the emitting rule/application
   and proof line or byte range so checker failures localize without inference.
+- [ ] Add extended-resolution support: expose extension-variable introduction
+  as a universal public proof-rule operation, emit independently checkable
+  DRAT/LRAT evidence, preserve SAT-model reconstruction, and evaluate a
+  DefaultPolicy admission strategy only after the rule/API boundary is green.
 - [ ] Concretize O15 through `revise-plan` when phase 4 exits.
 
 ## Phase 5 — tuning, bindings, extensibility

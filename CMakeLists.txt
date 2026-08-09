@@ -29,6 +29,7 @@ add_library(tactix_lib OBJECT
   ${TACTIX_POLICY_OP_SOURCES}
   src/engine/subsolver.cpp
   src/policies/heuristics.cpp
+  src/policies/event_trace.cpp
   src/policies/default_policy.cpp
   src/policies/random_policy.cpp
   src/policies/trace.cpp
